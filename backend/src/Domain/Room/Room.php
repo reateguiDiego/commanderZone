@@ -15,6 +15,8 @@ class Room
 {
     public const STATUS_WAITING = 'waiting';
     public const STATUS_STARTED = 'started';
+    public const VISIBILITY_PRIVATE = 'private';
+    public const VISIBILITY_PUBLIC = 'public';
 
     #[ORM\Id]
     #[ORM\Column(type: 'string', length: 36)]
@@ -26,6 +28,9 @@ class Room
 
     #[ORM\Column(type: 'string', length: 40)]
     private string $status = self::STATUS_WAITING;
+
+    #[ORM\Column(type: 'string', length: 20)]
+    private string $visibility = self::VISIBILITY_PRIVATE;
 
     #[ORM\OneToMany(mappedBy: 'room', targetEntity: RoomPlayer::class, cascade: ['persist', 'remove'], orphanRemoval: true)]
     private Collection $players;
@@ -59,6 +64,18 @@ class Room
         return $this->status;
     }
 
+    public function visibility(): string
+    {
+        return $this->visibility;
+    }
+
+    public function setVisibility(string $visibility): void
+    {
+        $this->visibility = in_array($visibility, [self::VISIBILITY_PRIVATE, self::VISIBILITY_PUBLIC], true)
+            ? $visibility
+            : self::VISIBILITY_PRIVATE;
+    }
+
     public function players(): Collection
     {
         return $this->players;
@@ -78,6 +95,24 @@ class Room
         }
 
         $this->players->add($player);
+    }
+
+    public function hasPlayer(User $user): bool
+    {
+        foreach ($this->players as $player) {
+            if ($player->user()->id() === $user->id()) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public function canBeViewedBy(User $user): bool
+    {
+        return $this->status === self::STATUS_WAITING
+            || $this->owner->id() === $user->id()
+            || $this->hasPlayer($user);
     }
 
     public function removeUser(User $user): void
@@ -101,6 +136,7 @@ class Room
             'id' => $this->id,
             'owner' => $this->owner->toArray(),
             'status' => $this->status,
+            'visibility' => $this->visibility,
             'players' => array_map(static fn (RoomPlayer $player) => $player->toArray(), $this->players->toArray()),
             'gameId' => $this->game?->id(),
         ];

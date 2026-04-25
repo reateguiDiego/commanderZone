@@ -3,6 +3,7 @@
 namespace App\Domain\Game;
 
 use App\Domain\Room\Room;
+use App\Domain\User\User;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
@@ -49,6 +50,16 @@ class Game
     public function snapshot(): array
     {
         return $this->snapshot;
+    }
+
+    public function room(): Room
+    {
+        return $this->room;
+    }
+
+    public function canBeAccessedBy(User $user): bool
+    {
+        return $this->room->owner()->id() === $user->id() || $this->room->hasPlayer($user);
     }
 
     public function replaceSnapshot(array $snapshot): void
