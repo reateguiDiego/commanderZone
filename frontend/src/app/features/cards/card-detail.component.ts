@@ -4,11 +4,13 @@ import { LucideAngularModule } from 'lucide-angular';
 import { firstValueFrom } from 'rxjs';
 import { CardsApi } from '../../core/api/cards.api';
 import { Card } from '../../core/models/card.model';
+import { ManaSymbolsComponent } from '../../shared/mana/mana-symbols.component';
+import { ManaTextComponent } from '../../shared/mana/mana-text.component';
 import { bestCardImage } from '../../shared/utils/card-image';
 
 @Component({
   selector: 'app-card-detail',
-  imports: [RouterLink, LucideAngularModule],
+  imports: [RouterLink, LucideAngularModule, ManaSymbolsComponent, ManaTextComponent],
   template: `
     <section class="page-stack">
       <a class="text-button" routerLink="/cards">
@@ -32,9 +34,17 @@ import { bestCardImage } from '../../shared/utils/card-image';
           <div class="detail-panel">
             <span class="eyebrow">{{ card.set || 'MTG' }} #{{ card.collectorNumber || '-' }}</span>
             <h2>{{ card.name }}</h2>
-            <p class="mana-line">{{ card.manaCost || 'No mana cost' }}</p>
+            <p class="mana-line">
+              <app-mana-symbols [value]="card.manaCost" fallback="No mana cost" />
+            </p>
             <p>{{ card.typeLine }}</p>
-            <p class="oracle">{{ card.oracleText || 'No oracle text available.' }}</p>
+            <p class="oracle">
+              <app-mana-text [text]="card.oracleText || 'No oracle text available.'" />
+            </p>
+            <p>
+              Color identity:
+              <app-mana-symbols [symbols]="card.colorIdentity" fallback="Colorless" />
+            </p>
             <p>
               Commander:
               <strong [class.ok]="card.commanderLegal" [class.bad]="!card.commanderLegal">

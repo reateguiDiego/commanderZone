@@ -19,7 +19,7 @@ describe('DeckAnalysisService', () => {
       folderId: null,
       cards: [
         entry(1, 'commander', card('Commander', 'Legendary Creature', '{1}{G}', 'Draw a card.')),
-        entry(10, 'main', card('Forest', 'Basic Land', null, null)),
+        entry(10, 'main', card('Forest', 'Basic Land - Forest', null, null)),
         entry(1, 'main', card('Command Tower', 'Land', null, 'Add one mana of any color.')),
         entry(1, 'main', card('Cultivate', 'Sorcery', '{2}{G}', 'Search your library for a basic land card.')),
         entry(1, 'main', card('Swords to Plowshares', 'Instant', '{W}', 'Exile target creature.')),
@@ -31,6 +31,7 @@ describe('DeckAnalysisService', () => {
 
     expect(analysis.totalCards).toBe(15);
     expect(analysis.landCount).toBe(11);
+    expect(analysis.landTypes.find((land) => land.label === 'Forest')?.count).toBe(10);
     expect(analysis.colorPips['G']).toBe(2);
     expect(analysis.colorPips['W']).toBe(3);
     expect(analysis.manaCurve.find((bucket) => bucket.manaValue === 3)?.count).toBe(1);

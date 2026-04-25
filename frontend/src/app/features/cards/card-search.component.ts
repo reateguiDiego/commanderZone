@@ -5,11 +5,12 @@ import { LucideAngularModule } from 'lucide-angular';
 import { firstValueFrom } from 'rxjs';
 import { CardsApi } from '../../core/api/cards.api';
 import { Card } from '../../core/models/card.model';
+import { ManaSymbolsComponent } from '../../shared/mana/mana-symbols.component';
 import { bestCardImage } from '../../shared/utils/card-image';
 
 @Component({
   selector: 'app-card-search',
-  imports: [FormsModule, RouterLink, LucideAngularModule],
+  imports: [FormsModule, RouterLink, LucideAngularModule, ManaSymbolsComponent],
   template: `
     <section class="page-stack">
       <div class="tool-header">
@@ -42,7 +43,7 @@ import { bestCardImage } from '../../shared/utils/card-image';
             }
             <span>
               <strong>{{ card.name }}</strong>
-              <small>{{ card.manaCost || 'No cost' }}</small>
+              <small><app-mana-symbols [value]="card.manaCost" fallback="No cost" /></small>
               <small>{{ card.typeLine || 'Unknown type' }}</small>
             </span>
           </a>

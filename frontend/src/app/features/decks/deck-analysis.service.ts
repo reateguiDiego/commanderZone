@@ -1,5 +1,6 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { Deck, DeckCard } from '../../core/models/deck.model';
+import { LandTypeCount, ManaSymbolService } from '../../shared/mana/mana-symbol.service';
 
 export interface DeckMetric {
   label: string;
@@ -17,6 +18,7 @@ export interface DeckAnalysis {
   landCount: number;
   nonlandCount: number;
   colorPips: Record<string, number>;
+  landTypes: LandTypeCount[];
   manaCurve: ManaCurveBucket[];
   creatures: DeckMetric;
   artifacts: DeckMetric;
@@ -32,6 +34,8 @@ export interface DeckAnalysis {
 
 @Injectable({ providedIn: 'root' })
 export class DeckAnalysisService {
+  private readonly manaSymbols = inject(ManaSymbolService);
+
   analyze(deck: Deck | null): DeckAnalysis {
     const cards = deck?.cards ?? [];
     const expanded = this.expand(cards);
@@ -42,6 +46,7 @@ export class DeckAnalysisService {
       landCount: expanded.length - nonlands.length,
       nonlandCount: nonlands.length,
       colorPips: this.countPips(nonlands),
+      landTypes: this.manaSymbols.landTypeCounts(expanded.map((entry) => entry.card.typeLine)),
       manaCurve: this.curve(nonlands),
       creatures: this.metric('Creatures', expanded, (entry) => this.hasType(entry, 'creature')),
       artifacts: this.metric('Artifacts', expanded, (entry) => this.hasType(entry, 'artifact')),

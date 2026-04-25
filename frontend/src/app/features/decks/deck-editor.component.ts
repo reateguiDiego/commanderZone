@@ -7,6 +7,7 @@ import { CardsApi } from '../../core/api/cards.api';
 import { DecksApi } from '../../core/api/decks.api';
 import { Card } from '../../core/models/card.model';
 import { CommanderValidation, Deck, DeckCard, DeckSection } from '../../core/models/deck.model';
+import { ManaSymbolsComponent } from '../../shared/mana/mana-symbols.component';
 import { AppModalComponent } from '../../shared/ui/app-modal.component';
 import { ClientCommanderValidationService } from './client-commander-validation.service';
 import { DeckAnalysisService } from './deck-analysis.service';
@@ -36,7 +37,7 @@ interface ImportStats {
 
 @Component({
   selector: 'app-deck-editor',
-  imports: [FormsModule, RouterLink, LucideAngularModule, AppModalComponent],
+  imports: [FormsModule, RouterLink, LucideAngularModule, AppModalComponent, ManaSymbolsComponent],
   template: `
     <section class="page-stack">
       <a class="text-button" routerLink="/decks">
@@ -103,15 +104,19 @@ interface ImportStats {
               <h3>Color pips</h3>
               <div class="pip-row">
                 @for (color of pipColors; track color) {
-                  <span
-                    class="pip"
-                    [class.pip-w]="color === 'W'"
-                    [class.pip-u]="color === 'U'"
-                    [class.pip-b]="color === 'B'"
-                    [class.pip-r]="color === 'R'"
-                    [class.pip-g]="color === 'G'"
-                  >
-                    {{ color }} {{ analysis().colorPips[color] }}
+                  <span class="pip symbol-count">
+                    <app-mana-symbols [symbols]="[color]" />
+                    {{ analysis().colorPips[color] }}
+                  </span>
+                }
+              </div>
+
+              <h3>Land types</h3>
+              <div class="pip-row">
+                @for (land of analysis().landTypes; track land.label) {
+                  <span class="pip symbol-count">
+                    <app-mana-symbols [symbols]="[land.symbol]" />
+                    {{ land.label }} {{ land.count }}
                   </span>
                 }
               </div>
@@ -213,6 +218,7 @@ interface ImportStats {
                     <div class="list-row">
                       <span>
                         <strong>{{ card.name }}</strong>
+                        <small><app-mana-symbols [value]="card.manaCost" fallback="No cost" /></small>
                         <small>{{ card.typeLine || 'Unknown type' }}</small>
                       </span>
                       <div class="button-row">
@@ -288,7 +294,7 @@ interface ImportStats {
               @for (entry of commanderCards(); track entry.id) {
                 <div class="list-row">
                   <span><strong>{{ entry.quantity }}x {{ entry.card.name }}</strong><small>{{ entry.card.typeLine }}</small></span>
-                  <span class="metric">{{ entry.card.manaCost || '-' }}</span>
+                  <span class="metric"><app-mana-symbols [value]="entry.card.manaCost" fallback="-" /></span>
                 </div>
               }
             </div>
@@ -298,7 +304,7 @@ interface ImportStats {
               @for (entry of mainCards(); track entry.id) {
                 <div class="list-row">
                   <span><strong>{{ entry.quantity }}x {{ entry.card.name }}</strong><small>{{ entry.card.typeLine }}</small></span>
-                  <span class="metric">{{ entry.card.manaCost || '-' }}</span>
+                  <span class="metric"><app-mana-symbols [value]="entry.card.manaCost" fallback="-" /></span>
                 </div>
               }
             </div>
