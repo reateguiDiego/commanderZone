@@ -51,4 +51,39 @@ class AuthController extends ApiController
 
         return $this->json(['user' => $user->toArray()]);
     }
+
+    #[Route('/me', methods: ['PATCH'])]
+    public function updateMe(Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager): JsonResponse
+    {
+        $payload = $this->payload($request);
+        $displayName = trim((string) ($payload['displayName'] ?? ''));
+        if ($displayName === '') {
+            return $this->fail('displayName is required.');
+        }
+
+        $user->rename($displayName);
+        $entityManager->flush();
+
+        return $this->json(['user' => $user->toArray()]);
+    }
+
+    #[Route('/me/password', methods: ['PATCH'])]
+    public function updatePassword(Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, UserPasswordHasherInterface $passwordHasher): JsonResponse
+    {
+        $payload = $this->payload($request);
+        $currentPassword = (string) ($payload['currentPassword'] ?? '');
+        $newPassword = (string) ($payload['newPassword'] ?? '');
+
+        if (mb_strlen($newPassword) < 8) {
+            return $this->fail('newPassword must contain at least 8 chars.');
+        }
+        if (!$passwordHasher->isPasswordValid($user, $currentPassword)) {
+            return $this->fail('Current password is invalid.', 403);
+        }
+
+        $user->setPassword($passwordHasher->hashPassword($user, $newPassword));
+        $entityManager->flush();
+
+        return $this->json(['user' => $user->toArray()]);
+    }
 }

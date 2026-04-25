@@ -16,6 +16,26 @@ use Symfony\Component\Security\Http\Attribute\CurrentUser;
 
 class RoomsController extends ApiController
 {
+    #[Route('/rooms', methods: ['GET'])]
+    public function list(#[CurrentUser] User $user, EntityManagerInterface $entityManager): JsonResponse
+    {
+        $rooms = $entityManager->getRepository(Room::class)->createQueryBuilder('room')
+            ->distinct()
+            ->leftJoin('room.players', 'player')
+            ->addSelect('player')
+            ->where('(room.status = :waiting AND room.visibility = :public)')
+            ->orWhere('room.owner = :user')
+            ->orWhere('player.user = :user')
+            ->setParameter('waiting', Room::STATUS_WAITING)
+            ->setParameter('public', Room::VISIBILITY_PUBLIC)
+            ->setParameter('user', $user)
+            ->orderBy('room.createdAt', 'DESC')
+            ->getQuery()
+            ->getResult();
+
+        return $this->json(['data' => array_map(static fn (Room $room) => $room->toArray(), $rooms)]);
+    }
+
     #[Route('/rooms', methods: ['POST'])]
     public function create(Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager): JsonResponse
     {
@@ -23,12 +43,27 @@ class RoomsController extends ApiController
         $deck = $this->deckFromPayload($payload, $user, $entityManager);
 
         $room = new Room($user);
+        $room->setVisibility((string) ($payload['visibility'] ?? Room::VISIBILITY_PRIVATE));
         $room->addPlayer(new RoomPlayer($room, $user, $deck));
 
         $entityManager->persist($room);
         $entityManager->flush();
 
         return $this->json(['room' => $room->toArray()], 201);
+    }
+
+    #[Route('/rooms/{id}', methods: ['GET'])]
+    public function show(string $id, #[CurrentUser] User $user, EntityManagerInterface $entityManager): JsonResponse
+    {
+        $room = $entityManager->getRepository(Room::class)->find($id);
+        if (!$room instanceof Room) {
+            return $this->fail('Room not found.', 404);
+        }
+        if (!$room->canBeViewedBy($user)) {
+            return $this->fail('Room access denied.', 403);
+        }
+
+        return $this->json(['room' => $room->toArray()]);
     }
 
     #[Route('/rooms/{id}/join', methods: ['POST'])]
