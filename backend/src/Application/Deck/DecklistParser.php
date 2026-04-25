@@ -13,7 +13,10 @@ class DecklistParser
         $entries = [];
 
         foreach (preg_split('/\R/', $decklist) ?: [] as $line) {
-            $line = trim(preg_replace('/\/\/.*$/', '', $line) ?? '');
+            $line = trim($line);
+            if (str_starts_with($line, '//')) {
+                continue;
+            }
             if ($line === '') {
                 continue;
             }
@@ -28,17 +31,29 @@ class DecklistParser
                 continue;
             }
 
-            if (!preg_match('/^(?:(\d+)x?\s+)?(.+?)\s*(?:\([A-Z0-9]{2,5}\)\s*\d+)?$/i', $line, $matches)) {
+            if (!preg_match('/^(?:(\d+)x?\s+)?(.+)$/i', $line, $matches)) {
                 continue;
             }
 
             $entries[] = [
                 'quantity' => isset($matches[1]) && $matches[1] !== '' ? (int) $matches[1] : 1,
-                'name' => trim($matches[2]),
+                'name' => $this->cleanName($matches[2]),
                 'section' => $section,
             ];
         }
 
         return $entries;
+    }
+
+    private function cleanName(string $name): string
+    {
+        $name = preg_replace('/\s+\*[A-Z]\*\s*$/i', '', $name) ?? $name;
+        $name = preg_replace('/\s*[★☆]\s*$/u', '', $name) ?? $name;
+        $name = preg_replace('/\s+\([A-Z0-9]{2,8}\)\s+.+$/i', '', $name) ?? $name;
+        $name = preg_replace('/\s+\/\s+/', ' // ', $name) ?? $name;
+        $name = preg_replace('/\s*\[[^\]]+\]\s*$/', '', $name) ?? $name;
+        $name = preg_replace('/\s+#\d+\s*$/', '', $name) ?? $name;
+
+        return trim($name);
     }
 }

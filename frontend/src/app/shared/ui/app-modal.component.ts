@@ -1,0 +1,42 @@
+import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
+
+@Component({
+  selector: 'app-modal',
+  template: `
+    @if (open) {
+      <div class="modal-backdrop" role="presentation">
+        <section class="modal-panel" role="dialog" aria-modal="true" [attr.aria-label]="title">
+          <header>
+            <h2>{{ title }}</h2>
+            @if (message) {
+              <p>{{ message }}</p>
+            }
+          </header>
+
+          <div class="modal-body">
+            <ng-content />
+          </div>
+
+          <footer>
+            <button class="secondary-button" type="button" (click)="secondary.emit()">{{ secondaryLabel }}</button>
+            <button class="primary-button" [class.danger-action]="danger" type="button" (click)="primary.emit()">
+              {{ primaryLabel }}
+            </button>
+          </footer>
+        </section>
+      </div>
+    }
+  `,
+  changeDetection: ChangeDetectionStrategy.OnPush,
+})
+export class AppModalComponent {
+  @Input() open = false;
+  @Input() title = '';
+  @Input() message = '';
+  @Input() primaryLabel = 'OK';
+  @Input() secondaryLabel = 'Cancel';
+  @Input() danger = false;
+
+  @Output() primary = new EventEmitter<void>();
+  @Output() secondary = new EventEmitter<void>();
+}

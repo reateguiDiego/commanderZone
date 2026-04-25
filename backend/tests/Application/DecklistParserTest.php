@@ -24,4 +24,19 @@ TXT);
         self::assertSame('main', $entries[1]['section']);
         self::assertSame(10, $entries[2]['quantity']);
     }
+
+    public function testKeepsDoubleFacedCardNames(): void
+    {
+        $entries = (new DecklistParser())->parse(<<<'TXT'
+Deck
+1 Fable of the Mirror-Breaker / Reflection of Kiki-Jiki (NEO) 141
+// Comment line
+1 Hallowed Fountain (PECL) 265p
+1 Teferi, Time Raveler (WAR) 221★
+TXT);
+
+        self::assertSame('Fable of the Mirror-Breaker // Reflection of Kiki-Jiki', $entries[0]['name']);
+        self::assertSame('Hallowed Fountain', $entries[1]['name']);
+        self::assertSame('Teferi, Time Raveler', $entries[2]['name']);
+    }
 }

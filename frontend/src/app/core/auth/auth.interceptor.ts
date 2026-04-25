@@ -3,7 +3,7 @@ import { inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { catchError, throwError } from 'rxjs';
 import { API_BASE_URL } from '../api/api.config';
-import { AuthStore, DUMMY_AUTH_PREFIX } from './auth.store';
+import { AuthStore } from './auth.store';
 
 export const authInterceptor: HttpInterceptorFn = (request, next) => {
   const auth = inject(AuthStore);
@@ -18,8 +18,7 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
 
   return next(authorizedRequest).pipe(
     catchError((error: unknown) => {
-      const isDummyToken = token?.startsWith(DUMMY_AUTH_PREFIX) ?? false;
-      if (error instanceof HttpErrorResponse && error.status === 401 && token && isApiRequest && !isDummyToken) {
+      if (error instanceof HttpErrorResponse && error.status === 401 && token && isApiRequest) {
         auth.clearSession();
         void router.navigate(['/auth/login']);
       }

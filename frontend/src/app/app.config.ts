@@ -3,10 +3,16 @@ import { ApplicationConfig, importProvidersFrom, provideBrowserGlobalErrorListen
 import { provideRouter } from '@angular/router';
 import {
   ArrowLeft,
+  BarChart3,
+  BookmarkPlus,
+  Camera,
   CheckCircle2,
   CircleUserRound,
-  CreditCard,
+  Copy,
   DoorOpen,
+  EyeOff,
+  FileUp,
+  History,
   KeyRound,
   Layers3,
   LogIn,
@@ -19,27 +25,38 @@ import {
   RotateCw,
   Save,
   Search,
+  SearchX,
   Send,
+  ShieldCheck,
+  Trash,
   Trash2,
   Upload,
   UserPlus,
+  X,
 } from 'lucide-angular';
 
 import { routes } from './app.routes';
 import { authInterceptor } from './core/auth/auth.interceptor';
+import { loadingInterceptor } from './core/loading/loading.interceptor';
 
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
     provideRouter(routes),
-    provideHttpClient(withInterceptors([authInterceptor])),
+    provideHttpClient(withInterceptors([loadingInterceptor, authInterceptor])),
     importProvidersFrom(
       LucideAngularModule.pick({
         ArrowLeft,
+        BarChart3,
+        BookmarkPlus,
+        Camera,
         CheckCircle2,
         CircleUserRound,
-        CreditCard,
+        Copy,
         DoorOpen,
+        EyeOff,
+        FileUp,
+        History,
         KeyRound,
         Layers3,
         LogIn,
@@ -51,10 +68,14 @@ export const appConfig: ApplicationConfig = {
         RotateCw,
         Save,
         Search,
+        SearchX,
         Send,
+        ShieldCheck,
+        Trash,
         Trash2,
         Upload,
         UserPlus,
+        X,
       }),
     ),
   ]

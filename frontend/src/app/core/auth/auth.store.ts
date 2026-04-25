@@ -1,13 +1,14 @@
-import { Injectable, computed, signal } from '@angular/core';
+import { Injectable, computed, inject, signal } from '@angular/core';
+import { firstValueFrom } from 'rxjs';
+import { AuthApi } from '../api/auth.api';
 import { User } from '../models/user.model';
 
 const TOKEN_KEY = 'commanderzone.jwt';
 const USER_KEY = 'commanderzone.user';
-export const DUMMY_AUTH_PREFIX = 'dummy-dev-token';
-const DUMMY_AUTH_ENABLED = true; // Temporary frontend-only auth for local UI development.
 
 @Injectable({ providedIn: 'root' })
 export class AuthStore {
+  private readonly authApi = inject(AuthApi);
   private readonly tokenState = signal<string | null>(readStoredToken());
   private readonly userState = signal<User | null>(readStoredUser());
   private readonly loadingState = signal(false);
@@ -36,9 +37,12 @@ export class AuthStore {
     this.errorState.set(null);
 
     try {
-      this.setDummySession(email, emailToDisplayName(email));
+      const response = await firstValueFrom(this.authApi.login({ email, password }));
+      this.setToken(response.token);
+      await this.loadMe();
     } catch (error) {
-      this.errorState.set('Could not create dummy session.');
+      this.clearSession();
+      this.errorState.set('Could not login.');
       throw error;
     } finally {
       this.loadingState.set(false);
@@ -50,9 +54,13 @@ export class AuthStore {
     this.errorState.set(null);
 
     try {
-      this.setDummySession(email, displayName || emailToDisplayName(email));
+      await firstValueFrom(this.authApi.register({ email, displayName, password }));
+      const response = await firstValueFrom(this.authApi.login({ email, password }));
+      this.setToken(response.token);
+      await this.loadMe();
     } catch (error) {
-      this.errorState.set('Could not create dummy session.');
+      this.clearSession();
+      this.errorState.set('Could not create account.');
       throw error;
     } finally {
       this.loadingState.set(false);
@@ -60,20 +68,16 @@ export class AuthStore {
   }
 
   async loadMe(): Promise<void> {
-    if (!DUMMY_AUTH_ENABLED) {
+    if (!this.tokenState()) {
       return;
     }
 
-    const storedUser = readStoredUser();
-    if (storedUser) {
-      this.userState.set(storedUser);
-      return;
-    }
-
-    const token = this.tokenState();
-    if (token?.startsWith(DUMMY_AUTH_PREFIX)) {
-      const fallbackUser = createDummyUser('player@commanderzone.local', 'Local Player');
-      this.setUser(fallbackUser);
+    try {
+      const response = await firstValueFrom(this.authApi.me());
+      this.setUser(response.user);
+    } catch (error) {
+      this.clearSession();
+      throw error;
     }
   }
 
@@ -98,11 +102,6 @@ export class AuthStore {
     localStorage.setItem(USER_KEY, JSON.stringify(user));
   }
 
-  private setDummySession(email: string, displayName: string): void {
-    const user = createDummyUser(email, displayName);
-    this.setToken(`${DUMMY_AUTH_PREFIX}.${btoa(JSON.stringify({ sub: user.email, name: user.displayName }))}`);
-    this.setUser(user);
-  }
 }
 
 function readStoredToken(): string | null {
@@ -121,21 +120,4 @@ function readStoredUser(): User | null {
     localStorage.removeItem(USER_KEY);
     return null;
   }
-}
-
-function createDummyUser(email: string, displayName: string): User {
-  const safeEmail = email.trim() || 'player@commanderzone.local';
-  const safeDisplayName = displayName.trim() || emailToDisplayName(safeEmail);
-
-  return {
-    id: `dummy-${safeEmail.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
-    email: safeEmail,
-    displayName: safeDisplayName,
-    roles: ['ROLE_USER'],
-  };
-}
-
-function emailToDisplayName(email: string): string {
-  const localPart = email.split('@')[0]?.trim();
-  return localPart || 'Local Player';
 }

@@ -23,10 +23,6 @@ import { AuthStore } from '../../core/auth/auth.store';
         </a>
 
         <nav class="nav-list" aria-label="Primary">
-          <a routerLink="/cards" routerLinkActive="active">
-            <lucide-icon name="credit-card" size="18" />
-            Cards
-          </a>
           <a routerLink="/decks" routerLinkActive="active">
             <lucide-icon name="layers-3" size="18" />
             Decks
@@ -47,7 +43,7 @@ import { AuthStore } from '../../core/auth/auth.store';
 
           <div class="user-strip">
             <lucide-icon name="circle-user-round" size="18" />
-            <span>{{ auth.user()?.displayName ?? 'Player' }}</span>
+            <span>{{ auth.user()?.displayName || auth.user()?.email || 'Player' }}</span>
             <button class="icon-button" type="button" title="Logout" (click)="logout()">
               <lucide-icon name="log-out" size="18" />
             </button>
