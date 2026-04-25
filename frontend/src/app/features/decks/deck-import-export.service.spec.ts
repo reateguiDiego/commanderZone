@@ -17,7 +17,7 @@ describe('DeckImportExportService', () => {
   it('normalizes plain text with headers and set codes for the backend', () => {
     const result = service.normalizeForBackend('Commander\n1 Atraxa, Praetors\' Voice\n\nDeck\n1x Sol Ring (CMM) 400', 'plain');
 
-    expect(result).toBe('Commander\n1 Atraxa, Praetors\' Voice\n\nDeck\n1 Sol Ring');
+    expect(result).toBe('Commander\n1 Atraxa, Praetors\' Voice\n\nDeck\n1 Sol Ring (CMM) 400');
   });
 
   it('cleans common plain text suffixes and normalizes split-card separators', () => {
@@ -43,16 +43,14 @@ describe('DeckImportExportService', () => {
     expect(entries[0].collectorNumber).toBe('265p');
   });
 
-  it('resolves missing flavor names by set and collector number', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ name: 'Shadowspear' }),
-    }));
+  it('keeps print metadata and does not call Scryfall directly for missing flavor names', async () => {
+    vi.stubGlobal('fetch', vi.fn());
 
     const entries = service.parse("1 Donnie's Bo (PZA) 17", 'plain');
     const resolved = await service.resolveMissingFlavorNames(entries, ["Donnie's Bo"]);
 
-    expect(resolved[0].name).toBe('Shadowspear');
-    expect(fetch).toHaveBeenCalledWith('https://api.scryfall.com/cards/pza/17', { headers: { Accept: 'application/json' } });
+    expect(resolved).toEqual(entries);
+    expect(service.toBackendDecklist(resolved)).toBe("Deck\n1 Donnie's Bo (PZA) 17");
+    expect(fetch).not.toHaveBeenCalled();
   });
 });

@@ -45,4 +45,43 @@ TXT);
         self::assertSame('war', $entries[2]['setCode']);
         self::assertSame('221', $entries[2]['collectorNumber']);
     }
+
+    public function testParsesMoxfieldStyleSections(): void
+    {
+        $entries = (new DecklistParser())->parse(<<<'TXT'
+Commander
+1x Atraxa, Praetors' Voice (2X2) 190
+
+Deck
+1x Sol Ring (CMM) 703
+TXT, DecklistParser::FORMAT_MOXFIELD);
+
+        self::assertSame('commander', $entries[0]['section']);
+        self::assertSame("Atraxa, Praetors' Voice", $entries[0]['name']);
+        self::assertSame('2x2', $entries[0]['setCode']);
+        self::assertSame('190', $entries[0]['collectorNumber']);
+        self::assertSame('main', $entries[1]['section']);
+        self::assertSame('cmm', $entries[1]['setCode']);
+    }
+
+    public function testParsesArchidektStyleCategoryHeadersAsMainDeck(): void
+    {
+        $entries = (new DecklistParser())->parse(<<<'TXT'
+Commanders (1)
+1 Esika, God of the Tree / The Prismatic Bridge (KHM) 168
+
+Creatures (2)
+1 Birds of Paradise (RVR) 133
+1 Llanowar Elves
+
+Lands (1)
+1 Forest
+TXT, DecklistParser::FORMAT_ARCHIDEKT);
+
+        self::assertSame('commander', $entries[0]['section']);
+        self::assertSame('Esika, God of the Tree // The Prismatic Bridge', $entries[0]['name']);
+        self::assertSame('khm', $entries[0]['setCode']);
+        self::assertSame('main', $entries[1]['section']);
+        self::assertSame('main', $entries[3]['section']);
+    }
 }

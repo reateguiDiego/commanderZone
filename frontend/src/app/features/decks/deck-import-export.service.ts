@@ -28,31 +28,20 @@ export class DeckImportExportService {
 
     if (commanders.length > 0) {
       lines.push('Commander');
-      lines.push(...commanders.map((entry) => `${entry.quantity} ${entry.name}`));
+      lines.push(...commanders.map((entry) => this.backendLine(entry)));
       lines.push('');
     }
 
     lines.push('Deck');
-    lines.push(...main.map((entry) => `${entry.quantity} ${entry.name}`));
+    lines.push(...main.map((entry) => this.backendLine(entry)));
 
     return lines.join('\n').trim();
   }
 
   async resolveMissingFlavorNames(entries: DecklistEntry[], missingNames: string[]): Promise<DecklistEntry[]> {
-    const missing = new Set(missingNames.map((name) => this.key(name)));
-    const resolvedEntries = await Promise.all(entries.map(async (entry) => {
-      if (!missing.has(this.key(entry.name)) || !entry.setCode || !entry.collectorNumber) {
-        return entry;
-      }
+    void missingNames;
 
-      const resolvedName = await this.resolveScryfallCanonicalName(entry.setCode, entry.collectorNumber);
-
-      return resolvedName && this.key(resolvedName) !== this.key(entry.name)
-        ? { ...entry, name: resolvedName }
-        : entry;
-    }));
-
-    return resolvedEntries;
+    return entries;
   }
 
   entriesFromDeck(deck: Deck): DecklistEntry[] {
@@ -134,24 +123,11 @@ export class DeckImportExportService {
     };
   }
 
-  private async resolveScryfallCanonicalName(setCode: string, collectorNumber: string): Promise<string | null> {
-    try {
-      const response = await fetch(`https://api.scryfall.com/cards/${encodeURIComponent(setCode)}/${encodeURIComponent(collectorNumber)}`, {
-        headers: { Accept: 'application/json' },
-      });
-      if (!response.ok) {
-        return null;
-      }
+  private backendLine(entry: DecklistEntry): string {
+    const print = entry.setCode && entry.collectorNumber
+      ? ` (${entry.setCode.toUpperCase()}) ${entry.collectorNumber}`
+      : '';
 
-      const card = await response.json() as { name?: unknown };
-
-      return typeof card.name === 'string' && card.name.trim() ? card.name.trim() : null;
-    } catch {
-      return null;
-    }
-  }
-
-  private key(name: string): string {
-    return name.trim().toLowerCase();
+    return `${entry.quantity} ${entry.name}${print}`;
   }
 }

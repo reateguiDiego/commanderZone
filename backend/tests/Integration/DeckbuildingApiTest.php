@@ -44,6 +44,30 @@ class DeckbuildingApiTest extends ApiTestCase
         $this->jsonRequest('PATCH', '/decks/'.$deckId, ['name' => 'Renamed Deck'], $otherToken);
         self::assertResponseStatusCodeSame(404);
 
+        $this->jsonRequest('POST', '/decklists/parse', [
+            'format' => 'moxfield',
+            'decklist' => <<<TXT
+Commander
+1x Missing Commander (TST) 999
+
+Deck
+1x Sol Ring (TST) 1
+1x Missing Spell
+TXT,
+        ], $token);
+        self::assertResponseIsSuccessful();
+        $preview = $this->jsonResponse();
+        self::assertSame('moxfield', $preview['format']);
+        self::assertSame(3, $preview['summary']['totalCards']);
+        self::assertSame(1, $preview['summary']['resolvedCards']);
+        self::assertSame(1, $preview['summary']['importedCards']);
+        self::assertSame(2, $preview['summary']['missingCards']);
+        self::assertCount(2, $preview['missingCards']);
+
+        $this->jsonRequest('GET', '/decks/'.$deckId, token: $token);
+        self::assertResponseIsSuccessful();
+        self::assertCount(0, $this->jsonResponse()['deck']['cards']);
+
         $this->jsonRequest('POST', '/decks/'.$deckId.'/cards', [
             'scryfallId' => $solRing->scryfallId(),
             'quantity' => 1,
@@ -82,8 +106,26 @@ TXT,
         self::assertResponseIsSuccessful();
         $response = $this->jsonResponse();
         self::assertSame([], $response['missing']);
+        self::assertSame(3, $response['summary']['totalCards']);
+        self::assertSame(3, $response['summary']['resolvedCards']);
+        self::assertSame(3, $response['summary']['importedCards']);
+        self::assertSame(0, $response['summary']['missingCards']);
+        self::assertSame([], $response['missingCards']);
         self::assertCount(2, $response['deck']['cards']);
         self::assertContains($island->scryfallId(), array_map(static fn (array $card) => $card['card']['scryfallId'], $response['deck']['cards']));
+
+        $this->jsonRequest('GET', '/decks/'.$deckId.'/export?format=plain', token: $token);
+        self::assertResponseIsSuccessful();
+        self::assertStringContainsString("Deck\n1 Sol Ring", $this->jsonResponse()['content']);
+
+        $this->jsonRequest('GET', '/decks/'.$deckId.'/export?format=moxfield', token: $token);
+        self::assertResponseIsSuccessful();
+        self::assertStringContainsString('1x Sol Ring (TST) 1', $this->jsonResponse()['content']);
+
+        $this->jsonRequest('GET', '/decks/'.$deckId.'/export?format=archidekt', token: $token);
+        self::assertResponseIsSuccessful();
+        self::assertSame('archidekt', $this->jsonResponse()['format']);
+        self::assertStringContainsString('Mainboard', $this->jsonResponse()['content']);
 
         $this->jsonRequest('GET', '/decks/'.$deckId.'/analysis', token: $token);
         self::assertResponseIsSuccessful();
@@ -102,6 +144,14 @@ TXT,
         self::assertContains('Missing commander', array_column($validation['issues'], 'title'));
 
         $this->jsonRequest('GET', '/decks/'.$deckId.'/analysis', token: $otherToken);
+        self::assertResponseStatusCodeSame(404);
+
+        $this->jsonRequest('GET', '/decks/'.$deckId.'/export', token: $otherToken);
+        self::assertResponseStatusCodeSame(404);
+
+        $this->jsonRequest('POST', '/decks/'.$deckId.'/import', [
+            'decklist' => '1 Sol Ring',
+        ], $otherToken);
         self::assertResponseStatusCodeSame(404);
     }
 }

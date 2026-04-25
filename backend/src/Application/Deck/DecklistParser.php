@@ -4,29 +4,53 @@ namespace App\Application\Deck;
 
 class DecklistParser
 {
+    public const FORMAT_PLAIN = 'plain';
+    public const FORMAT_MOXFIELD = 'moxfield';
+    public const FORMAT_ARCHIDEKT = 'archidekt';
+
+    public const SUPPORTED_FORMATS = [
+        self::FORMAT_PLAIN,
+        self::FORMAT_MOXFIELD,
+        self::FORMAT_ARCHIDEKT,
+    ];
+
     /**
-     * @return array<int, array{quantity:int,name:string,section:string,setCode:?string,collectorNumber:?string}>
+     * @return array<int, array{quantity:int,name:string,section:string,setCode:?string,collectorNumber:?string,rawLine:string}>
      */
-    public function parse(string $decklist): array
+    public function parse(string $decklist, string $format = self::FORMAT_PLAIN): array
     {
+        if (!in_array($format, self::SUPPORTED_FORMATS, true)) {
+            throw new \InvalidArgumentException('Unsupported decklist format.');
+        }
+
         $section = 'main';
         $entries = [];
 
-        foreach (preg_split('/\R/', $decklist) ?: [] as $line) {
-            $line = trim($line);
-            if (str_starts_with($line, '//')) {
-                continue;
-            }
-            if ($line === '') {
+        foreach (preg_split('/\R/', $decklist) ?: [] as $rawLine) {
+            $line = trim($rawLine);
+            if ($line === '' || str_starts_with($line, '//')) {
                 continue;
             }
 
             $normalizedHeader = mb_strtolower(trim($line, ':'));
-            if (in_array($normalizedHeader, ['commander', 'commanders'], true)) {
+            $normalizedHeader = trim(preg_replace('/\s*\(\d+\)$/', '', $normalizedHeader) ?? $normalizedHeader);
+            if (in_array($normalizedHeader, ['commander', 'commanders', 'command zone'], true)) {
                 $section = 'commander';
                 continue;
             }
-            if (in_array($normalizedHeader, ['deck', 'main', 'maindeck'], true)) {
+            if (in_array($normalizedHeader, [
+                'deck',
+                'main',
+                'maindeck',
+                'mainboard',
+                'creatures',
+                'artifacts',
+                'instants',
+                'sorceries',
+                'enchantments',
+                'planeswalkers',
+                'lands',
+            ], true)) {
                 $section = 'main';
                 continue;
             }
@@ -35,25 +59,40 @@ class DecklistParser
                 continue;
             }
 
+            $quantity = isset($matches[1]) && $matches[1] !== '' ? (int) $matches[1] : 1;
             $rawName = $matches[2];
             $printMetadata = $this->extractPrintMetadata($rawName);
+            $name = $this->cleanName($rawName);
+
+            if ($quantity < 1 || $name === '') {
+                continue;
+            }
 
             $entries[] = [
-                'quantity' => isset($matches[1]) && $matches[1] !== '' ? (int) $matches[1] : 1,
-                'name' => $this->cleanName($rawName),
+                'quantity' => $quantity,
+                'name' => $name,
                 'section' => $section,
                 'setCode' => $printMetadata['setCode'],
                 'collectorNumber' => $printMetadata['collectorNumber'],
+                'rawLine' => $line,
             ];
         }
 
         return $entries;
     }
 
+    public function normalizeFormat(mixed $format): ?string
+    {
+        $normalized = mb_strtolower(trim((string) ($format ?: self::FORMAT_PLAIN)));
+
+        return in_array($normalized, self::SUPPORTED_FORMATS, true) ? $normalized : null;
+    }
+
     private function cleanName(string $name): string
     {
         $name = preg_replace('/\s+\*[A-Z]\*\s*$/i', '', $name) ?? $name;
-        $name = preg_replace('/\s*[★☆]\s*$/u', '', $name) ?? $name;
+        $name = preg_replace('/\s*[\x{2605}\x{2606}]\s*$/u', '', $name) ?? $name;
+        $name = preg_replace('/\s*[â˜…â˜†]\s*$/u', '', $name) ?? $name;
         $name = preg_replace('/\s+\([A-Z0-9]{2,8}\)\s+.+$/i', '', $name) ?? $name;
         $name = preg_replace('/\s+\/\s+/', ' // ', $name) ?? $name;
         $name = preg_replace('/\s*\[[^\]]+\]\s*$/', '', $name) ?? $name;

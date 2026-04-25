@@ -424,6 +424,27 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/DeckFormat'
+  /decklists/parse:
+    post:
+      tags: [Decks]
+      summary: Parse and resolve a decklist without modifying a deck.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DecklistParseRequest'
+      responses:
+        '200':
+          description: Parsed decklist preview.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DecklistParseResult'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
   /decks:
     get:
       tags: [Decks]
@@ -550,11 +571,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required: [decklist]
-              properties:
-                decklist:
-                  type: string
+              $ref: '#/components/schemas/DecklistParseRequest'
       responses:
         '200':
           description: Imported deck and unresolved card names.
@@ -562,7 +579,7 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [deck, missing]
+                required: [deck, missing, summary, missingCards]
                 properties:
                   deck:
                     $ref: '#/components/schemas/Deck'
@@ -570,6 +587,43 @@ paths:
                     type: array
                     items:
                       type: string
+                  summary:
+                    $ref: '#/components/schemas/DeckImportSummary'
+                  missingCards:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MissingDeckCard'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+  /decks/{id}/export:
+    get:
+      tags: [Decks]
+      summary: Export a decklist as text.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [plain, moxfield, archidekt]
+            default: plain
+      responses:
+        '200':
+          description: Exported decklist.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeckExportResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
   /decks/{id}/cards:
     post:
       tags: [Decks]
@@ -1262,6 +1316,116 @@ components:
           type: integer
         hasCommander:
           type: boolean
+    DecklistFormat:
+      type: string
+      enum: [plain, moxfield, archidekt]
+      default: plain
+    DecklistParseRequest:
+      type: object
+      required: [decklist]
+      properties:
+        decklist:
+          type: string
+        format:
+          $ref: '#/components/schemas/DecklistFormat'
+    DecklistEntry:
+      type: object
+      required: [line, quantity, name, section, setCode, collectorNumber, rawLine, resolved, card]
+      properties:
+        line:
+          type: integer
+        quantity:
+          type: integer
+          minimum: 1
+        name:
+          type: string
+        section:
+          type: string
+          enum: [main, commander]
+        setCode:
+          type: [string, 'null']
+        collectorNumber:
+          type: [string, 'null']
+        rawLine:
+          type: string
+        resolved:
+          type: boolean
+        card:
+          anyOf:
+            - $ref: '#/components/schemas/Card'
+            - type: 'null'
+    DeckImportSummary:
+      type: object
+      required: [format, parsedCards, totalCards, resolvedCards, importedCards, missingCards, commanderCount, mainCount]
+      properties:
+        format:
+          $ref: '#/components/schemas/DecklistFormat'
+        parsedCards:
+          type: integer
+        totalCards:
+          type: integer
+        resolvedCards:
+          type: integer
+        importedCards:
+          type: integer
+        missingCards:
+          type: integer
+        commanderCount:
+          type: integer
+        mainCount:
+          type: integer
+    MissingDeckCard:
+      type: object
+      required: [name, quantity, section, setCode, collectorNumber, line, rawLine, reason]
+      properties:
+        name:
+          type: string
+        quantity:
+          type: integer
+        section:
+          type: string
+          enum: [main, commander]
+        setCode:
+          type: [string, 'null']
+        collectorNumber:
+          type: [string, 'null']
+        line:
+          type: integer
+        rawLine:
+          type: string
+        reason:
+          type: string
+          enum: [not_found]
+    DecklistParseResult:
+      type: object
+      required: [format, entries, summary, missingCards, warnings]
+      properties:
+        format:
+          $ref: '#/components/schemas/DecklistFormat'
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/DecklistEntry'
+        summary:
+          $ref: '#/components/schemas/DeckImportSummary'
+        missingCards:
+          type: array
+          items:
+            $ref: '#/components/schemas/MissingDeckCard'
+        warnings:
+          type: array
+          items:
+            type: string
+    DeckExportResponse:
+      type: object
+      required: [format, filename, content]
+      properties:
+        format:
+          $ref: '#/components/schemas/DecklistFormat'
+        filename:
+          type: string
+        content:
+          type: string
     CreateDeckRequest:
       type: object
       required: [name]

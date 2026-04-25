@@ -4,8 +4,9 @@ namespace App\UI\Http;
 
 use App\Application\Deck\CommanderDeckValidator;
 use App\Application\Deck\DeckAnalysisService;
+use App\Application\Deck\DecklistExporter;
 use App\Application\Deck\DecklistParser;
-use App\Application\Card\CardResolver;
+use App\Application\Deck\DecklistPreviewer;
 use App\Domain\Card\Card;
 use App\Domain\Deck\Deck;
 use App\Domain\Deck\DeckCard;
@@ -124,7 +125,7 @@ class DecksController extends ApiController
     }
 
     #[Route('/decks/{id}/import', methods: ['POST'])]
-    public function import(string $id, Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, DecklistParser $parser, CardResolver $cardResolver): JsonResponse
+    public function import(string $id, Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, DecklistParser $parser, DecklistPreviewer $previewer): JsonResponse
     {
         $deck = $this->ownedDeck($id, $user, $entityManager);
         if (!$deck) {
@@ -132,18 +133,22 @@ class DecksController extends ApiController
         }
 
         $payload = $this->payload($request);
-        $entries = $parser->parse((string) ($payload['decklist'] ?? ''));
+        $format = $parser->normalizeFormat($payload['format'] ?? null);
+        if ($format === null) {
+            return $this->fail('Decklist format is invalid.');
+        }
+
+        $entries = $parser->parse((string) ($payload['decklist'] ?? ''), $format);
         if ($entries === []) {
             return $this->fail('Decklist is empty or invalid.');
         }
 
+        $preview = $previewer->preview($entries, $format);
         $deck->clearCards();
-        $missing = [];
 
-        foreach ($entries as $entry) {
-            $card = $cardResolver->resolveForDecklistEntry($entry);
+        foreach ($preview['entries'] as $entry) {
+            $card = $entry['card'];
             if (!$card instanceof Card) {
-                $missing[] = $entry['name'];
                 continue;
             }
 
@@ -154,8 +159,26 @@ class DecksController extends ApiController
 
         return $this->json([
             'deck' => $deck->toArray(true),
-            'missing' => array_values(array_unique($missing)),
+            'missing' => $this->missingNames($preview['missingCards']),
+            'summary' => $preview['summary'],
+            'missingCards' => $preview['missingCards'],
         ]);
+    }
+
+    #[Route('/decks/{id}/export', methods: ['GET'])]
+    public function export(string $id, Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, DecklistParser $parser, DecklistExporter $exporter): JsonResponse
+    {
+        $deck = $this->ownedDeck($id, $user, $entityManager);
+        if (!$deck) {
+            return $this->fail('Deck not found.', 404);
+        }
+
+        $format = $parser->normalizeFormat($request->query->get('format'));
+        if ($format === null) {
+            return $this->fail('Decklist format is invalid.');
+        }
+
+        return $this->json($exporter->export($deck, $format));
     }
 
     #[Route('/decks/{id}/cards', methods: ['POST'])]
@@ -284,5 +307,14 @@ class DecksController extends ApiController
     private function isValidSection(string $section): bool
     {
         return in_array($section, [DeckCard::SECTION_MAIN, DeckCard::SECTION_COMMANDER], true);
+    }
+
+    /**
+     * @param array<int, array{name:string}> $missingCards
+     * @return list<string>
+     */
+    private function missingNames(array $missingCards): array
+    {
+        return array_values(array_unique(array_map(static fn (array $card): string => $card['name'], $missingCards)));
     }
 }
