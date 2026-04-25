@@ -1,0 +1,16 @@
+/.idea/
+/.vscode/
+/.DS_Store
+/backend/.env.local
+/backend/.env.local.php
+/backend/.env.*.local
+/backend/config/secrets/prod/prod.decrypt.private.php
+/backend/config/jwt/*.pem
+/backend/public/bundles/
+/backend/var/
+/backend/vendor/
+/backend/phpunit.xml
+/backend/.phpunit.cache/
+/frontend/node_modules/
+/frontend/dist/
+
