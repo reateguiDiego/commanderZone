@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { vi } from 'vitest';
 import { DeckImportExportService } from './deck-import-export.service';
 
 describe('DeckImportExportService', () => {
@@ -7,6 +8,10 @@ describe('DeckImportExportService', () => {
   beforeEach(() => {
     TestBed.configureTestingModule({});
     service = TestBed.inject(DeckImportExportService);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it('normalizes plain text with headers and set codes for the backend', () => {
@@ -34,5 +39,20 @@ describe('DeckImportExportService', () => {
       'Andúril, Narsil Reforged',
       'Fable of the Mirror-Breaker // Reflection of Kiki-Jiki',
     ]);
+    expect(entries[0].setCode).toBe('pecl');
+    expect(entries[0].collectorNumber).toBe('265p');
+  });
+
+  it('resolves missing flavor names by set and collector number', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ name: 'Shadowspear' }),
+    }));
+
+    const entries = service.parse("1 Donnie's Bo (PZA) 17", 'plain');
+    const resolved = await service.resolveMissingFlavorNames(entries, ["Donnie's Bo"]);
+
+    expect(resolved[0].name).toBe('Shadowspear');
+    expect(fetch).toHaveBeenCalledWith('https://api.scryfall.com/cards/pza/17', { headers: { Accept: 'application/json' } });
   });
 });

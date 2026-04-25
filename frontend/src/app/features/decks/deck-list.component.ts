@@ -3,8 +3,9 @@ import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { LucideAngularModule } from 'lucide-angular';
 import { firstValueFrom } from 'rxjs';
+import { DeckFoldersApi } from '../../core/api/deck-folders.api';
 import { DecksApi } from '../../core/api/decks.api';
-import { Deck } from '../../core/models/deck.model';
+import { Deck, DeckFolder } from '../../core/models/deck.model';
 import { AppModalComponent } from '../../shared/ui/app-modal.component';
 import { DeckImportExportService, DecklistEntry } from './deck-import-export.service';
 
@@ -74,10 +75,11 @@ import { DeckImportExportService, DecklistEntry } from './deck-import-export.ser
           </label>
           <label>
             Folder
-            <select name="folder" [(ngModel)]="newDeckFolder">
-              <option value="folder-1">Folder 1</option>
-              <option value="folder-2">Folder 2</option>
-              <option value="folder-3">Folder 3</option>
+            <select name="folder" [(ngModel)]="newDeckFolderId">
+              <option value="">No folder</option>
+              @for (folder of folders(); track folder.id) {
+                <option [value]="folder.id">{{ folder.name }}</option>
+              }
             </select>
           </label>
         </div>
@@ -130,10 +132,12 @@ import { DeckImportExportService, DecklistEntry } from './deck-import-export.ser
 })
 export class DeckListComponent {
   private readonly decksApi = inject(DecksApi);
+  private readonly deckFoldersApi = inject(DeckFoldersApi);
   private readonly router = inject(Router);
   private readonly importExport = inject(DeckImportExportService);
 
   readonly decks = signal<Deck[]>([]);
+  readonly folders = signal<DeckFolder[]>([]);
   readonly loading = signal(false);
   readonly error = signal<string | null>(null);
   readonly createModalOpen = signal(false);
@@ -145,11 +149,12 @@ export class DeckListComponent {
   readonly createdImportMessage = signal<string | null>(null);
   newDeckName = '';
   newDeckFormat = 'commander';
-  newDeckFolder = 'folder-1';
+  newDeckFolderId = '';
   createdDecklist = '';
 
   constructor() {
     void this.load();
+    void this.loadFolders();
   }
 
   async load(): Promise<void> {
@@ -166,6 +171,15 @@ export class DeckListComponent {
     }
   }
 
+  async loadFolders(): Promise<void> {
+    try {
+      const response = await firstValueFrom(this.deckFoldersApi.list());
+      this.folders.set(response.data);
+    } catch {
+      this.error.set('Could not load deck folders.');
+    }
+  }
+
   async create(): Promise<void> {
     const name = this.newDeckName.trim();
     if (!name) {
@@ -173,7 +187,7 @@ export class DeckListComponent {
     }
 
     try {
-      const response = await firstValueFrom(this.decksApi.create(name));
+      const response = await firstValueFrom(this.decksApi.create(name, this.newDeckFolderId || null));
       this.newDeckName = '';
       this.createModalOpen.set(false);
       this.createdDeck.set(response.deck);
@@ -194,7 +208,7 @@ export class DeckListComponent {
   closeCreateModal(): void {
     this.newDeckName = '';
     this.newDeckFormat = 'commander';
-    this.newDeckFolder = 'folder-1';
+    this.newDeckFolderId = '';
     this.createModalOpen.set(false);
   }
 
@@ -212,11 +226,17 @@ export class DeckListComponent {
       return;
     }
 
-    const entries: DecklistEntry[] = this.importExport.parse(this.createdDecklist, 'plain');
-    const decklist = this.importExport.toBackendDecklist(entries);
+    let entries: DecklistEntry[] = this.importExport.parse(this.createdDecklist, 'plain');
 
     try {
-      const response = await firstValueFrom(this.decksApi.importDecklist(deck.id, decklist));
+      let response = await firstValueFrom(this.decksApi.importDecklist(deck.id, this.importExport.toBackendDecklist(entries)));
+      if (response.missing.length > 0) {
+        const resolvedEntries = await this.importExport.resolveMissingFlavorNames(entries, response.missing);
+        if (this.entriesChanged(entries, resolvedEntries)) {
+          entries = resolvedEntries;
+          response = await firstValueFrom(this.decksApi.importDecklist(deck.id, this.importExport.toBackendDecklist(entries)));
+        }
+      }
       const importedCards = (response.deck.cards ?? []).reduce((total, entry) => total + entry.quantity, 0);
       const parsedCards = entries.reduce((total, entry) => total + entry.quantity, 0);
       this.createdDeck.set(response.deck);
@@ -226,6 +246,10 @@ export class DeckListComponent {
     } catch {
       this.error.set('Could not import deck.');
     }
+  }
+
+  private entriesChanged(current: DecklistEntry[], next: DecklistEntry[]): boolean {
+    return current.some((entry, index) => entry.name !== next[index]?.name);
   }
 
   deleteDeck(deck: Deck): void {

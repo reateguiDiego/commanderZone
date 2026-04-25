@@ -38,6 +38,7 @@ function sampleDeck(name: string, quantity: number): Deck {
     id: 'deck-1',
     name,
     format: 'commander',
+    folderId: null,
     cards: [{ id: 'dc-1', quantity, section: 'main', card: card('Sol Ring') }],
   };
 }

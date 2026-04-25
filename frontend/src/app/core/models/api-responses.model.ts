@@ -1,5 +1,5 @@
 import { Card } from './card.model';
-import { Deck, CommanderValidation } from './deck.model';
+import { Deck, DeckFolder, CommanderValidation } from './deck.model';
 import { Game, GameEvent, GameSnapshot } from './game.model';
 import { Room } from './room.model';
 import { User } from './user.model';
@@ -30,6 +30,10 @@ export interface DeckResponse {
   deck: Deck;
 }
 
+export interface DeckFolderResponse {
+  folder: DeckFolder;
+}
+
 export interface DeckImportResponse {
   deck: Deck;
   missing: string[];
@@ -54,4 +58,3 @@ export interface CommandResponse {
   event: GameEvent;
   snapshot: GameSnapshot;
 }
-

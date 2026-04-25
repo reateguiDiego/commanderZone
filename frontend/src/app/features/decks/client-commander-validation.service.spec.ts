@@ -16,6 +16,7 @@ describe('ClientCommanderValidationService', () => {
       id: 'deck-1',
       name: 'Deck',
       format: 'commander',
+      folderId: null,
       cards: [
         entry(1, 'commander', card('Commander A', 'Legendary Creature', ['G'], 'Partner')),
         entry(1, 'commander', card('Commander B', 'Legendary Creature', ['U'], 'Partner')),

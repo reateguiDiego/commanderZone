@@ -464,9 +464,15 @@ export class DeckEditorComponent {
 
   async importDeck(id: string): Promise<void> {
     try {
-      const entries = this.importExport.parse(this.decklist, 'plain');
-      const normalized = this.importExport.toBackendDecklist(entries);
-      const response = await firstValueFrom(this.decksApi.importDecklist(id, normalized));
+      let entries = this.importExport.parse(this.decklist, 'plain');
+      let response = await firstValueFrom(this.decksApi.importDecklist(id, this.importExport.toBackendDecklist(entries)));
+      if (response.missing.length > 0) {
+        const resolvedEntries = await this.importExport.resolveMissingFlavorNames(entries, response.missing);
+        if (this.entriesChanged(entries, resolvedEntries)) {
+          entries = resolvedEntries;
+          response = await firstValueFrom(this.decksApi.importDecklist(id, this.importExport.toBackendDecklist(entries)));
+        }
+      }
       this.deck.set(response.deck);
       this.missing.set(response.missing);
       this.missingSourceEntries.set(entries);
@@ -562,17 +568,12 @@ export class DeckEditorComponent {
 
     const targetName = this.missingAddTarget() ?? missingName;
     const source = this.missingSourceEntries().find((entry) => entry.name.toLowerCase() === targetName.toLowerCase());
-    const entries = [
-      ...this.importExport.entriesFromDeck(currentDeck),
-      {
-        quantity: source?.quantity ?? 1,
-        name: card.name,
-        section: source?.section ?? 'main',
-      },
-    ];
-
     try {
-      const response = await firstValueFrom(this.decksApi.importDecklist(currentDeck.id, this.importExport.toBackendDecklist(entries)));
+      const response = await firstValueFrom(this.decksApi.addCard(currentDeck.id, {
+        scryfallId: card.scryfallId,
+        quantity: source?.quantity ?? 1,
+        section: source?.section ?? 'main',
+      }));
       this.deck.set(response.deck);
       this.missing.set(this.missing().filter((name) => name !== targetName));
       this.validation.set(null);
@@ -662,5 +663,9 @@ export class DeckEditorComponent {
           watched: this.missingStore.isWatched(name),
         };
       });
+  }
+
+  private entriesChanged(current: DecklistEntry[], next: DecklistEntry[]): boolean {
+    return current.some((entry, index) => entry.name !== next[index]?.name);
   }
 }

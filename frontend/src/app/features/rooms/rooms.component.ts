@@ -36,6 +36,14 @@ import { Room } from '../../core/models/room.model';
             </select>
           </label>
 
+          <label>
+            Visibility
+            <select name="visibility" [(ngModel)]="visibility">
+              <option value="private">Private</option>
+              <option value="public">Public</option>
+            </select>
+          </label>
+
           <button class="primary-button" type="button" (click)="createRoom()">
             <lucide-icon name="plus" size="17" />
             Create room
@@ -56,7 +64,7 @@ import { Room } from '../../core/models/room.model';
             <div class="room-header">
               <span class="eyebrow">Current room</span>
               <strong>{{ room.id }}</strong>
-              <small>Status: {{ room.status }}</small>
+              <small>Status: {{ room.status }} - {{ room.visibility }}</small>
             </div>
 
             <div class="dense-list compact-list">
@@ -87,10 +95,39 @@ import { Room } from '../../core/models/room.model';
               }
             </div>
           } @else {
-            <p class="notice">Create a room or paste a room id to join. There is no room listing endpoint yet.</p>
+            <p class="notice">Create a room, paste a room id, or join a visible waiting room.</p>
           }
         </section>
       </div>
+
+      <section class="panel">
+        <div class="tool-header compact-header">
+          <div>
+            <span class="eyebrow">Visible rooms</span>
+            <h3>Room list</h3>
+          </div>
+          <button class="icon-button" type="button" title="Reload rooms" (click)="loadRooms()">
+            <lucide-icon name="refresh-ccw" size="16" />
+          </button>
+        </div>
+
+        <div class="dense-list compact-list">
+          @for (room of rooms(); track room.id) {
+            <div class="list-row">
+              <span>
+                <strong>{{ room.id }}</strong>
+                <small>{{ room.status }} - {{ room.visibility }} - {{ room.players.length }} players</small>
+              </span>
+              <button class="secondary-button compact" type="button" (click)="joinListedRoom(room.id)">
+                <lucide-icon name="door-open" size="15" />
+                Join
+              </button>
+            </div>
+          } @empty {
+            <p class="notice">No visible rooms.</p>
+          }
+        </div>
+      </section>
     </section>
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -101,13 +138,16 @@ export class RoomsComponent {
   private readonly router = inject(Router);
 
   readonly decks = signal<Deck[]>([]);
+  readonly rooms = signal<Room[]>([]);
   readonly currentRoom = signal<Room | null>(null);
   readonly error = signal<string | null>(null);
   selectedDeckId = '';
+  visibility: 'private' | 'public' = 'private';
   roomId = '';
 
   constructor() {
     void this.loadDecks();
+    void this.loadRooms();
   }
 
   async loadDecks(): Promise<void> {
@@ -119,12 +159,22 @@ export class RoomsComponent {
     }
   }
 
+  async loadRooms(): Promise<void> {
+    try {
+      const response = await firstValueFrom(this.roomsApi.list());
+      this.rooms.set(response.data);
+    } catch {
+      this.error.set('Could not load rooms.');
+    }
+  }
+
   async createRoom(): Promise<void> {
     this.error.set(null);
     try {
-      const response = await firstValueFrom(this.roomsApi.create(this.optionalDeckId()));
+      const response = await firstValueFrom(this.roomsApi.create(this.optionalDeckId(), this.visibility));
       this.currentRoom.set(response.room);
       this.roomId = response.room.id;
+      await this.loadRooms();
     } catch {
       this.error.set('Could not create room.');
     }
@@ -140,9 +190,15 @@ export class RoomsComponent {
     try {
       const response = await firstValueFrom(this.roomsApi.join(id, this.optionalDeckId()));
       this.currentRoom.set(response.room);
+      await this.loadRooms();
     } catch {
       this.error.set('Could not join room.');
     }
+  }
+
+  async joinListedRoom(id: string): Promise<void> {
+    this.roomId = id;
+    await this.joinRoom();
   }
 
   async leaveRoom(id: string): Promise<void> {
@@ -150,6 +206,7 @@ export class RoomsComponent {
     try {
       const response = await firstValueFrom(this.roomsApi.leave(id));
       this.currentRoom.set(response.room.players.length > 0 ? response.room : null);
+      await this.loadRooms();
     } catch {
       this.error.set('Could not leave room.');
     }

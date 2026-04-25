@@ -16,6 +16,7 @@ describe('DeckAnalysisService', () => {
       id: 'deck-1',
       name: 'Deck',
       format: 'commander',
+      folderId: null,
       cards: [
         entry(1, 'commander', card('Commander', 'Legendary Creature', '{1}{G}', 'Draw a card.')),
         entry(10, 'main', card('Forest', 'Basic Land', null, null)),

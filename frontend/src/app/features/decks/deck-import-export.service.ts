@@ -7,6 +7,8 @@ export interface DecklistEntry {
   quantity: number;
   name: string;
   section: DeckSection;
+  setCode?: string;
+  collectorNumber?: string;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -34,6 +36,23 @@ export class DeckImportExportService {
     lines.push(...main.map((entry) => `${entry.quantity} ${entry.name}`));
 
     return lines.join('\n').trim();
+  }
+
+  async resolveMissingFlavorNames(entries: DecklistEntry[], missingNames: string[]): Promise<DecklistEntry[]> {
+    const missing = new Set(missingNames.map((name) => this.key(name)));
+    const resolvedEntries = await Promise.all(entries.map(async (entry) => {
+      if (!missing.has(this.key(entry.name)) || !entry.setCode || !entry.collectorNumber) {
+        return entry;
+      }
+
+      const resolvedName = await this.resolveScryfallCanonicalName(entry.setCode, entry.collectorNumber);
+
+      return resolvedName && this.key(resolvedName) !== this.key(entry.name)
+        ? { ...entry, name: resolvedName }
+        : entry;
+    }));
+
+    return resolvedEntries;
   }
 
   entriesFromDeck(deck: Deck): DecklistEntry[] {
@@ -79,9 +98,11 @@ export class DeckImportExportService {
     }
 
     const quantity = match[1] ? Number.parseInt(match[1], 10) : 1;
-    const name = this.cleanName(match[2] ?? '');
+    const rawName = match[2] ?? '';
+    const metadata = this.extractPrintMetadata(rawName);
+    const name = this.cleanName(rawName);
 
-    return Number.isFinite(quantity) && quantity > 0 && name ? { quantity, name, section } : null;
+    return Number.isFinite(quantity) && quantity > 0 && name ? { quantity, name, section, ...metadata } : null;
   }
 
   private cleanLine(line: string): string {
@@ -101,4 +122,36 @@ export class DeckImportExportService {
       .trim();
   }
 
+  private extractPrintMetadata(name: string): Pick<DecklistEntry, 'setCode' | 'collectorNumber'> {
+    const match = name.match(/\(([A-Z0-9]{2,8})\)\s+([^\s]+)/i);
+    if (!match) {
+      return {};
+    }
+
+    return {
+      setCode: match[1]?.toLowerCase(),
+      collectorNumber: match[2]?.replace(/[^\w.-]+$/u, ''),
+    };
+  }
+
+  private async resolveScryfallCanonicalName(setCode: string, collectorNumber: string): Promise<string | null> {
+    try {
+      const response = await fetch(`https://api.scryfall.com/cards/${encodeURIComponent(setCode)}/${encodeURIComponent(collectorNumber)}`, {
+        headers: { Accept: 'application/json' },
+      });
+      if (!response.ok) {
+        return null;
+      }
+
+      const card = await response.json() as { name?: unknown };
+
+      return typeof card.name === 'string' && card.name.trim() ? card.name.trim() : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private key(name: string): string {
+    return name.trim().toLowerCase();
+  }
 }
