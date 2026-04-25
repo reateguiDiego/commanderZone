@@ -5,7 +5,7 @@ Monorepo for an online Magic: The Gathering Commander table.
 ## Layout
 
 - `backend/`: Symfony API, PostgreSQL persistence, JWT auth, Scryfall import and Mercure events.
-- `frontend/`: reserved for the Angular client.
+- `frontend/`: Angular client for auth, cards, decks, rooms and the manual game table.
 
 ## Backend quick start
 
@@ -27,3 +27,13 @@ cd backend
 php bin/console app:scryfall:sync --limit=100
 php bin/phpunit
 ```
+
+## Frontend quick start
+
+```bash
+cd frontend
+npm install
+npm start
+```
+
+The frontend expects the API on `http://127.0.0.1:8000` and Mercure on `http://127.0.0.1:3000/.well-known/mercure`.
