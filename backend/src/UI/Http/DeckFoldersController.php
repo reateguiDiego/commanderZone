@@ -36,6 +36,22 @@ class DeckFoldersController extends ApiController
         return $this->json(['folder' => $folder->toArray()], 201);
     }
 
+    #[Route('/deck-folders/names', methods: ['GET'])]
+    public function names(#[CurrentUser] User $user, EntityManagerInterface $entityManager): JsonResponse
+    {
+        $folders = $entityManager->getRepository(DeckFolder::class)->findBy(['owner' => $user], ['id' => 'DESC']);
+
+        return $this->json([
+            'data' => array_map(
+                static fn (DeckFolder $folder) => [
+                    'id' => $folder->id(),
+                    'name' => $folder->toArray()['name'],
+                ],
+                $folders,
+            ),
+        ]);
+    }
+
     #[Route('/deck-folders/{id}', methods: ['PATCH'])]
     public function update(string $id, Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager): JsonResponse
     {

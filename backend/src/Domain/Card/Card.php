@@ -9,6 +9,7 @@ use Symfony\Component\Uid\Uuid;
 #[ORM\Table(name: 'card')]
 #[ORM\UniqueConstraint(name: 'uniq_card_scryfall_id', columns: ['scryfall_id'])]
 #[ORM\Index(name: 'idx_card_normalized_name', columns: ['normalized_name'])]
+#[ORM\Index(name: 'idx_card_print', columns: ['set_code', 'collector_number'])]
 class Card
 {
     #[ORM\Id]
@@ -57,6 +58,15 @@ class Card
     #[ORM\Column(type: 'string', length: 32, nullable: true)]
     private ?string $collectorNumber = null;
 
+    #[ORM\Column(type: 'string', length: 8, nullable: true)]
+    private ?string $lang = null;
+
+    #[ORM\Column(type: 'string', length: 255, nullable: true)]
+    private ?string $printedName = null;
+
+    #[ORM\Column(type: 'string', length: 255, nullable: true)]
+    private ?string $flavorName = null;
+
     public function __construct(string $scryfallId)
     {
         $this->id = Uuid::v7()->toRfc4122();
@@ -85,6 +95,9 @@ class Card
         $this->commanderLegal = ($this->legalities['commander'] ?? null) === 'legal';
         $this->setCode = $data['set'] ?? null;
         $this->collectorNumber = $data['collector_number'] ?? null;
+        $this->lang = $data['lang'] ?? null;
+        $this->printedName = $data['printed_name'] ?? null;
+        $this->flavorName = $data['flavor_name'] ?? null;
     }
 
     public function id(): string
@@ -110,6 +123,28 @@ class Card
     public function typeLine(): ?string
     {
         return $this->typeLine;
+    }
+
+    public function imageUri(string $format): ?string
+    {
+        $uri = $this->imageUris[$format] ?? null;
+
+        return is_string($uri) && $uri !== '' ? $uri : null;
+    }
+
+    public function setCode(): ?string
+    {
+        return $this->setCode;
+    }
+
+    public function collectorNumber(): ?string
+    {
+        return $this->collectorNumber;
+    }
+
+    public function flavorName(): ?string
+    {
+        return $this->flavorName;
     }
 
     public function colorIdentity(): array
@@ -144,6 +179,9 @@ class Card
             'commanderLegal' => $this->commanderLegal,
             'set' => $this->setCode,
             'collectorNumber' => $this->collectorNumber,
+            'lang' => $this->lang,
+            'printedName' => $this->printedName,
+            'flavorName' => $this->flavorName,
         ];
     }
 }

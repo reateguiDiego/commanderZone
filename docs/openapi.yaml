@@ -198,6 +198,60 @@ paths:
                     type: integer
         '400':
           $ref: '#/components/responses/Error'
+  /cards/resolve:
+    get:
+      tags: [Cards]
+      security: []
+      summary: Resolve a card from local Scryfall data.
+      parameters:
+        - name: scryfallId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: name
+          in: query
+          schema:
+            type: string
+        - name: setCode
+          in: query
+          schema:
+            type: string
+        - name: collectorNumber
+          in: query
+          schema:
+            type: string
+        - name: flavorName
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Resolved card.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [card]
+                properties:
+                  card:
+                    $ref: '#/components/schemas/Card'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          description: Ambiguous resolution.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [error, matches]
+                properties:
+                  error:
+                    type: string
+                  matches:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Card'
   /cards/{scryfallId}:
     get:
       tags: [Cards]
@@ -217,6 +271,48 @@ paths:
                   card:
                     $ref: '#/components/schemas/Card'
         '404':
+          $ref: '#/components/responses/Error'
+  /cards/{scryfallId}/image:
+    get:
+      tags: [Cards]
+      security: []
+      summary: Resolve or proxy a Scryfall card image.
+      parameters:
+        - $ref: '#/components/parameters/ScryfallId'
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [small, normal, large, png, art_crop, border_crop]
+            default: normal
+        - name: mode
+          in: query
+          schema:
+            type: string
+            enum: [uri, redirect, binary]
+            default: uri
+      responses:
+        '200':
+          description: Image URI or binary image.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CardImageResponse'
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/png:
+              schema:
+                type: string
+                format: binary
+        '302':
+          description: Redirect to Scryfall image URI.
+        '400':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '502':
           $ref: '#/components/responses/Error'
   /deck-folders:
     get:
@@ -257,6 +353,23 @@ paths:
                     $ref: '#/components/schemas/DeckFolder'
         '400':
           $ref: '#/components/responses/Error'
+  /deck-folders/names:
+    get:
+      tags: [DeckFolders]
+      summary: List authenticated user's deck folder names.
+      responses:
+        '200':
+          description: Lightweight deck folder names.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DeckFolder'
   /deck-folders/{id}:
     patch:
       tags: [DeckFolders]
@@ -294,6 +407,23 @@ paths:
           description: Deleted.
         '404':
           $ref: '#/components/responses/Error'
+  /deck-formats:
+    get:
+      tags: [Decks]
+      summary: List supported deck creation formats.
+      responses:
+        '200':
+          description: Supported deck formats.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DeckFormat'
   /decks:
     get:
       tags: [Decks]
@@ -903,6 +1033,25 @@ components:
           type: [string, 'null']
         collectorNumber:
           type: [string, 'null']
+        lang:
+          type: [string, 'null']
+        printedName:
+          type: [string, 'null']
+        flavorName:
+          type: [string, 'null']
+    CardImageResponse:
+      type: object
+      required: [scryfallId, format, uri]
+      properties:
+        scryfallId:
+          type: string
+          format: uuid
+        format:
+          type: string
+          enum: [small, normal, large, png, art_crop, border_crop]
+        uri:
+          type: string
+          format: uri
     DeckSummary:
       type: object
       required: [id, name, format, folderId]
@@ -967,6 +1116,21 @@ components:
       properties:
         name:
           type: string
+    DeckFormat:
+      type: object
+      required: [id, name, minCards, maxCards, hasCommander]
+      properties:
+        id:
+          type: string
+          enum: [commander]
+        name:
+          type: string
+        minCards:
+          type: integer
+        maxCards:
+          type: integer
+        hasCommander:
+          type: boolean
     CreateDeckRequest:
       type: object
       required: [name]

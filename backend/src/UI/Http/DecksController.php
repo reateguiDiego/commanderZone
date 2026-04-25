@@ -4,6 +4,7 @@ namespace App\UI\Http;
 
 use App\Application\Deck\CommanderDeckValidator;
 use App\Application\Deck\DecklistParser;
+use App\Application\Card\CardResolver;
 use App\Domain\Card\Card;
 use App\Domain\Deck\Deck;
 use App\Domain\Deck\DeckCard;
@@ -111,7 +112,7 @@ class DecksController extends ApiController
     }
 
     #[Route('/decks/{id}/import', methods: ['POST'])]
-    public function import(string $id, Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, DecklistParser $parser): JsonResponse
+    public function import(string $id, Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, DecklistParser $parser, CardResolver $cardResolver): JsonResponse
     {
         $deck = $this->ownedDeck($id, $user, $entityManager);
         if (!$deck) {
@@ -128,7 +129,7 @@ class DecksController extends ApiController
         $missing = [];
 
         foreach ($entries as $entry) {
-            $card = $entityManager->getRepository(Card::class)->findOneBy(['normalizedName' => Card::normalizeName($entry['name'])]);
+            $card = $cardResolver->resolveForDecklistEntry($entry);
             if (!$card instanceof Card) {
                 $missing[] = $entry['name'];
                 continue;

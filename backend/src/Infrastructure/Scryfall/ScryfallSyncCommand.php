@@ -158,7 +158,10 @@ INSERT INTO card (
     layout,
     commander_legal,
     set_code,
-    collector_number
+    collector_number,
+    lang,
+    printed_name,
+    flavor_name
 ) VALUES (
     :id,
     :scryfall_id,
@@ -174,7 +177,10 @@ INSERT INTO card (
     :layout,
     :commander_legal,
     :set_code,
-    :collector_number
+    :collector_number,
+    :lang,
+    :printed_name,
+    :flavor_name
 )
 ON CONFLICT (scryfall_id) DO UPDATE SET
     name = EXCLUDED.name,
@@ -189,7 +195,10 @@ ON CONFLICT (scryfall_id) DO UPDATE SET
     layout = EXCLUDED.layout,
     commander_legal = EXCLUDED.commander_legal,
     set_code = EXCLUDED.set_code,
-    collector_number = EXCLUDED.collector_number
+    collector_number = EXCLUDED.collector_number,
+    lang = EXCLUDED.lang,
+    printed_name = EXCLUDED.printed_name,
+    flavor_name = EXCLUDED.flavor_name
 SQL,
             [
                 'id' => Uuid::v7()->toRfc4122(),
@@ -207,6 +216,9 @@ SQL,
                 'commander_legal' => ($legalities['commander'] ?? null) === 'legal',
                 'set_code' => $data['set'] ?? null,
                 'collector_number' => $data['collector_number'] ?? null,
+                'lang' => $data['lang'] ?? null,
+                'printed_name' => $data['printed_name'] ?? null,
+                'flavor_name' => $data['flavor_name'] ?? null,
             ],
             [
                 'commander_legal' => ParameterType::BOOLEAN,

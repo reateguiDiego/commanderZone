@@ -5,7 +5,7 @@ namespace App\Application\Deck;
 class DecklistParser
 {
     /**
-     * @return array<int, array{quantity:int,name:string,section:string}>
+     * @return array<int, array{quantity:int,name:string,section:string,setCode:?string,collectorNumber:?string}>
      */
     public function parse(string $decklist): array
     {
@@ -35,10 +35,15 @@ class DecklistParser
                 continue;
             }
 
+            $rawName = $matches[2];
+            $printMetadata = $this->extractPrintMetadata($rawName);
+
             $entries[] = [
                 'quantity' => isset($matches[1]) && $matches[1] !== '' ? (int) $matches[1] : 1,
-                'name' => $this->cleanName($matches[2]),
+                'name' => $this->cleanName($rawName),
                 'section' => $section,
+                'setCode' => $printMetadata['setCode'],
+                'collectorNumber' => $printMetadata['collectorNumber'],
             ];
         }
 
@@ -55,5 +60,20 @@ class DecklistParser
         $name = preg_replace('/\s+#\d+\s*$/', '', $name) ?? $name;
 
         return trim($name);
+    }
+
+    /**
+     * @return array{setCode:?string,collectorNumber:?string}
+     */
+    private function extractPrintMetadata(string $name): array
+    {
+        if (!preg_match('/\(([A-Z0-9]{2,8})\)\s+([^\s]+)/i', $name, $matches)) {
+            return ['setCode' => null, 'collectorNumber' => null];
+        }
+
+        return [
+            'setCode' => mb_strtolower($matches[1]),
+            'collectorNumber' => preg_replace('/[^A-Za-z0-9_.-]+$/', '', $matches[2]) ?: null,
+        ];
     }
 }

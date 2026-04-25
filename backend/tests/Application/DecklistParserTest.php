@@ -36,7 +36,13 @@ Deck
 TXT);
 
         self::assertSame('Fable of the Mirror-Breaker // Reflection of Kiki-Jiki', $entries[0]['name']);
+        self::assertSame('neo', $entries[0]['setCode']);
+        self::assertSame('141', $entries[0]['collectorNumber']);
         self::assertSame('Hallowed Fountain', $entries[1]['name']);
+        self::assertSame('pecl', $entries[1]['setCode']);
+        self::assertSame('265p', $entries[1]['collectorNumber']);
         self::assertSame('Teferi, Time Raveler', $entries[2]['name']);
+        self::assertSame('war', $entries[2]['setCode']);
+        self::assertSame('221', $entries[2]['collectorNumber']);
     }
 }
