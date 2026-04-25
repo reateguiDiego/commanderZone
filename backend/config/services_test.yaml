@@ -1,0 +1,5 @@
+services:
+    App\Tests\Support\RecordingMercureHub:
+        public: true
+
+    Symfony\Component\Mercure\HubInterface: '@App\Tests\Support\RecordingMercureHub'

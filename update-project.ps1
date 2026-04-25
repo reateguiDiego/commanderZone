@@ -82,6 +82,8 @@ if (-not $SkipBackend -and -not $SkipChecks) {
         php bin/console lint:container
         php bin/console doctrine:schema:validate
         php bin/console lint:yaml config ..\docs\openapi.yaml
+        php bin/console doctrine:database:create --env=test --if-not-exists
+        php bin/console doctrine:migrations:migrate --env=test --no-interaction
         php bin/phpunit
         Set-Location $Root
     }
