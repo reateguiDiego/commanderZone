@@ -35,7 +35,8 @@ class ScryfallSyncCommand extends Command
         $this
             ->addOption('file', null, InputOption::VALUE_REQUIRED, 'Local Scryfall JSON file to import instead of downloading bulk data.')
             ->addOption('limit', null, InputOption::VALUE_REQUIRED, 'Maximum number of cards to import. Useful for development.', null)
-            ->addOption('memory-limit', null, InputOption::VALUE_REQUIRED, 'PHP memory_limit used for this import.', null);
+            ->addOption('memory-limit', null, InputOption::VALUE_REQUIRED, 'PHP memory_limit used for this import.', null)
+            ->addOption('skip-existing', null, InputOption::VALUE_NONE, 'Skip Scryfall ids already present in the database. Useful when resuming a failed import.');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -45,19 +46,32 @@ class ScryfallSyncCommand extends Command
 
         $file = $input->getOption('file');
         $limit = $input->getOption('limit') !== null ? (int) $input->getOption('limit') : null;
+        $existingIds = $input->getOption('skip-existing') ? $this->loadExistingScryfallIds($output) : [];
         $cards = is_string($file) && $file !== '' ? $this->loadLocalFile($file) : $this->downloadDefaultCards();
 
         $count = 0;
+        $skipped = 0;
         foreach ($cards as $cardData) {
             if (!is_array($cardData) || !isset($cardData['id'], $cardData['name'])) {
                 continue;
             }
 
+            $scryfallId = (string) $cardData['id'];
+            if (isset($existingIds[$scryfallId])) {
+                ++$skipped;
+                if ($skipped % 5000 === 0) {
+                    $output->writeln(sprintf('Skipped %d existing cards...', $skipped));
+                }
+                continue;
+            }
+
             $this->upsertCard($cardData);
+            $existingIds[$scryfallId] = true;
             ++$count;
 
             if ($count % 500 === 0) {
-                $output->writeln(sprintf('Imported %d cards...', $count));
+                $output->writeln(sprintf('Imported %d cards... memory=%s', $count, $this->formatBytes(memory_get_usage(true))));
+                gc_collect_cycles();
             }
 
             if ($limit !== null && $count >= $limit) {
@@ -65,7 +79,7 @@ class ScryfallSyncCommand extends Command
             }
         }
 
-        $output->writeln(sprintf('Imported %d cards.', $count));
+        $output->writeln(sprintf('Imported %d cards. Skipped %d existing cards.', $count, $skipped));
 
         return Command::SUCCESS;
     }
@@ -203,5 +217,27 @@ SQL,
     private function json(array $value): string
     {
         return json_encode($value, JSON_THROW_ON_ERROR);
+    }
+
+    /**
+     * @return array<string, true>
+     */
+    private function loadExistingScryfallIds(OutputInterface $output): array
+    {
+        $output->writeln('Loading existing Scryfall ids...');
+        $ids = [];
+
+        foreach ($this->connection->iterateAssociative('SELECT scryfall_id FROM card') as $row) {
+            $ids[(string) $row['scryfall_id']] = true;
+        }
+
+        $output->writeln(sprintf('Loaded %d existing Scryfall ids.', count($ids)));
+
+        return $ids;
+    }
+
+    private function formatBytes(int $bytes): string
+    {
+        return sprintf('%.1f MB', $bytes / 1024 / 1024);
     }
 }

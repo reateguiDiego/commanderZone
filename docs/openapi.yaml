@@ -1,0 +1,763 @@
+openapi: 3.1.0
+info:
+  title: CommanderZone API
+  version: 0.1.0
+  description: "Backend API for a manual Magic: The Gathering Commander table."
+servers:
+  - url: http://127.0.0.1:8000
+    description: Local Symfony API
+security:
+  - bearerAuth: []
+tags:
+  - name: Auth
+  - name: Cards
+  - name: Decks
+  - name: Rooms
+  - name: Games
+paths:
+  /auth/register:
+    post:
+      tags: [Auth]
+      security: []
+      summary: Register a user.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: User created.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [user]
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+        '409':
+          $ref: '#/components/responses/Error'
+  /auth/login:
+    post:
+      tags: [Auth]
+      security: []
+      summary: Login and receive a JWT access token.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: JWT token.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [token]
+                properties:
+                  token:
+                    type: string
+        '401':
+          $ref: '#/components/responses/Error'
+  /me:
+    get:
+      tags: [Auth]
+      summary: Get the authenticated user.
+      responses:
+        '200':
+          description: Current user.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [user]
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+  /cards/search:
+    get:
+      tags: [Cards]
+      security: []
+      summary: Search cards imported from Scryfall.
+      parameters:
+        - name: q
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 25
+      responses:
+        '200':
+          description: Card search results.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, page, limit]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Card'
+                  page:
+                    type: integer
+                  limit:
+                    type: integer
+  /cards/{scryfallId}:
+    get:
+      tags: [Cards]
+      security: []
+      summary: Get a card by Scryfall id.
+      parameters:
+        - $ref: '#/components/parameters/ScryfallId'
+      responses:
+        '200':
+          description: Card detail.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [card]
+                properties:
+                  card:
+                    $ref: '#/components/schemas/Card'
+        '404':
+          $ref: '#/components/responses/Error'
+  /decks:
+    get:
+      tags: [Decks]
+      summary: List authenticated user's decks.
+      responses:
+        '200':
+          description: Deck list.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DeckSummary'
+    post:
+      tags: [Decks]
+      summary: Create a deck.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+      responses:
+        '201':
+          description: Created deck.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [deck]
+                properties:
+                  deck:
+                    $ref: '#/components/schemas/Deck'
+  /decks/{id}:
+    get:
+      tags: [Decks]
+      summary: Get a deck.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Deck detail.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [deck]
+                properties:
+                  deck:
+                    $ref: '#/components/schemas/Deck'
+        '404':
+          $ref: '#/components/responses/Error'
+    patch:
+      tags: [Decks]
+      summary: Update a deck.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+      responses:
+        '200':
+          description: Updated deck.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [deck]
+                properties:
+                  deck:
+                    $ref: '#/components/schemas/Deck'
+    delete:
+      tags: [Decks]
+      summary: Delete a deck.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '204':
+          description: Deleted.
+  /decks/{id}/import:
+    post:
+      tags: [Decks]
+      summary: Replace deck cards from a text decklist.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [decklist]
+              properties:
+                decklist:
+                  type: string
+      responses:
+        '200':
+          description: Imported deck and unresolved card names.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [deck, missing]
+                properties:
+                  deck:
+                    $ref: '#/components/schemas/Deck'
+                  missing:
+                    type: array
+                    items:
+                      type: string
+  /decks/{id}/validate-commander:
+    post:
+      tags: [Decks]
+      summary: Validate Commander constraints.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Validation result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationResult'
+  /rooms:
+    post:
+      tags: [Rooms]
+      summary: Create a room and join it as owner.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeckSelection'
+      responses:
+        '201':
+          description: Created room.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [room]
+                properties:
+                  room:
+                    $ref: '#/components/schemas/Room'
+  /rooms/{id}/join:
+    post:
+      tags: [Rooms]
+      summary: Join a waiting room.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeckSelection'
+      responses:
+        '200':
+          description: Joined room.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [room]
+                properties:
+                  room:
+                    $ref: '#/components/schemas/Room'
+  /rooms/{id}/leave:
+    post:
+      tags: [Rooms]
+      summary: Leave a waiting room.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Updated room.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [room]
+                properties:
+                  room:
+                    $ref: '#/components/schemas/Room'
+  /rooms/{id}/start:
+    post:
+      tags: [Rooms]
+      summary: Start a room and create a game.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '201':
+          description: Started game.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [room, game]
+                properties:
+                  room:
+                    $ref: '#/components/schemas/Room'
+                  game:
+                    $ref: '#/components/schemas/Game'
+  /games/{id}/snapshot:
+    get:
+      tags: [Games]
+      summary: Get current game snapshot.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Game snapshot.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [game]
+                properties:
+                  game:
+                    $ref: '#/components/schemas/Game'
+  /games/{id}/commands:
+    post:
+      tags: [Games]
+      summary: Apply a manual game command and publish a Mercure event.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GameCommand'
+            examples:
+              chat:
+                value:
+                  type: chat.message
+                  payload:
+                    message: Hello
+              life:
+                value:
+                  type: life.changed
+                  payload:
+                    playerId: 01966d5f-0000-7000-8000-000000000000
+                    delta: -1
+              move:
+                value:
+                  type: card.moved
+                  payload:
+                    playerId: 01966d5f-0000-7000-8000-000000000000
+                    fromZone: hand
+                    toZone: battlefield
+                    instanceId: card-instance-id
+      responses:
+        '201':
+          description: Created game event and current snapshot.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [event, snapshot]
+                properties:
+                  event:
+                    $ref: '#/components/schemas/GameEvent'
+                  snapshot:
+                    $ref: '#/components/schemas/GameSnapshot'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    ScryfallId:
+      name: scryfallId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  responses:
+    Error:
+      description: Error response.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+    RegisterRequest:
+      type: object
+      required: [email, displayName, password]
+      properties:
+        email:
+          type: string
+          format: email
+        displayName:
+          type: string
+        password:
+          type: string
+          minLength: 8
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+    User:
+      type: object
+      required: [id, email, displayName, roles]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        displayName:
+          type: string
+        roles:
+          type: array
+          items:
+            type: string
+    Card:
+      type: object
+      required: [id, scryfallId, name, colors, colorIdentity, legalities, imageUris, layout, commanderLegal]
+      properties:
+        id:
+          type: string
+          format: uuid
+        scryfallId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        manaCost:
+          type: [string, 'null']
+        typeLine:
+          type: [string, 'null']
+        oracleText:
+          type: [string, 'null']
+        colors:
+          type: array
+          items:
+            type: string
+        colorIdentity:
+          type: array
+          items:
+            type: string
+        legalities:
+          type: object
+          additionalProperties:
+            type: string
+        imageUris:
+          type: object
+          additionalProperties:
+            type: string
+        layout:
+          type: string
+        commanderLegal:
+          type: boolean
+        set:
+          type: [string, 'null']
+        collectorNumber:
+          type: [string, 'null']
+    DeckSummary:
+      type: object
+      required: [id, name, format]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        format:
+          type: string
+          enum: [commander]
+    Deck:
+      allOf:
+        - $ref: '#/components/schemas/DeckSummary'
+        - type: object
+          properties:
+            cards:
+              type: array
+              items:
+                $ref: '#/components/schemas/DeckCard'
+    DeckCard:
+      type: object
+      required: [id, quantity, section, card]
+      properties:
+        id:
+          type: string
+          format: uuid
+        quantity:
+          type: integer
+          minimum: 1
+        section:
+          type: string
+          enum: [main, commander]
+        card:
+          $ref: '#/components/schemas/Card'
+    ValidationResult:
+      type: object
+      required: [valid, errors]
+      properties:
+        valid:
+          type: boolean
+        errors:
+          type: array
+          items:
+            type: string
+    DeckSelection:
+      type: object
+      properties:
+        deckId:
+          type: string
+          format: uuid
+    Room:
+      type: object
+      required: [id, owner, status, players]
+      properties:
+        id:
+          type: string
+          format: uuid
+        owner:
+          $ref: '#/components/schemas/User'
+        status:
+          type: string
+          enum: [waiting, started]
+        players:
+          type: array
+          items:
+            $ref: '#/components/schemas/RoomPlayer'
+        gameId:
+          type: [string, 'null']
+          format: uuid
+    RoomPlayer:
+      type: object
+      required: [id, user]
+      properties:
+        id:
+          type: string
+          format: uuid
+        user:
+          $ref: '#/components/schemas/User'
+        deckId:
+          type: [string, 'null']
+          format: uuid
+    Game:
+      type: object
+      required: [id, status, snapshot]
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [active]
+        snapshot:
+          $ref: '#/components/schemas/GameSnapshot'
+    GameSnapshot:
+      type: object
+      required: [players, turn, chat, createdAt]
+      properties:
+        players:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/GamePlayer'
+        turn:
+          $ref: '#/components/schemas/TurnState'
+        chat:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChatMessage'
+        createdAt:
+          type: string
+          format: date-time
+        counters:
+          type: object
+    GamePlayer:
+      type: object
+      required: [user, life, zones, commanderDamage, counters]
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+        life:
+          type: integer
+        zones:
+          type: object
+          required: [library, hand, battlefield, graveyard, exile, command]
+          properties:
+            library:
+              type: array
+              items:
+                $ref: '#/components/schemas/GameCard'
+            hand:
+              type: array
+              items:
+                $ref: '#/components/schemas/GameCard'
+            battlefield:
+              type: array
+              items:
+                $ref: '#/components/schemas/GameCard'
+            graveyard:
+              type: array
+              items:
+                $ref: '#/components/schemas/GameCard'
+            exile:
+              type: array
+              items:
+                $ref: '#/components/schemas/GameCard'
+            command:
+              type: array
+              items:
+                $ref: '#/components/schemas/GameCard'
+        commanderDamage:
+          type: object
+          additionalProperties:
+            type: integer
+        counters:
+          type: object
+    GameCard:
+      type: object
+      required: [instanceId, scryfallId, name, tapped]
+      properties:
+        instanceId:
+          type: string
+        scryfallId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        tapped:
+          type: boolean
+    TurnState:
+      type: object
+      required: [activePlayerId, phase, number]
+      properties:
+        activePlayerId:
+          type: [string, 'null']
+          format: uuid
+        phase:
+          type: string
+        number:
+          type: integer
+    ChatMessage:
+      type: object
+      required: [userId, displayName, message, createdAt]
+      properties:
+        userId:
+          type: string
+          format: uuid
+        displayName:
+          type: string
+        message:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+    GameCommand:
+      type: object
+      required: [type, payload]
+      properties:
+        type:
+          type: string
+          enum:
+            - chat.message
+            - life.changed
+            - commander.damage.changed
+            - counter.changed
+            - card.moved
+            - card.tapped
+            - turn.changed
+            - zone.changed
+        payload:
+          type: object
+          additionalProperties: true
+    GameEvent:
+      type: object
+      required: [id, type, payload, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+        payload:
+          type: object
+          additionalProperties: true
+        createdBy:
+          type: [string, 'null']
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
