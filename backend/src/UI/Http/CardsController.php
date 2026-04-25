@@ -17,19 +17,67 @@ class CardsController extends ApiController
         $page = max(1, (int) $request->query->get('page', 1));
         $limit = min(50, max(1, (int) $request->query->get('limit', 25)));
 
-        $qb = $entityManager->createQueryBuilder()
-            ->select('card')
-            ->from(Card::class, 'card')
-            ->orderBy('card.name', 'ASC')
-            ->setFirstResult(($page - 1) * $limit)
-            ->setMaxResults($limit);
+        $where = [];
+        $params = [];
 
         if ($query !== '') {
-            $qb->where('card.normalizedName LIKE :query')
-                ->setParameter('query', '%'.$query.'%');
+            $where[] = 'normalized_name LIKE :query';
+            $params['query'] = '%'.$query.'%';
         }
 
-        $cards = array_map(static fn (Card $card) => $card->toArray(), $qb->getQuery()->getResult());
+        $commanderLegal = $request->query->get('commanderLegal');
+        if ($commanderLegal !== null && $commanderLegal !== '') {
+            $where[] = 'commander_legal = :commanderLegal';
+            $params['commanderLegal'] = filter_var($commanderLegal, FILTER_VALIDATE_BOOLEAN);
+        }
+
+        $type = mb_strtolower(trim((string) $request->query->get('type', '')));
+        if ($type !== '') {
+            $allowedTypes = ['creature', 'instant', 'sorcery', 'artifact', 'enchantment', 'planeswalker', 'land'];
+            if (!in_array($type, $allowedTypes, true)) {
+                return $this->fail('type filter is invalid.');
+            }
+
+            $where[] = 'LOWER(type_line) LIKE :type';
+            $params['type'] = '%'.$type.'%';
+        }
+
+        $colorIdentity = trim((string) $request->query->get('colorIdentity', ''));
+        if ($colorIdentity !== '') {
+            foreach (array_filter(array_map('trim', explode(',', strtoupper($colorIdentity)))) as $index => $color) {
+                if (!in_array($color, ['W', 'U', 'B', 'R', 'G'], true)) {
+                    return $this->fail('colorIdentity filter is invalid.');
+                }
+
+                $where[] = sprintf('color_identity::text LIKE :colorIdentity%d', $index);
+                $params[sprintf('colorIdentity%d', $index)] = '%"'.$color.'"%';
+            }
+        }
+
+        $sql = 'SELECT id FROM card';
+        if ($where !== []) {
+            $sql .= ' WHERE '.implode(' AND ', $where);
+        }
+        $sql .= sprintf(' ORDER BY name ASC LIMIT %d OFFSET %d', $limit, ($page - 1) * $limit);
+
+        $ids = $entityManager->getConnection()->fetchFirstColumn($sql, $params);
+        if ($ids === []) {
+            return $this->json(['data' => [], 'page' => $page, 'limit' => $limit]);
+        }
+
+        $cardsById = [];
+        foreach ($entityManager->getRepository(Card::class)->findBy(['id' => $ids]) as $card) {
+            if ($card instanceof Card) {
+                $cardsById[$card->id()] = $card;
+            }
+        }
+
+        $cards = [];
+        foreach ($ids as $id) {
+            if (isset($cardsById[$id])) {
+                $cards[] = $cardsById[$id]->toArray();
+            }
+        }
 
         return $this->json(['data' => $cards, 'page' => $page, 'limit' => $limit]);
     }

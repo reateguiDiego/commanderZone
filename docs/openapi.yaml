@@ -11,6 +11,7 @@ security:
 tags:
   - name: Auth
   - name: Cards
+  - name: DeckFolders
   - name: Decks
   - name: Rooms
   - name: Games
@@ -78,6 +79,68 @@ paths:
                 properties:
                   user:
                     $ref: '#/components/schemas/User'
+    patch:
+      tags: [Auth]
+      summary: Update authenticated user's profile.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [displayName]
+              properties:
+                displayName:
+                  type: string
+      responses:
+        '200':
+          description: Updated user.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [user]
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+  /me/password:
+    patch:
+      tags: [Auth]
+      summary: Change authenticated user's password.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currentPassword, newPassword]
+              properties:
+                currentPassword:
+                  type: string
+                newPassword:
+                  type: string
+                  minLength: 8
+      responses:
+        '200':
+          description: Password changed.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [user]
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
   /cards/search:
     get:
       tags: [Cards]
@@ -101,6 +164,21 @@ paths:
             minimum: 1
             maximum: 50
             default: 25
+        - name: commanderLegal
+          in: query
+          schema:
+            type: boolean
+        - name: colorIdentity
+          in: query
+          description: Comma-separated color identity symbols.
+          schema:
+            type: string
+            example: W,U
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [creature, instant, sorcery, artifact, enchantment, planeswalker, land]
       responses:
         '200':
           description: Card search results.
@@ -118,6 +196,8 @@ paths:
                     type: integer
                   limit:
                     type: integer
+        '400':
+          $ref: '#/components/responses/Error'
   /cards/{scryfallId}:
     get:
       tags: [Cards]
@@ -138,10 +218,92 @@ paths:
                     $ref: '#/components/schemas/Card'
         '404':
           $ref: '#/components/responses/Error'
+  /deck-folders:
+    get:
+      tags: [DeckFolders]
+      summary: List authenticated user's deck folders.
+      responses:
+        '200':
+          description: Deck folders.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DeckFolder'
+    post:
+      tags: [DeckFolders]
+      summary: Create a deck folder.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeckFolderRequest'
+      responses:
+        '201':
+          description: Created deck folder.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [folder]
+                properties:
+                  folder:
+                    $ref: '#/components/schemas/DeckFolder'
+        '400':
+          $ref: '#/components/responses/Error'
+  /deck-folders/{id}:
+    patch:
+      tags: [DeckFolders]
+      summary: Rename a deck folder.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeckFolderRequest'
+      responses:
+        '200':
+          description: Updated deck folder.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [folder]
+                properties:
+                  folder:
+                    $ref: '#/components/schemas/DeckFolder'
+        '400':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+    delete:
+      tags: [DeckFolders]
+      summary: Delete a deck folder and leave its decks without folder.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '204':
+          description: Deleted.
+        '404':
+          $ref: '#/components/responses/Error'
   /decks:
     get:
       tags: [Decks]
       summary: List authenticated user's decks.
+      parameters:
+        - name: folderId
+          in: query
+          description: Use a folder UUID or the literal null for decks without folder.
+          schema:
+            type: string
       responses:
         '200':
           description: Deck list.
@@ -163,11 +325,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required: [name]
-              properties:
-                name:
-                  type: string
+              $ref: '#/components/schemas/CreateDeckRequest'
       responses:
         '201':
           description: Created deck.
@@ -212,6 +370,9 @@ paths:
               properties:
                 name:
                   type: string
+                folderId:
+                  type: [string, 'null']
+                  format: uuid
       responses:
         '200':
           description: Updated deck.
@@ -262,6 +423,97 @@ paths:
                     type: array
                     items:
                       type: string
+  /decks/{id}/cards:
+    post:
+      tags: [Decks]
+      summary: Add or increment a card in a deck.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeckCardMutation'
+      responses:
+        '201':
+          description: Updated deck.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [deck]
+                properties:
+                  deck:
+                    $ref: '#/components/schemas/Deck'
+        '400':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+  /decks/{id}/cards/{deckCardId}:
+    patch:
+      tags: [Decks]
+      summary: Update a deck card quantity or section.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - name: deckCardId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                quantity:
+                  type: integer
+                  minimum: 1
+                section:
+                  type: string
+                  enum: [main, commander]
+      responses:
+        '200':
+          description: Updated deck.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [deck]
+                properties:
+                  deck:
+                    $ref: '#/components/schemas/Deck'
+        '400':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+    delete:
+      tags: [Decks]
+      summary: Remove a card entry from a deck.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - name: deckCardId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Updated deck.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [deck]
+                properties:
+                  deck:
+                    $ref: '#/components/schemas/Deck'
+        '404':
+          $ref: '#/components/responses/Error'
   /decks/{id}/validate-commander:
     post:
       tags: [Decks]
@@ -653,7 +905,7 @@ components:
           type: [string, 'null']
     DeckSummary:
       type: object
-      required: [id, name, format]
+      required: [id, name, format, folderId]
       properties:
         id:
           type: string
@@ -663,6 +915,9 @@ components:
         format:
           type: string
           enum: [commander]
+        folderId:
+          type: [string, 'null']
+          format: uuid
     Deck:
       allOf:
         - $ref: '#/components/schemas/DeckSummary'
@@ -697,6 +952,45 @@ components:
           type: array
           items:
             type: string
+    DeckFolder:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+    DeckFolderRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+    CreateDeckRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        folderId:
+          type: [string, 'null']
+          format: uuid
+    DeckCardMutation:
+      type: object
+      required: [scryfallId]
+      properties:
+        scryfallId:
+          type: string
+          format: uuid
+        quantity:
+          type: integer
+          minimum: 1
+          default: 1
+        section:
+          type: string
+          enum: [main, commander]
+          default: main
     DeckSelection:
       type: object
       properties:

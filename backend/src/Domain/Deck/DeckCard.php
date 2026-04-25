@@ -37,12 +37,17 @@ class DeckCard
         $this->deck = $deck;
         $this->card = $card;
         $this->quantity = max(1, $quantity);
-        $this->section = $section;
+        $this->moveToSection($section);
     }
 
     public function card(): Card
     {
         return $this->card;
+    }
+
+    public function id(): string
+    {
+        return $this->id;
     }
 
     public function quantity(): int
@@ -53,6 +58,20 @@ class DeckCard
     public function section(): string
     {
         return $this->section;
+    }
+
+    public function changeQuantity(int $quantity): void
+    {
+        $this->quantity = max(1, $quantity);
+    }
+
+    public function moveToSection(string $section): void
+    {
+        if (!in_array($section, [self::SECTION_MAIN, self::SECTION_COMMANDER], true)) {
+            throw new \InvalidArgumentException('Invalid deck card section.');
+        }
+
+        $this->section = $section;
     }
 
     public function toArray(): array

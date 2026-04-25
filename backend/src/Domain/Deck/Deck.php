@@ -26,6 +26,10 @@ class Deck
     #[ORM\Column(type: 'string', length: 40)]
     private string $format = 'commander';
 
+    #[ORM\ManyToOne(targetEntity: DeckFolder::class)]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    private ?DeckFolder $folder = null;
+
     #[ORM\OneToMany(mappedBy: 'deck', targetEntity: DeckCard::class, cascade: ['persist', 'remove'], orphanRemoval: true)]
     private Collection $cards;
 
@@ -61,6 +65,17 @@ class Deck
         $this->touch();
     }
 
+    public function folder(): ?DeckFolder
+    {
+        return $this->folder;
+    }
+
+    public function moveToFolder(?DeckFolder $folder): void
+    {
+        $this->folder = $folder;
+        $this->touch();
+    }
+
     public function clearCards(): void
     {
         $this->cards->clear();
@@ -70,6 +85,33 @@ class Deck
     public function addCard(DeckCard $card): void
     {
         $this->cards->add($card);
+        $this->touch();
+    }
+
+    public function addOrIncrementCard(\App\Domain\Card\Card $card, int $quantity, string $section): DeckCard
+    {
+        foreach ($this->cards as $deckCard) {
+            if (!$deckCard instanceof DeckCard) {
+                continue;
+            }
+
+            if ($deckCard->card()->scryfallId() === $card->scryfallId() && $deckCard->section() === $section) {
+                $deckCard->changeQuantity($deckCard->quantity() + $quantity);
+                $this->touch();
+
+                return $deckCard;
+            }
+        }
+
+        $deckCard = new DeckCard($this, $card, $quantity, $section);
+        $this->addCard($deckCard);
+
+        return $deckCard;
+    }
+
+    public function removeCard(DeckCard $card): void
+    {
+        $this->cards->removeElement($card);
         $this->touch();
     }
 
@@ -89,6 +131,7 @@ class Deck
             'id' => $this->id,
             'name' => $this->name,
             'format' => $this->format,
+            'folderId' => $this->folder?->id(),
         ];
 
         if ($withCards) {

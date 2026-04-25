@@ -7,6 +7,7 @@ use App\Application\Deck\DecklistParser;
 use App\Domain\Card\Card;
 use App\Domain\Deck\Deck;
 use App\Domain\Deck\DeckCard;
+use App\Domain\Deck\DeckFolder;
 use App\Domain\User\User;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -17,9 +18,23 @@ use Symfony\Component\Security\Http\Attribute\CurrentUser;
 class DecksController extends ApiController
 {
     #[Route('/decks', methods: ['GET'])]
-    public function list(#[CurrentUser] User $user, EntityManagerInterface $entityManager): JsonResponse
+    public function list(Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager): JsonResponse
     {
-        $decks = $entityManager->getRepository(Deck::class)->findBy(['owner' => $user], ['id' => 'DESC']);
+        $criteria = ['owner' => $user];
+        if ($request->query->has('folderId')) {
+            $folderId = (string) $request->query->get('folderId');
+            if ($folderId === 'null' || $folderId === '') {
+                $criteria['folder'] = null;
+            } else {
+                $folder = $this->ownedFolder($folderId, $user, $entityManager);
+                if (!$folder) {
+                    return $this->fail('Folder not found.', 404);
+                }
+                $criteria['folder'] = $folder;
+            }
+        }
+
+        $decks = $entityManager->getRepository(Deck::class)->findBy($criteria, ['id' => 'DESC']);
 
         return $this->json(['data' => array_map(static fn (Deck $deck) => $deck->toArray(), $decks)]);
     }
@@ -34,6 +49,11 @@ class DecksController extends ApiController
         }
 
         $deck = new Deck($user, $name);
+        $folder = $this->folderFromPayload($payload, $user, $entityManager);
+        if ($folder === false) {
+            return $this->fail('Folder not found.', 404);
+        }
+        $deck->moveToFolder($folder);
         $entityManager->persist($deck);
         $entityManager->flush();
 
@@ -62,6 +82,13 @@ class DecksController extends ApiController
         $payload = $this->payload($request);
         if (isset($payload['name'])) {
             $deck->rename((string) $payload['name']);
+        }
+        if (array_key_exists('folderId', $payload)) {
+            $folder = $this->folderFromPayload($payload, $user, $entityManager);
+            if ($folder === false) {
+                return $this->fail('Folder not found.', 404);
+            }
+            $deck->moveToFolder($folder);
         }
 
         $entityManager->flush();
@@ -118,6 +145,81 @@ class DecksController extends ApiController
         ]);
     }
 
+    #[Route('/decks/{id}/cards', methods: ['POST'])]
+    public function addCard(string $id, Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager): JsonResponse
+    {
+        $deck = $this->ownedDeck($id, $user, $entityManager);
+        if (!$deck) {
+            return $this->fail('Deck not found.', 404);
+        }
+
+        $payload = $this->payload($request);
+        $section = (string) ($payload['section'] ?? DeckCard::SECTION_MAIN);
+        if (!$this->isValidSection($section)) {
+            return $this->fail('section must be main or commander.');
+        }
+
+        $card = $entityManager->getRepository(Card::class)->findOneBy(['scryfallId' => (string) ($payload['scryfallId'] ?? '')]);
+        if (!$card instanceof Card) {
+            return $this->fail('Card not found.', 404);
+        }
+
+        $deck->addOrIncrementCard($card, (int) ($payload['quantity'] ?? 1), $section);
+        $entityManager->flush();
+
+        return $this->json(['deck' => $deck->toArray(true)], 201);
+    }
+
+    #[Route('/decks/{id}/cards/{deckCardId}', methods: ['PATCH'])]
+    public function updateCard(string $id, string $deckCardId, Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager): JsonResponse
+    {
+        $deck = $this->ownedDeck($id, $user, $entityManager);
+        if (!$deck) {
+            return $this->fail('Deck not found.', 404);
+        }
+
+        $deckCard = $this->deckCard($deck, $deckCardId);
+        if (!$deckCard) {
+            return $this->fail('Deck card not found.', 404);
+        }
+
+        $payload = $this->payload($request);
+        if (isset($payload['quantity'])) {
+            $deckCard->changeQuantity((int) $payload['quantity']);
+        }
+        if (isset($payload['section'])) {
+            $section = (string) $payload['section'];
+            if (!$this->isValidSection($section)) {
+                return $this->fail('section must be main or commander.');
+            }
+            $deckCard->moveToSection($section);
+        }
+        $deck->touch();
+        $entityManager->flush();
+
+        return $this->json(['deck' => $deck->toArray(true)]);
+    }
+
+    #[Route('/decks/{id}/cards/{deckCardId}', methods: ['DELETE'])]
+    public function deleteCard(string $id, string $deckCardId, #[CurrentUser] User $user, EntityManagerInterface $entityManager): JsonResponse
+    {
+        $deck = $this->ownedDeck($id, $user, $entityManager);
+        if (!$deck) {
+            return $this->fail('Deck not found.', 404);
+        }
+
+        $deckCard = $this->deckCard($deck, $deckCardId);
+        if (!$deckCard) {
+            return $this->fail('Deck card not found.', 404);
+        }
+
+        $deck->removeCard($deckCard);
+        $entityManager->remove($deckCard);
+        $entityManager->flush();
+
+        return $this->json(['deck' => $deck->toArray(true)]);
+    }
+
     #[Route('/decks/{id}/validate-commander', methods: ['POST'])]
     public function validateCommander(string $id, #[CurrentUser] User $user, EntityManagerInterface $entityManager, CommanderDeckValidator $validator): JsonResponse
     {
@@ -134,5 +236,40 @@ class DecksController extends ApiController
         $deck = $entityManager->getRepository(Deck::class)->find($id);
 
         return $deck instanceof Deck && $deck->owner()->id() === $user->id() ? $deck : null;
+    }
+
+    private function ownedFolder(string $id, User $user, EntityManagerInterface $entityManager): ?DeckFolder
+    {
+        $folder = $entityManager->getRepository(DeckFolder::class)->find($id);
+
+        return $folder instanceof DeckFolder && $folder->owner()->id() === $user->id() ? $folder : null;
+    }
+
+    /**
+     * @return DeckFolder|false|null
+     */
+    private function folderFromPayload(array $payload, User $user, EntityManagerInterface $entityManager): DeckFolder|false|null
+    {
+        if (!array_key_exists('folderId', $payload) || $payload['folderId'] === null || $payload['folderId'] === '') {
+            return null;
+        }
+
+        return $this->ownedFolder((string) $payload['folderId'], $user, $entityManager) ?? false;
+    }
+
+    private function deckCard(Deck $deck, string $deckCardId): ?DeckCard
+    {
+        foreach ($deck->cards() as $deckCard) {
+            if ($deckCard instanceof DeckCard && $deckCard->id() === $deckCardId) {
+                return $deckCard;
+            }
+        }
+
+        return null;
+    }
+
+    private function isValidSection(string $section): bool
+    {
+        return in_array($section, [DeckCard::SECTION_MAIN, DeckCard::SECTION_COMMANDER], true);
     }
 }
