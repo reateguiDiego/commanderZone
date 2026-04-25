@@ -1,0 +1,71 @@
+import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { LucideAngularModule } from 'lucide-angular';
+import { AuthStore } from '../../core/auth/auth.store';
+
+@Component({
+  selector: 'app-dashboard-shell',
+  imports: [
+    RouterOutlet,
+    RouterLink,
+    RouterLinkActive,
+    LucideAngularModule,
+  ],
+  template: `
+    <div class="app-frame">
+      <aside class="sidebar">
+        <a class="brand" routerLink="/dashboard" aria-label="CommanderZone dashboard">
+          <span class="brand-mark">CZ</span>
+          <span>
+            <strong>CommanderZone</strong>
+            <small>Manual Commander table</small>
+          </span>
+        </a>
+
+        <nav class="nav-list" aria-label="Primary">
+          <a routerLink="/cards" routerLinkActive="active">
+            <lucide-icon name="credit-card" size="18" />
+            Cards
+          </a>
+          <a routerLink="/decks" routerLinkActive="active">
+            <lucide-icon name="layers-3" size="18" />
+            Decks
+          </a>
+          <a routerLink="/rooms" routerLinkActive="active">
+            <lucide-icon name="door-open" size="18" />
+            Rooms
+          </a>
+        </nav>
+      </aside>
+
+      <main class="workspace">
+        <header class="topbar">
+          <div>
+            <span class="eyebrow">Commander online</span>
+            <h1>Game Control</h1>
+          </div>
+
+          <div class="user-strip">
+            <lucide-icon name="circle-user-round" size="18" />
+            <span>{{ auth.user()?.displayName ?? 'Player' }}</span>
+            <button class="icon-button" type="button" title="Logout" (click)="logout()">
+              <lucide-icon name="log-out" size="18" />
+            </button>
+          </div>
+        </header>
+
+        <router-outlet />
+      </main>
+    </div>
+  `,
+  changeDetection: ChangeDetectionStrategy.OnPush,
+})
+export class DashboardShellComponent {
+  readonly auth = inject(AuthStore);
+  private readonly router = inject(Router);
+
+  logout(): void {
+    this.auth.logout();
+    void this.router.navigate(['/auth/login']);
+  }
+}
