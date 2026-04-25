@@ -2,6 +2,7 @@
 
 namespace App\Domain\Deck;
 
+use App\Domain\Card\Card;
 use App\Domain\User\User;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
@@ -93,7 +94,23 @@ class Deck
         $this->touch();
     }
 
-    public function addOrIncrementCard(\App\Domain\Card\Card $card, int $quantity, string $section): DeckCard
+    public function addOrIncrementCard(Card $card, int $quantity, string $section): DeckCard
+    {
+        $existing = $this->findCardEntry($card, $section);
+        if ($existing instanceof DeckCard) {
+            $existing->changeQuantity($existing->quantity() + $quantity);
+            $this->touch();
+
+            return $existing;
+        }
+
+        $deckCard = new DeckCard($this, $card, $quantity, $section);
+        $this->addCard($deckCard);
+
+        return $deckCard;
+    }
+
+    public function findCardEntry(Card $card, string $section): ?DeckCard
     {
         foreach ($this->cards as $deckCard) {
             if (!$deckCard instanceof DeckCard) {
@@ -101,15 +118,29 @@ class Deck
             }
 
             if ($deckCard->card()->scryfallId() === $card->scryfallId() && $deckCard->section() === $section) {
-                $deckCard->changeQuantity($deckCard->quantity() + $quantity);
-                $this->touch();
-
                 return $deckCard;
             }
         }
 
-        $deckCard = new DeckCard($this, $card, $quantity, $section);
-        $this->addCard($deckCard);
+        return null;
+    }
+
+    public function moveOrMergeCard(DeckCard $deckCard, string $section): DeckCard
+    {
+        if ($deckCard->section() === $section) {
+            return $deckCard;
+        }
+
+        $existing = $this->findCardEntry($deckCard->card(), $section);
+        if ($existing instanceof DeckCard) {
+            $existing->changeQuantity($existing->quantity() + $deckCard->quantity());
+            $this->removeCard($deckCard);
+
+            return $existing;
+        }
+
+        $deckCard->moveToSection($section);
+        $this->touch();
 
         return $deckCard;
     }

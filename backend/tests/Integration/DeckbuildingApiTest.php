@@ -154,4 +154,143 @@ TXT,
         ], $otherToken);
         self::assertResponseStatusCodeSame(404);
     }
+
+    public function testAuthoritativeDeckEditingEndpoints(): void
+    {
+        $token = $this->registerAndLogin('editor@example.test', 'Editor');
+        $otherToken = $this->registerAndLogin('outsider@example.test', 'Outsider');
+        $commanderA = $this->seedCard('00000000-0000-0000-0000-000000000101', 'Commander A', [
+            'type_line' => 'Legendary Creature',
+            'set' => 'tst',
+            'collector_number' => '10',
+        ]);
+        $commanderB = $this->seedCard('00000000-0000-0000-0000-000000000102', 'Commander B', [
+            'type_line' => 'Legendary Creature',
+            'set' => 'tst',
+            'collector_number' => '11',
+        ]);
+        $solRing = $this->seedCard('00000000-0000-0000-0000-000000000103', 'Sol Ring', [
+            'set' => 'tst',
+            'collector_number' => '1',
+        ]);
+        $island = $this->seedCard('00000000-0000-0000-0000-000000000104', 'Island', [
+            'type_line' => 'Basic Land - Island',
+            'set' => 'tst',
+            'collector_number' => '2',
+        ]);
+        $this->seedCard('00000000-0000-0000-0000-000000000105', 'Ambiguous Card', [
+            'set' => 'a01',
+            'collector_number' => '1',
+        ]);
+        $this->seedCard('00000000-0000-0000-0000-000000000106', 'Ambiguous Card', [
+            'set' => 'a02',
+            'collector_number' => '1',
+        ]);
+
+        $this->jsonRequest('POST', '/decks/quick-build', [
+            'name' => 'Quick Deck',
+            'cards' => [
+                ['setCode' => 'tst', 'collectorNumber' => '1', 'quantity' => 2],
+                ['name' => 'Missing Card', 'quantity' => 1],
+            ],
+        ], $token);
+        self::assertResponseStatusCodeSame(201);
+        $quick = $this->jsonResponse();
+        self::assertSame(['Missing Card'], $quick['missing']);
+        self::assertCount(1, $quick['missingCards']);
+        $deckId = (string) $quick['deck']['id'];
+        self::assertSame(2, $quick['deck']['cards'][0]['quantity']);
+        $solRingDeckCardId = (string) $quick['deck']['cards'][0]['id'];
+
+        $this->jsonRequest('POST', '/decks/'.$deckId.'/cards', [
+            'setCode' => 'tst',
+            'collectorNumber' => '2',
+            'quantity' => 3,
+        ], $token);
+        self::assertResponseStatusCodeSame(201);
+        $deck = $this->jsonResponse()['deck'];
+        $islandLine = $this->lineByScryfallId($deck['cards'], $island->scryfallId(), 'main');
+        self::assertSame(3, $islandLine['quantity']);
+
+        $this->jsonRequest('POST', '/decks/'.$deckId.'/cards', [
+            'name' => 'Ambiguous Card',
+        ], $token);
+        self::assertResponseStatusCodeSame(409);
+        self::assertCount(2, $this->jsonResponse()['matches']);
+
+        $this->jsonRequest('PUT', '/decks/'.$deckId.'/commanders', [
+            'cards' => [
+                ['scryfallId' => $solRing->scryfallId()],
+                ['scryfallId' => $commanderA->scryfallId()],
+            ],
+        ], $token);
+        self::assertResponseIsSuccessful();
+        $deck = $this->jsonResponse()['deck'];
+        self::assertSame(1, $this->lineByScryfallId($deck['cards'], $solRing->scryfallId(), 'main')['quantity']);
+        self::assertSame(1, $this->lineByScryfallId($deck['cards'], $solRing->scryfallId(), 'commander')['quantity']);
+        self::assertSame(1, $this->lineByScryfallId($deck['cards'], $commanderA->scryfallId(), 'commander')['quantity']);
+
+        $this->jsonRequest('PUT', '/decks/'.$deckId.'/commanders', [
+            'cards' => [
+                ['scryfallId' => $commanderB->scryfallId()],
+            ],
+        ], $token);
+        self::assertResponseIsSuccessful();
+        $deck = $this->jsonResponse()['deck'];
+        self::assertSame(2, $this->lineByScryfallId($deck['cards'], $solRing->scryfallId(), 'main')['quantity']);
+        self::assertSame(1, $this->lineByScryfallId($deck['cards'], $commanderA->scryfallId(), 'main')['quantity']);
+        self::assertSame(1, $this->lineByScryfallId($deck['cards'], $commanderB->scryfallId(), 'commander')['quantity']);
+
+        $islandLine = $this->lineByScryfallId($deck['cards'], $island->scryfallId(), 'main');
+        $this->jsonRequest('PATCH', '/decks/'.$deckId.'/cards', [
+            'cards' => [
+                ['deckCardId' => $solRingDeckCardId, 'quantity' => 4],
+                ['deckCardId' => $islandLine['id'], 'quantity' => 0],
+            ],
+        ], $token);
+        self::assertResponseIsSuccessful();
+        $deck = $this->jsonResponse()['deck'];
+        self::assertSame(4, $this->lineByScryfallId($deck['cards'], $solRing->scryfallId(), 'main')['quantity']);
+        self::assertNull($this->lineByScryfallIdOrNull($deck['cards'], $island->scryfallId(), 'main'));
+
+        $this->jsonRequest('PUT', '/decks/'.$deckId.'/commanders', [
+            'cards' => [
+                ['scryfallId' => $commanderA->scryfallId()],
+                ['scryfallId' => $commanderB->scryfallId()],
+                ['scryfallId' => $solRing->scryfallId()],
+            ],
+        ], $token);
+        self::assertResponseStatusCodeSame(400);
+
+        $this->jsonRequest('PATCH', '/decks/'.$deckId.'/cards', ['cards' => []], $otherToken);
+        self::assertResponseStatusCodeSame(404);
+
+        $this->jsonRequest('PUT', '/decks/'.$deckId.'/commanders', ['cards' => []], $otherToken);
+        self::assertResponseStatusCodeSame(404);
+
+        $this->jsonRequest('POST', '/decks/quick-build', [
+            'name' => 'Outsider Folder',
+            'folderId' => '00000000-0000-0000-0000-000000000000',
+        ], $otherToken);
+        self::assertResponseStatusCodeSame(404);
+    }
+
+    private function lineByScryfallId(array $cards, string $scryfallId, string $section): array
+    {
+        $line = $this->lineByScryfallIdOrNull($cards, $scryfallId, $section);
+        self::assertIsArray($line);
+
+        return $line;
+    }
+
+    private function lineByScryfallIdOrNull(array $cards, string $scryfallId, string $section): ?array
+    {
+        foreach ($cards as $line) {
+            if (($line['card']['scryfallId'] ?? null) === $scryfallId && ($line['section'] ?? null) === $section) {
+                return $line;
+            }
+        }
+
+        return null;
+    }
 }

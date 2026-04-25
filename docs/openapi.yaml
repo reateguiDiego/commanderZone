@@ -488,6 +488,41 @@ paths:
                 properties:
                   deck:
                     $ref: '#/components/schemas/Deck'
+  /decks/quick-build:
+    post:
+      tags: [Decks]
+      summary: Create a deck and add initial cards in one request.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeckQuickBuildRequest'
+      responses:
+        '201':
+          description: Created deck with unresolved card details.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [deck, missing, missingCards]
+                properties:
+                  deck:
+                    $ref: '#/components/schemas/Deck'
+                  missing:
+                    type: array
+                    items:
+                      type: string
+                  missingCards:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MissingDeckCard'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
   /decks/{id}:
     get:
       tags: [Decks]
@@ -624,10 +659,41 @@ paths:
           $ref: '#/components/responses/Error'
         '404':
           $ref: '#/components/responses/Error'
+  /decks/{id}/commanders:
+    put:
+      tags: [Decks]
+      summary: Replace the deck command zone with one or two cards.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommanderReplacementRequest'
+      responses:
+        '200':
+          description: Updated deck.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [deck]
+                properties:
+                  deck:
+                    $ref: '#/components/schemas/Deck'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
   /decks/{id}/cards:
     post:
       tags: [Decks]
-      summary: Add or increment a card in a deck.
+      summary: Add or increment a card in a deck by Scryfall id, name, or print.
       parameters:
         - $ref: '#/components/parameters/Id'
       requestBody:
@@ -648,6 +714,36 @@ paths:
                   deck:
                     $ref: '#/components/schemas/Deck'
         '400':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+    patch:
+      tags: [Decks]
+      summary: Update multiple deck card entries.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeckCardsBatchRequest'
+      responses:
+        '200':
+          description: Updated deck.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [deck]
+                properties:
+                  deck:
+                    $ref: '#/components/schemas/Deck'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
           $ref: '#/components/responses/Error'
         '404':
           $ref: '#/components/responses/Error'
@@ -1395,7 +1491,11 @@ components:
           type: string
         reason:
           type: string
-          enum: [not_found]
+          enum: [not_found, ambiguous]
+        matches:
+          type: array
+          items:
+            $ref: '#/components/schemas/Card'
     DecklistParseResult:
       type: object
       required: [format, entries, summary, missingCards, warnings]
@@ -1435,13 +1535,27 @@ components:
         folderId:
           type: [string, 'null']
           format: uuid
+    DeckQuickBuildRequest:
+      allOf:
+        - $ref: '#/components/schemas/CreateDeckRequest'
+        - type: object
+          properties:
+            cards:
+              type: array
+              items:
+                $ref: '#/components/schemas/DeckCardMutation'
     DeckCardMutation:
       type: object
-      required: [scryfallId]
       properties:
         scryfallId:
           type: string
           format: uuid
+        name:
+          type: string
+        setCode:
+          type: string
+        collectorNumber:
+          type: string
         quantity:
           type: integer
           minimum: 1
@@ -1450,6 +1564,51 @@ components:
           type: string
           enum: [main, commander]
           default: main
+    DeckCardBatchMutation:
+      type: object
+      required: [deckCardId]
+      properties:
+        deckCardId:
+          type: string
+          format: uuid
+        quantity:
+          type: integer
+          minimum: 0
+        section:
+          type: string
+          enum: [main, commander]
+    DeckCardsBatchRequest:
+      type: object
+      required: [cards]
+      properties:
+        cards:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeckCardBatchMutation'
+    CommanderCardInput:
+      type: object
+      properties:
+        deckCardId:
+          type: string
+          format: uuid
+        scryfallId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        setCode:
+          type: string
+        collectorNumber:
+          type: string
+    CommanderReplacementRequest:
+      type: object
+      required: [cards]
+      properties:
+        cards:
+          type: array
+          maxItems: 2
+          items:
+            $ref: '#/components/schemas/CommanderCardInput'
     DeckSelection:
       type: object
       properties:
