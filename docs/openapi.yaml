@@ -522,6 +522,23 @@ paths:
       responses:
         '204':
           description: Deleted.
+  /decks/{id}/analysis:
+    get:
+      tags: [Decks]
+      summary: Analyze deck composition for deckbuilding UI.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Deck analysis.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeckAnalysis'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
   /decks/{id}/import:
     post:
       tags: [Decks]
@@ -657,6 +674,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ValidationResult'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
   /rooms:
     get:
       tags: [Rooms]
@@ -1091,9 +1112,115 @@ components:
           enum: [main, commander]
         card:
           $ref: '#/components/schemas/Card'
+    DeckMetric:
+      type: object
+      required: [label, count, cards]
+      properties:
+        label:
+          type: string
+        count:
+          type: integer
+        cards:
+          type: array
+          items:
+            type: string
+    ManaCurveBucket:
+      type: object
+      required: [manaValue, count]
+      properties:
+        manaValue:
+          type: integer
+          minimum: 0
+          maximum: 7
+        count:
+          type: integer
+    LandTypeCount:
+      type: object
+      required: [label, symbol, count]
+      properties:
+        label:
+          type: string
+        symbol:
+          type: string
+          enum: [W, U, B, R, G]
+        count:
+          type: integer
+    DeckAnalysis:
+      type: object
+      required:
+        - totalCards
+        - landCount
+        - nonlandCount
+        - colorPips
+        - landTypes
+        - manaCurve
+        - creatures
+        - artifacts
+        - enchantments
+        - instants
+        - sorceries
+        - planeswalkers
+        - ramp
+        - draw
+        - removal
+        - wipes
+      properties:
+        totalCards:
+          type: integer
+        landCount:
+          type: integer
+        nonlandCount:
+          type: integer
+        colorPips:
+          type: object
+          additionalProperties:
+            type: integer
+        landTypes:
+          type: array
+          items:
+            $ref: '#/components/schemas/LandTypeCount'
+        manaCurve:
+          type: array
+          items:
+            $ref: '#/components/schemas/ManaCurveBucket'
+        creatures:
+          $ref: '#/components/schemas/DeckMetric'
+        artifacts:
+          $ref: '#/components/schemas/DeckMetric'
+        enchantments:
+          $ref: '#/components/schemas/DeckMetric'
+        instants:
+          $ref: '#/components/schemas/DeckMetric'
+        sorceries:
+          $ref: '#/components/schemas/DeckMetric'
+        planeswalkers:
+          $ref: '#/components/schemas/DeckMetric'
+        ramp:
+          $ref: '#/components/schemas/DeckMetric'
+        draw:
+          $ref: '#/components/schemas/DeckMetric'
+        removal:
+          $ref: '#/components/schemas/DeckMetric'
+        wipes:
+          $ref: '#/components/schemas/DeckMetric'
+    CommanderValidationIssue:
+      type: object
+      required: [severity, title, detail, cards]
+      properties:
+        severity:
+          type: string
+          enum: [error, warning]
+        title:
+          type: string
+        detail:
+          type: string
+        cards:
+          type: array
+          items:
+            type: string
     ValidationResult:
       type: object
-      required: [valid, errors]
+      required: [valid, errors, issues]
       properties:
         valid:
           type: boolean
@@ -1101,6 +1228,10 @@ components:
           type: array
           items:
             type: string
+        issues:
+          type: array
+          items:
+            $ref: '#/components/schemas/CommanderValidationIssue'
     DeckFolder:
       type: object
       required: [id, name]

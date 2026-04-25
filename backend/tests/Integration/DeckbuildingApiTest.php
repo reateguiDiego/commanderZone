@@ -9,6 +9,9 @@ class DeckbuildingApiTest extends ApiTestCase
         $token = $this->registerAndLogin('owner@example.test', 'Owner');
         $otherToken = $this->registerAndLogin('other@example.test', 'Other');
         $solRing = $this->seedCard('00000000-0000-0000-0000-000000000001', 'Sol Ring', [
+            'mana_cost' => '{1}',
+            'type_line' => 'Artifact',
+            'oracle_text' => '{T}: Add {C}{C}.',
             'set' => 'tst',
             'collector_number' => '1',
         ]);
@@ -81,5 +84,24 @@ TXT,
         self::assertSame([], $response['missing']);
         self::assertCount(2, $response['deck']['cards']);
         self::assertContains($island->scryfallId(), array_map(static fn (array $card) => $card['card']['scryfallId'], $response['deck']['cards']));
+
+        $this->jsonRequest('GET', '/decks/'.$deckId.'/analysis', token: $token);
+        self::assertResponseIsSuccessful();
+        $analysis = $this->jsonResponse();
+        self::assertSame(3, $analysis['totalCards']);
+        self::assertSame(2, $analysis['landCount']);
+        self::assertSame(1, $analysis['nonlandCount']);
+        self::assertSame(1, $analysis['artifacts']['count']);
+        self::assertSame(['Sol Ring'], $analysis['ramp']['cards']);
+
+        $this->jsonRequest('POST', '/decks/'.$deckId.'/validate-commander', token: $token);
+        self::assertResponseIsSuccessful();
+        $validation = $this->jsonResponse();
+        self::assertFalse($validation['valid']);
+        self::assertNotEmpty($validation['errors']);
+        self::assertContains('Missing commander', array_column($validation['issues'], 'title'));
+
+        $this->jsonRequest('GET', '/decks/'.$deckId.'/analysis', token: $otherToken);
+        self::assertResponseStatusCodeSame(404);
     }
 }

@@ -3,6 +3,7 @@
 namespace App\UI\Http;
 
 use App\Application\Deck\CommanderDeckValidator;
+use App\Application\Deck\DeckAnalysisService;
 use App\Application\Deck\DecklistParser;
 use App\Application\Card\CardResolver;
 use App\Domain\Card\Card;
@@ -70,6 +71,17 @@ class DecksController extends ApiController
         }
 
         return $this->json(['deck' => $deck->toArray(true)]);
+    }
+
+    #[Route('/decks/{id}/analysis', methods: ['GET'])]
+    public function analysis(string $id, #[CurrentUser] User $user, EntityManagerInterface $entityManager, DeckAnalysisService $analysis): JsonResponse
+    {
+        $deck = $this->ownedDeck($id, $user, $entityManager);
+        if (!$deck) {
+            return $this->fail('Deck not found.', 404);
+        }
+
+        return $this->json($analysis->analyze($deck));
     }
 
     #[Route('/decks/{id}', methods: ['PATCH'])]
