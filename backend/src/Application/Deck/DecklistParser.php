@@ -88,6 +88,51 @@ class DecklistParser
         return in_array($normalized, self::SUPPORTED_FORMATS, true) ? $normalized : null;
     }
 
+    public function resolveFormat(mixed $format, string $decklist): ?string
+    {
+        if ($format !== null && trim((string) $format) !== '') {
+            return $this->normalizeFormat($format);
+        }
+
+        return $this->detectFormat($decklist);
+    }
+
+    public function detectFormat(string $decklist): string
+    {
+        $archidektHeaders = 0;
+        $moxfieldPrintLines = 0;
+        $moxfieldQuantityLines = 0;
+
+        foreach (preg_split('/\R/', $decklist) ?: [] as $rawLine) {
+            $line = trim($rawLine);
+            if ($line === '' || str_starts_with($line, '//')) {
+                continue;
+            }
+
+            if (preg_match('/^(commanders?|command zone|deck|main|mainboard|creatures|artifacts|instants|sorceries|enchantments|planeswalkers|lands)\s*\(\d+\)\s*:?\s*$/i', $line) === 1) {
+                ++$archidektHeaders;
+                continue;
+            }
+
+            if (preg_match('/^\d+x\s+.+/i', $line) === 1) {
+                ++$moxfieldQuantityLines;
+                if (preg_match('/\([A-Z0-9]{2,8}\)\s+\S+/i', $line) === 1) {
+                    ++$moxfieldPrintLines;
+                }
+            }
+        }
+
+        if ($archidektHeaders > 0) {
+            return self::FORMAT_ARCHIDEKT;
+        }
+
+        if ($moxfieldPrintLines > 0 || $moxfieldQuantityLines >= 2) {
+            return self::FORMAT_MOXFIELD;
+        }
+
+        return self::FORMAT_PLAIN;
+    }
+
     private function cleanName(string $name): string
     {
         $name = preg_replace('/\s+\*[A-Z]\*\s*$/i', '', $name) ?? $name;

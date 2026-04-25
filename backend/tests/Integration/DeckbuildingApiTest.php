@@ -64,6 +64,32 @@ TXT,
         self::assertSame(2, $preview['summary']['missingCards']);
         self::assertCount(2, $preview['missingCards']);
 
+        $this->jsonRequest('POST', '/decklists/parse', [
+            'decklist' => <<<TXT
+Commander
+1x Missing Commander (TST) 999
+
+Deck
+1x Sol Ring (TST) 1
+TXT,
+        ], $token);
+        self::assertResponseIsSuccessful();
+        self::assertSame('moxfield', $this->jsonResponse()['format']);
+        self::assertSame('moxfield', $this->jsonResponse()['summary']['format']);
+
+        $this->jsonRequest('POST', '/decklists/parse', [
+            'decklist' => <<<TXT
+Commanders (1)
+1 Missing Commander (TST) 999
+
+Artifacts (1)
+1 Sol Ring (TST) 1
+TXT,
+        ], $token);
+        self::assertResponseIsSuccessful();
+        self::assertSame('archidekt', $this->jsonResponse()['format']);
+        self::assertSame('archidekt', $this->jsonResponse()['summary']['format']);
+
         $this->jsonRequest('GET', '/decks/'.$deckId, token: $token);
         self::assertResponseIsSuccessful();
         self::assertCount(0, $this->jsonResponse()['deck']['cards']);
@@ -99,12 +125,14 @@ TXT,
         $this->jsonRequest('POST', '/decks/'.$deckId.'/import', [
             'decklist' => <<<TXT
 Deck
-1 Sol Ring (TST) 1
-2 Island
+1x Sol Ring (TST) 1
+2x Island (TST) 2
 TXT,
         ], $token);
         self::assertResponseIsSuccessful();
         $response = $this->jsonResponse();
+        self::assertSame('moxfield', $response['format']);
+        self::assertSame('moxfield', $response['summary']['format']);
         self::assertSame([], $response['missing']);
         self::assertSame(3, $response['summary']['totalCards']);
         self::assertSame(3, $response['summary']['resolvedCards']);

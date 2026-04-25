@@ -84,4 +84,52 @@ TXT, DecklistParser::FORMAT_ARCHIDEKT);
         self::assertSame('main', $entries[1]['section']);
         self::assertSame('main', $entries[3]['section']);
     }
+
+    public function testDetectsMoxfieldFormat(): void
+    {
+        $format = (new DecklistParser())->detectFormat(<<<'TXT'
+Commander
+1x Atraxa, Praetors' Voice (2X2) 190
+
+Deck
+1x Sol Ring (CMM) 703
+TXT);
+
+        self::assertSame(DecklistParser::FORMAT_MOXFIELD, $format);
+    }
+
+    public function testDetectsArchidektFormat(): void
+    {
+        $format = (new DecklistParser())->detectFormat(<<<'TXT'
+Commanders (1)
+1 Esika, God of the Tree (KHM) 168
+
+Creatures (12)
+1 Birds of Paradise
+TXT);
+
+        self::assertSame(DecklistParser::FORMAT_ARCHIDEKT, $format);
+    }
+
+    public function testDetectsPlainFormatAsFallback(): void
+    {
+        $format = (new DecklistParser())->detectFormat(<<<'TXT'
+Commander
+1 Atraxa, Praetors' Voice
+
+Deck
+1 Sol Ring
+TXT);
+
+        self::assertSame(DecklistParser::FORMAT_PLAIN, $format);
+    }
+
+    public function testExplicitFormatOverridesDetection(): void
+    {
+        $parser = new DecklistParser();
+        $decklist = "1x Sol Ring (CMM) 703";
+
+        self::assertSame(DecklistParser::FORMAT_PLAIN, $parser->resolveFormat(DecklistParser::FORMAT_PLAIN, $decklist));
+        self::assertSame(DecklistParser::FORMAT_MOXFIELD, $parser->resolveFormat(null, $decklist));
+    }
 }

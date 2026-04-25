@@ -183,12 +183,13 @@ class DecksController extends ApiController
         }
 
         $payload = $this->payload($request);
-        $format = $parser->normalizeFormat($payload['format'] ?? null);
+        $decklist = (string) ($payload['decklist'] ?? '');
+        $format = $parser->resolveFormat($payload['format'] ?? null, $decklist);
         if ($format === null) {
             return $this->fail('Decklist format is invalid.');
         }
 
-        $entries = $parser->parse((string) ($payload['decklist'] ?? ''), $format);
+        $entries = $parser->parse($decklist, $format);
         if ($entries === []) {
             return $this->fail('Decklist is empty or invalid.');
         }
@@ -208,6 +209,7 @@ class DecksController extends ApiController
         $entityManager->flush();
 
         return $this->json([
+            'format' => $format,
             'deck' => $deck->toArray(true),
             'missing' => $this->missingNames($preview['missingCards']),
             'summary' => $preview['summary'],

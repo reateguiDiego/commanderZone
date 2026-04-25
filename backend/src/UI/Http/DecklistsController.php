@@ -14,12 +14,13 @@ class DecklistsController extends ApiController
     public function parse(Request $request, DecklistParser $parser, DecklistPreviewer $previewer): JsonResponse
     {
         $payload = $this->payload($request);
-        $format = $parser->normalizeFormat($payload['format'] ?? null);
+        $decklist = (string) ($payload['decklist'] ?? '');
+        $format = $parser->resolveFormat($payload['format'] ?? null, $decklist);
         if ($format === null) {
             return $this->fail('Decklist format is invalid.');
         }
 
-        $entries = $parser->parse((string) ($payload['decklist'] ?? ''), $format);
+        $entries = $parser->parse($decklist, $format);
 
         return $this->json($previewer->toArray($previewer->preview($entries, $format)));
     }

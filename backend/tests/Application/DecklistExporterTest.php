@@ -32,7 +32,7 @@ Commander
 
 Deck
 1 Sol Ring
-TXT, $exporter->export($deck, DecklistParser::FORMAT_PLAIN)['content']);
+TXT, str_replace("\r\n", "\n", $exporter->export($deck, DecklistParser::FORMAT_PLAIN)['content']));
 
         self::assertStringContainsString("1x Atraxa, Praetors' Voice (2X2) 190", $exporter->export($deck, DecklistParser::FORMAT_MOXFIELD)['content']);
         self::assertStringContainsString('Commanders', $exporter->export($deck, DecklistParser::FORMAT_ARCHIDEKT)['content']);

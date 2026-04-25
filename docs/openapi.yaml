@@ -428,6 +428,7 @@ paths:
     post:
       tags: [Decks]
       summary: Parse and resolve a decklist without modifying a deck.
+      description: If format is omitted, the backend auto-detects plain, Moxfield, or Archidekt text.
       requestBody:
         required: true
         content:
@@ -599,6 +600,7 @@ paths:
     post:
       tags: [Decks]
       summary: Replace deck cards from a text decklist.
+      description: If format is omitted, the backend auto-detects plain, Moxfield, or Archidekt text.
       parameters:
         - $ref: '#/components/parameters/Id'
       requestBody:
@@ -614,8 +616,10 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [deck, missing, summary, missingCards]
+                required: [format, deck, missing, summary, missingCards]
                 properties:
+                  format:
+                    $ref: '#/components/schemas/DecklistFormat'
                   deck:
                     $ref: '#/components/schemas/Deck'
                   missing:
@@ -1423,6 +1427,7 @@ components:
         decklist:
           type: string
         format:
+          description: Optional. When omitted, the backend auto-detects the decklist format.
           $ref: '#/components/schemas/DecklistFormat'
     DecklistEntry:
       type: object
