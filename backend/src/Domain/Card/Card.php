@@ -125,6 +125,26 @@ class Card
         return $this->typeLine;
     }
 
+    public function manaCost(): ?string
+    {
+        return $this->manaCost;
+    }
+
+    public function oracleText(): ?string
+    {
+        return $this->oracleText;
+    }
+
+    public function legalities(): array
+    {
+        return $this->legalities;
+    }
+
+    public function layout(): string
+    {
+        return $this->layout;
+    }
+
     public function imageUri(string $format): ?string
     {
         $uri = $this->imageUris[$format] ?? null;

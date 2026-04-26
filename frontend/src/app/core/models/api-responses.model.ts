@@ -43,6 +43,29 @@ export interface DeckFolderResponse {
 export interface DeckImportResponse {
   deck: Deck;
   missing: string[];
+  summary?: {
+    format: string;
+    parsedCards: number;
+    totalCards: number;
+    resolvedCards: number;
+    importedCards: number;
+    missingCards: number;
+    commanderCount: number;
+    mainCount: number;
+  };
+  missingCards?: MissingDeckCard[];
+}
+
+export interface MissingDeckCard {
+  name: string;
+  quantity: number;
+  section: string;
+  setCode: string | null;
+  collectorNumber: string | null;
+  line: number;
+  rawLine: string;
+  reason: 'not_found' | 'ambiguous' | string;
+  matches?: Card[];
 }
 
 export interface DeckFormatResponse {

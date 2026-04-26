@@ -24,6 +24,7 @@ If your PowerShell execution policy already allows local scripts, this shorter f
 - Validates the Symfony container.
 - Validates the Doctrine schema.
 - Lints YAML config and `docs/openapi.yaml`.
+- Creates and migrates the backend test database.
 - Runs backend PHPUnit tests.
 - Builds the Angular frontend.
 

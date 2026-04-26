@@ -61,6 +61,23 @@ class CardResolver
         return $this->resolveCandidates($criteria)[0] ?? null;
     }
 
+    /**
+     * @return array{card:?Card,error:?string,matches:list<Card>}
+     */
+    public function resolveUnique(array $criteria): array
+    {
+        $matches = $this->resolveCandidates($criteria);
+        if ($matches === []) {
+            return ['card' => null, 'error' => 'not_found', 'matches' => []];
+        }
+
+        if (count($matches) > 1) {
+            return ['card' => null, 'error' => 'ambiguous', 'matches' => $matches];
+        }
+
+        return ['card' => $matches[0], 'error' => null, 'matches' => $matches];
+    }
+
     public function resolveForDecklistEntry(array $entry): ?Card
     {
         if (($entry['setCode'] ?? null) !== null && ($entry['collectorNumber'] ?? null) !== null) {

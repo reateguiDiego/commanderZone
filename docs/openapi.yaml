@@ -424,6 +424,28 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/DeckFormat'
+  /decklists/parse:
+    post:
+      tags: [Decks]
+      summary: Parse and resolve a decklist without modifying a deck.
+      description: If format is omitted, the backend auto-detects plain, Moxfield, or Archidekt text.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DecklistParseRequest'
+      responses:
+        '200':
+          description: Parsed decklist preview.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DecklistParseResult'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
   /decks:
     get:
       tags: [Decks]
@@ -467,6 +489,41 @@ paths:
                 properties:
                   deck:
                     $ref: '#/components/schemas/Deck'
+  /decks/quick-build:
+    post:
+      tags: [Decks]
+      summary: Create a deck and add initial cards in one request.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeckQuickBuildRequest'
+      responses:
+        '201':
+          description: Created deck with unresolved card details.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [deck, missing, missingCards]
+                properties:
+                  deck:
+                    $ref: '#/components/schemas/Deck'
+                  missing:
+                    type: array
+                    items:
+                      type: string
+                  missingCards:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MissingDeckCard'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
   /decks/{id}:
     get:
       tags: [Decks]
@@ -522,10 +579,28 @@ paths:
       responses:
         '204':
           description: Deleted.
+  /decks/{id}/analysis:
+    get:
+      tags: [Decks]
+      summary: Analyze deck composition for deckbuilding UI.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Deck analysis.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeckAnalysis'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
   /decks/{id}/import:
     post:
       tags: [Decks]
       summary: Replace deck cards from a text decklist.
+      description: If format is omitted, the backend auto-detects plain, Moxfield, or Archidekt text.
       parameters:
         - $ref: '#/components/parameters/Id'
       requestBody:
@@ -533,11 +608,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required: [decklist]
-              properties:
-                decklist:
-                  type: string
+              $ref: '#/components/schemas/DecklistParseRequest'
       responses:
         '200':
           description: Imported deck and unresolved card names.
@@ -545,18 +616,88 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [deck, missing]
+                required: [format, deck, missing, summary, missingCards]
                 properties:
+                  format:
+                    $ref: '#/components/schemas/DecklistFormat'
                   deck:
                     $ref: '#/components/schemas/Deck'
                   missing:
                     type: array
                     items:
                       type: string
+                  summary:
+                    $ref: '#/components/schemas/DeckImportSummary'
+                  missingCards:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MissingDeckCard'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+  /decks/{id}/export:
+    get:
+      tags: [Decks]
+      summary: Export a decklist as text.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [plain, moxfield, archidekt]
+            default: plain
+      responses:
+        '200':
+          description: Exported decklist.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeckExportResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+  /decks/{id}/commanders:
+    put:
+      tags: [Decks]
+      summary: Replace the deck command zone with one or two cards.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommanderReplacementRequest'
+      responses:
+        '200':
+          description: Updated deck.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [deck]
+                properties:
+                  deck:
+                    $ref: '#/components/schemas/Deck'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
   /decks/{id}/cards:
     post:
       tags: [Decks]
-      summary: Add or increment a card in a deck.
+      summary: Add or increment a card in a deck by Scryfall id, name, or print.
       parameters:
         - $ref: '#/components/parameters/Id'
       requestBody:
@@ -577,6 +718,36 @@ paths:
                   deck:
                     $ref: '#/components/schemas/Deck'
         '400':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+    patch:
+      tags: [Decks]
+      summary: Update multiple deck card entries.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeckCardsBatchRequest'
+      responses:
+        '200':
+          description: Updated deck.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [deck]
+                properties:
+                  deck:
+                    $ref: '#/components/schemas/Deck'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
           $ref: '#/components/responses/Error'
         '404':
           $ref: '#/components/responses/Error'
@@ -657,6 +828,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ValidationResult'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
   /rooms:
     get:
       tags: [Rooms]
@@ -1091,9 +1266,115 @@ components:
           enum: [main, commander]
         card:
           $ref: '#/components/schemas/Card'
+    DeckMetric:
+      type: object
+      required: [label, count, cards]
+      properties:
+        label:
+          type: string
+        count:
+          type: integer
+        cards:
+          type: array
+          items:
+            type: string
+    ManaCurveBucket:
+      type: object
+      required: [manaValue, count]
+      properties:
+        manaValue:
+          type: integer
+          minimum: 0
+          maximum: 7
+        count:
+          type: integer
+    LandTypeCount:
+      type: object
+      required: [label, symbol, count]
+      properties:
+        label:
+          type: string
+        symbol:
+          type: string
+          enum: [W, U, B, R, G]
+        count:
+          type: integer
+    DeckAnalysis:
+      type: object
+      required:
+        - totalCards
+        - landCount
+        - nonlandCount
+        - colorPips
+        - landTypes
+        - manaCurve
+        - creatures
+        - artifacts
+        - enchantments
+        - instants
+        - sorceries
+        - planeswalkers
+        - ramp
+        - draw
+        - removal
+        - wipes
+      properties:
+        totalCards:
+          type: integer
+        landCount:
+          type: integer
+        nonlandCount:
+          type: integer
+        colorPips:
+          type: object
+          additionalProperties:
+            type: integer
+        landTypes:
+          type: array
+          items:
+            $ref: '#/components/schemas/LandTypeCount'
+        manaCurve:
+          type: array
+          items:
+            $ref: '#/components/schemas/ManaCurveBucket'
+        creatures:
+          $ref: '#/components/schemas/DeckMetric'
+        artifacts:
+          $ref: '#/components/schemas/DeckMetric'
+        enchantments:
+          $ref: '#/components/schemas/DeckMetric'
+        instants:
+          $ref: '#/components/schemas/DeckMetric'
+        sorceries:
+          $ref: '#/components/schemas/DeckMetric'
+        planeswalkers:
+          $ref: '#/components/schemas/DeckMetric'
+        ramp:
+          $ref: '#/components/schemas/DeckMetric'
+        draw:
+          $ref: '#/components/schemas/DeckMetric'
+        removal:
+          $ref: '#/components/schemas/DeckMetric'
+        wipes:
+          $ref: '#/components/schemas/DeckMetric'
+    CommanderValidationIssue:
+      type: object
+      required: [severity, title, detail, cards]
+      properties:
+        severity:
+          type: string
+          enum: [error, warning]
+        title:
+          type: string
+        detail:
+          type: string
+        cards:
+          type: array
+          items:
+            type: string
     ValidationResult:
       type: object
-      required: [valid, errors]
+      required: [valid, errors, issues]
       properties:
         valid:
           type: boolean
@@ -1101,6 +1382,10 @@ components:
           type: array
           items:
             type: string
+        issues:
+          type: array
+          items:
+            $ref: '#/components/schemas/CommanderValidationIssue'
     DeckFolder:
       type: object
       required: [id, name]
@@ -1131,6 +1416,121 @@ components:
           type: integer
         hasCommander:
           type: boolean
+    DecklistFormat:
+      type: string
+      enum: [plain, moxfield, archidekt]
+      default: plain
+    DecklistParseRequest:
+      type: object
+      required: [decklist]
+      properties:
+        decklist:
+          type: string
+        format:
+          description: Optional. When omitted, the backend auto-detects the decklist format.
+          $ref: '#/components/schemas/DecklistFormat'
+    DecklistEntry:
+      type: object
+      required: [line, quantity, name, section, setCode, collectorNumber, rawLine, resolved, card]
+      properties:
+        line:
+          type: integer
+        quantity:
+          type: integer
+          minimum: 1
+        name:
+          type: string
+        section:
+          type: string
+          enum: [main, commander]
+        setCode:
+          type: [string, 'null']
+        collectorNumber:
+          type: [string, 'null']
+        rawLine:
+          type: string
+        resolved:
+          type: boolean
+        card:
+          anyOf:
+            - $ref: '#/components/schemas/Card'
+            - type: 'null'
+    DeckImportSummary:
+      type: object
+      required: [format, parsedCards, totalCards, resolvedCards, importedCards, missingCards, commanderCount, mainCount]
+      properties:
+        format:
+          $ref: '#/components/schemas/DecklistFormat'
+        parsedCards:
+          type: integer
+        totalCards:
+          type: integer
+        resolvedCards:
+          type: integer
+        importedCards:
+          type: integer
+        missingCards:
+          type: integer
+        commanderCount:
+          type: integer
+        mainCount:
+          type: integer
+    MissingDeckCard:
+      type: object
+      required: [name, quantity, section, setCode, collectorNumber, line, rawLine, reason]
+      properties:
+        name:
+          type: string
+        quantity:
+          type: integer
+        section:
+          type: string
+          enum: [main, commander]
+        setCode:
+          type: [string, 'null']
+        collectorNumber:
+          type: [string, 'null']
+        line:
+          type: integer
+        rawLine:
+          type: string
+        reason:
+          type: string
+          enum: [not_found, ambiguous]
+        matches:
+          type: array
+          items:
+            $ref: '#/components/schemas/Card'
+    DecklistParseResult:
+      type: object
+      required: [format, entries, summary, missingCards, warnings]
+      properties:
+        format:
+          $ref: '#/components/schemas/DecklistFormat'
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/DecklistEntry'
+        summary:
+          $ref: '#/components/schemas/DeckImportSummary'
+        missingCards:
+          type: array
+          items:
+            $ref: '#/components/schemas/MissingDeckCard'
+        warnings:
+          type: array
+          items:
+            type: string
+    DeckExportResponse:
+      type: object
+      required: [format, filename, content]
+      properties:
+        format:
+          $ref: '#/components/schemas/DecklistFormat'
+        filename:
+          type: string
+        content:
+          type: string
     CreateDeckRequest:
       type: object
       required: [name]
@@ -1140,13 +1540,27 @@ components:
         folderId:
           type: [string, 'null']
           format: uuid
+    DeckQuickBuildRequest:
+      allOf:
+        - $ref: '#/components/schemas/CreateDeckRequest'
+        - type: object
+          properties:
+            cards:
+              type: array
+              items:
+                $ref: '#/components/schemas/DeckCardMutation'
     DeckCardMutation:
       type: object
-      required: [scryfallId]
       properties:
         scryfallId:
           type: string
           format: uuid
+        name:
+          type: string
+        setCode:
+          type: string
+        collectorNumber:
+          type: string
         quantity:
           type: integer
           minimum: 1
@@ -1155,6 +1569,51 @@ components:
           type: string
           enum: [main, commander]
           default: main
+    DeckCardBatchMutation:
+      type: object
+      required: [deckCardId]
+      properties:
+        deckCardId:
+          type: string
+          format: uuid
+        quantity:
+          type: integer
+          minimum: 0
+        section:
+          type: string
+          enum: [main, commander]
+    DeckCardsBatchRequest:
+      type: object
+      required: [cards]
+      properties:
+        cards:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeckCardBatchMutation'
+    CommanderCardInput:
+      type: object
+      properties:
+        deckCardId:
+          type: string
+          format: uuid
+        scryfallId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        setCode:
+          type: string
+        collectorNumber:
+          type: string
+    CommanderReplacementRequest:
+      type: object
+      required: [cards]
+      properties:
+        cards:
+          type: array
+          maxItems: 2
+          items:
+            $ref: '#/components/schemas/CommanderCardInput'
     DeckSelection:
       type: object
       properties:

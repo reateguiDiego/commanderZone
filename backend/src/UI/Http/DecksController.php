@@ -3,7 +3,10 @@
 namespace App\UI\Http;
 
 use App\Application\Deck\CommanderDeckValidator;
+use App\Application\Deck\DeckAnalysisService;
+use App\Application\Deck\DecklistExporter;
 use App\Application\Deck\DecklistParser;
+use App\Application\Deck\DecklistPreviewer;
 use App\Application\Card\CardResolver;
 use App\Domain\Card\Card;
 use App\Domain\Deck\Deck;
@@ -61,6 +64,55 @@ class DecksController extends ApiController
         return $this->json(['deck' => $deck->toArray(true)], 201);
     }
 
+    #[Route('/decks/quick-build', methods: ['POST'])]
+    public function quickBuild(Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, CardResolver $cardResolver): JsonResponse
+    {
+        $payload = $this->payload($request);
+        $name = trim((string) ($payload['name'] ?? ''));
+        if ($name === '') {
+            return $this->fail('Deck name is required.');
+        }
+
+        $deck = new Deck($user, $name);
+        $folder = $this->folderFromPayload($payload, $user, $entityManager);
+        if ($folder === false) {
+            return $this->fail('Folder not found.', 404);
+        }
+        $deck->moveToFolder($folder);
+        $entityManager->persist($deck);
+
+        $missingCards = [];
+        $cards = $payload['cards'] ?? [];
+        if (is_array($cards)) {
+            foreach ($cards as $index => $cardPayload) {
+                if (!is_array($cardPayload)) {
+                    continue;
+                }
+                $resolved = $cardResolver->resolveUnique($cardPayload);
+                $card = $resolved['card'];
+                if (!$card instanceof Card) {
+                    $missingCards[] = $this->missingCardPayload($cardPayload, $index + 1, (string) $resolved['error'], $resolved['matches']);
+                    continue;
+                }
+
+                $section = (string) ($cardPayload['section'] ?? DeckCard::SECTION_MAIN);
+                if (!$this->isValidSection($section)) {
+                    $section = DeckCard::SECTION_MAIN;
+                }
+
+                $deck->addOrIncrementCard($card, (int) ($cardPayload['quantity'] ?? 1), $section);
+            }
+        }
+
+        $entityManager->flush();
+
+        return $this->json([
+            'deck' => $deck->toArray(true),
+            'missing' => $this->missingNames($missingCards),
+            'missingCards' => $missingCards,
+        ], 201);
+    }
+
     #[Route('/decks/{id}', methods: ['GET'])]
     public function show(string $id, #[CurrentUser] User $user, EntityManagerInterface $entityManager): JsonResponse
     {
@@ -70,6 +122,17 @@ class DecksController extends ApiController
         }
 
         return $this->json(['deck' => $deck->toArray(true)]);
+    }
+
+    #[Route('/decks/{id}/analysis', methods: ['GET'])]
+    public function analysis(string $id, #[CurrentUser] User $user, EntityManagerInterface $entityManager, DeckAnalysisService $analysis): JsonResponse
+    {
+        $deck = $this->ownedDeck($id, $user, $entityManager);
+        if (!$deck) {
+            return $this->fail('Deck not found.', 404);
+        }
+
+        return $this->json($analysis->analyze($deck));
     }
 
     #[Route('/decks/{id}', methods: ['PATCH'])]
@@ -112,7 +175,7 @@ class DecksController extends ApiController
     }
 
     #[Route('/decks/{id}/import', methods: ['POST'])]
-    public function import(string $id, Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, DecklistParser $parser, CardResolver $cardResolver): JsonResponse
+    public function import(string $id, Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, DecklistParser $parser, DecklistPreviewer $previewer): JsonResponse
     {
         $deck = $this->ownedDeck($id, $user, $entityManager);
         if (!$deck) {
@@ -120,18 +183,23 @@ class DecksController extends ApiController
         }
 
         $payload = $this->payload($request);
-        $entries = $parser->parse((string) ($payload['decklist'] ?? ''));
+        $decklist = (string) ($payload['decklist'] ?? '');
+        $format = $parser->resolveFormat($payload['format'] ?? null, $decklist);
+        if ($format === null) {
+            return $this->fail('Decklist format is invalid.');
+        }
+
+        $entries = $parser->parse($decklist, $format);
         if ($entries === []) {
             return $this->fail('Decklist is empty or invalid.');
         }
 
+        $preview = $previewer->preview($entries, $format);
         $deck->clearCards();
-        $missing = [];
 
-        foreach ($entries as $entry) {
-            $card = $cardResolver->resolveForDecklistEntry($entry);
+        foreach ($preview['entries'] as $entry) {
+            $card = $entry['card'];
             if (!$card instanceof Card) {
-                $missing[] = $entry['name'];
                 continue;
             }
 
@@ -141,13 +209,32 @@ class DecksController extends ApiController
         $entityManager->flush();
 
         return $this->json([
+            'format' => $format,
             'deck' => $deck->toArray(true),
-            'missing' => array_values(array_unique($missing)),
+            'missing' => $this->missingNames($preview['missingCards']),
+            'summary' => $preview['summary'],
+            'missingCards' => $preview['missingCards'],
         ]);
     }
 
+    #[Route('/decks/{id}/export', methods: ['GET'])]
+    public function export(string $id, Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, DecklistParser $parser, DecklistExporter $exporter): JsonResponse
+    {
+        $deck = $this->ownedDeck($id, $user, $entityManager);
+        if (!$deck) {
+            return $this->fail('Deck not found.', 404);
+        }
+
+        $format = $parser->normalizeFormat($request->query->get('format'));
+        if ($format === null) {
+            return $this->fail('Decklist format is invalid.');
+        }
+
+        return $this->json($exporter->export($deck, $format));
+    }
+
     #[Route('/decks/{id}/cards', methods: ['POST'])]
-    public function addCard(string $id, Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager): JsonResponse
+    public function addCard(string $id, Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, CardResolver $cardResolver): JsonResponse
     {
         $deck = $this->ownedDeck($id, $user, $entityManager);
         if (!$deck) {
@@ -160,8 +247,15 @@ class DecksController extends ApiController
             return $this->fail('section must be main or commander.');
         }
 
-        $card = $entityManager->getRepository(Card::class)->findOneBy(['scryfallId' => (string) ($payload['scryfallId'] ?? '')]);
+        $resolved = $cardResolver->resolveUnique($payload);
+        $card = $resolved['card'];
         if (!$card instanceof Card) {
+            if ($resolved['error'] === 'ambiguous') {
+                return $this->fail('Card resolution is ambiguous.', 409, [
+                    'matches' => array_map(static fn (Card $card): array => $card->toArray(), $resolved['matches']),
+                ]);
+            }
+
             return $this->fail('Card not found.', 404);
         }
 
@@ -169,6 +263,140 @@ class DecksController extends ApiController
         $entityManager->flush();
 
         return $this->json(['deck' => $deck->toArray(true)], 201);
+    }
+
+    #[Route('/decks/{id}/cards', methods: ['PATCH'])]
+    public function updateCards(string $id, Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager): JsonResponse
+    {
+        $deck = $this->ownedDeck($id, $user, $entityManager);
+        if (!$deck) {
+            return $this->fail('Deck not found.', 404);
+        }
+
+        $cards = $this->payload($request)['cards'] ?? null;
+        if (!is_array($cards)) {
+            return $this->fail('cards must be an array.');
+        }
+
+        foreach ($cards as $payload) {
+            if (!is_array($payload)) {
+                continue;
+            }
+
+            $deckCard = $this->deckCard($deck, (string) ($payload['deckCardId'] ?? ''));
+            if (!$deckCard) {
+                return $this->fail('Deck card not found.', 404);
+            }
+
+            if (array_key_exists('quantity', $payload) && (int) $payload['quantity'] <= 0) {
+                $deck->removeCard($deckCard);
+                $entityManager->remove($deckCard);
+                continue;
+            }
+
+            if (isset($payload['quantity'])) {
+                $deckCard->changeQuantity((int) $payload['quantity']);
+            }
+
+            if (isset($payload['section'])) {
+                $section = (string) $payload['section'];
+                if (!$this->isValidSection($section)) {
+                    return $this->fail('section must be main or commander.');
+                }
+
+                $merged = $deck->moveOrMergeCard($deckCard, $section);
+                if ($merged !== $deckCard) {
+                    $entityManager->remove($deckCard);
+                }
+            }
+        }
+
+        $deck->touch();
+        $entityManager->flush();
+
+        return $this->json(['deck' => $deck->toArray(true)]);
+    }
+
+    #[Route('/decks/{id}/commanders', methods: ['PUT'])]
+    public function replaceCommanders(string $id, Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, CardResolver $cardResolver): JsonResponse
+    {
+        $deck = $this->ownedDeck($id, $user, $entityManager);
+        if (!$deck) {
+            return $this->fail('Deck not found.', 404);
+        }
+
+        $cards = $this->payload($request)['cards'] ?? null;
+        if (!is_array($cards)) {
+            return $this->fail('cards must be an array.');
+        }
+        if (count($cards) > 2) {
+            return $this->fail('Commander decks can use at most two commanders.');
+        }
+
+        $desiredCards = [];
+        foreach ($cards as $payload) {
+            if (!is_array($payload)) {
+                continue;
+            }
+
+            $source = $this->deckCard($deck, (string) ($payload['deckCardId'] ?? ''));
+            if ($source instanceof DeckCard) {
+                $card = $source->card();
+            } else {
+                $resolved = $cardResolver->resolveUnique($payload);
+                $card = $resolved['card'];
+                if (!$card instanceof Card) {
+                    if ($resolved['error'] === 'ambiguous') {
+                        return $this->fail('Card resolution is ambiguous.', 409, [
+                            'matches' => array_map(static fn (Card $card): array => $card->toArray(), $resolved['matches']),
+                        ]);
+                    }
+
+                    return $this->fail('Card not found.', 404);
+                }
+            }
+
+            $desiredCards[$card->scryfallId()] = $card;
+        }
+
+        if (count($desiredCards) > 2) {
+            return $this->fail('Commander decks can use at most two commanders.');
+        }
+
+        foreach ($this->deckCardsBySection($deck, DeckCard::SECTION_COMMANDER) as $commander) {
+            if (isset($desiredCards[$commander->card()->scryfallId()])) {
+                $commander->changeQuantity(1);
+                continue;
+            }
+
+            $deck->addOrIncrementCard($commander->card(), $commander->quantity(), DeckCard::SECTION_MAIN);
+            $deck->removeCard($commander);
+            $entityManager->remove($commander);
+        }
+
+        foreach ($desiredCards as $card) {
+            if ($deck->findCardEntry($card, DeckCard::SECTION_COMMANDER) instanceof DeckCard) {
+                continue;
+            }
+
+            $mainEntry = $deck->findCardEntry($card, DeckCard::SECTION_MAIN);
+            if ($mainEntry instanceof DeckCard) {
+                if ($mainEntry->quantity() > 1) {
+                    $mainEntry->changeQuantity($mainEntry->quantity() - 1);
+                    $deck->addOrIncrementCard($card, 1, DeckCard::SECTION_COMMANDER);
+                } else {
+                    $mainEntry->moveToSection(DeckCard::SECTION_COMMANDER);
+                }
+                continue;
+            }
+
+            $deck->addOrIncrementCard($card, 1, DeckCard::SECTION_COMMANDER);
+        }
+
+        $deck->touch();
+        $entityManager->flush();
+
+        return $this->json(['deck' => $deck->toArray(true)]);
     }
 
     #[Route('/decks/{id}/cards/{deckCardId}', methods: ['PATCH'])]
@@ -272,5 +500,48 @@ class DecksController extends ApiController
     private function isValidSection(string $section): bool
     {
         return in_array($section, [DeckCard::SECTION_MAIN, DeckCard::SECTION_COMMANDER], true);
+    }
+
+    /**
+     * @return list<DeckCard>
+     */
+    private function deckCardsBySection(Deck $deck, string $section): array
+    {
+        $cards = [];
+        foreach ($deck->cards() as $deckCard) {
+            if ($deckCard instanceof DeckCard && $deckCard->section() === $section) {
+                $cards[] = $deckCard;
+            }
+        }
+
+        return $cards;
+    }
+
+    /**
+     * @param array<int, array{name:string}> $missingCards
+     * @return list<string>
+     */
+    private function missingNames(array $missingCards): array
+    {
+        return array_values(array_unique(array_map(static fn (array $card): string => $card['name'], $missingCards)));
+    }
+
+    /**
+     * @param list<Card> $matches
+     * @return array<string,mixed>
+     */
+    private function missingCardPayload(array $payload, int $line, string $reason, array $matches = []): array
+    {
+        return [
+            'name' => (string) ($payload['name'] ?? $payload['scryfallId'] ?? 'Unknown card'),
+            'quantity' => max(1, (int) ($payload['quantity'] ?? 1)),
+            'section' => $this->isValidSection((string) ($payload['section'] ?? DeckCard::SECTION_MAIN)) ? (string) ($payload['section'] ?? DeckCard::SECTION_MAIN) : DeckCard::SECTION_MAIN,
+            'setCode' => isset($payload['setCode']) ? (string) $payload['setCode'] : null,
+            'collectorNumber' => isset($payload['collectorNumber']) ? (string) $payload['collectorNumber'] : null,
+            'line' => $line,
+            'rawLine' => '',
+            'reason' => $reason,
+            'matches' => array_map(static fn (Card $card): array => $card->toArray(), $matches),
+        ];
     }
 }

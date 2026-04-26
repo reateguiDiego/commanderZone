@@ -67,11 +67,32 @@ describe('API services', () => {
   });
 
   it('adds cards through the deck card mutation endpoint', () => {
-    TestBed.inject(DecksApi).addCard('deck-1', { scryfallId: 'card-1', quantity: 2, section: 'main' }).subscribe();
+    TestBed.inject(DecksApi).addCard('deck-1', { setCode: 'tst', collectorNumber: '1', quantity: 2, section: 'main' }).subscribe();
 
     const request = http.expectOne(`${API_BASE_URL}/decks/deck-1/cards`);
     expect(request.request.method).toBe('POST');
-    expect(request.request.body).toEqual({ scryfallId: 'card-1', quantity: 2, section: 'main' });
+    expect(request.request.body).toEqual({ setCode: 'tst', collectorNumber: '1', quantity: 2, section: 'main' });
+    request.flush({ deck: { id: 'deck-1', name: 'Deck', format: 'commander', folderId: null, cards: [] } });
+  });
+
+  it('supports quick build, batch card updates, and commander replacement', () => {
+    const decks = TestBed.inject(DecksApi);
+    decks.quickBuild({ name: 'Deck', cards: [{ name: 'Sol Ring' }] }).subscribe();
+    let request = http.expectOne(`${API_BASE_URL}/decks/quick-build`);
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({ name: 'Deck', cards: [{ name: 'Sol Ring' }] });
+    request.flush({ deck: { id: 'deck-1', name: 'Deck', format: 'commander', folderId: null, cards: [] }, missing: [] });
+
+    decks.updateCards('deck-1', [{ deckCardId: 'line-1', quantity: 0 }]).subscribe();
+    request = http.expectOne(`${API_BASE_URL}/decks/deck-1/cards`);
+    expect(request.request.method).toBe('PATCH');
+    expect(request.request.body).toEqual({ cards: [{ deckCardId: 'line-1', quantity: 0 }] });
+    request.flush({ deck: { id: 'deck-1', name: 'Deck', format: 'commander', folderId: null, cards: [] } });
+
+    decks.replaceCommanders('deck-1', [{ deckCardId: 'line-2' }]).subscribe();
+    request = http.expectOne(`${API_BASE_URL}/decks/deck-1/commanders`);
+    expect(request.request.method).toBe('PUT');
+    expect(request.request.body).toEqual({ cards: [{ deckCardId: 'line-2' }] });
     request.flush({ deck: { id: 'deck-1', name: 'Deck', format: 'commander', folderId: null, cards: [] } });
   });
 
