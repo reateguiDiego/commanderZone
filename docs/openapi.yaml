@@ -10,6 +10,7 @@ security:
   - bearerAuth: []
 tags:
   - name: Auth
+  - name: Friends
   - name: Cards
   - name: DeckFolders
   - name: Decks
@@ -140,6 +141,152 @@ paths:
         '401':
           $ref: '#/components/responses/Error'
         '403':
+          $ref: '#/components/responses/Error'
+  /friends:
+    get:
+      tags: [Friends]
+      summary: List accepted friendships for the authenticated user.
+      responses:
+        '200':
+          description: Accepted friendships.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Friendship'
+        '401':
+          $ref: '#/components/responses/Error'
+  /friends/{userId}:
+    delete:
+      tags: [Friends]
+      summary: Remove an accepted friendship with a user.
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Friendship removed.
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+  /friends/requests:
+    post:
+      tags: [Friends]
+      summary: Send a friend request by exact email.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FriendRequestCreateRequest'
+      responses:
+        '201':
+          description: Friend request created.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [friendship]
+                properties:
+                  friendship:
+                    $ref: '#/components/schemas/Friendship'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+  /friends/requests/incoming:
+    get:
+      tags: [Friends]
+      summary: List pending friend requests received by the authenticated user.
+      responses:
+        '200':
+          description: Incoming friend requests.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Friendship'
+        '401':
+          $ref: '#/components/responses/Error'
+  /friends/requests/outgoing:
+    get:
+      tags: [Friends]
+      summary: List pending friend requests sent by the authenticated user.
+      responses:
+        '200':
+          description: Outgoing friend requests.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Friendship'
+        '401':
+          $ref: '#/components/responses/Error'
+  /friends/requests/{id}/accept:
+    post:
+      tags: [Friends]
+      summary: Accept a pending incoming friend request.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Friend request accepted.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [friendship]
+                properties:
+                  friendship:
+                    $ref: '#/components/schemas/Friendship'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+  /friends/requests/{id}/decline:
+    post:
+      tags: [Friends]
+      summary: Decline a pending incoming friend request.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Friend request declined.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [friendship]
+                properties:
+                  friendship:
+                    $ref: '#/components/schemas/Friendship'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
           $ref: '#/components/responses/Error'
   /cards/search:
     get:
@@ -1200,6 +1347,46 @@ components:
           type: array
           items:
             type: string
+    FriendUser:
+      type: object
+      required: [id, displayName]
+      properties:
+        id:
+          type: string
+          format: uuid
+        displayName:
+          type: string
+    FriendshipStatus:
+      type: string
+      enum: [pending, accepted, declined, blocked]
+    Friendship:
+      type: object
+      required: [id, status, requester, recipient, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/FriendshipStatus'
+        requester:
+          $ref: '#/components/schemas/FriendUser'
+        recipient:
+          $ref: '#/components/schemas/FriendUser'
+        friend:
+          $ref: '#/components/schemas/FriendUser'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    FriendRequestCreateRequest:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
     Card:
       type: object
       required: [id, scryfallId, name, colors, colorIdentity, legalities, imageUris, layout, commanderLegal]

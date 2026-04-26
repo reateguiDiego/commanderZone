@@ -8,6 +8,7 @@ import {
   DeckImportResponse,
   DeckResponse,
 } from '../models/api-responses.model';
+import { DeckAnalysis } from '../models/deck-analysis.model';
 import { Deck, DeckSection, DeckSectionsResponse, DeckTokensResponse } from '../models/deck.model';
 
 export interface DeckCardMutationPayload {
@@ -53,6 +54,10 @@ export class DecksApi {
 
   get(id: string): Observable<DeckResponse> {
     return this.http.get<DeckResponse>(`${API_BASE_URL}/decks/${id}`);
+  }
+
+  analysis(id: string): Observable<DeckAnalysis> {
+    return this.http.get<DeckAnalysis>(`${API_BASE_URL}/decks/${id}/analysis`);
   }
 
   sections(id: string): Observable<DeckSectionsResponse> {

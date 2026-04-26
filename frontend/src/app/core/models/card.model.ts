@@ -23,5 +23,7 @@ export interface Card {
   commanderLegal: boolean;
   set: string | null;
   collectorNumber: string | null;
+  lang?: string | null;
+  printedName?: string | null;
+  flavorName?: string | null;
 }
-

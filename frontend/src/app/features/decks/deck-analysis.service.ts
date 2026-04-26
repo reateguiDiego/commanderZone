@@ -10,16 +10,30 @@ export interface DeckMetric {
 
 export interface ManaCurveBucket {
   manaValue: number;
+  permanents: number;
+  spells: number;
+  total: number;
+}
+
+export interface ColorProfileEntry {
+  color: 'W' | 'U' | 'B' | 'R' | 'G' | 'C';
   count: number;
+  percent: number;
 }
 
 export interface DeckAnalysis {
-  totalCards: number;
+  mainDeckCards: number;
   landCount: number;
-  nonlandCount: number;
+  averageManaValue: number;
+  averageManaValueWithLands: number;
+  medianManaValue: number;
+  medianManaValueWithLands: number;
+  totalManaValue: number;
   colorPips: Record<string, number>;
+  colorProfiles: ColorProfileEntry[];
   landTypes: LandTypeCount[];
   manaCurve: ManaCurveBucket[];
+  lands: DeckMetric;
   creatures: DeckMetric;
   artifacts: DeckMetric;
   enchantments: DeckMetric;
@@ -37,17 +51,26 @@ export class DeckAnalysisService {
   private readonly manaSymbols = inject(ManaSymbolService);
 
   analyze(deck: Deck | null): DeckAnalysis {
-    const cards = (deck?.cards ?? []).filter((entry) => entry.section === 'commander' || entry.section === 'main');
+    const cards = (deck?.cards ?? []).filter((entry) => entry.section === 'main');
     const expanded = this.expand(cards);
     const nonlands = expanded.filter((entry) => !this.isLand(entry));
+    const allManaValues = expanded.map((entry) => this.manaValue(entry.card.manaCost));
+    const nonlandManaValues = nonlands.map((entry) => this.manaValue(entry.card.manaCost));
+    const colorPips = this.countPips(nonlands);
 
     return {
-      totalCards: expanded.length,
+      mainDeckCards: expanded.length,
       landCount: expanded.length - nonlands.length,
-      nonlandCount: nonlands.length,
-      colorPips: this.countPips(nonlands),
+      averageManaValue: this.averageFromValues(nonlandManaValues),
+      averageManaValueWithLands: this.averageFromValues(allManaValues),
+      medianManaValue: this.medianManaValue(nonlandManaValues),
+      medianManaValueWithLands: this.medianManaValue(allManaValues),
+      totalManaValue: nonlandManaValues.reduce((total, value) => total + value, 0),
+      colorPips,
+      colorProfiles: this.colorProfiles(colorPips),
       landTypes: this.manaSymbols.landTypeCounts(expanded.map((entry) => entry.card.typeLine)),
       manaCurve: this.curve(nonlands),
+      lands: this.metric('Lands', expanded, (entry) => this.isLand(entry)),
       creatures: this.metric('Creatures', expanded, (entry) => this.hasType(entry, 'creature')),
       artifacts: this.metric('Artifacts', expanded, (entry) => this.hasType(entry, 'artifact')),
       enchantments: this.metric('Enchantments', expanded, (entry) => this.hasType(entry, 'enchantment')),
@@ -66,21 +89,29 @@ export class DeckAnalysisService {
   }
 
   private curve(cards: DeckCard[]): ManaCurveBucket[] {
-    const buckets = new Map<number, number>();
+    const buckets = new Map<number, { permanents: number; spells: number }>();
 
     for (const entry of cards) {
       const value = Math.min(this.manaValue(entry.card.manaCost), 7);
-      buckets.set(value, (buckets.get(value) ?? 0) + 1);
+      const current = buckets.get(value) ?? { permanents: 0, spells: 0 };
+      if (this.isSpell(entry)) {
+        current.spells += 1;
+      } else {
+        current.permanents += 1;
+      }
+      buckets.set(value, current);
     }
 
     return Array.from({ length: 8 }, (_, manaValue) => ({
       manaValue,
-      count: buckets.get(manaValue) ?? 0,
+      permanents: buckets.get(manaValue)?.permanents ?? 0,
+      spells: buckets.get(manaValue)?.spells ?? 0,
+      total: (buckets.get(manaValue)?.permanents ?? 0) + (buckets.get(manaValue)?.spells ?? 0),
     }));
   }
 
   private countPips(cards: DeckCard[]): Record<string, number> {
-    const pips: Record<string, number> = { W: 0, U: 0, B: 0, R: 0, G: 0 };
+    const pips: Record<string, number> = { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 };
 
     for (const entry of cards) {
       for (const symbol of entry.card.manaCost?.match(/\{[^}]+\}/g) ?? []) {
@@ -112,6 +143,43 @@ export class DeckAnalysisService {
     }, 0);
   }
 
+  private averageFromValues(values: number[]): number {
+    if (values.length === 0) {
+      return 0;
+    }
+
+    const total = values.reduce((sum, value) => sum + value, 0);
+
+    return Math.round((total / values.length) * 100) / 100;
+  }
+
+  private medianManaValue(values: number[]): number {
+    if (values.length === 0) {
+      return 0;
+    }
+
+    const sorted = [...values].sort((left, right) => left - right);
+    const middle = Math.floor(sorted.length / 2);
+    if (sorted.length % 2 === 0) {
+      return Math.round(((sorted[middle - 1] + sorted[middle]) / 2) * 100) / 100;
+    }
+
+    return sorted[middle];
+  }
+
+  private colorProfiles(colorPips: Record<string, number>): ColorProfileEntry[] {
+    const entries = (['W', 'U', 'B', 'R', 'G', 'C'] as const).map((color) => ({
+      color,
+      count: colorPips[color] ?? 0,
+    }));
+    const total = entries.reduce((sum, entry) => sum + entry.count, 0);
+
+    return entries.map((entry) => ({
+      ...entry,
+      percent: total > 0 ? Math.round((entry.count / total) * 100) : 0,
+    }));
+  }
+
   private metric(label: string, cards: DeckCard[], predicate: (entry: DeckCard) => boolean): DeckMetric {
     const names = new Set<string>();
     let count = 0;
@@ -132,6 +200,10 @@ export class DeckAnalysisService {
 
   private hasType(entry: DeckCard, type: string): boolean {
     return new RegExp(`(^|\\s)${type}(\\s|$)`, 'i').test(entry.card.typeLine ?? '');
+  }
+
+  private isSpell(entry: DeckCard): boolean {
+    return this.hasType(entry, 'instant') || this.hasType(entry, 'sorcery');
   }
 
   private text(entry: DeckCard): string {

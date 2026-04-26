@@ -3,9 +3,12 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 import { API_BASE_URL } from './api.config';
 import { CardsApi } from './cards.api';
+import { DeckFormatsApi } from './deck-formats.api';
 import { DeckFoldersApi } from './deck-folders.api';
 import { DecksApi } from './decks.api';
+import { FriendsApi } from './friends.api';
 import { GamesApi } from './games.api';
+import { SKIP_GLOBAL_LOADING } from '../loading/loading-context';
 
 describe('API services', () => {
   let http: HttpTestingController;
@@ -29,6 +32,23 @@ describe('API services', () => {
     request.flush({ data: [], page: 1, limit: 24 });
   });
 
+  it('builds filtered card search requests', () => {
+    TestBed.inject(CardsApi).search('atraxa', 1, 8, { commanderLegal: true }).subscribe();
+
+    const request = http.expectOne(`${API_BASE_URL}/cards/search?q=atraxa&page=1&limit=8&commanderLegal=true`);
+    expect(request.request.method).toBe('GET');
+    request.flush({ data: [], page: 1, limit: 8 });
+  });
+
+  it('requests card image URIs from the backend image endpoint', () => {
+    TestBed.inject(CardsApi).image('card-1', 'normal').subscribe();
+
+    const request = http.expectOne(`${API_BASE_URL}/cards/card-1/image?format=normal&mode=uri`);
+    expect(request.request.method).toBe('GET');
+    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);
+    request.flush({ scryfallId: 'card-1', format: 'normal', uri: 'http://image.test/card-1.jpg' });
+  });
+
   it('posts deck imports with the backend payload shape', () => {
     TestBed.inject(DecksApi).importDecklist('deck-1', '1 Sol Ring').subscribe();
 
@@ -45,6 +65,31 @@ describe('API services', () => {
     expect(request.request.method).toBe('POST');
     expect(request.request.body).toEqual({ name: 'Deck', folderId: 'folder-1' });
     request.flush({ deck: { id: 'deck-1', name: 'Deck', format: 'commander', folderId: 'folder-1', cards: [] } });
+  });
+
+  it('loads backend deck analysis through the analysis endpoint', () => {
+    TestBed.inject(DecksApi).analysis('deck-1').subscribe();
+
+    const request = http.expectOne(`${API_BASE_URL}/decks/deck-1/analysis`);
+    expect(request.request.method).toBe('GET');
+    request.flush({
+      totalCards: 100,
+      landCount: 35,
+      nonlandCount: 65,
+      colorPips: { W: 10, U: 8, B: 0, R: 4, G: 0 },
+      landTypes: [],
+      manaCurve: [],
+      creatures: { label: 'Creatures', count: 10, cards: [] },
+      artifacts: { label: 'Artifacts', count: 5, cards: [] },
+      enchantments: { label: 'Enchantments', count: 4, cards: [] },
+      instants: { label: 'Instants', count: 8, cards: [] },
+      sorceries: { label: 'Sorceries', count: 6, cards: [] },
+      planeswalkers: { label: 'Planeswalkers', count: 1, cards: [] },
+      ramp: { label: 'Ramp', count: 10, cards: [] },
+      draw: { label: 'Card draw', count: 8, cards: [] },
+      removal: { label: 'Spot removal', count: 7, cards: [] },
+      wipes: { label: 'Board wipes', count: 2, cards: [] },
+    });
   });
 
   it('adds cards through the deck card mutation endpoint', () => {
@@ -85,6 +130,102 @@ describe('API services', () => {
     request.flush({ data: [] });
   });
 
+  it('lists deck folder names through the lightweight endpoint', () => {
+    TestBed.inject(DeckFoldersApi).names().subscribe();
+
+    const request = http.expectOne(`${API_BASE_URL}/deck-folders/names`);
+    expect(request.request.method).toBe('GET');
+    request.flush({ data: [] });
+  });
+
+  it('lists deck formats through the backend endpoint', () => {
+    TestBed.inject(DeckFormatsApi).list().subscribe();
+
+    const request = http.expectOne(`${API_BASE_URL}/deck-formats`);
+    expect(request.request.method).toBe('GET');
+    request.flush({ data: [{ id: 'commander', name: 'Commander', minCards: 100, maxCards: 100, hasCommander: true }] });
+  });
+
+  it('supports friendship endpoints', () => {
+    const friends = TestBed.inject(FriendsApi);
+
+    friends.request('bob@example.test').subscribe();
+    let request = http.expectOne(`${API_BASE_URL}/friends/requests`);
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({ email: 'bob@example.test' });
+    request.flush({ friendship: friendshipFixture('friendship-1') });
+
+    friends.incoming().subscribe();
+    request = http.expectOne(`${API_BASE_URL}/friends/requests/incoming`);
+    expect(request.request.method).toBe('GET');
+    request.flush({ data: [] });
+
+    friends.outgoing().subscribe();
+    request = http.expectOne(`${API_BASE_URL}/friends/requests/outgoing`);
+    expect(request.request.method).toBe('GET');
+    request.flush({ data: [] });
+
+    friends.accept('friendship-1').subscribe();
+    request = http.expectOne(`${API_BASE_URL}/friends/requests/friendship-1/accept`);
+    expect(request.request.method).toBe('POST');
+    request.flush({ friendship: friendshipFixture('friendship-1', 'accepted') });
+
+    friends.decline('friendship-2').subscribe();
+    request = http.expectOne(`${API_BASE_URL}/friends/requests/friendship-2/decline`);
+    expect(request.request.method).toBe('POST');
+    request.flush({ friendship: friendshipFixture('friendship-2', 'declined') });
+
+    friends.list().subscribe();
+    request = http.expectOne(`${API_BASE_URL}/friends`);
+    expect(request.request.method).toBe('GET');
+    request.flush({ data: [] });
+
+    friends.remove('user-2').subscribe();
+    request = http.expectOne(`${API_BASE_URL}/friends/user-2`);
+    expect(request.request.method).toBe('DELETE');
+    request.flush(null);
+  });
+
+  it('supports friendship endpoints', () => {
+    const friends = TestBed.inject(FriendsApi);
+
+    friends.request('bob@example.test').subscribe();
+    let request = http.expectOne(`${API_BASE_URL}/friends/requests`);
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({ email: 'bob@example.test' });
+    request.flush({ friendship: friendshipFixture('friendship-1') });
+
+    friends.incoming().subscribe();
+    request = http.expectOne(`${API_BASE_URL}/friends/requests/incoming`);
+    expect(request.request.method).toBe('GET');
+    request.flush({ data: [] });
+
+    friends.outgoing().subscribe();
+    request = http.expectOne(`${API_BASE_URL}/friends/requests/outgoing`);
+    expect(request.request.method).toBe('GET');
+    request.flush({ data: [] });
+
+    friends.accept('friendship-1').subscribe();
+    request = http.expectOne(`${API_BASE_URL}/friends/requests/friendship-1/accept`);
+    expect(request.request.method).toBe('POST');
+    request.flush({ friendship: friendshipFixture('friendship-1', 'accepted') });
+
+    friends.decline('friendship-2').subscribe();
+    request = http.expectOne(`${API_BASE_URL}/friends/requests/friendship-2/decline`);
+    expect(request.request.method).toBe('POST');
+    request.flush({ friendship: friendshipFixture('friendship-2', 'declined') });
+
+    friends.list().subscribe();
+    request = http.expectOne(`${API_BASE_URL}/friends`);
+    expect(request.request.method).toBe('GET');
+    request.flush({ data: [] });
+
+    friends.remove('user-2').subscribe();
+    request = http.expectOne(`${API_BASE_URL}/friends/user-2`);
+    expect(request.request.method).toBe('DELETE');
+    request.flush(null);
+  });
+
   it('posts game commands with type and payload', () => {
     TestBed.inject(GamesApi)
       .command({ type: 'life.changed', payload: { playerId: 'p1', delta: -1 } }, 'game-1')
@@ -96,3 +237,27 @@ describe('API services', () => {
     request.flush({ event: {}, snapshot: { players: {}, turn: { activePlayerId: null, phase: 'beginning', number: 1 }, chat: [], createdAt: '' } });
   });
 });
+
+function friendshipFixture(id: string, status = 'pending') {
+  return {
+    id,
+    status,
+    requester: { id: 'user-1', displayName: 'Alice' },
+    recipient: { id: 'user-2', displayName: 'Bob' },
+    friend: { id: 'user-2', displayName: 'Bob' },
+    createdAt: '2026-04-26T00:00:00+00:00',
+    updatedAt: '2026-04-26T00:00:00+00:00',
+  };
+}
+
+function friendshipFixture(id: string, status = 'pending') {
+  return {
+    id,
+    status,
+    requester: { id: 'user-1', displayName: 'Alice' },
+    recipient: { id: 'user-2', displayName: 'Bob' },
+    friend: { id: 'user-2', displayName: 'Bob' },
+    createdAt: '2026-04-26T00:00:00+00:00',
+    updatedAt: '2026-04-26T00:00:00+00:00',
+  };
+}

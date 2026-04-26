@@ -1,6 +1,7 @@
 import { Card } from './card.model';
-import { Deck, DeckFolder, CommanderValidation } from './deck.model';
+import { Deck, DeckFolder, DeckFormat, CommanderValidation } from './deck.model';
 import { Game, GameEvent, GameSnapshot } from './game.model';
+import { Friendship } from './friendship.model';
 import { Room } from './room.model';
 import { User } from './user.model';
 
@@ -26,12 +27,22 @@ export interface CardResponse {
   card: Card;
 }
 
+export interface CardImageResponse {
+  scryfallId: string;
+  format: string;
+  uri: string;
+}
+
 export interface DeckResponse {
   deck: Deck;
 }
 
 export interface DeckFolderResponse {
   folder: DeckFolder;
+}
+
+export interface FriendshipResponse {
+  friendship: Friendship;
 }
 
 export interface DeckImportResponse {
@@ -64,6 +75,10 @@ export interface MissingDeckCard {
   rawLine: string;
   reason: 'not_found' | 'ambiguous' | string;
   matches?: Card[];
+}
+
+export interface DeckFormatResponse {
+  data: DeckFormat[];
 }
 
 export type CommanderValidationResponse = CommanderValidation;
