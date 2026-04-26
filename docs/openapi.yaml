@@ -732,6 +732,33 @@ paths:
       summary: Analyze deck composition for deckbuilding UI.
       parameters:
         - $ref: '#/components/parameters/Id'
+        - name: includeCommanderInAnalysis
+          in: query
+          schema:
+            type: boolean
+            default: true
+        - name: includeSideboard
+          in: query
+          schema:
+            type: boolean
+            default: false
+        - name: includeMaybeboard
+          in: query
+          schema:
+            type: boolean
+            default: false
+        - name: curvePlayabilityMode
+          in: query
+          schema:
+            type: string
+            enum: [play, draw]
+            default: play
+        - name: manaSourcesMode
+          in: query
+          schema:
+            type: string
+            enum: [landsOnly, landsAndRamp]
+            default: landsOnly
       responses:
         '200':
           description: Deck analysis.
@@ -1440,6 +1467,17 @@ components:
           items:
             type: object
             additionalProperties: true
+        manaValue:
+          type: [number, 'null']
+        producedMana:
+          type: array
+          items:
+            type: string
+            enum: [W, U, B, R, G, C]
+        prices:
+          type: object
+          additionalProperties:
+            type: [string, 'null']
     CardImageResponse:
       type: object
       required: [scryfallId, format, uri]
@@ -1597,10 +1635,150 @@ components:
         resolved:
           type: boolean
           enum: [false]
-    DeckMetric:
+    ManaColor:
+      type: string
+      enum: [W, U, B, R, G, C]
+    CardPrimaryType:
+      type: string
+      enum: [creature, instant, sorcery, artifact, enchantment, planeswalker, battle, land, other]
+    ColorBalanceStatus:
+      type: string
+      enum: [underproduced, balanced, overproduced, unused]
+    DeckAnalysis:
       type: object
-      required: [label, count, cards]
+      required: [summary, manaCurve, typeBreakdown, colorRequirement, manaProduction, colorBalance, curvePlayability, sections, options]
       properties:
+        summary:
+          $ref: '#/components/schemas/DeckAnalysisSummary'
+        manaCurve:
+          $ref: '#/components/schemas/ManaCurveAnalysis'
+        typeBreakdown:
+          $ref: '#/components/schemas/TypeBreakdownAnalysis'
+        colorRequirement:
+          $ref: '#/components/schemas/ColorRequirementAnalysis'
+        manaProduction:
+          $ref: '#/components/schemas/ManaProductionAnalysis'
+        colorBalance:
+          $ref: '#/components/schemas/ColorBalanceAnalysis'
+        curvePlayability:
+          $ref: '#/components/schemas/CurvePlayabilityAnalysis'
+        sections:
+          type: array
+          items:
+            $ref: '#/components/schemas/CardSectionAnalysis'
+        options:
+          type: object
+          additionalProperties: true
+    DeckAnalysisSummary:
+      type: object
+      required: [totalCards, mainboardCards, commanderCards, landCount, nonLandCount, creatureCount, instantCount, sorceryCount, artifactCount, enchantmentCount, planeswalkerCount, battleCount, averageManaValueWithLands, averageManaValueWithoutLands, medianManaValueWithLands, medianManaValueWithoutLands, totalManaValue, colorIdentity]
+      properties:
+        totalCards:
+          type: integer
+        mainboardCards:
+          type: integer
+        commanderCards:
+          type: integer
+        landCount:
+          type: integer
+        nonLandCount:
+          type: integer
+        creatureCount:
+          type: integer
+        instantCount:
+          type: integer
+        sorceryCount:
+          type: integer
+        artifactCount:
+          type: integer
+        enchantmentCount:
+          type: integer
+        planeswalkerCount:
+          type: integer
+        battleCount:
+          type: integer
+        averageManaValueWithLands:
+          type: number
+        averageManaValueWithoutLands:
+          type: number
+        medianManaValueWithLands:
+          type: number
+        medianManaValueWithoutLands:
+          type: number
+        totalManaValue:
+          type: number
+        colorIdentity:
+          type: array
+          items:
+            $ref: '#/components/schemas/ManaColor'
+    ManaCurveAnalysis:
+      type: object
+      required: [buckets]
+      properties:
+        manaCurve:
+          deprecated: true
+        buckets:
+          type: array
+          items:
+            $ref: '#/components/schemas/ManaCurveBucket'
+    ManaCurveBucket:
+      type: object
+      required: [manaValue, totalCards, permanents, spells, lands, cards]
+      properties:
+        manaValue:
+          type: integer
+          minimum: 0
+          maximum: 7
+        totalCards:
+          type: integer
+        permanents:
+          type: integer
+        spells:
+          type: integer
+        lands:
+          type: integer
+        cards:
+          type: array
+          items:
+            $ref: '#/components/schemas/ManaCurveCard'
+    ManaCurveCard:
+      type: object
+      required: [id, name, quantity, manaValue, typeLine, primaryType, isPermanent, isLand, imageUrl, priceEur]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        quantity:
+          type: integer
+        manaValue:
+          type: integer
+        typeLine:
+          type: string
+        primaryType:
+          $ref: '#/components/schemas/CardPrimaryType'
+        isPermanent:
+          type: boolean
+        isLand:
+          type: boolean
+        imageUrl:
+          type: [string, 'null']
+        priceEur:
+          type: [number, 'null']
+    TypeBreakdownAnalysis:
+      type: object
+      required: [sections]
+      properties:
+        sections:
+          type: array
+          items:
+            $ref: '#/components/schemas/CardSectionAnalysis'
+    CardSectionAnalysis:
+      type: object
+      required: [key, label, count, cards]
+      properties:
+        key:
+          $ref: '#/components/schemas/CardPrimaryType'
         label:
           type: string
         count:
@@ -1608,86 +1786,159 @@ components:
         cards:
           type: array
           items:
-            type: string
-    ManaCurveBucket:
+            $ref: '#/components/schemas/SectionCard'
+    SectionCard:
       type: object
-      required: [manaValue, count]
+      required: [id, name, quantity, manaValue, manaCost, typeLine, imageUrl, priceEur]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        quantity:
+          type: integer
+        manaValue:
+          type: integer
+        manaCost:
+          type: [string, 'null']
+        typeLine:
+          type: string
+        imageUrl:
+          type: [string, 'null']
+        priceEur:
+          type: [number, 'null']
+    ColorRequirementAnalysis:
+      type: object
+      required: [totalColoredSymbols, totalAllSymbols, estimated, symbolsByColor]
+      properties:
+        totalColoredSymbols:
+          type: integer
+        totalAllSymbols:
+          type: integer
+        estimated:
+          type: boolean
+        symbolsByColor:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/ColorSymbolStat'
+    ColorSymbolStat:
+      type: object
+      required: [color, symbolCount, percentageOfColoredSymbols, percentageOfAllSymbols, cardsRequiringColor]
+      properties:
+        color:
+          $ref: '#/components/schemas/ManaColor'
+        symbolCount:
+          type: integer
+        percentageOfColoredSymbols:
+          type: number
+        percentageOfAllSymbols:
+          type: number
+        cardsRequiringColor:
+          type: integer
+    ManaProductionAnalysis:
+      type: object
+      required: [totalManaSources, totalProducedSymbols, estimated, productionByColor]
+      properties:
+        totalManaSources:
+          type: integer
+        totalProducedSymbols:
+          type: integer
+        estimated:
+          type: boolean
+        productionByColor:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/ManaProductionStat'
+    ManaProductionStat:
+      type: object
+      required: [color, sourceCount, symbolCount, percentageOfAllProduction, percentageFromLands, landSourceCount, nonLandSourceCount]
+      properties:
+        color:
+          $ref: '#/components/schemas/ManaColor'
+        sourceCount:
+          type: integer
+        symbolCount:
+          type: integer
+        percentageOfAllProduction:
+          type: number
+        percentageFromLands:
+          type: number
+        landSourceCount:
+          type: integer
+        nonLandSourceCount:
+          type: integer
+    ColorBalanceAnalysis:
+      type: object
+      required: [colors]
+      properties:
+        colors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ColorBalanceEntry'
+    ColorBalanceEntry:
+      type: object
+      required: [color, requiredPercentage, producedPercentage, delta, status]
+      properties:
+        color:
+          $ref: '#/components/schemas/ManaColor'
+        requiredPercentage:
+          type: number
+        producedPercentage:
+          type: number
+        delta:
+          type: number
+        status:
+          $ref: '#/components/schemas/ColorBalanceStatus'
+    CurvePlayabilityAnalysis:
+      type: object
+      required: [disclaimer, buckets]
+      properties:
+        disclaimer:
+          type: string
+        buckets:
+          type: array
+          items:
+            $ref: '#/components/schemas/CurvePlayabilityBucket'
+    CurvePlayabilityBucket:
+      type: object
+      required: [manaValue, cardCountAtManaValue, probabilityOfHavingSpellByTurn, probabilityOfHavingEnoughManaByTurn, probabilityOfPlayingOnCurve]
       properties:
         manaValue:
           type: integer
-          minimum: 0
-          maximum: 7
-        count:
+        cardCountAtManaValue:
           type: integer
-    LandTypeCount:
+        probabilityOfHavingSpellByTurn:
+          type: number
+        probabilityOfHavingEnoughManaByTurn:
+          type: number
+        probabilityOfPlayingOnCurve:
+          type: number
+    ParsedManaCost:
       type: object
-      required: [label, symbol, count]
+      required: [raw, genericAmount, coloredSymbols, colorlessSymbols, hybridSymbols, phyrexianSymbols, xSymbols, totalSymbols]
       properties:
-        label:
+        raw:
           type: string
-        symbol:
-          type: string
-          enum: [W, U, B, R, G]
-        count:
+        genericAmount:
           type: integer
-    DeckAnalysis:
-      type: object
-      required:
-        - totalCards
-        - landCount
-        - nonlandCount
-        - colorPips
-        - landTypes
-        - manaCurve
-        - creatures
-        - artifacts
-        - enchantments
-        - instants
-        - sorceries
-        - planeswalkers
-        - ramp
-        - draw
-        - removal
-        - wipes
-      properties:
-        totalCards:
-          type: integer
-        landCount:
-          type: integer
-        nonlandCount:
-          type: integer
-        colorPips:
+        coloredSymbols:
           type: object
           additionalProperties:
             type: integer
-        landTypes:
+        colorlessSymbols:
+          type: integer
+        hybridSymbols:
           type: array
           items:
-            $ref: '#/components/schemas/LandTypeCount'
-        manaCurve:
+            type: string
+        phyrexianSymbols:
           type: array
           items:
-            $ref: '#/components/schemas/ManaCurveBucket'
-        creatures:
-          $ref: '#/components/schemas/DeckMetric'
-        artifacts:
-          $ref: '#/components/schemas/DeckMetric'
-        enchantments:
-          $ref: '#/components/schemas/DeckMetric'
-        instants:
-          $ref: '#/components/schemas/DeckMetric'
-        sorceries:
-          $ref: '#/components/schemas/DeckMetric'
-        planeswalkers:
-          $ref: '#/components/schemas/DeckMetric'
-        ramp:
-          $ref: '#/components/schemas/DeckMetric'
-        draw:
-          $ref: '#/components/schemas/DeckMetric'
-        removal:
-          $ref: '#/components/schemas/DeckMetric'
-        wipes:
-          $ref: '#/components/schemas/DeckMetric'
+            type: string
+        xSymbols:
+          type: integer
+        totalSymbols:
+          type: integer
     CommanderValidationIssue:
       type: object
       required: [severity, title, detail, cards]

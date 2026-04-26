@@ -7,6 +7,7 @@ import { firstValueFrom } from 'rxjs';
 import { CardsApi } from '../../core/api/cards.api';
 import { DecksApi } from '../../core/api/decks.api';
 import { Card } from '../../core/models/card.model';
+import { CardSectionAnalysis, DeckAnalysis, ManaColor, ManaCurveBucket } from '../../core/models/deck-analysis.model';
 import { CommanderValidation, Deck, DeckCard, DeckSection, DeckToken, UnresolvedDeckToken } from '../../core/models/deck.model';
 import { MissingDeckCard } from '../../core/models/api-responses.model';
 import { ManaSymbolsComponent } from '../../shared/mana/mana-symbols.component';
@@ -290,31 +291,42 @@ const GROUPS: Array<{ id: string; title: string; matcher: (entry: DeckCard) => b
                 </div>
 
                 <div class="curve-grid compact-curve analysis-curve-large">
-                  @for (bucket of analysis().manaCurve; track bucket.manaValue) {
+                  @for (bucket of analysis().manaCurve.buckets; track bucket.manaValue) {
                     <div class="curve-bar stacked-bar">
                       <span>{{ bucket.manaValue === 7 ? '7+' : bucket.manaValue }}</span>
                       <div class="curve-stack">
                         <strong
                           class="curve-segment permanent-segment"
                           [style.height.%]="curveSegmentHeight(bucket.permanents)"
-                          (mouseenter)="showHoverList($event, curveHoverTitle(bucket.manaValue, 'Permanents'), curveHoverItems(bucket.manaValue, 'permanent'))"
+                          (mouseenter)="showHoverList($event, curveHoverTitle(bucket.manaValue, 'Permanents'), curveHoverItems(bucket, 'permanent'))"
                           (mousemove)="moveHoverList($event)"
                           (mouseleave)="hideHoverList()"
                         ></strong>
                         <strong
                           class="curve-segment spell-segment"
                           [style.height.%]="curveSegmentHeight(bucket.spells)"
-                          (mouseenter)="showHoverList($event, curveHoverTitle(bucket.manaValue, 'Spells'), curveHoverItems(bucket.manaValue, 'spell'))"
+                          (mouseenter)="showHoverList($event, curveHoverTitle(bucket.manaValue, 'Spells'), curveHoverItems(bucket, 'spell'))"
+                          (mousemove)="moveHoverList($event)"
+                          (mouseleave)="hideHoverList()"
+                        ></strong>
+                        <strong
+                          class="curve-segment"
+                          [style.height.%]="curveSegmentHeight(bucket.lands)"
+                          (mouseenter)="showHoverList($event, curveHoverTitle(bucket.manaValue, 'Lands'), curveHoverItems(bucket, 'land'))"
                           (mousemove)="moveHoverList($event)"
                           (mouseleave)="hideHoverList()"
                         ></strong>
                       </div>
-                      <small>{{ bucket.total }}</small>
+                      <small>{{ bucket.totalCards }}</small>
                     </div>
                   }
                 </div>
 
-                <p class="analysis-footnote">Coste medio sin tierras: {{ analysis().averageManaValue }}</p>
+                <p class="analysis-footnote">
+                  Coste medio sin tierras: {{ analysis().summary.averageManaValueWithoutLands }}
+                  · mediana: {{ analysis().summary.medianManaValueWithoutLands }}
+                  · total MV: {{ analysis().summary.totalManaValue }}
+                </p>
               </section>
 
               <div class="analysis-side-column">
@@ -324,7 +336,7 @@ const GROUPS: Array<{ id: string; title: string; matcher: (entry: DeckCard) => b
                     @for (metric of visibleTypeMetrics(); track metric.label) {
                       <div
                         class="analysis-list-row hoverable-analysis-row"
-                        (mouseenter)="showHoverList($event, metric.label, metric.cards)"
+                        (mouseenter)="showHoverList($event, metric.label, sectionCardNames(metric))"
                         (mousemove)="moveHoverList($event)"
                         (mouseleave)="hideHoverList()"
                       >
@@ -338,15 +350,15 @@ const GROUPS: Array<{ id: string; title: string; matcher: (entry: DeckCard) => b
                 <section class="analysis-panel">
                   <h3>Utility counts</h3>
                   <div class="analysis-list-grid">
-                    @for (metric of visibleUtilityMetrics(); track metric.label) {
+                    @for (metric of analysis().curvePlayability.buckets; track metric.manaValue) {
                       <div
                         class="analysis-list-row hoverable-analysis-row"
-                        (mouseenter)="showHoverList($event, metric.label, metric.cards)"
+                        (mouseenter)="showHoverList($event, 'Curve probability', [analysis().curvePlayability.disclaimer])"
                         (mousemove)="moveHoverList($event)"
                         (mouseleave)="hideHoverList()"
                       >
-                        <span class="analysis-list-label">{{ metric.label }}</span>
-                        <strong class="analysis-list-count">{{ metric.count }}</strong>
+                        <span class="analysis-list-label">MV {{ metric.manaValue }}</span>
+                        <strong class="analysis-list-count">{{ metric.probabilityOfPlayingOnCurve }}%</strong>
                       </div>
                     }
                   </div>
@@ -785,28 +797,9 @@ export class DeckEditorComponent implements OnDestroy {
   readonly totalCards = computed(() => (this.deck()?.cards ?? [])
     .filter((entry) => entry.section !== 'maybeboard')
     .reduce((total, entry) => total + entry.quantity, 0));
-  readonly analysis = computed(() => this.analysisService.analyze(this.deck()));
+  readonly analysis = signal<DeckAnalysis>(this.analysisService.empty());
   readonly clientIssues = computed(() => this.clientValidation.validate(this.deck()));
-  readonly typeMetrics = computed(() => {
-    const analysis = this.analysis();
-
-    return [
-      analysis.lands,
-      analysis.planeswalkers,
-      analysis.creatures,
-      analysis.instants,
-      analysis.sorceries,
-      analysis.enchantments,
-      analysis.artifacts,
-    ];
-  });
-  readonly utilityMetrics = computed(() => {
-    const analysis = this.analysis();
-
-    return [analysis.ramp, analysis.draw, analysis.removal, analysis.wipes];
-  });
-  readonly visibleTypeMetrics = computed(() => this.typeMetrics().filter((metric) => metric.count > 0));
-  readonly visibleUtilityMetrics = computed(() => this.utilityMetrics().filter((metric) => metric.count > 0));
+  readonly visibleTypeMetrics = computed(() => this.analysis().typeBreakdown.sections.filter((metric) => metric.count > 0));
   readonly manaSourceProfiles = computed(() => this.buildManaSourceProfiles());
   readonly manaSourceTotal = computed(() => this.manaSourceProfiles().reduce((sum, profile) => sum + profile.sourceCount, 0));
   readonly manaSourceDonutBackground = computed(() => this.buildManaSourceDonutBackground());
@@ -856,14 +849,16 @@ export class DeckEditorComponent implements OnDestroy {
     }
 
     try {
-      const [response, tokensResponse] = await Promise.all([
+      const [response, tokensResponse, analysisResponse] = await Promise.all([
         firstValueFrom(this.decksApi.get(id)),
         firstValueFrom(this.decksApi.tokens(id)),
+        firstValueFrom(this.decksApi.analysis(id)),
       ]);
       this.deck.set(response.deck);
       this.deckName = response.deck.name;
       this.tokens.set(tokensResponse.data);
       this.unresolvedTokens.set(tokensResponse.unresolved);
+      this.analysis.set(analysisResponse);
       this.missing.set([]);
       this.missingSourceEntries.set([]);
       this.refreshHistory(response.deck.id);
@@ -880,6 +875,7 @@ export class DeckEditorComponent implements OnDestroy {
       this.deck.set(response.deck);
       this.deckName = response.deck.name;
       this.recordHistory(response.deck, 'Rename');
+      void this.refreshAnalysis(response.deck.id);
     } catch (error) {
       this.error.set(this.apiErrorMessage(error, 'Could not rename deck.'));
     }
@@ -901,6 +897,7 @@ export class DeckEditorComponent implements OnDestroy {
       this.missingSearch.set(null);
       this.recordHistory(response.deck, 'Import plain text');
       void this.refreshTokens(response.deck.id);
+      void this.refreshAnalysis(response.deck.id);
       if (response.missing.length > 0) {
         this.activeTab.set('missing');
       } else {
@@ -982,7 +979,7 @@ export class DeckEditorComponent implements OnDestroy {
   }
 
   curveSegmentHeight(count: number): number {
-    const max = Math.max(...this.analysis().manaCurve.map((bucket) => bucket.total), 1);
+    const max = Math.max(...this.analysis().manaCurve.buckets.map((bucket) => bucket.totalCards), 1);
 
     return Math.max((count / max) * 100, count > 0 ? 12 : 0);
   }
@@ -991,14 +988,22 @@ export class DeckEditorComponent implements OnDestroy {
     return `${label} - MV ${manaValue === 7 ? '7+' : manaValue}`;
   }
 
-  curveHoverItems(manaValue: number, kind: 'permanent' | 'spell'): string[] {
-    const entries = (this.deck()?.cards ?? [])
-      .filter((entry) => entry.section === 'main')
-      .filter((entry) => Math.min(this.cardManaValue(entry.card), 7) === manaValue)
-      .filter((entry) => kind === 'spell' ? this.isSpellEntry(entry) : !this.isSpellEntry(entry))
-      .map((entry) => entry.card.name);
+  curveHoverItems(bucket: ManaCurveBucket, kind: 'permanent' | 'spell' | 'land'): string[] {
+    const entries = bucket.cards
+      .filter((entry) => {
+        if (kind === 'land') {
+          return entry.isLand;
+        }
+
+        return kind === 'spell' ? !entry.isPermanent : entry.isPermanent && !entry.isLand;
+      })
+      .map((entry) => entry.name);
 
     return Array.from(new Set(entries)).sort((left, right) => left.localeCompare(right));
+  }
+
+  sectionCardNames(section: CardSectionAnalysis): string[] {
+    return section.cards.map((card) => card.name);
   }
 
   copyMissing(name: string): void {
@@ -1055,6 +1060,7 @@ export class DeckEditorComponent implements OnDestroy {
       this.missingSourceEntries.set(this.missingSourceEntries().filter((entry) => entry.name.toLowerCase() !== targetName.toLowerCase()));
       this.validation.set(null);
       this.recordHistory(response.deck, `Manual add ${card.name}`);
+      void this.refreshAnalysis(response.deck.id);
     } catch (error) {
       this.error.set(this.apiErrorMessage(error, 'Could not add selected card.'));
     }
@@ -1100,6 +1106,7 @@ export class DeckEditorComponent implements OnDestroy {
       this.validation.set(null);
       this.refreshHistory(deckId);
       void this.refreshTokens(deckId);
+      void this.refreshAnalysis(deckId);
       this.restoreModalOpen.set(false);
       this.restoreTarget.set(null);
     } catch (error) {
@@ -1537,6 +1544,7 @@ export class DeckEditorComponent implements OnDestroy {
     this.cardMenu.set(null);
     this.recordHistory(deck, historySource);
     void this.refreshTokens(deck.id);
+    void this.refreshAnalysis(deck.id);
     if (!Array.isArray(deck.cards)) {
       void this.reloadDeckCards(deck.id);
     }
@@ -1631,6 +1639,14 @@ export class DeckEditorComponent implements OnDestroy {
     }
   }
 
+  private async refreshAnalysis(deckId: string): Promise<void> {
+    try {
+      this.analysis.set(await firstValueFrom(this.decksApi.analysis(deckId)));
+    } catch {
+      this.analysis.set(this.analysisService.empty());
+    }
+  }
+
   private async reloadDeckCards(deckId: string): Promise<void> {
     try {
       const response = await firstValueFrom(this.decksApi.get(deckId));
@@ -1663,26 +1679,17 @@ export class DeckEditorComponent implements OnDestroy {
   }
 
   private buildManaSourceProfiles(): Array<{
-    color: 'W' | 'U' | 'B' | 'R' | 'G' | 'C';
+    color: ManaColor;
     label: string;
     demandCount: number;
     demandPercent: number;
     sourceCount: number;
     sourcePercent: number;
+    balanceStatus: string;
+    delta: number;
   }> {
-    const demandProfiles = this.analysis().colorProfiles;
-    const sourceCounts: Record<'W' | 'U' | 'B' | 'R' | 'G' | 'C', number> = { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 };
-    const deckColors = this.deckColorIdentity();
-    const sourceEntries = (this.deck()?.cards ?? []).filter((entry) => entry.section === 'main' && this.isManaSourceCard(entry));
-
-    for (const entry of sourceEntries) {
-      for (const color of this.manaSourceColors(entry, deckColors)) {
-        sourceCounts[color] += entry.quantity;
-      }
-    }
-
-    const totalSources = Object.values(sourceCounts).reduce((sum, value) => sum + value, 0);
-    const labels: Record<'W' | 'U' | 'B' | 'R' | 'G' | 'C', string> = {
+    const analysis = this.analysis();
+    const labels: Record<ManaColor, string> = {
       W: 'White',
       U: 'Blue',
       B: 'Black',
@@ -1693,14 +1700,18 @@ export class DeckEditorComponent implements OnDestroy {
 
     return (['W', 'U', 'B', 'R', 'G', 'C'] as const)
       .map((color) => {
-        const demand = demandProfiles.find((entry) => entry.color === color);
+        const demand = analysis.colorRequirement.symbolsByColor[color];
+        const production = analysis.manaProduction.productionByColor[color];
+        const balance = analysis.colorBalance.colors.find((entry) => entry.color === color);
         return {
           color,
           label: labels[color],
-          demandCount: demand?.count ?? 0,
-          demandPercent: demand?.percent ?? 0,
-          sourceCount: sourceCounts[color],
-          sourcePercent: totalSources > 0 ? Math.round((sourceCounts[color] / totalSources) * 100) : 0,
+          demandCount: demand?.symbolCount ?? 0,
+          demandPercent: demand?.percentageOfColoredSymbols ?? 0,
+          sourceCount: production?.sourceCount ?? 0,
+          sourcePercent: production?.percentageOfAllProduction ?? 0,
+          balanceStatus: balance?.status ?? 'balanced',
+          delta: balance?.delta ?? 0,
         };
       })
       .filter((entry) => entry.demandCount > 0 || entry.sourceCount > 0);
@@ -1821,9 +1832,7 @@ export class DeckEditorComponent implements OnDestroy {
       return Array.from(colors);
     }
 
-    return ['W', 'U', 'B', 'R', 'G'].filter((color) => (
-      this.analysis().colorProfiles.some((profile) => profile.color === color && profile.count > 0)
-    )) as Array<'W' | 'U' | 'B' | 'R' | 'G'>;
+    return this.analysis().summary.colorIdentity.filter((color) => color !== 'C') as Array<'W' | 'U' | 'B' | 'R' | 'G'>;
   }
 
   private isManaSourceCard(entry: DeckCard): boolean {

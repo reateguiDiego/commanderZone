@@ -49,6 +49,15 @@ class Card
     #[ORM\Column(type: 'json')]
     private array $allParts = [];
 
+    #[ORM\Column(type: 'float', nullable: true)]
+    private ?float $manaValue = null;
+
+    #[ORM\Column(type: 'json')]
+    private array $producedMana = [];
+
+    #[ORM\Column(type: 'json')]
+    private array $prices = [];
+
     #[ORM\Column(type: 'string', length: 80)]
     private string $layout = 'normal';
 
@@ -95,6 +104,9 @@ class Card
         $this->legalities = $data['legalities'] ?? [];
         $this->imageUris = $data['image_uris'] ?? ($data['card_faces'][0]['image_uris'] ?? []);
         $this->allParts = $data['all_parts'] ?? [];
+        $this->manaValue = isset($data['cmc']) ? (float) $data['cmc'] : null;
+        $this->producedMana = $data['produced_mana'] ?? [];
+        $this->prices = $data['prices'] ?? [];
         $this->layout = $data['layout'] ?? 'normal';
         $this->commanderLegal = ($this->legalities['commander'] ?? null) === 'legal';
         $this->setCode = $data['set'] ?? null;
@@ -161,6 +173,28 @@ class Card
         return $this->allParts;
     }
 
+    public function manaValue(): ?float
+    {
+        return $this->manaValue;
+    }
+
+    public function producedMana(): array
+    {
+        return $this->producedMana;
+    }
+
+    public function prices(): array
+    {
+        return $this->prices;
+    }
+
+    public function priceEur(): ?float
+    {
+        $price = $this->prices['eur'] ?? null;
+
+        return is_numeric($price) ? (float) $price : null;
+    }
+
     public function setCode(): ?string
     {
         return $this->setCode;
@@ -205,6 +239,9 @@ class Card
             'legalities' => $this->legalities,
             'imageUris' => $this->imageUris,
             'allParts' => $this->allParts,
+            'manaValue' => $this->manaValue,
+            'producedMana' => $this->producedMana,
+            'prices' => $this->prices,
             'layout' => $this->layout,
             'commanderLegal' => $this->commanderLegal,
             'set' => $this->setCode,

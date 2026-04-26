@@ -68,28 +68,11 @@ describe('API services', () => {
   });
 
   it('loads backend deck analysis through the analysis endpoint', () => {
-    TestBed.inject(DecksApi).analysis('deck-1').subscribe();
+    TestBed.inject(DecksApi).analysis('deck-1', { includeSideboard: true, curvePlayabilityMode: 'draw' }).subscribe();
 
-    const request = http.expectOne(`${API_BASE_URL}/decks/deck-1/analysis`);
+    const request = http.expectOne(`${API_BASE_URL}/decks/deck-1/analysis?includeSideboard=true&curvePlayabilityMode=draw`);
     expect(request.request.method).toBe('GET');
-    request.flush({
-      totalCards: 100,
-      landCount: 35,
-      nonlandCount: 65,
-      colorPips: { W: 10, U: 8, B: 0, R: 4, G: 0 },
-      landTypes: [],
-      manaCurve: [],
-      creatures: { label: 'Creatures', count: 10, cards: [] },
-      artifacts: { label: 'Artifacts', count: 5, cards: [] },
-      enchantments: { label: 'Enchantments', count: 4, cards: [] },
-      instants: { label: 'Instants', count: 8, cards: [] },
-      sorceries: { label: 'Sorceries', count: 6, cards: [] },
-      planeswalkers: { label: 'Planeswalkers', count: 1, cards: [] },
-      ramp: { label: 'Ramp', count: 10, cards: [] },
-      draw: { label: 'Card draw', count: 8, cards: [] },
-      removal: { label: 'Spot removal', count: 7, cards: [] },
-      wipes: { label: 'Board wipes', count: 2, cards: [] },
-    });
+    request.flush(deckAnalysisFixture());
   });
 
   it('adds cards through the deck card mutation endpoint', () => {
@@ -238,15 +221,55 @@ describe('API services', () => {
   });
 });
 
-function friendshipFixture(id: string, status = 'pending') {
+
+function deckAnalysisFixture() {
+  const colors = ['W', 'U', 'B', 'R', 'G', 'C'];
+
   return {
-    id,
-    status,
-    requester: { id: 'user-1', displayName: 'Alice' },
-    recipient: { id: 'user-2', displayName: 'Bob' },
-    friend: { id: 'user-2', displayName: 'Bob' },
-    createdAt: '2026-04-26T00:00:00+00:00',
-    updatedAt: '2026-04-26T00:00:00+00:00',
+    summary: {
+      totalCards: 0,
+      mainboardCards: 0,
+      commanderCards: 0,
+      landCount: 0,
+      nonLandCount: 0,
+      creatureCount: 0,
+      instantCount: 0,
+      sorceryCount: 0,
+      artifactCount: 0,
+      enchantmentCount: 0,
+      planeswalkerCount: 0,
+      battleCount: 0,
+      averageManaValueWithLands: 0,
+      averageManaValueWithoutLands: 0,
+      medianManaValueWithLands: 0,
+      medianManaValueWithoutLands: 0,
+      totalManaValue: 0,
+      colorIdentity: [],
+    },
+    manaCurve: { buckets: [] },
+    typeBreakdown: { sections: [] },
+    colorRequirement: {
+      totalColoredSymbols: 0,
+      totalAllSymbols: 0,
+      estimated: false,
+      symbolsByColor: Object.fromEntries(colors.map((color) => [color, { color, symbolCount: 0, percentageOfColoredSymbols: 0, percentageOfAllSymbols: 0, cardsRequiringColor: 0 }])),
+    },
+    manaProduction: {
+      totalManaSources: 0,
+      totalProducedSymbols: 0,
+      estimated: false,
+      productionByColor: Object.fromEntries(colors.map((color) => [color, { color, sourceCount: 0, symbolCount: 0, percentageOfAllProduction: 0, percentageFromLands: 0, landSourceCount: 0, nonLandSourceCount: 0 }])),
+    },
+    colorBalance: { colors: [] },
+    curvePlayability: { disclaimer: '', buckets: [] },
+    sections: [],
+    options: {
+      includeCommanderInAnalysis: true,
+      includeSideboard: false,
+      includeMaybeboard: false,
+      curvePlayabilityMode: 'play',
+      manaSourcesMode: 'landsOnly',
+    },
   };
 }
 

@@ -178,11 +178,18 @@ TXT,
         $this->jsonRequest('GET', '/decks/'.$deckId.'/analysis', token: $token);
         self::assertResponseIsSuccessful();
         $analysis = $this->jsonResponse();
-        self::assertSame(3, $analysis['totalCards']);
-        self::assertSame(2, $analysis['landCount']);
-        self::assertSame(1, $analysis['nonlandCount']);
-        self::assertSame(1, $analysis['artifacts']['count']);
-        self::assertSame(['Sol Ring'], $analysis['ramp']['cards']);
+        self::assertSame(3, $analysis['summary']['totalCards']);
+        self::assertSame(2, $analysis['summary']['landCount']);
+        self::assertSame(1, $analysis['summary']['nonLandCount']);
+        self::assertSame(1, $analysis['summary']['artifactCount']);
+        self::assertArrayHasKey('manaCurve', $analysis);
+        self::assertArrayHasKey('colorRequirement', $analysis);
+        self::assertArrayHasKey('manaProduction', $analysis);
+        self::assertArrayHasKey('curvePlayability', $analysis);
+
+        $this->jsonRequest('GET', '/decks/'.$deckId.'/analysis?includeSideboard=true&includeMaybeboard=true&curvePlayabilityMode=draw&manaSourcesMode=landsAndRamp', token: $token);
+        self::assertResponseIsSuccessful();
+        self::assertSame('draw', $this->jsonResponse()['options']['curvePlayabilityMode']);
 
         $this->jsonRequest('POST', '/decks/'.$deckId.'/validate-commander', token: $token);
         self::assertResponseIsSuccessful();
