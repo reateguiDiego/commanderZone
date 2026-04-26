@@ -23,20 +23,31 @@ class DecklistExporterTest extends TestCase
             'set' => 'cmm',
             'collector_number' => '703',
         ]), 1));
+        $deck->addCard(new DeckCard($deck, $this->card('00000000-0000-0000-0000-000000000303', 'Pyroblast'), 1, DeckCard::SECTION_SIDEBOARD));
+        $deck->addCard(new DeckCard($deck, $this->card('00000000-0000-0000-0000-000000000304', 'Rhystic Study'), 1, DeckCard::SECTION_MAYBEBOARD));
 
         $exporter = new DecklistExporter();
 
-        self::assertSame(<<<'TXT'
+        $expectedPlain = <<<'TXT'
 Commander
 1 Atraxa, Praetors' Voice
 
 Deck
 1 Sol Ring
-TXT, str_replace("\r\n", "\n", $exporter->export($deck, DecklistParser::FORMAT_PLAIN)['content']));
+
+Sideboard
+1 Pyroblast
+
+Maybeboard
+1 Rhystic Study
+TXT;
+        self::assertSame(str_replace("\r\n", "\n", $expectedPlain), str_replace("\r\n", "\n", $exporter->export($deck, DecklistParser::FORMAT_PLAIN)['content']));
 
         self::assertStringContainsString("1x Atraxa, Praetors' Voice (2X2) 190", $exporter->export($deck, DecklistParser::FORMAT_MOXFIELD)['content']);
         self::assertStringContainsString('Commanders', $exporter->export($deck, DecklistParser::FORMAT_ARCHIDEKT)['content']);
         self::assertStringContainsString('Mainboard', $exporter->export($deck, DecklistParser::FORMAT_ARCHIDEKT)['content']);
+        self::assertStringContainsString('Sideboard', $exporter->export($deck, DecklistParser::FORMAT_ARCHIDEKT)['content']);
+        self::assertStringContainsString('Maybeboard', $exporter->export($deck, DecklistParser::FORMAT_ARCHIDEKT)['content']);
     }
 
     private function card(string $scryfallId, string $name, array $overrides = []): Card

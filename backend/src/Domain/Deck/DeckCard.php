@@ -12,6 +12,20 @@ class DeckCard
 {
     public const SECTION_MAIN = 'main';
     public const SECTION_COMMANDER = 'commander';
+    public const SECTION_SIDEBOARD = 'sideboard';
+    public const SECTION_MAYBEBOARD = 'maybeboard';
+
+    public const SECTIONS = [
+        self::SECTION_MAIN,
+        self::SECTION_COMMANDER,
+        self::SECTION_SIDEBOARD,
+        self::SECTION_MAYBEBOARD,
+    ];
+
+    public const PLAYABLE_SECTIONS = [
+        self::SECTION_MAIN,
+        self::SECTION_COMMANDER,
+    ];
 
     #[ORM\Id]
     #[ORM\Column(type: 'string', length: 36)]
@@ -67,11 +81,16 @@ class DeckCard
 
     public function moveToSection(string $section): void
     {
-        if (!in_array($section, [self::SECTION_MAIN, self::SECTION_COMMANDER], true)) {
+        if (!in_array($section, self::SECTIONS, true)) {
             throw new \InvalidArgumentException('Invalid deck card section.');
         }
 
         $this->section = $section;
+    }
+
+    public function isPlayable(): bool
+    {
+        return in_array($this->section, self::PLAYABLE_SECTIONS, true);
     }
 
     public function toArray(): array

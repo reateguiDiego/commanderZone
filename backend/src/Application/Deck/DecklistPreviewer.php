@@ -4,6 +4,7 @@ namespace App\Application\Deck;
 
 use App\Application\Card\CardResolver;
 use App\Domain\Card\Card;
+use App\Domain\Deck\DeckCard;
 
 class DecklistPreviewer
 {
@@ -21,16 +22,16 @@ class DecklistPreviewer
         $missingCards = [];
         $totalCards = 0;
         $resolvedCards = 0;
-        $commanderCount = 0;
-        $mainCount = 0;
+        $counts = [
+            DeckCard::SECTION_COMMANDER => 0,
+            DeckCard::SECTION_MAIN => 0,
+            DeckCard::SECTION_SIDEBOARD => 0,
+            DeckCard::SECTION_MAYBEBOARD => 0,
+        ];
 
         foreach ($entries as $index => $entry) {
             $totalCards += $entry['quantity'];
-            if ($entry['section'] === 'commander') {
-                $commanderCount += $entry['quantity'];
-            } else {
-                $mainCount += $entry['quantity'];
-            }
+            $counts[$entry['section']] = ($counts[$entry['section']] ?? 0) + $entry['quantity'];
 
             $card = $this->cardResolver->resolveForDecklistEntry($entry);
             if ($card instanceof Card) {
@@ -66,11 +67,14 @@ class DecklistPreviewer
                 'resolvedCards' => $resolvedCards,
                 'importedCards' => $resolvedCards,
                 'missingCards' => $totalCards - $resolvedCards,
-                'commanderCount' => $commanderCount,
-                'mainCount' => $mainCount,
+                'commanderCount' => $counts[DeckCard::SECTION_COMMANDER],
+                'mainCount' => $counts[DeckCard::SECTION_MAIN],
+                'sideboardCount' => $counts[DeckCard::SECTION_SIDEBOARD],
+                'maybeboardCount' => $counts[DeckCard::SECTION_MAYBEBOARD],
+                'playableTotal' => $counts[DeckCard::SECTION_COMMANDER] + $counts[DeckCard::SECTION_MAIN],
             ],
             'missingCards' => $missingCards,
-            'warnings' => $this->warnings($entries, $commanderCount),
+            'warnings' => $this->warnings($entries, $counts[DeckCard::SECTION_COMMANDER]),
         ];
     }
 

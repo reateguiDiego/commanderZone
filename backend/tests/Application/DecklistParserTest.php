@@ -85,6 +85,24 @@ TXT, DecklistParser::FORMAT_ARCHIDEKT);
         self::assertSame('main', $entries[3]['section']);
     }
 
+    public function testParsesSideboardAndMaybeboardHeaders(): void
+    {
+        $entries = (new DecklistParser())->parse(<<<'TXT'
+Deck
+1 Sol Ring
+
+Sideboard
+1 Pyroblast
+
+Considering
+1 Rhystic Study
+TXT);
+
+        self::assertSame('main', $entries[0]['section']);
+        self::assertSame('sideboard', $entries[1]['section']);
+        self::assertSame('maybeboard', $entries[2]['section']);
+    }
+
     public function testDetectsMoxfieldFormat(): void
     {
         $format = (new DecklistParser())->detectFormat(<<<'TXT'

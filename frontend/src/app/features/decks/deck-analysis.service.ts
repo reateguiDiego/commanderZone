@@ -37,7 +37,7 @@ export class DeckAnalysisService {
   private readonly manaSymbols = inject(ManaSymbolService);
 
   analyze(deck: Deck | null): DeckAnalysis {
-    const cards = deck?.cards ?? [];
+    const cards = (deck?.cards ?? []).filter((entry) => entry.section === 'commander' || entry.section === 'main');
     const expanded = this.expand(cards);
     const nonlands = expanded.filter((entry) => !this.isLand(entry));
 

@@ -35,6 +35,7 @@ export interface DeckFolderResponse {
 }
 
 export interface DeckImportResponse {
+  format?: string;
   deck: Deck;
   missing: string[];
   summary?: {
@@ -46,6 +47,9 @@ export interface DeckImportResponse {
     missingCards: number;
     commanderCount: number;
     mainCount: number;
+    sideboardCount?: number;
+    maybeboardCount?: number;
+    playableTotal?: number;
   };
   missingCards?: MissingDeckCard[];
 }

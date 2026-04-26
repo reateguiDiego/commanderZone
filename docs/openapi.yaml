@@ -596,6 +596,40 @@ paths:
           $ref: '#/components/responses/Error'
         '404':
           $ref: '#/components/responses/Error'
+  /decks/{id}/sections:
+    get:
+      tags: [Decks]
+      summary: Return deck cards grouped by deckbuilder section.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Grouped deck sections.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeckSectionsResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+  /decks/{id}/tokens:
+    get:
+      tags: [Decks]
+      summary: Return token cards derived from Scryfall all_parts on cards in the deck.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Derived deck tokens.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeckTokensResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
   /decks/{id}/import:
     post:
       tags: [Decks]
@@ -775,7 +809,7 @@ paths:
                   minimum: 1
                 section:
                   type: string
-                  enum: [main, commander]
+                  enum: [commander, main, sideboard, maybeboard]
       responses:
         '200':
           description: Updated deck.
@@ -1214,6 +1248,11 @@ components:
           type: [string, 'null']
         flavorName:
           type: [string, 'null']
+        allParts:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
     CardImageResponse:
       type: object
       required: [scryfallId, format, uri]
@@ -1263,9 +1302,114 @@ components:
           minimum: 1
         section:
           type: string
-          enum: [main, commander]
+          enum: [commander, main, sideboard, maybeboard]
         card:
           $ref: '#/components/schemas/Card'
+    DeckSectionsResponse:
+      type: object
+      required: [deckId, sections, counts]
+      properties:
+        deckId:
+          type: string
+          format: uuid
+        sections:
+          type: object
+          required: [commander, main, sideboard, maybeboard, tokens]
+          properties:
+            commander:
+              type: array
+              items:
+                $ref: '#/components/schemas/DeckCard'
+            main:
+              type: array
+              items:
+                $ref: '#/components/schemas/DeckCard'
+            sideboard:
+              type: array
+              items:
+                $ref: '#/components/schemas/DeckCard'
+            maybeboard:
+              type: array
+              items:
+                $ref: '#/components/schemas/DeckCard'
+            tokens:
+              type: array
+              items:
+                $ref: '#/components/schemas/ResolvedDeckToken'
+        counts:
+          type: object
+          required: [commander, main, sideboard, maybeboard, tokens, playableTotal]
+          properties:
+            commander:
+              type: integer
+            main:
+              type: integer
+            sideboard:
+              type: integer
+            maybeboard:
+              type: integer
+            tokens:
+              type: integer
+            playableTotal:
+              type: integer
+    DeckTokensResponse:
+      type: object
+      required: [deckId, data, unresolved]
+      properties:
+        deckId:
+          type: string
+          format: uuid
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResolvedDeckToken'
+        unresolved:
+          type: array
+          items:
+            $ref: '#/components/schemas/UnresolvedDeckToken'
+    DeckTokenSource:
+      type: object
+      required: [scryfallId, name, section]
+      properties:
+        scryfallId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        section:
+          type: string
+          enum: [commander, main, sideboard, maybeboard]
+    ResolvedDeckToken:
+      type: object
+      required: [sourceCard, token, resolved]
+      properties:
+        sourceCard:
+          $ref: '#/components/schemas/DeckTokenSource'
+        token:
+          $ref: '#/components/schemas/Card'
+        resolved:
+          type: boolean
+          enum: [true]
+    UnresolvedDeckToken:
+      type: object
+      required: [sourceCard, token, resolved]
+      properties:
+        sourceCard:
+          $ref: '#/components/schemas/DeckTokenSource'
+        token:
+          type: object
+          required: [scryfallId, name, uri]
+          properties:
+            scryfallId:
+              type: string
+              format: uuid
+            name:
+              type: string
+            uri:
+              type: [string, 'null']
+        resolved:
+          type: boolean
+          enum: [false]
     DeckMetric:
       type: object
       required: [label, count, cards]
@@ -1442,7 +1586,7 @@ components:
           type: string
         section:
           type: string
-          enum: [main, commander]
+          enum: [commander, main, sideboard, maybeboard]
         setCode:
           type: [string, 'null']
         collectorNumber:
@@ -1457,7 +1601,7 @@ components:
             - type: 'null'
     DeckImportSummary:
       type: object
-      required: [format, parsedCards, totalCards, resolvedCards, importedCards, missingCards, commanderCount, mainCount]
+      required: [format, parsedCards, totalCards, resolvedCards, importedCards, missingCards, commanderCount, mainCount, sideboardCount, maybeboardCount, playableTotal]
       properties:
         format:
           $ref: '#/components/schemas/DecklistFormat'
@@ -1475,6 +1619,12 @@ components:
           type: integer
         mainCount:
           type: integer
+        sideboardCount:
+          type: integer
+        maybeboardCount:
+          type: integer
+        playableTotal:
+          type: integer
     MissingDeckCard:
       type: object
       required: [name, quantity, section, setCode, collectorNumber, line, rawLine, reason]
@@ -1485,7 +1635,7 @@ components:
           type: integer
         section:
           type: string
-          enum: [main, commander]
+          enum: [commander, main, sideboard, maybeboard]
         setCode:
           type: [string, 'null']
         collectorNumber:
@@ -1567,7 +1717,7 @@ components:
           default: 1
         section:
           type: string
-          enum: [main, commander]
+          enum: [commander, main, sideboard, maybeboard]
           default: main
     DeckCardBatchMutation:
       type: object
@@ -1581,7 +1731,7 @@ components:
           minimum: 0
         section:
           type: string
-          enum: [main, commander]
+          enum: [commander, main, sideboard, maybeboard]
     DeckCardsBatchRequest:
       type: object
       required: [cards]

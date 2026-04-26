@@ -53,6 +53,7 @@ export class ClientCommanderValidationService {
 
   private legalityIssues(deck: Deck): ClientCommanderIssue[] {
     return (deck.cards ?? [])
+      .filter((entry) => this.isPlayable(entry))
       .filter((entry) => !entry.card.commanderLegal || ['banned', 'not_legal'].includes(entry.card.legalities['commander'] ?? ''))
       .map((entry) => ({
         severity: 'error' as const,
@@ -111,6 +112,7 @@ export class ClientCommanderValidationService {
 
   private layoutWarnings(deck: Deck): ClientCommanderIssue[] {
     return (deck.cards ?? [])
+      .filter((entry) => this.isPlayable(entry))
       .filter((entry) => /modal_dfc|transform|meld/i.test(entry.card.layout) || entry.card.name.includes('//'))
       .map((entry) => ({
         severity: 'warning' as const,
@@ -122,6 +124,10 @@ export class ClientCommanderValidationService {
 
   private commanders(deck: Deck): DeckCard[] {
     return (deck.cards ?? []).filter((entry) => entry.section === 'commander');
+  }
+
+  private isPlayable(entry: DeckCard): boolean {
+    return entry.section === 'commander' || entry.section === 'main';
   }
 
   private looksLikeLegalPair(commanders: DeckCard[]): boolean {

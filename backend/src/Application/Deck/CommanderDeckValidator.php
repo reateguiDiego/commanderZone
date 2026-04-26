@@ -22,8 +22,21 @@ class CommanderDeckValidator
                 continue;
             }
 
-            $total += $deckCard->quantity();
             $card = $deckCard->card();
+            if (!$deckCard->isPlayable()) {
+                $commanderLegality = $card->legalities()['commander'] ?? null;
+                if (!$card->isCommanderLegal() || in_array($commanderLegality, ['banned', 'not_legal'], true)) {
+                    $issues[] = $this->issue(
+                        'warning',
+                        'Non-playable section legality review',
+                        sprintf('%s is in %s and is marked as %s in Commander.', $card->name(), $deckCard->section(), $commanderLegality ?? 'not legal'),
+                        [$card->name()],
+                    );
+                }
+                continue;
+            }
+
+            $total += $deckCard->quantity();
 
             $commanderLegality = $card->legalities()['commander'] ?? null;
             if (!$card->isCommanderLegal() || in_array($commanderLegality, ['banned', 'not_legal'], true)) {

@@ -85,8 +85,20 @@ class DeckBuildingTest extends TestCase
             new Deck(new User('player@example.test', 'Player'), 'Atraxa'),
             $this->card('00000000-0000-0000-0000-000000000003', 'Island'),
             1,
-            'sideboard'
+            'tokens'
         );
+    }
+
+    public function testSideboardAndMaybeboardAreAcceptedSections(): void
+    {
+        $deck = new Deck(new User('player@example.test', 'Player'), 'Atraxa');
+        $sideboard = new DeckCard($deck, $this->card('00000000-0000-0000-0000-000000000006', 'Swan Song'), 1, DeckCard::SECTION_SIDEBOARD);
+        $maybeboard = new DeckCard($deck, $this->card('00000000-0000-0000-0000-000000000007', 'Counterspell'), 1, DeckCard::SECTION_MAYBEBOARD);
+
+        self::assertSame(DeckCard::SECTION_SIDEBOARD, $sideboard->section());
+        self::assertSame(DeckCard::SECTION_MAYBEBOARD, $maybeboard->section());
+        self::assertFalse($sideboard->isPlayable());
+        self::assertFalse($maybeboard->isPlayable());
     }
 
     private function card(string $scryfallId, string $name): Card

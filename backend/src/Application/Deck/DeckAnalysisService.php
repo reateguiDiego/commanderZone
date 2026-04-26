@@ -45,6 +45,9 @@ class DeckAnalysisService
             if (!$entry instanceof DeckCard) {
                 continue;
             }
+            if (!$entry->isPlayable()) {
+                continue;
+            }
 
             for ($i = 0; $i < $entry->quantity(); ++$i) {
                 $expanded[] = $entry;
