@@ -1,5 +1,5 @@
 import { Card } from './card.model';
-import { Deck, DeckFolder, CommanderValidation } from './deck.model';
+import { Deck, DeckFolder, DeckFormat, CommanderValidation } from './deck.model';
 import { Game, GameEvent, GameSnapshot } from './game.model';
 import { Room } from './room.model';
 import { User } from './user.model';
@@ -26,6 +26,12 @@ export interface CardResponse {
   card: Card;
 }
 
+export interface CardImageResponse {
+  scryfallId: string;
+  format: string;
+  uri: string;
+}
+
 export interface DeckResponse {
   deck: Deck;
 }
@@ -37,6 +43,10 @@ export interface DeckFolderResponse {
 export interface DeckImportResponse {
   deck: Deck;
   missing: string[];
+}
+
+export interface DeckFormatResponse {
+  data: DeckFormat[];
 }
 
 export type CommanderValidationResponse = CommanderValidation;

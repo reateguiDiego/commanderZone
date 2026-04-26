@@ -22,6 +22,14 @@ export interface DeckFolder {
   name: string;
 }
 
+export interface DeckFormat {
+  id: string;
+  name: string;
+  minCards: number;
+  maxCards: number;
+  hasCommander: boolean;
+}
+
 export interface CommanderValidation {
   valid: boolean;
   errors: string[];

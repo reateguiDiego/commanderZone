@@ -3,9 +3,11 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 import { API_BASE_URL } from './api.config';
 import { CardsApi } from './cards.api';
+import { DeckFormatsApi } from './deck-formats.api';
 import { DeckFoldersApi } from './deck-folders.api';
 import { DecksApi } from './decks.api';
 import { GamesApi } from './games.api';
+import { SKIP_GLOBAL_LOADING } from '../loading/loading-context';
 
 describe('API services', () => {
   let http: HttpTestingController;
@@ -27,6 +29,23 @@ describe('API services', () => {
     const request = http.expectOne(`${API_BASE_URL}/cards/search?q=sol%20ring&page=1&limit=24`);
     expect(request.request.method).toBe('GET');
     request.flush({ data: [], page: 1, limit: 24 });
+  });
+
+  it('builds filtered card search requests', () => {
+    TestBed.inject(CardsApi).search('atraxa', 1, 8, { commanderLegal: true }).subscribe();
+
+    const request = http.expectOne(`${API_BASE_URL}/cards/search?q=atraxa&page=1&limit=8&commanderLegal=true`);
+    expect(request.request.method).toBe('GET');
+    request.flush({ data: [], page: 1, limit: 8 });
+  });
+
+  it('requests card image URIs from the backend image endpoint', () => {
+    TestBed.inject(CardsApi).image('card-1', 'normal').subscribe();
+
+    const request = http.expectOne(`${API_BASE_URL}/cards/card-1/image?format=normal&mode=uri`);
+    expect(request.request.method).toBe('GET');
+    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);
+    request.flush({ scryfallId: 'card-1', format: 'normal', uri: 'http://image.test/card-1.jpg' });
   });
 
   it('posts deck imports with the backend payload shape', () => {
@@ -62,6 +81,22 @@ describe('API services', () => {
     const request = http.expectOne(`${API_BASE_URL}/deck-folders`);
     expect(request.request.method).toBe('GET');
     request.flush({ data: [] });
+  });
+
+  it('lists deck folder names through the lightweight endpoint', () => {
+    TestBed.inject(DeckFoldersApi).names().subscribe();
+
+    const request = http.expectOne(`${API_BASE_URL}/deck-folders/names`);
+    expect(request.request.method).toBe('GET');
+    request.flush({ data: [] });
+  });
+
+  it('lists deck formats through the backend endpoint', () => {
+    TestBed.inject(DeckFormatsApi).list().subscribe();
+
+    const request = http.expectOne(`${API_BASE_URL}/deck-formats`);
+    expect(request.request.method).toBe('GET');
+    request.flush({ data: [{ id: 'commander', name: 'Commander', minCards: 100, maxCards: 100, hasCommander: true }] });
   });
 
   it('posts game commands with type and payload', () => {

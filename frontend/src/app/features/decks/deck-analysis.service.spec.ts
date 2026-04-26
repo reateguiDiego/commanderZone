@@ -29,18 +29,18 @@ describe('DeckAnalysisService', () => {
 
     const analysis = service.analyze(deck);
 
-    expect(analysis.totalCards).toBe(15);
+    expect(analysis.mainDeckCards).toBe(14);
     expect(analysis.landCount).toBe(11);
     expect(analysis.landTypes.find((land) => land.label === 'Forest')?.count).toBe(10);
-    expect(analysis.colorPips['G']).toBe(2);
+    expect(analysis.colorPips['G']).toBe(1);
     expect(analysis.colorPips['W']).toBe(3);
-    expect(analysis.manaCurve.find((bucket) => bucket.manaValue === 3)?.count).toBe(1);
+    expect(analysis.manaCurve.find((bucket) => bucket.manaValue === 3)?.spells).toBe(1);
     expect(analysis.ramp.cards).toContain('Cultivate');
     expect(analysis.ramp.cards).not.toContain('Command Tower');
-    expect(analysis.draw.cards).toContain('Commander');
+    expect(analysis.draw.cards).toHaveLength(0);
     expect(analysis.removal.cards).toContain('Swords to Plowshares');
     expect(analysis.wipes.cards).toContain('Wrath of God');
-    expect(analysis.creatures.cards).toContain('Commander');
+    expect(analysis.creatures.cards).toHaveLength(0);
     expect(analysis.instants.cards).toContain('Swords to Plowshares');
   });
 });
