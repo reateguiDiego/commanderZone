@@ -56,6 +56,10 @@ export class DecksApi {
     return this.http.get<DeckResponse>(`${API_BASE_URL}/decks/${id}`);
   }
 
+  analysis(id: string): Observable<DeckAnalysis> {
+    return this.http.get<DeckAnalysis>(`${API_BASE_URL}/decks/${id}/analysis`);
+  }
+
   sections(id: string): Observable<DeckSectionsResponse> {
     return this.http.get<DeckSectionsResponse>(`${API_BASE_URL}/decks/${id}/sections`);
   }

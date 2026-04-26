@@ -664,7 +664,7 @@ label {
 
 .deck-list-row {
   display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(8rem, 0.9fr) minmax(5rem, 0.6fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 0.75rem;
   align-items: center;
   padding: 0.7rem 0.35rem;
@@ -686,7 +686,7 @@ label {
 
 .deck-table-header {
   display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(8rem, 0.9fr) minmax(5rem, 0.6fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 0.75rem;
   padding: 0 0.35rem 0.55rem;
   border-bottom: 1px solid rgb(255 255 255 / 10%);
@@ -697,19 +697,11 @@ label {
 }
 
 .folder-table-header {
-  grid-template-columns: minmax(0, 2fr) minmax(8rem, 0.9fr) minmax(5rem, 0.6fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto;
 }
 
-.deck-table-name strong,
-.deck-table-format,
-.deck-table-price {
+.deck-table-name strong {
   min-width: 0;
-}
-
-.deck-table-format,
-.deck-table-price {
-  color: var(--muted);
-  font-size: 0.9rem;
 }
 
 .deck-drop-row {
@@ -736,6 +728,26 @@ label {
 .folder-panel {
   display: grid;
   gap: 0.9rem;
+}
+
+.folder-unfile-shell {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0.7rem;
+  border: 1px dashed transparent;
+  border-radius: 10px;
+  transition: border-color 140ms ease, background-color 140ms ease;
+}
+
+.folder-unfile-shell.drag-shell-active {
+  border-color: rgb(255 255 255 / 10%);
+  background: rgb(255 255 255 / 2%);
+}
+
+.folder-unfile-hint {
+  color: var(--muted);
+  font-size: 0.8rem;
+  padding-inline: 0.2rem;
 }
 
 .folder-panel h3,
@@ -816,7 +828,7 @@ label {
   display: flex;
   align-items: center;
   gap: 0.55rem;
-  width: 100%;
+  width: 500px;
   padding: 0 0.75rem;
   border: 1px solid var(--line);
   border-radius: 6px;
@@ -951,7 +963,7 @@ label {
   gap: 0.45rem;
   align-items: center;
   cursor: pointer;
-  padding: 0.32rem 0;
+  padding: 0.24rem 0;
   border-bottom: 1px solid rgb(255 255 255 / 7%);
   background: transparent;
 }
@@ -967,8 +979,8 @@ label {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.88rem;
-  line-height: 1.2;
+  font-size: 0.83rem;
+  line-height: 1.15;
 }
 
 .deck-card-secondary {
@@ -976,26 +988,45 @@ label {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.74rem;
+  font-size: 0.7rem;
   text-align: left;
 }
 
 .deck-card-cost {
   justify-self: end;
   white-space: nowrap;
-  font-size: 0.84rem;
+  font-size: 0.78rem;
   min-width: 4.75rem;
   text-align: right;
 }
 
 .deck-card-cost .mana-symbols .ms {
-  font-size: 0.95em;
+  font-size: 0.84em;
 }
 
 .warning-mark {
   color: var(--gold);
   margin-left: 0.2rem;
   vertical-align: text-bottom;
+}
+
+.face-toggle-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  margin-left: 0.3rem;
+  border: 0;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 5%);
+  color: var(--muted);
+  vertical-align: text-bottom;
+}
+
+.face-toggle-button:hover {
+  background: rgb(255 255 255 / 10%);
+  color: var(--text);
 }
 
 .card-row-menu {
@@ -1092,7 +1123,7 @@ label {
 .analysis-main-column,
 .analysis-side-column {
   display: grid;
-  gap: 0.8rem;
+  gap: 0.65rem;
 }
 
 .analysis-shell {
@@ -1101,9 +1132,9 @@ label {
 
 .analysis-support-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.45fr) minmax(22rem, 0.95fr);
-  gap: 0.8rem;
-  margin-top: 0.8rem;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.65rem;
+  margin-top: 0.65rem;
 }
 
 .analysis-layout {
@@ -1112,8 +1143,8 @@ label {
 
 .analysis-panel {
   display: grid;
-  gap: 0.8rem;
-  padding: 0.95rem 1rem;
+  gap: 0.65rem;
+  padding: 0.8rem 0.9rem;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: rgb(32 37 29 / 52%);
@@ -1132,7 +1163,7 @@ label {
 
 .analysis-panel-header p {
   color: var(--muted);
-  font-size: 0.86rem;
+  font-size: 0.8rem;
 }
 
 .analysis-screen {
@@ -1196,17 +1227,17 @@ label {
 }
 
 .compact-curve {
-  min-height: 14rem;
+  min-height: 11.75rem;
 }
 
 .curve-bar {
   display: grid;
-  grid-template-rows: auto 10rem auto;
-  gap: 0.65rem;
+  grid-template-rows: auto 8.4rem auto;
+  gap: 0.45rem;
   align-items: end;
   text-align: center;
   color: var(--muted);
-  font-size: 0.8rem;
+  font-size: 0.74rem;
 }
 
 .curve-bar strong {
@@ -1265,6 +1296,7 @@ label {
   flex-direction: column-reverse;
   justify-content: flex-start;
   height: 100%;
+  align-items: stretch;
   gap: 0.14rem;
 }
 
@@ -1275,14 +1307,14 @@ label {
 
 .analysis-list-grid {
   display: grid;
-  gap: 0.55rem;
+  gap: 0.4rem;
 }
 
 .analysis-list-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 0.15rem 0.75rem;
-  padding-bottom: 0.55rem;
+  padding-bottom: 0.4rem;
   border-bottom: 1px solid rgb(255 255 255 / 7%);
 }
 
@@ -1302,12 +1334,12 @@ label {
 }
 
 .analysis-list-label {
-  font-size: 0.9rem;
+  font-size: 0.84rem;
   font-weight: 650;
 }
 
 .analysis-list-count {
-  font-size: 1.1rem;
+  font-size: 1rem;
 }
 
 .analysis-color-grid {
@@ -1317,7 +1349,126 @@ label {
 }
 
 .compact-analysis-panel {
-  gap: 0.7rem;
+  gap: 0.55rem;
+}
+
+.compact-analysis-header {
+  align-items: center;
+}
+
+.mana-balance-panel {
+  grid-template-columns: minmax(11rem, 13rem) minmax(0, 1fr);
+  align-items: start;
+  gap: 0.85rem;
+}
+
+.mana-donut-stack {
+  display: grid;
+  justify-items: center;
+  gap: 0.35rem;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.mana-donut {
+  width: 6.6rem;
+  aspect-ratio: 1;
+  border-radius: 999px;
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+
+.mana-donut::after {
+  content: '';
+  position: absolute;
+  inset: 0.95rem;
+  border-radius: inherit;
+  background: rgb(18 21 17 / 96%);
+}
+
+.mana-donut span {
+  position: relative;
+  z-index: 1;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.mana-balance-grid {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.mana-balance-row {
+  display: grid;
+  grid-template-columns: minmax(0, 8.5rem) minmax(7rem, auto) minmax(0, 1fr) auto;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid rgb(255 255 255 / 7%);
+}
+
+.mana-balance-label,
+.mana-balance-metrics,
+.mana-balance-notes {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.mana-balance-label {
+  min-width: 0;
+}
+
+.mana-balance-label strong,
+.mana-balance-metrics strong {
+  font-size: 0.83rem;
+}
+
+.mana-balance-metrics,
+.mana-balance-notes {
+  color: var(--muted);
+  font-size: 0.73rem;
+}
+
+.mana-balance-metrics {
+  justify-content: space-between;
+}
+
+.mana-balance-bars {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.mana-balance-bar {
+  height: 0.34rem;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 7%);
+  overflow: hidden;
+}
+
+.mana-balance-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+}
+
+.source-bar span {
+  background: linear-gradient(90deg, rgb(114 167 199 / 88%), rgb(139 201 164 / 88%));
+}
+
+.demand-bar span {
+  background: linear-gradient(90deg, rgb(215 180 106 / 88%), rgb(203 124 243 / 88%));
+}
+
+.mana-balance-notes {
+  justify-content: flex-end;
+  white-space: nowrap;
+}
+
+.considering-layout {
+  grid-template-columns: minmax(0, 1.2fr) minmax(18rem, 0.85fr);
 }
 
 .compact-color-grid {
@@ -1848,8 +1999,11 @@ label {
   .deck-card-groups,
   .analysis-shell,
   .analysis-support-grid,
+  .considering-layout,
+  .mana-balance-panel,
   .analysis-layout,
   .deck-card-row,
+  .mana-balance-row,
   .deck-table-header,
   .deck-list-row,
   .metric-grid {

@@ -32,7 +32,10 @@ export class CardsApi {
       params = params.set('type', filters.type);
     }
 
-    return this.http.get<DataResponse<Card>>(`${API_BASE_URL}/cards/search`, { params });
+    return this.http.get<DataResponse<Card>>(`${API_BASE_URL}/cards/search`, {
+      params,
+      context: withoutGlobalLoading(),
+    });
   }
 
   get(scryfallId: string): Observable<CardResponse> {

@@ -58,8 +58,6 @@ interface DeckFolderSection {
         <section class="panel folder-panel">
           <div class="deck-table-header">
             <span>Name</span>
-            <span>Format</span>
-            <span>Price</span>
             <span></span>
           </div>
           <div class="dense-list deck-table-list">
@@ -81,8 +79,6 @@ interface DeckFolderSection {
                   </span>
                   <strong>{{ folder.name }} ({{ folderDeckCount(folder.id) }})</strong>
                 </span>
-                <span class="deck-table-format">-</span>
-                <span class="deck-table-price">-</span>
                 <div class="deck-row-actions table-actions">
                   <button class="icon-button" type="button" title="Rename folder" (click)="openRenameFolderModal(folder); $event.stopPropagation()">
                     <lucide-icon name="pencil" size="15" />
@@ -120,8 +116,6 @@ interface DeckFolderSection {
                     <strong>{{ deck.name }}</strong>
                   }
                 </span>
-                <span class="deck-table-format">{{ deckFormatLabel(deck) }}</span>
-                <span class="deck-table-price">{{ deckPrice(deck) ?? '-' }}</span>
                 <div class="deck-row-actions table-actions">
                   <button class="icon-button" type="button" title="Rename deck" (click)="startDeckRename(deck); $event.stopPropagation()">
                     <lucide-icon name="pencil" size="16" />
@@ -135,17 +129,21 @@ interface DeckFolderSection {
           </div>
         </section>
       } @else {
-        <section class="panel folder-panel">
+        <div
+          class="folder-unfile-shell"
+          [class.drag-shell-active]="draggedDeckId() !== null"
+          [class.drop-active]="dragTargetId() === '__unfiled__'"
+          (dragover)="allowDeckDrop($event, '__unfiled__')"
+          (dragleave)="clearDeckDrop('__unfiled__')"
+          (drop)="dropDeckOnFolder($event, null)"
+        >
+        <section class="panel folder-panel" (dragenter)="clearDeckDrop('__unfiled__')" (dragover)="$event.stopPropagation()" (drop)="$event.stopPropagation()">
           <div class="tool-header compact-header">
             <div class="folder-heading">
               <button
                 class="text-button compact"
                 type="button"
-                [class.drop-active]="dragTargetId() === '__unfiled__'"
                 (click)="leaveFolder()"
-                (dragover)="allowDeckDrop($event, '__unfiled__')"
-                (dragleave)="clearDeckDrop('__unfiled__')"
-                (drop)="dropDeckOnFolder($event, null)"
               >
                 <lucide-icon name="arrow-left" size="16" />
                 Decks
@@ -169,8 +167,6 @@ interface DeckFolderSection {
 
           <div class="deck-table-header">
             <span>Name</span>
-            <span>Format</span>
-            <span>Price</span>
             <span></span>
           </div>
           <div class="dense-list deck-table-list">
@@ -200,8 +196,6 @@ interface DeckFolderSection {
                     <strong>{{ deck.name }}</strong>
                   }
                 </span>
-                <span class="deck-table-format">{{ deckFormatLabel(deck) }}</span>
-                <span class="deck-table-price">{{ deckPrice(deck) ?? '-' }}</span>
                 <div class="deck-row-actions table-actions">
                   <button class="icon-button" type="button" title="Rename deck" (click)="startDeckRename(deck); $event.stopPropagation()">
                     <lucide-icon name="pencil" size="16" />
@@ -216,6 +210,10 @@ interface DeckFolderSection {
             }
           </div>
         </section>
+        @if (draggedDeckId()) {
+          <div class="folder-unfile-hint">Drag outside this folder panel to remove the deck from the folder.</div>
+        }
+        </div>
       }
 
       <app-modal
@@ -504,8 +502,9 @@ export class DeckListComponent {
   }
 
   onCommanderQueryChange(value: string): void {
-    this.commanderQuery = value;
-    if (this.selectedCommander()?.name !== value.trim()) {
+    const sanitized = sanitizeDeckSearchQuery(value);
+    this.commanderQuery = sanitized;
+    if (this.selectedCommander()?.name !== sanitized.trim()) {
       this.selectedCommander.set(null);
     }
 
@@ -513,7 +512,7 @@ export class DeckListComponent {
       clearTimeout(this.commanderSearchTimeout);
     }
 
-    const query = value.trim();
+    const query = sanitized.trim();
     if (query.length < 2 || !this.selectedFormat()?.hasCommander) {
       this.commanderResults.set([]);
       this.commanderLoading.set(false);
@@ -529,12 +528,12 @@ export class DeckListComponent {
 
   private async searchCommander(query: string, searchVersion: number): Promise<void> {
     try {
-      const response = await firstValueFrom(this.cardsApi.search(query, 1, 8, { commanderLegal: true }));
+      const response = await firstValueFrom(this.cardsApi.search(query, 1, 24, { commanderLegal: true }));
       if (searchVersion !== this.commanderSearchVersion || query !== this.commanderQuery.trim()) {
         return;
       }
 
-      const distinctCards = this.distinctCommanders(response.data);
+      const distinctCards = this.filterAndDistinctCommanders(response.data, query);
       const signature = distinctCards.map((card) => this.commanderDistinctKey(card)).join('|');
       if (signature === this.lastCommanderResultsSignature && query === this.lastCommanderQuery) {
         return;
@@ -836,34 +835,8 @@ export class DeckListComponent {
     }
   }
 
-  deckFormatLabel(deck: Deck): string {
-    return this.formats().find((format) => format.id === deck.format)?.name ?? deck.format;
-  }
-
   selectedFormat(): DeckFormat | null {
     return this.formats().find((format) => format.id === this.newDeckFormatId) ?? null;
-  }
-
-  deckPrice(deck: Deck): string | null {
-    const candidate = deck as Deck & {
-      totalPriceUsd?: number | string | null;
-      priceUsd?: number | string | null;
-      totalPrice?: number | string | null;
-      price?: { usd?: number | string | null } | number | string | null;
-      prices?: { usd?: number | string | null };
-    };
-    const value =
-      candidate.totalPriceUsd
-      ?? candidate.priceUsd
-      ?? candidate.totalPrice
-      ?? (typeof candidate.price === 'object' && candidate.price ? candidate.price.usd : candidate.price)
-      ?? candidate.prices?.usd;
-
-    if (value === null || value === undefined || value === '') {
-      return null;
-    }
-
-    return `$${value}`;
   }
 
   private distinctCommanders(cards: Card[]): Card[] {
@@ -878,6 +851,31 @@ export class DeckListComponent {
       seen.add(key);
       return true;
     });
+  }
+
+  private filterAndDistinctCommanders(cards: Card[], query: string): Card[] {
+    const normalizedQuery = normalizeDeckSearch(query);
+    const filtered = cards
+      .filter((card) => this.commanderSearchHaystack(card).includes(normalizedQuery))
+      .sort((left, right) => {
+        const leftIndex = this.commanderSearchHaystack(left).indexOf(normalizedQuery);
+        const rightIndex = this.commanderSearchHaystack(right).indexOf(normalizedQuery);
+        if (leftIndex !== rightIndex) {
+          return leftIndex - rightIndex;
+        }
+
+        return left.name.localeCompare(right.name);
+      });
+
+    return this.distinctCommanders(filtered);
+  }
+
+  private commanderSearchHaystack(card: Card): string {
+    return normalizeDeckSearch([
+      card.name,
+      card.printedName ?? '',
+      card.flavorName ?? '',
+    ].join(' '));
   }
 
   private commanderDistinctKey(card: Card): string {
@@ -896,4 +894,19 @@ export class DeckListComponent {
 
     return fallback;
   }
+}
+
+function sanitizeDeckSearchQuery(value: string): string {
+  return value
+    .replace(/[^A-Za-zÀ-ÿ\s]/g, '')
+    .replace(/\s+/g, ' ')
+    .trimStart();
+}
+
+function normalizeDeckSearch(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase()
+    .trim();
 }
