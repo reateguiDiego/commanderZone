@@ -13,4 +13,4 @@
 /backend/.phpunit.cache/
 /frontend/node_modules/
 /frontend/dist/
-
+*.log
