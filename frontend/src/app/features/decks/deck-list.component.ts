@@ -1,3 +1,4 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
@@ -63,7 +64,17 @@ interface DeckFolderSection {
           </div>
           <div class="dense-list deck-table-list">
             @for (folder of folders(); track folder.id) {
-              <div class="deck-list-row deck-row-clickable" role="button" tabindex="0" (click)="enterFolder(folder.id)" (keydown.enter)="enterFolder(folder.id)">
+              <div
+                class="deck-list-row deck-row-clickable"
+                [class.drop-active]="dragTargetId() === folder.id"
+                role="button"
+                tabindex="0"
+                (click)="enterFolder(folder.id)"
+                (keydown.enter)="enterFolder(folder.id)"
+                (dragover)="allowDeckDrop($event, folder.id)"
+                (dragleave)="clearDeckDrop(folder.id)"
+                (drop)="dropDeckOnFolder($event, folder.id)"
+              >
                 <span class="deck-link deck-table-name folder-row-name">
                   <span class="folder-icon-wrap small-folder-icon">
                     <lucide-icon name="folder" size="18" />
@@ -84,19 +95,37 @@ interface DeckFolderSection {
             }
 
             @for (deck of unfiledSection().decks; track deck.id) {
-              <div class="deck-list-row deck-row-clickable" role="link" tabindex="0" (click)="openDeck(deck.id)" (keydown.enter)="openDeck(deck.id)">
+              <div
+                class="deck-list-row deck-row-clickable"
+                draggable="true"
+                role="link"
+                tabindex="0"
+                (click)="openDeck(deck.id)"
+                (keydown.enter)="openDeck(deck.id)"
+                (dragstart)="beginDeckDrag($event, deck)"
+                (dragend)="endDeckDrag()"
+              >
                 <span class="deck-link deck-table-name">
-                  <strong>{{ deck.name }}</strong>
+                  @if (editingDeckId() === deck.id) {
+                    <input
+                      name="renameDeckRoot"
+                      [ngModel]="renameDeckName"
+                      (ngModelChange)="renameDeckName = $event"
+                      (click)="$event.stopPropagation()"
+                      (blur)="saveDeckRename(deck)"
+                      (keydown.enter)="saveDeckRename(deck)"
+                      (keydown.escape)="cancelDeckRename()"
+                    />
+                  } @else {
+                    <strong>{{ deck.name }}</strong>
+                  }
                 </span>
                 <span class="deck-table-format">{{ deckFormatLabel(deck) }}</span>
                 <span class="deck-table-price">{{ deckPrice(deck) ?? '-' }}</span>
                 <div class="deck-row-actions table-actions">
-                  <select class="deck-folder-select" [ngModel]="deck.folderId ?? ''" (click)="$event.stopPropagation()" (keydown.enter)="$event.stopPropagation()" (ngModelChange)="moveDeck(deck, $event)">
-                    <option value="">No folder</option>
-                    @for (folder of folderOptions(); track folder.id) {
-                      <option [value]="folder.id">{{ folder.name }}</option>
-                    }
-                  </select>
+                  <button class="icon-button" type="button" title="Rename deck" (click)="startDeckRename(deck); $event.stopPropagation()">
+                    <lucide-icon name="pencil" size="16" />
+                  </button>
                   <button class="icon-button danger" type="button" title="Delete deck" (click)="deleteDeck(deck); $event.stopPropagation()">
                     <lucide-icon name="trash-2" size="16" />
                   </button>
@@ -109,7 +138,15 @@ interface DeckFolderSection {
         <section class="panel folder-panel">
           <div class="tool-header compact-header">
             <div class="folder-heading">
-              <button class="text-button compact" type="button" (click)="leaveFolder()">
+              <button
+                class="text-button compact"
+                type="button"
+                [class.drop-active]="dragTargetId() === '__unfiled__'"
+                (click)="leaveFolder()"
+                (dragover)="allowDeckDrop($event, '__unfiled__')"
+                (dragleave)="clearDeckDrop('__unfiled__')"
+                (drop)="dropDeckOnFolder($event, null)"
+              >
                 <lucide-icon name="arrow-left" size="16" />
                 Decks
               </button>
@@ -138,19 +175,37 @@ interface DeckFolderSection {
           </div>
           <div class="dense-list deck-table-list">
             @for (deck of currentFolderSection().decks; track deck.id) {
-              <div class="deck-list-row deck-row-clickable" role="link" tabindex="0" (click)="openDeck(deck.id)" (keydown.enter)="openDeck(deck.id)">
+              <div
+                class="deck-list-row deck-row-clickable"
+                draggable="true"
+                role="link"
+                tabindex="0"
+                (click)="openDeck(deck.id)"
+                (keydown.enter)="openDeck(deck.id)"
+                (dragstart)="beginDeckDrag($event, deck)"
+                (dragend)="endDeckDrag()"
+              >
                 <span class="deck-link deck-table-name">
-                  <strong>{{ deck.name }}</strong>
+                  @if (editingDeckId() === deck.id) {
+                    <input
+                      name="renameDeckFolder"
+                      [ngModel]="renameDeckName"
+                      (ngModelChange)="renameDeckName = $event"
+                      (click)="$event.stopPropagation()"
+                      (blur)="saveDeckRename(deck)"
+                      (keydown.enter)="saveDeckRename(deck)"
+                      (keydown.escape)="cancelDeckRename()"
+                    />
+                  } @else {
+                    <strong>{{ deck.name }}</strong>
+                  }
                 </span>
                 <span class="deck-table-format">{{ deckFormatLabel(deck) }}</span>
                 <span class="deck-table-price">{{ deckPrice(deck) ?? '-' }}</span>
                 <div class="deck-row-actions table-actions">
-                  <select class="deck-folder-select" [ngModel]="deck.folderId ?? ''" (click)="$event.stopPropagation()" (keydown.enter)="$event.stopPropagation()" (ngModelChange)="moveDeck(deck, $event)">
-                    <option value="">No folder</option>
-                    @for (folder of folderOptions(); track folder.id) {
-                      <option [value]="folder.id">{{ folder.name }}</option>
-                    }
-                  </select>
+                  <button class="icon-button" type="button" title="Rename deck" (click)="startDeckRename(deck); $event.stopPropagation()">
+                    <lucide-icon name="pencil" size="16" />
+                  </button>
                   <button class="icon-button danger" type="button" title="Delete deck" (click)="deleteDeck(deck); $event.stopPropagation()">
                     <lucide-icon name="trash-2" size="16" />
                   </button>
@@ -350,6 +405,9 @@ export class DeckListComponent {
   readonly commanderLoading = signal(false);
   readonly selectedCommander = signal<Card | null>(null);
   readonly currentFolderId = signal<string | null>(null);
+  readonly draggedDeckId = signal<string | null>(null);
+  readonly dragTargetId = signal<string | null>(null);
+  readonly editingDeckId = signal<string | null>(null);
   readonly folderSections = computed<DeckFolderSection[]>(() => {
     const sections: DeckFolderSection[] = this.folders().map((folder) => ({
       id: folder.id,
@@ -382,6 +440,7 @@ export class DeckListComponent {
   newDeckFolderId = '';
   newFolderName = '';
   renameFolderName = '';
+  renameDeckName = '';
   commanderQuery = '';
   createdDecklist = '';
   private commanderSearchTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -590,22 +649,24 @@ export class DeckListComponent {
     }
 
     try {
-      let deck = (await firstValueFrom(this.decksApi.create(name, this.newDeckFolderId || null))).deck;
-      if (this.selectedCommander() && this.selectedFormat()?.hasCommander) {
-        deck = (await firstValueFrom(this.decksApi.addCard(deck.id, {
-          scryfallId: this.selectedCommander()!.scryfallId,
-          section: 'commander',
-        }))).deck;
-      }
+      const cards = this.selectedCommander() && this.selectedFormat()?.hasCommander
+        ? [{ scryfallId: this.selectedCommander()!.scryfallId, section: 'commander' as const }]
+        : undefined;
+      const response = await firstValueFrom(this.decksApi.quickBuild({
+        name,
+        folderId: this.newDeckFolderId || null,
+        cards,
+      }));
+      const deck = response.deck;
       this.createdDeck.set(deck);
       this.createdDecklist = '';
-      this.createdMissing.set([]);
-      this.createdImportMessage.set(null);
+      this.createdMissing.set(response.missing);
+      this.createdImportMessage.set(response.missing.length > 0 ? `${response.missing.length} missing during creation.` : null);
       this.decks.set([deck, ...this.decks()]);
       this.closeCreateModal();
       this.importModalOpen.set(true);
-    } catch {
-      this.error.set('Could not create deck.');
+    } catch (error) {
+      this.error.set(this.apiErrorMessage(error, 'Could not create deck.'));
     }
   }
 
@@ -623,25 +684,20 @@ export class DeckListComponent {
       return;
     }
 
-    let entries: DecklistEntry[] = this.importExport.parse(this.createdDecklist, 'plain');
+    const entries: DecklistEntry[] = this.importExport.parse(this.createdDecklist, 'plain');
 
     try {
-      let response = await firstValueFrom(this.decksApi.importDecklist(deck.id, this.importExport.toBackendDecklist(entries)));
-      if (response.missing.length > 0) {
-        const resolvedEntries = await this.importExport.resolveMissingFlavorNames(entries, response.missing);
-        if (this.entriesChanged(entries, resolvedEntries)) {
-          entries = resolvedEntries;
-          response = await firstValueFrom(this.decksApi.importDecklist(deck.id, this.importExport.toBackendDecklist(entries)));
-        }
-      }
-      const importedCards = (response.deck.cards ?? []).reduce((total, entry) => total + entry.quantity, 0);
-      const parsedCards = entries.reduce((total, entry) => total + entry.quantity, 0);
+      const response = await firstValueFrom(this.decksApi.importDecklist(deck.id, this.importExport.toBackendDecklist(entries)));
+      const importedCards = response.summary?.importedCards
+        ?? (response.deck.cards ?? []).reduce((total, entry) => total + entry.quantity, 0);
+      const parsedCards = response.summary?.parsedCards
+        ?? entries.reduce((total, entry) => total + entry.quantity, 0);
       this.createdDeck.set(response.deck);
       this.createdMissing.set(response.missing);
       this.createdImportMessage.set(`${parsedCards} parsed cards, ${importedCards} imported, ${response.missing.length} missing.`);
       this.decks.set(this.decks().map((candidate) => candidate.id === response.deck.id ? response.deck : candidate));
-    } catch {
-      this.error.set('Could not import deck.');
+    } catch (error) {
+      this.error.set(this.apiErrorMessage(error, 'Could not import deck.'));
     }
   }
 
@@ -664,6 +720,90 @@ export class DeckListComponent {
 
   folderDeckCount(folderId: string): number {
     return this.decks().filter((deck) => deck.folderId === folderId).length;
+  }
+
+  startDeckRename(deck: Deck): void {
+    this.editingDeckId.set(deck.id);
+    this.renameDeckName = deck.name;
+  }
+
+  cancelDeckRename(): void {
+    this.editingDeckId.set(null);
+    this.renameDeckName = '';
+  }
+
+  async saveDeckRename(deck: Deck): Promise<void> {
+    if (this.editingDeckId() !== deck.id) {
+      return;
+    }
+
+    const name = this.renameDeckName.trim();
+    if (!name || name === deck.name) {
+      this.cancelDeckRename();
+      return;
+    }
+
+    try {
+      const response = await firstValueFrom(this.decksApi.rename(deck.id, name));
+      this.decks.set(this.decks().map((candidate) => candidate.id === deck.id ? response.deck : candidate));
+    } catch (error) {
+      this.error.set(this.apiErrorMessage(error, 'Could not rename deck.'));
+    } finally {
+      this.cancelDeckRename();
+    }
+  }
+
+  beginDeckDrag(event: DragEvent, deck: Deck): void {
+    event.stopPropagation();
+    this.draggedDeckId.set(deck.id);
+    event.dataTransfer?.setData('text/plain', deck.id);
+    if (event.dataTransfer) {
+      event.dataTransfer.effectAllowed = 'move';
+    }
+  }
+
+  endDeckDrag(): void {
+    this.draggedDeckId.set(null);
+    this.dragTargetId.set(null);
+  }
+
+  allowDeckDrop(event: DragEvent, targetId: string): void {
+    if (!this.draggedDeckId()) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.dataTransfer) {
+      event.dataTransfer.dropEffect = 'move';
+    }
+    this.dragTargetId.set(targetId);
+  }
+
+  clearDeckDrop(targetId: string): void {
+    if (this.dragTargetId() === targetId) {
+      this.dragTargetId.set(null);
+    }
+  }
+
+  async dropDeckOnFolder(event: DragEvent, folderId: string | null): Promise<void> {
+    event.preventDefault();
+    event.stopPropagation();
+    const deckId = this.draggedDeckId() ?? event.dataTransfer?.getData('text/plain') ?? null;
+    this.dragTargetId.set(null);
+
+    if (!deckId) {
+      return;
+    }
+
+    const deck = this.decks().find((candidate) => candidate.id === deckId);
+    if (!deck) {
+      this.endDeckDrag();
+      return;
+    }
+
+    await this.moveDeck(deck, folderId ?? '');
+    this.endDeckDrag();
   }
 
   async moveDeck(deck: Deck, folderId: string): Promise<void> {
@@ -726,10 +866,6 @@ export class DeckListComponent {
     return `$${value}`;
   }
 
-  private entriesChanged(current: DecklistEntry[], next: DecklistEntry[]): boolean {
-    return current.some((entry, index) => entry.name !== next[index]?.name);
-  }
-
   private distinctCommanders(cards: Card[]): Card[] {
     const seen = new Set<string>();
 
@@ -751,5 +887,13 @@ export class DeckListComponent {
       card.typeLine ?? '',
       card.oracleText ?? '',
     ].join('|');
+  }
+
+  private apiErrorMessage(error: unknown, fallback: string): string {
+    if (error instanceof HttpErrorResponse && typeof error.error?.error === 'string' && error.error.error.trim()) {
+      return error.error.error;
+    }
+
+    return fallback;
   }
 }

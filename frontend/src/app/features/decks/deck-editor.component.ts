@@ -1,3 +1,4 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, HostListener, OnDestroy, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
@@ -7,6 +8,7 @@ import { CardsApi } from '../../core/api/cards.api';
 import { DecksApi } from '../../core/api/decks.api';
 import { Card } from '../../core/models/card.model';
 import { CommanderValidation, Deck, DeckCard, DeckSection } from '../../core/models/deck.model';
+import { MissingDeckCard } from '../../core/models/api-responses.model';
 import { ManaSymbolsComponent } from '../../shared/mana/mana-symbols.component';
 import { bestCardImage } from '../../shared/utils/card-image';
 import { AppModalComponent } from '../../shared/ui/app-modal.component';
@@ -70,6 +72,7 @@ interface CardMenuState {
   entryId: string;
   top: number;
   left: number;
+  amount: number;
 }
 
 const GROUPS: Array<{ id: string; title: string; matcher: (entry: DeckCard) => boolean }> = [
@@ -104,15 +107,50 @@ const GROUPS: Array<{ id: string; title: string; matcher: (entry: DeckCard) => b
             <span class="eyebrow">Deck editor</span>
             <h2>{{ deck.name }}</h2>
           </div>
-          <div class="button-row wrap-row">
-            <div class="deck-add-search">
-              <lucide-icon name="search" size="16" />
-              <input
-                name="deckCardSearch"
-                placeholder="Add cards by name"
-                [(ngModel)]="cardSearchQuery"
-                (ngModelChange)="onCardSearchQueryChange($event)"
-              />
+          <div class="deck-editor-header-actions">
+            <div class="deck-search-stack">
+              <div class="deck-add-search">
+                <lucide-icon name="search" size="16" />
+                <input
+                  name="deckCardSearch"
+                  placeholder="Add cards by name"
+                  [(ngModel)]="cardSearchQuery"
+                  (ngModelChange)="onCardSearchQueryChange($event)"
+                />
+              </div>
+
+              @if (cardSearchLoading()) {
+                <section class="panel card-search-panel">
+                  <p class="notice compact-notice">Searching cards...</p>
+                </section>
+              } @else if (cardSearchResults().length > 0) {
+                <section class="panel card-search-panel">
+                  <div class="dense-list compact-list autocomplete-list">
+                    @for (card of cardSearchResults(); track card.scryfallId) {
+                      <div class="autocomplete-item card-search-result">
+                        <span>
+                          <strong>{{ card.name }}</strong>
+                          <small>{{ card.typeLine || 'Unknown type' }}</small>
+                        </span>
+                        <div class="button-row card-search-actions">
+                          <small><app-mana-symbols [value]="card.manaCost" fallback="No cost" /></small>
+                          <input
+                            class="quantity-input"
+                            type="number"
+                            min="1"
+                            [ngModel]="searchQuantityFor(card.scryfallId)"
+                            (ngModelChange)="setSearchQuantity(card.scryfallId, $event)"
+                          />
+                          <button class="primary-button compact" type="button" (click)="addSearchedCard(card)">
+                            <lucide-icon name="plus" size="15" />
+                            Add
+                          </button>
+                        </div>
+                      </div>
+                    }
+                  </div>
+                </section>
+              }
             </div>
             <button class="primary-button compact" type="button" (click)="openImportModal()">
               <lucide-icon name="upload" size="16" />
@@ -120,30 +158,6 @@ const GROUPS: Array<{ id: string; title: string; matcher: (entry: DeckCard) => b
             </button>
           </div>
         </div>
-
-        @if (cardSearchLoading()) {
-          <p class="notice">Searching cards...</p>
-        } @else if (cardSearchResults().length > 0) {
-          <section class="panel card-search-panel">
-            <div class="dense-list compact-list autocomplete-list">
-              @for (card of cardSearchResults(); track card.scryfallId) {
-                <div class="autocomplete-item card-search-result">
-                  <span>
-                    <strong>{{ card.name }}</strong>
-                    <small>{{ card.typeLine || 'Unknown type' }}</small>
-                  </span>
-                  <div class="button-row">
-                    <small><app-mana-symbols [value]="card.manaCost" fallback="No cost" /></small>
-                    <button class="primary-button compact" type="button" (click)="addSearchedCard(card)">
-                      <lucide-icon name="plus" size="15" />
-                      Add
-                    </button>
-                  </div>
-                </div>
-              }
-            </div>
-          </section>
-        }
 
         <section class="panel deck-catalog-panel">
           <div class="deck-summary">
@@ -193,10 +207,20 @@ const GROUPS: Array<{ id: string; title: string; matcher: (entry: DeckCard) => b
                               </div>
                               @if (cardMenu()?.entryId === entry.id) {
                                 <div class="card-row-menu" [style.top.px]="cardMenu()!.top" [style.left.px]="cardMenu()!.left" (click)="$event.stopPropagation()">
-                                  <button type="button" (click)="noopCardAction($event)">Add copy</button>
-                                  <button type="button" (click)="noopCardAction($event)">Remove copy</button>
-                                  <button type="button" (click)="noopCardAction($event)">Move to main</button>
-                                  <button type="button" (click)="noopCardAction($event)">Move to commander</button>
+                                  <label class="card-menu-amount">
+                                    Quantity
+                                    <input
+                                      type="number"
+                                      min="1"
+                                      [ngModel]="cardMenu()?.amount ?? 1"
+                                      (ngModelChange)="setCardMenuAmount($event)"
+                                      (click)="$event.stopPropagation()"
+                                    />
+                                  </label>
+                                  <button type="button" (click)="addCardCopy($event, entry)">Add copy</button>
+                                  <button type="button" (click)="removeCardCopy($event, entry)">Remove copy</button>
+                                  <button type="button" (click)="moveCardToMain($event, entry)">Move to main</button>
+                                  <button type="button" (click)="moveCardToCommander($event, entry)">Move to commander</button>
                                 </div>
                               }
                             }
@@ -270,11 +294,7 @@ const GROUPS: Array<{ id: string; title: string; matcher: (entry: DeckCard) => b
                   }
                 </div>
 
-                <p class="analysis-footnote">
-                  Average {{ analysis().averageManaValueWithLands }} with lands and {{ analysis().averageManaValue }} without lands.
-                  Median {{ analysis().medianManaValueWithLands }} with lands and {{ analysis().medianManaValue }} without lands.
-                  Total mana value {{ analysis().totalManaValue }}.
-                </p>
+                <p class="analysis-footnote">Coste medio: {{ analysis().averageManaValue }}</p>
               </section>
 
               <div class="analysis-side-column">
@@ -316,31 +336,20 @@ const GROUPS: Array<{ id: string; title: string; matcher: (entry: DeckCard) => b
 
             <div class="analysis-support-grid">
               <section class="analysis-panel compact-analysis-panel">
-                <h3>Mana profile</h3>
+                <h3>Mana balance</h3>
                 <div class="analysis-color-grid compact-color-grid">
-                  @for (profile of visibleColorProfiles(); track profile.color) {
+                  @for (profile of colorBalanceProfiles(); track profile.color) {
                     <div class="color-profile-card compact-color-card">
                       <div class="color-profile-top">
                         <app-mana-symbols [symbols]="[profile.color]" />
-                        <strong>{{ profile.percent }}%</strong>
+                        <strong>{{ profile.demandPercent }}%</strong>
                       </div>
-                      <small>{{ profile.count }} symbols</small>
+                      <small>{{ profile.demandCount }} pips needed</small>
                       <div class="color-profile-bar">
-                        <span [style.width.%]="profile.percent"></span>
+                        <span [style.width.%]="profile.demandPercent"></span>
                       </div>
+                      <small>{{ profile.sourceCount }} lands produce this color · {{ profile.sourcePercent }}% of land base</small>
                     </div>
-                  }
-                </div>
-              </section>
-
-              <section class="analysis-panel compact-analysis-panel">
-                <h3>Land types</h3>
-                <div class="pip-row roomy-pip-row compact-land-row">
-                  @for (land of visibleLandTypes(); track land.label) {
-                    <span class="pip symbol-count roomy-pip">
-                      <app-mana-symbols [symbols]="[land.symbol]" />
-                      {{ land.label }} {{ land.count }}
-                    </span>
                   }
                 </div>
               </section>
@@ -597,7 +606,7 @@ export class DeckEditorComponent implements OnDestroy {
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);
   readonly missing = signal<string[]>([]);
-  readonly missingSourceEntries = signal<DecklistEntry[]>([]);
+  readonly missingSourceEntries = signal<MissingDeckCard[]>([]);
   readonly missingSearch = signal<MissingSearchResult | null>(null);
   readonly missingAddTarget = signal<string | null>(null);
   readonly lastImportStats = signal<ImportStats | null>(null);
@@ -613,6 +622,7 @@ export class DeckEditorComponent implements OnDestroy {
   readonly cardMenu = signal<CardMenuState | null>(null);
   readonly cardSearchResults = signal<Card[]>([]);
   readonly cardSearchLoading = signal(false);
+  readonly searchQuantities = signal<Record<string, number>>({});
   readonly collapsedGroups = signal<Set<string>>(new Set());
   readonly mainCards = computed(() => this.cardsBySection('main'));
   readonly commanderCards = computed(() => this.cardsBySection('commander'));
@@ -639,8 +649,7 @@ export class DeckEditorComponent implements OnDestroy {
   });
   readonly visibleTypeMetrics = computed(() => this.typeMetrics().filter((metric) => metric.count > 0));
   readonly visibleUtilityMetrics = computed(() => this.utilityMetrics().filter((metric) => metric.count > 0));
-  readonly visibleColorProfiles = computed(() => this.analysis().colorProfiles.filter((entry) => entry.count > 0));
-  readonly visibleLandTypes = computed(() => this.analysis().landTypes.filter((land) => land.count > 0));
+  readonly colorBalanceProfiles = computed(() => this.buildColorBalanceProfiles());
   readonly missingItems = computed(() => this.buildMissingItems());
   readonly cardGroups = computed(() => this.buildCardGroups());
   readonly cardColumns = computed(() => this.buildCardColumns());
@@ -655,6 +664,8 @@ export class DeckEditorComponent implements OnDestroy {
   private lastPreviewPointer: PointerPosition | null = null;
   private cardSearchTimeout: ReturnType<typeof setTimeout> | null = null;
   private cardSearchVersion = 0;
+  private lastCardSearchQuery = '';
+  private lastCardSearchResultsSignature = '';
 
   constructor() {
     void this.load();
@@ -688,9 +699,11 @@ export class DeckEditorComponent implements OnDestroy {
       const response = await firstValueFrom(this.decksApi.get(id));
       this.deck.set(response.deck);
       this.deckName = response.deck.name;
+      this.missing.set([]);
+      this.missingSourceEntries.set([]);
       this.refreshHistory(response.deck.id);
-    } catch {
-      this.error.set('Could not load deck.');
+    } catch (error) {
+      this.error.set(this.apiErrorMessage(error, 'Could not load deck.'));
     } finally {
       this.loading.set(false);
     }
@@ -702,28 +715,21 @@ export class DeckEditorComponent implements OnDestroy {
       this.deck.set(response.deck);
       this.deckName = response.deck.name;
       this.recordHistory(response.deck, 'Rename');
-    } catch {
-      this.error.set('Could not rename deck.');
+    } catch (error) {
+      this.error.set(this.apiErrorMessage(error, 'Could not rename deck.'));
     }
   }
 
   async importDeck(id: string): Promise<void> {
     try {
-      let entries = this.importExport.parse(this.decklist, 'plain');
-      let response = await firstValueFrom(this.decksApi.importDecklist(id, this.importExport.toBackendDecklist(entries)));
-      if (response.missing.length > 0) {
-        const resolvedEntries = await this.importExport.resolveMissingFlavorNames(entries, response.missing);
-        if (this.entriesChanged(entries, resolvedEntries)) {
-          entries = resolvedEntries;
-          response = await firstValueFrom(this.decksApi.importDecklist(id, this.importExport.toBackendDecklist(entries)));
-        }
-      }
+      const entries = this.importExport.parse(this.decklist, 'plain');
+      const response = await firstValueFrom(this.decksApi.importDecklist(id, this.importExport.toBackendDecklist(entries)));
       this.deck.set(response.deck);
       this.missing.set(response.missing);
-      this.missingSourceEntries.set(entries);
+      this.missingSourceEntries.set(response.missingCards ?? []);
       this.lastImportStats.set({
-        parsedCards: entries.reduce((total, entry) => total + entry.quantity, 0),
-        importedCards: (response.deck.cards ?? []).reduce((total, entry) => total + entry.quantity, 0),
+        parsedCards: response.summary?.parsedCards ?? entries.reduce((total, entry) => total + entry.quantity, 0),
+        importedCards: response.summary?.importedCards ?? (response.deck.cards ?? []).reduce((total, entry) => total + entry.quantity, 0),
         missingCards: response.missing.length,
       });
       this.validation.set(null);
@@ -734,8 +740,8 @@ export class DeckEditorComponent implements OnDestroy {
       } else {
         this.importModalOpen.set(false);
       }
-    } catch {
-      this.error.set('Could not import deck.');
+    } catch (error) {
+      this.error.set(this.apiErrorMessage(error, 'Could not import deck.'));
     }
   }
 
@@ -743,8 +749,8 @@ export class DeckEditorComponent implements OnDestroy {
     try {
       const response = await firstValueFrom(this.decksApi.validateCommander(id));
       this.validation.set(response);
-    } catch {
-      this.error.set('Could not validate deck.');
+    } catch (error) {
+      this.error.set(this.apiErrorMessage(error, 'Could not validate deck.'));
     }
   }
 
@@ -781,6 +787,9 @@ export class DeckEditorComponent implements OnDestroy {
     if (query.length < 2) {
       this.cardSearchResults.set([]);
       this.cardSearchLoading.set(false);
+      this.lastCardSearchQuery = '';
+      this.lastCardSearchResultsSignature = '';
+      this.searchQuantities.set({});
       return;
     }
 
@@ -844,7 +853,8 @@ export class DeckEditorComponent implements OnDestroy {
     try {
       const response = await firstValueFrom(this.cardsApi.search(query, 1, 8));
       this.missingSearch.set({ name: query, cards: response.data });
-    } catch {
+    } catch (error) {
+      void error;
       this.missingSearch.set({ name: query, cards: [] });
     }
   }
@@ -860,19 +870,24 @@ export class DeckEditorComponent implements OnDestroy {
     }
 
     const targetName = this.missingAddTarget() ?? missingName;
-    const source = this.missingSourceEntries().find((entry) => entry.name.toLowerCase() === targetName.toLowerCase());
+    const sourceEntries = this.missingSourceEntries().filter((entry) => entry.name.toLowerCase() === targetName.toLowerCase());
+    const quantity = sourceEntries.reduce((total, entry) => total + entry.quantity, 0) || 1;
+    const section = sourceEntries.find((entry) => entry.section === 'commander')?.section
+      ?? sourceEntries[0]?.section
+      ?? 'main';
     try {
       const response = await firstValueFrom(this.decksApi.addCard(currentDeck.id, {
         scryfallId: card.scryfallId,
-        quantity: source?.quantity ?? 1,
-        section: source?.section ?? 'main',
+        quantity,
+        section: section === 'commander' ? 'commander' : 'main',
       }));
       this.deck.set(response.deck);
       this.missing.set(this.missing().filter((name) => name !== targetName));
+      this.missingSourceEntries.set(this.missingSourceEntries().filter((entry) => entry.name.toLowerCase() !== targetName.toLowerCase()));
       this.validation.set(null);
       this.recordHistory(response.deck, `Manual add ${card.name}`);
-    } catch {
-      this.error.set('Could not add selected card.');
+    } catch (error) {
+      this.error.set(this.apiErrorMessage(error, 'Could not add selected card.'));
     }
   }
 
@@ -911,12 +926,14 @@ export class DeckEditorComponent implements OnDestroy {
       this.deck.set(response.deck);
       this.deckName = response.deck.name;
       this.missing.set(response.missing);
+      this.missingSourceEntries.set(response.missingCards ?? []);
+      this.missingSearch.set(null);
       this.validation.set(null);
       this.refreshHistory(deckId);
       this.restoreModalOpen.set(false);
       this.restoreTarget.set(null);
-    } catch {
-      this.error.set('Could not restore history entry.');
+    } catch (error) {
+      this.error.set(this.apiErrorMessage(error, 'Could not restore history entry.'));
     }
   }
 
@@ -955,11 +972,124 @@ export class DeckEditorComponent implements OnDestroy {
       entryId: entry.id,
       top: event.clientY + 10,
       left: Math.min(event.clientX + 10, window.innerWidth - 180),
+      amount: 1,
     });
   }
 
-  noopCardAction(event: MouseEvent): void {
+  setCardMenuAmount(value: unknown): void {
+    const current = this.cardMenu();
+    if (!current) {
+      return;
+    }
+
+    this.cardMenu.set({
+      ...current,
+      amount: this.normalizeQuantity(value),
+    });
+  }
+
+  async addCardCopy(event: MouseEvent, entry: DeckCard): Promise<void> {
     event.stopPropagation();
+    const currentDeck = this.deck();
+    if (!currentDeck) {
+      return;
+    }
+    const amount = this.cardMenuAmount();
+
+    try {
+      const response = entry.section === 'commander'
+        ? await this.addCopiesToMain(currentDeck, entry.card, amount)
+        : await firstValueFrom(this.decksApi.updateCard(currentDeck.id, entry.id, {
+          quantity: entry.quantity + amount,
+        }));
+      this.applyDeckUpdate(response.deck, `Add copy ${entry.card.name}`);
+    } catch (error) {
+      this.error.set(this.apiErrorMessage(error, 'Could not add card copy.'));
+    }
+  }
+
+  async removeCardCopy(event: MouseEvent, entry: DeckCard): Promise<void> {
+    event.stopPropagation();
+    const currentDeck = this.deck();
+    if (!currentDeck) {
+      return;
+    }
+    const amount = this.cardMenuAmount();
+
+    try {
+      const response = amount >= entry.quantity
+        ? await firstValueFrom(this.decksApi.removeCard(currentDeck.id, entry.id))
+        : await firstValueFrom(this.decksApi.updateCard(currentDeck.id, entry.id, {
+          quantity: entry.quantity - amount,
+        }));
+      this.applyDeckUpdate(response.deck, `Remove copy ${entry.card.name}`);
+    } catch (error) {
+      this.error.set(this.apiErrorMessage(error, 'Could not remove card copy.'));
+    }
+  }
+
+  async moveCardToMain(event: MouseEvent, entry: DeckCard): Promise<void> {
+    event.stopPropagation();
+    const currentDeck = this.deck();
+    if (!currentDeck || entry.section === 'main') {
+      this.cardMenu.set(null);
+      return;
+    }
+
+    try {
+      const existingMain = (currentDeck.cards ?? []).find((candidate) => (
+        candidate.section === 'main'
+        && candidate.card.name.trim().toLowerCase() === entry.card.name.trim().toLowerCase()
+      ));
+      const response = existingMain
+        ? await firstValueFrom(this.decksApi.removeCard(currentDeck.id, entry.id)).then(async (removeResponse) => {
+          const incrementResponse = await firstValueFrom(this.decksApi.updateCard(removeResponse.deck.id, existingMain.id, {
+            quantity: existingMain.quantity + entry.quantity,
+          }));
+          return incrementResponse;
+        })
+        : await firstValueFrom(this.decksApi.updateCard(currentDeck.id, entry.id, { section: 'main' }));
+      this.applyDeckUpdate(response.deck, `Move ${entry.card.name} to main`);
+    } catch (error) {
+      this.error.set(this.apiErrorMessage(error, 'Could not move card to main.'));
+    }
+  }
+
+  async moveCardToCommander(event: MouseEvent, entry: DeckCard): Promise<void> {
+    event.stopPropagation();
+    const currentDeck = this.deck();
+    if (!currentDeck) {
+      return;
+    }
+    if (entry.section === 'commander') {
+      this.cardMenu.set(null);
+      return;
+    }
+
+    const commanderCards = (currentDeck.cards ?? []).filter((candidate) => candidate.section === 'commander');
+    if (commanderCards.length >= 2) {
+      this.cardMenu.set(null);
+      this.error.set('Commander slot already has two cards.');
+      return;
+    }
+
+    try {
+      const response = entry.quantity > 1
+        ? await firstValueFrom(this.decksApi.updateCard(currentDeck.id, entry.id, {
+          quantity: entry.quantity - 1,
+        })).then(async (decrementResponse) => {
+          const addCommanderResponse = await firstValueFrom(this.decksApi.addCard(decrementResponse.deck.id, {
+            scryfallId: entry.card.scryfallId,
+            quantity: 1,
+            section: 'commander',
+          }));
+          return addCommanderResponse;
+        })
+        : await firstValueFrom(this.decksApi.updateCard(currentDeck.id, entry.id, { section: 'commander' }));
+      this.applyDeckUpdate(response.deck, `Set commander ${entry.card.name}`);
+    } catch (error) {
+      this.error.set(this.apiErrorMessage(error, 'Could not move card to commander.'));
+    }
   }
 
   showHoverList(event: MouseEvent, title: string, items: string[]): void {
@@ -1080,7 +1210,15 @@ export class DeckEditorComponent implements OnDestroy {
     try {
       const response = await firstValueFrom(this.cardsApi.search(query, 1, 8));
       if (version === this.cardSearchVersion && query === this.cardSearchQuery.trim()) {
-        this.cardSearchResults.set(response.data);
+        const distinctCards = this.distinctSearchCards(response.data);
+        const signature = distinctCards.map((card) => this.cardSearchDistinctKey(card)).join('|');
+        if (signature === this.lastCardSearchResultsSignature && query === this.lastCardSearchQuery) {
+          return;
+        }
+
+        this.lastCardSearchQuery = query;
+        this.lastCardSearchResultsSignature = signature;
+        this.cardSearchResults.set(distinctCards);
       }
     } catch {
       if (version === this.cardSearchVersion) {
@@ -1098,20 +1236,18 @@ export class DeckEditorComponent implements OnDestroy {
     if (!currentDeck) {
       return;
     }
+    const amount = this.searchQuantityFor(card.scryfallId);
 
     try {
-      const response = await firstValueFrom(this.decksApi.addCard(currentDeck.id, {
-        scryfallId: card.scryfallId,
-        quantity: 1,
-        section: 'main',
-      }));
-      this.deck.set(response.deck);
-      this.validation.set(null);
-      this.recordHistory(response.deck, `Manual add ${card.name}`);
+      const response = await this.addCopiesToMain(currentDeck, card, amount);
+      this.applyDeckUpdate(response.deck, `Manual add ${card.name}`);
       this.cardSearchQuery = '';
       this.cardSearchResults.set([]);
-    } catch {
-      this.error.set('Could not add selected card.');
+      this.lastCardSearchQuery = '';
+      this.lastCardSearchResultsSignature = '';
+      this.searchQuantities.set({});
+    } catch (error) {
+      this.error.set(this.apiErrorMessage(error, 'Could not add selected card.'));
     }
   }
 
@@ -1119,19 +1255,54 @@ export class DeckEditorComponent implements OnDestroy {
     this.history.set(this.historyStore.list(deckId));
   }
 
+  searchQuantityFor(cardId: string): number {
+    return this.searchQuantities()[cardId] ?? 1;
+  }
+
+  setSearchQuantity(cardId: string, value: unknown): void {
+    this.searchQuantities.set({
+      ...this.searchQuantities(),
+      [cardId]: this.normalizeQuantity(value),
+    });
+  }
+
   private buildMissingItems(): MissingCardItem[] {
+    const aggregated = new Map<string, MissingCardItem>();
+    for (const source of this.missingSourceEntries()) {
+      if (this.missingStore.isIgnored(source.name)) {
+        continue;
+      }
+
+      const key = source.name.toLowerCase();
+      const existing = aggregated.get(key);
+      if (existing) {
+        existing.quantity += source.quantity;
+        if (source.section === 'commander') {
+          existing.section = 'commander';
+        }
+        continue;
+      }
+
+      aggregated.set(key, {
+        name: source.name,
+        quantity: source.quantity,
+        section: source.section === 'commander' ? 'commander' : 'main',
+        watched: this.missingStore.isWatched(source.name),
+      });
+    }
+
+    if (aggregated.size > 0) {
+      return Array.from(aggregated.values()).filter((item) => this.missing().includes(item.name));
+    }
+
     return this.missing()
       .filter((name) => !this.missingStore.isIgnored(name))
-      .map((name) => {
-        const source = this.missingSourceEntries().find((entry) => entry.name.toLowerCase() === name.toLowerCase());
-
-        return {
-          name,
-          quantity: source?.quantity ?? 1,
-          section: source?.section ?? 'main',
-          watched: this.missingStore.isWatched(name),
-        };
-      });
+      .map((name) => ({
+        name,
+        quantity: 1,
+        section: 'main',
+        watched: this.missingStore.isWatched(name),
+      }));
   }
 
   private buildCardGroups(): DeckCardGroup[] {
@@ -1196,10 +1367,6 @@ export class DeckEditorComponent implements OnDestroy {
     return columns;
   }
 
-  private entriesChanged(current: DecklistEntry[], next: DecklistEntry[]): boolean {
-    return current.some((entry, index) => entry.name !== next[index]?.name);
-  }
-
   private cardManaValue(card: Card): number {
     const cost = card.manaCost;
     if (!cost) {
@@ -1218,10 +1385,129 @@ export class DeckEditorComponent implements OnDestroy {
     }, 0);
   }
 
+  private applyDeckUpdate(deck: Deck, historySource: string): void {
+    this.deck.set(deck);
+    this.validation.set(null);
+    this.cardMenu.set(null);
+    this.recordHistory(deck, historySource);
+  }
+
+  private cardMenuAmount(): number {
+    return this.cardMenu()?.amount ?? 1;
+  }
+
+  private async addCopiesToMain(currentDeck: Deck, card: Card, amount: number) {
+    const existingEntry = (currentDeck.cards ?? []).find((entry) => (
+      entry.section === 'main' && entry.card.name.trim().toLowerCase() === card.name.trim().toLowerCase()
+    ));
+
+    if (existingEntry) {
+      return firstValueFrom(this.decksApi.updateCard(currentDeck.id, existingEntry.id, {
+        quantity: existingEntry.quantity + amount,
+      }));
+    }
+
+    return firstValueFrom(this.decksApi.addCard(currentDeck.id, {
+      scryfallId: card.scryfallId,
+      quantity: amount,
+      section: 'main',
+    }));
+  }
+
+  private buildColorBalanceProfiles(): Array<{
+    color: 'W' | 'U' | 'B' | 'R' | 'G';
+    demandCount: number;
+    demandPercent: number;
+    sourceCount: number;
+    sourcePercent: number;
+  }> {
+    const demandProfiles = this.analysis().colorProfiles.filter((entry) => entry.color !== 'C');
+    const landCards = (this.deck()?.cards ?? []).filter((entry) => entry.section === 'main' && hasType(entry, 'land'));
+    const totalLands = landCards.reduce((sum, entry) => sum + entry.quantity, 0);
+
+    return (['W', 'U', 'B', 'R', 'G'] as const)
+      .map((color) => {
+        const demand = demandProfiles.find((entry) => entry.color === color);
+        const sourceCount = landCards.reduce((sum, entry) => sum + (this.landProducesColor(entry, color) ? entry.quantity : 0), 0);
+
+        return {
+          color,
+          demandCount: demand?.count ?? 0,
+          demandPercent: demand?.percent ?? 0,
+          sourceCount,
+          sourcePercent: totalLands > 0 ? Math.round((sourceCount / totalLands) * 100) : 0,
+        };
+      })
+      .filter((entry) => entry.demandCount > 0 || entry.sourceCount > 0);
+  }
+
+  private distinctSearchCards(cards: Card[]): Card[] {
+    const seen = new Set<string>();
+
+    return cards.filter((card) => {
+      const key = this.cardSearchDistinctKey(card);
+      if (seen.has(key)) {
+        return false;
+      }
+
+      seen.add(key);
+      return true;
+    });
+  }
+
+  private cardSearchDistinctKey(card: Card): string {
+    return [
+      card.name.trim().toLowerCase(),
+      card.manaCost ?? '',
+      card.typeLine ?? '',
+      card.oracleText ?? '',
+    ].join('|');
+  }
+
   private isSpellEntry(entry: DeckCard): boolean {
     const typeLine = entry.card.typeLine?.toLowerCase() ?? '';
 
     return typeLine.includes('instant') || typeLine.includes('sorcery');
+  }
+
+  private landProducesColor(entry: DeckCard, color: 'W' | 'U' | 'B' | 'R' | 'G'): boolean {
+    const identity = entry.card.colorIdentity ?? [];
+    if (identity.includes(color)) {
+      return true;
+    }
+
+    const typeLine = entry.card.typeLine?.toLowerCase() ?? '';
+    const oracle = entry.card.oracleText?.toLowerCase() ?? '';
+    const basicTypes: Record<'W' | 'U' | 'B' | 'R' | 'G', string> = {
+      W: 'plains',
+      U: 'island',
+      B: 'swamp',
+      R: 'mountain',
+      G: 'forest',
+    };
+    if (typeLine.includes(basicTypes[color])) {
+      return true;
+    }
+
+    if (/any color|one mana of any color|mana of any type/i.test(entry.card.oracleText ?? '')) {
+      return true;
+    }
+
+    return oracle.includes(`{${color.toLowerCase()}}`) || oracle.includes(`{${color}}`);
+  }
+
+  private normalizeQuantity(value: unknown): number {
+    const parsed = Number.parseInt(String(value ?? '1'), 10);
+
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+  }
+
+  private apiErrorMessage(error: unknown, fallback: string): string {
+    if (error instanceof HttpErrorResponse && typeof error.error?.error === 'string' && error.error.error.trim()) {
+      return error.error.error;
+    }
+
+    return fallback;
   }
 }
 

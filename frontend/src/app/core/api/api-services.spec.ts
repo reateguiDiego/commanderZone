@@ -66,6 +66,31 @@ describe('API services', () => {
     request.flush({ deck: { id: 'deck-1', name: 'Deck', format: 'commander', folderId: 'folder-1', cards: [] } });
   });
 
+  it('loads backend deck analysis through the analysis endpoint', () => {
+    TestBed.inject(DecksApi).analysis('deck-1').subscribe();
+
+    const request = http.expectOne(`${API_BASE_URL}/decks/deck-1/analysis`);
+    expect(request.request.method).toBe('GET');
+    request.flush({
+      totalCards: 100,
+      landCount: 35,
+      nonlandCount: 65,
+      colorPips: { W: 10, U: 8, B: 0, R: 4, G: 0 },
+      landTypes: [],
+      manaCurve: [],
+      creatures: { label: 'Creatures', count: 10, cards: [] },
+      artifacts: { label: 'Artifacts', count: 5, cards: [] },
+      enchantments: { label: 'Enchantments', count: 4, cards: [] },
+      instants: { label: 'Instants', count: 8, cards: [] },
+      sorceries: { label: 'Sorceries', count: 6, cards: [] },
+      planeswalkers: { label: 'Planeswalkers', count: 1, cards: [] },
+      ramp: { label: 'Ramp', count: 10, cards: [] },
+      draw: { label: 'Card draw', count: 8, cards: [] },
+      removal: { label: 'Spot removal', count: 7, cards: [] },
+      wipes: { label: 'Board wipes', count: 2, cards: [] },
+    });
+  });
+
   it('adds cards through the deck card mutation endpoint', () => {
     TestBed.inject(DecksApi).addCard('deck-1', { setCode: 'tst', collectorNumber: '1', quantity: 2, section: 'main' }).subscribe();
 

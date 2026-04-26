@@ -712,6 +712,17 @@ label {
   font-size: 0.9rem;
 }
 
+.deck-drop-row {
+  border: 1px dashed rgb(215 180 106 / 25%);
+  border-radius: 6px;
+  color: var(--muted);
+}
+
+.drop-active {
+  border-color: rgb(215 180 106 / 72%);
+  background: rgb(215 180 106 / 10%);
+}
+
 .table-actions {
   justify-self: end;
 }
@@ -743,6 +754,8 @@ label {
 
 .autocomplete-list {
   max-height: 16rem;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .autocomplete-item {
@@ -803,7 +816,7 @@ label {
   display: flex;
   align-items: center;
   gap: 0.55rem;
-  min-width: min(30rem, 100%);
+  width: 100%;
   padding: 0 0.75rem;
   border: 1px solid var(--line);
   border-radius: 6px;
@@ -823,6 +836,11 @@ label {
 }
 
 .card-search-panel {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  left: 0;
+  z-index: 55;
+  width: 100%;
   padding: 0.65rem;
 }
 
@@ -830,10 +848,35 @@ label {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
+  min-width: 0;
 }
 
-.card-search-result .button-row {
+.card-search-result span {
+  min-width: 0;
+}
+
+.card-search-result .button-row,
+.card-search-actions {
   flex: 0 0 auto;
+}
+
+.deck-editor-header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.65rem;
+  margin-left: auto;
+}
+
+.deck-search-stack {
+  position: relative;
+  width: min(44rem, 100%);
+}
+
+.quantity-input {
+  width: 4.1rem;
+  min-width: 4.1rem;
+  padding: 0.45rem 0.55rem;
 }
 
 .deck-card-groups {
@@ -966,6 +1009,19 @@ label {
   border-radius: 8px;
   background: rgb(18 21 17 / 97%);
   box-shadow: var(--shadow);
+}
+
+.card-menu-amount {
+  display: grid;
+  gap: 0.3rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 650;
+  padding: 0.2rem 0.2rem 0.35rem;
+}
+
+.card-menu-amount input {
+  padding: 0.42rem 0.55rem;
 }
 
 .card-row-menu button {
@@ -1189,6 +1245,18 @@ label {
 
 .spell-dot,
 .spell-segment {
+  background: linear-gradient(180deg, #d0d0d0, #929292);
+}
+
+.total-segment {
+  background: linear-gradient(180deg, var(--blue), #385d70);
+}
+
+.curve-bar .permanent-segment {
+  background: linear-gradient(180deg, #cb7cf3, #9c53d5);
+}
+
+.curve-bar .spell-segment {
   background: linear-gradient(180deg, #d0d0d0, #929292);
 }
 
@@ -1762,6 +1830,11 @@ label {
   .missing-row,
   .history-row {
     flex-wrap: wrap;
+  }
+
+  .deck-editor-header-actions,
+  .deck-search-stack {
+    width: 100%;
   }
 
   .workspace {
