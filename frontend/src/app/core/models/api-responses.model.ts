@@ -1,6 +1,7 @@
 import { Card } from './card.model';
 import { Deck, DeckFolder, DeckFormat, CommanderValidation } from './deck.model';
 import { Game, GameEvent, GameSnapshot } from './game.model';
+import { Friendship } from './friendship.model';
 import { Room } from './room.model';
 import { User } from './user.model';
 
@@ -38,6 +39,10 @@ export interface DeckResponse {
 
 export interface DeckFolderResponse {
   folder: DeckFolder;
+}
+
+export interface FriendshipResponse {
+  friendship: Friendship;
 }
 
 export interface DeckImportResponse {
