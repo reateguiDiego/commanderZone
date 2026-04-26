@@ -1,6 +1,6 @@
 import { Card } from './card.model';
 
-export type DeckSection = 'main' | 'commander';
+export type DeckSection = 'main' | 'commander' | 'sideboard' | 'maybeboard';
 
 export interface DeckCard {
   id: string;
@@ -15,6 +15,57 @@ export interface Deck {
   format: 'commander' | string;
   folderId: string | null;
   cards?: DeckCard[];
+}
+
+export interface DeckSections {
+  commander: DeckCard[];
+  main: DeckCard[];
+  sideboard: DeckCard[];
+  maybeboard: DeckCard[];
+  tokens: DeckToken[];
+}
+
+export interface DeckSectionCounts {
+  commander: number;
+  main: number;
+  sideboard: number;
+  maybeboard: number;
+  tokens: number;
+  playableTotal: number;
+}
+
+export interface DeckSectionsResponse {
+  deckId: string;
+  sections: DeckSections;
+  counts: DeckSectionCounts;
+}
+
+export interface DeckTokenSource {
+  scryfallId: string;
+  name: string;
+  section: DeckSection;
+}
+
+export interface DeckToken {
+  sourceCard: DeckTokenSource;
+  token: Card;
+  resolved: true;
+}
+
+export interface UnresolvedDeckToken {
+  sourceCard: DeckTokenSource;
+  token: {
+    scryfallId: string;
+    name: string;
+    uri: string | null;
+  };
+  resolved: false;
+}
+
+export interface DeckTokensResponse {
+  deckId: string;
+  data: DeckToken[];
+  unresolved: UnresolvedDeckToken[];
 }
 
 export interface DeckFolder {
@@ -33,4 +84,10 @@ export interface DeckFormat {
 export interface CommanderValidation {
   valid: boolean;
   errors: string[];
+  issues?: {
+    severity: 'error' | 'warning';
+    title: string;
+    detail: string;
+    cards: string[];
+  }[];
 }

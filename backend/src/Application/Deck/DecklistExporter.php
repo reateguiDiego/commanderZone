@@ -44,29 +44,41 @@ class DecklistExporter
 
     private function sectioned(Deck $deck, string $commanderHeader, string $mainHeader, bool $withPrint, bool $withX): string
     {
-        $commanders = [];
-        $main = [];
+        $sections = [
+            DeckCard::SECTION_COMMANDER => [],
+            DeckCard::SECTION_MAIN => [],
+            DeckCard::SECTION_SIDEBOARD => [],
+            DeckCard::SECTION_MAYBEBOARD => [],
+        ];
         foreach ($deck->cards() as $deckCard) {
             if (!$deckCard instanceof DeckCard) {
                 continue;
             }
 
-            if ($deckCard->section() === DeckCard::SECTION_COMMANDER) {
-                $commanders[] = $this->line($deckCard, $withPrint, $withX);
-            } else {
-                $main[] = $this->line($deckCard, $withPrint, $withX);
-            }
+            $sections[$deckCard->section()][] = $this->line($deckCard, $withPrint, $withX);
         }
 
         $lines = [];
-        if ($commanders !== []) {
+        if ($sections[DeckCard::SECTION_COMMANDER] !== []) {
             $lines[] = $commanderHeader;
-            array_push($lines, ...$commanders);
+            array_push($lines, ...$sections[DeckCard::SECTION_COMMANDER]);
             $lines[] = '';
         }
 
         $lines[] = $mainHeader;
-        array_push($lines, ...$main);
+        array_push($lines, ...$sections[DeckCard::SECTION_MAIN]);
+
+        if ($sections[DeckCard::SECTION_SIDEBOARD] !== []) {
+            $lines[] = '';
+            $lines[] = 'Sideboard';
+            array_push($lines, ...$sections[DeckCard::SECTION_SIDEBOARD]);
+        }
+
+        if ($sections[DeckCard::SECTION_MAYBEBOARD] !== []) {
+            $lines[] = '';
+            $lines[] = 'Maybeboard';
+            array_push($lines, ...$sections[DeckCard::SECTION_MAYBEBOARD]);
+        }
 
         return trim(implode("\n", $lines));
     }

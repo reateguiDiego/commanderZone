@@ -18,6 +18,7 @@ export interface Card {
   colorIdentity: string[];
   legalities: Record<string, string>;
   imageUris: CardImageUris;
+  allParts?: Record<string, unknown>[];
   layout: string;
   commanderLegal: boolean;
   set: string | null;

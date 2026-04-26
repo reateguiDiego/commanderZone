@@ -46,6 +46,9 @@ class Card
     #[ORM\Column(type: 'json')]
     private array $imageUris = [];
 
+    #[ORM\Column(type: 'json')]
+    private array $allParts = [];
+
     #[ORM\Column(type: 'string', length: 80)]
     private string $layout = 'normal';
 
@@ -91,6 +94,7 @@ class Card
         $this->colorIdentity = $data['color_identity'] ?? [];
         $this->legalities = $data['legalities'] ?? [];
         $this->imageUris = $data['image_uris'] ?? ($data['card_faces'][0]['image_uris'] ?? []);
+        $this->allParts = $data['all_parts'] ?? [];
         $this->layout = $data['layout'] ?? 'normal';
         $this->commanderLegal = ($this->legalities['commander'] ?? null) === 'legal';
         $this->setCode = $data['set'] ?? null;
@@ -152,6 +156,11 @@ class Card
         return is_string($uri) && $uri !== '' ? $uri : null;
     }
 
+    public function allParts(): array
+    {
+        return $this->allParts;
+    }
+
     public function setCode(): ?string
     {
         return $this->setCode;
@@ -195,6 +204,7 @@ class Card
             'colorIdentity' => $this->colorIdentity,
             'legalities' => $this->legalities,
             'imageUris' => $this->imageUris,
+            'allParts' => $this->allParts,
             'layout' => $this->layout,
             'commanderLegal' => $this->commanderLegal,
             'set' => $this->setCode,

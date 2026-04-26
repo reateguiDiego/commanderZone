@@ -24,6 +24,8 @@ export class DeckImportExportService {
   toBackendDecklist(entries: DecklistEntry[]): string {
     const commanders = entries.filter((entry) => entry.section === 'commander');
     const main = entries.filter((entry) => entry.section === 'main');
+    const sideboard = entries.filter((entry) => entry.section === 'sideboard');
+    const maybeboard = entries.filter((entry) => entry.section === 'maybeboard');
     const lines: string[] = [];
 
     if (commanders.length > 0) {
@@ -34,6 +36,18 @@ export class DeckImportExportService {
 
     lines.push('Deck');
     lines.push(...main.map((entry) => this.backendLine(entry)));
+
+    if (sideboard.length > 0) {
+      lines.push('');
+      lines.push('Sideboard');
+      lines.push(...sideboard.map((entry) => this.backendLine(entry)));
+    }
+
+    if (maybeboard.length > 0) {
+      lines.push('');
+      lines.push('Maybeboard');
+      lines.push(...maybeboard.map((entry) => this.backendLine(entry)));
+    }
 
     return lines.join('\n').trim();
   }
@@ -65,6 +79,14 @@ export class DeckImportExportService {
       const header = line.toLowerCase().replace(/:$/, '');
       if (['commander', 'commanders', 'command zone'].includes(header)) {
         section = 'commander';
+        continue;
+      }
+      if (['sideboard', 'side'].includes(header)) {
+        section = 'sideboard';
+        continue;
+      }
+      if (['maybeboard', 'maybe', 'considering'].includes(header)) {
+        section = 'maybeboard';
         continue;
       }
       if (['deck', 'main', 'maindeck', 'mainboard'].includes(header)) {

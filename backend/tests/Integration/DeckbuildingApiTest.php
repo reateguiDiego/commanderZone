@@ -20,6 +20,26 @@ class DeckbuildingApiTest extends ApiTestCase
             'set' => 'tst',
             'collector_number' => '2',
         ]);
+        $plantToken = $this->seedCard('00000000-0000-0000-0000-000000000003', 'Plant Token', [
+            'type_line' => 'Token Creature - Plant',
+            'set' => 'ttk',
+            'collector_number' => '1',
+        ]);
+        $tokenProducer = $this->seedCard('00000000-0000-0000-0000-000000000004', 'Avenger of Zendikar', [
+            'type_line' => 'Creature - Elemental',
+            'oracle_text' => 'Create a 0/1 green Plant creature token.',
+            'set' => 'tst',
+            'collector_number' => '3',
+            'all_parts' => [
+                [
+                    'id' => $plantToken->scryfallId(),
+                    'component' => 'token',
+                    'name' => 'Plant Token',
+                    'type_line' => 'Token Creature - Plant',
+                    'uri' => 'https://api.scryfall.com/cards/'.$plantToken->scryfallId(),
+                ],
+            ],
+        ]);
 
         $this->jsonRequest('POST', '/deck-folders', ['name' => 'Commander'], $token);
         self::assertResponseStatusCodeSame(201);
@@ -170,6 +190,43 @@ TXT,
         self::assertFalse($validation['valid']);
         self::assertNotEmpty($validation['errors']);
         self::assertContains('Missing commander', array_column($validation['issues'], 'title'));
+
+        $this->jsonRequest('POST', '/decks/'.$deckId.'/cards', [
+            'scryfallId' => $tokenProducer->scryfallId(),
+            'quantity' => 1,
+            'section' => 'sideboard',
+        ], $token);
+        self::assertResponseStatusCodeSame(201);
+        $tokenProducerLine = $this->lineByScryfallId($this->jsonResponse()['deck']['cards'], $tokenProducer->scryfallId(), 'sideboard');
+
+        $this->jsonRequest('POST', '/decks/'.$deckId.'/cards', [
+            'scryfallId' => $island->scryfallId(),
+            'quantity' => 1,
+            'section' => 'maybeboard',
+        ], $token);
+        self::assertResponseStatusCodeSame(201);
+
+        $this->jsonRequest('PATCH', '/decks/'.$deckId.'/cards', [
+            'cards' => [
+                ['deckCardId' => $tokenProducerLine['id'], 'section' => 'maybeboard'],
+            ],
+        ], $token);
+        self::assertResponseIsSuccessful();
+        self::assertSame('maybeboard', $this->lineByScryfallId($this->jsonResponse()['deck']['cards'], $tokenProducer->scryfallId(), 'maybeboard')['section']);
+
+        $this->jsonRequest('GET', '/decks/'.$deckId.'/sections', token: $token);
+        self::assertResponseIsSuccessful();
+        $sections = $this->jsonResponse();
+        self::assertSame(3, $sections['counts']['playableTotal']);
+        self::assertSame(2, $sections['counts']['maybeboard']);
+        self::assertSame(1, $sections['counts']['tokens']);
+        self::assertSame('Plant Token', $sections['sections']['tokens'][0]['token']['name']);
+
+        $this->jsonRequest('GET', '/decks/'.$deckId.'/tokens', token: $token);
+        self::assertResponseIsSuccessful();
+        self::assertSame($deckId, $this->jsonResponse()['deckId']);
+        self::assertSame('Plant Token', $this->jsonResponse()['data'][0]['token']['name']);
+        self::assertSame([], $this->jsonResponse()['unresolved']);
 
         $this->jsonRequest('GET', '/decks/'.$deckId.'/analysis', token: $otherToken);
         self::assertResponseStatusCodeSame(404);

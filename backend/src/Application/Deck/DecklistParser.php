@@ -2,6 +2,8 @@
 
 namespace App\Application\Deck;
 
+use App\Domain\Deck\DeckCard;
+
 class DecklistParser
 {
     public const FORMAT_PLAIN = 'plain';
@@ -23,7 +25,7 @@ class DecklistParser
             throw new \InvalidArgumentException('Unsupported decklist format.');
         }
 
-        $section = 'main';
+        $section = DeckCard::SECTION_MAIN;
         $entries = [];
 
         foreach (preg_split('/\R/', $decklist) ?: [] as $rawLine) {
@@ -35,7 +37,15 @@ class DecklistParser
             $normalizedHeader = mb_strtolower(trim($line, ':'));
             $normalizedHeader = trim(preg_replace('/\s*\(\d+\)$/', '', $normalizedHeader) ?? $normalizedHeader);
             if (in_array($normalizedHeader, ['commander', 'commanders', 'command zone'], true)) {
-                $section = 'commander';
+                $section = DeckCard::SECTION_COMMANDER;
+                continue;
+            }
+            if (in_array($normalizedHeader, ['sideboard', 'side'], true)) {
+                $section = DeckCard::SECTION_SIDEBOARD;
+                continue;
+            }
+            if (in_array($normalizedHeader, ['maybeboard', 'maybe', 'considering'], true)) {
+                $section = DeckCard::SECTION_MAYBEBOARD;
                 continue;
             }
             if (in_array($normalizedHeader, [
@@ -51,7 +61,7 @@ class DecklistParser
                 'planeswalkers',
                 'lands',
             ], true)) {
-                $section = 'main';
+                $section = DeckCard::SECTION_MAIN;
                 continue;
             }
 
@@ -109,7 +119,7 @@ class DecklistParser
                 continue;
             }
 
-            if (preg_match('/^(commanders?|command zone|deck|main|mainboard|creatures|artifacts|instants|sorceries|enchantments|planeswalkers|lands)\s*\(\d+\)\s*:?\s*$/i', $line) === 1) {
+            if (preg_match('/^(commanders?|command zone|deck|main|mainboard|sideboard|side|maybeboard|maybe|considering|creatures|artifacts|instants|sorceries|enchantments|planeswalkers|lands)\s*\(\d+\)\s*:?\s*$/i', $line) === 1) {
                 ++$archidektHeaders;
                 continue;
             }

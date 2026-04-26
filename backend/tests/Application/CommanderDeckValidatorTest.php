@@ -71,6 +71,33 @@ class CommanderDeckValidatorTest extends TestCase
         self::assertSame([], $result['issues']);
     }
 
+    public function testIgnoresSideboardAndMaybeboardForCommanderValidity(): void
+    {
+        $deck = new Deck(new User('sections@example.test', 'Sections'), 'Sections Deck');
+        $deck->addCard(new DeckCard($deck, $this->card('00000000-0000-0000-0000-000000000221', 'Mono White Commander', [
+            'type_line' => 'Legendary Creature - Human',
+            'color_identity' => ['W'],
+        ]), 1, DeckCard::SECTION_COMMANDER));
+        $deck->addCard(new DeckCard($deck, $this->card('00000000-0000-0000-0000-000000000222', 'Plains', [
+            'type_line' => 'Basic Land - Plains',
+            'mana_cost' => '',
+        ]), 99));
+        $deck->addCard(new DeckCard($deck, $this->card('00000000-0000-0000-0000-000000000223', 'Sideboard Red Spell', [
+            'color_identity' => ['R'],
+        ]), 15, DeckCard::SECTION_SIDEBOARD));
+        $deck->addCard(new DeckCard($deck, $this->card('00000000-0000-0000-0000-000000000224', 'Maybe Banned Spell', [
+            'legalities' => ['commander' => 'banned'],
+        ]), 4, DeckCard::SECTION_MAYBEBOARD));
+
+        $result = (new CommanderDeckValidator())->validate($deck);
+
+        self::assertTrue($result['valid']);
+        self::assertSame([], $result['errors']);
+        self::assertContains('Non-playable section legality review', array_column($result['issues'], 'title'));
+        self::assertNotContains('Invalid deck size', array_column($result['issues'], 'title'));
+        self::assertNotContains('Color identity issue', array_column($result['issues'], 'title'));
+    }
+
     private function card(string $scryfallId, string $name, array $overrides = []): Card
     {
         $card = new Card($scryfallId);
