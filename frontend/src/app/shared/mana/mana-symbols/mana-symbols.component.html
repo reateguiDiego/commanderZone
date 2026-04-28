@@ -1,0 +1,13 @@
+<span class="mana-symbols" [attr.aria-label]="ariaLabel()">
+  @for (token of tokens(); track $index + token.raw) {
+    @if (token.known) {
+      <i [class]="token.className" [title]="token.raw" aria-hidden="true"></i>
+    } @else {
+      <span class="mana-symbol-fallback">{{ token.raw }}</span>
+    }
+  } @empty {
+    @if (fallback()) {
+      <span class="mana-symbol-fallback">{{ fallback() }}</span>
+    }
+  }
+</span>

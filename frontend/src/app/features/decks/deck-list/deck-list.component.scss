@@ -1,0 +1,158 @@
+:host {
+  display: block;
+}
+
+.deck-link {
+  display: block;
+  min-width: 0;
+}
+
+.deck-list-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.7rem 0.35rem;
+  border-bottom: 1px solid rgb(255 255 255 / 7%);
+}
+
+.deck-row-clickable {
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+.deck-row-clickable:hover {
+  background: rgb(255 255 255 / 3%);
+}
+
+.deck-table-list {
+  gap: 0;
+}
+
+.deck-table-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  padding: 0 0.35rem 0.55rem;
+  border-bottom: 1px solid rgb(255 255 255 / 10%);
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.deck-table-name strong {
+  min-width: 0;
+}
+
+.deck-drop-row {
+  border: 1px dashed rgb(215 180 106 / 25%);
+  border-radius: 6px;
+  color: var(--muted);
+}
+
+.drop-active {
+  border-color: rgb(215 180 106 / 72%);
+  background: rgb(215 180 106 / 10%);
+}
+
+.table-actions {
+  justify-self: end;
+}
+
+.folder-panel,
+.folder-sections {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.folder-unfile-shell {
+  display: grid;
+  gap: 0.55rem;
+  padding: 6rem 4rem;
+  border: 1px dashed transparent;
+  border-radius: 10px;
+  transition: border-color 140ms ease, background-color 140ms ease;
+}
+
+.folder-unfile-shell.drag-shell-active {
+  border-color: rgb(255 255 255 / 10%);
+  background: rgb(255 255 255 / 2%);
+}
+
+.folder-unfile-hint {
+  color: var(--muted);
+  font-size: 0.8rem;
+  padding-inline: 0.2rem;
+}
+
+.folder-panel h3 {
+  margin: 0;
+}
+
+.folder-row-name,
+.folder-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  min-width: 0;
+}
+
+.folder-row-name strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.folder-icon-wrap {
+  display: grid;
+  place-items: center;
+  width: 2.35rem;
+  height: 2.35rem;
+  border: 1px solid rgb(215 180 106 / 28%);
+  border-radius: 7px;
+  background: rgb(215 180 106 / 9%);
+  color: var(--gold);
+  flex: 0 0 auto;
+}
+
+.small-folder-icon {
+  width: 2rem;
+  height: 2rem;
+}
+
+.folder-icon-wrap.unfiled-icon {
+  color: var(--muted);
+  border-color: rgb(170 169 159 / 20%);
+  background: rgb(170 169 159 / 7%);
+}
+
+.folder-tile-actions,
+.deck-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.deck-folder-select {
+  width: 10rem;
+  padding: 0.45rem 0.7rem;
+}
+
+.form-stack {
+  display: grid;
+  align-content: start;
+  gap: 0.85rem;
+}
+
+@media (max-width: 720px) {
+  .deck-table-header,
+  .deck-list-row {
+    grid-template-columns: 1fr;
+  }
+
+  .deck-row-actions,
+  .table-actions {
+    justify-self: stretch;
+  }
+}

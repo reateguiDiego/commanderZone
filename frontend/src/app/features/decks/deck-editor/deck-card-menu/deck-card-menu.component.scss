@@ -1,0 +1,59 @@
+:host {
+  display: contents;
+}
+
+.card-row-menu {
+  position: fixed;
+  z-index: 70;
+  display: grid;
+  gap: 0.25rem;
+  min-width: 13rem;
+  padding: 0.35rem;
+  border: 1px solid rgb(215 180 106 / 28%);
+  border-radius: 8px;
+  background: rgb(18 21 17 / 97%);
+  box-shadow: var(--shadow);
+}
+
+.card-menu-copy-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 4.1rem minmax(0, 1fr);
+  gap: 0.25rem;
+  align-items: stretch;
+  padding-bottom: 0.25rem;
+  border-bottom: 1px solid rgb(255 255 255 / 7%);
+}
+
+.card-menu-amount {
+  display: grid;
+  gap: 0.15rem;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.card-menu-amount input {
+  min-width: 0;
+  padding: 0.45rem 0.35rem;
+  text-align: center;
+}
+
+.card-row-menu button {
+  width: 100%;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  padding: 0.55rem 0.65rem;
+  text-align: left;
+}
+
+.card-menu-copy-controls button {
+  padding-inline: 0.5rem;
+  text-align: center;
+}
+
+.card-row-menu button:hover {
+  background: rgb(255 255 255 / 5%);
+}

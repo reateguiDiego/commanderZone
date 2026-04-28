@@ -1,0 +1,51 @@
+:host {
+  display: block;
+}
+
+.card-results {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+  gap: 0.75rem;
+}
+
+.mtg-card-result {
+  display: grid;
+  grid-template-columns: 4.1rem minmax(0, 1fr);
+  gap: 0.7rem;
+  align-items: center;
+  min-height: 6rem;
+  padding: 0.55rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgb(24 27 22 / 76%);
+}
+
+.mtg-card-result img {
+  width: 100%;
+  aspect-ratio: 488 / 680;
+  object-fit: cover;
+  border-radius: 7px;
+  display: block;
+}
+
+.mtg-card-result strong,
+.mtg-card-result small {
+  display: block;
+}
+
+.mtg-card-result small {
+  margin-top: 0.3rem;
+  color: var(--muted);
+}
+
+.card-fallback {
+  display: grid;
+  min-height: 5.7rem;
+  place-items: center;
+  padding: 0.5rem;
+  border: 1px solid rgb(215 180 106 / 32%);
+  border-radius: 7px;
+  background: #242014;
+  text-align: center;
+  font-size: 0.76rem;
+}

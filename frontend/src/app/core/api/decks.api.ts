@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { API_BASE_URL } from './api.config';
+import { withoutGlobalLoading } from '../loading/loading-context';
 import {
   CommanderValidationResponse,
   DataResponse,
@@ -73,7 +74,7 @@ export class DecksApi {
   }
 
   moveToFolder(id: string, folderId: string | null): Observable<DeckResponse> {
-    return this.http.patch<DeckResponse>(`${API_BASE_URL}/decks/${id}`, { folderId });
+    return this.http.patch<DeckResponse>(`${API_BASE_URL}/decks/${id}`, { folderId }, { context: withoutGlobalLoading() });
   }
 
   delete(id: string): Observable<void> {

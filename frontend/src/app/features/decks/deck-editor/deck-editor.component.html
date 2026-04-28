@@ -1,0 +1,539 @@
+<section class="page-stack">
+  <a class="text-button" routerLink="/decks">
+    <lucide-icon name="arrow-left" size="16" />
+    Back to decks
+  </a>
+
+  @if (store.loading()) {
+    <p class="notice">Loading deck...</p>
+  } @else if (store.error()) {
+    <p class="notice error">{{ store.error() }}</p>
+  } @else if (store.deck(); as deck) {
+    <div class="tool-header">
+      <div>
+        <span class="eyebrow">Deck editor</span>
+        <h2 class="deck-title">
+          {{ deck.name }}
+          @if (store.hasDeckIssues()) {
+            <lucide-icon
+              class="deck-title-warning"
+              name="triangle-alert"
+              size="24"
+              [attr.title]="store.deckIssueTooltip()"
+              aria-label="Deck warnings"
+            />
+          }
+        </h2>
+      </div>
+      <div class="deck-editor-header-actions">
+        <div class="deck-search-stack">
+          <app-card-autocomplete
+            placeholder="Add cards by name"
+            actionLabel="Add"
+            [showQuantity]="true"
+            [clearOnSelect]="true"
+            (cardSelected)="store.addSearchedCard($event.card, $event.quantity)"
+          />
+        </div>
+        <button class="primary-button compact" type="button" (click)="store.openImportModal()">
+          <lucide-icon name="upload" size="16" />
+          Import
+        </button>
+      </div>
+    </div>
+
+    <section class="panel deck-catalog-panel">
+      <div class="deck-summary">
+        <div>
+          <strong>{{ store.totalCards() }} cards</strong>
+          <span>{{ store.cardGroups().length }} sections</span>
+        </div>
+        <label class="view-mode-select">
+          View
+          <select name="deckViewMode" [ngModel]="store.viewMode()" (ngModelChange)="store.viewMode.set($event)">
+            <option value="text">Text</option>
+            <option value="spoiler">Spoiler</option>
+          </select>
+        </label>
+      </div>
+
+      @if (store.viewMode() === 'text') {
+        <app-deck-card-text-view />
+      } @else {
+        <app-deck-card-spoiler-view />
+      }
+    </section>
+
+    <section class="panel">
+      <div class="deck-tabs" role="tablist" aria-label="Deck editor sections">
+        <button type="button" [class.active]="store.visibleActiveTab() === 'analysis'" (click)="store.activeTab.set('analysis')">
+          <lucide-icon name="bar-chart-3" size="16" />
+          Analysis
+        </button>
+        <button type="button" [class.active]="store.visibleActiveTab() === 'considering'" (click)="store.activeTab.set('considering')">
+          <lucide-icon name="layers-3" size="16" />
+          Considering
+        </button>
+        <button type="button" [class.active]="store.visibleActiveTab() === 'validation'" (click)="store.activeTab.set('validation')">
+          <lucide-icon name="shield-check" size="16" />
+          Validation
+        </button>
+        @if (store.hasMissingContent()) {
+          <button type="button" [class.active]="store.visibleActiveTab() === 'missing'" (click)="store.activeTab.set('missing')">
+            <lucide-icon name="search-x" size="16" />
+            Missing
+          </button>
+        }
+        <button type="button" [class.active]="store.visibleActiveTab() === 'history'" (click)="store.activeTab.set('history')">
+          <lucide-icon name="history" size="16" />
+          History
+        </button>
+      </div>
+
+      @if (store.visibleActiveTab() === 'analysis') {
+        <div class="analysis-shell analysis-screen">
+          <section class="analysis-panel analysis-curve-panel">
+            <div class="analysis-panel-header">
+              <div>
+                <h3>Mana curve</h3>
+                <p>Main deck by mana value.</p>
+              </div>
+              <div class="analysis-legend">
+                <span><i class="legend-dot permanent-dot"></i> Permanents</span>
+                <span><i class="legend-dot spell-dot"></i> Spells</span>
+              </div>
+            </div>
+
+            <div class="curve-grid compact-curve analysis-curve-large">
+              @for (bucket of store.analysis().manaCurve; track bucket.manaValue) {
+                <div class="curve-bar stacked-bar">
+                  <span>{{ bucket.manaValue === 7 ? '7+' : bucket.manaValue }}</span>
+                  <div class="curve-stack">
+                    <strong
+                      class="curve-segment permanent-segment"
+                      [style.height.%]="store.curveSegmentHeight(bucket.permanents)"
+                      (mouseenter)="store.showHoverList($event, store.curveHoverTitle(bucket.manaValue, 'Permanents'), store.curveHoverItems(bucket.manaValue, 'permanent'))"
+                      (mousemove)="store.moveHoverList($event)"
+                      (mouseleave)="store.hideHoverList()"
+                    ></strong>
+                    <strong
+                      class="curve-segment spell-segment"
+                      [style.height.%]="store.curveSegmentHeight(bucket.spells)"
+                      (mouseenter)="store.showHoverList($event, store.curveHoverTitle(bucket.manaValue, 'Spells'), store.curveHoverItems(bucket.manaValue, 'spell'))"
+                      (mousemove)="store.moveHoverList($event)"
+                      (mouseleave)="store.hideHoverList()"
+                    ></strong>
+                  </div>
+                  <small>{{ bucket.total }}</small>
+                </div>
+              }
+            </div>
+
+            <p class="analysis-footnote">Coste medio sin tierras: {{ store.analysis().averageManaValue }}</p>
+          </section>
+
+          <div class="analysis-side-column">
+            <section class="analysis-panel">
+              <h3>Type breakdown</h3>
+              <div class="analysis-list-grid">
+                @for (metric of store.visibleTypeMetrics(); track metric.label) {
+                  <div
+                    class="analysis-list-row hoverable-analysis-row"
+                    (mouseenter)="store.showHoverList($event, metric.label, metric.cards)"
+                    (mousemove)="store.moveHoverList($event)"
+                    (mouseleave)="store.hideHoverList()"
+                  >
+                    <span class="analysis-list-label">{{ metric.label }}</span>
+                    <strong class="analysis-list-count">{{ metric.count }}</strong>
+                  </div>
+                }
+              </div>
+            </section>
+
+            <section class="analysis-panel">
+              <h3>Utility counts</h3>
+              <div class="analysis-list-grid">
+                @for (metric of store.visibleUtilityMetrics(); track metric.label) {
+                  <div
+                    class="analysis-list-row hoverable-analysis-row"
+                    (mouseenter)="store.showHoverList($event, metric.label, metric.cards)"
+                    (mousemove)="store.moveHoverList($event)"
+                    (mouseleave)="store.hideHoverList()"
+                  >
+                    <span class="analysis-list-label">{{ metric.label }}</span>
+                    <strong class="analysis-list-count">{{ metric.count }}</strong>
+                  </div>
+                }
+              </div>
+            </section>
+          </div>
+        </div>
+
+        <div class="analysis-support-grid">
+          <section class="analysis-panel compact-analysis-panel mana-balance-panel">
+            <div class="analysis-panel-header compact-analysis-header">
+              <div>
+                <h3>Mana balance</h3>
+                <p>Colored source share versus color demand.</p>
+              </div>
+              @if (store.manaSourceProfiles().length > 0) {
+                <div class="mana-donut-stack">
+                  <div class="mana-donut" [style.background]="store.manaSourceDonutBackground()">
+                    <span>{{ store.manaSourceTotal() }}</span>
+                  </div>
+                  <small>Total sources</small>
+                </div>
+              }
+            </div>
+            <div class="mana-balance-grid">
+              @for (profile of store.manaSourceProfiles(); track profile.color) {
+                <div class="mana-balance-row">
+                  <div class="mana-balance-label">
+                    <app-mana-symbols [symbols]="[profile.color]" />
+                    <strong>{{ profile.label }}</strong>
+                  </div>
+                  <div class="mana-balance-metrics">
+                    <span>{{ profile.sourceCount }} sources</span>
+                    <strong>{{ profile.sourcePercent }}%</strong>
+                  </div>
+                  <div class="mana-balance-bars">
+                    <div class="mana-balance-bar source-bar">
+                      <span [style.width.%]="profile.sourcePercent"></span>
+                    </div>
+                    <div class="mana-balance-bar demand-bar">
+                      <span [style.width.%]="profile.demandPercent"></span>
+                    </div>
+                  </div>
+                  <div class="mana-balance-notes">
+                    <small>Need {{ profile.demandCount }} pips</small>
+                    <small>{{ profile.demandPercent }}% demand</small>
+                  </div>
+                </div>
+              }
+            </div>
+          </section>
+        </div>
+      } @else if (store.visibleActiveTab() === 'considering') {
+        <div class="analysis-shell analysis-screen considering-layout">
+          <section class="analysis-panel">
+            <div class="analysis-panel-header">
+              <div>
+                <h3>Considering cards</h3>
+                <p>Cards parked outside the playable deck.</p>
+              </div>
+              <strong class="analysis-list-count">{{ store.consideringCards().length }}</strong>
+            </div>
+
+            <div class="deck-card-list">
+              @for (entry of store.consideringCards(); track entry.id) {
+                <div
+                  class="deck-card-row"
+                  (mouseenter)="store.showCardPreview($event, entry.card)"
+                  (mousemove)="store.moveCardPreview($event)"
+                  (mouseleave)="store.hideCardPreview()"
+                  (click)="store.toggleCardMenu($event, entry)"
+                >
+                  <span class="deck-card-primary">
+                    <strong class="deck-card-name">
+                      {{ entry.quantity }} - {{ store.displayCardName(entry.card) }}
+                      @if (store.hasAlternateFace(entry.card)) {
+                        <button class="face-toggle-button" type="button" (click)="store.toggleCardFace($event, entry.card)">
+                          <lucide-icon name="rotate-cw" size="13" />
+                        </button>
+                      }
+                      @if (store.isCardInvalidForDeck(entry.card)) {
+                        <lucide-icon class="warning-mark" name="triangle-alert" size="14" [attr.title]="store.invalidCardMessage(entry.card)" />
+                      }
+                    </strong>
+                  </span>
+                  <small class="deck-card-secondary">{{ store.displayCardTypeLine(entry.card) || 'Unknown type' }}</small>
+                  <span class="deck-card-cost">
+                    @if (store.shouldShowManaCost(entry.card)) {
+                      <app-mana-symbols [value]="entry.card.manaCost" fallback="-" />
+                    }
+                  </span>
+                </div>
+                @if (store.cardMenu()?.entryId === entry.id) {
+                  <app-deck-card-menu [entry]="entry" />
+                }
+              } @empty {
+                <p class="notice compact-notice">No considering cards.</p>
+              }
+            </div>
+          </section>
+
+          <div class="analysis-side-column">
+            <section class="analysis-panel">
+              <div class="analysis-panel-header">
+                <div>
+                  <h3>Derived tokens</h3>
+                  <p>Resolved from cards currently in the deck.</p>
+                </div>
+                <strong class="analysis-list-count">{{ store.tokens().length }}</strong>
+              </div>
+
+              <div class="dense-list compact-list">
+                @for (entry of store.tokens(); track entry.sourceCard.scryfallId + entry.token.scryfallId) {
+                  <div
+                    class="deck-card-row"
+                    (mouseenter)="store.showCardPreview($event, entry.token)"
+                    (mousemove)="store.moveCardPreview($event)"
+                    (mouseleave)="store.hideCardPreview()"
+                  >
+                    <span class="deck-card-primary">
+                      <strong class="deck-card-name">{{ entry.token.name }}</strong>
+                    </span>
+                    <small class="deck-card-secondary">From {{ entry.sourceCard.name }}</small>
+                    <span class="deck-card-cost">
+                      @if (store.shouldShowManaCost(entry.token)) {
+                        <app-mana-symbols [value]="entry.token.manaCost" fallback="-" />
+                      }
+                    </span>
+                  </div>
+                } @empty {
+                  <p class="notice compact-notice">No resolved tokens for this deck.</p>
+                }
+              </div>
+
+              @if (store.unresolvedTokens().length > 0) {
+                <div class="notice warning compact-notice">
+                  <strong>Unresolved tokens</strong>
+                  <span>{{ store.unresolvedTokens().map((item) => item.token.name).join(', ') }}</span>
+                </div>
+              }
+            </section>
+          </div>
+        </div>
+      } @else if (store.visibleActiveTab() === 'validation') {
+        <div class="button-row wrap-row">
+          <button class="primary-button" type="button" (click)="store.validate(deck.id)">
+            <lucide-icon name="check-circle-2" size="17" />
+            Validate with backend
+          </button>
+        </div>
+
+        @if (store.validation(); as result) {
+          <div class="notice" [class.ok-notice]="result.valid" [class.error]="!result.valid">
+            <strong>{{ result.valid ? 'Commander legal by backend' : 'Backend Commander issues' }}</strong>
+            @if (!result.valid) {
+              <ul>
+                @for (message of result.errors; track message) {
+                  <li>{{ message }}</li>
+                }
+              </ul>
+            }
+          </div>
+        }
+
+        <div class="dense-list">
+          @for (issue of store.clientIssues(); track issue.title + issue.detail) {
+            <div class="list-row issue-row" [class.error-issue]="issue.severity === 'error'">
+              <span>
+                <strong>{{ issue.title }}</strong>
+                <small>{{ issue.detail }}</small>
+              </span>
+              <span class="metric">{{ issue.severity }}</span>
+            </div>
+          } @empty {
+            <p class="notice ok-notice">No frontend diagnostics for the current deck.</p>
+          }
+        </div>
+      } @else if (store.visibleActiveTab() === 'missing') {
+        @if (store.missingItems().length > 0) {
+          <div class="dense-list">
+            @for (item of store.missingItems(); track item.name) {
+              <div class="missing-row">
+                <span>
+                  <strong>{{ item.quantity }} {{ item.name }}</strong>
+                  <small>{{ item.section }}{{ item.watched ? ' - saved' : '' }}</small>
+                </span>
+                <div class="button-row">
+                  <button class="icon-button" type="button" title="Copy card name" (click)="store.copyMissing(item.name)">
+                    <lucide-icon name="copy" size="15" />
+                  </button>
+                  <button class="icon-button" type="button" title="Search card" (click)="store.searchMissing(item.name)">
+                    <lucide-icon name="search" size="15" />
+                  </button>
+                  <button class="icon-button" type="button" title="Save missing card" (click)="store.saveMissing(item.name, deck.id)">
+                    <lucide-icon name="bookmark-plus" size="15" />
+                  </button>
+                  <button class="icon-button" type="button" title="Ignore this session" (click)="store.ignoreMissing(item.name)">
+                    <lucide-icon name="eye-off" size="15" />
+                  </button>
+                </div>
+              </div>
+            }
+          </div>
+        }
+
+        @if (store.missingSearch(); as search) {
+          <h3>Search results for {{ search.name }}</h3>
+          <div class="search-bar compact-search">
+            <lucide-icon name="search" size="18" />
+            <input name="missingSearchQuery" placeholder="Search another card name" [(ngModel)]="store.missingSearchQuery" />
+            <button class="primary-button compact" type="button" (click)="store.searchMissingQuery()">Search</button>
+          </div>
+          <div class="dense-list">
+            @for (card of search.cards; track card.scryfallId) {
+              <div class="list-row">
+                <span>
+                  <strong>
+                    {{ card.name }}
+                    @if (store.isCardInvalidForDeck(card)) {
+                      <lucide-icon class="warning-mark" name="triangle-alert" size="14" [attr.title]="store.invalidCardMessage(card)" />
+                    }
+                  </strong>
+                  <small><app-mana-symbols [value]="card.manaCost" fallback="No cost" /></small>
+                  <small>{{ card.typeLine || 'Unknown type' }}</small>
+                </span>
+                <div class="button-row">
+                  <a class="text-button compact" [routerLink]="['/cards', card.scryfallId]">View</a>
+                  <button class="primary-button compact" type="button" (click)="store.addMissingCard(search.name, card)">
+                    <lucide-icon name="plus" size="15" />
+                    Add
+                  </button>
+                </div>
+              </div>
+            } @empty {
+              <p class="notice warning">No card search results.</p>
+            }
+          </div>
+        }
+
+        @if (store.missingStore.watchlist().length > 0) {
+          <h3>Future collection</h3>
+          <div class="dense-list">
+            @for (item of store.missingStore.watchlist(); track item.name) {
+              <div class="list-row">
+                <span>
+                  <strong>{{ item.name }}</strong>
+                  <small>{{ store.formatDate(item.addedAt) }}</small>
+                </span>
+                <button class="icon-button" type="button" title="Remove" (click)="store.missingStore.remove(item.name)">
+                  <lucide-icon name="x" size="15" />
+                </button>
+              </div>
+            }
+          </div>
+        }
+      } @else {
+        <div class="button-row wrap-row">
+          <button class="secondary-button" type="button" (click)="store.recordHistory(deck, 'Manual snapshot')">
+            <lucide-icon name="camera" size="17" />
+            Snapshot
+          </button>
+          <button class="icon-button danger" type="button" title="Clear local history" (click)="store.clearHistoryModalOpen.set(true)">
+            <lucide-icon name="trash" size="16" />
+          </button>
+        </div>
+
+        <div class="dense-list">
+          @for (entry of store.history(); track entry.id) {
+            <div class="history-row">
+              <span>
+                <strong>{{ entry.source }}</strong>
+                <small>{{ store.formatDate(entry.createdAt) }} - {{ entry.totalCards }} cards - {{ entry.commanders.join(', ') || 'No commander' }}</small>
+                <small>+{{ entry.diff.added.length }} / -{{ entry.diff.removed.length }} / +/-{{ entry.diff.changed.length }}</small>
+              </span>
+              <button class="secondary-button compact" type="button" (click)="store.restoreHistory(entry)">
+                <lucide-icon name="rotate-ccw" size="15" />
+                Restore
+              </button>
+            </div>
+          } @empty {
+            <p class="notice">No local history for this deck yet.</p>
+          }
+        </div>
+      }
+    </section>
+
+    @if (store.cardPreview(); as preview) {
+      <div class="card-hover-preview" [style.top.px]="preview.top" [style.left.px]="preview.left">
+        @if (preview.imageUrl) {
+          <img [src]="preview.imageUrl" [alt]="preview.card.name" />
+        } @else {
+          <div class="card-fallback tall">{{ preview.card.name }}</div>
+        }
+      </div>
+    }
+
+    @if (store.hoverList(); as hover) {
+      <div class="analysis-hover-list" [style.top.px]="hover.top" [style.left.px]="hover.left">
+        <strong>{{ hover.title }}</strong>
+        @if (hover.items.length > 0) {
+          <ul>
+            @for (item of hover.items; track item) {
+              <li>{{ item }}</li>
+            }
+          </ul>
+        } @else {
+          <span>No cards</span>
+        }
+      </div>
+    }
+
+    <app-modal
+      [open]="store.importModalOpen()"
+      title="Import decklist"
+      primaryLabel="Import"
+      secondaryLabel="Cancel"
+      (primary)="store.importDeck(deck.id)"
+      (secondary)="store.closeImportModal()"
+    >
+      <div class="form-stack">
+        <label>
+          Deck name
+          <input name="deckName" [(ngModel)]="store.deckName" />
+        </label>
+        <button class="secondary-button compact" type="button" (click)="store.rename(deck.id)">
+          <lucide-icon name="save" size="16" />
+          Save name
+        </button>
+        <label>
+          Plain text decklist
+          <textarea name="decklist" rows="14" placeholder="1 Sol Ring (VOC) 168&#10;1 Fable of the Mirror-Breaker / Reflection of Kiki-Jiki (NEO) 141" [(ngModel)]="store.decklist"></textarea>
+        </label>
+        <button class="secondary-button compact" type="button" (click)="fileInput.click()">
+          <lucide-icon name="file-up" size="16" />
+          Load file
+        </button>
+        <input #fileInput class="hidden-input" type="file" accept=".txt,.csv,.dek" (change)="store.loadDeckFile($event)" />
+
+        @if (store.lastImportStats(); as stats) {
+          <div class="notice" [class.warning]="stats.missingCards > 0" [class.ok-notice]="stats.missingCards === 0">
+            <strong>Last import</strong>
+            <span>{{ stats.parsedCards }} parsed cards, {{ stats.importedCards }} imported, {{ stats.missingCards }} missing.</span>
+          </div>
+        }
+
+        @if (store.missingItems().length > 0) {
+          <div class="notice warning">
+            <strong>Missing cards from latest import</strong>
+            <span>{{ store.missingPreview() }}</span>
+          </div>
+        }
+      </div>
+    </app-modal>
+
+    <app-modal
+      [open]="store.restoreModalOpen()"
+      title="Restore history"
+      [message]="store.restoreTarget() ? 'Restore this snapshot?' : ''"
+      primaryLabel="Restore"
+      secondaryLabel="Cancel"
+      (primary)="store.confirmRestoreHistory(deck.id)"
+      (secondary)="store.restoreModalOpen.set(false)"
+    />
+
+    <app-modal
+      [open]="store.clearHistoryModalOpen()"
+      title="Clear local history"
+      message="Clear local history for this deck?"
+      primaryLabel="Clear"
+      secondaryLabel="Cancel"
+      [danger]="true"
+      (primary)="store.confirmClearHistory(deck.id)"
+      (secondary)="store.clearHistoryModalOpen.set(false)"
+    />
+  }
+</section>

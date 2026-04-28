@@ -1,0 +1,72 @@
+:host {
+  display: block;
+}
+
+.auth-screen {
+  display: grid;
+  min-height: 100dvh;
+  place-items: center;
+  padding: 1rem;
+}
+
+.auth-panel {
+  display: grid;
+  grid-template-columns: 1fr minmax(18rem, 24rem);
+  gap: 2rem;
+  width: min(58rem, 100%);
+  padding: clamp(1rem, 4vw, 2rem);
+  border: 1px solid rgb(215 180 106 / 28%);
+  border-radius: 8px;
+  background: rgb(24 27 22 / 86%);
+  box-shadow: var(--shadow);
+}
+
+.auth-copy {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.9rem;
+}
+
+.auth-copy h1 {
+  font-size: clamp(2rem, 5vw, 4rem);
+}
+
+.auth-copy p {
+  max-width: 28rem;
+  color: var(--muted);
+}
+
+.form-stack {
+  display: grid;
+  align-content: start;
+  gap: 0.85rem;
+}
+
+.segmented {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  padding: 0.25rem;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: #10130f;
+}
+
+.segmented button {
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--muted);
+  padding: 0.55rem;
+}
+
+.segmented button.active {
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+@media (max-width: 720px) {
+  .auth-panel {
+    grid-template-columns: 1fr;
+  }
+}

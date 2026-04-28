@@ -1,0 +1,328 @@
+<section class="page-stack">
+  <div class="tool-header">
+    <div>
+      <span class="eyebrow">Decks</span>
+      <h2>Decks</h2>
+    </div>
+    <div class="button-row wrap-row">
+      <button class="primary-button compact" type="button" (click)="store.openCreateModal()">
+        <lucide-icon name="plus" size="16" />
+        Create deck
+      </button>
+      <button class="secondary-button compact" type="button" (click)="store.openFolderCreateModal()">
+        <lucide-icon name="folder-plus" size="16" />
+        Create folder
+      </button>
+      <button class="icon-button" type="button" title="Reload decks" (click)="store.reloadAll()">
+        <lucide-icon name="refresh-ccw" size="16" />
+      </button>
+    </div>
+  </div>
+
+  @if (store.loading()) {
+    <p class="notice">Loading decks...</p>
+  } @else if (store.error()) {
+    <p class="notice error">{{ store.error() }}</p>
+  } @else if (store.decks().length === 0 && store.folders().length === 0) {
+    <p class="notice">No decks yet. Create one and import a decklist.</p>
+  }
+
+  @if (!store.currentFolder()) {
+    <section class="panel folder-panel">
+      <div class="deck-table-header">
+        <span>Name</span>
+        <span></span>
+      </div>
+      <div class="dense-list deck-table-list">
+        @for (folder of store.folders(); track folder.id) {
+          <div
+            class="deck-list-row deck-row-clickable"
+            [class.drop-active]="store.dragTargetId() === folder.id"
+            role="button"
+            tabindex="0"
+            (click)="store.enterFolder(folder.id)"
+            (keydown.enter)="store.enterFolder(folder.id)"
+            (dragover)="store.allowDeckDrop($event, folder.id)"
+            (dragleave)="store.clearDeckDrop(folder.id)"
+            (drop)="store.dropDeckOnFolder($event, folder.id)"
+          >
+            <span class="deck-link deck-table-name folder-row-name">
+              <span class="folder-icon-wrap small-folder-icon">
+                <lucide-icon name="folder" size="18" />
+              </span>
+              <strong>{{ folder.name }} ({{ store.folderDeckCount(folder.id) }})</strong>
+            </span>
+            <div class="deck-row-actions table-actions">
+              <button class="icon-button" type="button" title="Rename folder" (click)="store.openRenameFolderModal(folder); $event.stopPropagation()">
+                <lucide-icon name="pencil" size="15" />
+              </button>
+              <button class="icon-button danger" type="button" title="Delete folder" (click)="store.deleteFolder(folder); $event.stopPropagation()">
+                <lucide-icon name="trash-2" size="15" />
+              </button>
+            </div>
+          </div>
+        }
+
+        @for (deck of store.unfiledSection().decks; track deck.id) {
+          <div
+            class="deck-list-row deck-row-clickable"
+            draggable="true"
+            role="link"
+            tabindex="0"
+            (click)="store.openDeck(deck.id)"
+            (keydown.enter)="store.openDeck(deck.id)"
+            (dragstart)="store.beginDeckDrag($event, deck)"
+            (dragend)="store.endDeckDrag()"
+          >
+            <span class="deck-link deck-table-name">
+              @if (store.editingDeckId() === deck.id) {
+                <input
+                  name="renameDeckRoot"
+                  [ngModel]="store.renameDeckName"
+                  (ngModelChange)="store.renameDeckName = $event"
+                  (click)="$event.stopPropagation()"
+                  (blur)="store.saveDeckRename(deck)"
+                  (keydown.enter)="store.saveDeckRename(deck)"
+                  (keydown.escape)="store.cancelDeckRename()"
+                />
+              } @else {
+                <strong>{{ deck.name }}</strong>
+              }
+            </span>
+            <div class="deck-row-actions table-actions">
+              <button class="icon-button" type="button" title="Rename deck" (click)="store.startDeckRename(deck); $event.stopPropagation()">
+                <lucide-icon name="pencil" size="16" />
+              </button>
+              <button class="icon-button danger" type="button" title="Delete deck" (click)="store.deleteDeck(deck); $event.stopPropagation()">
+                <lucide-icon name="trash-2" size="16" />
+              </button>
+            </div>
+          </div>
+        }
+      </div>
+    </section>
+  } @else {
+    <div
+      class="folder-unfile-shell"
+      [class.drag-shell-active]="store.draggedDeckId() !== null"
+      [class.drop-active]="store.dragTargetId() === '__unfiled__'"
+      (dragover)="store.allowDeckDrop($event, '__unfiled__')"
+      (dragleave)="store.clearDeckDrop('__unfiled__')"
+      (drop)="store.dropDeckOnFolder($event, null)"
+    >
+      <section class="panel folder-panel" (dragenter)="store.clearDeckDrop('__unfiled__')" (dragover)="$event.stopPropagation()" (drop)="$event.stopPropagation()">
+        <div class="tool-header compact-header">
+          <div class="folder-heading">
+            <button class="text-button compact" type="button" (click)="store.leaveFolder()">
+              <lucide-icon name="arrow-left" size="16" />
+              Decks
+            </button>
+            <span class="folder-icon-wrap">
+              <lucide-icon name="folder" size="18" />
+            </span>
+            <div>
+              <h3>{{ store.currentFolder()!.name }}</h3>
+            </div>
+          </div>
+          <div class="button-row">
+            <button class="icon-button" type="button" title="Rename folder" (click)="store.openRenameFolderModal(store.currentFolder()!)">
+              <lucide-icon name="pencil" size="16" />
+            </button>
+            <button class="icon-button danger" type="button" title="Delete folder" (click)="store.deleteFolder(store.currentFolder()!)">
+              <lucide-icon name="trash-2" size="16" />
+            </button>
+          </div>
+        </div>
+
+        <div class="deck-table-header">
+          <span>Name</span>
+          <span></span>
+        </div>
+        <div class="dense-list deck-table-list">
+          @for (deck of store.currentFolderSection().decks; track deck.id) {
+            <div
+              class="deck-list-row deck-row-clickable"
+              draggable="true"
+              role="link"
+              tabindex="0"
+              (click)="store.openDeck(deck.id)"
+              (keydown.enter)="store.openDeck(deck.id)"
+              (dragstart)="store.beginDeckDrag($event, deck)"
+              (dragend)="store.endDeckDrag()"
+            >
+              <span class="deck-link deck-table-name">
+                @if (store.editingDeckId() === deck.id) {
+                  <input
+                    name="renameDeckFolder"
+                    [ngModel]="store.renameDeckName"
+                    (ngModelChange)="store.renameDeckName = $event"
+                    (click)="$event.stopPropagation()"
+                    (blur)="store.saveDeckRename(deck)"
+                    (keydown.enter)="store.saveDeckRename(deck)"
+                    (keydown.escape)="store.cancelDeckRename()"
+                  />
+                } @else {
+                  <strong>{{ deck.name }}</strong>
+                }
+              </span>
+              <div class="deck-row-actions table-actions">
+                <button class="icon-button" type="button" title="Rename deck" (click)="store.startDeckRename(deck); $event.stopPropagation()">
+                  <lucide-icon name="pencil" size="16" />
+                </button>
+                <button class="icon-button danger" type="button" title="Delete deck" (click)="store.deleteDeck(deck); $event.stopPropagation()">
+                  <lucide-icon name="trash-2" size="16" />
+                </button>
+              </div>
+            </div>
+          } @empty {
+            <p class="notice">No decks in this folder yet.</p>
+          }
+        </div>
+      </section>
+      @if (store.draggedDeckId()) {
+        <div class="folder-unfile-hint">Drag outside this folder panel to remove the deck from the folder.</div>
+      }
+    </div>
+  }
+
+  <app-modal
+    [open]="store.createModalOpen()"
+    title="Create deck"
+    primaryLabel="Create"
+    secondaryLabel="Cancel"
+    (primary)="store.create()"
+    (secondary)="store.closeCreateModal()"
+  >
+    <div class="form-stack">
+      <label>
+        Deck name
+        <input name="name" placeholder="New deck name" required [(ngModel)]="store.newDeckName" />
+      </label>
+
+      <label>
+        Format
+        <select name="format" [(ngModel)]="store.newDeckFormatId" (ngModelChange)="store.onFormatChange()">
+          @for (format of store.formats(); track format.id) {
+            <option [value]="format.id">{{ format.name }}</option>
+          }
+        </select>
+      </label>
+
+      <label>
+        Folder
+        <select name="folder" [(ngModel)]="store.newDeckFolderId">
+          <option value="">No folder</option>
+          @for (folder of store.folderOptions(); track folder.id) {
+            <option [value]="folder.id">{{ folder.name }}</option>
+          }
+        </select>
+      </label>
+
+      @if (store.selectedFormat()?.hasCommander) {
+        <div class="form-stack">
+          <label for="commanderSearch">Commander</label>
+          <app-card-autocomplete
+            placeholder="Search commander by name"
+            actionLabel="Select"
+            [filters]="{ commanderLegal: true }"
+            [query]="store.commanderQuery"
+            (queryChange)="store.setCommanderQuery($event)"
+            (cardSelected)="store.selectCommander($event.card)"
+          />
+
+          @if (store.selectedCommander(); as commander) {
+            <div class="notice ok-notice">
+              <strong>{{ commander.name }}</strong>
+              <span>{{ commander.typeLine || 'Unknown type' }}</span>
+            </div>
+          }
+        </div>
+      }
+    </div>
+  </app-modal>
+
+  <app-modal
+    [open]="store.folderCreateModalOpen()"
+    title="Create folder"
+    primaryLabel="Create"
+    secondaryLabel="Cancel"
+    (primary)="store.createFolder()"
+    (secondary)="store.closeFolderCreateModal()"
+  >
+    <div class="form-stack">
+      <label>
+        Folder name
+        <input name="folderName" placeholder="Jeskai, Brews, Testing..." [(ngModel)]="store.newFolderName" />
+      </label>
+    </div>
+  </app-modal>
+
+  <app-modal
+    [open]="store.folderRenameModalOpen()"
+    title="Rename folder"
+    primaryLabel="Save"
+    secondaryLabel="Cancel"
+    (primary)="store.renameFolder()"
+    (secondary)="store.closeFolderRenameModal()"
+  >
+    <div class="form-stack">
+      <label>
+        Folder name
+        <input name="renameFolderName" [(ngModel)]="store.renameFolderName" />
+      </label>
+    </div>
+  </app-modal>
+
+  <app-modal
+    [open]="store.folderDeleteModalOpen()"
+    title="Delete folder"
+    [message]="store.folderTarget() ? 'Delete ' + store.folderTarget()!.name + '? Decks will stay without folder.' : ''"
+    primaryLabel="Delete"
+    secondaryLabel="Cancel"
+    [danger]="true"
+    (primary)="store.confirmDeleteFolder()"
+    (secondary)="store.folderDeleteModalOpen.set(false)"
+  />
+
+  <app-modal
+    [open]="store.importModalOpen()"
+    title="Import decklist"
+    primaryLabel="Import"
+    secondaryLabel="Cancel"
+    (primary)="store.importCreatedDeck()"
+    (secondary)="store.closeImportModal()"
+  >
+    <div class="form-stack">
+      @if (store.createdDeck(); as deck) {
+        <p class="notice">Importing into {{ deck.name }}.</p>
+      }
+      <label>
+        Plain text decklist
+        <textarea name="createdDecklist" rows="12" placeholder="1 Sol Ring (VOC) 168" [(ngModel)]="store.createdDecklist"></textarea>
+      </label>
+      @if (store.createdImportMessage()) {
+        <p class="notice" [class.warning]="store.createdMissing().length > 0">{{ store.createdImportMessage() }}</p>
+      }
+      @if (store.createdMissing().length > 0) {
+        <div class="notice warning">
+          <strong>Missing cards</strong>
+          <span>{{ store.createdMissing().join(', ') }}</span>
+        </div>
+      }
+      @if (store.createdDeck(); as deck) {
+        <a class="text-button" [routerLink]="['/decks', deck.id]">Open deck</a>
+      }
+    </div>
+  </app-modal>
+
+  <app-modal
+    [open]="store.deleteModalOpen()"
+    title="Delete deck"
+    [message]="store.deleteTarget() ? 'Delete ' + store.deleteTarget()!.name + '?' : ''"
+    primaryLabel="Delete"
+    secondaryLabel="Cancel"
+    [danger]="true"
+    (primary)="store.confirmDeleteDeck()"
+    (secondary)="store.deleteModalOpen.set(false)"
+  />
+</section>

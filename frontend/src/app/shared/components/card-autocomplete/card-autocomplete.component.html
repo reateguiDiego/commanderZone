@@ -1,0 +1,44 @@
+<div class="card-autocomplete">
+  <div class="card-autocomplete-input">
+    <lucide-icon name="search" size="16" />
+    <input
+      [ngModel]="query"
+      (ngModelChange)="onQueryInput($event)"
+      [placeholder]="placeholder"
+    />
+  </div>
+
+  @if (loading()) {
+    <section class="panel card-autocomplete-panel">
+      <p class="notice compact-notice">Searching cards...</p>
+    </section>
+  } @else if (results().length > 0) {
+    <section class="panel card-autocomplete-panel">
+      <div class="dense-list compact-list autocomplete-list">
+        @for (card of results(); track card.scryfallId) {
+          <div class="autocomplete-item card-autocomplete-item">
+            <span>
+              <strong>{{ card.name }}</strong>
+              <small>{{ card.typeLine || 'Unknown type' }}</small>
+            </span>
+            <div class="button-row card-autocomplete-actions">
+              <small><app-mana-symbols [value]="card.manaCost" fallback="No cost" /></small>
+              @if (showQuantity) {
+                <input
+                  class="quantity-input"
+                  type="number"
+                  min="1"
+                  [ngModel]="quantityFor(card.scryfallId)"
+                  (ngModelChange)="setQuantity(card.scryfallId, $event)"
+                />
+              }
+              <button class="primary-button compact" type="button" (click)="selectCard(card)">
+                {{ actionLabel }}
+              </button>
+            </div>
+          </div>
+        }
+      </div>
+    </section>
+  }
+</div>

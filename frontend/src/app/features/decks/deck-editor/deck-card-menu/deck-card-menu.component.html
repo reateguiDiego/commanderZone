@@ -1,0 +1,31 @@
+@if (store.cardMenu(); as menu) {
+  <div class="card-row-menu" [style.top.px]="menu.top" [style.left.px]="menu.left" (click)="$event.stopPropagation()">
+    <div class="card-menu-copy-controls">
+      <button type="button" (click)="store.addCardCopy($event, entry())">Add copy</button>
+      <label class="card-menu-amount" title="Quantity">
+        <span>Qty</span>
+        <input
+          type="number"
+          min="1"
+          [ngModel]="menu.amount"
+          (ngModelChange)="store.setCardMenuAmount($event)"
+          (click)="$event.stopPropagation()"
+        />
+      </label>
+      <button type="button" (click)="store.removeCardCopy($event, entry())">Remove copy</button>
+    </div>
+
+    @if (entry().section !== 'main') {
+      <button type="button" (click)="store.moveCardToSection($event, entry(), 'main')">Move to main</button>
+    }
+    @if (entry().section !== 'commander') {
+      <button type="button" (click)="store.moveCardToSection($event, entry(), 'commander')">Move to commander</button>
+    }
+    @if (entry().section !== 'sideboard') {
+      <button type="button" (click)="store.moveCardToSection($event, entry(), 'sideboard')">Move to sideboard</button>
+    }
+    @if (entry().section !== 'maybeboard') {
+      <button type="button" (click)="store.moveCardToSection($event, entry(), 'maybeboard')">Move to considering</button>
+    }
+  </div>
+}

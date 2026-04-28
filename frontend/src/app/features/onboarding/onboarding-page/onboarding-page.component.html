@@ -1,0 +1,133 @@
+<section class="onboarding-page">
+  <nav class="onboarding-auth-nav" aria-label="Account actions">
+    <a class="secondary-button compact" routerLink="/auth/login">Login</a>
+    <a class="primary-button compact" routerLink="/auth/register">Sign up</a>
+  </nav>
+
+  <header class="onboarding-hero">
+    <div class="onboarding-copy">
+      <span class="eyebrow">Commander online</span>
+      <h1>Play Commander online in seconds</h1>
+      <p>
+        Import your deck, create a room, share the link and start playing. No downloads required.
+      </p>
+      <div class="button-row wrap-row">
+        <button class="primary-button" type="button" (click)="scrollToFlow()">Start playing</button>
+        <button class="secondary-button" type="button" (click)="scrollToFlow()">See how it works</button>
+      </div>
+    </div>
+
+    <section class="panel onboarding-steps-panel" aria-label="How it works">
+      <div class="onboarding-steps">
+        @for (step of steps(); track step.id) {
+          <article class="onboarding-step" [class.active]="step.state === 'active'" [class.complete]="step.state === 'complete'">
+            <span class="step-number">{{ step.number }}</span>
+            <div>
+              <strong>{{ step.title }}</strong>
+              <p>{{ step.description }}</p>
+            </div>
+            <span class="step-state">{{ step.state === 'complete' ? 'Done' : step.state === 'active' ? 'Now' : 'Next' }}</span>
+          </article>
+        }
+      </div>
+    </section>
+  </header>
+
+  <section id="onboarding-flow" class="panel onboarding-flow">
+    <div class="onboarding-flow-header">
+      <div>
+        <span class="eyebrow">Try it now</span>
+        <h2>Import deck. Create room. Share link. Play.</h2>
+      </div>
+      <a class="text-button" routerLink="/auth/login">Already have an account?</a>
+    </div>
+
+    <div class="onboarding-flow-grid">
+      <section class="flow-step">
+        <header>
+          <span class="step-number">1</span>
+          <div>
+            <strong>Import decklist</strong>
+            <p>Paste any plain text list. Card validation can come later.</p>
+          </div>
+        </header>
+        <label>
+          Decklist
+          <textarea
+            name="onboardingDecklist"
+            rows="10"
+            [ngModel]="decklist()"
+            (ngModelChange)="decklist.set($event)"
+            placeholder="1 Sol Ring&#10;1 Command Tower&#10;1 Arcane Signet"
+          ></textarea>
+        </label>
+        @if (importError()) {
+          <p class="notice error" role="alert">{{ importError() }}</p>
+        } @else if (deckImported()) {
+          <p class="notice ok-notice">{{ importedCardCount() }} lines ready.</p>
+        }
+        <button class="primary-button" type="button" (click)="importDeck()">Import deck</button>
+      </section>
+
+      <section class="flow-step">
+        <header>
+          <span class="step-number">2</span>
+          <div>
+            <strong>Create room</strong>
+            <p>Use a room name or let the app generate one.</p>
+          </div>
+        </header>
+        <div class="flow-summary">
+          <strong>{{ deckImported() ? 'Deck imported' : 'Waiting for decklist' }}</strong>
+          <small>{{ deckImported() ? importedCardCount() + ' lines imported' : 'Import step required' }}</small>
+        </div>
+        <label>
+          Room name
+          <input
+            name="roomName"
+            placeholder="Friday pod"
+            [ngModel]="roomName()"
+            (ngModelChange)="roomName.set($event)"
+          />
+        </label>
+        <button class="primary-button" type="button" [disabled]="!deckImported()" (click)="createRoom()">Create room</button>
+      </section>
+
+      <section class="flow-step">
+        <header>
+          <span class="step-number">3</span>
+          <div>
+            <strong>Share link</strong>
+            <p>Send one URL to the rest of the pod.</p>
+          </div>
+        </header>
+        <div class="flow-link-box">
+          @if (room(); as room) {
+            <strong>{{ room.name }}</strong>
+            <code>{{ room.link }}</code>
+          } @else {
+            <span class="muted-copy">Create a room to generate the link.</span>
+          }
+        </div>
+        <button class="secondary-button" type="button" [disabled]="!room()" (click)="copyLink()">
+          {{ copied() ? 'Copied!' : 'Copy link' }}
+        </button>
+      </section>
+
+      <section class="flow-step">
+        <header>
+          <span class="step-number">4</span>
+          <div>
+            <strong>Play</strong>
+            <p>Open the room and continue into the game flow.</p>
+          </div>
+        </header>
+        <div class="flow-summary">
+          <strong>{{ room() ? room()!.id : 'Room pending' }}</strong>
+          <small>{{ room() ? 'Ready to open' : 'Create the room first' }}</small>
+        </div>
+        <button class="primary-button" type="button" [disabled]="!room()" (click)="enterRoom()">Enter room</button>
+      </section>
+    </div>
+  </section>
+</section>
