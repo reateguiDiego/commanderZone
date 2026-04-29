@@ -86,4 +86,13 @@ class AuthController extends ApiController
 
         return $this->json(['user' => $user->toArray()]);
     }
+
+    #[Route('/me/offline', methods: ['POST'])]
+    public function offline(#[CurrentUser] User $user, EntityManagerInterface $entityManager): JsonResponse
+    {
+        $user->markOffline();
+        $entityManager->flush();
+
+        return $this->json(null, 204);
+    }
 }

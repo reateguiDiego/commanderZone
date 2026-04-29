@@ -1,0 +1,222 @@
+:host {
+  display: block;
+}
+
+.friends-menu {
+  display: grid;
+  gap: 0.7rem;
+  width: min(29rem, calc(100vw - 2rem));
+  max-height: min(36rem, calc(100vh - 6rem));
+  overflow: auto;
+  padding: 0.85rem;
+  border: 1px solid rgb(128 179 122 / 36%);
+  border-radius: 8px;
+  background: rgb(24 27 22 / 98%);
+  box-shadow: var(--shadow);
+}
+
+.friends-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.section-title {
+  color: #f4c95d;
+  font-size: 0.8rem;
+  font-weight: 820;
+  text-transform: uppercase;
+}
+
+.compact-icon {
+  width: 2rem;
+  min-height: 2rem;
+}
+
+.search-panel,
+.search-results,
+.friend-table {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.search-field {
+  gap: 0.45rem;
+}
+
+.friend-table-row {
+  display: grid;
+  grid-template-columns: 0.85rem minmax(0, 1fr) 5.5rem;
+  align-items: center;
+  gap: 0.65rem;
+  min-height: 3.35rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: rgb(32 37 29 / 68%);
+}
+
+.friend-table-row:hover {
+  border-color: rgb(244 201 93 / 38%);
+}
+
+.incoming-row {
+  border-color: rgb(244 201 93 / 52%);
+  background: linear-gradient(90deg, rgb(244 201 93 / 18%), rgb(46 74 50 / 52%));
+}
+
+.pending-row {
+  border-color: rgb(114 167 199 / 38%);
+  background: rgb(35 48 50 / 70%);
+}
+
+.row-main {
+  min-width: 0;
+}
+
+.row-main strong,
+.row-main small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.row-main strong {
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+.row-main small,
+.row-status,
+.dropdown-notice {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.row-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 5.5rem;
+  min-height: 2rem;
+  text-transform: capitalize;
+}
+
+.dropdown-notice {
+  padding: 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: rgb(32 37 29 / 65%);
+}
+
+.dropdown-notice.error {
+  border-color: rgb(209 111 95 / 52%);
+  color: #ffd5cf;
+}
+
+.row-marker {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 999px;
+  background: #8d9586;
+  box-shadow: 0 0 0 3px rgb(141 149 134 / 16%);
+}
+
+.row-marker.online {
+  background: #31f66b;
+  box-shadow:
+    0 0 0 3px rgb(49 246 107 / 20%),
+    0 0 14px rgb(49 246 107 / 62%);
+}
+
+.row-marker.in-game {
+  background: #45c7ff;
+  box-shadow:
+    0 0 0 3px rgb(69 199 255 / 18%),
+    0 0 12px rgb(69 199 255 / 45%);
+}
+
+.incoming-marker {
+  background: #ffd84d;
+  box-shadow:
+    0 0 0 3px rgb(255 216 77 / 20%),
+    0 0 12px rgb(255 216 77 / 52%);
+}
+
+.pending-marker,
+.search-marker {
+  background: #79c7ff;
+  box-shadow: 0 0 0 3px rgb(121 199 255 / 16%);
+}
+
+.action-button,
+.icon-action,
+.action-slot {
+  width: 5.5rem;
+}
+
+.single-icon-slot {
+  justify-self: end;
+}
+
+.action-button,
+.icon-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--text);
+}
+
+.action-button {
+  padding: 0.35rem 0.55rem;
+  font-size: 0.82rem;
+  font-weight: 720;
+}
+
+.icon-action {
+  width: 2.35rem;
+  padding: 0;
+}
+
+.action-pair {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.35rem;
+  width: 5.5rem;
+}
+
+.single-action {
+  display: flex;
+  justify-content: flex-end;
+  width: 5.5rem;
+}
+
+.add-action,
+.accept-action {
+  border-color: rgb(49 246 107 / 42%);
+  background: rgb(49 246 107 / 16%);
+  color: #dfffe7;
+}
+
+.reject-action {
+  border-color: rgb(255 104 92 / 42%);
+  background: rgb(255 104 92 / 13%);
+  color: #ffd8d4;
+}
+
+.action-button:disabled,
+.icon-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+@media (max-width: 720px) {
+  .friends-menu {
+    width: calc(100vw - 1.6rem);
+  }
+}

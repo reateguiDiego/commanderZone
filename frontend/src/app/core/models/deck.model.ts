@@ -1,6 +1,8 @@
 import { Card } from './card.model';
 
 export type DeckSection = 'main' | 'commander' | 'sideboard' | 'maybeboard';
+export type DeckVisibility = 'private' | 'public';
+export type DeckFolderVisibility = DeckVisibility;
 
 export interface DeckCard {
   id: string;
@@ -13,6 +15,7 @@ export interface Deck {
   id: string;
   name: string;
   format: 'commander' | string;
+  visibility?: DeckVisibility;
   folderId: string | null;
   cards?: DeckCard[];
 }
@@ -71,6 +74,7 @@ export interface DeckTokensResponse {
 export interface DeckFolder {
   id: string;
   name: string;
+  visibility?: DeckFolderVisibility;
 }
 
 export interface DeckFormat {

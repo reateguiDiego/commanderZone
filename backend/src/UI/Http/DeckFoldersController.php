@@ -24,12 +24,14 @@ class DeckFoldersController extends ApiController
     #[Route('/deck-folders', methods: ['POST'])]
     public function create(Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager): JsonResponse
     {
-        $name = trim((string) ($this->payload($request)['name'] ?? ''));
+        $payload = $this->payload($request);
+        $name = trim((string) ($payload['name'] ?? ''));
         if ($name === '') {
             return $this->fail('Folder name is required.');
         }
 
         $folder = new DeckFolder($user, $name);
+        $folder->setVisibility($this->visibilityFromPayload($payload));
         $entityManager->persist($folder);
         $entityManager->flush();
 
@@ -46,6 +48,7 @@ class DeckFoldersController extends ApiController
                 static fn (DeckFolder $folder) => [
                     'id' => $folder->id(),
                     'name' => $folder->toArray()['name'],
+                    'visibility' => $folder->visibility(),
                 ],
                 $folders,
             ),
@@ -60,12 +63,18 @@ class DeckFoldersController extends ApiController
             return $this->fail('Folder not found.', 404);
         }
 
-        $name = trim((string) ($this->payload($request)['name'] ?? ''));
-        if ($name === '') {
+        $payload = $this->payload($request);
+        $name = trim((string) ($payload['name'] ?? ''));
+        if ($name === '' && !isset($payload['visibility'])) {
             return $this->fail('Folder name is required.');
         }
 
-        $folder->rename($name);
+        if ($name !== '') {
+            $folder->rename($name);
+        }
+        if (isset($payload['visibility'])) {
+            $folder->setVisibility($this->visibilityFromPayload($payload));
+        }
         $entityManager->flush();
 
         return $this->json(['folder' => $folder->toArray()]);
@@ -94,5 +103,12 @@ class DeckFoldersController extends ApiController
         $folder = $entityManager->getRepository(DeckFolder::class)->find($id);
 
         return $folder instanceof DeckFolder && $folder->owner()->id() === $user->id() ? $folder : null;
+    }
+
+    private function visibilityFromPayload(array $payload): string
+    {
+        return in_array(($payload['visibility'] ?? null), [DeckFolder::VISIBILITY_PRIVATE, DeckFolder::VISIBILITY_PUBLIC], true)
+            ? (string) $payload['visibility']
+            : DeckFolder::VISIBILITY_PRIVATE;
     }
 }

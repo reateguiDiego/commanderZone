@@ -6,7 +6,7 @@ import { DeckFoldersApi } from '../../../core/api/deck-folders.api';
 import { DeckFormatsApi } from '../../../core/api/deck-formats.api';
 import { DecksApi } from '../../../core/api/decks.api';
 import { Card } from '../../../core/models/card.model';
-import { Deck, DeckFolder, DeckFormat } from '../../../core/models/deck.model';
+import { Deck, DeckFolder, DeckFolderVisibility, DeckFormat, DeckVisibility } from '../../../core/models/deck.model';
 import { DeckImportExportService, DecklistEntry } from '../services/deck-import-export.service';
 import { DeckFolderSection } from '../models/deck-list.models';
 
@@ -28,9 +28,11 @@ export class DeckListStore {
   readonly folderCreateModalOpen = signal(false);
   readonly folderRenameModalOpen = signal(false);
   readonly folderDeleteModalOpen = signal(false);
+  readonly deckEditModalOpen = signal(false);
   readonly importModalOpen = signal(false);
   readonly deleteModalOpen = signal(false);
   readonly deleteTarget = signal<Deck | null>(null);
+  readonly deckEditTarget = signal<Deck | null>(null);
   readonly folderTarget = signal<DeckFolder | null>(null);
   readonly createdDeck = signal<Deck | null>(null);
   readonly createdMissing = signal<string[]>([]);
@@ -67,13 +69,19 @@ export class DeckListStore {
     ?? { id: null, name: 'No folder', decks: [], isUnfiled: true }
   ));
   readonly selectedFormat = computed(() => this.formats().find((format) => format.id === this.newDeckFormatId) ?? null);
+  readonly hasDeckListContent = computed(() => this.decks().length > 0 || this.folders().length > 0);
 
   newDeckName = '';
   newDeckFormatId = 'commander';
   newDeckFolderId = '';
+  newDeckVisibility: DeckVisibility = 'private';
   newFolderName = '';
+  newFolderVisibility: DeckVisibility = 'private';
   renameFolderName = '';
+  renameFolderVisibility: DeckFolderVisibility = 'private';
   renameDeckName = '';
+  editDeckName = '';
+  editDeckVisibility: DeckVisibility = 'private';
   commanderQuery = '';
   createdDecklist = '';
 
@@ -114,6 +122,7 @@ export class DeckListStore {
     this.newDeckName = '';
     this.newDeckFormatId = this.formats()[0]?.id ?? 'commander';
     this.newDeckFolderId = '';
+    this.newDeckVisibility = 'private';
     this.commanderQuery = '';
     this.selectedCommander.set(null);
     this.createModalOpen.set(false);
@@ -140,11 +149,13 @@ export class DeckListStore {
 
   openFolderCreateModal(): void {
     this.newFolderName = '';
+    this.newFolderVisibility = 'private';
     this.folderCreateModalOpen.set(true);
   }
 
   closeFolderCreateModal(): void {
     this.newFolderName = '';
+    this.newFolderVisibility = 'private';
     this.folderCreateModalOpen.set(false);
   }
 
@@ -155,7 +166,7 @@ export class DeckListStore {
     }
 
     try {
-      const response = await firstValueFrom(this.deckFoldersApi.create(name));
+      const response = await firstValueFrom(this.deckFoldersApi.create(name, this.newFolderVisibility));
       this.folders.set([response.folder, ...this.folders()]);
       this.folderOptions.set([response.folder, ...this.folderOptions()]);
       this.closeFolderCreateModal();
@@ -167,6 +178,7 @@ export class DeckListStore {
   openRenameFolderModal(folder: DeckFolder): void {
     this.folderTarget.set(folder);
     this.renameFolderName = folder.name;
+    this.renameFolderVisibility = folder.visibility ?? 'private';
     this.folderRenameModalOpen.set(true);
   }
 
@@ -174,6 +186,7 @@ export class DeckListStore {
     this.folderRenameModalOpen.set(false);
     this.folderTarget.set(null);
     this.renameFolderName = '';
+    this.renameFolderVisibility = 'private';
   }
 
   async renameFolder(): Promise<void> {
@@ -184,7 +197,7 @@ export class DeckListStore {
     }
 
     try {
-      const response = await firstValueFrom(this.deckFoldersApi.rename(folder.id, name));
+      const response = await firstValueFrom(this.deckFoldersApi.rename(folder.id, name, this.renameFolderVisibility));
       this.folders.set(this.folders().map((candidate) => candidate.id === folder.id ? response.folder : candidate));
       this.folderOptions.set(this.folderOptions().map((candidate) => candidate.id === folder.id ? response.folder : candidate));
       this.closeFolderRenameModal();
@@ -235,6 +248,7 @@ export class DeckListStore {
       const response = await firstValueFrom(this.decksApi.quickBuild({
         name,
         folderId: this.newDeckFolderId || null,
+        visibility: this.newDeckVisibility,
         cards,
       }));
       const deck = response.deck;
@@ -302,9 +316,28 @@ export class DeckListStore {
     return this.decks().filter((deck) => deck.folderId === folderId).length;
   }
 
-  startDeckRename(deck: Deck): void {
-    this.editingDeckId.set(deck.id);
-    this.renameDeckName = deck.name;
+  shouldWarnNewDeckPublicInPrivateFolder(): boolean {
+    return this.newDeckVisibility === 'public' && this.folderIsPrivate(this.newDeckFolderId);
+  }
+
+  shouldWarnEditDeckPublicInPrivateFolder(): boolean {
+    const deck = this.deckEditTarget();
+
+    return this.editDeckVisibility === 'public' && this.folderIsPrivate(deck?.folderId ?? '');
+  }
+
+  openDeckEditModal(deck: Deck): void {
+    this.deckEditTarget.set(deck);
+    this.editDeckName = deck.name;
+    this.editDeckVisibility = deck.visibility ?? 'private';
+    this.deckEditModalOpen.set(true);
+  }
+
+  closeDeckEditModal(): void {
+    this.deckEditModalOpen.set(false);
+    this.deckEditTarget.set(null);
+    this.editDeckName = '';
+    this.editDeckVisibility = 'private';
   }
 
   cancelDeckRename(): void {
@@ -330,6 +363,22 @@ export class DeckListStore {
       this.error.set(this.apiErrorMessage(error, 'Could not rename deck.'));
     } finally {
       this.cancelDeckRename();
+    }
+  }
+
+  async saveDeckEdit(): Promise<void> {
+    const deck = this.deckEditTarget();
+    const name = this.editDeckName.trim();
+    if (!deck || !name) {
+      return;
+    }
+
+    try {
+      const response = await firstValueFrom(this.decksApi.update(deck.id, { name, visibility: this.editDeckVisibility }));
+      this.decks.set(this.decks().map((candidate) => candidate.id === deck.id ? response.deck : candidate));
+      this.closeDeckEditModal();
+    } catch (error) {
+      this.error.set(this.apiErrorMessage(error, 'Could not update deck.'));
     }
   }
 
@@ -422,5 +471,13 @@ export class DeckListStore {
     }
 
     return fallback;
+  }
+
+  private folderIsPrivate(folderId: string | null): boolean {
+    if (!folderId) {
+      return false;
+    }
+
+    return this.folders().some((folder) => folder.id === folderId && (folder.visibility ?? 'private') === 'private');
   }
 }

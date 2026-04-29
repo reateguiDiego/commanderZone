@@ -27,7 +27,7 @@
     <p class="notice">No decks yet. Create one and import a decklist.</p>
   }
 
-  @if (!store.currentFolder()) {
+  @if (!store.currentFolder() && store.hasDeckListContent()) {
     <section class="panel folder-panel">
       <div class="deck-table-header">
         <span>Name</span>
@@ -51,6 +51,9 @@
                 <lucide-icon name="folder" size="18" />
               </span>
               <strong>{{ folder.name }} ({{ store.folderDeckCount(folder.id) }})</strong>
+              <span class="visibility-pill" [class.public]="folder.visibility === 'public'">
+                {{ folder.visibility || 'private' }}
+              </span>
             </span>
             <div class="deck-row-actions table-actions">
               <button class="icon-button" type="button" title="Rename folder" (click)="store.openRenameFolderModal(folder); $event.stopPropagation()">
@@ -87,10 +90,11 @@
                 />
               } @else {
                 <strong>{{ deck.name }}</strong>
+                <span class="visibility-pill" [class.public]="deck.visibility === 'public'">{{ deck.visibility || 'private' }}</span>
               }
             </span>
             <div class="deck-row-actions table-actions">
-              <button class="icon-button" type="button" title="Rename deck" (click)="store.startDeckRename(deck); $event.stopPropagation()">
+              <button class="icon-button" type="button" title="Edit deck" (click)="store.openDeckEditModal(deck); $event.stopPropagation()">
                 <lucide-icon name="pencil" size="16" />
               </button>
               <button class="icon-button danger" type="button" title="Delete deck" (click)="store.deleteDeck(deck); $event.stopPropagation()">
@@ -101,7 +105,7 @@
         }
       </div>
     </section>
-  } @else {
+  } @else if (store.currentFolder()) {
     <div
       class="folder-unfile-shell"
       [class.drag-shell-active]="store.draggedDeckId() !== null"
@@ -163,10 +167,11 @@
                   />
                 } @else {
                   <strong>{{ deck.name }}</strong>
+                  <span class="visibility-pill" [class.public]="deck.visibility === 'public'">{{ deck.visibility || 'private' }}</span>
                 }
               </span>
               <div class="deck-row-actions table-actions">
-                <button class="icon-button" type="button" title="Rename deck" (click)="store.startDeckRename(deck); $event.stopPropagation()">
+                <button class="icon-button" type="button" title="Edit deck" (click)="store.openDeckEditModal(deck); $event.stopPropagation()">
                   <lucide-icon name="pencil" size="16" />
                 </button>
                 <button class="icon-button danger" type="button" title="Delete deck" (click)="store.deleteDeck(deck); $event.stopPropagation()">
@@ -218,6 +223,18 @@
         </select>
       </label>
 
+      <label>
+        Visibility
+        <select name="deckVisibility" [(ngModel)]="store.newDeckVisibility">
+          <option value="private">Private</option>
+          <option value="public">Public</option>
+        </select>
+      </label>
+
+      @if (store.shouldWarnNewDeckPublicInPrivateFolder()) {
+        <p class="notice warning compact-notice">This deck is public, but its folder is private. It will not be publicly visible.</p>
+      }
+
       @if (store.selectedFormat()?.hasCommander) {
         <div class="form-stack">
           <label for="commanderSearch">Commander</label>
@@ -254,6 +271,40 @@
         Folder name
         <input name="folderName" placeholder="Jeskai, Brews, Testing..." [(ngModel)]="store.newFolderName" />
       </label>
+      <label>
+        Visibility
+        <select name="folderVisibility" [(ngModel)]="store.newFolderVisibility">
+          <option value="private">Private</option>
+          <option value="public">Public</option>
+        </select>
+      </label>
+    </div>
+  </app-modal>
+
+  <app-modal
+    [open]="store.deckEditModalOpen()"
+    title="Edit deck"
+    primaryLabel="Save"
+    secondaryLabel="Cancel"
+    (primary)="store.saveDeckEdit()"
+    (secondary)="store.closeDeckEditModal()"
+  >
+    <div class="form-stack">
+      <label>
+        Deck name
+        <input name="editDeckName" [(ngModel)]="store.editDeckName" />
+      </label>
+      <label>
+        Visibility
+        <select name="editDeckVisibility" [(ngModel)]="store.editDeckVisibility">
+          <option value="private">Private</option>
+          <option value="public">Public</option>
+        </select>
+      </label>
+
+      @if (store.shouldWarnEditDeckPublicInPrivateFolder()) {
+        <p class="notice warning compact-notice">This deck is public, but its folder is private. It will not be publicly visible.</p>
+      }
     </div>
   </app-modal>
 
@@ -269,6 +320,13 @@
       <label>
         Folder name
         <input name="renameFolderName" [(ngModel)]="store.renameFolderName" />
+      </label>
+      <label>
+        Visibility
+        <select name="renameFolderVisibility" [(ngModel)]="store.renameFolderVisibility">
+          <option value="private">Private</option>
+          <option value="public">Public</option>
+        </select>
       </label>
     </div>
   </app-modal>

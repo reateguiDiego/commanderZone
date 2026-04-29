@@ -3,6 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { API_BASE_URL } from './api.config';
 import { LoginResponse, UserResponse } from '../models/api-responses.model';
+import { withoutGlobalLoading } from '../loading/loading-context';
 
 @Injectable({ providedIn: 'root' })
 export class AuthApi {
@@ -19,5 +20,8 @@ export class AuthApi {
   me(): Observable<UserResponse> {
     return this.http.get<UserResponse>(`${API_BASE_URL}/me`);
   }
-}
 
+  offline(): Observable<void> {
+    return this.http.post<void>(`${API_BASE_URL}/me/offline`, null, { context: withoutGlobalLoading() });
+  }
+}

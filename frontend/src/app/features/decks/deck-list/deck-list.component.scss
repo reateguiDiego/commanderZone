@@ -45,6 +45,28 @@
   min-width: 0;
 }
 
+.visibility-pill {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  min-height: 1.35rem;
+  margin-top: 0.3rem;
+  padding: 0.18rem 0.45rem;
+  border: 1px solid rgb(170 169 159 / 28%);
+  border-radius: 999px;
+  background: rgb(170 169 159 / 9%);
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 760;
+  text-transform: capitalize;
+}
+
+.visibility-pill.public {
+  border-color: rgb(49 246 107 / 35%);
+  background: rgb(49 246 107 / 12%);
+  color: #baffca;
+}
+
 .deck-drop-row {
   border: 1px dashed rgb(215 180 106 / 25%);
   border-radius: 6px;

@@ -142,6 +142,15 @@ paths:
           $ref: '#/components/responses/Error'
         '403':
           $ref: '#/components/responses/Error'
+  /me/offline:
+    post:
+      tags: [Auth]
+      summary: Mark the authenticated user as offline.
+      responses:
+        '204':
+          description: User marked offline.
+        '401':
+          $ref: '#/components/responses/Error'
   /friends:
     get:
       tags: [Friends]
@@ -159,6 +168,32 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/Friendship'
+        '401':
+          $ref: '#/components/responses/Error'
+  /friends/search:
+    get:
+      tags: [Friends]
+      summary: Search users by email or display name.
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 2
+      responses:
+        '200':
+          description: Matching users with current friendship status.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FriendSearchResult'
         '401':
           $ref: '#/components/responses/Error'
   /friends/{userId}:
@@ -182,7 +217,7 @@ paths:
   /friends/requests:
     post:
       tags: [Friends]
-      summary: Send a friend request by exact email.
+      summary: Send a friend request by exact email or user id.
       requestBody:
         required: true
         content:
@@ -246,6 +281,19 @@ paths:
                       $ref: '#/components/schemas/Friendship'
         '401':
           $ref: '#/components/responses/Error'
+  /friends/requests/{id}:
+    delete:
+      tags: [Friends]
+      summary: Cancel a pending outgoing friend request.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '204':
+          description: Friend request cancelled.
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
   /friends/requests/{id}/accept:
     post:
       tags: [Friends]
@@ -274,16 +322,8 @@ paths:
       parameters:
         - $ref: '#/components/parameters/Id'
       responses:
-        '200':
+        '204':
           description: Friend request declined.
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [friendship]
-                properties:
-                  friendship:
-                    $ref: '#/components/schemas/Friendship'
         '401':
           $ref: '#/components/responses/Error'
         '404':
@@ -1077,6 +1117,104 @@ paths:
           $ref: '#/components/responses/Error'
         '404':
           $ref: '#/components/responses/Error'
+  /rooms/invites/incoming:
+    get:
+      tags: [Rooms]
+      summary: List pending room invites received by the authenticated user.
+      responses:
+        '200':
+          description: Incoming room invites.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/RoomInvite'
+        '401':
+          $ref: '#/components/responses/Error'
+  /rooms/{id}/invites:
+    post:
+      tags: [Rooms]
+      summary: Invite an accepted friend to a waiting room.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRoomInviteRequest'
+      responses:
+        '201':
+          description: Room invite created.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [invite]
+                properties:
+                  invite:
+                    $ref: '#/components/schemas/RoomInvite'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+  /rooms/invites/{id}/accept:
+    post:
+      tags: [Rooms]
+      summary: Accept a pending room invite and join the room.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Room invite accepted.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [invite, room]
+                properties:
+                  invite:
+                    $ref: '#/components/schemas/RoomInvite'
+                  room:
+                    $ref: '#/components/schemas/Room'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+  /rooms/invites/{id}/decline:
+    post:
+      tags: [Rooms]
+      summary: Decline a pending room invite.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Room invite declined.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [invite]
+                properties:
+                  invite:
+                    $ref: '#/components/schemas/RoomInvite'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
   /rooms/{id}/join:
     post:
       tags: [Rooms]
@@ -1356,6 +1494,27 @@ components:
           format: uuid
         displayName:
           type: string
+        presence:
+          $ref: '#/components/schemas/FriendPresence'
+    FriendPresence:
+      type: string
+      enum: [online, in_game, offline]
+    FriendSearchResult:
+      type: object
+      required: [id, email, displayName]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        displayName:
+          type: string
+        friendshipStatus:
+          oneOf:
+            - $ref: '#/components/schemas/FriendshipStatus'
+            - type: 'null'
     FriendshipStatus:
       type: string
       enum: [pending, accepted, declined, blocked]
@@ -1382,11 +1541,13 @@ components:
           format: date-time
     FriendRequestCreateRequest:
       type: object
-      required: [email]
       properties:
         email:
           type: string
           format: email
+        userId:
+          type: string
+          format: uuid
     Card:
       type: object
       required: [id, scryfallId, name, colors, colorIdentity, legalities, imageUris, layout, commanderLegal]
@@ -1453,9 +1614,15 @@ components:
         uri:
           type: string
           format: uri
+    DeckVisibility:
+      type: string
+      enum: [private, public]
+    DeckFolderVisibility:
+      type: string
+      enum: [private, public]
     DeckSummary:
       type: object
-      required: [id, name, format, folderId]
+      required: [id, name, format, visibility, folderId]
       properties:
         id:
           type: string
@@ -1465,6 +1632,8 @@ components:
         format:
           type: string
           enum: [commander]
+        visibility:
+          $ref: '#/components/schemas/DeckVisibility'
         folderId:
           type: [string, 'null']
           format: uuid
@@ -1719,19 +1888,22 @@ components:
             $ref: '#/components/schemas/CommanderValidationIssue'
     DeckFolder:
       type: object
-      required: [id, name]
+      required: [id, name, visibility]
       properties:
         id:
           type: string
           format: uuid
         name:
           type: string
+        visibility:
+          $ref: '#/components/schemas/DeckFolderVisibility'
     DeckFolderRequest:
       type: object
-      required: [name]
       properties:
         name:
           type: string
+        visibility:
+          $ref: '#/components/schemas/DeckFolderVisibility'
     DeckFormat:
       type: object
       required: [id, name, minCards, maxCards, hasCommander]
@@ -1877,6 +2049,8 @@ components:
         folderId:
           type: [string, 'null']
           format: uuid
+        visibility:
+          $ref: '#/components/schemas/DeckVisibility'
     DeckQuickBuildRequest:
       allOf:
         - $ref: '#/components/schemas/CreateDeckRequest'
@@ -1966,6 +2140,13 @@ components:
               type: string
               enum: [private, public]
               default: private
+    CreateRoomInviteRequest:
+      type: object
+      required: [userId]
+      properties:
+        userId:
+          type: string
+          format: uuid
     Room:
       type: object
       required: [id, owner, status, visibility, players]
@@ -2000,6 +2181,28 @@ components:
         deckId:
           type: [string, 'null']
           format: uuid
+    RoomInvite:
+      type: object
+      required: [id, status, room, sender, recipient, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [pending, accepted, declined]
+        room:
+          $ref: '#/components/schemas/Room'
+        sender:
+          $ref: '#/components/schemas/FriendUser'
+        recipient:
+          $ref: '#/components/schemas/FriendUser'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
     Game:
       type: object
       required: [id, status, snapshot]

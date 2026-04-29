@@ -2,6 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { API_BASE_URL } from './api.config';
+import { AuthApi } from './auth.api';
 import { CardsApi } from './cards.api';
 import { DeckFormatsApi } from './deck-formats.api';
 import { DeckFoldersApi } from './deck-folders.api';
@@ -30,6 +31,15 @@ describe('API services', () => {
     const request = http.expectOne(`${API_BASE_URL}/cards/search?q=sol%20ring&page=1&limit=24`);
     expect(request.request.method).toBe('GET');
     request.flush({ data: [], page: 1, limit: 24 });
+  });
+
+  it('marks the current user offline without triggering the global loading overlay', () => {
+    TestBed.inject(AuthApi).offline().subscribe();
+
+    const request = http.expectOne(`${API_BASE_URL}/me/offline`);
+    expect(request.request.method).toBe('POST');
+    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);
+    request.flush(null);
   });
 
   it('builds filtered card search requests', () => {
@@ -63,7 +73,7 @@ describe('API services', () => {
 
     const request = http.expectOne(`${API_BASE_URL}/decks`);
     expect(request.request.method).toBe('POST');
-    expect(request.request.body).toEqual({ name: 'Deck', folderId: 'folder-1' });
+    expect(request.request.body).toEqual({ name: 'Deck', folderId: 'folder-1', visibility: 'private' });
     request.flush({ deck: { id: 'deck-1', name: 'Deck', format: 'commander', folderId: 'folder-1', cards: [] } });
   });
 
@@ -159,10 +169,21 @@ describe('API services', () => {
   it('supports friendship endpoints', () => {
     const friends = TestBed.inject(FriendsApi);
 
+    friends.search('bo').subscribe();
+    let request = http.expectOne(`${API_BASE_URL}/friends/search?q=bo`);
+    expect(request.request.method).toBe('GET');
+    request.flush({ data: [] });
+
     friends.request('bob@example.test').subscribe();
-    let request = http.expectOne(`${API_BASE_URL}/friends/requests`);
+    request = http.expectOne(`${API_BASE_URL}/friends/requests`);
     expect(request.request.method).toBe('POST');
     expect(request.request.body).toEqual({ email: 'bob@example.test' });
+    request.flush({ friendship: friendshipFixture('friendship-1') });
+
+    friends.requestUser('user-2').subscribe();
+    request = http.expectOne(`${API_BASE_URL}/friends/requests`);
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({ userId: 'user-2' });
     request.flush({ friendship: friendshipFixture('friendship-1') });
 
     friends.incoming().subscribe();
@@ -183,7 +204,12 @@ describe('API services', () => {
     friends.decline('friendship-2').subscribe();
     request = http.expectOne(`${API_BASE_URL}/friends/requests/friendship-2/decline`);
     expect(request.request.method).toBe('POST');
-    request.flush({ friendship: friendshipFixture('friendship-2', 'declined') });
+    request.flush(null);
+
+    friends.cancel('friendship-3').subscribe();
+    request = http.expectOne(`${API_BASE_URL}/friends/requests/friendship-3`);
+    expect(request.request.method).toBe('DELETE');
+    request.flush(null);
 
     friends.list().subscribe();
     request = http.expectOne(`${API_BASE_URL}/friends`);

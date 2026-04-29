@@ -94,6 +94,6 @@ abstract class ApiTestCase extends WebTestCase
         $connection = $this->entityManager->getConnection();
         \assert($connection instanceof Connection);
 
-        $connection->executeStatement('TRUNCATE game_event, game, room_player, room, deck_card, deck, deck_folder, card, app_user RESTART IDENTITY CASCADE');
+        $connection->executeStatement('TRUNCATE room_invite, friendship, game_event, game, room_player, room, deck_card, deck, deck_folder, card, app_user RESTART IDENTITY CASCADE');
     }
 }

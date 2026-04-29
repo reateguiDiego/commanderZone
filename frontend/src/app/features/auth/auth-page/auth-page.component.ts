@@ -24,12 +24,16 @@ export class AuthPageComponent {
   password = '';
 
   async submit(): Promise<void> {
-    if (this.mode() === 'login') {
-      await this.auth.login(this.email, this.password);
-    } else {
-      await this.auth.register(this.email, this.displayName, this.password);
-    }
+    try {
+      if (this.mode() === 'login') {
+        await this.auth.login(this.email, this.password);
+      } else {
+        await this.auth.register(this.email, this.displayName, this.password);
+      }
 
-    await this.router.navigate(['/dashboard']);
+      await this.router.navigate(['/dashboard']);
+    } catch {
+      return;
+    }
   }
 }

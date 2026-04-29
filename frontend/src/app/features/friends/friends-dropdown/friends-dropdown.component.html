@@ -1,0 +1,97 @@
+<section class="friends-menu" aria-label="Friends">
+  <header class="friends-header">
+    <span class="section-title">Friend list</span>
+    <button class="icon-button compact-icon" type="button" title="Search users" (click)="store.toggleSearch()">
+      <lucide-icon name="search" size="15" />
+    </button>
+  </header>
+
+  @if (store.error()) {
+    <p class="dropdown-notice error">{{ store.error() }}</p>
+  }
+
+  @if (store.searchOpen()) {
+    <div class="search-panel">
+      <label class="search-field">
+        Find users
+        <input
+          name="friendSearch"
+          placeholder="Email or username"
+          autocomplete="off"
+          [ngModel]="store.searchQuery()"
+          (ngModelChange)="store.updateSearch($event)"
+        />
+      </label>
+
+      @if (store.searchQuery().trim().length >= 2) {
+        <div class="search-results" aria-label="User search results">
+          @for (result of store.searchResults(); track result.id) {
+            <div class="friend-table-row">
+              <span class="row-marker search-marker"></span>
+              <span class="row-main">
+                <strong>{{ result.displayName }}</strong>
+                <small>{{ result.email }}</small>
+              </span>
+
+              @if (result.friendshipStatus === null || result.friendshipStatus === 'declined') {
+                <button class="icon-action add-action single-icon-slot" type="button" [disabled]="store.loading()" title="Send friend request" (click)="store.sendRequest(result.id)">
+                  <lucide-icon name="plus" size="15" />
+                </button>
+              } @else {
+                <span class="row-status action-slot">{{ result.friendshipStatus }}</span>
+              }
+            </div>
+          } @empty {
+            <p class="dropdown-notice">No users found.</p>
+          }
+        </div>
+      }
+    </div>
+  }
+
+  <div class="friend-table" aria-label="Friend list">
+    @for (row of store.rows(); track row.kind + row.id) {
+      <div class="friend-table-row" [class.incoming-row]="row.kind === 'incoming'" [class.pending-row]="row.kind === 'pending'">
+        <span
+          class="row-marker"
+          [class.online]="row.presence === 'online'"
+          [class.in-game]="row.presence === 'in_game'"
+          [class.incoming-marker]="row.kind === 'incoming'"
+          [class.pending-marker]="row.kind === 'pending'"
+        ></span>
+        <span class="row-main">
+          <strong>{{ row.displayName }}</strong>
+          <small>{{ row.detail }}</small>
+        </span>
+
+        @if (row.kind === 'incoming') {
+          <span class="action-pair">
+            <button class="icon-action accept-action" type="button" [disabled]="store.loading()" title="Accept request" (click)="runPrimaryAction(row)">
+              <lucide-icon name="check" size="15" />
+            </button>
+            <button class="icon-action reject-action" type="button" [disabled]="store.loading()" title="Decline request" (click)="declineIncoming(row)">
+              <lucide-icon name="x" size="15" />
+            </button>
+          </span>
+        } @else if (row.kind === 'pending') {
+          <span class="single-action">
+            <button class="icon-action reject-action" type="button" [disabled]="store.loading()" title="Cancel request" (click)="runPrimaryAction(row)">
+              <lucide-icon name="x" size="15" />
+            </button>
+          </span>
+        } @else {
+          <span class="single-action">
+            <button class="icon-action reject-action" type="button" [disabled]="store.loading()" title="Remove friend" (click)="runPrimaryAction(row)">
+              <lucide-icon name="x" size="15" />
+            </button>
+          </span>
+        }
+      </div>
+
+    } @empty {
+      @if (!store.searchOpen()) {
+        <p class="dropdown-notice">No friends or pending requests.</p>
+      }
+    }
+  </div>
+</section>

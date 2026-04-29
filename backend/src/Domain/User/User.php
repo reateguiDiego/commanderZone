@@ -31,6 +31,9 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(type: 'datetime_immutable')]
     private \DateTimeImmutable $createdAt;
 
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $lastSeenAt = null;
+
     public function __construct(string $email, string $displayName)
     {
         $this->id = Uuid::v7()->toRfc4122();
@@ -81,6 +84,21 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function getUserIdentifier(): string
     {
         return $this->email;
+    }
+
+    public function lastSeenAt(): ?\DateTimeImmutable
+    {
+        return $this->lastSeenAt;
+    }
+
+    public function markSeen(?\DateTimeImmutable $seenAt = null): void
+    {
+        $this->lastSeenAt = $seenAt ?? new \DateTimeImmutable();
+    }
+
+    public function markOffline(): void
+    {
+        $this->lastSeenAt = null;
     }
 
     public function toArray(): array
