@@ -1,0 +1,52 @@
+:host {
+  display: contents;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgb(7 8 7 / 58%);
+  backdrop-filter: blur(4px);
+}
+
+.modal-panel {
+  display: grid;
+  gap: 1rem;
+  width: min(38rem, 100%);
+  max-height: calc(100dvh - 2rem);
+  overflow: auto;
+  padding: 1rem;
+  border: 1px solid rgb(215 180 106 / 36%);
+  border-radius: 8px;
+  background: rgb(24 27 22 / 96%);
+  box-shadow: var(--shadow);
+}
+
+.modal-panel header {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.modal-panel header p {
+  color: var(--muted);
+}
+
+.modal-body {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.modal-panel footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.55rem;
+}
+
+.danger-action {
+  background: linear-gradient(180deg, #a8483c, #713027);
+  border-color: rgb(209 111 95 / 72%);
+}

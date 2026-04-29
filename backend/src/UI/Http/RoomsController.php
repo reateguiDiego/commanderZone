@@ -100,6 +100,26 @@ class RoomsController extends ApiController
         return $this->json(['room' => $room->toArray()]);
     }
 
+    #[Route('/rooms/{id}', methods: ['DELETE'])]
+    public function delete(string $id, #[CurrentUser] User $user, EntityManagerInterface $entityManager): JsonResponse
+    {
+        $room = $entityManager->getRepository(Room::class)->find($id);
+        if (!$room instanceof Room) {
+            return $this->fail('Room not found.', 404);
+        }
+        if ($room->owner()->id() !== $user->id()) {
+            return $this->fail('Only the room owner can delete the room.', 403);
+        }
+        if ($room->status() !== Room::STATUS_WAITING) {
+            return $this->fail('Started rooms cannot be deleted.', 409);
+        }
+
+        $entityManager->remove($room);
+        $entityManager->flush();
+
+        return $this->json(null, 204);
+    }
+
     #[Route('/rooms/{id}/start', methods: ['POST'])]
     public function start(string $id, #[CurrentUser] User $user, EntityManagerInterface $entityManager, GameSnapshotFactory $snapshotFactory): JsonResponse
     {

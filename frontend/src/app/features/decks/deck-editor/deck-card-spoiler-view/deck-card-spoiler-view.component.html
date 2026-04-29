@@ -1,0 +1,54 @@
+<div class="spoiler-sections">
+  @for (group of store.cardGroups(); track group.id) {
+    <section class="spoiler-section">
+      <header class="spoiler-section-header">
+        <h3>{{ group.title }} <span class="group-count">({{ group.cards.length }})</span></h3>
+      </header>
+
+      @if (group.id === 'commander' && group.cards.length === 0) {
+        <p class="notice warning compact-notice">No commander assigned yet.</p>
+      } @else {
+        <div class="spoiler-card-grid">
+          @for (entry of group.cards; track entry.id) {
+            <article
+              class="spoiler-card"
+              (click)="store.toggleCardMenu($event, entry)"
+            >
+              <div class="spoiler-image-frame">
+                @if (store.imageUrl(entry.card); as imageUrl) {
+                  <img [src]="imageUrl" [alt]="store.displayCardName(entry.card)" loading="lazy" />
+                } @else {
+                  <div class="spoiler-card-fallback">
+                    <strong>{{ store.displayCardName(entry.card) }}</strong>
+                    @if (store.shouldShowManaCost(entry.card)) {
+                      <app-mana-symbols [value]="entry.card.manaCost" fallback="-" />
+                    }
+                  </div>
+                }
+
+                @if (entry.quantity > 1) {
+                  <span class="quantity-badge">x{{ entry.quantity }}</span>
+                }
+                @if (store.hasAlternateFace(entry.card)) {
+                  <button class="face-toggle-button" type="button" title="Flip face" (click)="store.toggleCardFace($event, entry.card)">
+                    <lucide-icon name="rotate-cw" size="15" />
+                  </button>
+                }
+                @if (store.isCardInvalidForDeck(entry.card)) {
+                  <span class="invalid-badge" [attr.title]="store.invalidCardMessage(entry.card)">
+                    <lucide-icon name="triangle-alert" size="15" />
+                  </span>
+                }
+              </div>
+              <strong class="spoiler-card-name">{{ store.displayCardName(entry.card) }}</strong>
+            </article>
+
+            @if (store.cardMenu()?.entryId === entry.id) {
+              <app-deck-card-menu [entry]="entry" />
+            }
+          }
+        </div>
+      }
+    </section>
+  }
+</div>

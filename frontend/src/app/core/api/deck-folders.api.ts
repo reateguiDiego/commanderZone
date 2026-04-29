@@ -3,7 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { API_BASE_URL } from './api.config';
 import { DataResponse, DeckFolderResponse } from '../models/api-responses.model';
-import { DeckFolder } from '../models/deck.model';
+import { DeckFolder, DeckFolderVisibility, DeckVisibility } from '../models/deck.model';
 
 @Injectable({ providedIn: 'root' })
 export class DeckFoldersApi {
@@ -17,12 +17,12 @@ export class DeckFoldersApi {
     return this.http.get<DataResponse<DeckFolder>>(`${API_BASE_URL}/deck-folders/names`);
   }
 
-  create(name: string): Observable<DeckFolderResponse> {
-    return this.http.post<DeckFolderResponse>(`${API_BASE_URL}/deck-folders`, { name });
+  create(name: string, visibility: DeckVisibility = 'private'): Observable<DeckFolderResponse> {
+    return this.http.post<DeckFolderResponse>(`${API_BASE_URL}/deck-folders`, { name, visibility });
   }
 
-  rename(id: string, name: string): Observable<DeckFolderResponse> {
-    return this.http.patch<DeckFolderResponse>(`${API_BASE_URL}/deck-folders/${id}`, { name });
+  rename(id: string, name: string, visibility?: DeckFolderVisibility): Observable<DeckFolderResponse> {
+    return this.http.patch<DeckFolderResponse>(`${API_BASE_URL}/deck-folders/${id}`, { name, visibility });
   }
 
   delete(id: string): Observable<void> {

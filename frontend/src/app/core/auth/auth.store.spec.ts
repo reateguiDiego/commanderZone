@@ -9,6 +9,7 @@ describe('AuthStore backend auth', () => {
     login: ReturnType<typeof vi.fn>;
     register: ReturnType<typeof vi.fn>;
     me: ReturnType<typeof vi.fn>;
+    offline: ReturnType<typeof vi.fn>;
   };
   const user: User = {
     id: 'user-1',
@@ -23,6 +24,7 @@ describe('AuthStore backend auth', () => {
       login: vi.fn().mockReturnValue(of({ token: 'jwt-token' })),
       register: vi.fn().mockReturnValue(of({ user })),
       me: vi.fn().mockReturnValue(of({ user })),
+      offline: vi.fn().mockReturnValue(of(undefined)),
     };
     TestBed.configureTestingModule({
       providers: [{ provide: AuthApi, useValue: authApi }],
@@ -74,8 +76,9 @@ describe('AuthStore backend auth', () => {
     const store = TestBed.inject(AuthStore);
 
     await store.login('player@example.test', 'password123');
-    store.logout();
+    await store.logout();
 
+    expect(authApi.offline).toHaveBeenCalled();
     expect(store.token()).toBeNull();
     expect(store.user()).toBeNull();
     expect(localStorage.getItem('commanderzone.jwt')).toBeNull();

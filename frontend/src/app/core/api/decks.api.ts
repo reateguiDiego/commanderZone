@@ -2,14 +2,15 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { API_BASE_URL } from './api.config';
+import { withoutGlobalLoading } from '../loading/loading-context';
 import {
   CommanderValidationResponse,
   DataResponse,
   DeckImportResponse,
   DeckResponse,
 } from '../models/api-responses.model';
-import { DeckAnalysis, DeckAnalysisOptions } from '../models/deck-analysis.model';
-import { Deck, DeckSection, DeckSectionsResponse, DeckTokensResponse } from '../models/deck.model';
+import { DeckAnalysis } from '../models/deck-analysis.model';
+import { Deck, DeckSection, DeckSectionsResponse, DeckTokensResponse, DeckVisibility } from '../models/deck.model';
 
 export interface DeckCardMutationPayload {
   scryfallId?: string;
@@ -44,11 +45,11 @@ export class DecksApi {
       : this.http.get<DataResponse<Deck>>(`${API_BASE_URL}/decks`, { params: { folderId: folderId ?? 'null' } });
   }
 
-  create(name: string, folderId: string | null = null): Observable<DeckResponse> {
-    return this.http.post<DeckResponse>(`${API_BASE_URL}/decks`, { name, folderId });
+  create(name: string, folderId: string | null = null, visibility: DeckVisibility = 'private'): Observable<DeckResponse> {
+    return this.http.post<DeckResponse>(`${API_BASE_URL}/decks`, { name, folderId, visibility });
   }
 
-  quickBuild(payload: { name: string; folderId?: string | null; cards?: DeckCardMutationPayload[] }): Observable<DeckImportResponse> {
+  quickBuild(payload: { name: string; folderId?: string | null; visibility?: DeckVisibility; cards?: DeckCardMutationPayload[] }): Observable<DeckImportResponse> {
     return this.http.post<DeckImportResponse>(`${API_BASE_URL}/decks/quick-build`, payload);
   }
 
@@ -79,8 +80,12 @@ export class DecksApi {
     return this.http.patch<DeckResponse>(`${API_BASE_URL}/decks/${id}`, { name });
   }
 
+  update(id: string, payload: { name?: string; visibility?: DeckVisibility }): Observable<DeckResponse> {
+    return this.http.patch<DeckResponse>(`${API_BASE_URL}/decks/${id}`, payload);
+  }
+
   moveToFolder(id: string, folderId: string | null): Observable<DeckResponse> {
-    return this.http.patch<DeckResponse>(`${API_BASE_URL}/decks/${id}`, { folderId });
+    return this.http.patch<DeckResponse>(`${API_BASE_URL}/decks/${id}`, { folderId }, { context: withoutGlobalLoading() });
   }
 
   delete(id: string): Observable<void> {

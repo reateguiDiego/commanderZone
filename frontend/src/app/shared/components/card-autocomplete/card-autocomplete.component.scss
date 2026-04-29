@@ -1,0 +1,89 @@
+:host {
+  display: block;
+}
+
+.card-autocomplete {
+  position: relative;
+}
+
+.card-autocomplete-input {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+  padding-inline: 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #10130f;
+}
+
+.card-autocomplete-input input {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  padding-inline: 0;
+}
+
+.card-autocomplete-panel {
+  position: absolute;
+  top: calc(100% + 0.45rem);
+  left: 0;
+  right: 0;
+  z-index: 25;
+}
+
+.card-autocomplete-item,
+.card-autocomplete-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.card-autocomplete-item {
+  justify-content: space-between;
+}
+
+.card-autocomplete-item span {
+  min-width: 0;
+}
+
+.card-autocomplete-item strong,
+.card-autocomplete-item small {
+  display: block;
+}
+
+.card-autocomplete-actions {
+  flex-shrink: 0;
+}
+
+.autocomplete-list {
+  max-height: 16rem;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.autocomplete-item {
+  display: flex;
+  width: 100%;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: rgb(32 37 29 / 65%);
+  color: var(--text);
+  padding: 0.75rem 0.85rem;
+  text-align: left;
+}
+
+.autocomplete-item:hover {
+  border-color: rgb(215 180 106 / 34%);
+}
+
+.autocomplete-item small {
+  margin-top: 0.2rem;
+  color: var(--muted);
+}
+
+.quantity-input {
+  width: 4.1rem;
+  min-width: 4.1rem;
+  padding: 0.45rem 0.55rem;
+}

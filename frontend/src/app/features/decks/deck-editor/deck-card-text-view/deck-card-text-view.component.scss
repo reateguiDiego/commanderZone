@@ -1,0 +1,157 @@
+:host {
+  display: block;
+}
+
+.deck-card-groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+  gap: 1rem;
+}
+
+.deck-card-column,
+.deck-card-group {
+  display: grid;
+  align-content: start;
+  gap: 0.65rem;
+}
+
+.deck-card-group {
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.deck-group-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.2rem 0;
+  border: 0;
+  background: transparent;
+  color: var(--gold);
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.deck-group-toggle .lucide {
+  transition: transform 180ms ease;
+}
+
+.deck-group-toggle[aria-expanded="false"] .lucide {
+  transform: rotate(-90deg);
+}
+
+.deck-group-body {
+  display: grid;
+  grid-template-rows: 1fr;
+  opacity: 1;
+  transition:
+    grid-template-rows 220ms ease,
+    opacity 180ms ease,
+    margin-top 220ms ease;
+}
+
+.deck-group-body.collapsed {
+  grid-template-rows: 0fr;
+  opacity: 0;
+  margin-top: -0.15rem;
+}
+
+.deck-group-body-inner {
+  overflow: hidden;
+}
+
+.deck-card-list {
+  display: grid;
+}
+
+.deck-card-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(10.5rem, 12rem) minmax(4.75rem, 6.25rem);
+  gap: 0.45rem;
+  align-items: center;
+  cursor: pointer;
+  padding: 0.24rem 0;
+  border-bottom: 1px solid rgb(255 255 255 / 7%);
+  background: transparent;
+}
+
+.deck-card-primary,
+.deck-card-secondary,
+.deck-card-cost {
+  min-width: 0;
+}
+
+.deck-card-name {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.83rem;
+  line-height: 1.15;
+}
+
+.deck-card-secondary {
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.7rem;
+  text-align: left;
+}
+
+.deck-card-cost {
+  justify-self: end;
+  white-space: nowrap;
+  font-size: 0.78rem;
+  min-width: 4.75rem;
+  text-align: right;
+}
+
+.deck-card-cost app-mana-symbols {
+  font-size: 0.84em;
+}
+
+.group-count {
+  color: var(--muted);
+  font-size: 0.8em;
+  font-weight: 600;
+}
+
+.warning-mark {
+  color: var(--gold);
+  margin-left: 0.2rem;
+  vertical-align: text-bottom;
+}
+
+.face-toggle-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  margin-left: 0.3rem;
+  border: 0;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 5%);
+  color: var(--muted);
+  vertical-align: text-bottom;
+}
+
+.face-toggle-button:hover {
+  background: rgb(255 255 255 / 10%);
+  color: var(--text);
+}
+
+@media (max-width: 720px) {
+  .deck-card-groups,
+  .deck-card-row {
+    grid-template-columns: 1fr;
+  }
+
+  .deck-card-cost {
+    justify-self: start;
+  }
+}

@@ -1,0 +1,21 @@
+:host {
+  display: block;
+  min-height: 100dvh;
+}
+
+.demo-room-page {
+  display: grid;
+  gap: 1rem;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1.25rem;
+}
+
+.demo-room-panel {
+  display: grid;
+  gap: 1rem;
+}
+
+.demo-room-panel p {
+  color: var(--muted);
+}

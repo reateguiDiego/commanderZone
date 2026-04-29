@@ -25,5 +25,25 @@ export class MercureService {
       return () => source.close();
     });
   }
-}
 
+  tableAssistantEvents<TEvent>(roomId: string): Observable<TEvent> {
+    return new Observable<TEvent>((subscriber) => {
+      const url = `${MERCURE_URL}?topic=${encodeURIComponent(`table-assistant/rooms/${roomId}`)}`;
+      const source = new EventSource(url);
+
+      source.onmessage = (message) => {
+        try {
+          subscriber.next(JSON.parse(message.data) as TEvent);
+        } catch (error) {
+          subscriber.error(error);
+        }
+      };
+
+      source.onerror = () => {
+        subscriber.error(new Error('Mercure connection failed.'));
+      };
+
+      return () => source.close();
+    });
+  }
+}

@@ -2,6 +2,7 @@ import { Card } from './card.model';
 import { Deck, DeckFolder, DeckFormat, CommanderValidation } from './deck.model';
 import { Game, GameEvent, GameSnapshot } from './game.model';
 import { Friendship } from './friendship.model';
+import { RoomInvite } from './room-invite.model';
 import { Room } from './room.model';
 import { User } from './user.model';
 
@@ -90,6 +91,11 @@ export interface RoomResponse {
 export interface StartGameResponse {
   room: Room;
   game: Game;
+}
+
+export interface RoomInviteResponse {
+  invite: RoomInvite;
+  room?: Room;
 }
 
 export interface GameResponse {

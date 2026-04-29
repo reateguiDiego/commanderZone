@@ -53,6 +53,7 @@ class DecksController extends ApiController
         }
 
         $deck = new Deck($user, $name);
+        $deck->setVisibility($this->visibilityFromPayload($payload));
         $folder = $this->folderFromPayload($payload, $user, $entityManager);
         if ($folder === false) {
             return $this->fail('Folder not found.', 404);
@@ -74,6 +75,7 @@ class DecksController extends ApiController
         }
 
         $deck = new Deck($user, $name);
+        $deck->setVisibility($this->visibilityFromPayload($payload));
         $folder = $this->folderFromPayload($payload, $user, $entityManager);
         if ($folder === false) {
             return $this->fail('Folder not found.', 404);
@@ -220,6 +222,9 @@ class DecksController extends ApiController
                 return $this->fail('Folder not found.', 404);
             }
             $deck->moveToFolder($folder);
+        }
+        if (isset($payload['visibility'])) {
+            $deck->setVisibility((string) $payload['visibility']);
         }
 
         $entityManager->flush();
@@ -570,6 +575,13 @@ class DecksController extends ApiController
     private function isValidSection(string $section): bool
     {
         return in_array($section, DeckCard::SECTIONS, true);
+    }
+
+    private function visibilityFromPayload(array $payload): string
+    {
+        return in_array(($payload['visibility'] ?? null), [Deck::VISIBILITY_PRIVATE, Deck::VISIBILITY_PUBLIC], true)
+            ? (string) $payload['visibility']
+            : Deck::VISIBILITY_PRIVATE;
     }
 
     /**

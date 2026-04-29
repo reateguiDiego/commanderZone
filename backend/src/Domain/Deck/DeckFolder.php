@@ -10,6 +10,9 @@ use Symfony\Component\Uid\Uuid;
 #[ORM\Table(name: 'deck_folder')]
 class DeckFolder
 {
+    public const VISIBILITY_PRIVATE = 'private';
+    public const VISIBILITY_PUBLIC = 'public';
+
     #[ORM\Id]
     #[ORM\Column(type: 'string', length: 36)]
     private string $id;
@@ -20,6 +23,9 @@ class DeckFolder
 
     #[ORM\Column(type: 'string', length: 120)]
     private string $name;
+
+    #[ORM\Column(type: 'string', length: 20)]
+    private string $visibility = self::VISIBILITY_PRIVATE;
 
     #[ORM\Column(type: 'datetime_immutable')]
     private \DateTimeImmutable $createdAt;
@@ -52,6 +58,19 @@ class DeckFolder
         $this->touch();
     }
 
+    public function visibility(): string
+    {
+        return $this->visibility;
+    }
+
+    public function setVisibility(string $visibility): void
+    {
+        $this->visibility = in_array($visibility, [self::VISIBILITY_PRIVATE, self::VISIBILITY_PUBLIC], true)
+            ? $visibility
+            : self::VISIBILITY_PRIVATE;
+        $this->touch();
+    }
+
     private function touch(): void
     {
         $this->updatedAt = new \DateTimeImmutable();
@@ -62,6 +81,7 @@ class DeckFolder
         return [
             'id' => $this->id,
             'name' => $this->name,
+            'visibility' => $this->visibility,
         ];
     }
 }

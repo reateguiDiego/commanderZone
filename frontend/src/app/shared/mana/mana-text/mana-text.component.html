@@ -1,0 +1,11 @@
+<span class="mana-text">
+  @for (part of parts(); track $index) {
+    @if (part.kind === 'text') {
+      {{ part.value }}
+    } @else if (part.token.known) {
+      <i [class]="part.token.className" [title]="part.token.raw" [attr.aria-label]="part.token.raw"></i>
+    } @else {
+      <span class="mana-symbol-fallback">{{ part.token.raw }}</span>
+    }
+  }
+</span>

@@ -1,0 +1,58 @@
+<div class="deck-card-groups">
+  @for (column of store.cardColumns(); track column.id) {
+    <div class="deck-card-column">
+      @for (group of column.groups; track group.id) {
+        <section class="deck-card-group">
+          <button class="deck-group-toggle" type="button" [attr.aria-expanded]="!store.isGroupCollapsed(group.id)" (click)="store.toggleGroup(group.id)">
+            <span>
+              {{ group.title }} <span class="group-count">({{ group.cards.length }})</span>
+            </span>
+            <lucide-icon [name]="store.isGroupCollapsed(group.id) ? 'chevron-right' : 'chevron-down'" size="16" />
+          </button>
+          <div class="deck-group-body" [class.collapsed]="store.isGroupCollapsed(group.id)">
+            <div class="deck-group-body-inner">
+              <div class="deck-card-list">
+                @if (group.id === 'commander' && group.cards.length === 0) {
+                  <p class="notice warning compact-notice">No commander assigned yet.</p>
+                } @else {
+                  @for (entry of group.cards; track entry.id) {
+                    <div
+                      class="deck-card-row"
+                      (mouseenter)="store.showCardPreview($event, entry.card)"
+                      (mousemove)="store.moveCardPreview($event)"
+                      (mouseleave)="store.hideCardPreview()"
+                      (click)="store.toggleCardMenu($event, entry)"
+                    >
+                      <span class="deck-card-primary">
+                        <strong class="deck-card-name">
+                          {{ entry.quantity }} - {{ store.displayCardName(entry.card) }}
+                          @if (store.hasAlternateFace(entry.card)) {
+                            <button class="face-toggle-button" type="button" (click)="store.toggleCardFace($event, entry.card)">
+                              <lucide-icon name="rotate-cw" size="13" />
+                            </button>
+                          }
+                          @if (store.isCardInvalidForDeck(entry.card)) {
+                            <lucide-icon class="warning-mark" name="triangle-alert" size="14" [attr.title]="store.invalidCardMessage(entry.card)" />
+                          }
+                        </strong>
+                      </span>
+                      <small class="deck-card-secondary">{{ store.displayCardTypeLine(entry.card) || 'Unknown type' }}</small>
+                      <span class="deck-card-cost">
+                        @if (store.shouldShowManaCost(entry.card)) {
+                          <app-mana-symbols [value]="entry.card.manaCost" fallback="-" />
+                        }
+                      </span>
+                    </div>
+                    @if (store.cardMenu()?.entryId === entry.id) {
+                      <app-deck-card-menu [entry]="entry" />
+                    }
+                  }
+                }
+              </div>
+            </div>
+          </div>
+        </section>
+      }
+    </div>
+  }
+</div>

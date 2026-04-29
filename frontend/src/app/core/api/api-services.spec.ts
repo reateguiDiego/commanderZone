@@ -2,12 +2,14 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { API_BASE_URL } from './api.config';
+import { AuthApi } from './auth.api';
 import { CardsApi } from './cards.api';
 import { DeckFormatsApi } from './deck-formats.api';
 import { DeckFoldersApi } from './deck-folders.api';
 import { DecksApi } from './decks.api';
 import { FriendsApi } from './friends.api';
 import { GamesApi } from './games.api';
+import { RoomsApi } from './rooms.api';
 import { SKIP_GLOBAL_LOADING } from '../loading/loading-context';
 
 describe('API services', () => {
@@ -30,6 +32,15 @@ describe('API services', () => {
     const request = http.expectOne(`${API_BASE_URL}/cards/search?q=sol%20ring&page=1&limit=24`);
     expect(request.request.method).toBe('GET');
     request.flush({ data: [], page: 1, limit: 24 });
+  });
+
+  it('marks the current user offline without triggering the global loading overlay', () => {
+    TestBed.inject(AuthApi).offline().subscribe();
+
+    const request = http.expectOne(`${API_BASE_URL}/me/offline`);
+    expect(request.request.method).toBe('POST');
+    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);
+    request.flush(null);
   });
 
   it('builds filtered card search requests', () => {
@@ -63,7 +74,17 @@ describe('API services', () => {
 
     const request = http.expectOne(`${API_BASE_URL}/decks`);
     expect(request.request.method).toBe('POST');
-    expect(request.request.body).toEqual({ name: 'Deck', folderId: 'folder-1' });
+    expect(request.request.body).toEqual({ name: 'Deck', folderId: 'folder-1', visibility: 'private' });
+    request.flush({ deck: { id: 'deck-1', name: 'Deck', format: 'commander', folderId: 'folder-1', cards: [] } });
+  });
+
+  it('moves decks between folders without triggering the global loading overlay', () => {
+    TestBed.inject(DecksApi).moveToFolder('deck-1', 'folder-1').subscribe();
+
+    const request = http.expectOne(`${API_BASE_URL}/decks/deck-1`);
+    expect(request.request.method).toBe('PATCH');
+    expect(request.request.body).toEqual({ folderId: 'folder-1' });
+    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);
     request.flush({ deck: { id: 'deck-1', name: 'Deck', format: 'commander', folderId: 'folder-1', cards: [] } });
   });
 
@@ -132,10 +153,21 @@ describe('API services', () => {
   it('supports friendship endpoints', () => {
     const friends = TestBed.inject(FriendsApi);
 
+    friends.search('bo').subscribe();
+    let request = http.expectOne(`${API_BASE_URL}/friends/search?q=bo`);
+    expect(request.request.method).toBe('GET');
+    request.flush({ data: [] });
+
     friends.request('bob@example.test').subscribe();
-    let request = http.expectOne(`${API_BASE_URL}/friends/requests`);
+    request = http.expectOne(`${API_BASE_URL}/friends/requests`);
     expect(request.request.method).toBe('POST');
     expect(request.request.body).toEqual({ email: 'bob@example.test' });
+    request.flush({ friendship: friendshipFixture('friendship-1') });
+
+    friends.requestUser('user-2').subscribe();
+    request = http.expectOne(`${API_BASE_URL}/friends/requests`);
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({ userId: 'user-2' });
     request.flush({ friendship: friendshipFixture('friendship-1') });
 
     friends.incoming().subscribe();
@@ -156,47 +188,12 @@ describe('API services', () => {
     friends.decline('friendship-2').subscribe();
     request = http.expectOne(`${API_BASE_URL}/friends/requests/friendship-2/decline`);
     expect(request.request.method).toBe('POST');
-    request.flush({ friendship: friendshipFixture('friendship-2', 'declined') });
+    request.flush(null);
 
-    friends.list().subscribe();
-    request = http.expectOne(`${API_BASE_URL}/friends`);
-    expect(request.request.method).toBe('GET');
-    request.flush({ data: [] });
-
-    friends.remove('user-2').subscribe();
-    request = http.expectOne(`${API_BASE_URL}/friends/user-2`);
+    friends.cancel('friendship-3').subscribe();
+    request = http.expectOne(`${API_BASE_URL}/friends/requests/friendship-3`);
     expect(request.request.method).toBe('DELETE');
     request.flush(null);
-  });
-
-  it('supports friendship endpoints', () => {
-    const friends = TestBed.inject(FriendsApi);
-
-    friends.request('bob@example.test').subscribe();
-    let request = http.expectOne(`${API_BASE_URL}/friends/requests`);
-    expect(request.request.method).toBe('POST');
-    expect(request.request.body).toEqual({ email: 'bob@example.test' });
-    request.flush({ friendship: friendshipFixture('friendship-1') });
-
-    friends.incoming().subscribe();
-    request = http.expectOne(`${API_BASE_URL}/friends/requests/incoming`);
-    expect(request.request.method).toBe('GET');
-    request.flush({ data: [] });
-
-    friends.outgoing().subscribe();
-    request = http.expectOne(`${API_BASE_URL}/friends/requests/outgoing`);
-    expect(request.request.method).toBe('GET');
-    request.flush({ data: [] });
-
-    friends.accept('friendship-1').subscribe();
-    request = http.expectOne(`${API_BASE_URL}/friends/requests/friendship-1/accept`);
-    expect(request.request.method).toBe('POST');
-    request.flush({ friendship: friendshipFixture('friendship-1', 'accepted') });
-
-    friends.decline('friendship-2').subscribe();
-    request = http.expectOne(`${API_BASE_URL}/friends/requests/friendship-2/decline`);
-    expect(request.request.method).toBe('POST');
-    request.flush({ friendship: friendshipFixture('friendship-2', 'declined') });
 
     friends.list().subscribe();
     request = http.expectOne(`${API_BASE_URL}/friends`);
@@ -218,6 +215,14 @@ describe('API services', () => {
     expect(request.request.method).toBe('POST');
     expect(request.request.body).toEqual({ type: 'life.changed', payload: { playerId: 'p1', delta: -1 } });
     request.flush({ event: {}, snapshot: { players: {}, turn: { activePlayerId: null, phase: 'beginning', number: 1 }, chat: [], createdAt: '' } });
+  });
+
+  it('deletes rooms through the room endpoint', () => {
+    TestBed.inject(RoomsApi).delete('room-1').subscribe();
+
+    const request = http.expectOne(`${API_BASE_URL}/rooms/room-1`);
+    expect(request.request.method).toBe('DELETE');
+    request.flush(null);
   });
 });
 
@@ -270,17 +275,5 @@ function deckAnalysisFixture() {
       curvePlayabilityMode: 'play',
       manaSourcesMode: 'landsOnly',
     },
-  };
-}
-
-function friendshipFixture(id: string, status = 'pending') {
-  return {
-    id,
-    status,
-    requester: { id: 'user-1', displayName: 'Alice' },
-    recipient: { id: 'user-2', displayName: 'Bob' },
-    friend: { id: 'user-2', displayName: 'Bob' },
-    createdAt: '2026-04-26T00:00:00+00:00',
-    updatedAt: '2026-04-26T00:00:00+00:00',
   };
 }

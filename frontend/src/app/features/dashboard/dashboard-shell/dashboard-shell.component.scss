@@ -1,0 +1,242 @@
+:host {
+  display: block;
+}
+
+.app-frame {
+  display: grid;
+  grid-template-columns: 16rem minmax(0, 1fr);
+  min-height: 100dvh;
+}
+
+.app-frame.room-focus {
+  grid-template-columns: 4.5rem minmax(0, 1fr);
+}
+
+.sidebar {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  height: 100dvh;
+  padding: 1rem;
+  border-right: 1px solid var(--line);
+  background: rgb(17 19 15 / 84%);
+  backdrop-filter: blur(16px);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.4rem;
+}
+
+.brand-mark {
+  display: inline-grid;
+  place-items: center;
+  width: 2.45rem;
+  height: 2.45rem;
+  border-radius: 999px;
+  background: rgb(215 180 106 / 16%);
+  color: var(--text);
+  font-weight: 900;
+}
+
+.brand strong,
+.brand small {
+  display: block;
+}
+
+.brand small {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.nav-list {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.nav-list a {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.78rem 0.85rem;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  color: var(--muted);
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease;
+}
+
+.nav-list a:hover,
+.nav-list a.active {
+  border-color: rgb(215 180 106 / 36%);
+  background: rgb(215 180 106 / 10%);
+  color: var(--text);
+}
+
+.workspace {
+  min-width: 0;
+  padding: 1rem clamp(1rem, 2vw, 1.6rem) 2rem;
+}
+
+.room-focus .sidebar {
+  align-items: center;
+  padding-inline: 0.75rem;
+}
+
+.room-focus .brand {
+  padding: 0;
+}
+
+.room-focus .brand-copy {
+  display: none;
+}
+
+.room-focus .workspace {
+  padding-top: 0.75rem;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-height: 4rem;
+  margin-bottom: 1rem;
+}
+
+.user-strip {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  color: var(--muted);
+}
+
+.friends-dropdown {
+  position: relative;
+}
+
+.friends-trigger {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-height: 2.45rem;
+  padding: 0.35rem 0.55rem;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.friends-trigger.has-requests {
+  animation: friend-request-pulse 2.6s ease-in-out infinite;
+}
+
+.friends-trigger:hover,
+.friends-dropdown.open .friends-trigger {
+  border-color: rgb(215 180 106 / 36%);
+  background: rgb(215 180 106 / 10%);
+  color: var(--text);
+}
+
+.online-badge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.15rem;
+  height: 1.15rem;
+  padding: 0 0.25rem;
+  border-radius: 999px;
+  background: #31f66b;
+  color: #06250f;
+  font-size: 0.72rem;
+  font-weight: 850;
+  box-shadow: 0 0 12px rgb(49 246 107 / 58%);
+}
+
+.request-badge {
+  position: absolute;
+  top: -0.48rem;
+  left: -0.55rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  min-width: 1.35rem;
+  height: 1.15rem;
+  padding: 0 0.28rem;
+  border: 1px solid rgb(255 216 77 / 58%);
+  border-radius: 999px;
+  background: #ffd84d;
+  color: #241a02;
+  font-size: 0.68rem;
+  font-weight: 850;
+  box-shadow: 0 0 13px rgb(255 216 77 / 52%);
+}
+
+@keyframes friend-request-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 rgb(255 216 77 / 0%);
+  }
+
+  50% {
+    box-shadow: 0 0 0 4px rgb(255 216 77 / 10%);
+  }
+}
+
+.friends-dropdown app-friends-dropdown {
+  position: absolute;
+  top: calc(100% + 0.55rem);
+  right: 0;
+  z-index: 20;
+}
+
+@media (max-width: 1100px) {
+  .app-frame {
+    grid-template-columns: 1fr;
+  }
+
+  .app-frame.room-focus {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    position: static;
+    height: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .nav-list {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .room-focus .sidebar {
+    display: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .topbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .user-strip {
+    justify-content: space-between;
+  }
+
+  .workspace {
+    padding: 0.8rem;
+  }
+
+  .nav-list {
+    grid-template-columns: 1fr;
+  }
+}

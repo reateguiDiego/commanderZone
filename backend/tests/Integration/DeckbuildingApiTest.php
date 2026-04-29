@@ -41,9 +41,11 @@ class DeckbuildingApiTest extends ApiTestCase
             ],
         ]);
 
-        $this->jsonRequest('POST', '/deck-folders', ['name' => 'Commander'], $token);
+        $this->jsonRequest('POST', '/deck-folders', ['name' => 'Commander', 'visibility' => 'public'], $token);
         self::assertResponseStatusCodeSame(201);
-        $folderId = (string) $this->jsonResponse()['folder']['id'];
+        $folder = $this->jsonResponse()['folder'];
+        $folderId = (string) $folder['id'];
+        self::assertSame('public', $folder['visibility']);
 
         $this->jsonRequest('GET', '/deck-folders/names', token: $token);
         self::assertResponseIsSuccessful();
@@ -53,13 +55,28 @@ class DeckbuildingApiTest extends ApiTestCase
         self::assertResponseIsSuccessful();
         self::assertSame('commander', $this->jsonResponse()['data'][0]['id']);
 
-        $this->jsonRequest('POST', '/decks', ['name' => 'Test Deck', 'folderId' => $folderId], $token);
+        $this->jsonRequest('POST', '/decks', ['name' => 'Test Deck', 'folderId' => $folderId, 'visibility' => 'public'], $token);
         self::assertResponseStatusCodeSame(201);
-        $deckId = (string) $this->jsonResponse()['deck']['id'];
+        $createdDeck = $this->jsonResponse()['deck'];
+        $deckId = (string) $createdDeck['id'];
+        self::assertSame('public', $createdDeck['visibility']);
+
+        $this->jsonRequest('POST', '/decks', ['name' => 'Private Deck', 'folderId' => $folderId, 'visibility' => 'private'], $token);
+        self::assertResponseStatusCodeSame(201);
+
+        $this->jsonRequest('GET', '/deck-folders', token: $token);
+        self::assertResponseIsSuccessful();
+        self::assertSame('public', $this->jsonResponse()['data'][0]['visibility']);
+
+        $this->jsonRequest('PATCH', '/deck-folders/'.$folderId, ['name' => 'Commander', 'visibility' => 'private'], $token);
+        self::assertResponseIsSuccessful();
+        self::assertSame('private', $this->jsonResponse()['folder']['visibility']);
 
         $this->jsonRequest('GET', '/decks?folderId='.$folderId, token: $token);
         self::assertResponseIsSuccessful();
-        self::assertSame($deckId, $this->jsonResponse()['data'][0]['id']);
+        $folderDecks = $this->jsonResponse()['data'];
+        self::assertContains($deckId, array_column($folderDecks, 'id'));
+        self::assertSame('public', $this->deckById($folderDecks, $deckId)['visibility']);
 
         $this->jsonRequest('PATCH', '/decks/'.$deckId, ['name' => 'Renamed Deck'], $otherToken);
         self::assertResponseStatusCodeSame(404);
@@ -373,6 +390,17 @@ TXT,
         self::assertIsArray($line);
 
         return $line;
+    }
+
+    private function deckById(array $decks, string $deckId): array
+    {
+        foreach ($decks as $deck) {
+            if (($deck['id'] ?? null) === $deckId) {
+                return $deck;
+            }
+        }
+
+        self::fail('Expected deck was not found.');
     }
 
     private function lineByScryfallIdOrNull(array $cards, string $scryfallId, string $section): ?array

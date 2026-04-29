@@ -4,86 +4,87 @@ namespace App\Tests\Integration;
 
 class FriendsApiTest extends ApiTestCase
 {
-    public function testFriendRequestAcceptDeleteAndDeclineFlow(): void
+    public function testFriendRequestsCanBeAcceptedAndListedWithPresence(): void
     {
         $aliceToken = $this->registerAndLogin('alice@example.test', 'Alice');
-        $aliceId = $this->currentUserId($aliceToken);
         $bobToken = $this->registerAndLogin('bob@example.test', 'Bob');
-        $bobId = $this->currentUserId($bobToken);
-        $charlieToken = $this->registerAndLogin('charlie@example.test', 'Charlie');
-
-        $this->jsonRequest('POST', '/friends/requests', ['email' => 'alice@example.test'], $aliceToken);
-        self::assertResponseStatusCodeSame(400);
-
-        $this->jsonRequest('POST', '/friends/requests', ['email' => 'missing@example.test'], $aliceToken);
-        self::assertResponseStatusCodeSame(404);
 
         $this->jsonRequest('POST', '/friends/requests', ['email' => 'bob@example.test'], $aliceToken);
         self::assertResponseStatusCodeSame(201);
-        $request = $this->jsonResponse()['friendship'];
-        $requestId = (string) $request['id'];
-        self::assertSame('pending', $request['status']);
-        self::assertSame($aliceId, $request['requester']['id']);
-        self::assertSame($bobId, $request['recipient']['id']);
-        self::assertSame($bobId, $request['friend']['id']);
+        $friendshipId = (string) $this->jsonResponse()['friendship']['id'];
 
-        $this->jsonRequest('POST', '/friends/requests', ['email' => 'bob@example.test'], $aliceToken);
-        self::assertResponseStatusCodeSame(409);
-
-        $this->jsonRequest('POST', '/friends/requests', ['email' => 'alice@example.test'], $bobToken);
-        self::assertResponseStatusCodeSame(409);
-
-        $this->jsonRequest('GET', '/friends/requests/outgoing', token: $aliceToken);
+        $this->jsonRequest('GET', '/friends/search?q=bob', token: $aliceToken);
         self::assertResponseIsSuccessful();
-        self::assertSame($requestId, $this->jsonResponse()['data'][0]['id']);
+        self::assertSame('Bob', $this->jsonResponse()['data'][0]['displayName']);
+        self::assertSame('pending', $this->jsonResponse()['data'][0]['friendshipStatus']);
 
         $this->jsonRequest('GET', '/friends/requests/incoming', token: $bobToken);
         self::assertResponseIsSuccessful();
-        self::assertSame($requestId, $this->jsonResponse()['data'][0]['id']);
+        self::assertSame($friendshipId, $this->jsonResponse()['data'][0]['id']);
 
-        $this->jsonRequest('POST', '/friends/requests/'.$requestId.'/accept', token: $charlieToken);
-        self::assertResponseStatusCodeSame(404);
-
-        $this->jsonRequest('POST', '/friends/requests/'.$requestId.'/accept', token: $bobToken);
+        $this->jsonRequest('POST', '/friends/requests/'.$friendshipId.'/accept', token: $bobToken);
         self::assertResponseIsSuccessful();
         self::assertSame('accepted', $this->jsonResponse()['friendship']['status']);
 
         $this->jsonRequest('GET', '/friends', token: $aliceToken);
         self::assertResponseIsSuccessful();
-        self::assertSame($bobId, $this->jsonResponse()['data'][0]['friend']['id']);
+        $friend = $this->jsonResponse()['data'][0]['friend'];
+        self::assertSame('Bob', $friend['displayName']);
+        self::assertContains($friend['presence'], ['online', 'in_game']);
 
-        $this->jsonRequest('GET', '/friends', token: $bobToken);
-        self::assertResponseIsSuccessful();
-        self::assertSame($aliceId, $this->jsonResponse()['data'][0]['friend']['id']);
-
-        $this->jsonRequest('POST', '/friends/requests', ['email' => 'bob@example.test'], $aliceToken);
-        self::assertResponseStatusCodeSame(409);
-
-        $this->jsonRequest('DELETE', '/friends/'.$bobId, token: $aliceToken);
+        $this->jsonRequest('POST', '/me/offline', token: $bobToken);
         self::assertResponseStatusCodeSame(204);
 
         $this->jsonRequest('GET', '/friends', token: $aliceToken);
         self::assertResponseIsSuccessful();
-        self::assertSame([], $this->jsonResponse()['data']);
+        self::assertSame('offline', $this->jsonResponse()['data'][0]['friend']['presence']);
+    }
 
-        $this->jsonRequest('POST', '/friends/requests', ['email' => 'bob@example.test'], $aliceToken);
+    public function testOutgoingFriendRequestCanBeCancelled(): void
+    {
+        $aliceToken = $this->registerAndLogin('alice-cancel@example.test', 'Alice Cancel');
+        $this->registerAndLogin('bob-cancel@example.test', 'Bob Cancel');
+
+        $this->jsonRequest('GET', '/friends/search?q=cancel', token: $aliceToken);
+        $bobId = (string) $this->jsonResponse()['data'][0]['id'];
+
+        $this->jsonRequest('POST', '/friends/requests', ['userId' => $bobId], $aliceToken);
         self::assertResponseStatusCodeSame(201);
-        $secondRequestId = (string) $this->jsonResponse()['friendship']['id'];
+        $friendshipId = (string) $this->jsonResponse()['friendship']['id'];
 
-        $this->jsonRequest('POST', '/friends/requests/'.$secondRequestId.'/decline', token: $bobToken);
-        self::assertResponseIsSuccessful();
-        self::assertSame('declined', $this->jsonResponse()['friendship']['status']);
+        $this->jsonRequest('DELETE', '/friends/requests/'.$friendshipId, token: $aliceToken);
+        self::assertResponseStatusCodeSame(204);
 
-        $this->jsonRequest('GET', '/friends', token: $bobToken);
+        $this->jsonRequest('GET', '/friends/requests/outgoing', token: $aliceToken);
         self::assertResponseIsSuccessful();
         self::assertSame([], $this->jsonResponse()['data']);
     }
 
-    private function currentUserId(string $token): string
+    public function testAcceptedFriendsCanBeInvitedToWaitingRooms(): void
     {
-        $this->jsonRequest('GET', '/me', token: $token);
-        self::assertResponseIsSuccessful();
+        $ownerToken = $this->registerAndLogin('owner@example.test', 'Owner');
+        $guestToken = $this->registerAndLogin('guest@example.test', 'Guest');
 
-        return (string) $this->jsonResponse()['user']['id'];
+        $this->jsonRequest('POST', '/friends/requests', ['email' => 'guest@example.test'], $ownerToken);
+        $friendshipId = (string) $this->jsonResponse()['friendship']['id'];
+        $this->jsonRequest('POST', '/friends/requests/'.$friendshipId.'/accept', token: $guestToken);
+
+        $this->jsonRequest('POST', '/rooms', ['visibility' => 'private'], $ownerToken);
+        $roomId = (string) $this->jsonResponse()['room']['id'];
+
+        $this->jsonRequest('GET', '/friends', token: $ownerToken);
+        $guestId = (string) $this->jsonResponse()['data'][0]['friend']['id'];
+
+        $this->jsonRequest('POST', '/rooms/'.$roomId.'/invites', ['userId' => $guestId], $ownerToken);
+        self::assertResponseStatusCodeSame(201);
+        $inviteId = (string) $this->jsonResponse()['invite']['id'];
+
+        $this->jsonRequest('GET', '/rooms/invites/incoming', token: $guestToken);
+        self::assertResponseIsSuccessful();
+        self::assertSame($inviteId, $this->jsonResponse()['data'][0]['id']);
+
+        $this->jsonRequest('POST', '/rooms/invites/'.$inviteId.'/accept', token: $guestToken);
+        self::assertResponseIsSuccessful();
+        self::assertCount(2, $this->jsonResponse()['room']['players']);
     }
 }

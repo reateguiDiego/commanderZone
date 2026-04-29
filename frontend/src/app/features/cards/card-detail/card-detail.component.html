@@ -1,0 +1,43 @@
+<section class="page-stack">
+  <a class="text-button" routerLink="/cards">
+    <lucide-icon name="arrow-left" size="16" />
+    Back to search
+  </a>
+
+  @if (loading()) {
+    <p class="notice">Loading card...</p>
+  } @else if (error()) {
+    <p class="notice error">{{ error() }}</p>
+  } @else if (card(); as card) {
+    <article class="detail-layout">
+      <div class="detail-image">
+        @if (image(card); as imageUrl) {
+          <img [src]="imageUrl" [alt]="card.name" />
+        } @else {
+          <div class="card-fallback tall">{{ card.name }}</div>
+        }
+      </div>
+      <div class="detail-panel">
+        <span class="eyebrow">{{ card.set || 'MTG' }} #{{ card.collectorNumber || '-' }}</span>
+        <h2>{{ card.name }}</h2>
+        <p class="mana-line">
+          <app-mana-symbols [value]="card.manaCost" fallback="No mana cost" />
+        </p>
+        <p>{{ card.typeLine }}</p>
+        <p class="oracle">
+          <app-mana-text [text]="card.oracleText || 'No oracle text available.'" />
+        </p>
+        <p>
+          Color identity:
+          <app-mana-symbols [symbols]="card.colorIdentity" fallback="Colorless" />
+        </p>
+        <p>
+          Commander:
+          <strong [class.ok]="card.commanderLegal" [class.bad]="!card.commanderLegal">
+            {{ card.commanderLegal ? 'Legal' : 'Not legal' }}
+          </strong>
+        </p>
+      </div>
+    </article>
+  }
+</section>

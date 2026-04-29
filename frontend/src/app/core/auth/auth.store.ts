@@ -1,5 +1,7 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
+import { API_BASE_URL } from '../api/api.config';
 import { AuthApi } from '../api/auth.api';
 import { User } from '../models/user.model';
 
@@ -42,7 +44,7 @@ export class AuthStore {
       await this.loadMe();
     } catch (error) {
       this.clearSession();
-      this.errorState.set('Could not login.');
+      this.errorState.set(errorMessageFromResponse(error, 'Could not login.'));
       throw error;
     } finally {
       this.loadingState.set(false);
@@ -60,7 +62,7 @@ export class AuthStore {
       await this.loadMe();
     } catch (error) {
       this.clearSession();
-      this.errorState.set('Could not create account.');
+      this.errorState.set(errorMessageFromResponse(error, 'Could not create account.'));
       throw error;
     } finally {
       this.loadingState.set(false);
@@ -81,8 +83,40 @@ export class AuthStore {
     }
   }
 
-  logout(): void {
+  async logout(): Promise<void> {
+    await this.markOffline();
     this.clearSession();
+  }
+
+  async markOffline(): Promise<void> {
+    if (!this.tokenState()) {
+      return;
+    }
+
+    try {
+      await firstValueFrom(this.authApi.offline());
+    } catch {
+      // Logout must not leave a stale local session if the presence update fails.
+    }
+  }
+
+  markOfflineOnUnload(): void {
+    const token = this.tokenState();
+    if (!token) {
+      return;
+    }
+
+    try {
+      void fetch(`${API_BASE_URL}/me/offline`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        keepalive: true,
+      });
+    } catch {
+      // Browsers can cancel unload requests; presence also expires by timeout.
+    }
   }
 
   clearSession(): void {
@@ -120,4 +154,27 @@ function readStoredUser(): User | null {
     localStorage.removeItem(USER_KEY);
     return null;
   }
+}
+
+function errorMessageFromResponse(error: unknown, fallback: string): string {
+  if (!(error instanceof HttpErrorResponse)) {
+    return fallback;
+  }
+
+  const responseError = error.error as { error?: unknown; message?: unknown } | string | null;
+  if (typeof responseError === 'string' && responseError.trim()) {
+    return responseError;
+  }
+
+  if (responseError && typeof responseError === 'object') {
+    if (typeof responseError.error === 'string' && responseError.error.trim()) {
+      return responseError.error;
+    }
+
+    if (typeof responseError.message === 'string' && responseError.message.trim()) {
+      return responseError.message;
+    }
+  }
+
+  return fallback;
 }

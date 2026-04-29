@@ -1,0 +1,145 @@
+:host {
+  display: block;
+  min-height: 100dvh;
+}
+
+.onboarding-page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1.25rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.onboarding-hero {
+  display: grid;
+  gap: 1rem;
+}
+
+.onboarding-auth-nav {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.55rem;
+}
+
+.onboarding-copy,
+.onboarding-steps-panel,
+.onboarding-flow {
+  padding: 1.2rem;
+}
+
+.onboarding-copy {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.onboarding-copy h1 {
+  font-size: clamp(2rem, 5vw, 3.6rem);
+  line-height: 1;
+}
+
+.onboarding-copy p {
+  max-width: 42rem;
+  color: var(--muted);
+  font-size: 1rem;
+}
+
+.onboarding-steps {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.onboarding-step,
+.flow-step header {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.8rem;
+  align-items: start;
+}
+
+.step-number {
+  display: grid;
+  place-items: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  border-radius: 999px;
+  border: 1px solid rgb(215 180 106 / 26%);
+  background: rgb(215 180 106 / 10%);
+  color: var(--gold);
+  font-weight: 700;
+}
+
+.step-state {
+  color: var(--muted);
+  font-size: 0.76rem;
+  text-transform: uppercase;
+}
+
+.onboarding-step p,
+.flow-step p,
+.flow-summary small,
+.muted-copy {
+  color: var(--muted);
+}
+
+.onboarding-step.active {
+  border-color: rgb(215 180 106 / 30%);
+}
+
+.onboarding-step.complete .step-number {
+  background: rgb(128 179 122 / 16%);
+  border-color: rgb(128 179 122 / 38%);
+  color: var(--green);
+}
+
+.onboarding-flow {
+  display: grid;
+  gap: 1rem;
+}
+
+.onboarding-flow-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: end;
+}
+
+.onboarding-flow-grid {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.flow-step {
+  display: grid;
+  gap: 0.85rem;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgb(255 255 255 / 1.5%);
+}
+
+.flow-summary,
+.flow-link-box {
+  display: grid;
+  gap: 0.2rem;
+  min-height: 4.3rem;
+  padding: 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgb(0 0 0 / 12%);
+}
+
+.flow-link-box code {
+  overflow-wrap: anywhere;
+}
+
+@media (min-width: 960px) {
+  .onboarding-hero {
+    grid-template-columns: minmax(0, 1.2fr) minmax(22rem, 0.9fr);
+    align-items: stretch;
+  }
+
+  .onboarding-flow-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
