@@ -3,6 +3,7 @@
 namespace App\UI\Http;
 
 use App\Domain\Friendship\Friendship;
+use App\Domain\Deck\Deck;
 use App\Domain\Room\Room;
 use App\Domain\Room\RoomInvite;
 use App\Domain\Room\RoomPlayer;
@@ -75,7 +76,7 @@ class RoomInvitesController extends ApiController
     }
 
     #[Route('/rooms/invites/{id}/accept', methods: ['POST'])]
-    public function accept(string $id, #[CurrentUser] User $user, EntityManagerInterface $entityManager, TableAssistantEventPublisher $publisher): JsonResponse
+    public function accept(string $id, Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, TableAssistantEventPublisher $publisher): JsonResponse
     {
         $invite = $this->pendingInvite($entityManager, $id, $user);
         if (!$invite instanceof RoomInvite) {
@@ -85,7 +86,8 @@ class RoomInvitesController extends ApiController
             return $this->fail('Room has already started.', 409);
         }
 
-        $invite->room()->addPlayer(new RoomPlayer($invite->room(), $user));
+        $deck = $this->deckFromPayload($this->payload($request), $user, $entityManager);
+        $invite->room()->addPlayer(new RoomPlayer($invite->room(), $user, $deck));
         $invite->accept();
         $entityManager->flush();
         $this->publishTableAssistantInvitationEvent($entityManager, $publisher, $invite->room(), 'invitation.accepted', $invite);
@@ -149,5 +151,17 @@ class RoomInvitesController extends ApiController
             ->getSingleScalarResult();
 
         return (int) $count > 0;
+    }
+
+    private function deckFromPayload(array $payload, User $user, EntityManagerInterface $entityManager): ?Deck
+    {
+        $deckId = $payload['deckId'] ?? null;
+        if (!is_string($deckId) || $deckId === '') {
+            return null;
+        }
+
+        $deck = $entityManager->getRepository(Deck::class)->find($deckId);
+
+        return $deck instanceof Deck && $deck->owner()->id() === $user->id() ? $deck : null;
     }
 }

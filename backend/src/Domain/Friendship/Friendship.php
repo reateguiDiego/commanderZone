@@ -8,8 +8,9 @@ use Symfony\Component\Uid\Uuid;
 
 #[ORM\Entity]
 #[ORM\Table(name: 'friendship')]
-#[ORM\Index(name: 'idx_friendship_requester', columns: ['requester_id'])]
-#[ORM\Index(name: 'idx_friendship_recipient', columns: ['recipient_id'])]
+#[ORM\UniqueConstraint(name: 'uniq_friendship_relation_key', columns: ['relation_key'])]
+#[ORM\Index(name: 'idx_friendship_requester_status', columns: ['requester_id', 'status'])]
+#[ORM\Index(name: 'idx_friendship_recipient_status', columns: ['recipient_id', 'status'])]
 class Friendship
 {
     public const STATUS_PENDING = 'pending';
@@ -29,7 +30,10 @@ class Friendship
     #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
     private User $recipient;
 
-    #[ORM\Column(type: 'string', length: 24)]
+    #[ORM\Column(name: 'relation_key', type: 'string', length: 73)]
+    private string $relationKey;
+
+    #[ORM\Column(type: 'string', length: 16)]
     private string $status = self::STATUS_PENDING;
 
     #[ORM\Column(type: 'datetime_immutable')]
@@ -43,8 +47,17 @@ class Friendship
         $this->id = Uuid::v7()->toRfc4122();
         $this->requester = $requester;
         $this->recipient = $recipient;
+        $this->relationKey = self::relationKeyFor($requester, $recipient);
         $this->createdAt = new \DateTimeImmutable();
         $this->updatedAt = $this->createdAt;
+    }
+
+    public static function relationKeyFor(User $first, User $second): string
+    {
+        $ids = [$first->id(), $second->id()];
+        sort($ids, SORT_STRING);
+
+        return implode(':', $ids);
     }
 
     public function id(): string
@@ -67,6 +80,11 @@ class Friendship
         return $this->status;
     }
 
+    public function relationKey(): string
+    {
+        return $this->relationKey;
+    }
+
     public function involves(User $user): bool
     {
         return $this->requester->id() === $user->id() || $this->recipient->id() === $user->id();
@@ -81,6 +99,7 @@ class Friendship
     {
         $this->requester = $requester;
         $this->recipient = $recipient;
+        $this->relationKey = self::relationKeyFor($requester, $recipient);
         $this->status = self::STATUS_PENDING;
         $this->touch();
     }

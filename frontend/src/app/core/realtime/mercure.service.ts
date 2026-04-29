@@ -19,7 +19,7 @@ export class MercureService {
       };
 
       source.onerror = () => {
-        subscriber.error(new Error('Mercure connection failed.'));
+        // Snapshot polling in the gameplay store is the fallback. Keep the stream open.
       };
 
       return () => source.close();

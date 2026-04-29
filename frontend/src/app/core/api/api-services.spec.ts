@@ -277,3 +277,15 @@ function deckAnalysisFixture() {
     },
   };
 }
+
+function friendshipFixture(id: string, status = 'pending') {
+  return {
+    id,
+    status,
+    requester: { id: 'user-1', displayName: 'Alice' },
+    recipient: { id: 'user-2', displayName: 'Bob' },
+    friend: { id: 'user-2', displayName: 'Bob', presence: 'offline' },
+    createdAt: '2026-04-29T00:00:00+00:00',
+    updatedAt: '2026-04-29T00:00:00+00:00',
+  };
+}

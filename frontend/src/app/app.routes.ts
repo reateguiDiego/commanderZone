@@ -35,6 +35,12 @@ export const routes: Routes = [
     canActivate: [guestGuard],
   },
   {
+    path: 'games/:id',
+    component: GameTableComponent,
+    canActivate: [authGuard],
+    title: 'Game table',
+  },
+  {
     path: '',
     component: DashboardShellComponent,
     canActivate: [authGuard],
@@ -55,7 +61,6 @@ export const routes: Routes = [
         loadComponent: () => import('./features/table-assistant/table-assistant-room/table-assistant-room.component')
           .then((component) => component.TableAssistantRoomComponent),
       },
-      { path: 'games/:id', component: GameTableComponent },
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
     ],
   },

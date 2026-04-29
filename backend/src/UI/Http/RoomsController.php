@@ -41,6 +41,9 @@ class RoomsController extends ApiController
     {
         $payload = $this->payload($request);
         $deck = $this->deckFromPayload($payload, $user, $entityManager);
+        if (!$deck instanceof Deck) {
+            return $this->fail('A valid deck is required to create a room.');
+        }
 
         $room = new Room($user);
         $room->setVisibility((string) ($payload['visibility'] ?? Room::VISIBILITY_PRIVATE));
@@ -77,7 +80,12 @@ class RoomsController extends ApiController
             return $this->fail('Room has already started.', 409);
         }
 
-        $room->addPlayer(new RoomPlayer($room, $user, $this->deckFromPayload($this->payload($request), $user, $entityManager)));
+        $deck = $this->deckFromPayload($this->payload($request), $user, $entityManager);
+        if (!$deck instanceof Deck) {
+            return $this->fail('A valid deck is required to join a room.');
+        }
+
+        $room->addPlayer(new RoomPlayer($room, $user, $deck));
         $entityManager->flush();
 
         return $this->json(['room' => $room->toArray()]);
@@ -135,6 +143,11 @@ class RoomsController extends ApiController
         }
         if ($room->players()->count() < 2) {
             return $this->fail('At least two players are required.');
+        }
+        foreach ($room->players() as $player) {
+            if (!$player instanceof RoomPlayer || !$player->deck() instanceof Deck) {
+                return $this->fail('Every player needs a deck before starting the game.');
+            }
         }
 
         $game = new Game($room, $snapshotFactory->fromRoom($room));

@@ -15,7 +15,7 @@
       <label>
         Deck
         <select name="deckId" [(ngModel)]="selectedDeckId">
-          <option value="">No deck</option>
+          <option value="" disabled>Select a deck</option>
           @for (deck of decks(); track deck.id) {
             <option [value]="deck.id">{{ deck.name }}</option>
           }
@@ -30,7 +30,7 @@
         </select>
       </label>
 
-      <button class="primary-button" type="button" (click)="createRoom()">
+      <button class="primary-button" type="button" [disabled]="!selectedDeckId" (click)="createRoom()">
         <lucide-icon name="plus" size="17" />
         Create room
       </button>
@@ -39,7 +39,7 @@
         Room id
         <input name="roomId" placeholder="Paste room id" [(ngModel)]="roomId" />
       </label>
-      <button class="secondary-button" type="button" (click)="joinRoom()">
+      <button class="secondary-button" type="button" [disabled]="!selectedDeckId" (click)="joinRoom()">
         <lucide-icon name="door-open" size="17" />
         Join room
       </button>
@@ -68,7 +68,7 @@
         </div>
 
         <div class="button-row">
-          <button class="primary-button compact" type="button" (click)="startRoom(room.id)">
+          <button class="primary-button compact" type="button" [disabled]="!canStartRoom(room)" (click)="startRoom(room.id)">
             <lucide-icon name="play" size="16" />
             Start game
           </button>
@@ -92,6 +92,29 @@
     </section>
   </div>
 
+  @if (incomingInvites().length > 0) {
+    <section class="panel">
+      <div class="tool-header compact-header">
+        <div>
+          <span class="eyebrow">Invites</span>
+          <h3>Pending room invites</h3>
+        </div>
+      </div>
+      <div class="dense-list compact-list">
+        @for (invite of incomingInvites(); track invite.id) {
+          <div class="list-row">
+            <span>
+              <strong>{{ invite.sender.displayName }}</strong>
+              <small>{{ invite.room.visibility }} - {{ invite.room.players.length }} players</small>
+            </span>
+            <button class="primary-button compact" type="button" [disabled]="!selectedDeckId" (click)="acceptInvite(invite)">Accept</button>
+            <button class="secondary-button compact" type="button" (click)="declineInvite(invite)">Decline</button>
+          </div>
+        }
+      </div>
+    </section>
+  }
+
   <section class="panel">
     <div class="tool-header compact-header">
       <div>
@@ -110,7 +133,7 @@
             <strong>{{ room.id }}</strong>
             <small>{{ room.status }} - {{ room.visibility }} - {{ room.players.length }} players</small>
           </span>
-          <button class="secondary-button compact" type="button" (click)="joinListedRoom(room.id)">
+          <button class="secondary-button compact" type="button" [disabled]="!selectedDeckId" (click)="joinListedRoom(room.id)">
             <lucide-icon name="door-open" size="15" />
             Join
           </button>

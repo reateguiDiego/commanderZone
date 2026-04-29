@@ -42,8 +42,8 @@ export class RoomsApi {
     return this.http.post<RoomInviteResponse>(`${API_BASE_URL}/rooms/${roomId}/invites`, { userId });
   }
 
-  acceptInvite(inviteId: string): Observable<RoomInviteResponse> {
-    return this.http.post<RoomInviteResponse>(`${API_BASE_URL}/rooms/invites/${inviteId}/accept`, {});
+  acceptInvite(inviteId: string, deckId?: string): Observable<RoomInviteResponse> {
+    return this.http.post<RoomInviteResponse>(`${API_BASE_URL}/rooms/invites/${inviteId}/accept`, this.deckPayload(deckId));
   }
 
   declineInvite(inviteId: string): Observable<RoomInviteResponse> {

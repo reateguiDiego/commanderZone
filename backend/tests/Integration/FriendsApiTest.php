@@ -62,14 +62,22 @@ class FriendsApiTest extends ApiTestCase
 
     public function testAcceptedFriendsCanBeInvitedToWaitingRooms(): void
     {
+        $this->seedCard('bbbbbbbb-1111-7111-8111-111111111111', 'Plains', [
+            'type_line' => 'Basic Land — Plains',
+            'set' => 'tst',
+            'collector_number' => '20',
+        ]);
         $ownerToken = $this->registerAndLogin('owner@example.test', 'Owner');
         $guestToken = $this->registerAndLogin('guest@example.test', 'Guest');
+        $ownerDeckId = $this->quickBuildDeck($ownerToken, 'Invite Deck', [
+            ['scryfallId' => 'bbbbbbbb-1111-7111-8111-111111111111', 'quantity' => 1, 'section' => 'main'],
+        ]);
 
         $this->jsonRequest('POST', '/friends/requests', ['email' => 'guest@example.test'], $ownerToken);
         $friendshipId = (string) $this->jsonResponse()['friendship']['id'];
         $this->jsonRequest('POST', '/friends/requests/'.$friendshipId.'/accept', token: $guestToken);
 
-        $this->jsonRequest('POST', '/rooms', ['visibility' => 'private'], $ownerToken);
+        $this->jsonRequest('POST', '/rooms', ['visibility' => 'private', 'deckId' => $ownerDeckId], $ownerToken);
         $roomId = (string) $this->jsonResponse()['room']['id'];
 
         $this->jsonRequest('GET', '/friends', token: $ownerToken);
@@ -86,5 +94,19 @@ class FriendsApiTest extends ApiTestCase
         $this->jsonRequest('POST', '/rooms/invites/'.$inviteId.'/accept', token: $guestToken);
         self::assertResponseIsSuccessful();
         self::assertCount(2, $this->jsonResponse()['room']['players']);
+    }
+
+    /**
+     * @param list<array<string,mixed>> $cards
+     */
+    private function quickBuildDeck(string $token, string $name, array $cards): string
+    {
+        $this->jsonRequest('POST', '/decks/quick-build', [
+            'name' => $name,
+            'cards' => $cards,
+        ], $token);
+        self::assertResponseStatusCodeSame(201);
+
+        return (string) $this->jsonResponse()['deck']['id'];
     }
 }

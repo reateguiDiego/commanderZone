@@ -24,6 +24,6 @@ describe('GameTableComponent', () => {
     const fixture = TestBed.createComponent(GameTableComponent);
     fixture.detectChanges();
 
-    expect(fixture.componentInstance.error()).toBe('Missing game id.');
+    expect(fixture.componentInstance.store.error()).toBe('Missing game id.');
   });
 });

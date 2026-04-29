@@ -1,139 +1,281 @@
-<section class="game-screen">
-  <header class="game-topbar">
-    <div>
-      <span class="eyebrow">Game</span>
-      <h2>{{ gameId() }}</h2>
-    </div>
-    @if (snapshot(); as snapshot) {
-      <div class="turn-controls">
-        <select name="activePlayer" [ngModel]="snapshot.turn.activePlayerId" (ngModelChange)="changeTurnPlayer($event)">
-          @for (player of players(); track player.id) {
-            <option [value]="player.id">{{ player.state.user.displayName }}</option>
-          }
-        </select>
-        <select name="phase" [ngModel]="snapshot.turn.phase" (ngModelChange)="changePhase($event)">
-          @for (phase of phases; track phase) {
-            <option [value]="phase">{{ phase }}</option>
-          }
-        </select>
-        <input
-          class="turn-number"
-          type="number"
-          min="1"
-          [ngModel]="snapshot.turn.number"
-          (ngModelChange)="changeTurnNumber($event)"
-          aria-label="Turn number"
-        />
-      </div>
-    }
-  </header>
-
-  @if (loading()) {
+<section class="game-screen" (click)="store.closeContextMenu()">
+  @if (store.loading()) {
     <p class="notice">Loading game snapshot...</p>
-  } @else if (error()) {
-    <p class="notice error">{{ error() }}</p>
-  } @else if (snapshot(); as snapshot) {
-    <div class="game-layout">
-      <main class="battle-table">
-        @for (player of players(); track player.id) {
-          <section class="player-board" [class.active]="snapshot.turn.activePlayerId === player.id">
-            <header class="player-header">
-              <div>
-                <strong>{{ player.state.user.displayName }}</strong>
-                <small>{{ snapshot.turn.activePlayerId === player.id ? 'Active player' : 'Waiting' }}</small>
-              </div>
-              <div class="life-control">
-                <button type="button" (click)="changeLife(player.id, -1)">-</button>
-                <input #lifeInput type="number" [value]="player.state.life" />
-                <button type="button" (click)="changeLife(player.id, 1)">+</button>
-                <button type="button" (click)="setLife(player.id, lifeInput.value)">Set</button>
-              </div>
-            </header>
+  } @else if (store.snapshot(); as snapshot) {
+    <main class="table-surface">
+      @if (store.error()) {
+        <p class="table-error">{{ store.error() }}</p>
+      }
+      <header class="game-hud">
+        <div>
+          <span class="eyebrow">Game</span>
+          <strong>Turn {{ snapshot.turn.number }}</strong>
+        </div>
+        <div class="turn-controls">
+          <select name="activePlayer" [ngModel]="snapshot.turn.activePlayerId" (ngModelChange)="store.changeTurnPlayer($event)">
+            @for (player of store.players(); track player.id) {
+              <option [value]="player.id">{{ player.state.user.displayName }}</option>
+            }
+          </select>
+          <select name="phase" [ngModel]="snapshot.turn.phase" (ngModelChange)="store.changePhase($event)">
+            @for (phase of store.phases; track phase) {
+              <option [value]="phase">{{ phase }}</option>
+            }
+          </select>
+          <input type="number" min="1" [ngModel]="snapshot.turn.number" (ngModelChange)="store.changeTurnNumber($event)" aria-label="Turn number" />
+        </div>
+        <div class="my-actions">
+          <button type="button" (click)="store.drawCurrent()">Draw mine</button>
+          <button type="button" (click)="store.drawCurrent(7)">Draw 7 mine</button>
+          <button type="button" (click)="store.focusCurrentPlayer()">My board</button>
+        </div>
+        <button class="icon-button" type="button" title="Game menu" (click)="store.openGameMenu($event)">
+          <lucide-icon name="menu" size="18" />
+        </button>
+      </header>
 
-            <div class="zones-grid">
-              @for (zone of zones; track zone) {
-                <section class="zone-panel" [class.primary-zone]="zone === 'battlefield'">
-                  <header>
-                    <strong>{{ zoneTitle(zone) }}</strong>
-                    <span>{{ player.state.zones[zone].length }}</span>
-                  </header>
-                  <div class="zone-cards">
-                    @for (card of player.state.zones[zone]; track card.instanceId) {
-                      <button
-                        type="button"
-                        class="table-card"
-                        [class.tapped]="card.tapped"
-                        [class.selected]="isSelected(player.id, zone, card.instanceId)"
-                        (click)="selectCard(player.id, zone, card)"
-                      >
-                        <span>{{ card.name }}</span>
-                      </button>
-                    }
-                  </div>
-                </section>
-              }
+      @if (store.focusedPlayer(); as player) {
+        <section class="focused-board" [class.active]="snapshot.turn.activePlayerId === player.id">
+          <div class="player-strip">
+            <div>
+              <span class="eyebrow">{{ snapshot.turn.activePlayerId === player.id ? 'Turn' : 'Focused player' }}</span>
+              <h1>{{ player.state.user.displayName }}</h1>
             </div>
+            <div class="quick-actions">
+              <button type="button" (click)="store.draw(player.id)">Draw</button>
+              <button type="button" (click)="store.draw(player.id, 7)">Draw 7</button>
+              <button type="button" (click)="store.revealTop(player.id)">Reveal top</button>
+              <button type="button" (click)="store.shuffle(player.id)">Shuffle</button>
+            </div>
+            <div class="life-pill">
+              <button type="button" (click)="store.changeLife(player.id, -1)">-</button>
+              <input #lifeInput type="number" [value]="player.state.life" (change)="store.setLife(player.id, lifeInput.value)" />
+              <button type="button" (click)="store.changeLife(player.id, 1)">+</button>
+            </div>
+          </div>
 
-            <section class="commander-damage">
-              <strong>Commander damage received</strong>
-              <div class="damage-grid">
-                @for (source of players(); track source.id) {
-                  <label>
-                    <span>{{ source.state.user.displayName }}</span>
-                    <input #damageInput type="number" min="0" [value]="commanderDamage(player.id, source.id)" />
-                    <button type="button" (click)="setCommanderDamage(player.id, source.id, damageInput.value)">Set</button>
-                  </label>
+          <div class="command-row">
+            <span class="row-label">Command</span>
+            @for (card of player.state.zones.command; track card.instanceId) {
+              <button
+                type="button"
+                class="mini-card"
+                draggable="true"
+                [class.selected]="store.isSelected(card.instanceId)"
+                (dragstart)="store.dragStart($event, player.id, 'command', card)"
+                (click)="$event.stopPropagation(); store.toggleCardSelection($event, player.id, 'command', card)"
+                (dblclick)="store.playCard(player.id, 'command', card)"
+                (contextmenu)="store.openCardMenu($event, player.id, 'command', card)"
+                (mouseenter)="store.showCardPreview(card)"
+                (mouseleave)="store.hideCardPreview()"
+              >
+                @if (store.cardImage(card); as image) {
+                  <img [src]="image" [alt]="card.name" />
+                } @else {
+                  <span>{{ card.name }}</span>
                 }
-              </div>
-            </section>
-          </section>
-        }
-      </main>
-
-      <aside class="game-side">
-        @if (selectedCard(); as selected) {
-          <section class="panel selected-panel">
-            <span class="eyebrow">Selected card</span>
-            <strong>{{ selected.card.name }}</strong>
-            <small>{{ zoneTitle(selected.zone) }}</small>
-            <div class="button-row">
-              <button class="secondary-button compact" type="button" (click)="tapSelected(!selected.card.tapped)">
-                <lucide-icon name="rotate-cw" size="16" />
-                {{ selected.card.tapped ? 'Untap' : 'Tap' }}
               </button>
-            </div>
-            <div class="inline-form">
-              <select #moveZone>
-                @for (zone of zones; track zone) {
-                  <option [value]="zone">{{ zoneTitle(zone) }}</option>
-                }
-              </select>
-              <button class="primary-button compact" type="button" (click)="moveSelected(moveZone.value)">Move</button>
-            </div>
-          </section>
-        }
-
-        <section class="panel chat-panel">
-          <header>
-            <lucide-icon name="message-square" size="18" />
-            <strong>Chat</strong>
-          </header>
-          <div class="chat-log">
-            @for (message of snapshot.chat; track message.createdAt + message.userId) {
-              <p>
-                <strong>{{ message.displayName }}</strong>
-                <span>{{ message.message }}</span>
-              </p>
             }
           </div>
-          <form class="chat-form" (ngSubmit)="sendChat()">
-            <input name="chatMessage" placeholder="Message" [(ngModel)]="chatMessage" />
-            <button class="icon-button" type="submit" title="Send chat">
-              <lucide-icon name="send" size="17" />
-            </button>
-          </form>
+
+          <div
+            class="battlefield"
+            (dragover)="store.allowDrop($event)"
+            (drop)="store.dropOnZone($event, player.id, 'battlefield')"
+            (contextmenu)="store.openZoneMenu($event, player.id, 'battlefield')"
+          >
+            @for (card of player.state.zones.battlefield; track card.instanceId) {
+              <button
+                type="button"
+                class="game-card"
+                draggable="true"
+                [class.tapped]="card.tapped"
+                [class.selected]="store.isSelected(card.instanceId)"
+                [class.face-down]="card.faceDown || card.hidden"
+                (dragstart)="store.dragStart($event, player.id, 'battlefield', card)"
+                (click)="$event.stopPropagation(); store.toggleCardSelection($event, player.id, 'battlefield', card)"
+                (contextmenu)="store.openCardMenu($event, player.id, 'battlefield', card)"
+                (mouseenter)="store.showCardPreview(card)"
+                (mouseleave)="store.hideCardPreview()"
+              >
+                @if (store.cardImage(card); as image) {
+                  <img [src]="image" [alt]="card.name" />
+                } @else {
+                  <span>{{ card.hidden ? 'Face-down card' : card.name }}</span>
+                }
+                @if (card.power !== null || card.toughness !== null || card.loyalty !== null) {
+                  <span class="stat-overlay">{{ card.loyalty ?? ((card.power ?? 0) + '/' + (card.toughness ?? 0)) }}</span>
+                }
+                @if (store.firstCounter(card); as counter) {
+                  <span class="counter-overlay">{{ counter.key }} {{ counter.value }}</span>
+                }
+              </button>
+            }
+          </div>
+
+          <div class="hand-row">
+            <span class="row-label">Hand</span>
+            @for (card of player.state.zones.hand; track card.instanceId) {
+              <button
+                type="button"
+                class="mini-card"
+                draggable="true"
+                [class.selected]="store.isSelected(card.instanceId)"
+                [class.face-down]="card.hidden"
+                (dragstart)="store.dragStart($event, player.id, 'hand', card)"
+                (click)="$event.stopPropagation(); store.toggleCardSelection($event, player.id, 'hand', card)"
+                (dblclick)="store.playCard(player.id, 'hand', card)"
+                (contextmenu)="store.openCardMenu($event, player.id, 'hand', card)"
+                (mouseenter)="store.showCardPreview(card)"
+                (mouseleave)="store.hideCardPreview()"
+              >
+                @if (store.cardImage(card); as image) {
+                  <img [src]="image" [alt]="card.name" />
+                } @else {
+                  <span>{{ card.hidden ? 'Hidden card' : card.name }}</span>
+                }
+              </button>
+            } @empty {
+              <small>No visible hand cards</small>
+            }
+          </div>
+
+          <footer class="zone-dock">
+            @for (zone of store.zones; track zone) {
+              <button
+                type="button"
+                class="zone-stack"
+                (dragover)="store.allowDrop($event)"
+                (drop)="store.dropOnZone($event, player.id, zone)"
+                (click)="store.openZone(player.id, zone)"
+                (contextmenu)="store.openZoneMenu($event, player.id, zone)"
+              >
+                <span>{{ store.zoneTitle(zone) }}</span>
+                <strong>{{ store.zoneCount(player, zone) }}</strong>
+              </button>
+            }
+          </footer>
         </section>
+      }
+
+      <aside class="player-sidebar">
+        @for (player of store.players(); track player.id) {
+          <button type="button" class="player-thumb" [class.active]="store.focusedPlayer()?.id === player.id" (click)="store.focusPlayer(player.id)">
+            <strong>{{ player.state.user.displayName }}</strong>
+            <span>{{ player.state.life }}</span>
+            <small>{{ store.zoneCount(player, 'hand') }} hand · {{ store.zoneCount(player, 'library') }} library</small>
+          </button>
+        }
       </aside>
-    </div>
+
+      <section class="floating-panel" [style.left.px]="store.floatingPanel().x" [style.top.px]="store.floatingPanel().y">
+        <header>
+          <button type="button" [class.active]="store.activeFloatingTab() === 'chat'" (click)="store.activeFloatingTab.set('chat')">Chat</button>
+          <button type="button" [class.active]="store.activeFloatingTab() === 'log'" (click)="store.activeFloatingTab.set('log')">Event Log</button>
+        </header>
+        @if (store.activeFloatingTab() === 'chat') {
+          <div class="panel-feed">
+            @for (message of snapshot.chat; track message.createdAt + message.userId) {
+              <p><strong>{{ message.displayName }}</strong><span>{{ message.message }}</span></p>
+            }
+          </div>
+          <form class="chat-form" (ngSubmit)="store.sendChat()">
+            <input name="chatMessage" placeholder="Message" [(ngModel)]="store.chatMessage" />
+            <button type="submit"><lucide-icon name="send" size="16" /></button>
+          </form>
+        } @else {
+          <div class="panel-feed">
+            @for (entry of store.eventLog(); track entry.id) {
+              <p><strong>{{ entry.displayName ?? 'System' }}</strong><span>{{ entry.message }}</span></p>
+            }
+          </div>
+        }
+      </section>
+
+      @if (store.hoveredCard(); as card) {
+        <aside class="card-preview">
+          @if (store.cardImage(card); as image) {
+            <img [src]="image" [alt]="card.name" />
+          }
+        </aside>
+      }
+
+      @if (store.contextMenu(); as menu) {
+        <nav class="context-menu" [style.left.px]="menu.x" [style.top.px]="menu.y" (click)="$event.stopPropagation()">
+          @if (menu.kind === 'game') {
+            <button type="button" (click)="store.refetch(); store.closeContextMenu()">Refresh snapshot</button>
+            <button type="button" (click)="store.focusCurrentPlayer()">Focus my board</button>
+            <button type="button" (click)="store.activeFloatingTab.set('chat'); store.closeContextMenu()">Open chat</button>
+            <button type="button" (click)="store.activeFloatingTab.set('log'); store.closeContextMenu()">Open log</button>
+          } @else if (isLibraryMenu(menu)) {
+            <button type="button" (click)="store.draw(menu.playerId)">Draw card <kbd>D</kbd></button>
+            <button type="button" (click)="store.drawPrompt(menu.playerId)">Draw X cards</button>
+            <button type="button" (click)="store.moveTop(menu.playerId, 'graveyard')">Move top X to graveyard</button>
+            <button type="button" (click)="store.moveTop(menu.playerId, 'exile')">Move top X to exile</button>
+            <button type="button" (click)="store.openZone(menu.playerId, 'library')">View</button>
+            <button type="button" (click)="store.shuffle(menu.playerId)">Shuffle <kbd>S</kbd></button>
+            <button type="button" (click)="store.revealTop(menu.playerId)">Reveal top card</button>
+          } @else if (isZoneOnlyMenu(menu)) {
+            <button type="button" (click)="store.openZone(menu.playerId, menu.zone)">View all</button>
+            <button type="button" (click)="store.command('zone.move_all', { playerId: menu.playerId, fromZone: menu.zone, toZone: 'graveyard' })">Move all to graveyard</button>
+            <button type="button" (click)="store.command('zone.move_all', { playerId: menu.playerId, fromZone: menu.zone, toZone: 'exile' })">Move all to exile</button>
+          } @else {
+            <button type="button" (click)="store.tapCard(menu)">Tap / Untap <kbd>T</kbd></button>
+            <button type="button" (click)="store.faceDown(menu)">Turn face down <kbd>Z</kbd></button>
+            <button type="button" (click)="store.revealCard(menu)">Reveal</button>
+            <button type="button" (click)="store.tokenCopy(menu)">Make token copy</button>
+            <button type="button" (click)="store.addToStack(menu)">Add to stack <kbd>K</kbd></button>
+            <button type="button" (click)="store.setPowerToughness(menu)">Power/Toughness</button>
+            @for (counter of counterPresets; track counter) {
+              <button type="button" (click)="store.changeCardCounter(menu, counter)">Counter {{ counter }}</button>
+            }
+            @for (zone of moveZones; track zone) {
+              <button type="button" (click)="store.moveCard(menu, zone)">Move to {{ store.zoneTitle(zone) }}</button>
+            }
+          }
+        </nav>
+      }
+
+      @if (store.zoneModal(); as modal) {
+        <section class="zone-modal-backdrop" (click)="store.closeZoneModal()">
+          <div class="zone-modal" (click)="$event.stopPropagation()">
+            <header>
+              <h2>{{ modal.title }} ({{ modal.total }})</h2>
+              <button type="button" (click)="store.closeZoneModal()"><lucide-icon name="x" size="18" /></button>
+            </header>
+            <div class="zone-filters">
+              <select [ngModel]="modal.type" (ngModelChange)="store.updateZoneFilter({ type: $event })">
+                <option value="">All types</option>
+                <option value="creature">Creatures</option>
+                <option value="instant">Instants</option>
+                <option value="sorcery">Sorceries</option>
+                <option value="artifact">Artifacts</option>
+                <option value="enchantment">Enchantments</option>
+                <option value="planeswalker">Planeswalkers</option>
+                <option value="land">Lands</option>
+              </select>
+              <input placeholder="Search by name" [ngModel]="modal.search" (ngModelChange)="store.updateZoneFilter({ search: $event })" />
+            </div>
+            <div class="zone-modal-body">
+              <aside>
+                @if (modal.selectedCard && store.cardImage(modal.selectedCard); as image) {
+                  <img [src]="image" [alt]="modal.selectedCard.name" />
+                }
+              </aside>
+              <div class="zone-list">
+                @for (card of modal.cards; track card.instanceId) {
+                  <button type="button" [class.active]="modal.selectedCard?.instanceId === card.instanceId" (click)="store.selectZoneCard(card)">
+                    <span>{{ card.name }}</span>
+                    <lucide-icon name="more-vertical" size="16" />
+                  </button>
+                }
+              </div>
+            </div>
+          </div>
+        </section>
+      }
+    </main>
+  } @else if (store.error()) {
+    <p class="notice error">{{ store.error() }}</p>
   }
 </section>

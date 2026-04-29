@@ -90,6 +90,10 @@ class Room
     {
         foreach ($this->players as $existing) {
             if ($existing->user()->id() === $player->user()->id()) {
+                if ($player->deck() !== null) {
+                    $existing->changeDeck($player->deck());
+                }
+
                 return;
             }
         }

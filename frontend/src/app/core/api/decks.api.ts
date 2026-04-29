@@ -9,7 +9,7 @@ import {
   DeckImportResponse,
   DeckResponse,
 } from '../models/api-responses.model';
-import { DeckAnalysis } from '../models/deck-analysis.model';
+import { DeckAnalysis, DeckAnalysisOptions } from '../models/deck-analysis.model';
 import { Deck, DeckSection, DeckSectionsResponse, DeckTokensResponse, DeckVisibility } from '../models/deck.model';
 
 export interface DeckCardMutationPayload {

@@ -1387,6 +1387,58 @@ paths:
           $ref: '#/components/responses/Error'
         '404':
           $ref: '#/components/responses/Error'
+  /games/{id}/zones/{playerId}/{zone}:
+    get:
+      tags: [Games]
+      summary: List a projected game zone.
+      description: Hand and library are private; non-owners only receive cards explicitly revealed to them.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - name: playerId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: zone
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/GameZoneName'
+        - name: type
+          in: query
+          schema:
+            type: string
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: Projected zone cards.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameZoneResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
   /games/{id}/commands:
     post:
       tags: [Games]
@@ -1426,12 +1478,16 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [event, snapshot]
+                required: [event, snapshot, version, applied]
                 properties:
                   event:
                     $ref: '#/components/schemas/GameEvent'
                   snapshot:
                     $ref: '#/components/schemas/GameSnapshot'
+                  version:
+                    type: integer
+                  applied:
+                    type: boolean
         '400':
           $ref: '#/components/responses/Error'
         '401':
@@ -2468,19 +2524,36 @@ components:
           $ref: '#/components/schemas/GameSnapshot'
     GameSnapshot:
       type: object
-      required: [players, turn, chat, createdAt]
+      required: [version, players, turn, stack, arrows, chat, eventLog, createdAt]
       properties:
+        version:
+          type: integer
         players:
           type: object
           additionalProperties:
             $ref: '#/components/schemas/GamePlayer'
         turn:
           $ref: '#/components/schemas/TurnState'
+        stack:
+          type: array
+          items:
+            $ref: '#/components/schemas/GameStackItem'
+        arrows:
+          type: array
+          items:
+            $ref: '#/components/schemas/GameArrow'
         chat:
           type: array
           items:
             $ref: '#/components/schemas/ChatMessage'
+        eventLog:
+          type: array
+          items:
+            $ref: '#/components/schemas/GameLogEntry'
         createdAt:
+          type: string
+          format: date-time
+        updatedAt:
           type: string
           format: date-time
         counters:
@@ -2527,19 +2600,89 @@ components:
             type: integer
         counters:
           type: object
+        zoneCounts:
+          type: object
+          additionalProperties:
+            type: integer
     GameCard:
       type: object
-      required: [instanceId, scryfallId, name, tapped]
+      required: [instanceId, name, tapped]
       properties:
         instanceId:
           type: string
+        ownerId:
+          type: [string, 'null']
+          format: uuid
+        controllerId:
+          type: [string, 'null']
+          format: uuid
         scryfallId:
-          type: string
+          type: [string, 'null']
           format: uuid
         name:
           type: string
+        imageUris:
+          type: object
+          additionalProperties:
+            type: string
+        typeLine:
+          type: [string, 'null']
+        manaCost:
+          type: [string, 'null']
+        power:
+          type: [integer, 'null']
+        toughness:
+          type: [integer, 'null']
+        loyalty:
+          type: [integer, 'null']
         tapped:
           type: boolean
+        faceDown:
+          type: boolean
+        hidden:
+          type: boolean
+        revealedTo:
+          type: array
+          items:
+            type: string
+        position:
+          type: object
+          properties:
+            x:
+              type: number
+            y:
+              type: number
+        rotation:
+          type: integer
+        counters:
+          type: object
+          additionalProperties:
+            type: integer
+        zone:
+          $ref: '#/components/schemas/GameZoneName'
+        isToken:
+          type: boolean
+    GameZoneName:
+      type: string
+      enum: [library, hand, battlefield, graveyard, exile, command]
+    GameZoneResponse:
+      type: object
+      required: [gameId, playerId, zone, total, data]
+      properties:
+        gameId:
+          type: string
+          format: uuid
+        playerId:
+          type: string
+          format: uuid
+        zone:
+          $ref: '#/components/schemas/GameZoneName'
+        total:
+          type: integer
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/GameCard'
     TurnState:
       type: object
       required: [activePlayerId, phase, number]
@@ -2565,6 +2708,52 @@ components:
         createdAt:
           type: string
           format: date-time
+    GameLogEntry:
+      type: object
+      required: [id, type, message, actorId, displayName, createdAt]
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+        message:
+          type: string
+        actorId:
+          type: [string, 'null']
+          format: uuid
+        displayName:
+          type: [string, 'null']
+        createdAt:
+          type: string
+          format: date-time
+    GameStackItem:
+      type: object
+      required: [id, kind, createdAt]
+      properties:
+        id:
+          type: string
+        kind:
+          type: string
+        card:
+          $ref: '#/components/schemas/GameCard'
+        createdAt:
+          type: string
+          format: date-time
+    GameArrow:
+      type: object
+      required: [id, fromInstanceId, toInstanceId, color, createdAt]
+      properties:
+        id:
+          type: string
+        fromInstanceId:
+          type: string
+        toInstanceId:
+          type: string
+        color:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
     GameCommand:
       type: object
       required: [type, payload]
@@ -2576,13 +2765,34 @@ components:
             - life.changed
             - commander.damage.changed
             - counter.changed
+            - card.counter.changed
+            - card.power_toughness.changed
             - card.moved
+            - cards.moved
             - card.tapped
+            - card.face_down.changed
+            - card.revealed
+            - card.token_copy.created
+            - card.controller.changed
             - turn.changed
             - zone.changed
+            - zone.move_all
+            - library.draw
+            - library.draw_many
+            - library.shuffle
+            - library.move_top
+            - library.reveal_top
+            - library.reveal
+            - library.play_top_revealed
+            - stack.card_added
+            - stack.item_removed
+            - arrow.created
+            - arrow.removed
         payload:
           type: object
           additionalProperties: true
+        clientActionId:
+          type: string
     GameEvent:
       type: object
       required: [id, type, payload, createdAt]
@@ -2595,6 +2805,8 @@ components:
         payload:
           type: object
           additionalProperties: true
+        clientActionId:
+          type: [string, 'null']
         createdBy:
           type: [string, 'null']
           format: uuid

@@ -168,6 +168,11 @@ class Card
         return is_string($uri) && $uri !== '' ? $uri : null;
     }
 
+    public function imageUris(): array
+    {
+        return $this->imageUris;
+    }
+
     public function allParts(): array
     {
         return $this->allParts;
