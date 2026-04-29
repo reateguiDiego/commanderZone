@@ -45,6 +45,16 @@ export const routes: Routes = [
       { path: 'decks', component: DeckListComponent },
       { path: 'decks/:id', component: DeckEditorComponent },
       { path: 'rooms', component: RoomsComponent },
+      {
+        path: 'table-assistant',
+        loadComponent: () => import('./features/table-assistant/table-assistant-page/table-assistant-page.component')
+          .then((component) => component.TableAssistantPageComponent),
+      },
+      {
+        path: 'table-assistant/:id',
+        loadComponent: () => import('./features/table-assistant/table-assistant-room/table-assistant-room.component')
+          .then((component) => component.TableAssistantRoomComponent),
+      },
       { path: 'games/:id', component: GameTableComponent },
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
     ],

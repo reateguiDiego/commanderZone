@@ -1,0 +1,32 @@
+<main class="table-assistant-page">
+  <section class="intro-section">
+    <div class="intro-copy">
+      <span class="eyebrow">Herramienta para partidas fisicas e hibridas</span>
+      <h1>Asistente de Mesa</h1>
+      <p class="subtitle">Controla tu partida fisica de Commander sin interrumpir el juego.</p>
+      <p>
+        Crea una sala para seguir vidas, dano de comandante, turnos, fases, temporizadores y trackers desde un unico dispositivo en la mesa o desde el movil de cada jugador.
+      </p>
+      <p class="value-copy">Menos cuentas, menos dudas y menos interrupciones. Tu juega la partida; CommanderZone mantiene la mesa ordenada.</p>
+      <div class="cta-row">
+        <button class="primary-button" type="button" (click)="setupOpen.set(true)">Empezar partida</button>
+        <a class="secondary-button" routerLink="/rooms">Ver salas</a>
+      </div>
+      <small>Puedes empezar con valores por defecto y ajustar la configuracion antes de crear la sala.</small>
+    </div>
+  </section>
+
+  @if (setupOpen()) {
+    <app-table-assistant-setup (cancelled)="setupOpen.set(false)" />
+  }
+
+  <section class="benefit-grid" aria-label="Beneficios">
+    @for (benefit of benefits; track benefit.title) {
+      <article class="benefit-card">
+        <h2>{{ benefit.title }}</h2>
+        <p>{{ benefit.description }}</p>
+      </article>
+    }
+  </section>
+</main>
+

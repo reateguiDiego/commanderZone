@@ -24,8 +24,9 @@ import { FriendsStore } from '../../friends/data-access/friends.store';
 export class DashboardShellComponent {
   readonly auth = inject(AuthStore);
   readonly friends = inject(FriendsStore);
-  readonly friendsOpen = signal(false);
   private readonly router = inject(Router);
+  readonly friendsOpen = signal(false);
+  readonly roomFocus = signal(this.isTableAssistantRoomUrl(this.router.url));
 
   constructor() {
     void this.friends.load();
@@ -34,7 +35,8 @@ export class DashboardShellComponent {
         filter((event): event is NavigationEnd => event instanceof NavigationEnd),
         takeUntilDestroyed(),
       )
-      .subscribe(() => {
+      .subscribe((event) => {
+        this.roomFocus.set(this.isTableAssistantRoomUrl(event.urlAfterRedirects));
         void this.friends.load();
       });
   }
@@ -79,5 +81,10 @@ export class DashboardShellComponent {
   async logout(): Promise<void> {
     await this.auth.logout();
     await this.router.navigate(['/auth/login']);
+  }
+
+  private isTableAssistantRoomUrl(url: string): boolean {
+    const path = url.split(/[?#]/)[0];
+    return /^\/table-assistant\/[^/]+$/.test(path);
   }
 }

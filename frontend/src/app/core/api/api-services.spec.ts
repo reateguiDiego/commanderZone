@@ -9,6 +9,7 @@ import { DeckFoldersApi } from './deck-folders.api';
 import { DecksApi } from './decks.api';
 import { FriendsApi } from './friends.api';
 import { GamesApi } from './games.api';
+import { RoomsApi } from './rooms.api';
 import { SKIP_GLOBAL_LOADING } from '../loading/loading-context';
 
 describe('API services', () => {
@@ -231,6 +232,14 @@ describe('API services', () => {
     expect(request.request.method).toBe('POST');
     expect(request.request.body).toEqual({ type: 'life.changed', payload: { playerId: 'p1', delta: -1 } });
     request.flush({ event: {}, snapshot: { players: {}, turn: { activePlayerId: null, phase: 'beginning', number: 1 }, chat: [], createdAt: '' } });
+  });
+
+  it('deletes rooms through the room endpoint', () => {
+    TestBed.inject(RoomsApi).delete('room-1').subscribe();
+
+    const request = http.expectOne(`${API_BASE_URL}/rooms/room-1`);
+    expect(request.request.method).toBe('DELETE');
+    request.flush(null);
   });
 });
 

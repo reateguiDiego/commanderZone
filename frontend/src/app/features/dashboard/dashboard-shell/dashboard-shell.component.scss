@@ -8,6 +8,10 @@
   min-height: 100dvh;
 }
 
+.app-frame.room-focus {
+  grid-template-columns: 4.5rem minmax(0, 1fr);
+}
+
 .sidebar {
   position: sticky;
   top: 0;
@@ -26,6 +30,17 @@
   align-items: center;
   gap: 0.75rem;
   padding: 0.4rem;
+}
+
+.brand-mark {
+  display: inline-grid;
+  place-items: center;
+  width: 2.45rem;
+  height: 2.45rem;
+  border-radius: 999px;
+  background: rgb(215 180 106 / 16%);
+  color: var(--text);
+  font-weight: 900;
 }
 
 .brand strong,
@@ -66,6 +81,23 @@
 .workspace {
   min-width: 0;
   padding: 1rem clamp(1rem, 2vw, 1.6rem) 2rem;
+}
+
+.room-focus .sidebar {
+  align-items: center;
+  padding-inline: 0.75rem;
+}
+
+.room-focus .brand {
+  padding: 0;
+}
+
+.room-focus .brand-copy {
+  display: none;
+}
+
+.room-focus .workspace {
+  padding-top: 0.75rem;
 }
 
 .topbar {
@@ -170,6 +202,10 @@
     grid-template-columns: 1fr;
   }
 
+  .app-frame.room-focus {
+    grid-template-columns: 1fr;
+  }
+
   .sidebar {
     position: static;
     height: auto;
@@ -179,6 +215,10 @@
 
   .nav-list {
     grid-template-columns: repeat(2, 1fr);
+  }
+
+  .room-focus .sidebar {
+    display: none;
   }
 }
 

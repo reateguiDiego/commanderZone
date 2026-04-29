@@ -76,6 +76,12 @@
             <lucide-icon name="log-out" size="16" />
             Leave
           </button>
+          @if (canDeleteRoom(room)) {
+            <button class="danger-button compact" type="button" [disabled]="deletingRoomId() === room.id" (click)="requestDeleteRoom(room)">
+              <lucide-icon name="trash-2" size="16" />
+              {{ deletingRoomId() === room.id ? 'Deleting' : 'Delete' }}
+            </button>
+          }
           @if (room.gameId) {
             <a class="secondary-button compact" [routerLink]="['/games', room.gameId]">Open game</a>
           }
@@ -108,10 +114,31 @@
             <lucide-icon name="door-open" size="15" />
             Join
           </button>
+          @if (canDeleteRoom(room)) {
+            <button class="danger-button compact" type="button" [disabled]="deletingRoomId() === room.id" (click)="requestDeleteRoom(room)">
+              <lucide-icon name="trash-2" size="15" />
+              {{ deletingRoomId() === room.id ? 'Deleting' : 'Delete' }}
+            </button>
+          }
         </div>
       } @empty {
         <p class="notice">No visible rooms.</p>
       }
     </div>
   </section>
+
+  <app-modal
+    [open]="roomPendingDelete() !== null"
+    title="Borrar sala"
+    message="Esta accion no se puede deshacer."
+    primaryLabel="Borrar"
+    secondaryLabel="Cancelar"
+    [danger]="true"
+    (primary)="confirmDeleteRoom()"
+    (secondary)="cancelDeleteRoom()"
+  >
+    @if (roomPendingDelete(); as room) {
+      <p class="notice">Sala {{ room.id }}</p>
+    }
+  </app-modal>
 </section>

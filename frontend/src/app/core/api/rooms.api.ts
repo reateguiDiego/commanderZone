@@ -26,6 +26,10 @@ export class RoomsApi {
     return this.http.post<RoomResponse>(`${API_BASE_URL}/rooms/${roomId}/leave`, {});
   }
 
+  delete(roomId: string): Observable<void> {
+    return this.http.delete<void>(`${API_BASE_URL}/rooms/${roomId}`);
+  }
+
   start(roomId: string): Observable<StartGameResponse> {
     return this.http.post<StartGameResponse>(`${API_BASE_URL}/rooms/${roomId}/start`, {});
   }

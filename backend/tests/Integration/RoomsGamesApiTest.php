@@ -6,6 +6,25 @@ use App\Tests\Support\RecordingMercureHub;
 
 class RoomsGamesApiTest extends ApiTestCase
 {
+    public function testRoomOwnerCanDeleteWaitingRooms(): void
+    {
+        $ownerToken = $this->registerAndLogin('delete-owner@example.test', 'Delete Owner');
+        $externalToken = $this->registerAndLogin('delete-external@example.test', 'Delete External');
+
+        $this->jsonRequest('POST', '/rooms', ['visibility' => 'private'], $ownerToken);
+        self::assertResponseStatusCodeSame(201);
+        $roomId = (string) $this->jsonResponse()['room']['id'];
+
+        $this->jsonRequest('DELETE', '/rooms/'.$roomId, token: $externalToken);
+        self::assertResponseStatusCodeSame(403);
+
+        $this->jsonRequest('DELETE', '/rooms/'.$roomId, token: $ownerToken);
+        self::assertResponseStatusCodeSame(204);
+
+        $this->jsonRequest('GET', '/rooms/'.$roomId, token: $ownerToken);
+        self::assertResponseStatusCodeSame(404);
+    }
+
     public function testRoomGameCommandEventsAndAccessControl(): void
     {
         $ownerToken = $this->registerAndLogin('owner@example.test', 'Owner');

@@ -1,7 +1,7 @@
 import { importProvidersFrom, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import { Bell, CircleUserRound, DoorOpen, Layers3, LogOut, LucideAngularModule } from 'lucide-angular';
+import { Bell, CircleUserRound, DoorOpen, Layers3, LayoutDashboard, LogOut, LucideAngularModule } from 'lucide-angular';
 import { of } from 'rxjs';
 import { FriendsApi } from '../../../core/api/friends.api';
 import { AuthStore } from '../../../core/auth/auth.store';
@@ -13,7 +13,7 @@ describe('DashboardShellComponent', () => {
       imports: [DashboardShellComponent],
       providers: [
         provideRouter([]),
-        importProvidersFrom(LucideAngularModule.pick({ Bell, CircleUserRound, DoorOpen, Layers3, LogOut })),
+        importProvidersFrom(LucideAngularModule.pick({ Bell, CircleUserRound, DoorOpen, Layers3, LayoutDashboard, LogOut })),
         {
           provide: AuthStore,
           useValue: {
@@ -40,5 +40,16 @@ describe('DashboardShellComponent', () => {
 
     expect(fixture.nativeElement.textContent).toContain('CommanderZone');
     expect(fixture.nativeElement.textContent).toContain('Player');
+  });
+
+  it('hides navigation and user chrome in table assistant rooms', () => {
+    const fixture = TestBed.createComponent(DashboardShellComponent);
+    fixture.componentInstance.roomFocus.set(true);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('CZ');
+    expect(fixture.nativeElement.textContent).not.toContain('Decks');
+    expect(fixture.nativeElement.textContent).not.toContain('Rooms');
+    expect(fixture.nativeElement.textContent).not.toContain('Player');
   });
 });

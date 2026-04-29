@@ -6,7 +6,9 @@ use App\Domain\Friendship\Friendship;
 use App\Domain\Room\Room;
 use App\Domain\Room\RoomInvite;
 use App\Domain\Room\RoomPlayer;
+use App\Domain\TableAssistant\TableAssistantRoom;
 use App\Domain\User\User;
+use App\Infrastructure\Realtime\TableAssistantEventPublisher;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -27,7 +29,7 @@ class RoomInvitesController extends ApiController
     }
 
     #[Route('/rooms/{id}/invites', methods: ['POST'])]
-    public function invite(string $id, Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager): JsonResponse
+    public function invite(string $id, Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, TableAssistantEventPublisher $publisher): JsonResponse
     {
         $room = $entityManager->getRepository(Room::class)->find($id);
         if (!$room instanceof Room) {
@@ -67,12 +69,13 @@ class RoomInvitesController extends ApiController
         }
 
         $entityManager->flush();
+        $this->publishTableAssistantInvitationEvent($entityManager, $publisher, $room, 'friend.invited', $invite);
 
         return $this->json(['invite' => $invite->toArray()], 201);
     }
 
     #[Route('/rooms/invites/{id}/accept', methods: ['POST'])]
-    public function accept(string $id, #[CurrentUser] User $user, EntityManagerInterface $entityManager): JsonResponse
+    public function accept(string $id, #[CurrentUser] User $user, EntityManagerInterface $entityManager, TableAssistantEventPublisher $publisher): JsonResponse
     {
         $invite = $this->pendingInvite($entityManager, $id, $user);
         if (!$invite instanceof RoomInvite) {
@@ -85,12 +88,13 @@ class RoomInvitesController extends ApiController
         $invite->room()->addPlayer(new RoomPlayer($invite->room(), $user));
         $invite->accept();
         $entityManager->flush();
+        $this->publishTableAssistantInvitationEvent($entityManager, $publisher, $invite->room(), 'invitation.accepted', $invite);
 
         return $this->json(['invite' => $invite->toArray(), 'room' => $invite->room()->toArray()]);
     }
 
     #[Route('/rooms/invites/{id}/decline', methods: ['POST'])]
-    public function decline(string $id, #[CurrentUser] User $user, EntityManagerInterface $entityManager): JsonResponse
+    public function decline(string $id, #[CurrentUser] User $user, EntityManagerInterface $entityManager, TableAssistantEventPublisher $publisher): JsonResponse
     {
         $invite = $this->pendingInvite($entityManager, $id, $user);
         if (!$invite instanceof RoomInvite) {
@@ -99,8 +103,28 @@ class RoomInvitesController extends ApiController
 
         $invite->decline();
         $entityManager->flush();
+        $this->publishTableAssistantInvitationEvent($entityManager, $publisher, $invite->room(), 'invitation.declined', $invite);
 
         return $this->json(['invite' => $invite->toArray()]);
+    }
+
+    private function publishTableAssistantInvitationEvent(
+        EntityManagerInterface $entityManager,
+        TableAssistantEventPublisher $publisher,
+        Room $room,
+        string $type,
+        RoomInvite $invite,
+    ): void {
+        $assistantRoom = $entityManager->getRepository(TableAssistantRoom::class)->findOneBy(['room' => $room]);
+        if (!$assistantRoom instanceof TableAssistantRoom) {
+            return;
+        }
+
+        $publisher->publish($assistantRoom, $type, [
+            'inviteId' => $invite->id(),
+            'status' => $invite->status(),
+            'recipientId' => $invite->recipient()->id(),
+        ]);
     }
 
     private function pendingInvite(EntityManagerInterface $entityManager, string $id, User $user): ?RoomInvite

@@ -1,0 +1,135 @@
+<section class="setup-panel" aria-label="Configurar Asistente de Mesa">
+  <div class="setup-header">
+    <div>
+      <span class="eyebrow">Nueva sala</span>
+      <h2>Configura lo justo para empezar</h2>
+      <p>
+        @if (canInviteFriends()) {
+          Invita amigos de CommanderZone o comparte el enlace para que se unan desde su movil.
+        } @else {
+          Prepara una mesa compartida para jugar desde un unico dispositivo.
+        }
+      </p>
+    </div>
+    <button class="ghost-button" type="button" aria-label="Cerrar configuracion" (click)="cancelled.emit()">Cerrar</button>
+  </div>
+
+  @if (error(); as errorMessage) {
+    <p class="error-message">{{ errorMessage }}</p>
+  }
+
+  <div class="mode-grid">
+    @for (option of modeOptions; track option.id) {
+      <button class="mode-card" type="button" [class.selected]="mode() === option.id" [attr.aria-pressed]="mode() === option.id" (click)="selectMode(option.id)">
+        <strong>{{ option.title }}</strong>
+        <span>{{ option.description }}</span>
+        <small>{{ option.idealFor }}</small>
+      </button>
+    }
+  </div>
+
+  <div class="setup-grid">
+    <section class="setup-section">
+      <h3>Jugadores</h3>
+      <div class="compact-fields">
+        <label>
+          Numero
+          <input type="number" min="1" max="6" [ngModel]="playerCount()" (ngModelChange)="setPlayerCount($event)" />
+        </label>
+        <label>
+          Vida inicial
+          <input type="number" min="1" [ngModel]="initialLife()" (ngModelChange)="setInitialLife($event)" />
+        </label>
+      </div>
+
+      <div class="players-list">
+        @for (name of playerNames(); track $index) {
+          <label class="player-config-row">
+            <span>{{ $index + 1 }}</span>
+            <input [ngModel]="name" (ngModelChange)="updatePlayerName($index, $event)" />
+            <select [ngModel]="playerColors()[$index]" (ngModelChange)="updatePlayerColor($index, $event)" [attr.aria-label]="'Color de jugador ' + ($index + 1)">
+              @for (color of colorOptions; track color.id) {
+                <option [value]="color.id">{{ color.label }}</option>
+              }
+            </select>
+          </label>
+        }
+      </div>
+    </section>
+
+    <section class="setup-section">
+      <h3>Reglas de mesa</h3>
+      <label class="switch-row">
+        <span>Fases</span>
+        <input type="checkbox" aria-label="Activar fases" [ngModel]="phasesEnabled()" (ngModelChange)="togglePhases($event)" />
+      </label>
+      <label class="switch-row">
+        <span>Saltar eliminados</span>
+        <input type="checkbox" aria-label="Saltar jugadores eliminados" [ngModel]="skipEliminatedPlayers()" (ngModelChange)="skipEliminatedPlayers.set($event)" />
+      </label>
+
+      <div class="segmented-control" aria-label="Temporizador">
+        @for (option of availableTimerModes(); track option) {
+          <button type="button" [class.active]="timerMode() === option" [attr.aria-pressed]="timerMode() === option" (click)="setTimerMode(option)">
+            @switch (option) {
+              @case ('none') { Sin timer }
+              @case ('turn') { Por turno }
+              @case ('phase') { Por fase }
+            }
+          </button>
+        }
+      </div>
+      @if (timerMode() !== 'none') {
+        <label>
+          Duracion del timer
+          <input type="number" min="30" step="30" [ngModel]="timerDurationSeconds()" (ngModelChange)="setTimerDuration($event)" />
+        </label>
+      }
+    </section>
+  </div>
+
+  <section class="setup-section full-width">
+    <h3>Trackers</h3>
+    <div class="chip-list">
+      @for (tracker of trackers; track tracker.id) {
+        <button class="tracker-chip" type="button" [class.active]="isTrackerActive(tracker.id)" [attr.aria-pressed]="isTrackerActive(tracker.id)" (click)="toggleTracker(tracker.id)">
+          {{ tracker.label }}
+        </button>
+      }
+    </div>
+  </section>
+
+  @if (canInviteFriends()) {
+    <section class="setup-section full-width">
+      <h3>Compartir e invitar</h3>
+      <p class="muted">La sala se creara con codigo y enlace. Puedes crearla sin invitar a nadie.</p>
+      @if (loadingFriends()) {
+        <p class="muted">Cargando amigos...</p>
+      } @else if (friends().length > 0) {
+        <div class="friend-list">
+          @for (friend of friends(); track friend.id) {
+            <button type="button" [class.selected]="isFriendSelected(friend.id)" [attr.aria-pressed]="isFriendSelected(friend.id)" (click)="toggleFriend(friend.id)">
+              <span>{{ friend.displayName }}</span>
+              <small>{{ friend.presence ?? 'offline' }}</small>
+            </button>
+          }
+        </div>
+      } @else {
+        <p class="muted">No hay amigos aceptados disponibles ahora mismo.</p>
+      }
+    </section>
+  }
+
+  <details class="advanced-section">
+    <summary>Opciones avanzadas</summary>
+    <p>Modo de permisos: {{ defaultsSummary().permissionPolicy.mode }}</p>
+    <p>Timer activo: {{ defaultsSummary().timerMode }}</p>
+  </details>
+
+  <div class="setup-actions">
+    <p>Puedes ajustar algunos detalles durante la partida.</p>
+    <button class="primary-button" type="button" [disabled]="creating()" (click)="createRoom()">
+      {{ creating() ? 'Creando...' : 'Crear sala' }}
+    </button>
+  </div>
+</section>
