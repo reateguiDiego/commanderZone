@@ -89,28 +89,11 @@ describe('API services', () => {
   });
 
   it('loads backend deck analysis through the analysis endpoint', () => {
-    TestBed.inject(DecksApi).analysis('deck-1').subscribe();
+    TestBed.inject(DecksApi).analysis('deck-1', { includeSideboard: true, curvePlayabilityMode: 'draw' }).subscribe();
 
-    const request = http.expectOne(`${API_BASE_URL}/decks/deck-1/analysis`);
+    const request = http.expectOne(`${API_BASE_URL}/decks/deck-1/analysis?includeSideboard=true&curvePlayabilityMode=draw`);
     expect(request.request.method).toBe('GET');
-    request.flush({
-      totalCards: 100,
-      landCount: 35,
-      nonlandCount: 65,
-      colorPips: { W: 10, U: 8, B: 0, R: 4, G: 0 },
-      landTypes: [],
-      manaCurve: [],
-      creatures: { label: 'Creatures', count: 10, cards: [] },
-      artifacts: { label: 'Artifacts', count: 5, cards: [] },
-      enchantments: { label: 'Enchantments', count: 4, cards: [] },
-      instants: { label: 'Instants', count: 8, cards: [] },
-      sorceries: { label: 'Sorceries', count: 6, cards: [] },
-      planeswalkers: { label: 'Planeswalkers', count: 1, cards: [] },
-      ramp: { label: 'Ramp', count: 10, cards: [] },
-      draw: { label: 'Card draw', count: 8, cards: [] },
-      removal: { label: 'Spot removal', count: 7, cards: [] },
-      wipes: { label: 'Board wipes', count: 2, cards: [] },
-    });
+    request.flush(deckAnalysisFixture());
   });
 
   it('adds cards through the deck card mutation endpoint', () => {
@@ -231,6 +214,7 @@ describe('API services', () => {
     const request = http.expectOne(`${API_BASE_URL}/games/game-1/commands`);
     expect(request.request.method).toBe('POST');
     expect(request.request.body).toEqual({ type: 'life.changed', payload: { playerId: 'p1', delta: -1 } });
+    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);
     request.flush({ event: {}, snapshot: { players: {}, turn: { activePlayerId: null, phase: 'beginning', number: 1 }, chat: [], createdAt: '' } });
   });
 
@@ -260,7 +244,74 @@ describe('API services', () => {
     expect(request.request.method).toBe('POST');
     request.flush({ invite: {} });
   });
+
+  it('loads room detail and accepts room invites with a deck id', () => {
+    const rooms = TestBed.inject(RoomsApi);
+
+    rooms.show('room-1').subscribe();
+    let request = http.expectOne(`${API_BASE_URL}/rooms/room-1`);
+    expect(request.request.method).toBe('GET');
+    request.flush({ room: roomFixture('room-1') });
+
+    rooms.acceptInvite('invite-1', 'deck-1').subscribe();
+    request = http.expectOne(`${API_BASE_URL}/rooms/invites/invite-1/accept`);
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({ deckId: 'deck-1' });
+    request.flush({ invite: {}, room: roomFixture('room-1') });
+  });
 });
+
+
+function deckAnalysisFixture() {
+  const colors = ['W', 'U', 'B', 'R', 'G', 'C'];
+
+  return {
+    summary: {
+      totalCards: 0,
+      mainboardCards: 0,
+      commanderCards: 0,
+      landCount: 0,
+      nonLandCount: 0,
+      creatureCount: 0,
+      instantCount: 0,
+      sorceryCount: 0,
+      artifactCount: 0,
+      enchantmentCount: 0,
+      planeswalkerCount: 0,
+      battleCount: 0,
+      averageManaValueWithLands: 0,
+      averageManaValueWithoutLands: 0,
+      medianManaValueWithLands: 0,
+      medianManaValueWithoutLands: 0,
+      totalManaValue: 0,
+      colorIdentity: [],
+    },
+    manaCurve: { buckets: [] },
+    typeBreakdown: { sections: [] },
+    colorRequirement: {
+      totalColoredSymbols: 0,
+      totalAllSymbols: 0,
+      estimated: false,
+      symbolsByColor: Object.fromEntries(colors.map((color) => [color, { color, symbolCount: 0, percentageOfColoredSymbols: 0, percentageOfAllSymbols: 0, cardsRequiringColor: 0 }])),
+    },
+    manaProduction: {
+      totalManaSources: 0,
+      totalProducedSymbols: 0,
+      estimated: false,
+      productionByColor: Object.fromEntries(colors.map((color) => [color, { color, sourceCount: 0, symbolCount: 0, percentageOfAllProduction: 0, percentageFromLands: 0, landSourceCount: 0, nonLandSourceCount: 0 }])),
+    },
+    colorBalance: { colors: [] },
+    curvePlayability: { disclaimer: '', buckets: [] },
+    sections: [],
+    options: {
+      includeCommanderInAnalysis: true,
+      includeSideboard: false,
+      includeMaybeboard: false,
+      curvePlayabilityMode: 'play',
+      manaSourcesMode: 'landsOnly',
+    },
+  };
+}
 
 function friendshipFixture(id: string, status = 'pending') {
   return {
@@ -268,8 +319,19 @@ function friendshipFixture(id: string, status = 'pending') {
     status,
     requester: { id: 'user-1', displayName: 'Alice' },
     recipient: { id: 'user-2', displayName: 'Bob' },
-    friend: { id: 'user-2', displayName: 'Bob' },
-    createdAt: '2026-04-26T00:00:00+00:00',
-    updatedAt: '2026-04-26T00:00:00+00:00',
+    friend: { id: 'user-2', displayName: 'Bob', presence: 'offline' },
+    createdAt: '2026-04-29T00:00:00+00:00',
+    updatedAt: '2026-04-29T00:00:00+00:00',
+  };
+}
+
+function roomFixture(id: string) {
+  return {
+    id,
+    status: 'waiting',
+    visibility: 'private',
+    owner: { id: 'user-1', email: 'owner@example.test', displayName: 'Owner', roles: [] },
+    players: [],
+    gameId: null,
   };
 }

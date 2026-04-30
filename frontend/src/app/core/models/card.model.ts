@@ -19,6 +19,9 @@ export interface Card {
   legalities: Record<string, string>;
   imageUris: CardImageUris;
   allParts?: Record<string, unknown>[];
+  manaValue?: number | null;
+  producedMana?: string[];
+  prices?: Record<string, string | null>;
   layout: string;
   commanderLegal: boolean;
   set: string | null;

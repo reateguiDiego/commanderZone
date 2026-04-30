@@ -49,6 +49,11 @@ class RoomPlayer
         return $this->deck;
     }
 
+    public function changeDeck(?Deck $deck): void
+    {
+        $this->deck = $deck;
+    }
+
     public function toArray(): array
     {
         return [

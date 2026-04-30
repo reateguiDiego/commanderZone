@@ -20,7 +20,7 @@ class GameEventPublisher
             json_encode([
                 'gameId' => $game->id(),
                 'event' => $event->toArray(),
-                'snapshot' => $game->snapshot(),
+                'version' => $game->snapshot()['version'] ?? null,
             ], JSON_THROW_ON_ERROR)
         ));
     }

@@ -127,14 +127,20 @@ class DecksController extends ApiController
     }
 
     #[Route('/decks/{id}/analysis', methods: ['GET'])]
-    public function analysis(string $id, #[CurrentUser] User $user, EntityManagerInterface $entityManager, DeckAnalysisService $analysis): JsonResponse
+    public function analysis(string $id, Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, DeckAnalysisService $analysis): JsonResponse
     {
         $deck = $this->ownedDeck($id, $user, $entityManager);
         if (!$deck) {
             return $this->fail('Deck not found.', 404);
         }
 
-        return $this->json($analysis->analyze($deck));
+        return $this->json($analysis->analyze($deck, [
+            'includeCommanderInAnalysis' => $request->query->get('includeCommanderInAnalysis'),
+            'includeSideboard' => $request->query->get('includeSideboard'),
+            'includeMaybeboard' => $request->query->get('includeMaybeboard'),
+            'curvePlayabilityMode' => $request->query->get('curvePlayabilityMode'),
+            'manaSourcesMode' => $request->query->get('manaSourcesMode'),
+        ]));
     }
 
     #[Route('/decks/{id}/sections', methods: ['GET'])]

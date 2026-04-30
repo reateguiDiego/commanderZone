@@ -105,4 +105,6 @@ export interface GameResponse {
 export interface CommandResponse {
   event: GameEvent;
   snapshot: GameSnapshot;
+  version?: number | null;
+  applied?: boolean;
 }
