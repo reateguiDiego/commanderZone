@@ -4,11 +4,11 @@ import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { RoomsApi } from '../../../core/api/rooms.api';
 import { FriendsApi } from '../../../core/api/friends.api';
+import { AuthStore } from '../../../core/auth/auth.store';
 import { FriendUser } from '../../../core/models/friendship.model';
-import { TABLE_ASSISTANT_TRACKERS, availableTimerModes, createDefaultSettings } from '../domain/table-assistant-state';
-import { TABLE_ASSISTANT_COLOR_OPTIONS } from '../domain/table-assistant-colors';
+import { TABLE_ASSISTANT_COLOR_OPTIONS, tableAssistantColorOption } from '../domain/table-assistant-colors';
 import { TableAssistantApi } from '../data-access/table-assistant.api';
-import { TableAssistantTimerMode, TableAssistantTrackerId, TableAssistantUseMode } from '../models/table-assistant.models';
+import { TableAssistantTimerMode, TableAssistantUseMode } from '../models/table-assistant.models';
 
 interface ModeOption {
   id: TableAssistantUseMode;
@@ -28,6 +28,7 @@ export class TableAssistantSetupComponent {
   private readonly tableAssistantApi = inject(TableAssistantApi);
   private readonly roomsApi = inject(RoomsApi);
   private readonly friendsApi = inject(FriendsApi);
+  private readonly auth = inject(AuthStore);
   private readonly router = inject(Router);
 
   readonly cancelled = output<void>();
@@ -46,8 +47,9 @@ export class TableAssistantSetupComponent {
       idealFor: 'Partidas largas, grupos organizados o mesas que quieren menos errores.',
     },
   ];
-  readonly trackers = TABLE_ASSISTANT_TRACKERS;
   readonly colorOptions = TABLE_ASSISTANT_COLOR_OPTIONS;
+  readonly timerMinuteOptions = Array.from({ length: 31 }, (_, index) => index);
+  readonly timerSecondOptions = [0, 15, 30, 45];
   readonly mode = signal<TableAssistantUseMode>('single-device');
   readonly playerCount = signal(4);
   readonly initialLife = signal(40);
@@ -57,22 +59,18 @@ export class TableAssistantSetupComponent {
   readonly timerMode = signal<TableAssistantTimerMode>('none');
   readonly timerDurationSeconds = signal(300);
   readonly skipEliminatedPlayers = signal(false);
-  readonly activeTrackerIds = signal<TableAssistantTrackerId[]>(['commander-damage']);
+  readonly playerFriendIds = signal<Array<string | null>>([null, null, null, null]);
   readonly friends = signal<FriendUser[]>([]);
-  readonly selectedFriendIds = signal<string[]>([]);
+  readonly openColorPickerIndex = signal<number | null>(null);
   readonly creating = signal(false);
   readonly loadingFriends = signal(false);
   readonly error = signal<string | null>(null);
 
-  readonly availableTimerModes = computed(() => availableTimerModes(this.phasesEnabled()));
+  readonly availableTimerModes = computed<TableAssistantTimerMode[]>(() => ['none', 'turn']);
   readonly canInviteFriends = computed(() => this.mode() === 'per-player-device');
-  readonly defaultsSummary = computed(() => createDefaultSettings(this.mode(), {
-    initialLife: this.initialLife(),
-    phasesEnabled: this.phasesEnabled(),
-    timerMode: this.timerMode(),
-    skipEliminatedPlayers: this.skipEliminatedPlayers(),
-    activeTrackerIds: this.activeTrackerIds(),
-  }));
+  readonly timerDurationMinutes = computed(() => Math.floor(this.timerDurationSeconds() / 60));
+  readonly timerDurationRemainderSeconds = computed(() => this.timerDurationSeconds() % 60);
+  readonly timerDurationLabel = computed(() => `${this.timerDurationMinutes()}:${this.timerDurationRemainderSeconds().toString().padStart(2, '0')}`);
 
   constructor() {
     void this.loadFriends();
@@ -80,9 +78,14 @@ export class TableAssistantSetupComponent {
 
   selectMode(mode: TableAssistantUseMode): void {
     this.mode.set(mode);
-    if (mode === 'single-device') {
-      this.selectedFriendIds.set([]);
+    if (mode === 'per-player-device') {
+      const names = [...this.playerNames()];
+      names[0] = this.currentUserDisplayName();
+      this.playerNames.set(names.slice(0, this.playerCount()));
+      return;
     }
+
+    this.playerFriendIds.set(Array.from({ length: this.playerCount() }, () => null));
   }
 
   setPlayerCount(value: string | number): void {
@@ -98,6 +101,11 @@ export class TableAssistantSetupComponent {
       colors.push(this.colorOptions[colors.length % this.colorOptions.length].id);
     }
     this.playerColors.set(colors.slice(0, count));
+    const friendIds = [...this.playerFriendIds()];
+    while (friendIds.length < count) {
+      friendIds.push(null);
+    }
+    this.playerFriendIds.set(friendIds.slice(0, count));
   }
 
   setInitialLife(value: string | number): void {
@@ -120,13 +128,6 @@ export class TableAssistantSetupComponent {
     this.playerColors.set(colors);
   }
 
-  togglePhases(enabled: boolean): void {
-    this.phasesEnabled.set(enabled);
-    if (!availableTimerModes(enabled).includes(this.timerMode())) {
-      this.timerMode.set('none');
-    }
-  }
-
   setTimerMode(mode: string): void {
     const timerMode = mode as TableAssistantTimerMode;
     if (this.availableTimerModes().includes(timerMode)) {
@@ -134,34 +135,57 @@ export class TableAssistantSetupComponent {
     }
   }
 
-  setTimerDuration(value: string | number): void {
-    this.timerDurationSeconds.set(Math.max(30, Number.parseInt(String(value), 10) || 300));
+  setTimerDurationMinutes(value: string | number): void {
+    const minutes = this.normalizeWheelNumber(value);
+    this.setTimerDurationParts(minutes, this.timerDurationRemainderSeconds());
   }
 
-  toggleTracker(trackerId: TableAssistantTrackerId): void {
-    const current = this.activeTrackerIds();
-    this.activeTrackerIds.set(
-      current.includes(trackerId)
-        ? current.filter((id) => id !== trackerId)
-        : [...current, trackerId],
-    );
+  setTimerDurationRemainderSeconds(value: string | number): void {
+    const seconds = this.normalizeWheelNumber(value);
+    this.setTimerDurationParts(this.timerDurationMinutes(), seconds);
   }
 
-  toggleFriend(friendId: string): void {
-    const selected = this.selectedFriendIds();
-    this.selectedFriendIds.set(
-      selected.includes(friendId)
-        ? selected.filter((id) => id !== friendId)
-        : [...selected, friendId],
-    );
+  updatePlayerFriend(index: number, friendId: string): void {
+    const friendIds = [...this.playerFriendIds()];
+    const normalizedFriendId = friendId || null;
+    friendIds[index] = normalizedFriendId;
+    this.playerFriendIds.set(friendIds);
+
+    if (normalizedFriendId) {
+      const friend = this.friends().find((candidate) => candidate.id === normalizedFriendId);
+      if (friend) {
+        this.updatePlayerName(index, friend.displayName);
+      }
+    }
   }
 
-  isTrackerActive(trackerId: TableAssistantTrackerId): boolean {
-    return this.activeTrackerIds().includes(trackerId);
+  colorLabel(colorId: string | undefined): string {
+    return tableAssistantColorOption(colorId ?? this.colorOptions[0].id).label;
   }
 
-  isFriendSelected(friendId: string): boolean {
-    return this.selectedFriendIds().includes(friendId);
+  colorManaSymbols(colorId: string | undefined): readonly string[] {
+    return tableAssistantColorOption(colorId ?? this.colorOptions[0].id).manaSymbols;
+  }
+
+  colorAccent(colorId: string | undefined): string {
+    return tableAssistantColorOption(colorId ?? this.colorOptions[0].id).accent;
+  }
+
+  colorGradient(colorId: string | undefined): string {
+    return tableAssistantColorOption(colorId ?? this.colorOptions[0].id).gradient;
+  }
+
+  manaClass(symbol: string): string {
+    return `ms ms-${symbol}`;
+  }
+
+  toggleColorPicker(index: number): void {
+    this.openColorPickerIndex.update((openIndex) => openIndex === index ? null : index);
+  }
+
+  selectPlayerColor(index: number, color: string): void {
+    this.updatePlayerColor(index, color);
+    this.openColorPickerIndex.set(null);
   }
 
   async createRoom(): Promise<void> {
@@ -173,12 +197,12 @@ export class TableAssistantSetupComponent {
         mode: this.mode(),
         playerCount: this.playerCount(),
         initialLife: this.initialLife(),
-        players: this.playerNames().map((name, index) => ({ name, color: this.playerColors()[index] ?? this.colorOptions[0].id })),
-        phasesEnabled: this.phasesEnabled(),
+        players: this.playerNamesForPayload().map((name, index) => ({ name, color: this.playerColors()[index] ?? this.colorOptions[0].id })),
+        phasesEnabled: false,
         timerMode: this.timerMode(),
         timerDurationSeconds: this.timerDurationSeconds(),
-        skipEliminatedPlayers: this.skipEliminatedPlayers(),
-        activeTrackerIds: this.activeTrackerIds(),
+        skipEliminatedPlayers: false,
+        activeTrackerIds: ['commander-damage'],
       }));
       await this.inviteSelectedFriends(response.tableAssistantRoom.id);
       await this.router.navigate(['/table-assistant', response.tableAssistantRoom.id]);
@@ -206,11 +230,44 @@ export class TableAssistantSetupComponent {
       return;
     }
 
-    const friendIds = this.selectedFriendIds();
+    const friendIds = [...new Set(this.playerFriendIds().filter((friendId): friendId is string => friendId !== null))];
     if (friendIds.length === 0) {
       return;
     }
 
     await Promise.allSettled(friendIds.map((friendId) => firstValueFrom(this.roomsApi.invite(roomId, friendId))));
+  }
+
+  private playerNamesForPayload(): string[] {
+    if (this.mode() !== 'per-player-device') {
+      return this.playerNames();
+    }
+
+    return this.playerNames().map((name, index) => {
+      if (index === 0) {
+        return this.currentUserDisplayName();
+      }
+
+      const friendId = this.playerFriendIds()[index];
+      const friend = friendId ? this.friends().find((candidate) => candidate.id === friendId) : null;
+
+      return friend?.displayName ?? name;
+    });
+  }
+
+  private currentUserDisplayName(): string {
+    const user = this.auth.user();
+
+    return user?.displayName || user?.email || 'Jugador 1';
+  }
+
+  private setTimerDurationParts(minutes: number, seconds: number): void {
+    const normalizedMinutes = Math.min(30, Math.max(0, minutes));
+    const normalizedSeconds = this.timerSecondOptions.includes(seconds) ? seconds : 0;
+    this.timerDurationSeconds.set(Math.max(30, normalizedMinutes * 60 + normalizedSeconds));
+  }
+
+  private normalizeWheelNumber(value: string | number): number {
+    return Number.parseInt(String(value), 10) || 0;
   }
 }

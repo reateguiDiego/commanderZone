@@ -30,6 +30,7 @@ class TableAssistantCommandHandler
             'timer.paused' => $this->applyTimerPaused($state, $payload, $actor),
             'timer.resumed' => $this->applyTimerResumed($state, $payload, $actor),
             'timer.reset' => $this->applyTimerReset($state, $actor),
+            'game.reset' => $this->applyGameReset($state, $actor),
             'player.elimination.changed' => $this->applyElimination($state, $payload, $actor),
             'tracker.changed' => $this->applyTracker($state, $payload, $actor),
             'participant.assigned' => $this->applyParticipantAssigned($state, $payload, $actor),
@@ -86,13 +87,13 @@ class TableAssistantCommandHandler
             throw new \InvalidArgumentException('Only the host can pass turns in this room.');
         }
 
-        $nextPlayerId = $this->nextActivePlayerId($state);
-        if ($nextPlayerId === null) {
+        $nextActivePlayer = $this->nextActivePlayer($state);
+        if ($nextActivePlayer === null) {
             throw new \InvalidArgumentException('No players available.');
         }
 
-        $state['turn']['activePlayerId'] = $nextPlayerId;
-        $state['turn']['number'] = (int) ($state['turn']['number'] ?? 1) + 1;
+        $state['turn']['activePlayerId'] = $nextActivePlayer['activePlayerId'];
+        $state['turn']['number'] = (int) ($state['turn']['number'] ?? 1) + ($nextActivePlayer['completesRound'] ? 1 : 0);
         $state['turn']['phaseId'] = ($state['settings']['phasesEnabled'] ?? false) ? TableAssistantStateFactory::PHASES[0] : null;
         $this->resetTimerForBoundary($state);
     }
@@ -176,6 +177,33 @@ class TableAssistantCommandHandler
     {
         $this->assertTimerCanChange($state, $actor);
         $this->resetTimerForBoundary($state);
+    }
+
+    private function applyGameReset(array &$state, User $actor): void
+    {
+        if (!$this->canEditGlobal($state, $actor)) {
+            throw new \InvalidArgumentException('Only the host can reset this room.');
+        }
+
+        foreach ($state['players'] as &$player) {
+            $player['life'] = (int) ($player['startingLife'] ?? $state['settings']['initialLife'] ?? TableAssistantStateFactory::DEFAULT_LIFE);
+            $player['eliminated'] = false;
+            $player['trackers'] = $this->resetValues($player['trackers'] ?? []);
+        }
+        unset($player);
+
+        $playersByTurn = $state['players'] ?? [];
+        usort($playersByTurn, static fn (array $left, array $right): int => ((int) $left['turnOrder']) <=> ((int) $right['turnOrder']));
+
+        $state['turn'] = [
+            'activePlayerId' => $playersByTurn[0]['id'] ?? null,
+            'number' => 1,
+            'phaseId' => ($state['settings']['phasesEnabled'] ?? false) ? TableAssistantStateFactory::PHASES[0] : null,
+        ];
+        $this->resetTimerForBoundary($state);
+        $state['globalTrackers'] = $this->resetValues($state['globalTrackers'] ?? []);
+        $state['commanderDamage'] = $this->commanderDamage($state['players'] ?? []);
+        $state['actionLog'] = [];
     }
 
     private function applyElimination(array &$state, array $payload, User $actor): void
@@ -368,6 +396,34 @@ class TableAssistantCommandHandler
     {
         $index = $this->playerIndex($state, $playerId);
         $state['players'][$index] = $updater($state['players'][$index]);
+        $this->moveTurnAwayFromEliminatedActive($state);
+    }
+
+    private function moveTurnAwayFromEliminatedActive(array &$state): void
+    {
+        $activePlayerId = $state['turn']['activePlayerId'] ?? null;
+        $activePlayer = null;
+
+        foreach ($state['players'] ?? [] as $player) {
+            if (($player['id'] ?? null) === $activePlayerId) {
+                $activePlayer = $player;
+                break;
+            }
+        }
+
+        if ($activePlayer === null || !$this->isPlayerEliminated($activePlayer)) {
+            return;
+        }
+
+        $nextActivePlayer = $this->nextActivePlayer($state);
+        if ($nextActivePlayer === null || $nextActivePlayer['activePlayerId'] === $activePlayerId) {
+            return;
+        }
+
+        $state['turn']['activePlayerId'] = $nextActivePlayer['activePlayerId'];
+        $state['turn']['number'] = (int) ($state['turn']['number'] ?? 1) + ($nextActivePlayer['completesRound'] ? 1 : 0);
+        $state['turn']['phaseId'] = ($state['settings']['phasesEnabled'] ?? false) ? TableAssistantStateFactory::PHASES[0] : null;
+        $this->resetTimerForBoundary($state);
     }
 
     private function playerIndex(array $state, string $playerId): int
@@ -403,26 +459,37 @@ class TableAssistantCommandHandler
         return null;
     }
 
-    private function nextActivePlayerId(array $state): ?string
+    /**
+     * @return array{activePlayerId: string, completesRound: bool}|null
+     */
+    private function nextActivePlayer(array $state): ?array
     {
         $players = $state['players'] ?? [];
         usort($players, static fn (array $left, array $right): int => ((int) $left['turnOrder']) <=> ((int) $right['turnOrder']));
-        $currentIndex = 0;
+        $currentIndex = null;
         foreach ($players as $index => $player) {
             if (($player['id'] ?? null) === ($state['turn']['activePlayerId'] ?? null)) {
                 $currentIndex = $index;
                 break;
             }
         }
+        $currentIndex ??= 0;
 
         for ($offset = 1; $offset <= count($players); $offset++) {
-            $candidate = $players[($currentIndex + $offset) % count($players)];
-            if (($state['settings']['skipEliminatedPlayers'] ?? false) !== true || !$this->isPlayerEliminated($candidate)) {
-                return $candidate['id'];
+            $candidateIndex = ($currentIndex + $offset) % count($players);
+            $candidate = $players[$candidateIndex];
+            if (!$this->isPlayerEliminated($candidate)) {
+                return [
+                    'activePlayerId' => $candidate['id'],
+                    'completesRound' => $candidateIndex <= $currentIndex,
+                ];
             }
         }
 
-        return $state['turn']['activePlayerId'] ?? null;
+        return isset($state['turn']['activePlayerId']) ? [
+            'activePlayerId' => $state['turn']['activePlayerId'],
+            'completesRound' => false,
+        ] : null;
     }
 
     private function withEliminationFromLife(array $player): array
@@ -433,6 +500,34 @@ class TableAssistantCommandHandler
     private function isPlayerEliminated(array $player): bool
     {
         return ($player['eliminated'] ?? false) === true || (int) ($player['life'] ?? 0) <= 0;
+    }
+
+    private function resetValues(array $values): array
+    {
+        return array_fill_keys(array_keys($values), 0);
+    }
+
+    private function commanderDamage(array $players): array
+    {
+        $damage = [];
+        foreach ($players as $target) {
+            $targetId = (string) ($target['id'] ?? '');
+            if ($targetId === '') {
+                continue;
+            }
+
+            $damage[$targetId] = [];
+            foreach ($players as $source) {
+                $sourceId = (string) ($source['id'] ?? '');
+                if ($sourceId === '' || $sourceId === $targetId) {
+                    continue;
+                }
+
+                $damage[$targetId][$sourceId] = 0;
+            }
+        }
+
+        return $damage;
     }
 
     private function appendActionLog(array &$state, string $type, ?string $actorParticipantId, ?string $clientActionId): void

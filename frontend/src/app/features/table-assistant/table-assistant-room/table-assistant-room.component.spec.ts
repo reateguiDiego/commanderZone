@@ -1,7 +1,6 @@
 import { signal } from '@angular/core';
-import { convertToParamMap } from '@angular/router';
 import { TestBed } from '@angular/core/testing';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { EMPTY, of } from 'rxjs';
 import { AuthStore } from '../../../core/auth/auth.store';
 import { MercureService } from '../../../core/realtime/mercure.service';
@@ -20,6 +19,7 @@ describe('TableAssistantRoomComponent', () => {
     await TestBed.configureTestingModule({
       imports: [TableAssistantRoomComponent],
       providers: [
+        provideRouter([]),
         { provide: TableAssistantApi, useValue: { get, action } },
         { provide: MercureService, useValue: { tableAssistantEvents: vi.fn().mockReturnValue(EMPTY) } },
         {
@@ -39,15 +39,67 @@ describe('TableAssistantRoomComponent', () => {
 
     const fixture = TestBed.createComponent(TableAssistantRoomComponent);
     fixture.detectChanges();
-    await fixture.whenStable();
-    fixture.detectChanges();
+    await settle(fixture);
 
     expect(fixture.nativeElement.textContent).not.toContain('Codigo LOCAL');
     expect(fixture.nativeElement.textContent).not.toContain('Asistente de Mesa');
     expect(fixture.nativeElement.textContent).toContain('Jugador 1');
-    expect(fixture.nativeElement.textContent).toContain('Pasar turno');
+    expect(fixture.nativeElement.textContent).toContain('Siguiente');
     expect(fixture.nativeElement.querySelectorAll('.active-turn-button')).toHaveLength(1);
-    expect(fixture.nativeElement.querySelector('.player-panel.active .active-turn-button')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('.player-panel.active .player-header app-table-assistant-turn-controls .active-turn-button')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('.player-panel.active .turn-card.timer-enabled')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.table-logo-button')).not.toBeNull();
+  });
+
+  it('opens the centered logo exit menu without leaving the room immediately', async () => {
+    get.mockReturnValue(of({ tableAssistantRoom: roomResource() }));
+
+    const fixture = TestBed.createComponent(TableAssistantRoomComponent);
+    fixture.detectChanges();
+    await settle(fixture);
+
+    fixture.nativeElement.querySelector('.table-logo-button')?.click();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.table-exit-menu')).not.toBeNull();
+    expect(fixture.nativeElement.textContent).toContain('Volver a jugar');
+    expect(fixture.nativeElement.textContent).toContain('Salir al dashboard');
+  });
+
+  it('closes the centered menu when clicking outside', async () => {
+    get.mockReturnValue(of({ tableAssistantRoom: roomResource() }));
+
+    const fixture = TestBed.createComponent(TableAssistantRoomComponent);
+    fixture.detectChanges();
+    await settle(fixture);
+
+    fixture.nativeElement.querySelector('.table-logo-button')?.click();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.table-exit-menu')).not.toBeNull();
+
+    document.body.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.table-exit-menu')).toBeNull();
+  });
+
+  it('resets the current table from the centered menu', async () => {
+    const initial = roomResource();
+    const reset = roomResource();
+    reset.state.players[0] = { ...reset.state.players[0], life: 40 };
+    get.mockReturnValue(of({ tableAssistantRoom: initial }));
+    action.mockReturnValue(of({ tableAssistantRoom: reset, applied: true }));
+
+    const fixture = TestBed.createComponent(TableAssistantRoomComponent);
+    fixture.detectChanges();
+    await settle(fixture);
+
+    await fixture.componentInstance.startNewTable();
+
+    expect(action).toHaveBeenCalledWith('room-1', expect.objectContaining({
+      type: 'game.reset',
+      payload: {},
+    }));
   });
 
   it('shows sharing metadata only before the first room action in per-player mode', async () => {
@@ -55,8 +107,7 @@ describe('TableAssistantRoomComponent', () => {
 
     const fixture = TestBed.createComponent(TableAssistantRoomComponent);
     fixture.detectChanges();
-    await fixture.whenStable();
-    fixture.detectChanges();
+    await settle(fixture);
 
     expect(fixture.nativeElement.textContent).toContain('Codigo de sala');
     expect(fixture.nativeElement.textContent).toContain('LOCAL');
@@ -67,8 +118,7 @@ describe('TableAssistantRoomComponent', () => {
 
     const usedFixture = TestBed.createComponent(TableAssistantRoomComponent);
     usedFixture.detectChanges();
-    await usedFixture.whenStable();
-    usedFixture.detectChanges();
+    await settle(usedFixture);
 
     expect(usedFixture.nativeElement.textContent).not.toContain('Codigo LOCAL');
     expect(usedFixture.nativeElement.querySelector('.connected-count')).toBeNull();
@@ -86,7 +136,7 @@ describe('TableAssistantRoomComponent', () => {
 
     const fixture = TestBed.createComponent(TableAssistantRoomComponent);
     fixture.detectChanges();
-    await fixture.whenStable();
+    await settle(fixture);
 
     await fixture.componentInstance.changeLife(initial.state.players[0], -1);
     await fixture.componentInstance.passTurn();
@@ -111,17 +161,19 @@ describe('TableAssistantRoomComponent', () => {
 
     const fixture = TestBed.createComponent(TableAssistantRoomComponent);
     fixture.detectChanges();
-    await fixture.whenStable();
-    fixture.detectChanges();
+    await settle(fixture);
 
     expect(fixture.nativeElement.textContent).toContain('Untap');
     expect(fixture.nativeElement.textContent).not.toContain('Timer de turno');
     expect(fixture.nativeElement.querySelector('[aria-label="Iniciar temporizador"]')).not.toBeNull();
     expect(fixture.nativeElement.querySelector('.timer-strip')).toBeNull();
-    expect(fixture.nativeElement.querySelector('.player-panel.active .player-timer-card')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('.player-panel.active .turn-card.timer-enabled')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('.player-panel.active .turn-card .active-turn-button')?.textContent.trim()).toBe('Siguiente');
     expect(fixture.nativeElement.textContent).toContain('Storm');
     expect(fixture.nativeElement.textContent).toContain('Poison');
-    expect(fixture.nativeElement.textContent).toContain('Daño de comandante');
+    expect(fixture.nativeElement.textContent).toContain('Extras');
+    expect(fixture.nativeElement.querySelector('.player-panel.active .commander-damage-trigger')).toBeNull();
+    expect(fixture.nativeElement.querySelectorAll('.commander-damage-trigger')).toHaveLength(3);
   });
 
   it('shows eliminated state from zero life and disables player options', async () => {
@@ -131,11 +183,10 @@ describe('TableAssistantRoomComponent', () => {
 
     const fixture = TestBed.createComponent(TableAssistantRoomComponent);
     fixture.detectChanges();
-    await fixture.whenStable();
-    fixture.detectChanges();
+    await settle(fixture);
 
     expect(fixture.nativeElement.querySelector('.elimination-overlay')).not.toBeNull();
-    expect(fixture.nativeElement.querySelector('.friendly-skull')?.getAttribute('src')).toBe('/assets/skull.png');
+    expect(fixture.nativeElement.querySelector('.skull-image')?.getAttribute('src')).toBe('/assets/skull.png');
     expect(fixture.nativeElement.textContent).not.toContain('Vida manual');
     expect(fixture.nativeElement.textContent).not.toContain('Eliminar');
     expect(fixture.nativeElement.querySelector('[aria-label="Aumentar Poison de Jugador 1"]')?.disabled).toBe(true);
@@ -148,16 +199,82 @@ describe('TableAssistantRoomComponent', () => {
 
     const fixture = TestBed.createComponent(TableAssistantRoomComponent);
     fixture.detectChanges();
-    await fixture.whenStable();
-    fixture.detectChanges();
+    await settle(fixture);
 
     const activePanel = fixture.nativeElement.querySelector('.player-panel.active') as HTMLElement;
     const activeName = activePanel.querySelector('h2')?.textContent?.trim();
 
     expect(activeName).toBe('Jugador con nom');
-    expect(activePanel.style.getPropertyValue('--player-gradient')).toContain('#020617');
+    expect(activePanel.style.getPropertyValue('--player-gradient')).toContain('#08070a');
+    expect(activePanel.querySelector('.player-mana-symbols')).not.toBeNull();
+  });
+
+  it('places odd-numbered seats in the top row and even-numbered seats in the bottom row', async () => {
+    get.mockReturnValue(of({ tableAssistantRoom: roomResource({
+      players: [
+        { name: 'Jugador 1', color: 'white' },
+        { name: 'Jugador 2', color: 'blue' },
+        { name: 'Jugador 3', color: 'green' },
+        { name: 'Jugador 4', color: 'red' },
+        { name: 'Jugador 5', color: 'black' },
+        { name: 'Jugador 6', color: 'grixis' },
+      ],
+      playerCount: 6,
+    }) }));
+
+    const fixture = TestBed.createComponent(TableAssistantRoomComponent);
+    fixture.detectChanges();
+    await settle(fixture);
+
+    const topSeatNames = [...fixture.nativeElement.querySelectorAll('.player-panel.seat-row-top h2')]
+      .map((seat) => seat.textContent?.trim());
+    const bottomSeatNames = [...fixture.nativeElement.querySelectorAll('.player-panel.seat-row-bottom h2')]
+      .map((seat) => seat.textContent?.trim());
+    const seatColumns = [...fixture.nativeElement.querySelectorAll('.player-panel.single-device-seat')]
+      .map((seat) => (seat as HTMLElement).style.getPropertyValue('--seat-column'));
+
+    expect(topSeatNames).toEqual(['Jugador 1', 'Jugador 3', 'Jugador 5']);
+    expect(bottomSeatNames).toEqual(['Jugador 2', 'Jugador 4', 'Jugador 6']);
+    expect(seatColumns).toEqual(['1', '1', '2', '2', '3', '3']);
+  });
+
+  it('keeps per-player-device panels readable without table-edge rotation', async () => {
+    get.mockReturnValue(of({ tableAssistantRoom: roomResource({ mode: 'per-player-device' }) }));
+
+    const fixture = TestBed.createComponent(TableAssistantRoomComponent);
+    fixture.detectChanges();
+    await settle(fixture);
+
+    expect(fixture.nativeElement.querySelector('.single-device-seat, .seat-row-top, .seat-row-bottom')).toBeNull();
+  });
+
+  it('replaces the life controls with commander damage controls while opened', async () => {
+    const resource = roomResource();
+    get.mockReturnValue(of({ tableAssistantRoom: resource }));
+
+    const fixture = TestBed.createComponent(TableAssistantRoomComponent);
+    fixture.detectChanges();
+    await settle(fixture);
+
+    fixture.componentInstance.openCommanderDamage(resource.state.players[0]);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.commander-damage-board')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('.player-panel.active .life-row')).toBeNull();
+
+    fixture.componentInstance.closeCommanderDamage();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.player-panel.active .life-row')).not.toBeNull();
   });
 });
+
+async function settle(fixture: ReturnType<typeof TestBed.createComponent<TableAssistantRoomComponent>>): Promise<void> {
+  await Promise.resolve();
+  await fixture.whenStable();
+  await Promise.resolve();
+  fixture.detectChanges();
+}
 
 function roomResource(options: {
   mode?: 'single-device' | 'per-player-device';
@@ -167,12 +284,14 @@ function roomResource(options: {
   activeTrackerIds?: Array<'commander-damage' | 'poison' | 'storm'>;
   hasActions?: boolean;
   players?: Array<{ name: string; color: string }>;
+  playerCount?: number;
 } = {}): TableAssistantRoomResource {
   const state = createInitialTableAssistantRoom({
     mode: options.mode ?? 'single-device',
     roomId: 'room-1',
     roomCode: 'LOCAL',
     hostUser: { id: 'user-1', email: 'owner@test', displayName: 'Owner' },
+    playerCount: options.playerCount,
     phasesEnabled: options.phasesEnabled,
     timerMode: options.timerMode,
     timerDurationSeconds: options.timerDurationSeconds,

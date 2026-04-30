@@ -1,9 +1,12 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
+import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { FriendsApi } from '../../../core/api/friends.api';
 import { FriendPresence, FriendSearchResult, Friendship } from '../../../core/models/friendship.model';
+import { RoomsApi } from '../../../core/api/rooms.api';
+import { RoomInvite } from '../../../core/models/room-invite.model';
 
-export type FriendListRowKind = 'incoming' | 'pending' | 'friend';
+export type FriendListRowKind = 'incoming' | 'pending' | 'friend' | 'room-invite';
 
 export interface FriendListRow {
   id: string;
@@ -11,6 +14,7 @@ export interface FriendListRow {
   displayName: string;
   detail: string;
   presence?: FriendPresence;
+  roomId?: string;
 }
 
 export const FRIEND_PRESENCE_LABELS: Record<FriendPresence, string> = {
@@ -22,10 +26,13 @@ export const FRIEND_PRESENCE_LABELS: Record<FriendPresence, string> = {
 @Injectable()
 export class FriendsStore {
   private readonly friendsApi = inject(FriendsApi);
+  private readonly roomsApi = inject(RoomsApi);
+  private readonly router = inject(Router);
 
   private readonly friendsState = signal<Friendship[]>([]);
   private readonly incomingState = signal<Friendship[]>([]);
   private readonly outgoingState = signal<Friendship[]>([]);
+  private readonly roomInvitesState = signal<RoomInvite[]>([]);
   private readonly searchResultsState = signal<FriendSearchResult[]>([]);
   private readonly loadingState = signal(false);
   private readonly searchingState = signal(false);
@@ -49,8 +56,17 @@ export class FriendsStore {
   );
 
   readonly incomingRequestsCount = computed(() => this.incomingState().length);
+  readonly roomInvitesCount = computed(() => this.roomInvitesState().length);
+  readonly pendingNotificationsCount = computed(() => this.incomingRequestsCount() + this.roomInvitesCount());
 
   readonly rows = computed<FriendListRow[]>(() => [
+    ...this.roomInvitesState().map((invite) => ({
+      id: invite.id,
+      kind: 'room-invite' as const,
+      displayName: invite.sender.displayName,
+      detail: `Te invita a sala ${invite.room.id.slice(0, 8)}`,
+      roomId: invite.room.id,
+    })),
     ...this.incomingState().map((friendship) => ({
       id: friendship.id,
       kind: 'incoming' as const,
@@ -77,15 +93,17 @@ export class FriendsStore {
     this.errorState.set(null);
 
     try {
-      const [friends, incoming, outgoing] = await Promise.all([
+      const [friends, incoming, outgoing, roomInvites] = await Promise.all([
         firstValueFrom(this.friendsApi.list()),
         firstValueFrom(this.friendsApi.incoming()),
         firstValueFrom(this.friendsApi.outgoing()),
+        firstValueFrom(this.roomsApi.incomingInvites()),
       ]);
 
       this.friendsState.set(friends.data);
       this.incomingState.set(incoming.data);
       this.outgoingState.set(outgoing.data);
+      this.roomInvitesState.set(roomInvites.data);
     } catch {
       this.errorState.set('Could not load friends.');
     } finally {
@@ -142,6 +160,23 @@ export class FriendsStore {
   async declineRequest(friendshipId: string): Promise<void> {
     await this.runAction('Could not decline friend request.', async () => {
       await firstValueFrom(this.friendsApi.decline(friendshipId));
+      await this.load();
+    });
+  }
+
+  async acceptRoomInvite(inviteId: string): Promise<void> {
+    await this.runAction('Could not accept room invite.', async () => {
+      const response = await firstValueFrom(this.roomsApi.acceptInvite(inviteId));
+      await this.load();
+      if (response.room) {
+        await this.router.navigate(['/table-assistant', response.room.id]);
+      }
+    });
+  }
+
+  async declineRoomInvite(inviteId: string): Promise<void> {
+    await this.runAction('Could not decline room invite.', async () => {
+      await firstValueFrom(this.roomsApi.declineInvite(inviteId));
       await this.load();
     });
   }

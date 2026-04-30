@@ -19,6 +19,9 @@ export class FriendsDropdownComponent {
       case 'incoming':
         void this.store.acceptRequest(row.id);
         return;
+      case 'room-invite':
+        void this.store.acceptRoomInvite(row.id);
+        return;
       case 'pending':
         void this.store.cancelRequest(row.id);
         return;
@@ -29,10 +32,12 @@ export class FriendsDropdownComponent {
   }
 
   declineIncoming(row: FriendListRow): void {
-    if (row.kind !== 'incoming') {
-      return;
+    if (row.kind === 'incoming') {
+      void this.store.declineRequest(row.id);
     }
 
-    void this.store.declineRequest(row.id);
+    if (row.kind === 'room-invite') {
+      void this.store.declineRoomInvite(row.id);
+    }
   }
 }

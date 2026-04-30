@@ -3,6 +3,7 @@ import { Router } from '@angular/router';
 import { of } from 'rxjs';
 import { FriendsApi } from '../../../core/api/friends.api';
 import { RoomsApi } from '../../../core/api/rooms.api';
+import { AuthStore } from '../../../core/auth/auth.store';
 import { TableAssistantApi } from '../data-access/table-assistant.api';
 import { createInitialTableAssistantRoom } from '../domain/table-assistant-state';
 import { TableAssistantSetupComponent } from './table-assistant-setup.component';
@@ -44,6 +45,7 @@ describe('TableAssistantSetupComponent', () => {
             })),
           },
         },
+        { provide: AuthStore, useValue: { user: () => ({ id: 'user-1', email: 'owner@test', displayName: 'Owner' }) } },
         { provide: Router, useValue: { navigate } },
       ],
     }).compileComponents();
@@ -58,6 +60,31 @@ describe('TableAssistantSetupComponent', () => {
     expect(fixture.componentInstance.availableTimerModes()).toEqual(['none', 'turn']);
     expect(fixture.nativeElement.textContent).not.toContain('Por fase');
     expect(fixture.nativeElement.textContent).not.toContain('Compartir e invitar');
+    expect(fixture.nativeElement.textContent).not.toContain('Trackers');
+    expect(fixture.nativeElement.textContent).not.toContain('Opciones avanzadas');
+  });
+
+  it('uses custom color and timer wheel controls instead of native selects for those settings', () => {
+    const fixture = TestBed.createComponent(TableAssistantSetupComponent);
+    fixture.detectChanges();
+
+    fixture.componentInstance.toggleColorPicker(0);
+    fixture.componentInstance.setTimerMode('turn');
+    fixture.componentInstance.setTimerDurationMinutes(2);
+    fixture.componentInstance.setTimerDurationRemainderSeconds(30);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.color-picker-list')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('.timer-wheel')).not.toBeNull();
+    expect(fixture.componentInstance.timerDurationSeconds()).toBe(150);
+    expect(fixture.nativeElement.textContent).toContain('2:30');
+
+    const colorOptions = fixture.nativeElement.querySelectorAll('.color-option') as NodeListOf<HTMLButtonElement>;
+    colorOptions[1].dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.playerColors()[0]).toBe('blue');
+    expect(fixture.componentInstance.openColorPickerIndex()).toBeNull();
   });
 
   it('creates a per-player room and invites selected friends without blocking setup', async () => {
@@ -80,7 +107,7 @@ describe('TableAssistantSetupComponent', () => {
     await fixture.whenStable();
 
     fixture.componentInstance.selectMode('per-player-device');
-    fixture.componentInstance.toggleFriend('user-2');
+    fixture.componentInstance.updatePlayerFriend(1, 'user-2');
     await fixture.componentInstance.createRoom();
 
     expect(createApi).toHaveBeenCalledWith(expect.objectContaining({
@@ -88,8 +115,8 @@ describe('TableAssistantSetupComponent', () => {
       playerCount: 4,
       initialLife: 40,
       players: [
-        { name: 'Jugador 1', color: 'white' },
-        { name: 'Jugador 2', color: 'blue' },
+        { name: 'Owner', color: 'white' },
+        { name: 'Guest', color: 'blue' },
         { name: 'Jugador 3', color: 'black' },
         { name: 'Jugador 4', color: 'red' },
       ],

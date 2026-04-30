@@ -74,6 +74,27 @@ describe('table assistant domain state', () => {
     expect(restored.players[0].eliminated).toBe(false);
   });
 
+  it('moves turn away when the active player reaches zero life', () => {
+    const state = createInitialTableAssistantRoom({ mode: 'single-device' });
+    const next = applyTableAssistantAction(state, { type: 'life.changed', playerId: 'player-1', delta: -40 });
+
+    expect(next.players[0].eliminated).toBe(true);
+    expect(next.turn.activePlayerId).toBe('player-2');
+    expect(next.turn.number).toBe(1);
+  });
+
+  it('moves turn away when the active player is manually eliminated', () => {
+    const state = createInitialTableAssistantRoom({ mode: 'single-device' });
+    const next = applyTableAssistantAction(state, {
+      type: 'player.elimination.changed',
+      playerId: 'player-1',
+      eliminated: true,
+    });
+
+    expect(next.turn.activePlayerId).toBe('player-2');
+    expect(next.turn.number).toBe(1);
+  });
+
   it('registers commander damage and detects lethal damage at 21', () => {
     const state = createInitialTableAssistantRoom({ mode: 'single-device' });
     const next = applyTableAssistantAction(state, {
@@ -92,11 +113,25 @@ describe('table assistant domain state', () => {
     const next = applyTableAssistantAction(state, { type: 'turn.passed' });
 
     expect(next.turn.activePlayerId).toBe('player-2');
-    expect(next.turn.number).toBe(2);
+    expect(next.turn.number).toBe(1);
   });
 
-  it('skips eliminated players when setting is enabled', () => {
-    const state = createInitialTableAssistantRoom({ mode: 'single-device', skipEliminatedPlayers: true });
+  it('increments turn number only after the table completes a full round', () => {
+    let state = createInitialTableAssistantRoom({ mode: 'single-device' });
+
+    state = applyTableAssistantAction(state, { type: 'turn.passed' });
+    state = applyTableAssistantAction(state, { type: 'turn.passed' });
+    state = applyTableAssistantAction(state, { type: 'turn.passed' });
+    expect(state.turn.activePlayerId).toBe('player-4');
+    expect(state.turn.number).toBe(1);
+
+    state = applyTableAssistantAction(state, { type: 'turn.passed' });
+    expect(state.turn.activePlayerId).toBe('player-1');
+    expect(state.turn.number).toBe(2);
+  });
+
+  it('skips eliminated players when passing turn', () => {
+    const state = createInitialTableAssistantRoom({ mode: 'single-device' });
     const eliminated = applyTableAssistantAction(state, {
       type: 'player.elimination.changed',
       playerId: 'player-2',
@@ -153,6 +188,35 @@ describe('table assistant domain state', () => {
     state = applyTableAssistantAction(state, { type: 'timer.reset' });
     expect(state.timer.status).toBe('idle');
     expect(state.timer.remainingSeconds).toBe(120);
+  });
+
+  it('resets the game while preserving room setup', () => {
+    let state = createInitialTableAssistantRoom({
+      mode: 'single-device',
+      phasesEnabled: true,
+      timerMode: 'turn',
+      timerDurationSeconds: 120,
+      activeTrackerIds: ['commander-damage', 'poison', 'storm'],
+    });
+
+    state = applyTableAssistantAction(state, { type: 'life.changed', playerId: 'player-1', delta: -12 });
+    state = applyTableAssistantAction(state, { type: 'tracker.changed', trackerId: 'poison', playerId: 'player-1', value: 4 });
+    state = applyTableAssistantAction(state, { type: 'tracker.changed', trackerId: 'storm', value: 6 });
+    state = applyTableAssistantAction(state, { type: 'commander-damage.changed', targetPlayerId: 'player-1', sourcePlayerId: 'player-2', delta: 7 });
+    state = applyTableAssistantAction(state, { type: 'timer.started', durationSeconds: 120 });
+    state = applyTableAssistantAction(state, { type: 'turn.passed' });
+
+    const reset = applyTableAssistantAction(state, { type: 'game.reset', clientActionId: 'reset-1' });
+
+    expect(reset.players[0].life).toBe(40);
+    expect(reset.players[0].trackers.poison).toBe(0);
+    expect(reset.globalTrackers.storm).toBe(0);
+    expect(reset.commanderDamage['player-1']['player-2']).toBe(0);
+    expect(reset.turn).toEqual({ activePlayerId: 'player-1', number: 1, phaseId: 'untap' });
+    expect(reset.timer.status).toBe('idle');
+    expect(reset.timer.remainingSeconds).toBe(120);
+    expect(reset.actionLog).toHaveLength(1);
+    expect(reset.actionLog[0].id).toBe('reset-1');
   });
 
   it('does not pass phase when phases are disabled', () => {

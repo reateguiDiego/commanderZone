@@ -241,6 +241,25 @@ describe('API services', () => {
     expect(request.request.method).toBe('DELETE');
     request.flush(null);
   });
+
+  it('handles room invites through existing room endpoints', () => {
+    const rooms = TestBed.inject(RoomsApi);
+
+    rooms.incomingInvites().subscribe();
+    let request = http.expectOne(`${API_BASE_URL}/rooms/invites/incoming`);
+    expect(request.request.method).toBe('GET');
+    request.flush({ data: [] });
+
+    rooms.acceptInvite('invite-1').subscribe();
+    request = http.expectOne(`${API_BASE_URL}/rooms/invites/invite-1/accept`);
+    expect(request.request.method).toBe('POST');
+    request.flush({ invite: {} });
+
+    rooms.declineInvite('invite-2').subscribe();
+    request = http.expectOne(`${API_BASE_URL}/rooms/invites/invite-2/decline`);
+    expect(request.request.method).toBe('POST');
+    request.flush({ invite: {} });
+  });
 });
 
 function friendshipFixture(id: string, status = 'pending') {

@@ -1,0 +1,98 @@
+:host {
+  display: block;
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+.turn-card,
+.turn-actions,
+.turn-line {
+  display: flex;
+  align-items: center;
+}
+
+.turn-card {
+  gap: 0.32rem;
+  max-width: 100%;
+  border: 1px solid color-mix(in srgb, var(--player-accent) 55%, transparent);
+  border-radius: 8px;
+  padding: 0.22rem;
+  background: rgb(2 6 23 / 70%);
+}
+
+.turn-meta {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.turn-line,
+.turn-actions {
+  gap: 0.32rem;
+}
+
+.eyebrow-small {
+  display: block;
+  margin-bottom: 0.1rem;
+  color: var(--gold);
+  font-size: 0.42rem;
+  font-weight: 780;
+  text-transform: uppercase;
+}
+
+strong {
+  font-size: clamp(0.72rem, 1.8vw, 0.92rem);
+  line-height: 1;
+}
+
+.phase-pill {
+  border: 1px solid rgb(103 232 249 / 50%);
+  border-radius: 999px;
+  padding: 0.1rem 0.32rem;
+  color: #a5f3fc;
+  font-size: 0.62rem;
+}
+
+button {
+  min-height: 2.25rem;
+  border: 1px solid rgb(255 255 255 / 12%);
+  border-radius: 8px;
+  padding: 0 0.62rem;
+  background: rgb(255 255 255 / 7%);
+  color: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.symbol-button {
+  display: inline-grid;
+  place-items: center;
+  width: 2.25rem;
+  min-width: 2.25rem;
+  padding: 0;
+}
+
+.next-button {
+  width: 4.5rem;
+  border-color: #67e8f9;
+  padding: 0;
+  background: #67e8f9;
+  color: #082f49;
+  font-size: 0.76rem;
+}
+
+.timer-warning {
+  border-color: rgb(244 201 93 / 72%);
+  color: #ffe8a3;
+}
+
+.timer-critical {
+  border-color: rgb(255 104 92 / 80%);
+  color: #ffd8d4;
+  animation: timer-critical-blink 0.45s steps(2, end) infinite;
+}
+
+@keyframes timer-critical-blink {
+  50% {
+    opacity: 0.42;
+  }
+}

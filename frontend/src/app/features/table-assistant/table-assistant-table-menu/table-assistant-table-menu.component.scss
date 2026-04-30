@@ -1,0 +1,76 @@
+:host {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  transform: translate(-50%, -50%);
+}
+
+.table-center-logo {
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+
+.table-logo-button {
+  width: 1.55rem;
+  height: 1.55rem;
+  min-height: 1.55rem;
+  border: 1px solid rgb(255 255 255 / 45%);
+  border-radius: 999px;
+  padding: 0;
+  background: linear-gradient(145deg, #fff7c2, #d7b46a 52%, #8f6a28);
+  box-shadow:
+    0 0.45rem 1.1rem rgb(0 0 0 / 32%),
+    inset 0 0 0 1px rgb(255 255 255 / 28%);
+  color: #0f172a;
+  font-size: 0.56rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.table-exit-menu {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  left: 50%;
+  display: grid;
+  gap: 0.38rem;
+  width: min(13.5rem, 72vw);
+  border: 1px solid rgb(255 255 255 / 14%);
+  border-radius: 8px;
+  padding: 0.62rem;
+  background: linear-gradient(145deg, rgb(15 23 42 / 96%), rgb(2 6 23 / 94%)), rgb(2 6 23);
+  box-shadow: 0 1.2rem 2.4rem rgb(0 0 0 / 42%);
+  transform: translateX(-50%);
+  backdrop-filter: blur(16px);
+}
+
+.table-exit-menu strong {
+  color: #fde68a;
+  font-size: 0.76rem;
+  line-height: 1;
+}
+
+.menu-action {
+  display: grid;
+  place-items: center;
+  min-height: 2.15rem;
+  border: 1px solid rgb(255 255 255 / 12%);
+  border-radius: 8px;
+  padding: 0 0.85rem;
+  background: rgb(255 255 255 / 7%);
+  color: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.menu-action.primary {
+  border-color: rgb(103 232 249 / 55%);
+  background: #67e8f9;
+  color: #082f49;
+}
+
+.menu-action.subtle {
+  color: rgb(226 232 240 / 76%);
+}

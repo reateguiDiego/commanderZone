@@ -3,6 +3,7 @@ import { provideRouter } from '@angular/router';
 import { of } from 'rxjs';
 import { FriendsApi } from '../../../core/api/friends.api';
 import { RoomsApi } from '../../../core/api/rooms.api';
+import { AuthStore } from '../../../core/auth/auth.store';
 import { TableAssistantApi } from '../data-access/table-assistant.api';
 import { TableAssistantPageComponent } from './table-assistant-page.component';
 
@@ -15,6 +16,7 @@ describe('TableAssistantPageComponent', () => {
         { provide: TableAssistantApi, useValue: { create: vi.fn() } },
         { provide: RoomsApi, useValue: { invite: vi.fn() } },
         { provide: FriendsApi, useValue: { list: vi.fn().mockReturnValue(of({ data: [] })) } },
+        { provide: AuthStore, useValue: { user: () => ({ id: 'user-1', email: 'owner@test', displayName: 'Owner' }) } },
       ],
     }).compileComponents();
   });

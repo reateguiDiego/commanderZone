@@ -41,8 +41,7 @@
 }
 
 .mode-card,
-.setup-section,
-.advanced-section {
+.setup-section {
   border: 1px solid rgb(255 255 255 / 10%);
   border-radius: 8px;
   background: rgb(255 255 255 / 5%);
@@ -66,8 +65,7 @@
   background: rgb(103 232 249 / 16%);
 }
 
-.setup-section,
-.advanced-section {
+.setup-section {
   display: grid;
   gap: 0.75rem;
   padding: 1rem;
@@ -112,17 +110,78 @@ select {
 }
 
 .players-list .player-config-row {
-  grid-template-columns: 2rem minmax(0, 1fr) minmax(7.5rem, 0.7fr);
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr) minmax(8.5rem, 0.8fr);
+  gap: 0.35rem;
   align-items: center;
 }
 
-.players-list span {
+.players-list .seat-number {
   display: grid;
   place-items: center;
   width: 2rem;
   height: 2rem;
   border-radius: 999px;
   background: rgb(255 255 255 / 8%);
+}
+
+.color-picker {
+  position: relative;
+  min-width: 0;
+}
+
+.color-picker-trigger,
+.color-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 2.75rem;
+  border: 1px solid rgb(255 255 255 / 12%);
+  border-radius: 8px;
+  padding: 0 0.75rem;
+  background: linear-gradient(135deg, rgb(2 6 23 / 78%), rgb(2 6 23 / 48%)), var(--selected-gradient);
+  color: white;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.color-picker-list {
+  position: absolute;
+  inset: calc(100% + 0.35rem) 0 auto;
+  z-index: 6;
+  display: grid;
+  gap: 0.3rem;
+  max-height: 15rem;
+  overflow: auto;
+  border: 1px solid rgb(255 255 255 / 12%);
+  border-radius: 8px;
+  padding: 0.35rem;
+  background: rgb(2 6 23 / 96%);
+}
+
+.color-option {
+  background: linear-gradient(135deg, rgb(2 6 23 / 42%), rgb(2 6 23 / 14%)), var(--option-gradient);
+}
+
+.color-option.selected {
+  border-color: var(--option-accent);
+}
+
+.mana-symbols {
+  display: inline-flex;
+  gap: 0.2rem;
+  justify-content: flex-end;
+  color: var(--selected-accent, var(--option-accent, #f7dfaa));
+  font-size: 1rem;
+}
+
+.color-option .mana-symbols {
+  color: var(--option-accent);
+}
+
+.friend-seat-select {
+  grid-column: 2 / -1;
 }
 
 .switch-row {
@@ -141,6 +200,46 @@ select {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
+}
+
+.timer-wheel {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+  gap: 0.45rem;
+  align-items: center;
+  border: 1px solid rgb(255 255 255 / 10%);
+  border-radius: 8px;
+  padding: 0.5rem;
+  background: rgb(2 6 23 / 45%);
+}
+
+.wheel-column {
+  display: grid;
+  gap: 0.2rem;
+  text-align: center;
+  font-size: 0.72rem;
+}
+
+.wheel-options {
+  display: grid;
+  grid-auto-flow: row;
+  grid-auto-rows: 1.65rem;
+  max-height: 4.95rem;
+  overflow-y: auto;
+  border-radius: 8px;
+  background: linear-gradient(rgb(2 6 23 / 55%), rgb(255 255 255 / 8%), rgb(2 6 23 / 55%));
+}
+
+.wheel-options button {
+  border: 0;
+  background: transparent;
+  color: rgb(226 232 240 / 62%);
+}
+
+.wheel-options button.selected {
+  color: white;
+  font-size: 1rem;
+  font-weight: 900;
 }
 
 .segmented-control button,
@@ -184,5 +283,15 @@ select {
 
   .full-width {
     grid-column: 1 / -1;
+  }
+}
+
+@media (min-width: 920px) {
+  .players-list .player-config-row:has(.friend-seat-select) {
+    grid-template-columns: 2rem minmax(0, 1fr) minmax(8.5rem, 0.8fr) minmax(10rem, 1fr);
+  }
+
+  .friend-seat-select {
+    grid-column: auto;
   }
 }

@@ -1,0 +1,11 @@
+<div class="table-center-logo">
+  <button class="brand-mark table-logo-button" type="button" aria-label="Opciones de partida de CommanderZone" (click)="toggleMenu()">CZ</button>
+  @if (menuOpen()) {
+    <div class="table-exit-menu" role="dialog" aria-label="Opciones de partida">
+      <strong>CommanderZone</strong>
+      <button class="menu-action primary" type="button" (click)="selectNewTable()">Volver a jugar</button>
+      <button class="menu-action" type="button" (click)="selectDashboard()">Salir al dashboard</button>
+      <button class="menu-action subtle" type="button" (click)="closeMenu()">Seguir jugando</button>
+    </div>
+  }
+</div>

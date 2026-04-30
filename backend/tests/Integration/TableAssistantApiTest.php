@@ -127,6 +127,133 @@ class TableAssistantApiTest extends ApiTestCase
         self::assertSame(120, $state['timer']['remainingSeconds']);
     }
 
+    public function testPassingTurnSkipsEliminatedPlayers(): void
+    {
+        $ownerToken = $this->registerAndLogin('skip-owner@example.test', 'Skip Owner');
+
+        $this->jsonRequest('POST', '/table-assistant/rooms', ['mode' => 'single-device'], $ownerToken);
+        $roomId = (string) $this->jsonResponse()['tableAssistantRoom']['id'];
+
+        $this->jsonRequest('POST', '/table-assistant/rooms/'.$roomId.'/actions', [
+            'type' => 'life.changed',
+            'payload' => ['playerId' => 'player-2', 'delta' => -40],
+            'clientActionId' => 'eliminate-player-2',
+        ], $ownerToken);
+        self::assertResponseIsSuccessful();
+
+        $this->jsonRequest('POST', '/table-assistant/rooms/'.$roomId.'/actions', [
+            'type' => 'turn.passed',
+            'payload' => [],
+            'clientActionId' => 'pass-skip-player-2',
+        ], $ownerToken);
+        self::assertResponseIsSuccessful();
+
+        $state = $this->jsonResponse()['tableAssistantRoom']['state'];
+        self::assertSame('player-3', $state['turn']['activePlayerId']);
+        self::assertSame(1, $state['turn']['number']);
+    }
+
+    public function testActivePlayerIsSkippedWhenLifeReachesZero(): void
+    {
+        $ownerToken = $this->registerAndLogin('active-skip-owner@example.test', 'Active Skip Owner');
+
+        $this->jsonRequest('POST', '/table-assistant/rooms', ['mode' => 'single-device'], $ownerToken);
+        $roomId = (string) $this->jsonResponse()['tableAssistantRoom']['id'];
+
+        $this->jsonRequest('POST', '/table-assistant/rooms/'.$roomId.'/actions', [
+            'type' => 'life.changed',
+            'payload' => ['playerId' => 'player-1', 'delta' => -40],
+            'clientActionId' => 'eliminate-active-player',
+        ], $ownerToken);
+        self::assertResponseIsSuccessful();
+
+        $state = $this->jsonResponse()['tableAssistantRoom']['state'];
+        self::assertTrue($state['players'][0]['eliminated']);
+        self::assertSame('player-2', $state['turn']['activePlayerId']);
+        self::assertSame(1, $state['turn']['number']);
+    }
+
+    public function testTurnNumberIncrementsOnlyAfterFullRound(): void
+    {
+        $ownerToken = $this->registerAndLogin('round-owner@example.test', 'Round Owner');
+
+        $this->jsonRequest('POST', '/table-assistant/rooms', ['mode' => 'single-device'], $ownerToken);
+        $roomId = (string) $this->jsonResponse()['tableAssistantRoom']['id'];
+        $state = null;
+
+        for ($index = 1; $index <= 3; $index++) {
+            $this->jsonRequest('POST', '/table-assistant/rooms/'.$roomId.'/actions', [
+                'type' => 'turn.passed',
+                'payload' => [],
+                'clientActionId' => 'pass-turn-'.$index,
+            ], $ownerToken);
+            self::assertResponseIsSuccessful();
+            $state = $this->jsonResponse()['tableAssistantRoom']['state'];
+        }
+
+        self::assertSame('player-4', $state['turn']['activePlayerId']);
+        self::assertSame(1, $state['turn']['number']);
+
+        $this->jsonRequest('POST', '/table-assistant/rooms/'.$roomId.'/actions', [
+            'type' => 'turn.passed',
+            'payload' => [],
+            'clientActionId' => 'pass-turn-4',
+        ], $ownerToken);
+        self::assertResponseIsSuccessful();
+
+        $state = $this->jsonResponse()['tableAssistantRoom']['state'];
+        self::assertSame('player-1', $state['turn']['activePlayerId']);
+        self::assertSame(2, $state['turn']['number']);
+    }
+
+    public function testGameResetRestoresInitialTableState(): void
+    {
+        $ownerToken = $this->registerAndLogin('reset-owner@example.test', 'Reset Owner');
+
+        $this->jsonRequest('POST', '/table-assistant/rooms', [
+            'mode' => 'single-device',
+            'phasesEnabled' => true,
+            'timerMode' => 'turn',
+            'timerDurationSeconds' => 120,
+            'activeTrackerIds' => ['commander-damage', 'poison', 'storm'],
+        ], $ownerToken);
+        $roomId = (string) $this->jsonResponse()['tableAssistantRoom']['id'];
+
+        foreach ([
+            ['type' => 'life.changed', 'payload' => ['playerId' => 'player-1', 'delta' => -12]],
+            ['type' => 'tracker.changed', 'payload' => ['trackerId' => 'poison', 'playerId' => 'player-1', 'value' => 4]],
+            ['type' => 'tracker.changed', 'payload' => ['trackerId' => 'storm', 'value' => 6]],
+            ['type' => 'commander-damage.changed', 'payload' => ['targetPlayerId' => 'player-1', 'sourcePlayerId' => 'player-2', 'delta' => 7]],
+            ['type' => 'timer.started', 'payload' => ['durationSeconds' => 120]],
+            ['type' => 'turn.passed', 'payload' => []],
+        ] as $index => $action) {
+            $this->jsonRequest('POST', '/table-assistant/rooms/'.$roomId.'/actions', [
+                ...$action,
+                'clientActionId' => 'before-reset-'.$index,
+            ], $ownerToken);
+            self::assertResponseIsSuccessful();
+        }
+
+        $this->jsonRequest('POST', '/table-assistant/rooms/'.$roomId.'/actions', [
+            'type' => 'game.reset',
+            'payload' => [],
+            'clientActionId' => 'reset-game',
+        ], $ownerToken);
+        self::assertResponseIsSuccessful();
+
+        $state = $this->jsonResponse()['tableAssistantRoom']['state'];
+        self::assertSame(40, $state['players'][0]['life']);
+        self::assertFalse($state['players'][0]['eliminated']);
+        self::assertSame(0, $state['players'][0]['trackers']['poison']);
+        self::assertSame(0, $state['globalTrackers']['storm']);
+        self::assertSame(0, $state['commanderDamage']['player-1']['player-2']);
+        self::assertSame(['activePlayerId' => 'player-1', 'number' => 1, 'phaseId' => 'untap'], $state['turn']);
+        self::assertSame('idle', $state['timer']['status']);
+        self::assertSame(120, $state['timer']['remainingSeconds']);
+        self::assertCount(1, $state['actionLog']);
+        self::assertSame('game.reset', $state['actionLog'][0]['type']);
+    }
+
     public function testPhaseTimerIsNormalizedWhenPhasesAreDisabled(): void
     {
         $ownerToken = $this->registerAndLogin('timer-normalized@example.test', 'Timer Normalized');

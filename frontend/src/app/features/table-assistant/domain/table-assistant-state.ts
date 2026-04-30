@@ -190,6 +190,8 @@ export function applyTableAssistantAction(state: TableAssistantRoomState, action
       return resumeTimer(state, action);
     case 'timer.reset':
       return resetTimer(state, action);
+    case 'game.reset':
+      return resetGame(state, action);
     case 'player.elimination.changed':
       return updatePlayer(state, action.playerId, (player) => ({ ...player, eliminated: action.eliminated }), action);
     case 'tracker.changed':
@@ -377,8 +379,8 @@ function applyCommanderDamageChange(
 }
 
 function passTurn(state: TableAssistantRoomState, action?: TableAssistantAction): TableAssistantRoomState {
-  const activePlayerId = nextActivePlayerId(state);
-  if (!activePlayerId) {
+  const nextActive = nextActivePlayer(state);
+  if (!nextActive) {
     return state;
   }
 
@@ -386,8 +388,8 @@ function passTurn(state: TableAssistantRoomState, action?: TableAssistantAction)
     {
       ...state,
       turn: {
-        activePlayerId,
-        number: state.turn.number + 1,
+        activePlayerId: nextActive.activePlayerId,
+        number: nextActive.completesRound ? state.turn.number + 1 : state.turn.number,
         phaseId: state.settings.phasesEnabled ? TABLE_ASSISTANT_PHASES[0] : null,
       },
       timer: resetTimerForBoundary(state),
@@ -498,6 +500,32 @@ function resetTimer(
   }, action);
 }
 
+function resetGame(
+  state: TableAssistantRoomState,
+  action: Extract<TableAssistantAction, { type: 'game.reset' }>,
+): TableAssistantRoomState {
+  const playersByTurn = [...state.players].sort((left, right) => left.turnOrder - right.turnOrder);
+
+  return commit({
+    ...state,
+    players: state.players.map((player) => ({
+      ...player,
+      life: player.startingLife,
+      eliminated: false,
+      trackers: resetValues(player.trackers),
+    })),
+    turn: {
+      activePlayerId: playersByTurn[0]?.id ?? null,
+      number: 1,
+      phaseId: state.settings.phasesEnabled ? TABLE_ASSISTANT_PHASES[0] : null,
+    },
+    timer: resetTimerForBoundary(state),
+    globalTrackers: resetValues(state.globalTrackers),
+    commanderDamage: buildCommanderDamage(state.players),
+    actionLog: [],
+  }, action);
+}
+
 function resetTimerForBoundary(state: TableAssistantRoomState): TableAssistantRoomState['timer'] {
   if (state.timer.mode === 'none') {
     return state.timer;
@@ -511,22 +539,53 @@ function resetTimerForBoundary(state: TableAssistantRoomState): TableAssistantRo
   };
 }
 
-function nextActivePlayerId(state: TableAssistantRoomState): string | null {
+function resetValues<T extends string>(values: Partial<Record<T, number>>): Partial<Record<T, number>> {
+  return Object.fromEntries(Object.keys(values).map((key) => [key, 0])) as Partial<Record<T, number>>;
+}
+
+function buildCommanderDamage(players: TableAssistantPlayer[]): Record<string, Record<string, number>> {
+  return players.reduce<Record<string, Record<string, number>>>((damage, target) => {
+    damage[target.id] = players
+      .filter((source) => source.id !== target.id)
+      .reduce<Record<string, number>>((sources, source) => {
+        sources[source.id] = 0;
+        return sources;
+      }, {});
+    return damage;
+  }, {});
+}
+
+type NextActivePlayer = {
+  activePlayerId: string;
+  completesRound: boolean;
+};
+
+function nextActivePlayer(state: TableAssistantRoomState): NextActivePlayer | null {
   if (state.players.length === 0) {
     return null;
   }
 
   const orderedPlayers = [...state.players].sort((left, right) => left.turnOrder - right.turnOrder);
-  const currentIndex = Math.max(orderedPlayers.findIndex((player) => player.id === state.turn.activePlayerId), 0);
+  const foundCurrentIndex = orderedPlayers.findIndex((player) => player.id === state.turn.activePlayerId);
+  const currentIndex = foundCurrentIndex === -1 ? 0 : foundCurrentIndex;
 
   for (let offset = 1; offset <= orderedPlayers.length; offset++) {
-    const candidate = orderedPlayers[(currentIndex + offset) % orderedPlayers.length];
-    if (!state.settings.skipEliminatedPlayers || !isPlayerEliminated(candidate)) {
-      return candidate.id;
+    const candidateIndex = (currentIndex + offset) % orderedPlayers.length;
+    const candidate = orderedPlayers[candidateIndex];
+    if (!isPlayerEliminated(candidate)) {
+      return {
+        activePlayerId: candidate.id,
+        completesRound: candidateIndex <= currentIndex,
+      };
     }
   }
 
-  return state.turn.activePlayerId;
+  return state.turn.activePlayerId
+    ? {
+        activePlayerId: state.turn.activePlayerId,
+        completesRound: false,
+      }
+    : null;
 }
 
 function applyTrackerChange(
@@ -582,19 +641,40 @@ function updatePlayer(
     return state;
   }
 
-  return commit(
-    {
-      ...state,
-      players: state.players.map((player) => (player.id === playerId ? updater(player) : player)),
-    },
-    action,
-  );
+  const updatedState: TableAssistantRoomState = {
+    ...state,
+    players: state.players.map((player) => (player.id === playerId ? updater(player) : player)),
+  };
+
+  return commit(moveTurnAwayFromEliminatedActive(updatedState), action);
 }
 
 function withEliminationFromLife(player: TableAssistantPlayer): TableAssistantPlayer {
   return {
     ...player,
     eliminated: player.life <= 0,
+  };
+}
+
+function moveTurnAwayFromEliminatedActive(state: TableAssistantRoomState): TableAssistantRoomState {
+  const activePlayer = state.players.find((player) => player.id === state.turn.activePlayerId);
+  if (!activePlayer || !isPlayerEliminated(activePlayer)) {
+    return state;
+  }
+
+  const nextActive = nextActivePlayer(state);
+  if (!nextActive || nextActive.activePlayerId === state.turn.activePlayerId) {
+    return state;
+  }
+
+  return {
+    ...state,
+    turn: {
+      activePlayerId: nextActive.activePlayerId,
+      number: nextActive.completesRound ? state.turn.number + 1 : state.turn.number,
+      phaseId: state.settings.phasesEnabled ? TABLE_ASSISTANT_PHASES[0] : null,
+    },
+    timer: resetTimerForBoundary(state),
   };
 }
 

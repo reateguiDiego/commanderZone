@@ -1,0 +1,27 @@
+<section class="turn-card" [class.timer-enabled]="timerEnabled()" [class.timer-warning]="timerAlertLevel() === 'warning'" [class.timer-critical]="timerAlertLevel() === 'critical'" aria-label="Turno activo">
+  <div class="turn-meta">
+    <div class="turn-line">
+      <span class="eyebrow-small">Turno</span>
+      <strong>{{ turnNumber() }}</strong>
+      @if (phaseLabel(); as phase) {
+        <strong class="phase-pill">{{ phase }}</strong>
+      }
+    </div>
+    @if (timerEnabled()) {
+      <strong class="timer-value">{{ formatTimer(remainingSeconds()) }}</strong>
+    }
+  </div>
+
+  <div class="turn-actions">
+    @if (timerEnabled()) {
+      @if (timerStatus() === 'running') {
+        <button class="symbol-button" type="button" aria-label="Pausar temporizador" title="Pausar" (click)="timerPaused.emit()"><span aria-hidden="true">&#10074;&#10074;</span></button>
+      } @else if (timerStatus() === 'paused') {
+        <button class="symbol-button" type="button" aria-label="Reanudar temporizador" title="Reanudar" (click)="timerResumed.emit()"><span aria-hidden="true">&#9654;</span></button>
+      } @else {
+        <button class="symbol-button" type="button" aria-label="Iniciar temporizador" title="Iniciar" (click)="timerStarted.emit()"><span aria-hidden="true">&#9654;</span></button>
+      }
+    }
+    <button class="next-button active-turn-button" type="button" aria-label="Pasar al siguiente turno" (click)="turnPassed.emit()">Siguiente</button>
+  </div>
+</section>

@@ -19,7 +19,7 @@
           Rooms
         </a>
         <a routerLink="/table-assistant" routerLinkActive="active">
-          <lucide-icon name="layout-dashboard" size="18" />
+          <lucide-icon name="tablet-smartphone" size="18" />
           Asistente de Mesa
         </a>
       </nav>
@@ -36,11 +36,11 @@
 
         <div class="user-strip">
           <div class="friends-dropdown" [class.open]="friendsOpen()" (click)="$event.stopPropagation()">
-            <button class="friends-trigger" [class.has-requests]="!friendsOpen() && friends.incomingRequestsCount() > 0" type="button" title="Friends" (click)="toggleFriends($event)">
-              @if (!friendsOpen() && friends.incomingRequestsCount() > 0) {
+            <button class="friends-trigger" [class.has-requests]="!friendsOpen() && friends.pendingNotificationsCount() > 0" type="button" title="Friends" (click)="toggleFriends($event)">
+              @if (!friendsOpen() && friends.pendingNotificationsCount() > 0) {
                 <span class="request-badge" aria-label="Pending friend requests">
                   <lucide-icon name="bell" size="12" />
-                  {{ friends.incomingRequestsCount() }}
+                  {{ friends.pendingNotificationsCount() }}
                 </span>
               }
               <lucide-icon name="circle-user-round" size="18" />

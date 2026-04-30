@@ -73,6 +73,7 @@ export interface TableAssistantBackendAction {
     | 'timer.paused'
     | 'timer.resumed'
     | 'timer.reset'
+    | 'game.reset'
     | 'player.elimination.changed'
     | 'tracker.changed'
     | 'participant.assigned';

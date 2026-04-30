@@ -51,25 +51,28 @@
 
   <div class="friend-table" aria-label="Friend list">
     @for (row of store.rows(); track row.kind + row.id) {
-      <div class="friend-table-row" [class.incoming-row]="row.kind === 'incoming'" [class.pending-row]="row.kind === 'pending'">
+      <div class="friend-table-row" [class.incoming-row]="row.kind === 'incoming'" [class.room-invite-row]="row.kind === 'room-invite'" [class.pending-row]="row.kind === 'pending'">
         <span
           class="row-marker"
           [class.online]="row.presence === 'online'"
           [class.in-game]="row.presence === 'in_game'"
-          [class.incoming-marker]="row.kind === 'incoming'"
+          [class.incoming-marker]="row.kind === 'incoming' || row.kind === 'room-invite'"
           [class.pending-marker]="row.kind === 'pending'"
         ></span>
         <span class="row-main">
           <strong>{{ row.displayName }}</strong>
           <small>{{ row.detail }}</small>
+          @if (row.kind === 'room-invite') {
+            <em>Invitacion de sala</em>
+          }
         </span>
 
-        @if (row.kind === 'incoming') {
+        @if (row.kind === 'incoming' || row.kind === 'room-invite') {
           <span class="action-pair">
-            <button class="icon-action accept-action" type="button" [disabled]="store.loading()" title="Accept request" (click)="runPrimaryAction(row)">
+            <button class="icon-action accept-action" type="button" [disabled]="store.loading()" [title]="row.kind === 'room-invite' ? 'Aceptar invitacion' : 'Accept request'" (click)="runPrimaryAction(row)">
               <lucide-icon name="check" size="15" />
             </button>
-            <button class="icon-action reject-action" type="button" [disabled]="store.loading()" title="Decline request" (click)="declineIncoming(row)">
+            <button class="icon-action reject-action" type="button" [disabled]="store.loading()" [title]="row.kind === 'room-invite' ? 'Rechazar invitacion' : 'Decline request'" (click)="declineIncoming(row)">
               <lucide-icon name="x" size="15" />
             </button>
           </span>

@@ -26,8 +26,8 @@ export class TableAssistantPageComponent {
       description: 'Marca el jugador activo, pasa turno y activa fases solo si tu mesa las necesita.',
     },
     {
-      title: 'Dano de comandante sin lios',
-      description: 'Registra el dano recibido de cada comandante y detecta amenazas letales de un vistazo.',
+      title: 'Daño de comandante sin líos',
+      description: 'Registra el daño recibido de cada comandante y detecta amenazas letales de un vistazo.',
     },
     {
       title: 'Uno o varios moviles',

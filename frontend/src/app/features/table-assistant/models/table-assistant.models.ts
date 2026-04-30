@@ -205,6 +205,11 @@ export type TableAssistantAction =
       clientActionId?: string;
     }
   | {
+      type: 'game.reset';
+      actorParticipantId?: string | null;
+      clientActionId?: string;
+    }
+  | {
       type: 'player.elimination.changed';
       playerId: string;
       eliminated: boolean;

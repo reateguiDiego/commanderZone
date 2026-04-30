@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { AuthStore } from '../../../core/auth/auth.store';
 import {
@@ -13,6 +13,8 @@ import { TableAssistantTimerService } from '../domain/table-assistant-timer.serv
 import { TableAssistantApi, TableAssistantRoomResource } from '../data-access/table-assistant.api';
 import { TableAssistantSyncService } from '../data-access/table-assistant-sync.service';
 import { tableAssistantColorOption } from '../domain/table-assistant-colors';
+import { TableAssistantTableMenuComponent } from '../table-assistant-table-menu/table-assistant-table-menu.component';
+import { TableAssistantTurnControlsComponent } from '../table-assistant-turn-controls/table-assistant-turn-controls.component';
 import {
   TableAssistantGlobalTrackerId,
   TableAssistantPlayer,
@@ -23,6 +25,7 @@ import {
 
 @Component({
   selector: 'app-table-assistant-room',
+  imports: [TableAssistantTableMenuComponent, TableAssistantTurnControlsComponent],
   templateUrl: './table-assistant-room.component.html',
   styleUrl: './table-assistant-room.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -30,6 +33,7 @@ import {
 })
 export class TableAssistantRoomComponent {
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly tableAssistantApi = inject(TableAssistantApi);
   private readonly auth = inject(AuthStore);
   readonly sync = inject(TableAssistantSyncService);
@@ -40,9 +44,12 @@ export class TableAssistantRoomComponent {
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);
   readonly copied = signal(false);
+  readonly commanderDamagePlayerId = signal<string | null>(null);
+  private joiningParticipant = false;
 
   readonly state = computed(() => this.room()?.state ?? null);
   readonly players = computed(() => this.state()?.players ?? []);
+  readonly seatColumnCount = computed(() => this.state()?.mode === 'single-device' ? Math.max(1, Math.ceil(this.players().length / 2)) : 2);
   readonly activePlayer = computed(() => this.players().find((player) => player.id === this.state()?.turn.activePlayerId) ?? null);
   readonly isSingleDeviceMode = computed(() => this.state()?.mode === 'single-device');
   readonly connectedParticipantsCount = computed(() => this.state()?.participants.filter((participant) => participant.connected).length ?? 0);
@@ -136,10 +143,6 @@ export class TableAssistantRoomComponent {
     await this.sendAction('timer.resumed', { remainingSeconds: this.timer.remainingSeconds() ?? 0 });
   }
 
-  async resetTimer(): Promise<void> {
-    await this.sendAction('timer.reset', {});
-  }
-
   async changeCommanderDamage(targetPlayer: TableAssistantPlayer, sourcePlayerId: string, delta: number): Promise<void> {
     if (!this.canUsePlayerOptions(targetPlayer)) {
       return;
@@ -188,6 +191,26 @@ export class TableAssistantRoomComponent {
     return this.commanderDamage(targetPlayerId, sourcePlayerId) >= COMMANDER_DAMAGE_LETHAL_AMOUNT;
   }
 
+  openCommanderDamage(player: TableAssistantPlayer): void {
+    this.commanderDamagePlayerId.set(player.id);
+  }
+
+  closeCommanderDamage(): void {
+    this.commanderDamagePlayerId.set(null);
+  }
+
+  isCommanderDamageOpen(player: TableAssistantPlayer): boolean {
+    return this.commanderDamagePlayerId() === player.id;
+  }
+
+  async goToDashboard(): Promise<void> {
+    await this.router.navigate(['/dashboard']);
+  }
+
+  async startNewTable(): Promise<void> {
+    await this.sendAction('game.reset', {});
+  }
+
   trackerLabel(trackerId: TableAssistantTrackerId): string {
     return TABLE_ASSISTANT_TRACKERS.find((tracker) => tracker.id === trackerId)?.label ?? trackerId;
   }
@@ -196,23 +219,40 @@ export class TableAssistantRoomComponent {
     return player.name.slice(0, 15);
   }
 
+  isSingleDeviceSeat(index: number): boolean {
+    return this.state()?.mode === 'single-device' && index >= 0;
+  }
+
+  isSingleDeviceTopSeat(index: number): boolean {
+    return this.isSingleDeviceSeat(index) && index % 2 === 0;
+  }
+
+  isSingleDeviceBottomSeat(index: number): boolean {
+    return this.isSingleDeviceSeat(index) && index % 2 === 1;
+  }
+
+  seatColumn(index: number): number {
+    return Math.floor(index / 2) + 1;
+  }
+
   playerGradient(player: TableAssistantPlayer): string {
     return tableAssistantColorOption(player.color).gradient;
+  }
+
+  playerBackground(player: TableAssistantPlayer): string {
+    return `linear-gradient(145deg, rgba(2, 6, 23, 0.22), rgba(2, 6, 23, 0.04)), ${this.playerGradient(player)}`;
   }
 
   playerAccent(player: TableAssistantPlayer): string {
     return tableAssistantColorOption(player.color).accent;
   }
 
-  formatTimer(seconds: number | null): string {
-    if (seconds === null) {
-      return '--:--';
-    }
+  playerManaSymbols(player: TableAssistantPlayer): readonly string[] {
+    return tableAssistantColorOption(player.color).manaSymbols;
+  }
 
-    const minutes = Math.floor(seconds / 60).toString().padStart(2, '0');
-    const remainder = Math.floor(seconds % 60).toString().padStart(2, '0');
-
-    return `${minutes}:${remainder}`;
+  manaClass(symbol: string): string {
+    return `ms ms-${symbol}`;
   }
 
   async copyInviteLink(): Promise<void> {
@@ -237,6 +277,7 @@ export class TableAssistantRoomComponent {
     try {
       const response = await firstValueFrom(this.tableAssistantApi.get(roomId));
       this.applyRoom(response.tableAssistantRoom);
+      await this.joinAsParticipantIfNeeded(roomId);
       this.sync.connect(roomId, (room) => this.applyRoom(room));
     } catch {
       this.error.set('No se pudo cargar la sala.');
@@ -265,6 +306,25 @@ export class TableAssistantRoomComponent {
 
   private applyRoom(room: TableAssistantRoomResource): void {
     this.room.set(room);
+  }
+
+  private async joinAsParticipantIfNeeded(roomId: string): Promise<void> {
+    const state = this.state();
+    const userId = this.auth.user()?.id;
+    if (this.joiningParticipant || !state || state.mode !== 'per-player-device' || !userId) {
+      return;
+    }
+    if (state.participants.some((participant) => participant.user?.id === userId)) {
+      return;
+    }
+
+    this.joiningParticipant = true;
+    try {
+      const response = await firstValueFrom(this.tableAssistantApi.join(roomId));
+      this.applyRoom(response.tableAssistantRoom);
+    } finally {
+      this.joiningParticipant = false;
+    }
   }
 
   private clientActionId(): string {

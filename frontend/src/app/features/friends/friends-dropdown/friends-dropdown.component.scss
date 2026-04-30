@@ -66,6 +66,11 @@
   background: linear-gradient(90deg, rgb(244 201 93 / 18%), rgb(46 74 50 / 52%));
 }
 
+.room-invite-row {
+  border-color: rgb(114 167 199 / 55%);
+  background: linear-gradient(90deg, rgb(114 167 199 / 18%), rgb(46 74 50 / 52%));
+}
+
 .pending-row {
   border-color: rgb(114 167 199 / 38%);
   background: rgb(35 48 50 / 70%);
@@ -89,10 +94,19 @@
 }
 
 .row-main small,
+.row-main em,
 .row-status,
 .dropdown-notice {
   color: var(--muted);
   font-size: 0.8rem;
+}
+
+.row-main em {
+  display: block;
+  margin-top: 0.15rem;
+  color: #f7dfaa;
+  font-style: normal;
+  font-weight: 760;
 }
 
 .row-status {
