@@ -236,7 +236,10 @@ class TableAssistantApiTest extends ApiTestCase
 
         $this->jsonRequest('POST', '/table-assistant/rooms/'.$roomId.'/actions', [
             'type' => 'game.reset',
-            'payload' => [],
+            'payload' => [
+                'seatOrder' => ['player-2', 'player-1', 'player-4', 'player-3'],
+                'turnOrder' => ['player-3', 'player-1', 'player-2', 'player-4'],
+            ],
             'clientActionId' => 'reset-game',
         ], $ownerToken);
         self::assertResponseIsSuccessful();
@@ -247,7 +250,10 @@ class TableAssistantApiTest extends ApiTestCase
         self::assertSame(0, $state['players'][0]['trackers']['poison']);
         self::assertSame(0, $state['globalTrackers']['storm']);
         self::assertSame(0, $state['commanderDamage']['player-1']['player-2']);
-        self::assertSame(['activePlayerId' => 'player-1', 'number' => 1, 'phaseId' => 'untap'], $state['turn']);
+        self::assertSame(1, $state['players'][0]['seatIndex']);
+        self::assertSame(0, $state['players'][1]['seatIndex']);
+        self::assertSame(0, $state['players'][2]['turnOrder']);
+        self::assertSame(['activePlayerId' => 'player-3', 'number' => 1, 'phaseId' => 'untap'], $state['turn']);
         self::assertSame('idle', $state['timer']['status']);
         self::assertSame(120, $state['timer']['remainingSeconds']);
         self::assertCount(1, $state['actionLog']);

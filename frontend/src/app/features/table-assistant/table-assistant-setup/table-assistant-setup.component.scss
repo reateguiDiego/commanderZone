@@ -90,7 +90,8 @@ label {
 }
 
 input,
-select {
+select,
+.player-name-preview {
   width: 100%;
   min-height: 2.75rem;
   border: 1px solid rgb(255 255 255 / 12%);
@@ -98,6 +99,17 @@ select {
   padding: 0 0.75rem;
   background: rgb(2 6 23 / 70%);
   color: white;
+}
+
+.player-name-preview {
+  display: grid;
+  align-content: center;
+  gap: 0.08rem;
+}
+
+.player-name-preview small {
+  color: rgb(226 232 240 / 62%);
+  font-size: 0.68rem;
 }
 
 select {
@@ -293,5 +305,81 @@ select {
 
   .friend-seat-select {
     grid-column: auto;
+  }
+}
+
+@media (max-width: 680px) {
+  .setup-panel {
+    gap: 0.65rem;
+    padding: 0.75rem;
+  }
+
+  .setup-header {
+    align-items: center;
+  }
+
+  .setup-header p,
+  .mode-card span,
+  .mode-card small,
+  .muted,
+  .setup-actions p {
+    display: none;
+  }
+
+  .setup-header h2 {
+    font-size: 1.05rem;
+  }
+
+  .mode-grid,
+  .setup-grid {
+    gap: 0.55rem;
+  }
+
+  .mode-card,
+  .setup-section {
+    padding: 0.65rem;
+  }
+
+  .mode-card {
+    min-height: 3.1rem;
+    align-content: center;
+  }
+
+  .compact-fields {
+    gap: 0.5rem;
+  }
+
+  .players-list .player-config-row {
+    grid-template-columns: 1.75rem minmax(0, 1fr) minmax(6.6rem, 0.75fr);
+  }
+
+  .players-list .seat-number {
+    width: 1.75rem;
+    height: 1.75rem;
+  }
+
+  input,
+  select,
+  .player-name-preview,
+  .color-picker-trigger,
+  .color-option,
+  .segmented-control button,
+  .ghost-button,
+  .primary-button {
+    min-height: 2.4rem;
+    padding: 0 0.58rem;
+  }
+
+  .timer-wheel {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .timer-wheel strong {
+    grid-column: 1 / -1;
+    text-align: center;
+  }
+
+  .setup-actions {
+    justify-content: end;
   }
 }

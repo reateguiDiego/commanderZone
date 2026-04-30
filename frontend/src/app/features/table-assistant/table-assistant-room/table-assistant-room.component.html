@@ -16,8 +16,13 @@
             <span class="eyebrow">Codigo de sala</span>
             <strong>{{ tableRoom.state.sharing.code }}</strong>
           </div>
-          <button type="button" aria-label="Copiar enlace de sala" (click)="copyInviteLink()">{{ copied() ? 'Copiado' : 'Copiar enlace' }}</button>
-          <div class="connected-pill" [attr.aria-label]="connectedParticipantsCount() + ' jugadores conectados'">
+          <button type="button" aria-label="Copiar enlace de sala" (click)="copyInviteLink()">
+            {{ copied() ? 'Copiado' : 'Copiar enlace' }}
+          </button>
+          <div
+            class="connected-pill"
+            [attr.aria-label]="connectedParticipantsCount() + ' jugadores conectados'"
+          >
             <span class="person-symbol" aria-hidden="true"></span>
             <span class="connected-count">{{ connectedParticipantsCount() }}</span>
           </div>
@@ -31,114 +36,221 @@
               <span>{{ trackerLabel(trackerId) }}</span>
               <strong>{{ tableRoom.state.globalTrackers[trackerId] ?? 0 }}</strong>
               <div>
-                <button type="button" [attr.aria-label]="'Reducir ' + trackerLabel(trackerId)" (click)="changeGlobalTracker(trackerId, -1)">-</button>
-                <button type="button" [attr.aria-label]="'Aumentar ' + trackerLabel(trackerId)" (click)="changeGlobalTracker(trackerId, 1)">+</button>
+                <button
+                  type="button"
+                  [attr.aria-label]="'Reducir ' + trackerLabel(trackerId)"
+                  (click)="changeGlobalTracker(trackerId, -1)"
+                >
+                  -
+                </button>
+                <button
+                  type="button"
+                  [attr.aria-label]="'Aumentar ' + trackerLabel(trackerId)"
+                  (click)="changeGlobalTracker(trackerId, 1)"
+                >
+                  +
+                </button>
               </div>
             </article>
           }
         </section>
       }
 
-      <section class="players-grid" [style.--seat-column-count]="seatColumnCount()" aria-label="Jugadores">
-        @for (player of players(); track player.id) {
+      <section
+        class="players-grid"
+        [style.--seat-column-count]="seatColumnCount()"
+        aria-label="Jugadores"
+      >
+        @for (player of seatedPlayers(); track player.id) {
           <article
             class="player-panel"
-            [class.active]="player.id === tableRoom.state.turn.activePlayerId"
+            [class.active]="isActivePlayer(player)"
             [class.eliminated]="isPlayerOut(player)"
             [class.single-device-seat]="isSingleDeviceSeat($index)"
             [class.seat-row-top]="isSingleDeviceTopSeat($index)"
             [class.seat-row-bottom]="isSingleDeviceBottomSeat($index)"
+            [class.seat-odd-last]="isSingleDeviceOddLastSeat($index)"
             [style.--seat-column]="seatColumn($index)"
             [style.--player-gradient]="playerGradient(player)"
             [style.--player-accent]="playerAccent(player)"
             [style.background]="playerBackground(player)"
           >
-            @if (isPlayerOut(player)) {
-              <div class="elimination-overlay" aria-hidden="true">
-                <img class="skull-image" src="/assets/skull.png" alt="" />
-              </div>
-            }
-
-            @if (isCommanderDamageOpen(player)) {
-              <section class="commander-damage-board" aria-label="Daño de comandante">
-                <header>
-                  <strong>Daño de comandante</strong>
-                  <button class="symbol-button compact-symbol" type="button" aria-label="Cerrar daño de comandante" (click)="closeCommanderDamage()">&#10005;</button>
-                </header>
-                <div class="commander-damage-list">
-                  @for (source of commanderDamageSources(player); track source.id) {
-                    <div [class.lethal]="isCommanderDamageLethal(player.id, source.id)">
-                      <span [title]="source.name">{{ displayPlayerName(source) }}</span>
-                      <strong>{{ commanderDamage(player.id, source.id) }}</strong>
-                      @if (isCommanderDamageLethal(player.id, source.id)) {
-                        <small>Letal</small>
-                      }
-                      <button type="button" [disabled]="!canUsePlayerOptions(player)" [attr.aria-label]="'Reducir daño de comandante de ' + source.name + ' a ' + player.name" (click)="changeCommanderDamage(player, source.id, -1)">-</button>
-                      <button type="button" [disabled]="!canUsePlayerOptions(player)" [attr.aria-label]="'Aumentar daño de comandante de ' + source.name + ' a ' + player.name" (click)="changeCommanderDamage(player, source.id, 1)">+</button>
-                    </div>
-                  }
+            <div class="player-content">
+              @if (isPlayerOut(player)) {
+                <div class="elimination-overlay" aria-hidden="true">
+                  <img class="skull-image" src="/assets/images/skull.png" alt="skull-ko" />
                 </div>
-              </section>
-            } @else {
-              <header class="player-header">
-                <div class="player-title">
-                  <span class="seat-dot" [style.background]="playerAccent(player)"></span>
-                  <h2 [title]="player.name">{{ displayPlayerName(player) }}</h2>
-                  <span class="player-mana-symbols" aria-hidden="true">
-                    @for (symbol of playerManaSymbols(player); track symbol) {
-                      <i [class]="manaClass(symbol)"></i>
+              }
+
+              @if (isCommanderDamageOpen(player)) {
+                <section class="commander-damage-board" aria-label="Daño de comandante">
+                  <header>
+                    <strong>Daño de comandante</strong>
+                    <button
+                      class="symbol-button compact-symbol"
+                      type="button"
+                      aria-label="Cerrar daño de comandante"
+                      (click)="closeCommanderDamage()"
+                    >
+                      &#10005;
+                    </button>
+                  </header>
+                  <div class="commander-damage-list">
+                    @for (source of commanderDamageSources(player); track source.id) {
+                      <div [class.lethal]="isCommanderDamageLethal(player.id, source.id)">
+                        <span [title]="source.name">{{ displayPlayerName(source) }}</span>
+                        <strong>{{ commanderDamage(player.id, source.id) }}</strong>
+                        @if (isCommanderDamageLethal(player.id, source.id)) {
+                          <small>Letal</small>
+                        }
+                        <button
+                          type="button"
+                          [disabled]="!canUsePlayerOptions(player)"
+                          [attr.aria-label]="
+                            'Reducir daño de comandante de ' + source.name + ' a ' + player.name
+                          "
+                          (click)="changeCommanderDamage(player, source.id, -1)"
+                        >
+                          -
+                        </button>
+                        <button
+                          type="button"
+                          [disabled]="!canUsePlayerOptions(player)"
+                          [attr.aria-label]="
+                            'Aumentar daño de comandante de ' + source.name + ' a ' + player.name
+                          "
+                          (click)="changeCommanderDamage(player, source.id, 1)"
+                        >
+                          +
+                        </button>
+                      </div>
                     }
-                  </span>
-                </div>
-                @if (player.id === tableRoom.state.turn.activePlayerId) {
-                  <app-table-assistant-turn-controls
-                    class="player-turn-controls"
-                    [turnNumber]="tableRoom.state.turn.number"
-                    [phaseLabel]="currentPhaseLabel()"
-                    [timerMode]="tableRoom.state.timer.mode"
-                    [timerStatus]="tableRoom.state.timer.status"
-                    [timerAlertLevel]="timer.alertLevel()"
-                    [remainingSeconds]="timer.remainingSeconds()"
-                    (timerStarted)="startTimer()"
-                    (timerPaused)="pauseTimer()"
-                    (timerResumed)="resumeTimer()"
-                    (turnPassed)="passTurn()"
-                  />
-                }
-              </header>
-
-              <div class="life-row" aria-label="Vida de jugador">
-                <button type="button" [disabled]="!canEdit(player)" [attr.aria-label]="'Restar 1 vida a ' + player.name" (click)="changeLife(player, -1)">-</button>
-                <div class="life-total">{{ player.life }}</div>
-                <button type="button" [disabled]="!canEdit(player)" [attr.aria-label]="'Sumar 1 vida a ' + player.name" (click)="changeLife(player, 1)">+</button>
-              </div>
-
-              @if (player.assignedUserId) {
-                <p class="assignment">Asignado a jugador conectado</p>
-              }
-
-              @if (playerTrackerIds().length > 0) {
-                <section class="player-trackers" aria-label="Trackers de jugador">
-                  @for (trackerId of playerTrackerIds(); track trackerId) {
-                    <div>
-                      <span>{{ trackerLabel(trackerId) }}</span>
-                      <strong>{{ player.trackers[trackerId] ?? 0 }}</strong>
-                      <button type="button" [disabled]="!canUsePlayerOptions(player)" [attr.aria-label]="'Reducir ' + trackerLabel(trackerId) + ' de ' + player.name" (click)="changePlayerTracker(player, trackerId, -1)">-</button>
-                      <button type="button" [disabled]="!canUsePlayerOptions(player)" [attr.aria-label]="'Aumentar ' + trackerLabel(trackerId) + ' de ' + player.name" (click)="changePlayerTracker(player, trackerId, 1)">+</button>
-                    </div>
-                  }
+                  </div>
                 </section>
-              }
+              } @else {
+                <header
+                  class="player-header"
+                  [class.has-header-action]="
+                    isActivePlayer(player) ||
+                    (tableRoom.state.settings.commanderDamageEnabled && !isActivePlayer(player))
+                  "
+                >
+                  <div class="player-title">
+                    <span class="seat-dot" [style.background]="playerAccent(player)"></span>
+                    @if (!shouldHidePlayerName(player)) {
+                      <h2 [title]="player.name">{{ displayPlayerName(player) }}</h2>
+                    }
+                    <span class="player-mana-symbols" aria-hidden="true">
+                      @for (symbol of playerManaSymbols(player); track symbol) {
+                        <i [class]="manaClass(symbol)"></i>
+                      }
+                    </span>
+                  </div>
+                  @if (isActivePlayer(player)) {
+                    <app-table-assistant-turn-controls
+                      class="player-turn-controls"
+                      [turnNumber]="tableRoom.state.turn.number"
+                      [phaseLabel]="currentPhaseLabel()"
+                      [timerMode]="tableRoom.state.timer.mode"
+                      [timerStatus]="tableRoom.state.timer.status"
+                      [timerAlertLevel]="timer.alertLevel()"
+                      [remainingSeconds]="timer.remainingSeconds()"
+                      (timerStarted)="startTimer()"
+                      (timerPaused)="pauseTimer()"
+                      (timerResumed)="resumeTimer()"
+                      (turnPassed)="passTurn()"
+                    />
+                  } @else if (tableRoom.state.settings.commanderDamageEnabled) {
+                    <button
+                      class="commander-damage-trigger"
+                      type="button"
+                      (click)="openCommanderDamage(player)"
+                    >
+                      Extras
+                    </button>
+                  }
+                </header>
 
-              @if (tableRoom.state.settings.commanderDamageEnabled && player.id !== tableRoom.state.turn.activePlayerId) {
-                <button class="commander-damage-trigger" type="button" (click)="openCommanderDamage(player)">Extras</button>
+                <div class="life-row" aria-label="Vida de jugador">
+                  <button
+                    type="button"
+                    [disabled]="!canEdit(player)"
+                    [attr.aria-label]="'Restar 1 vida a ' + player.name"
+                    (click)="changeLife(player, -1)"
+                  >
+                    -
+                  </button>
+                  <div class="life-total">{{ player.life }}</div>
+                  <button
+                    type="button"
+                    [disabled]="!canEdit(player)"
+                    [attr.aria-label]="'Sumar 1 vida a ' + player.name"
+                    (click)="changeLife(player, 1)"
+                  >
+                    +
+                  </button>
+                </div>
+
+                @if (player.assignedUserId) {
+                  <p class="assignment">Asignado a jugador conectado</p>
+                }
+
+                @if (playerTrackerIds().length > 0) {
+                  <section class="player-trackers" aria-label="Trackers de jugador">
+                    @for (trackerId of playerTrackerIds(); track trackerId) {
+                      <div>
+                        <span>{{ trackerLabel(trackerId) }}</span>
+                        <strong>{{ player.trackers[trackerId] ?? 0 }}</strong>
+                        <button
+                          type="button"
+                          [disabled]="!canUsePlayerOptions(player)"
+                          [attr.aria-label]="
+                            'Reducir ' + trackerLabel(trackerId) + ' de ' + player.name
+                          "
+                          (click)="changePlayerTracker(player, trackerId, -1)"
+                        >
+                          -
+                        </button>
+                        <button
+                          type="button"
+                          [disabled]="!canUsePlayerOptions(player)"
+                          [attr.aria-label]="
+                            'Aumentar ' + trackerLabel(trackerId) + ' de ' + player.name
+                          "
+                          (click)="changePlayerTracker(player, trackerId, 1)"
+                        >
+                          +
+                        </button>
+                      </div>
+                    }
+                  </section>
+                }
               }
-            }
+            </div>
           </article>
         }
 
-        <app-table-assistant-table-menu (dashboardSelected)="goToDashboard()" (newTableSelected)="startNewTable()" />
+        <app-table-assistant-table-menu
+          (dashboardSelected)="goToDashboard()"
+          (newTableSelected)="openReplayModal()"
+          (rollSelected)="openRollModal()"
+          (fullscreenSelected)="toggleFullscreen()"
+        />
       </section>
+
+      @if (replayModalOpen()) {
+        <app-table-assistant-replay-modal
+          [mode]="replayModalMode()"
+          [players]="players()"
+          (closed)="closeReplayModal()"
+          (cancelled)="cancelReplayModal()"
+          (replayConfirmed)="startNewTable($event)"
+        />
+      }
+
+      @if (rollModalOpen()) {
+        <app-table-assistant-roll-modal (closed)="closeRollModal()" />
+      }
     }
   </section>
 </main>

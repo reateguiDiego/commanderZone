@@ -43,10 +43,21 @@ export const TABLE_ASSISTANT_TRACKERS: readonly TableAssistantTrackerDefinition[
 ] as const;
 
 const PLAYER_COLORS = TABLE_ASSISTANT_COLOR_OPTIONS.map((option) => option.id);
-const PLAYER_TRACKER_IDS: readonly TableAssistantPlayerTrackerId[] = ['poison', 'commander-tax', 'energy', 'experience'];
-const GLOBAL_TRACKER_IDS: readonly TableAssistantGlobalTrackerId[] = ['monarch', 'initiative', 'storm'];
+const PLAYER_TRACKER_IDS: readonly TableAssistantPlayerTrackerId[] = [
+  'poison',
+  'commander-tax',
+  'energy',
+  'experience',
+];
+const GLOBAL_TRACKER_IDS: readonly TableAssistantGlobalTrackerId[] = [
+  'monarch',
+  'initiative',
+  'storm',
+];
 
-export function createInitialTableAssistantRoom(options: CreateTableAssistantRoomOptions): TableAssistantRoomState {
+export function createInitialTableAssistantRoom(
+  options: CreateTableAssistantRoomOptions,
+): TableAssistantRoomState {
   const createdAt = options.createdAt ?? new Date().toISOString();
   const settings = createDefaultSettings(options.mode, options);
   const timerDurationSeconds = normalizeNullablePositiveInteger(options.timerDurationSeconds, null);
@@ -63,15 +74,23 @@ export function createInitialTableAssistantRoom(options: CreateTableAssistantRoo
       role: 'host',
       user: options.hostUser ?? null,
       deviceId: options.hostDeviceId ?? null,
-      assignedPlayerId: options.mode === 'per-player-device' ? players[0]?.id ?? null : null,
+      assignedPlayerId: options.mode === 'per-player-device' ? (players[0]?.id ?? null) : null,
       connected: true,
       joinedAt: createdAt,
     },
   ];
 
-  const assignedPlayers = options.mode === 'per-player-device' && players[0]
-    ? [{ ...players[0], assignedParticipantId: hostParticipantId, assignedUserId: options.hostUser?.id ?? null }, ...players.slice(1)]
-    : players;
+  const assignedPlayers =
+    options.mode === 'per-player-device' && players[0]
+      ? [
+          {
+            ...players[0],
+            assignedParticipantId: hostParticipantId,
+            assignedUserId: options.hostUser?.id ?? null,
+          },
+          ...players.slice(1),
+        ]
+      : players;
 
   return {
     id: options.roomId ?? 'local-table-assistant-room',
@@ -109,7 +128,10 @@ export function createInitialTableAssistantRoom(options: CreateTableAssistantRoo
 
 export function createDefaultSettings(
   mode: TableAssistantUseMode,
-  options: Pick<CreateTableAssistantRoomOptions, 'initialLife' | 'phasesEnabled' | 'timerMode' | 'skipEliminatedPlayers' | 'activeTrackerIds'> = {},
+  options: Pick<
+    CreateTableAssistantRoomOptions,
+    'initialLife' | 'phasesEnabled' | 'timerMode' | 'skipEliminatedPlayers' | 'activeTrackerIds'
+  > = {},
 ): TableAssistantSettings {
   const phasesEnabled = options.phasesEnabled ?? false;
   const timerMode = normalizeTimerMode(options.timerMode ?? 'none', phasesEnabled);
@@ -131,11 +153,16 @@ export function availableTimerModes(phasesEnabled: boolean): TableAssistantTimer
   return phasesEnabled ? ['none', 'turn', 'phase'] : ['none', 'turn'];
 }
 
-export function normalizeTimerMode(mode: TableAssistantTimerMode, phasesEnabled: boolean): TableAssistantTimerMode {
+export function normalizeTimerMode(
+  mode: TableAssistantTimerMode,
+  phasesEnabled: boolean,
+): TableAssistantTimerMode {
   return availableTimerModes(phasesEnabled).includes(mode) ? mode : 'none';
 }
 
-export function activeTrackerDefinitions(activeTrackerIds: readonly TableAssistantTrackerId[]): TableAssistantTrackerDefinition[] {
+export function activeTrackerDefinitions(
+  activeTrackerIds: readonly TableAssistantTrackerId[],
+): TableAssistantTrackerDefinition[] {
   const active = new Set(activeTrackerIds);
 
   return TABLE_ASSISTANT_TRACKERS.filter((tracker) => active.has(tracker.id));
@@ -155,7 +182,11 @@ export function phaseLabel(phaseId: TableAssistantPhaseId): string {
   return labels[phaseId];
 }
 
-export function canEditPlayer(state: TableAssistantRoomState, participantId: string, playerId: string): boolean {
+export function canEditPlayer(
+  state: TableAssistantRoomState,
+  participantId: string,
+  playerId: string,
+): boolean {
   const participant = state.participants.find((candidate) => candidate.id === participantId);
   if (!participant || participant.role === 'viewer') {
     return false;
@@ -165,15 +196,31 @@ export function canEditPlayer(state: TableAssistantRoomState, participantId: str
     return true;
   }
 
-  return participant.assignedPlayerId === playerId && state.settings.permissionPolicy.playerCanEditOwnPanel;
+  return (
+    participant.assignedPlayerId === playerId &&
+    state.settings.permissionPolicy.playerCanEditOwnPanel
+  );
 }
 
-export function applyTableAssistantAction(state: TableAssistantRoomState, action: TableAssistantAction): TableAssistantRoomState {
+export function applyTableAssistantAction(
+  state: TableAssistantRoomState,
+  action: TableAssistantAction,
+): TableAssistantRoomState {
   switch (action.type) {
     case 'life.changed':
-      return updatePlayer(state, action.playerId, (player) => withEliminationFromLife({ ...player, life: player.life + action.delta }), action);
+      return updatePlayer(
+        state,
+        action.playerId,
+        (player) => withEliminationFromLife({ ...player, life: player.life + action.delta }),
+        action,
+      );
     case 'life.set':
-      return updatePlayer(state, action.playerId, (player) => withEliminationFromLife({ ...player, life: action.life }), action);
+      return updatePlayer(
+        state,
+        action.playerId,
+        (player) => withEliminationFromLife({ ...player, life: action.life }),
+        action,
+      );
     case 'commander-damage.changed':
       return applyCommanderDamageChange(state, action);
     case 'turn.passed':
@@ -193,7 +240,12 @@ export function applyTableAssistantAction(state: TableAssistantRoomState, action
     case 'game.reset':
       return resetGame(state, action);
     case 'player.elimination.changed':
-      return updatePlayer(state, action.playerId, (player) => ({ ...player, eliminated: action.eliminated }), action);
+      return updatePlayer(
+        state,
+        action.playerId,
+        (player) => ({ ...player, eliminated: action.eliminated }),
+        action,
+      );
     case 'tracker.changed':
       return applyTrackerChange(state, action);
     case 'participant.assigned':
@@ -222,11 +274,19 @@ function revertTurn(
   );
 }
 
-export function isCommanderDamageLethal(state: TableAssistantRoomState, targetPlayerId: string, sourcePlayerId: string): boolean {
-  return (state.commanderDamage[targetPlayerId]?.[sourcePlayerId] ?? 0) >= COMMANDER_DAMAGE_LETHAL_AMOUNT;
+export function isCommanderDamageLethal(
+  state: TableAssistantRoomState,
+  targetPlayerId: string,
+  sourcePlayerId: string,
+): boolean {
+  return (
+    (state.commanderDamage[targetPlayerId]?.[sourcePlayerId] ?? 0) >= COMMANDER_DAMAGE_LETHAL_AMOUNT
+  );
 }
 
-export function isPlayerEliminated(player: Pick<TableAssistantPlayer, 'eliminated' | 'life'>): boolean {
+export function isPlayerEliminated(
+  player: Pick<TableAssistantPlayer, 'eliminated' | 'life'>,
+): boolean {
   return player.eliminated || player.life <= 0;
 }
 
@@ -236,7 +296,10 @@ export function assignParticipantToPlayer(
   playerId: string,
   action?: TableAssistantAction,
 ): TableAssistantRoomState {
-  if (!state.participants.some((participant) => participant.id === participantId) || !state.players.some((player) => player.id === playerId)) {
+  if (
+    !state.participants.some((participant) => participant.id === participantId) ||
+    !state.players.some((player) => player.id === playerId)
+  ) {
     return state;
   }
 
@@ -246,16 +309,16 @@ export function assignParticipantToPlayer(
   return commit(
     {
       ...state,
-      participants: state.participants.map((candidate) => (
-        candidate.id === participantId ? { ...candidate, assignedPlayerId: playerId } : candidate
-      )),
-      players: state.players.map((player) => (
+      participants: state.participants.map((candidate) =>
+        candidate.id === participantId ? { ...candidate, assignedPlayerId: playerId } : candidate,
+      ),
+      players: state.players.map((player) =>
         player.id === playerId
           ? { ...player, assignedParticipantId: participantId, assignedUserId }
           : player.assignedParticipantId === participantId
             ? { ...player, assignedParticipantId: null, assignedUserId: null }
-            : player
-      )),
+            : player,
+      ),
     },
     action,
   );
@@ -290,7 +353,9 @@ function normalizedPlayerName(name: string | undefined, index: number): string {
 }
 
 function normalizedPlayerColor(color: string | undefined, index: number): string {
-  return color && PLAYER_COLORS.includes(color) ? color : PLAYER_COLORS[index % PLAYER_COLORS.length];
+  return color && PLAYER_COLORS.includes(color)
+    ? color
+    : PLAYER_COLORS[index % PLAYER_COLORS.length];
 }
 
 function defaultPermissionPolicy(mode: TableAssistantUseMode): TableAssistantPermissionPolicy {
@@ -312,34 +377,48 @@ function defaultPermissionPolicy(mode: TableAssistantUseMode): TableAssistantPer
 }
 
 function defaultActiveTrackerIds(): TableAssistantTrackerId[] {
-  return TABLE_ASSISTANT_TRACKERS.filter((tracker) => tracker.defaultEnabled).map((tracker) => tracker.id);
+  return TABLE_ASSISTANT_TRACKERS.filter((tracker) => tracker.defaultEnabled).map(
+    (tracker) => tracker.id,
+  );
 }
 
-function createPlayerTrackers(activeTrackerIds: readonly TableAssistantTrackerId[]): Partial<Record<TableAssistantPlayerTrackerId, number>> {
+function createPlayerTrackers(
+  activeTrackerIds: readonly TableAssistantTrackerId[],
+): Partial<Record<TableAssistantPlayerTrackerId, number>> {
   const active = new Set(activeTrackerIds);
 
-  return PLAYER_TRACKER_IDS.reduce<Partial<Record<TableAssistantPlayerTrackerId, number>>>((trackers, trackerId) => {
-    if (active.has(trackerId)) {
-      trackers[trackerId] = 0;
-    }
+  return PLAYER_TRACKER_IDS.reduce<Partial<Record<TableAssistantPlayerTrackerId, number>>>(
+    (trackers, trackerId) => {
+      if (active.has(trackerId)) {
+        trackers[trackerId] = 0;
+      }
 
-    return trackers;
-  }, {});
+      return trackers;
+    },
+    {},
+  );
 }
 
-function createGlobalTrackers(activeTrackerIds: readonly TableAssistantTrackerId[]): Partial<Record<TableAssistantGlobalTrackerId, number>> {
+function createGlobalTrackers(
+  activeTrackerIds: readonly TableAssistantTrackerId[],
+): Partial<Record<TableAssistantGlobalTrackerId, number>> {
   const active = new Set(activeTrackerIds);
 
-  return GLOBAL_TRACKER_IDS.reduce<Partial<Record<TableAssistantGlobalTrackerId, number>>>((trackers, trackerId) => {
-    if (active.has(trackerId)) {
-      trackers[trackerId] = 0;
-    }
+  return GLOBAL_TRACKER_IDS.reduce<Partial<Record<TableAssistantGlobalTrackerId, number>>>(
+    (trackers, trackerId) => {
+      if (active.has(trackerId)) {
+        trackers[trackerId] = 0;
+      }
 
-    return trackers;
-  }, {});
+      return trackers;
+    },
+    {},
+  );
 }
 
-function createCommanderDamage(players: readonly TableAssistantPlayer[]): Record<string, Record<string, number>> {
+function createCommanderDamage(
+  players: readonly TableAssistantPlayer[],
+): Record<string, Record<string, number>> {
   return players.reduce<Record<string, Record<string, number>>>((damageByTarget, target) => {
     damageByTarget[target.id] = players
       .filter((source) => source.id !== target.id)
@@ -357,7 +436,11 @@ function applyCommanderDamageChange(
   state: TableAssistantRoomState,
   action: Extract<TableAssistantAction, { type: 'commander-damage.changed' }>,
 ): TableAssistantRoomState {
-  if (!state.settings.commanderDamageEnabled || !state.commanderDamage[action.targetPlayerId] || action.targetPlayerId === action.sourcePlayerId) {
+  if (
+    !state.settings.commanderDamageEnabled ||
+    !state.commanderDamage[action.targetPlayerId] ||
+    action.targetPlayerId === action.sourcePlayerId
+  ) {
     return state;
   }
 
@@ -378,7 +461,10 @@ function applyCommanderDamageChange(
   );
 }
 
-function passTurn(state: TableAssistantRoomState, action?: TableAssistantAction): TableAssistantRoomState {
+function passTurn(
+  state: TableAssistantRoomState,
+  action?: TableAssistantAction,
+): TableAssistantRoomState {
   const nextActive = nextActivePlayer(state);
   if (!nextActive) {
     return state;
@@ -398,7 +484,10 @@ function passTurn(state: TableAssistantRoomState, action?: TableAssistantAction)
   );
 }
 
-function passPhase(state: TableAssistantRoomState, action: TableAssistantAction): TableAssistantRoomState {
+function passPhase(
+  state: TableAssistantRoomState,
+  action: TableAssistantAction,
+): TableAssistantRoomState {
   if (!state.settings.phasesEnabled || !state.turn.phaseId) {
     return state;
   }
@@ -436,16 +525,19 @@ function startTimer(
 
   const durationSeconds = Math.max(1, Math.floor(action.durationSeconds));
 
-  return commit({
-    ...state,
-    timer: {
-      ...state.timer,
-      status: 'running',
-      durationSeconds,
-      remainingSeconds: durationSeconds,
-      startedAt: new Date().toISOString(),
+  return commit(
+    {
+      ...state,
+      timer: {
+        ...state.timer,
+        status: 'running',
+        durationSeconds,
+        remainingSeconds: durationSeconds,
+        startedAt: new Date().toISOString(),
+      },
     },
-  }, action);
+    action,
+  );
 }
 
 function pauseTimer(
@@ -456,15 +548,18 @@ function pauseTimer(
     return state;
   }
 
-  return commit({
-    ...state,
-    timer: {
-      ...state.timer,
-      status: 'paused',
-      remainingSeconds: Math.max(0, Math.floor(action.remainingSeconds)),
-      startedAt: null,
+  return commit(
+    {
+      ...state,
+      timer: {
+        ...state.timer,
+        status: 'paused',
+        remainingSeconds: Math.max(0, Math.floor(action.remainingSeconds)),
+        startedAt: null,
+      },
     },
-  }, action);
+    action,
+  );
 }
 
 function resumeTimer(
@@ -475,15 +570,18 @@ function resumeTimer(
     return state;
   }
 
-  return commit({
-    ...state,
-    timer: {
-      ...state.timer,
-      status: 'running',
-      remainingSeconds: Math.max(0, Math.floor(action.remainingSeconds)),
-      startedAt: new Date().toISOString(),
+  return commit(
+    {
+      ...state,
+      timer: {
+        ...state.timer,
+        status: 'running',
+        remainingSeconds: Math.max(0, Math.floor(action.remainingSeconds)),
+        startedAt: new Date().toISOString(),
+      },
     },
-  }, action);
+    action,
+  );
 }
 
 function resetTimer(
@@ -494,36 +592,77 @@ function resetTimer(
     return state;
   }
 
-  return commit({
-    ...state,
-    timer: resetTimerForBoundary(state),
-  }, action);
+  return commit(
+    {
+      ...state,
+      timer: resetTimerForBoundary(state),
+    },
+    action,
+  );
 }
 
 function resetGame(
   state: TableAssistantRoomState,
   action: Extract<TableAssistantAction, { type: 'game.reset' }>,
 ): TableAssistantRoomState {
-  const playersByTurn = [...state.players].sort((left, right) => left.turnOrder - right.turnOrder);
+  const players = withResetPlayerArrangement(state.players, action).map((player) => ({
+    ...player,
+    life: player.startingLife,
+    eliminated: false,
+    trackers: resetValues(player.trackers),
+  }));
+  const playersByTurn = [...players].sort((left, right) => left.turnOrder - right.turnOrder);
 
-  return commit({
-    ...state,
-    players: state.players.map((player) => ({
-      ...player,
-      life: player.startingLife,
-      eliminated: false,
-      trackers: resetValues(player.trackers),
-    })),
-    turn: {
-      activePlayerId: playersByTurn[0]?.id ?? null,
-      number: 1,
-      phaseId: state.settings.phasesEnabled ? TABLE_ASSISTANT_PHASES[0] : null,
+  return commit(
+    {
+      ...state,
+      players,
+      turn: {
+        activePlayerId: playersByTurn[0]?.id ?? null,
+        number: 1,
+        phaseId: state.settings.phasesEnabled ? TABLE_ASSISTANT_PHASES[0] : null,
+      },
+      timer: resetTimerForBoundary(state),
+      globalTrackers: resetValues(state.globalTrackers),
+      commanderDamage: buildCommanderDamage(players),
+      actionLog: [],
     },
-    timer: resetTimerForBoundary(state),
-    globalTrackers: resetValues(state.globalTrackers),
-    commanderDamage: buildCommanderDamage(state.players),
-    actionLog: [],
-  }, action);
+    action,
+  );
+}
+
+function withResetPlayerArrangement(
+  players: readonly TableAssistantPlayer[],
+  action: Extract<TableAssistantAction, { type: 'game.reset' }>,
+): TableAssistantPlayer[] {
+  const turnOrderByPlayerId = orderByPlayerId(players, action.turnOrder);
+  const seatIndexByPlayerId = orderByPlayerId(players, action.seatOrder);
+
+  return players.map((player) => ({
+    ...player,
+    turnOrder: turnOrderByPlayerId.get(player.id) ?? player.turnOrder,
+    seatIndex: seatIndexByPlayerId.get(player.id) ?? player.seatIndex,
+  }));
+}
+
+function orderByPlayerId(
+  players: readonly TableAssistantPlayer[],
+  order: readonly string[] | undefined,
+): Map<string, number> {
+  if (!order || order.length !== players.length) {
+    return new Map();
+  }
+
+  const expectedPlayerIds = new Set(players.map((player) => player.id));
+  const requestedPlayerIds = new Set(order);
+  if (
+    requestedPlayerIds.size !== expectedPlayerIds.size ||
+    order.some((playerId) => !expectedPlayerIds.has(playerId))
+  ) {
+    return new Map();
+  }
+
+  return new Map(order.map((playerId, index) => [playerId, index]));
 }
 
 function resetTimerForBoundary(state: TableAssistantRoomState): TableAssistantRoomState['timer'] {
@@ -539,11 +678,17 @@ function resetTimerForBoundary(state: TableAssistantRoomState): TableAssistantRo
   };
 }
 
-function resetValues<T extends string>(values: Partial<Record<T, number>>): Partial<Record<T, number>> {
-  return Object.fromEntries(Object.keys(values).map((key) => [key, 0])) as Partial<Record<T, number>>;
+function resetValues<T extends string>(
+  values: Partial<Record<T, number>>,
+): Partial<Record<T, number>> {
+  return Object.fromEntries(Object.keys(values).map((key) => [key, 0])) as Partial<
+    Record<T, number>
+  >;
 }
 
-function buildCommanderDamage(players: TableAssistantPlayer[]): Record<string, Record<string, number>> {
+function buildCommanderDamage(
+  players: TableAssistantPlayer[],
+): Record<string, Record<string, number>> {
   return players.reduce<Record<string, Record<string, number>>>((damage, target) => {
     damage[target.id] = players
       .filter((source) => source.id !== target.id)
@@ -566,7 +711,9 @@ function nextActivePlayer(state: TableAssistantRoomState): NextActivePlayer | nu
   }
 
   const orderedPlayers = [...state.players].sort((left, right) => left.turnOrder - right.turnOrder);
-  const foundCurrentIndex = orderedPlayers.findIndex((player) => player.id === state.turn.activePlayerId);
+  const foundCurrentIndex = orderedPlayers.findIndex(
+    (player) => player.id === state.turn.activePlayerId,
+  );
   const currentIndex = foundCurrentIndex === -1 ? 0 : foundCurrentIndex;
 
   for (let offset = 1; offset <= orderedPlayers.length; offset++) {
@@ -678,7 +825,10 @@ function moveTurnAwayFromEliminatedActive(state: TableAssistantRoomState): Table
   };
 }
 
-function commit(state: TableAssistantRoomState, action?: TableAssistantAction): TableAssistantRoomState {
+function commit(
+  state: TableAssistantRoomState,
+  action?: TableAssistantAction,
+): TableAssistantRoomState {
   return {
     ...state,
     version: state.version + 1,
@@ -696,11 +846,15 @@ function toActionLogEntry(action: TableAssistantAction): TableAssistantActionLog
   };
 }
 
-function isPlayerTracker(trackerId: TableAssistantPlayerTrackerId | TableAssistantGlobalTrackerId): trackerId is TableAssistantPlayerTrackerId {
+function isPlayerTracker(
+  trackerId: TableAssistantPlayerTrackerId | TableAssistantGlobalTrackerId,
+): trackerId is TableAssistantPlayerTrackerId {
   return PLAYER_TRACKER_IDS.includes(trackerId as TableAssistantPlayerTrackerId);
 }
 
-function isGlobalTracker(trackerId: TableAssistantPlayerTrackerId | TableAssistantGlobalTrackerId): trackerId is TableAssistantGlobalTrackerId {
+function isGlobalTracker(
+  trackerId: TableAssistantPlayerTrackerId | TableAssistantGlobalTrackerId,
+): trackerId is TableAssistantGlobalTrackerId {
   return GLOBAL_TRACKER_IDS.includes(trackerId as TableAssistantGlobalTrackerId);
 }
 
@@ -712,7 +866,10 @@ function normalizePositiveInteger(value: number | undefined, fallback: number): 
   return Math.max(1, Math.floor(value));
 }
 
-function normalizeNullablePositiveInteger(value: number | null | undefined, fallback: number | null): number | null {
+function normalizeNullablePositiveInteger(
+  value: number | null | undefined,
+  fallback: number | null,
+): number | null {
   if (value === null || value === undefined || !Number.isFinite(value)) {
     return fallback;
   }

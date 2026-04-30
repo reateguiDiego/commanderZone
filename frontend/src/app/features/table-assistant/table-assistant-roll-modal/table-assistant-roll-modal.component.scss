@@ -1,0 +1,111 @@
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  padding: 0.75rem;
+  background: rgb(2 6 23 / 72%);
+  backdrop-filter: blur(12px);
+}
+
+.roll-modal {
+  display: grid;
+  gap: 0.42rem;
+  width: min(14.5rem, 100%);
+  border: 1px solid rgb(255 255 255 / 14%);
+  border-radius: 8px;
+  padding: 0.55rem;
+  background: linear-gradient(145deg, rgb(15 23 42 / 98%), rgb(2 6 23 / 96%));
+  box-shadow: 0 1.4rem 3rem rgb(0 0 0 / 48%);
+}
+
+header,
+footer,
+.roll-options {
+  display: flex;
+  gap: 0.5rem;
+}
+
+header,
+footer {
+  align-items: center;
+  justify-content: space-between;
+}
+
+.eyebrow {
+  color: #fde68a;
+  font-size: 0.72rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+button {
+  min-height: 2rem;
+  border: 1px solid rgb(255 255 255 / 12%);
+  border-radius: 8px;
+  padding: 0 0.55rem;
+  background: rgb(255 255 255 / 7%);
+  color: inherit;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+header button {
+  width: 2rem;
+  padding: 0;
+}
+
+.roll-options {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.32rem;
+}
+
+.roll-options button {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  min-height: 2.25rem;
+  padding: 0;
+}
+
+.roll-options .selected,
+.primary-action {
+  border-color: #67e8f9;
+  background: #67e8f9;
+  color: #082f49;
+}
+
+.roll-icon {
+  width: 1.8rem;
+  height: 1.8rem;
+  object-fit: contain;
+}
+
+.roll-result {
+  display: grid;
+  place-items: center;
+  min-height: 2.7rem;
+  border: 1px solid rgb(255 255 255 / 10%);
+  border-radius: 8px;
+  background: rgb(255 255 255 / 5%);
+}
+
+.roll-result span {
+  color: rgb(226 232 240 / 72%);
+  font-size: 0.65rem;
+}
+
+.roll-result strong {
+  font-size: clamp(1.55rem, 9vw, 2.45rem);
+  line-height: 0.95;
+}
+
+.empty strong {
+  color: rgb(226 232 240 / 34%);
+}
+
+.secondary-action {
+  color: rgb(226 232 240 / 78%);
+}

@@ -1,4 +1,11 @@
-import { ChangeDetectionStrategy, Component, computed, inject, output, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  inject,
+  output,
+  signal,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
@@ -6,7 +13,10 @@ import { RoomsApi } from '../../../core/api/rooms.api';
 import { FriendsApi } from '../../../core/api/friends.api';
 import { AuthStore } from '../../../core/auth/auth.store';
 import { FriendUser } from '../../../core/models/friendship.model';
-import { TABLE_ASSISTANT_COLOR_OPTIONS, tableAssistantColorOption } from '../domain/table-assistant-colors';
+import {
+  TABLE_ASSISTANT_COLOR_OPTIONS,
+  tableAssistantColorOption,
+} from '../domain/table-assistant-colors';
 import { TableAssistantApi } from '../data-access/table-assistant.api';
 import { TableAssistantTimerMode, TableAssistantUseMode } from '../models/table-assistant.models';
 
@@ -37,13 +47,15 @@ export class TableAssistantSetupComponent {
     {
       id: 'single-device',
       title: 'Un dispositivo en la mesa',
-      description: 'Usa un movil o tablet compartido para controlar toda la partida desde el centro de la mesa.',
+      description:
+        'Usa un movil o tablet compartido para controlar toda la partida desde el centro de la mesa.',
       idealFor: 'Partidas rapidas, casuales o mesas que no quieren conectarse.',
     },
     {
       id: 'per-player-device',
       title: 'Un movil por jugador',
-      description: 'Cada jugador se conecta a la sala y controla su propio panel mientras todo se mantiene sincronizado.',
+      description:
+        'Cada jugador se conecta a la sala y controla su propio panel mientras todo se mantiene sincronizado.',
       idealFor: 'Partidas largas, grupos organizados o mesas que quieren menos errores.',
     },
   ];
@@ -70,7 +82,10 @@ export class TableAssistantSetupComponent {
   readonly canInviteFriends = computed(() => this.mode() === 'per-player-device');
   readonly timerDurationMinutes = computed(() => Math.floor(this.timerDurationSeconds() / 60));
   readonly timerDurationRemainderSeconds = computed(() => this.timerDurationSeconds() % 60);
-  readonly timerDurationLabel = computed(() => `${this.timerDurationMinutes()}:${this.timerDurationRemainderSeconds().toString().padStart(2, '0')}`);
+  readonly timerDurationLabel = computed(
+    () =>
+      `${this.timerDurationMinutes()}:${this.timerDurationRemainderSeconds().toString().padStart(2, '0')}`,
+  );
 
   constructor() {
     void this.loadFriends();
@@ -159,6 +174,31 @@ export class TableAssistantSetupComponent {
     }
   }
 
+  playerSeatLabel(index: number): string {
+    if (this.mode() !== 'per-player-device') {
+      return this.playerNames()[index] ?? `Jugador ${index + 1}`;
+    }
+
+    if (index === 0) {
+      return this.currentUserDisplayName();
+    }
+
+    const friendId = this.playerFriendIds()[index];
+    const friend = friendId ? this.friends().find((candidate) => candidate.id === friendId) : null;
+
+    return friend?.displayName ?? `Jugador ${index + 1}`;
+  }
+
+  playerSeatSourceLabel(index: number): string {
+    if (this.mode() !== 'per-player-device') {
+      return 'Nombre editable';
+    }
+
+    return index === 0 || this.playerFriendIds()[index]
+      ? 'Usuario CommanderZone'
+      : 'Pendiente de usuario';
+  }
+
   colorLabel(colorId: string | undefined): string {
     return tableAssistantColorOption(colorId ?? this.colorOptions[0].id).label;
   }
@@ -180,7 +220,7 @@ export class TableAssistantSetupComponent {
   }
 
   toggleColorPicker(index: number): void {
-    this.openColorPickerIndex.update((openIndex) => openIndex === index ? null : index);
+    this.openColorPickerIndex.update((openIndex) => (openIndex === index ? null : index));
   }
 
   selectPlayerColor(index: number, color: string): void {
@@ -193,19 +233,26 @@ export class TableAssistantSetupComponent {
     this.error.set(null);
 
     try {
-      const response = await firstValueFrom(this.tableAssistantApi.create({
-        mode: this.mode(),
-        playerCount: this.playerCount(),
-        initialLife: this.initialLife(),
-        players: this.playerNamesForPayload().map((name, index) => ({ name, color: this.playerColors()[index] ?? this.colorOptions[0].id })),
-        phasesEnabled: false,
-        timerMode: this.timerMode(),
-        timerDurationSeconds: this.timerDurationSeconds(),
-        skipEliminatedPlayers: false,
-        activeTrackerIds: ['commander-damage'],
-      }));
+      const response = await firstValueFrom(
+        this.tableAssistantApi.create({
+          mode: this.mode(),
+          playerCount: this.playerCount(),
+          initialLife: this.initialLife(),
+          players: this.playerNamesForPayload().map((name, index) => ({
+            name,
+            color: this.playerColors()[index] ?? this.colorOptions[0].id,
+          })),
+          phasesEnabled: false,
+          timerMode: this.timerMode(),
+          timerDurationSeconds: this.timerDurationSeconds(),
+          skipEliminatedPlayers: false,
+          activeTrackerIds: ['commander-damage'],
+        }),
+      );
       await this.inviteSelectedFriends(response.tableAssistantRoom.id);
-      await this.router.navigate(['/table-assistant', response.tableAssistantRoom.id]);
+      await this.router.navigate(['/table-assistant', response.tableAssistantRoom.id], {
+        queryParams: { arrange: '1' },
+      });
     } catch {
       this.error.set('No se pudo crear la sala de Asistente de Mesa.');
     } finally {
@@ -217,7 +264,11 @@ export class TableAssistantSetupComponent {
     this.loadingFriends.set(true);
     try {
       const response = await firstValueFrom(this.friendsApi.list());
-      this.friends.set(response.data.map((friendship) => friendship.friend).filter((friend): friend is FriendUser => friend !== undefined));
+      this.friends.set(
+        response.data
+          .map((friendship) => friendship.friend)
+          .filter((friend): friend is FriendUser => friend !== undefined),
+      );
     } catch {
       this.friends.set([]);
     } finally {
@@ -230,12 +281,18 @@ export class TableAssistantSetupComponent {
       return;
     }
 
-    const friendIds = [...new Set(this.playerFriendIds().filter((friendId): friendId is string => friendId !== null))];
+    const friendIds = [
+      ...new Set(
+        this.playerFriendIds().filter((friendId): friendId is string => friendId !== null),
+      ),
+    ];
     if (friendIds.length === 0) {
       return;
     }
 
-    await Promise.allSettled(friendIds.map((friendId) => firstValueFrom(this.roomsApi.invite(roomId, friendId))));
+    await Promise.allSettled(
+      friendIds.map((friendId) => firstValueFrom(this.roomsApi.invite(roomId, friendId))),
+    );
   }
 
   private playerNamesForPayload(): string[] {
@@ -249,7 +306,9 @@ export class TableAssistantSetupComponent {
       }
 
       const friendId = this.playerFriendIds()[index];
-      const friend = friendId ? this.friends().find((candidate) => candidate.id === friendId) : null;
+      const friend = friendId
+        ? this.friends().find((candidate) => candidate.id === friendId)
+        : null;
 
       return friend?.displayName ?? name;
     });

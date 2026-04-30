@@ -46,7 +46,14 @@
         @for (name of playerNames(); track $index; let playerIndex = $index) {
           <div class="player-config-row">
             <span class="seat-number">{{ playerIndex + 1 }}</span>
-            <input [attr.aria-label]="'Nombre de jugador ' + (playerIndex + 1)" [ngModel]="name" (ngModelChange)="updatePlayerName(playerIndex, $event)" />
+            @if (canInviteFriends()) {
+              <div class="player-name-preview" [attr.aria-label]="'Nombre de jugador ' + (playerIndex + 1)">
+                <strong>{{ playerSeatLabel(playerIndex) }}</strong>
+                <small>{{ playerSeatSourceLabel(playerIndex) }}</small>
+              </div>
+            } @else {
+              <input [attr.aria-label]="'Nombre de jugador ' + (playerIndex + 1)" [ngModel]="name" (ngModelChange)="updatePlayerName(playerIndex, $event)" />
+            }
             <span class="color-picker" [style.--selected-gradient]="colorGradient(playerColors()[playerIndex])" [style.--selected-accent]="colorAccent(playerColors()[playerIndex])">
               <button class="color-picker-trigger" type="button" [attr.aria-expanded]="openColorPickerIndex() === playerIndex" [attr.aria-label]="'Color de jugador ' + (playerIndex + 1)" (click)="toggleColorPicker(playerIndex)">
                 <span>{{ colorLabel(playerColors()[playerIndex]) }}</span>

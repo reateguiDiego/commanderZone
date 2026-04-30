@@ -1,0 +1,127 @@
+<div class="modal-backdrop" role="presentation" (click)="close()">
+  <section
+    class="replay-modal"
+    role="dialog"
+    aria-modal="true"
+    aria-label="Nueva partida"
+    (click)="$event.stopPropagation()"
+  >
+    <header>
+      <div>
+        <span class="eyebrow">Nueva partida</span>
+        <h2>Mesa y orden de jugadores</h2>
+      </div>
+      <button class="icon-button" type="button" aria-label="Cerrar nueva partida" (click)="close()">
+        &#10005;
+      </button>
+    </header>
+
+    <form [formGroup]="arrangementForm" (ngSubmit)="confirmReplay()">
+      <section
+        class="seat-layout"
+        [style.--seat-column-count]="seatColumnCount()"
+        aria-label="Posiciones de mesa"
+      >
+        @for (seatIndex of seatPositions(); track seatIndex; let index = $index) {
+          <article
+            [draggable]="playerAtSeat(index) !== null"
+            [class.seat-row-top]="isTopSeat(index)"
+            [class.seat-row-bottom]="isBottomSeat(index)"
+            [class.seat-odd-last]="isOddLastSeat(index)"
+            [class.dragging]="draggedSeatIndex() === index"
+            [class.selected]="selectedSeatIndex() === index"
+            [style.--seat-column]="seatColumn(index)"
+            tabindex="0"
+            (dragstart)="startSeatDrag($event, index)"
+            (dragover)="allowDrop($event)"
+            (drop)="dropOnSeat($event, index)"
+            (dragend)="endDrag()"
+            (click)="selectSeatCell(index)"
+            (keydown.enter)="selectSeatCell(index)"
+            (keydown.space)="$event.preventDefault(); selectSeatCell(index)"
+          >
+            <div class="seat-card-header">
+              <span>Mesa {{ index + 1 }}</span>
+              @if (playerAtSeat(index); as player) {
+                <strong>Turno {{ turnPosition(player.id) }}</strong>
+              } @else {
+                <strong>Turno -</strong>
+              }
+            </div>
+
+            <label class="seat-field">
+              <span>Jugador</span>
+              <select
+                [formControl]="seatControl(index)"
+                [attr.aria-label]="'Jugador sentado en mesa ' + (index + 1)"
+                (click)="$event.stopPropagation()"
+                (change)="seatPlayerChanged(index)"
+              >
+                <option [ngValue]="null">Sin jugador</option>
+                @for (player of players(); track player.id) {
+                  <option
+                    [ngValue]="player.id"
+                    [disabled]="isPlayerSeatedElsewhere(player.id, index)"
+                  >
+                    {{ player.name }}
+                  </option>
+                }
+              </select>
+            </label>
+
+            @if (playerAtSeat(index); as player) {
+              <div class="seat-turn-row">
+                <label class="seat-field" [attr.for]="'turn-order-' + player.id">
+                  <span>Orden</span>
+                  <select
+                    [id]="'turn-order-' + player.id"
+                    [value]="turnIndex(player.id) ?? ''"
+                    [attr.aria-label]="'Orden de turno de ' + player.name"
+                    (click)="$event.stopPropagation()"
+                    (change)="setTurnIndex(player.id, $any($event.target).value)"
+                  >
+                    <option value="">Sin turno</option>
+                    @for (turnIndex of turnIndexes(); track turnIndex) {
+                      <option [value]="turnIndex">{{ turnIndex + 1 }}</option>
+                    }
+                  </select>
+                </label>
+                <div class="order-actions" aria-label="Mover jugador en el turno">
+                  <button
+                    type="button"
+                    [disabled]="turnIndex(player.id) === null || turnIndex(player.id) === 0"
+                    [attr.aria-label]="'Subir turno de ' + player.name"
+                    (click)="$event.stopPropagation(); moveTurnPlayer(player.id, -1)"
+                  >
+                    <lucide-icon class="arrow-up" name="chevron-down" size="15" />
+                  </button>
+                  <button
+                    type="button"
+                    [disabled]="
+                      turnIndex(player.id) === null || turnIndex(player.id) === players().length - 1
+                    "
+                    [attr.aria-label]="'Bajar turno de ' + player.name"
+                    (click)="$event.stopPropagation(); moveTurnPlayer(player.id, 1)"
+                  >
+                    <lucide-icon name="chevron-down" size="15" />
+                  </button>
+                </div>
+              </div>
+
+              <small>Despues va {{ nextPlayerName(player.id) }}</small>
+            } @else {
+              <p class="empty-seat">Elige un jugador y su turno.</p>
+            }
+          </article>
+        }
+      </section>
+
+      <footer>
+        <button class="secondary-action" type="button" (click)="cancel()">Cancelar</button>
+        <button class="primary-action" type="submit" [disabled]="!isArrangementComplete()">
+          {{ confirmLabel() }}
+        </button>
+      </footer>
+    </form>
+  </section>
+</div>
