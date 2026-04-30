@@ -17,18 +17,31 @@ use Symfony\Component\Security\Http\Attribute\CurrentUser;
 class RoomsController extends ApiController
 {
     #[Route('/rooms', methods: ['GET'])]
-    public function list(#[CurrentUser] User $user, EntityManagerInterface $entityManager): JsonResponse
+    public function list(Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager): JsonResponse
     {
-        $rooms = $entityManager->getRepository(Room::class)->createQueryBuilder('room')
+        $status = (string) $request->query->get('status', 'active');
+        $queryBuilder = $entityManager->getRepository(Room::class)->createQueryBuilder('room')
             ->distinct()
             ->leftJoin('room.players', 'player')
             ->addSelect('player')
-            ->where('(room.status = :waiting AND room.visibility = :public)')
+            ->where('((room.status = :waiting AND room.visibility = :public)')
             ->orWhere('room.owner = :user')
-            ->orWhere('player.user = :user')
+            ->orWhere('player.user = :user)')
             ->setParameter('waiting', Room::STATUS_WAITING)
             ->setParameter('public', Room::VISIBILITY_PUBLIC)
-            ->setParameter('user', $user)
+            ->setParameter('user', $user);
+
+        if ($status === 'archived') {
+            $queryBuilder
+                ->andWhere('room.status = :archived')
+                ->setParameter('archived', Room::STATUS_ARCHIVED);
+        } elseif ($status !== 'all') {
+            $queryBuilder
+                ->andWhere('room.status != :archived')
+                ->setParameter('archived', Room::STATUS_ARCHIVED);
+        }
+
+        $rooms = $queryBuilder
             ->orderBy('room.createdAt', 'DESC')
             ->getQuery()
             ->getResult();
@@ -126,6 +139,30 @@ class RoomsController extends ApiController
         $entityManager->flush();
 
         return $this->json(null, 204);
+    }
+
+    #[Route('/rooms/{id}/archive', methods: ['POST'])]
+    public function archive(string $id, #[CurrentUser] User $user, EntityManagerInterface $entityManager): JsonResponse
+    {
+        $room = $entityManager->getRepository(Room::class)->find($id);
+        if (!$room instanceof Room) {
+            return $this->fail('Room not found.', 404);
+        }
+        if ($room->owner()->id() !== $user->id()) {
+            return $this->fail('Only the room owner can archive the room.', 403);
+        }
+        if ($room->status() === Room::STATUS_ARCHIVED) {
+            return $this->json(['room' => $room->toArray()]);
+        }
+        if ($room->status() !== Room::STATUS_STARTED && !$room->game() instanceof Game) {
+            return $this->fail('Only started rooms can be archived.', 409);
+        }
+
+        $room->archive();
+        $room->game()?->finish();
+        $entityManager->flush();
+
+        return $this->json(['room' => $room->toArray()]);
     }
 
     #[Route('/rooms/{id}/start', methods: ['POST'])]

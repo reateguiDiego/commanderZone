@@ -219,11 +219,23 @@ describe('API services', () => {
   });
 
   it('deletes rooms through the room endpoint', () => {
-    TestBed.inject(RoomsApi).delete('room-1').subscribe();
+    const rooms = TestBed.inject(RoomsApi);
 
-    const request = http.expectOne(`${API_BASE_URL}/rooms/room-1`);
+    rooms.list().subscribe();
+    let request = http.expectOne(`${API_BASE_URL}/rooms?status=active`);
+    expect(request.request.method).toBe('GET');
+    request.flush({ data: [] });
+
+    rooms.delete('room-1').subscribe();
+
+    request = http.expectOne(`${API_BASE_URL}/rooms/room-1`);
     expect(request.request.method).toBe('DELETE');
     request.flush(null);
+
+    rooms.archive('room-1').subscribe();
+    request = http.expectOne(`${API_BASE_URL}/rooms/room-1/archive`);
+    expect(request.request.method).toBe('POST');
+    request.flush({ room: roomFixture('room-1') });
   });
 
   it('handles room invites through existing room endpoints', () => {

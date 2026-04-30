@@ -24,11 +24,12 @@ export class GameTableComponent {
     }
 
     const current = this.store.currentPlayer();
-    const selected = this.store.selectedCards()[0];
+    const selected = this.store.activeKeyboardCard();
     switch (event.key.toLowerCase()) {
       case 'escape':
         this.store.closeContextMenu();
         this.store.closeZoneModal();
+        this.store.clearSelection();
         break;
       case 'd':
         if (current) {
@@ -43,7 +44,7 @@ export class GameTableComponent {
         }
         break;
       case 't':
-        if (selected) {
+        if (selected && this.store.canControlPlayer(selected.playerId)) {
           event.preventDefault();
           void this.store.command('card.tapped', {
             playerId: selected.playerId,
@@ -54,7 +55,7 @@ export class GameTableComponent {
         }
         break;
       case 'z':
-        if (selected) {
+        if (selected && this.store.canControlPlayer(selected.playerId)) {
           event.preventDefault();
           void this.store.command('card.face_down.changed', {
             playerId: selected.playerId,
@@ -65,7 +66,7 @@ export class GameTableComponent {
         }
         break;
       case 'k':
-        if (selected) {
+        if (selected && this.store.canControlPlayer(selected.playerId)) {
           event.preventDefault();
           void this.store.command('stack.card_added', {
             playerId: selected.playerId,
@@ -74,17 +75,31 @@ export class GameTableComponent {
           });
         }
         break;
+      case 'w':
+        if (selected && this.store.canControlPlayer(selected.playerId)) {
+          event.preventDefault();
+          void this.store.moveActiveCard('graveyard');
+        }
+        break;
     }
   }
 
-  @HostListener('document:pointermove', ['$event'])
+  @HostListener('window:pointermove', ['$event'])
   handlePointerMove(event: PointerEvent): void {
     this.store.moveFloatingPanel(event);
+    this.store.moveCardPointerDrag(event);
   }
 
-  @HostListener('document:pointerup')
-  handlePointerUp(): void {
+  @HostListener('window:pointerup', ['$event'])
+  handlePointerUp(event: PointerEvent): void {
     this.store.endFloatingDrag();
+    void this.store.endCardPointerDrag(event);
+  }
+
+  @HostListener('window:pointercancel', ['$event'])
+  handlePointerCancel(event: PointerEvent): void {
+    this.store.endFloatingDrag();
+    void this.store.cancelCardPointerDrag(event);
   }
 
   isLibraryMenu(menu: GameContextMenu): boolean {

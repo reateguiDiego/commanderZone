@@ -15,6 +15,7 @@ class Room
 {
     public const STATUS_WAITING = 'waiting';
     public const STATUS_STARTED = 'started';
+    public const STATUS_ARCHIVED = 'archived';
     public const VISIBILITY_PRIVATE = 'private';
     public const VISIBILITY_PUBLIC = 'public';
 
@@ -132,6 +133,11 @@ class Room
     {
         $this->status = self::STATUS_STARTED;
         $this->game = $game;
+    }
+
+    public function archive(): void
+    {
+        $this->status = self::STATUS_ARCHIVED;
     }
 
     public function toArray(): array

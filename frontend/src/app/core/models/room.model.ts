@@ -1,6 +1,6 @@
 import { User } from './user.model';
 
-export type RoomStatus = 'waiting' | 'started';
+export type RoomStatus = 'waiting' | 'started' | 'archived';
 export type RoomVisibility = 'private' | 'public';
 
 export interface RoomPlayer {

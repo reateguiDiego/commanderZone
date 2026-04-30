@@ -31,6 +31,7 @@ export class RoomsComponent implements OnDestroy {
   readonly currentRoom = signal<Room | null>(null);
   readonly error = signal<string | null>(null);
   readonly deletingRoomId = signal<string | null>(null);
+  readonly archivingRoomId = signal<string | null>(null);
   readonly roomPendingDelete = signal<Room | null>(null);
   selectedDeckId = '';
   visibility: 'private' | 'public' = 'private';
@@ -219,6 +220,31 @@ export class RoomsComponent implements OnDestroy {
 
   canStartRoom(room: Room): boolean {
     return room.owner.id === this.auth.user()?.id && room.players.length >= 2 && room.players.every((player) => !!player.deckId);
+  }
+
+  canArchiveRoom(room: Room): boolean {
+    return room.status !== 'archived' && room.owner.id === this.auth.user()?.id && (room.status === 'started' || !!room.gameId);
+  }
+
+  async archiveRoom(room: Room): Promise<void> {
+    if (!this.canArchiveRoom(room)) {
+      return;
+    }
+
+    this.error.set(null);
+    this.archivingRoomId.set(room.id);
+    try {
+      await firstValueFrom(this.roomsApi.archive(room.id));
+      if (this.currentRoom()?.id === room.id) {
+        this.currentRoom.set(null);
+      }
+      await this.loadRooms();
+    } catch (error) {
+      console.error(error);
+      this.error.set('Could not archive room. Only the owner can archive started games.');
+    } finally {
+      this.archivingRoomId.set(null);
+    }
   }
 
   async startRoom(id: string): Promise<void> {

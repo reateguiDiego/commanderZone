@@ -87,6 +87,11 @@
           @if (room.gameId) {
             <a class="secondary-button compact" [routerLink]="['/games', room.gameId]">Open game</a>
           }
+          @if (canArchiveRoom(room)) {
+            <button class="danger-button compact" type="button" [disabled]="archivingRoomId() === room.id" (click)="archiveRoom(room)">
+              {{ archivingRoomId() === room.id ? 'Archiving' : 'Archive' }}
+            </button>
+          }
         </div>
       } @else {
         <p class="notice">Create a room, paste a room id, or join a visible waiting room.</p>
@@ -147,6 +152,11 @@
             <button class="danger-button compact" type="button" [disabled]="deletingRoomId() === room.id" (click)="requestDeleteRoom(room)">
               <lucide-icon name="trash-2" size="15" />
               {{ deletingRoomId() === room.id ? 'Deleting' : 'Delete' }}
+            </button>
+          }
+          @if (canArchiveRoom(room)) {
+            <button class="danger-button compact" type="button" [disabled]="archivingRoomId() === room.id" (click)="archiveRoom(room)">
+              {{ archivingRoomId() === room.id ? 'Archiving' : 'Archive' }}
             </button>
           }
         </div>

@@ -31,16 +31,22 @@ class GameSnapshotFactory
             shuffle($library);
 
             $command = [];
+            $colorIdentity = [];
             foreach ($roomPlayer->deck()?->cards() ?? [] as $deckCard) {
                 if (!$deckCard instanceof DeckCard || $deckCard->section() !== DeckCard::SECTION_COMMANDER) {
                     continue;
                 }
 
                 $command[] = $this->cardInstance($deckCard, $roomPlayer->user()->id(), 'command');
+                $colorIdentity = array_values(array_unique([...$colorIdentity, ...$deckCard->card()->colorIdentity()]));
             }
+            $colorIdentity = $this->orderedColorIdentity($colorIdentity);
 
             $players[$roomPlayer->user()->id()] = [
                 'user' => $roomPlayer->user()->toArray(),
+                'status' => 'active',
+                'concededAt' => null,
+                'colorIdentity' => $colorIdentity,
                 'life' => 40,
                 'zones' => [
                     'library' => $library,
@@ -68,6 +74,7 @@ class GameSnapshotFactory
 
         return [
             'version' => 1,
+            'ownerId' => $room->owner()->id(),
             'players' => $players,
             'turn' => [
                 'activePlayerId' => array_key_first($players),
@@ -96,6 +103,7 @@ class GameSnapshotFactory
             'imageUris' => $card->imageUris(),
             'typeLine' => $card->typeLine(),
             'manaCost' => $card->manaCost(),
+            'colorIdentity' => $this->orderedColorIdentity($card->colorIdentity()),
             'power' => null,
             'toughness' => null,
             'loyalty' => null,
@@ -107,5 +115,17 @@ class GameSnapshotFactory
             'counters' => [],
             'zone' => $zone,
         ];
+    }
+
+    /**
+     * @param list<string> $colors
+     *
+     * @return list<string>
+     */
+    private function orderedColorIdentity(array $colors): array
+    {
+        $colors = array_values(array_unique($colors));
+
+        return array_values(array_filter(['W', 'U', 'B', 'R', 'G'], static fn (string $color): bool => in_array($color, $colors, true)));
     }
 }

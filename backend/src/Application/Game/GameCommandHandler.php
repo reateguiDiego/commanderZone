@@ -19,6 +19,8 @@ class GameCommandHandler
         $this->assertActorCanApply($snapshot, $type, $payload, $actor);
 
         match ($type) {
+            'game.concede' => $log = $this->applyGameConcede($snapshot, $actor),
+            'game.close' => $log = $this->applyGameClose($snapshot, $game, $actor),
             'chat.message' => $log = $this->applyChatMessage($snapshot, $payload, $actor),
             'life.changed' => $log = $this->applyLifeChanged($snapshot, $payload),
             'commander.damage.changed' => $log = $this->applyCommanderDamageChanged($snapshot, $payload),
@@ -61,6 +63,7 @@ class GameCommandHandler
     public function normalizeSnapshot(array $snapshot): array
     {
         $snapshot['version'] = max(1, (int) ($snapshot['version'] ?? 1));
+        $snapshot['ownerId'] = (string) ($snapshot['ownerId'] ?? '');
         $snapshot['stack'] ??= [];
         $snapshot['arrows'] ??= [];
         $snapshot['chat'] ??= [];
@@ -73,6 +76,9 @@ class GameCommandHandler
         }
 
         foreach ($snapshot['players'] as $playerId => &$player) {
+            $player['status'] = in_array($player['status'] ?? 'active', ['active', 'conceded'], true) ? $player['status'] : 'active';
+            $player['concededAt'] ??= null;
+            $player['colorIdentity'] = $this->orderedColorIdentity(is_array($player['colorIdentity'] ?? null) ? $player['colorIdentity'] : []);
             $player['counters'] ??= [];
             $player['commanderDamage'] ??= [];
             foreach (self::ZONES as $zone) {
@@ -81,6 +87,14 @@ class GameCommandHandler
                     $card = $this->normalizeCard($card, (string) $playerId, $zone);
                 }
                 unset($card);
+            }
+            if ($player['colorIdentity'] === [] && isset($player['zones']['command'])) {
+                foreach ($player['zones']['command'] as $commander) {
+                    $player['colorIdentity'] = $this->orderedColorIdentity([
+                        ...$player['colorIdentity'],
+                        ...(is_array($commander['colorIdentity'] ?? null) ? $commander['colorIdentity'] : []),
+                    ]);
+                }
             }
         }
         unset($player);
@@ -99,6 +113,7 @@ class GameCommandHandler
             'imageUris' => is_array($card['imageUris'] ?? null) ? $card['imageUris'] : [],
             'typeLine' => $card['typeLine'] ?? null,
             'manaCost' => $card['manaCost'] ?? null,
+            'colorIdentity' => $this->orderedColorIdentity(is_array($card['colorIdentity'] ?? null) ? $card['colorIdentity'] : []),
             'power' => $card['power'] ?? null,
             'toughness' => $card['toughness'] ?? null,
             'loyalty' => $card['loyalty'] ?? null,
@@ -110,6 +125,31 @@ class GameCommandHandler
             'counters' => is_array($card['counters'] ?? null) ? $card['counters'] : [],
             'zone' => $zone,
         ];
+    }
+
+    private function applyGameConcede(array &$snapshot, User $actor): string
+    {
+        $playerId = $actor->id();
+        if (!isset($snapshot['players'][$playerId])) {
+            throw new \InvalidArgumentException('Actor is not a game player.');
+        }
+
+        $snapshot['players'][$playerId]['status'] = 'conceded';
+        $snapshot['players'][$playerId]['concededAt'] = (new \DateTimeImmutable())->format(DATE_ATOM);
+
+        return sprintf('%s conceded.', $this->playerName($snapshot, $playerId));
+    }
+
+    private function applyGameClose(array &$snapshot, Game $game, User $actor): string
+    {
+        if ($game->room()->owner()->id() !== $actor->id()) {
+            throw new \InvalidArgumentException('Only the room owner can close the game.');
+        }
+
+        $game->finish();
+        $game->room()->archive();
+
+        return 'Closed and archived the game.';
     }
 
     private function applyChatMessage(array &$snapshot, array $payload, User $actor): ?string
@@ -628,6 +668,12 @@ class GameCommandHandler
         if (!isset($snapshot['players'][$actorId])) {
             throw new \InvalidArgumentException('Actor is not a game player.');
         }
+        if ($type === 'game.concede' || $type === 'game.close') {
+            return;
+        }
+        if (($snapshot['players'][$actorId]['status'] ?? 'active') === 'conceded' && !in_array($type, ['chat.message', 'game.close'], true)) {
+            throw new \InvalidArgumentException('Conceded players cannot perform game actions.');
+        }
 
         if (str_starts_with($type, 'library.')) {
             $this->assertActorPlayer($snapshot, $payload, $actor, 'playerId');
@@ -635,26 +681,25 @@ class GameCommandHandler
         }
 
         if ($type === 'zone.changed' || $type === 'zone.move_all') {
-            $zone = $this->requiredZone($payload, $type === 'zone.move_all' ? 'fromZone' : 'zone');
-            if (in_array($zone, self::HIDDEN_ZONES, true)) {
-                $this->assertActorPlayer($snapshot, $payload, $actor, 'playerId');
-            }
+            $this->assertActorPlayer($snapshot, $payload, $actor, 'playerId');
             return;
         }
 
-        if ($type === 'card.moved' || $type === 'cards.moved') {
-            $fromZone = $this->requiredZone($payload, 'fromZone');
-            if (in_array($fromZone, self::HIDDEN_ZONES, true)) {
-                $this->assertActorPlayer($snapshot, $payload, $actor, 'playerId');
-            }
+        if (in_array($type, [
+            'card.moved',
+            'cards.moved',
+            'card.tapped',
+            'card.position.changed',
+            'card.face_down.changed',
+            'card.revealed',
+            'card.token_copy.created',
+            'card.controller.changed',
+            'card.power_toughness.changed',
+            'card.counter.changed',
+            'stack.card_added',
+        ], true)) {
+            $this->assertActorPlayer($snapshot, $payload, $actor, 'playerId');
             return;
-        }
-
-        if (in_array($type, ['card.revealed', 'card.face_down.changed', 'stack.card_added'], true)) {
-            $zone = isset($payload['zone']) ? $this->requiredZone($payload) : null;
-            if ($zone !== null && in_array($zone, self::HIDDEN_ZONES, true)) {
-                $this->assertActorPlayer($snapshot, $payload, $actor, 'playerId');
-            }
         }
     }
 
@@ -664,6 +709,18 @@ class GameCommandHandler
         if ($playerId !== $actor->id()) {
             throw new \InvalidArgumentException('You can only perform this action on your own hidden zones.');
         }
+    }
+
+    /**
+     * @param list<mixed> $colors
+     *
+     * @return list<string>
+     */
+    private function orderedColorIdentity(array $colors): array
+    {
+        $colors = array_values(array_unique(array_filter($colors, static fn (mixed $color): bool => is_string($color))));
+
+        return array_values(array_filter(['W', 'U', 'B', 'R', 'G'], static fn (string $color): bool => in_array($color, $colors, true)));
     }
 
     private function visibilityTargets(array $snapshot, mixed $target): array

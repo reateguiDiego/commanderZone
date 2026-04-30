@@ -2,6 +2,8 @@ import { User } from './user.model';
 
 export type GameZoneName = 'library' | 'hand' | 'battlefield' | 'graveyard' | 'exile' | 'command';
 export type GameCommandType =
+  | 'game.concede'
+  | 'game.close'
   | 'chat.message'
   | 'life.changed'
   | 'commander.damage.changed'
@@ -40,6 +42,7 @@ export interface GameCardInstance {
   imageUris?: Record<string, string>;
   typeLine?: string | null;
   manaCost?: string | null;
+  colorIdentity?: string[];
   power?: number | null;
   toughness?: number | null;
   loyalty?: number | null;
@@ -59,6 +62,9 @@ export type GameZoneCounts = Record<GameZoneName, number>;
 
 export interface GamePlayerState {
   user: User;
+  status?: 'active' | 'conceded';
+  concededAt?: string | null;
+  colorIdentity?: string[];
   life: number;
   zones: GameZones;
   zoneCounts?: GameZoneCounts;
@@ -105,6 +111,7 @@ export interface GameArrow {
 
 export interface GameSnapshot {
   version: number;
+  ownerId?: string;
   players: Record<string, GamePlayerState>;
   turn: GameTurn;
   stack: GameStackItem[];

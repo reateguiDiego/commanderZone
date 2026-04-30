@@ -10,8 +10,8 @@ import { Room, RoomVisibility } from '../models/room.model';
 export class RoomsApi {
   private readonly http = inject(HttpClient);
 
-  list(): Observable<DataResponse<Room>> {
-    return this.http.get<DataResponse<Room>>(`${API_BASE_URL}/rooms`);
+  list(status: 'active' | 'archived' | 'all' = 'active'): Observable<DataResponse<Room>> {
+    return this.http.get<DataResponse<Room>>(`${API_BASE_URL}/rooms`, { params: { status } });
   }
 
   show(roomId: string): Observable<RoomResponse> {
@@ -32,6 +32,10 @@ export class RoomsApi {
 
   delete(roomId: string): Observable<void> {
     return this.http.delete<void>(`${API_BASE_URL}/rooms/${roomId}`);
+  }
+
+  archive(roomId: string): Observable<RoomResponse> {
+    return this.http.post<RoomResponse>(`${API_BASE_URL}/rooms/${roomId}/archive`, {});
   }
 
   start(roomId: string): Observable<StartGameResponse> {

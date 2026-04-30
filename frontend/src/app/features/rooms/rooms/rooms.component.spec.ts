@@ -13,6 +13,7 @@ describe('RoomsComponent', () => {
     list: vi.fn(),
     show: vi.fn(),
     delete: vi.fn(),
+    archive: vi.fn(),
     incomingInvites: vi.fn(),
   };
 
@@ -20,6 +21,7 @@ describe('RoomsComponent', () => {
     roomsApi.list.mockReset().mockReturnValue(of({ data: [] }));
     roomsApi.show.mockReset().mockReturnValue(of({ room: null }));
     roomsApi.delete.mockReset().mockReturnValue(of(undefined));
+    roomsApi.archive.mockReset().mockReturnValue(of({ room: null }));
     roomsApi.incomingInvites.mockReset().mockReturnValue(of({ data: [] }));
 
     await TestBed.configureTestingModule({

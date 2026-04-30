@@ -13,6 +13,9 @@ use Symfony\Component\Uid\Uuid;
 #[ORM\Table(name: 'game')]
 class Game
 {
+    public const STATUS_ACTIVE = 'active';
+    public const STATUS_FINISHED = 'finished';
+
     #[ORM\Id]
     #[ORM\Column(type: 'string', length: 36)]
     private string $id;
@@ -22,7 +25,7 @@ class Game
     private Room $room;
 
     #[ORM\Column(type: 'string', length: 40)]
-    private string $status = 'active';
+    private string $status = self::STATUS_ACTIVE;
 
     #[ORM\Column(type: 'json')]
     private array $snapshot;
@@ -65,6 +68,11 @@ class Game
     public function replaceSnapshot(array $snapshot): void
     {
         $this->snapshot = $snapshot;
+    }
+
+    public function finish(): void
+    {
+        $this->status = self::STATUS_FINISHED;
     }
 
     public function addEvent(GameEvent $event): void

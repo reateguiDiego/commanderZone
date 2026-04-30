@@ -37,6 +37,7 @@ class RoomsGamesApiTest extends ApiTestCase
     {
         $this->seedCard('11111111-1111-7111-8111-111111111111', 'Forest', [
             'type_line' => 'Basic Land — Forest',
+            'color_identity' => ['G'],
             'oracle_text' => '({T}: Add {G}.)',
             'set' => 'tst',
             'collector_number' => '1',
@@ -95,7 +96,11 @@ class RoomsGamesApiTest extends ApiTestCase
         self::assertArrayHasKey('snapshot', $this->jsonResponse()['game']);
         self::assertArrayHasKey('version', $ownerSnapshot);
         $ownerPlayerId = $this->playerIdByName($ownerSnapshot, 'Owner');
+        $playerPlayerId = $this->playerIdByName($ownerSnapshot, 'Player');
+        self::assertSame($ownerPlayerId, $ownerSnapshot['ownerId']);
         self::assertCount(2, $ownerSnapshot['players'][$ownerPlayerId]['zones']['library']);
+        self::assertSame([], $ownerSnapshot['players'][$ownerPlayerId]['colorIdentity']);
+        self::assertContains(['G'], array_column($ownerSnapshot['players'][$ownerPlayerId]['zones']['library'], 'colorIdentity'));
 
         $this->jsonRequest('POST', '/games/'.$gameId.'/commands', [
             'type' => 'chat.message',
@@ -165,6 +170,17 @@ class RoomsGamesApiTest extends ApiTestCase
         self::assertResponseStatusCodeSame(201);
         self::assertSame(['x' => 420, 'y' => 220], $this->jsonResponse()['snapshot']['players'][$ownerPlayerId]['zones']['battlefield'][0]['position']);
 
+        $this->jsonRequest('POST', '/games/'.$gameId.'/commands', [
+            'type' => 'card.moved',
+            'payload' => [
+                'playerId' => $ownerPlayerId,
+                'fromZone' => 'battlefield',
+                'toZone' => 'graveyard',
+                'instanceId' => $drawnCardId,
+            ],
+        ], $playerToken);
+        self::assertResponseStatusCodeSame(400);
+
         $this->jsonRequest('GET', '/games/'.$gameId.'/snapshot', token: $playerToken);
         self::assertResponseIsSuccessful();
         $playerProjection = $this->jsonResponse()['game']['snapshot'];
@@ -185,6 +201,51 @@ class RoomsGamesApiTest extends ApiTestCase
         $this->jsonRequest('GET', '/games/'.$gameId.'/events?limit=10', token: $playerToken);
         self::assertResponseIsSuccessful();
         self::assertContains('chat.message', array_column($this->jsonResponse()['data'], 'type'));
+
+        $this->jsonRequest('POST', '/games/'.$gameId.'/commands', [
+            'type' => 'game.concede',
+            'payload' => [],
+        ], $playerToken);
+        self::assertResponseStatusCodeSame(201);
+        self::assertSame('conceded', $this->jsonResponse()['snapshot']['players'][$playerPlayerId]['status']);
+
+        $this->jsonRequest('POST', '/games/'.$gameId.'/commands', [
+            'type' => 'game.concede',
+            'payload' => [],
+        ], $playerToken);
+        self::assertResponseStatusCodeSame(201);
+
+        $this->jsonRequest('POST', '/games/'.$gameId.'/commands', [
+            'type' => 'library.draw',
+            'payload' => ['playerId' => $playerPlayerId],
+        ], $playerToken);
+        self::assertResponseStatusCodeSame(400);
+
+        $this->jsonRequest('POST', '/games/'.$gameId.'/commands', [
+            'type' => 'card.tapped',
+            'payload' => [
+                'playerId' => $playerPlayerId,
+                'zone' => 'battlefield',
+                'instanceId' => 'missing-card',
+                'tapped' => true,
+            ],
+        ], $playerToken);
+        self::assertResponseStatusCodeSame(400);
+
+        $this->jsonRequest('POST', '/rooms/'.$roomId.'/archive', token: $playerToken);
+        self::assertResponseStatusCodeSame(403);
+
+        $this->jsonRequest('POST', '/rooms/'.$roomId.'/archive', token: $ownerToken);
+        self::assertResponseIsSuccessful();
+        self::assertSame('archived', $this->jsonResponse()['room']['status']);
+
+        $this->jsonRequest('GET', '/rooms', token: $ownerToken);
+        self::assertResponseIsSuccessful();
+        self::assertNotContains($roomId, array_column($this->jsonResponse()['data'], 'id'));
+
+        $this->jsonRequest('GET', '/rooms?status=archived', token: $ownerToken);
+        self::assertResponseIsSuccessful();
+        self::assertContains($roomId, array_column($this->jsonResponse()['data'], 'id'));
     }
 
     /**

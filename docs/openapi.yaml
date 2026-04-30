@@ -1084,6 +1084,13 @@ paths:
     get:
       tags: [Rooms]
       summary: List rooms visible to the authenticated user.
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, archived, all]
+            default: active
       responses:
         '200':
           description: Own rooms and public waiting rooms.
@@ -1321,6 +1328,31 @@ paths:
                     $ref: '#/components/schemas/Game'
         '400':
           $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+  /rooms/{id}/archive:
+    post:
+      tags: [Rooms]
+      summary: Archive a started room and finish its game.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Archived room.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [room]
+                properties:
+                  room:
+                    $ref: '#/components/schemas/Room'
         '401':
           $ref: '#/components/responses/Error'
         '403':
@@ -2471,7 +2503,7 @@ components:
           $ref: '#/components/schemas/User'
         status:
           type: string
-          enum: [waiting, started]
+          enum: [waiting, started, archived]
         visibility:
           type: string
           enum: [private, public]
@@ -2525,7 +2557,7 @@ components:
           format: uuid
         status:
           type: string
-          enum: [active]
+          enum: [active, finished]
         snapshot:
           $ref: '#/components/schemas/GameSnapshot'
     GameSnapshot:
@@ -2534,6 +2566,9 @@ components:
       properties:
         version:
           type: integer
+        ownerId:
+          type: string
+          format: uuid
         players:
           type: object
           additionalProperties:
@@ -2570,6 +2605,17 @@ components:
       properties:
         user:
           $ref: '#/components/schemas/User'
+        status:
+          type: string
+          enum: [active, conceded]
+        concededAt:
+          type: [string, 'null']
+          format: date-time
+        colorIdentity:
+          type: array
+          items:
+            type: string
+            enum: [W, U, B, R, G]
         life:
           type: integer
         zones:
@@ -2635,6 +2681,11 @@ components:
           type: [string, 'null']
         manaCost:
           type: [string, 'null']
+        colorIdentity:
+          type: array
+          items:
+            type: string
+            enum: [W, U, B, R, G]
         power:
           type: [integer, 'null']
         toughness:
@@ -2767,6 +2818,8 @@ components:
         type:
           type: string
           enum:
+            - game.concede
+            - game.close
             - chat.message
             - life.changed
             - commander.damage.changed
@@ -2776,6 +2829,7 @@ components:
             - card.moved
             - cards.moved
             - card.tapped
+            - card.position.changed
             - card.face_down.changed
             - card.revealed
             - card.token_copy.created
