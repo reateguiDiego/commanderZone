@@ -46,6 +46,7 @@ export class GameTableStore implements OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private realtimeSubscription?: Subscription;
   private pollHandle?: number;
+  private floatingDragOffset: { x: number; y: number } | null = null;
 
   readonly zones: GameZoneName[] = ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command'];
   readonly publicZones: GameZoneName[] = ['battlefield', 'graveyard', 'exile', 'command'];
@@ -102,7 +103,7 @@ export class GameTableStore implements OnDestroy {
     }
 
     try {
-      await this.refetch();
+      await this.refetch(true);
       this.subscribeToRealtime(id);
       this.startPolling();
     } catch {
@@ -112,16 +113,22 @@ export class GameTableStore implements OnDestroy {
     }
   }
 
-  async refetch(): Promise<void> {
+  async refetch(force = false): Promise<void> {
     const id = this.gameId();
     if (!id) {
       return;
     }
 
     const response = await firstValueFrom(this.gamesApi.snapshot(id));
-    this.snapshot.set(response.game.snapshot);
+    const nextSnapshot = response.game.snapshot;
+    const currentSnapshot = this.snapshot();
+    if (!force && currentSnapshot?.version === nextSnapshot.version) {
+      return;
+    }
+
+    this.snapshot.set(nextSnapshot);
     if (!this.focusedPlayerId()) {
-      this.focusedPlayerId.set(response.game.snapshot.turn.activePlayerId ?? Object.keys(response.game.snapshot.players)[0] ?? null);
+      this.focusedPlayerId.set(nextSnapshot.turn.activePlayerId ?? Object.keys(nextSnapshot.players)[0] ?? null);
     }
   }
 
@@ -135,6 +142,14 @@ export class GameTableStore implements OnDestroy {
     if (player) {
       this.focusPlayer(player.id);
     }
+  }
+
+  isCurrentPlayer(playerId: string): boolean {
+    return this.currentPlayer()?.id === playerId;
+  }
+
+  canUseHiddenZone(playerId: string, zone: GameZoneName): boolean {
+    return !['library', 'hand'].includes(zone) || this.isCurrentPlayer(playerId);
   }
 
   zoneTitle(zone: GameZoneName): string {
@@ -162,6 +177,28 @@ export class GameTableStore implements OnDestroy {
     const entries = Object.entries(card.counters ?? {}).filter(([, value]) => value > 0);
 
     return entries.length > 0 ? { key: entries[0][0], value: entries[0][1] } : null;
+  }
+
+  cardPosition(card: GameCardInstance): { x: number; y: number } | null {
+    const position = card.position;
+    if (!position || (position.x <= 0 && position.y <= 0)) {
+      return null;
+    }
+
+    return position;
+  }
+
+  zoneHint(zone: GameZoneName): string {
+    const hints: Record<GameZoneName, string> = {
+      library: 'Draw, reveal, shuffle',
+      hand: 'Private cards',
+      battlefield: 'Play area',
+      graveyard: 'Public discard',
+      exile: 'Public exile',
+      command: 'Command zone',
+    };
+
+    return hints[zone];
   }
 
   showCardPreview(card: GameCardInstance): void {
@@ -255,12 +292,18 @@ export class GameTableStore implements OnDestroy {
   }
 
   async draw(playerId: string, count = 1): Promise<void> {
+    if (!this.isCurrentPlayer(playerId)) {
+      this.error.set('You can only draw from your own library.');
+      return;
+    }
+
     await this.command(count === 1 ? 'library.draw' : 'library.draw_many', { playerId, count });
   }
 
   async drawCurrent(count = 1): Promise<void> {
     const player = this.currentPlayer() ?? this.focusedPlayer();
     if (player) {
+      this.focusPlayer(player.id);
       await this.draw(player.id, count);
     }
   }
@@ -271,19 +314,39 @@ export class GameTableStore implements OnDestroy {
   }
 
   async shuffle(playerId: string): Promise<void> {
+    if (!this.isCurrentPlayer(playerId)) {
+      this.error.set('You can only shuffle your own library.');
+      return;
+    }
+
     await this.command('library.shuffle', { playerId });
   }
 
   async revealTop(playerId: string): Promise<void> {
+    if (!this.isCurrentPlayer(playerId)) {
+      this.error.set('You can only reveal from your own library.');
+      return;
+    }
+
     await this.command('library.reveal_top', { playerId, count: 1, to: 'all' });
   }
 
   async moveTop(playerId: string, toZone: GameZoneName): Promise<void> {
+    if (!this.isCurrentPlayer(playerId)) {
+      this.error.set('You can only move cards from your own library.');
+      return;
+    }
+
     const count = Number(prompt('How many top cards?', '1') ?? '1');
     await this.command('library.move_top', { playerId, toZone, count: Number.isFinite(count) ? Math.max(1, Math.floor(count)) : 1 });
   }
 
   async playCard(playerId: string, zone: GameZoneName, card: GameCardInstance): Promise<void> {
+    if (!this.canUseHiddenZone(playerId, zone)) {
+      this.error.set('You cannot move another player hidden card.');
+      return;
+    }
+
     await this.command('card.moved', {
       playerId,
       fromZone: zone,
@@ -316,14 +379,24 @@ export class GameTableStore implements OnDestroy {
     if (!dragged) {
       return;
     }
+    if (!this.canUseHiddenZone(dragged.playerId, dragged.zone)) {
+      this.error.set('You cannot move another player hidden card.');
+      return;
+    }
 
-    await this.command('card.moved', {
+    const payload: Record<string, unknown> = {
       playerId: dragged.playerId,
       fromZone: dragged.zone,
       toZone,
       targetPlayerId,
       instanceId: dragged.instanceId,
-    });
+    };
+    const position = this.dropPosition(event, toZone);
+    if (position) {
+      payload['position'] = position;
+    }
+
+    await this.command('card.moved', payload);
     this.selectedCards.set([]);
   }
 
@@ -338,6 +411,11 @@ export class GameTableStore implements OnDestroy {
 
   async moveCard(menu: GameContextMenu, toZone: GameZoneName): Promise<void> {
     if (!menu.card) {
+      return;
+    }
+    if (!this.canUseHiddenZone(menu.playerId, menu.zone)) {
+      this.error.set('You cannot move another player hidden card.');
+      this.closeContextMenu();
       return;
     }
 
@@ -355,6 +433,10 @@ export class GameTableStore implements OnDestroy {
     const selected = this.selectedCards();
     const first = selected[0];
     if (!first) {
+      return;
+    }
+    if (!this.canUseHiddenZone(first.playerId, first.zone)) {
+      this.error.set('You cannot move another player hidden card.');
       return;
     }
     const sameSource = selected.every((item) => item.playerId === first.playerId && item.zone === first.zone);
@@ -467,6 +549,61 @@ export class GameTableStore implements OnDestroy {
     this.closeContextMenu();
   }
 
+  async toggleTapped(playerId: string, zone: GameZoneName, card: GameCardInstance): Promise<void> {
+    await this.command('card.tapped', {
+      playerId,
+      zone,
+      instanceId: card.instanceId,
+      tapped: !card.tapped,
+    });
+  }
+
+  async moveBattlefieldCard(playerId: string, card: GameCardInstance, event: DragEvent): Promise<void> {
+    const position = this.dropPosition(event, 'battlefield');
+    if (!position) {
+      return;
+    }
+
+    await this.command('card.position.changed', {
+      playerId,
+      zone: 'battlefield',
+      instanceId: card.instanceId,
+      position,
+    });
+  }
+
+  async moveZoneCard(card: GameCardInstance, toZone: GameZoneName): Promise<void> {
+    const modal = this.zoneModal();
+    if (!modal || !this.canUseHiddenZone(modal.playerId, modal.zone)) {
+      this.error.set('You cannot move another player hidden card.');
+      return;
+    }
+
+    await this.command('card.moved', {
+      playerId: modal.playerId,
+      fromZone: modal.zone,
+      toZone,
+      instanceId: card.instanceId,
+    });
+    await this.loadZone();
+  }
+
+  async revealZoneCard(card: GameCardInstance): Promise<void> {
+    const modal = this.zoneModal();
+    if (!modal || !this.canUseHiddenZone(modal.playerId, modal.zone)) {
+      this.error.set('You cannot reveal another player hidden card.');
+      return;
+    }
+
+    await this.command('card.revealed', {
+      playerId: modal.playerId,
+      zone: modal.zone,
+      instanceId: card.instanceId,
+      to: 'all',
+    });
+    await this.loadZone();
+  }
+
   async openZone(playerId: string, zone: GameZoneName): Promise<void> {
     const title = `${this.playerName(playerId)} ${this.zoneTitle(zone)}`;
     this.zoneModal.set({ playerId, zone, title, cards: [], total: 0, type: '', search: '', selectedCard: null, loading: true });
@@ -518,6 +655,38 @@ export class GameTableStore implements OnDestroy {
     this.zoneModal.set(null);
   }
 
+  startFloatingDrag(event: PointerEvent): void {
+    const target = event.currentTarget as HTMLElement;
+    const panel = target.closest('.floating-panel') as HTMLElement | null;
+    if (!panel) {
+      return;
+    }
+
+    const bounds = panel.getBoundingClientRect();
+    this.floatingDragOffset = {
+      x: event.clientX - bounds.left,
+      y: event.clientY - bounds.top,
+    };
+    panel.setPointerCapture?.(event.pointerId);
+  }
+
+  moveFloatingPanel(event: PointerEvent): void {
+    if (!this.floatingDragOffset) {
+      return;
+    }
+
+    const width = 384;
+    const height = 420;
+    this.floatingPanel.set({
+      x: Math.max(8, Math.min(event.clientX - this.floatingDragOffset.x, window.innerWidth - width - 8)),
+      y: Math.max(8, Math.min(event.clientY - this.floatingDragOffset.y, window.innerHeight - height - 8)),
+    });
+  }
+
+  endFloatingDrag(): void {
+    this.floatingDragOffset = null;
+  }
+
   async command(type: GameCommandType, payload: Record<string, unknown>): Promise<void> {
     const gameId = this.gameId();
     if (!gameId || this.pending()) {
@@ -543,7 +712,7 @@ export class GameTableStore implements OnDestroy {
   private subscribeToRealtime(gameId: string): void {
     this.realtimeSubscription?.unsubscribe();
     this.realtimeSubscription = this.mercure.gameEvents(gameId).subscribe({
-      next: () => void this.refetch(),
+      next: () => void this.refetch(false),
     });
   }
 
@@ -554,9 +723,9 @@ export class GameTableStore implements OnDestroy {
 
     this.pollHandle = window.setInterval(() => {
       if (!this.pending()) {
-        void this.refetch();
+        void this.refetch(false);
       }
-    }, 2000);
+    }, 4000);
   }
 
   private playerName(playerId: string): string {
@@ -599,6 +768,19 @@ export class GameTableStore implements OnDestroy {
     } catch {
       return null;
     }
+  }
+
+  private dropPosition(event: DragEvent, zone: GameZoneName): { x: number; y: number } | null {
+    if (zone !== 'battlefield' || !(event.currentTarget instanceof HTMLElement)) {
+      return null;
+    }
+
+    const bounds = event.currentTarget.getBoundingClientRect();
+
+    return {
+      x: Math.max(0, Math.round(event.clientX - bounds.left - 58)),
+      y: Math.max(0, Math.round(event.clientY - bounds.top - 82)),
+    };
   }
 
   private errorMessage(error: unknown): string {

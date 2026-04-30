@@ -16,6 +16,7 @@ class GameCommandHandler
     {
         $snapshot = $this->normalizeSnapshot($game->snapshot());
         $log = null;
+        $this->assertActorCanApply($snapshot, $type, $payload, $actor);
 
         match ($type) {
             'chat.message' => $log = $this->applyChatMessage($snapshot, $payload, $actor),
@@ -27,6 +28,7 @@ class GameCommandHandler
             'card.moved' => $log = $this->applyCardMoved($snapshot, $payload),
             'cards.moved' => $log = $this->applyCardsMoved($snapshot, $payload),
             'card.tapped' => $log = $this->applyCardTapped($snapshot, $payload),
+            'card.position.changed' => $log = $this->applyCardPositionChanged($snapshot, $payload),
             'card.face_down.changed' => $log = $this->applyCardFaceDown($snapshot, $payload),
             'card.revealed' => $log = $this->applyCardRevealed($snapshot, $payload),
             'card.token_copy.created' => $log = $this->applyTokenCopyCreated($snapshot, $payload, $actor),
@@ -220,7 +222,7 @@ class GameCommandHandler
         $targetPlayerId = isset($payload['targetPlayerId'])
             ? $this->requiredPlayerId($snapshot, $payload, 'targetPlayerId')
             : $playerId;
-        $this->putCard($snapshot, $targetPlayerId, $toZone, $card, (string) ($payload['position'] ?? 'top'));
+        $this->putCard($snapshot, $targetPlayerId, $toZone, $card, $payload['position'] ?? 'top');
 
         return sprintf('Moved %s from %s to %s.', $card['name'], $fromZone, $toZone);
     }
@@ -241,7 +243,7 @@ class GameCommandHandler
                 continue;
             }
             $card = $this->takeCard($snapshot, $playerId, $fromZone, $instanceId);
-            $this->putCard($snapshot, $playerId, $toZone, $card, (string) ($payload['position'] ?? 'top'));
+            $this->putCard($snapshot, $playerId, $toZone, $card, $payload['position'] ?? 'top');
             ++$moved;
         }
 
@@ -256,6 +258,19 @@ class GameCommandHandler
         $card['rotation'] = $card['tapped'] ? 90 : 0;
 
         return sprintf('%s %s.', $card['tapped'] ? 'Tapped' : 'Untapped', $card['name']);
+    }
+
+    private function applyCardPositionChanged(array &$snapshot, array $payload): string
+    {
+        $location = $this->requiredCardLocation($snapshot, $payload);
+        if ($location['zone'] !== 'battlefield') {
+            throw new \InvalidArgumentException('Only battlefield cards can be freely positioned.');
+        }
+
+        $card =& $snapshot['players'][$location['playerId']]['zones'][$location['zone']][$location['index']];
+        $card['position'] = $this->normalizedPosition($payload['position'] ?? null);
+
+        return sprintf('Moved %s on battlefield.', $card['name']);
     }
 
     private function applyCardFaceDown(array &$snapshot, array $payload): string
@@ -355,7 +370,7 @@ class GameCommandHandler
         $cards = $snapshot['players'][$playerId]['zones'][$fromZone];
         $snapshot['players'][$playerId]['zones'][$fromZone] = [];
         foreach ($cards as $card) {
-            $this->putCard($snapshot, $playerId, $toZone, $card, (string) ($payload['position'] ?? 'top'));
+            $this->putCard($snapshot, $playerId, $toZone, $card, $payload['position'] ?? 'top');
         }
 
         return sprintf('Moved all cards from %s to %s.', $fromZone, $toZone);
@@ -396,7 +411,7 @@ class GameCommandHandler
             if (!is_array($card)) {
                 break;
             }
-            $this->putCard($snapshot, $playerId, $toZone, $card, (string) ($payload['position'] ?? 'top'));
+            $this->putCard($snapshot, $playerId, $toZone, $card, $payload['position'] ?? 'top');
             ++$moved;
         }
 
@@ -526,10 +541,18 @@ class GameCommandHandler
         throw new \InvalidArgumentException('Card not found.');
     }
 
-    private function putCard(array &$snapshot, string $playerId, string $zone, array $card, string $position = 'top'): void
+    /**
+     * @param string|array<string,mixed> $position
+     */
+    private function putCard(array &$snapshot, string $playerId, string $zone, array $card, string|array $position = 'top'): void
     {
         $card = $this->normalizeCard($card, (string) ($card['ownerId'] ?? $playerId), $zone);
         $card['zone'] = $zone;
+        if ($zone === 'battlefield' && is_array($position)) {
+            $card['position'] = $this->normalizedPosition($position);
+        } elseif ($zone !== 'battlefield') {
+            $card['position'] = ['x' => 0, 'y' => 0];
+        }
         if (!in_array($zone, self::HIDDEN_ZONES, true)) {
             $card['revealedTo'] = [];
         }
@@ -582,6 +605,65 @@ class GameCommandHandler
         }
 
         return $zone;
+    }
+
+    /**
+     * @return array{x:int,y:int}
+     */
+    private function normalizedPosition(mixed $position): array
+    {
+        if (!is_array($position)) {
+            return ['x' => 0, 'y' => 0];
+        }
+
+        return [
+            'x' => max(0, min(3000, (int) ($position['x'] ?? 0))),
+            'y' => max(0, min(2000, (int) ($position['y'] ?? 0))),
+        ];
+    }
+
+    private function assertActorCanApply(array $snapshot, string $type, array $payload, User $actor): void
+    {
+        $actorId = $actor->id();
+        if (!isset($snapshot['players'][$actorId])) {
+            throw new \InvalidArgumentException('Actor is not a game player.');
+        }
+
+        if (str_starts_with($type, 'library.')) {
+            $this->assertActorPlayer($snapshot, $payload, $actor, 'playerId');
+            return;
+        }
+
+        if ($type === 'zone.changed' || $type === 'zone.move_all') {
+            $zone = $this->requiredZone($payload, $type === 'zone.move_all' ? 'fromZone' : 'zone');
+            if (in_array($zone, self::HIDDEN_ZONES, true)) {
+                $this->assertActorPlayer($snapshot, $payload, $actor, 'playerId');
+            }
+            return;
+        }
+
+        if ($type === 'card.moved' || $type === 'cards.moved') {
+            $fromZone = $this->requiredZone($payload, 'fromZone');
+            if (in_array($fromZone, self::HIDDEN_ZONES, true)) {
+                $this->assertActorPlayer($snapshot, $payload, $actor, 'playerId');
+            }
+            return;
+        }
+
+        if (in_array($type, ['card.revealed', 'card.face_down.changed', 'stack.card_added'], true)) {
+            $zone = isset($payload['zone']) ? $this->requiredZone($payload) : null;
+            if ($zone !== null && in_array($zone, self::HIDDEN_ZONES, true)) {
+                $this->assertActorPlayer($snapshot, $payload, $actor, 'playerId');
+            }
+        }
+    }
+
+    private function assertActorPlayer(array $snapshot, array $payload, User $actor, string $key): void
+    {
+        $playerId = $this->requiredPlayerId($snapshot, $payload, $key);
+        if ($playerId !== $actor->id()) {
+            throw new \InvalidArgumentException('You can only perform this action on your own hidden zones.');
+        }
     }
 
     private function visibilityTargets(array $snapshot, mixed $target): array

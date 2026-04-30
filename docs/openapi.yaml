@@ -1202,6 +1202,12 @@ paths:
       summary: Accept a pending room invite and join the room.
       parameters:
         - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeckSelection'
       responses:
         '200':
           description: Room invite accepted.

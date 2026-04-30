@@ -214,6 +214,7 @@ describe('API services', () => {
     const request = http.expectOne(`${API_BASE_URL}/games/game-1/commands`);
     expect(request.request.method).toBe('POST');
     expect(request.request.body).toEqual({ type: 'life.changed', payload: { playerId: 'p1', delta: -1 } });
+    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);
     request.flush({ event: {}, snapshot: { players: {}, turn: { activePlayerId: null, phase: 'beginning', number: 1 }, chat: [], createdAt: '' } });
   });
 
@@ -223,6 +224,21 @@ describe('API services', () => {
     const request = http.expectOne(`${API_BASE_URL}/rooms/room-1`);
     expect(request.request.method).toBe('DELETE');
     request.flush(null);
+  });
+
+  it('loads room detail and accepts room invites with a deck id', () => {
+    const rooms = TestBed.inject(RoomsApi);
+
+    rooms.show('room-1').subscribe();
+    let request = http.expectOne(`${API_BASE_URL}/rooms/room-1`);
+    expect(request.request.method).toBe('GET');
+    request.flush({ room: roomFixture('room-1') });
+
+    rooms.acceptInvite('invite-1', 'deck-1').subscribe();
+    request = http.expectOne(`${API_BASE_URL}/rooms/invites/invite-1/accept`);
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({ deckId: 'deck-1' });
+    request.flush({ invite: {}, room: roomFixture('room-1') });
   });
 });
 
@@ -287,5 +303,16 @@ function friendshipFixture(id: string, status = 'pending') {
     friend: { id: 'user-2', displayName: 'Bob', presence: 'offline' },
     createdAt: '2026-04-29T00:00:00+00:00',
     updatedAt: '2026-04-29T00:00:00+00:00',
+  };
+}
+
+function roomFixture(id: string) {
+  return {
+    id,
+    status: 'waiting',
+    visibility: 'private',
+    owner: { id: 'user-1', email: 'owner@example.test', displayName: 'Owner', roles: [] },
+    players: [],
+    gameId: null,
   };
 }

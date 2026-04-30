@@ -68,10 +68,12 @@
         </div>
 
         <div class="button-row">
-          <button class="primary-button compact" type="button" [disabled]="!canStartRoom(room)" (click)="startRoom(room.id)">
-            <lucide-icon name="play" size="16" />
-            Start game
-          </button>
+          @if (room.owner.id === auth.user()?.id) {
+            <button class="primary-button compact" type="button" [disabled]="!canStartRoom(room)" (click)="startRoom(room.id)">
+              <lucide-icon name="play" size="16" />
+              Start game
+            </button>
+          }
           <button class="secondary-button compact" type="button" (click)="leaveRoom(room.id)">
             <lucide-icon name="log-out" size="16" />
             Leave
@@ -133,10 +135,14 @@
             <strong>{{ room.id }}</strong>
             <small>{{ room.status }} - {{ room.visibility }} - {{ room.players.length }} players</small>
           </span>
-          <button class="secondary-button compact" type="button" [disabled]="!selectedDeckId" (click)="joinListedRoom(room.id)">
-            <lucide-icon name="door-open" size="15" />
-            Join
-          </button>
+          @if (room.gameId) {
+            <a class="secondary-button compact" [routerLink]="['/games', room.gameId]">Open game</a>
+          } @else {
+            <button class="secondary-button compact" type="button" [disabled]="!selectedDeckId" (click)="openListedRoom(room)">
+              <lucide-icon name="door-open" size="15" />
+              Join
+            </button>
+          }
           @if (canDeleteRoom(room)) {
             <button class="danger-button compact" type="button" [disabled]="deletingRoomId() === room.id" (click)="requestDeleteRoom(room)">
               <lucide-icon name="trash-2" size="15" />

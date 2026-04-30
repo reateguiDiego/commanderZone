@@ -23,7 +23,7 @@ export class GameTableComponent {
       return;
     }
 
-    const focused = this.store.focusedPlayer();
+    const current = this.store.currentPlayer();
     const selected = this.store.selectedCards()[0];
     switch (event.key.toLowerCase()) {
       case 'escape':
@@ -31,15 +31,15 @@ export class GameTableComponent {
         this.store.closeZoneModal();
         break;
       case 'd':
-        if (focused) {
+        if (current) {
           event.preventDefault();
-          void this.store.draw(focused.id);
+          void this.store.draw(current.id);
         }
         break;
       case 's':
-        if (focused) {
+        if (current) {
           event.preventDefault();
-          void this.store.shuffle(focused.id);
+          void this.store.shuffle(current.id);
         }
         break;
       case 't':
@@ -75,6 +75,16 @@ export class GameTableComponent {
         }
         break;
     }
+  }
+
+  @HostListener('document:pointermove', ['$event'])
+  handlePointerMove(event: PointerEvent): void {
+    this.store.moveFloatingPanel(event);
+  }
+
+  @HostListener('document:pointerup')
+  handlePointerUp(): void {
+    this.store.endFloatingDrag();
   }
 
   isLibraryMenu(menu: GameContextMenu): boolean {

@@ -122,6 +122,13 @@ class RoomsGamesApiTest extends ApiTestCase
         $this->jsonRequest('POST', '/games/'.$gameId.'/commands', [
             'type' => 'library.draw',
             'payload' => ['playerId' => $ownerPlayerId],
+            'clientActionId' => 'player-draws-owner-library',
+        ], $playerToken);
+        self::assertResponseStatusCodeSame(400);
+
+        $this->jsonRequest('POST', '/games/'.$gameId.'/commands', [
+            'type' => 'library.draw',
+            'payload' => ['playerId' => $ownerPlayerId],
             'clientActionId' => 'draw-1',
         ], $ownerToken);
         self::assertResponseIsSuccessful();
@@ -131,12 +138,38 @@ class RoomsGamesApiTest extends ApiTestCase
         self::assertResponseIsSuccessful();
         $ownerSnapshot = $this->jsonResponse()['game']['snapshot'];
         self::assertCount(1, $ownerSnapshot['players'][$ownerPlayerId]['zones']['hand']);
+        $drawnCardId = (string) $ownerSnapshot['players'][$ownerPlayerId]['zones']['hand'][0]['instanceId'];
+
+        $this->jsonRequest('POST', '/games/'.$gameId.'/commands', [
+            'type' => 'card.moved',
+            'payload' => [
+                'playerId' => $ownerPlayerId,
+                'fromZone' => 'hand',
+                'toZone' => 'battlefield',
+                'instanceId' => $drawnCardId,
+                'position' => ['x' => 320, 'y' => 180],
+            ],
+        ], $ownerToken);
+        self::assertResponseStatusCodeSame(201);
+        self::assertSame(['x' => 320, 'y' => 180], $this->jsonResponse()['snapshot']['players'][$ownerPlayerId]['zones']['battlefield'][0]['position']);
+
+        $this->jsonRequest('POST', '/games/'.$gameId.'/commands', [
+            'type' => 'card.position.changed',
+            'payload' => [
+                'playerId' => $ownerPlayerId,
+                'zone' => 'battlefield',
+                'instanceId' => $drawnCardId,
+                'position' => ['x' => 420, 'y' => 220],
+            ],
+        ], $ownerToken);
+        self::assertResponseStatusCodeSame(201);
+        self::assertSame(['x' => 420, 'y' => 220], $this->jsonResponse()['snapshot']['players'][$ownerPlayerId]['zones']['battlefield'][0]['position']);
 
         $this->jsonRequest('GET', '/games/'.$gameId.'/snapshot', token: $playerToken);
         self::assertResponseIsSuccessful();
         $playerProjection = $this->jsonResponse()['game']['snapshot'];
         self::assertCount(0, $playerProjection['players'][$ownerPlayerId]['zones']['hand']);
-        self::assertSame(1, $playerProjection['players'][$ownerPlayerId]['zoneCounts']['hand']);
+        self::assertSame(0, $playerProjection['players'][$ownerPlayerId]['zoneCounts']['hand']);
 
         $this->jsonRequest('POST', '/games/'.$gameId.'/commands', [
             'type' => 'library.reveal_top',

@@ -11,6 +11,7 @@ export type GameCommandType =
   | 'card.moved'
   | 'cards.moved'
   | 'card.tapped'
+  | 'card.position.changed'
   | 'card.face_down.changed'
   | 'card.revealed'
   | 'card.token_copy.created'

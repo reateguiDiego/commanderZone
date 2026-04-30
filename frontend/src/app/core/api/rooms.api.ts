@@ -14,6 +14,10 @@ export class RoomsApi {
     return this.http.get<DataResponse<Room>>(`${API_BASE_URL}/rooms`);
   }
 
+  show(roomId: string): Observable<RoomResponse> {
+    return this.http.get<RoomResponse>(`${API_BASE_URL}/rooms/${roomId}`);
+  }
+
   create(deckId?: string, visibility: RoomVisibility = 'private'): Observable<RoomResponse> {
     return this.http.post<RoomResponse>(`${API_BASE_URL}/rooms`, { ...this.deckPayload(deckId), visibility });
   }

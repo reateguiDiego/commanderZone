@@ -11,12 +11,16 @@ import { RoomsComponent } from './rooms.component';
 describe('RoomsComponent', () => {
   const roomsApi = {
     list: vi.fn(),
+    show: vi.fn(),
     delete: vi.fn(),
+    incomingInvites: vi.fn(),
   };
 
   beforeEach(async () => {
     roomsApi.list.mockReset().mockReturnValue(of({ data: [] }));
+    roomsApi.show.mockReset().mockReturnValue(of({ room: null }));
     roomsApi.delete.mockReset().mockReturnValue(of(undefined));
+    roomsApi.incomingInvites.mockReset().mockReturnValue(of({ data: [] }));
 
     await TestBed.configureTestingModule({
       imports: [RoomsComponent],

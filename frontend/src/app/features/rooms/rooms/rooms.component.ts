@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnDestroy, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { LucideAngularModule } from 'lucide-angular';
@@ -18,11 +18,12 @@ import { AppModalComponent } from '../../../shared/ui/app-modal/app-modal.compon
   styleUrl: './rooms.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class RoomsComponent {
+export class RoomsComponent implements OnDestroy {
   private readonly decksApi = inject(DecksApi);
   private readonly roomsApi = inject(RoomsApi);
-  private readonly auth = inject(AuthStore);
+  protected readonly auth = inject(AuthStore);
   private readonly router = inject(Router);
+  private roomRefreshHandle?: number;
 
   readonly decks = signal<Deck[]>([]);
   readonly rooms = signal<Room[]>([]);
@@ -39,6 +40,15 @@ export class RoomsComponent {
     void this.loadDecks();
     void this.loadRooms();
     void this.loadInvites();
+    this.roomRefreshHandle = window.setInterval(() => {
+      void this.refreshCurrentRoom();
+    }, 3000);
+  }
+
+  ngOnDestroy(): void {
+    if (this.roomRefreshHandle !== undefined) {
+      window.clearInterval(this.roomRefreshHandle);
+    }
   }
 
   async loadDecks(): Promise<void> {
@@ -103,6 +113,7 @@ export class RoomsComponent {
     try {
       const response = await firstValueFrom(this.roomsApi.join(id, this.optionalDeckId()));
       this.currentRoom.set(response.room);
+      this.roomId = response.room.id;
       await this.loadRooms();
       await this.loadInvites();
     } catch {
@@ -113,6 +124,15 @@ export class RoomsComponent {
   async joinListedRoom(id: string): Promise<void> {
     this.roomId = id;
     await this.joinRoom();
+  }
+
+  async openListedRoom(room: Room): Promise<void> {
+    if (room.gameId) {
+      await this.router.navigate(['/games', room.gameId]);
+      return;
+    }
+
+    await this.joinListedRoom(room.id);
   }
 
   async leaveRoom(id: string): Promise<void> {
@@ -198,7 +218,7 @@ export class RoomsComponent {
   }
 
   canStartRoom(room: Room): boolean {
-    return room.players.length >= 2 && room.players.every((player) => !!player.deckId);
+    return room.owner.id === this.auth.user()?.id && room.players.length >= 2 && room.players.every((player) => !!player.deckId);
   }
 
   async startRoom(id: string): Promise<void> {
@@ -220,5 +240,22 @@ export class RoomsComponent {
 
   private optionalDeckId(): string | undefined {
     return this.selectedDeckId || undefined;
+  }
+
+  private async refreshCurrentRoom(): Promise<void> {
+    const id = this.currentRoom()?.id ?? this.roomId.trim();
+    if (!id) {
+      return;
+    }
+
+    try {
+      const response = await firstValueFrom(this.roomsApi.show(id));
+      this.currentRoom.set(response.room);
+      if (response.room.gameId) {
+        await this.router.navigate(['/games', response.room.gameId]);
+      }
+    } catch {
+      // Keep the visible room state; explicit actions still report errors to the user.
+    }
   }
 }
