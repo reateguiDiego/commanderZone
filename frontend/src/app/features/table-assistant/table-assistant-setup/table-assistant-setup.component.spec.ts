@@ -32,20 +32,27 @@ describe('TableAssistantSetupComponent', () => {
         {
           provide: FriendsApi,
           useValue: {
-            list: vi.fn().mockReturnValue(of({
-              data: [{
-                id: 'friendship-1',
-                status: 'accepted',
-                requester: { id: 'user-1', displayName: 'Owner' },
-                recipient: { id: 'user-2', displayName: 'Guest' },
-                friend: { id: 'user-2', displayName: 'Guest', presence: 'online' },
-                createdAt: '',
-                updatedAt: '',
-              }],
-            })),
+            list: vi.fn().mockReturnValue(
+              of({
+                data: [
+                  {
+                    id: 'friendship-1',
+                    status: 'accepted',
+                    requester: { id: 'user-1', displayName: 'Owner' },
+                    recipient: { id: 'user-2', displayName: 'Guest' },
+                    friend: { id: 'user-2', displayName: 'Guest', presence: 'online' },
+                    createdAt: '',
+                    updatedAt: '',
+                  },
+                ],
+              }),
+            ),
           },
         },
-        { provide: AuthStore, useValue: { user: () => ({ id: 'user-1', email: 'owner@test', displayName: 'Owner' }) } },
+        {
+          provide: AuthStore,
+          useValue: { user: () => ({ id: 'user-1', email: 'owner@test', displayName: 'Owner' }) },
+        },
         { provide: Router, useValue: { navigate } },
       ],
     }).compileComponents();
@@ -79,7 +86,9 @@ describe('TableAssistantSetupComponent', () => {
     expect(fixture.componentInstance.timerDurationSeconds()).toBe(150);
     expect(fixture.nativeElement.textContent).toContain('2:30');
 
-    const colorOptions = fixture.nativeElement.querySelectorAll('.color-option') as NodeListOf<HTMLButtonElement>;
+    const colorOptions = fixture.nativeElement.querySelectorAll(
+      '.color-option',
+    ) as NodeListOf<HTMLButtonElement>;
     colorOptions[1].dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
     fixture.detectChanges();
 
@@ -89,17 +98,26 @@ describe('TableAssistantSetupComponent', () => {
 
   it('creates a per-player room and invites selected friends without blocking setup', async () => {
     const state = createInitialTableAssistantRoom({ mode: 'per-player-device' });
-    createApi.mockReturnValue(of({
-      tableAssistantRoom: {
-        id: 'room-1',
-        tableAssistantId: 'assistant-1',
-        room: { id: 'room-1', owner: { id: 'user-1', email: 'owner@test', displayName: 'Owner' }, status: 'waiting', visibility: 'private', players: [], gameId: null },
-        state,
-        version: 1,
-        createdAt: '',
-        updatedAt: '',
-      },
-    }));
+    createApi.mockReturnValue(
+      of({
+        tableAssistantRoom: {
+          id: 'room-1',
+          tableAssistantId: 'assistant-1',
+          room: {
+            id: 'room-1',
+            owner: { id: 'user-1', email: 'owner@test', displayName: 'Owner' },
+            status: 'waiting',
+            visibility: 'private',
+            players: [],
+            gameId: null,
+          },
+          state,
+          version: 1,
+          createdAt: '',
+          updatedAt: '',
+        },
+      }),
+    );
     invite.mockReturnValue(of({ invite: {} }));
 
     const fixture = TestBed.createComponent(TableAssistantSetupComponent);
@@ -108,20 +126,31 @@ describe('TableAssistantSetupComponent', () => {
 
     fixture.componentInstance.selectMode('per-player-device');
     fixture.componentInstance.updatePlayerFriend(1, 'user-2');
+    fixture.detectChanges();
+
+    expect(
+      fixture.nativeElement.querySelector('input[aria-label="Nombre de jugador 1"]'),
+    ).toBeNull();
+    expect(fixture.nativeElement.querySelectorAll('.player-name-preview')).toHaveLength(4);
+    expect(fixture.nativeElement.textContent).toContain('Usuario CommanderZone');
     await fixture.componentInstance.createRoom();
 
-    expect(createApi).toHaveBeenCalledWith(expect.objectContaining({
-      mode: 'per-player-device',
-      playerCount: 4,
-      initialLife: 40,
-      players: [
-        { name: 'Owner', color: 'white' },
-        { name: 'Guest', color: 'blue' },
-        { name: 'Jugador 3', color: 'black' },
-        { name: 'Jugador 4', color: 'red' },
-      ],
-    }));
+    expect(createApi).toHaveBeenCalledWith(
+      expect.objectContaining({
+        mode: 'per-player-device',
+        playerCount: 4,
+        initialLife: 40,
+        players: [
+          { name: 'Owner', color: 'white' },
+          { name: 'Guest', color: 'blue' },
+          { name: 'Jugador 3', color: 'black' },
+          { name: 'Jugador 4', color: 'red' },
+        ],
+      }),
+    );
     expect(invite).toHaveBeenCalledWith('room-1', 'user-2');
-    expect(navigate).toHaveBeenCalledWith(['/table-assistant', 'room-1']);
+    expect(navigate).toHaveBeenCalledWith(['/table-assistant', 'room-1'], {
+      queryParams: { arrange: '1' },
+    });
   });
 });

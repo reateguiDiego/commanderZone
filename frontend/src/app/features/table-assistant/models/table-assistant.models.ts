@@ -19,16 +19,9 @@ export type TableAssistantPhaseId =
   | 'main-2'
   | 'end';
 
-export type TableAssistantPlayerTrackerId =
-  | 'poison'
-  | 'commander-tax'
-  | 'energy'
-  | 'experience';
+export type TableAssistantPlayerTrackerId = 'poison' | 'commander-tax' | 'energy' | 'experience';
 
-export type TableAssistantGlobalTrackerId =
-  | 'monarch'
-  | 'initiative'
-  | 'storm';
+export type TableAssistantGlobalTrackerId = 'monarch' | 'initiative' | 'storm';
 
 export type TableAssistantTrackerId =
   | 'commander-damage'
@@ -141,6 +134,11 @@ export interface TableAssistantRoomState {
   updatedAt: string;
 }
 
+export interface TableAssistantPlayerArrangement {
+  seatOrder: string[];
+  turnOrder: string[];
+}
+
 export type TableAssistantAction =
   | {
       type: 'life.changed';
@@ -206,6 +204,8 @@ export type TableAssistantAction =
     }
   | {
       type: 'game.reset';
+      turnOrder?: string[];
+      seatOrder?: string[];
       actorParticipantId?: string | null;
       clientActionId?: string;
     }

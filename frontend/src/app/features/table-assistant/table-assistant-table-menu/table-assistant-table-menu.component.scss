@@ -30,9 +30,39 @@
   line-height: 1;
 }
 
+.action-hint {
+  position: absolute;
+  right: calc(100% + 0.55rem);
+  bottom: calc(100% + 0.3rem);
+  width: max-content;
+  max-width: 8rem;
+  border: 1px solid rgb(255 255 255 / 18%);
+  border-radius: 1rem;
+  padding: 0.32rem 0.55rem;
+  background: #fff7c2;
+  color: #1f2937;
+  font-size: 0.62rem;
+  font-weight: 900;
+  line-height: 1.1;
+  box-shadow: 0 0.55rem 1.2rem rgb(0 0 0 / 30%);
+}
+
+.action-hint::after {
+  content: '';
+  position: absolute;
+  right: 0.25rem;
+  bottom: -0.34rem;
+  width: 0.55rem;
+  height: 0.55rem;
+  border-right: 1px solid rgb(255 255 255 / 18%);
+  border-bottom: 1px solid rgb(255 255 255 / 18%);
+  background: #fff7c2;
+  transform: rotate(45deg);
+}
+
 .table-exit-menu {
   position: absolute;
-  top: calc(100% + 0.5rem);
+  bottom: calc(100% + -7.5rem);
   left: 50%;
   display: grid;
   gap: 0.38rem;

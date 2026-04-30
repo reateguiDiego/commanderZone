@@ -13,7 +13,10 @@ import { TableAssistantParticipant } from '../models/table-assistant.models';
 
 describe('table assistant domain state', () => {
   it('creates a Commander room with 40 life defaults', () => {
-    const state = createInitialTableAssistantRoom({ mode: 'single-device', createdAt: '2026-04-29T00:00:00.000Z' });
+    const state = createInitialTableAssistantRoom({
+      mode: 'single-device',
+      createdAt: '2026-04-29T00:00:00.000Z',
+    });
 
     expect(state.players).toHaveLength(4);
     expect(state.players.every((player) => player.life === COMMANDER_STARTING_LIFE)).toBe(true);
@@ -58,7 +61,12 @@ describe('table assistant domain state', () => {
 
   it('changes life', () => {
     const state = createInitialTableAssistantRoom({ mode: 'single-device' });
-    const next = applyTableAssistantAction(state, { type: 'life.changed', playerId: 'player-1', delta: -5, clientActionId: 'a1' });
+    const next = applyTableAssistantAction(state, {
+      type: 'life.changed',
+      playerId: 'player-1',
+      delta: -5,
+      clientActionId: 'a1',
+    });
 
     expect(next.players[0].life).toBe(35);
     expect(next.version).toBe(2);
@@ -67,8 +75,16 @@ describe('table assistant domain state', () => {
 
   it('marks players eliminated from life total and restores them above zero', () => {
     const state = createInitialTableAssistantRoom({ mode: 'single-device' });
-    const eliminated = applyTableAssistantAction(state, { type: 'life.changed', playerId: 'player-1', delta: -40 });
-    const restored = applyTableAssistantAction(eliminated, { type: 'life.changed', playerId: 'player-1', delta: 1 });
+    const eliminated = applyTableAssistantAction(state, {
+      type: 'life.changed',
+      playerId: 'player-1',
+      delta: -40,
+    });
+    const restored = applyTableAssistantAction(eliminated, {
+      type: 'life.changed',
+      playerId: 'player-1',
+      delta: 1,
+    });
 
     expect(eliminated.players[0].eliminated).toBe(true);
     expect(restored.players[0].eliminated).toBe(false);
@@ -76,7 +92,11 @@ describe('table assistant domain state', () => {
 
   it('moves turn away when the active player reaches zero life', () => {
     const state = createInitialTableAssistantRoom({ mode: 'single-device' });
-    const next = applyTableAssistantAction(state, { type: 'life.changed', playerId: 'player-1', delta: -40 });
+    const next = applyTableAssistantAction(state, {
+      type: 'life.changed',
+      playerId: 'player-1',
+      delta: -40,
+    });
 
     expect(next.players[0].eliminated).toBe(true);
     expect(next.turn.activePlayerId).toBe('player-2');
@@ -175,7 +195,11 @@ describe('table assistant domain state', () => {
   });
 
   it('supports timer pause, resume and reset', () => {
-    let state = createInitialTableAssistantRoom({ mode: 'single-device', timerMode: 'turn', timerDurationSeconds: 120 });
+    let state = createInitialTableAssistantRoom({
+      mode: 'single-device',
+      timerMode: 'turn',
+      timerDurationSeconds: 120,
+    });
 
     state = applyTableAssistantAction(state, { type: 'timer.started', durationSeconds: 120 });
     state = applyTableAssistantAction(state, { type: 'timer.paused', remainingSeconds: 80 });
@@ -199,14 +223,35 @@ describe('table assistant domain state', () => {
       activeTrackerIds: ['commander-damage', 'poison', 'storm'],
     });
 
-    state = applyTableAssistantAction(state, { type: 'life.changed', playerId: 'player-1', delta: -12 });
-    state = applyTableAssistantAction(state, { type: 'tracker.changed', trackerId: 'poison', playerId: 'player-1', value: 4 });
-    state = applyTableAssistantAction(state, { type: 'tracker.changed', trackerId: 'storm', value: 6 });
-    state = applyTableAssistantAction(state, { type: 'commander-damage.changed', targetPlayerId: 'player-1', sourcePlayerId: 'player-2', delta: 7 });
+    state = applyTableAssistantAction(state, {
+      type: 'life.changed',
+      playerId: 'player-1',
+      delta: -12,
+    });
+    state = applyTableAssistantAction(state, {
+      type: 'tracker.changed',
+      trackerId: 'poison',
+      playerId: 'player-1',
+      value: 4,
+    });
+    state = applyTableAssistantAction(state, {
+      type: 'tracker.changed',
+      trackerId: 'storm',
+      value: 6,
+    });
+    state = applyTableAssistantAction(state, {
+      type: 'commander-damage.changed',
+      targetPlayerId: 'player-1',
+      sourcePlayerId: 'player-2',
+      delta: 7,
+    });
     state = applyTableAssistantAction(state, { type: 'timer.started', durationSeconds: 120 });
     state = applyTableAssistantAction(state, { type: 'turn.passed' });
 
-    const reset = applyTableAssistantAction(state, { type: 'game.reset', clientActionId: 'reset-1' });
+    const reset = applyTableAssistantAction(state, {
+      type: 'game.reset',
+      clientActionId: 'reset-1',
+    });
 
     expect(reset.players[0].life).toBe(40);
     expect(reset.players[0].trackers.poison).toBe(0);
@@ -217,6 +262,26 @@ describe('table assistant domain state', () => {
     expect(reset.timer.remainingSeconds).toBe(120);
     expect(reset.actionLog).toHaveLength(1);
     expect(reset.actionLog[0].id).toBe('reset-1');
+  });
+
+  it('resets the game with custom turn and seat orders', () => {
+    const state = createInitialTableAssistantRoom({ mode: 'single-device' });
+
+    const reset = applyTableAssistantAction(state, {
+      type: 'game.reset',
+      seatOrder: ['player-2', 'player-1', 'player-4', 'player-3'],
+      turnOrder: ['player-3', 'player-1', 'player-2', 'player-4'],
+    });
+
+    expect(reset.players.map((player) => player.id)).toEqual([
+      'player-1',
+      'player-2',
+      'player-3',
+      'player-4',
+    ]);
+    expect(reset.players.map((player) => player.seatIndex)).toEqual([1, 0, 3, 2]);
+    expect(reset.players.map((player) => player.turnOrder)).toEqual([1, 2, 0, 3]);
+    expect(reset.turn.activePlayerId).toBe('player-3');
   });
 
   it('does not pass phase when phases are disabled', () => {
@@ -235,9 +300,14 @@ describe('table assistant domain state', () => {
   });
 
   it('shows active trackers and ignores inactive tracker changes', () => {
-    const state = createInitialTableAssistantRoom({ mode: 'single-device', activeTrackerIds: ['commander-damage', 'poison'] });
+    const state = createInitialTableAssistantRoom({
+      mode: 'single-device',
+      activeTrackerIds: ['commander-damage', 'poison'],
+    });
 
-    expect(activeTrackerDefinitions(state.settings.activeTrackerIds).map((tracker) => tracker.id)).toEqual(['commander-damage', 'poison']);
+    expect(
+      activeTrackerDefinitions(state.settings.activeTrackerIds).map((tracker) => tracker.id),
+    ).toEqual(['commander-damage', 'poison']);
     expect(state.players[0].trackers.poison).toBe(0);
 
     const ignored = applyTableAssistantAction(state, {
@@ -271,8 +341,12 @@ describe('table assistant domain state', () => {
     const withParticipant = { ...state, participants: [...state.participants, participant] };
     const next = assignParticipantToPlayer(withParticipant, 'participant-2', 'player-2');
 
-    expect(next.participants.find((entry) => entry.id === 'participant-2')?.assignedPlayerId).toBe('player-2');
-    expect(next.players.find((player) => player.id === 'player-2')?.assignedParticipantId).toBe('participant-2');
+    expect(next.participants.find((entry) => entry.id === 'participant-2')?.assignedPlayerId).toBe(
+      'player-2',
+    );
+    expect(next.players.find((player) => player.id === 'player-2')?.assignedParticipantId).toBe(
+      'participant-2',
+    );
     expect(next.players.find((player) => player.id === 'player-2')?.assignedUserId).toBe('user-2');
   });
 });

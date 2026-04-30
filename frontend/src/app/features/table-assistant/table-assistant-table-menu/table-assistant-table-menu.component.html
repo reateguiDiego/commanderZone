@@ -1,10 +1,28 @@
 <div class="table-center-logo">
-  <button class="brand-mark table-logo-button" type="button" aria-label="Opciones de partida de CommanderZone" (click)="toggleMenu()">CZ</button>
+  <button
+    class="brand-mark table-logo-button"
+    type="button"
+    aria-label="Opciones de partida de CommanderZone"
+    (click)="toggleMenu()"
+  >
+    CZ
+  </button>
+  @if (actionHintOpen()) {
+    <div class="action-hint" role="status">Acciones de mesa</div>
+  }
   @if (menuOpen()) {
     <div class="table-exit-menu" role="dialog" aria-label="Opciones de partida">
       <strong>CommanderZone</strong>
-      <button class="menu-action primary" type="button" (click)="selectNewTable()">Volver a jugar</button>
-      <button class="menu-action" type="button" (click)="selectDashboard()">Salir al dashboard</button>
+      <button class="menu-action primary" type="button" (click)="selectNewTable()">
+        Nueva partida
+      </button>
+      <button class="menu-action" type="button" (click)="selectRoll()">Tirar dado</button>
+      <button class="menu-action" type="button" (click)="selectFullscreen()">
+        Pantalla completa
+      </button>
+      <button class="menu-action" type="button" (click)="selectDashboard()">
+        Salir al dashboard
+      </button>
       <button class="menu-action subtle" type="button" (click)="closeMenu()">Seguir jugando</button>
     </div>
   }

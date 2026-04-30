@@ -1,0 +1,247 @@
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgb(2 6 23 / 72%);
+  backdrop-filter: blur(12px);
+}
+
+.replay-modal {
+  display: grid;
+  gap: 0.7rem;
+  width: min(31rem, 100%);
+  max-height: min(90dvh, 36rem);
+  overflow: auto;
+  border: 1px solid rgb(255 255 255 / 14%);
+  border-radius: 8px;
+  padding: 0.82rem;
+  background: linear-gradient(145deg, rgb(15 23 42 / 98%), rgb(2 6 23 / 96%));
+  box-shadow: 0 1.4rem 3rem rgb(0 0 0 / 48%);
+}
+
+header,
+footer {
+  display: flex;
+  gap: 0.7rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+form {
+  display: grid;
+  gap: 0.7rem;
+}
+
+h2 {
+  margin: 0.1rem 0 0;
+  font-size: 1rem;
+}
+
+.eyebrow {
+  color: #fde68a;
+  font-size: 0.72rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+button {
+  min-height: 2.15rem;
+  border: 1px solid rgb(255 255 255 / 12%);
+  border-radius: 8px;
+  padding: 0 0.72rem;
+  background: rgb(255 255 255 / 7%);
+  color: inherit;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.icon-button {
+  width: 2.15rem;
+  padding: 0;
+}
+
+.seat-layout {
+  display: grid;
+  gap: 0.36rem;
+  grid-template-columns: repeat(var(--seat-column-count, 2), minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(6.35rem, 1fr));
+}
+
+.seat-layout article {
+  display: grid;
+  grid-column: var(--seat-column);
+  gap: 0.34rem;
+  align-content: stretch;
+  min-width: 0;
+  min-height: 0;
+  cursor: pointer;
+}
+
+.seat-layout .seat-row-top {
+  grid-row: 1;
+}
+
+.seat-layout .seat-row-bottom {
+  grid-row: 2;
+}
+
+.seat-layout .seat-odd-last {
+  grid-row: 1 / span 2;
+}
+
+.seat-layout article {
+  border: 1px solid rgb(255 255 255 / 10%);
+  border-radius: 8px;
+  padding: 0.42rem;
+  background: rgb(255 255 255 / 5%);
+}
+
+.seat-layout .selected {
+  border-color: #67e8f9;
+  background: rgb(103 232 249 / 14%);
+  box-shadow: inset 0 0 0 1px rgb(103 232 249 / 36%);
+}
+
+.seat-card-header,
+.seat-turn-row {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.seat-card-header strong {
+  display: inline-grid;
+  place-items: center;
+  min-width: 3.15rem;
+  min-height: 1.45rem;
+  border-radius: 999px;
+  background: #67e8f9;
+  color: #082f49;
+  font-size: 0.68rem;
+  font-weight: 900;
+}
+
+.seat-layout span,
+.seat-layout small,
+.seat-turn-row label {
+  color: rgb(226 232 240 / 68%);
+  font-size: 0.68rem;
+}
+
+.seat-field {
+  display: grid;
+  gap: 0.18rem;
+  min-width: 0;
+}
+
+.seat-field select {
+  width: 100%;
+  min-width: 0;
+  min-height: 1.8rem;
+  border: 1px solid rgb(255 255 255 / 12%);
+  border-radius: 8px;
+  padding: 0 0.34rem;
+  background: rgb(15 23 42 / 82%);
+  color: white;
+  font: inherit;
+  font-weight: 850;
+}
+
+.seat-field select:invalid {
+  color: rgb(226 232 240 / 58%);
+}
+
+.seat-turn-row .seat-field {
+  flex: 1 1 auto;
+}
+
+.seat-turn-row select {
+  min-width: 0;
+  border: 1px solid rgb(255 255 255 / 12%);
+  border-radius: 8px;
+  background: rgb(15 23 42 / 82%);
+  color: white;
+  font: inherit;
+}
+
+.seat-turn-row select {
+  width: 3.15rem;
+  min-height: 1.8rem;
+  padding: 0 0.24rem;
+  font-weight: 850;
+}
+
+.seat-player-name,
+.seat-layout strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.seat-player-name {
+  min-height: 2rem;
+  border-radius: 8px;
+  padding: 0.42rem 0.5rem;
+  background: rgb(15 23 42 / 58%);
+  color: white;
+}
+
+.empty-seat {
+  display: grid;
+  min-height: 3.25rem;
+  place-items: center;
+  margin: 0;
+  border: 1px dashed rgb(255 255 255 / 14%);
+  border-radius: 8px;
+  color: rgb(226 232 240 / 54%);
+  font-size: 0.72rem;
+  font-weight: 750;
+  text-align: center;
+}
+
+.seat-layout .dragging {
+  opacity: 0.48;
+}
+
+.order-actions {
+  display: grid;
+  grid-template-columns: repeat(2, 1.45rem);
+  gap: 0.16rem;
+}
+
+.order-actions button {
+  display: grid;
+  place-items: center;
+  width: 1.45rem;
+  min-height: 1.35rem;
+  padding: 0;
+}
+
+.order-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
+}
+
+.arrow-up {
+  transform: rotate(180deg);
+}
+
+.primary-action {
+  border-color: #67e8f9;
+  background: #67e8f9;
+  color: #082f49;
+}
+
+.primary-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
+.secondary-action {
+  color: rgb(226 232 240 / 78%);
+}

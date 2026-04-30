@@ -30,7 +30,7 @@ class TableAssistantCommandHandler
             'timer.paused' => $this->applyTimerPaused($state, $payload, $actor),
             'timer.resumed' => $this->applyTimerResumed($state, $payload, $actor),
             'timer.reset' => $this->applyTimerReset($state, $actor),
-            'game.reset' => $this->applyGameReset($state, $actor),
+            'game.reset' => $this->applyGameReset($state, $payload, $actor),
             'player.elimination.changed' => $this->applyElimination($state, $payload, $actor),
             'tracker.changed' => $this->applyTracker($state, $payload, $actor),
             'participant.assigned' => $this->applyParticipantAssigned($state, $payload, $actor),
@@ -179,13 +179,22 @@ class TableAssistantCommandHandler
         $this->resetTimerForBoundary($state);
     }
 
-    private function applyGameReset(array &$state, User $actor): void
+    private function applyGameReset(array &$state, array $payload, User $actor): void
     {
         if (!$this->canEditGlobal($state, $actor)) {
             throw new \InvalidArgumentException('Only the host can reset this room.');
         }
 
+        $turnOrderByPlayerId = $this->resetOrderByPlayerId($state, $payload['turnOrder'] ?? null);
+        $seatIndexByPlayerId = $this->resetOrderByPlayerId($state, $payload['seatOrder'] ?? null);
         foreach ($state['players'] as &$player) {
+            $playerId = (string) ($player['id'] ?? '');
+            if (isset($turnOrderByPlayerId[$playerId])) {
+                $player['turnOrder'] = $turnOrderByPlayerId[$playerId];
+            }
+            if (isset($seatIndexByPlayerId[$playerId])) {
+                $player['seatIndex'] = $seatIndexByPlayerId[$playerId];
+            }
             $player['life'] = (int) ($player['startingLife'] ?? $state['settings']['initialLife'] ?? TableAssistantStateFactory::DEFAULT_LIFE);
             $player['eliminated'] = false;
             $player['trackers'] = $this->resetValues($player['trackers'] ?? []);
@@ -204,6 +213,25 @@ class TableAssistantCommandHandler
         $state['globalTrackers'] = $this->resetValues($state['globalTrackers'] ?? []);
         $state['commanderDamage'] = $this->commanderDamage($state['players'] ?? []);
         $state['actionLog'] = [];
+    }
+
+    /**
+     * @return array<string, int>
+     */
+    private function resetOrderByPlayerId(array $state, mixed $playerOrder): array
+    {
+        if (!is_array($playerOrder) || count($playerOrder) !== count($state['players'] ?? [])) {
+            return [];
+        }
+
+        $playerIds = array_map(static fn (array $player): string => (string) ($player['id'] ?? ''), $state['players'] ?? []);
+        $requestedIds = array_values(array_filter($playerOrder, static fn (mixed $playerId): bool => is_string($playerId) && $playerId !== ''));
+
+        if (count(array_unique($requestedIds)) !== count($playerIds) || array_diff($requestedIds, $playerIds) !== []) {
+            return [];
+        }
+
+        return array_flip($requestedIds);
     }
 
     private function applyElimination(array &$state, array $payload, User $actor): void

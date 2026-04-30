@@ -58,7 +58,17 @@
   width: 1.35rem;
   height: 1.35rem;
   background: #e0f2fe;
-  clip-path: polygon(50% 0, 68% 15%, 66% 38%, 90% 63%, 90% 100%, 10% 100%, 10% 63%, 34% 38%, 32% 15%);
+  clip-path: polygon(
+    50% 0,
+    68% 15%,
+    66% 38%,
+    90% 63%,
+    90% 100%,
+    10% 100%,
+    10% 63%,
+    34% 38%,
+    32% 15%
+  );
 }
 
 .connected-count {
@@ -148,21 +158,27 @@ button:disabled {
 
   position: relative;
   isolation: isolate;
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto auto auto auto;
-  gap: 0.45rem;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
   border: 1px solid rgb(255 255 255 / 12%);
   border-radius: 8px;
-  padding: 0.62rem 0.62rem calc(0.62rem + var(--extras-button-size) + var(--extras-gutter));
   background: var(--player-gradient);
 }
 
-.player-panel > :not(.elimination-overlay) {
+.player-content {
   position: relative;
   z-index: 1;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto auto auto auto;
+  gap: 0.45rem;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  box-sizing: border-box;
+  padding: 0.62rem;
+  transform-origin: center;
 }
 
 .player-panel::after {
@@ -189,7 +205,14 @@ button:disabled {
   width: 230%;
   height: 2px;
   pointer-events: none;
-  background: linear-gradient(90deg, transparent 0 28%, color-mix(in srgb, var(--player-accent) 54%, transparent) 43%, rgb(255 255 255 / 96%) 50%, color-mix(in srgb, var(--player-accent) 70%, transparent) 57%, transparent 72% 100%);
+  background: linear-gradient(
+    90deg,
+    transparent 0 28%,
+    color-mix(in srgb, var(--player-accent) 54%, transparent) 43%,
+    rgb(255 255 255 / 96%) 50%,
+    color-mix(in srgb, var(--player-accent) 70%, transparent) 57%,
+    transparent 72% 100%
+  );
   filter: drop-shadow(0 0 0.55rem color-mix(in srgb, var(--player-accent) 78%, transparent));
   mix-blend-mode: screen;
   opacity: 0;
@@ -208,14 +231,22 @@ button:disabled {
   grid-row: 2;
 }
 
-.player-panel.seat-row-top .player-header {
-  grid-row: 6;
-  align-self: end;
-  padding-left: calc(var(--extras-button-size) + 0.4rem);
+.player-panel.seat-odd-last {
+  container-type: size;
+  grid-row: 1 / span 2;
 }
 
-.player-panel.seat-row-top > * {
+.player-panel.seat-row-top .player-content {
   transform: rotate(180deg);
+}
+
+.player-panel.seat-odd-last .player-content {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 100cqh;
+  height: 100cqw;
+  transform: translate(-50%, -50%) rotate(-90deg);
 }
 
 .player-panel.eliminated {
@@ -233,8 +264,8 @@ button:disabled {
 }
 
 .skull-image {
-  width: clamp(4.6rem, 18vw, 6.4rem);
-  height: auto;
+  width: 180px;
+  height: 200px;
 }
 
 .player-panel header,
@@ -245,14 +276,30 @@ button:disabled {
   justify-content: space-between;
 }
 
+.player-panel header {
+  position: relative;
+  min-height: 2.75rem;
+}
+
 .player-title {
   min-width: 0;
   justify-content: flex-start;
 }
 
+.player-turn-controls,
+.commander-damage-trigger {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+}
+
 .player-turn-controls {
-  margin-left: auto;
   max-width: min(18rem, 58%);
+}
+
+.player-header.has-header-action {
+  padding-right: min(12.2rem, 58%);
 }
 
 .player-mana-symbols {
@@ -326,9 +373,6 @@ button:disabled {
 }
 
 .commander-damage-trigger {
-  position: absolute;
-  right: 0.35rem;
-  bottom: var(--extras-gutter);
   z-index: 2;
   display: inline-grid;
   place-items: center;
@@ -339,10 +383,6 @@ button:disabled {
   padding: 0;
   color: #f7dfaa;
   font-size: 0.64rem;
-}
-
-.player-panel.seat-row-top .commander-damage-trigger {
-  inset: auto auto var(--extras-gutter) 0.35rem;
 }
 
 .commander-damage-board,
@@ -455,32 +495,30 @@ button:disabled {
   }
 }
 
-@media (max-width: 680px) {
-  .room-meta-strip {
-    display: grid;
-  }
-
-  .player-trackers div {
-    font-size: 0.9rem;
-  }
-
-  .commander-damage-list small {
-    grid-column: 1 / -1;
-  }
-
-  .life-row {
-    grid-template-columns: 3rem minmax(0, 1fr) 3rem;
-  }
+.room-meta-strip {
+  display: grid;
 }
 
-@media (max-width: 920px) and (orientation: landscape) {
+.player-trackers div {
+  font-size: 0.9rem;
+}
+
+.commander-damage-list small {
+  grid-column: 1 / -1;
+}
+
+.life-row {
+  grid-template-columns: 3rem minmax(0, 1fr) 3rem;
+}
+
+@media (orientation: landscape) {
   .table-room-content {
     gap: 0.55rem;
   }
 
   .room-meta-strip,
   .global-trackers,
-  .player-panel {
+  .player-content {
     padding: 0.65rem;
   }
 
@@ -491,10 +529,9 @@ button:disabled {
   .life-row button {
     min-height: 3rem;
   }
-
 }
 
-@media (max-width: 820px) and (orientation: portrait) {
+@media (orientation: portrait) {
   .table-room-page {
     min-height: calc(100dvh - 1.6rem);
     display: grid;
@@ -524,4 +561,3 @@ button:disabled {
     color: rgb(226 232 240 / 72%);
   }
 }
-

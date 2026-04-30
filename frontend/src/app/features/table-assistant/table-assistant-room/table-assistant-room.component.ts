@@ -1,10 +1,19 @@
-import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  effect,
+  inject,
+  signal,
+} from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { AuthStore } from '../../../core/auth/auth.store';
+import { FullscreenService } from '../../../core/fullscreen/fullscreen.service';
 import {
   COMMANDER_DAMAGE_LETHAL_AMOUNT,
   TABLE_ASSISTANT_TRACKERS,
+  applyTableAssistantAction,
   canEditPlayer,
   isPlayerEliminated,
   phaseLabel,
@@ -13,11 +22,15 @@ import { TableAssistantTimerService } from '../domain/table-assistant-timer.serv
 import { TableAssistantApi, TableAssistantRoomResource } from '../data-access/table-assistant.api';
 import { TableAssistantSyncService } from '../data-access/table-assistant-sync.service';
 import { tableAssistantColorOption } from '../domain/table-assistant-colors';
+import { TableAssistantReplayModalComponent } from '../table-assistant-replay-modal/table-assistant-replay-modal.component';
+import { TableAssistantRollModalComponent } from '../table-assistant-roll-modal/table-assistant-roll-modal.component';
 import { TableAssistantTableMenuComponent } from '../table-assistant-table-menu/table-assistant-table-menu.component';
 import { TableAssistantTurnControlsComponent } from '../table-assistant-turn-controls/table-assistant-turn-controls.component';
 import {
   TableAssistantGlobalTrackerId,
+  TableAssistantAction,
   TableAssistantPlayer,
+  TableAssistantPlayerArrangement,
   TableAssistantPlayerTrackerId,
   TableAssistantRoomState,
   TableAssistantTrackerId,
@@ -25,7 +38,12 @@ import {
 
 @Component({
   selector: 'app-table-assistant-room',
-  imports: [TableAssistantTableMenuComponent, TableAssistantTurnControlsComponent],
+  imports: [
+    TableAssistantReplayModalComponent,
+    TableAssistantRollModalComponent,
+    TableAssistantTableMenuComponent,
+    TableAssistantTurnControlsComponent,
+  ],
   templateUrl: './table-assistant-room.component.html',
   styleUrl: './table-assistant-room.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -36,6 +54,7 @@ export class TableAssistantRoomComponent {
   private readonly router = inject(Router);
   private readonly tableAssistantApi = inject(TableAssistantApi);
   private readonly auth = inject(AuthStore);
+  private readonly fullscreen = inject(FullscreenService);
   readonly sync = inject(TableAssistantSyncService);
   readonly timer = inject(TableAssistantTimerService);
   private previousTurn: TableAssistantRoomState['turn'] | null = null;
@@ -45,14 +64,33 @@ export class TableAssistantRoomComponent {
   readonly error = signal<string | null>(null);
   readonly copied = signal(false);
   readonly commanderDamagePlayerId = signal<string | null>(null);
+  readonly replayModalOpen = signal(false);
+  readonly replayModalMode = signal<'initial' | 'replay'>('replay');
+  readonly rollModalOpen = signal(false);
   private joiningParticipant = false;
+  private initialArrangementPrompted = false;
 
   readonly state = computed(() => this.room()?.state ?? null);
   readonly players = computed(() => this.state()?.players ?? []);
-  readonly seatColumnCount = computed(() => this.state()?.mode === 'single-device' ? Math.max(1, Math.ceil(this.players().length / 2)) : 2);
-  readonly activePlayer = computed(() => this.players().find((player) => player.id === this.state()?.turn.activePlayerId) ?? null);
+  readonly activePlayerId = computed(() => this.state()?.turn.activePlayerId ?? null);
+  readonly seatedPlayers = computed(() =>
+    [...this.players()].sort((left, right) => left.seatIndex - right.seatIndex),
+  );
+  readonly turnOrderedPlayers = computed(() =>
+    [...this.players()].sort((left, right) => left.turnOrder - right.turnOrder),
+  );
+  readonly seatColumnCount = computed(() =>
+    this.state()?.mode === 'single-device'
+      ? Math.max(1, Math.ceil(this.seatedPlayers().length / 2))
+      : 2,
+  );
+  readonly activePlayer = computed(
+    () => this.players().find((player) => player.id === this.activePlayerId()) ?? null,
+  );
   readonly isSingleDeviceMode = computed(() => this.state()?.mode === 'single-device');
-  readonly connectedParticipantsCount = computed(() => this.state()?.participants.filter((participant) => participant.connected).length ?? 0);
+  readonly connectedParticipantsCount = computed(
+    () => this.state()?.participants.filter((participant) => participant.connected).length ?? 0,
+  );
   readonly shouldShowRoomSharing = computed(() => {
     const state = this.state();
     if (!state || state.mode !== 'per-player-device') {
@@ -65,11 +103,17 @@ export class TableAssistantRoomComponent {
     const phaseId = this.state()?.turn.phaseId;
     return phaseId ? phaseLabel(phaseId) : null;
   });
-  readonly playerTrackerIds = computed(() => this.activeTrackerIdsByScope('player') as TableAssistantPlayerTrackerId[]);
-  readonly globalTrackerIds = computed(() => this.activeTrackerIdsByScope('global') as TableAssistantGlobalTrackerId[]);
+  readonly playerTrackerIds = computed(
+    () => this.activeTrackerIdsByScope('player') as TableAssistantPlayerTrackerId[],
+  );
+  readonly globalTrackerIds = computed(
+    () => this.activeTrackerIdsByScope('global') as TableAssistantGlobalTrackerId[],
+  );
   readonly currentParticipantId = computed(() => {
     const userId = this.auth.user()?.id;
-    return this.state()?.participants.find((participant) => participant.user?.id === userId)?.id ?? null;
+    return (
+      this.state()?.participants.find((participant) => participant.user?.id === userId)?.id ?? null
+    );
   });
 
   constructor() {
@@ -85,7 +129,9 @@ export class TableAssistantRoomComponent {
   canEdit(player: TableAssistantPlayer): boolean {
     const state = this.state();
     const participantId = this.currentParticipantId();
-    return state !== null && participantId !== null && canEditPlayer(state, participantId, player.id);
+    return (
+      state !== null && participantId !== null && canEditPlayer(state, participantId, player.id)
+    );
   }
 
   async changeLife(player: TableAssistantPlayer, delta: number): Promise<void> {
@@ -93,7 +139,7 @@ export class TableAssistantRoomComponent {
       return;
     }
 
-    await this.sendAction('life.changed', { playerId: player.id, delta });
+    await this.sendProjectedAction({ type: 'life.changed', playerId: player.id, delta });
   }
 
   async passTurn(): Promise<void> {
@@ -103,7 +149,7 @@ export class TableAssistantRoomComponent {
     }
 
     this.previousTurn = state.turn;
-    await this.sendAction('turn.passed', {});
+    await this.sendProjectedAction({ type: 'turn.passed' });
   }
 
   async passPhase(): Promise<void> {
@@ -140,10 +186,16 @@ export class TableAssistantRoomComponent {
   }
 
   async resumeTimer(): Promise<void> {
-    await this.sendAction('timer.resumed', { remainingSeconds: this.timer.remainingSeconds() ?? 0 });
+    await this.sendAction('timer.resumed', {
+      remainingSeconds: this.timer.remainingSeconds() ?? 0,
+    });
   }
 
-  async changeCommanderDamage(targetPlayer: TableAssistantPlayer, sourcePlayerId: string, delta: number): Promise<void> {
+  async changeCommanderDamage(
+    targetPlayer: TableAssistantPlayer,
+    sourcePlayerId: string,
+    delta: number,
+  ): Promise<void> {
     if (!this.canUsePlayerOptions(targetPlayer)) {
       return;
     }
@@ -155,7 +207,11 @@ export class TableAssistantRoomComponent {
     });
   }
 
-  async changePlayerTracker(player: TableAssistantPlayer, trackerId: TableAssistantPlayerTrackerId, delta: number): Promise<void> {
+  async changePlayerTracker(
+    player: TableAssistantPlayer,
+    trackerId: TableAssistantPlayerTrackerId,
+    delta: number,
+  ): Promise<void> {
     if (!this.canUsePlayerOptions(player)) {
       return;
     }
@@ -167,7 +223,10 @@ export class TableAssistantRoomComponent {
     });
   }
 
-  async changeGlobalTracker(trackerId: TableAssistantGlobalTrackerId, delta: number): Promise<void> {
+  async changeGlobalTracker(
+    trackerId: TableAssistantGlobalTrackerId,
+    delta: number,
+  ): Promise<void> {
     const state = this.state();
     if (!state) {
       return;
@@ -207,8 +266,44 @@ export class TableAssistantRoomComponent {
     await this.router.navigate(['/dashboard']);
   }
 
-  async startNewTable(): Promise<void> {
-    await this.sendAction('game.reset', {});
+  openReplayModal(): void {
+    this.replayModalMode.set('replay');
+    this.replayModalOpen.set(true);
+  }
+
+  closeReplayModal(): void {
+    this.replayModalOpen.set(false);
+  }
+
+  async cancelReplayModal(): Promise<void> {
+    this.replayModalOpen.set(false);
+    await this.router.navigate(['/table-assistant']);
+  }
+
+  async startNewTable(
+    arrangement: TableAssistantPlayerArrangement = this.currentArrangement(),
+  ): Promise<void> {
+    const applied = await this.sendProjectedAction({
+      type: 'game.reset',
+      seatOrder: [...arrangement.seatOrder],
+      turnOrder: [...arrangement.turnOrder],
+    });
+    if (!applied) {
+      return;
+    }
+    this.closeReplayModal();
+  }
+
+  openRollModal(): void {
+    this.rollModalOpen.set(true);
+  }
+
+  closeRollModal(): void {
+    this.rollModalOpen.set(false);
+  }
+
+  async toggleFullscreen(): Promise<void> {
+    await this.fullscreen.toggleFullscreen();
   }
 
   trackerLabel(trackerId: TableAssistantTrackerId): string {
@@ -219,16 +314,33 @@ export class TableAssistantRoomComponent {
     return player.name.slice(0, 15);
   }
 
+  shouldHidePlayerName(player: TableAssistantPlayer): boolean {
+    return this.players().length >= 5 && this.isActivePlayer(player);
+  }
+
+  isActivePlayer(player: TableAssistantPlayer): boolean {
+    return player.id === this.activePlayerId();
+  }
+
   isSingleDeviceSeat(index: number): boolean {
     return this.state()?.mode === 'single-device' && index >= 0;
   }
 
   isSingleDeviceTopSeat(index: number): boolean {
-    return this.isSingleDeviceSeat(index) && index % 2 === 0;
+    return (
+      this.isSingleDeviceSeat(index) && !this.isSingleDeviceOddLastSeat(index) && index % 2 === 0
+    );
   }
 
   isSingleDeviceBottomSeat(index: number): boolean {
-    return this.isSingleDeviceSeat(index) && index % 2 === 1;
+    return (
+      this.isSingleDeviceSeat(index) && !this.isSingleDeviceOddLastSeat(index) && index % 2 === 1
+    );
+  }
+
+  isSingleDeviceOddLastSeat(index: number): boolean {
+    const playerCount = this.players().length;
+    return this.isSingleDeviceSeat(index) && playerCount % 2 === 1 && index === playerCount - 1;
   }
 
   seatColumn(index: number): number {
@@ -253,6 +365,13 @@ export class TableAssistantRoomComponent {
 
   manaClass(symbol: string): string {
     return `ms ms-${symbol}`;
+  }
+
+  private currentArrangement(): TableAssistantPlayerArrangement {
+    return {
+      seatOrder: this.seatedPlayers().map((player) => player.id),
+      turnOrder: this.turnOrderedPlayers().map((player) => player.id),
+    };
   }
 
   async copyInviteLink(): Promise<void> {
@@ -286,26 +405,109 @@ export class TableAssistantRoomComponent {
     }
   }
 
-  private async sendAction(type: Parameters<TableAssistantApi['action']>[1]['type'], payload: Record<string, unknown>): Promise<void> {
+  private async sendAction(
+    type: Parameters<TableAssistantApi['action']>[1]['type'],
+    payload: Record<string, unknown>,
+  ): Promise<boolean> {
     const room = this.room();
     if (!room) {
-      return;
+      return false;
     }
 
     try {
-      const response = await firstValueFrom(this.tableAssistantApi.action(room.id, {
-        type,
-        payload,
-        clientActionId: this.clientActionId(),
-      }));
+      const response = await firstValueFrom(
+        this.tableAssistantApi.action(room.id, {
+          type,
+          payload,
+          clientActionId: this.clientActionId(),
+        }),
+      );
       this.applyRoom(response.tableAssistantRoom);
+      return response.applied;
     } catch {
       this.error.set('No se pudo aplicar la accion.');
+      return false;
     }
   }
 
+  private async sendProjectedAction(action: TableAssistantAction): Promise<boolean> {
+    const baseRoom = this.room();
+    if (!baseRoom) {
+      return false;
+    }
+
+    const clientActionId = action.clientActionId ?? this.clientActionId();
+    const actionWithId = { ...action, clientActionId } as TableAssistantAction;
+
+    try {
+      const response = await firstValueFrom(
+        this.tableAssistantApi.action(baseRoom.id, {
+          type: actionWithId.type,
+          payload: this.actionPayload(actionWithId),
+          clientActionId,
+        }),
+      );
+
+      if (!response.applied) {
+        return false;
+      }
+
+      this.applyProjectedRoom(baseRoom, actionWithId, response.tableAssistantRoom);
+      return true;
+    } catch {
+      this.error.set('No se pudo aplicar la accion.');
+      return false;
+    }
+  }
+
+  private applyProjectedRoom(
+    baseRoom: TableAssistantRoomResource,
+    action: TableAssistantAction,
+    serverRoom: TableAssistantRoomResource,
+  ): void {
+    const nextState = applyTableAssistantAction(baseRoom.state, action);
+    const version = Math.max(serverRoom.version, baseRoom.version + 1, nextState.version);
+    const updatedAt = serverRoom.updatedAt || nextState.updatedAt;
+
+    this.room.set({
+      ...serverRoom,
+      state: {
+        ...nextState,
+        version,
+        updatedAt,
+      },
+      version,
+      updatedAt,
+    });
+  }
+
   private applyRoom(room: TableAssistantRoomResource): void {
+    const currentRoom = this.room();
+    if (currentRoom && room.version <= currentRoom.version) {
+      return;
+    }
+
     this.room.set(room);
+    if (this.shouldOpenInitialArrangement(room.state)) {
+      this.initialArrangementPrompted = true;
+      this.replayModalMode.set('initial');
+      this.replayModalOpen.set(true);
+    }
+  }
+
+  private shouldOpenInitialArrangement(state: TableAssistantRoomState): boolean {
+    if (
+      this.initialArrangementPrompted ||
+      state.actionLog.length > 0 ||
+      this.route.snapshot.queryParamMap.get('arrange') !== '1'
+    ) {
+      return false;
+    }
+
+    const userId = this.auth.user()?.id;
+    return state.participants.some(
+      (participant) => participant.role === 'host' && participant.user?.id === userId,
+    );
   }
 
   private async joinAsParticipantIfNeeded(roomId: string): Promise<void> {
@@ -331,10 +533,21 @@ export class TableAssistantRoomComponent {
     return globalThis.crypto?.randomUUID?.() ?? `action-${Date.now()}`;
   }
 
+  private actionPayload(action: TableAssistantAction): Record<string, unknown> {
+    const {
+      type: _type,
+      clientActionId: _clientActionId,
+      actorParticipantId: _actor,
+      ...payload
+    } = action as TableAssistantAction & Record<string, unknown>;
+
+    return Object.fromEntries(Object.entries(payload).filter(([, value]) => value !== undefined));
+  }
+
   private activeTrackerIdsByScope(scope: 'player' | 'global'): TableAssistantTrackerId[] {
     const active = new Set(this.state()?.settings.activeTrackerIds ?? []);
-    return TABLE_ASSISTANT_TRACKERS
-      .filter((tracker) => tracker.scope === scope && active.has(tracker.id))
-      .map((tracker) => tracker.id);
+    return TABLE_ASSISTANT_TRACKERS.filter(
+      (tracker) => tracker.scope === scope && active.has(tracker.id),
+    ).map((tracker) => tracker.id);
   }
 }

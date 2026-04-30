@@ -1214,20 +1214,5 @@ No entregar si hay:
 Si se detecta algo de esto, refactorizar antes de finalizar la fase.
 
 
-- nse si lo has hecho ya, pero borra todo lo relacionado con la calavera que has creado tu y deja solo la skull de assets. 
-- pon un icono adiente a la opcion del menu asistente de mesa
-- en el select de colores, de cada jugador añade los simbolos de mana correspondientes, nombre a la izquierda del todo y colores a la derecha del todo. 
-- los gradientes de color no funcionan nada, esta todo amarillo y blanco. Funciona fatal actualmente
-- el nombre del jugador se ve la g partida, no se ve la parte de abajo, arreglalo porfavor
-- los botones de + y - al lado de la vida, los simbolos no estan centrados del todo. Falta o sobre margin o padding top
-- elimina el boton volver turno y el turno 3 añadelo justo encima del temporizador, en pequeño.
-- respeta los cambios que he hecho yo en styles y table assistant. Dejalos.
-- elimina los trackers en editar table assistant. Deja commander damage, pero no lo dejes escoger. Estará siempre.
-- si hay un movil por jugador. Los nombres de cada jugador seran sus nombres de usuario. 
-- elimina el desplegable de opciones avanzadas en la configuración de table-assistant. 
-- en reglas de mesa quita las fases y saltar eliminados. 
-- en timer por turno, pon un selector de numeros y especifica que son minutos. Que el selector tenga M:SS y tu luego lo conviertes como necesites.
-- haz que puedas recibir invitaciones de salas de los amigos, muestra el simbolo de notificicacion igual que si tienes solicitud de amistad y debajo del nombre de amigo que te invita, ponle un aviso con dos botones. Check y cross. Si tienes que tocar backend, hazlo.
-- en vez de compartir e invitar. Quita eso y en la pantalla de creación del table-assistant en cada jugador pon un select de invitar a los amigos del usuario.
-- con mis cambios, si se hace click en daño de comandante, haz que se substituya todo lo que hay actualmente, numero de vidas botones mas menos, nombre jugador y que aparezca las opciones de daño de comandante bien estructurados. Cuando se cierra daño de comandante vuelve a aparecer vidas, botones de sumar, etc...
-- cuando quedan 10 segundos de temporidazor haz un sonido de alerta y pon el tiempo que se vea con alerta. Y los ultimos 3 segundos q haya ruido y parpadee el contador de tiempo.
+- haz que se pueda editar el sitio donde estas sentado, ahora mismo el modal solo lo muestra. 
+- haz que realmente el orden de turno que has creado en el modal, sea el de juego. (el primero que tiene el timer, el segundo, etc) ahora no se respeta o no funciona. en la segunda partida tampoco esta funcionando.
