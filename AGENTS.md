@@ -1,5 +1,10 @@
 # AGENTS.md
 
+## Active Plan
+
+1. Active execution plan: [COMMANDERZONE_GAMEPLAY_BROWSER_MASTER_PLAN.md](C:/Users/alber/Documents/Workspace/commanderZone/docs/COMMANDERZONE_GAMEPLAY_BROWSER_MASTER_PLAN.md).
+2. Treat [CODEX_COMMANDERZONE_E2E_PLAN.md](C:/Users/alber/Documents/Workspace/commanderZone/docs/CODEX_COMMANDERZONE_E2E_PLAN.md) as historical context only, not as an active checklist.
+
 ## Project Reality
 
 CommanderZone is a manual online Commander table. It is not a full Magic rules engine.
@@ -13,6 +18,16 @@ CommanderZone is a manual online Commander table. It is not a full Magic rules e
 5. Do not change API contracts without updating [docs/openapi.yaml](C:/Users/alber/Documents/Workspace/commanderZone/docs/openapi.yaml).
 6. Do not introduce dependencies without clear technical justification.
 7. Do not add secrets, tokens, or private credentials to the repository.
+8. Do not work on deployment/infra rollout in this phase.
+9. Do not prioritize advanced visual redesign in this phase.
+10. Keep existing E2E coverage green while evolving functionality.
+
+## Current Phase Priorities
+
+1. Use existing rooms flow (public/private/invites); do not create a parallel rooms system.
+2. Use existing deck flows (import, quick-build, deck editor); do not create a parallel deckbuilder.
+3. Do not recreate Playwright setup or baseline E2E tests that already exist.
+4. Prioritize real Commander deck validation, public/private room readiness, and browser gauntlet stability.
 
 ## Frontend Architecture Guardrails
 
@@ -39,4 +54,3 @@ CommanderZone is a manual online Commander table. It is not a full Magic rules e
 3. Any synchronization change (realtime, polling, ordering, idempotency) must include E2E or integration coverage.
 4. If backend code changes, run:
    - `APP_ENV=test php bin/phpunit`
-

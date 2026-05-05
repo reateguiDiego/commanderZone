@@ -8,6 +8,10 @@ use App\Domain\Game\Game;
 use App\Domain\Game\GameEvent;
 use App\Domain\User\User;
 use App\Infrastructure\Realtime\GameEventPublisher;
+use Doctrine\DBAL\Exception\DeadlockException;
+use Doctrine\DBAL\Exception\LockWaitTimeoutException;
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
+use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -67,22 +71,74 @@ class GamesController extends ApiController
                 'clientActionId' => $clientActionId,
             ]);
             if ($existingEvent instanceof GameEvent) {
-                return $this->json([
-                    'event' => $existingEvent->toArray(),
-                    'snapshot' => $projection->project($game, $user),
-                    'version' => $game->snapshot()['version'] ?? null,
-                    'applied' => false,
-                ]);
+                return $this->existingEventResponse($existingEvent, $game, $user, $projection);
             }
         }
 
+        $event = null;
         try {
+            $entityManager->beginTransaction();
+            $entityManager->lock($game, LockMode::PESSIMISTIC_WRITE);
+            if ($game->status() === Game::STATUS_FINISHED && !GameCommandHandler::isAllowedWhenFinished($type)) {
+                $entityManager->rollback();
+
+                return $this->fail(sprintf('Game is finished. Command not allowed: %s', $type), 409);
+            }
+            if ($clientActionId !== null) {
+                $existingEvent = $entityManager->getRepository(GameEvent::class)->findOneBy([
+                    'game' => $game,
+                    'clientActionId' => $clientActionId,
+                ]);
+                if ($existingEvent instanceof GameEvent) {
+                    $entityManager->rollback();
+
+                    return $this->existingEventResponse($existingEvent, $game, $user, $projection);
+                }
+            }
+
             $event = $handler->apply($game, $type, is_array($payload['payload'] ?? null) ? $payload['payload'] : [], $user, $clientActionId);
+            $entityManager->persist($event);
+            $entityManager->flush();
+            $entityManager->commit();
         } catch (\InvalidArgumentException $exception) {
+            if ($entityManager->getConnection()->isTransactionActive()) {
+                $entityManager->rollback();
+            }
+
             return $this->fail($exception->getMessage());
+        } catch (UniqueConstraintViolationException) {
+            if ($entityManager->getConnection()->isTransactionActive()) {
+                $entityManager->rollback();
+            }
+            $existingEvent = $clientActionId === null
+                ? null
+                : $entityManager->getRepository(GameEvent::class)->findOneBy([
+                    'game' => $game,
+                    'clientActionId' => $clientActionId,
+                ]);
+            if ($existingEvent instanceof GameEvent) {
+                return $this->existingEventResponse($existingEvent, $game, $user, $projection);
+            }
+
+            return $this->fail('Command conflict. Please retry.', 409);
+        } catch (DeadlockException|LockWaitTimeoutException) {
+            if ($entityManager->getConnection()->isTransactionActive()) {
+                $entityManager->rollback();
+            }
+
+            return $this->fail('Game command conflict. Please retry.', 409);
+        } catch (\Throwable $exception) {
+            if ($entityManager->getConnection()->isTransactionActive()) {
+                $entityManager->rollback();
+            }
+
+            throw $exception;
         }
-        $entityManager->persist($event);
-        $entityManager->flush();
+
+        if (!$event instanceof GameEvent) {
+            return $this->fail('Could not apply game command.', 500);
+        }
+
         $publisher->publish($game, $event);
 
         return $this->json([
@@ -172,6 +228,16 @@ class GamesController extends ApiController
             'zone' => $zone,
             'total' => count($cards),
             'data' => array_slice($cards, $offset, $limit),
+        ]);
+    }
+
+    private function existingEventResponse(GameEvent $event, Game $game, User $user, GameProjectionService $projection): JsonResponse
+    {
+        return $this->json([
+            'event' => $event->toArray(),
+            'snapshot' => $projection->project($game, $user),
+            'version' => $game->snapshot()['version'] ?? null,
+            'applied' => false,
         ]);
     }
 }

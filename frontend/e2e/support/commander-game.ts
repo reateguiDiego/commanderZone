@@ -2,7 +2,9 @@ import { expect, type APIRequestContext } from '@playwright/test';
 import { createRealUserSession, type RealUserSession } from './auth';
 import {
   createRandomDeckFromDatabase,
+  createValidCommanderDeckFromDatabase,
   type RandomDeckFromDatabaseResult,
+  type ValidCommanderDeckFromDatabaseResult,
 } from './decks';
 
 const API_BASE_URL = process.env['E2E_API_BASE_URL'] ?? 'http://127.0.0.1:8000';
@@ -46,6 +48,35 @@ export interface CommanderGameWithRandomDecksResult {
   };
 }
 
+export interface CreateCommanderGameWithValidDecksOptions {
+  runId?: string;
+  roomVisibility?: 'public' | 'private';
+  playerAPrefix?: string;
+  playerBPrefix?: string;
+}
+
+export interface CommanderGameWithValidDecksResult {
+  gameId: string;
+  roomId: string;
+  runId: string;
+  playerA: {
+    token: string;
+    user: RealUserSession['user'];
+    credentials: RealUserSession['credentials'];
+    deck: ValidCommanderDeckFromDatabaseResult;
+  };
+  playerB: {
+    token: string;
+    user: RealUserSession['user'];
+    credentials: RealUserSession['credentials'];
+    deck: ValidCommanderDeckFromDatabaseResult;
+  };
+  seeds: {
+    playerA: string;
+    playerB: string;
+  };
+}
+
 export async function createCommanderGameWithRandomDecks(
   request: APIRequestContext,
   options: CreateCommanderGameWithRandomDecksOptions = {},
@@ -72,6 +103,59 @@ export async function createCommanderGameWithRandomDecks(
     ownerToken: playerB.token,
     name: `E2E Deck B ${runId}`,
     size: deckSize,
+    seed: seedB,
+  });
+
+  const roomId = await createRoom(request, playerA.token, deckA.deckId, visibility);
+  await joinRoom(request, playerB.token, roomId, deckB.deckId);
+  const gameId = await startRoom(request, playerA.token, roomId);
+
+  return {
+    gameId,
+    roomId,
+    runId,
+    playerA: {
+      token: playerA.token,
+      user: playerA.user,
+      credentials: playerA.credentials,
+      deck: deckA,
+    },
+    playerB: {
+      token: playerB.token,
+      user: playerB.user,
+      credentials: playerB.credentials,
+      deck: deckB,
+    },
+    seeds: {
+      playerA: seedA,
+      playerB: seedB,
+    },
+  };
+}
+
+export async function createCommanderGameWithValidDecks(
+  request: APIRequestContext,
+  options: CreateCommanderGameWithValidDecksOptions = {},
+): Promise<CommanderGameWithValidDecksResult> {
+  const runId = normalizeRunId(options.runId);
+  const visibility = options.roomVisibility ?? 'public';
+  const playerAPrefix = options.playerAPrefix ?? 'cmdv-a';
+  const playerBPrefix = options.playerBPrefix ?? 'cmdv-b';
+
+  const playerA = await createRealUserSession(request, `${playerAPrefix}-${runId}`);
+  const playerB = await createRealUserSession(request, `${playerBPrefix}-${runId}`);
+
+  const seedA = `${runId}-valid-deck-a`;
+  const seedB = `${runId}-valid-deck-b`;
+
+  const deckA = await createValidCommanderDeckFromDatabase(request, {
+    ownerToken: playerA.token,
+    name: `E2E Valid Deck A ${runId}`,
+    seed: seedA,
+  });
+  const deckB = await createValidCommanderDeckFromDatabase(request, {
+    ownerToken: playerB.token,
+    name: `E2E Valid Deck B ${runId}`,
     seed: seedB,
   });
 

@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { authStorageState } from './support/auth';
-import { createCommanderGameWithRandomDecks } from './support/commander-game';
+import { createCommanderGameWithValidDecks } from './support/commander-game';
 
 test.setTimeout(240000);
 
@@ -9,7 +9,7 @@ test('drawing from library updates library and hand for both players in real tim
     throw new Error('Playwright baseURL is required.');
   }
 
-  const setup = await createCommanderGameWithRandomDecks(request, {
+  const setup = await createCommanderGameWithValidDecks(request, {
     runId: `draw-library-${Date.now()}`,
     deckSize: 100,
   });
@@ -84,3 +84,4 @@ async function readSidebarZoneCounts(page: Page, displayName: string): Promise<{
     library: Number.parseInt(match[2] ?? '', 10),
   };
 }
+

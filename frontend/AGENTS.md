@@ -3,6 +3,7 @@
 ## Scope
 
 Frontend workspace for CommanderZone. Follow root [AGENTS.md](C:/Users/alber/Documents/Workspace/commanderZone/AGENTS.md) plus these frontend-specific constraints.
+Active plan: [COMMANDERZONE_GAMEPLAY_BROWSER_MASTER_PLAN.md](C:/Users/alber/Documents/Workspace/commanderZone/docs/COMMANDERZONE_GAMEPLAY_BROWSER_MASTER_PLAN.md).
 
 ## Frontend Rules
 
@@ -16,3 +17,6 @@ Frontend workspace for CommanderZone. Follow root [AGENTS.md](C:/Users/alber/Doc
 8. Do not use arbitrary Playwright waits.
 9. If frontend code changes, run `npm test` and `npm run build`.
 10. Do not change API contracts from frontend work without updating [docs/openapi.yaml](C:/Users/alber/Documents/Workspace/commanderZone/docs/openapi.yaml).
+11. Use existing rooms and existing deck flows; do not recreate those systems in frontend.
+12. Do not recreate Playwright infrastructure or baseline E2E tests already present.
+13. Prioritize Commander deck validation UX, public/private room flows, and browser gauntlet stability over visual redesign.

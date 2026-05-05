@@ -62,15 +62,25 @@ class FriendsApiTest extends ApiTestCase
 
     public function testAcceptedFriendsCanBeInvitedToWaitingRooms(): void
     {
+        $this->seedCard('bbbbbbbb-0000-7000-8000-000000000001', 'Commander Invite', [
+            'type_line' => 'Legendary Creature - Human Advisor',
+            'set' => 'tst',
+            'collector_number' => '19',
+        ]);
         $this->seedCard('bbbbbbbb-1111-7111-8111-111111111111', 'Plains', [
-            'type_line' => 'Basic Land — Plains',
+            'type_line' => 'Basic Land - Plains',
             'set' => 'tst',
             'collector_number' => '20',
         ]);
         $ownerToken = $this->registerAndLogin('owner@example.test', 'Owner');
         $guestToken = $this->registerAndLogin('guest@example.test', 'Guest');
         $ownerDeckId = $this->quickBuildDeck($ownerToken, 'Invite Deck', [
-            ['scryfallId' => 'bbbbbbbb-1111-7111-8111-111111111111', 'quantity' => 1, 'section' => 'main'],
+            ['scryfallId' => 'bbbbbbbb-0000-7000-8000-000000000001', 'quantity' => 1, 'section' => 'commander'],
+            ['scryfallId' => 'bbbbbbbb-1111-7111-8111-111111111111', 'quantity' => 99, 'section' => 'main'],
+        ]);
+        $guestDeckId = $this->quickBuildDeck($guestToken, 'Invite Guest Deck', [
+            ['scryfallId' => 'bbbbbbbb-0000-7000-8000-000000000001', 'quantity' => 1, 'section' => 'commander'],
+            ['scryfallId' => 'bbbbbbbb-1111-7111-8111-111111111111', 'quantity' => 99, 'section' => 'main'],
         ]);
 
         $this->jsonRequest('POST', '/friends/requests', ['email' => 'guest@example.test'], $ownerToken);
@@ -95,11 +105,10 @@ class FriendsApiTest extends ApiTestCase
         self::assertResponseIsSuccessful();
         self::assertSame($inviteId, $this->jsonResponse()['data'][0]['id']);
 
-        $this->jsonRequest('POST', '/rooms/invites/'.$inviteId.'/accept', token: $guestToken);
+        $this->jsonRequest('POST', '/rooms/invites/'.$inviteId.'/accept', ['deckId' => $guestDeckId], $guestToken);
         self::assertResponseIsSuccessful();
         self::assertCount(2, $this->jsonResponse()['room']['players']);
     }
-
     /**
      * @param list<array<string,mixed>> $cards
      */
@@ -114,3 +123,4 @@ class FriendsApiTest extends ApiTestCase
         return (string) $this->jsonResponse()['deck']['id'];
     }
 }
+

@@ -150,6 +150,11 @@ class Room
         $this->status = self::STATUS_ARCHIVED;
     }
 
+    public function detachGame(): void
+    {
+        $this->game = null;
+    }
+
     public function toArray(): array
     {
         return [

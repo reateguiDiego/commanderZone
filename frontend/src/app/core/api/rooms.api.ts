@@ -5,13 +5,17 @@ import { API_BASE_URL } from './api.config';
 import { DataResponse, RoomInviteResponse, RoomResponse, StartGameResponse } from '../models/api-responses.model';
 import { RoomInvite } from '../models/room-invite.model';
 import { Room, RoomVisibility } from '../models/room.model';
+import { withoutGlobalLoading } from '../loading/loading-context';
 
 @Injectable({ providedIn: 'root' })
 export class RoomsApi {
   private readonly http = inject(HttpClient);
 
-  list(status: 'active' | 'archived' | 'all' = 'active'): Observable<DataResponse<Room>> {
-    return this.http.get<DataResponse<Room>>(`${API_BASE_URL}/rooms`, { params: { status } });
+  list(status: 'active' | 'archived' | 'all' = 'active', skipGlobalLoading = false): Observable<DataResponse<Room>> {
+    return this.http.get<DataResponse<Room>>(`${API_BASE_URL}/rooms`, {
+      params: { status },
+      context: skipGlobalLoading ? withoutGlobalLoading() : undefined,
+    });
   }
 
   show(roomId: string): Observable<RoomResponse> {
@@ -42,12 +46,16 @@ export class RoomsApi {
     return this.http.post<StartGameResponse>(`${API_BASE_URL}/rooms/${roomId}/start`, {});
   }
 
-  incomingInvites(): Observable<DataResponse<RoomInvite>> {
-    return this.http.get<DataResponse<RoomInvite>>(`${API_BASE_URL}/rooms/invites/incoming`);
+  incomingInvites(skipGlobalLoading = false): Observable<DataResponse<RoomInvite>> {
+    return this.http.get<DataResponse<RoomInvite>>(`${API_BASE_URL}/rooms/invites/incoming`, {
+      context: skipGlobalLoading ? withoutGlobalLoading() : undefined,
+    });
   }
 
-  invites(roomId: string): Observable<DataResponse<RoomInvite>> {
-    return this.http.get<DataResponse<RoomInvite>>(`${API_BASE_URL}/rooms/${roomId}/invites`);
+  invites(roomId: string, skipGlobalLoading = false): Observable<DataResponse<RoomInvite>> {
+    return this.http.get<DataResponse<RoomInvite>>(`${API_BASE_URL}/rooms/${roomId}/invites`, {
+      context: skipGlobalLoading ? withoutGlobalLoading() : undefined,
+    });
   }
 
   invite(roomId: string, userId: string): Observable<RoomInviteResponse> {

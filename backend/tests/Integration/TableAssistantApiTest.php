@@ -275,8 +275,28 @@ class TableAssistantApiTest extends ApiTestCase
 
     public function testExistingFriendInvitesWorkForTableAssistantRooms(): void
     {
+        $this->seedCard('fafafafa-0000-7000-8000-000000000001', 'Commander Assistant Invite', [
+            'type_line' => 'Legendary Creature - Human Advisor',
+            'set' => 'tst',
+            'collector_number' => '1',
+        ]);
+        $this->seedCard('fafafafa-1111-7111-8111-111111111111', 'Plains', [
+            'type_line' => 'Basic Land - Plains',
+            'set' => 'tst',
+            'collector_number' => '2',
+        ]);
         $ownerToken = $this->registerAndLogin('invite-owner@example.test', 'Invite Owner');
         $guestToken = $this->registerAndLogin('invite-guest@example.test', 'Invite Guest');
+
+        $this->jsonRequest('POST', '/decks/quick-build', [
+            'name' => 'Invite Guest Deck',
+            'cards' => [
+                ['scryfallId' => 'fafafafa-0000-7000-8000-000000000001', 'quantity' => 1, 'section' => 'commander'],
+                ['scryfallId' => 'fafafafa-1111-7111-8111-111111111111', 'quantity' => 99, 'section' => 'main'],
+            ],
+        ], $guestToken);
+        self::assertResponseStatusCodeSame(201);
+        $guestDeckId = (string) $this->jsonResponse()['deck']['id'];
 
         $this->jsonRequest('POST', '/friends/requests', ['email' => 'invite-guest@example.test'], $ownerToken);
         $friendshipId = (string) $this->jsonResponse()['friendship']['id'];
@@ -296,7 +316,7 @@ class TableAssistantApiTest extends ApiTestCase
         self::assertResponseIsSuccessful();
         self::assertSame($inviteId, $this->jsonResponse()['data'][0]['id']);
 
-        $this->jsonRequest('POST', '/rooms/invites/'.$inviteId.'/accept', token: $guestToken);
+        $this->jsonRequest('POST', '/rooms/invites/'.$inviteId.'/accept', ['deckId' => $guestDeckId], $guestToken);
         self::assertResponseIsSuccessful();
 
         $this->jsonRequest('POST', '/table-assistant/rooms/'.$roomId.'/join', token: $guestToken);

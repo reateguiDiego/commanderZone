@@ -90,14 +90,15 @@ export class DeckEditorStore {
       return [];
     }
 
-    const issueMessages = (validation.issues ?? [])
-      .filter((issue) => issue.severity === 'error')
-      .map((issue) => {
-        const cards = issue.cards.length > 0 ? `: ${issue.cards.join(', ')}` : '';
-        return `${issue.title}${cards}. ${issue.detail}`;
-      });
+    return validation.errors.map((entry) => this.formatValidationEntry(entry));
+  });
+  readonly backendWarningMessages = computed(() => {
+    const validation = this.validation();
+    if (!validation) {
+      return [];
+    }
 
-    return [...validation.errors, ...issueMessages];
+    return validation.warnings.map((entry) => this.formatValidationEntry(entry));
   });
   readonly deckIssueTooltip = computed(() => this.backendErrorMessages().join('\n'));
   readonly hasDeckIssues = computed(() => this.backendErrorMessages().length > 0);
@@ -1136,6 +1137,11 @@ export class DeckEditorStore {
     }
 
     return fallback;
+  }
+
+  private formatValidationEntry(entry: { title: string; detail: string; cards: string[] }): string {
+    const cards = entry.cards.length > 0 ? `: ${entry.cards.join(', ')}` : '';
+    return `${entry.title}${cards}. ${entry.detail}`;
   }
 }
 

@@ -162,7 +162,7 @@
         <span class="eyebrow">Visible rooms</span>
         <h3>Room list</h3>
       </div>
-      <button class="icon-button" type="button" title="Reload rooms" (click)="loadRooms()">
+      <button class="icon-button" type="button" title="Reload rooms" (click)="loadRooms(true)">
         <lucide-icon name="refresh-ccw" size="16" />
       </button>
     </div>
@@ -214,4 +214,14 @@
       <p class="notice">Sala {{ room.id }}</p>
     }
   </app-modal>
+
+  <app-modal
+    [open]="invalidCreateDeckModalOpen()"
+    title="Mazo no valido"
+    [message]="invalidCreateDeckModalMessage()"
+    primaryLabel="Entendido"
+    secondaryLabel="Cerrar"
+    (primary)="closeInvalidCreateDeckModal()"
+    (secondary)="closeInvalidCreateDeckModal()"
+  />
 </section>

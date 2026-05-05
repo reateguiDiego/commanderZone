@@ -29,6 +29,11 @@ class GameSnapshotFactory
                 }
             }
             shuffle($library);
+            $openingHand = array_splice($library, 0, min(7, count($library)));
+            $openingHand = array_values(array_map(
+                static fn (array $card): array => [...$card, 'zone' => 'hand'],
+                $openingHand,
+            ));
 
             $command = [];
             $colorIdentity = [];
@@ -50,7 +55,7 @@ class GameSnapshotFactory
                 'life' => 40,
                 'zones' => [
                     'library' => $library,
-                    'hand' => [],
+                    'hand' => $openingHand,
                     'battlefield' => [],
                     'graveyard' => [],
                     'exile' => [],

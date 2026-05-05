@@ -1,6 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { authStorageState } from './support/auth';
-import { createCommanderGameWithRandomDecks } from './support/commander-game';
+import { createCommanderGameWithValidDecks } from './support/commander-game';
 
 test.setTimeout(360000);
 
@@ -9,7 +9,7 @@ test('basic robustness with two full decks does not break UI or duplicate cards'
     throw new Error('Playwright baseURL is required.');
   }
 
-  const setup = await createCommanderGameWithRandomDecks(request, {
+  const setup = await createCommanderGameWithValidDecks(request, {
     runId: `robust-${Date.now()}`,
     deckSize: 100,
   });
@@ -130,7 +130,11 @@ async function closeZoneModal(page: Page): Promise<void> {
 
   await page.locator('.zone-modal-backdrop').first().click({ position: { x: 5, y: 5 }, force: true, timeout: 5000 });
   if ((await page.locator('.zone-modal').count()) > 0) {
-    await page.locator('.zone-modal header button').first().click({ force: true, timeout: 5000 });
+    try {
+      await page.locator('.zone-modal header button').first().click({ force: true, timeout: 5000 });
+    } catch {
+      // The modal may detach between the visibility check and click; fallback to keyboard close below.
+    }
   }
   if ((await page.locator('.zone-modal').count()) > 0) {
     await page.keyboard.press('Escape');
@@ -209,3 +213,4 @@ async function moveHandCardToBattlefieldWithRetry(page: Page, card: Locator, ins
 
   await expect(handCard).toHaveCount(0);
 }
+

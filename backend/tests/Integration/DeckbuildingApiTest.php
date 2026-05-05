@@ -212,8 +212,12 @@ TXT,
         self::assertResponseIsSuccessful();
         $validation = $this->jsonResponse();
         self::assertFalse($validation['valid']);
+        self::assertSame('commander', $validation['format']);
+        self::assertArrayHasKey('counts', $validation);
+        self::assertArrayHasKey('commander', $validation);
         self::assertNotEmpty($validation['errors']);
-        self::assertContains('Missing commander', array_column($validation['issues'], 'title'));
+        self::assertArrayHasKey('warnings', $validation);
+        self::assertContains('commander.missing', array_column($validation['errors'], 'code'));
 
         $this->jsonRequest('POST', '/decks/'.$deckId.'/cards', [
             'scryfallId' => $tokenProducer->scryfallId(),
@@ -261,6 +265,9 @@ TXT,
         $this->jsonRequest('POST', '/decks/'.$deckId.'/import', [
             'decklist' => '1 Sol Ring',
         ], $otherToken);
+        self::assertResponseStatusCodeSame(404);
+
+        $this->jsonRequest('POST', '/decks/'.$deckId.'/validate-commander', token: $otherToken);
         self::assertResponseStatusCodeSame(404);
     }
 

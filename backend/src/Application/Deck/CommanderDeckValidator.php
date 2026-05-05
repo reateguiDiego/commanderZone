@@ -2,18 +2,33 @@
 
 namespace App\Application\Deck;
 
+use App\Domain\Card\Card;
 use App\Domain\Deck\Deck;
 use App\Domain\Deck\DeckCard;
 
 class CommanderDeckValidator
 {
     /**
-     * @return array{valid:bool,errors:array<int,string>,issues:array<int,array{severity:string,title:string,detail:string,cards:array<int,string>}>}
+     * @return array{
+     *   valid:bool,
+     *   format:string,
+     *   counts:array{total:int,commander:int,main:int,sideboard:int,maybeboard:int},
+     *   commander:array{mode:string,names:array<int,string>,colorIdentity:array<int,string>},
+     *   errors:array<int,array{code:string,title:string,detail:string,cards:array<int,string>}>,
+     *   warnings:array<int,array{code:string,title:string,detail:string,cards:array<int,string>}>
+     * }
      */
     public function validate(Deck $deck): array
     {
-        $issues = [];
-        $total = 0;
+        $errors = [];
+        $warnings = [];
+        $counts = [
+            'total' => 0,
+            'commander' => 0,
+            'main' => 0,
+            'sideboard' => 0,
+            'maybeboard' => 0,
+        ];
         $commanders = [];
         $mainByName = [];
 
@@ -22,92 +37,141 @@ class CommanderDeckValidator
                 continue;
             }
 
+            $quantity = max(1, $deckCard->quantity());
+            $section = $deckCard->section();
+            if (array_key_exists($section, $counts)) {
+                $counts[$section] += $quantity;
+            }
+            if ($deckCard->isPlayable()) {
+                $counts['total'] += $quantity;
+            }
+
             $card = $deckCard->card();
-            if (!$deckCard->isPlayable()) {
-                $commanderLegality = $card->legalities()['commander'] ?? null;
-                if (!$card->isCommanderLegal() || in_array($commanderLegality, ['banned', 'not_legal'], true)) {
-                    $issues[] = $this->issue(
-                        'warning',
-                        'Non-playable section legality review',
-                        sprintf('%s is in %s and is marked as %s in Commander.', $card->name(), $deckCard->section(), $commanderLegality ?? 'not legal'),
-                        [$card->name()],
+            $cardName = $card->name();
+            $commanderLegality = $this->commanderLegality($card);
+            if ($commanderLegality === null) {
+                $errors[] = $this->issue(
+                    'card.data_insufficient',
+                    'Card data is insufficient',
+                    sprintf('%s does not provide enough Commander legality metadata.', $cardName),
+                    [$cardName],
+                );
+            }
+
+            if ($deckCard->isPlayable()) {
+                if ($commanderLegality === 'banned') {
+                    $errors[] = $this->issue(
+                        'card.commander_banned',
+                        'Card is banned in Commander',
+                        sprintf('%s is banned in Commander.', $cardName),
+                        [$cardName],
+                    );
+                } elseif ($commanderLegality === 'not_legal' || ($commanderLegality !== null && $commanderLegality !== 'legal') || !$card->isCommanderLegal()) {
+                    $errors[] = $this->issue(
+                        'card.commander_not_legal',
+                        'Card is not legal in Commander',
+                        sprintf('%s is marked as %s in Commander.', $cardName, $commanderLegality ?? 'not legal'),
+                        [$cardName],
                     );
                 }
-                continue;
+
+                if ($section === DeckCard::SECTION_COMMANDER) {
+                    $commanders[] = $deckCard;
+                    continue;
+                }
+
+                if ($section === DeckCard::SECTION_MAIN) {
+                    $name = $card->normalizedName();
+                    if ($name === '') {
+                        $name = Card::normalizeName($cardName);
+                    }
+                    $mainByName[$name] = ($mainByName[$name] ?? 0) + $quantity;
+                    if (!$card->isBasicLand() && $mainByName[$name] > 1) {
+                        $errors[] = $this->issue(
+                            'card.singleton_violation',
+                            'Singleton violation',
+                            sprintf('%s appears %d times in the main deck.', $cardName, $mainByName[$name]),
+                            [$cardName],
+                        );
+                    }
+                }
             }
 
-            $total += $deckCard->quantity();
-
-            $commanderLegality = $card->legalities()['commander'] ?? null;
-            if (!$card->isCommanderLegal() || in_array($commanderLegality, ['banned', 'not_legal'], true)) {
-                $issues[] = $this->issue(
-                    'error',
-                    'Commander legality issue',
-                    sprintf('%s is marked as %s in Commander.', $card->name(), $commanderLegality ?? 'not legal'),
-                    [$card->name()],
-                );
-            }
-
-            if ($deckCard->section() === DeckCard::SECTION_COMMANDER) {
-                $commanders[] = $deckCard;
-                continue;
-            }
-
-            $name = $card->normalizedName();
-            $mainByName[$name] = ($mainByName[$name] ?? 0) + $deckCard->quantity();
-            if (!$card->isBasicLand() && $mainByName[$name] > 1) {
-                $issues[] = $this->issue(
-                    'error',
-                    'Singleton violation',
-                    sprintf('%s appears %d times in the main deck.', $card->name(), $mainByName[$name]),
-                    [$card->name()],
-                );
-            }
-
-            if (preg_match('/modal_dfc|transform|meld/i', $card->layout()) === 1 || str_contains($card->name(), '//')) {
-                $issues[] = $this->issue(
-                    'warning',
+            if (preg_match('/modal_dfc|transform|meld/i', $card->layout()) === 1 || str_contains($cardName, '//')) {
+                $warnings[] = $this->issue(
+                    'card.layout_review',
                     'MDFC/layout review',
-                    sprintf('%s uses %s; verify the face and color identity behavior.', $card->name(), $card->layout()),
-                    [$card->name()],
+                    sprintf('%s uses %s; verify the face and color identity behavior.', $cardName, $card->layout()),
+                    [$cardName],
                 );
             }
         }
 
-        if ($total !== 100) {
-            $issues[] = $this->issue(
-                'error',
-                'Invalid deck size',
-                sprintf('Commander decks must contain exactly 100 cards; current total is %d.', $total),
+        if ($counts['sideboard'] > 0) {
+            $errors[] = $this->issue(
+                'deck.sideboard_not_allowed',
+                'Sideboard is not allowed',
+                sprintf('Commander validation requires sideboard to be empty; current sideboard count is %d.', $counts['sideboard']),
                 [],
             );
         }
 
-        if (count($commanders) < 1) {
-            $issues[] = $this->issue('error', 'Missing commander', 'A Commander deck needs at least one commander card.', []);
-        }
-
-        if (count($commanders) > 2) {
-            $issues[] = $this->issue(
-                'error',
-                'Too many commanders',
-                'Commander decks can use one commander, or a legal two-card pairing.',
-                array_map(static fn (DeckCard $entry): string => $entry->card()->name(), $commanders),
+        if ($counts['maybeboard'] > 0) {
+            $errors[] = $this->issue(
+                'deck.maybeboard_not_allowed',
+                'Maybeboard is not allowed',
+                sprintf('Commander validation requires maybeboard to be empty; current maybeboard count is %d.', $counts['maybeboard']),
+                [],
             );
         }
 
-        if (count($commanders) === 2 && !$this->looksLikeLegalPair($commanders)) {
-            $issues[] = $this->issue(
-                'warning',
-                'Commander pair needs review',
-                'The pair does not expose obvious partner/background wording in the available oracle text.',
-                array_map(static fn (DeckCard $entry): string => $entry->card()->name(), $commanders),
+        if ($counts['total'] !== 100) {
+            $errors[] = $this->issue(
+                'deck.size.invalid',
+                'Invalid deck size',
+                sprintf('Commander decks must contain exactly 100 playable cards; current total is %d.', $counts['total']),
+                [],
             );
         }
 
+        $commanderNames = [];
         $allowedColors = [];
         foreach ($commanders as $commander) {
+            $commanderNames[] = $commander->card()->name();
             $allowedColors = array_values(array_unique([...$allowedColors, ...$commander->card()->colorIdentity()]));
+            if (!$this->isCommanderTypeValid($commander)) {
+                $errors[] = $this->issue(
+                    'commander.invalid',
+                    'Commander card is invalid',
+                    sprintf('%s does not look like a valid commander card.', $commander->card()->name()),
+                    [$commander->card()->name()],
+                );
+            }
+        }
+
+        $commanderMode = 'invalid';
+        if (count($commanders) < 1) {
+            $errors[] = $this->issue('commander.missing', 'Missing commander', 'A Commander deck needs at least one commander card.', []);
+        } elseif (count($commanders) > 2) {
+            $errors[] = $this->issue(
+                'commander.too_many',
+                'Too many commanders',
+                'Commander decks can use one commander, or a legal two-card pairing.',
+                $commanderNames,
+            );
+        } elseif (count($commanders) === 1) {
+            $commanderMode = 'single';
+        } elseif (count($commanders) === 2) {
+            if ($this->looksLikeLegalPair($commanders)) {
+                $commanderMode = 'pair';
+            } else {
+                $errors[] = $this->issue(
+                    'commander.pair_unsupported',
+                    'Commander pair is not supported',
+                    'The pair does not expose obvious partner/background wording in the available oracle text.',
+                    $commanderNames,
+                );
+            }
         }
 
         foreach ($deck->cards() as $deckCard) {
@@ -120,8 +184,8 @@ class CommanderDeckValidator
 
             foreach ($deckCard->card()->colorIdentity() as $color) {
                 if (!in_array($color, $allowedColors, true)) {
-                    $issues[] = $this->issue(
-                        'error',
+                    $errors[] = $this->issue(
+                        'card.color_identity_violation',
                         'Color identity issue',
                         sprintf('%s includes colors outside the command zone identity.', $deckCard->card()->name()),
                         [$deckCard->card()->name()],
@@ -131,16 +195,20 @@ class CommanderDeckValidator
             }
         }
 
-        $issues = $this->uniqueIssues($issues);
-        $errors = array_values(array_map(
-            static fn (array $issue): string => $issue['detail'],
-            array_filter($issues, static fn (array $issue): bool => $issue['severity'] === 'error'),
-        ));
+        $errors = $this->uniqueIssues($errors);
+        $warnings = $this->uniqueIssues($warnings);
 
         return [
             'valid' => $errors === [],
-            'errors' => array_values(array_unique($errors)),
-            'issues' => $issues,
+            'format' => 'commander',
+            'counts' => $counts,
+            'commander' => [
+                'mode' => $commanderMode,
+                'names' => $commanderNames,
+                'colorIdentity' => $allowedColors,
+            ],
+            'errors' => $errors,
+            'warnings' => $warnings,
         ];
     }
 
@@ -162,12 +230,12 @@ class CommanderDeckValidator
     }
 
     /**
-     * @return array{severity:string,title:string,detail:string,cards:array<int,string>}
+     * @return array{code:string,title:string,detail:string,cards:array<int,string>}
      */
-    private function issue(string $severity, string $title, string $detail, array $cards): array
+    private function issue(string $code, string $title, string $detail, array $cards): array
     {
         return [
-            'severity' => $severity,
+            'code' => $code,
             'title' => $title,
             'detail' => $detail,
             'cards' => array_values($cards),
@@ -175,15 +243,15 @@ class CommanderDeckValidator
     }
 
     /**
-     * @param list<array{severity:string,title:string,detail:string,cards:array<int,string>}> $issues
-     * @return list<array{severity:string,title:string,detail:string,cards:array<int,string>}>
+     * @param list<array{code:string,title:string,detail:string,cards:array<int,string>}> $issues
+     * @return list<array{code:string,title:string,detail:string,cards:array<int,string>}>
      */
     private function uniqueIssues(array $issues): array
     {
         $seen = [];
         $unique = [];
         foreach ($issues as $issue) {
-            $key = $issue['severity'].'|'.$issue['title'].'|'.$issue['detail'].'|'.implode(',', $issue['cards']);
+            $key = $issue['code'].'|'.$issue['title'].'|'.$issue['detail'].'|'.implode(',', $issue['cards']);
             if (isset($seen[$key])) {
                 continue;
             }
@@ -192,5 +260,22 @@ class CommanderDeckValidator
         }
 
         return $unique;
+    }
+
+    private function commanderLegality(Card $card): ?string
+    {
+        $value = $card->legalities()['commander'] ?? null;
+        if (!is_string($value) || trim($value) === '') {
+            return null;
+        }
+
+        return trim($value);
+    }
+
+    private function isCommanderTypeValid(DeckCard $deckCard): bool
+    {
+        $typeLine = mb_strtolower((string) ($deckCard->card()->typeLine() ?? ''));
+
+        return str_contains($typeLine, 'legendary');
     }
 }

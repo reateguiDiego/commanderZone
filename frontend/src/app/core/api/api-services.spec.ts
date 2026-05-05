@@ -236,6 +236,12 @@ describe('API services', () => {
     request = http.expectOne(`${API_BASE_URL}/rooms/room-1/archive`);
     expect(request.request.method).toBe('POST');
     request.flush({ room: roomFixture('room-1') });
+
+    rooms.list('active', true).subscribe();
+    request = http.expectOne(`${API_BASE_URL}/rooms?status=active`);
+    expect(request.request.method).toBe('GET');
+    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);
+    request.flush({ data: [] });
   });
 
   it('handles room invites through existing room endpoints', () => {
@@ -259,6 +265,18 @@ describe('API services', () => {
     rooms.invites('room-1').subscribe();
     request = http.expectOne(`${API_BASE_URL}/rooms/room-1/invites`);
     expect(request.request.method).toBe('GET');
+    request.flush({ data: [] });
+
+    rooms.incomingInvites(true).subscribe();
+    request = http.expectOne(`${API_BASE_URL}/rooms/invites/incoming`);
+    expect(request.request.method).toBe('GET');
+    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);
+    request.flush({ data: [] });
+
+    rooms.invites('room-1', true).subscribe();
+    request = http.expectOne(`${API_BASE_URL}/rooms/room-1/invites`);
+    expect(request.request.method).toBe('GET');
+    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);
     request.flush({ data: [] });
   });
 

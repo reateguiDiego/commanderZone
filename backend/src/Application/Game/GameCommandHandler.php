@@ -46,6 +46,21 @@ class GameCommandHandler
     private const COMMANDS_ALLOWED_WHEN_FINISHED = [
         'chat.message',
     ];
+    private const ACTOR_OWN_PLAYER_COMMANDS = [
+        'zone.changed',
+        'zone.move_all',
+        'card.moved',
+        'cards.moved',
+        'card.tapped',
+        'card.position.changed',
+        'card.face_down.changed',
+        'card.revealed',
+        'card.token_copy.created',
+        'card.controller.changed',
+        'card.power_toughness.changed',
+        'card.counter.changed',
+        'stack.card_added',
+    ];
 
     /**
      * @return list<string>
@@ -781,29 +796,7 @@ class GameCommandHandler
             throw new \InvalidArgumentException('Conceded players cannot perform game actions.');
         }
 
-        if (str_starts_with($type, 'library.')) {
-            $this->assertActorPlayer($snapshot, $payload, $actor, 'playerId');
-            return;
-        }
-
-        if ($type === 'zone.changed' || $type === 'zone.move_all') {
-            $this->assertActorPlayer($snapshot, $payload, $actor, 'playerId');
-            return;
-        }
-
-        if (in_array($type, [
-            'card.moved',
-            'cards.moved',
-            'card.tapped',
-            'card.position.changed',
-            'card.face_down.changed',
-            'card.revealed',
-            'card.token_copy.created',
-            'card.controller.changed',
-            'card.power_toughness.changed',
-            'card.counter.changed',
-            'stack.card_added',
-        ], true)) {
+        if (str_starts_with($type, 'library.') || in_array($type, self::ACTOR_OWN_PLAYER_COMMANDS, true)) {
             $this->assertActorPlayer($snapshot, $payload, $actor, 'playerId');
             return;
         }

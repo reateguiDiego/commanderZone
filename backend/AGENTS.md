@@ -3,6 +3,7 @@
 ## Scope
 
 Backend workspace for CommanderZone. Follow root [AGENTS.md](C:/Users/alber/Documents/Workspace/commanderZone/AGENTS.md) plus these backend-specific constraints.
+Active plan: [COMMANDERZONE_GAMEPLAY_BROWSER_MASTER_PLAN.md](C:/Users/alber/Documents/Workspace/commanderZone/docs/COMMANDERZONE_GAMEPLAY_BROWSER_MASTER_PLAN.md).
 
 ## Backend Rules
 
@@ -15,4 +16,5 @@ Backend workspace for CommanderZone. Follow root [AGENTS.md](C:/Users/alber/Docu
 7. Do not introduce dependencies without explicit justification.
 8. Do not add secrets to the repository.
 9. If backend code changes, run `APP_ENV=test php bin/phpunit`.
-
+10. Use existing rooms and deck validation endpoints/flows; do not create parallel backend systems unless explicitly requested.
+11. Prioritize functional hardening (validation, permissions, gauntlet support) over deployment or visual concerns.

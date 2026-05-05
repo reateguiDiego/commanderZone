@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { authStorageState } from './support/auth';
-import { createCommanderGameWithRandomDecks } from './support/commander-game';
+import { createCommanderGameWithValidDecks } from './support/commander-game';
 
 test.setTimeout(240000);
 
@@ -9,7 +9,7 @@ test('player can move a hand card to battlefield with manual fallback and sync t
     throw new Error('Playwright baseURL is required.');
   }
 
-  const setup = await createCommanderGameWithRandomDecks(request, {
+  const setup = await createCommanderGameWithValidDecks(request, {
     runId: `move-hand-${Date.now()}`,
     deckSize: 100,
   });
@@ -124,3 +124,4 @@ async function readSidebarZoneCounts(page: Page, displayName: string): Promise<{
     library: Number.parseInt(match[2] ?? '', 10),
   };
 }
+

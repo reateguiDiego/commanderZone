@@ -1,4 +1,9 @@
-﻿# CommanderZone â€” Plan maestro para Codex
+﻿> [!WARNING]
+> Documento historico (completado). No usar como plan activo.
+> Plan activo actual: docs/COMMANDERZONE_GAMEPLAY_BROWSER_MASTER_PLAN.md.
+> Este documento se conserva solo como historial de ejecucion E2E.
+
+# CommanderZone â€” Plan maestro para Codex
 
 Este documento es el plan de ejecuciÃ³n para que Codex avance en CommanderZone sin que tengas que escribir prompts largos paso a paso.
 
@@ -1281,3 +1286,4 @@ Comandos:
 Notas:
 - No se toco backend ni contratos API.
 - No se modifico diseño UI ni se eliminaron fallbacks manuales.
+

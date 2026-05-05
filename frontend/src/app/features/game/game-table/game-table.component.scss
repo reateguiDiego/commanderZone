@@ -98,6 +98,33 @@ input {
   flex-wrap: wrap;
 }
 
+.sync-indicator {
+  border: 1px solid rgb(238 211 139 / 20%);
+  border-radius: 999px;
+  padding: 0.3rem 0.55rem;
+  color: #d7c79c;
+  font-size: 0.7rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.sync-indicator[data-status='live'] {
+  border-color: rgb(118 199 121 / 46%);
+  color: #bbf7d0;
+}
+
+.sync-indicator[data-status='pending'],
+.sync-indicator[data-status='connecting'] {
+  border-color: rgb(250 204 21 / 45%);
+  color: #fde68a;
+}
+
+.sync-indicator[data-status='reconnecting'],
+.sync-indicator[data-status='polling'] {
+  border-color: rgb(251 146 60 / 45%);
+  color: #fdba74;
+}
+
 .my-actions button {
   min-height: 2rem;
   padding: 0 0.55rem;

@@ -24,6 +24,7 @@
           </select>
           <input type="number" min="1" [ngModel]="snapshot.turn.number" (ngModelChange)="store.changeTurnNumber($event)" aria-label="Turn number" />
         </div>
+        <span class="sync-indicator" data-testid="sync-status" [attr.data-status]="store.syncStatus()">{{ store.syncStatusLabel() }}</span>
         <div class="my-actions">
           @if (store.currentPlayer(); as current) {
             @if (current.state.status !== 'conceded') {
@@ -278,7 +279,13 @@
             }
           </div>
           <form class="chat-form" (ngSubmit)="store.sendChat()">
-            <input data-testid="chat-input" name="chatMessage" placeholder="Message" [(ngModel)]="store.chatMessage" />
+            <input
+              data-testid="chat-input"
+              name="chatMessage"
+              placeholder="Message"
+              [ngModel]="store.chatMessage()"
+              (ngModelChange)="store.setChatMessage($event)"
+            />
             <button data-testid="chat-send" type="submit"><lucide-icon name="send" size="16" /></button>
           </form>
         } @else if (!store.floatingMinimized()) {

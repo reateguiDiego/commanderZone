@@ -13,7 +13,7 @@ describe('DeckEditorComponent', () => {
     const decksApi = {
       get: vi.fn().mockReturnValue(of({ deck })),
       tokens: vi.fn().mockReturnValue(of({ data: [], unresolved: [] })),
-      validateCommander: vi.fn().mockReturnValue(of({ valid: true, errors: [] })),
+      validateCommander: vi.fn().mockReturnValue(of(validCommanderValidation())),
     };
 
     await TestBed.configureTestingModule({
@@ -70,17 +70,34 @@ describe('DeckEditorComponent', () => {
 
     fixture.componentInstance.store.validation.set({
       valid: false,
-      errors: ['Black Lotus is banned in Commander.'],
-      issues: [{ severity: 'warning', title: 'Review', detail: 'Only warning.', cards: ['Black Lotus'] }],
+      format: 'commander',
+      counts: { total: 100, commander: 1, main: 99, sideboard: 0, maybeboard: 0 },
+      commander: { mode: 'single', names: ['Atraxa'], colorIdentity: ['W', 'U', 'B', 'G'] },
+      errors: [{
+        code: 'card.commander_banned',
+        title: 'Banned card',
+        detail: 'Black Lotus is banned in Commander.',
+        cards: ['Black Lotus'],
+      }],
+      warnings: [{
+        code: 'card.layout_review',
+        title: 'Review',
+        detail: 'Only warning.',
+        cards: ['Black Lotus'],
+      }],
     });
 
     expect(fixture.componentInstance.store.hasDeckIssues()).toBe(true);
-    expect(fixture.componentInstance.store.deckIssueTooltip()).toContain('Black Lotus is banned in Commander.');
+    expect(fixture.componentInstance.store.deckIssueTooltip()).toContain('Banned card');
 
     fixture.componentInstance.store.validation.set({
-      valid: true,
-      errors: [],
-      issues: [{ severity: 'warning', title: 'Review', detail: 'Only warning.', cards: ['Black Lotus'] }],
+      ...validCommanderValidation(),
+      warnings: [{
+        code: 'card.layout_review',
+        title: 'Review',
+        detail: 'Only warning.',
+        cards: ['Black Lotus'],
+      }],
     });
 
     expect(fixture.componentInstance.store.hasDeckIssues()).toBe(false);
@@ -89,6 +106,17 @@ describe('DeckEditorComponent', () => {
 
 function deckCard(id: string, section: DeckSection, card: Card): DeckCard {
   return { id, section, card, quantity: 1 };
+}
+
+function validCommanderValidation() {
+  return {
+    valid: true,
+    format: 'commander' as const,
+    counts: { total: 100, commander: 1, main: 99, sideboard: 0, maybeboard: 0 },
+    commander: { mode: 'single' as const, names: ['Atraxa'], colorIdentity: ['W', 'U', 'B', 'G'] },
+    errors: [],
+    warnings: [],
+  };
 }
 
 function card(name: string, typeLine: string): Card {

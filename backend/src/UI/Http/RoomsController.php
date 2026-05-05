@@ -2,6 +2,7 @@
 
 namespace App\UI\Http;
 
+use App\Application\Deck\CommanderDeckValidator;
 use App\Application\Game\GameSnapshotFactory;
 use App\Domain\Deck\Deck;
 use App\Domain\Game\Game;
@@ -95,7 +96,13 @@ class RoomsController extends ApiController
     }
 
     #[Route('/rooms/{id}/join', methods: ['POST'])]
-    public function join(string $id, Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager): JsonResponse
+    public function join(
+        string $id,
+        Request $request,
+        #[CurrentUser] User $user,
+        EntityManagerInterface $entityManager,
+        CommanderDeckValidator $deckValidator,
+    ): JsonResponse
     {
         $room = $entityManager->getRepository(Room::class)->find($id);
         if (!$room instanceof Room) {
@@ -113,6 +120,12 @@ class RoomsController extends ApiController
         $deck = $this->deckFromPayload($this->payload($request), $user, $entityManager);
         if (!$deck instanceof Deck) {
             return $this->fail('A valid deck is required to join a room.');
+        }
+        $validation = $deckValidator->validate($deck);
+        if (($validation['valid'] ?? false) !== true) {
+            return $this->fail('A Commander-valid deck is required to join a room.', 400, [
+                'validation' => $validation,
+            ]);
         }
 
         $room->addPlayer(new RoomPlayer($room, $user, $deck));
@@ -186,7 +199,13 @@ class RoomsController extends ApiController
     }
 
     #[Route('/rooms/{id}/start', methods: ['POST'])]
-    public function start(string $id, #[CurrentUser] User $user, EntityManagerInterface $entityManager, GameSnapshotFactory $snapshotFactory): JsonResponse
+    public function start(
+        string $id,
+        #[CurrentUser] User $user,
+        EntityManagerInterface $entityManager,
+        GameSnapshotFactory $snapshotFactory,
+        CommanderDeckValidator $deckValidator,
+    ): JsonResponse
     {
         $room = $entityManager->getRepository(Room::class)->find($id);
         if (!$room instanceof Room) {
@@ -205,6 +224,50 @@ class RoomsController extends ApiController
             if (!$player instanceof RoomPlayer || !$player->deck() instanceof Deck) {
                 return $this->fail('Every player needs a deck before starting the game.');
             }
+        }
+        $invalidDecks = [];
+        foreach ($room->players() as $player) {
+            if (!$player instanceof RoomPlayer) {
+                continue;
+            }
+
+            $deck = $player->deck();
+            if (!$deck instanceof Deck) {
+                continue;
+            }
+
+            $playerData = [
+                'playerId' => $player->user()->id(),
+                'displayName' => $player->user()->displayName(),
+                'deckId' => $deck->id(),
+            ];
+            if ($deck->owner()->id() !== $player->user()->id()) {
+                $invalidDecks[] = [
+                    ...$playerData,
+                    'errors' => [[
+                        'code' => 'deck.owner_mismatch',
+                        'title' => 'Deck owner mismatch',
+                        'detail' => 'Player must use their own deck.',
+                        'cards' => [],
+                    ]],
+                ];
+                continue;
+            }
+
+            $validation = $deckValidator->validate($deck);
+            if (($validation['valid'] ?? false) !== true) {
+                $invalidDecks[] = [
+                    ...$playerData,
+                    'validation' => $validation,
+                ];
+            }
+        }
+        if ($invalidDecks !== []) {
+            return $this->fail(
+                'Every player must have a Commander-valid deck before starting the game.',
+                400,
+                ['invalidDecks' => $invalidDecks],
+            );
         }
 
         $game = new Game($room, $snapshotFactory->fromRoom($room));
@@ -229,26 +292,24 @@ class RoomsController extends ApiController
 
     private function closeOwnerActiveRooms(EntityManagerInterface $entityManager, User $owner): void
     {
-        $activeRooms = $entityManager->getRepository(Room::class)->createQueryBuilder('room')
+        $ownedRooms = $entityManager->getRepository(Room::class)->createQueryBuilder('room')
             ->where('room.owner = :owner')
-            ->andWhere('room.status != :archived')
             ->setParameter('owner', $owner)
-            ->setParameter('archived', Room::STATUS_ARCHIVED)
             ->getQuery()
             ->getResult();
 
-        foreach ($activeRooms as $activeRoom) {
-            if (!$activeRoom instanceof Room) {
+        foreach ($ownedRooms as $ownedRoom) {
+            if (!$ownedRoom instanceof Room) {
                 continue;
             }
 
-            if ($activeRoom->status() === Room::STATUS_WAITING) {
-                $entityManager->remove($activeRoom);
-                continue;
+            $game = $ownedRoom->game();
+            if ($game instanceof Game) {
+                $ownedRoom->detachGame();
+                $entityManager->remove($game);
             }
 
-            $activeRoom->archive();
-            $activeRoom->game()?->finish();
+            $entityManager->remove($ownedRoom);
         }
     }
 

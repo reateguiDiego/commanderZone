@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
-import { GamesApi } from '../../../core/api/games.api';
-import { GameCommandType, GameSnapshot } from '../../../core/models/game.model';
+import { GamesApi } from '../../../../core/api/games.api';
+import { GameCommandType, GameSnapshot } from '../../../../core/models/game.model';
 
 @Injectable()
 export class GameTableCommandService {

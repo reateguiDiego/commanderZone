@@ -4,10 +4,13 @@ import { firstValueFrom } from 'rxjs';
 import { GamesApi } from '../../../core/api/games.api';
 import { AuthStore } from '../../../core/auth/auth.store';
 import { GameCardInstance, GameCommandType, GameSnapshot, GameZoneName, GameZoneResponse } from '../../../core/models/game.model';
-import { GameTableCommandService } from './game-table-command.service';
-import { GameTableDragService } from './game-table-drag.service';
-import { GameTableRealtimeService } from './game-table-realtime.service';
-import { GameTableSelectionService } from './game-table-selection.service';
+import { GameTableCommandService } from './services/game-table-command.service';
+import { GameTableDragService } from './services/game-table-drag.service';
+import { GameTableRealtimeService } from './services/game-table-realtime.service';
+import { GameTableSelectionService } from './services/game-table-selection.service';
+import { GameTableChatLogState } from './state/game-table-chat-log.state';
+import { GameContextMenu, GameTableUiState } from './state/game-table-ui.state';
+import { GameTableZoneModalState } from './state/game-table-zone-modal.state';
 
 export interface PlayerView {
   id: string;
@@ -20,27 +23,6 @@ export interface SelectedCard {
   card: GameCardInstance;
 }
 
-export interface GameContextMenu {
-  x: number;
-  y: number;
-  playerId: string;
-  zone: GameZoneName;
-  card?: GameCardInstance;
-  kind?: 'zone' | 'card' | 'game' | 'player';
-}
-
-export interface ZoneModalState {
-  playerId: string;
-  zone: GameZoneName;
-  title: string;
-  cards: GameCardInstance[];
-  total: number;
-  type: string;
-  search: string;
-  selectedCard: GameCardInstance | null;
-  loading: boolean;
-}
-
 @Injectable()
 export class GameTableStore implements OnDestroy {
   private readonly gamesApi = inject(GamesApi);
@@ -51,6 +33,9 @@ export class GameTableStore implements OnDestroy {
   private readonly router = inject(Router);
   private readonly realtime = inject(GameTableRealtimeService);
   private readonly route = inject(ActivatedRoute);
+  private readonly uiState = inject(GameTableUiState);
+  private readonly zoneModalState = inject(GameTableZoneModalState);
+  private readonly chatLogState = inject(GameTableChatLogState);
   private floatingDragOffset: { x: number; y: number } | null = null;
   private deferredRemoteSnapshot: GameSnapshot | null = null;
   private hoveredSelection: SelectedCard | null = null;
@@ -61,17 +46,49 @@ export class GameTableStore implements OnDestroy {
   readonly phases = ['untap', 'upkeep', 'draw', 'main-1', 'combat', 'main-2', 'end'];
   readonly gameId = signal(this.route.snapshot.paramMap.get('id') ?? '');
   readonly snapshot = signal<GameSnapshot | null>(null);
-  readonly focusedPlayerId = signal<string | null>(null);
+  readonly focusedPlayerId = this.uiState.focusedPlayerId;
   readonly selectedCards: WritableSignal<SelectedCard[]> = this.selection.selectedCards as WritableSignal<SelectedCard[]>;
-  readonly hoveredCard = signal<GameCardInstance | null>(null);
-  readonly contextMenu = signal<GameContextMenu | null>(null);
-  readonly zoneModal = signal<ZoneModalState | null>(null);
-  readonly activeFloatingTab = signal<'chat' | 'log'>('log');
-  readonly floatingPanel = signal({ x: 24, y: 120 });
-  readonly floatingMinimized = signal(false);
+  readonly hoveredCard = this.uiState.hoveredCard;
+  readonly contextMenu = this.uiState.contextMenu;
+  readonly zoneModal = this.zoneModalState.zoneModal;
+  readonly activeFloatingTab = this.uiState.activeFloatingTab;
+  readonly floatingPanel = this.uiState.floatingPanel;
+  readonly floatingMinimized = this.uiState.floatingMinimized;
+  readonly chatMessage = this.chatLogState.chatMessage;
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);
   readonly pending = signal(false);
+  readonly realtimeStatus = computed(() => this.realtime.status());
+  readonly syncStatus = computed<'pending' | 'live' | 'connecting' | 'reconnecting' | 'polling'>(() => {
+    if (this.pending()) {
+      return 'pending';
+    }
+
+    switch (this.realtimeStatus()) {
+      case 'live':
+        return 'live';
+      case 'connecting':
+        return 'connecting';
+      case 'degraded':
+        return 'reconnecting';
+      default:
+        return 'polling';
+    }
+  });
+  readonly syncStatusLabel = computed((): string => {
+    switch (this.syncStatus()) {
+      case 'pending':
+        return 'Syncing action...';
+      case 'live':
+        return 'Realtime connected';
+      case 'connecting':
+        return 'Connecting realtime...';
+      case 'reconnecting':
+        return 'Realtime degraded, polling active';
+      default:
+        return 'Polling sync';
+    }
+  });
 
   readonly players = computed<PlayerView[]>(() => {
     const players = this.snapshot()?.players ?? {};
@@ -83,16 +100,13 @@ export class GameTableStore implements OnDestroy {
 
     return players.find((player) => player.id === focusedId) ?? players[0] ?? null;
   });
-  readonly eventLog = computed(() => [...(this.snapshot()?.eventLog ?? [])].reverse());
+  readonly eventLog = computed(() => this.chatLogState.eventLog(this.snapshot()));
   readonly currentPlayer = computed<PlayerView | null>(() => {
     const userId = this.auth.user()?.id;
 
     return this.players().find((player) => player.state.user.id === userId) ?? null;
   });
   readonly isGameOwner = computed(() => this.snapshot()?.ownerId === this.currentPlayer()?.id);
-
-  chatMessage = '';
-
   constructor() {
     void this.load();
   }
@@ -142,7 +156,7 @@ export class GameTableStore implements OnDestroy {
 
   focusPlayer(playerId: string): void {
     this.focusedPlayerId.set(playerId);
-    this.contextMenu.set(null);
+    this.uiState.closeContextMenu();
   }
 
   focusCurrentPlayer(): void {
@@ -329,17 +343,21 @@ export class GameTableStore implements OnDestroy {
   }
 
   closeContextMenu(): void {
-    this.contextMenu.set(null);
+    this.uiState.closeContextMenu();
   }
 
   async sendChat(): Promise<void> {
-    const message = this.chatMessage.trim();
+    const message = this.chatLogState.normalizedMessage();
     if (!message) {
       return;
     }
 
     await this.command('chat.message', { message });
-    this.chatMessage = '';
+    this.chatLogState.clearMessage();
+  }
+
+  setChatMessage(value: string): void {
+    this.chatLogState.setMessage(value);
   }
 
   async changeLife(playerId: string, delta: number): Promise<void> {
@@ -817,7 +835,7 @@ export class GameTableStore implements OnDestroy {
 
   async openZone(playerId: string, zone: GameZoneName): Promise<void> {
     const title = `${this.playerName(playerId)} ${this.zoneTitle(zone)}`;
-    this.zoneModal.set({ playerId, zone, title, cards: [], total: 0, type: '', search: '', selectedCard: null, loading: true });
+    this.zoneModalState.open(playerId, zone, title);
     await this.loadZone();
   }
 
@@ -828,42 +846,26 @@ export class GameTableStore implements OnDestroy {
       return;
     }
 
-    this.zoneModal.set({ ...modal, loading: true });
+    this.zoneModalState.setLoading();
     const response: GameZoneResponse = await firstValueFrom(this.gamesApi.zone(gameId, modal.playerId, modal.zone, {
       type: modal.type,
       search: modal.search,
       limit: 200,
     }));
-    this.zoneModal.set({
-      ...modal,
-      cards: response.data,
-      total: response.total,
-      selectedCard: response.data[0] ?? null,
-      loading: false,
-    });
+    this.zoneModalState.setLoaded(response.data, response.total);
   }
 
-  updateZoneFilter(patch: Partial<Pick<ZoneModalState, 'type' | 'search'>>): void {
-    const modal = this.zoneModal();
-    if (!modal) {
-      return;
-    }
-
-    this.zoneModal.set({ ...modal, ...patch });
+  updateZoneFilter(patch: Partial<{ type: string; search: string }>): void {
+    this.zoneModalState.patchFilters(patch);
     void this.loadZone();
   }
 
   selectZoneCard(card: GameCardInstance): void {
-    const modal = this.zoneModal();
-    if (!modal) {
-      return;
-    }
-
-    this.zoneModal.set({ ...modal, selectedCard: card });
+    this.zoneModalState.selectCard(card);
   }
 
   closeZoneModal(): void {
-    this.zoneModal.set(null);
+    this.zoneModalState.close();
   }
 
   startFloatingDrag(event: PointerEvent): void {
@@ -964,7 +966,7 @@ export class GameTableStore implements OnDestroy {
   }
 
   toggleFloatingMinimized(): void {
-    this.floatingMinimized.update((value) => !value);
+    this.uiState.toggleFloatingMinimized();
   }
 
   private subscribeToRealtime(gameId: string): void {

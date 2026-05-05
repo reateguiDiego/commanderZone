@@ -314,15 +314,58 @@
 
         @if (store.validation(); as result) {
           <div class="notice" [class.ok-notice]="result.valid" [class.error]="!result.valid">
-            <strong>{{ result.valid ? 'Commander legal by backend' : 'Backend Commander issues' }}</strong>
-            @if (!result.valid) {
-              <ul>
-                @for (message of result.errors; track message) {
-                  <li>{{ message }}</li>
-                }
-              </ul>
+            <strong>{{ result.valid ? 'Commander validation passed' : 'Commander validation failed' }}</strong>
+            <span>Usable in game: {{ result.valid ? 'yes' : 'no' }}</span>
+            <span>
+              Cards: {{ result.counts.total }} total
+              ({{ result.counts.commander }} commander, {{ result.counts.main }} main, {{ result.counts.sideboard }} sideboard, {{ result.counts.maybeboard }} maybeboard)
+            </span>
+            <span>
+              Commander mode: {{ result.commander.mode }}
+              @if (result.commander.names.length > 0) {
+                - {{ result.commander.names.join(' / ') }}
+              }
+            </span>
+            @if (result.commander.colorIdentity.length > 0) {
+              <span>Color identity: {{ result.commander.colorIdentity.join(', ') }}</span>
             }
           </div>
+
+          @if (result.errors.length > 0) {
+            <div class="notice error">
+              <strong>Errors</strong>
+              <ul>
+                @for (issue of result.errors; track issue.code + issue.title + issue.detail) {
+                  <li>
+                    <strong>{{ issue.title }}</strong>
+                    ({{ issue.code }})
+                    @if (issue.cards.length > 0) {
+                      - {{ issue.cards.join(', ') }}
+                    }
+                    - {{ issue.detail }}
+                  </li>
+                }
+              </ul>
+            </div>
+          }
+
+          @if (result.warnings.length > 0) {
+            <div class="notice warning">
+              <strong>Warnings</strong>
+              <ul>
+                @for (issue of result.warnings; track issue.code + issue.title + issue.detail) {
+                  <li>
+                    <strong>{{ issue.title }}</strong>
+                    ({{ issue.code }})
+                    @if (issue.cards.length > 0) {
+                      - {{ issue.cards.join(', ') }}
+                    }
+                    - {{ issue.detail }}
+                  </li>
+                }
+              </ul>
+            </div>
+          }
         }
 
         <div class="dense-list">

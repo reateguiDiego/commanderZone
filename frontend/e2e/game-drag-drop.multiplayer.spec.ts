@@ -1,6 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { authStorageState } from './support/auth';
-import { createCommanderGameWithRandomDecks } from './support/commander-game';
+import { createCommanderGameWithValidDecks } from './support/commander-game';
 
 test.setTimeout(240000);
 
@@ -9,7 +9,7 @@ test('drag and drop moves a card to battlefield and syncs to opponent', async ({
     throw new Error('Playwright baseURL is required.');
   }
 
-  const setup = await createCommanderGameWithRandomDecks(request, {
+  const setup = await createCommanderGameWithValidDecks(request, {
     runId: `drag-drop-${Date.now()}`,
     deckSize: 100,
   });
@@ -141,3 +141,4 @@ async function battlefieldCount(page: Page, playerId: string): Promise<number> {
     .locator(`[data-testid="battlefield-zone"][data-player-id="${playerId}"] [data-testid="game-card"][data-zone="battlefield"]`)
     .count();
 }
+

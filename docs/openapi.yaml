@@ -105,7 +105,11 @@ paths:
                   user:
                     $ref: '#/components/schemas/User'
         '400':
-          $ref: '#/components/responses/Error'
+          description: Validation error while trying to start the room.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoomStartError'
         '401':
           $ref: '#/components/responses/Error'
   /me/password:
@@ -1210,7 +1214,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/Id'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -1228,6 +1232,8 @@ paths:
                     $ref: '#/components/schemas/RoomInvite'
                   room:
                     $ref: '#/components/schemas/Room'
+        '400':
+          $ref: '#/components/responses/Error'
         '401':
           $ref: '#/components/responses/Error'
         '404':
@@ -1576,6 +1582,33 @@ components:
       properties:
         error:
           type: string
+    RoomStartError:
+      allOf:
+        - $ref: '#/components/schemas/Error'
+        - type: object
+          properties:
+            invalidDecks:
+              type: array
+              items:
+                $ref: '#/components/schemas/RoomStartInvalidDeck'
+    RoomStartInvalidDeck:
+      type: object
+      required: [playerId, displayName, deckId]
+      properties:
+        playerId:
+          type: string
+          format: uuid
+        displayName:
+          type: string
+        deckId:
+          type: string
+          format: uuid
+        validation:
+          $ref: '#/components/schemas/ValidationResult'
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/CommanderValidationEntry'
     RegisterRequest:
       type: object
       required: [email, displayName, password]
@@ -2209,13 +2242,12 @@ components:
           type: integer
         totalSymbols:
           type: integer
-    CommanderValidationIssue:
+    CommanderValidationEntry:
       type: object
-      required: [severity, title, detail, cards]
+      required: [code, title, detail, cards]
       properties:
-        severity:
+        code:
           type: string
-          enum: [error, warning]
         title:
           type: string
         detail:
@@ -2224,20 +2256,56 @@ components:
           type: array
           items:
             type: string
-    ValidationResult:
+    CommanderValidationCounts:
       type: object
-      required: [valid, errors, issues]
+      required: [total, commander, main, sideboard, maybeboard]
       properties:
-        valid:
-          type: boolean
-        errors:
+        total:
+          type: integer
+        commander:
+          type: integer
+        main:
+          type: integer
+        sideboard:
+          type: integer
+        maybeboard:
+          type: integer
+    CommanderValidationCommander:
+      type: object
+      required: [mode, names, colorIdentity]
+      properties:
+        mode:
+          type: string
+          enum: [single, pair, invalid]
+        names:
           type: array
           items:
             type: string
-        issues:
+        colorIdentity:
           type: array
           items:
-            $ref: '#/components/schemas/CommanderValidationIssue'
+            type: string
+    ValidationResult:
+      type: object
+      required: [valid, format, counts, commander, errors, warnings]
+      properties:
+        valid:
+          type: boolean
+        format:
+          type: string
+          enum: [commander]
+        counts:
+          $ref: '#/components/schemas/CommanderValidationCounts'
+        commander:
+          $ref: '#/components/schemas/CommanderValidationCommander'
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/CommanderValidationEntry'
+        warnings:
+          type: array
+          items:
+            $ref: '#/components/schemas/CommanderValidationEntry'
     DeckFolder:
       type: object
       required: [id, name, visibility]

@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { GameCardInstance, GameZoneName } from '../../../core/models/game.model';
+import { GameCardInstance, GameZoneName } from '../../../../core/models/game.model';
 
 interface PointerCardDrag {
   playerId: string;

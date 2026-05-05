@@ -61,6 +61,12 @@
   border-color: rgb(244 201 93 / 38%);
 }
 
+.friend-table-row.child-row {
+  margin-top: -0.2rem;
+  margin-left: 1.45rem;
+  width: calc(100% - 1.45rem);
+}
+
 .incoming-row {
   border-color: rgb(244 201 93 / 52%);
   background: linear-gradient(90deg, rgb(244 201 93 / 18%), rgb(46 74 50 / 52%));

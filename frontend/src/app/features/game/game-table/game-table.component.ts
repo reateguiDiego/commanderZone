@@ -2,16 +2,28 @@ import { ChangeDetectionStrategy, Component, HostListener, inject } from '@angul
 import { FormsModule } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
 import { GameZoneName } from '../../../core/models/game.model';
-import { GameTableCommandService } from './game-table-command.service';
-import { GameTableDragService } from './game-table-drag.service';
-import { GameTableRealtimeService } from './game-table-realtime.service';
-import { GameTableSelectionService } from './game-table-selection.service';
-import { GameContextMenu, GameTableStore } from './game-table.store';
+import { GameTableCommandService } from './services/game-table-command.service';
+import { GameTableDragService } from './services/game-table-drag.service';
+import { GameTableRealtimeService } from './services/game-table-realtime.service';
+import { GameTableSelectionService } from './services/game-table-selection.service';
+import { GameTableChatLogState } from './state/game-table-chat-log.state';
+import { GameContextMenu, GameTableUiState } from './state/game-table-ui.state';
+import { GameTableZoneModalState } from './state/game-table-zone-modal.state';
+import { GameTableStore } from './game-table.store';
 
 @Component({
   selector: 'app-game-table',
   imports: [FormsModule, LucideAngularModule],
-  providers: [GameTableStore, GameTableRealtimeService, GameTableCommandService, GameTableSelectionService, GameTableDragService],
+  providers: [
+    GameTableStore,
+    GameTableRealtimeService,
+    GameTableCommandService,
+    GameTableSelectionService,
+    GameTableDragService,
+    GameTableUiState,
+    GameTableZoneModalState,
+    GameTableChatLogState,
+  ],
   templateUrl: './game-table.component.html',
   styleUrl: './game-table.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

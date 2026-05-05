@@ -85,13 +85,32 @@ export interface DeckFormat {
   hasCommander: boolean;
 }
 
+export interface CommanderValidationEntry {
+  code: string;
+  title: string;
+  detail: string;
+  cards: string[];
+}
+
+export interface CommanderValidationCounts {
+  total: number;
+  commander: number;
+  main: number;
+  sideboard: number;
+  maybeboard: number;
+}
+
+export interface CommanderValidationCommander {
+  mode: 'single' | 'pair' | 'invalid';
+  names: string[];
+  colorIdentity: string[];
+}
+
 export interface CommanderValidation {
   valid: boolean;
-  errors: string[];
-  issues?: {
-    severity: 'error' | 'warning';
-    title: string;
-    detail: string;
-    cards: string[];
-  }[];
+  format: 'commander' | string;
+  counts: CommanderValidationCounts;
+  commander: CommanderValidationCommander;
+  errors: CommanderValidationEntry[];
+  warnings: CommanderValidationEntry[];
 }

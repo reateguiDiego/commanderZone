@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { authStorageState } from './support/auth';
-import { createCommanderGameWithRandomDecks } from './support/commander-game';
+import { createCommanderGameWithValidDecks } from './support/commander-game';
 
 test.setTimeout(120000);
 
@@ -9,7 +9,7 @@ test('game starts with two full decks and both players can see required zones', 
     throw new Error('Playwright baseURL is required.');
   }
 
-  const setup = await createCommanderGameWithRandomDecks(request, {
+  const setup = await createCommanderGameWithValidDecks(request, {
     runId: `full-decks-${Date.now()}`,
     deckSize: 100,
   });
@@ -111,3 +111,4 @@ async function readZoneCount(page: Page, playerId: string, zone: string): Promis
 
   return value;
 }
+
