@@ -42,4 +42,34 @@ class AuthApiTest extends ApiTestCase
 
         self::assertResponseStatusCodeSame(401);
     }
+
+    public function testMercureCookieEndpointRequiresAuthAndSetsCookie(): void
+    {
+        $this->jsonRequest('POST', '/realtime/mercure-cookie');
+        self::assertResponseStatusCodeSame(401);
+
+        $token = $this->registerAndLogin('mercure@example.test', 'Mercure User');
+        $this->client->request(
+            'POST',
+            'http://127.0.0.1/realtime/mercure-cookie',
+            [],
+            [],
+            [
+                'CONTENT_TYPE' => 'application/json',
+                'HTTP_ACCEPT' => 'application/json',
+                'HTTP_AUTHORIZATION' => 'Bearer '.$token,
+            ],
+            ''
+        );
+        self::assertResponseStatusCodeSame(204);
+
+        $cookies = $this->client->getResponse()->headers->getCookies();
+        self::assertNotEmpty($cookies);
+        self::assertTrue(
+            array_any(
+                $cookies,
+                static fn ($cookie): bool => $cookie->getName() === 'mercureAuthorization'
+            )
+        );
+    }
 }

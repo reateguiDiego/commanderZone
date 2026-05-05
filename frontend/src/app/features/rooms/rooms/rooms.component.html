@@ -67,6 +67,40 @@
           }
         </div>
 
+        @if (room.owner.id === auth.user()?.id && room.status === 'waiting') {
+          <div class="invite-panel">
+            <div class="invite-panel-header">
+              <span class="eyebrow">Invites</span>
+              <strong>Invite friends</strong>
+              <small>Send invites and wait here until they join.</small>
+            </div>
+
+            @if (friends().length === 0) {
+              <p class="notice compact-notice">You do not have accepted friends yet.</p>
+            } @else {
+              <div class="dense-list compact-list invite-list">
+                @for (friend of friends(); track friend.id) {
+                  <div class="list-row invite-row">
+                    <span>
+                      <strong>{{ friend.displayName }}</strong>
+                      <small>{{ friend.presence || 'offline' }}</small>
+                    </span>
+                    @if (isFriendInCurrentRoom(friend.id)) {
+                      <span class="metric">In room</span>
+                    } @else if (hasPendingInvite(friend.id)) {
+                      <span class="metric">Invited</span>
+                    } @else {
+                      <button class="secondary-button compact" type="button" [disabled]="!canInviteFriend(room, friend.id)" (click)="inviteFriend(friend.id)">
+                        {{ isInviting(friend.id) ? 'Sending...' : 'Invite' }}
+                      </button>
+                    }
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        }
+
         <div class="button-row">
           @if (room.owner.id === auth.user()?.id) {
             <button class="primary-button compact" type="button" [disabled]="!canStartRoom(room)" (click)="startRoom(room.id)">

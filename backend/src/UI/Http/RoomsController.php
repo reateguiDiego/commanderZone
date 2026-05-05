@@ -58,6 +58,8 @@ class RoomsController extends ApiController
             return $this->fail('A valid deck is required to create a room.');
         }
 
+        $this->closeOwnerActiveRooms($entityManager, $user);
+
         $room = new Room($user);
         $room->setVisibility((string) ($payload['visibility'] ?? Room::VISIBILITY_PRIVATE));
         $room->addPlayer(new RoomPlayer($room, $user, $deck));
@@ -205,5 +207,30 @@ class RoomsController extends ApiController
         $deck = $entityManager->getRepository(Deck::class)->find($deckId);
 
         return $deck instanceof Deck && $deck->owner()->id() === $user->id() ? $deck : null;
+    }
+
+    private function closeOwnerActiveRooms(EntityManagerInterface $entityManager, User $owner): void
+    {
+        $activeRooms = $entityManager->getRepository(Room::class)->createQueryBuilder('room')
+            ->where('room.owner = :owner')
+            ->andWhere('room.status != :archived')
+            ->setParameter('owner', $owner)
+            ->setParameter('archived', Room::STATUS_ARCHIVED)
+            ->getQuery()
+            ->getResult();
+
+        foreach ($activeRooms as $activeRoom) {
+            if (!$activeRoom instanceof Room) {
+                continue;
+            }
+
+            if ($activeRoom->status() === Room::STATUS_WAITING) {
+                $entityManager->remove($activeRoom);
+                continue;
+            }
+
+            $activeRoom->archive();
+            $activeRoom->game()?->finish();
+        }
     }
 }

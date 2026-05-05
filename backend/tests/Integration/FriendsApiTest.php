@@ -87,6 +87,10 @@ class FriendsApiTest extends ApiTestCase
         self::assertResponseStatusCodeSame(201);
         $inviteId = (string) $this->jsonResponse()['invite']['id'];
 
+        $this->jsonRequest('GET', '/rooms/'.$roomId.'/invites', token: $ownerToken);
+        self::assertResponseIsSuccessful();
+        self::assertSame($inviteId, $this->jsonResponse()['data'][0]['id']);
+
         $this->jsonRequest('GET', '/rooms/invites/incoming', token: $guestToken);
         self::assertResponseIsSuccessful();
         self::assertSame($inviteId, $this->jsonResponse()['data'][0]['id']);

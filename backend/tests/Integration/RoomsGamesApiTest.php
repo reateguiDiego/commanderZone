@@ -6,6 +6,50 @@ use App\Tests\Support\RecordingMercureHub;
 
 class RoomsGamesApiTest extends ApiTestCase
 {
+    public function testCreatingRoomClosesPreviousActiveRoomsForOwner(): void
+    {
+        $this->seedCard('abababab-1111-7111-8111-111111111111', 'Mountain', [
+            'type_line' => 'Basic Land â€” Mountain',
+            'set' => 'tst',
+            'collector_number' => '30',
+        ]);
+        $ownerToken = $this->registerAndLogin('single-room-owner@example.test', 'Single Room Owner');
+        $guestToken = $this->registerAndLogin('single-room-guest@example.test', 'Single Room Guest');
+
+        $ownerDeckId = $this->quickBuildDeck($ownerToken, 'Owner Single Deck', [
+            ['scryfallId' => 'abababab-1111-7111-8111-111111111111', 'quantity' => 1, 'section' => 'main'],
+        ]);
+        $guestDeckId = $this->quickBuildDeck($guestToken, 'Guest Single Deck', [
+            ['scryfallId' => 'abababab-1111-7111-8111-111111111111', 'quantity' => 1, 'section' => 'main'],
+        ]);
+
+        $this->jsonRequest('POST', '/rooms', ['visibility' => 'public', 'deckId' => $ownerDeckId], $ownerToken);
+        self::assertResponseStatusCodeSame(201);
+        $firstRoomId = (string) $this->jsonResponse()['room']['id'];
+
+        $this->jsonRequest('POST', '/rooms/'.$firstRoomId.'/join', ['deckId' => $guestDeckId], $guestToken);
+        self::assertResponseIsSuccessful();
+
+        $this->jsonRequest('POST', '/rooms/'.$firstRoomId.'/start', token: $ownerToken);
+        self::assertResponseStatusCodeSame(201);
+
+        $this->jsonRequest('POST', '/rooms', ['visibility' => 'private', 'deckId' => $ownerDeckId], $ownerToken);
+        self::assertResponseStatusCodeSame(201);
+        $secondRoomId = (string) $this->jsonResponse()['room']['id'];
+
+        $this->jsonRequest('GET', '/rooms?status=all', token: $ownerToken);
+        self::assertResponseIsSuccessful();
+        $roomsById = [];
+        foreach ($this->jsonResponse()['data'] as $room) {
+            $roomsById[(string) $room['id']] = $room;
+        }
+
+        self::assertArrayHasKey($secondRoomId, $roomsById);
+        self::assertSame('waiting', $roomsById[$secondRoomId]['status']);
+        self::assertArrayHasKey($firstRoomId, $roomsById);
+        self::assertSame('archived', $roomsById[$firstRoomId]['status']);
+    }
+
     public function testRoomOwnerCanDeleteWaitingRooms(): void
     {
         $this->seedCard('aaaaaaaa-1111-7111-8111-111111111111', 'Island', [

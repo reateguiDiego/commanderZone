@@ -4,9 +4,11 @@ import { Router, RouterLink } from '@angular/router';
 import { LucideAngularModule } from 'lucide-angular';
 import { firstValueFrom } from 'rxjs';
 import { DecksApi } from '../../../core/api/decks.api';
+import { FriendsApi } from '../../../core/api/friends.api';
 import { RoomsApi } from '../../../core/api/rooms.api';
 import { AuthStore } from '../../../core/auth/auth.store';
 import { Deck } from '../../../core/models/deck.model';
+import { FriendUser } from '../../../core/models/friendship.model';
 import { RoomInvite } from '../../../core/models/room-invite.model';
 import { Room } from '../../../core/models/room.model';
 import { AppModalComponent } from '../../../shared/ui/app-modal/app-modal.component';
@@ -20,14 +22,19 @@ import { AppModalComponent } from '../../../shared/ui/app-modal/app-modal.compon
 })
 export class RoomsComponent implements OnDestroy {
   private readonly decksApi = inject(DecksApi);
+  private readonly friendsApi = inject(FriendsApi);
   private readonly roomsApi = inject(RoomsApi);
   protected readonly auth = inject(AuthStore);
   private readonly router = inject(Router);
-  private roomRefreshHandle?: number;
+  private roomSyncHandle?: number;
+  private roomSyncInFlight = false;
 
   readonly decks = signal<Deck[]>([]);
+  readonly friends = signal<FriendUser[]>([]);
   readonly rooms = signal<Room[]>([]);
   readonly incomingInvites = signal<RoomInvite[]>([]);
+  readonly sentInvites = signal<RoomInvite[]>([]);
+  readonly invitingUserIds = signal<string[]>([]);
   readonly currentRoom = signal<Room | null>(null);
   readonly error = signal<string | null>(null);
   readonly deletingRoomId = signal<string | null>(null);
@@ -39,16 +46,16 @@ export class RoomsComponent implements OnDestroy {
 
   constructor() {
     void this.loadDecks();
-    void this.loadRooms();
-    void this.loadInvites();
-    this.roomRefreshHandle = window.setInterval(() => {
-      void this.refreshCurrentRoom();
+    void this.loadFriends();
+    void this.loadRoomState();
+    this.roomSyncHandle = window.setInterval(() => {
+      void this.syncRoomState();
     }, 3000);
   }
 
   ngOnDestroy(): void {
-    if (this.roomRefreshHandle !== undefined) {
-      window.clearInterval(this.roomRefreshHandle);
+    if (this.roomSyncHandle !== undefined) {
+      window.clearInterval(this.roomSyncHandle);
     }
   }
 
@@ -64,10 +71,21 @@ export class RoomsComponent implements OnDestroy {
     }
   }
 
+  async loadFriends(): Promise<void> {
+    try {
+      const response = await firstValueFrom(this.friendsApi.list());
+      this.friends.set(response.data.map((friendship) => friendship.friend).filter((friend): friend is FriendUser => !!friend));
+    } catch {
+      this.error.set('Could not load friends.');
+    }
+  }
+
   async loadRooms(): Promise<void> {
     try {
       const response = await firstValueFrom(this.roomsApi.list());
       this.rooms.set(response.data);
+      this.syncCurrentRoom(response.data);
+      await this.navigateToCurrentGameIfAvailable();
     } catch {
       this.error.set('Could not load rooms.');
     }
@@ -82,6 +100,24 @@ export class RoomsComponent implements OnDestroy {
     }
   }
 
+  async inviteFriend(userId: string): Promise<void> {
+    const room = this.currentRoom();
+    if (!room || !this.canInviteFriend(room, userId)) {
+      return;
+    }
+
+    this.error.set(null);
+    this.invitingUserIds.set([...this.invitingUserIds(), userId]);
+    try {
+      await firstValueFrom(this.roomsApi.invite(room.id, userId));
+      await this.loadSentInvites(room.id);
+    } catch {
+      this.error.set('Could not send invite.');
+    } finally {
+      this.invitingUserIds.set(this.invitingUserIds().filter((id) => id !== userId));
+    }
+  }
+
   async createRoom(): Promise<void> {
     this.error.set(null);
     if (!this.selectedDeckId) {
@@ -93,8 +129,7 @@ export class RoomsComponent implements OnDestroy {
       const response = await firstValueFrom(this.roomsApi.create(this.optionalDeckId(), this.visibility));
       this.currentRoom.set(response.room);
       this.roomId = response.room.id;
-      await this.loadRooms();
-      await this.loadInvites();
+      await this.loadRoomState();
     } catch {
       this.error.set('Could not create room.');
     }
@@ -115,8 +150,7 @@ export class RoomsComponent implements OnDestroy {
       const response = await firstValueFrom(this.roomsApi.join(id, this.optionalDeckId()));
       this.currentRoom.set(response.room);
       this.roomId = response.room.id;
-      await this.loadRooms();
-      await this.loadInvites();
+      await this.loadRoomState();
     } catch {
       this.error.set('Could not join room.');
     }
@@ -141,8 +175,7 @@ export class RoomsComponent implements OnDestroy {
     try {
       const response = await firstValueFrom(this.roomsApi.leave(id));
       this.currentRoom.set(response.room.players.length > 0 ? response.room : null);
-      await this.loadRooms();
-      await this.loadInvites();
+      await this.loadRoomState();
     } catch {
       this.error.set('Could not leave room.');
     }
@@ -176,8 +209,7 @@ export class RoomsComponent implements OnDestroy {
       if (this.roomId === room.id) {
         this.roomId = '';
       }
-      await this.loadRooms();
-      await this.loadInvites();
+      await this.loadRoomState();
       this.roomPendingDelete.set(null);
     } catch {
       this.error.set('Could not delete room.');
@@ -197,8 +229,7 @@ export class RoomsComponent implements OnDestroy {
       const response = await firstValueFrom(this.roomsApi.acceptInvite(invite.id, this.selectedDeckId));
       this.currentRoom.set(response.room ?? invite.room);
       this.roomId = (response.room ?? invite.room).id;
-      await this.loadRooms();
-      await this.loadInvites();
+      await this.loadRoomState();
     } catch {
       this.error.set('Could not accept room invite.');
     }
@@ -208,7 +239,7 @@ export class RoomsComponent implements OnDestroy {
     this.error.set(null);
     try {
       await firstValueFrom(this.roomsApi.declineInvite(invite.id));
-      await this.loadInvites();
+      await this.loadRoomState();
     } catch {
       this.error.set('Could not decline room invite.');
     }
@@ -226,6 +257,27 @@ export class RoomsComponent implements OnDestroy {
     return room.status !== 'archived' && room.owner.id === this.auth.user()?.id && (room.status === 'started' || !!room.gameId);
   }
 
+  isInviting(userId: string): boolean {
+    return this.invitingUserIds().includes(userId);
+  }
+
+  isFriendInCurrentRoom(userId: string): boolean {
+    const room = this.currentRoom();
+    return !!room?.players.some((player) => player.user.id === userId);
+  }
+
+  hasPendingInvite(userId: string): boolean {
+    return this.sentInvites().some((invite) => invite.recipient.id === userId && invite.status === 'pending');
+  }
+
+  canInviteFriend(room: Room, userId: string): boolean {
+    return room.status === 'waiting'
+      && room.owner.id === this.auth.user()?.id
+      && !this.isFriendInCurrentRoom(userId)
+      && !this.hasPendingInvite(userId)
+      && !this.isInviting(userId);
+  }
+
   async archiveRoom(room: Room): Promise<void> {
     if (!this.canArchiveRoom(room)) {
       return;
@@ -238,9 +290,8 @@ export class RoomsComponent implements OnDestroy {
       if (this.currentRoom()?.id === room.id) {
         this.currentRoom.set(null);
       }
-      await this.loadRooms();
-    } catch (error) {
-      console.error(error);
+      await this.loadRoomState();
+    } catch {
       this.error.set('Could not archive room. Only the owner can archive started games.');
     } finally {
       this.archivingRoomId.set(null);
@@ -268,20 +319,60 @@ export class RoomsComponent implements OnDestroy {
     return this.selectedDeckId || undefined;
   }
 
-  private async refreshCurrentRoom(): Promise<void> {
-    const id = this.currentRoom()?.id ?? this.roomId.trim();
-    if (!id) {
+  private async loadRoomState(): Promise<void> {
+    await Promise.all([this.loadRooms(), this.loadInvites()]);
+    const room = this.currentRoom();
+    if (room && room.status === 'waiting' && room.owner.id === this.auth.user()?.id) {
+      await this.loadSentInvites(room.id);
+    } else {
+      this.sentInvites.set([]);
+    }
+  }
+
+  private async syncRoomState(): Promise<void> {
+    if (this.roomSyncInFlight) {
       return;
     }
 
+    this.roomSyncInFlight = true;
     try {
-      const response = await firstValueFrom(this.roomsApi.show(id));
-      this.currentRoom.set(response.room);
-      if (response.room.gameId) {
-        await this.router.navigate(['/games', response.room.gameId]);
-      }
-    } catch {
-      // Keep the visible room state; explicit actions still report errors to the user.
+      await this.loadRoomState();
+    } finally {
+      this.roomSyncInFlight = false;
     }
   }
+
+  private async loadSentInvites(roomId: string): Promise<void> {
+    try {
+      const response = await firstValueFrom(this.roomsApi.invites(roomId));
+      this.sentInvites.set(response.data);
+    } catch {
+      this.sentInvites.set([]);
+    }
+  }
+
+  private syncCurrentRoom(rooms: Room[]): void {
+    const currentId = this.currentRoom()?.id ?? this.roomId.trim();
+    if (!currentId) {
+      return;
+    }
+
+    const room = rooms.find((candidate) => candidate.id === currentId) ?? null;
+    this.currentRoom.set(room);
+    if (!room && this.roomId === currentId) {
+      this.roomId = '';
+    }
+  }
+
+  private async navigateToCurrentGameIfAvailable(): Promise<void> {
+    const room = this.currentRoom();
+    if (room?.gameId) {
+      try {
+        await this.router.navigate(['/games', room.gameId]);
+      } catch {
+        // Keep room state, navigation can be retried manually.
+      }
+    }
+  }
+
 }

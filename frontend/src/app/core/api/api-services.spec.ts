@@ -255,6 +255,11 @@ describe('API services', () => {
     request = http.expectOne(`${API_BASE_URL}/rooms/invites/invite-2/decline`);
     expect(request.request.method).toBe('POST');
     request.flush({ invite: {} });
+
+    rooms.invites('room-1').subscribe();
+    request = http.expectOne(`${API_BASE_URL}/rooms/room-1/invites`);
+    expect(request.request.method).toBe('GET');
+    request.flush({ data: [] });
   });
 
   it('loads room detail and accepts room invites with a deck id', () => {

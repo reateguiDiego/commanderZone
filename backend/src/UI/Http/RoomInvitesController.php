@@ -18,6 +18,25 @@ use Symfony\Component\Security\Http\Attribute\CurrentUser;
 
 class RoomInvitesController extends ApiController
 {
+    #[Route('/rooms/{id}/invites', methods: ['GET'])]
+    public function list(string $id, #[CurrentUser] User $user, EntityManagerInterface $entityManager): JsonResponse
+    {
+        $room = $entityManager->getRepository(Room::class)->find($id);
+        if (!$room instanceof Room) {
+            return $this->fail('Room not found.', 404);
+        }
+        if (!$room->hasPlayer($user)) {
+            return $this->fail('Room access denied.', 403);
+        }
+
+        $invites = $entityManager->getRepository(RoomInvite::class)->findBy(
+            ['room' => $room, 'status' => RoomInvite::STATUS_PENDING],
+            ['createdAt' => 'DESC'],
+        );
+
+        return $this->json(['data' => array_map(static fn (RoomInvite $invite) => $invite->toArray(), $invites)]);
+    }
+
     #[Route('/rooms/invites/incoming', methods: ['GET'])]
     public function incoming(#[CurrentUser] User $user, EntityManagerInterface $entityManager): JsonResponse
     {

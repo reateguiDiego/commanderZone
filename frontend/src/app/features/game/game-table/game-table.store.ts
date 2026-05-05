@@ -96,7 +96,7 @@ export class GameTableStore implements OnDestroy {
   readonly currentPlayer = computed<PlayerView | null>(() => {
     const userId = this.auth.user()?.id;
 
-    return this.players().find((player) => player.id === userId) ?? null;
+    return this.players().find((player) => player.state.user.id === userId) ?? null;
   });
   readonly isGameOwner = computed(() => this.snapshot()?.ownerId === this.currentPlayer()?.id);
 

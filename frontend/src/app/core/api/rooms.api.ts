@@ -46,6 +46,10 @@ export class RoomsApi {
     return this.http.get<DataResponse<RoomInvite>>(`${API_BASE_URL}/rooms/invites/incoming`);
   }
 
+  invites(roomId: string): Observable<DataResponse<RoomInvite>> {
+    return this.http.get<DataResponse<RoomInvite>>(`${API_BASE_URL}/rooms/${roomId}/invites`);
+  }
+
   invite(roomId: string, userId: string): Observable<RoomInviteResponse> {
     return this.http.post<RoomInviteResponse>(`${API_BASE_URL}/rooms/${roomId}/invites`, { userId });
   }

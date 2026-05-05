@@ -16,9 +16,9 @@ final class Version20260425170000 extends AbstractMigration
 
     public function up(Schema $schema): void
     {
-        $this->addSql('ALTER TABLE card ADD mana_value DOUBLE PRECISION DEFAULT NULL');
-        $this->addSql("ALTER TABLE card ADD produced_mana JSON NOT NULL DEFAULT '[]'");
-        $this->addSql("ALTER TABLE card ADD prices JSON NOT NULL DEFAULT '[]'");
+        $this->addSql('ALTER TABLE card ADD COLUMN IF NOT EXISTS mana_value DOUBLE PRECISION DEFAULT NULL');
+        $this->addSql("ALTER TABLE card ADD COLUMN IF NOT EXISTS produced_mana JSON NOT NULL DEFAULT '[]'");
+        $this->addSql("ALTER TABLE card ADD COLUMN IF NOT EXISTS prices JSON NOT NULL DEFAULT '[]'");
         $this->addSql('ALTER TABLE card ALTER produced_mana DROP DEFAULT');
         $this->addSql('ALTER TABLE card ALTER prices DROP DEFAULT');
     }

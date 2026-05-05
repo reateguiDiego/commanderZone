@@ -49,6 +49,7 @@ services:
       MERCURE_SUBSCRIBER_JWT_KEY: "change-this-mercure-dev-secret-with-at-least-32-chars"
       MERCURE_EXTRA_DIRECTIVES: |
         cors_origins http://localhost:4200 http://127.0.0.1:4200 http://127.0.0.1:8000
+        anonymous
     command: /usr/bin/caddy run --config /etc/caddy/Caddyfile
     ports:
       - "3000:80"

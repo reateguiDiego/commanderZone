@@ -4,6 +4,7 @@ import { provideRouter } from '@angular/router';
 import { DoorOpen, LogOut, LucideAngularModule, Play, Plus, RefreshCcw, Trash2 } from 'lucide-angular';
 import { of } from 'rxjs';
 import { DecksApi } from '../../../core/api/decks.api';
+import { FriendsApi } from '../../../core/api/friends.api';
 import { RoomsApi } from '../../../core/api/rooms.api';
 import { AuthStore } from '../../../core/auth/auth.store';
 import { RoomsComponent } from './rooms.component';
@@ -11,18 +12,18 @@ import { RoomsComponent } from './rooms.component';
 describe('RoomsComponent', () => {
   const roomsApi = {
     list: vi.fn(),
-    show: vi.fn(),
     delete: vi.fn(),
     archive: vi.fn(),
     incomingInvites: vi.fn(),
+    invites: vi.fn(),
   };
 
   beforeEach(async () => {
     roomsApi.list.mockReset().mockReturnValue(of({ data: [] }));
-    roomsApi.show.mockReset().mockReturnValue(of({ room: null }));
     roomsApi.delete.mockReset().mockReturnValue(of(undefined));
     roomsApi.archive.mockReset().mockReturnValue(of({ room: null }));
     roomsApi.incomingInvites.mockReset().mockReturnValue(of({ data: [] }));
+    roomsApi.invites.mockReset().mockReturnValue(of({ data: [] }));
 
     await TestBed.configureTestingModule({
       imports: [RoomsComponent],
@@ -30,6 +31,7 @@ describe('RoomsComponent', () => {
         provideRouter([]),
         importProvidersFrom(LucideAngularModule.pick({ DoorOpen, LogOut, Play, Plus, RefreshCcw, Trash2 })),
         { provide: DecksApi, useValue: { list: vi.fn().mockReturnValue(of({ data: [] })) } },
+        { provide: FriendsApi, useValue: { list: vi.fn().mockReturnValue(of({ data: [] })) } },
         { provide: RoomsApi, useValue: roomsApi },
         { provide: AuthStore, useValue: { user: () => ({ id: 'user-1', email: 'owner@test', displayName: 'Owner' }) } },
       ],
