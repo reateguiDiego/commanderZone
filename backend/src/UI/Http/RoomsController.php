@@ -6,6 +6,7 @@ use App\Application\Game\GameSnapshotFactory;
 use App\Domain\Deck\Deck;
 use App\Domain\Game\Game;
 use App\Domain\Room\Room;
+use App\Domain\Room\RoomInvite;
 use App\Domain\Room\RoomPlayer;
 use App\Domain\User\User;
 use Doctrine\ORM\EntityManagerInterface;
@@ -24,11 +25,19 @@ class RoomsController extends ApiController
             ->distinct()
             ->leftJoin('room.players', 'player')
             ->addSelect('player')
+            ->leftJoin(
+                RoomInvite::class,
+                'invite',
+                'WITH',
+                'invite.room = room AND invite.recipient = :user AND invite.status = :pendingInvite',
+            )
             ->where('((room.status = :waiting AND room.visibility = :public)')
             ->orWhere('room.owner = :user')
-            ->orWhere('player.user = :user)')
+            ->orWhere('player.user = :user')
+            ->orWhere('invite.id IS NOT NULL)')
             ->setParameter('waiting', Room::STATUS_WAITING)
             ->setParameter('public', Room::VISIBILITY_PUBLIC)
+            ->setParameter('pendingInvite', RoomInvite::STATUS_PENDING)
             ->setParameter('user', $user);
 
         if ($status === 'archived') {
@@ -77,7 +86,8 @@ class RoomsController extends ApiController
         if (!$room instanceof Room) {
             return $this->fail('Room not found.', 404);
         }
-        if (!$room->canBeViewedBy($user)) {
+        $isInvited = $this->isInvitedToRoom($room, $user, $entityManager);
+        if (!$room->canBeViewedBy($user, $isInvited)) {
             return $this->fail('Room access denied.', 403);
         }
 
@@ -93,6 +103,11 @@ class RoomsController extends ApiController
         }
         if ($room->status() !== Room::STATUS_WAITING) {
             return $this->fail('Room has already started.', 409);
+        }
+        if ($room->visibility() === Room::VISIBILITY_PRIVATE
+            && !$room->hasPlayer($user)
+            && !$this->isInvitedToRoom($room, $user, $entityManager)) {
+            return $this->fail('Private room access denied.', 403);
         }
 
         $deck = $this->deckFromPayload($this->payload($request), $user, $entityManager);
@@ -115,6 +130,9 @@ class RoomsController extends ApiController
         }
         if ($room->status() !== Room::STATUS_WAITING) {
             return $this->fail('Started rooms cannot be left.', 409);
+        }
+        if (!$room->hasPlayer($user)) {
+            return $this->fail('Only room players can leave the room.', 403);
         }
 
         $room->removeUser($user);
@@ -232,5 +250,16 @@ class RoomsController extends ApiController
             $activeRoom->archive();
             $activeRoom->game()?->finish();
         }
+    }
+
+    private function isInvitedToRoom(Room $room, User $user, EntityManagerInterface $entityManager): bool
+    {
+        $invite = $entityManager->getRepository(RoomInvite::class)->findOneBy([
+            'room' => $room,
+            'recipient' => $user,
+            'status' => RoomInvite::STATUS_PENDING,
+        ]);
+
+        return $invite instanceof RoomInvite;
     }
 }

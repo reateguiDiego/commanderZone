@@ -11,9 +11,66 @@ class GameCommandHandler
 {
     private const ZONES = ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command'];
     private const HIDDEN_ZONES = ['library', 'hand'];
+    private const SUPPORTED_COMMANDS = [
+        'game.concede',
+        'game.close',
+        'chat.message',
+        'life.changed',
+        'commander.damage.changed',
+        'counter.changed',
+        'card.counter.changed',
+        'card.power_toughness.changed',
+        'card.moved',
+        'cards.moved',
+        'card.tapped',
+        'card.position.changed',
+        'card.face_down.changed',
+        'card.revealed',
+        'card.token_copy.created',
+        'card.controller.changed',
+        'turn.changed',
+        'zone.changed',
+        'zone.move_all',
+        'library.draw',
+        'library.draw_many',
+        'library.shuffle',
+        'library.move_top',
+        'library.reveal_top',
+        'library.reveal',
+        'library.play_top_revealed',
+        'stack.card_added',
+        'stack.item_removed',
+        'arrow.created',
+        'arrow.removed',
+    ];
+    private const COMMANDS_ALLOWED_WHEN_FINISHED = [
+        'chat.message',
+    ];
+
+    /**
+     * @return list<string>
+     */
+    public static function supportedCommands(): array
+    {
+        return self::SUPPORTED_COMMANDS;
+    }
+
+    public static function isSupportedCommand(string $type): bool
+    {
+        return in_array($type, self::SUPPORTED_COMMANDS, true);
+    }
+
+    public static function isAllowedWhenFinished(string $type): bool
+    {
+        return in_array($type, self::COMMANDS_ALLOWED_WHEN_FINISHED, true);
+    }
 
     public function apply(Game $game, string $type, array $payload, User $actor, ?string $clientActionId = null): GameEvent
     {
+        if (!self::isSupportedCommand($type)) {
+            throw new \InvalidArgumentException(sprintf('Unknown game command: %s', $type));
+        }
+
         $snapshot = $this->normalizeSnapshot($game->snapshot());
         $log = null;
         $this->assertActorCanApply($snapshot, $type, $payload, $actor);
@@ -49,7 +106,7 @@ class GameCommandHandler
             'stack.item_removed' => $log = $this->applyStackItemRemoved($snapshot, $payload),
             'arrow.created' => $log = $this->applyArrowCreated($snapshot, $payload),
             'arrow.removed' => $log = $this->applyArrowRemoved($snapshot, $payload),
-            default => throw new \InvalidArgumentException('Unsupported game command.'),
+            default => throw new \InvalidArgumentException(sprintf('Unknown game command: %s', $type)),
         };
 
         $this->commit($snapshot, $type, $log, $actor);
@@ -172,6 +229,10 @@ class GameCommandHandler
 
     private function applyLifeChanged(array &$snapshot, array $payload): string
     {
+        if (!array_key_exists('life', $payload) && !array_key_exists('delta', $payload)) {
+            throw new \InvalidArgumentException('life.changed requires life or delta.');
+        }
+
         $playerId = $this->requiredPlayerId($snapshot, $payload);
         $oldLife = (int) ($snapshot['players'][$playerId]['life'] ?? 40);
         $newLife = array_key_exists('life', $payload)
@@ -211,8 +272,11 @@ class GameCommandHandler
         if ($key === '') {
             throw new \InvalidArgumentException('Counter key is required.');
         }
+        if (!array_key_exists('value', $payload) || !is_numeric($payload['value'])) {
+            throw new \InvalidArgumentException('Counter value must be numeric.');
+        }
 
-        $value = (int) ($payload['value'] ?? 0);
+        $value = (int) $payload['value'];
         $snapshot['counters'][$scope][$key] = $value;
 
         return sprintf('Set %s counter %s to %d.', $scope, $key, $value);
@@ -374,9 +438,18 @@ class GameCommandHandler
 
     private function applyTurnChanged(array &$snapshot, array $payload): string
     {
+        if (!array_key_exists('activePlayerId', $payload)
+            && !array_key_exists('phase', $payload)
+            && !array_key_exists('number', $payload)) {
+            throw new \InvalidArgumentException('turn.changed requires activePlayerId, phase, or number.');
+        }
+
         $allowed = array_intersect_key($payload, array_flip(['activePlayerId', 'phase', 'number']));
         if (isset($allowed['activePlayerId'])) {
             $this->requiredPlayerId($snapshot, ['playerId' => $allowed['activePlayerId']]);
+        }
+        if (isset($allowed['phase']) && trim((string) $allowed['phase']) === '') {
+            throw new \InvalidArgumentException('phase must not be empty.');
         }
         if (isset($allowed['number'])) {
             $allowed['number'] = max(1, (int) $allowed['number']);
@@ -392,6 +465,27 @@ class GameCommandHandler
         $zone = $this->requiredZone($payload);
         if (!isset($payload['cards']) || !is_array($payload['cards'])) {
             throw new \InvalidArgumentException('cards are required.');
+        }
+        $existingCards = $snapshot['players'][$playerId]['zones'][$zone] ?? [];
+        $existingIds = array_values(array_filter(array_map(
+            static fn (array $card): string => (string) ($card['instanceId'] ?? ''),
+            $existingCards,
+        )));
+        $incomingIds = [];
+        foreach ($payload['cards'] as $card) {
+            if (!is_array($card)) {
+                throw new \InvalidArgumentException('cards must be card objects.');
+            }
+            $instanceId = trim((string) ($card['instanceId'] ?? ''));
+            if ($instanceId === '') {
+                throw new \InvalidArgumentException('cards must include instanceId.');
+            }
+            $incomingIds[] = $instanceId;
+        }
+        sort($existingIds);
+        sort($incomingIds);
+        if ($existingIds !== $incomingIds) {
+            throw new \InvalidArgumentException('zone.changed can only reorder existing cards.');
         }
 
         $snapshot['players'][$playerId]['zones'][$zone] = array_values(array_map(
@@ -518,6 +612,9 @@ class GameCommandHandler
     private function applyStackItemRemoved(array &$snapshot, array $payload): string
     {
         $id = trim((string) ($payload['id'] ?? ''));
+        if ($id === '') {
+            throw new \InvalidArgumentException('id is required.');
+        }
         $snapshot['stack'] = array_values(array_filter(
             $snapshot['stack'],
             static fn (array $item): bool => ($item['id'] ?? null) !== $id,
@@ -528,10 +625,16 @@ class GameCommandHandler
 
     private function applyArrowCreated(array &$snapshot, array $payload): string
     {
+        $fromInstanceId = trim((string) ($payload['fromInstanceId'] ?? ''));
+        $toInstanceId = trim((string) ($payload['toInstanceId'] ?? ''));
+        if ($fromInstanceId === '' || $toInstanceId === '') {
+            throw new \InvalidArgumentException('fromInstanceId and toInstanceId are required.');
+        }
+
         $snapshot['arrows'][] = [
             'id' => Uuid::v7()->toRfc4122(),
-            'fromInstanceId' => trim((string) ($payload['fromInstanceId'] ?? '')),
-            'toInstanceId' => trim((string) ($payload['toInstanceId'] ?? '')),
+            'fromInstanceId' => $fromInstanceId,
+            'toInstanceId' => $toInstanceId,
             'color' => trim((string) ($payload['color'] ?? 'yellow')),
             'createdAt' => (new \DateTimeImmutable())->format(DATE_ATOM),
         ];
@@ -542,6 +645,9 @@ class GameCommandHandler
     private function applyArrowRemoved(array &$snapshot, array $payload): string
     {
         $id = trim((string) ($payload['id'] ?? ''));
+        if ($id === '') {
+            throw new \InvalidArgumentException('id is required.');
+        }
         $snapshot['arrows'] = array_values(array_filter(
             $snapshot['arrows'],
             static fn (array $arrow): bool => ($arrow['id'] ?? null) !== $id,

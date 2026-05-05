@@ -1,4 +1,4 @@
-<section class="game-screen" (click)="store.closeContextMenu()">
+<section class="game-screen" data-testid="game-screen" (click)="store.closeContextMenu()">
   @if (store.loading()) {
     <p class="notice">Loading game snapshot...</p>
   } @else if (store.snapshot(); as snapshot) {
@@ -40,7 +40,12 @@
       </header>
 
       @if (store.focusedPlayer(); as player) {
-        <section class="focused-board" [class.active]="snapshot.turn.activePlayerId === player.id">
+        <section
+          class="focused-board"
+          data-testid="player-panel"
+          [attr.data-player-id]="player.id"
+          [class.active]="snapshot.turn.activePlayerId === player.id"
+        >
           <div class="player-status" [class.conceded]="player.state.status === 'conceded'">
             {{ player.state.status === 'conceded' ? 'Conceded' : 'Active' }}
           </div>
@@ -51,7 +56,7 @@
             </div>
             <div class="quick-actions">
               @if (store.isCurrentPlayer(player.id) && player.state.status !== 'conceded') {
-                <button type="button" (click)="store.draw(player.id)">Draw</button>
+                <button type="button" data-testid="draw-card" [attr.data-player-id]="player.id" (click)="store.draw(player.id)">Draw</button>
                 <button type="button" (click)="store.draw(player.id, 7)">Draw 7</button>
                 <button type="button" (click)="store.revealTop(player.id)">Reveal top</button>
                 <button type="button" (click)="store.shuffle(player.id)">Shuffle</button>
@@ -60,14 +65,17 @@
               }
             </div>
             <div class="life-pill">
-              <button type="button" (click)="store.changeLife(player.id, -1)">-</button>
-              <input #lifeInput type="number" [value]="player.state.life" (change)="store.setLife(player.id, lifeInput.value)" />
-              <button type="button" (click)="store.changeLife(player.id, 1)">+</button>
+              <button type="button" data-testid="life-minus" [attr.data-player-id]="player.id" (click)="store.changeLife(player.id, -1)">-</button>
+              <input #lifeInput data-testid="life-value" [attr.data-player-id]="player.id" type="number" [value]="player.state.life" (change)="store.setLife(player.id, lifeInput.value)" />
+              <button type="button" data-testid="life-plus" [attr.data-player-id]="player.id" (click)="store.changeLife(player.id, 1)">+</button>
             </div>
           </div>
 
           <div
             class="battlefield"
+            data-testid="battlefield-zone"
+            [attr.data-player-id]="player.id"
+            [attr.data-zone]="'battlefield'"
             (dragover)="store.allowDrop($event)"
             (drop)="store.dropOnZone($event, player.id, 'battlefield')"
             (contextmenu)="store.openZoneMenu($event, player.id, 'battlefield')"
@@ -76,6 +84,11 @@
               <button
                 type="button"
                 class="game-card"
+                data-testid="game-card"
+                [attr.data-card-instance-id]="card.instanceId"
+                [attr.data-card-name]="card.name"
+                [attr.data-owner-player-id]="player.id"
+                [attr.data-zone]="'battlefield'"
                 [class.free-position]="store.cardPosition(card)"
                 [class.tapped]="card.tapped"
                 [class.selected]="store.isSelected(card.instanceId)"
@@ -110,10 +123,11 @@
                 <button
                   type="button"
                   class="zone-stack visual-zone"
+                  data-testid="drop-zone"
                   [style.--zone-accent]="store.colorAccent(player)"
-                  [attr.data-game-drop-zone]="zone"
                   [attr.data-player-id]="player.id"
                   [attr.data-zone]="zone"
+                  [attr.data-game-drop-zone]="zone"
                   [attr.draggable]="store.topDraggableCard(player, zone) ? 'true' : null"
                   [class.draggable-zone]="store.topDraggableCard(player, zone)"
                   (dragstart)="store.dragTopZoneCard($event, player, zone)"
@@ -122,20 +136,40 @@
                   (click)="zone !== 'library' && store.openZone(player.id, zone)"
                   (contextmenu)="store.openZoneMenu($event, player.id, zone)"
                 >
-                  <span class="zone-art">
+                  <span
+                    class="zone-art"
+                    data-testid="zone"
+                    [attr.data-player-id]="player.id"
+                    [attr.data-zone]="zone"
+                  >
                     @if (store.topVisibleCard(player, zone); as topCard) {
                       @if (store.cardImage(topCard); as image) {
-                        <img [src]="image" [alt]="topCard.name" />
+                        <img
+                          [src]="image"
+                          [alt]="topCard.name"
+                          [attr.data-testid]="zone === 'command' ? 'commander-card' : null"
+                          [attr.data-player-id]="zone === 'command' ? player.id : null"
+                          [attr.data-card-instance-id]="zone === 'command' ? topCard.instanceId : null"
+                        />
                       } @else {
-                        <span class="card-back"></span>
+                        <span
+                          class="card-back"
+                          [attr.data-testid]="zone === 'command' ? 'commander-card' : null"
+                          [attr.data-player-id]="zone === 'command' ? player.id : null"
+                          [attr.data-card-instance-id]="zone === 'command' ? topCard.instanceId : null"
+                        ></span>
                       }
                     } @else {
                       <span class="card-back"></span>
                     }
-                    <strong>{{ store.zoneCount(player, zone) }}</strong>
+                    <strong data-testid="zone-count" [attr.data-player-id]="player.id" [attr.data-zone]="zone">{{ store.zoneCount(player, zone) }}</strong>
                   </span>
-                  <span class="zone-copy">
-                    <span>{{ store.zoneTitle(zone) }}</span>
+                  <span
+                    class="zone-copy"
+                    [attr.data-testid]="zone === 'library' ? 'library-zone' : zone === 'hand' ? 'hand-zone' : zone === 'battlefield' ? 'battlefield-zone' : null"
+                    [attr.data-player-id]="zone === 'library' || zone === 'hand' || zone === 'battlefield' ? player.id : null"
+                  >
+                    <span data-testid="open-zone" [attr.data-player-id]="player.id" [attr.data-zone]="zone">{{ store.zoneTitle(zone) }}</span>
                   </span>
                 </button>
               }
@@ -143,8 +177,9 @@
 
             <div
               class="hand-row"
-              [attr.data-game-drop-zone]="'hand'"
+              data-testid="hand-zone"
               [attr.data-player-id]="player.id"
+              [attr.data-game-drop-zone]="'hand'"
               [attr.data-zone]="'hand'"
               (dragover)="store.allowDrop($event)"
               (drop)="store.dropOnZone($event, player.id, 'hand')"
@@ -155,6 +190,11 @@
                     <button
                       type="button"
                       class="mini-card hand-card"
+                      data-testid="game-card"
+                      [attr.data-card-instance-id]="card.instanceId"
+                      [attr.data-card-name]="card.name"
+                      [attr.data-owner-player-id]="player.id"
+                      [attr.data-zone]="'hand'"
                       draggable="true"
                       [class.selected]="store.isSelected(card.instanceId)"
                       [class.face-down]="card.hidden"
@@ -232,14 +272,14 @@
           <button type="button" class="collapse-button" (pointerdown)="$event.stopPropagation()" (click)="store.toggleFloatingMinimized(); $event.stopPropagation()">{{ store.floatingMinimized() ? '+' : '-' }}</button>
         </header>
         @if (!store.floatingMinimized() && store.activeFloatingTab() === 'chat') {
-          <div class="panel-feed">
+          <div class="panel-feed" data-testid="chat-feed">
             @for (message of snapshot.chat; track message.createdAt + message.userId) {
-              <p><strong>{{ message.displayName }}</strong><span>{{ message.message }}</span></p>
+              <p data-testid="chat-message"><strong>{{ message.displayName }}</strong><span>{{ message.message }}</span></p>
             }
           </div>
           <form class="chat-form" (ngSubmit)="store.sendChat()">
-            <input name="chatMessage" placeholder="Message" [(ngModel)]="store.chatMessage" />
-            <button type="submit"><lucide-icon name="send" size="16" /></button>
+            <input data-testid="chat-input" name="chatMessage" placeholder="Message" [(ngModel)]="store.chatMessage" />
+            <button data-testid="chat-send" type="submit"><lucide-icon name="send" size="16" /></button>
           </form>
         } @else if (!store.floatingMinimized()) {
           <div class="panel-feed">
@@ -367,7 +407,7 @@
             </div>
             @if (modal.selectedCard; as selected) {
               <footer class="zone-actions">
-                <button type="button" (click)="store.moveZoneCard(selected, 'battlefield')">Move to battlefield</button>
+                <button type="button" data-testid="move-card-to-battlefield" (click)="store.moveZoneCard(selected, 'battlefield')">Move to battlefield</button>
                 <button type="button" (click)="store.moveZoneCard(selected, 'hand')">Move to hand</button>
                 <button type="button" (click)="store.moveZoneCard(selected, 'graveyard')">Move to graveyard</button>
                 <button type="button" (click)="store.moveZoneCard(selected, 'exile')">Move to exile</button>

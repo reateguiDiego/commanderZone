@@ -39,6 +39,28 @@ docker compose exec api php -d memory_limit=1536M bin/console app:scryfall:sync 
 php bin/phpunit
 ```
 
+## Backend test environment (reproducible)
+
+The backend test suite must run in `APP_ENV=test` and uses a separate database (`commanderzone_test` via Doctrine `dbname_suffix`).
+It does not use or modify the dev database.
+
+### Docker
+
+```bash
+docker compose exec -e APP_ENV=test api php bin/console doctrine:database:create --if-not-exists --no-interaction
+docker compose exec -e APP_ENV=test api php bin/console doctrine:migrations:migrate --no-interaction
+docker compose exec api php bin/phpunit
+```
+
+### Local CLI (outside Docker)
+
+```bash
+cd backend
+APP_ENV=test php bin/console doctrine:database:create --if-not-exists --no-interaction
+APP_ENV=test php bin/console doctrine:migrations:migrate --no-interaction
+APP_ENV=test php bin/phpunit
+```
+
 ## API contract
 
 The OpenAPI contract is available at `docs/openapi.yaml`.

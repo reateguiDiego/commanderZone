@@ -2,12 +2,16 @@ import { ChangeDetectionStrategy, Component, HostListener, inject } from '@angul
 import { FormsModule } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
 import { GameZoneName } from '../../../core/models/game.model';
+import { GameTableCommandService } from './game-table-command.service';
+import { GameTableDragService } from './game-table-drag.service';
+import { GameTableRealtimeService } from './game-table-realtime.service';
+import { GameTableSelectionService } from './game-table-selection.service';
 import { GameContextMenu, GameTableStore } from './game-table.store';
 
 @Component({
   selector: 'app-game-table',
   imports: [FormsModule, LucideAngularModule],
-  providers: [GameTableStore],
+  providers: [GameTableStore, GameTableRealtimeService, GameTableCommandService, GameTableSelectionService, GameTableDragService],
   templateUrl: './game-table.component.html',
   styleUrl: './game-table.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

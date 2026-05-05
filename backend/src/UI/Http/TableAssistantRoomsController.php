@@ -5,6 +5,7 @@ namespace App\UI\Http;
 use App\Application\TableAssistant\TableAssistantCommandHandler;
 use App\Application\TableAssistant\TableAssistantStateFactory;
 use App\Domain\Room\Room;
+use App\Domain\Room\RoomInvite;
 use App\Domain\Room\RoomPlayer;
 use App\Domain\TableAssistant\TableAssistantRoom;
 use App\Domain\User\User;
@@ -47,7 +48,8 @@ class TableAssistantRoomsController extends ApiController
         if (!$assistantRoom instanceof TableAssistantRoom) {
             return $this->fail('Table assistant room not found.', 404);
         }
-        if (!$assistantRoom->room()->canBeViewedBy($user)) {
+        $isInvited = $this->isInvitedToRoom($assistantRoom->room(), $user, $entityManager);
+        if (!$assistantRoom->room()->canBeViewedBy($user, $isInvited)) {
             return $this->fail('Table assistant room access denied.', 403);
         }
 
@@ -129,5 +131,16 @@ class TableAssistantRoomsController extends ApiController
         }
 
         return $entityManager->getRepository(TableAssistantRoom::class)->findOneBy(['room' => $room]);
+    }
+
+    private function isInvitedToRoom(Room $room, User $user, EntityManagerInterface $entityManager): bool
+    {
+        $invite = $entityManager->getRepository(RoomInvite::class)->findOneBy([
+            'room' => $room,
+            'recipient' => $user,
+            'status' => RoomInvite::STATUS_PENDING,
+        ]);
+
+        return $invite instanceof RoomInvite;
     }
 }

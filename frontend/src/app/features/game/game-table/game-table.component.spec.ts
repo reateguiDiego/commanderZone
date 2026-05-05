@@ -131,6 +131,62 @@ describe('GameTableComponent', () => {
     }));
     expect(fixture.componentInstance.store.selectedCards()[0]?.card.instanceId).toBe('library-card');
   });
+
+  it('defers remote refetch snapshots while pointer drag is active and applies them after drag ends', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const base = snapshotWithStatus('active');
+    const remote = snapshotWithStatus('active');
+    remote.version = 2;
+    remote.players['user-1']!.life = 39;
+    gamesApi.snapshot
+      .mockReturnValueOnce(of({ game: { id: 'game-1', status: 'active', snapshot: base } }))
+      .mockReturnValueOnce(of({ game: { id: 'game-1', status: 'active', snapshot: remote } }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const store = fixture.componentInstance.store;
+    const card = store.snapshot()?.players['user-1']?.zones.battlefield[0];
+    expect(card).toBeTruthy();
+
+    const battlefield = document.createElement('div');
+    battlefield.className = 'battlefield';
+    const cardElement = document.createElement('button');
+    battlefield.appendChild(cardElement);
+
+    const rect = {
+      x: 0,
+      y: 0,
+      width: 120,
+      height: 120,
+      top: 0,
+      left: 0,
+      right: 120,
+      bottom: 120,
+      toJSON: () => ({}),
+    } as DOMRect;
+    cardElement.getBoundingClientRect = () => rect;
+    battlefield.getBoundingClientRect = () => rect;
+
+    store.startBattlefieldPointerDrag({
+      button: 0,
+      preventDefault: vi.fn(),
+      stopPropagation: vi.fn(),
+      currentTarget: cardElement,
+      clientX: 20,
+      clientY: 20,
+    } as unknown as PointerEvent, 'user-1', card!);
+
+    await store.refetch(false);
+    expect(store.snapshot()?.version).toBe(1);
+    expect(store.snapshot()?.players['user-1']?.life).toBe(40);
+
+    await store.endCardPointerDrag();
+    expect(store.snapshot()?.version).toBe(2);
+    expect(store.snapshot()?.players['user-1']?.life).toBe(39);
+  });
 });
 
 function snapshotWithStatus(status: 'active' | 'conceded'): GameSnapshot {

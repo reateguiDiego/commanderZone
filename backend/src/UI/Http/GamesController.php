@@ -51,6 +51,12 @@ class GamesController extends ApiController
         if ($type === '') {
             return $this->fail('Command type is required.');
         }
+        if (!GameCommandHandler::isSupportedCommand($type)) {
+            return $this->fail(sprintf('Unknown game command: %s', $type));
+        }
+        if ($game->status() === Game::STATUS_FINISHED && !GameCommandHandler::isAllowedWhenFinished($type)) {
+            return $this->fail(sprintf('Game is finished. Command not allowed: %s', $type), 409);
+        }
 
         $clientActionId = isset($payload['clientActionId']) && is_string($payload['clientActionId']) && trim($payload['clientActionId']) !== ''
             ? trim($payload['clientActionId'])

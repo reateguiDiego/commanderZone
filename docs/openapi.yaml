@@ -1093,7 +1093,7 @@ paths:
             default: active
       responses:
         '200':
-          description: Own rooms and public waiting rooms.
+          description: Own rooms, joined rooms, pending-invite private rooms, and public waiting rooms.
           content:
             application/json:
               schema:
@@ -1131,7 +1131,7 @@ paths:
   /rooms/{id}:
     get:
       tags: [Rooms]
-      summary: Get a visible room by id.
+      summary: Get a room by id when visible to the authenticated user.
       parameters:
         - $ref: '#/components/parameters/Id'
       responses:
@@ -1258,7 +1258,7 @@ paths:
   /rooms/{id}/join:
     post:
       tags: [Rooms]
-      summary: Join a waiting room.
+      summary: Join a waiting room (public, or private when invited).
       parameters:
         - $ref: '#/components/parameters/Id'
       requestBody:
@@ -1280,6 +1280,8 @@ paths:
                     $ref: '#/components/schemas/Room'
         '401':
           $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
         '404':
           $ref: '#/components/responses/Error'
         '409':
@@ -1287,7 +1289,7 @@ paths:
   /rooms/{id}/leave:
     post:
       tags: [Rooms]
-      summary: Leave a waiting room.
+      summary: Leave a waiting room as a current room player.
       parameters:
         - $ref: '#/components/parameters/Id'
       responses:
@@ -1302,6 +1304,8 @@ paths:
                   room:
                     $ref: '#/components/schemas/Room'
         '401':
+          $ref: '#/components/responses/Error'
+        '403':
           $ref: '#/components/responses/Error'
         '404':
           $ref: '#/components/responses/Error'
@@ -1481,6 +1485,7 @@ paths:
     post:
       tags: [Games]
       summary: Apply a manual game command and publish a Mercure event.
+      description: Unknown command types are rejected. Finished games only accept explicitly allowed command types.
       parameters:
         - $ref: '#/components/parameters/Id'
       requestBody:
@@ -1533,6 +1538,8 @@ paths:
         '403':
           $ref: '#/components/responses/Error'
         '404':
+          $ref: '#/components/responses/Error'
+        '409':
           $ref: '#/components/responses/Error'
 components:
   securitySchemes:

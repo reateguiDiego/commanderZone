@@ -19,7 +19,67 @@ The app runs on `http://localhost:4200` by default and expects:
 ```bash
 npm run build
 npm test
+npm run e2e
+npm run e2e:headed
+npm run e2e:ui
 ```
+
+## E2E (Playwright)
+
+Before running E2E tests, ensure all required services are up:
+
+- Frontend running at `http://localhost:4200`
+- Backend API running
+- PostgreSQL running
+- Mercure running
+- Backend migrations applied
+- The E2E auth helpers create users through real `/auth/register` and `/auth/login` backend endpoints (no dummy auth).
+
+Example backend preparation:
+
+```bash
+cd ../backend
+APP_ENV=test php bin/console doctrine:migrations:migrate --no-interaction
+```
+
+### Random Deck Helper for E2E
+
+Use `frontend/e2e/support/decks.ts` to create a real deck from local DB cards:
+
+```ts
+import { createRandomDeckFromDatabase } from './support/decks';
+
+const deck = await createRandomDeckFromDatabase(request, {
+  ownerToken: player.token,
+  name: `E2E Deck ${runId}`,
+  size: 100,
+  seed: runId,
+});
+```
+
+Returned shape:
+
+```ts
+{
+  deckId: string;
+  seed: string;
+  commanderCardId?: string;
+  cardIds: string[];
+  cards: Array<{
+    id: string;
+    name: string;
+    quantity: number;
+    role: 'commander' | 'mainboard';
+  }>;
+}
+```
+
+Implementation notes:
+
+- Uses only local backend APIs (`/cards/search` + `/decks/quick-build`).
+- No Scryfall or external network usage during E2E.
+- Reproducible selection with explicit `seed`.
+- If no `commanderLegal` cards are available in local metadata, it falls back to selecting any card as commander for test setup.
 
 ## Notes
 

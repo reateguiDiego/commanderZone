@@ -113,11 +113,21 @@ class Room
         return false;
     }
 
-    public function canBeViewedBy(User $user): bool
+    public function canBeViewedBy(User $user, bool $isInvited = false): bool
     {
-        return $this->status === self::STATUS_WAITING
-            || $this->owner->id() === $user->id()
-            || $this->hasPlayer($user);
+        if ($this->owner->id() === $user->id() || $this->hasPlayer($user)) {
+            return true;
+        }
+
+        if ($this->status !== self::STATUS_WAITING) {
+            return false;
+        }
+
+        if ($this->visibility === self::VISIBILITY_PUBLIC) {
+            return true;
+        }
+
+        return $isInvited;
     }
 
     public function removeUser(User $user): void

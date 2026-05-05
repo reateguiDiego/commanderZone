@@ -60,6 +60,11 @@ class Game
         return $this->room;
     }
 
+    public function status(): string
+    {
+        return $this->status;
+    }
+
     public function canBeAccessedBy(User $user): bool
     {
         return $this->room->owner()->id() === $user->id() || $this->room->hasPlayer($user);

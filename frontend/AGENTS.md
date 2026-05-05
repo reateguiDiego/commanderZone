@@ -1,17 +1,18 @@
 # AGENTS.md
 
-## Project
+## Scope
 
-Angular frontend for CommanderZone, a Magic: The Gathering Commander web app.
+Frontend workspace for CommanderZone. Follow root [AGENTS.md](C:/Users/alber/Documents/Workspace/commanderZone/AGENTS.md) plus these frontend-specific constraints.
 
-## Rules
+## Frontend Rules
 
-- Keep the frontend under this `/frontend` directory.
-- Do not modify `../backend` unless an API contract issue makes it strictly necessary.
-- Use strict TypeScript and standalone Angular components.
-- Prefer signals for local UI state and RxJS for HTTP/realtime streams.
-- Use JWT Bearer auth with `Authorization: Bearer <token>`.
-- Local API base: `http://127.0.0.1:8000`.
-- Local Mercure URL: `http://127.0.0.1:3000/.well-known/mercure`.
-- Do not implement a Magic rules engine in the frontend.
-- Keep the game table dense, functional and desktop-first.
+1. Keep changes inside `/frontend` unless cross-layer changes are strictly required.
+2. Preserve the app goal: manual online Commander table.
+3. Do not implement full Magic rules, stack, priority, or legal-play validation unless explicitly requested.
+4. Keep [GameTableComponent](C:/Users/alber/Documents/Workspace/commanderZone/frontend/src/app/features/game/game-table/game-table.component.ts) mostly presentational.
+5. Do not keep adding responsibilities to [GameTableStore](C:/Users/alber/Documents/Workspace/commanderZone/frontend/src/app/features/game/game-table/game-table.store.ts) without splitting by concern.
+6. Separate responsibilities progressively into focused modules/services for realtime, polling, commands, selection, drag/drop, chat/log, and permissions.
+7. Use isolated `BrowserContext` instances for multiuser E2E scenarios.
+8. Do not use arbitrary Playwright waits.
+9. If frontend code changes, run `npm test` and `npm run build`.
+10. Do not change API contracts from frontend work without updating [docs/openapi.yaml](C:/Users/alber/Documents/Workspace/commanderZone/docs/openapi.yaml).

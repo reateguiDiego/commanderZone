@@ -1,4 +1,16 @@
 #!/usr/bin/env php
 <?php
 
+// Force Symfony test kernel when running PHPUnit from the API container,
+// regardless of the container default APP_ENV (dev).
+$_SERVER['APP_ENV'] = 'test';
+$_ENV['APP_ENV'] = 'test';
+putenv('APP_ENV=test');
+
+if (!isset($_SERVER['APP_DEBUG'])) {
+    $_SERVER['APP_DEBUG'] = '1';
+    $_ENV['APP_DEBUG'] = '1';
+    putenv('APP_DEBUG=1');
+}
+
 require dirname(__DIR__).'/vendor/phpunit/phpunit/phpunit';
