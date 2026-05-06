@@ -7,6 +7,7 @@ import { AuthStore } from '../../../core/auth/auth.store';
 import { GameSnapshot } from '../../../core/models/game.model';
 import { MercureService } from '../../../core/realtime/mercure.service';
 import { GameTableComponent } from './game-table.component';
+import { GameTableChatLogState } from './state/game-table-chat-log.state';
 
 describe('GameTableComponent', () => {
   const gamesApi = {
@@ -89,6 +90,24 @@ describe('GameTableComponent', () => {
     expect(fixture.componentInstance.store.activeKeyboardCard()?.card.instanceId).toBe('card-1');
   });
 
+  it('clears selected cards when drag ends', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot: snapshotWithStatus('active') } }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const card = fixture.componentInstance.store.snapshot()?.players['user-1'].zones.battlefield[0];
+    expect(card).toBeTruthy();
+    fixture.componentInstance.store.selectedCards.set([{ playerId: 'user-1', zone: 'battlefield', card: card! }]);
+
+    fixture.componentInstance.store.dragEnd();
+
+    expect(fixture.componentInstance.store.selectedCards()).toEqual([]);
+  });
+
   it('does not open the library on left click', async () => {
     routeParams['id'] = 'game-1';
     authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
@@ -129,7 +148,7 @@ describe('GameTableComponent', () => {
       zone: 'library',
       instanceId: 'library-card',
     }));
-    expect(fixture.componentInstance.store.selectedCards()[0]?.card.instanceId).toBe('library-card');
+    expect(fixture.componentInstance.store.draggingCardInstanceId()).toBe('library-card');
   });
 
   it('defers remote refetch snapshots while pointer drag is active and applies them after drag ends', async () => {
@@ -189,6 +208,37 @@ describe('GameTableComponent', () => {
   });
 });
 
+describe('GameTableChatLogState', () => {
+  it('compacts consecutive life changes for the same player', () => {
+    const state = new GameTableChatLogState();
+    const snapshot = snapshotWithStatus('active');
+    snapshot.eventLog = [
+      gameLogEntry('event-1', 'life.changed', 'Set User life to 39.'),
+      gameLogEntry('event-2', 'life.changed', 'Set User life to 38.'),
+      gameLogEntry('event-3', 'life.changed', 'Set User life to 37.'),
+    ];
+
+    expect(state.eventLog(snapshot).map((entry) => entry.message)).toEqual([
+      'User lost 3 life (40 -> 37).',
+    ]);
+  });
+
+  it('does not merge life changes when the direction changes', () => {
+    const state = new GameTableChatLogState();
+    const snapshot = snapshotWithStatus('active');
+    snapshot.eventLog = [
+      gameLogEntry('event-1', 'life.changed', 'Set User life to 39.'),
+      gameLogEntry('event-2', 'life.changed', 'Set User life to 38.'),
+      gameLogEntry('event-3', 'life.changed', 'Set User life to 39.'),
+    ];
+
+    expect(state.eventLog(snapshot).map((entry) => entry.message)).toEqual([
+      'User lost 2 life (40 -> 38).',
+      'Set User life to 39.',
+    ]);
+  });
+});
+
 function snapshotWithStatus(status: 'active' | 'conceded'): GameSnapshot {
   return {
     version: status === 'active' ? 1 : 2,
@@ -243,5 +293,16 @@ function snapshotWithStatus(status: 'active' | 'conceded'): GameSnapshot {
     eventLog: [],
     createdAt: '2026-04-30T20:00:00+00:00',
     updatedAt: '2026-04-30T20:00:00+00:00',
+  };
+}
+
+function gameLogEntry(id: string, type: string, message: string): GameSnapshot['eventLog'][number] {
+  return {
+    id,
+    type,
+    message,
+    actorId: 'user-1',
+    displayName: 'User',
+    createdAt: '2026-04-30T20:00:00+00:00',
   };
 }

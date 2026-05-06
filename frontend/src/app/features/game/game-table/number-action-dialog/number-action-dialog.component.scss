@@ -1,0 +1,57 @@
+.number-action-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 260;
+  display: grid;
+  place-items: center;
+  background: rgb(0 0 0 / 58%);
+}
+
+.number-action-dialog {
+  display: grid;
+  gap: 1rem;
+  width: min(24rem, calc(100vw - 2rem));
+  padding: 1rem;
+  border: 1px solid rgb(238 211 139 / 24%);
+  border-radius: 10px;
+  background: #10130e;
+  color: #f3f0e7;
+}
+
+.number-action-dialog h2,
+.number-action-dialog p {
+  margin: 0;
+}
+
+.number-action-dialog p {
+  color: #c9c3b3;
+}
+
+.number-action-dialog input {
+  min-height: 2.45rem;
+  border: 1px solid rgb(238 211 139 / 24%);
+  border-radius: 6px;
+  background: rgb(26 30 22 / 88%);
+  color: #f3f0e7;
+  padding: 0 0.65rem;
+}
+
+.number-action-dialog footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.55rem;
+}
+
+.number-action-dialog button {
+  min-height: 2.25rem;
+  border: 1px solid rgb(238 211 139 / 20%);
+  border-radius: 6px;
+  background: rgb(26 30 22 / 90%);
+  color: #f3f0e7;
+  padding: 0 0.75rem;
+  cursor: pointer;
+}
+
+.number-action-dialog button:hover {
+  border-color: rgb(238 211 139 / 48%);
+}

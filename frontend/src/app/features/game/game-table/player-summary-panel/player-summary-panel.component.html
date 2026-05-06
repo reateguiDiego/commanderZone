@@ -1,0 +1,25 @@
+@let currentPlayer = player();
+
+<div class="player-summary-panel" data-testid="player-summary-panel" [style.--player-accent]="colorAccent()(currentPlayer)">
+  <span class="player-avatar">
+    {{ currentPlayer.state.user.displayName.slice(0, 1) }}
+  </span>
+  <div class="player-copy">
+    <h1 data-testid="focused-player-name">{{ currentPlayer.state.user.displayName }}</h1>
+    <small>{{ deckLabel()(currentPlayer) }}</small>
+    <app-mana-symbols class="mana-row" [symbols]="manaSymbols()(currentPlayer)" fallback="Colorless" />
+  </div>
+  <div class="life-pill" data-testid="focused-player-life" [attr.data-player-id]="currentPlayer.id">
+    <button
+      type="button"
+      class="life-total"
+      data-testid="life-value"
+      [attr.data-player-id]="currentPlayer.id"
+      (click)="changeLife($event, 1)"
+      (contextmenu)="changeLife($event, -1)"
+      aria-label="Life total. Left click adds life, right click removes life."
+    >
+      {{ currentPlayer.state.life }}
+    </button>
+  </div>
+</div>

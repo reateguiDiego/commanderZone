@@ -381,13 +381,14 @@ export class RoomsComponent implements OnDestroy {
   }
 
   private syncCurrentRoom(rooms: Room[]): void {
-    const currentId = this.currentRoom()?.id ?? this.roomId.trim();
+    const currentRoom = this.currentRoom();
+    const currentId = currentRoom?.id ?? this.roomId.trim();
     if (!currentId) {
       return;
     }
 
     const room = rooms.find((candidate) => candidate.id === currentId) ?? null;
-    this.currentRoom.set(room);
+    this.currentRoom.set(room ?? currentRoom);
     if (!room && this.roomId === currentId) {
       this.roomId = '';
     }

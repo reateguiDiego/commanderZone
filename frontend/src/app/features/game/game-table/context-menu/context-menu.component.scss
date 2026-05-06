@@ -1,0 +1,26 @@
+.context-menu {
+  position: fixed;
+  z-index: 20;
+  display: grid;
+  width: 15.5rem;
+  max-height: min(35rem, calc(100dvh - 2rem));
+  overflow: auto;
+  padding: 0.35rem;
+  border: 1px solid rgb(238 211 139 / 22%);
+  border-radius: 8px;
+  background: rgb(8 10 8 / 94%);
+}
+
+.context-menu button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.45rem 0.55rem;
+  border-color: transparent;
+  background: transparent;
+  text-align: left;
+}
+
+.danger-menu-item {
+  color: #fecaca;
+}

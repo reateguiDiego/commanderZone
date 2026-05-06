@@ -1,0 +1,23 @@
+<section class="number-action-backdrop" data-testid="number-action-dialog" (click)="cancelled.emit()">
+  <form class="number-action-dialog" (click)="$event.stopPropagation()" (ngSubmit)="confirm()">
+    <header>
+      <h2>{{ title() }}</h2>
+      <p>{{ description() }}</p>
+    </header>
+
+    <input
+      type="number"
+      data-testid="number-action-input"
+      [attr.min]="min()"
+      [attr.max]="max()"
+      [value]="defaultValue()"
+      (input)="updateValue($any($event.target).value)"
+      autofocus
+    />
+
+    <footer>
+      <button type="button" data-testid="number-action-cancel" (click)="cancelled.emit()">{{ cancelLabel() }}</button>
+      <button type="submit" data-testid="number-action-confirm">{{ confirmLabel() }}</button>
+    </footer>
+  </form>
+</section>

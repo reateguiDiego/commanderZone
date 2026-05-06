@@ -1,0 +1,29 @@
+@let currentTurn = turn();
+
+<div class="turn-phase-panel" data-testid="turn-panel">
+  <div class="turn-summary">
+    <div class="turn-title">
+      <span data-testid="turn-number">Turn {{ currentTurn.number }}</span>
+      <strong data-testid="turn-active-player">{{ activePlayerName() }}</strong>
+    </div>
+    <button type="button" class="advance-phase-button" data-testid="advance-phase" [disabled]="pending()" (click)="advancePhase.emit()">
+      <span data-testid="end-step">Avanzar</span>
+    </button>
+  </div>
+  <div class="phase-tracker" aria-label="Turn phases">
+    <span class="sr-only" data-testid="active-phase">{{ currentTurn.phase }}</span>
+    @for (phase of phases(); track phase) {
+      <button
+        type="button"
+        data-testid="phase-step"
+        [attr.data-phase]="phase"
+        [class.active]="currentTurn.phase === phase"
+        [class.phase-past]="isPhasePast()(phase)"
+        [attr.aria-current]="currentTurn.phase === phase ? 'step' : null"
+      >
+        <span class="phase-node"></span>
+        <span>{{ phase }}</span>
+      </button>
+    }
+  </div>
+</div>

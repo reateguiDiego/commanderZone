@@ -1,0 +1,111 @@
+:host {
+  display: contents;
+}
+
+.zone-dock {
+  grid-area: zones;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+  min-width: 0;
+  min-height: 0;
+  padding: 0.65rem;
+  border: 1px solid rgb(238 211 139 / 14%);
+  border-radius: 8px;
+  background: rgb(6 8 6 / 34%);
+}
+
+.zone-stack {
+  display: grid;
+  min-width: 7.1rem;
+  min-height: 9.9rem;
+  padding: 0.5rem;
+  border: 1px solid rgb(238 211 139 / 16%);
+  border-radius: 6px;
+  background: transparent;
+  color: #f3f0e7;
+  cursor: pointer;
+}
+
+.zone-stack:hover {
+  border-color: rgb(238 211 139 / 48%);
+}
+
+.zone-stack.drop-target-active {
+  box-shadow: inset 0 0 0 2px #f5b414;
+}
+
+[data-testid='zone-pile'] {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  justify-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.zone-pile-label {
+  color: #e5dece;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.zone-art {
+  position: relative;
+  display: block;
+  width: 6.125rem;
+  aspect-ratio: 0.716;
+  overflow: visible;
+  border: 1px solid color-mix(in srgb, var(--zone-accent) 72%, #000);
+  border-radius: 7px;
+  background: #11140f;
+}
+
+.zone-art.library-stack {
+  box-shadow: 0.28rem -0.22rem 0 #151913, 0.52rem -0.42rem 0 #0d100c;
+}
+
+.zone-art.empty {
+  border-style: dashed;
+  background: rgb(7 10 7 / 52%);
+}
+
+.zone-art img {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  border-radius: 6px;
+  object-fit: cover;
+  pointer-events: none;
+  user-select: none;
+}
+
+.zone-stack strong {
+  position: absolute;
+  z-index: 5;
+  right: -0.35rem;
+  bottom: -0.35rem;
+  display: grid;
+  min-width: 1.35rem;
+  height: 1.35rem;
+  place-items: center;
+  border: 1px solid rgb(0 0 0 / 45%);
+  border-radius: 999px;
+  background: rgb(8 10 8 / 92%);
+  color: #fff3c9;
+  font-size: 0.78rem;
+}
+
+.commander-cast-count {
+  border-color: rgb(245 180 20 / 70%);
+  background: rgb(74 45 8 / 95%);
+  color: #ffd978;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}

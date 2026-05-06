@@ -2,36 +2,32 @@ import { expect, type Locator, type Page } from '@playwright/test';
 
 export async function focusPlayer(page: Page, displayName: string): Promise<void> {
   try {
-    await expect(page.locator('.focused-board h1')).toHaveText(displayName, { timeout: 5000 });
+    await expect(page.getByTestId('focused-player-name')).toHaveText(displayName, { timeout: 5000 });
     return;
   } catch {
     // The requested player is in the opponents column when it is not focused.
   }
 
-  const thumb = page.getByTestId('opponent-mini-board').filter({
-    has: page.locator('strong', { hasText: displayName }),
-  });
+  const thumb = opponentBoard(page, displayName);
   await expect(thumb).toBeVisible();
   await thumb.click();
-  await expect(page.locator('.focused-board h1')).toHaveText(displayName);
+  await expect(page.getByTestId('focused-player-name')).toHaveText(displayName);
 }
 
 export async function expectFocusedPlayer(page: Page, displayName: string): Promise<void> {
-  await expect(page.locator('[data-testid="player-panel"] h1')).toHaveText(displayName);
+  await expect(page.getByTestId('focused-player-name')).toHaveText(displayName);
 }
 
 export async function expectOpponentVisible(page: Page, displayName: string): Promise<void> {
-  await expect(page.getByTestId('opponent-mini-board').filter({ hasText: displayName })).toBeVisible();
+  await expect(opponentBoard(page, displayName)).toBeVisible();
 }
 
 export async function readTableLife(page: Page, displayName: string): Promise<number> {
   if (await isFocusedPlayer(page, displayName)) {
-    return numberFromText(await safeText(page.locator('.focused-board [data-testid="life-value"]')), displayName);
+    return numberFromText(await safeText(page.getByTestId('focused-player-life').getByTestId('life-value')), displayName);
   }
 
-  const raw = await safeText(page.getByTestId('opponent-mini-board').filter({
-    has: page.locator('strong', { hasText: displayName }),
-  }).locator('.opponent-life'));
+  const raw = await safeText(opponentBoard(page, displayName).getByTestId('opponent-life'));
 
   return numberFromText(raw, displayName);
 }
@@ -54,8 +50,8 @@ export async function readTableZoneCounts(page: Page, displayName: string): Prom
 }
 
 export async function clickGameMenuAction(page: Page, name: string | RegExp): Promise<void> {
-  await page.getByRole('button', { name: /Settings/ }).click();
-  const menu = page.locator('nav.context-menu');
+  await page.getByTestId('settings-open').click();
+  const menu = page.getByTestId('context-menu');
   await expect(menu).toBeVisible();
   await menu.getByRole('button', { name }).click();
 }
@@ -65,15 +61,16 @@ export async function drawMine(page: Page): Promise<void> {
 }
 
 export async function openChat(page: Page): Promise<void> {
-  const chatTab = page.locator('.floating-panel header button', { hasText: 'Chat' });
+  const chatTab = page.getByTestId('chat-open');
   await expect(chatTab).toBeVisible();
   await chatTab.click();
-  await expect(page.locator('.chat-form input[name="chatMessage"]')).toBeVisible();
+  await expect(page.getByTestId('chat-panel')).toBeVisible();
+  await expect(page.getByTestId('chat-input')).toBeVisible();
 }
 
 async function isFocusedPlayer(page: Page, displayName: string): Promise<boolean> {
   try {
-    const heading = page.locator('.focused-board h1');
+    const heading = page.getByTestId('focused-player-name');
     if ((await heading.count()) === 0) {
       return false;
     }
@@ -95,4 +92,10 @@ function numberFromText(raw: string, label: string): number {
 
 async function safeText(locator: Locator): Promise<string> {
   return ((await locator.textContent({ timeout: 750 })) ?? '').trim();
+}
+
+function opponentBoard(page: Page, displayName: string): Locator {
+  return page.getByTestId('opponent-mini-board').filter({
+    has: page.getByTestId('opponent-name').filter({ hasText: displayName }),
+  });
 }

@@ -1,0 +1,66 @@
+:host {
+  display: grid;
+  grid-row: 2 / 3;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+.panel-feed {
+  display: grid;
+  align-content: start;
+  gap: 0.45rem;
+  height: 100%;
+  min-height: 0;
+  overflow: auto;
+  padding: 0.6rem;
+  scrollbar-color: transparent transparent;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+}
+
+:host-context(.floating-panel:hover) .panel-feed {
+  scrollbar-color: #8f876f transparent;
+}
+
+.panel-feed::-webkit-scrollbar {
+  width: 0.5rem;
+}
+
+.panel-feed::-webkit-scrollbar-thumb {
+  background: transparent;
+}
+
+:host-context(.floating-panel:hover) .panel-feed::-webkit-scrollbar-thumb {
+  background: #8f876f;
+}
+
+.panel-feed p {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0.45rem;
+  border-radius: 6px;
+  background: rgb(255 255 255 / 5%);
+}
+
+.panel-feed strong {
+  color: #efd38b;
+  font-size: 0.72rem;
+}
+
+.panel-feed span {
+  color: #e5dece;
+  font-size: 0.82rem;
+}
+
+.log-card-link {
+  display: inline;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #f6c85f;
+  font: inherit;
+  text-decoration: underline;
+}

@@ -1,0 +1,56 @@
+@let handPlayer = player();
+
+<div class="hand-area" data-testid="hand-area" [attr.data-player-id]="handPlayer.id">
+  <div
+    class="hand-row game-table-hand"
+    data-testid="hand-zone"
+    [attr.data-player-id]="handPlayer.id"
+    [attr.data-game-drop-zone]="'hand'"
+    [attr.data-zone]="'hand'"
+    [class.drop-target-active]="isDropZoneHighlighted()(handPlayer.id, 'hand')"
+    (dragover)="handDragOver.emit($event)"
+    (drop)="handDropped.emit({ event: $event, playerId: handPlayer.id })"
+  >
+    @if (isCurrentPlayer()(handPlayer.id)) {
+      <div class="hand-fan">
+        @for (card of handPlayer.state.zones.hand; track card.instanceId) {
+          <app-game-card-view
+            mode="hand"
+            [card]="card"
+            [playerId]="handPlayer.id"
+            zone="hand"
+            [image]="cardImage()(card)"
+            [selected]="isSelected()(card.instanceId)"
+            [dragging]="isDraggingCard()(card)"
+            [faceDown]="card.hidden ?? false"
+            [hidden]="card.hidden ?? false"
+            [draggable]="true"
+            [handDropPlacement]="handDropPlacement(handPlayer.id, card)"
+            [handIndex]="$index"
+            [handCount]="handPlayer.state.zones.hand.length"
+            (cardDragStarted)="cardDragStarted.emit({ event: $event.event, playerId: handPlayer.id, zone: 'hand', card: $event.card })"
+            (cardDragEnded)="cardDragEnded.emit()"
+            (cardDragOver)="handCardDragOver.emit({ event: $event.event, playerId: handPlayer.id, card: $event.card })"
+            (cardDropped)="handCardDropped.emit({ event: $event.event, playerId: handPlayer.id, card: $event.card })"
+            (cardClicked)="handCardClicked.emit({ event: $event.event, playerId: handPlayer.id, card: $event.card })"
+            (cardDoubleClicked)="stopDoubleClick($event.event)"
+            (cardMenuOpened)="cardMenuOpened.emit({ event: $event.event, playerId: handPlayer.id, card: $event.card })"
+            (cardMouseEntered)="cardPreviewShown.emit({ card: $event, playerId: handPlayer.id, zone: 'hand' })"
+            (cardMouseLeft)="cardPreviewHidden.emit()"
+          />
+        } @empty {
+          <small>No cards in hand</small>
+        }
+      </div>
+    } @else {
+      <div class="opponent-hand" [style.--zone-accent]="colorAccent()(handPlayer)">
+        @for (_ of countItems()(zoneCount()(handPlayer, 'hand')); track $index) {
+          <span class="card-back small-back"></span>
+        } @empty {
+          <small>0 cards in hand</small>
+        }
+      </div>
+    }
+  </div>
+  <span class="hand-count" data-testid="hand-count">{{ zoneCount()(handPlayer, 'hand') }} cards</span>
+</div>

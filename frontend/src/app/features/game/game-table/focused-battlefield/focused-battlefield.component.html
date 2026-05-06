@@ -1,0 +1,63 @@
+@let focusedPlayer = player();
+
+<div
+  class="battlefield game-table-battlefield"
+  data-testid="battlefield-zone"
+  data-stable-testid="main-battlefield"
+  [attr.data-player-id]="focusedPlayer.id"
+  [attr.data-zone]="'battlefield'"
+  [attr.data-game-drop-zone]="'battlefield'"
+  [class.drop-target-active]="isDropZoneHighlighted()(focusedPlayer.id, 'battlefield')"
+  (dragover)="battlefieldDragOver.emit($event)"
+  (drop)="battlefieldDropped.emit({ event: $event, playerId: focusedPlayer.id, zone: 'battlefield' })"
+  (contextmenu)="battlefieldMenuOpened.emit({ event: $event, playerId: focusedPlayer.id, zone: 'battlefield' })"
+>
+  @for (card of focusedPlayer.state.zones.battlefield; track card.instanceId) {
+    <app-game-card-view
+      mode="battlefield"
+      [card]="card"
+      [playerId]="focusedPlayer.id"
+      zone="battlefield"
+      [image]="cardImage()(card)"
+      [freePosition]="!!cardPosition()(card)"
+      [position]="cardPosition()(card)"
+      [selected]="isCurrentPlayer()(focusedPlayer.id) && isSelected()(card.instanceId)"
+      [dragging]="isDraggingCard()(card)"
+      [locked]="!isCurrentPlayer()(focusedPlayer.id) || !canDragBattlefieldCard()(focusedPlayer.id, card)"
+      [pendingTransfer]="isPendingBattlefieldTransfer()(card)"
+      [faceDown]="card.faceDown || card.hidden || false"
+      [hidden]="card.hidden ?? false"
+      [disabled]="!isCurrentPlayer()(focusedPlayer.id)"
+      [visible]="cardVisibility(card)"
+      [showPowerToughness]="shouldShowPowerToughness()(card)"
+      [powerValue]="cardPowerValue()(card)"
+      [toughnessValue]="cardToughnessValue()(card)"
+      [loyaltyValue]="card.loyalty ?? null"
+      [counter]="firstCounter()(card)"
+      (cardPointerDown)="canInteractWithCard(focusedPlayer.id, $event.card) && cardPointerDown.emit({ event: $event.event, playerId: focusedPlayer.id, card: $event.card })"
+      (cardClicked)="cardClicked.emit({ event: $event.event, playerId: focusedPlayer.id, card: $event.card })"
+      (cardDoubleClicked)="onCardDoubleClick($event.event, focusedPlayer.id, $event.card)"
+      (cardMenuOpened)="cardMenuOpened.emit({ event: $event.event, playerId: focusedPlayer.id, card: $event.card })"
+      (cardMouseEntered)="isCurrentPlayer()(focusedPlayer.id) && cardPreviewShown.emit({ card: $event, playerId: focusedPlayer.id, zone: 'battlefield' })"
+      (cardMouseLeft)="cardPreviewHidden.emit()"
+      (powerChanged)="changePower($event.event, focusedPlayer.id, $event.card, $event.delta)"
+      (toughnessChanged)="changeToughness($event.event, focusedPlayer.id, $event.card, $event.delta)"
+    />
+  }
+  @if (alignmentGuideFor()(focusedPlayer.id); as guide) {
+    <div class="alignment-guide" [style.top.px]="guide.y" aria-hidden="true"></div>
+  }
+  <div
+    class="mana-lane"
+    [class.drag-over]="isManaLaneHighlighted()(focusedPlayer.id)"
+    data-mana-lane
+    [attr.data-player-id]="focusedPlayer.id"
+    [attr.data-zone]="'mana'"
+    [attr.data-game-drop-zone]="'mana'"
+    (dragover)="manaLaneDragOver.emit($event)"
+    (drop)="manaLaneDropped.emit({ event: $event, playerId: focusedPlayer.id })"
+    aria-label="Mana row"
+  >
+    <span></span>
+  </div>
+</div>

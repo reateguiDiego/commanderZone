@@ -1,0 +1,22 @@
+<div #feed class="panel-feed" data-testid="game-log">
+  @for (entry of entries(); track entry.id) {
+    <p data-testid="game-log-entry">
+      <small>{{ logTime()(entry.createdAt) }}</small>
+      <strong>{{ entry.displayName ?? 'System' }}</strong>
+      <span>
+        {{ entry.messagePrefix }}
+        @if (entry.card; as card) {
+          <button
+            type="button"
+            class="log-card-link"
+            (mouseenter)="previewCard.emit(card)"
+            (mouseleave)="hidePreview.emit()"
+          >
+            {{ card.name }}
+          </button>
+        }
+        {{ entry.messageSuffix }}
+      </span>
+    </p>
+  }
+</div>

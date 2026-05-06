@@ -1,0 +1,47 @@
+@let opponent = player();
+
+<button
+  type="button"
+  class="player-thumb"
+  data-testid="opponent-mini-board"
+  [style.--player-accent]="colorAccent()(opponent)"
+  [attr.data-player-id]="opponent.id"
+  [attr.data-player-drop-target]="opponent.id"
+  [class.conceded]="opponent.state.status === 'conceded'"
+  [class.drop-target-active]="isPlayerDropHighlighted()(opponent.id)"
+  (click)="focusPlayer.emit(opponent.id)"
+  (dragover)="dropAllowed.emit($event)"
+  (drop)="playerDropped.emit({ event: $event, playerId: opponent.id })"
+  (contextmenu)="playerMenuOpened.emit({ event: $event, playerId: opponent.id })"
+>
+  <span class="player-thumb-header">
+    <span class="opponent-avatar">{{ opponent.state.user.displayName.slice(0, 1) }}</span>
+    <span class="opponent-copy">
+      <strong data-testid="opponent-name">{{ opponent.state.user.displayName }}</strong>
+      <small>{{ deckLabel()(opponent) }}</small>
+      <app-mana-symbols class="mana-row compact" [symbols]="manaSymbols()(opponent)" fallback="Colorless" />
+    </span>
+    <span class="opponent-life" data-testid="opponent-life">{{ opponent.state.life }}</span>
+  </span>
+  <span class="mini-battlefield">
+    @for (card of opponent.state.zones.battlefield; track card.instanceId) {
+      <app-game-card-view
+        mode="mini"
+        [card]="card"
+        [playerId]="opponent.id"
+        zone="battlefield"
+        [image]="cardImage()(card)"
+        [freePosition]="!!cardPosition()(card)"
+        [miniLeft]="miniCardLeft()(card, $index)"
+        [miniTop]="miniCardTop()(card, $index)"
+      />
+    } @empty {
+      <span class="mini-empty-board">No permanents</span>
+    }
+  </span>
+  <span class="opponent-zone-counts">
+    <span><strong>{{ zoneCount()(opponent, 'library') }}</strong> Library</span>
+    <span><strong>{{ zoneCount()(opponent, 'graveyard') }}</strong> Graveyard</span>
+    <span><strong>{{ zoneCount()(opponent, 'exile') }}</strong> Exile</span>
+  </span>
+</button>

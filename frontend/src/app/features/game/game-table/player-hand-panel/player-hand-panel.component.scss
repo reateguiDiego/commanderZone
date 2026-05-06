@@ -1,0 +1,72 @@
+:host {
+  display: contents;
+}
+
+.hand-area {
+  position: relative;
+  z-index: 70;
+  grid-area: hand;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  min-height: 0;
+}
+
+.hand-row {
+  position: relative;
+  display: flex;
+  align-items: end;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-color: transparent transparent;
+  padding: 0.9rem 2.2rem 0.7rem;
+}
+
+.hand-row:hover {
+  scrollbar-color: #8f876f transparent;
+}
+
+.hand-row::-webkit-scrollbar-thumb {
+  background: transparent;
+}
+
+.hand-row:hover::-webkit-scrollbar-thumb {
+  background: #8f876f;
+}
+
+.hand-count {
+  justify-self: end;
+  font-weight: 900;
+}
+
+.hand-fan {
+  display: flex;
+  align-items: flex-end;
+  flex: 0 0 auto;
+  margin-inline: auto;
+  padding-inline: 1rem;
+}
+
+.opponent-hand {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.drop-target-active {
+  box-shadow: inset 0 0 0 2px #f5b414;
+}
+
+.card-back {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 6px;
+  background: url('/assets/images/facedown_card.jpg') center / cover;
+}
+
+.small-back {
+  width: 2.3rem;
+  aspect-ratio: 0.716;
+}

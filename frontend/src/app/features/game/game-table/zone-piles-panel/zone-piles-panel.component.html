@@ -1,0 +1,58 @@
+@let currentPlayer = player();
+
+<footer class="zone-dock game-table-zones" data-testid="zone-piles">
+  @for (zone of zones(); track zone) {
+    <button
+      type="button"
+      class="zone-stack visual-zone"
+      data-testid="drop-zone"
+      [style.--zone-accent]="colorAccent()(currentPlayer)"
+      [attr.data-player-id]="currentPlayer.id"
+      [attr.data-zone]="zone"
+      [attr.data-game-drop-zone]="zone"
+      [attr.draggable]="topDraggableCard()(currentPlayer, zone) ? 'true' : null"
+      [class.draggable-zone]="topDraggableCard()(currentPlayer, zone)"
+      [class.drop-target-active]="isDropZoneHighlighted()(currentPlayer.id, zone)"
+      (dragstart)="zoneDragStart.emit({ event: $event, player: currentPlayer, zone })"
+      (dragend)="zoneDragEnd.emit()"
+      (dragover)="zoneDragOver.emit($event)"
+      (drop)="zoneDropped.emit({ event: $event, playerId: currentPlayer.id, zone })"
+      (click)="openZone(zone)"
+      (contextmenu)="zoneMenuOpened.emit({ event: $event, playerId: currentPlayer.id, zone })"
+    >
+      <span data-testid="zone-pile" [attr.data-player-id]="currentPlayer.id" [attr.data-zone]="zone">
+        <span class="zone-pile-label" data-testid="open-zone" [attr.data-player-id]="currentPlayer.id" [attr.data-zone]="zone">{{ zoneTitle()(zone) }}</span>
+        <span
+          class="zone-art"
+          data-testid="zone"
+          [attr.data-player-id]="currentPlayer.id"
+          [attr.data-zone]="zone"
+          [class.empty]="zoneCount()(currentPlayer, zone) === 0"
+          [class.library-stack]="zone === 'library' && zoneCount()(currentPlayer, zone) > 0"
+        >
+          @if (zonePreviewImage()(currentPlayer, zone); as image) {
+            <img [src]="image" [alt]="zoneTitle()(zone)" draggable="false" />
+          }
+          @if (zone === 'command') {
+            <strong
+              class="commander-cast-count"
+              [class.active]="commanderCastCount()(currentPlayer) > 0"
+              data-testid="commander-cast-count"
+              [attr.data-player-id]="currentPlayer.id"
+              (click)="changeCommanderCastCount($event, 1)"
+              (contextmenu)="changeCommanderCastCount($event, -1)"
+            >
+              {{ commanderCastCount()(currentPlayer) }}
+            </strong>
+            <span class="sr-only" data-testid="zone-count" [attr.data-player-id]="currentPlayer.id" [attr.data-zone]="zone">{{ zoneCount()(currentPlayer, zone) }}</span>
+          } @else {
+            <strong data-testid="zone-count" [attr.data-player-id]="currentPlayer.id" [attr.data-zone]="zone">{{ zoneCount()(currentPlayer, zone) }}</strong>
+          }
+        </span>
+        @if (zone === 'library') {
+          <span class="sr-only" data-testid="library-zone" [attr.data-player-id]="currentPlayer.id"></span>
+        }
+      </span>
+    </button>
+  }
+</footer>

@@ -12,7 +12,7 @@
           <strong>COMMANDERZONE</strong>
         </div>
         <div class="topbar-actions">
-          <button class="settings-button" type="button" title="Settings" (click)="store.openGameMenu($event)">
+          <button class="settings-button" type="button" title="Settings" data-testid="settings-open" (click)="store.openGameMenu($event)">
             <lucide-icon name="menu" size="18" />
           </button>
         </div>
@@ -28,387 +28,172 @@
           [class.dragging-card]="store.draggingCardInstanceId()"
         >
           <div class="player-strip game-table-main-top">
-            <div class="player-summary-panel">
-              <span class="player-avatar" [style.--player-accent]="store.colorAccent(player)">
-                {{ player.state.user.displayName.slice(0, 1) }}
-              </span>
-              <div class="player-copy">
-                <h1>{{ player.state.user.displayName }}</h1>
-                <small>{{ store.deckLabel(player) }}</small>
-                <app-mana-symbols class="mana-row" [symbols]="store.manaSymbols(player)" fallback="Colorless" />
-              </div>
-              <div class="life-pill">
-                <button
-                  type="button"
-                  class="life-total"
-                  data-testid="life-value"
-                  [attr.data-player-id]="player.id"
-                  (click)="store.changeLife(player.id, 1)"
-                  (contextmenu)="$event.preventDefault(); store.changeLife(player.id, -1)"
-                  aria-label="Life total. Left click adds life, right click removes life."
-                >
-                  {{ player.state.life }}
-                </button>
-              </div>
-            </div>
+            <app-player-summary-panel
+              [player]="player"
+              [colorAccent]="colorAccent"
+              [deckLabel]="deckLabel"
+              [manaSymbols]="manaSymbols"
+              (lifeChanged)="store.changeLife($event.playerId, $event.delta)"
+            />
 
-            <div class="turn-phase-panel">
-              <div class="turn-summary">
-                <div class="turn-title">
-                  <span data-testid="turn-number">Turn {{ snapshot.turn.number }}</span>
-                  <strong data-testid="turn-active-player">
-                    @if (store.currentPlayer()?.id === snapshot.turn.activePlayerId) {
-                      Your Turn
-                    } @else {
-                      @for (turnPlayer of store.players(); track turnPlayer.id) {
-                        @if (turnPlayer.id === snapshot.turn.activePlayerId) {
-                          {{ turnPlayer.state.user.displayName }}
-                        }
-                      }
-                    }
-                  </strong>
-                </div>
-                <button type="button" class="advance-phase-button" data-testid="advance-phase" [disabled]="store.pending()" (click)="store.advanceTurnPhase()">Avanzar</button>
-              </div>
-              <div class="phase-tracker" aria-label="Turn phases">
-                @for (phase of store.phases; track phase) {
-                  <button
-                    type="button"
-                    data-testid="phase-step"
-                    [attr.data-phase]="phase"
-                    [class.active]="snapshot.turn.phase === phase"
-                    [class.phase-past]="store.isPhasePast(phase)"
-                    [attr.aria-current]="snapshot.turn.phase === phase ? 'step' : null"
-                  >
-                    <span class="phase-node"></span>
-                    <span>{{ phase }}</span>
-                  </button>
-                }
-              </div>
-            </div>
+            <app-turn-phase-panel
+              [turn]="snapshot.turn"
+              [players]="store.players()"
+              [phases]="store.phases"
+              [currentPlayerId]="store.currentPlayer()?.id ?? null"
+              [isPhasePast]="isPhasePast"
+              [pending]="store.pending()"
+              (advancePhase)="store.advanceTurnPhase()"
+            />
           </div>
 
-          <div
-            class="battlefield game-table-battlefield"
-            data-testid="battlefield-zone"
-            [attr.data-player-id]="player.id"
-            [attr.data-zone]="'battlefield'"
-            [attr.data-game-drop-zone]="'battlefield'"
-            [class.drop-target-active]="store.isDropZoneHighlighted(player.id, 'battlefield')"
-            (dragover)="store.allowDrop($event)"
-            (drop)="store.dropOnZone($event, player.id, 'battlefield')"
-            (contextmenu)="store.openZoneMenu($event, player.id, 'battlefield')"
-          >
-            @for (card of player.state.zones.battlefield; track card.instanceId) {
-              <button
-                type="button"
-                class="game-card"
-                data-testid="game-card"
-                [attr.data-card-instance-id]="card.instanceId"
-                [attr.data-card-name]="card.name"
-                [attr.data-owner-player-id]="player.id"
-                [attr.data-zone]="'battlefield'"
-                [class.free-position]="store.cardPosition(card)"
-                [class.tapped]="card.tapped"
-                [class.selected]="store.isCurrentPlayer(player.id) && store.isSelected(card.instanceId)"
-                [class.dragging]="store.isDraggingCard(card)"
-                [class.locked-card]="!store.isCurrentPlayer(player.id) || !store.canDragBattlefieldCard(player.id, card)"
-                [class.pending-transfer]="store.isPendingBattlefieldTransfer(card)"
-                [class.face-down]="card.faceDown || card.hidden"
-                [disabled]="!store.isCurrentPlayer(player.id)"
-                [style.visibility]="store.isDraggingCard(card) || store.isPendingBattlefieldTransfer(card) ? 'hidden' : null"
-                [style.left.px]="store.cardPosition(card)?.x"
-                [style.top.px]="store.cardPosition(card)?.y"
-                (pointerdown)="store.isCurrentPlayer(player.id) && store.canDragBattlefieldCard(player.id, card) && store.startBattlefieldPointerDrag($event, player.id, card)"
-                (click)="store.handleBattlefieldCardClick($event, player.id, card)"
-                (dblclick)="$event.preventDefault(); $event.stopPropagation(); store.isCurrentPlayer(player.id) && store.toggleTapped(player.id, 'battlefield', card)"
-                (contextmenu)="store.openCardMenu($event, player.id, 'battlefield', card)"
-                (mouseenter)="store.isCurrentPlayer(player.id) && store.showCardPreview(card, player.id, 'battlefield')"
-                (mouseleave)="store.hideCardPreview()"
-              >
-                @if (store.cardImage(card); as image) {
-                  <img [src]="image" [alt]="card.name" draggable="false" />
-                } @else {
-                  <span>{{ card.hidden ? 'Face-down card' : card.name }}</span>
-                }
-                @if (store.shouldShowPowerToughness(card)) {
-                  <span class="power-toughness-overlay" aria-label="Power and toughness">
-                    <span
-                      role="button"
-                      tabindex="0"
-                      title="Power. Left click adds, right click removes."
-                      (pointerdown)="$event.stopPropagation()"
-                      (dblclick)="$event.preventDefault(); $event.stopPropagation()"
-                      (click)="$event.preventDefault(); $event.stopPropagation(); store.changeCardPower(player.id, 'battlefield', card, 1)"
-                      (contextmenu)="$event.preventDefault(); $event.stopPropagation(); store.changeCardPower(player.id, 'battlefield', card, -1)"
-                    >
-                      {{ store.cardPowerValue(card) }}
-                    </span>
-                    <span
-                      role="button"
-                      tabindex="0"
-                      title="Toughness. Left click adds, right click removes."
-                      (pointerdown)="$event.stopPropagation()"
-                      (dblclick)="$event.preventDefault(); $event.stopPropagation()"
-                      (click)="$event.preventDefault(); $event.stopPropagation(); store.changeCardToughness(player.id, 'battlefield', card, 1)"
-                      (contextmenu)="$event.preventDefault(); $event.stopPropagation(); store.changeCardToughness(player.id, 'battlefield', card, -1)"
-                    >
-                      {{ store.cardToughnessValue(card) }}
-                    </span>
-                  </span>
-                } @else if (card.loyalty !== null) {
-                  <span class="stat-overlay">{{ card.loyalty }}</span>
-                }
-                @if (store.firstCounter(card); as counter) {
-                  <span class="counter-overlay">{{ counter.key }} {{ counter.value }}</span>
-                }
-              </button>
-            }
-            @if (store.alignmentGuideFor(player.id); as guide) {
-              <div class="alignment-guide" [style.top.px]="guide.y" aria-hidden="true"></div>
-            }
-            <div
-              class="mana-lane"
-              [class.drag-over]="store.isManaLaneHighlighted(player.id)"
-              data-mana-lane
-              [attr.data-player-id]="player.id"
-              [attr.data-zone]="'mana'"
-              [attr.data-game-drop-zone]="'mana'"
-              (dragover)="store.allowDrop($event)"
-              (drop)="store.dropOnManaLane($event, player.id)"
-              aria-label="Mana row"
-            >
-              <span></span>
-            </div>
-          </div>
+          <app-focused-battlefield
+            [player]="player"
+            [isCurrentPlayer]="isCurrentPlayer"
+            [isDropZoneHighlighted]="isDropZoneHighlighted"
+            [cardPosition]="cardPosition"
+            [isSelected]="isSelected"
+            [isDraggingCard]="isDraggingCard"
+            [canDragBattlefieldCard]="canDragBattlefieldCard"
+            [isPendingBattlefieldTransfer]="isPendingBattlefieldTransfer"
+            [cardImage]="cardImage"
+            [shouldShowPowerToughness]="shouldShowPowerToughness"
+            [cardPowerValue]="cardPowerValue"
+            [cardToughnessValue]="cardToughnessValue"
+            [firstCounter]="firstCounter"
+            [alignmentGuideFor]="alignmentGuideFor"
+            [isManaLaneHighlighted]="isManaLaneHighlighted"
+            (battlefieldDragOver)="store.allowDrop($event)"
+            (battlefieldDropped)="store.dropOnZone($event.event, $event.playerId, $event.zone)"
+            (battlefieldMenuOpened)="store.openZoneMenu($event.event, $event.playerId, $event.zone)"
+            (cardPointerDown)="store.startBattlefieldPointerDrag($event.event, $event.playerId, $event.card)"
+            (cardClicked)="store.handleBattlefieldCardClick($event.event, $event.playerId, $event.card)"
+            (cardDoubleClicked)="store.toggleTapped($event.playerId, 'battlefield', $event.card)"
+            (cardMenuOpened)="store.openCardMenu($event.event, $event.playerId, 'battlefield', $event.card)"
+            (cardPreviewShown)="store.showCardPreview($event.card, $event.playerId, $event.zone)"
+            (cardPreviewHidden)="store.hideCardPreview()"
+            (cardPowerChanged)="store.changeCardPower($event.playerId, $event.zone, $event.card, $event.delta)"
+            (cardToughnessChanged)="store.changeCardToughness($event.playerId, $event.zone, $event.card, $event.delta)"
+            (manaLaneDragOver)="store.allowDrop($event)"
+            (manaLaneDropped)="store.dropOnManaLane($event.event, $event.playerId)"
+          />
 
           <div class="bottom-play-area">
             @if (store.handPlayer(); as handPlayer) {
-            <div
-              class="hand-area"
-              data-testid="hand-area"
-              [attr.data-player-id]="handPlayer.id"
-            >
-            <div
-              class="hand-row game-table-hand"
-              data-testid="hand-zone"
-              [attr.data-player-id]="handPlayer.id"
-              [attr.data-game-drop-zone]="'hand'"
-              [attr.data-zone]="'hand'"
-              [class.drop-target-active]="store.isDropZoneHighlighted(handPlayer.id, 'hand')"
-              (dragover)="store.allowDrop($event)"
-              (drop)="store.dropOnHand($event, handPlayer.id)"
-            >
-              @if (store.isCurrentPlayer(handPlayer.id)) {
-                <div class="hand-fan">
-                  @for (card of handPlayer.state.zones.hand; track card.instanceId) {
-                    <button
-                      type="button"
-                      class="mini-card hand-card"
-                      data-testid="game-card"
-                      [attr.data-card-instance-id]="card.instanceId"
-                      [attr.data-card-name]="card.name"
-                      [attr.data-owner-player-id]="handPlayer.id"
-                      [attr.data-zone]="'hand'"
-                      draggable="true"
-                      [class.selected]="store.isSelected(card.instanceId)"
-                      [class.dragging]="store.isDraggingCard(card)"
-                      [class.face-down]="card.hidden"
-                      [class.hand-drop-before]="store.isHandDropTarget(handPlayer.id, card, 'before')"
-                      [class.hand-drop-after]="store.isHandDropTarget(handPlayer.id, card, 'after')"
-                      [style.--hand-index]="$index"
-                      [style.--hand-count]="handPlayer.state.zones.hand.length"
-                      (dragstart)="store.dragStart($event, handPlayer.id, 'hand', card)"
-                      (dragend)="store.dragEnd()"
-                      (dragover)="store.previewHandDrop($event, handPlayer.id, card)"
-                      (drop)="store.dropOnHandCard($event, handPlayer.id, card)"
-                      (click)="store.handleHandCardClick($event, handPlayer.id, card)"
-                      (dblclick)="$event.preventDefault(); $event.stopPropagation()"
-                      (contextmenu)="store.openCardMenu($event, handPlayer.id, 'hand', card)"
-                      (mouseenter)="store.showCardPreview(card, handPlayer.id, 'hand')"
-                      (mouseleave)="store.hideCardPreview()"
-                    >
-                      @if (store.cardImage(card); as image) {
-                        <img [src]="image" [alt]="card.name" draggable="false" />
-                      } @else {
-                        <span>{{ card.hidden ? 'Hidden card' : card.name }}</span>
-                      }
-                    </button>
-                  } @empty {
-                    <small>No cards in hand</small>
-                  }
-                </div>
-              } @else {
-                <div class="opponent-hand" [style.--zone-accent]="store.colorAccent(handPlayer)">
-                  @for (_ of store.countItems(store.zoneCount(handPlayer, 'hand')); track $index) {
-                    <span class="card-back small-back"></span>
-                  } @empty {
-                    <small>0 cards in hand</small>
-                  }
-                </div>
-              }
-            </div>
-            <span class="hand-count" data-testid="hand-count">{{ store.zoneCount(handPlayer, 'hand') }} cards</span>
-            </div>
+              <app-player-hand-panel
+                [player]="handPlayer"
+                [isCurrentPlayer]="isCurrentPlayer"
+                [zoneCount]="zoneCount"
+                [countItems]="countItems"
+                [colorAccent]="colorAccent"
+                [cardImage]="cardImage"
+                [isSelected]="isSelected"
+                [isDraggingCard]="isDraggingCard"
+                [isHandDropTarget]="isHandDropTarget"
+                [isDropZoneHighlighted]="isDropZoneHighlighted"
+                (handDragOver)="store.allowDrop($event)"
+                (handDropped)="store.dropOnHand($event.event, $event.playerId)"
+                (cardDragStarted)="store.dragStart($event.event, $event.playerId, $event.zone, $event.card)"
+                (cardDragEnded)="store.dragEnd()"
+                (handCardDragOver)="store.previewHandDrop($event.event, $event.playerId, $event.card)"
+                (handCardDropped)="store.dropOnHandCard($event.event, $event.playerId, $event.card)"
+                (handCardClicked)="store.handleHandCardClick($event.event, $event.playerId, $event.card)"
+                (cardMenuOpened)="store.openCardMenu($event.event, $event.playerId, 'hand', $event.card)"
+                (cardPreviewShown)="store.showCardPreview($event.card, $event.playerId, $event.zone)"
+                (cardPreviewHidden)="store.hideCardPreview()"
+              />
             }
           </div>
         </section>
 
-        <footer class="zone-dock game-table-zones" data-testid="zone-piles">
-          @for (zone of store.dockZones; track zone) {
-            <button
-              type="button"
-              class="zone-stack visual-zone"
-              data-testid="drop-zone"
-              [style.--zone-accent]="store.colorAccent(player)"
-              [attr.data-player-id]="player.id"
-              [attr.data-zone]="zone"
-              [attr.data-game-drop-zone]="zone"
-              [attr.draggable]="store.topDraggableCard(player, zone) ? 'true' : null"
-              [class.draggable-zone]="store.topDraggableCard(player, zone)"
-              [class.drop-target-active]="store.isDropZoneHighlighted(player.id, zone)"
-              (dragstart)="store.dragTopZoneCard($event, player, zone)"
-              (dragend)="store.dragEnd()"
-              (dragover)="store.allowDrop($event)"
-              (drop)="store.dropOnZone($event, player.id, zone)"
-              (click)="zone !== 'library' && store.openZone(player.id, zone)"
-              (contextmenu)="store.openZoneMenu($event, player.id, zone)"
-            >
-              <span data-testid="zone-pile" [attr.data-player-id]="player.id" [attr.data-zone]="zone">
-                <span class="zone-pile-label" data-testid="open-zone" [attr.data-player-id]="player.id" [attr.data-zone]="zone">{{ store.zoneTitle(zone) }}</span>
-                <span
-                  class="zone-art"
-                  data-testid="zone"
-                  [attr.data-player-id]="player.id"
-                  [attr.data-zone]="zone"
-                  [class.empty]="store.zoneCount(player, zone) === 0"
-                  [class.library-stack]="zone === 'library' && store.zoneCount(player, zone) > 0"
-                >
-                  @if (store.zonePreviewImage(player, zone); as image) {
-                    <img [src]="image" [alt]="store.zoneTitle(zone)" draggable="false" />
-                  }
-                  @if (zone === 'command') {
-                    <strong
-                      class="commander-cast-count"
-                      [class.active]="store.commanderCastCount(player) > 0"
-                      data-testid="commander-cast-count"
-                      [attr.data-player-id]="player.id"
-                      (click)="$event.stopPropagation(); store.changeCommanderCastCount(player.id, 1)"
-                      (contextmenu)="$event.preventDefault(); $event.stopPropagation(); store.changeCommanderCastCount(player.id, -1)"
-                    >
-                      {{ store.commanderCastCount(player) }}
-                    </strong>
-                    <span class="sr-only" data-testid="zone-count" [attr.data-player-id]="player.id" [attr.data-zone]="zone">{{ store.zoneCount(player, zone) }}</span>
-                  } @else {
-                    <strong data-testid="zone-count" [attr.data-player-id]="player.id" [attr.data-zone]="zone">{{ store.zoneCount(player, zone) }}</strong>
-                  }
-                </span>
-                @if (zone === 'library') {
-                  <span class="sr-only" data-testid="library-zone" [attr.data-player-id]="player.id"></span>
-                }
-              </span>
-            </button>
-          }
-        </footer>
+        <app-zone-piles-panel
+          [player]="player"
+          [zones]="store.dockZones"
+          [colorAccent]="colorAccent"
+          [topDraggableCard]="topDraggableCard"
+          [zoneCount]="zoneCount"
+          [isDropZoneHighlighted]="isDropZoneHighlighted"
+          [zoneTitle]="zoneTitle"
+          [zonePreviewImage]="zonePreviewImage"
+          [commanderCastCount]="commanderCastCount"
+          (zoneDragStart)="store.dragTopZoneCard($event.event, $event.player, $event.zone)"
+          (zoneDragEnd)="store.dragEnd()"
+          (zoneDragOver)="store.allowDrop($event)"
+          (zoneDropped)="store.dropOnZone($event.event, $event.playerId, $event.zone)"
+          (zoneOpened)="store.openZone($event.playerId, $event.zone)"
+          (zoneMenuOpened)="store.openZoneMenu($event.event, $event.playerId, $event.zone)"
+          (commanderCastChanged)="store.changeCommanderCastCount($event.playerId, $event.delta)"
+        />
       }
 
       <aside class="player-sidebar game-table-opponents">
         @for (player of store.players(); track player.id) {
           @if (store.focusedPlayer()?.id !== player.id) {
-            <button
-              type="button"
-              class="player-thumb"
-              data-testid="opponent-mini-board"
-              [style.--player-accent]="store.colorAccent(player)"
-              [attr.data-player-id]="player.id"
-              [attr.data-player-drop-target]="player.id"
-              [class.conceded]="player.state.status === 'conceded'"
-              [class.drop-target-active]="store.isPlayerDropHighlighted(player.id)"
-              (click)="store.focusPlayer(player.id)"
-              (dragover)="store.allowDrop($event)"
-              (drop)="store.dropOnPlayer($event, player.id)"
-              (contextmenu)="store.openPlayerMenu($event, player.id)"
-            >
-              <span class="player-thumb-header">
-                <span class="opponent-avatar">{{ player.state.user.displayName.slice(0, 1) }}</span>
-                <span class="opponent-copy">
-                  <strong>{{ player.state.user.displayName }}</strong>
-                  <small>{{ store.deckLabel(player) }}</small>
-                  <app-mana-symbols class="mana-row compact" [symbols]="store.manaSymbols(player)" fallback="Colorless" />
-                </span>
-                <span class="opponent-life">{{ player.state.life }}</span>
-              </span>
-              <span class="mini-battlefield">
-                @for (card of player.state.zones.battlefield; track card.instanceId) {
-                  <span
-                    class="mini-battlefield-card"
-                    [class.free-position]="store.cardPosition(card)"
-                    [class.tapped]="card.tapped"
-                    [style.left.%]="store.miniCardLeft(card, $index)"
-                    [style.top.%]="store.miniCardTop(card, $index)"
-                  >
-                    @if (store.cardImage(card); as image) {
-                      <img [src]="image" [alt]="card.name" />
-                    } @else {
-                      <span class="card-back"></span>
-                    }
-                  </span>
-                } @empty {
-                  <span class="mini-empty-board">No permanents</span>
-                }
-              </span>
-              <span class="opponent-zone-counts">
-                <span><strong>{{ store.zoneCount(player, 'library') }}</strong> Library</span>
-                <span><strong>{{ store.zoneCount(player, 'graveyard') }}</strong> Graveyard</span>
-                <span><strong>{{ store.zoneCount(player, 'exile') }}</strong> Exile</span>
-              </span>
-            </button>
+            <app-opponent-mini-board
+              [player]="player"
+              [colorAccent]="colorAccent"
+              [deckLabel]="deckLabel"
+              [manaSymbols]="manaSymbols"
+              [zoneCount]="zoneCount"
+              [cardPosition]="cardPosition"
+              [miniCardLeft]="miniCardLeft"
+              [miniCardTop]="miniCardTop"
+              [cardImage]="cardImage"
+              [isPlayerDropHighlighted]="isPlayerDropHighlighted"
+              (focusPlayer)="store.focusPlayer($event)"
+              (dropAllowed)="store.allowDrop($event)"
+              (playerDropped)="store.dropOnPlayer($event.event, $event.playerId)"
+              (playerMenuOpened)="store.openPlayerMenu($event.event, $event.playerId)"
+            />
           }
         }
       </aside>
-      <section class="floating-panel game-table-game-log">
+      <section
+        class="floating-panel game-table-game-log"
+        data-testid="game-log-panel"
+        [attr.data-active-tab]="store.activeFloatingTab()"
+      >
         <header class="floating-handle">
-          <button type="button" [class.active]="store.activeFloatingTab() === 'log'" (click)="store.activeFloatingTab.set('log')">Game Log</button>
-          <button type="button" [class.active]="store.activeFloatingTab() === 'chat'" (click)="store.activeFloatingTab.set('chat')">Chat</button>
+          <button
+            type="button"
+            [class.active]="store.activeFloatingTab() === 'log'"
+            (click)="store.activeFloatingTab.set('log')"
+          >
+            Game Log
+          </button>
+          <button
+            type="button"
+            data-testid="chat-open"
+            [class.active]="store.activeFloatingTab() === 'chat'"
+            (click)="store.activeFloatingTab.set('chat')"
+          >
+            Chat
+          </button>
         </header>
-        @if (store.activeFloatingTab() === 'chat') {
-          <div #autoScrollFeed class="panel-feed" data-testid="chat-feed">
-            @for (message of snapshot.chat; track message.createdAt + message.userId) {
-              <p data-testid="chat-message"><strong>{{ message.displayName }}</strong><span>{{ message.message }}</span></p>
-            }
-          </div>
-          <form class="chat-form" (ngSubmit)="store.sendChat()">
-            <input
-              data-testid="chat-input"
-              name="chatMessage"
-              placeholder="Message"
-              [ngModel]="store.chatMessage()"
-              (ngModelChange)="store.setChatMessage($event)"
-            />
-            <button data-testid="chat-send" type="submit"><lucide-icon name="send" size="16" /></button>
-          </form>
+        @if (store.activeFloatingTab() === 'log') {
+          <app-game-log-panel
+            [entries]="store.eventLog()"
+            [logTime]="logTime"
+            (previewCard)="store.showCardPreview($event)"
+            (hidePreview)="store.hideCardPreview()"
+          />
         } @else {
-          <div #autoScrollFeed class="panel-feed" data-testid="game-log">
-            @for (entry of store.eventLog(); track entry.id) {
-              <p data-testid="game-log-entry">
-                <small>{{ store.logTime(entry.createdAt) }}</small>
-                <strong>{{ entry.displayName ?? 'System' }}</strong>
-                <span>
-                  {{ entry.messagePrefix }}
-                  @if (entry.card; as card) {
-                    <button
-                      type="button"
-                      class="log-card-link"
-                      (mouseenter)="store.showCardPreview(card)"
-                      (mouseleave)="store.hideCardPreview()"
-                    >
-                      {{ card.name }}
-                    </button>
-                  }
-                  {{ entry.messageSuffix }}
-                </span>
-              </p>
-            }
+          <div class="chat-panel-content" data-testid="chat-panel">
+            <div #autoScrollFeed class="panel-feed" data-testid="chat-feed">
+              @for (message of snapshot.chat; track message.createdAt + message.userId) {
+                <p data-testid="chat-message"><strong>{{ message.displayName }}</strong><span>{{ message.message }}</span></p>
+              }
+            </div>
+            <form class="chat-form" (ngSubmit)="store.sendChat()">
+              <input
+                data-testid="chat-input"
+                name="chatMessage"
+                placeholder="Message"
+                [ngModel]="store.chatMessage()"
+                (ngModelChange)="store.setChatMessage($event)"
+              />
+              <button data-testid="chat-send" type="submit"><lucide-icon name="send" size="16" /></button>
+            </form>
           </div>
         }
       </section>
@@ -422,70 +207,29 @@
       }
 
       @if (store.contextMenu(); as menu) {
-        <nav class="context-menu" [style.left.px]="menu.x" [style.top.px]="menu.y" (click)="$event.stopPropagation()">
-          @if (menu.kind === 'game') {
-            @if (store.currentPlayer(); as current) {
-              @if (current.state.status !== 'conceded') {
-              <button type="button" (click)="store.draw(current.id); store.closeContextMenu()">Draw mine <kbd>D</kbd></button>
-              <button type="button" (click)="store.draw(current.id, 7); store.closeContextMenu()">Draw 7 mine</button>
-              <button type="button" (click)="store.revealTop(current.id); store.closeContextMenu()">Reveal my top</button>
-              <button type="button" (click)="store.shuffle(current.id); store.closeContextMenu()">Shuffle mine <kbd>S</kbd></button>
-              }
-            }
-            <button type="button" (click)="store.copyGameId()">Copy game id</button>
-            <button type="button" (click)="store.refetch(true); store.closeContextMenu()">Refresh snapshot</button>
-            <button type="button" (click)="store.focusCurrentPlayer()">Focus my board</button>
-            <button type="button" (click)="store.activeFloatingTab.set('chat'); store.closeContextMenu()">Open chat</button>
-            <button type="button" (click)="store.activeFloatingTab.set('log'); store.closeContextMenu()">Open log</button>
-            <button type="button" (click)="store.leaveTable()">Leave table</button>
-            @if (store.currentPlayer()?.state?.status !== 'conceded') {
-              <button type="button" class="danger-menu-item" (click)="store.concedeGame()">Concede</button>
-            }
-            @if (store.isGameOwner()) {
-              <button type="button" class="danger-menu-item" (click)="store.closeGame(); store.closeContextMenu()">Close/archive game</button>
-            }
-          } @else if (menu.kind === 'player') {
-            <button type="button" (click)="store.focusPlayer(menu.playerId)">Focus player</button>
-            <button type="button" (click)="store.openZone(menu.playerId, 'graveyard'); store.closeContextMenu()">View graveyard</button>
-            <button type="button" (click)="store.openZone(menu.playerId, 'exile'); store.closeContextMenu()">View exile</button>
-            <button type="button" (click)="store.openZone(menu.playerId, 'command'); store.closeContextMenu()">View command</button>
-            <button type="button" (click)="store.changeLife(menu.playerId, -1); store.closeContextMenu()">Life -1</button>
-            <button type="button" (click)="store.changeLife(menu.playerId, 1); store.closeContextMenu()">Life +1</button>
-          } @else if (isLibraryMenu(menu)) {
-            @if (store.isCurrentPlayer(menu.playerId)) {
-              <button type="button" (click)="store.draw(menu.playerId)">Draw card <kbd>D</kbd></button>
-              <button type="button" (click)="store.drawPrompt(menu.playerId)">Draw X cards</button>
-              <button type="button" (click)="store.moveTop(menu.playerId, 'graveyard')">Move top X to graveyard</button>
-              <button type="button" (click)="store.moveTop(menu.playerId, 'exile')">Move top X to exile</button>
-              <button type="button" (click)="store.shuffle(menu.playerId)">Shuffle <kbd>S</kbd></button>
-              <button type="button" (click)="store.revealTop(menu.playerId)">Reveal top card</button>
-            }
-            <button type="button" (click)="store.openZone(menu.playerId, 'library')">View</button>
-          } @else if (isZoneOnlyMenu(menu)) {
-            <button type="button" (click)="store.openZone(menu.playerId, menu.zone)">View all</button>
-            @if (store.canControlPlayer(menu.playerId)) {
-              <button type="button" (click)="store.command('zone.move_all', { playerId: menu.playerId, fromZone: menu.zone, toZone: 'graveyard' })">Move all to graveyard</button>
-              <button type="button" (click)="store.command('zone.move_all', { playerId: menu.playerId, fromZone: menu.zone, toZone: 'exile' })">Move all to exile</button>
-            }
-          } @else {
-            @if (store.canControlPlayer(menu.playerId)) {
-              <button type="button" (click)="store.tapCard(menu)">Tap / Untap <kbd>T</kbd></button>
-              <button type="button" (click)="store.faceDown(menu)">Turn face down <kbd>Z</kbd></button>
-              <button type="button" (click)="store.revealCard(menu)">Reveal</button>
-              <button type="button" (click)="store.tokenCopy(menu)">Make token copy</button>
-              <button type="button" (click)="store.addToStack(menu)">Add to stack <kbd>K</kbd></button>
-              <button type="button" (click)="store.setPowerToughness(menu)">Power/Toughness</button>
-              @for (counter of counterPresets; track counter) {
-                <button type="button" (click)="store.changeCardCounter(menu, counter)">Counter {{ counter }}</button>
-              }
-              @for (zone of moveZones; track zone) {
-                <button type="button" (click)="store.moveCard(menu, zone)">Move to {{ store.zoneTitle(zone) }}</button>
-              }
-            } @else {
-              <button type="button" (click)="store.showCardPreview(menu.card!); store.closeContextMenu()">Preview card</button>
-            }
-          }
-        </nav>
+        <app-context-menu
+          [menu]="menu"
+          [currentPlayer]="store.currentPlayer()"
+          [isGameOwner]="store.isGameOwner()"
+          [counterPresets]="counterPresets"
+          [moveZones]="moveZones"
+          [isCurrentPlayer]="isCurrentPlayer"
+          [canControlPlayer]="canControlPlayer"
+          [zoneTitle]="zoneTitle"
+          (actionSelected)="handleContextMenuAction($event, menu)"
+        />
+      }
+
+      @if (numberActionDialog(); as dialog) {
+        <app-number-action-dialog
+          [title]="dialog.title"
+          [description]="dialog.description"
+          [min]="dialog.min"
+          [defaultValue]="dialog.defaultValue"
+          [confirmLabel]="dialog.confirmLabel"
+          (confirmed)="confirmNumberAction($event)"
+          (cancelled)="cancelNumberAction()"
+        />
       }
 
       @if (store.pendingBattlefieldMove(); as pendingMove) {
@@ -501,63 +245,38 @@
       }
 
       @if (store.pointerDragPreview(); as preview) {
-        <div class="game-card drag-card-preview" [style.left.px]="preview.x" [style.top.px]="preview.y" aria-hidden="true">
+        <div
+          class="drag-card-preview"
+          [class.tapped]="preview.card.tapped"
+          [style.left.px]="preview.x"
+          [style.top.px]="preview.y"
+          aria-hidden="true"
+        >
           @if (store.cardImage(preview.card); as image) {
             <img [src]="image" [alt]="preview.card.name" />
           } @else {
             <span>{{ preview.card.name }}</span>
           }
+          @if (shouldShowPowerToughness(preview.card)) {
+            <span class="power-toughness-overlay" aria-hidden="true">
+              <span>{{ cardPowerValue(preview.card) }}</span>
+              <span>{{ cardToughnessValue(preview.card) }}</span>
+            </span>
+          }
         </div>
       }
 
       @if (store.zoneModal(); as modal) {
-        <section class="zone-modal-backdrop" (click)="store.closeZoneModal()">
-          <div class="zone-modal" (click)="$event.stopPropagation()">
-            <header>
-              <h2>{{ modal.title }} ({{ modal.total }})</h2>
-              <button type="button" (click)="store.closeZoneModal()"><lucide-icon name="x" size="18" /></button>
-            </header>
-            <div class="zone-filters">
-              <select [ngModel]="modal.type" (ngModelChange)="store.updateZoneFilter({ type: $event })">
-                <option value="">All types</option>
-                <option value="creature">Creatures</option>
-                <option value="instant">Instants</option>
-                <option value="sorcery">Sorceries</option>
-                <option value="artifact">Artifacts</option>
-                <option value="enchantment">Enchantments</option>
-                <option value="planeswalker">Planeswalkers</option>
-                <option value="land">Lands</option>
-              </select>
-              <input placeholder="Search by name" [ngModel]="modal.search" (ngModelChange)="store.updateZoneFilter({ search: $event })" />
-            </div>
-            <div class="zone-modal-body">
-              <aside>
-                @if (modal.selectedCard && store.cardImage(modal.selectedCard); as image) {
-                  <img [src]="image" [alt]="modal.selectedCard.name" />
-                }
-              </aside>
-              <div class="zone-list">
-                @for (card of modal.cards; track card.instanceId) {
-                  <button type="button" [class.active]="modal.selectedCard?.instanceId === card.instanceId" (click)="store.selectZoneCard(card)" (dblclick)="store.moveZoneCard(card, 'battlefield')">
-                    <span>{{ card.name }}</span>
-                    <lucide-icon name="more-vertical" size="16" />
-                  </button>
-                }
-              </div>
-            </div>
-            @if (modal.selectedCard; as selected) {
-              <footer class="zone-actions">
-                <button type="button" data-testid="move-card-to-battlefield" (click)="store.moveZoneCard(selected, 'battlefield')">Move to battlefield</button>
-                <button type="button" (click)="store.moveZoneCard(selected, 'hand')">Move to hand</button>
-                <button type="button" (click)="store.moveZoneCard(selected, 'graveyard')">Move to graveyard</button>
-                <button type="button" (click)="store.moveZoneCard(selected, 'exile')">Move to exile</button>
-                @if (store.canUseHiddenZone(modal.playerId, modal.zone)) {
-                  <button type="button" (click)="store.revealZoneCard(selected)">Reveal</button>
-                }
-              </footer>
-            }
-          </div>
-        </section>
+        <app-zone-modal
+          [modal]="modal"
+          [cardImage]="cardImage"
+          [canUseHiddenZone]="canUseHiddenZone"
+          (close)="store.closeZoneModal()"
+          (filterChanged)="store.updateZoneFilter($event)"
+          (cardSelected)="store.selectZoneCard($event)"
+          (cardMoved)="store.moveZoneCard($event.card, $event.zone)"
+          (cardRevealed)="store.revealZoneCard($event)"
+        />
       }
     </main>
   } @else if (store.error()) {

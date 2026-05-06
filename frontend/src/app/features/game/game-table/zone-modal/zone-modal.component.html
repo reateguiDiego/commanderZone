@@ -1,0 +1,54 @@
+@let currentModal = modal();
+
+<section class="zone-modal-backdrop" (click)="close.emit()">
+  <div class="zone-modal" data-testid="zone-modal" (click)="stopClick($event)">
+    <header>
+      <h2>{{ currentModal.title }} ({{ currentModal.total }})</h2>
+      <button type="button" data-testid="zone-modal-close" (click)="close.emit()"><lucide-icon name="x" size="18" /></button>
+    </header>
+    <div class="zone-filters">
+      <select [ngModel]="currentModal.type" (ngModelChange)="filterChanged.emit({ type: $event })">
+        <option value="">All types</option>
+        <option value="creature">Creatures</option>
+        <option value="instant">Instants</option>
+        <option value="sorcery">Sorceries</option>
+        <option value="artifact">Artifacts</option>
+        <option value="enchantment">Enchantments</option>
+        <option value="planeswalker">Planeswalkers</option>
+        <option value="land">Lands</option>
+      </select>
+      <input placeholder="Search by name" [ngModel]="currentModal.search" (ngModelChange)="filterChanged.emit({ search: $event })" />
+    </div>
+    <div class="zone-modal-body">
+      <aside>
+        @if (currentModal.selectedCard && cardImage()(currentModal.selectedCard); as image) {
+          <img [src]="image" [alt]="currentModal.selectedCard.name" />
+        }
+      </aside>
+      <div class="zone-list">
+        @for (card of currentModal.cards; track card.instanceId) {
+          <button
+            type="button"
+            [class.active]="currentModal.selectedCard?.instanceId === card.instanceId"
+            (click)="cardSelected.emit(card)"
+            (dblclick)="cardMoved.emit({ card, zone: 'battlefield' })"
+          >
+            <span>{{ card.name }}</span>
+            <lucide-icon name="more-vertical" size="16" />
+          </button>
+        }
+      </div>
+    </div>
+    @if (currentModal.selectedCard; as selected) {
+      <footer class="zone-actions">
+        <button type="button" data-testid="move-card-to-battlefield" (click)="cardMoved.emit({ card: selected, zone: 'battlefield' })">Move to battlefield</button>
+        <button type="button" (click)="cardMoved.emit({ card: selected, zone: 'hand' })">Move to hand</button>
+        <button type="button" (click)="cardMoved.emit({ card: selected, zone: 'graveyard' })">Move to graveyard</button>
+        <button type="button" (click)="cardMoved.emit({ card: selected, zone: 'exile' })">Move to exile</button>
+        @if (canUseHiddenZone()(currentModal.playerId, currentModal.zone)) {
+          <button type="button" (click)="cardRevealed.emit(selected)">Reveal</button>
+        }
+      </footer>
+    }
+  </div>
+</section>

@@ -54,19 +54,21 @@ export class GameTableDragService {
     const cardBounds = target.getBoundingClientRect();
     const fieldBounds = battlefield.getBoundingClientRect();
     const current = card.position ?? {
-      x: Math.max(0, Math.round(cardBounds.left - fieldBounds.left)),
-      y: Math.max(0, Math.round(cardBounds.top - fieldBounds.top)),
+      x: target.offsetLeft || Math.max(0, Math.round(cardBounds.left - fieldBounds.left)),
+      y: target.offsetTop || Math.max(0, Math.round(cardBounds.top - fieldBounds.top)),
     };
+    const visualLeft = fieldBounds.left + current.x;
+    const visualTop = fieldBounds.top + current.y;
     this.pointerCardDrag = {
       playerId,
       instanceId: card.instanceId,
       battlefield,
       startClientX: event.clientX,
       startClientY: event.clientY,
-      offsetX: event.clientX - cardBounds.left,
-      offsetY: event.clientY - cardBounds.top,
-      cardWidth: cardBounds.width,
-      cardHeight: cardBounds.height,
+      offsetX: event.clientX - visualLeft,
+      offsetY: event.clientY - visualTop,
+      cardWidth: target.offsetWidth || cardBounds.width,
+      cardHeight: target.offsetHeight || cardBounds.height,
       moved: false,
       position: current,
     };

@@ -48,6 +48,7 @@ export class GameTableChatLogState {
     }
 
     return this.mergeDraw(previous, current)
+      ?? this.mergeLife(previous, current)
       ?? this.mergePowerToughness(previous, current)
       ?? this.mergeTapped(previous, current);
   }
@@ -86,6 +87,58 @@ export class GameTableChatLogState {
       ...current,
       message: `Drew ${previousCount + currentCount} cards.`,
     };
+  }
+
+  private mergeLife(previous: GameLogEntry, current: GameLogEntry): GameLogEntry | null {
+    const previousLife = this.lifeChange(previous.message);
+    const currentLife = this.lifeChange(current.message);
+    if (!previousLife || !currentLife || previousLife.playerName !== currentLife.playerName) {
+      return null;
+    }
+
+    const currentDirection = Math.sign(currentLife.to - previousLife.to);
+    if (currentDirection === 0) {
+      return null;
+    }
+
+    const previousDirection = previousLife.from === null ? currentDirection : Math.sign(previousLife.to - previousLife.from);
+    if (previousDirection !== 0 && previousDirection !== currentDirection) {
+      return null;
+    }
+
+    const from = previousLife.from ?? previousLife.to - currentDirection;
+
+    return {
+      ...current,
+      message: this.lifeChangeMessage(previousLife.playerName, from, currentLife.to),
+    };
+  }
+
+  private lifeChange(message: string): { playerName: string; from: number | null; to: number } | null {
+    const setMatch = /^Set (.+) life to (-?\d+)\.$/.exec(message);
+    if (setMatch) {
+      return { playerName: setMatch[1], from: null, to: Number(setMatch[2]) };
+    }
+
+    const changedMatch = /^(.+) (lost|gained) \d+ life \((-?\d+) -> (-?\d+)\)\.$/.exec(message);
+    if (!changedMatch) {
+      return null;
+    }
+
+    return {
+      playerName: changedMatch[1],
+      from: Number(changedMatch[3]),
+      to: Number(changedMatch[4]),
+    };
+  }
+
+  private lifeChangeMessage(playerName: string, from: number, to: number): string {
+    const delta = to - from;
+    const amount = Math.abs(delta);
+
+    return delta < 0
+      ? `${playerName} lost ${amount} life (${from} -> ${to}).`
+      : `${playerName} gained ${amount} life (${from} -> ${to}).`;
   }
 
   private mergePowerToughness(previous: GameLogEntry, current: GameLogEntry): GameLogEntry | null {
