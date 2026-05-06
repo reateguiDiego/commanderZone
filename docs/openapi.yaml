@@ -1786,6 +1786,12 @@ components:
           type: [string, 'null']
         oracleText:
           type: [string, 'null']
+        power:
+          type: [string, 'null']
+          description: Printed power from Scryfall. Kept as string because values can be non-numeric.
+        toughness:
+          type: [string, 'null']
+          description: Printed toughness from Scryfall. Kept as string because values can be non-numeric.
         colors:
           type: array
           items:

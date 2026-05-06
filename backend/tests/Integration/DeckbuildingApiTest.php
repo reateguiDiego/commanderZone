@@ -28,6 +28,8 @@ class DeckbuildingApiTest extends ApiTestCase
         $tokenProducer = $this->seedCard('00000000-0000-0000-0000-000000000004', 'Avenger of Zendikar', [
             'type_line' => 'Creature - Elemental',
             'oracle_text' => 'Create a 0/1 green Plant creature token.',
+            'power' => '5',
+            'toughness' => '5',
             'set' => 'tst',
             'collector_number' => '3',
             'all_parts' => [
@@ -242,6 +244,12 @@ TXT,
         self::assertResponseIsSuccessful();
         self::assertSame('maybeboard', $this->lineByScryfallId($this->jsonResponse()['deck']['cards'], $tokenProducer->scryfallId(), 'maybeboard')['section']);
 
+        $this->jsonRequest('GET', '/decks/'.$deckId, token: $token);
+        self::assertResponseIsSuccessful();
+        $deckLine = $this->lineByScryfallId($this->jsonResponse()['deck']['cards'], $tokenProducer->scryfallId(), 'maybeboard');
+        self::assertSame('5', $deckLine['card']['power']);
+        self::assertSame('5', $deckLine['card']['toughness']);
+
         $this->jsonRequest('GET', '/decks/'.$deckId.'/sections', token: $token);
         self::assertResponseIsSuccessful();
         $sections = $this->jsonResponse();
@@ -249,6 +257,9 @@ TXT,
         self::assertSame(2, $sections['counts']['maybeboard']);
         self::assertSame(1, $sections['counts']['tokens']);
         self::assertSame('Plant Token', $sections['sections']['tokens'][0]['token']['name']);
+        $sectionLine = $this->lineByScryfallId($sections['sections']['maybeboard'], $tokenProducer->scryfallId(), 'maybeboard');
+        self::assertSame('5', $sectionLine['card']['power']);
+        self::assertSame('5', $sectionLine['card']['toughness']);
 
         $this->jsonRequest('GET', '/decks/'.$deckId.'/tokens', token: $token);
         self::assertResponseIsSuccessful();
