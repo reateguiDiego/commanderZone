@@ -23,3 +23,13 @@ export interface FriendSearchResult {
   displayName: string;
   friendshipStatus: FriendshipStatus | null;
 }
+
+export type FriendRealtimeEvent =
+  | {
+      type: 'friend.presence.changed';
+      user: FriendUser & { presence: FriendPresence };
+    }
+  | {
+      type: 'friend.list.changed';
+      userId: string;
+    };

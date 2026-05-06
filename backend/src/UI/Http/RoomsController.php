@@ -10,6 +10,7 @@ use App\Domain\Room\Room;
 use App\Domain\Room\RoomInvite;
 use App\Domain\Room\RoomPlayer;
 use App\Domain\User\User;
+use App\Infrastructure\Realtime\RoomEventPublisher;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -60,22 +61,32 @@ class RoomsController extends ApiController
     }
 
     #[Route('/rooms', methods: ['POST'])]
-    public function create(Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager): JsonResponse
+    public function create(Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, RoomEventPublisher $roomEventPublisher): JsonResponse
     {
         $payload = $this->payload($request);
+        $hasDeckInPayload = $this->hasDeckIdInPayload($payload);
         $deck = $this->deckFromPayload($payload, $user, $entityManager);
-        if (!$deck instanceof Deck) {
+        if ($hasDeckInPayload && !$deck instanceof Deck) {
             return $this->fail('A valid deck is required to create a room.');
         }
 
-        $this->closeOwnerActiveRooms($entityManager, $user);
+        $this->closeOwnerActiveRooms($entityManager, $user, $roomEventPublisher);
+
+        $format = (string) ($payload['format'] ?? Room::FORMAT_COMMANDER);
+        if ($format !== Room::FORMAT_COMMANDER) {
+            return $this->fail('Only Commander format is currently supported.', 400);
+        }
 
         $room = new Room($user);
         $room->setVisibility((string) ($payload['visibility'] ?? Room::VISIBILITY_PRIVATE));
+        $room->setFormat($format);
+        $room->setName((string) ($payload['name'] ?? ''));
+        $room->setMaxPlayers($this->maxPlayersFromPayload($payload));
         $room->addPlayer(new RoomPlayer($room, $user, $deck));
 
         $entityManager->persist($room);
         $entityManager->flush();
+        $roomEventPublisher->publish($room, 'room.created');
 
         return $this->json(['room' => $room->toArray()], 201);
     }
@@ -95,6 +106,35 @@ class RoomsController extends ApiController
         return $this->json(['room' => $room->toArray()]);
     }
 
+    #[Route('/rooms/{id}', methods: ['PATCH'])]
+    public function update(string $id, Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, RoomEventPublisher $roomEventPublisher): JsonResponse
+    {
+        $room = $entityManager->getRepository(Room::class)->find($id);
+        if (!$room instanceof Room) {
+            return $this->fail('Room not found.', 404);
+        }
+        if ($room->owner()->id() !== $user->id()) {
+            return $this->fail('Only the room owner can update the room.', 403);
+        }
+        if ($room->status() !== Room::STATUS_WAITING) {
+            return $this->fail('Started rooms cannot be updated.', 409);
+        }
+
+        $payload = $this->payload($request);
+        if (array_key_exists('maxPlayers', $payload)) {
+            $maxPlayers = $this->maxPlayersFromPayload($payload);
+            if ($maxPlayers < $room->players()->count()) {
+                return $this->fail('Max players cannot be lower than current players.', 400);
+            }
+            $room->setMaxPlayers($maxPlayers);
+        }
+
+        $entityManager->flush();
+        $roomEventPublisher->publish($room, 'room.updated');
+
+        return $this->json(['room' => $room->toArray()]);
+    }
+
     #[Route('/rooms/{id}/join', methods: ['POST'])]
     public function join(
         string $id,
@@ -102,6 +142,7 @@ class RoomsController extends ApiController
         #[CurrentUser] User $user,
         EntityManagerInterface $entityManager,
         CommanderDeckValidator $deckValidator,
+        RoomEventPublisher $roomEventPublisher,
     ): JsonResponse
     {
         $room = $entityManager->getRepository(Room::class)->find($id);
@@ -116,26 +157,66 @@ class RoomsController extends ApiController
             && !$this->isInvitedToRoom($room, $user, $entityManager)) {
             return $this->fail('Private room access denied.', 403);
         }
+        if (!$room->hasPlayer($user) && $room->isFull()) {
+            return $this->fail('Room is full.', 409);
+        }
 
-        $deck = $this->deckFromPayload($this->payload($request), $user, $entityManager);
-        if (!$deck instanceof Deck) {
+        $payload = $this->payload($request);
+        $hasDeckInPayload = $this->hasDeckIdInPayload($payload);
+        $deck = $this->deckFromPayload($payload, $user, $entityManager);
+        if ($hasDeckInPayload && !$deck instanceof Deck) {
             return $this->fail('A valid deck is required to join a room.');
         }
-        $validation = $deckValidator->validate($deck);
-        if (($validation['valid'] ?? false) !== true) {
-            return $this->fail('A Commander-valid deck is required to join a room.', 400, [
-                'validation' => $validation,
-            ]);
+        if ($deck instanceof Deck) {
+            $validation = $deckValidator->validate($deck);
+            if (($validation['valid'] ?? false) !== true) {
+                return $this->fail('A Commander-valid deck is required to join a room.', 400, [
+                    'validation' => $validation,
+                ]);
+            }
         }
 
-        $room->addPlayer(new RoomPlayer($room, $user, $deck));
+        $wasPlayer = $room->hasPlayer($user);
+        if (!$room->addPlayer(new RoomPlayer($room, $user, $deck))) {
+            return $this->fail('Room is full.', 409);
+        }
         $entityManager->flush();
+        $roomEventPublisher->publish($room, $wasPlayer ? 'room.player.updated' : 'room.player.joined');
+
+        return $this->json(['room' => $room->toArray()]);
+    }
+
+    #[Route('/rooms/{id}/roll-turn', methods: ['POST'])]
+    public function rollTurn(string $id, #[CurrentUser] User $user, EntityManagerInterface $entityManager, RoomEventPublisher $roomEventPublisher): JsonResponse
+    {
+        $room = $entityManager->getRepository(Room::class)->find($id);
+        if (!$room instanceof Room) {
+            return $this->fail('Room not found.', 404);
+        }
+        if ($room->status() !== Room::STATUS_WAITING) {
+            return $this->fail('Room has already started.', 409);
+        }
+
+        $player = $room->playerFor($user);
+        if (!$player instanceof RoomPlayer) {
+            return $this->fail('Only room players can roll turn order.', 403);
+        }
+        if (!$player->deck() instanceof Deck) {
+            return $this->fail('Select a Commander-valid deck before rolling.', 400);
+        }
+        if ($player->turnRoll() !== null) {
+            return $this->fail('Turn order has already been rolled.', 409);
+        }
+
+        $player->rollTurnOrder(random_int(1, 20));
+        $entityManager->flush();
+        $roomEventPublisher->publish($room, 'room.player.rolled');
 
         return $this->json(['room' => $room->toArray()]);
     }
 
     #[Route('/rooms/{id}/leave', methods: ['POST'])]
-    public function leave(string $id, #[CurrentUser] User $user, EntityManagerInterface $entityManager): JsonResponse
+    public function leave(string $id, #[CurrentUser] User $user, EntityManagerInterface $entityManager, RoomEventPublisher $roomEventPublisher): JsonResponse
     {
         $room = $entityManager->getRepository(Room::class)->find($id);
         if (!$room instanceof Room) {
@@ -150,12 +231,13 @@ class RoomsController extends ApiController
 
         $room->removeUser($user);
         $entityManager->flush();
+        $roomEventPublisher->publish($room, 'room.player.left');
 
         return $this->json(['room' => $room->toArray()]);
     }
 
     #[Route('/rooms/{id}', methods: ['DELETE'])]
-    public function delete(string $id, #[CurrentUser] User $user, EntityManagerInterface $entityManager): JsonResponse
+    public function delete(string $id, #[CurrentUser] User $user, EntityManagerInterface $entityManager, RoomEventPublisher $roomEventPublisher): JsonResponse
     {
         $room = $entityManager->getRepository(Room::class)->find($id);
         if (!$room instanceof Room) {
@@ -170,6 +252,7 @@ class RoomsController extends ApiController
 
         $entityManager->remove($room);
         $entityManager->flush();
+        $roomEventPublisher->publishDeleted($id);
 
         return $this->json(null, 204);
     }
@@ -205,6 +288,7 @@ class RoomsController extends ApiController
         EntityManagerInterface $entityManager,
         GameSnapshotFactory $snapshotFactory,
         CommanderDeckValidator $deckValidator,
+        RoomEventPublisher $roomEventPublisher,
     ): JsonResponse
     {
         $room = $entityManager->getRepository(Room::class)->find($id);
@@ -217,12 +301,18 @@ class RoomsController extends ApiController
         if ($room->status() !== Room::STATUS_WAITING) {
             return $this->fail('Room has already started.', 409);
         }
-        if ($room->players()->count() < 2) {
+        if ($room->players()->count() < Room::MIN_PLAYERS) {
             return $this->fail('At least two players are required.');
+        }
+        if ($room->players()->count() !== $room->maxPlayers()) {
+            return $this->fail('The room must be full before starting the game.');
         }
         foreach ($room->players() as $player) {
             if (!$player instanceof RoomPlayer || !$player->deck() instanceof Deck) {
                 return $this->fail('Every player needs a deck before starting the game.');
+            }
+            if ($player->turnRoll() === null) {
+                return $this->fail('Every player needs a turn-order roll before starting the game.');
             }
         }
         $invalidDecks = [];
@@ -274,6 +364,7 @@ class RoomsController extends ApiController
         $room->start($game);
         $entityManager->persist($game);
         $entityManager->flush();
+        $roomEventPublisher->publish($room, 'room.started');
 
         return $this->json(['room' => $room->toArray(), 'game' => $game->toArray()], 201);
     }
@@ -290,7 +381,7 @@ class RoomsController extends ApiController
         return $deck instanceof Deck && $deck->owner()->id() === $user->id() ? $deck : null;
     }
 
-    private function closeOwnerActiveRooms(EntityManagerInterface $entityManager, User $owner): void
+    private function closeOwnerActiveRooms(EntityManagerInterface $entityManager, User $owner, RoomEventPublisher $roomEventPublisher): void
     {
         $ownedRooms = $entityManager->getRepository(Room::class)->createQueryBuilder('room')
             ->where('room.owner = :owner')
@@ -319,12 +410,19 @@ class RoomsController extends ApiController
 
         $entityManager->flush();
 
+        $removedRoomIds = [];
         foreach ($ownedRooms as $ownedRoom) {
             if (!$ownedRoom instanceof Room) {
                 continue;
             }
 
+            $removedRoomIds[] = $ownedRoom->id();
             $entityManager->remove($ownedRoom);
+        }
+        $entityManager->flush();
+
+        foreach ($removedRoomIds as $removedRoomId) {
+            $roomEventPublisher->publishDeleted($removedRoomId);
         }
     }
 
@@ -337,5 +435,23 @@ class RoomsController extends ApiController
         ]);
 
         return $invite instanceof RoomInvite;
+    }
+
+    private function maxPlayersFromPayload(array $payload): int
+    {
+        $maxPlayers = $payload['maxPlayers'] ?? Room::DEFAULT_MAX_PLAYERS;
+        if (is_int($maxPlayers)) {
+            return $maxPlayers;
+        }
+        if (is_numeric($maxPlayers)) {
+            return (int) $maxPlayers;
+        }
+
+        return Room::DEFAULT_MAX_PLAYERS;
+    }
+
+    private function hasDeckIdInPayload(array $payload): bool
+    {
+        return isset($payload['deckId']) && is_string($payload['deckId']) && trim($payload['deckId']) !== '';
     }
 }

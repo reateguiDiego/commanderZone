@@ -96,10 +96,14 @@ export async function createAuthenticatedContext(
 
 function uniqueCredentials(prefix: string): { email: string; password: string; displayName: string } {
   const token = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  const firstNames = ['Alex', 'Sofia', 'Lucas', 'Marta', 'Diego', 'Nora', 'Leo', 'Carla', 'Hugo', 'Paula'];
+  const lastNames = ['Rivera', 'Morales', 'Vega', 'Navarro', 'Santos', 'Lopez', 'Castro', 'Serrano', 'Campos', 'Ortega'];
+  const firstName = firstNames[Math.floor(Math.random() * firstNames.length)] ?? 'Alex';
+  const lastName = lastNames[Math.floor(Math.random() * lastNames.length)] ?? 'Rivera';
 
   return {
     email: `${prefix}-${token}@example.test`,
     password: `Pass-${token}-1234`,
-    displayName: `${prefix}-${token}`,
+    displayName: `${firstName} ${lastName}`,
   };
 }

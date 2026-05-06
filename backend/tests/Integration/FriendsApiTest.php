@@ -2,6 +2,8 @@
 
 namespace App\Tests\Integration;
 
+use App\Tests\Support\RecordingMercureHub;
+
 class FriendsApiTest extends ApiTestCase
 {
     public function testFriendRequestsCanBeAcceptedAndListedWithPresence(): void
@@ -34,10 +36,42 @@ class FriendsApiTest extends ApiTestCase
 
         $this->jsonRequest('POST', '/me/offline', token: $bobToken);
         self::assertResponseStatusCodeSame(204);
+        $updates = RecordingMercureHub::updates();
+        $topics = array_merge(...array_map(
+            static fn (array $update): array => $update['topics'],
+            $updates,
+        ));
+        self::assertContains('friends/users/'.$this->currentUserId($aliceToken), $topics);
 
         $this->jsonRequest('GET', '/friends', token: $aliceToken);
         self::assertResponseIsSuccessful();
         self::assertSame('offline', $this->jsonResponse()['data'][0]['friend']['presence']);
+    }
+
+    public function testFriendPresencePublishesMercureUpdateWhenFriendComesOnline(): void
+    {
+        $aliceToken = $this->registerAndLogin('alice-presence@example.test', 'Alice Presence');
+        $bobToken = $this->registerAndLogin('bob-presence@example.test', 'Bob Presence');
+
+        $this->jsonRequest('POST', '/friends/requests', ['email' => 'bob-presence@example.test'], $aliceToken);
+        $friendshipId = (string) $this->jsonResponse()['friendship']['id'];
+        $this->jsonRequest('POST', '/friends/requests/'.$friendshipId.'/accept', token: $bobToken);
+        self::assertResponseIsSuccessful();
+
+        $aliceId = $this->currentUserId($aliceToken);
+        $this->jsonRequest('POST', '/me/offline', token: $bobToken);
+        self::assertResponseStatusCodeSame(204);
+
+        RecordingMercureHub::reset();
+        $this->jsonRequest('GET', '/me', token: $bobToken);
+        self::assertResponseIsSuccessful();
+
+        $updates = RecordingMercureHub::updates();
+        self::assertNotEmpty($updates);
+        self::assertSame(['friends/users/'.$aliceId], $updates[0]['topics']);
+        $payload = json_decode($updates[0]['data'], true, flags: JSON_THROW_ON_ERROR);
+        self::assertSame('friend.presence.changed', $payload['type']);
+        self::assertSame('online', $payload['user']['presence']);
     }
 
     public function testOutgoingFriendRequestCanBeCancelled(): void
@@ -121,6 +155,14 @@ class FriendsApiTest extends ApiTestCase
         self::assertResponseStatusCodeSame(201);
 
         return (string) $this->jsonResponse()['deck']['id'];
+    }
+
+    private function currentUserId(string $token): string
+    {
+        $this->jsonRequest('GET', '/me', token: $token);
+        self::assertResponseIsSuccessful();
+
+        return (string) $this->jsonResponse()['user']['id'];
     }
 }
 

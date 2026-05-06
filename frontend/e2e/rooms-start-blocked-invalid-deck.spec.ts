@@ -19,8 +19,8 @@ interface RoomStartErrorPayload {
 test('room start is blocked when any participant deck is Commander-invalid', async ({ request }) => {
   test.setTimeout(120_000);
 
-  const owner = await createRealUserSession(request, 'rooms-start-blocked-owner');
-  const guest = await createRealUserSession(request, 'rooms-start-blocked-guest');
+  const owner = await createRealUserSession(request, 'owner-start-blocked');
+  const guest = await createRealUserSession(request, 'guest-start-blocked');
 
   const ownerValidSource = await createValidCommanderDeckFromDatabase(request, {
     ownerToken: owner.token,
@@ -62,8 +62,10 @@ test('room start is blocked when any participant deck is Commander-invalid', asy
   });
   expect(guestValidDeck.validation.valid).toBeTruthy();
 
-  const roomId = await createRoom(request, owner.token, ownerInvalidDeckId);
+  const roomId = await createRoom(request, owner.token, ownerInvalidDeckId, `Templo de Guardia ${Date.now()}`);
   await joinRoom(request, guest.token, roomId, guestValidDeck.deckId);
+  await rollTurnOrder(request, owner.token, roomId);
+  await rollTurnOrder(request, guest.token, roomId);
 
   const startResponse = await request.post(`${API_BASE_URL}/rooms/${roomId}/start`, {
     headers: {
@@ -138,6 +140,7 @@ async function createRoom(
   request: APIRequestContext,
   token: string,
   deckId: string,
+  name: string,
 ): Promise<string> {
   const response = await request.post(`${API_BASE_URL}/rooms`, {
     headers: {
@@ -146,6 +149,9 @@ async function createRoom(
     data: {
       deckId,
       visibility: 'public',
+      name,
+      format: 'commander',
+      maxPlayers: 4,
     },
   });
   expect(response.ok()).toBeTruthy();
@@ -166,6 +172,19 @@ async function joinRoom(
     },
     data: {
       deckId,
+    },
+  });
+  expect(response.ok()).toBeTruthy();
+}
+
+async function rollTurnOrder(
+  request: APIRequestContext,
+  token: string,
+  roomId: string,
+): Promise<void> {
+  const response = await request.post(`${API_BASE_URL}/rooms/${roomId}/roll-turn`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
     },
   });
   expect(response.ok()).toBeTruthy();

@@ -206,6 +206,43 @@ describe('GameTableComponent', () => {
     expect(store.snapshot()?.version).toBe(2);
     expect(store.snapshot()?.players['user-1']?.life).toBe(39);
   });
+
+  it('only lets the active turn player advance phases from the table', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    snapshot.players['user-2'] = {
+      ...snapshot.players['user-1'],
+      user: { id: 'user-2', email: 'guest@test', displayName: 'Guest', roles: [] },
+      zones: { library: [], hand: [], battlefield: [], graveyard: [], exile: [], command: [] },
+      zoneCounts: { library: 0, hand: 0, battlefield: 0, graveyard: 0, exile: 0, command: 0 },
+    };
+    snapshot.turn.activePlayerId = 'user-2';
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    await fixture.componentInstance.store.advanceTurnPhase();
+
+    expect(gamesApi.command).not.toHaveBeenCalled();
+    expect(fixture.componentInstance.store.error()).toBe('Only the active turn player can advance the turn.');
+  });
+
+  it('marks turn changes with the phase log appearance', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    snapshot.eventLog = [gameLogEntry('event-phase', 'turn.changed', 'Fase combat.')];
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(fixture.componentInstance.store.eventLog()[0]?.appearance).toBe('phase');
+  });
 });
 
 describe('GameTableChatLogState', () => {

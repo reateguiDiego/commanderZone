@@ -53,4 +53,33 @@ describe('DeckImportExportService', () => {
     expect(service.toBackendDecklist(resolved)).toBe("Deck\n1 Donnie's Bo (PZA) 17");
     expect(fetch).not.toHaveBeenCalled();
   });
+
+  it('parses section headers with counters and inline section prefixes', () => {
+    const entries = service.parse(
+      [
+        'Commander (1)',
+        "1 Atraxa, Praetors' Voice",
+        'Deck (99)',
+        'x2 Sol Ring',
+        'SB: 1 Swan Song',
+        'MB: 1 Cyclonic Rift',
+      ].join('\n'),
+      'plain',
+    );
+
+    expect(entries).toEqual([
+      { quantity: 1, name: "Atraxa, Praetors' Voice", section: 'commander' },
+      { quantity: 2, name: 'Sol Ring', section: 'main' },
+      { quantity: 1, name: 'Swan Song', section: 'sideboard' },
+      { quantity: 1, name: 'Cyclonic Rift', section: 'maybeboard' },
+    ]);
+  });
+
+  it('cleans unicode star suffixes from card names', () => {
+    const entries = service.parse(`1 Teferi, Time Raveler (WAR) 221${String.fromCharCode(0x2605)}`, 'plain');
+
+    expect(entries).toEqual([
+      { quantity: 1, name: 'Teferi, Time Raveler', section: 'main', setCode: 'war', collectorNumber: '221' },
+    ]);
+  });
 });

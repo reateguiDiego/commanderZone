@@ -11,7 +11,17 @@ describe('TableAssistantSyncService', () => {
     const room = {
       id: 'room-1',
       tableAssistantId: 'assistant-1',
-      room: { id: 'room-1', owner: { id: 'u1', email: 'u@test', displayName: 'User', roles: [] }, status: 'waiting' as const, visibility: 'private' as const, players: [], gameId: null },
+      room: {
+        id: 'room-1',
+        name: 'Mesa de User',
+        owner: { id: 'u1', email: 'u@test', displayName: 'User', roles: [] },
+        status: 'waiting' as const,
+        visibility: 'private' as const,
+        format: 'commander' as const,
+        maxPlayers: 4,
+        players: [],
+        gameId: null,
+      },
       state: createInitialTableAssistantRoom({ mode: 'single-device', roomId: 'room-1' }),
       version: 2,
       createdAt: '',

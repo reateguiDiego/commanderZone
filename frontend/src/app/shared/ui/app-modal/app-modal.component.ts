@@ -13,6 +13,8 @@ export class AppModalComponent {
   @Input() primaryLabel = 'OK';
   @Input() secondaryLabel = 'Cancel';
   @Input() danger = false;
+  @Input() showPrimary = true;
+  @Input() showSecondary = true;
 
   @Output() primary = new EventEmitter<void>();
   @Output() secondary = new EventEmitter<void>();

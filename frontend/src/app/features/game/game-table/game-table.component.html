@@ -1,4 +1,4 @@
-<section class="game-screen" data-testid="game-screen" (click)="store.handleTableClick($event)">
+<section class="game-screen" data-testid="game-screen" (click)="store.handleTableClick($event)" (contextmenu)="store.openGameMenu($event)">
   @if (store.loading()) {
     <p class="notice">Loading game snapshot...</p>
   } @else if (store.snapshot(); as snapshot) {
@@ -43,6 +43,7 @@
               [currentPlayerId]="store.currentPlayer()?.id ?? null"
               [isPhasePast]="isPhasePast"
               [pending]="store.pending()"
+              [canAdvance]="store.canAdvanceTurnPhase()"
               (advancePhase)="store.advanceTurnPhase()"
             />
           </div>
@@ -144,6 +145,8 @@
               (dropAllowed)="store.allowDrop($event)"
               (playerDropped)="store.dropOnPlayer($event.event, $event.playerId)"
               (playerMenuOpened)="store.openPlayerMenu($event.event, $event.playerId)"
+              (cardPreviewShown)="store.showCardPreview($event.card, $event.playerId, $event.zone)"
+              (cardPreviewHidden)="store.hideCardPreview()"
             />
           }
         }

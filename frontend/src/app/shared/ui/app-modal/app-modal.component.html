@@ -13,10 +13,14 @@
       </div>
 
       <footer>
-        <button class="secondary-button" type="button" (click)="secondary.emit()">{{ secondaryLabel }}</button>
-        <button class="primary-button" [class.danger-action]="danger" type="button" (click)="primary.emit()">
-          {{ primaryLabel }}
-        </button>
+        @if (showSecondary) {
+          <button class="secondary-button" type="button" (click)="secondary.emit()">{{ secondaryLabel }}</button>
+        }
+        @if (showPrimary) {
+          <button class="primary-button" [class.danger-action]="danger" type="button" (click)="primary.emit()">
+            {{ primaryLabel }}
+          </button>
+        }
       </footer>
     </section>
   </div>

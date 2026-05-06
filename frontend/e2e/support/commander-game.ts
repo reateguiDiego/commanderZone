@@ -84,8 +84,8 @@ export async function createCommanderGameWithRandomDecks(
   const runId = normalizeRunId(options.runId);
   const deckSize = options.deckSize ?? 100;
   const visibility = options.roomVisibility ?? 'public';
-  const playerAPrefix = options.playerAPrefix ?? 'cmd-a';
-  const playerBPrefix = options.playerBPrefix ?? 'cmd-b';
+  const playerAPrefix = options.playerAPrefix ?? 'player-a';
+  const playerBPrefix = options.playerBPrefix ?? 'player-b';
 
   const playerA = await createRealUserSession(request, `${playerAPrefix}-${runId}`);
   const playerB = await createRealUserSession(request, `${playerBPrefix}-${runId}`);
@@ -106,8 +106,10 @@ export async function createCommanderGameWithRandomDecks(
     seed: seedB,
   });
 
-  const roomId = await createRoom(request, playerA.token, deckA.deckId, visibility);
+  const roomId = await createRoom(request, playerA.token, deckA.deckId, visibility, funRoomName(runId));
   await joinRoom(request, playerB.token, roomId, deckB.deckId);
+  await rollTurnOrder(request, playerA.token, roomId);
+  await rollTurnOrder(request, playerB.token, roomId);
   const gameId = await startRoom(request, playerA.token, roomId);
 
   return {
@@ -139,8 +141,8 @@ export async function createCommanderGameWithValidDecks(
 ): Promise<CommanderGameWithValidDecksResult> {
   const runId = normalizeRunId(options.runId);
   const visibility = options.roomVisibility ?? 'public';
-  const playerAPrefix = options.playerAPrefix ?? 'cmdv-a';
-  const playerBPrefix = options.playerBPrefix ?? 'cmdv-b';
+  const playerAPrefix = options.playerAPrefix ?? 'player-alpha';
+  const playerBPrefix = options.playerBPrefix ?? 'player-beta';
 
   const playerA = await createRealUserSession(request, `${playerAPrefix}-${runId}`);
   const playerB = await createRealUserSession(request, `${playerBPrefix}-${runId}`);
@@ -159,8 +161,10 @@ export async function createCommanderGameWithValidDecks(
     seed: seedB,
   });
 
-  const roomId = await createRoom(request, playerA.token, deckA.deckId, visibility);
+  const roomId = await createRoom(request, playerA.token, deckA.deckId, visibility, funRoomName(runId));
   await joinRoom(request, playerB.token, roomId, deckB.deckId);
+  await rollTurnOrder(request, playerA.token, roomId);
+  await rollTurnOrder(request, playerB.token, roomId);
   const gameId = await startRoom(request, playerA.token, roomId);
 
   return {
@@ -191,6 +195,7 @@ async function createRoom(
   token: string,
   deckId: string,
   visibility: 'public' | 'private',
+  roomName: string,
 ): Promise<string> {
   const response = await request.post(`${API_BASE_URL}/rooms`, {
     headers: {
@@ -199,6 +204,9 @@ async function createRoom(
     data: {
       deckId,
       visibility,
+      name: roomName,
+      format: 'commander',
+      maxPlayers: 4,
     },
   });
   expect(response.ok()).toBeTruthy();
@@ -240,10 +248,32 @@ async function startRoom(
   return payload.game.id;
 }
 
+async function rollTurnOrder(
+  request: APIRequestContext,
+  token: string,
+  roomId: string,
+): Promise<void> {
+  const response = await request.post(`${API_BASE_URL}/rooms/${roomId}/roll-turn`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  expect(response.ok()).toBeTruthy();
+}
+
 function normalizeRunId(runId?: string): string {
   if (typeof runId === 'string' && runId.trim() !== '') {
     return runId.trim();
   }
 
   return `run-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function funRoomName(seed: string): string {
+  const names = ['Taberna del Mana', 'Trono del Comandante', 'Bahia de las Reliquias', 'Arena del Dragon', 'Santuario del Bosque'];
+  const index = Math.abs(seed.split('').reduce((total, char) => total + char.charCodeAt(0), 0)) % names.length;
+  const name = names[index] ?? 'Mesa Commander';
+  const shortSeed = seed.replace(/[^a-z0-9]/gi, '').slice(-4).toUpperCase();
+
+  return `${name} ${shortSeed}`.trim();
 }

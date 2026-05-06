@@ -11,6 +11,7 @@ use App\Domain\Room\RoomPlayer;
 use App\Domain\TableAssistant\TableAssistantRoom;
 use App\Domain\User\User;
 use App\Infrastructure\Realtime\RoomInviteEventPublisher;
+use App\Infrastructure\Realtime\RoomEventPublisher;
 use App\Infrastructure\Realtime\TableAssistantEventPublisher;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -75,6 +76,9 @@ class RoomInvitesController extends ApiController
         if ($room->hasPlayer($recipient)) {
             return $this->fail('User is already in the room.', 409);
         }
+        if ($room->isFull()) {
+            return $this->fail('Room is full.', 409);
+        }
         if (!$this->areAcceptedFriends($entityManager, $user, $recipient)) {
             return $this->fail('Only accepted friends can be invited.', 403);
         }
@@ -105,6 +109,7 @@ class RoomInvitesController extends ApiController
         EntityManagerInterface $entityManager,
         TableAssistantEventPublisher $publisher,
         RoomInviteEventPublisher $roomInvitePublisher,
+        RoomEventPublisher $roomEventPublisher,
         CommanderDeckValidator $deckValidator,
     ): JsonResponse
     {
@@ -115,22 +120,32 @@ class RoomInvitesController extends ApiController
         if ($invite->room()->status() !== Room::STATUS_WAITING) {
             return $this->fail('Room has already started.', 409);
         }
+        if (!$invite->room()->hasPlayer($user) && $invite->room()->isFull()) {
+            return $this->fail('Room is full.', 409);
+        }
 
-        $deck = $this->deckFromPayload($this->payload($request), $user, $entityManager);
-        if (!$deck instanceof Deck) {
+        $payload = $this->payload($request);
+        $hasDeckInPayload = $this->hasDeckIdInPayload($payload);
+        $deck = $this->deckFromPayload($payload, $user, $entityManager);
+        if ($hasDeckInPayload && !$deck instanceof Deck) {
             return $this->fail('A valid deck is required to accept a room invite.');
         }
-        $validation = $deckValidator->validate($deck);
-        if (($validation['valid'] ?? false) !== true) {
-            return $this->fail('A Commander-valid deck is required to accept a room invite.', 400, [
-                'validation' => $validation,
-            ]);
+        if ($deck instanceof Deck) {
+            $validation = $deckValidator->validate($deck);
+            if (($validation['valid'] ?? false) !== true) {
+                return $this->fail('A Commander-valid deck is required to accept a room invite.', 400, [
+                    'validation' => $validation,
+                ]);
+            }
         }
 
-        $invite->room()->addPlayer(new RoomPlayer($invite->room(), $user, $deck));
+        if (!$invite->room()->addPlayer(new RoomPlayer($invite->room(), $user, $deck))) {
+            return $this->fail('Room is full.', 409);
+        }
         $invite->accept();
         $entityManager->flush();
         $this->publishInviteEventToRoomActors($roomInvitePublisher, 'room.invite.accepted', $invite);
+        $roomEventPublisher->publish($invite->room(), 'room.player.joined');
         $this->publishTableAssistantInvitationEvent($entityManager, $publisher, $invite->room(), 'invitation.accepted', $invite);
 
         return $this->json(['invite' => $invite->toArray(), 'room' => $invite->room()->toArray()]);
@@ -227,5 +242,10 @@ class RoomInvitesController extends ApiController
         $deck = $entityManager->getRepository(Deck::class)->find($deckId);
 
         return $deck instanceof Deck && $deck->owner()->id() === $user->id() ? $deck : null;
+    }
+
+    private function hasDeckIdInPayload(array $payload): bool
+    {
+        return isset($payload['deckId']) && is_string($payload['deckId']) && trim($payload['deckId']) !== '';
     }
 }

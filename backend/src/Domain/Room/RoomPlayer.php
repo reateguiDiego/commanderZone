@@ -27,6 +27,9 @@ class RoomPlayer
     #[ORM\ManyToOne(targetEntity: Deck::class)]
     private ?Deck $deck;
 
+    #[ORM\Column(type: 'integer', nullable: true)]
+    private ?int $turnRoll = null;
+
     #[ORM\Column(type: 'datetime_immutable')]
     private \DateTimeImmutable $joinedAt;
 
@@ -49,9 +52,28 @@ class RoomPlayer
         return $this->deck;
     }
 
+    public function turnRoll(): ?int
+    {
+        return $this->turnRoll;
+    }
+
+    public function joinedAt(): \DateTimeImmutable
+    {
+        return $this->joinedAt;
+    }
+
     public function changeDeck(?Deck $deck): void
     {
         $this->deck = $deck;
+    }
+
+    public function rollTurnOrder(int $roll): void
+    {
+        if ($this->turnRoll !== null) {
+            return;
+        }
+
+        $this->turnRoll = max(1, min(20, $roll));
     }
 
     public function toArray(): array
@@ -60,6 +82,7 @@ class RoomPlayer
             'id' => $this->id,
             'user' => $this->user->toArray(),
             'deckId' => $this->deck?->id(),
+            'turnRoll' => $this->turnRoll,
         ];
     }
 }

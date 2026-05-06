@@ -27,15 +27,22 @@ test('a Commander-valid deck appears selectable in Rooms UI', async ({ browser, 
     const page = await context.newPage();
     await page.goto('/rooms');
 
-    const deckSelect = page.locator('select[name="deckId"]');
+    const createPanel = page.locator('.rooms-create-panel');
+    await createPanel.getByPlaceholder('Ej. La taberna del comandante').fill(`Mesa Seleccionable ${Date.now()}`);
+    await createPanel.getByRole('button', { name: '4 players' }).click();
+    await createPanel.getByRole('button', { name: /Public/i }).click();
+    await createPanel.getByRole('button', { name: 'Create room' }).click();
+
+    const deckSelect = page.locator('select[name="waitingDeckId"]');
     await expect(deckSelect).toBeVisible();
     await expect(deckSelect.locator(`option[value="${deck.deckId}"]`)).toHaveText(deckName);
 
     await deckSelect.selectOption(deck.deckId);
-    await page.getByRole('button', { name: 'Create room' }).click();
+    await page.getByRole('button', { name: 'Update deck for this room' }).click();
 
-    await expect(page.locator('.room-header strong')).toBeVisible();
-    await expect(page.locator('.dense-list.compact-list .list-row small', { hasText: deck.deckId }).first()).toBeVisible();
+    await expect(page.locator('.waiting-hero h2')).toBeVisible();
+    await expect(page.locator('.player-card.current .ready-state')).toHaveText('Roll pending');
+    await expect(page.getByRole('button', { name: 'Roll d20' })).toBeEnabled();
   } finally {
     await context.close().catch(() => {});
   }

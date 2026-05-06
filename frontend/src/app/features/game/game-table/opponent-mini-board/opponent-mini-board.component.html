@@ -34,6 +34,8 @@
         [freePosition]="!!cardPosition()(card)"
         [miniLeft]="miniCardLeft()(card, $index)"
         [miniTop]="miniCardTop()(card, $index)"
+        (cardMouseEntered)="cardPreviewShown.emit({ card: $event, playerId: opponent.id, zone: 'battlefield' })"
+        (cardMouseLeft)="cardPreviewHidden.emit()"
       />
     } @empty {
       <span class="mini-empty-board">No permanents</span>

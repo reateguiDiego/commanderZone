@@ -10,6 +10,8 @@
     [class.tapped]="currentCard.tapped"
     [style.left.%]="miniLeft()"
     [style.top.%]="miniTop()"
+    (mouseenter)="cardMouseEntered.emit(currentCard)"
+    (mouseleave)="cardMouseLeft.emit()"
   >
     @if (image(); as cardImage) {
       <img [src]="cardImage" [alt]="currentCard.name" />
@@ -42,7 +44,7 @@
     [style.top.px]="position()?.y"
     [style.--hand-index]="handIndex()"
     [style.--hand-count]="handCount()"
-    (pointerdown)="cardPointerDown.emit({ event: $event, card: currentCard })"
+    (pointerdown)="onPointerDown($event)"
     (click)="cardClicked.emit({ event: $event, card: currentCard })"
     (dblclick)="onDoubleClick($event)"
     (contextmenu)="cardMenuOpened.emit({ event: $event, card: currentCard })"

@@ -4,26 +4,20 @@ import { createValidCommanderDeckFromDatabase } from './support/decks';
 
 const API_BASE_URL = process.env['E2E_API_BASE_URL'] ?? 'http://127.0.0.1:8000';
 
-test('invited friend can accept private room invite with a Commander-valid deck', async ({ request }) => {
+test('invited friend can accept private room invite and choose deck later in waiting room', async ({ request }) => {
   test.setTimeout(180_000);
 
-  const owner = await createRealUserSession(request, 'private-accept-owner');
-  const invited = await createRealUserSession(request, 'private-accept-invited');
+  const owner = await createRealUserSession(request, 'owner-invite-valid');
+  const invited = await createRealUserSession(request, 'guest-invite-valid');
 
   const ownerDeck = await createValidCommanderDeckFromDatabase(request, {
     ownerToken: owner.token,
     name: `Private Accept Owner ${Date.now()}`,
     seed: 'e2e-private-accept-owner-seed',
   });
-  const invitedDeck = await createValidCommanderDeckFromDatabase(request, {
-    ownerToken: invited.token,
-    name: `Private Accept Invited ${Date.now()}`,
-    seed: 'e2e-private-accept-invited-seed',
-  });
-
   await createAcceptedFriendship(request, owner.token, invited.token, invited.user.id);
 
-  const roomId = await createRoom(request, owner.token, ownerDeck.deckId, 'private');
+  const roomId = await createRoom(request, owner.token, ownerDeck.deckId, 'private', `Fortaleza Dorada ${Date.now()}`);
   const inviteId = await inviteFriendToRoom(request, owner.token, roomId, invited.user.id);
 
   const incomingBeforeAccept = await request.get(`${API_BASE_URL}/rooms/invites/incoming`, {
@@ -39,9 +33,6 @@ test('invited friend can accept private room invite with a Commander-valid deck'
     headers: {
       Authorization: `Bearer ${invited.token}`,
     },
-    data: {
-      deckId: invitedDeck.deckId,
-    },
   });
   expect(acceptResponse.ok()).toBeTruthy();
   const acceptPayload = (await acceptResponse.json()) as {
@@ -49,7 +40,7 @@ test('invited friend can accept private room invite with a Commander-valid deck'
     room: { players: Array<{ user: { id: string }; deckId: string | null }> };
   };
   expect(acceptPayload.invite.status).toBe('accepted');
-  expect(acceptPayload.room.players.some((player) => player.user.id === invited.user.id && player.deckId === invitedDeck.deckId)).toBeTruthy();
+  expect(acceptPayload.room.players.some((player) => player.user.id === invited.user.id && player.deckId === null)).toBeTruthy();
 
   const incomingAfterAccept = await request.get(`${API_BASE_URL}/rooms/invites/incoming`, {
     headers: {
@@ -91,6 +82,7 @@ async function createRoom(
   token: string,
   deckId: string,
   visibility: 'public' | 'private',
+  name: string,
 ): Promise<string> {
   const response = await request.post(`${API_BASE_URL}/rooms`, {
     headers: {
@@ -99,6 +91,9 @@ async function createRoom(
     data: {
       deckId,
       visibility,
+      name,
+      format: 'commander',
+      maxPlayers: 4,
     },
   });
   expect(response.ok()).toBeTruthy();

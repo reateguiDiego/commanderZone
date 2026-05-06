@@ -7,8 +7,8 @@ const API_BASE_URL = process.env['E2E_API_BASE_URL'] ?? 'http://127.0.0.1:8000';
 test('invited friend cannot accept private room invite with an invalid deck', async ({ request }) => {
   test.setTimeout(180_000);
 
-  const owner = await createRealUserSession(request, 'private-accept-invalid-owner');
-  const invited = await createRealUserSession(request, 'private-accept-invalid-invited');
+  const owner = await createRealUserSession(request, 'owner-invite-invalid');
+  const invited = await createRealUserSession(request, 'guest-invite-invalid');
 
   const ownerDeck = await createValidCommanderDeckFromDatabase(request, {
     ownerToken: owner.token,
@@ -18,7 +18,7 @@ test('invited friend cannot accept private room invite with an invalid deck', as
   const invitedInvalidDeckId = await createInvalidDeckWithoutCommander(request, invited.token, 'e2e-private-invalid-invited-seed');
 
   await createAcceptedFriendship(request, owner.token, invited.token, invited.user.id);
-  const roomId = await createRoom(request, owner.token, ownerDeck.deckId, 'private');
+  const roomId = await createRoom(request, owner.token, ownerDeck.deckId, 'private', `Castillo Niebla ${Date.now()}`);
   const inviteId = await inviteFriendToRoom(request, owner.token, roomId, invited.user.id);
 
   const acceptResponse = await request.post(`${API_BASE_URL}/rooms/invites/${inviteId}/accept`, {
@@ -64,6 +64,7 @@ async function createRoom(
   token: string,
   deckId: string,
   visibility: 'public' | 'private',
+  name: string,
 ): Promise<string> {
   const response = await request.post(`${API_BASE_URL}/rooms`, {
     headers: {
@@ -72,6 +73,9 @@ async function createRoom(
     data: {
       deckId,
       visibility,
+      name,
+      format: 'commander',
+      maxPlayers: 4,
     },
   });
   expect(response.ok()).toBeTruthy();

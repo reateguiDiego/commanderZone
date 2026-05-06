@@ -15,6 +15,7 @@ export class TurnPhasePanelComponent {
   readonly currentPlayerId = input.required<string | null>();
   readonly isPhasePast = input.required<(phase: string) => boolean>();
   readonly pending = input.required<boolean>();
+  readonly canAdvance = input.required<boolean>();
   readonly advancePhase = output<void>();
 
   activePlayerName(): string {

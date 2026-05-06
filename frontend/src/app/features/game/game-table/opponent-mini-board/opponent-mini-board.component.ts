@@ -14,6 +14,12 @@ interface PlayerMenuEvent {
   playerId: string;
 }
 
+interface CardPreviewEvent {
+  card: GameCardInstance;
+  playerId: string;
+  zone: GameZoneName;
+}
+
 @Component({
   selector: 'app-opponent-mini-board',
   imports: [ManaSymbolsComponent, GameCardViewComponent],
@@ -37,4 +43,6 @@ export class OpponentMiniBoardComponent {
   readonly dropAllowed = output<DragEvent>();
   readonly playerDropped = output<PlayerDropEvent>();
   readonly playerMenuOpened = output<PlayerMenuEvent>();
+  readonly cardPreviewShown = output<CardPreviewEvent>();
+  readonly cardPreviewHidden = output<void>();
 }

@@ -7,9 +7,9 @@ const API_BASE_URL = process.env['E2E_API_BASE_URL'] ?? 'http://127.0.0.1:8000';
 test('private room denies outsider visibility and join', async ({ request }) => {
   test.setTimeout(180_000);
 
-  const owner = await createRealUserSession(request, 'private-deny-owner');
-  const invited = await createRealUserSession(request, 'private-deny-invited');
-  const outsider = await createRealUserSession(request, 'private-deny-outsider');
+  const owner = await createRealUserSession(request, 'owner-private-denied');
+  const invited = await createRealUserSession(request, 'invited-private-denied');
+  const outsider = await createRealUserSession(request, 'outsider-private-denied');
 
   const ownerDeck = await createValidCommanderDeckFromDatabase(request, {
     ownerToken: owner.token,
@@ -34,6 +34,9 @@ test('private room denies outsider visibility and join', async ({ request }) => 
       Authorization: `Bearer ${owner.token}`,
     },
     data: {
+      name: `Cripta Silenciosa ${Date.now()}`,
+      format: 'commander',
+      maxPlayers: 4,
       deckId: ownerDeck.deckId,
       visibility: 'private',
     },

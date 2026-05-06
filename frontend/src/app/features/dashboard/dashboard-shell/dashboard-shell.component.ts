@@ -30,10 +30,12 @@ export class DashboardShellComponent implements OnDestroy {
   readonly friendsOpen = signal(false);
   readonly roomFocus = signal(this.isTableAssistantRoomUrl(this.router.url));
   private roomInviteSubscription?: Subscription;
+  private friendSubscription?: Subscription;
 
   constructor() {
-    void this.friends.load();
+    void this.friends.ensureLoaded();
     this.startRoomInviteSync();
+    this.startFriendSync();
     this.router.events
       .pipe(
         filter((event): event is NavigationEnd => event instanceof NavigationEnd),
@@ -41,8 +43,8 @@ export class DashboardShellComponent implements OnDestroy {
       )
       .subscribe((event) => {
         this.roomFocus.set(this.isTableAssistantRoomUrl(event.urlAfterRedirects));
-        void this.friends.load();
         this.startRoomInviteSync();
+        this.startFriendSync();
       });
   }
 
@@ -65,7 +67,7 @@ export class DashboardShellComponent implements OnDestroy {
     }
 
     this.friendsOpen.set(true);
-    void this.friends.load();
+    void this.friends.ensureLoaded();
   }
 
   closeFriends(): void {
@@ -85,12 +87,14 @@ export class DashboardShellComponent implements OnDestroy {
 
   async logout(): Promise<void> {
     this.stopRoomInviteSync();
+    this.stopFriendSync();
     await this.auth.logout();
     await this.router.navigate(['/auth/login']);
   }
 
   ngOnDestroy(): void {
     this.stopRoomInviteSync();
+    this.stopFriendSync();
   }
 
   private stopRoomInviteSync(): void {
@@ -113,6 +117,30 @@ export class DashboardShellComponent implements OnDestroy {
       },
       error: () => {
         // Fallback remains periodic loads on navigation/open dropdown.
+      },
+    });
+  }
+
+  private stopFriendSync(): void {
+    this.friendSubscription?.unsubscribe();
+    this.friendSubscription = undefined;
+  }
+
+  private startFriendSync(): void {
+    const userId = this.auth.user()?.id;
+    if (!userId) {
+      return;
+    }
+    if (this.friendSubscription) {
+      return;
+    }
+
+    this.friendSubscription = this.mercure.friendEvents(userId).subscribe({
+      next: (event) => {
+        this.friends.handleRealtimeEvent(event);
+      },
+      error: () => {
+        // User-triggered actions and the initial load remain the fallback.
       },
     });
   }

@@ -31,17 +31,20 @@ class RoomsGamesApiTest extends ApiTestCase
             ['scryfallId' => 'abababab-1111-7111-8111-111111111111', 'quantity' => 99, 'section' => 'main'],
         ]);
 
-        $this->jsonRequest('POST', '/rooms', ['visibility' => 'public', 'deckId' => $ownerDeckId], $ownerToken);
+        $this->jsonRequest('POST', '/rooms', ['visibility' => 'public', 'maxPlayers' => 2, 'deckId' => $ownerDeckId], $ownerToken);
         self::assertResponseStatusCodeSame(201);
         $firstRoomId = (string) $this->jsonResponse()['room']['id'];
 
         $this->jsonRequest('POST', '/rooms/'.$firstRoomId.'/join', ['deckId' => $guestDeckId], $guestToken);
         self::assertResponseIsSuccessful();
 
+        $this->rollTurnOrder($firstRoomId, $ownerToken);
+        $this->rollTurnOrder($firstRoomId, $guestToken);
+
         $this->jsonRequest('POST', '/rooms/'.$firstRoomId.'/start', token: $ownerToken);
         self::assertResponseStatusCodeSame(201);
 
-        $this->jsonRequest('POST', '/rooms', ['visibility' => 'private', 'deckId' => $ownerDeckId], $ownerToken);
+        $this->jsonRequest('POST', '/rooms', ['visibility' => 'private', 'maxPlayers' => 2, 'deckId' => $ownerDeckId], $ownerToken);
         self::assertResponseStatusCodeSame(201);
         $secondRoomId = (string) $this->jsonResponse()['room']['id'];
 
@@ -70,7 +73,7 @@ class RoomsGamesApiTest extends ApiTestCase
             ['scryfallId' => 'aaaaaaaa-1111-7111-8111-111111111111', 'quantity' => 1, 'section' => 'main'],
         ]);
 
-        $this->jsonRequest('POST', '/rooms', ['visibility' => 'private', 'deckId' => $ownerDeckId], $ownerToken);
+        $this->jsonRequest('POST', '/rooms', ['visibility' => 'private', 'maxPlayers' => 2, 'deckId' => $ownerDeckId], $ownerToken);
         self::assertResponseStatusCodeSame(201);
         $roomId = (string) $this->jsonResponse()['room']['id'];
 
@@ -123,7 +126,7 @@ class RoomsGamesApiTest extends ApiTestCase
         $this->jsonRequest('POST', '/friends/requests/'.$participantFriendshipId.'/accept', token: $participantToken);
         self::assertResponseIsSuccessful();
 
-        $this->jsonRequest('POST', '/rooms', ['visibility' => 'private', 'deckId' => $ownerDeckId], $ownerToken);
+        $this->jsonRequest('POST', '/rooms', ['visibility' => 'private', 'maxPlayers' => 2, 'deckId' => $ownerDeckId], $ownerToken);
         self::assertResponseStatusCodeSame(201);
         $roomId = (string) $this->jsonResponse()['room']['id'];
 
@@ -171,6 +174,9 @@ class RoomsGamesApiTest extends ApiTestCase
         self::assertResponseIsSuccessful();
         self::assertSame($roomId, $this->jsonResponse()['room']['id']);
 
+        $this->rollTurnOrder($roomId, $ownerToken);
+        $this->rollTurnOrder($roomId, $participantToken);
+
         $this->jsonRequest('POST', '/rooms/'.$roomId.'/start', token: $ownerToken);
         self::assertResponseStatusCodeSame(201);
 
@@ -205,13 +211,16 @@ class RoomsGamesApiTest extends ApiTestCase
             ['scryfallId' => 'dddddddd-1111-7111-8111-111111111111', 'quantity' => 99, 'section' => 'main'],
         ]);
 
-        $this->jsonRequest('POST', '/rooms', ['visibility' => 'public', 'deckId' => $invalidOwnerDeckId], $ownerToken);
+        $this->jsonRequest('POST', '/rooms', ['visibility' => 'public', 'maxPlayers' => 2, 'deckId' => $invalidOwnerDeckId], $ownerToken);
         self::assertResponseStatusCodeSame(201);
         $roomId = (string) $this->jsonResponse()['room']['id'];
 
         $this->jsonRequest('POST', '/rooms/'.$roomId.'/join', ['deckId' => $playerDeckId], $playerToken);
         self::assertResponseIsSuccessful();
         self::assertCount(2, $this->jsonResponse()['room']['players']);
+
+        $this->rollTurnOrder($roomId, $ownerToken);
+        $this->rollTurnOrder($roomId, $playerToken);
 
         $this->jsonRequest('POST', '/rooms/'.$roomId.'/start', token: $ownerToken);
         self::assertResponseStatusCodeSame(400);
@@ -255,7 +264,7 @@ class RoomsGamesApiTest extends ApiTestCase
             ['scryfallId' => 'eeeeeeee-1111-7111-8111-111111111111', 'quantity' => 1, 'section' => 'main'],
         ]);
 
-        $this->jsonRequest('POST', '/rooms', ['visibility' => 'public', 'deckId' => $ownerDeckId], $ownerToken);
+        $this->jsonRequest('POST', '/rooms', ['visibility' => 'public', 'maxPlayers' => 2, 'deckId' => $ownerDeckId], $ownerToken);
         self::assertResponseStatusCodeSame(201);
         $roomId = (string) $this->jsonResponse()['room']['id'];
 
@@ -264,6 +273,156 @@ class RoomsGamesApiTest extends ApiTestCase
         self::assertStringContainsString('Commander-valid deck', (string) $this->jsonResponse()['error']);
         self::assertArrayHasKey('validation', $this->jsonResponse());
         self::assertFalse($this->jsonResponse()['validation']['valid']);
+    }
+
+    public function testRoomCreationSupportsNameAndMaxPlayersAndJoinRespectsCapacity(): void
+    {
+        $this->seedCard('ababbbbb-0000-7000-8000-000000000001', 'Commander Capacity', [
+            'type_line' => 'Legendary Creature - Human Warrior',
+            'color_identity' => [],
+            'set' => 'tst',
+            'collector_number' => '1',
+        ]);
+        $this->seedCard('ababbbbb-1111-7111-8111-111111111111', 'Island', [
+            'type_line' => 'Basic Land - Island',
+            'color_identity' => [],
+            'set' => 'tst',
+            'collector_number' => '2',
+        ]);
+
+        $ownerToken = $this->registerAndLogin('capacity-owner@example.test', 'Mario');
+        $playerOneToken = $this->registerAndLogin('capacity-player-one@example.test', 'Sofia');
+        $playerTwoToken = $this->registerAndLogin('capacity-player-two@example.test', 'Diego');
+
+        $ownerDeckId = $this->quickBuildDeck($ownerToken, 'Deck Mario', [
+            ['scryfallId' => 'ababbbbb-0000-7000-8000-000000000001', 'quantity' => 1, 'section' => 'commander'],
+            ['scryfallId' => 'ababbbbb-1111-7111-8111-111111111111', 'quantity' => 99, 'section' => 'main'],
+        ]);
+        $playerOneDeckId = $this->quickBuildDeck($playerOneToken, 'Deck Sofia', [
+            ['scryfallId' => 'ababbbbb-0000-7000-8000-000000000001', 'quantity' => 1, 'section' => 'commander'],
+            ['scryfallId' => 'ababbbbb-1111-7111-8111-111111111111', 'quantity' => 99, 'section' => 'main'],
+        ]);
+        $playerTwoDeckId = $this->quickBuildDeck($playerTwoToken, 'Deck Diego', [
+            ['scryfallId' => 'ababbbbb-0000-7000-8000-000000000001', 'quantity' => 1, 'section' => 'commander'],
+            ['scryfallId' => 'ababbbbb-1111-7111-8111-111111111111', 'quantity' => 99, 'section' => 'main'],
+        ]);
+
+        $this->jsonRequest('POST', '/rooms', [
+            'name' => 'La Cueva del Dragon',
+            'format' => 'commander',
+            'maxPlayers' => 2,
+            'visibility' => 'public',
+            'deckId' => $ownerDeckId,
+        ], $ownerToken);
+        self::assertResponseStatusCodeSame(201);
+        self::assertSame('La Cueva del Dragon', $this->jsonResponse()['room']['name']);
+        self::assertSame('commander', $this->jsonResponse()['room']['format']);
+        self::assertSame(2, $this->jsonResponse()['room']['maxPlayers']);
+        $roomId = (string) $this->jsonResponse()['room']['id'];
+
+        $this->jsonRequest('POST', '/rooms/'.$roomId.'/join', ['deckId' => $playerOneDeckId], $playerOneToken);
+        self::assertResponseIsSuccessful();
+        self::assertCount(2, $this->jsonResponse()['room']['players']);
+
+        $this->jsonRequest('POST', '/rooms/'.$roomId.'/join', ['deckId' => $playerTwoDeckId], $playerTwoToken);
+        self::assertResponseStatusCodeSame(409);
+        self::assertStringContainsString('Room is full', (string) $this->jsonResponse()['error']);
+
+        $this->jsonRequest('PATCH', '/rooms/'.$roomId, ['maxPlayers' => 3], $ownerToken);
+        self::assertResponseIsSuccessful();
+        self::assertSame(3, $this->jsonResponse()['room']['maxPlayers']);
+
+        $this->jsonRequest('POST', '/rooms/'.$roomId.'/join', ['deckId' => $playerTwoDeckId], $playerTwoToken);
+        self::assertResponseIsSuccessful();
+        self::assertCount(3, $this->jsonResponse()['room']['players']);
+
+        $this->jsonRequest('PATCH', '/rooms/'.$roomId, ['maxPlayers' => 2], $ownerToken);
+        self::assertResponseStatusCodeSame(400);
+        self::assertStringContainsString('lower than current players', (string) $this->jsonResponse()['error']);
+    }
+
+    public function testRoomStartRequiresAllConfiguredSeatsFilled(): void
+    {
+        $this->seedCard('ababbbcc-0000-7000-8000-000000000001', 'Commander Full Table', [
+            'type_line' => 'Legendary Creature - Human Warrior',
+            'color_identity' => [],
+            'set' => 'tst',
+            'collector_number' => '1',
+        ]);
+        $this->seedCard('ababbbcc-1111-7111-8111-111111111111', 'Island Full Table', [
+            'type_line' => 'Basic Land - Island',
+            'color_identity' => [],
+            'set' => 'tst',
+            'collector_number' => '2',
+        ]);
+
+        $ownerToken = $this->registerAndLogin('full-table-owner@example.test', 'Mario');
+        $playerToken = $this->registerAndLogin('full-table-player@example.test', 'Sofia');
+
+        $ownerDeckId = $this->quickBuildDeck($ownerToken, 'Full Table Mario Deck', [
+            ['scryfallId' => 'ababbbcc-0000-7000-8000-000000000001', 'quantity' => 1, 'section' => 'commander'],
+            ['scryfallId' => 'ababbbcc-1111-7111-8111-111111111111', 'quantity' => 99, 'section' => 'main'],
+        ]);
+        $playerDeckId = $this->quickBuildDeck($playerToken, 'Full Table Sofia Deck', [
+            ['scryfallId' => 'ababbbcc-0000-7000-8000-000000000001', 'quantity' => 1, 'section' => 'commander'],
+            ['scryfallId' => 'ababbbcc-1111-7111-8111-111111111111', 'quantity' => 99, 'section' => 'main'],
+        ]);
+
+        $this->jsonRequest('POST', '/rooms', [
+            'name' => 'Mesa Incompleta',
+            'maxPlayers' => 3,
+            'visibility' => 'public',
+            'deckId' => $ownerDeckId,
+        ], $ownerToken);
+        self::assertResponseStatusCodeSame(201);
+        $roomId = (string) $this->jsonResponse()['room']['id'];
+
+        $this->jsonRequest('POST', '/rooms/'.$roomId.'/join', ['deckId' => $playerDeckId], $playerToken);
+        self::assertResponseIsSuccessful();
+        $this->rollTurnOrder($roomId, $ownerToken);
+        $this->rollTurnOrder($roomId, $playerToken);
+
+        $this->jsonRequest('POST', '/rooms/'.$roomId.'/start', token: $ownerToken);
+        self::assertResponseStatusCodeSame(400);
+        self::assertStringContainsString('room must be full', (string) $this->jsonResponse()['error']);
+
+        $this->jsonRequest('PATCH', '/rooms/'.$roomId, ['maxPlayers' => 2], $ownerToken);
+        self::assertResponseIsSuccessful();
+
+        $this->jsonRequest('POST', '/rooms/'.$roomId.'/start', token: $ownerToken);
+        self::assertResponseStatusCodeSame(201);
+    }
+
+    public function testRoomCreationRejectsNonCommanderFormat(): void
+    {
+        $this->seedCard('ababcabc-0000-7000-8000-000000000001', 'Commander Format Gate', [
+            'type_line' => 'Legendary Creature - Human Wizard',
+            'color_identity' => [],
+            'set' => 'tst',
+            'collector_number' => '1',
+        ]);
+        $this->seedCard('ababcabc-1111-7111-8111-111111111111', 'Plains', [
+            'type_line' => 'Basic Land - Plains',
+            'color_identity' => [],
+            'set' => 'tst',
+            'collector_number' => '2',
+        ]);
+
+        $ownerToken = $this->registerAndLogin('format-owner@example.test', 'Lucia');
+        $ownerDeckId = $this->quickBuildDeck($ownerToken, 'Deck Lucia', [
+            ['scryfallId' => 'ababcabc-0000-7000-8000-000000000001', 'quantity' => 1, 'section' => 'commander'],
+            ['scryfallId' => 'ababcabc-1111-7111-8111-111111111111', 'quantity' => 99, 'section' => 'main'],
+        ]);
+
+        $this->jsonRequest('POST', '/rooms', [
+            'name' => 'Mesa imposible',
+            'format' => 'modern',
+            'maxPlayers' => 4,
+            'visibility' => 'public',
+            'deckId' => $ownerDeckId,
+        ], $ownerToken);
+        self::assertResponseStatusCodeSame(400);
+        self::assertStringContainsString('Only Commander format', (string) $this->jsonResponse()['error']);
     }
 
     public function testPrivateInviteAcceptRejectsCommanderInvalidDeck(): void
@@ -298,7 +457,7 @@ class RoomsGamesApiTest extends ApiTestCase
         $this->jsonRequest('POST', '/friends/requests/'.$friendshipId.'/accept', token: $invitedToken);
         self::assertResponseIsSuccessful();
 
-        $this->jsonRequest('POST', '/rooms', ['visibility' => 'private', 'deckId' => $ownerDeckId], $ownerToken);
+        $this->jsonRequest('POST', '/rooms', ['visibility' => 'private', 'maxPlayers' => 2, 'deckId' => $ownerDeckId], $ownerToken);
         self::assertResponseStatusCodeSame(201);
         $roomId = (string) $this->jsonResponse()['room']['id'];
 
@@ -354,7 +513,7 @@ class RoomsGamesApiTest extends ApiTestCase
         $this->jsonRequest('POST', '/friends/requests/'.$friendshipId.'/accept', token: $recipientToken);
         self::assertResponseIsSuccessful();
 
-        $this->jsonRequest('POST', '/rooms', ['visibility' => 'private', 'deckId' => $ownerDeckId], $ownerToken);
+        $this->jsonRequest('POST', '/rooms', ['visibility' => 'private', 'maxPlayers' => 2, 'deckId' => $ownerDeckId], $ownerToken);
         self::assertResponseStatusCodeSame(201);
         $roomId = (string) $this->jsonResponse()['room']['id'];
 
@@ -383,6 +542,73 @@ class RoomsGamesApiTest extends ApiTestCase
         ));
         self::assertContains('rooms/invites/users/'.$recipientId, $topics);
         self::assertContains('rooms/invites/users/'.$ownerId, $topics);
+        self::assertContains('rooms/'.$roomId.'/waiting', $topics);
+    }
+
+    public function testWaitingRoomPublishesMercureStateUpdates(): void
+    {
+        $this->seedCard('abababab-4444-7444-8444-444444444444', 'Commander Waiting Realtime', [
+            'type_line' => 'Legendary Creature - Human Scout',
+            'color_identity' => [],
+            'set' => 'tst',
+            'collector_number' => '1',
+        ]);
+        $this->seedCard('abababab-5555-7555-8555-555555555555', 'Plains Waiting Realtime', [
+            'type_line' => 'Basic Land - Plains',
+            'color_identity' => [],
+            'set' => 'tst',
+            'collector_number' => '2',
+        ]);
+
+        $ownerToken = $this->registerAndLogin('waiting-realtime-owner@example.test', 'Waiting Realtime Owner');
+        $guestToken = $this->registerAndLogin('waiting-realtime-guest@example.test', 'Waiting Realtime Guest');
+
+        $ownerDeckId = $this->quickBuildDeck($ownerToken, 'Waiting Realtime Owner Deck', [
+            ['scryfallId' => 'abababab-4444-7444-8444-444444444444', 'quantity' => 1, 'section' => 'commander'],
+            ['scryfallId' => 'abababab-5555-7555-8555-555555555555', 'quantity' => 99, 'section' => 'main'],
+        ]);
+        $guestDeckId = $this->quickBuildDeck($guestToken, 'Waiting Realtime Guest Deck', [
+            ['scryfallId' => 'abababab-4444-7444-8444-444444444444', 'quantity' => 1, 'section' => 'commander'],
+            ['scryfallId' => 'abababab-5555-7555-8555-555555555555', 'quantity' => 99, 'section' => 'main'],
+        ]);
+
+        $this->jsonRequest('POST', '/rooms', [
+            'visibility' => 'public',
+            'deckId' => $ownerDeckId,
+            'name' => 'Realtime Tavern',
+            'format' => 'commander',
+            'maxPlayers' => 4,
+        ], $ownerToken);
+        self::assertResponseStatusCodeSame(201);
+        $roomId = (string) $this->jsonResponse()['room']['id'];
+
+        $this->jsonRequest('PATCH', '/rooms/'.$roomId, ['maxPlayers' => 3], $ownerToken);
+        self::assertResponseIsSuccessful();
+
+        $this->jsonRequest('POST', '/rooms/'.$roomId.'/join', ['deckId' => $guestDeckId], $guestToken);
+        self::assertResponseIsSuccessful();
+
+        $this->rollTurnOrder($roomId, $ownerToken);
+
+        $updates = array_values(array_filter(
+            RecordingMercureHub::updates(),
+            static fn (array $update): bool => $update['topics'] === ['rooms/'.$roomId.'/waiting'],
+        ));
+        self::assertGreaterThanOrEqual(4, count($updates));
+
+        $types = array_map(
+            static fn (array $update): string => (string) json_decode($update['data'], true, flags: JSON_THROW_ON_ERROR)['type'],
+            $updates,
+        );
+        self::assertContains('room.created', $types);
+        self::assertContains('room.updated', $types);
+        self::assertContains('room.player.joined', $types);
+        self::assertContains('room.player.rolled', $types);
+
+        $lastPayload = json_decode($updates[array_key_last($updates)]['data'], true, flags: JSON_THROW_ON_ERROR);
+        self::assertSame($roomId, $lastPayload['roomId']);
+        self::assertSame($roomId, $lastPayload['room']['id']);
+        self::assertCount(2, $lastPayload['room']['players']);
     }
 
     public function testPrivateRoomInviteRequiresAcceptedFriendship(): void
@@ -412,7 +638,7 @@ class RoomsGamesApiTest extends ApiTestCase
         self::assertResponseIsSuccessful();
         $strangerUserId = (string) $this->jsonResponse()['user']['id'];
 
-        $this->jsonRequest('POST', '/rooms', ['visibility' => 'private', 'deckId' => $ownerDeckId], $ownerToken);
+        $this->jsonRequest('POST', '/rooms', ['visibility' => 'private', 'maxPlayers' => 2, 'deckId' => $ownerDeckId], $ownerToken);
         self::assertResponseStatusCodeSame(201);
         $roomId = (string) $this->jsonResponse()['room']['id'];
 
@@ -448,12 +674,15 @@ class RoomsGamesApiTest extends ApiTestCase
             ['scryfallId' => 'cabacaba-1111-7111-8111-111111111111', 'quantity' => 99, 'section' => 'main'],
         ]);
 
-        $this->jsonRequest('POST', '/rooms', ['visibility' => 'public', 'deckId' => $ownerDeckId], $ownerToken);
+        $this->jsonRequest('POST', '/rooms', ['visibility' => 'public', 'maxPlayers' => 2, 'deckId' => $ownerDeckId], $ownerToken);
         self::assertResponseStatusCodeSame(201);
         $roomId = (string) $this->jsonResponse()['room']['id'];
 
         $this->jsonRequest('POST', '/rooms/'.$roomId.'/join', ['deckId' => $playerDeckId], $playerToken);
         self::assertResponseIsSuccessful();
+
+        $this->rollTurnOrder($roomId, $ownerToken);
+        $this->rollTurnOrder($roomId, $playerToken);
 
         $this->jsonRequest('POST', '/rooms/'.$roomId.'/start', token: $ownerToken);
         self::assertResponseStatusCodeSame(201);
@@ -537,12 +766,15 @@ class RoomsGamesApiTest extends ApiTestCase
             ['scryfallId' => 'decafbad-1111-7111-8111-111111111111', 'quantity' => 99, 'section' => 'main'],
         ]);
 
-        $this->jsonRequest('POST', '/rooms', ['visibility' => 'public', 'deckId' => $ownerDeckId], $ownerToken);
+        $this->jsonRequest('POST', '/rooms', ['visibility' => 'public', 'maxPlayers' => 2, 'deckId' => $ownerDeckId], $ownerToken);
         self::assertResponseStatusCodeSame(201);
         $roomId = (string) $this->jsonResponse()['room']['id'];
 
         $this->jsonRequest('POST', '/rooms/'.$roomId.'/join', ['deckId' => $playerDeckId], $playerToken);
         self::assertResponseIsSuccessful();
+
+        $this->rollTurnOrder($roomId, $ownerToken);
+        $this->rollTurnOrder($roomId, $playerToken);
 
         $this->jsonRequest('POST', '/rooms/'.$roomId.'/start', token: $ownerToken);
         self::assertResponseStatusCodeSame(201);
@@ -628,12 +860,15 @@ class RoomsGamesApiTest extends ApiTestCase
             ['scryfallId' => 'feedfeed-1111-7111-8111-111111111111', 'quantity' => 99, 'section' => 'main'],
         ]);
 
-        $this->jsonRequest('POST', '/rooms', ['visibility' => 'public', 'deckId' => $ownerDeckId], $ownerToken);
+        $this->jsonRequest('POST', '/rooms', ['visibility' => 'public', 'maxPlayers' => 2, 'deckId' => $ownerDeckId], $ownerToken);
         self::assertResponseStatusCodeSame(201);
         $roomId = (string) $this->jsonResponse()['room']['id'];
 
         $this->jsonRequest('POST', '/rooms/'.$roomId.'/join', ['deckId' => $playerDeckId], $playerToken);
         self::assertResponseIsSuccessful();
+
+        $this->rollTurnOrder($roomId, $ownerToken);
+        $this->rollTurnOrder($roomId, $playerToken);
 
         $this->jsonRequest('POST', '/rooms/'.$roomId.'/start', token: $ownerToken);
         self::assertResponseStatusCodeSame(201);
@@ -720,12 +955,15 @@ class RoomsGamesApiTest extends ApiTestCase
             ['scryfallId' => 'abab1234-1111-7111-8111-111111111111', 'quantity' => 99, 'section' => 'main'],
         ]);
 
-        $this->jsonRequest('POST', '/rooms', ['visibility' => 'public', 'deckId' => $ownerDeckId], $ownerToken);
+        $this->jsonRequest('POST', '/rooms', ['visibility' => 'public', 'maxPlayers' => 2, 'deckId' => $ownerDeckId], $ownerToken);
         self::assertResponseStatusCodeSame(201);
         $roomId = (string) $this->jsonResponse()['room']['id'];
 
         $this->jsonRequest('POST', '/rooms/'.$roomId.'/join', ['deckId' => $playerDeckId], $playerToken);
         self::assertResponseIsSuccessful();
+
+        $this->rollTurnOrder($roomId, $ownerToken);
+        $this->rollTurnOrder($roomId, $playerToken);
 
         $this->jsonRequest('POST', '/rooms/'.$roomId.'/start', token: $ownerToken);
         self::assertResponseStatusCodeSame(201);
@@ -816,7 +1054,7 @@ class RoomsGamesApiTest extends ApiTestCase
             ['scryfallId' => '11111111-1111-7111-8111-111111111111', 'quantity' => 99, 'section' => 'main'],
         ]);
 
-        $this->jsonRequest('POST', '/rooms', ['visibility' => 'public', 'deckId' => $ownerDeckId], $ownerToken);
+        $this->jsonRequest('POST', '/rooms', ['visibility' => 'public', 'maxPlayers' => 2, 'deckId' => $ownerDeckId], $ownerToken);
         self::assertResponseStatusCodeSame(201);
         $roomId = (string) $this->jsonResponse()['room']['id'];
 
@@ -827,6 +1065,9 @@ class RoomsGamesApiTest extends ApiTestCase
         $this->jsonRequest('POST', '/rooms/'.$roomId.'/join', ['deckId' => $playerDeckId], $playerToken);
         self::assertResponseIsSuccessful();
         self::assertCount(2, $this->jsonResponse()['room']['players']);
+
+        $this->rollTurnOrder($roomId, $ownerToken);
+        $this->rollTurnOrder($roomId, $playerToken);
 
         $this->jsonRequest('POST', '/rooms/'.$roomId.'/start', token: $ownerToken);
         self::assertResponseStatusCodeSame(201);
@@ -852,6 +1093,24 @@ class RoomsGamesApiTest extends ApiTestCase
         self::assertCount(92, $ownerSnapshot['players'][$ownerPlayerId]['zones']['library']);
         self::assertSame(['G'], $ownerSnapshot['players'][$ownerPlayerId]['colorIdentity']);
         self::assertContains(['G'], array_column($ownerSnapshot['players'][$ownerPlayerId]['zones']['library'], 'colorIdentity'));
+
+        $activePlayerId = (string) $ownerSnapshot['turn']['activePlayerId'];
+        $nonActiveToken = $activePlayerId === $ownerPlayerId ? $playerToken : $ownerToken;
+        $activeToken = $activePlayerId === $ownerPlayerId ? $ownerToken : $playerToken;
+
+        $this->jsonRequest('POST', '/games/'.$gameId.'/commands', [
+            'type' => 'turn.changed',
+            'payload' => ['phase' => 'upkeep'],
+        ], $nonActiveToken);
+        self::assertResponseStatusCodeSame(400);
+        self::assertStringContainsString('Only the active turn player', (string) $this->jsonResponse()['error']);
+
+        $this->jsonRequest('POST', '/games/'.$gameId.'/commands', [
+            'type' => 'turn.changed',
+            'payload' => ['phase' => 'upkeep'],
+        ], $activeToken);
+        self::assertResponseStatusCodeSame(201);
+        self::assertSame('Fase upkeep.', $this->jsonResponse()['snapshot']['eventLog'][0]['message']);
 
         $this->jsonRequest('POST', '/games/'.$gameId.'/commands', [
             'type' => 'unknown.command',
@@ -904,10 +1163,13 @@ class RoomsGamesApiTest extends ApiTestCase
         self::assertResponseStatusCodeSame(201);
         self::assertSame('chat.message', $this->jsonResponse()['event']['type']);
 
-        $updates = RecordingMercureHub::updates();
-        self::assertCount(1, $updates);
-        self::assertSame(['games/'.$gameId], $updates[0]['topics']);
-        $mercurePayload = json_decode($updates[0]['data'], true, flags: JSON_THROW_ON_ERROR);
+        $updates = array_values(array_filter(
+            RecordingMercureHub::updates(),
+            static fn (array $update): bool => $update['topics'] === ['games/'.$gameId],
+        ));
+        self::assertNotEmpty($updates);
+        $mercurePayload = json_decode($updates[array_key_last($updates)]['data'], true, flags: JSON_THROW_ON_ERROR);
+        self::assertSame('chat.message', $mercurePayload['event']['type'] ?? null);
         self::assertArrayHasKey('version', $mercurePayload);
         self::assertArrayNotHasKey('snapshot', $mercurePayload);
 
@@ -1067,6 +1329,23 @@ class RoomsGamesApiTest extends ApiTestCase
         self::assertResponseStatusCodeSame(201);
 
         return (string) $this->jsonResponse()['deck']['id'];
+    }
+
+    private function rollTurnOrder(string $roomId, string $token): int
+    {
+        $this->jsonRequest('POST', '/rooms/'.$roomId.'/roll-turn', token: $token);
+        self::assertResponseIsSuccessful();
+        foreach ($this->jsonResponse()['room']['players'] as $player) {
+            $roll = $player['turnRoll'] ?? null;
+            if (is_int($roll)) {
+                self::assertGreaterThanOrEqual(1, $roll);
+                self::assertLessThanOrEqual(20, $roll);
+
+                return $roll;
+            }
+        }
+
+        self::fail('Turn roll was not returned for the room player.');
     }
 
     /**

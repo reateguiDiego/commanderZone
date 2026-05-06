@@ -1,10 +1,8 @@
 import { importProvidersFrom } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import { DoorOpen, LogOut, LucideAngularModule, Play, Plus, RefreshCcw, Trash2 } from 'lucide-angular';
+import { Building2, DoorOpen, Globe, Lock, LogOut, LucideAngularModule, Play, Plus, RefreshCcw, Search, Swords, Trash2, Users } from 'lucide-angular';
 import { of } from 'rxjs';
-import { DecksApi } from '../../../core/api/decks.api';
-import { FriendsApi } from '../../../core/api/friends.api';
 import { RoomsApi } from '../../../core/api/rooms.api';
 import { AuthStore } from '../../../core/auth/auth.store';
 import { RoomsComponent } from './rooms.component';
@@ -29,9 +27,7 @@ describe('RoomsComponent', () => {
       imports: [RoomsComponent],
       providers: [
         provideRouter([]),
-        importProvidersFrom(LucideAngularModule.pick({ DoorOpen, LogOut, Play, Plus, RefreshCcw, Trash2 })),
-        { provide: DecksApi, useValue: { list: vi.fn().mockReturnValue(of({ data: [] })) } },
-        { provide: FriendsApi, useValue: { list: vi.fn().mockReturnValue(of({ data: [] })) } },
+        importProvidersFrom(LucideAngularModule.pick({ Building2, DoorOpen, Globe, Lock, LogOut, Play, Plus, RefreshCcw, Search, Swords, Trash2, Users })),
         { provide: RoomsApi, useValue: roomsApi },
         { provide: AuthStore, useValue: { user: () => ({ id: 'user-1', email: 'owner@test', displayName: 'Owner' }) } },
       ],
@@ -48,9 +44,12 @@ describe('RoomsComponent', () => {
   it('deletes owned waiting rooms after modal confirmation', async () => {
     const room = {
       id: 'room-1',
+      name: 'Mesa del Bosque',
       owner: { id: 'user-1', email: 'owner@test', displayName: 'Owner', roles: [] },
       status: 'waiting' as const,
       visibility: 'private' as const,
+      format: 'commander' as const,
+      maxPlayers: 4,
       players: [],
       gameId: null,
     };

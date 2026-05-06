@@ -95,6 +95,15 @@ export class GameCardViewComponent {
     this.cardDoubleClicked.emit({ event, card: this.card() });
   }
 
+  onPointerDown(event: PointerEvent): void {
+    if (event.button !== 0) {
+      event.preventDefault();
+      return;
+    }
+
+    this.cardPointerDown.emit({ event, card: this.card() });
+  }
+
   changePower(event: MouseEvent, delta: number): void {
     event.preventDefault();
     event.stopPropagation();

@@ -5,6 +5,7 @@ namespace App\UI\Http;
 use App\Application\Friendship\FriendPresenceService;
 use App\Domain\Friendship\Friendship;
 use App\Domain\User\User;
+use App\Infrastructure\Realtime\FriendEventPublisher;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -60,7 +61,7 @@ class FriendsController extends ApiController
     }
 
     #[Route('/friends/requests', methods: ['POST'])]
-    public function request(Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager): JsonResponse
+    public function request(Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, FriendEventPublisher $friendEventPublisher): JsonResponse
     {
         $payload = $this->payload($request);
         $email = mb_strtolower(trim((string) ($payload['email'] ?? '')));
@@ -95,12 +96,13 @@ class FriendsController extends ApiController
         }
 
         $entityManager->flush();
+        $friendEventPublisher->publishListChanged($user, $recipient);
 
         return $this->json(['friendship' => $friendship->toArray($user)], 201);
     }
 
     #[Route('/friends/requests/{id}', methods: ['DELETE'])]
-    public function cancel(string $id, #[CurrentUser] User $user, EntityManagerInterface $entityManager): JsonResponse
+    public function cancel(string $id, #[CurrentUser] User $user, EntityManagerInterface $entityManager, FriendEventPublisher $friendEventPublisher): JsonResponse
     {
         $friendship = $entityManager->getRepository(Friendship::class)->findOneBy([
             'id' => $id,
@@ -112,8 +114,10 @@ class FriendsController extends ApiController
             return $this->fail('Friend request not found.', 404);
         }
 
+        $recipient = $friendship->recipient();
         $entityManager->remove($friendship);
         $entityManager->flush();
+        $friendEventPublisher->publishListChanged($user, $recipient);
 
         return $this->json(null, 204);
     }
@@ -137,7 +141,7 @@ class FriendsController extends ApiController
     }
 
     #[Route('/friends/requests/{id}/accept', methods: ['POST'])]
-    public function accept(string $id, #[CurrentUser] User $user, EntityManagerInterface $entityManager, FriendPresenceService $presence): JsonResponse
+    public function accept(string $id, #[CurrentUser] User $user, EntityManagerInterface $entityManager, FriendPresenceService $presence, FriendEventPublisher $friendEventPublisher): JsonResponse
     {
         $friendship = $this->pendingIncoming($entityManager, $id, $user);
         if (!$friendship instanceof Friendship) {
@@ -146,26 +150,29 @@ class FriendsController extends ApiController
 
         $friendship->accept();
         $entityManager->flush();
+        $friendEventPublisher->publishListChanged($user, $friendship->friendFor($user));
 
         return $this->json(['friendship' => $friendship->toArray($user, $presence->statusFor($friendship->friendFor($user)))]);
     }
 
     #[Route('/friends/requests/{id}/decline', methods: ['POST'])]
-    public function decline(string $id, #[CurrentUser] User $user, EntityManagerInterface $entityManager): JsonResponse
+    public function decline(string $id, #[CurrentUser] User $user, EntityManagerInterface $entityManager, FriendEventPublisher $friendEventPublisher): JsonResponse
     {
         $friendship = $this->pendingIncoming($entityManager, $id, $user);
         if (!$friendship instanceof Friendship) {
             return $this->fail('Friend request not found.', 404);
         }
 
+        $requester = $friendship->requester();
         $entityManager->remove($friendship);
         $entityManager->flush();
+        $friendEventPublisher->publishListChanged($user, $requester);
 
         return $this->json(null, 204);
     }
 
     #[Route('/friends/{userId}', methods: ['DELETE'])]
-    public function remove(string $userId, #[CurrentUser] User $user, EntityManagerInterface $entityManager): JsonResponse
+    public function remove(string $userId, #[CurrentUser] User $user, EntityManagerInterface $entityManager, FriendEventPublisher $friendEventPublisher): JsonResponse
     {
         $friend = $entityManager->getRepository(User::class)->find($userId);
         if (!$friend instanceof User) {
@@ -179,6 +186,7 @@ class FriendsController extends ApiController
 
         $entityManager->remove($friendship);
         $entityManager->flush();
+        $friendEventPublisher->publishListChanged($user, $friend);
 
         return $this->json(null, 204);
     }

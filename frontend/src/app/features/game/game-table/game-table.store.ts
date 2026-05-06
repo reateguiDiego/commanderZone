@@ -34,6 +34,7 @@ export interface GameLogEntryView extends GameLogEntry {
   card: GameCardInstance | null;
   messagePrefix: string;
   messageSuffix: string;
+  appearance: 'default' | 'phase';
 }
 
 interface HandDropPreview {
@@ -377,6 +378,13 @@ export class GameTableStore implements OnDestroy {
     return this.selectors.isPhasePast(this.phases, this.snapshot(), phase);
   }
 
+  canAdvanceTurnPhase(): boolean {
+    const activePlayerId = this.snapshot()?.turn.activePlayerId ?? null;
+    const currentPlayerId = this.currentPlayer()?.id ?? null;
+
+    return !!activePlayerId && activePlayerId === currentPlayerId && !this.pending();
+  }
+
   toggleCardSelection(event: MouseEvent, playerId: string, zone: GameZoneName, card: GameCardInstance): void {
     this.ripple(event.currentTarget as HTMLElement);
     if (!this.canControlOwnedCard(playerId, card) || !['battlefield', 'hand'].includes(zone)) {
@@ -464,6 +472,11 @@ export class GameTableStore implements OnDestroy {
   }
 
   async advanceTurnPhase(): Promise<void> {
+    if (!this.canAdvanceTurnPhase()) {
+      this.error.set('Only the active turn player can advance the turn.');
+      return;
+    }
+
     await this.turnActions.advanceTurnPhase(this.turnActionContext());
   }
 
@@ -1542,7 +1555,7 @@ export class GameTableStore implements OnDestroy {
   private toLogEntryView(entry: GameLogEntry): GameLogEntryView {
     const card = this.cardFromLogEntry(entry);
     if (!card) {
-      return { ...entry, card: null, messagePrefix: entry.message, messageSuffix: '' };
+      return { ...entry, card: null, messagePrefix: entry.message, messageSuffix: '', appearance: this.logAppearance(entry) };
     }
 
     const index = entry.message.indexOf(card.name);
@@ -1552,7 +1565,12 @@ export class GameTableStore implements OnDestroy {
       card,
       messagePrefix: index >= 0 ? entry.message.slice(0, index) : entry.message,
       messageSuffix: index >= 0 ? entry.message.slice(index + card.name.length) : '',
+      appearance: this.logAppearance(entry),
     };
+  }
+
+  private logAppearance(entry: GameLogEntry): GameLogEntryView['appearance'] {
+    return entry.type === 'turn.changed' ? 'phase' : 'default';
   }
 
   private cardFromLogEntry(entry: GameLogEntry): GameCardInstance | null {

@@ -18,8 +18,8 @@ interface DeckValidationPayload {
 test('room start is blocked when one player deck is Commander-invalid', async ({ request }) => {
   test.setTimeout(120_000);
 
-  const owner = await createRealUserSession(request, 'start-gate-owner');
-  const guest = await createRealUserSession(request, 'start-gate-guest');
+  const owner = await createRealUserSession(request, 'owner-start-gate');
+  const guest = await createRealUserSession(request, 'guest-start-gate');
   const commanderLegalCards = await fetchCommanderLegalCards(request);
 
   const validOwnerDeckId = await createDeterministicValidCommanderDeck(
@@ -35,7 +35,7 @@ test('room start is blocked when one player deck is Commander-invalid', async ({
     `Guest Invalid ${Date.now()}`,
   );
 
-  const roomId = await createRoom(request, owner.token, validOwnerDeckId);
+  const roomId = await createRoom(request, owner.token, validOwnerDeckId, `Forja del Amanecer ${Date.now()}`);
   const invalidJoinResponse = await request.post(`${API_BASE_URL}/rooms/${roomId}/join`, {
     headers: {
       Authorization: `Bearer ${guest.token}`,
@@ -190,6 +190,7 @@ async function createRoom(
   request: APIRequestContext,
   token: string,
   deckId: string,
+  name: string,
 ): Promise<string> {
   const response = await request.post(`${API_BASE_URL}/rooms`, {
     headers: {
@@ -198,6 +199,9 @@ async function createRoom(
     data: {
       deckId,
       visibility: 'public',
+      name,
+      format: 'commander',
+      maxPlayers: 4,
     },
   });
   expect(response.ok()).toBeTruthy();

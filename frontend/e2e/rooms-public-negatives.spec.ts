@@ -7,9 +7,9 @@ const API_BASE_URL = process.env['E2E_API_BASE_URL'] ?? 'http://127.0.0.1:8000';
 test('public room negatives: no deck join denied, invalid deck join denied, non-owner start denied, valid join allowed', async ({ request }) => {
   test.setTimeout(180_000);
 
-  const owner = await createRealUserSession(request, 'public-neg-owner');
-  const invalidJoiner = await createRealUserSession(request, 'public-neg-invalid');
-  const validJoiner = await createRealUserSession(request, 'public-neg-valid');
+  const owner = await createRealUserSession(request, 'owner-public-negatives');
+  const invalidJoiner = await createRealUserSession(request, 'invalid-public-negatives');
+  const validJoiner = await createRealUserSession(request, 'valid-public-negatives');
 
   const ownerDeck = await createValidCommanderDeckFromDatabase(request, {
     ownerToken: owner.token,
@@ -23,7 +23,7 @@ test('public room negatives: no deck join denied, invalid deck join denied, non-
   });
   const invalidJoinerDeckId = await createInvalidDeckWithoutCommander(request, invalidJoiner.token, 'public-neg-invalid-seed');
 
-  const roomId = await createRoom(request, owner.token, ownerDeck.deckId);
+  const roomId = await createRoom(request, owner.token, ownerDeck.deckId, `Arena Solar ${Date.now()}`);
 
   const joinWithoutDeckResponse = await request.post(`${API_BASE_URL}/rooms/${roomId}/join`, {
     headers: {
@@ -31,7 +31,11 @@ test('public room negatives: no deck join denied, invalid deck join denied, non-
     },
     data: {},
   });
-  expect(joinWithoutDeckResponse.status()).toBe(400);
+  expect(joinWithoutDeckResponse.ok()).toBeTruthy();
+  const joinWithoutDeckPayload = (await joinWithoutDeckResponse.json()) as {
+    room: { players: Array<{ user: { id: string }; deckId: string | null }> };
+  };
+  expect(joinWithoutDeckPayload.room.players.some((player) => player.user.id === invalidJoiner.user.id && player.deckId === null)).toBeTruthy();
 
   const joinWithInvalidDeckResponse = await request.post(`${API_BASE_URL}/rooms/${roomId}/join`, {
     headers: {
@@ -138,6 +142,7 @@ async function createRoom(
   request: APIRequestContext,
   token: string,
   deckId: string,
+  name: string,
 ): Promise<string> {
   const response = await request.post(`${API_BASE_URL}/rooms`, {
     headers: {
@@ -146,6 +151,9 @@ async function createRoom(
     data: {
       deckId,
       visibility: 'public',
+      name,
+      format: 'commander',
+      maxPlayers: 4,
     },
   });
   expect(response.ok()).toBeTruthy();

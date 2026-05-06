@@ -1,59 +1,61 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, OnDestroy, inject, signal } from '@angular/core';
-import { FormsModule } from '@angular/forms';
+import { ChangeDetectionStrategy, Component, OnDestroy, computed, inject, signal } from '@angular/core';
+import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { LucideAngularModule } from 'lucide-angular';
 import { Subscription, firstValueFrom } from 'rxjs';
-import { DecksApi } from '../../../core/api/decks.api';
-import { FriendsApi } from '../../../core/api/friends.api';
 import { RoomsApi } from '../../../core/api/rooms.api';
 import { AuthStore } from '../../../core/auth/auth.store';
-import { Deck } from '../../../core/models/deck.model';
-import { FriendUser } from '../../../core/models/friendship.model';
 import { RoomInvite } from '../../../core/models/room-invite.model';
-import { Room } from '../../../core/models/room.model';
+import { Room, RoomFormat } from '../../../core/models/room.model';
 import { MercureService } from '../../../core/realtime/mercure.service';
 import { AppModalComponent } from '../../../shared/ui/app-modal/app-modal.component';
 
 @Component({
   selector: 'app-rooms',
-  imports: [FormsModule, RouterLink, LucideAngularModule, AppModalComponent],
+  imports: [FormsModule, ReactiveFormsModule, RouterLink, LucideAngularModule, AppModalComponent],
   templateUrl: './rooms.component.html',
   styleUrl: './rooms.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class RoomsComponent implements OnDestroy {
-  private readonly decksApi = inject(DecksApi);
-  private readonly friendsApi = inject(FriendsApi);
   private readonly roomsApi = inject(RoomsApi);
   private readonly mercure = inject(MercureService);
   protected readonly auth = inject(AuthStore);
   private readonly router = inject(Router);
+  private readonly formBuilder = inject(FormBuilder);
   private roomSyncHandle?: number;
   private roomSyncInFlight = false;
   private inviteRealtimeSubscription?: Subscription;
-  private readonly deckCommanderValidityCache = new Map<string, boolean>();
-
-  readonly decks = signal<Deck[]>([]);
-  readonly friends = signal<FriendUser[]>([]);
   readonly rooms = signal<Room[]>([]);
   readonly incomingInvites = signal<RoomInvite[]>([]);
-  readonly sentInvites = signal<RoomInvite[]>([]);
-  readonly invitingUserIds = signal<string[]>([]);
   readonly currentRoom = signal<Room | null>(null);
   readonly error = signal<string | null>(null);
   readonly deletingRoomId = signal<string | null>(null);
   readonly archivingRoomId = signal<string | null>(null);
   readonly roomPendingDelete = signal<Room | null>(null);
-  readonly invalidCreateDeckModalOpen = signal(false);
-  readonly invalidCreateDeckModalMessage = signal('Selecciona un mazo Commander valido para crear sala.');
-  selectedDeckId = '';
-  visibility: 'private' | 'public' = 'private';
+  readonly createDeckRequiredModalOpen = signal(false);
+  readonly activeRoomsCount = computed(() => this.rooms().length);
+  readonly openTablesCount = computed(() => this.rooms()
+    .filter((room) => this.isRoomOpen(room))
+    .length);
+  readonly privateRoomsCount = computed(() => this.rooms()
+    .filter((room) => room.visibility === 'private')
+    .length);
+  readonly startedRoomsCount = computed(() => this.rooms()
+    .filter((room) => this.isRoomStarted(room))
+    .length);
+  readonly roomFormat: RoomFormat = 'commander';
+  readonly maxPlayersOptions = [2, 3, 4, 5, 6] as const;
+  readonly visibilityOptions: Array<'private' | 'public'> = ['public', 'private'];
+  readonly createRoomForm = this.formBuilder.group({
+    roomName: ['', [Validators.required, Validators.maxLength(120)]],
+    players: [null as number | null, [Validators.required]],
+    privacy: [null as 'private' | 'public' | null, [Validators.required]],
+  });
   roomId = '';
 
   constructor() {
-    void this.loadDecks();
-    void this.loadFriends();
     void this.loadRoomState();
     this.subscribeToInviteRealtime();
     this.roomSyncHandle = window.setInterval(() => {
@@ -68,34 +70,11 @@ export class RoomsComponent implements OnDestroy {
     this.inviteRealtimeSubscription?.unsubscribe();
   }
 
-  async loadDecks(): Promise<void> {
-    try {
-      const response = await firstValueFrom(this.decksApi.list());
-      this.deckCommanderValidityCache.clear();
-      this.decks.set(response.data);
-      if (!this.selectedDeckId && response.data.length > 0) {
-        this.selectedDeckId = response.data[0].id;
-      }
-    } catch {
-      this.error.set('Could not load decks for room selection.');
-    }
-  }
-
-  async loadFriends(): Promise<void> {
-    try {
-      const response = await firstValueFrom(this.friendsApi.list());
-      this.friends.set(response.data.map((friendship) => friendship.friend).filter((friend): friend is FriendUser => !!friend));
-    } catch {
-      this.error.set('Could not load friends.');
-    }
-  }
-
   async loadRooms(skipGlobalLoading = false): Promise<void> {
     try {
       const response = await firstValueFrom(this.roomsApi.list('active', skipGlobalLoading));
       this.rooms.set(response.data);
       this.syncCurrentRoom(response.data);
-      await this.navigateToCurrentGameIfAvailable();
     } catch {
       this.error.set('Could not load rooms.');
     }
@@ -110,44 +89,38 @@ export class RoomsComponent implements OnDestroy {
     }
   }
 
-  async inviteFriend(userId: string): Promise<void> {
-    const room = this.currentRoom();
-    if (!room || !this.canInviteFriend(room, userId)) {
-      return;
-    }
-
-    this.error.set(null);
-    this.invitingUserIds.set([...this.invitingUserIds(), userId]);
-    try {
-      await firstValueFrom(this.roomsApi.invite(room.id, userId));
-      await this.loadSentInvites(room.id);
-    } catch {
-      this.error.set('Could not send invite.');
-    } finally {
-      this.invitingUserIds.set(this.invitingUserIds().filter((id) => id !== userId));
-    }
-  }
-
   async createRoom(): Promise<void> {
     this.error.set(null);
-    if (!this.selectedDeckId) {
-      this.invalidCreateDeckModalMessage.set('Selecciona un mazo Commander valido para crear sala.');
-      this.invalidCreateDeckModalOpen.set(true);
+    if (this.createRoomForm.invalid) {
+      this.createRoomForm.markAllAsTouched();
       return;
     }
-    if (!(await this.isCommanderValidDeck(this.selectedDeckId))) {
-      this.invalidCreateDeckModalMessage.set('El mazo seleccionado no es Commander valido. Selecciona uno valido antes de crear la sala.');
-      this.invalidCreateDeckModalOpen.set(true);
+
+    const roomName = (this.createRoomForm.value.roomName ?? '').trim();
+    const players = this.createRoomForm.value.players;
+    const privacy = this.createRoomForm.value.privacy;
+    if (!roomName || players === null || privacy === null) {
+      this.createRoomForm.markAllAsTouched();
       return;
     }
 
     try {
-      const response = await firstValueFrom(this.roomsApi.create(this.optionalDeckId(), this.visibility));
+      const response = await firstValueFrom(this.roomsApi.create(undefined, privacy, {
+        name: roomName,
+        maxPlayers: players,
+        format: this.roomFormat,
+      }));
       this.currentRoom.set(response.room);
       this.roomId = response.room.id;
-      await this.loadRoomState();
-    } catch {
-      this.error.set('Could not create room.');
+      await this.navigateToWaitingRoom(response.room.id);
+    } catch (error) {
+      const message = this.errorMessage(error, 'Could not create room.');
+      if (this.isDeckRequiredError(message)) {
+        this.createDeckRequiredModalOpen.set(true);
+        return;
+      }
+
+      this.error.set(message);
     }
   }
 
@@ -156,17 +129,13 @@ export class RoomsComponent implements OnDestroy {
     if (!id) {
       return;
     }
-    if (!this.selectedDeckId) {
-      this.error.set('Select a deck before joining a room.');
-      return;
-    }
 
     this.error.set(null);
     try {
-      const response = await firstValueFrom(this.roomsApi.join(id, this.optionalDeckId()));
+      const response = await firstValueFrom(this.roomsApi.join(id));
       this.currentRoom.set(response.room);
       this.roomId = response.room.id;
-      await this.loadRoomState();
+      await this.navigateToWaitingRoom(response.room.id);
     } catch {
       this.error.set('Could not join room.');
     }
@@ -186,17 +155,6 @@ export class RoomsComponent implements OnDestroy {
     await this.joinListedRoom(room.id);
   }
 
-  async leaveRoom(id: string): Promise<void> {
-    this.error.set(null);
-    try {
-      const response = await firstValueFrom(this.roomsApi.leave(id));
-      this.currentRoom.set(response.room.players.length > 0 ? response.room : null);
-      await this.loadRoomState();
-    } catch {
-      this.error.set('Could not leave room.');
-    }
-  }
-
   requestDeleteRoom(room: Room): void {
     if (!this.canDeleteRoom(room)) {
       return;
@@ -209,8 +167,8 @@ export class RoomsComponent implements OnDestroy {
     this.roomPendingDelete.set(null);
   }
 
-  closeInvalidCreateDeckModal(): void {
-    this.invalidCreateDeckModalOpen.set(false);
+  closeCreateDeckRequiredModal(): void {
+    this.createDeckRequiredModalOpen.set(false);
   }
 
   async confirmDeleteRoom(): Promise<void> {
@@ -239,17 +197,13 @@ export class RoomsComponent implements OnDestroy {
   }
 
   async acceptInvite(invite: RoomInvite): Promise<void> {
-    const deckId = await this.resolveCommanderValidDeckForInviteAccept();
-    if (!deckId) {
-      return;
-    }
-
     this.error.set(null);
     try {
-      const response = await firstValueFrom(this.roomsApi.acceptInvite(invite.id, deckId));
+      const response = await firstValueFrom(this.roomsApi.acceptInvite(invite.id));
       this.currentRoom.set(response.room ?? invite.room);
-      this.roomId = (response.room ?? invite.room).id;
-      await this.loadRoomState();
+      const room = response.room ?? invite.room;
+      this.roomId = room.id;
+      await this.navigateToWaitingRoom(room.id);
     } catch (error) {
       this.error.set(this.errorMessage(error, 'Could not accept room invite.'));
     }
@@ -266,36 +220,41 @@ export class RoomsComponent implements OnDestroy {
   }
 
   canDeleteRoom(room: Room): boolean {
-    return room.status === 'waiting' && room.owner.id === this.auth.user()?.id;
-  }
-
-  canStartRoom(room: Room): boolean {
-    return room.owner.id === this.auth.user()?.id && room.players.length >= 2 && room.players.every((player) => !!player.deckId);
+    return this.isRoomWaiting(room) && room.owner.id === this.auth.user()?.id;
   }
 
   canArchiveRoom(room: Room): boolean {
     return room.status !== 'archived' && room.owner.id === this.auth.user()?.id && (room.status === 'started' || !!room.gameId);
   }
 
-  isInviting(userId: string): boolean {
-    return this.invitingUserIds().includes(userId);
+  roomCapacity(room: Room): number {
+    const maxPlayers = Number(room.maxPlayers);
+    if (Number.isInteger(maxPlayers) && maxPlayers >= 2 && maxPlayers <= 6) {
+      return maxPlayers;
+    }
+
+    return 4;
   }
 
-  isFriendInCurrentRoom(userId: string): boolean {
-    const room = this.currentRoom();
-    return !!room?.players.some((player) => player.user.id === userId);
+  roomPlayerCount(room: Room): number {
+    return Array.isArray(room.players) ? room.players.length : 0;
   }
 
-  hasPendingInvite(userId: string): boolean {
-    return this.sentInvites().some((invite) => invite.recipient.id === userId && invite.status === 'pending');
+  isRoomStarted(room: Room): boolean {
+    return room.status === 'started' || !!room.gameId;
   }
 
-  canInviteFriend(room: Room, userId: string): boolean {
-    return room.status === 'waiting'
-      && room.owner.id === this.auth.user()?.id
-      && !this.isFriendInCurrentRoom(userId)
-      && !this.hasPendingInvite(userId)
-      && !this.isInviting(userId);
+  isRoomWaiting(room: Room): boolean {
+    const status = String(room.status ?? '').toLowerCase();
+    return status === 'waiting' || status === 'open';
+  }
+
+  isRoomFull(room: Room): boolean {
+    return this.roomPlayerCount(room) >= this.roomCapacity(room);
+  }
+
+  isRoomOpen(room: Room): boolean {
+    return this.isRoomWaiting(room) && !this.isRoomStarted(room) && !this.isRoomFull(room);
   }
 
   async archiveRoom(room: Room): Promise<void> {
@@ -318,44 +277,11 @@ export class RoomsComponent implements OnDestroy {
     }
   }
 
-  async startRoom(id: string): Promise<void> {
-    this.error.set(null);
-    let room: Room;
-    try {
-      const roomResponse = await firstValueFrom(this.roomsApi.show(id));
-      room = roomResponse.room;
-      this.currentRoom.set(room);
-      this.roomId = room.id;
-    } catch (error) {
-      this.error.set(this.errorMessage(error, 'Could not load room state.'));
-      return;
-    }
-
-    try {
-      const response = await firstValueFrom(this.roomsApi.start(id));
-      this.currentRoom.set(response.room);
-      await this.router.navigate(['/games', response.game.id]);
-    } catch (error) {
-      this.error.set(this.errorMessage(error, 'Could not start game.'));
-      await this.loadRoomState(true);
-    }
-  }
-
-  private optionalDeckId(): string | undefined {
-    return this.selectedDeckId || undefined;
-  }
-
   private async loadRoomState(skipGlobalLoading = false): Promise<void> {
     if (!this.inviteRealtimeSubscription) {
       this.subscribeToInviteRealtime();
     }
     await Promise.all([this.loadRooms(skipGlobalLoading), this.loadInvites(skipGlobalLoading)]);
-    const room = this.currentRoom();
-    if (room && room.status === 'waiting' && room.owner.id === this.auth.user()?.id) {
-      await this.loadSentInvites(room.id, skipGlobalLoading);
-    } else {
-      this.sentInvites.set([]);
-    }
   }
 
   private async syncRoomState(): Promise<void> {
@@ -371,15 +297,6 @@ export class RoomsComponent implements OnDestroy {
     }
   }
 
-  private async loadSentInvites(roomId: string, skipGlobalLoading = false): Promise<void> {
-    try {
-      const response = await firstValueFrom(this.roomsApi.invites(roomId, skipGlobalLoading));
-      this.sentInvites.set(response.data);
-    } catch {
-      this.sentInvites.set([]);
-    }
-  }
-
   private syncCurrentRoom(rooms: Room[]): void {
     const currentRoom = this.currentRoom();
     const currentId = currentRoom?.id ?? this.roomId.trim();
@@ -391,17 +308,6 @@ export class RoomsComponent implements OnDestroy {
     this.currentRoom.set(room ?? currentRoom);
     if (!room && this.roomId === currentId) {
       this.roomId = '';
-    }
-  }
-
-  private async navigateToCurrentGameIfAvailable(): Promise<void> {
-    const room = this.currentRoom();
-    if (room?.gameId) {
-      try {
-        await this.router.navigate(['/games', room.gameId]);
-      } catch {
-        // Keep room state, navigation can be retried manually.
-      }
     }
   }
 
@@ -423,48 +329,6 @@ export class RoomsComponent implements OnDestroy {
     });
   }
 
-  private async resolveCommanderValidDeckForInviteAccept(): Promise<string | null> {
-    const selectedDeckId = this.selectedDeckId;
-    if (!selectedDeckId) {
-      this.error.set('Select a deck before accepting a room invite.');
-      return null;
-    }
-
-    if (await this.isCommanderValidDeck(selectedDeckId)) {
-      return selectedDeckId;
-    }
-
-    for (const deck of this.decks()) {
-      if (deck.id === selectedDeckId) {
-        continue;
-      }
-      if (await this.isCommanderValidDeck(deck.id)) {
-        this.selectedDeckId = deck.id;
-        return deck.id;
-      }
-    }
-
-    this.error.set('You need a Commander-valid deck to accept this room invite.');
-    return null;
-  }
-
-  private async isCommanderValidDeck(deckId: string): Promise<boolean> {
-    if (this.deckCommanderValidityCache.has(deckId)) {
-      return this.deckCommanderValidityCache.get(deckId) === true;
-    }
-
-    try {
-      const validation = await firstValueFrom(this.decksApi.validateCommander(deckId));
-      const valid = validation.valid === true;
-      this.deckCommanderValidityCache.set(deckId, valid);
-
-      return valid;
-    } catch {
-      this.deckCommanderValidityCache.set(deckId, false);
-      return false;
-    }
-  }
-
   private errorMessage(error: unknown, fallback: string): string {
     if (!(error instanceof HttpErrorResponse)) {
       return fallback;
@@ -483,4 +347,15 @@ export class RoomsComponent implements OnDestroy {
     return fallback;
   }
 
+  private isDeckRequiredError(message: string): boolean {
+    const normalized = message.toLowerCase();
+    return normalized.includes('deck') || normalized.includes('mazo');
+  }
+
+  private async navigateToWaitingRoom(roomId: string): Promise<void> {
+    const navigated = await this.router.navigateByUrl(`/rooms/${roomId}/waiting`);
+    if (!navigated) {
+      this.error.set('Room created, but could not open the waiting room.');
+    }
+  }
 }

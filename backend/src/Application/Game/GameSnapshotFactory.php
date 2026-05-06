@@ -13,7 +13,7 @@ class GameSnapshotFactory
     {
         $players = [];
 
-        foreach ($room->players() as $roomPlayer) {
+        foreach ($room->orderedPlayers() as $roomPlayer) {
             if (!$roomPlayer instanceof RoomPlayer) {
                 continue;
             }

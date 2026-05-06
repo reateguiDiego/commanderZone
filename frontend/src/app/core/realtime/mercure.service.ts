@@ -2,7 +2,9 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable, firstValueFrom } from 'rxjs';
 import { API_BASE_URL, MERCURE_URL } from '../api/api.config';
+import { FriendRealtimeEvent } from '../models/friendship.model';
 import { MercureGameEvent } from '../models/game.model';
+import { WaitingRoomEvent } from '../models/room.model';
 
 @Injectable({ providedIn: 'root' })
 export class MercureService {
@@ -96,6 +98,72 @@ export class MercureService {
 
           source.onerror = () => {
             subscriber.error(new Error('Mercure room invite connection failed.'));
+          };
+        })
+        .catch((error) => subscriber.error(error));
+
+      return () => {
+        closed = true;
+        source?.close();
+      };
+    });
+  }
+
+  waitingRoomEvents(roomId: string): Observable<WaitingRoomEvent> {
+    return new Observable<WaitingRoomEvent>((subscriber) => {
+      let source: EventSource | null = null;
+      let closed = false;
+      const url = `${MERCURE_URL}?topic=${encodeURIComponent(`rooms/${roomId}/waiting`)}`;
+      this.authorizeMercure()
+        .then(() => {
+          if (closed) {
+            return;
+          }
+          source = new EventSource(url, { withCredentials: true });
+
+          source.onmessage = (message) => {
+            try {
+              subscriber.next(JSON.parse(message.data) as WaitingRoomEvent);
+            } catch (error) {
+              subscriber.error(error);
+            }
+          };
+
+          source.onerror = () => {
+            // Polling in the waiting room remains the fallback. Keep the stream open.
+          };
+        })
+        .catch((error) => subscriber.error(error));
+
+      return () => {
+        closed = true;
+        source?.close();
+      };
+    });
+  }
+
+  friendEvents(userId: string): Observable<FriendRealtimeEvent> {
+    return new Observable<FriendRealtimeEvent>((subscriber) => {
+      let source: EventSource | null = null;
+      let closed = false;
+      const url = `${MERCURE_URL}?topic=${encodeURIComponent(`friends/users/${userId}`)}`;
+      this.authorizeMercure()
+        .then(() => {
+          if (closed) {
+            return;
+          }
+          source = new EventSource(url, { withCredentials: true });
+
+          source.onmessage = (message) => {
+            try {
+              subscriber.next(JSON.parse(message.data) as FriendRealtimeEvent);
+            } catch (error) {
+              subscriber.error(error);
+            }
+          };
+
+          source.onerror = () => {
+            // The friends store keeps its current state; user actions still reload as fallback.
           };
         })
         .catch((error) => subscriber.error(error));

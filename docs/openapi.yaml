@@ -1155,6 +1155,38 @@ paths:
           $ref: '#/components/responses/Error'
         '404':
           $ref: '#/components/responses/Error'
+    patch:
+      tags: [Rooms]
+      summary: Update waiting-room settings as owner.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateRoomRequest'
+      responses:
+        '200':
+          description: Updated room.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [room]
+                properties:
+                  room:
+                    $ref: '#/components/schemas/Room'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
   /rooms/invites/incoming:
     get:
       tags: [Rooms]
@@ -1210,11 +1242,11 @@ paths:
   /rooms/invites/{id}/accept:
     post:
       tags: [Rooms]
-      summary: Accept a pending room invite and join the room.
+      summary: Accept a pending room invite and join the room (deck can be selected later in waiting room).
       parameters:
         - $ref: '#/components/parameters/Id'
       requestBody:
-        required: true
+        required: false
         content:
           application/json:
             schema:
@@ -1284,6 +1316,33 @@ paths:
                 properties:
                   room:
                     $ref: '#/components/schemas/Room'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+  /rooms/{id}/roll-turn:
+    post:
+      tags: [Rooms]
+      summary: Roll a d20 once for waiting-room turn order.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Updated room with the player's turn-order roll.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [room]
+                properties:
+                  room:
+                    $ref: '#/components/schemas/Room'
+        '400':
+          $ref: '#/components/responses/Error'
         '401':
           $ref: '#/components/responses/Error'
         '403':
@@ -2556,10 +2615,30 @@ components:
         - $ref: '#/components/schemas/DeckSelection'
         - type: object
           properties:
+            name:
+              type: string
+              minLength: 1
+              maxLength: 120
             visibility:
               type: string
               enum: [private, public]
               default: private
+            format:
+              type: string
+              enum: [commander]
+              default: commander
+            maxPlayers:
+              type: integer
+              minimum: 2
+              maximum: 6
+              default: 4
+    UpdateRoomRequest:
+      type: object
+      properties:
+        maxPlayers:
+          type: integer
+          minimum: 2
+          maximum: 6
     CreateRoomInviteRequest:
       type: object
       required: [userId]
@@ -2569,11 +2648,15 @@ components:
           format: uuid
     Room:
       type: object
-      required: [id, owner, status, visibility, players]
+      required: [id, name, owner, status, visibility, format, maxPlayers, players]
       properties:
         id:
           type: string
           format: uuid
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
         owner:
           $ref: '#/components/schemas/User'
         status:
@@ -2582,6 +2665,13 @@ components:
         visibility:
           type: string
           enum: [private, public]
+        format:
+          type: string
+          enum: [commander]
+        maxPlayers:
+          type: integer
+          minimum: 2
+          maximum: 6
         players:
           type: array
           items:
@@ -2591,7 +2681,7 @@ components:
           format: uuid
     RoomPlayer:
       type: object
-      required: [id, user]
+      required: [id, user, deckId, turnRoll]
       properties:
         id:
           type: string
@@ -2601,6 +2691,10 @@ components:
         deckId:
           type: [string, 'null']
           format: uuid
+        turnRoll:
+          type: [integer, 'null']
+          minimum: 1
+          maximum: 20
     RoomInvite:
       type: object
       required: [id, status, room, sender, recipient, createdAt, updatedAt]

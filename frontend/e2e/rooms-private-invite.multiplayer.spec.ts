@@ -12,8 +12,8 @@ test('private room invite flow: accepted friend joins, owner starts, both open g
     throw new Error('Playwright baseURL is required.');
   }
 
-  const owner = await createRealUserSession(request, 'private-room-owner');
-  const invited = await createRealUserSession(request, 'private-room-invited');
+  const owner = await createRealUserSession(request, 'owner-private-room');
+  const invited = await createRealUserSession(request, 'guest-private-room');
   const ownerDeck = await createValidCommanderDeckFromDatabase(request, {
     ownerToken: owner.token,
     name: `Private Owner ${Date.now()}`,
@@ -27,7 +27,7 @@ test('private room invite flow: accepted friend joins, owner starts, both open g
 
   await createAcceptedFriendship(request, owner.token, invited.token, invited.user.id);
 
-  const roomId = await createRoom(request, owner.token, ownerDeck.deckId, 'private');
+  const roomId = await createRoom(request, owner.token, ownerDeck.deckId, 'private', `Posada del Comandante ${Date.now()}`);
   const inviteId = await inviteFriendToRoom(request, owner.token, roomId, invited.user.id);
   await acceptInvite(request, invited.token, inviteId, invitedDeck.deckId);
 
@@ -35,6 +35,9 @@ test('private room invite flow: accepted friend joins, owner starts, both open g
     const room = await getRoom(request, owner.token, roomId);
     return room.players.length;
   }).toBeGreaterThanOrEqual(2);
+
+  await rollTurnOrder(request, owner.token, roomId);
+  await rollTurnOrder(request, invited.token, roomId);
 
   const gameId = await startRoom(request, owner.token, roomId);
 
@@ -97,6 +100,7 @@ async function createRoom(
   token: string,
   deckId: string,
   visibility: 'public' | 'private',
+  name: string,
 ): Promise<string> {
   const response = await request.post(`${API_BASE_URL}/rooms`, {
     headers: {
@@ -105,6 +109,9 @@ async function createRoom(
     data: {
       deckId,
       visibility,
+      name,
+      format: 'commander',
+      maxPlayers: 4,
     },
   });
   expect(response.ok()).toBeTruthy();
@@ -180,4 +187,17 @@ async function startRoom(
   const payload = (await response.json()) as { game: { id: string } };
 
   return payload.game.id;
+}
+
+async function rollTurnOrder(
+  request: APIRequestContext,
+  token: string,
+  roomId: string,
+): Promise<void> {
+  const response = await request.post(`${API_BASE_URL}/rooms/${roomId}/roll-turn`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  expect(response.ok()).toBeTruthy();
 }

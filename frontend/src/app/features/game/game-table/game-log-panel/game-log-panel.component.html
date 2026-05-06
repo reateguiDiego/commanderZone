@@ -1,6 +1,6 @@
 <div #feed class="panel-feed" data-testid="game-log">
   @for (entry of entries(); track entry.id) {
-    <p data-testid="game-log-entry">
+    <p data-testid="game-log-entry" [class.phase-entry]="entry.appearance === 'phase'">
       <small>{{ logTime()(entry.createdAt) }}</small>
       <strong>{{ entry.displayName ?? 'System' }}</strong>
       <span>

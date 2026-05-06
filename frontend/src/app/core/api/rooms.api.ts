@@ -4,7 +4,7 @@ import { Observable } from 'rxjs';
 import { API_BASE_URL } from './api.config';
 import { DataResponse, RoomInviteResponse, RoomResponse, StartGameResponse } from '../models/api-responses.model';
 import { RoomInvite } from '../models/room-invite.model';
-import { Room, RoomVisibility } from '../models/room.model';
+import { Room, RoomFormat, RoomVisibility } from '../models/room.model';
 import { withoutGlobalLoading } from '../loading/loading-context';
 
 @Injectable({ providedIn: 'root' })
@@ -18,16 +18,36 @@ export class RoomsApi {
     });
   }
 
-  show(roomId: string): Observable<RoomResponse> {
-    return this.http.get<RoomResponse>(`${API_BASE_URL}/rooms/${roomId}`);
+  show(roomId: string, skipGlobalLoading = false): Observable<RoomResponse> {
+    return this.http.get<RoomResponse>(`${API_BASE_URL}/rooms/${roomId}`, {
+      context: skipGlobalLoading ? withoutGlobalLoading() : undefined,
+    });
   }
 
-  create(deckId?: string, visibility: RoomVisibility = 'private'): Observable<RoomResponse> {
-    return this.http.post<RoomResponse>(`${API_BASE_URL}/rooms`, { ...this.deckPayload(deckId), visibility });
+  create(
+    deckId?: string,
+    visibility: RoomVisibility = 'private',
+    options?: { name?: string; maxPlayers?: number; format?: RoomFormat },
+  ): Observable<RoomResponse> {
+    return this.http.post<RoomResponse>(`${API_BASE_URL}/rooms`, {
+      ...this.deckPayload(deckId),
+      visibility,
+      ...(options?.name ? { name: options.name } : {}),
+      ...(typeof options?.maxPlayers === 'number' ? { maxPlayers: options.maxPlayers } : {}),
+      ...(options?.format ? { format: options.format } : {}),
+    });
   }
 
   join(roomId: string, deckId?: string): Observable<RoomResponse> {
     return this.http.post<RoomResponse>(`${API_BASE_URL}/rooms/${roomId}/join`, this.deckPayload(deckId));
+  }
+
+  update(roomId: string, options: { maxPlayers?: number }): Observable<RoomResponse> {
+    return this.http.patch<RoomResponse>(`${API_BASE_URL}/rooms/${roomId}`, options);
+  }
+
+  rollTurn(roomId: string): Observable<RoomResponse> {
+    return this.http.post<RoomResponse>(`${API_BASE_URL}/rooms/${roomId}/roll-turn`, {});
   }
 
   leave(roomId: string): Observable<RoomResponse> {

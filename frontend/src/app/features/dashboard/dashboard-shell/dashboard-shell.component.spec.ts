@@ -6,6 +6,7 @@ import { of } from 'rxjs';
 import { FriendsApi } from '../../../core/api/friends.api';
 import { RoomsApi } from '../../../core/api/rooms.api';
 import { AuthStore } from '../../../core/auth/auth.store';
+import { MercureService } from '../../../core/realtime/mercure.service';
 import { DashboardShellComponent } from './dashboard-shell.component';
 
 describe('DashboardShellComponent', () => {
@@ -35,6 +36,13 @@ describe('DashboardShellComponent', () => {
           provide: RoomsApi,
           useValue: {
             incomingInvites: vi.fn().mockReturnValue(of({ data: [] })),
+          },
+        },
+        {
+          provide: MercureService,
+          useValue: {
+            roomInviteEvents: vi.fn().mockReturnValue(of()),
+            friendEvents: vi.fn().mockReturnValue(of()),
           },
         },
       ],

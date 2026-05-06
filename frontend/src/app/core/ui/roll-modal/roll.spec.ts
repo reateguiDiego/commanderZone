@@ -1,6 +1,6 @@
-import { rollTableAssistantOption } from './table-assistant-roll';
+import { rollOption } from './roll';
 
-describe('table assistant roll', () => {
+describe('roll', () => {
   it('rolls internally several times and exposes only the final die result', () => {
     const randomValues = [
       0.65,
@@ -14,7 +14,7 @@ describe('table assistant roll', () => {
     ];
     const random = vi.fn(() => randomValues.shift() ?? 0);
 
-    const result = rollTableAssistantOption('d20', random);
+    const result = rollOption('d20', random);
 
     expect(result).toEqual({
       kind: 'd20',
@@ -26,7 +26,7 @@ describe('table assistant roll', () => {
   });
 
   it('supports coin results', () => {
-    const result = rollTableAssistantOption('coin', vi.fn()
+    const result = rollOption('coin', vi.fn()
       .mockReturnValueOnce(0)
       .mockReturnValueOnce(0.51));
 

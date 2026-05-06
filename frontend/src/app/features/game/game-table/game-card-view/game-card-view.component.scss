@@ -133,6 +133,8 @@
   border: 1px solid rgb(238 211 139 / 22%);
   border-radius: 3px;
   background: #11140f;
+  transition: left 160ms ease, top 160ms ease, transform 160ms ease;
+  will-change: left, top, transform;
 }
 
 .mini-battlefield-card.tapped {

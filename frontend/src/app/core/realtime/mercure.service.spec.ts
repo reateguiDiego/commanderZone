@@ -52,4 +52,52 @@ describe('MercureService', () => {
     subscription.unsubscribe();
     expect(eventSources[0].close).toHaveBeenCalled();
   });
+
+  it('subscribes to waiting room events with the room topic', async () => {
+    const post = vi.fn().mockReturnValue(of(undefined));
+    const service = new MercureService({ post } as unknown as HttpClient);
+    const received: unknown[] = [];
+    const subscription = service.waitingRoomEvents('room-1').subscribe((event) => {
+      received.push(event);
+    });
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(post).toHaveBeenCalledWith(`${API_BASE_URL}/realtime/mercure-cookie`, {});
+    expect(eventSources.length).toBe(1);
+    expect(eventSources[0].url).toBe(`${MERCURE_URL}?topic=${encodeURIComponent('rooms/room-1/waiting')}`);
+    expect(eventSources[0].init).toEqual({ withCredentials: true });
+
+    eventSources[0].onmessage?.({ data: '{"type":"room.updated","roomId":"room-1"}' } as MessageEvent<string>);
+    expect(received).toEqual([{ type: 'room.updated', roomId: 'room-1' }]);
+
+    subscription.unsubscribe();
+    expect(eventSources[0].close).toHaveBeenCalled();
+  });
+
+  it('subscribes to friend events with the user topic', async () => {
+    const post = vi.fn().mockReturnValue(of(undefined));
+    const service = new MercureService({ post } as unknown as HttpClient);
+    const received: unknown[] = [];
+    const subscription = service.friendEvents('user-1').subscribe((event) => {
+      received.push(event);
+    });
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(post).toHaveBeenCalledWith(`${API_BASE_URL}/realtime/mercure-cookie`, {});
+    expect(eventSources.length).toBe(1);
+    expect(eventSources[0].url).toBe(`${MERCURE_URL}?topic=${encodeURIComponent('friends/users/user-1')}`);
+    expect(eventSources[0].init).toEqual({ withCredentials: true });
+
+    eventSources[0].onmessage?.({
+      data: '{"type":"friend.presence.changed","user":{"id":"friend-1","displayName":"Marta","presence":"online"}}',
+    } as MessageEvent<string>);
+    expect(received).toEqual([{ type: 'friend.presence.changed', user: { id: 'friend-1', displayName: 'Marta', presence: 'online' } }]);
+
+    subscription.unsubscribe();
+    expect(eventSources[0].close).toHaveBeenCalled();
+  });
 });

@@ -328,6 +328,16 @@ label {
   gap: 0.85rem;
 }
 
+.waiting-room-transition::view-transition-group(*) {
+  animation-duration: 1050ms;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.waiting-room-transition::view-transition-old(*),
+.waiting-room-transition::view-transition-new(*) {
+  animation-duration: 1050ms;
+}
+
 @media (max-width: 720px) {
   .tool-header {
     align-items: stretch;

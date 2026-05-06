@@ -22,8 +22,8 @@ import { TableAssistantTimerService } from '../domain/table-assistant-timer.serv
 import { TableAssistantApi, TableAssistantRoomResource } from '../data-access/table-assistant.api';
 import { TableAssistantSyncService } from '../data-access/table-assistant-sync.service';
 import { tableAssistantColorOption } from '../domain/table-assistant-colors';
+import { RollModalComponent } from '../../../core/ui/roll-modal/roll-modal.component';
 import { TableAssistantReplayModalComponent } from '../table-assistant-replay-modal/table-assistant-replay-modal.component';
-import { TableAssistantRollModalComponent } from '../table-assistant-roll-modal/table-assistant-roll-modal.component';
 import { TableAssistantTableMenuComponent } from '../table-assistant-table-menu/table-assistant-table-menu.component';
 import { TableAssistantTurnControlsComponent } from '../table-assistant-turn-controls/table-assistant-turn-controls.component';
 import {
@@ -40,7 +40,7 @@ import {
   selector: 'app-table-assistant-room',
   imports: [
     TableAssistantReplayModalComponent,
-    TableAssistantRollModalComponent,
+    RollModalComponent,
     TableAssistantTableMenuComponent,
     TableAssistantTurnControlsComponent,
   ],

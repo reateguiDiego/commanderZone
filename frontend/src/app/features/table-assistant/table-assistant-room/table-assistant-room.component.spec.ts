@@ -167,7 +167,7 @@ describe('TableAssistantRoomComponent', () => {
       ?.click();
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('app-table-assistant-roll-modal')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('app-roll-modal')).not.toBeNull();
     expect(
       fixture.nativeElement
         .querySelector('[aria-label="Dado de 20 caras"] img')
@@ -564,14 +564,18 @@ function roomResource(
     tableAssistantId: 'assistant-1',
     room: {
       id: 'room-1',
+      name: 'Mesa de Owner',
       owner: { id: 'user-1', email: 'owner@test', displayName: 'Owner', roles: [] },
       status: 'waiting',
       visibility: 'private',
+      format: 'commander',
+      maxPlayers: 4,
       players: [
         {
           id: 'room-player-1',
           user: { id: 'user-1', email: 'owner@test', displayName: 'Owner', roles: [] },
           deckId: null,
+          turnRoll: null,
         },
       ],
       gameId: null,

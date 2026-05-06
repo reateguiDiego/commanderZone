@@ -11,6 +11,7 @@ import { GameTableComponent } from './features/game/game-table/game-table.compon
 import { DemoRoomPageComponent } from './features/onboarding/demo-room-page/demo-room-page.component';
 import { OnboardingPageComponent } from './features/onboarding/onboarding-page/onboarding-page.component';
 import { RoomsComponent } from './features/rooms/rooms/rooms.component';
+import { WaitingRoomComponent } from './features/rooms/waiting-room/waiting-room.component';
 
 export const routes: Routes = [
   {
@@ -51,6 +52,7 @@ export const routes: Routes = [
       { path: 'decks', component: DeckListComponent },
       { path: 'decks/:id', component: DeckEditorComponent },
       { path: 'rooms', component: RoomsComponent },
+      { path: 'rooms/:id/waiting', component: WaitingRoomComponent },
       {
         path: 'table-assistant',
         loadComponent: () => import('./features/table-assistant/table-assistant-page/table-assistant-page.component')

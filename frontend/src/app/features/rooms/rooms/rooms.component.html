@@ -1,204 +1,259 @@
 <section class="page-stack">
-  <div class="tool-header">
-    <div>
-      <span class="eyebrow">Rooms</span>
-      <h2>Create or join</h2>
-    </div>
-  </div>
-
-  @if (error()) {
-    <p class="notice error">{{ error() }}</p>
-  }
-
-  <div class="room-layout">
-    <section class="panel form-stack">
-      <label>
-        Deck
-        <select name="deckId" [(ngModel)]="selectedDeckId">
-          <option value="" disabled>Select a deck</option>
-          @for (deck of decks(); track deck.id) {
-            <option [value]="deck.id">{{ deck.name }}</option>
-          }
-        </select>
-      </label>
-
-      <label>
-        Visibility
-        <select name="visibility" [(ngModel)]="visibility">
-          <option value="private">Private</option>
-          <option value="public">Public</option>
-        </select>
-      </label>
-
-      <button class="primary-button" type="button" [disabled]="!selectedDeckId" (click)="createRoom()">
-        <lucide-icon name="plus" size="17" />
-        Create room
-      </button>
-
-      <label>
-        Room id
-        <input name="roomId" placeholder="Paste room id" [(ngModel)]="roomId" />
-      </label>
-      <button class="secondary-button" type="button" [disabled]="!selectedDeckId" (click)="joinRoom()">
-        <lucide-icon name="door-open" size="17" />
-        Join room
-      </button>
-    </section>
-
-    <section class="panel">
-      @if (currentRoom(); as room) {
-        <div class="room-header">
-          <span class="eyebrow">Current room</span>
-          <strong>{{ room.id }}</strong>
-          <small>Status: {{ room.status }} - {{ room.visibility }}</small>
-        </div>
-
-        <div class="dense-list compact-list">
-          @for (player of room.players; track player.id) {
-            <div class="list-row">
-              <span>
-                <strong>{{ player.user.displayName }}</strong>
-                <small>{{ player.deckId || 'No deck selected' }}</small>
-              </span>
-              @if (room.owner.id === player.user.id) {
-                <span class="metric">owner</span>
-              }
-            </div>
-          }
-        </div>
-
-        @if (room.owner.id === auth.user()?.id && room.status === 'waiting') {
-          <div class="invite-panel">
-            <div class="invite-panel-header">
-              <span class="eyebrow">Invites</span>
-              <strong>Invite friends</strong>
-              <small>Send invites and wait here until they join.</small>
-            </div>
-
-            @if (friends().length === 0) {
-              <p class="notice compact-notice">You do not have accepted friends yet.</p>
-            } @else {
-              <div class="dense-list compact-list invite-list">
-                @for (friend of friends(); track friend.id) {
-                  <div class="list-row invite-row">
-                    <span>
-                      <strong>{{ friend.displayName }}</strong>
-                      <small>{{ friend.presence || 'offline' }}</small>
-                    </span>
-                    @if (isFriendInCurrentRoom(friend.id)) {
-                      <span class="metric">In room</span>
-                    } @else if (hasPendingInvite(friend.id)) {
-                      <span class="metric">Invited</span>
-                    } @else {
-                      <button class="secondary-button compact" type="button" [disabled]="!canInviteFriend(room, friend.id)" (click)="inviteFriend(friend.id)">
-                        {{ isInviting(friend.id) ? 'Sending...' : 'Invite' }}
-                      </button>
-                    }
-                  </div>
-                }
-              </div>
-            }
+  <div class="rooms-shell">
+    <div class="rooms-main">
+      <section class="rooms-hero panel">
+        <div class="tool-header rooms-title-row">
+          <div class="rooms-title">
+            <span class="eyebrow">Rooms</span>
+            <h2>Game Rooms</h2>
+            <p>Create a room or join an existing one to start your next commander match.</p>
           </div>
-        }
-
-        <div class="button-row">
-          @if (room.owner.id === auth.user()?.id) {
-            <button class="primary-button compact" type="button" [disabled]="!canStartRoom(room)" (click)="startRoom(room.id)">
-              <lucide-icon name="play" size="16" />
-              Start game
-            </button>
-          }
-          <button class="secondary-button compact" type="button" (click)="leaveRoom(room.id)">
-            <lucide-icon name="log-out" size="16" />
-            Leave
-          </button>
-          @if (canDeleteRoom(room)) {
-            <button class="danger-button compact" type="button" [disabled]="deletingRoomId() === room.id" (click)="requestDeleteRoom(room)">
-              <lucide-icon name="trash-2" size="16" />
-              {{ deletingRoomId() === room.id ? 'Deleting' : 'Delete' }}
-            </button>
-          }
-          @if (room.gameId) {
-            <a class="secondary-button compact" [routerLink]="['/games', room.gameId]">Open game</a>
-          }
-          @if (canArchiveRoom(room)) {
-            <button class="danger-button compact" type="button" [disabled]="archivingRoomId() === room.id" (click)="archiveRoom(room)">
-              {{ archivingRoomId() === room.id ? 'Archiving' : 'Archive' }}
-            </button>
-          }
         </div>
-      } @else {
-        <p class="notice">Create a room, paste a room id, or join a visible waiting room.</p>
+
+        <div class="rooms-metrics">
+          <article class="metric-card">
+            <div class="metric-icon metric-icon-active">
+              <lucide-icon name="building-2" size="16" />
+            </div>
+            <div>
+              <span class="metric-label">Active rooms</span>
+              <strong>{{ activeRoomsCount() }}</strong>
+            </div>
+          </article>
+          <article class="metric-card">
+            <div class="metric-icon metric-icon-open">
+              <lucide-icon name="door-open" size="16" />
+            </div>
+            <div>
+              <span class="metric-label">Open rooms</span>
+              <strong>{{ openTablesCount() }}</strong>
+            </div>
+          </article>
+          <article class="metric-card">
+            <div class="metric-icon metric-icon-friends">
+              <lucide-icon name="users" size="16" />
+            </div>
+            <div>
+              <span class="metric-label">Private rooms</span>
+              <strong>{{ privateRoomsCount() }}</strong>
+            </div>
+          </article>
+          <article class="metric-card">
+            <div class="metric-icon metric-icon-started">
+              <lucide-icon name="swords" size="16" />
+            </div>
+            <div>
+              <span class="metric-label">Started games</span>
+              <strong>{{ startedRoomsCount() }}</strong>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      @if (error()) {
+        <p class="notice error">{{ error() }}</p>
       }
-    </section>
-  </div>
 
-  @if (incomingInvites().length > 0) {
-    <section class="panel">
-      <div class="tool-header compact-header">
-        <div>
-          <span class="eyebrow">Invites</span>
-          <h3>Pending room invites</h3>
-        </div>
-      </div>
-      <div class="dense-list compact-list">
-        @for (invite of incomingInvites(); track invite.id) {
-          <div class="list-row">
-            <span>
-              <strong>{{ invite.sender.displayName }}</strong>
-              <small>{{ invite.room.visibility }} - {{ invite.room.players.length }} players</small>
-            </span>
-            <button class="primary-button compact" type="button" [disabled]="!selectedDeckId" (click)="acceptInvite(invite)">Accept</button>
-            <button class="secondary-button compact" type="button" (click)="declineInvite(invite)">Decline</button>
+      @if (currentRoom(); as room) {
+        <section class="panel room-current-banner">
+          <div class="room-header">
+            <span class="eyebrow">Current room</span>
+            <strong>{{ room.name }}</strong>
+            <small>Status: {{ room.status }} - {{ room.visibility }} - {{ roomPlayerCount(room) }} / {{ roomCapacity(room) }} players</small>
           </div>
-        }
-      </div>
-    </section>
-  }
-
-  <section class="panel">
-    <div class="tool-header compact-header">
-      <div>
-        <span class="eyebrow">Visible rooms</span>
-        <h3>Room list</h3>
-      </div>
-      <button class="icon-button" type="button" title="Reload rooms" (click)="loadRooms(true)">
-        <lucide-icon name="refresh-ccw" size="16" />
-      </button>
-    </div>
-
-    <div class="dense-list compact-list">
-      @for (room of rooms(); track room.id) {
-        <div class="list-row">
-          <span>
-            <strong>{{ room.id }}</strong>
-            <small>{{ room.status }} - {{ room.visibility }} - {{ room.players.length }} players</small>
-          </span>
           @if (room.gameId) {
             <a class="secondary-button compact" [routerLink]="['/games', room.gameId]">Open game</a>
           } @else {
-            <button class="secondary-button compact" type="button" [disabled]="!selectedDeckId" (click)="openListedRoom(room)">
-              <lucide-icon name="door-open" size="15" />
-              Join
-            </button>
+            <a class="secondary-button compact" [routerLink]="['/rooms', room.id, 'waiting']">Open waiting room</a>
           }
-          @if (canDeleteRoom(room)) {
-            <button class="danger-button compact" type="button" [disabled]="deletingRoomId() === room.id" (click)="requestDeleteRoom(room)">
-              <lucide-icon name="trash-2" size="15" />
-              {{ deletingRoomId() === room.id ? 'Deleting' : 'Delete' }}
-            </button>
-          }
-          @if (canArchiveRoom(room)) {
-            <button class="danger-button compact" type="button" [disabled]="archivingRoomId() === room.id" (click)="archiveRoom(room)">
-              {{ archivingRoomId() === room.id ? 'Archiving' : 'Archive' }}
-            </button>
+        </section>
+      }
+
+      <section class="panel rooms-filter-bar">
+        <div class="join-inline">
+          <label>
+            Room code
+            <input name="roomId" placeholder="Paste room id" [(ngModel)]="roomId" />
+          </label>
+          <button class="secondary-button" type="button" (click)="joinRoom()">
+            <lucide-icon name="search" size="16" />
+            Join room
+          </button>
+        </div>
+        <button class="icon-button" type="button" title="Reload rooms" (click)="loadRooms(true)">
+          <lucide-icon name="refresh-ccw" size="16" />
+        </button>
+      </section>
+
+      @if (incomingInvites().length > 0) {
+        <section class="panel">
+          <div class="tool-header compact-header">
+            <div>
+              <span class="eyebrow">Invites</span>
+              <h3>Pending room invites</h3>
+            </div>
+          </div>
+          <div class="dense-list compact-list">
+            @for (invite of incomingInvites(); track invite.id) {
+              <div class="list-row">
+                <span>
+                  <strong>{{ invite.sender.displayName }}</strong>
+                  <small>{{ invite.room.visibility }} - {{ invite.room.players.length }} players</small>
+                </span>
+                <button class="primary-button compact" type="button" (click)="acceptInvite(invite)">Accept</button>
+                <button class="secondary-button compact" type="button" (click)="declineInvite(invite)">Decline</button>
+              </div>
+            }
+          </div>
+        </section>
+      }
+
+      <section class="panel rooms-table-panel">
+        <div class="rooms-table-head">
+          <span>Room name</span>
+          <span>Host</span>
+          <span>Format</span>
+          <span>Visibility</span>
+          <span>Players</span>
+          <span>Status</span>
+          <span class="rooms-actions-title">Action</span>
+        </div>
+
+        <div class="dense-list compact-list room-list">
+          @for (room of rooms(); track room.id) {
+            <div class="list-row room-row">
+              <div class="room-col">
+                <strong>{{ room.name }}</strong>
+                <small>{{ room.visibility === 'public' ? 'Public room' : 'Private room' }}</small>
+              </div>
+              <div class="room-col">
+                <strong>{{ room.owner.displayName }}</strong>
+                <small>Owner</small>
+              </div>
+              <div class="room-col">
+                <strong>Commander</strong>
+                <small>Singleton</small>
+              </div>
+              <div class="room-col">
+                <strong>{{ room.visibility }}</strong>
+                <small>{{ room.visibility === 'public' ? 'Any player can join' : 'Invite only' }}</small>
+              </div>
+              <div class="room-col">
+                <strong>{{ roomPlayerCount(room) }} / {{ roomCapacity(room) }}</strong>
+                <small>seated</small>
+              </div>
+              <div class="room-col">
+                @if (isRoomStarted(room)) {
+                  <span class="status-pill status-started">Started</span>
+                } @else if (isRoomWaiting(room) && isRoomFull(room)) {
+                  <span class="status-pill status-full">Full</span>
+                } @else if (isRoomOpen(room)) {
+                  <span class="status-pill status-open">Open</span>
+                } @else {
+                  <span class="status-pill status-archived">{{ room.status }}</span>
+                }
+              </div>
+              <div class="room-actions">
+                @if (room.gameId) {
+                  <a class="secondary-button compact" [routerLink]="['/games', room.gameId]">Open game</a>
+                } @else {
+                  <button class="secondary-button compact" type="button" (click)="openListedRoom(room)">
+                    <lucide-icon name="door-open" size="15" />
+                    Join
+                  </button>
+                }
+                @if (canDeleteRoom(room)) {
+                  <button class="danger-button compact" type="button" [disabled]="deletingRoomId() === room.id" (click)="requestDeleteRoom(room)">
+                    <lucide-icon name="trash-2" size="15" />
+                    {{ deletingRoomId() === room.id ? 'Deleting' : 'Delete' }}
+                  </button>
+                }
+                @if (canArchiveRoom(room)) {
+                  <button class="danger-button compact" type="button" [disabled]="archivingRoomId() === room.id" (click)="archiveRoom(room)">
+                    {{ archivingRoomId() === room.id ? 'Archiving' : 'Archive' }}
+                  </button>
+                }
+              </div>
+            </div>
+          } @empty {
+            <p class="notice">No visible rooms.</p>
           }
         </div>
-      } @empty {
-        <p class="notice">No visible rooms.</p>
-      }
+      </section>
     </div>
-  </section>
+
+    <aside class="panel rooms-create-panel">
+      <div class="rooms-create-header">
+        <span class="eyebrow">Create a new room</span>
+        <h3>Room setup</h3>
+        <p>Configure your table and invite players from the waiting page.</p>
+      </div>
+
+      <form class="form-stack" [formGroup]="createRoomForm" (ngSubmit)="createRoom()">
+        <label>
+          Room name
+          <input
+            formControlName="roomName"
+            maxlength="120"
+            placeholder="Ej. La taberna del comandante"
+          />
+        </label>
+
+        <label>
+          Format
+          <input name="roomFormat" value="Commander" readonly />
+        </label>
+
+        <div class="choice-stack">
+          <p class="choice-label">Players</p>
+          <div class="choice-group">
+            @for (value of maxPlayersOptions; track value) {
+              <button
+                type="button"
+                class="choice-button"
+                [class.is-selected]="createRoomForm.value.players === value"
+                (click)="createRoomForm.controls.players.setValue(value)"
+              >
+                {{ value }} players
+              </button>
+            }
+          </div>
+        </div>
+
+        <div class="choice-stack">
+          <p class="choice-label">Privacy</p>
+          <div class="choice-group privacy-choice-group">
+            @for (value of visibilityOptions; track value) {
+              <button
+                type="button"
+                class="choice-button privacy-choice-button"
+                [class.is-selected]="createRoomForm.value.privacy === value"
+                (click)="createRoomForm.controls.privacy.setValue(value)"
+              >
+                <span class="privacy-choice-main">
+                  @if (value === 'public') {
+                    <lucide-icon name="globe" size="14" />
+                    <span>Public</span>
+                  } @else {
+                    <lucide-icon name="lock" size="14" />
+                    <span>Private</span>
+                  }
+                </span>
+                <small class="privacy-choice-subtitle">
+                  {{ value === 'public' ? 'Anyone can join' : 'Invite only' }}
+                </small>
+              </button>
+            }
+          </div>
+        </div>
+
+        <button class="primary-button" type="submit" [disabled]="createRoomForm.invalid">
+          <lucide-icon name="plus" size="17" />
+          Create room
+        </button>
+      </form>
+    </aside>
+  </div>
 
   <app-modal
     [open]="roomPendingDelete() !== null"
@@ -211,17 +266,18 @@
     (secondary)="cancelDeleteRoom()"
   >
     @if (roomPendingDelete(); as room) {
-      <p class="notice">Sala {{ room.id }}</p>
+      <p class="notice">Sala {{ room.name }}</p>
     }
   </app-modal>
 
   <app-modal
-    [open]="invalidCreateDeckModalOpen()"
-    title="Mazo no valido"
-    [message]="invalidCreateDeckModalMessage()"
+    [open]="createDeckRequiredModalOpen()"
+    title="Mazo requerido"
+    message="Necesitas un mazo valido para crear una sala."
     primaryLabel="Entendido"
     secondaryLabel="Cerrar"
-    (primary)="closeInvalidCreateDeckModal()"
-    (secondary)="closeInvalidCreateDeckModal()"
+    (primary)="closeCreateDeckRequiredModal()"
+    (secondary)="closeCreateDeckRequiredModal()"
   />
+
 </section>

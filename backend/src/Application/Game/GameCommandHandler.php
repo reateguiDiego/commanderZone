@@ -469,6 +469,8 @@ class GameCommandHandler
             throw new \InvalidArgumentException('turn.changed requires activePlayerId, phase, or number.');
         }
 
+        $previousPhase = (string) ($snapshot['turn']['phase'] ?? '');
+        $previousActivePlayerId = (string) ($snapshot['turn']['activePlayerId'] ?? '');
         $allowed = array_intersect_key($payload, array_flip(['activePlayerId', 'phase', 'number']));
         if (isset($allowed['activePlayerId'])) {
             $this->requiredPlayerId($snapshot, ['playerId' => $allowed['activePlayerId']]);
@@ -481,7 +483,22 @@ class GameCommandHandler
         }
         $snapshot['turn'] = array_replace($snapshot['turn'] ?? [], $allowed);
 
-        return 'Changed turn.';
+        $phase = (string) ($snapshot['turn']['phase'] ?? $previousPhase);
+        $activePlayerId = (string) ($snapshot['turn']['activePlayerId'] ?? $previousActivePlayerId);
+        if ($activePlayerId !== $previousActivePlayerId) {
+            return sprintf(
+                'Turno %d: %s. Fase %s.',
+                (int) ($snapshot['turn']['number'] ?? 1),
+                $this->playerName($snapshot, $activePlayerId),
+                $phase,
+            );
+        }
+
+        if ($phase !== $previousPhase || array_key_exists('phase', $allowed)) {
+            return sprintf('Fase %s.', $phase);
+        }
+
+        return sprintf('Turno %d.', (int) ($snapshot['turn']['number'] ?? 1));
     }
 
     private function applyZoneChanged(array &$snapshot, array $payload): string
@@ -809,6 +826,12 @@ class GameCommandHandler
         if (str_starts_with($type, 'library.') || in_array($type, self::ACTOR_OWN_PLAYER_COMMANDS, true)) {
             $this->assertActorPlayer($snapshot, $payload, $actor, 'playerId');
             return;
+        }
+        if ($type === 'turn.changed') {
+            $activePlayerId = (string) ($snapshot['turn']['activePlayerId'] ?? '');
+            if ($activePlayerId === '' || $activePlayerId !== $actorId) {
+                throw new \InvalidArgumentException('Only the active turn player can advance the turn.');
+            }
         }
     }
 

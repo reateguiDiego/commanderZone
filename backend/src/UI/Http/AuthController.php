@@ -3,6 +3,7 @@
 namespace App\UI\Http;
 
 use App\Domain\User\User;
+use App\Infrastructure\Realtime\FriendEventPublisher;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -88,10 +89,11 @@ class AuthController extends ApiController
     }
 
     #[Route('/me/offline', methods: ['POST'])]
-    public function offline(#[CurrentUser] User $user, EntityManagerInterface $entityManager): JsonResponse
+    public function offline(#[CurrentUser] User $user, EntityManagerInterface $entityManager, FriendEventPublisher $friendEventPublisher): JsonResponse
     {
         $user->markOffline();
         $entityManager->flush();
+        $friendEventPublisher->publishPresenceChanged($user);
 
         return $this->json(null, 204);
     }

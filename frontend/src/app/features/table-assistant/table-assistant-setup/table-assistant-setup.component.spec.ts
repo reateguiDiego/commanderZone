@@ -105,9 +105,12 @@ describe('TableAssistantSetupComponent', () => {
           tableAssistantId: 'assistant-1',
           room: {
             id: 'room-1',
+            name: 'Mesa de Owner',
             owner: { id: 'user-1', email: 'owner@test', displayName: 'Owner' },
             status: 'waiting',
             visibility: 'private',
+            format: 'commander',
+            maxPlayers: 4,
             players: [],
             gameId: null,
           },

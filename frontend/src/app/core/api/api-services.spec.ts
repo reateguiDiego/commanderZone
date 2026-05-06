@@ -237,6 +237,18 @@ describe('API services', () => {
     expect(request.request.method).toBe('POST');
     request.flush({ room: roomFixture('room-1') });
 
+    rooms.update('room-1', { maxPlayers: 3 }).subscribe();
+    request = http.expectOne(`${API_BASE_URL}/rooms/room-1`);
+    expect(request.request.method).toBe('PATCH');
+    expect(request.request.body).toEqual({ maxPlayers: 3 });
+    request.flush({ room: roomFixture('room-1') });
+
+    rooms.rollTurn('room-1').subscribe();
+    request = http.expectOne(`${API_BASE_URL}/rooms/room-1/roll-turn`);
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({});
+    request.flush({ room: roomFixture('room-1') });
+
     rooms.list('active', true).subscribe();
     request = http.expectOne(`${API_BASE_URL}/rooms?status=active`);
     expect(request.request.method).toBe('GET');
@@ -286,6 +298,12 @@ describe('API services', () => {
     rooms.show('room-1').subscribe();
     let request = http.expectOne(`${API_BASE_URL}/rooms/room-1`);
     expect(request.request.method).toBe('GET');
+    request.flush({ room: roomFixture('room-1') });
+
+    rooms.show('room-1', true).subscribe();
+    request = http.expectOne(`${API_BASE_URL}/rooms/room-1`);
+    expect(request.request.method).toBe('GET');
+    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);
     request.flush({ room: roomFixture('room-1') });
 
     rooms.acceptInvite('invite-1', 'deck-1').subscribe();
@@ -363,8 +381,11 @@ function friendshipFixture(id: string, status = 'pending') {
 function roomFixture(id: string) {
   return {
     id,
+    name: 'Mesa de Owner',
     status: 'waiting',
     visibility: 'private',
+    format: 'commander',
+    maxPlayers: 4,
     owner: { id: 'user-1', email: 'owner@example.test', displayName: 'Owner', roles: [] },
     players: [],
     gameId: null,
