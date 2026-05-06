@@ -1032,6 +1032,29 @@ class RoomsGamesApiTest extends ApiTestCase
             'type_line' => 'Legendary Creature - Elf Druid',
             'color_identity' => ['G'],
             'oracle_text' => 'Vigilance',
+            'power' => '2',
+            'toughness' => '3',
+            'card_faces' => [
+                [
+                    'name' => 'Commander Root',
+                    'mana_cost' => '{2}{G}',
+                    'type_line' => 'Legendary Creature - Elf Druid',
+                    'oracle_text' => 'Vigilance',
+                    'power' => '2',
+                    'toughness' => '3',
+                    'colors' => ['G'],
+                    'image_uris' => ['normal' => 'https://cards.scryfall.io/root-front.jpg'],
+                ],
+                [
+                    'name' => 'Rooted Ancient',
+                    'type_line' => 'Creature - Treefolk',
+                    'oracle_text' => 'Reach',
+                    'power' => '5',
+                    'toughness' => '7',
+                    'colors' => ['G'],
+                    'image_uris' => ['normal' => 'https://cards.scryfall.io/root-back.jpg'],
+                ],
+            ],
             'set' => 'tst',
             'collector_number' => '4',
         ]);
@@ -1093,6 +1116,12 @@ class RoomsGamesApiTest extends ApiTestCase
         self::assertCount(92, $ownerSnapshot['players'][$ownerPlayerId]['zones']['library']);
         self::assertSame(['G'], $ownerSnapshot['players'][$ownerPlayerId]['colorIdentity']);
         self::assertContains(['G'], array_column($ownerSnapshot['players'][$ownerPlayerId]['zones']['library'], 'colorIdentity'));
+        $commanderInstance = $ownerSnapshot['players'][$ownerPlayerId]['zones']['command'][0];
+        self::assertSame(2, $commanderInstance['power']);
+        self::assertSame(3, $commanderInstance['toughness']);
+        self::assertSame('Rooted Ancient', $commanderInstance['cardFaces'][1]['name']);
+        self::assertSame('5', $commanderInstance['cardFaces'][1]['power']);
+        self::assertSame('7', $commanderInstance['cardFaces'][1]['toughness']);
 
         $activePlayerId = (string) $ownerSnapshot['turn']['activePlayerId'];
         $nonActiveToken = $activePlayerId === $ownerPlayerId ? $playerToken : $ownerToken;

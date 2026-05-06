@@ -38,6 +38,44 @@ class CardApiTest extends ApiTestCase
         self::assertSame($card->scryfallId(), $this->jsonResponse()['card']['scryfallId']);
     }
 
+    public function testShowsDoubleFacedCardFaces(): void
+    {
+        $card = $this->seedCard('00000000-0000-0000-0000-000000000003', 'Invasion of Zendikar // Awakened Skyclave', [
+            'layout' => 'transform',
+            'type_line' => 'Battle - Siege',
+            'card_faces' => [
+                [
+                    'name' => 'Invasion of Zendikar',
+                    'mana_cost' => '{3}{G}',
+                    'type_line' => 'Battle - Siege',
+                    'oracle_text' => 'Search your library for up to two basic land cards.',
+                    'colors' => ['G'],
+                    'image_uris' => ['normal' => 'https://cards.scryfall.io/front.jpg'],
+                ],
+                [
+                    'name' => 'Awakened Skyclave',
+                    'type_line' => 'Creature - Elemental',
+                    'oracle_text' => 'Vigilance, haste',
+                    'power' => '4',
+                    'toughness' => '4',
+                    'colors' => ['G'],
+                    'image_uris' => ['normal' => 'https://cards.scryfall.io/back.jpg'],
+                ],
+            ],
+        ]);
+
+        $this->jsonRequest('GET', '/cards/'.$card->scryfallId());
+
+        self::assertResponseIsSuccessful();
+        $faces = $this->jsonResponse()['card']['cardFaces'];
+        self::assertCount(2, $faces);
+        self::assertSame('Invasion of Zendikar', $faces[0]['name']);
+        self::assertSame('Awakened Skyclave', $faces[1]['name']);
+        self::assertSame('4', $faces[1]['power']);
+        self::assertSame('4', $faces[1]['toughness']);
+        self::assertSame('https://cards.scryfall.io/back.jpg', $faces[1]['imageUris']['normal']);
+    }
+
     public function testAmbiguousNameResolutionReturnsConflict(): void
     {
         $this->seedCard('00000000-0000-0000-0000-000000000001', 'Opt', ['set' => 'one', 'collector_number' => '1']);

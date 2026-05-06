@@ -32,6 +32,27 @@ class DeckbuildingApiTest extends ApiTestCase
             'toughness' => '5',
             'set' => 'tst',
             'collector_number' => '3',
+            'card_faces' => [
+                [
+                    'name' => 'Avenger of Zendikar',
+                    'mana_cost' => '{5}{G}{G}',
+                    'type_line' => 'Creature - Elemental',
+                    'oracle_text' => 'Create a 0/1 green Plant creature token.',
+                    'power' => '5',
+                    'toughness' => '5',
+                    'colors' => ['G'],
+                    'image_uris' => ['normal' => 'https://cards.scryfall.io/avenger-front.jpg'],
+                ],
+                [
+                    'name' => 'Awakened Garden',
+                    'type_line' => 'Creature - Plant',
+                    'oracle_text' => 'Reach',
+                    'power' => '0',
+                    'toughness' => '1',
+                    'colors' => ['G'],
+                    'image_uris' => ['normal' => 'https://cards.scryfall.io/avenger-back.jpg'],
+                ],
+            ],
             'all_parts' => [
                 [
                     'id' => $plantToken->scryfallId(),
@@ -249,6 +270,9 @@ TXT,
         $deckLine = $this->lineByScryfallId($this->jsonResponse()['deck']['cards'], $tokenProducer->scryfallId(), 'maybeboard');
         self::assertSame('5', $deckLine['card']['power']);
         self::assertSame('5', $deckLine['card']['toughness']);
+        self::assertSame('Awakened Garden', $deckLine['card']['cardFaces'][1]['name']);
+        self::assertSame('0', $deckLine['card']['cardFaces'][1]['power']);
+        self::assertSame('1', $deckLine['card']['cardFaces'][1]['toughness']);
 
         $this->jsonRequest('GET', '/decks/'.$deckId.'/sections', token: $token);
         self::assertResponseIsSuccessful();
@@ -260,6 +284,9 @@ TXT,
         $sectionLine = $this->lineByScryfallId($sections['sections']['maybeboard'], $tokenProducer->scryfallId(), 'maybeboard');
         self::assertSame('5', $sectionLine['card']['power']);
         self::assertSame('5', $sectionLine['card']['toughness']);
+        self::assertSame('Awakened Garden', $sectionLine['card']['cardFaces'][1]['name']);
+        self::assertSame('0', $sectionLine['card']['cardFaces'][1]['power']);
+        self::assertSame('1', $sectionLine['card']['cardFaces'][1]['toughness']);
 
         $this->jsonRequest('GET', '/decks/'.$deckId.'/tokens', token: $token);
         self::assertResponseIsSuccessful();

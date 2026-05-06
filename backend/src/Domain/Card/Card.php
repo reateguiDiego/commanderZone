@@ -53,6 +53,9 @@ class Card
     private array $imageUris = [];
 
     #[ORM\Column(type: 'json')]
+    private array $cardFaces = [];
+
+    #[ORM\Column(type: 'json')]
     private array $allParts = [];
 
     #[ORM\Column(type: 'float', nullable: true)]
@@ -111,6 +114,7 @@ class Card
         $this->colorIdentity = $data['color_identity'] ?? [];
         $this->legalities = $data['legalities'] ?? [];
         $this->imageUris = $data['image_uris'] ?? ($data['card_faces'][0]['image_uris'] ?? []);
+        $this->cardFaces = $this->rawCardFaces($data);
         $this->allParts = $data['all_parts'] ?? [];
         $this->manaValue = isset($data['cmc']) ? (float) $data['cmc'] : null;
         $this->producedMana = $data['produced_mana'] ?? [];
@@ -191,6 +195,11 @@ class Card
         return $this->imageUris;
     }
 
+    public function cardFaces(): array
+    {
+        return array_values(array_map(fn (array $face): array => $this->normalizeCardFace($face), $this->cardFaces));
+    }
+
     public function allParts(): array
     {
         return $this->allParts;
@@ -263,6 +272,7 @@ class Card
             'colorIdentity' => $this->colorIdentity,
             'legalities' => $this->legalities,
             'imageUris' => $this->imageUris,
+            'cardFaces' => $this->cardFaces(),
             'allParts' => $this->allParts,
             'manaValue' => $this->manaValue,
             'producedMana' => $this->producedMana,
@@ -289,6 +299,31 @@ class Card
         $face = $data['card_faces'][0] ?? null;
 
         return is_array($face) ? ($face[$key] ?? null) : null;
+    }
+
+    private function rawCardFaces(array $data): array
+    {
+        $faces = $data['card_faces'] ?? [];
+        if (!is_array($faces)) {
+            return [];
+        }
+
+        return array_values(array_filter($faces, static fn (mixed $face): bool => is_array($face)));
+    }
+
+    private function normalizeCardFace(array $face): array
+    {
+        return [
+            'name' => isset($face['name']) && is_scalar($face['name']) ? (string) $face['name'] : null,
+            'manaCost' => isset($face['mana_cost']) && is_scalar($face['mana_cost']) ? (string) $face['mana_cost'] : null,
+            'typeLine' => isset($face['type_line']) && is_scalar($face['type_line']) ? (string) $face['type_line'] : null,
+            'oracleText' => isset($face['oracle_text']) && is_scalar($face['oracle_text']) ? (string) $face['oracle_text'] : null,
+            'power' => isset($face['power']) && is_scalar($face['power']) ? (string) $face['power'] : null,
+            'toughness' => isset($face['toughness']) && is_scalar($face['toughness']) ? (string) $face['toughness'] : null,
+            'loyalty' => isset($face['loyalty']) && is_scalar($face['loyalty']) ? (string) $face['loyalty'] : null,
+            'colors' => is_array($face['colors'] ?? null) ? array_values($face['colors']) : [],
+            'imageUris' => is_array($face['image_uris'] ?? null) ? $face['image_uris'] : [],
+        ];
     }
 
     private function oracleTextFromScryfall(array $data): ?string

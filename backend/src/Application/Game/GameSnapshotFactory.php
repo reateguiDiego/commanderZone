@@ -106,6 +106,7 @@ class GameSnapshotFactory
             'scryfallId' => $card->scryfallId(),
             'name' => $card->name(),
             'imageUris' => $card->imageUris(),
+            'cardFaces' => $card->cardFaces(),
             'typeLine' => $card->typeLine(),
             'manaCost' => $card->manaCost(),
             'oracleText' => $card->oracleText(),
