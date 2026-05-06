@@ -1,6 +1,8 @@
-import { ChangeDetectionStrategy, Component, HostListener, inject } from '@angular/core';
+import { AfterViewChecked, ChangeDetectionStrategy, Component, ElementRef, HostListener, QueryList, ViewChildren, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
+import { ManaSymbolsComponent } from '../../../shared/mana/mana-symbols/mana-symbols.component';
+import { AppModalComponent } from '../../../shared/ui/app-modal/app-modal.component';
 import { GameZoneName } from '../../../core/models/game.model';
 import { GameTableCommandService } from './services/game-table-command.service';
 import { GameTableDragService } from './services/game-table-drag.service';
@@ -13,7 +15,7 @@ import { GameTableStore } from './game-table.store';
 
 @Component({
   selector: 'app-game-table',
-  imports: [FormsModule, LucideAngularModule],
+  imports: [FormsModule, LucideAngularModule, ManaSymbolsComponent, AppModalComponent],
   providers: [
     GameTableStore,
     GameTableRealtimeService,
@@ -28,10 +30,36 @@ import { GameTableStore } from './game-table.store';
   styleUrl: './game-table.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class GameTableComponent {
+export class GameTableComponent implements AfterViewChecked {
   readonly store = inject(GameTableStore);
   readonly counterPresets = ['+1/+1', '-1/-1', 'loyalty', 'charge'];
   readonly moveZones: GameZoneName[] = ['battlefield', 'graveyard', 'exile', 'hand', 'command', 'library'];
+  private lastAutoScrollKey = '';
+
+  @ViewChildren('autoScrollFeed') private readonly autoScrollFeeds?: QueryList<ElementRef<HTMLElement>>;
+
+  ngAfterViewChecked(): void {
+    const snapshot = this.store.snapshot();
+    if (!snapshot) {
+      return;
+    }
+
+    const log = this.store.eventLog();
+    const latestChat = snapshot.chat.at(-1)?.createdAt ?? '';
+    const latestLog = log.at(-1)?.id ?? '';
+    const rawLatestLog = snapshot.eventLog.at(-1)?.id ?? '';
+    const key = `${this.store.activeFloatingTab()}:${snapshot.chat.length}:${latestChat}:${snapshot.eventLog.length}:${rawLatestLog}:${log.length}:${latestLog}`;
+    if (key === this.lastAutoScrollKey) {
+      return;
+    }
+
+    this.lastAutoScrollKey = key;
+    queueMicrotask(() => {
+      for (const feed of this.autoScrollFeeds?.toArray() ?? []) {
+        feed.nativeElement.scrollTop = feed.nativeElement.scrollHeight;
+      }
+    });
+  }
 
   @HostListener('document:keydown', ['$event'])
   handleShortcut(event: KeyboardEvent): void {

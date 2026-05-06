@@ -34,10 +34,10 @@ test('player A and player B can open the same game in isolated contexts', async 
     await expect(pageA.locator('.game-screen')).toBeVisible();
     await expect(pageB.locator('.game-screen')).toBeVisible();
 
-    await expect(pageA.locator('.player-sidebar .player-thumb strong', { hasText: playerA.user.displayName })).toBeVisible();
-    await expect(pageA.locator('.player-sidebar .player-thumb strong', { hasText: playerB.user.displayName })).toBeVisible();
-    await expect(pageB.locator('.player-sidebar .player-thumb strong', { hasText: playerA.user.displayName })).toBeVisible();
-    await expect(pageB.locator('.player-sidebar .player-thumb strong', { hasText: playerB.user.displayName })).toBeVisible();
+    await expect(pageA.locator('[data-testid="player-panel"] h1')).toHaveText(playerA.user.displayName);
+    await expect(pageA.getByTestId('opponent-mini-board').filter({ hasText: playerB.user.displayName })).toBeVisible();
+    await expect(pageB.locator('[data-testid="player-panel"] h1')).toHaveText(playerB.user.displayName);
+    await expect(pageB.getByTestId('opponent-mini-board').filter({ hasText: playerA.user.displayName })).toBeVisible();
   } finally {
     await contextA.close();
     await contextB.close();

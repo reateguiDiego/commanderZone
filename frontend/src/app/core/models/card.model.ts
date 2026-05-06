@@ -14,6 +14,8 @@ export interface Card {
   manaCost: string | null;
   typeLine: string | null;
   oracleText: string | null;
+  power?: string | null;
+  toughness?: string | null;
   colors: string[];
   colorIdentity: string[];
   legalities: Record<string, string>;

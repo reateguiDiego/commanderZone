@@ -185,6 +185,7 @@ class GameCommandHandler
             'imageUris' => is_array($card['imageUris'] ?? null) ? $card['imageUris'] : [],
             'typeLine' => $card['typeLine'] ?? null,
             'manaCost' => $card['manaCost'] ?? null,
+            'oracleText' => $card['oracleText'] ?? null,
             'colorIdentity' => $this->orderedColorIdentity(is_array($card['colorIdentity'] ?? null) ? $card['colorIdentity'] : []),
             'power' => $card['power'] ?? null,
             'toughness' => $card['toughness'] ?? null,
@@ -314,6 +315,8 @@ class GameCommandHandler
     {
         $location = $this->requiredCardLocation($snapshot, $payload);
         $card =& $snapshot['players'][$location['playerId']]['zones'][$location['zone']][$location['index']];
+        $previousPower = $card['power'] ?? null;
+        $previousToughness = $card['toughness'] ?? null;
         if (array_key_exists('power', $payload)) {
             $card['power'] = (int) $payload['power'];
         }
@@ -324,7 +327,14 @@ class GameCommandHandler
             $card['loyalty'] = (int) $payload['loyalty'];
         }
 
-        return sprintf('Updated %s stats.', $card['name']);
+        return sprintf(
+            'Changed %s from %s/%s to %s/%s.',
+            $card['name'],
+            $this->statLabel($previousPower),
+            $this->statLabel($previousToughness),
+            $this->statLabel($card['power'] ?? null),
+            $this->statLabel($card['toughness'] ?? null),
+        );
     }
 
     private function applyCardMoved(array &$snapshot, array $payload): string
@@ -850,5 +860,10 @@ class GameCommandHandler
         $number = filter_var($value, FILTER_VALIDATE_INT);
 
         return is_int($number) ? max($min, min($max, $number)) : $min;
+    }
+
+    private function statLabel(mixed $value): string
+    {
+        return is_numeric($value) ? (string) (int) $value : '?';
     }
 }

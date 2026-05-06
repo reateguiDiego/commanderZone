@@ -1,6 +1,7 @@
-import { expect, test, type Locator, type Page } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { authStorageState } from './support/auth';
 import { createCommanderGameWithValidDecks } from './support/commander-game';
+import { drawMine, focusPlayer, readTableZoneCounts as readSidebarZoneCounts } from './support/game-table';
 
 test.setTimeout(240000);
 
@@ -40,7 +41,7 @@ test('drag and drop moves a card to battlefield and syncs to opponent', async ({
 
     let sidebarBefore = await readSidebarZoneCounts(pageA, setup.playerA.user.displayName);
     if (sidebarBefore.hand === 0) {
-      await pageA.getByRole('button', { name: 'Draw mine' }).click();
+      await drawMine(pageA);
       await expect.poll(async () => readSidebarZoneCounts(pageA, setup.playerA.user.displayName)).not.toEqual(sidebarBefore);
       sidebarBefore = await readSidebarZoneCounts(pageA, setup.playerA.user.displayName);
     }
@@ -59,10 +60,7 @@ test('drag and drop moves a card to battlefield and syncs to opponent', async ({
       throw new Error('Expected dragged card instance id.');
     }
 
-    const movedWithDragTo = await tryNativeDragTo(source, target);
-    if (!movedWithDragTo) {
-      await dragWithDataTransfer(pageA, source, target);
-    }
+    await dragWithDataTransfer(pageA, source, target);
 
     await expect.poll(async () => battlefieldCount(pageA, setup.playerA.user.id)).toBe(battlefieldBefore + 1);
     await expect.poll(async () => battlefieldCount(pageB, setup.playerA.user.id)).toBe(battlefieldBefore + 1);
@@ -93,15 +91,6 @@ test('drag and drop moves a card to battlefield and syncs to opponent', async ({
   }
 });
 
-async function tryNativeDragTo(source: Locator, target: Locator): Promise<boolean> {
-  try {
-    await source.dragTo(target);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 async function dragWithDataTransfer(page: Page, source: Locator, target: Locator): Promise<void> {
   const dataTransfer = await page.evaluateHandle(() => new DataTransfer());
   await source.dispatchEvent('dragstart', { dataTransfer });
@@ -111,30 +100,6 @@ async function dragWithDataTransfer(page: Page, source: Locator, target: Locator
   await dataTransfer.dispose();
 }
 
-async function focusPlayer(page: Page, displayName: string): Promise<void> {
-  const thumb = page.locator('.player-sidebar .player-thumb').filter({
-    has: page.locator('strong', { hasText: displayName }),
-  });
-  await expect(thumb).toBeVisible();
-  await thumb.click();
-  await expect(page.locator('.focused-board h1')).toHaveText(displayName);
-}
-
-async function readSidebarZoneCounts(page: Page, displayName: string): Promise<{ hand: number; library: number }> {
-  const thumb = page.locator('.player-sidebar .player-thumb').filter({
-    has: page.locator('strong', { hasText: displayName }),
-  });
-  const text = await thumb.locator('small').innerText();
-  const match = /(\d+)\s+hand\s+·\s+(\d+)\s+library/.exec(text.trim());
-  if (!match) {
-    throw new Error(`Could not parse sidebar counts for ${displayName}: "${text}"`);
-  }
-
-  return {
-    hand: Number.parseInt(match[1] ?? '', 10),
-    library: Number.parseInt(match[2] ?? '', 10),
-  };
-}
 
 async function battlefieldCount(page: Page, playerId: string): Promise<number> {
   return page

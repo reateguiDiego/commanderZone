@@ -4,6 +4,8 @@ import { createCommanderGameWithValidDecks } from './support/commander-game';
 
 test.setTimeout(180000);
 
+const PHASES = ['untap', 'upkeep', 'draw', 'main-1', 'combat', 'main-2', 'end'];
+
 test('two players can alternate manual turn controls and stay synchronized', async ({ browser, request, baseURL }) => {
   if (!baseURL) {
     throw new Error('Playwright baseURL is required.');
@@ -33,22 +35,21 @@ test('two players can alternate manual turn controls and stay synchronized', asy
     await expect(pageA.getByTestId('game-screen')).toBeVisible();
     await expect(pageB.getByTestId('game-screen')).toBeVisible();
 
-    await pageA.selectOption('select[name="activePlayer"]', playerB.user.id);
-    await expect.poll(async () => readActivePlayer(pageA)).toBe(playerB.user.id);
-    await expect.poll(async () => readActivePlayer(pageB)).toBe(playerB.user.id);
-
-    await pageB.selectOption('select[name="phase"]', 'combat');
+    await advancePhase(pageA, 4);
     await expect.poll(async () => readPhase(pageA)).toBe('combat');
     await expect.poll(async () => readPhase(pageB)).toBe('combat');
 
-    await pageB.getByRole('spinbutton', { name: 'Turn number' }).fill('2');
-    await pageB.getByRole('spinbutton', { name: 'Turn number' }).blur();
-    await expect.poll(async () => readTurnNumber(pageA)).toBe('2');
-    await expect.poll(async () => readTurnNumber(pageB)).toBe('2');
+    await advancePhase(pageB, 3);
+    await expect.poll(async () => readActivePlayer(pageA)).toBe(playerB.user.displayName);
+    await expect.poll(async () => readActivePlayer(pageB)).toBe('Your Turn');
+    await expect.poll(async () => readPhase(pageA)).toBe('untap');
+    await expect.poll(async () => readPhase(pageB)).toBe('untap');
+    await expect.poll(async () => readTurnNumber(pageA)).toBe('Turn 2');
+    await expect.poll(async () => readTurnNumber(pageB)).toBe('Turn 2');
 
-    await pageB.selectOption('select[name="activePlayer"]', playerA.user.id);
-    await expect.poll(async () => readActivePlayer(pageA)).toBe(playerA.user.id);
-    await expect.poll(async () => readActivePlayer(pageB)).toBe(playerA.user.id);
+    await advancePhase(pageB, 7);
+    await expect.poll(async () => readActivePlayer(pageA)).toBe('Your Turn');
+    await expect.poll(async () => readActivePlayer(pageB)).toBe(playerA.user.displayName);
   } finally {
     await contextA.close();
     await contextB.close();
@@ -56,13 +57,23 @@ test('two players can alternate manual turn controls and stay synchronized', asy
 });
 
 async function readActivePlayer(page: import('@playwright/test').Page): Promise<string> {
-  return page.locator('select[name="activePlayer"]').inputValue();
+  return (await page.getByTestId('turn-active-player').textContent())?.trim() ?? '';
 }
 
 async function readPhase(page: import('@playwright/test').Page): Promise<string> {
-  return page.locator('select[name="phase"]').inputValue();
+  return (await page.locator('[data-testid="phase-step"][aria-current="step"]').getAttribute('data-phase')) ?? '';
 }
 
 async function readTurnNumber(page: import('@playwright/test').Page): Promise<string> {
-  return page.getByRole('spinbutton', { name: 'Turn number' }).inputValue();
+  return (await page.getByTestId('turn-number').textContent())?.trim() ?? '';
+}
+
+async function advancePhase(page: import('@playwright/test').Page, count: number): Promise<void> {
+  for (let index = 0; index < count; index += 1) {
+    const currentPhase = await readPhase(page);
+    const currentIndex = PHASES.indexOf(currentPhase);
+    const expectedPhase = PHASES[currentIndex + 1] ?? PHASES[0];
+    await page.getByTestId('advance-phase').click();
+    await expect.poll(async () => readPhase(page)).toBe(expectedPhase);
+  }
 }

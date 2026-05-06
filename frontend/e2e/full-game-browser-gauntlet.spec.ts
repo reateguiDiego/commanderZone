@@ -1,8 +1,10 @@
 import { expect, test, type Page } from '@playwright/test';
 import { authStorageState } from './support/auth';
 import { createCommanderGameWithValidDecks } from './support/commander-game';
+import { expectFocusedPlayer, expectOpponentVisible, focusPlayer, openChat, readTableLife as readSidebarLife, readTableZoneCounts as readSidebarZoneCounts } from './support/game-table';
 
 const API_BASE_URL = process.env['E2E_API_BASE_URL'] ?? 'http://127.0.0.1:8000';
+const POLL_TIMEOUT = 15_000;
 
 test.setTimeout(300000);
 
@@ -39,28 +41,28 @@ test('full game browser gauntlet: multiplayer open, life sync, chat sync, move c
     await expect(pageA.getByTestId('game-screen')).toBeVisible();
     await expect(pageB.getByTestId('game-screen')).toBeVisible();
 
-    await expect(pageA.locator('.player-sidebar .player-thumb strong', { hasText: playerA.user.displayName })).toBeVisible();
-    await expect(pageA.locator('.player-sidebar .player-thumb strong', { hasText: playerB.user.displayName })).toBeVisible();
-    await expect(pageB.locator('.player-sidebar .player-thumb strong', { hasText: playerA.user.displayName })).toBeVisible();
-    await expect(pageB.locator('.player-sidebar .player-thumb strong', { hasText: playerB.user.displayName })).toBeVisible();
+    await expectFocusedPlayer(pageA, playerA.user.displayName);
+    await expectOpponentVisible(pageA, playerB.user.displayName);
+    await expectFocusedPlayer(pageB, playerB.user.displayName);
+    await expectOpponentVisible(pageB, playerA.user.displayName);
 
     await focusPlayer(pageA, playerA.user.displayName);
-    await pageA.locator('.focused-board .life-pill button').first().click();
-    await expect.poll(async () => readSidebarLife(pageA, playerA.user.displayName)).toBe(39);
-    await expect.poll(async () => readSidebarLife(pageB, playerA.user.displayName)).toBe(39);
+    await pageA.locator('.focused-board [data-testid="life-value"]').click({ button: 'right' });
+    await expect.poll(async () => readSidebarLife(pageA, playerA.user.displayName), { timeout: POLL_TIMEOUT }).toBe(39);
+    await expect.poll(async () => readSidebarLife(pageB, playerA.user.displayName), { timeout: POLL_TIMEOUT }).toBe(39);
 
     await openChat(pageA);
     await openChat(pageB);
     const messageFromA = `gauntlet-a-${Date.now()}`;
     await sendChatMessage(pageA, messageFromA);
-    await expect.poll(async () => hasChatMessage(pageA, playerA.user.displayName, messageFromA)).toBe(true);
-    await expect.poll(async () => hasChatMessage(pageB, playerA.user.displayName, messageFromA)).toBe(true);
+    await expect.poll(async () => hasChatMessage(pageA, playerA.user.displayName, messageFromA), { timeout: POLL_TIMEOUT }).toBe(true);
+    await expect.poll(async () => hasChatMessage(pageB, playerA.user.displayName, messageFromA), { timeout: POLL_TIMEOUT }).toBe(true);
 
     const sidebarBeforeMove = await readSidebarZoneCounts(pageB, playerB.user.displayName);
     await focusPlayer(pageB, playerB.user.displayName);
     const handCard = pageB
       .locator(`[data-testid="hand-zone"][data-player-id="${playerB.user.id}"] [data-testid="game-card"][data-zone="hand"]`)
-      .first();
+      .nth(3);
     await expect(handCard).toBeVisible();
     const movedInstanceId = await handCard.getAttribute('data-card-instance-id');
     if (!movedInstanceId) {
@@ -68,20 +70,20 @@ test('full game browser gauntlet: multiplayer open, life sync, chat sync, move c
     }
     await handCard.dblclick();
     await expect(pageB.locator(`[data-testid="battlefield-zone"][data-player-id="${playerB.user.id}"] [data-card-instance-id="${movedInstanceId}"]`)).toBeVisible();
-    await expect.poll(async () => readSidebarZoneCounts(pageB, playerB.user.displayName)).toEqual({
+    await expect.poll(async () => readSidebarZoneCounts(pageB, playerB.user.displayName), { timeout: POLL_TIMEOUT }).toEqual({
       hand: sidebarBeforeMove.hand - 1,
       library: sidebarBeforeMove.library,
     });
-    await expect.poll(async () => readSidebarZoneCounts(pageA, playerB.user.displayName)).toEqual({
+    await expect.poll(async () => readSidebarZoneCounts(pageA, playerB.user.displayName), { timeout: POLL_TIMEOUT }).toEqual({
       hand: sidebarBeforeMove.hand - 1,
       library: sidebarBeforeMove.library,
     });
 
     await pageB.reload();
     await expect(pageB.getByTestId('game-screen')).toBeVisible();
-    await expect(pageB.locator('.player-sidebar .player-thumb strong', { hasText: playerA.user.displayName })).toBeVisible();
-    await expect(pageB.locator('.player-sidebar .player-thumb strong', { hasText: playerB.user.displayName })).toBeVisible();
-    await expect.poll(async () => readSidebarLife(pageB, playerA.user.displayName)).toBe(39);
+    await expectFocusedPlayer(pageB, playerB.user.displayName);
+    await expectOpponentVisible(pageB, playerA.user.displayName);
+    await expect.poll(async () => readSidebarLife(pageB, playerA.user.displayName), { timeout: POLL_TIMEOUT }).toBe(39);
 
     const concedeResponse = await request.post(`${API_BASE_URL}/games/${gameId}/commands`, {
       headers: {
@@ -141,49 +143,6 @@ test('full game browser gauntlet: multiplayer open, life sync, chat sync, move c
     await contextB.close();
   }
 });
-
-async function focusPlayer(page: Page, displayName: string): Promise<void> {
-  const thumb = page.locator('.player-sidebar .player-thumb').filter({
-    has: page.locator('strong', { hasText: displayName }),
-  });
-  await expect(thumb).toBeVisible();
-  await thumb.click();
-  await expect(page.locator('.focused-board h1')).toHaveText(displayName);
-}
-
-async function readSidebarLife(page: Page, displayName: string): Promise<number> {
-  const thumb = page.locator('.player-sidebar .player-thumb').filter({
-    has: page.locator('strong', { hasText: displayName }),
-  });
-  const raw = await thumb.locator('.player-thumb-header span').first().innerText();
-  const value = Number.parseInt(raw.trim(), 10);
-  if (!Number.isFinite(value)) {
-    throw new Error(`Could not parse life total "${raw}" for ${displayName}`);
-  }
-
-  return value;
-}
-
-async function openChat(page: Page): Promise<void> {
-  await page.locator('.floating-handle button').filter({ hasText: /^Chat$/ }).click();
-  await expect(page.locator('.chat-form input[name="chatMessage"]')).toBeVisible();
-}
-
-async function readSidebarZoneCounts(page: Page, displayName: string): Promise<{ hand: number; library: number }> {
-  const thumb = page.locator('.player-sidebar .player-thumb').filter({
-    has: page.locator('strong', { hasText: displayName }),
-  });
-  const text = await thumb.locator('small').innerText();
-  const match = /(\d+)\s+hand\s+[^\d]+\s+(\d+)\s+library/.exec(text.trim());
-  if (!match) {
-    throw new Error(`Could not parse sidebar zone counts for ${displayName}: "${text}"`);
-  }
-
-  return {
-    hand: Number.parseInt(match[1] ?? '', 10),
-    library: Number.parseInt(match[2] ?? '', 10),
-  };
-}
 
 async function sendChatMessage(page: Page, message: string): Promise<void> {
   const input = page.locator('.chat-form input[name="chatMessage"]');

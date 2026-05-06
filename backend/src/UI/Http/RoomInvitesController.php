@@ -186,9 +186,9 @@ class RoomInvitesController extends ApiController
         RoomInvite $invite,
     ): void {
         $recipients = [
-            $invite->recipient(),
             $invite->sender(),
             $invite->room()->owner(),
+            $invite->recipient(),
         ];
         $publishedIds = [];
         foreach ($recipients as $recipient) {

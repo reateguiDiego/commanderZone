@@ -108,9 +108,10 @@ class GameSnapshotFactory
             'imageUris' => $card->imageUris(),
             'typeLine' => $card->typeLine(),
             'manaCost' => $card->manaCost(),
+            'oracleText' => $card->oracleText(),
             'colorIdentity' => $this->orderedColorIdentity($card->colorIdentity()),
-            'power' => null,
-            'toughness' => null,
+            'power' => $this->numericCardStat($card->power()),
+            'toughness' => $this->numericCardStat($card->toughness()),
             'loyalty' => null,
             'tapped' => false,
             'faceDown' => false,
@@ -132,5 +133,10 @@ class GameSnapshotFactory
         $colors = array_values(array_unique($colors));
 
         return array_values(array_filter(['W', 'U', 'B', 'R', 'G'], static fn (string $color): bool => in_array($color, $colors, true)));
+    }
+
+    private function numericCardStat(?string $value): ?int
+    {
+        return is_numeric($value) ? (int) $value : null;
     }
 }

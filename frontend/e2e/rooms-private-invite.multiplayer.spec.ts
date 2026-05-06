@@ -1,6 +1,7 @@
 import { expect, test, type APIRequestContext } from '@playwright/test';
 import { authStorageState, createRealUserSession } from './support/auth';
 import { createValidCommanderDeckFromDatabase } from './support/decks';
+import { expectFocusedPlayer, expectOpponentVisible } from './support/game-table';
 
 const API_BASE_URL = process.env['E2E_API_BASE_URL'] ?? 'http://127.0.0.1:8000';
 
@@ -56,10 +57,10 @@ test('private room invite flow: accepted friend joins, owner starts, both open g
 
     await expect(ownerPage.locator('.game-screen')).toBeVisible();
     await expect(invitedPage.locator('.game-screen')).toBeVisible();
-    await expect(ownerPage.locator('.player-sidebar .player-thumb strong', { hasText: owner.user.displayName })).toBeVisible();
-    await expect(ownerPage.locator('.player-sidebar .player-thumb strong', { hasText: invited.user.displayName })).toBeVisible();
-    await expect(invitedPage.locator('.player-sidebar .player-thumb strong', { hasText: owner.user.displayName })).toBeVisible();
-    await expect(invitedPage.locator('.player-sidebar .player-thumb strong', { hasText: invited.user.displayName })).toBeVisible();
+    await expectFocusedPlayer(ownerPage, owner.user.displayName);
+    await expectOpponentVisible(ownerPage, invited.user.displayName);
+    await expectFocusedPlayer(invitedPage, invited.user.displayName);
+    await expectOpponentVisible(invitedPage, owner.user.displayName);
   } finally {
     await contextOwner.close().catch(() => {});
     await contextInvited.close().catch(() => {});

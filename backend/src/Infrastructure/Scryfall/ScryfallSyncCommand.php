@@ -151,6 +151,8 @@ INSERT INTO card (
     mana_cost,
     type_line,
     oracle_text,
+    power,
+    toughness,
     colors,
     color_identity,
     legalities,
@@ -174,6 +176,8 @@ INSERT INTO card (
     :mana_cost,
     :type_line,
     :oracle_text,
+    :power,
+    :toughness,
     :colors,
     :color_identity,
     :legalities,
@@ -196,6 +200,8 @@ ON CONFLICT (scryfall_id) DO UPDATE SET
     mana_cost = EXCLUDED.mana_cost,
     type_line = EXCLUDED.type_line,
     oracle_text = EXCLUDED.oracle_text,
+    power = EXCLUDED.power,
+    toughness = EXCLUDED.toughness,
     colors = EXCLUDED.colors,
     color_identity = EXCLUDED.color_identity,
     legalities = EXCLUDED.legalities,
@@ -217,9 +223,11 @@ SQL,
                 'scryfall_id' => (string) $data['id'],
                 'name' => $name,
                 'normalized_name' => Card::normalizeName($name),
-                'mana_cost' => $data['mana_cost'] ?? null,
-                'type_line' => $data['type_line'] ?? null,
-                'oracle_text' => $data['oracle_text'] ?? null,
+                'mana_cost' => $this->cardString($data, 'mana_cost'),
+                'type_line' => $this->cardString($data, 'type_line'),
+                'oracle_text' => $this->oracleText($data),
+                'power' => $this->cardString($data, 'power'),
+                'toughness' => $this->cardString($data, 'toughness'),
                 'colors' => $this->json($data['colors'] ?? []),
                 'color_identity' => $this->json($data['color_identity'] ?? []),
                 'legalities' => $this->json($legalities),
@@ -245,6 +253,46 @@ SQL,
     private function json(array $value): string
     {
         return json_encode($value, JSON_THROW_ON_ERROR);
+    }
+
+    private function cardString(array $data, string $key): ?string
+    {
+        $value = $data[$key] ?? $this->firstFaceValue($data, $key);
+
+        return is_scalar($value) && (string) $value !== '' ? (string) $value : null;
+    }
+
+    private function firstFaceValue(array $data, string $key): mixed
+    {
+        $face = $data['card_faces'][0] ?? null;
+
+        return is_array($face) ? ($face[$key] ?? null) : null;
+    }
+
+    private function oracleText(array $data): ?string
+    {
+        if (isset($data['oracle_text']) && is_scalar($data['oracle_text']) && (string) $data['oracle_text'] !== '') {
+            return (string) $data['oracle_text'];
+        }
+
+        $faces = $data['card_faces'] ?? null;
+        if (!is_array($faces)) {
+            return null;
+        }
+
+        $texts = [];
+        foreach ($faces as $face) {
+            if (!is_array($face) || !isset($face['oracle_text']) || !is_scalar($face['oracle_text'])) {
+                continue;
+            }
+
+            $text = trim((string) $face['oracle_text']);
+            if ($text !== '') {
+                $texts[] = $text;
+            }
+        }
+
+        return $texts === [] ? null : implode("\n//\n", $texts);
     }
 
     /**

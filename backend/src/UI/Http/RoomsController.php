@@ -298,6 +298,7 @@ class RoomsController extends ApiController
             ->getQuery()
             ->getResult();
 
+        $ownedGames = [];
         foreach ($ownedRooms as $ownedRoom) {
             if (!$ownedRoom instanceof Room) {
                 continue;
@@ -306,7 +307,21 @@ class RoomsController extends ApiController
             $game = $ownedRoom->game();
             if ($game instanceof Game) {
                 $ownedRoom->detachGame();
-                $entityManager->remove($game);
+                $ownedGames[] = $game;
+            }
+        }
+
+        $entityManager->flush();
+
+        foreach ($ownedGames as $ownedGame) {
+            $entityManager->remove($ownedGame);
+        }
+
+        $entityManager->flush();
+
+        foreach ($ownedRooms as $ownedRoom) {
+            if (!$ownedRoom instanceof Room) {
+                continue;
             }
 
             $entityManager->remove($ownedRoom);

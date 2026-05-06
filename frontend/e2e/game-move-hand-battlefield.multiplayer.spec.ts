@@ -1,6 +1,7 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import { authStorageState } from './support/auth';
 import { createCommanderGameWithValidDecks } from './support/commander-game';
+import { drawMine, focusPlayer, readTableZoneCounts as readSidebarZoneCounts } from './support/game-table';
 
 test.setTimeout(240000);
 
@@ -41,7 +42,7 @@ test('player can move a hand card to battlefield with manual fallback and sync t
     let sidebarBefore = await readSidebarZoneCounts(pageA, setup.playerA.user.displayName);
     let handBefore = sidebarBefore.hand;
     if (handBefore === 0) {
-      await pageA.getByRole('button', { name: 'Draw mine' }).click();
+      await drawMine(pageA);
       await expect.poll(async () => readSidebarZoneCounts(pageA, setup.playerA.user.displayName)).not.toEqual(sidebarBefore);
       sidebarBefore = await readSidebarZoneCounts(pageA, setup.playerA.user.displayName);
       handBefore = sidebarBefore.hand;
@@ -53,7 +54,7 @@ test('player can move a hand card to battlefield with manual fallback and sync t
 
     const handCard = pageA
       .locator(`[data-testid="hand-zone"][data-player-id="${setup.playerA.user.id}"] [data-testid="game-card"][data-zone="hand"]`)
-      .first();
+      .nth(3);
     await expect(handCard).toBeVisible();
     const instanceId = await handCard.getAttribute('data-card-instance-id');
     if (!instanceId) {
@@ -100,28 +101,4 @@ test('player can move a hand card to battlefield with manual fallback and sync t
   }
 });
 
-async function focusPlayer(page: Page, displayName: string): Promise<void> {
-  const thumb = page.locator('.player-sidebar .player-thumb').filter({
-    has: page.locator('strong', { hasText: displayName }),
-  });
-  await expect(thumb).toBeVisible();
-  await thumb.click();
-  await expect(page.locator('.focused-board h1')).toHaveText(displayName);
-}
-
-async function readSidebarZoneCounts(page: Page, displayName: string): Promise<{ hand: number; library: number }> {
-  const thumb = page.locator('.player-sidebar .player-thumb').filter({
-    has: page.locator('strong', { hasText: displayName }),
-  });
-  const text = await thumb.locator('small').innerText();
-  const match = /(\d+)\s+hand\s+·\s+(\d+)\s+library/.exec(text.trim());
-  if (!match) {
-    throw new Error(`Could not parse sidebar counts for ${displayName}: "${text}"`);
-  }
-
-  return {
-    hand: Number.parseInt(match[1] ?? '', 10),
-    library: Number.parseInt(match[2] ?? '', 10),
-  };
-}
 

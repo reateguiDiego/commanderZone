@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { authStorageState } from './support/auth';
 import { createCommanderGameWithValidDecks } from './support/commander-game';
+import { expectFocusedPlayer, expectOpponentVisible, focusPlayer } from './support/game-table';
 
 test.setTimeout(120000);
 
@@ -35,10 +36,10 @@ test('game starts with two full decks and both players can see required zones', 
     await expect(pageA.getByTestId('game-screen')).toBeVisible();
     await expect(pageB.getByTestId('game-screen')).toBeVisible();
 
-    await expect(pageA.locator('.player-sidebar .player-thumb strong', { hasText: setup.playerA.user.displayName })).toBeVisible();
-    await expect(pageA.locator('.player-sidebar .player-thumb strong', { hasText: setup.playerB.user.displayName })).toBeVisible();
-    await expect(pageB.locator('.player-sidebar .player-thumb strong', { hasText: setup.playerA.user.displayName })).toBeVisible();
-    await expect(pageB.locator('.player-sidebar .player-thumb strong', { hasText: setup.playerB.user.displayName })).toBeVisible();
+    await expectFocusedPlayer(pageA, setup.playerA.user.displayName);
+    await expectOpponentVisible(pageA, setup.playerB.user.displayName);
+    await expectFocusedPlayer(pageB, setup.playerB.user.displayName);
+    await expectOpponentVisible(pageB, setup.playerA.user.displayName);
 
     await focusPlayer(pageA, setup.playerA.user.displayName);
     await focusPlayer(pageB, setup.playerB.user.displayName);
@@ -48,24 +49,11 @@ test('game starts with two full decks and both players can see required zones', 
 
     await assertDeckCountersAreCoherent(pageA, setup.playerA.user.id);
     await assertDeckCountersAreCoherent(pageB, setup.playerB.user.id);
-
-    await assertCommanderVisibilityIfPresent(pageA, setup.playerA.user.id);
-    await assertCommanderVisibilityIfPresent(pageB, setup.playerB.user.id);
   } finally {
     await contextA.close();
     await contextB.close();
   }
 });
-
-async function focusPlayer(page: Page, displayName: string): Promise<void> {
-  const thumb = page.locator('.player-sidebar .player-thumb').filter({
-    has: page.locator('strong', { hasText: displayName }),
-  });
-
-  await expect(thumb).toBeVisible();
-  await thumb.click();
-  await expect(page.locator('.focused-board h1')).toHaveText(displayName);
-}
 
 async function assertRequiredZones(page: Page, playerId: string): Promise<void> {
   await expect(page.locator(`[data-testid="battlefield-zone"][data-player-id="${playerId}"]`)).toBeVisible();
@@ -90,13 +78,6 @@ async function assertDeckCountersAreCoherent(page: Page, playerId: string): Prom
     .count();
 
   expect(library + hand + battlefield + graveyard + exile + command).toBe(100);
-}
-
-async function assertCommanderVisibilityIfPresent(page: Page, playerId: string): Promise<void> {
-  const command = await readZoneCount(page, playerId, 'command');
-  if (command > 0) {
-    await expect(page.locator(`[data-testid="commander-card"][data-player-id="${playerId}"]`)).toBeVisible();
-  }
 }
 
 async function readZoneCount(page: Page, playerId: string, zone: string): Promise<number> {

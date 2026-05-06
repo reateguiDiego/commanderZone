@@ -28,17 +28,17 @@ export class GameTableSelectionService {
     this.selectedCards.set([{ playerId, zone, card }]);
   }
 
-  toggleBattlefieldSelection(event: MouseEvent, playerId: string, zone: GameZoneName, card: GameCardInstance): void {
+  toggleSelection(event: MouseEvent, playerId: string, zone: GameZoneName, card: GameCardInstance): void {
     const selected = this.selectedCards();
     const existing = selected.some((item) => item.card.instanceId === card.instanceId);
-    if (event.ctrlKey || event.metaKey || event.shiftKey) {
+    if (event.shiftKey) {
       this.selectedCards.set(existing
         ? selected.filter((item) => item.card.instanceId !== card.instanceId)
         : [...selected, { playerId, zone, card }]);
       return;
     }
 
-    this.selectedCards.set(existing && selected.length === 1 ? [] : [{ playerId, zone, card }]);
+    this.selectedCards.set([{ playerId, zone, card }]);
   }
 
   isSelected(instanceId: string): boolean {

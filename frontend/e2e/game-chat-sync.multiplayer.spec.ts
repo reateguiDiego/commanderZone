@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { authStorageState } from './support/auth';
 import { createCommanderGameWithValidDecks } from './support/commander-game';
+import { openChat } from './support/game-table';
 
 test('chat messages are synchronized between two isolated player sessions', async ({ browser, request, baseURL }) => {
   if (!baseURL) {
@@ -52,11 +53,6 @@ test('chat messages are synchronized between two isolated player sessions', asyn
     await contextB.close();
   }
 });
-
-async function openChat(page: Page): Promise<void> {
-  await page.locator('.floating-handle button').filter({ hasText: /^Chat$/ }).click();
-  await expect(page.locator('.chat-form input[name="chatMessage"]')).toBeVisible();
-}
 
 async function sendChatMessage(page: Page, message: string): Promise<void> {
   const input = page.locator('.chat-form input[name="chatMessage"]');

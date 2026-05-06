@@ -42,6 +42,7 @@ export interface GameCardInstance {
   imageUris?: Record<string, string>;
   typeLine?: string | null;
   manaCost?: string | null;
+  oracleText?: string | null;
   colorIdentity?: string[];
   power?: number | null;
   toughness?: number | null;

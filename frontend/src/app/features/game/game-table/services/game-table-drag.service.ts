@@ -9,6 +9,8 @@ interface PointerCardDrag {
   startClientY: number;
   offsetX: number;
   offsetY: number;
+  cardWidth: number;
+  cardHeight: number;
   moved: boolean;
   position: { x: number; y: number };
 }
@@ -25,6 +27,7 @@ interface PointerDragResult {
   moved: boolean;
   position: { x: number; y: number };
   dropZone: GameZoneName | null;
+  battlefield: HTMLElement;
 }
 
 @Injectable()
@@ -41,13 +44,12 @@ export class GameTableDragService {
       return false;
     }
 
-    event.preventDefault();
-    event.stopPropagation();
     const target = event.currentTarget as HTMLElement;
     const battlefield = target.closest('.battlefield') as HTMLElement | null;
     if (!battlefield) {
       return false;
     }
+    target.setPointerCapture?.(event.pointerId);
 
     const cardBounds = target.getBoundingClientRect();
     const fieldBounds = battlefield.getBoundingClientRect();
@@ -63,6 +65,8 @@ export class GameTableDragService {
       startClientY: event.clientY,
       offsetX: event.clientX - cardBounds.left,
       offsetY: event.clientY - cardBounds.top,
+      cardWidth: cardBounds.width,
+      cardHeight: cardBounds.height,
       moved: false,
       position: current,
     };
@@ -73,25 +77,32 @@ export class GameTableDragService {
   moveCardPointerDrag(
     event: PointerEvent,
     updateLocalPosition: (playerId: string, instanceId: string, position: { x: number; y: number }) => void,
-  ): void {
+  ): string | null {
     if (!this.pointerCardDrag) {
-      return;
+      return null;
     }
-    event.preventDefault();
-
-    const bounds = this.pointerCardDrag.battlefield.getBoundingClientRect();
-    const position = {
-      x: Math.max(0, Math.round(event.clientX - bounds.left - this.pointerCardDrag.offsetX)),
-      y: Math.max(0, Math.round(event.clientY - bounds.top - this.pointerCardDrag.offsetY)),
-    };
+    const position = this.pointerDragPosition(
+      this.pointerCardDrag.battlefield,
+      event.clientX,
+      event.clientY,
+      document.elementFromPoint(event.clientX, event.clientY),
+      this.pointerCardDrag.offsetX,
+      this.pointerCardDrag.offsetY,
+      this.pointerCardDrag.cardWidth,
+      this.pointerCardDrag.cardHeight,
+    );
     const distance = Math.hypot(event.clientX - this.pointerCardDrag.startClientX, event.clientY - this.pointerCardDrag.startClientY);
     if (distance < 4 && !this.pointerCardDrag.moved) {
-      return;
+      return null;
     }
+    event.preventDefault();
     if (Math.abs(position.x - this.pointerCardDrag.position.x) > 1 || Math.abs(position.y - this.pointerCardDrag.position.y) > 1) {
       this.pointerCardDrag = { ...this.pointerCardDrag, moved: true, position };
       updateLocalPosition(this.pointerCardDrag.playerId, this.pointerCardDrag.instanceId, position);
+      return this.pointerCardDrag.instanceId;
     }
+
+    return this.pointerCardDrag.moved ? this.pointerCardDrag.instanceId : null;
   }
 
   endCardPointerDrag(
@@ -100,8 +111,6 @@ export class GameTableDragService {
     updateLocalPosition: (playerId: string, instanceId: string, position: { x: number; y: number }) => void,
   ): PointerDragResult | null {
     if (event) {
-      event.preventDefault();
-      event.stopPropagation();
       this.moveCardPointerDrag(event, updateLocalPosition);
     }
     const drag = this.pointerCardDrag;
@@ -112,6 +121,8 @@ export class GameTableDragService {
 
     const dropZone = event ? resolveDropZone(event, drag.playerId) : null;
     if (drag.moved) {
+      event?.preventDefault();
+      event?.stopPropagation();
       this.suppressCardClickInstanceId = drag.instanceId;
       window.setTimeout(() => {
         if (this.suppressCardClickInstanceId === drag.instanceId) {
@@ -126,6 +137,7 @@ export class GameTableDragService {
       moved: drag.moved,
       position: drag.position,
       dropZone,
+      battlefield: drag.battlefield,
     };
   }
 
@@ -148,6 +160,7 @@ export class GameTableDragService {
     event.dataTransfer?.setData('text/plain', card.instanceId);
     if (event.dataTransfer) {
       event.dataTransfer.effectAllowed = 'move';
+      this.setCardDragImage(event);
     }
   }
 
@@ -177,14 +190,15 @@ export class GameTableDragService {
   }
 
   pointerDropZone(event: PointerEvent, playerId: string, zones: GameZoneName[]): GameZoneName | null {
-    const element = document.elementFromPoint(event.clientX, event.clientY) as HTMLElement | null;
-    const target = element?.closest<HTMLElement>('[data-game-drop-zone]');
-    const zone = target?.dataset['zone'] as GameZoneName | undefined;
-    if (!target || target.dataset['playerId'] !== playerId || !zone || !zones.includes(zone)) {
-      return null;
+    for (const element of document.elementsFromPoint(event.clientX, event.clientY)) {
+      const target = element.closest<HTMLElement>('[data-game-drop-zone]');
+      const zone = target?.dataset['zone'] as GameZoneName | undefined;
+      if (target?.dataset['playerId'] === playerId && zone && zones.includes(zone)) {
+        return zone;
+      }
     }
 
-    return zone;
+    return null;
   }
 
   dropPosition(event: DragEvent, zone: GameZoneName): { x: number; y: number } | null {
@@ -192,11 +206,81 @@ export class GameTableDragService {
       return null;
     }
 
-    const bounds = event.currentTarget.getBoundingClientRect();
+    const battlefield = event.currentTarget.classList.contains('battlefield')
+      ? event.currentTarget
+      : event.currentTarget.closest<HTMLElement>('.battlefield');
+
+    return battlefield ? this.positionInBattlefield(battlefield, event.clientX, event.clientY, event.currentTarget) : null;
+  }
+
+  pointerPosition(event: PointerEvent, battlefield: HTMLElement): { x: number; y: number } {
+    return this.positionInBattlefield(battlefield, event.clientX, event.clientY, document.elementFromPoint(event.clientX, event.clientY));
+  }
+
+  private positionInBattlefield(
+    battlefield: HTMLElement,
+    clientX: number,
+    clientY: number,
+    eventTarget: EventTarget | Element | null,
+    offsetX = 58,
+    offsetY = 82,
+    cardWidth = 116,
+    cardHeight = 162,
+  ): { x: number; y: number } {
+    const bounds = battlefield.getBoundingClientRect();
+    const target = eventTarget instanceof Element ? eventTarget : null;
+    const manaLane = target?.closest<HTMLElement>('[data-mana-lane]');
+    const manaLaneBounds = manaLane?.getBoundingClientRect();
+    const rawY = manaLaneBounds ? Math.round(manaLaneBounds.top - bounds.top + 8) : Math.round(clientY - bounds.top - offsetY);
+    const availableHeight = manaLaneBounds ? Math.round(manaLaneBounds.bottom - bounds.top - 8) : bounds.height;
+
+    return this.clampPosition(Math.round(clientX - bounds.left - offsetX), rawY, bounds.width, availableHeight, cardWidth, cardHeight);
+  }
+
+  private pointerDragPosition(
+    battlefield: HTMLElement,
+    clientX: number,
+    clientY: number,
+    eventTarget: EventTarget | Element | null,
+    offsetX: number,
+    offsetY: number,
+    cardWidth: number,
+    cardHeight: number,
+  ): { x: number; y: number } {
+    const bounds = battlefield.getBoundingClientRect();
+    if (this.isInsideBounds(clientX, clientY, bounds)) {
+      return this.positionInBattlefield(battlefield, clientX, clientY, eventTarget, offsetX, offsetY, cardWidth, cardHeight);
+    }
 
     return {
-      x: Math.max(0, Math.round(event.clientX - bounds.left - 58)),
-      y: Math.max(0, Math.round(event.clientY - bounds.top - 82)),
+      x: Math.round(clientX - bounds.left - offsetX),
+      y: Math.round(clientY - bounds.top - offsetY),
     };
+  }
+
+  private isInsideBounds(clientX: number, clientY: number, bounds: DOMRect): boolean {
+    return clientX >= bounds.left && clientX <= bounds.right && clientY >= bounds.top && clientY <= bounds.bottom;
+  }
+
+  private clampPosition(x: number, y: number, width: number, height: number, cardWidth: number, cardHeight: number): { x: number; y: number } {
+    return {
+      x: Math.max(0, Math.min(Math.round(width - cardWidth), x)),
+      y: Math.max(0, Math.min(Math.round(height - cardHeight), y)),
+    };
+  }
+
+  private setCardDragImage(event: DragEvent): void {
+    const target = event.target instanceof Element
+      ? event.target.closest<HTMLElement>('.game-card, .hand-card, .zone-stack, .zone-art img, .zone-art .card-back, .zone-art')
+      : null;
+    const zoneArt = (event.target instanceof Element ? event.target : null)?.closest<HTMLElement>('.zone-art')
+      ?? (target?.classList.contains('zone-stack') ? target.querySelector<HTMLElement>('.zone-art') : null);
+    const source = zoneArt?.querySelector<HTMLElement>('img, .card-back') ?? target;
+    if (!source || !event.dataTransfer) {
+      return;
+    }
+
+    const bounds = source.getBoundingClientRect();
+    event.dataTransfer.setDragImage(source, bounds.width / 2, bounds.height / 2);
   }
 }

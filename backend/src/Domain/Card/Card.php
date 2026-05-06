@@ -34,6 +34,12 @@ class Card
     #[ORM\Column(type: 'text', nullable: true)]
     private ?string $oracleText = null;
 
+    #[ORM\Column(type: 'string', length: 16, nullable: true)]
+    private ?string $power = null;
+
+    #[ORM\Column(type: 'string', length: 16, nullable: true)]
+    private ?string $toughness = null;
+
     #[ORM\Column(type: 'json')]
     private array $colors = [];
 
@@ -96,9 +102,11 @@ class Card
     {
         $this->name = (string) ($data['name'] ?? $this->name);
         $this->normalizedName = self::normalizeName($this->name);
-        $this->manaCost = $data['mana_cost'] ?? null;
-        $this->typeLine = $data['type_line'] ?? null;
-        $this->oracleText = $data['oracle_text'] ?? null;
+        $this->manaCost = $this->cardString($data, 'mana_cost');
+        $this->typeLine = $this->cardString($data, 'type_line');
+        $this->oracleText = $this->oracleTextFromScryfall($data);
+        $this->power = $this->cardString($data, 'power');
+        $this->toughness = $this->cardString($data, 'toughness');
         $this->colors = $data['colors'] ?? [];
         $this->colorIdentity = $data['color_identity'] ?? [];
         $this->legalities = $data['legalities'] ?? [];
@@ -149,6 +157,16 @@ class Card
     public function oracleText(): ?string
     {
         return $this->oracleText;
+    }
+
+    public function power(): ?string
+    {
+        return $this->power;
+    }
+
+    public function toughness(): ?string
+    {
+        return $this->toughness;
     }
 
     public function legalities(): array
@@ -239,6 +257,8 @@ class Card
             'manaCost' => $this->manaCost,
             'typeLine' => $this->typeLine,
             'oracleText' => $this->oracleText,
+            'power' => $this->power,
+            'toughness' => $this->toughness,
             'colors' => $this->colors,
             'colorIdentity' => $this->colorIdentity,
             'legalities' => $this->legalities,
@@ -255,5 +275,45 @@ class Card
             'printedName' => $this->printedName,
             'flavorName' => $this->flavorName,
         ];
+    }
+
+    private function cardString(array $data, string $key): ?string
+    {
+        $value = $data[$key] ?? $this->firstFaceValue($data, $key);
+
+        return is_scalar($value) && (string) $value !== '' ? (string) $value : null;
+    }
+
+    private function firstFaceValue(array $data, string $key): mixed
+    {
+        $face = $data['card_faces'][0] ?? null;
+
+        return is_array($face) ? ($face[$key] ?? null) : null;
+    }
+
+    private function oracleTextFromScryfall(array $data): ?string
+    {
+        if (isset($data['oracle_text']) && is_scalar($data['oracle_text']) && (string) $data['oracle_text'] !== '') {
+            return (string) $data['oracle_text'];
+        }
+
+        $faces = $data['card_faces'] ?? null;
+        if (!is_array($faces)) {
+            return null;
+        }
+
+        $texts = [];
+        foreach ($faces as $face) {
+            if (!is_array($face) || !isset($face['oracle_text']) || !is_scalar($face['oracle_text'])) {
+                continue;
+            }
+
+            $text = trim((string) $face['oracle_text']);
+            if ($text !== '') {
+                $texts[] = $text;
+            }
+        }
+
+        return $texts === [] ? null : implode("\n//\n", $texts);
     }
 }

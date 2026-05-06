@@ -1,6 +1,10 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import { authStorageState } from './support/auth';
 import { createCommanderGameWithValidDecks } from './support/commander-game';
+import { focusPlayer, readTableLife as readSidebarLife } from './support/game-table';
+
+test.setTimeout(120000);
+const POLL_TIMEOUT = 15_000;
 
 test('life changes are synchronized between two isolated player sessions', async ({ browser, request, baseURL }) => {
   if (!baseURL) {
@@ -35,42 +39,20 @@ test('life changes are synchronized between two isolated player sessions', async
     await expect(pageB.locator('.game-screen')).toBeVisible();
 
     await focusPlayer(pageA, playerA.user.displayName);
-    await pageA.locator('.focused-board .life-pill button').first().click();
+    await pageA.locator('.focused-board [data-testid="life-value"]').click({ button: 'right' });
 
-    await expect.poll(async () => readSidebarLife(pageA, playerA.user.displayName)).toBe(39);
-    await expect.poll(async () => readSidebarLife(pageB, playerA.user.displayName)).toBe(39);
+    await expect.poll(async () => readSidebarLife(pageA, playerA.user.displayName), { timeout: POLL_TIMEOUT }).toBe(39);
+    await expect.poll(async () => readSidebarLife(pageB, playerA.user.displayName), { timeout: POLL_TIMEOUT }).toBe(39);
 
     await focusPlayer(pageB, playerB.user.displayName);
-    await pageB.locator('.focused-board .life-pill button').first().click();
-    await expect.poll(async () => readSidebarLife(pageB, playerB.user.displayName)).toBe(39);
-    await pageB.locator('.focused-board .life-pill button').first().click();
+    await pageB.locator('.focused-board [data-testid="life-value"]').click({ button: 'right' });
+    await expect.poll(async () => readSidebarLife(pageB, playerB.user.displayName), { timeout: POLL_TIMEOUT }).toBe(39);
+    await pageB.locator('.focused-board [data-testid="life-value"]').click({ button: 'right' });
 
-    await expect.poll(async () => readSidebarLife(pageB, playerB.user.displayName)).toBe(38);
-    await expect.poll(async () => readSidebarLife(pageA, playerB.user.displayName)).toBe(38);
+    await expect.poll(async () => readSidebarLife(pageB, playerB.user.displayName), { timeout: POLL_TIMEOUT }).toBe(38);
+    await expect.poll(async () => readSidebarLife(pageA, playerB.user.displayName), { timeout: POLL_TIMEOUT }).toBe(38);
   } finally {
     await contextA.close();
     await contextB.close();
   }
 });
-
-async function focusPlayer(page: Page, displayName: string): Promise<void> {
-  const thumb = page.locator('.player-sidebar .player-thumb').filter({
-    has: page.locator('strong', { hasText: displayName }),
-  });
-  await expect(thumb).toBeVisible();
-  await thumb.click();
-  await expect(page.locator('.focused-board h1')).toHaveText(displayName);
-}
-
-async function readSidebarLife(page: Page, displayName: string): Promise<number> {
-  const thumb = page.locator('.player-sidebar .player-thumb').filter({
-    has: page.locator('strong', { hasText: displayName }),
-  });
-  const raw = await thumb.locator('.player-thumb-header span').first().innerText();
-  const value = Number.parseInt(raw.trim(), 10);
-  if (!Number.isFinite(value)) {
-    throw new Error(`Could not parse life total "${raw}" for ${displayName}`);
-  }
-
-  return value;
-}

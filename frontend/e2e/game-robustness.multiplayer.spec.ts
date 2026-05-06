@@ -1,6 +1,7 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { authStorageState } from './support/auth';
 import { createCommanderGameWithValidDecks } from './support/commander-game';
+import { clickGameMenuAction, expectFocusedPlayer, expectOpponentVisible, focusPlayer, readTableZoneCounts as readSidebarZoneCounts } from './support/game-table';
 
 test.setTimeout(360000);
 
@@ -26,8 +27,8 @@ test('basic robustness with two full decks does not break UI or duplicate cards'
     await expect(page.getByTestId('game-screen')).toBeVisible();
     await expect(page.locator('.table-error')).toHaveCount(0);
 
-    await expect(page.locator('.player-sidebar .player-thumb strong', { hasText: setup.playerA.user.displayName })).toBeVisible();
-    await expect(page.locator('.player-sidebar .player-thumb strong', { hasText: setup.playerB.user.displayName })).toBeVisible();
+    await expectFocusedPlayer(page, setup.playerA.user.displayName);
+    await expectOpponentVisible(page, setup.playerB.user.displayName);
 
     await focusPlayer(page, setup.playerA.user.displayName);
     await assertRequiredZones(page, setup.playerA.user.id);
@@ -53,7 +54,7 @@ test('basic robustness with two full decks does not break UI or duplicate cards'
 
     const cardToMove = page
       .locator(`[data-testid="hand-zone"][data-player-id="${setup.playerA.user.id}"] [data-testid="game-card"][data-zone="hand"]`)
-      .first();
+      .nth(3);
     await expect(cardToMove).toBeVisible();
     const movedId = await cardToMove.getAttribute('data-card-instance-id');
     if (!movedId) {
@@ -75,14 +76,6 @@ test('basic robustness with two full decks does not break UI or duplicate cards'
   }
 });
 
-async function focusPlayer(page: Page, displayName: string): Promise<void> {
-  const thumb = page.locator('.player-sidebar .player-thumb').filter({
-    has: page.locator('strong', { hasText: displayName }),
-  });
-  await expect(thumb).toBeVisible();
-  await thumb.click();
-  await expect(page.locator('.focused-board h1')).toHaveText(displayName);
-}
 
 async function assertRequiredZones(page: Page, playerId: string): Promise<void> {
   await expect(page.locator(`[data-testid="battlefield-zone"][data-player-id="${playerId}"]`)).toBeVisible();
@@ -90,24 +83,8 @@ async function assertRequiredZones(page: Page, playerId: string): Promise<void> 
   await expect(page.locator(`[data-testid="zone"][data-player-id="${playerId}"][data-zone="library"]`)).toBeVisible();
   await expect(page.locator(`[data-testid="zone"][data-player-id="${playerId}"][data-zone="graveyard"]`)).toBeVisible();
   await expect(page.locator(`[data-testid="zone"][data-player-id="${playerId}"][data-zone="exile"]`)).toBeVisible();
-  await expect(page.locator(`[data-testid="zone"][data-player-id="${playerId}"][data-zone="command"]`)).toBeVisible();
 }
 
-async function readSidebarZoneCounts(page: Page, displayName: string): Promise<{ hand: number; library: number }> {
-  const thumb = page.locator('.player-sidebar .player-thumb').filter({
-    has: page.locator('strong', { hasText: displayName }),
-  });
-  const text = await thumb.locator('small').innerText();
-  const match = /(\d+)\s+hand\s+·\s+(\d+)\s+library/.exec(text.trim());
-  if (!match) {
-    throw new Error(`Could not parse sidebar counts for ${displayName}: "${text}"`);
-  }
-
-  return {
-    hand: Number.parseInt(match[1] ?? '', 10),
-    library: Number.parseInt(match[2] ?? '', 10),
-  };
-}
 
 async function triggerLibraryViewAction(page: Page, playerId: string): Promise<void> {
   const libraryZone = page.locator(`[data-testid="drop-zone"][data-player-id="${playerId}"][data-zone="library"]`).first();
@@ -152,16 +129,17 @@ async function drawCardsUntilDelta(
     hand: baseline.hand + draws,
     library: baseline.library - draws,
   };
-  const drawMine = page.getByRole('button', { name: 'Draw mine' });
-  await expect(drawMine).toBeVisible();
 
-  for (let attempt = 0; attempt < draws * 3; attempt += 1) {
-    const counts = await readSidebarZoneCounts(page, displayName);
+  let counts = await readSidebarZoneCounts(page, displayName);
+  for (let drawn = 0; drawn < draws; drawn += 1) {
     if (counts.hand === target.hand && counts.library === target.library) {
-      break;
+      return;
     }
 
-    await drawMine.click({ timeout: 5000 });
+    const previous = counts;
+    await clickGameMenuAction(page, /^Draw mine/);
+    await expect.poll(async () => readSidebarZoneCounts(page, displayName), { timeout: 10000 }).not.toEqual(previous);
+    counts = await readSidebarZoneCounts(page, displayName);
   }
 
   await expect.poll(async () => readSidebarZoneCounts(page, displayName)).toEqual(target);

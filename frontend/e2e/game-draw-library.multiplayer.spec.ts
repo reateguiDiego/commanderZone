@@ -1,6 +1,7 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import { authStorageState } from './support/auth';
 import { createCommanderGameWithValidDecks } from './support/commander-game';
+import { drawMine, focusPlayer, readTableZoneCounts as readSidebarZoneCounts } from './support/game-table';
 
 test.setTimeout(240000);
 
@@ -36,13 +37,13 @@ test('drawing from library updates library and hand for both players in real tim
     await expect(pageB.getByTestId('game-screen')).toBeVisible();
 
     const initialA = await readSidebarZoneCounts(pageA, setup.playerA.user.displayName);
-    await pageA.getByRole('button', { name: 'Draw mine' }).click();
+    await drawMine(pageA);
 
     await expect.poll(async () => readSidebarZoneCounts(pageA, setup.playerA.user.displayName)).toEqual({
       hand: initialA.hand + 1,
       library: initialA.library - 1,
     });
-    await expect.poll(async () => readSidebarZoneCounts(pageB, setup.playerA.user.displayName)).toEqual({
+    await expect.poll(async () => readSidebarZoneCounts(pageB, setup.playerA.user.displayName), { timeout: 15000 }).toEqual({
       hand: initialA.hand + 1,
       library: initialA.library - 1,
     });
@@ -59,29 +60,4 @@ test('drawing from library updates library and hand for both players in real tim
   }
 });
 
-async function focusPlayer(page: Page, displayName: string): Promise<void> {
-  const thumb = page.locator('.player-sidebar .player-thumb').filter({
-    has: page.locator('strong', { hasText: displayName }),
-  });
-
-  await expect(thumb).toBeVisible();
-  await thumb.click();
-  await expect(page.locator('.focused-board h1')).toHaveText(displayName);
-}
-
-async function readSidebarZoneCounts(page: Page, displayName: string): Promise<{ hand: number; library: number }> {
-  const thumb = page.locator('.player-sidebar .player-thumb').filter({
-    has: page.locator('strong', { hasText: displayName }),
-  });
-  const text = await thumb.locator('small').innerText();
-  const match = /(\d+)\s+hand\s+·\s+(\d+)\s+library/.exec(text.trim());
-  if (!match) {
-    throw new Error(`Could not parse sidebar zone counts for ${displayName}: "${text}"`);
-  }
-
-  return {
-    hand: Number.parseInt(match[1] ?? '', 10),
-    library: Number.parseInt(match[2] ?? '', 10),
-  };
-}
 
