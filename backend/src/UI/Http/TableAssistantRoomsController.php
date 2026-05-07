@@ -27,6 +27,11 @@ class TableAssistantRoomsController extends ApiController
         TableAssistantEventPublisher $publisher,
     ): JsonResponse {
         $payload = $this->payload($request);
+        $playerCount = filter_var($payload['playerCount'] ?? TableAssistantStateFactory::DEFAULT_PLAYER_COUNT, FILTER_VALIDATE_INT);
+        if (!is_int($playerCount) || $playerCount < 2) {
+            return $this->fail('Table assistant rooms require at least 2 players.', 422);
+        }
+
         $room = new Room($user);
         $room->setVisibility(Room::VISIBILITY_PRIVATE);
         $room->addPlayer(new RoomPlayer($room, $user));

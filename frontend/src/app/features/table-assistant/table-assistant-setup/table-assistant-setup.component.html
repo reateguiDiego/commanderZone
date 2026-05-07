@@ -1,44 +1,27 @@
-<section class="setup-panel" aria-label="Configurar Asistente de Mesa">
+<form class="setup-panel" aria-label="Configurar Asistente de Mesa" novalidate (ngSubmit)="createRoom()">
   <div class="setup-header">
     <div>
-      <span class="eyebrow">Nueva sala</span>
-      <h2>Configura lo justo para empezar</h2>
-      <p>
-        @if (canInviteFriends()) {
-          Asigna amigos de CommanderZone a los asientos para invitarles al crear la sala.
-        } @else {
-          Prepara una mesa compartida para jugar desde un unico dispositivo.
-        }
-      </p>
+      <span class="eyebrow">Nueva partida</span>
+      <h2>Configura la mesa</h2>
+      <p>Jugadores, vidas y temporizador. Lo demas se ajusta durante la partida.</p>
     </div>
-    <button class="ghost-button" type="button" aria-label="Cerrar configuracion" (click)="cancelled.emit()">Cerrar</button>
   </div>
 
   @if (error(); as errorMessage) {
     <p class="error-message">{{ errorMessage }}</p>
   }
 
-  <div class="mode-grid">
-    @for (option of modeOptions; track option.id) {
-      <button class="mode-card" type="button" [class.selected]="mode() === option.id" [attr.aria-pressed]="mode() === option.id" (click)="selectMode(option.id)">
-        <strong>{{ option.title }}</strong>
-        <span>{{ option.description }}</span>
-        <small>{{ option.idealFor }}</small>
-      </button>
-    }
-  </div>
-
   <div class="setup-grid">
-    <section class="setup-section">
+    <section class="setup-section players-section">
       <h3>Jugadores</h3>
       <div class="compact-fields">
         <label>
           Numero
-          <input type="number" min="1" max="6" [ngModel]="playerCount()" (ngModelChange)="setPlayerCount($event)" />
+          <input name="playerCount" type="number" min="2" max="6" [ngModel]="playerCount()" (ngModelChange)="setPlayerCount($event)" />
         </label>
         <label>
           Vida inicial
-          <input type="number" min="1" [ngModel]="initialLife()" (ngModelChange)="setInitialLife($event)" />
+          <input name="initialLife" type="number" min="1" [ngModel]="initialLife()" (ngModelChange)="setInitialLife($event)" />
         </label>
       </div>
 
@@ -46,14 +29,7 @@
         @for (name of playerNames(); track $index; let playerIndex = $index) {
           <div class="player-config-row">
             <span class="seat-number">{{ playerIndex + 1 }}</span>
-            @if (canInviteFriends()) {
-              <div class="player-name-preview" [attr.aria-label]="'Nombre de jugador ' + (playerIndex + 1)">
-                <strong>{{ playerSeatLabel(playerIndex) }}</strong>
-                <small>{{ playerSeatSourceLabel(playerIndex) }}</small>
-              </div>
-            } @else {
-              <input [attr.aria-label]="'Nombre de jugador ' + (playerIndex + 1)" [ngModel]="name" (ngModelChange)="updatePlayerName(playerIndex, $event)" />
-            }
+            <input [name]="'playerName' + playerIndex" [attr.aria-label]="'Nombre de jugador ' + (playerIndex + 1)" [placeholder]="'Jugador ' + (playerIndex + 1)" [ngModel]="name" (ngModelChange)="updatePlayerName(playerIndex, $event)" />
             <span class="color-picker" [style.--selected-gradient]="colorGradient(playerColors()[playerIndex])" [style.--selected-accent]="colorAccent(playerColors()[playerIndex])">
               <button class="color-picker-trigger" type="button" [attr.aria-expanded]="openColorPickerIndex() === playerIndex" [attr.aria-label]="'Color de jugador ' + (playerIndex + 1)" (click)="toggleColorPicker(playerIndex)">
                 <span>{{ colorLabel(playerColors()[playerIndex]) }}</span>
@@ -78,22 +54,14 @@
                 </div>
               }
             </span>
-            @if (canInviteFriends()) {
-              <select class="friend-seat-select" [ngModel]="playerFriendIds()[playerIndex] ?? ''" (ngModelChange)="updatePlayerFriend(playerIndex, $event)" [disabled]="playerIndex === 0" [attr.aria-label]="'Invitar amigo para jugador ' + (playerIndex + 1)">
-                <option value="">{{ playerIndex === 0 ? 'Tu usuario' : 'Sin amigo invitado' }}</option>
-                @for (friend of friends(); track friend.id) {
-                  <option [value]="friend.id">{{ friend.displayName }}</option>
-                }
-              </select>
-            }
           </div>
         }
       </div>
     </section>
 
-    <section class="setup-section">
+    <section class="setup-section rules-section">
       <h3>Reglas de mesa</h3>
-      <p class="muted">Daño de comandante siempre activo. Las opciones extra quedan fuera de esta configuracion rapida.</p>
+      <p class="muted">Daño de comandante siempre activo. Temporizador opcional.</p>
 
       <div class="segmented-control" aria-label="Temporizador">
         @for (option of availableTimerModes(); track option) {
@@ -131,9 +99,8 @@
   </div>
 
   <div class="setup-actions">
-    <p>Puedes ajustar algunos detalles durante la partida.</p>
-    <button class="primary-button" type="button" [disabled]="creating()" (click)="createRoom()">
+    <button class="primary-button" type="submit" [disabled]="!canCreateRoom()">
       {{ creating() ? 'Creando...' : 'Crear sala' }}
     </button>
   </div>
-</section>
+</form>

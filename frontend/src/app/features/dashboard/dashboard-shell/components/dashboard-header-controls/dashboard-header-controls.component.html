@@ -1,0 +1,30 @@
+<div class="user-strip">
+  <div class="friends-dropdown" [class.open]="friendsOpen()" (click)="$event.stopPropagation()">
+    <button
+      class="friends-trigger"
+      [class.has-requests]="!friendsOpen() && pendingNotificationsCount() > 0"
+      type="button"
+      title="Friends"
+      (click)="toggleFriends.emit($event)"
+    >
+      @if (!friendsOpen() && pendingNotificationsCount() > 0) {
+        <span class="request-badge" aria-label="Pending friend requests">
+          <lucide-icon name="bell" size="12" />
+          {{ pendingNotificationsCount() }}
+        </span>
+      }
+      <lucide-icon name="circle-user-round" size="18" />
+      <span>{{ userLabel() }}</span>
+      @if (!friendsOpen() && onlineFriendsCount() > 0) {
+        <span class="online-badge" aria-label="Online friends">{{ onlineFriendsCount() }}</span>
+      }
+    </button>
+    @if (friendsOpen()) {
+      <app-friends-dropdown />
+    }
+  </div>
+
+  <button class="icon-button" type="button" title="Logout" (click)="logout.emit()">
+    <lucide-icon name="log-out" size="18" />
+  </button>
+</div>

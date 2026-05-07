@@ -1,24 +1,4 @@
-<section class="page-stack">
-  <div class="tool-header">
-    <div>
-      <span class="eyebrow">Decks</span>
-      <h2>Decks</h2>
-    </div>
-    <div class="button-row wrap-row">
-      <button class="primary-button compact" type="button" (click)="store.openCreateModal()">
-        <lucide-icon name="plus" size="16" />
-        Create deck
-      </button>
-      <button class="secondary-button compact" type="button" (click)="store.openFolderCreateModal()">
-        <lucide-icon name="folder-plus" size="16" />
-        Create folder
-      </button>
-      <button class="icon-button" type="button" title="Reload decks" (click)="store.reloadAll()">
-        <lucide-icon name="refresh-ccw" size="16" />
-      </button>
-    </div>
-  </div>
-
+<section class="page-stack deck-list-page">
   @if (store.loading()) {
     <p class="notice">Loading decks...</p>
   } @else if (store.error()) {
@@ -29,15 +9,12 @@
 
   @if (!store.currentFolder() && store.hasDeckListContent()) {
     <section class="panel folder-panel">
-      <div class="deck-table-header">
-        <span>Name</span>
-        <span></span>
-      </div>
       <div class="dense-list deck-table-list">
         @for (folder of store.folders(); track folder.id) {
           <div
-            class="deck-list-row deck-row-clickable"
+            class="deck-list-row folder-list-row deck-row-clickable"
             [class.drop-active]="store.dragTargetId() === folder.id"
+            [attr.data-folder-drop-id]="folder.id"
             role="button"
             tabindex="0"
             (click)="store.enterFolder(folder.id)"
@@ -52,6 +29,7 @@
               </span>
               <strong>{{ folder.name }} ({{ store.folderDeckCount(folder.id) }})</strong>
               <span class="visibility-pill" [class.public]="folder.visibility === 'public'">
+                <lucide-icon [name]="visibilityIcon(folder.visibility)" size="12" />
                 {{ folder.visibility || 'private' }}
               </span>
             </span>
@@ -69,6 +47,8 @@
         @for (deck of store.unfiledSection().decks; track deck.id) {
           <div
             class="deck-list-row deck-row-clickable"
+            [class.has-commander-art]="store.deckCommanderImage(deck)"
+            [style.--deck-commander-art]="store.deckCommanderBackground(deck)"
             draggable="true"
             role="link"
             tabindex="0"
@@ -76,6 +56,10 @@
             (keydown.enter)="store.openDeck(deck.id)"
             (dragstart)="store.beginDeckDrag($event, deck)"
             (dragend)="store.endDeckDrag()"
+            (pointerdown)="store.beginDeckPointerDrag($event, deck)"
+            (pointermove)="store.moveDeckPointerDrag($event)"
+            (pointerup)="store.finishDeckPointerDrag($event)"
+            (pointercancel)="store.finishDeckPointerDrag($event)"
           >
             <span class="deck-link deck-table-name">
               @if (store.editingDeckId() === deck.id) {
@@ -89,17 +73,32 @@
                   (keydown.escape)="store.cancelDeckRename()"
                 />
               } @else {
-                <strong>{{ deck.name }}</strong>
-                <span class="visibility-pill" [class.public]="deck.visibility === 'public'">{{ deck.visibility || 'private' }}</span>
+                <span class="deck-name-line">
+                  <strong>{{ deck.name }}</strong>
+                  @if (store.commanderColorIdentity(deck); as colorIdentity) {
+                    <app-mana-symbols class="deck-commander-colors" [symbols]="colorIdentity" fallback="Colorless" />
+                  }
+                </span>
+                <span class="visibility-pill" [class.public]="deck.visibility === 'public'">
+                  <lucide-icon [name]="visibilityIcon(deck.visibility)" size="12" />
+                  {{ deck.visibility || 'private' }}
+                </span>
               }
             </span>
-            <div class="deck-row-actions table-actions">
-              <button class="icon-button" type="button" title="Edit deck" (click)="store.openDeckEditModal(deck); $event.stopPropagation()">
-                <lucide-icon name="pencil" size="16" />
-              </button>
-              <button class="icon-button danger" type="button" title="Delete deck" (click)="store.deleteDeck(deck); $event.stopPropagation()">
-                <lucide-icon name="trash-2" size="16" />
-              </button>
+            <div class="deck-card-footer">
+              @if (store.deckHasIssues(deck)) {
+                <span class="deck-list-warning" [attr.title]="store.deckIssueTooltip(deck)" aria-label="Deck warnings">
+                  <lucide-icon name="triangle-alert" size="16" />
+                </span>
+              }
+              <div class="deck-row-actions table-actions">
+                <button class="icon-button" type="button" title="Edit deck" (click)="store.openDeckEditModal(deck); $event.stopPropagation()">
+                  <lucide-icon name="pencil" size="16" />
+                </button>
+                <button class="icon-button danger" type="button" title="Delete deck" (click)="store.deleteDeck(deck); $event.stopPropagation()">
+                  <lucide-icon name="trash-2" size="16" />
+                </button>
+              </div>
             </div>
           </div>
         }
@@ -110,6 +109,7 @@
       class="folder-unfile-shell"
       [class.drag-shell-active]="store.draggedDeckId() !== null"
       [class.drop-active]="store.dragTargetId() === '__unfiled__'"
+      data-folder-drop-id="__unfiled__"
       (dragover)="store.allowDeckDrop($event, '__unfiled__')"
       (dragleave)="store.clearDeckDrop('__unfiled__')"
       (drop)="store.dropDeckOnFolder($event, null)"
@@ -138,14 +138,12 @@
           </div>
         </div>
 
-        <div class="deck-table-header">
-          <span>Name</span>
-          <span></span>
-        </div>
         <div class="dense-list deck-table-list">
           @for (deck of store.currentFolderSection().decks; track deck.id) {
             <div
               class="deck-list-row deck-row-clickable"
+              [class.has-commander-art]="store.deckCommanderImage(deck)"
+              [style.--deck-commander-art]="store.deckCommanderBackground(deck)"
               draggable="true"
               role="link"
               tabindex="0"
@@ -153,6 +151,10 @@
               (keydown.enter)="store.openDeck(deck.id)"
               (dragstart)="store.beginDeckDrag($event, deck)"
               (dragend)="store.endDeckDrag()"
+              (pointerdown)="store.beginDeckPointerDrag($event, deck)"
+              (pointermove)="store.moveDeckPointerDrag($event)"
+              (pointerup)="store.finishDeckPointerDrag($event)"
+              (pointercancel)="store.finishDeckPointerDrag($event)"
             >
               <span class="deck-link deck-table-name">
                 @if (store.editingDeckId() === deck.id) {
@@ -166,17 +168,32 @@
                     (keydown.escape)="store.cancelDeckRename()"
                   />
                 } @else {
-                  <strong>{{ deck.name }}</strong>
-                  <span class="visibility-pill" [class.public]="deck.visibility === 'public'">{{ deck.visibility || 'private' }}</span>
+                  <span class="deck-name-line">
+                    <strong>{{ deck.name }}</strong>
+                    @if (store.commanderColorIdentity(deck); as colorIdentity) {
+                      <app-mana-symbols class="deck-commander-colors" [symbols]="colorIdentity" fallback="Colorless" />
+                    }
+                  </span>
+                  <span class="visibility-pill" [class.public]="deck.visibility === 'public'">
+                    <lucide-icon [name]="visibilityIcon(deck.visibility)" size="12" />
+                    {{ deck.visibility || 'private' }}
+                  </span>
                 }
               </span>
-              <div class="deck-row-actions table-actions">
-                <button class="icon-button" type="button" title="Edit deck" (click)="store.openDeckEditModal(deck); $event.stopPropagation()">
-                  <lucide-icon name="pencil" size="16" />
-                </button>
-                <button class="icon-button danger" type="button" title="Delete deck" (click)="store.deleteDeck(deck); $event.stopPropagation()">
-                  <lucide-icon name="trash-2" size="16" />
-                </button>
+              <div class="deck-card-footer">
+                @if (store.deckHasIssues(deck)) {
+                  <span class="deck-list-warning" [attr.title]="store.deckIssueTooltip(deck)" aria-label="Deck warnings">
+                    <lucide-icon name="triangle-alert" size="16" />
+                  </span>
+                }
+                <div class="deck-row-actions table-actions">
+                  <button class="icon-button" type="button" title="Edit deck" (click)="store.openDeckEditModal(deck); $event.stopPropagation()">
+                    <lucide-icon name="pencil" size="16" />
+                  </button>
+                  <button class="icon-button danger" type="button" title="Delete deck" (click)="store.deleteDeck(deck); $event.stopPropagation()">
+                    <lucide-icon name="trash-2" size="16" />
+                  </button>
+                </div>
               </div>
             </div>
           } @empty {
@@ -193,10 +210,10 @@
   <app-modal
     [open]="store.createModalOpen()"
     title="Create deck"
-    primaryLabel="Create"
+    [primaryLabel]="store.createdDeck() ? 'Open deck' : 'Create'"
     secondaryLabel="Cancel"
-    (primary)="store.create()"
-    (secondary)="store.closeCreateModal()"
+    (primary)="store.submitCreateModal()"
+    (secondary)="store.cancelCreateFlow()"
   >
     <div class="form-stack">
       <label>
@@ -213,23 +230,23 @@
         </select>
       </label>
 
-      <label>
-        Folder
-        <select name="folder" [(ngModel)]="store.newDeckFolderId">
-          <option value="">No folder</option>
-          @for (folder of store.folderOptions(); track folder.id) {
-            <option [value]="folder.id">{{ folder.name }}</option>
-          }
-        </select>
-      </label>
+      @if (store.folderOptions().length > 0) {
+        <label>
+          Folder
+          <select name="folder" [(ngModel)]="store.newDeckFolderId">
+            <option value="">No folder</option>
+            @for (folder of store.folderOptions(); track folder.id) {
+              <option [value]="folder.id">{{ folder.name }}</option>
+            }
+          </select>
+        </label>
+      }
 
-      <label>
-        Visibility
-        <select name="deckVisibility" [(ngModel)]="store.newDeckVisibility">
-          <option value="private">Private</option>
-          <option value="public">Public</option>
-        </select>
-      </label>
+      <app-visibility-choice
+        [(value)]="store.newDeckVisibility"
+        publicSubtitle="Visible in public profile"
+        privateSubtitle="Only you can see it"
+      />
 
       @if (store.shouldWarnNewDeckPublicInPrivateFolder()) {
         <p class="notice warning compact-notice">This deck is public, but its folder is private. It will not be publicly visible.</p>
@@ -248,11 +265,45 @@
           />
 
           @if (store.selectedCommander(); as commander) {
-            <div class="notice ok-notice">
-              <strong>{{ commander.name }}</strong>
-              <span>{{ commander.typeLine || 'Unknown type' }}</span>
-            </div>
+            <article class="commander-preview-card">
+              @if (store.selectedCommanderImage(); as imageUrl) {
+                <span
+                  class="commander-preview-image"
+                  tabindex="0"
+                  (mouseenter)="scheduleCommanderPreview($event, imageUrl)"
+                  (mousemove)="moveCommanderPreview($event)"
+                  (mouseleave)="hideCommanderPreview()"
+                  (blur)="hideCommanderPreview()"
+                >
+                  <img class="commander-preview-thumb" [src]="imageUrl" [alt]="commander.name" />
+                </span>
+              }
+              <div>
+                <strong>{{ commander.name }}</strong>
+                <span>{{ commander.typeLine || 'Unknown type' }}</span>
+              </div>
+            </article>
           }
+        </div>
+      }
+
+      <label>
+        Import decklist
+        <textarea
+          name="createdDecklist"
+          rows="8"
+          placeholder="Optional. Example: 1 Sol Ring (VOC) 168"
+          [(ngModel)]="store.createdDecklist"
+        ></textarea>
+      </label>
+
+      @if (store.createdImportMessage()) {
+        <p class="notice" [class.warning]="store.createdMissing().length > 0">{{ store.createdImportMessage() }}</p>
+      }
+      @if (store.createdMissing().length > 0) {
+        <div class="notice warning">
+          <strong>Missing cards</strong>
+          <span>{{ store.createdMissing().join(', ') }}</span>
         </div>
       }
     </div>
@@ -271,13 +322,11 @@
         Folder name
         <input name="folderName" placeholder="Jeskai, Brews, Testing..." [(ngModel)]="store.newFolderName" />
       </label>
-      <label>
-        Visibility
-        <select name="folderVisibility" [(ngModel)]="store.newFolderVisibility">
-          <option value="private">Private</option>
-          <option value="public">Public</option>
-        </select>
-      </label>
+      <app-visibility-choice
+        [(value)]="store.newFolderVisibility"
+        publicSubtitle="Visible to other players"
+        privateSubtitle="Only you can see it"
+      />
     </div>
   </app-modal>
 
@@ -294,13 +343,11 @@
         Deck name
         <input name="editDeckName" [(ngModel)]="store.editDeckName" />
       </label>
-      <label>
-        Visibility
-        <select name="editDeckVisibility" [(ngModel)]="store.editDeckVisibility">
-          <option value="private">Private</option>
-          <option value="public">Public</option>
-        </select>
-      </label>
+      <app-visibility-choice
+        [(value)]="store.editDeckVisibility"
+        publicSubtitle="Visible in public profile"
+        privateSubtitle="Only you can see it"
+      />
 
       @if (store.shouldWarnEditDeckPublicInPrivateFolder()) {
         <p class="notice warning compact-notice">This deck is public, but its folder is private. It will not be publicly visible.</p>
@@ -321,13 +368,11 @@
         Folder name
         <input name="renameFolderName" [(ngModel)]="store.renameFolderName" />
       </label>
-      <label>
-        Visibility
-        <select name="renameFolderVisibility" [(ngModel)]="store.renameFolderVisibility">
-          <option value="private">Private</option>
-          <option value="public">Public</option>
-        </select>
-      </label>
+      <app-visibility-choice
+        [(value)]="store.renameFolderVisibility"
+        publicSubtitle="Visible to other players"
+        privateSubtitle="Only you can see it"
+      />
     </div>
   </app-modal>
 
@@ -343,37 +388,6 @@
   />
 
   <app-modal
-    [open]="store.importModalOpen()"
-    title="Import decklist"
-    primaryLabel="Import"
-    secondaryLabel="Cancel"
-    (primary)="store.importCreatedDeck()"
-    (secondary)="store.closeImportModal()"
-  >
-    <div class="form-stack">
-      @if (store.createdDeck(); as deck) {
-        <p class="notice">Importing into {{ deck.name }}.</p>
-      }
-      <label>
-        Plain text decklist
-        <textarea name="createdDecklist" rows="12" placeholder="1 Sol Ring (VOC) 168" [(ngModel)]="store.createdDecklist"></textarea>
-      </label>
-      @if (store.createdImportMessage()) {
-        <p class="notice" [class.warning]="store.createdMissing().length > 0">{{ store.createdImportMessage() }}</p>
-      }
-      @if (store.createdMissing().length > 0) {
-        <div class="notice warning">
-          <strong>Missing cards</strong>
-          <span>{{ store.createdMissing().join(', ') }}</span>
-        </div>
-      }
-      @if (store.createdDeck(); as deck) {
-        <a class="text-button" [routerLink]="['/decks', deck.id]">Open deck</a>
-      }
-    </div>
-  </app-modal>
-
-  <app-modal
     [open]="store.deleteModalOpen()"
     title="Delete deck"
     [message]="store.deleteTarget() ? 'Delete ' + store.deleteTarget()!.name + '?' : ''"
@@ -383,4 +397,14 @@
     (primary)="store.confirmDeleteDeck()"
     (secondary)="store.deleteModalOpen.set(false)"
   />
+
+  @if (commanderHoverPreview(); as preview) {
+    <img
+      class="commander-floating-preview"
+      [src]="preview.imageUrl"
+      alt="Commander enlarged preview"
+      [style.left.px]="preview.x"
+      [style.top.px]="preview.y"
+    />
+  }
 </section>

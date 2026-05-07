@@ -4,6 +4,9 @@
       <header class="spoiler-section-header">
         <h3>
           {{ group.title }} <span class="group-count">({{ group.quantity }})</span>
+          @if (group.id === 'commander') {
+            <app-mana-symbols class="commander-colors" [symbols]="store.deckColorIdentitySymbols()" fallback="Colorless" />
+          }
           @if (group.detail) {
             <span class="group-detail">· {{ group.detail }}</span>
           }

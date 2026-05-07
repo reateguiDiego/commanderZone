@@ -1,12 +1,13 @@
-import { ChangeDetectionStrategy, Component, HostListener, OnDestroy, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, HostListener, OnDestroy, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { LucideAngularModule } from 'lucide-angular';
 import { Subscription, filter } from 'rxjs';
 import { AuthStore } from '../../../core/auth/auth.store';
 import { MercureService } from '../../../core/realtime/mercure.service';
-import { FriendsDropdownComponent } from '../../friends/friends-dropdown/friends-dropdown.component';
+import { PageHeaderStore } from '../../../core/ui/page-header.store';
 import { FriendsStore } from '../../friends/data-access/friends.store';
+import { DashboardHeaderComponent } from './components/dashboard-header/dashboard-header.component';
 
 @Component({
   selector: 'app-dashboard-shell',
@@ -15,7 +16,7 @@ import { FriendsStore } from '../../friends/data-access/friends.store';
     RouterLink,
     RouterLinkActive,
     LucideAngularModule,
-    FriendsDropdownComponent,
+    DashboardHeaderComponent,
   ],
   templateUrl: './dashboard-shell.component.html',
   styleUrl: './dashboard-shell.component.scss',
@@ -25,10 +26,12 @@ import { FriendsStore } from '../../friends/data-access/friends.store';
 export class DashboardShellComponent implements OnDestroy {
   readonly auth = inject(AuthStore);
   readonly friends = inject(FriendsStore);
+  readonly pageHeader = inject(PageHeaderStore);
   private readonly mercure = inject(MercureService);
   private readonly router = inject(Router);
   readonly friendsOpen = signal(false);
   readonly roomFocus = signal(this.isTableAssistantRoomUrl(this.router.url));
+  readonly userLabel = computed(() => this.auth.user()?.displayName || this.auth.user()?.email || 'Player');
   private roomInviteSubscription?: Subscription;
   private friendSubscription?: Subscription;
 

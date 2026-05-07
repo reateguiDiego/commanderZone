@@ -5,18 +5,21 @@ import {
   ArrowLeft,
   Folder,
   FolderPlus,
+  Globe,
+  Lock,
   LucideAngularModule,
   Pencil,
   Plus,
-  RefreshCcw,
   Search,
   Trash2,
+  TriangleAlert,
 } from 'lucide-angular';
 import { of } from 'rxjs';
 import { CardsApi } from '../../../core/api/cards.api';
 import { DeckFoldersApi } from '../../../core/api/deck-folders.api';
 import { DeckFormatsApi } from '../../../core/api/deck-formats.api';
 import { DecksApi } from '../../../core/api/decks.api';
+import { PageHeaderStore } from '../../../core/ui/page-header.store';
 import { DeckListComponent } from './deck-list.component';
 
 describe('DeckListComponent', () => {
@@ -31,12 +34,27 @@ describe('DeckListComponent', () => {
           FolderPlus,
           Pencil,
           Plus,
-          RefreshCcw,
           Search,
           Trash2,
+          TriangleAlert,
+          Globe,
+          Lock,
         })),
         { provide: CardsApi, useValue: { search: vi.fn().mockReturnValue(of({ data: [] })) } },
-        { provide: DecksApi, useValue: { list: vi.fn().mockReturnValue(of({ data: [] })) } },
+        {
+          provide: DecksApi,
+          useValue: {
+            list: vi.fn().mockReturnValue(of({ data: [] })),
+            validateCommander: vi.fn().mockReturnValue(of({
+              valid: true,
+              format: 'commander',
+              counts: { total: 100, commander: 1, main: 99, sideboard: 0, maybeboard: 0 },
+              commander: { mode: 'single', names: [], colorIdentity: [] },
+              errors: [],
+              warnings: [],
+            })),
+          },
+        },
         {
           provide: DeckFoldersApi,
           useValue: {
@@ -53,6 +71,6 @@ describe('DeckListComponent', () => {
     const fixture = TestBed.createComponent(DeckListComponent);
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.textContent).toContain('Decks');
+    expect(TestBed.inject(PageHeaderStore).state()?.title).toBe('Decks');
   });
 });

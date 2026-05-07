@@ -76,7 +76,7 @@ class CommanderDeckValidatorTest extends TestCase
         self::assertSame(100, $result['counts']['total']);
     }
 
-    public function testSideboardAndMaybeboardNowBlockCommanderValidation(): void
+    public function testSideboardAndMaybeboardDoNotBlockCommanderValidation(): void
     {
         $deck = new Deck(new User('sections@example.test', 'Sections'), 'Sections Deck');
         $deck->addCard(new DeckCard($deck, $this->card('00000000-0000-0000-0000-000000000221', 'Mono White Commander', [
@@ -96,9 +96,11 @@ class CommanderDeckValidatorTest extends TestCase
 
         $result = (new CommanderDeckValidator())->validate($deck);
 
-        self::assertFalse($result['valid']);
-        self::assertContains('deck.sideboard_not_allowed', array_column($result['errors'], 'code'));
-        self::assertContains('deck.maybeboard_not_allowed', array_column($result['errors'], 'code'));
+        self::assertTrue($result['valid']);
+        self::assertSame(100, $result['counts']['total']);
+        self::assertSame(15, $result['counts']['sideboard']);
+        self::assertSame(4, $result['counts']['maybeboard']);
+        self::assertSame([], $result['errors']);
     }
 
     public function testFlagsDataInsufficientAsError(): void
@@ -252,22 +254,26 @@ class CommanderDeckValidatorTest extends TestCase
         self::assertContains('card.color_identity_violation', array_column($result['errors'], 'code'));
     }
 
-    public function testSideboardNotAllowedIsRejected(): void
+    public function testSideboardIsIgnoredByCommanderValidity(): void
     {
         $deck = $this->baseMonoWhiteDeck(99);
         $deck->addCard(new DeckCard($deck, $this->card('00000000-0000-0000-0000-000000000311', 'Sideboard Card'), 1, DeckCard::SECTION_SIDEBOARD));
 
         $result = (new CommanderDeckValidator())->validate($deck);
-        self::assertContains('deck.sideboard_not_allowed', array_column($result['errors'], 'code'));
+        self::assertTrue($result['valid']);
+        self::assertSame(1, $result['counts']['sideboard']);
+        self::assertSame([], $result['errors']);
     }
 
-    public function testMaybeboardNotAllowedIsRejected(): void
+    public function testMaybeboardIsIgnoredByCommanderValidity(): void
     {
         $deck = $this->baseMonoWhiteDeck(99);
         $deck->addCard(new DeckCard($deck, $this->card('00000000-0000-0000-0000-000000000321', 'Maybe Card'), 1, DeckCard::SECTION_MAYBEBOARD));
 
         $result = (new CommanderDeckValidator())->validate($deck);
-        self::assertContains('deck.maybeboard_not_allowed', array_column($result['errors'], 'code'));
+        self::assertTrue($result['valid']);
+        self::assertSame(1, $result['counts']['maybeboard']);
+        self::assertSame([], $result['errors']);
     }
 
     private function baseMonoWhiteDeck(int $mainCount, array $commanderOverrides = []): Deck

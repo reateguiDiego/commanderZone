@@ -2,6 +2,13 @@
   display: contents;
 }
 
+.card-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 69;
+  background: transparent;
+}
+
 .card-row-menu {
   position: fixed;
   z-index: 70;
@@ -14,6 +21,33 @@
   background:
     linear-gradient(180deg, rgb(30 34 26 / 98%), rgb(15 18 14 / 98%));
   box-shadow: var(--shadow);
+}
+
+.card-menu-header {
+  display: grid;
+  gap: 0.18rem;
+  padding: 0.35rem 0.45rem 0.55rem;
+  border-bottom: 1px solid rgb(215 180 106 / 18%);
+}
+
+.card-menu-header span {
+  color: var(--gold);
+  font-size: 0.68rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.card-menu-header strong {
+  max-width: 18rem;
+  overflow: hidden;
+  color: var(--text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card-menu-header small {
+  color: var(--muted);
+  font-size: 0.74rem;
 }
 
 .card-menu-quantity-panel {
@@ -87,4 +121,16 @@
   border-color: rgb(215 180 106 / 30%);
   background: rgb(255 255 255 / 6%);
   color: var(--text);
+}
+
+@media (max-width: 720px), (max-height: 640px) {
+  .card-row-menu {
+    top: 50% !important;
+    left: 50% !important;
+    width: min(19rem, calc(100vw - 1.5rem));
+    min-width: 0;
+    max-height: calc(100dvh - 1.5rem);
+    overflow: auto;
+    transform: translate(-50%, -50%);
+  }
 }

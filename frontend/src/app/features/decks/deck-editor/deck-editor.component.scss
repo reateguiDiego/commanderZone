@@ -2,25 +2,6 @@
   display: block;
 }
 
-.deck-editor-header-actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 0.65rem;
-  margin-left: auto;
-}
-
-.deck-title {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-}
-
-.deck-title-warning {
-  flex: 0 0 auto;
-  color: var(--gold);
-}
-
 .deck-search-stack {
   position: relative;
   flex: 0 0 500px;
@@ -42,15 +23,31 @@
   gap: 0.65rem;
 }
 
+.deck-catalog-panel {
+  width: 100%;
+  min-width: 0;
+}
+
 .deck-summary {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 0.8rem;
   margin-bottom: 0.8rem;
 }
 
-.deck-summary > div {
+.deck-summary-controls {
+  display: grid;
+  grid-template-columns: minmax(14rem, 500px) auto;
+  align-items: end;
+  justify-content: flex-end;
+  flex: 1 1 32rem;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.deck-summary-counts {
   display: grid;
   gap: 0.2rem;
 }
@@ -61,7 +58,23 @@
 }
 
 .view-mode-select {
-  width: min(12rem, 100%);
+  width: 9rem;
+}
+
+.view-mode-select select {
+  min-height: 2.85rem;
+}
+
+.sr-only {
+  position: absolute;
+  overflow: hidden;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  border: 0;
+  margin: -1px;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
 
 .analysis-panel h3 {
@@ -392,28 +405,72 @@
 }
 
 @media (max-width: 720px) {
-  .deck-editor-header-actions,
+  .deck-summary {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(8.5rem, auto);
+    align-items: stretch;
+    justify-content: stretch;
+    gap: 0.45rem 0.6rem;
+    margin-bottom: 0.55rem;
+  }
+
+  .deck-summary-counts {
+    grid-column: 1;
+    grid-row: 1;
+    align-content: center;
+  }
+
+  .deck-summary-controls {
+    display: contents;
+  }
+
   .deck-search-stack {
+    grid-column: 1 / -1;
+    grid-row: 2;
     width: 100%;
   }
 
-  .deck-search-stack {
-    flex: 1 1 100%;
+  .view-mode-select {
+    grid-column: 2;
+    grid-row: 1;
+    align-self: center;
+    width: 100%;
   }
 
   .analysis-shell,
-  .deck-card-row,
   .metric-grid {
     grid-template-columns: 1fr;
   }
 
   .deck-card-cost {
-    justify-self: start;
+    justify-self: end;
+  }
+
+  .deck-catalog-panel {
+    width: calc(100% + 1.6rem);
+    margin-inline: -0.8rem;
+    border-radius: 0;
   }
 
   .missing-row,
   .history-row {
     flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 1180px) {
+  .deck-card-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .deck-card-secondary {
+    display: none;
+  }
+
+  .deck-card-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 }
 

@@ -240,3 +240,10 @@
     width: calc(100vw - 1.6rem);
   }
 }
+
+@media (max-width: 1400px), (orientation: portrait) {
+  .friends-menu {
+    width: 100%;
+    max-height: min(34rem, calc(100dvh - var(--device-sidebar-height, 100px) - 7rem));
+  }
+}

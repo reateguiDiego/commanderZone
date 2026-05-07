@@ -1,23 +1,24 @@
 <main class="table-assistant-page">
-  <section class="intro-section">
-    <div class="intro-copy">
-      <span class="eyebrow">Herramienta para partidas fisicas e hibridas</span>
-      <h1>Asistente de Mesa</h1>
-      <p class="subtitle">Controla tu partida fisica de Commander sin interrumpir el juego.</p>
-      <p>
-        Crea una sala para seguir vidas, daño de comandante, turnos, fases, temporizadores y trackers desde un unico dispositivo en la mesa o desde el movil de cada jugador.
-      </p>
-      <p class="value-copy">Menos cuentas, menos dudas y menos interrupciones. Tu juega la partida; CommanderZone mantiene la mesa ordenada.</p>
-      <div class="cta-row">
-        <button class="primary-button" type="button" (click)="setupOpen.set(true)">Empezar partida</button>
-        <a class="secondary-button" routerLink="/rooms">Ver salas</a>
-      </div>
-      <small>Puedes empezar con valores por defecto y ajustar la configuracion antes de crear la sala.</small>
-    </div>
-  </section>
-
   @if (setupOpen()) {
-    <app-table-assistant-setup (cancelled)="setupOpen.set(false)" />
+    <app-table-assistant-setup (cancelled)="handleSetupDestroyed()" />
+  } @else {
+    <section class="assistant-overview" aria-label="Asistente de Mesa">
+      <div class="overview-copy">
+        <span class="eyebrow">Mesa manual de Commander</span>
+        <h2>Todo lo necesario para seguir una partida fisica.</h2>
+        <p>
+          Configura jugadores, vida inicial y temporizador. CommanderZone se encarga de vidas,
+          turnos y daño de comandante sin automatizar reglas de Magic.
+        </p>
+      </div>
+
+      <div class="overview-card" aria-label="Resumen rapido">
+        <strong>Setup rapido</strong>
+        <span>4 jugadores por defecto</span>
+        <span>40 vidas iniciales</span>
+        <span>Daño de comandante activo</span>
+      </div>
+    </section>
   }
 
   <section class="benefit-grid" aria-label="Beneficios">
@@ -29,4 +30,3 @@
     }
   </section>
 </main>
-

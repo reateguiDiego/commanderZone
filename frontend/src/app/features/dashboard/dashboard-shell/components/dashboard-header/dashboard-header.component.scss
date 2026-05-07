@@ -1,0 +1,30 @@
+:host {
+  display: block;
+}
+
+.topbar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-height: 5.25rem;
+  margin-bottom: 1rem;
+}
+
+@media (max-width: 1400px), (orientation: portrait) {
+  .topbar {
+    min-height: auto;
+    margin-bottom: 0.75rem;
+  }
+}
+
+@media (max-width: 720px) {
+  .topbar {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 0.65rem;
+    margin-bottom: 0.65rem;
+    padding: 0.65rem 0.75rem;
+  }
+}

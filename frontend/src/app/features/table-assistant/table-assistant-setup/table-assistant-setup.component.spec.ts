@@ -1,21 +1,16 @@
 import { TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
 import { of } from 'rxjs';
-import { FriendsApi } from '../../../core/api/friends.api';
-import { RoomsApi } from '../../../core/api/rooms.api';
-import { AuthStore } from '../../../core/auth/auth.store';
 import { TableAssistantApi } from '../data-access/table-assistant.api';
 import { createInitialTableAssistantRoom } from '../domain/table-assistant-state';
 import { TableAssistantSetupComponent } from './table-assistant-setup.component';
 
 describe('TableAssistantSetupComponent', () => {
   const createApi = vi.fn();
-  const invite = vi.fn();
   const navigate = vi.fn();
 
   beforeEach(async () => {
     createApi.mockReset();
-    invite.mockReset();
     navigate.mockReset();
 
     await TestBed.configureTestingModule({
@@ -25,47 +20,25 @@ describe('TableAssistantSetupComponent', () => {
           provide: TableAssistantApi,
           useValue: { create: createApi },
         },
-        {
-          provide: RoomsApi,
-          useValue: { invite },
-        },
-        {
-          provide: FriendsApi,
-          useValue: {
-            list: vi.fn().mockReturnValue(
-              of({
-                data: [
-                  {
-                    id: 'friendship-1',
-                    status: 'accepted',
-                    requester: { id: 'user-1', displayName: 'Owner' },
-                    recipient: { id: 'user-2', displayName: 'Guest' },
-                    friend: { id: 'user-2', displayName: 'Guest', presence: 'online' },
-                    createdAt: '',
-                    updatedAt: '',
-                  },
-                ],
-              }),
-            ),
-          },
-        },
-        {
-          provide: AuthStore,
-          useValue: { user: () => ({ id: 'user-1', email: 'owner@test', displayName: 'Owner' }) },
-        },
         { provide: Router, useValue: { navigate } },
       ],
     }).compileComponents();
   });
 
-  it('applies defaults and hides phase timer while phases are disabled', () => {
+  it('applies single-device defaults and hides removed setup options', () => {
     const fixture = TestBed.createComponent(TableAssistantSetupComponent);
     fixture.detectChanges();
 
-    expect(fixture.componentInstance.mode()).toBe('single-device');
     expect(fixture.componentInstance.initialLife()).toBe(40);
+    expect(fixture.componentInstance.playerNames()).toEqual(['', '', '', '']);
+    expect(fixture.componentInstance.canCreateRoom()).toBe(false);
+    const createButton = fixture.nativeElement.querySelector(
+      '.primary-button',
+    ) as HTMLButtonElement | null;
+    expect(createButton?.disabled).toBe(true);
     expect(fixture.componentInstance.availableTimerModes()).toEqual(['none', 'turn']);
     expect(fixture.nativeElement.textContent).not.toContain('Por fase');
+    expect(fixture.nativeElement.textContent).not.toContain('Un movil por jugador');
     expect(fixture.nativeElement.textContent).not.toContain('Compartir e invitar');
     expect(fixture.nativeElement.textContent).not.toContain('Trackers');
     expect(fixture.nativeElement.textContent).not.toContain('Opciones avanzadas');
@@ -96,8 +69,22 @@ describe('TableAssistantSetupComponent', () => {
     expect(fixture.componentInstance.openColorPickerIndex()).toBeNull();
   });
 
-  it('creates a per-player room and invites selected friends without blocking setup', async () => {
-    const state = createInitialTableAssistantRoom({ mode: 'per-player-device' });
+  it('closes the open color picker when clicking outside it', () => {
+    const fixture = TestBed.createComponent(TableAssistantSetupComponent);
+    fixture.detectChanges();
+
+    fixture.componentInstance.toggleColorPicker(0);
+    fixture.detectChanges();
+
+    document.body.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.openColorPickerIndex()).toBeNull();
+    expect(fixture.nativeElement.querySelector('.color-picker-list')).toBeNull();
+  });
+
+  it('creates a single-device room with configured players', async () => {
+    const state = createInitialTableAssistantRoom({ mode: 'single-device' });
     createApi.mockReturnValue(
       of({
         tableAssistantRoom: {
@@ -121,37 +108,30 @@ describe('TableAssistantSetupComponent', () => {
         },
       }),
     );
-    invite.mockReturnValue(of({ invite: {} }));
 
     const fixture = TestBed.createComponent(TableAssistantSetupComponent);
     fixture.detectChanges();
-    await fixture.whenStable();
 
-    fixture.componentInstance.selectMode('per-player-device');
-    fixture.componentInstance.updatePlayerFriend(1, 'user-2');
-    fixture.detectChanges();
-
-    expect(
-      fixture.nativeElement.querySelector('input[aria-label="Nombre de jugador 1"]'),
-    ).toBeNull();
-    expect(fixture.nativeElement.querySelectorAll('.player-name-preview')).toHaveLength(4);
-    expect(fixture.nativeElement.textContent).toContain('Usuario CommanderZone');
+    fixture.componentInstance.updatePlayerName(0, 'Owner');
+    fixture.componentInstance.updatePlayerName(1, 'Guest');
+    fixture.componentInstance.updatePlayerName(2, 'Third');
+    fixture.componentInstance.updatePlayerName(3, 'Fourth');
+    expect(fixture.componentInstance.canCreateRoom()).toBe(true);
     await fixture.componentInstance.createRoom();
 
     expect(createApi).toHaveBeenCalledWith(
       expect.objectContaining({
-        mode: 'per-player-device',
+        mode: 'single-device',
         playerCount: 4,
         initialLife: 40,
         players: [
           { name: 'Owner', color: 'white' },
           { name: 'Guest', color: 'blue' },
-          { name: 'Jugador 3', color: 'black' },
-          { name: 'Jugador 4', color: 'red' },
+          { name: 'Third', color: 'black' },
+          { name: 'Fourth', color: 'red' },
         ],
       }),
     );
-    expect(invite).toHaveBeenCalledWith('room-1', 'user-2');
     expect(navigate).toHaveBeenCalledWith(['/table-assistant', 'room-1'], {
       queryParams: { arrange: '1' },
     });

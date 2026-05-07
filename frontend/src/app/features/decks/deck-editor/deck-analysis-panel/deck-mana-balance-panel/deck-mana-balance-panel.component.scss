@@ -5,6 +5,7 @@
 .analysis-panel {
   display: grid;
   gap: 0.8rem;
+  min-width: 0;
   padding: 0.95rem 1rem;
   border: 1px solid rgb(215 180 106 / 18%);
   border-radius: 8px;
@@ -19,6 +20,8 @@
 
 .analysis-panel-header {
   display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
@@ -40,6 +43,7 @@
 
 .mana-balance-grid {
   display: grid;
+  min-width: 0;
   gap: 0.65rem;
 }
 
@@ -90,18 +94,38 @@
 
 .mana-balance-row {
   display: grid;
-  grid-template-columns: minmax(0, 8.5rem) minmax(7rem, auto) minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 8rem) minmax(6.5rem, auto) minmax(8rem, 1fr) minmax(0, 13rem);
   gap: 0.5rem;
   align-items: center;
+  min-width: 0;
   padding: 0.48rem 0.55rem;
   border: 1px solid rgb(255 255 255 / 6%);
   border-radius: 7px;
   background: rgb(8 10 8 / 16%);
 }
 
+.mana-balance-label,
+.mana-balance-bars {
+  min-width: 0;
+}
+
+.mana-balance-label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.mana-balance-label strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .mana-balance-metrics,
 .mana-balance-notes {
   display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.45rem;
   color: var(--muted);
@@ -131,12 +155,30 @@
 
 .mana-balance-notes {
   justify-content: flex-end;
-  white-space: nowrap;
+}
+
+@media (max-width: 1320px) {
+  .mana-balance-panel {
+    grid-template-columns: minmax(12rem, 14rem) minmax(0, 1fr);
+  }
+
+  .mana-balance-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .mana-balance-bars,
+  .mana-balance-notes {
+    grid-column: 1 / -1;
+  }
+
+  .mana-balance-notes {
+    justify-content: flex-start;
+  }
 }
 
 @media (max-width: 720px) {
   .mana-balance-panel,
   .mana-balance-row {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }

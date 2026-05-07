@@ -1,16 +1,7 @@
-<section class="page-grid dashboard-grid">
-  <a class="action-panel" routerLink="/decks">
-    <lucide-icon name="layers-3" size="24" />
-    <span>
-      <strong>Decks</strong>
-      <small>Import decklists, validate Commander legality, and choose a deck for rooms.</small>
-    </span>
-  </a>
-  <a class="action-panel" routerLink="/rooms">
-    <lucide-icon name="door-open" size="24" />
-    <span>
-      <strong>Join a room</strong>
-      <small>Create or join by room id, then start a manual game table.</small>
-    </span>
-  </a>
+<section class="dashboard-welcome" aria-labelledby="dashboard-title">
+  <p class="welcome-kicker">Tu comandante ha llegado</p>
+  <h1 id="dashboard-title">Qué bueno verte de nuevo, {{ userName() }}.</h1>
+  <p>
+    La mesa te estaba esperando. Hoy tus mazos, tus salas y la siguiente partida empiezan desde aquí.
+  </p>
 </section>

@@ -2,47 +2,82 @@
   display: block;
 }
 
-.page-grid,
-.dashboard-grid {
+.dashboard-welcome {
+  position: relative;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.8rem;
+  min-height: clamp(26rem, 58dvh, 42rem);
+  place-items: center;
+  align-content: center;
+  gap: clamp(0.85rem, 2vw, 1.2rem);
+  padding: clamp(2rem, 6vw, 4.5rem) clamp(1rem, 4vw, 3rem);
+  text-align: center;
 }
 
-.action-panel {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.75rem;
-  min-height: 9rem;
-  padding: 1rem;
-  border: 1px solid transparent;
-  border-radius: 7px;
-  background: rgb(24 27 22 / 72%);
-  box-shadow: var(--shadow);
-  transition:
-    border-color 160ms ease,
-    background-color 160ms ease,
-    transform 160ms ease;
+.dashboard-welcome::before {
+  content: 'COMMAND ZONE';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: -1;
+  color: rgb(255 245 215 / 5%);
+  font-size: clamp(4.5rem, 14vw, 13rem);
+  font-weight: 1000;
+  letter-spacing: -0.09em;
+  line-height: 0.8;
+  text-transform: uppercase;
+  transform: translate(-50%, -54%);
+  white-space: nowrap;
+  pointer-events: none;
+  text-shadow: 0 0 4rem rgb(0 0 0 / 42%);
 }
 
-.action-panel:hover {
-  transform: translateY(-1px);
-  border-color: rgb(215 180 106 / 42%);
+.welcome-kicker {
+  margin: 0;
+  color: rgb(247 211 133 / 92%);
+  font-size: clamp(0.78rem, 1.4vw, 0.95rem);
+  font-weight: 950;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  text-shadow: 0 0.2rem 1.3rem rgb(0 0 0 / 72%);
 }
 
-.action-panel strong,
-.action-panel small {
-  display: block;
+h1 {
+  max-width: 12ch;
+  margin: 0 auto;
+  color: #fff8ea;
+  font-size: clamp(3rem, 9vw, 7.6rem);
+  font-weight: 1000;
+  line-height: 0.88;
+  letter-spacing: -0.085em;
+  text-wrap: balance;
+  text-shadow:
+    0 0.08em 0.1em rgb(0 0 0 / 86%),
+    0 0.24em 0.85em rgb(0 0 0 / 68%),
+    0 0 2.7rem rgb(232 184 92 / 28%);
 }
 
-.action-panel small {
-  margin-top: 0.25rem;
-  color: var(--muted);
+.dashboard-welcome > p:not(.welcome-kicker) {
+  max-width: 44rem;
+  margin: 0 auto;
+  color: rgb(236 228 210 / 86%);
+  font-size: clamp(1.05rem, 2.1vw, 1.45rem);
+  font-weight: 650;
+  line-height: 1.45;
+  text-wrap: balance;
+  text-shadow: 0 0.15rem 1.1rem rgb(0 0 0 / 82%);
 }
 
 @media (max-width: 720px) {
-  .page-grid,
-  .dashboard-grid {
-    grid-template-columns: 1fr;
+  .dashboard-welcome {
+    min-height: 30rem;
+    padding-block: 3rem;
+  }
+
+  .dashboard-welcome::before {
+    white-space: normal;
+  }
+
+  h1 {
+    max-width: 10ch;
   }
 }

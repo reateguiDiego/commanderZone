@@ -106,6 +106,8 @@
                     class="player-card"
                     [class.host]="isHost(room, player.user.id)"
                     [class.current]="isCurrentUser(player.user.id)"
+                    [class.has-deck-art]="playerDeckArt(player)"
+                    [style.--player-deck-art]="playerDeckBackground(player)"
                     [style.view-transition-name]="'waiting-player-' + player.id"
                   >
                     @if (isHost(room, player.user.id)) {
@@ -193,7 +195,10 @@
                         {{ updatingDeck() ? 'Updating...' : 'Confirm deck' }}
                       </button>
                     } @else {
-                      <small class="deck-name">{{ deckName(player.deckId) }}</small>
+                      <small class="deck-name">{{ playerDeckName(player) }}</small>
+                      @if (playerDeckColorIdentity(player).length > 0) {
+                        <app-mana-symbols class="deck-colors selected-player-colors" [symbols]="playerDeckColorIdentity(player)" fallback="Colorless" />
+                      }
                     }
                   </article>
             }

@@ -1,6 +1,8 @@
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, provideRouter } from '@angular/router';
+import { of } from 'rxjs';
+import { AuthApi } from '../../../core/api/auth.api';
 import { AuthStore } from '../../../core/auth/auth.store';
 import { AuthPageComponent } from './auth-page.component';
 
@@ -19,8 +21,16 @@ describe('AuthPageComponent', () => {
           useValue: {
             error: signal<string | null>(null),
             loading: signal(false),
+            clearError: vi.fn(),
             login: vi.fn().mockResolvedValue(undefined),
             register: vi.fn().mockResolvedValue(undefined),
+          },
+        },
+        {
+          provide: AuthApi,
+          useValue: {
+            checkEmailAvailability: vi.fn().mockReturnValue(of({ available: true })),
+            checkDisplayNameAvailability: vi.fn().mockReturnValue(of({ available: true })),
           },
         },
       ],
@@ -41,5 +51,37 @@ describe('AuthPageComponent', () => {
     const fixture = await create('auth/register');
 
     expect(fixture.componentInstance.mode()).toBe('register');
+  });
+
+  it('keeps login disabled until email and password are valid', async () => {
+    const fixture = await create('auth/login');
+    const component = fixture.componentInstance;
+
+    expect(component.canSubmitLogin()).toBe(false);
+
+    component.loginForm.setValue({ email: 'bad-email', password: 'password123' });
+    expect(component.canSubmitLogin()).toBe(false);
+
+    component.loginForm.setValue({ email: 'player@example.test', password: 'password123' });
+    expect(component.canSubmitLogin()).toBe(true);
+  });
+
+  it('requires valid fields, available email and available user name before enabling register', async () => {
+    const fixture = await create('auth/register');
+    const component = fixture.componentInstance;
+
+    component.registerForm.setValue({
+      email: 'player@example.test',
+      displayName: 'Player',
+      password: 'password123',
+    });
+
+    expect(component.canSubmitRegister()).toBe(false);
+
+    component.emailAvailability.set('available');
+    expect(component.canSubmitRegister()).toBe(false);
+
+    component.userNameAvailability.set('available');
+    expect(component.canSubmitRegister()).toBe(true);
   });
 });

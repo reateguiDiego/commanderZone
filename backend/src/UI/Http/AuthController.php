@@ -13,6 +13,28 @@ use Symfony\Component\Security\Http\Attribute\CurrentUser;
 
 class AuthController extends ApiController
 {
+    private const MIN_DISPLAY_NAME_LENGTH = 4;
+
+    #[Route('/auth/email-availability', methods: ['GET'])]
+    public function emailAvailability(Request $request, EntityManagerInterface $entityManager): JsonResponse
+    {
+        $email = trim((string) $request->query->get('email', ''));
+
+        return $this->json([
+            'available' => filter_var($email, FILTER_VALIDATE_EMAIL) !== false && !$this->emailExists($entityManager, $email),
+        ]);
+    }
+
+    #[Route('/auth/display-name-availability', methods: ['GET'])]
+    public function displayNameAvailability(Request $request, EntityManagerInterface $entityManager): JsonResponse
+    {
+        $displayName = trim((string) $request->query->get('displayName', ''));
+
+        return $this->json([
+            'available' => $this->isDisplayNameValid($displayName) && !$this->displayNameExists($entityManager, $displayName),
+        ]);
+    }
+
     #[Route('/auth/register', methods: ['POST'])]
     public function register(Request $request, EntityManagerInterface $entityManager, UserPasswordHasherInterface $passwordHasher): JsonResponse
     {
@@ -21,12 +43,16 @@ class AuthController extends ApiController
         $password = (string) ($payload['password'] ?? '');
         $displayName = trim((string) ($payload['displayName'] ?? ''));
 
-        if (!filter_var($email, FILTER_VALIDATE_EMAIL) || mb_strlen($password) < 8 || $displayName === '') {
-            return $this->fail('email, displayName and a password of at least 8 chars are required.');
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL) || mb_strlen($password) < 8 || !$this->isDisplayNameValid($displayName)) {
+            return $this->fail('email, user name of at least 4 chars and a password of at least 8 chars are required.');
         }
 
-        if ($entityManager->getRepository(User::class)->findOneBy(['email' => mb_strtolower($email)]) !== null) {
+        if ($this->emailExists($entityManager, $email)) {
             return $this->fail('Email is already registered.', 409);
+        }
+
+        if ($this->displayNameExists($entityManager, $displayName)) {
+            return $this->fail('User name is already taken.', 409);
         }
 
         $user = new User($email, $displayName);
@@ -58,14 +84,45 @@ class AuthController extends ApiController
     {
         $payload = $this->payload($request);
         $displayName = trim((string) ($payload['displayName'] ?? ''));
-        if ($displayName === '') {
-            return $this->fail('displayName is required.');
+        if (!$this->isDisplayNameValid($displayName)) {
+            return $this->fail('User name must contain at least 4 chars.');
+        }
+
+        if ($this->displayNameExists($entityManager, $displayName, $user)) {
+            return $this->fail('User name is already taken.', 409);
         }
 
         $user->rename($displayName);
         $entityManager->flush();
 
         return $this->json(['user' => $user->toArray()]);
+    }
+
+    private function isDisplayNameValid(string $displayName): bool
+    {
+        return mb_strlen(trim($displayName)) >= self::MIN_DISPLAY_NAME_LENGTH;
+    }
+
+    private function emailExists(EntityManagerInterface $entityManager, string $email): bool
+    {
+        return $entityManager->getRepository(User::class)->findOneBy(['email' => mb_strtolower(trim($email))]) !== null;
+    }
+
+    private function displayNameExists(EntityManagerInterface $entityManager, string $displayName, ?User $ignoredUser = null): bool
+    {
+        $queryBuilder = $entityManager->getRepository(User::class)->createQueryBuilder('user')
+            ->select('user.id')
+            ->where('LOWER(user.displayName) = :displayName')
+            ->setParameter('displayName', mb_strtolower(trim($displayName)))
+            ->setMaxResults(1);
+
+        if ($ignoredUser !== null) {
+            $queryBuilder
+                ->andWhere('user.id != :ignoredUserId')
+                ->setParameter('ignoredUserId', $ignoredUser->id());
+        }
+
+        return $queryBuilder->getQuery()->getOneOrNullResult() !== null;
     }
 
     #[Route('/me/password', methods: ['PATCH'])]

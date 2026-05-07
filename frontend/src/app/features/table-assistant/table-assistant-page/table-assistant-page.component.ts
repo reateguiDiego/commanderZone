@@ -1,5 +1,5 @@
-import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
+import { PageHeaderStore } from '../../../core/ui/page-header.store';
 import { TableAssistantSetupComponent } from '../table-assistant-setup/table-assistant-setup.component';
 
 interface Benefit {
@@ -9,42 +9,65 @@ interface Benefit {
 
 @Component({
   selector: 'app-table-assistant-page',
-  imports: [RouterLink, TableAssistantSetupComponent],
+  imports: [TableAssistantSetupComponent],
   templateUrl: './table-assistant-page.component.html',
   styleUrl: './table-assistant-page.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class TableAssistantPageComponent {
+export class TableAssistantPageComponent implements OnInit, OnDestroy {
+  private readonly pageHeader = inject(PageHeaderStore);
+
   readonly setupOpen = signal(false);
   readonly benefits: Benefit[] = [
     {
-      title: 'Vidas siempre claras',
-      description: 'Actualiza vidas rapido con controles grandes pensados para usar durante la partida.',
+      title: 'Vidas y comandante',
+      description: 'Controla vidas y daño de comandante sin convertir la partida en una hoja de calculo.',
     },
     {
-      title: 'Turnos y fases bajo control',
-      description: 'Marca el jugador activo, pasa turno y activa fases solo si tu mesa las necesita.',
+      title: 'Turnos simples',
+      description: 'Marca jugador activo y temporizador si la mesa quiere ritmo, sin reglas automaticas.',
     },
     {
-      title: 'Daño de comandante sin líos',
-      description: 'Registra el daño recibido de cada comandante y detecta amenazas letales de un vistazo.',
-    },
-    {
-      title: 'Uno o varios moviles',
-      description: 'Usad un unico dispositivo en el centro de la mesa o conectad un movil por jugador.',
-    },
-    {
-      title: 'Invita a tus amigos',
-      description: 'Comparte la sala con un enlace, un codigo o invita directamente a tus amigos de CommanderZone.',
-    },
-    {
-      title: 'Trackers configurables',
-      description: 'Activa solo lo que necesitas: veneno, commander tax, energia, experiencia, monarch, initiative y storm.',
-    },
-    {
-      title: 'Temporizadores flexibles',
-      description: 'Juega sin timer, con temporizador por turno o con temporizador por fase.',
+      title: 'Mesa compartida',
+      description: 'Pensado para un unico movil o tablet en el centro de la mesa.',
     },
   ];
-}
 
+  ngOnInit(): void {
+    this.setHeader();
+  }
+
+  ngOnDestroy(): void {
+    this.pageHeader.clear();
+  }
+
+  openSetup(): void {
+    if (this.setupOpen()) {
+      return;
+    }
+
+    this.setupOpen.set(true);
+    this.setHeader();
+  }
+
+  handleSetupDestroyed(): void {
+    this.setupOpen.set(false);
+    this.setHeader();
+  }
+
+  private setHeader(): void {
+    this.pageHeader.set({
+      title: 'Asistente de Mesa',
+      actions: [
+        {
+          id: 'start-table-assistant',
+          label: 'Empezar partida',
+          icon: 'play',
+          disabled: this.setupOpen(),
+          variant: 'primary',
+          execute: () => this.openSetup(),
+        },
+      ],
+    });
+  }
+}

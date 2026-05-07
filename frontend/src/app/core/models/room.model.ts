@@ -1,4 +1,5 @@
 import { User } from './user.model';
+import { Deck } from './deck.model';
 
 export type RoomStatus = 'waiting' | 'started' | 'archived';
 export type RoomVisibility = 'private' | 'public';
@@ -8,6 +9,7 @@ export interface RoomPlayer {
   id: string;
   user: User;
   deckId: string | null;
+  deck?: Deck | null;
   turnRoll: number | null;
 }
 

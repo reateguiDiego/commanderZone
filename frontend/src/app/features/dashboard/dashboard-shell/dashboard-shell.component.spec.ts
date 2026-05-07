@@ -53,7 +53,8 @@ describe('DashboardShellComponent', () => {
     const fixture = TestBed.createComponent(DashboardShellComponent);
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.textContent).toContain('CommanderZone');
+    const brandLogo = fixture.nativeElement.querySelector('.brand-mark img') as HTMLImageElement | null;
+    expect(brandLogo?.getAttribute('src')).toBe('assets/icons/CM_logo.png');
     expect(fixture.nativeElement.textContent).toContain('Player');
   });
 
@@ -62,7 +63,8 @@ describe('DashboardShellComponent', () => {
     fixture.componentInstance.roomFocus.set(true);
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.textContent).toContain('CZ');
+    const brandLogo = fixture.nativeElement.querySelector('.brand-mark img') as HTMLImageElement | null;
+    expect(brandLogo?.getAttribute('src')).toBe('assets/icons/CM_logo.png');
     expect(fixture.nativeElement.textContent).not.toContain('Decks');
     expect(fixture.nativeElement.textContent).not.toContain('Rooms');
     expect(fixture.nativeElement.textContent).not.toContain('Player');

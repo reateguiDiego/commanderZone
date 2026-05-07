@@ -1,5 +1,12 @@
 @if (store.cardMenu(); as menu) {
+  <div class="card-menu-backdrop" (click)="store.closeCardMenu()"></div>
   <div class="card-row-menu" [style.top.px]="menu.top" [style.left.px]="menu.left" (click)="$event.stopPropagation()">
+    <header class="card-menu-header">
+      <span>Editing card</span>
+      <strong>{{ entry().card.name }}</strong>
+      <small>{{ entry().quantity }} {{ entry().quantity === 1 ? 'copy' : 'copies' }} in {{ entry().section }}</small>
+    </header>
+
     <section class="card-menu-quantity-panel" aria-label="Copy quantity controls">
       <label class="card-menu-amount" title="Quantity to add or remove">
         <span>Quantity</span>

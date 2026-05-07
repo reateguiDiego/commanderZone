@@ -134,6 +134,7 @@ export class DeckEditorStore {
   readonly manaSourceProfiles = computed(() => this.buildManaSourceProfiles());
   readonly manaSourceTotal = computed(() => this.manaSourceProfiles().reduce((sum, profile) => sum + profile.sourceCount, 0));
   readonly manaSourceDonutBackground = computed(() => this.buildManaSourceDonutBackground());
+  readonly deckColorIdentitySymbols = computed(() => this.deckColorIdentity());
   readonly missingItems = computed(() => this.buildMissingItems());
   readonly cardGroups = computed(() => this.buildCardGroups());
   readonly cardColumns = computed(() => this.buildCardColumns());
@@ -252,6 +253,19 @@ export class DeckEditorStore {
 
   closeImportModal(): void {
     this.importModalOpen.set(false);
+  }
+
+  exportDeck(deck: Deck): void {
+    const decklist = this.importExport.toBackendDecklist(this.importExport.entriesFromDeck(deck));
+    const blob = new Blob([decklist], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `${this.exportFileName(deck.name)}.txt`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
   }
 
   toggleGroup(groupId: string): void {
@@ -491,6 +505,10 @@ export class DeckEditorStore {
     this.hideCardPreview();
     const current = this.cardMenu();
     if (current?.entryId === entry.id) {
+      this.cardMenu.set(null);
+      return;
+    }
+    if (current) {
       this.cardMenu.set(null);
       return;
     }
@@ -1265,6 +1283,14 @@ export class DeckEditorStore {
     const width = 300;
     const height = 315;
     const margin = 12;
+    const shouldCenter = window.innerWidth <= 720 || window.innerHeight <= 640;
+
+    if (shouldCenter) {
+      return {
+        left: Math.max(margin, (window.innerWidth - width) / 2),
+        top: Math.max(margin, (window.innerHeight - height) / 2),
+      };
+    }
 
     return {
       left: Math.min(Math.max(margin, event.clientX + 10), Math.max(margin, window.innerWidth - width - margin)),
@@ -1314,6 +1340,15 @@ export class DeckEditorStore {
   private formatValidationEntry(entry: { title: string; detail: string; cards: string[] }): string {
     const cards = entry.cards.length > 0 ? `: ${entry.cards.join(', ')}` : '';
     return `${entry.title}${cards}. ${entry.detail}`;
+  }
+
+  private exportFileName(name: string): string {
+    return name
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      || 'deck';
   }
 }
 

@@ -4,84 +4,89 @@
   width: 100%;
 }
 
-.intro-section {
+.assistant-overview {
   display: grid;
-  min-height: 24rem;
-  align-items: end;
-  border-radius: 8px;
-  padding: 1rem;
+  grid-template-columns: minmax(0, 1fr) minmax(16rem, 0.42fr);
+  gap: 1rem;
+  align-items: stretch;
+  border: 1px solid rgb(215 180 106 / 28%);
+  border-radius: 18px;
+  padding: clamp(1rem, 2.4vw, 1.5rem);
   background:
-    linear-gradient(90deg, rgb(2 6 23 / 92%), rgb(2 6 23 / 55)),
-    url('https://images.unsplash.com/photo-1606503153255-59d8b8b82176?auto=format&fit=crop&w=1400&q=80') center/cover;
+    linear-gradient(135deg, rgb(16 18 12 / 88%), rgb(7 10 8 / 72%)),
+    radial-gradient(circle at 16% 0%, rgb(191 143 55 / 26%), transparent 32%),
+    radial-gradient(circle at 92% 12%, rgb(90 124 78 / 24%), transparent 34%);
+  box-shadow: 0 18px 48px rgb(0 0 0 / 28%);
 }
 
-.intro-copy {
+.overview-copy {
   display: grid;
-  gap: 0.75rem;
-  max-width: 46rem;
+  align-content: center;
+  gap: 0.65rem;
+  min-width: 0;
 }
 
-.intro-copy h1 {
+.overview-copy h2,
+.overview-copy p,
+.overview-card strong,
+.overview-card span {
   margin: 0;
-  font-size: clamp(2.4rem, 7vw, 5rem);
-  line-height: 0.95;
 }
 
-.intro-copy p {
-  margin: 0;
-  color: rgb(226 232 240 / 82%);
+.overview-copy h2 {
+  max-width: 48rem;
+  color: var(--text);
+  font-size: clamp(1.55rem, 3vw, 2.6rem);
+  line-height: 1.02;
 }
 
-.subtitle {
-  font-size: 1.2rem;
-  font-weight: 800;
-  color: white;
+.overview-copy p {
+  max-width: 42rem;
+  color: var(--muted);
+  font-size: clamp(0.98rem, 1.2vw, 1.08rem);
+  line-height: 1.55;
 }
 
-.value-copy {
-  max-width: 40rem;
+.overview-card {
+  display: grid;
+  align-content: center;
+  gap: 0.55rem;
+  border: 1px solid rgb(255 255 255 / 10%);
+  border-radius: 16px;
+  padding: 1rem;
+  background: rgb(8 12 8 / 58%);
 }
 
-.cta-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
+.overview-card strong {
+  color: var(--accent);
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
-.primary-button,
-.secondary-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 3rem;
-  border: 1px solid rgb(255 255 255 / 14%);
-  border-radius: 8px;
-  padding: 0 1rem;
-  text-decoration: none;
-  font-weight: 800;
-}
-
-.primary-button {
-  border-color: #67e8f9;
-  background: #67e8f9;
-  color: #082f49;
-}
-
-.secondary-button {
-  background: rgb(255 255 255 / 9%);
-  color: white;
+.overview-card span {
+  min-height: 2.25rem;
+  border: 1px solid rgb(255 255 255 / 8%);
+  border-radius: 10px;
+  padding: 0.55rem 0.7rem;
+  background: rgb(255 255 255 / 4%);
+  color: var(--text);
+  font-weight: 700;
 }
 
 .benefit-grid {
   display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.75rem;
 }
 
 .benefit-card {
-  border: 1px solid rgb(255 255 255 / 10%);
-  border-radius: 8px;
+  border: 1px solid rgb(126 148 112 / 30%);
+  border-radius: 16px;
   padding: 1rem;
-  background: rgb(255 255 255 / 5%);
+  background:
+    linear-gradient(145deg, rgb(18 25 17 / 82%), rgb(8 10 8 / 74%));
+  box-shadow: 0 14px 36px rgb(0 0 0 / 18%);
 }
 
 .benefit-card h2,
@@ -90,66 +95,61 @@
 }
 
 .benefit-card h2 {
+  color: var(--text);
   font-size: 1rem;
 }
 
 .benefit-card p {
   margin-top: 0.4rem;
-  color: rgb(226 232 240 / 72%);
+  color: var(--muted);
+  line-height: 1.45;
 }
 
-@media (min-width: 760px) {
-  .intro-section {
-    min-height: 28rem;
-    padding: 2rem;
-  }
-
+@media (max-width: 920px) {
+  .assistant-overview,
   .benefit-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: 1fr;
   }
 }
 
 @media (max-width: 680px) {
   .table-assistant-page {
+    gap: 0.7rem;
+  }
+
+  .assistant-overview {
     gap: 0.75rem;
-  }
-
-  .intro-section {
-    min-height: auto;
+    border-radius: 15px;
     padding: 0.85rem;
-    background:
-      linear-gradient(90deg, rgb(2 6 23 / 94%), rgb(2 6 23 / 78%)),
-      url('https://images.unsplash.com/photo-1606503153255-59d8b8b82176?auto=format&fit=crop&w=900&q=70') center/cover;
   }
 
-  .intro-copy {
+  .overview-copy {
+    gap: 0.45rem;
+  }
+
+  .overview-copy h2 {
+    font-size: 1.45rem;
+  }
+
+  .overview-copy p {
+    font-size: 0.92rem;
+  }
+
+  .overview-card {
+    gap: 0.4rem;
+    padding: 0.75rem;
+  }
+
+  .overview-card span {
+    min-height: 2rem;
+    padding: 0.45rem 0.6rem;
+  }
+
+  .benefit-grid {
     gap: 0.55rem;
   }
 
-  .intro-copy h1 {
-    font-size: 2.15rem;
-    line-height: 1;
-  }
-
-  .intro-copy > p:not(.subtitle),
-  .intro-copy small,
-  .value-copy,
-  .benefit-grid {
-    display: none;
-  }
-
-  .subtitle {
-    font-size: 0.98rem;
-  }
-
-  .cta-row {
-    gap: 0.5rem;
-  }
-
-  .primary-button,
-  .secondary-button {
-    min-height: 2.65rem;
-    padding: 0 0.75rem;
+  .benefit-card {
+    padding: 0.75rem;
   }
 }
-

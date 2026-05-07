@@ -1,0 +1,70 @@
+@if (header(); as headerState) {
+  <div class="page-header-context">
+    <div class="page-header-title">
+      @if (headerState.eyebrow) {
+        <span class="eyebrow">{{ headerState.eyebrow }}</span>
+      }
+      <div class="page-header-title-line">
+        <h1>{{ headerState.title }}</h1>
+        @if (headerState.titleWarning; as warning) {
+          <span
+            class="page-title-warning"
+            [class.tone-danger]="warning.tone === 'danger'"
+            [attr.title]="warning.tooltip"
+            [attr.aria-label]="warning.label"
+          >
+            <lucide-icon [name]="warning.icon" size="20" />
+          </span>
+        }
+      </div>
+    </div>
+
+    <div
+      class="page-header-detail-row"
+      [class.has-stats]="headerState.stats?.length"
+      [class.has-actions]="headerState.actions?.length"
+    >
+      @if (headerState.stats?.length) {
+        <div class="page-header-stats" aria-label="Page summary">
+          @for (stat of headerState.stats; track stat.id) {
+            <div
+              class="header-stat"
+              [class.tone-success]="stat.tone === 'success'"
+              [class.tone-private]="stat.tone === 'private'"
+              [class.tone-started]="stat.tone === 'started'"
+            >
+              @if (stat.icon) {
+                <lucide-icon [name]="stat.icon" size="14" />
+              }
+              <span>{{ stat.label }}</span>
+              <strong>{{ stat.value }}</strong>
+            </div>
+          }
+        </div>
+      }
+
+      @if (headerState.actions?.length) {
+        <div class="page-header-actions">
+          @for (action of headerState.actions; track action.id) {
+            <button
+              class="compact"
+              type="button"
+              [class.icon-only]="action.iconOnly"
+              [class.primary-button]="action.variant === 'primary'"
+              [class.secondary-button]="action.variant === 'secondary'"
+              [attr.title]="action.tooltip ?? null"
+              [attr.aria-label]="action.iconOnly ? action.label : null"
+              [disabled]="action.disabled"
+              (click)="action.execute()"
+            >
+              @if (action.icon) {
+                <lucide-icon [name]="action.icon" size="16" />
+              }
+              <span [class.sr-only]="action.iconOnly">{{ action.label }}</span>
+            </button>
+          }
+        </div>
+      }
+    </div>
+  </div>
+}

@@ -1,9 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import { of } from 'rxjs';
-import { FriendsApi } from '../../../core/api/friends.api';
-import { RoomsApi } from '../../../core/api/rooms.api';
-import { AuthStore } from '../../../core/auth/auth.store';
+import { PageHeaderStore } from '../../../core/ui/page-header.store';
 import { TableAssistantApi } from '../data-access/table-assistant.api';
 import { TableAssistantPageComponent } from './table-assistant-page.component';
 
@@ -14,25 +11,24 @@ describe('TableAssistantPageComponent', () => {
       providers: [
         provideRouter([]),
         { provide: TableAssistantApi, useValue: { create: vi.fn() } },
-        { provide: RoomsApi, useValue: { invite: vi.fn() } },
-        { provide: FriendsApi, useValue: { list: vi.fn().mockReturnValue(of({ data: [] })) } },
-        { provide: AuthStore, useValue: { user: () => ({ id: 'user-1', email: 'owner@test', displayName: 'Owner' }) } },
       ],
     }).compileComponents();
   });
 
-  it('renders intro copy and opens setup from CTA', () => {
+  it('registers the page header action and opens setup from it', () => {
     const fixture = TestBed.createComponent(TableAssistantPageComponent);
+    const pageHeader = TestBed.inject(PageHeaderStore);
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.textContent).toContain('Asistente de Mesa');
-    expect(fixture.nativeElement.textContent).toContain('Empezar partida');
+    expect(pageHeader.state()?.title).toBe('Asistente de Mesa');
+    expect(pageHeader.state()?.actions?.[0]?.label).toBe('Empezar partida');
+    expect(fixture.nativeElement.textContent).toContain('Mesa manual de Commander');
 
-    fixture.nativeElement.querySelector('.primary-button').click();
+    pageHeader.state()?.actions?.[0]?.execute();
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.textContent).toContain('Configura lo justo para empezar');
-    expect(fixture.nativeElement.textContent).toContain('Un dispositivo en la mesa');
+    expect(pageHeader.state()?.actions?.[0]?.disabled).toBe(true);
+    expect(fixture.nativeElement.textContent).toContain('Configura la mesa');
+    expect(fixture.nativeElement.textContent).not.toContain('Un movil por jugador');
   });
 });
-

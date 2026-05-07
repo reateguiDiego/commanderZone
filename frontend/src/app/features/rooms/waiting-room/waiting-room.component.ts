@@ -11,10 +11,11 @@ import { AuthStore } from '../../../core/auth/auth.store';
 import { CommanderValidation, Deck } from '../../../core/models/deck.model';
 import { FriendUser } from '../../../core/models/friendship.model';
 import { RoomInvite } from '../../../core/models/room-invite.model';
-import { Room, WaitingRoomEvent } from '../../../core/models/room.model';
+import { Room, RoomPlayer, WaitingRoomEvent } from '../../../core/models/room.model';
 import { MercureService } from '../../../core/realtime/mercure.service';
 import { ManaSymbolsComponent } from '../../../shared/mana/mana-symbols/mana-symbols.component';
 import { AppModalComponent } from '../../../shared/ui/app-modal/app-modal.component';
+import { bestCardArtImage } from '../../../shared/utils/card-image';
 
 @Component({
   selector: 'app-waiting-room',
@@ -361,12 +362,38 @@ export class WaitingRoomComponent implements OnDestroy {
     return this.decks().find((deck) => deck.id === deckId)?.name ?? 'Selected deck';
   }
 
+  playerDeck(player: RoomPlayer): Deck | null {
+    if (this.isCurrentUser(player.user.id)) {
+      return this.selectedDeck() ?? player.deck ?? this.deckById(player.deckId);
+    }
+
+    return player.deck ?? this.deckById(player.deckId);
+  }
+
+  playerDeckName(player: RoomPlayer): string {
+    return this.playerDeck(player)?.name ?? this.deckName(player.deckId);
+  }
+
+  playerDeckArt(player: RoomPlayer): string | null {
+    return bestCardArtImage(this.playerDeck(player)?.commander ?? null);
+  }
+
+  playerDeckBackground(player: RoomPlayer): string | null {
+    const imageUrl = this.playerDeckArt(player);
+
+    return imageUrl ? `url("${imageUrl}")` : null;
+  }
+
+  playerDeckColorIdentity(player: RoomPlayer): readonly string[] {
+    return this.playerDeck(player)?.commander?.colorIdentity ?? [];
+  }
+
   selectedDeckName(): string {
     return this.deckName(this.selectedDeckId || null);
   }
 
   selectedDeck(): Deck | null {
-    return this.decks().find((deck) => deck.id === this.selectedDeckId) ?? null;
+    return this.deckById(this.selectedDeckId);
   }
 
   isDeckInvalid(deckId: string): boolean {
@@ -441,6 +468,14 @@ export class WaitingRoomComponent implements OnDestroy {
     } catch {
       this.error.set('Could not load decks.');
     }
+  }
+
+  private deckById(deckId: string | null): Deck | null {
+    if (!deckId) {
+      return null;
+    }
+
+    return this.decks().find((deck) => deck.id === deckId) ?? null;
   }
 
   private async copyText(text: string, target: 'code' | 'link'): Promise<void> {

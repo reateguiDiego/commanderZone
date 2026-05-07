@@ -41,6 +41,18 @@ class TableAssistantApiTest extends ApiTestCase
         self::assertSame('player-2', $joined['state']['participants'][1]['assignedPlayerId']);
     }
 
+    public function testTableAssistantRoomCannotBeCreatedWithOnePlayer(): void
+    {
+        $ownerToken = $this->registerAndLogin('single-table-owner@example.test', 'Single Table Owner');
+
+        $this->jsonRequest('POST', '/table-assistant/rooms', [
+            'mode' => 'single-device',
+            'playerCount' => 1,
+        ], $ownerToken);
+
+        self::assertResponseStatusCodeSame(422);
+    }
+
     public function testActionsAreVersionedAndIdempotent(): void
     {
         $ownerToken = $this->registerAndLogin('action-owner@example.test', 'Action Owner');

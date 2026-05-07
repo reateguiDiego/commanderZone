@@ -3,10 +3,11 @@ import { LucideAngularModule } from 'lucide-angular';
 import { ManaSymbolsComponent } from '../../../../shared/mana/mana-symbols/mana-symbols.component';
 import { DeckEditorStore } from '../../data-access/deck-editor.store';
 import { DeckCardMenuComponent } from '../deck-card-menu/deck-card-menu.component';
+import { DeckCommanderShowcaseComponent } from '../deck-commander-showcase/deck-commander-showcase.component';
 
 @Component({
   selector: 'app-deck-card-text-view',
-  imports: [LucideAngularModule, ManaSymbolsComponent, DeckCardMenuComponent],
+  imports: [LucideAngularModule, ManaSymbolsComponent, DeckCardMenuComponent, DeckCommanderShowcaseComponent],
   templateUrl: './deck-card-text-view.component.html',
   styleUrl: './deck-card-text-view.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

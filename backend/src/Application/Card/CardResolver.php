@@ -91,8 +91,34 @@ class CardResolver
             }
         }
 
-        return $this->entityManager->getRepository(Card::class)->findOneBy([
-            'normalizedName' => Card::normalizeName((string) ($entry['name'] ?? '')),
-        ]);
+        return $this->resolveDecklistName((string) ($entry['name'] ?? ''));
+    }
+
+    private function resolveDecklistName(string $name): ?Card
+    {
+        $normalizedName = Card::normalizeName($name);
+        if ($normalizedName === '') {
+            return null;
+        }
+
+        $repository = $this->entityManager->getRepository(Card::class);
+        $exact = $repository->findOneBy(['normalizedName' => $normalizedName]);
+        if ($exact instanceof Card) {
+            return $exact;
+        }
+
+        $matches = $repository->createQueryBuilder('card')
+            ->andWhere('card.normalizedName LIKE :frontFace OR card.normalizedName LIKE :backFace')
+            ->setParameter('frontFace', $normalizedName.' // %')
+            ->setParameter('backFace', '% // '.$normalizedName)
+            ->orderBy('card.commanderLegal', 'DESC')
+            ->addOrderBy('card.normalizedName', 'ASC')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getResult();
+
+        $match = $matches[0] ?? null;
+
+        return $match instanceof Card ? $match : null;
     }
 }

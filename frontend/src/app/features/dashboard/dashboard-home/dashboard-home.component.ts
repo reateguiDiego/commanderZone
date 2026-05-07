@@ -1,12 +1,14 @@
-import { ChangeDetectionStrategy, Component } from '@angular/core';
-import { RouterLink } from '@angular/router';
-import { LucideAngularModule } from 'lucide-angular';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { AuthStore } from '../../../core/auth/auth.store';
 
 @Component({
   selector: 'app-dashboard-home',
-  imports: [RouterLink, LucideAngularModule],
   templateUrl: './dashboard-home.component.html',
   styleUrl: './dashboard-home.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class DashboardHomeComponent {}
+export class DashboardHomeComponent {
+  private readonly auth = inject(AuthStore);
+
+  readonly userName = computed(() => this.auth.user()?.displayName ?? 'Planeswalker');
+}

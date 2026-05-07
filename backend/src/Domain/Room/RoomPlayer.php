@@ -82,6 +82,7 @@ class RoomPlayer
             'id' => $this->id,
             'user' => $this->user->toArray(),
             'deckId' => $this->deck?->id(),
+            'deck' => $this->deck?->toArray(),
             'turnRoll' => $this->turnRoll,
         ];
     }

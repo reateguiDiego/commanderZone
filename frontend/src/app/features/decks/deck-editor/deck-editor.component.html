@@ -1,60 +1,33 @@
 <section class="page-stack">
-  <a class="text-button" routerLink="/decks">
-    <lucide-icon name="arrow-left" size="16" />
-    Back to decks
-  </a>
-
   @if (store.loading()) {
     <p class="notice">Loading deck...</p>
   } @else if (store.error()) {
     <p class="notice error">{{ store.error() }}</p>
   } @else if (store.deck(); as deck) {
-    <div class="tool-header">
-      <div>
-        <span class="eyebrow">Deck editor</span>
-        <h2 class="deck-title">
-          {{ deck.name }}
-          @if (store.hasDeckIssues()) {
-            <lucide-icon
-              class="deck-title-warning"
-              name="triangle-alert"
-              size="24"
-              [attr.title]="store.deckIssueTooltip()"
-              aria-label="Deck warnings"
-            />
-          }
-        </h2>
-      </div>
-      <div class="deck-editor-header-actions">
-        <div class="deck-search-stack">
-          <app-card-autocomplete
-            placeholder="Add cards by name"
-            actionLabel="Add"
-            [showQuantity]="true"
-            [clearOnSelect]="true"
-            (cardSelected)="store.addSearchedCard($event.card, $event.quantity)"
-          />
-        </div>
-        <button class="primary-button compact" type="button" (click)="store.openImportModal()">
-          <lucide-icon name="upload" size="16" />
-          Import
-        </button>
-      </div>
-    </div>
-
     <section class="panel deck-catalog-panel">
       <div class="deck-summary">
-        <div>
+        <div class="deck-summary-counts">
           <strong>{{ store.totalCards() }} cards</strong>
           <span>{{ store.cardGroups().length }} sections</span>
         </div>
-        <label class="view-mode-select">
-          View
-          <select name="deckViewMode" [ngModel]="store.viewMode()" (ngModelChange)="store.viewMode.set($event)">
-            <option value="text">Text</option>
-            <option value="spoiler">Spoiler</option>
-          </select>
-        </label>
+        <div class="deck-summary-controls">
+          <div class="deck-search-stack">
+            <app-card-autocomplete
+              placeholder="Add cards by name"
+              actionLabel="Add"
+              [showQuantity]="true"
+              [clearOnSelect]="true"
+              (cardSelected)="store.addSearchedCard($event.card, $event.quantity)"
+            />
+          </div>
+          <label class="view-mode-select">
+            <span class="sr-only">View</span>
+            <select name="deckViewMode" [ngModel]="store.viewMode()" (ngModelChange)="store.viewMode.set($event)">
+              <option value="text">Text</option>
+              <option value="spoiler">Spoiler</option>
+            </select>
+          </label>
+        </div>
       </div>
 
       @if (store.viewMode() === 'text') {

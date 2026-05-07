@@ -4,6 +4,7 @@ import { firstValueFrom } from 'rxjs';
 import { API_BASE_URL } from '../api/api.config';
 import { AuthApi } from '../api/auth.api';
 import { User } from '../models/user.model';
+import { AppBackgroundService } from '../ui/app-background.service';
 
 const TOKEN_KEY = 'commanderzone.jwt';
 const USER_KEY = 'commanderzone.user';
@@ -11,6 +12,7 @@ const USER_KEY = 'commanderzone.user';
 @Injectable({ providedIn: 'root' })
 export class AuthStore {
   private readonly authApi = inject(AuthApi);
+  private readonly appBackground = inject(AppBackgroundService);
   private readonly tokenState = signal<string | null>(readStoredToken());
   private readonly userState = signal<User | null>(readStoredUser());
   private readonly loadingState = signal(false);
@@ -42,6 +44,7 @@ export class AuthStore {
       const response = await firstValueFrom(this.authApi.login({ email, password }));
       this.setToken(response.token);
       await this.loadMe();
+      this.appBackground.useNewSessionBackground();
     } catch (error) {
       this.clearSession();
       this.errorState.set(errorMessageFromResponse(error, 'Could not login.'));
@@ -60,6 +63,7 @@ export class AuthStore {
       const response = await firstValueFrom(this.authApi.login({ email, password }));
       this.setToken(response.token);
       await this.loadMe();
+      this.appBackground.useNewSessionBackground();
     } catch (error) {
       this.clearSession();
       this.errorState.set(errorMessageFromResponse(error, 'Could not create account.'));
@@ -86,6 +90,7 @@ export class AuthStore {
   async logout(): Promise<void> {
     await this.markOffline();
     this.clearSession();
+    this.appBackground.useNewSessionBackground();
   }
 
   async markOffline(): Promise<void> {
@@ -124,6 +129,10 @@ export class AuthStore {
     this.userState.set(null);
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
+  }
+
+  clearError(): void {
+    this.errorState.set(null);
   }
 
   private setToken(token: string): void {

@@ -1,55 +1,6 @@
 <section class="page-stack">
   <div class="rooms-shell">
     <div class="rooms-main">
-      <section class="rooms-hero panel">
-        <div class="tool-header rooms-title-row">
-          <div class="rooms-title">
-            <span class="eyebrow">Rooms</span>
-            <h2>Game Rooms</h2>
-            <p>Create a room or join an existing one to start your next commander match.</p>
-          </div>
-        </div>
-
-        <div class="rooms-metrics">
-          <article class="metric-card">
-            <div class="metric-icon metric-icon-active">
-              <lucide-icon name="building-2" size="16" />
-            </div>
-            <div>
-              <span class="metric-label">Active rooms</span>
-              <strong>{{ activeRoomsCount() }}</strong>
-            </div>
-          </article>
-          <article class="metric-card">
-            <div class="metric-icon metric-icon-open">
-              <lucide-icon name="door-open" size="16" />
-            </div>
-            <div>
-              <span class="metric-label">Open rooms</span>
-              <strong>{{ openTablesCount() }}</strong>
-            </div>
-          </article>
-          <article class="metric-card">
-            <div class="metric-icon metric-icon-friends">
-              <lucide-icon name="users" size="16" />
-            </div>
-            <div>
-              <span class="metric-label">Private rooms</span>
-              <strong>{{ privateRoomsCount() }}</strong>
-            </div>
-          </article>
-          <article class="metric-card">
-            <div class="metric-icon metric-icon-started">
-              <lucide-icon name="swords" size="16" />
-            </div>
-            <div>
-              <span class="metric-label">Started games</span>
-              <strong>{{ startedRoomsCount() }}</strong>
-            </div>
-          </article>
-        </div>
-      </section>
-
       @if (error()) {
         <p class="notice error">{{ error() }}</p>
       }
@@ -220,32 +171,11 @@
           </div>
         </div>
 
-        <div class="choice-stack">
-          <p class="choice-label">Privacy</p>
-          <div class="choice-group privacy-choice-group">
-            @for (value of visibilityOptions; track value) {
-              <button
-                type="button"
-                class="choice-button privacy-choice-button"
-                [class.is-selected]="createRoomForm.value.privacy === value"
-                (click)="createRoomForm.controls.privacy.setValue(value)"
-              >
-                <span class="privacy-choice-main">
-                  @if (value === 'public') {
-                    <lucide-icon name="globe" size="14" />
-                    <span>Public</span>
-                  } @else {
-                    <lucide-icon name="lock" size="14" />
-                    <span>Private</span>
-                  }
-                </span>
-                <small class="privacy-choice-subtitle">
-                  {{ value === 'public' ? 'Anyone can join' : 'Invite only' }}
-                </small>
-              </button>
-            }
-          </div>
-        </div>
+        <app-visibility-choice
+          label="Privacy"
+          [value]="createRoomForm.controls.privacy.value"
+          (valueChange)="createRoomForm.controls.privacy.setValue($event)"
+        />
 
         <button class="primary-button" type="submit" [disabled]="createRoomForm.invalid">
           <lucide-icon name="plus" size="17" />

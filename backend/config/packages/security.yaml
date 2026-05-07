@@ -33,6 +33,8 @@ security:
     # Note: Only the *first* matching rule is applied
     access_control:
         - { path: ^/auth/register$, roles: PUBLIC_ACCESS }
+        - { path: ^/auth/email-availability$, roles: PUBLIC_ACCESS }
+        - { path: ^/auth/display-name-availability$, roles: PUBLIC_ACCESS }
         - { path: ^/auth/login$, roles: PUBLIC_ACCESS }
         - { path: ^/cards, roles: PUBLIC_ACCESS }
         - { path: ^/, roles: ROLE_USER }

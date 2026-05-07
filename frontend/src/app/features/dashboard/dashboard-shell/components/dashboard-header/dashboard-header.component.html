@@ -1,0 +1,11 @@
+<header class="topbar">
+  <app-dashboard-header-context [header]="header()" />
+  <app-dashboard-header-controls
+    [userLabel]="userLabel()"
+    [friendsOpen]="friendsOpen()"
+    [pendingNotificationsCount]="pendingNotificationsCount()"
+    [onlineFriendsCount]="onlineFriendsCount()"
+    (toggleFriends)="toggleFriends.emit($event)"
+    (logout)="logout.emit()"
+  />
+</header>

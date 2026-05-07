@@ -1,7 +1,6 @@
-import { importProvidersFrom } from '@angular/core';
+import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
-import { DoorOpen, Layers3, LucideAngularModule } from 'lucide-angular';
+import { AuthStore } from '../../../core/auth/auth.store';
 import { DashboardHomeComponent } from './dashboard-home.component';
 
 describe('DashboardHomeComponent', () => {
@@ -9,17 +8,21 @@ describe('DashboardHomeComponent', () => {
     await TestBed.configureTestingModule({
       imports: [DashboardHomeComponent],
       providers: [
-        provideRouter([]),
-        importProvidersFrom(LucideAngularModule.pick({ DoorOpen, Layers3 })),
+        {
+          provide: AuthStore,
+          useValue: {
+            user: signal({ displayName: 'Aaguilera21' }),
+          },
+        },
       ],
     }).compileComponents();
   });
 
-  it('renders dashboard actions', () => {
+  it('renders a personal welcome instead of duplicated sidebar actions', () => {
     const fixture = TestBed.createComponent(DashboardHomeComponent);
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.textContent).toContain('Decks');
-    expect(fixture.nativeElement.textContent).toContain('Join a room');
+    expect(fixture.nativeElement.textContent).toContain('Qué bueno verte de nuevo, Aaguilera21.');
+    expect(fixture.nativeElement.textContent).not.toContain('Join a room');
   });
 });

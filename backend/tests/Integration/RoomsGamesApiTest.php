@@ -550,6 +550,10 @@ class RoomsGamesApiTest extends ApiTestCase
         $this->seedCard('abababab-4444-7444-8444-444444444444', 'Commander Waiting Realtime', [
             'type_line' => 'Legendary Creature - Human Scout',
             'color_identity' => [],
+            'image_uris' => [
+                'normal' => 'https://cards.scryfall.io/normal/front/waiting-realtime.jpg',
+                'art_crop' => 'https://cards.scryfall.io/art_crop/front/waiting-realtime.jpg',
+            ],
             'set' => 'tst',
             'collector_number' => '1',
         ]);
@@ -609,6 +613,17 @@ class RoomsGamesApiTest extends ApiTestCase
         self::assertSame($roomId, $lastPayload['roomId']);
         self::assertSame($roomId, $lastPayload['room']['id']);
         self::assertCount(2, $lastPayload['room']['players']);
+
+        $playersByDeckName = [];
+        foreach ($lastPayload['room']['players'] as $player) {
+            $playersByDeckName[(string) ($player['deck']['name'] ?? '')] = $player;
+        }
+        self::assertArrayHasKey('Waiting Realtime Owner Deck', $playersByDeckName);
+        self::assertArrayHasKey('Waiting Realtime Guest Deck', $playersByDeckName);
+        self::assertSame(
+            'https://cards.scryfall.io/art_crop/front/waiting-realtime.jpg',
+            $playersByDeckName['Waiting Realtime Guest Deck']['deck']['commander']['imageUris']['art_crop'] ?? null,
+        );
     }
 
     public function testPrivateRoomInviteRequiresAcceptedFriendship(): void

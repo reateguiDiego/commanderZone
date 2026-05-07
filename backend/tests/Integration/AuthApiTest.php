@@ -36,6 +36,43 @@ class AuthApiTest extends ApiTestCase
         self::assertArrayHasKey('token', $this->jsonResponse());
     }
 
+    public function testDisplayNameAvailabilityAndUniqueness(): void
+    {
+        $this->registerAndLogin('unique-owner@example.test', 'Unique Player');
+
+        $this->jsonRequest('GET', '/auth/display-name-availability?displayName=AvailableName');
+        self::assertResponseIsSuccessful();
+        self::assertTrue($this->jsonResponse()['available']);
+
+        $this->jsonRequest('GET', '/auth/display-name-availability?displayName=unique%20player');
+        self::assertResponseIsSuccessful();
+        self::assertFalse($this->jsonResponse()['available']);
+
+        $this->jsonRequest('POST', '/auth/register', [
+            'email' => 'duplicate-name@example.test',
+            'displayName' => 'Unique Player',
+            'password' => 'password123',
+        ]);
+        self::assertResponseStatusCodeSame(409);
+    }
+
+    public function testEmailAvailability(): void
+    {
+        $this->registerAndLogin('email-owner@example.test', 'Email Owner');
+
+        $this->jsonRequest('GET', '/auth/email-availability?email=free@example.test');
+        self::assertResponseIsSuccessful();
+        self::assertTrue($this->jsonResponse()['available']);
+
+        $this->jsonRequest('GET', '/auth/email-availability?email=EMAIL-OWNER@example.test');
+        self::assertResponseIsSuccessful();
+        self::assertFalse($this->jsonResponse()['available']);
+
+        $this->jsonRequest('GET', '/auth/email-availability?email=not-an-email');
+        self::assertResponseIsSuccessful();
+        self::assertFalse($this->jsonResponse()['available']);
+    }
+
     public function testMeRequiresAuthentication(): void
     {
         $this->jsonRequest('GET', '/me');

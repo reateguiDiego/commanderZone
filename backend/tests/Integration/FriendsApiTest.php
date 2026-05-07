@@ -9,7 +9,7 @@ class FriendsApiTest extends ApiTestCase
     public function testFriendRequestsCanBeAcceptedAndListedWithPresence(): void
     {
         $aliceToken = $this->registerAndLogin('alice@example.test', 'Alice');
-        $bobToken = $this->registerAndLogin('bob@example.test', 'Bob');
+        $bobToken = $this->registerAndLogin('bob@example.test', 'Bobby');
 
         $this->jsonRequest('POST', '/friends/requests', ['email' => 'bob@example.test'], $aliceToken);
         self::assertResponseStatusCodeSame(201);
@@ -17,7 +17,7 @@ class FriendsApiTest extends ApiTestCase
 
         $this->jsonRequest('GET', '/friends/search?q=bob', token: $aliceToken);
         self::assertResponseIsSuccessful();
-        self::assertSame('Bob', $this->jsonResponse()['data'][0]['displayName']);
+        self::assertSame('Bobby', $this->jsonResponse()['data'][0]['displayName']);
         self::assertSame('pending', $this->jsonResponse()['data'][0]['friendshipStatus']);
 
         $this->jsonRequest('GET', '/friends/requests/incoming', token: $bobToken);
@@ -31,7 +31,7 @@ class FriendsApiTest extends ApiTestCase
         $this->jsonRequest('GET', '/friends', token: $aliceToken);
         self::assertResponseIsSuccessful();
         $friend = $this->jsonResponse()['data'][0]['friend'];
-        self::assertSame('Bob', $friend['displayName']);
+        self::assertSame('Bobby', $friend['displayName']);
         self::assertContains($friend['presence'], ['online', 'in_game']);
 
         $this->jsonRequest('POST', '/me/offline', token: $bobToken);
@@ -165,4 +165,3 @@ class FriendsApiTest extends ApiTestCase
         return (string) $this->jsonResponse()['user']['id'];
     }
 }
-

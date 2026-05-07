@@ -182,12 +182,21 @@ class Deck
 
     public function toArray(bool $withCards = false): array
     {
+        $commander = null;
+        foreach ($this->cards as $deckCard) {
+            if ($deckCard instanceof DeckCard && $deckCard->section() === DeckCard::SECTION_COMMANDER) {
+                $commander = $deckCard->card()->toArray();
+                break;
+            }
+        }
+
         $data = [
             'id' => $this->id,
             'name' => $this->name,
             'format' => $this->format,
             'visibility' => $this->visibility,
             'folderId' => $this->folder?->id(),
+            'commander' => $commander,
         ];
 
         if ($withCards) {

@@ -1,11 +1,41 @@
+import { importProvidersFrom } from '@angular/core';
 import { convertToParamMap } from '@angular/router';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, provideRouter } from '@angular/router';
+import {
+  BarChart3,
+  BookmarkPlus,
+  Camera,
+  CheckCircle2,
+  ChevronDown,
+  ChevronRight,
+  Copy,
+  EyeOff,
+  FileDown,
+  FileUp,
+  History,
+  Layers3,
+  LucideAngularModule,
+  Minus,
+  Plus,
+  RotateCcw,
+  RotateCw,
+  Save,
+  Search,
+  SearchX,
+  ShieldCheck,
+  Shuffle,
+  Trash,
+  TriangleAlert,
+  Upload,
+  X,
+} from 'lucide-angular';
 import { of } from 'rxjs';
 import { CardsApi } from '../../../core/api/cards.api';
 import { DecksApi } from '../../../core/api/decks.api';
 import { Card } from '../../../core/models/card.model';
 import { Deck, DeckCard, DeckSection } from '../../../core/models/deck.model';
+import { PageHeaderStore } from '../../../core/ui/page-header.store';
 import { DeckEditorComponent } from './deck-editor.component';
 
 describe('DeckEditorComponent', () => {
@@ -20,6 +50,33 @@ describe('DeckEditorComponent', () => {
       imports: [DeckEditorComponent],
       providers: [
         provideRouter([]),
+        importProvidersFrom(LucideAngularModule.pick({
+          BarChart3,
+          BookmarkPlus,
+          Camera,
+          CheckCircle2,
+          ChevronDown,
+          ChevronRight,
+          Copy,
+          EyeOff,
+          FileDown,
+          FileUp,
+          History,
+          Layers3,
+          Minus,
+          Plus,
+          RotateCcw,
+          RotateCw,
+          Save,
+          Search,
+          SearchX,
+          ShieldCheck,
+          Shuffle,
+          Trash,
+          TriangleAlert,
+          Upload,
+          X,
+        })),
         { provide: CardsApi, useValue: { search: vi.fn().mockReturnValue(of({ data: [] })), image: vi.fn() } },
         { provide: DecksApi, useValue: decksApi },
         {
@@ -121,6 +178,41 @@ describe('DeckEditorComponent', () => {
     });
 
     expect(fixture.componentInstance.store.hasDeckIssues()).toBe(false);
+  });
+
+  it('publishes the deck title and warning to the page header', async () => {
+    const deck: Deck = {
+      id: 'deck-1',
+      name: 'Header deck',
+      format: 'commander',
+      folderId: null,
+      cards: [deckCard('main-card', 'main', card('Black Lotus', 'Artifact'))],
+    };
+    await setup({ id: 'deck-1' }, deck);
+    const fixture = TestBed.createComponent(DeckEditorComponent);
+    fixture.detectChanges();
+    await fixture.componentInstance.store.load();
+
+    fixture.componentInstance.store.validation.set({
+      valid: false,
+      format: 'commander',
+      counts: { total: 100, commander: 1, main: 99, sideboard: 0, maybeboard: 0 },
+      commander: { mode: 'single', names: ['Atraxa'], colorIdentity: ['W', 'U', 'B', 'G'] },
+      errors: [{
+        code: 'card.commander_banned',
+        title: 'Banned card',
+        detail: 'Black Lotus is banned in Commander.',
+        cards: ['Black Lotus'],
+      }],
+      warnings: [],
+    });
+    fixture.detectChanges();
+
+    const header = TestBed.inject(PageHeaderStore).state();
+    expect(header?.title).toBe('Header deck');
+    expect(header?.actions?.[0]?.id).toBe('back-to-decks');
+    expect(header?.titleWarning?.tone).toBe('danger');
+    expect(header?.titleWarning?.tooltip).toContain('Banned card');
   });
 });
 

@@ -63,6 +63,20 @@ class DeckbuildingApiTest extends ApiTestCase
                 ],
             ],
         ]);
+        $alternateTokenProducer = $this->seedCard('00000000-0000-0000-0000-000000000006', 'Avenger of Zendikar', [
+            'type_line' => 'Creature - Elemental',
+            'oracle_text' => 'Create a 0/1 green Plant creature token.',
+            'power' => '5',
+            'toughness' => '5',
+            'set' => 'alt',
+            'collector_number' => '7',
+        ]);
+        $balaGed = $this->seedCard('00000000-0000-0000-0000-000000000005', 'Bala Ged Recovery // Bala Ged Sanctuary', [
+            'type_line' => 'Sorcery // Land',
+            'oracle_text' => 'Return target card from your graveyard to your hand.',
+            'set' => 'tst',
+            'collector_number' => '4',
+        ]);
 
         $this->jsonRequest('POST', '/deck-folders', ['name' => 'Commander', 'visibility' => 'public'], $token);
         self::assertResponseStatusCodeSame(201);
@@ -201,6 +215,60 @@ TXT,
         self::assertSame([], $response['missingCards']);
         self::assertCount(2, $response['deck']['cards']);
         self::assertContains($island->scryfallId(), array_map(static fn (array $card) => $card['card']['scryfallId'], $response['deck']['cards']));
+
+        $this->jsonRequest('POST', '/decks', ['name' => 'Import Rules Deck'], $token);
+        self::assertResponseStatusCodeSame(201);
+        $importRulesDeckId = (string) $this->jsonResponse()['deck']['id'];
+
+        $this->jsonRequest('POST', '/decks/'.$importRulesDeckId.'/import', [
+            'commanderScryfallId' => $tokenProducer->scryfallId(),
+            'decklist' => <<<TXT
+Deck
+1x Avenger of Zendikar (TST) 3
+99x Island (TST) 2
+TXT,
+        ], $token);
+        self::assertResponseIsSuccessful();
+        $response = $this->jsonResponse();
+        self::assertSame(100, $response['summary']['totalCards']);
+        self::assertSame(1, $response['summary']['commanderCount']);
+        self::assertSame(99, $response['summary']['mainCount']);
+        self::assertSame(1, $this->lineByScryfallId($response['deck']['cards'], $tokenProducer->scryfallId(), 'commander')['quantity']);
+        self::assertNull($this->lineByScryfallIdOrNull($response['deck']['cards'], $tokenProducer->scryfallId(), 'main'));
+
+        $this->jsonRequest('POST', '/decks/'.$importRulesDeckId.'/import', [
+            'commanderScryfallId' => $tokenProducer->scryfallId(),
+            'decklist' => <<<TXT
+Deck
+1x Avenger of Zendikar (ALT) 7
+99x Island (TST) 2
+TXT,
+        ], $token);
+        self::assertResponseIsSuccessful();
+        $response = $this->jsonResponse();
+        self::assertSame(1, $this->lineByScryfallId($response['deck']['cards'], $tokenProducer->scryfallId(), 'commander')['quantity']);
+        self::assertNull($this->lineByScryfallIdOrNull($response['deck']['cards'], $alternateTokenProducer->scryfallId(), 'main'));
+
+        $this->jsonRequest('POST', '/decks/'.$importRulesDeckId.'/import', [
+            'commanderScryfallId' => $balaGed->scryfallId(),
+            'decklist' => <<<TXT
+Deck
+1x Bala Ged Recovery
+99x Island (TST) 2
+TXT,
+        ], $token);
+        self::assertResponseIsSuccessful();
+        $response = $this->jsonResponse();
+        self::assertSame(1, $this->lineByScryfallId($response['deck']['cards'], $balaGed->scryfallId(), 'commander')['quantity']);
+        self::assertNull($this->lineByScryfallIdOrNull($response['deck']['cards'], $balaGed->scryfallId(), 'main'));
+
+        $this->jsonRequest('POST', '/decks/'.$importRulesDeckId.'/import', [
+            'decklist' => '1 Bala Ged Recovery',
+        ], $token);
+        self::assertResponseIsSuccessful();
+        $response = $this->jsonResponse();
+        self::assertSame([], $response['missing']);
+        self::assertSame($balaGed->scryfallId(), $response['deck']['cards'][0]['card']['scryfallId']);
 
         $this->jsonRequest('GET', '/decks/'.$deckId.'/export?format=plain', token: $token);
         self::assertResponseIsSuccessful();
@@ -394,6 +462,10 @@ TXT,
         self::assertSame(2, $this->lineByScryfallId($deck['cards'], $solRing->scryfallId(), 'main')['quantity']);
         self::assertSame(1, $this->lineByScryfallId($deck['cards'], $commanderA->scryfallId(), 'main')['quantity']);
         self::assertSame(1, $this->lineByScryfallId($deck['cards'], $commanderB->scryfallId(), 'commander')['quantity']);
+
+        $this->jsonRequest('GET', '/decks', token: $token);
+        self::assertResponseIsSuccessful();
+        self::assertSame($commanderB->scryfallId(), $this->deckById($this->jsonResponse()['data'], $deckId)['commander']['scryfallId']);
 
         $islandLine = $this->lineByScryfallId($deck['cards'], $island->scryfallId(), 'main');
         $this->jsonRequest('PATCH', '/decks/'.$deckId.'/cards', [

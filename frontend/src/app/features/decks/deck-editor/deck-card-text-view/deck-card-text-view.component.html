@@ -4,8 +4,11 @@
       @for (group of column.groups; track group.id) {
         <section class="deck-card-group">
           <button class="deck-group-toggle" type="button" [attr.aria-expanded]="!store.isGroupCollapsed(group.id)" (click)="store.toggleGroup(group.id)">
-            <span>
+            <span class="deck-group-title">
               {{ group.title }} <span class="group-count">({{ group.quantity }})</span>
+              @if (group.id === 'commander') {
+                <app-mana-symbols class="commander-colors" [symbols]="store.deckColorIdentitySymbols()" fallback="Colorless" />
+              }
               @if (group.detail) {
                 <span class="group-detail">· {{ group.detail }}</span>
               }
@@ -17,6 +20,8 @@
               <div class="deck-card-list">
                 @if (group.id === 'commander' && group.cards.length === 0) {
                   <p class="notice warning compact-notice">No commander assigned yet.</p>
+                } @else if (group.id === 'commander') {
+                  <app-deck-commander-showcase [entries]="group.cards" />
                 } @else {
                   @for (entry of group.cards; track entry.id) {
                     <div

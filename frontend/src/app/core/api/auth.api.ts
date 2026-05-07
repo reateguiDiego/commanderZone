@@ -5,6 +5,10 @@ import { API_BASE_URL } from './api.config';
 import { LoginResponse, UserResponse } from '../models/api-responses.model';
 import { withoutGlobalLoading } from '../loading/loading-context';
 
+export interface AuthAvailabilityResponse {
+  available: boolean;
+}
+
 @Injectable({ providedIn: 'root' })
 export class AuthApi {
   private readonly http = inject(HttpClient);
@@ -15,6 +19,20 @@ export class AuthApi {
 
   login(payload: { email: string; password: string }): Observable<LoginResponse> {
     return this.http.post<LoginResponse>(`${API_BASE_URL}/auth/login`, payload);
+  }
+
+  checkEmailAvailability(email: string): Observable<AuthAvailabilityResponse> {
+    return this.http.get<AuthAvailabilityResponse>(`${API_BASE_URL}/auth/email-availability`, {
+      params: { email },
+      context: withoutGlobalLoading(),
+    });
+  }
+
+  checkDisplayNameAvailability(displayName: string): Observable<AuthAvailabilityResponse> {
+    return this.http.get<AuthAvailabilityResponse>(`${API_BASE_URL}/auth/display-name-availability`, {
+      params: { displayName },
+      context: withoutGlobalLoading(),
+    });
   }
 
   me(): Observable<UserResponse> {

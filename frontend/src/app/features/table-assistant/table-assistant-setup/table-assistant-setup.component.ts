@@ -2,6 +2,9 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  ElementRef,
+  HostListener,
+  OnDestroy,
   inject,
   output,
   signal,
@@ -9,23 +12,12 @@ import {
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
-import { RoomsApi } from '../../../core/api/rooms.api';
-import { FriendsApi } from '../../../core/api/friends.api';
-import { AuthStore } from '../../../core/auth/auth.store';
-import { FriendUser } from '../../../core/models/friendship.model';
 import {
   TABLE_ASSISTANT_COLOR_OPTIONS,
   tableAssistantColorOption,
 } from '../domain/table-assistant-colors';
 import { TableAssistantApi } from '../data-access/table-assistant.api';
-import { TableAssistantTimerMode, TableAssistantUseMode } from '../models/table-assistant.models';
-
-interface ModeOption {
-  id: TableAssistantUseMode;
-  title: string;
-  description: string;
-  idealFor: string;
-}
+import { TableAssistantTimerMode } from '../models/table-assistant.models';
 
 @Component({
   selector: 'app-table-assistant-setup',
@@ -34,52 +26,35 @@ interface ModeOption {
   styleUrl: './table-assistant-setup.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class TableAssistantSetupComponent {
+export class TableAssistantSetupComponent implements OnDestroy {
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly tableAssistantApi = inject(TableAssistantApi);
-  private readonly roomsApi = inject(RoomsApi);
-  private readonly friendsApi = inject(FriendsApi);
-  private readonly auth = inject(AuthStore);
   private readonly router = inject(Router);
 
   readonly cancelled = output<void>();
 
-  readonly modeOptions: ModeOption[] = [
-    {
-      id: 'single-device',
-      title: 'Un dispositivo en la mesa',
-      description:
-        'Usa un movil o tablet compartido para controlar toda la partida desde el centro de la mesa.',
-      idealFor: 'Partidas rapidas, casuales o mesas que no quieren conectarse.',
-    },
-    {
-      id: 'per-player-device',
-      title: 'Un movil por jugador',
-      description:
-        'Cada jugador se conecta a la sala y controla su propio panel mientras todo se mantiene sincronizado.',
-      idealFor: 'Partidas largas, grupos organizados o mesas que quieren menos errores.',
-    },
-  ];
   readonly colorOptions = TABLE_ASSISTANT_COLOR_OPTIONS;
   readonly timerMinuteOptions = Array.from({ length: 31 }, (_, index) => index);
   readonly timerSecondOptions = [0, 15, 30, 45];
-  readonly mode = signal<TableAssistantUseMode>('single-device');
   readonly playerCount = signal(4);
   readonly initialLife = signal(40);
-  readonly playerNames = signal(['Jugador 1', 'Jugador 2', 'Jugador 3', 'Jugador 4']);
+  readonly playerNames = signal(['', '', '', '']);
   readonly playerColors = signal(['white', 'blue', 'black', 'red']);
-  readonly phasesEnabled = signal(false);
   readonly timerMode = signal<TableAssistantTimerMode>('none');
   readonly timerDurationSeconds = signal(300);
-  readonly skipEliminatedPlayers = signal(false);
-  readonly playerFriendIds = signal<Array<string | null>>([null, null, null, null]);
-  readonly friends = signal<FriendUser[]>([]);
   readonly openColorPickerIndex = signal<number | null>(null);
   readonly creating = signal(false);
-  readonly loadingFriends = signal(false);
   readonly error = signal<string | null>(null);
 
   readonly availableTimerModes = computed<TableAssistantTimerMode[]>(() => ['none', 'turn']);
-  readonly canInviteFriends = computed(() => this.mode() === 'per-player-device');
+  readonly canCreateRoom = computed(
+    () =>
+      !this.creating() &&
+      this.playerCount() >= 2 &&
+      this.playerNames()
+        .slice(0, this.playerCount())
+        .every((name) => name.trim() !== ''),
+  );
   readonly timerDurationMinutes = computed(() => Math.floor(this.timerDurationSeconds() / 60));
   readonly timerDurationRemainderSeconds = computed(() => this.timerDurationSeconds() % 60);
   readonly timerDurationLabel = computed(
@@ -87,28 +62,27 @@ export class TableAssistantSetupComponent {
       `${this.timerDurationMinutes()}:${this.timerDurationRemainderSeconds().toString().padStart(2, '0')}`,
   );
 
-  constructor() {
-    void this.loadFriends();
+  ngOnDestroy(): void {
+    this.cancelled.emit();
   }
 
-  selectMode(mode: TableAssistantUseMode): void {
-    this.mode.set(mode);
-    if (mode === 'per-player-device') {
-      const names = [...this.playerNames()];
-      names[0] = this.currentUserDisplayName();
-      this.playerNames.set(names.slice(0, this.playerCount()));
+  @HostListener('document:click', ['$event'])
+  closeColorPickerFromOutside(event: MouseEvent): void {
+    if (this.openColorPickerIndex() === null || !(event.target instanceof Element)) {
       return;
     }
 
-    this.playerFriendIds.set(Array.from({ length: this.playerCount() }, () => null));
+    if (!this.host.nativeElement.contains(event.target) || !event.target.closest('.color-picker')) {
+      this.openColorPickerIndex.set(null);
+    }
   }
 
   setPlayerCount(value: string | number): void {
-    const count = Math.min(6, Math.max(1, Number.parseInt(String(value), 10) || 4));
+    const count = Math.min(6, Math.max(2, Number.parseInt(String(value), 10) || 4));
     this.playerCount.set(count);
     const names = [...this.playerNames()];
     while (names.length < count) {
-      names.push(`Jugador ${names.length + 1}`);
+      names.push('');
     }
     this.playerNames.set(names.slice(0, count));
     const colors = [...this.playerColors()];
@@ -116,11 +90,6 @@ export class TableAssistantSetupComponent {
       colors.push(this.colorOptions[colors.length % this.colorOptions.length].id);
     }
     this.playerColors.set(colors.slice(0, count));
-    const friendIds = [...this.playerFriendIds()];
-    while (friendIds.length < count) {
-      friendIds.push(null);
-    }
-    this.playerFriendIds.set(friendIds.slice(0, count));
   }
 
   setInitialLife(value: string | number): void {
@@ -160,45 +129,6 @@ export class TableAssistantSetupComponent {
     this.setTimerDurationParts(this.timerDurationMinutes(), seconds);
   }
 
-  updatePlayerFriend(index: number, friendId: string): void {
-    const friendIds = [...this.playerFriendIds()];
-    const normalizedFriendId = friendId || null;
-    friendIds[index] = normalizedFriendId;
-    this.playerFriendIds.set(friendIds);
-
-    if (normalizedFriendId) {
-      const friend = this.friends().find((candidate) => candidate.id === normalizedFriendId);
-      if (friend) {
-        this.updatePlayerName(index, friend.displayName);
-      }
-    }
-  }
-
-  playerSeatLabel(index: number): string {
-    if (this.mode() !== 'per-player-device') {
-      return this.playerNames()[index] ?? `Jugador ${index + 1}`;
-    }
-
-    if (index === 0) {
-      return this.currentUserDisplayName();
-    }
-
-    const friendId = this.playerFriendIds()[index];
-    const friend = friendId ? this.friends().find((candidate) => candidate.id === friendId) : null;
-
-    return friend?.displayName ?? `Jugador ${index + 1}`;
-  }
-
-  playerSeatSourceLabel(index: number): string {
-    if (this.mode() !== 'per-player-device') {
-      return 'Nombre editable';
-    }
-
-    return index === 0 || this.playerFriendIds()[index]
-      ? 'Usuario CommanderZone'
-      : 'Pendiente de usuario';
-  }
-
   colorLabel(colorId: string | undefined): string {
     return tableAssistantColorOption(colorId ?? this.colorOptions[0].id).label;
   }
@@ -229,17 +159,22 @@ export class TableAssistantSetupComponent {
   }
 
   async createRoom(): Promise<void> {
+    if (!this.canCreateRoom()) {
+      this.error.set('Necesitas al menos 2 jugadores y todos los nombres completos.');
+      return;
+    }
+
     this.creating.set(true);
     this.error.set(null);
 
     try {
       const response = await firstValueFrom(
         this.tableAssistantApi.create({
-          mode: this.mode(),
+          mode: 'single-device',
           playerCount: this.playerCount(),
           initialLife: this.initialLife(),
-          players: this.playerNamesForPayload().map((name, index) => ({
-            name,
+          players: this.playerNames().map((name, index) => ({
+            name: name.trim(),
             color: this.playerColors()[index] ?? this.colorOptions[0].id,
           })),
           phasesEnabled: false,
@@ -249,7 +184,6 @@ export class TableAssistantSetupComponent {
           activeTrackerIds: ['commander-damage'],
         }),
       );
-      await this.inviteSelectedFriends(response.tableAssistantRoom.id);
       await this.router.navigate(['/table-assistant', response.tableAssistantRoom.id], {
         queryParams: { arrange: '1' },
       });
@@ -258,66 +192,6 @@ export class TableAssistantSetupComponent {
     } finally {
       this.creating.set(false);
     }
-  }
-
-  private async loadFriends(): Promise<void> {
-    this.loadingFriends.set(true);
-    try {
-      const response = await firstValueFrom(this.friendsApi.list());
-      this.friends.set(
-        response.data
-          .map((friendship) => friendship.friend)
-          .filter((friend): friend is FriendUser => friend !== undefined),
-      );
-    } catch {
-      this.friends.set([]);
-    } finally {
-      this.loadingFriends.set(false);
-    }
-  }
-
-  private async inviteSelectedFriends(roomId: string): Promise<void> {
-    if (!this.canInviteFriends()) {
-      return;
-    }
-
-    const friendIds = [
-      ...new Set(
-        this.playerFriendIds().filter((friendId): friendId is string => friendId !== null),
-      ),
-    ];
-    if (friendIds.length === 0) {
-      return;
-    }
-
-    await Promise.allSettled(
-      friendIds.map((friendId) => firstValueFrom(this.roomsApi.invite(roomId, friendId))),
-    );
-  }
-
-  private playerNamesForPayload(): string[] {
-    if (this.mode() !== 'per-player-device') {
-      return this.playerNames();
-    }
-
-    return this.playerNames().map((name, index) => {
-      if (index === 0) {
-        return this.currentUserDisplayName();
-      }
-
-      const friendId = this.playerFriendIds()[index];
-      const friend = friendId
-        ? this.friends().find((candidate) => candidate.id === friendId)
-        : null;
-
-      return friend?.displayName ?? name;
-    });
-  }
-
-  private currentUserDisplayName(): string {
-    const user = this.auth.user();
-
-    return user?.displayName || user?.email || 'Jugador 1';
   }
 
   private setTimerDurationParts(minutes: number, seconds: number): void {

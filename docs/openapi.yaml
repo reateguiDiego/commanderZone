@@ -41,6 +41,52 @@ paths:
                     $ref: '#/components/schemas/User'
         '409':
           $ref: '#/components/responses/Error'
+  /auth/email-availability:
+    get:
+      tags: [Auth]
+      security: []
+      summary: Check if an email is available.
+      parameters:
+        - name: email
+          in: query
+          required: true
+          schema:
+            type: string
+            format: email
+      responses:
+        '200':
+          description: Email availability.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [available]
+                properties:
+                  available:
+                    type: boolean
+  /auth/display-name-availability:
+    get:
+      tags: [Auth]
+      security: []
+      summary: Check if a user name is available.
+      parameters:
+        - name: displayName
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 4
+      responses:
+        '200':
+          description: User name availability.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [available]
+                properties:
+                  available:
+                    type: boolean
   /auth/login:
     post:
       tags: [Auth]
@@ -93,6 +139,7 @@ paths:
               properties:
                 displayName:
                   type: string
+                  minLength: 4
       responses:
         '200':
           description: Updated user.
@@ -105,12 +152,10 @@ paths:
                   user:
                     $ref: '#/components/schemas/User'
         '400':
-          description: Validation error while trying to start the room.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RoomStartError'
+          $ref: '#/components/responses/Error'
         '401':
+          $ref: '#/components/responses/Error'
+        '409':
           $ref: '#/components/responses/Error'
   /me/password:
     patch:
@@ -1677,6 +1722,7 @@ components:
           format: email
         displayName:
           type: string
+          minLength: 4
         password:
           type: string
           minLength: 8
@@ -1889,7 +1935,7 @@ components:
       enum: [private, public]
     DeckSummary:
       type: object
-      required: [id, name, format, visibility, folderId]
+      required: [id, name, format, visibility, folderId, commander]
       properties:
         id:
           type: string
@@ -1904,6 +1950,10 @@ components:
         folderId:
           type: [string, 'null']
           format: uuid
+        commander:
+          anyOf:
+            - $ref: '#/components/schemas/Card'
+            - type: 'null'
     Deck:
       allOf:
         - $ref: '#/components/schemas/DeckSummary'
@@ -2717,7 +2767,7 @@ components:
           format: uuid
     RoomPlayer:
       type: object
-      required: [id, user, deckId, turnRoll]
+      required: [id, user, deckId, deck, turnRoll]
       properties:
         id:
           type: string
@@ -2727,6 +2777,10 @@ components:
         deckId:
           type: [string, 'null']
           format: uuid
+        deck:
+          anyOf:
+            - $ref: '#/components/schemas/DeckSummary'
+            - type: 'null'
         turnRoll:
           type: [integer, 'null']
           minimum: 1

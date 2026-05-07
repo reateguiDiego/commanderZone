@@ -1,49 +1,102 @@
 <main class="auth-screen">
   <section class="auth-panel">
     <div class="auth-copy">
-      <span class="brand-mark large">CZ</span>
-      <h1>CommanderZone</h1>
-      <p>Accede a tu mesa manual de Commander, mazos y salas.</p>
+      <img class="auth-logo" src="assets/icons/CM_logo.png" alt="CommanderZone" />
+      <p>Accede a tus mazos, salas y mesa manual de Commander.</p>
     </div>
 
-    <form class="form-stack" (ngSubmit)="submit()">
+    <div class="auth-card">
       <div class="segmented" role="tablist" aria-label="Auth mode">
-        <button type="button" [class.active]="mode() === 'login'" (click)="mode.set('login')">Login</button>
-        <button type="button" [class.active]="mode() === 'register'" (click)="mode.set('register')">Register</button>
+        <button type="button" [class.active]="mode() === 'login'" (click)="setMode('login')">Login</button>
+        <button type="button" [class.active]="mode() === 'register'" (click)="setMode('register')">Register</button>
       </div>
 
-      <label>
-        Email
-        <input type="email" name="email" autocomplete="email" required [(ngModel)]="email" />
-      </label>
+      @if (mode() === 'login') {
+        <form class="form-stack" [formGroup]="loginForm" (ngSubmit)="submitLogin()">
+          <label>
+            Email
+            <input type="email" autocomplete="email" formControlName="email" />
+            @if (loginEmailInvalid()) {
+              <span class="field-error">Introduce un email valido.</span>
+            }
+          </label>
 
-      @if (mode() === 'register') {
-        <label>
-          Display name
-          <input type="text" name="displayName" autocomplete="nickname" required [(ngModel)]="displayName" />
-        </label>
+          <label>
+            Password
+            <input type="password" autocomplete="current-password" formControlName="password" />
+          </label>
+
+          @if (auth.error()) {
+            <p class="notice error">{{ auth.error() }}</p>
+          }
+
+          <button class="primary-button" type="submit" [disabled]="!canSubmitLogin()">
+            <lucide-icon name="log-in" size="18" />
+            {{ auth.loading() ? 'Working...' : 'Login' }}
+          </button>
+        </form>
+      } @else {
+        <form class="form-stack" [formGroup]="registerForm" (ngSubmit)="submitRegister()">
+          <label>
+            Email
+            <input type="email" autocomplete="email" formControlName="email" />
+            @if (registerEmailInvalid()) {
+              <span class="field-error">Introduce un email valido.</span>
+            }
+            @if (registerEmailAvailabilityVisible()) {
+              @if (emailAvailability() === 'checking') {
+                <span class="availability muted">Comprobando email...</span>
+              }
+              @if (emailAvailability() === 'available') {
+                <span class="availability available"><lucide-icon name="check" size="14" /> Email disponible</span>
+              }
+              @if (emailAvailability() === 'taken') {
+                <span class="availability taken"><lucide-icon name="x" size="14" /> Email ya registrado</span>
+              }
+              @if (emailAvailability() === 'error') {
+                <span class="availability taken"><lucide-icon name="x" size="14" /> No se pudo comprobar ahora</span>
+              }
+            }
+          </label>
+
+          <label>
+            User name
+            <input type="text" autocomplete="nickname" formControlName="displayName" />
+            @if (controlInvalid('displayName')) {
+              <span class="field-error">Minimo 4 letras.</span>
+            }
+            @if (userNameAvailability() === 'checking') {
+              <span class="availability muted">Comprobando disponibilidad...</span>
+            }
+            @if (userNameAvailability() === 'available') {
+              <span class="availability available"><lucide-icon name="check" size="14" /> User name disponible</span>
+            }
+            @if (userNameAvailability() === 'taken') {
+              <span class="availability taken"><lucide-icon name="x" size="14" /> User name no disponible</span>
+            }
+            @if (userNameAvailability() === 'error') {
+              <span class="availability taken"><lucide-icon name="x" size="14" /> No se pudo comprobar ahora</span>
+            }
+          </label>
+
+          <label>
+            Password
+            <input type="password" autocomplete="new-password" formControlName="password" />
+            @if (controlInvalid('password')) {
+              <span class="field-error">Minimo 8 caracteres.</span>
+            }
+          </label>
+
+          @if (auth.error()) {
+            <p class="notice error">{{ auth.error() }}</p>
+          }
+
+          <button class="primary-button" type="submit" [disabled]="!canSubmitRegister()">
+            <lucide-icon name="user-plus" size="18" />
+            {{ auth.loading() ? 'Working...' : 'Create account' }}
+          </button>
+        </form>
       }
-
-      <label>
-        Password
-        <input
-          type="password"
-          name="password"
-          autocomplete="current-password"
-          required
-          minlength="8"
-          [(ngModel)]="password"
-        />
-      </label>
-
-      @if (auth.error()) {
-        <p class="notice error">{{ auth.error() }}</p>
-      }
-
-      <button class="primary-button" type="submit" [disabled]="auth.loading()">
-        <lucide-icon [name]="mode() === 'login' ? 'log-in' : 'user-plus'" size="18" />
-        {{ auth.loading() ? 'Working...' : mode() === 'login' ? 'Login' : 'Create account' }}
-      </button>
-    </form>
+    </div>
   </section>
 </main>

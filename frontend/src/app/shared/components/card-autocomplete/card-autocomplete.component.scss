@@ -10,6 +10,7 @@
   display: flex;
   align-items: center;
   gap: 0.55rem;
+  min-height: 2.85rem;
   min-width: 0;
   padding-inline: 0.8rem;
   border: 1px solid var(--line);
@@ -50,9 +51,12 @@
 .card-autocomplete-item strong,
 .card-autocomplete-item small {
   display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .card-autocomplete-actions {
+  min-width: 0;
   flex-shrink: 0;
 }
 
@@ -86,4 +90,35 @@
   width: 4.1rem;
   min-width: 4.1rem;
   padding: 0.45rem 0.55rem;
+}
+
+@media (max-width: 720px) {
+  .card-autocomplete-panel {
+    left: 50%;
+    right: auto;
+    width: min(26rem, calc(100vw - 1.4rem));
+    transform: translateX(-50%);
+  }
+
+  .card-autocomplete-item {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+    gap: 0.6rem;
+  }
+
+  .card-autocomplete-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 3.7rem minmax(4.6rem, auto);
+    width: 100%;
+  }
+
+  .card-autocomplete-actions small {
+    align-self: center;
+  }
+
+  .quantity-input {
+    width: 3.7rem;
+    min-width: 3.7rem;
+  }
 }

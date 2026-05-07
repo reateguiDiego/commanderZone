@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, OnDestroy, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { LucideAngularModule } from 'lucide-angular';
@@ -9,21 +9,24 @@ import { AuthStore } from '../../../core/auth/auth.store';
 import { RoomInvite } from '../../../core/models/room-invite.model';
 import { Room, RoomFormat } from '../../../core/models/room.model';
 import { MercureService } from '../../../core/realtime/mercure.service';
+import { PageHeaderStore } from '../../../core/ui/page-header.store';
+import { VisibilityChoiceComponent } from '../../../shared/components/visibility-choice/visibility-choice.component';
 import { AppModalComponent } from '../../../shared/ui/app-modal/app-modal.component';
 
 @Component({
   selector: 'app-rooms',
-  imports: [FormsModule, ReactiveFormsModule, RouterLink, LucideAngularModule, AppModalComponent],
+  imports: [FormsModule, ReactiveFormsModule, RouterLink, LucideAngularModule, AppModalComponent, VisibilityChoiceComponent],
   templateUrl: './rooms.component.html',
   styleUrl: './rooms.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class RoomsComponent implements OnDestroy {
+export class RoomsComponent implements OnInit, OnDestroy {
   private readonly roomsApi = inject(RoomsApi);
   private readonly mercure = inject(MercureService);
   protected readonly auth = inject(AuthStore);
   private readonly router = inject(Router);
   private readonly formBuilder = inject(FormBuilder);
+  private readonly pageHeader = inject(PageHeaderStore);
   private roomSyncHandle?: number;
   private roomSyncInFlight = false;
   private inviteRealtimeSubscription?: Subscription;
@@ -47,7 +50,6 @@ export class RoomsComponent implements OnDestroy {
     .length);
   readonly roomFormat: RoomFormat = 'commander';
   readonly maxPlayersOptions = [2, 3, 4, 5, 6] as const;
-  readonly visibilityOptions: Array<'private' | 'public'> = ['public', 'private'];
   readonly createRoomForm = this.formBuilder.group({
     roomName: ['', [Validators.required, Validators.maxLength(120)]],
     players: [null as number | null, [Validators.required]],
@@ -63,11 +65,16 @@ export class RoomsComponent implements OnDestroy {
     }, 3000);
   }
 
+  ngOnInit(): void {
+    this.updatePageHeader();
+  }
+
   ngOnDestroy(): void {
     if (this.roomSyncHandle !== undefined) {
       window.clearInterval(this.roomSyncHandle);
     }
     this.inviteRealtimeSubscription?.unsubscribe();
+    this.pageHeader.clear();
   }
 
   async loadRooms(skipGlobalLoading = false): Promise<void> {
@@ -75,6 +82,7 @@ export class RoomsComponent implements OnDestroy {
       const response = await firstValueFrom(this.roomsApi.list('active', skipGlobalLoading));
       this.rooms.set(response.data);
       this.syncCurrentRoom(response.data);
+      this.updatePageHeader();
     } catch {
       this.error.set('Could not load rooms.');
     }
@@ -357,5 +365,40 @@ export class RoomsComponent implements OnDestroy {
     if (!navigated) {
       this.error.set('Room created, but could not open the waiting room.');
     }
+  }
+
+  private updatePageHeader(): void {
+    this.pageHeader.set({
+      title: 'Rooms',
+      stats: [
+        {
+          id: 'active-rooms',
+          label: 'Active rooms',
+          value: this.activeRoomsCount(),
+          icon: 'building-2',
+        },
+        {
+          id: 'open-rooms',
+          label: 'Open rooms',
+          value: this.openTablesCount(),
+          icon: 'door-open',
+          tone: 'success',
+        },
+        {
+          id: 'private-rooms',
+          label: 'Private rooms',
+          value: this.privateRoomsCount(),
+          icon: 'lock',
+          tone: 'private',
+        },
+        {
+          id: 'started-games',
+          label: 'Started games',
+          value: this.startedRoomsCount(),
+          icon: 'swords',
+          tone: 'started',
+        },
+      ],
+    });
   }
 }

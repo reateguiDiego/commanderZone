@@ -247,7 +247,7 @@ class DecksController extends ApiController
     }
 
     #[Route('/decks/{id}/import', methods: ['POST'])]
-    public function import(string $id, Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, DecklistParser $parser, DecklistPreviewer $previewer): JsonResponse
+    public function import(string $id, Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, DecklistParser $parser, DecklistPreviewer $previewer, CardResolver $cardResolver): JsonResponse
     {
         $deck = $this->ownedDeck($id, $user, $entityManager);
         if (!$deck) {
@@ -267,7 +267,13 @@ class DecksController extends ApiController
         }
 
         $preview = $previewer->preview($entries, $format);
+        $selectedCommander = $this->commanderFromPayload($payload, $cardResolver);
+        if ($selectedCommander === false) {
+            return $this->fail('Commander card not found.', 404);
+        }
+
         $deck->clearCards();
+        $selectedCommanderImported = false;
 
         foreach ($preview['entries'] as $entry) {
             $card = $entry['card'];
@@ -275,16 +281,40 @@ class DecksController extends ApiController
                 continue;
             }
 
-            $deck->addCard(new DeckCard($deck, $card, $entry['quantity'], $entry['section']));
+            $quantity = (int) $entry['quantity'];
+            if ($selectedCommander instanceof Card && $this->isSameCommanderCard($card, $selectedCommander)) {
+                if (!$selectedCommanderImported) {
+                    $deck->addOrIncrementCard($selectedCommander, 1, DeckCard::SECTION_COMMANDER);
+                    $selectedCommanderImported = true;
+                }
+
+                $remainingQuantity = max(0, $quantity - 1);
+                if ($remainingQuantity > 0) {
+                    $deck->addOrIncrementCard($card, $remainingQuantity, (string) $entry['section']);
+                }
+                continue;
+            }
+
+            $deck->addOrIncrementCard($card, $quantity, (string) $entry['section']);
+        }
+
+        if ($selectedCommander instanceof Card && !$selectedCommanderImported) {
+            $deck->addOrIncrementCard($selectedCommander, 1, DeckCard::SECTION_COMMANDER);
         }
 
         $entityManager->flush();
+        $missingQuantity = array_reduce(
+            $preview['missingCards'],
+            static fn (int $total, array $missingCard): int => $total + max(1, (int) ($missingCard['quantity'] ?? 1)),
+            0,
+        );
+        $summary = $this->importSummary($deck, $format, count($entries), $missingQuantity);
 
         return $this->json([
             'format' => $format,
             'deck' => $deck->toArray(true),
             'missing' => $this->missingNames($preview['missingCards']),
-            'summary' => $preview['summary'],
+            'summary' => $summary,
             'missingCards' => $preview['missingCards'],
         ]);
     }
@@ -582,6 +612,88 @@ class DecksController extends ApiController
         return in_array(($payload['visibility'] ?? null), [Deck::VISIBILITY_PRIVATE, Deck::VISIBILITY_PUBLIC], true)
             ? (string) $payload['visibility']
             : Deck::VISIBILITY_PRIVATE;
+    }
+
+    /**
+     * @return Card|false|null
+     */
+    private function commanderFromPayload(array $payload, CardResolver $cardResolver): Card|false|null
+    {
+        $commanderPayload = $payload['commander'] ?? null;
+        if ($commanderPayload === null) {
+            $scryfallId = trim((string) ($payload['commanderScryfallId'] ?? ''));
+            $commanderPayload = $scryfallId !== '' ? ['scryfallId' => $scryfallId] : null;
+        }
+        if (!is_array($commanderPayload)) {
+            return null;
+        }
+
+        $resolved = $cardResolver->resolveUnique($commanderPayload);
+
+        return $resolved['card'] instanceof Card ? $resolved['card'] : false;
+    }
+
+    /**
+     * @return array<string,int|string>
+     */
+    private function importSummary(Deck $deck, string $format, int $parsedCards, int $missingCards): array
+    {
+        $counts = [
+            DeckCard::SECTION_COMMANDER => 0,
+            DeckCard::SECTION_MAIN => 0,
+            DeckCard::SECTION_SIDEBOARD => 0,
+            DeckCard::SECTION_MAYBEBOARD => 0,
+        ];
+        $importedCards = 0;
+
+        foreach ($deck->cards() as $deckCard) {
+            if (!$deckCard instanceof DeckCard) {
+                continue;
+            }
+
+            $quantity = $deckCard->quantity();
+            $counts[$deckCard->section()] = ($counts[$deckCard->section()] ?? 0) + $quantity;
+            $importedCards += $quantity;
+        }
+
+        return [
+            'format' => $format,
+            'parsedCards' => $parsedCards,
+            'totalCards' => $importedCards + $missingCards,
+            'resolvedCards' => $importedCards,
+            'importedCards' => $importedCards,
+            'missingCards' => $missingCards,
+            'commanderCount' => $counts[DeckCard::SECTION_COMMANDER],
+            'mainCount' => $counts[DeckCard::SECTION_MAIN],
+            'sideboardCount' => $counts[DeckCard::SECTION_SIDEBOARD],
+            'maybeboardCount' => $counts[DeckCard::SECTION_MAYBEBOARD],
+            'playableTotal' => $counts[DeckCard::SECTION_COMMANDER] + $counts[DeckCard::SECTION_MAIN],
+        ];
+    }
+
+    private function isSameCommanderCard(Card $importedCard, Card $selectedCommander): bool
+    {
+        return $importedCard->scryfallId() === $selectedCommander->scryfallId()
+            || count(array_intersect($this->cardNameIdentities($importedCard), $this->cardNameIdentities($selectedCommander))) > 0;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function cardNameIdentities(Card $card): array
+    {
+        $names = [Card::normalizeName($card->name())];
+        foreach (explode('//', $card->name()) as $namePart) {
+            $names[] = Card::normalizeName($namePart);
+        }
+        foreach ($card->cardFaces() as $face) {
+            $faceName = $face['name'] ?? null;
+            if (is_string($faceName)) {
+                $names[] = Card::normalizeName($faceName);
+            }
+        }
+
+        return array_values(array_filter(array_unique($names)));
     }
 
     /**

@@ -1,0 +1,24 @@
+<div class="visibility-choice">
+  <p class="visibility-choice__label">{{ label }}</p>
+  <div class="visibility-choice__group">
+    @for (option of options; track option) {
+      <button
+        type="button"
+        class="visibility-choice__button"
+        [class.is-selected]="value === option"
+        (click)="choose(option)"
+      >
+        <span class="visibility-choice__main">
+          @if (option === 'public') {
+            <lucide-icon name="globe" size="14" />
+            <span>Public</span>
+          } @else {
+            <lucide-icon name="lock" size="14" />
+            <span>Private</span>
+          }
+        </span>
+        <small class="visibility-choice__subtitle">{{ subtitle(option) }}</small>
+      </button>
+    }
+  </div>
+</div>

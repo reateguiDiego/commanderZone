@@ -48,17 +48,17 @@ class CommanderDeckValidator
 
             $card = $deckCard->card();
             $cardName = $card->name();
-            $commanderLegality = $this->commanderLegality($card);
-            if ($commanderLegality === null) {
-                $errors[] = $this->issue(
-                    'card.data_insufficient',
-                    'Card data is insufficient',
-                    sprintf('%s does not provide enough Commander legality metadata.', $cardName),
-                    [$cardName],
-                );
-            }
-
             if ($deckCard->isPlayable()) {
+                $commanderLegality = $this->commanderLegality($card);
+                if ($commanderLegality === null) {
+                    $errors[] = $this->issue(
+                        'card.data_insufficient',
+                        'Card data is insufficient',
+                        sprintf('%s does not provide enough Commander legality metadata.', $cardName),
+                        [$cardName],
+                    );
+                }
+
                 if ($commanderLegality === 'banned') {
                     $errors[] = $this->issue(
                         'card.commander_banned',
@@ -105,24 +105,6 @@ class CommanderDeckValidator
                     [$cardName],
                 );
             }
-        }
-
-        if ($counts['sideboard'] > 0) {
-            $errors[] = $this->issue(
-                'deck.sideboard_not_allowed',
-                'Sideboard is not allowed',
-                sprintf('Commander validation requires sideboard to be empty; current sideboard count is %d.', $counts['sideboard']),
-                [],
-            );
-        }
-
-        if ($counts['maybeboard'] > 0) {
-            $errors[] = $this->issue(
-                'deck.maybeboard_not_allowed',
-                'Maybeboard is not allowed',
-                sprintf('Commander validation requires maybeboard to be empty; current maybeboard count is %d.', $counts['maybeboard']),
-                [],
-            );
         }
 
         if ($counts['total'] !== 100) {

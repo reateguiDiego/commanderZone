@@ -5,6 +5,7 @@ import { Building2, DoorOpen, Globe, Lock, LogOut, LucideAngularModule, Play, Pl
 import { of } from 'rxjs';
 import { RoomsApi } from '../../../core/api/rooms.api';
 import { AuthStore } from '../../../core/auth/auth.store';
+import { PageHeaderStore } from '../../../core/ui/page-header.store';
 import { RoomsComponent } from './rooms.component';
 
 describe('RoomsComponent', () => {
@@ -38,7 +39,14 @@ describe('RoomsComponent', () => {
     const fixture = TestBed.createComponent(RoomsComponent);
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.textContent).toContain('Rooms');
+    const header = TestBed.inject(PageHeaderStore).state();
+    expect(header?.title).toBe('Rooms');
+    expect(header?.stats?.map((stat) => stat.label)).toEqual([
+      'Active rooms',
+      'Open rooms',
+      'Private rooms',
+      'Started games',
+    ]);
   });
 
   it('deletes owned waiting rooms after modal confirmation', async () => {

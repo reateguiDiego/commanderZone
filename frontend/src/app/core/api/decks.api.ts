@@ -92,8 +92,13 @@ export class DecksApi {
     return this.http.delete<void>(`${API_BASE_URL}/decks/${id}`);
   }
 
-  importDecklist(id: string, decklist: string): Observable<DeckImportResponse> {
-    return this.http.post<DeckImportResponse>(`${API_BASE_URL}/decks/${id}/import`, { decklist });
+  importDecklist(id: string, decklist: string, commanderScryfallId?: string): Observable<DeckImportResponse> {
+    const payload: { decklist: string; commanderScryfallId?: string } = { decklist };
+    if (commanderScryfallId) {
+      payload.commanderScryfallId = commanderScryfallId;
+    }
+
+    return this.http.post<DeckImportResponse>(`${API_BASE_URL}/decks/${id}/import`, payload);
   }
 
   addCard(id: string, payload: DeckCardMutationPayload): Observable<DeckResponse> {

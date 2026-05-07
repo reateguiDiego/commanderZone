@@ -1,140 +1,120 @@
 .setup-panel {
   display: grid;
-  gap: 1rem;
-  border: 1px solid rgb(255 255 255 / 10%);
-  border-radius: 8px;
-  padding: 1rem;
-  background: rgb(12 18 28 / 94%);
+  gap: 0.9rem;
+  border: 1px solid rgb(215 180 106 / 28%);
+  border-radius: 18px;
+  padding: clamp(0.9rem, 2vw, 1.2rem);
+  background: rgb(7 10 8 / 82%);
+  overflow: visible;
 }
 
 .setup-header,
 .setup-actions {
   display: flex;
-  gap: 1rem;
+  gap: 0.85rem;
   align-items: flex-start;
   justify-content: space-between;
 }
 
 .setup-header h2,
 .setup-header p,
-.setup-actions p,
 .muted {
   margin: 0;
 }
 
 .setup-header h2 {
-  font-size: 1.3rem;
+  color: var(--text);
+  font-size: clamp(1.25rem, 2vw, 1.7rem);
+  line-height: 1.05;
 }
 
 .setup-header p,
-.setup-actions p,
 .muted,
-.mode-card small {
-  color: rgb(226 232 240 / 70%);
+label {
+  color: var(--muted);
 }
 
-.mode-grid,
-.setup-grid,
-.friend-list {
+.setup-grid {
   display: grid;
-  gap: 0.75rem;
-}
-
-.mode-card,
-.setup-section {
-  border: 1px solid rgb(255 255 255 / 10%);
-  border-radius: 8px;
-  background: rgb(255 255 255 / 5%);
-}
-
-.mode-card {
-  display: grid;
-  gap: 0.35rem;
-  min-height: 9rem;
-  padding: 1rem;
-  color: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.mode-card.selected,
-.tracker-chip.active,
-.friend-list button.selected,
-.segmented-control button.active {
-  border-color: #67e8f9;
-  background: rgb(103 232 249 / 16%);
+  grid-template-columns: minmax(0, 1.2fr) minmax(18rem, 0.8fr);
+  gap: 0.85rem;
 }
 
 .setup-section {
   display: grid;
   gap: 0.75rem;
+  border: 1px solid rgb(126 148 112 / 28%);
+  border-radius: 16px;
   padding: 1rem;
+  background: rgb(18 25 17 / 68%);
+  overflow: visible;
+}
+
+.players-section {
+  position: relative;
+  z-index: 3;
 }
 
 .setup-section h3 {
   margin: 0;
-  font-size: 1rem;
+  color: var(--accent);
+  font-size: 0.9rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
-.compact-fields {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.75rem;
-}
-
-label {
-  display: grid;
-  gap: 0.35rem;
-  color: rgb(226 232 240 / 78%);
-  font-size: 0.85rem;
-}
-
-input,
-select,
-.player-name-preview {
-  width: 100%;
-  min-height: 2.75rem;
-  border: 1px solid rgb(255 255 255 / 12%);
-  border-radius: 8px;
-  padding: 0 0.75rem;
-  background: rgb(2 6 23 / 70%);
-  color: white;
-}
-
-.player-name-preview {
-  display: grid;
-  align-content: center;
-  gap: 0.08rem;
-}
-
-.player-name-preview small {
-  color: rgb(226 232 240 / 62%);
-  font-size: 0.68rem;
-}
-
-select {
-  appearance: none;
-}
-
-.players-list {
+.compact-fields,
+.players-list,
+.wheel-column {
   display: grid;
   gap: 0.5rem;
 }
 
-.players-list .player-config-row {
+.compact-fields {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+label {
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+input,
+.color-picker-trigger,
+.color-option,
+.segmented-control button,
+.ghost-button,
+.primary-button {
+  min-height: 2.75rem;
+  border: 1px solid rgb(215 180 106 / 20%);
+  border-radius: 10px;
+  padding: 0 0.75rem;
+  color: var(--text);
+  font-weight: 850;
+}
+
+input {
+  width: 100%;
+  background: rgb(5 9 6 / 74%);
+  outline: none;
+}
+
+.player-config-row {
   display: grid;
-  grid-template-columns: 2rem minmax(0, 1fr) minmax(8.5rem, 0.8fr);
-  gap: 0.35rem;
+  grid-template-columns: 2rem minmax(0, 1fr) minmax(9rem, 0.7fr);
+  gap: 0.45rem;
   align-items: center;
 }
 
-.players-list .seat-number {
+.seat-number {
   display: grid;
   place-items: center;
   width: 2rem;
   height: 2rem;
   border-radius: 999px;
-  background: rgb(255 255 255 / 8%);
+  background: rgb(215 180 106 / 12%);
+  color: var(--accent);
+  font-weight: 900;
 }
 
 .color-picker {
@@ -148,32 +128,26 @@ select {
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  min-height: 2.75rem;
-  border: 1px solid rgb(255 255 255 / 12%);
-  border-radius: 8px;
-  padding: 0 0.75rem;
-  background: linear-gradient(135deg, rgb(2 6 23 / 78%), rgb(2 6 23 / 48%)), var(--selected-gradient);
-  color: white;
-  font-size: 0.85rem;
+  background: linear-gradient(135deg, rgb(5 9 6 / 78%), rgb(5 9 6 / 42%)), var(--selected-gradient);
   cursor: pointer;
 }
 
 .color-picker-list {
   position: absolute;
   inset: calc(100% + 0.35rem) 0 auto;
-  z-index: 6;
+  z-index: 50;
   display: grid;
   gap: 0.3rem;
   max-height: 15rem;
   overflow: auto;
-  border: 1px solid rgb(255 255 255 / 12%);
-  border-radius: 8px;
+  border: 1px solid rgb(215 180 106 / 26%);
+  border-radius: 12px;
   padding: 0.35rem;
-  background: rgb(2 6 23 / 96%);
+  background: rgb(5 8 5 / 98%);
 }
 
 .color-option {
-  background: linear-gradient(135deg, rgb(2 6 23 / 42%), rgb(2 6 23 / 14%)), var(--option-gradient);
+  background: linear-gradient(135deg, rgb(5 9 6 / 42%), rgb(5 9 6 / 12%)), var(--option-gradient);
 }
 
 .color-option.selected {
@@ -183,7 +157,6 @@ select {
 .mana-symbols {
   display: inline-flex;
   gap: 0.2rem;
-  justify-content: flex-end;
   color: var(--selected-accent, var(--option-accent, #f7dfaa));
   font-size: 1rem;
 }
@@ -192,26 +165,21 @@ select {
   color: var(--option-accent);
 }
 
-.friend-seat-select {
-  grid-column: 2 / -1;
-}
-
-.switch-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.switch-row input {
-  width: 1.25rem;
-  min-height: 1.25rem;
-}
-
-.segmented-control,
-.chip-list {
-  display: flex;
-  flex-wrap: wrap;
+.segmented-control {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.5rem;
+}
+
+.segmented-control button,
+.ghost-button {
+  background: rgb(255 255 255 / 5%);
+  cursor: pointer;
+}
+
+.segmented-control button.active {
+  border-color: rgb(215 180 106 / 58%);
+  background: linear-gradient(135deg, rgb(155 111 37 / 56%), rgb(75 90 55 / 34%));
 }
 
 .timer-wheel {
@@ -219,97 +187,62 @@ select {
   grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
   gap: 0.45rem;
   align-items: center;
-  border: 1px solid rgb(255 255 255 / 10%);
-  border-radius: 8px;
-  padding: 0.5rem;
-  background: rgb(2 6 23 / 45%);
+  border: 1px solid rgb(126 148 112 / 24%);
+  border-radius: 14px;
+  padding: 0.6rem;
+  background: rgb(5 9 6 / 48%);
 }
 
 .wheel-column {
-  display: grid;
-  gap: 0.2rem;
   text-align: center;
+  color: var(--muted);
   font-size: 0.72rem;
+  font-weight: 800;
 }
 
 .wheel-options {
   display: grid;
-  grid-auto-flow: row;
   grid-auto-rows: 1.65rem;
   max-height: 4.95rem;
   overflow-y: auto;
-  border-radius: 8px;
-  background: linear-gradient(rgb(2 6 23 / 55%), rgb(255 255 255 / 8%), rgb(2 6 23 / 55%));
+  border-radius: 10px;
+  background: rgb(255 255 255 / 6%);
 }
 
 .wheel-options button {
   border: 0;
   background: transparent;
-  color: rgb(226 232 240 / 62%);
+  color: rgb(232 222 204 / 62%);
 }
 
 .wheel-options button.selected {
-  color: white;
-  font-size: 1rem;
-  font-weight: 900;
+  color: var(--text);
 }
 
-.segmented-control button,
-.tracker-chip,
-.friend-list button,
-.ghost-button,
 .primary-button {
-  border: 1px solid rgb(255 255 255 / 12%);
-  border-radius: 8px;
-  min-height: 2.75rem;
-  padding: 0 0.85rem;
-  color: inherit;
-  background: rgb(255 255 255 / 6%);
+  border-color: rgb(215 180 106 / 76%);
+  background: linear-gradient(135deg, #a87927, #d7b46a);
+  color: #141106;
   cursor: pointer;
 }
 
-.friend-list button {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  text-align: left;
-}
-
-.primary-button {
-  border-color: #67e8f9;
-  background: #67e8f9;
-  color: #082f49;
-  font-weight: 800;
+.primary-button:disabled {
+  opacity: 0.72;
 }
 
 .error-message {
-  margin: 0;
   color: #fecaca;
 }
 
-@media (min-width: 760px) {
-  .mode-grid,
+@media (max-width: 980px) {
   .setup-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .full-width {
-    grid-column: 1 / -1;
-  }
-}
-
-@media (min-width: 920px) {
-  .players-list .player-config-row:has(.friend-seat-select) {
-    grid-template-columns: 2rem minmax(0, 1fr) minmax(8.5rem, 0.8fr) minmax(10rem, 1fr);
-  }
-
-  .friend-seat-select {
-    grid-column: auto;
+    grid-template-columns: 1fr;
   }
 }
 
 @media (max-width: 680px) {
-  .setup-panel {
+  .setup-panel,
+  .setup-section {
     gap: 0.65rem;
     padding: 0.75rem;
   }
@@ -319,59 +252,32 @@ select {
   }
 
   .setup-header p,
-  .mode-card span,
-  .mode-card small,
-  .muted,
-  .setup-actions p {
+  .muted {
     display: none;
   }
 
-  .setup-header h2 {
-    font-size: 1.05rem;
+  .player-config-row {
+    grid-template-columns: 1.75rem minmax(0, 1fr) minmax(6.8rem, 0.72fr);
+    gap: 0.35rem;
   }
 
-  .mode-grid,
-  .setup-grid {
-    gap: 0.55rem;
-  }
-
-  .mode-card,
-  .setup-section {
-    padding: 0.65rem;
-  }
-
-  .mode-card {
-    min-height: 3.1rem;
-    align-content: center;
-  }
-
-  .compact-fields {
-    gap: 0.5rem;
-  }
-
-  .players-list .player-config-row {
-    grid-template-columns: 1.75rem minmax(0, 1fr) minmax(6.6rem, 0.75fr);
-  }
-
-  .players-list .seat-number {
+  .seat-number {
     width: 1.75rem;
     height: 1.75rem;
   }
 
   input,
-  select,
-  .player-name-preview,
   .color-picker-trigger,
   .color-option,
   .segmented-control button,
   .ghost-button,
   .primary-button {
-    min-height: 2.4rem;
+    min-height: 2.45rem;
     padding: 0 0.58rem;
   }
 
   .timer-wheel {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .timer-wheel strong {
@@ -379,7 +285,8 @@ select {
     text-align: center;
   }
 
-  .setup-actions {
-    justify-content: end;
+  .setup-actions,
+  .primary-button {
+    width: 100%;
   }
 }
