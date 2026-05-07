@@ -1,0 +1,69 @@
+<section class="analysis-panel">
+  <div class="analysis-panel-header">
+    <div>
+      <h3>Mana curve</h3>
+      <p>Main deck by mana value.</p>
+    </div>
+    <div class="analysis-legend">
+      <span><i class="legend-dot permanent-dot"></i> Permanents</span>
+      <span><i class="legend-dot spell-dot"></i> Spells</span>
+    </div>
+  </div>
+
+  <div class="curve-grid compact-curve analysis-curve-large">
+    @for (bucket of store.analysis().manaCurve; track bucket.manaValue) {
+      <div class="curve-bar stacked-bar">
+        <span>{{ store.curveManaValueLabel(bucket.manaValue) }}</span>
+        <div
+          class="curve-stack"
+          (mouseenter)="store.showCurveHoverList($event, bucket.manaValue)"
+          (mousemove)="store.moveHoverList($event)"
+          (mouseleave)="store.hideHoverList()"
+        >
+          @if (bucket.total > 0) {
+            <div
+              class="curve-fill"
+              [style.height.%]="store.curveTotalHeight(bucket.total)"
+              [style.--permanent-share]="store.curvePermanentShare(bucket.permanents, bucket.total)"
+            ></div>
+          }
+        </div>
+        <small>{{ bucket.total }}</small>
+      </div>
+    }
+  </div>
+
+  <p class="analysis-footnote">Coste medio sin tierras: {{ store.analysis().averageManaValue }}</p>
+
+  <section class="opening-hand-panel">
+    <div class="analysis-panel-header compact-analysis-header">
+      <div>
+        <h3>Sample hand</h3>
+        <p>Seven random cards from the main deck.</p>
+      </div>
+      <button class="secondary-button compact" type="button" (click)="store.drawOpeningHand()">
+        <lucide-icon name="shuffle" size="15" />
+        Draw again
+      </button>
+    </div>
+    <div class="opening-hand-list">
+      @for (card of store.openingHand(); track card.id) {
+        <button
+          class="opening-hand-card"
+          type="button"
+          (mouseenter)="store.showCardPreview($event, card.card)"
+          (mousemove)="store.moveCardPreview($event)"
+          (mouseleave)="store.hideCardPreview()"
+        >
+          @if (store.imageUrl(card.card); as imageUrl) {
+            <img [src]="imageUrl" [alt]="card.name" loading="lazy" />
+          } @else {
+            <span class="card-fallback mini">{{ card.name }}</span>
+          }
+        </button>
+      } @empty {
+        <p class="notice compact-notice">No cards available.</p>
+      }
+    </div>
+  </section>
+</section>

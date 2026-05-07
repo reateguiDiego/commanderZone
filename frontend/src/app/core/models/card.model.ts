@@ -7,6 +7,14 @@ export interface CardImageUris {
   border_crop?: string;
 }
 
+export interface CardFace {
+  name?: string | null;
+  manaCost?: string | null;
+  typeLine?: string | null;
+  oracleText?: string | null;
+  imageUris?: CardImageUris;
+}
+
 export interface Card {
   id: string;
   scryfallId: string;
@@ -20,6 +28,7 @@ export interface Card {
   colorIdentity: string[];
   legalities: Record<string, string>;
   imageUris: CardImageUris;
+  cardFaces?: CardFace[];
   allParts?: Record<string, unknown>[];
   manaValue?: number | null;
   producedMana?: string[];

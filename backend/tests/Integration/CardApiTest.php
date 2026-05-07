@@ -48,4 +48,16 @@ class CardApiTest extends ApiTestCase
         self::assertResponseStatusCodeSame(409);
         self::assertCount(2, $this->jsonResponse()['matches']);
     }
+
+    public function testSearchPrioritizesNamesStartingWithQuery(): void
+    {
+        $contained = $this->seedCard('00000000-0000-0000-0000-000000000012', 'A Liliana Contract');
+        $liliana = $this->seedCard('00000000-0000-0000-0000-000000000011', 'Liliana of the Veil');
+
+        $this->jsonRequest('GET', '/cards/search?q=liliana&limit=3');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame($liliana->scryfallId(), $this->jsonResponse()['data'][0]['scryfallId']);
+        self::assertSame($contained->scryfallId(), $this->jsonResponse()['data'][1]['scryfallId']);
+    }
 }

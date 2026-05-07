@@ -40,4 +40,33 @@ class CardImageTest extends TestCase
         self::assertSame('Espadas en guadañas', $data['printedName']);
         self::assertSame('Alternate flavor', $data['flavorName']);
     }
+
+    public function testStoresCardFaceImageUrisFromScryfall(): void
+    {
+        $card = new Card('00000000-0000-0000-0000-000000000003');
+        $card->updateFromScryfall([
+            'name' => 'Front // Back',
+            'card_faces' => [
+                [
+                    'name' => 'Front',
+                    'mana_cost' => '{1}{G}',
+                    'type_line' => 'Creature',
+                    'oracle_text' => 'Front text.',
+                    'image_uris' => ['normal' => 'https://cards.scryfall.io/normal/front/front.jpg'],
+                ],
+                [
+                    'name' => 'Back',
+                    'mana_cost' => null,
+                    'type_line' => 'Land',
+                    'oracle_text' => 'Back text.',
+                    'image_uris' => ['normal' => 'https://cards.scryfall.io/normal/back/back.jpg'],
+                ],
+            ],
+        ]);
+
+        $data = $card->toArray();
+
+        self::assertSame('Front', $data['cardFaces'][0]['name']);
+        self::assertSame('https://cards.scryfall.io/normal/back/back.jpg', $data['cardFaces'][1]['imageUris']['normal']);
+    }
 }

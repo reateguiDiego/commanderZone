@@ -59,7 +59,9 @@ export class DeckImportExportService {
   }
 
   entriesFromDeck(deck: Deck): DecklistEntry[] {
-    return (deck.cards ?? []).map((entry) => ({
+    const cards = Array.isArray(deck.cards) ? deck.cards : [];
+
+    return cards.map((entry) => ({
       quantity: entry.quantity,
       name: entry.card.name,
       section: entry.section,

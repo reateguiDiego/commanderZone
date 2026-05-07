@@ -2,7 +2,12 @@
   @for (group of store.cardGroups(); track group.id) {
     <section class="spoiler-section">
       <header class="spoiler-section-header">
-        <h3>{{ group.title }} <span class="group-count">({{ group.cards.length }})</span></h3>
+        <h3>
+          {{ group.title }} <span class="group-count">({{ group.quantity }})</span>
+          @if (group.detail) {
+            <span class="group-detail">· {{ group.detail }}</span>
+          }
+        </h3>
       </header>
 
       @if (group.id === 'commander' && group.cards.length === 0) {
@@ -15,7 +20,7 @@
               (click)="store.toggleCardMenu($event, entry)"
             >
               <div class="spoiler-image-frame">
-                @if (store.imageUrl(entry.card); as imageUrl) {
+                @if (store.displayCardImageUrl(entry.card); as imageUrl) {
                   <img [src]="imageUrl" [alt]="store.displayCardName(entry.card)" loading="lazy" />
                 } @else {
                   <div class="spoiler-card-fallback">

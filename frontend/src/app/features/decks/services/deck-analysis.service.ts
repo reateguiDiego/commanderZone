@@ -21,6 +21,8 @@ export interface ColorProfileEntry {
   percent: number;
 }
 
+const MAX_CURVE_MANA_VALUE = 9;
+
 export interface DeckAnalysis {
   mainDeckCards: number;
   landCount: number;
@@ -92,7 +94,7 @@ export class DeckAnalysisService {
     const buckets = new Map<number, { permanents: number; spells: number }>();
 
     for (const entry of cards) {
-      const value = Math.min(this.manaValue(entry.card.manaCost), 7);
+      const value = Math.min(this.manaValue(entry.card.manaCost), MAX_CURVE_MANA_VALUE);
       const current = buckets.get(value) ?? { permanents: 0, spells: 0 };
       if (this.isSpell(entry)) {
         current.spells += 1;
@@ -102,7 +104,7 @@ export class DeckAnalysisService {
       buckets.set(value, current);
     }
 
-    return Array.from({ length: 8 }, (_, manaValue) => ({
+    return Array.from({ length: MAX_CURVE_MANA_VALUE + 1 }, (_, manaValue) => ({
       manaValue,
       permanents: buckets.get(manaValue)?.permanents ?? 0,
       spells: buckets.get(manaValue)?.spells ?? 0,

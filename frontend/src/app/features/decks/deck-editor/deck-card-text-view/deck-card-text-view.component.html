@@ -5,7 +5,10 @@
         <section class="deck-card-group">
           <button class="deck-group-toggle" type="button" [attr.aria-expanded]="!store.isGroupCollapsed(group.id)" (click)="store.toggleGroup(group.id)">
             <span>
-              {{ group.title }} <span class="group-count">({{ group.cards.length }})</span>
+              {{ group.title }} <span class="group-count">({{ group.quantity }})</span>
+              @if (group.detail) {
+                <span class="group-detail">· {{ group.detail }}</span>
+              }
             </span>
             <lucide-icon [name]="store.isGroupCollapsed(group.id) ? 'chevron-right' : 'chevron-down'" size="16" />
           </button>

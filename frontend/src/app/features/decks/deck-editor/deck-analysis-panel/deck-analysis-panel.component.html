@@ -1,0 +1,43 @@
+<div class="analysis-shell analysis-screen">
+  <app-deck-mana-curve-panel />
+
+  <div class="analysis-side-column">
+    <section class="analysis-panel">
+      <h3>Type breakdown</h3>
+      <div class="analysis-list-grid">
+        @for (metric of store.visibleTypeMetrics(); track metric.label) {
+          <div
+            class="analysis-list-row hoverable-analysis-row"
+            (mouseenter)="store.showHoverList($event, metric.label, metric.cards)"
+            (mousemove)="store.moveHoverList($event)"
+            (mouseleave)="store.hideHoverList()"
+          >
+            <span class="analysis-list-label">{{ metric.label }}</span>
+            <strong class="analysis-list-count">{{ metric.count }}</strong>
+          </div>
+        }
+      </div>
+    </section>
+
+    <section class="analysis-panel">
+      <h3>Utility counts</h3>
+      <div class="analysis-list-grid">
+        @for (metric of store.visibleUtilityMetrics(); track metric.label) {
+          <div
+            class="analysis-list-row hoverable-analysis-row"
+            (mouseenter)="store.showHoverList($event, metric.label, metric.cards)"
+            (mousemove)="store.moveHoverList($event)"
+            (mouseleave)="store.hideHoverList()"
+          >
+            <span class="analysis-list-label">{{ metric.label }}</span>
+            <strong class="analysis-list-count">{{ metric.count }}</strong>
+          </div>
+        }
+      </div>
+    </section>
+  </div>
+</div>
+
+<div class="analysis-support-grid">
+  <app-deck-mana-balance-panel />
+</div>

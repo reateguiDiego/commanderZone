@@ -7,6 +7,7 @@ import { ManaSymbolsComponent } from '../../../shared/mana/mana-symbols/mana-sym
 import { AppModalComponent } from '../../../shared/ui/app-modal/app-modal.component';
 import { DeckCardImageCache } from '../data-access/deck-card-image-cache.service';
 import { DeckEditorStore } from '../data-access/deck-editor.store';
+import { DeckAnalysisPanelComponent } from './deck-analysis-panel/deck-analysis-panel.component';
 import { DeckCardMenuComponent } from './deck-card-menu/deck-card-menu.component';
 import { DeckCardSpoilerViewComponent } from './deck-card-spoiler-view/deck-card-spoiler-view.component';
 import { DeckCardTextViewComponent } from './deck-card-text-view/deck-card-text-view.component';
@@ -20,6 +21,7 @@ import { DeckCardTextViewComponent } from './deck-card-text-view/deck-card-text-
     AppModalComponent,
     CardAutocompleteComponent,
     ManaSymbolsComponent,
+    DeckAnalysisPanelComponent,
     DeckCardMenuComponent,
     DeckCardSpoilerViewComponent,
     DeckCardTextViewComponent,

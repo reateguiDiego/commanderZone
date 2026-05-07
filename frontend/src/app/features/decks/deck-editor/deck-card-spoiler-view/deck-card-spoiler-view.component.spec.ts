@@ -37,6 +37,7 @@ function storeStub() {
     hideCardPreview: vi.fn(),
     toggleCardMenu: vi.fn(),
     imageUrl: () => 'https://img.test/card.jpg',
+    displayCardImageUrl: () => 'https://img.test/card.jpg',
     displayCardName: (value: Card) => value.name,
     hasAlternateFace: () => false,
     toggleCardFace: vi.fn(),

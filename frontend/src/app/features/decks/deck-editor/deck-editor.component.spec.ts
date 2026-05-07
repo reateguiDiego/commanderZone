@@ -57,6 +57,26 @@ describe('DeckEditorComponent', () => {
     expect(groups.find((group) => group.id === 'sideboard')?.cards[0].card.name).toBe('Wastes');
   });
 
+  it('shows land quantity including modal double-faced lands assigned to other groups', async () => {
+    await setup({ id: 'deck-1' }, {
+      id: 'deck-1',
+      name: 'Test deck',
+      format: 'commander',
+      folderId: null,
+      cards: [
+        deckCard('main-mdfc', 'main', card('Bala Ged Recovery // Bala Ged Sanctuary', 'Sorcery // Land', 'modal_dfc')),
+        deckCard('main-land', 'main', card('Command Tower', 'Land')),
+      ],
+    });
+    const fixture = TestBed.createComponent(DeckEditorComponent);
+
+    await fixture.componentInstance.store.load();
+
+    const landGroup = fixture.componentInstance.store.cardGroups().find((group) => group.id === 'land');
+    expect(landGroup?.quantity).toBe(1);
+    expect(landGroup?.detail).toBe('2 including MDFC');
+  });
+
   it('shows deck title warning only for backend validation errors', async () => {
     const deck: Deck = {
       id: 'deck-1',
@@ -119,7 +139,7 @@ function validCommanderValidation() {
   };
 }
 
-function card(name: string, typeLine: string): Card {
+function card(name: string, typeLine: string, layout = 'normal'): Card {
   return {
     id: `${name}-id`,
     scryfallId: `${name}-scryfall-id`,
@@ -131,7 +151,7 @@ function card(name: string, typeLine: string): Card {
     colorIdentity: [],
     legalities: {},
     imageUris: {},
-    layout: 'normal',
+    layout,
     commanderLegal: true,
     set: null,
     collectorNumber: null,

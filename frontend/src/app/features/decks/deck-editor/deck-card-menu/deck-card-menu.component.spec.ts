@@ -1,5 +1,6 @@
-import { signal } from '@angular/core';
+import { importProvidersFrom, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { LucideAngularModule, Minus, Plus } from 'lucide-angular';
 import { DeckCard } from '../../../../core/models/deck.model';
 import { DeckEditorStore } from '../../data-access/deck-editor.store';
 import { DeckCardMenuComponent } from './deck-card-menu.component';
@@ -10,7 +11,10 @@ describe('DeckCardMenuComponent', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [DeckCardMenuComponent],
-      providers: [{ provide: DeckEditorStore, useValue: storeStub() }],
+      providers: [
+        importProvidersFrom(LucideAngularModule.pick({ Minus, Plus })),
+        { provide: DeckEditorStore, useValue: storeStub() },
+      ],
     }).compileComponents();
 
     fixture = TestBed.createComponent(DeckCardMenuComponent);
@@ -22,9 +26,9 @@ describe('DeckCardMenuComponent', () => {
     const text = fixture.nativeElement.textContent as string;
     const input = fixture.nativeElement.querySelector('input') as HTMLInputElement | null;
 
-    expect(text).toContain('Add copy');
-    expect(text).toContain('Qty');
-    expect(text).toContain('Remove copy');
+    expect(text).toContain('Add');
+    expect(text).toContain('Quantity');
+    expect(text).toContain('Remove');
     expect(input?.value).toBe('2');
   });
 });

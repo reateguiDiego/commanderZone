@@ -26,6 +26,8 @@ export interface DeckCardGroup {
   id: string;
   title: string;
   cards: DeckCard[];
+  quantity: number;
+  detail?: string;
 }
 
 export interface DeckCardColumn {
@@ -48,8 +50,14 @@ export interface PointerPosition {
 export interface HoverListState {
   title: string;
   items: string[];
+  sections?: HoverListSection[];
   top: number;
   left: number;
+}
+
+export interface HoverListSection {
+  title: string;
+  items: string[];
 }
 
 export interface CardMenuState {
@@ -57,4 +65,13 @@ export interface CardMenuState {
   top: number;
   left: number;
   amount: number;
+}
+
+export interface OpeningHandCard {
+  id: string;
+  card: Card;
+  name: string;
+  typeLine: string | null;
+  manaCost: string | null;
+  imageUrl: string | null;
 }

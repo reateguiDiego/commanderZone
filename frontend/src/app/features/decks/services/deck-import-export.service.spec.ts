@@ -54,6 +54,18 @@ describe('DeckImportExportService', () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
+  it('returns no deck entries when backend response does not include a card array', () => {
+    const entries = service.entriesFromDeck({
+      id: 'deck-1',
+      name: 'Deck',
+      format: 'commander',
+      folderId: null,
+      cards: {} as never,
+    });
+
+    expect(entries).toEqual([]);
+  });
+
   it('parses section headers with counters and inline section prefixes', () => {
     const entries = service.parse(
       [

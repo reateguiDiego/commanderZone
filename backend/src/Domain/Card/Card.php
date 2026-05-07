@@ -53,6 +53,9 @@ class Card
     private array $imageUris = [];
 
     #[ORM\Column(type: 'json')]
+    private array $cardFaces = [];
+
+    #[ORM\Column(type: 'json')]
     private array $allParts = [];
 
     #[ORM\Column(type: 'float', nullable: true)]
@@ -111,6 +114,7 @@ class Card
         $this->colorIdentity = $data['color_identity'] ?? [];
         $this->legalities = $data['legalities'] ?? [];
         $this->imageUris = $data['image_uris'] ?? ($data['card_faces'][0]['image_uris'] ?? []);
+        $this->cardFaces = $this->cardFacesFromScryfall($data);
         $this->allParts = $data['all_parts'] ?? [];
         $this->manaValue = isset($data['cmc']) ? (float) $data['cmc'] : null;
         $this->producedMana = $data['produced_mana'] ?? [];
@@ -191,6 +195,11 @@ class Card
         return $this->imageUris;
     }
 
+    public function cardFaces(): array
+    {
+        return $this->cardFaces;
+    }
+
     public function allParts(): array
     {
         return $this->allParts;
@@ -263,6 +272,7 @@ class Card
             'colorIdentity' => $this->colorIdentity,
             'legalities' => $this->legalities,
             'imageUris' => $this->imageUris,
+            'cardFaces' => $this->cardFaces,
             'allParts' => $this->allParts,
             'manaValue' => $this->manaValue,
             'producedMana' => $this->producedMana,
@@ -315,5 +325,38 @@ class Card
         }
 
         return $texts === [] ? null : implode("\n//\n", $texts);
+    }
+
+    /**
+     * @return list<array{name:?string,manaCost:?string,typeLine:?string,oracleText:?string,imageUris:array}>
+     */
+    private function cardFacesFromScryfall(array $data): array
+    {
+        $faces = $data['card_faces'] ?? null;
+        if (!is_array($faces)) {
+            return [];
+        }
+
+        $mapped = [];
+        foreach ($faces as $face) {
+            if (!is_array($face)) {
+                continue;
+            }
+
+            $mapped[] = [
+                'name' => $this->scalarString($face['name'] ?? null),
+                'manaCost' => $this->scalarString($face['mana_cost'] ?? null),
+                'typeLine' => $this->scalarString($face['type_line'] ?? null),
+                'oracleText' => $this->scalarString($face['oracle_text'] ?? null),
+                'imageUris' => is_array($face['image_uris'] ?? null) ? $face['image_uris'] : [],
+            ];
+        }
+
+        return $mapped;
+    }
+
+    private function scalarString(mixed $value): ?string
+    {
+        return is_scalar($value) && (string) $value !== '' ? (string) $value : null;
     }
 }

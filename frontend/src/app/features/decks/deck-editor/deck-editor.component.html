@@ -91,128 +91,7 @@
       </div>
 
       @if (store.visibleActiveTab() === 'analysis') {
-        <div class="analysis-shell analysis-screen">
-          <section class="analysis-panel analysis-curve-panel">
-            <div class="analysis-panel-header">
-              <div>
-                <h3>Mana curve</h3>
-                <p>Main deck by mana value.</p>
-              </div>
-              <div class="analysis-legend">
-                <span><i class="legend-dot permanent-dot"></i> Permanents</span>
-                <span><i class="legend-dot spell-dot"></i> Spells</span>
-              </div>
-            </div>
-
-            <div class="curve-grid compact-curve analysis-curve-large">
-              @for (bucket of store.analysis().manaCurve; track bucket.manaValue) {
-                <div class="curve-bar stacked-bar">
-                  <span>{{ bucket.manaValue === 7 ? '7+' : bucket.manaValue }}</span>
-                  <div class="curve-stack">
-                    <strong
-                      class="curve-segment permanent-segment"
-                      [style.height.%]="store.curveSegmentHeight(bucket.permanents)"
-                      (mouseenter)="store.showHoverList($event, store.curveHoverTitle(bucket.manaValue, 'Permanents'), store.curveHoverItems(bucket.manaValue, 'permanent'))"
-                      (mousemove)="store.moveHoverList($event)"
-                      (mouseleave)="store.hideHoverList()"
-                    ></strong>
-                    <strong
-                      class="curve-segment spell-segment"
-                      [style.height.%]="store.curveSegmentHeight(bucket.spells)"
-                      (mouseenter)="store.showHoverList($event, store.curveHoverTitle(bucket.manaValue, 'Spells'), store.curveHoverItems(bucket.manaValue, 'spell'))"
-                      (mousemove)="store.moveHoverList($event)"
-                      (mouseleave)="store.hideHoverList()"
-                    ></strong>
-                  </div>
-                  <small>{{ bucket.total }}</small>
-                </div>
-              }
-            </div>
-
-            <p class="analysis-footnote">Coste medio sin tierras: {{ store.analysis().averageManaValue }}</p>
-          </section>
-
-          <div class="analysis-side-column">
-            <section class="analysis-panel">
-              <h3>Type breakdown</h3>
-              <div class="analysis-list-grid">
-                @for (metric of store.visibleTypeMetrics(); track metric.label) {
-                  <div
-                    class="analysis-list-row hoverable-analysis-row"
-                    (mouseenter)="store.showHoverList($event, metric.label, metric.cards)"
-                    (mousemove)="store.moveHoverList($event)"
-                    (mouseleave)="store.hideHoverList()"
-                  >
-                    <span class="analysis-list-label">{{ metric.label }}</span>
-                    <strong class="analysis-list-count">{{ metric.count }}</strong>
-                  </div>
-                }
-              </div>
-            </section>
-
-            <section class="analysis-panel">
-              <h3>Utility counts</h3>
-              <div class="analysis-list-grid">
-                @for (metric of store.visibleUtilityMetrics(); track metric.label) {
-                  <div
-                    class="analysis-list-row hoverable-analysis-row"
-                    (mouseenter)="store.showHoverList($event, metric.label, metric.cards)"
-                    (mousemove)="store.moveHoverList($event)"
-                    (mouseleave)="store.hideHoverList()"
-                  >
-                    <span class="analysis-list-label">{{ metric.label }}</span>
-                    <strong class="analysis-list-count">{{ metric.count }}</strong>
-                  </div>
-                }
-              </div>
-            </section>
-          </div>
-        </div>
-
-        <div class="analysis-support-grid">
-          <section class="analysis-panel compact-analysis-panel mana-balance-panel">
-            <div class="analysis-panel-header compact-analysis-header">
-              <div>
-                <h3>Mana balance</h3>
-                <p>Colored source share versus color demand.</p>
-              </div>
-              @if (store.manaSourceProfiles().length > 0) {
-                <div class="mana-donut-stack">
-                  <div class="mana-donut" [style.background]="store.manaSourceDonutBackground()">
-                    <span>{{ store.manaSourceTotal() }}</span>
-                  </div>
-                  <small>Total sources</small>
-                </div>
-              }
-            </div>
-            <div class="mana-balance-grid">
-              @for (profile of store.manaSourceProfiles(); track profile.color) {
-                <div class="mana-balance-row">
-                  <div class="mana-balance-label">
-                    <app-mana-symbols [symbols]="[profile.color]" />
-                    <strong>{{ profile.label }}</strong>
-                  </div>
-                  <div class="mana-balance-metrics">
-                    <span>{{ profile.sourceCount }} sources</span>
-                    <strong>{{ profile.sourcePercent }}%</strong>
-                  </div>
-                  <div class="mana-balance-bars">
-                    <div class="mana-balance-bar source-bar">
-                      <span [style.width.%]="profile.sourcePercent"></span>
-                    </div>
-                    <div class="mana-balance-bar demand-bar">
-                      <span [style.width.%]="profile.demandPercent"></span>
-                    </div>
-                  </div>
-                  <div class="mana-balance-notes">
-                    <small>Need {{ profile.demandCount }} pips</small>
-                    <small>{{ profile.demandPercent }}% demand</small>
-                  </div>
-                </div>
-              }
-            </div>
-          </section>
-        </div>
+        <app-deck-analysis-panel />
       } @else if (store.visibleActiveTab() === 'considering') {
         <div class="analysis-shell analysis-screen considering-layout">
           <section class="analysis-panel">
@@ -493,17 +372,32 @@
     @if (store.cardPreview(); as preview) {
       <div class="card-hover-preview" [style.top.px]="preview.top" [style.left.px]="preview.left">
         @if (preview.imageUrl) {
-          <img [src]="preview.imageUrl" [alt]="preview.card.name" />
-        } @else {
-          <div class="card-fallback tall">{{ preview.card.name }}</div>
-        }
+            <img [src]="preview.imageUrl" [alt]="store.displayCardName(preview.card)" />
+          } @else {
+            <div class="card-fallback tall">{{ store.displayCardName(preview.card) }}</div>
+          }
       </div>
     }
 
     @if (store.hoverList(); as hover) {
       <div class="analysis-hover-list" [style.top.px]="hover.top" [style.left.px]="hover.left">
         <strong>{{ hover.title }}</strong>
-        @if (hover.items.length > 0) {
+        @if (hover.sections?.length) {
+          @for (section of hover.sections; track section.title) {
+            <section class="analysis-hover-section">
+              <h4>{{ section.title }}</h4>
+              @if (section.items.length > 0) {
+                <ul>
+                  @for (item of section.items; track item) {
+                    <li>{{ item }}</li>
+                  }
+                </ul>
+              } @else {
+                <span>No cards</span>
+              }
+            </section>
+          }
+        } @else if (hover.items.length > 0) {
           <ul>
             @for (item of hover.items; track item) {
               <li>{{ item }}</li>

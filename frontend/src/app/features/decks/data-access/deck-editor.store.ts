@@ -5,7 +5,7 @@ import { firstValueFrom } from 'rxjs';
 import { CardsApi } from '../../../core/api/cards.api';
 import { DecksApi } from '../../../core/api/decks.api';
 import { MissingDeckCard } from '../../../core/models/api-responses.model';
-import { Card } from '../../../core/models/card.model';
+import { Card, CardFace } from '../../../core/models/card.model';
 import { CommanderValidation, Deck, DeckCard, DeckSection, DeckToken, UnresolvedDeckToken } from '../../../core/models/deck.model';
 import { DeckCardImageCache } from './deck-card-image-cache.service';
 import { DeckHistoryEntry, DeckHistoryStore } from './deck-history.store';
@@ -13,6 +13,7 @@ import { MissingCardsStore } from './missing-cards.store';
 import { ClientCommanderValidationService } from '../services/client-commander-validation.service';
 import { DeckAnalysisService } from '../services/deck-analysis.service';
 import { DeckImportExportService, DecklistEntry } from '../services/deck-import-export.service';
+import { bestCardFaceImage } from '../../../shared/utils/card-image';
 import {
   CardMenuState,
   CardPreviewState,
@@ -24,6 +25,7 @@ import {
   ImportStats,
   MissingCardItem,
   MissingSearchResult,
+  OpeningHandCard,
   PointerPosition,
 } from '../models/deck-editor.models';
 
@@ -75,6 +77,7 @@ export class DeckEditorStore {
   readonly cardMenu = signal<CardMenuState | null>(null);
   readonly collapsedGroups = signal<Set<string>>(new Set());
   readonly flippedFaces = signal<Record<string, boolean>>({});
+  readonly openingHand = signal<OpeningHandCard[]>([]);
   readonly mainCards = computed(() => this.cardsBySection('main'));
   readonly commanderCards = computed(() => this.cardsBySection('commander'));
   readonly sideboardCards = computed(() => this.cardsBySection('sideboard'));
@@ -175,6 +178,7 @@ export class DeckEditorStore {
       this.unresolvedTokens.set(tokensResponse.unresolved);
       this.missing.set([]);
       this.missingSourceEntries.set([]);
+      this.drawOpeningHand(response.deck);
       this.refreshHistory(response.deck.id);
       void this.refreshBackendValidation(response.deck.id);
     } catch (error) {
@@ -202,6 +206,7 @@ export class DeckEditorStore {
       this.deck.set(response.deck);
       this.missing.set(response.missing);
       this.missingSourceEntries.set(response.missingCards ?? []);
+      this.drawOpeningHand(response.deck);
       this.lastImportStats.set({
         parsedCards: response.summary?.parsedCards ?? entries.reduce((total, entry) => total + entry.quantity, 0),
         importedCards: response.summary?.importedCards ?? (response.deck.cards ?? []).reduce((total, entry) => total + entry.quantity, 0),
@@ -264,26 +269,85 @@ export class DeckEditorStore {
   }
 
   curveSegmentHeight(count: number): number {
-    const max = Math.max(...this.analysis().manaCurve.map((bucket) => bucket.total), 1);
+    const max = Math.max(...this.analysis().manaCurve.map((bucket) => bucket.total), 1) + 20;
     return Math.max((count / max) * 100, count > 0 ? 12 : 0);
   }
 
+  curveTotalHeight(total: number): number {
+    const max = Math.max(...this.analysis().manaCurve.map((bucket) => bucket.total), 1) + 20;
+    if (total <= 0) {
+      return 0;
+    }
+
+    return Math.max((total / max) * 100, 12);
+  }
+
+  curvePermanentShare(permanents: number, total: number): string {
+    return `${total > 0 ? Math.round((permanents / total) * 100) : 0}%`;
+  }
+
+  curveSpellShare(spells: number, total: number): string {
+    return `${total > 0 ? Math.round((spells / total) * 100) : 0}%`;
+  }
+
   curveHoverTitle(manaValue: number, label: string): string {
-    return `${label} - MV ${manaValue === 7 ? '7+' : manaValue}`;
+    return `${label} - Mana value ${this.curveManaValueLabel(manaValue)}`;
   }
 
   curveHoverItems(manaValue: number, kind: 'permanent' | 'spell'): string[] {
     const entries = (this.deck()?.cards ?? [])
       .filter((entry) => entry.section === 'main')
-      .filter((entry) => Math.min(this.cardManaValue(entry.card), 7) === manaValue)
+      .filter((entry) => Math.min(this.cardManaValue(entry.card), 9) === manaValue)
       .filter((entry) => kind === 'spell' ? this.isSpellEntry(entry) : !this.isSpellEntry(entry))
       .map((entry) => entry.card.name);
 
     return Array.from(new Set(entries)).sort((left, right) => left.localeCompare(right));
   }
 
+  showCurveHoverList(event: MouseEvent, manaValue: number): void {
+    this.hoverList.set({
+      title: `Mana value ${this.curveManaValueLabel(manaValue)}`,
+      items: [],
+      sections: [
+        {
+          title: 'Permanents',
+          items: this.curveHoverItems(manaValue, 'permanent'),
+        },
+        {
+          title: 'Spells',
+          items: this.curveHoverItems(manaValue, 'spell'),
+        },
+      ],
+      top: Math.min(event.clientY + 16, window.innerHeight - 220),
+      left: Math.min(event.clientX + 16, window.innerWidth - 280),
+    });
+  }
+
   copyMissing(name: string): void {
     void navigator.clipboard?.writeText(name);
+  }
+
+  curveManaValueLabel(manaValue: number): string {
+    return manaValue === 9 ? '9+' : `${manaValue}`;
+  }
+
+  drawOpeningHand(deck = this.deck()): void {
+    const entries = this.deckCardsOf(deck)
+      .filter((entry) => entry.section === 'main')
+      .flatMap((entry) => Array.from({ length: entry.quantity }, (_, index) => ({
+        id: `${entry.id}-${index}`,
+        card: entry.card,
+        name: entry.card.name,
+        typeLine: entry.card.typeLine,
+        manaCost: entry.card.manaCost,
+        imageUrl: this.imageUrl(entry.card),
+      })));
+
+    const hand = this.shuffle(entries).slice(0, 7);
+    for (const item of hand) {
+      this.ensureCardImage(item.card);
+    }
+    this.openingHand.set(hand);
   }
 
   async searchMissing(name: string): Promise<void> {
@@ -424,16 +488,18 @@ export class DeckEditorStore {
 
   toggleCardMenu(event: MouseEvent, entry: DeckCard): void {
     event.stopPropagation();
+    this.hideCardPreview();
     const current = this.cardMenu();
     if (current?.entryId === entry.id) {
       this.cardMenu.set(null);
       return;
     }
 
+    const position = this.cardMenuPosition(event);
     this.cardMenu.set({
       entryId: entry.id,
-      top: event.clientY + 10,
-      left: Math.min(event.clientX + 10, window.innerWidth - 180),
+      top: position.top,
+      left: position.left,
       amount: 1,
     });
   }
@@ -551,6 +617,10 @@ export class DeckEditorStore {
     return this.imageCache.imageUrl(card);
   }
 
+  displayCardImageUrl(card: Card): string | null {
+    return bestCardFaceImage(this.displayCardFace(card)) ?? this.imageUrl(card);
+  }
+
   ensureCardImage(card: Card): void {
     this.imageCache.load(card);
   }
@@ -562,18 +632,32 @@ export class DeckEditorStore {
   }
 
   showCardPreview(event: MouseEvent, card: Card): void {
+    if (this.cardMenu()) {
+      return;
+    }
+
     if (this.previewEnterTimeout) {
       clearTimeout(this.previewEnterTimeout);
     }
 
     this.lastPreviewPointer = { x: event.clientX, y: event.clientY };
     this.previewEnterTimeout = setTimeout(() => {
-      this.updatePreviewPosition(this.lastPreviewPointer ?? { x: event.clientX, y: event.clientY }, card, this.imageUrl(card));
+      if (this.cardMenu()) {
+        return;
+      }
+
+      this.updatePreviewPosition(this.lastPreviewPointer ?? { x: event.clientX, y: event.clientY }, card, this.displayCardImageUrl(card));
       void this.resolvePreviewImage(card);
-    }, 120);
+      this.previewEnterTimeout = null;
+    }, 180);
   }
 
   moveCardPreview(event: MouseEvent): void {
+    if (this.cardMenu()) {
+      this.hideCardPreview();
+      return;
+    }
+
     this.lastPreviewPointer = { x: event.clientX, y: event.clientY };
     const preview = this.cardPreview();
     if (!preview) {
@@ -593,10 +677,15 @@ export class DeckEditorStore {
   }
 
   hasAlternateFace(card: Card): boolean {
-    return card.name.includes('//');
+    return card.name.includes('//') || (card.cardFaces?.length ?? 0) > 1;
   }
 
   displayCardName(card: Card): string {
+    const face = this.displayCardFace(card);
+    if (face?.name) {
+      return face.name;
+    }
+
     if (!this.hasAlternateFace(card)) {
       return card.name;
     }
@@ -606,6 +695,11 @@ export class DeckEditorStore {
   }
 
   displayCardTypeLine(card: Card): string | null {
+    const face = this.displayCardFace(card);
+    if (face?.typeLine) {
+      return face.typeLine;
+    }
+
     if (!card.typeLine) {
       return null;
     }
@@ -627,6 +721,7 @@ export class DeckEditorStore {
     const next = { ...this.flippedFaces() };
     next[card.scryfallId] = !next[card.scryfallId];
     this.flippedFaces.set(next);
+    this.hideCardPreview();
   }
 
   private async addSearchedCardInternal(card: Card, amount: number): Promise<void> {
@@ -692,6 +787,9 @@ export class DeckEditorStore {
       .sort((left, right) => left.card.name.localeCompare(right.card.name));
     const groups: DeckCardGroup[] = [];
     const assigned = new Set<string>();
+    const assignedMdfcLandQuantity = () => cards
+      .filter((entry) => assigned.has(entry.id) && this.isMdfcLandEntry(entry))
+      .reduce((total, entry) => total + entry.quantity, 0);
 
     for (const group of GROUPS) {
       const items = cards.filter((entry) => !assigned.has(entry.id) && group.matcher(entry));
@@ -699,16 +797,30 @@ export class DeckEditorStore {
         continue;
       }
 
+      const mdfcLandQuantity = group.id === 'land' ? assignedMdfcLandQuantity() : 0;
       items.forEach((entry) => assigned.add(entry.id));
-      groups.push({ id: group.id, title: group.title, cards: items });
+      groups.push(this.toCardGroup(group.id, group.title, items, mdfcLandQuantity));
     }
 
     const remaining = cards.filter((entry) => !assigned.has(entry.id));
     if (remaining.length > 0) {
-      groups.push({ id: 'other', title: 'Otros', cards: remaining });
+      groups.push(this.toCardGroup('other', 'Otros', remaining));
     }
 
     return groups;
+  }
+
+  private toCardGroup(id: string, title: string, cards: DeckCard[], mdfcLandQuantity = 0): DeckCardGroup {
+    const quantity = cards.reduce((total, entry) => total + entry.quantity, 0);
+    const includingMdfc = quantity + mdfcLandQuantity;
+
+    return {
+      id,
+      title,
+      cards,
+      quantity,
+      ...(id === 'land' && mdfcLandQuantity > 0 ? { detail: `${includingMdfc} including MDFC` } : {}),
+    };
   }
 
   private buildCardColumns(): DeckCardColumn[] {
@@ -772,14 +884,21 @@ export class DeckEditorStore {
   }
 
   private applyDeckUpdate(deck: Deck, historySource: string): void {
-    this.deck.set({ ...deck, cards: this.deckCardsOf(deck) });
+    const responseIncludesCards = Array.isArray(deck.cards);
+    const normalizedDeck = {
+      ...deck,
+      cards: responseIncludesCards ? this.deckCardsOf(deck) : this.deckCardsOf(this.deck()),
+    };
+    this.deck.set(normalizedDeck);
+    this.drawOpeningHand(normalizedDeck);
     this.validation.set(null);
     this.cardMenu.set(null);
-    this.recordHistory(deck, historySource);
     void this.refreshTokens(deck.id);
     void this.refreshBackendValidation(deck.id);
-    if (!Array.isArray(deck.cards)) {
-      void this.reloadDeckCards(deck.id);
+    if (responseIncludesCards) {
+      this.recordHistory(normalizedDeck, historySource);
+    } else {
+      void this.reloadDeckCards(deck.id, historySource);
     }
   }
 
@@ -884,10 +1003,14 @@ export class DeckEditorStore {
     }
   }
 
-  private async reloadDeckCards(deckId: string): Promise<void> {
+  private async reloadDeckCards(deckId: string, historySource?: string): Promise<void> {
     try {
       const response = await firstValueFrom(this.decksApi.get(deckId));
       this.deck.set(response.deck);
+      this.drawOpeningHand(response.deck);
+      if (historySource) {
+        this.recordHistory(response.deck, historySource);
+      }
     } catch {
       return;
     }
@@ -1043,6 +1166,10 @@ export class DeckEditorStore {
     return /add /.test(oracle) || /treasure token/.test(oracle);
   }
 
+  private isMdfcLandEntry(entry: DeckCard): boolean {
+    return entry.card.layout === 'modal_dfc' && hasType(entry, 'land');
+  }
+
   private manaSourceColors(entry: DeckCard, deckColors: Array<'W' | 'U' | 'B' | 'R' | 'G'>): Array<'W' | 'U' | 'B' | 'R' | 'G' | 'C'> {
     const colors = new Set<'W' | 'U' | 'B' | 'R' | 'G' | 'C'>();
     const typeLine = entry.card.typeLine?.toLowerCase() ?? '';
@@ -1099,6 +1226,14 @@ export class DeckEditorStore {
   }
 
   private async resolvePreviewImage(card: Card): Promise<void> {
+    const faceImage = bestCardFaceImage(this.displayCardFace(card));
+    if (faceImage !== null) {
+      if (this.cardPreview()?.card.scryfallId === card.scryfallId && this.lastPreviewPointer) {
+        this.updatePreviewPosition(this.lastPreviewPointer, card, faceImage);
+      }
+      return;
+    }
+
     const imageUrl = await this.imageCache.resolve(card);
     if (this.cardPreview()?.card.scryfallId === card.scryfallId && this.lastPreviewPointer) {
       this.updatePreviewPosition(this.lastPreviewPointer, card, imageUrl);
@@ -1109,8 +1244,38 @@ export class DeckEditorStore {
     return (this.deck()?.cards ?? []).filter((entry) => entry.section === section);
   }
 
+  private shuffle<T>(items: T[]): T[] {
+    const next = [...items];
+    for (let index = next.length - 1; index > 0; index -= 1) {
+      const swapIndex = Math.floor(Math.random() * (index + 1));
+      [next[index], next[swapIndex]] = [next[swapIndex], next[index]];
+    }
+
+    return next;
+  }
+
+  private cardMenuPosition(event: MouseEvent): { top: number; left: number } {
+    const width = 300;
+    const height = 315;
+    const margin = 12;
+
+    return {
+      left: Math.min(Math.max(margin, event.clientX + 10), Math.max(margin, window.innerWidth - width - margin)),
+      top: Math.min(Math.max(margin, event.clientY + 10), Math.max(margin, window.innerHeight - height - margin)),
+    };
+  }
+
   private isFaceFlipped(card: Card): boolean {
     return this.flippedFaces()[card.scryfallId] ?? false;
+  }
+
+  private displayCardFace(card: Card): CardFace | null {
+    const faces = card.cardFaces ?? [];
+    if (faces.length < 2) {
+      return null;
+    }
+
+    return faces[this.isFaceFlipped(card) ? 1 : 0] ?? null;
   }
 
   private deckFormatKey(): string {

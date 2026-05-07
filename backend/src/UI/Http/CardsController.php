@@ -30,6 +30,7 @@ class CardsController extends ApiController
         if ($query !== '') {
             $where[] = 'normalized_name LIKE :query';
             $params['query'] = '%'.$query.'%';
+            $params['queryPrefix'] = $query.'%';
         }
 
         $commanderLegal = $request->query->get('commanderLegal');
@@ -65,7 +66,12 @@ class CardsController extends ApiController
         if ($where !== []) {
             $sql .= ' WHERE '.implode(' AND ', $where);
         }
-        $sql .= sprintf(' ORDER BY name ASC LIMIT %d OFFSET %d', $limit, ($page - 1) * $limit);
+        if ($query !== '') {
+            $sql .= ' ORDER BY CASE WHEN normalized_name LIKE :queryPrefix THEN 0 ELSE 1 END ASC, name ASC';
+        } else {
+            $sql .= ' ORDER BY name ASC';
+        }
+        $sql .= sprintf(' LIMIT %d OFFSET %d', $limit, ($page - 1) * $limit);
 
         $ids = $entityManager->getConnection()->fetchFirstColumn($sql, $params);
         if ($ids === []) {

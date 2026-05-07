@@ -24,13 +24,17 @@ describe('DeckAnalysisService', () => {
         entry(1, 'main', card('Cultivate', 'Sorcery', '{2}{G}', 'Search your library for a basic land card.')),
         entry(1, 'main', card('Swords to Plowshares', 'Instant', '{W}', 'Exile target creature.')),
         entry(1, 'main', card('Wrath of God', 'Sorcery', '{2}{W}{W}', 'Destroy all creatures.')),
+        entry(1, 'main', card('Huge Spell', 'Sorcery', '{10}', 'Create a token.')),
       ],
     };
 
     const analysis = service.analyze(deck);
 
-    expect(analysis.mainDeckCards).toBe(14);
+    expect(analysis.mainDeckCards).toBe(15);
     expect(analysis.landCount).toBe(11);
+    expect(analysis.manaCurve).toHaveLength(10);
+    expect(analysis.manaCurve.at(-1)?.manaValue).toBe(9);
+    expect(analysis.manaCurve.find((bucket) => bucket.manaValue === 9)?.spells).toBe(1);
     expect(analysis.landTypes.find((land) => land.label === 'Forest')?.count).toBe(10);
     expect(analysis.colorPips['G']).toBe(1);
     expect(analysis.colorPips['W']).toBe(3);
