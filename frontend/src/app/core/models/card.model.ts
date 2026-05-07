@@ -8,11 +8,15 @@ export interface CardImageUris {
 }
 
 export interface CardFace {
-  name?: string | null;
-  manaCost?: string | null;
-  typeLine?: string | null;
-  oracleText?: string | null;
-  imageUris?: CardImageUris;
+  name: string | null;
+  manaCost: string | null;
+  typeLine: string | null;
+  oracleText: string | null;
+  power: string | null;
+  toughness: string | null;
+  loyalty: string | null;
+  colors: string[];
+  imageUris: CardImageUris;
 }
 
 export interface Card {

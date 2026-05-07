@@ -1,4 +1,5 @@
 import { User } from './user.model';
+import { CardFace } from './card.model';
 
 export type GameZoneName = 'library' | 'hand' | 'battlefield' | 'graveyard' | 'exile' | 'command';
 export type GameCommandType =
@@ -40,6 +41,7 @@ export interface GameCardInstance {
   scryfallId?: string;
   name: string;
   imageUris?: Record<string, string>;
+  cardFaces?: CardFace[];
   typeLine?: string | null;
   manaCost?: string | null;
   oracleText?: string | null;

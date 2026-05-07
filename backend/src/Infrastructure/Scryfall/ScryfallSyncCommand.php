@@ -157,6 +157,7 @@ INSERT INTO card (
     color_identity,
     legalities,
     image_uris,
+    card_faces,
     all_parts,
     mana_value,
     produced_mana,
@@ -182,6 +183,7 @@ INSERT INTO card (
     :color_identity,
     :legalities,
     :image_uris,
+    :card_faces,
     :all_parts,
     :mana_value,
     :produced_mana,
@@ -206,6 +208,7 @@ ON CONFLICT (scryfall_id) DO UPDATE SET
     color_identity = EXCLUDED.color_identity,
     legalities = EXCLUDED.legalities,
     image_uris = EXCLUDED.image_uris,
+    card_faces = EXCLUDED.card_faces,
     all_parts = EXCLUDED.all_parts,
     mana_value = EXCLUDED.mana_value,
     produced_mana = EXCLUDED.produced_mana,
@@ -232,6 +235,7 @@ SQL,
                 'color_identity' => $this->json($data['color_identity'] ?? []),
                 'legalities' => $this->json($legalities),
                 'image_uris' => $this->json($data['image_uris'] ?? ($data['card_faces'][0]['image_uris'] ?? [])),
+                'card_faces' => $this->json($this->cardFaces($data)),
                 'all_parts' => $this->json($data['all_parts'] ?? []),
                 'mana_value' => isset($data['cmc']) ? (float) $data['cmc'] : null,
                 'produced_mana' => $this->json($data['produced_mana'] ?? []),
@@ -253,6 +257,16 @@ SQL,
     private function json(array $value): string
     {
         return json_encode($value, JSON_THROW_ON_ERROR);
+    }
+
+    private function cardFaces(array $data): array
+    {
+        $faces = $data['card_faces'] ?? [];
+        if (!is_array($faces)) {
+            return [];
+        }
+
+        return array_values(array_filter($faces, static fn (mixed $face): bool => is_array($face)));
     }
 
     private function cardString(array $data, string $key): ?string

@@ -606,11 +606,12 @@ export class DeckEditorStore {
   }
 
   shouldShowManaCost(card: Card): boolean {
-    if (card.manaCost) {
+    const manaCost = this.displayCardManaCost(card);
+    if (manaCost) {
       return true;
     }
 
-    return !(card.typeLine?.toLowerCase().includes('land') ?? false);
+    return !(this.displayCardTypeLine(card)?.toLowerCase().includes('land') ?? false);
   }
 
   imageUrl(card: Card): string | null {
@@ -714,6 +715,12 @@ export class DeckEditorStore {
     }
 
     return this.isFaceFlipped(card) ? `${back} // ${front}` : `${front} // ${back}`;
+  }
+
+  displayCardManaCost(card: Card): string | null {
+    const face = this.displayCardFace(card);
+
+    return face?.manaCost ?? card.manaCost;
   }
 
   toggleCardFace(event: MouseEvent, card: Card): void {

@@ -39,6 +39,7 @@ function storeStub() {
     hideCardPreview: vi.fn(),
     toggleCardMenu: vi.fn(),
     displayCardName: (value: Card) => value.name,
+    displayCardManaCost: (value: Card) => value.manaCost,
     hasAlternateFace: () => false,
     toggleCardFace: vi.fn(),
     isCardInvalidForDeck: () => false,

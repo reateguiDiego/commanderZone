@@ -42,7 +42,7 @@
                       <small class="deck-card-secondary">{{ store.displayCardTypeLine(entry.card) || 'Unknown type' }}</small>
                       <span class="deck-card-cost">
                         @if (store.shouldShowManaCost(entry.card)) {
-                          <app-mana-symbols [value]="entry.card.manaCost" fallback="-" />
+                          <app-mana-symbols [value]="store.displayCardManaCost(entry.card)" fallback="-" />
                         }
                       </span>
                     </div>

@@ -26,7 +26,7 @@
                   <div class="spoiler-card-fallback">
                     <strong>{{ store.displayCardName(entry.card) }}</strong>
                     @if (store.shouldShowManaCost(entry.card)) {
-                      <app-mana-symbols [value]="entry.card.manaCost" fallback="-" />
+                      <app-mana-symbols [value]="store.displayCardManaCost(entry.card)" fallback="-" />
                     }
                   </div>
                 }

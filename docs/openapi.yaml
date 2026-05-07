@@ -1768,9 +1768,35 @@ components:
         userId:
           type: string
           format: uuid
+    CardFace:
+      type: object
+      required: [name, manaCost, typeLine, oracleText, power, toughness, loyalty, colors, imageUris]
+      properties:
+        name:
+          type: [string, 'null']
+        manaCost:
+          type: [string, 'null']
+        typeLine:
+          type: [string, 'null']
+        oracleText:
+          type: [string, 'null']
+        power:
+          type: [string, 'null']
+        toughness:
+          type: [string, 'null']
+        loyalty:
+          type: [string, 'null']
+        colors:
+          type: array
+          items:
+            type: string
+        imageUris:
+          type: object
+          additionalProperties:
+            type: string
     Card:
       type: object
-      required: [id, scryfallId, name, colors, colorIdentity, legalities, imageUris, layout, commanderLegal]
+      required: [id, scryfallId, name, colors, colorIdentity, legalities, imageUris, cardFaces, layout, commanderLegal]
       properties:
         id:
           type: string
@@ -1786,6 +1812,12 @@ components:
           type: [string, 'null']
         oracleText:
           type: [string, 'null']
+        power:
+          type: [string, 'null']
+          description: Printed power from Scryfall. Kept as string because values can be non-numeric.
+        toughness:
+          type: [string, 'null']
+          description: Printed toughness from Scryfall. Kept as string because values can be non-numeric.
         colors:
           type: array
           items:
@@ -1802,6 +1834,10 @@ components:
           type: object
           additionalProperties:
             type: string
+        cardFaces:
+          type: array
+          items:
+            $ref: '#/components/schemas/CardFace'
         layout:
           type: string
         commanderLegal:
@@ -2846,6 +2882,10 @@ components:
           type: object
           additionalProperties:
             type: string
+        cardFaces:
+          type: array
+          items:
+            $ref: '#/components/schemas/CardFace'
         typeLine:
           type: [string, 'null']
         manaCost:

@@ -183,6 +183,7 @@ class GameCommandHandler
             'scryfallId' => (string) ($card['scryfallId'] ?? ''),
             'name' => (string) ($card['name'] ?? 'Unknown card'),
             'imageUris' => is_array($card['imageUris'] ?? null) ? $card['imageUris'] : [],
+            'cardFaces' => is_array($card['cardFaces'] ?? null) ? $card['cardFaces'] : [],
             'typeLine' => $card['typeLine'] ?? null,
             'manaCost' => $card['manaCost'] ?? null,
             'oracleText' => $card['oracleText'] ?? null,

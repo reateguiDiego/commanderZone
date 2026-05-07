@@ -41,32 +41,40 @@ class CardImageTest extends TestCase
         self::assertSame('Alternate flavor', $data['flavorName']);
     }
 
-    public function testStoresCardFaceImageUrisFromScryfall(): void
+    public function testNormalizesCardFacesFromScryfall(): void
     {
         $card = new Card('00000000-0000-0000-0000-000000000003');
         $card->updateFromScryfall([
-            'name' => 'Front // Back',
+            'name' => 'Bala Ged Recovery // Bala Ged Sanctuary',
+            'layout' => 'modal_dfc',
             'card_faces' => [
                 [
-                    'name' => 'Front',
-                    'mana_cost' => '{1}{G}',
-                    'type_line' => 'Creature',
-                    'oracle_text' => 'Front text.',
-                    'image_uris' => ['normal' => 'https://cards.scryfall.io/normal/front/front.jpg'],
+                    'name' => 'Bala Ged Recovery',
+                    'mana_cost' => '{2}{G}',
+                    'type_line' => 'Sorcery',
+                    'oracle_text' => 'Return target card from your graveyard to your hand.',
+                    'colors' => ['G'],
+                    'image_uris' => ['normal' => 'https://cards.scryfall.io/front.jpg'],
                 ],
                 [
-                    'name' => 'Back',
-                    'mana_cost' => null,
+                    'name' => 'Bala Ged Sanctuary',
                     'type_line' => 'Land',
-                    'oracle_text' => 'Back text.',
-                    'image_uris' => ['normal' => 'https://cards.scryfall.io/normal/back/back.jpg'],
+                    'oracle_text' => 'Bala Ged Sanctuary enters the battlefield tapped.',
+                    'colors' => ['G'],
+                    'image_uris' => ['normal' => 'https://cards.scryfall.io/back.jpg'],
                 ],
             ],
         ]);
 
         $data = $card->toArray();
 
-        self::assertSame('Front', $data['cardFaces'][0]['name']);
-        self::assertSame('https://cards.scryfall.io/normal/back/back.jpg', $data['cardFaces'][1]['imageUris']['normal']);
+        self::assertCount(2, $data['cardFaces']);
+        self::assertSame('Bala Ged Recovery', $data['cardFaces'][0]['name']);
+        self::assertSame('{2}{G}', $data['cardFaces'][0]['manaCost']);
+        self::assertSame('Bala Ged Sanctuary', $data['cardFaces'][1]['name']);
+        self::assertSame('Land', $data['cardFaces'][1]['typeLine']);
+        self::assertSame('https://cards.scryfall.io/back.jpg', $data['cardFaces'][1]['imageUris']['normal']);
+        self::assertNull($data['cardFaces'][1]['power']);
+        self::assertSame([], (new Card('00000000-0000-0000-0000-000000000004'))->toArray()['cardFaces']);
     }
 }
