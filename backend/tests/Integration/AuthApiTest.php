@@ -7,14 +7,25 @@ class AuthApiTest extends ApiTestCase
     public function testRegisterLoginMeAndProfileUpdates(): void
     {
         $token = $this->registerAndLogin('player@example.test', 'Player');
+        $this->registerAndLogin('taken-profile@example.test', 'Taken Name');
 
         $this->jsonRequest('GET', '/me', token: $token);
         self::assertResponseIsSuccessful();
         self::assertSame('player@example.test', $this->jsonResponse()['user']['email']);
 
-        $this->jsonRequest('PATCH', '/me', ['displayName' => 'Renamed Player'], $token);
+        $this->jsonRequest('PATCH', '/me', ['displayName' => 'Taken Name'], $token);
+        self::assertResponseStatusCodeSame(409);
+
+        $this->jsonRequest('PATCH', '/me', ['email' => 'taken-profile@example.test'], $token);
+        self::assertResponseStatusCodeSame(409);
+
+        $this->jsonRequest('PATCH', '/me', [
+            'displayName' => 'Renamed Player',
+            'email' => 'renamed-player@example.test',
+        ], $token);
         self::assertResponseIsSuccessful();
         self::assertSame('Renamed Player', $this->jsonResponse()['user']['displayName']);
+        self::assertSame('renamed-player@example.test', $this->jsonResponse()['user']['email']);
 
         $this->jsonRequest('PATCH', '/me/password', [
             'currentPassword' => 'bad-password',
@@ -29,7 +40,7 @@ class AuthApiTest extends ApiTestCase
         self::assertResponseIsSuccessful();
 
         $this->jsonRequest('POST', '/auth/login', [
-            'email' => 'player@example.test',
+            'email' => 'renamed-player@example.test',
             'password' => 'password456',
         ]);
         self::assertResponseIsSuccessful();
@@ -45,6 +56,10 @@ class AuthApiTest extends ApiTestCase
         self::assertTrue($this->jsonResponse()['available']);
 
         $this->jsonRequest('GET', '/auth/display-name-availability?displayName=unique%20player');
+        self::assertResponseIsSuccessful();
+        self::assertFalse($this->jsonResponse()['available']);
+
+        $this->jsonRequest('GET', '/auth/display-name-availability?displayName=abcdefghijklmnopqrstuvwxyz');
         self::assertResponseIsSuccessful();
         self::assertFalse($this->jsonResponse()['available']);
 
@@ -146,5 +161,40 @@ class AuthApiTest extends ApiTestCase
         ]);
         self::assertResponseIsSuccessful();
         self::assertArrayHasKey('token', $this->jsonResponse());
+    }
+
+    public function testDeleteAccountAnonymizesIdentityAndBlocksOldLogin(): void
+    {
+        $token = $this->registerAndLogin('delete-me@example.test', 'Delete Me', 'password123');
+
+        $this->jsonRequest('DELETE', '/me', token: $token);
+        self::assertResponseStatusCodeSame(204);
+
+        $this->jsonRequest('POST', '/auth/login', [
+            'email' => 'delete-me@example.test',
+            'password' => 'password123',
+        ]);
+        self::assertResponseStatusCodeSame(401);
+
+        $this->jsonRequest('GET', '/me', token: $token);
+        self::assertResponseIsSuccessful();
+        self::assertStringStartsWith('Deleted-', $this->jsonResponse()['user']['displayName']);
+        self::assertStringStartsWith('deleted+', $this->jsonResponse()['user']['email']);
+    }
+
+    public function testDisplayNameLengthIsLimitedTo25Chars(): void
+    {
+        $this->jsonRequest('POST', '/auth/register', [
+            'email' => 'too-long-name@example.test',
+            'displayName' => 'abcdefghijklmnopqrstuvwxyz',
+            'password' => 'password123',
+        ]);
+        self::assertResponseStatusCodeSame(400);
+
+        $token = $this->registerAndLogin('valid-name@example.test', 'Valid Name');
+        $this->jsonRequest('PATCH', '/me', [
+            'displayName' => 'abcdefghijklmnopqrstuvwxyz',
+        ], $token);
+        self::assertResponseStatusCodeSame(400);
     }
 }

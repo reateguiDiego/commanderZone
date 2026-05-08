@@ -20,7 +20,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(type: 'string', length: 180)]
     private string $email;
 
-    #[ORM\Column(type: 'string', length: 80)]
+    #[ORM\Column(type: 'string', length: 25)]
     private string $displayName;
 
     #[ORM\Column(type: 'string')]
@@ -61,6 +61,11 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function rename(string $displayName): void
     {
         $this->displayName = trim($displayName);
+    }
+
+    public function changeEmail(string $email): void
+    {
+        $this->email = mb_strtolower(trim($email));
     }
 
     public function setPassword(string $password): void

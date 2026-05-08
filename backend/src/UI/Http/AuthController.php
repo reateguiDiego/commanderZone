@@ -14,6 +14,7 @@ use Symfony\Component\Security\Http\Attribute\CurrentUser;
 class AuthController extends ApiController
 {
     private const MIN_DISPLAY_NAME_LENGTH = 4;
+    private const MAX_DISPLAY_NAME_LENGTH = 25;
 
     #[Route('/auth/email-availability', methods: ['GET'])]
     public function emailAvailability(Request $request, EntityManagerInterface $entityManager): JsonResponse
@@ -44,7 +45,7 @@ class AuthController extends ApiController
         $displayName = trim((string) ($payload['displayName'] ?? ''));
 
         if (!filter_var($email, FILTER_VALIDATE_EMAIL) || mb_strlen($password) < 8 || !$this->isDisplayNameValid($displayName)) {
-            return $this->fail('email, user name of at least 4 chars and a password of at least 8 chars are required.');
+            return $this->fail('email, user name with 4-25 chars and a password of at least 8 chars are required.');
         }
 
         if ($this->emailExists($entityManager, $email)) {
@@ -121,29 +122,88 @@ class AuthController extends ApiController
     public function updateMe(Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager): JsonResponse
     {
         $payload = $this->payload($request);
-        $displayName = trim((string) ($payload['displayName'] ?? ''));
-        if (!$this->isDisplayNameValid($displayName)) {
-            return $this->fail('User name must contain at least 4 chars.');
+
+        $hasDisplayNameUpdate = array_key_exists('displayName', $payload);
+        $hasEmailUpdate = array_key_exists('email', $payload);
+        if (!$hasDisplayNameUpdate && !$hasEmailUpdate) {
+            return $this->fail('At least one profile field must be provided.');
         }
 
-        if ($this->displayNameExists($entityManager, $displayName, $user)) {
-            return $this->fail('User name is already taken.', 409);
+        if ($hasDisplayNameUpdate) {
+            $displayName = trim((string) $payload['displayName']);
+            if (!$this->isDisplayNameValid($displayName)) {
+                return $this->fail('User name must contain 4-25 chars.');
+            }
+
+            if (
+                mb_strtolower($displayName) !== mb_strtolower($user->displayName())
+                && $this->displayNameExists($entityManager, $displayName, $user)
+            ) {
+                return $this->fail('User name is already taken.', 409);
+            }
+
+            $user->rename($displayName);
         }
 
-        $user->rename($displayName);
+        if ($hasEmailUpdate) {
+            $email = trim((string) $payload['email']);
+            if (filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
+                return $this->fail('A valid email is required.');
+            }
+
+            if (
+                mb_strtolower($email) !== mb_strtolower($user->email())
+                && $this->emailExists($entityManager, $email, $user)
+            ) {
+                return $this->fail('Email is already registered.', 409);
+            }
+
+            $user->changeEmail($email);
+        }
+
         $entityManager->flush();
 
         return $this->json(['user' => $user->toArray()]);
     }
 
-    private function isDisplayNameValid(string $displayName): bool
-    {
-        return mb_strlen(trim($displayName)) >= self::MIN_DISPLAY_NAME_LENGTH;
+    #[Route('/me', methods: ['DELETE'])]
+    public function deleteMe(
+        #[CurrentUser] User $user,
+        EntityManagerInterface $entityManager,
+        UserPasswordHasherInterface $passwordHasher
+    ): JsonResponse {
+        $user->rename(sprintf('Deleted-%s', mb_substr($user->id(), 0, 8)));
+        $user->changeEmail(sprintf('deleted+%s@commanderzone.local', $user->id()));
+        $user->setPassword($passwordHasher->hashPassword($user, sprintf('deleted-password-%s', $user->id())));
+        $user->markOffline();
+
+        $entityManager->flush();
+
+        return $this->json(null, 204);
     }
 
-    private function emailExists(EntityManagerInterface $entityManager, string $email): bool
+    private function isDisplayNameValid(string $displayName): bool
     {
-        return $entityManager->getRepository(User::class)->findOneBy(['email' => mb_strtolower(trim($email))]) !== null;
+        $length = mb_strlen(trim($displayName));
+
+        return $length >= self::MIN_DISPLAY_NAME_LENGTH && $length <= self::MAX_DISPLAY_NAME_LENGTH;
+    }
+
+    private function emailExists(EntityManagerInterface $entityManager, string $email, ?User $ignoredUser = null): bool
+    {
+        $queryBuilder = $entityManager->getRepository(User::class)->createQueryBuilder('user')
+            ->select('user.id')
+            ->where('LOWER(user.email) = :email')
+            ->setParameter('email', mb_strtolower(trim($email)))
+            ->setMaxResults(1);
+
+        if ($ignoredUser !== null) {
+            $queryBuilder
+                ->andWhere('user.id != :ignoredUserId')
+                ->setParameter('ignoredUserId', $ignoredUser->id());
+        }
+
+        return $queryBuilder->getQuery()->getOneOrNullResult() !== null;
     }
 
     private function displayNameExists(EntityManagerInterface $entityManager, string $displayName, ?User $ignoredUser = null): bool

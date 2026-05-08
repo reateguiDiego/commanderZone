@@ -13,6 +13,7 @@ type UserNameAvailability = 'idle' | 'checking' | 'available' | 'taken' | 'error
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const USER_NAME_MIN_LENGTH = 4;
+const USER_NAME_MAX_LENGTH = 25;
 
 @Component({
   selector: 'app-auth-page',
@@ -48,7 +49,7 @@ export class AuthPageComponent {
 
   readonly registerForm = this.formBuilder.group({
     email: ['', [Validators.required, Validators.pattern(EMAIL_PATTERN)]],
-    displayName: ['', [Validators.required, Validators.minLength(USER_NAME_MIN_LENGTH)]],
+    displayName: ['', [Validators.required, Validators.minLength(USER_NAME_MIN_LENGTH), Validators.maxLength(USER_NAME_MAX_LENGTH)]],
     password: ['', [Validators.required, Validators.minLength(8)]],
     confirmPassword: ['', [Validators.required]],
   });
@@ -181,7 +182,7 @@ export class AuthPageComponent {
         tap(() => this.userNameAvailability.set('idle')),
         debounceTime(450),
         switchMap((displayName) => {
-          if (displayName.length < USER_NAME_MIN_LENGTH) {
+          if (displayName.length < USER_NAME_MIN_LENGTH || displayName.length > USER_NAME_MAX_LENGTH) {
             return of<UserNameAvailability>('idle');
           }
 

@@ -24,7 +24,15 @@
     }
   </div>
 
-  <app-header-user-menu (settingsSelected)="openSettings()" (logoffSelected)="logoff()" />
+  <app-header-user-menu
+    (settingsSelected)="openSettings()"
+    (fullscreenSelected)="toggleFullscreen()"
+    (logoffSelected)="logoff()"
+  />
 </div>
 
-<app-dashboard-settings-modal [open]="settingsOpen()" (closeRequested)="closeSettings()" />
+<app-dashboard-settings-modal
+  [open]="settingsOpen()"
+  (closeRequested)="closeSettings()"
+  (accountDeleted)="logoff()"
+/>

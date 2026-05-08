@@ -172,7 +172,7 @@ describe('TableAssistantRoomComponent', () => {
       fixture.nativeElement
         .querySelector('[aria-label="Dado de 20 caras"] img')
         ?.getAttribute('src'),
-    ).toBe('/assets/icons/dice_20.png');
+    ).toBe('/assets/icons/chance/dice_20.png');
   });
 
   it('resets the current table with the selected turn order', async () => {
@@ -589,3 +589,4 @@ function roomResource(
     updatedAt: '',
   };
 }
+

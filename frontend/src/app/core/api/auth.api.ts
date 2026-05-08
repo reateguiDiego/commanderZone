@@ -55,6 +55,14 @@ export class AuthApi {
     return this.http.get<UserResponse>(`${API_BASE_URL}/me`);
   }
 
+  updateMe(payload: { email?: string; displayName?: string }): Observable<UserResponse> {
+    return this.http.patch<UserResponse>(`${API_BASE_URL}/me`, payload);
+  }
+
+  deleteMe(): Observable<void> {
+    return this.http.delete<void>(`${API_BASE_URL}/me`);
+  }
+
   offline(): Observable<void> {
     return this.http.post<void>(`${API_BASE_URL}/me/offline`, null, { context: withoutGlobalLoading() });
   }

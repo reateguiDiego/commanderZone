@@ -1,9 +1,101 @@
 <app-modal
   [open]="open()"
   title="Settings"
-  secondaryLabel="Close"
-  [showPrimary]="false"
-  (secondary)="closeRequested.emit()"
+  secondaryLabel="Cancel"
+  primaryLabel="Save preferences"
+  [primaryDisabled]="!canSave()"
+  (secondary)="cancel()"
+  (primary)="savePreferences()"
 >
-  <p class="settings-placeholder">Hello world</p>
+  <nav class="settings-tabs" aria-label="Settings sections">
+    <button type="button" [class.active]="activeTab() === 'general'" (click)="switchTab('general')">General</button>
+    <button type="button" [class.active]="activeTab() === 'game'" (click)="switchTab('game')">Game</button>
+  </nav>
+
+  <section class="settings-content">
+    @if (activeTab() === 'general') {
+      <form class="settings-form" [formGroup]="profileForm" (submit)="$event.preventDefault()">
+        <label>
+          Email
+          <input type="email" autocomplete="email" formControlName="email" />
+          @if (emailInvalid()) {
+            <span class="field-error">Introduce un email valido.</span>
+          }
+          @if (emailAvailabilityVisible()) {
+            @if (emailAvailability() === 'checking') {
+              <span class="availability muted">Comprobando email...</span>
+            }
+            @if (emailAvailability() === 'available') {
+              <span class="availability available"><lucide-icon name="check" size="14" /> Email disponible</span>
+            }
+            @if (emailAvailability() === 'taken') {
+              <span class="availability taken"><lucide-icon name="x" size="14" /> Email ya registrado</span>
+            }
+            @if (emailAvailability() === 'error') {
+              <span class="availability taken"><lucide-icon name="x" size="14" /> No se pudo comprobar ahora</span>
+            }
+          }
+        </label>
+
+        <label>
+          User name
+          <input type="text" autocomplete="nickname" formControlName="displayName" maxlength="25" />
+          @if (displayNameInvalid()) {
+            <span class="field-error">User name entre 4 y 25 caracteres.</span>
+          }
+          @if (userNameAvailabilityVisible()) {
+            @if (userNameAvailability() === 'checking') {
+              <span class="availability muted">Comprobando disponibilidad...</span>
+            }
+            @if (userNameAvailability() === 'available') {
+              <span class="availability available"><lucide-icon name="check" size="14" /> User name disponible</span>
+            }
+            @if (userNameAvailability() === 'taken') {
+              <span class="availability taken"><lucide-icon name="x" size="14" /> User name no disponible</span>
+            }
+            @if (userNameAvailability() === 'error') {
+              <span class="availability taken"><lucide-icon name="x" size="14" /> No se pudo comprobar ahora</span>
+            }
+          }
+        </label>
+
+        <div class="delete-account-box">
+          <div class="delete-account-copy">
+            <h3>Delete account</h3>
+            <p>Permanently delete your account and all associated data including decks and preferences. This action cannot be undone.</p>
+          </div>
+
+          @if (!deleteConfirmationOpen()) {
+            <button class="danger-button" type="button" [disabled]="deleteInProgress() || saveInProgress()" (click)="deleteConfirmationOpen.set(true)">
+              <lucide-icon name="trash2" size="16" />
+              Delete account
+            </button>
+          } @else {
+            <div class="delete-confirmation">
+              <span>Confirmas que quieres eliminar la cuenta?</span>
+              <div class="delete-actions">
+                <button type="button" class="secondary-button compact" [disabled]="deleteInProgress()" (click)="deleteConfirmationOpen.set(false)">
+                  Keep account
+                </button>
+                <button type="button" class="danger-button compact" [disabled]="deleteInProgress()" (click)="deleteAccount()">
+                  {{ deleteInProgress() ? 'Deleting...' : 'Confirm delete' }}
+                </button>
+              </div>
+            </div>
+          }
+        </div>
+      </form>
+    } @else {
+      <section class="game-tab-placeholder">
+        <p>Hello world</p>
+      </section>
+    }
+  </section>
+
+  @if (statusMessage()) {
+    <p class="status-message success">{{ statusMessage() }}</p>
+  }
+  @if (errorMessage()) {
+    <p class="status-message error">{{ errorMessage() }}</p>
+  }
 </app-modal>

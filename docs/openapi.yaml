@@ -93,6 +93,7 @@ paths:
           schema:
             type: string
             minLength: 4
+            maxLength: 25
       responses:
         '200':
           description: User name availability.
@@ -190,11 +191,15 @@ paths:
           application/json:
             schema:
               type: object
-              required: [displayName]
+              minProperties: 1
               properties:
                 displayName:
                   type: string
                   minLength: 4
+                  maxLength: 25
+                email:
+                  type: string
+                  format: email
       responses:
         '200':
           description: Updated user.
@@ -211,6 +216,14 @@ paths:
         '401':
           $ref: '#/components/responses/Error'
         '409':
+          $ref: '#/components/responses/Error'
+    delete:
+      tags: [Auth]
+      summary: Delete authenticated user account (anonymized deletion).
+      responses:
+        '204':
+          description: Account deleted.
+        '401':
           $ref: '#/components/responses/Error'
   /me/password:
     patch:
@@ -1904,6 +1917,7 @@ components:
         displayName:
           type: string
           minLength: 4
+          maxLength: 25
         password:
           type: string
           minLength: 8
@@ -1957,6 +1971,7 @@ components:
           format: email
         displayName:
           type: string
+          maxLength: 25
         roles:
           type: array
           items:

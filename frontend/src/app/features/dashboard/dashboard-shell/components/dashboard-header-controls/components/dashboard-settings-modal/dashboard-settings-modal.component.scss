@@ -1,4 +1,197 @@
-.settings-placeholder {
+:host {
+  display: contents;
+}
+
+:host ::ng-deep .modal-panel {
+  grid-template-rows: auto 1fr auto;
+  gap: 0.9rem;
+  width: min(42rem, 100%);
+  height: min(34rem, calc(100dvh - 2rem));
+  max-height: min(34rem, calc(100dvh - 2rem));
+  overflow: hidden;
+}
+
+:host ::ng-deep .modal-body {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 0.8rem;
+  overflow: hidden;
+}
+
+:host ::ng-deep .modal-panel footer {
+  align-self: end;
+}
+
+.settings-tabs {
+  display: flex;
+  gap: 0.45rem;
+}
+
+.settings-tabs button {
+  min-width: 6.5rem;
+  min-height: 2.2rem;
+  border: 1px solid rgb(215 180 106 / 32%);
+  border-radius: 999px;
+  background: rgb(8 10 8 / 86%);
+  color: var(--muted);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.settings-tabs button.active {
+  border-color: rgb(235 200 120 / 72%);
+  color: var(--text);
+  background: rgb(37 41 33 / 94%);
+}
+
+.settings-content {
+  min-height: 0;
+  overflow: auto;
+}
+
+.settings-form {
+  display: grid;
+  gap: 0.85rem;
+  align-content: start;
+  padding-right: 0.2rem;
+}
+
+label {
+  display: grid;
+  gap: 0.45rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+input {
+  width: 100%;
+  min-height: 2.9rem;
+  padding: 0 0.85rem;
+  border: 1px solid rgb(214 185 119 / 24%);
+  border-radius: 12px;
+  background: rgb(6 8 6 / 88%);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: normal;
+  text-transform: none;
+  outline: none;
+}
+
+input:focus {
+  border-color: rgb(227 188 94 / 68%);
+  box-shadow: 0 0 0 3px rgb(222 180 87 / 14%);
+}
+
+.field-error,
+.availability {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 1rem;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.field-error,
+.availability.taken {
+  color: #ff8c78;
+}
+
+.availability.available {
+  color: #8be38e;
+}
+
+.availability.muted {
+  color: var(--muted);
+}
+
+.delete-account-box {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 0.35rem;
+  padding: 0.8rem;
+  border: 1px solid rgb(176 89 75 / 42%);
+  border-radius: 12px;
+  background: rgb(44 24 21 / 34%);
+}
+
+.delete-account-copy h3 {
+  margin: 0;
+  font-size: 0.92rem;
+}
+
+.delete-account-copy p {
+  margin: 0.35rem 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.delete-confirmation {
+  display: grid;
+  gap: 0.65rem;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.delete-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.danger-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 2.2rem;
+  padding: 0 0.9rem;
+  border: 1px solid rgb(209 111 95 / 72%);
+  border-radius: 10px;
+  color: #ffe8e2;
+  font-weight: 700;
+  background: linear-gradient(180deg, #a8483c, #713027);
+  cursor: pointer;
+}
+
+.danger-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.compact {
+  min-height: 2rem;
+  font-size: 0.78rem;
+}
+
+.game-tab-placeholder {
+  min-height: 100%;
+  display: grid;
+  place-items: start;
+}
+
+.game-tab-placeholder p {
   margin: 0;
   color: var(--muted);
+}
+
+.status-message {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.status-message.success {
+  color: #8be38e;
+}
+
+.status-message.error {
+  color: #ff8c78;
 }

@@ -1,5 +1,6 @@
-import { ChangeDetectionStrategy, Component, input, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, input, output, signal } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
+import { FullscreenService } from '../../../../../core/fullscreen/fullscreen.service';
 import { FriendsDropdownComponent } from '../../../../friends/friends-dropdown/friends-dropdown.component';
 import { DashboardSettingsModalComponent } from './components/dashboard-settings-modal/dashboard-settings-modal.component';
 import { HeaderUserMenuComponent } from './components/header-user-menu/header-user-menu.component';
@@ -17,6 +18,7 @@ import { HeaderUserMenuComponent } from './components/header-user-menu/header-us
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class DashboardHeaderControlsComponent {
+  private readonly fullscreen = inject(FullscreenService);
   readonly userLabel = input('Player');
   readonly friendsOpen = input(false);
   readonly pendingNotificationsCount = input(0);
@@ -36,5 +38,9 @@ export class DashboardHeaderControlsComponent {
   logoff(): void {
     this.closeSettings();
     this.logout.emit();
+  }
+
+  async toggleFullscreen(): Promise<void> {
+    await this.fullscreen.toggleFullscreen();
   }
 }

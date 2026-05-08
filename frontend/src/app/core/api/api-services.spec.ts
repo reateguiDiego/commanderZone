@@ -53,6 +53,21 @@ describe('API services', () => {
     request.flush(null);
   });
 
+  it('updates and deletes authenticated profile through /me endpoints', () => {
+    const auth = TestBed.inject(AuthApi);
+
+    auth.updateMe({ email: 'updated@example.test', displayName: 'Updated Player' }).subscribe();
+    let request = http.expectOne(`${API_BASE_URL}/me`);
+    expect(request.request.method).toBe('PATCH');
+    expect(request.request.body).toEqual({ email: 'updated@example.test', displayName: 'Updated Player' });
+    request.flush({ user: { id: 'user-1', email: 'updated@example.test', displayName: 'Updated Player', roles: ['ROLE_USER'] } });
+
+    auth.deleteMe().subscribe();
+    request = http.expectOne(`${API_BASE_URL}/me`);
+    expect(request.request.method).toBe('DELETE');
+    request.flush(null);
+  });
+
   it('requests and confirms password reset without triggering the global loading overlay', () => {
     const auth = TestBed.inject(AuthApi);
 

@@ -32,11 +32,11 @@ export class RollModalComponent {
 
   rollIconSrc(kind: RollKind): string {
     const iconByKind: Record<RollKind, string> = {
-      coin: '/assets/icons/coin.png',
-      d4: '/assets/icons/dice_4.png',
-      d6: '/assets/icons/dice_6.png',
-      d10: '/assets/icons/dice_10.png',
-      d20: '/assets/icons/dice_20.png',
+      coin: '/assets/icons/chance/coin.png',
+      d4: '/assets/icons/chance/dice_4.png',
+      d6: '/assets/icons/chance/dice_6.png',
+      d10: '/assets/icons/chance/dice_10.png',
+      d20: '/assets/icons/chance/dice_20.png',
     };
 
     return iconByKind[kind];

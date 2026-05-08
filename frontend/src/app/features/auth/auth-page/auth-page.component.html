@@ -72,9 +72,9 @@
 
           <label>
             User name
-            <input type="text" autocomplete="nickname" formControlName="displayName" />
+            <input type="text" autocomplete="nickname" formControlName="displayName" maxlength="25" />
             @if (controlInvalid('displayName')) {
-              <span class="field-error">Minimo 4 letras.</span>
+              <span class="field-error">User name entre 4 y 25 caracteres.</span>
             }
             @if (userNameAvailability() === 'checking') {
               <span class="availability muted">Comprobando disponibilidad...</span>
