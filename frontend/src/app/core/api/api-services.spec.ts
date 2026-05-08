@@ -9,6 +9,7 @@ import { DeckFoldersApi } from './deck-folders.api';
 import { DecksApi } from './decks.api';
 import { FriendsApi } from './friends.api';
 import { GamesApi } from './games.api';
+import { LandingApi } from './landing.api';
 import { RoomsApi } from './rooms.api';
 import { SKIP_GLOBAL_LOADING } from '../loading/loading-context';
 
@@ -32,6 +33,15 @@ describe('API services', () => {
     const request = http.expectOne(`${API_BASE_URL}/cards/search?q=sol%20ring&page=1&limit=24`);
     expect(request.request.method).toBe('GET');
     request.flush({ data: [], page: 1, limit: 24 });
+  });
+
+  it('loads public landing preview data without triggering the global loading overlay', () => {
+    TestBed.inject(LandingApi).preview().subscribe();
+
+    const request = http.expectOne(`${API_BASE_URL}/landing/preview`);
+    expect(request.request.method).toBe('GET');
+    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);
+    request.flush({ cardName: 'Sol Ring', displayName: 'Player' });
   });
 
   it('marks the current user offline without triggering the global loading overlay', () => {
@@ -96,16 +106,31 @@ describe('API services', () => {
     request.flush(deckAnalysisFixture());
   });
 
-  it('adds cards through the deck card mutation endpoint', () => {
-    TestBed.inject(DecksApi).addCard('deck-1', { setCode: 'tst', collectorNumber: '1', quantity: 2, section: 'main' }).subscribe();
+    it('adds cards through the deck card mutation endpoint', () => {
+      TestBed.inject(DecksApi).addCard('deck-1', { setCode: 'tst', collectorNumber: '1', quantity: 2, section: 'main' }).subscribe();
 
-    const request = http.expectOne(`${API_BASE_URL}/decks/deck-1/cards`);
+      const request = http.expectOne(`${API_BASE_URL}/decks/deck-1/cards`);
     expect(request.request.method).toBe('POST');
     expect(request.request.body).toEqual({ setCode: 'tst', collectorNumber: '1', quantity: 2, section: 'main' });
-    request.flush({ deck: { id: 'deck-1', name: 'Deck', format: 'commander', folderId: null, cards: [] } });
-  });
+      request.flush({ deck: { id: 'deck-1', name: 'Deck', format: 'commander', folderId: null, cards: [] } });
+    });
 
-  it('supports quick build, batch card updates, and commander replacement', () => {
+    it('supports selecting deck card print versions', () => {
+      const decks = TestBed.inject(DecksApi);
+
+      decks.printings('deck-1', 'line-1').subscribe();
+      let request = http.expectOne(`${API_BASE_URL}/decks/deck-1/cards/line-1/printings`);
+      expect(request.request.method).toBe('GET');
+      request.flush({ deckCardId: 'line-1', data: [] });
+
+      decks.selectPrinting('deck-1', 'line-1', 'card-print-2').subscribe();
+      request = http.expectOne(`${API_BASE_URL}/decks/deck-1/cards/line-1/printing`);
+      expect(request.request.method).toBe('PATCH');
+      expect(request.request.body).toEqual({ scryfallId: 'card-print-2' });
+      request.flush({ deck: { id: 'deck-1', name: 'Deck', format: 'commander', folderId: null, cards: [] } });
+    });
+
+    it('supports quick build, batch card updates, and commander replacement', () => {
     const decks = TestBed.inject(DecksApi);
     decks.quickBuild({ name: 'Deck', cards: [{ name: 'Sol Ring' }] }).subscribe();
     let request = http.expectOne(`${API_BASE_URL}/decks/quick-build`);
@@ -249,6 +274,33 @@ describe('API services', () => {
     expect(request.request.body).toEqual({});
     request.flush({ room: roomFixture('room-1') });
 
+    rooms.joinByCode('CZ-ABC-DEF-123', undefined, true).subscribe();
+    request = http.expectOne(`${API_BASE_URL}/rooms/code/CZ-ABC-DEF-123/join`);
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({});
+    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);
+    request.flush({ room: roomFixture('room-1') });
+
+    rooms.kickPlayer('room-1', 'player-1', true).subscribe();
+    request = http.expectOne(`${API_BASE_URL}/rooms/room-1/players/player-1`);
+    expect(request.request.method).toBe('DELETE');
+    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);
+    request.flush({ room: roomFixture('room-1') });
+
+    rooms.update('room-1', { startingLife: 45 }, true).subscribe();
+    request = http.expectOne(`${API_BASE_URL}/rooms/room-1`);
+    expect(request.request.method).toBe('PATCH');
+    expect(request.request.body).toEqual({ startingLife: 45 });
+    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);
+    request.flush({ room: roomFixture('room-1') });
+
+    rooms.update('room-1', { timerMode: 'turn', timerDurationSeconds: 120 }, true).subscribe();
+    request = http.expectOne(`${API_BASE_URL}/rooms/room-1`);
+    expect(request.request.method).toBe('PATCH');
+    expect(request.request.body).toEqual({ timerMode: 'turn', timerDurationSeconds: 120 });
+    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);
+    request.flush({ room: roomFixture('room-1') });
+
     rooms.list('active', true).subscribe();
     request = http.expectOne(`${API_BASE_URL}/rooms?status=active`);
     expect(request.request.method).toBe('GET');
@@ -386,6 +438,9 @@ function roomFixture(id: string) {
     visibility: 'private',
     format: 'commander',
     maxPlayers: 4,
+    startingLife: 40,
+    timerMode: 'none',
+    timerDurationSeconds: 300,
     owner: { id: 'user-1', email: 'owner@example.test', displayName: 'Owner', roles: [] },
     players: [],
     gameId: null,

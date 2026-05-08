@@ -3,6 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { Building2, DoorOpen, Globe, Lock, LogOut, LucideAngularModule, Play, Plus, RefreshCcw, Search, Swords, Trash2, Users } from 'lucide-angular';
 import { of } from 'rxjs';
+import { DeckFormatsApi } from '../../../core/api/deck-formats.api';
 import { RoomsApi } from '../../../core/api/rooms.api';
 import { AuthStore } from '../../../core/auth/auth.store';
 import { PageHeaderStore } from '../../../core/ui/page-header.store';
@@ -16,6 +17,9 @@ describe('RoomsComponent', () => {
     incomingInvites: vi.fn(),
     invites: vi.fn(),
   };
+  const deckFormatsApi = {
+    list: vi.fn(),
+  };
 
   beforeEach(async () => {
     roomsApi.list.mockReset().mockReturnValue(of({ data: [] }));
@@ -23,6 +27,7 @@ describe('RoomsComponent', () => {
     roomsApi.archive.mockReset().mockReturnValue(of({ room: null }));
     roomsApi.incomingInvites.mockReset().mockReturnValue(of({ data: [] }));
     roomsApi.invites.mockReset().mockReturnValue(of({ data: [] }));
+    deckFormatsApi.list.mockReset().mockReturnValue(of({ data: [{ id: 'commander', name: 'Commander', minCards: 100, maxCards: 100, hasCommander: true }] }));
 
     await TestBed.configureTestingModule({
       imports: [RoomsComponent],
@@ -30,6 +35,7 @@ describe('RoomsComponent', () => {
         provideRouter([]),
         importProvidersFrom(LucideAngularModule.pick({ Building2, DoorOpen, Globe, Lock, LogOut, Play, Plus, RefreshCcw, Search, Swords, Trash2, Users })),
         { provide: RoomsApi, useValue: roomsApi },
+        { provide: DeckFormatsApi, useValue: deckFormatsApi },
         { provide: AuthStore, useValue: { user: () => ({ id: 'user-1', email: 'owner@test', displayName: 'Owner' }) } },
       ],
     }).compileComponents();
@@ -58,6 +64,9 @@ describe('RoomsComponent', () => {
       visibility: 'private' as const,
       format: 'commander' as const,
       maxPlayers: 4,
+      startingLife: 40,
+      timerMode: 'none' as const,
+      timerDurationSeconds: 300,
       players: [],
       gameId: null,
     };

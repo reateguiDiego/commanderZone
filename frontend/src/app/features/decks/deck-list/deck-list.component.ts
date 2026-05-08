@@ -6,7 +6,9 @@ import { PageHeaderStore } from '../../../core/ui/page-header.store';
 import { CardAutocompleteComponent } from '../../../shared/components/card-autocomplete/card-autocomplete.component';
 import { ManaSymbolsComponent } from '../../../shared/mana/mana-symbols/mana-symbols.component';
 import { VisibilityChoiceComponent } from '../../../shared/components/visibility-choice/visibility-choice.component';
+import { FormatSelectComponent } from '../../../shared/components/format-select/format-select.component';
 import { AppModalComponent } from '../../../shared/ui/app-modal/app-modal.component';
+import { PrettyScrollDirective } from '../../../shared/ui/pretty-scroll/pretty-scroll.directive';
 import { DeckListStore } from '../data-access/deck-list.store';
 
 interface CommanderHoverPreview {
@@ -17,7 +19,7 @@ interface CommanderHoverPreview {
 
 @Component({
   selector: 'app-deck-list',
-  imports: [FormsModule, LucideAngularModule, AppModalComponent, CardAutocompleteComponent, ManaSymbolsComponent, VisibilityChoiceComponent],
+  imports: [FormsModule, LucideAngularModule, AppModalComponent, CardAutocompleteComponent, ManaSymbolsComponent, PrettyScrollDirective, VisibilityChoiceComponent, FormatSelectComponent],
   templateUrl: './deck-list.component.html',
   styleUrl: './deck-list.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

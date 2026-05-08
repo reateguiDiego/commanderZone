@@ -1,0 +1,83 @@
+<article class="setup-card">
+  <div class="setup-header">
+    <div>
+      <span class="eyebrow">Game setup</span>
+      <strong>{{ joinedPlayers() }} / {{ roomCapacity() }} joined</strong>
+    </div>
+    <div class="setup-tabs" aria-label="Waiting room panel">
+      <button type="button" [class.active]="activeTab() === 'setup'" (click)="selectTab('setup')">Setup</button>
+      <button type="button" [class.active]="activeTab() === 'log'" [class.has-new-logs]="unreadLogCount() > 0" (click)="selectTab('log')">
+        Log
+        @if (unreadLogCount() > 0) {
+          <span class="log-notification" aria-label="New room log events">{{ unreadLogCount() }}</span>
+        }
+      </button>
+    </div>
+  </div>
+
+  @if (activeTab() === 'setup') {
+    <div class="setup-control life-control">
+      <div class="control-copy">
+        <span class="eyebrow">Total life</span>
+      </div>
+      <div class="life-editor" aria-label="Starting life">
+        <button type="button" [disabled]="!isOwner() || updatingStartingLife()" aria-label="Decrease starting life" (click)="decreaseStartingLife()">-</button>
+        <span class="life-value-button" aria-live="polite">{{ startingLife() }}</span>
+        <button type="button" [disabled]="!isOwner() || updatingStartingLife()" aria-label="Increase starting life" (click)="increaseStartingLife()">+</button>
+      </div>
+    </div>
+
+    <div class="setup-control timer-control">
+      <div class="control-copy">
+        <span class="eyebrow">Timer</span>
+        <strong>{{ timerSummary() }}</strong>
+      </div>
+      <app-table-assistant-timer-settings
+        [compact]="true"
+        [timerMode]="timerMode()"
+        [timerDurationSeconds]="timerDurationSeconds()"
+        [timerModes]="['none', 'turn']"
+        [disabled]="!isOwner() || updatingTimer()"
+        (timerModeChange)="changeTimerMode($event)"
+        (timerDurationSecondsChange)="changeTimerDuration($event)"
+      />
+    </div>
+
+    <div class="setup-control seats-control">
+      <div class="control-copy">
+        <span class="eyebrow">Seats</span>
+        <strong>{{ roomCapacity() }}</strong>
+      </div>
+      <div class="capacity-editor" aria-label="Room size">
+        @for (value of maxPlayersOptions(); track value) {
+          <button
+            type="button"
+            [class.selected]="roomCapacity() === value"
+            [disabled]="!isOwner() || updatingCapacity() || value < joinedPlayers()"
+            [attr.aria-label]="'Set room size to ' + value + ' players'"
+            (click)="changeCapacity(value)"
+          >
+            {{ value }}
+          </button>
+        }
+      </div>
+    </div>
+
+    @if (!isOwner()) {
+      <p class="muted host-note">Only the host can edit setup.</p>
+    }
+  } @else {
+    <section #roomLogViewport appPrettyScroll class="room-log" aria-label="Room log">
+      @if (roomLog().length > 0) {
+        @for (entry of roomLog(); track entry.id) {
+          <article class="room-log-entry">
+            <span>{{ entry.time }}</span>
+            <strong>{{ entry.label }}</strong>
+          </article>
+        }
+      } @else {
+        <p class="muted">Room events will appear here.</p>
+      }
+    </section>
+  }
+</article>

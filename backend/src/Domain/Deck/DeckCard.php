@@ -79,6 +79,11 @@ class DeckCard
         $this->quantity = max(1, $quantity);
     }
 
+    public function changeCard(Card $card): void
+    {
+        $this->card = $card;
+    }
+
     public function moveToSection(string $section): void
     {
         if (!in_array($section, self::SECTIONS, true)) {

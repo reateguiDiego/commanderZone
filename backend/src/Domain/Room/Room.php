@@ -23,6 +23,15 @@ class Room
     public const MIN_MAX_PLAYERS = 2;
     public const MAX_MAX_PLAYERS = 6;
     public const DEFAULT_MAX_PLAYERS = 4;
+    public const MIN_STARTING_LIFE = 1;
+    public const MAX_STARTING_LIFE = 999;
+    public const DEFAULT_STARTING_LIFE = 40;
+    public const TIMER_NONE = 'none';
+    public const TIMER_TURN = 'turn';
+    public const DEFAULT_TIMER_MODE = self::TIMER_NONE;
+    public const DEFAULT_TIMER_DURATION_SECONDS = 300;
+    public const MIN_TIMER_DURATION_SECONDS = 30;
+    public const MAX_TIMER_DURATION_SECONDS = 1800;
 
     #[ORM\Id]
     #[ORM\Column(type: 'string', length: 36)]
@@ -46,6 +55,15 @@ class Room
 
     #[ORM\Column(type: 'integer')]
     private int $maxPlayers = self::DEFAULT_MAX_PLAYERS;
+
+    #[ORM\Column(type: 'integer')]
+    private int $startingLife = self::DEFAULT_STARTING_LIFE;
+
+    #[ORM\Column(type: 'string', length: 12)]
+    private string $timerMode = self::DEFAULT_TIMER_MODE;
+
+    #[ORM\Column(type: 'integer')]
+    private int $timerDurationSeconds = self::DEFAULT_TIMER_DURATION_SECONDS;
 
     #[ORM\OneToMany(mappedBy: 'room', targetEntity: RoomPlayer::class, cascade: ['persist', 'remove'], orphanRemoval: true)]
     private Collection $players;
@@ -100,6 +118,21 @@ class Room
         return $this->maxPlayers;
     }
 
+    public function startingLife(): int
+    {
+        return $this->startingLife;
+    }
+
+    public function timerMode(): string
+    {
+        return $this->timerMode;
+    }
+
+    public function timerDurationSeconds(): int
+    {
+        return $this->timerDurationSeconds;
+    }
+
     public function setVisibility(string $visibility): void
     {
         $this->visibility = in_array($visibility, [self::VISIBILITY_PRIVATE, self::VISIBILITY_PUBLIC], true)
@@ -129,6 +162,26 @@ class Room
         $this->maxPlayers = max(self::MIN_MAX_PLAYERS, min(self::MAX_MAX_PLAYERS, $maxPlayers));
     }
 
+    public function setStartingLife(int $startingLife): void
+    {
+        $this->startingLife = max(self::MIN_STARTING_LIFE, min(self::MAX_STARTING_LIFE, $startingLife));
+    }
+
+    public function setTimerMode(string $timerMode): void
+    {
+        $this->timerMode = in_array($timerMode, [self::TIMER_NONE, self::TIMER_TURN], true)
+            ? $timerMode
+            : self::DEFAULT_TIMER_MODE;
+    }
+
+    public function setTimerDurationSeconds(int $timerDurationSeconds): void
+    {
+        $this->timerDurationSeconds = max(
+            self::MIN_TIMER_DURATION_SECONDS,
+            min(self::MAX_TIMER_DURATION_SECONDS, $timerDurationSeconds),
+        );
+    }
+
     public function players(): Collection
     {
         return $this->players;
@@ -140,6 +193,16 @@ class Room
     public function orderedPlayers(): array
     {
         $players = $this->players->toArray();
+        $allPlayersRolled = $players !== [] && array_reduce(
+            $players,
+            static fn (bool $allRolled, RoomPlayer $player): bool => $allRolled && $player->turnRoll() !== null,
+            true,
+        );
+
+        if (!$allPlayersRolled) {
+            return array_values($players);
+        }
+
         usort($players, static function (RoomPlayer $left, RoomPlayer $right): int {
             $leftRoll = $left->turnRoll();
             $rightRoll = $right->turnRoll();
@@ -206,7 +269,7 @@ class Room
         return null;
     }
 
-    public function canBeViewedBy(User $user, bool $isInvited = false): bool
+    public function canBeViewedBy(User $user): bool
     {
         if ($this->owner->id() === $user->id() || $this->hasPlayer($user)) {
             return true;
@@ -216,11 +279,9 @@ class Room
             return false;
         }
 
-        if ($this->visibility === self::VISIBILITY_PUBLIC) {
-            return true;
-        }
-
-        return $isInvited;
+        // Private waiting rooms are not publicly listed, but a direct link or
+        // room code is enough to open the waiting room.
+        return true;
     }
 
     public function removeUser(User $user): void
@@ -258,6 +319,9 @@ class Room
             'visibility' => $this->visibility,
             'format' => $this->format,
             'maxPlayers' => $this->maxPlayers,
+            'startingLife' => $this->startingLife,
+            'timerMode' => $this->timerMode,
+            'timerDurationSeconds' => $this->timerDurationSeconds,
             'players' => array_map(static fn (RoomPlayer $player) => $player->toArray(), $this->orderedPlayers()),
             'gameId' => $this->game?->id(),
         ];

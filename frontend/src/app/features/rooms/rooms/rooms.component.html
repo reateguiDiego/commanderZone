@@ -20,169 +20,27 @@
         </section>
       }
 
-      <section class="panel rooms-filter-bar">
-        <div class="join-inline">
-          <label>
-            Room code
-            <input name="roomId" placeholder="Paste room id" [(ngModel)]="roomId" />
-          </label>
-          <button class="secondary-button" type="button" (click)="joinRoom()">
-            <lucide-icon name="search" size="16" />
-            Join room
-          </button>
-        </div>
-        <button class="icon-button" type="button" title="Reload rooms" (click)="loadRooms(true)">
-          <lucide-icon name="refresh-ccw" size="16" />
-        </button>
-      </section>
-
       @if (incomingInvites().length > 0) {
-        <section class="panel">
-          <div class="tool-header compact-header">
-            <div>
-              <span class="eyebrow">Invites</span>
-              <h3>Pending room invites</h3>
-            </div>
-          </div>
-          <div class="dense-list compact-list">
-            @for (invite of incomingInvites(); track invite.id) {
-              <div class="list-row">
-                <span>
-                  <strong>{{ invite.sender.displayName }}</strong>
-                  <small>{{ invite.room.visibility }} - {{ invite.room.players.length }} players</small>
-                </span>
-                <button class="primary-button compact" type="button" (click)="acceptInvite(invite)">Accept</button>
-                <button class="secondary-button compact" type="button" (click)="declineInvite(invite)">Decline</button>
-              </div>
-            }
-          </div>
-        </section>
+        <app-room-invites-panel
+          [invites]="incomingInvites()"
+          (accepted)="acceptInvite($event)"
+          (declined)="declineInvite($event)"
+        />
       }
 
-      <section class="panel rooms-table-panel">
-        <div class="rooms-table-head">
-          <span>Room name</span>
-          <span>Host</span>
-          <span>Format</span>
-          <span>Visibility</span>
-          <span>Players</span>
-          <span>Status</span>
-          <span class="rooms-actions-title">Action</span>
-        </div>
-
-        <div class="dense-list compact-list room-list">
-          @for (room of rooms(); track room.id) {
-            <div class="list-row room-row">
-              <div class="room-col">
-                <strong>{{ room.name }}</strong>
-                <small>{{ room.visibility === 'public' ? 'Public room' : 'Private room' }}</small>
-              </div>
-              <div class="room-col">
-                <strong>{{ room.owner.displayName }}</strong>
-                <small>Owner</small>
-              </div>
-              <div class="room-col">
-                <strong>Commander</strong>
-                <small>Singleton</small>
-              </div>
-              <div class="room-col">
-                <strong>{{ room.visibility }}</strong>
-                <small>{{ room.visibility === 'public' ? 'Any player can join' : 'Invite only' }}</small>
-              </div>
-              <div class="room-col">
-                <strong>{{ roomPlayerCount(room) }} / {{ roomCapacity(room) }}</strong>
-                <small>seated</small>
-              </div>
-              <div class="room-col">
-                @if (isRoomStarted(room)) {
-                  <span class="status-pill status-started">Started</span>
-                } @else if (isRoomWaiting(room) && isRoomFull(room)) {
-                  <span class="status-pill status-full">Full</span>
-                } @else if (isRoomOpen(room)) {
-                  <span class="status-pill status-open">Open</span>
-                } @else {
-                  <span class="status-pill status-archived">{{ room.status }}</span>
-                }
-              </div>
-              <div class="room-actions">
-                @if (room.gameId) {
-                  <a class="secondary-button compact" [routerLink]="['/games', room.gameId]">Open game</a>
-                } @else {
-                  <button class="secondary-button compact" type="button" (click)="openListedRoom(room)">
-                    <lucide-icon name="door-open" size="15" />
-                    Join
-                  </button>
-                }
-                @if (canDeleteRoom(room)) {
-                  <button class="danger-button compact" type="button" [disabled]="deletingRoomId() === room.id" (click)="requestDeleteRoom(room)">
-                    <lucide-icon name="trash-2" size="15" />
-                    {{ deletingRoomId() === room.id ? 'Deleting' : 'Delete' }}
-                  </button>
-                }
-                @if (canArchiveRoom(room)) {
-                  <button class="danger-button compact" type="button" [disabled]="archivingRoomId() === room.id" (click)="archiveRoom(room)">
-                    {{ archivingRoomId() === room.id ? 'Archiving' : 'Archive' }}
-                  </button>
-                }
-              </div>
-            </div>
-          } @empty {
-            <p class="notice">No visible rooms.</p>
-          }
-        </div>
-      </section>
+      <app-room-browser
+        [rooms]="rooms()"
+        [formats]="formats()"
+        [currentUserId]="auth.user()?.id ?? null"
+        [deletingRoomId]="deletingRoomId()"
+        [archivingRoomId]="archivingRoomId()"
+        (listedRoomOpened)="openListedRoom($event)"
+        (deleteRequested)="requestDeleteRoom($event)"
+        (archiveRequested)="archiveRoom($event)"
+      />
     </div>
 
-    <aside class="panel rooms-create-panel">
-      <div class="rooms-create-header">
-        <span class="eyebrow">Create a new room</span>
-        <h3>Room setup</h3>
-        <p>Configure your table and invite players from the waiting page.</p>
-      </div>
-
-      <form class="form-stack" [formGroup]="createRoomForm" (ngSubmit)="createRoom()">
-        <label>
-          Room name
-          <input
-            formControlName="roomName"
-            maxlength="120"
-            placeholder="Ej. La taberna del comandante"
-          />
-        </label>
-
-        <label>
-          Format
-          <input name="roomFormat" value="Commander" readonly />
-        </label>
-
-        <div class="choice-stack">
-          <p class="choice-label">Players</p>
-          <div class="choice-group">
-            @for (value of maxPlayersOptions; track value) {
-              <button
-                type="button"
-                class="choice-button"
-                [class.is-selected]="createRoomForm.value.players === value"
-                (click)="createRoomForm.controls.players.setValue(value)"
-              >
-                {{ value }} players
-              </button>
-            }
-          </div>
-        </div>
-
-        <app-visibility-choice
-          label="Privacy"
-          [value]="createRoomForm.controls.privacy.value"
-          (valueChange)="createRoomForm.controls.privacy.setValue($event)"
-        />
-
-        <button class="primary-button" type="submit" [disabled]="createRoomForm.invalid">
-          <lucide-icon name="plus" size="17" />
-          Create room
-        </button>
-      </form>
-    </aside>
+    <app-room-create-panel [formats]="formats()" (codeJoinRequested)="joinRoomByCode($event)" (roomCreated)="createRoom($event)" />
   </div>
 
   <app-modal

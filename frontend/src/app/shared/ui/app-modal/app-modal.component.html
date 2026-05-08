@@ -1,6 +1,6 @@
 @if (open) {
   <div class="modal-backdrop" role="presentation">
-    <section class="modal-panel" role="dialog" aria-modal="true" [attr.aria-label]="title">
+    <section class="modal-panel" appPrettyScroll role="dialog" aria-modal="true" [attr.aria-label]="title">
       <header>
         <h2>{{ title }}</h2>
         @if (message) {
@@ -17,7 +17,7 @@
           <button class="secondary-button" type="button" (click)="secondary.emit()">{{ secondaryLabel }}</button>
         }
         @if (showPrimary) {
-          <button class="primary-button" [class.danger-action]="danger" type="button" (click)="primary.emit()">
+          <button class="primary-button" [class.danger-action]="danger" type="button" [disabled]="primaryDisabled" (click)="primary.emit()">
             {{ primaryLabel }}
           </button>
         }

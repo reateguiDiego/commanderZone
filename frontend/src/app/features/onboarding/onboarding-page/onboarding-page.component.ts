@@ -3,6 +3,9 @@ import { FormsModule } from '@angular/forms';
 import { Meta, Title } from '@angular/platform-browser';
 import { Router, RouterLink } from '@angular/router';
 import { LucideAngularModule } from 'lucide-angular';
+import { firstValueFrom } from 'rxjs';
+import { LandingApi } from '../../../core/api/landing.api';
+import { AppBackgroundService } from '../../../core/ui/app-background.service';
 import { DemoRoom, DemoRoomService } from '../services/demo-room.service';
 import { OnboardingStep } from '../models/onboarding-step.model';
 
@@ -18,10 +21,14 @@ export class OnboardingPageComponent {
   private readonly router = inject(Router);
   private readonly title = inject(Title);
   private readonly meta = inject(Meta);
+  private readonly landingApi = inject(LandingApi);
+  private readonly appBackground = inject(AppBackgroundService);
 
   readonly decklist = signal('');
   readonly roomName = signal('');
   readonly room = signal<DemoRoom | null>(null);
+  readonly previewCardName = signal('Sol Ring');
+  readonly previewDisplayName = signal('Guest player');
   readonly importError = signal<string | null>(null);
   readonly copied = signal(false);
   readonly importedCardCount = computed(() => this.decklist()
@@ -44,11 +51,13 @@ export class OnboardingPageComponent {
   });
 
   constructor() {
+    this.appBackground.setDashboardMode(false);
     this.title.setTitle('Play Commander online in seconds');
     this.meta.updateTag({
       name: 'description',
       content: 'Import your deck, create a room, share the link and start playing. No downloads required.',
     });
+    void this.loadLandingPreview();
   }
 
   scrollToFlow(): void {
@@ -91,6 +100,17 @@ export class OnboardingPageComponent {
     }
 
     await this.router.navigate(['/room', room.id]);
+  }
+
+  private async loadLandingPreview(): Promise<void> {
+    try {
+      const preview = await firstValueFrom(this.landingApi.preview());
+      this.previewCardName.set(preview.cardName);
+      this.previewDisplayName.set(preview.displayName);
+    } catch {
+      this.previewCardName.set('Sol Ring');
+      this.previewDisplayName.set('Guest player');
+    }
   }
 }
 

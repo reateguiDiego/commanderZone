@@ -1,36 +1,42 @@
-import { HttpErrorResponse } from '@angular/common/http';
+﻿import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
-import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { LucideAngularModule } from 'lucide-angular';
 import { Subscription, firstValueFrom } from 'rxjs';
+import { DeckFormatsApi } from '../../../core/api/deck-formats.api';
 import { RoomsApi } from '../../../core/api/rooms.api';
 import { AuthStore } from '../../../core/auth/auth.store';
+import { DeckFormat } from '../../../core/models/deck.model';
 import { RoomInvite } from '../../../core/models/room-invite.model';
-import { Room, RoomFormat } from '../../../core/models/room.model';
+import { Room } from '../../../core/models/room.model';
 import { MercureService } from '../../../core/realtime/mercure.service';
 import { PageHeaderStore } from '../../../core/ui/page-header.store';
-import { VisibilityChoiceComponent } from '../../../shared/components/visibility-choice/visibility-choice.component';
 import { AppModalComponent } from '../../../shared/ui/app-modal/app-modal.component';
+import { RoomBrowserComponent } from './components/room-browser/room-browser.component';
+import { RoomCreatePanelComponent, RoomCreatePayload } from './components/room-create-panel/room-create-panel.component';
+import { RoomInvitesPanelComponent } from './components/room-invites-panel/room-invites-panel.component';
+
+const ROOM_LIST_POLL_INTERVAL_MS = 15000;
 
 @Component({
   selector: 'app-rooms',
-  imports: [FormsModule, ReactiveFormsModule, RouterLink, LucideAngularModule, AppModalComponent, VisibilityChoiceComponent],
+  imports: [RouterLink, LucideAngularModule, AppModalComponent, RoomBrowserComponent, RoomCreatePanelComponent, RoomInvitesPanelComponent],
   templateUrl: './rooms.component.html',
   styleUrl: './rooms.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class RoomsComponent implements OnInit, OnDestroy {
   private readonly roomsApi = inject(RoomsApi);
+  private readonly deckFormatsApi = inject(DeckFormatsApi);
   private readonly mercure = inject(MercureService);
   protected readonly auth = inject(AuthStore);
   private readonly router = inject(Router);
-  private readonly formBuilder = inject(FormBuilder);
   private readonly pageHeader = inject(PageHeaderStore);
   private roomSyncHandle?: number;
   private roomSyncInFlight = false;
   private inviteRealtimeSubscription?: Subscription;
   readonly rooms = signal<Room[]>([]);
+  readonly formats = signal<DeckFormat[]>([]);
   readonly incomingInvites = signal<RoomInvite[]>([]);
   readonly currentRoom = signal<Room | null>(null);
   readonly error = signal<string | null>(null);
@@ -48,21 +54,15 @@ export class RoomsComponent implements OnInit, OnDestroy {
   readonly startedRoomsCount = computed(() => this.rooms()
     .filter((room) => this.isRoomStarted(room))
     .length);
-  readonly roomFormat: RoomFormat = 'commander';
-  readonly maxPlayersOptions = [2, 3, 4, 5, 6] as const;
-  readonly createRoomForm = this.formBuilder.group({
-    roomName: ['', [Validators.required, Validators.maxLength(120)]],
-    players: [null as number | null, [Validators.required]],
-    privacy: [null as 'private' | 'public' | null, [Validators.required]],
-  });
   roomId = '';
 
   constructor() {
-    void this.loadRoomState();
+    void this.loadRoomState(true);
+    void this.loadFormats(true);
     this.subscribeToInviteRealtime();
     this.roomSyncHandle = window.setInterval(() => {
       void this.syncRoomState();
-    }, 3000);
+    }, ROOM_LIST_POLL_INTERVAL_MS);
   }
 
   ngOnInit(): void {
@@ -97,26 +97,23 @@ export class RoomsComponent implements OnInit, OnDestroy {
     }
   }
 
-  async createRoom(): Promise<void> {
-    this.error.set(null);
-    if (this.createRoomForm.invalid) {
-      this.createRoomForm.markAllAsTouched();
-      return;
+  async loadFormats(skipGlobalLoading = false): Promise<void> {
+    try {
+      const response = await firstValueFrom(this.deckFormatsApi.list(skipGlobalLoading));
+      this.formats.set(response.data);
+    } catch {
+      this.error.set('Could not load room formats.');
     }
+  }
 
-    const roomName = (this.createRoomForm.value.roomName ?? '').trim();
-    const players = this.createRoomForm.value.players;
-    const privacy = this.createRoomForm.value.privacy;
-    if (!roomName || players === null || privacy === null) {
-      this.createRoomForm.markAllAsTouched();
-      return;
-    }
+  async createRoom(payload: RoomCreatePayload): Promise<void> {
+    this.error.set(null);
 
     try {
-      const response = await firstValueFrom(this.roomsApi.create(undefined, privacy, {
-        name: roomName,
-        maxPlayers: players,
-        format: this.roomFormat,
+      const response = await firstValueFrom(this.roomsApi.create(undefined, payload.visibility, {
+        name: payload.name,
+        maxPlayers: payload.maxPlayers,
+        format: payload.format,
       }));
       this.currentRoom.set(response.room);
       this.roomId = response.room.id;
@@ -133,14 +130,16 @@ export class RoomsComponent implements OnInit, OnDestroy {
   }
 
   async joinRoom(): Promise<void> {
-    const id = this.roomId.trim();
-    if (!id) {
+    const roomReference = this.roomReferenceFromInput(this.roomId);
+    if (!roomReference) {
       return;
     }
 
     this.error.set(null);
     try {
-      const response = await firstValueFrom(this.roomsApi.join(id));
+      const response = await firstValueFrom(roomReference.type === 'id'
+        ? this.roomsApi.join(roomReference.value)
+        : this.roomsApi.joinByCode(roomReference.value));
       this.currentRoom.set(response.room);
       this.roomId = response.room.id;
       await this.navigateToWaitingRoom(response.room.id);
@@ -299,7 +298,7 @@ export class RoomsComponent implements OnInit, OnDestroy {
 
     this.roomSyncInFlight = true;
     try {
-      await this.loadRoomState(true);
+      await this.loadRooms(true);
     } finally {
       this.roomSyncInFlight = false;
     }
@@ -367,6 +366,30 @@ export class RoomsComponent implements OnInit, OnDestroy {
     }
   }
 
+  async joinRoomByCode(code: string): Promise<void> {
+    this.roomId = code;
+    await this.joinRoom();
+  }
+
+  private roomReferenceFromInput(value: string): { type: 'id' | 'code'; value: string } | null {
+    const trimmedValue = value.trim();
+    if (!trimmedValue) {
+      return null;
+    }
+
+    const roomRouteMatch = trimmedValue.match(/\/rooms\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/waiting/i);
+    if (roomRouteMatch?.[1]) {
+      return { type: 'id', value: roomRouteMatch[1] };
+    }
+
+    const uuidMatch = trimmedValue.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+    if (uuidMatch) {
+      return { type: 'id', value: trimmedValue };
+    }
+
+    return { type: 'code', value: trimmedValue };
+  }
+
   private updatePageHeader(): void {
     this.pageHeader.set({
       title: 'Rooms',
@@ -402,3 +425,4 @@ export class RoomsComponent implements OnInit, OnDestroy {
     });
   }
 }
+

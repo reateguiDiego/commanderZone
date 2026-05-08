@@ -182,7 +182,7 @@
           />
         } @else {
           <div class="chat-panel-content" data-testid="chat-panel">
-            <div #autoScrollFeed class="panel-feed" data-testid="chat-feed">
+            <div #autoScrollFeed appPrettyScroll class="panel-feed" data-testid="chat-feed">
               @for (message of snapshot.chat; track message.createdAt + message.userId) {
                 <p data-testid="chat-message"><strong>{{ message.displayName }}</strong><span>{{ message.message }}</span></p>
               }

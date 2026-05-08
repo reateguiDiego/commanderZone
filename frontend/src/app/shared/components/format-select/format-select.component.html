@@ -1,0 +1,18 @@
+﻿<label class="format-select-field">
+  <span>{{ label() }}</span>
+  <select
+    [name]="name()"
+    [required]="required()"
+    [disabled]="disabled()"
+    [ngModel]="value()"
+    [ngModelOptions]="{ standalone: true }"
+    (ngModelChange)="valueChange.emit($event)"
+  >
+    @if (allLabel(); as optionLabel) {
+      <option value="all">{{ optionLabel }}</option>
+    }
+    @for (format of formats(); track format.id) {
+      <option [value]="format.id">{{ format.name }}</option>
+    }
+  </select>
+</label>

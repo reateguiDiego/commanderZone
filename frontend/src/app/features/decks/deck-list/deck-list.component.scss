@@ -91,14 +91,26 @@
 
 .deck-table-name:not(.folder-row-name) {
   display: grid;
-  justify-items: start;
+  justify-items: stretch;
   gap: 0.45rem;
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease,
+    filter 180ms ease;
+}
+
+.deck-list-row:not(.folder-list-row):not(:focus-within):hover > .deck-table-name {
+  opacity: 0;
+  transform: translateY(-0.45rem) scale(0.98);
+  filter: blur(2px);
+  pointer-events: none;
 }
 
 .deck-name-line {
-  display: inline-flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  flex-wrap: wrap;
+  width: 100%;
   max-width: 100%;
   gap: 0.45rem;
   min-width: 0;
@@ -112,6 +124,7 @@
 }
 
 .deck-commander-colors {
+  justify-self: end;
   flex: 0 0 auto;
   font-size: 0.78rem;
 }
@@ -164,6 +177,7 @@
 .visibility-pill {
   display: inline-flex;
   align-items: center;
+  justify-self: start;
   gap: 0.26rem;
   width: fit-content;
   min-height: 1.35rem;
@@ -275,6 +289,38 @@
   display: grid;
   align-content: start;
   gap: 0.85rem;
+}
+
+.create-deck-form fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.create-deck-form fieldset:disabled {
+  opacity: 0.72;
+}
+
+.folder-drag-help {
+  margin: 0;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid rgb(215 180 106 / 22%);
+  border-radius: 8px;
+  background: rgb(215 180 106 / 8%);
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.field-hint {
+  display: block;
+  margin-top: 0.25rem;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.field-hint.error-text {
+  color: #ffb4a8;
 }
 
 @media (max-width: 1180px) {

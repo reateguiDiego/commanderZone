@@ -10,7 +10,7 @@ import {
   DeckResponse,
 } from '../models/api-responses.model';
 import { DeckAnalysis, DeckAnalysisOptions } from '../models/deck-analysis.model';
-import { Deck, DeckSection, DeckSectionsResponse, DeckTokensResponse, DeckVisibility } from '../models/deck.model';
+import { Deck, DeckCardPrintingsResponse, DeckSection, DeckSectionsResponse, DeckTokensResponse, DeckVisibility } from '../models/deck.model';
 
 export interface DeckCardMutationPayload {
   scryfallId?: string;
@@ -39,10 +39,12 @@ export interface CommanderReplacementPayload {
 export class DecksApi {
   private readonly http = inject(HttpClient);
 
-  list(folderId?: string | null): Observable<DataResponse<Deck>> {
+  list(folderId?: string | null, skipGlobalLoading = false): Observable<DataResponse<Deck>> {
+    const context = skipGlobalLoading ? withoutGlobalLoading() : undefined;
+
     return folderId === undefined
-      ? this.http.get<DataResponse<Deck>>(`${API_BASE_URL}/decks`)
-      : this.http.get<DataResponse<Deck>>(`${API_BASE_URL}/decks`, { params: { folderId: folderId ?? 'null' } });
+      ? this.http.get<DataResponse<Deck>>(`${API_BASE_URL}/decks`, { context })
+      : this.http.get<DataResponse<Deck>>(`${API_BASE_URL}/decks`, { context, params: { folderId: folderId ?? 'null' } });
   }
 
   create(name: string, folderId: string | null = null, visibility: DeckVisibility = 'private'): Observable<DeckResponse> {
@@ -117,11 +119,21 @@ export class DecksApi {
     return this.http.patch<DeckResponse>(`${API_BASE_URL}/decks/${id}/cards/${deckCardId}`, payload);
   }
 
+  printings(id: string, deckCardId: string): Observable<DeckCardPrintingsResponse> {
+    return this.http.get<DeckCardPrintingsResponse>(`${API_BASE_URL}/decks/${id}/cards/${deckCardId}/printings`);
+  }
+
+  selectPrinting(id: string, deckCardId: string, scryfallId: string): Observable<DeckResponse> {
+    return this.http.patch<DeckResponse>(`${API_BASE_URL}/decks/${id}/cards/${deckCardId}/printing`, { scryfallId });
+  }
+
   removeCard(id: string, deckCardId: string): Observable<DeckResponse> {
     return this.http.delete<DeckResponse>(`${API_BASE_URL}/decks/${id}/cards/${deckCardId}`);
   }
 
-  validateCommander(id: string): Observable<CommanderValidationResponse> {
-    return this.http.post<CommanderValidationResponse>(`${API_BASE_URL}/decks/${id}/validate-commander`, {});
+  validateCommander(id: string, skipGlobalLoading = false): Observable<CommanderValidationResponse> {
+    return this.http.post<CommanderValidationResponse>(`${API_BASE_URL}/decks/${id}/validate-commander`, {}, {
+      context: skipGlobalLoading ? withoutGlobalLoading() : undefined,
+    });
   }
 }

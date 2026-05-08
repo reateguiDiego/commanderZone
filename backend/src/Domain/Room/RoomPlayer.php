@@ -47,6 +47,11 @@ class RoomPlayer
         return $this->user;
     }
 
+    public function id(): string
+    {
+        return $this->id;
+    }
+
     public function deck(): ?Deck
     {
         return $this->deck;

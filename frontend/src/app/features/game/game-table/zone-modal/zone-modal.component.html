@@ -19,13 +19,13 @@
       </select>
       <input placeholder="Search by name" [ngModel]="currentModal.search" (ngModelChange)="filterChanged.emit({ search: $event })" />
     </div>
-    <div class="zone-modal-body">
+    <div appPrettyScroll class="zone-modal-body">
       <aside>
         @if (currentModal.selectedCard && cardImage()(currentModal.selectedCard); as image) {
           <img [src]="image" [alt]="currentModal.selectedCard.name" />
         }
       </aside>
-      <div class="zone-list">
+      <div appPrettyScroll class="zone-list">
         @for (card of currentModal.cards; track card.instanceId) {
           <button
             type="button"

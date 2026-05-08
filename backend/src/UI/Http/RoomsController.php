@@ -26,26 +26,14 @@ class RoomsController extends ApiController
         $queryBuilder = $entityManager->getRepository(Room::class)->createQueryBuilder('room')
             ->distinct()
             ->leftJoin('room.players', 'player')
-            ->addSelect('player')
-            ->leftJoin(
-                RoomInvite::class,
-                'invite',
-                'WITH',
-                'invite.room = room AND invite.recipient = :user AND invite.status = :pendingInvite',
-            )
-            ->where('((room.status = :waiting AND room.visibility = :public)')
-            ->orWhere('room.owner = :user')
-            ->orWhere('player.user = :user')
-            ->orWhere('invite.id IS NOT NULL)')
-            ->setParameter('waiting', Room::STATUS_WAITING)
-            ->setParameter('public', Room::VISIBILITY_PUBLIC)
-            ->setParameter('pendingInvite', RoomInvite::STATUS_PENDING)
-            ->setParameter('user', $user);
+            ->addSelect('player');
 
         if ($status === 'archived') {
             $queryBuilder
                 ->andWhere('room.status = :archived')
-                ->setParameter('archived', Room::STATUS_ARCHIVED);
+                ->andWhere('(room.owner = :user OR player.user = :user)')
+                ->setParameter('archived', Room::STATUS_ARCHIVED)
+                ->setParameter('user', $user);
         } elseif ($status !== 'all') {
             $queryBuilder
                 ->andWhere('room.status != :archived')
@@ -53,11 +41,12 @@ class RoomsController extends ApiController
         }
 
         $rooms = $queryBuilder
-            ->orderBy('room.createdAt', 'DESC')
             ->getQuery()
             ->getResult();
+        usort($rooms, static fn (Room $left, Room $right): int => self::roomListRank($left) <=> self::roomListRank($right)
+            ?: $left->name() <=> $right->name());
 
-        return $this->json(['data' => array_map(static fn (Room $room) => $room->toArray(), $rooms)]);
+        return $this->json(['data' => array_map(fn (Room $room) => $this->roomListArray($room, $user), $rooms)]);
     }
 
     #[Route('/rooms', methods: ['POST'])]
@@ -82,6 +71,9 @@ class RoomsController extends ApiController
         $room->setFormat($format);
         $room->setName((string) ($payload['name'] ?? ''));
         $room->setMaxPlayers($this->maxPlayersFromPayload($payload));
+        $room->setStartingLife($this->startingLifeFromPayload($payload));
+        $room->setTimerMode($this->timerModeFromPayload($payload));
+        $room->setTimerDurationSeconds($this->timerDurationFromPayload($payload));
         $room->addPlayer(new RoomPlayer($room, $user, $deck));
 
         $entityManager->persist($room);
@@ -98,8 +90,7 @@ class RoomsController extends ApiController
         if (!$room instanceof Room) {
             return $this->fail('Room not found.', 404);
         }
-        $isInvited = $this->isInvitedToRoom($room, $user, $entityManager);
-        if (!$room->canBeViewedBy($user, $isInvited)) {
+        if (!$room->canBeViewedBy($user)) {
             return $this->fail('Room access denied.', 403);
         }
 
@@ -128,6 +119,15 @@ class RoomsController extends ApiController
             }
             $room->setMaxPlayers($maxPlayers);
         }
+        if (array_key_exists('startingLife', $payload)) {
+            $room->setStartingLife($this->startingLifeFromPayload($payload));
+        }
+        if (array_key_exists('timerMode', $payload)) {
+            $room->setTimerMode($this->timerModeFromPayload($payload));
+        }
+        if (array_key_exists('timerDurationSeconds', $payload)) {
+            $room->setTimerDurationSeconds($this->timerDurationFromPayload($payload));
+        }
 
         $entityManager->flush();
         $roomEventPublisher->publish($room, 'room.updated');
@@ -149,13 +149,39 @@ class RoomsController extends ApiController
         if (!$room instanceof Room) {
             return $this->fail('Room not found.', 404);
         }
+
+        return $this->joinRoom($room, $request, $user, $entityManager, $deckValidator, $roomEventPublisher);
+    }
+
+    #[Route('/rooms/code/{code}/join', methods: ['POST'])]
+    public function joinByCode(
+        string $code,
+        Request $request,
+        #[CurrentUser] User $user,
+        EntityManagerInterface $entityManager,
+        CommanderDeckValidator $deckValidator,
+        RoomEventPublisher $roomEventPublisher,
+    ): JsonResponse
+    {
+        $room = $this->roomFromCode($code, $entityManager);
+        if (!$room instanceof Room) {
+            return $this->fail('Room not found.', 404);
+        }
+
+        return $this->joinRoom($room, $request, $user, $entityManager, $deckValidator, $roomEventPublisher);
+    }
+
+    private function joinRoom(
+        Room $room,
+        Request $request,
+        User $user,
+        EntityManagerInterface $entityManager,
+        CommanderDeckValidator $deckValidator,
+        RoomEventPublisher $roomEventPublisher,
+    ): JsonResponse
+    {
         if ($room->status() !== Room::STATUS_WAITING) {
             return $this->fail('Room has already started.', 409);
-        }
-        if ($room->visibility() === Room::VISIBILITY_PRIVATE
-            && !$room->hasPlayer($user)
-            && !$this->isInvitedToRoom($room, $user, $entityManager)) {
-            return $this->fail('Private room access denied.', 403);
         }
         if (!$room->hasPlayer($user) && $room->isFull()) {
             return $this->fail('Room is full.', 409);
@@ -230,6 +256,41 @@ class RoomsController extends ApiController
         }
 
         $room->removeUser($user);
+        $entityManager->flush();
+        $roomEventPublisher->publish($room, 'room.player.left');
+
+        return $this->json(['room' => $room->toArray()]);
+    }
+
+    #[Route('/rooms/{id}/players/{playerId}', methods: ['DELETE'])]
+    public function kickPlayer(
+        string $id,
+        string $playerId,
+        #[CurrentUser] User $user,
+        EntityManagerInterface $entityManager,
+        RoomEventPublisher $roomEventPublisher,
+    ): JsonResponse
+    {
+        $room = $entityManager->getRepository(Room::class)->find($id);
+        if (!$room instanceof Room) {
+            return $this->fail('Room not found.', 404);
+        }
+        if ($room->owner()->id() !== $user->id()) {
+            return $this->fail('Only the room owner can kick players.', 403);
+        }
+        if ($room->status() !== Room::STATUS_WAITING) {
+            return $this->fail('Started rooms cannot be modified.', 409);
+        }
+
+        $targetPlayer = $this->roomPlayerById($room, $playerId);
+        if (!$targetPlayer instanceof RoomPlayer) {
+            return $this->fail('Room player not found.', 404);
+        }
+        if ($targetPlayer->user()->id() === $room->owner()->id()) {
+            return $this->fail('The room owner cannot be kicked.', 400);
+        }
+
+        $room->removeUser($targetPlayer->user());
         $entityManager->flush();
         $roomEventPublisher->publish($room, 'room.player.left');
 
@@ -381,6 +442,46 @@ class RoomsController extends ApiController
         return $deck instanceof Deck && $deck->owner()->id() === $user->id() ? $deck : null;
     }
 
+    private function roomFromCode(string $code, EntityManagerInterface $entityManager): ?Room
+    {
+        $compactCode = strtoupper((string) preg_replace('/[^A-Fa-f0-9]/', '', $code));
+        if (strlen($compactCode) < 9) {
+            return null;
+        }
+
+        $suffix = strtolower(substr($compactCode, -9));
+        $rooms = $entityManager->getRepository(Room::class)->createQueryBuilder('room')
+            ->where('room.status = :waiting')
+            ->setParameter('waiting', Room::STATUS_WAITING)
+            ->getQuery()
+            ->getResult();
+
+        $matches = [];
+        foreach ($rooms as $room) {
+            if (!$room instanceof Room) {
+                continue;
+            }
+
+            $compactRoomId = strtolower(str_replace('-', '', $room->id()));
+            if (str_ends_with($compactRoomId, $suffix)) {
+                $matches[] = $room;
+            }
+        }
+
+        return count($matches) === 1 ? $matches[0] : null;
+    }
+
+    private function roomPlayerById(Room $room, string $playerId): ?RoomPlayer
+    {
+        foreach ($room->players() as $player) {
+            if ($player instanceof RoomPlayer && $player->id() === $playerId) {
+                return $player;
+            }
+        }
+
+        return null;
+    }
+
     private function closeOwnerActiveRooms(EntityManagerInterface $entityManager, User $owner, RoomEventPublisher $roomEventPublisher): void
     {
         $ownedRooms = $entityManager->getRepository(Room::class)->createQueryBuilder('room')
@@ -448,6 +549,67 @@ class RoomsController extends ApiController
         }
 
         return Room::DEFAULT_MAX_PLAYERS;
+    }
+
+    private function roomListArray(Room $room, User $viewer): array
+    {
+        $data = $room->toArray();
+        if ($room->visibility() === Room::VISIBILITY_PRIVATE && $room->owner()->id() !== $viewer->id()) {
+            $data['owner'] = [
+                'id' => 'private-host-'.$room->id(),
+                'email' => '',
+                'displayName' => 'XXXX',
+                'roles' => ['ROLE_USER'],
+            ];
+        }
+
+        return $data;
+    }
+
+    private static function roomListRank(Room $room): int
+    {
+        $visibilityRank = $room->visibility() === Room::VISIBILITY_PUBLIC ? 0 : 100;
+        $statusRank = match (true) {
+            $room->status() === Room::STATUS_WAITING && !$room->isFull() => 0,
+            $room->status() === Room::STATUS_WAITING => 10,
+            $room->status() === Room::STATUS_STARTED || $room->game() instanceof Game => 20,
+            default => 30,
+        };
+
+        return $visibilityRank + $statusRank;
+    }
+
+    private function startingLifeFromPayload(array $payload): int
+    {
+        $startingLife = $payload['startingLife'] ?? Room::DEFAULT_STARTING_LIFE;
+        if (is_int($startingLife)) {
+            return $startingLife;
+        }
+        if (is_numeric($startingLife)) {
+            return (int) $startingLife;
+        }
+
+        return Room::DEFAULT_STARTING_LIFE;
+    }
+
+    private function timerModeFromPayload(array $payload): string
+    {
+        $timerMode = $payload['timerMode'] ?? Room::DEFAULT_TIMER_MODE;
+
+        return is_string($timerMode) ? $timerMode : Room::DEFAULT_TIMER_MODE;
+    }
+
+    private function timerDurationFromPayload(array $payload): int
+    {
+        $duration = $payload['timerDurationSeconds'] ?? Room::DEFAULT_TIMER_DURATION_SECONDS;
+        if (is_int($duration)) {
+            return $duration;
+        }
+        if (is_numeric($duration)) {
+            return (int) $duration;
+        }
+
+        return Room::DEFAULT_TIMER_DURATION_SECONDS;
     }
 
     private function hasDeckIdInPayload(array $payload): bool

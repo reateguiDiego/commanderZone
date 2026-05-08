@@ -2,6 +2,7 @@ import { AfterViewChecked, ChangeDetectionStrategy, Component, ElementRef, HostL
 import { FormsModule } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
 import { AppModalComponent } from '../../../shared/ui/app-modal/app-modal.component';
+import { PrettyScrollDirective } from '../../../shared/ui/pretty-scroll/pretty-scroll.directive';
 import { GameCardInstance, GameZoneName } from '../../../core/models/game.model';
 import { GameTableCardActionsService } from './services/game-table-card-actions.service';
 import { GameTableCommandService } from './services/game-table-command.service';
@@ -55,6 +56,7 @@ type NumberActionRequest = DrawNumberActionRequest | MoveTopNumberActionRequest;
     FormsModule,
     LucideAngularModule,
     AppModalComponent,
+    PrettyScrollDirective,
     GameLogPanelComponent,
     ZonePilesPanelComponent,
     OpponentMiniBoardComponent,

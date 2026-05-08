@@ -3,7 +3,8 @@ import { Deck } from './deck.model';
 
 export type RoomStatus = 'waiting' | 'started' | 'archived';
 export type RoomVisibility = 'private' | 'public';
-export type RoomFormat = 'commander';
+export type RoomFormat = 'commander' | string;
+export type RoomTimerMode = 'none' | 'turn';
 
 export interface RoomPlayer {
   id: string;
@@ -21,6 +22,9 @@ export interface Room {
   visibility: RoomVisibility;
   format: RoomFormat;
   maxPlayers: number;
+  startingLife: number;
+  timerMode: RoomTimerMode;
+  timerDurationSeconds: number;
   players: RoomPlayer[];
   gameId: string | null;
 }

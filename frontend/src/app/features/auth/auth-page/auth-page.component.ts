@@ -178,6 +178,12 @@ export class AuthPageComponent {
   private async authenticate(action: () => Promise<void>): Promise<void> {
     try {
       await action();
+      const redirect = this.safeRedirectUrl(this.route.snapshot.queryParamMap?.get('redirect') ?? null);
+      if (redirect) {
+        await this.router.navigateByUrl(redirect);
+        return;
+      }
+
       await this.router.navigate(['/dashboard']);
     } catch {
       return;
@@ -186,5 +192,13 @@ export class AuthPageComponent {
 
   private emailInvalid(control: FormControl<string>, feedbackReady: boolean): boolean {
     return control.invalid && feedbackReady && (control.dirty || control.touched);
+  }
+
+  private safeRedirectUrl(url: string | null): string | null {
+    if (!url || !url.startsWith('/') || url.startsWith('//') || url.includes('://')) {
+      return null;
+    }
+
+    return url;
   }
 }

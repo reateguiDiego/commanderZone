@@ -18,6 +18,11 @@ class RoomVisibilityTest extends TestCase
         self::assertSame('Mesa de Owner', $room->name());
         self::assertSame(Room::FORMAT_COMMANDER, $room->format());
         self::assertSame(Room::DEFAULT_MAX_PLAYERS, $room->maxPlayers());
+        self::assertSame(Room::DEFAULT_STARTING_LIFE, $room->startingLife());
+        self::assertSame(Room::DEFAULT_STARTING_LIFE, $room->toArray()['startingLife']);
+        self::assertSame(Room::DEFAULT_TIMER_MODE, $room->timerMode());
+        self::assertSame(Room::DEFAULT_TIMER_DURATION_SECONDS, $room->timerDurationSeconds());
+        self::assertSame(Room::DEFAULT_TIMER_MODE, $room->toArray()['timerMode']);
     }
 
     public function testRoomAcceptsOnlyKnownVisibilityValues(): void
@@ -39,18 +44,18 @@ class RoomVisibilityTest extends TestCase
         self::assertTrue($room->canBeViewedBy(new User('guest@example.test', 'Guest')));
     }
 
-    public function testPrivateWaitingRoomCannotBeViewedByExternalUserWithoutInvite(): void
+    public function testPrivateWaitingRoomCanBeViewedByExternalUserWithDirectLink(): void
     {
         $room = new Room(new User('owner@example.test', 'Owner'));
 
-        self::assertFalse($room->canBeViewedBy(new User('guest@example.test', 'Guest')));
+        self::assertTrue($room->canBeViewedBy(new User('guest@example.test', 'Guest')));
     }
 
     public function testPrivateWaitingRoomCanBeViewedByInvitedUser(): void
     {
         $room = new Room(new User('owner@example.test', 'Owner'));
 
-        self::assertTrue($room->canBeViewedBy(new User('guest@example.test', 'Guest'), true));
+        self::assertTrue($room->canBeViewedBy(new User('guest@example.test', 'Guest')));
     }
 
     public function testRoomMaxPlayersIsClampedAndBlocksNewPlayersWhenFull(): void
@@ -69,7 +74,36 @@ class RoomVisibilityTest extends TestCase
         self::assertFalse($room->addPlayer(new RoomPlayer($room, new User('extra@example.test', 'Extra'))));
     }
 
-    public function testRoomPlayersAreOrderedByTurnRollWithUnrolledPlayersLast(): void
+    public function testRoomStartingLifeIsClamped(): void
+    {
+        $room = new Room(new User('owner@example.test', 'Owner'));
+
+        $room->setStartingLife(0);
+        self::assertSame(Room::MIN_STARTING_LIFE, $room->startingLife());
+
+        $room->setStartingLife(1200);
+        self::assertSame(Room::MAX_STARTING_LIFE, $room->startingLife());
+
+        $room->setStartingLife(35);
+        self::assertSame(35, $room->toArray()['startingLife']);
+    }
+
+    public function testRoomTimerSettingsAreValidated(): void
+    {
+        $room = new Room(new User('owner@example.test', 'Owner'));
+
+        $room->setTimerMode(Room::TIMER_TURN);
+        $room->setTimerDurationSeconds(10);
+        self::assertSame(Room::TIMER_TURN, $room->timerMode());
+        self::assertSame(Room::MIN_TIMER_DURATION_SECONDS, $room->timerDurationSeconds());
+
+        $room->setTimerMode('phase');
+        $room->setTimerDurationSeconds(9999);
+        self::assertSame(Room::DEFAULT_TIMER_MODE, $room->timerMode());
+        self::assertSame(Room::MAX_TIMER_DURATION_SECONDS, $room->timerDurationSeconds());
+    }
+
+    public function testRoomPlayersKeepSeatOrderUntilEveryPlayerHasRolled(): void
     {
         $owner = new User('owner@example.test', 'Owner');
         $secondUser = new User('second@example.test', 'Second');
@@ -86,9 +120,31 @@ class RoomVisibilityTest extends TestCase
         $room->addPlayer($second);
         $room->addPlayer($third);
 
-        self::assertSame([$second, $first, $third], $room->orderedPlayers());
-        self::assertSame(19, $room->toArray()['players'][0]['turnRoll']);
+        self::assertSame([$first, $second, $third], $room->orderedPlayers());
+        self::assertSame(7, $room->toArray()['players'][0]['turnRoll']);
         self::assertNull($room->toArray()['players'][2]['turnRoll']);
+    }
+
+    public function testRoomPlayersAreOrderedByTurnRollAfterEveryPlayerHasRolled(): void
+    {
+        $owner = new User('owner-roll@example.test', 'Owner');
+        $secondUser = new User('second-roll@example.test', 'Second');
+        $thirdUser = new User('third-roll@example.test', 'Third');
+        $room = new Room($owner);
+        $first = new RoomPlayer($room, $owner);
+        $second = new RoomPlayer($room, $secondUser);
+        $third = new RoomPlayer($room, $thirdUser);
+
+        $first->rollTurnOrder(7);
+        $second->rollTurnOrder(19);
+        $third->rollTurnOrder(11);
+
+        $room->addPlayer($first);
+        $room->addPlayer($second);
+        $room->addPlayer($third);
+
+        self::assertSame([$second, $third, $first], $room->orderedPlayers());
+        self::assertSame(19, $room->toArray()['players'][0]['turnRoll']);
     }
 
     public function testStartedRoomCanOnlyBeViewedByOwnerOrPlayer(): void

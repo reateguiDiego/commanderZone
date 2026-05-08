@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
 import { GameZoneName } from '../../../../core/models/game.model';
+import { PrettyScrollDirective } from '../../../../shared/ui/pretty-scroll/pretty-scroll.directive';
 import { GameContextMenu } from '../state/game-table-ui.state';
 import { PlayerView } from '../game-table.store';
 
@@ -37,6 +38,7 @@ export type ContextMenuAction =
 
 @Component({
   selector: 'app-context-menu',
+  imports: [PrettyScrollDirective],
   templateUrl: './context-menu.component.html',
   styleUrl: './context-menu.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

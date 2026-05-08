@@ -4,7 +4,7 @@ import { Observable } from 'rxjs';
 import { API_BASE_URL } from './api.config';
 import { DataResponse, RoomInviteResponse, RoomResponse, StartGameResponse } from '../models/api-responses.model';
 import { RoomInvite } from '../models/room-invite.model';
-import { Room, RoomFormat, RoomVisibility } from '../models/room.model';
+import { Room, RoomFormat, RoomTimerMode, RoomVisibility } from '../models/room.model';
 import { withoutGlobalLoading } from '../loading/loading-context';
 
 @Injectable({ providedIn: 'root' })
@@ -27,31 +27,52 @@ export class RoomsApi {
   create(
     deckId?: string,
     visibility: RoomVisibility = 'private',
-    options?: { name?: string; maxPlayers?: number; format?: RoomFormat },
+    options?: { name?: string; maxPlayers?: number; startingLife?: number; timerMode?: RoomTimerMode; timerDurationSeconds?: number; format?: RoomFormat },
   ): Observable<RoomResponse> {
     return this.http.post<RoomResponse>(`${API_BASE_URL}/rooms`, {
       ...this.deckPayload(deckId),
       visibility,
       ...(options?.name ? { name: options.name } : {}),
       ...(typeof options?.maxPlayers === 'number' ? { maxPlayers: options.maxPlayers } : {}),
+      ...(typeof options?.startingLife === 'number' ? { startingLife: options.startingLife } : {}),
+      ...(options?.timerMode ? { timerMode: options.timerMode } : {}),
+      ...(typeof options?.timerDurationSeconds === 'number' ? { timerDurationSeconds: options.timerDurationSeconds } : {}),
       ...(options?.format ? { format: options.format } : {}),
     });
   }
 
-  join(roomId: string, deckId?: string): Observable<RoomResponse> {
-    return this.http.post<RoomResponse>(`${API_BASE_URL}/rooms/${roomId}/join`, this.deckPayload(deckId));
+  join(roomId: string, deckId?: string, skipGlobalLoading = false): Observable<RoomResponse> {
+    return this.http.post<RoomResponse>(`${API_BASE_URL}/rooms/${roomId}/join`, this.deckPayload(deckId), {
+      context: skipGlobalLoading ? withoutGlobalLoading() : undefined,
+    });
   }
 
-  update(roomId: string, options: { maxPlayers?: number }): Observable<RoomResponse> {
-    return this.http.patch<RoomResponse>(`${API_BASE_URL}/rooms/${roomId}`, options);
+  joinByCode(code: string, deckId?: string, skipGlobalLoading = false): Observable<RoomResponse> {
+    return this.http.post<RoomResponse>(`${API_BASE_URL}/rooms/code/${encodeURIComponent(code)}/join`, this.deckPayload(deckId), {
+      context: skipGlobalLoading ? withoutGlobalLoading() : undefined,
+    });
   }
 
-  rollTurn(roomId: string): Observable<RoomResponse> {
-    return this.http.post<RoomResponse>(`${API_BASE_URL}/rooms/${roomId}/roll-turn`, {});
+  update(roomId: string, options: { maxPlayers?: number; startingLife?: number; timerMode?: RoomTimerMode; timerDurationSeconds?: number }, skipGlobalLoading = false): Observable<RoomResponse> {
+    return this.http.patch<RoomResponse>(`${API_BASE_URL}/rooms/${roomId}`, options, {
+      context: skipGlobalLoading ? withoutGlobalLoading() : undefined,
+    });
+  }
+
+  rollTurn(roomId: string, skipGlobalLoading = false): Observable<RoomResponse> {
+    return this.http.post<RoomResponse>(`${API_BASE_URL}/rooms/${roomId}/roll-turn`, {}, {
+      context: skipGlobalLoading ? withoutGlobalLoading() : undefined,
+    });
   }
 
   leave(roomId: string): Observable<RoomResponse> {
     return this.http.post<RoomResponse>(`${API_BASE_URL}/rooms/${roomId}/leave`, {});
+  }
+
+  kickPlayer(roomId: string, playerId: string, skipGlobalLoading = false): Observable<RoomResponse> {
+    return this.http.delete<RoomResponse>(`${API_BASE_URL}/rooms/${roomId}/players/${playerId}`, {
+      context: skipGlobalLoading ? withoutGlobalLoading() : undefined,
+    });
   }
 
   delete(roomId: string): Observable<void> {

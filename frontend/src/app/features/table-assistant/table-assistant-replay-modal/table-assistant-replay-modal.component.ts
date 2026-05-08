@@ -16,6 +16,7 @@ import {
   Validators,
 } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
+import { PrettyScrollDirective } from '../../../shared/ui/pretty-scroll/pretty-scroll.directive';
 import {
   TableAssistantPlayer,
   TableAssistantPlayerArrangement,
@@ -25,7 +26,7 @@ type ArrangementModalMode = 'initial' | 'replay';
 
 @Component({
   selector: 'app-table-assistant-replay-modal',
-  imports: [LucideAngularModule, ReactiveFormsModule],
+  imports: [LucideAngularModule, PrettyScrollDirective, ReactiveFormsModule],
   templateUrl: './table-assistant-replay-modal.component.html',
   styleUrl: './table-assistant-replay-modal.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

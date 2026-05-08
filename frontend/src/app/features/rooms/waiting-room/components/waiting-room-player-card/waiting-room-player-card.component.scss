@@ -1,0 +1,238 @@
+:host {
+  position: relative;
+  isolation: isolate;
+  z-index: 0;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  align-content: end;
+  justify-items: center;
+  gap: 0.55rem;
+  width: 100%;
+  height: 21rem;
+  border: 1px solid rgb(215 180 106 / 34%);
+  border-radius: 26px;
+  overflow: visible;
+  padding: 1.1rem 0.85rem;
+  background: radial-gradient(circle at 50% -10%, rgb(239 197 109 / 14%), transparent 42%), rgb(10 14 9 / 78%);
+  text-align: center;
+  box-shadow: 0 1rem 2.2rem rgb(0 0 0 / 22%);
+}
+
+:host(.seat-one) { grid-column: 2; grid-row: 1; }
+:host(.seat-two) { grid-column: 2; grid-row: 2; }
+:host(.seat-three) { grid-column: 3; grid-row: 1; }
+:host(.seat-four) { grid-column: 3; grid-row: 2; }
+:host(.seat-five) { grid-column: 4; grid-row: 1; }
+:host(.seat-six) { grid-column: 4; grid-row: 2; }
+:host(.current) { border-color: rgb(215 180 106 / 72%); box-shadow: 0 1.4rem 3.2rem rgb(0 0 0 / 30%), inset 0 0 0 1px rgb(215 180 106 / 24%); }
+:host(.selector-open) { z-index: 2400; border-color: rgb(255 224 143 / 76%); }
+:host(.has-deck-art) { background: rgb(8 11 8 / 70%); }
+:host(.has-deck-art)::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: -2;
+  background-image: var(--player-deck-art);
+  background-position: center 18%;
+  background-size: cover;
+}
+
+:host(.has-deck-art)::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: linear-gradient(180deg, rgb(0 0 0 / 28%), rgb(0 0 0 / 84%));
+  pointer-events: none;
+}
+
+:host(.empty-slot) {
+  grid-template-rows: 1fr;
+  place-items: center;
+  color: var(--muted);
+  background:
+    radial-gradient(circle at 50% 34%, rgb(215 180 106 / 16%), transparent 36%),
+    rgb(10 14 9 / 42%);
+}
+
+:host > * { position: relative; z-index: 1; }
+
+.player-summary {
+  display: grid;
+  align-content: end;
+  justify-items: center;
+  gap: 0.55rem;
+  min-height: 12.8rem;
+}
+
+.player-deck-area {
+  display: grid;
+  justify-items: center;
+  gap: 0.35rem;
+  width: 100%;
+  min-height: 4.7rem;
+}
+
+.host-ribbon {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  border-radius: 0 0 10px 10px;
+  padding: 0.24rem 0.7rem;
+  background: linear-gradient(180deg, #d7b46a, #8f6c2f);
+  color: #17120a;
+  font-size: 0.68rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.player-kick-button {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  display: grid;
+  place-items: center;
+  width: 2.35rem;
+  height: 2.35rem;
+  border: 1px solid rgb(248 113 113 / 72%);
+  border-radius: 12px;
+  background: linear-gradient(145deg, rgb(127 29 29 / 78%), rgb(47 12 12 / 82%));
+  color: #ffe4e6;
+  box-shadow: 0 0.8rem 1.7rem rgb(0 0 0 / 34%), 0 0 1rem rgb(248 113 113 / 18%);
+}
+
+.player-kick-button:hover:not(:disabled) {
+  border-color: rgb(252 165 165 / 88%);
+  background: linear-gradient(145deg, rgb(153 27 27 / 90%), rgb(69 10 10 / 88%));
+}
+
+.player-kick-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.player-avatar,
+.empty-slot-icon { display: grid; place-items: center; border: 1px solid rgb(215 180 106 / 48%); border-radius: 999px; color: #ffe9a9; }
+
+.player-avatar {
+  width: 4.2rem;
+  height: 4.2rem;
+  background: linear-gradient(145deg, #6f4f22, #151510);
+  font-size: 1.7rem;
+  font-weight: 900;
+}
+
+.ready-state { display: inline-flex; border: 1px solid rgb(209 111 95 / 36%); border-radius: 999px; padding: 0.35rem 0.55rem; color: #f2b2a8; background: rgb(209 111 95 / 10%); font-size: 0.78rem; font-weight: 750; }
+
+.ready-state.ready {
+  border-color: rgb(128 179 122 / 44%);
+  color: #b9e8a9;
+  background: rgb(128 179 122 / 10%);
+}
+
+.roll-badge {
+  position: absolute;
+  top: 0.7rem;
+  left: 0.7rem;
+  display: grid;
+  border: 1px solid rgb(215 180 106 / 42%);
+  border-radius: 13px;
+  padding: 0.42rem 0.6rem;
+  background: rgb(8 9 7 / 76%);
+  text-align: left;
+  box-shadow: 0 0.8rem 1.6rem rgb(0 0 0 / 34%);
+}
+
+.roll-badge strong { color: #ffe9a9; font-size: 1.55rem; }
+.deck-name { color: var(--muted); }
+.empty-slot-content { display: grid; justify-items: center; gap: 0.55rem; }
+.empty-slot-icon { width: 3.4rem; height: 3.4rem; background: linear-gradient(145deg, rgb(215 180 106 / 24%), rgb(14 17 13 / 88%)); color: var(--gold); }
+.waiting-dots { display: inline-flex; gap: 0.28rem; }
+.waiting-dots i { display: block; width: 0.38rem; height: 0.38rem; border-radius: 999px; background: var(--gold); opacity: 0.5; }
+
+:host(.seat-odd-last) {
+  grid-row: 1 / 3;
+  align-self: center;
+}
+
+@media (max-width: 980px) {
+  :host(.seat-one) { grid-column: 2; grid-row: 1; }
+  :host(.seat-two) { grid-column: 2; grid-row: 2; }
+  :host(.seat-three) { grid-column: 1; grid-row: 3; }
+  :host(.seat-four) { grid-column: 2; grid-row: 3; }
+  :host(.seat-five) { grid-column: 1; grid-row: 4; }
+  :host(.seat-six) { grid-column: 2; grid-row: 4; }
+  :host(.seat-odd-last) { grid-row: auto; align-self: stretch; }
+}
+
+@media (max-width: 760px) {
+  :host,
+  :host(.seat-one),
+  :host(.seat-two),
+  :host(.seat-three),
+  :host(.seat-four),
+  :host(.seat-five),
+  :host(.seat-six),
+  :host(.seat-odd-last) {
+    grid-column: 1;
+    grid-row: auto;
+    align-self: stretch;
+  }
+
+  :host {
+    grid-template-rows: auto auto;
+    gap: 0.5rem;
+    height: auto;
+    min-height: 16rem;
+    border-radius: 20px;
+    padding: 0.75rem;
+  }
+
+  .player-summary {
+    align-content: center;
+    gap: 0.4rem;
+    min-height: 8.1rem;
+  }
+
+  .player-deck-area {
+    min-height: 3.8rem;
+  }
+
+  .player-avatar {
+    width: 3.35rem;
+    height: 3.35rem;
+    font-size: 1.35rem;
+  }
+
+  .host-ribbon {
+    padding: 0.2rem 0.55rem;
+    font-size: 0.62rem;
+  }
+
+  .player-kick-button {
+    top: 0.55rem;
+    right: 0.55rem;
+    width: 2.15rem;
+    height: 2.15rem;
+  }
+
+  .roll-badge {
+    top: 0.55rem;
+    left: 0.55rem;
+    border-radius: 12px;
+    padding: 0.35rem 0.5rem;
+  }
+
+  .roll-badge strong {
+    font-size: 1.25rem;
+  }
+
+  .ready-state {
+    padding: 0.3rem 0.5rem;
+    font-size: 0.72rem;
+  }
+}

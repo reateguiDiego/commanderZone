@@ -1,6 +1,6 @@
 @if (store.cardMenu(); as menu) {
   <div class="card-menu-backdrop" (click)="store.closeCardMenu()"></div>
-  <div class="card-row-menu" [style.top.px]="menu.top" [style.left.px]="menu.left" (click)="$event.stopPropagation()">
+  <div appPrettyScroll class="card-row-menu" [style.top.px]="menu.top" [style.left.px]="menu.left" (click)="$event.stopPropagation()">
     <header class="card-menu-header">
       <span>Editing card</span>
       <strong>{{ entry().card.name }}</strong>
@@ -29,6 +29,10 @@
         </button>
       </div>
     </section>
+
+    <button class="move-action print-action" type="button" (click)="store.openPrintVersionModal($event, entry())">
+      <span>Select print version</span>
+    </button>
 
     @if (entry().section !== 'main') {
       <button class="move-action" type="button" (click)="store.moveCardToSection($event, entry(), 'main')">

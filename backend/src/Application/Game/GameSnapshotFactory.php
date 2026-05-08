@@ -52,7 +52,7 @@ class GameSnapshotFactory
                 'status' => 'active',
                 'concededAt' => null,
                 'colorIdentity' => $colorIdentity,
-                'life' => 40,
+                'life' => $room->startingLife(),
                 'zones' => [
                     'library' => $library,
                     'hand' => $openingHand,
@@ -85,6 +85,12 @@ class GameSnapshotFactory
                 'activePlayerId' => array_key_first($players),
                 'phase' => 'untap',
                 'number' => 1,
+            ],
+            'timer' => [
+                'mode' => $room->timerMode(),
+                'durationSeconds' => $room->timerMode() === Room::TIMER_NONE ? null : $room->timerDurationSeconds(),
+                'remainingSeconds' => $room->timerMode() === Room::TIMER_NONE ? null : $room->timerDurationSeconds(),
+                'status' => 'idle',
             ],
             'stack' => [],
             'arrows' => [],

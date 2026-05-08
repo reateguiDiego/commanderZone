@@ -570,6 +570,9 @@ function roomResource(
       visibility: 'private',
       format: 'commander',
       maxPlayers: 4,
+      startingLife: 40,
+      timerMode: 'none',
+      timerDurationSeconds: 300,
       players: [
         {
           id: 'room-player-1',

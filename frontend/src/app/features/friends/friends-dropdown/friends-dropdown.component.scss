@@ -1,8 +1,12 @@
 :host {
+  position: relative;
+  z-index: 5000;
   display: block;
 }
 
 .friends-menu {
+  position: relative;
+  z-index: 5000;
   display: grid;
   gap: 0.7rem;
   width: min(29rem, calc(100vw - 2rem));

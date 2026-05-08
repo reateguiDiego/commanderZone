@@ -1,12 +1,13 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
+import { PrettyScrollDirective } from '../../../shared/ui/pretty-scroll/pretty-scroll.directive';
 import { FriendListRow } from '../data-access/friends.store';
 import { FriendsStore } from '../data-access/friends.store';
 
 @Component({
   selector: 'app-friends-dropdown',
-  imports: [FormsModule, LucideAngularModule],
+  imports: [FormsModule, LucideAngularModule, PrettyScrollDirective],
   templateUrl: './friends-dropdown.component.html',
   styleUrl: './friends-dropdown.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

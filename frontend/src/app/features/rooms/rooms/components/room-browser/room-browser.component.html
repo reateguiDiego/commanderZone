@@ -1,0 +1,64 @@
+<section class="panel rooms-table-panel">
+  <div class="rooms-table-toolbar">
+    <label class="filter-field">
+      <span>Room name</span>
+      <input name="roomNameFilter" placeholder="Search room" [ngModel]="roomNameFilter()" (ngModelChange)="roomNameFilter.set($event)" />
+    </label>
+    <label class="filter-field">
+      <span>Owner</span>
+      <input name="roomOwnerFilter" placeholder="Search owner" [ngModel]="roomOwnerFilter()" (ngModelChange)="roomOwnerFilter.set($event)" />
+    </label>
+    <label class="filter-field">
+      <span>Visibility</span>
+      <select name="roomVisibilityFilter" [ngModel]="visibilityFilter()" (ngModelChange)="setVisibilityFilter($event)">
+        <option value="all">Public and private</option>
+        <option value="public">Public only</option>
+        <option value="private">Private only</option>
+      </select>
+    </label>
+    <label class="filter-field">
+      <span>Status</span>
+      <select name="roomStatusFilter" [ngModel]="statusFilter()" (ngModelChange)="setStatusFilter($event)">
+        <option value="all">All status</option>
+        <option value="open">Open</option>
+        <option value="full">Full</option>
+        <option value="started">Started</option>
+      </select>
+    </label>
+    <app-format-select
+      name="roomFormatFilter"
+      label="Format"
+      allLabel="All formats"
+      [formats]="formats()"
+      [value]="formatFilter()"
+      (valueChange)="formatFilter.set($event)"
+    />
+  </div>
+
+  <div class="rooms-table-head">
+    <span>Room name</span>
+    <span>Host</span>
+    <span>Format</span>
+    <span>Visibility</span>
+    <span class="centered-col">Players</span>
+    <span class="centered-col">Status</span>
+    <span class="rooms-actions-title">Action</span>
+  </div>
+
+  <div appPrettyScroll class="dense-list compact-list room-list">
+    @for (room of filteredRooms(); track room.id) {
+      <app-room-row
+        [room]="room"
+        [formats]="formats()"
+        [currentUserId]="currentUserId()"
+        [deletingRoomId]="deletingRoomId()"
+        [archivingRoomId]="archivingRoomId()"
+        (opened)="listedRoomOpened.emit($event)"
+        (deleted)="deleteRequested.emit($event)"
+        (archived)="archiveRequested.emit($event)"
+      />
+    } @empty {
+      <p class="notice">No rooms match the current filters.</p>
+    }
+  </div>
+</section>

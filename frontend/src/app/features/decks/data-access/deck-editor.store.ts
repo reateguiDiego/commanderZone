@@ -13,7 +13,7 @@ import { MissingCardsStore } from './missing-cards.store';
 import { ClientCommanderValidationService } from '../services/client-commander-validation.service';
 import { DeckAnalysisService } from '../services/deck-analysis.service';
 import { DeckImportExportService, DecklistEntry } from '../services/deck-import-export.service';
-import { bestCardFaceImage } from '../../../shared/utils/card-image';
+import { bestCardFaceImage, bestCardImage } from '../../../shared/utils/card-image';
 import {
   CardMenuState,
   CardPreviewState,
@@ -70,6 +70,10 @@ export class DeckEditorStore {
   readonly importModalOpen = signal(false);
   readonly restoreModalOpen = signal(false);
   readonly clearHistoryModalOpen = signal(false);
+  readonly printVersionModalOpen = signal(false);
+  readonly printVersionEntry = signal<DeckCard | null>(null);
+  readonly printVersionOptions = signal<Card[]>([]);
+  readonly loadingPrintVersions = signal(false);
   readonly restoreTarget = signal<DeckHistoryEntry | null>(null);
   readonly history = signal<DeckHistoryEntry[]>([]);
   readonly cardPreview = signal<CardPreviewState | null>(null);
@@ -158,6 +162,13 @@ export class DeckEditorStore {
 
   closeCardMenu(): void {
     this.cardMenu.set(null);
+  }
+
+  closePrintVersionModal(): void {
+    this.printVersionModalOpen.set(false);
+    this.printVersionEntry.set(null);
+    this.printVersionOptions.set([]);
+    this.loadingPrintVersions.set(false);
   }
 
   async load(): Promise<void> {
@@ -597,6 +608,46 @@ export class DeckEditorStore {
     }
   }
 
+  openPrintVersionModal(event: MouseEvent, entry: DeckCard): void {
+    event.stopPropagation();
+    this.cardMenu.set(null);
+    this.printVersionEntry.set(entry);
+    this.printVersionOptions.set([]);
+    this.printVersionModalOpen.set(true);
+    void this.loadPrintVersions(entry);
+  }
+
+  async selectPrintVersion(card: Card): Promise<void> {
+    const currentDeck = this.deck();
+    const entry = this.printVersionEntry();
+    if (!currentDeck || !entry || this.isCurrentPrintVersion(card)) {
+      this.closePrintVersionModal();
+      return;
+    }
+
+    try {
+      const response = await firstValueFrom(this.decksApi.selectPrinting(currentDeck.id, entry.id, card.scryfallId));
+      this.applyDeckUpdate(response.deck, `Change print version ${entry.card.name}`);
+      this.closePrintVersionModal();
+    } catch (error) {
+      this.error.set(this.apiErrorMessage(error, 'Could not select print version.'));
+    }
+  }
+
+  isCurrentPrintVersion(card: Card): boolean {
+    return this.printVersionEntry()?.card.scryfallId === card.scryfallId;
+  }
+
+  printVersionImage(card: Card): string | null {
+    return bestCardImage(card);
+  }
+
+  printVersionMeta(card: Card): string {
+    const setCode = card.set?.toUpperCase();
+    const collectorNumber = card.collectorNumber;
+    return [setCode, collectorNumber].filter(Boolean).join(' #') || 'Unknown printing';
+  }
+
   showHoverList(event: MouseEvent, title: string, items: string[]): void {
     this.hoverList.set({
       title,
@@ -700,17 +751,11 @@ export class DeckEditorStore {
   }
 
   displayCardName(card: Card): string {
-    const face = this.displayCardFace(card);
-    if (face?.name) {
-      return face.name;
-    }
-
-    if (!this.hasAlternateFace(card)) {
+    if (this.hasAlternateFace(card)) {
       return card.name;
     }
 
-    const [front, back] = card.name.split('//').map((part) => part.trim());
-    return this.isFaceFlipped(card) ? `${back} // ${front}` : `${front} // ${back}`;
+    return this.displayCardFace(card)?.name ?? card.name;
   }
 
   displayCardTypeLine(card: Card): string | null {
@@ -1013,6 +1058,24 @@ export class DeckEditorStore {
     } catch {
       this.tokens.set([]);
       this.unresolvedTokens.set([]);
+    }
+  }
+
+  private async loadPrintVersions(entry: DeckCard): Promise<void> {
+    const currentDeck = this.deck();
+    if (!currentDeck) {
+      return;
+    }
+
+    this.loadingPrintVersions.set(true);
+    try {
+      const response = await firstValueFrom(this.decksApi.printings(currentDeck.id, entry.id));
+      this.printVersionOptions.set(response.data);
+    } catch (error) {
+      this.error.set(this.apiErrorMessage(error, 'Could not load print versions.'));
+      this.printVersionOptions.set([]);
+    } finally {
+      this.loadingPrintVersions.set(false);
     }
   }
 

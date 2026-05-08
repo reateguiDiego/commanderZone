@@ -21,6 +21,8 @@ use Symfony\Component\Security\Http\Attribute\CurrentUser;
 
 class DecksController extends ApiController
 {
+    private const MAX_DECK_NAME_LENGTH = 20;
+
     #[Route('/decks', methods: ['GET'])]
     public function list(Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager): JsonResponse
     {
@@ -48,8 +50,9 @@ class DecksController extends ApiController
     {
         $payload = $this->payload($request);
         $name = trim((string) ($payload['name'] ?? ''));
-        if ($name === '') {
-            return $this->fail('Deck name is required.');
+        $nameError = $this->deckNameError($name);
+        if ($nameError !== null) {
+            return $this->fail($nameError);
         }
 
         $deck = new Deck($user, $name);
@@ -70,8 +73,9 @@ class DecksController extends ApiController
     {
         $payload = $this->payload($request);
         $name = trim((string) ($payload['name'] ?? ''));
-        if ($name === '') {
-            return $this->fail('Deck name is required.');
+        $nameError = $this->deckNameError($name);
+        if ($nameError !== null) {
+            return $this->fail($nameError);
         }
 
         $deck = new Deck($user, $name);
@@ -214,7 +218,12 @@ class DecksController extends ApiController
 
         $payload = $this->payload($request);
         if (isset($payload['name'])) {
-            $deck->rename((string) $payload['name']);
+            $name = trim((string) $payload['name']);
+            $nameError = $this->deckNameError($name);
+            if ($nameError !== null) {
+                return $this->fail($nameError);
+            }
+            $deck->rename($name);
         }
         if (array_key_exists('folderId', $payload)) {
             $folder = $this->folderFromPayload($payload, $user, $entityManager);
@@ -534,6 +543,67 @@ class DecksController extends ApiController
         return $this->json(['deck' => $deck->toArray(true)]);
     }
 
+    #[Route('/decks/{id}/cards/{deckCardId}/printings', methods: ['GET'])]
+    public function cardPrintings(string $id, string $deckCardId, #[CurrentUser] User $user, EntityManagerInterface $entityManager): JsonResponse
+    {
+        $deck = $this->ownedDeck($id, $user, $entityManager);
+        if (!$deck) {
+            return $this->fail('Deck not found.', 404);
+        }
+
+        $deckCard = $this->deckCard($deck, $deckCardId);
+        if (!$deckCard) {
+            return $this->fail('Deck card not found.', 404);
+        }
+
+        return $this->json([
+            'deckCardId' => $deckCard->id(),
+            'data' => array_map(static fn (Card $card): array => $card->toArray(), $this->printVersionCards($deckCard->card(), $entityManager)),
+        ]);
+    }
+
+    #[Route('/decks/{id}/cards/{deckCardId}/printing', methods: ['PATCH'])]
+    public function selectCardPrinting(string $id, string $deckCardId, Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager): JsonResponse
+    {
+        $deck = $this->ownedDeck($id, $user, $entityManager);
+        if (!$deck) {
+            return $this->fail('Deck not found.', 404);
+        }
+
+        $deckCard = $this->deckCard($deck, $deckCardId);
+        if (!$deckCard) {
+            return $this->fail('Deck card not found.', 404);
+        }
+
+        $payload = $this->payload($request);
+        $scryfallId = trim((string) ($payload['scryfallId'] ?? ''));
+        if ($scryfallId === '') {
+            return $this->fail('scryfallId is required.');
+        }
+
+        $targetCard = $entityManager->getRepository(Card::class)->findOneBy(['scryfallId' => $scryfallId]);
+        if (!$targetCard instanceof Card) {
+            return $this->fail('Print version not found.', 404);
+        }
+        if (!$this->isEquivalentPrintVersion($deckCard->card(), $targetCard)) {
+            return $this->fail('Selected print version does not match this card.', 422);
+        }
+
+        $existing = $deck->findCardEntry($targetCard, $deckCard->section());
+        if ($existing instanceof DeckCard && $existing->id() !== $deckCard->id()) {
+            $existing->changeQuantity($existing->quantity() + $deckCard->quantity());
+            $deck->removeCard($deckCard);
+            $entityManager->remove($deckCard);
+        } else {
+            $deckCard->changeCard($targetCard);
+            $deck->touch();
+        }
+
+        $entityManager->flush();
+
+        return $this->json(['deck' => $deck->toArray(true)]);
+    }
+
     #[Route('/decks/{id}/cards/{deckCardId}', methods: ['DELETE'])]
     public function deleteCard(string $id, string $deckCardId, #[CurrentUser] User $user, EntityManagerInterface $entityManager): JsonResponse
     {
@@ -614,6 +684,18 @@ class DecksController extends ApiController
             : Deck::VISIBILITY_PRIVATE;
     }
 
+    private function deckNameError(string $name): ?string
+    {
+        if ($name === '') {
+            return 'Deck name is required.';
+        }
+        if (mb_strlen($name) > self::MAX_DECK_NAME_LENGTH) {
+            return sprintf('Deck name must be %d characters or fewer.', self::MAX_DECK_NAME_LENGTH);
+        }
+
+        return null;
+    }
+
     /**
      * @return Card|false|null
      */
@@ -675,6 +757,45 @@ class DecksController extends ApiController
     {
         return $importedCard->scryfallId() === $selectedCommander->scryfallId()
             || count(array_intersect($this->cardNameIdentities($importedCard), $this->cardNameIdentities($selectedCommander))) > 0;
+    }
+
+    /**
+     * @return list<Card>
+     */
+    private function printVersionCards(Card $card, EntityManagerInterface $entityManager): array
+    {
+        $candidates = $entityManager->getRepository(Card::class)
+            ->createQueryBuilder('card')
+            ->andWhere('card.normalizedName IN (:names)')
+            ->setParameter('names', [$card->normalizedName()])
+            ->orderBy('card.setCode', 'ASC')
+            ->addOrderBy('card.collectorNumber', 'ASC')
+            ->getQuery()
+            ->getResult();
+
+        $cards = array_values(array_filter(
+            $candidates,
+            fn (Card $candidate): bool => $this->isEquivalentPrintVersion($card, $candidate),
+        ));
+
+        usort($cards, static function (Card $left, Card $right) use ($card): int {
+            if ($left->scryfallId() === $card->scryfallId()) {
+                return -1;
+            }
+            if ($right->scryfallId() === $card->scryfallId()) {
+                return 1;
+            }
+
+            return [$left->name(), $left->setCode() ?? '', $left->collectorNumber() ?? '']
+                <=> [$right->name(), $right->setCode() ?? '', $right->collectorNumber() ?? ''];
+        });
+
+        return $cards;
+    }
+
+    private function isEquivalentPrintVersion(Card $source, Card $candidate): bool
+    {
+        return $source->normalizedName() === $candidate->normalizedName();
     }
 
     /**

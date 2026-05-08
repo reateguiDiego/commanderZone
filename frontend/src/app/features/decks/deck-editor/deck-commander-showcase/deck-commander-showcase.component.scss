@@ -3,14 +3,19 @@
 }
 
 .commander-card-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(9.5rem, 12rem));
+  display: flex;
+  flex-wrap: wrap;
   gap: 0.9rem;
-  align-items: start;
+  width: 100%;
+  align-items: flex-start;
+  justify-content: center;
 }
 
 .commander-card {
   display: block;
+  flex: 0 1 12rem;
+  width: 12rem;
+  max-width: 100%;
   min-width: 0;
   cursor: pointer;
 }
@@ -82,7 +87,7 @@
 }
 
 @media (max-width: 720px) {
-  .commander-card-grid {
-    grid-template-columns: repeat(auto-fit, minmax(7.8rem, 1fr));
+  .commander-card {
+    flex-basis: min(12rem, 100%);
   }
 }

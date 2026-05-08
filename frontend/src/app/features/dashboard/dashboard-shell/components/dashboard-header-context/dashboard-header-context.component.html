@@ -44,24 +44,31 @@
       }
 
       @if (headerState.actions?.length) {
-        <div class="page-header-actions">
-          @for (action of headerState.actions; track action.id) {
-            <button
-              class="compact"
-              type="button"
-              [class.icon-only]="action.iconOnly"
-              [class.primary-button]="action.variant === 'primary'"
-              [class.secondary-button]="action.variant === 'secondary'"
-              [attr.title]="action.tooltip ?? null"
-              [attr.aria-label]="action.iconOnly ? action.label : null"
-              [disabled]="action.disabled"
-              (click)="action.execute()"
-            >
-              @if (action.icon) {
-                <lucide-icon [name]="action.icon" size="16" />
-              }
-              <span [class.sr-only]="action.iconOnly">{{ action.label }}</span>
-            </button>
+        <div class="page-header-actions-stack">
+          <div class="page-header-actions">
+            @for (action of headerState.actions; track action.id) {
+              <button
+                class="compact"
+                type="button"
+                [class.icon-only]="action.iconOnly"
+                [class.primary-button]="action.variant === 'primary'"
+                [class.secondary-button]="action.variant === 'secondary'"
+                [attr.title]="action.tooltip ?? null"
+                [attr.aria-label]="action.iconOnly ? action.label : null"
+                [disabled]="action.disabled"
+                (click)="action.execute()"
+              >
+                @if (action.icon) {
+                  <lucide-icon [name]="action.icon" size="16" />
+                }
+                <span [class.sr-only]="action.iconOnly">{{ action.label }}</span>
+              </button>
+            }
+          </div>
+          @if (headerState.actionFeedback; as feedback) {
+            <span class="page-header-action-feedback" [class.tone-success]="feedback.tone === 'success'">
+              {{ feedback.message }}
+            </span>
           }
         </div>
       }

@@ -5,7 +5,7 @@
     <section class="assistant-overview" aria-label="Asistente de Mesa">
       <div class="overview-copy">
         <span class="eyebrow">Mesa manual de Commander</span>
-        <h2>Todo lo necesario para seguir una partida fisica.</h2>
+        <h2>Todo lo necesario para seguir una partida física.</h2>
         <p>
           Configura jugadores, vida inicial y temporizador. CommanderZone se encarga de vidas,
           turnos y daño de comandante sin automatizar reglas de Magic.
@@ -18,15 +18,15 @@
         <span>40 vidas iniciales</span>
         <span>Daño de comandante activo</span>
       </div>
+
+      <div class="benefit-grid" aria-label="Beneficios">
+        @for (benefit of benefits; track benefit.title) {
+          <article class="benefit-card">
+            <h2>{{ benefit.title }}</h2>
+            <p>{{ benefit.description }}</p>
+          </article>
+        }
+      </div>
     </section>
   }
-
-  <section class="benefit-grid" aria-label="Beneficios">
-    @for (benefit of benefits; track benefit.title) {
-      <article class="benefit-card">
-        <h2>{{ benefit.title }}</h2>
-        <p>{{ benefit.description }}</p>
-      </article>
-    }
-  </section>
 </main>

@@ -77,6 +77,12 @@ class DeckbuildingApiTest extends ApiTestCase
             'set' => 'tst',
             'collector_number' => '4',
         ]);
+        $flavorNamedCard = $this->seedCard('00000000-0000-0000-0000-000000000007', 'Arcane Signet', [
+            'type_line' => 'Artifact',
+            'set' => 'tst',
+            'collector_number' => '5',
+            'flavor_name' => 'The Vault Key',
+        ]);
 
         $this->jsonRequest('POST', '/deck-folders', ['name' => 'Commander', 'visibility' => 'public'], $token);
         self::assertResponseStatusCodeSame(201);
@@ -269,6 +275,25 @@ TXT,
         $response = $this->jsonResponse();
         self::assertSame([], $response['missing']);
         self::assertSame($balaGed->scryfallId(), $response['deck']['cards'][0]['card']['scryfallId']);
+
+        $this->jsonRequest('POST', '/decks/'.$importRulesDeckId.'/import', [
+            'decklist' => '1 The Vault Key',
+        ], $token);
+        self::assertResponseIsSuccessful();
+        $response = $this->jsonResponse();
+        self::assertSame([], $response['missing']);
+        self::assertSame($flavorNamedCard->scryfallId(), $response['deck']['cards'][0]['card']['scryfallId']);
+
+        $this->jsonRequest('POST', '/decks/quick-build', [
+            'name' => 'Flavor Quick',
+            'cards' => [
+                ['name' => 'The Vault Key'],
+            ],
+        ], $token);
+        self::assertResponseStatusCodeSame(201);
+        $response = $this->jsonResponse();
+        self::assertSame([], $response['missing']);
+        self::assertSame($flavorNamedCard->scryfallId(), $response['deck']['cards'][0]['card']['scryfallId']);
 
         $this->jsonRequest('GET', '/decks/'.$deckId.'/export?format=plain', token: $token);
         self::assertResponseIsSuccessful();
@@ -499,6 +524,55 @@ TXT,
             'folderId' => '00000000-0000-0000-0000-000000000000',
         ], $otherToken);
         self::assertResponseStatusCodeSame(404);
+    }
+
+    public function testDeckCardPrintVersionCanBeListedAndSelected(): void
+    {
+        $token = $this->registerAndLogin('prints@example.test', 'Prints');
+        $firstPrint = $this->seedCard('00000000-0000-0000-0000-000000000201', 'Sol Ring', [
+            'set' => 'one',
+            'collector_number' => '1',
+        ]);
+        $secondPrint = $this->seedCard('00000000-0000-0000-0000-000000000202', 'Sol Ring', [
+            'set' => 'two',
+            'collector_number' => '2',
+        ]);
+        $differentCard = $this->seedCard('00000000-0000-0000-0000-000000000203', 'Arcane Signet', [
+            'set' => 'one',
+            'collector_number' => '3',
+        ]);
+
+        $this->jsonRequest('POST', '/decks/quick-build', [
+            'name' => 'Prints',
+            'cards' => [
+                ['scryfallId' => $firstPrint->scryfallId(), 'quantity' => 2],
+            ],
+        ], $token);
+        self::assertResponseStatusCodeSame(201);
+        $deck = $this->jsonResponse()['deck'];
+        $deckId = (string) $deck['id'];
+        $deckCardId = (string) $deck['cards'][0]['id'];
+
+        $this->jsonRequest('GET', '/decks/'.$deckId.'/cards/'.$deckCardId.'/printings', token: $token);
+        self::assertResponseIsSuccessful();
+        $printings = $this->jsonResponse()['data'];
+        self::assertSame($firstPrint->scryfallId(), $printings[0]['scryfallId']);
+        self::assertContains($secondPrint->scryfallId(), array_column($printings, 'scryfallId'));
+        self::assertNotContains($differentCard->scryfallId(), array_column($printings, 'scryfallId'));
+
+        $this->jsonRequest('PATCH', '/decks/'.$deckId.'/cards/'.$deckCardId.'/printing', [
+            'scryfallId' => $secondPrint->scryfallId(),
+        ], $token);
+        self::assertResponseIsSuccessful();
+        $updatedLine = $this->jsonResponse()['deck']['cards'][0];
+        self::assertSame($deckCardId, $updatedLine['id']);
+        self::assertSame(2, $updatedLine['quantity']);
+        self::assertSame($secondPrint->scryfallId(), $updatedLine['card']['scryfallId']);
+
+        $this->jsonRequest('PATCH', '/decks/'.$deckId.'/cards/'.$deckCardId.'/printing', [
+            'scryfallId' => $differentCard->scryfallId(),
+        ], $token);
+        self::assertResponseStatusCodeSame(422);
     }
 
     private function lineByScryfallId(array $cards, string $scryfallId, string $section): array

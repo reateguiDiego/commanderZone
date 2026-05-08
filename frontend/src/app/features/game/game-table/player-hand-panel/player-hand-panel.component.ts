@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
 import { GameCardInstance, GameZoneName } from '../../../../core/models/game.model';
+import { PrettyScrollDirective } from '../../../../shared/ui/pretty-scroll/pretty-scroll.directive';
 import { PlayerView } from '../game-table.store';
 import { GameCardViewComponent } from '../game-card-view/game-card-view.component';
 
@@ -30,7 +31,7 @@ interface HandCardPreviewEvent {
 
 @Component({
   selector: 'app-player-hand-panel',
-  imports: [GameCardViewComponent],
+  imports: [GameCardViewComponent, PrettyScrollDirective],
   templateUrl: './player-hand-panel.component.html',
   styleUrl: './player-hand-panel.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

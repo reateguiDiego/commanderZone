@@ -50,8 +50,7 @@ describe('TableAssistantSetupComponent', () => {
 
     fixture.componentInstance.toggleColorPicker(0);
     fixture.componentInstance.setTimerMode('turn');
-    fixture.componentInstance.setTimerDurationMinutes(2);
-    fixture.componentInstance.setTimerDurationRemainderSeconds(30);
+    fixture.componentInstance.setTimerDurationSeconds(150);
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelector('.color-picker-list')).not.toBeNull();
@@ -98,6 +97,9 @@ describe('TableAssistantSetupComponent', () => {
             visibility: 'private',
             format: 'commander',
             maxPlayers: 4,
+            startingLife: 40,
+            timerMode: 'none',
+            timerDurationSeconds: 300,
             players: [],
             gameId: null,
           },

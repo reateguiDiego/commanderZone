@@ -1,0 +1,70 @@
+<label class="deck-picker" aria-label="Deck selection" (click)="$event.stopPropagation()">
+  <select
+    class="native-deck-select"
+    name="waitingDeckId"
+    [ngModel]="selectedDeckId()"
+    aria-hidden="true"
+    tabindex="-1"
+    (ngModelChange)="selectedDeckIdChange.emit($event)"
+  >
+    <option value="" disabled>Select a deck</option>
+    @for (deck of deckOptions(); track deck.id) {
+      <option [value]="deck.id">{{ deck.name }}</option>
+    }
+  </select>
+
+  <div class="deck-select-row">
+    <div class="deck-select">
+      <button class="deck-select-trigger" type="button" aria-haspopup="listbox" [attr.aria-expanded]="selectorOpen()" [disabled]="updatingDeck()" (click)="selectorToggled.emit()">
+        @if (selectedDeck(); as deck) {
+          <span class="deck-option-main">
+            <span class="deck-option-name">{{ deck.name }}</span>
+          </span>
+          <span class="deck-option-status">
+            @if (deck.invalid) {
+              <lucide-icon class="deck-warning" name="triangle-alert" size="15" aria-label="Invalid deck" />
+            } @else {
+              <app-mana-symbols class="deck-colors" [symbols]="deck.colorIdentity" [fallback]="deck.fallback" />
+            }
+          </span>
+        } @else {
+          <span class="deck-option-main">
+            <span class="deck-option-name">Select a deck</span>
+          </span>
+        }
+      </button>
+
+      @if (selectorOpen()) {
+        <div appPrettyScroll class="deck-select-menu" role="listbox" aria-label="Deck selection">
+          @for (deck of deckOptions(); track deck.id) {
+            <button
+              class="deck-select-option"
+              type="button"
+              role="option"
+              [class.selected]="deck.id === selectedDeckId()"
+              [attr.aria-selected]="deck.id === selectedDeckId()"
+              (click)="deckSelected.emit(deck.id)"
+            >
+              <span class="deck-option-main">
+                <span class="deck-option-name">{{ deck.name }}</span>
+              </span>
+              <span class="deck-option-status">
+                @if (deck.invalid) {
+                  <lucide-icon class="deck-warning" name="triangle-alert" size="15" aria-label="Invalid deck" />
+                } @else if (deck.validating) {
+                  <span class="deck-validating">Checking</span>
+                } @else {
+                  <app-mana-symbols class="deck-colors" [symbols]="deck.colorIdentity" [fallback]="deck.fallback" />
+                }
+              </span>
+            </button>
+          }
+        </div>
+      }
+    </div>
+
+    <button class="random-deck-button" type="button" title="Random deck" aria-label="Random deck" [disabled]="updatingDeck()" (click)="randomDeckRequested.emit()">
+      <img src="assets/icons/dice_20.png" alt="" />
+    </button>
+  </div>
+</label>

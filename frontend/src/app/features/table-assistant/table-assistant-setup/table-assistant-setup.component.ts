@@ -12,16 +12,18 @@ import {
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
+import { PrettyScrollDirective } from '../../../shared/ui/pretty-scroll/pretty-scroll.directive';
 import {
   TABLE_ASSISTANT_COLOR_OPTIONS,
   tableAssistantColorOption,
 } from '../domain/table-assistant-colors';
 import { TableAssistantApi } from '../data-access/table-assistant.api';
 import { TableAssistantTimerMode } from '../models/table-assistant.models';
+import { TableAssistantTimerSettingsComponent } from '../table-assistant-timer-settings/table-assistant-timer-settings.component';
 
 @Component({
   selector: 'app-table-assistant-setup',
-  imports: [FormsModule],
+  imports: [FormsModule, PrettyScrollDirective, TableAssistantTimerSettingsComponent],
   templateUrl: './table-assistant-setup.component.html',
   styleUrl: './table-assistant-setup.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -34,8 +36,6 @@ export class TableAssistantSetupComponent implements OnDestroy {
   readonly cancelled = output<void>();
 
   readonly colorOptions = TABLE_ASSISTANT_COLOR_OPTIONS;
-  readonly timerMinuteOptions = Array.from({ length: 31 }, (_, index) => index);
-  readonly timerSecondOptions = [0, 15, 30, 45];
   readonly playerCount = signal(4);
   readonly initialLife = signal(40);
   readonly playerNames = signal(['', '', '', '']);
@@ -54,12 +54,6 @@ export class TableAssistantSetupComponent implements OnDestroy {
       this.playerNames()
         .slice(0, this.playerCount())
         .every((name) => name.trim() !== ''),
-  );
-  readonly timerDurationMinutes = computed(() => Math.floor(this.timerDurationSeconds() / 60));
-  readonly timerDurationRemainderSeconds = computed(() => this.timerDurationSeconds() % 60);
-  readonly timerDurationLabel = computed(
-    () =>
-      `${this.timerDurationMinutes()}:${this.timerDurationRemainderSeconds().toString().padStart(2, '0')}`,
   );
 
   ngOnDestroy(): void {
@@ -112,21 +106,14 @@ export class TableAssistantSetupComponent implements OnDestroy {
     this.playerColors.set(colors);
   }
 
-  setTimerMode(mode: string): void {
-    const timerMode = mode as TableAssistantTimerMode;
-    if (this.availableTimerModes().includes(timerMode)) {
-      this.timerMode.set(timerMode);
+  setTimerMode(mode: TableAssistantTimerMode): void {
+    if (this.availableTimerModes().includes(mode)) {
+      this.timerMode.set(mode);
     }
   }
 
-  setTimerDurationMinutes(value: string | number): void {
-    const minutes = this.normalizeWheelNumber(value);
-    this.setTimerDurationParts(minutes, this.timerDurationRemainderSeconds());
-  }
-
-  setTimerDurationRemainderSeconds(value: string | number): void {
-    const seconds = this.normalizeWheelNumber(value);
-    this.setTimerDurationParts(this.timerDurationMinutes(), seconds);
+  setTimerDurationSeconds(seconds: number): void {
+    this.timerDurationSeconds.set(seconds);
   }
 
   colorLabel(colorId: string | undefined): string {
@@ -194,13 +181,4 @@ export class TableAssistantSetupComponent implements OnDestroy {
     }
   }
 
-  private setTimerDurationParts(minutes: number, seconds: number): void {
-    const normalizedMinutes = Math.min(30, Math.max(0, minutes));
-    const normalizedSeconds = this.timerSecondOptions.includes(seconds) ? seconds : 0;
-    this.timerDurationSeconds.set(Math.max(30, normalizedMinutes * 60 + normalizedSeconds));
-  }
-
-  private normalizeWheelNumber(value: string | number): number {
-    return Number.parseInt(String(value), 10) || 0;
-  }
 }

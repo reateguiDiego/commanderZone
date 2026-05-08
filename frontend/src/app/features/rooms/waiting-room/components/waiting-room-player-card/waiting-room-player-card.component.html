@@ -1,0 +1,73 @@
+@if (player(); as player) {
+  @if (host()) {
+    <span class="host-ribbon">Host</span>
+  }
+
+  @if (canKick()) {
+    <button
+      class="player-kick-button"
+      type="button"
+      title="Kick player"
+      aria-label="Kick player"
+      [disabled]="kicking()"
+      (click)="kickRequested.emit(player)"
+    >
+      <lucide-icon name="trash-2" size="15" />
+    </button>
+  }
+
+  @if (player.turnRoll !== null) {
+    <div class="roll-badge" aria-label="D20 roll result">
+      <span class="roll-badge-label">D20 roll</span>
+      <strong>{{ player.turnRoll }}</strong>
+    </div>
+  }
+
+  <div class="player-summary">
+    <div class="player-avatar">{{ playerInitial(player) }}</div>
+    <strong>{{ player.user.displayName }}</strong>
+
+    <span class="ready-state" [class.ready]="ready()">
+      @if (ready()) {
+        Ready
+      } @else if (!player.deckId) {
+        Deck pending
+      } @else {
+        Roll pending
+      }
+    </span>
+
+  </div>
+
+  <div class="player-deck-area">
+    @if (current()) {
+      <app-waiting-room-deck-selector
+        [deckOptions]="deckOptions()"
+        [selectedDeck]="selectedDeck()"
+        [selectedDeckId]="selectedDeckId()"
+        [selectorOpen]="selectorOpen()"
+        [updatingDeck]="updatingDeck() || deckLocked()"
+        (selectorToggled)="deckSelectorToggled.emit()"
+        (selectorClosed)="deckSelectorClosed.emit()"
+        (selectedDeckIdChange)="selectedDeckIdChange.emit($event)"
+        (deckSelected)="deckSelected.emit($event)"
+        (randomDeckRequested)="randomDeckRequested.emit()"
+      />
+    } @else {
+      <small class="deck-name">{{ deckName() }}</small>
+      @if (deckColorIdentity().length > 0) {
+        <app-mana-symbols class="deck-colors selected-player-colors" [symbols]="deckColorIdentity()" fallback="Colorless" />
+      }
+    }
+  </div>
+} @else {
+  <div class="empty-slot-content">
+    <div class="empty-slot-icon waiting-pulse">
+      <lucide-icon name="plus" size="24" />
+    </div>
+    <strong>Open slot</strong>
+    <span class="waiting-dots" aria-label="Waiting for player">
+      <i></i><i></i><i></i>
+    </span>
+  </div>
+}

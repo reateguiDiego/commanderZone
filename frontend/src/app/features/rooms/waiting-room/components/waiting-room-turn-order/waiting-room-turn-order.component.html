@@ -1,0 +1,27 @@
+<article class="turn-order-card">
+  <div class="turn-order-header">
+    <div>
+      <span class="eyebrow">Turn order</span>
+      <strong>D20 roll</strong>
+    </div>
+    <button class="primary-button compact" type="button" [disabled]="!canRoll()" (click)="rollRequested.emit()">
+      <lucide-icon name="swords" size="15" />
+      Roll d20
+    </button>
+  </div>
+
+  <div class="turn-order-list">
+    @for (row of rows(); track row.id) {
+      <div class="turn-order-row" [class.rolled]="row.roll !== null" [style.view-transition-name]="'waiting-turn-row-' + row.id">
+        <span>{{ row.label }}</span>
+        <strong>{{ row.roll ?? '-' }}</strong>
+      </div>
+    }
+  </div>
+
+  @if (currentPlayerRoll() !== null) {
+    <p class="roll-result-inline">Your roll: {{ currentPlayerRoll() }}</p>
+  } @else {
+    <p class="roll-result-inline muted">Select a valid deck before rolling.</p>
+  }
+</article>

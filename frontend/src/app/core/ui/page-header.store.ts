@@ -30,11 +30,17 @@ export interface PageHeaderTitleWarning {
   tone: 'danger';
 }
 
+export interface PageHeaderActionFeedback {
+  message: string;
+  tone: 'success';
+}
+
 export interface PageHeaderState {
   title: string;
   eyebrow?: string;
   titleWarning?: PageHeaderTitleWarning;
   actions?: readonly PageHeaderAction[];
+  actionFeedback?: PageHeaderActionFeedback | null;
   stats?: readonly PageHeaderStat[];
 }
 

@@ -5,6 +5,7 @@ import { firstValueFrom } from 'rxjs';
 import { CardsApi, CardSearchFilters } from '../../../core/api/cards.api';
 import { Card } from '../../../core/models/card.model';
 import { ManaSymbolsComponent } from '../../mana/mana-symbols/mana-symbols.component';
+import { PrettyScrollDirective } from '../../ui/pretty-scroll/pretty-scroll.directive';
 import { filterDistinctCardsByQuery, sanitizeCardSearchQuery } from '../../utils/card-search';
 
 export interface CardAutocompleteSelection {
@@ -14,7 +15,7 @@ export interface CardAutocompleteSelection {
 
 @Component({
   selector: 'app-card-autocomplete',
-  imports: [FormsModule, LucideAngularModule, ManaSymbolsComponent],
+  imports: [FormsModule, LucideAngularModule, ManaSymbolsComponent, PrettyScrollDirective],
   templateUrl: './card-autocomplete.component.html',
   styleUrl: './card-autocomplete.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -33,6 +34,7 @@ export class CardAutocompleteComponent implements OnDestroy {
   @Input() showQuantity = false;
   @Input() filters: CardSearchFilters = {};
   @Input() query = '';
+  @Input() disabled = false;
 
   @Output() queryChange = new EventEmitter<string>();
   @Output() cardSelected = new EventEmitter<CardAutocompleteSelection>();
@@ -49,6 +51,10 @@ export class CardAutocompleteComponent implements OnDestroy {
   }
 
   onQueryInput(value: string): void {
+    if (this.disabled) {
+      return;
+    }
+
     const sanitized = sanitizeCardSearchQuery(value);
     this.query = sanitized;
     this.queryChange.emit(sanitized);
@@ -82,6 +88,10 @@ export class CardAutocompleteComponent implements OnDestroy {
   }
 
   selectCard(card: Card): void {
+    if (this.disabled) {
+      return;
+    }
+
     const quantity = this.showQuantity ? this.quantityFor(card.scryfallId) : 1;
     this.cardSelected.emit({ card, quantity });
     this.results.set([]);

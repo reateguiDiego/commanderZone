@@ -117,6 +117,12 @@ export interface GameSnapshot {
   ownerId?: string;
   players: Record<string, GamePlayerState>;
   turn: GameTurn;
+  timer?: {
+    mode: 'none' | 'turn';
+    status: 'idle' | 'running' | 'paused';
+    durationSeconds: number | null;
+    remainingSeconds: number | null;
+  };
   stack: GameStackItem[];
   arrows: GameArrow[];
   chat: ChatMessage[];

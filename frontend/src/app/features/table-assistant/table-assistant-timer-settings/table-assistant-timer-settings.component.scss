@@ -1,0 +1,124 @@
+:host {
+  position: relative;
+  z-index: 1600;
+}
+
+.timer-settings {
+  display: block;
+}
+
+.timer-settings {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.segmented-control {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.segmented-control button,
+.wheel-options button {
+  min-height: 2.55rem;
+  border: 1px solid rgb(215 180 106 / 20%);
+  border-radius: 10px;
+  padding: 0 0.75rem;
+  color: var(--text);
+  background: rgb(255 255 255 / 5%);
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.segmented-control button.active {
+  border-color: rgb(215 180 106 / 58%);
+  background: linear-gradient(135deg, rgb(155 111 37 / 56%), rgb(75 90 55 / 34%));
+}
+
+.segmented-control button:disabled,
+.wheel-options button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.timer-wheel {
+  position: relative;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+  gap: 0.45rem;
+  align-items: center;
+  border: 1px solid rgb(126 148 112 / 24%);
+  border-radius: 14px;
+  padding: 0.6rem;
+  background:
+    radial-gradient(circle at 12% 0, rgb(215 180 106 / 20%), transparent 42%),
+    linear-gradient(145deg, rgb(15 20 14 / 96%), rgb(5 8 6 / 98%));
+  box-shadow: 0 1.25rem 2.6rem rgb(0 0 0 / 42%), inset 0 1px 0 rgb(255 255 255 / 6%);
+}
+
+.wheel-column {
+  display: grid;
+  gap: 0.35rem;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-align: center;
+}
+
+.wheel-options {
+  display: grid;
+  grid-auto-rows: 1.65rem;
+  max-height: 4.95rem;
+  overflow-y: auto;
+  border-radius: 10px;
+  border: 1px solid rgb(215 180 106 / 14%);
+  background: rgb(0 0 0 / 28%);
+}
+
+.wheel-options button {
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: rgb(232 222 204 / 62%);
+}
+
+.wheel-options button.selected {
+  background: linear-gradient(135deg, rgb(215 180 106 / 26%), rgb(126 148 112 / 16%));
+  color: var(--text);
+}
+
+.timer-wheel strong {
+  color: #ffe9a9;
+}
+
+.compact {
+  gap: 0.42rem;
+}
+
+.compact .segmented-control button {
+  min-height: 2rem;
+  padding: 0 0.48rem;
+  font-size: 0.76rem;
+}
+
+.compact .timer-wheel {
+  position: absolute;
+  z-index: 5000;
+  top: calc(100% + 0.45rem);
+  left: 0;
+  right: 0;
+  padding: 0.45rem;
+}
+
+@media (max-width: 680px) {
+  .timer-wheel {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .timer-wheel strong {
+    grid-column: 1 / -1;
+    text-align: center;
+  }
+}

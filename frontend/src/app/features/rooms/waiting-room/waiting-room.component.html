@@ -6,245 +6,127 @@
   @if (currentRoom(); as room) {
     <div class="waiting-layout">
       <main class="waiting-main">
-        <header class="waiting-hero">
-          <div class="waiting-hero-title">
-            <div class="room-emblem" aria-hidden="true">
-              <lucide-icon name="swords" size="34" />
-            </div>
-            <div>
-              <span class="eyebrow">Waiting players</span>
-              <h2>{{ room.name }}</h2>
-              <p>{{ readyPlayersCount(room) }} / {{ roomCapacity(room) }} players ready</p>
-            </div>
-          </div>
-
-          <div class="hero-actions">
-            @if (canShowInviteButton(room)) {
-              <button
-                class="secondary-button compact gold-action"
-                type="button"
-                [disabled]="isRoomFull(room)"
-                [title]="isRoomFull(room) ? 'Room is full' : 'Invite friends'"
-                (click)="openInviteModal(room)"
-              >
-                <lucide-icon name="user-plus" size="16" />
-                Invite friends
-              </button>
-            }
-            <button class="secondary-button compact" type="button" (click)="leaveRoom(room.id)">
-              <lucide-icon name="log-out" size="16" />
-              Leave room
-            </button>
-            @if (canDeleteRoom(room)) {
-              <button class="danger-button compact" type="button" [disabled]="deletingRoomId() === room.id" (click)="requestDeleteRoom(room)">
-                <lucide-icon name="trash-2" size="16" />
-                {{ deletingRoomId() === room.id ? 'Deleting' : 'Delete room' }}
-              </button>
-            }
-          </div>
-        </header>
-
-        <section class="waiting-top-grid">
-          <article class="room-code-panel">
-            <span class="eyebrow">Room code</span>
-            <strong>{{ roomCode(room) }}</strong>
-            <small>Share this code with your friends</small>
-            <div class="room-code-actions">
-              <button class="secondary-button compact" type="button" (click)="copyRoomCode(room)">
-                <lucide-icon name="copy" size="15" />
-                {{ copiedTarget() === 'code' ? 'Copied' : 'Copy code' }}
-              </button>
-              <button class="secondary-button compact" type="button" (click)="copyRoomLink(room)">
-                <lucide-icon name="send" size="15" />
-                {{ copiedTarget() === 'link' ? 'Copied' : 'Share link' }}
-              </button>
-            </div>
-          </article>
-
-          <article class="turn-order-card">
-            <div class="turn-order-header">
-              <div>
-                <span class="eyebrow">Turn order</span>
-                <strong>D20 roll</strong>
-              </div>
-              <button class="primary-button compact" type="button" [disabled]="!currentPlayerCanRoll()" (click)="openRollModal()">
-                <lucide-icon name="swords" size="15" />
-                Roll d20
-              </button>
-            </div>
-            <div class="turn-order-list">
-              @for (player of room.players; track player.id) {
-                <div class="turn-order-row" [class.rolled]="player.turnRoll !== null">
-                  <span>{{ $index + 1 }}. {{ player.user.displayName }}</span>
-                  <strong>{{ player.turnRoll ?? '-' }}</strong>
-                </div>
-              }
-            </div>
-            @if (currentPlayerRoll() !== null) {
-              <p class="roll-result-inline">Your roll: {{ currentPlayerRoll() }}</p>
-            } @else {
-              <p class="roll-result-inline muted">Select a valid deck before rolling.</p>
-            }
-          </article>
-        </section>
-
         <section class="players-panel">
           <div class="players-panel-header">
             <div>
               <h3>Players ({{ room.players.length }}/{{ roomCapacity(room) }})</h3>
               <p>Choose your deck and get ready before starting.</p>
             </div>
-            <span class="host-pill">
-              <lucide-icon name="shield-check" size="15" />
-              Host: {{ room.owner.displayName }}
-            </span>
-          </div>
-
-          <div class="players-grid">
-            @for (player of room.players; track player.id) {
-                  <article
-                    class="player-card"
-                    [class.host]="isHost(room, player.user.id)"
-                    [class.current]="isCurrentUser(player.user.id)"
-                    [class.has-deck-art]="playerDeckArt(player)"
-                    [style.--player-deck-art]="playerDeckBackground(player)"
-                    [style.view-transition-name]="'waiting-player-' + player.id"
-                  >
-                    @if (isHost(room, player.user.id)) {
-                      <span class="host-ribbon">Host</span>
-                    }
-                    <div class="player-avatar">
-                      {{ player.user.displayName.slice(0, 1) }}
-                    </div>
-                    <strong>{{ player.user.displayName }}</strong>
-                    <span class="ready-state" [class.ready]="isPlayerReady(player)">
-                      @if (isPlayerReady(player)) {
-                        Ready
-                      } @else if (!player.deckId) {
-                        Deck pending
-                      } @else {
-                        Roll pending
-                      }
-                    </span>
-                    @if (player.turnRoll !== null) {
-                      <div class="roll-badge" aria-label="D20 roll result">
-                        <span class="roll-badge-label">D20 roll</span>
-                        <strong>{{ player.turnRoll }}</strong>
-                      </div>
-                    }
-
-                    @if (isCurrentUser(player.user.id)) {
-                      <label class="deck-picker">
-                        Deck selection
-                        <select class="native-deck-select" name="waitingDeckId" [(ngModel)]="selectedDeckId" aria-hidden="true" tabindex="-1">
-                          <option value="" disabled>Select a deck</option>
-                          @for (deck of decks(); track deck.id) {
-                            <option [value]="deck.id">{{ deck.name }}</option>
-                          }
-                        </select>
-                        <div class="deck-select">
-                          <button class="deck-select-trigger" type="button" aria-haspopup="listbox" [attr.aria-expanded]="deckSelectorOpen()" (click)="toggleDeckSelector()">
-                            @if (selectedDeck(); as deck) {
-                              <span class="deck-option-main">
-                                <span class="deck-option-name">{{ deck.name }}</span>
-                                @if (isDeckInvalid(deck.id)) {
-                                  <lucide-icon class="deck-warning" name="triangle-alert" size="15" aria-label="Invalid deck" />
-                                }
-                              </span>
-                              <app-mana-symbols class="deck-colors" [symbols]="deckColorIdentity(deck.id)" [fallback]="deckColorFallback(deck.id)" />
-                            } @else {
-                              <span class="deck-option-main">
-                                <span class="deck-option-name">Select a deck</span>
-                              </span>
-                            }
-                          </button>
-
-                          @if (deckSelectorOpen()) {
-                            <div class="deck-select-menu" role="listbox" aria-label="Deck selection">
-                              @for (deck of decks(); track deck.id) {
-                                <button
-                                  class="deck-select-option"
-                                  type="button"
-                                  role="option"
-                                  [class.selected]="deck.id === selectedDeckId"
-                                  [attr.aria-selected]="deck.id === selectedDeckId"
-                                  (click)="selectDeck(deck.id)"
-                                >
-                                  <span class="deck-option-main">
-                                    <span class="deck-option-name">{{ deck.name }}</span>
-                                    @if (isDeckInvalid(deck.id)) {
-                                      <lucide-icon class="deck-warning" name="triangle-alert" size="15" aria-label="Invalid deck" />
-                                    } @else if (isDeckValidationPending(deck.id)) {
-                                      <span class="deck-validating">Checking</span>
-                                    }
-                                  </span>
-                                  <app-mana-symbols class="deck-colors" [symbols]="deckColorIdentity(deck.id)" [fallback]="deckColorFallback(deck.id)" />
-                                </button>
-                              }
-                            </div>
-                          }
-                        </div>
-                      </label>
-                      <button
-                        class="secondary-button compact deck-action"
-                        type="button"
-                        aria-label="Update deck for this room"
-                        [disabled]="!selectedDeckId || updatingDeck()"
-                        (click)="updateDeckSelection()"
-                      >
-                        {{ updatingDeck() ? 'Updating...' : 'Confirm deck' }}
-                      </button>
-                    } @else {
-                      <small class="deck-name">{{ playerDeckName(player) }}</small>
-                      @if (playerDeckColorIdentity(player).length > 0) {
-                        <app-mana-symbols class="deck-colors selected-player-colors" [symbols]="playerDeckColorIdentity(player)" fallback="Colorless" />
-                      }
-                    }
-                  </article>
-            }
-            @for (slot of openSlots(room); track slot) {
-                  <article class="player-card empty-slot">
-                    <div class="empty-slot-icon waiting-pulse">
-                      <lucide-icon name="plus" size="24" />
-                    </div>
-                    <strong>Open slot</strong>
-                    <span class="waiting-dots" aria-label="Waiting for player">
-                      <i></i><i></i><i></i>
-                    </span>
-                  </article>
-            }
-          </div>
-        </section>
-
-        <section class="waiting-actions">
-          @if (room.owner.id === auth.user()?.id) {
-            <div class="capacity-panel">
-              <div>
-                <span class="eyebrow">Modify room seats</span>
-                <strong>{{ roomCapacity(room) }} total players</strong>
-                <small>{{ room.players.length }} currently joined</small>
-              </div>
-              <div class="capacity-editor" aria-label="Room size">
-                @for (value of maxPlayersOptions; track value) {
-                  <button
-                    type="button"
-                    [class.selected]="roomCapacity(room) === value"
-                    [disabled]="updatingCapacity() || value < room.players.length"
-                    [attr.aria-label]="'Set room size to ' + value + ' players'"
-                    (click)="updateRoomCapacity(value)"
-                  >
-                    {{ value }}
-                  </button>
-                }
-              </div>
-            </div>
-            <button class="primary-button start-button" type="button" [disabled]="!canStartRoom(room)" (click)="startRoom(room.id)">
-              <lucide-icon name="play" size="18" />
-              <span>
-                Start game
-                <small>{{ canStartRoom(room) ? 'All players ready' : 'Waiting for decks and rolls' }}</small>
+            <div class="players-panel-tools">
+              <span class="host-pill">
+                <lucide-icon name="shield-check" size="15" />
+                Host: {{ room.owner.displayName }}
               </span>
-            </button>
+              <button class="secondary-button compact icon-action" type="button" title="Leave room" aria-label="Leave room" (click)="requestLeaveRoom(room)">
+                <lucide-icon name="log-out" size="16" />
+              </button>
+              @if (canDeleteRoom(room)) {
+                <button
+                  class="danger-button compact icon-action"
+                  type="button"
+                  title="Delete room"
+                  aria-label="Delete room"
+                  [disabled]="deletingRoomId() === room.id"
+                  (click)="requestDeleteRoom(room)"
+                >
+                  <lucide-icon name="trash-2" size="16" />
+                </button>
+              }
+            </div>
+          </div>
+
+          <div
+            class="players-grid"
+            [class.capacity-two]="roomCapacity(room) <= 2"
+            [class.capacity-four]="roomCapacity(room) > 2 && roomCapacity(room) <= 4"
+            [class.capacity-six]="roomCapacity(room) > 4"
+          >
+            <app-waiting-room-game-setup
+              [isOwner]="canEditRoom(room)"
+              [joinedPlayers]="room.players.length"
+              [roomCapacity]="roomCapacity(room)"
+              [startingLife]="roomStartingLife(room)"
+              [timerMode]="roomTimerMode(room)"
+              [timerDurationSeconds]="roomTimerDurationSeconds(room)"
+              [updatingCapacity]="updatingCapacity()"
+              [updatingStartingLife]="updatingStartingLife()"
+              [updatingTimer]="updatingTimer()"
+              [maxPlayersOptions]="maxPlayersOptions"
+              [startingLifeStep]="startingLifeStep"
+              [roomLog]="roomLog()"
+              (capacityChange)="updateRoomCapacity($event)"
+              (startingLifeChange)="updateRoomStartingLife($event)"
+              (timerModeChange)="updateRoomTimerMode($event)"
+              (timerDurationSecondsChange)="updateRoomTimerDuration($event)"
+            />
+
+            <app-waiting-room-turn-order
+              [rows]="turnOrderRows(room)"
+              [canRoll]="currentPlayerCanRoll()"
+              [currentPlayerRoll]="currentPlayerRoll()"
+              (rollRequested)="openRollModal()"
+            />
+
+            @for (seatIndex of seatIndexes; track seatIndex) {
+              @if (seatPlayer(room, seatIndex); as player) {
+                  <app-waiting-room-player-card
+                    [class.seat-one]="seatIndex === 0"
+                    [class.seat-two]="seatIndex === 1"
+                    [class.seat-three]="seatIndex === 2"
+                    [class.seat-four]="seatIndex === 3"
+                    [class.seat-five]="seatIndex === 4"
+                    [class.seat-six]="seatIndex === 5"
+                    [class.seat-odd-last]="isOddLastSeat(room, seatIndex)"
+                    [class.selector-open]="isCurrentUser(player.user.id) && deckSelectorOpen()"
+                    [class.has-deck-art]="shouldShowPlayerDeckArt(player)"
+                    [style.--player-deck-art]="shouldShowPlayerDeckArt(player) ? playerDeckBackground(player) : null"
+                    [style.view-transition-name]="'waiting-player-' + player.id"
+                    [player]="player"
+                    [host]="isHost(room, player.user.id)"
+                    [current]="isCurrentUser(player.user.id)"
+                    [ready]="isPlayerReady(player)"
+                    [selectorOpen]="isCurrentUser(player.user.id) && deckSelectorOpen()"
+                    [hasDeckArt]="shouldShowPlayerDeckArt(player)"
+                    [deckName]="playerDeckName(player)"
+                    [deckColorIdentity]="playerDeckColorIdentity(player)"
+                    [deckOptions]="deckOptions()"
+                    [selectedDeck]="selectedDeckOption()"
+                    [selectedDeckId]="selectedDeckId"
+                    [updatingDeck]="updatingDeck()"
+                    [deckLocked]="isCurrentUser(player.user.id) && currentPlayerDeckLocked()"
+                    [canKick]="canKickPlayer(room, player)"
+                    [kicking]="kickingPlayerId() === player.id"
+                    (deckSelectorToggled)="toggleDeckSelector()"
+                    (deckSelectorClosed)="closeDeckSelector()"
+                    (selectedDeckIdChange)="selectedDeckId = $event"
+                    (deckSelected)="selectDeck($event)"
+                    (randomDeckRequested)="selectRandomLegalDeck()"
+                    (kickRequested)="requestKickPlayer(room, $event)"
+                  />
+              } @else if (shouldRenderOpenSeat(room, seatIndex)) {
+                  <app-waiting-room-player-card
+                    class="empty-slot"
+                    [class.seat-one]="seatIndex === 0"
+                    [class.seat-two]="seatIndex === 1"
+                    [class.seat-three]="seatIndex === 2"
+                    [class.seat-four]="seatIndex === 3"
+                    [class.seat-five]="seatIndex === 4"
+                    [class.seat-six]="seatIndex === 5"
+                  />
+              }
+            }
+          </div>
+
+          @if (isRoomOwner(room)) {
+            <div class="start-game-row">
+              <button class="primary-button start-button" type="button" [disabled]="!canStartRoom(room)" (click)="startRoom(room.id)">
+                <lucide-icon name="play" size="18" />
+                <span>
+                  Start game
+                  <small>{{ canStartRoom(room) ? 'All players ready' : 'Waiting for decks and rolls' }}</small>
+                </span>
+              </button>
+            </div>
           }
         </section>
 
@@ -263,7 +145,7 @@
     <app-modal
       [open]="rollModalOpen()"
       title="Roll d20"
-      message="This roll sets your turn order and can only be done once."
+      message="This roll sets your turn order and can only be done once. After rolling, your selected deck cannot be changed."
       primaryLabel="Roll d20"
       secondaryLabel="Cancel"
       (primary)="rollTurnOrder()"
@@ -285,7 +167,7 @@
       @if (friends().length === 0) {
         <p class="muted-text">No accepted friends yet.</p>
       } @else {
-        <div class="friends-list invite-modal-list">
+        <div appPrettyScroll class="friends-list invite-modal-list">
           @for (friend of friends(); track friend.id) {
             <div class="friend-row">
               <span>
@@ -305,32 +187,59 @@
           }
         </div>
       }
-
-      @if (sentInvites().length > 0) {
-        <div class="pending-invites">
-          <span class="eyebrow">Pending invites</span>
-          @for (invite of sentInvites(); track invite.id) {
-            <span class="metric">{{ invite.recipient.displayName }} - {{ invite.status }}</span>
-          }
-        </div>
-      }
     </app-modal>
   } @else {
     <p class="notice">Loading room state...</p>
   }
 
   <app-modal
+    [open]="roomPendingLeave() !== null"
+    title="Leave room"
+    message="You will leave this room and return to the rooms list."
+    primaryLabel="Leave room"
+    secondaryLabel="Cancel"
+    [danger]="true"
+    (primary)="confirmLeaveRoom()"
+    (secondary)="cancelLeaveRoom()"
+  >
+    @if (roomPendingLeave(); as room) {
+      <p class="notice">Room {{ room.name }}</p>
+    }
+  </app-modal>
+
+  <app-modal
     [open]="roomPendingDelete() !== null"
-    title="Borrar sala"
-    message="Esta accion no se puede deshacer."
-    primaryLabel="Borrar"
-    secondaryLabel="Cancelar"
+    title="Delete room"
+    message="This action cannot be undone."
+    primaryLabel="Delete room"
+    secondaryLabel="Cancel"
     [danger]="true"
     (primary)="confirmDeleteRoom()"
     (secondary)="cancelDeleteRoom()"
   >
     @if (roomPendingDelete(); as room) {
-      <p class="notice">Sala {{ room.name }}</p>
+      <p class="notice">Room {{ room.name }}</p>
     }
   </app-modal>
+
+  <app-modal
+    [open]="playerPendingKick() !== null"
+    title="Kick player"
+    [message]="'Quieres expulsar a ' + (playerPendingKick()?.user?.displayName ?? 'este jugador') + ' de la sala?'"
+    primaryLabel="Confirmar"
+    secondaryLabel="Cancelar"
+    [danger]="true"
+    (primary)="confirmKickPlayer()"
+    (secondary)="cancelKickPlayer()"
+  />
+
+  <app-modal
+    [open]="invalidDeckSelection() !== null"
+    title="Invalid deck"
+    [message]="'No puedes seleccionar ' + (invalidDeckSelection()?.name ?? 'este mazo') + ' porque tiene errores de Commander.'"
+    primaryLabel="Aceptar"
+    [showSecondary]="false"
+    [danger]="true"
+    (primary)="closeInvalidDeckModal()"
+  />
 </section>

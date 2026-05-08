@@ -25,7 +25,7 @@
         </label>
       </div>
 
-      <div class="players-list">
+      <div appPrettyScroll class="players-list">
         @for (name of playerNames(); track $index; let playerIndex = $index) {
           <div class="player-config-row">
             <span class="seat-number">{{ playerIndex + 1 }}</span>
@@ -63,38 +63,13 @@
       <h3>Reglas de mesa</h3>
       <p class="muted">Daño de comandante siempre activo. Temporizador opcional.</p>
 
-      <div class="segmented-control" aria-label="Temporizador">
-        @for (option of availableTimerModes(); track option) {
-          <button type="button" [class.active]="timerMode() === option" [attr.aria-pressed]="timerMode() === option" (click)="setTimerMode(option)">
-            @switch (option) {
-              @case ('none') { Sin timer }
-              @case ('turn') { Por turno }
-              @case ('phase') { Por fase }
-            }
-          </button>
-        }
-      </div>
-      @if (timerMode() !== 'none') {
-        <section class="timer-wheel" aria-label="Duracion por turno">
-          <div class="wheel-column">
-            <span>Min</span>
-            <div class="wheel-options">
-              @for (minutes of timerMinuteOptions; track minutes) {
-                <button type="button" [class.selected]="timerDurationMinutes() === minutes" (click)="setTimerDurationMinutes(minutes)">{{ minutes }}</button>
-              }
-            </div>
-          </div>
-          <div class="wheel-column">
-            <span>Seg</span>
-            <div class="wheel-options">
-              @for (seconds of timerSecondOptions; track seconds) {
-                <button type="button" [class.selected]="timerDurationRemainderSeconds() === seconds" (click)="setTimerDurationRemainderSeconds(seconds)">{{ seconds.toString().padStart(2, '0') }}</button>
-              }
-            </div>
-          </div>
-          <strong>{{ timerDurationLabel() }}</strong>
-        </section>
-      }
+      <app-table-assistant-timer-settings
+        [timerMode]="timerMode()"
+        [timerDurationSeconds]="timerDurationSeconds()"
+        [timerModes]="availableTimerModes()"
+        (timerModeChange)="setTimerMode($event)"
+        (timerDurationSecondsChange)="setTimerDurationSeconds($event)"
+      />
     </section>
   </div>
 

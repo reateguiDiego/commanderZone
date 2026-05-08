@@ -13,6 +13,8 @@ import { DeckFolderSection } from '../models/deck-list.models';
 
 @Injectable()
 export class DeckListStore {
+  readonly maxDeckNameLength = 20;
+
   private readonly decksApi = inject(DecksApi);
   private readonly deckFoldersApi = inject(DeckFoldersApi);
   private readonly deckFormatsApi = inject(DeckFormatsApi);
@@ -37,6 +39,8 @@ export class DeckListStore {
   readonly createdDeck = signal<Deck | null>(null);
   readonly createdMissing = signal<string[]>([]);
   readonly createdImportMessage = signal<string | null>(null);
+  readonly createSubmitting = signal(false);
+  readonly createFormLocked = signal(false);
   readonly selectedCommander = signal<Card | null>(null);
   readonly currentFolderId = signal<string | null>(null);
   readonly draggedDeckId = signal<string | null>(null);
@@ -135,6 +139,8 @@ export class DeckListStore {
     this.createdDeck.set(null);
     this.createdMissing.set([]);
     this.createdImportMessage.set(null);
+    this.createSubmitting.set(false);
+    this.createFormLocked.set(false);
     this.selectedCommander.set(null);
     this.createModalOpen.set(false);
   }
@@ -165,12 +171,44 @@ export class DeckListStore {
   }
 
   submitCreateModal(): void {
-    if (this.createdDeck()) {
-      this.closeCreateFlow();
+    if (this.createFormLocked()) {
+      this.closeCreateModal();
+      return;
+    }
+
+    if (this.createSubmitting()) {
       return;
     }
 
     void this.create();
+  }
+
+  createPrimaryLabel(): string {
+    if (this.createFormLocked()) {
+      return 'Close';
+    }
+
+    return this.createSubmitting() ? 'Creating...' : 'Create deck';
+  }
+
+  isCreateFormDisabled(): boolean {
+    return this.createSubmitting() || this.createFormLocked();
+  }
+
+  isCreatePrimaryDisabled(): boolean {
+    return this.createSubmitting() || (!this.createFormLocked() && !this.isCreateFormReady());
+  }
+
+  isNewDeckNameTooLong(): boolean {
+    return this.newDeckName.trim().length > this.maxDeckNameLength;
+  }
+
+  newDeckNameHelp(): string {
+    return `${this.newDeckName.trim().length}/${this.maxDeckNameLength} characters`;
+  }
+
+  hasCreateImportError(): boolean {
+    return this.createFormLocked() && this.createdMissing().length === 0 && this.createdImportMessage() !== null;
   }
 
   onFormatChange(): void {
@@ -282,21 +320,21 @@ export class DeckListStore {
 
   async create(): Promise<void> {
     const name = this.newDeckName.trim();
-    if (!name) {
+    const commander = this.selectedCommander();
+    if (!this.isCreateFormReady()) {
       return;
     }
 
+    this.createSubmitting.set(true);
+    this.createdMissing.set([]);
+    this.createdImportMessage.set(null);
+    this.createFormLocked.set(false);
+
     try {
-      const shouldImportDecklist = this.createdDecklist.trim() !== '';
-      const commander = this.selectedCommander();
-      const cards = commander && this.selectedFormat()?.hasCommander && !shouldImportDecklist
-        ? [{ scryfallId: commander.scryfallId, section: 'commander' as const }]
-        : undefined;
       const response = await firstValueFrom(this.decksApi.quickBuild({
         name,
         folderId: this.newDeckFolderId || null,
         visibility: this.newDeckVisibility,
-        cards,
       }));
       const deck = response.deck;
       this.createdDeck.set(deck);
@@ -305,21 +343,20 @@ export class DeckListStore {
       this.decks.set([deck, ...this.decks()]);
       this.refreshDeckValidation(deck.id);
 
-      if (shouldImportDecklist) {
-        const imported = await this.importCreatedDeck(commander?.scryfallId);
-        if (!imported) {
-          return;
-        }
-        if (this.createdMissing().length > 0) {
-          return;
-        }
-      } else if (response.missing.length > 0) {
+      const imported = await this.importCreatedDeck(commander?.scryfallId);
+      if (!imported) {
+        return;
+      }
+      if (this.createdMissing().length > 0) {
+        this.createFormLocked.set(true);
         return;
       }
 
       this.closeCreateFlow();
     } catch (error) {
       this.error.set(this.apiErrorMessage(error, 'Could not create deck.'));
+    } finally {
+      this.createSubmitting.set(false);
     }
   }
 
@@ -344,7 +381,8 @@ export class DeckListStore {
       this.refreshDeckValidation(response.deck.id);
       return true;
     } catch (error) {
-      this.error.set(this.apiErrorMessage(error, 'Could not import deck.'));
+      this.createdImportMessage.set(this.apiErrorMessage(error, 'Could not import deck.'));
+      this.createFormLocked.set(true);
       return false;
     }
   }
@@ -648,6 +686,17 @@ export class DeckListStore {
     }
 
     return fallback;
+  }
+
+  private isCreateFormReady(): boolean {
+    const hasCommanderRequirement = this.selectedFormat()?.hasCommander === true;
+    const deckName = this.newDeckName.trim();
+
+    return deckName !== ''
+      && deckName.length <= this.maxDeckNameLength
+      && this.newDeckFormatId.trim() !== ''
+      && this.createdDecklist.trim() !== ''
+      && (!hasCommanderRequirement || this.selectedCommander() !== null);
   }
 
   private refreshDeckValidations(decks: readonly Deck[]): void {

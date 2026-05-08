@@ -1,12 +1,23 @@
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
+import { of } from 'rxjs';
+import { LandingApi } from '../../../core/api/landing.api';
 import { OnboardingPageComponent } from './onboarding-page.component';
 
 describe('OnboardingPageComponent', () => {
+  const landingApi = {
+    preview: vi.fn(),
+  };
+
   beforeEach(async () => {
+    landingApi.preview.mockReset().mockReturnValue(of({ cardName: 'Sol Ring', displayName: 'Preview Pilot' }));
+
     await TestBed.configureTestingModule({
       imports: [OnboardingPageComponent],
-      providers: [provideRouter([])],
+      providers: [
+        provideRouter([]),
+        { provide: LandingApi, useValue: landingApi },
+      ],
     }).compileComponents();
   });
 

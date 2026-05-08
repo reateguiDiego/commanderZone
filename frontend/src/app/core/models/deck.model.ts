@@ -72,6 +72,11 @@ export interface DeckTokensResponse {
   unresolved: UnresolvedDeckToken[];
 }
 
+export interface DeckCardPrintingsResponse {
+  deckCardId: string;
+  data: Card[];
+}
+
 export interface DeckFolder {
   id: string;
   name: string;

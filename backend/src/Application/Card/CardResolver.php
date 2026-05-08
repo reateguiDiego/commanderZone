@@ -40,7 +40,14 @@ class CardResolver
                 'normalizedName' => Card::normalizeName($name),
             ]);
 
-            return array_values(array_filter($matches, static fn (mixed $card) => $card instanceof Card));
+            $resolvedMatches = array_values(array_filter($matches, static fn (mixed $card) => $card instanceof Card));
+            if ($resolvedMatches !== []) {
+                return $resolvedMatches;
+            }
+
+            $card = $this->resolveDecklistName($name);
+
+            return $card instanceof Card ? [$card] : [];
         }
 
         $flavorName = trim((string) ($criteria['flavorName'] ?? ''));
@@ -118,7 +125,21 @@ class CardResolver
             ->getResult();
 
         $match = $matches[0] ?? null;
+        if ($match instanceof Card) {
+            return $match;
+        }
 
-        return $match instanceof Card ? $match : null;
+        $flavorMatches = $repository->createQueryBuilder('card')
+            ->andWhere('LOWER(card.flavorName) = :flavorName')
+            ->setParameter('flavorName', $normalizedName)
+            ->orderBy('card.commanderLegal', 'DESC')
+            ->addOrderBy('card.normalizedName', 'ASC')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getResult();
+
+        $flavorMatch = $flavorMatches[0] ?? null;
+
+        return $flavorMatch instanceof Card ? $flavorMatch : null;
     }
 }

@@ -80,6 +80,9 @@ function room() {
     visibility: 'private' as const,
     format: 'commander' as const,
     maxPlayers: 4,
+    startingLife: 40,
+    timerMode: 'none',
+    timerDurationSeconds: 300,
     players: [],
     gameId: null,
   };

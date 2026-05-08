@@ -64,8 +64,7 @@ label {
 }
 
 .compact-fields,
-.players-list,
-.wheel-column {
+.players-list {
   display: grid;
   gap: 0.5rem;
 }
@@ -82,7 +81,6 @@ label {
 input,
 .color-picker-trigger,
 .color-option,
-.segmented-control button,
 .ghost-button,
 .primary-button {
   min-height: 2.75rem;
@@ -165,58 +163,9 @@ input {
   color: var(--option-accent);
 }
 
-.segmented-control {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.5rem;
-}
-
-.segmented-control button,
 .ghost-button {
   background: rgb(255 255 255 / 5%);
   cursor: pointer;
-}
-
-.segmented-control button.active {
-  border-color: rgb(215 180 106 / 58%);
-  background: linear-gradient(135deg, rgb(155 111 37 / 56%), rgb(75 90 55 / 34%));
-}
-
-.timer-wheel {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
-  gap: 0.45rem;
-  align-items: center;
-  border: 1px solid rgb(126 148 112 / 24%);
-  border-radius: 14px;
-  padding: 0.6rem;
-  background: rgb(5 9 6 / 48%);
-}
-
-.wheel-column {
-  text-align: center;
-  color: var(--muted);
-  font-size: 0.72rem;
-  font-weight: 800;
-}
-
-.wheel-options {
-  display: grid;
-  grid-auto-rows: 1.65rem;
-  max-height: 4.95rem;
-  overflow-y: auto;
-  border-radius: 10px;
-  background: rgb(255 255 255 / 6%);
-}
-
-.wheel-options button {
-  border: 0;
-  background: transparent;
-  color: rgb(232 222 204 / 62%);
-}
-
-.wheel-options button.selected {
-  color: var(--text);
 }
 
 .primary-button {
@@ -269,20 +218,10 @@ input {
   input,
   .color-picker-trigger,
   .color-option,
-  .segmented-control button,
   .ghost-button,
   .primary-button {
     min-height: 2.45rem;
     padding: 0 0.58rem;
-  }
-
-  .timer-wheel {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .timer-wheel strong {
-    grid-column: 1 / -1;
-    text-align: center;
   }
 
   .setup-actions,

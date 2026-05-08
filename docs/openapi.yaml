@@ -17,6 +17,23 @@ tags:
   - name: Rooms
   - name: Games
 paths:
+  /landing/preview:
+    get:
+      tags: [Landing]
+      summary: Return public randomized names used by the landing page preview.
+      responses:
+        '200':
+          description: Landing preview data.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [cardName, displayName]
+                properties:
+                  cardName:
+                    type: string
+                  displayName:
+                    type: string
   /auth/register:
     post:
       tags: [Auth]
@@ -793,6 +810,7 @@ paths:
               properties:
                 name:
                   type: string
+                  maxLength: 20
                 folderId:
                   type: [string, 'null']
                   format: uuid
@@ -1112,6 +1130,62 @@ paths:
                     $ref: '#/components/schemas/Deck'
         '404':
           $ref: '#/components/responses/Error'
+  /decks/{id}/cards/{deckCardId}/printings:
+    get:
+      tags: [Decks]
+      summary: List available print versions for a deck card.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - name: deckCardId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Available print versions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeckCardPrintingsResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+  /decks/{id}/cards/{deckCardId}/printing:
+    patch:
+      tags: [Decks]
+      summary: Select the print version used by a deck card.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - name: deckCardId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeckCardPrintingSelection'
+      responses:
+        '200':
+          description: Updated deck.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [deck]
+                properties:
+                  deck:
+                    $ref: '#/components/schemas/Deck'
+        '400':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
   /decks/{id}/validate-commander:
     post:
       tags: [Decks]
@@ -1132,7 +1206,7 @@ paths:
   /rooms:
     get:
       tags: [Rooms]
-      summary: List rooms visible to the authenticated user.
+      summary: List active rooms, masking private room hosts for non-owners.
       parameters:
         - name: status
           in: query
@@ -1142,7 +1216,7 @@ paths:
             default: active
       responses:
         '200':
-          description: Own rooms, joined rooms, pending-invite private rooms, and public waiting rooms.
+          description: Active public and private rooms. Private room hosts are returned as XXXX unless the authenticated user owns the room.
           content:
             application/json:
               schema:
@@ -1180,7 +1254,7 @@ paths:
   /rooms/{id}:
     get:
       tags: [Rooms]
-      summary: Get a room by id when visible to the authenticated user.
+      summary: Get a room by id when visible to the authenticated user, including private waiting rooms opened by direct link.
       parameters:
         - $ref: '#/components/parameters/Id'
       responses:
@@ -1341,9 +1415,45 @@ paths:
   /rooms/{id}/join:
     post:
       tags: [Rooms]
-      summary: Join a waiting room (public, or private when invited).
+      summary: Join a waiting room by id. Private waiting rooms can be joined by users with the direct link.
       parameters:
         - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeckSelection'
+      responses:
+        '200':
+          description: Joined room.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [room]
+                properties:
+                  room:
+                    $ref: '#/components/schemas/Room'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+  /rooms/code/{code}/join:
+    post:
+      tags: [Rooms]
+      summary: Join a waiting room by short room code, including private waiting rooms.
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+          example: CZ-ABC-DEF-123
       requestBody:
         required: false
         content:
@@ -1413,6 +1523,39 @@ paths:
                 properties:
                   room:
                     $ref: '#/components/schemas/Room'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+  /rooms/{id}/players/{playerId}:
+    delete:
+      tags: [Rooms]
+      summary: Kick a player from a waiting room as the room owner.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - name: playerId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Updated room.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [room]
+                properties:
+                  room:
+                    $ref: '#/components/schemas/Room'
+        '400':
+          $ref: '#/components/responses/Error'
         '401':
           $ref: '#/components/responses/Error'
         '403':
@@ -1978,6 +2121,17 @@ components:
           enum: [commander, main, sideboard, maybeboard]
         card:
           $ref: '#/components/schemas/Card'
+    DeckCardPrintingsResponse:
+      type: object
+      required: [deckCardId, data]
+      properties:
+        deckCardId:
+          type: string
+          format: uuid
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Card'
     DeckSectionsResponse:
       type: object
       required: [deckId, sections, counts]
@@ -2611,6 +2765,7 @@ components:
       properties:
         name:
           type: string
+          maxLength: 20
         folderId:
           type: [string, 'null']
           format: uuid
@@ -2666,6 +2821,13 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/DeckCardBatchMutation'
+    DeckCardPrintingSelection:
+      type: object
+      required: [scryfallId]
+      properties:
+        scryfallId:
+          type: string
+          format: uuid
     CommanderCardInput:
       type: object
       properties:
@@ -2718,6 +2880,20 @@ components:
               minimum: 2
               maximum: 6
               default: 4
+            startingLife:
+              type: integer
+              minimum: 1
+              maximum: 999
+              default: 40
+            timerMode:
+              type: string
+              enum: [none, turn]
+              default: none
+            timerDurationSeconds:
+              type: integer
+              minimum: 30
+              maximum: 1800
+              default: 300
     UpdateRoomRequest:
       type: object
       properties:
@@ -2725,6 +2901,17 @@ components:
           type: integer
           minimum: 2
           maximum: 6
+        startingLife:
+          type: integer
+          minimum: 1
+          maximum: 999
+        timerMode:
+          type: string
+          enum: [none, turn]
+        timerDurationSeconds:
+          type: integer
+          minimum: 30
+          maximum: 1800
     CreateRoomInviteRequest:
       type: object
       required: [userId]
@@ -2734,7 +2921,7 @@ components:
           format: uuid
     Room:
       type: object
-      required: [id, name, owner, status, visibility, format, maxPlayers, players]
+      required: [id, name, owner, status, visibility, format, maxPlayers, startingLife, timerMode, timerDurationSeconds, players]
       properties:
         id:
           type: string
@@ -2758,6 +2945,17 @@ components:
           type: integer
           minimum: 2
           maximum: 6
+        startingLife:
+          type: integer
+          minimum: 1
+          maximum: 999
+        timerMode:
+          type: string
+          enum: [none, turn]
+        timerDurationSeconds:
+          type: integer
+          minimum: 30
+          maximum: 1800
         players:
           type: array
           items:
@@ -2834,6 +3032,8 @@ components:
             $ref: '#/components/schemas/GamePlayer'
         turn:
           $ref: '#/components/schemas/TurnState'
+        timer:
+          $ref: '#/components/schemas/GameTimerState'
         stack:
           type: array
           items:
@@ -2856,8 +3056,20 @@ components:
         updatedAt:
           type: string
           format: date-time
-        counters:
-          type: object
+    GameTimerState:
+      type: object
+      required: [mode, status, durationSeconds, remainingSeconds]
+      properties:
+        mode:
+          type: string
+          enum: [none, turn]
+        status:
+          type: string
+          enum: [idle, running, paused]
+        durationSeconds:
+          type: [integer, 'null']
+        remainingSeconds:
+          type: [integer, 'null']
     GamePlayer:
       type: object
       required: [user, life, zones, commanderDamage, counters]

@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
+﻿import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
 import { PageHeaderStore } from '../../../core/ui/page-header.store';
 import { TableAssistantSetupComponent } from '../table-assistant-setup/table-assistant-setup.component';
 
@@ -21,15 +21,15 @@ export class TableAssistantPageComponent implements OnInit, OnDestroy {
   readonly benefits: Benefit[] = [
     {
       title: 'Vidas y comandante',
-      description: 'Controla vidas y daño de comandante sin convertir la partida en una hoja de calculo.',
+      description: 'Controla vidas y daño de comandante sin convertir la partida en una hoja de cálculo.',
     },
     {
       title: 'Turnos simples',
-      description: 'Marca jugador activo y temporizador si la mesa quiere ritmo, sin reglas automaticas.',
+      description: 'Marca jugador activo y temporizador si la mesa quiere ritmo, sin reglas automáticas.',
     },
     {
       title: 'Mesa compartida',
-      description: 'Pensado para un unico movil o tablet en el centro de la mesa.',
+      description: 'Pensado para un único móvil o tablet en el centro de la mesa.',
     },
   ];
 

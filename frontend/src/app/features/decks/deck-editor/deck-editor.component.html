@@ -426,6 +426,57 @@
     </app-modal>
 
     <app-modal
+      [open]="store.printVersionModalOpen()"
+      title="Select print version"
+      secondaryLabel="Close"
+      [showPrimary]="false"
+      (secondary)="store.closePrintVersionModal()"
+    >
+      @if (store.printVersionEntry(); as entry) {
+        <div class="print-version-modal">
+          <p class="print-version-intro">
+            Choose the exact printing for <strong>{{ entry.card.name }}</strong>. Quantity and section will stay unchanged.
+          </p>
+
+          @if (store.loadingPrintVersions()) {
+            <p class="notice">Loading print versions...</p>
+          } @else if (store.printVersionOptions().length === 1) {
+            <div class="notice compact-notice ok-notice">
+              <strong>Only one print version</strong>
+              <span>This card only has one print version available in the database.</span>
+            </div>
+          } @else {
+            <div class="print-version-grid">
+              @for (card of store.printVersionOptions(); track card.scryfallId) {
+                <button
+                  class="print-version-card"
+                  type="button"
+                  [class.current]="store.isCurrentPrintVersion(card)"
+                  (click)="store.selectPrintVersion(card)"
+                >
+                  @if (store.printVersionImage(card); as imageUrl) {
+                    <img [src]="imageUrl" [alt]="card.name" loading="lazy" />
+                  } @else {
+                    <span class="card-fallback tall">{{ card.name }}</span>
+                  }
+                  <span class="print-version-copy">
+                    <strong>{{ card.name }}</strong>
+                    <small>{{ store.printVersionMeta(card) }}</small>
+                    @if (store.isCurrentPrintVersion(card)) {
+                      <em>Current</em>
+                    }
+                  </span>
+                </button>
+              } @empty {
+                <p class="notice warning">No print versions found for this card.</p>
+              }
+            </div>
+          }
+        </div>
+      }
+    </app-modal>
+
+    <app-modal
       [open]="store.restoreModalOpen()"
       title="Restore history"
       [message]="store.restoreTarget() ? 'Restore this snapshot?' : ''"

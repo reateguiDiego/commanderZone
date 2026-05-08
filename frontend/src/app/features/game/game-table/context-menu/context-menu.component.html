@@ -1,6 +1,6 @@
 @let activeMenu = menu();
 
-<nav class="context-menu" data-testid="context-menu" [style.left.px]="activeMenu.x" [style.top.px]="activeMenu.y" (click)="stopClick($event)">
+<nav appPrettyScroll class="context-menu" data-testid="context-menu" [style.left.px]="activeMenu.x" [style.top.px]="activeMenu.y" (click)="stopClick($event)">
   @if (activeMenu.kind === 'game') {
     @if (currentPlayer(); as current) {
       @if (current.state.status !== 'conceded') {

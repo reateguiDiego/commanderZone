@@ -117,6 +117,12 @@
   color: var(--muted);
 }
 
+.print-action {
+  border-color: rgb(136 184 217 / 28%);
+  background: rgb(136 184 217 / 9%);
+  color: var(--text);
+}
+
 .card-row-menu button:hover {
   border-color: rgb(215 180 106 / 30%);
   background: rgb(255 255 255 / 6%);
