@@ -74,6 +74,7 @@ describe('AuthPageComponent', () => {
       email: 'player@example.test',
       displayName: 'Player',
       password: 'password123',
+      confirmPassword: 'password123',
     });
 
     expect(component.canSubmitRegister()).toBe(false);
@@ -83,5 +84,8 @@ describe('AuthPageComponent', () => {
 
     component.userNameAvailability.set('available');
     expect(component.canSubmitRegister()).toBe(true);
+
+    component.registerForm.controls.confirmPassword.setValue('different-password');
+    expect(component.canSubmitRegister()).toBe(false);
   });
 });

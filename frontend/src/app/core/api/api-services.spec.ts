@@ -53,6 +53,24 @@ describe('API services', () => {
     request.flush(null);
   });
 
+  it('requests and confirms password reset without triggering the global loading overlay', () => {
+    const auth = TestBed.inject(AuthApi);
+
+    auth.requestPasswordReset('player@example.test').subscribe();
+    let request = http.expectOne(`${API_BASE_URL}/auth/password-reset/request`);
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({ email: 'player@example.test' });
+    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);
+    request.flush({ accepted: true });
+
+    auth.confirmPasswordReset({ email: 'player@example.test', newPassword: 'password456' }).subscribe();
+    request = http.expectOne(`${API_BASE_URL}/auth/password-reset/confirm`);
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({ email: 'player@example.test', newPassword: 'password456' });
+    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);
+    request.flush({ updated: true });
+  });
+
   it('builds filtered card search requests', () => {
     TestBed.inject(CardsApi).search('atraxa', 1, 8, { commanderLegal: true }).subscribe();
 

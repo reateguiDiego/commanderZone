@@ -109,4 +109,42 @@ class AuthApiTest extends ApiTestCase
             )
         );
     }
+
+    public function testPasswordResetRequestAndConfirmFlow(): void
+    {
+        $this->registerAndLogin('reset@example.test', 'Reset User', 'password123');
+
+        $this->jsonRequest('POST', '/auth/password-reset/request', [
+            'email' => 'reset@example.test',
+        ]);
+        self::assertResponseStatusCodeSame(202);
+        $requestResponse = $this->jsonResponse();
+        self::assertTrue($requestResponse['accepted']);
+
+        $this->jsonRequest('POST', '/auth/password-reset/confirm', [
+            'email' => 'missing@example.test',
+            'newPassword' => 'password456',
+        ]);
+        self::assertResponseStatusCodeSame(400);
+
+        $this->jsonRequest('POST', '/auth/password-reset/confirm', [
+            'email' => 'reset@example.test',
+            'newPassword' => 'password456',
+        ]);
+        self::assertResponseIsSuccessful();
+        self::assertTrue($this->jsonResponse()['updated']);
+
+        $this->jsonRequest('POST', '/auth/login', [
+            'email' => 'reset@example.test',
+            'password' => 'password123',
+        ]);
+        self::assertResponseStatusCodeSame(401);
+
+        $this->jsonRequest('POST', '/auth/login', [
+            'email' => 'reset@example.test',
+            'password' => 'password456',
+        ]);
+        self::assertResponseIsSuccessful();
+        self::assertArrayHasKey('token', $this->jsonResponse());
+    }
 }

@@ -24,6 +24,14 @@ export interface LoginResponse {
   token: string;
 }
 
+export interface PasswordResetRequestResponse {
+  accepted: boolean;
+}
+
+export interface PasswordResetConfirmResponse {
+  updated: boolean;
+}
+
 export interface CardResponse {
   card: Card;
 }

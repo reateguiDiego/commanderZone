@@ -138,6 +138,31 @@ input:focus {
   box-shadow: 0 0 0 3px rgb(222 180 87 / 14%);
 }
 
+.password-field {
+  position: relative;
+}
+
+.password-field input {
+  padding-right: 3.1rem;
+}
+
+.password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 0.65rem;
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+  transform: translateY(-50%);
+}
+
 .field-error,
 .availability {
   display: inline-flex;
@@ -178,6 +203,14 @@ input:focus {
 
 .notice {
   margin: 0;
+}
+
+.secondary-link {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 0.18rem;
 }
 
 @media (max-width: 720px) {

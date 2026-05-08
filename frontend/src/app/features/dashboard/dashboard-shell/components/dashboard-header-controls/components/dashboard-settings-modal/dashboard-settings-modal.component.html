@@ -1,0 +1,9 @@
+<app-modal
+  [open]="open()"
+  title="Settings"
+  secondaryLabel="Close"
+  [showPrimary]="false"
+  (secondary)="closeRequested.emit()"
+>
+  <p class="settings-placeholder">Hello world</p>
+</app-modal>

@@ -36,6 +36,8 @@ security:
         - { path: ^/auth/email-availability$, roles: PUBLIC_ACCESS }
         - { path: ^/auth/display-name-availability$, roles: PUBLIC_ACCESS }
         - { path: ^/auth/login$, roles: PUBLIC_ACCESS }
+        - { path: ^/auth/password-reset/request$, roles: PUBLIC_ACCESS }
+        - { path: ^/auth/password-reset/confirm$, roles: PUBLIC_ACCESS }
         - { path: ^/landing/preview$, roles: PUBLIC_ACCESS }
         - { path: ^/cards, roles: PUBLIC_ACCESS }
         - { path: ^/, roles: ROLE_USER }

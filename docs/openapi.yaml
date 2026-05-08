@@ -128,6 +128,44 @@ paths:
                     type: string
         '401':
           $ref: '#/components/responses/Error'
+  /auth/password-reset/request:
+    post:
+      tags: [Auth]
+      security: []
+      summary: Request password reset (dummy flow).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordResetRequest'
+      responses:
+        '202':
+          description: Password reset request accepted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PasswordResetRequestAcceptedResponse'
+  /auth/password-reset/confirm:
+    post:
+      tags: [Auth]
+      security: []
+      summary: Confirm password reset (dummy flow by email).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordResetConfirmRequest'
+      responses:
+        '200':
+          description: Password was updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PasswordResetConfirmResponse'
+        '400':
+          $ref: '#/components/responses/Error'
   /me:
     get:
       tags: [Auth]
@@ -1878,6 +1916,35 @@ components:
           format: email
         password:
           type: string
+    PasswordResetRequest:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+    PasswordResetRequestAcceptedResponse:
+      type: object
+      required: [accepted]
+      properties:
+        accepted:
+          type: boolean
+    PasswordResetConfirmRequest:
+      type: object
+      required: [email, newPassword]
+      properties:
+        email:
+          type: string
+          format: email
+        newPassword:
+          type: string
+          minLength: 8
+    PasswordResetConfirmResponse:
+      type: object
+      required: [updated]
+      properties:
+        updated:
+          type: boolean
     User:
       type: object
       required: [id, email, displayName, roles]

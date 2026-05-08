@@ -23,8 +23,19 @@
 
           <label>
             Password
-            <input type="password" autocomplete="current-password" formControlName="password" />
+            <div class="password-field">
+              <input [type]="loginPasswordVisible() ? 'text' : 'password'" autocomplete="current-password" formControlName="password" />
+              <button
+                type="button"
+                class="password-toggle"
+                [attr.aria-label]="loginPasswordVisible() ? 'Ocultar contrasena' : 'Mostrar contrasena'"
+                (click)="loginPasswordVisible.set(!loginPasswordVisible())"
+              >
+                <lucide-icon [name]="loginPasswordVisible() ? 'eye-off' : 'eye'" size="18" />
+              </button>
+            </div>
           </label>
+          <a class="secondary-link" routerLink="/auth/password-reset">He olvidado mi contrasena</a>
 
           @if (auth.error()) {
             <p class="notice error">{{ auth.error() }}</p>
@@ -81,9 +92,37 @@
 
           <label>
             Password
-            <input type="password" autocomplete="new-password" formControlName="password" />
+            <div class="password-field">
+              <input [type]="registerPasswordVisible() ? 'text' : 'password'" autocomplete="new-password" formControlName="password" />
+              <button
+                type="button"
+                class="password-toggle"
+                [attr.aria-label]="registerPasswordVisible() ? 'Ocultar contrasena' : 'Mostrar contrasena'"
+                (click)="registerPasswordVisible.set(!registerPasswordVisible())"
+              >
+                <lucide-icon [name]="registerPasswordVisible() ? 'eye-off' : 'eye'" size="18" />
+              </button>
+            </div>
             @if (controlInvalid('password')) {
               <span class="field-error">Minimo 8 caracteres.</span>
+            }
+          </label>
+
+          <label>
+            Confirmar password
+            <div class="password-field">
+              <input [type]="registerConfirmPasswordVisible() ? 'text' : 'password'" autocomplete="new-password" formControlName="confirmPassword" />
+              <button
+                type="button"
+                class="password-toggle"
+                [attr.aria-label]="registerConfirmPasswordVisible() ? 'Ocultar contrasena' : 'Mostrar contrasena'"
+                (click)="registerConfirmPasswordVisible.set(!registerConfirmPasswordVisible())"
+              >
+                <lucide-icon [name]="registerConfirmPasswordVisible() ? 'eye-off' : 'eye'" size="18" />
+              </button>
+            </div>
+            @if (registerPasswordMismatchVisible()) {
+              <span class="field-error">Las contrasenas no coinciden.</span>
             }
           </label>
 

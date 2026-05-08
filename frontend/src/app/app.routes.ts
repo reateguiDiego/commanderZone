@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 import { authGuard, guestGuard } from './core/auth/auth.guard';
 import { AuthPageComponent } from './features/auth/auth-page/auth-page.component';
+import { PasswordResetPageComponent } from './features/auth/password-reset-page/password-reset-page.component';
 import { CardDetailComponent } from './features/cards/card-detail/card-detail.component';
 import { CardSearchComponent } from './features/cards/card-search/card-search.component';
 import { DashboardHomeComponent } from './features/dashboard/dashboard-home/dashboard-home.component';
@@ -33,6 +34,11 @@ export const routes: Routes = [
   {
     path: 'auth/register',
     component: AuthPageComponent,
+    canActivate: [guestGuard],
+  },
+  {
+    path: 'auth/password-reset',
+    component: PasswordResetPageComponent,
     canActivate: [guestGuard],
   },
   {

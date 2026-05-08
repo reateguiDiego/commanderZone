@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, WritableSignal, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { LucideAngularModule } from 'lucide-angular';
 import { catchError, debounceTime, distinctUntilChanged, map, of, startWith, switchMap, tap } from 'rxjs';
 import { AuthApi } from '../../../core/api/auth.api';
@@ -16,7 +16,7 @@ const USER_NAME_MIN_LENGTH = 4;
 
 @Component({
   selector: 'app-auth-page',
-  imports: [ReactiveFormsModule, LucideAngularModule],
+  imports: [ReactiveFormsModule, LucideAngularModule, RouterLink],
   templateUrl: './auth-page.component.html',
   styleUrl: './auth-page.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -34,6 +34,10 @@ export class AuthPageComponent {
   readonly userNameAvailability = signal<UserNameAvailability>('idle');
   readonly loginEmailFeedbackReady = signal(false);
   readonly registerEmailFeedbackReady = signal(false);
+  readonly loginPasswordVisible = signal(false);
+  readonly registerPasswordVisible = signal(false);
+  readonly registerConfirmPasswordVisible = signal(false);
+  readonly registerPasswordsMatch = signal(false);
   private readonly loginFormValid = signal(false);
   private readonly registerFormValid = signal(false);
 
@@ -46,12 +50,14 @@ export class AuthPageComponent {
     email: ['', [Validators.required, Validators.pattern(EMAIL_PATTERN)]],
     displayName: ['', [Validators.required, Validators.minLength(USER_NAME_MIN_LENGTH)]],
     password: ['', [Validators.required, Validators.minLength(8)]],
+    confirmPassword: ['', [Validators.required]],
   });
 
   readonly canSubmitLogin = computed(() => this.loginFormValid() && !this.auth.loading());
   readonly canSubmitRegister = computed(
     () =>
       this.registerFormValid() &&
+      this.registerPasswordsMatch() &&
       this.emailAvailability() === 'available' &&
       this.userNameAvailability() === 'available' &&
       !this.auth.loading(),
@@ -63,6 +69,7 @@ export class AuthPageComponent {
     this.trackEmailFeedback(this.registerForm.controls.email, this.registerEmailFeedbackReady);
     this.trackRegisterEmailAvailability();
     this.trackUserNameAvailability();
+    this.trackRegisterPasswordMatch();
   }
 
   setMode(mode: AuthMode): void {
@@ -104,9 +111,13 @@ export class AuthPageComponent {
     return this.emailAvailability() !== 'idle' && !this.registerEmailInvalid();
   }
 
-  controlInvalid(controlName: 'displayName' | 'password'): boolean {
+  controlInvalid(controlName: 'displayName' | 'password' | 'confirmPassword'): boolean {
     const control = this.registerForm.controls[controlName];
     return control.invalid && (control.dirty || control.touched);
+  }
+
+  registerPasswordMismatchVisible(): boolean {
+    return this.registerForm.controls.confirmPassword.touched && !this.registerPasswordsMatch();
   }
 
   private trackFormValidity(): void {
@@ -127,6 +138,16 @@ export class AuthPageComponent {
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe(() => feedbackReady.set(control.dirty || control.touched));
+  }
+
+  private trackRegisterPasswordMatch(): void {
+    this.registerForm.valueChanges
+      .pipe(startWith(this.registerForm.getRawValue()), takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        this.registerPasswordsMatch.set(
+          this.registerForm.controls.password.value === this.registerForm.controls.confirmPassword.value,
+        );
+      });
   }
 
   private trackRegisterEmailAvailability(): void {

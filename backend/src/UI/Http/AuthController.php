@@ -69,6 +69,44 @@ class AuthController extends ApiController
         throw new \LogicException('This endpoint is handled by the security firewall.');
     }
 
+    #[Route('/auth/password-reset/request', methods: ['POST'])]
+    public function requestPasswordReset(Request $request, EntityManagerInterface $entityManager): JsonResponse
+    {
+        $payload = $this->payload($request);
+        $email = trim((string) ($payload['email'] ?? ''));
+
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return $this->json(['accepted' => true], 202);
+        }
+
+        return $this->json(['accepted' => true], 202);
+    }
+
+    #[Route('/auth/password-reset/confirm', methods: ['POST'])]
+    public function confirmPasswordReset(
+        Request $request,
+        EntityManagerInterface $entityManager,
+        UserPasswordHasherInterface $passwordHasher
+    ): JsonResponse {
+        $payload = $this->payload($request);
+        $email = trim((string) ($payload['email'] ?? ''));
+        $newPassword = (string) ($payload['newPassword'] ?? '');
+
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL) || mb_strlen($newPassword) < 8) {
+            return $this->fail('email and a newPassword of at least 8 chars are required.');
+        }
+
+        $user = $entityManager->getRepository(User::class)->findOneBy(['email' => mb_strtolower($email)]);
+        if (!$user instanceof User) {
+            return $this->fail('User was not found.');
+        }
+
+        $user->setPassword($passwordHasher->hashPassword($user, $newPassword));
+        $entityManager->flush();
+
+        return $this->json(['updated' => true]);
+    }
+
     #[Route('/me', methods: ['GET'])]
     public function me(#[CurrentUser] ?User $user): JsonResponse
     {

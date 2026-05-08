@@ -1,7 +1,7 @@
 import { importProvidersFrom, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import { Bell, CircleUserRound, DoorOpen, Layers3, LogOut, LucideAngularModule, TabletSmartphone } from 'lucide-angular';
+import { Bell, Check, ChevronRight, CircleUserRound, DoorOpen, Layers3, LucideAngularModule, Menu, TabletSmartphone } from 'lucide-angular';
 import { of } from 'rxjs';
 import { FriendsApi } from '../../../core/api/friends.api';
 import { RoomsApi } from '../../../core/api/rooms.api';
@@ -15,7 +15,7 @@ describe('DashboardShellComponent', () => {
       imports: [DashboardShellComponent],
       providers: [
         provideRouter([]),
-        importProvidersFrom(LucideAngularModule.pick({ Bell, CircleUserRound, DoorOpen, Layers3, LogOut, TabletSmartphone })),
+        importProvidersFrom(LucideAngularModule.pick({ Bell, Check, ChevronRight, CircleUserRound, DoorOpen, Layers3, Menu, TabletSmartphone })),
         {
           provide: AuthStore,
           useValue: {
