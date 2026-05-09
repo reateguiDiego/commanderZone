@@ -17,6 +17,3 @@
 /phpunit.xml
 /.phpunit.cache/
 ###< phpunit/phpunit ###
-
-/.env.prod
-/docker-compose.prod.yml
