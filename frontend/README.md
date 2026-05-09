@@ -14,10 +14,25 @@ The app runs on `http://localhost:4200` by default and expects:
 - API: `http://127.0.0.1:8000`
 - Mercure: `http://127.0.0.1:3000/.well-known/mercure`
 
+These local URLs live in `src/environments/environment.ts`. `npm start` uses the Angular development configuration and does not call production.
+
+## Production Build
+
+```bash
+npm run build:prod
+```
+
+Production builds replace `src/environments/environment.ts` with `src/environments/environment.production.ts` and target:
+
+- API: `https://api.commanderzone.com`
+- Mercure: `https://api.commanderzone.com/.well-known/mercure`
+
 ## Useful Commands
 
 ```bash
 npm run build
+npm run build:local
+npm run build:prod
 npm test
 npm run e2e
 npm run e2e:headed

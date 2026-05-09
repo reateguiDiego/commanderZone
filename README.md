@@ -91,3 +91,38 @@ npm start
 ```
 
 The frontend expects the API on `http://127.0.0.1:8000` and Mercure on `http://127.0.0.1:3000/.well-known/mercure`.
+
+## Environments
+
+### Local/develop
+
+Use this mode for day-to-day development. It keeps the frontend connected to the local Docker/Symfony services, not production.
+
+```bash
+docker compose up -d
+docker compose exec api php bin/console doctrine:migrations:migrate --no-interaction
+
+cd frontend
+npm start
+```
+
+Local frontend URLs are defined in `frontend/src/environments/environment.ts`:
+
+- API: `http://127.0.0.1:8000`
+- Mercure: `http://127.0.0.1:3000/.well-known/mercure`
+
+### Production
+
+Production frontend builds use `frontend/src/environments/environment.production.ts` through Angular file replacement.
+
+```bash
+cd frontend
+npm run build:prod
+```
+
+The production frontend currently targets:
+
+- API: `https://api.commanderzone.com`
+- Mercure: `https://api.commanderzone.com/.well-known/mercure`
+
+Backend production values must be provided by the hosting environment or by an untracked `backend/.env.prod`. Use `backend/.env.prod.example` as a template and never commit real secrets.
