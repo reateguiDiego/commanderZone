@@ -13,6 +13,9 @@ use Symfony\Component\Uid\Uuid;
 #[ORM\UniqueConstraint(name: 'uniq_user_display_name', columns: ['display_name'])]
 class User implements UserInterface, PasswordAuthenticatedUserInterface
 {
+    private const DEFAULT_INITIAL_BACKGROUND_COLOR = '#edcd83';
+    private const DEFAULT_INITIAL_TEXT_COLOR = '#16120a';
+
     #[ORM\Id]
     #[ORM\Column(type: 'string', length: 36)]
     private string $id;
@@ -34,6 +37,24 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $lastSeenAt = null;
+
+    #[ORM\Column(type: 'string', length: 16)]
+    private string $avatarType = 'initial';
+
+    #[ORM\Column(type: 'string', length: 160, nullable: true)]
+    private ?string $avatarPreset = null;
+
+    #[ORM\Column(type: 'text', nullable: true)]
+    private ?string $avatarImageData = null;
+
+    #[ORM\Column(type: 'string', length: 2, nullable: true)]
+    private ?string $avatarInitialLetter = null;
+
+    #[ORM\Column(type: 'string', length: 7, nullable: true)]
+    private ?string $avatarInitialBackgroundColor = null;
+
+    #[ORM\Column(type: 'string', length: 7, nullable: true)]
+    private ?string $avatarInitialTextColor = null;
 
     public function __construct(string $email, string $displayName)
     {
@@ -89,7 +110,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
     public function getUserIdentifier(): string
     {
-        return $this->email;
+        return $this->id;
     }
 
     public function lastSeenAt(): ?\DateTimeImmutable
@@ -107,6 +128,57 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         $this->lastSeenAt = null;
     }
 
+    public function useInitialAvatar(?string $letter = null, ?string $backgroundColor = null, ?string $textColor = null): void
+    {
+        $this->avatarType = 'initial';
+        $this->avatarPreset = null;
+        $this->avatarImageData = null;
+        $this->avatarInitialLetter = $letter;
+        $this->avatarInitialBackgroundColor = $backgroundColor;
+        $this->avatarInitialTextColor = $textColor;
+    }
+
+    public function selectPresetAvatar(string $avatarPreset): void
+    {
+        $this->avatarType = 'preset';
+        $this->avatarPreset = $avatarPreset;
+        $this->avatarImageData = null;
+    }
+
+    public function uploadAvatarImage(string $avatarImageData): void
+    {
+        $this->avatarType = 'upload';
+        $this->avatarPreset = null;
+        $this->avatarImageData = $avatarImageData;
+    }
+
+    public function avatarImageData(): ?string
+    {
+        return $this->avatarImageData;
+    }
+
+    public function avatar(): array
+    {
+        $avatar = [
+            'type' => $this->avatarType,
+            'imageUrl' => match ($this->avatarType) {
+                'preset' => $this->avatarPreset,
+                'upload' => sprintf('/users/%s/avatar', $this->id),
+                default => null,
+            },
+        ];
+
+        if ($this->avatarType === 'initial') {
+            $avatar['initial'] = [
+                'letter' => $this->avatarInitialLetter ?? $this->defaultInitialLetter(),
+                'backgroundColor' => $this->avatarInitialBackgroundColor ?? self::DEFAULT_INITIAL_BACKGROUND_COLOR,
+                'textColor' => $this->avatarInitialTextColor ?? self::DEFAULT_INITIAL_TEXT_COLOR,
+            ];
+        }
+
+        return $avatar;
+    }
+
     public function toArray(): array
     {
         return [
@@ -114,6 +186,14 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
             'email' => $this->email,
             'displayName' => $this->displayName,
             'roles' => $this->getRoles(),
+            'avatar' => $this->avatar(),
         ];
+    }
+
+    private function defaultInitialLetter(): string
+    {
+        $letter = mb_strtoupper(mb_substr(trim($this->displayName), 0, 1));
+
+        return $letter !== '' ? $letter : 'P';
     }
 }

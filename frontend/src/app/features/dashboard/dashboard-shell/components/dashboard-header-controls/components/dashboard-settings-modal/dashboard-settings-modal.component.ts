@@ -2,10 +2,14 @@ import { ChangeDetectionStrategy, Component, DestroyRef, computed, effect, injec
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
-import { catchError, debounceTime, distinctUntilChanged, firstValueFrom, map, of, switchMap, tap } from 'rxjs';
-import { AuthApi } from '../../../../../../../core/api/auth.api';
+import { catchError, debounceTime, distinctUntilChanged, firstValueFrom, map, of, startWith, switchMap, tap } from 'rxjs';
+import { AuthApi, AvatarUpdatePayload } from '../../../../../../../core/api/auth.api';
+import { API_BASE_URL } from '../../../../../../../core/api/api.config';
 import { AuthStore } from '../../../../../../../core/auth/auth.store';
+import { UserAvatar } from '../../../../../../../core/models/user.model';
 import { AppModalComponent } from '../../../../../../../shared/ui/app-modal/app-modal.component';
+import { SettingsAvatarEditorComponent } from '../../../../../settings/settings-avatar-editor/settings-avatar-editor.component';
+import { SettingsAvatarUploadComponent } from '../../../../../settings/settings-avatar-upload/settings-avatar-upload.component';
 
 type SettingsTab = 'general' | 'game';
 type FieldAvailability = 'idle' | 'checking' | 'available' | 'taken' | 'error';
@@ -18,10 +22,12 @@ interface ProfileSnapshot {
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const USER_NAME_MIN_LENGTH = 4;
 const USER_NAME_MAX_LENGTH = 25;
+const DEFAULT_INITIAL_BACKGROUND_COLOR = '#edcd83';
+const DEFAULT_INITIAL_TEXT_COLOR = '#16120a';
 
 @Component({
   selector: 'app-dashboard-settings-modal',
-  imports: [AppModalComponent, ReactiveFormsModule, LucideAngularModule],
+  imports: [AppModalComponent, ReactiveFormsModule, LucideAngularModule, SettingsAvatarEditorComponent, SettingsAvatarUploadComponent],
   templateUrl: './dashboard-settings-modal.component.html',
   styleUrl: './dashboard-settings-modal.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -42,25 +48,31 @@ export class DashboardSettingsModalComponent {
   readonly userNameAvailability = signal<FieldAvailability>('idle');
   readonly saveInProgress = signal(false);
   readonly deleteInProgress = signal(false);
+  readonly avatarSaveInProgress = signal(false);
   readonly statusMessage = signal<string | null>(null);
   readonly errorMessage = signal<string | null>(null);
   readonly deleteConfirmationOpen = signal(false);
+  readonly avatarEditorOpen = signal(false);
+  readonly avatarUploadOpen = signal(false);
   readonly profileBaseline = signal<ProfileSnapshot>({ email: '', displayName: '' });
 
   readonly profileForm = this.formBuilder.group({
     email: ['', [Validators.required, Validators.pattern(EMAIL_PATTERN)]],
     displayName: ['', [Validators.required, Validators.minLength(USER_NAME_MIN_LENGTH), Validators.maxLength(USER_NAME_MAX_LENGTH)]],
   });
+  readonly profileFormValue = signal(this.profileForm.getRawValue());
+  readonly profileFormValid = signal(this.profileForm.valid);
 
   readonly hasChanges = computed(() => {
     const baseline = this.profileBaseline();
-    const email = this.profileForm.controls.email.value.trim().toLowerCase();
-    const displayName = this.profileForm.controls.displayName.value.trim();
+    const formValue = this.profileFormValue();
+    const email = formValue.email.trim().toLowerCase();
+    const displayName = formValue.displayName.trim();
     return email !== baseline.email.toLowerCase() || displayName !== baseline.displayName;
   });
 
   readonly canSave = computed(() => {
-    if (!this.hasChanges() || this.profileForm.invalid || this.saveInProgress() || this.deleteInProgress()) {
+    if (!this.hasChanges() || !this.profileFormValid() || this.saveInProgress() || this.deleteInProgress()) {
       return false;
     }
 
@@ -75,7 +87,18 @@ export class DashboardSettingsModalComponent {
     return emailOk && userNameOk;
   });
 
+  readonly currentUserDisplayName = computed(() => this.authStore.user()?.displayName ?? 'Player');
+  readonly currentUserAvatar = computed<UserAvatar | undefined>(() => this.authStore.user()?.avatar);
+  readonly avatarInitial = computed(() => {
+    return this.currentUserAvatar()?.initial?.letter
+      ?? (this.currentUserDisplayName().trim().slice(0, 1).toUpperCase() || 'P');
+  });
+  readonly avatarInitialBackgroundColor = computed(() => this.currentUserAvatar()?.initial?.backgroundColor ?? DEFAULT_INITIAL_BACKGROUND_COLOR);
+  readonly avatarInitialTextColor = computed(() => this.currentUserAvatar()?.initial?.textColor ?? DEFAULT_INITIAL_TEXT_COLOR);
+  readonly avatarImageUrl = computed(() => resolveAvatarImageUrl(this.currentUserAvatar()?.imageUrl ?? null));
+
   constructor() {
+    this.trackFormState();
     this.trackEmailAvailability();
     this.trackUserNameAvailability();
     effect(() => {
@@ -95,7 +118,37 @@ export class DashboardSettingsModalComponent {
   }
 
   cancel(): void {
+    if (this.avatarEditorOpen()) {
+      this.closeAvatarEditor();
+      return;
+    }
+
     this.closeRequested.emit();
+  }
+
+  openAvatarEditor(): void {
+    this.statusMessage.set(null);
+    this.errorMessage.set(null);
+    this.avatarUploadOpen.set(false);
+    this.avatarEditorOpen.set(true);
+  }
+
+  closeAvatarEditor(): void {
+    this.avatarEditorOpen.set(false);
+    this.avatarUploadOpen.set(false);
+    this.avatarSaveInProgress.set(false);
+  }
+
+  openAvatarUpload(): void {
+    this.statusMessage.set(null);
+    this.errorMessage.set(null);
+    this.avatarUploadOpen.set(true);
+  }
+
+  toggleAvatarUploadMode(): void {
+    this.statusMessage.set(null);
+    this.errorMessage.set(null);
+    this.avatarUploadOpen.update((isOpen) => !isOpen);
   }
 
   async savePreferences(): Promise<void> {
@@ -151,6 +204,24 @@ export class DashboardSettingsModalComponent {
     }
   }
 
+  async saveAvatar(payload: AvatarUpdatePayload): Promise<void> {
+    this.avatarSaveInProgress.set(true);
+    this.errorMessage.set(null);
+    this.statusMessage.set(null);
+
+    try {
+      await firstValueFrom(this.authApi.updateAvatar(payload));
+      await this.authStore.loadMe();
+      this.avatarEditorOpen.set(false);
+      this.avatarUploadOpen.set(false);
+      this.statusMessage.set('Avatar updated.');
+    } catch {
+      this.errorMessage.set('No se pudo guardar el avatar.');
+    } finally {
+      this.avatarSaveInProgress.set(false);
+    }
+  }
+
   emailAvailabilityVisible(): boolean {
     if (!this.emailChanged()) {
       return false;
@@ -186,6 +257,8 @@ export class DashboardSettingsModalComponent {
     this.profileForm.setValue(baseline);
     this.profileForm.markAsPristine();
     this.profileForm.markAsUntouched();
+    this.profileFormValue.set(this.profileForm.getRawValue());
+    this.profileFormValid.set(this.profileForm.valid);
     this.activeTab.set('general');
     this.resetLocalState();
   }
@@ -197,17 +270,20 @@ export class DashboardSettingsModalComponent {
     this.errorMessage.set(null);
     this.saveInProgress.set(false);
     this.deleteInProgress.set(false);
+    this.avatarSaveInProgress.set(false);
+    this.avatarEditorOpen.set(false);
+    this.avatarUploadOpen.set(false);
     this.deleteConfirmationOpen.set(false);
   }
 
   private emailChanged(): boolean {
     const baseline = this.profileBaseline();
-    return this.profileForm.controls.email.value.trim().toLowerCase() !== baseline.email.toLowerCase();
+    return this.profileFormValue().email.trim().toLowerCase() !== baseline.email.toLowerCase();
   }
 
   private displayNameChanged(): boolean {
     const baseline = this.profileBaseline();
-    return this.profileForm.controls.displayName.value.trim() !== baseline.displayName;
+    return this.profileFormValue().displayName.trim() !== baseline.displayName;
   }
 
   private controlInvalid(control: FormControl<string>): boolean {
@@ -241,6 +317,22 @@ export class DashboardSettingsModalComponent {
       .subscribe((availability) => this.emailAvailability.set(availability));
   }
 
+  private trackFormState(): void {
+    this.profileForm.valueChanges
+      .pipe(
+        startWith(this.profileForm.getRawValue()),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe(() => this.profileFormValue.set(this.profileForm.getRawValue()));
+
+    this.profileForm.statusChanges
+      .pipe(
+        startWith(this.profileForm.status),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe(() => this.profileFormValid.set(this.profileForm.valid));
+  }
+
   private trackUserNameAvailability(): void {
     this.profileForm.controls.displayName.valueChanges
       .pipe(
@@ -267,4 +359,12 @@ export class DashboardSettingsModalComponent {
       )
       .subscribe((availability) => this.userNameAvailability.set(availability));
   }
+}
+
+function resolveAvatarImageUrl(imageUrl: string | null): string | null {
+  if (!imageUrl) {
+    return null;
+  }
+
+  return imageUrl.startsWith('/') ? `${API_BASE_URL}${imageUrl}` : imageUrl;
 }

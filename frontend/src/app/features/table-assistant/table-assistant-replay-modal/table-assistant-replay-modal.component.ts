@@ -1,8 +1,10 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  OnDestroy,
   OnInit,
   computed,
+  inject,
   input,
   output,
   signal,
@@ -16,6 +18,7 @@ import {
   Validators,
 } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
+import { BodyScrollLockService } from '../../../shared/services/body-scroll-lock.service';
 import { PrettyScrollDirective } from '../../../shared/ui/pretty-scroll/pretty-scroll.directive';
 import {
   TableAssistantPlayer,
@@ -31,7 +34,9 @@ type ArrangementModalMode = 'initial' | 'replay';
   styleUrl: './table-assistant-replay-modal.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class TableAssistantReplayModalComponent implements OnInit {
+export class TableAssistantReplayModalComponent implements OnInit, OnDestroy {
+  private readonly bodyScrollLock = inject(BodyScrollLockService);
+
   readonly players = input.required<readonly TableAssistantPlayer[]>();
   readonly mode = input<ArrangementModalMode>('replay');
   readonly closed = output<void>();
@@ -56,7 +61,12 @@ export class TableAssistantReplayModalComponent implements OnInit {
   );
 
   ngOnInit(): void {
+    this.bodyScrollLock.lock();
     this.buildArrangementForm();
+  }
+
+  ngOnDestroy(): void {
+    this.bodyScrollLock.unlock();
   }
 
   get seatControls(): FormArray<FormControl<string | null>> {

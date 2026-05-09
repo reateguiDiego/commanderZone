@@ -5,4 +5,4 @@ lexik_jwt_authentication:
     token_ttl: 3600
     encoder:
         signature_algorithm: HS256
-    user_id_claim: email
+    user_id_claim: id

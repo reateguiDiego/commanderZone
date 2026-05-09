@@ -12,6 +12,8 @@ class AuthApiTest extends ApiTestCase
         $this->jsonRequest('GET', '/me', token: $token);
         self::assertResponseIsSuccessful();
         self::assertSame('player@example.test', $this->jsonResponse()['user']['email']);
+        self::assertSame('initial', $this->jsonResponse()['user']['avatar']['type']);
+        self::assertSame('P', $this->jsonResponse()['user']['avatar']['initial']['letter']);
 
         $this->jsonRequest('PATCH', '/me', ['displayName' => 'Taken Name'], $token);
         self::assertResponseStatusCodeSame(409);
@@ -161,6 +163,69 @@ class AuthApiTest extends ApiTestCase
         ]);
         self::assertResponseIsSuccessful();
         self::assertArrayHasKey('token', $this->jsonResponse());
+    }
+
+    public function testAvatarCanBeUpdatedWithPresetUploadAndInitialFallback(): void
+    {
+        $token = $this->registerAndLogin('avatar@example.test', 'Avatar User');
+
+        $this->jsonRequest('PATCH', '/me/avatar', [
+            'type' => 'preset',
+            'imageUrl' => 'assets/images/avatars/obsidian-geomancer.png',
+        ], $token);
+        self::assertResponseIsSuccessful();
+        self::assertSame('preset', $this->jsonResponse()['user']['avatar']['type']);
+        self::assertSame('assets/images/avatars/obsidian-geomancer.png', $this->jsonResponse()['user']['avatar']['imageUrl']);
+
+        $imageData = 'data:image/png;base64,'.base64_encode('avatar-image-bytes');
+        $this->jsonRequest('PATCH', '/me/avatar', [
+            'type' => 'upload',
+            'imageData' => $imageData,
+        ], $token);
+        self::assertResponseIsSuccessful();
+        self::assertSame('upload', $this->jsonResponse()['user']['avatar']['type']);
+        $avatarUrl = $this->jsonResponse()['user']['avatar']['imageUrl'];
+        self::assertIsString($avatarUrl);
+        self::assertStringStartsWith('/users/', $avatarUrl);
+
+        $this->jsonRequest('GET', $avatarUrl);
+        self::assertResponseIsSuccessful();
+        self::assertSame('image/png', $this->client->getResponse()->headers->get('Content-Type'));
+        self::assertSame('avatar-image-bytes', $this->client->getResponse()->getContent());
+
+        $this->jsonRequest('PATCH', '/me/avatar', [
+            'type' => 'initial',
+            'letter' => 'CZ',
+            'backgroundColor' => '#112233',
+            'textColor' => '#ffeeaa',
+        ], $token);
+        self::assertResponseIsSuccessful();
+        self::assertSame([
+            'type' => 'initial',
+            'imageUrl' => null,
+            'initial' => [
+                'letter' => 'CZ',
+                'backgroundColor' => '#112233',
+                'textColor' => '#ffeeaa',
+            ],
+        ], $this->jsonResponse()['user']['avatar']);
+    }
+
+    public function testAvatarRejectsUnknownPresetAndOversizedUpload(): void
+    {
+        $token = $this->registerAndLogin('bad-avatar@example.test', 'Bad Avatar');
+
+        $this->jsonRequest('PATCH', '/me/avatar', [
+            'type' => 'preset',
+            'imageUrl' => 'assets/images/avatars/not-ours.png',
+        ], $token);
+        self::assertResponseStatusCodeSame(400);
+
+        $this->jsonRequest('PATCH', '/me/avatar', [
+            'type' => 'upload',
+            'imageData' => 'data:image/png;base64,'.base64_encode(str_repeat('x', 2_097_153)),
+        ], $token);
+        self::assertResponseStatusCodeSame(400);
     }
 
     public function testDeleteAccountAnonymizesIdentityAndBlocksOldLogin(): void

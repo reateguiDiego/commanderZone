@@ -62,6 +62,20 @@ describe('API services', () => {
     expect(request.request.body).toEqual({ email: 'updated@example.test', displayName: 'Updated Player' });
     request.flush({ user: { id: 'user-1', email: 'updated@example.test', displayName: 'Updated Player', roles: ['ROLE_USER'] } });
 
+    auth.updateAvatar({ type: 'preset', imageUrl: 'assets/images/avatars/storm-seer.png' }).subscribe();
+    request = http.expectOne(`${API_BASE_URL}/me/avatar`);
+    expect(request.request.method).toBe('PATCH');
+    expect(request.request.body).toEqual({ type: 'preset', imageUrl: 'assets/images/avatars/storm-seer.png' });
+    request.flush({
+      user: {
+        id: 'user-1',
+        email: 'updated@example.test',
+        displayName: 'Updated Player',
+        roles: ['ROLE_USER'],
+        avatar: { type: 'preset', imageUrl: 'assets/images/avatars/storm-seer.png' },
+      },
+    });
+
     auth.deleteMe().subscribe();
     request = http.expectOne(`${API_BASE_URL}/me`);
     expect(request.request.method).toBe('DELETE');

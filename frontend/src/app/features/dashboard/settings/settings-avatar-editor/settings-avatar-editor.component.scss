@@ -1,0 +1,307 @@
+:host {
+  display: block;
+  height: 100%;
+  min-height: 0;
+}
+
+.avatar-editor {
+  height: 100%;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto auto;
+  gap: 0.55rem;
+  overflow: hidden;
+}
+
+.avatar-editor-header h3 {
+  margin: 0;
+}
+
+.avatar-editor-header p {
+  margin: 0.18rem 0 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.avatar-tier-tabs {
+  display: flex;
+  gap: 0.45rem;
+}
+
+.avatar-tier-tabs button {
+  min-width: 7rem;
+  min-height: 2.15rem;
+  border: 1px solid rgb(215 180 106 / 32%);
+  border-radius: 999px;
+  color: var(--muted);
+  background: rgb(8 10 8 / 86%);
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.avatar-tier-tabs button.active {
+  border-color: rgb(235 200 120 / 72%);
+  color: var(--text);
+  background: rgb(37 41 33 / 94%);
+}
+
+.avatar-preview-panel {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 4.75rem;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid rgb(215 180 106 / 24%);
+  border-radius: 12px;
+  background:
+    radial-gradient(circle at 5% 40%, rgb(230 191 101 / 18%), transparent 34%),
+    rgb(9 11 8 / 72%);
+}
+
+.avatar-preview {
+  width: 3.7rem;
+  aspect-ratio: 1;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: 2px solid rgb(232 196 111 / 62%);
+  border-radius: 50%;
+  color: #16120a;
+  background: linear-gradient(145deg, #edcd83, #8e6530);
+  box-shadow: 0 0 0 4px rgb(7 8 6 / 62%);
+}
+
+.avatar-preview.premium-preview {
+  border-color: rgb(239 201 99 / 78%);
+  background:
+    radial-gradient(circle at 50% 0%, rgb(245 210 119 / 18%), transparent 48%),
+    #050604;
+  box-shadow:
+    0 0 0 4px rgb(7 8 6 / 72%),
+    0 0 20px rgb(223 171 61 / 18%);
+}
+
+.avatar-preview img {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  object-fit: cover;
+  transform: scale(1.04);
+  -webkit-user-drag: none;
+  user-select: none;
+}
+
+.avatar-preview.premium-preview img {
+  transform: scale(1.09);
+  filter: saturate(1.08) contrast(1.04);
+}
+
+.avatar-preview span {
+  font-weight: 900;
+}
+
+.avatar-preview span {
+  font-size: 1.75rem;
+}
+
+.avatar-preview-copy {
+  display: grid;
+  gap: 0.12rem;
+}
+
+.avatar-preview-copy span {
+  color: rgb(235 200 120 / 86%);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.avatar-preview-copy strong {
+  color: var(--text);
+}
+
+.avatar-options {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 0.55rem;
+  overflow: hidden;
+}
+
+.preset-tier {
+  min-height: 0;
+  display: grid;
+  align-content: start;
+  gap: 0.42rem;
+}
+
+.basic-tier {
+  grid-template-columns: repeat(auto-fit, minmax(5.8rem, 1fr));
+  overflow: visible;
+}
+
+.basic-tier app-settings-initial-avatar-option {
+  grid-column: 1 / -1;
+}
+
+.preset-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(5.8rem, 1fr));
+  gap: 0.48rem;
+  align-content: start;
+}
+
+.premium-grid {
+  max-height: 100%;
+  overflow-y: auto;
+  padding-right: 0.2rem;
+  scrollbar-color: transparent transparent;
+  scrollbar-width: thin;
+}
+
+.premium-grid:hover {
+  scrollbar-color: rgb(222 180 87 / 58%) rgb(5 7 5 / 40%);
+}
+
+.premium-grid::-webkit-scrollbar {
+  width: 0;
+}
+
+.premium-grid:hover::-webkit-scrollbar {
+  width: 0.45rem;
+}
+
+.premium-grid::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgb(222 180 87 / 58%);
+}
+
+.premium-grid::-webkit-scrollbar-track {
+  background: rgb(5 7 5 / 40%);
+}
+
+.preset-avatar {
+  position: relative;
+  display: block;
+  padding: 0.3rem;
+  border: 1px solid rgb(215 180 106 / 26%);
+  border-radius: 999px;
+  color: var(--text);
+  background: rgb(6 8 6 / 76%);
+  cursor: pointer;
+}
+
+.preset-avatar.selected {
+  border-color: rgb(235 200 120 / 84%);
+  box-shadow: 0 0 0 3px rgb(220 172 82 / 16%);
+}
+
+.avatar-image-frame {
+  display: block;
+  overflow: hidden;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 50% 40%, rgb(235 200 120 / 10%), transparent 52%),
+    #050604;
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 72%);
+}
+
+.avatar-image-frame img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  object-fit: cover;
+  transform: scale(1.04);
+  -webkit-user-drag: none;
+  user-select: none;
+}
+
+.premium-avatar {
+  border-color: rgb(239 201 99 / 74%);
+  background:
+    radial-gradient(circle at 50% 0%, rgb(245 210 119 / 18%), transparent 48%),
+    linear-gradient(180deg, rgb(29 27 16 / 96%), rgb(5 7 5 / 94%));
+  box-shadow:
+    0 0 0 1px rgb(0 0 0 / 80%),
+    0 0 18px rgb(223 171 61 / 14%);
+}
+
+.premium-avatar .avatar-image-frame {
+  box-shadow:
+    inset 0 0 0 2px rgb(6 7 5 / 90%),
+    inset 0 0 0 3px rgb(239 201 99 / 42%);
+}
+
+.premium-avatar img {
+  transform: scale(1.09);
+  filter: saturate(1.08) contrast(1.04);
+}
+
+.premium-badge {
+  position: absolute;
+  right: -0.16rem;
+  bottom: -0.08rem;
+  padding: 0.12rem 0.28rem;
+  border: 1px solid rgb(255 223 146 / 52%);
+  border-radius: 999px;
+  color: #1a1206;
+  background: linear-gradient(180deg, #f2d88e, #b9822e);
+  font-size: 0.48rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.secondary-button,
+.primary-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.25rem;
+  border-radius: 10px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.secondary-button {
+  border: 1px solid rgb(215 180 106 / 32%);
+  color: var(--text);
+  background: rgb(8 10 8 / 72%);
+}
+
+.primary-button {
+  min-width: 8rem;
+  border: 1px solid rgb(235 200 120 / 72%);
+  color: #16120a;
+  background: linear-gradient(180deg, #f0cf82, #b9822e);
+}
+
+button:disabled {
+  opacity: 0.58;
+  cursor: not-allowed;
+}
+
+.avatar-error {
+  margin: 0;
+  color: #ff8c78;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.avatar-editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.55rem;
+  align-self: end;
+  padding-top: 0.5rem;
+}
+
+@media (max-width: 720px) {
+  .basic-tier,
+  .preset-grid {
+    grid-template-columns: repeat(auto-fit, minmax(4.9rem, 1fr));
+  }
+}

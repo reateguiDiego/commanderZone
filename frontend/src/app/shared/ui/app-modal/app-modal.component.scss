@@ -31,6 +31,44 @@
   gap: 0.35rem;
 }
 
+.modal-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.modal-title-row h2 {
+  margin: 0;
+}
+
+.modal-back-button {
+  width: 2.15rem;
+  height: 2.15rem;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid rgb(215 180 106 / 32%);
+  border-radius: 999px;
+  color: var(--text);
+  background: rgb(8 10 8 / 74%);
+  cursor: pointer;
+}
+
+.modal-back-button:hover {
+  border-color: rgb(235 200 120 / 68%);
+}
+
+.modal-header-action {
+  margin-left: auto;
+  min-height: 2.15rem;
+  padding: 0 0.85rem;
+  border: 1px solid rgb(235 200 120 / 42%);
+  border-radius: 999px;
+  color: #16120a;
+  background: linear-gradient(180deg, #f0cf82, #b9822e);
+  font-weight: 900;
+  cursor: pointer;
+}
+
 .modal-panel header p {
   color: var(--muted);
 }

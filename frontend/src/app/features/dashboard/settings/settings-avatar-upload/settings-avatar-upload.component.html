@@ -1,0 +1,68 @@
+<section class="avatar-upload">
+  <header class="avatar-upload-header">
+    <h3>Upload image</h3>
+    <p>Choose your own image and frame it inside the avatar circle.</p>
+  </header>
+
+  <div class="avatar-upload-body">
+    <section class="avatar-preview-panel" aria-label="Uploaded avatar preview">
+      <div class="avatar-preview">
+        @if (previewImageUrl()) {
+          <img
+            [src]="previewImageUrl()"
+            alt="Avatar preview"
+            draggable="false"
+            [style.object-position]="cropX() + '% ' + cropY() + '%'"
+            [style.transform]="'scale(' + zoom() + ')'"
+            (dragstart)="$event.preventDefault()"
+          />
+        } @else {
+          <span>{{ initial() }}</span>
+        }
+      </div>
+    </section>
+
+    <section class="upload-controls">
+      <div class="upload-card">
+        <div>
+          <h4>Image file</h4>
+          <p>PNG, JPG, WEBP or another browser-supported image. Maximum 2MB.</p>
+        </div>
+        <input #fileInput class="file-input" type="file" accept="image/*" (change)="onFileSelected($event)" />
+        <button class="secondary-button" type="button" [disabled]="saving()" (click)="openFilePicker(fileInput)">
+          <lucide-icon name="upload" size="16" />
+          Choose image
+        </button>
+      </div>
+
+      <p class="avatar-disclaimer">
+        Avatar images must be non-offensive, non-sexual and appropriate for the CommanderZone community.
+      </p>
+
+      <div class="crop-controls">
+        <label>
+          Horizontal
+          <input type="range" min="0" max="100" [value]="cropX()" [disabled]="!uploadedImageUrl()" (input)="setCropX($event)" />
+        </label>
+        <label>
+          Vertical
+          <input type="range" min="0" max="100" [value]="cropY()" [disabled]="!uploadedImageUrl()" (input)="setCropY($event)" />
+        </label>
+        <label>
+          Zoom
+          <input type="range" min="100" max="250" [value]="zoom() * 100" [disabled]="!uploadedImageUrl()" (input)="setZoom($event)" />
+        </label>
+      </div>
+    </section>
+  </div>
+
+  @if (errorMessage()) {
+    <p class="avatar-error">{{ errorMessage() }}</p>
+  }
+
+  <footer class="avatar-upload-actions">
+    <button class="primary-button" type="button" [disabled]="!canSave()" (click)="save()">
+      {{ saving() ? 'Saving...' : 'Save avatar' }}
+    </button>
+  </footer>
+</section>

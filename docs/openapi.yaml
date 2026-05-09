@@ -225,6 +225,56 @@ paths:
           description: Account deleted.
         '401':
           $ref: '#/components/responses/Error'
+  /me/avatar:
+    patch:
+      tags: [Auth]
+      summary: Update authenticated user's avatar.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AvatarUpdateRequest'
+      responses:
+        '200':
+          description: Updated user avatar.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [user]
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+  /users/{id}/avatar:
+    get:
+      tags: [Auth]
+      security: []
+      summary: Load an uploaded user avatar image.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Uploaded avatar image.
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/webp:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: Avatar image was not found.
   /me/password:
     patch:
       tags: [Auth]
@@ -1959,9 +2009,112 @@ components:
       properties:
         updated:
           type: boolean
+    AvatarUpdateRequest:
+      oneOf:
+        - type: object
+          required: [type]
+          properties:
+            type:
+              type: string
+              enum: [initial]
+            letter:
+              type: string
+              minLength: 1
+              maxLength: 2
+              description: Initial avatar letters. Defaults to the display-name initial.
+            backgroundColor:
+              type: string
+              pattern: '^#[0-9a-fA-F]{6}$'
+              description: Initial avatar background color.
+            textColor:
+              type: string
+              pattern: '^#[0-9a-fA-F]{6}$'
+              description: Initial avatar text color.
+        - type: object
+          required: [type, imageUrl]
+          properties:
+            type:
+              type: string
+              enum: [preset]
+            imageUrl:
+              type: string
+              enum:
+                - assets/images/avatars/arcane-duelist.png
+                - assets/images/avatars/storm-seer.png
+                - assets/images/avatars/verdant-warden.png
+                - assets/images/avatars/rune-knight.png
+                - assets/images/avatars/ember-marshal.png
+                - assets/images/avatars/moonlit-necromancer.png
+                - assets/images/avatars/black-clad-mage.png
+                - assets/images/avatars/friendly-robot.png
+                - assets/images/avatars/ironroot-boar.png
+                - assets/images/avatars/elderwood-ent.png
+                - assets/images/avatars/shadow-necromancer.png
+                - assets/images/avatars/serpent-assassin.png
+                - assets/images/avatars/wandering-blade.png
+                - assets/images/avatars/abyssal-overlord.png
+                - assets/images/avatars/radiant-paladin.png
+                - assets/images/avatars/porcelain-priestess.png
+                - assets/images/avatars/chaos-court-mage.png
+                - assets/images/avatars/rootbound-dryad.png
+                - assets/images/avatars/leonine-champion.png
+                - assets/images/avatars/spectral-dragon-sage.png
+                - assets/images/avatars/emerald-prophet.png
+                - assets/images/avatars/temporal-scholar.png
+                - assets/images/avatars/mind-illusionist.png
+                - assets/images/avatars/dragonblood-shaman.png
+                - assets/images/avatars/wild-beastmaster.png
+                - assets/images/avatars/tidecaller-oracle.png
+                - assets/images/avatars/nightblade-agent.png
+                - assets/images/avatars/elder-dragon-tyrant.png
+                - assets/images/avatars/moonlit-vampire.png
+                - assets/images/avatars/crimson-patriarch.png
+                - assets/images/avatars/golden-lawkeeper.png
+                - assets/images/avatars/sky-law-artificer.png
+                - assets/images/avatars/sunlit-archon.png
+                - assets/images/avatars/living-metal-sage.png
+                - assets/images/avatars/volcanic-forger.png
+                - assets/images/avatars/nightmare-oracle.png
+                - assets/images/avatars/hawk-wildwarden.png
+                - assets/images/avatars/infernal-noble.png
+                - assets/images/avatars/moonstone-seer.png
+                - assets/images/avatars/obsidian-geomancer.png
+        - type: object
+          required: [type, imageData]
+          properties:
+            type:
+              type: string
+              enum: [upload]
+            imageData:
+              type: string
+              description: Cropped data URL. PNG, JPG or WEBP, max decoded payload 2MB.
+    UserAvatar:
+      type: object
+      required: [type, imageUrl]
+      properties:
+        type:
+          type: string
+          enum: [initial, preset, upload]
+        imageUrl:
+          type: [string, 'null']
+          description: Preset asset URL, uploaded avatar image URL, or null when using the display-name initial.
+        initial:
+          type: [object, 'null']
+          description: Present when the user is using the configurable initial avatar.
+          required: [letter, backgroundColor, textColor]
+          properties:
+            letter:
+              type: string
+              maxLength: 2
+            backgroundColor:
+              type: string
+              pattern: '^#[0-9a-fA-F]{6}$'
+            textColor:
+              type: string
+              pattern: '^#[0-9a-fA-F]{6}$'
     User:
       type: object
-      required: [id, email, displayName, roles]
+      required: [id, email, displayName, roles, avatar]
       properties:
         id:
           type: string
@@ -1976,6 +2129,8 @@ components:
           type: array
           items:
             type: string
+        avatar:
+          $ref: '#/components/schemas/UserAvatar'
     FriendUser:
       type: object
       required: [id, displayName]

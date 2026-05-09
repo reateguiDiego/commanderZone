@@ -1,14 +1,18 @@
-import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, EventEmitter, inject, Input, OnChanges, OnDestroy, Output, SimpleChanges } from '@angular/core';
+import { LucideAngularModule } from 'lucide-angular';
+import { BodyScrollLockService } from '../../services/body-scroll-lock.service';
 import { PrettyScrollDirective } from '../pretty-scroll/pretty-scroll.directive';
 
 @Component({
   selector: 'app-modal',
-  imports: [PrettyScrollDirective],
+  imports: [LucideAngularModule, PrettyScrollDirective],
   templateUrl: './app-modal.component.html',
   styleUrl: './app-modal.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class AppModalComponent {
+export class AppModalComponent implements OnChanges, OnDestroy {
+  private readonly bodyScrollLock = inject(BodyScrollLockService);
+
   @Input() open = false;
   @Input() title = '';
   @Input() message = '';
@@ -18,7 +22,49 @@ export class AppModalComponent {
   @Input() showPrimary = true;
   @Input() showSecondary = true;
   @Input() primaryDisabled = false;
+  @Input() showBackButton = false;
+  @Input() backLabel = 'Back';
+  @Input() showHeaderAction = false;
+  @Input() headerActionLabel = '';
 
+  @Output() back = new EventEmitter<void>();
+  @Output() headerAction = new EventEmitter<void>();
   @Output() primary = new EventEmitter<void>();
   @Output() secondary = new EventEmitter<void>();
+
+  private scrollLocked = false;
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (!changes['open']) {
+      return;
+    }
+
+    if (this.open) {
+      this.lockBodyScroll();
+    } else {
+      this.unlockBodyScroll();
+    }
+  }
+
+  ngOnDestroy(): void {
+    this.unlockBodyScroll();
+  }
+
+  private lockBodyScroll(): void {
+    if (this.scrollLocked) {
+      return;
+    }
+
+    this.bodyScrollLock.lock();
+    this.scrollLocked = true;
+  }
+
+  private unlockBodyScroll(): void {
+    if (!this.scrollLocked) {
+      return;
+    }
+
+    this.bodyScrollLock.unlock();
+    this.scrollLocked = false;
+  }
 }

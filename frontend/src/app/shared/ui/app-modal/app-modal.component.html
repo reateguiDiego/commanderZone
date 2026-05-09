@@ -2,7 +2,19 @@
   <div class="modal-backdrop" role="presentation">
     <section class="modal-panel" appPrettyScroll role="dialog" aria-modal="true" [attr.aria-label]="title">
       <header>
-        <h2>{{ title }}</h2>
+        <div class="modal-title-row">
+          @if (showBackButton) {
+            <button class="modal-back-button" type="button" [attr.aria-label]="backLabel" (click)="back.emit()">
+              <lucide-icon name="arrow-left" size="18" />
+            </button>
+          }
+          <h2>{{ title }}</h2>
+          @if (showHeaderAction) {
+            <button class="modal-header-action" type="button" (click)="headerAction.emit()">
+              {{ headerActionLabel }}
+            </button>
+          }
+        </div>
         @if (message) {
           <p>{{ message }}</p>
         }
@@ -12,16 +24,18 @@
         <ng-content />
       </div>
 
-      <footer>
-        @if (showSecondary) {
-          <button class="secondary-button" type="button" (click)="secondary.emit()">{{ secondaryLabel }}</button>
-        }
-        @if (showPrimary) {
-          <button class="primary-button" [class.danger-action]="danger" type="button" [disabled]="primaryDisabled" (click)="primary.emit()">
-            {{ primaryLabel }}
-          </button>
-        }
-      </footer>
+      @if (showSecondary || showPrimary) {
+        <footer>
+          @if (showSecondary) {
+            <button class="secondary-button" type="button" (click)="secondary.emit()">{{ secondaryLabel }}</button>
+          }
+          @if (showPrimary) {
+            <button class="primary-button" [class.danger-action]="danger" type="button" [disabled]="primaryDisabled" (click)="primary.emit()">
+              {{ primaryLabel }}
+            </button>
+          }
+        </footer>
+      }
     </section>
   </div>
 }

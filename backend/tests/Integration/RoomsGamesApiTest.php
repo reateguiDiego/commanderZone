@@ -748,7 +748,7 @@ class RoomsGamesApiTest extends ApiTestCase
         ]);
 
         $ownerToken = $this->registerAndLogin('invite-permission-owner@example.test', 'Invite Permission Owner');
-        $strangerToken = $this->registerAndLogin('invite-permission-stranger@example.test', 'Invite Permission Stranger');
+        $strangerToken = $this->registerAndLogin('invite-permission-stranger@example.test', 'Invite Perm Stranger');
 
         $ownerDeckId = $this->quickBuildDeck($ownerToken, 'Invite Perm Owner', [
             ['scryfallId' => 'ababcdab-0000-7000-8000-000000000001', 'quantity' => 1, 'section' => 'commander'],

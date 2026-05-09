@@ -4,10 +4,21 @@ import { Observable } from 'rxjs';
 import { API_BASE_URL } from './api.config';
 import { LoginResponse, PasswordResetConfirmResponse, PasswordResetRequestResponse, UserResponse } from '../models/api-responses.model';
 import { withoutGlobalLoading } from '../loading/loading-context';
+import { UserAvatarType } from '../models/user.model';
 
 export interface AuthAvailabilityResponse {
   available: boolean;
 }
+
+export type AvatarUpdatePayload =
+  | {
+      type: Extract<UserAvatarType, 'initial'>;
+      letter?: string;
+      backgroundColor?: string;
+      textColor?: string;
+    }
+  | { type: Extract<UserAvatarType, 'preset'>; imageUrl: string }
+  | { type: Extract<UserAvatarType, 'upload'>; imageData: string };
 
 @Injectable({ providedIn: 'root' })
 export class AuthApi {
@@ -57,6 +68,10 @@ export class AuthApi {
 
   updateMe(payload: { email?: string; displayName?: string }): Observable<UserResponse> {
     return this.http.patch<UserResponse>(`${API_BASE_URL}/me`, payload);
+  }
+
+  updateAvatar(payload: AvatarUpdatePayload): Observable<UserResponse> {
+    return this.http.patch<UserResponse>(`${API_BASE_URL}/me/avatar`, payload);
   }
 
   deleteMe(): Observable<void> {
