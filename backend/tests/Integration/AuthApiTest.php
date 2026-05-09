@@ -14,6 +14,7 @@ class AuthApiTest extends ApiTestCase
         self::assertSame('player@example.test', $this->jsonResponse()['user']['email']);
         self::assertSame('initial', $this->jsonResponse()['user']['avatar']['type']);
         self::assertSame('P', $this->jsonResponse()['user']['avatar']['initial']['letter']);
+        self::assertSame(['type' => 'plain', 'presetId' => 'plain'], $this->jsonResponse()['user']['displayNameStyle']);
 
         $this->jsonRequest('PATCH', '/me', ['displayName' => 'Taken Name'], $token);
         self::assertResponseStatusCodeSame(409);
@@ -163,6 +164,60 @@ class AuthApiTest extends ApiTestCase
         ]);
         self::assertResponseIsSuccessful();
         self::assertArrayHasKey('token', $this->jsonResponse());
+    }
+
+    public function testDisplayNameStyleCanBeUpdated(): void
+    {
+        $token = $this->registerAndLogin('style@example.test', 'Style User');
+
+        $this->jsonRequest('PATCH', '/me/display-name-style', [
+            'presetId' => 'obsidian-crown',
+            'textColor' => '#ffeeaa',
+        ], $token);
+        self::assertResponseIsSuccessful();
+        self::assertSame([
+            'type' => 'preset',
+            'presetId' => 'obsidian-crown',
+            'textColor' => '#ffeeaa',
+        ], $this->jsonResponse()['user']['displayNameStyle']);
+
+        $this->jsonRequest('PATCH', '/me/display-name-style', [
+            'presetId' => 'basic-green',
+            'textColor' => '#d7ffd0',
+        ], $token);
+        self::assertResponseIsSuccessful();
+        self::assertSame([
+            'type' => 'preset',
+            'presetId' => 'basic-green',
+            'textColor' => '#d7ffd0',
+        ], $this->jsonResponse()['user']['displayNameStyle']);
+
+        $this->jsonRequest('PATCH', '/me/display-name-style', [
+            'presetId' => 'plain',
+            'textColor' => '#ffffff',
+        ], $token);
+        self::assertResponseIsSuccessful();
+        self::assertSame([
+            'type' => 'plain',
+            'presetId' => 'plain',
+            'textColor' => '#ffffff',
+        ], $this->jsonResponse()['user']['displayNameStyle']);
+
+        $this->jsonRequest('PATCH', '/me/display-name-style', [
+            'presetId' => 'basic-colorless',
+            'textColor' => '#f8f0d0',
+        ], $token);
+        self::assertResponseIsSuccessful();
+        self::assertSame([
+            'type' => 'preset',
+            'presetId' => 'basic-colorless',
+            'textColor' => '#f8f0d0',
+        ], $this->jsonResponse()['user']['displayNameStyle']);
+
+        $this->jsonRequest('PATCH', '/me/display-name-style', [
+            'presetId' => 'not-available',
+        ], $token);
+        self::assertResponseStatusCodeSame(400);
     }
 
     public function testAvatarCanBeUpdatedWithPresetUploadAndInitialFallback(): void

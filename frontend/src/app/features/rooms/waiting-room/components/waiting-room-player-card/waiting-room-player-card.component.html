@@ -24,8 +24,13 @@
   }
 
   <div class="player-summary">
-    <div class="player-avatar">{{ playerInitial(player) }}</div>
-    <strong>{{ player.user.displayName }}</strong>
+    <app-player-avatar
+      class="player-avatar"
+      [displayName]="player.user.displayName"
+      [avatar]="player.user.avatar"
+      size="lg"
+    />
+    <app-player-name [displayName]="player.user.displayName" [nameStyle]="player.user.displayNameStyle" size="lg" />
 
     <span class="ready-state" [class.ready]="ready()">
       @if (ready()) {

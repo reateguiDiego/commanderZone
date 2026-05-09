@@ -14,6 +14,7 @@ import { Room, RoomPlayer, RoomTimerMode, WaitingRoomEvent } from '../../../core
 import { MercureService } from '../../../core/realtime/mercure.service';
 import { PageHeaderStore } from '../../../core/ui/page-header.store';
 import { AppModalComponent } from '../../../shared/ui/app-modal/app-modal.component';
+import { PlayerNameComponent } from '../../../shared/ui/player-name/player-name.component';
 import { PrettyScrollDirective } from '../../../shared/ui/pretty-scroll/pretty-scroll.directive';
 import { bestCardArtImage } from '../../../shared/utils/card-image';
 import { WaitingDeckOption } from './components/waiting-room-deck-selector/waiting-room-deck-selector.component';
@@ -23,7 +24,15 @@ import { WaitingRoomTurnOrderComponent, WaitingTurnOrderRow } from './components
 
 @Component({
   selector: 'app-waiting-room',
-  imports: [LucideAngularModule, AppModalComponent, PrettyScrollDirective, WaitingRoomGameSetupComponent, WaitingRoomPlayerCardComponent, WaitingRoomTurnOrderComponent],
+  imports: [
+    LucideAngularModule,
+    AppModalComponent,
+    PlayerNameComponent,
+    PrettyScrollDirective,
+    WaitingRoomGameSetupComponent,
+    WaitingRoomPlayerCardComponent,
+    WaitingRoomTurnOrderComponent,
+  ],
   templateUrl: './waiting-room.component.html',
   styleUrl: './waiting-room.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

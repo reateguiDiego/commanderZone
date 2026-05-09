@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, input, output, signal } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
-import { API_BASE_URL } from '../../../../core/api/api.config';
 import { AvatarUpdatePayload } from '../../../../core/api/auth.api';
+import { appImageUrl } from '../../../../core/assets/app-image-url';
 import { UserAvatar } from '../../../../core/models/user.model';
 
 const MAX_UPLOAD_BYTES = 2 * 1024 * 1024;
@@ -29,7 +29,10 @@ export class SettingsAvatarUploadComponent {
   readonly errorMessage = signal<string | null>(null);
 
   readonly initial = computed(() => this.displayName().trim().slice(0, 1).toUpperCase() || 'P');
-  readonly previewImageUrl = computed(() => this.uploadedImageUrl() ?? resolveAvatarImageUrl(this.avatar()?.imageUrl ?? null));
+  readonly previewImageUrl = computed(() => this.uploadedImageUrl() ?? appImageUrl(this.avatar()?.imageUrl ?? null));
+  readonly previewImageSize = computed(() => `${this.zoom() * 100}%`);
+  readonly previewImageOffsetX = computed(() => `${(100 - this.zoom() * 100) * (this.cropX() / 100)}%`);
+  readonly previewImageOffsetY = computed(() => `${(100 - this.zoom() * 100) * (this.cropY() / 100)}%`);
   readonly canSave = computed(() => !this.saving() && this.uploadedImageUrl() !== null);
 
   openFilePicker(fileInput: HTMLInputElement): void {
@@ -132,12 +135,4 @@ function loadImage(imageUrl: string): Promise<HTMLImageElement> {
     image.onerror = reject;
     image.src = imageUrl;
   });
-}
-
-function resolveAvatarImageUrl(imageUrl: string | null): string | null {
-  if (!imageUrl) {
-    return null;
-  }
-
-  return imageUrl.startsWith('/') ? `${API_BASE_URL}${imageUrl}` : imageUrl;
 }

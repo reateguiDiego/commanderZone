@@ -97,10 +97,14 @@ class RoomInvite
             'sender' => [
                 'id' => $this->sender->id(),
                 'displayName' => $this->sender->displayName(),
+                'displayNameStyle' => $this->sender->displayNameStyle(),
+                'avatar' => $this->sender->avatar(),
             ],
             'recipient' => [
                 'id' => $this->recipient->id(),
                 'displayName' => $this->recipient->displayName(),
+                'displayNameStyle' => $this->recipient->displayNameStyle(),
+                'avatar' => $this->recipient->avatar(),
             ],
             'createdAt' => $this->createdAt->format(DATE_ATOM),
             'updatedAt' => $this->updatedAt->format(DATE_ATOM),

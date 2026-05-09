@@ -46,11 +46,20 @@
   height: 2.15rem;
   display: inline-grid;
   place-items: center;
+  padding: 0;
   border: 1px solid rgb(215 180 106 / 32%);
-  border-radius: 999px;
+  border-radius: 10px;
   color: var(--text);
   background: rgb(8 10 8 / 74%);
   cursor: pointer;
+  line-height: 0;
+}
+
+.modal-back-button lucide-icon {
+  display: grid;
+  place-items: center;
+  width: 1.125rem;
+  height: 1.125rem;
 }
 
 .modal-back-button:hover {
@@ -59,10 +68,11 @@
 
 .modal-header-action {
   margin-left: auto;
-  min-height: 2.15rem;
-  padding: 0 0.85rem;
-  border: 1px solid rgb(235 200 120 / 42%);
-  border-radius: 999px;
+  min-width: 8rem;
+  min-height: 2.25rem;
+  padding: 0 0.95rem;
+  border: 1px solid rgb(235 200 120 / 72%);
+  border-radius: 10px;
   color: #16120a;
   background: linear-gradient(180deg, #f0cf82, #b9822e);
   font-weight: 900;

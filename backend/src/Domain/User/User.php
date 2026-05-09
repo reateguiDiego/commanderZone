@@ -15,6 +15,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 {
     private const DEFAULT_INITIAL_BACKGROUND_COLOR = '#edcd83';
     private const DEFAULT_INITIAL_TEXT_COLOR = '#16120a';
+    private const DEFAULT_DISPLAY_NAME_STYLE_PRESET = 'plain';
 
     #[ORM\Id]
     #[ORM\Column(type: 'string', length: 36)]
@@ -25,6 +26,12 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
     #[ORM\Column(type: 'string', length: 25)]
     private string $displayName;
+
+    #[ORM\Column(type: 'string', length: 48)]
+    private string $displayNameStylePreset = self::DEFAULT_DISPLAY_NAME_STYLE_PRESET;
+
+    #[ORM\Column(type: 'string', length: 7, nullable: true)]
+    private ?string $displayNameStyleTextColor = null;
 
     #[ORM\Column(type: 'string')]
     private string $password;
@@ -82,6 +89,18 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function rename(string $displayName): void
     {
         $this->displayName = trim($displayName);
+    }
+
+    public function selectDisplayNameStyle(string $presetId, ?string $textColor = null): void
+    {
+        $this->displayNameStylePreset = trim($presetId);
+        $this->displayNameStyleTextColor = $textColor;
+    }
+
+    public function resetDisplayNameStyle(): void
+    {
+        $this->displayNameStylePreset = self::DEFAULT_DISPLAY_NAME_STYLE_PRESET;
+        $this->displayNameStyleTextColor = null;
     }
 
     public function changeEmail(string $email): void
@@ -179,12 +198,27 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $avatar;
     }
 
+    public function displayNameStyle(): array
+    {
+        $style = [
+            'type' => $this->displayNameStylePreset === self::DEFAULT_DISPLAY_NAME_STYLE_PRESET ? 'plain' : 'preset',
+            'presetId' => $this->displayNameStylePreset,
+        ];
+
+        if ($this->displayNameStyleTextColor !== null) {
+            $style['textColor'] = $this->displayNameStyleTextColor;
+        }
+
+        return $style;
+    }
+
     public function toArray(): array
     {
         return [
             'id' => $this->id,
             'email' => $this->email,
             'displayName' => $this->displayName,
+            'displayNameStyle' => $this->displayNameStyle(),
             'roles' => $this->getRoles(),
             'avatar' => $this->avatar(),
         ];

@@ -76,6 +76,20 @@ describe('API services', () => {
       },
     });
 
+    auth.updateDisplayNameStyle({ presetId: 'obsidian-crown', textColor: '#ffeeaa' }).subscribe();
+    request = http.expectOne(`${API_BASE_URL}/me/display-name-style`);
+    expect(request.request.method).toBe('PATCH');
+    expect(request.request.body).toEqual({ presetId: 'obsidian-crown', textColor: '#ffeeaa' });
+    request.flush({
+      user: {
+        id: 'user-1',
+        email: 'updated@example.test',
+        displayName: 'Updated Player',
+        roles: ['ROLE_USER'],
+        displayNameStyle: { type: 'preset', presetId: 'obsidian-crown', textColor: '#ffeeaa' },
+      },
+    });
+
     auth.deleteMe().subscribe();
     request = http.expectOne(`${API_BASE_URL}/me`);
     expect(request.request.method).toBe('DELETE');

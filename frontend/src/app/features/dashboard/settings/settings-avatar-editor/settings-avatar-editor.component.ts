@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, input, output, signal } from '@angular/core';
-import { API_BASE_URL } from '../../../../core/api/api.config';
 import { AvatarUpdatePayload } from '../../../../core/api/auth.api';
+import { appImageUrl } from '../../../../core/assets/app-image-url';
 import { UserAvatar } from '../../../../core/models/user.model';
 import { SettingsInitialAvatarOptionComponent } from './components/settings-initial-avatar-option/settings-initial-avatar-option.component';
 import { PRESET_AVATARS, type PresetAvatar } from './preset-avatars';
@@ -26,6 +26,7 @@ export class SettingsAvatarEditorComponent {
 
   readonly backRequested = output<void>();
   readonly saveRequested = output<AvatarUpdatePayload>();
+  readonly tierChanged = output<AvatarTierTab>();
 
   readonly presetAvatars = PRESET_AVATARS;
   readonly basicPresetAvatars = PRESET_AVATARS.filter((avatar) => avatar.tier === 'basic');
@@ -42,7 +43,7 @@ export class SettingsAvatarEditorComponent {
   readonly initial = computed(() => this.displayName().trim().slice(0, 1).toUpperCase() || 'P');
   readonly selectedPresetImageUrl = computed(() => {
     if (this.pendingType() === 'preset') {
-      return this.selectedPresetUrl();
+      return appImageUrl(this.selectedPresetUrl());
     }
 
     const avatar = this.avatar();
@@ -60,7 +61,7 @@ export class SettingsAvatarEditorComponent {
       return null;
     }
 
-    return resolveAvatarImageUrl(this.avatar()?.imageUrl ?? null);
+    return appImageUrl(this.avatar()?.imageUrl ?? null);
   });
   readonly previewIsPremium = computed(() => {
     const imageUrl = this.pendingType() === 'preset'
@@ -138,6 +139,7 @@ export class SettingsAvatarEditorComponent {
 
   switchTier(tier: AvatarTierTab): void {
     this.activeTier.set(tier);
+    this.tierChanged.emit(tier);
   }
 
   updateInitialLetter(value: string): void {
@@ -207,12 +209,4 @@ function normalizeInitialLetter(value: string, fallback: string): string {
 
 function normalizeHexColor(value: string, fallback: string): string {
   return /^#[0-9a-fA-F]{6}$/.test(value) ? value : fallback;
-}
-
-function resolveAvatarImageUrl(imageUrl: string | null): string | null {
-  if (!imageUrl) {
-    return null;
-  }
-
-  return imageUrl.startsWith('/') ? `${API_BASE_URL}${imageUrl}` : imageUrl;
 }

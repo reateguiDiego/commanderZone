@@ -1,13 +1,16 @@
+import { publicAssetUrl } from '../../../../core/assets/app-image-url';
+
 export type PresetAvatarTier = 'basic' | 'premium';
 
 export interface PresetAvatar {
   readonly id: string;
   readonly label: string;
   readonly imageUrl: string;
+  readonly displayUrl: string;
   readonly tier: PresetAvatarTier;
 }
 
-export const PRESET_AVATARS: readonly PresetAvatar[] = [
+const PRESET_AVATAR_DEFINITIONS = [
   { id: 'arcane-duelist', label: 'Arcane Duelist', imageUrl: 'assets/images/avatars/arcane-duelist.png', tier: 'basic' },
   { id: 'storm-seer', label: 'Storm Seer', imageUrl: 'assets/images/avatars/storm-seer.png', tier: 'basic' },
   { id: 'verdant-warden', label: 'Verdant Warden', imageUrl: 'assets/images/avatars/verdant-warden.png', tier: 'basic' },
@@ -49,3 +52,8 @@ export const PRESET_AVATARS: readonly PresetAvatar[] = [
   { id: 'moonstone-seer', label: 'Moonstone Seer', imageUrl: 'assets/images/avatars/moonstone-seer.png', tier: 'premium' },
   { id: 'obsidian-geomancer', label: 'Obsidian Geomancer', imageUrl: 'assets/images/avatars/obsidian-geomancer.png', tier: 'premium' },
 ] as const;
+
+export const PRESET_AVATARS: readonly PresetAvatar[] = PRESET_AVATAR_DEFINITIONS.map((avatar) => ({
+  ...avatar,
+  displayUrl: publicAssetUrl(avatar.imageUrl),
+}));

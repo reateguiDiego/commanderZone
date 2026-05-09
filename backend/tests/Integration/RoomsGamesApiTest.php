@@ -1217,6 +1217,12 @@ class RoomsGamesApiTest extends ApiTestCase
         self::assertResponseStatusCodeSame(201);
         $gameId = (string) $this->jsonResponse()['game']['id'];
 
+        $this->jsonRequest('PATCH', '/me/avatar', [
+            'type' => 'preset',
+            'imageUrl' => 'assets/images/avatars/storm-seer.png',
+        ], $playerToken);
+        self::assertResponseIsSuccessful();
+
         $this->jsonRequest('GET', '/games/'.$gameId.'/snapshot', token: $externalToken);
         self::assertResponseStatusCodeSame(403);
 
@@ -1234,6 +1240,7 @@ class RoomsGamesApiTest extends ApiTestCase
         $ownerPlayerId = $this->playerIdByName($ownerSnapshot, 'Owner');
         $playerPlayerId = $this->playerIdByName($ownerSnapshot, 'Player');
         self::assertSame($ownerPlayerId, $ownerSnapshot['ownerId']);
+        self::assertSame('assets/images/avatars/storm-seer.png', $ownerSnapshot['players'][$playerPlayerId]['user']['avatar']['imageUrl']);
         self::assertCount(92, $ownerSnapshot['players'][$ownerPlayerId]['zones']['library']);
         self::assertSame(['G'], $ownerSnapshot['players'][$ownerPlayerId]['colorIdentity']);
         self::assertContains(['G'], array_column($ownerSnapshot['players'][$ownerPlayerId]['zones']['library'], 'colorIdentity'));

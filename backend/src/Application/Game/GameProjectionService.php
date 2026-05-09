@@ -3,6 +3,7 @@
 namespace App\Application\Game;
 
 use App\Domain\Game\Game;
+use App\Domain\Room\RoomPlayer;
 use App\Domain\User\User;
 
 class GameProjectionService
@@ -15,7 +16,9 @@ class GameProjectionService
 
     public function project(Game $game, User $viewer): array
     {
-        return $this->projectSnapshot($this->normalizer->normalizeSnapshot($game->snapshot()), $viewer);
+        $snapshot = $this->normalizer->normalizeSnapshot($game->snapshot());
+
+        return $this->projectSnapshot($this->withCurrentPlayerUsers($game, $snapshot), $viewer);
     }
 
     public function projectSnapshot(array $snapshot, User $viewer): array
@@ -104,5 +107,21 @@ class GameProjectionService
         }
 
         return $card;
+    }
+
+    private function withCurrentPlayerUsers(Game $game, array $snapshot): array
+    {
+        foreach ($game->room()->orderedPlayers() as $roomPlayer) {
+            if (!$roomPlayer instanceof RoomPlayer) {
+                continue;
+            }
+
+            $userId = $roomPlayer->user()->id();
+            if (isset($snapshot['players'][$userId]) && is_array($snapshot['players'][$userId])) {
+                $snapshot['players'][$userId]['user'] = $roomPlayer->user()->toArray();
+            }
+        }
+
+        return $snapshot;
     }
 }

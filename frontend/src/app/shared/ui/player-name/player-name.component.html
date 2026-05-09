@@ -1,0 +1,11 @@
+<span
+  [class]="classValue()"
+  [class.premium]="premium()"
+  [class.has-nameplate]="hasNameplate()"
+  [style.--name-text-color]="textColor()"
+>
+@if (nameplateUrl()) {
+  <img class="nameplate-image" [src]="nameplateUrl()" alt="" aria-hidden="true" draggable="false" />
+}
+<span class="player-name-label">{{ label() }}</span>
+</span>

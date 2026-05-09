@@ -3,10 +3,11 @@ import { RouterLink } from '@angular/router';
 import { LucideAngularModule } from 'lucide-angular';
 import { DeckFormat } from '../../../../../core/models/deck.model';
 import { Room } from '../../../../../core/models/room.model';
+import { PlayerNameComponent } from '../../../../../shared/ui/player-name/player-name.component';
 
 @Component({
   selector: 'app-room-row',
-  imports: [RouterLink, LucideAngularModule],
+  imports: [RouterLink, LucideAngularModule, PlayerNameComponent],
   templateUrl: './room-row.component.html',
   styleUrl: './room-row.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

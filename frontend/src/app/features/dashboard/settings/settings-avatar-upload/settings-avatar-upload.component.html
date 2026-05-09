@@ -12,8 +12,10 @@
             [src]="previewImageUrl()"
             alt="Avatar preview"
             draggable="false"
-            [style.object-position]="cropX() + '% ' + cropY() + '%'"
-            [style.transform]="'scale(' + zoom() + ')'"
+            [style.width]="previewImageSize()"
+            [style.height]="previewImageSize()"
+            [style.left]="previewImageOffsetX()"
+            [style.top]="previewImageOffsetY()"
             (dragstart)="$event.preventDefault()"
           />
         } @else {
@@ -42,15 +44,15 @@
       <div class="crop-controls">
         <label>
           Horizontal
-          <input type="range" min="0" max="100" [value]="cropX()" [disabled]="!uploadedImageUrl()" (input)="setCropX($event)" />
+          <input type="range" min="0" max="100" step="1" [value]="cropX()" [disabled]="!uploadedImageUrl()" (input)="setCropX($event)" />
         </label>
         <label>
           Vertical
-          <input type="range" min="0" max="100" [value]="cropY()" [disabled]="!uploadedImageUrl()" (input)="setCropY($event)" />
+          <input type="range" min="0" max="100" step="1" [value]="cropY()" [disabled]="!uploadedImageUrl()" (input)="setCropY($event)" />
         </label>
         <label>
           Zoom
-          <input type="range" min="100" max="250" [value]="zoom() * 100" [disabled]="!uploadedImageUrl()" (input)="setZoom($event)" />
+          <input type="range" min="100" max="250" step="1" [value]="zoom() * 100" [disabled]="!uploadedImageUrl()" (input)="setZoom($event)" />
         </label>
       </div>
     </section>
@@ -62,7 +64,7 @@
 
   <footer class="avatar-upload-actions">
     <button class="primary-button" type="button" [disabled]="!canSave()" (click)="save()">
-      {{ saving() ? 'Saving...' : 'Save avatar' }}
+      {{ saving() ? 'Saving...' : 'Save' }}
     </button>
   </footer>
 </section>

@@ -16,8 +16,8 @@ describe('AppBackgroundService', () => {
 
     const service = TestBed.inject(AppBackgroundService);
 
-    expect(service.imageUrl).toBe('assets/images/backgrounds/back_4.png');
-    expect(document.documentElement.style.getPropertyValue('--app-session-background')).toBe('url("assets/images/backgrounds/back_4.png")');
+    expect(service.imageUrl).toBe('/assets/images/backgrounds/back_4.png');
+    expect(document.documentElement.style.getPropertyValue('--app-session-background')).toBe('url("/assets/images/backgrounds/back_4.png")');
   });
 
   it('toggles dashboard background mode on the document body', () => {
@@ -36,10 +36,10 @@ describe('AppBackgroundService', () => {
 
     service.useNewSessionBackground();
 
-    expect(service.imageUrl).not.toBe('assets/images/backgrounds/back_4.png');
-    expect(service.imageUrl).toMatch(/^assets\/images\/backgrounds\/back_\d\.png$/);
+    expect(service.imageUrl).not.toBe('/assets/images/backgrounds/back_4.png');
+    expect(service.imageUrl).toMatch(/^\/assets\/images\/backgrounds\/back_\d\.png$/);
     expect(sessionStorage.getItem(sessionKey)).toBe(service.imageUrl);
-    expect(sessionStorage.getItem('commanderzone.previousBackgroundImage')).toBe('assets/images/backgrounds/back_4.png');
+    expect(sessionStorage.getItem('commanderzone.previousBackgroundImage')).toBe('/assets/images/backgrounds/back_4.png');
     expect(document.documentElement.style.getPropertyValue('--app-session-background')).toBe(`url("${service.imageUrl}")`);
   });
 });

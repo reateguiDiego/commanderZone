@@ -83,7 +83,7 @@ describe('DashboardShellComponent', () => {
     fixture.detectChanges();
 
     const brandLogo = fixture.nativeElement.querySelector('.brand-mark img') as HTMLImageElement | null;
-    expect(brandLogo?.getAttribute('src')).toBe('assets/icons/CM_logo.png');
+    expect(brandLogo?.getAttribute('src')).toBe('/assets/icons/CM_logo.png');
     expect(fixture.nativeElement.textContent).toContain('Player');
   });
 
@@ -93,7 +93,7 @@ describe('DashboardShellComponent', () => {
     fixture.detectChanges();
 
     const brandLogo = fixture.nativeElement.querySelector('.brand-mark img') as HTMLImageElement | null;
-    expect(brandLogo?.getAttribute('src')).toBe('assets/icons/CM_logo.png');
+    expect(brandLogo?.getAttribute('src')).toBe('/assets/icons/CM_logo.png');
     expect(fixture.nativeElement.textContent).not.toContain('Decks');
     expect(fixture.nativeElement.textContent).not.toContain('Rooms');
     expect(fixture.nativeElement.textContent).not.toContain('Player');

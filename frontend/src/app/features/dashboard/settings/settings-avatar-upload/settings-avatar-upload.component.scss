@@ -53,6 +53,7 @@
 }
 
 .avatar-preview {
+  position: relative;
   width: min(18rem, 100%);
   aspect-ratio: 1;
   display: grid;
@@ -66,10 +67,9 @@
 }
 
 .avatar-preview img {
-  width: 100%;
-  height: 100%;
+  position: absolute;
+  display: block;
   object-fit: cover;
-  transform-origin: center;
   -webkit-user-drag: none;
   user-select: none;
 }
@@ -115,8 +115,11 @@
   text-transform: uppercase;
 }
 
-.crop-controls input {
+.crop-controls input[type='range'] {
+  width: 100%;
+  margin: 0;
   accent-color: #d5a84f;
+  cursor: pointer;
 }
 
 .file-input {

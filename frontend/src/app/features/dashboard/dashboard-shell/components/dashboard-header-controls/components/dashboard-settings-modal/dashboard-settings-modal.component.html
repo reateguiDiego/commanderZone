@@ -2,37 +2,51 @@
   [open]="open()"
   title="Settings"
   secondaryLabel="Cancel"
-  primaryLabel="Save preferences"
-  [showSecondary]="!avatarEditorOpen()"
-  [showPrimary]="!avatarEditorOpen()"
+  primaryLabel="Save"
+  [showSecondary]="!nestedEditorOpen()"
+  [showPrimary]="!nestedEditorOpen()"
   [primaryDisabled]="!canSave()"
-  [showBackButton]="avatarEditorOpen()"
+  [showBackButton]="nestedEditorOpen()"
   backLabel="Back to settings"
-  [showHeaderAction]="avatarEditorOpen()"
+  [showHeaderAction]="avatarEditorOpen() && (avatarUploadOpen() || avatarEditorTier() === 'premium')"
   [headerActionLabel]="avatarUploadOpen() ? 'Predefined avatars' : 'Upload image'"
-  (back)="closeAvatarEditor()"
+  (back)="closeNestedEditor()"
   (headerAction)="toggleAvatarUploadMode()"
   (secondary)="cancel()"
   (primary)="savePreferences()"
 >
-  <div class="settings-modal-layout" [class.avatar-mode]="avatarEditorOpen()">
-    @if (avatarEditorOpen()) {
+  <div class="settings-modal-layout" [class.editor-mode]="nestedEditorOpen()">
+    @if (displayNameStyleEditorOpen()) {
+      @defer (when displayNameStyleEditorOpen()) {
+        <app-settings-display-name-style-editor
+          [displayName]="currentUserDisplayName()"
+          [nameStyle]="currentUserDisplayNameStyle()"
+          [saving]="displayNameStyleSaveInProgress()"
+          (saveRequested)="saveDisplayNameStyle($event)"
+        />
+      }
+    } @else if (avatarEditorOpen()) {
       @if (avatarUploadOpen()) {
-        <app-settings-avatar-upload
-          [displayName]="currentUserDisplayName()"
-          [avatar]="currentUserAvatar()"
-          [saving]="avatarSaveInProgress()"
-          (cancelRequested)="closeAvatarEditor()"
-          (saveRequested)="saveAvatar($event)"
-        />
+        @defer (when avatarUploadOpen()) {
+          <app-settings-avatar-upload
+            [displayName]="currentUserDisplayName()"
+            [avatar]="currentUserAvatar()"
+            [saving]="avatarSaveInProgress()"
+            (cancelRequested)="closeAvatarEditor()"
+            (saveRequested)="saveAvatar($event)"
+          />
+        }
       } @else {
-        <app-settings-avatar-editor
-          [displayName]="currentUserDisplayName()"
-          [avatar]="currentUserAvatar()"
-          [saving]="avatarSaveInProgress()"
-          (backRequested)="closeAvatarEditor()"
-          (saveRequested)="saveAvatar($event)"
-        />
+        @defer (when avatarEditorOpen()) {
+          <app-settings-avatar-editor
+            [displayName]="currentUserDisplayName()"
+            [avatar]="currentUserAvatar()"
+            [saving]="avatarSaveInProgress()"
+            (backRequested)="closeAvatarEditor()"
+            (tierChanged)="setAvatarEditorTier($event)"
+            (saveRequested)="saveAvatar($event)"
+          />
+        }
       }
     } @else {
       <nav class="settings-tabs" aria-label="Settings sections">
@@ -57,10 +71,12 @@
                 }
               </div>
               <div class="settings-avatar-copy">
-                <span>Player avatar</span>
-                <strong>{{ currentUserDisplayName() }}</strong>
+                <app-player-name [displayName]="currentUserDisplayName()" [nameStyle]="currentUserDisplayNameStyle()" size="lg" />
               </div>
-              <button class="secondary-button avatar-change-button" type="button" (click)="openAvatarEditor()">Change avatar</button>
+              <div class="settings-profile-actions">
+                <button class="secondary-button avatar-change-button" type="button" (click)="openAvatarEditor()">Avatar</button>
+                <button class="secondary-button name-style-change-button" type="button" (click)="openDisplayNameStyleEditor()">Name</button>
+              </div>
             </section>
 
             <label>
@@ -117,20 +133,20 @@
                 <p>Permanently delete your account and all associated data including decks and preferences. This action cannot be undone.</p>
               </div>
 
-              @if (!deleteConfirmationOpen()) {
-                <button class="danger-button" type="button" [disabled]="deleteInProgress() || saveInProgress()" (click)="deleteConfirmationOpen.set(true)">
-                  <lucide-icon name="trash2" size="16" />
-                  Delete account
-                </button>
-              } @else {
+              <button class="danger-button" type="button" [disabled]="deleteInProgress() || saveInProgress()" (click)="requestDeleteAccount()">
+                <lucide-icon name="trash2" size="16" />
+                Delete account
+              </button>
+
+              @if (deleteConfirmationOpen()) {
                 <div class="delete-confirmation">
-                  <span>Confirmas que quieres eliminar la cuenta?</span>
+                  <span>Are you sure you want to permanently delete your account?</span>
                   <div class="delete-actions">
-                    <button type="button" class="secondary-button compact" [disabled]="deleteInProgress()" (click)="deleteConfirmationOpen.set(false)">
-                      Keep account
+                    <button type="button" class="secondary-button keep-account-button" [disabled]="deleteInProgress()" (click)="cancelDeleteAccount()">
+                      Cancel
                     </button>
-                    <button type="button" class="danger-button compact" [disabled]="deleteInProgress()" (click)="deleteAccount()">
-                      {{ deleteInProgress() ? 'Deleting...' : 'Confirm delete' }}
+                    <button type="button" class="danger-button compact muted-danger-button" [disabled]="deleteInProgress()" (click)="deleteAccount()">
+                      {{ deleteInProgress() ? 'Deleting...' : 'Delete account' }}
                     </button>
                   </div>
                 </div>

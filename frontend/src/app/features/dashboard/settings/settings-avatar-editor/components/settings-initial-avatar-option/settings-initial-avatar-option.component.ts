@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 
 @Component({
   selector: 'app-settings-initial-avatar-option',
@@ -14,6 +14,8 @@ export class SettingsInitialAvatarOptionComponent {
   readonly letter = input('P');
   readonly backgroundColor = input('#edcd83');
   readonly textColor = input('#16120a');
+
+  readonly active = computed(() => this.selected() && this.controlsOpen());
 
   readonly selectedRequested = output<void>();
   readonly interactionStarted = output<MouseEvent>();

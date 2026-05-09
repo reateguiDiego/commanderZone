@@ -20,6 +20,11 @@ export type AvatarUpdatePayload =
   | { type: Extract<UserAvatarType, 'preset'>; imageUrl: string }
   | { type: Extract<UserAvatarType, 'upload'>; imageData: string };
 
+export interface DisplayNameStyleUpdatePayload {
+  presetId: string;
+  textColor?: string | null;
+}
+
 @Injectable({ providedIn: 'root' })
 export class AuthApi {
   private readonly http = inject(HttpClient);
@@ -72,6 +77,10 @@ export class AuthApi {
 
   updateAvatar(payload: AvatarUpdatePayload): Observable<UserResponse> {
     return this.http.patch<UserResponse>(`${API_BASE_URL}/me/avatar`, payload);
+  }
+
+  updateDisplayNameStyle(payload: DisplayNameStyleUpdatePayload): Observable<UserResponse> {
+    return this.http.patch<UserResponse>(`${API_BASE_URL}/me/display-name-style`, payload);
   }
 
   deleteMe(): Observable<void> {

@@ -1,6 +1,8 @@
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
 import { GameCardInstance, GameZoneName } from '../../../../core/models/game.model';
 import { ManaSymbolsComponent } from '../../../../shared/mana/mana-symbols/mana-symbols.component';
+import { PlayerAvatarComponent } from '../../../../shared/ui/player-avatar/player-avatar.component';
+import { PlayerNameComponent } from '../../../../shared/ui/player-name/player-name.component';
 import { PlayerView } from '../game-table.store';
 import { GameCardViewComponent } from '../game-card-view/game-card-view.component';
 
@@ -22,7 +24,7 @@ interface CardPreviewEvent {
 
 @Component({
   selector: 'app-opponent-mini-board',
-  imports: [ManaSymbolsComponent, GameCardViewComponent],
+  imports: [ManaSymbolsComponent, PlayerAvatarComponent, PlayerNameComponent, GameCardViewComponent],
   templateUrl: './opponent-mini-board.component.html',
   styleUrl: './opponent-mini-board.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

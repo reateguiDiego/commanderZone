@@ -26,6 +26,15 @@ describe('SettingsInitialAvatarOptionComponent', () => {
     expect(fixture.nativeElement.querySelector('input[type="text"]')).not.toBeNull();
   });
 
+  it('removes the selected visual state when controls are closed', () => {
+    const fixture = TestBed.createComponent(SettingsInitialAvatarOptionComponent);
+    fixture.componentRef.setInput('selected', true);
+    fixture.componentRef.setInput('controlsOpen', false);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.initial-avatar-option').classList.contains('selected')).toBe(false);
+  });
+
   it('emits selection when the option section is clicked', () => {
     const fixture = TestBed.createComponent(SettingsInitialAvatarOptionComponent);
     const selected = vi.fn();

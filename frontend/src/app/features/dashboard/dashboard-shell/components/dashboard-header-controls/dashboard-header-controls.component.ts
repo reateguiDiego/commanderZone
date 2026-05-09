@@ -1,6 +1,9 @@
 import { ChangeDetectionStrategy, Component, inject, input, output, signal } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
 import { FullscreenService } from '../../../../../core/fullscreen/fullscreen.service';
+import { UserAvatar, UserDisplayNameStyle } from '../../../../../core/models/user.model';
+import { PlayerAvatarComponent } from '../../../../../shared/ui/player-avatar/player-avatar.component';
+import { PlayerNameComponent } from '../../../../../shared/ui/player-name/player-name.component';
 import { FriendsDropdownComponent } from '../../../../friends/friends-dropdown/friends-dropdown.component';
 import { DashboardSettingsModalComponent } from './components/dashboard-settings-modal/dashboard-settings-modal.component';
 import { HeaderUserMenuComponent } from './components/header-user-menu/header-user-menu.component';
@@ -9,6 +12,8 @@ import { HeaderUserMenuComponent } from './components/header-user-menu/header-us
   selector: 'app-dashboard-header-controls',
   imports: [
     LucideAngularModule,
+    PlayerAvatarComponent,
+    PlayerNameComponent,
     FriendsDropdownComponent,
     HeaderUserMenuComponent,
     DashboardSettingsModalComponent,
@@ -20,6 +25,8 @@ import { HeaderUserMenuComponent } from './components/header-user-menu/header-us
 export class DashboardHeaderControlsComponent {
   private readonly fullscreen = inject(FullscreenService);
   readonly userLabel = input('Player');
+  readonly userAvatar = input<UserAvatar | null | undefined>(null);
+  readonly userNameStyle = input<UserDisplayNameStyle | null | undefined>(null);
   readonly friendsOpen = input(false);
   readonly pendingNotificationsCount = input(0);
   readonly onlineFriendsCount = input(0);

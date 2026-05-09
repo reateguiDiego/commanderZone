@@ -24,7 +24,16 @@
     align-items: stretch;
     flex-direction: column;
     gap: 0.65rem;
+    margin-top: 0;
     margin-bottom: 0.65rem;
-    padding: 0.65rem 0.75rem;
+    padding: 0 0.75rem 0.65rem;
+  }
+
+  app-dashboard-header-controls {
+    order: 1;
+  }
+
+  app-dashboard-header-context {
+    order: 2;
   }
 }

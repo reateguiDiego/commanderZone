@@ -3,16 +3,19 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
 import { catchError, debounceTime, distinctUntilChanged, firstValueFrom, map, of, startWith, switchMap, tap } from 'rxjs';
-import { AuthApi, AvatarUpdatePayload } from '../../../../../../../core/api/auth.api';
-import { API_BASE_URL } from '../../../../../../../core/api/api.config';
+import { AuthApi, AvatarUpdatePayload, DisplayNameStyleUpdatePayload } from '../../../../../../../core/api/auth.api';
+import { appImageUrl } from '../../../../../../../core/assets/app-image-url';
 import { AuthStore } from '../../../../../../../core/auth/auth.store';
-import { UserAvatar } from '../../../../../../../core/models/user.model';
+import { UserAvatar, UserDisplayNameStyle } from '../../../../../../../core/models/user.model';
 import { AppModalComponent } from '../../../../../../../shared/ui/app-modal/app-modal.component';
+import { PlayerNameComponent } from '../../../../../../../shared/ui/player-name/player-name.component';
+import { SettingsDisplayNameStyleEditorComponent } from '../../../../../settings/settings-display-name-style-editor/settings-display-name-style-editor.component';
 import { SettingsAvatarEditorComponent } from '../../../../../settings/settings-avatar-editor/settings-avatar-editor.component';
 import { SettingsAvatarUploadComponent } from '../../../../../settings/settings-avatar-upload/settings-avatar-upload.component';
 
 type SettingsTab = 'general' | 'game';
 type FieldAvailability = 'idle' | 'checking' | 'available' | 'taken' | 'error';
+type AvatarTierTab = 'basic' | 'premium';
 
 interface ProfileSnapshot {
   readonly email: string;
@@ -27,7 +30,15 @@ const DEFAULT_INITIAL_TEXT_COLOR = '#16120a';
 
 @Component({
   selector: 'app-dashboard-settings-modal',
-  imports: [AppModalComponent, ReactiveFormsModule, LucideAngularModule, SettingsAvatarEditorComponent, SettingsAvatarUploadComponent],
+  imports: [
+    AppModalComponent,
+    ReactiveFormsModule,
+    LucideAngularModule,
+    PlayerNameComponent,
+    SettingsAvatarEditorComponent,
+    SettingsAvatarUploadComponent,
+    SettingsDisplayNameStyleEditorComponent,
+  ],
   templateUrl: './dashboard-settings-modal.component.html',
   styleUrl: './dashboard-settings-modal.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -49,11 +60,14 @@ export class DashboardSettingsModalComponent {
   readonly saveInProgress = signal(false);
   readonly deleteInProgress = signal(false);
   readonly avatarSaveInProgress = signal(false);
+  readonly displayNameStyleSaveInProgress = signal(false);
   readonly statusMessage = signal<string | null>(null);
   readonly errorMessage = signal<string | null>(null);
   readonly deleteConfirmationOpen = signal(false);
   readonly avatarEditorOpen = signal(false);
   readonly avatarUploadOpen = signal(false);
+  readonly avatarEditorTier = signal<AvatarTierTab>('basic');
+  readonly displayNameStyleEditorOpen = signal(false);
   readonly profileBaseline = signal<ProfileSnapshot>({ email: '', displayName: '' });
 
   readonly profileForm = this.formBuilder.group({
@@ -88,14 +102,16 @@ export class DashboardSettingsModalComponent {
   });
 
   readonly currentUserDisplayName = computed(() => this.authStore.user()?.displayName ?? 'Player');
+  readonly currentUserDisplayNameStyle = computed<UserDisplayNameStyle | undefined>(() => this.authStore.user()?.displayNameStyle);
   readonly currentUserAvatar = computed<UserAvatar | undefined>(() => this.authStore.user()?.avatar);
+  readonly nestedEditorOpen = computed(() => this.avatarEditorOpen() || this.displayNameStyleEditorOpen());
   readonly avatarInitial = computed(() => {
     return this.currentUserAvatar()?.initial?.letter
       ?? (this.currentUserDisplayName().trim().slice(0, 1).toUpperCase() || 'P');
   });
   readonly avatarInitialBackgroundColor = computed(() => this.currentUserAvatar()?.initial?.backgroundColor ?? DEFAULT_INITIAL_BACKGROUND_COLOR);
   readonly avatarInitialTextColor = computed(() => this.currentUserAvatar()?.initial?.textColor ?? DEFAULT_INITIAL_TEXT_COLOR);
-  readonly avatarImageUrl = computed(() => resolveAvatarImageUrl(this.currentUserAvatar()?.imageUrl ?? null));
+  readonly avatarImageUrl = computed(() => appImageUrl(this.currentUserAvatar()?.imageUrl ?? null));
 
   constructor() {
     this.trackFormState();
@@ -118,8 +134,8 @@ export class DashboardSettingsModalComponent {
   }
 
   cancel(): void {
-    if (this.avatarEditorOpen()) {
-      this.closeAvatarEditor();
+    if (this.nestedEditorOpen()) {
+      this.closeNestedEditor();
       return;
     }
 
@@ -130,13 +146,30 @@ export class DashboardSettingsModalComponent {
     this.statusMessage.set(null);
     this.errorMessage.set(null);
     this.avatarUploadOpen.set(false);
+    this.avatarEditorTier.set('basic');
     this.avatarEditorOpen.set(true);
+    this.displayNameStyleEditorOpen.set(false);
   }
 
   closeAvatarEditor(): void {
     this.avatarEditorOpen.set(false);
     this.avatarUploadOpen.set(false);
+    this.avatarEditorTier.set('basic');
     this.avatarSaveInProgress.set(false);
+  }
+
+  openDisplayNameStyleEditor(): void {
+    this.statusMessage.set(null);
+    this.errorMessage.set(null);
+    this.avatarEditorOpen.set(false);
+    this.avatarUploadOpen.set(false);
+    this.displayNameStyleEditorOpen.set(true);
+  }
+
+  closeNestedEditor(): void {
+    this.closeAvatarEditor();
+    this.displayNameStyleEditorOpen.set(false);
+    this.displayNameStyleSaveInProgress.set(false);
   }
 
   openAvatarUpload(): void {
@@ -146,9 +179,31 @@ export class DashboardSettingsModalComponent {
   }
 
   toggleAvatarUploadMode(): void {
+    if (!this.avatarUploadOpen() && this.avatarEditorTier() !== 'premium') {
+      return;
+    }
+
     this.statusMessage.set(null);
     this.errorMessage.set(null);
     this.avatarUploadOpen.update((isOpen) => !isOpen);
+  }
+
+  setAvatarEditorTier(tier: AvatarTierTab): void {
+    this.avatarEditorTier.set(tier);
+  }
+
+  requestDeleteAccount(): void {
+    this.statusMessage.set(null);
+    this.errorMessage.set(null);
+    this.deleteConfirmationOpen.set(true);
+  }
+
+  cancelDeleteAccount(): void {
+    if (this.deleteInProgress()) {
+      return;
+    }
+
+    this.deleteConfirmationOpen.set(false);
   }
 
   async savePreferences(): Promise<void> {
@@ -222,6 +277,23 @@ export class DashboardSettingsModalComponent {
     }
   }
 
+  async saveDisplayNameStyle(payload: DisplayNameStyleUpdatePayload): Promise<void> {
+    this.displayNameStyleSaveInProgress.set(true);
+    this.errorMessage.set(null);
+    this.statusMessage.set(null);
+
+    try {
+      await firstValueFrom(this.authApi.updateDisplayNameStyle(payload));
+      await this.authStore.loadMe();
+      this.displayNameStyleEditorOpen.set(false);
+      this.statusMessage.set('Name style updated.');
+    } catch {
+      this.errorMessage.set('No se pudo guardar el estilo del nombre.');
+    } finally {
+      this.displayNameStyleSaveInProgress.set(false);
+    }
+  }
+
   emailAvailabilityVisible(): boolean {
     if (!this.emailChanged()) {
       return false;
@@ -271,8 +343,11 @@ export class DashboardSettingsModalComponent {
     this.saveInProgress.set(false);
     this.deleteInProgress.set(false);
     this.avatarSaveInProgress.set(false);
+    this.displayNameStyleSaveInProgress.set(false);
     this.avatarEditorOpen.set(false);
     this.avatarUploadOpen.set(false);
+    this.avatarEditorTier.set('basic');
+    this.displayNameStyleEditorOpen.set(false);
     this.deleteConfirmationOpen.set(false);
   }
 
@@ -359,12 +434,4 @@ export class DashboardSettingsModalComponent {
       )
       .subscribe((availability) => this.userNameAvailability.set(availability));
   }
-}
-
-function resolveAvatarImageUrl(imageUrl: string | null): string | null {
-  if (!imageUrl) {
-    return null;
-  }
-
-  return imageUrl.startsWith('/') ? `${API_BASE_URL}${imageUrl}` : imageUrl;
 }

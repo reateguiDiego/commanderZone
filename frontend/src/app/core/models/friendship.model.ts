@@ -1,9 +1,13 @@
+import { UserAvatar, UserDisplayNameStyle } from './user.model';
+
 export type FriendshipStatus = 'pending' | 'accepted' | 'declined' | 'blocked';
 export type FriendPresence = 'online' | 'in_game' | 'offline';
 
 export interface FriendUser {
   id: string;
   displayName: string;
+  displayNameStyle?: UserDisplayNameStyle;
+  avatar?: UserAvatar;
   presence?: FriendPresence;
 }
 
@@ -21,6 +25,7 @@ export interface FriendSearchResult {
   id: string;
   email: string;
   displayName: string;
+  displayNameStyle?: UserDisplayNameStyle;
   friendshipStatus: FriendshipStatus | null;
 }
 

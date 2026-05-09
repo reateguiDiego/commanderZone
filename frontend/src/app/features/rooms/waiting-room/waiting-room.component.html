@@ -15,7 +15,8 @@
             <div class="players-panel-tools">
               <span class="host-pill">
                 <lucide-icon name="shield-check" size="15" />
-                Host: {{ room.owner.displayName }}
+                Host:
+                <app-player-name [displayName]="room.owner.displayName" [nameStyle]="room.owner.displayNameStyle" size="sm" />
               </span>
               <button class="secondary-button compact icon-action" type="button" title="Leave room" aria-label="Leave room" (click)="requestLeaveRoom(room)">
                 <lucide-icon name="log-out" size="16" />
@@ -152,7 +153,7 @@
       (secondary)="closeRollModal()"
     >
       <div class="roll-dice-preview" aria-hidden="true">
-        <img src="assets/icons/chance/dice_20.png" alt="" />
+        <img src="/assets/icons/chance/dice_20.png" alt="" />
       </div>
     </app-modal>
 
@@ -171,7 +172,7 @@
           @for (friend of friends(); track friend.id) {
             <div class="friend-row">
               <span>
-                <strong>{{ friend.displayName }}</strong>
+                <app-player-name [displayName]="friend.displayName" [nameStyle]="friend.displayNameStyle" size="md" />
                 <small>{{ friend.presence || 'offline' }}</small>
               </span>
               @if (isFriendInCurrentRoom(friend.id)) {

@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, ElementRef, HostListener, computed, inject, output, signal } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
+import { publicAssetUrl } from '../../../../../../../core/assets/app-image-url';
 
 type HeaderLanguageCode = 'es' | 'fr' | 'en' | 'it' | 'de' | 'pt' | 'ja' | 'zh' | 'nl' | 'ca';
 
@@ -10,16 +11,16 @@ interface HeaderLanguageOption {
 }
 
 const HEADER_LANGUAGE_OPTIONS: readonly HeaderLanguageOption[] = [
-  { code: 'es', label: 'Espanol', flagAsset: 'assets/icons/flags/spain.png' },
-  { code: 'fr', label: 'Frances', flagAsset: 'assets/icons/flags/france.png' },
-  { code: 'en', label: 'Ingles', flagAsset: 'assets/icons/flags/uk.png' },
-  { code: 'it', label: 'Italiano', flagAsset: 'assets/icons/flags/italy.png' },
-  { code: 'de', label: 'Aleman', flagAsset: 'assets/icons/flags/germany.png' },
-  { code: 'pt', label: 'Portugues', flagAsset: 'assets/icons/flags/portugal.png' },
-  { code: 'ja', label: 'Japones', flagAsset: 'assets/icons/flags/japan.png' },
-  { code: 'zh', label: 'Chino', flagAsset: 'assets/icons/flags/china.png' },
-  { code: 'nl', label: 'Holandes', flagAsset: 'assets/icons/flags/holand.png' },
-  { code: 'ca', label: 'Catalan', flagAsset: 'assets/icons/flags/catalan.png' },
+  { code: 'es', label: 'Espanol', flagAsset: publicAssetUrl('assets/icons/flags/spain.png') },
+  { code: 'fr', label: 'Frances', flagAsset: publicAssetUrl('assets/icons/flags/france.png') },
+  { code: 'en', label: 'Ingles', flagAsset: publicAssetUrl('assets/icons/flags/uk.png') },
+  { code: 'it', label: 'Italiano', flagAsset: publicAssetUrl('assets/icons/flags/italy.png') },
+  { code: 'de', label: 'Aleman', flagAsset: publicAssetUrl('assets/icons/flags/germany.png') },
+  { code: 'pt', label: 'Portugues', flagAsset: publicAssetUrl('assets/icons/flags/portugal.png') },
+  { code: 'ja', label: 'Japones', flagAsset: publicAssetUrl('assets/icons/flags/japan.png') },
+  { code: 'zh', label: 'Chino', flagAsset: publicAssetUrl('assets/icons/flags/china.png') },
+  { code: 'nl', label: 'Holandes', flagAsset: publicAssetUrl('assets/icons/flags/holand.png') },
+  { code: 'ca', label: 'Catalan', flagAsset: publicAssetUrl('assets/icons/flags/catalan.png') },
 ];
 
 @Component({

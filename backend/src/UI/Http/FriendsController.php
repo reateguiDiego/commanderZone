@@ -36,6 +36,7 @@ class FriendsController extends ApiController
             'id' => $match->id(),
             'email' => $match->email(),
             'displayName' => $match->displayName(),
+            'displayNameStyle' => $match->displayNameStyle(),
             'friendshipStatus' => $this->friendshipStatusBetween($entityManager, $user, $match),
         ], $users)]);
     }

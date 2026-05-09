@@ -1,11 +1,19 @@
 @let currentPlayer = player();
 
 <div class="player-summary-panel" data-testid="player-summary-panel" [style.--player-accent]="colorAccent()(currentPlayer)">
-  <span class="player-avatar">
-    {{ currentPlayer.state.user.displayName.slice(0, 1) }}
-  </span>
+  <app-player-avatar
+    class="player-avatar"
+    [displayName]="currentPlayer.state.user.displayName"
+    [avatar]="currentPlayer.state.user.avatar"
+    size="md"
+  />
   <div class="player-copy">
-    <h1 data-testid="focused-player-name">{{ currentPlayer.state.user.displayName }}</h1>
+    <app-player-name
+      data-testid="focused-player-name"
+      [displayName]="currentPlayer.state.user.displayName"
+      [nameStyle]="currentPlayer.state.user.displayNameStyle"
+      size="xl"
+    />
     <small>{{ deckLabel()(currentPlayer) }}</small>
     <app-mana-symbols class="mana-row" [symbols]="manaSymbols()(currentPlayer)" fallback="Colorless" />
   </div>

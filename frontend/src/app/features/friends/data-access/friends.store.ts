@@ -4,6 +4,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { FriendsApi } from '../../../core/api/friends.api';
 import { FriendPresence, FriendRealtimeEvent, FriendSearchResult, Friendship } from '../../../core/models/friendship.model';
+import { UserAvatar, UserDisplayNameStyle } from '../../../core/models/user.model';
 import { RoomsApi } from '../../../core/api/rooms.api';
 import { RoomInvite } from '../../../core/models/room-invite.model';
 
@@ -13,7 +14,9 @@ export interface FriendListRow {
   id: string;
   kind: FriendListRowKind;
   displayName: string;
+  displayNameStyle?: UserDisplayNameStyle;
   detail: string;
+  avatar?: UserAvatar;
   presence?: FriendPresence;
   roomId?: string;
   parentFriendId?: string;
@@ -79,7 +82,9 @@ export class FriendsStore {
         id: friendship.id,
         kind: 'incoming' as const,
         displayName: friendship.requester.displayName,
+        displayNameStyle: friendship.requester.displayNameStyle,
         detail: 'Friend request received',
+        avatar: friendship.requester.avatar,
       })),
     );
     rows.push(
@@ -87,7 +92,9 @@ export class FriendsStore {
         id: friendship.id,
         kind: 'pending' as const,
         displayName: friendship.recipient.displayName,
+        displayNameStyle: friendship.recipient.displayNameStyle,
         detail: 'Friend request pending',
+        avatar: friendship.recipient.avatar,
       })),
     );
 
@@ -97,7 +104,9 @@ export class FriendsStore {
         id: friendId,
         kind: 'friend',
         displayName: friendship.friend?.displayName ?? 'Friend',
+        displayNameStyle: friendship.friend?.displayNameStyle,
         detail: this.presenceLabel(friendship.friend?.presence),
+        avatar: friendship.friend?.avatar,
         presence: friendship.friend?.presence,
       });
 
@@ -109,6 +118,7 @@ export class FriendsStore {
           kind: 'room-invite',
           displayName: roomLabel,
           detail: invite.room.visibility === 'private' ? 'Sala privada' : 'Sala publica',
+          avatar: invite.sender.avatar,
           roomId: invite.room.id,
           parentFriendId: friendId,
         });
@@ -123,7 +133,9 @@ export class FriendsStore {
           id: invite.id,
           kind: 'room-invite',
           displayName: invite.sender.displayName,
+          displayNameStyle: invite.sender.displayNameStyle,
           detail: `Invitacion a ${roomLabel}`,
+          avatar: invite.sender.avatar,
           roomId: invite.room.id,
         });
       }
@@ -261,6 +273,8 @@ export class FriendsStore {
           friend: {
             ...friendship.friend,
             displayName: event.user.displayName,
+            displayNameStyle: event.user.displayNameStyle,
+            avatar: event.user.avatar,
             presence: event.user.presence,
           },
         };

@@ -250,6 +250,31 @@ paths:
           $ref: '#/components/responses/Error'
         '401':
           $ref: '#/components/responses/Error'
+  /me/display-name-style:
+    patch:
+      tags: [Auth]
+      summary: Update authenticated user's display name style.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DisplayNameStyleUpdateRequest'
+      responses:
+        '200':
+          description: Updated user display name style.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [user]
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
   /users/{id}/avatar:
     get:
       tags: [Auth]
@@ -2088,6 +2113,49 @@ components:
             imageData:
               type: string
               description: Cropped data URL. PNG, JPG or WEBP, max decoded payload 2MB.
+    DisplayNameStyleUpdateRequest:
+      type: object
+      required: [presetId]
+      properties:
+        presetId:
+          type: string
+          enum:
+            - plain
+            - basic-colorless
+            - basic-silver
+            - basic-green
+            - basic-blue
+            - basic-black
+            - basic-plains
+            - basic-mountain
+            - copper-adventurer
+            - emerald-warden
+            - arcane-apprentice
+            - crimson-vanguard
+            - moonstone-initiate
+            - obsidian-crown
+            - astral-veil
+            - ember-forge
+            - jade-serpent
+            - frost-runeblade
+            - sanguine-royal
+            - storm-vault
+            - solar-edict
+            - void-amethyst
+            - iron-warden
+            - oceanic-oracle
+            - gilded-thorn
+            - lunar-sentinel
+            - crimson-engine
+            - arcane-prism
+            - necrosteel-relic
+            - sapphire-comet
+            - radiant-halo
+            - umbral-rose
+            - chronomancer
+        textColor:
+          type: [string, 'null']
+          pattern: '^#[0-9a-fA-F]{6}$'
     UserAvatar:
       type: object
       required: [type, imageUrl]
@@ -2112,9 +2180,21 @@ components:
             textColor:
               type: string
               pattern: '^#[0-9a-fA-F]{6}$'
+    UserDisplayNameStyle:
+      type: object
+      required: [type, presetId]
+      properties:
+        type:
+          type: string
+          enum: [plain, preset]
+        presetId:
+          type: string
+        textColor:
+          type: [string, 'null']
+          pattern: '^#[0-9a-fA-F]{6}$'
     User:
       type: object
-      required: [id, email, displayName, roles, avatar]
+      required: [id, email, displayName, displayNameStyle, roles, avatar]
       properties:
         id:
           type: string
@@ -2125,6 +2205,8 @@ components:
         displayName:
           type: string
           maxLength: 25
+        displayNameStyle:
+          $ref: '#/components/schemas/UserDisplayNameStyle'
         roles:
           type: array
           items:
@@ -2140,6 +2222,10 @@ components:
           format: uuid
         displayName:
           type: string
+        displayNameStyle:
+          $ref: '#/components/schemas/UserDisplayNameStyle'
+        avatar:
+          $ref: '#/components/schemas/UserAvatar'
         presence:
           $ref: '#/components/schemas/FriendPresence'
     FriendPresence:
@@ -2157,6 +2243,8 @@ components:
           format: email
         displayName:
           type: string
+        displayNameStyle:
+          $ref: '#/components/schemas/UserDisplayNameStyle'
         friendshipStatus:
           oneOf:
             - $ref: '#/components/schemas/FriendshipStatus'
@@ -3585,3 +3673,4 @@ components:
         createdAt:
           type: string
           format: date-time
+

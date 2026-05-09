@@ -1,0 +1,108 @@
+:host {
+  display: inline-grid;
+  width: fit-content;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.player-name-shell {
+  --name-text-color: #f8f0d0;
+  position: relative;
+  isolation: isolate;
+  display: inline-grid;
+  place-items: center;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  box-sizing: border-box;
+  color: var(--name-text-color);
+  font-weight: 900;
+  line-height: 1.05;
+  text-shadow: 0 1px 0 rgb(0 0 0 / 74%), 0 0 0.9rem rgb(0 0 0 / 78%);
+  white-space: nowrap;
+}
+
+.player-name-shell.fill {
+  width: 100%;
+}
+
+.player-name-label {
+  z-index: 2;
+  max-width: 100%;
+  overflow: hidden;
+  padding: 0 0.25rem 0.1rem;
+  text-align: center;
+  text-overflow: ellipsis;
+}
+
+.has-nameplate {
+  width: var(--plate-width, 17.2rem);
+  height: var(--plate-height, 4.3rem);
+  padding: var(--player-name-plate-padding, 0.5rem 2rem);
+  justify-self: center;
+}
+
+.has-nameplate .player-name-label {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  width: var(--player-name-label-width, calc(100% - 3.8rem));
+  transform: translate(-50%, -50%);
+}
+
+.size-xs {
+  font-size: var(--player-name-font-size, 1rem);
+}
+
+.size-sm {
+  font-size: var(--player-name-font-size, 1.32rem);
+}
+
+.size-md {
+  font-size: var(--player-name-font-size, 1.56rem);
+}
+
+.size-lg {
+  font-size: var(--player-name-font-size, 1.84rem);
+}
+
+.size-xl {
+  font-size: var(--player-name-font-size, 2.04rem);
+}
+
+.nameplate-image {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+  filter: saturate(1.08) contrast(1.04);
+}
+
+.size-xs.has-nameplate {
+  --plate-width: var(--player-name-plate-width, 8.9rem);
+  --plate-height: var(--player-name-plate-height, 2.24rem);
+}
+
+.size-sm.has-nameplate {
+  --plate-width: var(--player-name-plate-width, 11.8rem);
+  --plate-height: var(--player-name-plate-height, 2.96rem);
+}
+
+.size-md.has-nameplate {
+  --plate-width: var(--player-name-plate-width, 14.5rem);
+  --plate-height: var(--player-name-plate-height, 3.64rem);
+}
+
+.size-lg.has-nameplate {
+  --plate-width: var(--player-name-plate-width, 17.2rem);
+  --plate-height: var(--player-name-plate-height, 4.3rem);
+}
+
+.size-xl.has-nameplate {
+  --plate-width: var(--player-name-plate-width, 20rem);
+  --plate-height: var(--player-name-plate-height, 5rem);
+}

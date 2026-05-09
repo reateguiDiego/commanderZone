@@ -9,7 +9,7 @@
     @for (invite of invites(); track invite.id) {
       <div class="list-row invite-row">
         <span>
-          <strong>{{ invite.sender.displayName }}</strong>
+          <app-player-name [displayName]="invite.sender.displayName" [nameStyle]="invite.sender.displayNameStyle" size="md" />
           <small>{{ invite.room.visibility }} - {{ invite.room.players.length }} players</small>
         </span>
         <div class="invite-actions">

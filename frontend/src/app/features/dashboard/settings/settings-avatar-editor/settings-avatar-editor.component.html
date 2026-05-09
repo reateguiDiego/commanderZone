@@ -58,7 +58,7 @@
             (dragstart)="preventAvatarDrag($event)"
           >
             <span class="avatar-image-frame">
-              <img [src]="presetAvatar.imageUrl" [alt]="presetAvatar.label" draggable="false" />
+              <img [src]="presetAvatar.displayUrl" [alt]="presetAvatar.label" draggable="false" />
             </span>
           </button>
         }
@@ -78,7 +78,7 @@
               (dragstart)="preventAvatarDrag($event)"
             >
               <span class="avatar-image-frame">
-                <img [src]="presetAvatar.imageUrl" [alt]="presetAvatar.label" draggable="false" />
+                <img [src]="presetAvatar.displayUrl" [alt]="presetAvatar.label" draggable="false" />
               </span>
               <span class="premium-badge">Premium</span>
             </button>
@@ -94,7 +94,7 @@
 
   <footer class="avatar-editor-actions">
     <button class="primary-button" type="button" [disabled]="!canSave()" (click)="save()">
-      {{ saving() ? 'Saving...' : 'Save avatar' }}
+      {{ saving() ? 'Saving...' : 'Save' }}
     </button>
   </footer>
 </section>

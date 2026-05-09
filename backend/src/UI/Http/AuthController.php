@@ -21,6 +21,45 @@ class AuthController extends ApiController
     private const DEFAULT_INITIAL_AVATAR_BACKGROUND = '#edcd83';
     private const DEFAULT_INITIAL_AVATAR_TEXT = '#16120a';
     private const ALLOWED_AVATAR_MIME_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
+    private const BASIC_DISPLAY_NAME_STYLES = [
+        'plain',
+        'basic-colorless',
+        'basic-silver',
+        'basic-green',
+        'basic-blue',
+        'basic-black',
+        'basic-plains',
+        'basic-mountain',
+    ];
+    private const LEGACY_BASIC_DISPLAY_NAME_STYLES = [
+        'copper-adventurer',
+        'emerald-warden',
+        'arcane-apprentice',
+        'crimson-vanguard',
+        'moonstone-initiate',
+    ];
+    private const PREMIUM_DISPLAY_NAME_STYLES = [
+        'obsidian-crown',
+        'astral-veil',
+        'ember-forge',
+        'jade-serpent',
+        'frost-runeblade',
+        'sanguine-royal',
+        'storm-vault',
+        'solar-edict',
+        'void-amethyst',
+        'iron-warden',
+        'oceanic-oracle',
+        'gilded-thorn',
+        'lunar-sentinel',
+        'crimson-engine',
+        'arcane-prism',
+        'necrosteel-relic',
+        'sapphire-comet',
+        'radiant-halo',
+        'umbral-rose',
+        'chronomancer',
+    ];
     private const PRESET_AVATARS = [
         'assets/images/avatars/arcane-duelist.png',
         'assets/images/avatars/storm-seer.png',
@@ -249,6 +288,26 @@ class AuthController extends ApiController
         return $this->json(['user' => $user->toArray()]);
     }
 
+    #[Route('/me/display-name-style', methods: ['PATCH'])]
+    public function updateDisplayNameStyle(Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager): JsonResponse
+    {
+        $payload = $this->payload($request);
+        $presetId = trim((string) ($payload['presetId'] ?? ''));
+
+        if (!$this->isDisplayNameStylePresetAvailable($presetId)) {
+            return $this->fail('Selected display name style is not available.');
+        }
+
+        $textColor = array_key_exists('textColor', $payload)
+            ? $this->displayNameStyleHexColor((string) $payload['textColor'])
+            : null;
+
+        $user->selectDisplayNameStyle($presetId, $textColor);
+        $entityManager->flush();
+
+        return $this->json(['user' => $user->toArray()]);
+    }
+
     #[Route('/users/{id}/avatar', methods: ['GET'])]
     public function avatarImage(string $id, EntityManagerInterface $entityManager): Response
     {
@@ -284,6 +343,7 @@ class AuthController extends ApiController
         $user->setPassword($passwordHasher->hashPassword($user, sprintf('deleted-password-%s', $user->id())));
         $user->markOffline();
         $user->useInitialAvatar();
+        $user->resetDisplayNameStyle();
 
         $entityManager->flush();
 
@@ -361,6 +421,18 @@ class AuthController extends ApiController
     private function avatarHexColor(string $color, string $fallback): string
     {
         return preg_match('/^#[0-9a-fA-F]{6}$/', $color) ? $color : $fallback;
+    }
+
+    private function displayNameStyleHexColor(string $color): ?string
+    {
+        return preg_match('/^#[0-9a-fA-F]{6}$/', $color) ? $color : null;
+    }
+
+    private function isDisplayNameStylePresetAvailable(string $presetId): bool
+    {
+        return in_array($presetId, self::BASIC_DISPLAY_NAME_STYLES, true)
+            || in_array($presetId, self::LEGACY_BASIC_DISPLAY_NAME_STYLES, true)
+            || in_array($presetId, self::PREMIUM_DISPLAY_NAME_STYLES, true);
     }
 
     #[Route('/me/password', methods: ['PATCH'])]

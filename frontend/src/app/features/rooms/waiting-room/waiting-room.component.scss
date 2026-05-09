@@ -45,6 +45,10 @@
 
 .players-panel-tools { justify-content: flex-end; gap: 0.45rem; }
 
+.host-pill app-player-name {
+  max-width: 8rem;
+}
+
 .host-pill,
 .metric {
   gap: 0.35rem;
@@ -112,9 +116,13 @@
 
 .friend-row span { min-width: 0; }
 
-.friend-row strong,
+.friend-row app-player-name,
 .friend-row small {
   display: block;
+}
+
+.friend-row app-player-name {
+  max-width: 100%;
 }
 
 .friend-row small { color: var(--muted); }

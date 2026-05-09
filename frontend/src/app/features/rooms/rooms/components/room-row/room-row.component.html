@@ -7,7 +7,7 @@
     </span>
   </div>
   <div class="room-col">
-    <strong>{{ currentRoom.owner.displayName }}</strong>
+    <app-player-name [displayName]="currentRoom.owner.displayName" [nameStyle]="currentRoom.owner.displayNameStyle" size="md" />
   </div>
   <div class="room-col">
     <strong>{{ formatLabel(currentRoom.format) }}</strong>

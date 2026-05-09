@@ -1,0 +1,45 @@
+<section class="name-style-editor">
+  <header class="name-style-preview" aria-label="Name style preview">
+    <span>Current selection</span>
+    <app-player-name [displayName]="displayName()" [nameStyle]="previewStyle()" size="lg" />
+    <label class="name-color-picker">
+      Text color
+      <input type="color" [value]="previewTextColor()" [disabled]="saving()" (input)="updateTextColor($any($event.target).value)" />
+    </label>
+  </header>
+
+  <section class="style-options">
+    <nav class="style-tier-tabs" aria-label="Name style tiers">
+      <button type="button" [class.active]="activeTier() === 'basic'" (click)="switchTier('basic')">Basic</button>
+      <button type="button" [class.active]="activeTier() === 'premium'" (click)="switchTier('premium')">Premium</button>
+    </nav>
+
+    <div class="style-grid" [class.premium-grid]="activeTier() === 'premium'">
+      @for (option of visiblePresetOptions(); track option.preset.id) {
+        <button
+          type="button"
+          class="style-card"
+          [class.selected]="previewPreset().id === option.preset.id"
+          [class.premium]="option.preset.tier === 'premium'"
+          [disabled]="saving()"
+          (click)="choosePreset(option.preset)"
+        >
+          <app-player-name
+            [displayName]="displayName()"
+            [nameStyle]="option.style"
+            size="md"
+          />
+          @if (option.preset.tier === 'premium') {
+            <span class="premium-badge">Premium</span>
+          }
+        </button>
+      }
+    </div>
+  </section>
+
+  <footer class="name-style-actions">
+    <button class="primary-button" type="button" [disabled]="!canSave()" (click)="save()">
+      {{ saving() ? 'Saving...' : 'Save' }}
+    </button>
+  </footer>
+</section>

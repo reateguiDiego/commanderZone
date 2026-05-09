@@ -25,12 +25,11 @@
 
 .player-thumb-header {
   display: grid;
-  grid-template-columns: 2.45rem minmax(0, 1fr) auto;
+  grid-template-columns: 3.15rem minmax(0, 1fr) auto;
   align-items: center;
   gap: 0.5rem;
 }
 
-.opponent-avatar,
 .opponent-life {
   display: grid;
   place-items: center;
@@ -39,16 +38,18 @@
 }
 
 .opponent-avatar {
-  width: 2.35rem;
-  height: 2.35rem;
-  background: var(--player-accent);
-  color: #090d09;
-  text-transform: uppercase;
+  filter:
+    drop-shadow(0 0.55rem 0.65rem rgb(0 0 0 / 28%))
+    drop-shadow(0 0 0.45rem color-mix(in srgb, var(--player-accent) 24%, transparent));
 }
 
 .opponent-copy {
   display: grid;
   min-width: 0;
+}
+
+.opponent-copy app-player-name {
+  max-width: 100%;
 }
 
 .opponent-life {
