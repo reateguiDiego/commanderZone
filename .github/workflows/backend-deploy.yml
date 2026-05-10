@@ -69,7 +69,7 @@ jobs:
           if [ -n "${DEPLOY_COMMAND:-}" ]; then
             eval "$DEPLOY_COMMAND"
           else
-            docker compose up -d --build api mercure
+            docker compose up -d --build --no-deps api mercure
             docker compose exec -T -e APP_ENV=prod api php bin/console doctrine:migrations:migrate --no-interaction
             docker compose exec -T -e APP_ENV=prod api php bin/console cache:clear --no-warmup
             docker compose exec -T -e APP_ENV=prod api php bin/console cache:warmup
