@@ -28,7 +28,7 @@ jobs:
           SSH_PRIVATE_KEY: ${{ secrets.HETZNER_SSH_PRIVATE_KEY }}
           REPO_DIR: ${{ secrets.HETZNER_REPO_DIR }}
           BACKEND_DIR: ${{ secrets.HETZNER_BACKEND_DIR }}
-          DEPLOY_COMMAND: ${{ secrets.HETZNER_DEPLOY_COMMAND }}
+          ENV_FILE: ${{ secrets.HETZNER_ENV_FILE }}
         run: |
           set -euo pipefail
 
@@ -54,26 +54,31 @@ jobs:
           ssh-keyscan -p "$SSH_PORT" -H "$SSH_HOST" >> ~/.ssh/known_hosts
 
           ssh -p "$SSH_PORT" -i ./deploy_key -o StrictHostKeyChecking=yes "$SSH_USER@$SSH_HOST" \
-            bash -s -- "$REPO_DIR" "$BACKEND_DIR" "$DEPLOY_COMMAND" <<'EOF'
+            bash -s -- "$REPO_DIR" "$BACKEND_DIR" "$ENV_FILE" <<'EOF'
           set -euo pipefail
 
           REPO_DIR="$1"
           BACKEND_DIR="$2"
-          DEPLOY_COMMAND="${3:-}"
+          ENV_FILE="${3:-}"
 
           cd "$REPO_DIR"
           git fetch origin main
           git checkout main
           git pull --ff-only origin main
 
-          if [ -n "${DEPLOY_COMMAND:-}" ]; then
-            eval "$DEPLOY_COMMAND"
-          else
-            docker compose up -d --build --no-deps api mercure
-            docker compose exec -T -e APP_ENV=prod api php bin/console doctrine:migrations:migrate --no-interaction
-            docker compose exec -T -e APP_ENV=prod api php bin/console cache:clear --no-warmup
-            docker compose exec -T -e APP_ENV=prod api php bin/console cache:warmup
+          if [ -z "${ENV_FILE:-}" ]; then
+            ENV_FILE="$REPO_DIR/.env.prod"
           fi
+
+          COMPOSE_ARGS=(--project-directory "$REPO_DIR" --env-file "$ENV_FILE" -f "$REPO_DIR/docker-compose.yml")
+          if [ -f "$REPO_DIR/docker-compose.prod.yml" ]; then
+            COMPOSE_ARGS+=(-f "$REPO_DIR/docker-compose.prod.yml")
+          fi
+
+          docker compose "${COMPOSE_ARGS[@]}" up -d --build --no-deps api mercure
+          docker compose "${COMPOSE_ARGS[@]}" exec -T -e APP_ENV=prod api php bin/console doctrine:migrations:migrate --no-interaction
+          docker compose "${COMPOSE_ARGS[@]}" exec -T -e APP_ENV=prod api php bin/console cache:clear --no-warmup
+          docker compose "${COMPOSE_ARGS[@]}" exec -T -e APP_ENV=prod api php bin/console cache:warmup
           EOF
 
           rm -f ./deploy_key
