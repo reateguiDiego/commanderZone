@@ -103,6 +103,62 @@ describe('TableAssistantRoomComponent', () => {
     expect(fixture.nativeElement.querySelector('.table-exit-menu')).toBeNull();
   });
 
+  it('opens the centered menu when clicking the central table surface', async () => {
+    get.mockReturnValue(of({ tableAssistantRoom: roomResource() }));
+
+    const fixture = TestBed.createComponent(TableAssistantRoomComponent);
+    fixture.detectChanges();
+    await settle(fixture);
+
+    clickTableSurface(fixture.nativeElement, { x: 500, y: 300 });
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.table-exit-menu')).not.toBeNull();
+  });
+
+  it('does not open the centered menu outside the central table surface', async () => {
+    get.mockReturnValue(of({ tableAssistantRoom: roomResource() }));
+
+    const fixture = TestBed.createComponent(TableAssistantRoomComponent);
+    fixture.detectChanges();
+    await settle(fixture);
+
+    clickTableSurface(fixture.nativeElement, { x: 80, y: 80 });
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.table-exit-menu')).toBeNull();
+  });
+
+  it('does not open the centered menu from table controls', async () => {
+    const resource = roomResource({ activeTrackerIds: ['commander-damage'] });
+    get.mockReturnValue(of({ tableAssistantRoom: resource }));
+    action.mockReturnValue(of({ tableAssistantRoom: resource, applied: true }));
+
+    const fixture = TestBed.createComponent(TableAssistantRoomComponent);
+    fixture.detectChanges();
+    await settle(fixture);
+
+    fixture.nativeElement.querySelector('.active-turn-button')?.click();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.table-exit-menu')).toBeNull();
+
+    clickTableTarget(fixture.nativeElement, '.player-turn-controls', { x: 500, y: 300 });
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.table-exit-menu')).toBeNull();
+
+    fixture.nativeElement.querySelector('.life-row button')?.click();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.table-exit-menu')).toBeNull();
+
+    fixture.nativeElement.querySelector('.commander-damage-trigger')?.click();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.table-exit-menu')).toBeNull();
+  });
+
   it('opens replay setup from the centered menu without closing the room', async () => {
     get.mockReturnValue(of({ tableAssistantRoom: roomResource() }));
 
@@ -117,8 +173,8 @@ describe('TableAssistantRoomComponent', () => {
 
     expect(action).not.toHaveBeenCalled();
     expect(fixture.nativeElement.querySelector('app-table-assistant-replay-modal')).not.toBeNull();
-    expect(fixture.nativeElement.textContent).toContain('Mesa y orden de jugadores');
-    expect(fixture.nativeElement.textContent).toContain('Despues va Jugador 2');
+    expect(fixture.nativeElement.textContent).toContain('Configuraci');
+    expect(fixture.nativeElement.textContent).not.toContain('Despues va');
   });
 
   it('opens the table arrangement modal after creating a room', async () => {
@@ -137,7 +193,7 @@ describe('TableAssistantRoomComponent', () => {
     await settle(fixture);
 
     expect(fixture.nativeElement.querySelector('app-table-assistant-replay-modal')).not.toBeNull();
-    expect(fixture.nativeElement.textContent).toContain('Mesa y orden de jugadores');
+    expect(fixture.nativeElement.textContent).toContain('Configuraci');
     expect(fixture.nativeElement.textContent).toContain('Sin jugador');
     expect(fixture.nativeElement.querySelector('.primary-action')?.disabled).toBe(true);
   });
@@ -514,6 +570,42 @@ describe('TableAssistantRoomComponent', () => {
     expect(fixture.nativeElement.querySelector('.player-panel.active .life-row')).not.toBeNull();
   });
 });
+
+function clickTableSurface(
+  nativeElement: HTMLElement,
+  position: { x: number; y: number },
+): void {
+  clickTableTarget(nativeElement, '.players-grid', position);
+}
+
+function clickTableTarget(
+  nativeElement: HTMLElement,
+  targetSelector: string,
+  position: { x: number; y: number },
+): void {
+  const tableSurface = nativeElement.querySelector('.players-grid') as HTMLElement;
+  const boundsSpy = vi.spyOn(tableSurface, 'getBoundingClientRect').mockReturnValue({
+    left: 0,
+    top: 0,
+    right: 1000,
+    bottom: 600,
+    width: 1000,
+    height: 600,
+    x: 0,
+    y: 0,
+    toJSON: () => ({}),
+  });
+  const target = nativeElement.querySelector(targetSelector) as HTMLElement;
+
+  target.dispatchEvent(
+    new MouseEvent('click', {
+      bubbles: true,
+      clientX: position.x,
+      clientY: position.y,
+    }),
+  );
+  boundsSpy.mockRestore();
+}
 
 async function settle(
   fixture: ReturnType<typeof TestBed.createComponent<TableAssistantRoomComponent>>,

@@ -12,6 +12,7 @@ import { GamesApi } from './games.api';
 import { LandingApi } from './landing.api';
 import { RoomsApi } from './rooms.api';
 import { SKIP_GLOBAL_LOADING } from '../loading/loading-context';
+import { TableAssistantApi } from '../../features/table-assistant/data-access/table-assistant.api';
 
 describe('API services', () => {
   let http: HttpTestingController;
@@ -42,6 +43,15 @@ describe('API services', () => {
     expect(request.request.method).toBe('GET');
     expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);
     request.flush({ cardName: 'Sol Ring', displayName: 'Player' });
+  });
+
+  it('loads table assistant rooms without triggering the global loading overlay', () => {
+    TestBed.inject(TableAssistantApi).get('room-1').subscribe();
+
+    const request = http.expectOne(`${API_BASE_URL}/table-assistant/rooms/room-1`);
+    expect(request.request.method).toBe('GET');
+    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);
+    request.flush({ tableAssistantRoom: {} });
   });
 
   it('marks the current user offline without triggering the global loading overlay', () => {

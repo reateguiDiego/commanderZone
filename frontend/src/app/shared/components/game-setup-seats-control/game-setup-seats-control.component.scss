@@ -1,0 +1,83 @@
+:host {
+  display: block;
+}
+
+.setup-control {
+  display: grid;
+  grid-template-columns: minmax(4rem, 0.45fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 4.55rem;
+  border: 1px solid rgb(215 180 106 / 24%);
+  border-radius: 16px;
+  padding: 0.45rem;
+  background:
+    linear-gradient(135deg, rgb(215 180 106 / 10%), rgb(0 0 0 / 0%) 56%),
+    rgb(12 14 11 / 68%);
+}
+
+.control-copy strong {
+  display: block;
+  color: #ffe9a9;
+  font-size: 1.2rem;
+  line-height: 1.05;
+}
+
+.eyebrow {
+  color: #fde68a;
+  font-size: 0.72rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.capacity-editor {
+  display: inline-flex;
+  justify-content: space-between;
+  gap: 0.22rem;
+  border: 1px solid rgb(215 180 106 / 28%);
+  border-radius: 14px;
+  padding: 0.28rem;
+  background: rgb(12 14 11 / 70%);
+}
+
+.capacity-editor button {
+  min-width: 2.35rem;
+  min-height: 2.35rem;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 900;
+}
+
+.capacity-editor button.selected {
+  border-color: rgb(215 180 106 / 62%);
+  background: rgb(215 180 106 / 16%);
+  color: #ffe9a9;
+}
+
+.capacity-editor button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+@media (max-width: 680px) {
+  .setup-control {
+    grid-template-columns: minmax(3.2rem, 0.42fr) minmax(0, 1fr);
+    min-height: 3.8rem;
+    padding: 0.4rem;
+  }
+
+  .control-copy strong {
+    font-size: 1rem;
+  }
+
+  .capacity-editor {
+    padding: 0.22rem;
+  }
+
+  .capacity-editor button {
+    min-width: 2rem;
+    min-height: 2rem;
+  }
+}

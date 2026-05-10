@@ -13,6 +13,8 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { PrettyScrollDirective } from '../../../shared/ui/pretty-scroll/pretty-scroll.directive';
+import { GameSetupLifeControlComponent } from '../../../shared/components/game-setup-life-control/game-setup-life-control.component';
+import { GameSetupSeatsControlComponent } from '../../../shared/components/game-setup-seats-control/game-setup-seats-control.component';
 import {
   TABLE_ASSISTANT_COLOR_OPTIONS,
   tableAssistantColorOption,
@@ -23,7 +25,13 @@ import { TableAssistantTimerSettingsComponent } from '../table-assistant-timer-s
 
 @Component({
   selector: 'app-table-assistant-setup',
-  imports: [FormsModule, PrettyScrollDirective, TableAssistantTimerSettingsComponent],
+  imports: [
+    FormsModule,
+    PrettyScrollDirective,
+    GameSetupLifeControlComponent,
+    GameSetupSeatsControlComponent,
+    TableAssistantTimerSettingsComponent,
+  ],
   templateUrl: './table-assistant-setup.component.html',
   styleUrl: './table-assistant-setup.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -36,6 +44,7 @@ export class TableAssistantSetupComponent implements OnDestroy {
   readonly cancelled = output<void>();
 
   readonly colorOptions = TABLE_ASSISTANT_COLOR_OPTIONS;
+  readonly playerCountOptions = [2, 3, 4, 5, 6] as const;
   readonly playerCount = signal(4);
   readonly initialLife = signal(40);
   readonly playerNames = signal(['', '', '', '']);

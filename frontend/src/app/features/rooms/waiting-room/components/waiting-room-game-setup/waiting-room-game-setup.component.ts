@@ -1,6 +1,8 @@
 import { ChangeDetectionStrategy, Component, ElementRef, computed, effect, input, output, signal, viewChild } from '@angular/core';
 import { RoomTimerMode } from '../../../../../core/models/room.model';
 import { PrettyScrollDirective } from '../../../../../shared/ui/pretty-scroll/pretty-scroll.directive';
+import { GameSetupLifeControlComponent } from '../../../../../shared/components/game-setup-life-control/game-setup-life-control.component';
+import { GameSetupSeatsControlComponent } from '../../../../../shared/components/game-setup-seats-control/game-setup-seats-control.component';
 import { TableAssistantTimerMode } from '../../../../table-assistant/models/table-assistant.models';
 import { TableAssistantTimerSettingsComponent } from '../../../../table-assistant/table-assistant-timer-settings/table-assistant-timer-settings.component';
 
@@ -14,7 +16,12 @@ type WaitingRoomSetupTab = 'setup' | 'log';
 
 @Component({
   selector: 'app-waiting-room-game-setup',
-  imports: [PrettyScrollDirective, TableAssistantTimerSettingsComponent],
+  imports: [
+    PrettyScrollDirective,
+    GameSetupLifeControlComponent,
+    GameSetupSeatsControlComponent,
+    TableAssistantTimerSettingsComponent,
+  ],
   templateUrl: './waiting-room-game-setup.component.html',
   styleUrl: './waiting-room-game-setup.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

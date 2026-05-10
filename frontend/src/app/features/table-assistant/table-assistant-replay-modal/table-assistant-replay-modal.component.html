@@ -1,18 +1,22 @@
-<div class="modal-backdrop" role="presentation" (click)="close()">
+<div class="modal-backdrop" role="presentation">
   <section
     appPrettyScroll
     class="replay-modal"
     role="dialog"
     aria-modal="true"
-    aria-label="Nueva partida"
+    aria-label="Configuración de mesa"
     (click)="$event.stopPropagation()"
   >
     <header>
       <div>
-        <span class="eyebrow">Nueva partida</span>
-        <h2>Mesa y orden de jugadores</h2>
+        <span class="eyebrow">Configuración de mesa</span>
       </div>
-      <button class="icon-button" type="button" aria-label="Cerrar nueva partida" (click)="close()">
+      <button
+        class="icon-button"
+        type="button"
+        aria-label="Cerrar configuración de mesa"
+        (click)="close()"
+      >
         &#10005;
       </button>
     </header>
@@ -25,29 +29,20 @@
       >
         @for (seatIndex of seatPositions(); track seatIndex; let index = $index) {
           <article
-            [draggable]="playerAtSeat(index) !== null"
             [class.seat-row-top]="isTopSeat(index)"
             [class.seat-row-bottom]="isBottomSeat(index)"
             [class.seat-odd-last]="isOddLastSeat(index)"
-            [class.dragging]="draggedSeatIndex() === index"
-            [class.selected]="selectedSeatIndex() === index"
             [style.--seat-column]="seatColumn(index)"
-            tabindex="0"
-            (dragstart)="startSeatDrag($event, index)"
-            (dragover)="allowDrop($event)"
-            (drop)="dropOnSeat($event, index)"
-            (dragend)="endDrag()"
-            (click)="selectSeatCell(index)"
-            (keydown.enter)="selectSeatCell(index)"
-            (keydown.space)="$event.preventDefault(); selectSeatCell(index)"
           >
             <div class="seat-card-header">
               <span>Mesa {{ index + 1 }}</span>
-              @if (playerAtSeat(index); as player) {
-                <strong>Turno {{ turnPosition(player.id) }}</strong>
-              } @else {
-                <strong>Turno -</strong>
-              }
+              <span class="turn-pill-slot" aria-hidden="true">
+                @if (playerAtSeat(index); as player) {
+                  @if (turnPosition(player.id); as position) {
+                    <strong>Turno {{ position }}</strong>
+                  }
+                }
+              </span>
             </div>
 
             <label class="seat-field">
@@ -70,55 +65,48 @@
               </select>
             </label>
 
-            @if (playerAtSeat(index); as player) {
-              <div class="seat-turn-row">
-                <label class="seat-field" [attr.for]="'turn-order-' + player.id">
-                  <span>Orden</span>
-                  <select
-                    [id]="'turn-order-' + player.id"
-                    [value]="turnIndex(player.id) ?? ''"
-                    [attr.aria-label]="'Orden de turno de ' + player.name"
-                    (click)="$event.stopPropagation()"
-                    (change)="setTurnIndex(player.id, $any($event.target).value)"
-                  >
-                    <option value="">Sin turno</option>
-                    @for (turnIndex of turnIndexes(); track turnIndex) {
-                      <option [value]="turnIndex">{{ turnIndex + 1 }}</option>
-                    }
-                  </select>
-                </label>
-                <div class="order-actions" aria-label="Mover jugador en el turno">
-                  <button
-                    type="button"
-                    [disabled]="turnIndex(player.id) === null || turnIndex(player.id) === 0"
-                    [attr.aria-label]="'Subir turno de ' + player.name"
-                    (click)="$event.stopPropagation(); moveTurnPlayer(player.id, -1)"
-                  >
-                    <lucide-icon class="arrow-up" name="chevron-down" size="15" />
-                  </button>
-                  <button
-                    type="button"
-                    [disabled]="
-                      turnIndex(player.id) === null || turnIndex(player.id) === players().length - 1
-                    "
-                    [attr.aria-label]="'Bajar turno de ' + player.name"
-                    (click)="$event.stopPropagation(); moveTurnPlayer(player.id, 1)"
-                  >
-                    <lucide-icon name="chevron-down" size="15" />
-                  </button>
+            <div class="seat-turn-slot">
+              @if (playerAtSeat(index); as player) {
+                <div class="seat-turn-row">
+                  <label class="seat-field" [attr.for]="'turn-order-' + player.id">
+                    <span>Orden</span>
+                    <select
+                      [id]="'turn-order-' + player.id"
+                      class="turn-order-select"
+                      [value]="turnIndex(player.id) ?? ''"
+                      [attr.aria-label]="'Orden de turno de ' + player.name"
+                      (click)="$event.stopPropagation()"
+                      (change)="setTurnIndex(player.id, $any($event.target).value)"
+                    >
+                      <option value="">-</option>
+                      @for (turnIndex of turnIndexes(); track turnIndex) {
+                        <option
+                          [value]="turnIndex"
+                          [disabled]="isTurnIndexSelectedElsewhere(turnIndex, player.id)"
+                        >
+                          {{ turnIndex + 1 }}
+                        </option>
+                      }
+                    </select>
+                  </label>
                 </div>
-              </div>
-
-              <small>Despues va {{ nextPlayerName(player.id) }}</small>
-            } @else {
-              <p class="empty-seat">Elige un jugador y su turno.</p>
-            }
+              } @else {
+                <p class="empty-seat">Elige un jugador y su turno.</p>
+              }
+            </div>
           </article>
         }
       </section>
 
       <footer>
-        <button class="secondary-action" type="button" (click)="cancel()">Cancelar</button>
+        <button
+          class="secondary-action"
+          type="button"
+          [disabled]="!canRandomizeTurnOrder()"
+          (click)="randomizeTurnOrder()"
+        >
+          Turno aleatorio
+        </button>
         <button class="primary-action" type="submit" [disabled]="!isArrangementComplete()">
           {{ confirmLabel() }}
         </button>

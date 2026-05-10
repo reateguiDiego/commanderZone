@@ -1,0 +1,29 @@
+<div class="setup-control life-control">
+  <div class="control-copy">
+    <span class="eyebrow">{{ label() }}</span>
+    <strong>{{ summary() }}</strong>
+  </div>
+  <div class="life-editor" aria-label="Starting life">
+    <button
+      type="button"
+      class="life-step-button"
+      [disabled]="disabled()"
+      aria-label="Decrease starting life"
+      (click)="decrease()"
+    >
+      -
+    </button>
+    <span class="life-value-button" aria-live="polite">
+      {{ value() }}
+    </span>
+    <button
+      type="button"
+      class="life-step-button"
+      [disabled]="disabled()"
+      aria-label="Increase starting life"
+      (click)="increase()"
+    >
+      +
+    </button>
+  </div>
+</div>

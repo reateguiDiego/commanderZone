@@ -1,0 +1,19 @@
+<div class="setup-control seats-control">
+  <div class="control-copy">
+    <span class="eyebrow">{{ label() }}</span>
+    <strong>{{ value() }}</strong>
+  </div>
+  <div class="capacity-editor" aria-label="Table size">
+    @for (option of options(); track option) {
+      <button
+        type="button"
+        [class.selected]="value() === option"
+        [disabled]="disabled() || option < minimumValue()"
+        [attr.aria-label]="'Set table size to ' + option + ' players'"
+        (click)="selectValue(option)"
+      >
+        {{ option }}
+      </button>
+    }
+  </div>
+</div>

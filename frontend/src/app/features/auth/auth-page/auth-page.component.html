@@ -15,7 +15,14 @@
         <form class="form-stack" [formGroup]="loginForm" (ngSubmit)="submitLogin()">
           <label>
             Email
-            <input type="email" autocomplete="email" formControlName="email" />
+            <input
+              type="email"
+              autocomplete="email"
+              [readOnly]="!loginAutocompleteReady()"
+              formControlName="email"
+              (pointerdown)="enableLoginAutocomplete()"
+              (focus)="enableLoginAutocomplete()"
+            />
             @if (loginEmailInvalid()) {
               <span class="field-error">Introduce un email valido.</span>
             }
@@ -24,7 +31,14 @@
           <label>
             Password
             <div class="password-field">
-              <input [type]="loginPasswordVisible() ? 'text' : 'password'" autocomplete="current-password" formControlName="password" />
+              <input
+                [type]="loginPasswordVisible() ? 'text' : 'password'"
+                autocomplete="current-password"
+                [readOnly]="!loginAutocompleteReady()"
+                formControlName="password"
+                (pointerdown)="enableLoginAutocomplete()"
+                (focus)="enableLoginAutocomplete()"
+              />
               <button
                 type="button"
                 class="password-toggle"

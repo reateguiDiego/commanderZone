@@ -13,11 +13,6 @@
               <p>Choose your deck and get ready before starting.</p>
             </div>
             <div class="players-panel-tools">
-              <span class="host-pill">
-                <lucide-icon name="shield-check" size="15" />
-                Host:
-                <app-player-name [displayName]="room.owner.displayName" [nameStyle]="room.owner.displayNameStyle" size="sm" />
-              </span>
               <button class="secondary-button compact icon-action" type="button" title="Leave room" aria-label="Leave room" (click)="requestLeaveRoom(room)">
                 <lucide-icon name="log-out" size="16" />
               </button>

@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, WritableSignal, computed, inject, signal } from '@angular/core';
+import { AfterViewInit, ChangeDetectionStrategy, Component, DestroyRef, WritableSignal, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -22,7 +22,7 @@ const USER_NAME_MAX_LENGTH = 25;
   styleUrl: './auth-page.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class AuthPageComponent {
+export class AuthPageComponent implements AfterViewInit {
   readonly auth = inject(AuthStore);
   private readonly authApi = inject(AuthApi);
   private readonly destroyRef = inject(DestroyRef);
@@ -36,6 +36,7 @@ export class AuthPageComponent {
   readonly loginEmailFeedbackReady = signal(false);
   readonly registerEmailFeedbackReady = signal(false);
   readonly loginPasswordVisible = signal(false);
+  readonly loginAutocompleteReady = signal(false);
   readonly registerPasswordVisible = signal(false);
   readonly registerConfirmPasswordVisible = signal(false);
   readonly registerPasswordsMatch = signal(false);
@@ -73,9 +74,17 @@ export class AuthPageComponent {
     this.trackRegisterPasswordMatch();
   }
 
+  ngAfterViewInit(): void {
+    window.setTimeout(() => this.clearInitialLoginAutofill());
+  }
+
   setMode(mode: AuthMode): void {
     this.mode.set(mode);
     this.auth.clearError();
+  }
+
+  enableLoginAutocomplete(): void {
+    this.loginAutocompleteReady.set(true);
   }
 
   async submitLogin(): Promise<void> {
@@ -210,6 +219,14 @@ export class AuthPageComponent {
     } catch {
       return;
     }
+  }
+
+  private clearInitialLoginAutofill(): void {
+    if (this.mode() !== 'login' || this.loginForm.dirty) {
+      return;
+    }
+
+    this.loginForm.reset({ email: '', password: '' }, { emitEvent: true });
   }
 
   private emailInvalid(control: FormControl<string>, feedbackReady: boolean): boolean {

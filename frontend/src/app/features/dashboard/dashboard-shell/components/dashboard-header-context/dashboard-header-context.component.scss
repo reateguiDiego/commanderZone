@@ -192,6 +192,11 @@ button:disabled {
     align-items: stretch;
   }
 
+  .page-header-detail-row.has-actions:not(.has-stats):has([data-action-id="copy-room-code"]) {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: stretch;
+  }
+
   .page-header-actions-stack,
   .page-header-actions-stack .page-header-actions {
     display: contents;
@@ -204,6 +209,26 @@ button:disabled {
 
   .page-header-detail-row.has-actions:not(.has-stats) button:not(.icon-only) {
     width: 100%;
+  }
+
+  button[data-action-id="copy-room-code"],
+  button[data-action-id="share-room-link"] {
+    width: 3.45rem;
+    min-width: 3.45rem;
+    padding-inline: 0;
+  }
+
+  button[data-action-id="copy-room-code"] span,
+  button[data-action-id="share-room-link"] span {
+    position: absolute;
+    overflow: hidden;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    border: 0;
+    margin: -1px;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
   }
 
   .page-header-stats {

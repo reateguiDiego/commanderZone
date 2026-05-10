@@ -7,7 +7,6 @@ import {
   inject,
   input,
   output,
-  signal,
 } from '@angular/core';
 import {
   FormArray,
@@ -17,7 +16,6 @@ import {
   ValidationErrors,
   Validators,
 } from '@angular/forms';
-import { LucideAngularModule } from 'lucide-angular';
 import { BodyScrollLockService } from '../../../shared/services/body-scroll-lock.service';
 import { PrettyScrollDirective } from '../../../shared/ui/pretty-scroll/pretty-scroll.directive';
 import {
@@ -29,7 +27,7 @@ type ArrangementModalMode = 'initial' | 'replay';
 
 @Component({
   selector: 'app-table-assistant-replay-modal',
-  imports: [LucideAngularModule, PrettyScrollDirective, ReactiveFormsModule],
+  imports: [PrettyScrollDirective, ReactiveFormsModule],
   templateUrl: './table-assistant-replay-modal.component.html',
   styleUrl: './table-assistant-replay-modal.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -43,8 +41,6 @@ export class TableAssistantReplayModalComponent implements OnInit, OnDestroy {
   readonly cancelled = output<void>();
   readonly replayConfirmed = output<TableAssistantPlayerArrangement>();
 
-  readonly draggedSeatIndex = signal<number | null>(null);
-  readonly selectedSeatIndex = signal<number | null>(null);
   readonly seatPositions = computed(() => this.players().map((_, index) => index));
   readonly seatColumnCount = computed(() => Math.max(1, Math.ceil(this.players().length / 2)));
   readonly turnIndexes = computed(() => this.players().map((_, index) => index));
@@ -88,73 +84,6 @@ export class TableAssistantReplayModalComponent implements OnInit, OnDestroy {
   playerAtSeat(seatIndex: number): TableAssistantPlayer | null {
     const playerId = this.seatControl(seatIndex)?.value;
     return this.players().find((player) => player.id === playerId) ?? null;
-  }
-
-  selectSeatCell(seatIndex: number): void {
-    const selectedIndex = this.selectedSeatIndex();
-    if (selectedIndex === null) {
-      this.selectedSeatIndex.set(seatIndex);
-      return;
-    }
-
-    if (selectedIndex === seatIndex) {
-      this.selectedSeatIndex.set(null);
-      return;
-    }
-
-    this.swapSeatAssignments(selectedIndex, seatIndex);
-    this.selectedSeatIndex.set(null);
-  }
-
-  startSeatDrag(event: DragEvent, seatIndex: number): void {
-    if (!this.playerAtSeat(seatIndex)) {
-      event.preventDefault();
-      return;
-    }
-
-    this.startDrag(event, seatIndex);
-    this.draggedSeatIndex.set(seatIndex);
-  }
-
-  allowDrop(event: DragEvent): void {
-    event.preventDefault();
-
-    if (event.dataTransfer) {
-      event.dataTransfer.dropEffect = 'move';
-    }
-  }
-
-  dropOnSeat(event: DragEvent, targetSeatIndex: number): void {
-    event.preventDefault();
-
-    const draggedSeatIndex = this.draggedSeat(event, this.draggedSeatIndex());
-    if (draggedSeatIndex === null || draggedSeatIndex === targetSeatIndex) {
-      this.endDrag();
-      return;
-    }
-
-    this.swapSeatAssignments(draggedSeatIndex, targetSeatIndex);
-    this.endDrag();
-  }
-
-  endDrag(): void {
-    this.draggedSeatIndex.set(null);
-  }
-
-  moveTurnPlayer(playerId: string, direction: -1 | 1): void {
-    const currentIndex = this.turnIndex(playerId);
-    const targetIndex = currentIndex === null ? null : currentIndex + direction;
-
-    if (
-      currentIndex === null ||
-      targetIndex === null ||
-      targetIndex < 0 ||
-      targetIndex >= this.players().length
-    ) {
-      return;
-    }
-
-    this.setTurnIndex(playerId, targetIndex);
   }
 
   setTurnIndex(playerId: string, rawIndex: string | number): void {
@@ -204,9 +133,9 @@ export class TableAssistantReplayModalComponent implements OnInit, OnDestroy {
     return this.turnControlForPlayer(playerId)?.value ?? null;
   }
 
-  turnPosition(playerId: string): string {
+  turnPosition(playerId: string): string | null {
     const turnIndex = this.turnIndex(playerId);
-    return turnIndex === null ? '-' : String(turnIndex + 1);
+    return turnIndex === null ? null : String(turnIndex + 1);
   }
 
   isTopSeat(index: number): boolean {
@@ -225,26 +154,34 @@ export class TableAssistantReplayModalComponent implements OnInit, OnDestroy {
     return Math.floor(index / 2) + 1;
   }
 
-  nextPlayerName(playerId: string): string {
-    const turnOrder = this.turnOrderFromForm();
-    const playerIndex = turnOrder.indexOf(playerId);
-    if (playerIndex === -1 || turnOrder.length !== this.players().length) {
-      return 'pendiente';
-    }
-
-    const nextPlayerId = turnOrder[(playerIndex + 1) % turnOrder.length];
-    const nextPlayer = this.players().find((player) => player.id === nextPlayerId);
-    return nextPlayer?.name ?? 'pendiente';
-  }
-
   isPlayerSeatedElsewhere(playerId: string, seatIndex: number): boolean {
     return this.seatControls.controls.some(
       (control, index) => index !== seatIndex && control.value === playerId,
     );
   }
 
+  isTurnIndexSelectedElsewhere(turnIndex: number, playerId: string): boolean {
+    return this.players().some(
+      (player) => player.id !== playerId && this.turnControlForPlayer(player.id).value === turnIndex,
+    );
+  }
+
   isArrangementComplete(): boolean {
     return this.arrangementForm.valid;
+  }
+
+  canRandomizeTurnOrder(): boolean {
+    return this.hasCompleteSeats();
+  }
+
+  randomizeTurnOrder(): void {
+    if (!this.canRandomizeTurnOrder()) {
+      return;
+    }
+
+    this.turnControls.reset(this.emptyTurnValues(), { emitEvent: false });
+    this.turnControls.setValue(this.randomTurnValuesByPlayerIndex(this.seatOrderFromForm()));
+    this.arrangementForm.updateValueAndValidity();
   }
 
   confirmReplay(): void {
@@ -275,18 +212,17 @@ export class TableAssistantReplayModalComponent implements OnInit, OnDestroy {
     this.seatControls.clear({ emitEvent: false });
     this.turnControls.clear({ emitEvent: false });
 
-    const initialMode = this.mode() === 'initial';
     const playersBySeat = new Map(this.players().map((player) => [player.seatIndex, player.id]));
 
-    this.players().forEach((player, index) => {
+    this.players().forEach((_, index) => {
       this.seatControls.push(
-        new FormControl<string | null>(initialMode ? null : (playersBySeat.get(index) ?? null), {
+        new FormControl<string | null>(this.initialSeatValue(index, playersBySeat), {
           validators: Validators.required,
         }),
         { emitEvent: false },
       );
       this.turnControls.push(
-        new FormControl<number | null>(initialMode ? null : player.turnOrder, {
+        new FormControl<number | null>(null, {
           validators: Validators.required,
         }),
         { emitEvent: false },
@@ -296,19 +232,6 @@ export class TableAssistantReplayModalComponent implements OnInit, OnDestroy {
     this.arrangementForm.updateValueAndValidity();
     this.formInitialized = true;
     this.arrangementForm.updateValueAndValidity();
-  }
-
-  private startDrag(event: DragEvent, seatIndex: number): void {
-    if (event.dataTransfer) {
-      event.dataTransfer.effectAllowed = 'move';
-      event.dataTransfer.setData('text/plain', String(seatIndex));
-    }
-  }
-
-  private draggedSeat(event: DragEvent, fallbackSeatIndex: number | null): number | null {
-    const rawSeatIndex = event.dataTransfer?.getData('text/plain');
-    const seatIndex = rawSeatIndex ? Number.parseInt(rawSeatIndex, 10) : fallbackSeatIndex;
-    return Number.isInteger(seatIndex) ? seatIndex : null;
   }
 
   private arrangementValidationErrors(): ValidationErrors | null {
@@ -361,14 +284,34 @@ export class TableAssistantReplayModalComponent implements OnInit, OnDestroy {
       .map((playerTurn) => playerTurn.playerId);
   }
 
-  private swapSeatAssignments(leftIndex: number, rightIndex: number): void {
-    const leftControl = this.seatControl(leftIndex);
-    const rightControl = this.seatControl(rightIndex);
-    const leftPlayerId = leftControl.value;
+  private initialSeatValue(index: number, playersBySeat: Map<number, string>): string | null {
+    return this.mode() === 'initial' ? null : (playersBySeat.get(index) ?? null);
+  }
 
-    leftControl.setValue(rightControl.value);
-    rightControl.setValue(leftPlayerId);
-    this.arrangementForm.updateValueAndValidity();
+  private emptyTurnValues(): null[] {
+    return this.players().map(() => null);
+  }
+
+  private randomTurnValuesByPlayerIndex(seatedPlayerIds: string[]): Array<number | null> {
+    const turnByPlayerId = new Map<string, number>();
+    this.shufflePlayerIds(seatedPlayerIds).forEach((playerId, turnIndex) => {
+      turnByPlayerId.set(playerId, turnIndex);
+    });
+
+    return this.players().map((player) => turnByPlayerId.get(player.id) ?? null);
+  }
+
+  private shufflePlayerIds(playerIds: string[]): string[] {
+    const shuffledPlayerIds = [...playerIds];
+    for (let index = shuffledPlayerIds.length - 1; index > 0; index -= 1) {
+      const swapIndex = Math.floor(Math.random() * (index + 1));
+      [shuffledPlayerIds[index], shuffledPlayerIds[swapIndex]] = [
+        shuffledPlayerIds[swapIndex],
+        shuffledPlayerIds[index],
+      ];
+    }
+
+    return shuffledPlayerIds;
   }
 
   private clearDuplicateSeat(playerId: string, selectedSeatIndex: number): void {
