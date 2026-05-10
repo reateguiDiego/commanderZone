@@ -559,7 +559,9 @@ class RoomsController extends ApiController
                 'id' => 'private-host-'.$room->id(),
                 'email' => '',
                 'displayName' => 'XXXX',
+                'displayNameStyle' => ['type' => 'plain', 'presetId' => 'plain'],
                 'roles' => ['ROLE_USER'],
+                'avatar' => ['type' => 'initial', 'imageUrl' => null],
             ];
         }
 

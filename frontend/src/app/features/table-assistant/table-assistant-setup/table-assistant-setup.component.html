@@ -14,15 +14,19 @@
   <div class="setup-grid">
     <section class="setup-section players-section">
       <h3>Jugadores</h3>
-      <div class="compact-fields">
-        <label>
-          Numero
-          <input name="playerCount" type="number" min="2" max="6" [ngModel]="playerCount()" (ngModelChange)="setPlayerCount($event)" />
-        </label>
-        <label>
-          Vida inicial
-          <input name="initialLife" type="number" min="1" [ngModel]="initialLife()" (ngModelChange)="setInitialLife($event)" />
-        </label>
+      <div class="setup-number-controls">
+        <app-game-setup-seats-control
+          label="Jugadores"
+          [value]="playerCount()"
+          [options]="playerCountOptions"
+          (valueChange)="setPlayerCount($event)"
+        />
+        <app-game-setup-life-control
+          label="Vida inicial"
+          summary="Total inicial"
+          [value]="initialLife()"
+          (valueChange)="setInitialLife($event)"
+        />
       </div>
 
       <div appPrettyScroll class="players-list">

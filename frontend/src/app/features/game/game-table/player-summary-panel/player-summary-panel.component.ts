@@ -1,5 +1,7 @@
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
 import { ManaSymbolsComponent } from '../../../../shared/mana/mana-symbols/mana-symbols.component';
+import { PlayerAvatarComponent } from '../../../../shared/ui/player-avatar/player-avatar.component';
+import { PlayerNameComponent } from '../../../../shared/ui/player-name/player-name.component';
 import { PlayerView } from '../game-table.store';
 
 interface LifeChangeEvent {
@@ -9,7 +11,7 @@ interface LifeChangeEvent {
 
 @Component({
   selector: 'app-player-summary-panel',
-  imports: [ManaSymbolsComponent],
+  imports: [ManaSymbolsComponent, PlayerAvatarComponent, PlayerNameComponent],
   templateUrl: './player-summary-panel.component.html',
   styleUrl: './player-summary-panel.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

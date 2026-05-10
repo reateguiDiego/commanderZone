@@ -5,10 +5,14 @@ security:
 
     # https://symfony.com/doc/current/security.html#loading-the-user-the-user-provider
     providers:
-        app_user_provider:
+        app_user_email_provider:
             entity:
                 class: App\Domain\User\User
                 property: email
+        app_user_id_provider:
+            entity:
+                class: App\Domain\User\User
+                property: id
 
     firewalls:
         dev:
@@ -18,6 +22,7 @@ security:
         login:
             pattern: ^/auth/login$
             stateless: true
+            provider: app_user_email_provider
             json_login:
                 check_path: /auth/login
                 username_path: email
@@ -27,7 +32,7 @@ security:
         api:
             pattern: ^/
             stateless: true
-            provider: app_user_provider
+            provider: app_user_id_provider
             jwt: ~
 
     # Note: Only the *first* matching rule is applied
@@ -39,6 +44,7 @@ security:
         - { path: ^/auth/password-reset/request$, roles: PUBLIC_ACCESS }
         - { path: ^/auth/password-reset/confirm$, roles: PUBLIC_ACCESS }
         - { path: ^/landing/preview$, roles: PUBLIC_ACCESS }
+        - { path: ^/users/[^/]+/avatar$, roles: PUBLIC_ACCESS }
         - { path: ^/cards, roles: PUBLIC_ACCESS }
         - { path: ^/, roles: ROLE_USER }
 

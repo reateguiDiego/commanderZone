@@ -63,13 +63,13 @@ label {
   text-transform: uppercase;
 }
 
-.compact-fields,
+.setup-number-controls,
 .players-list {
   display: grid;
   gap: 0.5rem;
 }
 
-.compact-fields {
+.setup-number-controls {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
@@ -78,7 +78,6 @@ label {
   font-weight: 700;
 }
 
-input,
 .color-picker-trigger,
 .color-option,
 .ghost-button,
@@ -89,12 +88,6 @@ input,
   padding: 0 0.75rem;
   color: var(--text);
   font-weight: 850;
-}
-
-input {
-  width: 100%;
-  background: rgb(5 9 6 / 74%);
-  outline: none;
 }
 
 .player-config-row {
@@ -215,7 +208,6 @@ input {
     height: 1.75rem;
   }
 
-  input,
   .color-picker-trigger,
   .color-option,
   .ghost-button,
@@ -227,5 +219,9 @@ input {
   .setup-actions,
   .primary-button {
     width: 100%;
+  }
+
+  .setup-number-controls {
+    grid-template-columns: 1fr;
   }
 }

@@ -37,6 +37,18 @@ body {
   overflow-x: hidden;
 }
 
+html.app-pseudo-fullscreen,
+body.app-pseudo-fullscreen {
+  height: 100%;
+  overflow: hidden;
+}
+
+body.app-pseudo-fullscreen {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+}
+
 body {
   position: relative;
   background:

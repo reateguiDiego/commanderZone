@@ -134,6 +134,8 @@ class Friendship
         $data = [
             'id' => $user->id(),
             'displayName' => $user->displayName(),
+            'displayNameStyle' => $user->displayNameStyle(),
+            'avatar' => $user->avatar(),
         ];
 
         if ($presence !== null) {

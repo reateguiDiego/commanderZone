@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, WritableSignal, computed, inject, signal } from '@angular/core';
+import { AfterViewInit, ChangeDetectionStrategy, Component, DestroyRef, WritableSignal, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -13,6 +13,7 @@ type UserNameAvailability = 'idle' | 'checking' | 'available' | 'taken' | 'error
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const USER_NAME_MIN_LENGTH = 4;
+const USER_NAME_MAX_LENGTH = 25;
 
 @Component({
   selector: 'app-auth-page',
@@ -21,7 +22,7 @@ const USER_NAME_MIN_LENGTH = 4;
   styleUrl: './auth-page.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class AuthPageComponent {
+export class AuthPageComponent implements AfterViewInit {
   readonly auth = inject(AuthStore);
   private readonly authApi = inject(AuthApi);
   private readonly destroyRef = inject(DestroyRef);
@@ -35,6 +36,7 @@ export class AuthPageComponent {
   readonly loginEmailFeedbackReady = signal(false);
   readonly registerEmailFeedbackReady = signal(false);
   readonly loginPasswordVisible = signal(false);
+  readonly loginAutocompleteReady = signal(false);
   readonly registerPasswordVisible = signal(false);
   readonly registerConfirmPasswordVisible = signal(false);
   readonly registerPasswordsMatch = signal(false);
@@ -48,7 +50,7 @@ export class AuthPageComponent {
 
   readonly registerForm = this.formBuilder.group({
     email: ['', [Validators.required, Validators.pattern(EMAIL_PATTERN)]],
-    displayName: ['', [Validators.required, Validators.minLength(USER_NAME_MIN_LENGTH)]],
+    displayName: ['', [Validators.required, Validators.minLength(USER_NAME_MIN_LENGTH), Validators.maxLength(USER_NAME_MAX_LENGTH)]],
     password: ['', [Validators.required, Validators.minLength(8)]],
     confirmPassword: ['', [Validators.required]],
   });
@@ -72,9 +74,17 @@ export class AuthPageComponent {
     this.trackRegisterPasswordMatch();
   }
 
+  ngAfterViewInit(): void {
+    window.setTimeout(() => this.clearInitialLoginAutofill());
+  }
+
   setMode(mode: AuthMode): void {
     this.mode.set(mode);
     this.auth.clearError();
+  }
+
+  enableLoginAutocomplete(): void {
+    this.loginAutocompleteReady.set(true);
   }
 
   async submitLogin(): Promise<void> {
@@ -181,7 +191,7 @@ export class AuthPageComponent {
         tap(() => this.userNameAvailability.set('idle')),
         debounceTime(450),
         switchMap((displayName) => {
-          if (displayName.length < USER_NAME_MIN_LENGTH) {
+          if (displayName.length < USER_NAME_MIN_LENGTH || displayName.length > USER_NAME_MAX_LENGTH) {
             return of<UserNameAvailability>('idle');
           }
 
@@ -209,6 +219,14 @@ export class AuthPageComponent {
     } catch {
       return;
     }
+  }
+
+  private clearInitialLoginAutofill(): void {
+    if (this.mode() !== 'login' || this.loginForm.dirty) {
+      return;
+    }
+
+    this.loginForm.reset({ email: '', password: '' }, { emitEvent: true });
   }
 
   private emailInvalid(control: FormControl<string>, feedbackReady: boolean): boolean {

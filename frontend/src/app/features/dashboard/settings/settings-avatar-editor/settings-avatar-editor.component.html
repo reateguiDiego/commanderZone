@@ -1,0 +1,100 @@
+<section class="avatar-editor" (click)="closeInitialControls()">
+  <header class="avatar-editor-header">
+    <div>
+      <h3>Choose avatar</h3>
+    </div>
+  </header>
+
+  <section class="avatar-preview-panel" aria-label="Avatar preview">
+    <div
+      class="avatar-preview"
+      [class.premium-preview]="previewIsPremium()"
+      [style.background]="previewImageUrl() ? null : previewInitialBackgroundColor()"
+      [style.color]="previewImageUrl() ? null : previewInitialTextColor()"
+    >
+      @if (previewImageUrl()) {
+        <img [src]="previewImageUrl()" alt="Avatar preview" draggable="false" (dragstart)="preventAvatarDrag($event)" />
+      } @else {
+        <span>{{ previewInitialLetter() }}</span>
+      }
+    </div>
+    <div class="avatar-preview-copy">
+      <span>Current selection</span>
+      <strong>{{ currentSelectionLabel() }}</strong>
+    </div>
+  </section>
+
+  <section class="avatar-options">
+    <nav class="avatar-tier-tabs" aria-label="Avatar tiers">
+      <button type="button" [class.active]="activeTier() === 'basic'" (click)="switchTier('basic')">Basic</button>
+      <button type="button" [class.active]="activeTier() === 'premium'" (click)="switchTier('premium')">Premium</button>
+    </nav>
+
+    @if (activeTier() === 'basic') {
+      <section class="preset-tier basic-tier" aria-label="Basic avatars">
+        <app-settings-initial-avatar-option
+          [selected]="initialSelected()"
+          [controlsOpen]="initialControlsOpen()"
+          [disabled]="saving()"
+          [letter]="previewInitialLetter()"
+          [backgroundColor]="previewInitialBackgroundColor()"
+          [textColor]="previewInitialTextColor()"
+          (selectedRequested)="chooseInitial()"
+          (interactionStarted)="keepInitialControlsOpen($event)"
+          (letterChanged)="updateInitialLetter($event)"
+          (backgroundColorChanged)="updateInitialBackgroundColor($event)"
+          (textColorChanged)="updateInitialTextColor($event)"
+        />
+
+        @for (presetAvatar of basicPresetAvatars; track presetAvatar.id) {
+          <button
+            type="button"
+            class="preset-avatar"
+            [class.selected]="selectedPresetImageUrl() === presetAvatar.imageUrl"
+            [attr.aria-label]="presetAvatar.label"
+            [attr.title]="presetAvatar.label"
+            [disabled]="saving()"
+            (click)="choosePreset(presetAvatar)"
+            (dragstart)="preventAvatarDrag($event)"
+          >
+            <span class="avatar-image-frame">
+              <img [src]="presetAvatar.displayUrl" [alt]="presetAvatar.label" draggable="false" />
+            </span>
+          </button>
+        }
+      </section>
+    } @else {
+      <section class="preset-tier" aria-label="Premium avatars">
+        <div class="preset-grid premium-grid">
+          @for (presetAvatar of premiumPresetAvatars; track presetAvatar.id) {
+            <button
+              type="button"
+              class="preset-avatar premium-avatar"
+              [class.selected]="selectedPresetImageUrl() === presetAvatar.imageUrl"
+              [attr.aria-label]="presetAvatar.label + ' premium avatar'"
+              [attr.title]="presetAvatar.label"
+              [disabled]="saving()"
+              (click)="choosePreset(presetAvatar)"
+              (dragstart)="preventAvatarDrag($event)"
+            >
+              <span class="avatar-image-frame">
+                <img [src]="presetAvatar.displayUrl" [alt]="presetAvatar.label" draggable="false" />
+              </span>
+              <span class="premium-badge">Premium</span>
+            </button>
+          }
+        </div>
+      </section>
+    }
+  </section>
+
+  @if (errorMessage()) {
+    <p class="avatar-error">{{ errorMessage() }}</p>
+  }
+
+  <footer class="avatar-editor-actions">
+    <button class="primary-button" type="button" [disabled]="!canSave()" (click)="save()">
+      {{ saving() ? 'Saving...' : 'Save' }}
+    </button>
+  </footer>
+</section>

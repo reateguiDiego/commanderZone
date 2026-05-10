@@ -41,6 +41,12 @@ const GROUPS: Array<{ id: string; title: string; matcher: (entry: DeckCard) => b
   { id: 'land', title: 'Tierras', matcher: (entry) => hasMaindeckType(entry, 'land') },
   { id: 'sideboard', title: 'Banquillo', matcher: (entry) => entry.section === 'sideboard' },
 ];
+const DECK_TEXT_VIEW_TARGET_COLUMN_WEIGHT = 42;
+const DECK_TEXT_VIEW_MAX_COLUMNS = 2;
+const CARD_MENU_WIDTH = 300;
+const CARD_MENU_HEIGHT = 390;
+const CARD_MENU_IMAGE_PREVIEW_WIDTH = 224;
+const CARD_MENU_POPOVER_GAP = 12;
 
 @Injectable()
 export class DeckEditorStore {
@@ -162,6 +168,12 @@ export class DeckEditorStore {
 
   closeCardMenu(): void {
     this.cardMenu.set(null);
+  }
+
+  closeTransientOverlays(): void {
+    this.closeCardMenu();
+    this.hideCardPreview();
+    this.hideHoverList();
   }
 
   closePrintVersionModal(): void {
@@ -525,11 +537,13 @@ export class DeckEditorStore {
     }
 
     const position = this.cardMenuPosition(event);
+    this.ensureCardImage(entry.card);
     this.cardMenu.set({
       entryId: entry.id,
       top: position.top,
       left: position.left,
       amount: 1,
+      showImagePreview: this.shouldShowCardMenuImagePreview(),
     });
   }
 
@@ -758,6 +772,10 @@ export class DeckEditorStore {
     return this.displayCardFace(card)?.name ?? card.name;
   }
 
+  displayCardListName(card: Card): string {
+    return card.name;
+  }
+
   displayCardTypeLine(card: Card): string | null {
     const face = this.displayCardFace(card);
     if (face?.typeLine) {
@@ -788,10 +806,18 @@ export class DeckEditorStore {
 
   toggleCardFace(event: MouseEvent, card: Card): void {
     event.stopPropagation();
+    if (this.previewEnterTimeout) {
+      clearTimeout(this.previewEnterTimeout);
+      this.previewEnterTimeout = null;
+    }
+
     const next = { ...this.flippedFaces() };
     next[card.scryfallId] = !next[card.scryfallId];
     this.flippedFaces.set(next);
-    this.hideCardPreview();
+
+    this.lastPreviewPointer = { x: event.clientX, y: event.clientY };
+    this.updatePreviewPosition(this.lastPreviewPointer, card, this.displayCardImageUrl(card));
+    void this.resolvePreviewImage(card);
   }
 
   private async addSearchedCardInternal(card: Card, amount: number): Promise<void> {
@@ -899,40 +925,70 @@ export class DeckEditorStore {
       return [];
     }
 
-    const columns: DeckCardColumn[] = [];
-    const targetCardsPerColumn = 18;
-    let currentGroups: DeckCardGroup[] = [];
-    let currentCount = 0;
+    const totalWeight = groups.reduce((total, group) => total + this.cardGroupColumnWeight(group), 0);
+    const columnCount = Math.min(
+      DECK_TEXT_VIEW_MAX_COLUMNS,
+      Math.max(1, Math.ceil(totalWeight / DECK_TEXT_VIEW_TARGET_COLUMN_WEIGHT)),
+      groups.length,
+    );
 
-    for (const group of groups) {
-      const shouldStartNewColumn = currentGroups.length > 0
-        && currentCount >= targetCardsPerColumn
-        && group.cards.length > 4
-        && group.id !== 'sideboard'
-        && group.id !== 'land'
-        && currentGroups[currentGroups.length - 1]?.id !== 'sideboard';
+    return this.orderedBalancedColumnGroups(groups, columnCount)
+      .map((column) => ({
+        id: column.map((item) => item.id).join('-'),
+        groups: column,
+      }));
+  }
 
-      if (shouldStartNewColumn) {
-        columns.push({
-          id: currentGroups.map((item) => item.id).join('-'),
-          groups: currentGroups,
-        });
-        currentGroups = [];
-        currentCount = 0;
+  private orderedBalancedColumnGroups(groups: DeckCardGroup[], columnCount: number): DeckCardGroup[][] {
+    if (columnCount <= 1 || groups.length <= 1) {
+      return [groups];
+    }
+
+    let bestColumns: DeckCardGroup[][] = [groups];
+    let bestScore = Number.POSITIVE_INFINITY;
+    let bestMaxWeight = Number.POSITIVE_INFINITY;
+
+    const visit = (startIndex: number, remainingColumns: number, currentColumns: DeckCardGroup[][]): void => {
+      if (remainingColumns === 1) {
+        const candidate = [...currentColumns, groups.slice(startIndex)];
+        const weights = candidate.map((column) => this.cardColumnWeight(column));
+        const maxWeight = Math.max(...weights);
+        const score = maxWeight - Math.min(...weights);
+
+        if (score < bestScore || (score === bestScore && maxWeight < bestMaxWeight)) {
+          bestColumns = candidate;
+          bestScore = score;
+          bestMaxWeight = maxWeight;
+        }
+        return;
       }
 
-      currentGroups.push(group);
-      currentCount += group.cards.length;
+      const maxEndIndex = groups.length - remainingColumns + 1;
+      for (let endIndex = startIndex + 1; endIndex <= maxEndIndex; endIndex += 1) {
+        visit(endIndex, remainingColumns - 1, [...currentColumns, groups.slice(startIndex, endIndex)]);
+      }
+    };
+
+    visit(0, columnCount, []);
+
+    return bestColumns;
+  }
+
+  private cardColumnWeight(groups: DeckCardGroup[]): number {
+    return groups.reduce((total, group) => total + this.cardGroupColumnWeight(group), 0);
+  }
+
+  private cardGroupColumnWeight(group: DeckCardGroup): number {
+    const headerWeight = 2;
+    if (this.isGroupCollapsed(group.id)) {
+      return headerWeight;
     }
 
-    if (currentGroups.length > 0) {
-      columns.push({
-        id: currentGroups.map((item) => item.id).join('-'),
-        groups: currentGroups,
-      });
+    if (group.id === 'commander') {
+      return headerWeight + Math.max(8, group.cards.length * 8);
     }
 
-    return columns;
+    return headerWeight + group.cards.reduce((total, entry) => total + Math.max(1, entry.quantity), 0);
   }
 
   private cardManaValue(card: Card): number {
@@ -1343,22 +1399,30 @@ export class DeckEditorStore {
   }
 
   private cardMenuPosition(event: MouseEvent): { top: number; left: number } {
-    const width = 300;
-    const height = 315;
+    const width = this.shouldShowCardMenuImagePreview()
+      ? CARD_MENU_WIDTH + CARD_MENU_POPOVER_GAP + CARD_MENU_IMAGE_PREVIEW_WIDTH
+      : CARD_MENU_WIDTH;
     const margin = 12;
-    const shouldCenter = window.innerWidth <= 720 || window.innerHeight <= 640;
+    const height = Math.min(CARD_MENU_HEIGHT, Math.max(0, window.innerHeight - margin * 2));
+    const shouldCenter = !this.shouldShowCardMenuImagePreview() && (window.innerWidth <= 720 || window.innerHeight <= 640);
+    const maxLeft = Math.max(margin, window.innerWidth - width - margin);
+    const maxTop = Math.max(margin, window.innerHeight - height - margin);
 
     if (shouldCenter) {
       return {
-        left: Math.max(margin, (window.innerWidth - width) / 2),
-        top: Math.max(margin, (window.innerHeight - height) / 2),
+        left: Math.max(margin, Math.min((window.innerWidth - width) / 2, maxLeft)),
+        top: Math.max(margin, Math.min((window.innerHeight - height) / 2, maxTop)),
       };
     }
 
     return {
-      left: Math.min(Math.max(margin, event.clientX + 10), Math.max(margin, window.innerWidth - width - margin)),
-      top: Math.min(Math.max(margin, event.clientY + 10), Math.max(margin, window.innerHeight - height - margin)),
+      left: Math.min(Math.max(margin, event.clientX + 10), maxLeft),
+      top: Math.min(Math.max(margin, event.clientY + 10), maxTop),
     };
+  }
+
+  private shouldShowCardMenuImagePreview(): boolean {
+    return this.viewMode() === 'text' && window.innerWidth >= 768 && window.innerHeight > 640;
   }
 
   private isFaceFlipped(card: Card): boolean {

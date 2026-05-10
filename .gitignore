@@ -17,5 +17,3 @@
 
 /.env.prod
 /docker-compose.prod.yml
-
-/frontend/vercel.json

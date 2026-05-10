@@ -4,33 +4,28 @@
 
 .player-summary-panel {
   display: grid;
-  grid-template-columns: 3.25rem minmax(0, 1fr) auto;
+  grid-template-columns: 4.1rem minmax(0, 1fr) auto;
   align-items: center;
   gap: 0.75rem;
   min-width: 0;
   min-height: 0;
-  padding: 0.7rem;
+  padding: 0.75rem;
   border: 1px solid rgb(238 211 139 / 20%);
   border-radius: 8px;
   background: rgb(8 10 8 / 72%);
 }
 
 .player-avatar {
-  display: grid;
-  width: 3.25rem;
-  height: 3.25rem;
-  place-items: center;
-  border-radius: 999px;
-  background: var(--player-accent);
-  color: #090d09;
-  font-weight: 900;
+  filter:
+    drop-shadow(0 0.8rem 1rem rgb(0 0 0 / 32%))
+    drop-shadow(0 0 0.65rem color-mix(in srgb, var(--player-accent) 28%, transparent));
 }
 
 .player-copy {
   min-width: 0;
 }
 
-.player-copy h1,
+.player-copy app-player-name,
 .player-copy small {
   display: block;
   overflow: hidden;
@@ -38,8 +33,8 @@
   white-space: nowrap;
 }
 
-.player-copy h1 {
-  margin: 0;
+.player-copy app-player-name {
+  max-width: 100%;
 }
 
 .life-total {

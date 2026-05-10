@@ -2,11 +2,13 @@ import { ChangeDetectionStrategy, Component, input, output } from '@angular/core
 import { LucideAngularModule } from 'lucide-angular';
 import { RoomPlayer } from '../../../../../core/models/room.model';
 import { ManaSymbolsComponent } from '../../../../../shared/mana/mana-symbols/mana-symbols.component';
+import { PlayerAvatarComponent } from '../../../../../shared/ui/player-avatar/player-avatar.component';
+import { PlayerNameComponent } from '../../../../../shared/ui/player-name/player-name.component';
 import { WaitingRoomDeckSelectorComponent, WaitingDeckOption } from '../waiting-room-deck-selector/waiting-room-deck-selector.component';
 
 @Component({
   selector: 'app-waiting-room-player-card',
-  imports: [LucideAngularModule, ManaSymbolsComponent, WaitingRoomDeckSelectorComponent],
+  imports: [LucideAngularModule, ManaSymbolsComponent, PlayerAvatarComponent, PlayerNameComponent, WaitingRoomDeckSelectorComponent],
   templateUrl: './waiting-room-player-card.component.html',
   styleUrl: './waiting-room-player-card.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -34,8 +36,4 @@ export class WaitingRoomPlayerCardComponent {
   readonly deckSelected = output<string>();
   readonly randomDeckRequested = output<void>();
   readonly kickRequested = output<RoomPlayer>();
-
-  playerInitial(player: RoomPlayer): string {
-    return player.user.displayName.slice(0, 1);
-  }
 }

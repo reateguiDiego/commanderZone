@@ -65,6 +65,7 @@ export interface CardMenuState {
   top: number;
   left: number;
   amount: number;
+  showImagePreview: boolean;
 }
 
 export interface OpeningHandCard {

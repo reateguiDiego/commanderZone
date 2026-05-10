@@ -115,15 +115,13 @@
   opacity: 0.55;
 }
 
-.player-avatar,
 .empty-slot-icon { display: grid; place-items: center; border: 1px solid rgb(215 180 106 / 48%); border-radius: 999px; color: #ffe9a9; }
 
 .player-avatar {
-  width: 4.2rem;
-  height: 4.2rem;
-  background: linear-gradient(145deg, #6f4f22, #151510);
-  font-size: 1.7rem;
-  font-weight: 900;
+  margin-bottom: 0.1rem;
+  filter:
+    drop-shadow(0 1.1rem 1.3rem rgb(0 0 0 / 36%))
+    drop-shadow(0 0 0.8rem rgb(215 180 106 / 18%));
 }
 
 .ready-state { display: inline-flex; border: 1px solid rgb(209 111 95 / 36%); border-radius: 999px; padding: 0.35rem 0.55rem; color: #f2b2a8; background: rgb(209 111 95 / 10%); font-size: 0.78rem; font-weight: 750; }
@@ -184,55 +182,11 @@
   }
 
   :host {
-    grid-template-rows: auto auto;
-    gap: 0.5rem;
-    height: auto;
-    min-height: 16rem;
-    border-radius: 20px;
-    padding: 0.75rem;
+    height: 21rem;
+    min-height: 21rem;
   }
 
   .player-summary {
-    align-content: center;
-    gap: 0.4rem;
-    min-height: 8.1rem;
-  }
-
-  .player-deck-area {
-    min-height: 3.8rem;
-  }
-
-  .player-avatar {
-    width: 3.35rem;
-    height: 3.35rem;
-    font-size: 1.35rem;
-  }
-
-  .host-ribbon {
-    padding: 0.2rem 0.55rem;
-    font-size: 0.62rem;
-  }
-
-  .player-kick-button {
-    top: 0.55rem;
-    right: 0.55rem;
-    width: 2.15rem;
-    height: 2.15rem;
-  }
-
-  .roll-badge {
-    top: 0.55rem;
-    left: 0.55rem;
-    border-radius: 12px;
-    padding: 0.35rem 0.5rem;
-  }
-
-  .roll-badge strong {
-    font-size: 1.25rem;
-  }
-
-  .ready-state {
-    padding: 0.3rem 0.5rem;
-    font-size: 0.72rem;
+    min-height: 12.8rem;
   }
 }

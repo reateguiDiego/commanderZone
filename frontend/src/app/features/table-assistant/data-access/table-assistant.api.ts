@@ -90,7 +90,9 @@ export class TableAssistantApi {
   }
 
   get(roomId: string): Observable<TableAssistantRoomResponse> {
-    return this.http.get<TableAssistantRoomResponse>(`${API_BASE_URL}/table-assistant/rooms/${roomId}`);
+    return this.http.get<TableAssistantRoomResponse>(`${API_BASE_URL}/table-assistant/rooms/${roomId}`, {
+      context: withoutGlobalLoading(),
+    });
   }
 
   join(roomId: string, deviceId?: string): Observable<TableAssistantRoomResponse> {

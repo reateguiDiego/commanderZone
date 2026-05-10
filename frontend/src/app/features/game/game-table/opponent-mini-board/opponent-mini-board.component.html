@@ -15,9 +15,19 @@
   (contextmenu)="playerMenuOpened.emit({ event: $event, playerId: opponent.id })"
 >
   <span class="player-thumb-header">
-    <span class="opponent-avatar">{{ opponent.state.user.displayName.slice(0, 1) }}</span>
+    <app-player-avatar
+      class="opponent-avatar"
+      [displayName]="opponent.state.user.displayName"
+      [avatar]="opponent.state.user.avatar"
+      size="sm"
+    />
     <span class="opponent-copy">
-      <strong data-testid="opponent-name">{{ opponent.state.user.displayName }}</strong>
+      <app-player-name
+        data-testid="opponent-name"
+        [displayName]="opponent.state.user.displayName"
+        [nameStyle]="opponent.state.user.displayNameStyle"
+        size="md"
+      />
       <small>{{ deckLabel()(opponent) }}</small>
       <app-mana-symbols class="mana-row compact" [symbols]="manaSymbols()(opponent)" fallback="Colorless" />
     </span>

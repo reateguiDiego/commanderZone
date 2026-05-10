@@ -13,8 +13,8 @@
           {{ pendingNotificationsCount() }}
         </span>
       }
-      <lucide-icon name="circle-user-round" size="18" />
-      <span>{{ userLabel() }}</span>
+      <app-player-avatar class="friends-trigger-avatar" [displayName]="userLabel()" [avatar]="userAvatar()" size="sm" />
+      <app-player-name [displayName]="userLabel()" [nameStyle]="userNameStyle()" size="sm" [fill]="true" />
       @if (!friendsOpen() && onlineFriendsCount() > 0) {
         <span class="online-badge" aria-label="Online friends">{{ onlineFriendsCount() }}</span>
       }
@@ -24,7 +24,15 @@
     }
   </div>
 
-  <app-header-user-menu (settingsSelected)="openSettings()" (logoffSelected)="logoff()" />
+  <app-header-user-menu
+    (settingsSelected)="openSettings()"
+    (fullscreenSelected)="toggleFullscreen()"
+    (logoffSelected)="logoff()"
+  />
 </div>
 
-<app-dashboard-settings-modal [open]="settingsOpen()" (closeRequested)="closeSettings()" />
+<app-dashboard-settings-modal
+  [open]="settingsOpen()"
+  (closeRequested)="closeSettings()"
+  (accountDeleted)="logoff()"
+/>

@@ -5,14 +5,26 @@
 }
 
 .friends-menu {
+  --friends-menu-width: 29rem;
+  --friends-menu-height: 36rem;
+  --friends-menu-padding: 0.85rem;
+  --friends-menu-gap: 0.7rem;
+  --friend-row-avatar-column: 2.8rem;
+  --friend-row-action-column: 5.5rem;
+  --friend-row-gap: 0.65rem;
+  --friend-row-min-height: 3.8rem;
+  --friend-row-padding-block: 0.55rem;
+  --friend-row-padding-inline: 0.65rem;
+
   position: relative;
   z-index: 5000;
   display: grid;
-  gap: 0.7rem;
-  width: min(29rem, calc(100vw - 2rem));
-  max-height: min(36rem, calc(100vh - 6rem));
+  grid-template-rows: auto auto auto;
+  gap: var(--friends-menu-gap);
+  width: min(var(--friends-menu-width), calc(100vw - 2rem));
+  max-height: min(var(--friends-menu-height), calc(100dvh - 6rem));
   overflow: auto;
-  padding: 0.85rem;
+  padding: var(--friends-menu-padding);
   border: 1px solid rgb(128 179 122 / 36%);
   border-radius: 8px;
   background: rgb(24 27 22 / 98%);
@@ -41,8 +53,14 @@
 .search-panel,
 .search-results,
 .friend-table {
+  min-height: 0;
   display: grid;
   gap: 0.4rem;
+}
+
+.friend-table {
+  align-content: start;
+  overflow: visible;
 }
 
 .search-field {
@@ -51,11 +69,11 @@
 
 .friend-table-row {
   display: grid;
-  grid-template-columns: 0.85rem minmax(0, 1fr) 5.5rem;
+  grid-template-columns: var(--friend-row-avatar-column) minmax(0, 1fr) var(--friend-row-action-column);
   align-items: center;
-  gap: 0.65rem;
-  min-height: 3.35rem;
-  padding: 0.55rem 0.65rem;
+  gap: var(--friend-row-gap);
+  min-height: var(--friend-row-min-height);
+  padding: var(--friend-row-padding-block) var(--friend-row-padding-inline);
   border: 1px solid transparent;
   border-radius: 7px;
   background: rgb(32 37 29 / 68%);
@@ -90,7 +108,7 @@
   min-width: 0;
 }
 
-.row-main strong,
+.row-main app-player-name,
 .row-main small {
   display: block;
   overflow: hidden;
@@ -98,9 +116,14 @@
   white-space: nowrap;
 }
 
-.row-main strong {
-  color: var(--text);
-  font-size: 0.9rem;
+.row-main app-player-name {
+  --player-name-font-size: 1.18rem;
+  --player-name-plate-width: 15rem;
+  --player-name-plate-height: 2.72rem;
+  --player-name-label-width: calc(100% - 2.9rem);
+  --player-name-plate-padding: 0.34rem 1.45rem;
+
+  max-width: 100%;
 }
 
 .row-main small,
@@ -123,7 +146,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 5.5rem;
+  width: var(--friend-row-action-column);
   min-height: 2rem;
   text-transform: capitalize;
 }
@@ -140,9 +163,19 @@
   color: #ffd5cf;
 }
 
+.row-avatar-wrap {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+}
+
 .row-marker {
+  position: absolute;
+  right: -0.05rem;
+  bottom: -0.05rem;
   width: 0.7rem;
   height: 0.7rem;
+  border: 2px solid rgb(24 27 22 / 98%);
   border-radius: 999px;
   background: #8d9586;
   box-shadow: 0 0 0 3px rgb(141 149 134 / 16%);
@@ -178,7 +211,7 @@
 .action-button,
 .icon-action,
 .action-slot {
-  width: 5.5rem;
+  width: var(--friend-row-action-column);
 }
 
 .single-icon-slot {
@@ -211,13 +244,13 @@
   display: flex;
   justify-content: flex-end;
   gap: 0.35rem;
-  width: 5.5rem;
+  width: var(--friend-row-action-column);
 }
 
 .single-action {
   display: flex;
   justify-content: flex-end;
-  width: 5.5rem;
+  width: var(--friend-row-action-column);
 }
 
 .add-action,
@@ -239,15 +272,113 @@
   opacity: 0.55;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 1400px) {
   .friends-menu {
-    width: calc(100vw - 1.6rem);
+    --friends-menu-width: 24rem;
+    --friends-menu-height: 31rem;
+    --friends-menu-padding: 0.65rem;
+    --friends-menu-gap: 0.5rem;
+    --friend-row-avatar-column: 2.35rem;
+    --friend-row-action-column: 4.75rem;
+    --friend-row-gap: 0.48rem;
+    --friend-row-min-height: 3.2rem;
+    --friend-row-padding-block: 0.42rem;
+    --friend-row-padding-inline: 0.48rem;
+
+    width: min(var(--friends-menu-width), calc(100vw - 1rem));
+    max-height: min(var(--friends-menu-height), calc(100dvh - var(--device-sidebar-height, 100px) - 5.4rem));
+    border-radius: 10px;
+  }
+
+  .section-title {
+    font-size: 0.72rem;
+  }
+
+  .compact-icon {
+    width: 1.85rem;
+    min-height: 1.85rem;
+  }
+
+  .row-main app-player-name {
+    --player-name-font-size: 0.96rem;
+    --player-name-plate-width: min(13rem, 100%);
+    --player-name-plate-height: 2.24rem;
+    --player-name-label-width: calc(100% - 2.4rem);
+    --player-name-plate-padding: 0.28rem 1.2rem;
+
+    width: 100%;
+  }
+
+  .row-main small,
+  .row-main em,
+  .row-status,
+  .dropdown-notice {
+    font-size: 0.72rem;
+  }
+
+  .icon-action {
+    width: 2.05rem;
+    min-height: 1.85rem;
+  }
+
+  .action-pair {
+    gap: 0.22rem;
   }
 }
 
-@media (max-width: 1400px), (orientation: portrait) {
+@media (max-width: 430px) {
   .friends-menu {
+    --friends-menu-width: 100vw;
+    --friends-menu-height: 28.5rem;
+    --friends-menu-padding: 0.5rem;
+    --friend-row-avatar-column: 2.1rem;
+    --friend-row-action-column: 4.35rem;
+    --friend-row-gap: 0.38rem;
+    --friend-row-min-height: 2.95rem;
+    --friend-row-padding-block: 0.34rem;
+    --friend-row-padding-inline: 0.38rem;
+
     width: 100%;
-    max-height: min(34rem, calc(100dvh - var(--device-sidebar-height, 100px) - 7rem));
+    max-height: min(var(--friends-menu-height), calc(100dvh - 4.8rem));
+  }
+
+  .search-field {
+    font-size: 0.72rem;
+  }
+
+  .search-field input {
+    min-height: 2.35rem;
+    font-size: 0.82rem;
+  }
+
+  .friend-table-row.child-row {
+    margin-left: 0.75rem;
+    width: calc(100% - 0.75rem);
+  }
+
+  .row-main app-player-name {
+    --player-name-font-size: 0.88rem;
+    --player-name-plate-width: 8rem;
+    --player-name-plate-height: 2rem;
+    --player-name-label-width: calc(100% - 2.15rem);
+
+    width: 100%;
+  }
+
+  .row-main small,
+  .row-main em,
+  .row-status,
+  .dropdown-notice {
+    font-size: 0.66rem;
+  }
+
+  .icon-action {
+    width: 1.9rem;
+    min-height: 1.75rem;
+  }
+
+  .action-pair,
+  .single-action {
+    justify-content: end;
   }
 }

@@ -36,7 +36,6 @@
 }
 
 .players-panel-tools,
-.host-pill,
 .metric,
 .room-summary span {
   display: inline-flex;
@@ -45,7 +44,6 @@
 
 .players-panel-tools { justify-content: flex-end; gap: 0.45rem; }
 
-.host-pill,
 .metric {
   gap: 0.35rem;
   border: 1px solid rgb(215 180 106 / 30%);
@@ -112,9 +110,13 @@
 
 .friend-row span { min-width: 0; }
 
-.friend-row strong,
+.friend-row app-player-name,
 .friend-row small {
   display: block;
+}
+
+.friend-row app-player-name {
+  max-width: 100%;
 }
 
 .friend-row small { color: var(--muted); }
@@ -156,18 +158,9 @@
   }
 
   .players-panel-tools {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 2.55rem 2.55rem;
-    justify-content: stretch;
+    display: inline-flex;
+    justify-content: flex-end;
     gap: 0.4rem;
-  }
-
-  .host-pill {
-    justify-content: center;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .icon-action {
@@ -177,11 +170,15 @@
     min-height: 2.55rem;
   }
 
-  .players-grid {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto;
-    justify-content: stretch;
+  .players-grid,
+  .players-grid.capacity-two,
+  .players-grid.capacity-four,
+  .players-grid.capacity-six {
+    grid-template-columns: minmax(0, min(22rem, 100%));
+    grid-template-rows: none;
+    justify-content: center;
     gap: 0.7rem;
+    padding-bottom: 0.2rem;
   }
 
   .start-game-row {
@@ -207,10 +204,6 @@
 }
 
 @media (max-width: 420px) {
-  .players-panel-tools {
-    grid-template-columns: minmax(0, 1fr) repeat(2, 2.35rem);
-  }
-
   .icon-action {
     width: 2.35rem;
     min-width: 2.35rem;

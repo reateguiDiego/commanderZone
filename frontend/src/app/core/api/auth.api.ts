@@ -4,9 +4,25 @@ import { Observable } from 'rxjs';
 import { API_BASE_URL } from './api.config';
 import { LoginResponse, PasswordResetConfirmResponse, PasswordResetRequestResponse, UserResponse } from '../models/api-responses.model';
 import { withoutGlobalLoading } from '../loading/loading-context';
+import { UserAvatarType } from '../models/user.model';
 
 export interface AuthAvailabilityResponse {
   available: boolean;
+}
+
+export type AvatarUpdatePayload =
+  | {
+      type: Extract<UserAvatarType, 'initial'>;
+      letter?: string;
+      backgroundColor?: string;
+      textColor?: string;
+    }
+  | { type: Extract<UserAvatarType, 'preset'>; imageUrl: string }
+  | { type: Extract<UserAvatarType, 'upload'>; imageData: string };
+
+export interface DisplayNameStyleUpdatePayload {
+  presetId: string;
+  textColor?: string | null;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -53,6 +69,22 @@ export class AuthApi {
 
   me(): Observable<UserResponse> {
     return this.http.get<UserResponse>(`${API_BASE_URL}/me`);
+  }
+
+  updateMe(payload: { email?: string; displayName?: string }): Observable<UserResponse> {
+    return this.http.patch<UserResponse>(`${API_BASE_URL}/me`, payload);
+  }
+
+  updateAvatar(payload: AvatarUpdatePayload): Observable<UserResponse> {
+    return this.http.patch<UserResponse>(`${API_BASE_URL}/me/avatar`, payload);
+  }
+
+  updateDisplayNameStyle(payload: DisplayNameStyleUpdatePayload): Observable<UserResponse> {
+    return this.http.patch<UserResponse>(`${API_BASE_URL}/me/display-name-style`, payload);
+  }
+
+  deleteMe(): Observable<void> {
+    return this.http.delete<void>(`${API_BASE_URL}/me`);
   }
 
   offline(): Observable<void> {

@@ -1,6 +1,7 @@
-import { signal } from '@angular/core';
+import { importProvidersFrom, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, provideRouter } from '@angular/router';
+import { Eye, EyeOff, LogIn, LucideAngularModule } from 'lucide-angular';
 import { of } from 'rxjs';
 import { AuthApi } from '../../../core/api/auth.api';
 import { AuthStore } from '../../../core/auth/auth.store';
@@ -12,6 +13,7 @@ describe('AuthPageComponent', () => {
       imports: [AuthPageComponent],
       providers: [
         provideRouter([]),
+        importProvidersFrom(LucideAngularModule.pick({ Eye, EyeOff, LogIn })),
         {
           provide: ActivatedRoute,
           useValue: { snapshot: { routeConfig: { path } } },
@@ -64,6 +66,21 @@ describe('AuthPageComponent', () => {
 
     component.loginForm.setValue({ email: 'player@example.test', password: 'password123' });
     expect(component.canSubmitLogin()).toBe(true);
+  });
+
+  it('keeps login fields readonly until user focuses them', async () => {
+    const fixture = await create('auth/login');
+    fixture.detectChanges();
+
+    const emailInput = fixture.nativeElement.querySelector(
+      'input[formControlName="email"]',
+    ) as HTMLInputElement;
+
+    expect(emailInput.readOnly).toBe(true);
+    emailInput.dispatchEvent(new FocusEvent('focus'));
+    fixture.detectChanges();
+
+    expect(emailInput.readOnly).toBe(false);
   });
 
   it('requires valid fields, available email and available user name before enabling register', async () => {

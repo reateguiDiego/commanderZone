@@ -32,6 +32,8 @@ class FriendsApiTest extends ApiTestCase
         self::assertResponseIsSuccessful();
         $friend = $this->jsonResponse()['data'][0]['friend'];
         self::assertSame('Bobby', $friend['displayName']);
+        self::assertSame('initial', $friend['avatar']['type']);
+        self::assertSame('B', $friend['avatar']['initial']['letter']);
         self::assertContains($friend['presence'], ['online', 'in_game']);
 
         $this->jsonRequest('POST', '/me/offline', token: $bobToken);
@@ -72,6 +74,7 @@ class FriendsApiTest extends ApiTestCase
         $payload = json_decode($updates[0]['data'], true, flags: JSON_THROW_ON_ERROR);
         self::assertSame('friend.presence.changed', $payload['type']);
         self::assertSame('online', $payload['user']['presence']);
+        self::assertSame('initial', $payload['user']['avatar']['type']);
     }
 
     public function testOutgoingFriendRequestCanBeCancelled(): void

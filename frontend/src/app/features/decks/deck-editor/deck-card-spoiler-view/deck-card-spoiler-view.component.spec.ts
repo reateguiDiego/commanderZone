@@ -39,6 +39,7 @@ function storeStub() {
     imageUrl: () => 'https://img.test/card.jpg',
     displayCardImageUrl: () => 'https://img.test/card.jpg',
     displayCardName: (value: Card) => value.name,
+    displayCardListName: (value: Card) => value.name,
     displayCardManaCost: (value: Card) => value.manaCost,
     hasAlternateFace: () => false,
     toggleCardFace: vi.fn(),

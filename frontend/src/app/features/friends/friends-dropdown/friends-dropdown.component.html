@@ -27,9 +27,12 @@
         <div class="search-results" aria-label="User search results">
           @for (result of store.searchResults(); track result.id) {
             <div class="friend-table-row">
-              <span class="row-marker search-marker"></span>
+              <span class="row-avatar-wrap">
+                <app-player-avatar [displayName]="result.displayName" size="xs" />
+                <span class="row-marker search-marker"></span>
+              </span>
               <span class="row-main">
-                <strong>{{ result.displayName }}</strong>
+                <app-player-name [displayName]="result.displayName" [nameStyle]="result.displayNameStyle" size="xs" />
                 <small>{{ result.email }}</small>
               </span>
 
@@ -52,15 +55,18 @@
   <div class="friend-table" aria-label="Friend list">
     @for (row of store.rows(); track row.kind + row.id) {
       <div class="friend-table-row" [class.incoming-row]="row.kind === 'incoming'" [class.room-invite-row]="row.kind === 'room-invite'" [class.pending-row]="row.kind === 'pending'" [class.child-row]="row.kind === 'room-invite' && !!row.parentFriendId">
-        <span
-          class="row-marker"
-          [class.online]="row.presence === 'online'"
-          [class.in-game]="row.presence === 'in_game'"
-          [class.incoming-marker]="row.kind === 'incoming' || row.kind === 'room-invite'"
-          [class.pending-marker]="row.kind === 'pending'"
-        ></span>
+        <span class="row-avatar-wrap">
+          <app-player-avatar [displayName]="row.displayName" [avatar]="row.avatar" size="xs" />
+          <span
+            class="row-marker"
+            [class.online]="row.presence === 'online'"
+            [class.in-game]="row.presence === 'in_game'"
+            [class.incoming-marker]="row.kind === 'incoming' || row.kind === 'room-invite'"
+            [class.pending-marker]="row.kind === 'pending'"
+          ></span>
+        </span>
         <span class="row-main">
-          <strong>{{ row.displayName }}</strong>
+          <app-player-name [displayName]="row.displayName" [nameStyle]="row.displayNameStyle" size="xs" />
           <small>{{ row.detail }}</small>
           @if (row.kind === 'room-invite') {
             <em>Invitacion de sala</em>

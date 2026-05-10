@@ -1,0 +1,49 @@
+<section class="initial-avatar-option" [class.selected]="active()" (click)="openControls($event)">
+  <button
+    type="button"
+    class="initial-avatar-select"
+    [disabled]="disabled()"
+  >
+    <span
+      class="initial-avatar-bubble"
+      [style.background]="backgroundColor()"
+      [style.color]="textColor()"
+    >
+      {{ letter() }}
+    </span>
+  </button>
+
+  @if (selected() && controlsOpen()) {
+    <div class="initial-avatar-controls" aria-label="Initial avatar customization">
+      <label>
+        <span>Main color</span>
+        <input
+          type="color"
+          [value]="backgroundColor()"
+          [disabled]="disabled()"
+          (input)="backgroundColorChanged.emit($any($event.target).value)"
+        />
+      </label>
+      <label>
+        <span>Secondary color</span>
+        <input
+          type="color"
+          [value]="textColor()"
+          [disabled]="disabled()"
+          (input)="textColorChanged.emit($any($event.target).value)"
+        />
+      </label>
+      <label class="letter-field">
+        <span>Letters</span>
+        <input
+          type="text"
+          maxlength="2"
+          autocomplete="off"
+          [value]="letter()"
+          [disabled]="disabled()"
+          (input)="letterChanged.emit($any($event.target).value)"
+        />
+      </label>
+    </div>
+  }
+</section>

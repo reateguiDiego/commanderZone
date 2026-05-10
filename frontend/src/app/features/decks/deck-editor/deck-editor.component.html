@@ -84,10 +84,12 @@
                   (mousemove)="store.moveCardPreview($event)"
                   (mouseleave)="store.hideCardPreview()"
                   (click)="store.toggleCardMenu($event, entry)"
-                >
-                  <span class="deck-card-primary">
-                    <strong class="deck-card-name">
-                      {{ entry.quantity }} - {{ store.displayCardName(entry.card) }}
+                  >
+                    <span class="deck-card-primary">
+                      <strong class="deck-card-name">
+                      <span class="deck-card-name-text" [attr.title]="store.displayCardListName(entry.card)">
+                        {{ entry.quantity }} - {{ store.displayCardListName(entry.card) }}
+                      </span>
                       @if (store.hasAlternateFace(entry.card)) {
                         <button class="face-toggle-button" type="button" (click)="store.toggleCardFace($event, entry.card)">
                           <lucide-icon name="rotate-cw" size="13" />
@@ -133,7 +135,9 @@
                     (mouseleave)="store.hideCardPreview()"
                   >
                     <span class="deck-card-primary">
-                      <strong class="deck-card-name">{{ entry.token.name }}</strong>
+                      <strong class="deck-card-name">
+                        <span class="deck-card-name-text" [attr.title]="entry.token.name">{{ entry.token.name }}</span>
+                      </strong>
                     </span>
                     <small class="deck-card-secondary">From {{ entry.sourceCard.name }}</small>
                     <span class="deck-card-cost">

@@ -12,7 +12,18 @@
 
   @if (menuOpen()) {
     <section class="header-menu-panel" role="menu" aria-label="User menu">
-      <button class="menu-item" type="button" role="menuitem" (click)="selectSettings()">Settings</button>
+      <button class="menu-item" type="button" role="menuitem" (click)="selectSettings()">
+        <span class="menu-item-main">
+          <lucide-icon name="settings" size="16" />
+          <span>Settings</span>
+        </span>
+      </button>
+      <button class="menu-item" type="button" role="menuitem" (click)="selectFullscreen()">
+        <span class="menu-item-main">
+          <lucide-icon name="maximize-2" size="16" />
+          <span>Fullscreen</span>
+        </span>
+      </button>
 
       <button
         class="menu-item with-detail"
@@ -21,21 +32,27 @@
         [attr.aria-expanded]="languagePickerOpen()"
         (click)="toggleLanguagePicker()"
       >
-        <span>Language</span>
+        <span class="menu-item-main">
+          <img class="menu-item-flag" [src]="selectedLanguageFlagAsset()" [alt]="'Bandera de ' + selectedLanguageLabel()" />
+          <span>Language</span>
+        </span>
         <span class="menu-item-detail">{{ selectedLanguageLabel() }}</span>
         <lucide-icon name="chevron-right" size="14" [class.expanded]="languagePickerOpen()" />
       </button>
 
       @if (languagePickerOpen()) {
         <div class="language-list" role="group" aria-label="Language options">
-          @for (language of languages; track language.code) {
+          @for (language of sortedLanguages(); track language.code) {
             <button
               class="language-item"
               type="button"
               [class.selected]="selectedLanguage() === language.code"
               (click)="selectLanguage(language.code)"
             >
-              <span>{{ language.label }}</span>
+              <span class="language-option">
+                <img class="language-flag" [src]="language.flagAsset" [alt]="'Bandera de ' + language.label" />
+                <span>{{ language.label }}</span>
+              </span>
               @if (selectedLanguage() === language.code) {
                 <lucide-icon name="check" size="14" />
               }
@@ -44,7 +61,12 @@
         </div>
       }
 
-      <button class="menu-item danger" type="button" role="menuitem" (click)="selectLogoff()">Log off</button>
+      <button class="menu-item danger" type="button" role="menuitem" (click)="selectLogoff()">
+        <span class="menu-item-main">
+          <lucide-icon name="log-out" size="16" />
+          <span>Log off</span>
+        </span>
+      </button>
     </section>
   }
 </div>

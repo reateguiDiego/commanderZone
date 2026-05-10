@@ -12,6 +12,7 @@ import { GamesApi } from './games.api';
 import { LandingApi } from './landing.api';
 import { RoomsApi } from './rooms.api';
 import { SKIP_GLOBAL_LOADING } from '../loading/loading-context';
+import { TableAssistantApi } from '../../features/table-assistant/data-access/table-assistant.api';
 
 describe('API services', () => {
   let http: HttpTestingController;
@@ -44,12 +45,64 @@ describe('API services', () => {
     request.flush({ cardName: 'Sol Ring', displayName: 'Player' });
   });
 
+  it('loads table assistant rooms without triggering the global loading overlay', () => {
+    TestBed.inject(TableAssistantApi).get('room-1').subscribe();
+
+    const request = http.expectOne(`${API_BASE_URL}/table-assistant/rooms/room-1`);
+    expect(request.request.method).toBe('GET');
+    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);
+    request.flush({ tableAssistantRoom: {} });
+  });
+
   it('marks the current user offline without triggering the global loading overlay', () => {
     TestBed.inject(AuthApi).offline().subscribe();
 
     const request = http.expectOne(`${API_BASE_URL}/me/offline`);
     expect(request.request.method).toBe('POST');
     expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);
+    request.flush(null);
+  });
+
+  it('updates and deletes authenticated profile through /me endpoints', () => {
+    const auth = TestBed.inject(AuthApi);
+
+    auth.updateMe({ email: 'updated@example.test', displayName: 'Updated Player' }).subscribe();
+    let request = http.expectOne(`${API_BASE_URL}/me`);
+    expect(request.request.method).toBe('PATCH');
+    expect(request.request.body).toEqual({ email: 'updated@example.test', displayName: 'Updated Player' });
+    request.flush({ user: { id: 'user-1', email: 'updated@example.test', displayName: 'Updated Player', roles: ['ROLE_USER'] } });
+
+    auth.updateAvatar({ type: 'preset', imageUrl: 'assets/images/avatars/storm-seer.png' }).subscribe();
+    request = http.expectOne(`${API_BASE_URL}/me/avatar`);
+    expect(request.request.method).toBe('PATCH');
+    expect(request.request.body).toEqual({ type: 'preset', imageUrl: 'assets/images/avatars/storm-seer.png' });
+    request.flush({
+      user: {
+        id: 'user-1',
+        email: 'updated@example.test',
+        displayName: 'Updated Player',
+        roles: ['ROLE_USER'],
+        avatar: { type: 'preset', imageUrl: 'assets/images/avatars/storm-seer.png' },
+      },
+    });
+
+    auth.updateDisplayNameStyle({ presetId: 'obsidian-crown', textColor: '#ffeeaa' }).subscribe();
+    request = http.expectOne(`${API_BASE_URL}/me/display-name-style`);
+    expect(request.request.method).toBe('PATCH');
+    expect(request.request.body).toEqual({ presetId: 'obsidian-crown', textColor: '#ffeeaa' });
+    request.flush({
+      user: {
+        id: 'user-1',
+        email: 'updated@example.test',
+        displayName: 'Updated Player',
+        roles: ['ROLE_USER'],
+        displayNameStyle: { type: 'preset', presetId: 'obsidian-crown', textColor: '#ffeeaa' },
+      },
+    });
+
+    auth.deleteMe().subscribe();
+    request = http.expectOne(`${API_BASE_URL}/me`);
+    expect(request.request.method).toBe('DELETE');
     request.flush(null);
   });
 

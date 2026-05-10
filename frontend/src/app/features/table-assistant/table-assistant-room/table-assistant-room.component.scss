@@ -164,6 +164,9 @@ button:disabled {
   border: 1px solid rgb(255 255 255 / 12%);
   border-radius: 8px;
   background: var(--player-gradient);
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease;
 }
 
 .player-content {
@@ -194,29 +197,6 @@ button:disabled {
   box-shadow:
     inset 0 0 0 1px color-mix(in srgb, var(--player-accent) 65%, transparent),
     0 0 1.4rem color-mix(in srgb, var(--player-accent) 42%, transparent);
-}
-
-.player-panel.active::before {
-  content: '';
-  position: absolute;
-  left: -65%;
-  top: 18%;
-  z-index: 2;
-  width: 230%;
-  height: 2px;
-  pointer-events: none;
-  background: linear-gradient(
-    90deg,
-    transparent 0 28%,
-    color-mix(in srgb, var(--player-accent) 54%, transparent) 43%,
-    rgb(255 255 255 / 96%) 50%,
-    color-mix(in srgb, var(--player-accent) 70%, transparent) 57%,
-    transparent 72% 100%
-  );
-  filter: drop-shadow(0 0 0.55rem color-mix(in srgb, var(--player-accent) 78%, transparent));
-  mix-blend-mode: screen;
-  opacity: 0;
-  animation: active-panel-comet 7.2s linear infinite;
 }
 
 .player-panel.single-device-seat {
@@ -447,52 +427,6 @@ button:disabled {
 
 .error {
   color: #fecaca;
-}
-
-@keyframes active-panel-comet {
-  0% {
-    opacity: 0;
-    transform: translateX(-42%) rotate(18deg);
-  }
-
-  9%,
-  18% {
-    opacity: 0.86;
-    transform: translateX(42%) rotate(18deg);
-  }
-
-  19%,
-  33% {
-    opacity: 0;
-    top: 68%;
-    transform: translateX(-46%) rotate(-13deg);
-  }
-
-  44%,
-  54% {
-    opacity: 0.78;
-    top: 68%;
-    transform: translateX(46%) rotate(-13deg);
-  }
-
-  55%,
-  70% {
-    opacity: 0;
-    top: 42%;
-    transform: translateX(48%) rotate(7deg);
-  }
-
-  81%,
-  90% {
-    opacity: 0.82;
-    top: 42%;
-    transform: translateX(-48%) rotate(7deg);
-  }
-
-  100% {
-    opacity: 0;
-    transform: translateX(-48%) rotate(7deg);
-  }
 }
 
 .room-meta-strip {

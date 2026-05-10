@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, HostListener, OnDestroy, effect, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, HostListener, NgZone, OnDestroy, effect, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { LucideAngularModule } from 'lucide-angular';
@@ -36,12 +36,34 @@ export class DeckEditorComponent implements OnDestroy {
   readonly store = inject(DeckEditorStore);
   private readonly pageHeader = inject(PageHeaderStore);
   private readonly router = inject(Router);
+  private readonly ngZone = inject(NgZone);
   private readonly visualViewport = window.visualViewport ?? null;
-  private readonly closeCardMenuOnViewportChange = () => this.store.closeCardMenu();
+  private readonly closeOverlaysOnViewportChange = () => this.closeTransientOverlays();
+  private readonly closeOverlaysOnDocumentWheel = (event: WheelEvent) => {
+    if (event.ctrlKey) {
+      this.closeTransientOverlays();
+    }
+  };
+  private readonly closeOverlaysOnDocumentKeydown = (event: KeyboardEvent) => {
+    if ((event.ctrlKey || event.metaKey) && this.isZoomShortcut(event)) {
+      this.closeTransientOverlays();
+    }
+  };
+  private readonly closeOverlaysOnDocumentScroll = (event: Event) => {
+    if (!this.isScrollInsideOverlay(event)) {
+      this.closeTransientOverlays();
+    }
+  };
+  private readonly zoomMonitorId: ReturnType<typeof setInterval>;
+  private zoomSignature = this.currentZoomSignature();
 
   constructor() {
-    this.visualViewport?.addEventListener('resize', this.closeCardMenuOnViewportChange);
-    this.visualViewport?.addEventListener('scroll', this.closeCardMenuOnViewportChange);
+    this.visualViewport?.addEventListener('resize', this.closeOverlaysOnViewportChange);
+    this.visualViewport?.addEventListener('scroll', this.closeOverlaysOnViewportChange);
+    document.addEventListener('wheel', this.closeOverlaysOnDocumentWheel, { capture: true, passive: true });
+    document.addEventListener('keydown', this.closeOverlaysOnDocumentKeydown, { capture: true });
+    document.addEventListener('scroll', this.closeOverlaysOnDocumentScroll, { capture: true, passive: true });
+    this.zoomMonitorId = window.setInterval(() => this.closeOverlaysAfterZoomChange(), 150);
     effect(() => {
       const deck = this.store.deck();
       if (!deck) {
@@ -89,33 +111,83 @@ export class DeckEditorComponent implements OnDestroy {
 
   @HostListener('document:click')
   handleDocumentClick(): void {
-    this.store.closeCardMenu();
+    this.closeTransientOverlays();
   }
 
   @HostListener('window:scroll')
   handleWindowScroll(): void {
-    if (window.innerWidth <= 720 || window.innerHeight <= 640) {
-      this.store.closeCardMenu();
-    }
+    this.closeTransientOverlays();
   }
 
   @HostListener('window:resize')
   handleWindowResize(): void {
-    this.store.closeCardMenu();
+    this.zoomSignature = this.currentZoomSignature();
+    this.closeTransientOverlays();
   }
 
   @HostListener('window:wheel', ['$event'])
   handleWindowWheel(event: WheelEvent): void {
     if (event.ctrlKey) {
-      this.store.closeCardMenu();
+      this.closeTransientOverlays();
+    }
+  }
+
+  @HostListener('document:keydown', ['$event'])
+  handleDocumentKeydown(event: KeyboardEvent): void {
+    if ((event.ctrlKey || event.metaKey) && this.isZoomShortcut(event)) {
+      this.closeTransientOverlays();
     }
   }
 
   ngOnDestroy(): void {
-    this.visualViewport?.removeEventListener('resize', this.closeCardMenuOnViewportChange);
-    this.visualViewport?.removeEventListener('scroll', this.closeCardMenuOnViewportChange);
+    this.visualViewport?.removeEventListener('resize', this.closeOverlaysOnViewportChange);
+    this.visualViewport?.removeEventListener('scroll', this.closeOverlaysOnViewportChange);
+    document.removeEventListener('wheel', this.closeOverlaysOnDocumentWheel, { capture: true });
+    document.removeEventListener('keydown', this.closeOverlaysOnDocumentKeydown, { capture: true });
+    document.removeEventListener('scroll', this.closeOverlaysOnDocumentScroll, { capture: true });
+    window.clearInterval(this.zoomMonitorId);
     this.pageHeader.clear();
     this.store.destroy();
+  }
+
+  private closeTransientOverlays(): void {
+    this.ngZone.run(() => this.store.closeTransientOverlays());
+  }
+
+  private closeOverlaysAfterZoomChange(): void {
+    const current = this.currentZoomSignature();
+    if (current === this.zoomSignature) {
+      return;
+    }
+
+    this.zoomSignature = current;
+    this.closeTransientOverlays();
+  }
+
+  private currentZoomSignature(): string {
+    const viewport = this.visualViewport;
+
+    return [
+      window.devicePixelRatio,
+      window.innerWidth,
+      window.innerHeight,
+      viewport?.scale ?? 1,
+      viewport?.width ?? window.innerWidth,
+      viewport?.height ?? window.innerHeight,
+    ].join('|');
+  }
+
+  private isZoomShortcut(event: KeyboardEvent): boolean {
+    return ['+', '-', '=', '0'].includes(event.key) || ['NumpadAdd', 'NumpadSubtract', 'Numpad0'].includes(event.code);
+  }
+
+  private isScrollInsideOverlay(event: Event): boolean {
+    const target = event.target;
+    if (!(target instanceof Element)) {
+      return false;
+    }
+
+    return Boolean(target.closest('.card-menu-popover, .card-hover-preview, .analysis-hover-list'));
   }
 
   private backToDecksAction() {

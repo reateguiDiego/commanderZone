@@ -1,10 +1,11 @@
 import { Injectable } from '@angular/core';
+import { publicAssetUrl } from '../assets/app-image-url';
 
 const BACKGROUND_SESSION_KEY = 'commanderzone.backgroundImage';
 const PREVIOUS_BACKGROUND_SESSION_KEY = 'commanderzone.previousBackgroundImage';
 const BACKGROUND_IMAGES = Array.from(
   { length: 10 },
-  (_, index) => `assets/images/backgrounds/back_${index}.png`,
+  (_, index) => publicAssetUrl(`assets/images/backgrounds/back_${index}.png`),
 );
 
 @Injectable({ providedIn: 'root' })
@@ -34,8 +35,12 @@ export class AppBackgroundService {
 
   private resolveSessionBackground(): string {
     const storedImage = sessionStorage.getItem(BACKGROUND_SESSION_KEY);
-    if (storedImage && BACKGROUND_IMAGES.includes(storedImage)) {
-      return storedImage;
+    if (storedImage) {
+      const normalizedStoredImage = publicAssetUrl(storedImage);
+      if (BACKGROUND_IMAGES.includes(normalizedStoredImage)) {
+        sessionStorage.setItem(BACKGROUND_SESSION_KEY, normalizedStoredImage);
+        return normalizedStoredImage;
+      }
     }
 
     const image = this.pickRandomBackground();

@@ -1,0 +1,19 @@
+<span
+  class="player-avatar-shell"
+  [class.has-image]="imageUrl()"
+  [class.premium]="premium() || !!imageUrl()"
+  [class.size-xs]="size() === 'xs'"
+  [class.size-sm]="size() === 'sm'"
+  [class.size-md]="size() === 'md'"
+  [class.size-lg]="size() === 'lg'"
+  [class.size-xl]="size() === 'xl'"
+  [style.--avatar-bg]="imageUrl() ? null : initialBackground()"
+  [style.--avatar-fg]="imageUrl() ? null : initialColor()"
+  aria-hidden="true"
+>
+  @if (imageUrl()) {
+    <img [src]="imageUrl()!" [alt]="displayName() + ' avatar'" draggable="false" />
+  } @else {
+    <span class="avatar-initial">{{ initialLetter() }}</span>
+  }
+</span>

@@ -6,6 +6,17 @@
   position: relative;
 }
 
+.icon-button {
+  display: inline-grid;
+  place-items: center;
+  line-height: 0;
+}
+
+.icon-button lucide-icon {
+  display: grid;
+  place-items: center;
+}
+
 .header-menu-panel {
   position: absolute;
   top: calc(100% + 0.55rem);
@@ -50,6 +61,19 @@
   align-items: center;
 }
 
+.menu-item-main {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.menu-item-flag {
+  width: 1.05rem;
+  height: 1.05rem;
+  border-radius: 999px;
+  object-fit: cover;
+}
+
 .menu-item-detail {
   margin-left: auto;
   color: var(--muted);
@@ -77,6 +101,19 @@
 .language-item {
   min-height: 2rem;
   font-weight: 600;
+}
+
+.language-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.language-flag {
+  width: 1.3rem;
+  height: 1.3rem;
+  border-radius: 999px;
+  object-fit: cover;
 }
 
 @media (max-width: 1400px), (orientation: portrait) {

@@ -16,16 +16,14 @@
   </div>
 
   @if (activeTab() === 'setup') {
-    <div class="setup-control life-control">
-      <div class="control-copy">
-        <span class="eyebrow">Total life</span>
-      </div>
-      <div class="life-editor" aria-label="Starting life">
-        <button type="button" [disabled]="!isOwner() || updatingStartingLife()" aria-label="Decrease starting life" (click)="decreaseStartingLife()">-</button>
-        <span class="life-value-button" aria-live="polite">{{ startingLife() }}</span>
-        <button type="button" [disabled]="!isOwner() || updatingStartingLife()" aria-label="Increase starting life" (click)="increaseStartingLife()">+</button>
-      </div>
-    </div>
+    <app-game-setup-life-control
+      label="Total life"
+      summary="Starting total"
+      [value]="startingLife()"
+      [step]="startingLifeStep()"
+      [disabled]="!isOwner() || updatingStartingLife()"
+      (valueChange)="startingLifeChange.emit($event)"
+    />
 
     <div class="setup-control timer-control">
       <div class="control-copy">
@@ -43,25 +41,14 @@
       />
     </div>
 
-    <div class="setup-control seats-control">
-      <div class="control-copy">
-        <span class="eyebrow">Seats</span>
-        <strong>{{ roomCapacity() }}</strong>
-      </div>
-      <div class="capacity-editor" aria-label="Room size">
-        @for (value of maxPlayersOptions(); track value) {
-          <button
-            type="button"
-            [class.selected]="roomCapacity() === value"
-            [disabled]="!isOwner() || updatingCapacity() || value < joinedPlayers()"
-            [attr.aria-label]="'Set room size to ' + value + ' players'"
-            (click)="changeCapacity(value)"
-          >
-            {{ value }}
-          </button>
-        }
-      </div>
-    </div>
+    <app-game-setup-seats-control
+      label="Seats"
+      [value]="roomCapacity()"
+      [minimumValue]="joinedPlayers()"
+      [options]="maxPlayersOptions()"
+      [disabled]="!isOwner() || updatingCapacity()"
+      (valueChange)="capacityChange.emit($event)"
+    />
 
     @if (!isOwner()) {
       <p class="muted host-note">Only the host can edit setup.</p>

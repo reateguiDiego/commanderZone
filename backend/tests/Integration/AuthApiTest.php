@@ -7,14 +7,28 @@ class AuthApiTest extends ApiTestCase
     public function testRegisterLoginMeAndProfileUpdates(): void
     {
         $token = $this->registerAndLogin('player@example.test', 'Player');
+        $this->registerAndLogin('taken-profile@example.test', 'Taken Name');
 
         $this->jsonRequest('GET', '/me', token: $token);
         self::assertResponseIsSuccessful();
         self::assertSame('player@example.test', $this->jsonResponse()['user']['email']);
+        self::assertSame('initial', $this->jsonResponse()['user']['avatar']['type']);
+        self::assertSame('P', $this->jsonResponse()['user']['avatar']['initial']['letter']);
+        self::assertSame(['type' => 'plain', 'presetId' => 'plain'], $this->jsonResponse()['user']['displayNameStyle']);
 
-        $this->jsonRequest('PATCH', '/me', ['displayName' => 'Renamed Player'], $token);
+        $this->jsonRequest('PATCH', '/me', ['displayName' => 'Taken Name'], $token);
+        self::assertResponseStatusCodeSame(409);
+
+        $this->jsonRequest('PATCH', '/me', ['email' => 'taken-profile@example.test'], $token);
+        self::assertResponseStatusCodeSame(409);
+
+        $this->jsonRequest('PATCH', '/me', [
+            'displayName' => 'Renamed Player',
+            'email' => 'renamed-player@example.test',
+        ], $token);
         self::assertResponseIsSuccessful();
         self::assertSame('Renamed Player', $this->jsonResponse()['user']['displayName']);
+        self::assertSame('renamed-player@example.test', $this->jsonResponse()['user']['email']);
 
         $this->jsonRequest('PATCH', '/me/password', [
             'currentPassword' => 'bad-password',
@@ -29,7 +43,7 @@ class AuthApiTest extends ApiTestCase
         self::assertResponseIsSuccessful();
 
         $this->jsonRequest('POST', '/auth/login', [
-            'email' => 'player@example.test',
+            'email' => 'renamed-player@example.test',
             'password' => 'password456',
         ]);
         self::assertResponseIsSuccessful();
@@ -45,6 +59,10 @@ class AuthApiTest extends ApiTestCase
         self::assertTrue($this->jsonResponse()['available']);
 
         $this->jsonRequest('GET', '/auth/display-name-availability?displayName=unique%20player');
+        self::assertResponseIsSuccessful();
+        self::assertFalse($this->jsonResponse()['available']);
+
+        $this->jsonRequest('GET', '/auth/display-name-availability?displayName=abcdefghijklmnopqrstuvwxyz');
         self::assertResponseIsSuccessful();
         self::assertFalse($this->jsonResponse()['available']);
 
@@ -146,5 +164,157 @@ class AuthApiTest extends ApiTestCase
         ]);
         self::assertResponseIsSuccessful();
         self::assertArrayHasKey('token', $this->jsonResponse());
+    }
+
+    public function testDisplayNameStyleCanBeUpdated(): void
+    {
+        $token = $this->registerAndLogin('style@example.test', 'Style User');
+
+        $this->jsonRequest('PATCH', '/me/display-name-style', [
+            'presetId' => 'obsidian-crown',
+            'textColor' => '#ffeeaa',
+        ], $token);
+        self::assertResponseIsSuccessful();
+        self::assertSame([
+            'type' => 'preset',
+            'presetId' => 'obsidian-crown',
+            'textColor' => '#ffeeaa',
+        ], $this->jsonResponse()['user']['displayNameStyle']);
+
+        $this->jsonRequest('PATCH', '/me/display-name-style', [
+            'presetId' => 'basic-green',
+            'textColor' => '#d7ffd0',
+        ], $token);
+        self::assertResponseIsSuccessful();
+        self::assertSame([
+            'type' => 'preset',
+            'presetId' => 'basic-green',
+            'textColor' => '#d7ffd0',
+        ], $this->jsonResponse()['user']['displayNameStyle']);
+
+        $this->jsonRequest('PATCH', '/me/display-name-style', [
+            'presetId' => 'plain',
+            'textColor' => '#ffffff',
+        ], $token);
+        self::assertResponseIsSuccessful();
+        self::assertSame([
+            'type' => 'plain',
+            'presetId' => 'plain',
+            'textColor' => '#ffffff',
+        ], $this->jsonResponse()['user']['displayNameStyle']);
+
+        $this->jsonRequest('PATCH', '/me/display-name-style', [
+            'presetId' => 'basic-colorless',
+            'textColor' => '#f8f0d0',
+        ], $token);
+        self::assertResponseIsSuccessful();
+        self::assertSame([
+            'type' => 'preset',
+            'presetId' => 'basic-colorless',
+            'textColor' => '#f8f0d0',
+        ], $this->jsonResponse()['user']['displayNameStyle']);
+
+        $this->jsonRequest('PATCH', '/me/display-name-style', [
+            'presetId' => 'not-available',
+        ], $token);
+        self::assertResponseStatusCodeSame(400);
+    }
+
+    public function testAvatarCanBeUpdatedWithPresetUploadAndInitialFallback(): void
+    {
+        $token = $this->registerAndLogin('avatar@example.test', 'Avatar User');
+
+        $this->jsonRequest('PATCH', '/me/avatar', [
+            'type' => 'preset',
+            'imageUrl' => 'assets/images/avatars/obsidian-geomancer.png',
+        ], $token);
+        self::assertResponseIsSuccessful();
+        self::assertSame('preset', $this->jsonResponse()['user']['avatar']['type']);
+        self::assertSame('assets/images/avatars/obsidian-geomancer.png', $this->jsonResponse()['user']['avatar']['imageUrl']);
+
+        $imageData = 'data:image/png;base64,'.base64_encode('avatar-image-bytes');
+        $this->jsonRequest('PATCH', '/me/avatar', [
+            'type' => 'upload',
+            'imageData' => $imageData,
+        ], $token);
+        self::assertResponseIsSuccessful();
+        self::assertSame('upload', $this->jsonResponse()['user']['avatar']['type']);
+        $avatarUrl = $this->jsonResponse()['user']['avatar']['imageUrl'];
+        self::assertIsString($avatarUrl);
+        self::assertStringStartsWith('/users/', $avatarUrl);
+
+        $this->jsonRequest('GET', $avatarUrl);
+        self::assertResponseIsSuccessful();
+        self::assertSame('image/png', $this->client->getResponse()->headers->get('Content-Type'));
+        self::assertSame('avatar-image-bytes', $this->client->getResponse()->getContent());
+
+        $this->jsonRequest('PATCH', '/me/avatar', [
+            'type' => 'initial',
+            'letter' => 'CZ',
+            'backgroundColor' => '#112233',
+            'textColor' => '#ffeeaa',
+        ], $token);
+        self::assertResponseIsSuccessful();
+        self::assertSame([
+            'type' => 'initial',
+            'imageUrl' => null,
+            'initial' => [
+                'letter' => 'CZ',
+                'backgroundColor' => '#112233',
+                'textColor' => '#ffeeaa',
+            ],
+        ], $this->jsonResponse()['user']['avatar']);
+    }
+
+    public function testAvatarRejectsUnknownPresetAndOversizedUpload(): void
+    {
+        $token = $this->registerAndLogin('bad-avatar@example.test', 'Bad Avatar');
+
+        $this->jsonRequest('PATCH', '/me/avatar', [
+            'type' => 'preset',
+            'imageUrl' => 'assets/images/avatars/not-ours.png',
+        ], $token);
+        self::assertResponseStatusCodeSame(400);
+
+        $this->jsonRequest('PATCH', '/me/avatar', [
+            'type' => 'upload',
+            'imageData' => 'data:image/png;base64,'.base64_encode(str_repeat('x', 2_097_153)),
+        ], $token);
+        self::assertResponseStatusCodeSame(400);
+    }
+
+    public function testDeleteAccountAnonymizesIdentityAndBlocksOldLogin(): void
+    {
+        $token = $this->registerAndLogin('delete-me@example.test', 'Delete Me', 'password123');
+
+        $this->jsonRequest('DELETE', '/me', token: $token);
+        self::assertResponseStatusCodeSame(204);
+
+        $this->jsonRequest('POST', '/auth/login', [
+            'email' => 'delete-me@example.test',
+            'password' => 'password123',
+        ]);
+        self::assertResponseStatusCodeSame(401);
+
+        $this->jsonRequest('GET', '/me', token: $token);
+        self::assertResponseIsSuccessful();
+        self::assertStringStartsWith('Deleted-', $this->jsonResponse()['user']['displayName']);
+        self::assertStringStartsWith('deleted+', $this->jsonResponse()['user']['email']);
+    }
+
+    public function testDisplayNameLengthIsLimitedTo25Chars(): void
+    {
+        $this->jsonRequest('POST', '/auth/register', [
+            'email' => 'too-long-name@example.test',
+            'displayName' => 'abcdefghijklmnopqrstuvwxyz',
+            'password' => 'password123',
+        ]);
+        self::assertResponseStatusCodeSame(400);
+
+        $token = $this->registerAndLogin('valid-name@example.test', 'Valid Name');
+        $this->jsonRequest('PATCH', '/me', [
+            'displayName' => 'abcdefghijklmnopqrstuvwxyz',
+        ], $token);
+        self::assertResponseStatusCodeSame(400);
     }
 }

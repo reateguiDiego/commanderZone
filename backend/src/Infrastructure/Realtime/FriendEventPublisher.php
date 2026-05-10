@@ -25,6 +25,8 @@ class FriendEventPublisher
             'user' => [
                 'id' => $user->id(),
                 'displayName' => $user->displayName(),
+                'displayNameStyle' => $user->displayNameStyle(),
+                'avatar' => $user->avatar(),
                 'presence' => $this->presence->statusFor($user),
             ],
         ]);

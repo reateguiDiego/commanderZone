@@ -1,7 +1,7 @@
 <main class="auth-screen">
   <section class="auth-panel">
     <div class="auth-copy">
-      <img class="auth-logo" src="assets/icons/CM_logo.png" alt="CommanderZone" />
+      <img class="auth-logo" src="/assets/icons/CM_logo.png" alt="CommanderZone" />
       <p>Accede a tus mazos, salas y mesa manual de Commander.</p>
     </div>
 
@@ -15,7 +15,14 @@
         <form class="form-stack" [formGroup]="loginForm" (ngSubmit)="submitLogin()">
           <label>
             Email
-            <input type="email" autocomplete="email" formControlName="email" />
+            <input
+              type="email"
+              autocomplete="email"
+              [readOnly]="!loginAutocompleteReady()"
+              formControlName="email"
+              (pointerdown)="enableLoginAutocomplete()"
+              (focus)="enableLoginAutocomplete()"
+            />
             @if (loginEmailInvalid()) {
               <span class="field-error">Introduce un email valido.</span>
             }
@@ -24,7 +31,14 @@
           <label>
             Password
             <div class="password-field">
-              <input [type]="loginPasswordVisible() ? 'text' : 'password'" autocomplete="current-password" formControlName="password" />
+              <input
+                [type]="loginPasswordVisible() ? 'text' : 'password'"
+                autocomplete="current-password"
+                [readOnly]="!loginAutocompleteReady()"
+                formControlName="password"
+                (pointerdown)="enableLoginAutocomplete()"
+                (focus)="enableLoginAutocomplete()"
+              />
               <button
                 type="button"
                 class="password-toggle"
@@ -72,9 +86,9 @@
 
           <label>
             User name
-            <input type="text" autocomplete="nickname" formControlName="displayName" />
+            <input type="text" autocomplete="nickname" formControlName="displayName" maxlength="25" />
             @if (controlInvalid('displayName')) {
-              <span class="field-error">Minimo 4 letras.</span>
+              <span class="field-error">User name entre 4 y 25 caracteres.</span>
             }
             @if (userNameAvailability() === 'checking') {
               <span class="availability muted">Comprobando disponibilidad...</span>

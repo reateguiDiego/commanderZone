@@ -53,6 +53,7 @@
                 [class.icon-only]="action.iconOnly"
                 [class.primary-button]="action.variant === 'primary'"
                 [class.secondary-button]="action.variant === 'secondary'"
+                [attr.data-action-id]="action.id"
                 [attr.title]="action.tooltip ?? null"
                 [attr.aria-label]="action.iconOnly ? action.label : null"
                 [disabled]="action.disabled"
