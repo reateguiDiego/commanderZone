@@ -1,0 +1,74 @@
+name: Backend Deploy
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend-deploy.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: backend-production-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Deploy to Hetzner over SSH
+        shell: bash
+        env:
+          SSH_HOST: ${{ secrets.HETZNER_SSH_HOST }}
+          SSH_PORT: ${{ secrets.HETZNER_SSH_PORT }}
+          SSH_USER: ${{ secrets.HETZNER_SSH_USER }}
+          SSH_PRIVATE_KEY: ${{ secrets.HETZNER_SSH_PRIVATE_KEY }}
+          REPO_DIR: ${{ secrets.HETZNER_REPO_DIR }}
+          BACKEND_DIR: ${{ secrets.HETZNER_BACKEND_DIR }}
+          RESTART_COMMAND: ${{ secrets.HETZNER_RESTART_COMMAND }}
+        run: |
+          set -euo pipefail
+
+          : "${SSH_HOST:?Missing HETZNER_SSH_HOST secret}"
+          : "${SSH_USER:?Missing HETZNER_SSH_USER secret}"
+          : "${SSH_PRIVATE_KEY:?Missing HETZNER_SSH_PRIVATE_KEY secret}"
+          : "${REPO_DIR:?Missing HETZNER_REPO_DIR secret}"
+
+          SSH_PORT="${SSH_PORT:-22}"
+          BACKEND_DIR="${BACKEND_DIR:-backend}"
+
+          install -m 600 /dev/null ./deploy_key
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ./deploy_key
+
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          ssh-keyscan -p "$SSH_PORT" -H "$SSH_HOST" >> ~/.ssh/known_hosts
+
+          ssh -p "$SSH_PORT" -i ./deploy_key -o StrictHostKeyChecking=yes "$SSH_USER@$SSH_HOST" \
+            bash -s -- "$REPO_DIR" "$BACKEND_DIR" "$RESTART_COMMAND" <<'EOF'
+          set -euo pipefail
+
+          REPO_DIR="$1"
+          BACKEND_DIR="$2"
+          RESTART_COMMAND="${3:-}"
+
+          cd "$REPO_DIR"
+          git fetch origin main
+          git checkout main
+          git pull --ff-only origin main
+
+          cd "$BACKEND_DIR"
+          composer install --no-dev --prefer-dist --no-interaction --optimize-autoloader
+          APP_ENV=prod php bin/console doctrine:migrations:migrate --no-interaction
+          APP_ENV=prod php bin/console cache:clear --no-warmup
+          APP_ENV=prod php bin/console cache:warmup
+
+          if [ -n "${RESTART_COMMAND:-}" ]; then
+            eval "$RESTART_COMMAND"
+          fi
+          EOF
+
+          rm -f ./deploy_key
