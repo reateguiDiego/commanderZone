@@ -1,7 +1,7 @@
 .mana-symbols {
   display: inline-flex;
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: var(--mana-symbols-wrap, wrap);
   gap: 0.18rem;
   vertical-align: middle;
 }

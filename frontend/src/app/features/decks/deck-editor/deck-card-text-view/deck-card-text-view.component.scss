@@ -81,8 +81,10 @@
 }
 
 .deck-card-row {
+  --deck-card-cost-column-width: 7.2rem;
+
   display: grid;
-  grid-template-columns: minmax(14rem, 1.45fr) minmax(12rem, 0.85fr) minmax(6rem, max-content);
+  grid-template-columns: minmax(0, 1.5fr) minmax(7rem, 0.8fr) var(--deck-card-cost-column-width);
   gap: 0.8rem;
   align-items: center;
   cursor: pointer;
@@ -98,12 +100,23 @@
 }
 
 .deck-card-name {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-width: 0;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   font-size: 0.83rem;
   line-height: 1.15;
+}
+
+.deck-card-name-text {
+  display: -webkit-box;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
 }
 
 .deck-card-secondary {
@@ -116,14 +129,19 @@
 }
 
 .deck-card-cost {
+  display: flex;
+  justify-content: flex-end;
   justify-self: end;
+  width: var(--deck-card-cost-column-width);
   white-space: nowrap;
   font-size: 0.78rem;
-  min-width: 4.75rem;
+  min-width: 0;
   text-align: right;
 }
 
 .deck-card-cost app-mana-symbols {
+  --mana-symbols-wrap: nowrap;
+
   font-size: 0.84em;
 }
 
@@ -141,12 +159,14 @@
 }
 
 .warning-mark {
+  flex: 0 0 auto;
   color: var(--gold);
   margin-left: 0.2rem;
   vertical-align: text-bottom;
 }
 
 .face-toggle-button {
+  flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -165,7 +185,7 @@
   color: var(--text);
 }
 
-@media (max-width: 1180px) {
+@media (max-width: 1400px) {
   .deck-card-groups {
     grid-template-columns: repeat(auto-fit, minmax(min(18rem, 100%), 1fr));
   }
@@ -178,13 +198,14 @@
     display: none;
   }
 
-  .deck-card-name {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  .deck-card-name-text {
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
   }
 
   .deck-card-cost {
+    width: auto;
+    min-width: max-content;
     justify-self: end;
   }
 }

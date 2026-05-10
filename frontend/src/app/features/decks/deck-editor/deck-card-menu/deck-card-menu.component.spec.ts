@@ -35,11 +35,13 @@ describe('DeckCardMenuComponent', () => {
 
 function storeStub() {
   return {
-    cardMenu: signal({ entryId: 'deck-card-1', top: 10, left: 20, amount: 2 }),
+    cardMenu: signal({ entryId: 'deck-card-1', top: 10, left: 20, amount: 2, showImagePreview: false }),
     setCardMenuAmount: vi.fn(),
     addCardCopy: vi.fn(),
     removeCardCopy: vi.fn(),
     moveCardToSection: vi.fn(),
+    displayCardImageUrl: vi.fn(),
+    displayCardName: (value: DeckCard['card']) => value.name,
   };
 }
 

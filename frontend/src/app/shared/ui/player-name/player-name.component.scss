@@ -7,6 +7,8 @@
 
 .player-name-shell {
   --name-text-color: #f8f0d0;
+  --player-name-base-font-size: 1.56rem;
+  --player-name-length-scale: 1;
   position: relative;
   isolation: isolate;
   display: inline-grid;
@@ -16,6 +18,7 @@
   overflow: hidden;
   box-sizing: border-box;
   color: var(--name-text-color);
+  font-size: calc(var(--player-name-font-size, var(--player-name-base-font-size)) * var(--player-name-length-scale));
   font-weight: 900;
   line-height: 1.05;
   text-shadow: 0 1px 0 rgb(0 0 0 / 74%), 0 0 0.9rem rgb(0 0 0 / 78%);
@@ -28,11 +31,13 @@
 
 .player-name-label {
   z-index: 2;
+  min-width: 0;
   max-width: 100%;
   overflow: hidden;
   padding: 0 0.25rem 0.1rem;
   text-align: center;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .has-nameplate {
@@ -50,23 +55,35 @@
 }
 
 .size-xs {
-  font-size: var(--player-name-font-size, 1rem);
+  --player-name-base-font-size: 1rem;
 }
 
 .size-sm {
-  font-size: var(--player-name-font-size, 1.32rem);
+  --player-name-base-font-size: 1.32rem;
 }
 
 .size-md {
-  font-size: var(--player-name-font-size, 1.56rem);
+  --player-name-base-font-size: 1.56rem;
 }
 
 .size-lg {
-  font-size: var(--player-name-font-size, 1.84rem);
+  --player-name-base-font-size: 1.84rem;
 }
 
 .size-xl {
-  font-size: var(--player-name-font-size, 2.04rem);
+  --player-name-base-font-size: 2.04rem;
+}
+
+.name-length-medium {
+  --player-name-length-scale: 0.98;
+}
+
+.name-length-long {
+  --player-name-length-scale: 0.9;
+}
+
+.name-length-extra-long {
+  --player-name-length-scale: 0.82;
 }
 
 .nameplate-image {
@@ -105,4 +122,18 @@
 .size-xl.has-nameplate {
   --plate-width: var(--player-name-plate-width, 20rem);
   --plate-height: var(--player-name-plate-height, 5rem);
+}
+
+@media (max-width: 720px) {
+  .name-length-medium {
+    --player-name-length-scale: 0.94;
+  }
+
+  .name-length-long {
+    --player-name-length-scale: 0.84;
+  }
+
+  .name-length-extra-long {
+    --player-name-length-scale: 0.76;
+  }
 }

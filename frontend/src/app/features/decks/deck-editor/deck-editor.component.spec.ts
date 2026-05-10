@@ -134,6 +134,36 @@ describe('DeckEditorComponent', () => {
     expect(landGroup?.detail).toBe('2 including MDFC');
   });
 
+  it('balances card groups across text columns by estimated height', async () => {
+    await setup({ id: 'deck-1' }, {
+      id: 'deck-1',
+      name: 'Balanced deck',
+      format: 'commander',
+      folderId: null,
+      cards: [
+        ...manyDeckCards('creature', 21, 'Creature'),
+        ...manyDeckCards('instant', 14, 'Instant'),
+        ...manyDeckCards('sorcery', 14, 'Sorcery'),
+        ...manyDeckCards('enchantment', 7, 'Enchantment'),
+        ...manyDeckCards('artifact', 9, 'Artifact'),
+        ...manyDeckCards('land', 36, 'Land'),
+      ],
+    });
+    const fixture = TestBed.createComponent(DeckEditorComponent);
+
+    await fixture.componentInstance.store.load();
+
+    const groups = fixture.componentInstance.store.cardGroups();
+    const columns = fixture.componentInstance.store.cardColumns();
+    const columnWeights = columns
+      .map((column) => column.groups.reduce((total, group) => total + estimatedGroupWeight(group.id, group.quantity), 0));
+    const flattenedColumnGroupIds = columns.flatMap((column) => column.groups.map((group) => group.id));
+
+    expect(columnWeights).toHaveLength(2);
+    expect(Math.abs(columnWeights[0] - columnWeights[1])).toBeLessThanOrEqual(8);
+    expect(flattenedColumnGroupIds).toEqual(groups.map((group) => group.id));
+  });
+
   it('shows deck title warning only for backend validation errors', async () => {
     const deck: Deck = {
       id: 'deck-1',
@@ -180,6 +210,109 @@ describe('DeckEditorComponent', () => {
     expect(fixture.componentInstance.store.hasDeckIssues()).toBe(false);
   });
 
+  it('closes transient deck editor overlays together', async () => {
+    const testCard = card('Black Lotus', 'Artifact');
+    await setup({ id: 'deck-1' }, {
+      id: 'deck-1',
+      name: 'Overlay deck',
+      format: 'commander',
+      folderId: null,
+      cards: [deckCard('main-card', 'main', testCard)],
+    });
+    const fixture = TestBed.createComponent(DeckEditorComponent);
+
+    fixture.componentInstance.store.cardMenu.set({
+      entryId: 'main-card',
+      top: 10,
+      left: 10,
+      amount: 1,
+      showImagePreview: true,
+    });
+    fixture.componentInstance.store.cardPreview.set({
+      card: testCard,
+      imageUrl: null,
+      top: 20,
+      left: 20,
+    });
+    fixture.componentInstance.store.hoverList.set({
+      title: 'Hover',
+      items: ['Black Lotus'],
+      top: 30,
+      left: 30,
+    });
+
+    fixture.componentInstance.store.closeTransientOverlays();
+
+    expect(fixture.componentInstance.store.cardMenu()).toBeNull();
+    expect(fixture.componentInstance.store.cardPreview()).toBeNull();
+    expect(fixture.componentInstance.store.hoverList()).toBeNull();
+  });
+
+  it('closes transient overlays when a zoom shortcut is used', async () => {
+    const testCard = card('Black Lotus', 'Artifact');
+    await setup({ id: 'deck-1' }, {
+      id: 'deck-1',
+      name: 'Zoom deck',
+      format: 'commander',
+      folderId: null,
+      cards: [deckCard('main-card', 'main', testCard)],
+    });
+    const fixture = TestBed.createComponent(DeckEditorComponent);
+
+    fixture.componentInstance.store.cardMenu.set({
+      entryId: 'main-card',
+      top: 10,
+      left: 10,
+      amount: 1,
+      showImagePreview: true,
+    });
+    fixture.componentInstance.store.cardPreview.set({
+      card: testCard,
+      imageUrl: null,
+      top: 20,
+      left: 20,
+    });
+
+    fixture.componentInstance.handleDocumentKeydown(new KeyboardEvent('keydown', {
+      code: 'NumpadAdd',
+      ctrlKey: true,
+    }));
+
+    expect(fixture.componentInstance.store.cardMenu()).toBeNull();
+    expect(fixture.componentInstance.store.cardPreview()).toBeNull();
+  });
+
+  it('closes transient overlays on desktop scroll', async () => {
+    const testCard = card('Black Lotus', 'Artifact');
+    await setup({ id: 'deck-1' }, {
+      id: 'deck-1',
+      name: 'Scroll deck',
+      format: 'commander',
+      folderId: null,
+      cards: [deckCard('main-card', 'main', testCard)],
+    });
+    const fixture = TestBed.createComponent(DeckEditorComponent);
+
+    fixture.componentInstance.store.cardMenu.set({
+      entryId: 'main-card',
+      top: 10,
+      left: 10,
+      amount: 1,
+      showImagePreview: true,
+    });
+    fixture.componentInstance.store.cardPreview.set({
+      card: testCard,
+      imageUrl: null,
+      top: 20,
+      left: 20,
+    });
+
+    fixture.componentInstance.handleWindowScroll();
+
+    expect(fixture.componentInstance.store.cardMenu()).toBeNull();
+    expect(fixture.componentInstance.store.cardPreview()).toBeNull();
+  });
+
   it('publishes the deck title and warning to the page header', async () => {
     const deck: Deck = {
       id: 'deck-1',
@@ -218,6 +351,18 @@ describe('DeckEditorComponent', () => {
 
 function deckCard(id: string, section: DeckSection, card: Card): DeckCard {
   return { id, section, card, quantity: 1 };
+}
+
+function manyDeckCards(prefix: string, count: number, typeLine: string): DeckCard[] {
+  return Array.from({ length: count }, (_, index) => {
+    const name = `${prefix} ${index + 1}`;
+
+    return deckCard(`${prefix}-${index + 1}`, 'main', card(name, typeLine));
+  });
+}
+
+function estimatedGroupWeight(id: string, quantity: number): number {
+  return id === 'commander' ? 10 : 2 + quantity;
 }
 
 function validCommanderValidation() {

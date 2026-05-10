@@ -43,4 +43,21 @@ describe('PlayerNameComponent', () => {
     expect(name.classList.contains('fill')).toBe(true);
     expect(name.classList.contains('has-nameplate')).toBe(false);
   });
+
+  it('scales long display names by length bucket', () => {
+    fixture.componentRef.setInput('displayName', 'CommanderZonePilotName25');
+    fixture.detectChanges();
+
+    const name = fixture.nativeElement.querySelector('.player-name-shell') as HTMLElement;
+    expect(name.classList.contains('name-length-extra-long')).toBe(true);
+    expect(name.getAttribute('title')).toBe('CommanderZonePilotName25');
+  });
+
+  it('keeps medium-length display names in the medium bucket', () => {
+    fixture.componentRef.setInput('displayName', 'CommanderPilot');
+    fixture.detectChanges();
+
+    const name = fixture.nativeElement.querySelector('.player-name-shell') as HTMLElement;
+    expect(name.classList.contains('name-length-medium')).toBe(true);
+  });
 });

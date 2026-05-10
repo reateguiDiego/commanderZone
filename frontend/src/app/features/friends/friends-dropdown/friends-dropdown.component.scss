@@ -117,6 +117,12 @@
 }
 
 .row-main app-player-name {
+  --player-name-font-size: 1.18rem;
+  --player-name-plate-width: 15rem;
+  --player-name-plate-height: 2.72rem;
+  --player-name-label-width: calc(100% - 2.9rem);
+  --player-name-plate-padding: 0.34rem 1.45rem;
+
   max-width: 100%;
 }
 
@@ -266,7 +272,7 @@
   opacity: 0.55;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 1400px) {
   .friends-menu {
     --friends-menu-width: 24rem;
     --friends-menu-height: 31rem;
@@ -280,7 +286,7 @@
     --friend-row-padding-inline: 0.48rem;
 
     width: min(var(--friends-menu-width), calc(100vw - 1rem));
-    max-height: min(var(--friends-menu-height), calc(100dvh - 5.4rem));
+    max-height: min(var(--friends-menu-height), calc(100dvh - var(--device-sidebar-height, 100px) - 5.4rem));
     border-radius: 10px;
   }
 
@@ -294,6 +300,12 @@
   }
 
   .row-main app-player-name {
+    --player-name-font-size: 0.96rem;
+    --player-name-plate-width: min(13rem, 100%);
+    --player-name-plate-height: 2.24rem;
+    --player-name-label-width: calc(100% - 2.4rem);
+    --player-name-plate-padding: 0.28rem 1.2rem;
+
     width: 100%;
   }
 
@@ -311,13 +323,6 @@
 
   .action-pair {
     gap: 0.22rem;
-  }
-}
-
-@media (max-width: 1400px), (orientation: portrait) {
-  .friends-menu {
-    width: min(var(--friends-menu-width), 100%);
-    max-height: min(var(--friends-menu-height), calc(100dvh - var(--device-sidebar-height, 100px) - 7rem));
   }
 }
 
@@ -352,6 +357,11 @@
   }
 
   .row-main app-player-name {
+    --player-name-font-size: 0.88rem;
+    --player-name-plate-width: 8rem;
+    --player-name-plate-height: 2rem;
+    --player-name-label-width: calc(100% - 2.15rem);
+
     width: 100%;
   }
 
