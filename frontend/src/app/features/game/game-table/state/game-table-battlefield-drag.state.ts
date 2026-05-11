@@ -22,6 +22,8 @@ export interface PointerDragPreview {
   card: GameCardInstance;
   x: number;
   y: number;
+  width: number;
+  height: number;
   count: number;
 }
 

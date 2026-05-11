@@ -13,6 +13,8 @@ export interface PointerDropTarget {
 export interface PointerCardSize {
   width: number;
   height: number;
+  offsetX?: number;
+  offsetY?: number;
 }
 
 export interface HandPointerDropPreview {
@@ -74,7 +76,7 @@ export class GameTablePointerDragService {
         : target.closest<HTMLElement>('.battlefield');
       const manaLane = rawZone === 'mana'
         ? target.closest<HTMLElement>('[data-mana-lane]')
-        : this.manaLaneForPointerOrCard(battlefield, event.clientX, event.clientY, cardSize.width, cardSize.height);
+        : this.manaLaneForPointerOrCard(battlefield, event.clientX, event.clientY, cardSize);
       const effectiveRawZone = manaLane ? 'mana' : rawZone;
       const toZone = effectiveRawZone === 'mana' ? 'battlefield' : effectiveRawZone;
       if (!this.isGameZone(toZone)) {
@@ -153,10 +155,12 @@ export class GameTablePointerDragService {
     const bounds = battlefield.getBoundingClientRect();
     const manaLane = target.closest<HTMLElement>('[data-mana-lane]');
     const manaLaneBounds = manaLane?.getBoundingClientRect();
-    const rawX = Math.round(event.clientX - bounds.left - cardSize.width / 2);
+    const offsetX = cardSize.offsetX ?? cardSize.width / 2;
+    const offsetY = cardSize.offsetY ?? cardSize.height / 2;
+    const rawX = Math.round(event.clientX - bounds.left - offsetX);
     const rawY = manaLaneBounds
       ? Math.round(manaLaneBounds.top - bounds.top + 8)
-      : Math.round(event.clientY - bounds.top - cardSize.height / 2);
+      : Math.round(event.clientY - bounds.top - offsetY);
 
     return {
       x: Math.max(0, Math.min(Math.round(bounds.width - cardSize.width), rawX)),
@@ -168,8 +172,7 @@ export class GameTablePointerDragService {
     battlefield: HTMLElement | null,
     clientX: number,
     clientY: number,
-    cardWidth: number,
-    cardHeight: number,
+    cardSize: PointerCardSize,
   ): HTMLElement | null {
     const manaLane = battlefield?.querySelector<HTMLElement>('[data-mana-lane]');
     if (!manaLane) {
@@ -185,11 +188,13 @@ export class GameTablePointerDragService {
       return manaLane;
     }
 
+    const offsetX = cardSize.offsetX ?? cardSize.width / 2;
+    const offsetY = cardSize.offsetY ?? cardSize.height / 2;
     const cardBounds = {
-      left: clientX - cardWidth / 2,
-      right: clientX + cardWidth / 2,
-      top: clientY - cardHeight / 2,
-      bottom: clientY + cardHeight / 2,
+      left: clientX - offsetX,
+      right: clientX - offsetX + cardSize.width,
+      top: clientY - offsetY,
+      bottom: clientY - offsetY + cardSize.height,
     };
     const horizontalOverlap = cardBounds.right >= bounds.left && cardBounds.left <= bounds.right;
     const verticalOverlap = Math.min(cardBounds.bottom, bounds.bottom) - Math.max(cardBounds.top, bounds.top);

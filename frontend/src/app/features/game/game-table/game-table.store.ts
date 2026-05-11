@@ -542,9 +542,9 @@ export class GameTableStore implements OnDestroy {
     }
     if (draggingInstanceId) {
       this.ensureDraggingBattlefieldSelection(draggingInstanceId);
-      this.updatePointerDragPreview(event, draggingInstanceId);
       this.battlefieldDrag.updateBattlefieldDragAid(event, draggingInstanceId, this.battlefieldDragContext());
       this.battlefieldDrag.updatePointerDropTarget(event, this.battlefieldDragContext());
+      this.updatePointerDragPreview(draggingInstanceId);
     }
   }
 
@@ -728,7 +728,7 @@ export class GameTableStore implements OnDestroy {
       : position;
     const movedInstanceIds = this.selectedDragInstanceIds(playerId, 'hand', movedInstanceId);
     if (movedInstanceIds.length > 1) {
-      await this.moveSelectedHandCardsByPointer(playerId, targetPlayerId, movedInstanceIds, toZone, battlefieldPosition, rawZone);
+      await this.moveSelectedHandCardsByPointer(playerId, targetPlayerId, movedInstanceIds, toZone, battlefieldPosition);
       return;
     }
 
@@ -1183,18 +1183,38 @@ export class GameTableStore implements OnDestroy {
     this.battlefieldDragState.endCardDrag();
   }
 
-  private updatePointerDragPreview(event: PointerEvent, instanceId: string): void {
+  private updatePointerDragPreview(instanceId: string): void {
     const selected = this.battlefieldSelectionByInstanceId(instanceId);
-    if (!selected) {
+    const position = selected?.card.position;
+    const battlefield = selected ? this.battlefieldElement(selected.playerId) : null;
+    if (!selected || !position || !battlefield) {
       return;
     }
 
+    const bounds = battlefield.getBoundingClientRect();
+    const cardElement = this.battlefieldCardElement(selected.playerId, instanceId);
+    const cardBounds = cardElement?.getBoundingClientRect();
+    const width = cardElement?.offsetWidth || cardBounds?.width || 116;
+    const height = cardElement?.offsetHeight || cardBounds?.height || 162;
     this.battlefieldDragState.setPointerDragPreview({
       card: selected.card,
-      x: event.clientX,
-      y: event.clientY,
+      x: bounds.left + position.x,
+      y: bounds.top + position.y,
+      width,
+      height,
       count: this.selectedDragInstanceIds(selected.playerId, 'battlefield', instanceId).length,
     });
+  }
+
+  private battlefieldElement(playerId: string): HTMLElement | null {
+    return Array.from(document.querySelectorAll<HTMLElement>('.battlefield'))
+      .find((element) => element.dataset['playerId'] === playerId) ?? null;
+  }
+
+  private battlefieldCardElement(playerId: string, instanceId: string): HTMLElement | null {
+    return Array.from(this.battlefieldElement(playerId)
+      ?.querySelectorAll<HTMLElement>('[data-testid="game-card"][data-zone="battlefield"]') ?? [])
+      .find((element) => element.dataset['cardInstanceId'] === instanceId) ?? null;
   }
 
   private ensureDraggingBattlefieldSelection(instanceId: string): void {
@@ -1256,7 +1276,6 @@ export class GameTableStore implements OnDestroy {
     movedInstanceIds: readonly string[],
     toZone: GameZoneName,
     position?: { x: number; y: number },
-    rawZone?: string,
   ): Promise<void> {
     const hand = this.snapshot()?.players[playerId]?.zones.hand ?? [];
     const movedCards = movedInstanceIds
@@ -1285,14 +1304,14 @@ export class GameTableStore implements OnDestroy {
     }
 
     if (toZone === 'battlefield' && position) {
-      for (const [index, instanceId] of movedInstanceIds.entries()) {
+      for (const instanceId of movedInstanceIds) {
         await this.command('card.moved', {
           playerId,
           fromZone: 'hand',
           toZone,
           targetPlayerId,
           instanceId,
-          position: { x: position.x + index * 24, y: position.y + (rawZone === 'mana' ? 0 : index * 18) },
+          position,
         });
       }
       this.selectedCards.set([]);

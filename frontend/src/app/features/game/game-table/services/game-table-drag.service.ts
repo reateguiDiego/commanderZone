@@ -7,8 +7,8 @@ interface PointerCardDrag {
   battlefield: HTMLElement;
   startClientX: number;
   startClientY: number;
-  offsetX: number;
-  offsetY: number;
+  grabOffsetX: number;
+  grabOffsetY: number;
   cardWidth: number;
   cardHeight: number;
   moved: boolean;
@@ -20,6 +20,13 @@ interface DragPayload {
   zone: GameZoneName;
   instanceId: string;
   instanceIds: string[];
+}
+
+interface DragImageGeometry {
+  width: number;
+  height: number;
+  offsetX: number;
+  offsetY: number;
 }
 
 interface PointerDragResult {
@@ -35,6 +42,7 @@ interface PointerDragResult {
 export class GameTableDragService {
   private pointerCardDrag: PointerCardDrag | null = null;
   private suppressCardClickInstanceId: string | null = null;
+  private dragImageGeometry: DragImageGeometry | null = null;
 
   hasActivePointerDrag(): boolean {
     return this.pointerCardDrag !== null;
@@ -53,23 +61,24 @@ export class GameTableDragService {
     target.setPointerCapture?.(event.pointerId);
 
     const cardBounds = target.getBoundingClientRect();
+    const cardWidth = target.offsetWidth || cardBounds.width;
+    const cardHeight = target.offsetHeight || cardBounds.height;
     const fieldBounds = battlefield.getBoundingClientRect();
     const current = card.position ?? {
       x: target.offsetLeft || Math.max(0, Math.round(cardBounds.left - fieldBounds.left)),
       y: target.offsetTop || Math.max(0, Math.round(cardBounds.top - fieldBounds.top)),
     };
-    const visualLeft = fieldBounds.left + current.x;
-    const visualTop = fieldBounds.top + current.y;
+    const grabOffset = this.pointerOffsetWithinBounds(event.clientX, event.clientY, cardBounds, cardWidth, cardHeight);
     this.pointerCardDrag = {
       playerId,
       instanceId: card.instanceId,
       battlefield,
       startClientX: event.clientX,
       startClientY: event.clientY,
-      offsetX: event.clientX - visualLeft,
-      offsetY: event.clientY - visualTop,
-      cardWidth: target.offsetWidth || cardBounds.width,
-      cardHeight: target.offsetHeight || cardBounds.height,
+      grabOffsetX: grabOffset.x,
+      grabOffsetY: grabOffset.y,
+      cardWidth,
+      cardHeight,
       moved: false,
       position: current,
     };
@@ -88,9 +97,9 @@ export class GameTableDragService {
       this.pointerCardDrag.battlefield,
       event.clientX,
       event.clientY,
-      document.elementFromPoint(event.clientX, event.clientY),
-      this.pointerCardDrag.offsetX,
-      this.pointerCardDrag.offsetY,
+      document.elementFromPoint?.(event.clientX, event.clientY) ?? null,
+      this.pointerCardDrag.grabOffsetX,
+      this.pointerCardDrag.grabOffsetY,
       this.pointerCardDrag.cardWidth,
       this.pointerCardDrag.cardHeight,
     );
@@ -160,6 +169,7 @@ export class GameTableDragService {
 
   dragStart(event: DragEvent, playerId: string, zone: GameZoneName, card: GameCardInstance, instanceIds: readonly string[] = [card.instanceId]): void {
     const uniqueInstanceIds = [...new Set(instanceIds.length > 0 ? instanceIds : [card.instanceId])];
+    this.dragImageGeometry = null;
     event.dataTransfer?.setData('application/json', JSON.stringify({
       playerId,
       zone,
@@ -228,11 +238,24 @@ export class GameTableDragService {
       ? event.currentTarget
       : event.currentTarget.closest<HTMLElement>('.battlefield');
 
-    return battlefield ? this.positionInBattlefield(battlefield, event.clientX, event.clientY, event.currentTarget) : null;
+    const geometry = this.dragImageGeometry;
+
+    return battlefield
+      ? this.positionInBattlefield(
+        battlefield,
+        event.clientX,
+        event.clientY,
+        event.currentTarget,
+        geometry?.offsetX,
+        geometry?.offsetY,
+        geometry?.width,
+        geometry?.height,
+      )
+      : null;
   }
 
   pointerPosition(event: PointerEvent, battlefield: HTMLElement): { x: number; y: number } {
-    return this.positionInBattlefield(battlefield, event.clientX, event.clientY, document.elementFromPoint(event.clientX, event.clientY));
+    return this.positionInBattlefield(battlefield, event.clientX, event.clientY, document.elementFromPoint?.(event.clientX, event.clientY) ?? null);
   }
 
   private positionInBattlefield(
@@ -307,10 +330,14 @@ export class GameTableDragService {
       return this.positionInBattlefield(battlefield, clientX, clientY, eventTarget, offsetX, offsetY, cardWidth, cardHeight);
     }
 
-    return {
-      x: Math.round(clientX - bounds.left - offsetX),
-      y: Math.round(clientY - bounds.top - offsetY),
-    };
+    return this.clampPosition(
+      Math.round(clientX - bounds.left - offsetX),
+      Math.round(clientY - bounds.top - offsetY),
+      bounds.width,
+      bounds.height,
+      cardWidth,
+      cardHeight,
+    );
   }
 
   private isInsideBounds(clientX: number, clientY: number, bounds: DOMRect): boolean {
@@ -336,6 +363,28 @@ export class GameTableDragService {
     }
 
     const bounds = source.getBoundingClientRect();
-    event.dataTransfer.setDragImage(source, bounds.width / 2, bounds.height / 2);
+    const offset = this.pointerOffsetWithinBounds(event.clientX, event.clientY, bounds, bounds.width, bounds.height);
+    this.dragImageGeometry = {
+      width: bounds.width,
+      height: bounds.height,
+      offsetX: offset.x,
+      offsetY: offset.y,
+    };
+    event.dataTransfer.setDragImage(source, this.dragImageGeometry.offsetX, this.dragImageGeometry.offsetY);
+  }
+
+  private pointerOffsetWithinBounds(clientX: number, clientY: number, bounds: DOMRect, width: number, height: number): { x: number; y: number } {
+    const fallback = { x: width / 2, y: height / 2 };
+    if (!Number.isFinite(clientX) || !Number.isFinite(clientY) || width <= 0 || height <= 0) {
+      return fallback;
+    }
+
+    const rawX = clientX - bounds.left;
+    const rawY = clientY - bounds.top;
+    if (rawX < 0 || rawX > width || rawY < 0 || rawY > height) {
+      return fallback;
+    }
+
+    return { x: rawX, y: rawY };
   }
 }

@@ -236,7 +236,7 @@ describe('PlayerHandPanelComponent', () => {
       targetPlayerId: 'player-1',
       movedInstanceId: 'card-1',
       toZone: 'battlefield',
-      position: { x: 90, y: 20 },
+      position: { x: 40, y: 0 },
     });
 
     Object.defineProperty(document, 'elementsFromPoint', {
@@ -327,7 +327,7 @@ describe('PlayerHandPanelComponent', () => {
       kind: 'zone',
       rawZone: 'battlefield',
       draggedInstanceId: 'card-1',
-      position: { x: 90, y: 20 },
+      position: { x: 120, y: 70 },
     });
 
     fixture.componentInstance.endHandPointerDrag(pointerEvent({ pointerId: 1, clientX: 150, clientY: 100 }));
@@ -337,7 +337,7 @@ describe('PlayerHandPanelComponent', () => {
       targetPlayerId: 'player-1',
       movedInstanceId: 'card-1',
       toZone: 'battlefield',
-      position: { x: 90, y: 20 },
+      position: { x: 120, y: 70 },
     });
 
     Object.defineProperty(document, 'elementsFromPoint', {

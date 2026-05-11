@@ -568,6 +568,43 @@ describe('GameTableComponent', () => {
     }), 'game-1');
   });
 
+  it('keeps the exact previewed battlefield position when pointer-moving selected hand cards', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    const handCards = [
+      { ...snapshot.players['user-1'].zones.battlefield[0]!, instanceId: 'hand-1', name: 'Arcane Signet' },
+      { ...snapshot.players['user-1'].zones.battlefield[0]!, instanceId: 'hand-2', name: 'Mind Stone' },
+    ];
+    snapshot.players['user-1'].zones.hand = handCards;
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+    gamesApi.command.mockReturnValue(of({
+      event: { id: 'event-play', type: 'card.moved', payload: {}, createdBy: 'user-1', createdAt: '' },
+      snapshot,
+    }));
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.store.selectedCards.set([
+      { playerId: 'user-1', zone: 'hand', card: handCards[0]! },
+      { playerId: 'user-1', zone: 'hand', card: handCards[1]! },
+    ]);
+    await fixture.componentInstance.store.moveHandCardByPointer(
+      'user-1',
+      'user-1',
+      'hand-1',
+      'battlefield',
+      { x: 111, y: 222 },
+    );
+
+    const payloads = gamesApi.command.mock.calls.map(([command]) => command.payload);
+    expect(payloads.map((payload) => payload.position)).toEqual([
+      { x: 111, y: 222 },
+      { x: 111, y: 222 },
+    ]);
+  });
+
   it('marks turn changes with the phase log appearance', async () => {
     routeParams['id'] = 'game-1';
     authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });

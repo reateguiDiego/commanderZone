@@ -48,6 +48,8 @@ interface HandPointerDrag {
   startY: number;
   cardWidth: number;
   cardHeight: number;
+  offsetX: number;
+  offsetY: number;
   x: number;
   y: number;
   mode: HandPointerDragMode;
@@ -154,8 +156,8 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
     this.pointerDrag.set({
       ...drag,
       mode: resolved.mode,
-      x: event.clientX,
-      y: event.clientY,
+      x: event.clientX - drag.offsetX,
+      y: event.clientY - drag.offsetY,
       preview: visiblePreview,
     });
   }
@@ -260,6 +262,10 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
     const target = event.currentTarget instanceof HTMLElement ? event.currentTarget : null;
     target?.setPointerCapture?.(event.pointerId);
     const bounds = target?.getBoundingClientRect();
+    const cardWidth = bounds?.width || 103;
+    const cardHeight = bounds?.height || 144;
+    const offsetX = bounds && bounds.width > 0 ? Math.max(0, Math.min(cardWidth, event.clientX - bounds.left)) : cardWidth / 2;
+    const offsetY = bounds && bounds.height > 0 ? Math.max(0, Math.min(cardHeight, event.clientY - bounds.top)) : cardHeight / 2;
     this.clearReorderPreviewTimer();
     this.cardPreviewHidden.emit();
     this.pointerDrag.set({
@@ -268,10 +274,12 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
       pointerId: event.pointerId,
       startX: event.clientX,
       startY: event.clientY,
-      cardWidth: bounds?.width ?? 103,
-      cardHeight: bounds?.height ?? 144,
-      x: event.clientX,
-      y: event.clientY,
+      cardWidth,
+      cardHeight,
+      offsetX,
+      offsetY,
+      x: event.clientX - offsetX,
+      y: event.clientY - offsetY,
       mode: 'pending',
       preview: null,
     });
@@ -488,7 +496,12 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
     drag: HandPointerDrag,
     intendedMode: Exclude<HandPointerDragMode, 'pending'>,
   ): ResolvedHandPointerDrag {
-    const target = this.pointerDragService.zoneTargetAt(event, { width: drag.cardWidth, height: drag.cardHeight });
+    const target = this.pointerDragService.zoneTargetAt(event, {
+      width: drag.cardWidth,
+      height: drag.cardHeight,
+      offsetX: drag.offsetX,
+      offsetY: drag.offsetY,
+    });
     if (target) {
       return { mode: 'transfer', target: { ...target, draggedInstanceId: drag.card.instanceId }, preview: null };
     }

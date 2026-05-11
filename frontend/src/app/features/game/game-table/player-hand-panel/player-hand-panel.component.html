@@ -87,6 +87,8 @@
         aria-hidden="true"
         [style.left.px]="drag.x"
         [style.top.px]="drag.y"
+        [style.width.px]="drag.cardWidth"
+        [style.height.px]="drag.cardHeight"
       >
         @if (floatingCardImage(); as image) {
           <img [src]="image" [alt]="drag.card.name" draggable="false" />

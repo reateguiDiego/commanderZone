@@ -60,6 +60,40 @@ describe('GameTablePointerDragService', () => {
     });
   });
 
+  it('uses the dragged card pointer anchor for battlefield positions', () => {
+    const battlefield = document.createElement('div');
+    battlefield.className = 'battlefield';
+    battlefield.dataset['gameDropZone'] = 'battlefield';
+    battlefield.dataset['zone'] = 'battlefield';
+    battlefield.dataset['playerId'] = 'player-1';
+    battlefield.getBoundingClientRect = () => ({
+      ...rect(10, 500),
+      y: 10,
+      top: 10,
+      bottom: 330,
+      height: 320,
+    });
+    const originalElementsFromPoint = document.elementsFromPoint;
+    Object.defineProperty(document, 'elementsFromPoint', {
+      configurable: true,
+      value: vi.fn(() => [battlefield]),
+    });
+
+    const target = service.zoneTargetAt(pointerEvent(150, 100), {
+      width: 100,
+      height: 140,
+      offsetX: 20,
+      offsetY: 30,
+    });
+
+    expect(target?.position).toEqual({ x: 120, y: 60 });
+
+    Object.defineProperty(document, 'elementsFromPoint', {
+      configurable: true,
+      value: originalElementsFromPoint,
+    });
+  });
+
   it('resolves the mana row as a battlefield drop target with mana-lane placement metadata', () => {
     const battlefield = document.createElement('div');
     battlefield.className = 'battlefield';
@@ -146,6 +180,59 @@ describe('GameTablePointerDragService', () => {
       kind: 'zone',
       rawZone: 'mana',
       position: { x: 90, y: 180 },
+    });
+
+    Object.defineProperty(document, 'elementsFromPoint', {
+      configurable: true,
+      value: originalElementsFromPoint,
+    });
+  });
+
+  it('preserves the dragged card pointer anchor on x when snapping to mana row', () => {
+    const battlefield = document.createElement('div');
+    battlefield.className = 'battlefield';
+    battlefield.dataset['gameDropZone'] = 'battlefield';
+    battlefield.dataset['zone'] = 'battlefield';
+    battlefield.dataset['playerId'] = 'player-1';
+    battlefield.getBoundingClientRect = () => ({
+      ...rect(10, 500),
+      y: 10,
+      top: 10,
+      bottom: 330,
+      height: 320,
+    });
+    const manaLane = document.createElement('div');
+    manaLane.dataset['gameDropZone'] = 'mana';
+    manaLane.dataset['zone'] = 'mana';
+    manaLane.dataset['playerId'] = 'player-1';
+    manaLane.dataset['manaLane'] = '';
+    manaLane.getBoundingClientRect = () => ({
+      ...rect(10, 500),
+      y: 250,
+      top: 250,
+      bottom: 310,
+      height: 60,
+    });
+    battlefield.appendChild(manaLane);
+    const originalElementsFromPoint = document.elementsFromPoint;
+    Object.defineProperty(document, 'elementsFromPoint', {
+      configurable: true,
+      value: vi.fn(() => [battlefield]),
+    });
+
+    const target = service.zoneTargetAt(pointerEvent(150, 232), {
+      width: 100,
+      height: 140,
+      offsetX: 20,
+      offsetY: 30,
+    });
+
+    expect(target).toEqual({
+      targetPlayerId: 'player-1',
+      toZone: 'battlefield',
+      kind: 'zone',
+      rawZone: 'mana',
+      position: { x: 120, y: 180 },
     });
 
     Object.defineProperty(document, 'elementsFromPoint', {

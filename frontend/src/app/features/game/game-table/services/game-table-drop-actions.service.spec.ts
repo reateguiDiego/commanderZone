@@ -163,7 +163,35 @@ describe('GameTableDropActionsService', () => {
       instanceIds: ['moved', 'selected-2'],
     }, 'mana'), 'player-1', 'battlefield');
 
-    expect(commands.map((entry) => (entry.payload['position'] as { y: number }).y)).toEqual([190, 190]);
+    expect(commands.map((entry) => entry.payload['position'])).toEqual([
+      { x: 122, y: 190 },
+      { x: 122, y: 190 },
+    ]);
+  });
+
+  it('keeps the exact previewed battlefield position for every selected card when no vertical snap is active', async () => {
+    const first = card('moved', 'Cultivate', 'hand');
+    const second = card('selected-2', 'Kodama Reach', 'hand');
+    const snapshot = snapshotWith({ hand: [first, second] });
+    const commands: Array<{ type: GameCommandType; payload: Record<string, unknown> }> = [];
+    const context = dropContext(
+      () => snapshot,
+      async (type, payload) => {
+        commands.push({ type, payload });
+      },
+    );
+
+    await service.dropOnZone(context, dragEvent({
+      playerId: 'player-1',
+      zone: 'hand',
+      instanceId: 'moved',
+      instanceIds: ['moved', 'selected-2'],
+    }, 'battlefield'), 'player-1', 'battlefield');
+
+    expect(commands.map((entry) => entry.payload['position'])).toEqual([
+      { x: 122, y: 158 },
+      { x: 122, y: 158 },
+    ]);
   });
 });
 

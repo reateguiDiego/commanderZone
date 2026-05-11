@@ -106,7 +106,6 @@ export class GameTableDropActionsService {
         dragged.zone,
         instanceIds,
         payloadPosition,
-        rawDropZone === 'mana',
       );
       await context.recordCommanderCastIfNeeded(dragged.playerId, dragged.zone, toZone, targetPlayerId);
       this.endCompletedDrag(context);
@@ -366,19 +365,15 @@ export class GameTableDropActionsService {
     fromZone: GameZoneName,
     instanceIds: readonly string[],
     position: { x: number; y: number },
-    alignY = false,
   ): Promise<void> {
-    for (const [index, instanceId] of instanceIds.entries()) {
+    for (const instanceId of instanceIds) {
       await context.command('card.moved', {
         playerId,
         fromZone,
         toZone: 'battlefield',
         targetPlayerId: playerId,
         instanceId,
-        position: {
-          x: position.x + index * 24,
-          y: position.y + (alignY ? 0 : index * 18),
-        },
+        position,
       });
     }
   }

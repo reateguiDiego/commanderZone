@@ -308,8 +308,6 @@
   position: fixed;
   z-index: 500;
   display: grid;
-  width: 7.2rem;
-  aspect-ratio: 0.716;
   place-items: center;
   overflow: visible;
   padding: 0;
@@ -317,12 +315,12 @@
   border-radius: 7px;
   background: linear-gradient(145deg, #272a22, #11140f);
   color: #f3f0e7;
-  transform: translate(-50%, -50%);
+  transform: none;
   pointer-events: none;
 }
 
 .drag-card-preview.tapped {
-  transform: translate(-50%, -50%) rotate(90deg) scale(0.96);
+  transform: none;
 }
 
 .drag-card-preview img {
