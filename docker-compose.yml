@@ -3,23 +3,23 @@ services:
     build:
       context: ./backend
     environment:
-      APP_ENV: dev
-      APP_DEBUG: "1"
-      APP_SECRET: commanderzone-dev-secret-change-me
-      DATABASE_URL: postgresql://commanderzone:commanderzone@database:5432/commanderzone?serverVersion=16&charset=utf8
-      MAILER_DSN: smtp://mailpit:1025
-      MAILER_FROM_ADDRESS: no-reply@commanderzone.com
-      MAILER_FROM_NAME: CommanderZone
-      AUTH_PUBLIC_APP_URL: http://localhost:4200
-      JWT_SECRET_KEY: change-this-jwt-dev-secret-with-at-least-32-chars
-      JWT_PUBLIC_KEY: change-this-jwt-dev-secret-with-at-least-32-chars
-      JWT_PASSPHRASE: ""
-      MERCURE_URL: http://mercure/.well-known/mercure
-      MERCURE_PUBLIC_URL: http://127.0.0.1:3000/.well-known/mercure
-      MERCURE_JWT_SECRET: change-this-mercure-dev-secret-with-at-least-32-chars
-      SCRYFALL_USER_AGENT: CommanderZone/0.1 contact@example.local
-      SCRYFALL_SYNC_MEMORY_LIMIT: 1024M
-      CORS_ALLOW_ORIGIN: '^https?://(localhost|127\.0\.0\.1)(:[0-9]+)?$'
+      APP_ENV: ${APP_ENV:-dev}
+      APP_DEBUG: ${APP_DEBUG:-1}
+      APP_SECRET: ${APP_SECRET:-commanderzone-dev-secret-change-me}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://commanderzone:commanderzone@database:5432/commanderzone?serverVersion=16&charset=utf8}
+      MAILER_DSN: ${MAILER_DSN:-smtp://mailpit:1025}
+      MAILER_FROM_ADDRESS: ${MAILER_FROM_ADDRESS:-no-reply@commanderzone.com}
+      MAILER_FROM_NAME: ${MAILER_FROM_NAME:-CommanderZone}
+      AUTH_PUBLIC_APP_URL: ${AUTH_PUBLIC_APP_URL:-http://localhost:4200}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-change-this-jwt-dev-secret-with-at-least-32-chars}
+      JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:-change-this-jwt-dev-secret-with-at-least-32-chars}
+      JWT_PASSPHRASE: ${JWT_PASSPHRASE:-}
+      MERCURE_URL: ${MERCURE_URL:-http://mercure/.well-known/mercure}
+      MERCURE_PUBLIC_URL: ${MERCURE_PUBLIC_URL:-http://127.0.0.1:3000/.well-known/mercure}
+      MERCURE_JWT_SECRET: ${MERCURE_JWT_SECRET:-change-this-mercure-dev-secret-with-at-least-32-chars}
+      SCRYFALL_USER_AGENT: ${SCRYFALL_USER_AGENT:-CommanderZone/0.1 contact@example.local}
+      SCRYFALL_SYNC_MEMORY_LIMIT: ${SCRYFALL_SYNC_MEMORY_LIMIT:-1024M}
+      CORS_ALLOW_ORIGIN: ${CORS_ALLOW_ORIGIN:-^https?://(localhost|127\.0\.0\.1)(:[0-9]+)?$}
     ports:
       - "8000:80"
     depends_on:
