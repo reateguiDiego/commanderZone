@@ -28,7 +28,7 @@
 }
 
 .hand-area.hand-dragging {
-  z-index: 1100;
+  z-index: 4100;
   filter: none;
 }
 
@@ -48,7 +48,8 @@
 }
 
 .hand-area.hand-revealed .hand-row,
-.hand-area.hand-dragging .hand-row {
+.hand-area.hand-dragging .hand-row,
+.hand-area.hand-external-dragging .hand-row {
   pointer-events: auto;
 }
 
@@ -80,10 +81,10 @@
   z-index: 3;
   min-width: 4.7rem;
   padding: 0.22rem 0.5rem;
-  border: 1px solid rgb(238 211 139 / 18%);
+  border: 1px solid var(--game-line-soft, rgb(61 69 53 / 46%));
   border-radius: 999px;
-  background: rgb(6 8 6 / 42%);
-  color: #efe2ba;
+  background: rgb(7 8 7 / 42%);
+  color: var(--game-accent, #d7b46a);
   font-size: 0.72rem;
   font-weight: 900;
   opacity: 0.52;
@@ -106,6 +107,29 @@
   padding: 0;
 }
 
+.hand-fan::before {
+  content: '';
+  position: absolute;
+  inset: 1.35rem -1.25rem 0.35rem;
+  z-index: -1;
+  border: 1px solid rgb(215 180 106 / 0%);
+  border-radius: 10px;
+  background:
+    radial-gradient(ellipse at 50% 88%, rgb(215 180 106 / 14%), transparent 62%),
+    linear-gradient(180deg, transparent, rgb(215 180 106 / 7%));
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.hand-fan.drop-target-active::before {
+  border-color: var(--game-accent-line, rgb(215 180 106 / 32%));
+  box-shadow:
+    inset 0 0 1.6rem rgb(215 180 106 / 10%),
+    0 0 1.35rem rgb(215 180 106 / 14%);
+  opacity: 1;
+}
+
 .empty-hand-drop-target {
   position: relative;
   z-index: 2;
@@ -124,11 +148,11 @@
 
 .empty-hand-drop-target.drop-target-active {
   border-radius: 8px;
-  border-color: rgb(245 180 20 / 46%);
-  background: rgb(245 180 20 / 9%);
+  border-color: var(--game-accent-strong, rgb(215 180 106 / 58%));
+  background: var(--game-accent-soft, rgb(215 180 106 / 14%));
   box-shadow:
-    inset 0 0 2rem rgb(245 180 20 / 16%),
-    0 0 1.4rem rgb(245 180 20 / 18%);
+    inset 0 0 2rem rgb(215 180 106 / 16%),
+    0 0 1.4rem rgb(215 180 106 / 18%);
 }
 
 .hand-drop-slot {
@@ -150,10 +174,10 @@
   left: 50%;
   width: 0.22rem;
   border-radius: 999px;
-  background: #ffdc6a;
+  background: var(--game-accent, #d7b46a);
   box-shadow:
-    0 0 0 3px rgb(255 220 106 / 20%),
-    0 0 1rem rgb(255 220 106 / 58%);
+    0 0 0 3px rgb(215 180 106 / 20%),
+    0 0 1rem rgb(215 180 106 / 58%);
   transform: translateX(-50%);
 }
 
@@ -163,16 +187,16 @@
 
 .hand-floating-card {
   position: fixed;
-  z-index: 2400;
+  z-index: 4200;
   display: grid;
   overflow: visible;
-  border: 1px solid rgb(255 230 156 / 62%);
+  border: 1px solid var(--game-accent-strong, rgb(215 180 106 / 58%));
   border-radius: 8px;
-  background: rgb(14 16 13 / 96%);
+  background: var(--game-surface-deep, rgb(7 8 7 / 88%));
   box-shadow:
     0 1.2rem 2rem rgb(0 0 0 / 42%),
-    0 0 0 2px rgb(255 220 106 / 22%);
-  color: #f4e8bf;
+    0 0 0 2px rgb(215 180 106 / 22%);
+  color: var(--game-text, #f3f0e8);
   font-size: 0.72rem;
   font-weight: 900;
   line-height: 1.15;
@@ -195,9 +219,9 @@
   min-width: 2rem;
   height: 2rem;
   place-items: center;
-  border: 2px solid rgb(255 243 202 / 92%);
+  border: 2px solid rgb(243 240 232 / 92%);
   border-radius: 999px;
-  background: #f6c447;
+  background: var(--game-accent, #d7b46a);
   box-shadow:
     0 0.45rem 1rem rgb(0 0 0 / 44%),
     0 0 0 4px rgb(7 8 6 / 74%);
@@ -228,8 +252,8 @@
 
 .drop-target-active {
   box-shadow:
-    inset 0 0 0 2px #f5b414,
-    inset 0 0 2rem rgb(245 180 20 / 14%);
+    inset 0 0 0 2px var(--game-accent, #d7b46a),
+    inset 0 0 2rem rgb(215 180 106 / 14%);
 }
 
 @media (max-width: 1365px) {

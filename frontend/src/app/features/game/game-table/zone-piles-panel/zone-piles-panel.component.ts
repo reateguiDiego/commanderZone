@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
 import { GameCardInstance, GameZoneName } from '../../../../core/models/game.model';
 import { PlayerView } from '../game-table.store';
+import { ZoneCardStackComponent } from '../zone-card-stack/zone-card-stack.component';
 
 interface ZoneDragStartEvent {
   event: DragEvent;
@@ -28,8 +29,15 @@ interface CommanderCastChangeEvent {
   delta: number;
 }
 
+interface ZoneCardPreviewEvent {
+  card: GameCardInstance;
+  playerId: string;
+  zone: GameZoneName;
+}
+
 @Component({
   selector: 'app-zone-piles-panel',
+  imports: [ZoneCardStackComponent],
   templateUrl: './zone-piles-panel.component.html',
   styleUrl: './zone-piles-panel.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -39,11 +47,15 @@ export class ZonePilesPanelComponent {
   readonly zones = input.required<ReadonlyArray<GameZoneName>>();
   readonly colorAccent = input.required<(player: PlayerView | null) => string>();
   readonly topDraggableCard = input.required<(player: PlayerView, zone: GameZoneName) => GameCardInstance | null>();
+  readonly zonePreviewCard = input.required<(player: PlayerView, zone: GameZoneName) => GameCardInstance | null>();
   readonly zoneCount = input.required<(player: PlayerView, zone: GameZoneName) => number>();
   readonly isDropZoneHighlighted = input.required<(playerId: string, zone: GameZoneName) => boolean>();
   readonly zoneTitle = input.required<(zone: GameZoneName) => string>();
   readonly zonePreviewImage = input.required<(player: PlayerView, zone: GameZoneName) => string | null>();
   readonly commanderCastCount = input.required<(player: PlayerView) => number>();
+  readonly isZoneDropSettling = input<(playerId: string, zone: GameZoneName) => boolean>(() => false);
+  readonly isZoneTransferPending = input<(playerId: string, zone: GameZoneName) => boolean>(() => false);
+  readonly currentDraggingCardInstanceId = input<string | null>(null);
 
   readonly zoneDragStart = output<ZoneDragStartEvent>();
   readonly zoneDragEnd = output<void>();
@@ -53,9 +65,11 @@ export class ZonePilesPanelComponent {
   readonly zoneDoubleClicked = output<ZoneActionEvent>();
   readonly zoneMenuOpened = output<ZoneMenuEvent>();
   readonly commanderCastChanged = output<CommanderCastChangeEvent>();
+  readonly cardPreviewShown = output<ZoneCardPreviewEvent>();
+  readonly cardPreviewHidden = output<void>();
 
   openZone(zone: GameZoneName): void {
-    if (zone === 'library') {
+    if (zone === 'library' || zone === 'command') {
       return;
     }
 
@@ -72,5 +86,23 @@ export class ZonePilesPanelComponent {
     event.preventDefault();
     event.stopPropagation();
     this.zoneDoubleClicked.emit({ playerId: this.player().id, zone });
+  }
+
+  previewZoneCard(zone: GameZoneName): void {
+    if (zone !== 'command') {
+      return;
+    }
+
+    const player = this.player();
+    const card = this.zonePreviewCard()(player, zone);
+    if (card) {
+      this.cardPreviewShown.emit({ card, playerId: player.id, zone });
+    }
+  }
+
+  hideZoneCardPreview(zone: GameZoneName): void {
+    if (zone === 'command') {
+      this.cardPreviewHidden.emit();
+    }
   }
 }

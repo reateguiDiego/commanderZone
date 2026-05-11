@@ -21,6 +21,8 @@ import { GameTableTurnActionsService } from './services/game-table-turn-actions.
 import { GameTableZoneActionsService } from './services/game-table-zone-actions.service';
 import { GameTableChatLogState } from './state/game-table-chat-log.state';
 import { GameTableBattlefieldDragState } from './state/game-table-battlefield-drag.state';
+import { GameTableDropFeedbackState } from './state/game-table-drop-feedback.state';
+import { GameTablePendingTransferState } from './state/game-table-pending-transfer.state';
 import { GameTableSnapshotSelectors } from './state/game-table-snapshot-selectors';
 import { GameContextMenu, GameTableUiState } from './state/game-table-ui.state';
 import { GameTableZoneModalState } from './state/game-table-zone-modal.state';
@@ -117,6 +119,8 @@ interface PowerToughnessActionRequest {
     GameTableSnapshotSelectors,
     GameTableUiState,
     GameTableBattlefieldDragState,
+    GameTableDropFeedbackState,
+    GameTablePendingTransferState,
     GameTableZoneModalState,
     GameTableChatLogState,
   ],
@@ -134,6 +138,7 @@ export class GameTableComponent implements AfterViewChecked {
   readonly logTime = (createdAt: string): string => this.store.logTime(createdAt);
   readonly isDropZoneHighlighted = (playerId: string, zone: GameZoneName): boolean => this.store.isDropZoneHighlighted(playerId, zone);
   readonly zoneTitle = (zone: GameZoneName): string => this.store.zoneTitle(zone);
+  readonly zonePreviewCard = (player: PlayerView, zone: GameZoneName): GameCardInstance | null => this.store.zonePreviewCard(player, zone);
   readonly zonePreviewImage = (player: PlayerView, zone: GameZoneName): string | null => this.store.zonePreviewImage(player, zone);
   readonly commanderCastCount = (player: PlayerView): number => this.store.commanderCastCount(player);
   readonly deckLabel = (player: PlayerView | null): string => this.store.deckLabel(player);
@@ -150,6 +155,15 @@ export class GameTableComponent implements AfterViewChecked {
   readonly isDraggingCard = (card: GameCardInstance): boolean => this.store.isDraggingCard(card);
   readonly isHandDropTarget = (playerId: string, card: GameCardInstance, placement: 'before' | 'after'): boolean =>
     this.store.isHandDropTarget(playerId, card, placement);
+  readonly isCardDropSettling = (playerId: string, zone: GameZoneName, card: GameCardInstance): boolean =>
+    this.store.isCardDropSettling(playerId, zone, card);
+  readonly isManaDropSettling = (playerId: string, card: GameCardInstance): boolean => this.store.isManaDropSettling(playerId, card);
+  readonly isBattlefieldEntrySettling = (playerId: string, card: GameCardInstance): boolean =>
+    this.store.isBattlefieldEntrySettling(playerId, card);
+  readonly isZoneDropSettling = (playerId: string, zone: GameZoneName): boolean => this.store.isZoneDropSettling(playerId, zone);
+  readonly isCardTransferPending = (playerId: string, zone: GameZoneName, card: GameCardInstance): boolean =>
+    this.store.isCardTransferPending(playerId, zone, card);
+  readonly isZoneTransferPending = (playerId: string, zone: GameZoneName): boolean => this.store.isZoneTransferPending(playerId, zone);
   readonly canDragBattlefieldCard = (playerId: string, card: GameCardInstance): boolean => this.store.canDragBattlefieldCard(playerId, card);
   readonly isPendingBattlefieldTransfer = (card: GameCardInstance): boolean => this.store.isPendingBattlefieldTransfer(card);
   readonly shouldShowPowerToughness = (card: GameCardInstance): boolean => this.store.shouldShowPowerToughness(card);

@@ -130,6 +130,43 @@ describe('GameTableDragService', () => {
     expect(position).toEqual({ x: 130, y: 70 });
   });
 
+  it('snaps native drops to mana row when the dragged card top is inside the lower mana band', () => {
+    const battlefield = document.createElement('div');
+    battlefield.className = 'battlefield';
+    battlefield.dataset['gameDropZone'] = 'battlefield';
+    battlefield.dataset['zone'] = 'battlefield';
+    battlefield.dataset['playerId'] = 'player-1';
+    battlefield.getBoundingClientRect = () => ({
+      ...rect(10, 500),
+      y: 10,
+      top: 10,
+      bottom: 430,
+      height: 420,
+    });
+    const manaLane = document.createElement('div');
+    manaLane.dataset['gameDropZone'] = 'mana';
+    manaLane.dataset['zone'] = 'mana';
+    manaLane.dataset['playerId'] = 'player-1';
+    manaLane.dataset['manaLane'] = '';
+    manaLane.getBoundingClientRect = () => ({
+      ...rect(10, 500),
+      y: 250,
+      top: 250,
+      bottom: 430,
+      height: 180,
+    });
+    battlefield.appendChild(manaLane);
+
+    const position = service.dropPosition({
+      currentTarget: battlefield,
+      target: battlefield,
+      clientX: 150,
+      clientY: 360,
+    } as unknown as DragEvent, 'battlefield');
+
+    expect(position).toEqual({ x: 82, y: 248 });
+  });
+
   it.each([
     { label: 'top-left', startClientX: 31, startClientY: 41, endClientX: 150, endClientY: 100, expected: { x: 139, y: 89 } },
     { label: 'center', startClientX: 80, startClientY: 110, endClientX: 150, endClientY: 100, expected: { x: 90, y: 20 } },

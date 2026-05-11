@@ -24,29 +24,29 @@
   margin: 0;
   padding: 0.45rem;
   border-radius: 6px;
-  background: rgb(255 255 255 / 5%);
+  background: rgb(243 240 232 / 5%);
 }
 
 .panel-feed p.phase-entry {
-  border: 1px solid rgb(245 180 20 / 34%);
+  border: 1px solid var(--game-accent-line, rgb(215 180 106 / 32%));
   background:
-    radial-gradient(circle at 0% 50%, rgb(245 180 20 / 24%), transparent 10rem),
-    linear-gradient(90deg, rgb(116 79 18 / 55%), rgb(26 23 13 / 72%));
-  box-shadow: inset 0 0 18px rgb(245 180 20 / 8%);
+    radial-gradient(circle at 0% 50%, rgb(215 180 106 / 24%), transparent 10rem),
+    linear-gradient(90deg, rgb(67 50 24 / 55%), rgb(24 27 22 / 72%));
+  box-shadow: inset 0 0 18px rgb(215 180 106 / 8%);
 }
 
 .panel-feed p.phase-entry strong,
 .panel-feed p.phase-entry span {
-  color: #ffe19a;
+  color: var(--game-accent, #d7b46a);
 }
 
 .panel-feed strong {
-  color: #efd38b;
+  color: var(--game-accent, #d7b46a);
   font-size: 0.72rem;
 }
 
 .panel-feed span {
-  color: #e5dece;
+  color: var(--game-text, #f3f0e8);
   font-size: 0.82rem;
 }
 
@@ -55,7 +55,7 @@
   padding: 0;
   border: 0;
   background: transparent;
-  color: #f6c85f;
+  color: var(--game-accent, #d7b46a);
   font: inherit;
   text-decoration: underline;
 }

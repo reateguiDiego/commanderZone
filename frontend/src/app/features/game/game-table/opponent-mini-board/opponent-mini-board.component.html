@@ -45,6 +45,10 @@
         [freePosition]="!!cardPosition()(card)"
         [miniLeft]="miniCardLeft()(card, $index)"
         [miniTop]="miniCardTop()(card, $index)"
+        [dropSettling]="isCardDropSettling()(opponent.id, 'battlefield', card)"
+        [manaDropSettling]="isManaDropSettling()(opponent.id, card)"
+        [statDropSettling]="isBattlefieldEntrySettling()(opponent.id, card)"
+        [visible]="!isCardTransferPending()(opponent.id, 'battlefield', card)"
         (cardMouseEntered)="cardPreviewShown.emit({ card: $event, playerId: opponent.id, zone: 'battlefield' })"
         (cardMouseLeft)="cardPreviewHidden.emit()"
       />

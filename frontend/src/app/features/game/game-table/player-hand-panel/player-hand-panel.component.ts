@@ -85,6 +85,9 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
   private previousHandSignature = '';
   private previousHandRects = new Map<string, DOMRect>();
   private handAnimationTimers: number[] = [];
+  private handArrivalTimer: number | null = null;
+  private handArrivalAnchorIndex: number | null = null;
+  private handArrivalPreviousIds = new Set<string>();
   private focusInside = false;
   private pointerInside = false;
   private suppressedClickInstanceId: string | null = null;
@@ -96,6 +99,8 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
   readonly isDraggingCard = input.required<(card: GameCardInstance) => boolean>();
   readonly isHandDropTarget = input.required<(playerId: string, card: GameCardInstance, placement: 'before' | 'after') => boolean>();
   readonly isDropZoneHighlighted = input.required<(playerId: string, zone: GameZoneName) => boolean>();
+  readonly isCardDropSettling = input<(playerId: string, zone: GameZoneName, card: GameCardInstance) => boolean>(() => false);
+  readonly isCardTransferPending = input<(playerId: string, zone: GameZoneName, card: GameCardInstance) => boolean>(() => false);
   readonly interactionFrozen = input(false);
   readonly hasActiveCardDrag = input(false);
 
@@ -111,12 +116,20 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
 
   readonly handRevealed = signal(false);
   readonly pointerDrag = signal<HandPointerDrag | null>(null);
+  readonly handArrivalActive = signal(false);
 
   ngAfterViewChecked(): void {
     const hand = this.player().state.zones.hand;
     const handCount = hand.length;
     const handSignature = hand.map((card) => card.instanceId).join('|');
-    this.animateHandLayoutChange(handSignature !== this.previousHandSignature && this.previousHandSignature !== '');
+    const previousIds = this.previousHandSignature ? this.previousHandSignature.split('|') : [];
+    const isExternalArrival = this.previousHandCount !== null
+      && handCount > this.previousHandCount
+      && handSignature !== this.previousHandSignature;
+    this.animateHandLayoutChange(handSignature !== this.previousHandSignature && this.previousHandSignature !== '' && !isExternalArrival);
+    if (isExternalArrival) {
+      this.animateHandArrival(hand, previousIds);
+    }
     if (this.previousHandCount !== null && handCount > this.previousHandCount) {
       this.scrollHandToEnd();
     }
@@ -135,6 +148,7 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
     this.clearRevealTimer();
     this.clearReorderPreviewTimer();
     this.clearHandAnimationTimers();
+    this.clearHandArrivalTimer();
   }
 
   @HostListener('window:pointermove', ['$event'])
@@ -302,6 +316,14 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
     return this.isHandDropTarget()(this.player().id, card, 'after') ? 'after' : null;
   }
 
+  handArrivalSide(card: GameCardInstance, index: number): 'before' | 'after' | null {
+    if (!this.handArrivalActive() || this.handArrivalAnchorIndex === null || !this.handArrivalPreviousIds.has(card.instanceId)) {
+      return null;
+    }
+
+    return index < this.handArrivalAnchorIndex ? 'before' : 'after';
+  }
+
   isHandVisuallyRevealed(): boolean {
     const handPlayer = this.player();
 
@@ -336,7 +358,9 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
       return this.isSelected()(card.instanceId);
     }
 
-    return Boolean(drag && drag.mode !== 'pending' && drag.card.instanceId === card.instanceId) || this.isDraggingCard()(card);
+    return Boolean(drag && drag.mode !== 'pending' && drag.card.instanceId === card.instanceId)
+      || this.isDraggingCard()(card)
+      || this.isCardTransferPending()(this.player().id, 'hand', card);
   }
 
   floatingDragCount(): number {
@@ -499,6 +523,36 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
       window.clearTimeout(timer);
     }
     this.handAnimationTimers = [];
+  }
+
+  private animateHandArrival(hand: readonly GameCardInstance[], previousIds: readonly string[]): void {
+    const previousIdSet = new Set(previousIds);
+    const anchorIndex = hand.findIndex((card) => !previousIdSet.has(card.instanceId));
+    if (anchorIndex < 0) {
+      return;
+    }
+
+    this.clearHandArrivalTimer();
+    this.handArrivalPreviousIds = previousIdSet;
+    this.handArrivalAnchorIndex = anchorIndex;
+    this.handArrivalActive.set(true);
+    this.handArrivalTimer = window.setTimeout(() => {
+      this.handArrivalActive.set(false);
+      this.handArrivalAnchorIndex = null;
+      this.handArrivalPreviousIds = new Set<string>();
+      this.handArrivalTimer = null;
+    }, 680);
+  }
+
+  private clearHandArrivalTimer(): void {
+    if (this.handArrivalTimer !== null) {
+      window.clearTimeout(this.handArrivalTimer);
+      this.handArrivalTimer = null;
+    }
+
+    this.handArrivalActive.set(false);
+    this.handArrivalAnchorIndex = null;
+    this.handArrivalPreviousIds = new Set<string>();
   }
 
   private dropPreviewAt(clientX: number, drag: HandPointerDrag): HandPointerDropPreview | null {

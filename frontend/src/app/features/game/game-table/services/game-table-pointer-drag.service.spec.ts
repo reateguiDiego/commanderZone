@@ -241,6 +241,54 @@ describe('GameTablePointerDragService', () => {
     });
   });
 
+  it('resolves mana row when the dragged card top is inside the lower mana band', () => {
+    const battlefield = document.createElement('div');
+    battlefield.className = 'battlefield';
+    battlefield.dataset['gameDropZone'] = 'battlefield';
+    battlefield.dataset['zone'] = 'battlefield';
+    battlefield.dataset['playerId'] = 'player-1';
+    battlefield.getBoundingClientRect = () => ({
+      ...rect(10, 500),
+      y: 10,
+      top: 10,
+      bottom: 430,
+      height: 420,
+    });
+    const manaLane = document.createElement('div');
+    manaLane.dataset['gameDropZone'] = 'mana';
+    manaLane.dataset['zone'] = 'mana';
+    manaLane.dataset['playerId'] = 'player-1';
+    manaLane.dataset['manaLane'] = '';
+    manaLane.getBoundingClientRect = () => ({
+      ...rect(10, 500),
+      y: 250,
+      top: 250,
+      bottom: 410,
+      height: 160,
+    });
+    battlefield.appendChild(manaLane);
+    const originalElementsFromPoint = document.elementsFromPoint;
+    Object.defineProperty(document, 'elementsFromPoint', {
+      configurable: true,
+      value: vi.fn(() => [battlefield]),
+    });
+
+    const target = service.zoneTargetAt(pointerEvent(150, 360), { width: 100, height: 140 });
+
+    expect(target).toEqual({
+      targetPlayerId: 'player-1',
+      toZone: 'battlefield',
+      kind: 'zone',
+      rawZone: 'mana',
+      position: { x: 90, y: 248 },
+    });
+
+    Object.defineProperty(document, 'elementsFromPoint', {
+      configurable: true,
+      value: originalElementsFromPoint,
+    });
+  });
+
   it('prefers player drop targets over nested zone targets', () => {
     const playerTarget = document.createElement('button');
     playerTarget.dataset['playerDropTarget'] = 'opponent-1';

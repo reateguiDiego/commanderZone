@@ -102,6 +102,7 @@ describe('GameTablePointerDragActionsService', () => {
       ],
     });
     const commands: Array<{ type: GameCommandType; payload: Record<string, unknown> }> = [];
+    const markPendingTransfer = vi.fn();
 
     await service.endCardPointerDrag(context(
       () => snapshot,
@@ -130,8 +131,11 @@ describe('GameTablePointerDragActionsService', () => {
         { playerId: 'player-1', zone: 'battlefield', card: snapshot.players['player-1']!.zones.battlefield[0]! },
         { playerId: 'player-1', zone: 'battlefield', card: snapshot.players['player-1']!.zones.battlefield[1]! },
       ],
+      undefined,
+      markPendingTransfer,
     ), { clientX: 120, clientY: 90 } as PointerEvent);
 
+    expect(markPendingTransfer).toHaveBeenCalledWith('player-1', 'battlefield', ['moved', 'selected-2']);
     expect(commands[0]).toEqual({
       type: 'cards.moved',
       payload: {
@@ -180,6 +184,59 @@ describe('GameTablePointerDragActionsService', () => {
       },
     }]);
   });
+
+  it('updates every selected battlefield card locally before ending a multi-position drag', async () => {
+    dragService.endCardPointerDrag.mockReturnValue({
+      playerId: 'player-1',
+      instanceId: 'moved',
+      moved: true,
+      position: { x: 50, y: 120 },
+      dropZone: 'battlefield',
+      battlefield: document.createElement('div'),
+    });
+    const snapshot = snapshotWith({
+      battlefield: [
+        { ...card('moved', 'Cultivate', 'battlefield'), position: { x: 10, y: 20 } },
+        { ...card('selected-2', 'Kodama Reach', 'battlefield'), position: { x: 40, y: 50 } },
+      ],
+    });
+    const callOrder: string[] = [];
+    const updateLocalCardPosition = vi.fn(() => callOrder.push('local'));
+    const commands: Array<{ type: GameCommandType; payload: Record<string, unknown> }> = [];
+
+    await service.endCardPointerDrag(context(
+      () => snapshot,
+      async (type, payload) => {
+        callOrder.push('command');
+        commands.push({ type, payload });
+      },
+      [
+        { playerId: 'player-1', zone: 'battlefield', card: snapshot.players['player-1']!.zones.battlefield[0]! },
+        { playerId: 'player-1', zone: 'battlefield', card: snapshot.players['player-1']!.zones.battlefield[1]! },
+      ],
+      undefined,
+      undefined,
+      updateLocalCardPosition,
+    ), { clientX: 120, clientY: 280 } as PointerEvent);
+
+    expect(callOrder.slice(0, 2)).toEqual(['local', 'local']);
+    expect(updateLocalCardPosition).toHaveBeenCalledWith('player-1', 'moved', { x: 50, y: 120 });
+    expect(updateLocalCardPosition).toHaveBeenCalledWith('player-1', 'selected-2', { x: 80, y: 150 });
+    expect(commands.map((command) => command.payload)).toEqual([
+      {
+        playerId: 'player-1',
+        zone: 'battlefield',
+        instanceId: 'moved',
+        position: { x: 50, y: 120 },
+      },
+      {
+        playerId: 'player-1',
+        zone: 'battlefield',
+        instanceId: 'selected-2',
+        position: { x: 80, y: 150 },
+      },
+    ]);
+  });
 });
 
 function context(
@@ -187,6 +244,8 @@ function context(
   command: (type: GameCommandType, payload: Record<string, unknown>) => Promise<void>,
   selectedCards: readonly { playerId: string; zone: GameZoneName; card: GameCardInstance }[] = [],
   isManaLaneHighlighted: (playerId: string) => boolean = () => false,
+  markPendingTransfer: (playerId: string, fromZone: GameZoneName, instanceIds: readonly string[]) => void = vi.fn(),
+  updateLocalCardPosition: (playerId: string, instanceId: string, position: { x: number; y: number }) => void = vi.fn(),
 ): GameTablePointerDragActionContext {
   return {
     zones: ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command'],
@@ -208,7 +267,7 @@ function context(
     canControlPlayer: () => true,
     canControlOwnedCard: () => true,
     playerName: (playerId) => playerId,
-    updateLocalCardPosition: vi.fn(),
+    updateLocalCardPosition,
     setPendingBattlefieldMove: vi.fn(),
     setPendingLibraryMove: vi.fn(),
     endCardDrag: vi.fn(),
@@ -216,6 +275,8 @@ function context(
     suppressCardPreview: vi.fn(),
     applyDeferredRemoteSnapshot: vi.fn(),
     refetch: vi.fn(async () => undefined),
+    markPendingManaDrop: vi.fn(),
+    markPendingTransfer,
     command,
   };
 }

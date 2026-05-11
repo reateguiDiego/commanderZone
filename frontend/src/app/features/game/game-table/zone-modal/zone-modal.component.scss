@@ -12,9 +12,9 @@
   grid-template-rows: auto auto minmax(0, 1fr);
   width: min(62rem, calc(100vw - 2rem));
   max-height: min(44rem, calc(100dvh - 2rem));
-  border: 1px solid rgb(238 211 139 / 24%);
+  border: 1px solid var(--game-accent-line, rgb(215 180 106 / 32%));
   border-radius: 8px;
-  background: #10130e;
+  background: var(--game-surface, #181b16);
   overflow: hidden;
 }
 
@@ -29,10 +29,10 @@ button,
 select,
 input {
   min-height: 2.15rem;
-  border: 1px solid rgb(238 211 139 / 18%);
+  border: 1px solid var(--game-line-soft, rgb(61 69 53 / 46%));
   border-radius: 6px;
-  background: rgb(26 30 22 / 88%);
-  color: #f3f0e7;
+  background: var(--game-surface-soft, rgb(32 37 29 / 72%));
+  color: var(--game-text, #f3f0e8);
 }
 
 button {
@@ -40,7 +40,7 @@ button {
 }
 
 button:hover {
-  border-color: rgb(238 211 139 / 48%);
+  border-color: var(--game-accent-strong, rgb(215 180 106 / 58%));
 }
 
 select,
@@ -53,7 +53,7 @@ input {
   align-items: center;
   gap: 0.55rem;
   padding: 0.65rem 0.8rem;
-  border-bottom: 1px solid rgb(238 211 139 / 12%);
+  border-bottom: 1px solid var(--game-line-soft, rgb(61 69 53 / 46%));
 }
 
 .zone-modal-body {
@@ -79,8 +79,8 @@ input {
 }
 
 .zone-list button.active {
-  border-color: rgb(238 211 139 / 58%);
-  background: rgb(238 211 139 / 12%);
+  border-color: var(--game-accent-strong, rgb(215 180 106 / 58%));
+  background: var(--game-accent-soft, rgb(215 180 106 / 14%));
 }
 
 .zone-actions {

@@ -361,9 +361,9 @@ export class GameTableBattlefieldDragCoordinatorService {
     const cardTop = battlefieldBounds.top + position.y;
     const horizontalOverlap = cardLeft + cardWidth >= bounds.left && cardLeft <= bounds.right;
     const topEdgeMagnetDistance = 12;
-    const topEdgeNearLane = Math.abs(cardTop - bounds.top) <= topEdgeMagnetDistance;
+    const topEdgeInLaneBand = cardTop >= bounds.top - topEdgeMagnetDistance && cardTop <= bounds.bottom;
 
-    return horizontalOverlap && topEdgeNearLane;
+    return horizontalOverlap && topEdgeInLaneBand;
   }
 
   private elementsAtPoint(event: PointerEvent): Element[] {

@@ -1,0 +1,34 @@
+:host {
+  display: contents;
+}
+
+.zone-card-stack-layer,
+.zone-card-stack-top {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 7px;
+  object-fit: cover;
+  pointer-events: none;
+  user-select: none;
+}
+
+.zone-card-stack-layer {
+  border: 1px solid rgb(0 0 0 / 42%);
+  filter: brightness(0.64) saturate(0.82) contrast(1.04);
+  opacity: 0.94;
+  box-shadow:
+    0 0 0 1px rgb(215 180 106 / 8%),
+    0 0.18rem 0.42rem rgb(0 0 0 / 22%);
+  transform: translate(var(--stack-offset), var(--stack-offset));
+}
+
+.zone-card-stack-top {
+  z-index: 1000;
+  border: 1px solid rgb(215 180 106 / 16%);
+  box-shadow:
+    0 0 0 1px rgb(0 0 0 / 48%),
+    0 0.5rem 0.9rem rgb(0 0 0 / 36%);
+}

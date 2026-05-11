@@ -40,6 +40,10 @@ export class OpponentMiniBoardComponent {
   readonly miniCardTop = input.required<(card: GameCardInstance, index: number) => number>();
   readonly cardImage = input.required<(card: GameCardInstance) => string | null>();
   readonly isPlayerDropHighlighted = input.required<(playerId: string) => boolean>();
+  readonly isCardDropSettling = input<(playerId: string, zone: GameZoneName, card: GameCardInstance) => boolean>(() => false);
+  readonly isManaDropSettling = input<(playerId: string, card: GameCardInstance) => boolean>(() => false);
+  readonly isBattlefieldEntrySettling = input<(playerId: string, card: GameCardInstance) => boolean>(() => false);
+  readonly isCardTransferPending = input<(playerId: string, zone: GameZoneName, card: GameCardInstance) => boolean>(() => false);
 
   readonly focusPlayer = output<string>();
   readonly dropAllowed = output<DragEvent>();

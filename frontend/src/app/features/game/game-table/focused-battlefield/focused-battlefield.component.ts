@@ -73,6 +73,10 @@ export class FocusedBattlefieldComponent {
   readonly firstCounter = input.required<(card: GameCardInstance) => CardCounterView | null>();
   readonly alignmentGuideFor = input.required<(playerId: string) => AlignmentGuideView | null>();
   readonly isManaLaneHighlighted = input.required<(playerId: string) => boolean>();
+  readonly isCardDropSettling = input<(playerId: string, zone: GameZoneName, card: GameCardInstance) => boolean>(() => false);
+  readonly isManaDropSettling = input<(playerId: string, card: GameCardInstance) => boolean>(() => false);
+  readonly isBattlefieldEntrySettling = input<(playerId: string, card: GameCardInstance) => boolean>(() => false);
+  readonly isCardTransferPending = input<(playerId: string, zone: GameZoneName, card: GameCardInstance) => boolean>(() => false);
 
   readonly battlefieldDragOver = output<DragEvent>();
   readonly battlefieldDropped = output<BattlefieldDropEvent>();
@@ -123,8 +127,10 @@ export class FocusedBattlefieldComponent {
     event.stopPropagation();
   }
 
-  cardVisibility(card: GameCardInstance): boolean {
-    return !this.isDraggingCard()(card) && !this.isPendingBattlefieldTransfer()(card);
+  cardVisibility(playerId: string, card: GameCardInstance): boolean {
+    return !this.isDraggingCard()(card)
+      && !this.isPendingBattlefieldTransfer()(card)
+      && !this.isCardTransferPending()(playerId, 'battlefield', card);
   }
 
   isAlignmentReference(card: GameCardInstance, guide: AlignmentGuideView | null): boolean {

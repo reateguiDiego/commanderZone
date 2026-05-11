@@ -25,7 +25,7 @@ describe('GameTableDropActionsService', () => {
       async (type, payload) => {
         commands.push({ type, payload });
         if (type === 'card.moved') {
-          snapshot = moveCardToHand(snapshot, 'player-1', payload['instanceId'] as string);
+          snapshot = moveCardToHand(snapshot, 'player-1', 'battlefield', payload['instanceId'] as string);
         }
         if (type === 'zone.changed') {
           snapshot = {
@@ -76,7 +76,7 @@ describe('GameTableDropActionsService', () => {
       async (type, payload) => {
         commands.push({ type, payload });
         if (type === 'cards.moved') {
-          snapshot = moveCardsToHand(snapshot, 'player-1', payload['instanceIds'] as string[]);
+          snapshot = moveCardsToHand(snapshot, 'player-1', 'battlefield', payload['instanceIds'] as string[]);
         }
         if (type === 'zone.changed') {
           snapshot = {
@@ -115,6 +115,77 @@ describe('GameTableDropActionsService', () => {
     });
     expect((commands[1]?.payload['cards'] as GameCardInstance[]).map((candidate) => candidate.instanceId))
       .toEqual(['hand-1', 'moved', 'selected-2', 'hand-2']);
+  });
+
+  it.each(['graveyard', 'exile', 'command'] as const)('allows moving a card from %s to hand', async (fromZone) => {
+    let snapshot = snapshotWith({
+      hand: [card('hand-1', 'Sol Ring', 'hand')],
+      [fromZone]: [card('moved', 'Returned Card', fromZone)],
+    });
+    const commands: Array<{ type: GameCommandType; payload: Record<string, unknown> }> = [];
+    const markPendingTransfer = vi.fn();
+    const context = dropContext(
+      () => snapshot,
+      async (type, payload) => {
+        commands.push({ type, payload });
+        if (type === 'card.moved') {
+          snapshot = moveCardToHand(snapshot, 'player-1', fromZone, payload['instanceId'] as string);
+        }
+      },
+      { markPendingTransfer },
+    );
+
+    await service.dropOnHand(context, dragEvent({ playerId: 'player-1', zone: fromZone, instanceId: 'moved' }), 'player-1');
+
+    expect(commands[0]).toEqual({
+      type: 'card.moved',
+      payload: {
+        playerId: 'player-1',
+        fromZone,
+        toZone: 'hand',
+        targetPlayerId: 'player-1',
+        instanceId: 'moved',
+      },
+    });
+    expect(markPendingTransfer).toHaveBeenCalledWith('player-1', fromZone, ['moved']);
+  });
+
+  it('allows moving multiple cards from graveyard to hand', async () => {
+    let snapshot = snapshotWith({
+      hand: [card('hand-1', 'Sol Ring', 'hand')],
+      graveyard: [
+        card('moved', 'Returned Card', 'graveyard'),
+        card('selected-2', 'Second Returned Card', 'graveyard'),
+      ],
+    });
+    const commands: Array<{ type: GameCommandType; payload: Record<string, unknown> }> = [];
+    const context = dropContext(
+      () => snapshot,
+      async (type, payload) => {
+        commands.push({ type, payload });
+        if (type === 'cards.moved') {
+          snapshot = moveCardsToHand(snapshot, 'player-1', 'graveyard', payload['instanceIds'] as string[]);
+        }
+      },
+    );
+
+    await service.dropOnHand(context, dragEvent({
+      playerId: 'player-1',
+      zone: 'graveyard',
+      instanceId: 'moved',
+      instanceIds: ['moved', 'selected-2'],
+    }), 'player-1');
+
+    expect(commands[0]).toEqual({
+      type: 'cards.moved',
+      payload: {
+        playerId: 'player-1',
+        fromZone: 'graveyard',
+        toZone: 'hand',
+        targetPlayerId: 'player-1',
+        instanceIds: ['moved', 'selected-2'],
+      },
+    });
   });
 
   it('opens a pending library placement instead of moving immediately when dropping on library', async () => {
@@ -217,6 +288,8 @@ function dropContext(
     suppressCardPreview: vi.fn(),
     setError: vi.fn(),
     snapBattlefieldPosition: (_playerId, _instanceId, position) => position,
+    markPendingManaDrop: vi.fn(),
+    markPendingTransfer: vi.fn(),
     command,
     recordCommanderCastIfNeeded: vi.fn(async () => undefined),
     ...overrides,
@@ -265,9 +338,9 @@ function snapshotWith(zones: Partial<Record<GameZoneName, GameCardInstance[]>>):
           library: [],
           hand: zones.hand ?? [],
           battlefield: zones.battlefield ?? [],
-          graveyard: [],
-          exile: [],
-          command: [],
+          graveyard: zones.graveyard ?? [],
+          exile: zones.exile ?? [],
+          command: zones.command ?? [],
         },
         commanderDamage: {},
         counters: {},
@@ -282,9 +355,9 @@ function snapshotWith(zones: Partial<Record<GameZoneName, GameCardInstance[]>>):
   };
 }
 
-function moveCardToHand(snapshot: GameSnapshot, playerId: string, instanceId: string): GameSnapshot {
+function moveCardToHand(snapshot: GameSnapshot, playerId: string, fromZone: GameZoneName, instanceId: string): GameSnapshot {
   const player = snapshot.players[playerId]!;
-  const moved = player.zones.battlefield.find((candidate) => candidate.instanceId === instanceId)!;
+  const moved = player.zones[fromZone].find((candidate) => candidate.instanceId === instanceId)!;
 
   return {
     ...snapshot,
@@ -294,7 +367,7 @@ function moveCardToHand(snapshot: GameSnapshot, playerId: string, instanceId: st
         ...player,
         zones: {
           ...player.zones,
-          battlefield: player.zones.battlefield.filter((candidate) => candidate.instanceId !== instanceId),
+          [fromZone]: player.zones[fromZone].filter((candidate) => candidate.instanceId !== instanceId),
           hand: [...player.zones.hand, { ...moved, zone: 'hand', position: { x: 0, y: 0 } }],
         },
       },
@@ -302,10 +375,10 @@ function moveCardToHand(snapshot: GameSnapshot, playerId: string, instanceId: st
   };
 }
 
-function moveCardsToHand(snapshot: GameSnapshot, playerId: string, instanceIds: readonly string[]): GameSnapshot {
+function moveCardsToHand(snapshot: GameSnapshot, playerId: string, fromZone: GameZoneName, instanceIds: readonly string[]): GameSnapshot {
   let next = snapshot;
   for (const instanceId of instanceIds) {
-    next = moveCardToHand(next, playerId, instanceId);
+    next = moveCardToHand(next, playerId, fromZone, instanceId);
   }
 
   return next;

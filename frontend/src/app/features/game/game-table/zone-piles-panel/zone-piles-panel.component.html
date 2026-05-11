@@ -13,6 +13,9 @@
       [attr.draggable]="topDraggableCard()(currentPlayer, zone) ? 'true' : null"
       [class.draggable-zone]="topDraggableCard()(currentPlayer, zone)"
       [class.drop-target-active]="isDropZoneHighlighted()(currentPlayer.id, zone)"
+      [class.drop-settling]="isZoneDropSettling()(currentPlayer.id, zone)"
+      [class.transfer-pending]="isZoneTransferPending()(currentPlayer.id, zone)"
+      [class.dragging-zone-card]="topDraggableCard()(currentPlayer, zone)?.instanceId === currentDraggingCardInstanceId()"
       (dragstart)="zoneDragStart.emit({ event: $event, player: currentPlayer, zone })"
       (dragend)="zoneDragEnd.emit()"
       (dragover)="zoneDragOver.emit($event)"
@@ -23,16 +26,32 @@
     >
       <span data-testid="zone-pile" [attr.data-player-id]="currentPlayer.id" [attr.data-zone]="zone">
         <span class="zone-pile-label" data-testid="open-zone" [attr.data-player-id]="currentPlayer.id" [attr.data-zone]="zone">{{ zoneTitle()(zone) }}</span>
+        @let image = zonePreviewImage()(currentPlayer, zone);
         <span
           class="zone-art"
           data-testid="zone"
           [attr.data-player-id]="currentPlayer.id"
           [attr.data-zone]="zone"
           [class.empty]="zoneCount()(currentPlayer, zone) === 0"
-          [class.library-stack]="zone === 'library' && zoneCount()(currentPlayer, zone) > 0"
+          [class.card-stack]="zone !== 'command' && zoneCount()(currentPlayer, zone) > 0"
+          (mouseenter)="previewZoneCard(zone)"
+          (mouseleave)="hideZoneCardPreview(zone)"
         >
-          @if (zonePreviewImage()(currentPlayer, zone); as image) {
-            <img [src]="image" [alt]="zoneTitle()(zone)" draggable="false" />
+          @if (image) {
+            @if (zone !== 'command') {
+              <app-zone-card-stack
+                [image]="image"
+                [label]="zoneTitle()(zone)"
+                [count]="zoneCount()(currentPlayer, zone)"
+              />
+            } @else {
+              <img
+                class="zone-card-image"
+                [src]="image"
+                [alt]="zoneTitle()(zone)"
+                draggable="false"
+              />
+            }
           }
           @if (zone === 'command') {
             <strong

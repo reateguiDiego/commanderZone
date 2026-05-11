@@ -25,6 +25,8 @@ export interface GameTablePointerDragActionContext {
   suppressCardPreview(): void;
   applyDeferredRemoteSnapshot(): void;
   refetch(force?: boolean): Promise<void>;
+  markPendingManaDrop(playerId: string, instanceIds: readonly string[]): void;
+  markPendingTransfer(playerId: string, fromZone: GameZoneName, instanceIds: readonly string[]): void;
   command(type: GameCommandType, payload: Record<string, unknown>): Promise<void>;
 }
 
@@ -45,29 +47,35 @@ export class GameTablePointerDragActionsService {
     const dragGroup = drag ? this.selectedBattlefieldDragGroup(context, drag.playerId, drag.instanceId) : [];
     const instanceIds = dragGroup.length > 0 ? dragGroup.map((item) => item.card.instanceId) : drag ? [drag.instanceId] : [];
 
-    context.endCardDrag();
     if (!drag || !drag.moved) {
+      context.endCardDrag();
       context.applyDeferredRemoteSnapshot();
       return;
     }
 
-    context.clearSelectedCards();
-
     if (targetPlayerId) {
       this.prepareBattlefieldTransfer(context, drag.playerId, instanceIds, targetPlayerId);
+      context.endCardDrag();
+      context.clearSelectedCards();
       return;
     }
 
     if (drag.dropZone && drag.dropZone !== 'battlefield') {
       if (!context.canControlPlayer(drag.playerId)) {
+        context.endCardDrag();
         context.applyDeferredRemoteSnapshot();
         return;
       }
       if (drag.dropZone === 'library') {
         this.prepareLibraryMove(context, drag.playerId, instanceIds);
+        context.endCardDrag();
+        context.clearSelectedCards();
         context.applyDeferredRemoteSnapshot();
         return;
       }
+      context.markPendingTransfer(drag.playerId, 'battlefield', instanceIds);
+      context.endCardDrag();
+      context.clearSelectedCards();
       await this.moveBattlefieldCardsToZone(context, drag.playerId, instanceIds, drag.dropZone);
       if (drag.dropZone === 'hand') {
         await this.applyHandDropPreview(context, drag.playerId, instanceIds, handPreview);
@@ -78,12 +86,19 @@ export class GameTablePointerDragActionsService {
     }
 
     if (!drag.dropZone && (!event || !this.battlefieldDrag.isPointerInsidePlayerBattlefield(event, drag.playerId))) {
+      context.endCardDrag();
+      context.clearSelectedCards();
       await context.refetch(true);
       context.applyDeferredRemoteSnapshot();
       return;
     }
 
-    const position = context.isManaLaneHighlighted(drag.playerId)
+    const manaDrop = context.isManaLaneHighlighted(drag.playerId);
+    if (manaDrop) {
+      context.markPendingManaDrop(drag.playerId, instanceIds);
+    }
+
+    const position = manaDrop
       ? this.battlefieldDrag.positionWithManaLane(drag.playerId, drag.position)
       : this.battlefieldDrag.positionWithAlignmentGuide(
         context.battlefieldDragContext(),
@@ -94,7 +109,7 @@ export class GameTablePointerDragActionsService {
       );
 
     if (dragGroup.length > 1) {
-      await this.moveSelectedBattlefieldPositions(context, dragGroup, drag.instanceId, position, context.isManaLaneHighlighted(drag.playerId));
+      await this.moveSelectedBattlefieldPositions(context, dragGroup, drag.instanceId, position, manaDrop);
     } else {
       await context.command('card.position.changed', {
         playerId: drag.playerId,
@@ -103,6 +118,8 @@ export class GameTablePointerDragActionsService {
         position,
       });
     }
+    context.endCardDrag();
+    context.clearSelectedCards();
     context.applyDeferredRemoteSnapshot();
     context.suppressCardPreview();
   }
@@ -130,6 +147,7 @@ export class GameTablePointerDragActionsService {
         ...(instanceIds.length > 1 ? { instanceIds } : { instanceId: instanceIds[0] }),
       },
     });
+    context.markPendingTransfer(playerId, 'battlefield', instanceIds);
   }
 
   private async moveBattlefieldCardsToZone(
@@ -176,6 +194,7 @@ export class GameTablePointerDragActionsService {
         ...(instanceIds.length > 1 ? { instanceIds } : { instanceId: instanceIds[0] }),
       },
     });
+    context.markPendingTransfer(playerId, 'battlefield', instanceIds);
     context.suppressCardPreview();
   }
 
@@ -193,16 +212,27 @@ export class GameTablePointerDragActionsService {
       y: draggedPosition.y - origin.y,
     };
 
-    for (const item of selected) {
+    const moves = selected.map((item) => {
       const current = item.card.position ?? { x: 0, y: 0 };
-      await context.command('card.position.changed', {
-        playerId: item.playerId,
-        zone: 'battlefield',
-        instanceId: item.card.instanceId,
+      return {
+        item,
         position: {
           x: Math.max(0, current.x + delta.x),
           y: alignY ? draggedPosition.y : Math.max(0, current.y + delta.y),
         },
+      };
+    });
+
+    for (const move of moves) {
+      context.updateLocalCardPosition(move.item.playerId, move.item.card.instanceId, move.position);
+    }
+
+    for (const move of moves) {
+      await context.command('card.position.changed', {
+        playerId: move.item.playerId,
+        zone: 'battlefield',
+        instanceId: move.item.card.instanceId,
+        position: move.position,
       });
     }
   }

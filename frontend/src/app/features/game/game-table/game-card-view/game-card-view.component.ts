@@ -1,9 +1,10 @@
-import { ChangeDetectionStrategy, Component, OnChanges, OnDestroy, computed, input, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnChanges, OnDestroy, computed, input, output, signal, type WritableSignal } from '@angular/core';
 import { GameCardInstance, GameZoneName } from '../../../../core/models/game.model';
 
 type GameCardViewMode = 'battlefield' | 'hand' | 'mini';
 
 type DropPlacement = 'before' | 'after';
+type StatPulse = 'increase' | 'decrease' | null;
 
 interface CardCounterView {
   key: string;
@@ -39,9 +40,15 @@ interface CardStatChangeEvent {
 })
 export class GameCardViewComponent implements OnChanges, OnDestroy {
   private readonly hoverLiftDelayMs = 100;
+  private readonly dragReadyDelayMs = 50;
   private hoverLiftTimer: number | null = null;
+  private dragReadyTimer: number | null = null;
+  private powerPulseTimer: number | null = null;
+  private toughnessPulseTimer: number | null = null;
   private hoveredCard: GameCardInstance | null = null;
   private activePreviewInstanceId: string | null = null;
+  private previousPowerValue: number | null | undefined;
+  private previousToughnessValue: number | null | undefined;
   private pointerInside = false;
 
   readonly mode = input.required<GameCardViewMode>();
@@ -57,12 +64,16 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
   readonly locked = input(false);
   readonly pendingTransfer = input(false);
   readonly alignmentReference = input(false);
+  readonly dropSettling = input(false);
+  readonly manaDropSettling = input(false);
+  readonly statDropSettling = input(false);
   readonly hoverInteractionsEnabled = input(true);
   readonly faceDown = input(false);
   readonly hidden = input(false);
   readonly visible = input(true);
   readonly position = input<{ x: number; y: number } | null>(null);
   readonly handDropPlacement = input<DropPlacement | null>(null);
+  readonly handArrivalSide = input<'before' | 'after' | null>(null);
   readonly handIndex = input<number | null>(null);
   readonly handCount = input<number | null>(null);
   readonly miniLeft = input<number | null>(null);
@@ -88,15 +99,21 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
   readonly powerChanged = output<CardStatChangeEvent>();
   readonly toughnessChanged = output<CardStatChangeEvent>();
   readonly hoverLifted = signal(false);
+  readonly dragReady = signal(false);
+  readonly powerPulse = signal<StatPulse>(null);
+  readonly toughnessPulse = signal<StatPulse>(null);
 
   readonly handClass = (placement: DropPlacement): boolean => this.handDropPlacement() === placement;
 
   ngOnChanges(): void {
     this.syncHoverInteractions();
+    this.syncStatPulses();
   }
 
   ngOnDestroy(): void {
     this.clearHoverLiftTimer();
+    this.clearDragReadyTimer();
+    this.clearStatPulseTimers();
   }
 
   fallbackLabel(): string {
@@ -117,6 +134,10 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
   onPointerDown(event: PointerEvent): void {
     if (event.button !== 0) {
       event.preventDefault();
+      return;
+    }
+
+    if (!this.dragReady()) {
       return;
     }
 
@@ -181,6 +202,7 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
     this.hoverLiftTimer = window.setTimeout(() => {
       if (this.pointerInside && this.hoverInteractionsEnabled() && this.hoveredCard?.instanceId === hoveredCard.instanceId) {
         this.hoverLifted.set(true);
+        this.scheduleDragReady(hoveredCard.instanceId);
       }
       this.hoverLiftTimer = null;
     }, this.hoverLiftDelayMs);
@@ -188,7 +210,9 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
 
   private deactivateHover(emitPreviewHidden: boolean): void {
     this.clearHoverLiftTimer();
+    this.clearDragReadyTimer();
     this.hoverLifted.set(false);
+    this.dragReady.set(false);
     if (!emitPreviewHidden || this.activePreviewInstanceId === null) {
       this.activePreviewInstanceId = null;
       return;
@@ -205,5 +229,98 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
 
     window.clearTimeout(this.hoverLiftTimer);
     this.hoverLiftTimer = null;
+  }
+
+  private scheduleDragReady(instanceId: string): void {
+    this.clearDragReadyTimer();
+    this.dragReadyTimer = window.setTimeout(() => {
+      if (this.pointerInside && this.hoverLifted() && this.hoveredCard?.instanceId === instanceId) {
+        this.dragReady.set(true);
+      }
+      this.dragReadyTimer = null;
+    }, this.dragReadyDelayMs);
+  }
+
+  private clearDragReadyTimer(): void {
+    if (this.dragReadyTimer === null) {
+      return;
+    }
+
+    window.clearTimeout(this.dragReadyTimer);
+    this.dragReadyTimer = null;
+  }
+
+  private syncStatPulses(): void {
+    if (!this.showPowerToughness()) {
+      this.previousPowerValue = undefined;
+      this.previousToughnessValue = undefined;
+      this.clearStatPulseTimers();
+      this.powerPulse.set(null);
+      this.toughnessPulse.set(null);
+      return;
+    }
+
+    this.previousPowerValue = this.updateStatPulse(this.previousPowerValue, this.powerValue(), this.powerPulse, 'power');
+    this.previousToughnessValue = this.updateStatPulse(
+      this.previousToughnessValue,
+      this.toughnessValue(),
+      this.toughnessPulse,
+      'toughness',
+    );
+  }
+
+  private updateStatPulse(
+    previousValue: number | null | undefined,
+    currentValue: number | null,
+    pulse: WritableSignal<StatPulse>,
+    stat: 'power' | 'toughness',
+  ): number | null {
+    if (previousValue === undefined) {
+      return currentValue;
+    }
+
+    if (typeof previousValue === 'number' && typeof currentValue === 'number' && currentValue !== previousValue) {
+      pulse.set(currentValue > previousValue ? 'increase' : 'decrease');
+      this.scheduleStatPulseClear(stat);
+    }
+
+    return currentValue;
+  }
+
+  private scheduleStatPulseClear(stat: 'power' | 'toughness'): void {
+    const timer = stat === 'power' ? this.powerPulseTimer : this.toughnessPulseTimer;
+    if (timer !== null) {
+      window.clearTimeout(timer);
+    }
+
+    const nextTimer = window.setTimeout(() => {
+      if (stat === 'power') {
+        this.powerPulse.set(null);
+        this.powerPulseTimer = null;
+        return;
+      }
+
+      this.toughnessPulse.set(null);
+      this.toughnessPulseTimer = null;
+    }, 900);
+
+    if (stat === 'power') {
+      this.powerPulseTimer = nextTimer;
+      return;
+    }
+
+    this.toughnessPulseTimer = nextTimer;
+  }
+
+  private clearStatPulseTimers(): void {
+    if (this.powerPulseTimer !== null) {
+      window.clearTimeout(this.powerPulseTimer);
+      this.powerPulseTimer = null;
+    }
+
+    if (this.toughnessPulseTimer !== null) {
+      window.clearTimeout(this.toughnessPulseTimer);
+      this.toughnessPulseTimer = null;
+    }
   }
 }

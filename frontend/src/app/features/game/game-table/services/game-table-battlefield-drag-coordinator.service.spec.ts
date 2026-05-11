@@ -118,6 +118,32 @@ describe('GameTableBattlefieldDragCoordinatorService', () => {
       value: originalElementsFromPoint,
     });
   });
+
+  it('activates mana row aid when the dragged card top is inside the lower mana band', () => {
+    const { battlefield, cardElement } = appendBattlefieldWithManaLane();
+    const selectedCard = card('dragged', { x: 20, y: 280 });
+    const updateLocalCardPosition = vi.fn();
+    cardElement.dataset['cardInstanceId'] = selectedCard.instanceId;
+    const originalElementsFromPoint = document.elementsFromPoint;
+    Object.defineProperty(document, 'elementsFromPoint', {
+      configurable: true,
+      value: vi.fn(() => [battlefield]),
+    });
+
+    service.updateBattlefieldDragAid(pointerEvent(150, 300), selectedCard.instanceId, {
+      ...contextWithSnapshot(snapshotWithBattlefield([selectedCard])),
+      selectedCards: () => [{ playerId: 'player-1', zone: 'battlefield', card: selectedCard }],
+      updateLocalCardPosition,
+    });
+
+    expect(state.manaLaneDropPlayerId()).toBe('player-1');
+    expect(updateLocalCardPosition).toHaveBeenCalledWith('player-1', selectedCard.instanceId, { x: 20, y: 248 });
+
+    Object.defineProperty(document, 'elementsFromPoint', {
+      configurable: true,
+      value: originalElementsFromPoint,
+    });
+  });
 });
 
 function contextWithSnapshot(snapshot: GameSnapshot): GameTableBattlefieldDragContext {

@@ -10,6 +10,8 @@ import { GameTableSelectionService } from './services/game-table-selection.servi
 import { GameTableTurnActionContext, GameTableTurnActionsService } from './services/game-table-turn-actions.service';
 import { AlignmentGuide, GameTableBattlefieldDragState } from './state/game-table-battlefield-drag.state';
 import { GameLogEntryView, GameTableChatLogState } from './state/game-table-chat-log.state';
+import { GameTableDropFeedbackState } from './state/game-table-drop-feedback.state';
+import { GameTablePendingTransferState, type PendingTransferExpiration } from './state/game-table-pending-transfer.state';
 import { GameTableSnapshotSelectors, PlayerView } from './state/game-table-snapshot-selectors';
 import { GameContextMenu, GameTableUiState } from './state/game-table-ui.state';
 import { GameTableZoneModalState } from './state/game-table-zone-modal.state';
@@ -57,6 +59,8 @@ export class GameTableStore implements OnDestroy {
   private readonly battlefieldDragState = inject(GameTableBattlefieldDragState);
   private readonly zoneModalState = inject(GameTableZoneModalState);
   private readonly chatLogState = inject(GameTableChatLogState);
+  private readonly dropFeedbackState = inject(GameTableDropFeedbackState);
+  private readonly pendingTransferState = inject(GameTablePendingTransferState);
   private readonly selectors = inject(GameTableSnapshotSelectors);
 
   readonly zones: GameZoneName[] = ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command'];
@@ -116,6 +120,7 @@ export class GameTableStore implements OnDestroy {
   });
 
   constructor() {
+    this.pendingTransferState.setExpirationHandler((expiration) => this.handlePendingTransferExpired(expiration));
     effect(() => {
       this.scheduleErrorDismiss(this.error(), this.snapshot() !== null);
     });
@@ -126,6 +131,9 @@ export class GameTableStore implements OnDestroy {
     this.clearErrorDismissTimer();
     this.uiState.destroy();
     this.cardStats.clear();
+    this.dropFeedbackState.destroy();
+    this.pendingTransferState.setExpirationHandler(null);
+    this.pendingTransferState.clear();
     this.session.stop();
   }
 
@@ -134,6 +142,9 @@ export class GameTableStore implements OnDestroy {
   }
 
   async refetch(force = false): Promise<void> {
+    if (force) {
+      this.pendingTransferState.clear();
+    }
     await this.session.refetch(this.sessionContext(), force);
   }
 
@@ -237,6 +248,30 @@ export class GameTableStore implements OnDestroy {
     const preview = this.handDropPreview();
 
     return preview?.playerId === playerId && preview.targetInstanceId === card.instanceId && preview.placement === placement;
+  }
+
+  isCardDropSettling(playerId: string, zone: GameZoneName, card: GameCardInstance): boolean {
+    return this.dropFeedbackState.isCardDropSettling(playerId, zone, card.instanceId);
+  }
+
+  isManaDropSettling(playerId: string, card: GameCardInstance): boolean {
+    return this.dropFeedbackState.isManaDropSettling(playerId, card.instanceId);
+  }
+
+  isBattlefieldEntrySettling(playerId: string, card: GameCardInstance): boolean {
+    return this.dropFeedbackState.isBattlefieldEntrySettling(playerId, card.instanceId);
+  }
+
+  isZoneDropSettling(playerId: string, zone: GameZoneName): boolean {
+    return this.dropFeedbackState.isZoneDropSettling(playerId, zone);
+  }
+
+  isCardTransferPending(playerId: string, zone: GameZoneName, card: GameCardInstance): boolean {
+    return this.pendingTransferState.isCardPending(playerId, zone, card.instanceId);
+  }
+
+  isZoneTransferPending(playerId: string, zone: GameZoneName): boolean {
+    return this.pendingTransferState.isZonePending(playerId, zone);
   }
 
   cardPosition(card: GameCardInstance): { x: number; y: number } | null {
@@ -727,6 +762,9 @@ export class GameTableStore implements OnDestroy {
       ? this.snappedBattlefieldPosition(targetPlayerId, movedInstanceId, position, rawZone)
       : position;
     const movedInstanceIds = this.selectedDragInstanceIds(playerId, 'hand', movedInstanceId);
+    if (toZone === 'battlefield' && rawZone === 'mana') {
+      this.dropFeedbackState.markPendingManaDrop(targetPlayerId, movedInstanceIds);
+    }
     if (movedInstanceIds.length > 1) {
       await this.moveSelectedHandCardsByPointer(playerId, targetPlayerId, movedInstanceIds, toZone, battlefieldPosition);
       return;
@@ -744,6 +782,12 @@ export class GameTableStore implements OnDestroy {
     }
 
     if (toZone === 'battlefield' && targetPlayerId !== playerId) {
+      this.pendingTransferState.register({
+        playerId,
+        fromZone: 'hand',
+        instanceIds: [movedInstanceId],
+        sourceVersion: this.snapshot()?.version ?? null,
+      });
       this.pendingBattlefieldMove.set({
         cardName: sourceCard.name,
         targetPlayerName: this.playerName(targetPlayerId),
@@ -784,6 +828,7 @@ export class GameTableStore implements OnDestroy {
   }
 
   async cancelPendingBattlefieldMove(): Promise<void> {
+    this.pendingTransferState.clear();
     await this.refetch(true);
     this.pendingBattlefieldMove.set(null);
   }
@@ -798,6 +843,7 @@ export class GameTableStore implements OnDestroy {
   }
 
   async cancelPendingLibraryMove(): Promise<void> {
+    this.pendingTransferState.clear();
     await this.refetch(true);
     this.pendingLibraryMove.set(null);
   }
@@ -929,10 +975,12 @@ export class GameTableStore implements OnDestroy {
 
     this.pending.set(true);
     this.error.set(null);
+    this.registerPendingTransferForCommand(type, payload);
     try {
       const snapshot = await this.commands.send(gameId, type, payload);
-      this.snapshot.set(snapshot);
+      this.setSnapshot(snapshot);
     } catch (error) {
+      this.pendingTransferState.clear();
       this.error.set(this.errorMessage(error));
     } finally {
       this.pending.set(false);
@@ -988,6 +1036,110 @@ export class GameTableStore implements OnDestroy {
     this.session.applyDeferredRemoteSnapshot(this.sessionContext());
   }
 
+  private registerPendingTransferForCommand(type: GameCommandType, payload: Record<string, unknown>): void {
+    switch (type) {
+      case 'card.moved':
+      case 'cards.moved':
+        this.registerCardMovePendingTransfer(payload);
+        return;
+      case 'library.draw':
+        this.registerLibraryTopPendingTransfer(payload, 'hand');
+        return;
+      case 'library.move_top':
+        this.registerLibraryTopPendingTransfer(payload, payload['toZone']);
+        return;
+      case 'zone.move_all':
+        this.registerZoneMoveAllPendingTransfer(payload);
+        return;
+    }
+  }
+
+  private registerCardMovePendingTransfer(payload: Record<string, unknown>): void {
+    const playerId = this.stringPayload(payload, 'playerId');
+    const fromZone = this.zonePayload(payload, 'fromZone');
+    const toZone = this.zonePayload(payload, 'toZone');
+    const targetPlayerId = this.stringPayload(payload, 'targetPlayerId') ?? playerId;
+    const instanceIds = this.instanceIdsPayload(payload);
+    if (!playerId || !fromZone || !toZone || instanceIds.length === 0) {
+      return;
+    }
+    if (fromZone === toZone && playerId === targetPlayerId) {
+      return;
+    }
+
+    this.pendingTransferState.register({
+      playerId,
+      fromZone,
+      instanceIds,
+      sourceVersion: this.snapshot()?.version ?? null,
+    });
+  }
+
+  private registerLibraryTopPendingTransfer(payload: Record<string, unknown>, toZoneValue: unknown): void {
+    const playerId = this.stringPayload(payload, 'playerId');
+    const toZone = this.zoneValue(toZoneValue);
+    if (!playerId || toZone === 'library') {
+      return;
+    }
+
+    const rawCount = Number(payload['count'] ?? 1);
+    const count = Number.isFinite(rawCount) ? Math.max(1, Math.floor(rawCount)) : 1;
+    const library = this.snapshot()?.players[playerId]?.zones.library ?? [];
+    const instanceIds = library.slice(0, count).map((card) => card.instanceId);
+    this.pendingTransferState.register({
+      playerId,
+      fromZone: 'library',
+      instanceIds,
+      sourceVersion: this.snapshot()?.version ?? null,
+    });
+  }
+
+  private registerZoneMoveAllPendingTransfer(payload: Record<string, unknown>): void {
+    const playerId = this.stringPayload(payload, 'playerId');
+    const fromZone = this.zonePayload(payload, 'fromZone');
+    const toZone = this.zonePayload(payload, 'toZone');
+    if (!playerId || !fromZone || !toZone || fromZone === toZone) {
+      return;
+    }
+
+    const instanceIds = this.snapshot()?.players[playerId]?.zones[fromZone]?.map((card) => card.instanceId) ?? [];
+    this.pendingTransferState.register({
+      playerId,
+      fromZone,
+      instanceIds,
+      sourceVersion: this.snapshot()?.version ?? null,
+    });
+  }
+
+  private instanceIdsPayload(payload: Record<string, unknown>): string[] {
+    const instanceIds = payload['instanceIds'];
+    if (Array.isArray(instanceIds)) {
+      return instanceIds.filter((instanceId): instanceId is string => typeof instanceId === 'string' && instanceId !== '');
+    }
+
+    const instanceId = this.stringPayload(payload, 'instanceId');
+    return instanceId ? [instanceId] : [];
+  }
+
+  private stringPayload(payload: Record<string, unknown>, key: string): string | null {
+    const value = payload[key];
+    return typeof value === 'string' && value !== '' ? value : null;
+  }
+
+  private zonePayload(payload: Record<string, unknown>, key: string): GameZoneName | null {
+    return this.zoneValue(payload[key]);
+  }
+
+  private zoneValue(value: unknown): GameZoneName | null {
+    return typeof value === 'string' && this.zones.includes(value as GameZoneName) ? value as GameZoneName : null;
+  }
+
+  private setSnapshot(snapshot: GameSnapshot | null): void {
+    this.dropFeedbackState.trackSnapshot(snapshot);
+    this.pendingTransferState.reconcileSnapshot(snapshot);
+    this.snapshot.set(snapshot);
+  }
+
   private playerName(playerId: string): string {
     return this.snapshot()?.players[playerId]?.user.displayName ?? playerId;
   }
@@ -1002,7 +1154,7 @@ export class GameTableStore implements OnDestroy {
     const card = next.players[playerId]?.zones.battlefield.find((candidate) => candidate.instanceId === instanceId);
     if (card) {
       card.position = position;
-      this.snapshot.set(next);
+      this.setSnapshot(next);
     }
   }
 
@@ -1064,6 +1216,13 @@ export class GameTableStore implements OnDestroy {
       setError: (message) => this.error.set(message),
       snapBattlefieldPosition: (playerId, instanceId, position, rawZone) =>
         this.snappedBattlefieldPosition(playerId, instanceId, position, rawZone),
+      markPendingManaDrop: (playerId, instanceIds) => this.dropFeedbackState.markPendingManaDrop(playerId, instanceIds),
+      markPendingTransfer: (playerId, fromZone, instanceIds) => this.pendingTransferState.register({
+        playerId,
+        fromZone,
+        instanceIds,
+        sourceVersion: this.snapshot()?.version ?? null,
+      }),
       command: (type, payload) => this.command(type, payload),
       recordCommanderCastIfNeeded: (playerId, fromZone, toZone, targetPlayerId) =>
         this.recordCommanderCastIfNeeded(playerId, fromZone, toZone, targetPlayerId),
@@ -1091,6 +1250,13 @@ export class GameTableStore implements OnDestroy {
       suppressCardPreview: () => this.uiState.suppressCardPreview(450),
       applyDeferredRemoteSnapshot: () => this.applyDeferredRemoteSnapshot(),
       refetch: (force) => this.refetch(force),
+      markPendingManaDrop: (playerId, instanceIds) => this.dropFeedbackState.markPendingManaDrop(playerId, instanceIds),
+      markPendingTransfer: (playerId, fromZone, instanceIds) => this.pendingTransferState.register({
+        playerId,
+        fromZone,
+        instanceIds,
+        sourceVersion: this.snapshot()?.version ?? null,
+      }),
       command: (type, payload) => this.command(type, payload),
     };
   }
@@ -1116,7 +1282,7 @@ export class GameTableStore implements OnDestroy {
     return {
       gameId: () => this.gameId(),
       snapshot: () => this.snapshot(),
-      setSnapshot: (snapshot) => this.snapshot.set(snapshot),
+      setSnapshot: (snapshot) => this.setSnapshot(snapshot),
       focusedPlayerId: () => this.focusedPlayerId(),
       setFocusedPlayerId: (playerId) => this.focusedPlayerId.set(playerId),
       ownPlayerId: (snapshot) => this.ownPlayerId(snapshot),
@@ -1138,7 +1304,7 @@ export class GameTableStore implements OnDestroy {
     if (card) {
       card.power = power;
       card.toughness = toughness;
-      this.snapshot.set(next);
+      this.setSnapshot(next);
     }
   }
 
@@ -1270,6 +1436,12 @@ export class GameTableStore implements OnDestroy {
     }
 
     if (toZone === 'battlefield' && targetPlayerId !== playerId) {
+      this.pendingTransferState.register({
+        playerId,
+        fromZone: 'hand',
+        instanceIds: movedInstanceIds,
+        sourceVersion: this.snapshot()?.version ?? null,
+      });
       this.pendingBattlefieldMove.set({
         cardName: `${movedCards.length} cards`,
         targetPlayerName: this.playerName(targetPlayerId),
@@ -1287,6 +1459,12 @@ export class GameTableStore implements OnDestroy {
     }
 
     if (toZone === 'battlefield' && position) {
+      this.pendingTransferState.register({
+        playerId,
+        fromZone: 'hand',
+        instanceIds: movedInstanceIds,
+        sourceVersion: this.snapshot()?.version ?? null,
+      });
       for (const instanceId of movedInstanceIds) {
         await this.command('card.moved', {
           playerId,
@@ -1329,6 +1507,14 @@ export class GameTableStore implements OnDestroy {
     }
 
     return 'Could not apply game action.';
+  }
+
+  private handlePendingTransferExpired(_expiration: PendingTransferExpiration): void {
+    this.pendingBattlefieldMove.set(null);
+    this.pendingLibraryMove.set(null);
+    this.selectedCards.set([]);
+    this.error.set('Card move did not complete. No changes were applied; try again.');
+    void this.refetch(true);
   }
 
   private scheduleErrorDismiss(message: string | null, canDismiss: boolean): void {

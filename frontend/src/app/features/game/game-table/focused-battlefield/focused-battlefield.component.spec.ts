@@ -13,10 +13,20 @@ describe('FocusedBattlefieldComponent', () => {
     expect(cardElement(fixture, 'card-2').classList).toContain('alignment-reference');
     expect(cardElement(fixture, 'card-3').classList).not.toContain('alignment-reference');
   });
+
+  it('hides a battlefield card while it is pending transfer to another zone', async () => {
+    const { fixture } = await renderFocusedBattlefield({
+      isCardTransferPending: (_playerId, _zone, card) => card.instanceId === 'card-1',
+    });
+
+    expect(cardElement(fixture, 'card-1').style.visibility).toBe('hidden');
+    expect(cardElement(fixture, 'card-2').style.visibility).not.toBe('hidden');
+  });
 });
 
 interface RenderFocusedBattlefieldOptions {
   alignmentGuideFor?: (playerId: string) => { y: number; referenceInstanceIds: readonly string[] } | null;
+  isCardTransferPending?: (playerId: string, zone: GameZoneName, card: GameCardInstance) => boolean;
 }
 
 async function renderFocusedBattlefield(options: RenderFocusedBattlefieldOptions = {}): Promise<{ fixture: ComponentFixture<FocusedBattlefieldComponent> }> {
@@ -40,6 +50,7 @@ async function renderFocusedBattlefield(options: RenderFocusedBattlefieldOptions
   fixture.componentRef.setInput('firstCounter', (_card: GameCardInstance) => null);
   fixture.componentRef.setInput('alignmentGuideFor', options.alignmentGuideFor ?? ((_playerId: string) => null));
   fixture.componentRef.setInput('isManaLaneHighlighted', (_playerId: string) => false);
+  fixture.componentRef.setInput('isCardTransferPending', options.isCardTransferPending ?? ((_playerId: string, _zone: GameZoneName, _card: GameCardInstance) => false));
   fixture.detectChanges();
 
   return { fixture };

@@ -65,9 +65,14 @@ describe('GameCardViewComponent', () => {
   });
 
   it('emits pointerdown so containers can start their card drag flow', async () => {
+    vi.useFakeTimers();
     const { fixture, cardElement } = await renderHandCard();
     const pointerDown = vi.fn();
     fixture.componentInstance.cardPointerDown.subscribe(pointerDown);
+
+    cardElement.dispatchEvent(new MouseEvent('mouseenter'));
+    vi.advanceTimersByTime(150);
+    fixture.detectChanges();
 
     cardElement.dispatchEvent(new PointerEvent('pointerdown', {
       bubbles: true,
@@ -79,6 +84,135 @@ describe('GameCardViewComponent', () => {
       event: expect.any(PointerEvent),
       card: fixture.componentInstance.card(),
     });
+  });
+
+  it('waits a little after the hover lift before enabling drag', async () => {
+    vi.useFakeTimers();
+    const { fixture, cardElement } = await renderHandCard();
+    const pointerDown = vi.fn();
+    fixture.componentInstance.cardPointerDown.subscribe(pointerDown);
+
+    cardElement.dispatchEvent(new MouseEvent('mouseenter'));
+    vi.advanceTimersByTime(149);
+    fixture.detectChanges();
+    cardElement.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true,
+      button: 0,
+      pointerId: 1,
+    }));
+
+    expect(cardElement.classList).toContain('hover-lifted');
+    expect(pointerDown).not.toHaveBeenCalled();
+
+    vi.advanceTimersByTime(1);
+    fixture.detectChanges();
+    cardElement.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true,
+      button: 0,
+      pointerId: 1,
+    }));
+
+    expect(pointerDown).toHaveBeenCalledOnce();
+  });
+
+  it('does not emit pointerdown before the card hover is activated', async () => {
+    const { fixture, cardElement } = await renderHandCard();
+    const pointerDown = vi.fn();
+    fixture.componentInstance.cardPointerDown.subscribe(pointerDown);
+
+    cardElement.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true,
+      button: 0,
+      pointerId: 1,
+    }));
+
+    expect(pointerDown).not.toHaveBeenCalled();
+  });
+
+  it('applies drop feedback classes without removing existing selected state', async () => {
+    const { fixture, cardElement } = await renderHandCard();
+
+    fixture.componentRef.setInput('selected', true);
+    fixture.componentRef.setInput('dropSettling', true);
+    fixture.detectChanges();
+
+    expect(cardElement.classList).toContain('selected');
+    expect(cardElement.classList).toContain('drop-settling');
+  });
+
+  it('applies the stat drop class independently from normal drop settling', async () => {
+    const { fixture, cardElement } = await renderHandCard();
+
+    fixture.componentRef.setInput('statDropSettling', true);
+    fixture.detectChanges();
+
+    expect(cardElement.classList).toContain('stat-drop-settling');
+    expect(cardElement.classList).not.toContain('drop-settling');
+  });
+
+  it('marks a power increase with the gold stat pulse', async () => {
+    vi.useFakeTimers();
+    const { fixture } = await renderHandCard();
+
+    fixture.componentRef.setInput('showPowerToughness', true);
+    fixture.componentRef.setInput('powerValue', 2);
+    fixture.componentRef.setInput('toughnessValue', 2);
+    fixture.detectChanges();
+
+    fixture.componentRef.setInput('powerValue', 3);
+    fixture.detectChanges();
+
+    const [powerElement, toughnessElement] = statElements(fixture);
+    expect(powerElement.classList).toContain('stat-pulse-increase');
+    expect(powerElement.classList).not.toContain('stat-pulse-decrease');
+    expect(toughnessElement.classList).not.toContain('stat-pulse-increase');
+
+    vi.advanceTimersByTime(900);
+    fixture.detectChanges();
+
+    expect(powerElement.classList).not.toContain('stat-pulse-increase');
+  });
+
+  it('keeps the stat pulse alive while repeated changes keep arriving', async () => {
+    vi.useFakeTimers();
+    const { fixture } = await renderHandCard();
+
+    fixture.componentRef.setInput('showPowerToughness', true);
+    fixture.componentRef.setInput('powerValue', 2);
+    fixture.componentRef.setInput('toughnessValue', 2);
+    fixture.detectChanges();
+
+    fixture.componentRef.setInput('powerValue', 3);
+    fixture.detectChanges();
+    vi.advanceTimersByTime(520);
+    fixture.componentRef.setInput('powerValue', 4);
+    fixture.detectChanges();
+    vi.advanceTimersByTime(520);
+    fixture.detectChanges();
+
+    const [powerElement] = statElements(fixture);
+    expect(powerElement.classList).toContain('stat-pulse-increase');
+
+    vi.advanceTimersByTime(380);
+    fixture.detectChanges();
+
+    expect(powerElement.classList).not.toContain('stat-pulse-increase');
+  });
+
+  it('marks a toughness decrease with the red stat pulse', async () => {
+    const { fixture } = await renderHandCard();
+
+    fixture.componentRef.setInput('showPowerToughness', true);
+    fixture.componentRef.setInput('powerValue', 2);
+    fixture.componentRef.setInput('toughnessValue', 3);
+    fixture.detectChanges();
+
+    fixture.componentRef.setInput('toughnessValue', 2);
+    fixture.detectChanges();
+
+    const [_powerElement, toughnessElement] = statElements(fixture);
+    expect(toughnessElement.classList).toContain('stat-pulse-decrease');
+    expect(toughnessElement.classList).not.toContain('stat-pulse-increase');
   });
 });
 
@@ -109,4 +243,11 @@ function gameCard(): GameCardInstance {
     name: 'Arcane Signet',
     tapped: false,
   };
+}
+
+function statElements(fixture: ComponentFixture<GameCardViewComponent>): [HTMLElement, HTMLElement] {
+  const elements = Array.from(fixture.nativeElement.querySelectorAll('.power-toughness-overlay span')) as HTMLElement[];
+  expect(elements.length).toBe(2);
+
+  return [elements[0]!, elements[1]!];
 }

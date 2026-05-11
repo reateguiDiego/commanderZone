@@ -13,21 +13,21 @@
   min-height: 0;
   overflow: visible;
   padding: 0.55rem 0.55rem 2.15rem;
-  border: 1px solid rgb(238 211 139 / 10%);
+  border: 1px solid var(--game-line-soft, rgb(61 69 53 / 46%));
   border-radius: 8px;
-  background: rgb(5 9 10 / 46%);
+  background: rgb(7 8 7 / 46%);
 }
 
 .drop-target-active {
-  box-shadow: inset 0 0 0 2px #f5b414;
+  box-shadow: inset 0 0 0 2px var(--game-accent, #d7b46a);
 }
 
 .alignment-guide {
   position: absolute;
   inset-inline: 0.55rem;
   z-index: 1;
-  border-top: 1px dashed rgb(245 180 20 / 48%);
-  filter: drop-shadow(0 0 0.4rem rgb(245 180 20 / 36%));
+  border-top: 1px dashed var(--game-accent-strong, rgb(215 180 106 / 58%));
+  filter: drop-shadow(0 0 0.4rem rgb(215 180 106 / 32%));
   pointer-events: none;
 }
 
@@ -39,5 +39,5 @@
 }
 
 .mana-lane.drag-over {
-  border-color: rgb(245 180 20 / 46%);
+  border-color: var(--game-accent-strong, rgb(215 180 106 / 58%));
 }

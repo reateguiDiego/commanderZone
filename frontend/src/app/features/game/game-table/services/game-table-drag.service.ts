@@ -327,9 +327,9 @@ export class GameTableDragService {
     const cardRight = cardLeft + cardWidth;
     const horizontalOverlap = cardRight >= bounds.left && cardLeft <= bounds.right;
     const topEdgeMagnetDistance = 12;
-    const topEdgeNearLane = Math.abs(cardTop - bounds.top) <= topEdgeMagnetDistance;
+    const topEdgeInLaneBand = cardTop >= bounds.top - topEdgeMagnetDistance && cardTop <= bounds.bottom;
 
-    return horizontalOverlap && topEdgeNearLane ? manaLane : null;
+    return horizontalOverlap && topEdgeInLaneBand ? manaLane : null;
   }
 
   private pointerDragPosition(
