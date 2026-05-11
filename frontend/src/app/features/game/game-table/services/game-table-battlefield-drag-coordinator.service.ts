@@ -52,7 +52,7 @@ export class GameTableBattlefieldDragCoordinatorService {
     const card = context.findCard(selected.playerId, 'battlefield', instanceId);
     const position = card?.position;
 
-    if (this.isPointerNearManaLane(event, selected.playerId, instanceId, position)) {
+    if (this.isCardTopNearManaLane(event, selected.playerId, instanceId, position)) {
       this.state.setManaLaneDropPlayer(selected.playerId);
       this.state.setAlignmentGuide(null);
       const manaY = this.manaLaneY(selected.playerId);
@@ -332,35 +332,18 @@ export class GameTableBattlefieldDragCoordinatorService {
       .find((element) => element.dataset['playerId'] === playerId) ?? null;
   }
 
-  private isPointerNearManaLane(
+  private isCardTopNearManaLane(
     event: PointerEvent,
     playerId: string,
     instanceId: string,
     position: { x: number; y: number } | null | undefined,
   ): boolean {
-    const manaLane = this.manaLaneElement(playerId);
-    if (!manaLane) {
+    if (!position) {
       return false;
     }
 
-    const bounds = manaLane.getBoundingClientRect();
-    const activationInset = 10;
-
-    const pointerIsInsideLane = event.clientX >= bounds.left
-      && event.clientX <= bounds.right
-      && event.clientY >= bounds.top + activationInset
-      && event.clientY <= bounds.bottom + 16;
-
-    return pointerIsInsideLane || this.draggedCardOverlapsManaLane(playerId, instanceId, position, bounds);
-  }
-
-  private draggedCardOverlapsManaLane(
-    playerId: string,
-    instanceId: string,
-    position: { x: number; y: number } | null | undefined,
-    manaLaneBounds: DOMRect,
-  ): boolean {
-    if (!position) {
+    const manaLane = this.manaLaneElement(playerId);
+    if (!manaLane) {
       return false;
     }
 
@@ -369,21 +352,18 @@ export class GameTableBattlefieldDragCoordinatorService {
       return false;
     }
 
+    const bounds = manaLane.getBoundingClientRect();
+    const battlefieldBounds = battlefield.getBoundingClientRect();
     const cardElement = Array.from(battlefield.querySelectorAll<HTMLElement>('[data-testid="game-card"][data-zone="battlefield"]'))
       .find((element) => element.dataset['cardInstanceId'] === instanceId);
-    const battlefieldBounds = battlefield.getBoundingClientRect();
     const cardWidth = cardElement?.offsetWidth || cardElement?.getBoundingClientRect().width || 116;
-    const cardHeight = cardElement?.offsetHeight || cardElement?.getBoundingClientRect().height || 162;
-    const cardBounds = {
-      left: battlefieldBounds.left + position.x,
-      right: battlefieldBounds.left + position.x + cardWidth,
-      top: battlefieldBounds.top + position.y,
-      bottom: battlefieldBounds.top + position.y + cardHeight,
-    };
-    const horizontalOverlap = cardBounds.right >= manaLaneBounds.left && cardBounds.left <= manaLaneBounds.right;
-    const verticalOverlap = Math.min(cardBounds.bottom, manaLaneBounds.bottom) - Math.max(cardBounds.top, manaLaneBounds.top);
+    const cardLeft = battlefieldBounds.left + position.x;
+    const cardTop = battlefieldBounds.top + position.y;
+    const horizontalOverlap = cardLeft + cardWidth >= bounds.left && cardLeft <= bounds.right;
+    const topEdgeMagnetDistance = 12;
+    const topEdgeNearLane = Math.abs(cardTop - bounds.top) <= topEdgeMagnetDistance;
 
-    return horizontalOverlap && verticalOverlap >= 12;
+    return horizontalOverlap && topEdgeNearLane;
   }
 
   private elementsAtPoint(event: PointerEvent): Element[] {

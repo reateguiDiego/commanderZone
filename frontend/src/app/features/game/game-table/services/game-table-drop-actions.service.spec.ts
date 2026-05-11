@@ -161,7 +161,7 @@ describe('GameTableDropActionsService', () => {
       zone: 'hand',
       instanceId: 'moved',
       instanceIds: ['moved', 'selected-2'],
-    }, 'mana'), 'player-1', 'battlefield');
+    }, 'mana', { clientY: 282 }), 'player-1', 'battlefield');
 
     expect(commands.map((entry) => entry.payload['position'])).toEqual([
       { x: 122, y: 190 },
@@ -223,7 +223,11 @@ function dropContext(
   };
 }
 
-function dragEvent(payload: { playerId: string; zone: GameZoneName; instanceId: string; instanceIds?: string[] }, rawZone?: string): DragEvent {
+function dragEvent(
+  payload: { playerId: string; zone: GameZoneName; instanceId: string; instanceIds?: string[] },
+  rawZone?: string,
+  pointer: { clientX?: number; clientY?: number } = {},
+): DragEvent {
   const battlefield = document.createElement('div');
   battlefield.classList.add('battlefield');
   battlefield.getBoundingClientRect = () => ({ left: 0, top: 0, right: 800, bottom: 600, width: 800, height: 600 } as DOMRect);
@@ -240,8 +244,8 @@ function dragEvent(payload: { playerId: string; zone: GameZoneName; instanceId: 
   return {
     preventDefault: vi.fn(),
     stopPropagation: vi.fn(),
-    clientX: 180,
-    clientY: 240,
+    clientX: pointer.clientX ?? 180,
+    clientY: pointer.clientY ?? 240,
     target,
     currentTarget: target,
     dataTransfer: {

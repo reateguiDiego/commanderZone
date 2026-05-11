@@ -94,7 +94,7 @@ describe('GameTablePointerDragService', () => {
     });
   });
 
-  it('resolves the mana row as a battlefield drop target with mana-lane placement metadata', () => {
+  it('resolves the mana row when the dragged card top edge reaches the lane', () => {
     const battlefield = document.createElement('div');
     battlefield.className = 'battlefield';
     battlefield.dataset['playerId'] = 'player-1';
@@ -124,7 +124,7 @@ describe('GameTablePointerDragService', () => {
       value: vi.fn(() => [manaLane]),
     });
 
-    const target = service.zoneTargetAt(pointerEvent(150, 280), { width: 100, height: 140 });
+    const target = service.zoneTargetAt(pointerEvent(150, 320), { width: 100, height: 140 });
 
     expect(target).toEqual({
       targetPlayerId: 'player-1',
@@ -140,7 +140,7 @@ describe('GameTablePointerDragService', () => {
     });
   });
 
-  it('resolves the mana row when the dragged card overlaps it but the pointer target is the battlefield', () => {
+  it('does not resolve the mana row when only the dragged card overlaps it', () => {
     const battlefield = document.createElement('div');
     battlefield.className = 'battlefield';
     battlefield.dataset['gameDropZone'] = 'battlefield';
@@ -178,8 +178,8 @@ describe('GameTablePointerDragService', () => {
       targetPlayerId: 'player-1',
       toZone: 'battlefield',
       kind: 'zone',
-      rawZone: 'mana',
-      position: { x: 90, y: 180 },
+      rawZone: 'battlefield',
+      position: { x: 90, y: 152 },
     });
 
     Object.defineProperty(document, 'elementsFromPoint', {
@@ -188,7 +188,7 @@ describe('GameTablePointerDragService', () => {
     });
   });
 
-  it('preserves the dragged card pointer anchor on x when snapping to mana row', () => {
+  it('preserves the dragged card pointer anchor on x when the card top edge reaches the mana row', () => {
     const battlefield = document.createElement('div');
     battlefield.className = 'battlefield';
     battlefield.dataset['gameDropZone'] = 'battlefield';
@@ -220,7 +220,7 @@ describe('GameTablePointerDragService', () => {
       value: vi.fn(() => [battlefield]),
     });
 
-    const target = service.zoneTargetAt(pointerEvent(150, 232), {
+    const target = service.zoneTargetAt(pointerEvent(150, 280), {
       width: 100,
       height: 140,
       offsetX: 20,

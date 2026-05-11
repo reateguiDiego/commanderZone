@@ -74,9 +74,7 @@ export class GameTablePointerDragService {
       const battlefield = target.classList.contains('battlefield')
         ? target
         : target.closest<HTMLElement>('.battlefield');
-      const manaLane = rawZone === 'mana'
-        ? target.closest<HTMLElement>('[data-mana-lane]')
-        : this.manaLaneForPointerOrCard(battlefield, event.clientX, event.clientY, cardSize);
+      const manaLane = this.manaLaneForCardTop(battlefield, event.clientX, event.clientY, cardSize);
       const effectiveRawZone = manaLane ? 'mana' : rawZone;
       const toZone = effectiveRawZone === 'mana' ? 'battlefield' : effectiveRawZone;
       if (!this.isGameZone(toZone)) {
@@ -168,7 +166,7 @@ export class GameTablePointerDragService {
     };
   }
 
-  private manaLaneForPointerOrCard(
+  private manaLaneForCardTop(
     battlefield: HTMLElement | null,
     clientX: number,
     clientY: number,
@@ -180,26 +178,16 @@ export class GameTablePointerDragService {
     }
 
     const bounds = manaLane.getBoundingClientRect();
-    const pointerInsideLane = clientX >= bounds.left
-      && clientX <= bounds.right
-      && clientY >= bounds.top
-      && clientY <= bounds.bottom + 16;
-    if (pointerInsideLane) {
-      return manaLane;
-    }
-
     const offsetX = cardSize.offsetX ?? cardSize.width / 2;
     const offsetY = cardSize.offsetY ?? cardSize.height / 2;
-    const cardBounds = {
-      left: clientX - offsetX,
-      right: clientX - offsetX + cardSize.width,
-      top: clientY - offsetY,
-      bottom: clientY - offsetY + cardSize.height,
-    };
-    const horizontalOverlap = cardBounds.right >= bounds.left && cardBounds.left <= bounds.right;
-    const verticalOverlap = Math.min(cardBounds.bottom, bounds.bottom) - Math.max(cardBounds.top, bounds.top);
+    const cardLeft = clientX - offsetX;
+    const cardTop = clientY - offsetY;
+    const cardRight = cardLeft + cardSize.width;
+    const horizontalOverlap = cardRight >= bounds.left && cardLeft <= bounds.right;
+    const topEdgeMagnetDistance = 12;
+    const topEdgeNearLane = Math.abs(cardTop - bounds.top) <= topEdgeMagnetDistance;
 
-    return horizontalOverlap && verticalOverlap >= 12 ? manaLane : null;
+    return horizontalOverlap && topEdgeNearLane ? manaLane : null;
   }
 
   private isGameZone(zone: string): zone is GameZoneName {

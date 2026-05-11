@@ -141,7 +141,7 @@ describe('PlayerHandPanelComponent', () => {
     expect(fixture.nativeElement.querySelector('.hand-floating-card')?.textContent).toContain('Arcane Signet');
   });
 
-  it('hides every selected hand card and shows a drag count while dragging a selected card', async () => {
+  it('keeps the hand fan while dragging every selected hand card from a multi-card hand', async () => {
     const { fixture } = await renderHandPanel({
       isSelected: (instanceId) => ['card-1', 'card-2'].includes(instanceId),
     });
@@ -152,9 +152,114 @@ describe('PlayerHandPanelComponent', () => {
     fixture.componentInstance.moveHandPointerDrag(pointerEvent({ pointerId: 1, clientX: 50, clientY: 22 }));
     fixture.detectChanges();
 
+    expect(fixture.nativeElement.querySelector('[data-testid="empty-hand-drop-target"]')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.hand-fan')).not.toBeNull();
     expect(fixture.nativeElement.querySelector('[data-card-instance-id="card-1"]')?.classList).toContain('dragging');
     expect(fixture.nativeElement.querySelector('[data-card-instance-id="card-2"]')?.classList).toContain('dragging');
     expect(fixture.nativeElement.querySelector('.hand-drag-count-badge')?.textContent?.trim()).toBe('2');
+  });
+
+  it('shows the empty hand drop target while dragging the last visible hand card', async () => {
+    const { fixture } = await renderHandPanel({
+      hand: [{ instanceId: 'card-1', name: 'Arcane Signet', tapped: false }],
+    });
+    const draggedCard = fixture.componentInstance.player().state.zones.hand[0]!;
+    const sourceElement = fixture.nativeElement.querySelector('[data-card-instance-id="card-1"]') as HTMLElement;
+
+    fixture.componentInstance.startHandPointerDrag(pointerEvent({ currentTarget: sourceElement, pointerId: 1, clientX: 20, clientY: 80 }), 'player-1', draggedCard);
+    fixture.componentInstance.moveHandPointerDrag(pointerEvent({ pointerId: 1, clientX: 20, clientY: 40 }));
+    fixture.detectChanges();
+
+    const emptyTarget = fixture.nativeElement.querySelector('[data-testid="empty-hand-drop-target"]') as HTMLElement;
+
+    expect(emptyTarget).not.toBeNull();
+    expect(emptyTarget.getAttribute('data-game-drop-zone')).toBe('hand');
+    expect(getComputedStyle(emptyTarget).pointerEvents).toBe('auto');
+    expect(emptyTarget.classList).not.toContain('drop-target-active');
+    expect(fixture.nativeElement.querySelector('.hand-fan')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.hand-floating-card')?.textContent).toContain('Arcane Signet');
+  });
+
+  it('activates the empty hand drop target when the last dragged hand card returns over the hand', async () => {
+    const { fixture } = await renderHandPanel({
+      hand: [{ instanceId: 'card-1', name: 'Arcane Signet', tapped: false }],
+    });
+    const draggedCard = fixture.componentInstance.player().state.zones.hand[0]!;
+    const sourceElement = fixture.nativeElement.querySelector('[data-card-instance-id="card-1"]') as HTMLElement;
+    const handTarget = document.createElement('div');
+    handTarget.dataset['gameDropZone'] = 'hand';
+    handTarget.dataset['zone'] = 'hand';
+    handTarget.dataset['playerId'] = 'player-1';
+    const originalElementsFromPoint = document.elementsFromPoint;
+
+    Object.defineProperty(document, 'elementsFromPoint', {
+      configurable: true,
+      value: vi.fn()
+        .mockReturnValueOnce([])
+        .mockReturnValueOnce([])
+        .mockReturnValue([handTarget]),
+    });
+
+    fixture.componentInstance.startHandPointerDrag(pointerEvent({ currentTarget: sourceElement, pointerId: 1, clientX: 20, clientY: 80 }), 'player-1', draggedCard);
+    fixture.componentInstance.moveHandPointerDrag(pointerEvent({ pointerId: 1, clientX: 20, clientY: 40 }));
+    fixture.detectChanges();
+
+    let emptyTarget = fixture.nativeElement.querySelector('[data-testid="empty-hand-drop-target"]') as HTMLElement;
+    expect(emptyTarget).not.toBeNull();
+    expect(emptyTarget.classList).not.toContain('drop-target-active');
+
+    fixture.componentInstance.moveHandPointerDrag(pointerEvent({ pointerId: 1, clientX: 20, clientY: 90 }));
+    fixture.detectChanges();
+
+    emptyTarget = fixture.nativeElement.querySelector('[data-testid="empty-hand-drop-target"]') as HTMLElement;
+    expect(emptyTarget).not.toBeNull();
+    expect(emptyTarget.classList).toContain('drop-target-active');
+
+    fixture.componentInstance.endHandPointerDrag(pointerEvent({ pointerId: 1, clientX: 20, clientY: 90 }));
+    fixture.detectChanges();
+
+    emptyTarget = fixture.nativeElement.querySelector('[data-testid="empty-hand-drop-target"]') as HTMLElement;
+    expect(emptyTarget).toBeNull();
+
+    Object.defineProperty(document, 'elementsFromPoint', {
+      configurable: true,
+      value: originalElementsFromPoint,
+    });
+  });
+
+  it('clears the active empty hand drop target when the last-card drag is cancelled', async () => {
+    const { fixture } = await renderHandPanel({
+      hand: [{ instanceId: 'card-1', name: 'Arcane Signet', tapped: false }],
+    });
+    const draggedCard = fixture.componentInstance.player().state.zones.hand[0]!;
+    const sourceElement = fixture.nativeElement.querySelector('[data-card-instance-id="card-1"]') as HTMLElement;
+    const handTarget = document.createElement('div');
+    handTarget.dataset['gameDropZone'] = 'hand';
+    handTarget.dataset['zone'] = 'hand';
+    handTarget.dataset['playerId'] = 'player-1';
+    const originalElementsFromPoint = document.elementsFromPoint;
+
+    Object.defineProperty(document, 'elementsFromPoint', {
+      configurable: true,
+      value: vi.fn(() => [handTarget]),
+    });
+
+    fixture.componentInstance.startHandPointerDrag(pointerEvent({ currentTarget: sourceElement, pointerId: 1, clientX: 20, clientY: 80 }), 'player-1', draggedCard);
+    fixture.componentInstance.moveHandPointerDrag(pointerEvent({ pointerId: 1, clientX: 50, clientY: 82 }));
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('[data-testid="empty-hand-drop-target"]')?.classList)
+      .toContain('drop-target-active');
+
+    fixture.componentInstance.cancelHandPointerDrag(pointerEvent({ pointerId: 1, clientX: 50, clientY: 82 }));
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('[data-testid="empty-hand-drop-target"]')).toBeNull();
+
+    Object.defineProperty(document, 'elementsFromPoint', {
+      configurable: true,
+      value: originalElementsFromPoint,
+    });
   });
 
   it('starts card drag when pointerdown starts on a hand card', async () => {

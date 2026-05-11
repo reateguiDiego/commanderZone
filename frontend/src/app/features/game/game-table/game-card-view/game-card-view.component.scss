@@ -80,6 +80,11 @@
     0 0.18rem 0 rgb(255 255 255 / 8%) inset;
 }
 
+.game-card.dragging {
+  opacity: 0;
+  pointer-events: none;
+}
+
 .game-card.alignment-reference {
   z-index: 70;
   overflow: visible;

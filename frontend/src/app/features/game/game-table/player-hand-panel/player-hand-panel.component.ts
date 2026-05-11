@@ -54,12 +54,14 @@ interface HandPointerDrag {
   y: number;
   mode: HandPointerDragMode;
   preview: HandPointerDropPreview | null;
+  overOwnHand: boolean;
 }
 
 interface ResolvedHandPointerDrag {
   mode: Exclude<HandPointerDragMode, 'pending'>;
   preview: HandPointerDropPreview | null;
   target: PointerDropTarget | null;
+  overOwnHand: boolean;
 }
 
 @Component({
@@ -159,6 +161,7 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
       x: event.clientX - drag.offsetX,
       y: event.clientY - drag.offsetY,
       preview: visiblePreview,
+      overOwnHand: resolved.overOwnHand,
     });
   }
 
@@ -282,6 +285,7 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
       y: event.clientY - offsetY,
       mode: 'pending',
       preview: null,
+      overOwnHand: false,
     });
   }
 
@@ -308,6 +312,22 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
     const drag = this.pointerDrag();
 
     return Boolean(drag && drag.mode !== 'pending');
+  }
+
+  shouldRenderEmptyHandDropTarget(): boolean {
+    const hand = this.player().state.zones.hand;
+    if (hand.length === 0) {
+      return true;
+    }
+
+    return hand.length === 1 && this.isPointerDragActive() && this.isDraggingHandCard(hand[0]!);
+  }
+
+  isEmptyHandDropTargetActive(): boolean {
+    const handPlayer = this.player();
+    const drag = this.pointerDrag();
+
+    return this.isDropZoneHighlighted()(handPlayer.id, 'hand') || Boolean(drag && drag.mode !== 'pending' && drag.overOwnHand);
   }
 
   isDraggingHandCard(card: GameCardInstance): boolean {
@@ -503,18 +523,20 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
       offsetY: drag.offsetY,
     });
     if (target) {
-      return { mode: 'transfer', target: { ...target, draggedInstanceId: drag.card.instanceId }, preview: null };
+      return { mode: 'transfer', target: { ...target, draggedInstanceId: drag.card.instanceId }, preview: null, overOwnHand: false };
     }
 
-    if (this.pointerDragService.isHandTargetAt(event, drag.playerId) || drag.mode === 'pending' && intendedMode === 'reorder') {
+    const overOwnHand = this.pointerDragService.isHandTargetAt(event, drag.playerId);
+    if (overOwnHand || drag.mode === 'pending' && intendedMode === 'reorder') {
       return {
         mode: 'reorder',
         target: null,
         preview: this.dropPreviewAt(event.clientX, drag),
+        overOwnHand,
       };
     }
 
-    return { mode: 'transfer', target: null, preview: null };
+    return { mode: 'transfer', target: null, preview: null, overOwnHand: false };
   }
 
   private nextPointerDragMode(deltaX: number, deltaY: number): HandPointerDragMode {
