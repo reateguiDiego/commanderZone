@@ -19,6 +19,7 @@ interface DragPayload {
   playerId: string;
   zone: GameZoneName;
   instanceId: string;
+  instanceIds: string[];
 }
 
 interface PointerDragResult {
@@ -157,8 +158,14 @@ export class GameTableDragService {
     return true;
   }
 
-  dragStart(event: DragEvent, playerId: string, zone: GameZoneName, card: GameCardInstance): void {
-    event.dataTransfer?.setData('application/json', JSON.stringify({ playerId, zone, instanceId: card.instanceId }));
+  dragStart(event: DragEvent, playerId: string, zone: GameZoneName, card: GameCardInstance, instanceIds: readonly string[] = [card.instanceId]): void {
+    const uniqueInstanceIds = [...new Set(instanceIds.length > 0 ? instanceIds : [card.instanceId])];
+    event.dataTransfer?.setData('application/json', JSON.stringify({
+      playerId,
+      zone,
+      instanceId: card.instanceId,
+      instanceIds: uniqueInstanceIds,
+    }));
     event.dataTransfer?.setData('text/plain', card.instanceId);
     if (event.dataTransfer) {
       event.dataTransfer.effectAllowed = 'move';
@@ -180,12 +187,21 @@ export class GameTableDragService {
     }
 
     try {
-      const payload = JSON.parse(raw) as { playerId?: string; zone?: string; instanceId?: string };
+      const payload = JSON.parse(raw) as { playerId?: string; zone?: string; instanceId?: string; instanceIds?: unknown };
       if (!payload.playerId || !payload.instanceId || !zones.includes(payload.zone as GameZoneName)) {
         return null;
       }
 
-      return { playerId: payload.playerId, zone: payload.zone as GameZoneName, instanceId: payload.instanceId };
+      const instanceIds = Array.isArray(payload.instanceIds)
+        ? payload.instanceIds.filter((instanceId): instanceId is string => typeof instanceId === 'string' && instanceId !== '')
+        : [];
+
+      return {
+        playerId: payload.playerId,
+        zone: payload.zone as GameZoneName,
+        instanceId: payload.instanceId,
+        instanceIds: instanceIds.length > 0 ? [...new Set(instanceIds)] : [payload.instanceId],
+      };
     } catch {
       return null;
     }
@@ -231,12 +247,49 @@ export class GameTableDragService {
   ): { x: number; y: number } {
     const bounds = battlefield.getBoundingClientRect();
     const target = eventTarget instanceof Element ? eventTarget : null;
-    const manaLane = target?.closest<HTMLElement>('[data-mana-lane]');
+    const explicitManaLane = target?.closest<HTMLElement>('[data-mana-lane]');
+    const manaLane = explicitManaLane
+      ?? this.manaLaneForPointerOrCard(battlefield, clientX, clientY, offsetX, offsetY, cardWidth, cardHeight);
     const manaLaneBounds = manaLane?.getBoundingClientRect();
     const rawY = manaLaneBounds ? Math.round(manaLaneBounds.top - bounds.top + 8) : Math.round(clientY - bounds.top - offsetY);
     const availableHeight = manaLaneBounds ? Math.round(manaLaneBounds.bottom - bounds.top - 8) : bounds.height;
 
     return this.clampPosition(Math.round(clientX - bounds.left - offsetX), rawY, bounds.width, availableHeight, cardWidth, cardHeight);
+  }
+
+  private manaLaneForPointerOrCard(
+    battlefield: HTMLElement,
+    clientX: number,
+    clientY: number,
+    offsetX: number,
+    offsetY: number,
+    cardWidth: number,
+    cardHeight: number,
+  ): HTMLElement | null {
+    const manaLane = battlefield.querySelector<HTMLElement>('[data-mana-lane]');
+    if (!manaLane) {
+      return null;
+    }
+
+    const bounds = manaLane.getBoundingClientRect();
+    const pointerInsideLane = clientX >= bounds.left
+      && clientX <= bounds.right
+      && clientY >= bounds.top
+      && clientY <= bounds.bottom + 16;
+    if (pointerInsideLane) {
+      return manaLane;
+    }
+
+    const cardBounds = {
+      left: clientX - offsetX,
+      right: clientX - offsetX + cardWidth,
+      top: clientY - offsetY,
+      bottom: clientY - offsetY + cardHeight,
+    };
+    const horizontalOverlap = cardBounds.right >= bounds.left && cardBounds.left <= bounds.right;
+    const verticalOverlap = Math.min(cardBounds.bottom, bounds.bottom) - Math.max(cardBounds.top, bounds.top);
+
+    return horizontalOverlap && verticalOverlap >= 12 ? manaLane : null;
   }
 
   private pointerDragPosition(

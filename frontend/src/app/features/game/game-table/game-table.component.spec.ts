@@ -52,6 +52,37 @@ describe('GameTableComponent', () => {
     expect(fixture.componentInstance.store.error()).toBe('Missing game id.');
   });
 
+  it('dismisses table errors after showing the toast', async () => {
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.componentInstance.store.loading.set(false);
+    fixture.componentInstance.store.snapshot.set(snapshotWithStatus('active'));
+    fixture.componentInstance.store.error.set(null);
+    fixture.detectChanges();
+
+    vi.useFakeTimers();
+    try {
+      fixture.componentInstance.store.error.set('Could not apply game action.');
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelector('.table-error')?.textContent).toContain('Could not apply game action.');
+
+      vi.advanceTimersByTime(2999);
+      fixture.detectChanges();
+      expect(fixture.componentInstance.store.error()).toBe('Could not apply game action.');
+
+      vi.advanceTimersByTime(1);
+      fixture.detectChanges();
+
+      expect(fixture.componentInstance.store.error()).toBeNull();
+      expect(fixture.nativeElement.querySelector('.table-error')).toBeNull();
+    } finally {
+      vi.useRealTimers();
+      fixture.destroy();
+    }
+  });
+
   it('concedes through a dedicated game command even if another action is pending', async () => {
     routeParams['id'] = 'game-1';
     authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
@@ -160,7 +191,7 @@ describe('GameTableComponent', () => {
     expect(fixture.componentInstance.store.zoneModal()?.selectedCard).toBe(libraryCard);
   });
 
-  it('can drag the top card from a visual zone stack', async () => {
+  it('does not allow dragging cards out of the library pile', async () => {
     routeParams['id'] = 'game-1';
     authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
     gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot: snapshotWithStatus('active') } }));
@@ -178,12 +209,9 @@ describe('GameTableComponent', () => {
 
     fixture.componentInstance.store.dragTopZoneCard(event, player, 'library');
 
-    expect(setData).toHaveBeenCalledWith('application/json', JSON.stringify({
-      playerId: 'user-1',
-      zone: 'library',
-      instanceId: 'library-card',
-    }));
-    expect(fixture.componentInstance.store.draggingCardInstanceId()).toBe('library-card');
+    expect(setData).not.toHaveBeenCalled();
+    expect(event.preventDefault).toHaveBeenCalledOnce();
+    expect(fixture.componentInstance.store.draggingCardInstanceId()).toBeNull();
   });
 
   it('defers remote refetch snapshots while pointer drag is active and applies them after drag ends', async () => {
@@ -340,6 +368,53 @@ describe('GameTableComponent', () => {
         instanceId: 'card-1',
         key: '+1/+1',
         delta: -2,
+      },
+    }), 'game-1');
+  });
+
+  it('draws the requested number of top library cards from the library menu', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+    gamesApi.command.mockReturnValue(of({
+      event: { id: 'event-draw', type: 'library.draw', payload: {}, createdBy: 'user-1', createdAt: '' },
+      snapshot,
+    }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.handleContextMenuAction({ type: 'drawPrompt' }, {
+      x: 0,
+      y: 0,
+      playerId: 'user-1',
+      zone: 'library',
+      kind: 'zone',
+    });
+    fixture.componentInstance.confirmNumberAction(3);
+
+    await vi.waitFor(() => expect(gamesApi.command).toHaveBeenCalledTimes(3));
+    expect(gamesApi.command).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      type: 'library.draw',
+      payload: {
+        playerId: 'user-1',
+        count: 1,
+      },
+    }), 'game-1');
+    expect(gamesApi.command).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      type: 'library.draw',
+      payload: {
+        playerId: 'user-1',
+        count: 1,
+      },
+    }), 'game-1');
+    expect(gamesApi.command).toHaveBeenNthCalledWith(3, expect.objectContaining({
+      type: 'library.draw',
+      payload: {
+        playerId: 'user-1',
+        count: 1,
       },
     }), 'game-1');
   });
@@ -535,6 +610,20 @@ describe('GameTableChatLogState', () => {
     expect(state.eventLog(snapshot).map((entry) => entry.message)).toEqual([
       'User lost 2 life (40 -> 38).',
       'Set User life to 39.',
+    ]);
+  });
+
+  it('compacts commander return and cast count into one log entry', () => {
+    const state = new GameTableChatLogState();
+    const snapshot = snapshotWithStatus('active');
+    snapshot.eventLog = [
+      gameLogEntry('event-1', 'card.moved', 'Moved Sméagol, Helpful Guide from battlefield to command.'),
+      gameLogEntry('event-2', 'card.moved', 'Moved Sméagol, Helpful Guide from command to battlefield.'),
+      gameLogEntry('event-3', 'counter.changed', 'Set commander:user-1 counter casts to 2.'),
+    ];
+
+    expect(state.eventLog(snapshot).map((entry) => entry.message)).toEqual([
+      'Moved Sméagol, Helpful Guide from battlefield to command. Commander cast count increased from 1 to 2.',
     ]);
   });
 });

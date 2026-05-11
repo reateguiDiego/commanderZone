@@ -1,8 +1,7 @@
-import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, inject, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
 import { GameCardInstance, GameZoneName } from '../../../../core/models/game.model';
-import { BodyScrollLockService } from '../../../../shared/services/body-scroll-lock.service';
 import { PrettyScrollDirective } from '../../../../shared/ui/pretty-scroll/pretty-scroll.directive';
 import { ZoneModalState } from '../state/game-table-zone-modal.state';
 
@@ -13,9 +12,7 @@ import { ZoneModalState } from '../state/game-table-zone-modal.state';
   styleUrl: './zone-modal.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class ZoneModalComponent implements OnInit, OnDestroy {
-  private readonly bodyScrollLock = inject(BodyScrollLockService);
-
+export class ZoneModalComponent {
   readonly modal = input.required<ZoneModalState>();
   readonly cardImage = input.required<(card: GameCardInstance) => string | null>();
   readonly canUseHiddenZone = input.required<(playerId: string, zone: GameZoneName) => boolean>();
@@ -25,14 +22,6 @@ export class ZoneModalComponent implements OnInit, OnDestroy {
   readonly cardSelected = output<GameCardInstance>();
   readonly cardMoved = output<{ card: GameCardInstance; zone: GameZoneName }>();
   readonly cardRevealed = output<GameCardInstance>();
-
-  ngOnInit(): void {
-    this.bodyScrollLock.lock();
-  }
-
-  ngOnDestroy(): void {
-    this.bodyScrollLock.unlock();
-  }
 
   stopClick(event: MouseEvent): void {
     event.stopPropagation();

@@ -10,6 +10,7 @@ export interface HandDropPreview {
 export interface AlignmentGuide {
   playerId: string;
   y: number;
+  referenceInstanceIds: readonly string[];
 }
 
 export interface ActiveDropTarget {
@@ -21,6 +22,7 @@ export interface PointerDragPreview {
   card: GameCardInstance;
   x: number;
   y: number;
+  count: number;
 }
 
 @Injectable()
@@ -82,8 +84,10 @@ export class GameTableBattlefieldDragState {
 
   clearDropTargets(): void {
     this.manaLaneDropPlayerId.set(null);
+    this.alignmentGuide.set(null);
     this.activePlayerDropTarget.set(null);
     this.activeDropTarget.set(null);
+    this.clearHandDropPreview();
   }
 
   isManaLaneHighlighted(playerId: string): boolean {

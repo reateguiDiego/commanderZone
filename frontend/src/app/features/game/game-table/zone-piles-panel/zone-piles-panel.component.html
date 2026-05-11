@@ -18,6 +18,7 @@
       (dragover)="zoneDragOver.emit($event)"
       (drop)="zoneDropped.emit({ event: $event, playerId: currentPlayer.id, zone })"
       (click)="openZone(zone)"
+      (dblclick)="doubleClickZone($event, zone)"
       (contextmenu)="zoneMenuOpened.emit({ event: $event, playerId: currentPlayer.id, zone })"
     >
       <span data-testid="zone-pile" [attr.data-player-id]="currentPlayer.id" [attr.data-zone]="zone">

@@ -24,10 +24,6 @@ export class GameTableSnapshotSelectors {
     return players.find((player) => player.state.user.id === userId) ?? null;
   }
 
-  handPlayer(currentPlayer: PlayerView | null, focusedPlayer: PlayerView | null): PlayerView | null {
-    return currentPlayer ?? focusedPlayer;
-  }
-
   isGameOwner(snapshot: GameSnapshot | null, currentPlayer: PlayerView | null): boolean {
     return snapshot?.ownerId === currentPlayer?.id;
   }
@@ -154,6 +150,10 @@ export class GameTableSnapshotSelectors {
   topDraggableCard(player: PlayerView, zone: GameZoneName, canControlPlayer: boolean): GameCardInstance | null {
     if (!canControlPlayer || zone === 'hand' || zone === 'battlefield') {
       return null;
+    }
+
+    if (zone === 'library') {
+      return player.state.zones.library?.[0] ?? null;
     }
 
     return player.state.zones[zone]?.at(-1) ?? null;

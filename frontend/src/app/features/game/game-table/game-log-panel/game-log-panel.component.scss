@@ -14,25 +14,7 @@
   min-height: 0;
   overflow: auto;
   padding: 0.6rem;
-  scrollbar-color: transparent transparent;
   scrollbar-gutter: stable;
-  scrollbar-width: thin;
-}
-
-:host-context(.floating-panel:hover) .panel-feed {
-  scrollbar-color: #8f876f transparent;
-}
-
-.panel-feed::-webkit-scrollbar {
-  width: 0.5rem;
-}
-
-.panel-feed::-webkit-scrollbar-thumb {
-  background: transparent;
-}
-
-:host-context(.floating-panel:hover) .panel-feed::-webkit-scrollbar-thumb {
-  background: #8f876f;
 }
 
 .panel-feed p {

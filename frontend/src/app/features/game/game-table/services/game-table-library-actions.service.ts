@@ -19,7 +19,10 @@ export class GameTableLibraryActionsService {
       return;
     }
 
-    await context.command(count === 1 ? 'library.draw' : 'library.draw_many', { playerId, count });
+    const sanitizedCount = this.sanitizeCount(count);
+    for (let index = 0; index < sanitizedCount; index += 1) {
+      await context.command('library.draw', { playerId, count: 1 });
+    }
   }
 
   async drawCurrent(context: GameTableLibraryActionContext, count = 1): Promise<void> {

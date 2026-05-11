@@ -41,6 +41,21 @@ describe('AppModalComponent', () => {
     scrollToSpy.mockRestore();
   });
 
+  it('can open without locking body scroll', () => {
+    const fixture = TestBed.createComponent(AppModalComponent);
+    document.documentElement.style.overflow = '';
+    document.body.style.overflow = '';
+    document.body.style.position = '';
+
+    fixture.componentRef.setInput('lockBodyScroll', false);
+    fixture.componentRef.setInput('open', true);
+    fixture.detectChanges();
+
+    expect(document.documentElement.style.overflow).toBe('');
+    expect(document.body.style.overflow).toBe('');
+    expect(document.body.style.position).toBe('');
+  });
+
   it('emits back when the optional header back button is clicked', () => {
     const fixture = TestBed.createComponent(AppModalComponent);
     const emitted = vi.fn();
@@ -68,5 +83,34 @@ describe('AppModalComponent', () => {
     fixture.nativeElement.querySelector('.modal-header-action').click();
 
     expect(emitted).toHaveBeenCalledOnce();
+  });
+
+  it('supports a split footer with tertiary cancel and primary secondary action', () => {
+    const fixture = TestBed.createComponent(AppModalComponent);
+    const tertiary = vi.fn();
+    const secondary = vi.fn();
+    fixture.componentRef.setInput('open', true);
+    fixture.componentRef.setInput('showTertiary', true);
+    fixture.componentRef.setInput('tertiaryLabel', 'Cancel');
+    fixture.componentRef.setInput('secondaryLabel', 'Bottom');
+    fixture.componentRef.setInput('secondaryVariant', 'primary');
+    fixture.componentRef.setInput('primaryLabel', 'Top');
+    fixture.componentRef.setInput('footerLayout', 'split');
+    fixture.componentInstance.tertiary.subscribe(tertiary);
+    fixture.componentInstance.secondary.subscribe(secondary);
+    fixture.detectChanges();
+
+    const footer = fixture.nativeElement.querySelector('footer');
+    const buttons = fixture.nativeElement.querySelectorAll('footer button');
+    buttons[0].click();
+    buttons[1].click();
+
+    expect(footer.classList).toContain('split-actions');
+    expect(buttons[0].textContent.trim()).toBe('Cancel');
+    expect(buttons[1].textContent.trim()).toBe('Bottom');
+    expect(buttons[1].classList).toContain('primary-button');
+    expect(buttons[2].textContent.trim()).toBe('Top');
+    expect(tertiary).toHaveBeenCalledOnce();
+    expect(secondary).toHaveBeenCalledOnce();
   });
 });

@@ -106,6 +106,8 @@ class GameProjectionService
             ];
         }
 
+        unset($card['basePower'], $card['baseToughness']);
+
         return $card;
     }
 

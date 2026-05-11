@@ -38,6 +38,21 @@
   user-select: none;
 }
 
+.card-visual {
+  position: relative;
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+  overflow: hidden;
+  border-radius: inherit;
+  transform-origin: 50% 100%;
+  transition:
+    border-color 140ms ease,
+    box-shadow 140ms ease,
+    transform 140ms ease;
+}
+
 .game-card.tapped {
   transform: rotate(90deg) scale(0.96);
 }
@@ -46,39 +61,148 @@
   position: absolute;
 }
 
-.mini-card.selected,
-.game-card.selected {
+.mini-card.selected:not(.hand-card) {
   z-index: 90;
   outline: 5px solid #fd5;
   outline-offset: -5px;
 }
 
 .game-card.selected {
-  z-index: 80;
+  z-index: 90;
+}
+
+.game-card.selected .card-visual {
+  border-color: rgb(255 230 156 / 64%);
+  outline: 5px solid #fd5;
+  outline-offset: -5px;
+  box-shadow:
+    0 0.95rem 1.6rem rgb(0 0 0 / 36%),
+    0 0.18rem 0 rgb(255 255 255 / 8%) inset;
+}
+
+.game-card.alignment-reference {
+  z-index: 70;
+  overflow: visible;
+}
+
+.game-card.alignment-reference .card-visual {
+  z-index: 1;
+  border-color: rgb(255 220 106 / 72%);
+  outline: 4px solid rgb(255 220 106 / 58%);
+  outline-offset: -4px;
+  box-shadow: 0 0 0 2px rgb(255 220 106 / 40%), 0 0 1.1rem rgb(245 180 20 / 28%);
+}
+
+.game-card.alignment-reference::after {
+  content: '';
+  position: absolute;
+  inset: -0.36rem;
+  z-index: 2;
+  border: 1px solid rgb(255 220 106 / 54%);
+  border-radius: 10px;
+  pointer-events: none;
+}
+
+.hand-card.alignment-reference {
+  z-index: calc(120 + var(--hand-depth, 0));
+}
+
+.hand-card.alignment-reference .card-visual {
+  border-color: rgb(255 220 106 / 72%);
+  outline: 4px solid rgb(255 220 106 / 58%);
+  outline-offset: -4px;
+  box-shadow:
+    0 0.9rem 1.5rem rgb(0 0 0 / 34%),
+    0 0 0 2px rgb(255 220 106 / 40%),
+    0 0 1.1rem rgb(245 180 20 / 28%);
 }
 
 .hand-card {
-  margin-left: 0.35rem;
+  z-index: calc(20 + var(--hand-depth, 0));
+  overflow: visible;
+  margin-right: -2.55rem;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  pointer-events: auto;
+  transform:
+    translateX(var(--hand-shift-x, 0px))
+    translateY(calc(var(--hand-reveal-offset, 0rem) + var(--hand-shift-y, 0px)))
+    translateZ(0);
+  transform-origin: 50% 100%;
+  transition:
+    margin 220ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    transform 420ms cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform;
 }
 
-.hand-card:hover,
+.hand-card .card-visual {
+  border: 1px solid rgb(238 211 139 / 34%);
+  background:
+    linear-gradient(145deg, rgb(52 58 45 / 88%), rgb(10 12 9 / 94%));
+  box-shadow:
+    0 0.9rem 1.5rem rgb(0 0 0 / 34%),
+    0 0.18rem 0 rgb(255 255 255 / 5%) inset,
+    0 0 0 1px rgb(0 0 0 / 42%);
+}
+
+.hand-card:last-child {
+  margin-right: 0;
+}
+
+.hand-card.hover-lifted,
 .hand-card.selected {
   z-index: 90;
-  transform: translateY(0) scale(1.06);
 }
 
-.hand-card.hand-drop-before {
-  margin-left: 1.1rem;
+.hand-card.selected .card-visual {
+  border-color: rgb(255 230 156 / 64%);
+  outline: 5px solid #fd5;
+  outline-offset: -5px;
+  box-shadow:
+    0 0.95rem 1.6rem rgb(0 0 0 / 36%),
+    0 0.18rem 0 rgb(255 255 255 / 8%) inset;
 }
 
-.hand-card.hand-drop-after {
-  margin-right: 2.55rem;
+.hand-card.hover-lifted .card-visual {
+  border-color: rgb(255 230 156 / 70%);
+  box-shadow:
+    0 1.3rem 1.9rem rgb(0 0 0 / 38%),
+    0 0 0 2px rgb(255 230 156 / 18%),
+    0 0.18rem 0 rgb(255 255 255 / 8%) inset;
+  transform: translateY(-1.35rem) scale(1.08);
+}
+
+.hand-card.hand-settling {
+  z-index: calc(120 + var(--hand-depth, 0));
+}
+
+.hand-card.hand-settling .card-visual {
+  animation: hand-card-settle 460ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .hand-card.dragging {
   z-index: 140;
+  opacity: 0;
   pointer-events: none;
-  box-shadow: inset 0 0 0 2px #f5b414;
+  transition: opacity 100ms ease;
+}
+
+@keyframes hand-card-settle {
+  0% {
+    filter: brightness(1.08) saturate(1.06);
+    transform: translateY(-0.26rem) scale(1.025);
+  }
+
+  56% {
+    filter: brightness(1.04) saturate(1.03);
+    transform: translateY(-0.1rem) scale(1.012);
+  }
+
+  100% {
+    filter: none;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .stat-overlay,
@@ -158,5 +282,13 @@
 @media (max-width: 1260px) {
   .game-card {
     width: 6.4rem;
+  }
+
+  .mini-card {
+    width: 5.85rem;
+  }
+
+  .hand-card {
+    margin-right: -2.28rem;
   }
 }

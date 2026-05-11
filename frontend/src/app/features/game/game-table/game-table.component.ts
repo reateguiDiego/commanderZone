@@ -13,6 +13,7 @@ import { GameTableDropActionsService } from './services/game-table-drop-actions.
 import { GameTableInteractionActionsService } from './services/game-table-interaction-actions.service';
 import { GameTableLibraryActionsService } from './services/game-table-library-actions.service';
 import { GameTablePointerDragActionsService } from './services/game-table-pointer-drag-actions.service';
+import { GameTablePointerDragService } from './services/game-table-pointer-drag.service';
 import { GameTableRealtimeService } from './services/game-table-realtime.service';
 import { GameTableSelectionService } from './services/game-table-selection.service';
 import { GameTableSessionService } from './services/game-table-session.service';
@@ -109,6 +110,7 @@ interface PowerToughnessActionRequest {
     GameTableDropActionsService,
     GameTableInteractionActionsService,
     GameTablePointerDragActionsService,
+    GameTablePointerDragService,
     GameTableLibraryActionsService,
     GameTableTurnActionsService,
     GameTableZoneActionsService,
@@ -154,7 +156,8 @@ export class GameTableComponent implements AfterViewChecked {
   readonly cardPowerValue = (card: GameCardInstance): number => this.store.cardPowerValue(card);
   readonly cardToughnessValue = (card: GameCardInstance): number => this.store.cardToughnessValue(card);
   readonly firstCounter = (card: GameCardInstance): { key: string; value: number } | null => this.store.firstCounter(card);
-  readonly alignmentGuideFor = (playerId: string): { y: number } | null => this.store.alignmentGuideFor(playerId);
+  readonly alignmentGuideFor = (playerId: string): { y: number; referenceInstanceIds: readonly string[] } | null =>
+    this.store.alignmentGuideFor(playerId);
   readonly isManaLaneHighlighted = (playerId: string): boolean => this.store.isManaLaneHighlighted(playerId);
   readonly canControlPlayer = (playerId: string): boolean => this.store.canControlPlayer(playerId);
   readonly canUseHiddenZone = (playerId: string, zone: GameZoneName): boolean => this.store.canUseHiddenZone(playerId, zone);
@@ -416,6 +419,12 @@ export class GameTableComponent implements AfterViewChecked {
       case 'counter':
         void this.store.changeCardCounter(request.menu, request.counter, value);
         return;
+    }
+  }
+
+  onZoneDoubleClick(playerId: string, zone: GameZoneName): void {
+    if (zone === 'library') {
+      void this.store.draw(playerId);
     }
   }
 

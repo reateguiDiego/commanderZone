@@ -12,7 +12,7 @@
   gap: 0.75rem;
   min-height: 0;
   overflow: visible;
-  padding: 0.55rem 0.55rem 11.95rem;
+  padding: 0.55rem 0.55rem 2.15rem;
   border: 1px solid rgb(238 211 139 / 10%);
   border-radius: 8px;
   background: rgb(5 9 10 / 46%);
@@ -27,6 +27,7 @@
   inset-inline: 0.55rem;
   z-index: 1;
   border-top: 1px dashed rgb(245 180 20 / 48%);
+  filter: drop-shadow(0 0 0.4rem rgb(245 180 20 / 36%));
   pointer-events: none;
 }
 

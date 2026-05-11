@@ -119,6 +119,8 @@ class GameSnapshotFactory
             'colorIdentity' => $this->orderedColorIdentity($card->colorIdentity()),
             'power' => $this->numericCardStat($card->power()),
             'toughness' => $this->numericCardStat($card->toughness()),
+            'basePower' => $this->numericCardStat($card->power()),
+            'baseToughness' => $this->numericCardStat($card->toughness()),
             'loyalty' => null,
             'tapped' => false,
             'faceDown' => false,

@@ -62,6 +62,10 @@ class GameCommandHandler
         'stack.card_added',
     ];
 
+    public function __construct(private readonly ?GameCardBaseStatsResolver $baseStatsResolver = null)
+    {
+    }
+
     /**
      * @return list<string>
      */
@@ -148,7 +152,8 @@ class GameCommandHandler
         }
 
         foreach ($snapshot['players'] as $playerId => &$player) {
-            $player['status'] = in_array($player['status'] ?? 'active', ['active', 'conceded'], true) ? $player['status'] : 'active';
+            $status = $player['status'] ?? 'active';
+            $player['status'] = in_array($status, ['active', 'conceded'], true) ? $status : 'active';
             $player['concededAt'] ??= null;
             $player['colorIdentity'] = $this->orderedColorIdentity(is_array($player['colorIdentity'] ?? null) ? $player['colorIdentity'] : []);
             $player['counters'] ??= [];
@@ -176,6 +181,10 @@ class GameCommandHandler
 
     private function normalizeCard(array $card, string $ownerId, string $zone): array
     {
+        $power = $card['power'] ?? null;
+        $toughness = $card['toughness'] ?? null;
+        $baseStats = $this->baseStats($card, $power, $toughness);
+
         return [
             'instanceId' => (string) ($card['instanceId'] ?? Uuid::v7()->toRfc4122()),
             'ownerId' => (string) ($card['ownerId'] ?? $ownerId),
@@ -188,8 +197,10 @@ class GameCommandHandler
             'manaCost' => $card['manaCost'] ?? null,
             'oracleText' => $card['oracleText'] ?? null,
             'colorIdentity' => $this->orderedColorIdentity(is_array($card['colorIdentity'] ?? null) ? $card['colorIdentity'] : []),
-            'power' => $card['power'] ?? null,
-            'toughness' => $card['toughness'] ?? null,
+            'power' => $power,
+            'toughness' => $toughness,
+            'basePower' => $baseStats['power'],
+            'baseToughness' => $baseStats['toughness'],
             'loyalty' => $card['loyalty'] ?? null,
             'tapped' => (bool) ($card['tapped'] ?? false),
             'faceDown' => (bool) ($card['faceDown'] ?? false),
@@ -348,11 +359,22 @@ class GameCommandHandler
             throw new \InvalidArgumentException('instanceId is required.');
         }
 
-        $card = $this->takeCard($snapshot, $playerId, $fromZone, $instanceId);
         $targetPlayerId = isset($payload['targetPlayerId'])
             ? $this->requiredPlayerId($snapshot, $payload, 'targetPlayerId')
             : $playerId;
-        $this->putCard($snapshot, $targetPlayerId, $toZone, $card, $payload['position'] ?? 'top');
+        if ($targetPlayerId === $playerId && $fromZone === $toZone) {
+            return '';
+        }
+
+        $card = $this->takeCard($snapshot, $playerId, $fromZone, $instanceId);
+        $this->putCard(
+            $snapshot,
+            $targetPlayerId,
+            $toZone,
+            $card,
+            $payload['position'] ?? 'top',
+            $fromZone === 'battlefield' && $toZone === 'battlefield',
+        );
 
         return sprintf('Moved %s from %s to %s.', $card['name'], $fromZone, $toZone);
     }
@@ -366,6 +388,12 @@ class GameCommandHandler
         if (!is_array($instanceIds) || $instanceIds === []) {
             throw new \InvalidArgumentException('instanceIds are required.');
         }
+        $targetPlayerId = isset($payload['targetPlayerId'])
+            ? $this->requiredPlayerId($snapshot, $payload, 'targetPlayerId')
+            : $playerId;
+        if ($targetPlayerId === $playerId && $fromZone === $toZone) {
+            return '';
+        }
 
         $moved = 0;
         foreach ($instanceIds as $instanceId) {
@@ -373,7 +401,14 @@ class GameCommandHandler
                 continue;
             }
             $card = $this->takeCard($snapshot, $playerId, $fromZone, $instanceId);
-            $this->putCard($snapshot, $playerId, $toZone, $card, $payload['position'] ?? 'top');
+            $this->putCard(
+                $snapshot,
+                $targetPlayerId,
+                $toZone,
+                $card,
+                $payload['position'] ?? 'top',
+                $fromZone === 'battlefield' && $toZone === 'battlefield',
+            );
             ++$moved;
         }
 
@@ -544,10 +579,21 @@ class GameCommandHandler
         $playerId = $this->requiredPlayerId($snapshot, $payload);
         $fromZone = $this->requiredZone($payload, 'fromZone');
         $toZone = $this->requiredZone($payload, 'toZone');
+        if ($fromZone === $toZone) {
+            return '';
+        }
+
         $cards = $snapshot['players'][$playerId]['zones'][$fromZone];
         $snapshot['players'][$playerId]['zones'][$fromZone] = [];
         foreach ($cards as $card) {
-            $this->putCard($snapshot, $playerId, $toZone, $card, $payload['position'] ?? 'top');
+            $this->putCard(
+                $snapshot,
+                $playerId,
+                $toZone,
+                $card,
+                $payload['position'] ?? 'top',
+                $fromZone === 'battlefield' && $toZone === 'battlefield',
+            );
         }
 
         return sprintf('Moved all cards from %s to %s.', $fromZone, $toZone);
@@ -558,7 +604,7 @@ class GameCommandHandler
         $playerId = $this->requiredPlayerId($snapshot, $payload);
         $drawn = 0;
         for ($i = 0; $i < $count; ++$i) {
-            $card = array_pop($snapshot['players'][$playerId]['zones']['library']);
+            $card = $this->takeTopLibraryCard($snapshot, $playerId);
             if (!is_array($card)) {
                 break;
             }
@@ -584,7 +630,7 @@ class GameCommandHandler
         $count = $this->positiveInt($payload['count'] ?? 1, 1, 99);
         $moved = 0;
         for ($i = 0; $i < $count; ++$i) {
-            $card = array_pop($snapshot['players'][$playerId]['zones']['library']);
+            $card = $this->takeTopLibraryCard($snapshot, $playerId);
             if (!is_array($card)) {
                 break;
             }
@@ -603,11 +649,10 @@ class GameCommandHandler
         $library =& $snapshot['players'][$playerId]['zones']['library'];
         $revealed = 0;
         for ($i = 0; $i < $count; ++$i) {
-            $index = count($library) - 1 - $i;
-            if (!isset($library[$index])) {
+            if (!isset($library[$i])) {
                 break;
             }
-            $library[$index]['revealedTo'] = $targets;
+            $library[$i]['revealedTo'] = $targets;
             ++$revealed;
         }
 
@@ -629,13 +674,25 @@ class GameCommandHandler
     private function applyLibraryPlayTopRevealed(array &$snapshot, array $payload): string
     {
         $playerId = $this->requiredPlayerId($snapshot, $payload);
-        $card = array_pop($snapshot['players'][$playerId]['zones']['library']);
+        $card = $this->takeTopLibraryCard($snapshot, $playerId);
         if (!is_array($card)) {
             throw new \InvalidArgumentException('Library is empty.');
         }
         $this->putCard($snapshot, $playerId, 'battlefield', $card);
 
         return sprintf('Played %s from top of library.', $card['name']);
+    }
+
+    private function takeTopLibraryCard(array &$snapshot, string $playerId): ?array
+    {
+        $library =& $snapshot['players'][$playerId]['zones']['library'];
+        if ($library === []) {
+            return null;
+        }
+
+        $card = array_shift($library);
+
+        return is_array($card) ? $card : null;
     }
 
     private function applyStackCardAdded(array &$snapshot, array $payload): string
@@ -733,10 +790,20 @@ class GameCommandHandler
     /**
      * @param string|array<string,mixed> $position
      */
-    private function putCard(array &$snapshot, string $playerId, string $zone, array $card, string|array $position = 'top'): void
+    private function putCard(
+        array &$snapshot,
+        string $playerId,
+        string $zone,
+        array $card,
+        string|array $position = 'top',
+        bool $preserveBattlefieldPowerToughness = false,
+    ): void
     {
         $card = $this->normalizeCard($card, (string) ($card['ownerId'] ?? $playerId), $zone);
         $card['zone'] = $zone;
+        if ($zone !== 'battlefield' || !$preserveBattlefieldPowerToughness) {
+            $this->resetPowerToughness($card);
+        }
         if ($zone === 'battlefield' && is_array($position)) {
             $card['position'] = $this->normalizedPosition($position);
         } elseif ($zone !== 'battlefield') {
@@ -746,13 +813,44 @@ class GameCommandHandler
             $card['revealedTo'] = [];
         }
 
-        if ($zone === 'library' && $position === 'bottom') {
+        if ($zone === 'library' && $position === 'top') {
             array_unshift($snapshot['players'][$playerId]['zones'][$zone], $card);
 
             return;
         }
 
         $snapshot['players'][$playerId]['zones'][$zone][] = $card;
+    }
+
+    private function resetPowerToughness(array &$card): void
+    {
+        $card['power'] = $card['basePower'] ?? null;
+        $card['toughness'] = $card['baseToughness'] ?? null;
+    }
+
+    /**
+     * @param array<string,mixed> $card
+     *
+     * @return array{power:?int,toughness:?int}
+     */
+    private function baseStats(array $card, mixed $power, mixed $toughness): array
+    {
+        $resolved = $this->baseStatsResolver?->baseStats($card);
+        if ($resolved !== null) {
+            return $resolved;
+        }
+
+        if (array_key_exists('basePower', $card) || array_key_exists('baseToughness', $card)) {
+            return [
+                'power' => $this->numericStat($card['basePower'] ?? null),
+                'toughness' => $this->numericStat($card['baseToughness'] ?? null),
+            ];
+        }
+
+        return [
+            'power' => $this->numericStat($power),
+            'toughness' => $this->numericStat($toughness),
+        ];
     }
 
     private function requiredCardLocation(array $snapshot, array $payload): array
@@ -894,5 +992,10 @@ class GameCommandHandler
     private function statLabel(mixed $value): string
     {
         return is_numeric($value) ? (string) (int) $value : '?';
+    }
+
+    private function numericStat(mixed $value): ?int
+    {
+        return is_numeric($value) ? (int) $value : null;
     }
 }

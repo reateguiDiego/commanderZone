@@ -18,6 +18,9 @@ export interface HoveredCardSelection {
 
 @Injectable()
 export class GameTableUiState {
+  private readonly hoverPreviewDelayMs = 100;
+  private hoverPreviewSuppressedUntil = 0;
+
   readonly focusedPlayerId = signal<string | null>(null);
   readonly hoveredCard = signal<GameCardInstance | null>(null);
   readonly contextMenu = signal<GameContextMenu | null>(null);
@@ -31,7 +34,7 @@ export class GameTableUiState {
 
   showCardPreview(card: GameCardInstance, isDragging: () => boolean, playerId?: string, zone?: GameZoneName): void {
     this.clearHoverPreviewTimer();
-    if (card.hidden || isDragging()) {
+    if (card.hidden || isDragging() || Date.now() < this.hoverPreviewSuppressedUntil) {
       return;
     }
 
@@ -43,7 +46,7 @@ export class GameTableUiState {
 
       this.hoveredCard.set(card);
       this.hoveredSelection = playerId && zone ? { playerId, zone, card } : null;
-    }, 130);
+    }, this.hoverPreviewDelayMs);
   }
 
   hideCardPreview(): void {
@@ -66,6 +69,13 @@ export class GameTableUiState {
 
   toggleFloatingMinimized(): void {
     this.floatingMinimized.update((value) => !value);
+  }
+
+  suppressCardPreview(durationMs: number): void {
+    this.clearHoverPreviewTimer();
+    this.hoveredCard.set(null);
+    this.hoveredSelection = null;
+    this.hoverPreviewSuppressedUntil = Date.now() + durationMs;
   }
 
   startFloatingDrag(event: PointerEvent): void {

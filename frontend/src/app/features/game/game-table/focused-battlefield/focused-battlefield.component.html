@@ -1,4 +1,5 @@
 @let focusedPlayer = player();
+@let activeAlignmentGuide = alignmentGuideFor()(focusedPlayer.id);
 
 <div
   class="battlefield game-table-battlefield"
@@ -25,6 +26,7 @@
       [dragging]="isDraggingCard()(card)"
       [locked]="!isCurrentPlayer()(focusedPlayer.id) || !canDragBattlefieldCard()(focusedPlayer.id, card)"
       [pendingTransfer]="isPendingBattlefieldTransfer()(card)"
+      [alignmentReference]="isAlignmentReference(card, activeAlignmentGuide)"
       [faceDown]="card.faceDown || card.hidden || false"
       [hidden]="card.hidden ?? false"
       [disabled]="!isCurrentPlayer()(focusedPlayer.id)"
@@ -44,7 +46,7 @@
       (toughnessChanged)="changeToughness($event.event, focusedPlayer.id, $event.card, $event.delta)"
     />
   }
-  @if (alignmentGuideFor()(focusedPlayer.id); as guide) {
+  @if (activeAlignmentGuide; as guide) {
     <div class="alignment-guide" [style.top.px]="guide.y" aria-hidden="true"></div>
   }
   <div

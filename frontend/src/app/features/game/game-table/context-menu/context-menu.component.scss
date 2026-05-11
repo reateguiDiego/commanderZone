@@ -1,10 +1,15 @@
+:host {
+  display: contents;
+}
+
 .context-menu {
   position: fixed;
-  z-index: 20;
+  z-index: 1800;
   display: grid;
   width: 15.5rem;
   max-height: min(35rem, calc(100dvh - 2rem));
   overflow: auto;
+  scrollbar-gutter: stable;
   padding: 0.35rem;
   border: 1px solid rgb(238 211 139 / 22%);
   border-radius: 8px;

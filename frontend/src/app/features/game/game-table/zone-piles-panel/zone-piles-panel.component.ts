@@ -50,6 +50,7 @@ export class ZonePilesPanelComponent {
   readonly zoneDragOver = output<DragEvent>();
   readonly zoneDropped = output<ZoneDropEvent>();
   readonly zoneOpened = output<ZoneActionEvent>();
+  readonly zoneDoubleClicked = output<ZoneActionEvent>();
   readonly zoneMenuOpened = output<ZoneMenuEvent>();
   readonly commanderCastChanged = output<CommanderCastChangeEvent>();
 
@@ -65,5 +66,11 @@ export class ZonePilesPanelComponent {
     event.preventDefault();
     event.stopPropagation();
     this.commanderCastChanged.emit({ playerId: this.player().id, delta });
+  }
+
+  doubleClickZone(event: MouseEvent, zone: GameZoneName): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.zoneDoubleClicked.emit({ playerId: this.player().id, zone });
   }
 }

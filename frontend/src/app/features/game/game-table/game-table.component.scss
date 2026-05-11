@@ -17,6 +17,29 @@
   color: #c9c3b3;
 }
 
+.table-error {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 1200;
+  max-width: min(32rem, calc(100vw - 2rem));
+  margin: 0;
+  padding: 0.85rem 1rem;
+  border: 1px solid rgb(255 204 112 / 36%);
+  border-radius: 8px;
+  background: rgb(10 12 9 / 94%);
+  box-shadow:
+    0 1.35rem 3rem rgb(0 0 0 / 46%),
+    0 0 0 1px rgb(0 0 0 / 42%);
+  color: #ffe9b0;
+  font-size: 0.92rem;
+  font-weight: 900;
+  line-height: 1.35;
+  text-align: center;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
 .table-surface {
   position: relative;
   display: grid;
@@ -111,12 +134,12 @@
   display: grid;
   grid-area: board;
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: 112px minmax(0, 1fr) 12.5rem;
+  grid-template-rows: 104px minmax(0, 1fr) 4.75rem;
   grid-template-areas:
     "mainTop"
     "battlefield"
     "hand";
-  gap: 6px;
+  gap: 4px;
   min-width: 0;
   min-height: 0;
   padding: 0.65rem;
@@ -196,9 +219,7 @@
   gap: 0.45rem;
   overflow: auto;
   padding: 0.6rem;
-  scrollbar-color: transparent transparent;
   scrollbar-gutter: stable;
-  scrollbar-width: thin;
 }
 
 .chat-panel-content {
@@ -208,22 +229,6 @@
   min-height: 0;
   height: 100%;
   overflow: hidden;
-}
-
-.floating-panel:hover .panel-feed {
-  scrollbar-color: #8f876f transparent;
-}
-
-.panel-feed::-webkit-scrollbar {
-  width: 0.5rem;
-}
-
-.panel-feed::-webkit-scrollbar-thumb {
-  background: transparent;
-}
-
-.floating-panel:hover .panel-feed::-webkit-scrollbar-thumb {
-  background: #8f876f;
 }
 
 .panel-feed p {
@@ -306,7 +311,7 @@
   width: 7.2rem;
   aspect-ratio: 0.716;
   place-items: center;
-  overflow: hidden;
+  overflow: visible;
   padding: 0;
   border: 1px solid rgb(238 211 139 / 20%);
   border-radius: 7px;
@@ -323,6 +328,7 @@
 .drag-card-preview img {
   width: 100%;
   height: 100%;
+  border-radius: inherit;
   object-fit: cover;
   pointer-events: none;
   user-select: none;
@@ -333,6 +339,27 @@
   right: 0.25rem;
   bottom: 0.25rem;
   display: flex;
+}
+
+.drag-count-badge {
+  position: absolute;
+  top: -0.62rem;
+  right: -0.62rem;
+  z-index: 3;
+  display: grid;
+  min-width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border: 2px solid rgb(255 243 202 / 92%);
+  border-radius: 999px;
+  background: #f6c447;
+  box-shadow:
+    0 0.45rem 1rem rgb(0 0 0 / 44%),
+    0 0 0 4px rgb(7 8 6 / 74%);
+  color: #171205;
+  font-size: 0.86rem;
+  font-weight: 1000;
+  line-height: 1;
 }
 
 .drag-card-preview .power-toughness-overlay span {

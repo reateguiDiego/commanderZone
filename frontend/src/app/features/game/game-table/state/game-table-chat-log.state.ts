@@ -75,6 +75,11 @@ export class GameTableChatLogState {
       const merged = previous ? this.mergeEntries(previous, entry) : null;
       if (merged) {
         compact[compact.length - 1] = merged;
+        const penultimate = compact.at(-2);
+        const sequence = penultimate ? this.mergeCommanderMoveSequence(penultimate, merged) : null;
+        if (sequence) {
+          compact.splice(compact.length - 2, 2, sequence);
+        }
       } else {
         compact.push(entry);
       }
@@ -84,6 +89,11 @@ export class GameTableChatLogState {
   }
 
   private mergeEntries(previous: GameLogEntry, current: GameLogEntry): GameLogEntry | null {
+    const commanderReturnCast = this.mergeCommanderReturnCast(previous, current);
+    if (commanderReturnCast) {
+      return commanderReturnCast;
+    }
+
     const commanderCast = this.mergeCommanderCast(previous, current);
     if (commanderCast) {
       return commanderCast;
@@ -105,6 +115,42 @@ export class GameTableChatLogState {
     }
 
     const movedMatch = /^Moved (.+) from command to battlefield\.$/.exec(previous.message);
+    const counterMatch = /^Set commander:[^ ]+ counter casts to (\d+)\.$/.exec(current.message);
+    if (!movedMatch || !counterMatch) {
+      return null;
+    }
+
+    const next = Number(counterMatch[1]);
+
+    return {
+      ...current,
+      message: `${previous.message} Commander cast count increased from ${Math.max(0, next - 1)} to ${next}.`,
+    };
+  }
+
+  private mergeCommanderMoveSequence(previous: GameLogEntry, current: GameLogEntry): GameLogEntry | null {
+    if (previous.actorId !== current.actorId || previous.type !== 'card.moved') {
+      return null;
+    }
+
+    const returnedMatch = /^Moved (.+) from battlefield to command\.$/.exec(previous.message);
+    const castMatch = /^Moved (.+) from command to battlefield\. Commander cast count increased from (\d+) to (\d+)\.$/.exec(current.message);
+    if (!returnedMatch || !castMatch || returnedMatch[1] !== castMatch[1]) {
+      return null;
+    }
+
+    return {
+      ...current,
+      message: `${previous.message} Commander cast count increased from ${castMatch[2]} to ${castMatch[3]}.`,
+    };
+  }
+
+  private mergeCommanderReturnCast(previous: GameLogEntry, current: GameLogEntry): GameLogEntry | null {
+    if (previous.actorId !== current.actorId || previous.type !== 'card.moved' || current.type !== 'counter.changed') {
+      return null;
+    }
+
+    const movedMatch = /^Moved (.+) from battlefield to command\.$/.exec(previous.message);
     const counterMatch = /^Set commander:[^ ]+ counter casts to (\d+)\.$/.exec(current.message);
     if (!movedMatch || !counterMatch) {
       return null;

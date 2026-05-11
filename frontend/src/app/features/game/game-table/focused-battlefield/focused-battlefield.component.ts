@@ -10,6 +10,7 @@ interface CardCounterView {
 
 interface AlignmentGuideView {
   y: number;
+  referenceInstanceIds: readonly string[];
 }
 
 interface BattlefieldDropEvent {
@@ -124,5 +125,9 @@ export class FocusedBattlefieldComponent {
 
   cardVisibility(card: GameCardInstance): boolean {
     return !this.isDraggingCard()(card) && !this.isPendingBattlefieldTransfer()(card);
+  }
+
+  isAlignmentReference(card: GameCardInstance, guide: AlignmentGuideView | null): boolean {
+    return Boolean(guide?.referenceInstanceIds.includes(card.instanceId));
   }
 }

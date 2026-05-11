@@ -94,6 +94,14 @@
   gap: 0.55rem;
 }
 
+.modal-panel footer.split-actions {
+  justify-content: flex-end;
+}
+
+.modal-panel footer.split-actions .secondary-button:first-child {
+  margin-right: auto;
+}
+
 .danger-action {
   background: linear-gradient(180deg, #a8483c, #713027);
   border-color: rgb(209 111 95 / 72%);

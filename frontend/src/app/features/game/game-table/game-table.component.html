@@ -2,9 +2,9 @@
   @if (store.loading()) {
     <p class="notice">Loading game snapshot...</p>
   } @else if (store.snapshot(); as snapshot) {
-    <main class="table-surface game-table-v2">
+    <main appPrettyScroll class="table-surface game-table-v2">
       @if (store.error()) {
-        <p class="table-error">{{ store.error() }}</p>
+        <p class="table-error" role="status" aria-live="polite">{{ store.error() }}</p>
       }
       <header class="game-hud game-table-topbar">
         <div class="game-brand">
@@ -92,22 +92,20 @@
             @if (store.handPlayer(); as handPlayer) {
               <app-player-hand-panel
                 [player]="handPlayer"
-                [isCurrentPlayer]="isCurrentPlayer"
                 [zoneCount]="zoneCount"
-                [countItems]="countItems"
-                [colorAccent]="colorAccent"
                 [cardImage]="cardImage"
                 [isSelected]="isSelected"
                 [isDraggingCard]="isDraggingCard"
                 [isHandDropTarget]="isHandDropTarget"
                 [isDropZoneHighlighted]="isDropZoneHighlighted"
-                (handDragOver)="store.allowDrop($event)"
+                [interactionFrozen]="store.contextMenu() !== null"
+                [hasActiveCardDrag]="store.draggingCardInstanceId() !== null || store.pointerDragPreview() !== null"
+                (handDragOver)="store.previewDropOnHand($event.event, $event.playerId)"
                 (handDropped)="store.dropOnHand($event.event, $event.playerId)"
-                (cardDragStarted)="store.dragStart($event.event, $event.playerId, $event.zone, $event.card)"
-                (cardDragEnded)="store.dragEnd()"
-                (handCardDragOver)="store.previewHandDrop($event.event, $event.playerId, $event.card)"
-                (handCardDropped)="store.dropOnHandCard($event.event, $event.playerId, $event.card)"
                 (handCardClicked)="store.handleHandCardClick($event.event, $event.playerId, $event.card)"
+                (handCardPointerReordered)="store.reorderHandCard($event.playerId, $event.movedInstanceId, $event.targetInstanceId, $event.placement)"
+                (handCardPointerMoved)="store.moveHandCardByPointer($event.playerId, $event.targetPlayerId, $event.movedInstanceId, $event.toZone, $event.position, $event.rawZone)"
+                (handPointerDropTargetChanged)="store.updatePointerDropTarget($event)"
                 (cardMenuOpened)="store.openCardMenu($event.event, $event.playerId, 'hand', $event.card)"
                 (cardPreviewShown)="store.showCardPreview($event.card, $event.playerId, $event.zone)"
                 (cardPreviewHidden)="store.hideCardPreview()"
@@ -131,12 +129,13 @@
           (zoneDragOver)="store.allowDrop($event)"
           (zoneDropped)="store.dropOnZone($event.event, $event.playerId, $event.zone)"
           (zoneOpened)="store.openZone($event.playerId, $event.zone)"
+          (zoneDoubleClicked)="onZoneDoubleClick($event.playerId, $event.zone)"
           (zoneMenuOpened)="store.openZoneMenu($event.event, $event.playerId, $event.zone)"
           (commanderCastChanged)="store.changeCommanderCastCount($event.playerId, $event.delta)"
         />
       }
 
-      <aside class="player-sidebar game-table-opponents">
+      <aside appPrettyScroll class="player-sidebar game-table-opponents">
         @for (player of store.players(); track player.id) {
           @if (store.focusedPlayer()?.id !== player.id) {
             <app-opponent-mini-board
@@ -253,6 +252,7 @@
           primaryLabel="Apply"
           secondaryLabel="Cancel"
           [primaryDisabled]="isPowerToughnessDialogInvalid()"
+          [lockBodyScroll]="false"
           (primary)="confirmPowerToughnessDialog()"
           (secondary)="cancelPowerToughnessDialog()"
         >
@@ -287,6 +287,7 @@
         primaryLabel="Close game"
         secondaryLabel="Cancel"
         [danger]="true"
+        [lockBodyScroll]="false"
         (primary)="confirmCloseGame()"
         (secondary)="cancelCloseGame()"
       />
@@ -298,8 +299,27 @@
           [message]="'Vas a poner ' + pendingMove.cardName + ' en el battlefield de ' + pendingMove.targetPlayerName + '.'"
           primaryLabel="Confirmar"
           secondaryLabel="Cancelar"
+          [lockBodyScroll]="false"
           (primary)="store.confirmPendingBattlefieldMove()"
           (secondary)="store.cancelPendingBattlefieldMove()"
+        />
+      }
+
+      @if (store.pendingLibraryMove(); as pendingMove) {
+        <app-modal
+          [open]="true"
+          title="Devolver a biblioteca"
+          [message]="'Donde quieres poner ' + pendingMove.cardName + '?'"
+          primaryLabel="Top"
+          secondaryLabel="Bottom"
+          secondaryVariant="primary"
+          [showTertiary]="true"
+          tertiaryLabel="Cancelar"
+          footerLayout="split"
+          [lockBodyScroll]="false"
+          (primary)="store.confirmPendingLibraryMove('top')"
+          (secondary)="store.confirmPendingLibraryMove('bottom')"
+          (tertiary)="store.cancelPendingLibraryMove()"
         />
       }
 
@@ -315,6 +335,9 @@
             <img [src]="image" [alt]="preview.card.name" />
           } @else {
             <span>{{ preview.card.name }}</span>
+          }
+          @if (preview.count > 1) {
+            <span class="drag-count-badge" aria-hidden="true">{{ preview.count }}</span>
           }
           @if (shouldShowPowerToughness(preview.card)) {
             <span class="power-toughness-overlay" aria-hidden="true">

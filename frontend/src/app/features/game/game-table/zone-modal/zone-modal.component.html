@@ -1,6 +1,6 @@
 @let currentModal = modal();
 
-<section class="zone-modal-backdrop" (click)="close.emit()">
+<section class="zone-modal-backdrop">
   <div class="zone-modal" data-testid="zone-modal" (click)="stopClick($event)">
     <header>
       <h2>{{ currentModal.title }} ({{ currentModal.total }})</h2>
