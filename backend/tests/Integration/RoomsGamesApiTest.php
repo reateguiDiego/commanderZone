@@ -1278,6 +1278,20 @@ class RoomsGamesApiTest extends ApiTestCase
 
         $this->jsonRequest('POST', '/games/'.$gameId.'/commands', [
             'type' => 'life.changed',
+            'payload' => ['playerId' => $ownerPlayerId, 'delta' => -1],
+        ], $playerToken);
+        self::assertResponseStatusCodeSame(400);
+        self::assertStringContainsString('You can only change your own life total.', (string) $this->jsonResponse()['error']);
+
+        $this->jsonRequest('POST', '/games/'.$gameId.'/commands', [
+            'type' => 'life.changed',
+            'payload' => ['playerId' => $ownerPlayerId, 'delta' => -1],
+        ], $ownerToken);
+        self::assertResponseStatusCodeSame(201);
+        self::assertSame(39, $this->jsonResponse()['snapshot']['players'][$ownerPlayerId]['life']);
+
+        $this->jsonRequest('POST', '/games/'.$gameId.'/commands', [
+            'type' => 'life.changed',
             'payload' => ['playerId' => $ownerPlayerId],
         ], $ownerToken);
         self::assertResponseStatusCodeSame(400);

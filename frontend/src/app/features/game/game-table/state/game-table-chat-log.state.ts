@@ -1,7 +1,14 @@
 import { Injectable, signal } from '@angular/core';
-import { GameSnapshot } from '../../../../core/models/game.model';
+import { GameCardInstance, GameSnapshot, GameZoneName } from '../../../../core/models/game.model';
 
 type GameLogEntry = GameSnapshot['eventLog'][number];
+
+export interface GameLogEntryView extends GameLogEntry {
+  card: GameCardInstance | null;
+  messagePrefix: string;
+  messageSuffix: string;
+  appearance: 'default' | 'phase';
+}
 
 @Injectable()
 export class GameTableChatLogState {
@@ -21,6 +28,45 @@ export class GameTableChatLogState {
 
   eventLog(snapshot: GameSnapshot | null): GameLogEntry[] {
     return this.compactLog([...(snapshot?.eventLog ?? [])].filter((entry) => entry.type !== 'card.position.changed' && entry.message !== 'Reordered hand.'));
+  }
+
+  eventLogView(snapshot: GameSnapshot | null, zones: readonly GameZoneName[]): GameLogEntryView[] {
+    return this.eventLog(snapshot).map((entry) => this.toLogEntryView(snapshot, zones, entry));
+  }
+
+  private toLogEntryView(snapshot: GameSnapshot | null, zones: readonly GameZoneName[], entry: GameLogEntry): GameLogEntryView {
+    const card = this.cardFromLogEntry(snapshot, zones, entry);
+    if (!card) {
+      return { ...entry, card: null, messagePrefix: entry.message, messageSuffix: '', appearance: this.logAppearance(entry) };
+    }
+
+    const index = entry.message.indexOf(card.name);
+
+    return {
+      ...entry,
+      card,
+      messagePrefix: index >= 0 ? entry.message.slice(0, index) : entry.message,
+      messageSuffix: index >= 0 ? entry.message.slice(index + card.name.length) : '',
+      appearance: this.logAppearance(entry),
+    };
+  }
+
+  private logAppearance(entry: GameLogEntry): GameLogEntryView['appearance'] {
+    return entry.type === 'turn.changed' ? 'phase' : 'default';
+  }
+
+  private cardFromLogEntry(snapshot: GameSnapshot | null, zones: readonly GameZoneName[], entry: GameLogEntry): GameCardInstance | null {
+    if (!entry.message) {
+      return null;
+    }
+
+    return this.allCards(snapshot, zones)
+      .filter((card) => !card.hidden && card.name.length > 2 && entry.message.includes(card.name))
+      .sort((left, right) => right.name.length - left.name.length)[0] ?? null;
+  }
+
+  private allCards(snapshot: GameSnapshot | null, zones: readonly GameZoneName[]): GameCardInstance[] {
+    return Object.values(snapshot?.players ?? {}).flatMap((player) => zones.flatMap((zone) => player.zones[zone] ?? []));
   }
 
   private compactLog(entries: GameLogEntry[]): GameLogEntry[] {

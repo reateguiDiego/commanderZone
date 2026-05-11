@@ -1,4 +1,4 @@
-import { expect, type APIRequestContext } from '@playwright/test';
+import { expect, type APIRequestContext, type APIResponse } from '@playwright/test';
 
 const API_BASE_URL = process.env['E2E_API_BASE_URL'] ?? 'http://127.0.0.1:8000';
 
@@ -160,7 +160,7 @@ export async function createRandomDeckFromDatabase(
     },
     data: quickBuildPayload,
   });
-  expect(quickBuildResponse.ok()).toBeTruthy();
+  await expectQuickBuildOk(quickBuildResponse, options.name);
 
   const quickBuild = (await quickBuildResponse.json()) as QuickBuildResponse;
   const missing = quickBuild.missingCards ?? [];
@@ -229,7 +229,7 @@ export async function createValidCommanderDeckFromDatabase(
     },
     data: quickBuildPayload,
   });
-  expect(quickBuildResponse.ok()).toBeTruthy();
+  await expectQuickBuildOk(quickBuildResponse, options.name);
 
   const quickBuild = (await quickBuildResponse.json()) as QuickBuildResponse;
   const missing = quickBuild.missingCards ?? [];
@@ -436,6 +436,15 @@ function normalizeSeed(inputSeed?: string): string {
   }
 
   return `seed-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+async function expectQuickBuildOk(response: APIResponse, deckName: string): Promise<void> {
+  if (response.ok()) {
+    return;
+  }
+
+  const body = await response.text();
+  throw new Error(`Quick-build failed for "${deckName}" with HTTP ${response.status()}: ${body}`);
 }
 
 function isCommanderCandidate(card: CardSearchItem): boolean {

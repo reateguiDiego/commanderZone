@@ -13,6 +13,7 @@
       [displayName]="currentPlayer.state.user.displayName"
       [nameStyle]="currentPlayer.state.user.displayNameStyle"
       size="xl"
+      plateSize="lg"
     />
     <small>{{ deckLabel()(currentPlayer) }}</small>
     <app-mana-symbols class="mana-row" [symbols]="manaSymbols()(currentPlayer)" fallback="Colorless" />

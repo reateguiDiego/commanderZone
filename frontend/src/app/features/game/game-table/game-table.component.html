@@ -12,6 +12,15 @@
           <strong>COMMANDERZONE</strong>
         </div>
         <div class="topbar-actions">
+          <span
+            class="sync-status"
+            data-testid="sync-status"
+            [attr.data-status]="store.syncStatus()"
+            [title]="store.syncStatusLabel()"
+          >
+            <span aria-hidden="true"></span>
+            {{ store.syncStatusLabel() }}
+          </span>
           <button class="settings-button" type="button" title="Settings" data-testid="settings-open" (click)="store.openGameMenu($event)">
             <lucide-icon name="menu" size="18" />
           </button>
@@ -228,12 +237,59 @@
           [title]="dialog.title"
           [description]="dialog.description"
           [min]="dialog.min"
+          [max]="dialog.max ?? null"
           [defaultValue]="dialog.defaultValue"
           [confirmLabel]="dialog.confirmLabel"
           (confirmed)="confirmNumberAction($event)"
           (cancelled)="cancelNumberAction()"
         />
       }
+
+      @if (powerToughnessDialog(); as dialog) {
+        <app-modal
+          [open]="true"
+          title="Power / Toughness"
+          message="Set the visible combat stats for this card."
+          primaryLabel="Apply"
+          secondaryLabel="Cancel"
+          [primaryDisabled]="isPowerToughnessDialogInvalid()"
+          (primary)="confirmPowerToughnessDialog()"
+          (secondary)="cancelPowerToughnessDialog()"
+        >
+          <div class="stat-dialog-grid">
+            <label>
+              <span>Power</span>
+              <input
+                type="number"
+                data-testid="power-input"
+                [value]="dialog.power"
+                (input)="updatePowerToughnessValue('power', $any($event.target).value)"
+                autofocus
+              />
+            </label>
+            <label>
+              <span>Toughness</span>
+              <input
+                type="number"
+                data-testid="toughness-input"
+                [value]="dialog.toughness"
+                (input)="updatePowerToughnessValue('toughness', $any($event.target).value)"
+              />
+            </label>
+          </div>
+        </app-modal>
+      }
+
+      <app-modal
+        [open]="closeGameDialogOpen()"
+        title="Close and archive game?"
+        message="This finishes the current game and sends the table back to the rooms list."
+        primaryLabel="Close game"
+        secondaryLabel="Cancel"
+        [danger]="true"
+        (primary)="confirmCloseGame()"
+        (secondary)="cancelCloseGame()"
+      />
 
       @if (store.pendingBattlefieldMove(); as pendingMove) {
         <app-modal

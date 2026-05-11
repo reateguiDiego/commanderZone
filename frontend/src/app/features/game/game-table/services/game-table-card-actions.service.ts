@@ -183,7 +183,7 @@ export class GameTableCardActionsService {
     context.closeContextMenu();
   }
 
-  async setPowerToughness(context: GameTableCardActionContext, menu: GameContextMenu): Promise<void> {
+  async setPowerToughness(context: GameTableCardActionContext, menu: GameContextMenu, power: number, toughness: number): Promise<void> {
     if (!menu.card) {
       return;
     }
@@ -192,20 +192,18 @@ export class GameTableCardActionsService {
       context.closeContextMenu();
       return;
     }
-    const power = Number(prompt('Power', String(menu.card.power ?? '')) ?? '');
-    const toughness = Number(prompt('Toughness', String(menu.card.toughness ?? '')) ?? '');
 
     await context.command('card.power_toughness.changed', {
       playerId: menu.playerId,
       zone: menu.zone,
       instanceId: menu.card.instanceId,
-      ...(Number.isFinite(power) ? { power } : {}),
-      ...(Number.isFinite(toughness) ? { toughness } : {}),
+      power,
+      toughness,
     });
     context.closeContextMenu();
   }
 
-  async changeCardCounter(context: GameTableCardActionContext, menu: GameContextMenu, key = '+1/+1'): Promise<void> {
+  async changeCardCounter(context: GameTableCardActionContext, menu: GameContextMenu, key = '+1/+1', delta = 1): Promise<void> {
     if (!menu.card) {
       return;
     }
@@ -214,13 +212,13 @@ export class GameTableCardActionsService {
       context.closeContextMenu();
       return;
     }
-    const delta = Number(prompt(`${key} delta`, '1') ?? '1');
+
     await context.command('card.counter.changed', {
       playerId: menu.playerId,
       zone: menu.zone,
       instanceId: menu.card.instanceId,
       key,
-      delta: Number.isFinite(delta) ? delta : 1,
+      delta,
     });
     context.closeContextMenu();
   }

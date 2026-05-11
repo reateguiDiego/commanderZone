@@ -20,7 +20,7 @@ export class App {
   private readonly router = inject(Router);
   readonly loading = inject(LoadingStore);
   private readonly currentPath = signal(this.normalizedPath(this.router.url));
-  readonly showDisclaimer = computed(() => !this.isTableAssistantRoomPath(this.currentPath()));
+  readonly showDisclaimer = computed(() => !this.isDisclaimerHiddenPath(this.currentPath()));
 
   constructor() {
     void this.auth.initialize().catch(() => undefined);
@@ -46,5 +46,14 @@ export class App {
   private isTableAssistantRoomPath(path: string): boolean {
     const segments = path.split('/').filter(Boolean);
     return segments[0] === 'table-assistant' && segments.length > 1;
+  }
+
+  private isGameTablePath(path: string): boolean {
+    const segments = path.split('/').filter(Boolean);
+    return segments[0] === 'games' && segments.length > 1;
+  }
+
+  private isDisclaimerHiddenPath(path: string): boolean {
+    return this.isTableAssistantRoomPath(path) || this.isGameTablePath(path);
   }
 }

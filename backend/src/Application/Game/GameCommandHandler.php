@@ -824,6 +824,11 @@ class GameCommandHandler
             throw new \InvalidArgumentException('Conceded players cannot perform game actions.');
         }
 
+        if ($type === 'life.changed') {
+            $this->assertActorPlayer($snapshot, $payload, $actor, 'playerId', 'You can only change your own life total.');
+            return;
+        }
+
         if (str_starts_with($type, 'library.') || in_array($type, self::ACTOR_OWN_PLAYER_COMMANDS, true)) {
             $this->assertActorPlayer($snapshot, $payload, $actor, 'playerId');
             return;
@@ -836,11 +841,11 @@ class GameCommandHandler
         }
     }
 
-    private function assertActorPlayer(array $snapshot, array $payload, User $actor, string $key): void
+    private function assertActorPlayer(array $snapshot, array $payload, User $actor, string $key, string $message = 'You can only perform this action on your own hidden zones.'): void
     {
         $playerId = $this->requiredPlayerId($snapshot, $payload, $key);
         if ($playerId !== $actor->id()) {
-            throw new \InvalidArgumentException('You can only perform this action on your own hidden zones.');
+            throw new \InvalidArgumentException($message);
         }
     }
 

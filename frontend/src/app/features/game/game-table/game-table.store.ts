@@ -1,20 +1,25 @@
 import { Injectable, OnDestroy, WritableSignal, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { firstValueFrom } from 'rxjs';
-import { GamesApi } from '../../../core/api/games.api';
 import { AuthStore } from '../../../core/auth/auth.store';
-import { GameCardInstance, GameCommandType, GameLogEntry, GameSnapshot, GameZoneName, GameZoneResponse } from '../../../core/models/game.model';
+import { GameCardInstance, GameCommandType, GameSnapshot, GameZoneName } from '../../../core/models/game.model';
 import { GameTableCommandService } from './services/game-table-command.service';
+import { GameTableBattlefieldDragContext, GameTableBattlefieldDragCoordinatorService } from './services/game-table-battlefield-drag-coordinator.service';
 import { GameTableDragService } from './services/game-table-drag.service';
 import { GameTableLibraryActionContext, GameTableLibraryActionsService } from './services/game-table-library-actions.service';
-import { GameTableRealtimeService } from './services/game-table-realtime.service';
 import { GameTableSelectionService } from './services/game-table-selection.service';
 import { GameTableTurnActionContext, GameTableTurnActionsService } from './services/game-table-turn-actions.service';
-import { GameTableChatLogState } from './state/game-table-chat-log.state';
+import { AlignmentGuide, GameTableBattlefieldDragState } from './state/game-table-battlefield-drag.state';
+import { GameLogEntryView, GameTableChatLogState } from './state/game-table-chat-log.state';
 import { GameTableSnapshotSelectors, PlayerView } from './state/game-table-snapshot-selectors';
 import { GameContextMenu, GameTableUiState } from './state/game-table-ui.state';
 import { GameTableZoneModalState } from './state/game-table-zone-modal.state';
 import { GameTableCardActionContext, GameTableCardActionsService } from './services/game-table-card-actions.service';
+import { GameTableCardStatsContext, GameTableCardStatsService } from './services/game-table-card-stats.service';
+import { GameTableDropActionContext, GameTableDropActionsService, PendingBattlefieldMove } from './services/game-table-drop-actions.service';
+import { GameTableInteractionActionsService, GameTableInteractionContext } from './services/game-table-interaction-actions.service';
+import { GameTablePointerDragActionContext, GameTablePointerDragActionsService } from './services/game-table-pointer-drag-actions.service';
+import { GameTableSessionContext, GameTableSessionService } from './services/game-table-session.service';
+import { GameTableZoneActionContext, GameTableZoneActionsService } from './services/game-table-zone-actions.service';
 
 export type { PlayerView } from './state/game-table-snapshot-selectors';
 
@@ -24,78 +29,31 @@ export interface SelectedCard {
   card: GameCardInstance;
 }
 
-interface PendingBattlefieldMove {
-  cardName: string;
-  targetPlayerName: string;
-  payload: Record<string, unknown>;
-}
-
-export interface GameLogEntryView extends GameLogEntry {
-  card: GameCardInstance | null;
-  messagePrefix: string;
-  messageSuffix: string;
-  appearance: 'default' | 'phase';
-}
-
-interface HandDropPreview {
-  playerId: string;
-  targetInstanceId: string;
-  placement: 'before' | 'after';
-}
-
-interface PendingPowerToughnessChange {
-  playerId: string;
-  zone: GameZoneName;
-  instanceId: string;
-  power: number;
-  toughness: number;
-}
-
-interface AlignmentGuide {
-  playerId: string;
-  y: number;
-}
-
-interface AlignmentCandidate {
-  y: number;
-  distance: number;
-}
-
-interface ActiveDropTarget {
-  playerId: string;
-  zone: GameZoneName;
-}
-
-interface PointerDragPreview {
-  card: GameCardInstance;
-  x: number;
-  y: number;
-}
+export type GameTableSyncStatus = 'pending' | 'connecting' | 'live' | 'degraded';
 
 @Injectable()
 export class GameTableStore implements OnDestroy {
-  private readonly gamesApi = inject(GamesApi);
   private readonly commands = inject(GameTableCommandService);
   private readonly cardActions = inject(GameTableCardActionsService);
+  private readonly cardStats = inject(GameTableCardStatsService);
+  private readonly battlefieldDrag = inject(GameTableBattlefieldDragCoordinatorService);
   private readonly drag = inject(GameTableDragService);
+  private readonly dropActions = inject(GameTableDropActionsService);
+  private readonly interactionActions = inject(GameTableInteractionActionsService);
+  private readonly pointerDragActions = inject(GameTablePointerDragActionsService);
   private readonly libraryActions = inject(GameTableLibraryActionsService);
   private readonly turnActions = inject(GameTableTurnActionsService);
+  private readonly zoneActions = inject(GameTableZoneActionsService);
+  private readonly session = inject(GameTableSessionService);
   private readonly selection = inject(GameTableSelectionService);
   private readonly auth = inject(AuthStore);
   private readonly router = inject(Router);
-  private readonly realtime = inject(GameTableRealtimeService);
   private readonly route = inject(ActivatedRoute);
   private readonly uiState = inject(GameTableUiState);
+  private readonly battlefieldDragState = inject(GameTableBattlefieldDragState);
   private readonly zoneModalState = inject(GameTableZoneModalState);
   private readonly chatLogState = inject(GameTableChatLogState);
   private readonly selectors = inject(GameTableSnapshotSelectors);
-  private floatingDragOffset: { x: number; y: number } | null = null;
-  private deferredRemoteSnapshot: GameSnapshot | null = null;
-  private readonly powerToughnessDebounceMs = 450;
-  private readonly battlefieldAlignmentGuideThreshold = 12;
-  private readonly battlefieldAlignmentSnapThreshold = 12;
-  private readonly powerToughnessTimers = new Map<string, number>();
-  private readonly pendingPowerToughnessChanges = new Map<string, PendingPowerToughnessChange>();
 
   readonly zones: GameZoneName[] = ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command'];
   readonly dockZones: GameZoneName[] = ['library', 'command', 'graveyard', 'exile'];
@@ -116,66 +74,57 @@ export class GameTableStore implements OnDestroy {
   readonly error = signal<string | null>(null);
   readonly pending = signal(false);
   readonly pendingBattlefieldMove = signal<PendingBattlefieldMove | null>(null);
-  readonly draggingCardInstanceId = signal<string | null>(null);
-  readonly handDropPreview = signal<HandDropPreview | null>(null);
-  readonly manaLaneDropPlayerId = signal<string | null>(null);
-  readonly alignmentGuide = signal<AlignmentGuide | null>(null);
-  readonly activeDropTarget = signal<ActiveDropTarget | null>(null);
-  readonly activePlayerDropTarget = signal<string | null>(null);
-  readonly pointerDragPreview = signal<PointerDragPreview | null>(null);
+  readonly draggingCardInstanceId = this.battlefieldDragState.draggingCardInstanceId;
+  readonly handDropPreview = this.battlefieldDragState.handDropPreview;
+  readonly manaLaneDropPlayerId = this.battlefieldDragState.manaLaneDropPlayerId;
+  readonly alignmentGuide = this.battlefieldDragState.alignmentGuide;
+  readonly activeDropTarget = this.battlefieldDragState.activeDropTarget;
+  readonly activePlayerDropTarget = this.battlefieldDragState.activePlayerDropTarget;
+  readonly pointerDragPreview = this.battlefieldDragState.pointerDragPreview;
   readonly players = computed<PlayerView[]>(() => this.selectors.players(this.snapshot()));
   readonly focusedPlayer = computed<PlayerView | null>(() => this.selectors.focusedPlayer(this.snapshot(), this.players(), this.focusedPlayerId()));
-  readonly eventLog = computed<GameLogEntryView[]>(() => this.chatLogState.eventLog(this.snapshot()).map((entry) => this.toLogEntryView(entry)));
+  readonly eventLog = computed<GameLogEntryView[]>(() => this.chatLogState.eventLogView(this.snapshot(), this.zones));
   readonly currentPlayer = computed<PlayerView | null>(() => this.selectors.currentPlayer(this.players(), this.auth.user()?.id));
   readonly handPlayer = computed<PlayerView | null>(() => this.selectors.handPlayer(this.currentPlayer(), this.focusedPlayer()));
   readonly isGameOwner = computed(() => this.selectors.isGameOwner(this.snapshot(), this.currentPlayer()));
+  readonly syncStatus = computed<GameTableSyncStatus>(() => {
+    if (this.pending()) {
+      return 'pending';
+    }
+
+    const realtimeStatus = this.session.realtimeStatus();
+    if (realtimeStatus === 'live' || realtimeStatus === 'degraded') {
+      return realtimeStatus;
+    }
+
+    return 'connecting';
+  });
+  readonly syncStatusLabel = computed(() => {
+    const labels: Record<GameTableSyncStatus, string> = {
+      pending: 'Applying action',
+      connecting: 'Connecting',
+      live: 'Live',
+      degraded: 'Polling backup',
+    };
+
+    return labels[this.syncStatus()];
+  });
   constructor() {
     void this.load();
   }
 
   ngOnDestroy(): void {
     this.uiState.destroy();
-    this.clearPowerToughnessTimers();
-    this.realtime.stop();
+    this.cardStats.clear();
+    this.session.stop();
   }
 
   async load(): Promise<void> {
-    const id = this.gameId();
-    if (!id) {
-      this.error.set('Missing game id.');
-      this.loading.set(false);
-      return;
-    }
-
-    try {
-      await this.refetch(true);
-      this.subscribeToRealtime(id);
-      this.startPolling();
-    } catch {
-      this.error.set('Could not load game snapshot.');
-    } finally {
-      this.loading.set(false);
-    }
+    await this.session.load(this.sessionContext());
   }
 
   async refetch(force = false): Promise<void> {
-    const id = this.gameId();
-    if (!id) {
-      return;
-    }
-
-    const response = await firstValueFrom(this.gamesApi.snapshot(id));
-    const nextSnapshot = response.game.snapshot;
-    const currentSnapshot = this.snapshot();
-    if (!force && currentSnapshot?.version === nextSnapshot.version) {
-      return;
-    }
-    if (!force && this.drag.hasActivePointerDrag()) {
-      this.deferredRemoteSnapshot = nextSnapshot;
-      return;
-    }
-
-    this.applySnapshot(nextSnapshot);
+    await this.session.refetch(this.sessionContext(), force);
   }
 
   focusPlayer(playerId: string): void {
@@ -191,17 +140,15 @@ export class GameTableStore implements OnDestroy {
   }
 
   isCurrentPlayer(playerId: string): boolean {
-    return this.selection.isCurrentPlayer(this.currentPlayer(), playerId);
+    return this.interactionActions.isCurrentPlayer(this.interactionContext(), playerId);
   }
 
   canControlPlayer(playerId: string): boolean {
-    return this.selection.canControlPlayer(this.currentPlayer(), playerId);
+    return this.interactionActions.canControlPlayer(this.interactionContext(), playerId);
   }
 
   canControlOwnedCard(playerId: string, card: GameCardInstance): boolean {
-    const currentPlayerId = this.currentPlayer()?.id;
-
-    return this.canControlPlayer(playerId) && (!card.ownerId || card.ownerId === currentPlayerId);
+    return this.interactionActions.canControlOwnedCard(this.interactionContext(), playerId, card);
   }
 
   canDragBattlefieldCard(playerId: string, card: GameCardInstance): boolean {
@@ -217,7 +164,7 @@ export class GameTableStore implements OnDestroy {
   }
 
   canUseHiddenZone(playerId: string, zone: GameZoneName): boolean {
-    return this.selection.canUseHiddenZone(this.currentPlayer(), playerId, zone);
+    return this.interactionActions.canUseHiddenZone(this.interactionContext(), playerId, zone);
   }
 
   zoneTitle(zone: GameZoneName): string {
@@ -339,11 +286,11 @@ export class GameTableStore implements OnDestroy {
   }
 
   activeKeyboardCard(): SelectedCard | null {
-    return this.selection.activeKeyboardCard(this.uiState.activeHoveredSelection()) as SelectedCard | null;
+    return this.interactionActions.activeKeyboardCard() as SelectedCard | null;
   }
 
   clearSelection(): void {
-    this.selection.clearSelection();
+    this.interactionActions.clearSelection();
   }
 
   isDraggingCard(card: GameCardInstance): boolean {
@@ -351,17 +298,15 @@ export class GameTableStore implements OnDestroy {
   }
 
   isManaLaneHighlighted(playerId: string): boolean {
-    return this.manaLaneDropPlayerId() === playerId;
+    return this.battlefieldDragState.isManaLaneHighlighted(playerId);
   }
 
   isDropZoneHighlighted(playerId: string, zone: GameZoneName): boolean {
-    const target = this.activeDropTarget();
-
-    return target?.playerId === playerId && target.zone === zone || zone === 'battlefield' && this.manaLaneDropPlayerId() === playerId;
+    return this.battlefieldDragState.isDropZoneHighlighted(playerId, zone);
   }
 
   isPlayerDropHighlighted(playerId: string): boolean {
-    return this.activePlayerDropTarget() === playerId;
+    return this.battlefieldDragState.isPlayerDropHighlighted(playerId);
   }
 
   isPendingBattlefieldTransfer(card: GameCardInstance): boolean {
@@ -369,9 +314,7 @@ export class GameTableStore implements OnDestroy {
   }
 
   alignmentGuideFor(playerId: string): AlignmentGuide | null {
-    const guide = this.alignmentGuide();
-
-    return guide?.playerId === playerId ? guide : null;
+    return this.battlefieldDragState.alignmentGuideFor(playerId);
   }
 
   isPhasePast(phase: string): boolean {
@@ -386,12 +329,7 @@ export class GameTableStore implements OnDestroy {
   }
 
   toggleCardSelection(event: MouseEvent, playerId: string, zone: GameZoneName, card: GameCardInstance): void {
-    this.ripple(event.currentTarget as HTMLElement);
-    if (!this.canControlOwnedCard(playerId, card) || !['battlefield', 'hand'].includes(zone)) {
-      return;
-    }
-
-    this.selection.toggleSelection(event, playerId, zone, card);
+    this.interactionActions.toggleCardSelection(this.interactionContext(), event, playerId, zone, card);
   }
 
   isSelected(instanceId: string): boolean {
@@ -399,38 +337,23 @@ export class GameTableStore implements OnDestroy {
   }
 
   openCardMenu(event: MouseEvent, playerId: string, zone: GameZoneName, card: GameCardInstance): void {
-    event.preventDefault();
-    event.stopPropagation();
-    if (zone === 'battlefield' && !this.isCurrentPlayer(playerId)) {
-      return;
-    }
-    this.uiState.openContextMenu(event, { playerId, zone, card, kind: 'card' });
+    this.interactionActions.openCardMenu(this.interactionContext(), event, playerId, zone, card);
   }
 
   openZoneMenu(event: MouseEvent, playerId: string, zone: GameZoneName): void {
-    event.preventDefault();
-    event.stopPropagation();
-    if (zone === 'battlefield' && !this.isCurrentPlayer(playerId)) {
-      return;
-    }
-    this.uiState.openContextMenu(event, { playerId, zone, kind: 'zone' });
+    this.interactionActions.openZoneMenu(this.interactionContext(), event, playerId, zone);
   }
 
   openGameMenu(event: MouseEvent): void {
-    event.preventDefault();
-    event.stopPropagation();
-    const playerId = this.focusedPlayer()?.id ?? this.currentPlayer()?.id ?? '';
-    this.uiState.openContextMenu(event, { playerId, zone: 'battlefield', kind: 'game' });
+    this.interactionActions.openGameMenu(this.interactionContext(), event);
   }
 
   openPlayerMenu(event: MouseEvent, playerId: string): void {
-    event.preventDefault();
-    event.stopPropagation();
-    this.uiState.openContextMenu(event, { playerId, zone: 'battlefield', kind: 'player' });
+    this.interactionActions.openPlayerMenu(event, playerId);
   }
 
   closeContextMenu(): void {
-    this.uiState.closeContextMenu();
+    this.interactionActions.closeContextMenu();
   }
 
   async sendChat(): Promise<void> {
@@ -448,10 +371,20 @@ export class GameTableStore implements OnDestroy {
   }
 
   async changeLife(playerId: string, delta: number): Promise<void> {
+    if (!this.canControlPlayer(playerId)) {
+      this.error.set('You can only change your own life total.');
+      return;
+    }
+
     await this.command('life.changed', { playerId, delta });
   }
 
   async setLife(playerId: string, value: string | number): Promise<void> {
+    if (!this.canControlPlayer(playerId)) {
+      this.error.set('You can only change your own life total.');
+      return;
+    }
+
     await this.command('life.changed', { playerId, life: Number(value) });
   }
 
@@ -472,6 +405,10 @@ export class GameTableStore implements OnDestroy {
   }
 
   async advanceTurnPhase(): Promise<void> {
+    if (this.pending()) {
+      this.error.set('Wait for the current table action to finish.');
+      return;
+    }
     if (!this.canAdvanceTurnPhase()) {
       this.error.set('Only the active turn player can advance the turn.');
       return;
@@ -483,6 +420,7 @@ export class GameTableStore implements OnDestroy {
   async changeCommanderCastCount(playerId: string, delta: number): Promise<void> {
     const player = this.players().find((candidate) => candidate.id === playerId);
     if (!player || !this.canControlPlayer(playerId)) {
+      this.error.set('You can only change your own commander cast count.');
       return;
     }
 
@@ -511,7 +449,7 @@ export class GameTableStore implements OnDestroy {
       selectedCards: () => this.selectedCards(),
       clearSelectedCards: () => this.selectedCards.set([]),
       zoneModal: () => this.zoneModal(),
-      loadZone: () => this.loadZone(),
+      loadZone: () => this.zoneActions.loadZone(this.zoneActionContext()),
       setError: (message) => this.error.set(message),
       closeContextMenu: () => this.closeContextMenu(),
       recordCommanderCastIfNeeded: (playerId, fromZone, toZone) => this.recordCommanderCastIfNeeded(playerId, fromZone, toZone),
@@ -578,80 +516,13 @@ export class GameTableStore implements OnDestroy {
     if (draggingInstanceId) {
       this.ensureDraggingBattlefieldSelection(draggingInstanceId);
       this.updatePointerDragPreview(event, draggingInstanceId);
-      this.updateBattlefieldDragAid(event, draggingInstanceId);
-      this.updatePointerDropTarget(event);
+      this.battlefieldDrag.updateBattlefieldDragAid(event, draggingInstanceId, this.battlefieldDragContext());
+      this.battlefieldDrag.updatePointerDropTarget(event, this.battlefieldDragContext());
     }
   }
 
   async endCardPointerDrag(event?: PointerEvent): Promise<void> {
-    const drag = this.drag.endCardPointerDrag(
-      event,
-      (pointerEvent, playerId) => this.drag.pointerDropZone(pointerEvent, playerId, this.zones),
-      (playerId, instanceId, position) => this.updateLocalCardPosition(playerId, instanceId, position),
-    );
-    const applyDeferredSnapshot = () => this.applyDeferredRemoteSnapshot();
-    const activeGuideY = drag ? this.alignmentGuideFor(drag.playerId)?.y ?? null : null;
-    const targetPlayerId = event && drag ? this.playerDropTargetAt(event, drag.playerId) : null;
-    this.endCardDrag();
-    if (!drag || !drag.moved) {
-      applyDeferredSnapshot();
-      return;
-    }
-    this.selectedCards.set([]);
-
-    if (targetPlayerId) {
-      const sourceCard = this.findCard(drag.playerId, 'battlefield', drag.instanceId);
-      if (sourceCard && this.canControlOwnedCard(drag.playerId, sourceCard)) {
-        this.pendingBattlefieldMove.set({
-          cardName: sourceCard.name,
-          targetPlayerName: this.playerName(targetPlayerId),
-          payload: {
-            playerId: drag.playerId,
-            fromZone: 'battlefield',
-            toZone: 'battlefield',
-            targetPlayerId,
-            instanceId: drag.instanceId,
-          },
-        });
-      }
-      return;
-    }
-
-    if (drag.dropZone && drag.dropZone !== 'battlefield') {
-      if (!this.canControlPlayer(drag.playerId)) {
-        applyDeferredSnapshot();
-        return;
-      }
-      await this.command('card.moved', {
-        playerId: drag.playerId,
-        fromZone: 'battlefield',
-        toZone: drag.dropZone,
-        instanceId: drag.instanceId,
-      });
-      applyDeferredSnapshot();
-      return;
-    }
-
-    if (!drag.dropZone && (!event || !this.isPointerInsidePlayerBattlefield(event, drag.playerId))) {
-      await this.refetch(true);
-      applyDeferredSnapshot();
-      return;
-    }
-
-    const position = this.positionWithAlignmentGuide(
-      drag.playerId,
-      drag.instanceId,
-      drag.position,
-      activeGuideY,
-    );
-
-    await this.command('card.position.changed', {
-      playerId: drag.playerId,
-      zone: 'battlefield',
-      instanceId: drag.instanceId,
-      position,
-    });
-    applyDeferredSnapshot();
+    await this.pointerDragActions.endCardPointerDrag(this.pointerDragActionContext(), event);
   }
 
   cancelCardPointerDrag(event?: PointerEvent): void {
@@ -662,33 +533,11 @@ export class GameTableStore implements OnDestroy {
   }
 
   handleBattlefieldCardClick(event: MouseEvent, playerId: string, card: GameCardInstance): void {
-    event.stopPropagation();
-    if (!this.isCurrentPlayer(playerId)) {
-      return;
-    }
-    if (this.drag.consumeSuppressedClick(card.instanceId)) {
-      return;
-    }
-
-    const alreadySelected = this.selectedCards().length === 1 && this.selectedCards()[0]?.card.instanceId === card.instanceId;
-    if (alreadySelected && !event.ctrlKey && !event.metaKey && !event.shiftKey) {
-      this.ripple(event.currentTarget as HTMLElement);
-      return;
-    }
-
-    this.toggleCardSelection(event, playerId, 'battlefield', card);
+    this.interactionActions.handleBattlefieldCardClick(this.interactionContext(), event, playerId, card);
   }
 
   handleHandCardClick(event: MouseEvent, playerId: string, card: GameCardInstance): void {
-    event.stopPropagation();
-    const alreadySelected = this.selectedCards().length === 1 && this.selectedCards()[0]?.card.instanceId === card.instanceId;
-    if (event.detail >= 2 || (alreadySelected && !event.ctrlKey && !event.metaKey && !event.shiftKey)) {
-      event.preventDefault();
-      void this.playCard(playerId, 'hand', card);
-      return;
-    }
-
-    this.toggleCardSelection(event, playerId, 'hand', card);
+    this.interactionActions.handleHandCardClick(this.interactionContext(), event, playerId, card);
   }
 
   dragStart(event: DragEvent, playerId: string, zone: GameZoneName, card: GameCardInstance): void {
@@ -720,12 +569,12 @@ export class GameTableStore implements OnDestroy {
 
   allowDrop(event: DragEvent): void {
     this.drag.allowDrop(event);
-    this.updateActiveDropTarget(event);
+    this.battlefieldDrag.updateActiveDropTarget(event, this.battlefieldDragContext());
   }
 
   previewHandDrop(event: DragEvent, targetPlayerId: string, targetCard: GameCardInstance): void {
     this.drag.allowDrop(event);
-    this.updateActiveDropTarget(event);
+    this.battlefieldDrag.updateActiveDropTarget(event, this.battlefieldDragContext());
     const dragged = this.drag.dragPayload(event, this.zones);
     if (!dragged || dragged.zone !== 'hand' || dragged.playerId !== targetPlayerId || dragged.instanceId === targetCard.instanceId) {
       this.clearHandDropPreview();
@@ -734,71 +583,15 @@ export class GameTableStore implements OnDestroy {
 
     const bounds = (event.currentTarget as HTMLElement).getBoundingClientRect();
     const placement = event.clientX < bounds.left + bounds.width / 2 ? 'before' : 'after';
-    this.handDropPreview.set({ playerId: targetPlayerId, targetInstanceId: targetCard.instanceId, placement });
+    this.battlefieldDragState.setHandDropPreview({ playerId: targetPlayerId, targetInstanceId: targetCard.instanceId, placement });
   }
 
   clearHandDropPreview(): void {
-    this.handDropPreview.set(null);
+    this.battlefieldDragState.clearHandDropPreview();
   }
 
   async dropOnZone(event: DragEvent, targetPlayerId: string, toZone: GameZoneName): Promise<void> {
-    event.preventDefault();
-    event.stopPropagation();
-    const dragged = this.drag.dragPayload(event, this.zones);
-    if (!dragged) {
-      this.endCardDrag();
-      return;
-    }
-    if (!this.canControlPlayer(dragged.playerId)) {
-      this.endCardDrag();
-      this.error.set('You can only move your own cards.');
-      return;
-    }
-    const sourceCard = this.findCard(dragged.playerId, dragged.zone, dragged.instanceId);
-    if (!sourceCard || !this.canControlOwnedCard(dragged.playerId, sourceCard)) {
-      this.endCardDrag();
-      this.error.set('You can only move your own cards.');
-      return;
-    }
-
-    const payload: Record<string, unknown> = {
-      playerId: dragged.playerId,
-      fromZone: dragged.zone,
-      toZone,
-      targetPlayerId,
-      instanceId: dragged.instanceId,
-    };
-    const position = this.drag.dropPosition(event, toZone);
-    if (position) {
-      payload['position'] = position;
-    }
-
-    if (dragged.zone === 'battlefield' && toZone === 'battlefield' && targetPlayerId === dragged.playerId && position) {
-      await this.command('card.position.changed', {
-        playerId: dragged.playerId,
-        zone: 'battlefield',
-        instanceId: dragged.instanceId,
-        position,
-      });
-      this.endCardDrag();
-      this.selectedCards.set([]);
-      return;
-    }
-
-    if (toZone === 'battlefield' && targetPlayerId !== dragged.playerId) {
-      this.pendingBattlefieldMove.set({
-        cardName: sourceCard.name,
-        targetPlayerName: this.playerName(targetPlayerId),
-        payload,
-      });
-      this.endCardDrag();
-      return;
-    }
-
-    await this.command('card.moved', payload);
-    await this.recordCommanderCastIfNeeded(dragged.playerId, dragged.zone, toZone, targetPlayerId);
-    this.endCardDrag();
-    this.selectedCards.set([]);
+    await this.dropActions.dropOnZone(this.dropActionContext(), event, targetPlayerId, toZone);
   }
 
   async dropOnManaLane(event: DragEvent, targetPlayerId: string): Promise<void> {
@@ -806,48 +599,11 @@ export class GameTableStore implements OnDestroy {
   }
 
   async dropOnHand(event: DragEvent, targetPlayerId: string): Promise<void> {
-    event.preventDefault();
-    event.stopPropagation();
-    const dragged = this.drag.dragPayload(event, this.zones);
-    if (dragged?.zone === 'hand' && dragged.playerId === targetPlayerId) {
-      const hand = this.snapshot()?.players[targetPlayerId]?.zones.hand ?? [];
-      const lastCard = hand.at(-1);
-      if (lastCard && dragged.instanceId !== lastCard.instanceId) {
-        await this.reorderHand(targetPlayerId, dragged.instanceId, lastCard.instanceId, 'after');
-      }
-      this.endCardDrag();
-      this.clearHandDropPreview();
-      this.selectedCards.set([]);
-      return;
-    }
-
-    await this.dropOnZone(event, targetPlayerId, 'hand');
+    await this.dropActions.dropOnHand(this.dropActionContext(), event, targetPlayerId);
   }
 
   async dropOnHandCard(event: DragEvent, targetPlayerId: string, targetCard: GameCardInstance): Promise<void> {
-    event.preventDefault();
-    event.stopPropagation();
-    const dragged = this.drag.dragPayload(event, this.zones);
-    if (!dragged || dragged.zone !== 'hand' || dragged.playerId !== targetPlayerId || dragged.instanceId === targetCard.instanceId) {
-      this.endCardDrag();
-      this.clearHandDropPreview();
-      return;
-    }
-    const player = this.players().find((candidate) => candidate.id === targetPlayerId);
-    const sourceCard = this.findCard(dragged.playerId, 'hand', dragged.instanceId);
-    if (!player || !sourceCard || !this.canControlOwnedCard(targetPlayerId, sourceCard)) {
-      this.endCardDrag();
-      this.clearHandDropPreview();
-      this.error.set('You can only reorder your own hand.');
-      return;
-    }
-
-    const preview = this.handDropPreview();
-    const placement = preview?.playerId === targetPlayerId && preview.targetInstanceId === targetCard.instanceId ? preview.placement : 'before';
-    await this.reorderHand(targetPlayerId, dragged.instanceId, targetCard.instanceId, placement);
-    this.endCardDrag();
-    this.clearHandDropPreview();
-    this.selectedCards.set([]);
+    await this.dropActions.dropOnHandCard(this.dropActionContext(), event, targetPlayerId, targetCard);
   }
 
   async confirmPendingBattlefieldMove(): Promise<void> {
@@ -856,15 +612,7 @@ export class GameTableStore implements OnDestroy {
       return;
     }
 
-    await this.command('card.moved', pendingMove.payload);
-    const fromZone = pendingMove.payload['fromZone'];
-    const targetPlayerId = pendingMove.payload['targetPlayerId'];
-    const playerId = pendingMove.payload['playerId'];
-    if (typeof playerId === 'string' && typeof fromZone === 'string' && typeof targetPlayerId === 'string') {
-      await this.recordCommanderCastIfNeeded(playerId, fromZone as GameZoneName, 'battlefield', targetPlayerId);
-    }
-    this.pendingBattlefieldMove.set(null);
-    this.selectedCards.set([]);
+    await this.dropActions.confirmPendingBattlefieldMove(this.dropActionContext(), pendingMove);
   }
 
   async cancelPendingBattlefieldMove(): Promise<void> {
@@ -873,38 +621,7 @@ export class GameTableStore implements OnDestroy {
   }
 
   async dropOnPlayer(event: DragEvent, targetPlayerId: string): Promise<void> {
-    event.preventDefault();
-    event.stopPropagation();
-    const dragged = this.drag.dragPayload(event, this.zones);
-    if (!dragged || dragged.playerId === targetPlayerId) {
-      this.endCardDrag();
-      return;
-    }
-    if (!this.canControlPlayer(dragged.playerId)) {
-      this.endCardDrag();
-      this.error.set('You can only give your own cards.');
-      return;
-    }
-    const sourceCard = this.findCard(dragged.playerId, dragged.zone, dragged.instanceId);
-    if (!sourceCard || !this.canControlOwnedCard(dragged.playerId, sourceCard)) {
-      this.endCardDrag();
-      this.error.set('You can only give your own cards.');
-      return;
-    }
-
-    this.pendingBattlefieldMove.set({
-      cardName: sourceCard.name,
-      targetPlayerName: this.playerName(targetPlayerId),
-      payload: {
-        playerId: dragged.playerId,
-        fromZone: dragged.zone,
-        toZone: 'battlefield',
-        targetPlayerId,
-        instanceId: dragged.instanceId,
-      },
-    });
-    this.endCardDrag();
-    this.selectedCards.set([]);
+    await this.dropActions.dropOnPlayer(this.dropActionContext(), event, targetPlayerId);
   }
 
   async moveFocusedZoneToBattlefield(zone: GameZoneName): Promise<void> {
@@ -944,12 +661,12 @@ export class GameTableStore implements OnDestroy {
     await this.cardActions.tokenCopy(this.cardActionContext(), menu);
   }
 
-  async setPowerToughness(menu: GameContextMenu): Promise<void> {
-    await this.cardActions.setPowerToughness(this.cardActionContext(), menu);
+  async setPowerToughness(menu: GameContextMenu, power: number, toughness: number): Promise<void> {
+    await this.cardActions.setPowerToughness(this.cardActionContext(), menu, power, toughness);
   }
 
-  async changeCardCounter(menu: GameContextMenu, key = '+1/+1'): Promise<void> {
-    await this.cardActions.changeCardCounter(this.cardActionContext(), menu, key);
+  async changeCardCounter(menu: GameContextMenu, key = '+1/+1', delta = 1): Promise<void> {
+    await this.cardActions.changeCardCounter(this.cardActionContext(), menu, key, delta);
   }
 
   async addToStack(menu: GameContextMenu): Promise<void> {
@@ -987,75 +704,44 @@ export class GameTableStore implements OnDestroy {
   }
 
   async openZone(playerId: string, zone: GameZoneName): Promise<void> {
-    const title = `${this.playerName(playerId)} ${this.zoneTitle(zone)}`;
-    this.zoneModalState.open(playerId, zone, title);
-    await this.loadZone();
+    await this.zoneActions.openZone(this.zoneActionContext(), playerId, zone);
   }
 
   async loadZone(): Promise<void> {
-    const modal = this.zoneModal();
-    const gameId = this.gameId();
-    if (!modal || !gameId) {
-      return;
-    }
-
-    this.zoneModalState.setLoading();
-    const response: GameZoneResponse = await firstValueFrom(this.gamesApi.zone(gameId, modal.playerId, modal.zone, {
-      type: modal.type,
-      search: modal.search,
-      limit: 200,
-    }));
-    this.zoneModalState.setLoaded(response.data, response.total);
+    await this.zoneActions.loadZone(this.zoneActionContext());
   }
 
   updateZoneFilter(patch: Partial<{ type: string; search: string }>): void {
-    this.zoneModalState.patchFilters(patch);
-    void this.loadZone();
+    this.zoneActions.updateZoneFilter(this.zoneActionContext(), patch);
   }
 
   selectZoneCard(card: GameCardInstance): void {
-    this.zoneModalState.selectCard(card);
+    this.zoneActions.selectZoneCard(card);
   }
 
   closeZoneModal(): void {
-    this.zoneModalState.close();
+    this.zoneActions.closeZoneModal();
   }
 
   startFloatingDrag(event: PointerEvent): void {
-    const target = event.currentTarget as HTMLElement;
-    const panel = target.closest('.floating-panel') as HTMLElement | null;
-    if (!panel) {
-      return;
-    }
-
-    const bounds = panel.getBoundingClientRect();
-    this.floatingDragOffset = {
-      x: event.clientX - bounds.left,
-      y: event.clientY - bounds.top,
-    };
-    panel.setPointerCapture?.(event.pointerId);
+    this.uiState.startFloatingDrag(event);
   }
 
   moveFloatingPanel(event: PointerEvent): void {
-    if (!this.floatingDragOffset) {
-      return;
-    }
-
-    const width = 384;
-    const height = 420;
-    this.floatingPanel.set({
-      x: Math.max(8, Math.min(event.clientX - this.floatingDragOffset.x, window.innerWidth - width - 8)),
-      y: Math.max(8, Math.min(event.clientY - this.floatingDragOffset.y, window.innerHeight - height - 8)),
-    });
+    this.uiState.moveFloatingPanel(event);
   }
 
   endFloatingDrag(): void {
-    this.floatingDragOffset = null;
+    this.uiState.endFloatingDrag();
   }
 
   async command(type: GameCommandType, payload: Record<string, unknown>, force = false): Promise<void> {
     const gameId = this.gameId();
-    if (!gameId || (this.pending() && !force)) {
+    if (!gameId) {
+      return;
+    }
+    if (this.pending() && !force) {
+      this.error.set('Wait for the current table action to finish.');
       return;
     }
 
@@ -1079,21 +765,7 @@ export class GameTableStore implements OnDestroy {
     }
 
     this.closeContextMenu();
-    const gameId = this.gameId();
-    if (!gameId) {
-      return;
-    }
-
-    this.error.set(null);
-    this.pending.set(true);
-    try {
-      const snapshot = await this.commands.send(gameId, 'game.concede', {});
-      this.snapshot.set(snapshot);
-    } catch (error) {
-      this.error.set(this.errorMessage(error));
-    } finally {
-      this.pending.set(false);
-    }
+    await this.command('game.concede', {}, true);
   }
 
   async concede(): Promise<void> {
@@ -1101,7 +773,7 @@ export class GameTableStore implements OnDestroy {
   }
 
   async closeGame(): Promise<void> {
-    if (!this.isGameOwner() || !confirm('Close and archive this game?')) {
+    if (!this.isGameOwner()) {
       return;
     }
 
@@ -1122,48 +794,16 @@ export class GameTableStore implements OnDestroy {
     this.uiState.toggleFloatingMinimized();
   }
 
-  private subscribeToRealtime(gameId: string): void {
-    this.realtime.subscribeToGame(gameId, () => {
-      void this.refetch(false);
-    });
-  }
-
   async changeCardPower(playerId: string, zone: GameZoneName, card: GameCardInstance, delta: number): Promise<void> {
-    await this.changeCardPowerToughness(playerId, zone, card, 'power', delta);
+    await this.cardStats.changePower(this.cardStatsContext(), playerId, zone, card, delta);
   }
 
   async changeCardToughness(playerId: string, zone: GameZoneName, card: GameCardInstance, delta: number): Promise<void> {
-    await this.changeCardPowerToughness(playerId, zone, card, 'toughness', delta);
-  }
-
-  private startPolling(): void {
-    this.realtime.startPolling(
-      () => {
-        void this.refetch(false);
-      },
-      () => !this.pending(),
-      4000,
-    );
-  }
-
-  private applySnapshot(nextSnapshot: GameSnapshot): void {
-    this.snapshot.set(nextSnapshot);
-    if (!this.focusedPlayerId()) {
-      this.focusedPlayerId.set(this.ownPlayerId(nextSnapshot) ?? nextSnapshot.turn.activePlayerId ?? Object.keys(nextSnapshot.players)[0] ?? null);
-    }
+    await this.cardStats.changeToughness(this.cardStatsContext(), playerId, zone, card, delta);
   }
 
   private applyDeferredRemoteSnapshot(): void {
-    const deferred = this.deferredRemoteSnapshot;
-    this.deferredRemoteSnapshot = null;
-    if (!deferred) {
-      return;
-    }
-
-    const current = this.snapshot();
-    if (!current || deferred.version > current.version) {
-      this.applySnapshot(deferred);
-    }
+    this.session.applyDeferredRemoteSnapshot(this.sessionContext());
   }
 
   private playerName(playerId: string): string {
@@ -1184,201 +824,96 @@ export class GameTableStore implements OnDestroy {
     }
   }
 
-  private updateBattlefieldDragAid(event: PointerEvent, instanceId: string): void {
-    const selected = this.selectedCards()[0];
-    if (!selected || selected.zone !== 'battlefield' || selected.card.instanceId !== instanceId) {
-      this.manaLaneDropPlayerId.set(null);
-      this.alignmentGuide.set(null);
-      return;
-    }
-
-    if (!this.isPointerInsidePlayerBattlefield(event, selected.playerId)) {
-      this.manaLaneDropPlayerId.set(null);
-      this.alignmentGuide.set(null);
-      return;
-    }
-
-    if (this.isPointerNearManaLane(event, selected.playerId)) {
-      this.manaLaneDropPlayerId.set(selected.playerId);
-      this.alignmentGuide.set(null);
-      return;
-    }
-
-    this.manaLaneDropPlayerId.set(null);
-    const card = this.findCard(selected.playerId, 'battlefield', instanceId);
-    const position = card?.position;
-    const guide = position ? this.battlefieldDragGuide(selected.playerId, instanceId, position.y) : null;
-    if (!position || !guide) {
-      this.alignmentGuide.set(null);
-      return;
-    }
-
-    this.alignmentGuide.set({ playerId: selected.playerId, y: guide.y });
-    this.updateLocalCardPosition(selected.playerId, instanceId, { x: position.x, y: guide.y });
+  private battlefieldDragContext(): GameTableBattlefieldDragContext {
+    return {
+      zones: this.zones,
+      snapshot: () => this.snapshot(),
+      selectedCards: () => this.selectedCards(),
+      findCard: (playerId, zone, instanceId) => this.findCard(playerId, zone, instanceId),
+      updateLocalCardPosition: (playerId, instanceId, position) => this.updateLocalCardPosition(playerId, instanceId, position),
+    };
   }
 
-  private battlefieldDragGuide(playerId: string, instanceId: string, y: number): AlignmentCandidate | null {
-    return this.nearestBattlefieldRow(playerId, instanceId, y, this.battlefieldAlignmentGuideThreshold);
+  private cardStatsContext(): GameTableCardStatsContext {
+    return {
+      canControlOwnedCard: (playerId, card) => this.canControlOwnedCard(playerId, card),
+      findCard: (playerId, zone, instanceId) => this.findCard(playerId, zone, instanceId),
+      updateLocalCardPowerToughness: (playerId, zone, instanceId, power, toughness) =>
+        this.updateLocalCardPowerToughness(playerId, zone, instanceId, power, toughness),
+      setError: (message) => this.error.set(message),
+      command: (type, payload, force) => this.command(type, payload, force),
+    };
   }
 
-  private positionWithAlignmentGuide(
-    playerId: string,
-    instanceId: string,
-    position: { x: number; y: number },
-    activeGuideY: number | null = null,
-  ): { x: number; y: number } {
-    if (activeGuideY !== null) {
-      return Math.abs(activeGuideY - position.y) <= this.battlefieldAlignmentSnapThreshold ? { ...position, y: activeGuideY } : position;
-    }
-
-    const guide = this.nearestBattlefieldRow(playerId, instanceId, position.y, this.battlefieldAlignmentSnapThreshold);
-
-    return guide ? { ...position, y: guide.y } : position;
+  private dropActionContext(): GameTableDropActionContext {
+    return {
+      zones: this.zones,
+      snapshot: () => this.snapshot(),
+      handDropPreview: () => this.handDropPreview(),
+      findCard: (playerId, zone, instanceId) => this.findCard(playerId, zone, instanceId),
+      canControlPlayer: (playerId) => this.canControlPlayer(playerId),
+      canControlOwnedCard: (playerId, card) => this.canControlOwnedCard(playerId, card),
+      playerName: (playerId) => this.playerName(playerId),
+      setPendingBattlefieldMove: (move) => this.pendingBattlefieldMove.set(move),
+      endCardDrag: () => this.endCardDrag(),
+      clearHandDropPreview: () => this.clearHandDropPreview(),
+      clearSelectedCards: () => this.selectedCards.set([]),
+      setError: (message) => this.error.set(message),
+      command: (type, payload) => this.command(type, payload),
+      recordCommanderCastIfNeeded: (playerId, fromZone, toZone, targetPlayerId) =>
+        this.recordCommanderCastIfNeeded(playerId, fromZone, toZone, targetPlayerId),
+    };
   }
 
-  private nearestBattlefieldRow(playerId: string, instanceId: string, y: number, threshold: number): AlignmentCandidate | null {
-    const snapshotRows = this.snapshot()?.players[playerId]?.zones.battlefield
-      .filter((card) => card.instanceId !== instanceId)
-      .map((card) => card.position?.y)
-      .filter((candidate): candidate is number => typeof candidate === 'number')
-      .filter((candidate) => !this.isManaLaneRow(playerId, candidate)) ?? [];
-    const rows = [...snapshotRows, ...this.battlefieldDomRows(playerId, instanceId)];
-    const nearest = rows
-      .map((candidate) => ({ y: candidate, distance: Math.abs(candidate - y) }))
-      .sort((left, right) => left.distance - right.distance)[0];
-
-    return nearest && nearest.distance <= threshold ? nearest : null;
+  private pointerDragActionContext(): GameTablePointerDragActionContext {
+    return {
+      zones: this.zones,
+      battlefieldDragContext: () => this.battlefieldDragContext(),
+      alignmentGuideY: (playerId) => this.alignmentGuideFor(playerId)?.y ?? null,
+      findCard: (playerId, zone, instanceId) => this.findCard(playerId, zone, instanceId),
+      canControlPlayer: (playerId) => this.canControlPlayer(playerId),
+      canControlOwnedCard: (playerId, card) => this.canControlOwnedCard(playerId, card),
+      playerName: (playerId) => this.playerName(playerId),
+      updateLocalCardPosition: (playerId, instanceId, position) => this.updateLocalCardPosition(playerId, instanceId, position),
+      setPendingBattlefieldMove: (move) => this.pendingBattlefieldMove.set(move),
+      endCardDrag: () => this.endCardDrag(),
+      clearSelectedCards: () => this.selectedCards.set([]),
+      applyDeferredRemoteSnapshot: () => this.applyDeferredRemoteSnapshot(),
+      refetch: (force) => this.refetch(force),
+      command: (type, payload) => this.command(type, payload),
+    };
   }
 
-  private battlefieldDomRows(playerId: string, instanceId: string): number[] {
-    const positionedInstanceIds = new Set((this.snapshot()?.players[playerId]?.zones.battlefield ?? [])
-      .filter((card) => card.instanceId !== instanceId && card.position)
-      .map((card) => card.instanceId));
-    const battlefield = Array.from(document.querySelectorAll<HTMLElement>('.battlefield'))
-      .find((element) => element.dataset['playerId'] === playerId);
-    if (!battlefield) {
-      return [];
-    }
-
-    const rows = Array.from(battlefield.querySelectorAll<HTMLElement>('[data-testid="game-card"][data-zone="battlefield"]'))
-      .filter((element) => element.dataset['cardInstanceId'] !== instanceId)
-      .filter((element) => !positionedInstanceIds.has(element.dataset['cardInstanceId'] ?? ''))
-      .filter((element) => element.getClientRects().length > 0)
-      .map((element) => element.offsetTop)
-      .filter((row) => !this.isManaLaneRow(playerId, row));
-
-    return [...new Set(rows)];
+  private zoneActionContext(): GameTableZoneActionContext {
+    return {
+      gameId: () => this.gameId(),
+      playerName: (playerId) => this.playerName(playerId),
+      zoneTitle: (zone) => this.zoneTitle(zone),
+    };
   }
 
-  private isManaLaneRow(playerId: string, rowY: number): boolean {
-    const battlefield = Array.from(document.querySelectorAll<HTMLElement>('.battlefield'))
-      .find((element) => element.dataset['playerId'] === playerId);
-    const manaLane = battlefield?.querySelector<HTMLElement>('[data-mana-lane]');
-    if (!manaLane) {
-      return false;
-    }
-
-    return rowY >= manaLane.offsetTop - 4;
+  private interactionContext(): GameTableInteractionContext {
+    return {
+      currentPlayer: () => this.currentPlayer(),
+      focusedPlayer: () => this.focusedPlayer(),
+      setError: (message) => this.error.set(message),
+      playCard: (playerId, zone, card) => this.playCard(playerId, zone, card),
+    };
   }
 
-  private isPointerInsidePlayerBattlefield(event: PointerEvent, playerId: string): boolean {
-    return this.elementsAtPoint(event).some((element) => {
-      const battlefield = element.closest<HTMLElement>('.battlefield');
-
-      return battlefield?.dataset['playerId'] === playerId;
-    });
-  }
-
-  private isPointerNearManaLane(event: PointerEvent, playerId: string): boolean {
-    const manaLane = this.elementsAtPoint(event)
-      .map((element) => element.closest<HTMLElement>('[data-mana-lane]'))
-      .find((element) => element?.dataset['playerId'] === playerId);
-    if (!manaLane) {
-      return false;
-    }
-
-    const bounds = manaLane.getBoundingClientRect();
-    const activationInset = 10;
-
-    return event.clientY >= bounds.top + activationInset;
-  }
-
-  private elementsAtPoint(event: PointerEvent): Element[] {
-    return document.elementsFromPoint(event.clientX, event.clientY);
-  }
-
-  private updatePointerDropTarget(event: PointerEvent): void {
-    const selected = this.selectedCards()[0];
-    if (!selected) {
-      this.activeDropTarget.set(null);
-      this.activePlayerDropTarget.set(null);
-      return;
-    }
-
-    const targetPlayerId = this.playerDropTargetAt(event, selected.playerId);
-    if (targetPlayerId) {
-      this.activePlayerDropTarget.set(targetPlayerId);
-      this.activeDropTarget.set(null);
-      return;
-    }
-
-    this.activePlayerDropTarget.set(null);
-    const zone = this.drag.pointerDropZone(event, selected.playerId, this.zones);
-    this.activeDropTarget.set(zone ? { playerId: selected.playerId, zone } : null);
-  }
-
-  private updateActiveDropTarget(event: DragEvent): void {
-    const dragged = this.drag.dragPayload(event, this.zones);
-
-    for (const element of document.elementsFromPoint(event.clientX, event.clientY)) {
-      const playerTarget = element.closest<HTMLElement>('[data-player-drop-target]');
-      const dropPlayerId = playerTarget?.dataset['playerDropTarget'];
-      if (dropPlayerId && dragged && dragged.playerId !== dropPlayerId) {
-        this.activePlayerDropTarget.set(dropPlayerId);
-        this.activeDropTarget.set(null);
-        this.manaLaneDropPlayerId.set(null);
-        return;
-      }
-
-      const target = element.closest<HTMLElement>('[data-game-drop-zone]');
-      const playerId = target?.dataset['playerId'];
-      const zone = target?.dataset['zone'];
-      this.activePlayerDropTarget.set(null);
-      if (playerId && zone === 'mana') {
-        this.manaLaneDropPlayerId.set(playerId);
-        this.activeDropTarget.set(null);
-        return;
-      }
-      if (playerId && dragged?.zone === 'hand' && zone === 'battlefield') {
-        this.manaLaneDropPlayerId.set(playerId);
-      } else {
-        this.manaLaneDropPlayerId.set(null);
-      }
-      if (playerId && this.isGameZone(zone)) {
-        this.activeDropTarget.set({ playerId, zone });
-        return;
-      }
-    }
-
-    this.manaLaneDropPlayerId.set(null);
-    this.activePlayerDropTarget.set(null);
-    this.activeDropTarget.set(null);
-  }
-
-  private isGameZone(zone: string | undefined): zone is GameZoneName {
-    return zone !== undefined && this.zones.includes(zone as GameZoneName);
-  }
-
-  private playerDropTargetAt(event: PointerEvent, sourcePlayerId: string): string | null {
-    for (const element of document.elementsFromPoint(event.clientX, event.clientY)) {
-      const target = element.closest<HTMLElement>('[data-player-drop-target]');
-      const targetPlayerId = target?.dataset['playerDropTarget'];
-      if (targetPlayerId && targetPlayerId !== sourcePlayerId) {
-        return targetPlayerId;
-      }
-    }
-
-    return null;
+  private sessionContext(): GameTableSessionContext {
+    return {
+      gameId: () => this.gameId(),
+      snapshot: () => this.snapshot(),
+      setSnapshot: (snapshot) => this.snapshot.set(snapshot),
+      focusedPlayerId: () => this.focusedPlayerId(),
+      setFocusedPlayerId: (playerId) => this.focusedPlayerId.set(playerId),
+      ownPlayerId: (snapshot) => this.ownPlayerId(snapshot),
+      hasActivePointerDrag: () => this.drag.hasActivePointerDrag(),
+      isPending: () => this.pending(),
+      setLoading: (loading) => this.loading.set(loading),
+      setError: (message) => this.error.set(message),
+    };
   }
 
   private updateLocalCardPowerToughness(playerId: string, zone: GameZoneName, instanceId: string, power: number, toughness: number): void {
@@ -1418,88 +953,6 @@ export class GameTableStore implements OnDestroy {
     return this.snapshot()?.players[playerId]?.zones[zone]?.find((card) => card.instanceId === instanceId) ?? null;
   }
 
-  private async reorderHand(playerId: string, movedInstanceId: string, targetInstanceId: string, placement: 'before' | 'after'): Promise<void> {
-    const hand = this.snapshot()?.players[playerId]?.zones.hand ?? [];
-    const fromIndex = hand.findIndex((card) => card.instanceId === movedInstanceId);
-    const toIndex = hand.findIndex((card) => card.instanceId === targetInstanceId);
-    if (fromIndex < 0 || toIndex < 0 || fromIndex === toIndex) {
-      return;
-    }
-
-    const reordered = [...hand];
-    const [moved] = reordered.splice(fromIndex, 1);
-    const adjustedTargetIndex = reordered.findIndex((card) => card.instanceId === targetInstanceId);
-    reordered.splice(placement === 'after' ? adjustedTargetIndex + 1 : adjustedTargetIndex, 0, moved);
-    await this.command('zone.changed', {
-      playerId,
-      zone: 'hand',
-      cards: reordered,
-    });
-  }
-
-  private async changeCardPowerToughness(
-    playerId: string,
-    zone: GameZoneName,
-    card: GameCardInstance,
-    stat: 'power' | 'toughness',
-    delta: number,
-  ): Promise<void> {
-    if (!this.canControlOwnedCard(playerId, card)) {
-      this.error.set('You can only change your own cards.');
-      return;
-    }
-
-    const currentCard = this.findCard(playerId, zone, card.instanceId) ?? card;
-    const currentPower = currentCard.power ?? 0;
-    const currentToughness = currentCard.toughness ?? 0;
-    const nextPower = stat === 'power' ? currentPower + delta : currentPower;
-    const nextToughness = stat === 'toughness' ? currentToughness + delta : currentToughness;
-    const key = this.powerToughnessKey(playerId, zone, card.instanceId);
-
-    this.updateLocalCardPowerToughness(playerId, zone, card.instanceId, nextPower, nextToughness);
-    this.pendingPowerToughnessChanges.set(key, {
-      playerId,
-      zone,
-      instanceId: card.instanceId,
-      power: nextPower,
-      toughness: nextToughness,
-    });
-    const currentTimer = this.powerToughnessTimers.get(key);
-    if (currentTimer !== undefined) {
-      window.clearTimeout(currentTimer);
-    }
-    this.powerToughnessTimers.set(key, window.setTimeout(() => void this.flushPowerToughnessChange(key), this.powerToughnessDebounceMs));
-  }
-
-  private async flushPowerToughnessChange(key: string): Promise<void> {
-    const change = this.pendingPowerToughnessChanges.get(key);
-    this.pendingPowerToughnessChanges.delete(key);
-    this.powerToughnessTimers.delete(key);
-    if (!change) {
-      return;
-    }
-
-    await this.command('card.power_toughness.changed', {
-      playerId: change.playerId,
-      zone: change.zone,
-      instanceId: change.instanceId,
-      power: change.power,
-      toughness: change.toughness,
-    }, true);
-  }
-
-  private clearPowerToughnessTimers(): void {
-    for (const timer of this.powerToughnessTimers.values()) {
-      window.clearTimeout(timer);
-    }
-    this.powerToughnessTimers.clear();
-    this.pendingPowerToughnessChanges.clear();
-  }
-
-  private powerToughnessKey(playerId: string, zone: GameZoneName, instanceId: string): string {
-    return `${playerId}:${zone}:${instanceId}`;
-  }
-
   private ownPlayerId(snapshot: GameSnapshot): string | null {
     const userId = this.auth.user()?.id;
     if (!userId) {
@@ -1511,18 +964,12 @@ export class GameTableStore implements OnDestroy {
 
   private beginCardDrag(instanceId: string): void {
     this.hideCardPreview();
-    this.draggingCardInstanceId.set(instanceId);
+    this.battlefieldDragState.beginCardDrag(instanceId);
   }
 
   private endCardDrag(): void {
     this.hideCardPreview();
-    this.draggingCardInstanceId.set(null);
-    this.manaLaneDropPlayerId.set(null);
-    this.alignmentGuide.set(null);
-    this.activeDropTarget.set(null);
-    this.activePlayerDropTarget.set(null);
-    this.pointerDragPreview.set(null);
-    this.clearHandDropPreview();
+    this.battlefieldDragState.endCardDrag();
   }
 
   private updatePointerDragPreview(event: PointerEvent, instanceId: string): void {
@@ -1531,7 +978,7 @@ export class GameTableStore implements OnDestroy {
       return;
     }
 
-    this.pointerDragPreview.set({ card: selected.card, x: event.clientX, y: event.clientY });
+    this.battlefieldDragState.setPointerDragPreview({ card: selected.card, x: event.clientX, y: event.clientY });
   }
 
   private ensureDraggingBattlefieldSelection(instanceId: string): void {
@@ -1550,47 +997,6 @@ export class GameTableStore implements OnDestroy {
     }
 
     return null;
-  }
-
-  private toLogEntryView(entry: GameLogEntry): GameLogEntryView {
-    const card = this.cardFromLogEntry(entry);
-    if (!card) {
-      return { ...entry, card: null, messagePrefix: entry.message, messageSuffix: '', appearance: this.logAppearance(entry) };
-    }
-
-    const index = entry.message.indexOf(card.name);
-
-    return {
-      ...entry,
-      card,
-      messagePrefix: index >= 0 ? entry.message.slice(0, index) : entry.message,
-      messageSuffix: index >= 0 ? entry.message.slice(index + card.name.length) : '',
-      appearance: this.logAppearance(entry),
-    };
-  }
-
-  private logAppearance(entry: GameLogEntry): GameLogEntryView['appearance'] {
-    return entry.type === 'turn.changed' ? 'phase' : 'default';
-  }
-
-  private cardFromLogEntry(entry: GameLogEntry): GameCardInstance | null {
-    if (!entry.message) {
-      return null;
-    }
-
-    return this.allCards()
-      .filter((card) => !card.hidden && card.name.length > 2 && entry.message.includes(card.name))
-      .sort((left, right) => right.name.length - left.name.length)[0] ?? null;
-  }
-
-  private allCards(): GameCardInstance[] {
-    return Object.values(this.snapshot()?.players ?? {}).flatMap((player) => this.zones.flatMap((zone) => player.zones[zone] ?? []));
-  }
-
-  private ripple(element: HTMLElement): void {
-    element.classList.remove('clicked');
-    void element.offsetWidth;
-    element.classList.add('clicked');
   }
 
   private errorMessage(error: unknown): string {

@@ -30,7 +30,12 @@
       [avatar]="player.user.avatar"
       size="lg"
     />
-    <app-player-name [displayName]="player.user.displayName" [nameStyle]="player.user.displayNameStyle" size="lg" />
+    <app-player-name
+      [displayName]="player.user.displayName"
+      [nameStyle]="player.user.displayNameStyle"
+      size="lg"
+      plateSize="md"
+    />
 
     <span class="ready-state" [class.ready]="ready()">
       @if (ready()) {

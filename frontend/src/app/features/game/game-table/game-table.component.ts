@@ -1,17 +1,25 @@
-import { AfterViewChecked, ChangeDetectionStrategy, Component, ElementRef, HostListener, QueryList, ViewChildren, inject, signal } from '@angular/core';
+import { AfterViewChecked, ChangeDetectionStrategy, Component, ElementRef, HostListener, QueryList, ViewChildren, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
 import { AppModalComponent } from '../../../shared/ui/app-modal/app-modal.component';
 import { PrettyScrollDirective } from '../../../shared/ui/pretty-scroll/pretty-scroll.directive';
 import { GameCardInstance, GameZoneName } from '../../../core/models/game.model';
 import { GameTableCardActionsService } from './services/game-table-card-actions.service';
+import { GameTableCardStatsService } from './services/game-table-card-stats.service';
+import { GameTableBattlefieldDragCoordinatorService } from './services/game-table-battlefield-drag-coordinator.service';
 import { GameTableCommandService } from './services/game-table-command.service';
 import { GameTableDragService } from './services/game-table-drag.service';
+import { GameTableDropActionsService } from './services/game-table-drop-actions.service';
+import { GameTableInteractionActionsService } from './services/game-table-interaction-actions.service';
 import { GameTableLibraryActionsService } from './services/game-table-library-actions.service';
+import { GameTablePointerDragActionsService } from './services/game-table-pointer-drag-actions.service';
 import { GameTableRealtimeService } from './services/game-table-realtime.service';
 import { GameTableSelectionService } from './services/game-table-selection.service';
+import { GameTableSessionService } from './services/game-table-session.service';
 import { GameTableTurnActionsService } from './services/game-table-turn-actions.service';
+import { GameTableZoneActionsService } from './services/game-table-zone-actions.service';
 import { GameTableChatLogState } from './state/game-table-chat-log.state';
+import { GameTableBattlefieldDragState } from './state/game-table-battlefield-drag.state';
 import { GameTableSnapshotSelectors } from './state/game-table-snapshot-selectors';
 import { GameContextMenu, GameTableUiState } from './state/game-table-ui.state';
 import { GameTableZoneModalState } from './state/game-table-zone-modal.state';
@@ -34,6 +42,7 @@ interface DrawNumberActionRequest {
   readonly description: string;
   readonly defaultValue: number;
   readonly min: number;
+  readonly max?: number;
   readonly confirmLabel: string;
 }
 
@@ -45,10 +54,29 @@ interface MoveTopNumberActionRequest {
   readonly description: string;
   readonly defaultValue: number;
   readonly min: number;
+  readonly max?: number;
   readonly confirmLabel: string;
 }
 
-type NumberActionRequest = DrawNumberActionRequest | MoveTopNumberActionRequest;
+interface CounterNumberActionRequest {
+  readonly kind: 'counter';
+  readonly menu: GameContextMenu;
+  readonly counter: string;
+  readonly title: string;
+  readonly description: string;
+  readonly defaultValue: number;
+  readonly min: number;
+  readonly max: number;
+  readonly confirmLabel: string;
+}
+
+type NumberActionRequest = DrawNumberActionRequest | MoveTopNumberActionRequest | CounterNumberActionRequest;
+
+interface PowerToughnessActionRequest {
+  readonly menu: GameContextMenu;
+  readonly power: string;
+  readonly toughness: string;
+}
 
 @Component({
   selector: 'app-game-table',
@@ -71,14 +99,22 @@ type NumberActionRequest = DrawNumberActionRequest | MoveTopNumberActionRequest;
   providers: [
     GameTableStore,
     GameTableCardActionsService,
+    GameTableCardStatsService,
+    GameTableBattlefieldDragCoordinatorService,
     GameTableRealtimeService,
     GameTableCommandService,
     GameTableSelectionService,
+    GameTableSessionService,
     GameTableDragService,
+    GameTableDropActionsService,
+    GameTableInteractionActionsService,
+    GameTablePointerDragActionsService,
     GameTableLibraryActionsService,
     GameTableTurnActionsService,
+    GameTableZoneActionsService,
     GameTableSnapshotSelectors,
     GameTableUiState,
+    GameTableBattlefieldDragState,
     GameTableZoneModalState,
     GameTableChatLogState,
   ],
@@ -123,6 +159,13 @@ export class GameTableComponent implements AfterViewChecked {
   readonly canControlPlayer = (playerId: string): boolean => this.store.canControlPlayer(playerId);
   readonly canUseHiddenZone = (playerId: string, zone: GameZoneName): boolean => this.store.canUseHiddenZone(playerId, zone);
   readonly numberActionDialog = signal<NumberActionRequest | null>(null);
+  readonly powerToughnessDialog = signal<PowerToughnessActionRequest | null>(null);
+  readonly closeGameDialogOpen = signal(false);
+  readonly isPowerToughnessDialogInvalid = computed(() => {
+    const request = this.powerToughnessDialog();
+
+    return !request || !Number.isFinite(Number(request.power)) || !Number.isFinite(Number(request.toughness));
+  });
   private lastAutoScrollKey = '';
 
   @ViewChildren('autoScrollFeed') private readonly autoScrollFeeds?: QueryList<ElementRef<HTMLElement>>;
@@ -163,6 +206,8 @@ export class GameTableComponent implements AfterViewChecked {
         this.store.closeContextMenu();
         this.store.closeZoneModal();
         this.cancelNumberAction();
+        this.cancelPowerToughnessDialog();
+        this.closeGameDialogOpen.set(false);
         this.store.clearSelection();
         break;
       case 'd':
@@ -289,7 +334,7 @@ export class GameTableComponent implements AfterViewChecked {
         void this.store.concedeGame();
         return;
       case 'closeGame':
-        void this.store.closeGame();
+        this.openCloseGameDialog();
         this.store.closeContextMenu();
         return;
       case 'focusPlayer':
@@ -336,10 +381,10 @@ export class GameTableComponent implements AfterViewChecked {
         void this.store.addToStack(menu);
         return;
       case 'setPowerToughness':
-        this.store.setPowerToughness(menu);
+        this.openPowerToughnessDialog(menu);
         return;
       case 'changeCounter':
-        this.store.changeCardCounter(menu, action.counter);
+        this.openCounterDialog(menu, action.counter);
         return;
       case 'moveCard':
         this.store.moveCard(menu, action.zone);
@@ -368,11 +413,41 @@ export class GameTableComponent implements AfterViewChecked {
       case 'moveTop':
         void this.store.moveTop(request.playerId, request.toZone, value);
         return;
+      case 'counter':
+        void this.store.changeCardCounter(request.menu, request.counter, value);
+        return;
     }
   }
 
   cancelNumberAction(): void {
     this.numberActionDialog.set(null);
+  }
+
+  updatePowerToughnessValue(stat: 'power' | 'toughness', value: string): void {
+    this.powerToughnessDialog.update((request) => request ? { ...request, [stat]: value } : request);
+  }
+
+  confirmPowerToughnessDialog(): void {
+    const request = this.powerToughnessDialog();
+    if (!request || this.isPowerToughnessDialogInvalid()) {
+      return;
+    }
+
+    this.powerToughnessDialog.set(null);
+    void this.store.setPowerToughness(request.menu, Number(request.power), Number(request.toughness));
+  }
+
+  cancelPowerToughnessDialog(): void {
+    this.powerToughnessDialog.set(null);
+  }
+
+  confirmCloseGame(): void {
+    this.closeGameDialogOpen.set(false);
+    void this.store.closeGame();
+  }
+
+  cancelCloseGame(): void {
+    this.closeGameDialogOpen.set(false);
   }
 
   private openDrawDialog(playerId: string): void {
@@ -400,5 +475,37 @@ export class GameTableComponent implements AfterViewChecked {
       min: 1,
       confirmLabel: 'Move',
     });
+  }
+
+  private openCounterDialog(menu: GameContextMenu, counter: string): void {
+    this.store.closeContextMenu();
+    this.numberActionDialog.set({
+      kind: 'counter',
+      menu,
+      counter,
+      title: `Change ${counter} counter`,
+      description: 'Use a positive or negative value to adjust this counter.',
+      defaultValue: 1,
+      min: -99,
+      max: 99,
+      confirmLabel: 'Apply',
+    });
+  }
+
+  private openPowerToughnessDialog(menu: GameContextMenu): void {
+    if (!menu.card) {
+      return;
+    }
+
+    this.store.closeContextMenu();
+    this.powerToughnessDialog.set({
+      menu,
+      power: String(menu.card.power ?? 0),
+      toughness: String(menu.card.toughness ?? 0),
+    });
+  }
+
+  private openCloseGameDialog(): void {
+    this.closeGameDialogOpen.set(true);
   }
 }

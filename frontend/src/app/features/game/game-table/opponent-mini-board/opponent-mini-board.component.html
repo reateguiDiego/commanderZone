@@ -27,6 +27,7 @@
         [displayName]="opponent.state.user.displayName"
         [nameStyle]="opponent.state.user.displayNameStyle"
         size="md"
+        plateSize="sm"
       />
       <small>{{ deckLabel()(opponent) }}</small>
       <app-mana-symbols class="mana-row compact" [symbols]="manaSymbols()(opponent)" fallback="Colorless" />

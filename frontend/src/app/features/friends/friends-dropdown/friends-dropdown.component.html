@@ -32,7 +32,12 @@
                 <span class="row-marker search-marker"></span>
               </span>
               <span class="row-main">
-                <app-player-name [displayName]="result.displayName" [nameStyle]="result.displayNameStyle" size="xs" />
+                <app-player-name
+                  [displayName]="result.displayName"
+                  [nameStyle]="result.displayNameStyle"
+                  size="xs"
+                  plateSize="sm"
+                />
                 <small>{{ result.email }}</small>
               </span>
 
@@ -66,7 +71,12 @@
           ></span>
         </span>
         <span class="row-main">
-          <app-player-name [displayName]="row.displayName" [nameStyle]="row.displayNameStyle" size="xs" />
+          <app-player-name
+            [displayName]="row.displayName"
+            [nameStyle]="row.displayNameStyle"
+            size="xs"
+            plateSize="sm"
+          />
           <small>{{ row.detail }}</small>
           @if (row.kind === 'room-invite') {
             <em>Invitacion de sala</em>

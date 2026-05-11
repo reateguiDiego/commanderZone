@@ -24,6 +24,7 @@ export class GameTableUiState {
   readonly activeFloatingTab = signal<'chat' | 'log'>('log');
   readonly floatingPanel = signal({ x: 24, y: 120 });
   readonly floatingMinimized = signal(false);
+  private floatingDragOffset: { x: number; y: number } | null = null;
   private hoveredSelection: HoveredCardSelection | null = null;
   private hoverPreviewHandle?: number;
   private hoverPreviewToken = 0;
@@ -65,6 +66,33 @@ export class GameTableUiState {
 
   toggleFloatingMinimized(): void {
     this.floatingMinimized.update((value) => !value);
+  }
+
+  startFloatingDrag(event: PointerEvent): void {
+    const panel = event.currentTarget as HTMLElement;
+    const bounds = panel.getBoundingClientRect();
+    this.floatingDragOffset = {
+      x: event.clientX - bounds.left,
+      y: event.clientY - bounds.top,
+    };
+    panel.setPointerCapture?.(event.pointerId);
+  }
+
+  moveFloatingPanel(event: PointerEvent): void {
+    if (!this.floatingDragOffset) {
+      return;
+    }
+
+    const width = 384;
+    const height = 420;
+    this.floatingPanel.set({
+      x: Math.max(8, Math.min(event.clientX - this.floatingDragOffset.x, window.innerWidth - width - 8)),
+      y: Math.max(8, Math.min(event.clientY - this.floatingDragOffset.y, window.innerHeight - height - 8)),
+    });
+  }
+
+  endFloatingDrag(): void {
+    this.floatingDragOffset = null;
   }
 
   destroy(): void {

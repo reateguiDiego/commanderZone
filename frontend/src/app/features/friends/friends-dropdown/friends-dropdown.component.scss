@@ -117,12 +117,7 @@
 }
 
 .row-main app-player-name {
-  --player-name-font-size: 1.18rem;
-  --player-name-plate-width: 15rem;
-  --player-name-plate-height: 2.72rem;
-  --player-name-label-width: calc(100% - 2.9rem);
-  --player-name-plate-padding: 0.34rem 1.45rem;
-
+  width: min(12rem, 100%);
   max-width: 100%;
 }
 
@@ -300,13 +295,7 @@
   }
 
   .row-main app-player-name {
-    --player-name-font-size: 0.96rem;
-    --player-name-plate-width: min(13rem, 100%);
-    --player-name-plate-height: 2.24rem;
-    --player-name-label-width: calc(100% - 2.4rem);
-    --player-name-plate-padding: 0.28rem 1.2rem;
-
-    width: 100%;
+    width: min(11rem, 100%);
   }
 
   .row-main small,
@@ -357,12 +346,7 @@
   }
 
   .row-main app-player-name {
-    --player-name-font-size: 0.88rem;
-    --player-name-plate-width: 8rem;
-    --player-name-plate-height: 2rem;
-    --player-name-label-width: calc(100% - 2.15rem);
-
-    width: 100%;
+    width: min(9rem, 100%);
   }
 
   .row-main small,

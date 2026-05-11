@@ -1,7 +1,7 @@
 import { AfterViewChecked, ChangeDetectionStrategy, Component, ElementRef, ViewChild, input, output } from '@angular/core';
 import { GameCardInstance } from '../../../../core/models/game.model';
 import { PrettyScrollDirective } from '../../../../shared/ui/pretty-scroll/pretty-scroll.directive';
-import { GameLogEntryView } from '../game-table.store';
+import { GameLogEntryView } from '../state/game-table-chat-log.state';
 
 @Component({
   selector: 'app-game-log-panel',
