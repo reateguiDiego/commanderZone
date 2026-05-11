@@ -2,9 +2,18 @@
 
 namespace App\UI\Http;
 
+use App\Application\Auth\AuthThrottleService;
+use App\Application\Auth\AuthMailer;
+use App\Application\Auth\EmailVerificationService;
+use App\Application\Auth\LoginProtectionService;
+use App\Application\Auth\PasswordResetService;
+use App\Application\Auth\SecurityAuditLogger;
+use App\Domain\Auth\EmailVerificationToken;
 use App\Domain\User\User;
 use App\Infrastructure\Realtime\FriendEventPublisher;
 use Doctrine\ORM\EntityManagerInterface;
+use Lexik\Bundle\JWTAuthenticationBundle\Services\JWTTokenManagerInterface;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -102,6 +111,25 @@ class AuthController extends ApiController
         'assets/images/avatars/moonstone-seer.png',
         'assets/images/avatars/obsidian-geomancer.png',
     ];
+    private const AUTH_REQUEST_WINDOW_SECONDS = 900;
+    private const PASSWORD_RESET_REQUEST_LIMIT_PER_IP = 5;
+    private const PASSWORD_RESET_REQUEST_LIMIT_PER_EMAIL = 3;
+    private const PASSWORD_RESET_CONFIRM_LIMIT_PER_IP = 10;
+    private const EMAIL_VERIFICATION_REQUEST_LIMIT_PER_IP = 5;
+    private const EMAIL_VERIFICATION_REQUEST_LIMIT_PER_EMAIL = 3;
+
+    public function __construct(
+        private readonly JWTTokenManagerInterface $jwtTokenManager,
+        private readonly PasswordResetService $passwordResetService,
+        private readonly EmailVerificationService $emailVerificationService,
+        private readonly AuthMailer $authMailer,
+        private readonly LoginProtectionService $loginProtectionService,
+        private readonly AuthThrottleService $authThrottleService,
+        private readonly SecurityAuditLogger $securityAuditLogger,
+        #[Autowire('%kernel.environment%')]
+        private readonly string $kernelEnvironment,
+    ) {
+    }
 
     #[Route('/auth/email-availability', methods: ['GET'])]
     public function emailAvailability(Request $request, EntityManagerInterface $entityManager): JsonResponse
@@ -148,26 +176,95 @@ class AuthController extends ApiController
         $entityManager->persist($user);
         $entityManager->flush();
 
-        return $this->json(['user' => $user->toArray()], 201);
+        $verificationToken = $this->emailVerificationService->issueRegisterVerification(
+            $user,
+            $request->getClientIp(),
+            $request->headers->get('User-Agent'),
+        );
+        $this->securityAuditLogger->log('auth.registered', $user->email(), $user->id(), $request->getClientIp());
+        $this->sendVerificationEmailFailOpen($user, $verificationToken, $request->getClientIp(), 'register');
+
+        return $this->json([
+            'user' => $user->toArray(),
+            'verificationRequired' => true,
+            ...$this->debugTokenPayload($verificationToken, 'emailVerificationToken'),
+        ], 201);
     }
 
     #[Route('/auth/login', methods: ['POST'])]
-    public function login(): JsonResponse
+    public function login(Request $request, EntityManagerInterface $entityManager, UserPasswordHasherInterface $passwordHasher): JsonResponse
     {
-        throw new \LogicException('This endpoint is handled by the security firewall.');
+        $payload = $this->payload($request);
+        $email = mb_strtolower(trim((string) ($payload['email'] ?? '')));
+        $password = (string) ($payload['password'] ?? '');
+        $clientIp = $request->getClientIp();
+
+        if ($this->loginProtectionService->isLocked($email, $clientIp)) {
+            $this->securityAuditLogger->log('auth.login.locked', $email, null, $clientIp);
+
+            return $this->fail('Too many failed login attempts. Please try again later.', 429);
+        }
+
+        if (filter_var($email, FILTER_VALIDATE_EMAIL) === false || $password === '') {
+            $this->loginProtectionService->recordFailure($email, $clientIp);
+            $this->securityAuditLogger->log('auth.login.failed', $email, null, $clientIp, ['reason' => 'invalid_payload']);
+
+            return $this->fail('Invalid credentials.', 401);
+        }
+
+        $user = $entityManager->getRepository(User::class)->findOneBy(['email' => $email]);
+        if (!$user instanceof User || !$passwordHasher->isPasswordValid($user, $password)) {
+            $this->loginProtectionService->recordFailure($email, $clientIp);
+            $this->securityAuditLogger->log('auth.login.failed', $email, $user?->id(), $clientIp, ['reason' => 'invalid_credentials']);
+
+            return $this->fail('Invalid credentials.', 401);
+        }
+
+        $this->loginProtectionService->resetFailures($email, $clientIp);
+        $this->securityAuditLogger->log('auth.login.succeeded', $email, $user->id(), $clientIp);
+
+        return $this->json(['token' => $this->jwtTokenManager->create($user)]);
     }
 
     #[Route('/auth/password-reset/request', methods: ['POST'])]
     public function requestPasswordReset(Request $request, EntityManagerInterface $entityManager): JsonResponse
     {
         $payload = $this->payload($request);
-        $email = trim((string) ($payload['email'] ?? ''));
+        $email = mb_strtolower(trim((string) ($payload['email'] ?? '')));
+        $clientIp = trim((string) $request->getClientIp());
 
-        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        if (
+            $this->authThrottleService->isLimited('password-reset-request-ip', $clientIp, self::PASSWORD_RESET_REQUEST_LIMIT_PER_IP, self::AUTH_REQUEST_WINDOW_SECONDS)
+            || $this->authThrottleService->isLimited('password-reset-request-email', $email, self::PASSWORD_RESET_REQUEST_LIMIT_PER_EMAIL, self::AUTH_REQUEST_WINDOW_SECONDS)
+        ) {
             return $this->json(['accepted' => true], 202);
         }
 
-        return $this->json(['accepted' => true], 202);
+        $this->authThrottleService->consume('password-reset-request-ip', $clientIp, self::AUTH_REQUEST_WINDOW_SECONDS);
+        $this->authThrottleService->consume('password-reset-request-email', $email, self::AUTH_REQUEST_WINDOW_SECONDS);
+
+        if (filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
+            return $this->json(['accepted' => true], 202);
+        }
+
+        $user = $entityManager->getRepository(User::class)->findOneBy(['email' => $email]);
+        $debugToken = null;
+        if ($user instanceof User && $user->isEmailVerified()) {
+            $debugToken = $this->passwordResetService->issueToken(
+                $user,
+                $request->getClientIp(),
+                $request->headers->get('User-Agent'),
+            );
+            $this->securityAuditLogger->log('auth.password_reset.requested', $user->email(), $user->id(), $clientIp);
+            $this->sendPasswordResetEmailFailOpen($user, $debugToken, $clientIp);
+        } else {
+            $this->securityAuditLogger->log('auth.password_reset.requested', $email, $user?->id(), $clientIp, ['acceptedWithoutToken' => true]);
+        }
+
+        return $this->json([
+            'accepted' => true,
+            ...$this->debugTokenPayload($debugToken, 'passwordResetToken'),
+        ], 202);
     }
 
     #[Route('/auth/password-reset/confirm', methods: ['POST'])]
@@ -177,22 +274,116 @@ class AuthController extends ApiController
         UserPasswordHasherInterface $passwordHasher
     ): JsonResponse {
         $payload = $this->payload($request);
-        $email = trim((string) ($payload['email'] ?? ''));
+        $token = trim((string) ($payload['token'] ?? ''));
         $newPassword = (string) ($payload['newPassword'] ?? '');
+        $clientIp = trim((string) $request->getClientIp());
 
-        if (!filter_var($email, FILTER_VALIDATE_EMAIL) || mb_strlen($newPassword) < 8) {
-            return $this->fail('email and a newPassword of at least 8 chars are required.');
+        if ($this->authThrottleService->isLimited('password-reset-confirm-ip', $clientIp, self::PASSWORD_RESET_CONFIRM_LIMIT_PER_IP, self::AUTH_REQUEST_WINDOW_SECONDS)) {
+            return $this->fail('Too many password reset attempts. Please try again later.', 429);
+        }
+        $this->authThrottleService->consume('password-reset-confirm-ip', $clientIp, self::AUTH_REQUEST_WINDOW_SECONDS);
+
+        if ($token === '' || mb_strlen($newPassword) < 8) {
+            return $this->fail('token and a newPassword of at least 8 chars are required.');
         }
 
-        $user = $entityManager->getRepository(User::class)->findOneBy(['email' => mb_strtolower($email)]);
-        if (!$user instanceof User) {
-            return $this->fail('User was not found.');
+        $passwordResetToken = $this->passwordResetService->consumeValidToken($token);
+        if ($passwordResetToken === null) {
+            $this->securityAuditLogger->log('auth.password_reset.failed', null, null, $clientIp, ['reason' => 'invalid_or_expired_token']);
+
+            return $this->fail('Invalid or expired password reset token.');
         }
 
+        $user = $passwordResetToken->user();
+        $passwordResetToken->markUsed();
         $user->setPassword($passwordHasher->hashPassword($user, $newPassword));
+        $this->securityAuditLogger->log('auth.password_reset.completed', $user->email(), $user->id(), $clientIp);
+
+        $this->loginProtectionService->resetFailures($user->email(), $clientIp);
         $entityManager->flush();
 
         return $this->json(['updated' => true]);
+    }
+
+    #[Route('/auth/email-verification/request', methods: ['POST'])]
+    public function requestEmailVerification(Request $request, EntityManagerInterface $entityManager): JsonResponse
+    {
+        $payload = $this->payload($request);
+        $email = mb_strtolower(trim((string) ($payload['email'] ?? '')));
+        $clientIp = trim((string) $request->getClientIp());
+
+        if (
+            $this->authThrottleService->isLimited('email-verification-request-ip', $clientIp, self::EMAIL_VERIFICATION_REQUEST_LIMIT_PER_IP, self::AUTH_REQUEST_WINDOW_SECONDS)
+            || $this->authThrottleService->isLimited('email-verification-request-email', $email, self::EMAIL_VERIFICATION_REQUEST_LIMIT_PER_EMAIL, self::AUTH_REQUEST_WINDOW_SECONDS)
+        ) {
+            return $this->json(['accepted' => true], 202);
+        }
+
+        $this->authThrottleService->consume('email-verification-request-ip', $clientIp, self::AUTH_REQUEST_WINDOW_SECONDS);
+        $this->authThrottleService->consume('email-verification-request-email', $email, self::AUTH_REQUEST_WINDOW_SECONDS);
+
+        if (filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
+            return $this->json(['accepted' => true], 202);
+        }
+
+        $user = $entityManager->getRepository(User::class)->findOneBy(['email' => $email]);
+        if (!$user instanceof User || $user->isEmailVerified()) {
+            return $this->json(['accepted' => true], 202);
+        }
+
+        $token = $this->emailVerificationService->issueRegisterVerification(
+            $user,
+            $request->getClientIp(),
+            $request->headers->get('User-Agent'),
+        );
+        $this->securityAuditLogger->log('auth.email_verification.requested', $user->email(), $user->id(), $clientIp);
+        $this->sendVerificationEmailFailOpen($user, $token, $clientIp, 'resend');
+
+        return $this->json([
+            'accepted' => true,
+            ...$this->debugTokenPayload($token, 'emailVerificationToken'),
+        ], 202);
+    }
+
+    #[Route('/auth/email-verification/confirm', methods: ['POST'])]
+    public function confirmEmailVerification(Request $request, EntityManagerInterface $entityManager): JsonResponse
+    {
+        $payload = $this->payload($request);
+        $token = trim((string) ($payload['token'] ?? ''));
+        if ($token === '') {
+            return $this->fail('token is required.');
+        }
+
+        $verificationToken = $this->emailVerificationService->consumeValidToken($token);
+        if (!$verificationToken instanceof EmailVerificationToken) {
+            return $this->fail('Invalid or expired email verification token.');
+        }
+
+        $user = $verificationToken->user();
+        if ($verificationToken->purpose() === EmailVerificationToken::PURPOSE_EMAIL_CHANGE) {
+            if ($user->pendingEmail() !== $verificationToken->email()) {
+                return $this->fail('Invalid or expired email verification token.');
+            }
+            if ($this->emailExists($entityManager, $verificationToken->email(), $user)) {
+                return $this->fail('Email is already registered.', 409);
+            }
+
+            $user->applyPendingEmail();
+        } else {
+            if (mb_strtolower($user->email()) !== $verificationToken->email()) {
+                return $this->fail('Invalid or expired email verification token.');
+            }
+
+            $user->markEmailVerified();
+        }
+
+        $verificationToken->markUsed();
+        $entityManager->flush();
+        $this->securityAuditLogger->log('auth.email_verification.completed', $user->email(), $user->id(), $request->getClientIp(), [
+            'purpose' => $verificationToken->purpose(),
+        ]);
+
+        return $this->json(['verified' => true, 'user' => $user->toArray()]);
     }
 
     #[Route('/me', methods: ['GET'])]
@@ -245,7 +436,25 @@ class AuthController extends ApiController
                 return $this->fail('Email is already registered.', 409);
             }
 
-            $user->changeEmail($email);
+            if (mb_strtolower($email) !== mb_strtolower($user->email())) {
+                $user->startEmailChange($email);
+                $entityManager->flush();
+
+                $token = $this->emailVerificationService->issueEmailChangeVerification(
+                    $user,
+                    $email,
+                    $request->getClientIp(),
+                    $request->headers->get('User-Agent'),
+                );
+                $this->securityAuditLogger->log('auth.email_change.requested', $email, $user->id(), $request->getClientIp());
+                $this->sendVerificationEmailFailOpen($user, $token, $request->getClientIp(), 'email_change', $email);
+
+                return $this->json([
+                    'user' => $user->toArray(),
+                    'emailChangeVerificationRequired' => true,
+                    ...$this->debugTokenPayload($token, 'emailVerificationToken'),
+                ]);
+            }
         }
 
         $entityManager->flush();
@@ -340,6 +549,8 @@ class AuthController extends ApiController
     ): JsonResponse {
         $user->rename(sprintf('Deleted-%s', mb_substr($user->id(), 0, 8)));
         $user->changeEmail(sprintf('deleted+%s@commanderzone.local', $user->id()));
+        $user->clearPendingEmail();
+        $user->markEmailVerified();
         $user->setPassword($passwordHasher->hashPassword($user, sprintf('deleted-password-%s', $user->id())));
         $user->markOffline();
         $user->useInitialAvatar();
@@ -348,6 +559,56 @@ class AuthController extends ApiController
         $entityManager->flush();
 
         return $this->json(null, 204);
+    }
+
+    private function sendPasswordResetEmailFailOpen(User $user, string $token, ?string $clientIp): void
+    {
+        try {
+            $this->authMailer->sendPasswordReset($user->email(), $token);
+            $this->securityAuditLogger->log('auth.mail.password_reset.sent', $user->email(), $user->id(), $clientIp);
+        } catch (\Throwable $exception) {
+            $this->securityAuditLogger->log('auth.mail.password_reset.failed', $user->email(), $user->id(), $clientIp, [
+                'reason' => 'mailer_transport_error',
+                'exception' => $exception::class,
+                'message' => $exception->getMessage(),
+            ]);
+        }
+    }
+
+    private function sendVerificationEmailFailOpen(
+        User $user,
+        string $token,
+        ?string $clientIp,
+        string $context,
+        ?string $recipientEmail = null,
+    ): void {
+        $targetEmail = $recipientEmail ?? $user->email();
+
+        try {
+            $this->authMailer->sendEmailVerification($targetEmail, $token);
+            $this->securityAuditLogger->log('auth.mail.email_verification.sent', $targetEmail, $user->id(), $clientIp, [
+                'context' => $context,
+            ]);
+        } catch (\Throwable $exception) {
+            $this->securityAuditLogger->log('auth.mail.email_verification.failed', $targetEmail, $user->id(), $clientIp, [
+                'context' => $context,
+                'reason' => 'mailer_transport_error',
+                'exception' => $exception::class,
+                'message' => $exception->getMessage(),
+            ]);
+        }
+    }
+
+    /**
+     * @return array<string,string>
+     */
+    private function debugTokenPayload(?string $token, string $fieldName): array
+    {
+        if ($this->kernelEnvironment !== 'test' || $token === null) {
+            return [];
+        }
+
+        return [$fieldName => $token];
     }
 
     private function isDisplayNameValid(string $displayName): bool
@@ -438,6 +699,10 @@ class AuthController extends ApiController
     #[Route('/me/password', methods: ['PATCH'])]
     public function updatePassword(Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, UserPasswordHasherInterface $passwordHasher): JsonResponse
     {
+        if (!$user->isEmailVerified()) {
+            return $this->fail('Email verification is required before changing password.', 403);
+        }
+
         $payload = $this->payload($request);
         $currentPassword = (string) ($payload['currentPassword'] ?? '');
         $newPassword = (string) ($payload['newPassword'] ?? '');

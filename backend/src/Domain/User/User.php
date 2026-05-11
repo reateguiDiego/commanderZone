@@ -24,6 +24,12 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(type: 'string', length: 180)]
     private string $email;
 
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $emailVerifiedAt = null;
+
+    #[ORM\Column(type: 'string', length: 180, nullable: true)]
+    private ?string $pendingEmail = null;
+
     #[ORM\Column(type: 'string', length: 25)]
     private string $displayName;
 
@@ -106,6 +112,42 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function changeEmail(string $email): void
     {
         $this->email = mb_strtolower(trim($email));
+    }
+
+    public function isEmailVerified(): bool
+    {
+        return $this->emailVerifiedAt !== null;
+    }
+
+    public function markEmailVerified(?\DateTimeImmutable $verifiedAt = null): void
+    {
+        $this->emailVerifiedAt = $verifiedAt ?? new \DateTimeImmutable();
+    }
+
+    public function pendingEmail(): ?string
+    {
+        return $this->pendingEmail;
+    }
+
+    public function startEmailChange(string $newEmail): void
+    {
+        $this->pendingEmail = mb_strtolower(trim($newEmail));
+    }
+
+    public function applyPendingEmail(): void
+    {
+        if ($this->pendingEmail === null) {
+            return;
+        }
+
+        $this->email = $this->pendingEmail;
+        $this->pendingEmail = null;
+        $this->emailVerifiedAt = new \DateTimeImmutable();
+    }
+
+    public function clearPendingEmail(): void
+    {
+        $this->pendingEmail = null;
     }
 
     public function setPassword(string $password): void
@@ -217,6 +259,8 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return [
             'id' => $this->id,
             'email' => $this->email,
+            'emailVerified' => $this->isEmailVerified(),
+            'pendingEmail' => $this->pendingEmail,
             'displayName' => $this->displayName,
             'displayNameStyle' => $this->displayNameStyle(),
             'roles' => $this->getRoles(),

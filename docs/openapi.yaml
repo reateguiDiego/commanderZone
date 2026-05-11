@@ -52,10 +52,13 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [user]
+                required: [user, verificationRequired]
                 properties:
                   user:
                     $ref: '#/components/schemas/User'
+                  verificationRequired:
+                    type: boolean
+                    description: Indicates the account must verify email ownership.
         '409':
           $ref: '#/components/responses/Error'
   /auth/email-availability:
@@ -133,7 +136,7 @@ paths:
     post:
       tags: [Auth]
       security: []
-      summary: Request password reset (dummy flow).
+      summary: Request password reset with one-time token flow.
       requestBody:
         required: true
         content:
@@ -151,7 +154,7 @@ paths:
     post:
       tags: [Auth]
       security: []
-      summary: Confirm password reset (dummy flow by email).
+      summary: Confirm password reset by one-time token.
       requestBody:
         required: true
         content:
@@ -165,6 +168,46 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PasswordResetConfirmResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+  /auth/email-verification/request:
+    post:
+      tags: [Auth]
+      security: []
+      summary: Re-send email verification token for an unverified account.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailVerificationRequest'
+      responses:
+        '202':
+          description: Email verification request accepted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PasswordResetRequestAcceptedResponse'
+  /auth/email-verification/confirm:
+    post:
+      tags: [Auth]
+      security: []
+      summary: Confirm email ownership with token.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailVerificationConfirmRequest'
+      responses:
+        '200':
+          description: Email verified.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmailVerificationConfirmResponse'
         '400':
           $ref: '#/components/responses/Error'
   /me:
@@ -2020,11 +2063,10 @@ components:
           type: boolean
     PasswordResetConfirmRequest:
       type: object
-      required: [email, newPassword]
+      required: [token, newPassword]
       properties:
-        email:
+        token:
           type: string
-          format: email
         newPassword:
           type: string
           minLength: 8
@@ -2034,6 +2076,27 @@ components:
       properties:
         updated:
           type: boolean
+    EmailVerificationRequest:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+    EmailVerificationConfirmRequest:
+      type: object
+      required: [token]
+      properties:
+        token:
+          type: string
+    EmailVerificationConfirmResponse:
+      type: object
+      required: [verified, user]
+      properties:
+        verified:
+          type: boolean
+        user:
+          $ref: '#/components/schemas/User'
     AvatarUpdateRequest:
       oneOf:
         - type: object
@@ -2194,13 +2257,18 @@ components:
           pattern: '^#[0-9a-fA-F]{6}$'
     User:
       type: object
-      required: [id, email, displayName, displayNameStyle, roles, avatar]
+      required: [id, email, emailVerified, pendingEmail, displayName, displayNameStyle, roles, avatar]
       properties:
         id:
           type: string
           format: uuid
         email:
           type: string
+          format: email
+        emailVerified:
+          type: boolean
+        pendingEmail:
+          type: [string, 'null']
           format: email
         displayName:
           type: string

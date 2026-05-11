@@ -32,6 +32,15 @@ export interface PasswordResetConfirmResponse {
   updated: boolean;
 }
 
+export interface EmailVerificationRequestResponse {
+  accepted: boolean;
+}
+
+export interface EmailVerificationConfirmResponse {
+  verified: boolean;
+  user: User;
+}
+
 export interface CardResponse {
   card: Card;
 }

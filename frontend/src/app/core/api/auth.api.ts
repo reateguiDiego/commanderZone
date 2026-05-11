@@ -2,7 +2,14 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { API_BASE_URL } from './api.config';
-import { LoginResponse, PasswordResetConfirmResponse, PasswordResetRequestResponse, UserResponse } from '../models/api-responses.model';
+import {
+  EmailVerificationConfirmResponse,
+  EmailVerificationRequestResponse,
+  LoginResponse,
+  PasswordResetConfirmResponse,
+  PasswordResetRequestResponse,
+  UserResponse,
+} from '../models/api-responses.model';
 import { withoutGlobalLoading } from '../loading/loading-context';
 import { UserAvatarType } from '../models/user.model';
 
@@ -45,9 +52,25 @@ export class AuthApi {
     );
   }
 
-  confirmPasswordReset(payload: { email: string; newPassword: string }): Observable<PasswordResetConfirmResponse> {
+  confirmPasswordReset(payload: { token: string; newPassword: string }): Observable<PasswordResetConfirmResponse> {
     return this.http.post<PasswordResetConfirmResponse>(
       `${API_BASE_URL}/auth/password-reset/confirm`,
+      payload,
+      { context: withoutGlobalLoading() },
+    );
+  }
+
+  requestEmailVerification(email: string): Observable<EmailVerificationRequestResponse> {
+    return this.http.post<EmailVerificationRequestResponse>(
+      `${API_BASE_URL}/auth/email-verification/request`,
+      { email },
+      { context: withoutGlobalLoading() },
+    );
+  }
+
+  confirmEmailVerification(payload: { token: string }): Observable<EmailVerificationConfirmResponse> {
+    return this.http.post<EmailVerificationConfirmResponse>(
+      `${API_BASE_URL}/auth/email-verification/confirm`,
       payload,
       { context: withoutGlobalLoading() },
     );

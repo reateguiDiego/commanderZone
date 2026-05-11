@@ -34,6 +34,11 @@ export const routes: Routes = [
     canActivate: [guestGuard],
   },
   {
+    path: 'email-verification',
+    loadComponent: () => import('./features/auth/email-verification-page/email-verification-page.component')
+      .then((component) => component.EmailVerificationPageComponent),
+  },
+  {
     path: 'games/:id',
     loadComponent: () => import('./features/game/game-table/game-table.component')
       .then((component) => component.GameTableComponent),

@@ -7,6 +7,10 @@ services:
       APP_DEBUG: "1"
       APP_SECRET: commanderzone-dev-secret-change-me
       DATABASE_URL: postgresql://commanderzone:commanderzone@database:5432/commanderzone?serverVersion=16&charset=utf8
+      MAILER_DSN: smtp://mailpit:1025
+      MAILER_FROM_ADDRESS: no-reply@commanderzone.com
+      MAILER_FROM_NAME: CommanderZone
+      AUTH_PUBLIC_APP_URL: http://localhost:4200
       JWT_SECRET_KEY: change-this-jwt-dev-secret-with-at-least-32-chars
       JWT_PUBLIC_KEY: change-this-jwt-dev-secret-with-at-least-32-chars
       JWT_PASSPHRASE: ""
@@ -22,6 +26,8 @@ services:
       database:
         condition: service_healthy
       mercure:
+        condition: service_started
+      mailpit:
         condition: service_started
 
   database:
@@ -56,6 +62,13 @@ services:
     volumes:
       - mercure_data:/data
       - mercure_config:/config
+
+  mailpit:
+    image: axllent/mailpit:latest
+    restart: unless-stopped
+    ports:
+      - "1025:1025"
+      - "8025:8025"
 
 volumes:
   database_data:

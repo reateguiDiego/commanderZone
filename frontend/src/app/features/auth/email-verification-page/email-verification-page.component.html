@@ -1,0 +1,49 @@
+<main class="email-verification-screen">
+  <section class="email-verification-card">
+    <header>
+      <h1>Verificar email</h1>
+      <p>Usa el token recibido para activar tu cuenta.</p>
+    </header>
+
+    <form class="form-stack" [formGroup]="verificationForm">
+      <label>
+        Token de verificacion
+        <input type="text" autocomplete="one-time-code" formControlName="token" />
+      </label>
+
+      @if (verifyError(); as verifyErrorMessage) {
+        <p class="notice error">{{ verifyErrorMessage }}</p>
+      }
+
+      @if (verifySuccess()) {
+        <p class="notice success">Email verificado. Ya puedes iniciar sesion.</p>
+      }
+
+      <button class="primary-button" type="button" [disabled]="!canConfirm()" (click)="confirmToken()">
+        {{ verifyLoading() ? 'Verificando...' : 'Confirmar email' }}
+      </button>
+
+      <hr />
+
+      <label>
+        Reenviar verificacion (email)
+        <input type="email" autocomplete="email" formControlName="email" />
+      </label>
+
+      @if (resendError(); as resendErrorMessage) {
+        <p class="notice error">{{ resendErrorMessage }}</p>
+      }
+
+      @if (resendSuccess()) {
+        <p class="notice success">Si el email existe y no esta verificado, se envio un nuevo correo.</p>
+      }
+
+      <button class="secondary-button" type="button" [disabled]="!canResend()" (click)="resendVerificationEmail()">
+        {{ resendLoading() ? 'Enviando...' : 'Reenviar correo de verificacion' }}
+      </button>
+    </form>
+
+    <a class="back-link" routerLink="/auth/login">Volver al login</a>
+  </section>
+</main>
+

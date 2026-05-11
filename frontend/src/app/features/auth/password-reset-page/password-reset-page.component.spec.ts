@@ -7,11 +7,13 @@ import { PasswordResetPageComponent } from './password-reset-page.component';
 describe('PasswordResetPageComponent', () => {
   let fixture: ComponentFixture<PasswordResetPageComponent>;
   let authApi: {
+    requestPasswordReset: ReturnType<typeof vi.fn>;
     confirmPasswordReset: ReturnType<typeof vi.fn>;
   };
 
   beforeEach(async () => {
     authApi = {
+      requestPasswordReset: vi.fn().mockReturnValue(of({ accepted: true })),
       confirmPasswordReset: vi.fn().mockReturnValue(of({ updated: true })),
     };
 
@@ -26,10 +28,21 @@ describe('PasswordResetPageComponent', () => {
     fixture = TestBed.createComponent(PasswordResetPageComponent);
   });
 
+  it('requests reset email when address is valid', async () => {
+    const component = fixture.componentInstance;
+    component.resetForm.controls.email.setValue('player@example.test');
+
+    await component.requestResetEmail();
+
+    expect(authApi.requestPasswordReset).toHaveBeenCalledWith('player@example.test');
+    expect(component.requestSuccess()).toBe(true);
+  });
+
   it('updates password when token and new password are valid', async () => {
     const component = fixture.componentInstance;
     component.resetForm.setValue({
       email: 'player@example.test',
+      token: 'reset-token',
       newPassword: 'password456',
       confirmPassword: 'password456',
     });
@@ -37,7 +50,7 @@ describe('PasswordResetPageComponent', () => {
     await component.submitReset();
 
     expect(authApi.confirmPasswordReset).toHaveBeenCalledWith({
-      email: 'player@example.test',
+      token: 'reset-token',
       newPassword: 'password456',
     });
     expect(component.resetSuccess()).toBe(true);
@@ -48,6 +61,7 @@ describe('PasswordResetPageComponent', () => {
     const component = fixture.componentInstance;
     component.resetForm.setValue({
       email: 'player@example.test',
+      token: 'bad-token',
       newPassword: 'password456',
       confirmPassword: 'password456',
     });

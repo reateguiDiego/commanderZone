@@ -2,6 +2,11 @@
 
 namespace App\Tests\Integration;
 
+use App\Application\Auth\AuthMailer;
+use App\Application\Auth\AuthTokenService;
+use App\Domain\User\User;
+use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
+
 class AuthApiTest extends ApiTestCase
 {
     public function testRegisterLoginMeAndProfileUpdates(): void
@@ -12,6 +17,7 @@ class AuthApiTest extends ApiTestCase
         $this->jsonRequest('GET', '/me', token: $token);
         self::assertResponseIsSuccessful();
         self::assertSame('player@example.test', $this->jsonResponse()['user']['email']);
+        self::assertTrue($this->jsonResponse()['user']['emailVerified']);
         self::assertSame('initial', $this->jsonResponse()['user']['avatar']['type']);
         self::assertSame('P', $this->jsonResponse()['user']['avatar']['initial']['letter']);
         self::assertSame(['type' => 'plain', 'presetId' => 'plain'], $this->jsonResponse()['user']['displayNameStyle']);
@@ -28,7 +34,16 @@ class AuthApiTest extends ApiTestCase
         ], $token);
         self::assertResponseIsSuccessful();
         self::assertSame('Renamed Player', $this->jsonResponse()['user']['displayName']);
+        self::assertSame('player@example.test', $this->jsonResponse()['user']['email']);
+        self::assertSame('renamed-player@example.test', $this->jsonResponse()['user']['pendingEmail']);
+        self::assertTrue($this->jsonResponse()['emailChangeVerificationRequired']);
+        $emailVerificationToken = $this->jsonResponse()['emailVerificationToken'];
+        self::assertIsString($emailVerificationToken);
+
+        $this->jsonRequest('POST', '/auth/email-verification/confirm', ['token' => $emailVerificationToken]);
+        self::assertResponseIsSuccessful();
         self::assertSame('renamed-player@example.test', $this->jsonResponse()['user']['email']);
+        self::assertNull($this->jsonResponse()['user']['pendingEmail']);
 
         $this->jsonRequest('PATCH', '/me/password', [
             'currentPassword' => 'bad-password',
@@ -138,15 +153,18 @@ class AuthApiTest extends ApiTestCase
         self::assertResponseStatusCodeSame(202);
         $requestResponse = $this->jsonResponse();
         self::assertTrue($requestResponse['accepted']);
+        self::assertArrayHasKey('passwordResetToken', $requestResponse);
+        self::assertIsString($requestResponse['passwordResetToken']);
+        $passwordResetToken = $requestResponse['passwordResetToken'];
 
         $this->jsonRequest('POST', '/auth/password-reset/confirm', [
-            'email' => 'missing@example.test',
+            'token' => '',
             'newPassword' => 'password456',
         ]);
         self::assertResponseStatusCodeSame(400);
 
         $this->jsonRequest('POST', '/auth/password-reset/confirm', [
-            'email' => 'reset@example.test',
+            'token' => $passwordResetToken,
             'newPassword' => 'password456',
         ]);
         self::assertResponseIsSuccessful();
@@ -164,6 +182,151 @@ class AuthApiTest extends ApiTestCase
         ]);
         self::assertResponseIsSuccessful();
         self::assertArrayHasKey('token', $this->jsonResponse());
+    }
+
+    public function testPasswordResetTokenCannotBeReused(): void
+    {
+        $this->registerAndLogin('reset-reuse@example.test', 'Reset Reuse', 'password123');
+
+        $this->jsonRequest('POST', '/auth/password-reset/request', ['email' => 'reset-reuse@example.test']);
+        self::assertResponseStatusCodeSame(202);
+        $passwordResetToken = $this->jsonResponse()['passwordResetToken'];
+        self::assertIsString($passwordResetToken);
+
+        $this->jsonRequest('POST', '/auth/password-reset/confirm', [
+            'token' => $passwordResetToken,
+            'newPassword' => 'password456',
+        ]);
+        self::assertResponseIsSuccessful();
+
+        $this->jsonRequest('POST', '/auth/password-reset/confirm', [
+            'token' => $passwordResetToken,
+            'newPassword' => 'password789',
+        ]);
+        self::assertResponseStatusCodeSame(400);
+    }
+
+    public function testPasswordResetRejectsExpiredToken(): void
+    {
+        $this->registerAndLogin('reset-expired@example.test', 'Reset Expired', 'password123');
+
+        $this->jsonRequest('POST', '/auth/password-reset/request', ['email' => 'reset-expired@example.test']);
+        self::assertResponseStatusCodeSame(202);
+        $passwordResetToken = $this->jsonResponse()['passwordResetToken'];
+        self::assertIsString($passwordResetToken);
+
+        $tokenHash = static::getContainer()->get(AuthTokenService::class)->hashToken($passwordResetToken);
+        $this->entityManager->getConnection()->executeStatement(
+            "UPDATE password_reset_token SET expires_at = NOW() - INTERVAL '1 hour' WHERE token_hash = :tokenHash",
+            ['tokenHash' => $tokenHash]
+        );
+
+        $this->jsonRequest('POST', '/auth/password-reset/confirm', [
+            'token' => $passwordResetToken,
+            'newPassword' => 'password456',
+        ]);
+        self::assertResponseStatusCodeSame(400);
+    }
+
+    public function testEmailVerificationResendInvalidatesPreviousToken(): void
+    {
+        $this->jsonRequest('POST', '/auth/register', [
+            'email' => 'verify-me@example.test',
+            'displayName' => 'Verify User',
+            'password' => 'password123',
+        ]);
+        self::assertResponseStatusCodeSame(201);
+        $firstToken = $this->jsonResponse()['emailVerificationToken'];
+        self::assertIsString($firstToken);
+
+        $this->jsonRequest('POST', '/auth/email-verification/request', [
+            'email' => 'verify-me@example.test',
+        ]);
+        self::assertResponseStatusCodeSame(202);
+        $secondToken = $this->jsonResponse()['emailVerificationToken'];
+        self::assertIsString($secondToken);
+        self::assertNotSame($firstToken, $secondToken);
+
+        $this->jsonRequest('POST', '/auth/email-verification/confirm', ['token' => $firstToken]);
+        self::assertResponseStatusCodeSame(400);
+
+        $this->jsonRequest('POST', '/auth/email-verification/confirm', ['token' => $secondToken]);
+        self::assertResponseIsSuccessful();
+        self::assertTrue($this->jsonResponse()['verified']);
+
+        $this->jsonRequest('POST', '/auth/login', [
+            'email' => 'verify-me@example.test',
+            'password' => 'password123',
+        ]);
+        self::assertResponseIsSuccessful();
+    }
+
+    public function testLoginIsLockedAfterRepeatedFailures(): void
+    {
+        $this->registerAndLogin('lockout@example.test', 'Lockout User', 'password123');
+
+        for ($i = 0; $i < 5; $i++) {
+            $this->jsonRequest('POST', '/auth/login', [
+                'email' => 'lockout@example.test',
+                'password' => 'wrong-password',
+            ]);
+            self::assertResponseStatusCodeSame(401);
+        }
+
+        $this->jsonRequest('POST', '/auth/login', [
+            'email' => 'lockout@example.test',
+            'password' => 'password123',
+        ]);
+        self::assertResponseStatusCodeSame(429);
+    }
+
+    public function testRegisterKeepsSuccessWhenMailerFails(): void
+    {
+        $failingMailer = $this->getMockBuilder(AuthMailer::class)
+            ->disableOriginalConstructor()
+            ->onlyMethods(['sendEmailVerification'])
+            ->getMock();
+        $failingMailer
+            ->expects(self::once())
+            ->method('sendEmailVerification')
+            ->willThrowException(new \RuntimeException('smtp offline'));
+
+        static::getContainer()->set(AuthMailer::class, $failingMailer);
+
+        $this->jsonRequest('POST', '/auth/register', [
+            'email' => 'mail-fail-register@example.test',
+            'displayName' => 'Mail Fails Register',
+            'password' => 'password123',
+        ]);
+        self::assertResponseStatusCodeSame(201);
+        self::assertTrue($this->jsonResponse()['verificationRequired']);
+    }
+
+    public function testPasswordResetRequestKeepsAcceptedWhenMailerFails(): void
+    {
+        $user = new User('mail-fail-reset@example.test', 'Mail Fails Reset');
+        $passwordHasher = static::getContainer()->get(UserPasswordHasherInterface::class);
+        $user->setPassword($passwordHasher->hashPassword($user, 'password123'));
+        $user->markEmailVerified();
+        $this->entityManager->persist($user);
+        $this->entityManager->flush();
+
+        $failingMailer = $this->getMockBuilder(AuthMailer::class)
+            ->disableOriginalConstructor()
+            ->onlyMethods(['sendPasswordReset'])
+            ->getMock();
+        $failingMailer
+            ->expects(self::once())
+            ->method('sendPasswordReset')
+            ->willThrowException(new \RuntimeException('smtp offline'));
+
+        static::getContainer()->set(AuthMailer::class, $failingMailer);
+
+        $this->jsonRequest('POST', '/auth/password-reset/request', [
+            'email' => 'mail-fail-reset@example.test',
+        ]);
+        self::assertResponseStatusCodeSame(202);
+        self::assertTrue($this->jsonResponse()['accepted']);
     }
 
     public function testDisplayNameStyleCanBeUpdated(): void
