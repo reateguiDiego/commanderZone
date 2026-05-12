@@ -92,10 +92,13 @@ export class GameTableInteractionActionsService {
 
   handleHandCardClick(context: GameTableInteractionContext, event: MouseEvent, playerId: string, card: GameCardInstance): void {
     event.stopPropagation();
+    if (this.drag.consumeSuppressedClick(card.instanceId)) {
+      return;
+    }
+
     const alreadySelected = this.isOnlySelectedCard(card.instanceId);
-    if (event.detail >= 2 || (alreadySelected && !event.ctrlKey && !event.metaKey && !event.shiftKey)) {
-      event.preventDefault();
-      void context.playCard(playerId, 'hand', card);
+    if (alreadySelected && !event.ctrlKey && !event.metaKey && !event.shiftKey) {
+      this.ripple(event.currentTarget as HTMLElement);
       return;
     }
 

@@ -159,12 +159,12 @@ export class GameTableDragService {
       this.moveCardPointerDrag(event, updateLocalPosition);
     }
     const drag = this.pointerCardDrag;
-    this.pointerCardDrag = null;
     if (!drag) {
       return null;
     }
 
     const dropZone = event ? resolveDropZone(event, drag.playerId) : null;
+    this.pointerCardDrag = null;
     if (drag.moved) {
       event?.preventDefault();
       event?.stopPropagation();
@@ -212,7 +212,7 @@ export class GameTableDragService {
     event.dataTransfer?.setData('text/plain', card.instanceId);
     if (event.dataTransfer) {
       event.dataTransfer.effectAllowed = 'move';
-      this.setCardDragImage(event);
+      this.setCardDragImage(event, card);
     }
   }
 
@@ -367,26 +367,119 @@ export class GameTableDragService {
     };
   }
 
-  private setCardDragImage(event: DragEvent): void {
+  private setCardDragImage(event: DragEvent, card: GameCardInstance): void {
     const target = event.target instanceof Element
       ? event.target.closest<HTMLElement>('.game-card, .hand-card, .zone-stack, .zone-art img, .zone-art .card-back, .zone-art')
       : null;
     const zoneArt = (event.target instanceof Element ? event.target : null)?.closest<HTMLElement>('.zone-art')
       ?? (target?.classList.contains('zone-stack') ? target.querySelector<HTMLElement>('.zone-art') : null);
-    const source = zoneArt?.querySelector<HTMLElement>('img, .card-back') ?? target;
+    const source = this.dragImageSource(zoneArt) ?? target;
     if (!source || !event.dataTransfer) {
       return;
     }
 
     const bounds = source.getBoundingClientRect();
-    const offset = this.pointerOffsetWithinBounds(event.clientX, event.clientY, bounds, bounds.width, bounds.height);
+    const preview = this.createNativeCardDragPreview(source, card);
+    const offset = this.pointerOffsetForDragPreview(event.clientX, event.clientY, bounds, preview.width, preview.height);
     this.dragImageGeometry = {
-      width: bounds.width,
-      height: bounds.height,
+      width: preview.width,
+      height: preview.height,
       offsetX: offset.x,
       offsetY: offset.y,
     };
-    event.dataTransfer.setDragImage(source, this.dragImageGeometry.offsetX, this.dragImageGeometry.offsetY);
+    event.dataTransfer.setDragImage(preview.element, this.dragImageGeometry.offsetX, this.dragImageGeometry.offsetY);
+    window.setTimeout(() => preview.element.remove(), 0);
+  }
+
+  private dragImageSource(zoneArt: HTMLElement | null): HTMLElement | null {
+    return zoneArt?.querySelector<HTMLElement>('.zone-card-stack-top')
+      ?? zoneArt?.querySelector<HTMLElement>('.zone-card-image')
+      ?? zoneArt?.querySelector<HTMLElement>('img')
+      ?? zoneArt?.querySelector<HTMLElement>('.card-back')
+      ?? null;
+  }
+
+  private createNativeCardDragPreview(source: HTMLElement, card: GameCardInstance): { element: HTMLElement; width: number; height: number } {
+    const sourceBounds = source.getBoundingClientRect();
+    const width = Math.max(1, Math.round(sourceBounds.width || source.offsetWidth || 100));
+    const height = Math.max(1, Math.round(sourceBounds.height || source.offsetHeight || Math.round(width / 0.716)));
+    const preview = document.createElement('div');
+    preview.setAttribute('aria-hidden', 'true');
+    preview.style.position = 'fixed';
+    preview.style.left = '-10000px';
+    preview.style.top = '-10000px';
+    preview.style.zIndex = '4000';
+    preview.style.display = 'grid';
+    preview.style.width = `${width}px`;
+    preview.style.height = `${height}px`;
+    preview.style.placeItems = 'center';
+    preview.style.overflow = 'visible';
+    preview.style.padding = '0';
+    preview.style.border = '1px solid var(--game-accent-line, rgb(215 180 106 / 38%))';
+    preview.style.borderRadius = '9px';
+    preview.style.background = 'linear-gradient(145deg, var(--surface-3, #2b3026), var(--surface, #181b16))';
+    preview.style.boxShadow = '0 1.2rem 2rem rgb(0 0 0 / 42%), 0 0 0 2px rgb(215 180 106 / 22%)';
+    preview.style.color = 'var(--game-text, #f3f0e8)';
+    preview.style.fontSize = '0.72rem';
+    preview.style.fontWeight = '900';
+    preview.style.lineHeight = '1.15';
+    preview.style.pointerEvents = 'none';
+    preview.style.textAlign = 'center';
+
+    const imageSource = source instanceof HTMLImageElement ? source.currentSrc || source.src : '';
+    if (imageSource) {
+      const image = document.createElement('img');
+      image.src = imageSource;
+      image.alt = card.name;
+      image.draggable = false;
+      image.style.width = '100%';
+      image.style.height = '100%';
+      image.style.borderRadius = 'inherit';
+      image.style.clipPath = 'inset(1px round 8px)';
+      image.style.objectFit = 'cover';
+      image.style.pointerEvents = 'none';
+      image.style.userSelect = 'none';
+      preview.appendChild(image);
+    } else {
+      const label = document.createElement('span');
+      label.textContent = card.hidden ? 'Hidden card' : card.name;
+      preview.appendChild(label);
+    }
+
+    document.body.appendChild(preview);
+
+    return { element: preview, width, height };
+  }
+
+  private pointerOffsetForDragPreview(
+    clientX: number,
+    clientY: number,
+    sourceBounds: DOMRect,
+    previewWidth: number,
+    previewHeight: number,
+  ): { x: number; y: number } {
+    const fallback = { x: previewWidth / 2, y: previewHeight / 2 };
+    if (
+      !Number.isFinite(clientX)
+      || !Number.isFinite(clientY)
+      || sourceBounds.width <= 0
+      || sourceBounds.height <= 0
+      || previewWidth <= 0
+      || previewHeight <= 0
+    ) {
+      return fallback;
+    }
+
+    const sourceX = clientX - sourceBounds.left;
+    const sourceY = clientY - sourceBounds.top;
+    if (sourceX < 0 || sourceX > sourceBounds.width || sourceY < 0 || sourceY > sourceBounds.height) {
+      return fallback;
+    }
+
+    return {
+      x: sourceX / sourceBounds.width * previewWidth,
+      y: sourceY / sourceBounds.height * previewHeight,
+    };
   }
 
   private pointerOffsetWithinBounds(clientX: number, clientY: number, bounds: DOMRect, width: number, height: number): { x: number; y: number } {

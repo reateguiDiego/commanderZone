@@ -40,7 +40,7 @@
         [attr.data-player-id]="handPlayer.id"
         [attr.data-game-drop-zone]="'hand'"
         [attr.data-zone]="'hand'"
-        [class.drop-target-active]="isDropZoneHighlighted()(handPlayer.id, 'hand')"
+        [class.drop-target-active]="isHandDropReceiverHighlighted()"
         (dragover)="handDragOver.emit({ event: $event, playerId: handPlayer.id })"
         (drop)="handDropped.emit({ event: $event, playerId: handPlayer.id })"
       >
@@ -57,7 +57,7 @@
           [image]="cardImage()(card)"
           [selected]="isSelected()(card.instanceId)"
           [dragging]="isDraggingHandCard(card)"
-          [alignmentReference]="isDropZoneHighlighted()(handPlayer.id, 'hand')"
+          [alignmentReference]="isHandDropReceiverHighlighted()"
           [dropSettling]="isCardDropSettling()(handPlayer.id, 'hand', card)"
           [hoverInteractionsEnabled]="isHandVisuallyRevealed() && !isPointerDragActive()"
           [faceDown]="card.hidden ?? false"

@@ -78,6 +78,8 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
   private readonly reorderPreviewDelayMs = 120;
   private readonly reorderHorizontalThreshold = 22;
   private readonly transferVerticalThreshold = 12;
+  private readonly ownHandHorizontalRetentionOverlap = 0.4;
+  private readonly ownHandTopExitRatio = 0.35;
   private revealTimer: number | null = null;
   private reorderPreviewTimer: number | null = null;
   private pendingReorderPreview: HandPointerDropPreview | null = null;
@@ -103,6 +105,7 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
   readonly isCardTransferPending = input<(playerId: string, zone: GameZoneName, card: GameCardInstance) => boolean>(() => false);
   readonly interactionFrozen = input(false);
   readonly hasActiveCardDrag = input(false);
+  readonly externalRevealAllowed = input(true);
 
   readonly handDragOver = output<HandZoneDropEvent>();
   readonly handDropped = output<HandZoneDropEvent>();
@@ -139,6 +142,21 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
   }
 
   ngOnChanges(): void {
+    if (this.hasOwnPointerDrag()) {
+      this.keepHandRevealedDuringOwnPointerDrag();
+      return;
+    }
+
+    if (this.isExternalCardDrag() && !this.externalRevealAllowed()) {
+      this.hideHand();
+      return;
+    }
+
+    if (this.pointerInside && !this.interactionFrozen() && this.canRevealFromPointer()) {
+      this.scheduleHandReveal();
+      return;
+    }
+
     if (!this.interactionFrozen() && !this.pointerInside && !this.focusInside) {
       this.hideHand();
     }
@@ -236,15 +254,26 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
   }
 
   enterHand(): void {
-    if (this.interactionFrozen()) {
+    this.pointerInside = true;
+    if (this.hasOwnPointerDrag()) {
+      this.keepHandRevealedDuringOwnPointerDrag();
       return;
     }
-    this.pointerInside = true;
+
+    if (this.interactionFrozen() || !this.canRevealFromPointer()) {
+      this.hideHand();
+      return;
+    }
+
     this.scheduleHandReveal();
   }
 
   leaveHand(): void {
     this.pointerInside = false;
+    if (this.hasOwnPointerDrag()) {
+      return;
+    }
+
     if (!this.focusInside && !this.interactionFrozen()) {
       this.hideHand();
     }
@@ -284,6 +313,7 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
     const offsetX = bounds && bounds.width > 0 ? Math.max(0, Math.min(cardWidth, event.clientX - bounds.left)) : cardWidth / 2;
     const offsetY = bounds && bounds.height > 0 ? Math.max(0, Math.min(cardHeight, event.clientY - bounds.top)) : cardHeight / 2;
     this.clearReorderPreviewTimer();
+    this.keepHandRevealedDuringOwnPointerDrag();
     this.cardPreviewHidden.emit();
     this.pointerDrag.set({
       playerId,
@@ -325,9 +355,18 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
   }
 
   isHandVisuallyRevealed(): boolean {
-    const handPlayer = this.player();
+    const drag = this.pointerDrag();
+    const highlighted = this.isHandDropReceiverHighlighted();
 
-    return this.handRevealed() || this.isDropZoneHighlighted()(handPlayer.id, 'hand');
+    if (drag?.mode === 'pending') {
+      return this.handRevealed() || highlighted;
+    }
+
+    if (drag) {
+      return highlighted;
+    }
+
+    return this.handRevealed() || highlighted;
   }
 
   isPointerDragActive(): boolean {
@@ -342,14 +381,16 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
       return true;
     }
 
-    return hand.length === 1 && this.isPointerDragActive() && this.isDraggingHandCard(hand[0]!);
+    const drag = this.pointerDrag();
+
+    return hand.length === 1
+      && Boolean(drag && drag.card.instanceId === hand[0]?.instanceId);
   }
 
   isEmptyHandDropTargetActive(): boolean {
-    const handPlayer = this.player();
     const drag = this.pointerDrag();
 
-    return this.isDropZoneHighlighted()(handPlayer.id, 'hand') || Boolean(drag && drag.mode !== 'pending' && drag.overOwnHand);
+    return this.isHandDropReceiverHighlighted() || Boolean(drag && drag.mode !== 'pending' && drag.overOwnHand);
   }
 
   isDraggingHandCard(card: GameCardInstance): boolean {
@@ -378,6 +419,14 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
     return card ? this.cardImage()(card) : null;
   }
 
+  isHandDropReceiverHighlighted(): boolean {
+    const handPlayer = this.player();
+    const drag = this.pointerDrag();
+
+    return this.isDropZoneHighlighted()(handPlayer.id, 'hand')
+      || Boolean(drag && (drag.mode === 'reorder' || drag.mode !== 'pending' && drag.overOwnHand));
+  }
+
   handleHandCardClick(event: MouseEvent, playerId: string, card: GameCardInstance): void {
     if (this.suppressedClickInstanceId === card.instanceId) {
       this.suppressedClickInstanceId = null;
@@ -400,6 +449,23 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
       this.handRevealed.set(true);
       this.revealTimer = null;
     }, this.revealDelayMs);
+  }
+
+  private canRevealFromPointer(): boolean {
+    return !this.isExternalCardDrag() || this.externalRevealAllowed();
+  }
+
+  private isExternalCardDrag(): boolean {
+    return this.hasActiveCardDrag() && !this.hasOwnPointerDrag();
+  }
+
+  private hasOwnPointerDrag(): boolean {
+    return this.pointerDrag() !== null;
+  }
+
+  private keepHandRevealedDuringOwnPointerDrag(): void {
+    this.clearRevealTimer();
+    this.handRevealed.set(true);
   }
 
   private hideHand(): void {
@@ -570,18 +636,19 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
     drag: HandPointerDrag,
     intendedMode: Exclude<HandPointerDragMode, 'pending'>,
   ): ResolvedHandPointerDrag {
+    const insideOwnHand = this.isPointerDragInsideRevealedHand(event, drag);
     const target = this.pointerDragService.zoneTargetAt(event, {
       width: drag.cardWidth,
       height: drag.cardHeight,
       offsetX: drag.offsetX,
       offsetY: drag.offsetY,
     });
-    if (target) {
+    if (target && !insideOwnHand) {
       return { mode: 'transfer', target: { ...target, draggedInstanceId: drag.card.instanceId }, preview: null, overOwnHand: false };
     }
 
-    const overOwnHand = this.pointerDragService.isHandTargetAt(event, drag.playerId);
-    if (overOwnHand || drag.mode === 'pending' && intendedMode === 'reorder') {
+    const overOwnHand = insideOwnHand || this.pointerDragService.isHandTargetAt(event, drag.playerId);
+    if (insideOwnHand || drag.mode === 'pending' && intendedMode === 'reorder' && overOwnHand) {
       return {
         mode: 'reorder',
         target: null,
@@ -591,6 +658,59 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
     }
 
     return { mode: 'transfer', target: null, preview: null, overOwnHand: false };
+  }
+
+  private isPointerDragInsideRevealedHand(event: PointerEvent, drag: HandPointerDrag): boolean {
+    const hand = this.host.nativeElement.querySelector<HTMLElement>(
+      `[data-game-drop-zone][data-zone="hand"][data-player-id="${drag.playerId}"]`,
+    );
+    if (!hand) {
+      return false;
+    }
+
+    const bounds = this.handVisualBounds(hand);
+    if (bounds.width <= 0 || bounds.height <= 0) {
+      return this.pointerDragService.isHandTargetAt(event, drag.playerId);
+    }
+
+    const previewLeft = event.clientX - drag.offsetX;
+    const previewTop = event.clientY - drag.offsetY;
+    if (!this.hasEnoughHandHorizontalOverlap(previewLeft, drag.cardWidth, bounds)) {
+      return false;
+    }
+
+    return !this.hasExceededTopExitThreshold(previewTop, drag.cardHeight, bounds.top, this.ownHandTopExitRatio);
+  }
+
+  private handVisualBounds(hand: HTMLElement): DOMRect {
+    const bounds = hand.getBoundingClientRect();
+
+    return {
+      x: bounds.x,
+      y: bounds.y,
+      width: bounds.width,
+      height: bounds.height,
+      top: bounds.top,
+      right: bounds.right,
+      bottom: bounds.bottom,
+      left: bounds.left,
+      toJSON: () => ({}),
+    } as DOMRect;
+  }
+
+  private hasEnoughHandHorizontalOverlap(previewLeft: number, previewWidth: number, bounds: DOMRect): boolean {
+    const overlapWidth = Math.max(0, Math.min(previewLeft + previewWidth, bounds.right) - Math.max(previewLeft, bounds.left));
+    const horizontalOverlapRatio = previewWidth > 0 ? overlapWidth / previewWidth : 0;
+
+    return horizontalOverlapRatio >= this.ownHandHorizontalRetentionOverlap;
+  }
+
+  private hasExceededTopExitThreshold(previewTop: number, previewHeight: number, zoneTop: number, exitRatio: number): boolean {
+    if (previewHeight <= 0) {
+      return false;
+    }
+
+    return zoneTop - previewTop > previewHeight * exitRatio;
   }
 
   private nextPointerDragMode(deltaX: number, deltaY: number): HandPointerDragMode {

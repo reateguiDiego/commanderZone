@@ -219,6 +219,55 @@ class GameCommandHandlerTest extends TestCase
         ));
     }
 
+    public function testCommanderCastCounterLogIncludesPreviousAndNextValue(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $snapshot = $this->snapshot($actor->id(), []);
+        $snapshot['counters'] = [
+            'commander:'.$actor->id() => ['casts' => 2],
+        ];
+        $game = new Game(new Room($actor), $snapshot);
+        $handler = new GameCommandHandler();
+
+        $handler->apply($game, 'counter.changed', [
+            'scope' => 'commander:'.$actor->id(),
+            'key' => 'casts',
+            'value' => 3,
+        ], $actor);
+        $handler->apply($game, 'counter.changed', [
+            'scope' => 'commander:'.$actor->id(),
+            'key' => 'casts',
+            'value' => 2,
+        ], $actor);
+
+        self::assertSame([
+            'Commander cast count increased from 2 to 3.',
+            'Commander cast count decreased from 3 to 2.',
+        ], array_map(
+            static fn (array $entry): string => $entry['message'],
+            $game->snapshot()['eventLog'],
+        ));
+    }
+
+    public function testCommanderCastCounterCannotGoBelowZeroOrCreateNoopLog(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $snapshot = $this->snapshot($actor->id(), []);
+        $snapshot['counters'] = [
+            'commander:'.$actor->id() => ['casts' => 0],
+        ];
+        $game = new Game(new Room($actor), $snapshot);
+
+        (new GameCommandHandler())->apply($game, 'counter.changed', [
+            'scope' => 'commander:'.$actor->id(),
+            'key' => 'casts',
+            'value' => -1,
+        ], $actor);
+
+        self::assertSame(0, $game->snapshot()['counters']['commander:'.$actor->id()]['casts']);
+        self::assertSame([], $game->snapshot()['eventLog']);
+    }
+
     public function testMovingCardToSameZoneDoesNotCreateLogEntry(): void
     {
         $actor = new User('owner@example.test', 'Owner');

@@ -106,6 +106,7 @@
                 [isCardTransferPending]="isCardTransferPending"
                 [interactionFrozen]="store.contextMenu() !== null"
                 [hasActiveCardDrag]="store.draggingCardInstanceId() !== null || store.pointerDragPreview() !== null"
+                [externalRevealAllowed]="store.handExternalRevealAllowed()"
                 (handDragOver)="store.previewDropOnHand($event.event, $event.playerId)"
                 (handDropped)="store.dropOnHand($event.event, $event.playerId)"
                 (handCardClicked)="store.handleHandCardClick($event.event, $event.playerId, $event.card)"

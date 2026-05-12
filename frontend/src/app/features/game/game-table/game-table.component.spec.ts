@@ -525,7 +525,7 @@ describe('GameTableComponent', () => {
     expect(fixture.componentInstance.store.error()).toBe('You can only open card actions for your own battlefield.');
   });
 
-  it('plays a hand card on double click', async () => {
+  it('does not play a hand card on double click', async () => {
     routeParams['id'] = 'game-1';
     authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
     const snapshot = snapshotWithStatus('active');
@@ -557,15 +557,14 @@ describe('GameTableComponent', () => {
 
     await fixture.whenStable();
 
-    expect(gamesApi.command).toHaveBeenCalledWith(expect.objectContaining({
-      type: 'card.moved',
-      payload: {
+    expect(gamesApi.command).not.toHaveBeenCalled();
+    expect(fixture.componentInstance.store.selectedCards()).toEqual([
+      expect.objectContaining({
         playerId: 'user-1',
-        fromZone: 'hand',
-        toZone: 'battlefield',
-        instanceId: 'hand-card',
-      },
-    }), 'game-1');
+        zone: 'hand',
+        card: expect.objectContaining({ instanceId: 'hand-card' }),
+      }),
+    ]);
   });
 
   it('keeps the exact previewed battlefield position when pointer-moving selected hand cards', async () => {
@@ -618,6 +617,24 @@ describe('GameTableComponent', () => {
 
     expect(fixture.componentInstance.store.eventLog()[0]?.appearance).toBe('phase');
   });
+
+  it('does not send commander cast count commands that keep the value at zero', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    snapshot.counters = {
+      'commander:user-1': { casts: 0 },
+    };
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    await fixture.componentInstance.store.changeCommanderCastCount('user-1', -1);
+
+    expect(gamesApi.command).not.toHaveBeenCalled();
+  });
 });
 
 describe('GameTableChatLogState', () => {
@@ -663,6 +680,65 @@ describe('GameTableChatLogState', () => {
       'Moved Sméagol, Helpful Guide from battlefield to command. Commander cast count increased from 1 to 2.',
     ]);
   });
+
+  it('compacts consecutive commander cast counter increases', () => {
+    const state = new GameTableChatLogState();
+    const snapshot = snapshotWithStatus('active');
+    snapshot.eventLog = [
+      gameLogEntry('event-1', 'counter.changed', 'Commander cast count increased from 1 to 2.'),
+      gameLogEntry('event-2', 'counter.changed', 'Commander cast count increased from 2 to 3.'),
+      gameLogEntry('event-3', 'counter.changed', 'Commander cast count increased from 3 to 4.'),
+    ];
+
+    expect(state.eventLog(snapshot).map((entry) => entry.message)).toEqual([
+      'Commander cast count increased from 1 to 4 (+3 clicks).',
+    ]);
+  });
+
+  it('compacts consecutive commander cast counter decreases', () => {
+    const state = new GameTableChatLogState();
+    const snapshot = snapshotWithStatus('active');
+    snapshot.eventLog = [
+      gameLogEntry('event-1', 'counter.changed', 'Commander cast count decreased from 4 to 3.'),
+      gameLogEntry('event-2', 'counter.changed', 'Commander cast count decreased from 3 to 2.'),
+      gameLogEntry('event-3', 'counter.changed', 'Commander cast count decreased from 2 to 1.'),
+      gameLogEntry('event-4', 'counter.changed', 'Commander cast count decreased from 1 to 0.'),
+    ];
+
+    expect(state.eventLog(snapshot).map((entry) => entry.message)).toEqual([
+      'Commander cast count decreased from 4 to 0 (-4 clicks).',
+    ]);
+  });
+
+  it('compacts legacy commander cast counter decreases', () => {
+    const state = new GameTableChatLogState();
+    const snapshot = snapshotWithStatus('active');
+    snapshot.eventLog = [
+      gameLogEntry('event-1', 'counter.changed', 'Set commander:user-1 counter casts to 17.'),
+      gameLogEntry('event-2', 'counter.changed', 'Set commander:user-1 counter casts to 16.'),
+      gameLogEntry('event-3', 'counter.changed', 'Set commander:user-1 counter casts to 15.'),
+    ];
+
+    expect(state.eventLog(snapshot).map((entry) => entry.message)).toEqual([
+      'Commander cast count decreased from 17 to 15 (-2 clicks).',
+    ]);
+  });
+
+  it('starts a separate commander cast counter group when direction changes', () => {
+    const state = new GameTableChatLogState();
+    const snapshot = snapshotWithStatus('active');
+    snapshot.eventLog = [
+      gameLogEntry('event-1', 'counter.changed', 'Commander cast count increased from 5 to 18 (+13 clicks).'),
+      gameLogEntry('event-2', 'counter.changed', 'Set commander:user-1 counter casts to 17.'),
+      gameLogEntry('event-3', 'counter.changed', 'Set commander:user-1 counter casts to 16.'),
+    ];
+
+    expect(state.eventLog(snapshot).map((entry) => entry.message)).toEqual([
+      'Commander cast count increased from 5 to 18 (+13 clicks).',
+      'Commander cast count decreased from 18 to 16 (-2 clicks).',
+    ]);
+  });
+
 });
 
 function snapshotWithStatus(status: 'active' | 'conceded'): GameSnapshot {

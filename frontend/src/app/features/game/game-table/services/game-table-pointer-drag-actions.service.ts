@@ -38,7 +38,7 @@ export class GameTablePointerDragActionsService {
   async endCardPointerDrag(context: GameTablePointerDragActionContext, event?: PointerEvent): Promise<void> {
     const drag = this.drag.endCardPointerDrag(
       event,
-      (pointerEvent, playerId) => this.drag.pointerDropZone(pointerEvent, playerId, [...context.zones]),
+      (pointerEvent, playerId) => this.battlefieldDrag.pointerDropZone(pointerEvent, playerId, context.battlefieldDragContext()),
       (playerId, instanceId, position) => context.updateLocalCardPosition(playerId, instanceId, position),
     );
     const activeGuideY = drag ? context.alignmentGuideY(drag.playerId) : null;

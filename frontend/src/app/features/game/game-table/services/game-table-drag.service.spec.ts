@@ -126,8 +126,63 @@ describe('GameTableDragService', () => {
       clientY: 100,
     } as unknown as DragEvent, 'battlefield');
 
-    expect(dataTransfer.setDragImage).toHaveBeenCalledWith(source, 10, 20);
+    const [dragImage, offsetX, offsetY] = dataTransfer.setDragImage.mock.calls[0]!;
+    expect(dragImage).toBeInstanceOf(HTMLElement);
+    expect((dragImage as HTMLElement).querySelector('span')?.textContent).toBe('Arcane Signet');
+    expect(offsetX).toBe(10);
+    expect(offsetY).toBe(20);
     expect(position).toEqual({ x: 130, y: 70 });
+  });
+
+  it('uses the top card image for native zone pile drag previews', () => {
+    const zoneStack = document.createElement('button');
+    zoneStack.className = 'zone-stack';
+    const zoneArt = document.createElement('span');
+    zoneArt.className = 'zone-art';
+    const layer = document.createElement('img');
+    layer.className = 'zone-card-stack-layer';
+    layer.src = '/assets/layer.jpg';
+    const top = document.createElement('img');
+    top.className = 'zone-card-stack-top';
+    top.src = '/assets/top.jpg';
+    top.getBoundingClientRect = () => ({
+      ...rect(0, 100),
+      height: 140,
+      bottom: 140,
+      right: 100,
+    });
+    zoneArt.append(layer, top);
+    zoneStack.appendChild(zoneArt);
+    document.body.appendChild(zoneStack);
+    const dataTransfer = {
+      effectAllowed: '',
+      setData: vi.fn(),
+      setDragImage: vi.fn(),
+    };
+
+    try {
+      service.dragStart({
+        target: zoneStack,
+        dataTransfer,
+        clientX: 50,
+        clientY: 70,
+      } as unknown as DragEvent, 'player-1', 'graveyard', {
+        instanceId: 'card-1',
+        name: 'Top Graveyard Card',
+        tapped: false,
+      });
+
+      const [dragImage, offsetX, offsetY] = dataTransfer.setDragImage.mock.calls[0]!;
+      const image = (dragImage as HTMLElement).querySelector('img');
+
+      expect(dragImage).toBeInstanceOf(HTMLElement);
+      expect(image?.src).toContain('/assets/top.jpg');
+      expect(image?.src).not.toContain('/assets/layer.jpg');
+      expect(offsetX).toBe(50);
+      expect(offsetY).toBe(70);
+    } finally {
+      zoneStack.remove();
+    }
   });
 
   it('snaps native drops to mana row when the dragged card top is inside the lower mana band', () => {

@@ -65,7 +65,7 @@
   gap: 12px;
   height: 100dvh;
   overflow: hidden;
-  padding: 12px;
+  padding: 12px 12px 0;
 }
 
 .game-hud {
@@ -155,7 +155,7 @@
   gap: 4px;
   min-width: 0;
   min-height: 0;
-  padding: 0.65rem;
+  padding: 0.65rem 0.65rem 0;
   border: 1px solid var(--game-line-soft);
   border-radius: 8px;
   background: var(--game-surface);

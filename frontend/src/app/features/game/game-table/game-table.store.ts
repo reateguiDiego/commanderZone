@@ -86,6 +86,7 @@ export class GameTableStore implements OnDestroy {
   readonly draggingCardInstanceId = this.battlefieldDragState.draggingCardInstanceId;
   readonly handDropPreview = this.battlefieldDragState.handDropPreview;
   readonly manaLaneDropPlayerId = this.battlefieldDragState.manaLaneDropPlayerId;
+  readonly handExternalRevealAllowed = this.battlefieldDragState.handExternalRevealAllowed;
   readonly alignmentGuide = this.battlefieldDragState.alignmentGuide;
   readonly activeDropTarget = this.battlefieldDragState.activeDropTarget;
   readonly activePlayerDropTarget = this.battlefieldDragState.activePlayerDropTarget;
@@ -486,10 +487,16 @@ export class GameTableStore implements OnDestroy {
       return;
     }
 
+    const currentCount = this.commanderCastCount(player);
+    const nextCount = Math.max(0, currentCount + delta);
+    if (nextCount === currentCount) {
+      return;
+    }
+
     await this.command('counter.changed', {
       scope: `commander:${playerId}`,
       key: 'casts',
-      value: Math.max(0, this.commanderCastCount(player) + delta),
+      value: nextCount,
     });
   }
 

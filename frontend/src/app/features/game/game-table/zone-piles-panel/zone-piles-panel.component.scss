@@ -86,6 +86,7 @@
 
 .zone-art {
   position: relative;
+  isolation: isolate;
   display: block;
   width: 6.125rem;
   aspect-ratio: 0.716;
@@ -117,23 +118,34 @@
   user-select: none;
 }
 
-.zone-stack strong {
+.zone-count-badge,
+.commander-cast-count {
   position: absolute;
-  z-index: 3000;
+  z-index: 3200;
   right: -0.35rem;
   bottom: -0.35rem;
   display: grid;
   min-width: 1.35rem;
   height: 1.35rem;
   place-items: center;
-  border: 1px solid rgb(0 0 0 / 45%);
+  border: 1px solid #c5a35b;
   border-radius: 999px;
-  background: var(--game-surface-deep, rgb(7 8 7 / 88%));
+  background: rgb(7 8 7 / 98%);
+  box-shadow:
+    0 0 0 2px rgb(7 8 7 / 84%),
+    0 0.3rem 0.75rem rgb(0 0 0 / 38%);
   color: var(--game-text, #f3f0e8);
   font-size: 0.78rem;
+  font-weight: 900;
 }
 
-.zone-stack.dragging-zone-card strong {
+.zone-art.card-stack .zone-count-badge {
+  right: -0.75rem;
+  bottom: -0.75rem;
+}
+
+.zone-stack.dragging-zone-card .zone-count-badge,
+.zone-stack.dragging-zone-card .commander-cast-count {
   z-index: 900;
   opacity: 0.58;
 }

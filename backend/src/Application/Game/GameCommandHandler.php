@@ -304,10 +304,30 @@ class GameCommandHandler
             throw new \InvalidArgumentException('Counter value must be numeric.');
         }
 
-        $value = (int) $payload['value'];
+        $previousValue = (int) ($snapshot['counters'][$scope][$key] ?? 0);
+        $value = str_starts_with($scope, 'commander:') && $key === 'casts'
+            ? max(0, (int) $payload['value'])
+            : (int) $payload['value'];
         $snapshot['counters'][$scope][$key] = $value;
 
+        if (str_starts_with($scope, 'commander:') && $key === 'casts') {
+            return $this->commanderCastCounterLog($previousValue, $value);
+        }
+
         return sprintf('Set %s counter %s to %d.', $scope, $key, $value);
+    }
+
+    private function commanderCastCounterLog(int $previousValue, int $value): string
+    {
+        if ($value > $previousValue) {
+            return sprintf('Commander cast count increased from %d to %d.', $previousValue, $value);
+        }
+
+        if ($value < $previousValue) {
+            return sprintf('Commander cast count decreased from %d to %d.', $previousValue, $value);
+        }
+
+        return '';
     }
 
     private function applyCardCounterChanged(array &$snapshot, array $payload): string

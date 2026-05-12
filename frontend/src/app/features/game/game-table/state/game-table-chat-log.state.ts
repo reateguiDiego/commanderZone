@@ -3,6 +3,13 @@ import { GameCardInstance, GameSnapshot, GameZoneName } from '../../../../core/m
 
 type GameLogEntry = GameSnapshot['eventLog'][number];
 
+interface CommanderCastCounterChange {
+  from: number;
+  to: number;
+}
+
+type CommanderCastCounterLog = CommanderCastCounterChange | { to: number };
+
 export interface GameLogEntryView extends GameLogEntry {
   card: GameCardInstance | null;
   messagePrefix: string;
@@ -81,7 +88,7 @@ export class GameTableChatLogState {
           compact.splice(compact.length - 2, 2, sequence);
         }
       } else {
-        compact.push(entry);
+        compact.push(previous ? this.normalizeCommanderCastCounterEntry(previous, entry) : entry);
       }
 
       return compact;
@@ -105,6 +112,7 @@ export class GameTableChatLogState {
 
     return this.mergeDraw(previous, current)
       ?? this.mergeLife(previous, current)
+      ?? this.mergeCommanderCastCounter(previous, current)
       ?? this.mergePowerToughness(previous, current)
       ?? this.mergeTapped(previous, current);
   }
@@ -115,16 +123,14 @@ export class GameTableChatLogState {
     }
 
     const movedMatch = /^Moved (.+) from command to battlefield\.$/.exec(previous.message);
-    const counterMatch = /^Set commander:[^ ]+ counter casts to (\d+)\.$/.exec(current.message);
-    if (!movedMatch || !counterMatch) {
+    const counterChange = this.commanderCastCounterChange(current.message);
+    if (!movedMatch || !counterChange || counterChange.to <= counterChange.from) {
       return null;
     }
 
-    const next = Number(counterMatch[1]);
-
     return {
       ...current,
-      message: `${previous.message} Commander cast count increased from ${Math.max(0, next - 1)} to ${next}.`,
+      message: `${previous.message} ${this.commanderCastCounterMessage(counterChange.from, counterChange.to)}.`,
     };
   }
 
@@ -134,14 +140,15 @@ export class GameTableChatLogState {
     }
 
     const returnedMatch = /^Moved (.+) from battlefield to command\.$/.exec(previous.message);
-    const castMatch = /^Moved (.+) from command to battlefield\. Commander cast count increased from (\d+) to (\d+)\.$/.exec(current.message);
-    if (!returnedMatch || !castMatch || returnedMatch[1] !== castMatch[1]) {
+    const castMatch = /^Moved (.+) from command to battlefield\. (Commander cast count (?:increased|decreased) from \d+ to \d+(?: \([+-]\d+ clicks\))?)\.$/.exec(current.message);
+    const counterChange = castMatch ? this.commanderCastCounterChange(`${castMatch[2]}.`) : null;
+    if (!returnedMatch || !castMatch || returnedMatch[1] !== castMatch[1] || !counterChange) {
       return null;
     }
 
     return {
       ...current,
-      message: `${previous.message} Commander cast count increased from ${castMatch[2]} to ${castMatch[3]}.`,
+      message: `${previous.message} ${this.commanderCastCounterMessage(counterChange.from, counterChange.to)}.`,
     };
   }
 
@@ -151,17 +158,119 @@ export class GameTableChatLogState {
     }
 
     const movedMatch = /^Moved (.+) from battlefield to command\.$/.exec(previous.message);
-    const counterMatch = /^Set commander:[^ ]+ counter casts to (\d+)\.$/.exec(current.message);
-    if (!movedMatch || !counterMatch) {
+    const counterChange = this.commanderCastCounterChange(current.message);
+    if (!movedMatch || !counterChange || counterChange.to <= counterChange.from) {
       return null;
     }
 
-    const next = Number(counterMatch[1]);
+    return {
+      ...current,
+      message: `${previous.message} ${this.commanderCastCounterMessage(counterChange.from, counterChange.to)}.`,
+    };
+  }
+
+  private mergeCommanderCastCounter(previous: GameLogEntry, current: GameLogEntry): GameLogEntry | null {
+    const previousCounter = this.commanderCastCounterLog(previous.message);
+    const currentCounter = this.commanderCastCounterLog(current.message);
+    if (!previousCounter || !currentCounter) {
+      return null;
+    }
+
+    const change = this.resolveCommanderCastCounterChange(previousCounter, currentCounter);
+    if (!change) {
+      return null;
+    }
+
+    const previousDirection = this.commanderCastCounterDirection(previousCounter);
+    const currentDirection = Math.sign(change.to - change.from);
+    if (currentDirection === 0 || (previousDirection !== 0 && previousDirection !== currentDirection)) {
+      return null;
+    }
 
     return {
       ...current,
-      message: `${previous.message} Commander cast count increased from ${Math.max(0, next - 1)} to ${next}.`,
+      message: `${this.commanderCastCounterMessage(change.from, change.to, true)}.`,
     };
+  }
+
+  private normalizeCommanderCastCounterEntry(previous: GameLogEntry, current: GameLogEntry): GameLogEntry {
+    if (previous.actorId !== current.actorId || current.type !== 'counter.changed') {
+      return current;
+    }
+
+    const previousCounter = this.commanderCastCounterLog(previous.message);
+    const currentCounter = this.commanderCastCounterLog(current.message);
+    if (!previousCounter || !currentCounter || 'from' in currentCounter || previousCounter.to === currentCounter.to) {
+      return current;
+    }
+
+    return {
+      ...current,
+      message: `${this.commanderCastCounterMessage(previousCounter.to, currentCounter.to)}.`,
+    };
+  }
+
+  private commanderCastCounterChange(message: string): CommanderCastCounterChange | null {
+    const log = this.commanderCastCounterLog(message);
+    if (!log) {
+      return null;
+    }
+
+    return 'from' in log ? log : { from: Math.max(0, log.to - 1), to: log.to };
+  }
+
+  private commanderCastCounterLog(message: string): CommanderCastCounterLog | null {
+    const rangeMatch = /^Commander cast count (?:increased|decreased) from (\d+) to (\d+)(?: \([+-]\d+ clicks\))?\.$/.exec(message);
+    if (rangeMatch) {
+      return { from: Number(rangeMatch[1]), to: Number(rangeMatch[2]) };
+    }
+
+    const legacyMatch = /^Set commander:[^ ]+ counter casts to (\d+)\.$/.exec(message);
+    if (!legacyMatch) {
+      return null;
+    }
+
+    const to = Number(legacyMatch[1]);
+
+    return { to };
+  }
+
+  private resolveCommanderCastCounterChange(
+    previous: CommanderCastCounterLog,
+    current: CommanderCastCounterLog,
+  ): CommanderCastCounterChange | null {
+    if ('from' in current && previous.to === current.from) {
+      return 'from' in previous
+        ? { from: previous.from, to: current.to }
+        : current;
+    }
+
+    if (!('from' in current) && previous.to !== current.to) {
+      if (!('from' in previous)) {
+        return { from: previous.to, to: current.to };
+      }
+
+      const previousDirection = Math.sign(previous.to - previous.from);
+      const currentDirection = Math.sign(current.to - previous.to);
+
+      return previousDirection !== 0 && previousDirection === currentDirection
+        ? { from: previous.from, to: current.to }
+        : { from: previous.to, to: current.to };
+    }
+
+    return null;
+  }
+
+  private commanderCastCounterDirection(log: CommanderCastCounterLog): number {
+    return 'from' in log ? Math.sign(log.to - log.from) : 0;
+  }
+
+  private commanderCastCounterMessage(from: number, to: number, showClickDelta = false): string {
+    const direction = to >= from ? 'increased' : 'decreased';
+    const clickDelta = to - from;
+    const suffix = showClickDelta ? ` (${clickDelta > 0 ? '+' : ''}${clickDelta} clicks)` : '';
+
+    return `Commander cast count ${direction} from ${from} to ${to}${suffix}`;
   }
 
   private mergeDraw(previous: GameLogEntry, current: GameLogEntry): GameLogEntry | null {

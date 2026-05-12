@@ -36,6 +36,7 @@ export class GameTableBattlefieldDragState {
   readonly activeDropTarget = signal<ActiveDropTarget | null>(null);
   readonly activePlayerDropTarget = signal<string | null>(null);
   readonly pointerDragPreview = signal<PointerDragPreview | null>(null);
+  readonly handExternalRevealAllowed = signal(true);
 
   beginCardDrag(instanceId: string): void {
     this.draggingCardInstanceId.set(instanceId);
@@ -48,6 +49,7 @@ export class GameTableBattlefieldDragState {
     this.activeDropTarget.set(null);
     this.activePlayerDropTarget.set(null);
     this.pointerDragPreview.set(null);
+    this.handExternalRevealAllowed.set(true);
     this.clearHandDropPreview();
   }
 
@@ -84,15 +86,25 @@ export class GameTableBattlefieldDragState {
     this.activePlayerDropTarget.set(playerId);
   }
 
+  setHandExternalRevealAllowed(allowed: boolean): void {
+    this.handExternalRevealAllowed.set(allowed);
+  }
+
   clearDropTargets(): void {
     this.manaLaneDropPlayerId.set(null);
     this.alignmentGuide.set(null);
     this.activePlayerDropTarget.set(null);
     this.activeDropTarget.set(null);
+    this.handExternalRevealAllowed.set(true);
     this.clearHandDropPreview();
   }
 
   isManaLaneHighlighted(playerId: string): boolean {
+    const target = this.activeDropTarget();
+    if (target?.playerId === playerId && target.zone === 'hand') {
+      return false;
+    }
+
     return this.manaLaneDropPlayerId() === playerId;
   }
 
@@ -107,6 +119,11 @@ export class GameTableBattlefieldDragState {
   }
 
   alignmentGuideFor(playerId: string): AlignmentGuide | null {
+    const target = this.activeDropTarget();
+    if (target?.playerId === playerId && target.zone === 'hand') {
+      return null;
+    }
+
     const guide = this.alignmentGuide();
 
     return guide?.playerId === playerId ? guide : null;

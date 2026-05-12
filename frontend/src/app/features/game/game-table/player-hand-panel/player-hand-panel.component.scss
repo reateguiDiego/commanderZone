@@ -11,7 +11,8 @@
   align-self: end;
   min-height: 11.15rem;
   margin-top: -7.15rem;
-  --hand-reveal-offset: 5.35rem;
+  --hand-hidden-offset: 5.35rem;
+  --hand-reveal-offset: var(--hand-hidden-offset);
   --hand-card-preview-height: 9rem;
   border: 0;
   background: transparent;
@@ -77,7 +78,7 @@
 .hand-count {
   position: absolute;
   right: 1.1rem;
-  bottom: 0.6rem;
+  bottom: 0.15rem;
   z-index: 3;
   min-width: 4.7rem;
   padding: 0.22rem 0.5rem;
@@ -270,7 +271,8 @@
   .hand-area {
     min-height: 11rem;
     margin-top: -6rem;
-    --hand-reveal-offset: 4.85rem;
+    --hand-hidden-offset: 4.85rem;
+    --hand-reveal-offset: var(--hand-hidden-offset);
     --hand-card-preview-height: 8.2rem;
   }
 
