@@ -82,7 +82,7 @@ export class GameTableInteractionActionsService {
     }
 
     const alreadySelected = this.isOnlySelectedCard(card.instanceId);
-    if (alreadySelected && !event.ctrlKey && !event.metaKey && !event.shiftKey) {
+    if (alreadySelected && !event.shiftKey) {
       this.ripple(event.currentTarget as HTMLElement);
       return;
     }
@@ -97,7 +97,7 @@ export class GameTableInteractionActionsService {
     }
 
     const alreadySelected = this.isOnlySelectedCard(card.instanceId);
-    if (alreadySelected && !event.ctrlKey && !event.metaKey && !event.shiftKey) {
+    if (alreadySelected && !event.shiftKey) {
       this.ripple(event.currentTarget as HTMLElement);
       return;
     }

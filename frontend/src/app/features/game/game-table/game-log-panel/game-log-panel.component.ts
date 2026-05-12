@@ -1,4 +1,4 @@
-import { AfterViewChecked, ChangeDetectionStrategy, Component, ElementRef, ViewChild, input, output } from '@angular/core';
+import { AfterViewChecked, ChangeDetectionStrategy, Component, ElementRef, OnDestroy, ViewChild, input, output } from '@angular/core';
 import { GameCardInstance } from '../../../../core/models/game.model';
 import { PrettyScrollDirective } from '../../../../shared/ui/pretty-scroll/pretty-scroll.directive';
 import { GameLogEntryView } from '../state/game-table-chat-log.state';
@@ -10,7 +10,7 @@ import { GameLogEntryView } from '../state/game-table-chat-log.state';
   styleUrl: './game-log-panel.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class GameLogPanelComponent implements AfterViewChecked {
+export class GameLogPanelComponent implements AfterViewChecked, OnDestroy {
   readonly entries = input.required<ReadonlyArray<GameLogEntryView>>();
   readonly logTime = input.required<(createdAt: string) => string>();
   readonly previewCard = output<GameCardInstance>();
@@ -19,6 +19,8 @@ export class GameLogPanelComponent implements AfterViewChecked {
   @ViewChild('feed') private readonly feed?: ElementRef<HTMLElement>;
 
   private lastAutoScrollKey = '';
+  private scrollFrame: number | null = null;
+  private scrollTimer: number | null = null;
 
   ngAfterViewChecked(): void {
     const entries = this.entries();
@@ -29,11 +31,42 @@ export class GameLogPanelComponent implements AfterViewChecked {
     }
 
     this.lastAutoScrollKey = key;
-    queueMicrotask(() => {
-      const element = this.feed?.nativeElement;
-      if (element) {
-        element.scrollTop = element.scrollHeight;
-      }
+    queueMicrotask(() => this.queueScrollToBottom());
+  }
+
+  ngOnDestroy(): void {
+    this.clearQueuedScroll();
+  }
+
+  scrollToBottom(): void {
+    const element = this.feed?.nativeElement;
+    if (element) {
+      element.scrollTop = element.scrollHeight;
+    }
+  }
+
+  private queueScrollToBottom(): void {
+    this.clearQueuedScroll();
+    this.scrollToBottom();
+    this.scrollFrame = window.requestAnimationFrame(() => {
+      this.scrollFrame = null;
+      this.scrollToBottom();
     });
+    this.scrollTimer = window.setTimeout(() => {
+      this.scrollTimer = null;
+      this.scrollToBottom();
+    }, 260);
+  }
+
+  private clearQueuedScroll(): void {
+    if (this.scrollFrame !== null) {
+      window.cancelAnimationFrame(this.scrollFrame);
+      this.scrollFrame = null;
+    }
+
+    if (this.scrollTimer !== null) {
+      window.clearTimeout(this.scrollTimer);
+      this.scrollTimer = null;
+    }
   }
 }

@@ -12,10 +12,10 @@
   gap: 0.75rem;
   min-height: 0;
   overflow: visible;
-  padding: 0.55rem 0.55rem 2.15rem;
-  border: 1px solid var(--game-line-soft, rgb(61 69 53 / 46%));
-  border-radius: 8px;
-  background: rgb(7 8 7 / 46%);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .drop-target-active {

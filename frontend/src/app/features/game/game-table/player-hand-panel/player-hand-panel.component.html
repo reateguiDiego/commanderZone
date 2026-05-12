@@ -22,6 +22,7 @@
     class="hand-row game-table-hand"
     data-testid="hand-zone"
     [attr.data-player-id]="handPlayer.id"
+    [class.hand-row-empty]="shouldRenderEmptyHandDropTarget()"
   >
     @if (shouldRenderEmptyHandDropTarget()) {
       <div
@@ -40,6 +41,7 @@
         [attr.data-player-id]="handPlayer.id"
         [attr.data-game-drop-zone]="'hand'"
         [attr.data-zone]="'hand'"
+        [class.hand-fan-compact-drop-target]="hasCompactHandDropTarget()"
         [class.drop-target-active]="isHandDropReceiverHighlighted()"
         (dragover)="handDragOver.emit({ event: $event, playerId: handPlayer.id })"
         (drop)="handDropped.emit({ event: $event, playerId: handPlayer.id })"

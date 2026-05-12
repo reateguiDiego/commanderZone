@@ -2,6 +2,7 @@
 
 namespace App\Application\Game;
 
+use App\Domain\Deck\Deck;
 use App\Domain\Game\Game;
 use App\Domain\Game\GameEvent;
 use App\Domain\User\User;
@@ -128,9 +129,10 @@ class GameCommandHandler
             default => throw new \InvalidArgumentException(sprintf('Unknown game command: %s', $type)),
         };
 
+        $eventPayload = $type === 'chat.message' ? $this->chatEventPayload($payload) : $payload;
         $this->commit($snapshot, $type, $log, $actor);
         $game->replaceSnapshot($snapshot);
-        $event = new GameEvent($game, $type, $payload, $actor, $clientActionId);
+        $event = new GameEvent($game, $type, $eventPayload, $actor, $clientActionId);
         $game->addEvent($event);
 
         return $event;
@@ -156,6 +158,8 @@ class GameCommandHandler
             $player['status'] = in_array($status, ['active', 'conceded'], true) ? $status : 'active';
             $player['concededAt'] ??= null;
             $player['colorIdentity'] = $this->orderedColorIdentity(is_array($player['colorIdentity'] ?? null) ? $player['colorIdentity'] : []);
+            $player['backgroundName'] = $this->visualName($player['backgroundName'] ?? null, Deck::DEFAULT_BACKGROUND_NAME);
+            $player['sleevesName'] = $this->visualName($player['sleevesName'] ?? null, Deck::DEFAULT_SLEEVES_NAME);
             $player['counters'] ??= [];
             $player['commanderDamage'] ??= [];
             foreach (self::ZONES as $zone) {
@@ -212,6 +216,17 @@ class GameCommandHandler
         ];
     }
 
+    private function visualName(mixed $value, string $fallback): string
+    {
+        if (!is_string($value)) {
+            return $fallback;
+        }
+
+        $name = trim($value);
+
+        return $name === '' ? $fallback : $name;
+    }
+
     private function applyGameConcede(array &$snapshot, User $actor): string
     {
         $playerId = $actor->id();
@@ -244,15 +259,47 @@ class GameCommandHandler
             throw new \InvalidArgumentException('Message is required.');
         }
 
-        $snapshot['chat'][] = [
+        $targetPlayerId = $this->chatTargetPlayerId($snapshot, $payload, $actor);
+        $chatMessage = [
             'userId' => $actor->id(),
             'displayName' => $actor->displayName(),
             'message' => mb_substr($message, 0, 800),
             'createdAt' => (new \DateTimeImmutable())->format(DATE_ATOM),
         ];
+        if ($targetPlayerId !== null) {
+            $chatMessage['targetPlayerId'] = $targetPlayerId;
+            $chatMessage['targetDisplayName'] = $this->playerName($snapshot, $targetPlayerId);
+        }
+
+        $snapshot['chat'][] = $chatMessage;
         $snapshot['chat'] = array_slice($snapshot['chat'], -150);
 
         return null;
+    }
+
+    private function chatTargetPlayerId(array $snapshot, array $payload, User $actor): ?string
+    {
+        $targetPlayerId = $payload['targetPlayerId'] ?? null;
+        if ($targetPlayerId === null || $targetPlayerId === '' || $targetPlayerId === 'all') {
+            return null;
+        }
+        if (!is_string($targetPlayerId) || !isset($snapshot['players'][$targetPlayerId])) {
+            throw new \InvalidArgumentException('Chat target player not found.');
+        }
+        if ($targetPlayerId === $actor->id()) {
+            throw new \InvalidArgumentException('Private chat target must be another player.');
+        }
+
+        return $targetPlayerId;
+    }
+
+    private function chatEventPayload(array $payload): array
+    {
+        $targetPlayerId = $payload['targetPlayerId'] ?? null;
+
+        return is_string($targetPlayerId) && $targetPlayerId !== '' && $targetPlayerId !== 'all'
+            ? ['private' => true]
+            : ['private' => false];
     }
 
     private function applyLifeChanged(array &$snapshot, array $payload): string

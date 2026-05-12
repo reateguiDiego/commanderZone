@@ -7,13 +7,14 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   grid-template-rows: repeat(2, minmax(0, 1fr));
-  gap: 0.65rem;
+  gap: 0;
   min-width: 0;
   min-height: 0;
-  padding: 0.65rem;
-  border: 1px solid var(--game-line-soft, rgb(61 69 53 / 46%));
-  border-radius: 8px;
-  background: rgb(7 8 7 / 34%);
+  margin-bottom: 5px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: var(--game-side-column-bg, rgb(7 8 7 / 48%));
 }
 
 .zone-stack {
@@ -23,7 +24,7 @@
   min-height: 9.9rem;
   padding: 0.5rem;
   border: 1px solid var(--game-line-soft, rgb(61 69 53 / 46%));
-  border-radius: 6px;
+  border-radius: 0;
   background: transparent;
   color: var(--game-text, #f3f0e8);
   cursor: pointer;

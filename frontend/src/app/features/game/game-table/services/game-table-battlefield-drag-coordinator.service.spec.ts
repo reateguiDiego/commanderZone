@@ -325,8 +325,8 @@ describe('GameTableBattlefieldDragCoordinatorService', () => {
       ...contextWithSnapshot(snapshotWithBattlefield([selectedCard])),
       selectedCards: () => [{ playerId: 'player-1', zone: 'battlefield', card: selectedCard }],
     });
-    drag.moveCardPointerDrag(pointerEvent(150, 360), () => undefined);
-    service.updatePointerDropTarget(pointerEvent(150, 360), {
+    drag.moveCardPointerDrag(pointerEvent(150, 370), () => undefined);
+    service.updatePointerDropTarget(pointerEvent(150, 370), {
       ...contextWithSnapshot(snapshotWithBattlefield([selectedCard])),
       selectedCards: () => [{ playerId: 'player-1', zone: 'battlefield', card: selectedCard }],
     });
@@ -340,20 +340,17 @@ describe('GameTableBattlefieldDragCoordinatorService', () => {
     });
   });
 
-  it('drops hand priority when the card leaves above the revealed hand body below the retention threshold', () => {
+  it('drops hand priority immediately when the card leaves above the revealed hand body below the retention threshold', () => {
     const { battlefield, hand, cardElement } = appendBattlefieldAndHand();
     const selectedCard = card('dragged', { x: 20, y: 248 });
     cardElement.dataset['cardInstanceId'] = selectedCard.instanceId;
     const originalElementsFromPoint = document.elementsFromPoint;
-    const dateNowSpy = vi.spyOn(Date, 'now');
     Object.defineProperty(document, 'elementsFromPoint', {
       configurable: true,
       value: vi.fn(() => [battlefield]),
     });
 
     try {
-      dateNowSpy.mockReturnValue(1_000);
-
       drag.startBattlefieldPointerDrag(pointerDownOnCard(cardElement, 50, 268), 'player-1', selectedCard);
       drag.moveCardPointerDrag(pointerEvent(150, 498), () => undefined);
       service.updatePointerDropTarget(pointerEvent(150, 498), {
@@ -361,14 +358,6 @@ describe('GameTableBattlefieldDragCoordinatorService', () => {
         selectedCards: () => [{ playerId: 'player-1', zone: 'battlefield', card: selectedCard }],
       });
       drag.moveCardPointerDrag(pointerEvent(150, 210), () => undefined);
-      service.updatePointerDropTarget(pointerEvent(150, 210), {
-        ...contextWithSnapshot(snapshotWithBattlefield([selectedCard])),
-        selectedCards: () => [{ playerId: 'player-1', zone: 'battlefield', card: selectedCard }],
-      });
-
-      expect(state.activeDropTarget()).toEqual({ playerId: 'player-1', zone: 'hand' });
-
-      dateNowSpy.mockReturnValue(1_121);
       service.updatePointerDropTarget(pointerEvent(150, 210), {
         ...contextWithSnapshot(snapshotWithBattlefield([selectedCard])),
         selectedCards: () => [{ playerId: 'player-1', zone: 'battlefield', card: selectedCard }],
@@ -377,7 +366,6 @@ describe('GameTableBattlefieldDragCoordinatorService', () => {
       expect(state.handExternalRevealAllowed()).toBe(true);
       expect(state.activeDropTarget()).toBeNull();
     } finally {
-      dateNowSpy.mockRestore();
       Object.defineProperty(document, 'elementsFromPoint', {
         configurable: true,
         value: originalElementsFromPoint,
@@ -385,20 +373,17 @@ describe('GameTableBattlefieldDragCoordinatorService', () => {
     }
   });
 
-  it('does not immediately reactivate hand from pointer zone once the card leaves above the revealed hand body', () => {
+  it('does not reactivate hand from pointer zone once the card leaves above the revealed hand body', () => {
     const { battlefield, hand, cardElement } = appendBattlefieldAndHand();
     const selectedCard = card('dragged', { x: 20, y: 248 });
     cardElement.dataset['cardInstanceId'] = selectedCard.instanceId;
     const originalElementsFromPoint = document.elementsFromPoint;
-    const dateNowSpy = vi.spyOn(Date, 'now');
     Object.defineProperty(document, 'elementsFromPoint', {
       configurable: true,
       value: vi.fn(() => [hand, battlefield]),
     });
 
     try {
-      dateNowSpy.mockReturnValue(2_000);
-
       drag.startBattlefieldPointerDrag(pointerDownOnCard(cardElement, 50, 268), 'player-1', selectedCard);
       drag.moveCardPointerDrag(pointerEvent(150, 498), () => undefined);
       service.updatePointerDropTarget(pointerEvent(150, 498), {
@@ -411,18 +396,9 @@ describe('GameTableBattlefieldDragCoordinatorService', () => {
         selectedCards: () => [{ playerId: 'player-1', zone: 'battlefield', card: selectedCard }],
       });
 
-      expect(state.activeDropTarget()).toEqual({ playerId: 'player-1', zone: 'hand' });
-
-      dateNowSpy.mockReturnValue(2_121);
-      service.updatePointerDropTarget(pointerEvent(150, 210), {
-        ...contextWithSnapshot(snapshotWithBattlefield([selectedCard])),
-        selectedCards: () => [{ playerId: 'player-1', zone: 'battlefield', card: selectedCard }],
-      });
-
       expect(state.handExternalRevealAllowed()).toBe(false);
       expect(state.activeDropTarget()).toBeNull();
     } finally {
-      dateNowSpy.mockRestore();
       Object.defineProperty(document, 'elementsFromPoint', {
         configurable: true,
         value: originalElementsFromPoint,

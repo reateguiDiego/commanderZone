@@ -65,14 +65,9 @@ describe('GameCardViewComponent', () => {
   });
 
   it('emits pointerdown so containers can start their card drag flow', async () => {
-    vi.useFakeTimers();
     const { fixture, cardElement } = await renderHandCard();
     const pointerDown = vi.fn();
     fixture.componentInstance.cardPointerDown.subscribe(pointerDown);
-
-    cardElement.dispatchEvent(new MouseEvent('mouseenter'));
-    vi.advanceTimersByTime(150);
-    fixture.detectChanges();
 
     cardElement.dispatchEvent(new PointerEvent('pointerdown', {
       bubbles: true,
@@ -86,26 +81,11 @@ describe('GameCardViewComponent', () => {
     });
   });
 
-  it('waits a little after the hover lift before enabling drag', async () => {
-    vi.useFakeTimers();
+  it('emits pointerdown even before the card hover is activated', async () => {
     const { fixture, cardElement } = await renderHandCard();
     const pointerDown = vi.fn();
     fixture.componentInstance.cardPointerDown.subscribe(pointerDown);
 
-    cardElement.dispatchEvent(new MouseEvent('mouseenter'));
-    vi.advanceTimersByTime(149);
-    fixture.detectChanges();
-    cardElement.dispatchEvent(new PointerEvent('pointerdown', {
-      bubbles: true,
-      button: 0,
-      pointerId: 1,
-    }));
-
-    expect(cardElement.classList).toContain('hover-lifted');
-    expect(pointerDown).not.toHaveBeenCalled();
-
-    vi.advanceTimersByTime(1);
-    fixture.detectChanges();
     cardElement.dispatchEvent(new PointerEvent('pointerdown', {
       bubbles: true,
       button: 0,
@@ -113,20 +93,6 @@ describe('GameCardViewComponent', () => {
     }));
 
     expect(pointerDown).toHaveBeenCalledOnce();
-  });
-
-  it('does not emit pointerdown before the card hover is activated', async () => {
-    const { fixture, cardElement } = await renderHandCard();
-    const pointerDown = vi.fn();
-    fixture.componentInstance.cardPointerDown.subscribe(pointerDown);
-
-    cardElement.dispatchEvent(new PointerEvent('pointerdown', {
-      bubbles: true,
-      button: 0,
-      pointerId: 1,
-    }));
-
-    expect(pointerDown).not.toHaveBeenCalled();
   });
 
   it('applies drop feedback classes without removing existing selected state', async () => {
@@ -184,16 +150,16 @@ describe('GameCardViewComponent', () => {
 
     fixture.componentRef.setInput('powerValue', 3);
     fixture.detectChanges();
-    vi.advanceTimersByTime(520);
+    vi.advanceTimersByTime(300);
     fixture.componentRef.setInput('powerValue', 4);
     fixture.detectChanges();
-    vi.advanceTimersByTime(520);
+    vi.advanceTimersByTime(899);
     fixture.detectChanges();
 
     const [powerElement] = statElements(fixture);
     expect(powerElement.classList).toContain('stat-pulse-increase');
 
-    vi.advanceTimersByTime(380);
+    vi.advanceTimersByTime(1);
     fixture.detectChanges();
 
     expect(powerElement.classList).not.toContain('stat-pulse-increase');

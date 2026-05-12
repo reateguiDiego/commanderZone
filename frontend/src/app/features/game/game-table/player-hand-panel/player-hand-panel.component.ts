@@ -204,10 +204,10 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
       return;
     }
 
-    this.pointerDrag.set(null);
     this.clearReorderPreviewTimer();
     this.handPointerDropTargetChanged.emit(null);
     if (drag.mode === 'pending') {
+      this.pointerDrag.set(null);
       return;
     }
 
@@ -224,6 +224,7 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
         targetInstanceId: resolved.preview.targetInstanceId,
         placement: resolved.preview.placement,
       });
+      this.pointerDrag.set(null);
       return;
     }
 
@@ -239,6 +240,7 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
         });
       }
     }
+    this.pointerDrag.set(null);
   }
 
   @HostListener('window:pointercancel', ['$event'])
@@ -384,7 +386,13 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
     const drag = this.pointerDrag();
 
     return hand.length === 1
-      && Boolean(drag && drag.card.instanceId === hand[0]?.instanceId);
+      && Boolean(drag && drag.mode !== 'pending' && drag.card.instanceId === hand[0]?.instanceId);
+  }
+
+  hasCompactHandDropTarget(): boolean {
+    const handCount = this.player().state.zones.hand.length;
+
+    return handCount >= 1 && handCount <= 4;
   }
 
   isEmptyHandDropTargetActive(): boolean {

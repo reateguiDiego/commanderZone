@@ -546,11 +546,11 @@
 }
 
 .power-toughness-overlay span.stat-pulse-increase {
-  animation: stat-value-increase-hold 900ms ease-in-out infinite alternate;
+  animation: stat-value-increase-hold 420ms ease-in-out infinite alternate;
 }
 
 .power-toughness-overlay span.stat-pulse-decrease {
-  animation: stat-value-decrease-hold 900ms ease-in-out infinite alternate;
+  animation: stat-value-decrease-hold 420ms ease-in-out infinite alternate;
 }
 
 @keyframes stat-value-increase-hold {

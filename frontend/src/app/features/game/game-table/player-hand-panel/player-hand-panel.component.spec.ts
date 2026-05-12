@@ -50,6 +50,32 @@ describe('PlayerHandPanelComponent', () => {
     expect(handArea.classList.contains('hand-revealed')).toBe(true);
   });
 
+  it('expands the horizontal drop target only for compact non-empty hands', async () => {
+    const compact = await renderHandPanel({
+      hand: [
+        { instanceId: 'card-1', name: 'Arcane Signet', tapped: false },
+        { instanceId: 'card-2', name: 'Sol Ring', tapped: false },
+        { instanceId: 'card-3', name: 'Command Tower', tapped: false },
+        { instanceId: 'card-4', name: 'Cultivate', tapped: false },
+      ],
+    });
+
+    expect(compact.fixture.nativeElement.querySelector('.hand-fan')?.classList)
+      .toContain('hand-fan-compact-drop-target');
+
+    compact.fixture.componentRef.setInput('player', playerView([
+      { instanceId: 'card-1', name: 'Arcane Signet', tapped: false },
+      { instanceId: 'card-2', name: 'Sol Ring', tapped: false },
+      { instanceId: 'card-3', name: 'Command Tower', tapped: false },
+      { instanceId: 'card-4', name: 'Cultivate', tapped: false },
+      { instanceId: 'card-5', name: 'Swords to Plowshares', tapped: false },
+    ]));
+    compact.fixture.detectChanges();
+
+    expect(compact.fixture.nativeElement.querySelector('.hand-fan')?.classList)
+      .not.toContain('hand-fan-compact-drop-target');
+  });
+
   it('does not reveal during an external drag when reveal is temporarily blocked', async () => {
     vi.useFakeTimers();
     const { fixture, handArea } = await renderHandPanel({
@@ -331,6 +357,25 @@ describe('PlayerHandPanelComponent', () => {
     expect(fixture.nativeElement.querySelector('.hand-floating-card')?.textContent).toContain('Arcane Signet');
   });
 
+  it('keeps the last hand card visible while pointer drag is still pending', async () => {
+    const { fixture } = await renderHandPanel({
+      hand: [{ instanceId: 'card-1', name: 'Arcane Signet', tapped: false }],
+    });
+    const draggedCard = fixture.componentInstance.player().state.zones.hand[0]!;
+    const sourceElement = fixture.nativeElement.querySelector('[data-card-instance-id="card-1"]') as HTMLElement;
+
+    fixture.componentInstance.startHandPointerDrag(
+      pointerEvent({ currentTarget: sourceElement, pointerId: 1, clientX: 20, clientY: 80 }),
+      'player-1',
+      draggedCard,
+    );
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('[data-testid="empty-hand-drop-target"]')).toBeNull();
+    expect(sourceElement.classList).not.toContain('dragging');
+    expect(fixture.nativeElement.querySelector('[data-card-instance-id="card-1"]')).not.toBeNull();
+  });
+
   it('activates the empty hand drop target when the last dragged hand card returns over the hand', async () => {
     const { fixture } = await renderHandPanel({
       hand: [{ instanceId: 'card-1', name: 'Arcane Signet', tapped: false }],
@@ -439,10 +484,15 @@ describe('PlayerHandPanelComponent', () => {
       clientY: 20,
       pointerId: 1,
     }));
+    fixture.detectChanges();
+
+    expect(cardElement.classList).not.toContain('dragging');
+
     fixture.componentInstance.moveHandPointerDrag(pointerEvent({ pointerId: 1, clientX: 55, clientY: 22 }));
     fixture.detectChanges();
 
     expect(fixture.componentInstance.pointerDrag()?.mode).toBe('reorder');
+    expect(cardElement.classList).toContain('dragging');
 
     Object.defineProperty(document, 'elementsFromPoint', {
       configurable: true,

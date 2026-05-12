@@ -1,4 +1,4 @@
-import { AfterViewChecked, ChangeDetectionStrategy, Component, ElementRef, HostListener, QueryList, ViewChildren, computed, inject, signal } from '@angular/core';
+import { AfterViewChecked, ChangeDetectionStrategy, Component, ElementRef, HostListener, OnDestroy, QueryList, ViewChild, ViewChildren, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
 import { AppModalComponent } from '../../../shared/ui/app-modal/app-modal.component';
@@ -37,6 +37,7 @@ import { FocusedBattlefieldComponent } from './focused-battlefield/focused-battl
 import { ContextMenuAction, ContextMenuComponent } from './context-menu/context-menu.component';
 import { ZoneModalComponent } from './zone-modal/zone-modal.component';
 import { NumberActionDialogComponent } from './number-action-dialog/number-action-dialog.component';
+import { GameTableHeaderComponent } from './game-table-header/game-table-header.component';
 
 interface DrawNumberActionRequest {
   readonly kind: 'draw';
@@ -98,6 +99,7 @@ interface PowerToughnessActionRequest {
     ContextMenuComponent,
     ZoneModalComponent,
     NumberActionDialogComponent,
+    GameTableHeaderComponent,
   ],
   providers: [
     GameTableStore,
@@ -128,7 +130,7 @@ interface PowerToughnessActionRequest {
   styleUrl: './game-table.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class GameTableComponent implements AfterViewChecked {
+export class GameTableComponent implements AfterViewChecked, OnDestroy {
   readonly store = inject(GameTableStore);
   readonly counterPresets = ['+1/+1', '-1/-1', 'loyalty', 'charge'];
   readonly moveZones: GameZoneName[] = ['battlefield', 'graveyard', 'exile', 'hand', 'command', 'library'];
@@ -183,8 +185,14 @@ export class GameTableComponent implements AfterViewChecked {
 
     return !request || !Number.isFinite(Number(request.power)) || !Number.isFinite(Number(request.toughness));
   });
+  readonly latestLogEntry = computed(() => this.store.eventLog().at(-1) ?? null);
+  readonly latestChatMessage = computed(() => this.store.snapshot()?.chat.at(-1) ?? null);
+  readonly gameBackgroundImage = computed(() => `url("${this.store.gameBackgroundImage(this.store.currentPlayer())}")`);
   private lastAutoScrollKey = '';
+  private floatingScrollFrame: number | null = null;
+  private floatingScrollTimer: number | null = null;
 
+  @ViewChild(GameLogPanelComponent) private readonly gameLogPanel?: GameLogPanelComponent;
   @ViewChildren('autoScrollFeed') private readonly autoScrollFeeds?: QueryList<ElementRef<HTMLElement>>;
 
   ngAfterViewChecked(): void {
@@ -203,11 +211,47 @@ export class GameTableComponent implements AfterViewChecked {
     }
 
     this.lastAutoScrollKey = key;
-    queueMicrotask(() => {
-      for (const feed of this.autoScrollFeeds?.toArray() ?? []) {
-        feed.nativeElement.scrollTop = feed.nativeElement.scrollHeight;
-      }
+    queueMicrotask(() => this.queueFloatingContentScrollToBottom());
+  }
+
+  ngOnDestroy(): void {
+    this.clearQueuedFloatingContentScroll();
+  }
+
+  scrollFloatingContentToBottom(): void {
+    this.gameLogPanel?.scrollToBottom();
+    for (const feed of this.autoScrollFeeds?.toArray() ?? []) {
+      feed.nativeElement.scrollTop = feed.nativeElement.scrollHeight;
+    }
+  }
+
+  queueFloatingContentScrollToBottom(): void {
+    this.clearQueuedFloatingContentScroll();
+    this.scrollFloatingContentToBottom();
+    this.floatingScrollFrame = window.requestAnimationFrame(() => {
+      this.floatingScrollFrame = null;
+      this.scrollFloatingContentToBottom();
     });
+    this.floatingScrollTimer = window.setTimeout(() => {
+      this.floatingScrollTimer = null;
+      this.scrollFloatingContentToBottom();
+    }, 260);
+  }
+
+  handleFloatingPanelFocusOut(event: FocusEvent): void {
+    const currentTarget = event.currentTarget;
+    const nextTarget = event.relatedTarget;
+    if (currentTarget instanceof HTMLElement && nextTarget instanceof Node && currentTarget.contains(nextTarget)) {
+      return;
+    }
+
+    this.queueFloatingContentScrollToBottom();
+  }
+
+  handleFloatingPanelTransitionEnd(event: TransitionEvent): void {
+    if (event.propertyName === 'max-height') {
+      this.queueFloatingContentScrollToBottom();
+    }
   }
 
   @HostListener('document:keydown', ['$event'])
@@ -530,5 +574,17 @@ export class GameTableComponent implements AfterViewChecked {
 
   private openCloseGameDialog(): void {
     this.closeGameDialogOpen.set(true);
+  }
+
+  private clearQueuedFloatingContentScroll(): void {
+    if (this.floatingScrollFrame !== null) {
+      window.cancelAnimationFrame(this.floatingScrollFrame);
+      this.floatingScrollFrame = null;
+    }
+
+    if (this.floatingScrollTimer !== null) {
+      window.clearTimeout(this.floatingScrollTimer);
+      this.floatingScrollTimer = null;
+    }
   }
 }

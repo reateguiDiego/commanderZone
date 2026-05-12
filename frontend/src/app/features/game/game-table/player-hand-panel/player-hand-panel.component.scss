@@ -9,6 +9,8 @@
   display: grid;
   grid-template-rows: minmax(0, 1fr);
   align-self: end;
+  justify-self: end;
+  width: calc(100% + var(--game-hand-left-extension, 0px));
   min-height: 11.15rem;
   margin-top: -7.15rem;
   --hand-hidden-offset: 5.35rem;
@@ -45,6 +47,8 @@
   overflow-y: hidden;
   min-height: 10.85rem;
   padding: 0.8rem 2.6rem 0;
+  border: 0;
+  background: transparent;
   pointer-events: none;
 }
 
@@ -108,6 +112,15 @@
   padding: 0;
 }
 
+.hand-fan-compact-drop-target {
+  padding-inline: 120px;
+}
+
+.hand-row-empty {
+  justify-content: center;
+  overflow-x: visible;
+}
+
 .hand-fan::before {
   content: '';
   position: absolute;
@@ -133,13 +146,29 @@
 
 .empty-hand-drop-target {
   position: relative;
-  z-index: 2;
-  flex-basis: min(56rem, 62vw);
-  min-width: min(56rem, calc(100vw - 6rem));
-  height: 4.7rem;
+  z-index: 270;
+  flex: 1 1 min(56rem, 100%);
+  width: min(56rem, 100%);
+  max-width: 56rem;
+  min-width: min(28rem, calc(100vw - 6rem));
+  height: 10.45rem;
   align-self: flex-end;
-  margin: 0 auto 0.75rem;
-  border: 1px solid transparent;
+  margin: 0 auto;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  pointer-events: none;
+}
+
+.empty-hand-drop-target::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: 0.75rem;
+  left: 0;
+  height: 4.7rem;
+  border: 1px dashed transparent;
+  border-radius: 0;
   pointer-events: none;
 }
 
@@ -148,9 +177,12 @@
 }
 
 .empty-hand-drop-target.drop-target-active {
-  border-radius: 8px;
-  border-color: var(--game-accent-strong, rgb(215 180 106 / 58%));
-  background: var(--game-accent-soft, rgb(215 180 106 / 14%));
+  background: transparent;
+  box-shadow: none;
+}
+
+.empty-hand-drop-target.drop-target-active::after {
+  border-color: var(--gold, var(--game-accent, #d7b46a));
   box-shadow:
     inset 0 0 2rem rgb(215 180 106 / 16%),
     0 0 1.4rem rgb(215 180 106 / 18%);

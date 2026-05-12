@@ -57,6 +57,8 @@ class RoomsGamesApiTest extends ApiTestCase
         self::assertSame(120, $this->jsonResponse()['game']['snapshot']['timer']['durationSeconds']);
         foreach ($this->jsonResponse()['game']['snapshot']['players'] as $playerSnapshot) {
             self::assertSame(35, $playerSnapshot['life']);
+            self::assertSame('back_5', $playerSnapshot['backgroundName']);
+            self::assertSame('facedown_card', $playerSnapshot['sleevesName']);
         }
 
         $this->jsonRequest('POST', '/rooms', ['visibility' => 'private', 'maxPlayers' => 2, 'deckId' => $ownerDeckId], $ownerToken);
@@ -1486,6 +1488,91 @@ class RoomsGamesApiTest extends ApiTestCase
         $this->jsonRequest('GET', '/rooms?status=archived', token: $ownerToken);
         self::assertResponseIsSuccessful();
         self::assertContains($roomId, array_column($this->jsonResponse()['data'], 'id'));
+    }
+
+    public function testPrivateChatMessagesAreOnlyProjectedForSenderAndRecipient(): void
+    {
+        $this->seedCard('ababcccc-0000-7000-8000-000000000001', 'Private Chat Commander', [
+            'type_line' => 'Legendary Creature - Human Wizard',
+            'color_identity' => [],
+            'set' => 'tst',
+            'collector_number' => '1',
+        ]);
+        $this->seedCard('ababcccc-1111-7111-8111-111111111111', 'Private Chat Island', [
+            'type_line' => 'Basic Land - Island',
+            'color_identity' => [],
+            'set' => 'tst',
+            'collector_number' => '2',
+        ]);
+
+        $ownerToken = $this->registerAndLogin('private-chat-owner@example.test', 'Private Chat Owner');
+        $recipientToken = $this->registerAndLogin('private-chat-recipient@example.test', 'Private Chat Recipient');
+        $spectatorToken = $this->registerAndLogin('private-chat-spectator@example.test', 'Private Chat Spectator');
+
+        $ownerDeckId = $this->quickBuildDeck($ownerToken, 'Private Chat Owner Deck', [
+            ['scryfallId' => 'ababcccc-0000-7000-8000-000000000001', 'quantity' => 1, 'section' => 'commander'],
+            ['scryfallId' => 'ababcccc-1111-7111-8111-111111111111', 'quantity' => 99, 'section' => 'main'],
+        ]);
+        $recipientDeckId = $this->quickBuildDeck($recipientToken, 'Private Chat Recipient Deck', [
+            ['scryfallId' => 'ababcccc-0000-7000-8000-000000000001', 'quantity' => 1, 'section' => 'commander'],
+            ['scryfallId' => 'ababcccc-1111-7111-8111-111111111111', 'quantity' => 99, 'section' => 'main'],
+        ]);
+        $spectatorDeckId = $this->quickBuildDeck($spectatorToken, 'Private Chat Spectator Deck', [
+            ['scryfallId' => 'ababcccc-0000-7000-8000-000000000001', 'quantity' => 1, 'section' => 'commander'],
+            ['scryfallId' => 'ababcccc-1111-7111-8111-111111111111', 'quantity' => 99, 'section' => 'main'],
+        ]);
+
+        $this->jsonRequest('POST', '/rooms', [
+            'visibility' => 'public',
+            'maxPlayers' => 3,
+            'deckId' => $ownerDeckId,
+        ], $ownerToken);
+        self::assertResponseStatusCodeSame(201);
+        $roomId = (string) $this->jsonResponse()['room']['id'];
+
+        $this->jsonRequest('POST', '/rooms/'.$roomId.'/join', ['deckId' => $recipientDeckId], $recipientToken);
+        self::assertResponseIsSuccessful();
+        $this->jsonRequest('POST', '/rooms/'.$roomId.'/join', ['deckId' => $spectatorDeckId], $spectatorToken);
+        self::assertResponseIsSuccessful();
+
+        $this->rollTurnOrder($roomId, $ownerToken);
+        $this->rollTurnOrder($roomId, $recipientToken);
+        $this->rollTurnOrder($roomId, $spectatorToken);
+
+        $this->jsonRequest('POST', '/rooms/'.$roomId.'/start', token: $ownerToken);
+        self::assertResponseStatusCodeSame(201);
+        $gameId = (string) $this->jsonResponse()['game']['id'];
+        $snapshot = $this->jsonResponse()['game']['snapshot'];
+        $recipientPlayerId = $this->playerIdByName($snapshot, 'Private Chat Recipient');
+
+        $this->jsonRequest('POST', '/games/'.$gameId.'/commands', [
+            'type' => 'chat.message',
+            'payload' => [
+                'message' => 'secret line',
+                'targetPlayerId' => $recipientPlayerId,
+            ],
+        ], $ownerToken);
+        self::assertResponseStatusCodeSame(201);
+        self::assertSame(['private' => true], $this->jsonResponse()['event']['payload']);
+        self::assertSame('secret line', $this->jsonResponse()['snapshot']['chat'][0]['message']);
+        self::assertSame($recipientPlayerId, $this->jsonResponse()['snapshot']['chat'][0]['targetPlayerId']);
+        self::assertSame('Private Chat Recipient', $this->jsonResponse()['snapshot']['chat'][0]['targetDisplayName']);
+
+        $this->jsonRequest('GET', '/games/'.$gameId.'/snapshot', token: $recipientToken);
+        self::assertResponseIsSuccessful();
+        self::assertSame('secret line', $this->jsonResponse()['game']['snapshot']['chat'][0]['message']);
+
+        $this->jsonRequest('GET', '/games/'.$gameId.'/snapshot', token: $spectatorToken);
+        self::assertResponseIsSuccessful();
+        self::assertSame([], $this->jsonResponse()['game']['snapshot']['chat']);
+
+        $updates = array_values(array_filter(
+            RecordingMercureHub::updates(),
+            static fn (array $update): bool => $update['topics'] === ['games/'.$gameId],
+        ));
+        self::assertNotEmpty($updates);
+        $mercurePayload = json_decode($updates[array_key_last($updates)]['data'], true, flags: JSON_THROW_ON_ERROR);
+        self::assertSame(['private' => true], $mercurePayload['event']['payload'] ?? null);
     }
 
     /**

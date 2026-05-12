@@ -1,18 +1,52 @@
 .player-thumb {
+  position: relative;
   display: grid;
   gap: 0.5rem;
-  padding: 0.65rem;
-  border: 1px solid var(--game-line-soft, rgb(61 69 53 / 46%));
-  border-radius: 6px;
-  background: var(--game-surface-deep, rgb(7 8 7 / 88%));
+  isolation: isolate;
+  overflow: hidden;
+  padding: 0.62rem;
+  border: 1px solid color-mix(in srgb, var(--player-accent, var(--game-accent)) 36%, rgb(215 180 106 / 24%));
+  border-radius: 0;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--player-accent, var(--game-accent)) 18%, transparent), transparent 34%),
+    linear-gradient(180deg, rgb(243 240 232 / 7%), rgb(0 0 0 / 18%)),
+    rgb(6 7 6 / 78%);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 8%),
+    inset 0 -1px 0 rgb(0 0 0 / 55%),
+    0 0.65rem 1.6rem rgb(0 0 0 / 24%);
   color: var(--game-text, #f3f0e8);
   cursor: pointer;
   pointer-events: auto;
   text-align: left;
+  transition: border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
+}
+
+.player-thumb::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: linear-gradient(180deg, var(--player-accent, var(--game-accent)), transparent);
+  z-index: -1;
+}
+
+.player-thumb::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 18% 0, color-mix(in srgb, var(--player-accent, var(--game-accent)) 20%, transparent), transparent 38%);
+  opacity: 0.9;
+  z-index: -2;
 }
 
 .player-thumb:hover {
   border-color: var(--game-accent-strong, rgb(215 180 106 / 58%));
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 10%),
+    inset 0 0 0 1px rgb(215 180 106 / 10%),
+    0 0.8rem 1.9rem rgb(0 0 0 / 30%);
+  transform: translateY(-1px);
 }
 
 .player-thumb.conceded {
@@ -33,7 +67,13 @@
 .opponent-life {
   display: grid;
   place-items: center;
-  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--game-accent) 55%, transparent);
+  border-radius: 0;
+  background:
+    linear-gradient(180deg, rgb(215 180 106 / 22%), rgb(0 0 0 / 18%)),
+    rgb(10 10 9 / 74%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 8%);
+  color: var(--game-text);
   font-weight: 900;
 }
 
@@ -46,14 +86,24 @@
 .opponent-copy {
   display: grid;
   min-width: 0;
+  gap: 0.12rem;
 }
 
 .opponent-copy app-player-name {
   max-width: 100%;
 }
 
+.opponent-copy small {
+  color: var(--game-text-muted);
+  font-size: 0.68rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .opponent-life {
   min-width: 3.15rem;
+  min-height: 2.35rem;
 }
 
 .mini-battlefield {
@@ -61,13 +111,30 @@
   display: block;
   min-height: 8.4rem;
   overflow: hidden;
-  border: 1px solid var(--game-line-soft, rgb(61 69 53 / 46%));
-  border-radius: 6px;
-  background: rgb(7 8 7 / 38%);
+  border: 1px solid rgb(215 180 106 / 16%);
+  border-radius: 0;
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 4%), transparent),
+    rgb(2 3 2 / 36%);
+  box-shadow: inset 0 0 1.2rem rgb(0 0 0 / 24%);
 }
 
 .opponent-zone-counts {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.25rem;
+}
+
+.opponent-zone-counts span {
+  display: grid;
+  gap: 0.08rem;
+  border-top: 1px solid rgb(215 180 106 / 12%);
+  color: var(--game-text-muted);
+  font-size: 0.64rem;
+  text-transform: uppercase;
+}
+
+.opponent-zone-counts strong {
+  color: var(--game-text);
+  font-size: 0.88rem;
 }

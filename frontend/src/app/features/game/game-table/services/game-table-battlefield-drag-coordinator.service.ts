@@ -39,8 +39,6 @@ export class GameTableBattlefieldDragCoordinatorService {
   private readonly activeHandHorizontalRetentionOverlap = 0.4;
   private readonly activeHandTopExitRatio = 0.35;
   private readonly handActivationOverlapFromManaLane = 0.5;
-  private readonly handTopExitReleaseDelayMs = 120;
-  private readonly handTopExitStartedAt = new Map<string, number>();
 
   updateBattlefieldDragAid(event: PointerEvent, instanceId: string, context: GameTableBattlefieldDragContext): void {
     const selected = context.selectedCards()[0];
@@ -402,7 +400,6 @@ export class GameTableBattlefieldDragCoordinatorService {
         : (pointerZone === 'hand' ? null : pointerZone);
     }
 
-    this.clearHandTopExitDebounce(playerId);
     if (this.isDraggedCardInsideCollapsedHandForActivation(playerId)) {
       return 'hand';
     }
@@ -419,39 +416,24 @@ export class GameTableBattlefieldDragCoordinatorService {
   private isDraggedCardInsideActiveHandBounds(playerId: string): boolean {
     const target = this.state.activeDropTarget();
     if (target?.playerId !== playerId || target.zone !== 'hand') {
-      this.clearHandTopExitDebounce(playerId);
       return false;
     }
 
     const preview = this.drag.pointerDragPreview();
     const hand = this.handDropZoneElement(playerId);
     if (!preview || !hand) {
-      this.clearHandTopExitDebounce(playerId);
       return false;
     }
 
     const bounds = this.handVisualBounds(hand, 'revealed');
     if (!this.hasEnoughHandHorizontalOverlap(preview.x, preview.width, bounds)) {
-      this.clearHandTopExitDebounce(playerId);
       return false;
     }
 
     if (!this.hasExceededTopExitThreshold(preview.y, preview.height, bounds.top, this.activeHandTopExitRatio)) {
-      this.clearHandTopExitDebounce(playerId);
       return true;
     }
 
-    const startedAt = this.handTopExitStartedAt.get(playerId);
-    if (startedAt === undefined) {
-      this.handTopExitStartedAt.set(playerId, Date.now());
-      return true;
-    }
-
-    if (Date.now() - startedAt < this.handTopExitReleaseDelayMs) {
-      return true;
-    }
-
-    this.clearHandTopExitDebounce(playerId);
     return false;
   }
 
@@ -550,10 +532,6 @@ export class GameTableBattlefieldDragCoordinatorService {
 
   private handDropZoneElement(playerId: string): HTMLElement | null {
     return document.querySelector<HTMLElement>(`[data-game-drop-zone][data-zone="hand"][data-player-id="${playerId}"]`);
-  }
-
-  private clearHandTopExitDebounce(playerId: string): void {
-    this.handTopExitStartedAt.delete(playerId);
   }
 
   private elementsAtPoint(event: PointerEvent): Element[] {

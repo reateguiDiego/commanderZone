@@ -7,12 +7,14 @@
   grid-template-columns: 4.1rem minmax(0, 1fr) auto;
   align-items: center;
   gap: 0.75rem;
+  width: 100%;
+  max-width: 500px;
   min-width: 0;
   min-height: 0;
   padding: 0.75rem;
-  border: 1px solid var(--game-line-soft, rgb(61 69 53 / 46%));
-  border-radius: 8px;
-  background: var(--game-surface-deep, rgb(7 8 7 / 88%));
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .player-avatar {

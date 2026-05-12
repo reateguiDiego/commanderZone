@@ -15,6 +15,8 @@ class Deck
 {
     public const VISIBILITY_PRIVATE = 'private';
     public const VISIBILITY_PUBLIC = 'public';
+    public const DEFAULT_BACKGROUND_NAME = 'back_5';
+    public const DEFAULT_SLEEVES_NAME = 'facedown_card';
 
     #[ORM\Id]
     #[ORM\Column(type: 'string', length: 36)]
@@ -32,6 +34,12 @@ class Deck
 
     #[ORM\Column(type: 'string', length: 20)]
     private string $visibility = self::VISIBILITY_PRIVATE;
+
+    #[ORM\Column(type: 'string', length: 80)]
+    private string $backgroundName = self::DEFAULT_BACKGROUND_NAME;
+
+    #[ORM\Column(type: 'string', length: 80)]
+    private string $sleevesName = self::DEFAULT_SLEEVES_NAME;
 
     #[ORM\ManyToOne(targetEntity: DeckFolder::class)]
     #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
@@ -85,6 +93,16 @@ class Deck
     public function visibility(): string
     {
         return $this->visibility;
+    }
+
+    public function backgroundName(): string
+    {
+        return $this->backgroundName;
+    }
+
+    public function sleevesName(): string
+    {
+        return $this->sleevesName;
     }
 
     public function setVisibility(string $visibility): void
@@ -195,6 +213,8 @@ class Deck
             'name' => $this->name,
             'format' => $this->format,
             'visibility' => $this->visibility,
+            'backgroundName' => $this->backgroundName,
+            'sleevesName' => $this->sleevesName,
             'folderId' => $this->folder?->id(),
             'commander' => $commander,
         ];

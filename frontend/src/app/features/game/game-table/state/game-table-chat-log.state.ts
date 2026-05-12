@@ -20,6 +20,7 @@ export interface GameLogEntryView extends GameLogEntry {
 @Injectable()
 export class GameTableChatLogState {
   readonly chatMessage = signal('');
+  readonly chatTargetPlayerId = signal<string | null>(null);
 
   normalizedMessage(): string {
     return this.chatMessage().trim();
@@ -31,6 +32,10 @@ export class GameTableChatLogState {
 
   clearMessage(): void {
     this.chatMessage.set('');
+  }
+
+  setTargetPlayerId(playerId: string | null): void {
+    this.chatTargetPlayerId.set(playerId && playerId !== 'all' ? playerId : null);
   }
 
   eventLog(snapshot: GameSnapshot | null): GameLogEntry[] {

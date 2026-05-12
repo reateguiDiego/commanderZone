@@ -40,9 +40,9 @@ interface CardStatChangeEvent {
 })
 export class GameCardViewComponent implements OnChanges, OnDestroy {
   private readonly hoverLiftDelayMs = 100;
-  private readonly dragReadyDelayMs = 50;
+  private readonly singleStatPulseMs = 420;
+  private readonly repeatedStatPulseMs = 900;
   private hoverLiftTimer: number | null = null;
-  private dragReadyTimer: number | null = null;
   private powerPulseTimer: number | null = null;
   private toughnessPulseTimer: number | null = null;
   private hoveredCard: GameCardInstance | null = null;
@@ -99,7 +99,6 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
   readonly powerChanged = output<CardStatChangeEvent>();
   readonly toughnessChanged = output<CardStatChangeEvent>();
   readonly hoverLifted = signal(false);
-  readonly dragReady = signal(false);
   readonly powerPulse = signal<StatPulse>(null);
   readonly toughnessPulse = signal<StatPulse>(null);
 
@@ -112,7 +111,6 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
 
   ngOnDestroy(): void {
     this.clearHoverLiftTimer();
-    this.clearDragReadyTimer();
     this.clearStatPulseTimers();
   }
 
@@ -134,10 +132,6 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
   onPointerDown(event: PointerEvent): void {
     if (event.button !== 0) {
       event.preventDefault();
-      return;
-    }
-
-    if (!this.dragReady()) {
       return;
     }
 
@@ -202,7 +196,6 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
     this.hoverLiftTimer = window.setTimeout(() => {
       if (this.pointerInside && this.hoverInteractionsEnabled() && this.hoveredCard?.instanceId === hoveredCard.instanceId) {
         this.hoverLifted.set(true);
-        this.scheduleDragReady(hoveredCard.instanceId);
       }
       this.hoverLiftTimer = null;
     }, this.hoverLiftDelayMs);
@@ -210,9 +203,7 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
 
   private deactivateHover(emitPreviewHidden: boolean): void {
     this.clearHoverLiftTimer();
-    this.clearDragReadyTimer();
     this.hoverLifted.set(false);
-    this.dragReady.set(false);
     if (!emitPreviewHidden || this.activePreviewInstanceId === null) {
       this.activePreviewInstanceId = null;
       return;
@@ -229,25 +220,6 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
 
     window.clearTimeout(this.hoverLiftTimer);
     this.hoverLiftTimer = null;
-  }
-
-  private scheduleDragReady(instanceId: string): void {
-    this.clearDragReadyTimer();
-    this.dragReadyTimer = window.setTimeout(() => {
-      if (this.pointerInside && this.hoverLifted() && this.hoveredCard?.instanceId === instanceId) {
-        this.dragReady.set(true);
-      }
-      this.dragReadyTimer = null;
-    }, this.dragReadyDelayMs);
-  }
-
-  private clearDragReadyTimer(): void {
-    if (this.dragReadyTimer === null) {
-      return;
-    }
-
-    window.clearTimeout(this.dragReadyTimer);
-    this.dragReadyTimer = null;
   }
 
   private syncStatPulses(): void {
@@ -289,6 +261,7 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
 
   private scheduleStatPulseClear(stat: 'power' | 'toughness'): void {
     const timer = stat === 'power' ? this.powerPulseTimer : this.toughnessPulseTimer;
+    const duration = timer === null ? this.singleStatPulseMs : this.repeatedStatPulseMs;
     if (timer !== null) {
       window.clearTimeout(timer);
     }
@@ -302,7 +275,7 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
 
       this.toughnessPulse.set(null);
       this.toughnessPulseTimer = null;
-    }, 900);
+    }, duration);
 
     if (stat === 'power') {
       this.powerPulseTimer = nextTimer;

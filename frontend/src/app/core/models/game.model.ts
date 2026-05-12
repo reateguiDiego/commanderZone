@@ -68,6 +68,8 @@ export interface GamePlayerState {
   status?: 'active' | 'conceded';
   concededAt?: string | null;
   colorIdentity?: string[];
+  backgroundName?: string;
+  sleevesName?: string;
   life: number;
   zones: GameZones;
   zoneCounts?: GameZoneCounts;
@@ -85,6 +87,8 @@ export interface ChatMessage {
   userId: string;
   displayName: string;
   message: string;
+  targetPlayerId?: string | null;
+  targetDisplayName?: string | null;
   createdAt: string;
 }
 

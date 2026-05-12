@@ -2,6 +2,7 @@
 
 namespace App\Application\Game;
 
+use App\Domain\Deck\Deck;
 use App\Domain\Deck\DeckCard;
 use App\Domain\Room\Room;
 use App\Domain\Room\RoomPlayer;
@@ -18,8 +19,9 @@ class GameSnapshotFactory
                 continue;
             }
 
+            $deck = $roomPlayer->deck();
             $library = [];
-            foreach ($roomPlayer->deck()?->cards() ?? [] as $deckCard) {
+            foreach ($deck?->cards() ?? [] as $deckCard) {
                 if (!$deckCard instanceof DeckCard || $deckCard->section() !== DeckCard::SECTION_MAIN) {
                     continue;
                 }
@@ -37,7 +39,7 @@ class GameSnapshotFactory
 
             $command = [];
             $colorIdentity = [];
-            foreach ($roomPlayer->deck()?->cards() ?? [] as $deckCard) {
+            foreach ($deck?->cards() ?? [] as $deckCard) {
                 if (!$deckCard instanceof DeckCard || $deckCard->section() !== DeckCard::SECTION_COMMANDER) {
                     continue;
                 }
@@ -52,6 +54,8 @@ class GameSnapshotFactory
                 'status' => 'active',
                 'concededAt' => null,
                 'colorIdentity' => $colorIdentity,
+                'backgroundName' => $deck?->backgroundName() ?? Deck::DEFAULT_BACKGROUND_NAME,
+                'sleevesName' => $deck?->sleevesName() ?? Deck::DEFAULT_SLEEVES_NAME,
                 'life' => $room->startingLife(),
                 'zones' => [
                     'library' => $library,

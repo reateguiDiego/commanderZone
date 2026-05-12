@@ -50,7 +50,7 @@ export async function readTableZoneCounts(page: Page, displayName: string): Prom
 }
 
 export async function clickGameMenuAction(page: Page, name: string | RegExp): Promise<void> {
-  await page.getByTestId('settings-open').click();
+  await page.getByTestId('game-screen').click({ button: 'right' });
   const menu = page.getByTestId('context-menu');
   await expect(menu).toBeVisible();
   await menu.getByRole('button', { name }).click();

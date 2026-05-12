@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { GameCardInstance, GameSnapshot, GameZoneName } from '../../../../core/models/game.model';
+import { gameBackgroundImageUrl, gameSleevesImageUrl } from '../game-table-visual-assets';
 
 export interface PlayerView {
   id: string;
@@ -66,9 +67,9 @@ export class GameTableSnapshotSelectors {
     return Array.from({ length: Math.min(count, 12) }, (_, index) => index);
   }
 
-  cardImage(card: GameCardInstance): string | null {
+  cardImage(card: GameCardInstance, snapshot: GameSnapshot | null): string | null {
     if (this.shouldShowCardBack(card)) {
-      return this.cardBackImage();
+      return this.cardBackImage(this.cardOwnerSleevesName(card, snapshot));
     }
 
     return card.imageUris?.['normal'] ?? card.imageUris?.['small'] ?? null;
@@ -78,8 +79,12 @@ export class GameTableSnapshotSelectors {
     return card.imageUris?.['normal'] ?? card.imageUris?.['small'] ?? null;
   }
 
-  cardBackImage(): string {
-    return '/assets/images/facedown_card.jpg';
+  cardBackImage(sleevesName?: string | null): string {
+    return gameSleevesImageUrl(sleevesName);
+  }
+
+  gameBackgroundImage(player: PlayerView | null): string {
+    return gameBackgroundImageUrl(player?.state.backgroundName);
   }
 
   shouldShowCardBack(card: GameCardInstance): boolean {
@@ -139,7 +144,7 @@ export class GameTableSnapshotSelectors {
 
   zonePreviewImage(player: PlayerView, zone: GameZoneName): string | null {
     if (zone === 'library') {
-      return this.zoneCount(player, zone) > 0 ? this.cardBackImage() : null;
+      return this.zoneCount(player, zone) > 0 ? this.cardBackImage(player.state.sleevesName) : null;
     }
 
     const card = this.zonePreviewCard(player, zone);
@@ -157,6 +162,12 @@ export class GameTableSnapshotSelectors {
     }
 
     return player.state.zones[zone]?.at(-1) ?? null;
+  }
+
+  private cardOwnerSleevesName(card: GameCardInstance, snapshot: GameSnapshot | null): string | null {
+    const ownerId = card.ownerId ?? card.controllerId;
+
+    return ownerId ? snapshot?.players[ownerId]?.sleevesName ?? null : null;
   }
 
   colorIdentity(player: PlayerView | null): string[] {

@@ -34,10 +34,23 @@ export interface SelectedCard {
 
 export type GameTableSyncStatus = 'pending' | 'connecting' | 'live' | 'degraded';
 
+export interface ChatRecipientOption {
+  playerId: string | null;
+  label: string;
+}
+
+interface BattlefieldPositionCommand {
+  playerId: string;
+  instanceId: string;
+  position: { x: number; y: number };
+}
+
 @Injectable()
 export class GameTableStore implements OnDestroy {
   private readonly errorToastDurationMs = 3000;
   private errorToastTimer: number | null = null;
+  private battlefieldPositionQueue: Promise<void> = Promise.resolve();
+  private readonly optimisticBattlefieldPositions = new Map<string, BattlefieldPositionCommand>();
 
   private readonly commands = inject(GameTableCommandService);
   private readonly cardActions = inject(GameTableCardActionsService);
@@ -78,6 +91,7 @@ export class GameTableStore implements OnDestroy {
   readonly floatingPanel = this.uiState.floatingPanel;
   readonly floatingMinimized = this.uiState.floatingMinimized;
   readonly chatMessage = this.chatLogState.chatMessage;
+  readonly chatTargetPlayerId = this.chatLogState.chatTargetPlayerId;
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);
   readonly pending = signal(false);
@@ -96,6 +110,8 @@ export class GameTableStore implements OnDestroy {
   readonly eventLog = computed<GameLogEntryView[]>(() => this.chatLogState.eventLogView(this.snapshot(), this.zones));
   readonly currentPlayer = computed<PlayerView | null>(() => this.selectors.currentPlayer(this.players(), this.auth.user()?.id));
   readonly handPlayer = computed<PlayerView | null>(() => this.currentPlayer());
+  readonly chatRecipients = computed<ChatRecipientOption[]>(() => this.chatRecipientOptions());
+  readonly shouldShowChatRecipientSelect = computed(() => this.chatRecipients().length > 1);
   readonly isGameOwner = computed(() => this.selectors.isGameOwner(this.snapshot(), this.currentPlayer()));
   readonly syncStatus = computed<GameTableSyncStatus>(() => {
     if (this.pending()) {
@@ -206,15 +222,19 @@ export class GameTableStore implements OnDestroy {
   }
 
   cardImage(card: GameCardInstance): string | null {
-    return this.selectors.cardImage(card);
+    return this.selectors.cardImage(card, this.snapshot());
   }
 
   publicCardImage(card: GameCardInstance): string | null {
     return this.selectors.publicCardImage(card);
   }
 
-  cardBackImage(): string {
-    return this.selectors.cardBackImage();
+  cardBackImage(player?: PlayerView | null): string {
+    return this.selectors.cardBackImage(player?.state.sleevesName);
+  }
+
+  gameBackgroundImage(player: PlayerView | null): string {
+    return this.selectors.gameBackgroundImage(player);
   }
 
   shouldShowCardBack(card: GameCardInstance): boolean {
@@ -425,12 +445,34 @@ export class GameTableStore implements OnDestroy {
       return;
     }
 
-    await this.command('chat.message', { message });
+    const targetPlayerId = this.selectedChatTargetPlayerId();
+    await this.command('chat.message', {
+      message,
+      ...(targetPlayerId ? { targetPlayerId } : {}),
+    });
     this.chatLogState.clearMessage();
   }
 
   setChatMessage(value: string): void {
     this.chatLogState.setMessage(value);
+  }
+
+  setChatTargetPlayerId(value: string | null): void {
+    this.chatLogState.setTargetPlayerId(value);
+  }
+
+  selectedChatTargetValue(): string {
+    return this.selectedChatTargetPlayerId() ?? 'all';
+  }
+
+  selectedChatTargetPlayerId(): string | null {
+    const recipients = this.chatRecipients();
+    if (recipients.length === 0) {
+      return null;
+    }
+
+    const current = this.chatTargetPlayerId();
+    return recipients.some((recipient) => recipient.playerId === current) ? current : recipients[0]?.playerId ?? null;
   }
 
   async changeLife(playerId: string, delta: number): Promise<void> {
@@ -804,6 +846,10 @@ export class GameTableStore implements OnDestroy {
       return;
     }
 
+    if (toZone === 'battlefield') {
+      this.moveLocalCardsFromHandToBattlefield(playerId, targetPlayerId, [movedInstanceId], battlefieldPosition);
+    }
+
     await this.command('card.moved', payload);
     await this.recordCommanderCastIfNeeded(playerId, 'hand', toZone, targetPlayerId);
     this.selectedCards.set([]);
@@ -975,6 +1021,13 @@ export class GameTableStore implements OnDestroy {
     if (!gameId) {
       return;
     }
+    if (type === 'card.position.changed') {
+      const positionCommand = this.battlefieldPositionCommand(payload);
+      if (positionCommand) {
+        this.queueBattlefieldPositionCommand(gameId, positionCommand, payload);
+        return;
+      }
+    }
     if (this.pending() && !force) {
       this.error.set('Wait for the current table action to finish.');
       return;
@@ -1141,10 +1194,31 @@ export class GameTableStore implements OnDestroy {
     return typeof value === 'string' && this.zones.includes(value as GameZoneName) ? value as GameZoneName : null;
   }
 
+  private chatRecipientOptions(): ChatRecipientOption[] {
+    const players = this.players();
+    const currentPlayerId = this.currentPlayer()?.id ?? null;
+    const opponents = players
+      .filter((player) => player.id !== currentPlayerId)
+      .map((player) => ({
+        playerId: player.id,
+        label: player.state.user.displayName,
+      }));
+
+    if (players.length === 2) {
+      return opponents;
+    }
+
+    return [
+      { playerId: null, label: 'Todos' },
+      ...opponents,
+    ];
+  }
+
   private setSnapshot(snapshot: GameSnapshot | null): void {
-    this.dropFeedbackState.trackSnapshot(snapshot);
-    this.pendingTransferState.reconcileSnapshot(snapshot);
-    this.snapshot.set(snapshot);
+    const nextSnapshot = this.applyOptimisticBattlefieldPositions(snapshot);
+    this.dropFeedbackState.trackSnapshot(nextSnapshot);
+    this.pendingTransferState.reconcileSnapshot(nextSnapshot);
+    this.snapshot.set(nextSnapshot);
   }
 
   private playerName(playerId: string): string {
@@ -1163,6 +1237,144 @@ export class GameTableStore implements OnDestroy {
       card.position = position;
       this.setSnapshot(next);
     }
+  }
+
+  private queueBattlefieldPositionCommand(
+    gameId: string,
+    positionCommand: BattlefieldPositionCommand,
+    payload: Record<string, unknown>,
+  ): void {
+    this.optimisticBattlefieldPositions.set(this.battlefieldPositionKey(positionCommand), positionCommand);
+    this.battlefieldPositionQueue = this.battlefieldPositionQueue
+      .catch(() => undefined)
+      .then(() => this.persistBattlefieldPositionCommand(gameId, positionCommand, payload));
+  }
+
+  private async persistBattlefieldPositionCommand(
+    gameId: string,
+    positionCommand: BattlefieldPositionCommand,
+    payload: Record<string, unknown>,
+  ): Promise<void> {
+    try {
+      const snapshot = await this.commands.send(gameId, 'card.position.changed', payload);
+      this.clearOptimisticBattlefieldPosition(positionCommand);
+      this.setSnapshot(snapshot);
+    } catch (error) {
+      this.clearOptimisticBattlefieldPosition(positionCommand);
+      this.error.set(this.errorMessage(error));
+    }
+  }
+
+  private applyOptimisticBattlefieldPositions(snapshot: GameSnapshot | null): GameSnapshot | null {
+    if (!snapshot || this.optimisticBattlefieldPositions.size === 0) {
+      return snapshot;
+    }
+
+    const next = structuredClone(snapshot);
+    let applied = false;
+    for (const optimisticPosition of this.optimisticBattlefieldPositions.values()) {
+      const card = next.players[optimisticPosition.playerId]?.zones.battlefield.find(
+        (candidate) => candidate.instanceId === optimisticPosition.instanceId,
+      );
+      if (!card) {
+        continue;
+      }
+
+      card.position = optimisticPosition.position;
+      applied = true;
+    }
+
+    return applied ? next : snapshot;
+  }
+
+  private clearOptimisticBattlefieldPosition(positionCommand: BattlefieldPositionCommand): void {
+    const key = this.battlefieldPositionKey(positionCommand);
+    const current = this.optimisticBattlefieldPositions.get(key);
+    if (current && this.samePosition(current.position, positionCommand.position)) {
+      this.optimisticBattlefieldPositions.delete(key);
+    }
+  }
+
+  private battlefieldPositionCommand(payload: Record<string, unknown>): BattlefieldPositionCommand | null {
+    const playerId = this.stringPayload(payload, 'playerId');
+    const zone = this.zonePayload(payload, 'zone');
+    const instanceId = this.stringPayload(payload, 'instanceId');
+    const position = this.positionPayload(payload['position']);
+    if (!playerId || zone !== 'battlefield' || !instanceId || !position) {
+      return null;
+    }
+
+    return { playerId, instanceId, position };
+  }
+
+  private positionPayload(value: unknown): { x: number; y: number } | null {
+    if (!value || typeof value !== 'object') {
+      return null;
+    }
+
+    const candidate = value as { x?: unknown; y?: unknown };
+    return typeof candidate.x === 'number' && Number.isFinite(candidate.x)
+      && typeof candidate.y === 'number' && Number.isFinite(candidate.y)
+      ? { x: candidate.x, y: candidate.y }
+      : null;
+  }
+
+  private battlefieldPositionKey(positionCommand: Pick<BattlefieldPositionCommand, 'playerId' | 'instanceId'>): string {
+    return `${positionCommand.playerId}:${positionCommand.instanceId}`;
+  }
+
+  private samePosition(left: { x: number; y: number }, right: { x: number; y: number }): boolean {
+    return left.x === right.x && left.y === right.y;
+  }
+
+  private moveLocalCardsFromHandToBattlefield(
+    playerId: string,
+    targetPlayerId: string,
+    movedInstanceIds: readonly string[],
+    position?: { x: number; y: number },
+  ): boolean {
+    const snapshot = this.snapshot();
+    if (!snapshot || movedInstanceIds.length === 0 || !snapshot.players[playerId] || !snapshot.players[targetPlayerId]) {
+      return false;
+    }
+
+    const movedIds = new Set(movedInstanceIds);
+    const next = structuredClone(snapshot);
+    const sourcePlayer = next.players[playerId];
+    const targetPlayer = next.players[targetPlayerId];
+    if (!sourcePlayer || !targetPlayer) {
+      return false;
+    }
+
+    const movedCards = sourcePlayer.zones.hand.filter((card) => movedIds.has(card.instanceId));
+    if (movedCards.length !== movedIds.size) {
+      return false;
+    }
+
+    sourcePlayer.zones.hand = sourcePlayer.zones.hand.filter((card) => !movedIds.has(card.instanceId));
+    targetPlayer.zones.battlefield = [
+      ...targetPlayer.zones.battlefield.filter((card) => !movedIds.has(card.instanceId)),
+      ...movedCards.map((card) => ({
+        ...card,
+        ...(position ? { position } : {}),
+      })),
+    ];
+
+    if (sourcePlayer.zoneCounts) {
+      sourcePlayer.zoneCounts = {
+        ...sourcePlayer.zoneCounts,
+        hand: sourcePlayer.zones.hand.length,
+      };
+    }
+    if (targetPlayer.zoneCounts) {
+      targetPlayer.zoneCounts = {
+        ...targetPlayer.zoneCounts,
+        battlefield: targetPlayer.zones.battlefield.length,
+      };
+    }
+
+    this.setSnapshot(next);
+    return true;
   }
 
   private snappedBattlefieldPosition(
@@ -1466,12 +1678,7 @@ export class GameTableStore implements OnDestroy {
     }
 
     if (toZone === 'battlefield' && position) {
-      this.pendingTransferState.register({
-        playerId,
-        fromZone: 'hand',
-        instanceIds: movedInstanceIds,
-        sourceVersion: this.snapshot()?.version ?? null,
-      });
+      this.moveLocalCardsFromHandToBattlefield(playerId, targetPlayerId, movedInstanceIds, position);
       for (const instanceId of movedInstanceIds) {
         await this.command('card.moved', {
           playerId,
