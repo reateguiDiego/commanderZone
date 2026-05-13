@@ -1,5 +1,6 @@
 import { Injectable, signal } from '@angular/core';
 import { GameCardInstance, GameZoneName } from '../../../../core/models/game.model';
+import { CardPreviewEvent } from '../card-preview.model';
 
 export interface GameContextMenu {
   x: number;
@@ -23,6 +24,7 @@ export class GameTableUiState {
 
   readonly focusedPlayerId = signal<string | null>(null);
   readonly hoveredCard = signal<GameCardInstance | null>(null);
+  readonly hoveredPreview = signal<CardPreviewEvent | null>(null);
   readonly contextMenu = signal<GameContextMenu | null>(null);
   readonly activeFloatingTab = signal<'chat' | 'log'>('log');
   readonly floatingPanel = signal({ x: 24, y: 120 });
@@ -32,8 +34,17 @@ export class GameTableUiState {
   private hoverPreviewHandle?: number;
   private hoverPreviewToken = 0;
 
-  showCardPreview(card: GameCardInstance, isDragging: () => boolean, playerId?: string, zone?: GameZoneName): void {
+  showCardPreview(preview: CardPreviewEvent, isDragging: () => boolean): void;
+  showCardPreview(card: GameCardInstance, isDragging: () => boolean, playerId?: string, zone?: GameZoneName): void;
+  showCardPreview(
+    cardOrPreview: GameCardInstance | CardPreviewEvent,
+    isDragging: () => boolean,
+    playerId?: string,
+    zone?: GameZoneName,
+  ): void {
     this.clearHoverPreviewTimer();
+    const preview = this.normalizePreview(cardOrPreview, playerId, zone);
+    const card = preview.card;
     if (card.hidden || isDragging() || Date.now() < this.hoverPreviewSuppressedUntil) {
       return;
     }
@@ -45,13 +56,15 @@ export class GameTableUiState {
       }
 
       this.hoveredCard.set(card);
-      this.hoveredSelection = playerId && zone ? { playerId, zone, card } : null;
+      this.hoveredPreview.set(preview);
+      this.hoveredSelection = preview.playerId && preview.zone ? { playerId: preview.playerId, zone: preview.zone, card } : null;
     }, this.hoverPreviewDelayMs);
   }
 
   hideCardPreview(): void {
     this.clearHoverPreviewTimer();
     this.hoveredCard.set(null);
+    this.hoveredPreview.set(null);
     this.hoveredSelection = null;
   }
 
@@ -74,6 +87,7 @@ export class GameTableUiState {
   suppressCardPreview(durationMs: number): void {
     this.clearHoverPreviewTimer();
     this.hoveredCard.set(null);
+    this.hoveredPreview.set(null);
     this.hoveredSelection = null;
     this.hoverPreviewSuppressedUntil = Date.now() + durationMs;
   }
@@ -115,6 +129,23 @@ export class GameTableUiState {
       window.clearTimeout(this.hoverPreviewHandle);
       this.hoverPreviewHandle = undefined;
     }
+  }
+
+  private normalizePreview(
+    cardOrPreview: GameCardInstance | CardPreviewEvent,
+    playerId?: string,
+    zone?: GameZoneName,
+  ): CardPreviewEvent {
+    if ('card' in cardOrPreview) {
+      return cardOrPreview;
+    }
+
+    return {
+      card: cardOrPreview,
+      playerId: playerId ?? '',
+      zone: zone ?? 'battlefield',
+      sourceRect: null,
+    };
   }
 
   private menuPosition(event: MouseEvent): { x: number; y: number } {

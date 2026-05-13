@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, input, output } from '@angular/core
 import { GameCardInstance, GameZoneName } from '../../../../core/models/game.model';
 import { PlayerView } from '../game-table.store';
 import { ZoneCardStackComponent } from '../zone-card-stack/zone-card-stack.component';
+import { CardPreviewEvent, previewRectFromElement } from '../card-preview.model';
 
 interface ZoneDragStartEvent {
   event: DragEvent;
@@ -27,12 +28,6 @@ interface ZoneMenuEvent extends ZoneActionEvent {
 interface CommanderCastChangeEvent {
   playerId: string;
   delta: number;
-}
-
-interface ZoneCardPreviewEvent {
-  card: GameCardInstance;
-  playerId: string;
-  zone: GameZoneName;
 }
 
 @Component({
@@ -65,7 +60,7 @@ export class ZonePilesPanelComponent {
   readonly zoneDoubleClicked = output<ZoneActionEvent>();
   readonly zoneMenuOpened = output<ZoneMenuEvent>();
   readonly commanderCastChanged = output<CommanderCastChangeEvent>();
-  readonly cardPreviewShown = output<ZoneCardPreviewEvent>();
+  readonly cardPreviewShown = output<CardPreviewEvent>();
   readonly cardPreviewHidden = output<void>();
 
   openZone(zone: GameZoneName): void {
@@ -88,7 +83,7 @@ export class ZonePilesPanelComponent {
     this.zoneDoubleClicked.emit({ playerId: this.player().id, zone });
   }
 
-  previewZoneCard(zone: GameZoneName): void {
+  previewZoneCard(event: MouseEvent, zone: GameZoneName): void {
     if (zone !== 'command') {
       return;
     }
@@ -96,7 +91,12 @@ export class ZonePilesPanelComponent {
     const player = this.player();
     const card = this.zonePreviewCard()(player, zone);
     if (card) {
-      this.cardPreviewShown.emit({ card, playerId: player.id, zone });
+      this.cardPreviewShown.emit({
+        card,
+        playerId: player.id,
+        zone,
+        sourceRect: previewRectFromElement(event.currentTarget instanceof Element ? event.currentTarget : null),
+      });
     }
   }
 

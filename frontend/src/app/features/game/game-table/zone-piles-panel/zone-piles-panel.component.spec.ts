@@ -42,7 +42,7 @@ describe('ZonePilesPanelComponent', () => {
     zoneArt.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
     zoneArt.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true }));
 
-    expect(previewSpy).toHaveBeenCalledWith({ card: commander, playerId: 'player-1', zone: 'command' });
+    expect(previewSpy).toHaveBeenCalledWith({ card: commander, playerId: 'player-1', zone: 'command', sourceRect: null });
     expect(hiddenSpy).toHaveBeenCalled();
   });
 

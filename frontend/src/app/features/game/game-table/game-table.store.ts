@@ -14,6 +14,7 @@ import { GameTableDropFeedbackState } from './state/game-table-drop-feedback.sta
 import { GameTablePendingTransferState, type PendingTransferExpiration } from './state/game-table-pending-transfer.state';
 import { GameTableSnapshotSelectors, PlayerView } from './state/game-table-snapshot-selectors';
 import { GameContextMenu, GameTableUiState } from './state/game-table-ui.state';
+import { CardPreviewEvent } from './card-preview.model';
 import { GameTableZoneModalState } from './state/game-table-zone-modal.state';
 import { GameTableCardActionContext, GameTableCardActionsService } from './services/game-table-card-actions.service';
 import { GameTableCardStatsContext, GameTableCardStatsService } from './services/game-table-card-stats.service';
@@ -45,12 +46,20 @@ interface BattlefieldPositionCommand {
   position: { x: number; y: number };
 }
 
+interface ViewportClampedBattlefieldPosition {
+  playerId: string;
+  instanceId: string;
+  sourcePosition: { x: number; y: number };
+  clampedPosition: { x: number; y: number };
+}
+
 @Injectable()
 export class GameTableStore implements OnDestroy {
   private readonly errorToastDurationMs = 3000;
   private errorToastTimer: number | null = null;
   private battlefieldPositionQueue: Promise<void> = Promise.resolve();
   private readonly optimisticBattlefieldPositions = new Map<string, BattlefieldPositionCommand>();
+  private readonly viewportClampedBattlefieldPositions = new Map<string, ViewportClampedBattlefieldPosition>();
 
   private readonly commands = inject(GameTableCommandService);
   private readonly cardActions = inject(GameTableCardActionsService);
@@ -85,6 +94,7 @@ export class GameTableStore implements OnDestroy {
   readonly focusedPlayerId = this.uiState.focusedPlayerId;
   readonly selectedCards: WritableSignal<SelectedCard[]> = this.selection.selectedCards as WritableSignal<SelectedCard[]>;
   readonly hoveredCard = this.uiState.hoveredCard;
+  readonly hoveredPreview = this.uiState.hoveredPreview;
   readonly contextMenu = this.uiState.contextMenu;
   readonly zoneModal = this.zoneModalState.zoneModal;
   readonly activeFloatingTab = this.uiState.activeFloatingTab;
@@ -317,6 +327,11 @@ export class GameTableStore implements OnDestroy {
         continue;
       }
 
+      const cardElements = new Map(
+        Array.from(battlefield.querySelectorAll<HTMLElement>('[data-testid="game-card"][data-card-instance-id]'))
+          .map((element) => [element.dataset['cardInstanceId'] ?? '', element] as const)
+          .filter(([instanceId]) => instanceId !== ''),
+      );
       const sourceCards = (nextSnapshot ?? snapshot).players[playerId]?.zones.battlefield ?? [];
       for (const card of sourceCards) {
         const position = this.selectors.cardPosition(card);
@@ -324,13 +339,34 @@ export class GameTableStore implements OnDestroy {
           continue;
         }
 
-        const cardElement = Array.from(battlefield.querySelectorAll<HTMLElement>('[data-testid="game-card"][data-card-instance-id]'))
-          .find((element) => element.dataset['cardInstanceId'] === card.instanceId);
+        const cardElement = cardElements.get(card.instanceId);
         const cardBounds = cardElement?.getBoundingClientRect();
         const cardWidth = Math.max(1, Math.round(cardElement?.offsetWidth || cardBounds?.width || 116));
         const cardHeight = Math.max(1, Math.round(cardElement?.offsetHeight || cardBounds?.height || 162));
-        const clamped = this.clampBattlefieldPosition(position, bounds.width, bounds.height, cardWidth, cardHeight);
-        if (clamped.x === position.x && clamped.y === position.y) {
+        const positionKey = this.battlefieldPositionKey({ playerId, instanceId: card.instanceId });
+        const existingClamp = this.viewportClampedBattlefieldPositions.get(positionKey);
+        const sourcePosition = existingClamp && this.samePosition(existingClamp.clampedPosition, position)
+          ? existingClamp.sourcePosition
+          : position;
+        const clamped = this.clampBattlefieldPosition(sourcePosition, bounds.width, bounds.height, cardWidth, cardHeight);
+        if (this.samePosition(clamped, sourcePosition)) {
+          this.viewportClampedBattlefieldPositions.delete(positionKey);
+          if (this.samePosition(position, sourcePosition)) {
+            continue;
+          }
+        } else {
+          this.viewportClampedBattlefieldPositions.set(positionKey, {
+            playerId,
+            instanceId: card.instanceId,
+            sourcePosition,
+            clampedPosition: clamped,
+          });
+          if (this.samePosition(clamped, position)) {
+            continue;
+          }
+        }
+
+        if (this.samePosition(clamped, position)) {
           continue;
         }
 
@@ -375,10 +411,6 @@ export class GameTableStore implements OnDestroy {
     return this.selectors.colorAccent(player);
   }
 
-  miniCardLeft(card: GameCardInstance, index: number): number {
-    return this.selectors.miniCardLeft(card, index);
-  }
-
   manaSymbols(player: PlayerView | null): string[] {
     return this.selectors.manaSymbols(player);
   }
@@ -387,16 +419,19 @@ export class GameTableStore implements OnDestroy {
     return this.selectors.logTime(createdAt);
   }
 
-  miniCardTop(card: GameCardInstance, index: number): number {
-    return this.selectors.miniCardTop(card, index);
-  }
-
   zoneHint(zone: GameZoneName): string {
     return this.selectors.zoneHint(zone);
   }
 
-  showCardPreview(card: GameCardInstance, playerId?: string, zone?: GameZoneName): void {
-    this.uiState.showCardPreview(card, () => Boolean(this.draggingCardInstanceId()), playerId, zone);
+  showCardPreview(preview: CardPreviewEvent): void;
+  showCardPreview(card: GameCardInstance, playerId?: string, zone?: GameZoneName): void;
+  showCardPreview(cardOrPreview: GameCardInstance | CardPreviewEvent, playerId?: string, zone?: GameZoneName): void {
+    if ('card' in cardOrPreview) {
+      this.uiState.showCardPreview(cardOrPreview, () => Boolean(this.draggingCardInstanceId()));
+      return;
+    }
+
+    this.uiState.showCardPreview(cardOrPreview, () => Boolean(this.draggingCardInstanceId()), playerId, zone);
   }
 
   hideCardPreview(): void {
@@ -568,6 +603,19 @@ export class GameTableStore implements OnDestroy {
     }
 
     await this.turnActions.advanceTurnPhase(this.turnActionContext());
+  }
+
+  async passTurn(): Promise<void> {
+    if (this.pending()) {
+      this.error.set('Wait for the current table action to finish.');
+      return;
+    }
+    if (!this.canAdvanceTurnPhase()) {
+      this.error.set('Only the active turn player can pass the turn.');
+      return;
+    }
+
+    await this.turnActions.passTurn(this.turnActionContext());
   }
 
   async changeCommanderCastCount(playerId: string, delta: number): Promise<void> {
@@ -1263,7 +1311,8 @@ export class GameTableStore implements OnDestroy {
   }
 
   private setSnapshot(snapshot: GameSnapshot | null): void {
-    const nextSnapshot = this.applyOptimisticBattlefieldPositions(snapshot);
+    const viewportSnapshot = this.applyViewportClampedBattlefieldPositions(snapshot);
+    const nextSnapshot = this.applyOptimisticBattlefieldPositions(viewportSnapshot);
     this.dropFeedbackState.trackSnapshot(nextSnapshot);
     this.pendingTransferState.reconcileSnapshot(nextSnapshot);
     this.snapshot.set(nextSnapshot);
@@ -1333,6 +1382,41 @@ export class GameTableStore implements OnDestroy {
     }
 
     return applied ? next : snapshot;
+  }
+
+  private applyViewportClampedBattlefieldPositions(snapshot: GameSnapshot | null): GameSnapshot | null {
+    if (!snapshot || this.viewportClampedBattlefieldPositions.size === 0) {
+      return snapshot;
+    }
+
+    let next: GameSnapshot | null = null;
+    for (const clamp of this.viewportClampedBattlefieldPositions.values()) {
+      const card = (next ?? snapshot).players[clamp.playerId]?.zones.battlefield.find(
+        (candidate) => candidate.instanceId === clamp.instanceId,
+      );
+      const position = card ? this.selectors.cardPosition(card) : null;
+      if (!card || !position) {
+        this.viewportClampedBattlefieldPositions.delete(this.battlefieldPositionKey(clamp));
+        continue;
+      }
+
+      if (!this.samePosition(position, clamp.sourcePosition) && !this.samePosition(position, clamp.clampedPosition)) {
+        this.viewportClampedBattlefieldPositions.delete(this.battlefieldPositionKey(clamp));
+        continue;
+      }
+
+      if (this.samePosition(position, clamp.clampedPosition)) {
+        continue;
+      }
+
+      next ??= structuredClone(snapshot);
+      const nextCard = next.players[clamp.playerId]?.zones.battlefield.find((candidate) => candidate.instanceId === clamp.instanceId);
+      if (nextCard) {
+        nextCard.position = clamp.clampedPosition;
+      }
+    }
+
+    return next ?? snapshot;
   }
 
   private clearOptimisticBattlefieldPosition(positionCommand: BattlefieldPositionCommand): void {
@@ -1497,11 +1581,12 @@ export class GameTableStore implements OnDestroy {
       snapBattlefieldPosition: (playerId, instanceId, position, rawZone) =>
         this.snappedBattlefieldPosition(playerId, instanceId, position, rawZone),
       markPendingManaDrop: (playerId, instanceIds) => this.dropFeedbackState.markPendingManaDrop(playerId, instanceIds),
-      markPendingTransfer: (playerId, fromZone, instanceIds) => this.pendingTransferState.register({
+      markPendingTransfer: (playerId, fromZone, instanceIds, options) => this.pendingTransferState.register({
         playerId,
         fromZone,
         instanceIds,
         sourceVersion: this.snapshot()?.version ?? null,
+        expires: options?.expires,
       }),
       command: (type, payload) => this.command(type, payload),
       recordCommanderCastIfNeeded: (playerId, fromZone, toZone, targetPlayerId) =>
@@ -1531,11 +1616,12 @@ export class GameTableStore implements OnDestroy {
       applyDeferredRemoteSnapshot: () => this.applyDeferredRemoteSnapshot(),
       refetch: (force) => this.refetch(force),
       markPendingManaDrop: (playerId, instanceIds) => this.dropFeedbackState.markPendingManaDrop(playerId, instanceIds),
-      markPendingTransfer: (playerId, fromZone, instanceIds) => this.pendingTransferState.register({
+      markPendingTransfer: (playerId, fromZone, instanceIds, options) => this.pendingTransferState.register({
         playerId,
         fromZone,
         instanceIds,
         sourceVersion: this.snapshot()?.version ?? null,
+        expires: options?.expires,
       }),
       command: (type, payload) => this.command(type, payload),
     };

@@ -3,7 +3,7 @@
   top: 0;
   right: 0;
   left: 0;
-  z-index: 9999;
+  z-index: 10000 !important;
   display: block;
   min-width: 0;
   height: var(--game-table-header-peek-height, 0.8rem);
@@ -13,6 +13,7 @@
 
 .topbar {
   position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: space-between;

@@ -3463,7 +3463,7 @@ components:
           type: [integer, 'null']
     GamePlayer:
       type: object
-      required: [user, backgroundName, sleevesName, life, zones, commanderDamage, counters]
+      required: [user, deckName, backgroundName, sleevesName, life, zones, commanderDamage, counters]
       properties:
         user:
           $ref: '#/components/schemas/User'
@@ -3473,6 +3473,8 @@ components:
         concededAt:
           type: [string, 'null']
           format: date-time
+        deckName:
+          type: [string, 'null']
         colorIdentity:
           type: array
           items:

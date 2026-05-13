@@ -9,11 +9,11 @@
   display: grid;
   grid-template-rows: minmax(0, 1fr);
   align-self: end;
-  justify-self: end;
-  width: calc(100% + var(--game-hand-left-extension, 0px));
-  min-height: 11.15rem;
-  margin-top: -7.15rem;
-  --hand-hidden-offset: 5.35rem;
+  justify-self: start;
+  width: max(0px, calc(100% + var(--game-hand-left-extension, 0px) - var(--game-zone-dock-overlap, 12rem)));
+  min-height: var(--game-zone-row-height, 11.15rem);
+  margin-top: 0;
+  --hand-hidden-offset: 4.45rem;
   --hand-reveal-offset: var(--hand-hidden-offset);
   --hand-card-preview-height: 9rem;
   border: 0;
@@ -45,10 +45,11 @@
   align-items: end;
   overflow-x: auto;
   overflow-y: hidden;
-  min-height: 10.85rem;
-  padding: 0.8rem 2.6rem 0;
+  min-height: calc(var(--game-zone-row-height, 11.15rem) - 0.3rem);
+  padding: 0.8rem 2.6rem calc(var(--bottom-gap, 0.7rem) + 0.2rem);
   border: 0;
   background: transparent;
+  box-sizing: border-box;
   pointer-events: none;
 }
 
@@ -81,8 +82,8 @@
 
 .hand-count {
   position: absolute;
-  right: 1.1rem;
-  bottom: 0.15rem;
+  right: 0.75rem;
+  bottom: 0.9rem;
   z-index: 3;
   min-width: 4.7rem;
   padding: 0.22rem 0.5rem;
@@ -108,7 +109,7 @@
   align-items: flex-end;
   flex: 0 0 auto;
   margin-inline: auto;
-  min-height: 10.45rem;
+  min-height: calc(var(--game-zone-row-height, 11.15rem) - 0.7rem);
   padding: 0;
 }
 
@@ -295,7 +296,7 @@
   }
 
   .hand-fan {
-    min-height: 9.45rem;
+    min-height: calc(var(--game-zone-row-height, 11.15rem) - 0.7rem);
   }
 }
 
@@ -303,7 +304,7 @@
   .hand-area {
     min-height: 11rem;
     margin-top: -6rem;
-    --hand-hidden-offset: 4.85rem;
+    --hand-hidden-offset: 4.15rem;
     --hand-reveal-offset: var(--hand-hidden-offset);
     --hand-card-preview-height: 8.2rem;
   }

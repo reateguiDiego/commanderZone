@@ -4,7 +4,7 @@ import { ManaSymbolsComponent } from './mana-symbols.component';
 
 @Component({
   imports: [ManaSymbolsComponent],
-  template: '<app-mana-symbols value="{2}{W}" />',
+  template: '<app-mana-symbols value="{2}{W}" size="small" />',
 })
 class SymbolsHostComponent {}
 
@@ -18,5 +18,6 @@ describe('ManaSymbolsComponent', () => {
     expect(symbols.length).toBe(2);
     expect(symbols[0].classList).toContain('ms-2');
     expect(symbols[1].classList).toContain('ms-w');
+    expect(fixture.nativeElement.querySelector('.mana-symbols')?.classList).toContain('size-small');
   });
 });

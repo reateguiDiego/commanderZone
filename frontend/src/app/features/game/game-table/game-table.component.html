@@ -1,7 +1,7 @@
 <section
   class="game-screen"
   data-testid="game-screen"
-  [style.--game-wallpaper-image]="gameBackgroundImage()"
+  [style.--game-wallpaper-image]="tableBackgroundImage()"
   (click)="store.handleTableClick($event)"
   (contextmenu)="store.openGameMenu($event)"
 >
@@ -34,6 +34,7 @@
             [pending]="store.pending()"
             [canAdvance]="store.canAdvanceTurnPhase()"
             (advancePhase)="store.advanceTurnPhase()"
+            (passTurn)="store.passTurn()"
           />
 
           <div class="extras-panel game-table-extras" aria-hidden="true"></div>
@@ -183,12 +184,13 @@
             (cardClicked)="store.handleBattlefieldCardClick($event.event, $event.playerId, $event.card)"
             (cardDoubleClicked)="store.toggleTapped($event.playerId, 'battlefield', $event.card)"
             (cardMenuOpened)="store.openCardMenu($event.event, $event.playerId, 'battlefield', $event.card)"
-            (cardPreviewShown)="store.showCardPreview($event.card, $event.playerId, $event.zone)"
+            (cardPreviewShown)="store.showCardPreview($event)"
             (cardPreviewHidden)="store.hideCardPreview()"
             (cardPowerChanged)="store.changeCardPower($event.playerId, $event.zone, $event.card, $event.delta)"
             (cardToughnessChanged)="store.changeCardToughness($event.playerId, $event.zone, $event.card, $event.delta)"
             (manaLaneDragOver)="store.allowDrop($event)"
             (manaLaneDropped)="store.dropOnManaLane($event.event, $event.playerId)"
+            (battlefieldSizeChanged)="updateBattlefieldLayoutSize($event)"
           />
 
           <div class="bottom-play-area">
@@ -213,7 +215,7 @@
                 (handCardPointerMoved)="store.moveHandCardByPointer($event.playerId, $event.targetPlayerId, $event.movedInstanceId, $event.toZone, $event.position, $event.rawZone)"
                 (handPointerDropTargetChanged)="store.updatePointerDropTarget($event)"
                 (cardMenuOpened)="store.openCardMenu($event.event, $event.playerId, 'hand', $event.card)"
-                (cardPreviewShown)="store.showCardPreview($event.card, $event.playerId, $event.zone)"
+                (cardPreviewShown)="store.showCardPreview($event)"
                 (cardPreviewHidden)="store.hideCardPreview()"
               />
             }
@@ -242,7 +244,7 @@
           (zoneDoubleClicked)="onZoneDoubleClick($event.playerId, $event.zone)"
           (zoneMenuOpened)="store.openZoneMenu($event.event, $event.playerId, $event.zone)"
           (commanderCastChanged)="store.changeCommanderCastCount($event.playerId, $event.delta)"
-          (cardPreviewShown)="store.showCardPreview($event.card, $event.playerId, $event.zone)"
+          (cardPreviewShown)="store.showCardPreview($event)"
           (cardPreviewHidden)="store.hideCardPreview()"
         />
       }
@@ -256,34 +258,34 @@
                 [player]="player"
                 [colorAccent]="colorAccent"
                 [deckLabel]="deckLabel"
-                [manaSymbols]="manaSymbols"
+                [backgroundImage]="gameBackgroundImage"
                 [zoneCount]="zoneCount"
                 [cardPosition]="cardPosition"
-                [miniCardLeft]="miniCardLeft"
-                [miniCardTop]="miniCardTop"
                 [cardImage]="cardImage"
                 [isPlayerDropHighlighted]="isPlayerDropHighlighted"
                 [isCardDropSettling]="isCardDropSettling"
                 [isManaDropSettling]="isManaDropSettling"
                 [isBattlefieldEntrySettling]="isBattlefieldEntrySettling"
                 [isCardTransferPending]="isCardTransferPending"
+                [battlefieldSize]="battlefieldLayoutSize()"
                 (focusPlayer)="store.focusPlayer($event)"
                 (dropAllowed)="store.allowDrop($event)"
                 (playerDropped)="store.dropOnPlayer($event.event, $event.playerId)"
                 (playerMenuOpened)="store.openPlayerMenu($event.event, $event.playerId)"
-                (cardPreviewShown)="store.showCardPreview($event.card, $event.playerId, $event.zone)"
+                (cardPreviewShown)="store.showCardPreview($event)"
                 (cardPreviewHidden)="store.hideCardPreview()"
               />
             }
           }
         </div>
       </aside>
-      @if (store.hoveredCard(); as card) {
-        <aside class="card-preview">
-          @if (store.cardImage(card); as image) {
-            <img [src]="image" [alt]="card.name" />
-          }
-        </aside>
+      @if (store.hoveredPreview(); as preview) {
+        <app-card-preview-overlay
+          [card]="preview.card"
+          [image]="store.cardImage(preview.card)"
+          [sourceRect]="preview.sourceRect"
+          [battlefieldRect]="battlefieldLayoutSize()"
+        />
       }
 
       @if (store.contextMenu(); as menu) {

@@ -136,6 +136,7 @@ class GameProjectionService
             $userId = $roomPlayer->user()->id();
             if (isset($snapshot['players'][$userId]) && is_array($snapshot['players'][$userId])) {
                 $snapshot['players'][$userId]['user'] = $roomPlayer->user()->toArray();
+                $snapshot['players'][$userId]['deckName'] = $roomPlayer->deck()?->name();
             }
         }
 

@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, OnChanges, OnDestroy, computed, input, output, signal, type WritableSignal } from '@angular/core';
 import { GameCardInstance, GameZoneName } from '../../../../core/models/game.model';
+import { CardPreviewEvent, previewRectFromElement } from '../card-preview.model';
 
 type GameCardViewMode = 'battlefield' | 'hand' | 'mini';
 
@@ -76,8 +77,11 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
   readonly handArrivalSide = input<'before' | 'after' | null>(null);
   readonly handIndex = input<number | null>(null);
   readonly handCount = input<number | null>(null);
-  readonly miniLeft = input<number | null>(null);
-  readonly miniTop = input<number | null>(null);
+  readonly miniLeftPx = input<number | null>(null);
+  readonly miniTopPx = input<number | null>(null);
+  readonly miniWidthPx = input<number | null>(null);
+  readonly miniHeightPx = input<number | null>(null);
+  readonly miniZIndex = input<number | null>(null);
   readonly showPowerToughness = input(false);
   readonly powerValue = input<number | null>(null);
   readonly toughnessValue = input<number | null>(null);
@@ -94,7 +98,7 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
   readonly cardDragOver = output<CardDragEvent>();
   readonly cardDropped = output<CardDragEvent>();
   readonly cardPointerEntered = output<void>();
-  readonly cardMouseEntered = output<GameCardInstance>();
+  readonly cardMouseEntered = output<CardPreviewEvent>();
   readonly cardMouseLeft = output<void>();
   readonly powerChanged = output<CardStatChangeEvent>();
   readonly toughnessChanged = output<CardStatChangeEvent>();
@@ -138,11 +142,11 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
     this.cardPointerDown.emit({ event, card: this.card() });
   }
 
-  onMouseEnter(card: GameCardInstance): void {
+  onMouseEnter(event: MouseEvent, card: GameCardInstance): void {
     this.pointerInside = true;
     this.hoveredCard = card;
     this.cardPointerEntered.emit();
-    this.syncHoverInteractions();
+    this.syncHoverInteractions(event.currentTarget instanceof Element ? event.currentTarget : null);
   }
 
   onMouseLeave(): void {
@@ -179,7 +183,7 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
     event.stopPropagation();
   }
 
-  private syncHoverInteractions(): void {
+  private syncHoverInteractions(sourceElement: Element | null = null): void {
     const hoveredCard = this.hoveredCard;
     if (!this.pointerInside || !hoveredCard || !this.hoverInteractionsEnabled()) {
       this.deactivateHover(true);
@@ -189,7 +193,12 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
     if (this.activePreviewInstanceId !== hoveredCard.instanceId) {
       this.deactivateHover(true);
       this.activePreviewInstanceId = hoveredCard.instanceId;
-      this.cardMouseEntered.emit(hoveredCard);
+      this.cardMouseEntered.emit({
+        card: hoveredCard,
+        playerId: this.playerId(),
+        zone: this.zone(),
+        sourceRect: previewRectFromElement(sourceElement),
+      });
     }
 
     this.clearHoverLiftTimer();

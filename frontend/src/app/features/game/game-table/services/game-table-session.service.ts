@@ -52,7 +52,7 @@ export class GameTableSessionService {
     const response = await firstValueFrom(this.gamesApi.snapshot(gameId));
     const nextSnapshot = response.game.snapshot;
     const currentSnapshot = context.snapshot();
-    if (!force && currentSnapshot?.version === nextSnapshot.version) {
+    if (!force && currentSnapshot?.version === nextSnapshot.version && !this.hasProjectionMetadataChanged(currentSnapshot, nextSnapshot)) {
       return;
     }
     if (!force && context.hasActivePointerDrag()) {
@@ -101,5 +101,17 @@ export class GameTableSessionService {
     if (!context.focusedPlayerId()) {
       context.setFocusedPlayerId(context.ownPlayerId(nextSnapshot) ?? nextSnapshot.turn.activePlayerId ?? Object.keys(nextSnapshot.players)[0] ?? null);
     }
+  }
+
+  private hasProjectionMetadataChanged(current: GameSnapshot, next: GameSnapshot): boolean {
+    const playerIds = new Set([...Object.keys(current.players), ...Object.keys(next.players)]);
+
+    for (const playerId of playerIds) {
+      if ((current.players[playerId]?.deckName ?? null) !== (next.players[playerId]?.deckName ?? null)) {
+        return true;
+      }
+    }
+
+    return false;
   }
 }

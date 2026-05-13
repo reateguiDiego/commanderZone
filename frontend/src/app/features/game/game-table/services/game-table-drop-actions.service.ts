@@ -16,6 +16,10 @@ export interface PendingLibraryMove {
   payload: Record<string, unknown>;
 }
 
+export interface MarkPendingTransferOptions {
+  expires?: boolean;
+}
+
 export interface GameTableDropActionContext {
   zones: readonly GameZoneName[];
   snapshot(): GameSnapshot | null;
@@ -33,7 +37,7 @@ export interface GameTableDropActionContext {
   setError(message: string): void;
   snapBattlefieldPosition(playerId: string, instanceId: string, position: { x: number; y: number }, rawZone?: string): { x: number; y: number };
   markPendingManaDrop(playerId: string, instanceIds: readonly string[]): void;
-  markPendingTransfer(playerId: string, fromZone: GameZoneName, instanceIds: readonly string[]): void;
+  markPendingTransfer(playerId: string, fromZone: GameZoneName, instanceIds: readonly string[], options?: MarkPendingTransferOptions): void;
   command(type: GameCommandType, payload: Record<string, unknown>): Promise<void>;
   recordCommanderCastIfNeeded(playerId: string, fromZone: GameZoneName, toZone?: GameZoneName, targetPlayerId?: string): Promise<void>;
 }
@@ -118,7 +122,7 @@ export class GameTableDropActionsService {
     }
 
     if (toZone === 'battlefield' && targetPlayerId !== dragged.playerId) {
-      context.markPendingTransfer(dragged.playerId, dragged.zone, instanceIds);
+      context.markPendingTransfer(dragged.playerId, dragged.zone, instanceIds, { expires: false });
       context.setPendingBattlefieldMove({
         cardName: isMultiMove ? `${movedCards.length} cards` : movedCards[0]!.name,
         targetPlayerName: context.playerName(targetPlayerId),
@@ -130,7 +134,7 @@ export class GameTableDropActionsService {
     }
 
     if (toZone === 'library') {
-      context.markPendingTransfer(dragged.playerId, dragged.zone, instanceIds);
+      context.markPendingTransfer(dragged.playerId, dragged.zone, instanceIds, { expires: false });
       context.setPendingLibraryMove({
         cardName: isMultiMove ? `${movedCards.length} cards` : movedCards[0]!.name,
         commandType: isMultiMove ? 'cards.moved' : 'card.moved',
@@ -259,7 +263,7 @@ export class GameTableDropActionsService {
 
     const instanceIds = movedCards.map((card) => card.instanceId);
     const isMultiMove = instanceIds.length > 1;
-    context.markPendingTransfer(dragged.playerId, dragged.zone, instanceIds);
+    context.markPendingTransfer(dragged.playerId, dragged.zone, instanceIds, { expires: false });
     context.setPendingBattlefieldMove({
       cardName: isMultiMove ? `${movedCards.length} cards` : movedCards[0]!.name,
       targetPlayerName: context.playerName(targetPlayerId),

@@ -3,7 +3,7 @@ import { GameCardInstance, GameCommandType, GameSnapshot, GameZoneName } from '.
 import { HandDropPreview } from '../state/game-table-battlefield-drag.state';
 import { GameTableBattlefieldDragContext, GameTableBattlefieldDragCoordinatorService } from './game-table-battlefield-drag-coordinator.service';
 import { GameTableDragService } from './game-table-drag.service';
-import { PendingBattlefieldMove, PendingLibraryMove } from './game-table-drop-actions.service';
+import { MarkPendingTransferOptions, PendingBattlefieldMove, PendingLibraryMove } from './game-table-drop-actions.service';
 
 export interface GameTablePointerDragActionContext {
   zones: readonly GameZoneName[];
@@ -26,7 +26,7 @@ export interface GameTablePointerDragActionContext {
   applyDeferredRemoteSnapshot(): void;
   refetch(force?: boolean): Promise<void>;
   markPendingManaDrop(playerId: string, instanceIds: readonly string[]): void;
-  markPendingTransfer(playerId: string, fromZone: GameZoneName, instanceIds: readonly string[]): void;
+  markPendingTransfer(playerId: string, fromZone: GameZoneName, instanceIds: readonly string[], options?: MarkPendingTransferOptions): void;
   command(type: GameCommandType, payload: Record<string, unknown>): Promise<void>;
 }
 
@@ -147,7 +147,7 @@ export class GameTablePointerDragActionsService {
         ...(instanceIds.length > 1 ? { instanceIds } : { instanceId: instanceIds[0] }),
       },
     });
-    context.markPendingTransfer(playerId, 'battlefield', instanceIds);
+    context.markPendingTransfer(playerId, 'battlefield', instanceIds, { expires: false });
   }
 
   private async moveBattlefieldCardsToZone(
@@ -194,7 +194,7 @@ export class GameTablePointerDragActionsService {
         ...(instanceIds.length > 1 ? { instanceIds } : { instanceId: instanceIds[0] }),
       },
     });
-    context.markPendingTransfer(playerId, 'battlefield', instanceIds);
+    context.markPendingTransfer(playerId, 'battlefield', instanceIds, { expires: false });
     context.suppressCardPreview();
   }
 

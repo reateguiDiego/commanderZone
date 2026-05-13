@@ -21,6 +21,7 @@ export interface PendingTransferRegistration {
   fromZone: GameZoneName;
   instanceIds?: readonly string[];
   sourceVersion?: number | null;
+  expires?: boolean;
 }
 
 @Injectable()
@@ -55,7 +56,9 @@ export class GameTablePendingTransferState {
       },
     ];
     this.nextId += 1;
-    this.scheduleExpiration(id);
+    if (registration.expires !== false) {
+      this.scheduleExpiration(id);
+    }
     this.rebuildKeys();
   }
 

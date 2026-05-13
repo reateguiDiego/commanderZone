@@ -2,6 +2,7 @@
 @let activeAlignmentGuide = alignmentGuideFor()(focusedPlayer.id);
 
 <div
+  #battlefieldRoot
   class="battlefield game-table-battlefield"
   data-testid="battlefield-zone"
   data-stable-testid="main-battlefield"
@@ -32,7 +33,7 @@
       [statDropSettling]="isBattlefieldEntrySettling()(focusedPlayer.id, card)"
       [faceDown]="card.faceDown || card.hidden || false"
       [hidden]="card.hidden ?? false"
-      [disabled]="!isCurrentPlayer()(focusedPlayer.id)"
+      [disabled]="false"
       [visible]="cardVisibility(focusedPlayer.id, card)"
       [showPowerToughness]="shouldShowPowerToughness()(card)"
       [powerValue]="cardPowerValue()(card)"
@@ -40,10 +41,10 @@
       [loyaltyValue]="card.loyalty ?? null"
       [counter]="firstCounter()(card)"
       (cardPointerDown)="canInteractWithCard(focusedPlayer.id, $event.card) && cardPointerDown.emit({ event: $event.event, playerId: focusedPlayer.id, card: $event.card })"
-      (cardClicked)="cardClicked.emit({ event: $event.event, playerId: focusedPlayer.id, card: $event.card })"
+      (cardClicked)="onCardClick($event.event, focusedPlayer.id, $event.card)"
       (cardDoubleClicked)="onCardDoubleClick($event.event, focusedPlayer.id, $event.card)"
-      (cardMenuOpened)="cardMenuOpened.emit({ event: $event.event, playerId: focusedPlayer.id, card: $event.card })"
-      (cardMouseEntered)="isCurrentPlayer()(focusedPlayer.id) && cardPreviewShown.emit({ card: $event, playerId: focusedPlayer.id, zone: 'battlefield' })"
+      (cardMenuOpened)="onCardMenu($event.event, focusedPlayer.id, $event.card)"
+      (cardMouseEntered)="cardPreviewShown.emit($event)"
       (cardMouseLeft)="cardPreviewHidden.emit()"
       (powerChanged)="changePower($event.event, focusedPlayer.id, $event.card, $event.delta)"
       (toughnessChanged)="changeToughness($event.event, focusedPlayer.id, $event.card, $event.delta)"

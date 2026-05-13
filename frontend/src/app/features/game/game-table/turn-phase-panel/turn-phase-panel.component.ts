@@ -17,6 +17,7 @@ export class TurnPhasePanelComponent {
   readonly pending = input.required<boolean>();
   readonly canAdvance = input.required<boolean>();
   readonly advancePhase = output<void>();
+  readonly passTurn = output<void>();
 
   activePlayerName(): string {
     const turn = this.turn();
@@ -25,5 +26,9 @@ export class TurnPhasePanelComponent {
     }
 
     return this.players().find((player) => player.id === turn.activePlayerId)?.state.user.displayName ?? 'Unknown player';
+  }
+
+  isCompactPhase(phase: string): boolean {
+    return phase === 'untap' || phase === 'upkeep' || phase === 'draw' || phase === 'end';
   }
 }

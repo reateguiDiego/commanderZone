@@ -114,6 +114,31 @@ describe('GameTablePendingTransferState', () => {
     });
   });
 
+  it('keeps a non-expiring transfer pending until snapshot reconciliation or manual cleanup', () => {
+    vi.useFakeTimers();
+    const expired = vi.fn();
+    state.setExpirationHandler(expired);
+
+    state.register({
+      playerId: 'player-1',
+      fromZone: 'battlefield',
+      instanceIds: ['card-1'],
+      sourceVersion: 1,
+      expires: false,
+    });
+
+    vi.advanceTimersByTime(5000);
+
+    expect(state.isCardPending('player-1', 'battlefield', 'card-1')).toBe(true);
+    expect(expired).not.toHaveBeenCalled();
+
+    state.reconcileSnapshot(snapshot(2, {
+      hand: [{ instanceId: 'card-1', name: 'Arcane Signet', tapped: false }],
+    }));
+
+    expect(state.isCardPending('player-1', 'battlefield', 'card-1')).toBe(false);
+  });
+
   it('does not expire a transfer that was reconciled first', () => {
     vi.useFakeTimers();
     const expired = vi.fn();

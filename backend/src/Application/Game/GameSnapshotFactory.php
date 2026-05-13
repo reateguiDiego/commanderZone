@@ -53,6 +53,7 @@ class GameSnapshotFactory
                 'user' => $roomPlayer->user()->toArray(),
                 'status' => 'active',
                 'concededAt' => null,
+                'deckName' => $deck?->name(),
                 'colorIdentity' => $colorIdentity,
                 'backgroundName' => $deck?->backgroundName() ?? Deck::DEFAULT_BACKGROUND_NAME,
                 'sleevesName' => $deck?->sleevesName() ?? Deck::DEFAULT_SLEEVES_NAME,

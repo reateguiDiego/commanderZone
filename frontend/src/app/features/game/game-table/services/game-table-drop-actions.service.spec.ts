@@ -193,15 +193,17 @@ describe('GameTableDropActionsService', () => {
     const snapshot = snapshotWith({ battlefield: [moved] });
     const command = vi.fn();
     const setPendingLibraryMove = vi.fn();
+    const markPendingTransfer = vi.fn();
     const context = dropContext(
       () => snapshot,
       command,
-      { setPendingLibraryMove },
+      { setPendingLibraryMove, markPendingTransfer },
     );
 
     await service.dropOnZone(context, dragEvent({ playerId: 'player-1', zone: 'battlefield', instanceId: 'moved' }), 'player-1', 'library');
 
     expect(command).not.toHaveBeenCalled();
+    expect(markPendingTransfer).toHaveBeenCalledWith('player-1', 'battlefield', ['moved'], { expires: false });
     expect(setPendingLibraryMove).toHaveBeenCalledWith({
       cardName: 'Cultivate',
       commandType: 'card.moved',

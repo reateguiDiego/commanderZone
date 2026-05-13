@@ -157,6 +157,7 @@ class GameCommandHandler
             $status = $player['status'] ?? 'active';
             $player['status'] = in_array($status, ['active', 'conceded'], true) ? $status : 'active';
             $player['concededAt'] ??= null;
+            $player['deckName'] = is_string($player['deckName'] ?? null) ? $player['deckName'] : null;
             $player['colorIdentity'] = $this->orderedColorIdentity(is_array($player['colorIdentity'] ?? null) ? $player['colorIdentity'] : []);
             $player['backgroundName'] = $this->visualName($player['backgroundName'] ?? null, Deck::DEFAULT_BACKGROUND_NAME);
             $player['sleevesName'] = $this->visualName($player['sleevesName'] ?? null, Deck::DEFAULT_SLEEVES_NAME);

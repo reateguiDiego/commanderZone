@@ -92,9 +92,9 @@ export class GameTableSnapshotSelectors {
   }
 
   deckLabel(player: PlayerView | null): string {
-    const commander = player?.state.zones.command?.[0]?.name;
+    const deckName = player?.state.deckName?.trim();
 
-    return commander ? `${commander} deck` : 'Commander deck';
+    return deckName && deckName.length > 0 ? deckName : '';
   }
 
   firstCounter(card: GameCardInstance): { key: string; value: number } | null {
@@ -188,24 +188,6 @@ export class GameTableSnapshotSelectors {
 
   manaSymbols(player: PlayerView | null): string[] {
     return this.colorIdentity(player);
-  }
-
-  miniCardLeft(card: GameCardInstance, index: number): number {
-    const position = this.cardPosition(card);
-    if (position) {
-      return Math.max(1, Math.min(90, (position.x / 900) * 100));
-    }
-
-    return 2 + (index % 10) * 9.4;
-  }
-
-  miniCardTop(card: GameCardInstance, index: number): number {
-    const position = this.cardPosition(card);
-    if (position) {
-      return Math.max(4, Math.min(78, (position.y / 520) * 100));
-    }
-
-    return 6 + Math.floor(index / 10) * 24;
   }
 
   logTime(createdAt: string): string {

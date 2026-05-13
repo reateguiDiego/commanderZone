@@ -74,7 +74,7 @@
           (cardDoubleClicked)="stopDoubleClick($event.event)"
           (cardMenuOpened)="cardMenuOpened.emit({ event: $event.event, playerId: handPlayer.id, card: $event.card })"
           (cardPointerEntered)="enterHand()"
-          (cardMouseEntered)="cardPreviewShown.emit({ card: $event, playerId: handPlayer.id, zone: 'hand' })"
+          (cardMouseEntered)="cardPreviewShown.emit($event)"
           (cardMouseLeft)="cardPreviewHidden.emit()"
         />
         @if (dropPlacement === 'after') {

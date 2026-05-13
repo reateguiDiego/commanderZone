@@ -38,6 +38,7 @@ import { ContextMenuAction, ContextMenuComponent } from './context-menu/context-
 import { ZoneModalComponent } from './zone-modal/zone-modal.component';
 import { NumberActionDialogComponent } from './number-action-dialog/number-action-dialog.component';
 import { GameTableHeaderComponent } from './game-table-header/game-table-header.component';
+import { CardPreviewOverlayComponent } from './card-preview-overlay/card-preview-overlay.component';
 
 interface DrawNumberActionRequest {
   readonly kind: 'draw';
@@ -82,6 +83,18 @@ interface PowerToughnessActionRequest {
   readonly toughness: string;
 }
 
+interface BattlefieldLayoutSize {
+  readonly width: number;
+  readonly height: number;
+}
+
+interface BattlefieldLayoutRect extends BattlefieldLayoutSize {
+  readonly left: number;
+  readonly top: number;
+  readonly right: number;
+  readonly bottom: number;
+}
+
 @Component({
   selector: 'app-game-table',
   imports: [
@@ -100,6 +113,7 @@ interface PowerToughnessActionRequest {
     ZoneModalComponent,
     NumberActionDialogComponent,
     GameTableHeaderComponent,
+    CardPreviewOverlayComponent,
   ],
   providers: [
     GameTableStore,
@@ -144,10 +158,9 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
   readonly zonePreviewImage = (player: PlayerView, zone: GameZoneName): string | null => this.store.zonePreviewImage(player, zone);
   readonly commanderCastCount = (player: PlayerView): number => this.store.commanderCastCount(player);
   readonly deckLabel = (player: PlayerView | null): string => this.store.deckLabel(player);
+  readonly gameBackgroundImage = (player: PlayerView | null): string => this.store.gameBackgroundImage(player);
   readonly manaSymbols = (player: PlayerView | null): string[] => this.store.manaSymbols(player);
   readonly cardPosition = (card: GameCardInstance): { x: number; y: number } | null => this.store.cardPosition(card);
-  readonly miniCardLeft = (card: GameCardInstance, index: number): number => this.store.miniCardLeft(card, index);
-  readonly miniCardTop = (card: GameCardInstance, index: number): number => this.store.miniCardTop(card, index);
   readonly cardImage = (card: GameCardInstance): string | null => this.store.cardImage(card);
   readonly isPlayerDropHighlighted = (playerId: string): boolean => this.store.isPlayerDropHighlighted(playerId);
   readonly isPhasePast = (phase: string): boolean => this.store.isPhasePast(phase);
@@ -179,6 +192,7 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
   readonly canUseHiddenZone = (playerId: string, zone: GameZoneName): boolean => this.store.canUseHiddenZone(playerId, zone);
   readonly numberActionDialog = signal<NumberActionRequest | null>(null);
   readonly powerToughnessDialog = signal<PowerToughnessActionRequest | null>(null);
+  readonly battlefieldLayoutSize = signal<BattlefieldLayoutRect>({ width: 900, height: 520, left: 0, top: 0, right: 900, bottom: 520 });
   readonly closeGameDialogOpen = signal(false);
   readonly isPowerToughnessDialogInvalid = computed(() => {
     const request = this.powerToughnessDialog();
@@ -187,7 +201,7 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
   });
   readonly latestLogEntry = computed(() => this.store.eventLog().at(-1) ?? null);
   readonly latestChatMessage = computed(() => this.store.snapshot()?.chat.at(-1) ?? null);
-  readonly gameBackgroundImage = computed(() => `url("${this.store.gameBackgroundImage(this.store.currentPlayer())}")`);
+  readonly tableBackgroundImage = computed(() => `url("${this.store.gameBackgroundImage(this.store.currentPlayer())}")`);
   private lastAutoScrollKey = '';
   private floatingScrollFrame: number | null = null;
   private floatingScrollTimer: number | null = null;
@@ -255,6 +269,22 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
     if (event.propertyName === 'max-height') {
       this.queueFloatingContentScrollToBottom();
     }
+  }
+
+  updateBattlefieldLayoutSize(size: BattlefieldLayoutRect): void {
+    const current = this.battlefieldLayoutSize();
+    if (
+      current.width === size.width
+      && current.height === size.height
+      && current.left === size.left
+      && current.top === size.top
+      && current.right === size.right
+      && current.bottom === size.bottom
+    ) {
+      return;
+    }
+
+    this.battlefieldLayoutSize.set(size);
   }
 
   @HostListener('window:resize')

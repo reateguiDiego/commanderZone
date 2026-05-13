@@ -4,7 +4,7 @@
 
 .turn-phase-panel {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 6.4rem;
+  grid-template-columns: minmax(0, 1fr) 6.8rem;
   grid-template-rows: 2.1rem minmax(0, 1fr);
   gap: 0.35rem 0.8rem;
   width: 100%;
@@ -37,18 +37,29 @@
   white-space: nowrap;
 }
 
-.advance-phase-button {
+.turn-actions {
   grid-column: 2;
   grid-row: 1 / 3;
+  display: grid;
+  gap: 0.35rem;
   align-self: center;
   justify-self: center;
+  width: 100%;
+}
+
+.turn-action-button {
   min-height: 2.35rem;
+  width: 100%;
   padding: 0 0.7rem;
   border-color: var(--game-accent-strong, rgb(215 180 106 / 58%));
   background: linear-gradient(180deg, #d7b46a, #8d6728);
   color: #150f04;
   font-size: 1rem;
   font-weight: 900;
+}
+
+.pass-turn-button {
+  background: linear-gradient(180deg, rgb(243 224 179), rgb(159 119 48));
 }
 
 .phase-tracker {
@@ -66,6 +77,9 @@
 }
 
 .phase-tracker button {
+  --phase-node-size: 1.45rem;
+  --phase-node-border: 2px;
+
   position: relative;
   display: grid;
   justify-items: center;
@@ -82,7 +96,7 @@
 .phase-tracker button::after {
   position: absolute;
   z-index: 0;
-  top: 0.725rem;
+  top: calc(var(--phase-node-size) / 2);
   left: 50%;
   width: calc(100% + 0.15rem);
   height: 2px;
@@ -99,12 +113,22 @@
   position: relative;
   z-index: 1;
   display: grid;
-  width: 1.45rem;
-  height: 1.45rem;
+  width: var(--phase-node-size);
+  height: var(--phase-node-size);
   place-items: center;
-  border: 2px solid rgb(170 169 159 / 62%);
+  border: var(--phase-node-border) solid rgb(170 169 159 / 62%);
   border-radius: 999px;
   background: var(--game-surface-deep, rgb(7 8 7 / 88%));
+}
+
+.phase-tracker button.phase-compact {
+  --phase-node-size: 0.72rem;
+  --phase-node-border: 1px;
+}
+
+.phase-tracker button.phase-combat {
+  --phase-node-size: 1.08rem;
+  --phase-node-border: 2px;
 }
 
 .phase-tracker button.active {
@@ -155,7 +179,11 @@
     text-overflow: ellipsis;
   }
 
-  .advance-phase-button {
+  .turn-actions {
+    gap: 0.2rem;
+  }
+
+  .turn-action-button {
     min-width: 2.1rem;
     min-height: 2rem;
     padding: 0;
@@ -165,6 +193,11 @@
   .advance-phase-button::before {
     content: ">";
     font-size: 1rem;
+  }
+
+  .pass-turn-button::before {
+    content: ">>";
+    font-size: 0.82rem;
   }
 
   .phase-tracker {

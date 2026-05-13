@@ -67,6 +67,7 @@ export interface GamePlayerState {
   user: User;
   status?: 'active' | 'conceded';
   concededAt?: string | null;
+  deckName?: string | null;
   colorIdentity?: string[];
   backgroundName?: string;
   sleevesName?: string;

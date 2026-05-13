@@ -1,0 +1,37 @@
+.card-preview-overlay {
+  position: fixed;
+  z-index: 5000;
+  display: block;
+  pointer-events: none;
+  transition: left 140ms ease, top 140ms ease, opacity 120ms ease;
+}
+
+.card-preview-overlay img,
+.card-preview-overlay > span {
+  display: block;
+  width: 100%;
+  border: 3px solid var(--game-surface-deep, rgb(7 8 7 / 88%));
+  border-radius: 16px;
+  clip-path: inset(2px round 15px);
+  box-shadow:
+    0 1.1rem 2.8rem rgb(0 0 0 / 48%),
+    0 0 0 1px rgb(215 180 106 / 20%);
+}
+
+.card-preview-overlay > span {
+  aspect-ratio: 0.716;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: var(--game-surface, rgb(24 27 22 / 84%));
+  color: var(--game-text, #f3f0e8);
+  font-size: 0.9rem;
+  font-weight: 900;
+  text-align: center;
+}
+
+@media (max-width: 1180px) {
+  .card-preview-overlay {
+    display: none;
+  }
+}

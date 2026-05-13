@@ -790,6 +790,16 @@ describe('GameTableComponent', () => {
 
     expect(fixture.componentInstance.store.snapshot()?.players['user-1']?.zones.battlefield[0]?.position)
       .toEqual({ x: 220, y: 120 });
+
+    const remoteSnapshot = structuredClone(snapshot);
+    remoteSnapshot.version += 1;
+    remoteSnapshot.players['user-1']!.zones.battlefield[0]!.position = { x: 700, y: 520 };
+    gamesApi.snapshot.mockReturnValueOnce(of({ game: { id: 'game-1', status: 'active', snapshot: remoteSnapshot } }));
+
+    await fixture.componentInstance.store.refetch(true);
+
+    expect(fixture.componentInstance.store.snapshot()?.players['user-1']?.zones.battlefield[0]?.position)
+      .toEqual({ x: 220, y: 120 });
   });
 
   it('blocks changing another player life total', async () => {

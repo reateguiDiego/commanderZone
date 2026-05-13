@@ -4,6 +4,7 @@ import { PrettyScrollDirective } from '../../../../shared/ui/pretty-scroll/prett
 import { PlayerView } from '../game-table.store';
 import { GameCardViewComponent } from '../game-card-view/game-card-view.component';
 import { GameTablePointerDragService, HandPointerDropPreview, PointerDropTarget } from '../services/game-table-pointer-drag.service';
+import { CardPreviewEvent } from '../card-preview.model';
 
 interface HandZoneDropEvent {
   event: DragEvent;
@@ -14,12 +15,6 @@ interface HandCardMouseEvent {
   event: MouseEvent;
   playerId: string;
   card: GameCardInstance;
-}
-
-interface HandCardPreviewEvent {
-  card: GameCardInstance;
-  playerId: string;
-  zone: GameZoneName;
 }
 
 interface HandPointerReorderEvent {
@@ -111,7 +106,7 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
   readonly handDropped = output<HandZoneDropEvent>();
   readonly handCardClicked = output<HandCardMouseEvent>();
   readonly cardMenuOpened = output<HandCardMouseEvent>();
-  readonly cardPreviewShown = output<HandCardPreviewEvent>();
+  readonly cardPreviewShown = output<CardPreviewEvent>();
   readonly cardPreviewHidden = output<void>();
   readonly handCardPointerReordered = output<HandPointerReorderEvent>();
   readonly handCardPointerMoved = output<HandPointerZoneMoveEvent>();

@@ -1,7 +1,17 @@
-import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
+import {
+  AfterViewInit,
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  OnDestroy,
+  ViewChild,
+  input,
+  output,
+} from '@angular/core';
 import { GameCardInstance, GameZoneName } from '../../../../core/models/game.model';
 import { PlayerView } from '../game-table.store';
 import { GameCardViewComponent } from '../game-card-view/game-card-view.component';
+import { CardPreviewEvent } from '../card-preview.model';
 
 interface CardCounterView {
   key: string;
@@ -37,17 +47,20 @@ interface BattlefieldCardMouseEvent {
   card: GameCardInstance;
 }
 
-interface BattlefieldCardPreviewEvent {
-  card: GameCardInstance;
-  playerId: string;
-  zone: GameZoneName;
-}
-
 interface BattlefieldCardStatChangeEvent {
   playerId: string;
   zone: GameZoneName;
   card: GameCardInstance;
   delta: number;
+}
+
+interface BattlefieldSizeEvent {
+  width: number;
+  height: number;
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
 }
 
 @Component({
@@ -57,7 +70,12 @@ interface BattlefieldCardStatChangeEvent {
   styleUrl: './focused-battlefield.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class FocusedBattlefieldComponent {
+export class FocusedBattlefieldComponent implements AfterViewInit, OnDestroy {
+  private resizeObserver: ResizeObserver | null = null;
+  private lastBattlefieldSize: BattlefieldSizeEvent | null = null;
+
+  @ViewChild('battlefieldRoot', { static: true }) private readonly battlefieldRoot?: ElementRef<HTMLElement>;
+
   readonly player = input.required<PlayerView>();
   readonly isCurrentPlayer = input.required<(playerId: string) => boolean>();
   readonly isDropZoneHighlighted = input.required<(playerId: string, zone: GameZoneName) => boolean>();
@@ -85,12 +103,37 @@ export class FocusedBattlefieldComponent {
   readonly cardClicked = output<BattlefieldCardMouseEvent>();
   readonly cardDoubleClicked = output<BattlefieldCardMouseEvent>();
   readonly cardMenuOpened = output<BattlefieldCardMouseEvent>();
-  readonly cardPreviewShown = output<BattlefieldCardPreviewEvent>();
+  readonly cardPreviewShown = output<CardPreviewEvent>();
   readonly cardPreviewHidden = output<void>();
   readonly cardPowerChanged = output<BattlefieldCardStatChangeEvent>();
   readonly cardToughnessChanged = output<BattlefieldCardStatChangeEvent>();
   readonly manaLaneDragOver = output<DragEvent>();
   readonly manaLaneDropped = output<{ event: DragEvent; playerId: string }>();
+  readonly battlefieldSizeChanged = output<BattlefieldSizeEvent>();
+
+  ngAfterViewInit(): void {
+    const element = this.battlefieldRoot?.nativeElement;
+    if (!element) {
+      return;
+    }
+
+    this.emitBattlefieldSize(element.getBoundingClientRect());
+    if (typeof ResizeObserver === 'undefined') {
+      return;
+    }
+
+    this.resizeObserver = new ResizeObserver(([entry]) => {
+      if (entry) {
+        this.emitBattlefieldSize(element.getBoundingClientRect());
+      }
+    });
+    this.resizeObserver.observe(element);
+  }
+
+  ngOnDestroy(): void {
+    this.resizeObserver?.disconnect();
+    this.resizeObserver = null;
+  }
 
   canInteractWithCard(playerId: string, card: GameCardInstance): boolean {
     return this.isCurrentPlayer()(playerId) && this.canDragBattlefieldCard()(playerId, card);
@@ -104,6 +147,25 @@ export class FocusedBattlefieldComponent {
     }
 
     this.cardDoubleClicked.emit({ event, playerId, card });
+  }
+
+  onCardClick(event: MouseEvent, playerId: string, card: GameCardInstance): void {
+    if (!this.isCurrentPlayer()(playerId)) {
+      event.stopPropagation();
+      return;
+    }
+
+    this.cardClicked.emit({ event, playerId, card });
+  }
+
+  onCardMenu(event: MouseEvent, playerId: string, card: GameCardInstance): void {
+    if (!this.isCurrentPlayer()(playerId)) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+
+    this.cardMenuOpened.emit({ event, playerId, card });
   }
 
   changePower(event: MouseEvent, playerId: string, card: GameCardInstance, delta: number): void {
@@ -135,5 +197,34 @@ export class FocusedBattlefieldComponent {
 
   isAlignmentReference(card: GameCardInstance, guide: AlignmentGuideView | null): boolean {
     return Boolean(guide?.referenceInstanceIds.includes(card.instanceId));
+  }
+
+  private emitBattlefieldSize(size: DOMRectReadOnly): void {
+    const next = {
+      width: Math.round(size.width),
+      height: Math.round(size.height),
+      left: Math.round(size.left),
+      top: Math.round(size.top),
+      right: Math.round(size.right),
+      bottom: Math.round(size.bottom),
+    };
+    if (next.width <= 0 || next.height <= 0) {
+      return;
+    }
+
+    const previous = this.lastBattlefieldSize;
+    if (
+      previous?.width === next.width
+      && previous.height === next.height
+      && previous.left === next.left
+      && previous.top === next.top
+      && previous.right === next.right
+      && previous.bottom === next.bottom
+    ) {
+      return;
+    }
+
+    this.lastBattlefieldSize = next;
+    this.battlefieldSizeChanged.emit(next);
   }
 }

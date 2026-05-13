@@ -40,6 +40,7 @@ export class GameTableDropFeedbackState implements OnDestroy {
     }
 
     if (snapshot.version === this.previousVersion) {
+      this.previousCards = nextCards;
       return;
     }
 

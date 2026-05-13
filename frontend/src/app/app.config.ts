@@ -3,6 +3,7 @@ import { ApplicationConfig, importProvidersFrom, provideBrowserGlobalErrorListen
 import { provideRouter } from '@angular/router';
 import {
   ArrowLeft,
+  Ban,
   BarChart3,
   Bell,
   Building2,
@@ -69,6 +70,7 @@ export const appConfig: ApplicationConfig = {
     importProvidersFrom(
       LucideAngularModule.pick({
         ArrowLeft,
+        Ban,
         BarChart3,
         Bell,
         Building2,

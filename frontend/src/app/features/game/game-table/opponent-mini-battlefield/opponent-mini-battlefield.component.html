@@ -1,0 +1,32 @@
+<span
+  #viewport
+  class="mini-battlefield"
+  data-testid="opponent-mini-battlefield"
+  [style.--mini-battlefield-background]="backgroundImageCss()"
+>
+  @for (card of cards(); track card.instanceId; let cardIndex = $index) {
+    @if (cardLayout(card); as layout) {
+      <app-game-card-view
+        mode="mini"
+        [card]="card"
+        [playerId]="playerId()"
+        zone="battlefield"
+        [image]="cardImage()(card)"
+        [freePosition]="!!cardPosition()(card)"
+        [miniLeftPx]="layout.left"
+        [miniTopPx]="layout.top"
+        [miniWidthPx]="layout.width"
+        [miniHeightPx]="layout.height"
+        [miniZIndex]="miniCardZIndex(layout, cardIndex)"
+        [dropSettling]="isCardDropSettling()(playerId(), 'battlefield', card)"
+        [manaDropSettling]="isManaDropSettling()(playerId(), card)"
+        [statDropSettling]="isBattlefieldEntrySettling()(playerId(), card)"
+        [visible]="!isCardTransferPending()(playerId(), 'battlefield', card)"
+        (cardMouseEntered)="showCardPreview($event)"
+        (cardMouseLeft)="cardPreviewHidden.emit()"
+      />
+    }
+  } @empty {
+    <span class="mini-empty-board">No permanents</span>
+  }
+</span>

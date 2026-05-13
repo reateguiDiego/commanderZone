@@ -11,9 +11,12 @@
     [class.drop-settling]="dropSettling()"
     [class.mana-drop-settling]="manaDropSettling()"
     [style.visibility]="visible() ? null : 'hidden'"
-    [style.left.%]="miniLeft()"
-    [style.top.%]="miniTop()"
-    (mouseenter)="cardMouseEntered.emit(currentCard)"
+    [style.left.px]="miniLeftPx()"
+    [style.top.px]="miniTopPx()"
+    [style.width.px]="miniWidthPx()"
+    [style.height.px]="miniHeightPx()"
+    [style.z-index]="miniZIndex()"
+    (mouseenter)="onMouseEnter($event, currentCard)"
     (mouseleave)="cardMouseLeft.emit()"
   >
     @if (image(); as cardImage) {
@@ -63,7 +66,7 @@
     (dragend)="cardDragEnded.emit()"
     (dragover)="cardDragOver.emit({ event: $event, card: currentCard })"
     (drop)="cardDropped.emit({ event: $event, card: currentCard })"
-    (mouseenter)="onMouseEnter(currentCard)"
+    (mouseenter)="onMouseEnter($event, currentCard)"
     (mouseleave)="onMouseLeave()"
   >
     <span class="card-visual">

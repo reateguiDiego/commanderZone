@@ -18,7 +18,11 @@
   --game-muted: var(--muted, #aaa99f);
   --game-table-header-peek-height: 0.8rem;
   --game-log-overlay-peek-height: 104px;
-  --game-zone-row-height: 420px;
+  --game-zone-row-height: 10.9rem;
+  --game-side-column-width: 340px;
+  --game-zone-dock-width: min(36rem, calc(100vw - 1rem));
+  --game-zone-dock-overlap: max(0px, calc(var(--game-zone-dock-width) - var(--game-side-column-width)));
+  --bottom-gap: 0.7rem;
   --game-table-side-margin: 1px;
   --game-hand-left-extension: 0px;
   --game-wallpaper-image: url('/assets/images/backgrounds/back_5.png');
@@ -85,7 +89,7 @@
 .table-surface {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 340px;
+  grid-template-columns: minmax(0, 1fr) var(--game-side-column-width);
   grid-template-rows: var(--game-log-overlay-peek-height) minmax(0, 1fr) var(--game-zone-row-height);
   grid-template-areas:
     "mainTop mainTop"
@@ -96,7 +100,7 @@
   min-height: 0;
   height: 100%;
   overflow: hidden;
-  padding: 0;
+  padding-bottom: var(--bottom-gap);
 }
 
 .focused-board {
@@ -104,7 +108,7 @@
   display: grid;
   grid-area: board;
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: minmax(0, 1fr) 4.75rem;
+  grid-template-rows: minmax(0, 1fr) var(--game-zone-row-height);
   grid-template-areas:
     "battlefield"
     "hand";
@@ -419,23 +423,6 @@
   height: 1.95rem;
 }
 
-.card-preview {
-  position: fixed;
-  z-index: 5000;
-  right: 17rem;
-  bottom: 1rem;
-  width: 18rem;
-  pointer-events: none;
-}
-
-.card-preview img {
-  width: 100%;
-  border: 3px solid var(--game-surface-deep);
-  border-radius: 16px;
-  clip-path: inset(2px round 15px);
-  display: block;
-}
-
 .drag-card-preview {
   position: fixed;
   z-index: 4000;
@@ -529,17 +516,7 @@
   padding: 0 0.65rem;
 }
 
-@media (max-width: 1599px) {
-  .table-surface {
-    grid-template-columns: minmax(0, 1fr) 340px;
-  }
-}
-
 @media (max-width: 1365px) {
-  .table-surface {
-    grid-template-columns: minmax(0, 1fr) 340px;
-  }
-
   .drag-card-preview {
     width: 6.4rem;
   }
@@ -548,12 +525,14 @@
 @media (max-width: 1180px) and (min-width: 761px) {
   .game-screen {
     --game-log-overlay-peek-height: 96px;
-    --game-zone-row-height: 112px;
+    --game-zone-row-height: 10.6rem;
+    --game-side-column-width: 4.5rem;
+    --game-zone-dock-width: min(31rem, calc(100vw - 1rem));
     --game-hand-left-extension: 0px;
   }
 
   .table-surface {
-    grid-template-columns: minmax(0, 1fr) 4.5rem;
+    grid-template-columns: minmax(0, 1fr) var(--game-side-column-width);
     grid-template-rows: var(--game-log-overlay-peek-height) minmax(0, 1fr) var(--game-zone-row-height);
     grid-template-areas:
       "mainTop mainTop"
@@ -607,33 +586,17 @@
     position: relative;
     z-index: 330;
     justify-self: end;
-    width: min(22rem, calc(100vw - 2rem));
-    height: min(25rem, 42vh);
-    grid-template-columns: 2.65rem minmax(0, 1fr) minmax(0, 1fr);
-    grid-template-rows: repeat(2, minmax(0, 1fr));
+    width: var(--game-zone-dock-width);
+    height: var(--game-zone-row-height);
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-rows: minmax(0, 1fr);
+    margin-left: 0;
     overflow: hidden;
-    transform: translateX(calc(100% - 2.65rem));
+    transform: none;
   }
 
   .zone-dock::before {
-    content: "Zones";
-    display: grid;
-    grid-row: 1 / -1;
-    grid-column: 1;
-    place-items: center;
-    border-right: 1px solid var(--game-accent-line);
-    background: rgb(0 0 0 / 72%);
-    color: var(--game-accent);
-    font-size: 0.68rem;
-    font-weight: 1000;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    writing-mode: vertical-rl;
-  }
-
-  .zone-dock:hover,
-  .zone-dock:focus-within {
-    transform: translateX(0);
+    content: none;
   }
 
 }
@@ -642,6 +605,9 @@
   .game-screen {
     --game-log-overlay-peek-height: 2.35rem;
     --game-zone-row-height: 5.75rem;
+    --game-side-column-width: 0px;
+    --game-zone-dock-width: 100%;
+    --game-zone-dock-overlap: 0px;
     --game-table-side-margin: 0;
     --game-hand-left-extension: 0px;
   }
@@ -732,10 +698,4 @@
     background: rgb(4 5 4 / 74%);
   }
 
-}
-
-@media (max-width: 1180px) {
-  .card-preview {
-    display: none;
-  }
 }

@@ -4,30 +4,37 @@
 
 .zone-dock {
   grid-area: zones;
+  justify-self: end;
+  align-self: stretch;
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  grid-template-rows: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-rows: minmax(0, 1fr);
   gap: 0;
+  width: var(--game-zone-dock-width, min(36rem, calc(100vw - 1rem)));
   min-width: 0;
   min-height: 0;
-  margin-bottom: 5px;
-  padding: 0;
+  margin-left: 0;
+  margin-bottom: 0;
+  padding-bottom: var(--bottom-gap, 0.7rem);
   border: 0;
   border-radius: 0;
+  box-sizing: border-box;
   background: var(--game-side-column-bg, rgb(7 8 7 / 48%));
+  pointer-events: none;
 }
 
 .zone-stack {
   position: relative;
   display: grid;
-  min-width: 7.1rem;
-  min-height: 9.9rem;
-  padding: 0.5rem;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
   border: 1px solid var(--game-line-soft, rgb(61 69 53 / 46%));
   border-radius: 0;
   background: transparent;
   color: var(--game-text, #f3f0e8);
   cursor: pointer;
+  pointer-events: auto;
 }
 
 .zone-stack::before {
@@ -75,21 +82,42 @@
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   justify-items: center;
-  gap: 0.35rem;
+  align-items: start;
+  gap: 0.06rem;
   min-width: 0;
+  min-height: 0;
 }
 
 .zone-pile-label {
+  display: grid;
+  width: 100%;
+  min-height: 1.05rem;
+  place-items: center;
   color: var(--game-text, #f3f0e8);
-  font-size: 0.72rem;
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 0.66rem;
   font-weight: 800;
+  line-height: 1.05;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.zone-pile-logo {
+  display: block;
+  width: min(7.7rem, 96%);
+  height: 1rem;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
 }
 
 .zone-art {
   position: relative;
   isolation: isolate;
   display: block;
-  width: 6.125rem;
+  width: min(6.2rem, 84%);
   aspect-ratio: 0.716;
   overflow: visible;
   border: 1px solid color-mix(in srgb, var(--zone-accent) 64%, var(--game-bg, #11130f));
@@ -123,8 +151,8 @@
 .commander-cast-count {
   position: absolute;
   z-index: 3200;
-  right: -0.35rem;
-  bottom: -0.35rem;
+  right: 0.15rem;
+  bottom: 0.15rem;
   display: grid;
   min-width: 1.35rem;
   height: 1.35rem;
@@ -135,20 +163,17 @@
   box-shadow:
     0 0 0 2px rgb(7 8 7 / 84%),
     0 0.3rem 0.75rem rgb(0 0 0 / 38%);
-  color: var(--game-text, #f3f0e8);
   font-size: 0.78rem;
   font-weight: 900;
 }
 
-.zone-art.card-stack .zone-count-badge {
-  right: -0.75rem;
-  bottom: -0.75rem;
+.zone-count-badge {
+  color: var(--gold);
 }
 
-.zone-stack.dragging-zone-card .zone-count-badge,
-.zone-stack.dragging-zone-card .commander-cast-count {
-  z-index: 900;
-  opacity: 0.58;
+.zone-art.card-stack .zone-count-badge {
+  right: 0.15rem;
+  bottom: 0.15rem;
 }
 
 .commander-cast-count {
@@ -262,11 +287,11 @@
   .zone-stack {
     min-width: 0;
     min-height: 0;
-    padding: 0.35rem;
+    padding: 0;
   }
 
   .zone-art {
-    width: min(5.2rem, 100%);
+    width: min(5.6rem, 84%);
   }
 }
 

@@ -15,8 +15,10 @@
       size="xl"
       plateSize="lg"
     />
-    <small>{{ deckLabel()(currentPlayer) }}</small>
-    <app-mana-symbols class="mana-row" [symbols]="manaSymbols()(currentPlayer)" fallback="Colorless" />
+    @if (deckLabel()(currentPlayer); as label) {
+      <small>{{ label }}</small>
+    }
+    <app-mana-symbols class="mana-row" [symbols]="manaSymbols()(currentPlayer)" fallback="Colorless" size="small" />
   </div>
   <div class="life-pill" data-testid="focused-player-life" [attr.data-player-id]="currentPlayer.id">
     <button

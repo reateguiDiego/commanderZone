@@ -25,7 +25,18 @@
       (contextmenu)="zoneMenuOpened.emit({ event: $event, playerId: currentPlayer.id, zone })"
     >
       <span data-testid="zone-pile" [attr.data-player-id]="currentPlayer.id" [attr.data-zone]="zone">
-        <span class="zone-pile-label" data-testid="open-zone" [attr.data-player-id]="currentPlayer.id" [attr.data-zone]="zone">{{ zoneTitle()(zone) }}</span>
+        <span class="zone-pile-label" data-testid="open-zone" [attr.data-player-id]="currentPlayer.id" [attr.data-zone]="zone">
+          @if (zone === 'command') {
+            <img
+              class="zone-pile-logo"
+              src="/assets/icons/CM_logo_zone_header.png"
+              [alt]="zoneTitle()(zone)"
+              draggable="false"
+            />
+          } @else {
+            {{ zoneTitle()(zone) }}
+          }
+        </span>
         @let image = zonePreviewImage()(currentPlayer, zone);
         <span
           class="zone-art"
@@ -34,7 +45,7 @@
           [attr.data-zone]="zone"
           [class.empty]="zoneCount()(currentPlayer, zone) === 0"
           [class.card-stack]="zone !== 'command' && zoneCount()(currentPlayer, zone) > 0"
-          (mouseenter)="previewZoneCard(zone)"
+          (mouseenter)="previewZoneCard($event, zone)"
           (mouseleave)="hideZoneCardPreview(zone)"
         >
           @if (image) {
