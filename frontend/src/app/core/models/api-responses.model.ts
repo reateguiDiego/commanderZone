@@ -30,6 +30,8 @@ export interface PasswordResetRequestResponse {
 
 export interface PasswordResetConfirmResponse {
   updated: boolean;
+  token: string;
+  user: User;
 }
 
 export interface EmailVerificationRequestResponse {
@@ -38,6 +40,7 @@ export interface EmailVerificationRequestResponse {
 
 export interface EmailVerificationConfirmResponse {
   verified: boolean;
+  token: string;
   user: User;
 }
 

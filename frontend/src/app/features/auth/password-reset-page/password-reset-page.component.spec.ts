@@ -1,7 +1,8 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { AuthApi } from '../../../core/api/auth.api';
+import { AuthStore } from '../../../core/auth/auth.store';
 import { PasswordResetPageComponent } from './password-reset-page.component';
 
 describe('PasswordResetPageComponent', () => {
@@ -10,18 +11,39 @@ describe('PasswordResetPageComponent', () => {
     requestPasswordReset: ReturnType<typeof vi.fn>;
     confirmPasswordReset: ReturnType<typeof vi.fn>;
   };
+  let authStore: {
+    login: ReturnType<typeof vi.fn>;
+  };
 
   beforeEach(async () => {
     authApi = {
       requestPasswordReset: vi.fn().mockReturnValue(of({ accepted: true })),
-      confirmPasswordReset: vi.fn().mockReturnValue(of({ updated: true })),
+      confirmPasswordReset: vi.fn().mockReturnValue(of({
+        updated: true,
+        token: 'jwt-token',
+        user: { id: 'user-1', email: 'player@example.test', displayName: 'Player', roles: ['ROLE_USER'] },
+      })),
+    };
+    authStore = {
+      login: vi.fn().mockResolvedValue(undefined),
     };
 
     await TestBed.configureTestingModule({
       imports: [PasswordResetPageComponent],
       providers: [
         provideRouter([]),
+        {
+          provide: ActivatedRoute,
+          useValue: {
+            snapshot: {
+              queryParamMap: convertToParamMap({
+                token: 'reset-token',
+              }),
+            },
+          },
+        },
         { provide: AuthApi, useValue: authApi },
+        { provide: AuthStore, useValue: authStore },
       ],
     }).compileComponents();
 
@@ -38,21 +60,22 @@ describe('PasswordResetPageComponent', () => {
     expect(component.requestSuccess()).toBe(true);
   });
 
-  it('updates password when token and new password are valid', async () => {
+  it('updates password and auto-logins when reset payload is valid', async () => {
     const component = fixture.componentInstance;
     component.resetForm.setValue({
       email: 'player@example.test',
-      token: 'reset-token',
-      newPassword: 'password456',
-      confirmPassword: 'password456',
+      newPassword: 'Password456',
+      confirmPassword: 'Password456',
     });
 
     await component.submitReset();
 
     expect(authApi.confirmPasswordReset).toHaveBeenCalledWith({
+      email: 'player@example.test',
       token: 'reset-token',
-      newPassword: 'password456',
+      newPassword: 'Password456',
     });
+    expect(authStore.login).toHaveBeenCalledWith('player@example.test', 'Password456');
     expect(component.resetSuccess()).toBe(true);
   });
 
@@ -61,13 +84,14 @@ describe('PasswordResetPageComponent', () => {
     const component = fixture.componentInstance;
     component.resetForm.setValue({
       email: 'player@example.test',
-      token: 'bad-token',
-      newPassword: 'password456',
-      confirmPassword: 'password456',
+      newPassword: 'Password456',
+      confirmPassword: 'Password456',
     });
 
     await component.submitReset();
 
     expect(component.resetError()).toContain('No se pudo actualizar');
+    expect(component.resetSuccess()).toBe(false);
   });
+
 });

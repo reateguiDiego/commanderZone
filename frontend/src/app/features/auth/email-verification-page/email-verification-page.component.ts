@@ -1,9 +1,10 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { LucideAngularModule } from 'lucide-angular';
 import { firstValueFrom } from 'rxjs';
 import { AuthApi } from '../../../core/api/auth.api';
+import { AuthStore } from '../../../core/auth/auth.store';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
@@ -16,8 +17,10 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 })
 export class EmailVerificationPageComponent {
   private readonly authApi = inject(AuthApi);
+  private readonly auth = inject(AuthStore);
   private readonly formBuilder = inject(FormBuilder);
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
 
   readonly verifyLoading = signal(false);
   readonly verifySuccess = signal(false);
@@ -25,6 +28,7 @@ export class EmailVerificationPageComponent {
   readonly resendLoading = signal(false);
   readonly resendSuccess = signal(false);
   readonly resendError = signal<string | null>(null);
+  readonly registeredNotice = signal(false);
 
   readonly verificationForm = this.formBuilder.nonNullable.group({
     token: ['', [Validators.required]],
@@ -32,6 +36,16 @@ export class EmailVerificationPageComponent {
   });
 
   constructor() {
+    const registeredFromQuery = this.route.snapshot.queryParamMap.get('registered');
+    if (registeredFromQuery === '1') {
+      this.registeredNotice.set(true);
+    }
+
+    const emailFromQuery = this.route.snapshot.queryParamMap.get('email');
+    if (emailFromQuery && emailFromQuery.trim() !== '') {
+      this.verificationForm.controls.email.setValue(emailFromQuery.trim());
+    }
+
     const tokenFromQuery = this.route.snapshot.queryParamMap.get('token');
     if (tokenFromQuery && tokenFromQuery.trim() !== '') {
       this.verificationForm.controls.token.setValue(tokenFromQuery.trim());
@@ -62,6 +76,8 @@ export class EmailVerificationPageComponent {
         token: this.verificationForm.controls.token.value.trim(),
       }));
       this.verifySuccess.set(response.verified);
+      await this.auth.loginWithResolvedUser(response.token, response.user);
+      await this.router.navigate(['/dashboard']);
     } catch {
       this.verifyError.set('No se pudo verificar el email con ese token.');
     } finally {

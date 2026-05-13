@@ -37,16 +37,34 @@ export async function createRealUserSession(request: APIRequestContext, prefix =
     data: credentials,
   });
   expect(registerResponse.ok()).toBeTruthy();
+  const registerPayload = (await registerResponse.json()) as {
+    emailVerificationToken?: string;
+  };
 
-  const loginResponse = await request.post(`${API_BASE_URL}/auth/login`, {
-    data: {
-      email: credentials.email,
-      password: credentials.password,
-    },
-  });
-  expect(loginResponse.ok()).toBeTruthy();
-  const loginPayload = (await loginResponse.json()) as { token: string };
-  const token = String(loginPayload.token ?? '');
+  let token = '';
+  if (typeof registerPayload.emailVerificationToken === 'string' && registerPayload.emailVerificationToken.trim() !== '') {
+    const verificationResponse = await request.post(`${API_BASE_URL}/auth/email-verification/confirm`, {
+      data: {
+        token: registerPayload.emailVerificationToken,
+      },
+    });
+    expect(verificationResponse.ok()).toBeTruthy();
+    const verificationPayload = (await verificationResponse.json()) as { token?: string };
+    token = String(verificationPayload.token ?? '');
+  }
+
+  if (!token) {
+    const loginResponse = await request.post(`${API_BASE_URL}/auth/login`, {
+      data: {
+        email: credentials.email,
+        password: credentials.password,
+      },
+    });
+    expect(loginResponse.ok()).toBeTruthy();
+    const loginPayload = (await loginResponse.json()) as { token: string };
+    token = String(loginPayload.token ?? '');
+  }
+
   expect(token.length).toBeGreaterThan(10);
 
   const meResponse = await request.get(`${API_BASE_URL}/me`, {

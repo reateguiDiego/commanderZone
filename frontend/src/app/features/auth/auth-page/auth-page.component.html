@@ -118,7 +118,7 @@
               </button>
             </div>
             @if (controlInvalid('password')) {
-              <span class="field-error">Minimo 8 caracteres.</span>
+              <span class="field-error">Minimo 8 caracteres, con minuscula, mayuscula y numero.</span>
             }
           </label>
 
@@ -142,6 +142,9 @@
 
           @if (auth.error()) {
             <p class="notice error">{{ auth.error() }}</p>
+          }
+          @if (registerSuccessNotice(); as registerSuccessMessage) {
+            <p class="notice success">{{ registerSuccessMessage }}</p>
           }
 
           <button class="primary-button" type="submit" [disabled]="!canSubmitRegister()">

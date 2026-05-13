@@ -6,6 +6,10 @@
     </header>
 
     <form class="form-stack" [formGroup]="verificationForm">
+      @if (registeredNotice()) {
+        <p class="notice success">Registro completado. Revisa tu correo y confirma tu cuenta.</p>
+      }
+
       <label>
         Token de verificacion
         <input type="text" autocomplete="one-time-code" formControlName="token" />
@@ -16,7 +20,7 @@
       }
 
       @if (verifySuccess()) {
-        <p class="notice success">Email verificado. Ya puedes iniciar sesion.</p>
+        <p class="notice success">Email verificado. Iniciando sesion...</p>
       }
 
       <button class="primary-button" type="button" [disabled]="!canConfirm()" (click)="confirmToken()">
