@@ -247,9 +247,8 @@ class GameCommandHandler
         }
 
         $game->finish();
-        $game->room()->archive();
 
-        return 'Closed and archived the game.';
+        return 'Closed the game.';
     }
 
     private function applyChatMessage(array &$snapshot, array $payload, User $actor): ?string

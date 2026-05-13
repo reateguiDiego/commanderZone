@@ -2,9 +2,10 @@
 
 namespace App\UI\Http;
 
-use App\Domain\Friendship\Friendship;
 use App\Application\Deck\CommanderDeckValidator;
+use App\Application\Room\ActiveRoomMembershipService;
 use App\Domain\Deck\Deck;
+use App\Domain\Friendship\Friendship;
 use App\Domain\Room\Room;
 use App\Domain\Room\RoomInvite;
 use App\Domain\Room\RoomPlayer;
@@ -111,6 +112,7 @@ class RoomInvitesController extends ApiController
         RoomInviteEventPublisher $roomInvitePublisher,
         RoomEventPublisher $roomEventPublisher,
         CommanderDeckValidator $deckValidator,
+        ActiveRoomMembershipService $activeRoomMembership,
     ): JsonResponse
     {
         $invite = $this->pendingInvite($entityManager, $id, $user);
@@ -139,16 +141,21 @@ class RoomInvitesController extends ApiController
             }
         }
 
-        if (!$invite->room()->addPlayer(new RoomPlayer($invite->room(), $user, $deck))) {
+        $room = $invite->room();
+        $wasPlayer = $room->hasPlayer($user);
+        if (!$wasPlayer && $activeRoomMembership->otherRoomFor($user, $room) instanceof Room) {
+            return $this->fail('Leave your current room before accepting another room invite.', 409);
+        }
+        if (!$room->addPlayer(new RoomPlayer($room, $user, $deck))) {
             return $this->fail('Room is full.', 409);
         }
         $invite->accept();
         $entityManager->flush();
         $this->publishInviteEventToRoomActors($roomInvitePublisher, 'room.invite.accepted', $invite);
-        $roomEventPublisher->publish($invite->room(), 'room.player.joined');
-        $this->publishTableAssistantInvitationEvent($entityManager, $publisher, $invite->room(), 'invitation.accepted', $invite);
+        $roomEventPublisher->publish($room, $wasPlayer ? 'room.player.updated' : 'room.player.joined');
+        $this->publishTableAssistantInvitationEvent($entityManager, $publisher, $room, 'invitation.accepted', $invite);
 
-        return $this->json(['invite' => $invite->toArray(), 'room' => $invite->room()->toArray()]);
+        return $this->json(['invite' => $invite->toArray(), 'room' => $room->toArray()]);
     }
 
     #[Route('/rooms/invites/{id}/decline', methods: ['POST'])]

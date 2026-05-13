@@ -328,11 +328,6 @@ describe('API services', () => {
     expect(request.request.method).toBe('DELETE');
     request.flush(null);
 
-    rooms.archive('room-1').subscribe();
-    request = http.expectOne(`${API_BASE_URL}/rooms/room-1/archive`);
-    expect(request.request.method).toBe('POST');
-    request.flush({ room: roomFixture('room-1') });
-
     rooms.update('room-1', { maxPlayers: 3 }).subscribe();
     request = http.expectOne(`${API_BASE_URL}/rooms/room-1`);
     expect(request.request.method).toBe('PATCH');

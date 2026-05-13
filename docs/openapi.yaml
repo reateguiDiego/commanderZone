@@ -1338,7 +1338,7 @@ paths:
           in: query
           schema:
             type: string
-            enum: [active, archived, all]
+            enum: [active, all]
             default: active
       responses:
         '200':
@@ -1375,6 +1375,21 @@ paths:
                 properties:
                   room:
                     $ref: '#/components/schemas/Room'
+        '401':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+  /rooms/current:
+    get:
+      tags: [Rooms]
+      summary: Get the active room where the authenticated user is currently a player.
+      responses:
+        '200':
+          description: Current active room, or null if the user is not currently in one.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CurrentRoomResponse'
         '401':
           $ref: '#/components/responses/Error'
   /rooms/{id}:
@@ -1487,7 +1502,7 @@ paths:
   /rooms/invites/{id}/accept:
     post:
       tags: [Rooms]
-      summary: Accept a pending room invite and join the room (deck can be selected later in waiting room).
+      summary: Accept a pending room invite and join the room if the user is not already in another active room.
       parameters:
         - $ref: '#/components/parameters/Id'
       requestBody:
@@ -1541,7 +1556,7 @@ paths:
   /rooms/{id}/join:
     post:
       tags: [Rooms]
-      summary: Join a waiting room by id. Private waiting rooms can be joined by users with the direct link.
+      summary: Join a waiting room by id when the user is not already in another active room.
       parameters:
         - $ref: '#/components/parameters/Id'
       requestBody:
@@ -1572,7 +1587,7 @@ paths:
   /rooms/code/{code}/join:
     post:
       tags: [Rooms]
-      summary: Join a waiting room by short room code, including private waiting rooms.
+      summary: Join a waiting room by short room code when the user is not already in another active room.
       parameters:
         - name: code
           in: path
@@ -1635,7 +1650,7 @@ paths:
   /rooms/{id}/leave:
     post:
       tags: [Rooms]
-      summary: Leave a waiting room as a current room player.
+      summary: Leave an active room as a current room player.
       parameters:
         - $ref: '#/components/parameters/Id'
       responses:
@@ -1654,8 +1669,6 @@ paths:
         '403':
           $ref: '#/components/responses/Error'
         '404':
-          $ref: '#/components/responses/Error'
-        '409':
           $ref: '#/components/responses/Error'
   /rooms/{id}/players/{playerId}:
     delete:
@@ -1711,31 +1724,6 @@ paths:
                     $ref: '#/components/schemas/Game'
         '400':
           $ref: '#/components/responses/Error'
-        '401':
-          $ref: '#/components/responses/Error'
-        '403':
-          $ref: '#/components/responses/Error'
-        '404':
-          $ref: '#/components/responses/Error'
-        '409':
-          $ref: '#/components/responses/Error'
-  /rooms/{id}/archive:
-    post:
-      tags: [Rooms]
-      summary: Archive a started room and finish its game.
-      parameters:
-        - $ref: '#/components/parameters/Id'
-      responses:
-        '200':
-          description: Archived room.
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [room]
-                properties:
-                  room:
-                    $ref: '#/components/schemas/Room'
         '401':
           $ref: '#/components/responses/Error'
         '403':
@@ -3271,7 +3259,7 @@ components:
           $ref: '#/components/schemas/User'
         status:
           type: string
-          enum: [waiting, started, archived]
+          enum: [waiting, started]
         visibility:
           type: string
           enum: [private, public]
@@ -3320,6 +3308,72 @@ components:
           type: [integer, 'null']
           minimum: 1
           maximum: 20
+    CurrentRoomResponse:
+      type: object
+      required: [room, player, turn]
+      properties:
+        room:
+          oneOf:
+            - $ref: '#/components/schemas/CurrentRoomSummary'
+            - type: 'null'
+        player:
+          oneOf:
+            - $ref: '#/components/schemas/CurrentRoomPlayer'
+            - type: 'null'
+        turn:
+          oneOf:
+            - $ref: '#/components/schemas/CurrentRoomTurn'
+            - type: 'null'
+    CurrentRoomSummary:
+      type: object
+      required: [id, name, status, visibility, format, maxPlayers, playerCount, gameId]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        status:
+          type: string
+          enum: [waiting, started]
+        visibility:
+          type: string
+          enum: [private, public]
+        format:
+          type: string
+          enum: [commander]
+        maxPlayers:
+          type: integer
+          minimum: 2
+          maximum: 6
+        playerCount:
+          type: integer
+          minimum: 0
+        gameId:
+          type: [string, 'null']
+          format: uuid
+    CurrentRoomPlayer:
+      type: object
+      required: [playerId, deckId, deckName, deckImageUrl]
+      properties:
+        playerId:
+          type: string
+          format: uuid
+        deckId:
+          type: [string, 'null']
+          format: uuid
+        deckName:
+          type: [string, 'null']
+        deckImageUrl:
+          type: [string, 'null']
+          format: uri
+    CurrentRoomTurn:
+      type: object
+      required: [number]
+      properties:
+        number:
+          type: [integer, 'null']
+          minimum: 1
     RoomInvite:
       type: object
       required: [id, status, room, sender, recipient, createdAt, updatedAt]

@@ -23,7 +23,9 @@ export interface RoomCreatePayload {
 export class RoomCreatePanelComponent {
   private readonly formBuilder = inject(FormBuilder);
 
+  readonly lockedRoomTooltip = 'You are already in a room. Leave it before joining another one.';
   readonly formats = input<readonly DeckFormat[]>([]);
+  readonly actionsLocked = input(false);
   readonly codeJoinRequested = output<string>();
   readonly roomCreated = output<RoomCreatePayload>();
   readonly maxPlayersOptions = [2, 3, 4, 5, 6] as const;
@@ -51,6 +53,10 @@ export class RoomCreatePanelComponent {
   }
 
   joinByCode(): void {
+    if (this.actionsLocked()) {
+      return;
+    }
+
     const code = this.roomCode().trim();
     if (!code) {
       return;
@@ -60,7 +66,7 @@ export class RoomCreatePanelComponent {
   }
 
   submit(): void {
-    if (this.createRoomForm.invalid) {
+    if (this.actionsLocked() || this.createRoomForm.invalid) {
       this.createRoomForm.markAllAsTouched();
       return;
     }

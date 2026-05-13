@@ -1,14 +1,14 @@
 ﻿import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
-import { Router, RouterLink } from '@angular/router';
-import { LucideAngularModule } from 'lucide-angular';
+import { Router } from '@angular/router';
 import { Subscription, firstValueFrom } from 'rxjs';
 import { DeckFormatsApi } from '../../../core/api/deck-formats.api';
 import { RoomsApi } from '../../../core/api/rooms.api';
 import { AuthStore } from '../../../core/auth/auth.store';
 import { DeckFormat } from '../../../core/models/deck.model';
 import { RoomInvite } from '../../../core/models/room-invite.model';
-import { Room } from '../../../core/models/room.model';
+import { CurrentRoomPlayerSummary, CurrentRoomSummary, CurrentRoomTurn, Room } from '../../../core/models/room.model';
+import { bestCardArtImage } from '../../../shared/utils/card-image';
 import { MercureService } from '../../../core/realtime/mercure.service';
 import { PageHeaderStore } from '../../../core/ui/page-header.store';
 import { AppModalComponent } from '../../../shared/ui/app-modal/app-modal.component';
@@ -17,10 +17,11 @@ import { RoomCreatePanelComponent, RoomCreatePayload } from './components/room-c
 import { RoomInvitesPanelComponent } from './components/room-invites-panel/room-invites-panel.component';
 
 const ROOM_LIST_POLL_INTERVAL_MS = 15000;
+const ROOM_LIST_POLL_INTERVAL_WITH_CURRENT_ROOM_MS = ROOM_LIST_POLL_INTERVAL_MS * 4;
 
 @Component({
   selector: 'app-rooms',
-  imports: [RouterLink, LucideAngularModule, AppModalComponent, RoomBrowserComponent, RoomCreatePanelComponent, RoomInvitesPanelComponent],
+  imports: [AppModalComponent, RoomBrowserComponent, RoomCreatePanelComponent, RoomInvitesPanelComponent],
   templateUrl: './rooms.component.html',
   styleUrl: './rooms.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -38,10 +39,12 @@ export class RoomsComponent implements OnInit, OnDestroy {
   readonly rooms = signal<Room[]>([]);
   readonly formats = signal<DeckFormat[]>([]);
   readonly incomingInvites = signal<RoomInvite[]>([]);
-  readonly currentRoom = signal<Room | null>(null);
+  readonly currentRoom = signal<CurrentRoomSummary | null>(null);
+  readonly currentRoomPlayer = signal<CurrentRoomPlayerSummary | null>(null);
+  readonly currentRoomTurn = signal<CurrentRoomTurn | null>(null);
   readonly error = signal<string | null>(null);
   readonly deletingRoomId = signal<string | null>(null);
-  readonly archivingRoomId = signal<string | null>(null);
+  readonly leavingRoomId = signal<string | null>(null);
   readonly roomPendingDelete = signal<Room | null>(null);
   readonly createDeckRequiredModalOpen = signal(false);
   readonly activeRoomsCount = computed(() => this.rooms().length);
@@ -57,12 +60,9 @@ export class RoomsComponent implements OnInit, OnDestroy {
   roomId = '';
 
   constructor() {
-    void this.loadRoomState(true);
+    void this.loadRoomState(true).finally(() => this.scheduleRoomSync());
     void this.loadFormats(true);
     this.subscribeToInviteRealtime();
-    this.roomSyncHandle = window.setInterval(() => {
-      void this.syncRoomState();
-    }, ROOM_LIST_POLL_INTERVAL_MS);
   }
 
   ngOnInit(): void {
@@ -71,7 +71,7 @@ export class RoomsComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     if (this.roomSyncHandle !== undefined) {
-      window.clearInterval(this.roomSyncHandle);
+      window.clearTimeout(this.roomSyncHandle);
     }
     this.inviteRealtimeSubscription?.unsubscribe();
     this.pageHeader.clear();
@@ -85,6 +85,20 @@ export class RoomsComponent implements OnInit, OnDestroy {
       this.updatePageHeader();
     } catch {
       this.error.set('Could not load rooms.');
+    }
+  }
+
+  async loadCurrentRoom(skipGlobalLoading = false): Promise<void> {
+    try {
+      const response = await firstValueFrom(this.roomsApi.current(skipGlobalLoading));
+      this.currentRoom.set(response.room);
+      this.currentRoomPlayer.set(response.player);
+      this.currentRoomTurn.set(response.turn ?? null);
+      if (response.room) {
+        this.roomId = response.room.id;
+      }
+    } catch {
+      this.error.set('Could not load your current room.');
     }
   }
 
@@ -115,8 +129,11 @@ export class RoomsComponent implements OnInit, OnDestroy {
         maxPlayers: payload.maxPlayers,
         format: payload.format,
       }));
-      this.currentRoom.set(response.room);
+      this.currentRoom.set(this.currentRoomSummaryFromRoom(response.room));
+      this.currentRoomPlayer.set(this.currentRoomPlayerSummaryFromRoom(response.room));
+      this.currentRoomTurn.set(null);
       this.roomId = response.room.id;
+      this.scheduleRoomSync();
       await this.navigateToWaitingRoom(response.room.id);
     } catch (error) {
       const message = this.errorMessage(error, 'Could not create room.');
@@ -140,8 +157,11 @@ export class RoomsComponent implements OnInit, OnDestroy {
       const response = await firstValueFrom(roomReference.type === 'id'
         ? this.roomsApi.join(roomReference.value)
         : this.roomsApi.joinByCode(roomReference.value));
-      this.currentRoom.set(response.room);
+      this.currentRoom.set(this.currentRoomSummaryFromRoom(response.room));
+      this.currentRoomPlayer.set(this.currentRoomPlayerSummaryFromRoom(response.room));
+      this.currentRoomTurn.set(null);
       this.roomId = response.room.id;
+      this.scheduleRoomSync();
       await this.navigateToWaitingRoom(response.room.id);
     } catch {
       this.error.set('Could not join room.');
@@ -154,8 +174,19 @@ export class RoomsComponent implements OnInit, OnDestroy {
   }
 
   async openListedRoom(room: Room): Promise<void> {
-    if (room.gameId) {
+    const isCurrentRoom = this.isCurrentRoom(room);
+    if (isCurrentRoom && room.gameId) {
       await this.router.navigate(['/games', room.gameId]);
+      return;
+    }
+    if (isCurrentRoom) {
+      await this.router.navigate(['/rooms', room.id, 'waiting']);
+      return;
+    }
+    if (room.visibility === 'private' || room.gameId) {
+      return;
+    }
+    if (this.currentRoom()) {
       return;
     }
 
@@ -190,11 +221,14 @@ export class RoomsComponent implements OnInit, OnDestroy {
       await firstValueFrom(this.roomsApi.delete(room.id));
       if (this.currentRoom()?.id === room.id) {
         this.currentRoom.set(null);
+        this.currentRoomPlayer.set(null);
+        this.currentRoomTurn.set(null);
       }
       if (this.roomId === room.id) {
         this.roomId = '';
       }
       await this.loadRoomState();
+      this.scheduleRoomSync();
       this.roomPendingDelete.set(null);
     } catch {
       this.error.set('Could not delete room.');
@@ -207,9 +241,12 @@ export class RoomsComponent implements OnInit, OnDestroy {
     this.error.set(null);
     try {
       const response = await firstValueFrom(this.roomsApi.acceptInvite(invite.id));
-      this.currentRoom.set(response.room ?? invite.room);
       const room = response.room ?? invite.room;
+      this.currentRoom.set(this.currentRoomSummaryFromRoom(room));
+      this.currentRoomPlayer.set(this.currentRoomPlayerSummaryFromRoom(room));
+      this.currentRoomTurn.set(null);
       this.roomId = room.id;
+      this.scheduleRoomSync();
       await this.navigateToWaitingRoom(room.id);
     } catch (error) {
       this.error.set(this.errorMessage(error, 'Could not accept room invite.'));
@@ -230,8 +267,8 @@ export class RoomsComponent implements OnInit, OnDestroy {
     return this.isRoomWaiting(room) && room.owner.id === this.auth.user()?.id;
   }
 
-  canArchiveRoom(room: Room): boolean {
-    return room.status !== 'archived' && room.owner.id === this.auth.user()?.id && (room.status === 'started' || !!room.gameId);
+  canLeaveRoom(room: Room): boolean {
+    return this.isCurrentRoom(room);
   }
 
   roomCapacity(room: Room): number {
@@ -264,23 +301,47 @@ export class RoomsComponent implements OnInit, OnDestroy {
     return this.isRoomWaiting(room) && !this.isRoomStarted(room) && !this.isRoomFull(room);
   }
 
-  async archiveRoom(room: Room): Promise<void> {
-    if (!this.canArchiveRoom(room)) {
+  isCurrentUserInRoom(room: Room): boolean {
+    const userId = this.auth.user()?.id;
+
+    return !!userId && room.players.some((player) => player.user.id === userId);
+  }
+
+  isCurrentRoom(room: Room): boolean {
+    return this.currentRoom()?.id === room.id;
+  }
+
+  async leaveRoom(room: Room): Promise<void> {
+    if (!this.canLeaveRoom(room)) {
+      return;
+    }
+
+    await this.leaveCurrentRoom(room.id);
+  }
+
+  async leaveCurrentRoom(roomId: string): Promise<void> {
+    if (this.currentRoom()?.id !== roomId) {
       return;
     }
 
     this.error.set(null);
-    this.archivingRoomId.set(room.id);
+    this.leavingRoomId.set(roomId);
     try {
-      await firstValueFrom(this.roomsApi.archive(room.id));
-      if (this.currentRoom()?.id === room.id) {
+      await firstValueFrom(this.roomsApi.leave(roomId));
+      if (this.currentRoom()?.id === roomId) {
         this.currentRoom.set(null);
+        this.currentRoomPlayer.set(null);
+        this.currentRoomTurn.set(null);
+      }
+      if (this.roomId === roomId) {
+        this.roomId = '';
       }
       await this.loadRoomState();
-    } catch {
-      this.error.set('Could not archive room. Only the owner can archive started games.');
+      this.scheduleRoomSync();
+    } catch (error) {
+      this.error.set(this.errorMessage(error, 'Could not leave room.'));
     } finally {
-      this.archivingRoomId.set(null);
+      this.leavingRoomId.set(null);
     }
   }
 
@@ -288,7 +349,11 @@ export class RoomsComponent implements OnInit, OnDestroy {
     if (!this.inviteRealtimeSubscription) {
       this.subscribeToInviteRealtime();
     }
-    await Promise.all([this.loadRooms(skipGlobalLoading), this.loadInvites(skipGlobalLoading)]);
+    await Promise.all([
+      this.loadCurrentRoom(skipGlobalLoading),
+      this.loadRooms(skipGlobalLoading),
+      this.loadInvites(skipGlobalLoading),
+    ]);
   }
 
   private async syncRoomState(): Promise<void> {
@@ -298,10 +363,25 @@ export class RoomsComponent implements OnInit, OnDestroy {
 
     this.roomSyncInFlight = true;
     try {
+      await this.loadCurrentRoom(true);
       await this.loadRooms(true);
     } finally {
       this.roomSyncInFlight = false;
+      this.scheduleRoomSync();
     }
+  }
+
+  private scheduleRoomSync(): void {
+    if (this.roomSyncHandle !== undefined) {
+      window.clearTimeout(this.roomSyncHandle);
+    }
+
+    const interval = this.currentRoom()
+      ? ROOM_LIST_POLL_INTERVAL_WITH_CURRENT_ROOM_MS
+      : ROOM_LIST_POLL_INTERVAL_MS;
+    this.roomSyncHandle = window.setTimeout(() => {
+      void this.syncRoomState();
+    }, interval);
   }
 
   private syncCurrentRoom(rooms: Room[]): void {
@@ -312,10 +392,58 @@ export class RoomsComponent implements OnInit, OnDestroy {
     }
 
     const room = rooms.find((candidate) => candidate.id === currentId) ?? null;
-    this.currentRoom.set(room ?? currentRoom);
-    if (!room && this.roomId === currentId) {
+    if (room) {
+      this.currentRoom.set(this.currentRoomSummaryFromRoom(room));
+      const listedPlayer = this.currentRoomPlayerSummaryFromRoom(room);
+      if (this.shouldUseListedCurrentPlayer(listedPlayer)) {
+        this.currentRoomPlayer.set(listedPlayer);
+      }
+    }
+    if (!currentRoom && !room && this.roomId === currentId) {
       this.roomId = '';
     }
+  }
+
+  private currentRoomSummaryFromRoom(room: Room): CurrentRoomSummary {
+    return {
+      id: room.id,
+      name: room.name,
+      status: room.status,
+      visibility: room.visibility,
+      format: room.format,
+      maxPlayers: room.maxPlayers,
+      playerCount: this.roomPlayerCount(room),
+      gameId: room.gameId,
+    };
+  }
+
+  private currentRoomPlayerSummaryFromRoom(room: Room): CurrentRoomPlayerSummary | null {
+    const userId = this.auth.user()?.id;
+    const player = room.players.find((candidate) => candidate.user.id === userId) ?? null;
+    if (!player) {
+      return null;
+    }
+
+    return {
+      playerId: player.id,
+      deckId: player.deckId,
+      deckName: player.deck?.name ?? null,
+      deckImageUrl: bestCardArtImage(player.deck?.commander),
+    };
+  }
+
+  private shouldUseListedCurrentPlayer(listedPlayer: CurrentRoomPlayerSummary | null): boolean {
+    if (!listedPlayer) {
+      return false;
+    }
+
+    const currentPlayer = this.currentRoomPlayer();
+    if (!currentPlayer) {
+      return true;
+    }
+
+    return (!currentPlayer.deckName && !!listedPlayer.deckName)
+      || (!currentPlayer.deckImageUrl && !!listedPlayer.deckImageUrl);
   }
 
   private subscribeToInviteRealtime(): void {

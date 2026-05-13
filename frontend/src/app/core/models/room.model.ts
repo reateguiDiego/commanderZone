@@ -1,7 +1,7 @@
 import { User } from './user.model';
 import { Deck } from './deck.model';
 
-export type RoomStatus = 'waiting' | 'started' | 'archived';
+export type RoomStatus = 'waiting' | 'started';
 export type RoomVisibility = 'private' | 'public';
 export type RoomFormat = 'commander' | string;
 export type RoomTimerMode = 'none' | 'turn';
@@ -27,6 +27,28 @@ export interface Room {
   timerDurationSeconds: number;
   players: RoomPlayer[];
   gameId: string | null;
+}
+
+export interface CurrentRoomSummary {
+  id: string;
+  name: string;
+  status: RoomStatus;
+  visibility: RoomVisibility;
+  format: RoomFormat;
+  maxPlayers: number;
+  playerCount: number;
+  gameId: string | null;
+}
+
+export interface CurrentRoomPlayerSummary {
+  playerId: string;
+  deckId: string | null;
+  deckName: string | null;
+  deckImageUrl: string | null;
+}
+
+export interface CurrentRoomTurn {
+  number: number | null;
 }
 
 export type WaitingRoomEventType =
