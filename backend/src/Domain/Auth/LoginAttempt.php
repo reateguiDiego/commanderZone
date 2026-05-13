@@ -10,6 +10,9 @@ use Symfony\Component\Uid\Uuid;
 #[ORM\UniqueConstraint(name: 'uniq_login_attempt_scope_identifier', columns: ['scope', 'identifier'])]
 class LoginAttempt
 {
+    private const FAILURE_WINDOW_SECONDS = 3600;
+    private const MAX_FAILURES_PER_WINDOW = 5;
+
     #[ORM\Id]
     #[ORM\Column(type: 'string', length: 36)]
     private string $id;
@@ -41,19 +44,22 @@ class LoginAttempt
         return $this->lockoutUntil !== null && $this->lockoutUntil > $now;
     }
 
-    public function registerFailure(\DateTimeImmutable $now, int $baseThreshold = 5): void
+    public function registerFailure(\DateTimeImmutable $now): void
     {
-        $this->failureCount++;
-        $this->lastFailedAt = $now;
+        $windowStart = $now->modify(sprintf('-%d seconds', self::FAILURE_WINDOW_SECONDS));
+        if ($this->lastFailedAt === null || $this->lastFailedAt <= $windowStart) {
+            $this->failureCount = 0;
+            $this->lockoutUntil = null;
+            $this->lastFailedAt = $now;
+        }
 
-        if ($this->failureCount < $baseThreshold) {
+        $this->failureCount++;
+        if ($this->failureCount < self::MAX_FAILURES_PER_WINDOW) {
             return;
         }
 
-        $overflow = $this->failureCount - $baseThreshold;
-        $multiplier = 2 ** min(5, $overflow);
-        $seconds = min(900, 30 * $multiplier);
-        $this->lockoutUntil = $now->modify(sprintf('+%d seconds', $seconds));
+        $windowAnchor = $this->lastFailedAt ?? $now;
+        $this->lockoutUntil = $windowAnchor->modify(sprintf('+%d seconds', self::FAILURE_WINDOW_SECONDS));
     }
 
     public function resetFailures(): void

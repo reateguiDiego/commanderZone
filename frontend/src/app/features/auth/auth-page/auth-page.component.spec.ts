@@ -90,8 +90,8 @@ describe('AuthPageComponent', () => {
     component.registerForm.setValue({
       email: 'player@example.test',
       displayName: 'Player',
-      password: 'password123',
-      confirmPassword: 'password123',
+      password: 'Password123',
+      confirmPassword: 'Password123',
     });
 
     expect(component.canSubmitRegister()).toBe(false);

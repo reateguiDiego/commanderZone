@@ -42,9 +42,7 @@ export class AuthStore {
 
     try {
       const response = await firstValueFrom(this.authApi.login({ email, password }));
-      this.setToken(response.token);
-      await this.loadMe();
-      this.appBackground.useNewSessionBackground();
+      await this.establishSession(response.token);
     } catch (error) {
       this.clearSession();
       this.errorState.set(errorMessageFromResponse(error, 'Could not login.'));
@@ -60,13 +58,23 @@ export class AuthStore {
 
     try {
       await firstValueFrom(this.authApi.register({ email, displayName, password }));
-      const response = await firstValueFrom(this.authApi.login({ email, password }));
-      this.setToken(response.token);
-      await this.loadMe();
-      this.appBackground.useNewSessionBackground();
+    } catch (error) {
+      this.errorState.set(errorMessageFromResponse(error, 'Could not create account.'));
+      throw error;
+    } finally {
+      this.loadingState.set(false);
+    }
+  }
+
+  async loginWithToken(token: string): Promise<void> {
+    this.loadingState.set(true);
+    this.errorState.set(null);
+
+    try {
+      await this.establishSession(token);
     } catch (error) {
       this.clearSession();
-      this.errorState.set(errorMessageFromResponse(error, 'Could not create account.'));
+      this.errorState.set(errorMessageFromResponse(error, 'Could not complete login.'));
       throw error;
     } finally {
       this.loadingState.set(false);
@@ -145,6 +153,11 @@ export class AuthStore {
     localStorage.setItem(USER_KEY, JSON.stringify(user));
   }
 
+  private async establishSession(token: string): Promise<void> {
+    this.setToken(token);
+    await this.loadMe();
+    this.appBackground.useNewSessionBackground();
+  }
 }
 
 function readStoredToken(): string | null {

@@ -8,7 +8,7 @@ use Doctrine\ORM\EntityManagerInterface;
 
 class PasswordResetService
 {
-    private const PASSWORD_RESET_TTL_SECONDS = 1800;
+    private const PASSWORD_RESET_TTL_SECONDS = 3600;
 
     public function __construct(
         private readonly EntityManagerInterface $entityManager,

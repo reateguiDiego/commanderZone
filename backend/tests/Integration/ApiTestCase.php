@@ -23,7 +23,7 @@ abstract class ApiTestCase extends WebTestCase
         RecordingMercureHub::reset();
     }
 
-    protected function registerAndLogin(string $email = 'player@example.test', string $displayName = 'Player', string $password = 'password123'): string
+    protected function registerAndLogin(string $email = 'player@example.test', string $displayName = 'Player', string $password = 'Password123'): string
     {
         $this->jsonRequest('POST', '/auth/register', [
             'email' => $email,

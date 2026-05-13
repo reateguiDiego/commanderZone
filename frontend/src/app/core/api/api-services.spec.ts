@@ -116,12 +116,12 @@ describe('API services', () => {
     expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);
     request.flush({ accepted: true });
 
-    auth.confirmPasswordReset({ token: 'reset-token', newPassword: 'password456' }).subscribe();
+    auth.confirmPasswordReset({ email: 'player@example.test', token: 'reset-token', newPassword: 'Password456' }).subscribe();
     request = http.expectOne(`${API_BASE_URL}/auth/password-reset/confirm`);
     expect(request.request.method).toBe('POST');
-    expect(request.request.body).toEqual({ token: 'reset-token', newPassword: 'password456' });
+    expect(request.request.body).toEqual({ email: 'player@example.test', token: 'reset-token', newPassword: 'Password456' });
     expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);
-    request.flush({ updated: true });
+    request.flush({ updated: true, token: 'jwt-token' });
   });
 
   it('requests and confirms email verification without triggering the global loading overlay', () => {
@@ -139,7 +139,7 @@ describe('API services', () => {
     expect(request.request.method).toBe('POST');
     expect(request.request.body).toEqual({ token: 'verify-token' });
     expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);
-    request.flush({ verified: true, user: { id: 'user-1', email: 'player@example.test', roles: ['ROLE_USER'] } });
+    request.flush({ verified: true, token: 'jwt-token', user: { id: 'user-1', email: 'player@example.test', roles: ['ROLE_USER'] } });
   });
 
   it('builds filtered card search requests', () => {

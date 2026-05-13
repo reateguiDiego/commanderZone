@@ -6,6 +6,7 @@
 /backend/.env.*.local
 /backend/config/secrets/prod/prod.decrypt.private.php
 /backend/config/jwt/*.pem
+/backend/config/reference.php
 /backend/public/bundles/
 /backend/var/
 /backend/vendor/

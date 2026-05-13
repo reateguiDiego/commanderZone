@@ -54,7 +54,18 @@ describe('AuthStore backend auth', () => {
       displayName: 'Player',
       password: 'password123',
     });
-    expect(authApi.login).toHaveBeenCalledWith({ email: 'player@example.test', password: 'password123' });
+    expect(authApi.login).not.toHaveBeenCalled();
+    expect(store.token()).toBeNull();
+    expect(store.user()).toBeNull();
+  });
+
+  it('can establish a session directly from a token', async () => {
+    const store = TestBed.inject(AuthStore);
+
+    await store.loginWithToken('jwt-token');
+
+    expect(authApi.me).toHaveBeenCalled();
+    expect(store.token()).toBe('jwt-token');
     expect(store.user()?.displayName).toBe('Player');
   });
 

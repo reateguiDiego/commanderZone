@@ -6,6 +6,7 @@ use App\Application\Auth\AuthThrottleService;
 use App\Application\Auth\AuthMailer;
 use App\Application\Auth\EmailVerificationService;
 use App\Application\Auth\LoginProtectionService;
+use App\Application\Auth\PasswordPolicy;
 use App\Application\Auth\PasswordResetService;
 use App\Application\Auth\SecurityAuditLogger;
 use App\Domain\Auth\EmailVerificationToken;
@@ -124,6 +125,7 @@ class AuthController extends ApiController
         private readonly EmailVerificationService $emailVerificationService,
         private readonly AuthMailer $authMailer,
         private readonly LoginProtectionService $loginProtectionService,
+        private readonly PasswordPolicy $passwordPolicy,
         private readonly AuthThrottleService $authThrottleService,
         private readonly SecurityAuditLogger $securityAuditLogger,
         #[Autowire('%kernel.environment%')]
@@ -159,8 +161,11 @@ class AuthController extends ApiController
         $password = (string) ($payload['password'] ?? '');
         $displayName = trim((string) ($payload['displayName'] ?? ''));
 
-        if (!filter_var($email, FILTER_VALIDATE_EMAIL) || mb_strlen($password) < 8 || !$this->isDisplayNameValid($displayName)) {
-            return $this->fail('email, user name with 4-25 chars and a password of at least 8 chars are required.');
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL) || !$this->passwordPolicy->isValid($password) || !$this->isDisplayNameValid($displayName)) {
+            return $this->fail(sprintf(
+                'email, user name with 4-25 chars and %s',
+                mb_strtolower($this->passwordPolicy->requirementMessage('Password'))
+            ));
         }
 
         if ($this->emailExists($entityManager, $email)) {
@@ -220,6 +225,12 @@ class AuthController extends ApiController
             return $this->fail('Invalid credentials.', 401);
         }
 
+        if (!$user->isEmailVerified()) {
+            $this->securityAuditLogger->log('auth.login.failed', $email, $user->id(), $clientIp, ['reason' => 'email_not_verified']);
+
+            return $this->fail('Email verification is required before login.', 403);
+        }
+
         $this->loginProtectionService->resetFailures($email, $clientIp);
         $this->securityAuditLogger->log('auth.login.succeeded', $email, $user->id(), $clientIp);
 
@@ -274,6 +285,7 @@ class AuthController extends ApiController
         UserPasswordHasherInterface $passwordHasher
     ): JsonResponse {
         $payload = $this->payload($request);
+        $email = mb_strtolower(trim((string) ($payload['email'] ?? '')));
         $token = trim((string) ($payload['token'] ?? ''));
         $newPassword = (string) ($payload['newPassword'] ?? '');
         $clientIp = trim((string) $request->getClientIp());
@@ -283,8 +295,11 @@ class AuthController extends ApiController
         }
         $this->authThrottleService->consume('password-reset-confirm-ip', $clientIp, self::AUTH_REQUEST_WINDOW_SECONDS);
 
-        if ($token === '' || mb_strlen($newPassword) < 8) {
-            return $this->fail('token and a newPassword of at least 8 chars are required.');
+        if (filter_var($email, FILTER_VALIDATE_EMAIL) === false || $token === '' || !$this->passwordPolicy->isValid($newPassword)) {
+            return $this->fail(sprintf(
+                'email, token and %s are required.',
+                mb_strtolower($this->passwordPolicy->requirementMessage('newPassword'))
+            ));
         }
 
         $passwordResetToken = $this->passwordResetService->consumeValidToken($token);
@@ -295,6 +310,12 @@ class AuthController extends ApiController
         }
 
         $user = $passwordResetToken->user();
+        if (mb_strtolower($user->email()) !== $email) {
+            $this->securityAuditLogger->log('auth.password_reset.failed', $email, $user->id(), $clientIp, ['reason' => 'email_token_mismatch']);
+
+            return $this->fail('Invalid or expired password reset token.');
+        }
+
         $passwordResetToken->markUsed();
         $user->setPassword($passwordHasher->hashPassword($user, $newPassword));
         $this->securityAuditLogger->log('auth.password_reset.completed', $user->email(), $user->id(), $clientIp);
@@ -302,7 +323,10 @@ class AuthController extends ApiController
         $this->loginProtectionService->resetFailures($user->email(), $clientIp);
         $entityManager->flush();
 
-        return $this->json(['updated' => true]);
+        return $this->json([
+            'updated' => true,
+            'token' => $this->jwtTokenManager->create($user),
+        ]);
     }
 
     #[Route('/auth/email-verification/request', methods: ['POST'])]
@@ -383,7 +407,11 @@ class AuthController extends ApiController
             'purpose' => $verificationToken->purpose(),
         ]);
 
-        return $this->json(['verified' => true, 'user' => $user->toArray()]);
+        return $this->json([
+            'verified' => true,
+            'user' => $user->toArray(),
+            'token' => $this->jwtTokenManager->create($user),
+        ]);
     }
 
     #[Route('/me', methods: ['GET'])]
@@ -707,8 +735,8 @@ class AuthController extends ApiController
         $currentPassword = (string) ($payload['currentPassword'] ?? '');
         $newPassword = (string) ($payload['newPassword'] ?? '');
 
-        if (mb_strlen($newPassword) < 8) {
-            return $this->fail('newPassword must contain at least 8 chars.');
+        if (!$this->passwordPolicy->isValid($newPassword)) {
+            return $this->fail($this->passwordPolicy->requirementMessage('newPassword'));
         }
         if (!$passwordHasher->isPasswordValid($user, $currentPassword)) {
             return $this->fail('Current password is invalid.', 403);

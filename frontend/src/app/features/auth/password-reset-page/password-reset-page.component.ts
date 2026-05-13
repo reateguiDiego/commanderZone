@@ -1,9 +1,11 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { LucideAngularModule } from 'lucide-angular';
 import { firstValueFrom } from 'rxjs';
 import { AuthApi } from '../../../core/api/auth.api';
+import { AuthStore } from '../../../core/auth/auth.store';
+import { AUTH_PASSWORD_REGEX, AUTH_PASSWORD_REQUIREMENT_MESSAGE } from '../auth-password-policy';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
@@ -16,8 +18,10 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 })
 export class PasswordResetPageComponent {
   private readonly authApi = inject(AuthApi);
+  private readonly auth = inject(AuthStore);
   private readonly formBuilder = inject(FormBuilder);
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
 
   readonly requestLoading = signal(false);
   readonly requestSuccess = signal(false);
@@ -27,18 +31,19 @@ export class PasswordResetPageComponent {
   readonly resetError = signal<string | null>(null);
   readonly newPasswordVisible = signal(false);
   readonly confirmPasswordVisible = signal(false);
+  readonly resetToken = signal<string | null>(null);
+  readonly passwordRequirementMessage = AUTH_PASSWORD_REQUIREMENT_MESSAGE;
 
   readonly resetForm = this.formBuilder.nonNullable.group({
     email: ['', [Validators.required, Validators.pattern(EMAIL_PATTERN)]],
-    token: ['', [Validators.required]],
-    newPassword: ['', [Validators.required, Validators.minLength(8)]],
+    newPassword: ['', [Validators.required, Validators.pattern(AUTH_PASSWORD_REGEX)]],
     confirmPassword: ['', [Validators.required]],
   });
 
   constructor() {
     const tokenFromQuery = this.route.snapshot.queryParamMap.get('token');
     if (tokenFromQuery && tokenFromQuery.trim() !== '') {
-      this.resetForm.controls.token.setValue(tokenFromQuery.trim());
+      this.resetToken.set(tokenFromQuery.trim());
     }
   }
 
@@ -51,10 +56,11 @@ export class PasswordResetPageComponent {
   }
 
   canSubmitReset(): boolean {
-    return this.resetForm.controls.token.valid
+    return this.resetForm.controls.email.valid
       && this.resetForm.controls.newPassword.valid
       && this.resetForm.controls.confirmPassword.valid
       && this.passwordsMatch()
+      && this.resetToken() !== null
       && !this.resetLoading();
   }
 
@@ -80,9 +86,12 @@ export class PasswordResetPageComponent {
 
   async submitReset(): Promise<void> {
     if (!this.canSubmitReset()) {
-      this.resetForm.controls.token.markAsTouched();
+      this.resetForm.controls.email.markAsTouched();
       this.resetForm.controls.newPassword.markAsTouched();
       this.resetForm.controls.confirmPassword.markAsTouched();
+      if (!this.resetToken()) {
+        this.resetError.set('El enlace de recuperacion no es valido o ha caducado.');
+      }
       if (!this.passwordsMatch()) {
         this.resetError.set('Las contrasenas no coinciden.');
       }
@@ -94,11 +103,14 @@ export class PasswordResetPageComponent {
 
     try {
       const response = await firstValueFrom(this.authApi.confirmPasswordReset({
-        token: this.resetForm.controls.token.value.trim(),
+        email: this.resetForm.controls.email.value.trim(),
+        token: this.resetToken() ?? '',
         newPassword: this.resetForm.controls.newPassword.value,
       }));
       this.resetSuccess.set(response.updated);
-      this.resetForm.reset({ email: '', token: '', newPassword: '', confirmPassword: '' });
+      await this.auth.loginWithToken(response.token);
+      this.resetForm.reset({ email: '', newPassword: '', confirmPassword: '' });
+      await this.router.navigate(['/dashboard']);
     } catch {
       this.resetError.set('No se pudo actualizar la contrasena con ese token.');
     } finally {

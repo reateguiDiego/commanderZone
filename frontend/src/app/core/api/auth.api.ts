@@ -52,7 +52,7 @@ export class AuthApi {
     );
   }
 
-  confirmPasswordReset(payload: { token: string; newPassword: string }): Observable<PasswordResetConfirmResponse> {
+  confirmPasswordReset(payload: { email: string; token: string; newPassword: string }): Observable<PasswordResetConfirmResponse> {
     return this.http.post<PasswordResetConfirmResponse>(
       `${API_BASE_URL}/auth/password-reset/confirm`,
       payload,

@@ -112,7 +112,7 @@ paths:
     post:
       tags: [Auth]
       security: []
-      summary: Login and receive a JWT access token.
+      summary: Login and receive a JWT access token (verified accounts only).
       requestBody:
         required: true
         content:
@@ -131,6 +131,10 @@ paths:
                   token:
                     type: string
         '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '429':
           $ref: '#/components/responses/Error'
   /auth/password-reset/request:
     post:
@@ -203,7 +207,7 @@ paths:
               $ref: '#/components/schemas/EmailVerificationConfirmRequest'
       responses:
         '200':
-          description: Email verified.
+          description: Email verified and authenticated session returned.
           content:
             application/json:
               schema:
@@ -360,6 +364,7 @@ paths:
                 newPassword:
                   type: string
                   minLength: 8
+                  pattern: '^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$'
       responses:
         '200':
           description: Password changed.
@@ -2039,6 +2044,8 @@ components:
         password:
           type: string
           minLength: 8
+          pattern: '^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$'
+          description: Must include at least one lowercase letter, one uppercase letter, and one number.
     LoginRequest:
       type: object
       required: [email, password]
@@ -2063,19 +2070,26 @@ components:
           type: boolean
     PasswordResetConfirmRequest:
       type: object
-      required: [token, newPassword]
+      required: [email, token, newPassword]
       properties:
+        email:
+          type: string
+          format: email
         token:
           type: string
         newPassword:
           type: string
           minLength: 8
+          pattern: '^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$'
+          description: Must include at least one lowercase letter, one uppercase letter, and one number.
     PasswordResetConfirmResponse:
       type: object
-      required: [updated]
+      required: [updated, token]
       properties:
         updated:
           type: boolean
+        token:
+          type: string
     EmailVerificationRequest:
       type: object
       required: [email]
@@ -2091,12 +2105,14 @@ components:
           type: string
     EmailVerificationConfirmResponse:
       type: object
-      required: [verified, user]
+      required: [verified, user, token]
       properties:
         verified:
           type: boolean
         user:
           $ref: '#/components/schemas/User'
+        token:
+          type: string
     AvatarUpdateRequest:
       oneOf:
         - type: object
