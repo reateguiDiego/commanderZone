@@ -12,16 +12,20 @@ describe('EmailVerificationPageComponent', () => {
     confirmEmailVerification: ReturnType<typeof vi.fn>;
   };
   let authStore: {
-    loginWithToken: ReturnType<typeof vi.fn>;
+    loginWithResolvedUser: ReturnType<typeof vi.fn>;
   };
 
   beforeEach(async () => {
     authApi = {
       requestEmailVerification: vi.fn().mockReturnValue(of({ accepted: true })),
-      confirmEmailVerification: vi.fn().mockReturnValue(of({ verified: true, token: 'jwt-token', user: {} })),
+      confirmEmailVerification: vi.fn().mockReturnValue(of({
+        verified: true,
+        token: 'jwt-token',
+        user: { id: 'user-1', email: 'player@example.test', displayName: 'Player', roles: ['ROLE_USER'] },
+      })),
     };
     authStore = {
-      loginWithToken: vi.fn().mockResolvedValue(undefined),
+      loginWithResolvedUser: vi.fn().mockResolvedValue(undefined),
     };
 
     await TestBed.configureTestingModule({
@@ -43,7 +47,12 @@ describe('EmailVerificationPageComponent', () => {
     await component.confirmToken();
 
     expect(authApi.confirmEmailVerification).toHaveBeenCalledWith({ token: 'verify-token' });
-    expect(authStore.loginWithToken).toHaveBeenCalledWith('jwt-token');
+    expect(authStore.loginWithResolvedUser).toHaveBeenCalledWith('jwt-token', {
+      id: 'user-1',
+      email: 'player@example.test',
+      displayName: 'Player',
+      roles: ['ROLE_USER'],
+    });
     expect(component.verifySuccess()).toBe(true);
   });
 

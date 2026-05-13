@@ -12,6 +12,7 @@ describe('DashboardHomeComponent', () => {
           provide: AuthStore,
           useValue: {
             user: signal({ displayName: 'Aaguilera21' }),
+            displayName: signal('Aaguilera21'),
           },
         },
       ],

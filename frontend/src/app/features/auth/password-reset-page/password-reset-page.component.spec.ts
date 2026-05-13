@@ -12,16 +12,20 @@ describe('PasswordResetPageComponent', () => {
     confirmPasswordReset: ReturnType<typeof vi.fn>;
   };
   let authStore: {
-    loginWithToken: ReturnType<typeof vi.fn>;
+    login: ReturnType<typeof vi.fn>;
   };
 
   beforeEach(async () => {
     authApi = {
       requestPasswordReset: vi.fn().mockReturnValue(of({ accepted: true })),
-      confirmPasswordReset: vi.fn().mockReturnValue(of({ updated: true, token: 'jwt-token' })),
+      confirmPasswordReset: vi.fn().mockReturnValue(of({
+        updated: true,
+        token: 'jwt-token',
+        user: { id: 'user-1', email: 'player@example.test', displayName: 'Player', roles: ['ROLE_USER'] },
+      })),
     };
     authStore = {
-      loginWithToken: vi.fn().mockResolvedValue(undefined),
+      login: vi.fn().mockResolvedValue(undefined),
     };
 
     await TestBed.configureTestingModule({
@@ -71,7 +75,7 @@ describe('PasswordResetPageComponent', () => {
       token: 'reset-token',
       newPassword: 'Password456',
     });
-    expect(authStore.loginWithToken).toHaveBeenCalledWith('jwt-token');
+    expect(authStore.login).toHaveBeenCalledWith('player@example.test', 'Password456');
     expect(component.resetSuccess()).toBe(true);
   });
 
@@ -87,5 +91,7 @@ describe('PasswordResetPageComponent', () => {
     await component.submitReset();
 
     expect(component.resetError()).toContain('No se pudo actualizar');
+    expect(component.resetSuccess()).toBe(false);
   });
+
 });

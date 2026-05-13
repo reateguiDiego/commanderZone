@@ -2084,12 +2084,14 @@ components:
           description: Must include at least one lowercase letter, one uppercase letter, and one number.
     PasswordResetConfirmResponse:
       type: object
-      required: [updated, token]
+      required: [updated, token, user]
       properties:
         updated:
           type: boolean
         token:
           type: string
+        user:
+          $ref: '#/components/schemas/User'
     EmailVerificationRequest:
       type: object
       required: [email]

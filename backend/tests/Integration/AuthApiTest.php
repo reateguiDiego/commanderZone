@@ -173,6 +173,8 @@ class AuthApiTest extends ApiTestCase
         self::assertResponseIsSuccessful();
         self::assertTrue($this->jsonResponse()['updated']);
         self::assertArrayHasKey('token', $this->jsonResponse());
+        self::assertArrayHasKey('user', $this->jsonResponse());
+        self::assertSame('reset@example.test', $this->jsonResponse()['user']['email']);
         $newSessionToken = $this->jsonResponse()['token'];
         self::assertIsString($newSessionToken);
 
@@ -350,6 +352,32 @@ class AuthApiTest extends ApiTestCase
             'password' => 'Password123',
         ]);
         self::assertResponseIsSuccessful();
+    }
+
+    public function testEmailVerificationConfirmTokenAuthenticatesTheRegisteredUser(): void
+    {
+        $this->jsonRequest('POST', '/auth/register', [
+            'email' => 'verify-autologin@example.test',
+            'displayName' => 'Verify AutoLogin',
+            'password' => 'Password123',
+        ]);
+        self::assertResponseStatusCodeSame(201);
+        $verificationToken = $this->jsonResponse()['emailVerificationToken'] ?? null;
+        self::assertIsString($verificationToken);
+
+        $this->jsonRequest('POST', '/auth/email-verification/confirm', ['token' => $verificationToken]);
+        self::assertResponseIsSuccessful();
+        self::assertTrue($this->jsonResponse()['verified']);
+        self::assertArrayHasKey('token', $this->jsonResponse());
+        $sessionToken = $this->jsonResponse()['token'];
+        self::assertIsString($sessionToken);
+        self::assertSame('verify-autologin@example.test', $this->jsonResponse()['user']['email']);
+
+        $this->jsonRequest('GET', '/me', token: $sessionToken);
+        self::assertResponseIsSuccessful();
+        self::assertSame('verify-autologin@example.test', $this->jsonResponse()['user']['email']);
+        self::assertSame('Verify AutoLogin', $this->jsonResponse()['user']['displayName']);
+        self::assertTrue($this->jsonResponse()['user']['emailVerified']);
     }
 
     public function testPasswordPolicyRequiresLowerUpperAndNumber(): void

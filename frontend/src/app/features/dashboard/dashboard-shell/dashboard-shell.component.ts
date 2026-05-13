@@ -31,7 +31,7 @@ export class DashboardShellComponent implements OnDestroy {
   private readonly router = inject(Router);
   readonly friendsOpen = signal(false);
   readonly roomFocus = signal(this.isTableAssistantRoomUrl(this.router.url));
-  readonly userLabel = computed(() => this.auth.user()?.displayName || this.auth.user()?.email || 'Player');
+  readonly userLabel = computed(() => this.auth.displayName() ?? this.auth.user()?.email ?? 'Player');
   private roomInviteSubscription?: Subscription;
   private friendSubscription?: Subscription;
 
@@ -152,4 +152,5 @@ export class DashboardShellComponent implements OnDestroy {
     const path = url.split(/[?#]/)[0];
     return /^\/table-assistant\/[^/]+$/.test(path);
   }
+
 }

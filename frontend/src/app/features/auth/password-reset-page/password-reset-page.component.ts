@@ -100,18 +100,22 @@ export class PasswordResetPageComponent {
 
     this.resetLoading.set(true);
     this.resetError.set(null);
+    this.resetSuccess.set(false);
 
     try {
+      const email = this.resetForm.controls.email.value.trim();
+      const newPassword = this.resetForm.controls.newPassword.value;
       const response = await firstValueFrom(this.authApi.confirmPasswordReset({
-        email: this.resetForm.controls.email.value.trim(),
+        email,
         token: this.resetToken() ?? '',
-        newPassword: this.resetForm.controls.newPassword.value,
+        newPassword,
       }));
+      await this.auth.login(email, newPassword);
       this.resetSuccess.set(response.updated);
-      await this.auth.loginWithToken(response.token);
       this.resetForm.reset({ email: '', newPassword: '', confirmPassword: '' });
-      await this.router.navigate(['/dashboard']);
+      await this.router.navigate(['/dashboard']).catch(() => false);
     } catch {
+      this.resetSuccess.set(false);
       this.resetError.set('No se pudo actualizar la contrasena con ese token.');
     } finally {
       this.resetLoading.set(false);

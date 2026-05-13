@@ -326,6 +326,7 @@ class AuthController extends ApiController
         return $this->json([
             'updated' => true,
             'token' => $this->jwtTokenManager->create($user),
+            'user' => $user->toArray(),
         ]);
     }
 

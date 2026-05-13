@@ -10,5 +10,5 @@ import { AuthStore } from '../../../core/auth/auth.store';
 export class DashboardHomeComponent {
   private readonly auth = inject(AuthStore);
 
-  readonly userName = computed(() => this.auth.user()?.displayName ?? 'Planeswalker');
+  readonly userName = computed(() => this.auth.displayName() ?? 'Planeswalker');
 }

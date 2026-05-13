@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { of, throwError } from 'rxjs';
+import { Subject, of, throwError } from 'rxjs';
 import { AuthApi } from '../api/auth.api';
 import { User } from '../models/user.model';
 import { AuthStore } from './auth.store';
@@ -104,5 +104,75 @@ describe('AuthStore backend auth', () => {
 
     expect(store.token()).toBeNull();
     expect(localStorage.getItem('commanderzone.jwt')).toBeNull();
+  });
+
+  it('ignores stale /me responses from a previous token during auto-login', async () => {
+    const previousUser: User = {
+      id: 'user-prev',
+      email: 'previous@example.test',
+      displayName: 'Previous',
+      roles: ['ROLE_USER'],
+    };
+    const nextUser: User = {
+      id: 'user-next',
+      email: 'next@example.test',
+      displayName: 'Next',
+      roles: ['ROLE_USER'],
+    };
+    const previousMe = new Subject<{ user: User }>();
+    const nextMe = new Subject<{ user: User }>();
+
+    localStorage.setItem('commanderzone.jwt', 'previous-token');
+    authApi.me
+      .mockReturnValueOnce(previousMe.asObservable())
+      .mockReturnValueOnce(nextMe.asObservable());
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [{ provide: AuthApi, useValue: authApi }],
+    });
+
+    const store = TestBed.inject(AuthStore);
+    const initializePromise = store.initialize();
+    const loginPromise = store.loginWithToken('next-token');
+
+    nextMe.next({ user: nextUser });
+    nextMe.complete();
+    await loginPromise;
+
+    previousMe.next({ user: previousUser });
+    previousMe.complete();
+    await initializePromise;
+
+    expect(store.token()).toBe('next-token');
+    expect(store.user()?.id).toBe('user-next');
+    expect(store.user()?.email).toBe('next@example.test');
+  });
+
+  it('does not clear a new session if an old /me request fails late', async () => {
+    const nextUser: User = {
+      id: 'user-next',
+      email: 'next@example.test',
+      displayName: 'Next',
+      roles: ['ROLE_USER'],
+    };
+    const previousMe = new Subject<{ user: User }>();
+
+    localStorage.setItem('commanderzone.jwt', 'previous-token');
+    authApi.me
+      .mockReturnValueOnce(previousMe.asObservable())
+      .mockReturnValueOnce(of({ user: nextUser }));
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [{ provide: AuthApi, useValue: authApi }],
+    });
+
+    const store = TestBed.inject(AuthStore);
+    const initializePromise = store.initialize();
+    await store.loginWithToken('next-token');
+    previousMe.error(new Error('stale failed'));
+    await expect(initializePromise).rejects.toThrow('stale failed');
+
+    expect(store.token()).toBe('next-token');
+    expect(store.user()?.id).toBe('user-next');
   });
 });

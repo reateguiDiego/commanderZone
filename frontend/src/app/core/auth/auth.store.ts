@@ -17,6 +17,7 @@ export class AuthStore {
   private readonly userState = signal<User | null>(readStoredUser());
   private readonly loadingState = signal(false);
   private readonly errorState = signal<string | null>(null);
+  private readonly resolvedDisplayNameState = signal<string | null>(readStoredDisplayName());
   private initialized = false;
 
   readonly token = this.tokenState.asReadonly();
@@ -24,6 +25,7 @@ export class AuthStore {
   readonly loading = this.loadingState.asReadonly();
   readonly error = this.errorState.asReadonly();
   readonly isAuthenticated = computed(() => this.tokenState() !== null);
+  readonly displayName = computed(() => this.currentDisplayName());
 
   async initialize(): Promise<void> {
     if (this.initialized) {
@@ -81,16 +83,39 @@ export class AuthStore {
     }
   }
 
+  async loginWithResolvedUser(token: string, user: User): Promise<void> {
+    this.loadingState.set(true);
+    this.errorState.set(null);
+
+    try {
+      this.setToken(token);
+      this.setUser(user);
+      this.appBackground.useNewSessionBackground();
+    } catch (error) {
+      this.clearSession();
+      this.errorState.set(errorMessageFromResponse(error, 'Could not complete login.'));
+      throw error;
+    } finally {
+      this.loadingState.set(false);
+    }
+  }
+
   async loadMe(): Promise<void> {
-    if (!this.tokenState()) {
+    const requestToken = this.tokenState();
+    if (!requestToken) {
       return;
     }
 
     try {
       const response = await firstValueFrom(this.authApi.me());
+      if (this.tokenState() !== requestToken) {
+        return;
+      }
       this.setUser(response.user);
     } catch (error) {
-      this.clearSession();
+      if (this.tokenState() === requestToken) {
+        this.clearSession();
+      }
       throw error;
     }
   }
@@ -135,6 +160,7 @@ export class AuthStore {
   clearSession(): void {
     this.tokenState.set(null);
     this.userState.set(null);
+    this.resolvedDisplayNameState.set(null);
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
   }
@@ -149,14 +175,59 @@ export class AuthStore {
   }
 
   private setUser(user: User): void {
-    this.userState.set(user);
-    localStorage.setItem(USER_KEY, JSON.stringify(user));
+    const normalizedUser = this.normalizeUser(user);
+    this.userState.set(normalizedUser);
+    this.resolvedDisplayNameState.set(normalizedUser.displayName);
+    localStorage.setItem(USER_KEY, JSON.stringify(normalizedUser));
   }
 
   private async establishSession(token: string): Promise<void> {
     this.setToken(token);
+    this.userState.set(null);
+    this.resolvedDisplayNameState.set(null);
     await this.loadMe();
     this.appBackground.useNewSessionBackground();
+  }
+
+  private normalizeUser(user: User): User {
+    const normalizedDisplayName = (user.displayName ?? '').trim();
+    if (normalizedDisplayName !== '') {
+      return { ...user, displayName: normalizedDisplayName };
+    }
+
+    const previousDisplayName = (this.userState()?.displayName ?? '').trim();
+    if (previousDisplayName !== '') {
+      return { ...user, displayName: previousDisplayName };
+    }
+
+    const email = (user.email ?? '').trim();
+    if (email.includes('@')) {
+      const localPart = email.split('@')[0]?.trim();
+      if (localPart) {
+        return { ...user, displayName: localPart };
+      }
+    }
+
+    return { ...user, displayName: 'Player' };
+  }
+
+  private currentDisplayName(): string | null {
+    const liveDisplayName = (this.userState()?.displayName ?? '').trim();
+    if (liveDisplayName !== '') {
+      return liveDisplayName;
+    }
+
+    const liveEmailDisplayName = displayNameFromEmail(this.userState()?.email ?? null);
+    if (liveEmailDisplayName) {
+      return liveEmailDisplayName;
+    }
+
+    const resolvedDisplayName = (this.resolvedDisplayNameState() ?? '').trim();
+    if (resolvedDisplayName !== '') {
+      return resolvedDisplayName;
+    }
+
+    return null;
   }
 }
 
@@ -176,6 +247,22 @@ function readStoredUser(): User | null {
     localStorage.removeItem(USER_KEY);
     return null;
   }
+}
+
+function readStoredDisplayName(): string | null {
+  const user = readStoredUser();
+  const displayName = (user?.displayName ?? '').trim();
+  return displayName !== '' ? displayName : null;
+}
+
+function displayNameFromEmail(email: string | null): string | null {
+  const normalizedEmail = (email ?? '').trim();
+  if (!normalizedEmail.includes('@')) {
+    return null;
+  }
+
+  const localPart = normalizedEmail.split('@')[0]?.trim();
+  return localPart ? localPart : null;
 }
 
 function errorMessageFromResponse(error: unknown, fallback: string): string {

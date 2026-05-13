@@ -76,7 +76,7 @@ export class EmailVerificationPageComponent {
         token: this.verificationForm.controls.token.value.trim(),
       }));
       this.verifySuccess.set(response.verified);
-      await this.auth.loginWithToken(response.token);
+      await this.auth.loginWithResolvedUser(response.token, response.user);
       await this.router.navigate(['/dashboard']);
     } catch {
       this.verifyError.set('No se pudo verificar el email con ese token.');

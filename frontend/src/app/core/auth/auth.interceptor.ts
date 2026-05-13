@@ -8,17 +8,23 @@ import { AuthStore } from './auth.store';
 export const authInterceptor: HttpInterceptorFn = (request, next) => {
   const auth = inject(AuthStore);
   const router = inject(Router);
-  const token = auth.token();
+  const requestToken = auth.token();
   const isApiRequest = request.url.startsWith(API_BASE_URL);
 
   const authorizedRequest =
-    token && isApiRequest
-      ? request.clone({ setHeaders: { Authorization: `Bearer ${token}` } })
+    requestToken && isApiRequest
+      ? request.clone({ setHeaders: { Authorization: `Bearer ${requestToken}` } })
       : request;
 
   return next(authorizedRequest).pipe(
     catchError((error: unknown) => {
-      if (error instanceof HttpErrorResponse && error.status === 401 && token && isApiRequest) {
+      if (
+        error instanceof HttpErrorResponse
+        && error.status === 401
+        && requestToken
+        && isApiRequest
+        && auth.token() === requestToken
+      ) {
         auth.clearSession();
         void router.navigate(['/auth/login']);
       }
