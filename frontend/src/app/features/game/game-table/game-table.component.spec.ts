@@ -738,6 +738,60 @@ describe('GameTableComponent', () => {
     expect(fixture.componentInstance.store.error()).not.toBe('Wait for the current table action to finish.');
   });
 
+  it('clamps positioned battlefield cards when the battlefield viewport shrinks', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    snapshot.players['user-1']!.zones.battlefield[0]!.position = { x: 700, y: 520 };
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const battlefield = document.createElement('div');
+    battlefield.className = 'battlefield';
+    battlefield.dataset['playerId'] = 'user-1';
+    const cardElement = document.createElement('button');
+    cardElement.dataset['cardInstanceId'] = 'card-1';
+    cardElement.setAttribute('data-testid', 'game-card');
+    battlefield.appendChild(cardElement);
+    document.body.appendChild(battlefield);
+    const battlefieldBounds = {
+      x: 0,
+      y: 0,
+      width: 320,
+      height: 260,
+      top: 0,
+      left: 0,
+      right: 320,
+      bottom: 260,
+      toJSON: () => ({}),
+    } as DOMRect;
+    const cardBounds = {
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 140,
+      top: 0,
+      left: 0,
+      right: 100,
+      bottom: 140,
+      toJSON: () => ({}),
+    } as DOMRect;
+    battlefield.getBoundingClientRect = () => battlefieldBounds;
+    cardElement.getBoundingClientRect = () => cardBounds;
+    Object.defineProperty(cardElement, 'offsetWidth', { configurable: true, value: 100 });
+    Object.defineProperty(cardElement, 'offsetHeight', { configurable: true, value: 140 });
+
+    fixture.componentInstance.store.reflowBattlefieldCardPositions();
+    battlefield.remove();
+
+    expect(fixture.componentInstance.store.snapshot()?.players['user-1']?.zones.battlefield[0]?.position)
+      .toEqual({ x: 220, y: 120 });
+  });
+
   it('blocks changing another player life total', async () => {
     routeParams['id'] = 'game-1';
     authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });

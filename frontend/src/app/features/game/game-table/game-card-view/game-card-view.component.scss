@@ -622,6 +622,21 @@
   }
 }
 
+@media (max-width: 760px) {
+  .game-card {
+    width: 5.35rem;
+    border-radius: 7px;
+  }
+
+  .mini-card {
+    width: 4.95rem;
+  }
+
+  .hand-card {
+    margin-right: -2.15rem;
+  }
+}
+
 @keyframes stat-value-decrease-hold {
   from {
     color: #fff1ed;

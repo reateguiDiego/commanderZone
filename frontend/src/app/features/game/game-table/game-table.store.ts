@@ -299,6 +299,54 @@ export class GameTableStore implements OnDestroy {
     return this.selectors.cardPosition(card);
   }
 
+  reflowBattlefieldCardPositions(): void {
+    const snapshot = this.snapshot();
+    if (!snapshot) {
+      return;
+    }
+
+    let nextSnapshot: GameSnapshot | null = null;
+    for (const battlefield of document.querySelectorAll<HTMLElement>('.battlefield[data-player-id]')) {
+      const playerId = battlefield.dataset['playerId'];
+      if (!playerId || !snapshot.players[playerId]) {
+        continue;
+      }
+
+      const bounds = battlefield.getBoundingClientRect();
+      if (bounds.width <= 0 || bounds.height <= 0) {
+        continue;
+      }
+
+      const sourceCards = (nextSnapshot ?? snapshot).players[playerId]?.zones.battlefield ?? [];
+      for (const card of sourceCards) {
+        const position = this.selectors.cardPosition(card);
+        if (!position) {
+          continue;
+        }
+
+        const cardElement = Array.from(battlefield.querySelectorAll<HTMLElement>('[data-testid="game-card"][data-card-instance-id]'))
+          .find((element) => element.dataset['cardInstanceId'] === card.instanceId);
+        const cardBounds = cardElement?.getBoundingClientRect();
+        const cardWidth = Math.max(1, Math.round(cardElement?.offsetWidth || cardBounds?.width || 116));
+        const cardHeight = Math.max(1, Math.round(cardElement?.offsetHeight || cardBounds?.height || 162));
+        const clamped = this.clampBattlefieldPosition(position, bounds.width, bounds.height, cardWidth, cardHeight);
+        if (clamped.x === position.x && clamped.y === position.y) {
+          continue;
+        }
+
+        nextSnapshot ??= structuredClone(snapshot);
+        const nextCard = nextSnapshot.players[playerId]?.zones.battlefield.find((candidate) => candidate.instanceId === card.instanceId);
+        if (nextCard) {
+          nextCard.position = clamped;
+        }
+      }
+    }
+
+    if (nextSnapshot) {
+      this.setSnapshot(nextSnapshot);
+    }
+  }
+
   topVisibleCard(player: PlayerView, zone: GameZoneName): GameCardInstance | null {
     return this.selectors.topVisibleCard(player, zone);
   }
@@ -1325,6 +1373,19 @@ export class GameTableStore implements OnDestroy {
 
   private samePosition(left: { x: number; y: number }, right: { x: number; y: number }): boolean {
     return left.x === right.x && left.y === right.y;
+  }
+
+  private clampBattlefieldPosition(
+    position: { x: number; y: number },
+    battlefieldWidth: number,
+    battlefieldHeight: number,
+    cardWidth: number,
+    cardHeight: number,
+  ): { x: number; y: number } {
+    return {
+      x: Math.max(0, Math.min(Math.round(battlefieldWidth - cardWidth), Math.round(position.x))),
+      y: Math.max(0, Math.min(Math.round(battlefieldHeight - cardHeight), Math.round(position.y))),
+    };
   }
 
   private moveLocalCardsFromHandToBattlefield(

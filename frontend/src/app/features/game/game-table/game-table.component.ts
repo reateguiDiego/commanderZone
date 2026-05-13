@@ -191,6 +191,7 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
   private lastAutoScrollKey = '';
   private floatingScrollFrame: number | null = null;
   private floatingScrollTimer: number | null = null;
+  private battlefieldReflowFrame: number | null = null;
 
   @ViewChild(GameLogPanelComponent) private readonly gameLogPanel?: GameLogPanelComponent;
   @ViewChildren('autoScrollFeed') private readonly autoScrollFeeds?: QueryList<ElementRef<HTMLElement>>;
@@ -212,10 +213,12 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
 
     this.lastAutoScrollKey = key;
     queueMicrotask(() => this.queueFloatingContentScrollToBottom());
+    this.queueBattlefieldReflow();
   }
 
   ngOnDestroy(): void {
     this.clearQueuedFloatingContentScroll();
+    this.clearQueuedBattlefieldReflow();
   }
 
   scrollFloatingContentToBottom(): void {
@@ -252,6 +255,11 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
     if (event.propertyName === 'max-height') {
       this.queueFloatingContentScrollToBottom();
     }
+  }
+
+  @HostListener('window:resize')
+  handleViewportResize(): void {
+    this.queueBattlefieldReflow();
   }
 
   @HostListener('document:keydown', ['$event'])
@@ -344,6 +352,26 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
 
   isLibraryMenu(menu: GameContextMenu): boolean {
     return menu.zone === 'library' && !menu.card;
+  }
+
+  private queueBattlefieldReflow(): void {
+    if (this.battlefieldReflowFrame !== null) {
+      return;
+    }
+
+    this.battlefieldReflowFrame = window.requestAnimationFrame(() => {
+      this.battlefieldReflowFrame = null;
+      this.store.reflowBattlefieldCardPositions();
+    });
+  }
+
+  private clearQueuedBattlefieldReflow(): void {
+    if (this.battlefieldReflowFrame === null) {
+      return;
+    }
+
+    window.cancelAnimationFrame(this.battlefieldReflowFrame);
+    this.battlefieldReflowFrame = null;
   }
 
   isZoneOnlyMenu(menu: GameContextMenu): boolean {

@@ -153,6 +153,30 @@
   pointer-events: none;
 }
 
+.player-sidebar:hover,
+.player-sidebar:focus-within {
+  transform: translateX(0);
+}
+
+.drawer-handle {
+  display: none;
+  place-items: center;
+  min-width: 0;
+  border: 0;
+  border-right: 1px solid var(--game-accent-line);
+  border-radius: 0;
+  background: rgb(0 0 0 / 74%);
+  color: var(--game-accent);
+  cursor: pointer;
+  font-weight: 1000;
+  text-transform: uppercase;
+  writing-mode: vertical-rl;
+}
+
+.opponents-list {
+  display: contents;
+}
+
 .floating-panel {
   position: absolute;
   top: 0;
@@ -521,36 +545,196 @@
   }
 }
 
-@media (max-width: 1000px) {
+@media (max-width: 1180px) and (min-width: 761px) {
   .game-screen {
+    --game-log-overlay-peek-height: 96px;
+    --game-zone-row-height: 112px;
     --game-hand-left-extension: 0px;
   }
 
   .table-surface {
-    grid-template-columns: 1fr;
-    grid-template-rows: 104px auto auto auto;
+    grid-template-columns: minmax(0, 1fr) 4.5rem;
+    grid-template-rows: var(--game-log-overlay-peek-height) minmax(0, 1fr) var(--game-zone-row-height);
     grid-template-areas:
-      "mainTop"
-      "board"
-      "zones"
-      "opponents";
-    overflow: auto;
+      "mainTop mainTop"
+      "board opponents"
+      "board zones";
+    overflow: hidden;
   }
 
-  .floating-panel {
-    position: relative;
-    top: auto;
-    right: auto;
-    z-index: auto;
-    max-width: none;
-    height: var(--game-log-overlay-peek-height);
-    max-height: var(--game-log-overlay-peek-height);
+  .player-strip {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 0 minmax(17rem, 22rem);
+  }
+
+  .extras-panel {
+    display: none;
   }
 
   .player-sidebar {
-    grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+    position: relative;
+    z-index: 340;
+    justify-self: end;
+    width: min(22rem, calc(100vw - 2rem));
+    height: 100%;
+    grid-template-columns: 2.65rem minmax(0, 1fr);
+    align-content: stretch;
+    gap: 0;
+    overflow: hidden;
+    border-left: 1px solid var(--game-line-soft);
+    pointer-events: auto;
+    transform: translateX(calc(100% - 2.65rem));
   }
 
+  .drawer-handle {
+    display: grid;
+    grid-column: 1;
+    grid-row: 1;
+    font-size: 0.68rem;
+  }
+
+  .opponents-list {
+    display: grid;
+    grid-column: 2;
+    grid-row: 1;
+    align-content: start;
+    gap: 0.55rem;
+    min-width: 0;
+    overflow: auto;
+    padding: 0.45rem;
+  }
+
+  .zone-dock {
+    position: relative;
+    z-index: 330;
+    justify-self: end;
+    width: min(22rem, calc(100vw - 2rem));
+    height: min(25rem, 42vh);
+    grid-template-columns: 2.65rem minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: repeat(2, minmax(0, 1fr));
+    overflow: hidden;
+    transform: translateX(calc(100% - 2.65rem));
+  }
+
+  .zone-dock::before {
+    content: "Zones";
+    display: grid;
+    grid-row: 1 / -1;
+    grid-column: 1;
+    place-items: center;
+    border-right: 1px solid var(--game-accent-line);
+    background: rgb(0 0 0 / 72%);
+    color: var(--game-accent);
+    font-size: 0.68rem;
+    font-weight: 1000;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    writing-mode: vertical-rl;
+  }
+
+  .zone-dock:hover,
+  .zone-dock:focus-within {
+    transform: translateX(0);
+  }
+
+}
+
+@media (max-width: 760px) {
+  .game-screen {
+    --game-log-overlay-peek-height: 2.35rem;
+    --game-zone-row-height: 5.75rem;
+    --game-table-side-margin: 0;
+    --game-hand-left-extension: 0px;
+  }
+
+  .table-surface {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: 3.15rem minmax(0, 1fr) var(--game-zone-row-height);
+    grid-template-areas:
+      "mainTop"
+      "board"
+      "zones";
+    overflow: hidden;
+  }
+
+  .player-strip {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    width: 100%;
+    margin-inline: 0;
+  }
+
+  .extras-panel {
+    display: none;
+  }
+
+  .floating-panel {
+    position: fixed;
+    right: auto;
+    bottom: 0;
+    left: 0;
+    top: auto;
+    z-index: 860;
+    width: min(100vw, 24rem);
+    max-width: none;
+    height: min(62dvh, 28rem);
+    max-height: none;
+    border-right-color: var(--game-accent-line);
+    transform: translateY(calc(100% - var(--game-log-overlay-peek-height)));
+  }
+
+  .floating-panel:hover,
+  .floating-panel:focus-within {
+    max-height: none;
+    transform: translateY(0);
+  }
+
+  .focused-board {
+    grid-template-rows: minmax(0, 1fr) 4.35rem;
+  }
+
+  .player-sidebar {
+    position: fixed;
+    top: 0.8rem;
+    right: 0;
+    bottom: var(--game-zone-row-height);
+    z-index: 850;
+    width: min(82vw, 20rem);
+    display: grid;
+    grid-template-columns: 2.5rem minmax(0, 1fr);
+    align-content: stretch;
+    gap: 0;
+    overflow: hidden;
+    border-left: 1px solid var(--game-accent-line);
+    background: rgb(4 5 4 / 88%);
+    pointer-events: auto;
+    transform: translateX(calc(100% - 2.5rem));
+  }
+
+  .drawer-handle {
+    display: grid;
+    grid-column: 1;
+    font-size: 0.62rem;
+  }
+
+  .opponents-list {
+    display: grid;
+    grid-column: 2;
+    align-content: start;
+    gap: 0.35rem;
+    overflow: auto;
+    padding: 0.35rem;
+  }
+
+  .zone-dock {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-rows: minmax(0, 1fr);
+    height: var(--game-zone-row-height);
+    margin-bottom: 0;
+    background: rgb(4 5 4 / 74%);
+  }
+
+}
+
+@media (max-width: 1180px) {
   .card-preview {
     display: none;
   }

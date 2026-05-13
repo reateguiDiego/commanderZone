@@ -20,7 +20,7 @@
       <button type="button" class="danger-menu-item" (click)="actionSelected.emit({ type: 'concedeGame' })">Concede</button>
     }
     @if (isGameOwner()) {
-      <button type="button" class="danger-menu-item" (click)="actionSelected.emit({ type: 'closeGame' })">Close/archive game</button>
+      <button type="button" class="danger-menu-item" (click)="actionSelected.emit({ type: 'closeGame' })">Close game</button>
     }
   } @else if (activeMenu.kind === 'player') {
     <button type="button" (click)="actionSelected.emit({ type: 'focusPlayer' })">Focus player</button>

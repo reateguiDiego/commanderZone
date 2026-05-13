@@ -55,3 +55,24 @@
 .life-total:hover {
   border-color: color-mix(in srgb, var(--player-accent) 76%, var(--game-text, #f3f0e8));
 }
+
+@media (max-width: 760px) {
+  .player-summary-panel {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.35rem;
+    padding: 0.32rem 0.45rem;
+  }
+
+  .player-avatar,
+  .player-copy small,
+  .player-copy app-mana-symbols {
+    display: none;
+  }
+
+  .life-total {
+    min-width: 2.8rem;
+    min-height: 2.15rem;
+    border-radius: 0;
+    font-size: 1.05rem;
+  }
+}

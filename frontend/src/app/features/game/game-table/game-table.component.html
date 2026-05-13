@@ -248,32 +248,35 @@
       }
 
       <aside appPrettyScroll class="player-sidebar game-table-opponents">
-        @for (player of store.players(); track player.id) {
-          @if (store.focusedPlayer()?.id !== player.id) {
-            <app-opponent-mini-board
-              [player]="player"
-              [colorAccent]="colorAccent"
-              [deckLabel]="deckLabel"
-              [manaSymbols]="manaSymbols"
-              [zoneCount]="zoneCount"
-              [cardPosition]="cardPosition"
-              [miniCardLeft]="miniCardLeft"
-              [miniCardTop]="miniCardTop"
-              [cardImage]="cardImage"
-              [isPlayerDropHighlighted]="isPlayerDropHighlighted"
-              [isCardDropSettling]="isCardDropSettling"
-              [isManaDropSettling]="isManaDropSettling"
-              [isBattlefieldEntrySettling]="isBattlefieldEntrySettling"
-              [isCardTransferPending]="isCardTransferPending"
-              (focusPlayer)="store.focusPlayer($event)"
-              (dropAllowed)="store.allowDrop($event)"
-              (playerDropped)="store.dropOnPlayer($event.event, $event.playerId)"
-              (playerMenuOpened)="store.openPlayerMenu($event.event, $event.playerId)"
-              (cardPreviewShown)="store.showCardPreview($event.card, $event.playerId, $event.zone)"
-              (cardPreviewHidden)="store.hideCardPreview()"
-            />
+        <button class="drawer-handle opponents-drawer-handle" type="button">Opponents</button>
+        <div class="opponents-list">
+          @for (player of store.players(); track player.id) {
+            @if (store.focusedPlayer()?.id !== player.id) {
+              <app-opponent-mini-board
+                [player]="player"
+                [colorAccent]="colorAccent"
+                [deckLabel]="deckLabel"
+                [manaSymbols]="manaSymbols"
+                [zoneCount]="zoneCount"
+                [cardPosition]="cardPosition"
+                [miniCardLeft]="miniCardLeft"
+                [miniCardTop]="miniCardTop"
+                [cardImage]="cardImage"
+                [isPlayerDropHighlighted]="isPlayerDropHighlighted"
+                [isCardDropSettling]="isCardDropSettling"
+                [isManaDropSettling]="isManaDropSettling"
+                [isBattlefieldEntrySettling]="isBattlefieldEntrySettling"
+                [isCardTransferPending]="isCardTransferPending"
+                (focusPlayer)="store.focusPlayer($event)"
+                (dropAllowed)="store.allowDrop($event)"
+                (playerDropped)="store.dropOnPlayer($event.event, $event.playerId)"
+                (playerMenuOpened)="store.openPlayerMenu($event.event, $event.playerId)"
+                (cardPreviewShown)="store.showCardPreview($event.card, $event.playerId, $event.zone)"
+                (cardPreviewHidden)="store.hideCardPreview()"
+              />
+            }
           }
-        }
+        </div>
       </aside>
       @if (store.hoveredCard(); as card) {
         <aside class="card-preview">
@@ -348,7 +351,7 @@
 
       <app-modal
         [open]="closeGameDialogOpen()"
-        title="Close and archive game?"
+        title="Close game?"
         message="This finishes the current game and sends the table back to the rooms list."
         primaryLabel="Close game"
         secondaryLabel="Cancel"

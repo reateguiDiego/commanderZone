@@ -257,3 +257,46 @@
     }
   }
 }
+
+@media (max-width: 1180px) and (min-width: 761px) {
+  .zone-stack {
+    min-width: 0;
+    min-height: 0;
+    padding: 0.35rem;
+  }
+
+  .zone-art {
+    width: min(5.2rem, 100%);
+  }
+}
+
+@media (max-width: 760px) {
+  .zone-stack {
+    min-width: 0;
+    min-height: 0;
+    padding: 0.25rem;
+    border-width: 0 1px 0 0;
+  }
+
+  [data-testid='zone-pile'] {
+    gap: 0.15rem;
+  }
+
+  .zone-pile-label {
+    font-size: 0.58rem;
+  }
+
+  .zone-art {
+    width: min(2.45rem, 70%);
+    border-radius: 4px;
+  }
+
+  .zone-count-badge,
+  .commander-cast-count {
+    right: -0.28rem;
+    bottom: -0.28rem;
+    min-width: 1.1rem;
+    height: 1.1rem;
+    font-size: 0.64rem;
+  }
+}
