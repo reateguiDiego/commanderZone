@@ -73,7 +73,54 @@ class CardApiTest extends ApiTestCase
         self::assertSame('Awakened Skyclave', $faces[1]['name']);
         self::assertSame('4', $faces[1]['power']);
         self::assertSame('4', $faces[1]['toughness']);
+        self::assertArrayHasKey('defense', $faces[0]);
+        self::assertArrayHasKey('handModifier', $faces[0]);
+        self::assertArrayHasKey('lifeModifier', $faces[0]);
         self::assertSame('https://cards.scryfall.io/back.jpg', $faces[1]['imageUris']['normal']);
+    }
+
+    public function testCardResponseIncludesFaceStatsWithBattleDefenseAndModifiers(): void
+    {
+        $card = $this->seedCard('00000000-0000-0000-0000-0000000000aa', 'Battle Mentor', [
+            'layout' => 'transform',
+            'type_line' => 'Battle - Siege',
+            'defense' => '5',
+            'hand_modifier' => '+1',
+            'life_modifier' => '-2',
+            'card_faces' => [
+                [
+                    'name' => 'Battle Mentor',
+                    'type_line' => 'Battle - Siege',
+                    'defense' => '5',
+                    'hand_modifier' => '+1',
+                    'life_modifier' => '-2',
+                    'oracle_text' => 'Front face',
+                    'image_uris' => ['normal' => 'https://cards.scryfall.io/front-battle.jpg'],
+                ],
+                [
+                    'name' => 'Mentor Awakened',
+                    'type_line' => 'Creature - Avatar',
+                    'power' => '4',
+                    'toughness' => '4',
+                    'oracle_text' => 'Back face',
+                    'image_uris' => ['normal' => 'https://cards.scryfall.io/back-battle.jpg'],
+                ],
+            ],
+        ]);
+
+        $this->jsonRequest('GET', '/cards/'.$card->scryfallId());
+        self::assertResponseIsSuccessful();
+
+        $payload = $this->jsonResponse()['card'];
+        self::assertArrayHasKey('faceStats', $payload);
+        self::assertSame('5', $payload['faceStats']['root']['defense']);
+        self::assertSame('+1', $payload['faceStats']['root']['handModifier']);
+        self::assertSame('-2', $payload['faceStats']['root']['lifeModifier']);
+        self::assertCount(2, $payload['faceStats']['faces']);
+        self::assertSame('Battle Mentor', $payload['faceStats']['faces'][0]['name']);
+        self::assertSame('5', $payload['faceStats']['faces'][0]['defense']);
+        self::assertSame('+1', $payload['faceStats']['faces'][0]['handModifier']);
+        self::assertSame('-2', $payload['faceStats']['faces'][0]['lifeModifier']);
     }
 
     public function testAmbiguousNameResolutionReturnsConflict(): void

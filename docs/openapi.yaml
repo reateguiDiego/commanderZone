@@ -2269,7 +2269,7 @@ components:
           pattern: '^#[0-9a-fA-F]{6}$'
     User:
       type: object
-      required: [id, email, emailVerified, pendingEmail, displayName, displayNameStyle, roles, avatar]
+      required: [id, email, emailVerified, pendingEmail, displayName, displayNameStyle, roles, avatar, createdAt, updatedAt]
       properties:
         id:
           type: string
@@ -2293,6 +2293,12 @@ components:
             type: string
         avatar:
           $ref: '#/components/schemas/UserAvatar'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
     FriendUser:
       type: object
       required: [id, displayName]
@@ -2364,7 +2370,7 @@ components:
           format: uuid
     CardFace:
       type: object
-      required: [name, manaCost, typeLine, oracleText, power, toughness, loyalty, colors, imageUris]
+      required: [name, manaCost, typeLine, oracleText, power, toughness, loyalty, defense, handModifier, lifeModifier, colors, imageUris]
       properties:
         name:
           type: [string, 'null']
@@ -2380,6 +2386,12 @@ components:
           type: [string, 'null']
         loyalty:
           type: [string, 'null']
+        defense:
+          type: [string, 'null']
+        handModifier:
+          type: [string, 'null']
+        lifeModifier:
+          type: [string, 'null']
         colors:
           type: array
           items:
@@ -2388,6 +2400,40 @@ components:
           type: object
           additionalProperties:
             type: string
+    CardStatBlock:
+      type: object
+      required: [power, toughness, loyalty, defense, handModifier, lifeModifier]
+      properties:
+        power:
+          type: [string, 'null']
+        toughness:
+          type: [string, 'null']
+        loyalty:
+          type: [string, 'null']
+        defense:
+          type: [string, 'null']
+        handModifier:
+          type: [string, 'null']
+        lifeModifier:
+          type: [string, 'null']
+    CardFaceStatsEntry:
+      allOf:
+        - $ref: '#/components/schemas/CardStatBlock'
+        - type: object
+          required: [name]
+          properties:
+            name:
+              type: [string, 'null']
+    CardFaceStats:
+      type: object
+      required: [root, faces]
+      properties:
+        root:
+          $ref: '#/components/schemas/CardStatBlock'
+        faces:
+          type: array
+          items:
+            $ref: '#/components/schemas/CardFaceStatsEntry'
     Card:
       type: object
       required: [id, scryfallId, name, colors, colorIdentity, legalities, imageUris, cardFaces, layout, commanderLegal]
@@ -2415,6 +2461,8 @@ components:
         loyalty:
           type: [string, 'null']
           description: Printed loyalty from Scryfall. Kept as string because values can be non-numeric.
+        faceStats:
+          $ref: '#/components/schemas/CardFaceStats'
         colors:
           type: array
           items:
@@ -3335,7 +3383,7 @@ components:
           format: uuid
     Room:
       type: object
-      required: [id, name, owner, status, visibility, format, maxPlayers, startingLife, timerMode, timerDurationSeconds, players]
+      required: [id, name, owner, status, visibility, format, maxPlayers, startingLife, timerMode, timerDurationSeconds, players, createdAt, updatedAt]
       properties:
         id:
           type: string
@@ -3377,6 +3425,12 @@ components:
         gameId:
           type: [string, 'null']
           format: uuid
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
     RoomPlayer:
       type: object
       required: [id, user, deckId, deck, turnRoll]
@@ -3487,7 +3541,7 @@ components:
           format: date-time
     Game:
       type: object
-      required: [id, status, snapshot]
+      required: [id, status, snapshot, createdAt, updatedAt]
       properties:
         id:
           type: string
@@ -3497,6 +3551,12 @@ components:
           enum: [active, finished]
         snapshot:
           $ref: '#/components/schemas/GameSnapshot'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
     GameSnapshot:
       type: object
       required: [version, players, turn, stack, arrows, chat, eventLog, createdAt]

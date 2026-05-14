@@ -33,6 +33,9 @@ class PasswordResetToken
     #[ORM\Column(type: 'datetime_immutable')]
     private \DateTimeImmutable $createdAt;
 
+    #[ORM\Column(type: 'datetime_immutable')]
+    private \DateTimeImmutable $updatedAt;
+
     #[ORM\Column(type: 'string', length: 64, nullable: true)]
     private ?string $requestIp;
 
@@ -51,6 +54,7 @@ class PasswordResetToken
         $this->tokenHash = $tokenHash;
         $this->expiresAt = $expiresAt;
         $this->createdAt = new \DateTimeImmutable();
+        $this->updatedAt = $this->createdAt;
         $this->requestIp = $requestIp;
         $this->requestUserAgent = $requestUserAgent;
     }
@@ -73,5 +77,11 @@ class PasswordResetToken
     public function markUsed(?\DateTimeImmutable $usedAt = null): void
     {
         $this->usedAt = $usedAt ?? new \DateTimeImmutable();
+        $this->touch();
+    }
+
+    private function touch(): void
+    {
+        $this->updatedAt = new \DateTimeImmutable();
     }
 }

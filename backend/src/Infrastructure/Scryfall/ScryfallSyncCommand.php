@@ -154,6 +154,7 @@ INSERT INTO card (
     power,
     toughness,
     loyalty,
+    face_stats,
     colors,
     color_identity,
     legalities,
@@ -169,7 +170,8 @@ INSERT INTO card (
     collector_number,
     lang,
     printed_name,
-    flavor_name
+    flavor_name,
+    updated_at
 ) VALUES (
     :id,
     :scryfall_id,
@@ -181,6 +183,7 @@ INSERT INTO card (
     :power,
     :toughness,
     :loyalty,
+    :face_stats,
     :colors,
     :color_identity,
     :legalities,
@@ -196,7 +199,8 @@ INSERT INTO card (
     :collector_number,
     :lang,
     :printed_name,
-    :flavor_name
+    :flavor_name,
+    NOW()
 )
 ON CONFLICT (scryfall_id) DO UPDATE SET
     name = EXCLUDED.name,
@@ -207,6 +211,7 @@ ON CONFLICT (scryfall_id) DO UPDATE SET
     power = EXCLUDED.power,
     toughness = EXCLUDED.toughness,
     loyalty = EXCLUDED.loyalty,
+    face_stats = EXCLUDED.face_stats,
     colors = EXCLUDED.colors,
     color_identity = EXCLUDED.color_identity,
     legalities = EXCLUDED.legalities,
@@ -222,7 +227,8 @@ ON CONFLICT (scryfall_id) DO UPDATE SET
     collector_number = EXCLUDED.collector_number,
     lang = EXCLUDED.lang,
     printed_name = EXCLUDED.printed_name,
-    flavor_name = EXCLUDED.flavor_name
+    flavor_name = EXCLUDED.flavor_name,
+    updated_at = NOW()
 SQL,
             [
                 'id' => Uuid::v7()->toRfc4122(),
@@ -235,6 +241,7 @@ SQL,
                 'power' => $this->cardString($data, 'power'),
                 'toughness' => $this->cardString($data, 'toughness'),
                 'loyalty' => $this->cardString($data, 'loyalty'),
+                'face_stats' => $this->json($this->faceStats($data)),
                 'colors' => $this->json($data['colors'] ?? []),
                 'color_identity' => $this->json($data['color_identity'] ?? []),
                 'legalities' => $this->json($legalities),
@@ -277,6 +284,58 @@ SQL,
     {
         $value = $data[$key] ?? $this->firstFaceValue($data, $key);
 
+        return is_scalar($value) && (string) $value !== '' ? (string) $value : null;
+    }
+
+    private function faceStats(array $data): array
+    {
+        $faces = [];
+        foreach ($this->cardFaces($data) as $face) {
+            $faces[] = [
+                'name' => isset($face['name']) && is_scalar($face['name']) ? (string) $face['name'] : null,
+                ...$this->statBlock([
+                    'power' => $face['power'] ?? null,
+                    'toughness' => $face['toughness'] ?? null,
+                    'loyalty' => $face['loyalty'] ?? null,
+                    'defense' => $face['defense'] ?? null,
+                    'handModifier' => $face['hand_modifier'] ?? null,
+                    'lifeModifier' => $face['life_modifier'] ?? null,
+                ]),
+            ];
+        }
+
+        return [
+            'root' => $this->statBlock([
+                'power' => $this->cardString($data, 'power'),
+                'toughness' => $this->cardString($data, 'toughness'),
+                'loyalty' => $this->cardString($data, 'loyalty'),
+                'defense' => $this->cardString($data, 'defense'),
+                'handModifier' => $this->cardString($data, 'hand_modifier'),
+                'lifeModifier' => $this->cardString($data, 'life_modifier'),
+            ]),
+            'faces' => $faces,
+        ];
+    }
+
+    /**
+     * @param array<string,mixed> $values
+     *
+     * @return array{power:?string,toughness:?string,loyalty:?string,defense:?string,handModifier:?string,lifeModifier:?string}
+     */
+    private function statBlock(array $values): array
+    {
+        return [
+            'power' => $this->scalarOrNull($values['power'] ?? null),
+            'toughness' => $this->scalarOrNull($values['toughness'] ?? null),
+            'loyalty' => $this->scalarOrNull($values['loyalty'] ?? null),
+            'defense' => $this->scalarOrNull($values['defense'] ?? null),
+            'handModifier' => $this->scalarOrNull($values['handModifier'] ?? null),
+            'lifeModifier' => $this->scalarOrNull($values['lifeModifier'] ?? null),
+        ];
+    }
+
+    private function scalarOrNull(mixed $value): ?string
+    {
         return is_scalar($value) && (string) $value !== '' ? (string) $value : null;
     }
 

@@ -34,6 +34,9 @@ class GameEvent
     #[ORM\Column(type: 'datetime_immutable')]
     private \DateTimeImmutable $createdAt;
 
+    #[ORM\Column(type: 'datetime_immutable')]
+    private \DateTimeImmutable $updatedAt;
+
     public function __construct(Game $game, string $type, array $payload, ?User $createdBy, ?string $clientActionId = null)
     {
         $this->id = Uuid::v7()->toRfc4122();
@@ -43,6 +46,7 @@ class GameEvent
         $this->clientActionId = $clientActionId;
         $this->createdBy = $createdBy;
         $this->createdAt = new \DateTimeImmutable();
+        $this->updatedAt = $this->createdAt;
     }
 
     public function clientActionId(): ?string

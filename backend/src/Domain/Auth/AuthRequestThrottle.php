@@ -26,12 +26,16 @@ class AuthRequestThrottle
     #[ORM\Column(type: 'datetime_immutable')]
     private \DateTimeImmutable $windowStartedAt;
 
+    #[ORM\Column(type: 'datetime_immutable')]
+    private \DateTimeImmutable $updatedAt;
+
     public function __construct(string $scope, string $identifier, \DateTimeImmutable $now)
     {
         $this->id = Uuid::v7()->toRfc4122();
         $this->scope = trim($scope);
         $this->identifier = trim($identifier);
         $this->windowStartedAt = $now;
+        $this->updatedAt = $now;
     }
 
     public function consume(\DateTimeImmutable $now, int $windowSeconds): void
@@ -43,6 +47,7 @@ class AuthRequestThrottle
         }
 
         $this->hits++;
+        $this->touch();
     }
 
     public function exceedsLimit(\DateTimeImmutable $now, int $windowSeconds, int $maxHits): bool
@@ -53,5 +58,10 @@ class AuthRequestThrottle
         }
 
         return $this->hits >= $maxHits;
+    }
+
+    private function touch(): void
+    {
+        $this->updatedAt = new \DateTimeImmutable();
     }
 }

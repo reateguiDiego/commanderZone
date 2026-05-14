@@ -74,6 +74,9 @@ class Room
     #[ORM\Column(type: 'datetime_immutable')]
     private \DateTimeImmutable $createdAt;
 
+    #[ORM\Column(type: 'datetime_immutable')]
+    private \DateTimeImmutable $updatedAt;
+
     public function __construct(User $owner)
     {
         $this->id = Uuid::v7()->toRfc4122();
@@ -81,6 +84,7 @@ class Room
         $this->name = self::defaultNameForOwner($owner);
         $this->players = new ArrayCollection();
         $this->createdAt = new \DateTimeImmutable();
+        $this->updatedAt = $this->createdAt;
     }
 
     public function id(): string
@@ -138,6 +142,7 @@ class Room
         $this->visibility = in_array($visibility, [self::VISIBILITY_PRIVATE, self::VISIBILITY_PUBLIC], true)
             ? $visibility
             : self::VISIBILITY_PRIVATE;
+        $this->touch();
     }
 
     public function setName(string $name): void
@@ -145,26 +150,31 @@ class Room
         $trimmed = trim($name);
         if ($trimmed === '') {
             $this->name = self::defaultNameForOwner($this->owner);
+            $this->touch();
 
             return;
         }
 
         $this->name = substr($trimmed, 0, 120);
+        $this->touch();
     }
 
     public function setFormat(string $format): void
     {
         $this->format = $format === self::FORMAT_COMMANDER ? $format : self::FORMAT_COMMANDER;
+        $this->touch();
     }
 
     public function setMaxPlayers(int $maxPlayers): void
     {
         $this->maxPlayers = max(self::MIN_MAX_PLAYERS, min(self::MAX_MAX_PLAYERS, $maxPlayers));
+        $this->touch();
     }
 
     public function setStartingLife(int $startingLife): void
     {
         $this->startingLife = max(self::MIN_STARTING_LIFE, min(self::MAX_STARTING_LIFE, $startingLife));
+        $this->touch();
     }
 
     public function setTimerMode(string $timerMode): void
@@ -172,6 +182,7 @@ class Room
         $this->timerMode = in_array($timerMode, [self::TIMER_NONE, self::TIMER_TURN], true)
             ? $timerMode
             : self::DEFAULT_TIMER_MODE;
+        $this->touch();
     }
 
     public function setTimerDurationSeconds(int $timerDurationSeconds): void
@@ -180,6 +191,7 @@ class Room
             self::MIN_TIMER_DURATION_SECONDS,
             min(self::MAX_TIMER_DURATION_SECONDS, $timerDurationSeconds),
         );
+        $this->touch();
     }
 
     public function players(): Collection
@@ -227,6 +239,7 @@ class Room
             if ($existing->user()->id() === $player->user()->id()) {
                 if ($player->deck() !== null) {
                     $existing->changeDeck($player->deck());
+                    $this->touch();
                 }
 
                 return true;
@@ -238,6 +251,7 @@ class Room
         }
 
         $this->players->add($player);
+        $this->touch();
 
         return true;
     }
@@ -289,6 +303,7 @@ class Room
         foreach ($this->players as $player) {
             if ($player->user()->id() === $user->id()) {
                 $this->players->removeElement($player);
+                $this->touch();
             }
         }
     }
@@ -297,11 +312,13 @@ class Room
     {
         $this->status = self::STATUS_STARTED;
         $this->game = $game;
+        $this->touch();
     }
 
     public function detachGame(): void
     {
         $this->game = null;
+        $this->touch();
     }
 
     public function toArray(): array
@@ -319,7 +336,14 @@ class Room
             'timerDurationSeconds' => $this->timerDurationSeconds,
             'players' => array_map(static fn (RoomPlayer $player) => $player->toArray(), $this->orderedPlayers()),
             'gameId' => $this->game?->id(),
+            'createdAt' => $this->createdAt->format(DATE_ATOM),
+            'updatedAt' => $this->updatedAt->format(DATE_ATOM),
         ];
+    }
+
+    private function touch(): void
+    {
+        $this->updatedAt = new \DateTimeImmutable();
     }
 
     private static function defaultNameForOwner(User $owner): string

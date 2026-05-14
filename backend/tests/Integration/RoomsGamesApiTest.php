@@ -66,6 +66,8 @@ class RoomsGamesApiTest extends ApiTestCase
         ], $ownerToken);
         self::assertResponseStatusCodeSame(201);
         $firstRoomId = (string) $this->jsonResponse()['room']['id'];
+        self::assertArrayHasKey('createdAt', $this->jsonResponse()['room']);
+        self::assertArrayHasKey('updatedAt', $this->jsonResponse()['room']);
         self::assertSame(35, $this->jsonResponse()['room']['startingLife']);
         self::assertSame('turn', $this->jsonResponse()['room']['timerMode']);
         self::assertSame(120, $this->jsonResponse()['room']['timerDurationSeconds']);
@@ -78,6 +80,8 @@ class RoomsGamesApiTest extends ApiTestCase
 
         $this->jsonRequest('POST', '/rooms/'.$firstRoomId.'/start', token: $ownerToken);
         self::assertResponseStatusCodeSame(201);
+        self::assertArrayHasKey('createdAt', $this->jsonResponse()['game']);
+        self::assertArrayHasKey('updatedAt', $this->jsonResponse()['game']);
         self::assertSame('turn', $this->jsonResponse()['game']['snapshot']['timer']['mode']);
         self::assertSame(120, $this->jsonResponse()['game']['snapshot']['timer']['durationSeconds']);
         foreach ($this->jsonResponse()['game']['snapshot']['players'] as $playerSnapshot) {

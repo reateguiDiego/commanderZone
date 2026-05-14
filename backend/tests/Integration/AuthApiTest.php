@@ -21,6 +21,8 @@ class AuthApiTest extends ApiTestCase
         self::assertSame('initial', $this->jsonResponse()['user']['avatar']['type']);
         self::assertSame('P', $this->jsonResponse()['user']['avatar']['initial']['letter']);
         self::assertSame(['type' => 'plain', 'presetId' => 'plain'], $this->jsonResponse()['user']['displayNameStyle']);
+        self::assertArrayHasKey('createdAt', $this->jsonResponse()['user']);
+        self::assertArrayHasKey('updatedAt', $this->jsonResponse()['user']);
 
         $this->jsonRequest('PATCH', '/me', ['displayName' => 'Taken Name'], $token);
         self::assertResponseStatusCodeSame(409);
