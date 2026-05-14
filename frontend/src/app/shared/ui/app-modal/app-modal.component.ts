@@ -22,13 +22,19 @@ export class AppModalComponent implements OnChanges, OnDestroy {
   @Input() showPrimary = true;
   @Input() showSecondary = true;
   @Input() primaryDisabled = false;
+  @Input() secondaryVariant: 'primary' | 'secondary' = 'secondary';
   @Input() showBackButton = false;
   @Input() backLabel = 'Back';
   @Input() showHeaderAction = false;
   @Input() headerActionLabel = '';
+  @Input() showTertiary = false;
+  @Input() tertiaryLabel = 'Cancel';
+  @Input() footerLayout: 'default' | 'split' = 'default';
+  @Input() lockBodyScroll = true;
 
   @Output() back = new EventEmitter<void>();
   @Output() headerAction = new EventEmitter<void>();
+  @Output() tertiary = new EventEmitter<void>();
   @Output() primary = new EventEmitter<void>();
   @Output() secondary = new EventEmitter<void>();
 
@@ -39,18 +45,18 @@ export class AppModalComponent implements OnChanges, OnDestroy {
       return;
     }
 
-    if (this.open) {
-      this.lockBodyScroll();
+    if (this.open && this.lockBodyScroll) {
+      this.lockBodyPageScroll();
     } else {
-      this.unlockBodyScroll();
+      this.unlockBodyPageScroll();
     }
   }
 
   ngOnDestroy(): void {
-    this.unlockBodyScroll();
+    this.unlockBodyPageScroll();
   }
 
-  private lockBodyScroll(): void {
+  private lockBodyPageScroll(): void {
     if (this.scrollLocked) {
       return;
     }
@@ -59,7 +65,7 @@ export class AppModalComponent implements OnChanges, OnDestroy {
     this.scrollLocked = true;
   }
 
-  private unlockBodyScroll(): void {
+  private unlockBodyPageScroll(): void {
     if (!this.scrollLocked) {
       return;
     }

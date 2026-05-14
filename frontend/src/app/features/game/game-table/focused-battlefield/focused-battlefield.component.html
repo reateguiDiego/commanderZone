@@ -1,6 +1,8 @@
 @let focusedPlayer = player();
+@let activeAlignmentGuide = alignmentGuideFor()(focusedPlayer.id);
 
 <div
+  #battlefieldRoot
   class="battlefield game-table-battlefield"
   data-testid="battlefield-zone"
   data-stable-testid="main-battlefield"
@@ -12,6 +14,72 @@
   (drop)="battlefieldDropped.emit({ event: $event, playerId: focusedPlayer.id, zone: 'battlefield' })"
   (contextmenu)="battlefieldMenuOpened.emit({ event: $event, playerId: focusedPlayer.id, zone: 'battlefield' })"
 >
+  @let arrowViews = battlefieldArrowViews(focusedPlayer);
+  @if (arrowViews.length > 0) {
+    <svg class="battlefield-arrows" aria-hidden="true">
+      <defs>
+        @for (arrow of arrowViews; track arrow.id) {
+          <marker
+            [attr.id]="'battlefield-arrow-head-' + arrow.id"
+            markerWidth="14"
+            markerHeight="12"
+            refX="13"
+            refY="6"
+            orient="auto"
+            markerUnits="strokeWidth"
+          >
+            <path d="M 0 1 L 14 6 L 0 11 L 3.5 6 z" [attr.fill]="arrow.color"></path>
+          </marker>
+        }
+      </defs>
+      @for (arrow of arrowViews; track arrow.id) {
+        <circle
+          class="battlefield-arrow-origin"
+          [attr.cx]="arrow.x1"
+          [attr.cy]="arrow.y1"
+          r="8"
+          [attr.stroke]="arrow.color"
+        />
+        <line
+          [attr.x1]="arrow.x1"
+          [attr.y1]="arrow.y1"
+          [attr.x2]="arrow.x2"
+          [attr.y2]="arrow.y2"
+          [attr.stroke]="arrow.color"
+          [attr.marker-end]="'url(#battlefield-arrow-head-' + arrow.id + ')'"
+        />
+      }
+    </svg>
+    <svg class="battlefield-arrow-hit-layer" aria-label="Battlefield arrows">
+      @for (arrow of arrowViews; track arrow.id) {
+        <line
+          class="battlefield-arrow-hit-line"
+          [attr.x1]="arrow.x1"
+          [attr.y1]="arrow.y1"
+          [attr.x2]="arrow.x2"
+          [attr.y2]="arrow.y2"
+          (click)="openArrowMenu($event, focusedPlayer.id, arrow.id)"
+          (contextmenu)="openArrowMenu($event, focusedPlayer.id, arrow.id)"
+        />
+        <circle
+          class="battlefield-arrow-hit-point"
+          [attr.cx]="arrow.x1"
+          [attr.cy]="arrow.y1"
+          r="12"
+          (click)="openArrowMenu($event, focusedPlayer.id, arrow.id)"
+          (contextmenu)="openArrowMenu($event, focusedPlayer.id, arrow.id)"
+        />
+        <circle
+          class="battlefield-arrow-hit-point"
+          [attr.cx]="arrow.x2"
+          [attr.cy]="arrow.y2"
+          r="12"
+          (click)="openArrowMenu($event, focusedPlayer.id, arrow.id)"
+          (contextmenu)="openArrowMenu($event, focusedPlayer.id, arrow.id)"
+        />
+      }
+    </svg>
+  }
   @for (card of focusedPlayer.state.zones.battlefield; track card.instanceId) {
     <app-game-card-view
       mode="battlefield"
@@ -25,26 +93,34 @@
       [dragging]="isDraggingCard()(card)"
       [locked]="!isCurrentPlayer()(focusedPlayer.id) || !canDragBattlefieldCard()(focusedPlayer.id, card)"
       [pendingTransfer]="isPendingBattlefieldTransfer()(card)"
+      [alignmentReference]="isAlignmentReference(card, activeAlignmentGuide)"
+      [dropSettling]="isCardDropSettling()(focusedPlayer.id, 'battlefield', card)"
+      [manaDropSettling]="isManaDropSettling()(focusedPlayer.id, card)"
+      [statDropSettling]="isBattlefieldEntrySettling()(focusedPlayer.id, card)"
+      [commanderEntrySettling]="isCommanderEntrySettling()(focusedPlayer.id, card)"
       [faceDown]="card.faceDown || card.hidden || false"
       [hidden]="card.hidden ?? false"
-      [disabled]="!isCurrentPlayer()(focusedPlayer.id)"
-      [visible]="cardVisibility(card)"
+      [disabled]="false"
+      [visible]="cardVisibility(focusedPlayer.id, card)"
       [showPowerToughness]="shouldShowPowerToughness()(card)"
       [powerValue]="cardPowerValue()(card)"
       [toughnessValue]="cardToughnessValue()(card)"
       [loyaltyValue]="card.loyalty ?? null"
       [counter]="firstCounter()(card)"
       (cardPointerDown)="canInteractWithCard(focusedPlayer.id, $event.card) && cardPointerDown.emit({ event: $event.event, playerId: focusedPlayer.id, card: $event.card })"
-      (cardClicked)="cardClicked.emit({ event: $event.event, playerId: focusedPlayer.id, card: $event.card })"
+      (cardClicked)="onCardClick($event.event, focusedPlayer.id, $event.card)"
       (cardDoubleClicked)="onCardDoubleClick($event.event, focusedPlayer.id, $event.card)"
-      (cardMenuOpened)="cardMenuOpened.emit({ event: $event.event, playerId: focusedPlayer.id, card: $event.card })"
-      (cardMouseEntered)="isCurrentPlayer()(focusedPlayer.id) && cardPreviewShown.emit({ card: $event, playerId: focusedPlayer.id, zone: 'battlefield' })"
+      (cardMenuOpened)="onCardMenu($event.event, focusedPlayer.id, $event.card)"
+      (cardMouseEntered)="cardPreviewShown.emit($event)"
       (cardMouseLeft)="cardPreviewHidden.emit()"
       (powerChanged)="changePower($event.event, focusedPlayer.id, $event.card, $event.delta)"
       (toughnessChanged)="changeToughness($event.event, focusedPlayer.id, $event.card, $event.delta)"
+      (loyaltyChanged)="changeLoyalty($event.event, focusedPlayer.id, $event.card, $event.delta)"
+      (counterChanged)="changeCounter($event.event, focusedPlayer.id, $event.card, $event.key, $event.delta)"
+      (counterDeleteRequested)="requestCounterDelete($event.event, focusedPlayer.id, $event.card, $event.key)"
     />
   }
-  @if (alignmentGuideFor()(focusedPlayer.id); as guide) {
+  @if (activeAlignmentGuide; as guide) {
     <div class="alignment-guide" [style.top.px]="guide.y" aria-hidden="true"></div>
   }
   <div

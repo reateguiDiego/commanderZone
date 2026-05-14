@@ -1,66 +1,114 @@
 @let activeMenu = menu();
 
-<nav appPrettyScroll class="context-menu" data-testid="context-menu" [style.left.px]="activeMenu.x" [style.top.px]="activeMenu.y" (click)="stopClick($event)">
+<nav
+  class="context-menu"
+  data-testid="context-menu"
+  [class.arrow-menu]="isCompactDeleteMenu()"
+  [style.left.px]="activeMenu.x"
+  [style.top.px]="activeMenu.y"
+  (click)="stopClick($event)"
+>
   @if (activeMenu.kind === 'game') {
-    @if (currentPlayer(); as current) {
-      @if (current.state.status !== 'conceded') {
-        <button type="button" (click)="actionSelected.emit({ type: 'drawMine' })">Draw mine <kbd>D</kbd></button>
-        <button type="button" (click)="actionSelected.emit({ type: 'draw7Mine' })">Draw 7 mine</button>
-        <button type="button" (click)="actionSelected.emit({ type: 'revealTopMine' })">Reveal my top</button>
-        <button type="button" (click)="actionSelected.emit({ type: 'shuffleMine' })">Shuffle mine <kbd>S</kbd></button>
-      }
+    @if (isGameOwner()) {
+      <button type="button" class="danger-menu-item" (click)="actionSelected.emit({ type: 'closeGame' })">Close Game</button>
     }
-    <button type="button" (click)="actionSelected.emit({ type: 'copyGameId' })">Copy game id</button>
-    <button type="button" (click)="actionSelected.emit({ type: 'refreshSnapshot' })">Refresh snapshot</button>
-    <button type="button" (click)="actionSelected.emit({ type: 'focusCurrentPlayer' })">Focus my board</button>
-    <button type="button" (click)="actionSelected.emit({ type: 'openChat' })">Open chat</button>
-    <button type="button" (click)="actionSelected.emit({ type: 'openLog' })">Open log</button>
-    <button type="button" (click)="actionSelected.emit({ type: 'leaveTable' })">Leave table</button>
     @if (isCurrentPlayerActive()) {
       <button type="button" class="danger-menu-item" (click)="actionSelected.emit({ type: 'concedeGame' })">Concede</button>
     }
-    @if (isGameOwner()) {
-      <button type="button" class="danger-menu-item" (click)="actionSelected.emit({ type: 'closeGame' })">Close/archive game</button>
+    <button type="button" (click)="actionSelected.emit({ type: 'copyGameId' })">Copy Game Id</button>
+    @if (isCurrentPlayerActive()) {
+      <button type="button" (click)="actionSelected.emit({ type: 'draw7Mine' })">Draw 7 Mine</button>
+      <button type="button" (click)="actionSelected.emit({ type: 'drawMine' })">Draw Mine <kbd>D</kbd></button>
     }
+    <button type="button" (click)="actionSelected.emit({ type: 'focusCurrentPlayer' })">Focus My Board</button>
+    <button type="button" (click)="actionSelected.emit({ type: 'leaveTable' })">Leave Table</button>
+    <button type="button" (click)="actionSelected.emit({ type: 'openChat' })">Open Chat</button>
+    <button type="button" (click)="actionSelected.emit({ type: 'openLog' })">Open Log</button>
+    <button type="button" (click)="actionSelected.emit({ type: 'refreshSnapshot' })">Refresh Snapshot</button>
+    @if (isCurrentPlayerActive()) {
+      <button type="button" (click)="actionSelected.emit({ type: 'revealTopMine' })">Reveal My Top</button>
+      <button type="button" (click)="actionSelected.emit({ type: 'shuffleMine' })">Shuffle Mine <kbd>S</kbd></button>
+    }
+  } @else if (isArrowMenu()) {
+    <button type="button" class="danger-menu-item" (click)="actionSelected.emit({ type: 'deleteArrow' })">Delete Arrow</button>
+  } @else if (activeMenu.kind === 'counter') {
+    <button type="button" class="danger-menu-item" (click)="actionSelected.emit({ type: 'deleteCounter' })">Delete Counter</button>
   } @else if (activeMenu.kind === 'player') {
-    <button type="button" (click)="actionSelected.emit({ type: 'focusPlayer' })">Focus player</button>
-    <button type="button" (click)="actionSelected.emit({ type: 'openZone', zone: 'graveyard' })">View graveyard</button>
-    <button type="button" (click)="actionSelected.emit({ type: 'openZone', zone: 'exile' })">View exile</button>
-    <button type="button" (click)="actionSelected.emit({ type: 'openZone', zone: 'command' })">View command</button>
-    <button type="button" (click)="actionSelected.emit({ type: 'changeLife', delta: -1 })">Life -1</button>
-    <button type="button" (click)="actionSelected.emit({ type: 'changeLife', delta: 1 })">Life +1</button>
+    <button type="button" (click)="actionSelected.emit({ type: 'focusPlayer' })">Focus Player</button>
+    @if (canControlActivePlayer()) {
+      <button type="button" (click)="actionSelected.emit({ type: 'changeLife', delta: -1 })">Life -1</button>
+      <button type="button" (click)="actionSelected.emit({ type: 'changeLife', delta: 1 })">Life +1</button>
+    }
+    <button type="button" (click)="actionSelected.emit({ type: 'openZone', zone: 'command' })">View Command</button>
+    <button type="button" (click)="actionSelected.emit({ type: 'openZone', zone: 'exile' })">View Exile</button>
+    <button type="button" (click)="actionSelected.emit({ type: 'openZone', zone: 'graveyard' })">View Graveyard</button>
   } @else if (isLibraryMenu()) {
     @if (isCurrentPlayer()(activeMenu.playerId)) {
-      <button type="button" (click)="actionSelected.emit({ type: 'drawCard' })">Draw card <kbd>D</kbd></button>
-      <button type="button" (click)="actionSelected.emit({ type: 'drawPrompt' })">Draw X cards</button>
-      <button type="button" (click)="actionSelected.emit({ type: 'moveTop', zone: 'graveyard' })">Move top X to graveyard</button>
-      <button type="button" (click)="actionSelected.emit({ type: 'moveTop', zone: 'exile' })">Move top X to exile</button>
+      <button type="button" (click)="actionSelected.emit({ type: 'drawCard' })">Draw Card <kbd>D</kbd></button>
+      <button type="button" (click)="actionSelected.emit({ type: 'drawPrompt' })">Draw X Cards</button>
+      <button type="button" (click)="actionSelected.emit({ type: 'moveTop', zone: 'exile' })">Move Top X To Exile</button>
+      <button type="button" (click)="actionSelected.emit({ type: 'moveTop', zone: 'graveyard' })">Move Top X To Graveyard</button>
+      <button type="button" (click)="actionSelected.emit({ type: 'revealTop' })">Reveal Top Card</button>
       <button type="button" (click)="actionSelected.emit({ type: 'shuffle' })">Shuffle <kbd>S</kbd></button>
-      <button type="button" (click)="actionSelected.emit({ type: 'revealTop' })">Reveal top card</button>
     }
     <button type="button" (click)="actionSelected.emit({ type: 'openZone', zone: 'library' })">View</button>
   } @else if (isZoneOnlyMenu()) {
-    <button type="button" (click)="actionSelected.emit({ type: 'openZone', zone: activeMenu.zone })">View all</button>
-    @if (canControlPlayer()(activeMenu.playerId)) {
-      <button type="button" (click)="actionSelected.emit({ type: 'moveAll', zone: 'graveyard' })">Move all to graveyard</button>
-      <button type="button" (click)="actionSelected.emit({ type: 'moveAll', zone: 'exile' })">Move all to exile</button>
+    @if (canMoveActiveZoneCards()) {
+      @for (zone of activeZoneMoveTargets(); track zone) {
+        <button type="button" (click)="actionSelected.emit({ type: 'moveAll', zone })">Move All To {{ zoneTitle()(zone) }}</button>
+      }
     }
+    <button type="button" (click)="actionSelected.emit({ type: 'openZone', zone: activeMenu.zone })">View All</button>
   } @else {
     @if (canControlPlayer()(activeMenu.playerId)) {
-      <button type="button" (click)="actionSelected.emit({ type: 'tapCard' })">Tap / Untap <kbd>T</kbd></button>
-      <button type="button" (click)="actionSelected.emit({ type: 'faceDown' })">Turn face down <kbd>Z</kbd></button>
-      <button type="button" (click)="actionSelected.emit({ type: 'revealCard' })">Reveal</button>
-      <button type="button" (click)="actionSelected.emit({ type: 'tokenCopy' })">Make token copy</button>
-      <button type="button" (click)="actionSelected.emit({ type: 'addToStack' })">Add to stack <kbd>K</kbd></button>
-      <button type="button" (click)="actionSelected.emit({ type: 'setPowerToughness' })">Power/Toughness</button>
-      @for (counter of counterPresets(); track counter) {
-        <button type="button" (click)="actionSelected.emit({ type: 'changeCounter', counter })">Counter {{ counter }}</button>
-      }
-      @for (zone of moveZones(); track zone) {
-        <button type="button" (click)="actionSelected.emit({ type: 'moveCard', zone })">Move to {{ zoneTitle()(zone) }}</button>
+      @if (showsBattlefieldCardActions()) {
+        <app-context-submenu
+          label="Counters"
+          [items]="counterMenuItems()"
+          [expanded]="isSubmenuExpanded('counters')"
+          (toggled)="toggleSubmenu($event, 'counters')"
+          (itemSelected)="selectCounter($event)"
+        />
+        <button type="button" (click)="actionSelected.emit({ type: 'drawArrow' })">Draw Arrow</button>
+        <app-context-submenu
+          label="Give To Player"
+          [items]="giveToPlayerMenuItems()"
+          [expanded]="isSubmenuExpanded('giveToPlayer')"
+          (toggled)="toggleSubmenu($event, 'giveToPlayer')"
+          (itemSelected)="selectGiveToPlayer($event)"
+        />
+        <button type="button" (click)="actionSelected.emit({ type: 'tokenCopy' })">Make A Token Copy</button>
+        <app-context-submenu
+          label="Move To"
+          [items]="moveToMenuItems()"
+          [expanded]="isSubmenuExpanded('moveTo')"
+          (toggled)="toggleSubmenu($event, 'moveTo')"
+          (itemSelected)="selectMoveTo($event)"
+        />
+        @if (canAddPowerToughness()) {
+          <button type="button" (click)="actionSelected.emit({ type: 'setPowerToughness' })">Power/Toughness</button>
+        }
+        @if (activeMenu.card?.tapped) {
+          <button type="button" (click)="actionSelected.emit({ type: 'faceDown' })">{{ faceDownLabel() }} <kbd>Z</kbd></button>
+          <button type="button" (click)="actionSelected.emit({ type: 'tapCard' })">{{ tapLabel() }} <kbd>T</kbd></button>
+        } @else {
+          <button type="button" (click)="actionSelected.emit({ type: 'tapCard' })">{{ tapLabel() }} <kbd>T</kbd></button>
+          <button type="button" (click)="actionSelected.emit({ type: 'faceDown' })">{{ faceDownLabel() }} <kbd>Z</kbd></button>
+        }
+      } @else {
+        <button type="button" (click)="actionSelected.emit({ type: 'addToStack' })">Add To Stack <kbd>K</kbd></button>
+        <button type="button" (click)="actionSelected.emit({ type: 'tokenCopy' })">Make A Token Copy</button>
+        <app-context-submenu
+          label="Move To"
+          [items]="moveToMenuItems()"
+          [expanded]="isSubmenuExpanded('moveTo')"
+          (toggled)="toggleSubmenu($event, 'moveTo')"
+          (itemSelected)="selectMoveTo($event)"
+        />
+        <button type="button" (click)="actionSelected.emit({ type: 'revealCard' })">Reveal</button>
       }
     } @else {
-      <button type="button" (click)="actionSelected.emit({ type: 'previewCard' })">Preview card</button>
+      <button type="button" (click)="actionSelected.emit({ type: 'previewCard' })">Preview Card</button>
     }
   }
 </nav>

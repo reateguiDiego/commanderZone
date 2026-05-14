@@ -32,11 +32,15 @@ class LoginAttempt
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $lastFailedAt = null;
 
+    #[ORM\Column(type: 'datetime_immutable')]
+    private \DateTimeImmutable $updatedAt;
+
     public function __construct(string $scope, string $identifier)
     {
         $this->id = Uuid::v7()->toRfc4122();
         $this->scope = trim($scope);
         $this->identifier = trim($identifier);
+        $this->updatedAt = new \DateTimeImmutable();
     }
 
     public function isLockedAt(\DateTimeImmutable $now): bool
@@ -54,6 +58,7 @@ class LoginAttempt
         }
 
         $this->failureCount++;
+        $this->touch();
         if ($this->failureCount < self::MAX_FAILURES_PER_WINDOW) {
             return;
         }
@@ -67,5 +72,11 @@ class LoginAttempt
         $this->failureCount = 0;
         $this->lockoutUntil = null;
         $this->lastFailedAt = null;
+        $this->touch();
+    }
+
+    private function touch(): void
+    {
+        $this->updatedAt = new \DateTimeImmutable();
     }
 }

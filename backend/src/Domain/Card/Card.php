@@ -40,6 +40,12 @@ class Card
     #[ORM\Column(type: 'string', length: 16, nullable: true)]
     private ?string $toughness = null;
 
+    #[ORM\Column(type: 'string', length: 16, nullable: true)]
+    private ?string $loyalty = null;
+
+    #[ORM\Column(type: 'json')]
+    private array $faceStats = [];
+
     #[ORM\Column(type: 'json')]
     private array $colors = [];
 
@@ -88,12 +94,17 @@ class Card
     #[ORM\Column(type: 'string', length: 255, nullable: true)]
     private ?string $flavorName = null;
 
+    #[ORM\Column(type: 'datetime_immutable')]
+    private \DateTimeImmutable $updatedAt;
+
     public function __construct(string $scryfallId)
     {
         $this->id = Uuid::v7()->toRfc4122();
         $this->scryfallId = $scryfallId;
         $this->name = '';
         $this->normalizedName = '';
+        $this->updatedAt = new \DateTimeImmutable();
+        $this->faceStats = $this->defaultFaceStats();
     }
 
     public static function normalizeName(string $name): string
@@ -110,6 +121,8 @@ class Card
         $this->oracleText = $this->oracleTextFromScryfall($data);
         $this->power = $this->cardString($data, 'power');
         $this->toughness = $this->cardString($data, 'toughness');
+        $this->loyalty = $this->cardString($data, 'loyalty');
+        $this->faceStats = $this->faceStatsFromScryfall($data);
         $this->colors = $data['colors'] ?? [];
         $this->colorIdentity = $data['color_identity'] ?? [];
         $this->legalities = $data['legalities'] ?? [];
@@ -126,6 +139,7 @@ class Card
         $this->lang = $data['lang'] ?? null;
         $this->printedName = $data['printed_name'] ?? null;
         $this->flavorName = $data['flavor_name'] ?? null;
+        $this->touch();
     }
 
     public function id(): string
@@ -173,9 +187,19 @@ class Card
         return $this->toughness;
     }
 
+    public function loyalty(): ?string
+    {
+        return $this->loyalty;
+    }
+
     public function legalities(): array
     {
         return $this->legalities;
+    }
+
+    public function faceStats(): array
+    {
+        return $this->normalizeFaceStats($this->faceStats);
     }
 
     public function layout(): string
@@ -268,6 +292,8 @@ class Card
             'oracleText' => $this->oracleText,
             'power' => $this->power,
             'toughness' => $this->toughness,
+            'loyalty' => $this->loyalty,
+            'faceStats' => $this->faceStats(),
             'colors' => $this->colors,
             'colorIdentity' => $this->colorIdentity,
             'legalities' => $this->legalities,
@@ -321,6 +347,9 @@ class Card
             'power' => isset($face['power']) && is_scalar($face['power']) ? (string) $face['power'] : null,
             'toughness' => isset($face['toughness']) && is_scalar($face['toughness']) ? (string) $face['toughness'] : null,
             'loyalty' => isset($face['loyalty']) && is_scalar($face['loyalty']) ? (string) $face['loyalty'] : null,
+            'defense' => isset($face['defense']) && is_scalar($face['defense']) ? (string) $face['defense'] : null,
+            'handModifier' => isset($face['hand_modifier']) && is_scalar($face['hand_modifier']) ? (string) $face['hand_modifier'] : null,
+            'lifeModifier' => isset($face['life_modifier']) && is_scalar($face['life_modifier']) ? (string) $face['life_modifier'] : null,
             'colors' => is_array($face['colors'] ?? null) ? array_values($face['colors']) : [],
             'imageUris' => is_array($face['image_uris'] ?? null) ? $face['image_uris'] : [],
         ];
@@ -350,6 +379,98 @@ class Card
         }
 
         return $texts === [] ? null : implode("\n//\n", $texts);
+    }
+
+    private function touch(): void
+    {
+        $this->updatedAt = new \DateTimeImmutable();
+    }
+
+    private function faceStatsFromScryfall(array $data): array
+    {
+        $faces = [];
+        foreach ($this->rawCardFaces($data) as $face) {
+            $faces[] = [
+                'name' => isset($face['name']) && is_scalar($face['name']) ? (string) $face['name'] : null,
+                ...$this->statBlock([
+                    'power' => $face['power'] ?? null,
+                    'toughness' => $face['toughness'] ?? null,
+                    'loyalty' => $face['loyalty'] ?? null,
+                    'defense' => $face['defense'] ?? null,
+                    'handModifier' => $face['hand_modifier'] ?? null,
+                    'lifeModifier' => $face['life_modifier'] ?? null,
+                ]),
+            ];
+        }
+
+        return [
+            'root' => $this->statBlock([
+                'power' => $this->cardString($data, 'power'),
+                'toughness' => $this->cardString($data, 'toughness'),
+                'loyalty' => $this->cardString($data, 'loyalty'),
+                'defense' => $this->cardString($data, 'defense'),
+                'handModifier' => $this->cardString($data, 'hand_modifier'),
+                'lifeModifier' => $this->cardString($data, 'life_modifier'),
+            ]),
+            'faces' => $faces,
+        ];
+    }
+
+    private function defaultFaceStats(): array
+    {
+        return [
+            'root' => $this->statBlock([]),
+            'faces' => [],
+        ];
+    }
+
+    private function normalizeFaceStats(array $faceStats): array
+    {
+        $root = is_array($faceStats['root'] ?? null) ? $faceStats['root'] : [];
+        $faces = $faceStats['faces'] ?? [];
+
+        if (!is_array($faces)) {
+            $faces = [];
+        }
+
+        return [
+            'root' => $this->statBlock($root),
+            'faces' => array_values(array_map(function (mixed $face): array {
+                if (!is_array($face)) {
+                    return [
+                        'name' => null,
+                        ...$this->statBlock([]),
+                    ];
+                }
+
+                return [
+                    'name' => isset($face['name']) && is_scalar($face['name']) ? (string) $face['name'] : null,
+                    ...$this->statBlock($face),
+                ];
+            }, $faces)),
+        ];
+    }
+
+    /**
+     * @param array<string,mixed> $values
+     *
+     * @return array{power:?string,toughness:?string,loyalty:?string,defense:?string,handModifier:?string,lifeModifier:?string}
+     */
+    private function statBlock(array $values): array
+    {
+        return [
+            'power' => $this->scalarOrNull($values['power'] ?? null),
+            'toughness' => $this->scalarOrNull($values['toughness'] ?? null),
+            'loyalty' => $this->scalarOrNull($values['loyalty'] ?? null),
+            'defense' => $this->scalarOrNull($values['defense'] ?? null),
+            'handModifier' => $this->scalarOrNull($values['handModifier'] ?? null),
+            'lifeModifier' => $this->scalarOrNull($values['lifeModifier'] ?? null),
+        ];
+    }
+
+    private function scalarOrNull(mixed $value): ?string
+    {
+        return is_scalar($value) && (string) $value !== '' ? (string) $value : null;
     }
 
 }

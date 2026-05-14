@@ -1,0 +1,27 @@
+<header class="topbar">
+  <div class="page-header-context" aria-hidden="true"></div>
+
+  <div class="user-strip">
+    <div class="player-identity" aria-label="Current player">
+      <app-player-avatar class="player-identity-avatar" [displayName]="userLabel()" [avatar]="userAvatar()" size="sm" />
+      <app-player-name
+        [displayName]="userLabel()"
+        [nameStyle]="userNameStyle()"
+        size="sm"
+        plateSize="xs"
+        [fill]="true"
+      />
+    </div>
+
+    <app-game-table-header-menu
+      (settingsSelected)="openSettings()"
+      (logoffSelected)="logout()"
+    />
+  </div>
+</header>
+
+<app-dashboard-settings-modal
+  [open]="settingsOpen()"
+  (closeRequested)="closeSettings()"
+  (accountDeleted)="logout()"
+/>

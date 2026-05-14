@@ -103,6 +103,8 @@ class DeckbuildingApiTest extends ApiTestCase
         $createdDeck = $this->jsonResponse()['deck'];
         $deckId = (string) $createdDeck['id'];
         self::assertSame('public', $createdDeck['visibility']);
+        self::assertSame('back_5', $createdDeck['backgroundName']);
+        self::assertSame('facedown_card', $createdDeck['sleevesName']);
 
         $this->jsonRequest('POST', '/decks', ['name' => 'Private Deck', 'folderId' => $folderId, 'visibility' => 'private'], $token);
         self::assertResponseStatusCodeSame(201);
@@ -173,6 +175,8 @@ TXT,
         $this->jsonRequest('GET', '/decks/'.$deckId, token: $token);
         self::assertResponseIsSuccessful();
         self::assertCount(0, $this->jsonResponse()['deck']['cards']);
+        self::assertSame('back_5', $this->jsonResponse()['deck']['backgroundName']);
+        self::assertSame('facedown_card', $this->jsonResponse()['deck']['sleevesName']);
 
         $this->jsonRequest('POST', '/decks/'.$deckId.'/cards', [
             'scryfallId' => $solRing->scryfallId(),

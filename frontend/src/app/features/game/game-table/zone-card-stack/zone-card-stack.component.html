@@ -1,0 +1,17 @@
+@for (layer of stackLayers(); track layer.key) {
+  <img
+    class="zone-card-stack-layer"
+    [style.--stack-offset.px]="layer.offset"
+    [style.z-index]="layer.zIndex"
+    [src]="image()"
+    alt=""
+    draggable="false"
+    aria-hidden="true"
+  />
+}
+<img
+  class="zone-card-stack-top"
+  [src]="image()"
+  [alt]="label()"
+  draggable="false"
+/>

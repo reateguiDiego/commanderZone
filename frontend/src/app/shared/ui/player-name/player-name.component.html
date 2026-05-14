@@ -3,6 +3,11 @@
   [class.premium]="premium()"
   [class.has-nameplate]="hasNameplate()"
   [style.--name-text-color]="textColor()"
+  [style.--player-name-plate-width]="plateWidthValue()"
+  [style.--player-name-plate-height]="plateHeightValue()"
+  [style.--player-name-label-width]="plateLabelWidthValue()"
+  [style.--player-name-plate-padding]="platePaddingValue()"
+  [style.--player-name-auto-font-size]="nameplateFontSize()"
   [attr.title]="label()"
 >
 @if (nameplateUrl()) {

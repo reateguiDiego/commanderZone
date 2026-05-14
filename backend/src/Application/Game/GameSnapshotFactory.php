@@ -2,6 +2,7 @@
 
 namespace App\Application\Game;
 
+use App\Domain\Deck\Deck;
 use App\Domain\Deck\DeckCard;
 use App\Domain\Room\Room;
 use App\Domain\Room\RoomPlayer;
@@ -18,8 +19,9 @@ class GameSnapshotFactory
                 continue;
             }
 
+            $deck = $roomPlayer->deck();
             $library = [];
-            foreach ($roomPlayer->deck()?->cards() ?? [] as $deckCard) {
+            foreach ($deck?->cards() ?? [] as $deckCard) {
                 if (!$deckCard instanceof DeckCard || $deckCard->section() !== DeckCard::SECTION_MAIN) {
                     continue;
                 }
@@ -37,12 +39,12 @@ class GameSnapshotFactory
 
             $command = [];
             $colorIdentity = [];
-            foreach ($roomPlayer->deck()?->cards() ?? [] as $deckCard) {
+            foreach ($deck?->cards() ?? [] as $deckCard) {
                 if (!$deckCard instanceof DeckCard || $deckCard->section() !== DeckCard::SECTION_COMMANDER) {
                     continue;
                 }
 
-                $command[] = $this->cardInstance($deckCard, $roomPlayer->user()->id(), 'command');
+                $command[] = $this->cardInstance($deckCard, $roomPlayer->user()->id(), 'command', true);
                 $colorIdentity = array_values(array_unique([...$colorIdentity, ...$deckCard->card()->colorIdentity()]));
             }
             $colorIdentity = $this->orderedColorIdentity($colorIdentity);
@@ -51,7 +53,10 @@ class GameSnapshotFactory
                 'user' => $roomPlayer->user()->toArray(),
                 'status' => 'active',
                 'concededAt' => null,
+                'deckName' => $deck?->name(),
                 'colorIdentity' => $colorIdentity,
+                'backgroundName' => $deck?->backgroundName() ?? Deck::DEFAULT_BACKGROUND_NAME,
+                'sleevesName' => $deck?->sleevesName() ?? Deck::DEFAULT_SLEEVES_NAME,
                 'life' => $room->startingLife(),
                 'zones' => [
                     'library' => $library,
@@ -101,9 +106,10 @@ class GameSnapshotFactory
         ];
     }
 
-    private function cardInstance(DeckCard $deckCard, string $ownerId, string $zone): array
+    private function cardInstance(DeckCard $deckCard, string $ownerId, string $zone, bool $isCommander = false): array
     {
         $card = $deckCard->card();
+        $baseLoyalty = $this->initialLoyalty($card);
 
         return [
             'instanceId' => Uuid::v7()->toRfc4122(),
@@ -119,7 +125,10 @@ class GameSnapshotFactory
             'colorIdentity' => $this->orderedColorIdentity($card->colorIdentity()),
             'power' => $this->numericCardStat($card->power()),
             'toughness' => $this->numericCardStat($card->toughness()),
-            'loyalty' => null,
+            'loyalty' => $baseLoyalty,
+            'defaultPower' => $this->numericCardStat($card->power()),
+            'defaultToughness' => $this->numericCardStat($card->toughness()),
+            'defaultLoyalty' => $baseLoyalty,
             'tapped' => false,
             'faceDown' => false,
             'revealedTo' => [],
@@ -127,6 +136,7 @@ class GameSnapshotFactory
             'rotation' => 0,
             'counters' => [],
             'zone' => $zone,
+            'isCommander' => $isCommander,
         ];
     }
 
@@ -143,6 +153,73 @@ class GameSnapshotFactory
     }
 
     private function numericCardStat(?string $value): ?int
+    {
+        return is_numeric($value) ? (int) $value : null;
+    }
+
+    private function initialLoyalty(\App\Domain\Card\Card $card): ?int
+    {
+        $fromFaceStats = $this->loyaltyFromFaceStats($card->faceStats());
+        if ($fromFaceStats !== null) {
+            return $fromFaceStats;
+        }
+
+        $legacy = $this->numericCardStat($card->loyalty());
+        if ($legacy !== null) {
+            return $legacy;
+        }
+
+        return $this->loyaltyFromCardFaces($card->cardFaces());
+    }
+
+    /**
+     * @param array<string,mixed> $faceStats
+     */
+    private function loyaltyFromFaceStats(array $faceStats): ?int
+    {
+        $root = $faceStats['root'] ?? null;
+        if (is_array($root)) {
+            $rootLoyalty = $this->numericStat($root['loyalty'] ?? null);
+            if ($rootLoyalty !== null) {
+                return $rootLoyalty;
+            }
+        }
+
+        $faces = $faceStats['faces'] ?? null;
+        if (!is_array($faces)) {
+            return null;
+        }
+
+        foreach ($faces as $face) {
+            if (!is_array($face)) {
+                continue;
+            }
+
+            $loyalty = $this->numericStat($face['loyalty'] ?? null);
+            if ($loyalty !== null) {
+                return $loyalty;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param list<array<string,mixed>> $faces
+     */
+    private function loyaltyFromCardFaces(array $faces): ?int
+    {
+        foreach ($faces as $face) {
+            $loyalty = $this->numericStat($face['loyalty'] ?? null);
+            if ($loyalty !== null) {
+                return $loyalty;
+            }
+        }
+
+        return null;
+    }
+
+    private function numericStat(mixed $value): ?int
     {
         return is_numeric($value) ? (int) $value : null;
     }

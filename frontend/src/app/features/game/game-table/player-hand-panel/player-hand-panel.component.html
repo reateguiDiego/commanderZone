@@ -1,57 +1,109 @@
 @let handPlayer = player();
 
-<div class="hand-area" data-testid="hand-area" [attr.data-player-id]="handPlayer.id">
+<div
+  class="hand-area"
+  data-testid="hand-area"
+  [attr.data-player-id]="handPlayer.id"
+  [class.hand-revealed]="isHandVisuallyRevealed()"
+  [class.hand-dragging]="isPointerDragActive()"
+  [class.hand-external-dragging]="hasActiveCardDrag()"
+  (mouseenter)="enterHand()"
+  (mouseleave)="leaveHand()"
+  (focusin)="focusHand()"
+  (focusout)="blurHand($event)"
+>
+  <span
+    class="hand-hover-strip"
+    aria-hidden="true"
+    (mouseenter)="enterHand()"
+  ></span>
   <div
     appPrettyScroll
     class="hand-row game-table-hand"
     data-testid="hand-zone"
     [attr.data-player-id]="handPlayer.id"
-    [attr.data-game-drop-zone]="'hand'"
-    [attr.data-zone]="'hand'"
-    [class.drop-target-active]="isDropZoneHighlighted()(handPlayer.id, 'hand')"
-    (dragover)="handDragOver.emit($event)"
-    (drop)="handDropped.emit({ event: $event, playerId: handPlayer.id })"
+    [class.hand-row-empty]="shouldRenderEmptyHandDropTarget()"
   >
-    @if (isCurrentPlayer()(handPlayer.id)) {
-      <div class="hand-fan">
-        @for (card of handPlayer.state.zones.hand; track card.instanceId) {
-          <app-game-card-view
-            mode="hand"
-            [card]="card"
-            [playerId]="handPlayer.id"
-            zone="hand"
-            [image]="cardImage()(card)"
-            [selected]="isSelected()(card.instanceId)"
-            [dragging]="isDraggingCard()(card)"
-            [faceDown]="card.hidden ?? false"
-            [hidden]="card.hidden ?? false"
-            [draggable]="true"
-            [handDropPlacement]="handDropPlacement(handPlayer.id, card)"
-            [handIndex]="$index"
-            [handCount]="handPlayer.state.zones.hand.length"
-            (cardDragStarted)="cardDragStarted.emit({ event: $event.event, playerId: handPlayer.id, zone: 'hand', card: $event.card })"
-            (cardDragEnded)="cardDragEnded.emit()"
-            (cardDragOver)="handCardDragOver.emit({ event: $event.event, playerId: handPlayer.id, card: $event.card })"
-            (cardDropped)="handCardDropped.emit({ event: $event.event, playerId: handPlayer.id, card: $event.card })"
-            (cardClicked)="handCardClicked.emit({ event: $event.event, playerId: handPlayer.id, card: $event.card })"
-            (cardDoubleClicked)="stopDoubleClick($event.event)"
-            (cardMenuOpened)="cardMenuOpened.emit({ event: $event.event, playerId: handPlayer.id, card: $event.card })"
-            (cardMouseEntered)="cardPreviewShown.emit({ card: $event, playerId: handPlayer.id, zone: 'hand' })"
-            (cardMouseLeft)="cardPreviewHidden.emit()"
-          />
-        } @empty {
-          <small>No cards in hand</small>
-        }
-      </div>
+    @if (shouldRenderEmptyHandDropTarget()) {
+      <div
+        class="empty-hand-drop-target"
+        data-testid="empty-hand-drop-target"
+        [attr.data-player-id]="handPlayer.id"
+        [attr.data-game-drop-zone]="'hand'"
+        [attr.data-zone]="'hand'"
+        [class.drop-target-active]="isEmptyHandDropTargetActive()"
+        (dragover)="handDragOver.emit({ event: $event, playerId: handPlayer.id })"
+        (drop)="handDropped.emit({ event: $event, playerId: handPlayer.id })"
+      ></div>
     } @else {
-      <div class="opponent-hand" [style.--zone-accent]="colorAccent()(handPlayer)">
-        @for (_ of countItems()(zoneCount()(handPlayer, 'hand')); track $index) {
-          <span class="card-back small-back"></span>
-        } @empty {
-          <small>0 cards in hand</small>
+      <div
+        class="hand-fan"
+        [attr.data-player-id]="handPlayer.id"
+        [attr.data-game-drop-zone]="'hand'"
+        [attr.data-zone]="'hand'"
+        [class.hand-fan-compact-drop-target]="hasCompactHandDropTarget()"
+        [class.drop-target-active]="isHandDropReceiverHighlighted()"
+        (dragover)="handDragOver.emit({ event: $event, playerId: handPlayer.id })"
+        (drop)="handDropped.emit({ event: $event, playerId: handPlayer.id })"
+      >
+      @for (card of handPlayer.state.zones.hand; track card.instanceId) {
+        @let dropPlacement = handDropPlacement(card);
+        @if (dropPlacement === 'before') {
+          <span class="hand-drop-slot hand-drop-slot-before" aria-hidden="true"></span>
         }
+        <app-game-card-view
+          mode="hand"
+          [card]="card"
+          [playerId]="handPlayer.id"
+          zone="hand"
+          [image]="cardImage()(card)"
+          [selected]="isSelected()(card.instanceId)"
+          [dragging]="isDraggingHandCard(card)"
+          [alignmentReference]="isHandDropReceiverHighlighted()"
+          [dropSettling]="isCardDropSettling()(handPlayer.id, 'hand', card)"
+          [hoverInteractionsEnabled]="isHandVisuallyRevealed() && !isPointerDragActive()"
+          [faceDown]="card.hidden ?? false"
+          [hidden]="card.hidden ?? false"
+          [draggable]="false"
+          [handDropPlacement]="dropPlacement"
+          [handArrivalSide]="handArrivalSide(card, $index)"
+          [handIndex]="$index"
+          [handCount]="handPlayer.state.zones.hand.length"
+          (cardPointerDown)="startHandPointerDrag($event.event, handPlayer.id, $event.card)"
+          (cardClicked)="handleHandCardClick($event.event, handPlayer.id, $event.card)"
+          (cardDoubleClicked)="stopDoubleClick($event.event)"
+          (cardMenuOpened)="cardMenuOpened.emit({ event: $event.event, playerId: handPlayer.id, card: $event.card })"
+          (cardPointerEntered)="enterHand()"
+          (cardMouseEntered)="cardPreviewShown.emit($event)"
+          (cardMouseLeft)="cardPreviewHidden.emit()"
+        />
+        @if (dropPlacement === 'after') {
+          <span class="hand-drop-slot hand-drop-slot-after" aria-hidden="true"></span>
+        }
+      }
       </div>
     }
   </div>
+  @if (pointerDrag(); as drag) {
+    @if (drag.mode !== 'pending') {
+      <div
+        class="hand-floating-card"
+        aria-hidden="true"
+        [style.left.px]="drag.x"
+        [style.top.px]="drag.y"
+        [style.width.px]="drag.cardWidth"
+        [style.height.px]="drag.cardHeight"
+      >
+        @if (floatingCardImage(); as image) {
+          <img [src]="image" [alt]="drag.card.name" draggable="false" />
+        } @else {
+          <span>{{ drag.card.name }}</span>
+        }
+        @if (floatingDragCount() > 1) {
+          <span class="hand-drag-count-badge" aria-hidden="true">{{ floatingDragCount() }}</span>
+        }
+      </div>
+    }
+  }
   <span class="hand-count" data-testid="hand-count">{{ zoneCount()(handPlayer, 'hand') }} cards</span>
 </div>

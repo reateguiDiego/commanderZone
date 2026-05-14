@@ -1,0 +1,15 @@
+@let style = previewStyle();
+
+<aside
+  class="card-preview-overlay"
+  [style.left.px]="style.left"
+  [style.top.px]="style.top"
+  [style.width.px]="style.width"
+  aria-live="polite"
+>
+  @if (image(); as cardImage) {
+    <img [src]="cardImage" [alt]="card().name" />
+  } @else {
+    <span>{{ card().name }}</span>
+  }
+</aside>

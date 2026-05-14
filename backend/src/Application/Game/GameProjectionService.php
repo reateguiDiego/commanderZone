@@ -29,6 +29,11 @@ class GameProjectionService
             return $snapshot;
         }
 
+        $snapshot['chat'] = array_values(array_filter(
+            is_array($snapshot['chat'] ?? null) ? $snapshot['chat'] : [],
+            fn (mixed $message): bool => is_array($message) && $this->canViewChatMessage($message, $viewerId),
+        ));
+
         foreach ($snapshot['players'] as $playerId => &$player) {
             $zoneCounts = [];
             if (!isset($player['zones']) || !is_array($player['zones'])) {
@@ -78,6 +83,16 @@ class GameProjectionService
         return in_array($zone, self::HIDDEN_ZONES, true);
     }
 
+    private function canViewChatMessage(array $message, string $viewerId): bool
+    {
+        $targetPlayerId = $message['targetPlayerId'] ?? null;
+        if (!is_string($targetPlayerId) || $targetPlayerId === '' || $targetPlayerId === 'all') {
+            return true;
+        }
+
+        return $targetPlayerId === $viewerId || ($message['userId'] ?? null) === $viewerId;
+    }
+
     private function isVisibleCard(array $card, string $viewerId): bool
     {
         $revealedTo = $card['revealedTo'] ?? [];
@@ -106,6 +121,8 @@ class GameProjectionService
             ];
         }
 
+        unset($card['basePower'], $card['baseToughness'], $card['baseLoyalty']);
+
         return $card;
     }
 
@@ -119,6 +136,7 @@ class GameProjectionService
             $userId = $roomPlayer->user()->id();
             if (isset($snapshot['players'][$userId]) && is_array($snapshot['players'][$userId])) {
                 $snapshot['players'][$userId]['user'] = $roomPlayer->user()->toArray();
+                $snapshot['players'][$userId]['deckName'] = $roomPlayer->deck()?->name();
             }
         }
 

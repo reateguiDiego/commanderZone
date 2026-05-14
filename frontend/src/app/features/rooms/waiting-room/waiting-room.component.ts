@@ -99,7 +99,6 @@ export class WaitingRoomComponent implements OnDestroy {
   readonly invalidDeckSelection = signal<WaitingDeckOption | null>(null);
   readonly roomLog = signal<WaitingRoomLogEntry[]>([]);
   readonly deletingRoomId = signal<string | null>(null);
-  readonly archivingRoomId = signal<string | null>(null);
   readonly kickingPlayerId = signal<string | null>(null);
   readonly updatingDeck = signal(false);
   readonly rollModalOpen = signal(false);
@@ -458,23 +457,6 @@ export class WaitingRoomComponent implements OnDestroy {
     }
   }
 
-  async archiveRoom(room: Room): Promise<void> {
-    if (!this.canArchiveRoom(room)) {
-      return;
-    }
-
-    this.error.set(null);
-    this.archivingRoomId.set(room.id);
-    try {
-      await firstValueFrom(this.roomsApi.archive(room.id));
-      await this.router.navigate(['/rooms']);
-    } catch {
-      this.error.set('Could not archive room. Only the owner can archive started games.');
-    } finally {
-      this.archivingRoomId.set(null);
-    }
-  }
-
   canDeleteRoom(room: Room): boolean {
     return room.status === 'waiting' && this.isRoomOwner(room);
   }
@@ -506,10 +488,6 @@ export class WaitingRoomComponent implements OnDestroy {
       && room.players.length === this.roomCapacity(room)
       && room.players.length >= 2
       && room.players.every((player) => this.isPlayerReady(player));
-  }
-
-  canArchiveRoom(room: Room): boolean {
-    return room.status !== 'archived' && this.isRoomOwner(room) && (room.status === 'started' || !!room.gameId);
   }
 
   isInviting(userId: string): boolean {

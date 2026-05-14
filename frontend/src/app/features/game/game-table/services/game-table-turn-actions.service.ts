@@ -46,4 +46,20 @@ export class GameTableTurnActionsService {
       number: snapshot.turn.number + 1,
     });
   }
+
+  async passTurn(context: GameTableTurnActionContext): Promise<void> {
+    const snapshot = context.snapshot();
+    if (!snapshot) {
+      return;
+    }
+
+    const players = context.players();
+    const activeIndex = players.findIndex((player) => player.id === snapshot.turn.activePlayerId);
+    const nextPlayer = players[(activeIndex + 1) % players.length] ?? players[0];
+    await context.command('turn.changed', {
+      activePlayerId: nextPlayer?.id ?? snapshot.turn.activePlayerId,
+      phase: context.phases()[0] ?? snapshot.turn.phase,
+      number: snapshot.turn.number + 1,
+    });
+  }
 }

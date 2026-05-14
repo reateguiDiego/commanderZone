@@ -4,10 +4,12 @@
       Join by room code
       <input name="roomCode" placeholder="CZ-ABC-DEF-123" [value]="roomCode()" (input)="setRoomCode($event)" />
     </label>
-    <button class="primary-button" type="button" [disabled]="!roomCode().trim()" (click)="joinByCode()">
-      <lucide-icon name="search" size="16" />
-      Join
-    </button>
+    <span class="action-tooltip-anchor" [attr.title]="actionsLocked() ? lockedRoomTooltip : null">
+      <button class="primary-button" type="button" [disabled]="actionsLocked() || !roomCode().trim()" (click)="joinByCode()">
+        <lucide-icon name="search" size="16" />
+        Join
+      </button>
+    </span>
   </div>
 
   <div class="rooms-create-header">
@@ -47,9 +49,11 @@
       (valueChange)="createRoomForm.controls.privacy.setValue($event)"
     />
 
-    <button class="primary-button" type="submit" [disabled]="createRoomForm.invalid">
-      <lucide-icon name="plus" size="17" />
-      Create room
-    </button>
+    <span class="action-tooltip-anchor" [attr.title]="actionsLocked() ? lockedRoomTooltip : null">
+      <button class="primary-button" type="submit" [disabled]="actionsLocked() || createRoomForm.invalid">
+        <lucide-icon name="plus" size="17" />
+        Create room
+      </button>
+    </span>
   </form>
 </aside>

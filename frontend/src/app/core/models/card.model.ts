@@ -28,6 +28,7 @@ export interface Card {
   oracleText: string | null;
   power?: string | null;
   toughness?: string | null;
+  loyalty?: string | null;
   colors: string[];
   colorIdentity: string[];
   legalities: Record<string, string>;

@@ -1,17 +1,28 @@
-import { AfterViewChecked, ChangeDetectionStrategy, Component, ElementRef, HostListener, QueryList, ViewChildren, inject, signal } from '@angular/core';
+import { AfterViewChecked, ChangeDetectionStrategy, Component, ElementRef, HostListener, OnDestroy, QueryList, ViewChild, ViewChildren, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
 import { AppModalComponent } from '../../../shared/ui/app-modal/app-modal.component';
 import { PrettyScrollDirective } from '../../../shared/ui/pretty-scroll/pretty-scroll.directive';
 import { GameCardInstance, GameZoneName } from '../../../core/models/game.model';
 import { GameTableCardActionsService } from './services/game-table-card-actions.service';
+import { GameTableCardStatsService } from './services/game-table-card-stats.service';
+import { GameTableBattlefieldDragCoordinatorService } from './services/game-table-battlefield-drag-coordinator.service';
 import { GameTableCommandService } from './services/game-table-command.service';
 import { GameTableDragService } from './services/game-table-drag.service';
+import { GameTableDropActionsService } from './services/game-table-drop-actions.service';
+import { GameTableInteractionActionsService } from './services/game-table-interaction-actions.service';
 import { GameTableLibraryActionsService } from './services/game-table-library-actions.service';
+import { GameTablePointerDragActionsService } from './services/game-table-pointer-drag-actions.service';
+import { GameTablePointerDragService } from './services/game-table-pointer-drag.service';
 import { GameTableRealtimeService } from './services/game-table-realtime.service';
 import { GameTableSelectionService } from './services/game-table-selection.service';
+import { GameTableSessionService } from './services/game-table-session.service';
 import { GameTableTurnActionsService } from './services/game-table-turn-actions.service';
+import { GameTableZoneActionsService } from './services/game-table-zone-actions.service';
 import { GameTableChatLogState } from './state/game-table-chat-log.state';
+import { GameTableBattlefieldDragState } from './state/game-table-battlefield-drag.state';
+import { GameTableDropFeedbackState } from './state/game-table-drop-feedback.state';
+import { GameTablePendingTransferState } from './state/game-table-pending-transfer.state';
 import { GameTableSnapshotSelectors } from './state/game-table-snapshot-selectors';
 import { GameContextMenu, GameTableUiState } from './state/game-table-ui.state';
 import { GameTableZoneModalState } from './state/game-table-zone-modal.state';
@@ -26,6 +37,11 @@ import { FocusedBattlefieldComponent } from './focused-battlefield/focused-battl
 import { ContextMenuAction, ContextMenuComponent } from './context-menu/context-menu.component';
 import { ZoneModalComponent } from './zone-modal/zone-modal.component';
 import { NumberActionDialogComponent } from './number-action-dialog/number-action-dialog.component';
+import { GameTableHeaderComponent } from './game-table-header/game-table-header.component';
+import { CardPreviewOverlayComponent } from './card-preview-overlay/card-preview-overlay.component';
+import { CardMarkerRailComponent } from './game-card-view/card-marker-rail/card-marker-rail.component';
+import { LoyaltyCounterComponent } from './game-card-view/loyalty-counter/loyalty-counter.component';
+import { PowerToughnessDialogComponent, PowerToughnessDialogValueChange } from './power-toughness-dialog/power-toughness-dialog.component';
 
 interface DrawNumberActionRequest {
   readonly kind: 'draw';
@@ -34,6 +50,7 @@ interface DrawNumberActionRequest {
   readonly description: string;
   readonly defaultValue: number;
   readonly min: number;
+  readonly max?: number;
   readonly confirmLabel: string;
 }
 
@@ -45,10 +62,43 @@ interface MoveTopNumberActionRequest {
   readonly description: string;
   readonly defaultValue: number;
   readonly min: number;
+  readonly max?: number;
   readonly confirmLabel: string;
 }
 
 type NumberActionRequest = DrawNumberActionRequest | MoveTopNumberActionRequest;
+
+interface PowerToughnessActionRequest {
+  readonly menu: GameContextMenu;
+  readonly power: string;
+  readonly toughness: string;
+}
+
+interface BattlefieldLayoutSize {
+  readonly width: number;
+  readonly height: number;
+}
+
+interface BattlefieldLayoutRect extends BattlefieldLayoutSize {
+  readonly left: number;
+  readonly top: number;
+  readonly right: number;
+  readonly bottom: number;
+}
+
+interface CrossTableArrowView {
+  readonly id: string;
+  readonly x1: number;
+  readonly y1: number;
+  readonly x2: number;
+  readonly y2: number;
+  readonly color: string;
+}
+
+interface CrossTableArrowViewport {
+  readonly width: number;
+  readonly height: number;
+}
 
 @Component({
   selector: 'app-game-table',
@@ -67,18 +117,34 @@ type NumberActionRequest = DrawNumberActionRequest | MoveTopNumberActionRequest;
     ContextMenuComponent,
     ZoneModalComponent,
     NumberActionDialogComponent,
+    GameTableHeaderComponent,
+    CardPreviewOverlayComponent,
+    CardMarkerRailComponent,
+    LoyaltyCounterComponent,
+    PowerToughnessDialogComponent,
   ],
   providers: [
     GameTableStore,
     GameTableCardActionsService,
+    GameTableCardStatsService,
+    GameTableBattlefieldDragCoordinatorService,
     GameTableRealtimeService,
     GameTableCommandService,
     GameTableSelectionService,
+    GameTableSessionService,
     GameTableDragService,
+    GameTableDropActionsService,
+    GameTableInteractionActionsService,
+    GameTablePointerDragActionsService,
+    GameTablePointerDragService,
     GameTableLibraryActionsService,
     GameTableTurnActionsService,
+    GameTableZoneActionsService,
     GameTableSnapshotSelectors,
     GameTableUiState,
+    GameTableBattlefieldDragState,
+    GameTableDropFeedbackState,
+    GameTablePendingTransferState,
     GameTableZoneModalState,
     GameTableChatLogState,
   ],
@@ -86,23 +152,24 @@ type NumberActionRequest = DrawNumberActionRequest | MoveTopNumberActionRequest;
   styleUrl: './game-table.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class GameTableComponent implements AfterViewChecked {
+export class GameTableComponent implements AfterViewChecked, OnDestroy {
   readonly store = inject(GameTableStore);
-  readonly counterPresets = ['+1/+1', '-1/-1', 'loyalty', 'charge'];
+  readonly counterPresets = ['-1/-1', '+1/+1', 'red', 'green', 'blue', 'black', 'yellow'];
   readonly moveZones: GameZoneName[] = ['battlefield', 'graveyard', 'exile', 'hand', 'command', 'library'];
   readonly colorAccent = (player: PlayerView | null): string => this.store.colorAccent(player);
   readonly topDraggableCard = (player: PlayerView, zone: GameZoneName): GameCardInstance | null => this.store.topDraggableCard(player, zone);
   readonly zoneCount = (player: PlayerView, zone: GameZoneName): number => this.store.zoneCount(player, zone);
+  readonly zoneCardCountById = (playerId: string, zone: GameZoneName): number => this.store.zoneCardCountById(playerId, zone);
   readonly logTime = (createdAt: string): string => this.store.logTime(createdAt);
   readonly isDropZoneHighlighted = (playerId: string, zone: GameZoneName): boolean => this.store.isDropZoneHighlighted(playerId, zone);
   readonly zoneTitle = (zone: GameZoneName): string => this.store.zoneTitle(zone);
+  readonly zonePreviewCard = (player: PlayerView, zone: GameZoneName): GameCardInstance | null => this.store.zonePreviewCard(player, zone);
   readonly zonePreviewImage = (player: PlayerView, zone: GameZoneName): string | null => this.store.zonePreviewImage(player, zone);
   readonly commanderCastCount = (player: PlayerView): number => this.store.commanderCastCount(player);
   readonly deckLabel = (player: PlayerView | null): string => this.store.deckLabel(player);
+  readonly gameBackgroundImage = (player: PlayerView | null): string => this.store.gameBackgroundImage(player);
   readonly manaSymbols = (player: PlayerView | null): string[] => this.store.manaSymbols(player);
   readonly cardPosition = (card: GameCardInstance): { x: number; y: number } | null => this.store.cardPosition(card);
-  readonly miniCardLeft = (card: GameCardInstance, index: number): number => this.store.miniCardLeft(card, index);
-  readonly miniCardTop = (card: GameCardInstance, index: number): number => this.store.miniCardTop(card, index);
   readonly cardImage = (card: GameCardInstance): string | null => this.store.cardImage(card);
   readonly isPlayerDropHighlighted = (playerId: string): boolean => this.store.isPlayerDropHighlighted(playerId);
   readonly isPhasePast = (phase: string): boolean => this.store.isPhasePast(phase);
@@ -112,25 +179,68 @@ export class GameTableComponent implements AfterViewChecked {
   readonly isDraggingCard = (card: GameCardInstance): boolean => this.store.isDraggingCard(card);
   readonly isHandDropTarget = (playerId: string, card: GameCardInstance, placement: 'before' | 'after'): boolean =>
     this.store.isHandDropTarget(playerId, card, placement);
+  readonly isCardDropSettling = (playerId: string, zone: GameZoneName, card: GameCardInstance): boolean =>
+    this.store.isCardDropSettling(playerId, zone, card);
+  readonly isManaDropSettling = (playerId: string, card: GameCardInstance): boolean => this.store.isManaDropSettling(playerId, card);
+  readonly isBattlefieldEntrySettling = (playerId: string, card: GameCardInstance): boolean =>
+    this.store.isBattlefieldEntrySettling(playerId, card);
+  readonly isCommanderEntrySettling = (playerId: string, card: GameCardInstance): boolean =>
+    this.store.isCommanderEntrySettling(playerId, card);
+  readonly isZoneDropSettling = (playerId: string, zone: GameZoneName): boolean => this.store.isZoneDropSettling(playerId, zone);
+  readonly isCardTransferPending = (playerId: string, zone: GameZoneName, card: GameCardInstance): boolean =>
+    this.store.isCardTransferPending(playerId, zone, card);
+  readonly isZoneTransferPending = (playerId: string, zone: GameZoneName): boolean => this.store.isZoneTransferPending(playerId, zone);
   readonly canDragBattlefieldCard = (playerId: string, card: GameCardInstance): boolean => this.store.canDragBattlefieldCard(playerId, card);
   readonly isPendingBattlefieldTransfer = (card: GameCardInstance): boolean => this.store.isPendingBattlefieldTransfer(card);
   readonly shouldShowPowerToughness = (card: GameCardInstance): boolean => this.store.shouldShowPowerToughness(card);
   readonly cardPowerValue = (card: GameCardInstance): number => this.store.cardPowerValue(card);
   readonly cardToughnessValue = (card: GameCardInstance): number => this.store.cardToughnessValue(card);
   readonly firstCounter = (card: GameCardInstance): { key: string; value: number } | null => this.store.firstCounter(card);
-  readonly alignmentGuideFor = (playerId: string): { y: number } | null => this.store.alignmentGuideFor(playerId);
+  readonly cardCounters = (card: GameCardInstance): readonly { key: string; value: number }[] =>
+    Object.entries(card.counters ?? {})
+      .filter(([, value]) => Number.isFinite(Number(value)) && Number(value) >= 0)
+      .map(([key, value]) => ({ key, value: Number(value) }));
+  readonly alignmentGuideFor = (playerId: string): { y: number; referenceInstanceIds: readonly string[] } | null =>
+    this.store.alignmentGuideFor(playerId);
   readonly isManaLaneHighlighted = (playerId: string): boolean => this.store.isManaLaneHighlighted(playerId);
   readonly canControlPlayer = (playerId: string): boolean => this.store.canControlPlayer(playerId);
   readonly canUseHiddenZone = (playerId: string, zone: GameZoneName): boolean => this.store.canUseHiddenZone(playerId, zone);
   readonly numberActionDialog = signal<NumberActionRequest | null>(null);
-  private lastAutoScrollKey = '';
+  readonly powerToughnessDialog = signal<PowerToughnessActionRequest | null>(null);
+  readonly battlefieldLayoutSize = signal<BattlefieldLayoutRect>({ width: 900, height: 520, left: 0, top: 0, right: 900, bottom: 520 });
+  readonly closeGameDialogOpen = signal(false);
+  readonly isPowerToughnessDialogInvalid = computed(() => {
+    const request = this.powerToughnessDialog();
 
+    return !request || !Number.isFinite(Number(request.power)) || !Number.isFinite(Number(request.toughness));
+  });
+  readonly latestLogEntry = computed(() => this.store.eventLog().at(-1) ?? null);
+  readonly latestChatMessage = computed(() => this.store.snapshot()?.chat.at(-1) ?? null);
+  readonly tableBackgroundImage = computed(() => `url("${this.store.gameBackgroundImage(this.store.currentPlayer())}")`);
+  readonly crossTableArrows = signal<readonly CrossTableArrowView[]>([]);
+  readonly crossTableArrowViewport = signal<CrossTableArrowViewport>({ width: 1, height: 1 });
+  private lastAutoScrollKey = '';
+  private lastCrossTableArrowKey = '';
+  private lastCrossTableArrowSourceKey = '';
+  private floatingScrollFrame: number | null = null;
+  private floatingScrollTimer: number | null = null;
+  private battlefieldReflowFrame: number | null = null;
+  private crossTableArrowFrame: number | null = null;
+
+  @ViewChild('gameScreen', { static: true }) private readonly gameScreen?: ElementRef<HTMLElement>;
+  @ViewChild(GameLogPanelComponent) private readonly gameLogPanel?: GameLogPanelComponent;
   @ViewChildren('autoScrollFeed') private readonly autoScrollFeeds?: QueryList<ElementRef<HTMLElement>>;
 
   ngAfterViewChecked(): void {
     const snapshot = this.store.snapshot();
     if (!snapshot) {
       return;
+    }
+
+    const arrowSourceKey = `${snapshot.version}:${snapshot.arrows.map((arrow) => `${arrow.id}:${arrow.fromInstanceId}:${arrow.toInstanceId}:${arrow.color}`).join('|')}`;
+    if (arrowSourceKey !== this.lastCrossTableArrowSourceKey) {
+      this.lastCrossTableArrowSourceKey = arrowSourceKey;
+      this.queueCrossTableArrowUpdate();
     }
 
     const log = this.store.eventLog();
@@ -143,11 +253,73 @@ export class GameTableComponent implements AfterViewChecked {
     }
 
     this.lastAutoScrollKey = key;
-    queueMicrotask(() => {
-      for (const feed of this.autoScrollFeeds?.toArray() ?? []) {
-        feed.nativeElement.scrollTop = feed.nativeElement.scrollHeight;
-      }
+    queueMicrotask(() => this.queueFloatingContentScrollToBottom());
+    this.queueBattlefieldReflow();
+  }
+
+  ngOnDestroy(): void {
+    this.clearQueuedFloatingContentScroll();
+    this.clearQueuedBattlefieldReflow();
+    this.clearQueuedCrossTableArrowUpdate();
+  }
+
+  scrollFloatingContentToBottom(): void {
+    this.gameLogPanel?.scrollToBottom();
+    for (const feed of this.autoScrollFeeds?.toArray() ?? []) {
+      feed.nativeElement.scrollTop = feed.nativeElement.scrollHeight;
+    }
+  }
+
+  queueFloatingContentScrollToBottom(): void {
+    this.clearQueuedFloatingContentScroll();
+    this.scrollFloatingContentToBottom();
+    this.floatingScrollFrame = window.requestAnimationFrame(() => {
+      this.floatingScrollFrame = null;
+      this.scrollFloatingContentToBottom();
     });
+    this.floatingScrollTimer = window.setTimeout(() => {
+      this.floatingScrollTimer = null;
+      this.scrollFloatingContentToBottom();
+    }, 260);
+  }
+
+  handleFloatingPanelFocusOut(event: FocusEvent): void {
+    const currentTarget = event.currentTarget;
+    const nextTarget = event.relatedTarget;
+    if (currentTarget instanceof HTMLElement && nextTarget instanceof Node && currentTarget.contains(nextTarget)) {
+      return;
+    }
+
+    this.queueFloatingContentScrollToBottom();
+  }
+
+  handleFloatingPanelTransitionEnd(event: TransitionEvent): void {
+    if (event.propertyName === 'max-height') {
+      this.queueFloatingContentScrollToBottom();
+    }
+  }
+
+  updateBattlefieldLayoutSize(size: BattlefieldLayoutRect): void {
+    const current = this.battlefieldLayoutSize();
+    if (
+      current.width === size.width
+      && current.height === size.height
+      && current.left === size.left
+      && current.top === size.top
+      && current.right === size.right
+      && current.bottom === size.bottom
+    ) {
+      return;
+    }
+
+    this.battlefieldLayoutSize.set(size);
+    this.queueCrossTableArrowUpdate();
+  }
+
+  @HostListener('window:resize')
+  handleViewportResize(): void {
+    this.queueBattlefieldReflow();
+    this.queueCrossTableArrowUpdate();
   }
 
   @HostListener('document:keydown', ['$event'])
@@ -163,6 +335,8 @@ export class GameTableComponent implements AfterViewChecked {
         this.store.closeContextMenu();
         this.store.closeZoneModal();
         this.cancelNumberAction();
+        this.cancelPowerToughnessDialog();
+        this.closeGameDialogOpen.set(false);
         this.store.clearSelection();
         break;
       case 'd':
@@ -240,6 +414,127 @@ export class GameTableComponent implements AfterViewChecked {
     return menu.zone === 'library' && !menu.card;
   }
 
+  private queueBattlefieldReflow(): void {
+    if (this.battlefieldReflowFrame !== null) {
+      return;
+    }
+
+    this.battlefieldReflowFrame = window.requestAnimationFrame(() => {
+      this.battlefieldReflowFrame = null;
+      this.store.reflowBattlefieldCardPositions();
+    });
+  }
+
+  private clearQueuedBattlefieldReflow(): void {
+    if (this.battlefieldReflowFrame === null) {
+      return;
+    }
+
+    window.cancelAnimationFrame(this.battlefieldReflowFrame);
+    this.battlefieldReflowFrame = null;
+  }
+
+  private queueCrossTableArrowUpdate(): void {
+    if (this.crossTableArrowFrame !== null) {
+      return;
+    }
+
+    this.crossTableArrowFrame = window.requestAnimationFrame(() => {
+      this.crossTableArrowFrame = null;
+      this.updateCrossTableArrows();
+    });
+  }
+
+  private clearQueuedCrossTableArrowUpdate(): void {
+    if (this.crossTableArrowFrame === null) {
+      return;
+    }
+
+    window.cancelAnimationFrame(this.crossTableArrowFrame);
+    this.crossTableArrowFrame = null;
+  }
+
+  private updateCrossTableArrows(): void {
+    const root = this.gameScreen?.nativeElement;
+    const snapshot = this.store.snapshot();
+    if (!root || !snapshot?.arrows.length) {
+      this.setCrossTableArrows([]);
+      return;
+    }
+
+    const rootRect = root.getBoundingClientRect();
+    this.crossTableArrowViewport.set({
+      width: Math.round(rootRect.width),
+      height: Math.round(rootRect.height),
+    });
+
+    const arrows = snapshot.arrows
+      .map((arrow): CrossTableArrowView | null => {
+        const source = this.visibleCardElement(arrow.fromInstanceId);
+        const target = this.visibleCardElement(arrow.toInstanceId);
+        if (!source || !target || !root.contains(source) || !root.contains(target) || this.sameFocusedBattlefield(source, target)) {
+          return null;
+        }
+
+        const sourceRect = source.getBoundingClientRect();
+        const targetRect = target.getBoundingClientRect();
+
+        return {
+          id: arrow.id,
+          x1: Math.round(sourceRect.left - rootRect.left + sourceRect.width / 2),
+          y1: Math.round(sourceRect.top - rootRect.top + sourceRect.height / 2),
+          x2: Math.round(targetRect.left - rootRect.left + targetRect.width / 2),
+          y2: Math.round(targetRect.top - rootRect.top + targetRect.height / 2),
+          color: this.arrowColor(arrow.color),
+        };
+      })
+      .filter((arrow): arrow is CrossTableArrowView => arrow !== null);
+    this.setCrossTableArrows(arrows);
+  }
+
+  private setCrossTableArrows(arrows: readonly CrossTableArrowView[]): void {
+    const key = arrows.map((arrow) => `${arrow.id}:${arrow.x1}:${arrow.y1}:${arrow.x2}:${arrow.y2}:${arrow.color}`).join('|');
+    if (key === this.lastCrossTableArrowKey) {
+      return;
+    }
+
+    this.lastCrossTableArrowKey = key;
+    this.crossTableArrows.set(arrows);
+  }
+
+  private visibleCardElement(instanceId: string): HTMLElement | null {
+    const escapedInstanceId = typeof CSS !== 'undefined' && typeof CSS.escape === 'function'
+      ? CSS.escape(instanceId)
+      : instanceId.replace(/["\\]/g, '\\$&');
+    const candidates = Array.from(document.querySelectorAll<HTMLElement>(`[data-card-instance-id="${escapedInstanceId}"]`));
+
+    return candidates.find((candidate) => {
+      const rect = candidate.getBoundingClientRect();
+      const style = window.getComputedStyle(candidate);
+
+      return rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden' && style.display !== 'none';
+    }) ?? null;
+  }
+
+  private sameFocusedBattlefield(source: HTMLElement, target: HTMLElement): boolean {
+    const sourceFocused = source.closest('app-focused-battlefield');
+    const targetFocused = target.closest('app-focused-battlefield');
+
+    return sourceFocused !== null && sourceFocused === targetFocused;
+  }
+
+  private arrowColor(color: string): string {
+    const colors: Record<string, string> = {
+      yellow: '#d7b46a',
+      red: '#ef4444',
+      green: '#22c55e',
+      blue: '#38bdf8',
+      black: '#d1d5db',
+    };
+
+    return colors[color] ?? colors['yellow'];
+  }
+
   isZoneOnlyMenu(menu: GameContextMenu): boolean {
     return !menu.card && menu.zone !== 'library';
   }
@@ -273,6 +568,7 @@ export class GameTableComponent implements AfterViewChecked {
         return;
       case 'focusCurrentPlayer':
         this.store.focusCurrentPlayer();
+        this.store.closeContextMenu();
         return;
       case 'openChat':
         this.store.activeFloatingTab.set('chat');
@@ -289,20 +585,22 @@ export class GameTableComponent implements AfterViewChecked {
         void this.store.concedeGame();
         return;
       case 'closeGame':
-        void this.store.closeGame();
+        this.openCloseGameDialog();
         this.store.closeContextMenu();
         return;
       case 'focusPlayer':
         this.store.focusPlayer(menu.playerId);
         return;
       case 'openZone':
-        this.store.openZone(menu.playerId, action.zone);
+        this.store.closeContextMenu();
+        void this.store.openZone(menu.playerId, action.zone);
         return;
       case 'changeLife':
         this.store.changeLife(menu.playerId, action.delta);
         this.store.closeContextMenu();
         return;
       case 'drawCard':
+        this.store.closeContextMenu();
         void this.store.draw(menu.playerId);
         return;
       case 'drawPrompt':
@@ -312,12 +610,15 @@ export class GameTableComponent implements AfterViewChecked {
         this.openMoveTopDialog(menu.playerId, action.zone);
         return;
       case 'shuffle':
+        this.store.closeContextMenu();
         void this.store.shuffle(menu.playerId);
         return;
       case 'revealTop':
+        this.store.closeContextMenu();
         void this.store.revealTop(menu.playerId);
         return;
       case 'moveAll':
+        this.store.closeContextMenu();
         void this.store.command('zone.move_all', { playerId: menu.playerId, fromZone: menu.zone, toZone: action.zone });
         return;
       case 'tapCard':
@@ -332,17 +633,35 @@ export class GameTableComponent implements AfterViewChecked {
       case 'tokenCopy':
         void this.store.tokenCopy(menu);
         return;
+      case 'drawArrow':
+        this.store.startArrowFrom(menu);
+        return;
       case 'addToStack':
         void this.store.addToStack(menu);
         return;
       case 'setPowerToughness':
-        this.store.setPowerToughness(menu);
+        this.openPowerToughnessDialog(menu);
         return;
       case 'changeCounter':
-        this.store.changeCardCounter(menu, action.counter);
+        void this.store.setCardCounter(menu, action.counter, 0);
+        return;
+      case 'removeCounter':
+        void this.store.deleteCardCounterByKey(menu, action.counter);
+        return;
+      case 'removeAllCounters':
+        void this.store.deleteAllCardCounters(menu);
+        return;
+      case 'giveToPlayer':
+        void this.store.giveCardToPlayer(menu, action.targetPlayerId);
         return;
       case 'moveCard':
         this.store.moveCard(menu, action.zone);
+        return;
+      case 'deleteArrow':
+        void this.store.deleteArrow(menu);
+        return;
+      case 'deleteCounter':
+        void this.store.deleteCardCounter(menu);
         return;
       case 'previewCard':
         if (menu.card) {
@@ -371,8 +690,41 @@ export class GameTableComponent implements AfterViewChecked {
     }
   }
 
+  onZoneDoubleClick(playerId: string, zone: GameZoneName): void {
+    if (zone === 'library') {
+      void this.store.draw(playerId);
+    }
+  }
+
   cancelNumberAction(): void {
     this.numberActionDialog.set(null);
+  }
+
+  updatePowerToughnessValue(change: PowerToughnessDialogValueChange): void {
+    this.powerToughnessDialog.update((request) => request ? { ...request, [change.stat]: change.value } : request);
+  }
+
+  confirmPowerToughnessDialog(): void {
+    const request = this.powerToughnessDialog();
+    if (!request || this.isPowerToughnessDialogInvalid()) {
+      return;
+    }
+
+    this.powerToughnessDialog.set(null);
+    void this.store.setPowerToughness(request.menu, Number(request.power), Number(request.toughness));
+  }
+
+  cancelPowerToughnessDialog(): void {
+    this.powerToughnessDialog.set(null);
+  }
+
+  confirmCloseGame(): void {
+    this.closeGameDialogOpen.set(false);
+    void this.store.closeGame();
+  }
+
+  cancelCloseGame(): void {
+    this.closeGameDialogOpen.set(false);
   }
 
   private openDrawDialog(playerId: string): void {
@@ -400,5 +752,34 @@ export class GameTableComponent implements AfterViewChecked {
       min: 1,
       confirmLabel: 'Move',
     });
+  }
+
+  private openPowerToughnessDialog(menu: GameContextMenu): void {
+    if (!menu.card) {
+      return;
+    }
+
+    this.store.closeContextMenu();
+    this.powerToughnessDialog.set({
+      menu,
+      power: String(menu.card.power ?? 0),
+      toughness: String(menu.card.toughness ?? 0),
+    });
+  }
+
+  private openCloseGameDialog(): void {
+    this.closeGameDialogOpen.set(true);
+  }
+
+  private clearQueuedFloatingContentScroll(): void {
+    if (this.floatingScrollFrame !== null) {
+      window.cancelAnimationFrame(this.floatingScrollFrame);
+      this.floatingScrollFrame = null;
+    }
+
+    if (this.floatingScrollTimer !== null) {
+      window.clearTimeout(this.floatingScrollTimer);
+      this.floatingScrollTimer = null;
+    }
   }
 }

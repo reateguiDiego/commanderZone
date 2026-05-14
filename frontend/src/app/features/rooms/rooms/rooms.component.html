@@ -5,21 +5,6 @@
         <p class="notice error">{{ error() }}</p>
       }
 
-      @if (currentRoom(); as room) {
-        <section class="panel room-current-banner">
-          <div class="room-header">
-            <span class="eyebrow">Current room</span>
-            <strong>{{ room.name }}</strong>
-            <small>Status: {{ room.status }} - {{ room.visibility }} - {{ roomPlayerCount(room) }} / {{ roomCapacity(room) }} players</small>
-          </div>
-          @if (room.gameId) {
-            <a class="secondary-button compact" [routerLink]="['/games', room.gameId]">Open game</a>
-          } @else {
-            <a class="secondary-button compact" [routerLink]="['/rooms', room.id, 'waiting']">Open waiting room</a>
-          }
-        </section>
-      }
-
       @if (incomingInvites().length > 0) {
         <app-room-invites-panel
           [invites]="incomingInvites()"
@@ -32,15 +17,25 @@
         [rooms]="rooms()"
         [formats]="formats()"
         [currentUserId]="auth.user()?.id ?? null"
+        [currentRoomId]="currentRoom()?.id ?? null"
+        [currentRoom]="currentRoom()"
+        [currentRoomPlayer]="currentRoomPlayer()"
+        [currentRoomTurn]="currentRoomTurn()"
         [deletingRoomId]="deletingRoomId()"
-        [archivingRoomId]="archivingRoomId()"
+        [leavingRoomId]="leavingRoomId()"
         (listedRoomOpened)="openListedRoom($event)"
+        (currentRoomLeaveRequested)="leaveCurrentRoom($event)"
+        (leaveRequested)="leaveRoom($event)"
         (deleteRequested)="requestDeleteRoom($event)"
-        (archiveRequested)="archiveRoom($event)"
       />
     </div>
 
-    <app-room-create-panel [formats]="formats()" (codeJoinRequested)="joinRoomByCode($event)" (roomCreated)="createRoom($event)" />
+    <app-room-create-panel
+      [formats]="formats()"
+      [actionsLocked]="currentRoom() !== null"
+      (codeJoinRequested)="joinRoomByCode($event)"
+      (roomCreated)="createRoom($event)"
+    />
   </div>
 
   <app-modal

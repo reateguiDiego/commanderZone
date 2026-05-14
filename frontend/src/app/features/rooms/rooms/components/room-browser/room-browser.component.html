@@ -1,4 +1,15 @@
 <section class="panel rooms-table-panel">
+  @if (currentRoom(); as room) {
+    <app-room-current-banner
+      [room]="room"
+      [currentPlayer]="currentRoomPlayer()"
+      [turn]="currentRoomTurn()"
+      [formats]="formats()"
+      [leavingRoomId]="leavingRoomId()"
+      (leaveRequested)="currentRoomLeaveRequested.emit($event)"
+    />
+  }
+
   <div class="rooms-table-toolbar">
     <label class="filter-field">
       <span>Room name</span>
@@ -51,11 +62,13 @@
         [room]="room"
         [formats]="formats()"
         [currentUserId]="currentUserId()"
+        [currentRoomId]="currentRoomId()"
+        [actionsLocked]="currentRoom() !== null"
         [deletingRoomId]="deletingRoomId()"
-        [archivingRoomId]="archivingRoomId()"
+        [leavingRoomId]="leavingRoomId()"
         (opened)="listedRoomOpened.emit($event)"
+        (left)="leaveRequested.emit($event)"
         (deleted)="deleteRequested.emit($event)"
-        (archived)="archiveRequested.emit($event)"
       />
     } @empty {
       <p class="notice">No rooms match the current filters.</p>

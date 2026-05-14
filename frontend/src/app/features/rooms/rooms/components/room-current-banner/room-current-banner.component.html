@@ -1,0 +1,51 @@
+@let currentRoom = room();
+<section class="room-current-banner" [class.has-art]="deckImageUrl()">
+  @if (deckImageUrl(); as imageUrl) {
+    <img class="banner-art" [src]="imageUrl" alt="" aria-hidden="true" />
+  }
+
+  <div class="banner-main">
+    <div class="room-copy">
+      <span class="eyebrow">Current room</span>
+      <div class="room-title-line">
+        <span class="room-state-dot" [class.is-private]="currentRoom.visibility === 'private'"></span>
+        <h2>{{ currentRoom.name }}</h2>
+        <span class="visibility-pill" [class.is-private]="currentRoom.visibility === 'private'">{{ currentRoom.visibility }}</span>
+      </div>
+      <div class="room-chips" aria-label="Current room details">
+        <span class="room-chip">{{ formatName() }}</span>
+        <span class="room-chip">{{ playerCountLabel() }} players</span>
+      </div>
+    </div>
+
+    <div class="deck-summary">
+      <div class="deck-art" [class.is-empty]="!deckImageUrl()">
+        @if (deckImageUrl(); as imageUrl) {
+          <img [src]="imageUrl" [alt]="playerDeckName()" />
+        } @else {
+          <lucide-icon name="library" size="22" />
+        }
+      </div>
+      <div class="deck-copy">
+        <span>Your deck</span>
+        <strong>{{ playerDeckName() }}</strong>
+      </div>
+    </div>
+
+    <div class="turn-summary">
+      <span>Turn</span>
+      <strong>{{ turnLabel() }}</strong>
+    </div>
+  </div>
+
+  <div class="current-room-actions">
+    <a class="primary-button compact" [routerLink]="primaryActionRoute()">
+      <lucide-icon [name]="primaryActionIcon()" size="15" />
+      {{ primaryActionLabel() }}
+    </a>
+    <button class="danger-button compact" type="button" [disabled]="leavingRoomId() === currentRoom.id" (click)="leaveRequested.emit(currentRoom.id)">
+      <lucide-icon name="log-out" size="15" />
+      {{ leavingRoomId() === currentRoom.id ? 'Leaving' : 'Leave' }}
+    </button>
+  </div>
+</section>

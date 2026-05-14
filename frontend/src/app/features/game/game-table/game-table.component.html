@@ -1,24 +1,190 @@
-<section class="game-screen" data-testid="game-screen" (click)="store.handleTableClick($event)" (contextmenu)="store.openGameMenu($event)">
+<section
+  #gameScreen
+  class="game-screen"
+  data-testid="game-screen"
+  [style.--game-wallpaper-image]="tableBackgroundImage()"
+  (click)="store.handleTableClick($event)"
+  (contextmenu)="store.openGameMenu($event)"
+>
+  @if (crossTableArrows().length > 0) {
+    <svg
+      class="cross-table-arrows"
+      aria-hidden="true"
+      [attr.viewBox]="'0 0 ' + crossTableArrowViewport().width + ' ' + crossTableArrowViewport().height"
+    >
+      <defs>
+        @for (arrow of crossTableArrows(); track arrow.id) {
+          <marker
+            [attr.id]="'cross-table-arrow-head-' + arrow.id"
+            viewBox="0 0 14 12"
+            refX="13"
+            refY="6"
+            markerWidth="9"
+            markerHeight="9"
+            orient="auto"
+            markerUnits="strokeWidth"
+          >
+            <path d="M 0 1 L 14 6 L 0 11 L 3.5 6 z" [attr.fill]="arrow.color"></path>
+          </marker>
+        }
+      </defs>
+      @for (arrow of crossTableArrows(); track arrow.id) {
+        <line
+          [attr.x1]="arrow.x1"
+          [attr.y1]="arrow.y1"
+          [attr.x2]="arrow.x2"
+          [attr.y2]="arrow.y2"
+          [attr.stroke]="arrow.color"
+          [attr.marker-end]="'url(#cross-table-arrow-head-' + arrow.id + ')'"
+        ></line>
+      }
+    </svg>
+  }
+
+  <app-game-table-header (click)="$event.stopPropagation()" (contextmenu)="$event.stopPropagation()" />
+
   @if (store.loading()) {
     <p class="notice">Loading game snapshot...</p>
   } @else if (store.snapshot(); as snapshot) {
-    <main class="table-surface game-table-v2">
+    <main appPrettyScroll class="table-surface game-table-v2">
       @if (store.error()) {
-        <p class="table-error">{{ store.error() }}</p>
+        <p class="table-error" role="status" aria-live="polite">{{ store.error() }}</p>
       }
-      <header class="game-hud game-table-topbar">
-        <div class="game-brand">
-          <span class="brand-mark">CZ</span>
-          <strong>COMMANDERZONE</strong>
-        </div>
-        <div class="topbar-actions">
-          <button class="settings-button" type="button" title="Settings" data-testid="settings-open" (click)="store.openGameMenu($event)">
-            <lucide-icon name="menu" size="18" />
-          </button>
-        </div>
-      </header>
 
       @if (store.focusedPlayer(); as player) {
+        <div class="player-strip game-table-main-top">
+          <app-player-summary-panel
+            [player]="player"
+            [colorAccent]="colorAccent"
+            [deckLabel]="deckLabel"
+            [manaSymbols]="manaSymbols"
+            (lifeChanged)="store.changeLife($event.playerId, $event.delta)"
+          />
+
+          <app-turn-phase-panel
+            [turn]="snapshot.turn"
+            [players]="store.players()"
+            [phases]="store.phases"
+            [currentPlayerId]="store.currentPlayer()?.id ?? null"
+            [isPhasePast]="isPhasePast"
+            [pending]="store.pending()"
+            [canAdvance]="store.canAdvanceTurnPhase()"
+            (advancePhase)="store.advanceTurnPhase()"
+            (passTurn)="store.passTurn()"
+          />
+
+          <div class="extras-panel game-table-extras" aria-hidden="true"></div>
+
+          <section
+            class="floating-panel game-table-game-log"
+            data-testid="game-log-panel"
+            [attr.data-active-tab]="store.activeFloatingTab()"
+            (mouseenter)="queueFloatingContentScrollToBottom()"
+            (mouseleave)="queueFloatingContentScrollToBottom()"
+            (focusin)="queueFloatingContentScrollToBottom()"
+            (focusout)="handleFloatingPanelFocusOut($event)"
+            (transitionend)="handleFloatingPanelTransitionEnd($event)"
+          >
+            <header class="floating-handle">
+              <button
+                type="button"
+                [class.active]="store.activeFloatingTab() === 'log'"
+                (click)="store.activeFloatingTab.set('log')"
+              >
+                Game Log
+              </button>
+              <button
+                type="button"
+                data-testid="chat-open"
+                [class.active]="store.activeFloatingTab() === 'chat'"
+                (click)="store.activeFloatingTab.set('chat')"
+              >
+                Chat
+              </button>
+            </header>
+            <div appPrettyScroll class="floating-collapsed-preview panel-feed" aria-hidden="true">
+              @if (store.activeFloatingTab() === 'log') {
+                @if (latestLogEntry(); as entry) {
+                  <p class="collapsed-log-entry" [class.phase-entry]="entry.appearance === 'phase'">
+                    <small>{{ logTime(entry.createdAt) }}</small>
+                    <strong>{{ entry.displayName ?? 'System' }}</strong>
+                    <span>
+                      {{ entry.messagePrefix }}
+                      @if (entry.card; as card) {
+                        <span class="log-card-name">{{ card.name }}</span>
+                      }
+                      {{ entry.messageSuffix }}
+                    </span>
+                  </p>
+                } @else {
+                  <p class="collapsed-empty"><span>No game actions yet.</span></p>
+                }
+              } @else {
+                @if (latestChatMessage(); as message) {
+                  <p class="collapsed-chat-entry">
+                    <small>{{ logTime(message.createdAt) }}</small>
+                    <strong>{{ message.displayName }}</strong>
+                    @if (message.targetDisplayName) {
+                      <em>to {{ message.targetDisplayName }}</em>
+                    }
+                    <span>{{ message.message }}</span>
+                  </p>
+                } @else {
+                  <p class="collapsed-empty"><span>No chat messages yet.</span></p>
+                }
+              }
+            </div>
+            @if (store.activeFloatingTab() === 'log') {
+              <app-game-log-panel
+                class="floating-expanded-content"
+                [entries]="store.eventLog()"
+                [logTime]="logTime"
+                (previewCard)="store.showCardPreview($event)"
+                (hidePreview)="store.hideCardPreview()"
+              />
+            } @else {
+              <div class="chat-panel-content floating-expanded-content" data-testid="chat-panel">
+                <div #autoScrollFeed appPrettyScroll class="panel-feed" data-testid="chat-feed">
+                  @for (message of snapshot.chat; track message.createdAt + message.userId) {
+                    <p data-testid="chat-message" [class.private-chat-message]="message.targetPlayerId">
+                      <small>{{ logTime(message.createdAt) }}</small>
+                      <strong>{{ message.displayName }}</strong>
+                      @if (message.targetDisplayName) {
+                        <em>to {{ message.targetDisplayName }}</em>
+                      }
+                      <span>{{ message.message }}</span>
+                    </p>
+                  }
+                </div>
+                <form class="chat-form" (ngSubmit)="store.sendChat()">
+                  @if (store.shouldShowChatRecipientSelect()) {
+                    <label class="chat-recipient-select" aria-label="Chat recipient">
+                      <select
+                        data-testid="chat-recipient"
+                        name="chatRecipient"
+                        [ngModel]="store.selectedChatTargetValue()"
+                        (ngModelChange)="store.setChatTargetPlayerId($event)"
+                      >
+                        @for (recipient of store.chatRecipients(); track recipient.playerId ?? 'all') {
+                          <option [value]="recipient.playerId ?? 'all'">{{ recipient.label }}</option>
+                        }
+                      </select>
+                    </label>
+                  }
+                  <input
+                    data-testid="chat-input"
+                    name="chatMessage"
+                    placeholder="Message"
+                    [ngModel]="store.chatMessage()"
+                    (ngModelChange)="store.setChatMessage($event)"
+                  />
+                  <button data-testid="chat-send" type="submit"><lucide-icon name="send" size="16" /></button>
+                </form>
+              </div>
+            }
+          </section>
+        </div>
+
         <section
           class="focused-board game-table-focused-player"
           data-testid="player-panel"
@@ -27,29 +193,9 @@
           [class.active]="snapshot.turn.activePlayerId === player.id"
           [class.dragging-card]="store.draggingCardInstanceId()"
         >
-          <div class="player-strip game-table-main-top">
-            <app-player-summary-panel
-              [player]="player"
-              [colorAccent]="colorAccent"
-              [deckLabel]="deckLabel"
-              [manaSymbols]="manaSymbols"
-              (lifeChanged)="store.changeLife($event.playerId, $event.delta)"
-            />
-
-            <app-turn-phase-panel
-              [turn]="snapshot.turn"
-              [players]="store.players()"
-              [phases]="store.phases"
-              [currentPlayerId]="store.currentPlayer()?.id ?? null"
-              [isPhasePast]="isPhasePast"
-              [pending]="store.pending()"
-              [canAdvance]="store.canAdvanceTurnPhase()"
-              (advancePhase)="store.advanceTurnPhase()"
-            />
-          </div>
-
           <app-focused-battlefield
             [player]="player"
+            [arrows]="snapshot.arrows"
             [isCurrentPlayer]="isCurrentPlayer"
             [isDropZoneHighlighted]="isDropZoneHighlighted"
             [cardPosition]="cardPosition"
@@ -64,6 +210,11 @@
             [firstCounter]="firstCounter"
             [alignmentGuideFor]="alignmentGuideFor"
             [isManaLaneHighlighted]="isManaLaneHighlighted"
+            [isCardDropSettling]="isCardDropSettling"
+            [isManaDropSettling]="isManaDropSettling"
+            [isBattlefieldEntrySettling]="isBattlefieldEntrySettling"
+            [isCommanderEntrySettling]="isCommanderEntrySettling"
+            [isCardTransferPending]="isCardTransferPending"
             (battlefieldDragOver)="store.allowDrop($event)"
             (battlefieldDropped)="store.dropOnZone($event.event, $event.playerId, $event.zone)"
             (battlefieldMenuOpened)="store.openZoneMenu($event.event, $event.playerId, $event.zone)"
@@ -71,36 +222,42 @@
             (cardClicked)="store.handleBattlefieldCardClick($event.event, $event.playerId, $event.card)"
             (cardDoubleClicked)="store.toggleTapped($event.playerId, 'battlefield', $event.card)"
             (cardMenuOpened)="store.openCardMenu($event.event, $event.playerId, 'battlefield', $event.card)"
-            (cardPreviewShown)="store.showCardPreview($event.card, $event.playerId, $event.zone)"
+            (cardPreviewShown)="store.showCardPreview($event)"
             (cardPreviewHidden)="store.hideCardPreview()"
             (cardPowerChanged)="store.changeCardPower($event.playerId, $event.zone, $event.card, $event.delta)"
             (cardToughnessChanged)="store.changeCardToughness($event.playerId, $event.zone, $event.card, $event.delta)"
+            (cardLoyaltyChanged)="store.changeCardLoyalty($event.playerId, $event.zone, $event.card, $event.delta)"
+            (cardCounterChanged)="store.changeCardCounterForCard($event.playerId, $event.zone, $event.card, $event.key, $event.delta)"
+            (cardCounterDeleteRequested)="store.openCounterDeleteMenu($event.event, $event.playerId, $event.zone, $event.card, $event.key)"
+            (arrowMenuOpened)="store.openArrowMenu($event.event, $event.playerId, $event.arrowId)"
             (manaLaneDragOver)="store.allowDrop($event)"
             (manaLaneDropped)="store.dropOnManaLane($event.event, $event.playerId)"
+            (battlefieldSizeChanged)="updateBattlefieldLayoutSize($event)"
           />
 
           <div class="bottom-play-area">
             @if (store.handPlayer(); as handPlayer) {
               <app-player-hand-panel
                 [player]="handPlayer"
-                [isCurrentPlayer]="isCurrentPlayer"
                 [zoneCount]="zoneCount"
-                [countItems]="countItems"
-                [colorAccent]="colorAccent"
                 [cardImage]="cardImage"
                 [isSelected]="isSelected"
                 [isDraggingCard]="isDraggingCard"
                 [isHandDropTarget]="isHandDropTarget"
                 [isDropZoneHighlighted]="isDropZoneHighlighted"
-                (handDragOver)="store.allowDrop($event)"
+                [isCardDropSettling]="isCardDropSettling"
+                [isCardTransferPending]="isCardTransferPending"
+                [interactionFrozen]="store.contextMenu() !== null"
+                [hasActiveCardDrag]="store.draggingCardInstanceId() !== null || store.pointerDragPreview() !== null"
+                [externalRevealAllowed]="store.handExternalRevealAllowed()"
+                (handDragOver)="store.previewDropOnHand($event.event, $event.playerId)"
                 (handDropped)="store.dropOnHand($event.event, $event.playerId)"
-                (cardDragStarted)="store.dragStart($event.event, $event.playerId, $event.zone, $event.card)"
-                (cardDragEnded)="store.dragEnd()"
-                (handCardDragOver)="store.previewHandDrop($event.event, $event.playerId, $event.card)"
-                (handCardDropped)="store.dropOnHandCard($event.event, $event.playerId, $event.card)"
                 (handCardClicked)="store.handleHandCardClick($event.event, $event.playerId, $event.card)"
+                (handCardPointerReordered)="store.reorderHandCard($event.playerId, $event.movedInstanceId, $event.targetInstanceId, $event.placement)"
+                (handCardPointerMoved)="store.moveHandCardByPointer($event.playerId, $event.targetPlayerId, $event.movedInstanceId, $event.toZone, $event.position, $event.rawZone)"
+                (handPointerDropTargetChanged)="store.updatePointerDropTarget($event)"
                 (cardMenuOpened)="store.openCardMenu($event.event, $event.playerId, 'hand', $event.card)"
-                (cardPreviewShown)="store.showCardPreview($event.card, $event.playerId, $event.zone)"
+                (cardPreviewShown)="store.showCardPreview($event)"
                 (cardPreviewHidden)="store.hideCardPreview()"
               />
             }
@@ -115,109 +272,78 @@
           [zoneCount]="zoneCount"
           [isDropZoneHighlighted]="isDropZoneHighlighted"
           [zoneTitle]="zoneTitle"
+          [zonePreviewCard]="zonePreviewCard"
           [zonePreviewImage]="zonePreviewImage"
           [commanderCastCount]="commanderCastCount"
+          [isZoneDropSettling]="isZoneDropSettling"
+          [isZoneTransferPending]="isZoneTransferPending"
+          [currentDraggingCardInstanceId]="store.draggingCardInstanceId()"
           (zoneDragStart)="store.dragTopZoneCard($event.event, $event.player, $event.zone)"
           (zoneDragEnd)="store.dragEnd()"
           (zoneDragOver)="store.allowDrop($event)"
           (zoneDropped)="store.dropOnZone($event.event, $event.playerId, $event.zone)"
           (zoneOpened)="store.openZone($event.playerId, $event.zone)"
+          (zoneDoubleClicked)="onZoneDoubleClick($event.playerId, $event.zone)"
           (zoneMenuOpened)="store.openZoneMenu($event.event, $event.playerId, $event.zone)"
           (commanderCastChanged)="store.changeCommanderCastCount($event.playerId, $event.delta)"
+          (cardPreviewShown)="store.showCardPreview($event)"
+          (cardPreviewHidden)="store.hideCardPreview()"
         />
       }
 
-      <aside class="player-sidebar game-table-opponents">
-        @for (player of store.players(); track player.id) {
-          @if (store.focusedPlayer()?.id !== player.id) {
-            <app-opponent-mini-board
-              [player]="player"
-              [colorAccent]="colorAccent"
-              [deckLabel]="deckLabel"
-              [manaSymbols]="manaSymbols"
-              [zoneCount]="zoneCount"
-              [cardPosition]="cardPosition"
-              [miniCardLeft]="miniCardLeft"
-              [miniCardTop]="miniCardTop"
-              [cardImage]="cardImage"
-              [isPlayerDropHighlighted]="isPlayerDropHighlighted"
-              (focusPlayer)="store.focusPlayer($event)"
-              (dropAllowed)="store.allowDrop($event)"
-              (playerDropped)="store.dropOnPlayer($event.event, $event.playerId)"
-              (playerMenuOpened)="store.openPlayerMenu($event.event, $event.playerId)"
-              (cardPreviewShown)="store.showCardPreview($event.card, $event.playerId, $event.zone)"
-              (cardPreviewHidden)="store.hideCardPreview()"
-            />
-          }
-        }
-      </aside>
-      <section
-        class="floating-panel game-table-game-log"
-        data-testid="game-log-panel"
-        [attr.data-active-tab]="store.activeFloatingTab()"
-      >
-        <header class="floating-handle">
-          <button
-            type="button"
-            [class.active]="store.activeFloatingTab() === 'log'"
-            (click)="store.activeFloatingTab.set('log')"
-          >
-            Game Log
-          </button>
-          <button
-            type="button"
-            data-testid="chat-open"
-            [class.active]="store.activeFloatingTab() === 'chat'"
-            (click)="store.activeFloatingTab.set('chat')"
-          >
-            Chat
-          </button>
-        </header>
-        @if (store.activeFloatingTab() === 'log') {
-          <app-game-log-panel
-            [entries]="store.eventLog()"
-            [logTime]="logTime"
-            (previewCard)="store.showCardPreview($event)"
-            (hidePreview)="store.hideCardPreview()"
-          />
-        } @else {
-          <div class="chat-panel-content" data-testid="chat-panel">
-            <div #autoScrollFeed appPrettyScroll class="panel-feed" data-testid="chat-feed">
-              @for (message of snapshot.chat; track message.createdAt + message.userId) {
-                <p data-testid="chat-message"><strong>{{ message.displayName }}</strong><span>{{ message.message }}</span></p>
-              }
-            </div>
-            <form class="chat-form" (ngSubmit)="store.sendChat()">
-              <input
-                data-testid="chat-input"
-                name="chatMessage"
-                placeholder="Message"
-                [ngModel]="store.chatMessage()"
-                (ngModelChange)="store.setChatMessage($event)"
+      <aside appPrettyScroll class="player-sidebar game-table-opponents">
+        <button class="drawer-handle opponents-drawer-handle" type="button">Opponents</button>
+        <div class="opponents-list">
+          @for (player of store.players(); track player.id) {
+            @if (store.focusedPlayer()?.id !== player.id) {
+              <app-opponent-mini-board
+                [player]="player"
+                [colorAccent]="colorAccent"
+                [deckLabel]="deckLabel"
+                [backgroundImage]="gameBackgroundImage"
+                [zoneCount]="zoneCount"
+                [cardPosition]="cardPosition"
+                [cardImage]="cardImage"
+                [isPlayerDropHighlighted]="isPlayerDropHighlighted"
+                [isCardDropSettling]="isCardDropSettling"
+                [isManaDropSettling]="isManaDropSettling"
+                [isBattlefieldEntrySettling]="isBattlefieldEntrySettling"
+                [isCommanderEntrySettling]="isCommanderEntrySettling"
+                [isCardTransferPending]="isCardTransferPending"
+                [battlefieldSize]="battlefieldLayoutSize()"
+                (focusPlayer)="store.focusPlayer($event)"
+                (dropAllowed)="store.allowDrop($event)"
+                (playerDropped)="store.dropOnPlayer($event.event, $event.playerId)"
+                (playerMenuOpened)="store.openPlayerMenu($event.event, $event.playerId)"
+                (cardPreviewShown)="store.showCardPreview($event)"
+                (cardPreviewHidden)="store.hideCardPreview()"
+                (battlefieldCardClicked)="store.handleBattlefieldCardClick($event.event, $event.playerId, $event.card)"
               />
-              <button data-testid="chat-send" type="submit"><lucide-icon name="send" size="16" /></button>
-            </form>
-          </div>
-        }
-      </section>
-
-      @if (store.hoveredCard(); as card) {
-        <aside class="card-preview">
-          @if (store.cardImage(card); as image) {
-            <img [src]="image" [alt]="card.name" />
+            }
           }
-        </aside>
+        </div>
+      </aside>
+      @if (store.hoveredPreview(); as preview) {
+        <app-card-preview-overlay
+          [card]="preview.card"
+          [image]="store.cardImage(preview.card)"
+          [sourceRect]="preview.sourceRect"
+          [battlefieldRect]="battlefieldLayoutSize()"
+        />
       }
 
       @if (store.contextMenu(); as menu) {
         <app-context-menu
           [menu]="menu"
           [currentPlayer]="store.currentPlayer()"
+          [players]="store.players()"
           [isGameOwner]="store.isGameOwner()"
           [counterPresets]="counterPresets"
           [moveZones]="moveZones"
           [isCurrentPlayer]="isCurrentPlayer"
           [canControlPlayer]="canControlPlayer"
+          [zoneCardCount]="zoneCardCountById"
+          [shouldShowPowerToughness]="shouldShowPowerToughness"
           [zoneTitle]="zoneTitle"
           (actionSelected)="handleContextMenuAction($event, menu)"
         />
@@ -228,12 +354,37 @@
           [title]="dialog.title"
           [description]="dialog.description"
           [min]="dialog.min"
+          [max]="dialog.max ?? null"
           [defaultValue]="dialog.defaultValue"
           [confirmLabel]="dialog.confirmLabel"
           (confirmed)="confirmNumberAction($event)"
           (cancelled)="cancelNumberAction()"
         />
       }
+
+      @if (powerToughnessDialog(); as dialog) {
+        <app-power-toughness-dialog
+          [cardName]="dialog.menu.card?.name ?? 'Card'"
+          [power]="dialog.power"
+          [toughness]="dialog.toughness"
+          [invalid]="isPowerToughnessDialogInvalid()"
+          (valueChanged)="updatePowerToughnessValue($event)"
+          (confirmed)="confirmPowerToughnessDialog()"
+          (cancelled)="cancelPowerToughnessDialog()"
+        />
+      }
+
+      <app-modal
+        [open]="closeGameDialogOpen()"
+        title="Close game?"
+        message="This finishes the current game and sends the table back to the rooms list."
+        primaryLabel="Close game"
+        secondaryLabel="Cancel"
+        [danger]="true"
+        [lockBodyScroll]="false"
+        (primary)="confirmCloseGame()"
+        (secondary)="cancelCloseGame()"
+      />
 
       @if (store.pendingBattlefieldMove(); as pendingMove) {
         <app-modal
@@ -242,8 +393,27 @@
           [message]="'Vas a poner ' + pendingMove.cardName + ' en el battlefield de ' + pendingMove.targetPlayerName + '.'"
           primaryLabel="Confirmar"
           secondaryLabel="Cancelar"
+          [lockBodyScroll]="false"
           (primary)="store.confirmPendingBattlefieldMove()"
           (secondary)="store.cancelPendingBattlefieldMove()"
+        />
+      }
+
+      @if (store.pendingLibraryMove(); as pendingMove) {
+        <app-modal
+          [open]="true"
+          title="Devolver a biblioteca"
+          [message]="'Donde quieres poner ' + pendingMove.cardName + '?'"
+          primaryLabel="Top"
+          secondaryLabel="Bottom"
+          secondaryVariant="primary"
+          [showTertiary]="true"
+          tertiaryLabel="Cancelar"
+          footerLayout="split"
+          [lockBodyScroll]="false"
+          (primary)="store.confirmPendingLibraryMove('top')"
+          (secondary)="store.confirmPendingLibraryMove('bottom')"
+          (tertiary)="store.cancelPendingLibraryMove()"
         />
       }
 
@@ -253,6 +423,8 @@
           [class.tapped]="preview.card.tapped"
           [style.left.px]="preview.x"
           [style.top.px]="preview.y"
+          [style.width.px]="preview.width"
+          [style.height.px]="preview.height"
           aria-hidden="true"
         >
           @if (store.cardImage(preview.card); as image) {
@@ -260,11 +432,17 @@
           } @else {
             <span>{{ preview.card.name }}</span>
           }
-          @if (shouldShowPowerToughness(preview.card)) {
+          <app-card-marker-rail [isToken]="preview.card.isToken === true" [counters]="cardCounters(preview.card)" />
+          @if (preview.count > 1) {
+            <span class="drag-count-badge" aria-hidden="true">{{ preview.count }}</span>
+          }
+          @if (!preview.card.faceDown && shouldShowPowerToughness(preview.card)) {
             <span class="power-toughness-overlay" aria-hidden="true">
               <span>{{ cardPowerValue(preview.card) }}</span>
               <span>{{ cardToughnessValue(preview.card) }}</span>
             </span>
+          } @else if (!preview.card.faceDown && preview.card.loyalty !== null && preview.card.loyalty !== undefined) {
+            <app-loyalty-counter [value]="preview.card.loyalty" [pulse]="null" [entrySettling]="false" />
           }
         </div>
       }

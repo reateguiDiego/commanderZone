@@ -1,0 +1,25 @@
+<div class="submenu" [class.expanded]="expanded()">
+  <button type="button" class="submenu-trigger" [attr.aria-expanded]="expanded()" (click)="toggle($event)">
+    <span>{{ label() }}</span>
+    <span class="submenu-arrow" aria-hidden="true">&rsaquo;</span>
+  </button>
+
+  @if (expanded()) {
+    <div class="submenu-panel" role="menu">
+      @for (item of items(); track item.value) {
+        <button
+          type="button"
+          role="menuitem"
+          [disabled]="item.disabled"
+          [class.danger-menu-item]="item.danger"
+          (click)="selectItem($event, item)"
+        >
+          <span>{{ item.label }}</span>
+          @if (item.shortcut) {
+            <kbd>{{ item.shortcut }}</kbd>
+          }
+        </button>
+      }
+    </div>
+  }
+</div>

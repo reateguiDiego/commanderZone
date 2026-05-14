@@ -12,10 +12,10 @@
   gap: 1rem;
   width: min(24rem, calc(100vw - 2rem));
   padding: 1rem;
-  border: 1px solid rgb(238 211 139 / 24%);
+  border: 1px solid var(--game-accent-line, rgb(215 180 106 / 32%));
   border-radius: 10px;
-  background: #10130e;
-  color: #f3f0e7;
+  background: var(--game-surface, #181b16);
+  color: var(--game-text, #f3f0e8);
 }
 
 .number-action-dialog h2,
@@ -24,15 +24,15 @@
 }
 
 .number-action-dialog p {
-  color: #c9c3b3;
+  color: var(--game-muted, #aaa99f);
 }
 
 .number-action-dialog input {
   min-height: 2.45rem;
-  border: 1px solid rgb(238 211 139 / 24%);
+  border: 1px solid var(--game-line-soft, rgb(61 69 53 / 46%));
   border-radius: 6px;
-  background: rgb(26 30 22 / 88%);
-  color: #f3f0e7;
+  background: var(--game-surface-soft, rgb(32 37 29 / 72%));
+  color: var(--game-text, #f3f0e8);
   padding: 0 0.65rem;
 }
 
@@ -44,14 +44,14 @@
 
 .number-action-dialog button {
   min-height: 2.25rem;
-  border: 1px solid rgb(238 211 139 / 20%);
+  border: 1px solid var(--game-line-soft, rgb(61 69 53 / 46%));
   border-radius: 6px;
-  background: rgb(26 30 22 / 90%);
-  color: #f3f0e7;
+  background: var(--game-surface-soft, rgb(32 37 29 / 72%));
+  color: var(--game-text, #f3f0e8);
   padding: 0 0.75rem;
   cursor: pointer;
 }
 
 .number-action-dialog button:hover {
-  border-color: rgb(238 211 139 / 48%);
+  border-color: var(--game-accent-strong, rgb(215 180 106 / 58%));
 }

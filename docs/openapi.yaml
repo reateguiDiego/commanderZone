@@ -1386,7 +1386,7 @@ paths:
           in: query
           schema:
             type: string
-            enum: [active, archived, all]
+            enum: [active, all]
             default: active
       responses:
         '200':
@@ -1423,6 +1423,21 @@ paths:
                 properties:
                   room:
                     $ref: '#/components/schemas/Room'
+        '401':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+  /rooms/current:
+    get:
+      tags: [Rooms]
+      summary: Get the active room where the authenticated user is currently a player.
+      responses:
+        '200':
+          description: Current active room, or null if the user is not currently in one.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CurrentRoomResponse'
         '401':
           $ref: '#/components/responses/Error'
   /rooms/{id}:
@@ -1535,7 +1550,7 @@ paths:
   /rooms/invites/{id}/accept:
     post:
       tags: [Rooms]
-      summary: Accept a pending room invite and join the room (deck can be selected later in waiting room).
+      summary: Accept a pending room invite and join the room if the user is not already in another active room.
       parameters:
         - $ref: '#/components/parameters/Id'
       requestBody:
@@ -1589,7 +1604,7 @@ paths:
   /rooms/{id}/join:
     post:
       tags: [Rooms]
-      summary: Join a waiting room by id. Private waiting rooms can be joined by users with the direct link.
+      summary: Join a waiting room by id when the user is not already in another active room.
       parameters:
         - $ref: '#/components/parameters/Id'
       requestBody:
@@ -1620,7 +1635,7 @@ paths:
   /rooms/code/{code}/join:
     post:
       tags: [Rooms]
-      summary: Join a waiting room by short room code, including private waiting rooms.
+      summary: Join a waiting room by short room code when the user is not already in another active room.
       parameters:
         - name: code
           in: path
@@ -1683,7 +1698,7 @@ paths:
   /rooms/{id}/leave:
     post:
       tags: [Rooms]
-      summary: Leave a waiting room as a current room player.
+      summary: Leave an active room as a current room player.
       parameters:
         - $ref: '#/components/parameters/Id'
       responses:
@@ -1702,8 +1717,6 @@ paths:
         '403':
           $ref: '#/components/responses/Error'
         '404':
-          $ref: '#/components/responses/Error'
-        '409':
           $ref: '#/components/responses/Error'
   /rooms/{id}/players/{playerId}:
     delete:
@@ -1759,31 +1772,6 @@ paths:
                     $ref: '#/components/schemas/Game'
         '400':
           $ref: '#/components/responses/Error'
-        '401':
-          $ref: '#/components/responses/Error'
-        '403':
-          $ref: '#/components/responses/Error'
-        '404':
-          $ref: '#/components/responses/Error'
-        '409':
-          $ref: '#/components/responses/Error'
-  /rooms/{id}/archive:
-    post:
-      tags: [Rooms]
-      summary: Archive a started room and finish its game.
-      parameters:
-        - $ref: '#/components/parameters/Id'
-      responses:
-        '200':
-          description: Archived room.
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [room]
-                properties:
-                  room:
-                    $ref: '#/components/schemas/Room'
         '401':
           $ref: '#/components/responses/Error'
         '403':
@@ -1927,6 +1915,12 @@ paths:
                   type: chat.message
                   payload:
                     message: Hello
+              privateChat:
+                value:
+                  type: chat.message
+                  payload:
+                    message: Hello
+                    targetPlayerId: 01966d5f-0000-7000-8000-000000000001
               life:
                 value:
                   type: life.changed
@@ -2275,7 +2269,7 @@ components:
           pattern: '^#[0-9a-fA-F]{6}$'
     User:
       type: object
-      required: [id, email, emailVerified, pendingEmail, displayName, displayNameStyle, roles, avatar]
+      required: [id, email, emailVerified, pendingEmail, displayName, displayNameStyle, roles, avatar, createdAt, updatedAt]
       properties:
         id:
           type: string
@@ -2299,6 +2293,12 @@ components:
             type: string
         avatar:
           $ref: '#/components/schemas/UserAvatar'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
     FriendUser:
       type: object
       required: [id, displayName]
@@ -2370,7 +2370,7 @@ components:
           format: uuid
     CardFace:
       type: object
-      required: [name, manaCost, typeLine, oracleText, power, toughness, loyalty, colors, imageUris]
+      required: [name, manaCost, typeLine, oracleText, power, toughness, loyalty, defense, handModifier, lifeModifier, colors, imageUris]
       properties:
         name:
           type: [string, 'null']
@@ -2386,6 +2386,12 @@ components:
           type: [string, 'null']
         loyalty:
           type: [string, 'null']
+        defense:
+          type: [string, 'null']
+        handModifier:
+          type: [string, 'null']
+        lifeModifier:
+          type: [string, 'null']
         colors:
           type: array
           items:
@@ -2394,6 +2400,40 @@ components:
           type: object
           additionalProperties:
             type: string
+    CardStatBlock:
+      type: object
+      required: [power, toughness, loyalty, defense, handModifier, lifeModifier]
+      properties:
+        power:
+          type: [string, 'null']
+        toughness:
+          type: [string, 'null']
+        loyalty:
+          type: [string, 'null']
+        defense:
+          type: [string, 'null']
+        handModifier:
+          type: [string, 'null']
+        lifeModifier:
+          type: [string, 'null']
+    CardFaceStatsEntry:
+      allOf:
+        - $ref: '#/components/schemas/CardStatBlock'
+        - type: object
+          required: [name]
+          properties:
+            name:
+              type: [string, 'null']
+    CardFaceStats:
+      type: object
+      required: [root, faces]
+      properties:
+        root:
+          $ref: '#/components/schemas/CardStatBlock'
+        faces:
+          type: array
+          items:
+            $ref: '#/components/schemas/CardFaceStatsEntry'
     Card:
       type: object
       required: [id, scryfallId, name, colors, colorIdentity, legalities, imageUris, cardFaces, layout, commanderLegal]
@@ -2418,6 +2458,11 @@ components:
         toughness:
           type: [string, 'null']
           description: Printed toughness from Scryfall. Kept as string because values can be non-numeric.
+        loyalty:
+          type: [string, 'null']
+          description: Printed loyalty from Scryfall. Kept as string because values can be non-numeric.
+        faceStats:
+          $ref: '#/components/schemas/CardFaceStats'
         colors:
           type: array
           items:
@@ -2489,7 +2534,7 @@ components:
       enum: [private, public]
     DeckSummary:
       type: object
-      required: [id, name, format, visibility, folderId, commander]
+      required: [id, name, format, visibility, backgroundName, sleevesName, folderId, commander]
       properties:
         id:
           type: string
@@ -2501,6 +2546,12 @@ components:
           enum: [commander]
         visibility:
           $ref: '#/components/schemas/DeckVisibility'
+        backgroundName:
+          type: string
+          example: back_5
+        sleevesName:
+          type: string
+          example: facedown_card
         folderId:
           type: [string, 'null']
           format: uuid
@@ -3332,7 +3383,7 @@ components:
           format: uuid
     Room:
       type: object
-      required: [id, name, owner, status, visibility, format, maxPlayers, startingLife, timerMode, timerDurationSeconds, players]
+      required: [id, name, owner, status, visibility, format, maxPlayers, startingLife, timerMode, timerDurationSeconds, players, createdAt, updatedAt]
       properties:
         id:
           type: string
@@ -3345,7 +3396,7 @@ components:
           $ref: '#/components/schemas/User'
         status:
           type: string
-          enum: [waiting, started, archived]
+          enum: [waiting, started]
         visibility:
           type: string
           enum: [private, public]
@@ -3374,6 +3425,12 @@ components:
         gameId:
           type: [string, 'null']
           format: uuid
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
     RoomPlayer:
       type: object
       required: [id, user, deckId, deck, turnRoll]
@@ -3394,6 +3451,72 @@ components:
           type: [integer, 'null']
           minimum: 1
           maximum: 20
+    CurrentRoomResponse:
+      type: object
+      required: [room, player, turn]
+      properties:
+        room:
+          oneOf:
+            - $ref: '#/components/schemas/CurrentRoomSummary'
+            - type: 'null'
+        player:
+          oneOf:
+            - $ref: '#/components/schemas/CurrentRoomPlayer'
+            - type: 'null'
+        turn:
+          oneOf:
+            - $ref: '#/components/schemas/CurrentRoomTurn'
+            - type: 'null'
+    CurrentRoomSummary:
+      type: object
+      required: [id, name, status, visibility, format, maxPlayers, playerCount, gameId]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        status:
+          type: string
+          enum: [waiting, started]
+        visibility:
+          type: string
+          enum: [private, public]
+        format:
+          type: string
+          enum: [commander]
+        maxPlayers:
+          type: integer
+          minimum: 2
+          maximum: 6
+        playerCount:
+          type: integer
+          minimum: 0
+        gameId:
+          type: [string, 'null']
+          format: uuid
+    CurrentRoomPlayer:
+      type: object
+      required: [playerId, deckId, deckName, deckImageUrl]
+      properties:
+        playerId:
+          type: string
+          format: uuid
+        deckId:
+          type: [string, 'null']
+          format: uuid
+        deckName:
+          type: [string, 'null']
+        deckImageUrl:
+          type: [string, 'null']
+          format: uri
+    CurrentRoomTurn:
+      type: object
+      required: [number]
+      properties:
+        number:
+          type: [integer, 'null']
+          minimum: 1
     RoomInvite:
       type: object
       required: [id, status, room, sender, recipient, createdAt, updatedAt]
@@ -3418,7 +3541,7 @@ components:
           format: date-time
     Game:
       type: object
-      required: [id, status, snapshot]
+      required: [id, status, snapshot, createdAt, updatedAt]
       properties:
         id:
           type: string
@@ -3428,6 +3551,12 @@ components:
           enum: [active, finished]
         snapshot:
           $ref: '#/components/schemas/GameSnapshot'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
     GameSnapshot:
       type: object
       required: [version, players, turn, stack, arrows, chat, eventLog, createdAt]
@@ -3483,7 +3612,7 @@ components:
           type: [integer, 'null']
     GamePlayer:
       type: object
-      required: [user, life, zones, commanderDamage, counters]
+      required: [user, deckName, backgroundName, sleevesName, life, zones, commanderDamage, counters]
       properties:
         user:
           $ref: '#/components/schemas/User'
@@ -3493,11 +3622,19 @@ components:
         concededAt:
           type: [string, 'null']
           format: date-time
+        deckName:
+          type: [string, 'null']
         colorIdentity:
           type: array
           items:
             type: string
             enum: [W, U, B, R, G]
+        backgroundName:
+          type: string
+          example: back_5
+        sleevesName:
+          type: string
+          example: facedown_card
         life:
           type: integer
         zones:
@@ -3547,9 +3684,11 @@ components:
         ownerId:
           type: [string, 'null']
           format: uuid
+          description: Immutable player id of the deck this card instance belongs to.
         controllerId:
           type: [string, 'null']
           format: uuid
+          description: Player id currently controlling the card while it is on the battlefield.
         scryfallId:
           type: [string, 'null']
           format: uuid
@@ -3578,6 +3717,15 @@ components:
           type: [integer, 'null']
         loyalty:
           type: [integer, 'null']
+        defaultPower:
+          type: [integer, 'null']
+          description: Printed/default power used to reset battlefield stat changes.
+        defaultToughness:
+          type: [integer, 'null']
+          description: Printed/default toughness used to reset battlefield stat changes.
+        defaultLoyalty:
+          type: [integer, 'null']
+          description: Printed/default loyalty used to reset battlefield loyalty changes.
         tapped:
           type: boolean
         faceDown:
@@ -3605,6 +3753,9 @@ components:
           $ref: '#/components/schemas/GameZoneName'
         isToken:
           type: boolean
+        isCommander:
+          type: boolean
+          description: True when this instance is a commander card and may return to the command zone.
     GameZoneName:
       type: string
       enum: [library, hand, battlefield, graveyard, exile, command]
@@ -3648,9 +3799,21 @@ components:
           type: string
         message:
           type: string
+        targetPlayerId:
+          type: [string, 'null']
+          format: uuid
+          description: Present when the message is private and only visible to sender and target player.
+        targetDisplayName:
+          type: [string, 'null']
+          description: Display name for the private message target.
         createdAt:
           type: string
           format: date-time
+        cardNames:
+          type: array
+          items:
+            type: string
+          description: Card names included in aggregate card movement log entries.
     GameLogEntry:
       type: object
       required: [id, type, message, actorId, displayName, createdAt]
@@ -3736,6 +3899,9 @@ components:
             - arrow.removed
         payload:
           type: object
+          description: >
+            Command payload. For card.counter.changed, send key plus either value,
+            delta, or remove=true to delete that counter from the card.
           additionalProperties: true
         clientActionId:
           type: string

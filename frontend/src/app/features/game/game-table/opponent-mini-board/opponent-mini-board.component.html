@@ -15,45 +15,64 @@
   (contextmenu)="playerMenuOpened.emit({ event: $event, playerId: opponent.id })"
 >
   <span class="player-thumb-header">
-    <app-player-avatar
-      class="opponent-avatar"
-      [displayName]="opponent.state.user.displayName"
-      [avatar]="opponent.state.user.avatar"
-      size="sm"
-    />
-    <span class="opponent-copy">
-      <app-player-name
-        data-testid="opponent-name"
-        [displayName]="opponent.state.user.displayName"
-        [nameStyle]="opponent.state.user.displayNameStyle"
-        size="md"
-      />
-      <small>{{ deckLabel()(opponent) }}</small>
-      <app-mana-symbols class="mana-row compact" [symbols]="manaSymbols()(opponent)" fallback="Colorless" />
-    </span>
+    @if (deckLabel()(opponent); as label) {
+      <strong class="opponent-deck-title" data-testid="opponent-deck-name">{{ label }}</strong>
+    } @else {
+      <strong class="opponent-deck-title muted" data-testid="opponent-deck-name">Deck pending</strong>
+    }
     <span class="opponent-life" data-testid="opponent-life">{{ opponent.state.life }}</span>
   </span>
-  <span class="mini-battlefield">
-    @for (card of opponent.state.zones.battlefield; track card.instanceId) {
-      <app-game-card-view
-        mode="mini"
-        [card]="card"
-        [playerId]="opponent.id"
-        zone="battlefield"
-        [image]="cardImage()(card)"
-        [freePosition]="!!cardPosition()(card)"
-        [miniLeft]="miniCardLeft()(card, $index)"
-        [miniTop]="miniCardTop()(card, $index)"
-        (cardMouseEntered)="cardPreviewShown.emit({ card: $event, playerId: opponent.id, zone: 'battlefield' })"
-        (cardMouseLeft)="cardPreviewHidden.emit()"
-      />
-    } @empty {
-      <span class="mini-empty-board">No permanents</span>
+  <app-opponent-mini-battlefield
+    [playerId]="opponent.id"
+    [cards]="opponent.state.zones.battlefield"
+    [backgroundImage]="backgroundImage()(opponent)"
+    [battlefieldSize]="battlefieldSize()"
+    [cardPosition]="cardPosition()"
+    [cardImage]="cardImage()"
+    [isCardDropSettling]="isCardDropSettling()"
+    [isManaDropSettling]="isManaDropSettling()"
+    [isBattlefieldEntrySettling]="isBattlefieldEntrySettling()"
+    [isCommanderEntrySettling]="isCommanderEntrySettling()"
+    [isCardTransferPending]="isCardTransferPending()"
+    (cardPreviewShown)="cardPreviewShown.emit($event)"
+    (cardPreviewHidden)="cardPreviewHidden.emit()"
+    (battlefieldCardClicked)="battlefieldCardClicked.emit($event)"
+  />
+  <span class="opponent-zone-counts" aria-label="Opponent zone counts">
+    @for (summary of opponentZoneSummaries; track summary.zone) {
+      <span
+        class="opponent-zone-count"
+        [attr.title]="zoneCountTooltip(opponent, summary)"
+        [attr.aria-label]="zoneCountTooltip(opponent, summary)"
+      >
+        @switch (summary.icon) {
+          @case ('hand-fan') {
+            <img
+              class="opponent-zone-icon opponent-hand-icon"
+              src="/assets/icons/CM_cards_icon.png"
+              alt=""
+              aria-hidden="true"
+              draggable="false"
+            />
+          }
+          @case ('deck') {
+            <lucide-icon name="library" size="20" aria-hidden="true" />
+          }
+          @case ('grave') {
+            <img
+              class="opponent-zone-icon opponent-graveyard-icon"
+              src="/assets/icons/gameplay/graveyard.svg"
+              alt=""
+              aria-hidden="true"
+              draggable="false"
+            />
+          }
+          @default {
+            <lucide-icon name="ban" size="20" aria-hidden="true" />
+          }
+        }
+        <strong>{{ zoneCount()(opponent, summary.zone) }}</strong>
+      </span>
     }
-  </span>
-  <span class="opponent-zone-counts">
-    <span><strong>{{ zoneCount()(opponent, 'library') }}</strong> Library</span>
-    <span><strong>{{ zoneCount()(opponent, 'graveyard') }}</strong> Graveyard</span>
-    <span><strong>{{ zoneCount()(opponent, 'exile') }}</strong> Exile</span>
   </span>
 </button>

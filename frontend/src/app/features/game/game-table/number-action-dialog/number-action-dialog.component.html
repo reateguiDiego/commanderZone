@@ -1,4 +1,4 @@
-<section class="number-action-backdrop" data-testid="number-action-dialog" (click)="cancelled.emit()">
+<section class="number-action-backdrop" data-testid="number-action-dialog">
   <form class="number-action-dialog" (click)="$event.stopPropagation()" (ngSubmit)="confirm()">
     <header>
       <h2>{{ title() }}</h2>

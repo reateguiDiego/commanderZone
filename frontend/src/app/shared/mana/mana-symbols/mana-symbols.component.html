@@ -1,4 +1,4 @@
-<span class="mana-symbols" [attr.aria-label]="ariaLabel()">
+<span class="mana-symbols" [class.size-small]="size() === 'small'" [attr.aria-label]="ariaLabel()">
   @for (token of tokens(); track $index + token.raw) {
     @if (token.known) {
       <i [class]="token.className" [title]="token.raw" aria-hidden="true"></i>

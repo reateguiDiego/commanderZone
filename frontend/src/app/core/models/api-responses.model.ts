@@ -3,7 +3,7 @@ import { Deck, DeckFolder, DeckFormat, CommanderValidation } from './deck.model'
 import { Game, GameEvent, GameSnapshot } from './game.model';
 import { Friendship } from './friendship.model';
 import { RoomInvite } from './room-invite.model';
-import { Room } from './room.model';
+import { CurrentRoomPlayerSummary, CurrentRoomSummary, CurrentRoomTurn, Room } from './room.model';
 import { User } from './user.model';
 
 export interface ApiError {
@@ -106,6 +106,12 @@ export type CommanderValidationResponse = CommanderValidation;
 
 export interface RoomResponse {
   room: Room;
+}
+
+export interface CurrentRoomResponse {
+  room: CurrentRoomSummary | null;
+  player: CurrentRoomPlayerSummary | null;
+  turn: CurrentRoomTurn | null;
 }
 
 export interface StartGameResponse {

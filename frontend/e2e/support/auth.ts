@@ -1,4 +1,4 @@
-import { expect, type APIRequestContext, type Browser, type BrowserContext } from '@playwright/test';
+import { expect, type APIRequestContext, type APIResponse, type Browser, type BrowserContext } from '@playwright/test';
 
 const API_BASE_URL = process.env['E2E_API_BASE_URL'] ?? 'http://127.0.0.1:8000';
 
@@ -72,7 +72,7 @@ export async function createRealUserSession(request: APIRequestContext, prefix =
       Authorization: `Bearer ${token}`,
     },
   });
-  expect(meResponse.ok()).toBeTruthy();
+  await expectApiOk(meResponse, 'load current E2E user');
   const mePayload = (await meResponse.json()) as { user: E2EAuthUser };
 
   return { token, user: mePayload.user, credentials };
@@ -118,10 +118,20 @@ function uniqueCredentials(prefix: string): { email: string; password: string; d
   const lastNames = ['Rivera', 'Morales', 'Vega', 'Navarro', 'Santos', 'Lopez', 'Castro', 'Serrano', 'Campos', 'Ortega'];
   const firstName = firstNames[Math.floor(Math.random() * firstNames.length)] ?? 'Alex';
   const lastName = lastNames[Math.floor(Math.random() * lastNames.length)] ?? 'Rivera';
+  const displaySuffix = token.replace(/[^a-z0-9]/gi, '').slice(-6);
 
   return {
     email: `${prefix}-${token}@example.test`,
     password: `Pass-${token}-1234`,
-    displayName: `${firstName} ${lastName}`,
+    displayName: `${firstName} ${lastName[0]} ${displaySuffix}`,
   };
+}
+
+async function expectApiOk(response: APIResponse, action: string): Promise<void> {
+  if (response.ok()) {
+    return;
+  }
+
+  const body = await response.text();
+  throw new Error(`Failed to ${action}. HTTP ${response.status()}: ${body}`);
 }

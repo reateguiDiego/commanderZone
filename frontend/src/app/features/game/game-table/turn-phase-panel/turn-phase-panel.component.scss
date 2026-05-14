@@ -4,15 +4,17 @@
 
 .turn-phase-panel {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 6.4rem;
+  grid-template-columns: minmax(0, 1fr) 6.8rem;
   grid-template-rows: 2.1rem minmax(0, 1fr);
   gap: 0.35rem 0.8rem;
+  width: 100%;
+  max-width: 500px;
   min-width: 0;
   min-height: 0;
   padding: 0.55rem 0.7rem;
-  border: 1px solid rgb(194 126 50 / 48%);
-  border-radius: 8px;
-  background: rgb(6 10 11 / 90%);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .turn-summary {
@@ -24,29 +26,40 @@
   align-items: center;
   justify-content: center;
   gap: 1.4rem;
-  color: #f5f2e8;
+  color: var(--game-text, #f3f0e8);
   font-size: 1.15rem;
   font-weight: 900;
   line-height: 1.2;
 }
 
 .turn-title strong {
-  color: #f5b414;
+  color: var(--game-accent, #d7b46a);
   white-space: nowrap;
 }
 
-.advance-phase-button {
+.turn-actions {
   grid-column: 2;
   grid-row: 1 / 3;
+  display: grid;
+  gap: 0.35rem;
   align-self: center;
   justify-self: center;
+  width: 100%;
+}
+
+.turn-action-button {
   min-height: 2.35rem;
+  width: 100%;
   padding: 0 0.7rem;
-  border-color: rgb(255 188 50 / 76%);
-  background: linear-gradient(180deg, #f0b637, #b67514);
+  border-color: var(--game-accent-strong, rgb(215 180 106 / 58%));
+  background: linear-gradient(180deg, #d7b46a, #8d6728);
   color: #150f04;
   font-size: 1rem;
   font-weight: 900;
+}
+
+.pass-turn-button {
+  background: linear-gradient(180deg, rgb(243 224 179), rgb(159 119 48));
 }
 
 .phase-tracker {
@@ -64,14 +77,20 @@
 }
 
 .phase-tracker button {
+  --phase-rail-size: 1.45rem;
+  --phase-node-size: 1.45rem;
+  --phase-node-border: 2px;
+
   position: relative;
   display: grid;
+  grid-template-rows: var(--phase-rail-size) auto;
+  align-items: center;
   justify-items: center;
   min-width: 0;
   padding: 0;
   border-color: transparent;
   background: transparent;
-  color: #b7ac91;
+  color: var(--game-muted, #aaa99f);
   font-size: 0.64rem;
   text-transform: capitalize;
   cursor: default;
@@ -80,11 +99,11 @@
 .phase-tracker button::after {
   position: absolute;
   z-index: 0;
-  top: 0.725rem;
+  top: calc(var(--phase-rail-size) / 2);
   left: 50%;
   width: calc(100% + 0.15rem);
   height: 2px;
-  background: rgb(215 209 193 / 32%);
+  background: rgb(170 169 159 / 32%);
   transform: translateY(-50%);
   content: "";
 }
@@ -97,34 +116,45 @@
   position: relative;
   z-index: 1;
   display: grid;
-  width: 1.45rem;
-  height: 1.45rem;
+  align-self: center;
+  width: var(--phase-node-size);
+  height: var(--phase-node-size);
   place-items: center;
-  border: 2px solid rgb(215 209 193 / 62%);
+  border: var(--phase-node-border) solid rgb(170 169 159 / 62%);
   border-radius: 999px;
-  background: #070b0c;
+  background: var(--game-surface-deep, rgb(7 8 7 / 88%));
+}
+
+.phase-tracker button.phase-compact {
+  --phase-node-size: 0.72rem;
+  --phase-node-border: 1px;
+}
+
+.phase-tracker button.phase-combat {
+  --phase-node-size: 1.08rem;
+  --phase-node-border: 2px;
 }
 
 .phase-tracker button.active {
-  color: #f5b414;
+  color: var(--game-accent, #d7b46a);
 }
 
 .phase-tracker button.phase-past {
-  color: #bd8f2f;
+  color: #9b7937;
 }
 
 .phase-tracker button.phase-past::after {
-  background: rgb(245 180 20 / 42%);
+  background: rgb(215 180 106 / 42%);
 }
 
 .phase-tracker button.phase-past .phase-node {
-  border-color: #9f7418;
-  background: radial-gradient(circle, #a57c21 0 34%, #352208 72%);
+  border-color: #8d6728;
+  background: radial-gradient(circle, #9b7937 0 34%, #352208 72%);
 }
 
 .phase-tracker button.active .phase-node {
-  border-color: #f5b414;
-  background: radial-gradient(circle, #fff1a3 0 18%, #f5b414 34%, #b33a0b 70%);
+  border-color: var(--game-accent, #d7b46a);
+  background: radial-gradient(circle, #f4e7c5 0 18%, #d7b46a 34%, #8d6728 70%);
 }
 
 .sr-only {
@@ -132,4 +162,49 @@
   width: 1px;
   height: 1px;
   overflow: hidden;
+}
+
+@media (max-width: 760px) {
+  .turn-phase-panel {
+    grid-template-columns: minmax(0, 1fr) 2.4rem;
+    grid-template-rows: minmax(0, 1fr);
+    gap: 0.2rem;
+    padding: 0.28rem 0.35rem;
+  }
+
+  .turn-title {
+    justify-content: start;
+    gap: 0.35rem;
+    font-size: 0.78rem;
+  }
+
+  .turn-title strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .turn-actions {
+    gap: 0.2rem;
+  }
+
+  .turn-action-button {
+    min-width: 2.1rem;
+    min-height: 2rem;
+    padding: 0;
+    font-size: 0;
+  }
+
+  .advance-phase-button::before {
+    content: ">";
+    font-size: 1rem;
+  }
+
+  .pass-turn-button::before {
+    content: ">>";
+    font-size: 0.82rem;
+  }
+
+  .phase-tracker {
+    display: none;
+  }
 }
