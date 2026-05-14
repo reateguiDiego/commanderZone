@@ -1,4 +1,4 @@
-import { expect, type APIRequestContext } from '@playwright/test';
+import { type APIRequestContext, type APIResponse } from '@playwright/test';
 import { createRealUserSession, type RealUserSession } from './auth';
 import {
   createRandomDeckFromDatabase,
@@ -95,13 +95,13 @@ export async function createCommanderGameWithRandomDecks(
 
   const deckA = await createRandomDeckFromDatabase(request, {
     ownerToken: playerA.token,
-    name: `E2E Deck A ${runId}`,
+    name: e2eDeckName('A', runId),
     size: deckSize,
     seed: seedA,
   });
   const deckB = await createRandomDeckFromDatabase(request, {
     ownerToken: playerB.token,
-    name: `E2E Deck B ${runId}`,
+    name: e2eDeckName('B', runId),
     size: deckSize,
     seed: seedB,
   });
@@ -152,12 +152,12 @@ export async function createCommanderGameWithValidDecks(
 
   const deckA = await createValidCommanderDeckFromDatabase(request, {
     ownerToken: playerA.token,
-    name: `E2E Valid Deck A ${runId}`,
+    name: e2eDeckName('A', runId),
     seed: seedA,
   });
   const deckB = await createValidCommanderDeckFromDatabase(request, {
     ownerToken: playerB.token,
-    name: `E2E Valid Deck B ${runId}`,
+    name: e2eDeckName('B', runId),
     seed: seedB,
   });
 
@@ -206,10 +206,10 @@ async function createRoom(
       visibility,
       name: roomName,
       format: 'commander',
-      maxPlayers: 4,
+      maxPlayers: 2,
     },
   });
-  expect(response.ok()).toBeTruthy();
+  await expectApiOk(response, 'create room');
   const payload = (await response.json()) as RoomPayload;
 
   return payload.room.id;
@@ -229,7 +229,7 @@ async function joinRoom(
       deckId,
     },
   });
-  expect(response.ok()).toBeTruthy();
+  await expectApiOk(response, 'join room');
 }
 
 async function startRoom(
@@ -242,7 +242,7 @@ async function startRoom(
       Authorization: `Bearer ${token}`,
     },
   });
-  expect(response.ok()).toBeTruthy();
+  await expectApiOk(response, 'start room');
   const payload = (await response.json()) as StartRoomPayload;
 
   return payload.game.id;
@@ -258,7 +258,7 @@ async function rollTurnOrder(
       Authorization: `Bearer ${token}`,
     },
   });
-  expect(response.ok()).toBeTruthy();
+  await expectApiOk(response, 'roll turn order');
 }
 
 function normalizeRunId(runId?: string): string {
@@ -267,6 +267,21 @@ function normalizeRunId(runId?: string): string {
   }
 
   return `run-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function e2eDeckName(playerLabel: 'A' | 'B', runId: string): string {
+  const suffix = runId.replace(/[^a-z0-9]/gi, '').slice(-8) || 'run';
+
+  return `E2E ${playerLabel} ${suffix}`;
+}
+
+async function expectApiOk(response: APIResponse, action: string): Promise<void> {
+  if (response.ok()) {
+    return;
+  }
+
+  const body = await response.text();
+  throw new Error(`Failed to ${action}. HTTP ${response.status()}: ${body}`);
 }
 
 function funRoomName(seed: string): string {

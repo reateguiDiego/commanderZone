@@ -1,20 +1,30 @@
-import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, inject, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
 import { GameCardInstance, GameZoneName } from '../../../../core/models/game.model';
-import { BodyScrollLockService } from '../../../../shared/services/body-scroll-lock.service';
+import { ManaSymbolsComponent } from '../../../../shared/mana/mana-symbols/mana-symbols.component';
 import { PrettyScrollDirective } from '../../../../shared/ui/pretty-scroll/pretty-scroll.directive';
 import { ZoneModalState } from '../state/game-table-zone-modal.state';
 
+interface ZoneCardAction {
+  readonly zone: GameZoneName;
+  readonly label: string;
+}
+
 @Component({
   selector: 'app-zone-modal',
-  imports: [FormsModule, LucideAngularModule, PrettyScrollDirective],
+  imports: [FormsModule, LucideAngularModule, ManaSymbolsComponent, PrettyScrollDirective],
   templateUrl: './zone-modal.component.html',
   styleUrl: './zone-modal.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class ZoneModalComponent implements OnInit, OnDestroy {
-  private readonly bodyScrollLock = inject(BodyScrollLockService);
+export class ZoneModalComponent {
+  readonly cardActions: readonly ZoneCardAction[] = [
+    { zone: 'battlefield', label: 'Battlefield' },
+    { zone: 'hand', label: 'Hand' },
+    { zone: 'graveyard', label: 'Graveyard' },
+    { zone: 'exile', label: 'Exile' },
+  ];
 
   readonly modal = input.required<ZoneModalState>();
   readonly cardImage = input.required<(card: GameCardInstance) => string | null>();
@@ -26,15 +36,11 @@ export class ZoneModalComponent implements OnInit, OnDestroy {
   readonly cardMoved = output<{ card: GameCardInstance; zone: GameZoneName }>();
   readonly cardRevealed = output<GameCardInstance>();
 
-  ngOnInit(): void {
-    this.bodyScrollLock.lock();
-  }
-
-  ngOnDestroy(): void {
-    this.bodyScrollLock.unlock();
-  }
-
   stopClick(event: MouseEvent): void {
     event.stopPropagation();
+  }
+
+  cardTypeLine(card: GameCardInstance): string {
+    return card.typeLine?.trim() || 'Card';
   }
 }

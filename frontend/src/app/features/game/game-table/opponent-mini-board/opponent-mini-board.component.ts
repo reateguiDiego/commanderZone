@@ -1,10 +1,9 @@
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
+import { LucideAngularModule } from 'lucide-angular';
 import { GameCardInstance, GameZoneName } from '../../../../core/models/game.model';
-import { ManaSymbolsComponent } from '../../../../shared/mana/mana-symbols/mana-symbols.component';
-import { PlayerAvatarComponent } from '../../../../shared/ui/player-avatar/player-avatar.component';
-import { PlayerNameComponent } from '../../../../shared/ui/player-name/player-name.component';
 import { PlayerView } from '../game-table.store';
-import { GameCardViewComponent } from '../game-card-view/game-card-view.component';
+import { OpponentMiniBattlefieldComponent } from '../opponent-mini-battlefield/opponent-mini-battlefield.component';
+import { CardPreviewEvent } from '../card-preview.model';
 
 interface PlayerDropEvent {
   event: DragEvent;
@@ -16,30 +15,49 @@ interface PlayerMenuEvent {
   playerId: string;
 }
 
-interface CardPreviewEvent {
-  card: GameCardInstance;
-  playerId: string;
-  zone: GameZoneName;
+type OpponentCountZone = Extract<GameZoneName, 'hand' | 'library' | 'graveyard' | 'exile'>;
+type OpponentZoneIcon = 'hand-fan' | 'deck' | 'grave' | 'ban';
+
+interface OpponentZoneSummary {
+  zone: OpponentCountZone;
+  icon: OpponentZoneIcon;
+  title: string;
+}
+
+interface BattlefieldLayoutSize {
+  readonly width: number;
+  readonly height: number;
 }
 
 @Component({
   selector: 'app-opponent-mini-board',
-  imports: [ManaSymbolsComponent, PlayerAvatarComponent, PlayerNameComponent, GameCardViewComponent],
+  imports: [LucideAngularModule, OpponentMiniBattlefieldComponent],
   templateUrl: './opponent-mini-board.component.html',
   styleUrl: './opponent-mini-board.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class OpponentMiniBoardComponent {
+  readonly opponentZoneSummaries: readonly OpponentZoneSummary[] = [
+    { zone: 'hand', icon: 'hand-fan', title: 'Hand' },
+    { zone: 'library', icon: 'deck', title: 'Library' },
+    { zone: 'graveyard', icon: 'grave', title: 'Graveyard' },
+    { zone: 'exile', icon: 'ban', title: 'Exile' },
+  ];
+
   readonly player = input.required<PlayerView>();
   readonly colorAccent = input.required<(player: PlayerView | null) => string>();
   readonly deckLabel = input.required<(player: PlayerView | null) => string>();
-  readonly manaSymbols = input.required<(player: PlayerView | null) => string[]>();
+  readonly backgroundImage = input.required<(player: PlayerView | null) => string>();
+  readonly battlefieldSize = input.required<BattlefieldLayoutSize>();
   readonly zoneCount = input.required<(player: PlayerView, zone: GameZoneName) => number>();
   readonly cardPosition = input.required<(card: GameCardInstance) => { x: number; y: number } | null>();
-  readonly miniCardLeft = input.required<(card: GameCardInstance, index: number) => number>();
-  readonly miniCardTop = input.required<(card: GameCardInstance, index: number) => number>();
   readonly cardImage = input.required<(card: GameCardInstance) => string | null>();
   readonly isPlayerDropHighlighted = input.required<(playerId: string) => boolean>();
+  readonly isCardDropSettling = input<(playerId: string, zone: GameZoneName, card: GameCardInstance) => boolean>(() => false);
+  readonly isManaDropSettling = input<(playerId: string, card: GameCardInstance) => boolean>(() => false);
+  readonly isBattlefieldEntrySettling = input<(playerId: string, card: GameCardInstance) => boolean>(() => false);
+  readonly isCommanderEntrySettling = input<(playerId: string, card: GameCardInstance) => boolean>(() => false);
+  readonly isCardTransferPending = input<(playerId: string, zone: GameZoneName, card: GameCardInstance) => boolean>(() => false);
 
   readonly focusPlayer = output<string>();
   readonly dropAllowed = output<DragEvent>();
@@ -47,4 +65,9 @@ export class OpponentMiniBoardComponent {
   readonly playerMenuOpened = output<PlayerMenuEvent>();
   readonly cardPreviewShown = output<CardPreviewEvent>();
   readonly cardPreviewHidden = output<void>();
+  readonly battlefieldCardClicked = output<{ event: MouseEvent; playerId: string; card: GameCardInstance }>();
+
+  zoneCountTooltip(player: PlayerView, summary: OpponentZoneSummary): string {
+    return `${summary.title}: ${this.zoneCount()(player, summary.zone)}`;
+  }
 }

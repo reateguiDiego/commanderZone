@@ -16,6 +16,8 @@ export interface Deck {
   name: string;
   format: 'commander' | string;
   visibility?: DeckVisibility;
+  backgroundName?: string;
+  sleevesName?: string;
   folderId: string | null;
   commander?: Card | null;
   cards?: DeckCard[];

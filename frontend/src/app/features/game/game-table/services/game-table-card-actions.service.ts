@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { GameCardInstance, GameCommandType, GameZoneName } from '../../../../core/models/game.model';
 import { GameContextMenu } from '../state/game-table-ui.state';
 import { ZoneModalState } from '../state/game-table-zone-modal.state';
+import type { PendingBattlefieldMove, PendingLibraryMove } from './game-table-drop-actions.service';
 
 export interface GameTableCardSelection {
   playerId: string;
@@ -16,8 +17,11 @@ export interface GameTableCardActionContext {
   clearSelectedCards(): void;
   zoneModal(): ZoneModalState | null;
   loadZone(): Promise<void>;
+  playerName(playerId: string): string;
   setError(message: string): void;
   closeContextMenu(): void;
+  setPendingBattlefieldMove(move: PendingBattlefieldMove | null): void;
+  setPendingLibraryMove(move: PendingLibraryMove | null): void;
   recordCommanderCastIfNeeded(playerId: string, fromZone: GameZoneName, toZone?: GameZoneName): Promise<void>;
   command(type: GameCommandType, payload: Record<string, unknown>): Promise<void>;
 }
@@ -49,15 +53,54 @@ export class GameTableCardActionsService {
       context.closeContextMenu();
       return;
     }
-
-    await context.command('card.moved', {
+    const payload: Record<string, unknown> = {
       playerId: menu.playerId,
       fromZone: menu.zone,
       toZone,
       instanceId: menu.card.instanceId,
-    });
+    };
+
+    if (toZone === 'library') {
+      context.setPendingLibraryMove({
+        cardName: menu.card.name,
+        commandType: 'card.moved',
+        payload,
+      });
+      context.closeContextMenu();
+      return;
+    }
+
+    await context.command('card.moved', payload);
     await context.recordCommanderCastIfNeeded(menu.playerId, menu.zone, toZone);
     context.clearSelectedCards();
+    context.closeContextMenu();
+  }
+
+  async giveCardToPlayer(context: GameTableCardActionContext, menu: GameContextMenu, targetPlayerId: string): Promise<void> {
+    if (!menu.card || menu.zone !== 'battlefield') {
+      return;
+    }
+    if (!context.canControlPlayer(menu.playerId)) {
+      context.setError('You can only give cards from your own battlefield.');
+      context.closeContextMenu();
+      return;
+    }
+    if (targetPlayerId === menu.playerId) {
+      context.closeContextMenu();
+      return;
+    }
+
+    context.setPendingBattlefieldMove({
+      cardName: menu.card.name,
+      targetPlayerName: context.playerName(targetPlayerId),
+      commandType: 'card.controller.changed',
+      payload: {
+        playerId: menu.playerId,
+        zone: 'battlefield',
+        instanceId: menu.card.instanceId,
+        targetPlayerId,
+      },
+    });
     context.closeContextMenu();
   }
 
@@ -183,7 +226,7 @@ export class GameTableCardActionsService {
     context.closeContextMenu();
   }
 
-  async setPowerToughness(context: GameTableCardActionContext, menu: GameContextMenu): Promise<void> {
+  async setPowerToughness(context: GameTableCardActionContext, menu: GameContextMenu, power: number, toughness: number): Promise<void> {
     if (!menu.card) {
       return;
     }
@@ -192,20 +235,18 @@ export class GameTableCardActionsService {
       context.closeContextMenu();
       return;
     }
-    const power = Number(prompt('Power', String(menu.card.power ?? '')) ?? '');
-    const toughness = Number(prompt('Toughness', String(menu.card.toughness ?? '')) ?? '');
 
     await context.command('card.power_toughness.changed', {
       playerId: menu.playerId,
       zone: menu.zone,
       instanceId: menu.card.instanceId,
-      ...(Number.isFinite(power) ? { power } : {}),
-      ...(Number.isFinite(toughness) ? { toughness } : {}),
+      power,
+      toughness,
     });
     context.closeContextMenu();
   }
 
-  async changeCardCounter(context: GameTableCardActionContext, menu: GameContextMenu, key = '+1/+1'): Promise<void> {
+  async changeCardCounter(context: GameTableCardActionContext, menu: GameContextMenu, key = '+1/+1', delta = 1): Promise<void> {
     if (!menu.card) {
       return;
     }
@@ -214,13 +255,33 @@ export class GameTableCardActionsService {
       context.closeContextMenu();
       return;
     }
-    const delta = Number(prompt(`${key} delta`, '1') ?? '1');
+
     await context.command('card.counter.changed', {
       playerId: menu.playerId,
       zone: menu.zone,
       instanceId: menu.card.instanceId,
       key,
-      delta: Number.isFinite(delta) ? delta : 1,
+      delta,
+    });
+    context.closeContextMenu();
+  }
+
+  async setCardCounter(context: GameTableCardActionContext, menu: GameContextMenu, key: string, value: number): Promise<void> {
+    if (!menu.card) {
+      return;
+    }
+    if (!context.canControlPlayer(menu.playerId)) {
+      context.setError('You can only change your own cards.');
+      context.closeContextMenu();
+      return;
+    }
+
+    await context.command('card.counter.changed', {
+      playerId: menu.playerId,
+      zone: menu.zone,
+      instanceId: menu.card.instanceId,
+      key,
+      value,
     });
     context.closeContextMenu();
   }

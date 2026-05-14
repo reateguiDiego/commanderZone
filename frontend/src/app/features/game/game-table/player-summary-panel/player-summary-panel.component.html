@@ -12,10 +12,17 @@
       data-testid="focused-player-name"
       [displayName]="currentPlayer.state.user.displayName"
       [nameStyle]="currentPlayer.state.user.displayNameStyle"
-      size="xl"
+      size="lg"
+      plateSize="md"
+      plateWidth="100%"
+      plateHeight="3.35rem"
+      plateLabelWidth="calc(100% - 4rem)"
+      [fill]="true"
     />
-    <small>{{ deckLabel()(currentPlayer) }}</small>
-    <app-mana-symbols class="mana-row" [symbols]="manaSymbols()(currentPlayer)" fallback="Colorless" />
+    @if (deckLabel()(currentPlayer); as label) {
+      <small>{{ label }}</small>
+    }
+    <app-mana-symbols class="mana-row" [symbols]="manaSymbols()(currentPlayer)" fallback="Colorless" size="small" />
   </div>
   <div class="life-pill" data-testid="focused-player-life" [attr.data-player-id]="currentPlayer.id">
     <button

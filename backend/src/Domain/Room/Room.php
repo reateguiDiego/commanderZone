@@ -299,11 +299,6 @@ class Room
         $this->game = $game;
     }
 
-    public function archive(): void
-    {
-        $this->status = self::STATUS_ARCHIVED;
-    }
-
     public function detachGame(): void
     {
         $this->game = null;

@@ -1,0 +1,125 @@
+:host {
+  display: contents;
+}
+
+.stat-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1120;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgb(7 8 7 / 48%);
+  backdrop-filter: blur(3px);
+}
+
+.stat-dialog-panel {
+  display: grid;
+  gap: 0.85rem;
+  width: min(22rem, 100%);
+  padding: 0.95rem;
+  border: 1px solid rgb(215 180 106 / 42%);
+  border-radius: 10px;
+  background:
+    radial-gradient(circle at 50% 0%, rgb(215 180 106 / 18%), transparent 42%),
+    rgb(17 19 15 / 96%);
+  box-shadow:
+    0 1.4rem 3rem rgb(0 0 0 / 54%),
+    inset 0 1px 0 rgb(255 255 255 / 8%);
+}
+
+.stat-dialog-header {
+  display: grid;
+  gap: 0.15rem;
+  text-align: center;
+}
+
+.stat-dialog-header span {
+  color: var(--game-accent, #d7b46a);
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.stat-dialog-header strong {
+  overflow: hidden;
+  color: var(--text, #f5f1e8);
+  font-size: 1rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stat-preview {
+  justify-self: center;
+  display: inline-grid;
+  grid-template-columns: minmax(2.3rem, auto) auto minmax(2.3rem, auto);
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.42rem 0.68rem;
+  border: 1px solid rgb(215 180 106 / 34%);
+  border-radius: 999px;
+  background: rgb(0 0 0 / 34%);
+  box-shadow: inset 0 0 0.8rem rgb(215 180 106 / 8%);
+}
+
+.stat-preview span {
+  display: grid;
+  min-width: 2.1rem;
+  height: 2.1rem;
+  place-items: center;
+  border: 1px solid rgb(215 180 106 / 48%);
+  border-radius: 7px;
+  background: linear-gradient(180deg, rgb(26 23 15 / 98%), rgb(5 5 4 / 98%));
+  color: #fff7d6;
+  font-size: 1.2rem;
+  font-weight: 950;
+  line-height: 1;
+  text-shadow: 0 0 0.45rem rgb(215 180 106 / 34%);
+}
+
+.stat-preview i {
+  color: var(--game-accent, #d7b46a);
+  font-style: normal;
+  font-weight: 900;
+}
+
+.stat-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.stat-fields label {
+  display: grid;
+  gap: 0.3rem;
+  color: var(--muted, #b8b2a4);
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.stat-fields input {
+  width: 100%;
+  min-height: 2.25rem;
+  padding: 0 0.55rem;
+  border: 1px solid rgb(215 180 106 / 28%);
+  border-radius: 7px;
+  background: rgb(7 8 7 / 78%);
+  color: var(--text, #f5f1e8);
+  font-size: 1rem;
+  font-weight: 800;
+  text-align: center;
+}
+
+.stat-fields input:focus {
+  border-color: rgb(235 200 120 / 72%);
+  outline: none;
+  box-shadow: 0 0 0 2px rgb(215 180 106 / 16%);
+}
+
+footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}

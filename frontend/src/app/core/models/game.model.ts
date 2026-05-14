@@ -49,6 +49,9 @@ export interface GameCardInstance {
   power?: number | null;
   toughness?: number | null;
   loyalty?: number | null;
+  defaultPower?: number | null;
+  defaultToughness?: number | null;
+  defaultLoyalty?: number | null;
   tapped: boolean;
   faceDown?: boolean;
   hidden?: boolean;
@@ -58,6 +61,7 @@ export interface GameCardInstance {
   counters?: Record<string, number>;
   zone?: GameZoneName;
   isToken?: boolean;
+  isCommander?: boolean;
 }
 
 export type GameZones = Record<GameZoneName, GameCardInstance[]>;
@@ -67,7 +71,10 @@ export interface GamePlayerState {
   user: User;
   status?: 'active' | 'conceded';
   concededAt?: string | null;
+  deckName?: string | null;
   colorIdentity?: string[];
+  backgroundName?: string;
+  sleevesName?: string;
   life: number;
   zones: GameZones;
   zoneCounts?: GameZoneCounts;
@@ -85,6 +92,8 @@ export interface ChatMessage {
   userId: string;
   displayName: string;
   message: string;
+  targetPlayerId?: string | null;
+  targetDisplayName?: string | null;
   createdAt: string;
 }
 
@@ -95,6 +104,7 @@ export interface GameLogEntry {
   actorId: string | null;
   displayName: string | null;
   createdAt: string;
+  cardNames?: string[];
 }
 
 export interface GameStackItem {

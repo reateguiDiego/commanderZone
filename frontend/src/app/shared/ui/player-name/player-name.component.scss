@@ -3,24 +3,24 @@
   width: fit-content;
   max-width: 100%;
   min-width: 0;
+  overflow: visible;
 }
 
 .player-name-shell {
   --name-text-color: #f8f0d0;
   --player-name-base-font-size: 1.56rem;
-  --player-name-length-scale: 1;
   position: relative;
   isolation: isolate;
   display: inline-grid;
   place-items: center;
   max-width: 100%;
   min-width: 0;
-  overflow: hidden;
+  overflow: visible;
   box-sizing: border-box;
   color: var(--name-text-color);
-  font-size: calc(var(--player-name-font-size, var(--player-name-base-font-size)) * var(--player-name-length-scale));
+  font-size: var(--player-name-base-font-size);
   font-weight: 900;
-  line-height: 1.05;
+  line-height: 1.16;
   text-shadow: 0 1px 0 rgb(0 0 0 / 74%), 0 0 0.9rem rgb(0 0 0 / 78%);
   white-space: nowrap;
 }
@@ -34,17 +34,19 @@
   min-width: 0;
   max-width: 100%;
   overflow: hidden;
-  padding: 0 0.25rem 0.1rem;
+  padding: 0.06rem 0.25rem 0.18rem;
   text-align: center;
   text-overflow: ellipsis;
   white-space: nowrap;
+  line-height: 1.16;
 }
 
 .has-nameplate {
-  width: var(--plate-width, 17.2rem);
-  height: var(--plate-height, 4.3rem);
+  width: var(--player-name-plate-width, 17.2rem);
+  height: var(--player-name-plate-height, 4.3rem);
   padding: var(--player-name-plate-padding, 0.5rem 2rem);
   justify-self: center;
+  font-size: var(--player-name-auto-font-size, 0.82rem);
 }
 
 .has-nameplate .player-name-label {
@@ -74,18 +76,6 @@
   --player-name-base-font-size: 2.04rem;
 }
 
-.name-length-medium {
-  --player-name-length-scale: 0.98;
-}
-
-.name-length-long {
-  --player-name-length-scale: 0.9;
-}
-
-.name-length-extra-long {
-  --player-name-length-scale: 0.82;
-}
-
 .nameplate-image {
   position: absolute;
   inset: 0;
@@ -99,41 +89,3 @@
   filter: saturate(1.08) contrast(1.04);
 }
 
-.size-xs.has-nameplate {
-  --plate-width: var(--player-name-plate-width, 8.9rem);
-  --plate-height: var(--player-name-plate-height, 2.24rem);
-}
-
-.size-sm.has-nameplate {
-  --plate-width: var(--player-name-plate-width, 11.8rem);
-  --plate-height: var(--player-name-plate-height, 2.96rem);
-}
-
-.size-md.has-nameplate {
-  --plate-width: var(--player-name-plate-width, 14.5rem);
-  --plate-height: var(--player-name-plate-height, 3.64rem);
-}
-
-.size-lg.has-nameplate {
-  --plate-width: var(--player-name-plate-width, 17.2rem);
-  --plate-height: var(--player-name-plate-height, 4.3rem);
-}
-
-.size-xl.has-nameplate {
-  --plate-width: var(--player-name-plate-width, 20rem);
-  --plate-height: var(--player-name-plate-height, 5rem);
-}
-
-@media (max-width: 720px) {
-  .name-length-medium {
-    --player-name-length-scale: 0.94;
-  }
-
-  .name-length-long {
-    --player-name-length-scale: 0.84;
-  }
-
-  .name-length-extra-long {
-    --player-name-length-scale: 0.76;
-  }
-}

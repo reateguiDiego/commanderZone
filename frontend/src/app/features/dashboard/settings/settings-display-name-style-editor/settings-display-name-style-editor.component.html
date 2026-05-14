@@ -1,7 +1,7 @@
 <section class="name-style-editor">
   <header class="name-style-preview" aria-label="Name style preview">
     <span>Current selection</span>
-    <app-player-name [displayName]="displayName()" [nameStyle]="previewStyle()" size="lg" />
+    <app-player-name [displayName]="displayName()" [nameStyle]="previewStyle()" size="lg" plateSize="lg" />
     <label class="name-color-picker">
       Text color
       <input type="color" [value]="previewTextColor()" [disabled]="saving()" (input)="updateTextColor($any($event.target).value)" />
@@ -28,6 +28,7 @@
             [displayName]="displayName()"
             [nameStyle]="option.style"
             size="md"
+            plateSize="md"
           />
           @if (option.preset.tier === 'premium') {
             <span class="premium-badge">Premium</span>

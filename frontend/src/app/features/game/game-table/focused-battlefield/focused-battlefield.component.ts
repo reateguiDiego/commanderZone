@@ -1,7 +1,17 @@
-import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
-import { GameCardInstance, GameZoneName } from '../../../../core/models/game.model';
+import {
+  AfterViewInit,
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  OnDestroy,
+  ViewChild,
+  input,
+  output,
+} from '@angular/core';
+import { GameArrow, GameCardInstance, GameZoneName } from '../../../../core/models/game.model';
 import { PlayerView } from '../game-table.store';
 import { GameCardViewComponent } from '../game-card-view/game-card-view.component';
+import { CardPreviewEvent } from '../card-preview.model';
 
 interface CardCounterView {
   key: string;
@@ -10,6 +20,7 @@ interface CardCounterView {
 
 interface AlignmentGuideView {
   y: number;
+  referenceInstanceIds: readonly string[];
 }
 
 interface BattlefieldDropEvent {
@@ -36,17 +47,47 @@ interface BattlefieldCardMouseEvent {
   card: GameCardInstance;
 }
 
-interface BattlefieldCardPreviewEvent {
-  card: GameCardInstance;
-  playerId: string;
-  zone: GameZoneName;
-}
-
 interface BattlefieldCardStatChangeEvent {
   playerId: string;
   zone: GameZoneName;
   card: GameCardInstance;
   delta: number;
+}
+
+interface BattlefieldCardCounterChangeEvent extends BattlefieldCardStatChangeEvent {
+  key: string;
+}
+
+interface BattlefieldCardCounterDeleteRequestEvent {
+  event: MouseEvent;
+  playerId: string;
+  zone: GameZoneName;
+  card: GameCardInstance;
+  key: string;
+}
+
+interface BattlefieldSizeEvent {
+  width: number;
+  height: number;
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+}
+
+interface BattlefieldArrowView {
+  id: string;
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+  color: string;
+}
+
+interface BattlefieldArrowMenuEvent {
+  event: MouseEvent;
+  playerId: string;
+  arrowId: string;
 }
 
 @Component({
@@ -56,8 +97,14 @@ interface BattlefieldCardStatChangeEvent {
   styleUrl: './focused-battlefield.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class FocusedBattlefieldComponent {
+export class FocusedBattlefieldComponent implements AfterViewInit, OnDestroy {
+  private resizeObserver: ResizeObserver | null = null;
+  private lastBattlefieldSize: BattlefieldSizeEvent | null = null;
+
+  @ViewChild('battlefieldRoot', { static: true }) private readonly battlefieldRoot?: ElementRef<HTMLElement>;
+
   readonly player = input.required<PlayerView>();
+  readonly arrows = input<readonly GameArrow[]>([]);
   readonly isCurrentPlayer = input.required<(playerId: string) => boolean>();
   readonly isDropZoneHighlighted = input.required<(playerId: string, zone: GameZoneName) => boolean>();
   readonly cardPosition = input.required<(card: GameCardInstance) => { x: number; y: number } | null>();
@@ -72,6 +119,11 @@ export class FocusedBattlefieldComponent {
   readonly firstCounter = input.required<(card: GameCardInstance) => CardCounterView | null>();
   readonly alignmentGuideFor = input.required<(playerId: string) => AlignmentGuideView | null>();
   readonly isManaLaneHighlighted = input.required<(playerId: string) => boolean>();
+  readonly isCardDropSettling = input<(playerId: string, zone: GameZoneName, card: GameCardInstance) => boolean>(() => false);
+  readonly isManaDropSettling = input<(playerId: string, card: GameCardInstance) => boolean>(() => false);
+  readonly isBattlefieldEntrySettling = input<(playerId: string, card: GameCardInstance) => boolean>(() => false);
+  readonly isCommanderEntrySettling = input<(playerId: string, card: GameCardInstance) => boolean>(() => false);
+  readonly isCardTransferPending = input<(playerId: string, zone: GameZoneName, card: GameCardInstance) => boolean>(() => false);
 
   readonly battlefieldDragOver = output<DragEvent>();
   readonly battlefieldDropped = output<BattlefieldDropEvent>();
@@ -80,12 +132,41 @@ export class FocusedBattlefieldComponent {
   readonly cardClicked = output<BattlefieldCardMouseEvent>();
   readonly cardDoubleClicked = output<BattlefieldCardMouseEvent>();
   readonly cardMenuOpened = output<BattlefieldCardMouseEvent>();
-  readonly cardPreviewShown = output<BattlefieldCardPreviewEvent>();
+  readonly cardPreviewShown = output<CardPreviewEvent>();
   readonly cardPreviewHidden = output<void>();
   readonly cardPowerChanged = output<BattlefieldCardStatChangeEvent>();
   readonly cardToughnessChanged = output<BattlefieldCardStatChangeEvent>();
+  readonly cardLoyaltyChanged = output<BattlefieldCardStatChangeEvent>();
+  readonly cardCounterChanged = output<BattlefieldCardCounterChangeEvent>();
+  readonly cardCounterDeleteRequested = output<BattlefieldCardCounterDeleteRequestEvent>();
+  readonly arrowMenuOpened = output<BattlefieldArrowMenuEvent>();
   readonly manaLaneDragOver = output<DragEvent>();
   readonly manaLaneDropped = output<{ event: DragEvent; playerId: string }>();
+  readonly battlefieldSizeChanged = output<BattlefieldSizeEvent>();
+
+  ngAfterViewInit(): void {
+    const element = this.battlefieldRoot?.nativeElement;
+    if (!element) {
+      return;
+    }
+
+    this.emitBattlefieldSize(element.getBoundingClientRect());
+    if (typeof ResizeObserver === 'undefined') {
+      return;
+    }
+
+    this.resizeObserver = new ResizeObserver(([entry]) => {
+      if (entry) {
+        this.emitBattlefieldSize(element.getBoundingClientRect());
+      }
+    });
+    this.resizeObserver.observe(element);
+  }
+
+  ngOnDestroy(): void {
+    this.resizeObserver?.disconnect();
+    this.resizeObserver = null;
+  }
 
   canInteractWithCard(playerId: string, card: GameCardInstance): boolean {
     return this.isCurrentPlayer()(playerId) && this.canDragBattlefieldCard()(playerId, card);
@@ -101,6 +182,25 @@ export class FocusedBattlefieldComponent {
     this.cardDoubleClicked.emit({ event, playerId, card });
   }
 
+  onCardClick(event: MouseEvent, playerId: string, card: GameCardInstance): void {
+    if (!this.isCurrentPlayer()(playerId)) {
+      event.stopPropagation();
+      return;
+    }
+
+    this.cardClicked.emit({ event, playerId, card });
+  }
+
+  onCardMenu(event: MouseEvent, playerId: string, card: GameCardInstance): void {
+    if (!this.isCurrentPlayer()(playerId)) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+
+    this.cardMenuOpened.emit({ event, playerId, card });
+  }
+
   changePower(event: MouseEvent, playerId: string, card: GameCardInstance, delta: number): void {
     event.preventDefault();
     event.stopPropagation();
@@ -113,6 +213,24 @@ export class FocusedBattlefieldComponent {
     this.cardToughnessChanged.emit({ playerId, zone: 'battlefield', card, delta });
   }
 
+  changeLoyalty(event: MouseEvent, playerId: string, card: GameCardInstance, delta: number): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.cardLoyaltyChanged.emit({ playerId, zone: 'battlefield', card, delta });
+  }
+
+  changeCounter(event: MouseEvent, playerId: string, card: GameCardInstance, key: string, delta: number): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.cardCounterChanged.emit({ playerId, zone: 'battlefield', card, key, delta });
+  }
+
+  requestCounterDelete(event: MouseEvent, playerId: string, card: GameCardInstance, key: string): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.cardCounterDeleteRequested.emit({ event, playerId, zone: 'battlefield', card, key });
+  }
+
   stopStatPointer(event: PointerEvent): void {
     event.stopPropagation();
   }
@@ -122,7 +240,100 @@ export class FocusedBattlefieldComponent {
     event.stopPropagation();
   }
 
-  cardVisibility(card: GameCardInstance): boolean {
-    return !this.isDraggingCard()(card) && !this.isPendingBattlefieldTransfer()(card);
+  openArrowMenu(event: MouseEvent, playerId: string, arrowId: string): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.arrowMenuOpened.emit({ event, playerId, arrowId });
+  }
+
+  cardVisibility(playerId: string, card: GameCardInstance): boolean {
+    return !this.isDraggingCard()(card)
+      && !this.isPendingBattlefieldTransfer()(card)
+      && !this.isCardTransferPending()(playerId, 'battlefield', card);
+  }
+
+  isAlignmentReference(card: GameCardInstance, guide: AlignmentGuideView | null): boolean {
+    return Boolean(guide?.referenceInstanceIds.includes(card.instanceId));
+  }
+
+  battlefieldArrowViews(player: PlayerView): readonly BattlefieldArrowView[] {
+    const cards = new Map(player.state.zones.battlefield.map((card) => [card.instanceId, card]));
+    return this.arrows()
+      .map((arrow): BattlefieldArrowView | null => {
+        const source = cards.get(arrow.fromInstanceId);
+        const target = cards.get(arrow.toInstanceId);
+        if (!source || !target) {
+          return null;
+        }
+
+        const sourceCenter = this.cardCenter(source);
+        const targetCenter = this.cardCenter(target);
+        if (!sourceCenter || !targetCenter) {
+          return null;
+        }
+
+        return {
+          id: arrow.id,
+          x1: sourceCenter.x,
+          y1: sourceCenter.y,
+          x2: targetCenter.x,
+          y2: targetCenter.y,
+          color: this.arrowColor(arrow.color),
+        };
+      })
+      .filter((arrow): arrow is BattlefieldArrowView => arrow !== null);
+  }
+
+  private cardCenter(card: GameCardInstance): { x: number; y: number } | null {
+    const position = this.cardPosition()(card);
+    if (!position) {
+      return null;
+    }
+
+    return {
+      x: position.x + 58,
+      y: position.y + 80,
+    };
+  }
+
+  private arrowColor(color: string): string {
+    const colors: Record<string, string> = {
+      yellow: '#d7b46a',
+      red: '#ef4444',
+      green: '#22c55e',
+      blue: '#38bdf8',
+      black: '#d1d5db',
+    };
+
+    return colors[color] ?? colors['yellow'];
+  }
+
+  private emitBattlefieldSize(size: DOMRectReadOnly): void {
+    const next = {
+      width: Math.round(size.width),
+      height: Math.round(size.height),
+      left: Math.round(size.left),
+      top: Math.round(size.top),
+      right: Math.round(size.right),
+      bottom: Math.round(size.bottom),
+    };
+    if (next.width <= 0 || next.height <= 0) {
+      return;
+    }
+
+    const previous = this.lastBattlefieldSize;
+    if (
+      previous?.width === next.width
+      && previous.height === next.height
+      && previous.left === next.left
+      && previous.top === next.top
+      && previous.right === next.right
+      && previous.bottom === next.bottom
+    ) {
+      return;
+    }
+
+    this.lastBattlefieldSize = next;
+    this.battlefieldSizeChanged.emit(next);
   }
 }

@@ -4,7 +4,24 @@
       <small>{{ logTime()(entry.createdAt) }}</small>
       <strong>{{ entry.displayName ?? 'System' }}</strong>
       <span>
-        {{ entry.messagePrefix }}
+        @if (entry.cardList.length > 0) {
+          {{ entry.cardListPrefix }}
+          <span class="log-card-list">
+            <button
+              type="button"
+              class="log-card-link"
+              (mouseenter)="showCardListPopover($event, entry.cardList)"
+              (mouseleave)="hideCardListPopover()"
+              (focus)="showCardListPopover($event, entry.cardList)"
+              (blur)="hideCardListPopover()"
+            >
+              {{ entry.cardListLabel }}
+            </button>
+          </span>
+          {{ entry.cardListSuffix }}
+        } @else {
+          {{ entry.messagePrefix }}
+        }
         @if (entry.card; as card) {
           <button
             type="button"
@@ -15,8 +32,23 @@
             {{ card.name }}
           </button>
         }
-        {{ entry.messageSuffix }}
+        @if (entry.cardList.length === 0) {
+          {{ entry.messageSuffix }}
+        }
       </span>
     </p>
   }
 </div>
+
+@if (activeCardListPopover(); as popover) {
+  <div
+    class="log-card-list-popover"
+    role="tooltip"
+    [style.left.px]="popover.left"
+    [style.top.px]="popover.top"
+  >
+    @for (cardName of popover.names; track cardName + $index) {
+      <span>{{ cardName }}</span>
+    }
+  </div>
+}

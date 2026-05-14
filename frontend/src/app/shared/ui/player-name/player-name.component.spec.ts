@@ -49,7 +49,8 @@ describe('PlayerNameComponent', () => {
     fixture.detectChanges();
 
     const name = fixture.nativeElement.querySelector('.player-name-shell') as HTMLElement;
-    expect(name.classList.contains('name-length-extra-long')).toBe(true);
+    expect(name.classList.contains('name-length-ultra')).toBe(true);
+    expect(name.style.getPropertyValue('--player-name-auto-font-size')).toBe('0.44rem');
     expect(name.getAttribute('title')).toBe('CommanderZonePilotName25');
   });
 
@@ -59,5 +60,18 @@ describe('PlayerNameComponent', () => {
 
     const name = fixture.nativeElement.querySelector('.player-name-shell') as HTMLElement;
     expect(name.classList.contains('name-length-medium')).toBe(true);
+  });
+
+  it('uses explicit plate dimensions independently from the text size', () => {
+    fixture.componentRef.setInput('displayName', 'Finetti');
+    fixture.componentRef.setInput('nameStyle', { type: 'preset', presetId: 'obsidian-crown', textColor: '#ffeeaa' });
+    fixture.componentRef.setInput('plateSize', 'xs');
+    fixture.detectChanges();
+
+    const name = fixture.nativeElement.querySelector('.player-name-shell') as HTMLElement;
+    expect(name.classList.contains('plate-size-xs')).toBe(true);
+    expect(name.style.getPropertyValue('--player-name-plate-width')).toBe('10.4rem');
+    expect(name.style.getPropertyValue('--player-name-plate-height')).toBe('2.6rem');
+    expect(name.style.getPropertyValue('--player-name-auto-font-size')).toBe('0.82rem');
   });
 });

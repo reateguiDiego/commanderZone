@@ -143,11 +143,7 @@
   }
 
   .friends-trigger app-player-name {
-    --player-name-font-size: 1rem;
-    --player-name-plate-width: 8.9rem;
-    --player-name-plate-height: 2.24rem;
-    --player-name-label-width: calc(100% - 2.7rem);
-    --player-name-plate-padding: 0.35rem 1.35rem;
+    width: min(10.4rem, 100%);
   }
 
   .online-badge {
@@ -173,10 +169,7 @@
   }
 
   .friends-trigger app-player-name {
-    --player-name-font-size: 0.92rem;
-    --player-name-plate-width: 8rem;
-    --player-name-plate-height: 2rem;
-    --player-name-label-width: calc(100% - 2.3rem);
+    width: min(9.4rem, 100%);
   }
 }
 

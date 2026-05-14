@@ -40,6 +40,9 @@ class Card
     #[ORM\Column(type: 'string', length: 16, nullable: true)]
     private ?string $toughness = null;
 
+    #[ORM\Column(type: 'string', length: 16, nullable: true)]
+    private ?string $loyalty = null;
+
     #[ORM\Column(type: 'json')]
     private array $colors = [];
 
@@ -110,6 +113,7 @@ class Card
         $this->oracleText = $this->oracleTextFromScryfall($data);
         $this->power = $this->cardString($data, 'power');
         $this->toughness = $this->cardString($data, 'toughness');
+        $this->loyalty = $this->cardString($data, 'loyalty');
         $this->colors = $data['colors'] ?? [];
         $this->colorIdentity = $data['color_identity'] ?? [];
         $this->legalities = $data['legalities'] ?? [];
@@ -171,6 +175,11 @@ class Card
     public function toughness(): ?string
     {
         return $this->toughness;
+    }
+
+    public function loyalty(): ?string
+    {
+        return $this->loyalty;
     }
 
     public function legalities(): array
@@ -268,6 +277,7 @@ class Card
             'oracleText' => $this->oracleText,
             'power' => $this->power,
             'toughness' => $this->toughness,
+            'loyalty' => $this->loyalty,
             'colors' => $this->colors,
             'colorIdentity' => $this->colorIdentity,
             'legalities' => $this->legalities,

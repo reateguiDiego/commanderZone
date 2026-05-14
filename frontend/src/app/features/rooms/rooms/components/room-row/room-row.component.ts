@@ -13,22 +13,26 @@ import { PlayerNameComponent } from '../../../../../shared/ui/player-name/player
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class RoomRowComponent {
+  readonly lockedRoomTooltip = 'You are already in a room. Leave it before joining another one.';
+
   readonly room = input.required<Room>();
   readonly formats = input<readonly DeckFormat[]>([]);
   readonly currentUserId = input<string | null>(null);
+  readonly currentRoomId = input<string | null>(null);
+  readonly actionsLocked = input(false);
   readonly deletingRoomId = input<string | null>(null);
-  readonly archivingRoomId = input<string | null>(null);
+  readonly leavingRoomId = input<string | null>(null);
 
   readonly opened = output<Room>();
+  readonly left = output<Room>();
   readonly deleted = output<Room>();
-  readonly archived = output<Room>();
 
   canDeleteRoom(room: Room): boolean {
-    return this.isRoomWaiting(room) && room.owner.id === this.currentUserId();
+    return !this.actionsLocked() && this.isRoomWaiting(room) && room.owner.id === this.currentUserId();
   }
 
-  canArchiveRoom(room: Room): boolean {
-    return room.status !== 'archived' && room.owner.id === this.currentUserId() && (room.status === 'started' || !!room.gameId);
+  canLeaveRoom(room: Room): boolean {
+    return this.isCurrentRoom(room);
   }
 
   roomCapacity(room: Room): number {
@@ -57,6 +61,18 @@ export class RoomRowComponent {
 
   isRoomOpen(room: Room): boolean {
     return this.isRoomWaiting(room) && !this.isRoomStarted(room) && !this.isRoomFull(room);
+  }
+
+  canJoinRoom(room: Room): boolean {
+    return !this.actionsLocked() && room.visibility === 'public' && !room.gameId;
+  }
+
+  isCurrentUserInRoom(room: Room): boolean {
+    return this.isCurrentRoom(room);
+  }
+
+  isCurrentRoom(room: Room): boolean {
+    return this.currentRoomId() === room.id;
   }
 
   formatLabel(formatId: string): string {

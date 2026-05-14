@@ -24,10 +24,20 @@
         <ng-content />
       </div>
 
-      @if (showSecondary || showPrimary) {
-        <footer>
+      @if (showTertiary || showSecondary || showPrimary) {
+        <footer [class.split-actions]="footerLayout === 'split'">
+          @if (showTertiary) {
+            <button class="secondary-button" type="button" (click)="tertiary.emit()">{{ tertiaryLabel }}</button>
+          }
           @if (showSecondary) {
-            <button class="secondary-button" type="button" (click)="secondary.emit()">{{ secondaryLabel }}</button>
+            <button
+              [class.primary-button]="secondaryVariant === 'primary'"
+              [class.secondary-button]="secondaryVariant === 'secondary'"
+              type="button"
+              (click)="secondary.emit()"
+            >
+              {{ secondaryLabel }}
+            </button>
           }
           @if (showPrimary) {
             <button class="primary-button" [class.danger-action]="danger" type="button" [disabled]="primaryDisabled" (click)="primary.emit()">

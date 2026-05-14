@@ -4,7 +4,9 @@ namespace App\UI\Http;
 
 use App\Application\Deck\CommanderDeckValidator;
 use App\Application\Game\GameSnapshotFactory;
+use App\Application\Room\ActiveRoomMembershipService;
 use App\Domain\Deck\Deck;
+use App\Domain\Deck\DeckCard;
 use App\Domain\Game\Game;
 use App\Domain\Room\Room;
 use App\Domain\Room\RoomInvite;
@@ -28,17 +30,13 @@ class RoomsController extends ApiController
             ->leftJoin('room.players', 'player')
             ->addSelect('player');
 
-        if ($status === 'archived') {
-            $queryBuilder
-                ->andWhere('room.status = :archived')
-                ->andWhere('(room.owner = :user OR player.user = :user)')
-                ->setParameter('archived', Room::STATUS_ARCHIVED)
-                ->setParameter('user', $user);
-        } elseif ($status !== 'all') {
-            $queryBuilder
-                ->andWhere('room.status != :archived')
-                ->setParameter('archived', Room::STATUS_ARCHIVED);
+        if (!in_array($status, ['active', 'all'], true)) {
+            return $this->fail('Unsupported room status filter.', 400);
         }
+
+        $queryBuilder
+            ->andWhere('room.status != :archived')
+            ->setParameter('archived', Room::STATUS_ARCHIVED);
 
         $rooms = $queryBuilder
             ->getQuery()
@@ -49,8 +47,30 @@ class RoomsController extends ApiController
         return $this->json(['data' => array_map(fn (Room $room) => $this->roomListArray($room, $user), $rooms)]);
     }
 
+    #[Route('/rooms/current', methods: ['GET'])]
+    public function current(#[CurrentUser] User $user, ActiveRoomMembershipService $activeRoomMembership): JsonResponse
+    {
+        $room = $activeRoomMembership->currentRoomFor($user);
+
+        if (!$room instanceof Room) {
+            return $this->json(['room' => null, 'player' => null, 'turn' => null]);
+        }
+
+        return $this->json([
+            'room' => $this->currentRoomSummaryArray($room),
+            'player' => $this->currentRoomPlayerArray($room->playerFor($user)),
+            'turn' => $this->currentRoomTurnArray($room),
+        ]);
+    }
+
     #[Route('/rooms', methods: ['POST'])]
-    public function create(Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, RoomEventPublisher $roomEventPublisher): JsonResponse
+    public function create(
+        Request $request,
+        #[CurrentUser] User $user,
+        EntityManagerInterface $entityManager,
+        RoomEventPublisher $roomEventPublisher,
+        ActiveRoomMembershipService $activeRoomMembership,
+    ): JsonResponse
     {
         $payload = $this->payload($request);
         $hasDeckInPayload = $this->hasDeckIdInPayload($payload);
@@ -59,7 +79,9 @@ class RoomsController extends ApiController
             return $this->fail('A valid deck is required to create a room.');
         }
 
-        $this->closeOwnerActiveRooms($entityManager, $user, $roomEventPublisher);
+        if ($activeRoomMembership->currentRoomFor($user) instanceof Room) {
+            return $this->fail('Leave your current room before creating another room.', 409);
+        }
 
         $format = (string) ($payload['format'] ?? Room::FORMAT_COMMANDER);
         if ($format !== Room::FORMAT_COMMANDER) {
@@ -143,6 +165,7 @@ class RoomsController extends ApiController
         EntityManagerInterface $entityManager,
         CommanderDeckValidator $deckValidator,
         RoomEventPublisher $roomEventPublisher,
+        ActiveRoomMembershipService $activeRoomMembership,
     ): JsonResponse
     {
         $room = $entityManager->getRepository(Room::class)->find($id);
@@ -150,7 +173,7 @@ class RoomsController extends ApiController
             return $this->fail('Room not found.', 404);
         }
 
-        return $this->joinRoom($room, $request, $user, $entityManager, $deckValidator, $roomEventPublisher);
+        return $this->joinRoom($room, $request, $user, $entityManager, $deckValidator, $roomEventPublisher, $activeRoomMembership);
     }
 
     #[Route('/rooms/code/{code}/join', methods: ['POST'])]
@@ -161,6 +184,7 @@ class RoomsController extends ApiController
         EntityManagerInterface $entityManager,
         CommanderDeckValidator $deckValidator,
         RoomEventPublisher $roomEventPublisher,
+        ActiveRoomMembershipService $activeRoomMembership,
     ): JsonResponse
     {
         $room = $this->roomFromCode($code, $entityManager);
@@ -168,7 +192,7 @@ class RoomsController extends ApiController
             return $this->fail('Room not found.', 404);
         }
 
-        return $this->joinRoom($room, $request, $user, $entityManager, $deckValidator, $roomEventPublisher);
+        return $this->joinRoom($room, $request, $user, $entityManager, $deckValidator, $roomEventPublisher, $activeRoomMembership);
     }
 
     private function joinRoom(
@@ -178,6 +202,7 @@ class RoomsController extends ApiController
         EntityManagerInterface $entityManager,
         CommanderDeckValidator $deckValidator,
         RoomEventPublisher $roomEventPublisher,
+        ActiveRoomMembershipService $activeRoomMembership,
     ): JsonResponse
     {
         if ($room->status() !== Room::STATUS_WAITING) {
@@ -203,6 +228,9 @@ class RoomsController extends ApiController
         }
 
         $wasPlayer = $room->hasPlayer($user);
+        if (!$wasPlayer && $activeRoomMembership->otherRoomFor($user, $room) instanceof Room) {
+            return $this->fail('Leave your current room before joining another room.', 409);
+        }
         if (!$room->addPlayer(new RoomPlayer($room, $user, $deck))) {
             return $this->fail('Room is full.', 409);
         }
@@ -247,9 +275,6 @@ class RoomsController extends ApiController
         $room = $entityManager->getRepository(Room::class)->find($id);
         if (!$room instanceof Room) {
             return $this->fail('Room not found.', 404);
-        }
-        if ($room->status() !== Room::STATUS_WAITING) {
-            return $this->fail('Started rooms cannot be left.', 409);
         }
         if (!$room->hasPlayer($user)) {
             return $this->fail('Only room players can leave the room.', 403);
@@ -316,30 +341,6 @@ class RoomsController extends ApiController
         $roomEventPublisher->publishDeleted($id);
 
         return $this->json(null, 204);
-    }
-
-    #[Route('/rooms/{id}/archive', methods: ['POST'])]
-    public function archive(string $id, #[CurrentUser] User $user, EntityManagerInterface $entityManager): JsonResponse
-    {
-        $room = $entityManager->getRepository(Room::class)->find($id);
-        if (!$room instanceof Room) {
-            return $this->fail('Room not found.', 404);
-        }
-        if ($room->owner()->id() !== $user->id()) {
-            return $this->fail('Only the room owner can archive the room.', 403);
-        }
-        if ($room->status() === Room::STATUS_ARCHIVED) {
-            return $this->json(['room' => $room->toArray()]);
-        }
-        if ($room->status() !== Room::STATUS_STARTED && !$room->game() instanceof Game) {
-            return $this->fail('Only started rooms can be archived.', 409);
-        }
-
-        $room->archive();
-        $room->game()?->finish();
-        $entityManager->flush();
-
-        return $this->json(['room' => $room->toArray()]);
     }
 
     #[Route('/rooms/{id}/start', methods: ['POST'])]
@@ -482,51 +483,6 @@ class RoomsController extends ApiController
         return null;
     }
 
-    private function closeOwnerActiveRooms(EntityManagerInterface $entityManager, User $owner, RoomEventPublisher $roomEventPublisher): void
-    {
-        $ownedRooms = $entityManager->getRepository(Room::class)->createQueryBuilder('room')
-            ->where('room.owner = :owner')
-            ->setParameter('owner', $owner)
-            ->getQuery()
-            ->getResult();
-
-        $ownedGames = [];
-        foreach ($ownedRooms as $ownedRoom) {
-            if (!$ownedRoom instanceof Room) {
-                continue;
-            }
-
-            $game = $ownedRoom->game();
-            if ($game instanceof Game) {
-                $ownedRoom->detachGame();
-                $ownedGames[] = $game;
-            }
-        }
-
-        $entityManager->flush();
-
-        foreach ($ownedGames as $ownedGame) {
-            $entityManager->remove($ownedGame);
-        }
-
-        $entityManager->flush();
-
-        $removedRoomIds = [];
-        foreach ($ownedRooms as $ownedRoom) {
-            if (!$ownedRoom instanceof Room) {
-                continue;
-            }
-
-            $removedRoomIds[] = $ownedRoom->id();
-            $entityManager->remove($ownedRoom);
-        }
-        $entityManager->flush();
-
-        foreach ($removedRoomIds as $removedRoomId) {
-            $roomEventPublisher->publishDeleted($removedRoomId);
-        }
-    }
-
     private function isInvitedToRoom(Room $room, User $user, EntityManagerInterface $entityManager): bool
     {
         $invite = $entityManager->getRepository(RoomInvite::class)->findOneBy([
@@ -566,6 +522,67 @@ class RoomsController extends ApiController
         }
 
         return $data;
+    }
+
+    private function currentRoomSummaryArray(Room $room): array
+    {
+        return [
+            'id' => $room->id(),
+            'name' => $room->name(),
+            'status' => $room->status(),
+            'visibility' => $room->visibility(),
+            'format' => $room->format(),
+            'maxPlayers' => $room->maxPlayers(),
+            'playerCount' => $room->players()->count(),
+            'gameId' => $room->game()?->id(),
+        ];
+    }
+
+    private function currentRoomPlayerArray(?RoomPlayer $player): ?array
+    {
+        if (!$player instanceof RoomPlayer) {
+            return null;
+        }
+
+        $deck = $player->deck();
+
+        return [
+            'playerId' => $player->id(),
+            'deckId' => $deck?->id(),
+            'deckName' => $deck?->name(),
+            'deckImageUrl' => $deck instanceof Deck ? $this->deckArtImageUrl($deck) : null,
+        ];
+    }
+
+    private function currentRoomTurnArray(Room $room): array
+    {
+        $snapshotTurn = $room->game()?->snapshot()['turn'] ?? null;
+        $number = is_array($snapshotTurn) && isset($snapshotTurn['number']) && is_numeric($snapshotTurn['number'])
+            ? (int) $snapshotTurn['number']
+            : null;
+
+        return [
+            'number' => $number,
+        ];
+    }
+
+    private function deckArtImageUrl(Deck $deck): ?string
+    {
+        foreach ($deck->cards() as $deckCard) {
+            if (!$deckCard instanceof DeckCard || $deckCard->section() !== DeckCard::SECTION_COMMANDER) {
+                continue;
+            }
+
+            $imageUris = $deckCard->card()->imageUris();
+            foreach (['art_crop', 'border_crop', 'large', 'normal'] as $format) {
+                $imageUrl = $imageUris[$format] ?? null;
+                if (is_string($imageUrl) && $imageUrl !== '') {
+                    return $imageUrl;
+                }
+            }
+        }
+
+        return null;
     }
 
     private static function roomListRank(Room $room): int

@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { GameCardInstance, GameSnapshot, GameZoneName } from '../../../../core/models/game.model';
+import { gameBackgroundImageUrl, gameSleevesImageUrl } from '../game-table-visual-assets';
 
 export interface PlayerView {
   id: string;
@@ -22,10 +23,6 @@ export class GameTableSnapshotSelectors {
 
   currentPlayer(players: PlayerView[], userId: string | null | undefined): PlayerView | null {
     return players.find((player) => player.state.user.id === userId) ?? null;
-  }
-
-  handPlayer(currentPlayer: PlayerView | null, focusedPlayer: PlayerView | null): PlayerView | null {
-    return currentPlayer ?? focusedPlayer;
   }
 
   isGameOwner(snapshot: GameSnapshot | null, currentPlayer: PlayerView | null): boolean {
@@ -70,9 +67,9 @@ export class GameTableSnapshotSelectors {
     return Array.from({ length: Math.min(count, 12) }, (_, index) => index);
   }
 
-  cardImage(card: GameCardInstance): string | null {
+  cardImage(card: GameCardInstance, snapshot: GameSnapshot | null): string | null {
     if (this.shouldShowCardBack(card)) {
-      return this.cardBackImage();
+      return this.cardBackImage(this.cardOwnerSleevesName(card, snapshot));
     }
 
     return card.imageUris?.['normal'] ?? card.imageUris?.['small'] ?? null;
@@ -82,8 +79,12 @@ export class GameTableSnapshotSelectors {
     return card.imageUris?.['normal'] ?? card.imageUris?.['small'] ?? null;
   }
 
-  cardBackImage(): string {
-    return '/assets/images/facedown_card.jpg';
+  cardBackImage(sleevesName?: string | null): string {
+    return gameSleevesImageUrl(sleevesName);
+  }
+
+  gameBackgroundImage(player: PlayerView | null): string {
+    return gameBackgroundImageUrl(player?.state.backgroundName);
   }
 
   shouldShowCardBack(card: GameCardInstance): boolean {
@@ -91,15 +92,15 @@ export class GameTableSnapshotSelectors {
   }
 
   deckLabel(player: PlayerView | null): string {
-    const commander = player?.state.zones.command?.[0]?.name;
+    const deckName = player?.state.deckName?.trim();
 
-    return commander ? `${commander} deck` : 'Commander deck';
+    return deckName && deckName.length > 0 ? deckName : '';
   }
 
   firstCounter(card: GameCardInstance): { key: string; value: number } | null {
-    const entries = Object.entries(card.counters ?? {}).filter(([, value]) => value > 0);
+    const entries = Object.entries(card.counters ?? {}).filter(([, value]) => Number.isFinite(Number(value)) && Number(value) >= 0);
 
-    return entries.length > 0 ? { key: entries[0][0], value: entries[0][1] } : null;
+    return entries.length > 0 ? { key: entries[0][0], value: Number(entries[0][1]) } : null;
   }
 
   hasPowerToughness(card: GameCardInstance): boolean {
@@ -143,7 +144,7 @@ export class GameTableSnapshotSelectors {
 
   zonePreviewImage(player: PlayerView, zone: GameZoneName): string | null {
     if (zone === 'library') {
-      return this.zoneCount(player, zone) > 0 ? this.cardBackImage() : null;
+      return this.zoneCount(player, zone) > 0 ? this.cardBackImage(player.state.sleevesName) : null;
     }
 
     const card = this.zonePreviewCard(player, zone);
@@ -156,7 +157,17 @@ export class GameTableSnapshotSelectors {
       return null;
     }
 
+    if (zone === 'library') {
+      return player.state.zones.library?.[0] ?? null;
+    }
+
     return player.state.zones[zone]?.at(-1) ?? null;
+  }
+
+  private cardOwnerSleevesName(card: GameCardInstance, snapshot: GameSnapshot | null): string | null {
+    const ownerId = card.ownerId ?? card.controllerId;
+
+    return ownerId ? snapshot?.players[ownerId]?.sleevesName ?? null : null;
   }
 
   colorIdentity(player: PlayerView | null): string[] {
@@ -177,24 +188,6 @@ export class GameTableSnapshotSelectors {
 
   manaSymbols(player: PlayerView | null): string[] {
     return this.colorIdentity(player);
-  }
-
-  miniCardLeft(card: GameCardInstance, index: number): number {
-    const position = this.cardPosition(card);
-    if (position) {
-      return Math.max(1, Math.min(90, (position.x / 900) * 100));
-    }
-
-    return 2 + (index % 10) * 9.4;
-  }
-
-  miniCardTop(card: GameCardInstance, index: number): number {
-    const position = this.cardPosition(card);
-    if (position) {
-      return Math.max(4, Math.min(78, (position.y / 520) * 100));
-    }
-
-    return 6 + Math.floor(index / 10) * 24;
   }
 
   logTime(createdAt: string): string {

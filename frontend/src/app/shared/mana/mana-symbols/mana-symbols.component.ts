@@ -1,6 +1,8 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
 import { ManaSymbolService } from '../mana-symbol.service';
 
+export type ManaSymbolsSize = 'normal' | 'small';
+
 @Component({
   selector: 'app-mana-symbols',
   templateUrl: './mana-symbols.component.html',
@@ -13,6 +15,7 @@ export class ManaSymbolsComponent {
   readonly value = input<string | null | undefined>(null);
   readonly symbols = input<readonly string[] | null | undefined>(null);
   readonly fallback = input('');
+  readonly size = input<ManaSymbolsSize>('normal');
 
   readonly tokens = computed(() => {
     const symbols = this.symbols();

@@ -2,6 +2,7 @@
 
 namespace App\Application\Game;
 
+use App\Domain\Deck\Deck;
 use App\Domain\Deck\DeckCard;
 use App\Domain\Room\Room;
 use App\Domain\Room\RoomPlayer;
@@ -18,8 +19,9 @@ class GameSnapshotFactory
                 continue;
             }
 
+            $deck = $roomPlayer->deck();
             $library = [];
-            foreach ($roomPlayer->deck()?->cards() ?? [] as $deckCard) {
+            foreach ($deck?->cards() ?? [] as $deckCard) {
                 if (!$deckCard instanceof DeckCard || $deckCard->section() !== DeckCard::SECTION_MAIN) {
                     continue;
                 }
@@ -37,12 +39,12 @@ class GameSnapshotFactory
 
             $command = [];
             $colorIdentity = [];
-            foreach ($roomPlayer->deck()?->cards() ?? [] as $deckCard) {
+            foreach ($deck?->cards() ?? [] as $deckCard) {
                 if (!$deckCard instanceof DeckCard || $deckCard->section() !== DeckCard::SECTION_COMMANDER) {
                     continue;
                 }
 
-                $command[] = $this->cardInstance($deckCard, $roomPlayer->user()->id(), 'command');
+                $command[] = $this->cardInstance($deckCard, $roomPlayer->user()->id(), 'command', true);
                 $colorIdentity = array_values(array_unique([...$colorIdentity, ...$deckCard->card()->colorIdentity()]));
             }
             $colorIdentity = $this->orderedColorIdentity($colorIdentity);
@@ -51,7 +53,10 @@ class GameSnapshotFactory
                 'user' => $roomPlayer->user()->toArray(),
                 'status' => 'active',
                 'concededAt' => null,
+                'deckName' => $deck?->name(),
                 'colorIdentity' => $colorIdentity,
+                'backgroundName' => $deck?->backgroundName() ?? Deck::DEFAULT_BACKGROUND_NAME,
+                'sleevesName' => $deck?->sleevesName() ?? Deck::DEFAULT_SLEEVES_NAME,
                 'life' => $room->startingLife(),
                 'zones' => [
                     'library' => $library,
@@ -101,7 +106,7 @@ class GameSnapshotFactory
         ];
     }
 
-    private function cardInstance(DeckCard $deckCard, string $ownerId, string $zone): array
+    private function cardInstance(DeckCard $deckCard, string $ownerId, string $zone, bool $isCommander = false): array
     {
         $card = $deckCard->card();
 
@@ -119,7 +124,10 @@ class GameSnapshotFactory
             'colorIdentity' => $this->orderedColorIdentity($card->colorIdentity()),
             'power' => $this->numericCardStat($card->power()),
             'toughness' => $this->numericCardStat($card->toughness()),
-            'loyalty' => null,
+            'loyalty' => $this->numericCardStat($card->loyalty()),
+            'defaultPower' => $this->numericCardStat($card->power()),
+            'defaultToughness' => $this->numericCardStat($card->toughness()),
+            'defaultLoyalty' => $this->numericCardStat($card->loyalty()),
             'tapped' => false,
             'faceDown' => false,
             'revealedTo' => [],
@@ -127,6 +135,7 @@ class GameSnapshotFactory
             'rotation' => 0,
             'counters' => [],
             'zone' => $zone,
+            'isCommander' => $isCommander,
         ];
     }
 

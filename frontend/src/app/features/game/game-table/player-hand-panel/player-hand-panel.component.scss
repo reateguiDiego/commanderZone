@@ -4,11 +4,39 @@
 
 .hand-area {
   position: relative;
-  z-index: 70;
+  z-index: 90;
   grid-area: hand;
   display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
-  min-height: 0;
+  grid-template-rows: minmax(0, 1fr);
+  align-self: end;
+  justify-self: start;
+  width: max(0px, calc(100% + var(--game-hand-left-extension, 0px) - var(--game-zone-dock-overlap, 12rem)));
+  min-height: var(--game-zone-row-height, 11.15rem);
+  margin-top: 0;
+  --hand-hidden-offset: 4.45rem;
+  --hand-reveal-offset: var(--hand-hidden-offset);
+  --hand-card-preview-height: 9rem;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.hand-area.hand-revealed {
+  z-index: 620;
+  --hand-reveal-offset: 0rem;
+  filter: drop-shadow(0 1.9rem 1.8rem rgb(0 0 0 / 42%));
+  pointer-events: auto;
+}
+
+.hand-area.hand-dragging {
+  z-index: 4100;
+  filter: none;
+}
+
+.hand-area.hand-external-dragging {
+  pointer-events: auto;
 }
 
 .hand-row {
@@ -17,56 +45,275 @@
   align-items: end;
   overflow-x: auto;
   overflow-y: hidden;
-  scrollbar-color: transparent transparent;
-  padding: 0.9rem 2.2rem 0.7rem;
-}
-
-.hand-row:hover {
-  scrollbar-color: #8f876f transparent;
-}
-
-.hand-row::-webkit-scrollbar-thumb {
+  min-height: calc(var(--game-zone-row-height, 11.15rem) - 0.3rem);
+  padding: 1.35rem 2.6rem calc(var(--bottom-gap, 0.7rem) + 0.2rem);
+  border: 0;
   background: transparent;
+  box-sizing: border-box;
+  pointer-events: none;
 }
 
-.hand-row:hover::-webkit-scrollbar-thumb {
-  background: #8f876f;
+.hand-area.hand-revealed .hand-row,
+.hand-area.hand-dragging .hand-row,
+.hand-area.hand-external-dragging .hand-row {
+  pointer-events: auto;
+}
+
+.hand-area.hand-external-dragging .hand-fan,
+.hand-area.hand-external-dragging .empty-hand-drop-target,
+.hand-area.hand-dragging .empty-hand-drop-target {
+  pointer-events: auto;
+}
+
+.hand-hover-strip {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 260;
+  height: 2.35rem;
+  pointer-events: auto;
+}
+
+.hand-area.hand-revealed .hand-hover-strip,
+.hand-area.hand-dragging .hand-hover-strip {
+  pointer-events: none;
 }
 
 .hand-count {
-  justify-self: end;
+  position: absolute;
+  right: 0.75rem;
+  bottom: 0.9rem;
+  z-index: 3;
+  min-width: 4.7rem;
+  padding: 0.22rem 0.5rem;
+  border: 1px solid var(--game-line-soft, rgb(61 69 53 / 46%));
+  border-radius: 999px;
+  background: rgb(7 8 7 / 42%);
+  color: var(--game-accent, #d7b46a);
+  font-size: 0.72rem;
   font-weight: 900;
+  opacity: 0.52;
+  text-align: center;
+  pointer-events: none;
+}
+
+.hand-area.hand-revealed .hand-count {
+  opacity: 0.8;
 }
 
 .hand-fan {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: flex-end;
   flex: 0 0 auto;
   margin-inline: auto;
-  padding-inline: 1rem;
+  min-height: calc(var(--game-zone-row-height, 11.15rem) - 0.7rem);
+  padding: 0;
 }
 
-.opponent-hand {
-  display: flex;
-  align-items: flex-end;
+.hand-fan-compact-drop-target {
+  padding-inline: 120px;
+}
+
+.hand-row-empty {
   justify-content: center;
+  overflow-x: visible;
+}
+
+.hand-fan::before {
+  content: '';
+  position: absolute;
+  inset: 1.35rem -1.25rem 0.35rem;
+  z-index: -1;
+  border: 1px solid rgb(215 180 106 / 0%);
+  border-radius: 10px;
+  background:
+    radial-gradient(ellipse at 50% 88%, rgb(215 180 106 / 14%), transparent 62%),
+    linear-gradient(180deg, transparent, rgb(215 180 106 / 7%));
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.hand-fan.drop-target-active::before {
+  border-color: var(--game-accent-line, rgb(215 180 106 / 32%));
+  box-shadow:
+    inset 0 0 1.6rem rgb(215 180 106 / 10%),
+    0 0 1.35rem rgb(215 180 106 / 14%);
+  opacity: 1;
+}
+
+.empty-hand-drop-target {
+  position: relative;
+  z-index: 270;
+  flex: 1 1 min(56rem, 100%);
+  width: min(56rem, 100%);
+  max-width: 56rem;
+  min-width: min(28rem, calc(100vw - 6rem));
+  height: 10.45rem;
+  align-self: flex-end;
+  margin: 0 auto;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  pointer-events: none;
+}
+
+.empty-hand-drop-target::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: 0.75rem;
+  left: 0;
+  height: 4.7rem;
+  border: 1px dashed transparent;
+  border-radius: 0;
+  pointer-events: none;
+}
+
+.hand-fan.drop-target-active {
+  box-shadow: none;
+}
+
+.empty-hand-drop-target.drop-target-active {
+  background: transparent;
+  box-shadow: none;
+}
+
+.empty-hand-drop-target.drop-target-active::after {
+  border-color: var(--gold, var(--game-accent, #d7b46a));
+  box-shadow:
+    inset 0 0 2rem rgb(215 180 106 / 16%),
+    0 0 1.4rem rgb(215 180 106 / 18%);
+}
+
+.hand-drop-slot {
+  position: relative;
+  z-index: 220;
+  align-self: flex-end;
+  flex: 0 0 0;
+  height: var(--hand-card-preview-height);
+  margin: 0;
+  pointer-events: none;
+  animation: hand-drop-slot-enter 120ms ease-out;
+}
+
+.hand-drop-slot::before {
+  content: '';
+  position: absolute;
+  top: -15px;
+  bottom: 0.05rem;
+  left: 50%;
+  width: 0.22rem;
+  border-radius: 999px;
+  background: var(--game-accent, #d7b46a);
+  box-shadow:
+    0 0 0 3px rgb(215 180 106 / 20%),
+    0 0 1rem rgb(215 180 106 / 58%);
+  transform: translateX(-50%);
+}
+
+.hand-drop-slot-after {
+  margin-right: 0;
+}
+
+.hand-floating-card {
+  position: fixed;
+  z-index: 4200;
+  display: grid;
+  overflow: visible;
+  border: 1px solid var(--game-accent-strong, rgb(215 180 106 / 58%));
+  border-radius: 8px;
+  background: var(--game-surface-deep, rgb(7 8 7 / 88%));
+  box-shadow:
+    0 1.2rem 2rem rgb(0 0 0 / 42%),
+    0 0 0 2px rgb(215 180 106 / 22%);
+  color: var(--game-text, #f3f0e8);
+  font-size: 0.72rem;
+  font-weight: 900;
+  line-height: 1.15;
+  place-items: center;
+  text-align: center;
+  transform: none;
+  pointer-events: none;
+}
+
+.hand-drag-count-badge {
+  pointer-events: none;
+}
+
+.hand-drag-count-badge {
+  position: absolute;
+  top: -0.62rem;
+  right: -0.62rem;
+  z-index: 2;
+  display: grid;
+  min-width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border: 2px solid rgb(243 240 232 / 92%);
+  border-radius: 999px;
+  background: var(--game-accent, #d7b46a);
+  box-shadow:
+    0 0.45rem 1rem rgb(0 0 0 / 44%),
+    0 0 0 4px rgb(7 8 6 / 74%);
+  color: #171205;
+  font-size: 0.86rem;
+  font-weight: 1000;
+  line-height: 1;
+}
+
+.hand-floating-card img {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  object-fit: cover;
+}
+
+@keyframes hand-drop-slot-enter {
+  from {
+    opacity: 0;
+    transform: scaleY(0.9);
+  }
+
+  to {
+    opacity: 1;
+    transform: scaleY(1);
+  }
 }
 
 .drop-target-active {
-  box-shadow: inset 0 0 0 2px #f5b414;
+  box-shadow:
+    inset 0 0 0 2px var(--game-accent, #d7b46a),
+    inset 0 0 2rem rgb(215 180 106 / 14%);
 }
 
-.card-back {
-  position: relative;
-  z-index: 1;
-  display: block;
-  width: 100%;
-  height: 100%;
-  border-radius: 6px;
-  background: url('/assets/images/facedown_card.jpg') center / cover;
+@media (max-width: 1365px) {
+  .hand-row {
+    padding-inline: 1.55rem;
+  }
+
+  .hand-fan {
+    min-height: calc(var(--game-zone-row-height, 11.15rem) - 0.7rem);
+  }
 }
 
-.small-back {
-  width: 2.3rem;
-  aspect-ratio: 0.716;
+@media (max-width: 760px) {
+  .hand-area {
+    min-height: 11rem;
+    margin-top: -6rem;
+    --hand-hidden-offset: 4.15rem;
+    --hand-reveal-offset: var(--hand-hidden-offset);
+    --hand-card-preview-height: 8.2rem;
+  }
+
+  .hand-row {
+    padding-inline: 1rem;
+  }
+
+  .hand-fan {
+    margin-inline: 0;
+  }
 }
