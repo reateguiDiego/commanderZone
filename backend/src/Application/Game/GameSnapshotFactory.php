@@ -109,6 +109,7 @@ class GameSnapshotFactory
     private function cardInstance(DeckCard $deckCard, string $ownerId, string $zone, bool $isCommander = false): array
     {
         $card = $deckCard->card();
+        $baseLoyalty = $this->initialLoyalty($card);
 
         return [
             'instanceId' => Uuid::v7()->toRfc4122(),
@@ -124,10 +125,10 @@ class GameSnapshotFactory
             'colorIdentity' => $this->orderedColorIdentity($card->colorIdentity()),
             'power' => $this->numericCardStat($card->power()),
             'toughness' => $this->numericCardStat($card->toughness()),
-            'loyalty' => $this->numericCardStat($card->loyalty()),
+            'loyalty' => $baseLoyalty,
             'defaultPower' => $this->numericCardStat($card->power()),
             'defaultToughness' => $this->numericCardStat($card->toughness()),
-            'defaultLoyalty' => $this->numericCardStat($card->loyalty()),
+            'defaultLoyalty' => $baseLoyalty,
             'tapped' => false,
             'faceDown' => false,
             'revealedTo' => [],
@@ -152,6 +153,73 @@ class GameSnapshotFactory
     }
 
     private function numericCardStat(?string $value): ?int
+    {
+        return is_numeric($value) ? (int) $value : null;
+    }
+
+    private function initialLoyalty(\App\Domain\Card\Card $card): ?int
+    {
+        $fromFaceStats = $this->loyaltyFromFaceStats($card->faceStats());
+        if ($fromFaceStats !== null) {
+            return $fromFaceStats;
+        }
+
+        $legacy = $this->numericCardStat($card->loyalty());
+        if ($legacy !== null) {
+            return $legacy;
+        }
+
+        return $this->loyaltyFromCardFaces($card->cardFaces());
+    }
+
+    /**
+     * @param array<string,mixed> $faceStats
+     */
+    private function loyaltyFromFaceStats(array $faceStats): ?int
+    {
+        $root = $faceStats['root'] ?? null;
+        if (is_array($root)) {
+            $rootLoyalty = $this->numericStat($root['loyalty'] ?? null);
+            if ($rootLoyalty !== null) {
+                return $rootLoyalty;
+            }
+        }
+
+        $faces = $faceStats['faces'] ?? null;
+        if (!is_array($faces)) {
+            return null;
+        }
+
+        foreach ($faces as $face) {
+            if (!is_array($face)) {
+                continue;
+            }
+
+            $loyalty = $this->numericStat($face['loyalty'] ?? null);
+            if ($loyalty !== null) {
+                return $loyalty;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param list<array<string,mixed>> $faces
+     */
+    private function loyaltyFromCardFaces(array $faces): ?int
+    {
+        foreach ($faces as $face) {
+            $loyalty = $this->numericStat($face['loyalty'] ?? null);
+            if ($loyalty !== null) {
+                return $loyalty;
+            }
+        }
+
+        return null;
+    }
+
+    private function numericStat(mixed $value): ?int
     {
         return is_numeric($value) ? (int) $value : null;
     }
