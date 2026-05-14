@@ -36,6 +36,7 @@
     [isCardTransferPending]="isCardTransferPending()"
     (cardPreviewShown)="cardPreviewShown.emit($event)"
     (cardPreviewHidden)="cardPreviewHidden.emit()"
+    (battlefieldCardClicked)="battlefieldCardClicked.emit($event)"
   />
   <span class="opponent-zone-counts" aria-label="Opponent zone counts">
     @for (summary of opponentZoneSummaries; track summary.zone) {

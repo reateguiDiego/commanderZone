@@ -53,13 +53,31 @@ interface ViewportClampedBattlefieldPosition {
   clampedPosition: { x: number; y: number };
 }
 
+interface PendingArrowSource {
+  instanceId: string;
+  cardName: string;
+}
+
+interface PendingCardCounterCommand {
+  playerId: string;
+  zone: GameZoneName;
+  instanceId: string;
+  key: string;
+  value: number | null;
+}
+
 @Injectable()
 export class GameTableStore implements OnDestroy {
   private readonly errorToastDurationMs = 3000;
+  private readonly maxDistinctCardCounters = 5;
+  private readonly counterFlushDelayMs = 160;
+  private readonly counterFlushRetryMs = 80;
   private errorToastTimer: number | null = null;
   private battlefieldPositionQueue: Promise<void> = Promise.resolve();
   private readonly optimisticBattlefieldPositions = new Map<string, BattlefieldPositionCommand>();
   private readonly viewportClampedBattlefieldPositions = new Map<string, ViewportClampedBattlefieldPosition>();
+  private readonly optimisticCardCounters = new Map<string, PendingCardCounterCommand>();
+  private readonly cardCounterFlushTimers = new Map<string, number>();
 
   private readonly commands = inject(GameTableCommandService);
   private readonly cardActions = inject(GameTableCardActionsService);
@@ -107,6 +125,7 @@ export class GameTableStore implements OnDestroy {
   readonly pending = signal(false);
   readonly pendingBattlefieldMove = signal<PendingBattlefieldMove | null>(null);
   readonly pendingLibraryMove = signal<PendingLibraryMove | null>(null);
+  readonly pendingArrowSource = signal<PendingArrowSource | null>(null);
   readonly draggingCardInstanceId = this.battlefieldDragState.draggingCardInstanceId;
   readonly handDropPreview = this.battlefieldDragState.handDropPreview;
   readonly manaLaneDropPlayerId = this.battlefieldDragState.manaLaneDropPlayerId;
@@ -156,6 +175,7 @@ export class GameTableStore implements OnDestroy {
 
   ngOnDestroy(): void {
     this.clearErrorDismissTimer();
+    this.clearCardCounterFlushTimers();
     this.uiState.destroy();
     this.cardStats.clear();
     this.dropFeedbackState.destroy();
@@ -209,6 +229,7 @@ export class GameTableStore implements OnDestroy {
     const target = event.target instanceof Element ? event.target : null;
     if (!target?.closest('[data-card-instance-id], .context-menu, .zone-modal, app-modal')) {
       this.clearSelection();
+      this.pendingArrowSource.set(null);
     }
   }
 
@@ -222,6 +243,11 @@ export class GameTableStore implements OnDestroy {
 
   zoneCount(player: PlayerView, zone: GameZoneName): number {
     return this.selectors.zoneCount(player, zone);
+  }
+
+  zoneCardCountById(playerId: string, zone: GameZoneName): number {
+    const player = this.players().find((candidate) => candidate.id === playerId);
+    return player ? this.zoneCount(player, zone) : 0;
   }
 
   commanderCastCount(player: PlayerView): number {
@@ -523,6 +549,23 @@ export class GameTableStore implements OnDestroy {
     this.interactionActions.openPlayerMenu(event, playerId);
   }
 
+  openArrowMenu(event: MouseEvent, playerId: string, arrowId: string): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.uiState.openContextMenu(event, { playerId, zone: 'battlefield', kind: 'arrow', arrowId });
+  }
+
+  openCounterDeleteMenu(event: MouseEvent, playerId: string, zone: GameZoneName, card: GameCardInstance, key: string): void {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!this.canControlPlayer(playerId)) {
+      this.error.set('You can only change your own cards.');
+      return;
+    }
+
+    this.uiState.openContextMenu(event, { playerId, zone, card, kind: 'counter', counterKey: key });
+  }
+
   closeContextMenu(): void {
     this.interactionActions.closeContextMenu();
   }
@@ -662,8 +705,11 @@ export class GameTableStore implements OnDestroy {
       clearSelectedCards: () => this.selectedCards.set([]),
       zoneModal: () => this.zoneModal(),
       loadZone: () => this.zoneActions.loadZone(this.zoneActionContext()),
+      playerName: (playerId) => this.playerName(playerId),
       setError: (message) => this.error.set(message),
       closeContextMenu: () => this.closeContextMenu(),
+      setPendingBattlefieldMove: (move) => this.pendingBattlefieldMove.set(move),
+      setPendingLibraryMove: (move) => this.pendingLibraryMove.set(move),
       recordCommanderCastIfNeeded: (playerId, fromZone, toZone) => this.recordCommanderCastIfNeeded(playerId, fromZone, toZone),
       command: (type, payload) => this.command(type, payload),
     };
@@ -745,6 +791,23 @@ export class GameTableStore implements OnDestroy {
   }
 
   handleBattlefieldCardClick(event: MouseEvent, playerId: string, card: GameCardInstance): void {
+    const pendingArrow = this.pendingArrowSource();
+    if (pendingArrow) {
+      event.preventDefault();
+      event.stopPropagation();
+      this.pendingArrowSource.set(null);
+      if (pendingArrow.instanceId === card.instanceId) {
+        this.error.set('Arrow cancelled.');
+        return;
+      }
+
+      void this.command('arrow.created', {
+        fromInstanceId: pendingArrow.instanceId,
+        toInstanceId: card.instanceId,
+      });
+      return;
+    }
+
     this.interactionActions.handleBattlefieldCardClick(this.interactionContext(), event, playerId, card);
   }
 
@@ -1020,6 +1083,37 @@ export class GameTableStore implements OnDestroy {
     await this.cardActions.moveCard(this.cardActionContext(), menu, toZone);
   }
 
+  startArrowFrom(menu: GameContextMenu): void {
+    if (!menu.card || menu.zone !== 'battlefield') {
+      return;
+    }
+    if (!this.canControlOwnedCard(menu.playerId, menu.card)) {
+      this.error.set('You can only draw arrows from cards you control.');
+      this.closeContextMenu();
+      return;
+    }
+
+    this.pendingArrowSource.set({
+      instanceId: menu.card.instanceId,
+      cardName: menu.card.name,
+    });
+    this.error.set(`Select a battlefield card to draw an arrow from ${menu.card.name}.`);
+    this.closeContextMenu();
+  }
+
+  async giveCardToPlayer(menu: GameContextMenu, targetPlayerId: string): Promise<void> {
+    await this.cardActions.giveCardToPlayer(this.cardActionContext(), menu, targetPlayerId);
+  }
+
+  async deleteArrow(menu: GameContextMenu): Promise<void> {
+    if (menu.kind !== 'arrow' || !menu.arrowId) {
+      return;
+    }
+
+    this.closeContextMenu();
+    await this.command('arrow.removed', { id: menu.arrowId });
+  }
+
   async moveSelected(toZone: GameZoneName): Promise<void> {
     await this.cardActions.moveSelected(this.cardActionContext(), toZone);
   }
@@ -1049,7 +1143,117 @@ export class GameTableStore implements OnDestroy {
   }
 
   async changeCardCounter(menu: GameContextMenu, key = '+1/+1', delta = 1): Promise<void> {
-    await this.cardActions.changeCardCounter(this.cardActionContext(), menu, key, delta);
+    if (!menu.card) {
+      return;
+    }
+
+    await this.changeCardCounterForCard(menu.playerId, menu.zone, menu.card, key, delta);
+    this.closeContextMenu();
+  }
+
+  async setCardCounter(menu: GameContextMenu, key: string, value: number): Promise<void> {
+    if (!menu.card) {
+      return;
+    }
+    if (!this.canControlPlayer(menu.playerId)) {
+      this.error.set('You can only change your own cards.');
+      this.closeContextMenu();
+      return;
+    }
+    if (!this.canAddCardCounter(menu.card, key)) {
+      this.error.set(`Maximum ${this.maxDistinctCardCounters} different counters per card.`);
+      this.closeContextMenu();
+      return;
+    }
+
+    this.queueCardCounter({
+      playerId: menu.playerId,
+      zone: menu.zone,
+      instanceId: menu.card.instanceId,
+      key,
+      value: Math.max(0, value),
+    });
+    this.closeContextMenu();
+  }
+
+  async deleteCardCounter(menu: GameContextMenu): Promise<void> {
+    if (menu.kind !== 'counter' || !menu.card || !menu.counterKey) {
+      return;
+    }
+    await this.deleteCardCounterByKey(menu, menu.counterKey);
+  }
+
+  async deleteCardCounterByKey(menu: GameContextMenu, key: string): Promise<void> {
+    if (!menu.card) {
+      return;
+    }
+    if (!this.canControlPlayer(menu.playerId)) {
+      this.error.set('You can only change your own cards.');
+      this.closeContextMenu();
+      return;
+    }
+
+    this.queueCardCounter({
+      playerId: menu.playerId,
+      zone: menu.zone,
+      instanceId: menu.card.instanceId,
+      key,
+      value: null,
+    });
+    this.closeContextMenu();
+  }
+
+  async deleteAllCardCounters(menu: GameContextMenu): Promise<void> {
+    if (!menu.card) {
+      return;
+    }
+    if (!this.canControlPlayer(menu.playerId)) {
+      this.error.set('You can only change your own cards.');
+      this.closeContextMenu();
+      return;
+    }
+
+    for (const key of Object.keys(menu.card.counters ?? {})) {
+      this.queueCardCounter({
+        playerId: menu.playerId,
+        zone: menu.zone,
+        instanceId: menu.card.instanceId,
+        key,
+        value: null,
+      });
+    }
+    this.closeContextMenu();
+  }
+
+  async changeCardCounterForCard(
+    playerId: string,
+    zone: GameZoneName,
+    card: GameCardInstance,
+    key = '+1/+1',
+    delta = 1,
+  ): Promise<void> {
+    if (!this.canControlPlayer(playerId)) {
+      this.error.set('You can only change your own cards.');
+      return;
+    }
+    if (!this.canAddCardCounter(card, key)) {
+      this.error.set(`Maximum ${this.maxDistinctCardCounters} different counters per card.`);
+      return;
+    }
+
+    const currentValue = this.cardCounterValue(playerId, zone, card, key);
+    const nextValue = Math.max(0, currentValue + delta);
+    if (nextValue === currentValue) {
+      return;
+    }
+
+    this.queueCardCounter({
+      playerId,
+      zone,
+      instanceId: card.instanceId,
+      key,
+      value: nextValue,
+    });
   }
 
   async addToStack(menu: GameContextMenu): Promise<void> {
@@ -1343,10 +1547,170 @@ export class GameTableStore implements OnDestroy {
 
   private setSnapshot(snapshot: GameSnapshot | null): void {
     const viewportSnapshot = this.applyViewportClampedBattlefieldPositions(snapshot);
-    const nextSnapshot = this.applyOptimisticBattlefieldPositions(viewportSnapshot);
+    const positionSnapshot = this.applyOptimisticBattlefieldPositions(viewportSnapshot);
+    const nextSnapshot = this.applyOptimisticCardCounters(positionSnapshot);
     this.dropFeedbackState.trackSnapshot(nextSnapshot);
     this.pendingTransferState.reconcileSnapshot(nextSnapshot);
     this.snapshot.set(nextSnapshot);
+  }
+
+  private canAddCardCounter(card: GameCardInstance, key: string): boolean {
+    return this.hasCardCounter(card, key) || this.countCardCounters(card) < this.maxDistinctCardCounters;
+  }
+
+  private hasCardCounter(card: GameCardInstance, key: string): boolean {
+    return Object.prototype.hasOwnProperty.call(card.counters ?? {}, key);
+  }
+
+  private countCardCounters(card: GameCardInstance): number {
+    return Object.keys(card.counters ?? {}).length;
+  }
+
+  private cardCounterValue(playerId: string, zone: GameZoneName, card: GameCardInstance, key: string): number {
+    const command = this.optimisticCardCounters.get(this.cardCounterCommandKey(playerId, zone, card.instanceId, key));
+    if (command) {
+      return command.value ?? 0;
+    }
+
+    return Math.max(0, Number(card.counters?.[key] ?? 0));
+  }
+
+  private queueCardCounter(command: PendingCardCounterCommand): void {
+    const key = this.cardCounterCommandKey(command.playerId, command.zone, command.instanceId, command.key);
+    this.optimisticCardCounters.set(key, command);
+    this.updateLocalCardCounter(command);
+    this.scheduleCardCounterFlush(key, this.counterFlushDelayMs);
+  }
+
+  private scheduleCardCounterFlush(key: string, delayMs: number): void {
+    const existingTimer = this.cardCounterFlushTimers.get(key);
+    if (existingTimer !== undefined) {
+      window.clearTimeout(existingTimer);
+    }
+
+    const timer = window.setTimeout(() => {
+      this.cardCounterFlushTimers.delete(key);
+      void this.flushCardCounter(key);
+    }, delayMs);
+    this.cardCounterFlushTimers.set(key, timer);
+  }
+
+  private async flushCardCounter(key: string): Promise<void> {
+    const command = this.optimisticCardCounters.get(key);
+    const gameId = this.gameId();
+    if (!command || !gameId) {
+      return;
+    }
+    if (this.pending()) {
+      this.scheduleCardCounterFlush(key, this.counterFlushRetryMs);
+      return;
+    }
+
+    this.pending.set(true);
+    this.error.set(null);
+    try {
+      const snapshot = await this.commands.send(gameId, 'card.counter.changed', {
+        playerId: command.playerId,
+        zone: command.zone,
+        instanceId: command.instanceId,
+        key: command.key,
+        ...(command.value === null ? { remove: true } : { value: command.value }),
+      });
+      if (this.optimisticCardCounters.get(key) === command) {
+        this.optimisticCardCounters.delete(key);
+      }
+      this.setSnapshot(snapshot);
+    } catch (error) {
+      if (this.optimisticCardCounters.get(key) === command) {
+        this.optimisticCardCounters.delete(key);
+      }
+      this.error.set(this.errorMessage(error));
+      await this.refetch(true);
+    } finally {
+      this.pending.set(false);
+      if (this.optimisticCardCounters.has(key)) {
+        this.scheduleCardCounterFlush(key, this.counterFlushRetryMs);
+      }
+    }
+  }
+
+  private updateLocalCardCounter(command: PendingCardCounterCommand): void {
+    const snapshot = this.snapshot();
+    if (!snapshot) {
+      return;
+    }
+
+    const next = structuredClone(snapshot);
+    const card = next.players[command.playerId]?.zones[command.zone].find(
+      (candidate) => candidate.instanceId === command.instanceId,
+    );
+    if (!card) {
+      return;
+    }
+
+    card.counters = { ...(card.counters ?? {}) };
+    this.applyCardCounterValue(card, command.key, command.value);
+    this.setSnapshot(next);
+  }
+
+  private applyOptimisticCardCounters(snapshot: GameSnapshot | null): GameSnapshot | null {
+    if (!snapshot || this.optimisticCardCounters.size === 0) {
+      return snapshot;
+    }
+
+    const next = structuredClone(snapshot);
+    let applied = false;
+    for (const command of this.optimisticCardCounters.values()) {
+      const card = next.players[command.playerId]?.zones[command.zone].find(
+        (candidate) => candidate.instanceId === command.instanceId,
+      );
+      if (!card) {
+        continue;
+      }
+
+      card.counters = { ...(card.counters ?? {}) };
+      this.applyCardCounterValue(card, command.key, command.value);
+      applied = true;
+    }
+
+    return applied ? next : snapshot;
+  }
+
+  private clearCardCounterFlushTimers(): void {
+    for (const timer of this.cardCounterFlushTimers.values()) {
+      window.clearTimeout(timer);
+    }
+    this.cardCounterFlushTimers.clear();
+    this.optimisticCardCounters.clear();
+  }
+
+  private cardCounterCommandKey(playerId: string, zone: GameZoneName, instanceId: string, key: string): string {
+    return `${playerId}:${zone}:${instanceId}:${key}`;
+  }
+
+  private applyCardCounterValue(card: GameCardInstance, key: string, value: number | null): void {
+    const previousValue = Math.max(0, Number(card.counters?.[key] ?? 0));
+    const nextValue = value === null ? 0 : Math.max(0, value);
+    if (value === null) {
+      delete card.counters?.[key];
+    } else {
+      card.counters ??= {};
+      card.counters[key] = nextValue;
+    }
+
+    this.applyStatCounterDelta(card, key, nextValue - previousValue);
+  }
+
+  private applyStatCounterDelta(card: GameCardInstance, key: string, delta: number): void {
+    if (delta === 0 || (key !== '+1/+1' && key !== '-1/-1')) {
+      return;
+    }
+
+    const modifier = key === '+1/+1' ? 1 : -1;
+    const powerBase = Number.isFinite(Number(card.power)) ? Number(card.power) : Number(card.defaultPower ?? 0);
+    const toughnessBase = Number.isFinite(Number(card.toughness)) ? Number(card.toughness) : Number(card.defaultToughness ?? 0);
+    card.power = powerBase + (delta * modifier);
+    card.toughness = toughnessBase + (delta * modifier);
   }
 
   private playerName(playerId: string): string {

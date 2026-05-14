@@ -98,9 +98,9 @@ export class GameTableSnapshotSelectors {
   }
 
   firstCounter(card: GameCardInstance): { key: string; value: number } | null {
-    const entries = Object.entries(card.counters ?? {}).filter(([, value]) => value > 0);
+    const entries = Object.entries(card.counters ?? {}).filter(([, value]) => Number.isFinite(Number(value)) && Number(value) >= 0);
 
-    return entries.length > 0 ? { key: entries[0][0], value: entries[0][1] } : null;
+    return entries.length > 0 ? { key: entries[0][0], value: Number(entries[0][1]) } : null;
   }
 
   hasPowerToughness(card: GameCardInstance): boolean {

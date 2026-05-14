@@ -612,7 +612,7 @@ describe('GameTableComponent', () => {
     expect(fixture.componentInstance.store.syncStatus()).toBe('pending');
   });
 
-  it('uses the number dialog value when changing a card counter', async () => {
+  it('initializes a selected card counter at zero without opening the number dialog', async () => {
     routeParams['id'] = 'game-1';
     authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
     const snapshot = snapshotWithStatus('active');
@@ -627,6 +627,7 @@ describe('GameTableComponent', () => {
     await fixture.whenStable();
 
     const card = snapshot.players['user-1'].zones.battlefield[0]!;
+    vi.useFakeTimers();
     fixture.componentInstance.handleContextMenuAction({ type: 'changeCounter', counter: '+1/+1' }, {
       x: 0,
       y: 0,
@@ -635,7 +636,8 @@ describe('GameTableComponent', () => {
       kind: 'card',
       card,
     });
-    fixture.componentInstance.confirmNumberAction(-2);
+    await vi.runOnlyPendingTimersAsync();
+    vi.useRealTimers();
 
     expect(gamesApi.command).toHaveBeenCalledWith(expect.objectContaining({
       type: 'card.counter.changed',
@@ -644,9 +646,234 @@ describe('GameTableComponent', () => {
         zone: 'battlefield',
         instanceId: 'card-1',
         key: '+1/+1',
-        delta: -2,
+        value: 0,
       },
     }), 'game-1');
+    expect(fixture.componentInstance.numberActionDialog()).toBeNull();
+  });
+
+  it('prevents adding a sixth distinct card counter before sending a command', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const card = {
+      ...snapshot.players['user-1'].zones.battlefield[0]!,
+      counters: { '+1/+1': 0, '-1/-1': 0, charge: 0, red: 0, green: 0 },
+    };
+    fixture.componentInstance.handleContextMenuAction({ type: 'changeCounter', counter: 'blue' }, {
+      x: 0,
+      y: 0,
+      playerId: 'user-1',
+      zone: 'battlefield',
+      kind: 'card',
+      card,
+    });
+
+    expect(gamesApi.command).not.toHaveBeenCalled();
+    expect(fixture.componentInstance.store.error()).toBe('Maximum 5 different counters per card.');
+  });
+
+  it('removes all visible card counters optimistically from the context menu', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    snapshot.players['user-1'].zones.battlefield[0]!.counters = { red: 2, green: 1 };
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    vi.useFakeTimers();
+    const card = snapshot.players['user-1'].zones.battlefield[0]!;
+    fixture.componentInstance.handleContextMenuAction({ type: 'removeAllCounters' }, {
+      x: 0,
+      y: 0,
+      playerId: 'user-1',
+      zone: 'battlefield',
+      kind: 'card',
+      card,
+    });
+
+    expect(fixture.componentInstance.store.snapshot()?.players['user-1'].zones.battlefield[0]?.counters).toEqual({});
+    vi.clearAllTimers();
+    vi.useRealTimers();
+  });
+
+  it('asks for a library position when a context-menu card move targets the library', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const card = snapshot.players['user-1'].zones.battlefield[0]!;
+    fixture.componentInstance.handleContextMenuAction({ type: 'moveCard', zone: 'library' }, {
+      x: 0,
+      y: 0,
+      playerId: 'user-1',
+      zone: 'battlefield',
+      kind: 'card',
+      card,
+    });
+
+    expect(gamesApi.command).not.toHaveBeenCalled();
+    expect(fixture.componentInstance.store.contextMenu()).toBeNull();
+    expect(fixture.componentInstance.store.pendingLibraryMove()).toEqual({
+      cardName: 'Sol Ring',
+      commandType: 'card.moved',
+      payload: {
+        playerId: 'user-1',
+        fromZone: 'battlefield',
+        toZone: 'library',
+        instanceId: 'card-1',
+      },
+    });
+  });
+
+  it('gives a battlefield card to another player from the context menu', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    snapshot.players['user-2'] = {
+      user: { id: 'user-2', email: 'opponent@test', displayName: 'Opponent', roles: [] },
+      status: 'active',
+      concededAt: null,
+      colorIdentity: ['B'],
+      backgroundName: 'back_5',
+      sleevesName: 'facedown_card',
+      life: 40,
+      zones: { library: [], hand: [], battlefield: [], graveyard: [], exile: [], command: [] },
+      zoneCounts: { library: 0, hand: 0, battlefield: 0, graveyard: 0, exile: 0, command: 0 },
+      commanderDamage: {},
+      counters: {},
+    };
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+    gamesApi.command.mockReturnValue(of({
+      event: { id: 'event-controller', type: 'card.controller.changed', payload: {}, createdBy: 'user-1', createdAt: '' },
+      snapshot,
+    }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const card = snapshot.players['user-1'].zones.battlefield[0]!;
+    fixture.componentInstance.handleContextMenuAction({ type: 'giveToPlayer', targetPlayerId: 'user-2' }, {
+      x: 0,
+      y: 0,
+      playerId: 'user-1',
+      zone: 'battlefield',
+      kind: 'card',
+      card,
+    });
+
+    expect(gamesApi.command).not.toHaveBeenCalled();
+    expect(fixture.componentInstance.store.pendingBattlefieldMove()).toEqual({
+      cardName: 'Sol Ring',
+      targetPlayerName: 'Opponent',
+      commandType: 'card.controller.changed',
+      payload: {
+        playerId: 'user-1',
+        zone: 'battlefield',
+        instanceId: 'card-1',
+        targetPlayerId: 'user-2',
+      },
+    });
+
+    await fixture.componentInstance.store.confirmPendingBattlefieldMove();
+
+    await vi.waitFor(() => expect(gamesApi.command).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'card.controller.changed',
+      payload: {
+        playerId: 'user-1',
+        zone: 'battlefield',
+        instanceId: 'card-1',
+        targetPlayerId: 'user-2',
+      },
+    }), 'game-1'));
+  });
+
+  it('creates an arrow from a context-menu source to the next clicked battlefield card', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    snapshot.players['user-1'].zones.battlefield.push({
+      instanceId: 'card-2',
+      ownerId: 'user-1',
+      controllerId: 'user-1',
+      name: 'Arcane Signet',
+      typeLine: 'Artifact',
+      tapped: false,
+      counters: {},
+    });
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+    gamesApi.command.mockReturnValue(of({
+      event: { id: 'event-arrow', type: 'arrow.created', payload: {}, createdBy: 'user-1', createdAt: '' },
+      snapshot,
+    }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const [source, target] = snapshot.players['user-1'].zones.battlefield;
+    fixture.componentInstance.handleContextMenuAction({ type: 'drawArrow' }, {
+      x: 0,
+      y: 0,
+      playerId: 'user-1',
+      zone: 'battlefield',
+      kind: 'card',
+      card: source!,
+    });
+    fixture.componentInstance.store.handleBattlefieldCardClick(new MouseEvent('click'), 'user-1', target!);
+
+    await vi.waitFor(() => expect(gamesApi.command).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'arrow.created',
+      payload: {
+        fromInstanceId: 'card-1',
+        toInstanceId: 'card-2',
+      },
+    }), 'game-1'));
+  });
+
+  it('removes an arrow from the arrow context menu', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    snapshot.arrows = [{ id: 'arrow-1', fromInstanceId: 'card-1', toInstanceId: 'card-2', color: 'yellow', createdAt: '' }];
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+    gamesApi.command.mockReturnValue(of({
+      event: { id: 'event-arrow-removed', type: 'arrow.removed', payload: {}, createdBy: 'user-1', createdAt: '' },
+      snapshot,
+    }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.handleContextMenuAction({ type: 'deleteArrow' }, {
+      x: 0,
+      y: 0,
+      playerId: 'user-1',
+      zone: 'battlefield',
+      kind: 'arrow',
+      arrowId: 'arrow-1',
+    });
+
+    await vi.waitFor(() => expect(gamesApi.command).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'arrow.removed',
+      payload: { id: 'arrow-1' },
+    }), 'game-1'));
   });
 
   it('draws the requested number of top library cards from the library menu', async () => {
@@ -710,6 +937,34 @@ describe('GameTableComponent', () => {
 
     expect(gamesApi.command).not.toHaveBeenCalled();
     expect(fixture.componentInstance.store.error()).toBe('Wait for the current table action to finish.');
+  });
+
+  it('queues card counter clicks behind a pending action without showing the wait toast', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    snapshot.players['user-1'].zones.battlefield[0]!.counters = { red: 1 };
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    vi.useFakeTimers();
+    fixture.componentInstance.store.pending.set(true);
+    await fixture.componentInstance.store.changeCardCounterForCard(
+      'user-1',
+      'battlefield',
+      snapshot.players['user-1'].zones.battlefield[0]!,
+      'red',
+      1,
+    );
+
+    expect(gamesApi.command).not.toHaveBeenCalled();
+    expect(fixture.componentInstance.store.error()).not.toBe('Wait for the current table action to finish.');
+    expect(fixture.componentInstance.store.snapshot()?.players['user-1'].zones.battlefield[0]?.counters?.['red']).toBe(2);
+    vi.clearAllTimers();
+    vi.useRealTimers();
   });
 
   it('does not block battlefield position persistence behind another pending action', async () => {

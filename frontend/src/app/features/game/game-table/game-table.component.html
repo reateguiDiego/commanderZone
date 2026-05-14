@@ -1,10 +1,46 @@
 <section
+  #gameScreen
   class="game-screen"
   data-testid="game-screen"
   [style.--game-wallpaper-image]="tableBackgroundImage()"
   (click)="store.handleTableClick($event)"
   (contextmenu)="store.openGameMenu($event)"
 >
+  @if (crossTableArrows().length > 0) {
+    <svg
+      class="cross-table-arrows"
+      aria-hidden="true"
+      [attr.viewBox]="'0 0 ' + crossTableArrowViewport().width + ' ' + crossTableArrowViewport().height"
+    >
+      <defs>
+        @for (arrow of crossTableArrows(); track arrow.id) {
+          <marker
+            [attr.id]="'cross-table-arrow-head-' + arrow.id"
+            viewBox="0 0 14 12"
+            refX="13"
+            refY="6"
+            markerWidth="9"
+            markerHeight="9"
+            orient="auto"
+            markerUnits="strokeWidth"
+          >
+            <path d="M 0 1 L 14 6 L 0 11 L 3.5 6 z" [attr.fill]="arrow.color"></path>
+          </marker>
+        }
+      </defs>
+      @for (arrow of crossTableArrows(); track arrow.id) {
+        <line
+          [attr.x1]="arrow.x1"
+          [attr.y1]="arrow.y1"
+          [attr.x2]="arrow.x2"
+          [attr.y2]="arrow.y2"
+          [attr.stroke]="arrow.color"
+          [attr.marker-end]="'url(#cross-table-arrow-head-' + arrow.id + ')'"
+        ></line>
+      }
+    </svg>
+  }
+
   <app-game-table-header (click)="$event.stopPropagation()" (contextmenu)="$event.stopPropagation()" />
 
   @if (store.loading()) {
@@ -159,6 +195,7 @@
         >
           <app-focused-battlefield
             [player]="player"
+            [arrows]="snapshot.arrows"
             [isCurrentPlayer]="isCurrentPlayer"
             [isDropZoneHighlighted]="isDropZoneHighlighted"
             [cardPosition]="cardPosition"
@@ -190,6 +227,9 @@
             (cardPowerChanged)="store.changeCardPower($event.playerId, $event.zone, $event.card, $event.delta)"
             (cardToughnessChanged)="store.changeCardToughness($event.playerId, $event.zone, $event.card, $event.delta)"
             (cardLoyaltyChanged)="store.changeCardLoyalty($event.playerId, $event.zone, $event.card, $event.delta)"
+            (cardCounterChanged)="store.changeCardCounterForCard($event.playerId, $event.zone, $event.card, $event.key, $event.delta)"
+            (cardCounterDeleteRequested)="store.openCounterDeleteMenu($event.event, $event.playerId, $event.zone, $event.card, $event.key)"
+            (arrowMenuOpened)="store.openArrowMenu($event.event, $event.playerId, $event.arrowId)"
             (manaLaneDragOver)="store.allowDrop($event)"
             (manaLaneDropped)="store.dropOnManaLane($event.event, $event.playerId)"
             (battlefieldSizeChanged)="updateBattlefieldLayoutSize($event)"
@@ -277,6 +317,7 @@
                 (playerMenuOpened)="store.openPlayerMenu($event.event, $event.playerId)"
                 (cardPreviewShown)="store.showCardPreview($event)"
                 (cardPreviewHidden)="store.hideCardPreview()"
+                (battlefieldCardClicked)="store.handleBattlefieldCardClick($event.event, $event.playerId, $event.card)"
               />
             }
           }
@@ -295,11 +336,14 @@
         <app-context-menu
           [menu]="menu"
           [currentPlayer]="store.currentPlayer()"
+          [players]="store.players()"
           [isGameOwner]="store.isGameOwner()"
           [counterPresets]="counterPresets"
           [moveZones]="moveZones"
           [isCurrentPlayer]="isCurrentPlayer"
           [canControlPlayer]="canControlPlayer"
+          [zoneCardCount]="zoneCardCountById"
+          [shouldShowPowerToughness]="shouldShowPowerToughness"
           [zoneTitle]="zoneTitle"
           (actionSelected)="handleContextMenuAction($event, menu)"
         />
@@ -319,39 +363,15 @@
       }
 
       @if (powerToughnessDialog(); as dialog) {
-        <app-modal
-          [open]="true"
-          title="Power / Toughness"
-          message="Set the visible combat stats for this card."
-          primaryLabel="Apply"
-          secondaryLabel="Cancel"
-          [primaryDisabled]="isPowerToughnessDialogInvalid()"
-          [lockBodyScroll]="false"
-          (primary)="confirmPowerToughnessDialog()"
-          (secondary)="cancelPowerToughnessDialog()"
-        >
-          <div class="stat-dialog-grid">
-            <label>
-              <span>Power</span>
-              <input
-                type="number"
-                data-testid="power-input"
-                [value]="dialog.power"
-                (input)="updatePowerToughnessValue('power', $any($event.target).value)"
-                autofocus
-              />
-            </label>
-            <label>
-              <span>Toughness</span>
-              <input
-                type="number"
-                data-testid="toughness-input"
-                [value]="dialog.toughness"
-                (input)="updatePowerToughnessValue('toughness', $any($event.target).value)"
-              />
-            </label>
-          </div>
-        </app-modal>
+        <app-power-toughness-dialog
+          [cardName]="dialog.menu.card?.name ?? 'Card'"
+          [power]="dialog.power"
+          [toughness]="dialog.toughness"
+          [invalid]="isPowerToughnessDialogInvalid()"
+          (valueChanged)="updatePowerToughnessValue($event)"
+          (confirmed)="confirmPowerToughnessDialog()"
+          (cancelled)="cancelPowerToughnessDialog()"
+        />
       }
 
       <app-modal
@@ -412,15 +432,16 @@
           } @else {
             <span>{{ preview.card.name }}</span>
           }
+          <app-card-marker-rail [isToken]="preview.card.isToken === true" [counters]="cardCounters(preview.card)" />
           @if (preview.count > 1) {
             <span class="drag-count-badge" aria-hidden="true">{{ preview.count }}</span>
           }
-          @if (shouldShowPowerToughness(preview.card)) {
+          @if (!preview.card.faceDown && shouldShowPowerToughness(preview.card)) {
             <span class="power-toughness-overlay" aria-hidden="true">
               <span>{{ cardPowerValue(preview.card) }}</span>
               <span>{{ cardToughnessValue(preview.card) }}</span>
             </span>
-          } @else if (preview.card.loyalty !== null && preview.card.loyalty !== undefined) {
+          } @else if (!preview.card.faceDown && preview.card.loyalty !== null && preview.card.loyalty !== undefined) {
             <app-loyalty-counter [value]="preview.card.loyalty" [pulse]="null" [entrySettling]="false" />
           }
         </div>

@@ -12,6 +12,7 @@ class GameCommandHandler
 {
     private const ZONES = ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command'];
     private const HIDDEN_ZONES = ['library', 'hand'];
+    private const MAX_CARD_COUNTER_TYPES = 5;
     private const SUPPORTED_COMMANDS = [
         'game.concede',
         'game.close',
@@ -223,6 +224,8 @@ class GameCommandHandler
             'rotation' => (int) ($card['rotation'] ?? 0),
             'counters' => is_array($card['counters'] ?? null) ? $card['counters'] : [],
             'zone' => $zone,
+            'isToken' => (bool) ($card['isToken'] ?? false),
+            'isCommander' => (bool) ($card['isCommander'] ?? $zone === 'command'),
         ];
     }
 
@@ -390,13 +393,35 @@ class GameCommandHandler
     {
         $location = $this->requiredCardLocation($snapshot, $payload);
         $key = trim((string) ($payload['key'] ?? '+1/+1'));
+        if ($key === '') {
+            throw new \InvalidArgumentException('Counter key is required.');
+        }
+
         $card =& $snapshot['players'][$location['playerId']]['zones'][$location['zone']][$location['index']];
+        if (($payload['remove'] ?? false) === true) {
+            if (!array_key_exists($key, $card['counters'] ?? [])) {
+                return '';
+            }
+            $previousValue = (int) ($card['counters'][$key] ?? 0);
+            unset($card['counters'][$key]);
+            $this->applyStatCounterDelta($card, $key, -$previousValue);
+
+            return sprintf('Removed %s counter from %s.', $key, $this->cardLogName($card));
+        }
+
+        if (!array_key_exists($key, $card['counters'] ?? []) && count($card['counters'] ?? []) >= self::MAX_CARD_COUNTER_TYPES) {
+            throw new \InvalidArgumentException(sprintf('Maximum %d different counters per card.', self::MAX_CARD_COUNTER_TYPES));
+        }
+
         $value = array_key_exists('value', $payload)
             ? (int) $payload['value']
             : (int) ($card['counters'][$key] ?? 0) + (int) ($payload['delta'] ?? 0);
-        $card['counters'][$key] = max(0, $value);
+        $previousValue = (int) ($card['counters'][$key] ?? 0);
+        $nextValue = max(0, $value);
+        $card['counters'][$key] = $nextValue;
+        $this->applyStatCounterDelta($card, $key, $nextValue - $previousValue);
 
-        return sprintf('Set %s %s counters to %d.', $card['name'], $key, max(0, $value));
+        return sprintf('Set %s %s counters to %d.', $this->cardLogName($card), $key, $nextValue);
     }
 
     private function applyPowerToughnessChanged(array &$snapshot, array $payload): string
@@ -425,7 +450,7 @@ class GameCommandHandler
 
             return sprintf(
                 '%s loyalty %s from %s to %s (%s).',
-                $card['name'],
+                $this->cardLogName($card),
                 $direction,
                 $this->statLabel($previousLoyalty),
                 $this->statLabel($card['loyalty'] ?? null),
@@ -435,7 +460,7 @@ class GameCommandHandler
 
         return sprintf(
             'Changed %s from %s/%s to %s/%s.',
-            $card['name'],
+            $this->cardLogName($card),
             $this->statLabel($previousPower),
             $this->statLabel($previousToughness),
             $this->statLabel($card['power'] ?? null),
@@ -471,7 +496,11 @@ class GameCommandHandler
             $fromZone === 'battlefield' && $toZone === 'battlefield',
         );
 
-        return sprintf('Moved %s from %s to %s.', $card['name'], $fromZone, $toZone);
+        if ($this->isEvaporatingTokenMove($card, $toZone)) {
+            return sprintf('%s evaporated instead of moving to %s.', $this->cardLogName($card), $toZone);
+        }
+
+        return sprintf('Moved %s from %s to %s.', $this->cardLogName($card), $fromZone, $toZone);
     }
 
     private function applyCardsMoved(array &$snapshot, array $payload): string
@@ -497,7 +526,7 @@ class GameCommandHandler
                 continue;
             }
             $card = $this->takeCard($snapshot, $playerId, $fromZone, $instanceId);
-            $movedCardNames[] = (string) ($card['name'] ?? 'Unknown card');
+            $movedCardNames[] = $this->cardLogName($card);
             $targetPlayerId = $this->moveDestinationPlayerId($snapshot, $playerId, $fromZone, $toZone, $card, $requestedTargetPlayerId);
             $this->putCard(
                 $snapshot,
@@ -524,7 +553,7 @@ class GameCommandHandler
         $card['tapped'] = (bool) ($payload['tapped'] ?? !($card['tapped'] ?? false));
         $card['rotation'] = $card['tapped'] ? 90 : 0;
 
-        return sprintf('%s %s.', $card['tapped'] ? 'Tapped' : 'Untapped', $card['name']);
+        return sprintf('%s %s.', $card['tapped'] ? 'Tapped' : 'Untapped', $this->cardLogName($card));
     }
 
     private function applyCardPositionChanged(array &$snapshot, array $payload): string
@@ -537,7 +566,7 @@ class GameCommandHandler
         $card =& $snapshot['players'][$location['playerId']]['zones'][$location['zone']][$location['index']];
         $card['position'] = $this->normalizedPosition($payload['position'] ?? null);
 
-        return sprintf('Moved %s on battlefield.', $card['name']);
+        return sprintf('Moved %s on battlefield.', $this->cardLogName($card));
     }
 
     private function applyCardFaceDown(array &$snapshot, array $payload): string
@@ -549,7 +578,7 @@ class GameCommandHandler
             $card['revealedTo'] = [$location['playerId']];
         }
 
-        return sprintf('%s %s.', $card['faceDown'] ? 'Turned face down' : 'Turned face up', $card['name']);
+        return sprintf('%s %s.', $card['faceDown'] ? 'Turned face down' : 'Turned face up', $this->cardLogName($card));
     }
 
     private function applyCardRevealed(array &$snapshot, array $payload): string
@@ -558,13 +587,18 @@ class GameCommandHandler
         $card =& $snapshot['players'][$location['playerId']]['zones'][$location['zone']][$location['index']];
         $card['revealedTo'] = $this->visibilityTargets($snapshot, $payload['to'] ?? 'all');
 
-        return sprintf('Revealed %s.', $card['name']);
+        return sprintf('Revealed %s.', $this->cardLogName($card));
     }
 
     private function applyTokenCopyCreated(array &$snapshot, array $payload, User $actor): string
     {
         $location = $this->requiredCardLocation($snapshot, $payload);
-        $source = $snapshot['players'][$location['playerId']]['zones'][$location['zone']][$location['index']];
+        $source = $this->normalizeCard(
+            $snapshot['players'][$location['playerId']]['zones'][$location['zone']][$location['index']],
+            $location['playerId'],
+            $location['zone'],
+        );
+        $snapshot['players'][$location['playerId']]['zones'][$location['zone']][$location['index']] = $source;
         $targetPlayerId = isset($payload['targetPlayerId'])
             ? $this->requiredPlayerId($snapshot, $payload, 'targetPlayerId')
             : $actor->id();
@@ -572,21 +606,24 @@ class GameCommandHandler
             $targetPlayerId = $location['playerId'];
         }
 
-        $copy = [
+        $copy = $this->normalizeCard([
             ...$source,
             'instanceId' => Uuid::v7()->toRfc4122(),
             'ownerId' => $targetPlayerId,
             'controllerId' => $targetPlayerId,
-            'tapped' => false,
-            'faceDown' => false,
-            'revealedTo' => [],
+            'power' => $source['defaultPower'] ?? null,
+            'toughness' => $source['defaultToughness'] ?? null,
+            'loyalty' => $source['defaultLoyalty'] ?? null,
             'counters' => [],
             'zone' => 'battlefield',
             'isToken' => true,
-        ];
+        ], $targetPlayerId, 'battlefield');
+        $copy['position'] = $this->tokenCopyPosition($source['position'] ?? null);
+        $this->resetMutableStats($copy);
+        $copy['counters'] = [];
         $snapshot['players'][$targetPlayerId]['zones']['battlefield'][] = $copy;
 
-        return sprintf('Created token copy of %s.', $source['name']);
+        return sprintf('Created Token Copy Of %s.', $this->cardBaseName($source));
     }
 
     private function applyControllerChanged(array &$snapshot, array $payload): string
@@ -611,7 +648,7 @@ class GameCommandHandler
             true,
         );
 
-        return sprintf('Gave %s to %s.', $card['name'], $this->playerName($snapshot, $targetPlayerId));
+        return sprintf('Gave %s to %s.', $this->cardLogName($card), $this->playerName($snapshot, $targetPlayerId));
     }
 
     private function applyTurnChanged(array &$snapshot, array $payload): string
@@ -701,6 +738,10 @@ class GameCommandHandler
         }
 
         $cards = $snapshot['players'][$playerId]['zones'][$fromZone];
+        if ($cards === []) {
+            return '';
+        }
+
         $snapshot['players'][$playerId]['zones'][$fromZone] = [];
         foreach ($cards as $card) {
             $this->putCard(
@@ -797,7 +838,7 @@ class GameCommandHandler
         }
         $this->putCard($snapshot, $playerId, 'battlefield', $card);
 
-        return sprintf('Played %s from top of library.', $card['name']);
+        return sprintf('Played %s from top of library.', $this->cardLogName($card));
     }
 
     private function takeTopLibraryCard(array &$snapshot, string $playerId): ?array
@@ -823,7 +864,7 @@ class GameCommandHandler
             'createdAt' => (new \DateTimeImmutable())->format(DATE_ATOM),
         ];
 
-        return sprintf('Added %s to stack.', $card['name']);
+        return sprintf('Added %s to stack.', $this->cardLogName($card));
     }
 
     private function applyStackItemRemoved(array &$snapshot, array $payload): string
@@ -923,6 +964,10 @@ class GameCommandHandler
     ): void
     {
         $card = $this->normalizeCard($card, (string) ($card['ownerId'] ?? $playerId), $zone);
+        if (($card['isToken'] ?? false) && $zone !== 'battlefield') {
+            return;
+        }
+
         $card['controllerId'] = $zone === 'battlefield' ? $playerId : $card['ownerId'];
         $card['zone'] = $zone;
         if ($zone !== 'battlefield' || !$preserveBattlefieldStats) {
@@ -963,11 +1008,78 @@ class GameCommandHandler
         return $requestedTargetPlayerId;
     }
 
+    /**
+     * @param array<string,mixed> $card
+     */
+    private function isEvaporatingTokenMove(array $card, string $toZone): bool
+    {
+        return ($card['isToken'] ?? false) === true && $toZone !== 'battlefield';
+    }
+
+    /**
+     * @param array<string,mixed> $card
+     */
+    private function cardLogName(array $card): string
+    {
+        $name = $this->cardBaseName($card);
+
+        return ($card['isToken'] ?? false) === true ? sprintf('Token Copy %s', $name) : $name;
+    }
+
+    /**
+     * @param array<string,mixed> $card
+     */
+    private function cardBaseName(array $card): string
+    {
+        $name = trim((string) ($card['name'] ?? ''));
+
+        return $name === '' ? 'Unknown card' : $name;
+    }
+
+    /**
+     * @param mixed $position
+     *
+     * @return array{x:int,y:int}
+     */
+    private function tokenCopyPosition(mixed $position): array
+    {
+        $source = $this->normalizedPosition($position);
+
+        return $this->normalizedPosition([
+            'x' => $source['x'] + 132,
+            'y' => $source['y'],
+        ]);
+    }
+
     private function resetMutableStats(array &$card): void
     {
         $card['power'] = $card['defaultPower'] ?? null;
         $card['toughness'] = $card['defaultToughness'] ?? null;
         $card['loyalty'] = $card['defaultLoyalty'] ?? null;
+    }
+
+    /**
+     * @param array<string,mixed> $card
+     */
+    private function applyStatCounterDelta(array &$card, string $key, int $delta): void
+    {
+        if ($delta === 0) {
+            return;
+        }
+
+        $modifier = match ($key) {
+            '+1/+1' => 1,
+            '-1/-1' => -1,
+            default => 0,
+        };
+        if ($modifier === 0) {
+            return;
+        }
+
+        $card['power'] = (int) ($this->numericStat($card['power'] ?? null) ?? $this->numericStat($card['defaultPower'] ?? null) ?? 0)
+            + ($delta * $modifier);
+        $card['toughness'] = (int) ($this->numericStat($card['toughness'] ?? null) ?? $this->numericStat($card['defaultToughness'] ?? null) ?? 0)
+            + ($delta * $modifier);
     }
 
     /**
@@ -994,6 +1106,11 @@ class GameCommandHandler
                 'power' => $this->numericStat($card['basePower'] ?? null),
                 'toughness' => $this->numericStat($card['baseToughness'] ?? null),
             ];
+        }
+
+        $faceStats = $this->powerToughnessFromFaces($card);
+        if ($faceStats !== null) {
+            return $faceStats;
         }
 
         return [
@@ -1041,6 +1158,33 @@ class GameCommandHandler
             $loyalty = $this->numericStat($face['loyalty'] ?? null);
             if ($loyalty !== null) {
                 return $loyalty;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param array<string,mixed> $card
+     *
+     * @return array{power:?int,toughness:?int}|null
+     */
+    private function powerToughnessFromFaces(array $card): ?array
+    {
+        $faces = $card['cardFaces'] ?? null;
+        if (!is_array($faces)) {
+            return null;
+        }
+
+        foreach ($faces as $face) {
+            if (!is_array($face)) {
+                continue;
+            }
+
+            $power = $this->numericStat($face['power'] ?? null);
+            $toughness = $this->numericStat($face['toughness'] ?? null);
+            if ($power !== null || $toughness !== null) {
+                return ['power' => $power, 'toughness' => $toughness];
             }
         }
 

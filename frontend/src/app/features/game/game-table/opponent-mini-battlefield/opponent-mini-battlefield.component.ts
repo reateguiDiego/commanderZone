@@ -46,6 +46,7 @@ export class OpponentMiniBattlefieldComponent implements AfterViewInit, OnDestro
 
   readonly cardPreviewShown = output<CardPreviewEvent>();
   readonly cardPreviewHidden = output<void>();
+  readonly battlefieldCardClicked = output<{ event: MouseEvent; playerId: string; card: GameCardInstance }>();
 
   readonly viewportSize = signal<MiniBattlefieldSize>({ width: 240, height: 172 });
   readonly cardLayouts = computed(() =>
@@ -94,6 +95,12 @@ export class OpponentMiniBattlefieldComponent implements AfterViewInit, OnDestro
 
   showCardPreview(event: CardPreviewEvent): void {
     this.cardPreviewShown.emit({ ...event, playerId: this.playerId(), zone: 'battlefield' });
+  }
+
+  clickBattlefieldCard(event: MouseEvent, card: GameCardInstance): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.battlefieldCardClicked.emit({ event, playerId: this.playerId(), card });
   }
 
   handlePointerMove(event: PointerEvent): void {

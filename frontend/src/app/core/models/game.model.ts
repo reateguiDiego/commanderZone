@@ -61,6 +61,7 @@ export interface GameCardInstance {
   counters?: Record<string, number>;
   zone?: GameZoneName;
   isToken?: boolean;
+  isCommander?: boolean;
 }
 
 export type GameZones = Record<GameZoneName, GameCardInstance[]>;

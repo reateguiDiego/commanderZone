@@ -6,7 +6,7 @@ import { GameTableDragService } from './game-table-drag.service';
 export interface PendingBattlefieldMove {
   cardName: string;
   targetPlayerName: string;
-  commandType?: Extract<GameCommandType, 'card.moved' | 'cards.moved'>;
+  commandType?: Extract<GameCommandType, 'card.moved' | 'cards.moved' | 'card.controller.changed'>;
   payload: Record<string, unknown>;
 }
 
@@ -290,7 +290,7 @@ export class GameTableDropActionsService {
     const fromZone = pendingMove.payload['fromZone'];
     const targetPlayerId = pendingMove.payload['targetPlayerId'];
     const playerId = pendingMove.payload['playerId'];
-    if (typeof playerId === 'string' && this.isGameZone(fromZone) && typeof targetPlayerId === 'string') {
+    if (pendingMove.commandType !== 'card.controller.changed' && typeof playerId === 'string' && this.isGameZone(fromZone) && typeof targetPlayerId === 'string') {
       await context.recordCommanderCastIfNeeded(playerId, fromZone, 'battlefield', targetPlayerId);
     }
     context.setPendingBattlefieldMove(null);

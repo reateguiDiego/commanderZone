@@ -8,7 +8,9 @@ export interface GameContextMenu {
   playerId: string;
   zone: GameZoneName;
   card?: GameCardInstance;
-  kind?: 'zone' | 'card' | 'game' | 'player';
+  arrowId?: string;
+  counterKey?: string;
+  kind?: 'zone' | 'card' | 'game' | 'player' | 'arrow' | 'counter';
 }
 
 export interface HoveredCardSelection {

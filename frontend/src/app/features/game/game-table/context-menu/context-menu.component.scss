@@ -6,20 +6,24 @@
   position: fixed;
   z-index: 1800;
   display: grid;
-  width: 15.5rem;
-  max-height: min(35rem, calc(100dvh - 2rem));
-  overflow: auto;
-  scrollbar-gutter: stable;
+  width: 16.5rem;
+  overflow: visible;
   padding: 0.35rem;
   border: 1px solid var(--game-line-soft, rgb(61 69 53 / 46%));
   border-radius: 8px;
   background: var(--game-surface-deep, rgb(7 8 7 / 88%));
 }
 
+.context-menu.arrow-menu {
+  width: 10.75rem;
+}
+
 .context-menu button {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 1rem;
+  width: 100%;
   padding: 0.45rem 0.55rem;
   border-color: transparent;
   background: transparent;

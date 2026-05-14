@@ -120,6 +120,279 @@ class GameCommandHandlerTest extends TestCase
         self::assertSame(9, $controlledCard['toughness']);
     }
 
+    public function testCommanderFlagIsPreservedWhenCommanderMovesBetweenZones(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->snapshot($actor->id(), [
+            'command' => [
+                [
+                    ...$this->card('commander-1', 'Commander', 'command', 2, 2, 2, 2),
+                    'isCommander' => true,
+                ],
+            ],
+        ]));
+
+        (new GameCommandHandler())->apply($game, 'card.moved', [
+            'playerId' => $actor->id(),
+            'fromZone' => 'command',
+            'toZone' => 'battlefield',
+            'instanceId' => 'commander-1',
+        ], $actor);
+
+        self::assertTrue($game->snapshot()['players'][$actor->id()]['zones']['battlefield'][0]['isCommander']);
+    }
+
+    public function testCardCounterCanBeRemovedFromCard(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->snapshot($actor->id(), [
+            'battlefield' => [
+                [
+                    ...$this->card('card-1', 'Bear', 'battlefield', 2, 2, 2, 2),
+                    'counters' => ['red' => 0],
+                ],
+            ],
+        ]));
+
+        (new GameCommandHandler())->apply($game, 'card.counter.changed', [
+            'playerId' => $actor->id(),
+            'zone' => 'battlefield',
+            'instanceId' => 'card-1',
+            'key' => 'red',
+            'remove' => true,
+        ], $actor);
+
+        self::assertArrayNotHasKey('red', $game->snapshot()['players'][$actor->id()]['zones']['battlefield'][0]['counters']);
+    }
+
+    public function testCardCannotHaveMoreThanFiveDifferentCounters(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->snapshot($actor->id(), [
+            'battlefield' => [
+                [
+                    ...$this->card('card-1', 'Bear', 'battlefield', 2, 2, 2, 2),
+                    'counters' => ['+1/+1' => 0, '-1/-1' => 0, 'charge' => 0, 'red' => 0, 'green' => 0],
+                ],
+            ],
+        ]));
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Maximum 5 different counters per card.');
+
+        (new GameCommandHandler())->apply($game, 'card.counter.changed', [
+            'playerId' => $actor->id(),
+            'zone' => 'battlefield',
+            'instanceId' => 'card-1',
+            'key' => 'blue',
+            'value' => 0,
+        ], $actor);
+    }
+
+    public function testTokenCopyKeepsTokenFlagWhenMovingBetweenBattlefields(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $opponent = new User('opponent@example.test', 'Opponent');
+        $game = new Game(new Room($actor), $this->snapshot($actor->id(), [
+            'battlefield' => [
+                [
+                    ...$this->card('token-1', 'Bear Token', 'battlefield', 4, 4, 2, 2),
+                    'isToken' => true,
+                ],
+            ],
+        ], $opponent->id()));
+
+        (new GameCommandHandler())->apply($game, 'card.moved', [
+            'playerId' => $actor->id(),
+            'fromZone' => 'battlefield',
+            'toZone' => 'battlefield',
+            'targetPlayerId' => $opponent->id(),
+            'instanceId' => 'token-1',
+        ], $actor);
+
+        self::assertSame([], $game->snapshot()['players'][$actor->id()]['zones']['battlefield']);
+        $movedToken = $game->snapshot()['players'][$opponent->id()]['zones']['battlefield'][0];
+        self::assertTrue($movedToken['isToken']);
+        self::assertSame($opponent->id(), $movedToken['controllerId']);
+        self::assertSame(4, $movedToken['power']);
+        self::assertSame(4, $movedToken['toughness']);
+    }
+
+    public function testTokenCopyCommandCreatesIdenticalBattlefieldInstanceMarkedAsToken(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->snapshot($actor->id(), [
+            'battlefield' => [
+                [
+                    ...$this->card('card-1', 'Bear', 'battlefield', 4, 4, 2, 2),
+                    'tapped' => true,
+                    'counters' => ['charge' => 2],
+                    'loyalty' => 6,
+                    'defaultLoyalty' => 3,
+                    'position' => ['x' => 120, 'y' => 240],
+                ],
+            ],
+        ]));
+
+        (new GameCommandHandler())->apply($game, 'card.token_copy.created', [
+            'playerId' => $actor->id(),
+            'zone' => 'battlefield',
+            'instanceId' => 'card-1',
+        ], $actor);
+
+        $battlefield = $game->snapshot()['players'][$actor->id()]['zones']['battlefield'];
+        self::assertCount(2, $battlefield);
+        $copy = $battlefield[1];
+        self::assertNotSame('card-1', $copy['instanceId']);
+        self::assertSame('Bear', $copy['name']);
+        self::assertSame(2, $copy['power']);
+        self::assertSame(2, $copy['toughness']);
+        self::assertSame(3, $copy['loyalty']);
+        self::assertTrue($copy['tapped']);
+        self::assertSame([], $copy['counters']);
+        self::assertSame(['x' => 252, 'y' => 240], $copy['position']);
+        self::assertTrue($copy['isToken']);
+        self::assertSame('Created Token Copy Of Bear.', $game->snapshot()['eventLog'][0]['message']);
+    }
+
+    public function testTokenCopyUsesDefaultStatsInsteadOfModifiedStats(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->snapshot($actor->id(), [
+            'battlefield' => [
+                [
+                    'instanceId' => 'card-1',
+                    'scryfallId' => 'walker-scryfall-id',
+                    'name' => 'Kefka',
+                    'zone' => 'battlefield',
+                    'power' => 8,
+                    'toughness' => 9,
+                    'loyalty' => 11,
+                    'tapped' => false,
+                ],
+            ],
+        ]));
+        $resolver = new class extends GameCardBaseStatsResolver {
+            public function __construct()
+            {
+            }
+
+            public function baseStats(array $card): ?array
+            {
+                return $card['scryfallId'] === 'walker-scryfall-id'
+                    ? ['power' => 5, 'toughness' => 5]
+                    : null;
+            }
+
+            public function baseLoyalty(array $card): ?int
+            {
+                return $card['scryfallId'] === 'walker-scryfall-id' ? 3 : null;
+            }
+        };
+
+        (new GameCommandHandler($resolver))->apply($game, 'card.token_copy.created', [
+            'playerId' => $actor->id(),
+            'zone' => 'battlefield',
+            'instanceId' => 'card-1',
+        ], $actor);
+
+        $copy = $game->snapshot()['players'][$actor->id()]['zones']['battlefield'][1];
+        self::assertSame(5, $copy['power']);
+        self::assertSame(5, $copy['toughness']);
+        self::assertSame(3, $copy['loyalty']);
+        self::assertSame(5, $copy['defaultPower']);
+        self::assertSame(5, $copy['defaultToughness']);
+        self::assertSame(3, $copy['defaultLoyalty']);
+        self::assertSame([], $copy['counters']);
+    }
+
+    public function testTokenCopyUsesCardFaceStatsWhenSnapshotHasNoDefaults(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->snapshot($actor->id(), [
+            'battlefield' => [
+                [
+                    'instanceId' => 'card-1',
+                    'name' => 'Face Bear',
+                    'zone' => 'battlefield',
+                    'cardFaces' => [['power' => '2', 'toughness' => '3']],
+                    'power' => 8,
+                    'toughness' => 9,
+                    'tapped' => false,
+                ],
+            ],
+        ]));
+
+        (new GameCommandHandler())->apply($game, 'card.token_copy.created', [
+            'playerId' => $actor->id(),
+            'zone' => 'battlefield',
+            'instanceId' => 'card-1',
+        ], $actor);
+
+        $copy = $game->snapshot()['players'][$actor->id()]['zones']['battlefield'][1];
+        self::assertSame(2, $copy['power']);
+        self::assertSame(3, $copy['toughness']);
+        self::assertSame(2, $copy['defaultPower']);
+        self::assertSame(3, $copy['defaultToughness']);
+    }
+
+    public function testStatCountersAdjustPowerAndToughness(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->snapshot($actor->id(), [
+            'battlefield' => [
+                $this->card('card-1', 'Bear', 'battlefield', 2, 2, 2, 2),
+            ],
+        ]));
+        $handler = new GameCommandHandler();
+
+        $handler->apply($game, 'card.counter.changed', [
+            'playerId' => $actor->id(),
+            'zone' => 'battlefield',
+            'instanceId' => 'card-1',
+            'key' => '+1/+1',
+            'value' => 2,
+        ], $actor);
+        $handler->apply($game, 'card.counter.changed', [
+            'playerId' => $actor->id(),
+            'zone' => 'battlefield',
+            'instanceId' => 'card-1',
+            'key' => '-1/-1',
+            'value' => 1,
+        ], $actor);
+
+        $card = $game->snapshot()['players'][$actor->id()]['zones']['battlefield'][0];
+        self::assertSame(3, $card['power']);
+        self::assertSame(3, $card['toughness']);
+    }
+
+    public function testTokenCopyEvaporatesWhenItLeavesBattlefieldForNonBattlefieldZone(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->snapshot($actor->id(), [
+            'battlefield' => [
+                [
+                    ...$this->card('token-1', 'Bear Token', 'battlefield', 4, 4, 2, 2),
+                    'isToken' => true,
+                ],
+            ],
+        ]));
+
+        (new GameCommandHandler())->apply($game, 'card.moved', [
+            'playerId' => $actor->id(),
+            'fromZone' => 'battlefield',
+            'toZone' => 'graveyard',
+            'instanceId' => 'token-1',
+        ], $actor);
+
+        self::assertSame([], $game->snapshot()['players'][$actor->id()]['zones']['battlefield']);
+        self::assertSame([], $game->snapshot()['players'][$actor->id()]['zones']['graveyard']);
+        self::assertSame(
+            'Token Copy Bear Token evaporated instead of moving to graveyard.',
+            $game->snapshot()['eventLog'][0]['message'],
+        );
+    }
+
     public function testChangesPlaneswalkerLoyalty(): void
     {
         $actor = new User('owner@example.test', 'Owner');
@@ -448,6 +721,25 @@ class GameCommandHandlerTest extends TestCase
             static fn (array $card): string => $card['instanceId'],
             $game->snapshot()['players'][$actor->id()]['zones']['graveyard'],
         ));
+    }
+
+    public function testMovingAllCardsFromEmptyZoneDoesNotCreateLogEntry(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->snapshot($actor->id(), [
+            'graveyard' => [],
+            'exile' => [],
+        ]));
+
+        (new GameCommandHandler())->apply($game, 'zone.move_all', [
+            'playerId' => $actor->id(),
+            'fromZone' => 'graveyard',
+            'toZone' => 'exile',
+        ], $actor);
+
+        self::assertSame([], $game->snapshot()['eventLog']);
+        self::assertSame([], $game->snapshot()['players'][$actor->id()]['zones']['graveyard']);
+        self::assertSame([], $game->snapshot()['players'][$actor->id()]['zones']['exile']);
     }
 
     public function testMovedCardCanReturnToTopOrBottomOfLibrary(): void

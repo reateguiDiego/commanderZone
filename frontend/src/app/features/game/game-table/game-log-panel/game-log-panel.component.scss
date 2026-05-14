@@ -56,12 +56,19 @@
 
 .log-card-link {
   display: inline;
+  max-width: 100%;
   padding: 0;
   border: 0;
   background: transparent;
   color: var(--game-accent, #d7b46a);
   font: inherit;
+  line-height: inherit;
+  overflow-wrap: anywhere;
+  text-align: start;
   text-decoration: underline;
+  vertical-align: baseline;
+  white-space: normal;
+  word-break: normal;
 }
 
 .log-card-list {

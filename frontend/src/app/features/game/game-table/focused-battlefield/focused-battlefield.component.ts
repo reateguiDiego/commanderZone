@@ -8,7 +8,7 @@ import {
   input,
   output,
 } from '@angular/core';
-import { GameCardInstance, GameZoneName } from '../../../../core/models/game.model';
+import { GameArrow, GameCardInstance, GameZoneName } from '../../../../core/models/game.model';
 import { PlayerView } from '../game-table.store';
 import { GameCardViewComponent } from '../game-card-view/game-card-view.component';
 import { CardPreviewEvent } from '../card-preview.model';
@@ -54,6 +54,18 @@ interface BattlefieldCardStatChangeEvent {
   delta: number;
 }
 
+interface BattlefieldCardCounterChangeEvent extends BattlefieldCardStatChangeEvent {
+  key: string;
+}
+
+interface BattlefieldCardCounterDeleteRequestEvent {
+  event: MouseEvent;
+  playerId: string;
+  zone: GameZoneName;
+  card: GameCardInstance;
+  key: string;
+}
+
 interface BattlefieldSizeEvent {
   width: number;
   height: number;
@@ -61,6 +73,21 @@ interface BattlefieldSizeEvent {
   top: number;
   right: number;
   bottom: number;
+}
+
+interface BattlefieldArrowView {
+  id: string;
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+  color: string;
+}
+
+interface BattlefieldArrowMenuEvent {
+  event: MouseEvent;
+  playerId: string;
+  arrowId: string;
 }
 
 @Component({
@@ -77,6 +104,7 @@ export class FocusedBattlefieldComponent implements AfterViewInit, OnDestroy {
   @ViewChild('battlefieldRoot', { static: true }) private readonly battlefieldRoot?: ElementRef<HTMLElement>;
 
   readonly player = input.required<PlayerView>();
+  readonly arrows = input<readonly GameArrow[]>([]);
   readonly isCurrentPlayer = input.required<(playerId: string) => boolean>();
   readonly isDropZoneHighlighted = input.required<(playerId: string, zone: GameZoneName) => boolean>();
   readonly cardPosition = input.required<(card: GameCardInstance) => { x: number; y: number } | null>();
@@ -109,6 +137,9 @@ export class FocusedBattlefieldComponent implements AfterViewInit, OnDestroy {
   readonly cardPowerChanged = output<BattlefieldCardStatChangeEvent>();
   readonly cardToughnessChanged = output<BattlefieldCardStatChangeEvent>();
   readonly cardLoyaltyChanged = output<BattlefieldCardStatChangeEvent>();
+  readonly cardCounterChanged = output<BattlefieldCardCounterChangeEvent>();
+  readonly cardCounterDeleteRequested = output<BattlefieldCardCounterDeleteRequestEvent>();
+  readonly arrowMenuOpened = output<BattlefieldArrowMenuEvent>();
   readonly manaLaneDragOver = output<DragEvent>();
   readonly manaLaneDropped = output<{ event: DragEvent; playerId: string }>();
   readonly battlefieldSizeChanged = output<BattlefieldSizeEvent>();
@@ -188,6 +219,18 @@ export class FocusedBattlefieldComponent implements AfterViewInit, OnDestroy {
     this.cardLoyaltyChanged.emit({ playerId, zone: 'battlefield', card, delta });
   }
 
+  changeCounter(event: MouseEvent, playerId: string, card: GameCardInstance, key: string, delta: number): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.cardCounterChanged.emit({ playerId, zone: 'battlefield', card, key, delta });
+  }
+
+  requestCounterDelete(event: MouseEvent, playerId: string, card: GameCardInstance, key: string): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.cardCounterDeleteRequested.emit({ event, playerId, zone: 'battlefield', card, key });
+  }
+
   stopStatPointer(event: PointerEvent): void {
     event.stopPropagation();
   }
@@ -195,6 +238,12 @@ export class FocusedBattlefieldComponent implements AfterViewInit, OnDestroy {
   stopStatDoubleClick(event: MouseEvent): void {
     event.preventDefault();
     event.stopPropagation();
+  }
+
+  openArrowMenu(event: MouseEvent, playerId: string, arrowId: string): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.arrowMenuOpened.emit({ event, playerId, arrowId });
   }
 
   cardVisibility(playerId: string, card: GameCardInstance): boolean {
@@ -205,6 +254,58 @@ export class FocusedBattlefieldComponent implements AfterViewInit, OnDestroy {
 
   isAlignmentReference(card: GameCardInstance, guide: AlignmentGuideView | null): boolean {
     return Boolean(guide?.referenceInstanceIds.includes(card.instanceId));
+  }
+
+  battlefieldArrowViews(player: PlayerView): readonly BattlefieldArrowView[] {
+    const cards = new Map(player.state.zones.battlefield.map((card) => [card.instanceId, card]));
+    return this.arrows()
+      .map((arrow): BattlefieldArrowView | null => {
+        const source = cards.get(arrow.fromInstanceId);
+        const target = cards.get(arrow.toInstanceId);
+        if (!source || !target) {
+          return null;
+        }
+
+        const sourceCenter = this.cardCenter(source);
+        const targetCenter = this.cardCenter(target);
+        if (!sourceCenter || !targetCenter) {
+          return null;
+        }
+
+        return {
+          id: arrow.id,
+          x1: sourceCenter.x,
+          y1: sourceCenter.y,
+          x2: targetCenter.x,
+          y2: targetCenter.y,
+          color: this.arrowColor(arrow.color),
+        };
+      })
+      .filter((arrow): arrow is BattlefieldArrowView => arrow !== null);
+  }
+
+  private cardCenter(card: GameCardInstance): { x: number; y: number } | null {
+    const position = this.cardPosition()(card);
+    if (!position) {
+      return null;
+    }
+
+    return {
+      x: position.x + 58,
+      y: position.y + 80,
+    };
+  }
+
+  private arrowColor(color: string): string {
+    const colors: Record<string, string> = {
+      yellow: '#d7b46a',
+      red: '#ef4444',
+      green: '#22c55e',
+      blue: '#38bdf8',
+      black: '#d1d5db',
+    };
+
+    return colors[color] ?? colors['yellow'];
   }
 
   private emitBattlefieldSize(size: DOMRectReadOnly): void {

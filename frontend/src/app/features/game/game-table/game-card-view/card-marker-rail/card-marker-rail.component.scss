@@ -1,0 +1,170 @@
+:host {
+  position: absolute;
+  inset-block-start: 0.34rem;
+  inset-inline-start: 5px;
+  z-index: 8;
+  pointer-events: none;
+}
+
+.card-marker-rail {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(5, max-content);
+  gap: 0.22rem 0.18rem;
+  align-items: flex-start;
+}
+
+.card-marker {
+  display: grid;
+  place-items: center;
+  border: 1px solid rgb(215 180 106 / 76%);
+  background: rgb(7 8 7 / 84%);
+  box-shadow:
+    0 0.28rem 0.7rem rgb(0 0 0 / 58%),
+    0 0 0.62rem rgb(215 180 106 / 24%);
+  color: var(--gold, #d7b46a);
+  pointer-events: auto;
+}
+
+.token-copy-marker {
+  width: 1.62rem;
+  height: 1.62rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  box-shadow:
+    0 0.28rem 0.7rem rgb(0 0 0 / 58%),
+    0 0 0.5rem rgb(215 180 106 / 18%);
+}
+
+.token-copy-marker img {
+  width: 112%;
+  height: 112%;
+  object-fit: contain;
+  filter: drop-shadow(0 0.12rem 0.16rem rgb(0 0 0 / 68%));
+}
+
+.counter-marker {
+  min-width: 1.76rem;
+  min-height: 1.42rem;
+  padding: 0.12rem 0.24rem;
+  border-radius: 999px;
+  font-size: 0.52rem;
+  font-weight: 900;
+  line-height: 1;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    border-color 140ms ease,
+    box-shadow 140ms ease,
+    filter 140ms ease,
+    transform 140ms ease;
+}
+
+.counter-marker:hover,
+.counter-marker:focus-visible {
+  border-color: var(--gold, #d7b46a);
+  box-shadow:
+    0 0 0 2px rgb(7 8 7 / 84%),
+    0 0.35rem 0.8rem rgb(0 0 0 / 48%),
+    0 0 0.75rem rgb(215 180 106 / 34%);
+  filter: brightness(1.08);
+}
+
+.color-counter-marker {
+  width: 1.62rem;
+  min-width: 1.62rem;
+  height: 1.62rem;
+  min-height: 1.62rem;
+  padding: 0;
+  border-color: rgb(255 255 255 / 28%);
+  background:
+    radial-gradient(circle at 35% 24%, rgb(255 255 255 / 44%), transparent 34%),
+    var(--counter-color, rgb(7 8 7 / 98%));
+}
+
+.color-counter-marker span {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.stat-counter-marker,
+.generic-counter-marker {
+  display: flex;
+  min-width: 2.68rem;
+  gap: 0.2rem;
+  align-items: center;
+  justify-content: space-between;
+  border-radius: 999px;
+  background:
+    linear-gradient(145deg, rgb(7 8 7 / 96%), rgb(28 25 16 / 94%));
+}
+
+.stat-counter-marker {
+  border-color: rgb(215 180 106 / 78%);
+}
+
+.stat-counter-marker span,
+.generic-counter-marker span {
+  color: rgb(248 244 232 / 84%);
+}
+
+.counter-value-badge {
+  display: grid;
+  min-width: 1.18rem;
+  height: 1.18rem;
+  padding: 0 0.12rem;
+  place-items: center;
+  border-radius: 999px;
+  background: rgb(3 3 3 / 92%);
+  color: var(--gold, #d7b46a);
+  font-size: 0.78rem;
+  line-height: 1;
+  text-shadow:
+    0 0 0.35rem rgb(0 0 0 / 70%),
+    0 0 0.35rem rgb(215 180 106 / 32%);
+}
+
+.color-counter-marker .counter-value-badge {
+  background: rgb(0 0 0 / 44%);
+  color: #fff;
+}
+
+.compact {
+  gap: 0.08rem 0.06rem;
+}
+
+.compact .token-copy-marker {
+  width: 1.05rem;
+  height: 1.05rem;
+}
+
+.compact .counter-marker {
+  min-width: 0.88rem;
+  min-height: 0.72rem;
+  padding: 0.06rem;
+  font-size: 0.28rem;
+}
+
+.compact .color-counter-marker {
+  width: 0.88rem;
+  min-width: 0.88rem;
+  height: 0.88rem;
+  min-height: 0.88rem;
+}
+
+.compact .stat-counter-marker,
+.compact .generic-counter-marker {
+  min-width: 1.34rem;
+  gap: 0.06rem;
+}
+
+.compact .counter-value-badge {
+  min-width: 0.52rem;
+  height: 0.52rem;
+  font-size: 0.42rem;
+}

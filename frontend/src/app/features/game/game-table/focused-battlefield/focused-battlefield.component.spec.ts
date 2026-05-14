@@ -22,11 +22,48 @@ describe('FocusedBattlefieldComponent', () => {
     expect(cardElement(fixture, 'card-1').style.visibility).toBe('hidden');
     expect(cardElement(fixture, 'card-2').style.visibility).not.toBe('hidden');
   });
+
+  it('emits an arrow menu event from the transparent arrow hit layer', async () => {
+    const { fixture } = await renderFocusedBattlefield({
+      arrows: [{ id: 'arrow-1', fromInstanceId: 'card-1', toInstanceId: 'card-2', color: 'yellow', createdAt: '' }],
+      cardPosition: (card) => ({ x: card.instanceId === 'card-1' ? 20 : 140, y: 40 }),
+    });
+    const opened = vi.fn();
+    fixture.componentInstance.arrowMenuOpened.subscribe(opened);
+
+    const hitLine = fixture.nativeElement.querySelector('.battlefield-arrow-hit-line') as SVGLineElement;
+    hitLine.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+    expect(opened).toHaveBeenCalledWith(expect.objectContaining({
+      playerId: 'player-1',
+      arrowId: 'arrow-1',
+    }));
+  });
+
+  it('emits a counter delete request from a zero marker', async () => {
+    const { fixture } = await renderFocusedBattlefield({
+      firstCounter: (card) => card.instanceId === 'card-1' ? { key: 'red', value: 0 } : null,
+    });
+    const opened = vi.fn();
+    fixture.componentInstance.cardCounterDeleteRequested.subscribe(opened);
+
+    const marker = cardElement(fixture, 'card-1').querySelector('.counter-marker') as HTMLElement;
+    marker.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+
+    expect(opened).toHaveBeenCalledWith(expect.objectContaining({
+      playerId: 'player-1',
+      zone: 'battlefield',
+      key: 'red',
+    }));
+  });
 });
 
 interface RenderFocusedBattlefieldOptions {
+  arrows?: readonly { id: string; fromInstanceId: string; toInstanceId: string; color: string; createdAt: string }[];
   alignmentGuideFor?: (playerId: string) => { y: number; referenceInstanceIds: readonly string[] } | null;
+  cardPosition?: (card: GameCardInstance) => { x: number; y: number } | null;
   isCardTransferPending?: (playerId: string, zone: GameZoneName, card: GameCardInstance) => boolean;
+  firstCounter?: (card: GameCardInstance) => { key: string; value: number } | null;
 }
 
 async function renderFocusedBattlefield(options: RenderFocusedBattlefieldOptions = {}): Promise<{ fixture: ComponentFixture<FocusedBattlefieldComponent> }> {
@@ -36,9 +73,10 @@ async function renderFocusedBattlefield(options: RenderFocusedBattlefieldOptions
 
   const fixture = TestBed.createComponent(FocusedBattlefieldComponent);
   fixture.componentRef.setInput('player', playerView());
+  fixture.componentRef.setInput('arrows', options.arrows ?? []);
   fixture.componentRef.setInput('isCurrentPlayer', (_playerId: string) => true);
   fixture.componentRef.setInput('isDropZoneHighlighted', (_playerId: string, _zone: GameZoneName) => false);
-  fixture.componentRef.setInput('cardPosition', (_card: GameCardInstance) => null);
+  fixture.componentRef.setInput('cardPosition', options.cardPosition ?? ((_card: GameCardInstance) => null));
   fixture.componentRef.setInput('isSelected', (_instanceId: string) => false);
   fixture.componentRef.setInput('isDraggingCard', (_card: GameCardInstance) => false);
   fixture.componentRef.setInput('canDragBattlefieldCard', (_playerId: string, _card: GameCardInstance) => true);
@@ -47,7 +85,7 @@ async function renderFocusedBattlefield(options: RenderFocusedBattlefieldOptions
   fixture.componentRef.setInput('shouldShowPowerToughness', (_card: GameCardInstance) => false);
   fixture.componentRef.setInput('cardPowerValue', (_card: GameCardInstance) => 0);
   fixture.componentRef.setInput('cardToughnessValue', (_card: GameCardInstance) => 0);
-  fixture.componentRef.setInput('firstCounter', (_card: GameCardInstance) => null);
+  fixture.componentRef.setInput('firstCounter', options.firstCounter ?? ((_card: GameCardInstance) => null));
   fixture.componentRef.setInput('alignmentGuideFor', options.alignmentGuideFor ?? ((_playerId: string) => null));
   fixture.componentRef.setInput('isManaLaneHighlighted', (_playerId: string) => false);
   fixture.componentRef.setInput('isCardTransferPending', options.isCardTransferPending ?? ((_playerId: string, _zone: GameZoneName, _card: GameCardInstance) => false));

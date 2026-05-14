@@ -139,6 +139,105 @@ describe('GameCardViewComponent', () => {
     expect(loyaltyCounter.classList).toContain('entry-settling');
   });
 
+  it('hides power toughness and loyalty overlays while the card is face down', async () => {
+    const { fixture } = await renderHandCard();
+
+    fixture.componentRef.setInput('showPowerToughness', true);
+    fixture.componentRef.setInput('powerValue', 2);
+    fixture.componentRef.setInput('toughnessValue', 2);
+    fixture.componentRef.setInput('loyaltyValue', 3);
+    fixture.componentRef.setInput('faceDown', true);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.power-toughness-overlay')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.loyalty-counter')).toBeNull();
+  });
+
+  it('plays the stat arrival animation when power toughness appears', async () => {
+    vi.useFakeTimers();
+    const { fixture, cardElement } = await renderHandCard();
+
+    fixture.componentRef.setInput('showPowerToughness', false);
+    fixture.detectChanges();
+    fixture.componentRef.setInput('showPowerToughness', true);
+    fixture.componentRef.setInput('powerValue', 0);
+    fixture.componentRef.setInput('toughnessValue', 0);
+    fixture.detectChanges();
+
+    expect(cardElement.classList).toContain('stat-overlay-arriving');
+
+    vi.advanceTimersByTime(1240);
+    fixture.detectChanges();
+
+    expect(cardElement.classList).not.toContain('stat-overlay-arriving');
+  });
+
+  it('marks token copies with a readable badge', async () => {
+    const { fixture } = await renderHandCard();
+
+    fixture.componentRef.setInput('card', { ...gameCard(), isToken: true });
+    fixture.detectChanges();
+
+    const badge = fixture.nativeElement.querySelector('.token-copy-marker') as HTMLElement | null;
+    expect(badge).not.toBeNull();
+    expect(badge?.getAttribute('title')).toBe('Esta carta es un token copy');
+  });
+
+  it('emits card counter changes from marker rail interactions', async () => {
+    const { fixture } = await renderHandCard();
+    const counterChanged = vi.fn();
+    fixture.componentInstance.counterChanged.subscribe(counterChanged);
+
+    fixture.componentRef.setInput('card', { ...gameCard(), counters: { red: 2 } });
+    fixture.detectChanges();
+
+    const marker = fixture.nativeElement.querySelector('.counter-marker') as HTMLElement;
+    marker.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, button: 0 }));
+    marker.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+
+    expect(counterChanged).toHaveBeenNthCalledWith(1, {
+      event: expect.any(PointerEvent),
+      card: fixture.componentInstance.card(),
+      key: 'red',
+      delta: 1,
+    });
+    expect(counterChanged).toHaveBeenNthCalledWith(2, {
+      event: expect.any(MouseEvent),
+      card: fixture.componentInstance.card(),
+      key: 'red',
+      delta: -1,
+    });
+  });
+
+  it('keeps zero-value counters visible so they can be adjusted from the marker rail', async () => {
+    const { fixture } = await renderHandCard();
+
+    fixture.componentRef.setInput('card', { ...gameCard(), counters: { '+1/+1': 0 } });
+    fixture.detectChanges();
+
+    const marker = fixture.nativeElement.querySelector('.counter-marker') as HTMLElement | null;
+    expect(marker).not.toBeNull();
+    expect(marker?.textContent).toContain('+1/+1');
+    expect(marker?.textContent).toContain('0');
+  });
+
+  it('emits a delete request when a zero-value counter is right-clicked', async () => {
+    const { fixture } = await renderHandCard();
+    const deleteRequested = vi.fn();
+    fixture.componentInstance.counterDeleteRequested.subscribe(deleteRequested);
+
+    fixture.componentRef.setInput('card', { ...gameCard(), counters: { red: 0 } });
+    fixture.detectChanges();
+
+    const marker = fixture.nativeElement.querySelector('.counter-marker') as HTMLElement;
+    marker.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+
+    expect(deleteRequested).toHaveBeenCalledWith({
+      event: expect.any(MouseEvent),
+      card: fixture.componentInstance.card(),
+      key: 'red',
+    });
+  });
 
   it('emits loyalty changes from the loyalty counter', async () => {
     const { fixture } = await renderHandCard();

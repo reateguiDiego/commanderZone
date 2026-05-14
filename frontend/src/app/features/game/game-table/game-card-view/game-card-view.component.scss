@@ -173,11 +173,17 @@
   animation: stat-box-arrival 1240ms cubic-bezier(0.17, 1.26, 0.28, 1);
 }
 
+.game-card.stat-overlay-arriving .power-toughness-overlay span {
+  transform-origin: 50% 50%;
+  animation: stat-box-arrival 1240ms cubic-bezier(0.17, 1.26, 0.28, 1);
+}
+
 .game-card.stat-drop-settling.loyalty-card .card-visual {
   overflow: visible;
 }
 
-.game-card.stat-drop-settling .power-toughness-overlay span + span {
+.game-card.stat-drop-settling .power-toughness-overlay span + span,
+.game-card.stat-overlay-arriving .power-toughness-overlay span + span {
   animation-delay: 80ms;
 }
 
@@ -515,24 +521,6 @@
     box-shadow: none;
     color: #fff1bd;
   }
-}
-
-.counter-overlay {
-  position: absolute;
-  right: 0.25rem;
-  z-index: 5;
-  min-width: 1.55rem;
-  border-radius: 999px;
-  background: var(--game-surface-deep, rgb(7 8 7 / 88%));
-  color: var(--game-text, #f3f0e8);
-  padding: 0.17rem 0.35rem;
-  font-size: 0.68rem;
-  font-weight: 800;
-  text-align: center;
-}
-
-.counter-overlay {
-  top: 0.25rem;
 }
 
 .power-toughness-overlay {

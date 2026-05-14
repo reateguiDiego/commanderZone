@@ -93,6 +93,20 @@ describe('OpponentMiniBattlefieldComponent', () => {
       card: expect.objectContaining({ instanceId: 'lower-card' }),
     }));
   });
+
+  it('emits battlefield card clicks with opponent context', () => {
+    const clicked = vi.fn();
+    fixture.componentInstance.battlefieldCardClicked.subscribe(clicked);
+    fixture.detectChanges();
+
+    const renderedCard = fixture.nativeElement.querySelector('[data-testid="mini-battlefield-card"]') as HTMLElement;
+    renderedCard.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+    expect(clicked).toHaveBeenCalledWith(expect.objectContaining({
+      playerId: 'player-2',
+      card: expect.objectContaining({ instanceId: 'card-1' }),
+    }));
+  });
 });
 
 function domRect(rect: { left: number; top: number; width: number; height: number }): DOMRect {

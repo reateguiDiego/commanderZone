@@ -44,7 +44,7 @@ class GameSnapshotFactory
                     continue;
                 }
 
-                $command[] = $this->cardInstance($deckCard, $roomPlayer->user()->id(), 'command');
+                $command[] = $this->cardInstance($deckCard, $roomPlayer->user()->id(), 'command', true);
                 $colorIdentity = array_values(array_unique([...$colorIdentity, ...$deckCard->card()->colorIdentity()]));
             }
             $colorIdentity = $this->orderedColorIdentity($colorIdentity);
@@ -106,7 +106,7 @@ class GameSnapshotFactory
         ];
     }
 
-    private function cardInstance(DeckCard $deckCard, string $ownerId, string $zone): array
+    private function cardInstance(DeckCard $deckCard, string $ownerId, string $zone, bool $isCommander = false): array
     {
         $card = $deckCard->card();
 
@@ -135,6 +135,7 @@ class GameSnapshotFactory
             'rotation' => 0,
             'counters' => [],
             'zone' => $zone,
+            'isCommander' => $isCommander,
         ];
     }
 

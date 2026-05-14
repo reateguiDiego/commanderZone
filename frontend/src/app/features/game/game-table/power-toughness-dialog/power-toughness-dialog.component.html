@@ -1,0 +1,41 @@
+<div class="stat-dialog-backdrop" role="presentation">
+  <section class="stat-dialog-panel" role="dialog" aria-modal="true" aria-label="Set power and toughness">
+    <header class="stat-dialog-header">
+      <span>Power / Toughness</span>
+      <strong>{{ cardName() }}</strong>
+    </header>
+
+    <div class="stat-preview" aria-hidden="true">
+      <span>{{ power() || '0' }}</span>
+      <i>/</i>
+      <span>{{ toughness() || '0' }}</span>
+    </div>
+
+    <div class="stat-fields">
+      <label>
+        <span>Power</span>
+        <input
+          type="number"
+          data-testid="power-input"
+          [value]="power()"
+          (input)="update('power', $any($event.target).value)"
+          autofocus
+        />
+      </label>
+      <label>
+        <span>Toughness</span>
+        <input
+          type="number"
+          data-testid="toughness-input"
+          [value]="toughness()"
+          (input)="update('toughness', $any($event.target).value)"
+        />
+      </label>
+    </div>
+
+    <footer>
+      <button type="button" class="secondary-button" (click)="cancelled.emit()">Cancel</button>
+      <button type="button" class="primary-button" [disabled]="invalid()" (click)="confirmed.emit()">Apply</button>
+    </footer>
+  </section>
+</div>

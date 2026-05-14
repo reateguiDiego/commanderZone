@@ -65,6 +65,7 @@ export class OpponentMiniBoardComponent {
   readonly playerMenuOpened = output<PlayerMenuEvent>();
   readonly cardPreviewShown = output<CardPreviewEvent>();
   readonly cardPreviewHidden = output<void>();
+  readonly battlefieldCardClicked = output<{ event: MouseEvent; playerId: string; card: GameCardInstance }>();
 
   zoneCountTooltip(player: PlayerView, summary: OpponentZoneSummary): string {
     return `${summary.title}: ${this.zoneCount()(player, summary.zone)}`;

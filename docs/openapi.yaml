@@ -3607,6 +3607,9 @@ components:
           $ref: '#/components/schemas/GameZoneName'
         isToken:
           type: boolean
+        isCommander:
+          type: boolean
+          description: True when this instance is a commander card and may return to the command zone.
     GameZoneName:
       type: string
       enum: [library, hand, battlefield, graveyard, exile, command]
@@ -3750,6 +3753,9 @@ components:
             - arrow.removed
         payload:
           type: object
+          description: >
+            Command payload. For card.counter.changed, send key plus either value,
+            delta, or remove=true to delete that counter from the card.
           additionalProperties: true
         clientActionId:
           type: string

@@ -29,6 +29,24 @@
   animation: mini-commander-entry 980ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+.power-toughness-overlay::before {
+  content: '';
+  position: absolute;
+  inset: -0.24rem -0.28rem;
+  z-index: -1;
+  border-radius: 0.55rem;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.power-toughness-overlay.stat-pair-pulse-increase::before {
+  animation: stat-pair-increase-aura 760ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.power-toughness-overlay.stat-pair-pulse-decrease::before {
+  animation: stat-pair-decrease-aura 760ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
 @keyframes commander-entry-card {
   0% {
     filter: brightness(1.58) saturate(1.18) contrast(1.05);
@@ -123,10 +141,58 @@
   }
 }
 
+@keyframes stat-pair-increase-aura {
+  0% {
+    opacity: 0;
+    box-shadow: 0 0 0 rgb(255 218 91 / 0%);
+    transform: scale(0.84) translateY(0.16rem);
+  }
+
+  24% {
+    opacity: 1;
+    box-shadow:
+      0 0 0 2px rgb(255 245 196 / 50%),
+      0 0 1.2rem rgb(255 198 47 / 70%);
+  }
+
+  100% {
+    opacity: 0;
+    box-shadow:
+      0 0 0 5px rgb(215 180 106 / 0%),
+      0 0 1.8rem rgb(215 180 106 / 0%);
+    transform: scale(1.28) translateY(-0.16rem);
+  }
+}
+
+@keyframes stat-pair-decrease-aura {
+  0% {
+    opacity: 0;
+    box-shadow: 0 0 0 rgb(255 92 72 / 0%);
+    transform: scale(0.86) translateY(-0.14rem);
+  }
+
+  24% {
+    opacity: 1;
+    box-shadow:
+      0 0 0 2px rgb(255 145 124 / 44%),
+      0 0 1.2rem rgb(255 62 42 / 66%);
+  }
+
+  100% {
+    opacity: 0;
+    box-shadow:
+      0 0 0 5px rgb(255 92 72 / 0%),
+      0 0 1.8rem rgb(255 62 42 / 0%);
+    transform: scale(1.24) translateY(0.16rem);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .game-card.commander-entry-settling .card-visual,
   .game-card.commander-entry-settling .card-visual::before,
   .game-card.commander-entry-settling .card-visual::after,
+  .power-toughness-overlay.stat-pair-pulse-increase::before,
+  .power-toughness-overlay.stat-pair-pulse-decrease::before,
   .mini-battlefield-card.commander-entry-settling {
     animation: none;
   }

@@ -1,6 +1,11 @@
 import { ChangeDetectionStrategy, Component, OnChanges, OnDestroy, computed, input, output, signal, type WritableSignal } from '@angular/core';
 import { GameCardInstance, GameZoneName } from '../../../../core/models/game.model';
 import { CardPreviewEvent, previewRectFromElement } from '../card-preview.model';
+import {
+  CardMarkerRailComponent,
+  type CardMarkerCounterChange,
+  type CardMarkerCounterDeleteRequest,
+} from './card-marker-rail/card-marker-rail.component';
 import { LoyaltyCounterComponent } from './loyalty-counter/loyalty-counter.component';
 
 type GameCardViewMode = 'battlefield' | 'hand' | 'mini';
@@ -34,9 +39,22 @@ interface CardStatChangeEvent {
   delta: number;
 }
 
+interface CardCounterChangeEvent {
+  event: MouseEvent;
+  card: GameCardInstance;
+  key: string;
+  delta: number;
+}
+
+interface CardCounterDeleteRequestEvent {
+  event: MouseEvent;
+  card: GameCardInstance;
+  key: string;
+}
+
 @Component({
   selector: 'app-game-card-view',
-  imports: [LoyaltyCounterComponent],
+  imports: [CardMarkerRailComponent, LoyaltyCounterComponent],
   templateUrl: './game-card-view.component.html',
   styleUrls: ['./game-card-view.component.scss', './game-card-view-effects.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -54,6 +72,8 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
   private previousPowerValue: number | null | undefined;
   private previousToughnessValue: number | null | undefined;
   private previousLoyaltyValue: number | null | undefined;
+  private previousStatsVisible: boolean | undefined;
+  private statOverlayArrivalTimer: number | null = null;
   private pointerInside = false;
 
   readonly mode = input.required<GameCardViewMode>();
@@ -93,6 +113,13 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
   readonly loyaltyValue = input<number | null>(null);
   readonly counter = input<CardCounterView | null>(null);
   readonly handDepth = computed(() => `${Math.max(0, this.handCount() ?? 0) - (this.handIndex() ?? 0)}`);
+  readonly visibleCounters = computed<readonly CardCounterView[]>(() => {
+    const counters = Object.entries(this.card().counters ?? {})
+      .filter(([, value]) => Number.isFinite(Number(value)) && Number(value) >= 0)
+      .map(([key, value]) => ({ key, value: Number(value) }));
+
+    return counters.length > 0 ? counters : this.counter() ? [this.counter()!] : [];
+  });
 
   readonly cardPointerDown = output<CardPointerEvent>();
   readonly cardClicked = output<CardMouseEvent>();
@@ -108,10 +135,15 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
   readonly powerChanged = output<CardStatChangeEvent>();
   readonly toughnessChanged = output<CardStatChangeEvent>();
   readonly loyaltyChanged = output<CardStatChangeEvent>();
+  readonly counterChanged = output<CardCounterChangeEvent>();
+  readonly counterDeleteRequested = output<CardCounterDeleteRequestEvent>();
   readonly hoverLifted = signal(false);
   readonly powerPulse = signal<StatPulse>(null);
   readonly toughnessPulse = signal<StatPulse>(null);
   readonly loyaltyPulse = signal<StatPulse>(null);
+  readonly statOverlayArriving = signal(false);
+  readonly statsVisible = computed(() => !this.faceDown() && this.showPowerToughness());
+  readonly loyaltyVisible = computed(() => !this.faceDown() && this.loyaltyValue() !== null && !this.showPowerToughness());
 
   readonly handClass = (placement: DropPlacement): boolean => this.handDropPlacement() === placement;
 
@@ -123,6 +155,7 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
   ngOnDestroy(): void {
     this.clearHoverLiftTimer();
     this.clearStatPulseTimers();
+    this.clearStatOverlayArrivalTimer();
   }
 
   fallbackLabel(): string {
@@ -187,6 +220,14 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
     this.loyaltyChanged.emit({ event, card: this.card(), delta });
   }
 
+  changeCounter(change: CardMarkerCounterChange): void {
+    this.counterChanged.emit({ event: change.event, card: this.card(), key: change.key, delta: change.delta });
+  }
+
+  requestCounterDelete(request: CardMarkerCounterDeleteRequest): void {
+    this.counterDeleteRequested.emit({ event: request.event, card: this.card(), key: request.key });
+  }
+
   stopStatPointer(event: PointerEvent): void {
     event.stopPropagation();
   }
@@ -245,7 +286,13 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
   }
 
   private syncStatPulses(): void {
-    if (this.showPowerToughness()) {
+    const statsVisible = this.statsVisible();
+    if (this.previousStatsVisible === false && statsVisible) {
+      this.startStatOverlayArrival();
+    }
+    this.previousStatsVisible = statsVisible;
+
+    if (statsVisible) {
       this.previousPowerValue = this.updateStatPulse(this.previousPowerValue, this.powerValue(), this.powerPulse, 'power');
       this.previousToughnessValue = this.updateStatPulse(
         this.previousToughnessValue,
@@ -262,7 +309,7 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
       this.toughnessPulse.set(null);
     }
 
-    if (this.loyaltyValue() !== null) {
+    if (this.loyaltyVisible()) {
       this.previousLoyaltyValue = this.updateStatPulse(this.previousLoyaltyValue, this.loyaltyValue(), this.loyaltyPulse, 'loyalty');
       return;
     }
@@ -309,6 +356,22 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
     this.clearStatPulseTimer('power');
     this.clearStatPulseTimer('toughness');
     this.clearStatPulseTimer('loyalty');
+  }
+
+  private startStatOverlayArrival(): void {
+    this.clearStatOverlayArrivalTimer();
+    this.statOverlayArriving.set(true);
+    this.statOverlayArrivalTimer = window.setTimeout(() => {
+      this.statOverlayArriving.set(false);
+      this.statOverlayArrivalTimer = null;
+    }, 1240);
+  }
+
+  private clearStatOverlayArrivalTimer(): void {
+    if (this.statOverlayArrivalTimer !== null) {
+      window.clearTimeout(this.statOverlayArrivalTimer);
+      this.statOverlayArrivalTimer = null;
+    }
   }
 
   private clearStatPulseTimer(stat: 'power' | 'toughness' | 'loyalty'): void {

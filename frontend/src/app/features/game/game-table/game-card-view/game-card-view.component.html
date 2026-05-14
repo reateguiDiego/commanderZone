@@ -17,6 +17,7 @@
     [style.width.px]="miniWidthPx()"
     [style.height.px]="miniHeightPx()"
     [style.z-index]="miniZIndex()"
+    (click)="cardClicked.emit({ event: $event, card: currentCard })"
     (mouseenter)="onMouseEnter($event, currentCard)"
     (mouseleave)="cardMouseLeft.emit()"
   >
@@ -25,6 +26,7 @@
     } @else {
       <span class="card-back"></span>
     }
+    <app-card-marker-rail [isToken]="currentCard.isToken === true" [counters]="visibleCounters()" [compact]="true" />
   </span>
 } @else {
   <button
@@ -48,7 +50,8 @@
     [class.mana-drop-settling]="manaDropSettling() && !commanderEntrySettling()"
     [class.stat-drop-settling]="statDropSettling() && !commanderEntrySettling()"
     [class.commander-entry-settling]="commanderEntrySettling()"
-    [class.loyalty-card]="loyaltyValue() !== null && !showPowerToughness()"
+    [class.stat-overlay-arriving]="statOverlayArriving()"
+    [class.loyalty-card]="loyaltyVisible()"
     [class.face-down]="faceDown()"
     [class.hand-drop-before]="handClass('before')"
     [class.hand-drop-after]="handClass('after')"
@@ -73,13 +76,24 @@
     (mouseleave)="onMouseLeave()"
   >
     <span class="card-visual">
+      <app-card-marker-rail
+        [isToken]="currentCard.isToken === true"
+        [counters]="visibleCounters()"
+        (counterChanged)="changeCounter($event)"
+        (counterDeleteRequested)="requestCounterDelete($event)"
+      />
       @if (image(); as cardImage) {
         <img [src]="cardImage" [alt]="currentCard.name" draggable="false" />
       } @else {
         <span>{{ fallbackLabel() }}</span>
       }
-      @if (showPowerToughness()) {
-        <span class="power-toughness-overlay" aria-label="Power and toughness">
+      @if (statsVisible()) {
+        <span
+          class="power-toughness-overlay"
+          aria-label="Power and toughness"
+          [class.stat-pair-pulse-increase]="powerPulse() === 'increase' && toughnessPulse() === 'increase'"
+          [class.stat-pair-pulse-decrease]="powerPulse() === 'decrease' && toughnessPulse() === 'decrease'"
+        >
           <span
             role="button"
             tabindex="0"
@@ -107,16 +121,13 @@
             {{ toughnessValue() }}
           </span>
         </span>
-      } @else if (loyaltyValue() !== null) {
+      } @else if (loyaltyVisible()) {
         <app-loyalty-counter
           [value]="loyaltyValue()!"
           [pulse]="loyaltyPulse()"
           [entrySettling]="statDropSettling()"
           (loyaltyChanged)="changeLoyalty($event.event, $event.delta)"
         />
-      }
-      @if (counter(); as firstCounter) {
-        <span class="counter-overlay">{{ firstCounter.key }} {{ firstCounter.value }}</span>
       }
     </span>
   </button>
