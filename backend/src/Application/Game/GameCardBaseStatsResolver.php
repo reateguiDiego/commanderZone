@@ -8,12 +8,15 @@ use Doctrine\ORM\EntityManagerInterface;
 class GameCardBaseStatsResolver
 {
     /**
-     * @var array<string,array{power:?int,toughness:?int}|null>
+     * @var array<string,array{power:?int,toughness:?int,loyalty:?int}|null>
      */
     private array $cache = [];
 
-    public function __construct(private readonly ?EntityManagerInterface $entityManager = null)
+    private ?EntityManagerInterface $entityManager = null;
+
+    public function __construct(?EntityManagerInterface $entityManager = null)
     {
+        $this->entityManager = $entityManager;
     }
 
     /**
@@ -23,9 +26,35 @@ class GameCardBaseStatsResolver
      */
     public function baseStats(array $card): ?array
     {
+        $values = $this->baseCardValues($card);
+        if ($values === null) {
+            return null;
+        }
+
+        return [
+            'power' => $values['power'],
+            'toughness' => $values['toughness'],
+        ];
+    }
+
+    /**
+     * @param array<string,mixed> $card
+     */
+    public function baseLoyalty(array $card): ?int
+    {
+        return $this->baseCardValues($card)['loyalty'] ?? null;
+    }
+
+    /**
+     * @param array<string,mixed> $card
+     *
+     * @return array{power:?int,toughness:?int,loyalty:?int}|null
+     */
+    private function baseCardValues(array $card): ?array
+    {
         $scryfallId = trim((string) ($card['scryfallId'] ?? ''));
         if ($scryfallId === '') {
-            return $this->baseStatsFromFaces($card);
+            return $this->baseCardValuesFromFaces($card);
         }
 
         if (array_key_exists($scryfallId, $this->cache)) {
@@ -36,20 +65,21 @@ class GameCardBaseStatsResolver
             ? $this->entityManager->getRepository(Card::class)->findOneBy(['scryfallId' => $scryfallId])
             : null;
         if (!$cardEntity instanceof Card) {
-            $this->cache[$scryfallId] = $this->baseStatsFromFaces($card);
+            $this->cache[$scryfallId] = $this->baseCardValuesFromFaces($card);
 
             return $this->cache[$scryfallId];
         }
 
-        $stats = [
+        $values = [
             'power' => $this->numericStat($cardEntity->power()),
             'toughness' => $this->numericStat($cardEntity->toughness()),
+            'loyalty' => $this->numericStat($cardEntity->loyalty()),
         ];
-        if ($stats['power'] === null && $stats['toughness'] === null) {
-            $stats = $this->baseStatsFromFaces(['cardFaces' => $cardEntity->cardFaces()]) ?? $stats;
+        if ($values['power'] === null && $values['toughness'] === null && $values['loyalty'] === null) {
+            $values = $this->baseCardValuesFromFaces(['cardFaces' => $cardEntity->cardFaces()]) ?? $values;
         }
 
-        $this->cache[$scryfallId] = $stats;
+        $this->cache[$scryfallId] = $values;
 
         return $this->cache[$scryfallId];
     }
@@ -57,9 +87,9 @@ class GameCardBaseStatsResolver
     /**
      * @param array<string,mixed> $card
      *
-     * @return array{power:?int,toughness:?int}|null
+     * @return array{power:?int,toughness:?int,loyalty:?int}|null
      */
-    private function baseStatsFromFaces(array $card): ?array
+    private function baseCardValuesFromFaces(array $card): ?array
     {
         $faces = $card['cardFaces'] ?? null;
         if (!is_array($faces)) {
@@ -73,8 +103,9 @@ class GameCardBaseStatsResolver
 
             $power = $this->numericStat($face['power'] ?? null);
             $toughness = $this->numericStat($face['toughness'] ?? null);
-            if ($power !== null || $toughness !== null) {
-                return ['power' => $power, 'toughness' => $toughness];
+            $loyalty = $this->numericStat($face['loyalty'] ?? null);
+            if ($power !== null || $toughness !== null || $loyalty !== null) {
+                return ['power' => $power, 'toughness' => $toughness, 'loyalty' => $loyalty];
             }
         }
 

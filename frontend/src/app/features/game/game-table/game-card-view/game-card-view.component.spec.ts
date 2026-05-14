@@ -116,6 +116,69 @@ describe('GameCardViewComponent', () => {
     expect(cardElement.classList).not.toContain('drop-settling');
   });
 
+  it('renders a planeswalker loyalty counter when loyalty is present', async () => {
+    const { fixture } = await renderHandCard();
+
+    fixture.componentRef.setInput('loyaltyValue', 3);
+    fixture.detectChanges();
+
+    const loyaltyCounter = fixture.nativeElement.querySelector('.loyalty-counter') as HTMLElement | null;
+    expect(loyaltyCounter).not.toBeNull();
+    expect(loyaltyCounter?.textContent?.trim()).toBe('3');
+    expect(fixture.nativeElement.querySelector('.power-toughness-overlay')).toBeNull();
+  });
+
+  it('passes battlefield entry settling to the loyalty counter', async () => {
+    const { fixture } = await renderHandCard();
+
+    fixture.componentRef.setInput('loyaltyValue', 3);
+    fixture.componentRef.setInput('statDropSettling', true);
+    fixture.detectChanges();
+
+    const loyaltyCounter = fixture.nativeElement.querySelector('.loyalty-counter') as HTMLElement;
+    expect(loyaltyCounter.classList).toContain('entry-settling');
+  });
+
+
+  it('emits loyalty changes from the loyalty counter', async () => {
+    const { fixture } = await renderHandCard();
+    const loyaltyChanged = vi.fn();
+    fixture.componentInstance.loyaltyChanged.subscribe(loyaltyChanged);
+
+    fixture.componentRef.setInput('loyaltyValue', 3);
+    fixture.detectChanges();
+
+    const loyaltyCounter = fixture.nativeElement.querySelector('.loyalty-counter') as HTMLElement;
+    loyaltyCounter.dispatchEvent(new MouseEvent('pointerup', { bubbles: true, button: 0 }));
+    loyaltyCounter.dispatchEvent(new MouseEvent('pointerup', { bubbles: true, button: 2 }));
+
+    expect(loyaltyChanged).toHaveBeenNthCalledWith(1, {
+      event: expect.any(Event),
+      card: fixture.componentInstance.card(),
+      delta: 1,
+    });
+    expect(loyaltyChanged).toHaveBeenNthCalledWith(2, {
+      event: expect.any(Event),
+      card: fixture.componentInstance.card(),
+      delta: -1,
+    });
+  });
+
+  it('does not emit duplicate loyalty changes from click or contextmenu fallbacks', async () => {
+    const { fixture } = await renderHandCard();
+    const loyaltyChanged = vi.fn();
+    fixture.componentInstance.loyaltyChanged.subscribe(loyaltyChanged);
+
+    fixture.componentRef.setInput('loyaltyValue', 3);
+    fixture.detectChanges();
+
+    const loyaltyCounter = fixture.nativeElement.querySelector('.loyalty-counter') as HTMLElement;
+    loyaltyCounter.dispatchEvent(new MouseEvent('click', { bubbles: true, button: 0 }));
+    loyaltyCounter.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, button: 2 }));
+
+    expect(loyaltyChanged).not.toHaveBeenCalled();
+  });
+
   it('marks a power increase with the gold stat pulse', async () => {
     vi.useFakeTimers();
     const { fixture } = await renderHandCard();

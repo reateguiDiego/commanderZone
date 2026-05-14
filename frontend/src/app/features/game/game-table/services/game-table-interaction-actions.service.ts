@@ -43,7 +43,15 @@ export class GameTableInteractionActionsService {
   canControlOwnedCard(context: Pick<GameTableInteractionContext, 'currentPlayer'>, playerId: string, card: GameCardInstance): boolean {
     const currentPlayerId = context.currentPlayer()?.id;
 
-    return this.canControlPlayer(context, playerId) && (!card.ownerId || card.ownerId === currentPlayerId);
+    if (!currentPlayerId || !this.canControlPlayer(context, playerId)) {
+      return false;
+    }
+
+    if (card.zone === 'battlefield') {
+      return !card.controllerId || card.controllerId === currentPlayerId || playerId === currentPlayerId;
+    }
+
+    return !card.ownerId || card.ownerId === currentPlayerId;
   }
 
   canUseHiddenZone(context: Pick<GameTableInteractionContext, 'currentPlayer'>, playerId: string, zone: GameZoneName): boolean {

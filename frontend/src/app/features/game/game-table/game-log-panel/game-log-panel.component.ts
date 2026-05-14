@@ -1,7 +1,13 @@
-import { AfterViewChecked, ChangeDetectionStrategy, Component, ElementRef, OnDestroy, ViewChild, input, output } from '@angular/core';
+import { AfterViewChecked, ChangeDetectionStrategy, Component, ElementRef, OnDestroy, ViewChild, input, output, signal } from '@angular/core';
 import { GameCardInstance } from '../../../../core/models/game.model';
 import { PrettyScrollDirective } from '../../../../shared/ui/pretty-scroll/pretty-scroll.directive';
 import { GameLogEntryView } from '../state/game-table-chat-log.state';
+
+interface CardListPopover {
+  readonly names: readonly string[];
+  readonly left: number;
+  readonly top: number;
+}
 
 @Component({
   selector: 'app-game-log-panel',
@@ -15,6 +21,7 @@ export class GameLogPanelComponent implements AfterViewChecked, OnDestroy {
   readonly logTime = input.required<(createdAt: string) => string>();
   readonly previewCard = output<GameCardInstance>();
   readonly hidePreview = output<void>();
+  readonly activeCardListPopover = signal<CardListPopover | null>(null);
 
   @ViewChild('feed') private readonly feed?: ElementRef<HTMLElement>;
 
@@ -36,6 +43,27 @@ export class GameLogPanelComponent implements AfterViewChecked, OnDestroy {
 
   ngOnDestroy(): void {
     this.clearQueuedScroll();
+  }
+
+  showCardListPopover(event: MouseEvent | FocusEvent, names: readonly string[]): void {
+    const target = event.currentTarget instanceof HTMLElement ? event.currentTarget : null;
+    if (!target || names.length === 0) {
+      this.activeCardListPopover.set(null);
+      return;
+    }
+
+    const rect = target.getBoundingClientRect();
+    const viewportPadding = 12;
+    const left = Math.min(
+      Math.max(viewportPadding, rect.left),
+      Math.max(viewportPadding, window.innerWidth - 300 - viewportPadding),
+    );
+    const top = Math.min(rect.bottom + 8, Math.max(viewportPadding, window.innerHeight - 230));
+    this.activeCardListPopover.set({ names, left, top });
+  }
+
+  hideCardListPopover(): void {
+    this.activeCardListPopover.set(null);
   }
 
   scrollToBottom(): void {

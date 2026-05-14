@@ -63,7 +63,7 @@ export class CardPreviewOverlayComponent {
 
     return {
       left,
-      top: clamp(belowTop, field.top + PREVIEW_MARGIN, field.bottom - height - PREVIEW_MARGIN),
+      top: clamp(aboveTop, field.top + PREVIEW_MARGIN, field.bottom - height - PREVIEW_MARGIN),
       width,
     };
   }

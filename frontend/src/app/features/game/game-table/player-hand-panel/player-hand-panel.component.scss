@@ -24,7 +24,7 @@
 }
 
 .hand-area.hand-revealed {
-  z-index: 140;
+  z-index: 620;
   --hand-reveal-offset: 0rem;
   filter: drop-shadow(0 1.9rem 1.8rem rgb(0 0 0 / 42%));
   pointer-events: auto;
@@ -46,7 +46,7 @@
   overflow-x: auto;
   overflow-y: hidden;
   min-height: calc(var(--game-zone-row-height, 11.15rem) - 0.3rem);
-  padding: 0.8rem 2.6rem calc(var(--bottom-gap, 0.7rem) + 0.2rem);
+  padding: 1.35rem 2.6rem calc(var(--bottom-gap, 0.7rem) + 0.2rem);
   border: 0;
   background: transparent;
   box-sizing: border-box;

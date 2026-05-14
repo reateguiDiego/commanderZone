@@ -56,6 +56,7 @@ export class OpponentMiniBoardComponent {
   readonly isCardDropSettling = input<(playerId: string, zone: GameZoneName, card: GameCardInstance) => boolean>(() => false);
   readonly isManaDropSettling = input<(playerId: string, card: GameCardInstance) => boolean>(() => false);
   readonly isBattlefieldEntrySettling = input<(playerId: string, card: GameCardInstance) => boolean>(() => false);
+  readonly isCommanderEntrySettling = input<(playerId: string, card: GameCardInstance) => boolean>(() => false);
   readonly isCardTransferPending = input<(playerId: string, zone: GameZoneName, card: GameCardInstance) => boolean>(() => false);
 
   readonly focusPlayer = output<string>();

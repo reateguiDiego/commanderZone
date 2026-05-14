@@ -60,6 +60,31 @@ describe('GameTableDropFeedbackState', () => {
 
     expect(state.isCardDropSettling('player-1', 'battlefield', 'card-1')).toBe(true);
     expect(state.isBattlefieldEntrySettling('player-1', 'card-1')).toBe(true);
+    expect(state.isCommanderEntrySettling('player-1', 'card-1')).toBe(false);
+  });
+
+  it('emits commander feedback when a command zone card enters battlefield', () => {
+    state.trackSnapshot(snapshot(1, {
+      command: [{ instanceId: 'commander-1', name: 'Smeagol', tapped: false }],
+    }));
+    state.trackSnapshot(snapshot(2, {
+      battlefield: [{ instanceId: 'commander-1', name: 'Smeagol', tapped: false, position: { x: 100, y: 120 } }],
+    }));
+
+    expect(state.isBattlefieldEntrySettling('player-1', 'commander-1')).toBe(true);
+    expect(state.isCommanderEntrySettling('player-1', 'commander-1')).toBe(true);
+  });
+
+  it('uses pending commander entries when a local snapshot places the commander before the real version changes', () => {
+    state.trackSnapshot(snapshot(1));
+    state.markPendingBattlefieldEntry('player-1', ['commander-1']);
+    state.markPendingCommanderBattlefieldEntry('player-1', ['commander-1']);
+    state.trackSnapshot(snapshot(1, {
+      battlefield: [{ instanceId: 'commander-1', name: 'Smeagol', tapped: false, position: { x: 100, y: 120 } }],
+    }));
+
+    expect(state.isBattlefieldEntrySettling('player-1', 'commander-1')).toBe(true);
+    expect(state.isCommanderEntrySettling('player-1', 'commander-1')).toBe(true);
   });
 
   it('does not emit stat feedback for battlefield to battlefield moves', () => {
@@ -83,6 +108,29 @@ describe('GameTableDropFeedbackState', () => {
 
     expect(state.isCardDropSettling('player-1', 'battlefield', 'card-1')).toBe(true);
     expect(state.isManaDropSettling('player-1', 'card-1')).toBe(true);
+  });
+
+  it('uses pending battlefield entries when a local snapshot places the card before the real version changes', () => {
+    state.trackSnapshot(snapshot(1));
+    state.markPendingBattlefieldEntry('player-1', ['card-1']);
+    state.trackSnapshot(snapshot(1, {
+      battlefield: [{ instanceId: 'card-1', name: 'Llanowar Elves', tapped: false, position: { x: 100, y: 120 } }],
+    }));
+
+    expect(state.isCardDropSettling('player-1', 'battlefield', 'card-1')).toBe(true);
+    expect(state.isBattlefieldEntrySettling('player-1', 'card-1')).toBe(true);
+  });
+
+  it('can clear pending battlefield entries before they activate', () => {
+    state.trackSnapshot(snapshot(1));
+    state.markPendingBattlefieldEntry('player-1', ['card-1']);
+    state.clearPendingBattlefieldEntries();
+    state.trackSnapshot(snapshot(1, {
+      battlefield: [{ instanceId: 'card-1', name: 'Llanowar Elves', tapped: false, position: { x: 100, y: 120 } }],
+    }));
+
+    expect(state.isCardDropSettling('player-1', 'battlefield', 'card-1')).toBe(false);
+    expect(state.isBattlefieldEntrySettling('player-1', 'card-1')).toBe(false);
   });
 
   it('does not duplicate feedback when the snapshot version does not change', () => {

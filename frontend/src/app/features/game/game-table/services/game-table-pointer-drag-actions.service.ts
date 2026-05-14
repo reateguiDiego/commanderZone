@@ -23,6 +23,7 @@ export interface GameTablePointerDragActionContext {
   endCardDrag(): void;
   clearSelectedCards(): void;
   suppressCardPreview(): void;
+  setError(message: string): void;
   applyDeferredRemoteSnapshot(): void;
   refetch(force?: boolean): Promise<void>;
   markPendingManaDrop(playerId: string, instanceIds: readonly string[]): void;
@@ -73,11 +74,14 @@ export class GameTablePointerDragActionsService {
         context.applyDeferredRemoteSnapshot();
         return;
       }
+      const shouldApplyOwnHandPreview = drag.dropZone === 'hand'
+        && this.cardsReturnToSamePlayer(context, drag.playerId, instanceIds);
+      this.notifyBorrowedCardsReturnToOwner(context, drag.playerId, drag.dropZone, instanceIds);
       context.markPendingTransfer(drag.playerId, 'battlefield', instanceIds);
       context.endCardDrag();
       context.clearSelectedCards();
       await this.moveBattlefieldCardsToZone(context, drag.playerId, instanceIds, drag.dropZone);
-      if (drag.dropZone === 'hand') {
+      if (shouldApplyOwnHandPreview) {
         await this.applyHandDropPreview(context, drag.playerId, instanceIds, handPreview);
       }
       context.suppressCardPreview();
@@ -252,6 +256,45 @@ export class GameTablePointerDragActionsService {
     }
 
     return selected.filter((item) => context.canControlOwnedCard(item.playerId, item.card));
+  }
+
+  private cardsReturnToSamePlayer(
+    context: GameTablePointerDragActionContext,
+    playerId: string,
+    instanceIds: readonly string[],
+  ): boolean {
+    return instanceIds.every((instanceId) => {
+      const card = context.findCard(playerId, 'battlefield', instanceId);
+
+      return card !== null && (card.ownerId ?? playerId) === playerId;
+    });
+  }
+
+  private notifyBorrowedCardsReturnToOwner(
+    context: Pick<GameTablePointerDragActionContext, 'findCard' | 'playerName' | 'setError'>,
+    controllerId: string,
+    toZone: GameZoneName,
+    instanceIds: readonly string[],
+  ): void {
+    if (toZone === 'battlefield') {
+      return;
+    }
+
+    const cards = instanceIds
+      .map((instanceId) => context.findCard(controllerId, 'battlefield', instanceId))
+      .filter((card): card is GameCardInstance => Boolean(card));
+    const ownerIds = [...new Set(
+      cards
+        .map((card) => card.ownerId)
+        .filter((ownerId): ownerId is string => Boolean(ownerId) && ownerId !== controllerId),
+    )];
+    if (ownerIds.length === 0) {
+      return;
+    }
+
+    const ownerLabel = ownerIds.length === 1 ? context.playerName(ownerIds[0]!) : 'their deck owners';
+    const cardLabel = cards.length === 1 ? 'This borrowed card' : 'Borrowed cards';
+    context.setError(`${cardLabel} will return to ${ownerLabel}'s ${toZone}.`);
   }
 
   private async applyHandDropPreview(

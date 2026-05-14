@@ -149,6 +149,26 @@ describe('GameTablePointerDragActionsService', () => {
       .toEqual(['hand-1', 'moved', 'selected-2', 'hand-2']);
   });
 
+  it('notifies the controller when a pointer-dragged borrowed card returns to its owner zone', async () => {
+    const snapshot = snapshotWith({
+      battlefield: [
+        { ...card('moved', 'Borrowed Bear', 'battlefield'), ownerId: 'owner-1', controllerId: 'player-1' },
+      ],
+    });
+    const setError = vi.fn();
+
+    await service.endCardPointerDrag({
+      ...context(
+        () => snapshot,
+        vi.fn(async () => undefined),
+      ),
+      playerName: (playerId) => playerId === 'owner-1' ? 'Owner' : playerId,
+      setError,
+    }, { clientX: 120, clientY: 90 } as PointerEvent);
+
+    expect(setError).toHaveBeenCalledWith("This borrowed card will return to Owner's hand.");
+  });
+
   it('anchors a battlefield card to the mana row height when the mana lane is highlighted', async () => {
     dragService.endCardPointerDrag.mockReturnValue({
       playerId: 'player-1',
@@ -273,6 +293,7 @@ function context(
     endCardDrag: vi.fn(),
     clearSelectedCards: vi.fn(),
     suppressCardPreview: vi.fn(),
+    setError: vi.fn(),
     applyDeferredRemoteSnapshot: vi.fn(),
     refetch: vi.fn(async () => undefined),
     markPendingManaDrop: vi.fn(),

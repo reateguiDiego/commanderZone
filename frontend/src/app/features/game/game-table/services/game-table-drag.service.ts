@@ -446,9 +446,65 @@ export class GameTableDragService {
       preview.appendChild(label);
     }
 
+    this.appendNativeLoyaltyCounter(preview, card, width);
     document.body.appendChild(preview);
 
     return { element: preview, width, height };
+  }
+
+  private appendNativeLoyaltyCounter(preview: HTMLElement, card: GameCardInstance, cardWidth: number): void {
+    if (card.loyalty === null || card.loyalty === undefined) {
+      return;
+    }
+
+    const counterWidth = Math.max(25, Math.round(cardWidth * 0.325));
+    const counterHeight = Math.max(25, Math.round(cardWidth * 0.32));
+    const counter = document.createElement('span');
+    counter.style.position = 'absolute';
+    counter.style.right = '-5px';
+    counter.style.bottom = '-2px';
+    counter.style.zIndex = '6';
+    counter.style.display = 'block';
+    counter.style.width = `${counterWidth}px`;
+    counter.style.height = `${counterHeight}px`;
+    counter.style.filter = 'drop-shadow(0 2px 3px rgb(0 0 0 / 86%)) drop-shadow(0 0 1px rgb(255 255 255 / 24%))';
+    counter.style.pointerEvents = 'none';
+
+    const shape = document.createElement('img');
+    shape.src = '/assets/icons/gameplay/loyalty.svg';
+    shape.alt = '';
+    shape.draggable = false;
+    shape.style.position = 'absolute';
+    shape.style.inset = '0';
+    shape.style.width = '100%';
+    shape.style.height = '100%';
+    shape.style.pointerEvents = 'none';
+    shape.style.userSelect = 'none';
+    counter.appendChild(shape);
+
+    const value = document.createElement('span');
+    value.textContent = `${card.loyalty}`;
+    value.style.position = 'absolute';
+    value.style.top = '54%';
+    value.style.left = '50%';
+    value.style.display = 'grid';
+    value.style.width = `${Math.round(counterWidth * 0.6)}px`;
+    value.style.height = `${Math.round(counterHeight * 0.43)}px`;
+    value.style.placeItems = 'center';
+    value.style.transform = 'translate(-50%, -50%)';
+    value.style.color = '#fff';
+    value.style.fontFamily = 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+    value.style.fontFeatureSettings = '"lnum" 1, "tnum" 1';
+    value.style.fontSize = `${Math.max(10, Math.round(counterHeight * 0.35))}px`;
+    value.style.fontVariantNumeric = 'lining-nums tabular-nums';
+    value.style.fontWeight = '900';
+    value.style.letterSpacing = '0';
+    value.style.lineHeight = '1';
+    value.style.textAlign = 'center';
+    value.style.textShadow = '0 1px 0 rgb(0 0 0 / 95%), 0 0 3px rgb(255 255 255 / 24%)';
+    counter.appendChild(value);
+
+    preview.appendChild(counter);
   }
 
   private pointerOffsetForDragPreview(

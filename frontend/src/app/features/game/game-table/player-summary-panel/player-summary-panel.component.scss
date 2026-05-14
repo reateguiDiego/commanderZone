@@ -4,14 +4,14 @@
 
 .player-summary-panel {
   display: grid;
-  grid-template-columns: 4.1rem minmax(0, 1fr) auto;
+  grid-template-columns: 4.3rem minmax(12rem, 1fr) auto;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.9rem;
   width: 100%;
-  max-width: 500px;
+  max-width: 560px;
   min-width: 0;
   min-height: 0;
-  padding: 0.75rem;
+  padding: 0 0.75rem;
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -24,10 +24,13 @@
 }
 
 .player-copy {
+  display: grid;
+  align-content: center;
+  gap: 0;
   min-width: 0;
+  overflow: visible;
 }
 
-.player-copy app-player-name,
 .player-copy small {
   display: block;
   overflow: hidden;
@@ -36,7 +39,21 @@
 }
 
 .player-copy app-player-name {
-  max-width: 100%;
+  display: inline-grid;
+  width: min(100%, 22rem);
+  max-width: 22rem;
+  overflow: visible;
+}
+
+.player-copy small {
+  padding-left: 0.12rem;
+  color: var(--game-text-muted, #c8c0ad);
+  font-size: 0.88rem;
+  font-weight: 800;
+}
+
+.mana-row {
+  padding-left: 0.05rem;
 }
 
 .life-total {

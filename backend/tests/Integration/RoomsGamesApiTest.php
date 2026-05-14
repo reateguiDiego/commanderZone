@@ -1376,6 +1376,14 @@ class RoomsGamesApiTest extends ApiTestCase
             'set' => 'tst',
             'collector_number' => '4',
         ]);
+        $this->seedCard('55555555-5555-7555-8555-555555555555', 'Loyalty Adept', [
+            'type_line' => 'Legendary Planeswalker - Adept',
+            'color_identity' => ['G'],
+            'oracle_text' => '+1: Add one mana of any color.',
+            'loyalty' => '3',
+            'set' => 'tst',
+            'collector_number' => '5',
+        ]);
 
         $ownerToken = $this->registerAndLogin('owner@example.test', 'Owner');
         $playerToken = $this->registerAndLogin('player@example.test', 'Player');
@@ -1387,8 +1395,9 @@ class RoomsGamesApiTest extends ApiTestCase
 
         $ownerDeckId = $this->quickBuildDeck($ownerToken, 'Owner Deck', [
             ['scryfallId' => '44444444-4444-7444-8444-444444444444', 'quantity' => 1, 'section' => 'commander'],
-            ['scryfallId' => '11111111-1111-7111-8111-111111111111', 'quantity' => 98, 'section' => 'main'],
+            ['scryfallId' => '11111111-1111-7111-8111-111111111111', 'quantity' => 97, 'section' => 'main'],
             ['scryfallId' => '22222222-2222-7222-8222-222222222222', 'quantity' => 1, 'section' => 'main'],
+            ['scryfallId' => '55555555-5555-7555-8555-555555555555', 'quantity' => 1, 'section' => 'main'],
         ]);
         $playerDeckId = $this->quickBuildDeck($playerToken, 'Player Deck', [
             ['scryfallId' => '44444444-4444-7444-8444-444444444444', 'quantity' => 1, 'section' => 'commander'],
@@ -1444,9 +1453,22 @@ class RoomsGamesApiTest extends ApiTestCase
         $commanderInstance = $ownerSnapshot['players'][$ownerPlayerId]['zones']['command'][0];
         self::assertSame(2, $commanderInstance['power']);
         self::assertSame(3, $commanderInstance['toughness']);
+        self::assertSame(2, $commanderInstance['defaultPower']);
+        self::assertSame(3, $commanderInstance['defaultToughness']);
         self::assertSame('Rooted Ancient', $commanderInstance['cardFaces'][1]['name']);
         self::assertSame('5', $commanderInstance['cardFaces'][1]['power']);
         self::assertSame('7', $commanderInstance['cardFaces'][1]['toughness']);
+        $ownerVisibleMainCards = [
+            ...$ownerSnapshot['players'][$ownerPlayerId]['zones']['hand'],
+            ...$ownerSnapshot['players'][$ownerPlayerId]['zones']['library'],
+        ];
+        $planeswalkerInstance = array_values(array_filter(
+            $ownerVisibleMainCards,
+            static fn (array $card): bool => ($card['name'] ?? null) === 'Loyalty Adept',
+        ))[0] ?? null;
+        self::assertIsArray($planeswalkerInstance);
+        self::assertSame(3, $planeswalkerInstance['loyalty']);
+        self::assertSame(3, $planeswalkerInstance['defaultLoyalty']);
 
         $activePlayerId = (string) $ownerSnapshot['turn']['activePlayerId'];
         $nonActiveToken = $activePlayerId === $ownerPlayerId ? $playerToken : $ownerToken;

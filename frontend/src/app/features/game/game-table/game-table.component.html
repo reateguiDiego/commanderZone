@@ -176,6 +176,7 @@
             [isCardDropSettling]="isCardDropSettling"
             [isManaDropSettling]="isManaDropSettling"
             [isBattlefieldEntrySettling]="isBattlefieldEntrySettling"
+            [isCommanderEntrySettling]="isCommanderEntrySettling"
             [isCardTransferPending]="isCardTransferPending"
             (battlefieldDragOver)="store.allowDrop($event)"
             (battlefieldDropped)="store.dropOnZone($event.event, $event.playerId, $event.zone)"
@@ -188,6 +189,7 @@
             (cardPreviewHidden)="store.hideCardPreview()"
             (cardPowerChanged)="store.changeCardPower($event.playerId, $event.zone, $event.card, $event.delta)"
             (cardToughnessChanged)="store.changeCardToughness($event.playerId, $event.zone, $event.card, $event.delta)"
+            (cardLoyaltyChanged)="store.changeCardLoyalty($event.playerId, $event.zone, $event.card, $event.delta)"
             (manaLaneDragOver)="store.allowDrop($event)"
             (manaLaneDropped)="store.dropOnManaLane($event.event, $event.playerId)"
             (battlefieldSizeChanged)="updateBattlefieldLayoutSize($event)"
@@ -266,6 +268,7 @@
                 [isCardDropSettling]="isCardDropSettling"
                 [isManaDropSettling]="isManaDropSettling"
                 [isBattlefieldEntrySettling]="isBattlefieldEntrySettling"
+                [isCommanderEntrySettling]="isCommanderEntrySettling"
                 [isCardTransferPending]="isCardTransferPending"
                 [battlefieldSize]="battlefieldLayoutSize()"
                 (focusPlayer)="store.focusPlayer($event)"
@@ -417,6 +420,8 @@
               <span>{{ cardPowerValue(preview.card) }}</span>
               <span>{{ cardToughnessValue(preview.card) }}</span>
             </span>
+          } @else if (preview.card.loyalty !== null && preview.card.loyalty !== undefined) {
+            <app-loyalty-counter [value]="preview.card.loyalty" [pulse]="null" [entrySettling]="false" />
           }
         </div>
       }

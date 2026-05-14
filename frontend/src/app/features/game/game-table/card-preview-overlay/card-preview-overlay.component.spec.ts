@@ -41,6 +41,21 @@ describe('CardPreviewOverlayComponent', () => {
 
     expect(fixture.componentInstance.previewStyle().top).toBeLessThan(395);
   });
+
+  it('prefers a clamped above position when below would not fit', async () => {
+    const fixture = await renderPreview({
+      sourceRect: {
+        left: 650,
+        top: 210,
+        right: 760,
+        bottom: 470,
+        width: 110,
+        height: 260,
+      },
+    });
+
+    expect(fixture.componentInstance.previewStyle().top).toBeLessThan(210);
+  });
 });
 
 async function renderPreview(options: {

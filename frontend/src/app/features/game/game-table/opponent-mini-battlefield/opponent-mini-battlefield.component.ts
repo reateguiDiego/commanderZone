@@ -12,7 +12,7 @@ import {
 } from '@angular/core';
 import { GameCardInstance, GameZoneName } from '../../../../core/models/game.model';
 import { GameCardViewComponent } from '../game-card-view/game-card-view.component';
-import { CardPreviewEvent } from '../card-preview.model';
+import { CardPreviewEvent, CardPreviewSourceRect } from '../card-preview.model';
 import {
   MiniBattlefieldCardLayout,
   MiniBattlefieldSize,
@@ -28,6 +28,7 @@ import {
 })
 export class OpponentMiniBattlefieldComponent implements AfterViewInit, OnDestroy {
   private resizeObserver: ResizeObserver | null = null;
+  private activePreviewInstanceId: string | null = null;
 
   @ViewChild('viewport', { static: true }) private readonly viewport?: ElementRef<HTMLElement>;
 
@@ -40,6 +41,7 @@ export class OpponentMiniBattlefieldComponent implements AfterViewInit, OnDestro
   readonly isCardDropSettling = input<(playerId: string, zone: GameZoneName, card: GameCardInstance) => boolean>(() => false);
   readonly isManaDropSettling = input<(playerId: string, card: GameCardInstance) => boolean>(() => false);
   readonly isBattlefieldEntrySettling = input<(playerId: string, card: GameCardInstance) => boolean>(() => false);
+  readonly isCommanderEntrySettling = input<(playerId: string, card: GameCardInstance) => boolean>(() => false);
   readonly isCardTransferPending = input<(playerId: string, zone: GameZoneName, card: GameCardInstance) => boolean>(() => false);
 
   readonly cardPreviewShown = output<CardPreviewEvent>();
@@ -94,6 +96,30 @@ export class OpponentMiniBattlefieldComponent implements AfterViewInit, OnDestro
     this.cardPreviewShown.emit({ ...event, playerId: this.playerId(), zone: 'battlefield' });
   }
 
+  handlePointerMove(event: PointerEvent): void {
+    const target = this.cardAtPoint(event);
+    if (!target) {
+      this.clearActivePreview();
+      return;
+    }
+
+    if (target.card.instanceId === this.activePreviewInstanceId) {
+      return;
+    }
+
+    this.activePreviewInstanceId = target.card.instanceId;
+    this.cardPreviewShown.emit({
+      card: target.card,
+      playerId: this.playerId(),
+      zone: 'battlefield',
+      sourceRect: target.sourceRect,
+    });
+  }
+
+  handlePointerLeave(): void {
+    this.clearActivePreview();
+  }
+
   private updateViewportSize(size: Pick<DOMRectReadOnly, 'width' | 'height'>): void {
     const width = Math.round(size.width);
     const height = Math.round(size.height);
@@ -103,5 +129,61 @@ export class OpponentMiniBattlefieldComponent implements AfterViewInit, OnDestro
     }
 
     this.viewportSize.set({ width, height });
+  }
+
+  private clearActivePreview(): void {
+    if (this.activePreviewInstanceId === null) {
+      return;
+    }
+
+    this.activePreviewInstanceId = null;
+    this.cardPreviewHidden.emit();
+  }
+
+  private cardAtPoint(event: PointerEvent): { card: GameCardInstance; sourceRect: CardPreviewSourceRect } | null {
+    const viewport = this.viewport?.nativeElement;
+    if (!viewport) {
+      return null;
+    }
+
+    const viewportRect = viewport.getBoundingClientRect();
+    const x = event.clientX - viewportRect.left;
+    const y = event.clientY - viewportRect.top;
+    const cardsById = new Map(this.cards().map((card) => [card.instanceId, card]));
+    const candidates = this.cardLayouts()
+      .filter((layout) => x >= layout.left && x <= layout.left + layout.width && y >= layout.top && y <= layout.top + layout.height)
+      .map((layout) => ({
+        layout,
+        card: cardsById.get(layout.instanceId),
+        distance: Math.hypot(x - (layout.left + layout.width / 2), y - (layout.top + layout.height / 2)),
+      }))
+      .filter((candidate): candidate is { layout: MiniBattlefieldCardLayout; card: GameCardInstance; distance: number } =>
+        Boolean(candidate.card)
+      )
+      .sort((left, right) => left.distance - right.distance);
+
+    const target = candidates[0];
+    if (!target) {
+      return null;
+    }
+
+    return {
+      card: target.card,
+      sourceRect: this.sourceRectFromLayout(viewportRect, target.layout),
+    };
+  }
+
+  private sourceRectFromLayout(viewportRect: DOMRect, layout: MiniBattlefieldCardLayout): CardPreviewSourceRect {
+    const left = viewportRect.left + layout.left;
+    const top = viewportRect.top + layout.top;
+
+    return {
+      left,
+      top,
+      right: left + layout.width,
+      bottom: top + layout.height,
+      width: layout.width,
+      height: layout.height,
+    };
   }
 }

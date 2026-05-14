@@ -1,13 +1,15 @@
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { GamesApi } from '../../../../core/api/games.api';
-import { GameCardInstance, GameZoneName } from '../../../../core/models/game.model';
+import { GameCardInstance, GameSnapshot, GameZoneName } from '../../../../core/models/game.model';
 import { GameTableZoneModalState, ZoneModalState } from '../state/game-table-zone-modal.state';
 
 export interface GameTableZoneActionContext {
   gameId(): string;
+  snapshot(): GameSnapshot | null;
   playerName(playerId: string): string;
   zoneTitle(zone: GameZoneName): string;
+  setError(message: string): void;
 }
 
 @Injectable()
@@ -16,6 +18,11 @@ export class GameTableZoneActionsService {
   private readonly zoneModalState = inject(GameTableZoneModalState);
 
   async openZone(context: GameTableZoneActionContext, playerId: string, zone: GameZoneName): Promise<void> {
+    if (this.shouldBlockEmptyZone(context.snapshot(), playerId, zone)) {
+      context.setError(`No cards in ${context.zoneTitle(zone).toLowerCase()}.`);
+      return;
+    }
+
     this.zoneModalState.open(playerId, zone, `${context.playerName(playerId)} ${context.zoneTitle(zone)}`);
     await this.loadZone(context);
   }
@@ -47,5 +54,17 @@ export class GameTableZoneActionsService {
 
   closeZoneModal(): void {
     this.zoneModalState.close();
+  }
+
+  private shouldBlockEmptyZone(snapshot: GameSnapshot | null, playerId: string, zone: GameZoneName): boolean {
+    if (zone !== 'graveyard' && zone !== 'exile') {
+      return false;
+    }
+
+    const count = snapshot?.players[playerId]?.zoneCounts?.[zone]
+      ?? snapshot?.players[playerId]?.zones[zone]?.length
+      ?? 0;
+
+    return count < 1;
   }
 }

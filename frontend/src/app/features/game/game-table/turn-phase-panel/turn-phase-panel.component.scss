@@ -77,11 +77,14 @@
 }
 
 .phase-tracker button {
+  --phase-rail-size: 1.45rem;
   --phase-node-size: 1.45rem;
   --phase-node-border: 2px;
 
   position: relative;
   display: grid;
+  grid-template-rows: var(--phase-rail-size) auto;
+  align-items: center;
   justify-items: center;
   min-width: 0;
   padding: 0;
@@ -96,7 +99,7 @@
 .phase-tracker button::after {
   position: absolute;
   z-index: 0;
-  top: calc(var(--phase-node-size) / 2);
+  top: calc(var(--phase-rail-size) / 2);
   left: 50%;
   width: calc(100% + 0.15rem);
   height: 2px;
@@ -113,6 +116,7 @@
   position: relative;
   z-index: 1;
   display: grid;
+  align-self: center;
   width: var(--phase-node-size);
   height: var(--phase-node-size);
   place-items: center;

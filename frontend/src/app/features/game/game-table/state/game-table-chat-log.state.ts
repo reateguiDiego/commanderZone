@@ -12,6 +12,10 @@ type CommanderCastCounterLog = CommanderCastCounterChange | { to: number };
 
 export interface GameLogEntryView extends GameLogEntry {
   card: GameCardInstance | null;
+  cardList: readonly string[];
+  cardListPrefix: string;
+  cardListSuffix: string;
+  cardListLabel: string;
   messagePrefix: string;
   messageSuffix: string;
   appearance: 'default' | 'phase';
@@ -47,9 +51,34 @@ export class GameTableChatLogState {
   }
 
   private toLogEntryView(snapshot: GameSnapshot | null, zones: readonly GameZoneName[], entry: GameLogEntry): GameLogEntryView {
+    const cardListView = this.cardListView(entry);
+    if (cardListView) {
+      return {
+        ...entry,
+        card: null,
+        cardList: cardListView.cardList,
+        cardListPrefix: cardListView.messagePrefix,
+        cardListSuffix: cardListView.messageSuffix,
+        cardListLabel: cardListView.label,
+        messagePrefix: entry.message,
+        messageSuffix: '',
+        appearance: this.logAppearance(entry),
+      };
+    }
+
     const card = this.cardFromLogEntry(snapshot, zones, entry);
     if (!card) {
-      return { ...entry, card: null, messagePrefix: entry.message, messageSuffix: '', appearance: this.logAppearance(entry) };
+      return {
+        ...entry,
+        card: null,
+        cardList: [],
+        cardListPrefix: '',
+        cardListSuffix: '',
+        cardListLabel: '',
+        messagePrefix: entry.message,
+        messageSuffix: '',
+        appearance: this.logAppearance(entry),
+      };
     }
 
     const index = entry.message.indexOf(card.name);
@@ -57,6 +86,10 @@ export class GameTableChatLogState {
     return {
       ...entry,
       card,
+      cardList: [],
+      cardListPrefix: '',
+      cardListSuffix: '',
+      cardListLabel: '',
       messagePrefix: index >= 0 ? entry.message.slice(0, index) : entry.message,
       messageSuffix: index >= 0 ? entry.message.slice(index + card.name.length) : '',
       appearance: this.logAppearance(entry),
@@ -75,6 +108,30 @@ export class GameTableChatLogState {
     return this.allCards(snapshot, zones)
       .filter((card) => !card.hidden && card.name.length > 2 && entry.message.includes(card.name))
       .sort((left, right) => right.name.length - left.name.length)[0] ?? null;
+  }
+
+  private cardListView(entry: GameLogEntry): {
+    cardList: readonly string[];
+    label: string;
+    messagePrefix: string;
+    messageSuffix: string;
+  } | null {
+    const cardList = entry.cardNames?.filter((name) => name.trim() !== '') ?? [];
+    if (cardList.length < 2) {
+      return null;
+    }
+
+    const labelMatch = /(\d+ cards)/.exec(entry.message);
+    if (!labelMatch || labelMatch.index === undefined) {
+      return null;
+    }
+
+    return {
+      cardList,
+      label: labelMatch[1],
+      messagePrefix: entry.message.slice(0, labelMatch.index),
+      messageSuffix: entry.message.slice(labelMatch.index + labelMatch[1].length),
+    };
   }
 
   private allCards(snapshot: GameSnapshot | null, zones: readonly GameZoneName[]): GameCardInstance[] {
@@ -118,6 +175,7 @@ export class GameTableChatLogState {
     return this.mergeDraw(previous, current)
       ?? this.mergeLife(previous, current)
       ?? this.mergeCommanderCastCounter(previous, current)
+      ?? this.mergeLoyalty(previous, current)
       ?? this.mergePowerToughness(previous, current)
       ?? this.mergeTapped(previous, current);
   }
@@ -358,6 +416,46 @@ export class GameTableChatLogState {
       ...current,
       message: `Changed ${currentMatch[1]} from ${previousMatch[2]}/${previousMatch[3]} to ${currentMatch[4]}/${currentMatch[5]}.`,
     };
+  }
+
+  private mergeLoyalty(previous: GameLogEntry, current: GameLogEntry): GameLogEntry | null {
+    const previousLoyalty = this.loyaltyChange(previous.message);
+    const currentLoyalty = this.loyaltyChange(current.message);
+    if (!previousLoyalty || !currentLoyalty || previousLoyalty.cardName !== currentLoyalty.cardName) {
+      return null;
+    }
+
+    const previousDirection = Math.sign(previousLoyalty.to - previousLoyalty.from);
+    const currentDirection = Math.sign(currentLoyalty.to - previousLoyalty.to);
+    if (currentDirection === 0 || (previousDirection !== 0 && previousDirection !== currentDirection)) {
+      return null;
+    }
+
+    return {
+      ...current,
+      message: this.loyaltyChangeMessage(currentLoyalty.cardName, previousLoyalty.from, currentLoyalty.to),
+    };
+  }
+
+  private loyaltyChange(message: string): { cardName: string; from: number; to: number } | null {
+    const match = /^(.+) loyalty (?:increased|decreased) from (-?\d+|\?) to (-?\d+|\?) \([+-]?\d+\)\.$/.exec(message);
+    if (!match || match[2] === '?' || match[3] === '?') {
+      return null;
+    }
+
+    return {
+      cardName: match[1],
+      from: Number(match[2]),
+      to: Number(match[3]),
+    };
+  }
+
+  private loyaltyChangeMessage(cardName: string, from: number, to: number): string {
+    const delta = to - from;
+    const direction = delta >= 0 ? 'increased' : 'decreased';
+    const signedDelta = delta > 0 ? `+${delta}` : `${delta}`;
+
+    return `${cardName} loyalty ${direction} from ${from} to ${to} (${signedDelta}).`;
   }
 
   private mergeTapped(previous: GameLogEntry, current: GameLogEntry): GameLogEntry | null {

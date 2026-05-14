@@ -32,6 +32,7 @@
     [isCardDropSettling]="isCardDropSettling()"
     [isManaDropSettling]="isManaDropSettling()"
     [isBattlefieldEntrySettling]="isBattlefieldEntrySettling()"
+    [isCommanderEntrySettling]="isCommanderEntrySettling()"
     [isCardTransferPending]="isCardTransferPending()"
     (cardPreviewShown)="cardPreviewShown.emit($event)"
     (cardPreviewHidden)="cardPreviewHidden.emit()"
@@ -57,11 +58,13 @@
             <lucide-icon name="library" size="20" aria-hidden="true" />
           }
           @case ('grave') {
-            <svg class="opponent-zone-icon grave-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-              <path class="grave-body" d="M6.4 20.2v-9.3a5.6 5.6 0 0 1 11.2 0v9.3H6.4Z" />
-              <path class="grave-base" d="M4.7 20.2h14.6" />
-              <path class="grave-cross" d="M12 8.7v6.8M9.2 11.5h5.6" />
-            </svg>
+            <img
+              class="opponent-zone-icon opponent-graveyard-icon"
+              src="/assets/icons/gameplay/graveyard.svg"
+              alt=""
+              aria-hidden="true"
+              draggable="false"
+            />
           }
           @default {
             <lucide-icon name="ban" size="20" aria-hidden="true" />

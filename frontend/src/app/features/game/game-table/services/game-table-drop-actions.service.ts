@@ -134,6 +134,7 @@ export class GameTableDropActionsService {
     }
 
     if (toZone === 'library') {
+      this.notifyBorrowedCardsReturnToOwner(context, dragged.playerId, toZone, movedCards);
       context.markPendingTransfer(dragged.playerId, dragged.zone, instanceIds, { expires: false });
       context.setPendingLibraryMove({
         cardName: isMultiMove ? `${movedCards.length} cards` : movedCards[0]!.name,
@@ -146,6 +147,7 @@ export class GameTableDropActionsService {
       return;
     }
 
+    this.notifyBorrowedCardsReturnToOwner(context, dragged.playerId, toZone, movedCards);
     await context.command(isMultiMove ? 'cards.moved' : 'card.moved', payload);
     await context.recordCommanderCastIfNeeded(dragged.playerId, dragged.zone, toZone, targetPlayerId);
     this.endCompletedDrag(context);
@@ -188,10 +190,12 @@ export class GameTableDropActionsService {
 
     const instanceIds = movedCards.map((card) => card.instanceId);
     const isMultiMove = instanceIds.length > 1;
+    const handDestinationPlayerId = this.destinationPlayerIdForMove(dragged.playerId, dragged.zone, 'hand', movedCards, targetPlayerId);
     if (dragged.zone !== 'hand') {
       context.markPendingTransfer(dragged.playerId, dragged.zone, instanceIds);
     }
 
+    this.notifyBorrowedCardsReturnToOwner(context, dragged.playerId, 'hand', movedCards);
     await context.command(isMultiMove ? 'cards.moved' : 'card.moved', {
       playerId: dragged.playerId,
       fromZone: dragged.zone,
@@ -199,9 +203,11 @@ export class GameTableDropActionsService {
       targetPlayerId,
       ...(isMultiMove ? { instanceIds } : { instanceId: dragged.instanceId }),
     });
-    if (preview && dragged.playerId === targetPlayerId) {
+    if (preview && dragged.playerId === targetPlayerId && handDestinationPlayerId === targetPlayerId) {
       const movedInHand = this.sourceCards(context, targetPlayerId, 'hand', instanceIds);
-      await this.placeCardsInHand(context, targetPlayerId, movedInHand ?? movedCards, preview.targetInstanceId, preview.placement);
+      if (movedInHand) {
+        await this.placeCardsInHand(context, targetPlayerId, movedInHand, preview.targetInstanceId, preview.placement);
+      }
     }
     await context.recordCommanderCastIfNeeded(dragged.playerId, dragged.zone, 'hand', targetPlayerId);
     context.endCardDrag();
@@ -424,6 +430,46 @@ export class GameTableDropActionsService {
   private isGameZone(value: unknown): value is GameZoneName {
     return typeof value === 'string'
       && ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command'].includes(value);
+  }
+
+  private destinationPlayerIdForMove(
+    sourcePlayerId: string,
+    fromZone: GameZoneName,
+    toZone: GameZoneName,
+    movedCards: readonly GameCardInstance[],
+    requestedTargetPlayerId: string,
+  ): string | null {
+    if (fromZone !== 'battlefield' || toZone === 'battlefield') {
+      return requestedTargetPlayerId;
+    }
+
+    const ownerIds = new Set(movedCards.map((card) => card.ownerId ?? sourcePlayerId));
+
+    return ownerIds.size === 1 ? [...ownerIds][0]! : null;
+  }
+
+  private notifyBorrowedCardsReturnToOwner(
+    context: Pick<GameTableDropActionContext, 'playerName' | 'setError'>,
+    controllerId: string,
+    toZone: GameZoneName,
+    movedCards: readonly GameCardInstance[],
+  ): void {
+    if (toZone === 'battlefield') {
+      return;
+    }
+
+    const ownerIds = [...new Set(
+      movedCards
+        .map((card) => card.ownerId)
+        .filter((ownerId): ownerId is string => Boolean(ownerId) && ownerId !== controllerId),
+    )];
+    if (ownerIds.length === 0) {
+      return;
+    }
+
+    const ownerLabel = ownerIds.length === 1 ? context.playerName(ownerIds[0]!) : 'their deck owners';
+    const cardLabel = movedCards.length === 1 ? 'This borrowed card' : 'Borrowed cards';
+    context.setError(`${cardLabel} will return to ${ownerLabel}'s ${toZone}.`);
   }
 
   private rawDropZone(event: DragEvent): string | undefined {

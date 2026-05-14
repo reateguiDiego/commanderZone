@@ -3,6 +3,8 @@
   class="mini-battlefield"
   data-testid="opponent-mini-battlefield"
   [style.--mini-battlefield-background]="backgroundImageCss()"
+  (pointermove)="handlePointerMove($event)"
+  (pointerleave)="handlePointerLeave()"
 >
   @for (card of cards(); track card.instanceId; let cardIndex = $index) {
     @if (cardLayout(card); as layout) {
@@ -21,9 +23,8 @@
         [dropSettling]="isCardDropSettling()(playerId(), 'battlefield', card)"
         [manaDropSettling]="isManaDropSettling()(playerId(), card)"
         [statDropSettling]="isBattlefieldEntrySettling()(playerId(), card)"
+        [commanderEntrySettling]="isCommanderEntrySettling()(playerId(), card)"
         [visible]="!isCardTransferPending()(playerId(), 'battlefield', card)"
-        (cardMouseEntered)="showCardPreview($event)"
-        (cardMouseLeft)="cardPreviewHidden.emit()"
       />
     }
   } @empty {

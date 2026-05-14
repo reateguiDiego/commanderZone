@@ -158,45 +158,19 @@
   transform: scale(1.28);
 }
 
-.hand-fan-icon rect,
-.grave-icon .grave-body {
-  fill: color-mix(in srgb, var(--gold) 22%, rgb(10 10 9 / 76%));
-  stroke: currentColor;
-  stroke-linejoin: round;
-  stroke-width: 1.05;
-  vector-effect: non-scaling-stroke;
-}
-
-.hand-fan-icon rect {
-  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 34%));
-}
-
-.hand-fan-icon rect:nth-child(4) {
-  fill: color-mix(in srgb, var(--gold) 34%, rgb(10 10 9 / 70%));
-}
-
-.grave-base,
-.grave-cross {
-  fill: none;
-  stroke: currentColor;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 1.15;
-  vector-effect: non-scaling-stroke;
-}
-
-.grave-body {
-  filter: drop-shadow(0 1.2px 1.4px rgb(0 0 0 / 38%));
-}
-
-.grave-base {
-  stroke-width: 1.6;
+.opponent-graveyard-icon {
+  object-fit: contain;
+  filter:
+    drop-shadow(0 1px 1px rgb(0 0 0 / 48%))
+    drop-shadow(0 0 2px rgb(215 180 106 / 18%));
+  transform: scale(1.18);
 }
 
 .opponent-zone-count strong {
   color: var(--gold);
   font-size: 1.18rem;
   font-weight: 900;
+  transform: translateY(-0.08rem);
 }
 
 @media (max-width: 760px) {

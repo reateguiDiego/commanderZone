@@ -12,8 +12,12 @@
       data-testid="focused-player-name"
       [displayName]="currentPlayer.state.user.displayName"
       [nameStyle]="currentPlayer.state.user.displayNameStyle"
-      size="xl"
-      plateSize="lg"
+      size="lg"
+      plateSize="md"
+      plateWidth="100%"
+      plateHeight="3.35rem"
+      plateLabelWidth="calc(100% - 4rem)"
+      [fill]="true"
     />
     @if (deckLabel()(currentPlayer); as label) {
       <small>{{ label }}</small>

@@ -6,28 +6,30 @@
       <span data-testid="turn-number">Turn {{ currentTurn.number }}</span>
       <strong data-testid="turn-active-player">{{ activePlayerName() }}</strong>
     </div>
-    <div class="turn-actions">
-      <button
-        type="button"
-        class="turn-action-button pass-turn-button"
-        data-testid="pass-turn"
-        [disabled]="!canAdvance()"
-        [title]="canAdvance() ? 'Pass turn' : 'Only the active turn player can pass the turn'"
-        (click)="passTurn.emit()"
-      >
-        <span>Pasar turno</span>
-      </button>
-      <button
-        type="button"
-        class="turn-action-button advance-phase-button"
-        data-testid="advance-phase"
-        [disabled]="!canAdvance()"
-        [title]="canAdvance() ? 'Advance phase' : 'Only the active turn player can advance'"
-        (click)="advancePhase.emit()"
-      >
-        <span data-testid="end-step">Avanzar</span>
-      </button>
-    </div>
+    @if (isCurrentTurnPlayer()) {
+      <div class="turn-actions">
+        <button
+          type="button"
+          class="turn-action-button pass-turn-button"
+          data-testid="pass-turn"
+          [disabled]="pending()"
+          [title]="pending() ? 'Applying action' : 'Pass turn'"
+          (click)="passTurn.emit()"
+        >
+          <span>Pasar turno</span>
+        </button>
+        <button
+          type="button"
+          class="turn-action-button advance-phase-button"
+          data-testid="advance-phase"
+          [disabled]="pending()"
+          [title]="pending() ? 'Applying action' : 'Advance to ' + nextPhaseLabel()"
+          (click)="advancePhase.emit()"
+        >
+          <span data-testid="end-step">{{ nextPhaseLabel() }}</span>
+        </button>
+      </div>
+    }
   </div>
   <div class="phase-tracker" aria-label="Turn phases">
     <span class="sr-only" data-testid="active-phase">{{ currentTurn.phase }}</span>

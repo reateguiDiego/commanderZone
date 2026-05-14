@@ -2326,6 +2326,9 @@ components:
         toughness:
           type: [string, 'null']
           description: Printed toughness from Scryfall. Kept as string because values can be non-numeric.
+        loyalty:
+          type: [string, 'null']
+          description: Printed loyalty from Scryfall. Kept as string because values can be non-numeric.
         colors:
           type: array
           items:
@@ -3535,9 +3538,11 @@ components:
         ownerId:
           type: [string, 'null']
           format: uuid
+          description: Immutable player id of the deck this card instance belongs to.
         controllerId:
           type: [string, 'null']
           format: uuid
+          description: Player id currently controlling the card while it is on the battlefield.
         scryfallId:
           type: [string, 'null']
           format: uuid
@@ -3566,6 +3571,15 @@ components:
           type: [integer, 'null']
         loyalty:
           type: [integer, 'null']
+        defaultPower:
+          type: [integer, 'null']
+          description: Printed/default power used to reset battlefield stat changes.
+        defaultToughness:
+          type: [integer, 'null']
+          description: Printed/default toughness used to reset battlefield stat changes.
+        defaultLoyalty:
+          type: [integer, 'null']
+          description: Printed/default loyalty used to reset battlefield loyalty changes.
         tapped:
           type: boolean
         faceDown:
@@ -3646,6 +3660,11 @@ components:
         createdAt:
           type: string
           format: date-time
+        cardNames:
+          type: array
+          items:
+            type: string
+          description: Card names included in aggregate card movement log entries.
     GameLogEntry:
       type: object
       required: [id, type, message, actorId, displayName, createdAt]

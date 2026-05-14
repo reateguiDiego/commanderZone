@@ -17,17 +17,22 @@ export class GameTableDropFeedbackState implements OnDestroy {
   private previousCards = new Map<string, IndexedCard>();
   private readonly timers = new Map<string, number>();
   private readonly pendingManaDrops = new Set<string>();
+  private readonly pendingBattlefieldEntries = new Set<string>();
+  private readonly pendingCommanderBattlefieldEntries = new Set<string>();
 
   private readonly activeCardKeys = signal<ReadonlySet<string>>(new Set());
   private readonly activeManaKeys = signal<ReadonlySet<string>>(new Set());
   private readonly activeZoneKeys = signal<ReadonlySet<string>>(new Set());
   private readonly activeBattlefieldEntryKeys = signal<ReadonlySet<string>>(new Set());
+  private readonly activeCommanderEntryKeys = signal<ReadonlySet<string>>(new Set());
 
   trackSnapshot(snapshot: GameSnapshot | null): void {
     if (!snapshot) {
       this.previousVersion = null;
       this.previousCards = new Map();
       this.pendingManaDrops.clear();
+      this.pendingBattlefieldEntries.clear();
+      this.pendingCommanderBattlefieldEntries.clear();
       this.clearAllFeedback();
       return;
     }
@@ -40,6 +45,7 @@ export class GameTableDropFeedbackState implements OnDestroy {
     }
 
     if (snapshot.version === this.previousVersion) {
+      this.activatePendingBattlefieldEntries(nextCards);
       this.previousCards = nextCards;
       return;
     }
@@ -55,6 +61,23 @@ export class GameTableDropFeedbackState implements OnDestroy {
     }
   }
 
+  markPendingBattlefieldEntry(playerId: string, instanceIds: readonly string[]): void {
+    for (const instanceId of instanceIds) {
+      this.pendingBattlefieldEntries.add(this.manaKey(playerId, instanceId));
+    }
+  }
+
+  markPendingCommanderBattlefieldEntry(playerId: string, instanceIds: readonly string[]): void {
+    for (const instanceId of instanceIds) {
+      this.pendingCommanderBattlefieldEntries.add(this.manaKey(playerId, instanceId));
+    }
+  }
+
+  clearPendingBattlefieldEntries(): void {
+    this.pendingBattlefieldEntries.clear();
+    this.pendingCommanderBattlefieldEntries.clear();
+  }
+
   isCardDropSettling(playerId: string, zone: GameZoneName, instanceId: string): boolean {
     return this.activeCardKeys().has(this.cardKey(playerId, zone, instanceId));
   }
@@ -65,6 +88,10 @@ export class GameTableDropFeedbackState implements OnDestroy {
 
   isBattlefieldEntrySettling(playerId: string, instanceId: string): boolean {
     return this.activeBattlefieldEntryKeys().has(this.manaKey(playerId, instanceId));
+  }
+
+  isCommanderEntrySettling(playerId: string, instanceId: string): boolean {
+    return this.activeCommanderEntryKeys().has(this.manaKey(playerId, instanceId));
   }
 
   isZoneDropSettling(playerId: string, zone: GameZoneName): boolean {
@@ -83,6 +110,7 @@ export class GameTableDropFeedbackState implements OnDestroy {
     const consumedManaDrops = new Set<string>();
 
     for (const [key, nextCard] of nextCards) {
+      this.activatePendingBattlefieldEntry(nextCard);
       const previousCard = previousCards.get(key);
       if (!previousCard) {
         this.activateEnteredCard(nextCard);
@@ -140,11 +168,52 @@ export class GameTableDropFeedbackState implements OnDestroy {
       return;
     }
 
+    this.activateBattlefieldEntry(card, previousCard.zone === 'command');
+  }
+
+  private activatePendingBattlefieldEntries(cards: ReadonlyMap<string, IndexedCard>): void {
+    if (this.pendingBattlefieldEntries.size === 0) {
+      return;
+    }
+
+    for (const card of cards.values()) {
+      this.activatePendingBattlefieldEntry(card);
+    }
+  }
+
+  private activatePendingBattlefieldEntry(card: IndexedCard): void {
+    if (card.zone !== 'battlefield') {
+      return;
+    }
+
+    const key = this.manaKey(card.playerId, card.instanceId);
+    if (!this.pendingBattlefieldEntries.has(key)) {
+      return;
+    }
+
+    this.pendingBattlefieldEntries.delete(key);
+    this.activateCard(card);
+    this.activateBattlefieldEntry(card, this.pendingCommanderBattlefieldEntries.delete(key));
+  }
+
+  private activateBattlefieldEntry(card: IndexedCard, commanderEntry: boolean): void {
+    const key = this.manaKey(card.playerId, card.instanceId);
     this.activateKey(
       this.activeBattlefieldEntryKeys,
-      this.manaKey(card.playerId, card.instanceId),
+      key,
       'battlefield-entry',
       this.battlefieldEntryFeedbackDurationMs,
+    );
+
+    if (!commanderEntry) {
+      return;
+    }
+
+    this.activateKey(
+      this.activeCommanderEntryKeys,
+      key,
+      'commander-entry',
+      1600,
     );
   }
 
@@ -155,7 +224,7 @@ export class GameTableDropFeedbackState implements OnDestroy {
   private activateKey(
     target: typeof this.activeCardKeys,
     key: string,
-    timerPrefix: 'card' | 'mana' | 'zone' | 'battlefield-entry',
+    timerPrefix: 'card' | 'mana' | 'zone' | 'battlefield-entry' | 'commander-entry',
     durationMs = this.feedbackDurationMs,
   ): void {
     target.update((keys) => {
@@ -194,6 +263,10 @@ export class GameTableDropFeedbackState implements OnDestroy {
     this.activeManaKeys.set(new Set());
     this.activeZoneKeys.set(new Set());
     this.activeBattlefieldEntryKeys.set(new Set());
+    this.activeCommanderEntryKeys.set(new Set());
+    this.pendingManaDrops.clear();
+    this.pendingBattlefieldEntries.clear();
+    this.pendingCommanderBattlefieldEntries.clear();
   }
 
   private indexSnapshot(snapshot: GameSnapshot): Map<string, IndexedCard> {

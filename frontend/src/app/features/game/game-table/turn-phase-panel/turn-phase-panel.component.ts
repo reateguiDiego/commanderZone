@@ -28,7 +28,30 @@ export class TurnPhasePanelComponent {
     return this.players().find((player) => player.id === turn.activePlayerId)?.state.user.displayName ?? 'Unknown player';
   }
 
+  isCurrentTurnPlayer(): boolean {
+    const currentPlayerId = this.currentPlayerId();
+
+    return currentPlayerId !== null && currentPlayerId === this.turn().activePlayerId;
+  }
+
+  nextPhaseLabel(): string {
+    const phases = this.phases();
+    const currentPhaseIndex = phases.indexOf(this.turn().phase);
+    const nextPhase = currentPhaseIndex >= 0 && currentPhaseIndex < phases.length - 1
+      ? phases[currentPhaseIndex + 1]
+      : phases[0];
+
+    return this.phaseLabel(nextPhase ?? 'untap');
+  }
+
   isCompactPhase(phase: string): boolean {
     return phase === 'untap' || phase === 'upkeep' || phase === 'draw' || phase === 'end';
+  }
+
+  private phaseLabel(phase: string): string {
+    return phase
+      .split('-')
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join('-');
   }
 }

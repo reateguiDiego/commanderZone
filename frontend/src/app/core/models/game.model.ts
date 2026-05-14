@@ -49,6 +49,9 @@ export interface GameCardInstance {
   power?: number | null;
   toughness?: number | null;
   loyalty?: number | null;
+  defaultPower?: number | null;
+  defaultToughness?: number | null;
+  defaultLoyalty?: number | null;
   tapped: boolean;
   faceDown?: boolean;
   hidden?: boolean;
@@ -100,6 +103,7 @@ export interface GameLogEntry {
   actorId: string | null;
   displayName: string | null;
   createdAt: string;
+  cardNames?: string[];
 }
 
 export interface GameStackItem {

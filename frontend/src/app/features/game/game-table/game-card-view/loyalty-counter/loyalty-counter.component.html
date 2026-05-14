@@ -1,0 +1,18 @@
+<span
+  class="loyalty-counter"
+  role="button"
+  tabindex="0"
+  title="Loyalty. Left click adds, right click removes."
+  aria-label="Loyalty"
+  [class.stat-pulse-increase]="pulse() === 'increase'"
+  [class.stat-pulse-decrease]="pulse() === 'decrease'"
+  [class.entry-settling]="entrySettling()"
+  (pointerdown)="stopPointer($event)"
+  (pointerup)="changeLoyaltyFromPointer($event)"
+  (dblclick)="stopDoubleClick($event)"
+  (click)="stopClick($event)"
+  (contextmenu)="stopContextMenu($event)"
+>
+  <img class="loyalty-counter-shape" src="/assets/icons/gameplay/loyalty.svg" alt="" aria-hidden="true" />
+  <span class="loyalty-counter-value">{{ value() }}</span>
+</span>

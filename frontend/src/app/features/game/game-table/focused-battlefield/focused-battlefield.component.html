@@ -31,6 +31,7 @@
       [dropSettling]="isCardDropSettling()(focusedPlayer.id, 'battlefield', card)"
       [manaDropSettling]="isManaDropSettling()(focusedPlayer.id, card)"
       [statDropSettling]="isBattlefieldEntrySettling()(focusedPlayer.id, card)"
+      [commanderEntrySettling]="isCommanderEntrySettling()(focusedPlayer.id, card)"
       [faceDown]="card.faceDown || card.hidden || false"
       [hidden]="card.hidden ?? false"
       [disabled]="false"
@@ -48,6 +49,7 @@
       (cardMouseLeft)="cardPreviewHidden.emit()"
       (powerChanged)="changePower($event.event, focusedPlayer.id, $event.card, $event.delta)"
       (toughnessChanged)="changeToughness($event.event, focusedPlayer.id, $event.card, $event.delta)"
+      (loyaltyChanged)="changeLoyalty($event.event, focusedPlayer.id, $event.card, $event.delta)"
     />
   }
   @if (activeAlignmentGuide; as guide) {

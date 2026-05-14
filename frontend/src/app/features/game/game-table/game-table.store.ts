@@ -171,6 +171,7 @@ export class GameTableStore implements OnDestroy {
   async refetch(force = false): Promise<void> {
     if (force) {
       this.pendingTransferState.clear();
+      this.dropFeedbackState.clearPendingBattlefieldEntries();
     }
     await this.session.refetch(this.sessionContext(), force);
   }
@@ -291,6 +292,10 @@ export class GameTableStore implements OnDestroy {
 
   isBattlefieldEntrySettling(playerId: string, card: GameCardInstance): boolean {
     return this.dropFeedbackState.isBattlefieldEntrySettling(playerId, card.instanceId);
+  }
+
+  isCommanderEntrySettling(playerId: string, card: GameCardInstance): boolean {
+    return this.dropFeedbackState.isCommanderEntrySettling(playerId, card.instanceId);
   }
 
   isZoneDropSettling(playerId: string, zone: GameZoneName): boolean {
@@ -943,6 +948,7 @@ export class GameTableStore implements OnDestroy {
     }
 
     if (toZone === 'battlefield') {
+      this.dropFeedbackState.markPendingBattlefieldEntry(targetPlayerId, [movedInstanceId]);
       this.moveLocalCardsFromHandToBattlefield(playerId, targetPlayerId, [movedInstanceId], battlefieldPosition);
     }
 
@@ -1137,6 +1143,7 @@ export class GameTableStore implements OnDestroy {
       this.setSnapshot(snapshot);
     } catch (error) {
       this.pendingTransferState.clear();
+      this.dropFeedbackState.clearPendingBattlefieldEntries();
       this.error.set(this.errorMessage(error));
     } finally {
       this.pending.set(false);
@@ -1188,6 +1195,10 @@ export class GameTableStore implements OnDestroy {
     await this.cardStats.changeToughness(this.cardStatsContext(), playerId, zone, card, delta);
   }
 
+  async changeCardLoyalty(playerId: string, zone: GameZoneName, card: GameCardInstance, delta: number): Promise<void> {
+    await this.cardStats.changeLoyalty(this.cardStatsContext(), playerId, zone, card, delta);
+  }
+
   private applyDeferredRemoteSnapshot(): void {
     this.session.applyDeferredRemoteSnapshot(this.sessionContext());
   }
@@ -1219,8 +1230,16 @@ export class GameTableStore implements OnDestroy {
     if (!playerId || !fromZone || !toZone || instanceIds.length === 0) {
       return;
     }
-    if (fromZone === toZone && playerId === targetPlayerId) {
+    const moveTargetPlayerId = targetPlayerId ?? playerId;
+    if (fromZone === toZone && playerId === moveTargetPlayerId) {
       return;
+    }
+
+    if (fromZone !== 'battlefield' && toZone === 'battlefield' && !this.areCardsInZone(moveTargetPlayerId, 'battlefield', instanceIds)) {
+      this.dropFeedbackState.markPendingBattlefieldEntry(moveTargetPlayerId, instanceIds);
+      if (fromZone === 'command') {
+        this.dropFeedbackState.markPendingCommanderBattlefieldEntry(moveTargetPlayerId, instanceIds);
+      }
     }
 
     this.pendingTransferState.register({
@@ -1242,6 +1261,9 @@ export class GameTableStore implements OnDestroy {
     const count = Number.isFinite(rawCount) ? Math.max(1, Math.floor(rawCount)) : 1;
     const library = this.snapshot()?.players[playerId]?.zones.library ?? [];
     const instanceIds = library.slice(0, count).map((card) => card.instanceId);
+    if (toZone === 'battlefield') {
+      this.dropFeedbackState.markPendingBattlefieldEntry(playerId, instanceIds);
+    }
     this.pendingTransferState.register({
       playerId,
       fromZone: 'library',
@@ -1259,6 +1281,9 @@ export class GameTableStore implements OnDestroy {
     }
 
     const instanceIds = this.snapshot()?.players[playerId]?.zones[fromZone]?.map((card) => card.instanceId) ?? [];
+    if (toZone === 'battlefield') {
+      this.dropFeedbackState.markPendingBattlefieldEntry(playerId, instanceIds);
+    }
     this.pendingTransferState.register({
       playerId,
       fromZone,
@@ -1275,6 +1300,12 @@ export class GameTableStore implements OnDestroy {
 
     const instanceId = this.stringPayload(payload, 'instanceId');
     return instanceId ? [instanceId] : [];
+  }
+
+  private areCardsInZone(playerId: string, zone: GameZoneName, instanceIds: readonly string[]): boolean {
+    const zoneCards = this.snapshot()?.players[playerId]?.zones[zone] ?? [];
+    const zoneIds = new Set(zoneCards.map((card) => card.instanceId));
+    return instanceIds.length > 0 && instanceIds.every((instanceId) => zoneIds.has(instanceId));
   }
 
   private stringPayload(payload: Record<string, unknown>, key: string): string | null {
@@ -1557,6 +1588,8 @@ export class GameTableStore implements OnDestroy {
       findCard: (playerId, zone, instanceId) => this.findCard(playerId, zone, instanceId),
       updateLocalCardPowerToughness: (playerId, zone, instanceId, power, toughness) =>
         this.updateLocalCardPowerToughness(playerId, zone, instanceId, power, toughness),
+      updateLocalCardLoyalty: (playerId, zone, instanceId, loyalty) =>
+        this.updateLocalCardLoyalty(playerId, zone, instanceId, loyalty),
       setError: (message) => this.error.set(message),
       command: (type, payload, force) => this.command(type, payload, force),
     };
@@ -1613,6 +1646,7 @@ export class GameTableStore implements OnDestroy {
       endCardDrag: () => this.endCardDrag(),
       clearSelectedCards: () => this.selectedCards.set([]),
       suppressCardPreview: () => this.uiState.suppressCardPreview(450),
+      setError: (message) => this.error.set(message),
       applyDeferredRemoteSnapshot: () => this.applyDeferredRemoteSnapshot(),
       refetch: (force) => this.refetch(force),
       markPendingManaDrop: (playerId, instanceIds) => this.dropFeedbackState.markPendingManaDrop(playerId, instanceIds),
@@ -1630,8 +1664,10 @@ export class GameTableStore implements OnDestroy {
   private zoneActionContext(): GameTableZoneActionContext {
     return {
       gameId: () => this.gameId(),
+      snapshot: () => this.snapshot(),
       playerName: (playerId) => this.playerName(playerId),
       zoneTitle: (zone) => this.zoneTitle(zone),
+      setError: (message) => this.error.set(message),
     };
   }
 
@@ -1708,6 +1744,20 @@ export class GameTableStore implements OnDestroy {
   private beginCardDrag(instanceId: string): void {
     this.hideCardPreview();
     this.battlefieldDragState.beginCardDrag(instanceId);
+  }
+
+  private updateLocalCardLoyalty(playerId: string, zone: GameZoneName, instanceId: string, loyalty: number): void {
+    const snapshot = this.snapshot();
+    if (!snapshot) {
+      return;
+    }
+
+    const next = structuredClone(snapshot);
+    const card = next.players[playerId]?.zones[zone]?.find((candidate) => candidate.instanceId === instanceId);
+    if (card) {
+      card.loyalty = loyalty;
+      this.setSnapshot(next);
+    }
   }
 
   private endCardDrag(): void {
@@ -1825,6 +1875,7 @@ export class GameTableStore implements OnDestroy {
     }
 
     if (toZone === 'battlefield' && position) {
+      this.dropFeedbackState.markPendingBattlefieldEntry(targetPlayerId, movedInstanceIds);
       this.moveLocalCardsFromHandToBattlefield(playerId, targetPlayerId, movedInstanceIds, position);
       for (const instanceId of movedInstanceIds) {
         await this.command('card.moved', {

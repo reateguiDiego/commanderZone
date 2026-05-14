@@ -121,7 +121,7 @@ class GameProjectionService
             ];
         }
 
-        unset($card['basePower'], $card['baseToughness']);
+        unset($card['basePower'], $card['baseToughness'], $card['baseLoyalty']);
 
         return $card;
     }

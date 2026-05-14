@@ -217,6 +217,24 @@ describe('GameTableDropActionsService', () => {
     });
   });
 
+  it('notifies the controller when a borrowed battlefield card returns to its owner zone', async () => {
+    const borrowed = { ...card('borrowed', 'Borrowed Bear', 'battlefield'), ownerId: 'owner-1', controllerId: 'player-1' };
+    const snapshot = snapshotWith({ battlefield: [borrowed] });
+    const setError = vi.fn();
+    const context = dropContext(
+      () => snapshot,
+      vi.fn(async () => undefined),
+      {
+        playerName: (playerId) => playerId === 'owner-1' ? 'Owner' : playerId,
+        setError,
+      },
+    );
+
+    await service.dropOnHand(context, dragEvent({ playerId: 'player-1', zone: 'battlefield', instanceId: 'borrowed' }), 'player-1');
+
+    expect(setError).toHaveBeenCalledWith("This borrowed card will return to Owner's hand.");
+  });
+
   it('keeps multiple cards on the same y when dropped on the mana row', async () => {
     const first = card('moved', 'Cultivate', 'hand');
     const second = card('selected-2', 'Kodama Reach', 'hand');

@@ -39,6 +39,7 @@ import { ZoneModalComponent } from './zone-modal/zone-modal.component';
 import { NumberActionDialogComponent } from './number-action-dialog/number-action-dialog.component';
 import { GameTableHeaderComponent } from './game-table-header/game-table-header.component';
 import { CardPreviewOverlayComponent } from './card-preview-overlay/card-preview-overlay.component';
+import { LoyaltyCounterComponent } from './game-card-view/loyalty-counter/loyalty-counter.component';
 
 interface DrawNumberActionRequest {
   readonly kind: 'draw';
@@ -114,6 +115,7 @@ interface BattlefieldLayoutRect extends BattlefieldLayoutSize {
     NumberActionDialogComponent,
     GameTableHeaderComponent,
     CardPreviewOverlayComponent,
+    LoyaltyCounterComponent,
   ],
   providers: [
     GameTableStore,
@@ -175,6 +177,8 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
   readonly isManaDropSettling = (playerId: string, card: GameCardInstance): boolean => this.store.isManaDropSettling(playerId, card);
   readonly isBattlefieldEntrySettling = (playerId: string, card: GameCardInstance): boolean =>
     this.store.isBattlefieldEntrySettling(playerId, card);
+  readonly isCommanderEntrySettling = (playerId: string, card: GameCardInstance): boolean =>
+    this.store.isCommanderEntrySettling(playerId, card);
   readonly isZoneDropSettling = (playerId: string, zone: GameZoneName): boolean => this.store.isZoneDropSettling(playerId, zone);
   readonly isCardTransferPending = (playerId: string, zone: GameZoneName, card: GameCardInstance): boolean =>
     this.store.isCardTransferPending(playerId, zone, card);

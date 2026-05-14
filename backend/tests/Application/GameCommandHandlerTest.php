@@ -30,6 +30,8 @@ class GameCommandHandlerTest extends TestCase
         $graveyardCard = $game->snapshot()['players'][$actor->id()]['zones']['graveyard'][0];
         self::assertSame(2, $graveyardCard['power']);
         self::assertSame(2, $graveyardCard['toughness']);
+        self::assertSame(2, $graveyardCard['defaultPower']);
+        self::assertSame(2, $graveyardCard['defaultToughness']);
     }
 
     public function testKeepsModifiedPowerToughnessWhenCardMovesToOpponentBattlefield(): void
@@ -53,6 +55,144 @@ class GameCommandHandlerTest extends TestCase
         $opponentCard = $game->snapshot()['players'][$opponent->id()]['zones']['battlefield'][0];
         self::assertSame(9, $opponentCard['power']);
         self::assertSame(9, $opponentCard['toughness']);
+    }
+
+    public function testMovingControlledBattlefieldCardToPrivateZoneReturnsItToDeckOwner(): void
+    {
+        $owner = new User('owner@example.test', 'Owner');
+        $controller = new User('controller@example.test', 'Controller');
+        $snapshot = $this->snapshot($owner->id(), [], $controller->id());
+        $snapshot['players'][$controller->id()]['zones']['battlefield'][] = [
+            ...$this->card('card-1', 'Borrowed Bear', 'battlefield', 9, 9, 2, 2),
+            'ownerId' => $owner->id(),
+            'controllerId' => $controller->id(),
+        ];
+        $game = new Game(new Room($owner), $snapshot);
+
+        (new GameCommandHandler())->apply($game, 'card.moved', [
+            'playerId' => $controller->id(),
+            'fromZone' => 'battlefield',
+            'toZone' => 'graveyard',
+            'instanceId' => 'card-1',
+        ], $controller);
+
+        self::assertSame([], $game->snapshot()['players'][$controller->id()]['zones']['graveyard']);
+        self::assertSame([], $game->snapshot()['players'][$controller->id()]['zones']['battlefield']);
+
+        $ownerGraveyardCard = $game->snapshot()['players'][$owner->id()]['zones']['graveyard'][0];
+        self::assertSame('card-1', $ownerGraveyardCard['instanceId']);
+        self::assertSame($owner->id(), $ownerGraveyardCard['ownerId']);
+        self::assertSame($owner->id(), $ownerGraveyardCard['controllerId']);
+        self::assertSame(2, $ownerGraveyardCard['power']);
+        self::assertSame(2, $ownerGraveyardCard['toughness']);
+    }
+
+    public function testChangingControllerMovesBattlefieldCardToTargetBattlefield(): void
+    {
+        $owner = new User('owner@example.test', 'Owner');
+        $controller = new User('controller@example.test', 'Controller');
+        $game = new Game(new Room($owner), $this->snapshot($owner->id(), [
+            'battlefield' => [
+                [
+                    ...$this->card('card-1', 'Borrowed Bear', 'battlefield', 9, 9, 2, 2),
+                    'ownerId' => $owner->id(),
+                    'controllerId' => $owner->id(),
+                    'position' => ['x' => 120, 'y' => 240],
+                ],
+            ],
+        ], $controller->id()));
+
+        (new GameCommandHandler())->apply($game, 'card.controller.changed', [
+            'playerId' => $owner->id(),
+            'zone' => 'battlefield',
+            'targetPlayerId' => $controller->id(),
+            'instanceId' => 'card-1',
+        ], $owner);
+
+        self::assertSame([], $game->snapshot()['players'][$owner->id()]['zones']['battlefield']);
+
+        $controlledCard = $game->snapshot()['players'][$controller->id()]['zones']['battlefield'][0];
+        self::assertSame('card-1', $controlledCard['instanceId']);
+        self::assertSame($owner->id(), $controlledCard['ownerId']);
+        self::assertSame($controller->id(), $controlledCard['controllerId']);
+        self::assertSame(['x' => 120, 'y' => 240], $controlledCard['position']);
+        self::assertSame(9, $controlledCard['power']);
+        self::assertSame(9, $controlledCard['toughness']);
+    }
+
+    public function testChangesPlaneswalkerLoyalty(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->snapshot($actor->id(), [
+            'battlefield' => [
+                [
+                    ...$this->card('card-1', 'Adept', 'battlefield', 0, 0, 0, 0),
+                    'loyalty' => 3,
+                ],
+            ],
+        ]));
+
+        (new GameCommandHandler())->apply($game, 'card.power_toughness.changed', [
+            'playerId' => $actor->id(),
+            'zone' => 'battlefield',
+            'instanceId' => 'card-1',
+            'loyalty' => 4,
+        ], $actor);
+
+        $snapshot = $game->snapshot();
+        self::assertSame(4, $snapshot['players'][$actor->id()]['zones']['battlefield'][0]['loyalty']);
+        self::assertSame(3, $snapshot['players'][$actor->id()]['zones']['battlefield'][0]['defaultLoyalty']);
+        self::assertSame('Adept loyalty increased from 3 to 4 (+1).', $snapshot['eventLog'][0]['message']);
+    }
+
+    public function testResetsModifiedLoyaltyWhenPlaneswalkerLeavesBattlefield(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->snapshot($actor->id(), [
+            'battlefield' => [
+                [
+                    ...$this->card('card-1', 'Adept', 'battlefield', 0, 0, 0, 0),
+                    'loyalty' => 7,
+                    'defaultLoyalty' => 3,
+                ],
+            ],
+        ]));
+
+        (new GameCommandHandler())->apply($game, 'card.moved', [
+            'playerId' => $actor->id(),
+            'fromZone' => 'battlefield',
+            'toZone' => 'exile',
+            'instanceId' => 'card-1',
+        ], $actor);
+
+        $exiledCard = $game->snapshot()['players'][$actor->id()]['zones']['exile'][0];
+        self::assertSame(3, $exiledCard['loyalty']);
+        self::assertSame(3, $exiledCard['defaultLoyalty']);
+    }
+
+    public function testResetsLegacyModifiedLoyaltyFromBaseLoyalty(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->snapshot($actor->id(), [
+            'battlefield' => [
+                [
+                    ...$this->card('card-1', 'Adept', 'battlefield', 0, 0, 0, 0),
+                    'loyalty' => 7,
+                    'baseLoyalty' => 3,
+                ],
+            ],
+        ]));
+
+        (new GameCommandHandler())->apply($game, 'card.moved', [
+            'playerId' => $actor->id(),
+            'fromZone' => 'battlefield',
+            'toZone' => 'exile',
+            'instanceId' => 'card-1',
+        ], $actor);
+
+        $exiledCard = $game->snapshot()['players'][$actor->id()]['zones']['exile'][0];
+        self::assertSame(3, $exiledCard['loyalty']);
+        self::assertSame(3, $exiledCard['defaultLoyalty']);
     }
 
     public function testResetsModifiedPowerToughnessWhenCardEntersBattlefieldFromAnotherZone(): void
@@ -158,8 +298,8 @@ class GameCommandHandlerTest extends TestCase
         $graveyardCard = $game->snapshot()['players'][$actor->id()]['zones']['graveyard'][0];
         self::assertSame(2, $graveyardCard['power']);
         self::assertSame(2, $graveyardCard['toughness']);
-        self::assertSame(2, $graveyardCard['basePower']);
-        self::assertSame(2, $graveyardCard['baseToughness']);
+        self::assertSame(2, $graveyardCard['defaultPower']);
+        self::assertSame(2, $graveyardCard['defaultToughness']);
     }
 
     public function testMovesMultipleCardsToTargetPlayer(): void
@@ -190,6 +330,7 @@ class GameCommandHandlerTest extends TestCase
                 $snapshot['players'][$opponent->id()]['zones']['battlefield'],
             ),
         );
+        self::assertSame(['Bear', 'Elf'], $snapshot['eventLog'][0]['cardNames']);
     }
 
     public function testDrawManyTakesCardsFromTopOfLibraryInOrder(): void
@@ -266,6 +407,24 @@ class GameCommandHandlerTest extends TestCase
 
         self::assertSame(0, $game->snapshot()['counters']['commander:'.$actor->id()]['casts']);
         self::assertSame([], $game->snapshot()['eventLog']);
+    }
+
+    public function testTurnPlayerChangeCreatesClearLogEntry(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $opponent = new User('opponent@example.test', 'Opponent');
+        $game = new Game(new Room($actor), $this->snapshot($actor->id(), [], $opponent->id()));
+
+        (new GameCommandHandler())->apply($game, 'turn.changed', [
+            'activePlayerId' => $opponent->id(),
+            'phase' => 'untap',
+            'number' => 2,
+        ], $actor);
+
+        self::assertSame(
+            sprintf('Turno 2: empieza el turno de %s. Fase untap.', $opponent->id()),
+            $game->snapshot()['eventLog'][0]['message'] ?? null,
+        );
     }
 
     public function testMovingCardToSameZoneDoesNotCreateLogEntry(): void
@@ -387,8 +546,8 @@ class GameCommandHandlerTest extends TestCase
             'zone' => $zone,
             'power' => $power,
             'toughness' => $toughness,
-            'basePower' => $basePower,
-            'baseToughness' => $baseToughness,
+            'defaultPower' => $basePower,
+            'defaultToughness' => $baseToughness,
             'tapped' => false,
         ];
     }

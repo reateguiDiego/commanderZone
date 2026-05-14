@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, OnChanges, OnDestroy, computed, input, output, signal, type WritableSignal } from '@angular/core';
 import { GameCardInstance, GameZoneName } from '../../../../core/models/game.model';
 import { CardPreviewEvent, previewRectFromElement } from '../card-preview.model';
+import { LoyaltyCounterComponent } from './loyalty-counter/loyalty-counter.component';
 
 type GameCardViewMode = 'battlefield' | 'hand' | 'mini';
 
@@ -35,8 +36,9 @@ interface CardStatChangeEvent {
 
 @Component({
   selector: 'app-game-card-view',
+  imports: [LoyaltyCounterComponent],
   templateUrl: './game-card-view.component.html',
-  styleUrl: './game-card-view.component.scss',
+  styleUrls: ['./game-card-view.component.scss', './game-card-view-effects.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class GameCardViewComponent implements OnChanges, OnDestroy {
@@ -46,10 +48,12 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
   private hoverLiftTimer: number | null = null;
   private powerPulseTimer: number | null = null;
   private toughnessPulseTimer: number | null = null;
+  private loyaltyPulseTimer: number | null = null;
   private hoveredCard: GameCardInstance | null = null;
   private activePreviewInstanceId: string | null = null;
   private previousPowerValue: number | null | undefined;
   private previousToughnessValue: number | null | undefined;
+  private previousLoyaltyValue: number | null | undefined;
   private pointerInside = false;
 
   readonly mode = input.required<GameCardViewMode>();
@@ -68,6 +72,7 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
   readonly dropSettling = input(false);
   readonly manaDropSettling = input(false);
   readonly statDropSettling = input(false);
+  readonly commanderEntrySettling = input(false);
   readonly hoverInteractionsEnabled = input(true);
   readonly faceDown = input(false);
   readonly hidden = input(false);
@@ -102,9 +107,11 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
   readonly cardMouseLeft = output<void>();
   readonly powerChanged = output<CardStatChangeEvent>();
   readonly toughnessChanged = output<CardStatChangeEvent>();
+  readonly loyaltyChanged = output<CardStatChangeEvent>();
   readonly hoverLifted = signal(false);
   readonly powerPulse = signal<StatPulse>(null);
   readonly toughnessPulse = signal<StatPulse>(null);
+  readonly loyaltyPulse = signal<StatPulse>(null);
 
   readonly handClass = (placement: DropPlacement): boolean => this.handDropPlacement() === placement;
 
@@ -174,6 +181,12 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
     this.toughnessChanged.emit({ event, card: this.card(), delta });
   }
 
+  changeLoyalty(event: MouseEvent, delta: number): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.loyaltyChanged.emit({ event, card: this.card(), delta });
+  }
+
   stopStatPointer(event: PointerEvent): void {
     event.stopPropagation();
   }
@@ -232,29 +245,38 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
   }
 
   private syncStatPulses(): void {
-    if (!this.showPowerToughness()) {
+    if (this.showPowerToughness()) {
+      this.previousPowerValue = this.updateStatPulse(this.previousPowerValue, this.powerValue(), this.powerPulse, 'power');
+      this.previousToughnessValue = this.updateStatPulse(
+        this.previousToughnessValue,
+        this.toughnessValue(),
+        this.toughnessPulse,
+        'toughness',
+      );
+    } else {
       this.previousPowerValue = undefined;
       this.previousToughnessValue = undefined;
-      this.clearStatPulseTimers();
+      this.clearStatPulseTimer('power');
+      this.clearStatPulseTimer('toughness');
       this.powerPulse.set(null);
       this.toughnessPulse.set(null);
+    }
+
+    if (this.loyaltyValue() !== null) {
+      this.previousLoyaltyValue = this.updateStatPulse(this.previousLoyaltyValue, this.loyaltyValue(), this.loyaltyPulse, 'loyalty');
       return;
     }
 
-    this.previousPowerValue = this.updateStatPulse(this.previousPowerValue, this.powerValue(), this.powerPulse, 'power');
-    this.previousToughnessValue = this.updateStatPulse(
-      this.previousToughnessValue,
-      this.toughnessValue(),
-      this.toughnessPulse,
-      'toughness',
-    );
+    this.previousLoyaltyValue = undefined;
+    this.clearStatPulseTimer('loyalty');
+    this.loyaltyPulse.set(null);
   }
 
   private updateStatPulse(
     previousValue: number | null | undefined,
     currentValue: number | null,
     pulse: WritableSignal<StatPulse>,
-    stat: 'power' | 'toughness',
+    stat: 'power' | 'toughness' | 'loyalty',
   ): number | null {
     if (previousValue === undefined) {
       return currentValue;
@@ -268,41 +290,68 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
     return currentValue;
   }
 
-  private scheduleStatPulseClear(stat: 'power' | 'toughness'): void {
-    const timer = stat === 'power' ? this.powerPulseTimer : this.toughnessPulseTimer;
+  private scheduleStatPulseClear(stat: 'power' | 'toughness' | 'loyalty'): void {
+    const timer = this.statPulseTimer(stat);
     const duration = timer === null ? this.singleStatPulseMs : this.repeatedStatPulseMs;
     if (timer !== null) {
       window.clearTimeout(timer);
     }
 
     const nextTimer = window.setTimeout(() => {
-      if (stat === 'power') {
-        this.powerPulse.set(null);
-        this.powerPulseTimer = null;
-        return;
-      }
-
-      this.toughnessPulse.set(null);
-      this.toughnessPulseTimer = null;
+      this.statPulseSignal(stat).set(null);
+      this.setStatPulseTimer(stat, null);
     }, duration);
 
-    if (stat === 'power') {
-      this.powerPulseTimer = nextTimer;
-      return;
-    }
-
-    this.toughnessPulseTimer = nextTimer;
+    this.setStatPulseTimer(stat, nextTimer);
   }
 
   private clearStatPulseTimers(): void {
-    if (this.powerPulseTimer !== null) {
-      window.clearTimeout(this.powerPulseTimer);
-      this.powerPulseTimer = null;
-    }
+    this.clearStatPulseTimer('power');
+    this.clearStatPulseTimer('toughness');
+    this.clearStatPulseTimer('loyalty');
+  }
 
-    if (this.toughnessPulseTimer !== null) {
-      window.clearTimeout(this.toughnessPulseTimer);
-      this.toughnessPulseTimer = null;
+  private clearStatPulseTimer(stat: 'power' | 'toughness' | 'loyalty'): void {
+    const timer = this.statPulseTimer(stat);
+    if (timer !== null) {
+      window.clearTimeout(timer);
+      this.setStatPulseTimer(stat, null);
+    }
+  }
+
+  private statPulseTimer(stat: 'power' | 'toughness' | 'loyalty'): number | null {
+    switch (stat) {
+      case 'power':
+        return this.powerPulseTimer;
+      case 'toughness':
+        return this.toughnessPulseTimer;
+      case 'loyalty':
+        return this.loyaltyPulseTimer;
+    }
+  }
+
+  private setStatPulseTimer(stat: 'power' | 'toughness' | 'loyalty', timer: number | null): void {
+    switch (stat) {
+      case 'power':
+        this.powerPulseTimer = timer;
+        return;
+      case 'toughness':
+        this.toughnessPulseTimer = timer;
+        return;
+      case 'loyalty':
+        this.loyaltyPulseTimer = timer;
+        return;
+    }
+  }
+
+  private statPulseSignal(stat: 'power' | 'toughness' | 'loyalty'): WritableSignal<StatPulse> {
+    switch (stat) {
+      case 'power':
+        return this.powerPulse;
+      case 'toughness':
+        return this.toughnessPulse;
+      case 'loyalty':
+        return this.loyaltyPulse;
     }
   }
 }

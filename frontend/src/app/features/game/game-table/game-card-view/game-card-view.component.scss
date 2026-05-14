@@ -95,6 +95,14 @@
   position: absolute;
 }
 
+.game-card.loyalty-card {
+  overflow: visible;
+}
+
+.game-card.loyalty-card .card-visual {
+  overflow: visible;
+}
+
 .mini-card.selected:not(.hand-card) {
   z-index: 90;
   outline: 5px solid var(--game-accent, #d7b46a);
@@ -120,10 +128,15 @@
 }
 
 .game-card.drop-settling,
+.game-card.mana-drop-settling,
+.game-card.stat-drop-settling,
+.game-card.commander-entry-settling,
 .hand-card.drop-settling,
 .mini-battlefield-card.drop-settling,
-.mini-battlefield-card.mana-drop-settling {
+.mini-battlefield-card.mana-drop-settling,
+.mini-battlefield-card.commander-entry-settling {
   z-index: 100;
+  overflow: visible;
 }
 
 .game-card.drop-settling .card-visual {
@@ -158,6 +171,10 @@
 .game-card.stat-drop-settling .power-toughness-overlay span {
   transform-origin: 50% 50%;
   animation: stat-box-arrival 1240ms cubic-bezier(0.17, 1.26, 0.28, 1);
+}
+
+.game-card.stat-drop-settling.loyalty-card .card-visual {
+  overflow: visible;
 }
 
 .game-card.stat-drop-settling .power-toughness-overlay span + span {
@@ -500,7 +517,6 @@
   }
 }
 
-.stat-overlay,
 .counter-overlay {
   position: absolute;
   right: 0.25rem;
@@ -513,10 +529,6 @@
   font-size: 0.68rem;
   font-weight: 800;
   text-align: center;
-}
-
-.stat-overlay {
-  bottom: 0.25rem;
 }
 
 .counter-overlay {

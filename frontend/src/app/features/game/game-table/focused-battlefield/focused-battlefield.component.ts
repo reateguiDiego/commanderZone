@@ -94,6 +94,7 @@ export class FocusedBattlefieldComponent implements AfterViewInit, OnDestroy {
   readonly isCardDropSettling = input<(playerId: string, zone: GameZoneName, card: GameCardInstance) => boolean>(() => false);
   readonly isManaDropSettling = input<(playerId: string, card: GameCardInstance) => boolean>(() => false);
   readonly isBattlefieldEntrySettling = input<(playerId: string, card: GameCardInstance) => boolean>(() => false);
+  readonly isCommanderEntrySettling = input<(playerId: string, card: GameCardInstance) => boolean>(() => false);
   readonly isCardTransferPending = input<(playerId: string, zone: GameZoneName, card: GameCardInstance) => boolean>(() => false);
 
   readonly battlefieldDragOver = output<DragEvent>();
@@ -107,6 +108,7 @@ export class FocusedBattlefieldComponent implements AfterViewInit, OnDestroy {
   readonly cardPreviewHidden = output<void>();
   readonly cardPowerChanged = output<BattlefieldCardStatChangeEvent>();
   readonly cardToughnessChanged = output<BattlefieldCardStatChangeEvent>();
+  readonly cardLoyaltyChanged = output<BattlefieldCardStatChangeEvent>();
   readonly manaLaneDragOver = output<DragEvent>();
   readonly manaLaneDropped = output<{ event: DragEvent; playerId: string }>();
   readonly battlefieldSizeChanged = output<BattlefieldSizeEvent>();
@@ -178,6 +180,12 @@ export class FocusedBattlefieldComponent implements AfterViewInit, OnDestroy {
     event.preventDefault();
     event.stopPropagation();
     this.cardToughnessChanged.emit({ playerId, zone: 'battlefield', card, delta });
+  }
+
+  changeLoyalty(event: MouseEvent, playerId: string, card: GameCardInstance, delta: number): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.cardLoyaltyChanged.emit({ playerId, zone: 'battlefield', card, delta });
   }
 
   stopStatPointer(event: PointerEvent): void {

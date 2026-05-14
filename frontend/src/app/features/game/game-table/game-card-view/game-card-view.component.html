@@ -8,8 +8,9 @@
     [attr.data-card-instance-id]="currentCard.instanceId"
     [class.free-position]="freePosition()"
     [class.tapped]="currentCard.tapped"
-    [class.drop-settling]="dropSettling()"
-    [class.mana-drop-settling]="manaDropSettling()"
+    [class.drop-settling]="dropSettling() && !commanderEntrySettling()"
+    [class.mana-drop-settling]="manaDropSettling() && !commanderEntrySettling()"
+    [class.commander-entry-settling]="commanderEntrySettling()"
     [style.visibility]="visible() ? null : 'hidden'"
     [style.left.px]="miniLeftPx()"
     [style.top.px]="miniTopPx()"
@@ -43,9 +44,11 @@
     [class.locked-card]="locked()"
     [class.pending-transfer]="pendingTransfer()"
     [class.alignment-reference]="alignmentReference()"
-    [class.drop-settling]="dropSettling()"
-    [class.mana-drop-settling]="manaDropSettling()"
-    [class.stat-drop-settling]="statDropSettling()"
+    [class.drop-settling]="dropSettling() && !commanderEntrySettling()"
+    [class.mana-drop-settling]="manaDropSettling() && !commanderEntrySettling()"
+    [class.stat-drop-settling]="statDropSettling() && !commanderEntrySettling()"
+    [class.commander-entry-settling]="commanderEntrySettling()"
+    [class.loyalty-card]="loyaltyValue() !== null && !showPowerToughness()"
     [class.face-down]="faceDown()"
     [class.hand-drop-before]="handClass('before')"
     [class.hand-drop-after]="handClass('after')"
@@ -105,7 +108,12 @@
           </span>
         </span>
       } @else if (loyaltyValue() !== null) {
-        <span class="stat-overlay">{{ loyaltyValue() }}</span>
+        <app-loyalty-counter
+          [value]="loyaltyValue()!"
+          [pulse]="loyaltyPulse()"
+          [entrySettling]="statDropSettling()"
+          (loyaltyChanged)="changeLoyalty($event.event, $event.delta)"
+        />
       }
       @if (counter(); as firstCounter) {
         <span class="counter-overlay">{{ firstCounter.key }} {{ firstCounter.value }}</span>

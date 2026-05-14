@@ -252,7 +252,8 @@
   display: grid;
   align-content: start;
   gap: 0.25rem;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
   padding: 0.35rem;
   scrollbar-gutter: stable;
 }
@@ -276,6 +277,7 @@
   display: grid;
   grid-template-columns: auto auto auto minmax(0, 1fr);
   gap: 0.35rem;
+  min-width: 0;
   margin: 0;
   padding: 0.45rem;
   border-radius: 6px;
@@ -315,8 +317,7 @@
   color: var(--game-text);
   font-size: 0.82rem;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
 }
 
 .log-card-name {
