@@ -1,0 +1,279 @@
+:host {
+  position: fixed;
+  inset: 0;
+  z-index: 1800;
+  display: block;
+  pointer-events: none;
+}
+
+.arrow-target-backdrop {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background:
+    radial-gradient(circle at 50% 42%, rgb(214 177 89 / 10%), transparent 34rem),
+    rgb(0 0 0 / 68%);
+  backdrop-filter: blur(2px);
+  pointer-events: auto;
+}
+
+.arrow-target-dialog {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  gap: 1.1rem;
+  width: min(29rem, 100%);
+  padding: 1.15rem;
+  border: 1px solid rgb(221 188 105 / 34%);
+  border-radius: 12px;
+  background:
+    linear-gradient(145deg, rgb(29 35 36 / 96%), rgb(12 13 12 / 98%) 56%, rgb(34 25 13 / 96%)),
+    var(--game-surface, #181b16);
+  box-shadow:
+    0 1.6rem 4rem rgb(0 0 0 / 58%),
+    inset 0 1px 0 rgb(255 255 255 / 8%);
+  color: var(--game-text, #f3f0e8);
+}
+
+.arrow-target-dialog::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border: 1px solid rgb(255 255 255 / 5%);
+  border-radius: inherit;
+}
+
+.dialog-header {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.dialog-kicker {
+  width: fit-content;
+  padding: 0.2rem 0.5rem;
+  border: 1px solid rgb(221 188 105 / 24%);
+  border-radius: 999px;
+  background: rgb(221 188 105 / 8%);
+  color: rgb(232 199 125);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.arrow-target-dialog h2 {
+  margin: 0;
+  font-size: clamp(1.2rem, 4vw, 1.55rem);
+  line-height: 1.05;
+}
+
+.arrow-target-dialog p {
+  margin: 0;
+  color: rgb(214 211 196 / 74%);
+  font-size: 0.92rem;
+  line-height: 1.42;
+}
+
+.field {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.field > span:first-child {
+  color: rgb(238 230 207 / 86%);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.select-shell {
+  position: relative;
+  display: grid;
+}
+
+.select-shell::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: 0.9rem;
+  width: 0.55rem;
+  height: 0.55rem;
+  pointer-events: none;
+  border-right: 2px solid rgb(232 199 125 / 88%);
+  border-bottom: 2px solid rgb(232 199 125 / 88%);
+  transform: translateY(-68%) rotate(45deg);
+}
+
+.field select {
+  min-height: 3rem;
+  width: 100%;
+  appearance: none;
+  padding: 0 2.25rem 0 0.85rem;
+  border: 1px solid rgb(221 188 105 / 28%);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 6%), transparent),
+    rgb(14 17 17 / 88%);
+  color: var(--game-text, #f3f0e8);
+  font: inherit;
+  font-weight: 750;
+  outline: none;
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 26%);
+}
+
+.field select:focus-visible {
+  border-color: rgb(232 199 125 / 82%);
+  box-shadow:
+    0 0 0 3px rgb(232 199 125 / 14%),
+    inset 0 0 0 1px rgb(0 0 0 / 26%);
+}
+
+.checkbox-field {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  padding: 0.75rem;
+  border: 1px solid rgb(255 255 255 / 8%);
+  border-radius: 8px;
+  background: rgb(255 255 255 / 4%);
+  color: rgb(214 211 196 / 78%);
+}
+
+.checkbox-field input {
+  width: 1.05rem;
+  height: 1.05rem;
+  margin: 0.08rem 0 0;
+  accent-color: rgb(232 199 125);
+}
+
+.checkbox-field span {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.checkbox-field strong {
+  color: rgb(238 230 207 / 92%);
+  font-size: 0.9rem;
+}
+
+.checkbox-field small {
+  color: rgb(214 211 196 / 58%);
+  font-size: 0.78rem;
+}
+
+.target-count-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  width: fit-content;
+  min-width: 10rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid rgb(221 188 105 / 20%);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 6%), transparent),
+    rgb(14 17 17 / 78%);
+  animation: target-count-enter 180ms cubic-bezier(0.2, 0.78, 0.22, 1);
+}
+
+.target-count-field span {
+  color: rgb(238 230 207 / 86%);
+  font-size: 0.76rem;
+  font-weight: 850;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.target-count-field input {
+  width: 4.1rem;
+  min-height: 2.2rem;
+  padding: 0 0.3rem 0 0.6rem;
+  border: 1px solid rgb(221 188 105 / 30%);
+  border-radius: 7px;
+  background: rgb(4 6 6 / 70%);
+  color: var(--game-text, #f3f0e8);
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 850;
+  outline: none;
+}
+
+.target-count-field input:focus-visible {
+  border-color: rgb(232 199 125 / 82%);
+  box-shadow: 0 0 0 3px rgb(232 199 125 / 14%);
+}
+
+@keyframes target-count-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-0.35rem);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.arrow-target-dialog footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.65rem;
+  padding-top: 0.15rem;
+}
+
+.arrow-target-dialog button {
+  min-height: 2.55rem;
+  padding: 0 0.95rem;
+  border: 1px solid rgb(221 188 105 / 24%);
+  border-radius: 8px;
+  color: var(--game-text, #f3f0e8);
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 850;
+  cursor: pointer;
+  transition:
+    border-color 140ms ease,
+    background 140ms ease,
+    transform 140ms ease;
+}
+
+.secondary-button {
+  background: rgb(255 255 255 / 5%);
+}
+
+.primary-button {
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 16%), transparent),
+    rgb(184 137 48);
+  color: #17110a;
+  border-color: rgb(239 205 127 / 66%);
+  box-shadow: 0 0.65rem 1.4rem rgb(0 0 0 / 22%);
+}
+
+.arrow-target-dialog button:focus-visible {
+  outline: 3px solid rgb(232 199 125 / 22%);
+  outline-offset: 2px;
+}
+
+.arrow-target-dialog button:hover {
+  border-color: rgb(232 199 125 / 76%);
+  transform: translateY(-1px);
+}
+
+@media (max-width: 30rem) {
+  .arrow-target-dialog footer {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .primary-button {
+    order: -1;
+  }
+}

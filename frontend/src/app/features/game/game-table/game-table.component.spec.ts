@@ -4,6 +4,7 @@ import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, provideRouter } from '@angular/router';
 import {
   ArrowLeft,
+  Ban,
   BarChart3,
   Bell,
   Building2,
@@ -26,6 +27,7 @@ import {
   History,
   KeyRound,
   Layers3,
+  Library,
   Lock,
   LogIn,
   LogOut,
@@ -97,6 +99,7 @@ describe('GameTableComponent', () => {
         { provide: MercureService, useValue: mercureService },
         importProvidersFrom(LucideAngularModule.pick({
           ArrowLeft,
+          Ban,
           BarChart3,
           Bell,
           Building2,
@@ -119,6 +122,7 @@ describe('GameTableComponent', () => {
           History,
           KeyRound,
           Layers3,
+          Library,
           Lock,
           LogIn,
           LogOut,
@@ -480,7 +484,7 @@ describe('GameTableComponent', () => {
     const optimisticSnapshot = fixture.componentInstance.store.snapshot();
     expect(optimisticSnapshot?.players['user-1']?.zones.hand).toEqual([]);
     expect(optimisticSnapshot?.players['user-1']?.zones.battlefield).toEqual([
-      expect.objectContaining({ instanceId: 'hand-card', position: { x: 24, y: 36 } }),
+      expect.objectContaining({ instanceId: 'hand-card', position: { x: 0.030612, y: 0.100559, unit: 'ratio' } }),
     ]);
     expect(optimisticSnapshot?.players['user-1']?.zoneCounts?.hand).toBe(0);
     expect(optimisticSnapshot?.players['user-1']?.zoneCounts?.battlefield).toBe(1);
@@ -740,6 +744,46 @@ describe('GameTableComponent', () => {
     });
   });
 
+  it('asks for one library position when selected cards move to the library', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    snapshot.players['user-1'].zones.battlefield.push({
+      instanceId: 'card-2',
+      ownerId: 'user-1',
+      controllerId: 'user-1',
+      name: 'Arcane Signet',
+      typeLine: 'Artifact',
+      tapped: false,
+      counters: {},
+    });
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const cards = snapshot.players['user-1'].zones.battlefield;
+    fixture.componentInstance.store.selectedCards.set([
+      { playerId: 'user-1', zone: 'battlefield', card: cards[0]! },
+      { playerId: 'user-1', zone: 'battlefield', card: cards[1]! },
+    ]);
+
+    await fixture.componentInstance.store.moveSelected('library');
+
+    expect(gamesApi.command).not.toHaveBeenCalled();
+    expect(fixture.componentInstance.store.pendingLibraryMove()).toEqual({
+      cardName: '2 cards',
+      commandType: 'cards.moved',
+      payload: {
+        playerId: 'user-1',
+        fromZone: 'battlefield',
+        toZone: 'library',
+        instanceIds: ['card-1', 'card-2'],
+      },
+    });
+  });
+
   it('gives a battlefield card to another player from the context menu', async () => {
     routeParams['id'] = 'game-1';
     authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
@@ -803,15 +847,46 @@ describe('GameTableComponent', () => {
     }), 'game-1'));
   });
 
-  it('creates an arrow from a context-menu source to the next clicked battlefield card', async () => {
+  it('opens target-player selection before creating an arrow from a context-menu source', async () => {
     routeParams['id'] = 'game-1';
     authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
     const snapshot = snapshotWithStatus('active');
+    snapshot.players['user-2'] = {
+      user: { id: 'user-2', email: 'opponent@test', displayName: 'Opponent', roles: [] },
+      status: 'active',
+      life: 40,
+      zones: {
+        library: [],
+        hand: [],
+        battlefield: [{
+          instanceId: 'card-2',
+          ownerId: 'user-2',
+          controllerId: 'user-2',
+          name: 'Arcane Signet',
+          typeLine: 'Artifact',
+          tapped: false,
+          counters: {},
+        }],
+        graveyard: [],
+        exile: [],
+        command: [],
+      },
+      commanderDamage: {},
+      counters: {},
+    };
+    snapshot.players['user-2'].zoneCounts = {
+      library: 0,
+      hand: 0,
+      battlefield: 1,
+      graveyard: 0,
+      exile: 0,
+      command: 0,
+    };
     snapshot.players['user-1'].zones.battlefield.push({
-      instanceId: 'card-2',
+      instanceId: 'card-3',
       ownerId: 'user-1',
       controllerId: 'user-1',
-      name: 'Arcane Signet',
+      name: 'Mind Stone',
       typeLine: 'Artifact',
       tapped: false,
       counters: {},
@@ -825,8 +900,177 @@ describe('GameTableComponent', () => {
     const fixture = TestBed.createComponent(GameTableComponent);
     fixture.detectChanges();
     await fixture.whenStable();
+    fixture.detectChanges();
+    fixture.componentInstance.focusPlayerBattlefield('user-2');
 
-    const [source, target] = snapshot.players['user-1'].zones.battlefield;
+    const source = snapshot.players['user-1'].zones.battlefield[0]!;
+    const target = snapshot.players['user-2'].zones.battlefield[0]!;
+    fixture.componentInstance.handleContextMenuAction({ type: 'drawArrow' }, {
+      x: 0,
+      y: 0,
+      playerId: 'user-1',
+      zone: 'battlefield',
+      kind: 'card',
+      card: source,
+    });
+
+    expect(fixture.componentInstance.arrowTargetDialog()).toEqual(expect.objectContaining({
+      selectedPlayerId: 'user-1',
+      multipleTargets: false,
+      targetCount: 1,
+    }));
+    expect(fixture.componentInstance.store.focusedPlayer()?.id).toBe('user-1');
+    expect(fixture.componentInstance.store.pendingArrowSource()).toBeNull();
+
+    fixture.componentInstance.updateArrowTargetDialog({ playerId: 'user-2', multipleTargets: false, targetCount: 1 });
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.store.focusedPlayer()?.id).toBe('user-2');
+    expect(fixture.componentInstance.store.pendingArrowSource()).toBeNull();
+    expect(fixture.componentInstance.arrowTargetDialog()).toEqual(expect.objectContaining({
+      selectedPlayerId: 'user-2',
+      multipleTargets: false,
+      targetCount: 1,
+    }));
+
+    fixture.componentInstance.confirmArrowTargetDialog({ playerId: 'user-2', multipleTargets: false, targetCount: 1 });
+
+    expect(fixture.componentInstance.store.focusedPlayer()?.id).toBe('user-2');
+    expect(fixture.componentInstance.store.pendingArrowSource()).toEqual(expect.objectContaining({
+      instanceId: 'card-1',
+    }));
+
+    fixture.componentInstance.store.handleBattlefieldCardClick(new MouseEvent('click'), 'user-2', target);
+
+    await vi.waitFor(() => expect(gamesApi.command).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'arrow.created',
+      payload: {
+        fromInstanceId: 'card-1',
+        toInstanceId: 'card-2',
+        color: 'yellow',
+      },
+    }), 'game-1'));
+  });
+
+  it('uses source card color for arrows', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    snapshot.players['user-1'].zones.battlefield[0]!.colorIdentity = ['B', 'G'];
+    addOpponent(snapshot);
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+    gamesApi.command.mockReturnValue(of({
+      event: { id: 'event-arrow', type: 'arrow.created', payload: {}, createdBy: 'user-1', createdAt: '' },
+      snapshot,
+    }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const source = snapshot.players['user-1'].zones.battlefield[0]!;
+    const target = snapshot.players['user-2'].zones.battlefield[0]!;
+    fixture.componentInstance.store.startArrowFrom({
+      x: 0,
+      y: 0,
+      playerId: 'user-1',
+      zone: 'battlefield',
+      kind: 'card',
+      card: source,
+    });
+    fixture.componentInstance.store.handleBattlefieldCardClick(new MouseEvent('click'), 'user-2', target);
+
+    await vi.waitFor(() => expect(gamesApi.command).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'arrow.created',
+      payload: {
+        fromInstanceId: 'card-1',
+        toInstanceId: 'card-2',
+        color: 'black',
+      },
+    }), 'game-1'));
+  });
+
+  it('creates one arrow per selected target in multiple-target mode', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    snapshot.players['user-1'].zones.battlefield[0]!.colorIdentity = ['G'];
+    addOpponent(snapshot);
+    snapshot.players['user-2'].zones.battlefield.push({
+      instanceId: 'card-4',
+      ownerId: 'user-2',
+      controllerId: 'user-2',
+      name: 'Command Tower',
+      typeLine: 'Land',
+      tapped: false,
+      counters: {},
+    });
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+    gamesApi.command.mockReturnValue(of({
+      event: { id: 'event-arrow', type: 'arrow.created', payload: {}, createdBy: 'user-1', createdAt: '' },
+      snapshot,
+    }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const source = snapshot.players['user-1'].zones.battlefield[0]!;
+    const firstTarget = snapshot.players['user-2'].zones.battlefield[0]!;
+    const secondTarget = snapshot.players['user-2'].zones.battlefield[1]!;
+    fixture.componentInstance.store.startArrowFrom({
+      x: 0,
+      y: 0,
+      playerId: 'user-1',
+      zone: 'battlefield',
+      kind: 'card',
+      card: source,
+    }, 2);
+
+    expect(fixture.componentInstance.store.tableToast()).toBe('Faltan 2 objetivos.');
+
+    fixture.componentInstance.store.handleBattlefieldCardClick(new MouseEvent('click'), 'user-2', firstTarget);
+
+    expect(fixture.componentInstance.store.pendingArrowSource()).toEqual(expect.objectContaining({
+      selectedTargetInstanceIds: ['card-2'],
+      targetCount: 2,
+    }));
+    expect(fixture.componentInstance.store.tableToast()).toBe('Falta 1 objetivo.');
+
+    fixture.componentInstance.store.handleBattlefieldCardClick(new MouseEvent('click'), 'user-2', secondTarget);
+
+    expect(fixture.componentInstance.store.pendingArrowSource()).toBeNull();
+    await vi.waitFor(() => expect(gamesApi.command).toHaveBeenCalledTimes(2));
+    expect(gamesApi.command).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'arrow.created',
+      payload: { fromInstanceId: 'card-1', toInstanceId: 'card-2', color: 'green' },
+    }), 'game-1');
+    expect(gamesApi.command).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'arrow.created',
+      payload: { fromInstanceId: 'card-1', toInstanceId: 'card-4', color: 'green' },
+    }), 'game-1');
+  });
+
+  it('cancels target-player selection without activating arrow targeting', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    snapshot.players['user-1'].zones.battlefield.push({
+      instanceId: 'card-2',
+      ownerId: 'user-1',
+      controllerId: 'user-1',
+      name: 'Arcane Signet',
+      typeLine: 'Artifact',
+      tapped: false,
+      counters: {},
+    });
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const source = snapshot.players['user-1'].zones.battlefield[0]!;
     fixture.componentInstance.handleContextMenuAction({ type: 'drawArrow' }, {
       x: 0,
       y: 0,
@@ -835,15 +1079,152 @@ describe('GameTableComponent', () => {
       kind: 'card',
       card: source!,
     });
-    fixture.componentInstance.store.handleBattlefieldCardClick(new MouseEvent('click'), 'user-1', target!);
 
-    await vi.waitFor(() => expect(gamesApi.command).toHaveBeenCalledWith(expect.objectContaining({
-      type: 'arrow.created',
-      payload: {
-        fromInstanceId: 'card-1',
-        toInstanceId: 'card-2',
+    fixture.componentInstance.cancelArrowTargetDialog();
+
+    expect(fixture.componentInstance.arrowTargetDialog()).toBeNull();
+    expect(fixture.componentInstance.store.pendingArrowSource()).toBeNull();
+    expect(gamesApi.command).not.toHaveBeenCalled();
+  });
+
+  it('derives an outgoing targeting pill for an opponent mini board', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    addOpponent(snapshot);
+    snapshot.arrows = [{ id: 'arrow-1', fromInstanceId: 'card-1', toInstanceId: 'card-2', color: 'yellow', createdAt: '' }];
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.store.opponentTargetingPills().get('user-2')).toEqual(expect.objectContaining({
+      direction: 'outgoing',
+      text: 'Objetivo: Opponent',
+    }));
+    expect(fixture.componentInstance.store.opponentCardsTargetCards().get('user-2')).toEqual([
+      expect.objectContaining({
+        card: expect.objectContaining({ instanceId: 'card-2' }),
+        role: 'target',
+      }),
+    ]);
+  });
+
+  it('derives an incoming targeting pill for an opponent mini board', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    addOpponent(snapshot);
+    snapshot.arrows = [{ id: 'arrow-1', fromInstanceId: 'card-2', toInstanceId: 'card-1', color: 'yellow', createdAt: '' }];
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.store.opponentTargetingPills().get('user-2')).toEqual(expect.objectContaining({
+      direction: 'incoming',
+      text: 'Objetivo de Opponent',
+    }));
+    expect(fixture.componentInstance.store.opponentCardsTargetCards().get('user-2')).toEqual([
+      expect.objectContaining({
+        card: expect.objectContaining({ instanceId: 'card-2' }),
+        role: 'source',
+      }),
+    ]);
+  });
+
+  it('orders cards-target cards by the counterpart battlefield position', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    addOpponent(snapshot);
+    snapshot.players['user-1'].zones.battlefield[0]!.position = { x: 600, y: 120 };
+    snapshot.players['user-1'].zones.battlefield.push({
+      instanceId: 'card-3',
+      ownerId: 'user-1',
+      controllerId: 'user-1',
+      name: 'Second Source',
+      typeLine: 'Creature',
+      tapped: false,
+      position: { x: 120, y: 120 },
+      counters: {},
+    });
+    snapshot.players['user-2'].zones.battlefield.push({
+      instanceId: 'card-4',
+      ownerId: 'user-2',
+      controllerId: 'user-2',
+      name: 'Second Target',
+      typeLine: 'Creature',
+      tapped: false,
+      counters: {},
+    });
+    snapshot.arrows = [
+      { id: 'arrow-1', fromInstanceId: 'card-1', toInstanceId: 'card-2', color: 'yellow', createdAt: '' },
+      { id: 'arrow-2', fromInstanceId: 'card-3', toInstanceId: 'card-4', color: 'blue', createdAt: '' },
+    ];
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.store.opponentCardsTargetCards().get('user-2')?.map((entry) => entry.card.instanceId)).toEqual([
+      'card-4',
+      'card-2',
+    ]);
+  });
+
+  it('opens a focused battlefield when focus receives a user id instead of a snapshot player key', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    snapshot.players['seat-2'] = {
+      user: { id: 'user-2', email: 'opponent@test', displayName: 'Opponent', roles: [] },
+      status: 'active',
+      life: 40,
+      zones: {
+        library: [],
+        hand: [],
+        battlefield: [{
+          instanceId: 'opponent-card',
+          ownerId: 'seat-2',
+          controllerId: 'seat-2',
+          name: 'Arcane Signet',
+          typeLine: 'Artifact',
+          tapped: false,
+          counters: {},
+        }],
+        graveyard: [],
+        exile: [],
+        command: [],
       },
-    }), 'game-1'));
+      zoneCounts: {
+        library: 0,
+        hand: 0,
+        battlefield: 1,
+        graveyard: 0,
+        exile: 0,
+        command: 0,
+      },
+      commanderDamage: {},
+      counters: {},
+    };
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    fixture.componentInstance.focusPlayerBattlefield('user-2');
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.store.focusedPlayer()?.id).toBe('seat-2');
   });
 
   it('removes an arrow from the arrow context menu', async () => {
@@ -873,6 +1254,192 @@ describe('GameTableComponent', () => {
     await vi.waitFor(() => expect(gamesApi.command).toHaveBeenCalledWith(expect.objectContaining({
       type: 'arrow.removed',
       payload: { id: 'arrow-1' },
+    }), 'game-1'));
+  });
+
+  it('removes all arrows owned by the current player from the arrow context menu', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    addOpponent(snapshot);
+    snapshot.players['user-1'].zones.battlefield.push({
+      instanceId: 'card-3',
+      ownerId: 'user-1',
+      controllerId: 'user-1',
+      name: 'Mind Stone',
+      typeLine: 'Artifact',
+      tapped: false,
+      counters: {},
+    });
+    snapshot.arrows = [
+      { id: 'arrow-1', ownerId: 'user-1', fromInstanceId: 'card-1', toInstanceId: 'card-2', color: 'yellow', createdAt: '' },
+      { id: 'arrow-2', ownerId: 'user-2', fromInstanceId: 'card-2', toInstanceId: 'card-1', color: 'blue', createdAt: '' },
+      { id: 'arrow-3', ownerId: 'user-1', fromInstanceId: 'card-3', toInstanceId: 'card-2', color: 'green', createdAt: '' },
+    ];
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+    gamesApi.command.mockReturnValue(of({
+      event: { id: 'event-arrow-removed', type: 'arrow.removed', payload: {}, createdBy: 'user-1', createdAt: '' },
+      snapshot,
+    }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(fixture.componentInstance.store.ownedArrowCount('user-1')).toBe(2);
+    fixture.componentInstance.handleContextMenuAction({ type: 'deleteArrows' }, {
+      x: 0,
+      y: 0,
+      playerId: 'user-1',
+      zone: 'battlefield',
+      kind: 'arrow',
+      arrowId: 'arrow-1',
+    });
+
+    await vi.waitFor(() => expect(gamesApi.command).toHaveBeenCalledTimes(2));
+    expect(gamesApi.command).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      type: 'arrow.removed',
+      payload: { id: 'arrow-1' },
+    }), 'game-1');
+    expect(gamesApi.command).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      type: 'arrow.removed',
+      payload: { id: 'arrow-3' },
+    }), 'game-1');
+  });
+
+  it('does not open an arrow context menu for arrows owned by another player', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    addOpponent(snapshot);
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.store.openArrowMenu(new MouseEvent('click'), 'user-2', 'arrow-2');
+
+    expect(fixture.componentInstance.store.contextMenu()).toBeNull();
+  });
+
+  it('clears manual power toughness from the card context menu', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    const card = snapshot.players['user-1'].zones.battlefield[0]!;
+    card.power = 3;
+    card.toughness = 3;
+    card.defaultPower = null;
+    card.defaultToughness = null;
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+    gamesApi.command.mockReturnValue(of({
+      event: { id: 'event-pt', type: 'card.power_toughness.changed', payload: {}, createdBy: 'user-1', createdAt: '' },
+      snapshot,
+    }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.handleContextMenuAction({ type: 'clearPowerToughness' }, {
+      x: 0,
+      y: 0,
+      playerId: 'user-1',
+      zone: 'battlefield',
+      kind: 'card',
+      card,
+    });
+
+    await vi.waitFor(() => expect(gamesApi.command).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'card.power_toughness.changed',
+      payload: {
+        playerId: 'user-1',
+        zone: 'battlefield',
+        instanceId: 'card-1',
+        power: null,
+        toughness: null,
+      },
+    }), 'game-1'));
+  });
+
+  it('asks for one library position when pointer-moving selected hand cards to the library', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    const handCards = [
+      { ...snapshot.players['user-1'].zones.battlefield[0]!, instanceId: 'hand-1', name: 'Arcane Signet', zone: 'hand' as const },
+      { ...snapshot.players['user-1'].zones.battlefield[0]!, instanceId: 'hand-2', name: 'Mind Stone', zone: 'hand' as const },
+    ];
+    snapshot.players['user-1'].zones.hand = handCards;
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.store.selectedCards.set([
+      { playerId: 'user-1', zone: 'hand', card: handCards[0]! },
+      { playerId: 'user-1', zone: 'hand', card: handCards[1]! },
+    ]);
+    await fixture.componentInstance.store.moveHandCardByPointer('user-1', 'user-1', 'hand-1', 'library');
+
+    expect(gamesApi.command).not.toHaveBeenCalled();
+    expect(fixture.componentInstance.store.pendingLibraryMove()).toEqual({
+      cardName: '2 cards',
+      commandType: 'cards.moved',
+      payload: {
+        playerId: 'user-1',
+        fromZone: 'hand',
+        toZone: 'library',
+        instanceIds: ['hand-1', 'hand-2'],
+      },
+    });
+    expect(fixture.componentInstance.store.selectedCards()).toEqual([]);
+  });
+
+  it('flips a double-faced card from the context menu', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    const card = snapshot.players['user-1'].zones.hand[0] = {
+      ...snapshot.players['user-1'].zones.battlefield[0]!,
+      instanceId: 'dfc-1',
+      name: 'Front // Back',
+      zone: 'hand',
+      activeFaceIndex: 0,
+      cardFaces: [
+        { name: 'Front', manaCost: null, typeLine: null, oracleText: null, power: null, toughness: null, loyalty: null, colors: [], imageUris: { normal: '/front.jpg' } },
+        { name: 'Back', manaCost: null, typeLine: null, oracleText: null, power: null, toughness: null, loyalty: null, colors: [], imageUris: { normal: '/back.jpg' } },
+      ],
+    };
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+    gamesApi.command.mockReturnValue(of({
+      event: { id: 'event-face', type: 'card.face.changed', payload: {}, createdBy: 'user-1', createdAt: '' },
+      snapshot,
+    }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.handleContextMenuAction({ type: 'flipCardFace' }, {
+      x: 0,
+      y: 0,
+      playerId: 'user-1',
+      zone: 'hand',
+      kind: 'card',
+      card,
+    });
+
+    await vi.waitFor(() => expect(gamesApi.command).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'card.face.changed',
+      payload: {
+        playerId: 'user-1',
+        zone: 'hand',
+        instanceId: 'dfc-1',
+        faceIndex: 1,
+      },
     }), 'game-1'));
   });
 
@@ -1221,8 +1788,8 @@ describe('GameTableComponent', () => {
 
     const payloads = gamesApi.command.mock.calls.map(([command]) => command.payload);
     expect(payloads.map((payload) => payload.position)).toEqual([
-      { x: 111, y: 222 },
-      { x: 111, y: 222 },
+      { x: 0.141582, y: 0.620112, unit: 'ratio' },
+      { x: 0.141582, y: 0.620112, unit: 'ratio' },
     ]);
   });
 
@@ -1293,13 +1860,13 @@ describe('GameTableChatLogState', () => {
     const state = new GameTableChatLogState();
     const snapshot = snapshotWithStatus('active');
     snapshot.eventLog = [
-      gameLogEntry('event-1', 'card.moved', 'Moved Sméagol, Helpful Guide from battlefield to command.'),
-      gameLogEntry('event-2', 'card.moved', 'Moved Sméagol, Helpful Guide from command to battlefield.'),
+      gameLogEntry('event-1', 'card.moved', 'Moved SmÃ©agol, Helpful Guide from battlefield to command.'),
+      gameLogEntry('event-2', 'card.moved', 'Moved SmÃ©agol, Helpful Guide from command to battlefield.'),
       gameLogEntry('event-3', 'counter.changed', 'Set commander:user-1 counter casts to 2.'),
     ];
 
     expect(state.eventLog(snapshot).map((entry) => entry.message)).toEqual([
-      'Moved Sméagol, Helpful Guide from battlefield to command. Commander cast count increased from 1 to 2.',
+      'Moved SmÃ©agol, Helpful Guide from battlefield to command. Commander cast count increased from 1 to 2.',
     ]);
   });
 
@@ -1382,7 +1949,7 @@ function snapshotWithStatus(status: 'active' | 'conceded'): GameSnapshot {
             ownerId: 'user-1',
             controllerId: 'user-1',
             name: 'Plains',
-            typeLine: 'Basic Land — Plains',
+            typeLine: 'Basic Land â€” Plains',
             tapped: false,
             counters: {},
           }],
@@ -1419,6 +1986,44 @@ function snapshotWithStatus(status: 'active' | 'conceded'): GameSnapshot {
     eventLog: [],
     createdAt: '2026-04-30T20:00:00+00:00',
     updatedAt: '2026-04-30T20:00:00+00:00',
+  };
+}
+
+function addOpponent(snapshot: GameSnapshot): void {
+  snapshot.players['user-2'] = {
+    user: { id: 'user-2', email: 'opponent@test', displayName: 'Opponent', roles: [] },
+    status: 'active',
+    concededAt: null,
+    colorIdentity: ['U'],
+    backgroundName: 'back_5',
+    sleevesName: 'facedown_card',
+    life: 39,
+    zones: {
+      library: [],
+      hand: [],
+      battlefield: [{
+        instanceId: 'card-2',
+        ownerId: 'user-2',
+        controllerId: 'user-2',
+        name: 'Arcane Signet',
+        typeLine: 'Artifact',
+        tapped: false,
+        counters: {},
+      }],
+      graveyard: [],
+      exile: [],
+      command: [],
+    },
+    zoneCounts: {
+      library: 0,
+      hand: 0,
+      battlefield: 1,
+      graveyard: 0,
+      exile: 0,
+      command: 0,
+    },
+    commanderDamage: {},
+    counters: {},
   };
 }
 

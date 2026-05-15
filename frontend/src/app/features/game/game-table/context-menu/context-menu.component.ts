@@ -28,17 +28,20 @@ export type ContextMenuAction =
   | { type: 'moveAll'; zone: GameZoneName }
   | { type: 'tapCard' }
   | { type: 'faceDown' }
+  | { type: 'flipCardFace' }
   | { type: 'revealCard' }
   | { type: 'tokenCopy' }
   | { type: 'drawArrow' }
   | { type: 'addToStack' }
   | { type: 'setPowerToughness' }
+  | { type: 'clearPowerToughness' }
   | { type: 'changeCounter'; counter: string }
   | { type: 'removeCounter'; counter: string }
   | { type: 'removeAllCounters' }
   | { type: 'giveToPlayer'; targetPlayerId: string }
   | { type: 'moveCard'; zone: GameZoneName }
   | { type: 'deleteArrow' }
+  | { type: 'deleteArrows' }
   | { type: 'deleteCounter' }
   | { type: 'previewCard' };
 
@@ -63,6 +66,7 @@ export class ContextMenuComponent {
   readonly zoneCardCount = input.required<(playerId: string, zone: GameZoneName) => number>();
   readonly shouldShowPowerToughness = input.required<(card: GameCardInstance) => boolean>();
   readonly zoneTitle = input.required<(zone: GameZoneName) => string>();
+  readonly ownedArrowCount = input(0);
 
   readonly actionSelected = output<ContextMenuAction>();
   readonly close = output<void>();
@@ -130,12 +134,37 @@ export class ContextMenuComponent {
     return this.showsBattlefieldCardActions() && !!card && !card.faceDown && !this.shouldShowPowerToughness()(card);
   }
 
+  canRemovePowerToughness(): boolean {
+    const card = this.menu().card;
+    if (!this.showsBattlefieldCardActions() || !card || card.faceDown) {
+      return false;
+    }
+
+    return this.hasPowerToughness(card) && !this.hasDefaultPowerToughness(card);
+  }
+
+  powerToughnessLabel(): string {
+    return this.canRemovePowerToughness() ? 'Remove Power/Toughness' : 'Power/Toughness';
+  }
+
+  powerToughnessAction(): ContextMenuAction {
+    return this.canRemovePowerToughness() ? { type: 'clearPowerToughness' } : { type: 'setPowerToughness' };
+  }
+
+  canDeleteOwnedArrows(): boolean {
+    return this.ownedArrowCount() > 1;
+  }
+
   tapLabel(): string {
     return this.menu().card?.tapped ? 'Untap' : 'Tap';
   }
 
   faceDownLabel(): string {
     return this.menu().card?.faceDown ? 'Turn Face Up' : 'Turn Face Down';
+  }
+
+  canFlipCardFace(): boolean {
+    return (this.menu().card?.cardFaces?.length ?? 0) > 1;
   }
 
   giveToPlayerTargets(): readonly PlayerView[] {
@@ -182,6 +211,17 @@ export class ContextMenuComponent {
   private isActiveCardCommander(): boolean {
     const currentMenu = this.menu();
     return currentMenu.zone === 'command' || currentMenu.card?.isCommander === true;
+  }
+
+  private hasPowerToughness(card: GameCardInstance): boolean {
+    return card.power !== null && card.power !== undefined && card.toughness !== null && card.toughness !== undefined;
+  }
+
+  private hasDefaultPowerToughness(card: GameCardInstance): boolean {
+    return card.defaultPower !== null
+      && card.defaultPower !== undefined
+      && card.defaultToughness !== null
+      && card.defaultToughness !== undefined;
   }
 
   private sortedItems(items: readonly ContextSubmenuItem[]): readonly ContextSubmenuItem[] {

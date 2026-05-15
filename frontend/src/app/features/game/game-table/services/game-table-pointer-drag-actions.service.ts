@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { GameCardInstance, GameCommandType, GameSnapshot, GameZoneName } from '../../../../core/models/game.model';
+import { GameCardInstance, GameCardPosition, GameCommandType, GameSnapshot, GameZoneName } from '../../../../core/models/game.model';
 import { HandDropPreview } from '../state/game-table-battlefield-drag.state';
 import { GameTableBattlefieldDragContext, GameTableBattlefieldDragCoordinatorService } from './game-table-battlefield-drag-coordinator.service';
 import { GameTableDragService } from './game-table-drag.service';
@@ -14,9 +14,11 @@ export interface GameTablePointerDragActionContext {
   alignmentGuideY(playerId: string): number | null;
   isManaLaneHighlighted(playerId: string): boolean;
   findCard(playerId: string, zone: GameZoneName, instanceId: string): GameCardInstance | null;
+  cardPosition(card: GameCardInstance): { x: number; y: number } | null;
   canControlPlayer(playerId: string): boolean;
   canControlOwnedCard(playerId: string, card: GameCardInstance): boolean;
   playerName(playerId: string): string;
+  battlefieldPosition(playerId: string, instanceId: string, position: { x: number; y: number }): GameCardPosition;
   updateLocalCardPosition(playerId: string, instanceId: string, position: { x: number; y: number }): void;
   setPendingBattlefieldMove(move: PendingBattlefieldMove): void;
   setPendingLibraryMove(move: PendingLibraryMove): void;
@@ -119,7 +121,7 @@ export class GameTablePointerDragActionsService {
         playerId: drag.playerId,
         zone: 'battlefield',
         instanceId: drag.instanceId,
-        position,
+        position: context.battlefieldPosition(drag.playerId, drag.instanceId, position),
       });
     }
     context.endCardDrag();
@@ -210,14 +212,14 @@ export class GameTablePointerDragActionsService {
     alignY = false,
   ): Promise<void> {
     const dragged = selected.find((item) => item.card.instanceId === draggedInstanceId);
-    const origin = dragged?.card.position ?? { x: 0, y: 0 };
+    const origin = dragged ? context.cardPosition(dragged.card) ?? { x: 0, y: 0 } : { x: 0, y: 0 };
     const delta = {
       x: draggedPosition.x - origin.x,
       y: draggedPosition.y - origin.y,
     };
 
     const moves = selected.map((item) => {
-      const current = item.card.position ?? { x: 0, y: 0 };
+      const current = context.cardPosition(item.card) ?? { x: 0, y: 0 };
       return {
         item,
         position: {
@@ -236,7 +238,7 @@ export class GameTablePointerDragActionsService {
         playerId: move.item.playerId,
         zone: 'battlefield',
         instanceId: move.item.card.instanceId,
-        position: move.position,
+        position: context.battlefieldPosition(move.item.playerId, move.item.card.instanceId, move.position),
       });
     }
   }

@@ -479,6 +479,7 @@ function contextWithSnapshot(snapshot: GameSnapshot): GameTableBattlefieldDragCo
     selectedCards: () => [],
     findCard: (playerId: string, zone: GameZoneName, instanceId: string) =>
       snapshot.players[playerId]?.zones[zone].find((candidate) => candidate.instanceId === instanceId) ?? null,
+    cardPosition: (card) => card.position ?? null,
     updateLocalCardPosition: () => undefined,
   };
 }

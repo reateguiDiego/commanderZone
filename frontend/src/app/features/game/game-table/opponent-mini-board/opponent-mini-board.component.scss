@@ -73,6 +73,7 @@
 }
 
 .opponent-deck-title {
+  flex: 1 1 auto;
   min-width: 0;
   color: var(--game-text);
   font-family: var(--font-display, inherit);
@@ -87,6 +88,50 @@
     0 0 0.7rem color-mix(in srgb, var(--player-accent, var(--game-accent)) 34%, transparent);
   text-transform: uppercase;
   white-space: nowrap;
+}
+
+.opponent-targeting-pill {
+  flex: 0 1 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 4.25rem;
+  max-width: 13rem;
+  height: 1.5rem;
+  padding: 0 0.55rem;
+  border: 1px solid color-mix(in srgb, var(--player-accent, var(--game-accent)) 44%, rgb(255 255 255 / 10%));
+  border-radius: 999px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--player-accent, var(--game-accent)) 28%, transparent), transparent 62%),
+    rgb(9 10 9 / 78%);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 10%),
+    0 0.35rem 0.9rem rgb(0 0 0 / 24%),
+    0 0 0.8rem color-mix(in srgb, var(--player-accent, var(--game-accent)) 18%, transparent);
+  color: rgb(247 232 186);
+  font-size: 0.68rem;
+  font-weight: 900;
+  line-height: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-shadow: 0 1px 0 rgb(0 0 0 / 54%);
+  white-space: nowrap;
+}
+
+.opponent-targeting-pill-incoming {
+  border-color: rgb(239 142 116 / 48%);
+  background:
+    linear-gradient(135deg, rgb(239 142 116 / 24%), transparent 62%),
+    rgb(18 9 8 / 82%);
+  color: rgb(255 207 190);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 10%),
+    0 0.35rem 0.9rem rgb(0 0 0 / 24%),
+    0 0 1rem rgb(239 142 116 / 18%);
+}
+
+.opponent-targeting-pill-outgoing {
+  border-color: rgb(215 180 106 / 50%);
 }
 
 .opponent-deck-title.muted {
@@ -110,6 +155,50 @@
   color: var(--game-text);
   font-size: 1rem;
   font-weight: 900;
+}
+
+.opponent-board-stage {
+  position: relative;
+  display: block;
+  min-height: 10.8rem;
+  overflow: hidden;
+  transform: translateZ(0);
+}
+
+.opponent-board-stage::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 1px solid transparent;
+  pointer-events: none;
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.opponent-board-stage.showing-cards-target::after {
+  border-color: rgb(215 180 106 / 24%);
+  box-shadow: inset 0 0 1.2rem rgb(215 180 106 / 10%);
+}
+
+.opponent-board-stage app-opponent-mini-battlefield,
+.opponent-board-stage app-opponent-cards-target {
+  display: block;
+  animation: opponent-board-enter 260ms cubic-bezier(0.2, 0.78, 0.22, 1);
+}
+
+@keyframes opponent-board-enter {
+  from {
+    opacity: 0;
+    filter: blur(5px);
+    transform: scale(0.982) translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    filter: blur(0);
+    transform: scale(1) translateY(0);
+  }
 }
 
 .opponent-zone-counts {
@@ -181,6 +270,13 @@
 
   .player-thumb-header {
     gap: 0.35rem;
+  }
+
+  .opponent-targeting-pill {
+    max-width: 8rem;
+    height: 1.35rem;
+    padding: 0 0.42rem;
+    font-size: 0.62rem;
   }
 
   .opponent-life {

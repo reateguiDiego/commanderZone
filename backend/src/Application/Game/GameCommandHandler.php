@@ -13,10 +13,9 @@ class GameCommandHandler
     private const ZONES = ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command'];
     private const HIDDEN_ZONES = ['library', 'hand'];
     private const MAX_CARD_COUNTER_TYPES = 5;
-    private const DEFAULT_BATTLEFIELD_WIDTH = 900;
-    private const DEFAULT_BATTLEFIELD_HEIGHT = 520;
-    private const DEFAULT_BATTLEFIELD_CARD_WIDTH = 116;
-    private const DEFAULT_BATTLEFIELD_CARD_HEIGHT = 162;
+    private const POSITION_UNIT_RATIO = 'ratio';
+    private const TOKEN_COPY_LEGACY_OFFSET_X = 132;
+    private const TOKEN_COPY_RATIO_OFFSET_X = 0.1683673469387755;
     private const SUPPORTED_COMMANDS = [
         'game.concede',
         'game.close',
@@ -31,6 +30,7 @@ class GameCommandHandler
         'card.tapped',
         'card.position.changed',
         'card.face_down.changed',
+        'card.face.changed',
         'card.revealed',
         'card.token_copy.created',
         'card.controller.changed',
@@ -60,6 +60,7 @@ class GameCommandHandler
         'card.tapped',
         'card.position.changed',
         'card.face_down.changed',
+        'card.face.changed',
         'card.revealed',
         'card.token_copy.created',
         'card.controller.changed',
@@ -119,6 +120,7 @@ class GameCommandHandler
             'card.tapped' => $log = $this->applyCardTapped($snapshot, $payload),
             'card.position.changed' => $log = $this->applyCardPositionChanged($snapshot, $payload),
             'card.face_down.changed' => $log = $this->applyCardFaceDown($snapshot, $payload),
+            'card.face.changed' => $log = $this->applyCardFaceChanged($snapshot, $payload),
             'card.revealed' => $log = $this->applyCardRevealed($snapshot, $payload),
             'card.token_copy.created' => $log = $this->applyTokenCopyCreated($snapshot, $payload, $actor),
             'card.controller.changed' => $log = $this->applyControllerChanged($snapshot, $payload),
@@ -134,8 +136,8 @@ class GameCommandHandler
             'library.play_top_revealed' => $log = $this->applyLibraryPlayTopRevealed($snapshot, $payload),
             'stack.card_added' => $log = $this->applyStackCardAdded($snapshot, $payload),
             'stack.item_removed' => $log = $this->applyStackItemRemoved($snapshot, $payload),
-            'arrow.created' => $log = $this->applyArrowCreated($snapshot, $payload),
-            'arrow.removed' => $log = $this->applyArrowRemoved($snapshot, $payload),
+            'arrow.created' => $log = $this->applyArrowCreated($snapshot, $payload, $actor),
+            'arrow.removed' => $log = $this->applyArrowRemoved($snapshot, $payload, $actor),
             default => throw new \InvalidArgumentException(sprintf('Unknown game command: %s', $type)),
         };
 
@@ -226,8 +228,9 @@ class GameCommandHandler
             'defaultLoyalty' => $defaultLoyalty,
             'tapped' => (bool) ($card['tapped'] ?? false),
             'faceDown' => (bool) ($card['faceDown'] ?? false),
+            'activeFaceIndex' => $this->activeFaceIndex($card),
             'revealedTo' => is_array($card['revealedTo'] ?? null) ? $card['revealedTo'] : [],
-            'position' => is_array($card['position'] ?? null) ? $card['position'] : ['x' => 0, 'y' => 0],
+            'position' => $this->normalizedPosition($card['position'] ?? null),
             'rotation' => (int) ($card['rotation'] ?? 0),
             'counters' => is_array($card['counters'] ?? null) ? $card['counters'] : [],
             'zone' => $zone,
@@ -439,13 +442,13 @@ class GameCommandHandler
         $previousToughness = $card['toughness'] ?? null;
         $previousLoyalty = $card['loyalty'] ?? null;
         if (array_key_exists('power', $payload)) {
-            $card['power'] = (int) $payload['power'];
+            $card['power'] = $payload['power'] === null ? null : (int) $payload['power'];
         }
         if (array_key_exists('toughness', $payload)) {
-            $card['toughness'] = (int) $payload['toughness'];
+            $card['toughness'] = $payload['toughness'] === null ? null : (int) $payload['toughness'];
         }
         if (array_key_exists('loyalty', $payload)) {
-            $card['loyalty'] = (int) $payload['loyalty'];
+            $card['loyalty'] = $payload['loyalty'] === null ? null : (int) $payload['loyalty'];
         }
 
         if (array_key_exists('loyalty', $payload) && !array_key_exists('power', $payload) && !array_key_exists('toughness', $payload)) {
@@ -588,6 +591,21 @@ class GameCommandHandler
         return sprintf('%s %s.', $card['faceDown'] ? 'Turned face down' : 'Turned face up', $this->cardLogName($card));
     }
 
+    private function applyCardFaceChanged(array &$snapshot, array $payload): string
+    {
+        $location = $this->requiredCardLocation($snapshot, $payload);
+        $card =& $snapshot['players'][$location['playerId']]['zones'][$location['zone']][$location['index']];
+        $faces = is_array($card['cardFaces'] ?? null) ? array_values($card['cardFaces']) : [];
+        if (count($faces) < 2) {
+            throw new \InvalidArgumentException('Card does not have multiple faces.');
+        }
+
+        $faceIndex = $this->positiveInt($payload['faceIndex'] ?? 0, 0, count($faces) - 1);
+        $card['activeFaceIndex'] = $faceIndex;
+
+        return sprintf('Flipped %s to face %d.', $this->cardLogName($card), $faceIndex + 1);
+    }
+
     private function applyCardRevealed(array &$snapshot, array $payload): string
     {
         $location = $this->requiredCardLocation($snapshot, $payload);
@@ -625,7 +643,10 @@ class GameCommandHandler
             'zone' => 'battlefield',
             'isToken' => true,
         ], $targetPlayerId, 'battlefield');
-        $copy['position'] = $this->tokenCopyPosition($source['position'] ?? null);
+        $copy['position'] = $this->tokenCopyPosition(
+            $source['position'] ?? null,
+            $snapshot['players'][$targetPlayerId]['zones']['battlefield'] ?? [],
+        );
         $this->resetMutableStats($copy);
         $copy['counters'] = [];
         $snapshot['players'][$targetPlayerId]['zones']['battlefield'][] = $copy;
@@ -888,7 +909,7 @@ class GameCommandHandler
         return 'Removed item from stack.';
     }
 
-    private function applyArrowCreated(array &$snapshot, array $payload): string
+    private function applyArrowCreated(array &$snapshot, array $payload, User $actor): string
     {
         $fromInstanceId = trim((string) ($payload['fromInstanceId'] ?? ''));
         $toInstanceId = trim((string) ($payload['toInstanceId'] ?? ''));
@@ -901,6 +922,7 @@ class GameCommandHandler
 
         $snapshot['arrows'][] = [
             'id' => Uuid::v7()->toRfc4122(),
+            'ownerId' => $actor->id(),
             'fromInstanceId' => $fromInstanceId,
             'toInstanceId' => $toInstanceId,
             'color' => trim((string) ($payload['color'] ?? 'yellow')),
@@ -910,11 +932,20 @@ class GameCommandHandler
         return 'Created arrow.';
     }
 
-    private function applyArrowRemoved(array &$snapshot, array $payload): string
+    private function applyArrowRemoved(array &$snapshot, array $payload, User $actor): string
     {
         $id = trim((string) ($payload['id'] ?? ''));
         if ($id === '') {
             throw new \InvalidArgumentException('id is required.');
+        }
+        foreach ($snapshot['arrows'] as $arrow) {
+            if (($arrow['id'] ?? null) !== $id) {
+                continue;
+            }
+            if (isset($arrow['ownerId']) && (string) $arrow['ownerId'] !== $actor->id()) {
+                throw new \InvalidArgumentException('Only the arrow owner can remove it.');
+            }
+            break;
         }
         $snapshot['arrows'] = array_values(array_filter(
             $snapshot['arrows'],
@@ -1081,16 +1112,84 @@ class GameCommandHandler
     /**
      * @param mixed $position
      *
-     * @return array{x:int,y:int}
+     * @param list<array<string,mixed>> $battlefield
+     *
+     * @return array<string,mixed>
      */
-    private function tokenCopyPosition(mixed $position): array
+    private function tokenCopyPosition(mixed $position, array $battlefield): array
     {
         $source = $this->normalizedPosition($position);
+        if (($source['unit'] ?? null) === self::POSITION_UNIT_RATIO) {
+            foreach ($this->tokenCopyPositionCandidates($source, self::TOKEN_COPY_RATIO_OFFSET_X, self::TOKEN_COPY_RATIO_OFFSET_X, self::POSITION_UNIT_RATIO) as $candidate) {
+                $normalized = $this->normalizedPosition($candidate);
+                if (!$this->tokenCopyPositionConflicts($normalized, $battlefield, self::TOKEN_COPY_RATIO_OFFSET_X, self::TOKEN_COPY_RATIO_OFFSET_X)) {
+                    return $normalized;
+                }
+            }
 
-        return $this->normalizedPosition([
-            'x' => $source['x'] + 132,
-            'y' => $source['y'],
-        ]);
+            return $this->normalizedPosition([
+                'x' => $source['x'],
+                'y' => $source['y'],
+                'unit' => self::POSITION_UNIT_RATIO,
+            ]);
+        }
+
+        foreach ($this->tokenCopyPositionCandidates($source, self::TOKEN_COPY_LEGACY_OFFSET_X, self::TOKEN_COPY_LEGACY_OFFSET_X, null) as $candidate) {
+            $normalized = $this->normalizedPosition($candidate);
+            if (!$this->tokenCopyPositionConflicts($normalized, $battlefield, self::TOKEN_COPY_LEGACY_OFFSET_X, self::TOKEN_COPY_LEGACY_OFFSET_X)) {
+                return $normalized;
+            }
+        }
+
+        return $this->normalizedPosition($source);
+    }
+
+    /**
+     * @param array<string,mixed> $source
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function tokenCopyPositionCandidates(array $source, float|int $offsetX, float|int $offsetY, ?string $unit): array
+    {
+        $candidates = [
+            ['x' => $source['x'] + $offsetX, 'y' => $source['y']],
+            ['x' => $source['x'] - $offsetX, 'y' => $source['y']],
+            ['x' => $source['x'], 'y' => $source['y'] + $offsetY],
+            ['x' => $source['x'], 'y' => $source['y'] - $offsetY],
+            ['x' => $source['x'] + $offsetX, 'y' => $source['y'] + $offsetY],
+            ['x' => $source['x'] - $offsetX, 'y' => $source['y'] + $offsetY],
+            ['x' => $source['x'] + $offsetX, 'y' => $source['y'] - $offsetY],
+            ['x' => $source['x'] - $offsetX, 'y' => $source['y'] - $offsetY],
+        ];
+
+        if ($unit === null) {
+            return $candidates;
+        }
+
+        return array_map(static fn (array $candidate): array => [...$candidate, 'unit' => $unit], $candidates);
+    }
+
+    /**
+     * @param array<string,mixed> $position
+     * @param list<array<string,mixed>> $battlefield
+     */
+    private function tokenCopyPositionConflicts(array $position, array $battlefield, float|int $offsetX, float|int $offsetY): bool
+    {
+        foreach ($battlefield as $card) {
+            $occupied = $this->normalizedPosition($card['position'] ?? null);
+            if (($occupied['unit'] ?? null) !== ($position['unit'] ?? null)) {
+                continue;
+            }
+
+            if (
+                abs((float) $occupied['x'] - (float) $position['x']) < ((float) $offsetX * 0.75)
+                && abs((float) $occupied['y'] - (float) $position['y']) < ((float) $offsetY * 0.75)
+            ) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -1098,10 +1197,7 @@ class GameCommandHandler
      */
     private function battlefieldCenterPosition(): array
     {
-        return $this->normalizedPosition([
-            'x' => intdiv(self::DEFAULT_BATTLEFIELD_WIDTH - self::DEFAULT_BATTLEFIELD_CARD_WIDTH, 2),
-            'y' => intdiv(self::DEFAULT_BATTLEFIELD_HEIGHT - self::DEFAULT_BATTLEFIELD_CARD_HEIGHT, 2),
-        ]);
+        return ['x' => 0.5, 'y' => 0.5, 'unit' => self::POSITION_UNIT_RATIO];
     }
 
     private function resetMutableStats(array &$card): void
@@ -1331,7 +1427,7 @@ class GameCommandHandler
     }
 
     /**
-     * @return array{x:int,y:int}
+     * @return array<string,int|float|string>
      */
     private function normalizedPosition(mixed $position): array
     {
@@ -1339,10 +1435,28 @@ class GameCommandHandler
             return ['x' => 0, 'y' => 0];
         }
 
+        if (($position['unit'] ?? null) === self::POSITION_UNIT_RATIO) {
+            return [
+                'x' => max(0.0, min(1.0, (float) ($position['x'] ?? 0))),
+                'y' => max(0.0, min(1.0, (float) ($position['y'] ?? 0))),
+                'unit' => self::POSITION_UNIT_RATIO,
+            ];
+        }
+
         return [
             'x' => max(0, min(3000, (int) ($position['x'] ?? 0))),
             'y' => max(0, min(2000, (int) ($position['y'] ?? 0))),
         ];
+    }
+
+    private function activeFaceIndex(array $card): int
+    {
+        $faces = is_array($card['cardFaces'] ?? null) ? $card['cardFaces'] : [];
+        if (count($faces) < 2) {
+            return 0;
+        }
+
+        return $this->positiveInt($card['activeFaceIndex'] ?? 0, 0, count($faces) - 1);
     }
 
     private function assertActorCanApply(array $snapshot, string $type, array $payload, User $actor): void

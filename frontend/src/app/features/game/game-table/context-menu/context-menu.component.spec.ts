@@ -129,10 +129,39 @@ describe('ContextMenuComponent', () => {
       kind: 'card',
       playerId: 'user-1',
       zone: 'battlefield',
-      card: { ...card('creature-1'), power: 2, toughness: 2 },
+      card: { ...card('creature-1'), power: 2, toughness: 2, defaultPower: 2, defaultToughness: 2 },
     });
 
     expect(menuText(fixture)).not.toContain('Power/Toughness');
+  });
+
+  it('shows manual power toughness removal when the card has no backend defaults', () => {
+    const fixture = createContextMenuFixture({
+      kind: 'card',
+      playerId: 'user-1',
+      zone: 'battlefield',
+      card: { ...card('artifact-token'), power: 3, toughness: 3 },
+    });
+    const selected = vi.fn();
+    fixture.componentInstance.actionSelected.subscribe(selected);
+
+    const button = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button'))
+      .find((candidate) => candidate.textContent?.includes('Remove Power/Toughness'));
+    button?.click();
+
+    expect(menuText(fixture)).toContain('Remove Power/Toughness');
+    expect(selected).toHaveBeenCalledWith({ type: 'clearPowerToughness' });
+  });
+
+  it('does not show manual power toughness removal when backend defaults exist', () => {
+    const fixture = createContextMenuFixture({
+      kind: 'card',
+      playerId: 'user-1',
+      zone: 'battlefield',
+      card: { ...card('creature-1'), power: 2, toughness: 2, defaultPower: 2, defaultToughness: 2 },
+    });
+
+    expect(menuText(fixture)).not.toContain('Remove Power/Toughness');
   });
 
   it('shows a compact delete action for arrow menus', () => {
@@ -151,6 +180,27 @@ describe('ContextMenuComponent', () => {
 
     expect(menuText(fixture)).toContain('Delete Arrow');
     expect(selected).toHaveBeenCalledWith({ type: 'deleteArrow' });
+  });
+
+  it('shows delete arrows when the current player owns several arrows', () => {
+    const fixture = createContextMenuFixture({
+      kind: 'arrow',
+      playerId: 'user-1',
+      zone: 'battlefield',
+      arrowId: 'arrow-1',
+    }, {
+      ownedArrowCount: 3,
+    });
+    const selected = vi.fn();
+    fixture.componentInstance.actionSelected.subscribe(selected);
+
+    const button = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button'))
+      .find((candidate) => candidate.textContent?.includes('Delete Arrows'));
+    button?.click();
+
+    expect(menuText(fixture)).toContain('Delete Arrow');
+    expect(menuText(fixture)).toContain('Delete Arrows');
+    expect(selected).toHaveBeenCalledWith({ type: 'deleteArrows' });
   });
 
   it('shows a compact delete action for counter menus', () => {
@@ -201,6 +251,7 @@ describe('ContextMenuComponent', () => {
 interface ContextMenuFixtureOptions {
   canControlPlayer?: (playerId: string) => boolean;
   zoneCardCount?: (playerId: string, zone: GameZoneName) => number;
+  ownedArrowCount?: number;
 }
 
 function createContextMenuFixture(menu: Partial<GameContextMenu>, options: ContextMenuFixtureOptions = {}) {
@@ -226,6 +277,7 @@ function createContextMenuFixture(menu: Partial<GameContextMenu>, options: Conte
   fixture.componentRef.setInput('zoneCardCount', options.zoneCardCount ?? (() => 1));
   fixture.componentRef.setInput('shouldShowPowerToughness', (target: GameCardInstance) => target.power !== null && target.power !== undefined && target.toughness !== null && target.toughness !== undefined);
   fixture.componentRef.setInput('zoneTitle', titleForZone);
+  fixture.componentRef.setInput('ownedArrowCount', options.ownedArrowCount ?? 0);
   fixture.detectChanges();
 
   return fixture;

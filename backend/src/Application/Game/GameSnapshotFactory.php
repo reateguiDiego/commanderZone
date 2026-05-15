@@ -131,6 +131,7 @@ class GameSnapshotFactory
             'defaultLoyalty' => $baseLoyalty,
             'tapped' => false,
             'faceDown' => false,
+            'activeFaceIndex' => 0,
             'revealedTo' => [],
             'position' => ['x' => 0, 'y' => 0],
             'rotation' => 0,

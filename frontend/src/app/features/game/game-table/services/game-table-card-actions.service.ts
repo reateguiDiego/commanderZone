@@ -119,11 +119,26 @@ export class GameTableCardActionsService {
       return;
     }
 
+    const instanceIds = selected.map((item) => item.card.instanceId);
+    if (toZone === 'library') {
+      context.setPendingLibraryMove({
+        cardName: `${selected.length} cards`,
+        commandType: 'cards.moved',
+        payload: {
+          playerId: first.playerId,
+          fromZone: first.zone,
+          toZone,
+          instanceIds,
+        },
+      });
+      return;
+    }
+
     await context.command('cards.moved', {
       playerId: first.playerId,
       fromZone: first.zone,
       toZone,
-      instanceIds: selected.map((item) => item.card.instanceId),
+      instanceIds,
     });
     context.clearSelectedCards();
   }
@@ -137,6 +152,20 @@ export class GameTableCardActionsService {
 
     const item = context.activeKeyboardCard();
     if (!item || !context.canControlPlayer(item.playerId)) {
+      return;
+    }
+
+    if (toZone === 'library') {
+      context.setPendingLibraryMove({
+        cardName: item.card.name,
+        commandType: 'card.moved',
+        payload: {
+          playerId: item.playerId,
+          fromZone: item.zone,
+          toZone,
+          instanceId: item.card.instanceId,
+        },
+      });
       return;
     }
 
@@ -184,6 +213,32 @@ export class GameTableCardActionsService {
       zone: menu.zone,
       instanceId: menu.card.instanceId,
       faceDown: !menu.card.faceDown,
+    });
+    context.closeContextMenu();
+  }
+
+  async flipCardFace(context: GameTableCardActionContext, menu: GameContextMenu): Promise<void> {
+    if (!menu.card) {
+      return;
+    }
+    if (!context.canControlPlayer(menu.playerId)) {
+      context.setError('You can only change your own cards.');
+      context.closeContextMenu();
+      return;
+    }
+
+    const faceCount = menu.card.cardFaces?.length ?? 0;
+    if (faceCount < 2) {
+      context.closeContextMenu();
+      return;
+    }
+
+    const currentIndex = Number.isInteger(menu.card.activeFaceIndex) ? Number(menu.card.activeFaceIndex) : 0;
+    await context.command('card.face.changed', {
+      playerId: menu.playerId,
+      zone: menu.zone,
+      instanceId: menu.card.instanceId,
+      faceIndex: (currentIndex + 1) % faceCount,
     });
     context.closeContextMenu();
   }

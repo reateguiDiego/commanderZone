@@ -87,7 +87,7 @@ export class GameTableDragService {
     const cardWidth = target.offsetWidth || cardBounds.width;
     const cardHeight = target.offsetHeight || cardBounds.height;
     const fieldBounds = battlefield.getBoundingClientRect();
-    const current = card.position ?? {
+    const current = {
       x: target.offsetLeft || Math.max(0, Math.round(cardBounds.left - fieldBounds.left)),
       y: target.offsetTop || Math.max(0, Math.round(cardBounds.top - fieldBounds.top)),
     };

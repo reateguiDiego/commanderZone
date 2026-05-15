@@ -43,6 +43,7 @@ import { CardMarkerRailComponent } from './game-card-view/card-marker-rail/card-
 import { LoyaltyCounterComponent } from './game-card-view/loyalty-counter/loyalty-counter.component';
 import { PowerToughnessDialogComponent, PowerToughnessDialogValueChange } from './power-toughness-dialog/power-toughness-dialog.component';
 import { GameArrowLayerComponent } from './game-arrow-layer/game-arrow-layer.component';
+import { ArrowTargetDialogComponent, ArrowTargetDialogValue } from './arrow-target-dialog/arrow-target-dialog.component';
 
 interface DrawNumberActionRequest {
   readonly kind: 'draw';
@@ -73,6 +74,13 @@ interface PowerToughnessActionRequest {
   readonly menu: GameContextMenu;
   readonly power: string;
   readonly toughness: string;
+}
+
+interface ArrowTargetDialogRequest {
+  readonly sourceMenu: GameContextMenu;
+  readonly selectedPlayerId: string;
+  readonly multipleTargets: boolean;
+  readonly targetCount: number;
 }
 
 interface BattlefieldLayoutSize {
@@ -110,6 +118,7 @@ interface BattlefieldLayoutRect extends BattlefieldLayoutSize {
     LoyaltyCounterComponent,
     PowerToughnessDialogComponent,
     GameArrowLayerComponent,
+    ArrowTargetDialogComponent,
   ],
   providers: [
     GameTableStore,
@@ -177,12 +186,13 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
   readonly isZoneDropSettling = (playerId: string, zone: GameZoneName): boolean => this.store.isZoneDropSettling(playerId, zone);
   readonly isCardTransferPending = (playerId: string, zone: GameZoneName, card: GameCardInstance): boolean =>
     this.store.isCardTransferPending(playerId, zone, card);
+  readonly ownedArrowCount = (playerId: string): number => this.store.ownedArrowCount(playerId);
   readonly isZoneTransferPending = (playerId: string, zone: GameZoneName): boolean => this.store.isZoneTransferPending(playerId, zone);
   readonly canDragBattlefieldCard = (playerId: string, card: GameCardInstance): boolean => this.store.canDragBattlefieldCard(playerId, card);
   readonly isPendingBattlefieldTransfer = (card: GameCardInstance): boolean => this.store.isPendingBattlefieldTransfer(card);
   readonly shouldShowPowerToughness = (card: GameCardInstance): boolean => this.store.shouldShowPowerToughness(card);
-  readonly cardPowerValue = (card: GameCardInstance): number => this.store.cardPowerValue(card);
-  readonly cardToughnessValue = (card: GameCardInstance): number => this.store.cardToughnessValue(card);
+  readonly cardPowerValue = (card: GameCardInstance): number | null => this.store.cardPowerValue(card);
+  readonly cardToughnessValue = (card: GameCardInstance): number | null => this.store.cardToughnessValue(card);
   readonly firstCounter = (card: GameCardInstance): { key: string; value: number } | null => this.store.firstCounter(card);
   readonly cardCounters = (card: GameCardInstance): readonly { key: string; value: number }[] =>
     Object.entries(card.counters ?? {})
@@ -195,6 +205,7 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
   readonly canUseHiddenZone = (playerId: string, zone: GameZoneName): boolean => this.store.canUseHiddenZone(playerId, zone);
   readonly numberActionDialog = signal<NumberActionRequest | null>(null);
   readonly powerToughnessDialog = signal<PowerToughnessActionRequest | null>(null);
+  readonly arrowTargetDialog = signal<ArrowTargetDialogRequest | null>(null);
   readonly battlefieldLayoutSize = signal<BattlefieldLayoutRect>({ width: 900, height: 520, left: 0, top: 0, right: 900, bottom: 520 });
   readonly closeGameDialogOpen = signal(false);
   readonly isPowerToughnessDialogInvalid = computed(() => {
@@ -205,6 +216,26 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
   readonly latestLogEntry = computed(() => this.store.eventLog().at(-1) ?? null);
   readonly latestChatMessage = computed(() => this.store.snapshot()?.chat.at(-1) ?? null);
   readonly tableBackgroundImage = computed(() => `url("${this.store.gameBackgroundImage(this.store.currentPlayer())}")`);
+  readonly opponentTargetingPills = computed(() => this.store.opponentTargetingPills());
+  readonly opponentCardsTargetCards = computed(() => this.store.opponentCardsTargetCards());
+  readonly arrowTargetPlayers = computed(() => {
+    const currentPlayerId = this.store.currentPlayer()?.id;
+    const players = this.store.players();
+    if (!currentPlayerId) {
+      return players;
+    }
+
+    return [
+      ...players.filter((player) => player.id === currentPlayerId),
+      ...players.filter((player) => player.id !== currentPlayerId),
+    ];
+  });
+  readonly arrowTargetPlayerLabel = (player: PlayerView): string => {
+    const deck = this.deckLabel(player);
+    const name = player.state.user.displayName || player.state.user.email || player.id;
+
+    return deck ? `${deck} - ${name}` : name;
+  };
   private lastAutoScrollKey = '';
   private floatingScrollFrame: number | null = null;
   private floatingScrollTimer: number | null = null;
@@ -289,6 +320,7 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
     }
 
     this.battlefieldLayoutSize.set(size);
+    this.store.setBattlefieldLayoutSize(size);
   }
 
   @HostListener('window:resize')
@@ -310,6 +342,7 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
         this.store.closeZoneModal();
         this.cancelNumberAction();
         this.cancelPowerToughnessDialog();
+        this.cancelArrowTargetDialog();
         this.closeGameDialogOpen.set(false);
         this.store.clearSelection();
         break;
@@ -462,7 +495,7 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
         this.store.closeContextMenu();
         return;
       case 'focusPlayer':
-        this.store.focusPlayer(menu.playerId);
+        this.focusPlayerBattlefield(menu.playerId);
         return;
       case 'openZone':
         this.store.closeContextMenu();
@@ -500,6 +533,9 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
       case 'faceDown':
         void this.store.faceDown(menu);
         return;
+      case 'flipCardFace':
+        void this.store.flipCardFace(menu);
+        return;
       case 'revealCard':
         void this.store.revealCard(menu);
         return;
@@ -507,13 +543,16 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
         void this.store.tokenCopy(menu);
         return;
       case 'drawArrow':
-        this.store.startArrowFrom(menu);
+        this.openArrowTargetDialog(menu);
         return;
       case 'addToStack':
         void this.store.addToStack(menu);
         return;
       case 'setPowerToughness':
         this.openPowerToughnessDialog(menu);
+        return;
+      case 'clearPowerToughness':
+        void this.store.clearPowerToughness(menu);
         return;
       case 'changeCounter':
         void this.store.setCardCounter(menu, action.counter, 0);
@@ -532,6 +571,9 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
         return;
       case 'deleteArrow':
         void this.store.deleteArrow(menu);
+        return;
+      case 'deleteArrows':
+        void this.store.deleteOwnedArrows(menu);
         return;
       case 'deleteCounter':
         void this.store.deleteCardCounter(menu);
@@ -591,6 +633,38 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
     this.powerToughnessDialog.set(null);
   }
 
+  updateArrowTargetDialog(value: ArrowTargetDialogValue): void {
+    const request = this.arrowTargetDialog();
+    if (!request) {
+      return;
+    }
+
+    this.arrowTargetDialog.set({
+      ...request,
+      selectedPlayerId: value.playerId,
+      multipleTargets: value.multipleTargets,
+      targetCount: value.targetCount,
+    });
+    this.focusPlayerBattlefield(value.playerId);
+    window.requestAnimationFrame(() => this.focusPlayerBattlefield(value.playerId));
+  }
+
+  confirmArrowTargetDialog(value: ArrowTargetDialogValue): void {
+    const request = this.arrowTargetDialog();
+    if (!request) {
+      return;
+    }
+
+    this.arrowTargetDialog.set(null);
+    this.focusPlayerBattlefield(value.playerId);
+    window.requestAnimationFrame(() => this.focusPlayerBattlefield(value.playerId));
+    this.store.startArrowFrom(request.sourceMenu, value.targetCount);
+  }
+
+  cancelArrowTargetDialog(): void {
+    this.arrowTargetDialog.set(null);
+  }
+
   confirmCloseGame(): void {
     this.closeGameDialogOpen.set(false);
     void this.store.closeGame();
@@ -598,6 +672,13 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
 
   cancelCloseGame(): void {
     this.closeGameDialogOpen.set(false);
+  }
+
+  focusPlayerBattlefield(playerId: string): void {
+    const focused = this.store.focusPlayer(playerId);
+    if (focused) {
+      this.queueBattlefieldReflow();
+    }
   }
 
   private openDrawDialog(playerId: string): void {
@@ -638,6 +719,24 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
       power: String(menu.card.power ?? 0),
       toughness: String(menu.card.toughness ?? 0),
     });
+  }
+
+  private openArrowTargetDialog(menu: GameContextMenu): void {
+    if (!menu.card || menu.zone !== 'battlefield') {
+      return;
+    }
+
+    const selectedPlayerId = this.arrowTargetPlayers()[0]?.id
+      ?? menu.playerId;
+    this.store.closeContextMenu();
+    this.arrowTargetDialog.set({
+      sourceMenu: menu,
+      selectedPlayerId,
+      multipleTargets: false,
+      targetCount: 1,
+    });
+    this.focusPlayerBattlefield(selectedPlayerId);
+    window.requestAnimationFrame(() => this.focusPlayerBattlefield(selectedPlayerId));
   }
 
   private openCloseGameDialog(): void {

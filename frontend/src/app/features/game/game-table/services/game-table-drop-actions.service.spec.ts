@@ -217,6 +217,44 @@ describe('GameTableDropActionsService', () => {
     });
   });
 
+  it('opens one pending library placement for all selected cards when dropping multiple cards on library', async () => {
+    const snapshot = snapshotWith({
+      battlefield: [
+        card('moved', 'Cultivate', 'battlefield'),
+        card('selected-2', 'Kodama Reach', 'battlefield'),
+      ],
+    });
+    const command = vi.fn();
+    const setPendingLibraryMove = vi.fn();
+    const markPendingTransfer = vi.fn();
+    const context = dropContext(
+      () => snapshot,
+      command,
+      { setPendingLibraryMove, markPendingTransfer },
+    );
+
+    await service.dropOnZone(context, dragEvent({
+      playerId: 'player-1',
+      zone: 'battlefield',
+      instanceId: 'moved',
+      instanceIds: ['moved', 'selected-2'],
+    }), 'player-1', 'library');
+
+    expect(command).not.toHaveBeenCalled();
+    expect(markPendingTransfer).toHaveBeenCalledWith('player-1', 'battlefield', ['moved', 'selected-2'], { expires: false });
+    expect(setPendingLibraryMove).toHaveBeenCalledWith({
+      cardName: '2 cards',
+      commandType: 'cards.moved',
+      payload: {
+        playerId: 'player-1',
+        fromZone: 'battlefield',
+        toZone: 'library',
+        targetPlayerId: 'player-1',
+        instanceIds: ['moved', 'selected-2'],
+      },
+    });
+  });
+
   it('notifies the controller when a borrowed battlefield card returns to its owner zone', async () => {
     const borrowed = { ...card('borrowed', 'Borrowed Bear', 'battlefield'), ownerId: 'owner-1', controllerId: 'player-1' };
     const snapshot = snapshotWith({ battlefield: [borrowed] });

@@ -3743,6 +3743,10 @@ components:
           type: boolean
         faceDown:
           type: boolean
+        activeFaceIndex:
+          type: integer
+          minimum: 0
+          description: Zero-based displayed face index for double-faced cards.
         hidden:
           type: boolean
         revealedTo:
@@ -3750,12 +3754,30 @@ components:
           items:
             type: string
         position:
-          type: object
-          properties:
-            x:
-              type: number
-            y:
-              type: number
+          oneOf:
+            - type: object
+              description: Legacy pixel position. Preserved for existing snapshots.
+              properties:
+                x:
+                  type: number
+                y:
+                  type: number
+              required: [x, y]
+            - type: object
+              description: Responsive battlefield position. Values are normalized against the available rendered battlefield axis.
+              properties:
+                x:
+                  type: number
+                  minimum: 0
+                  maximum: 1
+                y:
+                  type: number
+                  minimum: 0
+                  maximum: 1
+                unit:
+                  type: string
+                  enum: [ratio]
+              required: [x, y, unit]
         rotation:
           type: integer
         counters:
@@ -3864,6 +3886,8 @@ components:
       properties:
         id:
           type: string
+        ownerId:
+          type: string
         fromInstanceId:
           type: string
         toInstanceId:
@@ -3893,6 +3917,7 @@ components:
             - card.tapped
             - card.position.changed
             - card.face_down.changed
+            - card.face.changed
             - card.revealed
             - card.token_copy.created
             - card.controller.changed
@@ -3914,7 +3939,9 @@ components:
           type: object
           description: >
             Command payload. For card.counter.changed, send key plus either value,
-            delta, or remove=true to delete that counter from the card.
+            delta, or remove=true to delete that counter from the card. For
+            card.power_toughness.changed, power/toughness/loyalty may be numbers
+            or null to clear manually assigned stats.
           additionalProperties: true
         clientActionId:
           type: string

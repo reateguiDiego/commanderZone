@@ -35,6 +35,7 @@ export class ZoneModalComponent {
   readonly cardSelected = output<GameCardInstance>();
   readonly cardMoved = output<{ card: GameCardInstance; zone: GameZoneName }>();
   readonly cardRevealed = output<GameCardInstance>();
+  readonly cardMenuOpened = output<{ event: MouseEvent; card: GameCardInstance }>();
 
   stopClick(event: MouseEvent): void {
     event.stopPropagation();

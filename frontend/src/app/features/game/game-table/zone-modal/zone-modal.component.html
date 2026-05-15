@@ -63,6 +63,7 @@
             [class.active]="currentModal.selectedCard?.instanceId === card.instanceId"
             (click)="cardSelected.emit(card)"
             (dblclick)="cardMoved.emit({ card, zone: 'battlefield' })"
+            (contextmenu)="cardMenuOpened.emit({ event: $event, card })"
           >
             <span class="zone-card-row-main">
               <strong>{{ card.name }}</strong>

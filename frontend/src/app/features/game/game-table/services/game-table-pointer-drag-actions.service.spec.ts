@@ -200,7 +200,7 @@ describe('GameTablePointerDragActionsService', () => {
         playerId: 'player-1',
         zone: 'battlefield',
         instanceId: 'moved',
-        position: { x: 44, y: 208 },
+        position: { x: 44, y: 208, unit: 'ratio' },
       },
     }]);
   });
@@ -247,13 +247,13 @@ describe('GameTablePointerDragActionsService', () => {
         playerId: 'player-1',
         zone: 'battlefield',
         instanceId: 'moved',
-        position: { x: 50, y: 120 },
+        position: { x: 50, y: 120, unit: 'ratio' },
       },
       {
         playerId: 'player-1',
         zone: 'battlefield',
         instanceId: 'selected-2',
-        position: { x: 80, y: 150 },
+        position: { x: 80, y: 150, unit: 'ratio' },
       },
     ]);
   });
@@ -278,6 +278,7 @@ function context(
       selectedCards: () => [],
       findCard: (playerId, zone, instanceId) =>
         snapshot().players[playerId]?.zones[zone].find((candidate) => candidate.instanceId === instanceId) ?? null,
+      cardPosition: (card) => card.position ?? null,
       updateLocalCardPosition: vi.fn(),
     }),
     alignmentGuideY: () => null,
@@ -287,6 +288,8 @@ function context(
     canControlPlayer: () => true,
     canControlOwnedCard: () => true,
     playerName: (playerId) => playerId,
+    cardPosition: (card) => card.position ?? null,
+    battlefieldPosition: (_playerId, _instanceId, position) => ({ ...position, unit: 'ratio' }),
     updateLocalCardPosition,
     setPendingBattlefieldMove: vi.fn(),
     setPendingLibraryMove: vi.fn(),

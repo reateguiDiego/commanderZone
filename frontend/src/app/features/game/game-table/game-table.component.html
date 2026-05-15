@@ -20,8 +20,8 @@
     />
 
     <main appPrettyScroll class="table-surface game-table-v2">
-      @if (store.error()) {
-        <p class="table-error" role="status" aria-live="polite">{{ store.error() }}</p>
+      @if (store.tableToast()) {
+        <p class="table-error" role="status" aria-live="polite">{{ store.tableToast() }}</p>
       }
 
       @if (store.focusedPlayer(); as player) {
@@ -283,8 +283,10 @@
                 [isCommanderEntrySettling]="isCommanderEntrySettling"
                 [isCardTransferPending]="isCardTransferPending"
                 [arrowTargeting]="store.pendingArrowSource() !== null"
+                [targetingPill]="opponentTargetingPills().get(player.id) ?? null"
+                [cardsTargetCards]="opponentCardsTargetCards().get(player.id) ?? []"
                 [battlefieldSize]="battlefieldLayoutSize()"
-                (focusPlayer)="store.focusPlayer($event)"
+                (focusPlayer)="focusPlayerBattlefield($event)"
                 (dropAllowed)="store.allowDrop($event)"
                 (playerDropped)="store.dropOnPlayer($event.event, $event.playerId)"
                 (playerMenuOpened)="store.openPlayerMenu($event.event, $event.playerId)"
@@ -296,31 +298,6 @@
           }
         </div>
       </aside>
-      @if (store.hoveredPreview(); as preview) {
-        <app-card-preview-overlay
-          [card]="preview.card"
-          [image]="store.cardImage(preview.card)"
-          [sourceRect]="preview.sourceRect"
-          [battlefieldRect]="battlefieldLayoutSize()"
-        />
-      }
-
-      @if (store.contextMenu(); as menu) {
-        <app-context-menu
-          [menu]="menu"
-          [currentPlayer]="store.currentPlayer()"
-          [players]="store.players()"
-          [isGameOwner]="store.isGameOwner()"
-          [counterPresets]="counterPresets"
-          [moveZones]="moveZones"
-          [isCurrentPlayer]="isCurrentPlayer"
-          [canControlPlayer]="canControlPlayer"
-          [zoneCardCount]="zoneCardCountById"
-          [shouldShowPowerToughness]="shouldShowPowerToughness"
-          [zoneTitle]="zoneTitle"
-          (actionSelected)="handleContextMenuAction($event, menu)"
-        />
-      }
 
       @if (numberActionDialog(); as dialog) {
         <app-number-action-dialog
@@ -430,9 +407,50 @@
           (cardSelected)="store.selectZoneCard($event)"
           (cardMoved)="store.moveZoneCard($event.card, $event.zone)"
           (cardRevealed)="store.revealZoneCard($event)"
+          (cardMenuOpened)="store.openCardMenu($event.event, modal.playerId, modal.zone, $event.card)"
         />
       }
     </main>
+
+    @if (store.hoveredPreview(); as preview) {
+      <app-card-preview-overlay
+        [card]="preview.card"
+        [image]="store.cardImage(preview.card)"
+        [sourceRect]="preview.sourceRect"
+        [battlefieldRect]="battlefieldLayoutSize()"
+      />
+    }
+
+    @if (arrowTargetDialog(); as dialog) {
+      <app-arrow-target-dialog
+        [players]="arrowTargetPlayers()"
+        [selectedPlayerId]="dialog.selectedPlayerId"
+        [multipleTargets]="dialog.multipleTargets"
+        [targetCount]="dialog.targetCount"
+        [playerLabel]="arrowTargetPlayerLabel"
+        (valueChanged)="updateArrowTargetDialog($event)"
+        (confirmed)="confirmArrowTargetDialog($event)"
+        (cancelled)="cancelArrowTargetDialog()"
+      />
+    }
+
+    @if (store.contextMenu(); as menu) {
+      <app-context-menu
+        [menu]="menu"
+        [currentPlayer]="store.currentPlayer()"
+        [players]="store.players()"
+        [isGameOwner]="store.isGameOwner()"
+        [counterPresets]="counterPresets"
+        [moveZones]="moveZones"
+        [isCurrentPlayer]="isCurrentPlayer"
+        [canControlPlayer]="canControlPlayer"
+        [zoneCardCount]="zoneCardCountById"
+        [shouldShowPowerToughness]="shouldShowPowerToughness"
+        [zoneTitle]="zoneTitle"
+        [ownedArrowCount]="ownedArrowCount(menu.playerId)"
+        (actionSelected)="handleContextMenuAction($event, menu)"
+      />
+    }
   } @else if (store.error()) {
     <p class="notice error">{{ store.error() }}</p>
   }

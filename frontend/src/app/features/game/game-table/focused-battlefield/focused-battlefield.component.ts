@@ -2,11 +2,13 @@ import {
   AfterViewInit,
   ChangeDetectionStrategy,
   Component,
+  DoCheck,
   ElementRef,
   OnDestroy,
   ViewChild,
   input,
   output,
+  signal,
 } from '@angular/core';
 import { GameCardInstance, GameZoneName } from '../../../../core/models/game.model';
 import { PlayerView } from '../game-table.store';
@@ -82,9 +84,11 @@ interface BattlefieldSizeEvent {
   styleUrl: './focused-battlefield.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class FocusedBattlefieldComponent implements AfterViewInit, OnDestroy {
+export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDestroy {
   private resizeObserver: ResizeObserver | null = null;
   private lastBattlefieldSize: BattlefieldSizeEvent | null = null;
+  private lastPlayerId: string | null = null;
+  private boardTransitionTimer: number | null = null;
 
   @ViewChild('battlefieldRoot', { static: true }) private readonly battlefieldRoot?: ElementRef<HTMLElement>;
 
@@ -99,8 +103,8 @@ export class FocusedBattlefieldComponent implements AfterViewInit, OnDestroy {
   readonly isPendingBattlefieldTransfer = input.required<(card: GameCardInstance) => boolean>();
   readonly cardImage = input.required<(card: GameCardInstance) => string | null>();
   readonly shouldShowPowerToughness = input.required<(card: GameCardInstance) => boolean>();
-  readonly cardPowerValue = input.required<(card: GameCardInstance) => number>();
-  readonly cardToughnessValue = input.required<(card: GameCardInstance) => number>();
+  readonly cardPowerValue = input.required<(card: GameCardInstance) => number | null>();
+  readonly cardToughnessValue = input.required<(card: GameCardInstance) => number | null>();
   readonly firstCounter = input.required<(card: GameCardInstance) => CardCounterView | null>();
   readonly alignmentGuideFor = input.required<(playerId: string) => AlignmentGuideView | null>();
   readonly isManaLaneHighlighted = input.required<(playerId: string) => boolean>();
@@ -127,6 +131,7 @@ export class FocusedBattlefieldComponent implements AfterViewInit, OnDestroy {
   readonly manaLaneDragOver = output<DragEvent>();
   readonly manaLaneDropped = output<{ event: DragEvent; playerId: string }>();
   readonly battlefieldSizeChanged = output<BattlefieldSizeEvent>();
+  readonly boardTransitioning = signal(false);
 
   ngAfterViewInit(): void {
     const element = this.battlefieldRoot?.nativeElement;
@@ -150,6 +155,20 @@ export class FocusedBattlefieldComponent implements AfterViewInit, OnDestroy {
   ngOnDestroy(): void {
     this.resizeObserver?.disconnect();
     this.resizeObserver = null;
+    if (this.boardTransitionTimer !== null) {
+      window.clearTimeout(this.boardTransitionTimer);
+      this.boardTransitionTimer = null;
+    }
+  }
+
+  ngDoCheck(): void {
+    const playerId = this.player().id;
+    if (this.lastPlayerId === playerId) {
+      return;
+    }
+
+    this.lastPlayerId = playerId;
+    this.triggerBoardTransition();
   }
 
   canInteractWithCard(playerId: string, card: GameCardInstance): boolean {
@@ -261,5 +280,17 @@ export class FocusedBattlefieldComponent implements AfterViewInit, OnDestroy {
 
     this.lastBattlefieldSize = next;
     this.battlefieldSizeChanged.emit(next);
+  }
+
+  private triggerBoardTransition(): void {
+    this.boardTransitioning.set(false);
+    window.requestAnimationFrame(() => this.boardTransitioning.set(true));
+    if (this.boardTransitionTimer !== null) {
+      window.clearTimeout(this.boardTransitionTimer);
+    }
+    this.boardTransitionTimer = window.setTimeout(() => {
+      this.boardTransitioning.set(false);
+      this.boardTransitionTimer = null;
+    }, 320);
   }
 }

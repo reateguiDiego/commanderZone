@@ -1,6 +1,8 @@
 import { Injectable } from '@angular/core';
 import { GameCardInstance, GameSnapshot, GameZoneName } from '../../../../core/models/game.model';
+import type { CardImageUris } from '../../../../core/models/card.model';
 import { gameBackgroundImageUrl, gameSleevesImageUrl } from '../game-table-visual-assets';
+import { BattlefieldCardSize, BattlefieldSize, renderedBattlefieldPosition } from '../battlefield-position';
 
 export interface PlayerView {
   id: string;
@@ -72,11 +74,11 @@ export class GameTableSnapshotSelectors {
       return this.cardBackImage(this.cardOwnerSleevesName(card, snapshot));
     }
 
-    return card.imageUris?.['normal'] ?? card.imageUris?.['small'] ?? null;
+    return this.visibleCardImage(card);
   }
 
   publicCardImage(card: GameCardInstance): string | null {
-    return card.imageUris?.['normal'] ?? card.imageUris?.['small'] ?? null;
+    return this.visibleCardImage(card);
   }
 
   cardBackImage(sleevesName?: string | null): string {
@@ -108,24 +110,23 @@ export class GameTableSnapshotSelectors {
   }
 
   shouldShowPowerToughness(card: GameCardInstance): boolean {
-    return this.hasPowerToughness(card) || /\bcreature\b/i.test(card.typeLine ?? '');
+    return this.hasPowerToughness(card);
   }
 
-  cardPowerValue(card: GameCardInstance): number {
-    return card.power ?? 0;
+  cardPowerValue(card: GameCardInstance): number | null {
+    return card.power ?? null;
   }
 
-  cardToughnessValue(card: GameCardInstance): number {
-    return card.toughness ?? 0;
+  cardToughnessValue(card: GameCardInstance): number | null {
+    return card.toughness ?? null;
   }
 
-  cardPosition(card: GameCardInstance): { x: number; y: number } | null {
-    const position = card.position;
-    if (!position || (position.x <= 0 && position.y <= 0)) {
-      return null;
-    }
-
-    return position;
+  cardPosition(
+    card: GameCardInstance,
+    battlefieldSize?: BattlefieldSize,
+    cardSize?: BattlefieldCardSize,
+  ): { x: number; y: number } | null {
+    return renderedBattlefieldPosition(card.position, battlefieldSize, cardSize);
   }
 
   topVisibleCard(player: PlayerView, zone: GameZoneName): GameCardInstance | null {
@@ -168,6 +169,27 @@ export class GameTableSnapshotSelectors {
     const ownerId = card.ownerId ?? card.controllerId;
 
     return ownerId ? snapshot?.players[ownerId]?.sleevesName ?? null : null;
+  }
+
+  private visibleCardImage(card: GameCardInstance): string | null {
+    const activeFace = this.activeFaceImageUris(card);
+
+    return this.bestImageUri(activeFace) ?? this.bestImageUri(card.imageUris) ?? this.bestImageUri(card.cardFaces?.[0]?.imageUris);
+  }
+
+  private activeFaceImageUris(card: GameCardInstance): CardImageUris | null {
+    const faces = card.cardFaces ?? [];
+    if (faces.length < 2) {
+      return null;
+    }
+
+    const index = Number.isInteger(card.activeFaceIndex) ? Number(card.activeFaceIndex) : 0;
+
+    return faces[Math.max(0, Math.min(faces.length - 1, index))]?.imageUris ?? null;
+  }
+
+  private bestImageUri(imageUris: CardImageUris | Record<string, string> | null | undefined): string | null {
+    return imageUris?.['normal'] ?? imageUris?.['large'] ?? imageUris?.['small'] ?? imageUris?.['png'] ?? null;
   }
 
   colorIdentity(player: PlayerView | null): string[] {

@@ -2,6 +2,20 @@ import { User } from './user.model';
 import { CardFace } from './card.model';
 
 export type GameZoneName = 'library' | 'hand' | 'battlefield' | 'graveyard' | 'exile' | 'command';
+export interface GameCardPixelPosition {
+  x: number;
+  y: number;
+  unit?: undefined;
+}
+
+export interface GameCardRatioPosition {
+  x: number;
+  y: number;
+  unit: 'ratio';
+}
+
+export type GameCardPosition = GameCardPixelPosition | GameCardRatioPosition;
+
 export type GameCommandType =
   | 'game.concede'
   | 'game.close'
@@ -16,6 +30,7 @@ export type GameCommandType =
   | 'card.tapped'
   | 'card.position.changed'
   | 'card.face_down.changed'
+  | 'card.face.changed'
   | 'card.revealed'
   | 'card.token_copy.created'
   | 'card.controller.changed'
@@ -54,9 +69,10 @@ export interface GameCardInstance {
   defaultLoyalty?: number | null;
   tapped: boolean;
   faceDown?: boolean;
+  activeFaceIndex?: number;
   hidden?: boolean;
   revealedTo?: string[];
-  position?: { x: number; y: number };
+  position?: GameCardPosition;
   rotation?: number;
   counters?: Record<string, number>;
   zone?: GameZoneName;
@@ -116,6 +132,7 @@ export interface GameStackItem {
 
 export interface GameArrow {
   id: string;
+  ownerId?: string;
   fromInstanceId: string;
   toInstanceId: string;
   color: string;

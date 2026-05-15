@@ -1,4 +1,5 @@
 import { GameCardInstance } from '../../../../core/models/game.model';
+import { DEFAULT_BATTLEFIELD_SIZE, renderedBattlefieldPosition } from '../battlefield-position';
 
 export interface MiniBattlefieldSize {
   width: number;
@@ -106,7 +107,9 @@ function logicalCardPlacement(
   total: number,
   options: MiniBattlefieldLayoutOptions,
 ): LogicalCardPlacement {
-  const position = options.getPosition?.(card) ?? defaultPosition(card);
+  const position = card.position?.unit === 'ratio'
+    ? defaultPosition(card, options.boardSize)
+    : options.getPosition?.(card) ?? defaultPosition(card, options.boardSize);
   if (position) {
     return { card, x: position.x, y: position.y, hasBoardPosition: true };
   }
@@ -121,10 +124,12 @@ function logicalCardPlacement(
   };
 }
 
-function defaultPosition(card: GameCardInstance): { x: number; y: number } | null {
-  const position = card.position;
-
-  return position && Number.isFinite(position.x) && Number.isFinite(position.y) ? position : null;
+function defaultPosition(card: GameCardInstance, boardSize: MiniBattlefieldSize | undefined): { x: number; y: number } | null {
+  return renderedBattlefieldPosition(
+    card.position,
+    boardSize ?? DEFAULT_BATTLEFIELD_SIZE,
+    { width: CARD_WIDTH, height: CARD_HEIGHT },
+  );
 }
 
 function layoutFrame(placements: LogicalCardPlacement[], boardSize: MiniBattlefieldSize | undefined): LayoutFrame {

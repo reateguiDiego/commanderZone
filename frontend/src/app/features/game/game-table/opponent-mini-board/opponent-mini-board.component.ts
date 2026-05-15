@@ -2,8 +2,11 @@ import { ChangeDetectionStrategy, Component, input, output } from '@angular/core
 import { LucideAngularModule } from 'lucide-angular';
 import { GameCardInstance, GameZoneName } from '../../../../core/models/game.model';
 import { PlayerView } from '../game-table.store';
+import { OpponentCardsTargetComponent } from '../opponent-cards-target/opponent-cards-target.component';
+import { OpponentCardsTargetCard } from '../opponent-cards-target-card.model';
 import { OpponentMiniBattlefieldComponent } from '../opponent-mini-battlefield/opponent-mini-battlefield.component';
 import { CardPreviewEvent } from '../card-preview.model';
+import { OpponentTargetingPill } from '../opponent-targeting-pill.model';
 
 interface PlayerDropEvent {
   event: DragEvent;
@@ -31,7 +34,7 @@ interface BattlefieldLayoutSize {
 
 @Component({
   selector: 'app-opponent-mini-board',
-  imports: [LucideAngularModule, OpponentMiniBattlefieldComponent],
+  imports: [LucideAngularModule, OpponentMiniBattlefieldComponent, OpponentCardsTargetComponent],
   templateUrl: './opponent-mini-board.component.html',
   styleUrl: './opponent-mini-board.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -59,6 +62,8 @@ export class OpponentMiniBoardComponent {
   readonly isCommanderEntrySettling = input<(playerId: string, card: GameCardInstance) => boolean>(() => false);
   readonly isCardTransferPending = input<(playerId: string, zone: GameZoneName, card: GameCardInstance) => boolean>(() => false);
   readonly arrowTargeting = input(false);
+  readonly targetingPill = input<OpponentTargetingPill | null>(null);
+  readonly cardsTargetCards = input<readonly OpponentCardsTargetCard[]>([]);
 
   readonly focusPlayer = output<string>();
   readonly dropAllowed = output<DragEvent>();

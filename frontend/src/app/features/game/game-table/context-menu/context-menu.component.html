@@ -31,6 +31,9 @@
     }
   } @else if (isArrowMenu()) {
     <button type="button" class="danger-menu-item" (click)="actionSelected.emit({ type: 'deleteArrow' })">Delete Arrow</button>
+    @if (canDeleteOwnedArrows()) {
+      <button type="button" class="danger-menu-item" (click)="actionSelected.emit({ type: 'deleteArrows' })">Delete Arrows</button>
+    }
   } @else if (activeMenu.kind === 'counter') {
     <button type="button" class="danger-menu-item" (click)="actionSelected.emit({ type: 'deleteCounter' })">Delete Counter</button>
   } @else if (activeMenu.kind === 'player') {
@@ -85,17 +88,26 @@
           (toggled)="toggleSubmenu($event, 'moveTo')"
           (itemSelected)="selectMoveTo($event)"
         />
-        @if (canAddPowerToughness()) {
-          <button type="button" (click)="actionSelected.emit({ type: 'setPowerToughness' })">Power/Toughness</button>
+        @if (canAddPowerToughness() || canRemovePowerToughness()) {
+          <button type="button" (click)="actionSelected.emit(powerToughnessAction())">{{ powerToughnessLabel() }}</button>
         }
         @if (activeMenu.card?.tapped) {
+          @if (canFlipCardFace()) {
+            <button type="button" (click)="actionSelected.emit({ type: 'flipCardFace' })">Flip Card Face</button>
+          }
           <button type="button" (click)="actionSelected.emit({ type: 'faceDown' })">{{ faceDownLabel() }} <kbd>Z</kbd></button>
           <button type="button" (click)="actionSelected.emit({ type: 'tapCard' })">{{ tapLabel() }} <kbd>T</kbd></button>
         } @else {
           <button type="button" (click)="actionSelected.emit({ type: 'tapCard' })">{{ tapLabel() }} <kbd>T</kbd></button>
+          @if (canFlipCardFace()) {
+            <button type="button" (click)="actionSelected.emit({ type: 'flipCardFace' })">Flip Card Face</button>
+          }
           <button type="button" (click)="actionSelected.emit({ type: 'faceDown' })">{{ faceDownLabel() }} <kbd>Z</kbd></button>
         }
       } @else {
+        @if (canFlipCardFace()) {
+          <button type="button" (click)="actionSelected.emit({ type: 'flipCardFace' })">Flip Card Face</button>
+        }
         <button type="button" (click)="actionSelected.emit({ type: 'addToStack' })">Add To Stack <kbd>K</kbd></button>
         <button type="button" (click)="actionSelected.emit({ type: 'tokenCopy' })">Make A Token Copy</button>
         <app-context-submenu

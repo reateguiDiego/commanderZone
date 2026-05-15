@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { GameCardInstance, GameCommandType, GameSnapshot, GameZoneName } from '../../../../core/models/game.model';
+import { GameCardInstance, GameCardPosition, GameCommandType, GameSnapshot, GameZoneName } from '../../../../core/models/game.model';
 import { HandDropPreview } from '../state/game-table-battlefield-drag.state';
 import { GameTableDragService } from './game-table-drag.service';
 
@@ -35,7 +35,7 @@ export interface GameTableDropActionContext {
   clearSelectedCards(): void;
   suppressCardPreview(): void;
   setError(message: string): void;
-  snapBattlefieldPosition(playerId: string, instanceId: string, position: { x: number; y: number }, rawZone?: string): { x: number; y: number };
+  snapBattlefieldPosition(playerId: string, instanceId: string, position: { x: number; y: number }, rawZone?: string): GameCardPosition;
   markPendingManaDrop(playerId: string, instanceIds: readonly string[]): void;
   markPendingTransfer(playerId: string, fromZone: GameZoneName, instanceIds: readonly string[], options?: MarkPendingTransferOptions): void;
   command(type: GameCommandType, payload: Record<string, unknown>): Promise<void>;
@@ -95,7 +95,7 @@ export class GameTableDropActionsService {
     if (toZone === 'battlefield' && rawDropZone === 'mana') {
       context.markPendingManaDrop(targetPlayerId, instanceIds);
     }
-    const payloadPosition = payload['position'] as { x: number; y: number } | undefined;
+    const payloadPosition = payload['position'] as GameCardPosition | undefined;
 
     if (!isMultiMove && dragged.zone === 'battlefield' && toZone === 'battlefield' && targetPlayerId === dragged.playerId && payloadPosition) {
       await context.command('card.position.changed', {
@@ -386,7 +386,7 @@ export class GameTableDropActionsService {
     playerId: string,
     fromZone: GameZoneName,
     instanceIds: readonly string[],
-    position: { x: number; y: number },
+    position: GameCardPosition,
   ): Promise<void> {
     context.markPendingTransfer(playerId, fromZone, instanceIds);
     for (const instanceId of instanceIds) {

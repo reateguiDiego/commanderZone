@@ -98,6 +98,78 @@ describe('GameArrowLayerComponent', () => {
     expect(line.getAttribute('y1')).toBe('100');
   });
 
+  it('prefers cards-target surfaces over mini-battlefield surfaces for non-focused players', async () => {
+    const snapshot = gameSnapshot('owner', 'target');
+    const { fixture, root } = await renderArrowLayer(snapshot, 'target');
+    addMeasuredCard(root, 'owner', 'from-card', 'mini-battlefield', rect(60, 70, 40, 56));
+    addMeasuredCard(root, 'owner', 'from-card', 'cards-target', rect(120, 140, 80, 112));
+    addMeasuredCard(root, 'target', 'to-card', 'battlefield', rect(300, 160, 100, 140));
+
+    await measure(fixture);
+
+    const line = arrowGroup(fixture).querySelector('.game-arrow-visible-line') as SVGLineElement;
+    expect(line.getAttribute('x1')).toBe('160');
+    expect(line.getAttribute('y1')).toBe('196');
+    expect(line.getAttribute('x2')).toBe('350');
+    expect(line.getAttribute('y2')).toBe('230');
+  });
+
+  it('remeasures against the new focused and mini surfaces after focus changes', async () => {
+    const snapshot = gameSnapshot('owner', 'target');
+    const { fixture, root } = await renderArrowLayer(snapshot, 'owner');
+    const ownerFocused = addMeasuredCard(root, 'owner', 'from-card', 'battlefield', rect(20, 30, 100, 140));
+    const targetMini = addMeasuredCard(root, 'target', 'to-card', 'mini-battlefield', rect(320, 80, 40, 56));
+
+    await measure(fixture);
+    ownerFocused.remove();
+    targetMini.remove();
+    addMeasuredCard(root, 'owner', 'from-card', 'mini-battlefield', rect(60, 70, 40, 56));
+    addMeasuredCard(root, 'target', 'to-card', 'battlefield', rect(300, 160, 100, 140));
+    fixture.componentRef.setInput('focusedPlayerId', 'target');
+    fixture.detectChanges();
+
+    await flushQueuedMeasurements(fixture);
+
+    const arrow = arrowGroup(fixture);
+    const line = arrow.querySelector('.game-arrow-visible-line') as SVGLineElement;
+    expect(arrow.getAttribute('data-owner-render-mode')).toBe('mini-battlefield');
+    expect(arrow.getAttribute('data-target-render-mode')).toBe('focused-battlefield');
+    expect(line.getAttribute('x1')).toBe('80');
+    expect(line.getAttribute('y1')).toBe('98');
+    expect(line.getAttribute('x2')).toBe('350');
+    expect(line.getAttribute('y2')).toBe('230');
+  });
+
+  it('does not publish transient arrow coordinates while focus change layout is settling', async () => {
+    const snapshot = gameSnapshot('owner', 'target');
+    const { fixture, root } = await renderArrowLayer(snapshot, 'owner');
+    addMeasuredCard(root, 'owner', 'from-card', 'battlefield', rect(20, 30, 100, 140));
+    addMeasuredCard(root, 'target', 'to-card', 'mini-battlefield', rect(320, 80, 40, 56));
+
+    await measure(fixture);
+    expect(arrowGroup(fixture)).not.toBeNull();
+
+    root.querySelectorAll('[data-arrow-card-surface]').forEach((element) => element.remove());
+    const ownerMini = addMeasuredCard(root, 'owner', 'from-card', 'mini-battlefield', rect(500, 500, 40, 56));
+    const targetFocused = addMeasuredCard(root, 'target', 'to-card', 'battlefield', rect(700, 400, 100, 140));
+    fixture.componentRef.setInput('focusedPlayerId', 'target');
+    fixture.detectChanges();
+
+    await nextTask();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.game-arrow')).toBeNull();
+
+    defineRect(ownerMini, rect(60, 70, 40, 56));
+    defineRect(targetFocused, rect(300, 160, 100, 140));
+    await flushQueuedMeasurementTasks();
+
+    const line = arrowGroup(fixture).querySelector('.game-arrow-visible-line') as SVGLineElement;
+    expect(line.getAttribute('x1')).toBe('80');
+    expect(line.getAttribute('y1')).toBe('98');
+    expect(line.getAttribute('x2')).toBe('350');
+    expect(line.getAttribute('y2')).toBe('230');
+  });
+
   it('emits the arrow menu event from the transparent hit line', async () => {
     const snapshot = gameSnapshot('owner', 'target');
     const { fixture, root } = await renderArrowLayer(snapshot, 'owner');
@@ -113,6 +185,26 @@ describe('GameArrowLayerComponent', () => {
 
     expect(opened).toHaveBeenCalledWith(expect.objectContaining({
       playerId: 'owner',
+      arrowId: 'arrow-1',
+    }));
+  });
+
+  it('uses persisted arrow owner for the menu event when available', async () => {
+    const snapshot = gameSnapshot('owner', 'target');
+    snapshot.arrows[0] = { ...snapshot.arrows[0], ownerId: 'target' };
+    const { fixture, root } = await renderArrowLayer(snapshot, 'owner');
+    const opened = vi.fn();
+    fixture.componentInstance.arrowMenuOpened.subscribe(opened);
+    addMeasuredCard(root, 'owner', 'from-card', 'battlefield', rect(20, 30, 100, 140));
+    addMeasuredCard(root, 'target', 'to-card', 'mini-battlefield', rect(320, 80, 40, 56));
+
+    await measure(fixture);
+
+    const hitLine = fixture.nativeElement.querySelector('.game-arrow-hit-line') as SVGLineElement;
+    hitLine.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+
+    expect(opened).toHaveBeenCalledWith(expect.objectContaining({
+      playerId: 'target',
       arrowId: 'arrow-1',
     }));
   });
@@ -144,15 +236,30 @@ async function renderArrowLayer(
 
 async function measure(fixture: ComponentFixture<GameArrowLayerComponent>): Promise<void> {
   fixture.componentInstance.handleWindowResize();
-  await new Promise((resolve) => window.setTimeout(resolve, 0));
+  await nextTask();
   fixture.detectChanges();
+}
+
+async function flushQueuedMeasurements(fixture: ComponentFixture<GameArrowLayerComponent>): Promise<void> {
+  await flushQueuedMeasurementTasks();
+  fixture.detectChanges();
+}
+
+async function flushQueuedMeasurementTasks(): Promise<void> {
+  for (let frame = 0; frame < 30; frame += 1) {
+    await nextTask();
+  }
+}
+
+async function nextTask(): Promise<void> {
+  await new Promise((resolve) => window.setTimeout(resolve, 0));
 }
 
 function addMeasuredCard(
   root: HTMLElement,
   playerId: string,
   instanceId: string,
-  surface: 'battlefield' | 'mini-battlefield',
+  surface: 'battlefield' | 'mini-battlefield' | 'cards-target',
   bounds: DOMRect,
 ): HTMLElement {
   const element = document.createElement('button');
