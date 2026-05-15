@@ -13,6 +13,10 @@ class GameCommandHandler
     private const ZONES = ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command'];
     private const HIDDEN_ZONES = ['library', 'hand'];
     private const MAX_CARD_COUNTER_TYPES = 5;
+    private const DEFAULT_BATTLEFIELD_WIDTH = 900;
+    private const DEFAULT_BATTLEFIELD_HEIGHT = 520;
+    private const DEFAULT_BATTLEFIELD_CARD_WIDTH = 116;
+    private const DEFAULT_BATTLEFIELD_CARD_HEIGHT = 162;
     private const SUPPORTED_COMMANDS = [
         'game.concede',
         'game.close',
@@ -135,6 +139,7 @@ class GameCommandHandler
             default => throw new \InvalidArgumentException(sprintf('Unknown game command: %s', $type)),
         };
 
+        $this->pruneBattlefieldArrows($snapshot);
         $eventPayload = $type === 'chat.message' ? $this->chatEventPayload($payload) : $payload;
         $this->commit($snapshot, $type, $log, $actor);
         $game->replaceSnapshot($snapshot);
@@ -186,6 +191,8 @@ class GameCommandHandler
             }
         }
         unset($player);
+
+        $this->pruneBattlefieldArrows($snapshot);
 
         return $snapshot;
     }
@@ -644,7 +651,7 @@ class GameCommandHandler
             $targetPlayerId,
             'battlefield',
             $card,
-            $card['position'] ?? 'top',
+            $this->battlefieldCenterPosition(),
             true,
         );
 
@@ -888,6 +895,9 @@ class GameCommandHandler
         if ($fromInstanceId === '' || $toInstanceId === '') {
             throw new \InvalidArgumentException('fromInstanceId and toInstanceId are required.');
         }
+        if (!$this->battlefieldContainsInstance($snapshot, $fromInstanceId) || !$this->battlefieldContainsInstance($snapshot, $toInstanceId)) {
+            throw new \InvalidArgumentException('Arrow endpoints must be battlefield cards.');
+        }
 
         $snapshot['arrows'][] = [
             'id' => Uuid::v7()->toRfc4122(),
@@ -912,6 +922,38 @@ class GameCommandHandler
         ));
 
         return 'Removed arrow.';
+    }
+
+    private function battlefieldContainsInstance(array $snapshot, string $instanceId): bool
+    {
+        foreach ($snapshot['players'] ?? [] as $player) {
+            foreach (($player['zones']['battlefield'] ?? []) as $card) {
+                if (($card['instanceId'] ?? null) === $instanceId) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private function pruneBattlefieldArrows(array &$snapshot): void
+    {
+        $battlefieldInstanceIds = [];
+        foreach ($snapshot['players'] ?? [] as $player) {
+            foreach (($player['zones']['battlefield'] ?? []) as $card) {
+                $instanceId = (string) ($card['instanceId'] ?? '');
+                if ($instanceId !== '') {
+                    $battlefieldInstanceIds[$instanceId] = true;
+                }
+            }
+        }
+
+        $snapshot['arrows'] = array_values(array_filter(
+            $snapshot['arrows'] ?? [],
+            static fn (array $arrow): bool => isset($battlefieldInstanceIds[(string) ($arrow['fromInstanceId'] ?? '')])
+                && isset($battlefieldInstanceIds[(string) ($arrow['toInstanceId'] ?? '')]),
+        ));
     }
 
     private function commit(array &$snapshot, string $type, ?string $message, User $actor): void
@@ -1048,6 +1090,17 @@ class GameCommandHandler
         return $this->normalizedPosition([
             'x' => $source['x'] + 132,
             'y' => $source['y'],
+        ]);
+    }
+
+    /**
+     * @return array{x:int,y:int}
+     */
+    private function battlefieldCenterPosition(): array
+    {
+        return $this->normalizedPosition([
+            'x' => intdiv(self::DEFAULT_BATTLEFIELD_WIDTH - self::DEFAULT_BATTLEFIELD_CARD_WIDTH, 2),
+            'y' => intdiv(self::DEFAULT_BATTLEFIELD_HEIGHT - self::DEFAULT_BATTLEFIELD_CARD_HEIGHT, 2),
         ]);
     }
 

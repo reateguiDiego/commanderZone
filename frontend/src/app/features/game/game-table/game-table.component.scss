@@ -52,33 +52,14 @@
   pointer-events: none;
 }
 
-.cross-table-arrows {
-  position: absolute;
-  inset: 0;
-  z-index: 76;
-  width: 100%;
-  height: 100%;
-  overflow: visible;
-  pointer-events: none;
-}
-
-.cross-table-arrows line {
-  stroke-width: 4;
-  stroke-linecap: round;
-  filter:
-    drop-shadow(0 0 0.34rem rgb(0 0 0 / 72%))
-    drop-shadow(0 0 0.52rem rgb(215 180 106 / 28%));
-  opacity: 0.95;
-}
-
 .game-screen > * {
   position: relative;
   z-index: 1;
 }
 
-.game-screen > .cross-table-arrows {
+.game-screen > app-game-arrow-layer {
   position: absolute;
-  z-index: 76;
+  z-index: 620;
 }
 
 .notice {

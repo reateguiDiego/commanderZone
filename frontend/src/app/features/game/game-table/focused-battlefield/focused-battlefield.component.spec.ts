@@ -23,23 +23,6 @@ describe('FocusedBattlefieldComponent', () => {
     expect(cardElement(fixture, 'card-2').style.visibility).not.toBe('hidden');
   });
 
-  it('emits an arrow menu event from the transparent arrow hit layer', async () => {
-    const { fixture } = await renderFocusedBattlefield({
-      arrows: [{ id: 'arrow-1', fromInstanceId: 'card-1', toInstanceId: 'card-2', color: 'yellow', createdAt: '' }],
-      cardPosition: (card) => ({ x: card.instanceId === 'card-1' ? 20 : 140, y: 40 }),
-    });
-    const opened = vi.fn();
-    fixture.componentInstance.arrowMenuOpened.subscribe(opened);
-
-    const hitLine = fixture.nativeElement.querySelector('.battlefield-arrow-hit-line') as SVGLineElement;
-    hitLine.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-
-    expect(opened).toHaveBeenCalledWith(expect.objectContaining({
-      playerId: 'player-1',
-      arrowId: 'arrow-1',
-    }));
-  });
-
   it('emits a counter delete request from a zero marker', async () => {
     const { fixture } = await renderFocusedBattlefield({
       firstCounter: (card) => card.instanceId === 'card-1' ? { key: 'red', value: 0 } : null,
@@ -56,12 +39,41 @@ describe('FocusedBattlefieldComponent', () => {
       key: 'red',
     }));
   });
+
+  it('allows selecting an opponent card while choosing an arrow target', async () => {
+    const { fixture } = await renderFocusedBattlefield({
+      isCurrentPlayer: (_playerId) => false,
+      allowArrowTargetSelection: true,
+    });
+    const clicked = vi.fn();
+    fixture.componentInstance.cardClicked.subscribe(clicked);
+
+    cardElement(fixture, 'card-1').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+    expect(clicked).toHaveBeenCalledWith(expect.objectContaining({
+      playerId: 'player-1',
+      card: expect.objectContaining({ instanceId: 'card-1' }),
+    }));
+  });
+
+  it('keeps opponent battlefield clicks inert outside arrow targeting', async () => {
+    const { fixture } = await renderFocusedBattlefield({
+      isCurrentPlayer: (_playerId) => false,
+    });
+    const clicked = vi.fn();
+    fixture.componentInstance.cardClicked.subscribe(clicked);
+
+    cardElement(fixture, 'card-1').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+    expect(clicked).not.toHaveBeenCalled();
+  });
 });
 
 interface RenderFocusedBattlefieldOptions {
-  arrows?: readonly { id: string; fromInstanceId: string; toInstanceId: string; color: string; createdAt: string }[];
   alignmentGuideFor?: (playerId: string) => { y: number; referenceInstanceIds: readonly string[] } | null;
   cardPosition?: (card: GameCardInstance) => { x: number; y: number } | null;
+  isCurrentPlayer?: (playerId: string) => boolean;
+  allowArrowTargetSelection?: boolean;
   isCardTransferPending?: (playerId: string, zone: GameZoneName, card: GameCardInstance) => boolean;
   firstCounter?: (card: GameCardInstance) => { key: string; value: number } | null;
 }
@@ -73,8 +85,8 @@ async function renderFocusedBattlefield(options: RenderFocusedBattlefieldOptions
 
   const fixture = TestBed.createComponent(FocusedBattlefieldComponent);
   fixture.componentRef.setInput('player', playerView());
-  fixture.componentRef.setInput('arrows', options.arrows ?? []);
-  fixture.componentRef.setInput('isCurrentPlayer', (_playerId: string) => true);
+  fixture.componentRef.setInput('isCurrentPlayer', options.isCurrentPlayer ?? ((_playerId: string) => true));
+  fixture.componentRef.setInput('allowArrowTargetSelection', options.allowArrowTargetSelection ?? false);
   fixture.componentRef.setInput('isDropZoneHighlighted', (_playerId: string, _zone: GameZoneName) => false);
   fixture.componentRef.setInput('cardPosition', options.cardPosition ?? ((_card: GameCardInstance) => null));
   fixture.componentRef.setInput('isSelected', (_instanceId: string) => false);

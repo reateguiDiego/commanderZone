@@ -43,6 +43,7 @@ export class OpponentMiniBattlefieldComponent implements AfterViewInit, OnDestro
   readonly isBattlefieldEntrySettling = input<(playerId: string, card: GameCardInstance) => boolean>(() => false);
   readonly isCommanderEntrySettling = input<(playerId: string, card: GameCardInstance) => boolean>(() => false);
   readonly isCardTransferPending = input<(playerId: string, zone: GameZoneName, card: GameCardInstance) => boolean>(() => false);
+  readonly arrowTargeting = input(false);
 
   readonly cardPreviewShown = output<CardPreviewEvent>();
   readonly cardPreviewHidden = output<void>();

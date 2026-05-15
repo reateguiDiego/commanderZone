@@ -89,6 +89,7 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
   readonly locked = input(false);
   readonly pendingTransfer = input(false);
   readonly alignmentReference = input(false);
+  readonly arrowTargetCandidate = input(false);
   readonly dropSettling = input(false);
   readonly manaDropSettling = input(false);
   readonly statDropSettling = input(false);

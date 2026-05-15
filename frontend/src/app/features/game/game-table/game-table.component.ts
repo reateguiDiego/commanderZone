@@ -42,6 +42,7 @@ import { CardPreviewOverlayComponent } from './card-preview-overlay/card-preview
 import { CardMarkerRailComponent } from './game-card-view/card-marker-rail/card-marker-rail.component';
 import { LoyaltyCounterComponent } from './game-card-view/loyalty-counter/loyalty-counter.component';
 import { PowerToughnessDialogComponent, PowerToughnessDialogValueChange } from './power-toughness-dialog/power-toughness-dialog.component';
+import { GameArrowLayerComponent } from './game-arrow-layer/game-arrow-layer.component';
 
 interface DrawNumberActionRequest {
   readonly kind: 'draw';
@@ -86,20 +87,6 @@ interface BattlefieldLayoutRect extends BattlefieldLayoutSize {
   readonly bottom: number;
 }
 
-interface CrossTableArrowView {
-  readonly id: string;
-  readonly x1: number;
-  readonly y1: number;
-  readonly x2: number;
-  readonly y2: number;
-  readonly color: string;
-}
-
-interface CrossTableArrowViewport {
-  readonly width: number;
-  readonly height: number;
-}
-
 @Component({
   selector: 'app-game-table',
   imports: [
@@ -122,6 +109,7 @@ interface CrossTableArrowViewport {
     CardMarkerRailComponent,
     LoyaltyCounterComponent,
     PowerToughnessDialogComponent,
+    GameArrowLayerComponent,
   ],
   providers: [
     GameTableStore,
@@ -217,15 +205,10 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
   readonly latestLogEntry = computed(() => this.store.eventLog().at(-1) ?? null);
   readonly latestChatMessage = computed(() => this.store.snapshot()?.chat.at(-1) ?? null);
   readonly tableBackgroundImage = computed(() => `url("${this.store.gameBackgroundImage(this.store.currentPlayer())}")`);
-  readonly crossTableArrows = signal<readonly CrossTableArrowView[]>([]);
-  readonly crossTableArrowViewport = signal<CrossTableArrowViewport>({ width: 1, height: 1 });
   private lastAutoScrollKey = '';
-  private lastCrossTableArrowKey = '';
-  private lastCrossTableArrowSourceKey = '';
   private floatingScrollFrame: number | null = null;
   private floatingScrollTimer: number | null = null;
   private battlefieldReflowFrame: number | null = null;
-  private crossTableArrowFrame: number | null = null;
 
   @ViewChild('gameScreen', { static: true }) private readonly gameScreen?: ElementRef<HTMLElement>;
   @ViewChild(GameLogPanelComponent) private readonly gameLogPanel?: GameLogPanelComponent;
@@ -235,12 +218,6 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
     const snapshot = this.store.snapshot();
     if (!snapshot) {
       return;
-    }
-
-    const arrowSourceKey = `${snapshot.version}:${snapshot.arrows.map((arrow) => `${arrow.id}:${arrow.fromInstanceId}:${arrow.toInstanceId}:${arrow.color}`).join('|')}`;
-    if (arrowSourceKey !== this.lastCrossTableArrowSourceKey) {
-      this.lastCrossTableArrowSourceKey = arrowSourceKey;
-      this.queueCrossTableArrowUpdate();
     }
 
     const log = this.store.eventLog();
@@ -260,7 +237,6 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
   ngOnDestroy(): void {
     this.clearQueuedFloatingContentScroll();
     this.clearQueuedBattlefieldReflow();
-    this.clearQueuedCrossTableArrowUpdate();
   }
 
   scrollFloatingContentToBottom(): void {
@@ -313,13 +289,11 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
     }
 
     this.battlefieldLayoutSize.set(size);
-    this.queueCrossTableArrowUpdate();
   }
 
   @HostListener('window:resize')
   handleViewportResize(): void {
     this.queueBattlefieldReflow();
-    this.queueCrossTableArrowUpdate();
   }
 
   @HostListener('document:keydown', ['$event'])
@@ -432,107 +406,6 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
 
     window.cancelAnimationFrame(this.battlefieldReflowFrame);
     this.battlefieldReflowFrame = null;
-  }
-
-  private queueCrossTableArrowUpdate(): void {
-    if (this.crossTableArrowFrame !== null) {
-      return;
-    }
-
-    this.crossTableArrowFrame = window.requestAnimationFrame(() => {
-      this.crossTableArrowFrame = null;
-      this.updateCrossTableArrows();
-    });
-  }
-
-  private clearQueuedCrossTableArrowUpdate(): void {
-    if (this.crossTableArrowFrame === null) {
-      return;
-    }
-
-    window.cancelAnimationFrame(this.crossTableArrowFrame);
-    this.crossTableArrowFrame = null;
-  }
-
-  private updateCrossTableArrows(): void {
-    const root = this.gameScreen?.nativeElement;
-    const snapshot = this.store.snapshot();
-    if (!root || !snapshot?.arrows.length) {
-      this.setCrossTableArrows([]);
-      return;
-    }
-
-    const rootRect = root.getBoundingClientRect();
-    this.crossTableArrowViewport.set({
-      width: Math.round(rootRect.width),
-      height: Math.round(rootRect.height),
-    });
-
-    const arrows = snapshot.arrows
-      .map((arrow): CrossTableArrowView | null => {
-        const source = this.visibleCardElement(arrow.fromInstanceId);
-        const target = this.visibleCardElement(arrow.toInstanceId);
-        if (!source || !target || !root.contains(source) || !root.contains(target) || this.sameFocusedBattlefield(source, target)) {
-          return null;
-        }
-
-        const sourceRect = source.getBoundingClientRect();
-        const targetRect = target.getBoundingClientRect();
-
-        return {
-          id: arrow.id,
-          x1: Math.round(sourceRect.left - rootRect.left + sourceRect.width / 2),
-          y1: Math.round(sourceRect.top - rootRect.top + sourceRect.height / 2),
-          x2: Math.round(targetRect.left - rootRect.left + targetRect.width / 2),
-          y2: Math.round(targetRect.top - rootRect.top + targetRect.height / 2),
-          color: this.arrowColor(arrow.color),
-        };
-      })
-      .filter((arrow): arrow is CrossTableArrowView => arrow !== null);
-    this.setCrossTableArrows(arrows);
-  }
-
-  private setCrossTableArrows(arrows: readonly CrossTableArrowView[]): void {
-    const key = arrows.map((arrow) => `${arrow.id}:${arrow.x1}:${arrow.y1}:${arrow.x2}:${arrow.y2}:${arrow.color}`).join('|');
-    if (key === this.lastCrossTableArrowKey) {
-      return;
-    }
-
-    this.lastCrossTableArrowKey = key;
-    this.crossTableArrows.set(arrows);
-  }
-
-  private visibleCardElement(instanceId: string): HTMLElement | null {
-    const escapedInstanceId = typeof CSS !== 'undefined' && typeof CSS.escape === 'function'
-      ? CSS.escape(instanceId)
-      : instanceId.replace(/["\\]/g, '\\$&');
-    const candidates = Array.from(document.querySelectorAll<HTMLElement>(`[data-card-instance-id="${escapedInstanceId}"]`));
-
-    return candidates.find((candidate) => {
-      const rect = candidate.getBoundingClientRect();
-      const style = window.getComputedStyle(candidate);
-
-      return rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden' && style.display !== 'none';
-    }) ?? null;
-  }
-
-  private sameFocusedBattlefield(source: HTMLElement, target: HTMLElement): boolean {
-    const sourceFocused = source.closest('app-focused-battlefield');
-    const targetFocused = target.closest('app-focused-battlefield');
-
-    return sourceFocused !== null && sourceFocused === targetFocused;
-  }
-
-  private arrowColor(color: string): string {
-    const colors: Record<string, string> = {
-      yellow: '#d7b46a',
-      red: '#ef4444',
-      green: '#22c55e',
-      blue: '#38bdf8',
-      black: '#d1d5db',
-    };
-
-    return colors[color] ?? colors['yellow'];
   }
 
   isZoneOnlyMenu(menu: GameContextMenu): boolean {

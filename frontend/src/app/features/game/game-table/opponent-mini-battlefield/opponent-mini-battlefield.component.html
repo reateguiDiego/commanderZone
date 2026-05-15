@@ -25,6 +25,7 @@
         [statDropSettling]="isBattlefieldEntrySettling()(playerId(), card)"
         [commanderEntrySettling]="isCommanderEntrySettling()(playerId(), card)"
         [visible]="!isCardTransferPending()(playerId(), 'battlefield', card)"
+        [arrowTargetCandidate]="arrowTargeting()"
         (cardClicked)="clickBattlefieldCard($event.event, $event.card)"
       />
     }

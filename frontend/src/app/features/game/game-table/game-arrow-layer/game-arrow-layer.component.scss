@@ -1,0 +1,47 @@
+:host {
+  position: absolute;
+  inset: 0;
+  display: block;
+  z-index: 620;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.game-arrow-layer {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.game-arrow-visible-line {
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-dasharray: 10 7;
+  filter:
+    drop-shadow(0 0 0.4rem rgb(0 0 0 / 78%))
+    drop-shadow(0 0 0.56rem rgb(215 180 106 / 58%));
+  opacity: 0.96;
+  pointer-events: none;
+}
+
+.game-arrow-origin {
+  fill: rgb(7 8 7 / 86%);
+  stroke-width: 3;
+  filter: drop-shadow(0 0 0.5rem rgb(215 180 106 / 76%));
+  pointer-events: none;
+}
+
+.game-arrow-hit-line {
+  stroke: transparent;
+  stroke-width: 34;
+  stroke-linecap: round;
+  pointer-events: all;
+  cursor: context-menu;
+}
+
+.game-arrow-hit-point {
+  fill: transparent;
+  pointer-events: all;
+  cursor: context-menu;
+}

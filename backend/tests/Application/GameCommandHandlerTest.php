@@ -87,7 +87,7 @@ class GameCommandHandlerTest extends TestCase
         self::assertSame(2, $ownerGraveyardCard['toughness']);
     }
 
-    public function testChangingControllerMovesBattlefieldCardToTargetBattlefield(): void
+    public function testChangingControllerMovesBattlefieldCardToCenterOfTargetBattlefield(): void
     {
         $owner = new User('owner@example.test', 'Owner');
         $controller = new User('controller@example.test', 'Controller');
@@ -97,7 +97,7 @@ class GameCommandHandlerTest extends TestCase
                     ...$this->card('card-1', 'Borrowed Bear', 'battlefield', 9, 9, 2, 2),
                     'ownerId' => $owner->id(),
                     'controllerId' => $owner->id(),
-                    'position' => ['x' => 120, 'y' => 240],
+                    'position' => ['x' => 2070, 'y' => 837],
                 ],
             ],
         ], $controller->id()));
@@ -115,7 +115,7 @@ class GameCommandHandlerTest extends TestCase
         self::assertSame('card-1', $controlledCard['instanceId']);
         self::assertSame($owner->id(), $controlledCard['ownerId']);
         self::assertSame($controller->id(), $controlledCard['controllerId']);
-        self::assertSame(['x' => 120, 'y' => 240], $controlledCard['position']);
+        self::assertSame(['x' => 392, 'y' => 179], $controlledCard['position']);
         self::assertSame(9, $controlledCard['power']);
         self::assertSame(9, $controlledCard['toughness']);
     }
@@ -775,6 +775,87 @@ class GameCommandHandlerTest extends TestCase
             static fn (array $card): string => $card['instanceId'],
             $game->snapshot()['players'][$actor->id()]['zones']['library'],
         ));
+    }
+
+    public function testArrowCreatedRequiresBothEndpointsOnBattlefield(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->snapshot($actor->id(), [
+            'battlefield' => [
+                $this->card('battlefield-card', 'Bear', 'battlefield', 2, 2, 2, 2),
+            ],
+            'hand' => [
+                $this->card('hand-card', 'Elf', 'hand', 1, 1, 1, 1),
+            ],
+        ]));
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Arrow endpoints must be battlefield cards.');
+
+        (new GameCommandHandler())->apply($game, 'arrow.created', [
+            'fromInstanceId' => 'battlefield-card',
+            'toInstanceId' => 'hand-card',
+        ], $actor);
+    }
+
+    public function testArrowIsPrunedWhenEndpointLeavesBattlefield(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $snapshot = $this->snapshot($actor->id(), [
+            'battlefield' => [
+                $this->card('card-1', 'Bear', 'battlefield', 2, 2, 2, 2),
+                $this->card('card-2', 'Elf', 'battlefield', 1, 1, 1, 1),
+            ],
+        ]);
+        $snapshot['arrows'] = [[
+            'id' => 'arrow-1',
+            'fromInstanceId' => 'card-1',
+            'toInstanceId' => 'card-2',
+            'color' => 'yellow',
+            'createdAt' => '2026-01-01T00:00:00+00:00',
+        ]];
+        $game = new Game(new Room($actor), $snapshot);
+
+        (new GameCommandHandler())->apply($game, 'card.moved', [
+            'playerId' => $actor->id(),
+            'fromZone' => 'battlefield',
+            'toZone' => 'graveyard',
+            'instanceId' => 'card-2',
+        ], $actor);
+
+        self::assertSame([], $game->snapshot()['arrows']);
+    }
+
+    public function testArrowSurvivesControllerChangeBetweenBattlefields(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $opponent = new User('opponent@example.test', 'Opponent');
+        $snapshot = $this->snapshot($actor->id(), [
+            'battlefield' => [
+                $this->card('card-1', 'Bear', 'battlefield', 2, 2, 2, 2),
+                $this->card('card-2', 'Elf', 'battlefield', 1, 1, 1, 1),
+            ],
+        ], $opponent->id());
+        $snapshot['arrows'] = [[
+            'id' => 'arrow-1',
+            'fromInstanceId' => 'card-1',
+            'toInstanceId' => 'card-2',
+            'color' => 'yellow',
+            'createdAt' => '2026-01-01T00:00:00+00:00',
+        ]];
+        $game = new Game(new Room($actor), $snapshot);
+
+        (new GameCommandHandler())->apply($game, 'card.controller.changed', [
+            'playerId' => $actor->id(),
+            'zone' => 'battlefield',
+            'targetPlayerId' => $opponent->id(),
+            'instanceId' => 'card-2',
+        ], $actor);
+
+        self::assertSame('arrow-1', $game->snapshot()['arrows'][0]['id'] ?? null);
+        self::assertSame([], $game->snapshot()['players'][$actor->id()]['zones']['battlefield'][1] ?? []);
+        self::assertSame('card-2', $game->snapshot()['players'][$opponent->id()]['zones']['battlefield'][0]['instanceId']);
+        self::assertSame(['x' => 392, 'y' => 179], $game->snapshot()['players'][$opponent->id()]['zones']['battlefield'][0]['position']);
     }
 
     /**

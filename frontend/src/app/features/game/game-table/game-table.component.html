@@ -6,46 +6,19 @@
   (click)="store.handleTableClick($event)"
   (contextmenu)="store.openGameMenu($event)"
 >
-  @if (crossTableArrows().length > 0) {
-    <svg
-      class="cross-table-arrows"
-      aria-hidden="true"
-      [attr.viewBox]="'0 0 ' + crossTableArrowViewport().width + ' ' + crossTableArrowViewport().height"
-    >
-      <defs>
-        @for (arrow of crossTableArrows(); track arrow.id) {
-          <marker
-            [attr.id]="'cross-table-arrow-head-' + arrow.id"
-            viewBox="0 0 14 12"
-            refX="13"
-            refY="6"
-            markerWidth="9"
-            markerHeight="9"
-            orient="auto"
-            markerUnits="strokeWidth"
-          >
-            <path d="M 0 1 L 14 6 L 0 11 L 3.5 6 z" [attr.fill]="arrow.color"></path>
-          </marker>
-        }
-      </defs>
-      @for (arrow of crossTableArrows(); track arrow.id) {
-        <line
-          [attr.x1]="arrow.x1"
-          [attr.y1]="arrow.y1"
-          [attr.x2]="arrow.x2"
-          [attr.y2]="arrow.y2"
-          [attr.stroke]="arrow.color"
-          [attr.marker-end]="'url(#cross-table-arrow-head-' + arrow.id + ')'"
-        ></line>
-      }
-    </svg>
-  }
-
   <app-game-table-header (click)="$event.stopPropagation()" (contextmenu)="$event.stopPropagation()" />
 
   @if (store.loading()) {
     <p class="notice">Loading game snapshot...</p>
   } @else if (store.snapshot(); as snapshot) {
+    <app-game-arrow-layer
+      [snapshot]="snapshot"
+      [focusedPlayerId]="store.focusedPlayer()?.id ?? null"
+      [players]="store.players()"
+      [rootElement]="gameScreen"
+      (arrowMenuOpened)="store.openArrowMenu($event.event, $event.playerId, $event.arrowId)"
+    />
+
     <main appPrettyScroll class="table-surface game-table-v2">
       @if (store.error()) {
         <p class="table-error" role="status" aria-live="polite">{{ store.error() }}</p>
@@ -195,8 +168,8 @@
         >
           <app-focused-battlefield
             [player]="player"
-            [arrows]="snapshot.arrows"
             [isCurrentPlayer]="isCurrentPlayer"
+            [allowArrowTargetSelection]="store.pendingArrowSource() !== null"
             [isDropZoneHighlighted]="isDropZoneHighlighted"
             [cardPosition]="cardPosition"
             [isSelected]="isSelected"
@@ -229,7 +202,6 @@
             (cardLoyaltyChanged)="store.changeCardLoyalty($event.playerId, $event.zone, $event.card, $event.delta)"
             (cardCounterChanged)="store.changeCardCounterForCard($event.playerId, $event.zone, $event.card, $event.key, $event.delta)"
             (cardCounterDeleteRequested)="store.openCounterDeleteMenu($event.event, $event.playerId, $event.zone, $event.card, $event.key)"
-            (arrowMenuOpened)="store.openArrowMenu($event.event, $event.playerId, $event.arrowId)"
             (manaLaneDragOver)="store.allowDrop($event)"
             (manaLaneDropped)="store.dropOnManaLane($event.event, $event.playerId)"
             (battlefieldSizeChanged)="updateBattlefieldLayoutSize($event)"
@@ -310,6 +282,7 @@
                 [isBattlefieldEntrySettling]="isBattlefieldEntrySettling"
                 [isCommanderEntrySettling]="isCommanderEntrySettling"
                 [isCardTransferPending]="isCardTransferPending"
+                [arrowTargeting]="store.pendingArrowSource() !== null"
                 [battlefieldSize]="battlefieldLayoutSize()"
                 (focusPlayer)="store.focusPlayer($event)"
                 (dropAllowed)="store.allowDrop($event)"
