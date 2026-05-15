@@ -15,6 +15,7 @@ class RoomsGamesApiTest extends ApiTestCase
         self::assertNull($this->jsonResponse()['room']);
         self::assertNull($this->jsonResponse()['player']);
         self::assertNull($this->jsonResponse()['turn']);
+        self::assertNull($this->jsonResponse()['viewerRole']);
 
         $this->jsonRequest('POST', '/rooms', ['visibility' => 'public', 'maxPlayers' => 3], $ownerToken);
         self::assertResponseStatusCodeSame(201);
@@ -29,9 +30,101 @@ class RoomsGamesApiTest extends ApiTestCase
         self::assertIsString($current['player']['playerId']);
         self::assertNull($current['player']['deckName']);
         self::assertNull($current['turn']['number']);
+        self::assertSame('owner_player', $current['viewerRole']);
     }
 
-    public function testCreatingRoomFailsWhileUserAlreadyBelongsToStartedRoom(): void
+    public function testCurrentRoomEndpointIgnoresRoomsWithoutPlayers(): void
+    {
+        $ownerToken = $this->registerAndLogin('current-room-owner-only@example.test', 'Current Owner Only');
+
+        $this->jsonRequest('POST', '/rooms', ['visibility' => 'public', 'maxPlayers' => 3], $ownerToken);
+        self::assertResponseStatusCodeSame(201);
+        $roomId = (string) $this->jsonResponse()['room']['id'];
+
+        $this->entityManager->getConnection()->executeStatement('DELETE FROM room_player WHERE room_id = ?', [$roomId]);
+        $this->entityManager->clear();
+
+        $this->jsonRequest('GET', '/rooms/current', token: $ownerToken);
+        self::assertResponseIsSuccessful();
+        $current = $this->jsonResponse();
+        self::assertNull($current['room']);
+        self::assertNull($current['player']);
+        self::assertNull($current['turn']);
+        self::assertNull($current['viewerRole']);
+    }
+
+    public function testOwnerLeavingNonStartedRoomDeletesRoomAndClearsAllMemberships(): void
+    {
+        $ownerToken = $this->registerAndLogin('owner-leave-room-owner@example.test', 'Owner Leave Host');
+        $guestToken = $this->registerAndLogin('owner-leave-room-guest@example.test', 'Owner Leave Guest');
+
+        $this->jsonRequest('POST', '/rooms', ['visibility' => 'private', 'maxPlayers' => 2], $ownerToken);
+        self::assertResponseStatusCodeSame(201);
+        $roomId = (string) $this->jsonResponse()['room']['id'];
+
+        $this->jsonRequest('POST', '/rooms/'.$roomId.'/join', token: $guestToken);
+        self::assertResponseIsSuccessful();
+        self::assertCount(2, $this->jsonResponse()['room']['players']);
+
+        $this->entityManager->getConnection()->executeStatement('UPDATE room SET status = ? WHERE id = ?', ['open', $roomId]);
+        $this->entityManager->clear();
+
+        $this->jsonRequest('POST', '/rooms/'.$roomId.'/leave', token: $ownerToken);
+        self::assertResponseIsSuccessful();
+        self::assertSame(['left' => true, 'roomDeleted' => true], $this->jsonResponse());
+
+        $this->jsonRequest('GET', '/rooms/current', token: $ownerToken);
+        self::assertResponseIsSuccessful();
+        self::assertNull($this->jsonResponse()['room']);
+
+        $this->jsonRequest('GET', '/rooms/current', token: $guestToken);
+        self::assertResponseIsSuccessful();
+        self::assertNull($this->jsonResponse()['room']);
+
+        $this->jsonRequest('GET', '/rooms/'.$roomId, token: $ownerToken);
+        self::assertResponseStatusCodeSame(404);
+
+        $this->jsonRequest('POST', '/rooms', ['visibility' => 'public', 'maxPlayers' => 2], $ownerToken);
+        self::assertResponseStatusCodeSame(201);
+
+        $this->jsonRequest('POST', '/rooms', ['visibility' => 'public', 'maxPlayers' => 2], $guestToken);
+        self::assertResponseStatusCodeSame(201);
+    }
+
+    public function testGuestLeavingNonStartedOpenRoomClearsMembershipWithoutDeletingNonEmptyRoom(): void
+    {
+        $ownerToken = $this->registerAndLogin('guest-leave-open-owner@example.test', 'Guest Leave Host');
+        $guestToken = $this->registerAndLogin('guest-leave-open-player@example.test', 'Guest Leave Player');
+
+        $this->jsonRequest('POST', '/rooms', ['visibility' => 'public', 'maxPlayers' => 4], $ownerToken);
+        self::assertResponseStatusCodeSame(201);
+        $roomId = (string) $this->jsonResponse()['room']['id'];
+
+        $this->jsonRequest('POST', '/rooms/'.$roomId.'/join', token: $guestToken);
+        self::assertResponseIsSuccessful();
+        self::assertCount(2, $this->jsonResponse()['room']['players']);
+
+        $this->entityManager->getConnection()->executeStatement('UPDATE room SET status = ? WHERE id = ?', ['open', $roomId]);
+        $this->entityManager->clear();
+
+        $this->jsonRequest('POST', '/rooms/'.$roomId.'/leave', token: $guestToken);
+        self::assertResponseIsSuccessful();
+        self::assertSame(['left' => true, 'roomDeleted' => false], $this->jsonResponse());
+
+        $this->jsonRequest('GET', '/rooms/current', token: $guestToken);
+        self::assertResponseIsSuccessful();
+        self::assertNull($this->jsonResponse()['room']);
+
+        $this->jsonRequest('POST', '/rooms', ['visibility' => 'private', 'maxPlayers' => 2], $guestToken);
+        self::assertResponseStatusCodeSame(201);
+
+        $this->jsonRequest('GET', '/rooms/'.$roomId, token: $ownerToken);
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $this->jsonResponse()['room']['players']);
+        $this->assertRoomPlayersDoNotContainDisplayName($this->jsonResponse()['room'], 'Guest Leave Player');
+    }
+
+    public function testCreatingRoomDeletesExistingRoomMembershipBeforeCreatingNewRoom(): void
     {
         $this->seedCard('abababab-0000-7000-8000-000000000001', 'Commander Alpha', [
             'type_line' => 'Legendary Creature - Human Soldier',
@@ -80,6 +173,7 @@ class RoomsGamesApiTest extends ApiTestCase
 
         $this->jsonRequest('POST', '/rooms/'.$firstRoomId.'/start', token: $ownerToken);
         self::assertResponseStatusCodeSame(201);
+        $firstGameId = (string) $this->jsonResponse()['game']['id'];
         self::assertArrayHasKey('createdAt', $this->jsonResponse()['game']);
         self::assertArrayHasKey('updatedAt', $this->jsonResponse()['game']);
         self::assertSame('turn', $this->jsonResponse()['game']['snapshot']['timer']['mode']);
@@ -91,18 +185,19 @@ class RoomsGamesApiTest extends ApiTestCase
         }
 
         $this->jsonRequest('POST', '/rooms', ['visibility' => 'private', 'maxPlayers' => 2, 'deckId' => $ownerDeckId], $ownerToken);
-        self::assertResponseStatusCodeSame(409);
-        self::assertStringContainsString('Leave your current room', (string) $this->jsonResponse()['error']);
+        self::assertResponseStatusCodeSame(201);
+        $newRoomId = (string) $this->jsonResponse()['room']['id'];
+        self::assertNotSame($firstRoomId, $newRoomId);
 
-        $this->jsonRequest('GET', '/rooms?status=all', token: $ownerToken);
+        $this->jsonRequest('GET', '/rooms/'.$firstRoomId, token: $ownerToken);
+        self::assertResponseStatusCodeSame(404);
+
+        $this->jsonRequest('GET', '/games/'.$firstGameId.'/snapshot', token: $ownerToken);
+        self::assertResponseStatusCodeSame(404);
+
+        $this->jsonRequest('GET', '/rooms/current', token: $ownerToken);
         self::assertResponseIsSuccessful();
-        $roomsById = [];
-        foreach ($this->jsonResponse()['data'] as $room) {
-            $roomsById[(string) $room['id']] = $room;
-        }
-
-        self::assertArrayHasKey($firstRoomId, $roomsById);
-        self::assertSame('started', $roomsById[$firstRoomId]['status']);
+        self::assertSame($newRoomId, $this->jsonResponse()['room']['id']);
     }
 
     public function testJoiningAnotherRoomFailsUntilUserLeavesCurrentRoom(): void
@@ -133,13 +228,14 @@ class RoomsGamesApiTest extends ApiTestCase
 
         $this->jsonRequest('POST', '/rooms/'.$firstRoomId.'/leave', token: $playerToken);
         self::assertResponseIsSuccessful();
+        self::assertSame(['left' => true, 'roomDeleted' => false], $this->jsonResponse());
 
         $this->jsonRequest('POST', '/rooms/'.$secondRoomId.'/join', token: $playerToken);
         self::assertResponseIsSuccessful();
         $this->assertRoomPlayersContainDisplayName($this->jsonResponse()['room'], 'Single Join Player');
     }
 
-    public function testCreatingRoomAfterLeavingPreviousJoinedMembership(): void
+    public function testCreatingRoomDeletesPreviousJoinedMembershipRoom(): void
     {
         $ownerToken = $this->registerAndLogin('single-create-host@example.test', 'Single Create Host');
         $playerToken = $this->registerAndLogin('single-create-player@example.test', 'Single Create Player');
@@ -153,20 +249,13 @@ class RoomsGamesApiTest extends ApiTestCase
         self::assertCount(2, $this->jsonResponse()['room']['players']);
 
         $this->jsonRequest('POST', '/rooms', ['visibility' => 'private', 'maxPlayers' => 2], $playerToken);
-        self::assertResponseStatusCodeSame(409);
-
-        $this->jsonRequest('POST', '/rooms/'.$previousRoomId.'/leave', token: $playerToken);
-        self::assertResponseIsSuccessful();
-
-        $this->jsonRequest('GET', '/rooms/'.$previousRoomId, token: $ownerToken);
-        self::assertResponseIsSuccessful();
-        $this->assertRoomPlayersDoNotContainDisplayName($this->jsonResponse()['room'], 'Single Create Player');
-
-        $this->jsonRequest('POST', '/rooms', ['visibility' => 'private', 'maxPlayers' => 2], $playerToken);
         self::assertResponseStatusCodeSame(201);
         $newRoom = $this->jsonResponse()['room'];
         self::assertSame('Single Create Player', $newRoom['owner']['displayName']);
         $this->assertRoomPlayersContainDisplayName($newRoom, 'Single Create Player');
+
+        $this->jsonRequest('GET', '/rooms/'.$previousRoomId, token: $ownerToken);
+        self::assertResponseStatusCodeSame(404);
     }
 
     public function testAcceptingInviteFailsUntilUserLeavesCurrentRoom(): void
@@ -211,13 +300,14 @@ class RoomsGamesApiTest extends ApiTestCase
 
         $this->jsonRequest('POST', '/rooms/'.$previousRoomId.'/leave', token: $playerToken);
         self::assertResponseIsSuccessful();
+        self::assertSame(['left' => true, 'roomDeleted' => false], $this->jsonResponse());
 
         $this->jsonRequest('POST', '/rooms/invites/'.$inviteId.'/accept', token: $playerToken);
         self::assertResponseIsSuccessful();
         $this->assertRoomPlayersContainDisplayName($this->jsonResponse()['room'], 'Single Invite Player');
     }
 
-    public function testStartedRoomCanBeLeftBeforeCreatingAnotherRoom(): void
+    public function testCreatingRoomDeletesPreviousStartedRoomAndGame(): void
     {
         $this->seedCard('dddddddd-0000-7000-8000-000000000001', 'Commander Started Membership', [
             'type_line' => 'Legendary Creature - Human Knight',
@@ -259,21 +349,70 @@ class RoomsGamesApiTest extends ApiTestCase
         self::assertResponseIsSuccessful();
 
         $this->jsonRequest('POST', '/rooms', ['visibility' => 'private', 'maxPlayers' => 2, 'deckId' => $playerDeckId], $playerToken);
-        self::assertResponseStatusCodeSame(409);
-
-        $this->jsonRequest('POST', '/rooms/'.$startedRoomId.'/leave', token: $playerToken);
-        self::assertResponseIsSuccessful();
-        $this->assertRoomPlayersDoNotContainDisplayName($this->jsonResponse()['room'], 'Single Started Player');
-
-        $this->jsonRequest('POST', '/rooms', ['visibility' => 'private', 'maxPlayers' => 2, 'deckId' => $playerDeckId], $playerToken);
         self::assertResponseStatusCodeSame(201);
+        $newRoomId = (string) $this->jsonResponse()['room']['id'];
+        self::assertNotSame($startedRoomId, $newRoomId);
 
         $this->jsonRequest('GET', '/rooms/'.$startedRoomId, token: $ownerToken);
-        self::assertResponseIsSuccessful();
-        $this->assertRoomPlayersDoNotContainDisplayName($this->jsonResponse()['room'], 'Single Started Player');
+        self::assertResponseStatusCodeSame(404);
 
         $this->jsonRequest('GET', '/games/'.$gameId.'/snapshot', token: $playerToken);
-        self::assertResponseStatusCodeSame(403);
+        self::assertResponseStatusCodeSame(404);
+    }
+
+    public function testLeavingStartedRoomDeletesRoomAndGameWhenNoPlayersRemain(): void
+    {
+        $this->seedCard('eeeeeeee-0000-7000-8000-000000000001', 'Commander Epsilon', [
+            'type_line' => 'Legendary Creature - Human Soldier',
+            'color_identity' => [],
+            'set' => 'tst',
+            'collector_number' => '5',
+        ]);
+        $this->seedCard('eeeeeeee-1111-7111-8111-111111111111', 'Plains', [
+            'type_line' => 'Basic Land - Plains',
+            'set' => 'tst',
+            'collector_number' => '50',
+        ]);
+        $ownerToken = $this->registerAndLogin('last-started-owner@example.test', 'Last Started Owner');
+        $playerToken = $this->registerAndLogin('last-started-player@example.test', 'Last Started Player');
+
+        $ownerDeckId = $this->quickBuildDeck($ownerToken, 'Last Owner Deck', [
+            ['scryfallId' => 'eeeeeeee-0000-7000-8000-000000000001', 'quantity' => 1, 'section' => 'commander'],
+            ['scryfallId' => 'eeeeeeee-1111-7111-8111-111111111111', 'quantity' => 99, 'section' => 'main'],
+        ]);
+        $playerDeckId = $this->quickBuildDeck($playerToken, 'Last Player Deck', [
+            ['scryfallId' => 'eeeeeeee-0000-7000-8000-000000000001', 'quantity' => 1, 'section' => 'commander'],
+            ['scryfallId' => 'eeeeeeee-1111-7111-8111-111111111111', 'quantity' => 99, 'section' => 'main'],
+        ]);
+
+        $this->jsonRequest('POST', '/rooms', ['visibility' => 'public', 'maxPlayers' => 2, 'deckId' => $ownerDeckId], $ownerToken);
+        self::assertResponseStatusCodeSame(201);
+        $roomId = (string) $this->jsonResponse()['room']['id'];
+
+        $this->jsonRequest('POST', '/rooms/'.$roomId.'/join', ['deckId' => $playerDeckId], $playerToken);
+        self::assertResponseIsSuccessful();
+        $this->rollTurnOrder($roomId, $ownerToken);
+        $this->rollTurnOrder($roomId, $playerToken);
+
+        $this->jsonRequest('POST', '/rooms/'.$roomId.'/start', token: $ownerToken);
+        self::assertResponseStatusCodeSame(201);
+        $gameId = (string) $this->jsonResponse()['game']['id'];
+
+        $this->entityManager->getConnection()->executeStatement(
+            'DELETE FROM room_player WHERE room_id = ? AND user_id = (SELECT id FROM app_user WHERE email = ?)',
+            [$roomId, 'last-started-owner@example.test'],
+        );
+        $this->entityManager->clear();
+
+        $this->jsonRequest('POST', '/rooms/'.$roomId.'/leave', token: $playerToken);
+        self::assertResponseIsSuccessful();
+        self::assertSame(['left' => true, 'roomDeleted' => true], $this->jsonResponse());
+
+        $this->jsonRequest('GET', '/rooms/'.$roomId, token: $ownerToken);
+        self::assertResponseStatusCodeSame(404);
+
+        $this->jsonRequest('GET', '/games/'.$gameId.'/snapshot', token: $ownerToken);
+        self::assertResponseStatusCodeSame(404);
     }
 
     public function testRoomOwnerCanDeleteWaitingRooms(): void

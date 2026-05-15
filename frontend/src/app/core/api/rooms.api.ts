@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { API_BASE_URL } from './api.config';
-import { CurrentRoomResponse, DataResponse, RoomInviteResponse, RoomResponse, StartGameResponse } from '../models/api-responses.model';
+import { CurrentRoomResponse, DataResponse, LeaveRoomResponse, RoomInviteResponse, RoomResponse, StartGameResponse } from '../models/api-responses.model';
 import { RoomInvite } from '../models/room-invite.model';
 import { Room, RoomFormat, RoomTimerMode, RoomVisibility } from '../models/room.model';
 import { withoutGlobalLoading } from '../loading/loading-context';
@@ -71,8 +71,8 @@ export class RoomsApi {
     });
   }
 
-  leave(roomId: string): Observable<RoomResponse> {
-    return this.http.post<RoomResponse>(`${API_BASE_URL}/rooms/${roomId}/leave`, {});
+  leave(roomId: string): Observable<LeaveRoomResponse> {
+    return this.http.post<LeaveRoomResponse>(`${API_BASE_URL}/rooms/${roomId}/leave`, {});
   }
 
   kickPlayer(roomId: string, playerId: string, skipGlobalLoading = false): Observable<RoomResponse> {

@@ -1406,6 +1406,7 @@ paths:
     post:
       tags: [Rooms]
       summary: Create a room and join it as owner.
+      description: If the current user already belongs to active rooms, those rooms are deleted before the new room is created.
       requestBody:
         required: false
         content:
@@ -1699,19 +1700,16 @@ paths:
     post:
       tags: [Rooms]
       summary: Leave an active room as a current room player.
+      description: Leaves the room membership and returns only the leave result. If leaving removes the last player, the room is deleted.
       parameters:
         - $ref: '#/components/parameters/Id'
       responses:
         '200':
-          description: Updated room.
+          description: Leave operation result.
           content:
             application/json:
               schema:
-                type: object
-                required: [room]
-                properties:
-                  room:
-                    $ref: '#/components/schemas/Room'
+                $ref: '#/components/schemas/LeaveRoomResponse'
         '401':
           $ref: '#/components/responses/Error'
         '403':
@@ -3451,9 +3449,17 @@ components:
           type: [integer, 'null']
           minimum: 1
           maximum: 20
+    LeaveRoomResponse:
+      type: object
+      required: [left, roomDeleted]
+      properties:
+        left:
+          type: boolean
+        roomDeleted:
+          type: boolean
     CurrentRoomResponse:
       type: object
-      required: [room, player, turn]
+      required: [room, player, turn, viewerRole]
       properties:
         room:
           oneOf:
@@ -3467,6 +3473,13 @@ components:
           oneOf:
             - $ref: '#/components/schemas/CurrentRoomTurn'
             - type: 'null'
+        viewerRole:
+          oneOf:
+            - $ref: '#/components/schemas/CurrentRoomViewerRole'
+            - type: 'null'
+    CurrentRoomViewerRole:
+      type: string
+      enum: [owner, player, owner_player]
     CurrentRoomSummary:
       type: object
       required: [id, name, status, visibility, format, maxPlayers, playerCount, gameId]

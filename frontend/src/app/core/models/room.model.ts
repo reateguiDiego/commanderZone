@@ -51,6 +51,8 @@ export interface CurrentRoomTurn {
   number: number | null;
 }
 
+export type CurrentRoomViewerRole = 'owner' | 'player' | 'owner_player';
+
 export type WaitingRoomEventType =
   | 'room.created'
   | 'room.updated'

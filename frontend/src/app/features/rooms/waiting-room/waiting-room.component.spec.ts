@@ -45,7 +45,7 @@ describe('WaitingRoomComponent', () => {
     roomsApi.invites.mockReset().mockReturnValue(of({ data: [] }));
     roomsApi.invite.mockReset().mockReturnValue(of({ invite: null }));
     roomsApi.join.mockReset().mockReturnValue(of({ room: room() }));
-    roomsApi.leave.mockReset().mockReturnValue(of({ room: room() }));
+    roomsApi.leave.mockReset().mockReturnValue(of({ left: true, roomDeleted: false }));
     roomsApi.kickPlayer.mockReset().mockReturnValue(of({ room: room() }));
     roomsApi.rollTurn.mockReset().mockReturnValue(of({ room: room() }));
     roomsApi.start.mockReset().mockReturnValue(of({ room: room(), game: { id: 'game-1' } }));

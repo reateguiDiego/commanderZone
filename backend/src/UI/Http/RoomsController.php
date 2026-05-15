@@ -53,13 +53,14 @@ class RoomsController extends ApiController
         $room = $activeRoomMembership->currentRoomFor($user);
 
         if (!$room instanceof Room) {
-            return $this->json(['room' => null, 'player' => null, 'turn' => null]);
+            return $this->json(['room' => null, 'player' => null, 'turn' => null, 'viewerRole' => null]);
         }
 
         return $this->json([
             'room' => $this->currentRoomSummaryArray($room),
             'player' => $this->currentRoomPlayerArray($room->playerFor($user)),
             'turn' => $this->currentRoomTurnArray($room),
+            'viewerRole' => $this->currentRoomViewerRole($room, $user),
         ]);
     }
 
@@ -79,13 +80,18 @@ class RoomsController extends ApiController
             return $this->fail('A valid deck is required to create a room.');
         }
 
-        if ($activeRoomMembership->currentRoomFor($user) instanceof Room) {
-            return $this->fail('Leave your current room before creating another room.', 409);
-        }
-
         $format = (string) ($payload['format'] ?? Room::FORMAT_COMMANDER);
         if ($format !== Room::FORMAT_COMMANDER) {
             return $this->fail('Only Commander format is currently supported.', 400);
+        }
+
+        $deletedRoomIds = [];
+        foreach ($activeRoomMembership->activeRoomsForUser($user) as $existingRoom) {
+            $deletedRoomIds[] = $existingRoom->id();
+            $this->removeRoomWithGame($existingRoom, $entityManager);
+        }
+        if ($deletedRoomIds !== []) {
+            $entityManager->flush();
         }
 
         $room = new Room($user);
@@ -100,6 +106,9 @@ class RoomsController extends ApiController
 
         $entityManager->persist($room);
         $entityManager->flush();
+        foreach ($deletedRoomIds as $deletedRoomId) {
+            $roomEventPublisher->publishDeleted($deletedRoomId);
+        }
         $roomEventPublisher->publish($room, 'room.created');
 
         return $this->json(['room' => $room->toArray()], 201);
@@ -280,11 +289,28 @@ class RoomsController extends ApiController
             return $this->fail('Only room players can leave the room.', 403);
         }
 
+        $startedRoom = $room->status() === Room::STATUS_STARTED || $room->game() instanceof Game;
+        if ($room->owner()->id() === $user->id() && !$startedRoom) {
+            $this->removeRoomWithGame($room, $entityManager);
+            $entityManager->flush();
+            $roomEventPublisher->publishDeleted($id);
+
+            return $this->json(['left' => true, 'roomDeleted' => true]);
+        }
+
         $room->removeUser($user);
+        if ($room->players()->count() === 0) {
+            $this->removeRoomWithGame($room, $entityManager);
+            $entityManager->flush();
+            $roomEventPublisher->publishDeleted($id);
+
+            return $this->json(['left' => true, 'roomDeleted' => true]);
+        }
+
         $entityManager->flush();
         $roomEventPublisher->publish($room, 'room.player.left');
 
-        return $this->json(['room' => $room->toArray()]);
+        return $this->json(['left' => true, 'roomDeleted' => false]);
     }
 
     #[Route('/rooms/{id}/players/{playerId}', methods: ['DELETE'])]
@@ -336,7 +362,7 @@ class RoomsController extends ApiController
             return $this->fail('Started rooms cannot be deleted.', 409);
         }
 
-        $entityManager->remove($room);
+        $this->removeRoomWithGame($room, $entityManager);
         $entityManager->flush();
         $roomEventPublisher->publishDeleted($id);
 
@@ -564,6 +590,32 @@ class RoomsController extends ApiController
         return [
             'number' => $number,
         ];
+    }
+
+    private function currentRoomViewerRole(Room $room, User $user): string
+    {
+        $isOwner = $room->owner()->id() === $user->id();
+        $isPlayer = $room->hasPlayer($user);
+
+        return match (true) {
+            $isOwner && $isPlayer => 'owner_player',
+            $isOwner => 'owner',
+            default => 'player',
+        };
+    }
+
+    private function removeRoomWithGame(Room $room, EntityManagerInterface $entityManager): void
+    {
+        $game = $room->game();
+        if ($game instanceof Game) {
+            // Room and game reference each other in the database; break room.game_id first.
+            $room->detachGame();
+            $entityManager->flush();
+            $entityManager->remove($game);
+            $entityManager->flush();
+        }
+
+        $entityManager->remove($room);
     }
 
     private function deckArtImageUrl(Deck $deck): ?string

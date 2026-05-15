@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, input, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DeckFormat } from '../../../../../core/models/deck.model';
-import { CurrentRoomPlayerSummary, CurrentRoomSummary, CurrentRoomTurn, Room } from '../../../../../core/models/room.model';
+import { CurrentRoomPlayerSummary, CurrentRoomSummary, CurrentRoomTurn, CurrentRoomViewerRole, Room } from '../../../../../core/models/room.model';
 import { FormatSelectComponent } from '../../../../../shared/components/format-select/format-select.component';
 import { PrettyScrollDirective } from '../../../../../shared/ui/pretty-scroll/pretty-scroll.directive';
 import { RoomCurrentBannerComponent } from '../room-current-banner/room-current-banner.component';
@@ -22,6 +22,7 @@ export class RoomBrowserComponent {
   readonly currentRoom = input<CurrentRoomSummary | null>(null);
   readonly currentRoomPlayer = input<CurrentRoomPlayerSummary | null>(null);
   readonly currentRoomTurn = input<CurrentRoomTurn | null>(null);
+  readonly currentRoomViewerRole = input<CurrentRoomViewerRole | null>(null);
   readonly deletingRoomId = input<string | null>(null);
   readonly leavingRoomId = input<string | null>(null);
 

@@ -4,6 +4,7 @@
       [room]="room"
       [currentPlayer]="currentRoomPlayer()"
       [turn]="currentRoomTurn()"
+      [viewerRole]="currentRoomViewerRole()"
       [formats]="formats()"
       [leavingRoomId]="leavingRoomId()"
       (leaveRequested)="currentRoomLeaveRequested.emit($event)"
