@@ -33,6 +33,9 @@ class RoomPlayer
     #[ORM\Column(type: 'datetime_immutable')]
     private \DateTimeImmutable $joinedAt;
 
+    #[ORM\Column(type: 'datetime_immutable')]
+    private \DateTimeImmutable $updatedAt;
+
     public function __construct(Room $room, User $user, ?Deck $deck = null)
     {
         $this->id = Uuid::v7()->toRfc4122();
@@ -40,6 +43,7 @@ class RoomPlayer
         $this->user = $user;
         $this->deck = $deck;
         $this->joinedAt = new \DateTimeImmutable();
+        $this->updatedAt = $this->joinedAt;
     }
 
     public function user(): User
@@ -70,6 +74,7 @@ class RoomPlayer
     public function changeDeck(?Deck $deck): void
     {
         $this->deck = $deck;
+        $this->touch();
     }
 
     public function rollTurnOrder(int $roll): void
@@ -79,6 +84,7 @@ class RoomPlayer
         }
 
         $this->turnRoll = max(1, min(20, $roll));
+        $this->touch();
     }
 
     public function toArray(): array
@@ -90,5 +96,10 @@ class RoomPlayer
             'deck' => $this->deck?->toArray(),
             'turnRoll' => $this->turnRoll,
         ];
+    }
+
+    private function touch(): void
+    {
+        $this->updatedAt = new \DateTimeImmutable();
     }
 }

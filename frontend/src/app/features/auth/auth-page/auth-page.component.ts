@@ -6,6 +6,7 @@ import { LucideAngularModule } from 'lucide-angular';
 import { catchError, debounceTime, distinctUntilChanged, map, of, startWith, switchMap, tap } from 'rxjs';
 import { AuthApi } from '../../../core/api/auth.api';
 import { AuthStore } from '../../../core/auth/auth.store';
+import { AUTH_PASSWORD_REGEX } from '../auth-password-policy';
 
 type AuthMode = 'login' | 'register';
 type EmailAvailability = 'idle' | 'checking' | 'available' | 'taken' | 'error';
@@ -40,6 +41,7 @@ export class AuthPageComponent implements AfterViewInit {
   readonly registerPasswordVisible = signal(false);
   readonly registerConfirmPasswordVisible = signal(false);
   readonly registerPasswordsMatch = signal(false);
+  readonly registerSuccessNotice = signal<string | null>(null);
   private readonly loginFormValid = signal(false);
   private readonly registerFormValid = signal(false);
 
@@ -51,7 +53,7 @@ export class AuthPageComponent implements AfterViewInit {
   readonly registerForm = this.formBuilder.group({
     email: ['', [Validators.required, Validators.pattern(EMAIL_PATTERN)]],
     displayName: ['', [Validators.required, Validators.minLength(USER_NAME_MIN_LENGTH), Validators.maxLength(USER_NAME_MAX_LENGTH)]],
-    password: ['', [Validators.required, Validators.minLength(8)]],
+    password: ['', [Validators.required, Validators.pattern(AUTH_PASSWORD_REGEX)]],
     confirmPassword: ['', [Validators.required]],
   });
 
@@ -80,6 +82,7 @@ export class AuthPageComponent implements AfterViewInit {
 
   setMode(mode: AuthMode): void {
     this.mode.set(mode);
+    this.registerSuccessNotice.set(null);
     this.auth.clearError();
   }
 
@@ -106,7 +109,18 @@ export class AuthPageComponent implements AfterViewInit {
     }
 
     const { email, displayName, password } = this.registerForm.getRawValue();
-    await this.authenticate(() => this.auth.register(email, displayName.trim(), password));
+    try {
+      await this.auth.register(email, displayName.trim(), password);
+      this.registerSuccessNotice.set('Registro completado. Revisa tu correo para verificar la cuenta.');
+      await this.router.navigate(['/email-verification'], {
+        queryParams: {
+          email: email.trim(),
+          registered: '1',
+        },
+      });
+    } catch {
+      return;
+    }
   }
 
   loginEmailInvalid(): boolean {

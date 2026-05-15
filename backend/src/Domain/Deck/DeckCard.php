@@ -45,6 +45,9 @@ class DeckCard
     #[ORM\Column(type: 'string', length: 32)]
     private string $section;
 
+    #[ORM\Column(type: 'datetime_immutable')]
+    private \DateTimeImmutable $updatedAt;
+
     public function __construct(Deck $deck, Card $card, int $quantity, string $section = self::SECTION_MAIN)
     {
         $this->id = Uuid::v7()->toRfc4122();
@@ -52,6 +55,7 @@ class DeckCard
         $this->card = $card;
         $this->quantity = max(1, $quantity);
         $this->moveToSection($section);
+        $this->updatedAt = new \DateTimeImmutable();
     }
 
     public function card(): Card
@@ -77,11 +81,13 @@ class DeckCard
     public function changeQuantity(int $quantity): void
     {
         $this->quantity = max(1, $quantity);
+        $this->touch();
     }
 
     public function changeCard(Card $card): void
     {
         $this->card = $card;
+        $this->touch();
     }
 
     public function moveToSection(string $section): void
@@ -91,6 +97,7 @@ class DeckCard
         }
 
         $this->section = $section;
+        $this->touch();
     }
 
     public function isPlayable(): bool
@@ -106,5 +113,10 @@ class DeckCard
             'section' => $this->section,
             'card' => $this->card->toArray(),
         ];
+    }
+
+    private function touch(): void
+    {
+        $this->updatedAt = new \DateTimeImmutable();
     }
 }

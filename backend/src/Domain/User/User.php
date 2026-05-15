@@ -24,6 +24,12 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(type: 'string', length: 180)]
     private string $email;
 
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $emailVerifiedAt = null;
+
+    #[ORM\Column(type: 'string', length: 180, nullable: true)]
+    private ?string $pendingEmail = null;
+
     #[ORM\Column(type: 'string', length: 25)]
     private string $displayName;
 
@@ -41,6 +47,9 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
     #[ORM\Column(type: 'datetime_immutable')]
     private \DateTimeImmutable $createdAt;
+
+    #[ORM\Column(type: 'datetime_immutable')]
+    private \DateTimeImmutable $updatedAt;
 
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $lastSeenAt = null;
@@ -69,6 +78,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         $this->email = mb_strtolower(trim($email));
         $this->displayName = trim($displayName);
         $this->createdAt = new \DateTimeImmutable();
+        $this->updatedAt = $this->createdAt;
     }
 
     public function id(): string
@@ -89,28 +99,73 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function rename(string $displayName): void
     {
         $this->displayName = trim($displayName);
+        $this->touch();
     }
 
     public function selectDisplayNameStyle(string $presetId, ?string $textColor = null): void
     {
         $this->displayNameStylePreset = trim($presetId);
         $this->displayNameStyleTextColor = $textColor;
+        $this->touch();
     }
 
     public function resetDisplayNameStyle(): void
     {
         $this->displayNameStylePreset = self::DEFAULT_DISPLAY_NAME_STYLE_PRESET;
         $this->displayNameStyleTextColor = null;
+        $this->touch();
     }
 
     public function changeEmail(string $email): void
     {
         $this->email = mb_strtolower(trim($email));
+        $this->touch();
+    }
+
+    public function isEmailVerified(): bool
+    {
+        return $this->emailVerifiedAt !== null;
+    }
+
+    public function markEmailVerified(?\DateTimeImmutable $verifiedAt = null): void
+    {
+        $this->emailVerifiedAt = $verifiedAt ?? new \DateTimeImmutable();
+        $this->touch();
+    }
+
+    public function pendingEmail(): ?string
+    {
+        return $this->pendingEmail;
+    }
+
+    public function startEmailChange(string $newEmail): void
+    {
+        $this->pendingEmail = mb_strtolower(trim($newEmail));
+        $this->touch();
+    }
+
+    public function applyPendingEmail(): void
+    {
+        if ($this->pendingEmail === null) {
+            return;
+        }
+
+        $this->email = $this->pendingEmail;
+        $this->pendingEmail = null;
+        $this->emailVerifiedAt = new \DateTimeImmutable();
+        $this->touch();
+    }
+
+    public function clearPendingEmail(): void
+    {
+        $this->pendingEmail = null;
+        $this->touch();
     }
 
     public function setPassword(string $password): void
     {
         $this->password = $password;
+        $this->touch();
     }
 
     public function getPassword(): ?string
@@ -140,11 +195,13 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function markSeen(?\DateTimeImmutable $seenAt = null): void
     {
         $this->lastSeenAt = $seenAt ?? new \DateTimeImmutable();
+        $this->touch();
     }
 
     public function markOffline(): void
     {
         $this->lastSeenAt = null;
+        $this->touch();
     }
 
     public function useInitialAvatar(?string $letter = null, ?string $backgroundColor = null, ?string $textColor = null): void
@@ -155,6 +212,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         $this->avatarInitialLetter = $letter;
         $this->avatarInitialBackgroundColor = $backgroundColor;
         $this->avatarInitialTextColor = $textColor;
+        $this->touch();
     }
 
     public function selectPresetAvatar(string $avatarPreset): void
@@ -162,6 +220,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         $this->avatarType = 'preset';
         $this->avatarPreset = $avatarPreset;
         $this->avatarImageData = null;
+        $this->touch();
     }
 
     public function uploadAvatarImage(string $avatarImageData): void
@@ -169,6 +228,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         $this->avatarType = 'upload';
         $this->avatarPreset = null;
         $this->avatarImageData = $avatarImageData;
+        $this->touch();
     }
 
     public function avatarImageData(): ?string
@@ -217,11 +277,20 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return [
             'id' => $this->id,
             'email' => $this->email,
+            'emailVerified' => $this->isEmailVerified(),
+            'pendingEmail' => $this->pendingEmail,
             'displayName' => $this->displayName,
             'displayNameStyle' => $this->displayNameStyle(),
             'roles' => $this->getRoles(),
             'avatar' => $this->avatar(),
+            'createdAt' => $this->createdAt->format(DATE_ATOM),
+            'updatedAt' => $this->updatedAt->format(DATE_ATOM),
         ];
+    }
+
+    private function touch(): void
+    {
+        $this->updatedAt = new \DateTimeImmutable();
     }
 
     private function defaultInitialLetter(): string

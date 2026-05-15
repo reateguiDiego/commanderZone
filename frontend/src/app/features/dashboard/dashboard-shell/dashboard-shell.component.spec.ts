@@ -49,6 +49,7 @@ describe('DashboardShellComponent', () => {
           provide: AuthStore,
           useValue: {
             user: signal({ id: 'user-1', email: 'player@example.com', displayName: 'Player' }),
+            displayName: signal('Player'),
             logout: vi.fn().mockResolvedValue(undefined),
             markOfflineOnUnload: vi.fn(),
           },

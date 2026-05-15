@@ -1183,14 +1183,59 @@ class GameCommandHandler
         }
 
         if (array_key_exists('defaultLoyalty', $card)) {
-            return $this->numericStat($card['defaultLoyalty']);
+            $defaultLoyalty = $this->numericStat($card['defaultLoyalty']);
+            if ($defaultLoyalty !== null) {
+                return $defaultLoyalty;
+            }
         }
 
         if (array_key_exists('baseLoyalty', $card)) {
-            return $this->numericStat($card['baseLoyalty']);
+            $baseLoyalty = $this->numericStat($card['baseLoyalty']);
+            if ($baseLoyalty !== null) {
+                return $baseLoyalty;
+            }
         }
 
-        return $this->loyaltyFromFaces($card) ?? $this->numericStat($loyalty);
+        return $this->loyaltyFromFaceStats($card)
+            ?? $this->numericStat($loyalty)
+            ?? $this->loyaltyFromFaces($card);
+    }
+
+    /**
+     * @param array<string,mixed> $card
+     */
+    private function loyaltyFromFaceStats(array $card): ?int
+    {
+        $faceStats = $card['faceStats'] ?? null;
+        if (!is_array($faceStats)) {
+            return null;
+        }
+
+        $root = $faceStats['root'] ?? null;
+        if (is_array($root)) {
+            $rootLoyalty = $this->numericStat($root['loyalty'] ?? null);
+            if ($rootLoyalty !== null) {
+                return $rootLoyalty;
+            }
+        }
+
+        $faces = $faceStats['faces'] ?? null;
+        if (!is_array($faces)) {
+            return null;
+        }
+
+        foreach ($faces as $face) {
+            if (!is_array($face)) {
+                continue;
+            }
+
+            $loyalty = $this->numericStat($face['loyalty'] ?? null);
+            if ($loyalty !== null) {
+                return $loyalty;
+            }
+        }
+
+        return null;
     }
 
     /**

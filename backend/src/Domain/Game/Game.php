@@ -36,6 +36,9 @@ class Game
     #[ORM\Column(type: 'datetime_immutable')]
     private \DateTimeImmutable $createdAt;
 
+    #[ORM\Column(type: 'datetime_immutable')]
+    private \DateTimeImmutable $updatedAt;
+
     public function __construct(Room $room, array $snapshot)
     {
         $this->id = Uuid::v7()->toRfc4122();
@@ -43,6 +46,7 @@ class Game
         $this->snapshot = $snapshot;
         $this->events = new ArrayCollection();
         $this->createdAt = new \DateTimeImmutable();
+        $this->updatedAt = $this->createdAt;
     }
 
     public function id(): string
@@ -73,16 +77,19 @@ class Game
     public function replaceSnapshot(array $snapshot): void
     {
         $this->snapshot = $snapshot;
+        $this->touch();
     }
 
     public function finish(): void
     {
         $this->status = self::STATUS_FINISHED;
+        $this->touch();
     }
 
     public function addEvent(GameEvent $event): void
     {
         $this->events->add($event);
+        $this->touch();
     }
 
     public function toArray(): array
@@ -91,6 +98,13 @@ class Game
             'id' => $this->id,
             'status' => $this->status,
             'snapshot' => $this->snapshot,
+            'createdAt' => $this->createdAt->format(DATE_ATOM),
+            'updatedAt' => $this->updatedAt->format(DATE_ATOM),
         ];
+    }
+
+    private function touch(): void
+    {
+        $this->updatedAt = new \DateTimeImmutable();
     }
 }

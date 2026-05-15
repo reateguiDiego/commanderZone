@@ -468,6 +468,59 @@ class GameCommandHandlerTest extends TestCase
         self::assertSame(3, $exiledCard['defaultLoyalty']);
     }
 
+    public function testDefaultLoyaltyFallbackPrioritizesFaceStatsThenLegacyThenCardFaces(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+
+        $gameWithFaceStats = new Game(new Room($actor), $this->snapshot($actor->id(), [
+            'battlefield' => [
+                [
+                    ...$this->card('card-1', 'Adept', 'battlefield', 0, 0, 0, 0),
+                    'loyalty' => 7,
+                    'defaultLoyalty' => null,
+                    'faceStats' => [
+                        'root' => ['loyalty' => '3'],
+                        'faces' => [['loyalty' => '2']],
+                    ],
+                    'cardFaces' => [['loyalty' => '1']],
+                ],
+            ],
+        ]));
+        (new GameCommandHandler())->apply($gameWithFaceStats, 'card.moved', [
+            'playerId' => $actor->id(),
+            'fromZone' => 'battlefield',
+            'toZone' => 'exile',
+            'instanceId' => 'card-1',
+        ], $actor);
+        $faceStatsCard = $gameWithFaceStats->snapshot()['players'][$actor->id()]['zones']['exile'][0];
+        self::assertSame(3, $faceStatsCard['loyalty']);
+        self::assertSame(3, $faceStatsCard['defaultLoyalty']);
+
+        $gameWithLegacy = new Game(new Room($actor), $this->snapshot($actor->id(), [
+            'battlefield' => [
+                [
+                    ...$this->card('card-2', 'Adept', 'battlefield', 0, 0, 0, 0),
+                    'loyalty' => 6,
+                    'defaultLoyalty' => null,
+                    'faceStats' => [
+                        'root' => ['loyalty' => null],
+                        'faces' => [],
+                    ],
+                    'cardFaces' => [['loyalty' => '1']],
+                ],
+            ],
+        ]));
+        (new GameCommandHandler())->apply($gameWithLegacy, 'card.moved', [
+            'playerId' => $actor->id(),
+            'fromZone' => 'battlefield',
+            'toZone' => 'exile',
+            'instanceId' => 'card-2',
+        ], $actor);
+        $legacyCard = $gameWithLegacy->snapshot()['players'][$actor->id()]['zones']['exile'][0];
+        self::assertSame(6, $legacyCard['loyalty']);
+        self::assertSame(6, $legacyCard['defaultLoyalty']);
+    }
+
     public function testResetsModifiedPowerToughnessWhenCardEntersBattlefieldFromAnotherZone(): void
     {
         $actor = new User('owner@example.test', 'Owner');

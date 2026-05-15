@@ -23,7 +23,7 @@ abstract class ApiTestCase extends WebTestCase
         RecordingMercureHub::reset();
     }
 
-    protected function registerAndLogin(string $email = 'player@example.test', string $displayName = 'Player', string $password = 'password123'): string
+    protected function registerAndLogin(string $email = 'player@example.test', string $displayName = 'Player', string $password = 'Password123'): string
     {
         $this->jsonRequest('POST', '/auth/register', [
             'email' => $email,
@@ -31,6 +31,13 @@ abstract class ApiTestCase extends WebTestCase
             'password' => $password,
         ]);
         self::assertResponseStatusCodeSame(201);
+        $registerResponse = $this->jsonResponse();
+        if (isset($registerResponse['emailVerificationToken']) && is_string($registerResponse['emailVerificationToken'])) {
+            $this->jsonRequest('POST', '/auth/email-verification/confirm', [
+                'token' => $registerResponse['emailVerificationToken'],
+            ]);
+            self::assertResponseIsSuccessful();
+        }
 
         $this->jsonRequest('POST', '/auth/login', [
             'email' => $email,
@@ -94,6 +101,6 @@ abstract class ApiTestCase extends WebTestCase
         $connection = $this->entityManager->getConnection();
         \assert($connection instanceof Connection);
 
-        $connection->executeStatement('TRUNCATE table_assistant_room, room_invite, friendship, game_event, game, room_player, room, deck_card, deck, deck_folder, card, app_user RESTART IDENTITY CASCADE');
+        $connection->executeStatement('TRUNCATE auth_request_throttle, login_attempt, email_verification_token, password_reset_token, table_assistant_room, room_invite, friendship, game_event, game, room_player, room, deck_card, deck, deck_folder, card, app_user RESTART IDENTITY CASCADE');
     }
 }

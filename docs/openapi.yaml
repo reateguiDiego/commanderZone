@@ -52,10 +52,13 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [user]
+                required: [user, verificationRequired]
                 properties:
                   user:
                     $ref: '#/components/schemas/User'
+                  verificationRequired:
+                    type: boolean
+                    description: Indicates the account must verify email ownership.
         '409':
           $ref: '#/components/responses/Error'
   /auth/email-availability:
@@ -109,7 +112,7 @@ paths:
     post:
       tags: [Auth]
       security: []
-      summary: Login and receive a JWT access token.
+      summary: Login and receive a JWT access token (verified accounts only).
       requestBody:
         required: true
         content:
@@ -129,11 +132,15 @@ paths:
                     type: string
         '401':
           $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
   /auth/password-reset/request:
     post:
       tags: [Auth]
       security: []
-      summary: Request password reset (dummy flow).
+      summary: Request password reset with one-time token flow.
       requestBody:
         required: true
         content:
@@ -151,7 +158,7 @@ paths:
     post:
       tags: [Auth]
       security: []
-      summary: Confirm password reset (dummy flow by email).
+      summary: Confirm password reset by one-time token.
       requestBody:
         required: true
         content:
@@ -165,6 +172,46 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PasswordResetConfirmResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+  /auth/email-verification/request:
+    post:
+      tags: [Auth]
+      security: []
+      summary: Re-send email verification token for an unverified account.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailVerificationRequest'
+      responses:
+        '202':
+          description: Email verification request accepted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PasswordResetRequestAcceptedResponse'
+  /auth/email-verification/confirm:
+    post:
+      tags: [Auth]
+      security: []
+      summary: Confirm email ownership with token.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailVerificationConfirmRequest'
+      responses:
+        '200':
+          description: Email verified and authenticated session returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmailVerificationConfirmResponse'
         '400':
           $ref: '#/components/responses/Error'
   /me:
@@ -317,6 +364,7 @@ paths:
                 newPassword:
                   type: string
                   minLength: 8
+                  pattern: '^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$'
       responses:
         '200':
           description: Password changed.
@@ -1990,6 +2038,8 @@ components:
         password:
           type: string
           minLength: 8
+          pattern: '^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$'
+          description: Must include at least one lowercase letter, one uppercase letter, and one number.
     LoginRequest:
       type: object
       required: [email, password]
@@ -2014,20 +2064,51 @@ components:
           type: boolean
     PasswordResetConfirmRequest:
       type: object
-      required: [email, newPassword]
+      required: [email, token, newPassword]
       properties:
         email:
           type: string
           format: email
+        token:
+          type: string
         newPassword:
           type: string
           minLength: 8
+          pattern: '^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$'
+          description: Must include at least one lowercase letter, one uppercase letter, and one number.
     PasswordResetConfirmResponse:
       type: object
-      required: [updated]
+      required: [updated, token, user]
       properties:
         updated:
           type: boolean
+        token:
+          type: string
+        user:
+          $ref: '#/components/schemas/User'
+    EmailVerificationRequest:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+    EmailVerificationConfirmRequest:
+      type: object
+      required: [token]
+      properties:
+        token:
+          type: string
+    EmailVerificationConfirmResponse:
+      type: object
+      required: [verified, user, token]
+      properties:
+        verified:
+          type: boolean
+        user:
+          $ref: '#/components/schemas/User'
+        token:
+          type: string
     AvatarUpdateRequest:
       oneOf:
         - type: object
@@ -2188,13 +2269,18 @@ components:
           pattern: '^#[0-9a-fA-F]{6}$'
     User:
       type: object
-      required: [id, email, displayName, displayNameStyle, roles, avatar]
+      required: [id, email, emailVerified, pendingEmail, displayName, displayNameStyle, roles, avatar, createdAt, updatedAt]
       properties:
         id:
           type: string
           format: uuid
         email:
           type: string
+          format: email
+        emailVerified:
+          type: boolean
+        pendingEmail:
+          type: [string, 'null']
           format: email
         displayName:
           type: string
@@ -2207,6 +2293,12 @@ components:
             type: string
         avatar:
           $ref: '#/components/schemas/UserAvatar'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
     FriendUser:
       type: object
       required: [id, displayName]
@@ -2278,7 +2370,7 @@ components:
           format: uuid
     CardFace:
       type: object
-      required: [name, manaCost, typeLine, oracleText, power, toughness, loyalty, colors, imageUris]
+      required: [name, manaCost, typeLine, oracleText, power, toughness, loyalty, defense, handModifier, lifeModifier, colors, imageUris]
       properties:
         name:
           type: [string, 'null']
@@ -2294,6 +2386,12 @@ components:
           type: [string, 'null']
         loyalty:
           type: [string, 'null']
+        defense:
+          type: [string, 'null']
+        handModifier:
+          type: [string, 'null']
+        lifeModifier:
+          type: [string, 'null']
         colors:
           type: array
           items:
@@ -2302,6 +2400,40 @@ components:
           type: object
           additionalProperties:
             type: string
+    CardStatBlock:
+      type: object
+      required: [power, toughness, loyalty, defense, handModifier, lifeModifier]
+      properties:
+        power:
+          type: [string, 'null']
+        toughness:
+          type: [string, 'null']
+        loyalty:
+          type: [string, 'null']
+        defense:
+          type: [string, 'null']
+        handModifier:
+          type: [string, 'null']
+        lifeModifier:
+          type: [string, 'null']
+    CardFaceStatsEntry:
+      allOf:
+        - $ref: '#/components/schemas/CardStatBlock'
+        - type: object
+          required: [name]
+          properties:
+            name:
+              type: [string, 'null']
+    CardFaceStats:
+      type: object
+      required: [root, faces]
+      properties:
+        root:
+          $ref: '#/components/schemas/CardStatBlock'
+        faces:
+          type: array
+          items:
+            $ref: '#/components/schemas/CardFaceStatsEntry'
     Card:
       type: object
       required: [id, scryfallId, name, colors, colorIdentity, legalities, imageUris, cardFaces, layout, commanderLegal]
@@ -2329,6 +2461,8 @@ components:
         loyalty:
           type: [string, 'null']
           description: Printed loyalty from Scryfall. Kept as string because values can be non-numeric.
+        faceStats:
+          $ref: '#/components/schemas/CardFaceStats'
         colors:
           type: array
           items:
@@ -3249,7 +3383,7 @@ components:
           format: uuid
     Room:
       type: object
-      required: [id, name, owner, status, visibility, format, maxPlayers, startingLife, timerMode, timerDurationSeconds, players]
+      required: [id, name, owner, status, visibility, format, maxPlayers, startingLife, timerMode, timerDurationSeconds, players, createdAt, updatedAt]
       properties:
         id:
           type: string
@@ -3291,6 +3425,12 @@ components:
         gameId:
           type: [string, 'null']
           format: uuid
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
     RoomPlayer:
       type: object
       required: [id, user, deckId, deck, turnRoll]
@@ -3401,7 +3541,7 @@ components:
           format: date-time
     Game:
       type: object
-      required: [id, status, snapshot]
+      required: [id, status, snapshot, createdAt, updatedAt]
       properties:
         id:
           type: string
@@ -3411,6 +3551,12 @@ components:
           enum: [active, finished]
         snapshot:
           $ref: '#/components/schemas/GameSnapshot'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
     GameSnapshot:
       type: object
       required: [version, players, turn, stack, arrows, chat, eventLog, createdAt]

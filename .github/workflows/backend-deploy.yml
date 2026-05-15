@@ -1,0 +1,104 @@
+name: Backend Deploy
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend-deploy.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: backend-production-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Deploy to Hetzner over SSH
+        shell: bash
+        env:
+          SSH_HOST: ${{ secrets.HETZNER_SSH_HOST }}
+          SSH_PORT: ${{ secrets.HETZNER_SSH_PORT }}
+          SSH_USER: ${{ secrets.HETZNER_SSH_USER }}
+          SSH_PRIVATE_KEY: ${{ secrets.HETZNER_SSH_PRIVATE_KEY }}
+          REPO_DIR: ${{ secrets.HETZNER_REPO_DIR }}
+          BACKEND_DIR: ${{ secrets.HETZNER_BACKEND_DIR }}
+          ENV_FILE: ${{ secrets.HETZNER_ENV_FILE }}
+        run: |
+          set -euo pipefail
+
+          : "${SSH_HOST:?Missing HETZNER_SSH_HOST secret}"
+          : "${SSH_USER:?Missing HETZNER_SSH_USER secret}"
+          : "${SSH_PRIVATE_KEY:?Missing HETZNER_SSH_PRIVATE_KEY secret}"
+          : "${REPO_DIR:?Missing HETZNER_REPO_DIR secret}"
+
+          SSH_PORT="${SSH_PORT:-22}"
+          BACKEND_DIR="${BACKEND_DIR:-backend}"
+
+          install -m 600 /dev/null ./deploy_key
+          # Accept multiline keys and keys pasted with literal "\n", and remove CRLF.
+          printf '%b\n' "$SSH_PRIVATE_KEY" | tr -d '\r' > ./deploy_key
+
+          if ! ssh-keygen -y -f ./deploy_key >/dev/null 2>&1; then
+            echo "Invalid private key in HETZNER_SSH_PRIVATE_KEY (format/newlines/passphrase)." >&2
+            exit 1
+          fi
+
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          ssh-keyscan -p "$SSH_PORT" -H "$SSH_HOST" >> ~/.ssh/known_hosts
+
+          ssh -p "$SSH_PORT" -i ./deploy_key -o StrictHostKeyChecking=yes "$SSH_USER@$SSH_HOST" \
+            bash -s -- "$REPO_DIR" "$BACKEND_DIR" "$ENV_FILE" <<'EOF'
+          set -euo pipefail
+
+          REPO_DIR="$1"
+          BACKEND_DIR="$2"
+          ENV_FILE="${3:-}"
+
+          cd "$REPO_DIR"
+          git fetch origin main
+          git checkout main
+          git pull --ff-only origin main
+
+          if [ -z "${ENV_FILE:-}" ]; then
+            ENV_FILE="$REPO_DIR/.env.prod"
+          fi
+
+          COMPOSE_ARGS=(--project-directory "$REPO_DIR" --env-file "$ENV_FILE" -f "$REPO_DIR/docker-compose.yml")
+          if [ -f "$REPO_DIR/docker-compose.prod.yml" ]; then
+            COMPOSE_ARGS+=(-f "$REPO_DIR/docker-compose.prod.yml")
+          fi
+
+          # Ensure DB service is running and resolvable before running migrations from api.
+          docker compose "${COMPOSE_ARGS[@]}" up -d database
+          docker compose "${COMPOSE_ARGS[@]}" up -d --build --no-deps api mercure
+          DB_CONTAINER_ID="$(docker compose "${COMPOSE_ARGS[@]}" ps -q database)"
+          if [ -z "$DB_CONTAINER_ID" ]; then
+            echo "Database container not found in compose project." >&2
+            exit 1
+          fi
+          for i in $(seq 1 30); do
+            DB_HEALTH="$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}running{{end}}' "$DB_CONTAINER_ID" 2>/dev/null || true)"
+            if [ "$DB_HEALTH" = "healthy" ] || [ "$DB_HEALTH" = "running" ]; then
+              break
+            fi
+            sleep 2
+          done
+          if [ "$DB_HEALTH" != "healthy" ] && [ "$DB_HEALTH" != "running" ]; then
+            echo "Database container did not become ready. Current health: $DB_HEALTH" >&2
+            docker compose "${COMPOSE_ARGS[@]}" logs --tail=100 database || true
+            exit 1
+          fi
+
+          docker compose "${COMPOSE_ARGS[@]}" exec -T -e APP_ENV=prod api php bin/console doctrine:migrations:migrate --no-interaction
+          docker compose "${COMPOSE_ARGS[@]}" exec -T -e APP_ENV=prod api php bin/console cache:clear --no-warmup
+          docker compose "${COMPOSE_ARGS[@]}" exec -T -e APP_ENV=prod api php bin/console cache:warmup
+          EOF
+
+          rm -f ./deploy_key
