@@ -9,6 +9,8 @@ export interface CardPreviewSourceRect {
   readonly height: number;
 }
 
+export const CARD_PREVIEW_HOVER_DELAY_MS = 100;
+
 export interface CardPreviewEvent {
   readonly card: GameCardInstance;
   readonly playerId: string;

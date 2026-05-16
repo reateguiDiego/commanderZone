@@ -1,0 +1,29 @@
+<div
+  class="extra-actions"
+  [class.extra-actions-open]="open()"
+  [class.variant-compact]="variant() === 'compact'"
+  [class.variant-gold]="variant() === 'gold'"
+  [class.has-label]="showText()"
+  [class.align-left]="align() === 'left'"
+  [class.align-center]="align() === 'center'"
+  [class.align-right]="align() === 'right'"
+>
+  <button
+    type="button"
+    class="extra-actions-toggle"
+    [attr.aria-label]="ariaLabel()"
+    [attr.aria-expanded]="open()"
+    (click)="toggle($event)"
+  >
+    <lucide-icon [name]="icon()" size="17" aria-hidden="true" />
+    @if (showText()) {
+      <span>{{ label() }}</span>
+    }
+  </button>
+
+  @if (open()) {
+    <div class="extra-actions-panel" role="menu" [attr.aria-label]="menuLabel()" (click)="stopMenuClick($event)">
+      <ng-content />
+    </div>
+  }
+</div>

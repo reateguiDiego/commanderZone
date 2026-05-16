@@ -1,4 +1,6 @@
+import { importProvidersFrom } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { ChevronRight, LucideAngularModule, Play } from 'lucide-angular';
 import { GameSnapshot } from '../../../../core/models/game.model';
 import { PlayerView } from '../state/game-table-snapshot-selectors';
 import { TurnPhasePanelComponent } from './turn-phase-panel.component';
@@ -22,6 +24,22 @@ describe('TurnPhasePanelComponent', () => {
 
     expect(fixture.nativeElement.querySelector('[data-testid="advance-phase"]')).toBeNull();
     expect(fixture.nativeElement.querySelector('[data-testid="pass-turn"]')).toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-testid="follow-active-turn-player"]')).not.toBeNull();
+  });
+
+  it('emits follow active player changes from the focus checkbox', async () => {
+    const fixture = await renderTurnPhasePanel({
+      turn: { activePlayerId: 'player-2', phase: 'main-1', number: 3 },
+      currentPlayerId: 'player-1',
+    });
+    const changed = vi.fn();
+    fixture.componentInstance.followActiveTurnPlayerChanged.subscribe(changed);
+
+    const checkbox = fixture.nativeElement.querySelector('[data-testid="follow-active-turn-player"]') as HTMLInputElement;
+    checkbox.checked = true;
+    checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+
+    expect(changed).toHaveBeenCalledWith(true);
   });
 });
 
@@ -31,6 +49,7 @@ async function renderTurnPhasePanel(options: {
 }): Promise<ComponentFixture<TurnPhasePanelComponent>> {
   await TestBed.configureTestingModule({
     imports: [TurnPhasePanelComponent],
+    providers: [importProvidersFrom(LucideAngularModule.pick({ ChevronRight, Play }))],
   }).compileComponents();
 
   const fixture = TestBed.createComponent(TurnPhasePanelComponent);

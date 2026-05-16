@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
 import { ManaSymbolsComponent } from '../../../../shared/mana/mana-symbols/mana-symbols.component';
+import { ExtraActionsMenuComponent } from '../../../../shared/ui/extra-actions-menu/extra-actions-menu.component';
 import { PlayerAvatarComponent } from '../../../../shared/ui/player-avatar/player-avatar.component';
 import { PlayerNameComponent } from '../../../../shared/ui/player-name/player-name.component';
 import { PlayerView } from '../game-table.store';
@@ -11,7 +12,7 @@ interface LifeChangeEvent {
 
 @Component({
   selector: 'app-player-summary-panel',
-  imports: [ManaSymbolsComponent, PlayerAvatarComponent, PlayerNameComponent],
+  imports: [ExtraActionsMenuComponent, ManaSymbolsComponent, PlayerAvatarComponent, PlayerNameComponent],
   templateUrl: './player-summary-panel.component.html',
   styleUrl: './player-summary-panel.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -24,6 +25,7 @@ export class PlayerSummaryPanelComponent {
   readonly lifeChanged = output<LifeChangeEvent>();
 
   changeLife(event: MouseEvent, delta: number): void {
+    event.stopPropagation();
     if (delta < 0) {
       event.preventDefault();
     }

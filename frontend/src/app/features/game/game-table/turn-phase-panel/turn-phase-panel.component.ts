@@ -1,9 +1,11 @@
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
+import { LucideAngularModule } from 'lucide-angular';
 import { GameSnapshot } from '../../../../core/models/game.model';
 import { PlayerView } from '../game-table.store';
 
 @Component({
   selector: 'app-turn-phase-panel',
+  imports: [LucideAngularModule],
   templateUrl: './turn-phase-panel.component.html',
   styleUrl: './turn-phase-panel.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -16,8 +18,10 @@ export class TurnPhasePanelComponent {
   readonly isPhasePast = input.required<(phase: string) => boolean>();
   readonly pending = input.required<boolean>();
   readonly canAdvance = input.required<boolean>();
+  readonly followActiveTurnPlayer = input(false);
   readonly advancePhase = output<void>();
   readonly passTurn = output<void>();
+  readonly followActiveTurnPlayerChanged = output<boolean>();
 
   activePlayerName(): string {
     const turn = this.turn();
@@ -46,6 +50,11 @@ export class TurnPhasePanelComponent {
 
   isCompactPhase(phase: string): boolean {
     return phase === 'untap' || phase === 'upkeep' || phase === 'draw' || phase === 'end';
+  }
+
+  updateFollowActiveTurnPlayer(event: Event): void {
+    const checked = event.target instanceof HTMLInputElement && event.target.checked;
+    this.followActiveTurnPlayerChanged.emit(checked);
   }
 
   private phaseLabel(phase: string): string {

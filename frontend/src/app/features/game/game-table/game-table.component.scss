@@ -75,6 +75,27 @@
   pointer-events: none;
 }
 
+.library-random-order-option {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.7rem 0.8rem;
+  cursor: pointer;
+}
+
+.library-random-order-option input {
+  accent-color: var(--game-accent);
+}
+
+.library-random-order-option span {
+  display: grid;
+}
+
+.library-random-order-option small {
+  color: var(--game-muted);
+}
+
 .notice {
   margin: 0;
   padding: 2rem;
@@ -140,6 +161,7 @@
 }
 
 .player-strip {
+  z-index: 700;
   grid-area: mainTop;
   display: grid;
   grid-template-columns: minmax(0, 500px) minmax(0, 500px) minmax(0, 1fr) minmax(0, 340px);
@@ -150,7 +172,7 @@
   height: 100%;
   margin-inline: calc(-1 * var(--game-table-side-margin));
   background: var(--game-surface-deep);
-  overflow: hidden;
+  overflow: visible;
 }
 
 .extras-panel {

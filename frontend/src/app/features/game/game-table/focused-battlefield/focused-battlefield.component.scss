@@ -27,20 +27,61 @@
 }
 
 .battlefield.board-transitioning {
-  animation: focused-battlefield-enter 300ms cubic-bezier(0.2, 0.78, 0.22, 1);
+  animation: focused-battlefield-enter 980ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.battlefield.board-transitioning::after {
+  content: '';
+  position: absolute;
+  inset: -8%;
+  z-index: 680;
+  background:
+    radial-gradient(ellipse at 50% 44%, transparent 0 34%, rgb(0 0 0 / 36%) 72%),
+    linear-gradient(100deg, transparent 0 22%, rgb(255 232 164 / 13%) 44%, transparent 66%);
+  opacity: 0;
+  transform: translateX(-10%) scale(1.04);
+  pointer-events: none;
+  animation: focused-battlefield-wipe 980ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @keyframes focused-battlefield-enter {
-  from {
-    opacity: 0;
-    filter: blur(6px) saturate(0.84);
-    transform: scale(0.992);
+  0% {
+    opacity: 0.28;
+    filter: blur(18px) brightness(0.52) saturate(0.86);
+    transform: scale(1.048) translateY(0.72rem);
   }
 
-  to {
+  42% {
     opacity: 1;
-    filter: blur(0) saturate(1);
-    transform: scale(1);
+    filter: blur(2px) brightness(1.13) saturate(1.04);
+    transform: scale(1.012);
+  }
+
+  70% {
+    filter: brightness(1.04) saturate(1.02);
+    transform: scale(0.996);
+  }
+
+  100% {
+    filter: none;
+    transform: none;
+  }
+}
+
+@keyframes focused-battlefield-wipe {
+  0% {
+    opacity: 0.84;
+    transform: translateX(-12%) scale(1.06);
+  }
+
+  48% {
+    opacity: 0.52;
+    transform: translateX(4%) scale(1.02);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateX(10%) scale(1);
   }
 }
 
@@ -72,5 +113,12 @@
   .mana-lane {
     inset: auto 0.35rem 0.35rem;
     min-height: 7.4rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .battlefield.board-transitioning,
+  .battlefield.board-transitioning::after {
+    animation: none;
   }
 }

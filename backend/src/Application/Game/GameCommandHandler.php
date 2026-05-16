@@ -529,7 +529,7 @@ class GameCommandHandler
             return '';
         }
 
-        $moved = 0;
+        $moves = [];
         $movedCardNames = [];
         foreach ($instanceIds as $instanceId) {
             if (!is_string($instanceId) || $instanceId === '') {
@@ -538,6 +538,16 @@ class GameCommandHandler
             $card = $this->takeCard($snapshot, $playerId, $fromZone, $instanceId);
             $movedCardNames[] = $this->cardLogName($card);
             $targetPlayerId = $this->moveDestinationPlayerId($snapshot, $playerId, $fromZone, $toZone, $card, $requestedTargetPlayerId);
+            $moves[] = [$targetPlayerId, $card];
+        }
+
+        $randomOrder = ($payload['randomOrder'] ?? false) === true && $toZone === 'library' && count($moves) > 1;
+        if ($randomOrder) {
+            shuffle($moves);
+        }
+
+        $moved = 0;
+        foreach ($moves as [$targetPlayerId, $card]) {
             $this->putCard(
                 $snapshot,
                 $targetPlayerId,
@@ -551,6 +561,10 @@ class GameCommandHandler
 
         if ($moved > 1) {
             $this->pendingLogContext = ['cardNames' => $movedCardNames];
+        }
+
+        if ($randomOrder) {
+            return sprintf('Moved %d cards from %s to %s in random order.', $moved, $fromZone, $toZone);
         }
 
         return sprintf('Moved %d cards from %s to %s.', $moved, $fromZone, $toZone);
@@ -602,6 +616,10 @@ class GameCommandHandler
 
         $faceIndex = $this->positiveInt($payload['faceIndex'] ?? 0, 0, count($faces) - 1);
         $card['activeFaceIndex'] = $faceIndex;
+
+        if ($location['zone'] !== 'battlefield') {
+            return '';
+        }
 
         return sprintf('Flipped %s to face %d.', $this->cardLogName($card), $faceIndex + 1);
     }
@@ -1541,7 +1559,7 @@ class GameCommandHandler
 
     private function statLabel(mixed $value): string
     {
-        return is_numeric($value) ? (string) (int) $value : '?';
+        return is_numeric($value) ? (string) (int) $value : '-';
     }
 
     private function numericStat(mixed $value): ?int

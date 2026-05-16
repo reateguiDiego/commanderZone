@@ -564,6 +564,34 @@ class GameCommandHandlerTest extends TestCase
 
         $card = $game->snapshot()['players'][$actor->id()]['zones']['hand'][0];
         self::assertSame(1, $card['activeFaceIndex']);
+        self::assertSame([], $game->snapshot()['eventLog']);
+    }
+
+    public function testLogsDisplayedCardFaceChangesOnBattlefield(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->snapshot($actor->id(), [
+            'battlefield' => [
+                [
+                    ...$this->card('card-1', 'Front // Back', 'battlefield', 0, 0, 0, 0),
+                    'cardFaces' => [
+                        ['name' => 'Front', 'imageUris' => ['normal' => '/front.jpg']],
+                        ['name' => 'Back', 'imageUris' => ['normal' => '/back.jpg']],
+                    ],
+                    'activeFaceIndex' => 0,
+                ],
+            ],
+        ]));
+
+        (new GameCommandHandler())->apply($game, 'card.face.changed', [
+            'playerId' => $actor->id(),
+            'zone' => 'battlefield',
+            'instanceId' => 'card-1',
+            'faceIndex' => 1,
+        ], $actor);
+
+        $card = $game->snapshot()['players'][$actor->id()]['zones']['battlefield'][0];
+        self::assertSame(1, $card['activeFaceIndex']);
         self::assertSame('Flipped Front // Back to face 2.', $game->snapshot()['eventLog'][0]['message']);
     }
 
@@ -977,6 +1005,42 @@ class GameCommandHandlerTest extends TestCase
             static fn (array $card): string => $card['instanceId'],
             $game->snapshot()['players'][$actor->id()]['zones']['library'],
         ));
+    }
+
+    public function testMultipleCardsCanReturnToLibraryInRandomOrder(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->snapshot($actor->id(), [
+            'library' => [
+                $this->card('library-top', 'Top', 'library', 1, 1, 1, 1),
+                $this->card('library-bottom', 'Bottom', 'library', 1, 1, 1, 1),
+            ],
+            'graveyard' => [
+                $this->card('return-1', 'Return One', 'graveyard', 1, 1, 1, 1),
+                $this->card('return-2', 'Return Two', 'graveyard', 1, 1, 1, 1),
+                $this->card('return-3', 'Return Three', 'graveyard', 1, 1, 1, 1),
+            ],
+        ]));
+
+        (new GameCommandHandler())->apply($game, 'cards.moved', [
+            'playerId' => $actor->id(),
+            'fromZone' => 'graveyard',
+            'toZone' => 'library',
+            'instanceIds' => ['return-1', 'return-2', 'return-3'],
+            'position' => 'top',
+            'randomOrder' => true,
+        ], $actor);
+
+        $libraryIds = array_map(
+            static fn (array $card): string => $card['instanceId'],
+            $game->snapshot()['players'][$actor->id()]['zones']['library'],
+        );
+        self::assertEqualsCanonicalizing(['return-1', 'return-2', 'return-3'], array_slice($libraryIds, 0, 3));
+        self::assertSame(['library-top', 'library-bottom'], array_slice($libraryIds, 3));
+        self::assertSame(
+            'Moved 3 cards from graveyard to library in random order.',
+            $game->snapshot()['eventLog'][0]['message'] ?? null,
+        );
     }
 
     public function testArrowCreatedRequiresBothEndpointsOnBattlefield(): void

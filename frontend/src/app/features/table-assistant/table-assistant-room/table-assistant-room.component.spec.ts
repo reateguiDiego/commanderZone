@@ -1,7 +1,7 @@
 import { importProvidersFrom, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
-import { ChevronDown, LucideAngularModule } from 'lucide-angular';
+import { ChevronDown, LucideAngularModule, Plus } from 'lucide-angular';
 import { EMPTY, of } from 'rxjs';
 import { AuthStore } from '../../../core/auth/auth.store';
 import { MercureService } from '../../../core/realtime/mercure.service';
@@ -21,7 +21,7 @@ describe('TableAssistantRoomComponent', () => {
       imports: [TableAssistantRoomComponent],
       providers: [
         provideRouter([]),
-        importProvidersFrom(LucideAngularModule.pick({ ChevronDown })),
+        importProvidersFrom(LucideAngularModule.pick({ ChevronDown, Plus })),
         { provide: TableAssistantApi, useValue: { get, action } },
         {
           provide: MercureService,

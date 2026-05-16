@@ -39,6 +39,7 @@
       [hidden]="card.hidden ?? false"
       [disabled]="false"
       [visible]="cardVisibility(focusedPlayer.id, card)"
+      [battlefieldFocusEntry]="battlefieldFocusEntry(card)"
       [showPowerToughness]="shouldShowPowerToughness()(card)"
       [powerValue]="cardPowerValue()(card)"
       [toughnessValue]="cardToughnessValue()(card)"

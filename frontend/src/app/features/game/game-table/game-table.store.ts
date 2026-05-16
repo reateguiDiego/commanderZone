@@ -163,7 +163,7 @@ export class GameTableStore implements OnDestroy {
   readonly focusedPlayer = computed<PlayerView | null>(() => this.selectors.focusedPlayer(this.snapshot(), this.players(), this.focusedPlayerId()));
   readonly eventLog = computed<GameLogEntryView[]>(() => this.chatLogState.eventLogView(this.snapshot(), this.zones));
   readonly currentPlayer = computed<PlayerView | null>(() => this.selectors.currentPlayer(this.players(), this.auth.user()?.id));
-  readonly handPlayer = computed<PlayerView | null>(() => this.currentPlayer());
+  readonly handPlayer = computed<PlayerView | null>(() => this.focusedPlayer());
   readonly opponentTargetingPills = computed<ReadonlyMap<string, OpponentTargetingPill>>(() => this.buildOpponentTargetingPills());
   readonly opponentCardsTargetCards = computed<ReadonlyMap<string, readonly OpponentCardsTargetCard[]>>(() => this.buildOpponentCardsTargetCards());
   readonly chatRecipients = computed<ChatRecipientOption[]>(() => this.chatRecipientOptions());
@@ -1140,13 +1140,13 @@ export class GameTableStore implements OnDestroy {
     this.pendingBattlefieldMove.set(null);
   }
 
-  async confirmPendingLibraryMove(position: 'top' | 'bottom'): Promise<void> {
+  async confirmPendingLibraryMove(position: 'top' | 'bottom', randomOrder = false): Promise<void> {
     const pendingMove = this.pendingLibraryMove();
     if (!pendingMove) {
       return;
     }
 
-    await this.dropActions.confirmPendingLibraryMove(this.dropActionContext(), pendingMove, position);
+    await this.dropActions.confirmPendingLibraryMove(this.dropActionContext(), pendingMove, position, randomOrder);
   }
 
   async cancelPendingLibraryMove(): Promise<void> {
@@ -2299,7 +2299,7 @@ export class GameTableStore implements OnDestroy {
       }
     }
 
-    const pills = new Map<string, OpponentTargetingPill>();
+    const outgoingTargetCounts = new Map<string, number>();
     for (const arrow of snapshot.arrows) {
       const sourcePlayerId = battlefieldCardOwners.get(arrow.fromInstanceId);
       const targetPlayerId = battlefieldCardOwners.get(arrow.toInstanceId);
@@ -2307,14 +2307,26 @@ export class GameTableStore implements OnDestroy {
         continue;
       }
 
-      if (sourcePlayerId === currentPlayerId && targetPlayerId !== currentPlayerId && !pills.has(targetPlayerId)) {
-        const target = this.players().find((player) => player.id === targetPlayerId) ?? null;
-        const label = this.targetingPlayerLabel(target);
-        pills.set(targetPlayerId, {
-          direction: 'outgoing',
-          text: `Objetivo: ${label}`,
-          title: `${label} es el objetivo de una de tus flechas.`,
-        });
+      if (sourcePlayerId === currentPlayerId && targetPlayerId !== currentPlayerId) {
+        outgoingTargetCounts.set(targetPlayerId, (outgoingTargetCounts.get(targetPlayerId) ?? 0) + 1);
+      }
+    }
+
+    const pills = new Map<string, OpponentTargetingPill>();
+    for (const [targetPlayerId, count] of outgoingTargetCounts) {
+      const target = this.players().find((player) => player.id === targetPlayerId) ?? null;
+      const label = count > 1 ? 'multiple' : this.targetingPlayerLabel(target);
+      pills.set(targetPlayerId, {
+        direction: 'outgoing',
+        text: `Objetivo: ${label}`,
+        title: count > 1 ? 'Tienes multiples objetivos en este battlefield.' : `${label} es el objetivo de una de tus flechas.`,
+      });
+    }
+
+    for (const arrow of snapshot.arrows) {
+      const sourcePlayerId = battlefieldCardOwners.get(arrow.fromInstanceId);
+      const targetPlayerId = battlefieldCardOwners.get(arrow.toInstanceId);
+      if (!sourcePlayerId || !targetPlayerId || sourcePlayerId === targetPlayerId) {
         continue;
       }
 

@@ -67,6 +67,36 @@ describe('FocusedBattlefieldComponent', () => {
 
     expect(clicked).not.toHaveBeenCalled();
   });
+
+  it('lands creatures and planeswalkers from the nearest side while the board transitions', async () => {
+    const { fixture } = await renderFocusedBattlefield();
+
+    fixture.componentInstance.boardTransitioning.set(true);
+    fixture.detectChanges();
+
+    expect(cardElement(fixture, 'card-1').classList).toContain('focus-entry-left');
+    expect(cardElement(fixture, 'card-2').classList).toContain('focus-entry-left');
+    expect(cardElement(fixture, 'card-3').classList).not.toContain('focus-entry-left');
+  });
+
+  it('materializes non creature and non planeswalker cards during focus transitions', async () => {
+    const { fixture } = await renderFocusedBattlefield();
+
+    fixture.componentInstance.boardTransitioning.set(true);
+    fixture.detectChanges();
+
+    expect(cardElement(fixture, 'card-3').classList).toContain('focus-entry-fade');
+  });
+
+  it('does not mark focus entry classes while focus effects are disabled', async () => {
+    const { fixture } = await renderFocusedBattlefield({ focusEffectsEnabled: false });
+
+    fixture.componentInstance.boardTransitioning.set(true);
+    fixture.detectChanges();
+
+    expect(cardElement(fixture, 'card-1').classList).not.toContain('focus-entry-left');
+    expect(cardElement(fixture, 'card-3').classList).not.toContain('focus-entry-fade');
+  });
 });
 
 interface RenderFocusedBattlefieldOptions {
@@ -76,6 +106,7 @@ interface RenderFocusedBattlefieldOptions {
   allowArrowTargetSelection?: boolean;
   isCardTransferPending?: (playerId: string, zone: GameZoneName, card: GameCardInstance) => boolean;
   firstCounter?: (card: GameCardInstance) => { key: string; value: number } | null;
+  focusEffectsEnabled?: boolean;
 }
 
 async function renderFocusedBattlefield(options: RenderFocusedBattlefieldOptions = {}): Promise<{ fixture: ComponentFixture<FocusedBattlefieldComponent> }> {
@@ -87,6 +118,7 @@ async function renderFocusedBattlefield(options: RenderFocusedBattlefieldOptions
   fixture.componentRef.setInput('player', playerView());
   fixture.componentRef.setInput('isCurrentPlayer', options.isCurrentPlayer ?? ((_playerId: string) => true));
   fixture.componentRef.setInput('allowArrowTargetSelection', options.allowArrowTargetSelection ?? false);
+  fixture.componentRef.setInput('focusEffectsEnabled', options.focusEffectsEnabled ?? true);
   fixture.componentRef.setInput('isDropZoneHighlighted', (_playerId: string, _zone: GameZoneName) => false);
   fixture.componentRef.setInput('cardPosition', options.cardPosition ?? ((_card: GameCardInstance) => null));
   fixture.componentRef.setInput('isSelected', (_instanceId: string) => false);
@@ -121,9 +153,9 @@ function playerView(): PlayerView {
         library: [],
         hand: [],
         battlefield: [
-          { instanceId: 'card-1', name: 'Sol Ring', tapped: false },
-          { instanceId: 'card-2', name: 'Arcane Signet', tapped: false },
-          { instanceId: 'card-3', name: 'Cultivate', tapped: false },
+          { instanceId: 'card-1', name: 'Llanowar Elves', typeLine: 'Creature - Elf Druid', tapped: false },
+          { instanceId: 'card-2', name: 'Liliana of the Veil', typeLine: 'Legendary Planeswalker - Liliana', tapped: false },
+          { instanceId: 'card-3', name: 'Sol Ring', typeLine: 'Artifact', tapped: false },
         ],
         graveyard: [],
         exile: [],

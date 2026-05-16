@@ -32,6 +32,14 @@ describe('OpponentMiniBattlefieldComponent', () => {
     expect(fixture.nativeElement.querySelectorAll('[data-testid="mini-battlefield-card"]').length).toBe(3);
   });
 
+  it('renders an empty mini battlefield without a placeholder label', () => {
+    fixture.componentRef.setInput('cards', []);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('[data-testid="mini-battlefield-card"]')).toBeNull();
+    expect(fixture.nativeElement.textContent).not.toContain('No permanents');
+  });
+
   it('passes tapped and settling state to mini cards', () => {
     const tappedCard = { ...card('tapped-card'), tapped: true };
     fixture.componentRef.setInput('cards', [tappedCard]);

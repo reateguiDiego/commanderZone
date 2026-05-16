@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, input, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, HostListener, computed, inject, input, output, signal } from '@angular/core';
 import { GameCardInstance, GameZoneName } from '../../../../core/models/game.model';
 import { GameContextMenu } from '../state/game-table-ui.state';
 import { PlayerView } from '../game-table.store';
@@ -55,6 +55,8 @@ type ContextSubmenu = 'counters' | 'giveToPlayer' | 'moveTo';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ContextMenuComponent {
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+
   readonly menu = input.required<GameContextMenu>();
   readonly currentPlayer = input<PlayerView | null>(null);
   readonly players = input.required<readonly PlayerView[]>();
@@ -258,5 +260,15 @@ export class ContextMenuComponent {
 
   stopClick(event: MouseEvent): void {
     event.stopPropagation();
+  }
+
+  @HostListener('document:mousedown', ['$event'])
+  closeFromOutsidePointer(event: MouseEvent): void {
+    const target = event.target instanceof Node ? event.target : null;
+    if (target && this.host.nativeElement.contains(target)) {
+      return;
+    }
+
+    this.close.emit();
   }
 }

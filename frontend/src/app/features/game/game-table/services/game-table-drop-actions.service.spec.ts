@@ -255,6 +255,41 @@ describe('GameTableDropActionsService', () => {
     });
   });
 
+  it('confirms a multi-card library move with random order when requested', async () => {
+    const command = vi.fn(async () => undefined);
+    const clearSelectedCards = vi.fn();
+    const suppressCardPreview = vi.fn();
+    const setPendingLibraryMove = vi.fn();
+    const context = dropContext(
+      () => snapshotWith({}),
+      command,
+      { clearSelectedCards, suppressCardPreview, setPendingLibraryMove },
+    );
+
+    await service.confirmPendingLibraryMove(context, {
+      cardName: '2 cards',
+      commandType: 'cards.moved',
+      payload: {
+        playerId: 'player-1',
+        fromZone: 'battlefield',
+        toZone: 'library',
+        instanceIds: ['moved', 'selected-2'],
+      },
+    }, 'top', true);
+
+    expect(command).toHaveBeenCalledWith('cards.moved', {
+      playerId: 'player-1',
+      fromZone: 'battlefield',
+      toZone: 'library',
+      instanceIds: ['moved', 'selected-2'],
+      position: 'top',
+      randomOrder: true,
+    });
+    expect(setPendingLibraryMove).toHaveBeenCalledWith(null);
+    expect(clearSelectedCards).toHaveBeenCalledOnce();
+    expect(suppressCardPreview).toHaveBeenCalledOnce();
+  });
+
   it('notifies the controller when a borrowed battlefield card returns to its owner zone', async () => {
     const borrowed = { ...card('borrowed', 'Borrowed Bear', 'battlefield'), ownerId: 'owner-1', controllerId: 'player-1' };
     const snapshot = snapshotWith({ battlefield: [borrowed] });

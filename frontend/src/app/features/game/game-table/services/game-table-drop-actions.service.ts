@@ -301,10 +301,13 @@ export class GameTableDropActionsService {
     context: GameTableDropActionContext,
     pendingMove: PendingLibraryMove,
     position: 'top' | 'bottom',
+    randomOrder = false,
   ): Promise<void> {
+    const shouldRandomize = randomOrder && this.supportsRandomLibraryOrder(pendingMove);
     await context.command(pendingMove.commandType, {
       ...pendingMove.payload,
       position,
+      ...(shouldRandomize ? { randomOrder: true } : {}),
     });
     const fromZone = pendingMove.payload['fromZone'];
     const playerId = pendingMove.payload['playerId'];
@@ -314,6 +317,15 @@ export class GameTableDropActionsService {
     context.setPendingLibraryMove(null);
     context.clearSelectedCards();
     context.suppressCardPreview();
+  }
+
+  supportsRandomLibraryOrder(pendingMove: PendingLibraryMove): boolean {
+    const instanceIds = pendingMove.payload['instanceIds'];
+
+    return pendingMove.commandType === 'cards.moved'
+      && pendingMove.payload['toZone'] === 'library'
+      && Array.isArray(instanceIds)
+      && instanceIds.length > 1;
   }
 
   private async reorderHand(

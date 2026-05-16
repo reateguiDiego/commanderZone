@@ -1,6 +1,13 @@
 @if (open) {
   <div class="modal-backdrop" role="presentation">
-    <section class="modal-panel" appPrettyScroll role="dialog" aria-modal="true" [attr.aria-label]="title">
+    <section
+      class="modal-panel"
+      appPrettyScroll
+      role="dialog"
+      aria-modal="true"
+      [attr.aria-label]="title"
+      [class.modal-panel-compact]="size === 'compact'"
+    >
       <header>
         <div class="modal-title-row">
           @if (showBackButton) {

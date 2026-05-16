@@ -6,8 +6,8 @@
       <span data-testid="turn-number">Turn {{ currentTurn.number }}</span>
       <strong data-testid="turn-active-player">{{ activePlayerName() }}</strong>
     </div>
-    @if (isCurrentTurnPlayer()) {
-      <div class="turn-actions">
+    <div class="turn-actions">
+      @if (isCurrentTurnPlayer()) {
         <button
           type="button"
           class="turn-action-button pass-turn-button"
@@ -16,6 +16,7 @@
           [title]="pending() ? 'Applying action' : 'Pass turn'"
           (click)="passTurn.emit()"
         >
+          <lucide-icon name="chevron-right" size="18" aria-hidden="true" />
           <span>Pasar turno</span>
         </button>
         <button
@@ -26,10 +27,20 @@
           [title]="pending() ? 'Applying action' : 'Advance to ' + nextPhaseLabel()"
           (click)="advancePhase.emit()"
         >
+          <lucide-icon name="play" size="17" aria-hidden="true" />
           <span data-testid="end-step">{{ nextPhaseLabel() }}</span>
         </button>
-      </div>
-    }
+      }
+      <label class="turn-focus-toggle" title="Focus the active turn player">
+        <input
+          type="checkbox"
+          data-testid="follow-active-turn-player"
+          [checked]="followActiveTurnPlayer()"
+          (change)="updateFollowActiveTurnPlayer($event)"
+        />
+        <span>Focus turn</span>
+      </label>
+    </div>
   </div>
   <div class="phase-tracker" aria-label="Turn phases">
     <span class="sr-only" data-testid="active-phase">{{ currentTurn.phase }}</span>

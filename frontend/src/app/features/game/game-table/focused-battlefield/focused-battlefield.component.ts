@@ -77,6 +77,8 @@ interface BattlefieldSizeEvent {
   bottom: number;
 }
 
+type BattlefieldFocusEntry = 'left' | 'right' | 'fade' | null;
+
 @Component({
   selector: 'app-focused-battlefield',
   imports: [GameCardViewComponent],
@@ -95,6 +97,7 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
   readonly player = input.required<PlayerView>();
   readonly isCurrentPlayer = input.required<(playerId: string) => boolean>();
   readonly allowArrowTargetSelection = input(false);
+  readonly focusEffectsEnabled = input(true);
   readonly isDropZoneHighlighted = input.required<(playerId: string, zone: GameZoneName) => boolean>();
   readonly cardPosition = input.required<(card: GameCardInstance) => { x: number; y: number } | null>();
   readonly isSelected = input.required<(instanceId: string) => boolean>();
@@ -253,6 +256,34 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
     return Boolean(guide?.referenceInstanceIds.includes(card.instanceId));
   }
 
+  battlefieldFocusEntry(card: GameCardInstance): BattlefieldFocusEntry {
+    if (!this.focusEffectsEnabled() || !this.boardTransitioning()) {
+      return null;
+    }
+
+    if (!this.usesLandingFocusEntry(card)) {
+      return 'fade';
+    }
+
+    const position = this.cardPosition()(card);
+    if (!position) {
+      return 'left';
+    }
+
+    const battlefieldWidth = this.lastBattlefieldSize?.width ?? 0;
+    if (battlefieldWidth <= 0) {
+      return position.x <= 0 ? 'left' : 'right';
+    }
+
+    return position.x + 58 <= battlefieldWidth / 2 ? 'left' : 'right';
+  }
+
+  private usesLandingFocusEntry(card: GameCardInstance): boolean {
+    const typeLine = card.typeLine?.toLowerCase() ?? '';
+
+    return typeLine.includes('creature') || typeLine.includes('planeswalker');
+  }
+
   private emitBattlefieldSize(size: DOMRectReadOnly): void {
     const next = {
       width: Math.round(size.width),
@@ -283,6 +314,11 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
   }
 
   private triggerBoardTransition(): void {
+    if (!this.focusEffectsEnabled()) {
+      this.clearBoardTransition();
+      return;
+    }
+
     this.boardTransitioning.set(false);
     window.requestAnimationFrame(() => this.boardTransitioning.set(true));
     if (this.boardTransitionTimer !== null) {
@@ -291,6 +327,14 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
     this.boardTransitionTimer = window.setTimeout(() => {
       this.boardTransitioning.set(false);
       this.boardTransitionTimer = null;
-    }, 320);
+    }, 980);
+  }
+
+  private clearBoardTransition(): void {
+    this.boardTransitioning.set(false);
+    if (this.boardTransitionTimer !== null) {
+      window.clearTimeout(this.boardTransitionTimer);
+      this.boardTransitionTimer = null;
+    }
   }
 }

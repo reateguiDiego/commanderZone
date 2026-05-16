@@ -1,6 +1,6 @@
 import { Injectable, signal } from '@angular/core';
 import { GameCardInstance, GameZoneName } from '../../../../core/models/game.model';
-import { CardPreviewEvent } from '../card-preview.model';
+import { CARD_PREVIEW_HOVER_DELAY_MS, CardPreviewEvent } from '../card-preview.model';
 
 export interface GameContextMenu {
   x: number;
@@ -21,7 +21,7 @@ export interface HoveredCardSelection {
 
 @Injectable()
 export class GameTableUiState {
-  private readonly hoverPreviewDelayMs = 100;
+  private readonly hoverPreviewDelayMs = CARD_PREVIEW_HOVER_DELAY_MS;
   private hoverPreviewSuppressedUntil = 0;
 
   readonly focusedPlayerId = signal<string | null>(null);

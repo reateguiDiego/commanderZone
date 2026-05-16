@@ -9,7 +9,7 @@ import { GameTableCardStatsService } from './services/game-table-card-stats.serv
 import { GameTableBattlefieldDragCoordinatorService } from './services/game-table-battlefield-drag-coordinator.service';
 import { GameTableCommandService } from './services/game-table-command.service';
 import { GameTableDragService } from './services/game-table-drag.service';
-import { GameTableDropActionsService } from './services/game-table-drop-actions.service';
+import { GameTableDropActionsService, type PendingLibraryMove } from './services/game-table-drop-actions.service';
 import { GameTableInteractionActionsService } from './services/game-table-interaction-actions.service';
 import { GameTableLibraryActionsService } from './services/game-table-library-actions.service';
 import { GameTablePointerDragActionsService } from './services/game-table-pointer-drag-actions.service';
@@ -168,6 +168,20 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
   readonly manaSymbols = (player: PlayerView | null): string[] => this.store.manaSymbols(player);
   readonly cardPosition = (card: GameCardInstance): { x: number; y: number } | null => this.store.cardPosition(card);
   readonly cardImage = (card: GameCardInstance): string | null => this.store.cardImage(card);
+  readonly handCardImage = (card: GameCardInstance): string | null => {
+    const handPlayer = this.store.handPlayer();
+    const currentPlayer = this.store.currentPlayer();
+
+    return handPlayer && currentPlayer && handPlayer.id !== currentPlayer.id
+      ? this.store.cardBackImage(handPlayer)
+      : this.store.cardImage(card);
+  };
+  readonly isHandPlayerReadOnly = computed(() => {
+    const handPlayer = this.store.handPlayer();
+    const currentPlayer = this.store.currentPlayer();
+
+    return Boolean(handPlayer && currentPlayer && handPlayer.id !== currentPlayer.id);
+  });
   readonly isPlayerDropHighlighted = (playerId: string): boolean => this.store.isPlayerDropHighlighted(playerId);
   readonly isPhasePast = (phase: string): boolean => this.store.isPhasePast(phase);
   readonly isCurrentPlayer = (playerId: string): boolean => this.store.isCurrentPlayer(playerId);
@@ -206,6 +220,9 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
   readonly numberActionDialog = signal<NumberActionRequest | null>(null);
   readonly powerToughnessDialog = signal<PowerToughnessActionRequest | null>(null);
   readonly arrowTargetDialog = signal<ArrowTargetDialogRequest | null>(null);
+  readonly libraryMoveRandomOrder = signal(false);
+  readonly followActiveTurnPlayer = signal(false);
+  readonly focusEffectsEnabled = computed(() => this.arrowTargetDialog() === null && this.store.pendingArrowSource() === null);
   readonly battlefieldLayoutSize = signal<BattlefieldLayoutRect>({ width: 900, height: 520, left: 0, top: 0, right: 900, bottom: 520 });
   readonly closeGameDialogOpen = signal(false);
   readonly isPowerToughnessDialogInvalid = computed(() => {
@@ -240,6 +257,7 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
   private floatingScrollFrame: number | null = null;
   private floatingScrollTimer: number | null = null;
   private battlefieldReflowFrame: number | null = null;
+  private lastFocusedTurnPlayerId: string | null = null;
 
   @ViewChild('gameScreen', { static: true }) private readonly gameScreen?: ElementRef<HTMLElement>;
   @ViewChild(GameLogPanelComponent) private readonly gameLogPanel?: GameLogPanelComponent;
@@ -250,6 +268,8 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
     if (!snapshot) {
       return;
     }
+
+    this.syncFollowActiveTurnPlayer(snapshot.turn.activePlayerId);
 
     const log = this.store.eventLog();
     const latestChat = snapshot.chat.at(-1)?.createdAt ?? '';
@@ -419,6 +439,12 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
 
   isLibraryMenu(menu: GameContextMenu): boolean {
     return menu.zone === 'library' && !menu.card;
+  }
+
+  isHandContextMenuOpenForPlayer(playerId: string): boolean {
+    const menu = this.store.contextMenu();
+
+    return menu?.playerId === playerId && menu.zone === 'hand';
   }
 
   private queueBattlefieldReflow(): void {
@@ -674,11 +700,50 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
     this.closeGameDialogOpen.set(false);
   }
 
+  pendingLibraryMoveSupportsRandomOrder(pendingMove: PendingLibraryMove): boolean {
+    const instanceIds = pendingMove.payload['instanceIds'];
+
+    return pendingMove.commandType === 'cards.moved'
+      && pendingMove.payload['toZone'] === 'library'
+      && Array.isArray(instanceIds)
+      && instanceIds.length > 1;
+  }
+
+  updateLibraryMoveRandomOrder(event: Event): void {
+    const input = event.target instanceof HTMLInputElement ? event.target : null;
+    this.libraryMoveRandomOrder.set(input?.checked ?? false);
+  }
+
+  confirmPendingLibraryMove(position: 'top' | 'bottom'): void {
+    const pendingMove = this.store.pendingLibraryMove();
+    const randomOrder = pendingMove
+      ? this.pendingLibraryMoveSupportsRandomOrder(pendingMove) && this.libraryMoveRandomOrder()
+      : false;
+
+    this.libraryMoveRandomOrder.set(false);
+    void this.store.confirmPendingLibraryMove(position, randomOrder);
+  }
+
+  cancelPendingLibraryMove(): void {
+    this.libraryMoveRandomOrder.set(false);
+    void this.store.cancelPendingLibraryMove();
+  }
+
   focusPlayerBattlefield(playerId: string): void {
     const focused = this.store.focusPlayer(playerId);
     if (focused) {
       this.queueBattlefieldReflow();
     }
+  }
+
+  updateFollowActiveTurnPlayer(enabled: boolean): void {
+    this.followActiveTurnPlayer.set(enabled);
+    if (!enabled) {
+      this.lastFocusedTurnPlayerId = null;
+      return;
+    }
+
+    this.syncFollowActiveTurnPlayer(this.store.snapshot()?.turn.activePlayerId ?? null);
   }
 
   private openDrawDialog(playerId: string): void {
@@ -721,6 +786,20 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
     });
   }
 
+  private syncFollowActiveTurnPlayer(activePlayerId: string | null | undefined): void {
+    if (!this.followActiveTurnPlayer()) {
+      this.lastFocusedTurnPlayerId = null;
+      return;
+    }
+
+    if (!activePlayerId || activePlayerId === this.lastFocusedTurnPlayerId) {
+      return;
+    }
+
+    this.lastFocusedTurnPlayerId = activePlayerId;
+    this.focusPlayerBattlefield(activePlayerId);
+  }
+
   private openArrowTargetDialog(menu: GameContextMenu): void {
     if (!menu.card || menu.zone !== 'battlefield') {
       return;
@@ -754,4 +833,5 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
       this.floatingScrollTimer = null;
     }
   }
+
 }

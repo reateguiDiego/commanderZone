@@ -1,4 +1,5 @@
 import { GameCardInstance } from '../../../../core/models/game.model';
+import { CARD_PREVIEW_HOVER_DELAY_MS } from '../card-preview.model';
 import { GameTableUiState } from './game-table-ui.state';
 
 describe('GameTableUiState', () => {
@@ -12,7 +13,7 @@ describe('GameTableUiState', () => {
     const card = gameCard();
 
     state.showCardPreview(card, () => false, 'player-1', 'hand');
-    vi.advanceTimersByTime(99);
+    vi.advanceTimersByTime(CARD_PREVIEW_HOVER_DELAY_MS - 1);
 
     expect(state.hoveredCard()).toBeNull();
 

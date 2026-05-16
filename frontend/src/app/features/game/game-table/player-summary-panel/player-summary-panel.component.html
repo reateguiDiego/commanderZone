@@ -24,7 +24,7 @@
     }
     <app-mana-symbols class="mana-row" [symbols]="manaSymbols()(currentPlayer)" fallback="Colorless" size="small" />
   </div>
-  <div class="life-pill" data-testid="focused-player-life" [attr.data-player-id]="currentPlayer.id">
+  <div class="life-controls" data-testid="focused-player-life" [attr.data-player-id]="currentPlayer.id">
     <button
       type="button"
       class="life-total"
@@ -36,5 +36,28 @@
     >
       {{ currentPlayer.state.life }}
     </button>
+    <app-extra-actions-menu
+      class="player-extra-actions"
+      data-testid="player-extra-menu-host"
+      label="Extras"
+      ariaLabel="Open extra player counters"
+      menuLabel="Extra player counters"
+      icon="plus"
+      align="right"
+      variant="gold"
+    >
+      <button type="button" role="menuitem">
+        <span>Commander damage</span>
+        <small>Coming soon</small>
+      </button>
+      <button type="button" role="menuitem">
+        <span>Poison</span>
+        <small>Coming soon</small>
+      </button>
+      <button type="button" role="menuitem">
+        <span>More counters</span>
+        <small>Coming soon</small>
+      </button>
+    </app-extra-actions-menu>
   </div>
 </div>

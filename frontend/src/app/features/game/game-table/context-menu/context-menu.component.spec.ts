@@ -222,6 +222,21 @@ describe('ContextMenuComponent', () => {
     expect(selected).toHaveBeenCalledWith({ type: 'deleteCounter' });
   });
 
+  it('emits close when the user clicks outside the context menu', () => {
+    const fixture = createContextMenuFixture({
+      kind: 'card',
+      playerId: 'user-1',
+      zone: 'battlefield',
+      card: card('card-1'),
+    });
+    const close = vi.fn();
+    fixture.componentInstance.close.subscribe(close);
+
+    document.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+
+    expect(close).toHaveBeenCalledOnce();
+  });
+
   it('turns existing counters into remove actions and exposes remove all when there are several', () => {
     const fixture = createContextMenuFixture({
       kind: 'card',

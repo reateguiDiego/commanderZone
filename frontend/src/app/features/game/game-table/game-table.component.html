@@ -42,8 +42,10 @@
             [isPhasePast]="isPhasePast"
             [pending]="store.pending()"
             [canAdvance]="store.canAdvanceTurnPhase()"
+            [followActiveTurnPlayer]="followActiveTurnPlayer()"
             (advancePhase)="store.advanceTurnPhase()"
             (passTurn)="store.passTurn()"
+            (followActiveTurnPlayerChanged)="updateFollowActiveTurnPlayer($event)"
           />
 
           <div class="extras-panel game-table-extras" aria-hidden="true"></div>
@@ -170,6 +172,7 @@
             [player]="player"
             [isCurrentPlayer]="isCurrentPlayer"
             [allowArrowTargetSelection]="store.pendingArrowSource() !== null"
+            [focusEffectsEnabled]="focusEffectsEnabled()"
             [isDropZoneHighlighted]="isDropZoneHighlighted"
             [cardPosition]="cardPosition"
             [isSelected]="isSelected"
@@ -212,7 +215,7 @@
               <app-player-hand-panel
                 [player]="handPlayer"
                 [zoneCount]="zoneCount"
-                [cardImage]="cardImage"
+                [cardImage]="handCardImage"
                 [isSelected]="isSelected"
                 [isDraggingCard]="isDraggingCard"
                 [isHandDropTarget]="isHandDropTarget"
@@ -220,6 +223,9 @@
                 [isCardDropSettling]="isCardDropSettling"
                 [isCardTransferPending]="isCardTransferPending"
                 [interactionFrozen]="store.contextMenu() !== null"
+                [readOnly]="isHandPlayerReadOnly()"
+                [showCardsFaceDown]="isHandPlayerReadOnly()"
+                [hasOpenHandContextMenu]="isHandContextMenuOpenForPlayer(handPlayer.id)"
                 [hasActiveCardDrag]="store.draggingCardInstanceId() !== null || store.pointerDragPreview() !== null"
                 [externalRevealAllowed]="store.handExternalRevealAllowed()"
                 (handDragOver)="store.previewDropOnHand($event.event, $event.playerId)"
@@ -360,11 +366,26 @@
           [showTertiary]="true"
           tertiaryLabel="Cancelar"
           footerLayout="split"
+          size="compact"
           [lockBodyScroll]="false"
-          (primary)="store.confirmPendingLibraryMove('top')"
-          (secondary)="store.confirmPendingLibraryMove('bottom')"
-          (tertiary)="store.cancelPendingLibraryMove()"
-        />
+          (primary)="confirmPendingLibraryMove('top')"
+          (secondary)="confirmPendingLibraryMove('bottom')"
+          (tertiary)="cancelPendingLibraryMove()"
+        >
+          @if (pendingLibraryMoveSupportsRandomOrder(pendingMove)) {
+            <label class="library-random-order-option">
+              <input
+                type="checkbox"
+                [checked]="libraryMoveRandomOrder()"
+                (change)="updateLibraryMoveRandomOrder($event)"
+              />
+              <span>
+                <strong>Random order</strong>
+                <small>Shuffle only these cards before placing them.</small>
+              </span>
+            </label>
+          }
+        </app-modal>
       }
 
       @if (store.pointerDragPreview(); as preview) {
@@ -449,6 +470,7 @@
         [zoneTitle]="zoneTitle"
         [ownedArrowCount]="ownedArrowCount(menu.playerId)"
         (actionSelected)="handleContextMenuAction($event, menu)"
+        (close)="store.closeContextMenu()"
       />
     }
   } @else if (store.error()) {

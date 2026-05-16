@@ -3941,7 +3941,9 @@ components:
             Command payload. For card.counter.changed, send key plus either value,
             delta, or remove=true to delete that counter from the card. For
             card.power_toughness.changed, power/toughness/loyalty may be numbers
-            or null to clear manually assigned stats.
+            or null to clear manually assigned stats. For cards.moved into
+            library, randomOrder=true randomizes only the moved cards before
+            placing them at the requested top/bottom position.
           additionalProperties: true
         clientActionId:
           type: string
