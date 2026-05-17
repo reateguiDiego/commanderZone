@@ -12,9 +12,9 @@
 
   <div class="turn-order-list">
     @for (row of rows(); track row.id) {
-      <div class="turn-order-row" [class.rolled]="row.roll !== null" [style.view-transition-name]="'waiting-turn-row-' + row.id">
+      <div class="turn-order-row" [class.rolled]="row.rolled" [style.view-transition-name]="'waiting-turn-row-' + row.id">
         <span>{{ row.label }}</span>
-        <strong>{{ row.roll ?? '-' }}</strong>
+        <strong>{{ row.rollLabel }}</strong>
       </div>
     }
   </div>

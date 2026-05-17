@@ -1,9 +1,12 @@
-import { AfterViewChecked, ChangeDetectionStrategy, Component, ElementRef, HostListener, OnDestroy, QueryList, ViewChild, ViewChildren, computed, inject, signal } from '@angular/core';
+import { AfterViewChecked, ChangeDetectionStrategy, Component, ElementRef, HostListener, OnDestroy, QueryList, ViewChild, ViewChildren, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { LucideAngularModule } from 'lucide-angular';
+import { firstValueFrom } from 'rxjs';
 import { AppModalComponent } from '../../../shared/ui/app-modal/app-modal.component';
 import { PrettyScrollDirective } from '../../../shared/ui/pretty-scroll/pretty-scroll.directive';
-import { GameCardInstance, GameZoneName } from '../../../core/models/game.model';
+import { GameCardInstance, GameRematchVote, GameZoneName } from '../../../core/models/game.model';
+import { GamesApi } from '../../../core/api/games.api';
 import { GameTableCardActionsService } from './services/game-table-card-actions.service';
 import { GameTableCardStatsService } from './services/game-table-card-stats.service';
 import { GameTableBattlefieldDragCoordinatorService } from './services/game-table-battlefield-drag-coordinator.service';
@@ -44,6 +47,7 @@ import { LoyaltyCounterComponent } from './game-card-view/loyalty-counter/loyalt
 import { PowerToughnessDialogComponent, PowerToughnessDialogValueChange } from './power-toughness-dialog/power-toughness-dialog.component';
 import { GameArrowLayerComponent } from './game-arrow-layer/game-arrow-layer.component';
 import { ArrowTargetDialogComponent, ArrowTargetDialogValue } from './arrow-target-dialog/arrow-target-dialog.component';
+import { GameRematchModalComponent, RematchPlayerVoteView } from './game-rematch-modal/game-rematch-modal.component';
 
 interface DrawNumberActionRequest {
   readonly kind: 'draw';
@@ -69,6 +73,7 @@ interface MoveTopNumberActionRequest {
 }
 
 type NumberActionRequest = DrawNumberActionRequest | MoveTopNumberActionRequest;
+type RematchCountdownMode = 'initial' | 'courtesy';
 
 interface PowerToughnessActionRequest {
   readonly menu: GameContextMenu;
@@ -119,6 +124,7 @@ interface BattlefieldLayoutRect extends BattlefieldLayoutSize {
     PowerToughnessDialogComponent,
     GameArrowLayerComponent,
     ArrowTargetDialogComponent,
+    GameRematchModalComponent,
   ],
   providers: [
     GameTableStore,
@@ -151,6 +157,8 @@ interface BattlefieldLayoutRect extends BattlefieldLayoutSize {
 })
 export class GameTableComponent implements AfterViewChecked, OnDestroy {
   readonly store = inject(GameTableStore);
+  private readonly gamesApi = inject(GamesApi);
+  private readonly router = inject(Router);
   readonly counterPresets = ['-1/-1', '+1/+1', 'red', 'green', 'blue', 'black', 'yellow'];
   readonly moveZones: GameZoneName[] = ['battlefield', 'graveyard', 'exile', 'hand', 'command', 'library'];
   readonly colorAccent = (player: PlayerView | null): string => this.store.colorAccent(player);
@@ -222,6 +230,11 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
   readonly arrowTargetDialog = signal<ArrowTargetDialogRequest | null>(null);
   readonly libraryMoveRandomOrder = signal(false);
   readonly followActiveTurnPlayer = signal(false);
+  readonly rematchModalOpen = signal(false);
+  readonly rematchPending = signal(false);
+  readonly rematchToast = signal<string | null>(null);
+  readonly rematchCountdownSeconds = signal<number | null>(null);
+  readonly rematchCountdownMode = signal<RematchCountdownMode | null>(null);
   readonly focusEffectsEnabled = computed(() => this.arrowTargetDialog() === null && this.store.pendingArrowSource() === null);
   readonly battlefieldLayoutSize = signal<BattlefieldLayoutRect>({ width: 900, height: 520, left: 0, top: 0, right: 900, bottom: 520 });
   readonly closeGameDialogOpen = signal(false);
@@ -232,7 +245,63 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
   });
   readonly latestLogEntry = computed(() => this.store.eventLog().at(-1) ?? null);
   readonly latestChatMessage = computed(() => this.store.snapshot()?.chat.at(-1) ?? null);
+  readonly tableToast = computed(() => this.store.tableToast() ?? this.rematchToast());
   readonly tableBackgroundImage = computed(() => `url("${this.store.gameBackgroundImage(this.store.currentPlayer())}")`);
+  readonly alivePlayers = computed(() => this.store.players().filter((player) => player.state.status !== 'conceded' && player.state.life > 0));
+  readonly rematchVoteCountdownEnabled = computed(() => this.alivePlayers().length <= 1);
+  readonly currentRematchVote = computed<GameRematchVote | null>(() => {
+    const currentPlayerId = this.store.currentPlayer()?.id;
+
+    return currentPlayerId ? this.store.snapshot()?.rematch?.votes[currentPlayerId]?.vote ?? null : null;
+  });
+  readonly rematchPromptKind = computed<'defeated' | 'winner' | null>(() => {
+    const currentPlayer = this.store.currentPlayer();
+    if (!currentPlayer) {
+      return null;
+    }
+    if (currentPlayer.state.life <= 0) {
+      return 'defeated';
+    }
+
+    const alivePlayers = this.alivePlayers();
+    return alivePlayers.length === 1 && alivePlayers[0]?.id === currentPlayer.id ? 'winner' : null;
+  });
+  readonly rematchPromptKey = computed(() => {
+    const kind = this.rematchPromptKind();
+    const currentPlayerId = this.store.currentPlayer()?.id ?? '';
+
+    return kind && currentPlayerId ? `${currentPlayerId}:${kind}` : '';
+  });
+  readonly isCurrentPlayerWinner = computed(() => this.rematchPromptKind() === 'winner');
+  readonly shouldShowRematchVotesButton = computed(() => this.rematchPromptKind() !== null && !this.rematchModalOpen());
+  readonly rematchVotePlayers = computed<readonly RematchPlayerVoteView[]>(() => {
+    const votes = this.store.snapshot()?.rematch?.votes ?? {};
+
+    return this.store.players().map((player) => ({
+      playerId: player.id,
+      displayName: player.state.user.displayName || player.state.user.email || player.id,
+      life: player.state.life,
+      vote: votes[player.id]?.vote ?? null,
+    }));
+  });
+  readonly rematchMissingVotePlayers = computed(() => this.rematchVotePlayers().filter((player) => player.vote === null));
+  readonly rematchMissingVotePlayerNames = computed(() => this.rematchMissingVotePlayers().map((player) => player.displayName));
+  readonly currentPlayerNeedsRematchVote = computed(() => {
+    const currentPlayerId = this.store.currentPlayer()?.id ?? null;
+
+    return currentPlayerId !== null
+      && this.currentRematchVote() === null
+      && this.rematchVotePlayers().some((player) => player.playerId === currentPlayerId);
+  });
+  readonly playAgainDisabledByOtherVotes = computed(() => {
+    const currentPlayerId = this.store.currentPlayer()?.id ?? null;
+    const otherPlayers = this.rematchVotePlayers().filter((player) => player.playerId !== currentPlayerId);
+    if (otherPlayers.length === 0) {
+      return false;
+    }
+
+    return otherPlayers.every((player) => player.vote === 'leave');
+  });
   readonly opponentTargetingPills = computed(() => this.store.opponentTargetingPills());
   readonly opponentCardsTargetCards = computed(() => this.store.opponentCardsTargetCards());
   readonly arrowTargetPlayers = computed(() => {
@@ -257,11 +326,46 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
   private floatingScrollFrame: number | null = null;
   private floatingScrollTimer: number | null = null;
   private battlefieldReflowFrame: number | null = null;
+  private rematchToastTimer: number | null = null;
+  private rematchCountdownTimer: number | null = null;
+  private rematchCountdownDeadlineMs: number | null = null;
+  private rematchCountdownKey = '';
+  private rematchAutoLeaveKey = '';
+  private lastAutoRematchPromptKey = '';
   private lastFocusedTurnPlayerId: string | null = null;
 
   @ViewChild('gameScreen', { static: true }) private readonly gameScreen?: ElementRef<HTMLElement>;
   @ViewChild(GameLogPanelComponent) private readonly gameLogPanel?: GameLogPanelComponent;
   @ViewChildren('autoScrollFeed') private readonly autoScrollFeeds?: QueryList<ElementRef<HTMLElement>>;
+
+  constructor() {
+    effect(() => {
+      const key = this.rematchPromptKey();
+      if (!key || key === this.lastAutoRematchPromptKey) {
+        return;
+      }
+      if (this.rematchPromptKind() === 'defeated' && this.alivePlayers().length > 1 && this.currentRematchVote() !== null) {
+        this.lastAutoRematchPromptKey = key;
+        return;
+      }
+
+      this.lastAutoRematchPromptKey = key;
+      queueMicrotask(() => {
+        if (this.rematchPromptKey() === key && !this.rematchModalOpen()) {
+          this.rematchModalOpen.set(true);
+        }
+      });
+    });
+
+    effect(() => {
+      const promptKey = this.rematchPromptKey();
+      const missingPlayers = this.rematchMissingVotePlayers();
+      const hasMissingVotes = missingPlayers.length > 0;
+      const countdownEnabled = this.rematchVoteCountdownEnabled();
+
+      queueMicrotask(() => this.syncRematchCountdown(promptKey, hasMissingVotes, countdownEnabled));
+    });
+  }
 
   ngAfterViewChecked(): void {
     const snapshot = this.store.snapshot();
@@ -288,6 +392,8 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
   ngOnDestroy(): void {
     this.clearQueuedFloatingContentScroll();
     this.clearQueuedBattlefieldReflow();
+    this.clearRematchToastTimer();
+    this.clearRematchCountdown();
   }
 
   scrollFloatingContentToBottom(): void {
@@ -700,6 +806,22 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
     this.closeGameDialogOpen.set(false);
   }
 
+  openRematchModal(): void {
+    this.rematchModalOpen.set(true);
+  }
+
+  closeRematchModal(): void {
+    this.rematchModalOpen.set(false);
+  }
+
+  async votePlayAgain(): Promise<void> {
+    await this.submitRematchVote('play_again');
+  }
+
+  async abandonRematchRoom(): Promise<void> {
+    await this.submitRematchVote('leave');
+  }
+
   pendingLibraryMoveSupportsRandomOrder(pendingMove: PendingLibraryMove): boolean {
     const instanceIds = pendingMove.payload['instanceIds'];
 
@@ -832,6 +954,141 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
       window.clearTimeout(this.floatingScrollTimer);
       this.floatingScrollTimer = null;
     }
+  }
+
+  private syncRematchCountdown(promptKey: string, hasMissingVotes: boolean, countdownEnabled: boolean): void {
+    if (!promptKey || !hasMissingVotes || !countdownEnabled) {
+      this.clearRematchCountdown();
+      return;
+    }
+
+    const mode: RematchCountdownMode = this.rematchMissingVotePlayers().length === 1 ? 'courtesy' : 'initial';
+    const countdownKey = `${promptKey}:${mode}`;
+    if (this.rematchCountdownKey === countdownKey && this.rematchCountdownDeadlineMs !== null) {
+      this.updateRematchCountdown();
+      return;
+    }
+
+    this.rematchCountdownKey = countdownKey;
+    this.rematchCountdownDeadlineMs = Date.now() + (mode === 'courtesy' ? 30_000 : 60_000);
+    this.rematchCountdownMode.set(mode);
+    this.startRematchCountdownTimer();
+    this.updateRematchCountdown();
+  }
+
+  private startRematchCountdownTimer(): void {
+    if (this.rematchCountdownTimer !== null) {
+      return;
+    }
+
+    this.rematchCountdownTimer = window.setInterval(() => this.updateRematchCountdown(), 250);
+  }
+
+  private updateRematchCountdown(): void {
+    if (this.rematchCountdownDeadlineMs === null) {
+      return;
+    }
+    if (!this.rematchVoteCountdownEnabled()) {
+      this.clearRematchCountdown();
+      return;
+    }
+
+    const seconds = Math.max(0, Math.ceil((this.rematchCountdownDeadlineMs - Date.now()) / 1000));
+    this.rematchCountdownSeconds.set(seconds);
+    if (seconds > 0 || !this.currentPlayerNeedsRematchVote() || this.rematchPending()) {
+      return;
+    }
+
+    const countdownKey = this.rematchCountdownKey;
+    if (!countdownKey || countdownKey === this.rematchAutoLeaveKey) {
+      return;
+    }
+
+    this.rematchAutoLeaveKey = countdownKey;
+    void this.submitRematchVote('leave');
+  }
+
+  private async submitRematchVote(vote: GameRematchVote): Promise<void> {
+    if (this.rematchPending()) {
+      return;
+    }
+
+    const gameId = this.store.gameId();
+    if (!gameId) {
+      return;
+    }
+
+    this.rematchPending.set(true);
+    this.rematchToast.set(null);
+    try {
+      const response = await firstValueFrom(this.gamesApi.rematchVote(gameId, vote));
+      if (vote === 'leave') {
+        this.rematchModalOpen.set(false);
+        await this.router.navigate(['/rooms']);
+        return;
+      }
+      if (response.status === 'room_ready' && response.room) {
+        this.rematchModalOpen.set(false);
+        await this.router.navigate(['/rooms', response.room.id, 'waiting']);
+        return;
+      }
+      if (response.status === 'left' || response.status === 'room_deleted') {
+        this.rematchModalOpen.set(false);
+        await this.router.navigate(['/rooms']);
+        return;
+      }
+      if (response.status === 'waiting_for_game_end') {
+        this.rematchModalOpen.set(false);
+        this.showRematchToast(response.message ?? 'Tu voto se ha guardado. Espera a que termine la partida.');
+      }
+
+      await this.store.refetch(true);
+    } catch (error) {
+      this.showRematchToast(this.rematchErrorMessage(error));
+    } finally {
+      this.rematchPending.set(false);
+    }
+  }
+
+  private showRematchToast(message: string): void {
+    this.clearRematchToastTimer();
+    this.rematchToast.set(message);
+    this.rematchToastTimer = window.setTimeout(() => {
+      if (this.rematchToast() === message) {
+        this.rematchToast.set(null);
+      }
+      this.rematchToastTimer = null;
+    }, 3000);
+  }
+
+  private rematchErrorMessage(error: unknown): string {
+    if (typeof error === 'object' && error !== null && 'error' in error) {
+      const response = (error as { error?: { error?: string; detail?: string } }).error;
+      return response?.error ?? response?.detail ?? 'No se pudo guardar la votacion.';
+    }
+
+    return 'No se pudo guardar la votacion.';
+  }
+
+  private clearRematchToastTimer(): void {
+    if (this.rematchToastTimer === null) {
+      return;
+    }
+
+    window.clearTimeout(this.rematchToastTimer);
+    this.rematchToastTimer = null;
+  }
+
+  private clearRematchCountdown(): void {
+    if (this.rematchCountdownTimer !== null) {
+      window.clearInterval(this.rematchCountdownTimer);
+      this.rematchCountdownTimer = null;
+    }
+
+    this.rematchCountdownDeadlineMs = null;
+    this.rematchCountdownKey = '';
+    this.rematchCountdownSeconds.set(null);
+    this.rematchCountdownMode.set(null);
   }
 
 }

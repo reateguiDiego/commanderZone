@@ -7,6 +7,7 @@ import { OpponentCardsTargetCard } from '../opponent-cards-target-card.model';
 import { OpponentMiniBattlefieldComponent } from '../opponent-mini-battlefield/opponent-mini-battlefield.component';
 import { CardPreviewEvent } from '../card-preview.model';
 import { OpponentTargetingPill } from '../opponent-targeting-pill.model';
+import { PLAYER_DEFEATED_SKULL_IMAGE } from '../game-table-visual-assets';
 
 interface PlayerDropEvent {
   event: DragEvent;
@@ -40,6 +41,7 @@ interface BattlefieldLayoutSize {
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class OpponentMiniBoardComponent {
+  readonly defeatedSkullImage = PLAYER_DEFEATED_SKULL_IMAGE;
   readonly opponentZoneSummaries: readonly OpponentZoneSummary[] = [
     { zone: 'hand', icon: 'hand-fan', title: 'Hand' },
     { zone: 'library', icon: 'deck', title: 'Library' },
@@ -75,5 +77,11 @@ export class OpponentMiniBoardComponent {
 
   zoneCountTooltip(player: PlayerView, summary: OpponentZoneSummary): string {
     return `${summary.title}: ${this.zoneCount()(player, summary.zone)}`;
+  }
+
+  defeatedBackgroundImageCss(player: PlayerView): string | null {
+    const image = this.backgroundImage()(player).trim();
+
+    return image ? `url("${image.replace(/"/g, '\\"')}")` : null;
   }
 }

@@ -1,5 +1,6 @@
 import { Injectable, OnDestroy, inject, signal } from '@angular/core';
 import { Subscription } from 'rxjs';
+import { MercureGameEvent } from '../../../../core/models/game.model';
 import { MercureService } from '../../../../core/realtime/mercure.service';
 
 @Injectable()
@@ -14,7 +15,7 @@ export class GameTableRealtimeService implements OnDestroy {
     this.stop();
   }
 
-  subscribeToGame(gameId: string, onEvent: () => void): void {
+  subscribeToGame(gameId: string, onEvent: (event: MercureGameEvent) => void): void {
     this.realtimeSubscription?.unsubscribe();
     this.clearConnectWatchdog();
     this.status.set('connecting');
@@ -24,10 +25,10 @@ export class GameTableRealtimeService implements OnDestroy {
       }
     }, 3500);
     this.realtimeSubscription = this.mercure.gameEvents(gameId).subscribe({
-      next: () => {
+      next: (event) => {
         this.clearConnectWatchdog();
         this.status.set('live');
-        onEvent();
+        onEvent(event);
       },
       error: () => {
         this.clearConnectWatchdog();

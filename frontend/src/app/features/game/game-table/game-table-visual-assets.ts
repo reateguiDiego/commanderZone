@@ -1,5 +1,6 @@
 export const DEFAULT_GAME_BACKGROUND_NAME = 'back_5';
 export const DEFAULT_GAME_SLEEVES_NAME = 'facedown_card';
+export const PLAYER_DEFEATED_SKULL_IMAGE = '/assets/images/skull.png';
 
 const GAME_BACKGROUNDS: Record<string, string> = {
   back_5: '/assets/images/backgrounds/back_5.png',

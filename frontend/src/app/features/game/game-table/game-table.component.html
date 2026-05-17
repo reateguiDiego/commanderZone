@@ -20,8 +20,8 @@
     />
 
     <main appPrettyScroll class="table-surface game-table-v2">
-      @if (store.tableToast()) {
-        <p class="table-error" role="status" aria-live="polite">{{ store.tableToast() }}</p>
+      @if (tableToast(); as toast) {
+        <p class="table-error" role="status" aria-live="polite">{{ toast }}</p>
       }
 
       @if (store.focusedPlayer(); as player) {
@@ -80,7 +80,11 @@
             <div appPrettyScroll class="floating-collapsed-preview panel-feed" aria-hidden="true">
               @if (store.activeFloatingTab() === 'log') {
                 @if (latestLogEntry(); as entry) {
-                  <p class="collapsed-log-entry" [class.phase-entry]="entry.appearance === 'phase'">
+                  <p
+                    class="collapsed-log-entry"
+                    [class.phase-entry]="entry.appearance === 'phase'"
+                    [class.death-entry]="entry.appearance === 'death'"
+                  >
                     <small>{{ logTime(entry.createdAt) }}</small>
                     <strong>{{ entry.displayName ?? 'System' }}</strong>
                     <span>
@@ -168,6 +172,13 @@
           [class.active]="snapshot.turn.activePlayerId === player.id"
           [class.dragging-card]="store.draggingCardInstanceId()"
         >
+          @if (shouldShowRematchVotesButton()) {
+            <button class="rematch-votes-button secondary-button" type="button" (click)="openRematchModal(); $event.stopPropagation()">
+              <lucide-icon name="vote" size="16" />
+              <span>Votaciones</span>
+            </button>
+          }
+
           <app-focused-battlefield
             [player]="player"
             [isCurrentPlayer]="isCurrentPlayer"
@@ -340,6 +351,21 @@
         [lockBodyScroll]="false"
         (primary)="confirmCloseGame()"
         (secondary)="cancelCloseGame()"
+      />
+
+      <app-game-rematch-modal
+        [open]="rematchModalOpen()"
+        [winner]="isCurrentPlayerWinner()"
+        [players]="rematchVotePlayers()"
+        [currentVote]="currentRematchVote()"
+        [pending]="rematchPending()"
+        [playAgainDisabled]="playAgainDisabledByOtherVotes()"
+        [countdownSeconds]="rematchCountdownSeconds()"
+        [countdownMode]="rematchCountdownMode()"
+        [missingPlayerNames]="rematchMissingVotePlayerNames()"
+        (playAgain)="votePlayAgain()"
+        (leaveRoom)="abandonRematchRoom()"
+        (closed)="closeRematchModal()"
       />
 
       @if (store.pendingBattlefieldMove(); as pendingMove) {

@@ -16,6 +16,8 @@ export class AppModalComponent implements OnChanges, OnDestroy {
   @Input() open = false;
   @Input() title = '';
   @Input() message = '';
+  @Input() headerImageSrc: string | null = null;
+  @Input() headerImageAlt = '';
   @Input() primaryLabel = 'OK';
   @Input() secondaryLabel = 'Cancel';
   @Input() danger = false;
@@ -27,6 +29,8 @@ export class AppModalComponent implements OnChanges, OnDestroy {
   @Input() backLabel = 'Back';
   @Input() showHeaderAction = false;
   @Input() headerActionLabel = '';
+  @Input() showCloseButton = false;
+  @Input() closeLabel = 'Close modal';
   @Input() showTertiary = false;
   @Input() tertiaryLabel = 'Cancel';
   @Input() footerLayout: 'default' | 'split' = 'default';
@@ -35,6 +39,7 @@ export class AppModalComponent implements OnChanges, OnDestroy {
 
   @Output() back = new EventEmitter<void>();
   @Output() headerAction = new EventEmitter<void>();
+  @Output() close = new EventEmitter<void>();
   @Output() tertiary = new EventEmitter<void>();
   @Output() primary = new EventEmitter<void>();
   @Output() secondary = new EventEmitter<void>();

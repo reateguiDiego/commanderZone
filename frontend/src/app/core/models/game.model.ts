@@ -139,6 +139,19 @@ export interface GameArrow {
   createdAt: string;
 }
 
+export type GameRematchVote = 'play_again' | 'leave';
+
+export interface GameRematchVoteState {
+  playerId: string;
+  displayName: string;
+  vote: GameRematchVote;
+  votedAt: string;
+}
+
+export interface GameRematchState {
+  votes: Record<string, GameRematchVoteState>;
+}
+
 export interface GameSnapshot {
   version: number;
   ownerId?: string;
@@ -154,6 +167,7 @@ export interface GameSnapshot {
   arrows: GameArrow[];
   chat: ChatMessage[];
   eventLog: GameLogEntry[];
+  rematch?: GameRematchState;
   createdAt: string;
   updatedAt?: string;
   counters?: Record<string, Record<string, number>>;

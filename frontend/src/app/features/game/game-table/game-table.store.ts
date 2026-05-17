@@ -2245,6 +2245,9 @@ export class GameTableStore implements OnDestroy {
       isPending: () => this.pending(),
       setLoading: (loading) => this.loading.set(loading),
       setError: (message) => this.error.set(message),
+      navigateToWaitingRoom: (roomId) => {
+        void this.router.navigate(['/rooms', roomId, 'waiting']);
+      },
     };
   }
 

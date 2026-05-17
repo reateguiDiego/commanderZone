@@ -1,7 +1,7 @@
 import { importProvidersFrom } from '@angular/core';
 import { convertToParamMap } from '@angular/router';
 import { TestBed } from '@angular/core/testing';
-import { ActivatedRoute, provideRouter } from '@angular/router';
+import { ActivatedRoute, provideRouter, Router } from '@angular/router';
 import {
   ArrowLeft,
   Ban,
@@ -56,6 +56,7 @@ import {
   Upload,
   UserPlus,
   Users,
+  Vote,
   X,
 } from 'lucide-angular';
 import { EMPTY, Subject, of } from 'rxjs';
@@ -71,6 +72,7 @@ describe('GameTableComponent', () => {
   const gamesApi = {
     snapshot: vi.fn(),
     command: vi.fn(),
+    rematchVote: vi.fn(),
     zone: vi.fn(),
   };
   const authStore = {
@@ -86,6 +88,7 @@ describe('GameTableComponent', () => {
     routeParams['id'] = '';
     gamesApi.snapshot.mockReset();
     gamesApi.command.mockReset();
+    gamesApi.rematchVote.mockReset();
     gamesApi.zone.mockReset();
     authStore.user.mockReset().mockReturnValue(null);
     authStore.logout.mockReset().mockResolvedValue(undefined);
@@ -150,6 +153,7 @@ describe('GameTableComponent', () => {
           Upload,
           UserPlus,
           Users,
+          Vote,
           X,
         })),
         provideRouter([]),
@@ -1649,6 +1653,106 @@ describe('GameTableComponent', () => {
 
     expect(gamesApi.command).not.toHaveBeenCalled();
     expect(fixture.componentInstance.store.error()).toBe('Wait for the current table action to finish.');
+  });
+
+  it('navigates to rooms when a leave vote also completes the rematch room', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot: snapshotWithStatus('active') } }));
+    gamesApi.rematchVote.mockReturnValue(of({
+      status: 'room_ready',
+      room: {
+        id: 'room-1',
+        status: 'waiting',
+        visibility: 'public',
+        maxPlayers: 2,
+        players: [],
+        owner: null,
+        gameId: null,
+      },
+    }));
+    const router = TestBed.inject(Router);
+    const navigate = vi.spyOn(router, 'navigate').mockResolvedValue(true);
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    await fixture.componentInstance.abandonRematchRoom();
+
+    expect(gamesApi.rematchVote).toHaveBeenCalledWith('game-1', 'leave');
+    expect(navigate).toHaveBeenCalledWith(['/rooms']);
+    expect(navigate).not.toHaveBeenCalledWith(['/rooms', 'room-1', 'waiting']);
+  });
+
+  it('does not start the rematch vote countdown while multiple alive players keep playing', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    addOpponent(snapshot);
+    snapshot.players['user-3'] = {
+      ...snapshot.players['user-2'],
+      user: { id: 'user-3', email: 'third@test', displayName: 'Third', roles: [] },
+      life: 38,
+    };
+    snapshot.players['user-1'].life = 0;
+    snapshot.rematch = {
+      votes: {
+        'user-1': {
+          playerId: 'user-1',
+          displayName: 'User',
+          vote: 'play_again',
+          votedAt: '2026-04-30T20:01:00+00:00',
+        },
+      },
+    };
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await new Promise<void>((resolve) => queueMicrotask(resolve));
+
+    expect(fixture.componentInstance.alivePlayers().map((player) => player.id)).toEqual(['user-2', 'user-3']);
+    expect(fixture.componentInstance.rematchMissingVotePlayerNames()).toEqual(['Opponent', 'Third']);
+    expect(fixture.componentInstance.rematchCountdownSeconds()).toBeNull();
+  });
+
+  it('starts the rematch vote countdown after the game has a single winner', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    addOpponent(snapshot);
+    snapshot.players['user-3'] = {
+      ...snapshot.players['user-2'],
+      user: { id: 'user-3', email: 'third@test', displayName: 'Third', roles: [] },
+      life: 0,
+    };
+    snapshot.players['user-1'].life = 0;
+    snapshot.rematch = {
+      votes: {
+        'user-1': {
+          playerId: 'user-1',
+          displayName: 'User',
+          vote: 'play_again',
+          votedAt: '2026-04-30T20:01:00+00:00',
+        },
+      },
+    };
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await new Promise<void>((resolve) => queueMicrotask(resolve));
+
+    expect(fixture.componentInstance.alivePlayers().map((player) => player.id)).toEqual(['user-2']);
+    expect(fixture.componentInstance.rematchMissingVotePlayerNames()).toEqual(['Opponent', 'Third']);
+    expect(fixture.componentInstance.rematchCountdownSeconds()).toBe(60);
   });
 
   it('queues card counter clicks behind a pending action without showing the wait toast', async () => {

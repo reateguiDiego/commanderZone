@@ -12,6 +12,7 @@ export interface RoomPlayer {
   deckId: string | null;
   deck?: Deck | null;
   turnRoll: number | null;
+  turnRolls?: number[];
 }
 
 export interface Room {

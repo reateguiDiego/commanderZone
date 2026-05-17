@@ -1672,12 +1672,12 @@ paths:
   /rooms/{id}/roll-turn:
     post:
       tags: [Rooms]
-      summary: Roll a d20 once for waiting-room turn order.
+      summary: Roll a d20 for waiting-room turn order or an unresolved tie-break.
       parameters:
         - $ref: '#/components/parameters/Id'
       responses:
         '200':
-          description: Updated room with the player's turn-order roll.
+          description: Updated room with the player's turn-order roll history.
           content:
             application/json:
               schema:
@@ -1834,6 +1834,33 @@ paths:
                       $ref: '#/components/schemas/GameEvent'
                   limit:
                     type: integer
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+  /games/{id}/rematch-vote:
+    post:
+      tags: [Games]
+      summary: Vote to leave or replay after defeat/game end.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RematchVoteRequest'
+      responses:
+        '200':
+          description: Current rematch vote status.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RematchVoteResponse'
         '400':
           $ref: '#/components/responses/Error'
         '401':
@@ -3431,7 +3458,7 @@ components:
           format: date-time
     RoomPlayer:
       type: object
-      required: [id, user, deckId, deck, turnRoll]
+      required: [id, user, deckId, deck, turnRoll, turnRolls]
       properties:
         id:
           type: string
@@ -3449,6 +3476,14 @@ components:
           type: [integer, 'null']
           minimum: 1
           maximum: 20
+          description: Latest turn-order roll, kept for compatibility.
+        turnRolls:
+          type: array
+          description: Ordered turn-order rolls used to resolve ties, from first roll to latest tie-break.
+          items:
+            type: integer
+            minimum: 1
+            maximum: 20
     LeaveRoomResponse:
       type: object
       required: [left, roomDeleted]
@@ -3603,6 +3638,8 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/GameLogEntry'
+        rematch:
+          $ref: '#/components/schemas/GameRematch'
         createdAt:
           type: string
           format: date-time
@@ -3867,6 +3904,57 @@ components:
         createdAt:
           type: string
           format: date-time
+    GameRematch:
+      type: object
+      required: [votes]
+      properties:
+        votes:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/GameRematchVote'
+    GameRematchVote:
+      type: object
+      required: [playerId, displayName, vote, votedAt]
+      properties:
+        playerId:
+          type: string
+          format: uuid
+        displayName:
+          type: string
+        vote:
+          type: string
+          enum: [play_again, leave]
+        votedAt:
+          type: string
+          format: date-time
+    RematchVoteRequest:
+      type: object
+      required: [vote]
+      properties:
+        vote:
+          type: string
+          enum: [play_again, leave]
+    RematchVoteResponse:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [left, room_deleted, waiting_for_game_end, waiting_for_votes, room_ready]
+        message:
+          type: [string, 'null']
+        event:
+          $ref: '#/components/schemas/GameEvent'
+        snapshot:
+          $ref: '#/components/schemas/GameSnapshot'
+        version:
+          type: [integer, 'null']
+        room:
+          $ref: '#/components/schemas/Room'
+        left:
+          type: boolean
+        roomDeleted:
+          type: boolean
     GameStackItem:
       type: object
       required: [id, kind, createdAt]

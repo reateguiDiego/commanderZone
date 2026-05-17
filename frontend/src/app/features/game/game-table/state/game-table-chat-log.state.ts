@@ -18,7 +18,7 @@ export interface GameLogEntryView extends GameLogEntry {
   cardListLabel: string;
   messagePrefix: string;
   messageSuffix: string;
-  appearance: 'default' | 'phase';
+  appearance: 'default' | 'phase' | 'death';
 }
 
 @Injectable()
@@ -43,7 +43,9 @@ export class GameTableChatLogState {
   }
 
   eventLog(snapshot: GameSnapshot | null): GameLogEntry[] {
-    return this.compactLog([...(snapshot?.eventLog ?? [])].filter((entry) => entry.type !== 'card.position.changed' && entry.message !== 'Reordered hand.'));
+    return this.compactLog(this.suppressDefeatedPlayerLogs(
+      [...(snapshot?.eventLog ?? [])].filter((entry) => entry.type !== 'card.position.changed' && entry.message !== 'Reordered hand.'),
+    ));
   }
 
   eventLogView(snapshot: GameSnapshot | null, zones: readonly GameZoneName[]): GameLogEntryView[] {
@@ -97,7 +99,30 @@ export class GameTableChatLogState {
   }
 
   private logAppearance(entry: GameLogEntry): GameLogEntryView['appearance'] {
+    if (entry.type === 'player.defeated' || /\bha muerto\.?$/i.test(entry.message.trim())) {
+      return 'death';
+    }
+
     return entry.type === 'turn.changed' ? 'phase' : 'default';
+  }
+
+  private suppressDefeatedPlayerLogs(entries: GameLogEntry[]): GameLogEntry[] {
+    const defeatedPlayerIds = new Set<string>();
+    const visibleEntries: GameLogEntry[] = [];
+
+    for (const entry of entries) {
+      const actorId = entry.actorId ?? null;
+      if (actorId && defeatedPlayerIds.has(actorId)) {
+        continue;
+      }
+
+      visibleEntries.push(entry);
+      if (entry.type === 'player.defeated' && actorId) {
+        defeatedPlayerIds.add(actorId);
+      }
+    }
+
+    return visibleEntries;
   }
 
   private cardFromLogEntry(snapshot: GameSnapshot | null, zones: readonly GameZoneName[], entry: GameLogEntry): GameCardInstance | null {

@@ -912,6 +912,93 @@ class GameCommandHandlerTest extends TestCase
         self::assertSame([], $game->snapshot()['eventLog']);
     }
 
+    public function testLifeAtZeroCreatesFinalDefeatedLogAndSuppressesFutureActorLogs(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->snapshot($actor->id(), [
+            'library' => [
+                $this->card('card-1', 'Bear', 'library', 2, 2, 2, 2),
+            ],
+        ]));
+        $handler = new GameCommandHandler();
+
+        $handler->apply($game, 'life.changed', [
+            'playerId' => $actor->id(),
+            'delta' => -40,
+        ], $actor);
+        $handler->apply($game, 'library.draw', [
+            'playerId' => $actor->id(),
+        ], $actor);
+        $handler->apply($game, 'life.changed', [
+            'playerId' => $actor->id(),
+            'delta' => -1,
+        ], $actor);
+
+        $snapshot = $game->snapshot();
+        self::assertSame(-1, $snapshot['players'][$actor->id()]['life']);
+        self::assertSame(['card-1'], array_map(
+            static fn (array $card): string => $card['instanceId'],
+            $snapshot['players'][$actor->id()]['zones']['hand'],
+        ));
+        self::assertSame([
+            'Set '.$actor->id().' life to 0.',
+            $actor->id().' ha muerto.',
+        ], array_map(
+            static fn (array $entry): string => $entry['message'],
+            $snapshot['eventLog'],
+        ));
+        self::assertSame('player.defeated', $snapshot['eventLog'][1]['type']);
+    }
+
+    public function testAlreadyDefeatedPlayerWithoutDeathLogGetsDeathLogInsteadOfActionLog(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $snapshot = $this->snapshot($actor->id(), [
+            'library' => [
+                $this->card('card-1', 'Bear', 'library', 2, 2, 2, 2),
+            ],
+        ]);
+        $snapshot['players'][$actor->id()]['life'] = 0;
+        $game = new Game(new Room($actor), $snapshot);
+
+        (new GameCommandHandler())->apply($game, 'library.draw', [
+            'playerId' => $actor->id(),
+        ], $actor);
+
+        self::assertSame(['card-1'], array_map(
+            static fn (array $card): string => $card['instanceId'],
+            $game->snapshot()['players'][$actor->id()]['zones']['hand'],
+        ));
+        self::assertSame([
+            $actor->id().' ha muerto.',
+        ], array_map(
+            static fn (array $entry): string => $entry['message'],
+            $game->snapshot()['eventLog'],
+        ));
+        self::assertSame('player.defeated', $game->snapshot()['eventLog'][0]['type']);
+    }
+
+    public function testAlreadyDefeatedPlayerCannotCreateLifeLogByRaisingLifeBeforeDeathIsLogged(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $snapshot = $this->snapshot($actor->id(), []);
+        $snapshot['players'][$actor->id()]['life'] = 0;
+        $game = new Game(new Room($actor), $snapshot);
+
+        (new GameCommandHandler())->apply($game, 'life.changed', [
+            'playerId' => $actor->id(),
+            'life' => 5,
+        ], $actor);
+
+        self::assertSame(5, $game->snapshot()['players'][$actor->id()]['life']);
+        self::assertSame([
+            $actor->id().' ha muerto.',
+        ], array_map(
+            static fn (array $entry): string => $entry['message'],
+            $game->snapshot()['eventLog'],
+        ));
+    }
+
     public function testTurnPlayerChangeCreatesClearLogEntry(): void
     {
         $actor = new User('owner@example.test', 'Owner');
@@ -928,6 +1015,46 @@ class GameCommandHandlerTest extends TestCase
             sprintf('Turno 2: empieza el turno de %s. Fase untap.', $opponent->id()),
             $game->snapshot()['eventLog'][0]['message'] ?? null,
         );
+    }
+
+    public function testTurnPlayerChangeSkipsDefeatedPlayersWhileGameContinues(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $defeated = new User('defeated@example.test', 'Defeated');
+        $alive = new User('alive@example.test', 'Alive');
+        $snapshot = $this->snapshot($actor->id(), [], $defeated->id());
+        $snapshot['players'][$alive->id()] = $this->player($alive->id(), []);
+        $snapshot['players'][$defeated->id()]['life'] = 0;
+        $game = new Game(new Room($actor), $snapshot);
+
+        (new GameCommandHandler())->apply($game, 'turn.changed', [
+            'activePlayerId' => $defeated->id(),
+            'phase' => 'untap',
+            'number' => 2,
+        ], $actor);
+
+        self::assertSame($alive->id(), $game->snapshot()['turn']['activePlayerId']);
+        self::assertSame(
+            sprintf('Turno 2: empieza el turno de %s. Fase untap.', $alive->id()),
+            $game->snapshot()['eventLog'][0]['message'] ?? null,
+        );
+    }
+
+    public function testTurnPlayerChangeKeepsTwoPlayerEndgameBehaviorWhenOnlyOnePlayerIsAlive(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $defeated = new User('defeated@example.test', 'Defeated');
+        $snapshot = $this->snapshot($actor->id(), [], $defeated->id());
+        $snapshot['players'][$defeated->id()]['life'] = 0;
+        $game = new Game(new Room($actor), $snapshot);
+
+        (new GameCommandHandler())->apply($game, 'turn.changed', [
+            'activePlayerId' => $defeated->id(),
+            'phase' => 'untap',
+            'number' => 2,
+        ], $actor);
+
+        self::assertSame($defeated->id(), $game->snapshot()['turn']['activePlayerId']);
     }
 
     public function testMovingCardToSameZoneDoesNotCreateLogEntry(): void

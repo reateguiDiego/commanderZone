@@ -55,6 +55,7 @@ import {
   Upload,
   UserPlus,
   Users,
+  Vote,
   X,
 } from 'lucide-angular';
 
@@ -121,6 +122,7 @@ export const appConfig: ApplicationConfig = {
         Upload,
         UserPlus,
         Users,
+        Vote,
         X,
       }),
     ),

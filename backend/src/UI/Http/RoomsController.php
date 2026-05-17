@@ -267,7 +267,7 @@ class RoomsController extends ApiController
         if (!$player->deck() instanceof Deck) {
             return $this->fail('Select a Commander-valid deck before rolling.', 400);
         }
-        if ($player->turnRoll() !== null) {
+        if (!$room->canPlayerRollTurnOrder($player)) {
             return $this->fail('Turn order has already been rolled.', 409);
         }
 
@@ -399,9 +399,9 @@ class RoomsController extends ApiController
             if (!$player instanceof RoomPlayer || !$player->deck() instanceof Deck) {
                 return $this->fail('Every player needs a deck before starting the game.');
             }
-            if ($player->turnRoll() === null) {
-                return $this->fail('Every player needs a turn-order roll before starting the game.');
-            }
+        }
+        if (!$room->hasResolvedTurnOrder()) {
+            return $this->fail('Every player needs a unique turn-order roll before starting the game.');
         }
         $invalidDecks = [];
         foreach ($room->players() as $player) {

@@ -14,6 +14,7 @@
 }
 
 .modal-panel {
+  position: relative;
   display: grid;
   gap: 1rem;
   width: min(38rem, 100%);
@@ -24,6 +25,29 @@
   border-radius: 8px;
   background: rgb(24 27 22 / 96%);
   box-shadow: var(--shadow);
+}
+
+.modal-close-button {
+  position: absolute;
+  top: 0.85rem;
+  right: 0.85rem;
+  z-index: 1;
+  display: inline-grid;
+  place-items: center;
+  width: 2.15rem;
+  height: 2.15rem;
+  padding: 0;
+  border: 1px solid rgb(215 180 106 / 32%);
+  border-radius: 999px;
+  color: var(--text);
+  background: rgb(8 10 8 / 74%);
+  cursor: pointer;
+  line-height: 0;
+}
+
+.modal-close-button:hover {
+  border-color: rgb(235 200 120 / 68%);
+  background: rgb(28 32 25 / 92%);
 }
 
 .modal-panel-compact {
@@ -43,6 +67,12 @@
 .modal-panel header {
   display: grid;
   gap: 0.35rem;
+}
+
+.modal-header-image {
+  width: min(10rem, 52vw);
+  max-height: 3.2rem;
+  object-fit: contain;
 }
 
 .modal-title-row {

@@ -41,6 +41,36 @@ describe('GameTableChatLogState', () => {
     expect(entries).toHaveLength(1);
     expect(entries[0]?.message).toBe('Jace loyalty decreased from 7 to 3 (-4).');
   });
+
+  it('marks player death entries for red log styling', () => {
+    const state = new GameTableChatLogState();
+    const [entry] = state.eventLogView({
+      ...snapshot(),
+      eventLog: [
+        logEntry('event-1', 'player.defeated', 'Player ha muerto.'),
+      ],
+    }, ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command']);
+
+    expect(entry?.appearance).toBe('death');
+    expect(entry?.messagePrefix).toBe('Player ha muerto.');
+  });
+
+  it('hides later game log entries from a player after their death entry', () => {
+    const state = new GameTableChatLogState();
+    const entries = state.eventLog({
+      ...snapshot(),
+      eventLog: [
+        logEntry('event-1', 'life.changed', 'Set Player life to 0.'),
+        logEntry('event-2', 'player.defeated', 'Player ha muerto.'),
+        logEntry('event-3', 'library.draw', 'Drew 1 card.'),
+      ],
+    });
+
+    expect(entries.map((entry) => entry.message)).toEqual([
+      'Set Player life to 0.',
+      'Player ha muerto.',
+    ]);
+  });
 });
 
 function snapshot(): GameSnapshot {
@@ -66,11 +96,11 @@ function snapshot(): GameSnapshot {
   };
 }
 
-function logEntry(id: string, message: string): GameSnapshot['eventLog'][number] {
+function logEntry(id: string, typeOrMessage: string, message?: string): GameSnapshot['eventLog'][number] {
   return {
     id,
-    type: 'card.power_toughness.changed',
-    message,
+    type: message === undefined ? 'card.power_toughness.changed' : typeOrMessage,
+    message: message ?? typeOrMessage,
     actorId: 'player-1',
     displayName: 'Player',
     createdAt: '2026-05-14T00:00:00Z',

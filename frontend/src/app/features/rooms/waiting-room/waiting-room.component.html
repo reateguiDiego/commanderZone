@@ -140,8 +140,8 @@
 
     <app-modal
       [open]="rollModalOpen()"
-      title="Roll d20"
-      message="This roll sets your turn order and can only be done once. After rolling, your selected deck cannot be changed."
+      [title]="rollModalTitle()"
+      [message]="rollModalMessage()"
       primaryLabel="Roll d20"
       secondaryLabel="Cancel"
       (primary)="rollTurnOrder()"

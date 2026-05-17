@@ -33,8 +33,22 @@
     }
     <span class="opponent-life" data-testid="opponent-life">{{ opponent.state.life }}</span>
   </span>
-  <span class="opponent-board-stage" [class.showing-cards-target]="cardsTargetCards().length > 0">
-    @if (cardsTargetCards().length > 0) {
+  <span class="opponent-board-stage" [class.showing-cards-target]="opponent.state.life > 0 && cardsTargetCards().length > 0">
+    @if (opponent.state.life <= 0) {
+      <div
+        class="opponent-defeated-board"
+        data-testid="opponent-defeated-board"
+        [style.--opponent-defeated-background]="defeatedBackgroundImageCss(opponent)"
+      >
+        <img
+          class="opponent-defeated-skull"
+          data-testid="opponent-mini-battlefield-skull"
+          [src]="defeatedSkullImage"
+          alt="Player defeated"
+          draggable="false"
+        />
+      </div>
+    } @else if (cardsTargetCards().length > 0) {
       <app-opponent-cards-target
         [playerId]="opponent.id"
         [cards]="cardsTargetCards()"

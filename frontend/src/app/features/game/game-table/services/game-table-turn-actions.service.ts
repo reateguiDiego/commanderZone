@@ -37,13 +37,14 @@ export class GameTableTurnActionsService {
       return;
     }
 
-    const players = context.players();
+    const players = this.turnEligiblePlayers(context.players());
     const activeIndex = players.findIndex((player) => player.id === snapshot.turn.activePlayerId);
     const nextPlayer = players[(activeIndex + 1) % players.length] ?? players[0];
+    const nextNumber = this.nextTurnNumber(snapshot.turn.number, activeIndex, nextPlayer ? players.indexOf(nextPlayer) : -1);
     await context.command('turn.changed', {
       activePlayerId: nextPlayer?.id ?? snapshot.turn.activePlayerId,
       phase: phases[0],
-      number: snapshot.turn.number + 1,
+      number: nextNumber,
     });
   }
 
@@ -53,13 +54,28 @@ export class GameTableTurnActionsService {
       return;
     }
 
-    const players = context.players();
+    const players = this.turnEligiblePlayers(context.players());
     const activeIndex = players.findIndex((player) => player.id === snapshot.turn.activePlayerId);
     const nextPlayer = players[(activeIndex + 1) % players.length] ?? players[0];
+    const nextNumber = this.nextTurnNumber(snapshot.turn.number, activeIndex, nextPlayer ? players.indexOf(nextPlayer) : -1);
     await context.command('turn.changed', {
       activePlayerId: nextPlayer?.id ?? snapshot.turn.activePlayerId,
       phase: context.phases()[0] ?? snapshot.turn.phase,
-      number: snapshot.turn.number + 1,
+      number: nextNumber,
     });
+  }
+
+  private turnEligiblePlayers(players: PlayerView[]): PlayerView[] {
+    const alivePlayers = players.filter((player) => player.state.status !== 'conceded' && player.state.life > 0);
+
+    return alivePlayers.length >= 2 ? alivePlayers : players;
+  }
+
+  private nextTurnNumber(currentNumber: number, activeIndex: number, nextIndex: number): number {
+    if (activeIndex < 0 || nextIndex < 0) {
+      return currentNumber;
+    }
+
+    return nextIndex <= activeIndex ? currentNumber + 1 : currentNumber;
   }
 }

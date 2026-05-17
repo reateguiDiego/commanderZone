@@ -73,6 +73,8 @@ class GameCommandHandler
      * @var array<string,mixed>
      */
     private array $pendingLogContext = [];
+    private ?string $pendingDefeatedPlayerId = null;
+    private bool $pendingDefeatPreexisted = false;
 
     public function __construct(private readonly ?GameCardBaseStatsResolver $baseStatsResolver = null)
     {
@@ -104,6 +106,9 @@ class GameCommandHandler
 
         $snapshot = $this->normalizeSnapshot($game->snapshot());
         $log = null;
+        $this->pendingLogContext = [];
+        $this->pendingDefeatedPlayerId = null;
+        $this->pendingDefeatPreexisted = false;
         $this->assertActorCanApply($snapshot, $type, $payload, $actor);
 
         match ($type) {
@@ -336,6 +341,12 @@ class GameCommandHandler
             ? (int) $payload['life']
             : $oldLife + (int) ($payload['delta'] ?? 0);
         $snapshot['players'][$playerId]['life'] = $newLife;
+        if ($oldLife <= 0 && !$this->hasPlayerDefeatedLog($snapshot, $playerId)) {
+            $this->pendingDefeatedPlayerId = $playerId;
+            $this->pendingDefeatPreexisted = true;
+        } elseif ($oldLife > 0 && $newLife <= 0 && !$this->hasPlayerDefeatedLog($snapshot, $playerId)) {
+            $this->pendingDefeatedPlayerId = $playerId;
+        }
 
         return sprintf('Set %s life to %d.', $this->playerName($snapshot, $playerId), $newLife);
     }
@@ -718,6 +729,12 @@ class GameCommandHandler
             $allowed['number'] = max(1, (int) $allowed['number']);
         }
         $snapshot['turn'] = array_replace($snapshot['turn'] ?? [], $allowed);
+        if (array_key_exists('activePlayerId', $allowed)) {
+            $snapshot['turn']['activePlayerId'] = $this->turnEligiblePlayerId(
+                $snapshot,
+                (string) $snapshot['turn']['activePlayerId'],
+            );
+        }
 
         $phase = (string) ($snapshot['turn']['phase'] ?? $previousPhase);
         $activePlayerId = (string) ($snapshot['turn']['activePlayerId'] ?? $previousActivePlayerId);
@@ -1010,23 +1027,115 @@ class GameCommandHandler
         $snapshot['version'] = ((int) ($snapshot['version'] ?? 1)) + 1;
         $snapshot['updatedAt'] = (new \DateTimeImmutable())->format(DATE_ATOM);
 
-        if ($message !== null && $message !== '') {
-            $entry = [
-                'id' => Uuid::v7()->toRfc4122(),
-                'type' => $type,
-                'message' => $message,
-                'actorId' => $actor->id(),
-                'displayName' => $actor->displayName(),
-                'createdAt' => (new \DateTimeImmutable())->format(DATE_ATOM),
-            ];
-            if ($this->pendingLogContext !== []) {
-                $entry = [...$entry, ...$this->pendingLogContext];
-            }
+        $actorId = $actor->id();
+        $actorIsDefeated = $this->playerLife($snapshot, $actorId) <= 0;
+        $deathAlreadyLogged = $this->hasPlayerDefeatedLog($snapshot, $actorId);
+        $deathPending = $this->pendingDefeatedPlayerId === $actorId && !$deathAlreadyLogged;
+        if ($deathAlreadyLogged) {
+            $this->pendingLogContext = [];
+            $this->pendingDefeatedPlayerId = null;
+            $this->pendingDefeatPreexisted = false;
+            return;
+        }
 
-            $snapshot['eventLog'][] = $entry;
-            $snapshot['eventLog'] = array_slice($snapshot['eventLog'], -250);
+        if ($this->pendingDefeatPreexisted && $deathPending) {
+            $this->appendLogEntry($snapshot, 'player.defeated', $this->playerDefeatedMessage($snapshot, $actorId), $actor);
+            $this->pendingLogContext = [];
+            $this->pendingDefeatedPlayerId = null;
+            $this->pendingDefeatPreexisted = false;
+            return;
+        }
+
+        if ($actorIsDefeated && !$deathPending) {
+            $this->appendLogEntry($snapshot, 'player.defeated', $this->playerDefeatedMessage($snapshot, $actorId), $actor);
+            $this->pendingLogContext = [];
+            $this->pendingDefeatedPlayerId = null;
+            $this->pendingDefeatPreexisted = false;
+            return;
+        }
+
+        if ($message !== null && $message !== '') {
+            $this->appendLogEntry($snapshot, $type, $message, $actor, $this->pendingLogContext);
+        }
+        if ($deathPending) {
+            $this->appendLogEntry($snapshot, 'player.defeated', $this->playerDefeatedMessage($snapshot, $actorId), $actor);
         }
         $this->pendingLogContext = [];
+        $this->pendingDefeatedPlayerId = null;
+        $this->pendingDefeatPreexisted = false;
+    }
+
+    /**
+     * @param array<string,mixed> $context
+     */
+    private function appendLogEntry(array &$snapshot, string $type, string $message, User $actor, array $context = []): void
+    {
+        $entry = [
+            'id' => Uuid::v7()->toRfc4122(),
+            'type' => $type,
+            'message' => $message,
+            'actorId' => $actor->id(),
+            'displayName' => $actor->displayName(),
+            'createdAt' => (new \DateTimeImmutable())->format(DATE_ATOM),
+        ];
+        if ($context !== []) {
+            $entry = [...$entry, ...$context];
+        }
+
+        $snapshot['eventLog'][] = $entry;
+        $snapshot['eventLog'] = array_slice($snapshot['eventLog'], -250);
+    }
+
+    private function hasPlayerDefeatedLog(array $snapshot, string $playerId): bool
+    {
+        foreach ($snapshot['eventLog'] ?? [] as $entry) {
+            if (($entry['type'] ?? null) === 'player.defeated' && ($entry['actorId'] ?? null) === $playerId) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function playerLife(array $snapshot, string $playerId): int
+    {
+        return (int) ($snapshot['players'][$playerId]['life'] ?? 40);
+    }
+
+    private function playerDefeatedMessage(array $snapshot, string $playerId): string
+    {
+        return sprintf('%s ha muerto.', $this->playerName($snapshot, $playerId));
+    }
+
+    private function turnEligiblePlayerId(array $snapshot, string $requestedPlayerId): string
+    {
+        $players = is_array($snapshot['players'] ?? null) ? $snapshot['players'] : [];
+        $alivePlayerIds = array_values(array_filter(
+            array_keys($players),
+            fn (string $playerId): bool => $this->playerIsAliveForTurn($snapshot, $playerId),
+        ));
+        if (count($alivePlayerIds) < 2 || $this->playerIsAliveForTurn($snapshot, $requestedPlayerId)) {
+            return $requestedPlayerId;
+        }
+
+        $playerIds = array_keys($players);
+        $requestedIndex = array_search($requestedPlayerId, $playerIds, true);
+        $startIndex = $requestedIndex === false ? -1 : $requestedIndex;
+        $playerCount = count($playerIds);
+        for ($offset = 1; $offset <= $playerCount; ++$offset) {
+            $candidateId = $playerIds[($startIndex + $offset) % $playerCount] ?? null;
+            if (is_string($candidateId) && $this->playerIsAliveForTurn($snapshot, $candidateId)) {
+                return $candidateId;
+            }
+        }
+
+        return $requestedPlayerId;
+    }
+
+    private function playerIsAliveForTurn(array $snapshot, string $playerId): bool
+    {
+        return ($snapshot['players'][$playerId]['status'] ?? 'active') === 'active'
+            && $this->playerLife($snapshot, $playerId) > 0;
     }
 
     private function takeCard(array &$snapshot, string $playerId, string $zone, string $instanceId): array

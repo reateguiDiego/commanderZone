@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, OnDestroy, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnDestroy, computed, effect, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { LucideAngularModule } from 'lucide-angular';
 import { Subscription, firstValueFrom } from 'rxjs';
@@ -21,6 +21,11 @@ import { WaitingDeckOption } from './components/waiting-room-deck-selector/waiti
 import { WaitingRoomGameSetupComponent, WaitingRoomLogEntry } from './components/waiting-room-game-setup/waiting-room-game-setup.component';
 import { WaitingRoomPlayerCardComponent } from './components/waiting-room-player-card/waiting-room-player-card.component';
 import { WaitingRoomTurnOrderComponent, WaitingTurnOrderRow } from './components/waiting-room-turn-order/waiting-room-turn-order.component';
+
+interface TurnOrderTiePrompt {
+  readonly key: string;
+  readonly tiedWithNames: readonly string[];
+}
 
 @Component({
   selector: 'app-waiting-room',
@@ -65,6 +70,7 @@ export class WaitingRoomComponent implements OnDestroy {
     fromDurationSeconds: number;
     toDurationSeconds: number;
   };
+  private lastAutoTiePromptKey = '';
 
   readonly roomId = computed(() => this.route.snapshot.paramMap.get('id')?.trim() ?? '');
   readonly decks = signal<Deck[]>([]);
@@ -109,6 +115,26 @@ export class WaitingRoomComponent implements OnDestroy {
   readonly inviteModalOpen = signal(false);
   readonly deckSelectorOpen = signal(false);
   readonly copiedTarget = signal<'code' | 'link' | null>(null);
+  readonly currentTieBreakPrompt = computed<TurnOrderTiePrompt | null>(() => {
+    const room = this.currentRoom();
+    const currentPlayer = this.currentPlayer();
+    if (!room || !currentPlayer || this.turnRollsFor(currentPlayer).length === 0 || !this.allPlayersRolled(room)) {
+      return null;
+    }
+
+    const currentRollKey = this.turnRollKey(currentPlayer);
+    const tiedPlayers = room.players.filter((player) => this.turnRollKey(player) === currentRollKey);
+    if (tiedPlayers.length <= 1) {
+      return null;
+    }
+
+    return {
+      key: `${currentPlayer.id}:${currentRollKey}`,
+      tiedWithNames: tiedPlayers
+        .filter((player) => player.id !== currentPlayer.id)
+        .map((player) => player.user.displayName),
+    };
+  });
   readonly seatIndexes = [0, 1, 2, 3, 4, 5] as const;
   readonly maxPlayersOptions = [2, 3, 4, 5, 6] as const;
   readonly startingLifeStep = 1;
@@ -123,6 +149,20 @@ export class WaitingRoomComponent implements OnDestroy {
     this.roomSyncHandle = window.setInterval(() => {
       void this.syncRoomState();
     }, 5000);
+
+    effect(() => {
+      const prompt = this.currentTieBreakPrompt();
+      if (!prompt || prompt.key === this.lastAutoTiePromptKey) {
+        return;
+      }
+
+      this.lastAutoTiePromptKey = prompt.key;
+      queueMicrotask(() => {
+        if (this.currentTieBreakPrompt()?.key === prompt.key && this.currentPlayerCanRoll()) {
+          this.rollModalOpen.set(true);
+        }
+      });
+    });
   }
 
   ngOnDestroy(): void {
@@ -288,6 +328,19 @@ export class WaitingRoomComponent implements OnDestroy {
 
   closeRollModal(): void {
     this.rollModalOpen.set(false);
+  }
+
+  rollModalTitle(): string {
+    return this.currentTieBreakPrompt() ? 'Tirada de desempate' : 'Roll d20';
+  }
+
+  rollModalMessage(): string {
+    const prompt = this.currentTieBreakPrompt();
+    if (!prompt) {
+      return 'This roll sets your turn order. If you tie with another player, only tied players will roll again to break that position.';
+    }
+
+    return `Has empatado con ${this.tiePromptNames(prompt.tiedWithNames)}. Vuelve a tirar para desempatar.`;
   }
 
   async rollTurnOrder(): Promise<void> {
@@ -487,7 +540,8 @@ export class WaitingRoomComponent implements OnDestroy {
     return this.isRoomOwner(room)
       && room.players.length === this.roomCapacity(room)
       && room.players.length >= 2
-      && room.players.every((player) => this.isPlayerReady(player));
+      && room.players.every((player) => !!player.deckId)
+      && this.hasCompletedTurnOrder(room);
   }
 
   isInviting(userId: string): boolean {
@@ -651,12 +705,16 @@ export class WaitingRoomComponent implements OnDestroy {
   }
 
   isPlayerReady(player: Room['players'][number]): boolean {
-    return !!player.deckId && player.turnRoll !== null;
+    const room = this.currentRoom();
+
+    return !!player.deckId && this.turnRollsFor(player).length > 0 && (!room || !this.playerNeedsTieBreak(room, player));
   }
 
   currentPlayerCanRoll(): boolean {
+    const room = this.currentRoom();
     const player = this.currentPlayer();
-    return !!player?.deckId && player.turnRoll === null && !this.rollingTurn();
+
+    return !!room && !!player?.deckId && this.playerCanRollTurnOrder(room, player) && !this.rollingTurn();
   }
 
   currentPlayerDeckLocked(): boolean {
@@ -671,11 +729,14 @@ export class WaitingRoomComponent implements OnDestroy {
   }
 
   currentPlayerRoll(): number | null {
-    return this.currentPlayer()?.turnRoll ?? null;
+    const player = this.currentPlayer();
+    const rolls = player ? this.turnRollsFor(player) : [];
+
+    return rolls.at(-1) ?? null;
   }
 
   turnOrderPlayers(room: Room): readonly RoomPlayer[] {
-    if (this.hasCompletedTurnOrder(room)) {
+    if (this.allPlayersRolled(room)) {
       return [...room.players].sort((firstPlayer, secondPlayer) => this.comparePlayersByTurnOrder(firstPlayer, secondPlayer));
     }
 
@@ -685,19 +746,20 @@ export class WaitingRoomComponent implements OnDestroy {
   }
 
   turnOrderRows(room: Room): readonly WaitingTurnOrderRow[] {
-    const completed = this.hasCompletedTurnOrder(room);
+    const allRolled = this.allPlayersRolled(room);
 
     return this.turnOrderPlayers(room).map((player, index) => ({
       id: player.id,
-      label: completed
+      label: allRolled
         ? `${index + 1}. ${player.user.displayName} - ${this.playerDeckName(player)}`
         : `${player.user.displayName} - ${this.playerDeckName(player)}`,
-      roll: player.turnRoll,
+      rollLabel: this.turnRollLabel(player),
+      rolled: this.turnRollsFor(player).length > 0,
     }));
   }
 
   hasCompletedTurnOrder(room: Room): boolean {
-    return this.allPlayersRolled(room);
+    return this.allPlayersRolled(room) && !this.hasTurnOrderTies(room);
   }
 
   seatPlayer(room: Room, seatIndex: number): RoomPlayer | null {
@@ -1068,21 +1130,78 @@ export class WaitingRoomComponent implements OnDestroy {
   }
 
   private allPlayersRolled(room: Room): boolean {
-    return room.players.length > 0 && room.players.every((player) => player.turnRoll !== null);
+    return room.players.length > 0 && room.players.every((player) => this.turnRollsFor(player).length > 0);
   }
 
   private comparePlayersByTurnOrder(firstPlayer: RoomPlayer, secondPlayer: RoomPlayer): number {
-    const firstRoll = firstPlayer.turnRoll ?? -1;
-    const secondRoll = secondPlayer.turnRoll ?? -1;
+    const firstRolls = this.turnRollsFor(firstPlayer);
+    const secondRolls = this.turnRollsFor(secondPlayer);
+    const levels = Math.max(firstRolls.length, secondRolls.length);
 
-    if (firstRoll !== secondRoll) {
-      return secondRoll - firstRoll;
+    for (let index = 0; index < levels; index += 1) {
+      const firstRoll = firstRolls[index] ?? -1;
+      const secondRoll = secondRolls[index] ?? -1;
+
+      if (firstRoll !== secondRoll) {
+        return secondRoll - firstRoll;
+      }
     }
 
     return firstPlayer.user.displayName.localeCompare(secondPlayer.user.displayName, undefined, {
       numeric: true,
       sensitivity: 'base',
     });
+  }
+
+  private playerCanRollTurnOrder(room: Room, player: RoomPlayer): boolean {
+    return this.turnRollsFor(player).length === 0 || this.playerNeedsTieBreak(room, player);
+  }
+
+  private playerNeedsTieBreak(room: Room, player: RoomPlayer): boolean {
+    if (!this.allPlayersRolled(room) || this.turnRollsFor(player).length === 0) {
+      return false;
+    }
+
+    const rollKey = this.turnRollKey(player);
+
+    return room.players.filter((roomPlayer) => this.turnRollKey(roomPlayer) === rollKey).length > 1;
+  }
+
+  private hasTurnOrderTies(room: Room): boolean {
+    return room.players.some((player) => this.playerNeedsTieBreak(room, player));
+  }
+
+  private turnRollsFor(player: RoomPlayer): readonly number[] {
+    if (Array.isArray(player.turnRolls) && player.turnRolls.length > 0) {
+      return player.turnRolls.filter((roll) => Number.isInteger(roll) && roll >= 1 && roll <= 20);
+    }
+
+    return player.turnRoll === null ? [] : [player.turnRoll];
+  }
+
+  private turnRollKey(player: RoomPlayer): string {
+    return this.turnRollsFor(player).join('-');
+  }
+
+  private turnRollLabel(player: RoomPlayer): string {
+    const rolls = this.turnRollsFor(player);
+
+    return rolls.length > 0 ? rolls.join(' - ') : '-';
+  }
+
+  private tiePromptNames(names: readonly string[]): string {
+    const cleanNames = names.filter((name) => name.trim().length > 0);
+    if (cleanNames.length === 0) {
+      return 'otro jugador';
+    }
+    if (cleanNames.length === 1) {
+      return cleanNames[0] ?? 'otro jugador';
+    }
+    if (cleanNames.length === 2) {
+      return `${cleanNames[0]} y ${cleanNames[1]}`;
+    }
+
+    return `${cleanNames[0]} y ${cleanNames.length - 1} jugadores mas`;
   }
 
   private isCompanionSlotForCenteredOddPlayer(room: Room, seatIndex: number): boolean {

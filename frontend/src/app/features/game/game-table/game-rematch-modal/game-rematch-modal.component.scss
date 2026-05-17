@@ -1,0 +1,120 @@
+:host {
+  display: contents;
+}
+
+.rematch-body {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.current-vote {
+  margin: 0;
+  color: var(--muted);
+}
+
+.rematch-countdown {
+  position: absolute;
+  top: 0.85rem;
+  right: 0.85rem;
+  z-index: 2;
+  display: grid;
+  min-width: 7.25rem;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid rgb(215 180 106 / 32%);
+  border-radius: 8px;
+  background: rgb(8 10 8 / 84%);
+  color: var(--text);
+  box-shadow: 0 0.65rem 1.4rem rgb(0 0 0 / 28%);
+  text-align: right;
+}
+
+.rematch-countdown span,
+.rematch-countdown small {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 750;
+  line-height: 1;
+}
+
+.rematch-countdown strong {
+  color: #f4d38a;
+  font-size: 1.35rem;
+  font-weight: 950;
+  line-height: 1.05;
+}
+
+.votes-box {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.65rem;
+  border: 1px solid rgb(215 180 106 / 24%);
+  border-radius: 8px;
+  background: rgb(8 10 8 / 42%);
+}
+
+.vote-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 0.65rem;
+  min-height: 2.55rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid rgb(255 255 255 / 7%);
+  border-radius: 6px;
+  background: rgb(255 255 255 / 4%);
+}
+
+.vote-row.defeated .player-life {
+  color: #ef9a90;
+}
+
+.player-name {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-weight: 850;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.player-life {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 750;
+}
+
+.vote-pill {
+  justify-self: end;
+  padding: 0.32rem 0.55rem;
+  border-radius: 999px;
+  background: rgb(148 163 184 / 14%);
+  color: #cbd5e1;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.vote-pill[data-vote="play_again"] {
+  background: rgb(34 197 94 / 16%);
+  color: #86efac;
+}
+
+.vote-pill[data-vote="leave"] {
+  background: rgb(239 68 68 / 15%);
+  color: #fca5a5;
+}
+
+@media (max-width: 560px) {
+  .rematch-countdown {
+    position: static;
+    justify-self: stretch;
+    text-align: left;
+  }
+
+  .vote-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .player-life {
+    display: none;
+  }
+}

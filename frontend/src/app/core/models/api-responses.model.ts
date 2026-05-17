@@ -1,6 +1,6 @@
 import { Card } from './card.model';
 import { Deck, DeckFolder, DeckFormat, CommanderValidation } from './deck.model';
-import { Game, GameEvent, GameSnapshot } from './game.model';
+import { Game, GameEvent, GameRematchVote, GameSnapshot } from './game.model';
 import { Friendship } from './friendship.model';
 import { RoomInvite } from './room-invite.model';
 import { CurrentRoomPlayerSummary, CurrentRoomSummary, CurrentRoomTurn, CurrentRoomViewerRole, Room } from './room.model';
@@ -139,4 +139,21 @@ export interface CommandResponse {
   snapshot: GameSnapshot;
   version?: number | null;
   applied?: boolean;
+}
+
+export type RematchVoteStatus = 'left' | 'room_deleted' | 'waiting_for_game_end' | 'waiting_for_votes' | 'room_ready';
+
+export interface RematchVoteResponse {
+  status: RematchVoteStatus;
+  message?: string | null;
+  event?: GameEvent | null;
+  snapshot?: GameSnapshot | null;
+  version?: number | null;
+  room?: Room;
+  left?: boolean;
+  roomDeleted?: boolean;
+}
+
+export interface RematchVoteRequest {
+  vote: GameRematchVote;
 }

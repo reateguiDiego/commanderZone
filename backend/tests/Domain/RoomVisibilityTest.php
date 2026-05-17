@@ -147,6 +147,57 @@ class RoomVisibilityTest extends TestCase
         self::assertSame(19, $room->toArray()['players'][0]['turnRoll']);
     }
 
+    public function testTiedRoomPlayersCanRerollUntilEveryTurnOrderPositionIsUnique(): void
+    {
+        $owner = new User('owner-tie@example.test', 'Owner');
+        $secondUser = new User('second-tie@example.test', 'Second');
+        $thirdUser = new User('third-tie@example.test', 'Third');
+        $fourthUser = new User('fourth-tie@example.test', 'Fourth');
+        $fifthUser = new User('fifth-tie@example.test', 'Fifth');
+        $room = new Room($owner);
+        $first = new RoomPlayer($room, $owner);
+        $second = new RoomPlayer($room, $secondUser);
+        $third = new RoomPlayer($room, $thirdUser);
+        $fourth = new RoomPlayer($room, $fourthUser);
+        $fifth = new RoomPlayer($room, $fifthUser);
+
+        foreach ([$first, $second, $third, $fourth, $fifth] as $player) {
+            $room->addPlayer($player);
+        }
+
+        $first->rollTurnOrder(4);
+        $second->rollTurnOrder(5);
+        $third->rollTurnOrder(5);
+        $fourth->rollTurnOrder(10);
+        $fifth->rollTurnOrder(10);
+
+        self::assertFalse($room->hasResolvedTurnOrder());
+        self::assertFalse($room->canPlayerRollTurnOrder($first));
+        self::assertTrue($room->canPlayerRollTurnOrder($second));
+        self::assertTrue($room->canPlayerRollTurnOrder($third));
+        self::assertTrue($room->canPlayerRollTurnOrder($fourth));
+        self::assertTrue($room->canPlayerRollTurnOrder($fifth));
+
+        $second->rollTurnOrder(15);
+        $third->rollTurnOrder(12);
+        $fourth->rollTurnOrder(7);
+        $fifth->rollTurnOrder(7);
+
+        self::assertFalse($room->hasResolvedTurnOrder());
+        self::assertFalse($room->canPlayerRollTurnOrder($second));
+        self::assertFalse($room->canPlayerRollTurnOrder($third));
+        self::assertTrue($room->canPlayerRollTurnOrder($fourth));
+        self::assertTrue($room->canPlayerRollTurnOrder($fifth));
+
+        $fourth->rollTurnOrder(2);
+        $fifth->rollTurnOrder(19);
+
+        self::assertTrue($room->hasResolvedTurnOrder());
+        self::assertSame([$fifth, $fourth, $second, $third, $first], $room->orderedPlayers());
+        self::assertSame([10, 19], $room->toArray()['players'][0]['turnRolls']);
+        self::assertSame([5, 15], $room->toArray()['players'][2]['turnRolls']);
+    }
+
     public function testStartedRoomCanOnlyBeViewedByOwnerOrPlayer(): void
     {
         $owner = new User('owner@example.test', 'Owner');

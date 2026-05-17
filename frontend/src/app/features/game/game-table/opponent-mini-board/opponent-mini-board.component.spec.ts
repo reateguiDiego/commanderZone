@@ -52,6 +52,30 @@ describe('OpponentMiniBoardComponent', () => {
     expect(fixture.nativeElement.querySelector('app-opponent-cards-target')).toBeNull();
   });
 
+  it('replaces the mini battlefield with a defeated board when opponent life is zero or lower', () => {
+    fixture.componentRef.setInput('player', playerView({ life: 0 }));
+    fixture.detectChanges();
+
+    const board = fixture.nativeElement.querySelector('[data-testid="opponent-defeated-board"]') as HTMLElement;
+    const skull = fixture.nativeElement.querySelector('[data-testid="opponent-mini-battlefield-skull"]') as HTMLImageElement;
+    expect(fixture.nativeElement.querySelector('app-opponent-mini-battlefield')).toBeNull();
+    expect(board).not.toBeNull();
+    expect(board.style.getPropertyValue('--opponent-defeated-background')).toContain('/assets/images/backgrounds/back_5.png');
+    expect(skull).not.toBeNull();
+    expect(skull.getAttribute('src')).toBe('/assets/images/skull.png');
+  });
+
+  it('keeps the defeated board instead of cards target when opponent life is zero or lower', () => {
+    fixture.componentRef.setInput('player', playerView({ life: -3 }));
+    fixture.componentRef.setInput('cardsTargetCards', [{ card: cardInstance('card-1', 'Target'), role: 'target' }]);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('app-opponent-cards-target')).toBeNull();
+    expect(fixture.nativeElement.querySelector('app-opponent-mini-battlefield')).toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-testid="opponent-defeated-board"]')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-testid="opponent-mini-battlefield-skull"]')).not.toBeNull();
+  });
+
   it('replaces the mini battlefield with cards target when arrows involve this player', () => {
     fixture.componentRef.setInput('cardsTargetCards', [{ card: cardInstance('card-1', 'Target'), role: 'target' }]);
     fixture.detectChanges();
@@ -62,7 +86,7 @@ describe('OpponentMiniBoardComponent', () => {
   });
 });
 
-function playerView(): PlayerView {
+function playerView(overrides: Partial<PlayerView['state']> = {}): PlayerView {
   return {
     id: 'user-2',
     state: {
@@ -79,6 +103,7 @@ function playerView(): PlayerView {
       },
       commanderDamage: {},
       counters: {},
+      ...overrides,
     },
   };
 }
