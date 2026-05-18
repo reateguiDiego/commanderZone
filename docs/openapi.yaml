@@ -4026,8 +4026,12 @@ components:
         payload:
           type: object
           description: >
-            Command payload. For card.counter.changed, send key plus either value,
-            delta, or remove=true to delete that counter from the card. For
+            Command payload. For commander.damage.changed, the actor must be the
+            target player and reaching 21 commander damage defeats that player.
+            For counter.changed with a player:<playerId> scope, the actor must
+            be that player and may send either value or delta. For
+            card.counter.changed, send key plus either value, delta, or
+            remove=true to delete that counter from the card. For
             card.power_toughness.changed, power/toughness/loyalty may be numbers
             or null to clear manually assigned stats. For cards.moved into
             library, randomOrder=true randomizes only the moved cards before

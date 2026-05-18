@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { GameCommandType, GameSnapshot } from '../../../../core/models/game.model';
 import { PlayerView } from '../state/game-table-snapshot-selectors';
+import { playerIsActiveForTurn } from '../game-player-defeat';
 
 export interface GameTableTurnActionContext {
   snapshot(): GameSnapshot | null;
@@ -66,7 +67,7 @@ export class GameTableTurnActionsService {
   }
 
   private turnEligiblePlayers(players: PlayerView[]): PlayerView[] {
-    const alivePlayers = players.filter((player) => player.state.status !== 'conceded' && player.state.life > 0);
+    const alivePlayers = players.filter((player) => playerIsActiveForTurn(player));
 
     return alivePlayers.length >= 2 ? alivePlayers : players;
   }

@@ -90,6 +90,7 @@
   box-shadow:
     0 1rem 2rem rgb(0 0 0 / 46%),
     inset 0 1px 0 rgb(255 255 255 / 8%);
+  overflow: visible;
 }
 
 .align-left .extra-actions-panel {
@@ -109,11 +110,13 @@
   display: grid;
   gap: 0.08rem;
   width: 100%;
-  padding: 0.54rem 0.62rem;
+  overflow: visible;
+  padding: 0.58rem 0.62rem;
   border: 1px solid transparent;
   border-radius: 7px;
   background: rgb(255 255 255 / 3%);
   color: var(--game-text, #f3f0e8);
+  line-height: 1.25;
   text-align: left;
 }
 
@@ -123,14 +126,22 @@
 }
 
 .extra-actions-panel ::ng-deep span {
+  overflow: visible;
   font-size: 0.78rem;
   font-weight: 900;
-  line-height: 1.1;
+  line-height: 1.28;
 }
 
 .extra-actions-panel ::ng-deep small {
+  overflow: visible;
   color: var(--game-text-muted, #c8c0ad);
   font-size: 0.65rem;
   font-weight: 800;
+  line-height: 1.28;
   text-transform: uppercase;
+}
+
+.extra-actions-panel ::ng-deep strong {
+  overflow: visible;
+  line-height: 1.28;
 }

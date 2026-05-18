@@ -57,6 +57,28 @@ describe('GameTableTurnActionsService', () => {
     });
   });
 
+  it('skips players with lethal commander damage', async () => {
+    const command = vi.fn().mockResolvedValue(undefined);
+    const service = new GameTableTurnActionsService();
+
+    await service.passTurn({
+      snapshot: () => snapshot({ activePlayerId: 'player-1', phase: 'combat', number: 4 }),
+      players: () => [
+        player('player-1', 12),
+        player('player-2', 40, { 'player-1': 21 }),
+        player('player-3', 8),
+      ],
+      phases: () => ['untap', 'upkeep', 'draw', 'main-1', 'combat', 'main-2', 'end'],
+      command,
+    });
+
+    expect(command).toHaveBeenCalledWith('turn.changed', {
+      activePlayerId: 'player-3',
+      phase: 'untap',
+      number: 4,
+    });
+  });
+
   it('increases the round number after wrapping around defeated players', async () => {
     const command = vi.fn().mockResolvedValue(undefined);
     const service = new GameTableTurnActionsService();
@@ -107,14 +129,14 @@ function snapshot(turn: GameSnapshot['turn']): GameSnapshot {
   };
 }
 
-function player(id: string, life = 40): PlayerView {
+function player(id: string, life = 40, commanderDamage: Record<string, number> = {}): PlayerView {
   return {
     id,
     state: {
       user: { id, displayName: id },
       status: 'active',
       life,
-      commanderDamage: {},
+      commanderDamage,
       counters: {},
       zones: {
         library: [],

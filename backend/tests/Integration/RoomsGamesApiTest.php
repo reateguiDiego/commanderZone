@@ -1598,6 +1598,17 @@ class RoomsGamesApiTest extends ApiTestCase
             'payload' => [
                 'targetPlayerId' => $ownerPlayerId,
                 'sourcePlayerId' => $playerPlayerId,
+                'delta' => 1,
+            ],
+        ], $playerToken);
+        self::assertResponseStatusCodeSame(400);
+        self::assertStringContainsString('You can only change your own commander damage.', (string) $this->jsonResponse()['error']);
+
+        $this->jsonRequest('POST', '/games/'.$gameId.'/commands', [
+            'type' => 'commander.damage.changed',
+            'payload' => [
+                'targetPlayerId' => $ownerPlayerId,
+                'sourcePlayerId' => $playerPlayerId,
                 'damage' => 5,
             ],
         ], $ownerToken);
@@ -1616,6 +1627,29 @@ class RoomsGamesApiTest extends ApiTestCase
         self::assertSame(2, $this->jsonResponse()['snapshot']['counters']['global']['storm']);
 
         $this->jsonRequest('POST', '/games/'.$gameId.'/commands', [
+            'type' => 'counter.changed',
+            'payload' => [
+                'scope' => 'player:'.$ownerPlayerId,
+                'key' => 'poison',
+                'delta' => 3,
+            ],
+        ], $playerToken);
+        self::assertResponseStatusCodeSame(400);
+        self::assertStringContainsString('You can only change your own player counters.', (string) $this->jsonResponse()['error']);
+
+        $this->jsonRequest('POST', '/games/'.$gameId.'/commands', [
+            'type' => 'counter.changed',
+            'payload' => [
+                'scope' => 'player:'.$ownerPlayerId,
+                'key' => 'poison',
+                'delta' => 3,
+            ],
+        ], $ownerToken);
+        self::assertResponseStatusCodeSame(201);
+        self::assertSame(3, $this->jsonResponse()['snapshot']['players'][$ownerPlayerId]['counters']['poison']);
+        self::assertArrayNotHasKey('player:'.$ownerPlayerId, $this->jsonResponse()['snapshot']['counters']);
+
+        $this->jsonRequest('POST', '/games/'.$gameId.'/commands', [
             'type' => 'card.counter.changed',
             'payload' => [
                 'playerId' => $ownerPlayerId,
@@ -1628,6 +1662,20 @@ class RoomsGamesApiTest extends ApiTestCase
         self::assertResponseStatusCodeSame(201);
         $commandZone = $this->jsonResponse()['snapshot']['players'][$ownerPlayerId]['zones']['command'];
         self::assertSame(3, $commandZone[0]['counters']['+1/+1']);
+
+        $this->jsonRequest('POST', '/games/'.$gameId.'/commands', [
+            'type' => 'commander.damage.changed',
+            'payload' => [
+                'targetPlayerId' => $ownerPlayerId,
+                'sourcePlayerId' => $playerPlayerId,
+                'damage' => 21,
+            ],
+        ], $ownerToken);
+        self::assertResponseStatusCodeSame(201);
+        $lethalSnapshot = $this->jsonResponse()['snapshot'];
+        self::assertSame(21, $lethalSnapshot['players'][$ownerPlayerId]['commanderDamage'][$playerPlayerId]);
+        self::assertSame('player.defeated', $lethalSnapshot['eventLog'][array_key_last($lethalSnapshot['eventLog'])]['type']);
+        self::assertStringContainsString('Counters Owner ha muerto.', $lethalSnapshot['eventLog'][array_key_last($lethalSnapshot['eventLog'])]['message']);
     }
 
     public function testInitialSnapshotUsesCommanderZoneOpeningHandAndUniqueInstanceIds(): void

@@ -10,6 +10,20 @@ interface CommanderCastCounterChange {
 
 type CommanderCastCounterLog = CommanderCastCounterChange | { to: number };
 
+interface CommanderDamageChange {
+  sourceName: string;
+  targetName: string;
+  from: number;
+  to: number;
+}
+
+interface PlayerCounterChange {
+  playerName: string;
+  counterName: string;
+  from: number;
+  to: number;
+}
+
 export interface GameLogEntryView extends GameLogEntry {
   card: GameCardInstance | null;
   cardList: readonly string[];
@@ -199,6 +213,8 @@ export class GameTableChatLogState {
 
     return this.mergeDraw(previous, current)
       ?? this.mergeLife(previous, current)
+      ?? this.mergeCommanderDamage(previous, current)
+      ?? this.mergePlayerCounter(previous, current)
       ?? this.mergeCommanderCastCounter(previous, current)
       ?? this.mergeLoyalty(previous, current)
       ?? this.mergePowerToughness(previous, current)
@@ -428,6 +444,98 @@ export class GameTableChatLogState {
     return delta < 0
       ? `${playerName} lost ${amount} life (${from} -> ${to}).`
       : `${playerName} gained ${amount} life (${from} -> ${to}).`;
+  }
+
+  private mergeCommanderDamage(previous: GameLogEntry, current: GameLogEntry): GameLogEntry | null {
+    const previousDamage = this.commanderDamageChange(previous.message);
+    const currentDamage = this.commanderDamageChange(current.message);
+    if (
+      !previousDamage
+      || !currentDamage
+      || previousDamage.sourceName !== currentDamage.sourceName
+      || previousDamage.targetName !== currentDamage.targetName
+    ) {
+      return null;
+    }
+
+    const currentDirection = Math.sign(currentDamage.to - previousDamage.to);
+    const previousDirection = Math.sign(previousDamage.to - previousDamage.from);
+    if (currentDirection === 0 || (previousDirection !== 0 && previousDirection !== currentDirection)) {
+      return null;
+    }
+
+    return {
+      ...current,
+      message: this.commanderDamageMessage(previousDamage.sourceName, previousDamage.targetName, previousDamage.from, currentDamage.to, true),
+    };
+  }
+
+  private commanderDamageChange(message: string): CommanderDamageChange | null {
+    const match = /^Commander damage from (.+) to (.+) (?:increased|decreased) from (\d+) to (\d+)(?: \([+-]\d+ clicks\))?\.$/.exec(message);
+    if (!match) {
+      return null;
+    }
+
+    return {
+      sourceName: match[1],
+      targetName: match[2],
+      from: Number(match[3]),
+      to: Number(match[4]),
+    };
+  }
+
+  private commanderDamageMessage(sourceName: string, targetName: string, from: number, to: number, showClickDelta = false): string {
+    const direction = to >= from ? 'increased' : 'decreased';
+    const clickDelta = to - from;
+    const suffix = showClickDelta ? ` (${clickDelta > 0 ? '+' : ''}${clickDelta} clicks)` : '';
+
+    return `Commander damage from ${sourceName} to ${targetName} ${direction} from ${from} to ${to}${suffix}.`;
+  }
+
+  private mergePlayerCounter(previous: GameLogEntry, current: GameLogEntry): GameLogEntry | null {
+    const previousCounter = this.playerCounterChange(previous.message);
+    const currentCounter = this.playerCounterChange(current.message);
+    if (
+      !previousCounter
+      || !currentCounter
+      || previousCounter.playerName !== currentCounter.playerName
+      || previousCounter.counterName !== currentCounter.counterName
+    ) {
+      return null;
+    }
+
+    const currentDirection = Math.sign(currentCounter.to - previousCounter.to);
+    const previousDirection = Math.sign(previousCounter.to - previousCounter.from);
+    if (currentDirection === 0 || (previousDirection !== 0 && previousDirection !== currentDirection)) {
+      return null;
+    }
+
+    return {
+      ...current,
+      message: this.playerCounterMessage(previousCounter.playerName, previousCounter.counterName, previousCounter.from, currentCounter.to, true),
+    };
+  }
+
+  private playerCounterChange(message: string): PlayerCounterChange | null {
+    const match = /^(.+) ([^ ]+) counter (?:increased|decreased) from (\d+) to (\d+)(?: \([+-]\d+ clicks\))?\.$/.exec(message);
+    if (!match) {
+      return null;
+    }
+
+    return {
+      playerName: match[1],
+      counterName: match[2],
+      from: Number(match[3]),
+      to: Number(match[4]),
+    };
+  }
+
+  private playerCounterMessage(playerName: string, counterName: string, from: number, to: number, showClickDelta = false): string {
+    const direction = to >= from ? 'increased' : 'decreased';
+    const clickDelta = to - from;
+    const suffix = showClickDelta ? ` (${clickDelta > 0 ? '+' : ''}${clickDelta} clicks)` : '';
+
+    return `${playerName} ${counterName} counter ${direction} from ${from} to ${to}${suffix}.`;
   }
 
   private mergePowerToughness(previous: GameLogEntry, current: GameLogEntry): GameLogEntry | null {

@@ -7,6 +7,7 @@ import {
   Ban,
   BarChart3,
   Bell,
+  Biohazard,
   Building2,
   BookmarkPlus,
   Camera,
@@ -42,14 +43,17 @@ import {
   RefreshCcw,
   RotateCcw,
   RotateCw,
+  Radiation,
   Save,
   Search,
   SearchX,
   Send,
   Settings,
   ShieldCheck,
+  Sparkles,
   Swords,
   TabletSmartphone,
+  Tickets,
   Trash,
   Trash2,
   TriangleAlert,
@@ -58,6 +62,7 @@ import {
   Users,
   Vote,
   X,
+  Zap,
 } from 'lucide-angular';
 import { EMPTY, Subject, of } from 'rxjs';
 import { GamesApi } from '../../../core/api/games.api';
@@ -105,6 +110,7 @@ describe('GameTableComponent', () => {
           Ban,
           BarChart3,
           Bell,
+          Biohazard,
           Building2,
           BookmarkPlus,
           Camera,
@@ -139,14 +145,17 @@ describe('GameTableComponent', () => {
           RefreshCcw,
           RotateCcw,
           RotateCw,
+          Radiation,
           Save,
           Search,
           SearchX,
           Send,
           Settings,
           ShieldCheck,
+          Sparkles,
           Swords,
           TabletSmartphone,
+          Tickets,
           Trash,
           Trash2,
           TriangleAlert,
@@ -155,6 +164,7 @@ describe('GameTableComponent', () => {
           Users,
           Vote,
           X,
+          Zap,
         })),
         provideRouter([]),
         {
@@ -1639,7 +1649,7 @@ describe('GameTableComponent', () => {
     }), 'game-1');
   });
 
-  it('explains when a table action is blocked by another pending action', async () => {
+  it('silently ignores a table action while another action is pending', async () => {
     routeParams['id'] = 'game-1';
     authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
     gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot: snapshotWithStatus('active') } }));
@@ -1652,7 +1662,7 @@ describe('GameTableComponent', () => {
     await fixture.componentInstance.store.command('life.changed', { playerId: 'user-1', delta: -1 });
 
     expect(gamesApi.command).not.toHaveBeenCalled();
-    expect(fixture.componentInstance.store.error()).toBe('Wait for the current table action to finish.');
+    expect(fixture.componentInstance.store.error()).toBeNull();
   });
 
   it('navigates to rooms when a leave vote also completes the rematch room', async () => {
@@ -1777,7 +1787,7 @@ describe('GameTableComponent', () => {
     );
 
     expect(gamesApi.command).not.toHaveBeenCalled();
-    expect(fixture.componentInstance.store.error()).not.toBe('Wait for the current table action to finish.');
+    expect(fixture.componentInstance.store.error()).toBeNull();
     expect(fixture.componentInstance.store.snapshot()?.players['user-1'].zones.battlefield[0]?.counters?.['red']).toBe(2);
     vi.clearAllTimers();
     vi.useRealTimers();
@@ -1806,7 +1816,7 @@ describe('GameTableComponent', () => {
     });
 
     await vi.waitFor(() => expect(gamesApi.command).toHaveBeenCalledOnce());
-    expect(fixture.componentInstance.store.error()).not.toBe('Wait for the current table action to finish.');
+    expect(fixture.componentInstance.store.error()).toBeNull();
   });
 
   it('clamps positioned battlefield cards when the battlefield viewport shrinks', async () => {

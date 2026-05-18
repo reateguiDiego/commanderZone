@@ -37,8 +37,8 @@
     }
     <span class="opponent-life" data-testid="opponent-life">{{ opponent.state.life }}</span>
   </span>
-  <span class="opponent-board-stage" [class.showing-cards-target]="opponent.state.life > 0 && cardsTargetCards().length > 0">
-    @if (opponent.state.life <= 0) {
+  <span class="opponent-board-stage" [class.showing-cards-target]="!isDefeated(opponent) && cardsTargetCards().length > 0">
+    @if (isDefeated(opponent)) {
       <div
         class="opponent-defeated-board"
         data-testid="opponent-defeated-board"

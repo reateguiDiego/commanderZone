@@ -10,6 +10,8 @@ use App\Domain\User\User;
 
 class GameRematchService
 {
+    private const COMMANDER_DAMAGE_DEFEAT_THRESHOLD = 21;
+
     public const VOTE_PLAY_AGAIN = 'play_again';
     public const VOTE_LEAVE = 'leave';
     public const STATUS_LEFT = 'left';
@@ -85,7 +87,7 @@ class GameRematchService
                 continue;
             }
 
-            if (($player['status'] ?? 'active') === 'active' && (int) ($player['life'] ?? 0) > 0) {
+            if (($player['status'] ?? 'active') === 'active' && !$this->playerIsDefeated($player)) {
                 ++$count;
             }
         }
@@ -112,9 +114,9 @@ class GameRematchService
 
     public function shouldWaitForGameEnd(array $snapshot, User $actor): bool
     {
-        $actorLife = (int) ($snapshot['players'][$actor->id()]['life'] ?? 0);
+        $actorState = $snapshot['players'][$actor->id()] ?? [];
 
-        return $actorLife <= 0 && $this->activeLifePlayerCount($snapshot) > 1;
+        return is_array($actorState) && $this->playerIsDefeated($actorState) && $this->activeLifePlayerCount($snapshot) > 1;
     }
 
     public function rematchOwner(Room $room, array $playerUserIds): User
@@ -142,5 +144,23 @@ class GameRematchService
         $votes = is_array($rematch['votes'] ?? null) ? $rematch['votes'] : [];
 
         return ['votes' => array_filter($votes, static fn (mixed $vote): bool => is_array($vote))];
+    }
+
+    /**
+     * @param array<string,mixed> $player
+     */
+    private function playerIsDefeated(array $player): bool
+    {
+        if ((int) ($player['life'] ?? 0) <= 0) {
+            return true;
+        }
+
+        foreach (($player['commanderDamage'] ?? []) as $damage) {
+            if ((int) $damage >= self::COMMANDER_DAMAGE_DEFEAT_THRESHOLD) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

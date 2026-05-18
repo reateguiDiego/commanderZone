@@ -43,6 +43,22 @@ describe('ExtraActionsMenuComponent', () => {
 
     expect(fixture.nativeElement.querySelector('.extra-actions-panel')).toBeNull();
   });
+
+  it('keeps right clicks inside the panel from bubbling to parent menus', () => {
+    const fixture = TestBed.createComponent(ExtraActionsMenuHostComponent);
+    const parentContextMenu = vi.fn();
+    fixture.nativeElement.addEventListener('contextmenu', parentContextMenu);
+    fixture.detectChanges();
+
+    toggle(fixture.nativeElement).click();
+    fixture.detectChanges();
+
+    const event = new MouseEvent('contextmenu', { bubbles: true, cancelable: true });
+    fixture.nativeElement.querySelector('.extra-actions-panel')?.dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(parentContextMenu).not.toHaveBeenCalled();
+  });
 });
 
 function toggle(root: HTMLElement): HTMLButtonElement {

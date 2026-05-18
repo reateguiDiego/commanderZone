@@ -30,6 +30,7 @@ import { GameTableSnapshotSelectors } from './state/game-table-snapshot-selector
 import { GameContextMenu, GameTableUiState } from './state/game-table-ui.state';
 import { GameTableZoneModalState } from './state/game-table-zone-modal.state';
 import { GameTableStore, PlayerView } from './game-table.store';
+import { playerIsActiveForTurn, playerIsDefeated } from './game-player-defeat';
 import { GameLogPanelComponent } from './game-log-panel/game-log-panel.component';
 import { ZonePilesPanelComponent } from './zone-piles-panel/zone-piles-panel.component';
 import { OpponentMiniBoardComponent } from './opponent-mini-board/opponent-mini-board.component';
@@ -171,6 +172,7 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
   readonly zonePreviewCard = (player: PlayerView, zone: GameZoneName): GameCardInstance | null => this.store.zonePreviewCard(player, zone);
   readonly zonePreviewImage = (player: PlayerView, zone: GameZoneName): string | null => this.store.zonePreviewImage(player, zone);
   readonly commanderCastCount = (player: PlayerView): number => this.store.commanderCastCount(player);
+  readonly playerCounterValue = (player: PlayerView, key: string): number => this.store.playerCounterValue(player.id, key);
   readonly deckLabel = (player: PlayerView | null): string => this.store.deckLabel(player);
   readonly gameBackgroundImage = (player: PlayerView | null): string => this.store.gameBackgroundImage(player);
   readonly manaSymbols = (player: PlayerView | null): string[] => this.store.manaSymbols(player);
@@ -247,7 +249,7 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
   readonly latestChatMessage = computed(() => this.store.snapshot()?.chat.at(-1) ?? null);
   readonly tableToast = computed(() => this.store.tableToast() ?? this.rematchToast());
   readonly tableBackgroundImage = computed(() => `url("${this.store.gameBackgroundImage(this.store.currentPlayer())}")`);
-  readonly alivePlayers = computed(() => this.store.players().filter((player) => player.state.status !== 'conceded' && player.state.life > 0));
+  readonly alivePlayers = computed(() => this.store.players().filter((player) => playerIsActiveForTurn(player)));
   readonly rematchVoteCountdownEnabled = computed(() => this.alivePlayers().length <= 1);
   readonly currentRematchVote = computed<GameRematchVote | null>(() => {
     const currentPlayerId = this.store.currentPlayer()?.id;
@@ -259,7 +261,7 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
     if (!currentPlayer) {
       return null;
     }
-    if (currentPlayer.state.life <= 0) {
+    if (playerIsDefeated(currentPlayer)) {
       return 'defeated';
     }
 
@@ -281,6 +283,7 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
       playerId: player.id,
       displayName: player.state.user.displayName || player.state.user.email || player.id,
       life: player.state.life,
+      defeated: playerIsDefeated(player),
       vote: votes[player.id]?.vote ?? null,
     }));
   });

@@ -95,6 +95,14 @@ describe('OpponentMiniBoardComponent', () => {
     expect(skull.getAttribute('src')).toBe('/assets/images/skull.png');
   });
 
+  it('replaces the mini battlefield with a defeated board when opponent has lethal commander damage', () => {
+    fixture.componentRef.setInput('player', playerView({ commanderDamage: { 'user-1': 21 } }));
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('app-opponent-mini-battlefield')).toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-testid="opponent-defeated-board"]')).not.toBeNull();
+  });
+
   it('keeps the defeated board instead of cards target when opponent life is zero or lower', () => {
     fixture.componentRef.setInput('player', playerView({ life: -3 }));
     fixture.componentRef.setInput('cardsTargetCards', [{ card: cardInstance('card-1', 'Target'), role: 'target' }]);

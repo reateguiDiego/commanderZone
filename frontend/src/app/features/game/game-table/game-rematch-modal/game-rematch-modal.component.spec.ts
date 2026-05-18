@@ -15,8 +15,8 @@ describe('GameRematchModalComponent', () => {
     fixture = TestBed.createComponent(GameRematchModalComponent);
     fixture.componentRef.setInput('open', true);
     fixture.componentRef.setInput('players', [
-      { playerId: 'player-1', displayName: 'Winner', life: 12, vote: 'play_again' },
-      { playerId: 'player-2', displayName: 'Defeated', life: 0, vote: null },
+      { playerId: 'player-1', displayName: 'Winner', life: 12, defeated: false, vote: 'play_again' },
+      { playerId: 'player-2', displayName: 'Defeated', life: 0, defeated: true, vote: null },
     ]);
   });
 

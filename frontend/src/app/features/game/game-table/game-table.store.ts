@@ -685,7 +685,33 @@ export class GameTableStore implements OnDestroy {
   }
 
   async setCommanderDamage(targetPlayerId: string, sourcePlayerId: string, delta: number): Promise<void> {
+    if (!this.canControlPlayer(targetPlayerId)) {
+      this.error.set('You can only change your own commander damage.');
+      return;
+    }
+
     await this.command('commander.damage.changed', { targetPlayerId, sourcePlayerId, delta });
+  }
+
+  playerCounterValue(playerId: string, key: string): number {
+    return Math.max(0, Number(this.snapshot()?.players[playerId]?.counters?.[key] ?? 0));
+  }
+
+  async changePlayerCounter(playerId: string, key: string, delta: number): Promise<void> {
+    if (!this.canControlPlayer(playerId)) {
+      this.error.set('You can only change your own player counters.');
+      return;
+    }
+
+    if (this.playerCounterValue(playerId, key) === 0 && delta < 0) {
+      return;
+    }
+
+    await this.command('counter.changed', {
+      scope: `player:${playerId}`,
+      key,
+      delta,
+    });
   }
 
   async changeTurnPlayer(activePlayerId: string): Promise<void> {
@@ -702,7 +728,6 @@ export class GameTableStore implements OnDestroy {
 
   async advanceTurnPhase(): Promise<void> {
     if (this.pending()) {
-      this.error.set('Wait for the current table action to finish.');
       return;
     }
     if (!this.canAdvanceTurnPhase()) {
@@ -715,7 +740,6 @@ export class GameTableStore implements OnDestroy {
 
   async passTurn(): Promise<void> {
     if (this.pending()) {
-      this.error.set('Wait for the current table action to finish.');
       return;
     }
     if (!this.canAdvanceTurnPhase()) {
@@ -1474,7 +1498,6 @@ export class GameTableStore implements OnDestroy {
       }
     }
     if (this.pending() && !force) {
-      this.error.set('Wait for the current table action to finish.');
       return;
     }
 

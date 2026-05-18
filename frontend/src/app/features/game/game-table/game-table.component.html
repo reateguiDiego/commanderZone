@@ -28,10 +28,15 @@
         <div class="player-strip game-table-main-top">
           <app-player-summary-panel
             [player]="player"
+            [players]="store.players()"
             [colorAccent]="colorAccent"
             [deckLabel]="deckLabel"
             [manaSymbols]="manaSymbols"
+            [playerCounterValue]="playerCounterValue"
+            [canEditCounters]="canControlPlayer(player.id)"
             (lifeChanged)="store.changeLife($event.playerId, $event.delta)"
+            (commanderDamageChanged)="store.setCommanderDamage($event.targetPlayerId, $event.sourcePlayerId, $event.delta)"
+            (playerCounterChanged)="store.changePlayerCounter($event.playerId, $event.key, $event.delta)"
           />
 
           <app-turn-phase-panel

@@ -38,6 +38,11 @@ export class ExtraActionsMenuComponent {
     event.stopPropagation();
   }
 
+  stopMenuContextMenu(event: MouseEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
   @HostListener('document:mousedown', ['$event'])
   closeFromOutsidePointer(event: MouseEvent): void {
     const target = event.target instanceof Node ? event.target : null;

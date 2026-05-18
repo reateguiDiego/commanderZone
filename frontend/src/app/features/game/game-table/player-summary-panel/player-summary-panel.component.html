@@ -45,19 +45,104 @@
       icon="plus"
       align="right"
       variant="gold"
+      (openedChange)="syncOtherCountersExpansion($event)"
     >
-      <button type="button" role="menuitem">
-        <span>Commander damage</span>
-        <small>Coming soon</small>
-      </button>
-      <button type="button" role="menuitem">
-        <span>Poison</span>
-        <small>Coming soon</small>
-      </button>
-      <button type="button" role="menuitem">
-        <span>More counters</span>
-        <small>Coming soon</small>
-      </button>
+      <section class="player-counter-menu" aria-label="Player counters" [class.read-only]="!canEditCounters()">
+        @if (commanderDamageRows().length > 0) {
+          <div class="counter-menu-section commander-damage-section">
+            <div class="counter-menu-heading">
+              <span>Commander damage</span>
+            </div>
+            @for (row of commanderDamageRows(); track row.sourcePlayerId) {
+              <article class="counter-row commander-damage-row">
+                <span class="counter-row-copy">
+                  <strong>{{ row.username }}</strong>
+                  <small>{{ row.commanderNames }}</small>
+                </span>
+                @if (canEditCounters()) {
+                  <span class="counter-stepper" aria-label="Commander damage from {{ row.username }}">
+                    <span class="counter-value">{{ row.damage }}</span>
+                    <button
+                      type="button"
+                      class="counter-step-button"
+                      aria-label="Remove commander damage from {{ row.username }}"
+                      (click)="changeCommanderDamage($event, row.sourcePlayerId, -1)"
+                    >
+                      <span aria-hidden="true">-</span>
+                    </button>
+                    <button
+                      type="button"
+                      class="counter-step-button"
+                      aria-label="Add commander damage from {{ row.username }}"
+                      (click)="changeCommanderDamage($event, row.sourcePlayerId, 1)"
+                    >
+                      <span aria-hidden="true">+</span>
+                    </button>
+                  </span>
+                } @else {
+                  <span class="counter-readonly-value" aria-label="Commander damage from {{ row.username }}">
+                    {{ row.damage }}
+                  </span>
+                }
+              </article>
+            }
+          </div>
+        }
+
+        <div class="counter-menu-section player-counters-section" [class.collapsed]="!otherCountersExpanded()">
+          <div class="counter-menu-heading">
+            <button
+              type="button"
+              class="counter-menu-toggle"
+              [attr.aria-expanded]="otherCountersExpanded()"
+              aria-controls="player-other-counters"
+              (click)="toggleOtherCounters($event)"
+            >
+              <span>Other counters</span>
+              <lucide-icon name="chevron-down" size="14" aria-hidden="true" />
+            </button>
+          </div>
+          @if (otherCountersExpanded()) {
+            <div id="player-other-counters" class="player-counters-list">
+              @for (tracker of playerCounterTrackers; track tracker.key) {
+                <article class="counter-row player-counter-row">
+                  <span class="counter-row-copy counter-row-copy-inline">
+                    <span class="counter-tracker-icon" aria-hidden="true">
+                      <lucide-icon [name]="tracker.icon" size="14" />
+                    </span>
+                    <strong>{{ tracker.label }}</strong>
+                  </span>
+                  @if (canEditCounters()) {
+                    <span class="counter-stepper" aria-label="{{ tracker.label }} counters">
+                      <span class="counter-value">{{ counterValue(tracker.key) }}</span>
+                      <button
+                        type="button"
+                        class="counter-step-button"
+                        aria-label="Remove {{ tracker.label }} counter"
+                        (click)="changePlayerCounter($event, tracker.key, -1)"
+                      >
+                        <span aria-hidden="true">-</span>
+                      </button>
+                      <button
+                        type="button"
+                        class="counter-step-button"
+                        aria-label="Add {{ tracker.label }} counter"
+                        (click)="changePlayerCounter($event, tracker.key, 1)"
+                      >
+                        <span aria-hidden="true">+</span>
+                      </button>
+                    </span>
+                  } @else {
+                    <span class="counter-readonly-value" aria-label="{{ tracker.label }} counters">
+                      {{ counterValue(tracker.key) }}
+                    </span>
+                  }
+                </article>
+              }
+            </div>
+          }
+        </div>
+      </section>
     </app-extra-actions-menu>
   </div>
 </div>

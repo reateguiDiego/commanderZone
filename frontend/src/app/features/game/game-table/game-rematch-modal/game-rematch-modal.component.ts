@@ -6,6 +6,7 @@ export interface RematchPlayerVoteView {
   readonly playerId: string;
   readonly displayName: string;
   readonly life: number;
+  readonly defeated: boolean;
   readonly vote: GameRematchVote | null;
 }
 

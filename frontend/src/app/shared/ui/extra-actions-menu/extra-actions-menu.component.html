@@ -22,7 +22,13 @@
   </button>
 
   @if (open()) {
-    <div class="extra-actions-panel" role="menu" [attr.aria-label]="menuLabel()" (click)="stopMenuClick($event)">
+    <div
+      class="extra-actions-panel"
+      role="menu"
+      [attr.aria-label]="menuLabel()"
+      (click)="stopMenuClick($event)"
+      (contextmenu)="stopMenuContextMenu($event)"
+    >
       <ng-content />
     </div>
   }

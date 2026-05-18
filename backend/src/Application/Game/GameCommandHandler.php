@@ -13,6 +13,7 @@ class GameCommandHandler
     private const ZONES = ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command'];
     private const HIDDEN_ZONES = ['library', 'hand'];
     private const MAX_CARD_COUNTER_TYPES = 5;
+    private const COMMANDER_DAMAGE_DEFEAT_THRESHOLD = 21;
     private const POSITION_UNIT_RATIO = 'ratio';
     private const TOKEN_COPY_LEGACY_OFFSET_X = 132;
     private const TOKEN_COPY_RATIO_OFFSET_X = 0.1683673469387755;
@@ -363,13 +364,23 @@ class GameCommandHandler
         $damage = array_key_exists('damage', $payload)
             ? (int) $payload['damage']
             : $current + (int) ($payload['delta'] ?? 0);
-        $snapshot['players'][$targetPlayerId]['commanderDamage'][$sourcePlayerId] = max(0, $damage);
+        $nextDamage = max(0, $damage);
+        $snapshot['players'][$targetPlayerId]['commanderDamage'][$sourcePlayerId] = $nextDamage;
+        if ($current >= self::COMMANDER_DAMAGE_DEFEAT_THRESHOLD && !$this->hasPlayerDefeatedLog($snapshot, $targetPlayerId)) {
+            $this->pendingDefeatedPlayerId = $targetPlayerId;
+            $this->pendingDefeatPreexisted = true;
+        } elseif ($current < self::COMMANDER_DAMAGE_DEFEAT_THRESHOLD
+            && $nextDamage >= self::COMMANDER_DAMAGE_DEFEAT_THRESHOLD
+            && !$this->hasPlayerDefeatedLog($snapshot, $targetPlayerId)
+        ) {
+            $this->pendingDefeatedPlayerId = $targetPlayerId;
+        }
 
-        return sprintf(
-            'Set commander damage from %s to %s to %d.',
+        return $this->commanderDamageLog(
             $this->playerName($snapshot, $sourcePlayerId),
             $this->playerName($snapshot, $targetPlayerId),
-            max(0, $damage),
+            $current,
+            $nextDamage,
         );
     }
 
@@ -380,6 +391,30 @@ class GameCommandHandler
         if ($key === '') {
             throw new \InvalidArgumentException('Counter key is required.');
         }
+        if (str_starts_with($scope, 'player:')) {
+            $playerId = substr($scope, strlen('player:'));
+            if ($playerId === '' || !isset($snapshot['players'][$playerId])) {
+                throw new \InvalidArgumentException('Player counter scope is invalid.');
+            }
+            if (!array_key_exists('value', $payload) && !array_key_exists('delta', $payload)) {
+                throw new \InvalidArgumentException('Counter value or delta must be numeric.');
+            }
+            if (array_key_exists('value', $payload) && !is_numeric($payload['value'])) {
+                throw new \InvalidArgumentException('Counter value or delta must be numeric.');
+            }
+            if (array_key_exists('delta', $payload) && !is_numeric($payload['delta'])) {
+                throw new \InvalidArgumentException('Counter value or delta must be numeric.');
+            }
+
+            $previousValue = (int) ($snapshot['players'][$playerId]['counters'][$key] ?? 0);
+            $value = array_key_exists('value', $payload)
+                ? max(0, (int) $payload['value'])
+                : max(0, $previousValue + (int) $payload['delta']);
+            $snapshot['players'][$playerId]['counters'][$key] = $value;
+
+            return $this->playerCounterLog($this->playerName($snapshot, $playerId), $key, $previousValue, $value);
+        }
+
         if (!array_key_exists('value', $payload) || !is_numeric($payload['value'])) {
             throw new \InvalidArgumentException('Counter value must be numeric.');
         }
@@ -395,6 +430,38 @@ class GameCommandHandler
         }
 
         return sprintf('Set %s counter %s to %d.', $scope, $key, $value);
+    }
+
+    private function commanderDamageLog(string $sourceName, string $targetName, int $from, int $to): string
+    {
+        if ($to === $from) {
+            return sprintf('Set commander damage from %s to %s to %d.', $sourceName, $targetName, $to);
+        }
+
+        return sprintf(
+            'Commander damage from %s to %s %s from %d to %d.',
+            $sourceName,
+            $targetName,
+            $to > $from ? 'increased' : 'decreased',
+            $from,
+            $to,
+        );
+    }
+
+    private function playerCounterLog(string $playerName, string $key, int $from, int $to): string
+    {
+        if ($to === $from) {
+            return sprintf('Set %s %s counter to %d.', $playerName, $key, $to);
+        }
+
+        return sprintf(
+            '%s %s counter %s from %d to %d.',
+            $playerName,
+            $key,
+            $to > $from ? 'increased' : 'decreased',
+            $from,
+            $to,
+        );
     }
 
     private function commanderCastCounterLog(int $previousValue, int $value): string
@@ -1028,7 +1095,7 @@ class GameCommandHandler
         $snapshot['updatedAt'] = (new \DateTimeImmutable())->format(DATE_ATOM);
 
         $actorId = $actor->id();
-        $actorIsDefeated = $this->playerLife($snapshot, $actorId) <= 0;
+        $actorIsDefeated = $this->playerIsDefeated($snapshot, $actorId);
         $deathAlreadyLogged = $this->hasPlayerDefeatedLog($snapshot, $actorId);
         $deathPending = $this->pendingDefeatedPlayerId === $actorId && !$deathAlreadyLogged;
         if ($deathAlreadyLogged) {
@@ -1102,6 +1169,22 @@ class GameCommandHandler
         return (int) ($snapshot['players'][$playerId]['life'] ?? 40);
     }
 
+    private function playerIsDefeated(array $snapshot, string $playerId): bool
+    {
+        return $this->playerLife($snapshot, $playerId) <= 0 || $this->hasLethalCommanderDamage($snapshot, $playerId);
+    }
+
+    private function hasLethalCommanderDamage(array $snapshot, string $playerId): bool
+    {
+        foreach (($snapshot['players'][$playerId]['commanderDamage'] ?? []) as $damage) {
+            if ((int) $damage >= self::COMMANDER_DAMAGE_DEFEAT_THRESHOLD) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private function playerDefeatedMessage(array $snapshot, string $playerId): string
     {
         return sprintf('%s ha muerto.', $this->playerName($snapshot, $playerId));
@@ -1135,7 +1218,7 @@ class GameCommandHandler
     private function playerIsAliveForTurn(array $snapshot, string $playerId): bool
     {
         return ($snapshot['players'][$playerId]['status'] ?? 'active') === 'active'
-            && $this->playerLife($snapshot, $playerId) > 0;
+            && !$this->playerIsDefeated($snapshot, $playerId);
     }
 
     private function takeCard(array &$snapshot, string $playerId, string $zone, string $instanceId): array
@@ -1604,6 +1687,20 @@ class GameCommandHandler
             return;
         }
 
+        if ($type === 'commander.damage.changed') {
+            $this->assertActorPlayer($snapshot, $payload, $actor, 'targetPlayerId', 'You can only change your own commander damage.');
+            return;
+        }
+
+        $counterScopePlayerId = $type === 'counter.changed' ? $this->counterScopePlayerId($payload) : null;
+        if ($counterScopePlayerId !== null) {
+            if ($counterScopePlayerId !== $actorId) {
+                throw new \InvalidArgumentException('You can only change your own player counters.');
+            }
+
+            return;
+        }
+
         if (str_starts_with($type, 'library.') || in_array($type, self::ACTOR_OWN_PLAYER_COMMANDS, true)) {
             $this->assertActorPlayer($snapshot, $payload, $actor, 'playerId');
             return;
@@ -1622,6 +1719,18 @@ class GameCommandHandler
         if ($playerId !== $actor->id()) {
             throw new \InvalidArgumentException($message);
         }
+    }
+
+    private function counterScopePlayerId(array $payload): ?string
+    {
+        $scope = trim((string) ($payload['scope'] ?? 'global'));
+        if (!str_starts_with($scope, 'player:')) {
+            return null;
+        }
+
+        $playerId = substr($scope, strlen('player:'));
+
+        return $playerId === '' ? null : $playerId;
     }
 
     /**

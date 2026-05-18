@@ -42,6 +42,36 @@ describe('GameTableChatLogState', () => {
     expect(entries[0]?.message).toBe('Jace loyalty decreased from 7 to 3 (-4).');
   });
 
+  it('compacts consecutive commander damage changes for the same source and target', () => {
+    const state = new GameTableChatLogState();
+    const entries = state.eventLog({
+      ...snapshot(),
+      eventLog: [
+        logEntry('event-1', 'commander.damage.changed', 'Commander damage from Opponent to Player increased from 0 to 1.'),
+        logEntry('event-2', 'commander.damage.changed', 'Commander damage from Opponent to Player increased from 1 to 2.'),
+        logEntry('event-3', 'commander.damage.changed', 'Commander damage from Opponent to Player increased from 2 to 3.'),
+      ],
+    });
+
+    expect(entries).toHaveLength(1);
+    expect(entries[0]?.message).toBe('Commander damage from Opponent to Player increased from 0 to 3 (+3 clicks).');
+  });
+
+  it('compacts consecutive player counter changes for the same player and counter', () => {
+    const state = new GameTableChatLogState();
+    const entries = state.eventLog({
+      ...snapshot(),
+      eventLog: [
+        logEntry('event-1', 'counter.changed', 'Player poison counter increased from 0 to 1.'),
+        logEntry('event-2', 'counter.changed', 'Player poison counter increased from 1 to 2.'),
+        logEntry('event-3', 'counter.changed', 'Player poison counter increased from 2 to 3.'),
+      ],
+    });
+
+    expect(entries).toHaveLength(1);
+    expect(entries[0]?.message).toBe('Player poison counter increased from 0 to 3 (+3 clicks).');
+  });
+
   it('marks player death entries for red log styling', () => {
     const state = new GameTableChatLogState();
     const [entry] = state.eventLogView({

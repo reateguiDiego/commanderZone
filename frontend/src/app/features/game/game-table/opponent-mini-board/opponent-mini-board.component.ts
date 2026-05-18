@@ -8,6 +8,7 @@ import { OpponentMiniBattlefieldComponent } from '../opponent-mini-battlefield/o
 import { CardPreviewEvent } from '../card-preview.model';
 import { OpponentTargetingPill } from '../opponent-targeting-pill.model';
 import { PLAYER_DEFEATED_SKULL_IMAGE } from '../game-table-visual-assets';
+import { playerIsDefeated } from '../game-player-defeat';
 
 interface PlayerDropEvent {
   event: DragEvent;
@@ -94,6 +95,10 @@ export class OpponentMiniBoardComponent {
     const image = this.backgroundImage()(player).trim();
 
     return image ? `url("${image.replace(/"/g, '\\"')}")` : null;
+  }
+
+  isDefeated(player: PlayerView): boolean {
+    return playerIsDefeated(player);
   }
 
   identityGradient(player: PlayerView): string {
