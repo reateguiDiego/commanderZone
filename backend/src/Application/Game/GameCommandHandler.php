@@ -582,7 +582,9 @@ class GameCommandHandler
         $requestedTargetPlayerId = isset($payload['targetPlayerId'])
             ? $this->requiredPlayerId($snapshot, $payload, 'targetPlayerId')
             : $playerId;
-        if ($requestedTargetPlayerId === $playerId && $fromZone === $toZone) {
+        $position = $payload['position'] ?? null;
+        $movesWithinLibrary = $fromZone === 'library' && $toZone === 'library' && $position === 'bottom';
+        if ($requestedTargetPlayerId === $playerId && $fromZone === $toZone && !$movesWithinLibrary) {
             return '';
         }
 
@@ -637,6 +639,10 @@ class GameCommandHandler
             }
 
             return 'ha cogido una carta mirando su library y la ha llevado a la mano.';
+        }
+
+        if ($movesWithinLibrary) {
+            return sprintf('Moved %s to bottom of library.', $this->cardLogName($card));
         }
 
         if ($fromZone === 'hand' && $toZone === 'battlefield' && ($card['faceDown'] ?? false) === true) {

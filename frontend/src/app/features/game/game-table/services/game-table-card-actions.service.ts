@@ -17,6 +17,7 @@ export interface GameTableCardActionContext {
   selectedCards(): GameTableCardSelection[];
   clearSelectedCards(): void;
   zoneModal(): ZoneModalState | null;
+  replaceZoneModalCards(cards: GameCardInstance[]): void;
   loadZone(): Promise<void>;
   playerName(playerId: string): string;
   setError(message: string): void;
@@ -66,7 +67,12 @@ export class GameTableCardActionsService {
     context.closeContextMenu();
   }
 
-  async moveCard(context: GameTableCardActionContext, menu: GameContextMenu, toZone: GameZoneName): Promise<void> {
+  async moveCard(
+    context: GameTableCardActionContext,
+    menu: GameContextMenu,
+    toZone: GameZoneName,
+    options: { position?: 'top' | 'bottom' } = {},
+  ): Promise<void> {
     if (!menu.card) {
       return;
     }
@@ -80,9 +86,10 @@ export class GameTableCardActionsService {
       fromZone: menu.zone,
       toZone,
       instanceId: menu.card.instanceId,
+      ...(options.position ? { position: options.position } : {}),
     };
 
-    if (toZone === 'library') {
+    if (toZone === 'library' && !options.position) {
       context.setPendingLibraryMove({
         cardName: menu.card.name,
         commandType: 'card.moved',
@@ -94,6 +101,7 @@ export class GameTableCardActionsService {
 
     await context.command('card.moved', payload);
     await context.recordCommanderCastIfNeeded(menu.playerId, menu.zone, toZone);
+    this.removeMovedLibraryCardFromFixedModal(context, menu, toZone, options.position);
     context.clearSelectedCards();
     context.closeContextMenu();
   }
@@ -325,6 +333,30 @@ export class GameTableCardActionsService {
       targetPlayerId: menu.playerId,
     });
     context.closeContextMenu();
+  }
+
+  private removeMovedLibraryCardFromFixedModal(
+    context: GameTableCardActionContext,
+    menu: GameContextMenu,
+    toZone: GameZoneName,
+    position: 'top' | 'bottom' | undefined,
+  ): void {
+    const modal = context.zoneModal();
+    if (
+      menu.zone !== 'library'
+      || toZone !== 'library'
+      || position !== 'bottom'
+      || !menu.card
+      || !modal
+      || modal.zone !== 'library'
+      || modal.playerId !== menu.playerId
+      || modal.showFilters
+    ) {
+      return;
+    }
+
+    const movedInstanceId = menu.card.instanceId;
+    context.replaceZoneModalCards(modal.cards.filter((card) => card.instanceId !== movedInstanceId));
   }
 
   async createToken(context: GameTableCardActionContext, playerId: string, card: Card | null = null): Promise<void> {

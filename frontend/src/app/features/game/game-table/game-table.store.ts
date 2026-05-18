@@ -837,6 +837,7 @@ export class GameTableStore implements OnDestroy {
       selectedCards: () => this.selectedCards(),
       clearSelectedCards: () => this.selectedCards.set([]),
       zoneModal: () => this.zoneModal(),
+      replaceZoneModalCards: (cards) => this.zoneActions.replaceZoneModalCards(cards),
       loadZone: () => this.zoneActions.loadZone(this.zoneActionContext()),
       playerName: (playerId) => this.playerName(playerId),
       setError: (message) => this.error.set(message),
@@ -1353,8 +1354,8 @@ export class GameTableStore implements OnDestroy {
     await this.playCard(selected.playerId, selected.zone, selected.card);
   }
 
-  async moveCard(menu: GameContextMenu, toZone: GameZoneName): Promise<void> {
-    await this.cardActions.moveCard(this.cardActionContext(), menu, toZone);
+  async moveCard(menu: GameContextMenu, toZone: GameZoneName, options: { position?: 'top' | 'bottom' } = {}): Promise<void> {
+    await this.cardActions.moveCard(this.cardActionContext(), menu, toZone, options);
   }
 
   async moveLibraryCardToHand(menu: GameContextMenu, reveal: boolean): Promise<void> {

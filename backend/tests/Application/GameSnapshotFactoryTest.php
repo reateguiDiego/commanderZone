@@ -55,6 +55,50 @@ class GameSnapshotFactoryTest extends TestCase
         self::assertSame(3, $commander['defaultLoyalty']);
     }
 
+    public function testPicksTemporaryPlayMatFromCommanderColorIdentity(): void
+    {
+        $snapshot = $this->snapshotWithCommander($this->cardWithColorIdentity(['G']));
+
+        self::assertMatchesRegularExpression(
+            '/^G_\d+$/',
+            $snapshot['players']['owner-id']['backgroundName'],
+        );
+    }
+
+    public function testPicksTemporaryColorlessPlayMatWhenCommanderIsColorless(): void
+    {
+        $snapshot = $this->snapshotWithCommander($this->cardWithColorIdentity([]));
+
+        self::assertMatchesRegularExpression(
+            '/^C_\d+$/',
+            $snapshot['players']['owner-id']['backgroundName'],
+        );
+    }
+
+    public function testPicksTemporaryPlayMatFromOneOfTheCommanderColors(): void
+    {
+        $snapshot = $this->snapshotWithCommander($this->cardWithColorIdentity(['B', 'G']));
+
+        self::assertMatchesRegularExpression(
+            '/^(B|G)_\d+$/',
+            $snapshot['players']['owner-id']['backgroundName'],
+        );
+    }
+
+    public function testTemporaryPlayMatsDoNotRepeatInsideSameRoom(): void
+    {
+        $snapshot = $this->snapshotWithTwoCommanders(
+            $this->cardWithColorIdentity(['G']),
+            $this->cardWithColorIdentity(['G']),
+        );
+        $backgroundNames = array_map(
+            static fn (array $player): string => $player['backgroundName'],
+            $snapshot['players'],
+        );
+
+        self::assertCount(2, array_unique($backgroundNames));
+    }
+
     /**
      * @param array<string,mixed> $faceStats
      * @param list<array<string,mixed>> $cardFaces
@@ -74,6 +118,24 @@ class GameSnapshotFactoryTest extends TestCase
 
         $this->setPrivateProperty($card, 'loyalty', $legacyLoyalty);
         $this->setPrivateProperty($card, 'faceStats', $faceStats);
+
+        return $card;
+    }
+
+    /**
+     * @param list<string> $colorIdentity
+     */
+    private function cardWithColorIdentity(array $colorIdentity): Card
+    {
+        $card = new Card('11111111-1111-4111-8111-111111111111');
+        $card->updateFromScryfall([
+            'id' => '11111111-1111-4111-8111-111111111111',
+            'name' => 'Playmat Commander',
+            'type_line' => 'Legendary Creature - Test',
+            'oracle_text' => 'Test text',
+            'legalities' => ['commander' => 'legal'],
+            'color_identity' => $colorIdentity,
+        ]);
 
         return $card;
     }
@@ -121,6 +183,25 @@ class GameSnapshotFactoryTest extends TestCase
         $deck->addCard(new DeckCard($deck, $commander, 1, DeckCard::SECTION_COMMANDER));
 
         $room->addPlayer(new RoomPlayer($room, $owner, $deck));
+
+        return (new GameSnapshotFactory())->fromRoom($room);
+    }
+
+    private function snapshotWithTwoCommanders(Card $firstCommander, Card $secondCommander): array
+    {
+        $owner = new User('owner@example.test', 'Owner');
+        $guest = new User('guest@example.test', 'Guest');
+        $this->setPrivateProperty($owner, 'id', 'owner-id');
+        $this->setPrivateProperty($guest, 'id', 'guest-id');
+
+        $room = new Room($owner);
+        $firstDeck = new Deck($owner, 'First Deck');
+        $firstDeck->addCard(new DeckCard($firstDeck, $firstCommander, 1, DeckCard::SECTION_COMMANDER));
+        $secondDeck = new Deck($guest, 'Second Deck');
+        $secondDeck->addCard(new DeckCard($secondDeck, $secondCommander, 1, DeckCard::SECTION_COMMANDER));
+
+        $room->addPlayer(new RoomPlayer($room, $owner, $firstDeck));
+        $room->addPlayer(new RoomPlayer($room, $guest, $secondDeck));
 
         return (new GameSnapshotFactory())->fromRoom($room);
     }

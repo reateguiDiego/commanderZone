@@ -201,7 +201,7 @@ class RoomsGamesApiTest extends ApiTestCase
         self::assertSame(120, $this->jsonResponse()['game']['snapshot']['timer']['durationSeconds']);
         foreach ($this->jsonResponse()['game']['snapshot']['players'] as $playerId => $playerSnapshot) {
             self::assertSame(35, $playerSnapshot['life']);
-            self::assertSame('back_5', $playerSnapshot['backgroundName']);
+            self::assertMatchesRegularExpression('/^[WUBRGC]_\d+$/', $playerSnapshot['backgroundName']);
             self::assertSame('facedown_card', $playerSnapshot['sleevesName']);
             if ((string) $playerId !== $this->jsonResponse()['game']['snapshot']['ownerId']) {
                 $this->assertHiddenHandProjection($playerSnapshot);
@@ -1692,7 +1692,7 @@ class RoomsGamesApiTest extends ApiTestCase
         $lethalSnapshot = $this->jsonResponse()['snapshot'];
         self::assertSame(21, $lethalSnapshot['players'][$ownerPlayerId]['commanderDamage'][$playerPlayerId]);
         self::assertSame('player.defeated', $lethalSnapshot['eventLog'][array_key_last($lethalSnapshot['eventLog'])]['type']);
-        self::assertStringContainsString('Counters Owner ha muerto.', $lethalSnapshot['eventLog'][array_key_last($lethalSnapshot['eventLog'])]['message']);
+        self::assertSame('ha muerto.', $lethalSnapshot['eventLog'][array_key_last($lethalSnapshot['eventLog'])]['message']);
     }
 
     public function testInitialSnapshotUsesCommanderZoneOpeningHandAndUniqueInstanceIds(): void

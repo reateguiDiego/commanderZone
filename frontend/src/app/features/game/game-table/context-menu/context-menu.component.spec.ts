@@ -383,6 +383,26 @@ describe('ContextMenuComponent', () => {
     expect(text).toContain('Red');
   });
 
+  it('allows moving a viewed library card to the bottom of its library', () => {
+    const fixture = createContextMenuFixture({
+      kind: 'card',
+      playerId: 'user-1',
+      zone: 'library',
+      card: card('library-card'),
+    });
+    const selected = vi.fn();
+    fixture.componentInstance.actionSelected.subscribe(selected);
+
+    fixture.componentInstance.toggleSubmenu(new MouseEvent('click'), 'moveTo');
+    fixture.detectChanges();
+
+    expect(menuText(fixture)).toContain('Bottom Library');
+
+    fixture.componentInstance.selectMoveTo('library:bottom');
+
+    expect(selected).toHaveBeenCalledWith({ type: 'moveCard', zone: 'library', position: 'bottom' });
+  });
+
   it('uses dynamic battlefield labels and only exposes command moves for commanders', () => {
     const tappedCommander = createContextMenuFixture({
       kind: 'card',

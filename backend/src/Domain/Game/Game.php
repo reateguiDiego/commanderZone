@@ -77,8 +77,7 @@ class Game
     public function canBeViewedBy(User $user): bool
     {
         return $this->canBeAccessedBy($user)
-            || isset($this->snapshot['players'][$user->id()])
-            || $this->room->visibility() === Room::VISIBILITY_PUBLIC;
+            || isset($this->snapshot['players'][$user->id()]);
     }
 
     public function canBeControlledBy(User $user): bool

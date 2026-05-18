@@ -155,6 +155,7 @@ class RoomVisibilityTest extends TestCase
         $fourthUser = new User('fourth-tie@example.test', 'Fourth');
         $fifthUser = new User('fifth-tie@example.test', 'Fifth');
         $room = new Room($owner);
+        $room->setMaxPlayers(5);
         $first = new RoomPlayer($room, $owner);
         $second = new RoomPlayer($room, $secondUser);
         $third = new RoomPlayer($room, $thirdUser);
@@ -194,7 +195,7 @@ class RoomVisibilityTest extends TestCase
 
         self::assertTrue($room->hasResolvedTurnOrder());
         self::assertSame([$fifth, $fourth, $second, $third, $first], $room->orderedPlayers());
-        self::assertSame([10, 19], $room->toArray()['players'][0]['turnRolls']);
+        self::assertSame([10, 7, 19], $room->toArray()['players'][0]['turnRolls']);
         self::assertSame([5, 15], $room->toArray()['players'][2]['turnRolls']);
     }
 

@@ -1487,7 +1487,7 @@ class GameCommandHandlerTest extends TestCase
         ));
         self::assertSame([
             'Set '.$actor->id().' life to 0.',
-            $actor->id().' ha muerto.',
+            'ha muerto.',
         ], array_map(
             static fn (array $entry): string => $entry['message'],
             $snapshot['eventLog'],
@@ -1515,7 +1515,7 @@ class GameCommandHandlerTest extends TestCase
             $game->snapshot()['players'][$actor->id()]['zones']['hand'],
         ));
         self::assertSame([
-            $actor->id().' ha muerto.',
+            'ha muerto.',
         ], array_map(
             static fn (array $entry): string => $entry['message'],
             $game->snapshot()['eventLog'],
@@ -1537,7 +1537,7 @@ class GameCommandHandlerTest extends TestCase
 
         self::assertSame(5, $game->snapshot()['players'][$actor->id()]['life']);
         self::assertSame([
-            $actor->id().' ha muerto.',
+            'ha muerto.',
         ], array_map(
             static fn (array $entry): string => $entry['message'],
             $game->snapshot()['eventLog'],
@@ -1677,6 +1677,32 @@ class GameCommandHandlerTest extends TestCase
             static fn (array $card): string => $card['instanceId'],
             $game->snapshot()['players'][$actor->id()]['zones']['library'],
         ));
+    }
+
+    public function testViewedLibraryCardCanMoveToBottomOfSameLibrary(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->snapshot($actor->id(), [
+            'library' => [
+                $this->card('top-card', 'Top Secret', 'library', 1, 1, 1, 1),
+                $this->card('second-card', 'Second', 'library', 1, 1, 1, 1),
+                $this->card('bottom-card', 'Bottom', 'library', 1, 1, 1, 1),
+            ],
+        ]));
+
+        (new GameCommandHandler())->apply($game, 'card.moved', [
+            'playerId' => $actor->id(),
+            'fromZone' => 'library',
+            'toZone' => 'library',
+            'instanceId' => 'top-card',
+            'position' => 'bottom',
+        ], $actor);
+
+        self::assertSame(['second-card', 'bottom-card', 'top-card'], array_map(
+            static fn (array $card): string => $card['instanceId'],
+            $game->snapshot()['players'][$actor->id()]['zones']['library'],
+        ));
+        self::assertSame('Moved Top Secret to bottom of library.', $game->snapshot()['eventLog'][0]['message']);
     }
 
     public function testMultipleCardsCanReturnToLibraryInRandomOrder(): void

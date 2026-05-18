@@ -795,7 +795,7 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
           this.openLibraryCardMoveToHandDialog(menu);
           return;
         }
-        this.store.moveCard(menu, action.zone);
+        this.store.moveCard(menu, action.zone, { position: action.position });
         return;
       case 'deleteArrow':
         void this.store.deleteArrow(menu);

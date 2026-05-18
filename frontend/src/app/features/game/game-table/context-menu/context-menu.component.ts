@@ -46,7 +46,7 @@ export type ContextMenuAction =
   | { type: 'removeCounter'; counter: string }
   | { type: 'removeAllCounters' }
   | { type: 'giveToPlayer'; targetPlayerId: string }
-  | { type: 'moveCard'; zone: GameZoneName }
+  | { type: 'moveCard'; zone: GameZoneName; position?: 'top' | 'bottom' }
   | { type: 'deleteArrow' }
   | { type: 'deleteArrows' }
   | { type: 'deleteCounter' }
@@ -93,9 +93,7 @@ export class ContextMenuComponent {
   readonly giveToPlayerMenuItems = computed<readonly ContextSubmenuItem[]>(() =>
     this.sortedItems(this.giveToPlayerTargets().map((player) => ({ value: player.id, label: this.playerLabel(player) }))),
   );
-  readonly moveToMenuItems = computed<readonly ContextSubmenuItem[]>(() =>
-    this.sortedItems(this.activeCardMoveTargets().map((zone) => ({ value: zone, label: this.zoneTitle()(zone) }))),
-  );
+  readonly moveToMenuItems = computed<readonly ContextSubmenuItem[]>(() => this.buildMoveToMenuItems());
   readonly moveAllToMenuItems = computed<readonly ContextSubmenuItem[]>(() => this.buildMoveAllToMenuItems());
   readonly revealToMenuItems = computed<readonly ContextSubmenuItem[]>(() => [
     { value: 'all', label: 'Todos' },
@@ -263,6 +261,11 @@ export class ContextMenuComponent {
   }
 
   selectMoveTo(zone: string): void {
+    if (zone === 'library:bottom') {
+      this.actionSelected.emit({ type: 'moveCard', zone: 'library', position: 'bottom' });
+      return;
+    }
+
     this.actionSelected.emit({ type: 'moveCard', zone: zone as GameZoneName });
   }
 
@@ -358,6 +361,18 @@ export class ContextMenuComponent {
           label: this.playerLabel(player),
         }))),
       },
+    ];
+  }
+
+  private buildMoveToMenuItems(): readonly ContextSubmenuItem[] {
+    const items = this.sortedItems(this.activeCardMoveTargets().map((zone) => ({ value: zone, label: this.zoneTitle()(zone) })));
+    if (!this.isLibraryCardMenu()) {
+      return items;
+    }
+
+    return [
+      ...items,
+      { value: 'library:bottom', label: 'Bottom Library' },
     ];
   }
 
