@@ -26,7 +26,6 @@ class RoomsController extends ApiController
     {
         $status = (string) $request->query->get('status', 'active');
         $queryBuilder = $entityManager->getRepository(Room::class)->createQueryBuilder('room')
-            ->distinct()
             ->leftJoin('room.players', 'player')
             ->addSelect('player');
 

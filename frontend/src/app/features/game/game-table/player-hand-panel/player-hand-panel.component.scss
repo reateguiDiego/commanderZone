@@ -16,6 +16,7 @@
   --hand-hidden-offset: 1.05rem;
   --hand-reveal-offset: var(--hand-hidden-offset);
   --hand-card-preview-height: 9.7rem;
+  --hand-card-row-width: 7.2rem;
   border: 0;
   background: transparent;
   box-shadow: none;
@@ -248,7 +249,7 @@
   height: var(--hand-card-preview-height);
   margin: 0;
   pointer-events: none;
-  transform: translateX(calc(-50% + var(--hand-drop-slot-x, 0px)));
+  transform: translateX(calc(-50% + (var(--hand-drop-slot-distance, 0) * var(--hand-card-row-width))));
   animation: hand-drop-slot-enter 120ms ease-out;
 }
 
@@ -352,6 +353,10 @@
 }
 
 @media (max-width: 1365px) {
+  .hand-area {
+    --hand-card-row-width: 6.4rem;
+  }
+
   .hand-row {
     padding-inline: 2.1rem;
   }
@@ -378,6 +383,7 @@
     --hand-hidden-offset: 0.85rem;
     --hand-reveal-offset: var(--hand-hidden-offset);
     --hand-card-preview-height: 8.6rem;
+    --hand-card-row-width: 5.35rem;
   }
 
   .hand-row {

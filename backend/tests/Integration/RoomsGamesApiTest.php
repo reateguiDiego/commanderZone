@@ -53,6 +53,27 @@ class RoomsGamesApiTest extends ApiTestCase
         self::assertNull($current['viewerRole']);
     }
 
+    public function testActiveRoomsListReturnsHydratedPlayersWithoutDuplicatingRooms(): void
+    {
+        $ownerToken = $this->registerAndLogin('rooms-list-owner@example.test', 'Rooms List Owner');
+        $guestToken = $this->registerAndLogin('rooms-list-guest@example.test', 'Rooms List Guest');
+
+        $this->jsonRequest('POST', '/rooms', ['visibility' => 'public', 'maxPlayers' => 4], $ownerToken);
+        self::assertResponseStatusCodeSame(201);
+        $roomId = (string) $this->jsonResponse()['room']['id'];
+
+        $this->jsonRequest('POST', '/rooms/'.$roomId.'/join', token: $guestToken);
+        self::assertResponseIsSuccessful();
+
+        $this->jsonRequest('GET', '/rooms?status=active', token: $ownerToken);
+        self::assertResponseIsSuccessful();
+
+        $rooms = $this->jsonResponse()['data'];
+        self::assertCount(1, $rooms);
+        self::assertSame($roomId, $rooms[0]['id']);
+        self::assertCount(2, $rooms[0]['players']);
+    }
+
     public function testOwnerLeavingNonStartedRoomDeletesRoomAndClearsAllMemberships(): void
     {
         $ownerToken = $this->registerAndLogin('owner-leave-room-owner@example.test', 'Owner Leave Host');

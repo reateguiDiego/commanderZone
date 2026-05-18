@@ -1,7 +1,6 @@
 import { ChangeDetectionStrategy, Component, OnChanges, OnDestroy, computed, input, output, signal, type WritableSignal } from '@angular/core';
 import { GameCardInstance, GameZoneName } from '../../../../core/models/game.model';
 import { CARD_PREVIEW_HOVER_DELAY_MS, CardPreviewEvent, previewRectFromElement } from '../card-preview.model';
-import { HAND_ROW_CARD_STEP_PX } from '../hand-layout.model';
 import {
   CardMarkerRailComponent,
   type CardMarkerCounterChange,
@@ -157,13 +156,7 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
 
     return Number((-centerLift + easedProgress * (centerLift + edgeDrop)).toFixed(3));
   });
-  readonly handRowSplayPx = computed(() => {
-    const distance = this.handFanDistance();
-    const count = Math.max(1, this.handCount() ?? 1);
-    const step = count <= 1 ? 0 : HAND_ROW_CARD_STEP_PX;
-
-    return Number((distance * step).toFixed(3));
-  });
+  readonly handRowDistance = computed(() => Number(this.handFanDistance().toFixed(3)));
   readonly visibleCounters = computed<readonly CardCounterView[]>(() => {
     const counters = Object.entries(this.card().counters ?? {})
       .filter(([, value]) => Number.isFinite(Number(value)) && Number(value) >= 0)

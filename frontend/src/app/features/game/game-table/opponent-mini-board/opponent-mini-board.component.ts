@@ -21,6 +21,7 @@ interface PlayerMenuEvent {
 
 type OpponentCountZone = Extract<GameZoneName, 'hand' | 'library' | 'graveyard' | 'exile'>;
 type OpponentZoneIcon = 'hand-fan' | 'deck' | 'grave' | 'ban';
+type ManaColor = 'W' | 'U' | 'B' | 'R' | 'G';
 
 interface OpponentZoneSummary {
   zone: OpponentCountZone;
@@ -32,6 +33,16 @@ interface BattlefieldLayoutSize {
   readonly width: number;
   readonly height: number;
 }
+
+const MANA_COLOR_ORDER: readonly ManaColor[] = ['W', 'U', 'B', 'R', 'G'];
+const MANA_GRADIENT_COLORS: Record<ManaColor, string> = {
+  W: '#fff0bd',
+  U: '#36b8ff',
+  B: '#000000',
+  R: '#ff5b36',
+  G: '#4fd36b',
+};
+const COLORLESS_GRADIENT_COLORS = ['#ded8bf', '#7c7a70'];
 
 @Component({
   selector: 'app-opponent-mini-board',
@@ -83,5 +94,65 @@ export class OpponentMiniBoardComponent {
     const image = this.backgroundImage()(player).trim();
 
     return image ? `url("${image.replace(/"/g, '\\"')}")` : null;
+  }
+
+  identityGradient(player: PlayerView): string {
+    const colors = this.identityGradientColors(player);
+
+    if (colors.length === 1) {
+      return `linear-gradient(135deg, ${colors[0]} 0%, color-mix(in srgb, ${colors[0]} 44%, #050605) 100%)`;
+    }
+
+    return `linear-gradient(135deg, ${this.balancedGradientStops(colors).join(', ')})`;
+  }
+
+  identityPrimaryColor(player: PlayerView): string {
+    return this.identityGradientColors(player)[0] ?? COLORLESS_GRADIENT_COLORS[0];
+  }
+
+  identitySecondaryColor(player: PlayerView): string {
+    const colors = this.identityGradientColors(player);
+
+    return colors.at(-1) ?? COLORLESS_GRADIENT_COLORS[1];
+  }
+
+  identityTextColor(player: PlayerView): string {
+    const colors = this.identityColors(player);
+
+    return colors.length === 1 && colors[0] === 'W' ? '#1d1608' : '#fff8dd';
+  }
+
+  private identityColors(player: PlayerView): ManaColor[] {
+    const identity = player.state.colorIdentity ?? [];
+
+    return MANA_COLOR_ORDER.filter((color) => identity.includes(color));
+  }
+
+  private identityGradientColors(player: PlayerView): readonly string[] {
+    const identityColors = this.identityColors(player);
+
+    return identityColors.length > 0
+      ? identityColors.map((color) => MANA_GRADIENT_COLORS[color])
+      : COLORLESS_GRADIENT_COLORS;
+  }
+
+  private balancedGradientStops(colors: readonly string[]): readonly string[] {
+    const segmentSize = 100 / colors.length;
+    const transitionSize = Math.min(7, segmentSize * 0.22);
+
+    return colors.flatMap((color, index) => {
+      const start = index * segmentSize;
+      const end = (index + 1) * segmentSize;
+      const stableStart = index === 0 ? start : start + transitionSize;
+      const stableEnd = index === colors.length - 1 ? end : end - transitionSize;
+
+      return [`${color} ${this.gradientStop(stableStart)}`, `${color} ${this.gradientStop(stableEnd)}`];
+    });
+  }
+
+  private gradientStop(value: number): string {
+    const rounded = Number(value.toFixed(3));
+
+    return `${rounded}%`;
   }
 }

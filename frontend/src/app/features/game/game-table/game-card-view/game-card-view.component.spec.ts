@@ -151,7 +151,7 @@ describe('GameCardViewComponent', () => {
     fixture.detectChanges();
 
     expect(cardElement.classList).toContain('hand-row-layout');
-    expect(Number.parseFloat(cardElement.style.getPropertyValue('--hand-row-splay'))).toBeLessThan(0);
+    expect(Number.parseFloat(cardElement.style.getPropertyValue('--hand-row-distance'))).toBeLessThan(0);
   });
 
   it('applies battlefield focus entry classes by entry mode', async () => {

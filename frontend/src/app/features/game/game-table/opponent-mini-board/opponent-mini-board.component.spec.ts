@@ -45,6 +45,36 @@ describe('OpponentMiniBoardComponent', () => {
     expect(pill.classList.contains('opponent-targeting-pill-incoming')).toBe(true);
   });
 
+  it('uses the player color identity as the thumb gradient', () => {
+    fixture.componentRef.setInput('player', playerView({ colorIdentity: ['U', 'B', 'R'] }));
+    fixture.detectChanges();
+
+    const thumb = fixture.nativeElement.querySelector('[data-testid="opponent-mini-board"]') as HTMLElement;
+    const gradient = thumb.style.getPropertyValue('--player-identity-gradient');
+
+    expect(gradient).toContain('#36b8ff 0%');
+    expect(gradient).toContain('#36b8ff 26.333%');
+    expect(gradient).toContain('#000000 40.333%');
+    expect(gradient).toContain('#000000 59.667%');
+    expect(gradient).toContain('#ff5b36 73.667%');
+    expect(gradient).toContain('#ff5b36 100%');
+    expect(thumb.style.getPropertyValue('--player-identity-primary')).toBe('#36b8ff');
+    expect(thumb.style.getPropertyValue('--player-identity-secondary')).toBe('#ff5b36');
+  });
+
+  it('gives each multicolor identity the same gradient presence', () => {
+    fixture.componentRef.setInput('player', playerView({ colorIdentity: ['B', 'G'] }));
+    fixture.detectChanges();
+
+    const thumb = fixture.nativeElement.querySelector('[data-testid="opponent-mini-board"]') as HTMLElement;
+    const gradient = thumb.style.getPropertyValue('--player-identity-gradient');
+
+    expect(gradient).toContain('#000000 0%');
+    expect(gradient).toContain('#000000 43%');
+    expect(gradient).toContain('#4fd36b 57%');
+    expect(gradient).toContain('#4fd36b 100%');
+  });
+
   it('renders the mini battlefield when no cards target cards are present', () => {
     fixture.detectChanges();
 

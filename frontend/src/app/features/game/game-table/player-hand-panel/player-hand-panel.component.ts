@@ -5,7 +5,6 @@ import { PlayerView } from '../game-table.store';
 import { GameCardViewComponent } from '../game-card-view/game-card-view.component';
 import { GameTablePointerDragService, HandPointerDropPreview, PointerDropTarget } from '../services/game-table-pointer-drag.service';
 import { CardPreviewEvent } from '../card-preview.model';
-import { HAND_ROW_CARD_STEP_PX } from '../hand-layout.model';
 
 interface HandZoneDropEvent {
   event: DragEvent;
@@ -474,20 +473,18 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
     this.cardPreviewHidden.emit();
   }
 
-  handDropSlotOffsetPx(index: number, placement: 'before' | 'after'): number {
+  handDropSlotOffsetDistance(index: number, placement: 'before' | 'after'): number {
     const count = Math.max(1, this.displayHandCards().length);
     const slotIndex = placement === 'before' ? index - 0.5 : index + 0.5;
     const centerIndex = (count - 1) / 2;
 
-    return Number(((slotIndex - centerIndex) * this.handRowStepPx(count)).toFixed(3));
+    return Number((slotIndex - centerIndex).toFixed(3));
   }
 
-  handRowWidthPx(count: number): number {
+  handRowWidth(count: number): string {
     const normalizedCount = Math.max(1, count);
-    const rowSpan = (normalizedCount - 1) * HAND_ROW_CARD_STEP_PX;
-    const estimatedCardWidth = HAND_ROW_CARD_STEP_PX;
 
-    return rowSpan + estimatedCardWidth * 2;
+    return `calc(var(--hand-card-row-width) * ${normalizedCount})`;
   }
 
   handArrivalSide(card: GameCardInstance, _index: number): 'before' | 'after' | 'new' | null {
@@ -838,10 +835,6 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
     this.clearRevealTimer();
     this.handRevealed.set(true);
     this.handHovered.set(true);
-  }
-
-  private handRowStepPx(count: number): number {
-    return count <= 1 ? 0 : HAND_ROW_CARD_STEP_PX;
   }
 
   private isExternalHandDropReceiverHighlighted(): boolean {

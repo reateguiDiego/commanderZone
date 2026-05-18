@@ -241,11 +241,11 @@ describe('PlayerHandPanelComponent', () => {
     }
   });
 
-  it('sizes the row content with only a small edge allowance when scrolling is needed', async () => {
+  it('sizes the row content from the exact rendered card width', async () => {
     const { fixture } = await renderHandPanel();
     const handFan = fixture.nativeElement.querySelector('.hand-fan') as HTMLElement;
 
-    expect(handFan.style.getPropertyValue('--hand-row-width')).toBe('348px');
+    expect(handFan.style.getPropertyValue('--hand-row-width')).toBe('calc(var(--hand-card-row-width) * 2)');
   });
 
   it('keeps the hand revealed when focus moves between cards inside the hand', async () => {

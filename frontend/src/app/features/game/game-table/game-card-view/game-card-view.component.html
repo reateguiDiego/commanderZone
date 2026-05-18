@@ -84,7 +84,7 @@
     [style.--hand-fan-lift]="handFanLiftPx() + 'px'"
     [style.--hand-fan-splay]="handFanSplayPx() + 'px'"
     [style.--hand-fan-arc]="handFanArcPx() + 'px'"
-    [style.--hand-row-splay]="handRowSplayPx() + 'px'"
+    [style.--hand-row-distance]="handRowDistance()"
     (pointerdown)="onPointerDown($event)"
     (click)="cardClicked.emit({ event: $event, card: currentCard })"
     (dblclick)="onDoubleClick($event)"

@@ -36,7 +36,6 @@ final class ActiveRoomMembershipService
     public function activeRoomsForUser(User $user): array
     {
         return $this->entityManager->getRepository(Room::class)->createQueryBuilder('room')
-            ->distinct()
             ->leftJoin('room.players', 'player')
             ->addSelect('player')
             ->where('room.status != :archived')

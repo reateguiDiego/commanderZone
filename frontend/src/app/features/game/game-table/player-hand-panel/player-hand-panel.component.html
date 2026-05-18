@@ -48,7 +48,7 @@
       <div
         class="hand-fan"
         [style.--hand-count]="handCards.length"
-        [style.--hand-row-width]="handRowWidthPx(handCards.length) + 'px'"
+        [style.--hand-row-width]="handRowWidth(handCards.length)"
         [attr.data-player-id]="handPlayer.id"
         [class.hand-fan-compact-drop-target]="hasCompactHandDropTarget()"
         [class.hand-fan-row]="handLayoutMode() === 'row'"
@@ -60,7 +60,7 @@
           <span
             class="hand-drop-slot hand-drop-slot-before"
             aria-hidden="true"
-            [style.--hand-drop-slot-x]="handDropSlotOffsetPx($index, 'before') + 'px'"
+            [style.--hand-drop-slot-distance]="handDropSlotOffsetDistance($index, 'before')"
           ></span>
         }
         <app-game-card-view
@@ -94,7 +94,7 @@
           <span
             class="hand-drop-slot hand-drop-slot-after"
             aria-hidden="true"
-            [style.--hand-drop-slot-x]="handDropSlotOffsetPx($index, 'after') + 'px'"
+            [style.--hand-drop-slot-distance]="handDropSlotOffsetDistance($index, 'after')"
           ></span>
         }
       }
