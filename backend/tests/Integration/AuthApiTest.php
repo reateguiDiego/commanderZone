@@ -116,6 +116,33 @@ class AuthApiTest extends ApiTestCase
         self::assertResponseStatusCodeSame(401);
     }
 
+    public function testLoginIssuesJwtWith24HourTtl(): void
+    {
+        $email = sprintf('jwt-ttl-%s@example.test', bin2hex(random_bytes(6)));
+        $password = 'Password123';
+
+        $user = new User($email, 'Jwt Ttl User');
+        $passwordHasher = static::getContainer()->get(UserPasswordHasherInterface::class);
+        $user->setPassword($passwordHasher->hashPassword($user, $password));
+        $user->markEmailVerified();
+        $this->entityManager->persist($user);
+        $this->entityManager->flush();
+
+        $this->jsonRequest('POST', '/auth/login', [
+            'email' => $email,
+            'password' => $password,
+        ]);
+        self::assertResponseIsSuccessful();
+        $token = $this->jsonResponse()['token'] ?? null;
+        self::assertIsString($token);
+
+        [$issuedAt, $expiresAt] = $this->extractJwtIssuedAndExpiry($token);
+        $ttl = $expiresAt - $issuedAt;
+
+        self::assertGreaterThanOrEqual(86399, $ttl);
+        self::assertLessThanOrEqual(86401, $ttl);
+    }
+
     public function testMercureCookieEndpointRequiresAuthAndSetsCookie(): void
     {
         $this->jsonRequest('POST', '/realtime/mercure-cookie');
@@ -610,5 +637,32 @@ class AuthApiTest extends ApiTestCase
             'displayName' => 'abcdefghijklmnopqrstuvwxyz',
         ], $token);
         self::assertResponseStatusCodeSame(400);
+    }
+
+    private function extractJwtIssuedAndExpiry(string $token): array
+    {
+        $parts = explode('.', $token);
+        self::assertCount(3, $parts);
+
+        $payloadJson = self::decodeJwtSegment($parts[1]);
+        $payload = json_decode($payloadJson, true);
+        self::assertIsArray($payload);
+        self::assertArrayHasKey('iat', $payload);
+        self::assertArrayHasKey('exp', $payload);
+
+        return [(int) $payload['iat'], (int) $payload['exp']];
+    }
+
+    private static function decodeJwtSegment(string $segment): string
+    {
+        $remainder = strlen($segment) % 4;
+        if ($remainder !== 0) {
+            $segment .= str_repeat('=', 4 - $remainder);
+        }
+
+        $decoded = base64_decode(strtr($segment, '-_', '+/'), true);
+        self::assertNotFalse($decoded);
+
+        return $decoded;
     }
 }
