@@ -130,4 +130,5 @@ Backend production values must be provided by the hosting environment or by an u
 ### Production Deploy Workflow Guardrail
 
 The GitHub Actions deploy workflow (`.github/workflows/backend-deploy.yml`) runs on every push to `main` and on manual dispatch.
+
 For production safety, `HETZNER_ENV_FILE` is mandatory and must point to a `.env.prod` file on the server. Deploys are rejected if it is missing, points to `.env`, or does not resolve to an existing file.
