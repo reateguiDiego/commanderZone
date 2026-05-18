@@ -1,0 +1,80 @@
+<section class="arrow-target-backdrop" data-testid="arrow-target-dialog">
+  <form
+    class="arrow-target-dialog"
+    role="dialog"
+    aria-modal="true"
+    aria-label="Select arrow target player"
+    (click)="$event.stopPropagation()"
+    (ngSubmit)="confirm()"
+  >
+    <header class="dialog-header">
+      <span class="dialog-kicker">Draw arrow</span>
+      <h2>Choose target board</h2>
+      <p>The selected battlefield opens behind this panel before you pick a card.</p>
+    </header>
+
+    <label class="field">
+      <span>Target player</span>
+      <span class="select-shell">
+        <select
+          data-testid="arrow-target-player-select"
+          [value]="selectedPlayerId()"
+          (input)="updatePlayer($any($event.target).value)"
+          (change)="updatePlayer($any($event.target).value)"
+          autofocus
+        >
+          @for (player of players(); track player.id) {
+            <option [value]="player.id">{{ playerLabel()(player) }}</option>
+          }
+        </select>
+      </span>
+    </label>
+
+    <label class="checkbox-field">
+      <input
+        type="checkbox"
+        data-testid="arrow-target-multiple-checkbox"
+        [checked]="multipleTargets()"
+        (change)="updateMultipleTargets($any($event.target).checked)"
+      />
+      <span>
+        <strong>Multiple targets?</strong>
+        <small>Draw several arrows from this card</small>
+      </span>
+    </label>
+
+    @if (multipleTargets()) {
+      <label class="target-count-field">
+        <span>Targets</span>
+        <input
+          type="number"
+          data-testid="arrow-target-count-input"
+          min="2"
+          step="1"
+          [value]="effectiveTargetCount()"
+          (input)="updateTargetCount($any($event.target).value)"
+          (change)="updateTargetCount($any($event.target).value)"
+        />
+      </label>
+    }
+
+    <footer>
+      <button
+        type="button"
+        class="secondary-button"
+        data-testid="arrow-target-cancel"
+        (click)="cancelled.emit()"
+      >
+        Cancel
+      </button>
+      <button
+        type="button"
+        class="primary-button"
+        data-testid="arrow-target-confirm"
+        (click)="confirm()"
+      >
+        Select target
+      </button>
+    </footer>
+  </form>
+</section>

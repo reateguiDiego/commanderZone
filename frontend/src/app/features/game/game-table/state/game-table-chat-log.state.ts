@@ -10,6 +10,20 @@ interface CommanderCastCounterChange {
 
 type CommanderCastCounterLog = CommanderCastCounterChange | { to: number };
 
+interface CommanderDamageChange {
+  sourceName: string;
+  targetName: string;
+  from: number;
+  to: number;
+}
+
+interface PlayerCounterChange {
+  playerName: string;
+  counterName: string;
+  from: number;
+  to: number;
+}
+
 export interface GameLogEntryView extends GameLogEntry {
   card: GameCardInstance | null;
   cardList: readonly string[];
@@ -18,7 +32,7 @@ export interface GameLogEntryView extends GameLogEntry {
   cardListLabel: string;
   messagePrefix: string;
   messageSuffix: string;
-  appearance: 'default' | 'phase';
+  appearance: 'default' | 'phase' | 'death';
 }
 
 @Injectable()
@@ -43,7 +57,9 @@ export class GameTableChatLogState {
   }
 
   eventLog(snapshot: GameSnapshot | null): GameLogEntry[] {
-    return this.compactLog([...(snapshot?.eventLog ?? [])].filter((entry) => entry.type !== 'card.position.changed' && entry.message !== 'Reordered hand.'));
+    return this.compactLog(this.suppressDefeatedPlayerLogs(
+      [...(snapshot?.eventLog ?? [])].filter((entry) => entry.type !== 'card.position.changed' && entry.message !== 'Reordered hand.'),
+    ));
   }
 
   eventLogView(snapshot: GameSnapshot | null, zones: readonly GameZoneName[]): GameLogEntryView[] {
@@ -51,6 +67,20 @@ export class GameTableChatLogState {
   }
 
   private toLogEntryView(snapshot: GameSnapshot | null, zones: readonly GameZoneName[], entry: GameLogEntry): GameLogEntryView {
+    if (this.isLibraryDestinationLog(entry)) {
+      return {
+        ...entry,
+        card: null,
+        cardList: [],
+        cardListPrefix: '',
+        cardListSuffix: '',
+        cardListLabel: '',
+        messagePrefix: this.libraryDestinationMessage(entry.message),
+        messageSuffix: '',
+        appearance: this.logAppearance(entry),
+      };
+    }
+
     const cardListView = this.cardListView(entry);
     if (cardListView) {
       return {
@@ -97,10 +127,47 @@ export class GameTableChatLogState {
   }
 
   private logAppearance(entry: GameLogEntry): GameLogEntryView['appearance'] {
+    if (this.isDefeatLog(entry)) {
+      return 'death';
+    }
+
     return entry.type === 'turn.changed' ? 'phase' : 'default';
   }
 
+  private isDefeatLog(entry: GameLogEntry): boolean {
+    const message = entry.message.trim();
+
+    return entry.type === 'player.defeated'
+      || entry.type === 'game.concede'
+      || /\bha muerto\.?$/i.test(message)
+      || /\bconceded\.?$/i.test(message);
+  }
+
+  private suppressDefeatedPlayerLogs(entries: GameLogEntry[]): GameLogEntry[] {
+    const defeatedPlayerIds = new Set<string>();
+    const visibleEntries: GameLogEntry[] = [];
+
+    for (const entry of entries) {
+      const actorId = entry.actorId ?? null;
+      if (actorId && defeatedPlayerIds.has(actorId)) {
+        continue;
+      }
+
+      visibleEntries.push(entry);
+      if (this.isDefeatLog(entry) && actorId) {
+        defeatedPlayerIds.add(actorId);
+      }
+    }
+
+    return visibleEntries;
+  }
+
   private cardFromLogEntry(snapshot: GameSnapshot | null, zones: readonly GameZoneName[], entry: GameLogEntry): GameCardInstance | null {
+    const explicitCard = this.explicitCardFromLogEntry(snapshot, entry);
+    if (explicitCard) {
+      return explicitCard;
+    }
+
     if (!entry.message) {
       return null;
     }
@@ -108,6 +175,30 @@ export class GameTableChatLogState {
     return this.allCards(snapshot, zones)
       .filter((card) => !card.hidden && card.name.length > 2 && entry.message.includes(card.name))
       .sort((left, right) => right.name.length - left.name.length)[0] ?? null;
+  }
+
+  private explicitCardFromLogEntry(snapshot: GameSnapshot | null, entry: GameLogEntry): GameCardInstance | null {
+    if (!entry.cardInstanceId) {
+      return null;
+    }
+
+    const playerIds = entry.cardPlayerId ? [entry.cardPlayerId] : Object.keys(snapshot?.players ?? {});
+    for (const playerId of playerIds) {
+      const player = snapshot?.players[playerId];
+      if (!player) {
+        continue;
+      }
+
+      const zones = entry.cardZone ? [entry.cardZone] : Object.keys(player.zones) as GameZoneName[];
+      for (const zone of zones) {
+        const card = player.zones[zone]?.find((candidate) => candidate.instanceId === entry.cardInstanceId && !candidate.hidden);
+        if (card) {
+          return card;
+        }
+      }
+    }
+
+    return null;
   }
 
   private cardListView(entry: GameLogEntry): {
@@ -132,6 +223,19 @@ export class GameTableChatLogState {
       messagePrefix: entry.message.slice(0, labelMatch.index),
       messageSuffix: entry.message.slice(labelMatch.index + labelMatch[1].length),
     };
+  }
+
+  private isLibraryDestinationLog(entry: GameLogEntry): boolean {
+    return (entry.type === 'card.moved' || entry.type === 'cards.moved')
+      && /\bto (?:bottom of )?library\b/i.test(entry.message);
+  }
+
+  private libraryDestinationMessage(message: string): string {
+    if (/\bto bottom of library\b/i.test(message)) {
+      return 'Moved a card to bottom of library.';
+    }
+
+    return message;
   }
 
   private allCards(snapshot: GameSnapshot | null, zones: readonly GameZoneName[]): GameCardInstance[] {
@@ -174,6 +278,8 @@ export class GameTableChatLogState {
 
     return this.mergeDraw(previous, current)
       ?? this.mergeLife(previous, current)
+      ?? this.mergeCommanderDamage(previous, current)
+      ?? this.mergePlayerCounter(previous, current)
       ?? this.mergeCommanderCastCounter(previous, current)
       ?? this.mergeLoyalty(previous, current)
       ?? this.mergePowerToughness(previous, current)
@@ -203,7 +309,7 @@ export class GameTableChatLogState {
     }
 
     const returnedMatch = /^Moved (.+) from battlefield to command\.$/.exec(previous.message);
-    const castMatch = /^Moved (.+) from command to battlefield\. (Commander cast count (?:increased|decreased) from \d+ to \d+(?: \([+-]\d+ clicks\))?)\.$/.exec(current.message);
+    const castMatch = /^Moved (.+) from command to battlefield\. (Commander cast count (?:increased|decreased) from \d+ to \d+(?: \([+-]\d+(?: clicks)?\))?)\.$/.exec(current.message);
     const counterChange = castMatch ? this.commanderCastCounterChange(`${castMatch[2]}.`) : null;
     if (!returnedMatch || !castMatch || returnedMatch[1] !== castMatch[1] || !counterChange) {
       return null;
@@ -283,7 +389,7 @@ export class GameTableChatLogState {
   }
 
   private commanderCastCounterLog(message: string): CommanderCastCounterLog | null {
-    const rangeMatch = /^Commander cast count (?:increased|decreased) from (\d+) to (\d+)(?: \([+-]\d+ clicks\))?\.$/.exec(message);
+    const rangeMatch = /^Commander cast count (?:increased|decreased) from (\d+) to (\d+)(?: \([+-]\d+(?: clicks)?\))?\.$/.exec(message);
     if (rangeMatch) {
       return { from: Number(rangeMatch[1]), to: Number(rangeMatch[2]) };
     }
@@ -330,8 +436,7 @@ export class GameTableChatLogState {
 
   private commanderCastCounterMessage(from: number, to: number, showClickDelta = false): string {
     const direction = to >= from ? 'increased' : 'decreased';
-    const clickDelta = to - from;
-    const suffix = showClickDelta ? ` (${clickDelta > 0 ? '+' : ''}${clickDelta} clicks)` : '';
+    const suffix = showClickDelta ? this.clickDeltaSuffix(to - from) : '';
 
     return `Commander cast count ${direction} from ${from} to ${to}${suffix}`;
   }
@@ -349,7 +454,7 @@ export class GameTableChatLogState {
 
     return {
       ...current,
-      message: `Drew ${previousCount + currentCount} cards.`,
+      message: `ha robado ${previousCount + currentCount} cartas.`,
     };
   }
 
@@ -403,6 +508,100 @@ export class GameTableChatLogState {
     return delta < 0
       ? `${playerName} lost ${amount} life (${from} -> ${to}).`
       : `${playerName} gained ${amount} life (${from} -> ${to}).`;
+  }
+
+  private mergeCommanderDamage(previous: GameLogEntry, current: GameLogEntry): GameLogEntry | null {
+    const previousDamage = this.commanderDamageChange(previous.message);
+    const currentDamage = this.commanderDamageChange(current.message);
+    if (
+      !previousDamage
+      || !currentDamage
+      || previousDamage.sourceName !== currentDamage.sourceName
+      || previousDamage.targetName !== currentDamage.targetName
+    ) {
+      return null;
+    }
+
+    const currentDirection = Math.sign(currentDamage.to - previousDamage.to);
+    const previousDirection = Math.sign(previousDamage.to - previousDamage.from);
+    if (currentDirection === 0 || (previousDirection !== 0 && previousDirection !== currentDirection)) {
+      return null;
+    }
+
+    return {
+      ...current,
+      message: this.commanderDamageMessage(previousDamage.sourceName, previousDamage.targetName, previousDamage.from, currentDamage.to, true),
+    };
+  }
+
+  private commanderDamageChange(message: string): CommanderDamageChange | null {
+    const match = /^Commander damage from (.+) to (.+) (?:increased|decreased) from (\d+) to (\d+)(?: \([+-]\d+(?: clicks)?\))?\.$/.exec(message);
+    if (!match) {
+      return null;
+    }
+
+    return {
+      sourceName: match[1],
+      targetName: match[2],
+      from: Number(match[3]),
+      to: Number(match[4]),
+    };
+  }
+
+  private commanderDamageMessage(sourceName: string, targetName: string, from: number, to: number, showClickDelta = false): string {
+    const direction = to >= from ? 'increased' : 'decreased';
+    const suffix = showClickDelta ? this.clickDeltaSuffix(to - from) : '';
+
+    return `Commander damage from ${sourceName} to ${targetName} ${direction} from ${from} to ${to}${suffix}.`;
+  }
+
+  private mergePlayerCounter(previous: GameLogEntry, current: GameLogEntry): GameLogEntry | null {
+    const previousCounter = this.playerCounterChange(previous.message);
+    const currentCounter = this.playerCounterChange(current.message);
+    if (
+      !previousCounter
+      || !currentCounter
+      || previousCounter.playerName !== currentCounter.playerName
+      || previousCounter.counterName !== currentCounter.counterName
+    ) {
+      return null;
+    }
+
+    const currentDirection = Math.sign(currentCounter.to - previousCounter.to);
+    const previousDirection = Math.sign(previousCounter.to - previousCounter.from);
+    if (currentDirection === 0 || (previousDirection !== 0 && previousDirection !== currentDirection)) {
+      return null;
+    }
+
+    return {
+      ...current,
+      message: this.playerCounterMessage(previousCounter.playerName, previousCounter.counterName, previousCounter.from, currentCounter.to, true),
+    };
+  }
+
+  private playerCounterChange(message: string): PlayerCounterChange | null {
+    const match = /^(.+) ([^ ]+) counter (?:increased|decreased) from (\d+) to (\d+)(?: \([+-]\d+(?: clicks)?\))?\.$/.exec(message);
+    if (!match) {
+      return null;
+    }
+
+    return {
+      playerName: match[1],
+      counterName: match[2],
+      from: Number(match[3]),
+      to: Number(match[4]),
+    };
+  }
+
+  private playerCounterMessage(playerName: string, counterName: string, from: number, to: number, showClickDelta = false): string {
+    const direction = to >= from ? 'increased' : 'decreased';
+    const suffix = showClickDelta ? this.clickDeltaSuffix(to - from) : '';
+
+    return `${playerName} ${counterName} counter ${direction} from ${from} to ${to}${suffix}.`;
+  }
+
+  private clickDeltaSuffix(delta: number): string {
+    return ` (${delta > 0 ? '+' : ''}${delta})`;
   }
 
   private mergePowerToughness(previous: GameLogEntry, current: GameLogEntry): GameLogEntry | null {
@@ -472,7 +671,7 @@ export class GameTableChatLogState {
   }
 
   private drawCount(message: string): number | null {
-    const match = /^Drew (\d+) cards?\.$/.exec(message);
+    const match = /^(?:Drew|ha robado) (\d+) (?:cards?|cartas?)\.$/.exec(message);
 
     return match ? Number(match[1]) : null;
   }

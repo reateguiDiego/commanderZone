@@ -19,6 +19,13 @@
   text-align: left;
 }
 
+.submenu.side-left .submenu-trigger,
+.submenu.child-side-left .submenu-panel .submenu-item > button,
+.submenu.child-side-left .submenu-child-panel button {
+  flex-direction: row-reverse;
+  text-align: right;
+}
+
 .submenu-arrow {
   color: var(--game-accent, #d7b46a);
   transition: transform 140ms ease;
@@ -26,6 +33,16 @@
 
 .submenu.expanded .submenu-arrow {
   transform: translateX(0.1rem);
+}
+
+.submenu.side-left .submenu-trigger .submenu-arrow,
+.submenu.child-side-left .submenu-panel .submenu-item > button .submenu-arrow {
+  transform: rotate(180deg);
+}
+
+.submenu.side-left.expanded .submenu-trigger .submenu-arrow,
+.submenu.child-side-left.expanded .submenu-panel .submenu-item > button .submenu-arrow {
+  transform: rotate(180deg) translateX(0.1rem);
 }
 
 .submenu-panel {
@@ -44,6 +61,20 @@
   box-shadow: 0 1rem 2.2rem rgb(0 0 0 / 38%);
 }
 
+.submenu.direction-up .submenu-panel {
+  top: auto;
+  bottom: -0.35rem;
+}
+
+.submenu.side-left .submenu-panel {
+  right: calc(100% + 0.35rem);
+  left: auto;
+}
+
+.submenu-item {
+  position: relative;
+}
+
 .submenu-panel button {
   display: flex;
   align-items: center;
@@ -59,6 +90,31 @@
 .submenu-panel button:disabled {
   cursor: not-allowed;
   opacity: 0.48;
+}
+
+.submenu-child-panel {
+  position: absolute;
+  top: -0.35rem;
+  left: calc(100% + 0.35rem);
+  z-index: 2;
+  display: grid;
+  min-width: 12rem;
+  padding: 0.35rem;
+  border: 1px solid var(--game-line-soft, rgb(61 69 53 / 46%));
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgb(215 180 106 / 10%), transparent 42%),
+    var(--game-surface-deep, rgb(7 8 7 / 94%));
+  box-shadow: 0 1rem 2.2rem rgb(0 0 0 / 38%);
+}
+
+.submenu.child-side-left .submenu-child-panel {
+  right: calc(100% + 0.35rem);
+  left: auto;
+}
+
+.submenu-child-panel button {
+  color: var(--game-text, #f3f0e8);
 }
 
 .danger-menu-item {

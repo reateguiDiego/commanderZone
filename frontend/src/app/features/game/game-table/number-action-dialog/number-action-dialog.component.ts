@@ -1,7 +1,9 @@
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 
 @Component({
   selector: 'app-number-action-dialog',
+  imports: [FormsModule],
   templateUrl: './number-action-dialog.component.html',
   styleUrl: './number-action-dialog.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

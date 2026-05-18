@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { of } from 'rxjs';
 import { GamesApi } from '../../../../core/api/games.api';
-import { GameSnapshot } from '../../../../core/models/game.model';
+import { GameSnapshot, MercureGameEvent } from '../../../../core/models/game.model';
 import { GameTableRealtimeService } from './game-table-realtime.service';
 import { GameTableSessionContext, GameTableSessionService } from './game-table-session.service';
 
@@ -50,9 +50,37 @@ describe('GameTableSessionService', () => {
 
     expect(setSnapshot).not.toHaveBeenCalled();
   });
+
+  it('navigates to the waiting room when the game realtime stream announces rematch creation', async () => {
+    const current = snapshot();
+    const navigateToWaitingRoom = vi.fn();
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot: current } }));
+
+    await service.load(context(current, vi.fn(), navigateToWaitingRoom));
+
+    const onEvent = realtime.subscribeToGame.mock.calls[0]?.[1] as ((event: MercureGameEvent) => void) | undefined;
+    onEvent?.({
+      gameId: 'game-1',
+      version: current.version,
+      event: {
+        id: 'event-1',
+        type: 'room.rematch.created',
+        payload: { roomId: 'room-1' },
+        createdBy: 'player-1',
+        createdAt: '2026-01-01T00:00:00.000Z',
+      },
+    });
+
+    expect(navigateToWaitingRoom).toHaveBeenCalledWith('room-1');
+    expect(gamesApi.snapshot).toHaveBeenCalledTimes(1);
+  });
 });
 
-function context(currentSnapshot: GameSnapshot, setSnapshot: (snapshot: GameSnapshot) => void): GameTableSessionContext {
+function context(
+  currentSnapshot: GameSnapshot,
+  setSnapshot: (snapshot: GameSnapshot) => void,
+  navigateToWaitingRoom = vi.fn(),
+): GameTableSessionContext {
   return {
     gameId: () => 'game-1',
     snapshot: () => currentSnapshot,
@@ -64,6 +92,8 @@ function context(currentSnapshot: GameSnapshot, setSnapshot: (snapshot: GameSnap
     isPending: () => false,
     setLoading: vi.fn(),
     setError: vi.fn(),
+    handleRealtimeEvent: vi.fn(),
+    navigateToWaitingRoom,
   };
 }
 

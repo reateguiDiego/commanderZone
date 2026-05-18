@@ -5,6 +5,10 @@
   class="player-thumb"
   data-testid="opponent-mini-board"
   [style.--player-accent]="colorAccent()(opponent)"
+  [style.--player-identity-gradient]="identityGradient(opponent)"
+  [style.--player-identity-primary]="identityPrimaryColor(opponent)"
+  [style.--player-identity-secondary]="identitySecondaryColor(opponent)"
+  [style.--player-identity-text]="identityTextColor(opponent)"
   [attr.data-player-id]="opponent.id"
   [attr.data-player-drop-target]="opponent.id"
   [class.conceded]="opponent.state.status === 'conceded'"
@@ -20,24 +24,66 @@
     } @else {
       <strong class="opponent-deck-title muted" data-testid="opponent-deck-name">Deck pending</strong>
     }
+    @if (targetingPill(); as pill) {
+      <span
+        class="opponent-targeting-pill"
+        data-testid="opponent-targeting-pill"
+        [class.opponent-targeting-pill-incoming]="pill.direction === 'incoming'"
+        [class.opponent-targeting-pill-outgoing]="pill.direction === 'outgoing'"
+        [attr.title]="pill.title"
+      >
+        {{ pill.text }}
+      </span>
+    }
     <span class="opponent-life" data-testid="opponent-life">{{ opponent.state.life }}</span>
   </span>
-  <app-opponent-mini-battlefield
-    [playerId]="opponent.id"
-    [cards]="opponent.state.zones.battlefield"
-    [backgroundImage]="backgroundImage()(opponent)"
-    [battlefieldSize]="battlefieldSize()"
-    [cardPosition]="cardPosition()"
-    [cardImage]="cardImage()"
-    [isCardDropSettling]="isCardDropSettling()"
-    [isManaDropSettling]="isManaDropSettling()"
-    [isBattlefieldEntrySettling]="isBattlefieldEntrySettling()"
-    [isCommanderEntrySettling]="isCommanderEntrySettling()"
-    [isCardTransferPending]="isCardTransferPending()"
-    (cardPreviewShown)="cardPreviewShown.emit($event)"
-    (cardPreviewHidden)="cardPreviewHidden.emit()"
-    (battlefieldCardClicked)="battlefieldCardClicked.emit($event)"
-  />
+  <span class="opponent-board-stage" [class.showing-cards-target]="!isDefeated(opponent) && cardsTargetCards().length > 0">
+    @if (isDefeated(opponent)) {
+      <div
+        class="opponent-defeated-board"
+        data-testid="opponent-defeated-board"
+        [style.--opponent-defeated-background]="defeatedBackgroundImageCss(opponent)"
+      >
+        <img
+          class="opponent-defeated-skull"
+          data-testid="opponent-mini-battlefield-skull"
+          [src]="defeatedSkullImage"
+          alt="Player defeated"
+          draggable="false"
+        />
+      </div>
+    } @else if (cardsTargetCards().length > 0) {
+      <app-opponent-cards-target
+        [playerId]="opponent.id"
+        [cards]="cardsTargetCards()"
+        [battlefieldSize]="battlefieldSize()"
+        [cardPosition]="cardPosition()"
+        [cardImage]="cardImage()"
+        [arrowTargeting]="arrowTargeting()"
+        (cardPreviewShown)="cardPreviewShown.emit($event)"
+        (cardPreviewHidden)="cardPreviewHidden.emit()"
+        (battlefieldCardClicked)="battlefieldCardClicked.emit($event)"
+      />
+    } @else {
+      <app-opponent-mini-battlefield
+        [playerId]="opponent.id"
+        [cards]="opponent.state.zones.battlefield"
+        [backgroundImage]="backgroundImage()(opponent)"
+        [battlefieldSize]="battlefieldSize()"
+        [cardPosition]="cardPosition()"
+        [cardImage]="cardImage()"
+        [isCardDropSettling]="isCardDropSettling()"
+        [isManaDropSettling]="isManaDropSettling()"
+        [isBattlefieldEntrySettling]="isBattlefieldEntrySettling()"
+        [isCommanderEntrySettling]="isCommanderEntrySettling()"
+        [isCardTransferPending]="isCardTransferPending()"
+        [arrowTargeting]="arrowTargeting()"
+        (cardPreviewShown)="cardPreviewShown.emit($event)"
+        (cardPreviewHidden)="cardPreviewHidden.emit()"
+        (battlefieldCardClicked)="battlefieldCardClicked.emit($event)"
+      />
+    }
+  </span>
   <span class="opponent-zone-counts" aria-label="Opponent zone counts">
     @for (summary of opponentZoneSummaries; track summary.zone) {
       <span

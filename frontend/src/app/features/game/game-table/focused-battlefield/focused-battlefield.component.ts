@@ -2,13 +2,15 @@ import {
   AfterViewInit,
   ChangeDetectionStrategy,
   Component,
+  DoCheck,
   ElementRef,
   OnDestroy,
   ViewChild,
   input,
   output,
+  signal,
 } from '@angular/core';
-import { GameArrow, GameCardInstance, GameZoneName } from '../../../../core/models/game.model';
+import { GameCardInstance, GameZoneName } from '../../../../core/models/game.model';
 import { PlayerView } from '../game-table.store';
 import { GameCardViewComponent } from '../game-card-view/game-card-view.component';
 import { CardPreviewEvent } from '../card-preview.model';
@@ -75,20 +77,7 @@ interface BattlefieldSizeEvent {
   bottom: number;
 }
 
-interface BattlefieldArrowView {
-  id: string;
-  x1: number;
-  y1: number;
-  x2: number;
-  y2: number;
-  color: string;
-}
-
-interface BattlefieldArrowMenuEvent {
-  event: MouseEvent;
-  playerId: string;
-  arrowId: string;
-}
+type BattlefieldFocusEntry = 'left' | 'right' | 'fade' | null;
 
 @Component({
   selector: 'app-focused-battlefield',
@@ -97,15 +86,18 @@ interface BattlefieldArrowMenuEvent {
   styleUrl: './focused-battlefield.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class FocusedBattlefieldComponent implements AfterViewInit, OnDestroy {
+export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDestroy {
   private resizeObserver: ResizeObserver | null = null;
   private lastBattlefieldSize: BattlefieldSizeEvent | null = null;
+  private lastPlayerId: string | null = null;
+  private boardTransitionTimer: number | null = null;
 
   @ViewChild('battlefieldRoot', { static: true }) private readonly battlefieldRoot?: ElementRef<HTMLElement>;
 
   readonly player = input.required<PlayerView>();
-  readonly arrows = input<readonly GameArrow[]>([]);
   readonly isCurrentPlayer = input.required<(playerId: string) => boolean>();
+  readonly allowArrowTargetSelection = input(false);
+  readonly focusEffectsEnabled = input(true);
   readonly isDropZoneHighlighted = input.required<(playerId: string, zone: GameZoneName) => boolean>();
   readonly cardPosition = input.required<(card: GameCardInstance) => { x: number; y: number } | null>();
   readonly isSelected = input.required<(instanceId: string) => boolean>();
@@ -114,8 +106,8 @@ export class FocusedBattlefieldComponent implements AfterViewInit, OnDestroy {
   readonly isPendingBattlefieldTransfer = input.required<(card: GameCardInstance) => boolean>();
   readonly cardImage = input.required<(card: GameCardInstance) => string | null>();
   readonly shouldShowPowerToughness = input.required<(card: GameCardInstance) => boolean>();
-  readonly cardPowerValue = input.required<(card: GameCardInstance) => number>();
-  readonly cardToughnessValue = input.required<(card: GameCardInstance) => number>();
+  readonly cardPowerValue = input.required<(card: GameCardInstance) => number | null>();
+  readonly cardToughnessValue = input.required<(card: GameCardInstance) => number | null>();
   readonly firstCounter = input.required<(card: GameCardInstance) => CardCounterView | null>();
   readonly alignmentGuideFor = input.required<(playerId: string) => AlignmentGuideView | null>();
   readonly isManaLaneHighlighted = input.required<(playerId: string) => boolean>();
@@ -139,10 +131,10 @@ export class FocusedBattlefieldComponent implements AfterViewInit, OnDestroy {
   readonly cardLoyaltyChanged = output<BattlefieldCardStatChangeEvent>();
   readonly cardCounterChanged = output<BattlefieldCardCounterChangeEvent>();
   readonly cardCounterDeleteRequested = output<BattlefieldCardCounterDeleteRequestEvent>();
-  readonly arrowMenuOpened = output<BattlefieldArrowMenuEvent>();
   readonly manaLaneDragOver = output<DragEvent>();
   readonly manaLaneDropped = output<{ event: DragEvent; playerId: string }>();
   readonly battlefieldSizeChanged = output<BattlefieldSizeEvent>();
+  readonly boardTransitioning = signal(false);
 
   ngAfterViewInit(): void {
     const element = this.battlefieldRoot?.nativeElement;
@@ -150,14 +142,14 @@ export class FocusedBattlefieldComponent implements AfterViewInit, OnDestroy {
       return;
     }
 
-    this.emitBattlefieldSize(element.getBoundingClientRect());
+    this.emitBattlefieldSize(element);
     if (typeof ResizeObserver === 'undefined') {
       return;
     }
 
     this.resizeObserver = new ResizeObserver(([entry]) => {
       if (entry) {
-        this.emitBattlefieldSize(element.getBoundingClientRect());
+        this.emitBattlefieldSize(element);
       }
     });
     this.resizeObserver.observe(element);
@@ -166,6 +158,20 @@ export class FocusedBattlefieldComponent implements AfterViewInit, OnDestroy {
   ngOnDestroy(): void {
     this.resizeObserver?.disconnect();
     this.resizeObserver = null;
+    if (this.boardTransitionTimer !== null) {
+      window.clearTimeout(this.boardTransitionTimer);
+      this.boardTransitionTimer = null;
+    }
+  }
+
+  ngDoCheck(): void {
+    const playerId = this.player().id;
+    if (this.lastPlayerId === playerId) {
+      return;
+    }
+
+    this.lastPlayerId = playerId;
+    this.triggerBoardTransition();
   }
 
   canInteractWithCard(playerId: string, card: GameCardInstance): boolean {
@@ -183,7 +189,7 @@ export class FocusedBattlefieldComponent implements AfterViewInit, OnDestroy {
   }
 
   onCardClick(event: MouseEvent, playerId: string, card: GameCardInstance): void {
-    if (!this.isCurrentPlayer()(playerId)) {
+    if (!this.isCurrentPlayer()(playerId) && !this.allowArrowTargetSelection()) {
       event.stopPropagation();
       return;
     }
@@ -240,12 +246,6 @@ export class FocusedBattlefieldComponent implements AfterViewInit, OnDestroy {
     event.stopPropagation();
   }
 
-  openArrowMenu(event: MouseEvent, playerId: string, arrowId: string): void {
-    event.preventDefault();
-    event.stopPropagation();
-    this.arrowMenuOpened.emit({ event, playerId, arrowId });
-  }
-
   cardVisibility(playerId: string, card: GameCardInstance): boolean {
     return !this.isDraggingCard()(card)
       && !this.isPendingBattlefieldTransfer()(card)
@@ -256,66 +256,47 @@ export class FocusedBattlefieldComponent implements AfterViewInit, OnDestroy {
     return Boolean(guide?.referenceInstanceIds.includes(card.instanceId));
   }
 
-  battlefieldArrowViews(player: PlayerView): readonly BattlefieldArrowView[] {
-    const cards = new Map(player.state.zones.battlefield.map((card) => [card.instanceId, card]));
-    return this.arrows()
-      .map((arrow): BattlefieldArrowView | null => {
-        const source = cards.get(arrow.fromInstanceId);
-        const target = cards.get(arrow.toInstanceId);
-        if (!source || !target) {
-          return null;
-        }
-
-        const sourceCenter = this.cardCenter(source);
-        const targetCenter = this.cardCenter(target);
-        if (!sourceCenter || !targetCenter) {
-          return null;
-        }
-
-        return {
-          id: arrow.id,
-          x1: sourceCenter.x,
-          y1: sourceCenter.y,
-          x2: targetCenter.x,
-          y2: targetCenter.y,
-          color: this.arrowColor(arrow.color),
-        };
-      })
-      .filter((arrow): arrow is BattlefieldArrowView => arrow !== null);
-  }
-
-  private cardCenter(card: GameCardInstance): { x: number; y: number } | null {
-    const position = this.cardPosition()(card);
-    if (!position) {
+  battlefieldFocusEntry(card: GameCardInstance): BattlefieldFocusEntry {
+    if (!this.focusEffectsEnabled() || !this.boardTransitioning()) {
       return null;
     }
 
-    return {
-      x: position.x + 58,
-      y: position.y + 80,
-    };
+    if (!this.usesLandingFocusEntry(card)) {
+      return 'fade';
+    }
+
+    const position = this.cardPosition()(card);
+    if (!position) {
+      return 'left';
+    }
+
+    const battlefieldWidth = this.lastBattlefieldSize?.width ?? 0;
+    if (battlefieldWidth <= 0) {
+      return position.x <= 0 ? 'left' : 'right';
+    }
+
+    return position.x + 58 <= battlefieldWidth / 2 ? 'left' : 'right';
   }
 
-  private arrowColor(color: string): string {
-    const colors: Record<string, string> = {
-      yellow: '#d7b46a',
-      red: '#ef4444',
-      green: '#22c55e',
-      blue: '#38bdf8',
-      black: '#d1d5db',
-    };
+  private usesLandingFocusEntry(card: GameCardInstance): boolean {
+    const typeLine = card.typeLine?.toLowerCase() ?? '';
 
-    return colors[color] ?? colors['yellow'];
+    return typeLine.includes('creature') || typeLine.includes('planeswalker');
   }
 
-  private emitBattlefieldSize(size: DOMRectReadOnly): void {
+  private emitBattlefieldSize(element: HTMLElement): void {
+    const bounds = element.getBoundingClientRect();
+    const width = Math.round(element.clientWidth || bounds.width);
+    const height = Math.round(element.clientHeight || bounds.height);
+    const left = Math.round(bounds.left);
+    const top = Math.round(bounds.top);
     const next = {
-      width: Math.round(size.width),
-      height: Math.round(size.height),
-      left: Math.round(size.left),
-      top: Math.round(size.top),
-      right: Math.round(size.right),
-      bottom: Math.round(size.bottom),
+      width,
+      height,
+      left,
+      top,
+      right: left + width,
+      bottom: top + height,
     };
     if (next.width <= 0 || next.height <= 0) {
       return;
@@ -335,5 +316,30 @@ export class FocusedBattlefieldComponent implements AfterViewInit, OnDestroy {
 
     this.lastBattlefieldSize = next;
     this.battlefieldSizeChanged.emit(next);
+  }
+
+  private triggerBoardTransition(): void {
+    if (!this.focusEffectsEnabled()) {
+      this.clearBoardTransition();
+      return;
+    }
+
+    this.boardTransitioning.set(false);
+    window.requestAnimationFrame(() => this.boardTransitioning.set(true));
+    if (this.boardTransitionTimer !== null) {
+      window.clearTimeout(this.boardTransitionTimer);
+    }
+    this.boardTransitionTimer = window.setTimeout(() => {
+      this.boardTransitioning.set(false);
+      this.boardTransitionTimer = null;
+    }, 980);
+  }
+
+  private clearBoardTransition(): void {
+    this.boardTransitioning.set(false);
+    if (this.boardTransitionTimer !== null) {
+      window.clearTimeout(this.boardTransitionTimer);
+      this.boardTransitionTimer = null;
+    }
   }
 }

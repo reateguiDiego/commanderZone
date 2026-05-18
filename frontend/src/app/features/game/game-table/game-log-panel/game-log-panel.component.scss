@@ -37,9 +37,22 @@
   box-shadow: inset 0 0 18px rgb(215 180 106 / 8%);
 }
 
+.panel-feed p.death-entry {
+  border: 1px solid rgb(239 68 68 / 46%);
+  background:
+    radial-gradient(circle at 0% 50%, rgb(239 68 68 / 25%), transparent 10rem),
+    linear-gradient(90deg, rgb(70 12 12 / 72%), rgb(24 9 9 / 76%));
+  box-shadow: inset 0 0 18px rgb(239 68 68 / 12%);
+}
+
 .panel-feed p.phase-entry strong,
 .panel-feed p.phase-entry span {
   color: var(--game-accent, #d7b46a);
+}
+
+.panel-feed p.death-entry strong,
+.panel-feed p.death-entry span {
+  color: rgb(255 190 190);
 }
 
 .panel-feed strong {

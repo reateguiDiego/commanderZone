@@ -143,9 +143,9 @@ describe('API services', () => {
   });
 
   it('builds filtered card search requests', () => {
-    TestBed.inject(CardsApi).search('atraxa', 1, 8, { commanderLegal: true }).subscribe();
+    TestBed.inject(CardsApi).search('atraxa', 1, 8, { commanderLegal: true, tokenOnly: true }).subscribe();
 
-    const request = http.expectOne(`${API_BASE_URL}/cards/search?q=atraxa&page=1&limit=8&commanderLegal=true`);
+    const request = http.expectOne(`${API_BASE_URL}/cards/search?q=atraxa&page=1&limit=8&commanderLegal=true&tokenOnly=true`);
     expect(request.request.method).toBe('GET');
     request.flush({ data: [], page: 1, limit: 8 });
   });

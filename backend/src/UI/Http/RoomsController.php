@@ -3,6 +3,7 @@
 namespace App\UI\Http;
 
 use App\Application\Deck\CommanderDeckValidator;
+use App\Application\Game\GameProjectionService;
 use App\Application\Game\GameSnapshotFactory;
 use App\Application\Room\ActiveRoomMembershipService;
 use App\Domain\Deck\Deck;
@@ -26,7 +27,6 @@ class RoomsController extends ApiController
     {
         $status = (string) $request->query->get('status', 'active');
         $queryBuilder = $entityManager->getRepository(Room::class)->createQueryBuilder('room')
-            ->distinct()
             ->leftJoin('room.players', 'player')
             ->addSelect('player');
 
@@ -53,13 +53,14 @@ class RoomsController extends ApiController
         $room = $activeRoomMembership->currentRoomFor($user);
 
         if (!$room instanceof Room) {
-            return $this->json(['room' => null, 'player' => null, 'turn' => null]);
+            return $this->json(['room' => null, 'player' => null, 'turn' => null, 'viewerRole' => null]);
         }
 
         return $this->json([
             'room' => $this->currentRoomSummaryArray($room),
             'player' => $this->currentRoomPlayerArray($room->playerFor($user)),
             'turn' => $this->currentRoomTurnArray($room),
+            'viewerRole' => $this->currentRoomViewerRole($room, $user),
         ]);
     }
 
@@ -79,13 +80,18 @@ class RoomsController extends ApiController
             return $this->fail('A valid deck is required to create a room.');
         }
 
-        if ($activeRoomMembership->currentRoomFor($user) instanceof Room) {
-            return $this->fail('Leave your current room before creating another room.', 409);
-        }
-
         $format = (string) ($payload['format'] ?? Room::FORMAT_COMMANDER);
         if ($format !== Room::FORMAT_COMMANDER) {
             return $this->fail('Only Commander format is currently supported.', 400);
+        }
+
+        $deletedRoomIds = [];
+        foreach ($activeRoomMembership->activeRoomsForUser($user) as $existingRoom) {
+            $deletedRoomIds[] = $existingRoom->id();
+            $this->removeRoomWithGame($existingRoom, $entityManager);
+        }
+        if ($deletedRoomIds !== []) {
+            $entityManager->flush();
         }
 
         $room = new Room($user);
@@ -100,6 +106,9 @@ class RoomsController extends ApiController
 
         $entityManager->persist($room);
         $entityManager->flush();
+        foreach ($deletedRoomIds as $deletedRoomId) {
+            $roomEventPublisher->publishDeleted($deletedRoomId);
+        }
         $roomEventPublisher->publish($room, 'room.created');
 
         return $this->json(['room' => $room->toArray()], 201);
@@ -258,11 +267,11 @@ class RoomsController extends ApiController
         if (!$player->deck() instanceof Deck) {
             return $this->fail('Select a Commander-valid deck before rolling.', 400);
         }
-        if ($player->turnRoll() !== null) {
+        if (!$room->canPlayerRollTurnOrder($player)) {
             return $this->fail('Turn order has already been rolled.', 409);
         }
 
-        $player->rollTurnOrder(random_int(1, 20));
+        $player->rollTurnOrder($this->uniqueTurnOrderRoll($room, $player));
         $entityManager->flush();
         $roomEventPublisher->publish($room, 'room.player.rolled');
 
@@ -280,11 +289,28 @@ class RoomsController extends ApiController
             return $this->fail('Only room players can leave the room.', 403);
         }
 
+        $startedRoom = $room->status() === Room::STATUS_STARTED || $room->game() instanceof Game;
+        if ($room->owner()->id() === $user->id() && !$startedRoom) {
+            $this->removeRoomWithGame($room, $entityManager);
+            $entityManager->flush();
+            $roomEventPublisher->publishDeleted($id);
+
+            return $this->json(['left' => true, 'roomDeleted' => true]);
+        }
+
         $room->removeUser($user);
+        if ($room->players()->count() === 0) {
+            $this->removeRoomWithGame($room, $entityManager);
+            $entityManager->flush();
+            $roomEventPublisher->publishDeleted($id);
+
+            return $this->json(['left' => true, 'roomDeleted' => true]);
+        }
+
         $entityManager->flush();
         $roomEventPublisher->publish($room, 'room.player.left');
 
-        return $this->json(['room' => $room->toArray()]);
+        return $this->json(['left' => true, 'roomDeleted' => false]);
     }
 
     #[Route('/rooms/{id}/players/{playerId}', methods: ['DELETE'])]
@@ -336,7 +362,7 @@ class RoomsController extends ApiController
             return $this->fail('Started rooms cannot be deleted.', 409);
         }
 
-        $entityManager->remove($room);
+        $this->removeRoomWithGame($room, $entityManager);
         $entityManager->flush();
         $roomEventPublisher->publishDeleted($id);
 
@@ -349,6 +375,7 @@ class RoomsController extends ApiController
         #[CurrentUser] User $user,
         EntityManagerInterface $entityManager,
         GameSnapshotFactory $snapshotFactory,
+        GameProjectionService $projection,
         CommanderDeckValidator $deckValidator,
         RoomEventPublisher $roomEventPublisher,
     ): JsonResponse
@@ -373,9 +400,9 @@ class RoomsController extends ApiController
             if (!$player instanceof RoomPlayer || !$player->deck() instanceof Deck) {
                 return $this->fail('Every player needs a deck before starting the game.');
             }
-            if ($player->turnRoll() === null) {
-                return $this->fail('Every player needs a turn-order roll before starting the game.');
-            }
+        }
+        if (!$room->hasResolvedTurnOrder()) {
+            return $this->fail('Every player needs a unique turn-order roll before starting the game.');
         }
         $invalidDecks = [];
         foreach ($room->players() as $player) {
@@ -428,7 +455,13 @@ class RoomsController extends ApiController
         $entityManager->flush();
         $roomEventPublisher->publish($room, 'room.started');
 
-        return $this->json(['room' => $room->toArray(), 'game' => $game->toArray()], 201);
+        return $this->json([
+            'room' => $room->toArray(),
+            'game' => [
+                ...$game->toArray(),
+                'snapshot' => $projection->project($game, $user),
+            ],
+        ], 201);
     }
 
     private function deckFromPayload(array $payload, User $user, EntityManagerInterface $entityManager): ?Deck
@@ -566,6 +599,32 @@ class RoomsController extends ApiController
         ];
     }
 
+    private function currentRoomViewerRole(Room $room, User $user): string
+    {
+        $isOwner = $room->owner()->id() === $user->id();
+        $isPlayer = $room->hasPlayer($user);
+
+        return match (true) {
+            $isOwner && $isPlayer => 'owner_player',
+            $isOwner => 'owner',
+            default => 'player',
+        };
+    }
+
+    private function removeRoomWithGame(Room $room, EntityManagerInterface $entityManager): void
+    {
+        $game = $room->game();
+        if ($game instanceof Game) {
+            // Room and game reference each other in the database; break room.game_id first.
+            $room->detachGame();
+            $entityManager->flush();
+            $entityManager->remove($game);
+            $entityManager->flush();
+        }
+
+        $entityManager->remove($room);
+    }
+
     private function deckArtImageUrl(Deck $deck): ?string
     {
         foreach ($deck->cards() as $deckCard) {
@@ -629,6 +688,25 @@ class RoomsController extends ApiController
         }
 
         return Room::DEFAULT_TIMER_DURATION_SECONDS;
+    }
+
+    private function uniqueTurnOrderRoll(Room $room, RoomPlayer $rollingPlayer): int
+    {
+        $usedRolls = [];
+        foreach ($room->players() as $player) {
+            if (!$player instanceof RoomPlayer || $player->id() === $rollingPlayer->id() || $player->turnRoll() === null) {
+                continue;
+            }
+
+            $usedRolls[(int) $player->turnRoll()] = true;
+        }
+
+        $availableRolls = array_values(array_filter(
+            range(1, 20),
+            static fn (int $roll): bool => !isset($usedRolls[$roll]),
+        ));
+
+        return $availableRolls[random_int(0, count($availableRolls) - 1)];
     }
 
     private function hasDeckIdInPayload(array $payload): bool

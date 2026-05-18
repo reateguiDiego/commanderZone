@@ -6,11 +6,16 @@
     class="mini-battlefield-card"
     data-testid="mini-battlefield-card"
     [attr.data-card-instance-id]="currentCard.instanceId"
+    [attr.data-arrow-card-player-id]="playerId()"
+    [attr.data-arrow-card-instance-id]="currentCard.instanceId"
+    data-arrow-card-surface="mini-battlefield"
     [class.free-position]="freePosition()"
     [class.tapped]="currentCard.tapped"
     [class.drop-settling]="dropSettling() && !commanderEntrySettling()"
     [class.mana-drop-settling]="manaDropSettling() && !commanderEntrySettling()"
     [class.commander-entry-settling]="commanderEntrySettling()"
+    [class.arrow-target-candidate]="arrowTargetCandidate()"
+    [class.face-flipping]="faceFlipAnimating()"
     [style.visibility]="visible() ? null : 'hidden'"
     [style.left.px]="miniLeftPx()"
     [style.top.px]="miniTopPx()"
@@ -26,7 +31,7 @@
     } @else {
       <span class="card-back"></span>
     }
-    <app-card-marker-rail [isToken]="currentCard.isToken === true" [counters]="visibleCounters()" [compact]="true" />
+    <app-card-marker-rail [showTokenCopyMarker]="currentCard.isTokenCopy === true" [counters]="visibleCounters()" [compact]="true" />
   </span>
 } @else {
   <button
@@ -37,6 +42,9 @@
     [attr.data-card-name]="currentCard.name"
     [attr.data-owner-player-id]="playerId()"
     [attr.data-zone]="zone()"
+    [attr.data-arrow-card-player-id]="currentMode === 'battlefield' ? playerId() : null"
+    [attr.data-arrow-card-instance-id]="currentMode === 'battlefield' ? currentCard.instanceId : null"
+    [attr.data-arrow-card-surface]="currentMode === 'battlefield' ? 'battlefield' : null"
     [attr.draggable]="draggable() ? 'true' : null"
     [class.free-position]="freePosition()"
     [class.tapped]="currentCard.tapped"
@@ -46,17 +54,24 @@
     [class.locked-card]="locked()"
     [class.pending-transfer]="pendingTransfer()"
     [class.alignment-reference]="alignmentReference()"
+    [class.arrow-target-candidate]="arrowTargetCandidate()"
     [class.drop-settling]="dropSettling() && !commanderEntrySettling()"
     [class.mana-drop-settling]="manaDropSettling() && !commanderEntrySettling()"
     [class.stat-drop-settling]="statDropSettling() && !commanderEntrySettling()"
     [class.commander-entry-settling]="commanderEntrySettling()"
     [class.stat-overlay-arriving]="statOverlayArriving()"
+    [class.face-flipping]="faceFlipAnimating()"
     [class.loyalty-card]="loyaltyVisible()"
     [class.face-down]="faceDown()"
     [class.hand-drop-before]="handClass('before')"
     [class.hand-drop-after]="handClass('after')"
     [class.hand-arrival-before]="handArrivalSide() === 'before'"
     [class.hand-arrival-after]="handArrivalSide() === 'after'"
+    [class.hand-arrival-new]="handArrivalSide() === 'new'"
+    [class.hand-row-layout]="handLayout() === 'row'"
+    [class.focus-entry-left]="battlefieldFocusEntry() === 'left'"
+    [class.focus-entry-right]="battlefieldFocusEntry() === 'right'"
+    [class.focus-entry-fade]="battlefieldFocusEntry() === 'fade'"
     [disabled]="disabled()"
     [style.visibility]="visible() ? null : 'hidden'"
     [style.left.px]="position()?.x"
@@ -64,6 +79,12 @@
     [style.--hand-index]="handIndex()"
     [style.--hand-count]="handCount()"
     [style.--hand-depth]="handDepth()"
+    [style.--hand-fan-rotation]="handFanRotationDeg() + 'deg'"
+    [style.--hand-fan-counter-rotation]="handFanCounterRotationDeg() + 'deg'"
+    [style.--hand-fan-lift]="handFanLiftPx() + 'px'"
+    [style.--hand-fan-splay]="handFanSplayPx() + 'px'"
+    [style.--hand-fan-arc]="handFanArcPx() + 'px'"
+    [style.--hand-row-distance]="handRowDistance()"
     (pointerdown)="onPointerDown($event)"
     (click)="cardClicked.emit({ event: $event, card: currentCard })"
     (dblclick)="onDoubleClick($event)"
@@ -77,7 +98,7 @@
   >
     <span class="card-visual">
       <app-card-marker-rail
-        [isToken]="currentCard.isToken === true"
+        [showTokenCopyMarker]="currentCard.isTokenCopy === true"
         [counters]="visibleCounters()"
         (counterChanged)="changeCounter($event)"
         (counterDeleteRequested)="requestCounterDelete($event)"

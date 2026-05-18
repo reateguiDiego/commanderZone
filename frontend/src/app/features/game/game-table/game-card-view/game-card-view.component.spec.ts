@@ -1,5 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { GameCardInstance } from '../../../../core/models/game.model';
+import { CARD_PREVIEW_HOVER_DELAY_MS } from '../card-preview.model';
 import { GameCardViewComponent } from './game-card-view.component';
 
 describe('GameCardViewComponent', () => {
@@ -13,7 +14,7 @@ describe('GameCardViewComponent', () => {
 
     cardElement.dispatchEvent(new MouseEvent('mouseenter'));
     fixture.detectChanges();
-    vi.advanceTimersByTime(99);
+    vi.advanceTimersByTime(CARD_PREVIEW_HOVER_DELAY_MS - 1);
     fixture.detectChanges();
 
     expect(cardElement.classList.contains('hover-lifted')).toBe(false);
@@ -44,7 +45,7 @@ describe('GameCardViewComponent', () => {
     fixture.componentInstance.cardMouseEntered.subscribe(previewShown);
 
     cardElement.dispatchEvent(new MouseEvent('mouseenter'));
-    vi.advanceTimersByTime(100);
+    vi.advanceTimersByTime(CARD_PREVIEW_HOVER_DELAY_MS);
     fixture.detectChanges();
 
     expect(previewShown).not.toHaveBeenCalled();
@@ -52,7 +53,7 @@ describe('GameCardViewComponent', () => {
 
     fixture.componentRef.setInput('hoverInteractionsEnabled', true);
     fixture.detectChanges();
-    vi.advanceTimersByTime(99);
+    vi.advanceTimersByTime(CARD_PREVIEW_HOVER_DELAY_MS - 1);
     fixture.detectChanges();
 
     expect(previewShown).toHaveBeenCalledOnce();
@@ -62,6 +63,107 @@ describe('GameCardViewComponent', () => {
     fixture.detectChanges();
 
     expect(cardElement.classList.contains('hover-lifted')).toBe(true);
+  });
+
+  it('sets fan layout variables for hand cards', async () => {
+    const { fixture, cardElement } = await renderHandCard();
+
+    fixture.componentRef.setInput('handIndex', 0);
+    fixture.componentRef.setInput('handCount', 7);
+    fixture.detectChanges();
+
+    expect(Number.parseFloat(cardElement.style.getPropertyValue('--hand-fan-rotation'))).toBeLessThan(0);
+    expect(cardElement.style.getPropertyValue('--hand-fan-lift')).toBe('0px');
+    expect(Number.parseFloat(cardElement.style.getPropertyValue('--hand-fan-splay'))).toBeLessThan(0);
+    expect(Number.parseFloat(cardElement.style.getPropertyValue('--hand-fan-arc'))).toBeGreaterThan(0);
+    expect(cardElement.style.getPropertyValue('--hand-depth')).toBe('0');
+    expect(Number.parseFloat(cardElement.style.getPropertyValue('--hand-fan-counter-rotation'))).toBeGreaterThan(0);
+    expect(cardElement.style.getPropertyValue('--hand-overlap-px')).toBe('');
+  });
+
+  it('uses a gentle hand fan rotation step between adjacent cards', async () => {
+    const { fixture, cardElement } = await renderHandCard();
+
+    fixture.componentRef.setInput('handIndex', 2);
+    fixture.componentRef.setInput('handCount', 7);
+    fixture.detectChanges();
+    const leftRotation = Number.parseFloat(cardElement.style.getPropertyValue('--hand-fan-rotation'));
+
+    fixture.componentRef.setInput('handIndex', 3);
+    fixture.detectChanges();
+    const middleRotation = Number.parseFloat(cardElement.style.getPropertyValue('--hand-fan-rotation'));
+
+    expect(Math.abs(middleRotation - leftRotation)).toBeLessThanOrEqual(1.5);
+  });
+
+  it('raises the middle hand card to the top of the fan', async () => {
+    const { fixture, cardElement } = await renderHandCard();
+
+    fixture.componentRef.setInput('handIndex', 3);
+    fixture.componentRef.setInput('handCount', 7);
+    fixture.detectChanges();
+
+    expect(Number.parseFloat(cardElement.style.getPropertyValue('--hand-fan-arc'))).toBeLessThan(0);
+  });
+
+  it('keeps the two middle cards highest for even hands', async () => {
+    const { fixture, cardElement } = await renderHandCard();
+
+    fixture.componentRef.setInput('handIndex', 2);
+    fixture.componentRef.setInput('handCount', 6);
+    fixture.detectChanges();
+    const leftMiddleArc = Number.parseFloat(cardElement.style.getPropertyValue('--hand-fan-arc'));
+
+    fixture.componentRef.setInput('handIndex', 3);
+    fixture.detectChanges();
+    const rightMiddleArc = Number.parseFloat(cardElement.style.getPropertyValue('--hand-fan-arc'));
+
+    expect(leftMiddleArc).toBe(rightMiddleArc);
+    expect(leftMiddleArc).toBeLessThan(0);
+  });
+
+  it('lowers both edges of the fan relative to the middle', async () => {
+    const { fixture, cardElement } = await renderHandCard();
+
+    fixture.componentRef.setInput('handIndex', 0);
+    fixture.componentRef.setInput('handCount', 7);
+    fixture.detectChanges();
+    const leftEdgeArc = Number.parseFloat(cardElement.style.getPropertyValue('--hand-fan-arc'));
+
+    fixture.componentRef.setInput('handIndex', 3);
+    fixture.detectChanges();
+    const middleArc = Number.parseFloat(cardElement.style.getPropertyValue('--hand-fan-arc'));
+
+    fixture.componentRef.setInput('handIndex', 6);
+    fixture.detectChanges();
+    const rightEdgeArc = Number.parseFloat(cardElement.style.getPropertyValue('--hand-fan-arc'));
+
+    expect(leftEdgeArc).toBeGreaterThan(middleArc);
+    expect(rightEdgeArc).toBeGreaterThan(middleArc);
+  });
+
+  it('uses straight row variables while hand ordering is active', async () => {
+    const { fixture, cardElement } = await renderHandCard();
+
+    fixture.componentRef.setInput('handIndex', 0);
+    fixture.componentRef.setInput('handCount', 7);
+    fixture.componentRef.setInput('handLayout', 'row');
+    fixture.detectChanges();
+
+    expect(cardElement.classList).toContain('hand-row-layout');
+    expect(Number.parseFloat(cardElement.style.getPropertyValue('--hand-row-distance'))).toBeLessThan(0);
+  });
+
+  it('applies battlefield focus entry classes by entry mode', async () => {
+    const { fixture, cardElement } = await renderHandCard();
+
+    fixture.componentRef.setInput('mode', 'battlefield');
+    fixture.componentRef.setInput('zone', 'battlefield');
+    fixture.componentRef.setInput('battlefieldFocusEntry', 'fade');
+    fixture.detectChanges();
+
+    expect(cardElement.classList).toContain('focus-entry-fade');
+    expect(cardElement.classList).not.toContain('focus-entry-left');
   });
 
   it('emits pointerdown so containers can start their card drag flow', async () => {
@@ -175,12 +277,69 @@ describe('GameCardViewComponent', () => {
   it('marks token copies with a readable badge', async () => {
     const { fixture } = await renderHandCard();
 
-    fixture.componentRef.setInput('card', { ...gameCard(), isToken: true });
+    fixture.componentRef.setInput('card', { ...gameCard(), isToken: true, isTokenCopy: true });
     fixture.detectChanges();
 
     const badge = fixture.nativeElement.querySelector('.token-copy-marker') as HTMLElement | null;
     expect(badge).not.toBeNull();
     expect(badge?.getAttribute('title')).toBe('Esta carta es un token copy');
+  });
+
+  it('does not mark regular tokens as token copies', async () => {
+    const { fixture } = await renderHandCard();
+
+    fixture.componentRef.setInput('card', { ...gameCard(), isToken: true, isTokenCopy: false });
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.token-copy-marker')).toBeNull();
+  });
+
+  it('plays a face flip animation when the active face changes on the same card', async () => {
+    vi.useFakeTimers();
+    const { fixture, cardElement } = await renderHandCard();
+
+    fixture.componentRef.setInput('card', { ...gameCard(), activeFaceIndex: 1 });
+    fixture.detectChanges();
+
+    expect(cardElement.classList).toContain('face-flipping');
+
+    vi.advanceTimersByTime(620);
+    fixture.detectChanges();
+
+    expect(cardElement.classList).not.toContain('face-flipping');
+  });
+
+  it('plays the face flip animation on stable battlefield cards', async () => {
+    vi.useFakeTimers();
+    const { fixture, cardElement } = await renderHandCard();
+
+    fixture.componentRef.setInput('mode', 'battlefield');
+    fixture.componentRef.setInput('zone', 'battlefield');
+    fixture.detectChanges();
+
+    fixture.componentRef.setInput('card', { ...gameCard(), activeFaceIndex: 1 });
+    fixture.detectChanges();
+
+    expect(cardElement.classList).toContain('face-flipping');
+
+    vi.advanceTimersByTime(620);
+    fixture.detectChanges();
+
+    expect(cardElement.classList).not.toContain('face-flipping');
+  });
+
+  it('does not combine the face flip animation with battlefield focus entry', async () => {
+    const { fixture, cardElement } = await renderHandCard();
+
+    fixture.componentRef.setInput('mode', 'battlefield');
+    fixture.componentRef.setInput('zone', 'battlefield');
+    fixture.componentRef.setInput('battlefieldFocusEntry', 'left');
+    fixture.detectChanges();
+
+    fixture.componentRef.setInput('card', { ...gameCard(), activeFaceIndex: 1 });
+    fixture.detectChanges();
+
+    expect(cardElement.classList).not.toContain('face-flipping');
   });
 
   it('emits card counter changes from marker rail interactions', async () => {

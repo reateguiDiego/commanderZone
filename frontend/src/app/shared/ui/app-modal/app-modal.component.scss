@@ -5,7 +5,7 @@
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 1100;
+  z-index: 12000;
   display: grid;
   place-items: center;
   padding: 1rem;
@@ -14,6 +14,7 @@
 }
 
 .modal-panel {
+  position: relative;
   display: grid;
   gap: 1rem;
   width: min(38rem, 100%);
@@ -26,9 +27,56 @@
   box-shadow: var(--shadow);
 }
 
+.modal-close-button {
+  position: absolute;
+  top: 0.85rem;
+  right: 0.85rem;
+  z-index: 1;
+  display: inline-grid;
+  place-items: center;
+  width: 2.15rem;
+  height: 2.15rem;
+  padding: 0;
+  border: 1px solid rgb(215 180 106 / 32%);
+  border-radius: 999px;
+  color: var(--text);
+  background: rgb(8 10 8 / 74%);
+  cursor: pointer;
+  line-height: 0;
+}
+
+.modal-close-button:hover {
+  border-color: rgb(235 200 120 / 68%);
+  background: rgb(28 32 25 / 92%);
+}
+
+.modal-panel-compact {
+  gap: 0.8rem;
+  width: min(31rem, 100%);
+  padding: 1.1rem;
+  border-color: rgb(215 180 106 / 48%);
+  border-radius: 14px;
+  background:
+    radial-gradient(circle at 12% 0%, rgb(215 180 106 / 12%), transparent 16rem),
+    linear-gradient(145deg, rgb(22 27 20 / 98%), rgb(8 10 8 / 98%));
+  box-shadow:
+    0 1.4rem 3rem rgb(0 0 0 / 52%),
+    0 0 0 1px rgb(255 255 255 / 4%) inset;
+}
+
+.modal-panel-wide {
+  width: min(68rem, 100%);
+}
+
 .modal-panel header {
   display: grid;
   gap: 0.35rem;
+}
+
+.modal-header-image {
+  width: min(10rem, 52vw);
+  max-height: 3.2rem;
+  object-fit: contain;
 }
 
 .modal-title-row {
@@ -39,6 +87,11 @@
 
 .modal-title-row h2 {
   margin: 0;
+}
+
+.modal-panel-compact .modal-title-row h2 {
+  font-size: clamp(1.55rem, 4.8vw, 2.15rem);
+  line-height: 0.95;
 }
 
 .modal-back-button {
@@ -83,9 +136,19 @@
   color: var(--muted);
 }
 
+.modal-panel-compact header p {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.35;
+}
+
 .modal-body {
   display: grid;
   gap: 0.8rem;
+}
+
+.modal-panel-compact .modal-body {
+  gap: 0.65rem;
 }
 
 .modal-panel footer {
@@ -100,6 +163,32 @@
 
 .modal-panel footer.split-actions .secondary-button:first-child {
   margin-right: auto;
+}
+
+.modal-panel-compact footer {
+  align-items: center;
+  padding-top: 0.25rem;
+}
+
+.modal-panel-compact footer .primary-button,
+.modal-panel-compact footer .secondary-button {
+  min-height: 2.35rem;
+  border-radius: 10px;
+  padding: 0.5rem 0.85rem;
+  font-weight: 850;
+}
+
+.modal-panel-compact footer .primary-button {
+  color: #171209;
+  background:
+    linear-gradient(180deg, #efcf81, #bd8732);
+  border-color: rgb(243 210 130 / 76%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 30%);
+}
+
+.modal-panel-compact footer .secondary-button {
+  background: rgb(19 23 18 / 86%);
+  border-color: rgb(215 180 106 / 28%);
 }
 
 .danger-action {

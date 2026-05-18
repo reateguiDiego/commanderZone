@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, input, output } from '@an
 import { RouterLink } from '@angular/router';
 import { LucideAngularModule } from 'lucide-angular';
 import { DeckFormat } from '../../../../../core/models/deck.model';
-import { CurrentRoomPlayerSummary, CurrentRoomSummary, CurrentRoomTurn } from '../../../../../core/models/room.model';
+import { CurrentRoomPlayerSummary, CurrentRoomSummary, CurrentRoomTurn, CurrentRoomViewerRole } from '../../../../../core/models/room.model';
 
 @Component({
   selector: 'app-room-current-banner',
@@ -15,6 +15,7 @@ export class RoomCurrentBannerComponent {
   readonly room = input.required<CurrentRoomSummary>();
   readonly currentPlayer = input<CurrentRoomPlayerSummary | null>(null);
   readonly turn = input<CurrentRoomTurn | null>(null);
+  readonly viewerRole = input<CurrentRoomViewerRole | null>(null);
   readonly formats = input<readonly DeckFormat[]>([]);
   readonly leavingRoomId = input<string | null>(null);
 
@@ -22,6 +23,7 @@ export class RoomCurrentBannerComponent {
 
   readonly playerDeckName = computed(() => this.currentPlayer()?.deckName ?? 'No deck selected');
   readonly deckImageUrl = computed(() => this.currentPlayer()?.deckImageUrl ?? null);
+  readonly canLeave = computed(() => this.viewerRole() !== 'owner');
   readonly formatName = computed(() => this.formatLabel(this.room().format));
   readonly playerCountLabel = computed(() => `${this.room().playerCount} / ${this.roomCapacity(this.room())}`);
   readonly primaryActionRoute = computed(() => {

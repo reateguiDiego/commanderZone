@@ -1,15 +1,19 @@
-import { AfterViewChecked, ChangeDetectionStrategy, Component, ElementRef, HostListener, OnDestroy, QueryList, ViewChild, ViewChildren, computed, inject, signal } from '@angular/core';
+import { AfterViewChecked, ChangeDetectionStrategy, Component, ElementRef, HostListener, OnDestroy, QueryList, ViewChild, ViewChildren, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { LucideAngularModule } from 'lucide-angular';
+import { firstValueFrom } from 'rxjs';
 import { AppModalComponent } from '../../../shared/ui/app-modal/app-modal.component';
 import { PrettyScrollDirective } from '../../../shared/ui/pretty-scroll/pretty-scroll.directive';
-import { GameCardInstance, GameZoneName } from '../../../core/models/game.model';
+import { Card } from '../../../core/models/card.model';
+import { GameCardInstance, GameRematchVote, GameZoneName } from '../../../core/models/game.model';
+import { GamesApi } from '../../../core/api/games.api';
 import { GameTableCardActionsService } from './services/game-table-card-actions.service';
 import { GameTableCardStatsService } from './services/game-table-card-stats.service';
 import { GameTableBattlefieldDragCoordinatorService } from './services/game-table-battlefield-drag-coordinator.service';
 import { GameTableCommandService } from './services/game-table-command.service';
 import { GameTableDragService } from './services/game-table-drag.service';
-import { GameTableDropActionsService } from './services/game-table-drop-actions.service';
+import { GameTableDropActionsService, type PendingLibraryMove } from './services/game-table-drop-actions.service';
 import { GameTableInteractionActionsService } from './services/game-table-interaction-actions.service';
 import { GameTableLibraryActionsService } from './services/game-table-library-actions.service';
 import { GameTablePointerDragActionsService } from './services/game-table-pointer-drag-actions.service';
@@ -27,6 +31,7 @@ import { GameTableSnapshotSelectors } from './state/game-table-snapshot-selector
 import { GameContextMenu, GameTableUiState } from './state/game-table-ui.state';
 import { GameTableZoneModalState } from './state/game-table-zone-modal.state';
 import { GameTableStore, PlayerView } from './game-table.store';
+import { playerIsActiveForTurn, playerIsDefeated } from './game-player-defeat';
 import { GameLogPanelComponent } from './game-log-panel/game-log-panel.component';
 import { ZonePilesPanelComponent } from './zone-piles-panel/zone-piles-panel.component';
 import { OpponentMiniBoardComponent } from './opponent-mini-board/opponent-mini-board.component';
@@ -42,6 +47,12 @@ import { CardPreviewOverlayComponent } from './card-preview-overlay/card-preview
 import { CardMarkerRailComponent } from './game-card-view/card-marker-rail/card-marker-rail.component';
 import { LoyaltyCounterComponent } from './game-card-view/loyalty-counter/loyalty-counter.component';
 import { PowerToughnessDialogComponent, PowerToughnessDialogValueChange } from './power-toughness-dialog/power-toughness-dialog.component';
+import { GameArrowLayerComponent } from './game-arrow-layer/game-arrow-layer.component';
+import { ArrowTargetDialogComponent, ArrowTargetDialogValue } from './arrow-target-dialog/arrow-target-dialog.component';
+import { GameRematchModalComponent, RematchPlayerVoteView } from './game-rematch-modal/game-rematch-modal.component';
+import { TokenSearchModalComponent } from './token-search-modal/token-search-modal.component';
+import { RollModalComponent } from '../../../core/ui/roll-modal/roll-modal.component';
+import { type RollResult } from '../../../core/ui/roll-modal/roll';
 
 interface DrawNumberActionRequest {
   readonly kind: 'draw';
@@ -58,6 +69,8 @@ interface MoveTopNumberActionRequest {
   readonly kind: 'moveTop';
   readonly playerId: string;
   readonly toZone: GameZoneName;
+  readonly targetPlayerId?: string;
+  readonly position?: 'top' | 'bottom';
   readonly title: string;
   readonly description: string;
   readonly defaultValue: number;
@@ -66,12 +79,50 @@ interface MoveTopNumberActionRequest {
   readonly confirmLabel: string;
 }
 
-type NumberActionRequest = DrawNumberActionRequest | MoveTopNumberActionRequest;
+interface ViewTopNumberActionRequest {
+  readonly kind: 'viewTop';
+  readonly playerId: string;
+  readonly title: string;
+  readonly description: string;
+  readonly defaultValue: number;
+  readonly min: number;
+  readonly max?: number;
+  readonly confirmLabel: string;
+}
+
+type NumberActionRequest = DrawNumberActionRequest | MoveTopNumberActionRequest | ViewTopNumberActionRequest;
+type RematchCountdownMode = 'initial' | 'courtesy';
+type TableExitAction = 'concede' | 'leave';
+
+interface ZoneMoveAllLibraryRequest {
+  readonly playerId: string;
+  readonly fromZone: GameZoneName;
+  readonly count: number;
+}
+
+interface HandCardGiveRequest {
+  readonly menu: GameContextMenu;
+  readonly targetPlayerId: string;
+  readonly targetPlayerName: string;
+  readonly cardName: string;
+}
+
+interface LibraryCardMoveToHandRequest {
+  readonly menu: GameContextMenu;
+  readonly cardName: string;
+}
 
 interface PowerToughnessActionRequest {
   readonly menu: GameContextMenu;
   readonly power: string;
   readonly toughness: string;
+}
+
+interface ArrowTargetDialogRequest {
+  readonly sourceMenu: GameContextMenu;
+  readonly selectedPlayerId: string;
+  readonly multipleTargets: boolean;
+  readonly targetCount: number;
 }
 
 interface BattlefieldLayoutSize {
@@ -84,20 +135,6 @@ interface BattlefieldLayoutRect extends BattlefieldLayoutSize {
   readonly top: number;
   readonly right: number;
   readonly bottom: number;
-}
-
-interface CrossTableArrowView {
-  readonly id: string;
-  readonly x1: number;
-  readonly y1: number;
-  readonly x2: number;
-  readonly y2: number;
-  readonly color: string;
-}
-
-interface CrossTableArrowViewport {
-  readonly width: number;
-  readonly height: number;
 }
 
 @Component({
@@ -122,6 +159,11 @@ interface CrossTableArrowViewport {
     CardMarkerRailComponent,
     LoyaltyCounterComponent,
     PowerToughnessDialogComponent,
+    GameArrowLayerComponent,
+    ArrowTargetDialogComponent,
+    GameRematchModalComponent,
+    TokenSearchModalComponent,
+    RollModalComponent,
   ],
   providers: [
     GameTableStore,
@@ -154,6 +196,8 @@ interface CrossTableArrowViewport {
 })
 export class GameTableComponent implements AfterViewChecked, OnDestroy {
   readonly store = inject(GameTableStore);
+  private readonly gamesApi = inject(GamesApi);
+  private readonly router = inject(Router);
   readonly counterPresets = ['-1/-1', '+1/+1', 'red', 'green', 'blue', 'black', 'yellow'];
   readonly moveZones: GameZoneName[] = ['battlefield', 'graveyard', 'exile', 'hand', 'command', 'library'];
   readonly colorAccent = (player: PlayerView | null): string => this.store.colorAccent(player);
@@ -166,11 +210,26 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
   readonly zonePreviewCard = (player: PlayerView, zone: GameZoneName): GameCardInstance | null => this.store.zonePreviewCard(player, zone);
   readonly zonePreviewImage = (player: PlayerView, zone: GameZoneName): string | null => this.store.zonePreviewImage(player, zone);
   readonly commanderCastCount = (player: PlayerView): number => this.store.commanderCastCount(player);
+  readonly playerCounterValue = (player: PlayerView, key: string): number => this.store.playerCounterValue(player.id, key);
   readonly deckLabel = (player: PlayerView | null): string => this.store.deckLabel(player);
   readonly gameBackgroundImage = (player: PlayerView | null): string => this.store.gameBackgroundImage(player);
   readonly manaSymbols = (player: PlayerView | null): string[] => this.store.manaSymbols(player);
   readonly cardPosition = (card: GameCardInstance): { x: number; y: number } | null => this.store.cardPosition(card);
   readonly cardImage = (card: GameCardInstance): string | null => this.store.cardImage(card);
+  readonly handCardImage = (card: GameCardInstance): string | null => {
+    const handPlayer = this.store.handPlayer();
+    const currentPlayer = this.store.currentPlayer();
+
+    return handPlayer && currentPlayer && handPlayer.id !== currentPlayer.id && (card.hidden ?? false)
+      ? this.store.cardBackImage(handPlayer)
+      : this.store.cardImage(card);
+  };
+  readonly isHandPlayerReadOnly = computed(() => {
+    const handPlayer = this.store.handPlayer();
+    const currentPlayer = this.store.currentPlayer();
+
+    return Boolean(handPlayer && currentPlayer && handPlayer.id !== currentPlayer.id);
+  });
   readonly isPlayerDropHighlighted = (playerId: string): boolean => this.store.isPlayerDropHighlighted(playerId);
   readonly isPhasePast = (phase: string): boolean => this.store.isPhasePast(phase);
   readonly isCurrentPlayer = (playerId: string): boolean => this.store.isCurrentPlayer(playerId);
@@ -189,12 +248,13 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
   readonly isZoneDropSettling = (playerId: string, zone: GameZoneName): boolean => this.store.isZoneDropSettling(playerId, zone);
   readonly isCardTransferPending = (playerId: string, zone: GameZoneName, card: GameCardInstance): boolean =>
     this.store.isCardTransferPending(playerId, zone, card);
+  readonly ownedArrowCount = (playerId: string): number => this.store.ownedArrowCount(playerId);
   readonly isZoneTransferPending = (playerId: string, zone: GameZoneName): boolean => this.store.isZoneTransferPending(playerId, zone);
   readonly canDragBattlefieldCard = (playerId: string, card: GameCardInstance): boolean => this.store.canDragBattlefieldCard(playerId, card);
   readonly isPendingBattlefieldTransfer = (card: GameCardInstance): boolean => this.store.isPendingBattlefieldTransfer(card);
   readonly shouldShowPowerToughness = (card: GameCardInstance): boolean => this.store.shouldShowPowerToughness(card);
-  readonly cardPowerValue = (card: GameCardInstance): number => this.store.cardPowerValue(card);
-  readonly cardToughnessValue = (card: GameCardInstance): number => this.store.cardToughnessValue(card);
+  readonly cardPowerValue = (card: GameCardInstance): number | null => this.store.cardPowerValue(card);
+  readonly cardToughnessValue = (card: GameCardInstance): number | null => this.store.cardToughnessValue(card);
   readonly firstCounter = (card: GameCardInstance): { key: string; value: number } | null => this.store.firstCounter(card);
   readonly cardCounters = (card: GameCardInstance): readonly { key: string; value: number }[] =>
     Object.entries(card.counters ?? {})
@@ -204,9 +264,32 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
     this.store.alignmentGuideFor(playerId);
   readonly isManaLaneHighlighted = (playerId: string): boolean => this.store.isManaLaneHighlighted(playerId);
   readonly canControlPlayer = (playerId: string): boolean => this.store.canControlPlayer(playerId);
-  readonly canUseHiddenZone = (playerId: string, zone: GameZoneName): boolean => this.store.canUseHiddenZone(playerId, zone);
   readonly numberActionDialog = signal<NumberActionRequest | null>(null);
   readonly powerToughnessDialog = signal<PowerToughnessActionRequest | null>(null);
+  readonly arrowTargetDialog = signal<ArrowTargetDialogRequest | null>(null);
+  readonly libraryMoveRandomOrder = signal(false);
+  readonly zoneMoveAllLibraryDialog = signal<ZoneMoveAllLibraryRequest | null>(null);
+  readonly zoneMoveAllLibraryRandomOrder = signal(false);
+  readonly handCardGiveDialog = signal<HandCardGiveRequest | null>(null);
+  readonly libraryCardMoveToHandDialog = signal<LibraryCardMoveToHandRequest | null>(null);
+  readonly followActiveTurnPlayer = signal(false);
+  readonly rematchModalOpen = signal(false);
+  readonly rematchPending = signal(false);
+  readonly rematchToast = signal<string | null>(null);
+  readonly rematchCountdownSeconds = signal<number | null>(null);
+  readonly rematchCountdownMode = signal<RematchCountdownMode | null>(null);
+  readonly tableExitAction = signal<TableExitAction | null>(null);
+  readonly tokenSearchPlayerId = signal<string | null>(null);
+  readonly tokenSearchPending = signal(false);
+  readonly rollModalOpen = signal(false);
+  readonly tableExitTitle = computed(() => this.tableExitAction() === 'leave' ? 'Leave table?' : 'Concede game?');
+  readonly tableExitMessage = computed(() => this.tableExitAction() === 'leave'
+    ? 'You will concede this game and leave the room. This cannot be undone.'
+    : 'You will lose this game immediately. This cannot be undone.');
+  readonly tableExitPrimaryLabel = computed(() => this.tableExitAction() === 'leave' ? 'Leave table' : 'Concede');
+  private readonly leavingTable = signal(false);
+  private readonly tableExitPending = computed(() => this.tableExitAction() !== null || this.leavingTable());
+  readonly focusEffectsEnabled = computed(() => this.arrowTargetDialog() === null && this.store.pendingArrowSource() === null);
   readonly battlefieldLayoutSize = signal<BattlefieldLayoutRect>({ width: 900, height: 520, left: 0, top: 0, right: 900, bottom: 520 });
   readonly closeGameDialogOpen = signal(false);
   readonly isPowerToughnessDialogInvalid = computed(() => {
@@ -216,20 +299,148 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
   });
   readonly latestLogEntry = computed(() => this.store.eventLog().at(-1) ?? null);
   readonly latestChatMessage = computed(() => this.store.snapshot()?.chat.at(-1) ?? null);
-  readonly tableBackgroundImage = computed(() => `url("${this.store.gameBackgroundImage(this.store.currentPlayer())}")`);
-  readonly crossTableArrows = signal<readonly CrossTableArrowView[]>([]);
-  readonly crossTableArrowViewport = signal<CrossTableArrowViewport>({ width: 1, height: 1 });
+  readonly tableToast = computed(() => this.store.tableToast() ?? this.rematchToast());
+  readonly tableBackgroundImage = computed(() => `url("${this.store.gameBackgroundImage(this.store.focusedPlayer() ?? this.store.currentPlayer())}")`);
+  readonly alivePlayers = computed(() => this.store.players().filter((player) => playerIsActiveForTurn(player)));
+  readonly rematchVoteCountdownEnabled = computed(() => this.alivePlayers().length <= 1);
+  readonly currentRematchVote = computed<GameRematchVote | null>(() => {
+    const currentPlayerId = this.store.currentPlayer()?.id;
+
+    return currentPlayerId ? this.store.snapshot()?.rematch?.votes[currentPlayerId]?.vote ?? null : null;
+  });
+  readonly rematchPromptKind = computed<'defeated' | 'winner' | null>(() => {
+    const currentPlayer = this.store.currentPlayer();
+    if (!currentPlayer) {
+      return null;
+    }
+    if (playerIsDefeated(currentPlayer)) {
+      return 'defeated';
+    }
+
+    const alivePlayers = this.alivePlayers();
+    return alivePlayers.length === 1 && alivePlayers[0]?.id === currentPlayer.id ? 'winner' : null;
+  });
+  readonly rematchPromptKey = computed(() => {
+    const kind = this.rematchPromptKind();
+    const currentPlayerId = this.store.currentPlayer()?.id ?? '';
+
+    return kind && currentPlayerId ? `${currentPlayerId}:${kind}` : '';
+  });
+  readonly isCurrentPlayerWinner = computed(() => this.rematchPromptKind() === 'winner');
+  readonly shouldShowRematchVotesButton = computed(() => this.rematchPromptKind() !== null && !this.rematchModalOpen() && !this.tableExitPending());
+  readonly rematchVotePlayers = computed<readonly RematchPlayerVoteView[]>(() => {
+    const votes = this.store.snapshot()?.rematch?.votes ?? {};
+
+    return this.store.players().map((player) => ({
+      playerId: player.id,
+      displayName: player.state.user.displayName || player.state.user.email || player.id,
+      life: player.state.life,
+      defeated: playerIsDefeated(player),
+      vote: votes[player.id]?.vote ?? null,
+    }));
+  });
+  readonly rematchMissingVotePlayers = computed(() => this.rematchVotePlayers().filter((player) => player.vote === null));
+  readonly rematchMissingVotePlayerNames = computed(() => this.rematchMissingVotePlayers().map((player) => player.displayName));
+  readonly currentPlayerNeedsRematchVote = computed(() => {
+    const currentPlayerId = this.store.currentPlayer()?.id ?? null;
+
+    return currentPlayerId !== null
+      && this.currentRematchVote() === null
+      && this.rematchVotePlayers().some((player) => player.playerId === currentPlayerId);
+  });
+  readonly playAgainDisabledByOtherVotes = computed(() => {
+    const currentPlayerId = this.store.currentPlayer()?.id ?? null;
+    const otherPlayers = this.rematchVotePlayers().filter((player) => player.playerId !== currentPlayerId);
+    if (otherPlayers.length === 0) {
+      return false;
+    }
+
+    return otherPlayers.every((player) => player.vote === 'leave');
+  });
+  readonly opponentTargetingPills = computed(() => this.store.opponentTargetingPills());
+  readonly opponentCardsTargetCards = computed(() => this.store.opponentCardsTargetCards());
+  readonly arrowTargetPlayers = computed(() => {
+    const currentPlayerId = this.store.currentPlayer()?.id;
+    const players = this.store.players();
+    if (!currentPlayerId) {
+      return players;
+    }
+
+    return [
+      ...players.filter((player) => player.id === currentPlayerId),
+      ...players.filter((player) => player.id !== currentPlayerId),
+    ];
+  });
+  readonly arrowTargetPlayerLabel = (player: PlayerView): string => {
+    const deck = this.deckLabel(player);
+    const name = player.state.user.displayName || player.state.user.email || player.id;
+
+    return deck ? `${deck} - ${name}` : name;
+  };
   private lastAutoScrollKey = '';
-  private lastCrossTableArrowKey = '';
-  private lastCrossTableArrowSourceKey = '';
   private floatingScrollFrame: number | null = null;
   private floatingScrollTimer: number | null = null;
   private battlefieldReflowFrame: number | null = null;
-  private crossTableArrowFrame: number | null = null;
+  private rematchToastTimer: number | null = null;
+  private rematchCountdownTimer: number | null = null;
+  private rematchCountdownDeadlineMs: number | null = null;
+  private rematchCountdownKey = '';
+  private rematchAutoLeaveKey = '';
+  private lastAutoRematchPromptKey = '';
+  private lastFocusedTurnPlayerId: string | null = null;
 
   @ViewChild('gameScreen', { static: true }) private readonly gameScreen?: ElementRef<HTMLElement>;
   @ViewChild(GameLogPanelComponent) private readonly gameLogPanel?: GameLogPanelComponent;
   @ViewChildren('autoScrollFeed') private readonly autoScrollFeeds?: QueryList<ElementRef<HTMLElement>>;
+
+  constructor() {
+    effect(() => {
+      if (this.tableExitPending()) {
+        return;
+      }
+
+      const key = this.rematchPromptKey();
+      if (!key || key === this.lastAutoRematchPromptKey) {
+        return;
+      }
+      if (this.rematchPromptKind() === 'defeated' && this.alivePlayers().length > 1 && this.currentRematchVote() !== null) {
+        this.lastAutoRematchPromptKey = key;
+        return;
+      }
+
+      this.lastAutoRematchPromptKey = key;
+      queueMicrotask(() => {
+        if (this.rematchPromptKey() === key && !this.rematchModalOpen()) {
+          this.rematchModalOpen.set(true);
+        }
+      });
+    });
+
+    effect(() => {
+      if (this.tableExitPending()) {
+        queueMicrotask(() => this.clearRematchCountdown());
+        return;
+      }
+
+      const promptKey = this.rematchPromptKey();
+      const missingPlayers = this.rematchMissingVotePlayers();
+      const hasMissingVotes = missingPlayers.length > 0;
+      const countdownEnabled = this.rematchVoteCountdownEnabled();
+
+      queueMicrotask(() => this.syncRematchCountdown(promptKey, hasMissingVotes, countdownEnabled));
+    });
+
+    effect(() => {
+      const activePlayerId = this.store.snapshot()?.turn.activePlayerId ?? null;
+      const followEnabled = this.followActiveTurnPlayer();
+
+      queueMicrotask(() => {
+        if (followEnabled && this.followActiveTurnPlayer()) {
+          this.syncFollowActiveTurnPlayer(activePlayerId);
+        }
+      });
+    });
+  }
 
   ngAfterViewChecked(): void {
     const snapshot = this.store.snapshot();
@@ -237,11 +448,7 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
       return;
     }
 
-    const arrowSourceKey = `${snapshot.version}:${snapshot.arrows.map((arrow) => `${arrow.id}:${arrow.fromInstanceId}:${arrow.toInstanceId}:${arrow.color}`).join('|')}`;
-    if (arrowSourceKey !== this.lastCrossTableArrowSourceKey) {
-      this.lastCrossTableArrowSourceKey = arrowSourceKey;
-      this.queueCrossTableArrowUpdate();
-    }
+    this.syncFollowActiveTurnPlayer(snapshot.turn.activePlayerId);
 
     const log = this.store.eventLog();
     const latestChat = snapshot.chat.at(-1)?.createdAt ?? '';
@@ -260,7 +467,8 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
   ngOnDestroy(): void {
     this.clearQueuedFloatingContentScroll();
     this.clearQueuedBattlefieldReflow();
-    this.clearQueuedCrossTableArrowUpdate();
+    this.clearRematchToastTimer();
+    this.clearRematchCountdown();
   }
 
   scrollFloatingContentToBottom(): void {
@@ -313,13 +521,12 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
     }
 
     this.battlefieldLayoutSize.set(size);
-    this.queueCrossTableArrowUpdate();
+    this.store.setBattlefieldLayoutSize(size);
   }
 
   @HostListener('window:resize')
   handleViewportResize(): void {
     this.queueBattlefieldReflow();
-    this.queueCrossTableArrowUpdate();
   }
 
   @HostListener('document:keydown', ['$event'])
@@ -336,6 +543,7 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
         this.store.closeZoneModal();
         this.cancelNumberAction();
         this.cancelPowerToughnessDialog();
+        this.cancelArrowTargetDialog();
         this.closeGameDialogOpen.set(false);
         this.store.clearSelection();
         break;
@@ -349,6 +557,12 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
         if (current) {
           event.preventDefault();
           void this.store.shuffle(current.id);
+        }
+        break;
+      case 'u':
+        if (current) {
+          event.preventDefault();
+          void this.store.untapCurrentBattlefield();
         }
         break;
       case 't':
@@ -414,6 +628,12 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
     return menu.zone === 'library' && !menu.card;
   }
 
+  isHandContextMenuOpenForPlayer(playerId: string): boolean {
+    const menu = this.store.contextMenu();
+
+    return menu?.playerId === playerId && menu.zone === 'hand';
+  }
+
   private queueBattlefieldReflow(): void {
     if (this.battlefieldReflowFrame !== null) {
       return;
@@ -432,107 +652,6 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
 
     window.cancelAnimationFrame(this.battlefieldReflowFrame);
     this.battlefieldReflowFrame = null;
-  }
-
-  private queueCrossTableArrowUpdate(): void {
-    if (this.crossTableArrowFrame !== null) {
-      return;
-    }
-
-    this.crossTableArrowFrame = window.requestAnimationFrame(() => {
-      this.crossTableArrowFrame = null;
-      this.updateCrossTableArrows();
-    });
-  }
-
-  private clearQueuedCrossTableArrowUpdate(): void {
-    if (this.crossTableArrowFrame === null) {
-      return;
-    }
-
-    window.cancelAnimationFrame(this.crossTableArrowFrame);
-    this.crossTableArrowFrame = null;
-  }
-
-  private updateCrossTableArrows(): void {
-    const root = this.gameScreen?.nativeElement;
-    const snapshot = this.store.snapshot();
-    if (!root || !snapshot?.arrows.length) {
-      this.setCrossTableArrows([]);
-      return;
-    }
-
-    const rootRect = root.getBoundingClientRect();
-    this.crossTableArrowViewport.set({
-      width: Math.round(rootRect.width),
-      height: Math.round(rootRect.height),
-    });
-
-    const arrows = snapshot.arrows
-      .map((arrow): CrossTableArrowView | null => {
-        const source = this.visibleCardElement(arrow.fromInstanceId);
-        const target = this.visibleCardElement(arrow.toInstanceId);
-        if (!source || !target || !root.contains(source) || !root.contains(target) || this.sameFocusedBattlefield(source, target)) {
-          return null;
-        }
-
-        const sourceRect = source.getBoundingClientRect();
-        const targetRect = target.getBoundingClientRect();
-
-        return {
-          id: arrow.id,
-          x1: Math.round(sourceRect.left - rootRect.left + sourceRect.width / 2),
-          y1: Math.round(sourceRect.top - rootRect.top + sourceRect.height / 2),
-          x2: Math.round(targetRect.left - rootRect.left + targetRect.width / 2),
-          y2: Math.round(targetRect.top - rootRect.top + targetRect.height / 2),
-          color: this.arrowColor(arrow.color),
-        };
-      })
-      .filter((arrow): arrow is CrossTableArrowView => arrow !== null);
-    this.setCrossTableArrows(arrows);
-  }
-
-  private setCrossTableArrows(arrows: readonly CrossTableArrowView[]): void {
-    const key = arrows.map((arrow) => `${arrow.id}:${arrow.x1}:${arrow.y1}:${arrow.x2}:${arrow.y2}:${arrow.color}`).join('|');
-    if (key === this.lastCrossTableArrowKey) {
-      return;
-    }
-
-    this.lastCrossTableArrowKey = key;
-    this.crossTableArrows.set(arrows);
-  }
-
-  private visibleCardElement(instanceId: string): HTMLElement | null {
-    const escapedInstanceId = typeof CSS !== 'undefined' && typeof CSS.escape === 'function'
-      ? CSS.escape(instanceId)
-      : instanceId.replace(/["\\]/g, '\\$&');
-    const candidates = Array.from(document.querySelectorAll<HTMLElement>(`[data-card-instance-id="${escapedInstanceId}"]`));
-
-    return candidates.find((candidate) => {
-      const rect = candidate.getBoundingClientRect();
-      const style = window.getComputedStyle(candidate);
-
-      return rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden' && style.display !== 'none';
-    }) ?? null;
-  }
-
-  private sameFocusedBattlefield(source: HTMLElement, target: HTMLElement): boolean {
-    const sourceFocused = source.closest('app-focused-battlefield');
-    const targetFocused = target.closest('app-focused-battlefield');
-
-    return sourceFocused !== null && sourceFocused === targetFocused;
-  }
-
-  private arrowColor(color: string): string {
-    const colors: Record<string, string> = {
-      yellow: '#d7b46a',
-      red: '#ef4444',
-      green: '#22c55e',
-      blue: '#38bdf8',
-      black: '#d1d5db',
-    };
-
-    return colors[color] ?? colors['yellow'];
   }
 
   isZoneOnlyMenu(menu: GameContextMenu): boolean {
@@ -563,8 +682,8 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
         this.store.copyGameId();
         return;
       case 'refreshSnapshot':
-        void this.store.refetch(true);
         this.store.closeContextMenu();
+        window.location.reload();
         return;
       case 'focusCurrentPlayer':
         this.store.focusCurrentPlayer();
@@ -579,17 +698,17 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
         this.store.closeContextMenu();
         return;
       case 'leaveTable':
-        this.store.leaveTable();
+        this.requestTableExit('leave');
         return;
       case 'concedeGame':
-        void this.store.concedeGame();
+        this.requestTableExit('concede');
         return;
       case 'closeGame':
         this.openCloseGameDialog();
         this.store.closeContextMenu();
         return;
       case 'focusPlayer':
-        this.store.focusPlayer(menu.playerId);
+        this.focusPlayerBattlefield(menu.playerId);
         return;
       case 'openZone':
         this.store.closeContextMenu();
@@ -607,7 +726,10 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
         this.openDrawDialog(menu.playerId);
         return;
       case 'moveTop':
-        this.openMoveTopDialog(menu.playerId, action.zone);
+        this.openMoveTopDialog(menu.playerId, action.zone, {
+          targetPlayerId: action.targetPlayerId,
+          position: action.position,
+        });
         return;
       case 'shuffle':
         this.store.closeContextMenu();
@@ -615,11 +737,30 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
         return;
       case 'revealTop':
         this.store.closeContextMenu();
-        void this.store.revealTop(menu.playerId);
+        void this.store.revealTop(menu.playerId, action.target ?? 'all');
+        return;
+      case 'revealLibrary':
+        this.store.closeContextMenu();
+        void this.store.revealLibrary(menu.playerId, action.targetPlayerId);
+        return;
+      case 'playTopRevealed':
+        this.store.closeContextMenu();
+        void this.store.setPlayTopRevealed(menu.playerId, action.enabled);
+        return;
+      case 'openLibraryView':
+        if (action.mode === 'all') {
+          this.store.closeContextMenu();
+          void this.store.viewLibrary(menu.playerId);
+          return;
+        }
+        this.openViewTopLibraryDialog(menu.playerId);
         return;
       case 'moveAll':
+        this.moveAllFromZone(menu, action.zone, action.targetPlayerId);
+        return;
+      case 'selectRandomCard':
         this.store.closeContextMenu();
-        void this.store.command('zone.move_all', { playerId: menu.playerId, fromZone: menu.zone, toZone: action.zone });
+        void this.store.selectRandomZoneCard(menu.playerId, menu.zone);
         return;
       case 'tapCard':
         void this.store.tapCard(menu);
@@ -627,20 +768,35 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
       case 'faceDown':
         void this.store.faceDown(menu);
         return;
+      case 'playFaceDown':
+        void this.store.playFaceDown(menu);
+        return;
+      case 'flipCardFace':
+        void this.store.flipCardFace(menu);
+        return;
       case 'revealCard':
-        void this.store.revealCard(menu);
+        void this.store.revealCard(menu, action.target);
+        return;
+      case 'createToken':
+        this.openTokenSearchModal(menu.playerId);
+        return;
+      case 'rollDice':
+        this.openRollModal();
         return;
       case 'tokenCopy':
         void this.store.tokenCopy(menu);
         return;
       case 'drawArrow':
-        this.store.startArrowFrom(menu);
+        this.openArrowTargetDialog(menu);
         return;
       case 'addToStack':
         void this.store.addToStack(menu);
         return;
       case 'setPowerToughness':
         this.openPowerToughnessDialog(menu);
+        return;
+      case 'clearPowerToughness':
+        void this.store.clearPowerToughness(menu);
         return;
       case 'changeCounter':
         void this.store.setCardCounter(menu, action.counter, 0);
@@ -652,13 +808,24 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
         void this.store.deleteAllCardCounters(menu);
         return;
       case 'giveToPlayer':
+        if (menu.zone === 'hand') {
+          this.openHandCardGiveDialog(menu, action.targetPlayerId);
+          return;
+        }
         void this.store.giveCardToPlayer(menu, action.targetPlayerId);
         return;
       case 'moveCard':
-        this.store.moveCard(menu, action.zone);
+        if (menu.zone === 'library' && action.zone === 'hand' && menu.card) {
+          this.openLibraryCardMoveToHandDialog(menu);
+          return;
+        }
+        this.store.moveCard(menu, action.zone, { position: action.position });
         return;
       case 'deleteArrow':
         void this.store.deleteArrow(menu);
+        return;
+      case 'deleteArrows':
+        void this.store.deleteOwnedArrows(menu);
         return;
       case 'deleteCounter':
         void this.store.deleteCardCounter(menu);
@@ -685,7 +852,13 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
         void this.store.draw(request.playerId, value);
         return;
       case 'moveTop':
-        void this.store.moveTop(request.playerId, request.toZone, value);
+        void this.store.moveTop(request.playerId, request.toZone, value, {
+          targetPlayerId: request.targetPlayerId,
+          position: request.position,
+        });
+        return;
+      case 'viewTop':
+        void this.store.viewTopLibrary(request.playerId, value);
         return;
     }
   }
@@ -698,6 +871,57 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
 
   cancelNumberAction(): void {
     this.numberActionDialog.set(null);
+  }
+
+  updateZoneMoveAllLibraryRandomOrder(event: Event): void {
+    const input = event.target instanceof HTMLInputElement ? event.target : null;
+    this.zoneMoveAllLibraryRandomOrder.set(input?.checked ?? false);
+  }
+
+  confirmZoneMoveAllToLibrary(position: 'top' | 'bottom'): void {
+    const request = this.zoneMoveAllLibraryDialog();
+    if (!request) {
+      return;
+    }
+
+    const randomOrder = request.count > 1 && this.zoneMoveAllLibraryRandomOrder();
+    this.zoneMoveAllLibraryDialog.set(null);
+    this.zoneMoveAllLibraryRandomOrder.set(false);
+    void this.store.moveAllZoneCards(request.playerId, request.fromZone, 'library', { position, randomOrder });
+  }
+
+  cancelZoneMoveAllToLibrary(): void {
+    this.zoneMoveAllLibraryDialog.set(null);
+    this.zoneMoveAllLibraryRandomOrder.set(false);
+  }
+
+  confirmHandCardGive(): void {
+    const request = this.handCardGiveDialog();
+    this.handCardGiveDialog.set(null);
+    if (!request) {
+      return;
+    }
+
+    void this.store.giveHandCardToPlayer(request.menu, request.targetPlayerId);
+  }
+
+  confirmLibraryCardMoveToHand(reveal: boolean): void {
+    const request = this.libraryCardMoveToHandDialog();
+    this.libraryCardMoveToHandDialog.set(null);
+    if (!request) {
+      return;
+    }
+
+    void this.store.moveLibraryCardToHand(request.menu, reveal);
+  }
+
+  cancelLibraryCardMoveToHand(): void {
+    this.libraryCardMoveToHandDialog.set(null);
+    this.store.closeContextMenu();
+  }
+
+  cancelHandCardGive(): void {
+    this.handCardGiveDialog.set(null);
   }
 
   updatePowerToughnessValue(change: PowerToughnessDialogValueChange): void {
@@ -718,6 +942,38 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
     this.powerToughnessDialog.set(null);
   }
 
+  updateArrowTargetDialog(value: ArrowTargetDialogValue): void {
+    const request = this.arrowTargetDialog();
+    if (!request) {
+      return;
+    }
+
+    this.arrowTargetDialog.set({
+      ...request,
+      selectedPlayerId: value.playerId,
+      multipleTargets: value.multipleTargets,
+      targetCount: value.targetCount,
+    });
+    this.focusPlayerBattlefield(value.playerId);
+    window.requestAnimationFrame(() => this.focusPlayerBattlefield(value.playerId));
+  }
+
+  confirmArrowTargetDialog(value: ArrowTargetDialogValue): void {
+    const request = this.arrowTargetDialog();
+    if (!request) {
+      return;
+    }
+
+    this.arrowTargetDialog.set(null);
+    this.focusPlayerBattlefield(value.playerId);
+    window.requestAnimationFrame(() => this.focusPlayerBattlefield(value.playerId));
+    this.store.startArrowFrom(request.sourceMenu, value.targetCount);
+  }
+
+  cancelArrowTargetDialog(): void {
+    this.arrowTargetDialog.set(null);
+  }
+
   confirmCloseGame(): void {
     this.closeGameDialogOpen.set(false);
     void this.store.closeGame();
@@ -725,6 +981,133 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
 
   cancelCloseGame(): void {
     this.closeGameDialogOpen.set(false);
+  }
+
+  async confirmTableExitAction(): Promise<void> {
+    const action = this.tableExitAction();
+    this.tableExitAction.set(null);
+    if (action === 'concede') {
+      await this.store.concedeGame();
+      return;
+    }
+    if (action === 'leave') {
+      await this.leaveTableFromContextMenu();
+    }
+  }
+
+  cancelTableExitAction(): void {
+    this.tableExitAction.set(null);
+  }
+
+  async createSelectedToken(card: Card): Promise<void> {
+    const playerId = this.tokenSearchPlayerId();
+    if (!playerId || this.tokenSearchPending()) {
+      return;
+    }
+
+    this.tokenSearchPending.set(true);
+    try {
+      await this.store.createToken(playerId, card);
+      this.tokenSearchPlayerId.set(null);
+    } finally {
+      this.tokenSearchPending.set(false);
+    }
+  }
+
+  closeTokenSearchModal(): void {
+    if (this.tokenSearchPending()) {
+      return;
+    }
+
+    this.tokenSearchPlayerId.set(null);
+  }
+
+  openRollModal(): void {
+    this.store.closeContextMenu();
+    this.rollModalOpen.set(true);
+  }
+
+  closeRollModal(): void {
+    this.rollModalOpen.set(false);
+  }
+
+  async recordRollResult(result: RollResult): Promise<void> {
+    await this.store.recordDiceRoll({
+      kind: result.kind,
+      label: result.label,
+      finalResult: result.finalResult,
+    });
+  }
+
+  openRematchModal(): void {
+    this.rematchModalOpen.set(true);
+  }
+
+  closeRematchModal(): void {
+    this.rematchModalOpen.set(false);
+  }
+
+  async votePlayAgain(): Promise<void> {
+    await this.submitRematchVote('play_again');
+  }
+
+  async abandonRematchRoom(): Promise<void> {
+    await this.submitRematchVote('leave');
+  }
+
+  pendingLibraryMoveSupportsRandomOrder(pendingMove: PendingLibraryMove): boolean {
+    const instanceIds = pendingMove.payload['instanceIds'];
+
+    return pendingMove.commandType === 'cards.moved'
+      && pendingMove.payload['toZone'] === 'library'
+      && Array.isArray(instanceIds)
+      && instanceIds.length > 1;
+  }
+
+  pendingLibraryMoveMessage(pendingMove: PendingLibraryMove): string {
+    const instanceIds = pendingMove.payload['instanceIds'];
+    const isMultiMove = Array.isArray(instanceIds) && instanceIds.length > 1;
+
+    return isMultiMove
+      ? 'Donde quieres poner estas cartas?'
+      : 'Donde quieres poner esta carta?';
+  }
+
+  updateLibraryMoveRandomOrder(event: Event): void {
+    const input = event.target instanceof HTMLInputElement ? event.target : null;
+    this.libraryMoveRandomOrder.set(input?.checked ?? false);
+  }
+
+  confirmPendingLibraryMove(position: 'top' | 'bottom'): void {
+    const pendingMove = this.store.pendingLibraryMove();
+    const randomOrder = pendingMove
+      ? this.pendingLibraryMoveSupportsRandomOrder(pendingMove) && this.libraryMoveRandomOrder()
+      : false;
+
+    this.libraryMoveRandomOrder.set(false);
+    void this.store.confirmPendingLibraryMove(position, randomOrder);
+  }
+
+  cancelPendingLibraryMove(): void {
+    this.libraryMoveRandomOrder.set(false);
+    void this.store.cancelPendingLibraryMove();
+  }
+
+  focusPlayerBattlefield(playerId: string): void {
+    const focused = this.store.focusPlayer(playerId);
+    if (focused) {
+      this.queueBattlefieldReflow();
+    }
+  }
+
+  updateFollowActiveTurnPlayer(enabled: boolean): void {
+    this.followActiveTurnPlayer.set(enabled);
+    if (!enabled) {
+      this.lastFocusedTurnPlayerId = null;
+      return;
+    }
+
+    this.syncFollowActiveTurnPlayer(this.store.snapshot()?.turn.activePlayerId ?? null);
   }
 
   private openDrawDialog(playerId: string): void {
@@ -740,18 +1123,117 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
     });
   }
 
-  private openMoveTopDialog(playerId: string, toZone: GameZoneName): void {
+  private openLibraryCardMoveToHandDialog(menu: GameContextMenu): void {
+    if (!menu.card) {
+      return;
+    }
+
     this.store.closeContextMenu();
+    this.libraryCardMoveToHandDialog.set({
+      menu,
+      cardName: menu.card.name,
+    });
+  }
+
+  private requestTableExit(action: TableExitAction): void {
+    this.store.closeContextMenu();
+    this.rematchModalOpen.set(false);
+    this.tableExitAction.set(action);
+  }
+
+  private openTokenSearchModal(playerId: string): void {
+    this.store.closeContextMenu();
+    this.tokenSearchPlayerId.set(playerId);
+  }
+
+  private async leaveTableFromContextMenu(): Promise<void> {
+    this.store.closeContextMenu();
+    this.rematchModalOpen.set(false);
+    this.leavingTable.set(true);
+    try {
+      await this.store.leaveTable();
+    } catch (error) {
+      this.leavingTable.set(false);
+      throw error;
+    }
+  }
+
+  private openMoveTopDialog(
+    playerId: string,
+    toZone: GameZoneName,
+    options: { targetPlayerId?: string; position?: 'top' | 'bottom' } = {},
+  ): void {
+    this.store.closeContextMenu();
+    const destination = this.libraryMoveTopDestinationLabel(toZone, options.targetPlayerId, options.position);
     this.numberActionDialog.set({
       kind: 'moveTop',
       playerId,
       toZone,
+      targetPlayerId: options.targetPlayerId,
+      position: options.position,
       title: 'Move top cards',
-      description: `Choose how many top library cards to move to ${this.store.zoneTitle(toZone).toLowerCase()}.`,
+      description: `Choose how many top library cards to move to ${destination}.`,
       defaultValue: 1,
       min: 1,
       confirmLabel: 'Move',
     });
+  }
+
+  private openViewTopLibraryDialog(playerId: string): void {
+    this.store.closeContextMenu();
+    this.numberActionDialog.set({
+      kind: 'viewTop',
+      playerId,
+      title: 'View top cards',
+      description: 'Choose how many top library cards to view.',
+      defaultValue: 1,
+      min: 1,
+      confirmLabel: 'View',
+    });
+  }
+
+  private libraryMoveTopDestinationLabel(toZone: GameZoneName, targetPlayerId?: string, position?: 'top' | 'bottom'): string {
+    if (toZone === 'library' && position === 'bottom') {
+      return 'the bottom of your library';
+    }
+    if (targetPlayerId) {
+      return `${this.store.playerDisplayName(targetPlayerId)} ${this.store.zoneTitle(toZone).toLowerCase()}`;
+    }
+
+    return this.store.zoneTitle(toZone).toLowerCase();
+  }
+
+  private moveAllFromZone(menu: GameContextMenu, toZone: GameZoneName, targetPlayerId?: string): void {
+    this.store.closeContextMenu();
+    const count = this.store.zoneCardInstanceIds(menu.playerId, menu.zone).length;
+    if (count <= 0) {
+      return;
+    }
+
+    if (toZone === 'library') {
+      this.zoneMoveAllLibraryDialog.set({ playerId: menu.playerId, fromZone: menu.zone, count });
+      return;
+    }
+
+    void this.store.moveAllZoneCards(menu.playerId, menu.zone, toZone, { targetPlayerId });
+  }
+
+  private openHandCardGiveDialog(menu: GameContextMenu, targetPlayerId: string): void {
+    if (!menu.card || menu.zone !== 'hand') {
+      return;
+    }
+
+    this.store.closeContextMenu();
+    this.handCardGiveDialog.set({
+      menu,
+      targetPlayerId,
+      targetPlayerName: this.playerName(targetPlayerId),
+      cardName: menu.card.name,
+    });
+  }
+
+  private playerName(playerId: string): string {
+    return this.store.players().find((player) => player.id === playerId)?.state.user.displayName || playerId;
   }
 
   private openPowerToughnessDialog(menu: GameContextMenu): void {
@@ -765,6 +1247,38 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
       power: String(menu.card.power ?? 0),
       toughness: String(menu.card.toughness ?? 0),
     });
+  }
+
+  private syncFollowActiveTurnPlayer(activePlayerId: string | null | undefined): void {
+    if (!this.followActiveTurnPlayer()) {
+      this.lastFocusedTurnPlayerId = null;
+      return;
+    }
+
+    if (!activePlayerId || activePlayerId === this.lastFocusedTurnPlayerId) {
+      return;
+    }
+
+    this.lastFocusedTurnPlayerId = activePlayerId;
+    this.focusPlayerBattlefield(activePlayerId);
+  }
+
+  private openArrowTargetDialog(menu: GameContextMenu): void {
+    if (!menu.card || menu.zone !== 'battlefield') {
+      return;
+    }
+
+    const selectedPlayerId = this.arrowTargetPlayers()[0]?.id
+      ?? menu.playerId;
+    this.store.closeContextMenu();
+    this.arrowTargetDialog.set({
+      sourceMenu: menu,
+      selectedPlayerId,
+      multipleTargets: false,
+      targetCount: 1,
+    });
+    this.focusPlayerBattlefield(selectedPlayerId);
+    window.requestAnimationFrame(() => this.focusPlayerBattlefield(selectedPlayerId));
   }
 
   private openCloseGameDialog(): void {
@@ -782,4 +1296,140 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
       this.floatingScrollTimer = null;
     }
   }
+
+  private syncRematchCountdown(promptKey: string, hasMissingVotes: boolean, countdownEnabled: boolean): void {
+    if (!promptKey || !hasMissingVotes || !countdownEnabled) {
+      this.clearRematchCountdown();
+      return;
+    }
+
+    const mode: RematchCountdownMode = this.rematchMissingVotePlayers().length === 1 ? 'courtesy' : 'initial';
+    const countdownKey = `${promptKey}:${mode}`;
+    if (this.rematchCountdownKey === countdownKey && this.rematchCountdownDeadlineMs !== null) {
+      this.updateRematchCountdown();
+      return;
+    }
+
+    this.rematchCountdownKey = countdownKey;
+    this.rematchCountdownDeadlineMs = Date.now() + (mode === 'courtesy' ? 30_000 : 60_000);
+    this.rematchCountdownMode.set(mode);
+    this.startRematchCountdownTimer();
+    this.updateRematchCountdown();
+  }
+
+  private startRematchCountdownTimer(): void {
+    if (this.rematchCountdownTimer !== null) {
+      return;
+    }
+
+    this.rematchCountdownTimer = window.setInterval(() => this.updateRematchCountdown(), 250);
+  }
+
+  private updateRematchCountdown(): void {
+    if (this.rematchCountdownDeadlineMs === null) {
+      return;
+    }
+    if (!this.rematchVoteCountdownEnabled()) {
+      this.clearRematchCountdown();
+      return;
+    }
+
+    const seconds = Math.max(0, Math.ceil((this.rematchCountdownDeadlineMs - Date.now()) / 1000));
+    this.rematchCountdownSeconds.set(seconds);
+    if (seconds > 0 || !this.currentPlayerNeedsRematchVote() || this.rematchPending()) {
+      return;
+    }
+
+    const countdownKey = this.rematchCountdownKey;
+    if (!countdownKey || countdownKey === this.rematchAutoLeaveKey) {
+      return;
+    }
+
+    this.rematchAutoLeaveKey = countdownKey;
+    void this.submitRematchVote('leave');
+  }
+
+  private async submitRematchVote(vote: GameRematchVote): Promise<void> {
+    if (this.rematchPending()) {
+      return;
+    }
+
+    const gameId = this.store.gameId();
+    if (!gameId) {
+      return;
+    }
+
+    this.rematchPending.set(true);
+    this.rematchToast.set(null);
+    try {
+      const response = await firstValueFrom(this.gamesApi.rematchVote(gameId, vote));
+      if (vote === 'leave') {
+        this.rematchModalOpen.set(false);
+        await this.router.navigate(['/rooms']);
+        return;
+      }
+      if (response.status === 'room_ready' && response.room) {
+        this.rematchModalOpen.set(false);
+        await this.router.navigate(['/rooms', response.room.id, 'waiting']);
+        return;
+      }
+      if (response.status === 'left' || response.status === 'room_deleted') {
+        this.rematchModalOpen.set(false);
+        await this.router.navigate(['/rooms']);
+        return;
+      }
+      if (response.status === 'waiting_for_game_end') {
+        this.rematchModalOpen.set(false);
+        this.showRematchToast(response.message ?? 'Tu voto se ha guardado. Espera a que termine la partida.');
+      }
+
+      await this.store.refetch(true);
+    } catch (error) {
+      this.showRematchToast(this.rematchErrorMessage(error));
+    } finally {
+      this.rematchPending.set(false);
+    }
+  }
+
+  private showRematchToast(message: string): void {
+    this.clearRematchToastTimer();
+    this.rematchToast.set(message);
+    this.rematchToastTimer = window.setTimeout(() => {
+      if (this.rematchToast() === message) {
+        this.rematchToast.set(null);
+      }
+      this.rematchToastTimer = null;
+    }, 3000);
+  }
+
+  private rematchErrorMessage(error: unknown): string {
+    if (typeof error === 'object' && error !== null && 'error' in error) {
+      const response = (error as { error?: { error?: string; detail?: string } }).error;
+      return response?.error ?? response?.detail ?? 'No se pudo guardar la votacion.';
+    }
+
+    return 'No se pudo guardar la votacion.';
+  }
+
+  private clearRematchToastTimer(): void {
+    if (this.rematchToastTimer === null) {
+      return;
+    }
+
+    window.clearTimeout(this.rematchToastTimer);
+    this.rematchToastTimer = null;
+  }
+
+  private clearRematchCountdown(): void {
+    if (this.rematchCountdownTimer !== null) {
+      window.clearInterval(this.rematchCountdownTimer);
+      this.rematchCountdownTimer = null;
+    }
+
+    this.rematchCountdownDeadlineMs = null;
+    this.rematchCountdownKey = '';
+    this.rematchCountdownSeconds.set(null);
+    this.rematchCountdownMode.set(null);
+  }
+
 }

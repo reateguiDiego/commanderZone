@@ -6,59 +6,37 @@
   (click)="store.handleTableClick($event)"
   (contextmenu)="store.openGameMenu($event)"
 >
-  @if (crossTableArrows().length > 0) {
-    <svg
-      class="cross-table-arrows"
-      aria-hidden="true"
-      [attr.viewBox]="'0 0 ' + crossTableArrowViewport().width + ' ' + crossTableArrowViewport().height"
-    >
-      <defs>
-        @for (arrow of crossTableArrows(); track arrow.id) {
-          <marker
-            [attr.id]="'cross-table-arrow-head-' + arrow.id"
-            viewBox="0 0 14 12"
-            refX="13"
-            refY="6"
-            markerWidth="9"
-            markerHeight="9"
-            orient="auto"
-            markerUnits="strokeWidth"
-          >
-            <path d="M 0 1 L 14 6 L 0 11 L 3.5 6 z" [attr.fill]="arrow.color"></path>
-          </marker>
-        }
-      </defs>
-      @for (arrow of crossTableArrows(); track arrow.id) {
-        <line
-          [attr.x1]="arrow.x1"
-          [attr.y1]="arrow.y1"
-          [attr.x2]="arrow.x2"
-          [attr.y2]="arrow.y2"
-          [attr.stroke]="arrow.color"
-          [attr.marker-end]="'url(#cross-table-arrow-head-' + arrow.id + ')'"
-        ></line>
-      }
-    </svg>
-  }
-
   <app-game-table-header (click)="$event.stopPropagation()" (contextmenu)="$event.stopPropagation()" />
 
   @if (store.loading()) {
     <p class="notice">Loading game snapshot...</p>
   } @else if (store.snapshot(); as snapshot) {
+    <app-game-arrow-layer
+      [snapshot]="snapshot"
+      [focusedPlayerId]="store.focusedPlayer()?.id ?? null"
+      [players]="store.players()"
+      [rootElement]="gameScreen"
+      (arrowMenuOpened)="store.openArrowMenu($event.event, $event.playerId, $event.arrowId)"
+    />
+
     <main appPrettyScroll class="table-surface game-table-v2">
-      @if (store.error()) {
-        <p class="table-error" role="status" aria-live="polite">{{ store.error() }}</p>
+      @if (tableToast(); as toast) {
+        <p class="table-error" role="status" aria-live="polite">{{ toast }}</p>
       }
 
       @if (store.focusedPlayer(); as player) {
         <div class="player-strip game-table-main-top">
           <app-player-summary-panel
             [player]="player"
+            [players]="store.players()"
             [colorAccent]="colorAccent"
             [deckLabel]="deckLabel"
             [manaSymbols]="manaSymbols"
+            [playerCounterValue]="playerCounterValue"
+            [canEditCounters]="canControlPlayer(player.id)"
             (lifeChanged)="store.changeLife($event.playerId, $event.delta)"
+            (commanderDamageChanged)="store.setCommanderDamage($event.targetPlayerId, $event.sourcePlayerId, $event.delta)"
+            (playerCounterChanged)="store.changePlayerCounter($event.playerId, $event.key, $event.delta)"
           />
 
           <app-turn-phase-panel
@@ -69,8 +47,10 @@
             [isPhasePast]="isPhasePast"
             [pending]="store.pending()"
             [canAdvance]="store.canAdvanceTurnPhase()"
+            [followActiveTurnPlayer]="followActiveTurnPlayer()"
             (advancePhase)="store.advanceTurnPhase()"
             (passTurn)="store.passTurn()"
+            (followActiveTurnPlayerChanged)="updateFollowActiveTurnPlayer($event)"
           />
 
           <div class="extras-panel game-table-extras" aria-hidden="true"></div>
@@ -105,7 +85,11 @@
             <div appPrettyScroll class="floating-collapsed-preview panel-feed" aria-hidden="true">
               @if (store.activeFloatingTab() === 'log') {
                 @if (latestLogEntry(); as entry) {
-                  <p class="collapsed-log-entry" [class.phase-entry]="entry.appearance === 'phase'">
+                  <p
+                    class="collapsed-log-entry"
+                    [class.phase-entry]="entry.appearance === 'phase'"
+                    [class.death-entry]="entry.appearance === 'death'"
+                  >
                     <small>{{ logTime(entry.createdAt) }}</small>
                     <strong>{{ entry.displayName ?? 'System' }}</strong>
                     <span>
@@ -193,10 +177,18 @@
           [class.active]="snapshot.turn.activePlayerId === player.id"
           [class.dragging-card]="store.draggingCardInstanceId()"
         >
+          @if (shouldShowRematchVotesButton()) {
+            <button class="rematch-votes-button secondary-button" type="button" (click)="openRematchModal(); $event.stopPropagation()">
+              <lucide-icon name="vote" size="16" />
+              <span>Votaciones</span>
+            </button>
+          }
+
           <app-focused-battlefield
             [player]="player"
-            [arrows]="snapshot.arrows"
             [isCurrentPlayer]="isCurrentPlayer"
+            [allowArrowTargetSelection]="store.pendingArrowSource() !== null"
+            [focusEffectsEnabled]="focusEffectsEnabled()"
             [isDropZoneHighlighted]="isDropZoneHighlighted"
             [cardPosition]="cardPosition"
             [isSelected]="isSelected"
@@ -229,7 +221,6 @@
             (cardLoyaltyChanged)="store.changeCardLoyalty($event.playerId, $event.zone, $event.card, $event.delta)"
             (cardCounterChanged)="store.changeCardCounterForCard($event.playerId, $event.zone, $event.card, $event.key, $event.delta)"
             (cardCounterDeleteRequested)="store.openCounterDeleteMenu($event.event, $event.playerId, $event.zone, $event.card, $event.key)"
-            (arrowMenuOpened)="store.openArrowMenu($event.event, $event.playerId, $event.arrowId)"
             (manaLaneDragOver)="store.allowDrop($event)"
             (manaLaneDropped)="store.dropOnManaLane($event.event, $event.playerId)"
             (battlefieldSizeChanged)="updateBattlefieldLayoutSize($event)"
@@ -240,7 +231,7 @@
               <app-player-hand-panel
                 [player]="handPlayer"
                 [zoneCount]="zoneCount"
-                [cardImage]="cardImage"
+                [cardImage]="handCardImage"
                 [isSelected]="isSelected"
                 [isDraggingCard]="isDraggingCard"
                 [isHandDropTarget]="isHandDropTarget"
@@ -248,6 +239,9 @@
                 [isCardDropSettling]="isCardDropSettling"
                 [isCardTransferPending]="isCardTransferPending"
                 [interactionFrozen]="store.contextMenu() !== null"
+                [readOnly]="isHandPlayerReadOnly()"
+                [showCardsFaceDown]="isHandPlayerReadOnly()"
+                [hasOpenHandContextMenu]="isHandContextMenuOpenForPlayer(handPlayer.id)"
                 [hasActiveCardDrag]="store.draggingCardInstanceId() !== null || store.pointerDragPreview() !== null"
                 [externalRevealAllowed]="store.handExternalRevealAllowed()"
                 (handDragOver)="store.previewDropOnHand($event.event, $event.playerId)"
@@ -310,8 +304,11 @@
                 [isBattlefieldEntrySettling]="isBattlefieldEntrySettling"
                 [isCommanderEntrySettling]="isCommanderEntrySettling"
                 [isCardTransferPending]="isCardTransferPending"
+                [arrowTargeting]="store.pendingArrowSource() !== null"
+                [targetingPill]="opponentTargetingPills().get(player.id) ?? null"
+                [cardsTargetCards]="opponentCardsTargetCards().get(player.id) ?? []"
                 [battlefieldSize]="battlefieldLayoutSize()"
-                (focusPlayer)="store.focusPlayer($event)"
+                (focusPlayer)="focusPlayerBattlefield($event)"
                 (dropAllowed)="store.allowDrop($event)"
                 (playerDropped)="store.dropOnPlayer($event.event, $event.playerId)"
                 (playerMenuOpened)="store.openPlayerMenu($event.event, $event.playerId)"
@@ -323,31 +320,6 @@
           }
         </div>
       </aside>
-      @if (store.hoveredPreview(); as preview) {
-        <app-card-preview-overlay
-          [card]="preview.card"
-          [image]="store.cardImage(preview.card)"
-          [sourceRect]="preview.sourceRect"
-          [battlefieldRect]="battlefieldLayoutSize()"
-        />
-      }
-
-      @if (store.contextMenu(); as menu) {
-        <app-context-menu
-          [menu]="menu"
-          [currentPlayer]="store.currentPlayer()"
-          [players]="store.players()"
-          [isGameOwner]="store.isGameOwner()"
-          [counterPresets]="counterPresets"
-          [moveZones]="moveZones"
-          [isCurrentPlayer]="isCurrentPlayer"
-          [canControlPlayer]="canControlPlayer"
-          [zoneCardCount]="zoneCardCountById"
-          [shouldShowPowerToughness]="shouldShowPowerToughness"
-          [zoneTitle]="zoneTitle"
-          (actionSelected)="handleContextMenuAction($event, menu)"
-        />
-      }
 
       @if (numberActionDialog(); as dialog) {
         <app-number-action-dialog
@@ -386,6 +358,48 @@
         (secondary)="cancelCloseGame()"
       />
 
+      <app-modal
+        [open]="tableExitAction() !== null"
+        [title]="tableExitTitle()"
+        [message]="tableExitMessage()"
+        [primaryLabel]="tableExitPrimaryLabel()"
+        secondaryLabel="Cancel"
+        [danger]="true"
+        [lockBodyScroll]="false"
+        (primary)="confirmTableExitAction()"
+        (secondary)="cancelTableExitAction()"
+      />
+
+      <app-game-rematch-modal
+        [open]="rematchModalOpen()"
+        [winner]="isCurrentPlayerWinner()"
+        [players]="rematchVotePlayers()"
+        [currentVote]="currentRematchVote()"
+        [pending]="rematchPending()"
+        [playAgainDisabled]="playAgainDisabledByOtherVotes()"
+        [countdownSeconds]="rematchCountdownSeconds()"
+        [countdownMode]="rematchCountdownMode()"
+        [missingPlayerNames]="rematchMissingVotePlayerNames()"
+        (playAgain)="votePlayAgain()"
+        (leaveRoom)="abandonRematchRoom()"
+        (closed)="closeRematchModal()"
+      />
+
+      <app-token-search-modal
+        [open]="tokenSearchPlayerId() !== null"
+        [deckId]="store.currentDeckId()"
+        [pending]="tokenSearchPending()"
+        (tokenSelected)="createSelectedToken($event)"
+        (closed)="closeTokenSearchModal()"
+      />
+
+      @if (rollModalOpen()) {
+        <app-roll-modal
+          (rolled)="recordRollResult($event)"
+          (closed)="closeRollModal()"
+        />
+      }
+
       @if (store.pendingBattlefieldMove(); as pendingMove) {
         <app-modal
           [open]="true"
@@ -399,22 +413,102 @@
         />
       }
 
+      @if (handCardGiveDialog(); as giveRequest) {
+        <app-modal
+          [open]="true"
+          title="Give card?"
+          [message]="'You are giving ' + giveRequest.cardName + ' to ' + giveRequest.targetPlayerName + '. This moves it to their hand.'"
+          primaryLabel="Give card"
+          secondaryLabel="Cancel"
+          [lockBodyScroll]="false"
+          (primary)="confirmHandCardGive()"
+          (secondary)="cancelHandCardGive()"
+        />
+      }
+
+      @if (libraryCardMoveToHandDialog(); as libraryMoveRequest) {
+        <app-modal
+          [open]="true"
+          title="Move to hand?"
+          [message]="'Do you want to reveal ' + libraryMoveRequest.cardName + ' while moving it from library to hand?'"
+          primaryLabel="Reveal and move"
+          secondaryLabel="Move hidden"
+          secondaryVariant="primary"
+          [showTertiary]="true"
+          tertiaryLabel="Cancel"
+          footerLayout="split"
+          size="compact"
+          [lockBodyScroll]="false"
+          (primary)="confirmLibraryCardMoveToHand(true)"
+          (secondary)="confirmLibraryCardMoveToHand(false)"
+          (tertiary)="cancelLibraryCardMoveToHand()"
+        />
+      }
+
       @if (store.pendingLibraryMove(); as pendingMove) {
         <app-modal
           [open]="true"
           title="Devolver a biblioteca"
-          [message]="'Donde quieres poner ' + pendingMove.cardName + '?'"
+          [message]="pendingLibraryMoveMessage(pendingMove)"
           primaryLabel="Top"
           secondaryLabel="Bottom"
           secondaryVariant="primary"
           [showTertiary]="true"
           tertiaryLabel="Cancelar"
           footerLayout="split"
+          size="compact"
           [lockBodyScroll]="false"
-          (primary)="store.confirmPendingLibraryMove('top')"
-          (secondary)="store.confirmPendingLibraryMove('bottom')"
-          (tertiary)="store.cancelPendingLibraryMove()"
-        />
+          (primary)="confirmPendingLibraryMove('top')"
+          (secondary)="confirmPendingLibraryMove('bottom')"
+          (tertiary)="cancelPendingLibraryMove()"
+        >
+          @if (pendingLibraryMoveSupportsRandomOrder(pendingMove)) {
+            <label class="library-random-order-option">
+              <input
+                type="checkbox"
+                [checked]="libraryMoveRandomOrder()"
+                (change)="updateLibraryMoveRandomOrder($event)"
+              />
+              <span>
+                <strong>Random order</strong>
+                <small>Shuffle only these cards before placing them.</small>
+              </span>
+            </label>
+          }
+        </app-modal>
+      }
+
+      @if (zoneMoveAllLibraryDialog(); as moveAllRequest) {
+        <app-modal
+          [open]="true"
+          title="Move all to library"
+          [message]="'Where do you want to put ' + moveAllRequest.count + ' cards?'"
+          primaryLabel="Top"
+          secondaryLabel="Bottom"
+          secondaryVariant="primary"
+          [showTertiary]="true"
+          tertiaryLabel="Cancel"
+          footerLayout="split"
+          size="compact"
+          [lockBodyScroll]="false"
+          (primary)="confirmZoneMoveAllToLibrary('top')"
+          (secondary)="confirmZoneMoveAllToLibrary('bottom')"
+          (tertiary)="cancelZoneMoveAllToLibrary()"
+        >
+          @if (moveAllRequest.count > 1) {
+            <label class="library-random-order-option">
+              <input
+                type="checkbox"
+                [checked]="zoneMoveAllLibraryRandomOrder()"
+                (change)="updateZoneMoveAllLibraryRandomOrder($event)"
+              />
+              <span>
+                <strong>Random order</strong>
+                <small>Shuffle only these cards before placing them.</small>
+              </span>
+            </label>
+          }
+        </app-modal>
       }
 
       @if (store.pointerDragPreview(); as preview) {
@@ -432,7 +526,7 @@
           } @else {
             <span>{{ preview.card.name }}</span>
           }
-          <app-card-marker-rail [isToken]="preview.card.isToken === true" [counters]="cardCounters(preview.card)" />
+          <app-card-marker-rail [showTokenCopyMarker]="preview.card.isTokenCopy === true" [counters]="cardCounters(preview.card)" />
           @if (preview.count > 1) {
             <span class="drag-count-badge" aria-hidden="true">{{ preview.count }}</span>
           }
@@ -451,15 +545,55 @@
         <app-zone-modal
           [modal]="modal"
           [cardImage]="cardImage"
-          [canUseHiddenZone]="canUseHiddenZone"
           (close)="store.closeZoneModal()"
           (filterChanged)="store.updateZoneFilter($event)"
           (cardSelected)="store.selectZoneCard($event)"
-          (cardMoved)="store.moveZoneCard($event.card, $event.zone)"
-          (cardRevealed)="store.revealZoneCard($event)"
+          (cardsReordered)="store.reorderTopLibraryCards($event)"
+          (cardMenuOpened)="store.openZoneModalCardMenu($event.event, $event.card)"
         />
       }
     </main>
+
+    @if (store.hoveredPreview(); as preview) {
+      <app-card-preview-overlay
+        [card]="preview.card"
+        [image]="store.cardImage(preview.card)"
+        [sourceRect]="preview.sourceRect"
+        [battlefieldRect]="battlefieldLayoutSize()"
+      />
+    }
+
+    @if (arrowTargetDialog(); as dialog) {
+      <app-arrow-target-dialog
+        [players]="arrowTargetPlayers()"
+        [selectedPlayerId]="dialog.selectedPlayerId"
+        [multipleTargets]="dialog.multipleTargets"
+        [targetCount]="dialog.targetCount"
+        [playerLabel]="arrowTargetPlayerLabel"
+        (valueChanged)="updateArrowTargetDialog($event)"
+        (confirmed)="confirmArrowTargetDialog($event)"
+        (cancelled)="cancelArrowTargetDialog()"
+      />
+    }
+
+    @if (store.contextMenu(); as menu) {
+      <app-context-menu
+        [menu]="menu"
+        [currentPlayer]="store.currentPlayer()"
+        [players]="store.players()"
+        [isGameOwner]="store.isGameOwner()"
+        [counterPresets]="counterPresets"
+        [moveZones]="moveZones"
+        [isCurrentPlayer]="isCurrentPlayer"
+        [canControlPlayer]="canControlPlayer"
+        [zoneCardCount]="zoneCardCountById"
+        [shouldShowPowerToughness]="shouldShowPowerToughness"
+        [zoneTitle]="zoneTitle"
+        [ownedArrowCount]="ownedArrowCount(menu.playerId)"
+        (actionSelected)="handleContextMenuAction($event, menu)"
+        (close)="store.closeContextMenu()"
+      />
+    }
   } @else if (store.error()) {
     <p class="notice error">{{ store.error() }}</p>
   }

@@ -161,13 +161,21 @@
                       (turnPassed)="passTurn()"
                     />
                   } @else if (tableRoom.state.settings.commanderDamageEnabled) {
-                    <button
+                    <app-extra-actions-menu
                       class="commander-damage-trigger"
-                      type="button"
-                      (click)="openCommanderDamage(player)"
+                      label="Extras"
+                      ariaLabel="Abrir extras de jugador"
+                      menuLabel="Extras de jugador"
+                      icon="plus"
+                      align="right"
+                      variant="compact"
+                      [showText]="true"
                     >
-                      Extras
-                    </button>
+                      <button type="button" role="menuitem" (click)="openCommanderDamage(player)">
+                        <span>Dano de comandante</span>
+                        <small>Ver y editar</small>
+                      </button>
+                    </app-extra-actions-menu>
                   }
                 </header>
 

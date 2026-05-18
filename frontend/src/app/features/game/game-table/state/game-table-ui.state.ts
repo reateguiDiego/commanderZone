@@ -1,15 +1,17 @@
 import { Injectable, signal } from '@angular/core';
 import { GameCardInstance, GameZoneName } from '../../../../core/models/game.model';
-import { CardPreviewEvent } from '../card-preview.model';
+import { CARD_PREVIEW_HOVER_DELAY_MS, CardPreviewEvent } from '../card-preview.model';
 
 export interface GameContextMenu {
   x: number;
   y: number;
+  verticalOrigin?: 'top' | 'bottom';
   playerId: string;
   zone: GameZoneName;
   card?: GameCardInstance;
   arrowId?: string;
   counterKey?: string;
+  suppressRandomSelect?: boolean;
   kind?: 'zone' | 'card' | 'game' | 'player' | 'arrow' | 'counter';
 }
 
@@ -21,7 +23,7 @@ export interface HoveredCardSelection {
 
 @Injectable()
 export class GameTableUiState {
-  private readonly hoverPreviewDelayMs = 100;
+  private readonly hoverPreviewDelayMs = CARD_PREVIEW_HOVER_DELAY_MS;
   private hoverPreviewSuppressedUntil = 0;
 
   readonly focusedPlayerId = signal<string | null>(null);
@@ -75,7 +77,11 @@ export class GameTableUiState {
   }
 
   openContextMenu(event: MouseEvent, target: Omit<GameContextMenu, 'x' | 'y'>): void {
-    this.contextMenu.set({ ...this.menuPosition(event), ...target });
+    this.contextMenu.set({ ...this.menuPosition(event.clientX, event.clientY), ...target });
+  }
+
+  openContextMenuAt(position: { x: number; y: number }, target: Omit<GameContextMenu, 'x' | 'y'>): void {
+    this.contextMenu.set({ ...this.menuPosition(position.x, position.y), ...target });
   }
 
   closeContextMenu(): void {
@@ -150,13 +156,22 @@ export class GameTableUiState {
     };
   }
 
-  private menuPosition(event: MouseEvent): { x: number; y: number } {
+  private menuPosition(clientX: number, clientY: number): Pick<GameContextMenu, 'x' | 'y' | 'verticalOrigin'> {
     const width = 260;
     const height = 360;
+    const viewportWidth = window.innerWidth || 0;
+    const viewportHeight = window.innerHeight || 0;
+    const edgeGap = 8;
+    const clickGap = 4;
+    const openUp = clientY + height + edgeGap > viewportHeight;
+    const edgeOffset = openUp
+      ? Math.max(edgeGap, viewportHeight - clientY + clickGap)
+      : Math.max(edgeGap, clientY + clickGap);
 
     return {
-      x: Math.max(8, Math.min(event.clientX, window.innerWidth - width - 8)),
-      y: Math.max(8, Math.min(event.clientY, window.innerHeight - height - 8)),
+      x: Math.max(edgeGap, Math.min(clientX, viewportWidth - width - edgeGap)),
+      y: edgeOffset,
+      verticalOrigin: openUp ? 'bottom' : 'top',
     };
   }
 }

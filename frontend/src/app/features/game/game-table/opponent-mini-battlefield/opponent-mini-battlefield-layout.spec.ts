@@ -72,6 +72,22 @@ describe('layoutOpponentMiniBattlefield', () => {
     expect(right.top + right.height).toBeLessThanOrEqual(170);
   });
 
+  it('maps ratio positioned cards through the measured battlefield size', () => {
+    const layout = layoutOpponentMiniBattlefield(
+      [
+        { ...card('center'), position: { x: 0.5, y: 0.5, unit: 'ratio' } },
+        { ...card('right'), position: { x: 1, y: 0.5, unit: 'ratio' } },
+      ],
+      { width: 300, height: 180 },
+      { boardSize: { width: 900, height: 520 } },
+    );
+    const center = layout.find((item) => item.instanceId === 'center')!;
+    const right = layout.find((item) => item.instanceId === 'right')!;
+
+    expect(center.left).toBeLessThan(right.left);
+    expect(right.left + right.width).toBeLessThanOrEqual(300);
+  });
+
   it('uses a stable fallback grid for cards without positions', () => {
     const layout = layoutOpponentMiniBattlefield([card('a'), card('b'), card('c')], { width: 240, height: 170 });
 

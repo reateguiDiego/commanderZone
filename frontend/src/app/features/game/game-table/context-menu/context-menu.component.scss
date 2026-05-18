@@ -30,6 +30,27 @@
   text-align: left;
 }
 
+.context-menu.side-left-menu > button {
+  justify-content: flex-end;
+  text-align: right;
+}
+
+.menu-item-label {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.62rem;
+}
+
+.menu-item-label lucide-icon {
+  flex: 0 0 auto;
+  color: var(--game-accent, #d7b46a);
+}
+
 .danger-menu-item {
+  color: #fecaca;
+}
+
+.danger-menu-item .menu-item-label lucide-icon {
   color: #fecaca;
 }

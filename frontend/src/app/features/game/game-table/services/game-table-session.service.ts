@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { GamesApi } from '../../../../core/api/games.api';
-import { GameSnapshot } from '../../../../core/models/game.model';
+import { GameSnapshot, MercureGameEvent } from '../../../../core/models/game.model';
 import { GameTableRealtimeService } from './game-table-realtime.service';
 
 export interface GameTableSessionContext {
@@ -15,6 +15,8 @@ export interface GameTableSessionContext {
   isPending(): boolean;
   setLoading(loading: boolean): void;
   setError(message: string | null): void;
+  handleRealtimeEvent(event: MercureGameEvent): void | Promise<void>;
+  navigateToWaitingRoom(roomId: string): void;
 }
 
 @Injectable()
@@ -81,8 +83,8 @@ export class GameTableSessionService {
   }
 
   private subscribeToRealtime(context: GameTableSessionContext, gameId: string): void {
-    this.realtime.subscribeToGame(gameId, () => {
-      void this.refetch(context, false);
+    this.realtime.subscribeToGame(gameId, (event) => {
+      void this.handleRealtimeEvent(context, event);
     });
   }
 
@@ -101,6 +103,29 @@ export class GameTableSessionService {
     if (!context.focusedPlayerId()) {
       context.setFocusedPlayerId(context.ownPlayerId(nextSnapshot) ?? nextSnapshot.turn.activePlayerId ?? Object.keys(nextSnapshot.players)[0] ?? null);
     }
+  }
+
+  private handleRematchCreatedEvent(context: GameTableSessionContext, event: MercureGameEvent): boolean {
+    if (event.event.type !== 'room.rematch.created') {
+      return false;
+    }
+
+    const roomId = event.event.payload['roomId'];
+    if (typeof roomId !== 'string' || roomId.trim() === '') {
+      return false;
+    }
+
+    context.navigateToWaitingRoom(roomId);
+    return true;
+  }
+
+  private async handleRealtimeEvent(context: GameTableSessionContext, event: MercureGameEvent): Promise<void> {
+    if (this.handleRematchCreatedEvent(context, event)) {
+      return;
+    }
+
+    await this.refetch(context, false);
+    await context.handleRealtimeEvent(event);
   }
 
   private hasProjectionMetadataChanged(current: GameSnapshot, next: GameSnapshot): boolean {

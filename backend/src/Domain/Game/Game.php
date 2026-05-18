@@ -74,6 +74,17 @@ class Game
         return $this->room->owner()->id() === $user->id() || $this->room->hasPlayer($user);
     }
 
+    public function canBeViewedBy(User $user): bool
+    {
+        return $this->canBeAccessedBy($user)
+            || isset($this->snapshot['players'][$user->id()]);
+    }
+
+    public function canBeControlledBy(User $user): bool
+    {
+        return $this->room->hasPlayer($user);
+    }
+
     public function replaceSnapshot(array $snapshot): void
     {
         $this->snapshot = $snapshot;

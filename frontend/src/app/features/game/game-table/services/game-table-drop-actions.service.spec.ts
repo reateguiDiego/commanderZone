@@ -150,6 +150,30 @@ describe('GameTableDropActionsService', () => {
     expect(markPendingTransfer).toHaveBeenCalledWith('player-1', fromZone, ['moved']);
   });
 
+  it('draws the top library card when dropping library on the owner hand', async () => {
+    const snapshot = snapshotWith({
+      library: [card('library-top', 'Hidden Draw', 'library')],
+      hand: [card('hand-1', 'Sol Ring', 'hand')],
+    });
+    const commands: Array<{ type: GameCommandType; payload: Record<string, unknown> }> = [];
+    const markPendingTransfer = vi.fn();
+    const context = dropContext(
+      () => snapshot,
+      async (type, payload) => {
+        commands.push({ type, payload });
+      },
+      { markPendingTransfer },
+    );
+
+    await service.dropOnHand(context, dragEvent({ playerId: 'player-1', zone: 'library', instanceId: 'library-top' }), 'player-1');
+
+    expect(commands).toEqual([{
+      type: 'library.draw',
+      payload: { playerId: 'player-1', count: 1 },
+    }]);
+    expect(markPendingTransfer).toHaveBeenCalledWith('player-1', 'library', ['library-top']);
+  });
+
   it('allows moving multiple cards from graveyard to hand', async () => {
     let snapshot = snapshotWith({
       hand: [card('hand-1', 'Sol Ring', 'hand')],
@@ -215,6 +239,79 @@ describe('GameTableDropActionsService', () => {
         instanceId: 'moved',
       },
     });
+  });
+
+  it('opens one pending library placement for all selected cards when dropping multiple cards on library', async () => {
+    const snapshot = snapshotWith({
+      battlefield: [
+        card('moved', 'Cultivate', 'battlefield'),
+        card('selected-2', 'Kodama Reach', 'battlefield'),
+      ],
+    });
+    const command = vi.fn();
+    const setPendingLibraryMove = vi.fn();
+    const markPendingTransfer = vi.fn();
+    const context = dropContext(
+      () => snapshot,
+      command,
+      { setPendingLibraryMove, markPendingTransfer },
+    );
+
+    await service.dropOnZone(context, dragEvent({
+      playerId: 'player-1',
+      zone: 'battlefield',
+      instanceId: 'moved',
+      instanceIds: ['moved', 'selected-2'],
+    }), 'player-1', 'library');
+
+    expect(command).not.toHaveBeenCalled();
+    expect(markPendingTransfer).toHaveBeenCalledWith('player-1', 'battlefield', ['moved', 'selected-2'], { expires: false });
+    expect(setPendingLibraryMove).toHaveBeenCalledWith({
+      cardName: '2 cards',
+      commandType: 'cards.moved',
+      payload: {
+        playerId: 'player-1',
+        fromZone: 'battlefield',
+        toZone: 'library',
+        targetPlayerId: 'player-1',
+        instanceIds: ['moved', 'selected-2'],
+      },
+    });
+  });
+
+  it('confirms a multi-card library move with random order when requested', async () => {
+    const command = vi.fn(async () => undefined);
+    const clearSelectedCards = vi.fn();
+    const suppressCardPreview = vi.fn();
+    const setPendingLibraryMove = vi.fn();
+    const context = dropContext(
+      () => snapshotWith({}),
+      command,
+      { clearSelectedCards, suppressCardPreview, setPendingLibraryMove },
+    );
+
+    await service.confirmPendingLibraryMove(context, {
+      cardName: '2 cards',
+      commandType: 'cards.moved',
+      payload: {
+        playerId: 'player-1',
+        fromZone: 'battlefield',
+        toZone: 'library',
+        instanceIds: ['moved', 'selected-2'],
+      },
+    }, 'top', true);
+
+    expect(command).toHaveBeenCalledWith('cards.moved', {
+      playerId: 'player-1',
+      fromZone: 'battlefield',
+      toZone: 'library',
+      instanceIds: ['moved', 'selected-2'],
+      position: 'top',
+      randomOrder: true,
+    });
+    expect(setPendingLibraryMove).toHaveBeenCalledWith(null);
+    expect(clearSelectedCards).toHaveBeenCalledOnce();
+    expect(suppressCardPreview).toHaveBeenCalledOnce();
   });
 
   it('notifies the controller when a borrowed battlefield card returns to its owner zone', async () => {
@@ -355,7 +452,7 @@ function snapshotWith(zones: Partial<Record<GameZoneName, GameCardInstance[]>>):
         user: { id: 'player-1', email: 'player@test', displayName: 'Player', roles: [] },
         life: 40,
         zones: {
-          library: [],
+          library: zones.library ?? [],
           hand: zones.hand ?? [],
           battlefield: zones.battlefield ?? [],
           graveyard: zones.graveyard ?? [],

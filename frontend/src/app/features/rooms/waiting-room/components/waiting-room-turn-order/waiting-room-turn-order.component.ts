@@ -4,7 +4,8 @@ import { LucideAngularModule } from 'lucide-angular';
 export interface WaitingTurnOrderRow {
   id: string;
   label: string;
-  roll: number | null;
+  rollLabel: string;
+  rolled: boolean;
 }
 
 @Component({

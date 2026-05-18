@@ -1,0 +1,77 @@
+@if (arrowViews().length > 0) {
+  <svg
+    class="game-arrow-layer"
+    aria-label="Battlefield arrows"
+    [attr.viewBox]="'0 0 ' + viewport().width + ' ' + viewport().height"
+  >
+    <defs>
+      @for (arrow of arrowViews(); track arrow.id) {
+        <marker
+          [attr.id]="arrow.markerId"
+          viewBox="0 0 14 12"
+          refX="13"
+          refY="6"
+          markerWidth="9"
+          markerHeight="9"
+          orient="auto"
+          markerUnits="strokeWidth"
+        >
+          <path d="M 0 1 L 14 6 L 0 11 L 3.5 6 z" [attr.fill]="arrow.color"></path>
+        </marker>
+      }
+    </defs>
+
+    @for (arrow of arrowViews(); track arrow.id) {
+      <g
+        class="game-arrow"
+        [attr.data-arrow-id]="arrow.id"
+        [attr.data-owner-player-id]="arrow.ownerPlayerId"
+        [attr.data-target-player-id]="arrow.targetPlayerId"
+        [attr.data-owner-render-mode]="arrow.ownerRenderMode"
+        [attr.data-target-render-mode]="arrow.targetRenderMode"
+      >
+        <circle
+          class="game-arrow-origin"
+          [attr.cx]="arrow.x1"
+          [attr.cy]="arrow.y1"
+          r="8"
+          [attr.stroke]="arrow.color"
+        />
+        <line
+          class="game-arrow-visible-line"
+          [attr.x1]="arrow.x1"
+          [attr.y1]="arrow.y1"
+          [attr.x2]="arrow.x2"
+          [attr.y2]="arrow.y2"
+          [attr.stroke]="arrow.color"
+          [attr.marker-end]="'url(#' + arrow.markerId + ')'"
+        />
+        <line
+          class="game-arrow-hit-line"
+          [attr.x1]="arrow.x1"
+          [attr.y1]="arrow.y1"
+          [attr.x2]="arrow.x2"
+          [attr.y2]="arrow.y2"
+          (click)="openArrowMenu($event, arrow)"
+          (contextmenu)="openArrowMenu($event, arrow)"
+        />
+        <circle
+          class="game-arrow-hit-point"
+          [attr.cx]="arrow.x1"
+          [attr.cy]="arrow.y1"
+          r="16"
+          (click)="openArrowMenu($event, arrow)"
+          (contextmenu)="openArrowMenu($event, arrow)"
+        />
+        <circle
+          class="game-arrow-hit-point"
+          [attr.cx]="arrow.x2"
+          [attr.cy]="arrow.y2"
+          r="16"
+          (click)="openArrowMenu($event, arrow)"
+          (contextmenu)="openArrowMenu($event, arrow)"
+        />
+      </g>
+    }
+  </svg>
+}

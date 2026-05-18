@@ -18,10 +18,10 @@ class GameProjectionService
     {
         $snapshot = $this->normalizer->normalizeSnapshot($game->snapshot());
 
-        return $this->projectSnapshot($this->withCurrentPlayerUsers($game, $snapshot), $viewer);
+        return $this->projectSnapshot($this->withCurrentPlayerUsers($game, $snapshot), $viewer, $game->room()->hasPlayer($viewer));
     }
 
-    public function projectSnapshot(array $snapshot, User $viewer): array
+    public function projectSnapshot(array $snapshot, User $viewer, bool $viewerCanUseOwnHiddenZones = true): array
     {
         $viewerId = $viewer->id();
 
@@ -42,7 +42,17 @@ class GameProjectionService
 
             foreach ($player['zones'] as $zone => &$cards) {
                 $zoneCounts[$zone] = count($cards);
-                if ($this->zoneIsHidden((string) $zone) && $playerId !== $viewerId) {
+                $isOwnHiddenZone = $viewerCanUseOwnHiddenZones && $playerId === $viewerId;
+                if ((string) $zone === 'hand' && !$isOwnHiddenZone) {
+                    $cards = $this->projectOpponentHand($cards, $viewerId, (string) $playerId);
+                } elseif ((string) $zone === 'library' && !$isOwnHiddenZone) {
+                    $cards = $this->projectOpponentLibrary(
+                        $cards,
+                        $viewerId,
+                        (string) $playerId,
+                        ($player['playTopLibraryRevealed'] ?? false) === true,
+                    );
+                } elseif ($this->zoneIsHidden((string) $zone) && !$isOwnHiddenZone) {
                     $cards = array_values(array_filter(
                         $cards,
                         fn (array $card): bool => $this->isVisibleCard($card, $viewerId),
@@ -62,14 +72,18 @@ class GameProjectionService
         return $snapshot;
     }
 
-    public function projectZone(array $cards, string $ownerId, string $zone, User $viewer): array
+    public function projectZone(array $cards, string $ownerId, string $zone, User $viewer, bool $playTopLibraryRevealed = false): array
     {
         $viewerId = $viewer->id();
         if ($ownerId !== $viewerId && $this->zoneIsHidden($zone)) {
-            $cards = array_values(array_filter(
-                $cards,
-                fn (array $card): bool => $this->isVisibleCard($card, $viewerId),
-            ));
+            if ($zone === 'hand') {
+                return $this->projectOpponentHand($cards, $viewerId, $ownerId);
+            }
+            if ($zone === 'library') {
+                return $this->projectOpponentLibraryZone($cards, $viewerId, $ownerId, $playTopLibraryRevealed);
+            }
+
+            $cards = array_values(array_filter($cards, fn (array $card): bool => $this->isVisibleCard($card, $viewerId)));
         }
 
         return array_values(array_map(
@@ -101,6 +115,136 @@ class GameProjectionService
         }
 
         return in_array('all', $revealedTo, true) || in_array($viewerId, $revealedTo, true);
+    }
+
+    /**
+     * @param array<int,array<string,mixed>> $cards
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function projectOpponentHand(array $cards, string $viewerId, string $ownerId): array
+    {
+        $cards = array_values($cards);
+        $handSize = count($cards);
+        if ($handSize === 0) {
+            return [];
+        }
+
+        $visibleCards = array_values(array_filter(
+            $cards,
+            fn (array $card): bool => $this->isVisibleCard($card, $viewerId),
+        ));
+        $projected = array_map(
+            fn (int $index): array => $this->hiddenOpponentHandCard($ownerId, $index),
+            range(0, $handSize - 1),
+        );
+
+        if ($visibleCards === []) {
+            return $projected;
+        }
+
+        $startIndex = max(0, (int) floor(($handSize - count($visibleCards)) / 2));
+        foreach ($visibleCards as $offset => $card) {
+            $projected[$startIndex + $offset] = $this->projectCard($card, $viewerId, false);
+        }
+
+        return array_values($projected);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function hiddenOpponentHandCard(string $ownerId, int $index): array
+    {
+        return [
+            'instanceId' => sprintf('%s-hidden-hand-%d', $ownerId, $index),
+            'ownerId' => $ownerId,
+            'controllerId' => $ownerId,
+            'name' => 'Hidden card',
+            'hidden' => true,
+            'tapped' => false,
+            'faceDown' => true,
+            'zone' => 'hand',
+        ];
+    }
+
+    /**
+     * @param array<int,array<string,mixed>> $cards
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function projectOpponentLibrary(array $cards, string $viewerId, string $ownerId, bool $playTopRevealed = false): array
+    {
+        $cards = array_values($cards);
+        if ($cards === []) {
+            return [];
+        }
+
+        $topCard = $cards[0];
+        if ($playTopRevealed || $this->isVisibleCard($topCard, $viewerId)) {
+            $topCard['faceDown'] = false;
+            if ($playTopRevealed && !$this->isVisibleCard($topCard, $viewerId)) {
+                $topCard['revealedTo'] = ['all'];
+            }
+
+            return [$this->projectCard($topCard, $viewerId, false)];
+        }
+
+        $topRevealedTo = $topCard['revealedTo'] ?? [];
+        if (is_array($topRevealedTo) && $topRevealedTo !== []) {
+            return [$this->hiddenOpponentLibraryTopCard($ownerId)];
+        }
+
+        return [];
+    }
+
+    /**
+     * @param array<int,array<string,mixed>> $cards
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function projectOpponentLibraryZone(array $cards, string $viewerId, string $ownerId, bool $playTopRevealed = false): array
+    {
+        $visibleCards = array_values(array_filter(
+            $cards,
+            fn (array $card): bool => $this->isVisibleCard($card, $viewerId),
+        ));
+
+        if (count($visibleCards) > 1) {
+            return array_values(array_map(
+                fn (array $card): array => $this->projectCard($this->faceUpLibraryCard($card), $viewerId, false),
+                $visibleCards,
+            ));
+        }
+
+        return $this->projectOpponentLibrary($cards, $viewerId, $ownerId, $playTopRevealed);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function faceUpLibraryCard(array $card): array
+    {
+        $card['faceDown'] = false;
+
+        return $card;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function hiddenOpponentLibraryTopCard(string $ownerId): array
+    {
+        return [
+            'instanceId' => sprintf('%s-hidden-library-top', $ownerId),
+            'ownerId' => $ownerId,
+            'controllerId' => $ownerId,
+            'name' => 'Hidden card',
+            'hidden' => true,
+            'tapped' => false,
+            'faceDown' => true,
+            'zone' => 'library',
+        ];
     }
 
     private function projectCard(array $card, string $viewerId, bool $ownerView): array

@@ -1,6 +1,10 @@
 <div #feed appPrettyScroll class="panel-feed" data-testid="game-log">
   @for (entry of entries(); track entry.id) {
-    <p data-testid="game-log-entry" [class.phase-entry]="entry.appearance === 'phase'">
+    <p
+      data-testid="game-log-entry"
+      [class.phase-entry]="entry.appearance === 'phase'"
+      [class.death-entry]="entry.appearance === 'death'"
+    >
       <small>{{ logTime()(entry.createdAt) }}</small>
       <strong>{{ entry.displayName ?? 'System' }}</strong>
       <span>

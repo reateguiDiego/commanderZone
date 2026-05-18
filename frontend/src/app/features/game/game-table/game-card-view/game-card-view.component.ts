@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, OnChanges, OnDestroy, computed, input, output, signal, type WritableSignal } from '@angular/core';
 import { GameCardInstance, GameZoneName } from '../../../../core/models/game.model';
-import { CardPreviewEvent, previewRectFromElement } from '../card-preview.model';
+import { CARD_PREVIEW_HOVER_DELAY_MS, CardPreviewEvent, previewRectFromElement } from '../card-preview.model';
 import {
   CardMarkerRailComponent,
   type CardMarkerCounterChange,
@@ -11,6 +11,9 @@ import { LoyaltyCounterComponent } from './loyalty-counter/loyalty-counter.compo
 type GameCardViewMode = 'battlefield' | 'hand' | 'mini';
 
 type DropPlacement = 'before' | 'after';
+type HandLayoutMode = 'fan' | 'row';
+type HandArrivalSide = 'before' | 'after' | 'new';
+type BattlefieldFocusEntry = 'left' | 'right' | 'fade' | null;
 type StatPulse = 'increase' | 'decrease' | null;
 
 interface CardCounterView {
@@ -60,7 +63,7 @@ interface CardCounterDeleteRequestEvent {
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class GameCardViewComponent implements OnChanges, OnDestroy {
-  private readonly hoverLiftDelayMs = 100;
+  private readonly hoverLiftDelayMs = CARD_PREVIEW_HOVER_DELAY_MS;
   private readonly singleStatPulseMs = 420;
   private readonly repeatedStatPulseMs = 900;
   private hoverLiftTimer: number | null = null;
@@ -74,7 +77,11 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
   private previousLoyaltyValue: number | null | undefined;
   private previousStatsVisible: boolean | undefined;
   private statOverlayArrivalTimer: number | null = null;
+  private previousFaceInstanceId: string | null = null;
+  private previousActiveFaceIndex: number | null = null;
+  private faceFlipTimer: number | null = null;
   private pointerInside = false;
+  private readonly faceFlipAnimationMs = 620;
 
   readonly mode = input.required<GameCardViewMode>();
   readonly card = input.required<GameCardInstance>();
@@ -89,6 +96,7 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
   readonly locked = input(false);
   readonly pendingTransfer = input(false);
   readonly alignmentReference = input(false);
+  readonly arrowTargetCandidate = input(false);
   readonly dropSettling = input(false);
   readonly manaDropSettling = input(false);
   readonly statDropSettling = input(false);
@@ -99,7 +107,9 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
   readonly visible = input(true);
   readonly position = input<{ x: number; y: number } | null>(null);
   readonly handDropPlacement = input<DropPlacement | null>(null);
-  readonly handArrivalSide = input<'before' | 'after' | null>(null);
+  readonly handArrivalSide = input<HandArrivalSide | null>(null);
+  readonly handLayout = input<HandLayoutMode>('fan');
+  readonly battlefieldFocusEntry = input<BattlefieldFocusEntry>(null);
   readonly handIndex = input<number | null>(null);
   readonly handCount = input<number | null>(null);
   readonly miniLeftPx = input<number | null>(null);
@@ -112,7 +122,41 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
   readonly toughnessValue = input<number | null>(null);
   readonly loyaltyValue = input<number | null>(null);
   readonly counter = input<CardCounterView | null>(null);
-  readonly handDepth = computed(() => `${Math.max(0, this.handCount() ?? 0) - (this.handIndex() ?? 0)}`);
+  readonly handDepth = computed(() => `${Math.min(Math.max(0, this.handIndex() ?? 0), Math.max(0, (this.handCount() ?? 1) - 1))}`);
+  readonly handFanRotationDeg = computed(() => {
+    const distance = this.handFanDistance();
+    const count = Math.max(1, this.handCount() ?? 1);
+    const step = count <= 1 ? 0 : 1.35;
+
+    return Math.max(-42, Math.min(42, Number((distance * step).toFixed(3))));
+  });
+  readonly handFanCounterRotationDeg = computed(() => Number((-this.handFanRotationDeg()).toFixed(3)));
+  readonly handFanLiftPx = computed(() => 0);
+  readonly handFanSplayPx = computed(() => {
+    const distance = this.handFanDistance();
+    const count = Math.max(1, this.handCount() ?? 1);
+    const step = count <= 1 ? 0 : Math.max(15.5, Math.min(46, 500 / (count - 1)));
+
+    return Number((distance * step).toFixed(3));
+  });
+  readonly handFanArcPx = computed(() => {
+    const distance = this.handFanDistance();
+    const count = Math.max(1, this.handCount() ?? 1);
+    if (count <= 1) {
+      return -18;
+    }
+
+    const centerBand = count % 2 === 0 ? 0.5 : 0;
+    const sideDistance = Math.max(0, Math.abs(distance) - centerBand);
+    const maxSideDistance = Math.max(1, (count - 1) / 2 - centerBand);
+    const sideProgress = Math.min(1, sideDistance / maxSideDistance);
+    const centerLift = Math.max(12, Math.min(20, count * 1.8));
+    const edgeDrop = Math.max(5, Math.min(12, count * 0.95));
+    const easedProgress = sideProgress ** 1.15;
+
+    return Number((-centerLift + easedProgress * (centerLift + edgeDrop)).toFixed(3));
+  });
+  readonly handRowDistance = computed(() => Number(this.handFanDistance().toFixed(3)));
   readonly visibleCounters = computed<readonly CardCounterView[]>(() => {
     const counters = Object.entries(this.card().counters ?? {})
       .filter(([, value]) => Number.isFinite(Number(value)) && Number(value) >= 0)
@@ -129,7 +173,7 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
   readonly cardDragEnded = output<void>();
   readonly cardDragOver = output<CardDragEvent>();
   readonly cardDropped = output<CardDragEvent>();
-  readonly cardPointerEntered = output<void>();
+  readonly cardPointerEntered = output<CardMouseEvent>();
   readonly cardMouseEntered = output<CardPreviewEvent>();
   readonly cardMouseLeft = output<void>();
   readonly powerChanged = output<CardStatChangeEvent>();
@@ -142,13 +186,22 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
   readonly toughnessPulse = signal<StatPulse>(null);
   readonly loyaltyPulse = signal<StatPulse>(null);
   readonly statOverlayArriving = signal(false);
+  readonly faceFlipAnimating = signal(false);
   readonly statsVisible = computed(() => !this.faceDown() && this.showPowerToughness());
   readonly loyaltyVisible = computed(() => !this.faceDown() && this.loyaltyValue() !== null && !this.showPowerToughness());
 
   readonly handClass = (placement: DropPlacement): boolean => this.handDropPlacement() === placement;
 
+  private readonly handFanDistance = computed(() => {
+    const count = Math.max(1, this.handCount() ?? 1);
+    const index = Math.min(Math.max(0, this.handIndex() ?? 0), count - 1);
+
+    return index - (count - 1) / 2;
+  });
+
   ngOnChanges(): void {
     this.syncHoverInteractions();
+    this.syncFaceFlipAnimation();
     this.syncStatPulses();
   }
 
@@ -156,6 +209,7 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
     this.clearHoverLiftTimer();
     this.clearStatPulseTimers();
     this.clearStatOverlayArrivalTimer();
+    this.clearFaceFlipTimer();
   }
 
   fallbackLabel(): string {
@@ -185,7 +239,7 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
   onMouseEnter(event: MouseEvent, card: GameCardInstance): void {
     this.pointerInside = true;
     this.hoveredCard = card;
-    this.cardPointerEntered.emit();
+    this.cardPointerEntered.emit({ event, card });
     this.syncHoverInteractions(event.currentTarget instanceof Element ? event.currentTarget : null);
   }
 
@@ -193,6 +247,7 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
     this.pointerInside = false;
     this.hoveredCard = null;
     this.deactivateHover(true);
+    this.cardMouseLeft.emit();
   }
 
   onDragStart(event: DragEvent, card: GameCardInstance): void {
@@ -372,6 +427,43 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
       window.clearTimeout(this.statOverlayArrivalTimer);
       this.statOverlayArrivalTimer = null;
     }
+  }
+
+  private syncFaceFlipAnimation(): void {
+    const currentCard = this.card();
+    const activeFaceIndex = currentCard.activeFaceIndex ?? 0;
+    const isSameCard = this.previousFaceInstanceId === currentCard.instanceId;
+    const faceChanged = isSameCard
+      && this.previousActiveFaceIndex !== null
+      && this.previousActiveFaceIndex !== activeFaceIndex;
+
+    if (faceChanged && this.canPlayFaceFlipAnimation()) {
+      this.startFaceFlipAnimation();
+    }
+
+    this.previousFaceInstanceId = currentCard.instanceId;
+    this.previousActiveFaceIndex = activeFaceIndex;
+  }
+
+  private canPlayFaceFlipAnimation(): boolean {
+    return this.mode() !== 'battlefield' || this.battlefieldFocusEntry() === null;
+  }
+
+  private startFaceFlipAnimation(): void {
+    this.clearFaceFlipTimer();
+    this.faceFlipAnimating.set(true);
+    this.faceFlipTimer = window.setTimeout(() => {
+      this.faceFlipAnimating.set(false);
+      this.faceFlipTimer = null;
+    }, this.faceFlipAnimationMs);
+  }
+
+  private clearFaceFlipTimer(): void {
+    if (this.faceFlipTimer !== null) {
+      window.clearTimeout(this.faceFlipTimer);
+      this.faceFlipTimer = null;
+    }
+    this.faceFlipAnimating.set(false);
   }
 
   private clearStatPulseTimer(stat: 'power' | 'toughness' | 'loyalty'): void {

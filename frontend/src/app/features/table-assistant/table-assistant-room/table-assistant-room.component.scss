@@ -354,15 +354,10 @@ button:disabled {
 
 .commander-damage-trigger {
   z-index: 2;
-  display: inline-grid;
-  place-items: center;
-  width: var(--extras-button-size);
-  min-width: var(--extras-button-size);
-  min-height: var(--extras-button-size);
-  border-color: rgb(244 201 93 / 34%);
-  padding: 0;
-  color: #f7dfaa;
-  font-size: 0.64rem;
+  --extra-actions-accent: #f4c95d;
+  --extra-actions-menu-width: 12.5rem;
+  --extra-actions-size: var(--extras-button-size);
+  --extra-actions-z-index: 5;
 }
 
 .commander-damage-board,

@@ -313,6 +313,36 @@ describe('GameTablePointerDragService', () => {
       value: originalElementsFromPoint,
     });
   });
+
+  it('ignores an overlapping hand drop target when a pile zone is underneath the pointer', () => {
+    const hand = document.createElement('div');
+    hand.dataset['gameDropZone'] = 'hand';
+    hand.dataset['zone'] = 'hand';
+    hand.dataset['playerId'] = 'player-1';
+    const library = document.createElement('button');
+    library.dataset['gameDropZone'] = 'library';
+    library.dataset['zone'] = 'library';
+    library.dataset['playerId'] = 'player-1';
+    const originalElementsFromPoint = document.elementsFromPoint;
+    Object.defineProperty(document, 'elementsFromPoint', {
+      configurable: true,
+      value: vi.fn(() => [hand, library]),
+    });
+
+    const target = service.zoneTargetAt(pointerEvent(20, 20), { width: 100, height: 140 });
+
+    expect(target).toEqual({
+      targetPlayerId: 'player-1',
+      toZone: 'library',
+      kind: 'zone',
+      rawZone: 'library',
+    });
+
+    Object.defineProperty(document, 'elementsFromPoint', {
+      configurable: true,
+      value: originalElementsFromPoint,
+    });
+  });
 });
 
 function handCards(): GameCardInstance[] {

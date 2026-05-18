@@ -26,6 +26,7 @@ export interface GameTableBattlefieldDragContext {
   snapshot(): GameSnapshot | null;
   selectedCards(): readonly BattlefieldDragSelection[];
   findCard(playerId: string, zone: GameZoneName, instanceId: string): GameCardInstance | null;
+  cardPosition(card: GameCardInstance): { x: number; y: number } | null;
   updateLocalCardPosition(playerId: string, instanceId: string, position: { x: number; y: number }): void;
 }
 
@@ -58,7 +59,7 @@ export class GameTableBattlefieldDragCoordinatorService {
     }
 
     const card = context.findCard(selected.playerId, 'battlefield', instanceId);
-    const position = card?.position;
+    const position = card ? context.cardPosition(card) : null;
 
     if (this.isCardTopNearManaLane(event, selected.playerId, instanceId, position)) {
       this.state.setManaLaneDropPlayer(selected.playerId);
@@ -290,8 +291,9 @@ export class GameTableBattlefieldDragCoordinatorService {
   private snapshotAlignmentRows(context: GameTableBattlefieldDragContext, playerId: string, instanceId: string): AlignmentRow[] {
     return context.snapshot()?.players[playerId]?.zones.battlefield
       .filter((card) => card.instanceId !== instanceId)
-      .filter((card) => typeof card.position?.y === 'number')
-      .map((card) => ({ y: card.position?.y ?? 0, referenceInstanceIds: [card.instanceId] }))
+      .map((card) => ({ position: context.cardPosition(card), referenceInstanceIds: [card.instanceId] }))
+      .filter((card): card is { position: { x: number; y: number }; referenceInstanceIds: string[] } => card.position !== null)
+      .map((card) => ({ y: card.position.y, referenceInstanceIds: card.referenceInstanceIds }))
       .filter((candidate) => !this.isManaLaneRow(playerId, candidate.y)) ?? [];
   }
 

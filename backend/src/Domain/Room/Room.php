@@ -205,27 +205,38 @@ class Room
     public function orderedPlayers(): array
     {
         $players = $this->players->toArray();
-        $allPlayersRolled = $players !== [] && array_reduce(
-            $players,
-            static fn (bool $allRolled, RoomPlayer $player): bool => $allRolled && $player->turnRoll() !== null,
-            true,
-        );
 
-        if (!$allPlayersRolled) {
+        if (!$this->allPlayersHaveTurnRolls($players)) {
             return array_values($players);
         }
 
-        usort($players, static function (RoomPlayer $left, RoomPlayer $right): int {
-            $leftRoll = $left->turnRoll();
-            $rightRoll = $right->turnRoll();
-            if ($leftRoll !== $rightRoll) {
-                return ($rightRoll ?? -1) <=> ($leftRoll ?? -1);
-            }
-
-            return $left->joinedAt() <=> $right->joinedAt();
-        });
+        usort($players, fn (RoomPlayer $left, RoomPlayer $right): int => $this->comparePlayersByTurnRolls($left, $right));
 
         return array_values($players);
+    }
+
+    public function hasResolvedTurnOrder(): bool
+    {
+        $players = $this->players->toArray();
+
+        return $this->allPlayersHaveTurnRolls($players) && $this->turnRollTieGroups($players) === [];
+    }
+
+    public function canPlayerRollTurnOrder(RoomPlayer $player): bool
+    {
+        if ($player->turnRolls() === []) {
+            return true;
+        }
+
+        foreach ($this->turnRollTieGroups($this->players->toArray()) as $group) {
+            foreach ($group as $tiedPlayer) {
+                if ($tiedPlayer->id() === $player->id()) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     public function game(): ?Game
@@ -308,6 +319,37 @@ class Room
         }
     }
 
+    /**
+     * @param list<string> $playerUserIds
+     */
+    public function returnToWaitingForRematch(User $owner, array $playerUserIds): void
+    {
+        $playerUserIds = array_values(array_unique(array_filter($playerUserIds, static fn (string $playerId): bool => $playerId !== '')));
+        if (count($playerUserIds) < self::MIN_PLAYERS) {
+            throw new \InvalidArgumentException('At least two players are required to create a rematch room.');
+        }
+
+        $remainingPlayerIds = array_flip($playerUserIds);
+        foreach ($this->players as $player) {
+            if (!isset($remainingPlayerIds[$player->user()->id()])) {
+                $this->players->removeElement($player);
+                continue;
+            }
+
+            $player->clearTurnRoll();
+        }
+
+        if (!$this->hasPlayer($owner)) {
+            throw new \InvalidArgumentException('The rematch owner must be one of the rematch players.');
+        }
+
+        $this->owner = $owner;
+        $this->status = self::STATUS_WAITING;
+        $this->game = null;
+        $this->maxPlayers = max(self::MIN_MAX_PLAYERS, min(self::MAX_MAX_PLAYERS, $this->players->count()));
+        $this->touch();
+    }
+
     public function start(Game $game): void
     {
         $this->status = self::STATUS_STARTED;
@@ -344,6 +386,57 @@ class Room
     private function touch(): void
     {
         $this->updatedAt = new \DateTimeImmutable();
+    }
+
+    /**
+     * @param list<RoomPlayer> $players
+     */
+    private function allPlayersHaveTurnRolls(array $players): bool
+    {
+        return $players !== [] && array_reduce(
+            $players,
+            static fn (bool $allRolled, RoomPlayer $player): bool => $allRolled && $player->turnRolls() !== [],
+            true,
+        );
+    }
+
+    private function comparePlayersByTurnRolls(RoomPlayer $left, RoomPlayer $right): int
+    {
+        $leftRolls = $left->turnRolls();
+        $rightRolls = $right->turnRolls();
+        $levels = max(count($leftRolls), count($rightRolls));
+
+        for ($index = 0; $index < $levels; ++$index) {
+            $leftRoll = $leftRolls[$index] ?? -1;
+            $rightRoll = $rightRolls[$index] ?? -1;
+            if ($leftRoll !== $rightRoll) {
+                return $rightRoll <=> $leftRoll;
+            }
+        }
+
+        return $left->joinedAt() <=> $right->joinedAt();
+    }
+
+    /**
+     * @param list<RoomPlayer> $players
+     *
+     * @return list<list<RoomPlayer>>
+     */
+    private function turnRollTieGroups(array $players): array
+    {
+        if (!$this->allPlayersHaveTurnRolls($players)) {
+            return [];
+        }
+
+        $groups = [];
+        foreach ($players as $player) {
+            $groups[implode('-', $player->turnRolls())][] = $player;
+        }
+
+        return array_values(array_filter(
+            $groups,
+            static fn (array $group): bool => count($group) > 1,
+        ));
     }
 
     private static function defaultNameForOwner(User $owner): string

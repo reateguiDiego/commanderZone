@@ -45,7 +45,7 @@ describe('WaitingRoomComponent', () => {
     roomsApi.invites.mockReset().mockReturnValue(of({ data: [] }));
     roomsApi.invite.mockReset().mockReturnValue(of({ invite: null }));
     roomsApi.join.mockReset().mockReturnValue(of({ room: room() }));
-    roomsApi.leave.mockReset().mockReturnValue(of({ room: room() }));
+    roomsApi.leave.mockReset().mockReturnValue(of({ left: true, roomDeleted: false }));
     roomsApi.kickPlayer.mockReset().mockReturnValue(of({ room: room() }));
     roomsApi.rollTurn.mockReset().mockReturnValue(of({ room: room() }));
     roomsApi.start.mockReset().mockReturnValue(of({ room: room(), game: { id: 'game-1' } }));
@@ -195,8 +195,8 @@ describe('WaitingRoomComponent', () => {
     const openRoom = room({
       maxPlayers: 3,
       players: [
-        readyPlayer('player-1', 'user-1', 'Owner'),
-        readyPlayer('player-2', 'user-2', 'Guest'),
+        readyPlayer('player-1', 'user-1', 'Owner', 14),
+        readyPlayer('player-2', 'user-2', 'Guest', 8),
       ],
     });
     const fullRoom = { ...openRoom, maxPlayers: 2 };
@@ -299,6 +299,64 @@ describe('WaitingRoomComponent', () => {
     expect(component.hasCompletedTurnOrder(rolledRoom)).toBe(true);
     expect(component.isOddLastSeat(rolledRoom, 2)).toBe(true);
     expect(component.shouldRenderOpenSeat(rolledRoom, 3)).toBe(false);
+  });
+
+  it('keeps tied players rollable and resolves order by repeated tie-break rolls', async () => {
+    const fixture = TestBed.createComponent(WaitingRoomComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const component = fixture.componentInstance;
+    const tiedRoom = room({
+      maxPlayers: 5,
+      players: [
+        readyPlayer('player-1', 'user-1', 'Owner', 4),
+        readyPlayer('player-2', 'user-2', 'Guest 2', 5),
+        readyPlayer('player-3', 'user-3', 'Guest 3', 5),
+        readyPlayer('player-4', 'user-4', 'Guest 4', 10),
+        readyPlayer('player-5', 'user-5', 'Guest 5', 10),
+      ],
+    });
+
+    expect(component.hasCompletedTurnOrder(tiedRoom)).toBe(false);
+    expect(component.turnOrderPlayers(tiedRoom).map((player) => player.user.displayName)).toEqual(['Guest 4', 'Guest 5', 'Guest 2', 'Guest 3', 'Owner']);
+    expect(component.canStartRoom(tiedRoom)).toBe(false);
+
+    const resolvedRoom = room({
+      maxPlayers: 5,
+      players: [
+        { ...readyPlayer('player-1', 'user-1', 'Owner', 4), turnRolls: [4] },
+        { ...readyPlayer('player-2', 'user-2', 'Guest 2', 12), turnRolls: [5, 12] },
+        { ...readyPlayer('player-3', 'user-3', 'Guest 3', 18), turnRolls: [5, 18] },
+        { ...readyPlayer('player-4', 'user-4', 'Guest 4', 3), turnRolls: [10, 3] },
+        { ...readyPlayer('player-5', 'user-5', 'Guest 5', 11), turnRolls: [10, 11] },
+      ],
+    });
+
+    expect(component.hasCompletedTurnOrder(resolvedRoom)).toBe(true);
+    expect(component.turnOrderRows(resolvedRoom).map((row) => row.rollLabel)).toEqual(['10 - 11', '10 - 3', '5 - 18', '5 - 12', '4']);
+    expect(component.turnOrderPlayers(resolvedRoom).map((player) => player.user.displayName)).toEqual(['Guest 5', 'Guest 4', 'Guest 3', 'Guest 2', 'Owner']);
+  });
+
+  it('opens the roll modal again for the current player when only their tie group must reroll', async () => {
+    const fixture = TestBed.createComponent(WaitingRoomComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const component = fixture.componentInstance;
+    component.currentRoom.set(room({
+      players: [
+        readyPlayer('player-1', 'user-1', 'Owner', 10),
+        readyPlayer('player-2', 'user-2', 'Guest 2', 10),
+        readyPlayer('player-3', 'user-3', 'Guest 3', 4),
+      ],
+    }));
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(component.currentPlayerCanRoll()).toBe(true);
+    expect(component.rollModalOpen()).toBe(true);
+    expect(component.rollModalMessage()).toContain('Has empatado con Guest 2.');
   });
 
   it('keeps turn labels hidden until every player has rolled', async () => {
@@ -444,6 +502,7 @@ function readyPlayer(id: string, userId: string, displayName: string, turnRoll =
     user: { id: userId, email: `${userId}@test`, displayName, roles: [] },
     deckId: `deck-${userId}`,
     turnRoll,
+    turnRolls: [turnRoll],
   };
 }
 

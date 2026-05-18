@@ -1,15 +1,16 @@
 import { importProvidersFrom } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
 import { By } from '@angular/platform-browser';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { Building2, DoorOpen, Globe, Library, Lock, LogOut, LucideAngularModule, Play, Plus, RefreshCcw, Search, Swords, Trash2, Users } from 'lucide-angular';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { DeckFormatsApi } from '../../../core/api/deck-formats.api';
 import { RoomsApi } from '../../../core/api/rooms.api';
 import { AuthStore } from '../../../core/auth/auth.store';
 import { Card } from '../../../core/models/card.model';
 import { Deck } from '../../../core/models/deck.model';
-import { CurrentRoomSummary, Room, RoomPlayer } from '../../../core/models/room.model';
+import { CurrentRoomPlayerSummary, CurrentRoomSummary, Room, RoomPlayer } from '../../../core/models/room.model';
 import { PageHeaderStore } from '../../../core/ui/page-header.store';
 import { RoomsComponent } from './rooms.component';
 
@@ -33,11 +34,11 @@ describe('RoomsComponent', () => {
 
   beforeEach(async () => {
     roomsApi.list.mockReset().mockReturnValue(of({ data: [] }));
-    roomsApi.current.mockReset().mockReturnValue(of({ room: null, player: null, turn: null }));
+    roomsApi.current.mockReset().mockReturnValue(of({ room: null, player: null, turn: null, viewerRole: null }));
     roomsApi.create.mockReset();
     roomsApi.join.mockReset().mockReturnValue(of({ room: roomFixture() }));
     roomsApi.joinByCode.mockReset().mockReturnValue(of({ room: roomFixture() }));
-    roomsApi.leave.mockReset().mockReturnValue(of({ room: roomFixture({ players: [] }) }));
+    roomsApi.leave.mockReset().mockReturnValue(of({ left: true, roomDeleted: false }));
     roomsApi.delete.mockReset().mockReturnValue(of(undefined));
     roomsApi.acceptInvite.mockReset();
     roomsApi.declineInvite.mockReset().mockReturnValue(of({ invite: null }));
@@ -102,7 +103,7 @@ describe('RoomsComponent', () => {
       }),
     ];
     roomsApi.list.mockReturnValue(of({ data: rooms }));
-    roomsApi.current.mockReturnValue(of({ room: currentRoomSummaryFixture(rooms[1]), player: null, turn: { number: null } }));
+    roomsApi.current.mockReturnValue(of({ room: currentRoomSummaryFixture(rooms[1]), player: currentRoomPlayerSummaryFixture(rooms[1]), turn: { number: null }, viewerRole: 'owner_player' }));
 
     const fixture = TestBed.createComponent(RoomsComponent);
     fixture.detectChanges();
@@ -128,7 +129,7 @@ describe('RoomsComponent', () => {
       players: [roomPlayerFixture('user-1', 'Owner')],
     });
     const listedRoom = roomFixture({ id: 'room-public', name: 'Joinable room', visibility: 'public' });
-    roomsApi.current.mockReturnValue(of({ room: currentRoomSummaryFixture(currentRoom), player: null, turn: { number: null } }));
+    roomsApi.current.mockReturnValue(of({ room: currentRoomSummaryFixture(currentRoom), player: currentRoomPlayerSummaryFixture(currentRoom), turn: { number: null }, viewerRole: 'owner_player' }));
     roomsApi.list.mockReturnValue(of({ data: [currentRoom, listedRoom] }));
 
     const fixture = TestBed.createComponent(RoomsComponent);
@@ -235,9 +236,9 @@ describe('RoomsComponent', () => {
       name: 'Current room',
       players: [roomPlayerFixture('user-1', 'Owner')],
     });
-    roomsApi.current.mockReturnValueOnce(of({ room: currentRoomSummaryFixture(room), player: null, turn: { number: null } })).mockReturnValue(of({ room: null, player: null, turn: null }));
+    roomsApi.current.mockReturnValueOnce(of({ room: currentRoomSummaryFixture(room), player: currentRoomPlayerSummaryFixture(room), turn: { number: null }, viewerRole: 'owner_player' })).mockReturnValue(of({ room: null, player: null, turn: null, viewerRole: null }));
     roomsApi.list.mockReturnValue(of({ data: [room] }));
-    roomsApi.leave.mockReturnValue(of({ room: { ...room, players: [] } }));
+    roomsApi.leave.mockReturnValue(of({ left: true, roomDeleted: false }));
 
     const fixture = TestBed.createComponent(RoomsComponent);
     fixture.detectChanges();
@@ -249,6 +250,110 @@ describe('RoomsComponent', () => {
     expect(fixture.componentInstance.currentRoom()).toBeNull();
   });
 
+  it('clears stale current room state when the listed room no longer contains the current user', async () => {
+    const staleRoom = roomFixture({
+      id: 'room-current',
+      name: 'Stale current room',
+      owner: userFixture('user-2', 'Other owner'),
+      players: [roomPlayerFixture('user-2', 'Other player')],
+    });
+    roomsApi.list.mockReturnValue(of({ data: [staleRoom] }));
+
+    const fixture = TestBed.createComponent(RoomsComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.currentRoom.set(currentRoomSummaryFixture({
+      ...staleRoom,
+      owner: userFixture('user-2', 'Other owner'),
+      players: [roomPlayerFixture('user-1', 'Owner')],
+    }));
+
+    await fixture.componentInstance.loadRooms();
+
+    expect(fixture.componentInstance.currentRoom()).toBeNull();
+    expect(fixture.componentInstance.currentRoomPlayer()).toBeNull();
+    expect(fixture.componentInstance.currentRoomTurn()).toBeNull();
+  });
+
+  it('does not keep a current room response without a viewer role', async () => {
+    const staleRoom = roomFixture({
+      id: 'room-current',
+      name: 'Stale current room',
+      players: [roomPlayerFixture('user-2', 'Other player')],
+    });
+    roomsApi.current.mockReturnValue(of({ room: currentRoomSummaryFixture(staleRoom), player: null, turn: { number: null }, viewerRole: null }));
+
+    const fixture = TestBed.createComponent(RoomsComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(fixture.componentInstance.currentRoom()).toBeNull();
+    expect(fixture.componentInstance.currentRoomPlayer()).toBeNull();
+    expect(fixture.componentInstance.currentRoomTurn()).toBeNull();
+  });
+
+  it('keeps an owner-only current room response', async () => {
+    const ownedRoom = roomFixture({
+      id: 'room-current',
+      name: 'Owner only current room',
+      players: [roomPlayerFixture('user-2', 'Other player')],
+    });
+    roomsApi.current.mockReturnValue(of({ room: currentRoomSummaryFixture(ownedRoom), player: null, turn: { number: null }, viewerRole: 'owner' }));
+
+    const fixture = TestBed.createComponent(RoomsComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(fixture.componentInstance.currentRoom()?.id).toBe('room-current');
+    expect(fixture.componentInstance.currentRoomPlayer()).toBeNull();
+    expect(fixture.componentInstance.currentRoomViewerRole()).toBe('owner');
+  });
+
+  it('does not infer current room state from the room input and listed rooms', async () => {
+    const listedRoom = roomFixture({
+      id: 'typed-room',
+      name: 'Typed room only',
+      players: [roomPlayerFixture('user-1', 'Owner')],
+    });
+    roomsApi.current.mockReturnValue(of({ room: null, player: null, turn: null, viewerRole: null }));
+    roomsApi.list.mockReturnValue(of({ data: [listedRoom] }));
+
+    const fixture = TestBed.createComponent(RoomsComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.roomId = 'typed-room';
+    await fixture.componentInstance.loadRooms();
+
+    expect(fixture.componentInstance.currentRoom()).toBeNull();
+    expect(fixture.componentInstance.currentRoomPlayer()).toBeNull();
+    expect(fixture.componentInstance.currentRoomTurn()).toBeNull();
+  });
+
+  it('clears the current room when leave reports that membership is already gone', async () => {
+    const room = roomFixture({
+      id: 'room-current',
+      name: 'Already left room',
+      players: [roomPlayerFixture('user-1', 'Owner')],
+    });
+    roomsApi.leave.mockReturnValue(throwError(() => new HttpErrorResponse({
+      status: 403,
+      error: { error: 'Only room players can leave the room.' },
+    })));
+
+    const fixture = TestBed.createComponent(RoomsComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.componentInstance.currentRoom.set(currentRoomSummaryFixture(room));
+
+    await fixture.componentInstance.leaveCurrentRoom(room.id);
+
+    expect(fixture.componentInstance.currentRoom()).toBeNull();
+    expect(fixture.componentInstance.currentRoomPlayer()).toBeNull();
+    expect(fixture.componentInstance.currentRoomTurn()).toBeNull();
+  });
+
   it('polls the active room list four times slower when the user has a current room', async () => {
     vi.useFakeTimers();
     try {
@@ -257,7 +362,7 @@ describe('RoomsComponent', () => {
         name: 'Current room',
         players: [roomPlayerFixture('user-1', 'Owner')],
       });
-      roomsApi.current.mockReturnValue(of({ room: currentRoomSummaryFixture(room), player: null, turn: { number: null } }));
+      roomsApi.current.mockReturnValue(of({ room: currentRoomSummaryFixture(room), player: currentRoomPlayerSummaryFixture(room), turn: { number: null }, viewerRole: 'owner_player' }));
       roomsApi.list.mockReturnValue(of({ data: [room] }));
 
       const fixture = TestBed.createComponent(RoomsComponent);
@@ -265,12 +370,15 @@ describe('RoomsComponent', () => {
       await vi.advanceTimersByTimeAsync(0);
 
       expect(roomsApi.list).toHaveBeenCalledTimes(1);
+      expect(roomsApi.current).toHaveBeenCalledTimes(1);
 
       await vi.advanceTimersByTimeAsync(15000);
       expect(roomsApi.list).toHaveBeenCalledTimes(1);
+      expect(roomsApi.current).toHaveBeenCalledTimes(1);
 
       await vi.advanceTimersByTimeAsync(45000);
       expect(roomsApi.list).toHaveBeenCalledTimes(2);
+      expect(roomsApi.current).toHaveBeenCalledTimes(1);
 
       fixture.destroy();
     } finally {
@@ -296,6 +404,17 @@ function currentRoomSummaryFixture(room: Room): CurrentRoomSummary {
     maxPlayers: room.maxPlayers,
     playerCount: room.players.length,
     gameId: room.gameId,
+  };
+}
+
+function currentRoomPlayerSummaryFixture(room: Room): CurrentRoomPlayerSummary {
+  const player = room.players.find((candidate) => candidate.user.id === 'user-1') ?? room.players[0];
+
+  return {
+    playerId: player?.id ?? 'player-user-1',
+    deckId: player?.deckId ?? null,
+    deckName: player?.deck?.name ?? null,
+    deckImageUrl: player?.deck?.commander?.imageUris?.art_crop ?? null,
   };
 }
 

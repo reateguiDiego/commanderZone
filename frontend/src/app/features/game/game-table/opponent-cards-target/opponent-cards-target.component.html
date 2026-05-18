@@ -1,0 +1,50 @@
+<span
+  #viewport
+  class="cards-target"
+  data-testid="opponent-cards-target"
+  (mouseleave)="cardPreviewHidden.emit()"
+>
+  <span class="cards-target-grid" aria-hidden="false">
+    @for (item of cards(); track item.card.instanceId) {
+      @let card = item.card;
+      <span
+        class="cards-target-card"
+        data-testid="opponent-cards-target-card"
+        [attr.data-card-instance-id]="card.instanceId"
+        [attr.data-arrow-card-player-id]="playerId()"
+        [attr.data-arrow-card-instance-id]="card.instanceId"
+        data-arrow-card-surface="cards-target"
+        [class.tapped]="card.tapped"
+        [class.arrow-target-candidate]="arrowTargeting()"
+        [class.cards-target-source]="item.role === 'source'"
+        [class.cards-target-target]="item.role === 'target'"
+        [class.cards-target-both]="item.role === 'both'"
+        (click)="clickBattlefieldCard($event, card)"
+        (mouseenter)="showCardPreview($event, card)"
+      >
+        @if (cardImage()(card); as image) {
+          <img [src]="image" [alt]="card.name" draggable="false" />
+        } @else {
+          <span class="card-back" aria-hidden="true"></span>
+        }
+        <span class="cards-target-role">{{ roleLabel(item.role) }}</span>
+      </span>
+    }
+  </span>
+
+  @for (item of cards(); track 'anchor-' + item.card.instanceId) {
+    @if (arrowAnchorLayout(item.card); as layout) {
+      <span
+        class="cards-target-arrow-anchor"
+        aria-hidden="true"
+        [attr.data-arrow-card-player-id]="playerId()"
+        [attr.data-arrow-card-instance-id]="item.card.instanceId"
+        data-arrow-card-surface="mini-battlefield"
+        [style.left.px]="layout.left"
+        [style.top.px]="layout.top"
+        [style.width.px]="layout.width"
+        [style.height.px]="layout.height"
+      ></span>
+    }
+  }
+</span>

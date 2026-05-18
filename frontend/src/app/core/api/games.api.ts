@@ -2,9 +2,9 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { API_BASE_URL } from './api.config';
-import { CommandResponse, GameResponse } from '../models/api-responses.model';
+import { CommandResponse, GameResponse, RematchVoteResponse } from '../models/api-responses.model';
 import { withoutGlobalLoading } from '../loading/loading-context';
-import { GameCommand, GameZoneName, GameZoneResponse } from '../models/game.model';
+import { GameCommand, GameRematchVote, GameZoneName, GameZoneResponse } from '../models/game.model';
 
 @Injectable({ providedIn: 'root' })
 export class GamesApi {
@@ -16,6 +16,10 @@ export class GamesApi {
 
   command(command: GameCommand, gameId: string): Observable<CommandResponse> {
     return this.http.post<CommandResponse>(`${API_BASE_URL}/games/${gameId}/commands`, command, { context: withoutGlobalLoading() });
+  }
+
+  rematchVote(gameId: string, vote: GameRematchVote): Observable<RematchVoteResponse> {
+    return this.http.post<RematchVoteResponse>(`${API_BASE_URL}/games/${gameId}/rematch-vote`, { vote }, { context: withoutGlobalLoading() });
   }
 
   zone(gameId: string, playerId: string, zone: GameZoneName, params: { type?: string; search?: string; limit?: number; offset?: number } = {}): Observable<GameZoneResponse> {

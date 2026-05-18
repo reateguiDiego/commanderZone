@@ -39,10 +39,10 @@ const COLOR_COUNTER_STYLES: Record<string, string> = {
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class CardMarkerRailComponent {
-  readonly isToken = input(false);
+  readonly showTokenCopyMarker = input(false);
   readonly counters = input<readonly CardMarkerCounter[]>([]);
   readonly compact = input(false);
-  readonly hasMarkers = computed(() => this.isToken() || this.counters().length > 0);
+  readonly hasMarkers = computed(() => this.showTokenCopyMarker() || this.counters().length > 0);
   readonly markerCounters = computed<readonly CardMarkerCounterView[]>(() =>
     this.counters().map((counter) => this.counterView(counter)),
   );

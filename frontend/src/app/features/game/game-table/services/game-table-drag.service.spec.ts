@@ -237,6 +237,7 @@ describe('GameTableDragService', () => {
       height: 320,
     });
     const cardElement = document.createElement('button');
+    markAsBattlefieldCard(cardElement);
     cardElement.getBoundingClientRect = () => ({
       ...rect(30, 100),
       y: 40,
@@ -281,6 +282,7 @@ describe('GameTableDragService', () => {
       height: 320,
     });
     const cardElement = document.createElement('button');
+    markAsBattlefieldCard(cardElement);
     cardElement.getBoundingClientRect = () => ({
       ...rect(30, 100),
       y: 40,
@@ -321,6 +323,63 @@ describe('GameTableDragService', () => {
     expect(service.pointerDragPreview()).toEqual({ x: 933, y: 721, width: 100, height: 140 });
   });
 
+  it('only starts a battlefield pointer drag from the visible card body', () => {
+    const battlefield = document.createElement('div');
+    battlefield.className = 'battlefield';
+    battlefield.getBoundingClientRect = () => ({
+      ...rect(10, 500),
+      y: 10,
+      top: 10,
+      bottom: 330,
+      height: 320,
+    });
+    const cardElement = document.createElement('button');
+    markAsBattlefieldCard(cardElement);
+    cardElement.getBoundingClientRect = () => ({
+      ...rect(30, 100),
+      y: 40,
+      top: 40,
+      right: 130,
+      bottom: 180,
+      height: 140,
+    });
+    const visual = document.createElement('span');
+    visual.className = 'card-visual';
+    visual.getBoundingClientRect = () => ({
+      ...rect(42, 82),
+      y: 52,
+      top: 52,
+      right: 124,
+      bottom: 166,
+      height: 114,
+    });
+    cardElement.appendChild(visual);
+    battlefield.appendChild(cardElement);
+    const card = {
+      instanceId: 'card-1',
+      name: 'Arcane Signet',
+      tapped: false,
+      position: { x: 20, y: 30 },
+    };
+
+    expect(service.startBattlefieldPointerDrag({
+      button: 0,
+      currentTarget: cardElement,
+      target: cardElement,
+      clientX: 34,
+      clientY: 48,
+    } as unknown as PointerEvent, 'player-1', card)).toBe(false);
+
+    expect(service.startBattlefieldPointerDrag({
+      button: 0,
+      currentTarget: cardElement,
+      target: visual,
+      clientX: 60,
+      clientY: 78,
+    } as unknown as PointerEvent, 'player-1', card)).toBe(true);
+    expect(service.pointerDragPreview()).toEqual({ x: 42, y: 52, width: 82, height: 114 });
+  });
+
   it('preserves x from the grabbed preview when snapping a pointer drag to mana row', () => {
     const battlefield = document.createElement('div');
     battlefield.className = 'battlefield';
@@ -342,6 +401,7 @@ describe('GameTableDragService', () => {
     });
     battlefield.appendChild(manaLane);
     const cardElement = document.createElement('button');
+    markAsBattlefieldCard(cardElement);
     cardElement.getBoundingClientRect = () => ({
       ...rect(30, 100),
       y: 40,
@@ -372,6 +432,33 @@ describe('GameTableDragService', () => {
 
     expect(positions.at(-1)).toEqual({ x: 163, y: 148 });
   });
+
+  it('does not start a pointer drag from the empty battlefield surface', () => {
+    const battlefield = document.createElement('div');
+    battlefield.className = 'battlefield';
+    battlefield.getBoundingClientRect = () => ({
+      ...rect(10, 500),
+      y: 10,
+      top: 10,
+      bottom: 330,
+      height: 320,
+    });
+
+    const started = service.startBattlefieldPointerDrag({
+      button: 0,
+      currentTarget: battlefield,
+      clientX: 100,
+      clientY: 120,
+    } as unknown as PointerEvent, 'player-1', {
+      instanceId: 'card-1',
+      name: 'Arcane Signet',
+      tapped: false,
+      position: { x: 20, y: 30 },
+    });
+
+    expect(started).toBe(false);
+    expect(service.hasActivePointerDrag()).toBe(false);
+  });
 });
 
 function rect(left: number, width: number): DOMRect {
@@ -386,4 +473,9 @@ function rect(left: number, width: number): DOMRect {
     left,
     toJSON: () => ({}),
   } as DOMRect;
+}
+
+function markAsBattlefieldCard(element: HTMLElement): void {
+  element.dataset['testid'] = 'game-card';
+  element.dataset['zone'] = 'battlefield';
 }

@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { GameCardInstance, GameCommandType, GameSnapshot, GameZoneName } from '../../../../core/models/game.model';
+import { GameCardInstance, GameCardPosition, GameCommandType, GameSnapshot, GameZoneName } from '../../../../core/models/game.model';
 import { HandDropPreview } from '../state/game-table-battlefield-drag.state';
 import { GameTableDragService } from './game-table-drag.service';
 
@@ -35,7 +35,7 @@ export interface GameTableDropActionContext {
   clearSelectedCards(): void;
   suppressCardPreview(): void;
   setError(message: string): void;
-  snapBattlefieldPosition(playerId: string, instanceId: string, position: { x: number; y: number }, rawZone?: string): { x: number; y: number };
+  snapBattlefieldPosition(playerId: string, instanceId: string, position: { x: number; y: number }, rawZone?: string): GameCardPosition;
   markPendingManaDrop(playerId: string, instanceIds: readonly string[]): void;
   markPendingTransfer(playerId: string, fromZone: GameZoneName, instanceIds: readonly string[], options?: MarkPendingTransferOptions): void;
   command(type: GameCommandType, payload: Record<string, unknown>): Promise<void>;
@@ -95,7 +95,7 @@ export class GameTableDropActionsService {
     if (toZone === 'battlefield' && rawDropZone === 'mana') {
       context.markPendingManaDrop(targetPlayerId, instanceIds);
     }
-    const payloadPosition = payload['position'] as { x: number; y: number } | undefined;
+    const payloadPosition = payload['position'] as GameCardPosition | undefined;
 
     if (!isMultiMove && dragged.zone === 'battlefield' && toZone === 'battlefield' && targetPlayerId === dragged.playerId && payloadPosition) {
       await context.command('card.position.changed', {
@@ -191,6 +191,21 @@ export class GameTableDropActionsService {
     const instanceIds = movedCards.map((card) => card.instanceId);
     const isMultiMove = instanceIds.length > 1;
     const handDestinationPlayerId = this.destinationPlayerIdForMove(dragged.playerId, dragged.zone, 'hand', movedCards, targetPlayerId);
+
+    if (dragged.zone === 'library') {
+      if (targetPlayerId !== dragged.playerId) {
+        this.endBlockedDrag(context, 'You can only draw from your own library to your own hand.');
+        context.clearHandDropPreview();
+        return;
+      }
+
+      context.markPendingTransfer(dragged.playerId, 'library', instanceIds);
+      await context.command('library.draw', { playerId: dragged.playerId, count: 1 });
+      this.endCompletedDrag(context);
+      context.clearHandDropPreview();
+      return;
+    }
+
     if (dragged.zone !== 'hand') {
       context.markPendingTransfer(dragged.playerId, dragged.zone, instanceIds);
     }
@@ -301,10 +316,13 @@ export class GameTableDropActionsService {
     context: GameTableDropActionContext,
     pendingMove: PendingLibraryMove,
     position: 'top' | 'bottom',
+    randomOrder = false,
   ): Promise<void> {
+    const shouldRandomize = randomOrder && this.supportsRandomLibraryOrder(pendingMove);
     await context.command(pendingMove.commandType, {
       ...pendingMove.payload,
       position,
+      ...(shouldRandomize ? { randomOrder: true } : {}),
     });
     const fromZone = pendingMove.payload['fromZone'];
     const playerId = pendingMove.payload['playerId'];
@@ -314,6 +332,15 @@ export class GameTableDropActionsService {
     context.setPendingLibraryMove(null);
     context.clearSelectedCards();
     context.suppressCardPreview();
+  }
+
+  supportsRandomLibraryOrder(pendingMove: PendingLibraryMove): boolean {
+    const instanceIds = pendingMove.payload['instanceIds'];
+
+    return pendingMove.commandType === 'cards.moved'
+      && pendingMove.payload['toZone'] === 'library'
+      && Array.isArray(instanceIds)
+      && instanceIds.length > 1;
   }
 
   private async reorderHand(
@@ -386,7 +413,7 @@ export class GameTableDropActionsService {
     playerId: string,
     fromZone: GameZoneName,
     instanceIds: readonly string[],
-    position: { x: number; y: number },
+    position: GameCardPosition,
   ): Promise<void> {
     context.markPendingTransfer(playerId, fromZone, instanceIds);
     for (const instanceId of instanceIds) {

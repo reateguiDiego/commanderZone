@@ -1,4 +1,5 @@
 @let handPlayer = player();
+@let handCards = displayHandCards();
 
 <div
   class="hand-area"
@@ -7,22 +8,30 @@
   [class.hand-revealed]="isHandVisuallyRevealed()"
   [class.hand-dragging]="isPointerDragActive()"
   [class.hand-external-dragging]="hasActiveCardDrag()"
-  (mouseenter)="enterHand()"
-  (mouseleave)="leaveHand()"
+  (mouseenter)="enterHand($event)"
+  (mouseleave)="leaveHand($event)"
   (focusin)="focusHand()"
   (focusout)="blurHand($event)"
 >
   <span
     class="hand-hover-strip"
     aria-hidden="true"
-    (mouseenter)="enterHand()"
+    (mouseenter)="enterHandHoverZone($event)"
   ></span>
   <div
     appPrettyScroll
     class="hand-row game-table-hand"
     data-testid="hand-zone"
     [attr.data-player-id]="handPlayer.id"
+    [attr.data-game-drop-zone]="shouldRenderEmptyHandDropTarget() ? null : 'hand'"
+    [attr.data-zone]="shouldRenderEmptyHandDropTarget() ? null : 'hand'"
     [class.hand-row-empty]="shouldRenderEmptyHandDropTarget()"
+    [class.hand-row-expanded]="handLayoutMode() === 'row'"
+    (mouseenter)="enterHandScrollArea($event)"
+    (mouseleave)="leaveHandScrollArea($event)"
+    (wheel)="handleHandWheel($event)"
+    (dragover)="handDragOver.emit({ event: $event, playerId: handPlayer.id })"
+    (drop)="handDropped.emit({ event: $event, playerId: handPlayer.id })"
   >
     @if (shouldRenderEmptyHandDropTarget()) {
       <div
@@ -32,24 +41,27 @@
         [attr.data-game-drop-zone]="'hand'"
         [attr.data-zone]="'hand'"
         [class.drop-target-active]="isEmptyHandDropTargetActive()"
-        (dragover)="handDragOver.emit({ event: $event, playerId: handPlayer.id })"
-        (drop)="handDropped.emit({ event: $event, playerId: handPlayer.id })"
+        (dragover)="$event.stopPropagation(); handDragOver.emit({ event: $event, playerId: handPlayer.id })"
+        (drop)="$event.stopPropagation(); handDropped.emit({ event: $event, playerId: handPlayer.id })"
       ></div>
     } @else {
       <div
         class="hand-fan"
+        [style.--hand-count]="handCards.length"
+        [style.--hand-row-width]="handRowWidth(handCards.length)"
         [attr.data-player-id]="handPlayer.id"
-        [attr.data-game-drop-zone]="'hand'"
-        [attr.data-zone]="'hand'"
         [class.hand-fan-compact-drop-target]="hasCompactHandDropTarget()"
-        [class.drop-target-active]="isHandDropReceiverHighlighted()"
-        (dragover)="handDragOver.emit({ event: $event, playerId: handPlayer.id })"
-        (drop)="handDropped.emit({ event: $event, playerId: handPlayer.id })"
+        [class.hand-fan-row]="handLayoutMode() === 'row'"
+        [class.drop-target-active]="isHandDropReceiverVisuallyHighlighted()"
       >
-      @for (card of handPlayer.state.zones.hand; track card.instanceId) {
+      @for (card of handCards; track card.instanceId) {
         @let dropPlacement = handDropPlacement(card);
         @if (dropPlacement === 'before') {
-          <span class="hand-drop-slot hand-drop-slot-before" aria-hidden="true"></span>
+          <span
+            class="hand-drop-slot hand-drop-slot-before"
+            aria-hidden="true"
+            [style.--hand-drop-slot-distance]="handDropSlotOffsetDistance($index, 'before')"
+          ></span>
         }
         <app-game-card-view
           mode="hand"
@@ -59,26 +71,31 @@
           [image]="cardImage()(card)"
           [selected]="isSelected()(card.instanceId)"
           [dragging]="isDraggingHandCard(card)"
-          [alignmentReference]="isHandDropReceiverHighlighted()"
+          [alignmentReference]="isHandDropReceiverVisuallyHighlighted()"
           [dropSettling]="isCardDropSettling()(handPlayer.id, 'hand', card)"
-          [hoverInteractionsEnabled]="isHandVisuallyRevealed() && !isPointerDragActive()"
-          [faceDown]="card.hidden ?? false"
-          [hidden]="card.hidden ?? false"
+          [hoverInteractionsEnabled]="canPreviewHandCard(card)"
+          [faceDown]="isHandCardFaceDown(card)"
+          [hidden]="isHandCardFaceDown(card)"
           [draggable]="false"
           [handDropPlacement]="dropPlacement"
           [handArrivalSide]="handArrivalSide(card, $index)"
+          [handLayout]="handLayoutMode()"
           [handIndex]="$index"
-          [handCount]="handPlayer.state.zones.hand.length"
+          [handCount]="handCards.length"
           (cardPointerDown)="startHandPointerDrag($event.event, handPlayer.id, $event.card)"
           (cardClicked)="handleHandCardClick($event.event, handPlayer.id, $event.card)"
           (cardDoubleClicked)="stopDoubleClick($event.event)"
-          (cardMenuOpened)="cardMenuOpened.emit({ event: $event.event, playerId: handPlayer.id, card: $event.card })"
-          (cardPointerEntered)="enterHand()"
+          (cardMenuOpened)="openHandCardMenu($event.event, handPlayer.id, $event.card)"
+          (cardPointerEntered)="enterHandCard($event.event, $event.card)"
           (cardMouseEntered)="cardPreviewShown.emit($event)"
-          (cardMouseLeft)="cardPreviewHidden.emit()"
+          (cardMouseLeft)="leaveHandCard()"
         />
         @if (dropPlacement === 'after') {
-          <span class="hand-drop-slot hand-drop-slot-after" aria-hidden="true"></span>
+          <span
+            class="hand-drop-slot hand-drop-slot-after"
+            aria-hidden="true"
+            [style.--hand-drop-slot-distance]="handDropSlotOffsetDistance($index, 'after')"
+          ></span>
         }
       }
       </div>

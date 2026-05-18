@@ -11,7 +11,7 @@ describe('CardMarkerRailComponent', () => {
   it('renders token and counter markers in rail order', () => {
     const fixture = createFixture();
 
-    fixture.componentRef.setInput('isToken', true);
+    fixture.componentRef.setInput('showTokenCopyMarker', true);
     fixture.componentRef.setInput('counters', [
       { key: 'Charge', value: 2 },
       { key: 'Red', value: 1 },
@@ -24,6 +24,16 @@ describe('CardMarkerRailComponent', () => {
     expect(markers[1].textContent).toContain('Charge');
     expect(markers[2].classList).toContain('color-counter-marker');
     expect(markers[2].textContent).toContain('1');
+  });
+
+  it('does not render the token copy marker for regular tokens', () => {
+    const fixture = createFixture();
+
+    fixture.componentRef.setInput('showTokenCopyMarker', false);
+    fixture.componentRef.setInput('counters', []);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.token-copy-marker')).toBeNull();
   });
 
   it('renders color counters as badge-only markers', () => {

@@ -16,10 +16,10 @@
     </button>
   }
 
-  @if (player.turnRoll !== null) {
+  @if (player.turnRoll !== null || (player.turnRolls?.length ?? 0) > 0) {
     <div class="roll-badge" aria-label="D20 roll result">
       <span class="roll-badge-label">D20 roll</span>
-      <strong>{{ player.turnRoll }}</strong>
+      <strong>{{ rollLabel(player) }}</strong>
     </div>
   }
 

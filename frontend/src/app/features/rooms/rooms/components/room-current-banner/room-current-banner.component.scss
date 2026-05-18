@@ -6,13 +6,13 @@
   position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 1rem;
+  gap: .75rem;
   align-items: center;
-  min-height: 9rem;
-  padding: 1rem;
+  min-height: 0;
+  padding: clamp(.7rem, 1.1vw, .95rem);
   overflow: hidden;
   border: 1px solid rgb(215 180 106 / .42);
-  border-radius: 16px;
+  border-radius: 14px;
   background:
     radial-gradient(circle at 10% 0, rgb(215 180 106 / .2), transparent 34%),
     linear-gradient(135deg, rgb(29 32 25 / .96), rgb(7 10 8 / .92));
@@ -55,8 +55,8 @@
 
 .banner-main {
   display: grid;
-  grid-template-columns: minmax(16rem, 1fr) minmax(14rem, .58fr) minmax(7.5rem, .28fr);
-  gap: .85rem;
+  grid-template-columns: minmax(12rem, 1fr) minmax(11rem, .58fr) minmax(5.4rem, .24fr);
+  gap: .6rem;
   align-items: stretch;
   min-width: 0;
 }
@@ -71,7 +71,7 @@
 .room-title-line {
   display: flex;
   align-items: center;
-  gap: .65rem;
+  gap: .5rem;
   min-width: 0;
 }
 
@@ -80,7 +80,7 @@
   margin: 0;
   overflow: hidden;
   color: var(--text);
-  font-size: clamp(1.25rem, 2vw, 1.75rem);
+  font-size: clamp(1.08rem, 1.65vw, 1.55rem);
   line-height: 1.05;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -90,12 +90,12 @@
   display: inline-flex;
   align-items: center;
   min-height: 1.65rem;
-  padding: .22rem .6rem;
+  padding: .18rem .52rem;
   border: 1px solid rgb(143 219 166 / .48);
   border-radius: 999px;
   background: rgb(143 219 166 / .12);
   color: #c5f6d4;
-  font-size: .74rem;
+  font-size: .7rem;
   font-weight: 900;
   text-transform: capitalize;
   white-space: nowrap;
@@ -124,19 +124,19 @@
 .room-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: .4rem;
+  gap: .32rem;
 }
 
 .room-chip {
   display: inline-flex;
   align-items: center;
   min-height: 1.55rem;
-  padding: .2rem .56rem;
+  padding: .16rem .48rem;
   border: 1px solid rgb(215 180 106 / .24);
   border-radius: 999px;
   background: rgb(4 6 5 / .48);
   color: #e7dfcb;
-  font-size: .75rem;
+  font-size: .7rem;
   font-weight: 800;
   text-transform: capitalize;
   white-space: nowrap;
@@ -153,15 +153,15 @@
 
 .deck-summary {
   display: grid;
-  grid-template-columns: 5.4rem minmax(0, 1fr);
+  grid-template-columns: 4.2rem minmax(0, 1fr);
   align-items: center;
-  gap: .85rem;
-  padding: .75rem;
+  gap: .58rem;
+  padding: .55rem;
 }
 
 .deck-art {
-  width: 5.4rem;
-  height: 4rem;
+  width: 4.2rem;
+  height: 3.15rem;
   overflow: hidden;
   border: 1px solid rgb(215 180 106 / .36);
   border-radius: 12px;
@@ -205,7 +205,7 @@
   margin-top: .28rem;
   overflow: hidden;
   color: var(--text);
-  font-size: .98rem;
+  font-size: .9rem;
   line-height: 1.2;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -213,26 +213,39 @@
 
 .turn-summary {
   justify-items: center;
-  padding: .75rem;
+  padding: .55rem;
   text-align: center;
 }
 
 .turn-summary strong {
-  font-size: 1.15rem;
+  font-size: 1rem;
 }
 
 .current-room-actions {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
   flex-wrap: wrap;
-  gap: .5rem;
+  gap: .38rem;
+  min-width: max-content;
+  max-width: 100%;
 }
 
 .current-room-actions a,
 .current-room-actions button {
-  min-width: 8.5rem;
-  padding: .64rem .9rem;
+  flex: 0 0 auto;
+  width: auto;
+  min-width: clamp(4.8rem, 6vw, 5.8rem);
+  min-height: 2rem;
+  padding: .35rem .52rem;
+  border-radius: 7px;
+  font-size: clamp(.72rem, .75vw, .82rem);
+  line-height: 1.05;
   white-space: nowrap;
+}
+
+.current-room-actions lucide-icon {
+  flex: 0 0 auto;
 }
 
 .danger-button {
@@ -257,45 +270,57 @@
   opacity: .55;
 }
 
-@media (max-width: 1180px) {
+@media (max-width: 1100px) {
+  .banner-main {
+    grid-template-columns: minmax(11rem, 1fr) minmax(10rem, .68fr);
+  }
+
+  .turn-summary {
+    display: none;
+  }
+}
+
+@media (max-width: 760px) {
   .room-current-banner {
     grid-template-columns: 1fr;
   }
 
   .current-room-actions {
+    min-width: 0;
     justify-content: flex-start;
   }
 }
 
-@media (max-width: 900px) {
+@media (max-width: 620px) {
+  .room-current-banner {
+    padding: .7rem;
+    border-radius: 12px;
+  }
+
   .banner-main {
     grid-template-columns: 1fr;
   }
 
-  .turn-summary {
-    justify-items: start;
-    text-align: left;
-  }
-}
-
-@media (max-width: 580px) {
-  .room-current-banner {
-    min-height: 0;
-    padding: .85rem;
-    border-radius: 14px;
-  }
-
   .deck-summary {
-    grid-template-columns: 4.6rem minmax(0, 1fr);
+    grid-template-columns: 3.8rem minmax(0, 1fr);
   }
 
   .deck-art {
-    width: 4.6rem;
-    height: 3.4rem;
+    width: 3.8rem;
+    height: 2.9rem;
+  }
+
+  .current-room-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    width: 100%;
+    gap: .5rem;
   }
 
   .current-room-actions a,
   .current-room-actions button {
     width: 100%;
+    min-width: 0;
+    min-height: 2.15rem;
   }
 }

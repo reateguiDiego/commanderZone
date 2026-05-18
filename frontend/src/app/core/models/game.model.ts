@@ -2,10 +2,25 @@ import { User } from './user.model';
 import { CardFace } from './card.model';
 
 export type GameZoneName = 'library' | 'hand' | 'battlefield' | 'graveyard' | 'exile' | 'command';
+export interface GameCardPixelPosition {
+  x: number;
+  y: number;
+  unit?: undefined;
+}
+
+export interface GameCardRatioPosition {
+  x: number;
+  y: number;
+  unit: 'ratio';
+}
+
+export type GameCardPosition = GameCardPixelPosition | GameCardRatioPosition;
+
 export type GameCommandType =
   | 'game.concede'
   | 'game.close'
   | 'chat.message'
+  | 'dice.rolled'
   | 'life.changed'
   | 'commander.damage.changed'
   | 'counter.changed'
@@ -16,19 +31,25 @@ export type GameCommandType =
   | 'card.tapped'
   | 'card.position.changed'
   | 'card.face_down.changed'
+  | 'card.face.changed'
   | 'card.revealed'
+  | 'card.token.created'
   | 'card.token_copy.created'
   | 'card.controller.changed'
   | 'turn.changed'
+  | 'battlefield.untap_all'
   | 'zone.changed'
   | 'zone.move_all'
+  | 'zone.random_card.selected'
   | 'library.draw'
   | 'library.draw_many'
   | 'library.shuffle'
   | 'library.move_top'
   | 'library.reveal_top'
   | 'library.reveal'
+  | 'library.view'
   | 'library.play_top_revealed'
+  | 'library.reorder_top'
   | 'stack.card_added'
   | 'stack.item_removed'
   | 'arrow.created'
@@ -54,13 +75,15 @@ export interface GameCardInstance {
   defaultLoyalty?: number | null;
   tapped: boolean;
   faceDown?: boolean;
+  activeFaceIndex?: number;
   hidden?: boolean;
   revealedTo?: string[];
-  position?: { x: number; y: number };
+  position?: GameCardPosition;
   rotation?: number;
   counters?: Record<string, number>;
   zone?: GameZoneName;
   isToken?: boolean;
+  isTokenCopy?: boolean;
   isCommander?: boolean;
 }
 
@@ -75,6 +98,8 @@ export interface GamePlayerState {
   colorIdentity?: string[];
   backgroundName?: string;
   sleevesName?: string;
+  playTopLibraryRevealed?: boolean;
+  revealedLibraryTo?: string[];
   life: number;
   zones: GameZones;
   zoneCounts?: GameZoneCounts;
@@ -105,6 +130,9 @@ export interface GameLogEntry {
   displayName: string | null;
   createdAt: string;
   cardNames?: string[];
+  cardInstanceId?: string;
+  cardPlayerId?: string;
+  cardZone?: GameZoneName;
 }
 
 export interface GameStackItem {
@@ -116,10 +144,24 @@ export interface GameStackItem {
 
 export interface GameArrow {
   id: string;
+  ownerId?: string;
   fromInstanceId: string;
   toInstanceId: string;
   color: string;
   createdAt: string;
+}
+
+export type GameRematchVote = 'play_again' | 'leave';
+
+export interface GameRematchVoteState {
+  playerId: string;
+  displayName: string;
+  vote: GameRematchVote;
+  votedAt: string;
+}
+
+export interface GameRematchState {
+  votes: Record<string, GameRematchVoteState>;
 }
 
 export interface GameSnapshot {
@@ -137,6 +179,7 @@ export interface GameSnapshot {
   arrows: GameArrow[];
   chat: ChatMessage[];
   eventLog: GameLogEntry[];
+  rematch?: GameRematchState;
   createdAt: string;
   updatedAt?: string;
   counters?: Record<string, Record<string, number>>;

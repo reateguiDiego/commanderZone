@@ -7,7 +7,7 @@ import { RoomsApi } from '../../../core/api/rooms.api';
 import { AuthStore } from '../../../core/auth/auth.store';
 import { DeckFormat } from '../../../core/models/deck.model';
 import { RoomInvite } from '../../../core/models/room-invite.model';
-import { CurrentRoomPlayerSummary, CurrentRoomSummary, CurrentRoomTurn, Room } from '../../../core/models/room.model';
+import { CurrentRoomPlayerSummary, CurrentRoomSummary, CurrentRoomTurn, CurrentRoomViewerRole, Room } from '../../../core/models/room.model';
 import { bestCardArtImage } from '../../../shared/utils/card-image';
 import { MercureService } from '../../../core/realtime/mercure.service';
 import { PageHeaderStore } from '../../../core/ui/page-header.store';
@@ -42,6 +42,7 @@ export class RoomsComponent implements OnInit, OnDestroy {
   readonly currentRoom = signal<CurrentRoomSummary | null>(null);
   readonly currentRoomPlayer = signal<CurrentRoomPlayerSummary | null>(null);
   readonly currentRoomTurn = signal<CurrentRoomTurn | null>(null);
+  readonly currentRoomViewerRole = signal<CurrentRoomViewerRole | null>(null);
   readonly error = signal<string | null>(null);
   readonly deletingRoomId = signal<string | null>(null);
   readonly leavingRoomId = signal<string | null>(null);
@@ -91,9 +92,19 @@ export class RoomsComponent implements OnInit, OnDestroy {
   async loadCurrentRoom(skipGlobalLoading = false): Promise<void> {
     try {
       const response = await firstValueFrom(this.roomsApi.current(skipGlobalLoading));
+      if (!response.room || !response.viewerRole) {
+        this.clearCurrentRoom();
+        if (response.room && this.roomId === response.room.id) {
+          this.roomId = '';
+        }
+
+        return;
+      }
+
       this.currentRoom.set(response.room);
       this.currentRoomPlayer.set(response.player);
       this.currentRoomTurn.set(response.turn ?? null);
+      this.currentRoomViewerRole.set(response.viewerRole);
       if (response.room) {
         this.roomId = response.room.id;
       }
@@ -132,6 +143,7 @@ export class RoomsComponent implements OnInit, OnDestroy {
       this.currentRoom.set(this.currentRoomSummaryFromRoom(response.room));
       this.currentRoomPlayer.set(this.currentRoomPlayerSummaryFromRoom(response.room));
       this.currentRoomTurn.set(null);
+      this.currentRoomViewerRole.set(this.currentRoomViewerRoleFromRoom(response.room));
       this.roomId = response.room.id;
       this.scheduleRoomSync();
       await this.navigateToWaitingRoom(response.room.id);
@@ -160,6 +172,7 @@ export class RoomsComponent implements OnInit, OnDestroy {
       this.currentRoom.set(this.currentRoomSummaryFromRoom(response.room));
       this.currentRoomPlayer.set(this.currentRoomPlayerSummaryFromRoom(response.room));
       this.currentRoomTurn.set(null);
+      this.currentRoomViewerRole.set(this.currentRoomViewerRoleFromRoom(response.room));
       this.roomId = response.room.id;
       this.scheduleRoomSync();
       await this.navigateToWaitingRoom(response.room.id);
@@ -220,14 +233,12 @@ export class RoomsComponent implements OnInit, OnDestroy {
     try {
       await firstValueFrom(this.roomsApi.delete(room.id));
       if (this.currentRoom()?.id === room.id) {
-        this.currentRoom.set(null);
-        this.currentRoomPlayer.set(null);
-        this.currentRoomTurn.set(null);
+        this.clearCurrentRoom();
       }
       if (this.roomId === room.id) {
         this.roomId = '';
       }
-      await this.loadRoomState();
+      await this.loadRoomListState();
       this.scheduleRoomSync();
       this.roomPendingDelete.set(null);
     } catch {
@@ -245,6 +256,7 @@ export class RoomsComponent implements OnInit, OnDestroy {
       this.currentRoom.set(this.currentRoomSummaryFromRoom(room));
       this.currentRoomPlayer.set(this.currentRoomPlayerSummaryFromRoom(room));
       this.currentRoomTurn.set(null);
+      this.currentRoomViewerRole.set(this.currentRoomViewerRoleFromRoom(room));
       this.roomId = room.id;
       this.scheduleRoomSync();
       await this.navigateToWaitingRoom(room.id);
@@ -257,7 +269,7 @@ export class RoomsComponent implements OnInit, OnDestroy {
     this.error.set(null);
     try {
       await firstValueFrom(this.roomsApi.declineInvite(invite.id));
-      await this.loadRoomState();
+      await this.loadRoomListState();
     } catch {
       this.error.set('Could not decline room invite.');
     }
@@ -329,9 +341,7 @@ export class RoomsComponent implements OnInit, OnDestroy {
     try {
       await firstValueFrom(this.roomsApi.leave(roomId));
       if (this.currentRoom()?.id === roomId) {
-        this.currentRoom.set(null);
-        this.currentRoomPlayer.set(null);
-        this.currentRoomTurn.set(null);
+        this.clearCurrentRoom();
       }
       if (this.roomId === roomId) {
         this.roomId = '';
@@ -339,6 +349,19 @@ export class RoomsComponent implements OnInit, OnDestroy {
       await this.loadRoomState();
       this.scheduleRoomSync();
     } catch (error) {
+      if (this.isStaleRoomMembershipError(error)) {
+        if (this.currentRoom()?.id === roomId) {
+          this.clearCurrentRoom();
+        }
+        if (this.roomId === roomId) {
+          this.roomId = '';
+        }
+        await this.loadRoomState(true);
+        this.scheduleRoomSync();
+
+        return;
+      }
+
       this.error.set(this.errorMessage(error, 'Could not leave room.'));
     } finally {
       this.leavingRoomId.set(null);
@@ -356,6 +379,16 @@ export class RoomsComponent implements OnInit, OnDestroy {
     ]);
   }
 
+  private async loadRoomListState(skipGlobalLoading = false): Promise<void> {
+    if (!this.inviteRealtimeSubscription) {
+      this.subscribeToInviteRealtime();
+    }
+    await Promise.all([
+      this.loadRooms(skipGlobalLoading),
+      this.loadInvites(skipGlobalLoading),
+    ]);
+  }
+
   private async syncRoomState(): Promise<void> {
     if (this.roomSyncInFlight) {
       return;
@@ -363,7 +396,6 @@ export class RoomsComponent implements OnInit, OnDestroy {
 
     this.roomSyncInFlight = true;
     try {
-      await this.loadCurrentRoom(true);
       await this.loadRooms(true);
     } finally {
       this.roomSyncInFlight = false;
@@ -386,21 +418,29 @@ export class RoomsComponent implements OnInit, OnDestroy {
 
   private syncCurrentRoom(rooms: Room[]): void {
     const currentRoom = this.currentRoom();
-    const currentId = currentRoom?.id ?? this.roomId.trim();
-    if (!currentId) {
+    if (!currentRoom) {
       return;
     }
 
+    const currentId = currentRoom.id;
     const room = rooms.find((candidate) => candidate.id === currentId) ?? null;
     if (room) {
+      const viewerRole = this.currentRoomViewerRoleFromRoom(room);
+      if (!viewerRole) {
+        this.clearCurrentRoom();
+        if (this.roomId === currentId) {
+          this.roomId = '';
+        }
+
+        return;
+      }
+
       this.currentRoom.set(this.currentRoomSummaryFromRoom(room));
+      this.currentRoomViewerRole.set(viewerRole);
       const listedPlayer = this.currentRoomPlayerSummaryFromRoom(room);
       if (this.shouldUseListedCurrentPlayer(listedPlayer)) {
         this.currentRoomPlayer.set(listedPlayer);
       }
-    }
-    if (!currentRoom && !room && this.roomId === currentId) {
-      this.roomId = '';
     }
   }
 
@@ -446,6 +486,34 @@ export class RoomsComponent implements OnInit, OnDestroy {
       || (!currentPlayer.deckImageUrl && !!listedPlayer.deckImageUrl);
   }
 
+  private currentRoomViewerRoleFromRoom(room: Room): CurrentRoomViewerRole | null {
+    const userId = this.auth.user()?.id;
+    if (!userId) {
+      return null;
+    }
+
+    const isOwner = room.owner.id === userId;
+    const isPlayer = room.players.some((player) => player.user.id === userId);
+    if (isOwner && isPlayer) {
+      return 'owner_player';
+    }
+    if (isOwner) {
+      return 'owner';
+    }
+    if (isPlayer) {
+      return 'player';
+    }
+
+    return null;
+  }
+
+  private clearCurrentRoom(): void {
+    this.currentRoom.set(null);
+    this.currentRoomPlayer.set(null);
+    this.currentRoomTurn.set(null);
+    this.currentRoomViewerRole.set(null);
+  }
+
   private subscribeToInviteRealtime(): void {
     const userId = this.auth.user()?.id;
     if (!userId) {
@@ -485,6 +553,22 @@ export class RoomsComponent implements OnInit, OnDestroy {
   private isDeckRequiredError(message: string): boolean {
     const normalized = message.toLowerCase();
     return normalized.includes('deck') || normalized.includes('mazo');
+  }
+
+  private isStaleRoomMembershipError(error: unknown): boolean {
+    if (!(error instanceof HttpErrorResponse)) {
+      return false;
+    }
+
+    if (error.status === 404) {
+      return true;
+    }
+
+    if (error.status !== 403) {
+      return false;
+    }
+
+    return this.errorMessage(error, '').toLowerCase().includes('only room players can leave');
   }
 
   private async navigateToWaitingRoom(roomId: string): Promise<void> {

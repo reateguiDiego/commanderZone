@@ -39,6 +39,14 @@ class CardsController extends ApiController
             $params['commanderLegal'] = filter_var($commanderLegal, FILTER_VALIDATE_BOOLEAN);
         }
 
+        $tokenOnly = $request->query->get('tokenOnly');
+        if ($tokenOnly !== null && $tokenOnly !== '' && filter_var($tokenOnly, FILTER_VALIDATE_BOOLEAN)) {
+            $where[] = '(layout IN (:tokenLayout, :doubleFacedTokenLayout) OR LOWER(type_line) LIKE :tokenTypeLine)';
+            $params['tokenLayout'] = 'token';
+            $params['doubleFacedTokenLayout'] = 'double_faced_token';
+            $params['tokenTypeLine'] = '%token%';
+        }
+
         $type = mb_strtolower(trim((string) $request->query->get('type', '')));
         if ($type !== '') {
             $allowedTypes = ['creature', 'instant', 'sorcery', 'artifact', 'enchantment', 'planeswalker', 'land'];

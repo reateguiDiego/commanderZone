@@ -84,13 +84,13 @@ export class ZonePilesPanelComponent {
   }
 
   previewZoneCard(event: MouseEvent, zone: GameZoneName): void {
-    if (zone !== 'command') {
+    if (zone !== 'command' && zone !== 'library') {
       return;
     }
 
     const player = this.player();
     const card = this.zonePreviewCard()(player, zone);
-    if (card) {
+    if (card && !card.hidden) {
       this.cardPreviewShown.emit({
         card,
         playerId: player.id,
@@ -101,7 +101,7 @@ export class ZonePilesPanelComponent {
   }
 
   hideZoneCardPreview(zone: GameZoneName): void {
-    if (zone === 'command') {
+    if (zone === 'command' || zone === 'library') {
       this.cardPreviewHidden.emit();
     }
   }

@@ -289,7 +289,7 @@ export class GameTableDropFeedbackState implements OnDestroy {
   }
 
   private positionKey(card: GameCardInstance): string {
-    return card.position ? `${card.position.x}:${card.position.y}` : '';
+    return card.position ? `${card.position.x}:${card.position.y}:${card.position.unit ?? 'pixel'}` : '';
   }
 
   private cardKey(playerId: string, zone: GameZoneName, instanceId: string): string {

@@ -76,7 +76,15 @@ export class GameTableDragService {
       return false;
     }
 
-    const target = event.currentTarget as HTMLElement;
+    const target = event.currentTarget instanceof HTMLElement ? event.currentTarget : null;
+    if (!target?.matches('[data-testid="game-card"][data-zone="battlefield"]')) {
+      return false;
+    }
+    const visualBounds = this.cardVisualStartBounds(event);
+    if (!visualBounds) {
+      return false;
+    }
+
     const battlefield = target.closest('.battlefield') as HTMLElement | null;
     if (!battlefield) {
       return false;
@@ -84,14 +92,14 @@ export class GameTableDragService {
     target.setPointerCapture?.(event.pointerId);
 
     const cardBounds = target.getBoundingClientRect();
-    const cardWidth = target.offsetWidth || cardBounds.width;
-    const cardHeight = target.offsetHeight || cardBounds.height;
+    const cardWidth = visualBounds.width || target.offsetWidth || cardBounds.width;
+    const cardHeight = visualBounds.height || target.offsetHeight || cardBounds.height;
     const fieldBounds = battlefield.getBoundingClientRect();
-    const current = card.position ?? {
+    const current = {
       x: target.offsetLeft || Math.max(0, Math.round(cardBounds.left - fieldBounds.left)),
       y: target.offsetTop || Math.max(0, Math.round(cardBounds.top - fieldBounds.top)),
     };
-    const grabOffset = this.pointerOffsetWithinBounds(event.clientX, event.clientY, cardBounds, cardWidth, cardHeight);
+    const grabOffset = this.pointerOffsetWithinBounds(event.clientX, event.clientY, visualBounds, cardWidth, cardHeight);
     this.pointerCardDrag = {
       playerId,
       instanceId: card.instanceId,
@@ -358,6 +366,22 @@ export class GameTableDragService {
 
   private isInsideBounds(clientX: number, clientY: number, bounds: DOMRect): boolean {
     return clientX >= bounds.left && clientX <= bounds.right && clientY >= bounds.top && clientY <= bounds.bottom;
+  }
+
+  private cardVisualStartBounds(event: PointerEvent): DOMRect | null {
+    const current = event.currentTarget instanceof HTMLElement ? event.currentTarget : null;
+    const visual = current?.querySelector<HTMLElement>('.card-visual') ?? null;
+    const visualBounds = visual?.getBoundingClientRect();
+    if (visualBounds && visualBounds.width > 0 && visualBounds.height > 0) {
+      return this.isInsideBounds(event.clientX, event.clientY, visualBounds) ? visualBounds : null;
+    }
+
+    const source = event.target instanceof Element ? event.target : null;
+    if (source === null || source.closest('.card-visual') !== null) {
+      return current?.getBoundingClientRect() ?? null;
+    }
+
+    return null;
   }
 
   private clampPosition(x: number, y: number, width: number, height: number, cardWidth: number, cardHeight: number): { x: number; y: number } {

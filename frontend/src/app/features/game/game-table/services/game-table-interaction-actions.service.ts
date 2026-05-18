@@ -22,6 +22,7 @@ interface SelectedCardState {
 export interface GameTableInteractionContext {
   currentPlayer(): ControlPlayerView | null;
   focusedPlayer(): FocusPlayerView | null;
+  zoneCardCount(playerId: string, zone: GameZoneName): number;
   setError(message: string): void;
   playCard(playerId: string, zone: GameZoneName, card: GameCardInstance): Promise<void>;
 }
@@ -47,7 +48,7 @@ export class GameTableInteractionActionsService {
       return false;
     }
 
-    if (card.zone === 'battlefield') {
+    if (card.zone === 'battlefield' || card.zone === 'hand') {
       return !card.controllerId || card.controllerId === currentPlayerId || playerId === currentPlayerId;
     }
 
@@ -113,20 +114,49 @@ export class GameTableInteractionActionsService {
     this.toggleCardSelection(context, event, playerId, 'hand', card);
   }
 
-  openCardMenu(context: GameTableInteractionContext, event: MouseEvent, playerId: string, zone: GameZoneName, card: GameCardInstance): void {
+  openCardMenu(
+    context: GameTableInteractionContext,
+    event: MouseEvent,
+    playerId: string,
+    zone: GameZoneName,
+    card: GameCardInstance,
+    options: { suppressRandomSelect?: boolean } = {},
+  ): void {
     this.prepareContextMenuEvent(event);
+    if (zone === 'command') {
+      return;
+    }
     if (zone === 'battlefield' && !this.isCurrentPlayer(context, playerId)) {
       context.setError('You can only open card actions for your own battlefield.');
       return;
     }
 
-    this.uiState.openContextMenu(event, { playerId, zone, card, kind: 'card' });
+    this.uiState.openContextMenu(event, { playerId, zone, card, kind: 'card', ...options });
   }
 
   openZoneMenu(context: GameTableInteractionContext, event: MouseEvent, playerId: string, zone: GameZoneName): void {
     this.prepareContextMenuEvent(event);
+    if (zone === 'command') {
+      return;
+    }
+    if (zone === 'library' && !this.isCurrentPlayer(context, playerId)) {
+      return;
+    }
+    if (this.requiresCardsForZoneMenu(zone) && context.zoneCardCount(playerId, zone) <= 0) {
+      return;
+    }
     if (zone === 'battlefield' && !this.isCurrentPlayer(context, playerId)) {
       context.setError('You can only open battlefield actions for your own board.');
+      return;
+    }
+
+    if (zone !== 'battlefield') {
+      const target = event.currentTarget instanceof HTMLElement ? event.currentTarget : null;
+      const bounds = target?.getBoundingClientRect();
+      this.uiState.openContextMenuAt(
+        { x: bounds?.left ?? event.clientX, y: bounds?.top ?? event.clientY },
+        { playerId, zone, kind: 'zone' },
+      );
       return;
     }
 
@@ -157,6 +187,10 @@ export class GameTableInteractionActionsService {
   private prepareContextMenuEvent(event: MouseEvent): void {
     event.preventDefault();
     event.stopPropagation();
+  }
+
+  private requiresCardsForZoneMenu(zone: GameZoneName): boolean {
+    return zone === 'graveyard' || zone === 'exile';
   }
 
   private ripple(element: HTMLElement): void {

@@ -36,4 +36,12 @@ export class WaitingRoomPlayerCardComponent {
   readonly deckSelected = output<string>();
   readonly randomDeckRequested = output<void>();
   readonly kickRequested = output<RoomPlayer>();
+
+  rollLabel(player: RoomPlayer): string {
+    const rolls = Array.isArray(player.turnRolls) && player.turnRolls.length > 0
+      ? player.turnRolls
+      : player.turnRoll === null ? [] : [player.turnRoll];
+
+    return rolls.join(' - ');
+  }
 }

@@ -1,0 +1,47 @@
+<app-modal
+  [open]="open()"
+  [title]="winner() ? 'Victoria de leyenda' : 'Has muerto'"
+  [message]="winner()
+    ? 'La mesa es tuya. Has sobrevivido al caos y cerrado la partida con autoridad.'
+    : 'Quieres volver a jugar con esta room?'"
+  [headerImageSrc]="logoUrl"
+  headerImageAlt="Commander Zone"
+  primaryLabel="Jugar otra partida"
+  secondaryLabel="Abandonar room"
+  [primaryDisabled]="pending() || playAgainDisabled()"
+  [showCloseButton]="currentVote() !== null"
+  closeLabel="Cerrar votaciones"
+  [showSecondary]="true"
+  [lockBodyScroll]="false"
+  (primary)="playAgain.emit()"
+  (secondary)="leaveRoom.emit()"
+  (close)="closed.emit()"
+>
+  <section class="rematch-body" [class.winner-copy]="winner()">
+    @if (currentVote(); as vote) {
+      <p class="current-vote">Tu voto actual: <strong>{{ voteLabel(vote) }}</strong></p>
+    }
+
+    @if (playAgainDisabled()) {
+      <p class="current-vote">El resto de jugadores ya ha votado abandonar la room.</p>
+    }
+
+    @if (countdownSeconds() !== null) {
+      <aside class="rematch-countdown" role="status" aria-live="polite">
+        <span>{{ countdownTitle() }}</span>
+        <strong>{{ countdownSeconds() }}s</strong>
+        <small>{{ countdownMessage() }}</small>
+      </aside>
+    }
+
+    <div class="votes-box" aria-label="Votaciones de la room">
+      @for (player of players(); track player.playerId) {
+        <article class="vote-row" [class.defeated]="player.defeated">
+          <span class="player-name">{{ player.displayName }}</span>
+          <span class="player-life">{{ player.life }} vidas</span>
+          <strong class="vote-pill" [attr.data-vote]="player.vote ?? 'none'">{{ voteLabel(player.vote) }}</strong>
+        </article>
+      }
+    </div>
+  </section>
+</app-modal>

@@ -30,6 +30,12 @@ class RoomPlayer
     #[ORM\Column(type: 'integer', nullable: true)]
     private ?int $turnRoll = null;
 
+    /**
+     * @var list<int>
+     */
+    #[ORM\Column(type: 'json')]
+    private array $turnRolls = [];
+
     #[ORM\Column(type: 'datetime_immutable')]
     private \DateTimeImmutable $joinedAt;
 
@@ -66,6 +72,21 @@ class RoomPlayer
         return $this->turnRoll;
     }
 
+    /**
+     * @return list<int>
+     */
+    public function turnRolls(): array
+    {
+        if ($this->turnRolls === [] && $this->turnRoll !== null) {
+            return [$this->turnRoll];
+        }
+
+        return array_values(array_filter(
+            $this->turnRolls,
+            static fn (mixed $roll): bool => is_int($roll) && $roll >= 1 && $roll <= 20,
+        ));
+    }
+
     public function joinedAt(): \DateTimeImmutable
     {
         return $this->joinedAt;
@@ -79,11 +100,20 @@ class RoomPlayer
 
     public function rollTurnOrder(int $roll): void
     {
-        if ($this->turnRoll !== null) {
+        $normalizedRoll = max(1, min(20, $roll));
+        $this->turnRolls = [...$this->turnRolls(), $normalizedRoll];
+        $this->turnRoll = $normalizedRoll;
+        $this->touch();
+    }
+
+    public function clearTurnRoll(): void
+    {
+        if ($this->turnRoll === null && $this->turnRolls === []) {
             return;
         }
 
-        $this->turnRoll = max(1, min(20, $roll));
+        $this->turnRoll = null;
+        $this->turnRolls = [];
         $this->touch();
     }
 
@@ -95,6 +125,7 @@ class RoomPlayer
             'deckId' => $this->deck?->id(),
             'deck' => $this->deck?->toArray(),
             'turnRoll' => $this->turnRoll,
+            'turnRolls' => $this->turnRolls(),
         ];
     }
 

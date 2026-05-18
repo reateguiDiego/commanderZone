@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import { Card } from '../../../../core/models/card.model';
 import { GameCardInstance, GameCommandType, GameZoneName } from '../../../../core/models/game.model';
 import { GameContextMenu } from '../state/game-table-ui.state';
 import { ZoneModalState } from '../state/game-table-zone-modal.state';
@@ -16,6 +17,7 @@ export interface GameTableCardActionContext {
   selectedCards(): GameTableCardSelection[];
   clearSelectedCards(): void;
   zoneModal(): ZoneModalState | null;
+  replaceZoneModalCards(cards: GameCardInstance[]): void;
   loadZone(): Promise<void>;
   playerName(playerId: string): string;
   setError(message: string): void;
@@ -44,7 +46,33 @@ export class GameTableCardActionsService {
     context.clearSelectedCards();
   }
 
-  async moveCard(context: GameTableCardActionContext, menu: GameContextMenu, toZone: GameZoneName): Promise<void> {
+  async playFaceDown(context: GameTableCardActionContext, menu: GameContextMenu): Promise<void> {
+    if (!menu.card || menu.zone !== 'hand') {
+      return;
+    }
+    if (!context.canControlPlayer(menu.playerId)) {
+      context.setError('You can only move your own cards.');
+      context.closeContextMenu();
+      return;
+    }
+
+    await context.command('card.moved', {
+      playerId: menu.playerId,
+      fromZone: 'hand',
+      toZone: 'battlefield',
+      instanceId: menu.card.instanceId,
+      faceDown: true,
+    });
+    context.clearSelectedCards();
+    context.closeContextMenu();
+  }
+
+  async moveCard(
+    context: GameTableCardActionContext,
+    menu: GameContextMenu,
+    toZone: GameZoneName,
+    options: { position?: 'top' | 'bottom' } = {},
+  ): Promise<void> {
     if (!menu.card) {
       return;
     }
@@ -58,9 +86,10 @@ export class GameTableCardActionsService {
       fromZone: menu.zone,
       toZone,
       instanceId: menu.card.instanceId,
+      ...(options.position ? { position: options.position } : {}),
     };
 
-    if (toZone === 'library') {
+    if (toZone === 'library' && !options.position) {
       context.setPendingLibraryMove({
         cardName: menu.card.name,
         commandType: 'card.moved',
@@ -72,8 +101,33 @@ export class GameTableCardActionsService {
 
     await context.command('card.moved', payload);
     await context.recordCommanderCastIfNeeded(menu.playerId, menu.zone, toZone);
+    this.removeMovedLibraryCardFromFixedModal(context, menu, toZone, options.position);
     context.clearSelectedCards();
     context.closeContextMenu();
+  }
+
+  async moveLibraryCardToHand(context: GameTableCardActionContext, menu: GameContextMenu, reveal: boolean): Promise<void> {
+    if (!menu.card || menu.zone !== 'library') {
+      return;
+    }
+    if (!context.canControlPlayer(menu.playerId)) {
+      context.setError('You can only move your own cards.');
+      context.closeContextMenu();
+      return;
+    }
+
+    await context.command('card.moved', {
+      playerId: menu.playerId,
+      fromZone: 'library',
+      toZone: 'hand',
+      instanceId: menu.card.instanceId,
+      reveal,
+    });
+    context.clearSelectedCards();
+    context.closeContextMenu();
+    if (context.zoneModal()?.playerId === menu.playerId && context.zoneModal()?.zone === 'library') {
+      await context.loadZone();
+    }
   }
 
   async giveCardToPlayer(context: GameTableCardActionContext, menu: GameContextMenu, targetPlayerId: string): Promise<void> {
@@ -119,11 +173,26 @@ export class GameTableCardActionsService {
       return;
     }
 
+    const instanceIds = selected.map((item) => item.card.instanceId);
+    if (toZone === 'library') {
+      context.setPendingLibraryMove({
+        cardName: `${selected.length} cards`,
+        commandType: 'cards.moved',
+        payload: {
+          playerId: first.playerId,
+          fromZone: first.zone,
+          toZone,
+          instanceIds,
+        },
+      });
+      return;
+    }
+
     await context.command('cards.moved', {
       playerId: first.playerId,
       fromZone: first.zone,
       toZone,
-      instanceIds: selected.map((item) => item.card.instanceId),
+      instanceIds,
     });
     context.clearSelectedCards();
   }
@@ -137,6 +206,20 @@ export class GameTableCardActionsService {
 
     const item = context.activeKeyboardCard();
     if (!item || !context.canControlPlayer(item.playerId)) {
+      return;
+    }
+
+    if (toZone === 'library') {
+      context.setPendingLibraryMove({
+        cardName: item.card.name,
+        commandType: 'card.moved',
+        payload: {
+          playerId: item.playerId,
+          fromZone: item.zone,
+          toZone,
+          instanceId: item.card.instanceId,
+        },
+      });
       return;
     }
 
@@ -188,7 +271,33 @@ export class GameTableCardActionsService {
     context.closeContextMenu();
   }
 
-  async revealCard(context: GameTableCardActionContext, menu: GameContextMenu): Promise<void> {
+  async flipCardFace(context: GameTableCardActionContext, menu: GameContextMenu): Promise<void> {
+    if (!menu.card) {
+      return;
+    }
+    if (!context.canControlPlayer(menu.playerId)) {
+      context.setError('You can only change your own cards.');
+      context.closeContextMenu();
+      return;
+    }
+
+    const faceCount = menu.card.cardFaces?.length ?? 0;
+    if (faceCount < 2) {
+      context.closeContextMenu();
+      return;
+    }
+
+    const currentIndex = Number.isInteger(menu.card.activeFaceIndex) ? Number(menu.card.activeFaceIndex) : 0;
+    await context.command('card.face.changed', {
+      playerId: menu.playerId,
+      zone: menu.zone,
+      instanceId: menu.card.instanceId,
+      faceIndex: (currentIndex + 1) % faceCount,
+    });
+    context.closeContextMenu();
+  }
+
+  async revealCard(context: GameTableCardActionContext, menu: GameContextMenu, target: string = 'all'): Promise<void> {
     if (!menu.card) {
       return;
     }
@@ -202,7 +311,7 @@ export class GameTableCardActionsService {
       playerId: menu.playerId,
       zone: menu.zone,
       instanceId: menu.card.instanceId,
-      to: 'all',
+      to: target,
     });
     context.closeContextMenu();
   }
@@ -224,6 +333,60 @@ export class GameTableCardActionsService {
       targetPlayerId: menu.playerId,
     });
     context.closeContextMenu();
+  }
+
+  private removeMovedLibraryCardFromFixedModal(
+    context: GameTableCardActionContext,
+    menu: GameContextMenu,
+    toZone: GameZoneName,
+    position: 'top' | 'bottom' | undefined,
+  ): void {
+    const modal = context.zoneModal();
+    if (
+      menu.zone !== 'library'
+      || toZone !== 'library'
+      || position !== 'bottom'
+      || !menu.card
+      || !modal
+      || modal.zone !== 'library'
+      || modal.playerId !== menu.playerId
+      || modal.showFilters
+    ) {
+      return;
+    }
+
+    const movedInstanceId = menu.card.instanceId;
+    context.replaceZoneModalCards(modal.cards.filter((card) => card.instanceId !== movedInstanceId));
+  }
+
+  async createToken(context: GameTableCardActionContext, playerId: string, card: Card | null = null): Promise<void> {
+    if (!context.canControlPlayer(playerId)) {
+      context.setError('You can only create tokens on your own battlefield.');
+      context.closeContextMenu();
+      return;
+    }
+
+    await context.command('card.token.created', {
+      playerId,
+      ...(card ? { card: this.tokenCardPayload(card) } : {}),
+    });
+    context.closeContextMenu();
+  }
+
+  private tokenCardPayload(card: Card): Record<string, unknown> {
+    return {
+      scryfallId: card.scryfallId,
+      name: card.name,
+      imageUris: card.imageUris,
+      cardFaces: card.cardFaces ?? [],
+      typeLine: card.typeLine,
+      manaCost: card.manaCost,
+      oracleText: card.oracleText,
+      colorIdentity: card.colorIdentity,
+      power: card.power ?? null,
+      toughness: card.toughness ?? null,
+      loyalty: card.loyalty ?? null,
+    };
   }
 
   async setPowerToughness(context: GameTableCardActionContext, menu: GameContextMenu, power: number, toughness: number): Promise<void> {

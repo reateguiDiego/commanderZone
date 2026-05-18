@@ -17,6 +17,7 @@ export class RollModalComponent implements OnInit, OnDestroy {
   private readonly bodyScrollLock = inject(BodyScrollLockService);
 
   readonly closed = output<void>();
+  readonly rolled = output<RollResult>();
   readonly rollOptions = ROLL_OPTIONS;
   readonly selectedKind = signal<RollKind>('coin');
   readonly rollResult = signal<RollResult | null>(null);
@@ -54,7 +55,9 @@ export class RollModalComponent implements OnInit, OnDestroy {
   }
 
   roll(): void {
-    this.rollResult.set(rollOption(this.selectedKind()));
+    const result = rollOption(this.selectedKind());
+    this.rollResult.set(result);
+    this.rolled.emit(result);
   }
 
   close(): void {

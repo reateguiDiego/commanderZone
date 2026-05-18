@@ -52,33 +52,48 @@
   pointer-events: none;
 }
 
-.cross-table-arrows {
-  position: absolute;
-  inset: 0;
-  z-index: 76;
-  width: 100%;
-  height: 100%;
-  overflow: visible;
-  pointer-events: none;
-}
-
-.cross-table-arrows line {
-  stroke-width: 4;
-  stroke-linecap: round;
-  filter:
-    drop-shadow(0 0 0.34rem rgb(0 0 0 / 72%))
-    drop-shadow(0 0 0.52rem rgb(215 180 106 / 28%));
-  opacity: 0.95;
-}
-
 .game-screen > * {
   position: relative;
   z-index: 1;
 }
 
-.game-screen > .cross-table-arrows {
+.game-screen > app-game-arrow-layer {
   position: absolute;
-  z-index: 76;
+  z-index: 620;
+}
+
+.game-screen > app-arrow-target-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 1800;
+}
+
+.game-screen > app-card-preview-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 5000;
+  pointer-events: none;
+}
+
+.library-random-order-option {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.7rem 0.8rem;
+  cursor: pointer;
+}
+
+.library-random-order-option input {
+  accent-color: var(--game-accent);
+}
+
+.library-random-order-option span {
+  display: grid;
+}
+
+.library-random-order-option small {
+  color: var(--game-muted);
 }
 
 .notice {
@@ -145,7 +160,19 @@
   background: transparent;
 }
 
+.rematch-votes-button {
+  position: absolute;
+  top: 0.75rem;
+  left: 0.75rem;
+  z-index: 250;
+  border-radius: 8px;
+  background: rgb(8 10 8 / 82%);
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
 .player-strip {
+  z-index: 700;
   grid-area: mainTop;
   display: grid;
   grid-template-columns: minmax(0, 500px) minmax(0, 500px) minmax(0, 1fr) minmax(0, 340px);
@@ -156,7 +183,7 @@
   height: 100%;
   margin-inline: calc(-1 * var(--game-table-side-margin));
   background: var(--game-surface-deep);
-  overflow: hidden;
+  overflow: visible;
 }
 
 .extras-panel {
@@ -175,7 +202,7 @@
   grid-area: opponents;
   display: grid;
   align-content: start;
-  gap: 0.7rem;
+  gap: 0;
   overflow: auto;
   background: var(--game-side-column-bg);
   pointer-events: none;
@@ -318,6 +345,19 @@
 
 .panel-feed p.private-chat-message {
   background: linear-gradient(90deg, color-mix(in srgb, var(--game-accent) 13%, transparent), rgb(243 240 232 / 5%));
+}
+
+.panel-feed p.death-entry {
+  border: 1px solid rgb(239 68 68 / 46%);
+  background:
+    radial-gradient(circle at 0% 50%, rgb(239 68 68 / 25%), transparent 10rem),
+    linear-gradient(90deg, rgb(70 12 12 / 72%), rgb(24 9 9 / 76%));
+  box-shadow: inset 0 0 18px rgb(239 68 68 / 12%);
+}
+
+.panel-feed p.death-entry strong,
+.panel-feed p.death-entry span {
+  color: rgb(255 190 190);
 }
 
 .panel-feed small {
@@ -546,7 +586,7 @@
   }
 
   .player-strip {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 0 minmax(17rem, 22rem);
+    grid-template-columns: minmax(9rem, 0.95fr) minmax(12rem, 1.05fr) 0 minmax(17rem, 22rem);
   }
 
   .extras-panel {
@@ -580,10 +620,10 @@
     grid-column: 2;
     grid-row: 1;
     align-content: start;
-    gap: 0.55rem;
+    gap: 0;
     min-width: 0;
     overflow: auto;
-    padding: 0.45rem;
+    padding: 0;
   }
 
   .zone-dock {
@@ -627,7 +667,7 @@
   }
 
   .player-strip {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) minmax(8.5rem, 0.95fr);
     width: 100%;
     margin-inline: 0;
   }
@@ -689,9 +729,9 @@
     display: grid;
     grid-column: 2;
     align-content: start;
-    gap: 0.35rem;
+    gap: 0;
     overflow: auto;
-    padding: 0.35rem;
+    padding: 0;
   }
 
   .zone-dock {

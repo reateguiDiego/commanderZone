@@ -1,0 +1,229 @@
+:host {
+  display: contents;
+}
+
+.token-search-panel {
+  --token-spoiler-width: 10.6rem;
+
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  align-content: start;
+  gap: 0.85rem;
+  min-height: min(42rem, 72dvh);
+}
+
+.token-search-field {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 0.65rem;
+  width: min(32rem, 100%);
+  min-height: 2.85rem;
+  padding-inline: 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--gold);
+  background: #10130f;
+}
+
+.token-search-field input {
+  min-width: 0;
+  border: 0;
+  outline: none;
+  padding: 0;
+  color: var(--text);
+  background: transparent;
+  font: inherit;
+  box-shadow: none;
+}
+
+.token-search-field input:focus {
+  border: 0;
+  box-shadow: none;
+}
+
+.token-search-field input::placeholder {
+  color: rgb(237 229 210 / 48%);
+}
+
+.token-search-status {
+  min-height: 1.25rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.token-search-status .error {
+  color: #f0a6a0;
+}
+
+.token-grid {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  justify-content: center;
+  gap: 1.05rem;
+  max-height: min(43rem, 64dvh);
+  overflow: auto;
+  padding: 0.1rem 0.25rem 0.35rem 0;
+}
+
+.token-card {
+  position: relative;
+  display: block;
+  width: var(--token-spoiler-width);
+  aspect-ratio: 0.716;
+  border: 1px solid rgb(215 180 106 / 26%);
+  border-radius: 8px;
+  color: var(--text);
+  background:
+    radial-gradient(circle at 50% 0%, rgb(215 180 106 / 13%), transparent 9rem),
+    linear-gradient(180deg, rgb(23 27 22 / 94%), rgb(7 9 8 / 96%));
+  box-shadow:
+    0 0.9rem 1.6rem rgb(0 0 0 / 34%),
+    inset 0 1px 0 rgb(255 255 255 / 6%);
+  overflow: hidden;
+  text-align: left;
+}
+
+.token-card:hover,
+.token-card:focus-within {
+  border-color: rgb(235 200 120 / 66%);
+  transform: translateY(-1px);
+}
+
+.token-card.pending {
+  opacity: 0.68;
+}
+
+.token-card img,
+.token-card-fallback {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: rgb(5 6 5 / 72%);
+}
+
+.token-card-fallback {
+  display: grid;
+  place-items: center;
+  padding: 0.75rem;
+  color: var(--gold);
+  font-weight: 900;
+  text-align: center;
+}
+
+.token-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 50% 50%, rgb(0 0 0 / 36%), transparent 42%),
+    linear-gradient(180deg, transparent 48%, rgb(0 0 0 / 68%));
+  opacity: 0;
+  transition: opacity 140ms ease;
+  pointer-events: none;
+}
+
+.token-card:hover::after,
+.token-card:focus-within::after {
+  opacity: 1;
+}
+
+.token-add-button {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  z-index: 2;
+  display: inline-grid;
+  place-items: center;
+  width: 2.65rem;
+  height: 2.65rem;
+  padding: 0;
+  border: 1px solid rgb(246 216 141 / 82%);
+  border-radius: 999px;
+  color: #171209;
+  background:
+    linear-gradient(180deg, #f3d98f, #b9822e);
+  box-shadow:
+    0 0.7rem 1.5rem rgb(0 0 0 / 46%),
+    inset 0 1px 0 rgb(255 255 255 / 40%);
+  cursor: pointer;
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.88);
+  transition:
+    opacity 140ms ease,
+    transform 140ms ease,
+    border-color 140ms ease;
+}
+
+.token-add-button:hover:not(:disabled),
+.token-add-button:focus-visible {
+  border-color: rgb(255 236 170 / 96%);
+  transform: translate(-50%, -50%) scale(1);
+}
+
+.token-add-button:disabled {
+  cursor: wait;
+}
+
+.token-card:hover .token-add-button,
+.token-card:focus-within .token-add-button {
+  opacity: 1;
+}
+
+.token-card-copy {
+  display: none;
+}
+
+.token-card-copy strong {
+  overflow-wrap: anywhere;
+  font-size: 0.95rem;
+  line-height: 1.15;
+}
+
+.token-card-copy small {
+  overflow-wrap: anywhere;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.25;
+}
+
+.empty-state {
+  width: 100%;
+  margin: 2rem 0;
+  color: var(--muted);
+  text-align: center;
+}
+
+@media (max-width: 640px) {
+  .token-search-panel {
+    --token-spoiler-width: 7.25rem;
+
+    min-height: min(36rem, 72dvh);
+  }
+
+  .token-grid {
+    gap: 0.65rem;
+  }
+
+  .token-add-button {
+    width: 2.35rem;
+    height: 2.35rem;
+  }
+}
+
+@media (max-width: 1260px) and (min-width: 641px) {
+  .token-search-panel {
+    --token-spoiler-width: 8.8rem;
+  }
+}
+
+@media (hover: none) {
+  .token-card::after,
+  .token-add-button {
+    opacity: 1;
+  }
+
+  .token-add-button {
+    transform: translate(-50%, -50%) scale(1);
+  }
+}

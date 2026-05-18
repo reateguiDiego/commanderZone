@@ -606,6 +606,11 @@ paths:
           schema:
             type: string
             enum: [creature, instant, sorcery, artifact, enchantment, planeswalker, land]
+        - name: tokenOnly
+          in: query
+          description: When true, restricts results to token cards in the local catalog.
+          schema:
+            type: boolean
       responses:
         '200':
           description: Card search results.
@@ -1406,6 +1411,7 @@ paths:
     post:
       tags: [Rooms]
       summary: Create a room and join it as owner.
+      description: If the current user already belongs to active rooms, those rooms are deleted before the new room is created.
       requestBody:
         required: false
         content:
@@ -1671,12 +1677,12 @@ paths:
   /rooms/{id}/roll-turn:
     post:
       tags: [Rooms]
-      summary: Roll a d20 once for waiting-room turn order.
+      summary: Roll a d20 for waiting-room turn order or an unresolved tie-break.
       parameters:
         - $ref: '#/components/parameters/Id'
       responses:
         '200':
-          description: Updated room with the player's turn-order roll.
+          description: Updated room with the player's turn-order roll history.
           content:
             application/json:
               schema:
@@ -1699,19 +1705,16 @@ paths:
     post:
       tags: [Rooms]
       summary: Leave an active room as a current room player.
+      description: Leaves the room membership and returns only the leave result. If leaving removes the last player, the room is deleted.
       parameters:
         - $ref: '#/components/parameters/Id'
       responses:
         '200':
-          description: Updated room.
+          description: Leave operation result.
           content:
             application/json:
               schema:
-                type: object
-                required: [room]
-                properties:
-                  room:
-                    $ref: '#/components/schemas/Room'
+                $ref: '#/components/schemas/LeaveRoomResponse'
         '401':
           $ref: '#/components/responses/Error'
         '403':
@@ -1844,6 +1847,33 @@ paths:
           $ref: '#/components/responses/Error'
         '404':
           $ref: '#/components/responses/Error'
+  /games/{id}/rematch-vote:
+    post:
+      tags: [Games]
+      summary: Vote to leave or replay after defeat/game end.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RematchVoteRequest'
+      responses:
+        '200':
+          description: Current rematch vote status.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RematchVoteResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
   /games/{id}/zones/{playerId}/{zone}:
     get:
       tags: [Games]
@@ -1935,6 +1965,15 @@ paths:
                     fromZone: hand
                     toZone: battlefield
                     instanceId: card-instance-id
+              playFaceDown:
+                value:
+                  type: card.moved
+                  payload:
+                    playerId: 01966d5f-0000-7000-8000-000000000000
+                    fromZone: hand
+                    toZone: battlefield
+                    instanceId: card-instance-id
+                    faceDown: true
       responses:
         '201':
           description: Created game event and current snapshot.
@@ -3433,7 +3472,7 @@ components:
           format: date-time
     RoomPlayer:
       type: object
-      required: [id, user, deckId, deck, turnRoll]
+      required: [id, user, deckId, deck, turnRoll, turnRolls]
       properties:
         id:
           type: string
@@ -3451,9 +3490,25 @@ components:
           type: [integer, 'null']
           minimum: 1
           maximum: 20
+          description: Latest turn-order roll, kept for compatibility.
+        turnRolls:
+          type: array
+          description: Ordered turn-order rolls used to resolve ties, from first roll to latest tie-break.
+          items:
+            type: integer
+            minimum: 1
+            maximum: 20
+    LeaveRoomResponse:
+      type: object
+      required: [left, roomDeleted]
+      properties:
+        left:
+          type: boolean
+        roomDeleted:
+          type: boolean
     CurrentRoomResponse:
       type: object
-      required: [room, player, turn]
+      required: [room, player, turn, viewerRole]
       properties:
         room:
           oneOf:
@@ -3467,6 +3522,13 @@ components:
           oneOf:
             - $ref: '#/components/schemas/CurrentRoomTurn'
             - type: 'null'
+        viewerRole:
+          oneOf:
+            - $ref: '#/components/schemas/CurrentRoomViewerRole'
+            - type: 'null'
+    CurrentRoomViewerRole:
+      type: string
+      enum: [owner, player, owner_player]
     CurrentRoomSummary:
       type: object
       required: [id, name, status, visibility, format, maxPlayers, playerCount, gameId]
@@ -3590,6 +3652,8 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/GameLogEntry'
+        rematch:
+          $ref: '#/components/schemas/GameRematch'
         createdAt:
           type: string
           format: date-time
@@ -3730,6 +3794,10 @@ components:
           type: boolean
         faceDown:
           type: boolean
+        activeFaceIndex:
+          type: integer
+          minimum: 0
+          description: Zero-based displayed face index for double-faced cards.
         hidden:
           type: boolean
         revealedTo:
@@ -3737,12 +3805,30 @@ components:
           items:
             type: string
         position:
-          type: object
-          properties:
-            x:
-              type: number
-            y:
-              type: number
+          oneOf:
+            - type: object
+              description: Legacy pixel position. Preserved for existing snapshots.
+              properties:
+                x:
+                  type: number
+                y:
+                  type: number
+              required: [x, y]
+            - type: object
+              description: Responsive battlefield position. Values are normalized against the available rendered battlefield axis.
+              properties:
+                x:
+                  type: number
+                  minimum: 0
+                  maximum: 1
+                y:
+                  type: number
+                  minimum: 0
+                  maximum: 1
+                unit:
+                  type: string
+                  enum: [ratio]
+              required: [x, y, unit]
         rotation:
           type: integer
         counters:
@@ -3753,6 +3839,9 @@ components:
           $ref: '#/components/schemas/GameZoneName'
         isToken:
           type: boolean
+        isTokenCopy:
+          type: boolean
+          description: True when this token was created as a copy of another card.
         isCommander:
           type: boolean
           description: True when this instance is a commander card and may return to the command zone.
@@ -3832,6 +3921,57 @@ components:
         createdAt:
           type: string
           format: date-time
+    GameRematch:
+      type: object
+      required: [votes]
+      properties:
+        votes:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/GameRematchVote'
+    GameRematchVote:
+      type: object
+      required: [playerId, displayName, vote, votedAt]
+      properties:
+        playerId:
+          type: string
+          format: uuid
+        displayName:
+          type: string
+        vote:
+          type: string
+          enum: [play_again, leave]
+        votedAt:
+          type: string
+          format: date-time
+    RematchVoteRequest:
+      type: object
+      required: [vote]
+      properties:
+        vote:
+          type: string
+          enum: [play_again, leave]
+    RematchVoteResponse:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [left, room_deleted, waiting_for_game_end, waiting_for_votes, room_ready]
+        message:
+          type: [string, 'null']
+        event:
+          $ref: '#/components/schemas/GameEvent'
+        snapshot:
+          $ref: '#/components/schemas/GameSnapshot'
+        version:
+          type: [integer, 'null']
+        room:
+          $ref: '#/components/schemas/Room'
+        left:
+          type: boolean
+        roomDeleted:
+          type: boolean
     GameStackItem:
       type: object
       required: [id, kind, createdAt]
@@ -3850,6 +3990,8 @@ components:
       required: [id, fromInstanceId, toInstanceId, color, createdAt]
       properties:
         id:
+          type: string
+        ownerId:
           type: string
         fromInstanceId:
           type: string
@@ -3870,6 +4012,7 @@ components:
             - game.concede
             - game.close
             - chat.message
+            - dice.rolled
             - life.changed
             - commander.damage.changed
             - counter.changed
@@ -3880,18 +4023,23 @@ components:
             - card.tapped
             - card.position.changed
             - card.face_down.changed
+            - card.face.changed
             - card.revealed
+            - card.token.created
             - card.token_copy.created
             - card.controller.changed
             - turn.changed
+            - battlefield.untap_all
             - zone.changed
             - zone.move_all
+            - zone.random_card.selected
             - library.draw
             - library.draw_many
             - library.shuffle
             - library.move_top
             - library.reveal_top
             - library.reveal
+            - library.view
             - library.play_top_revealed
             - stack.card_added
             - stack.item_removed
@@ -3900,8 +4048,35 @@ components:
         payload:
           type: object
           description: >
-            Command payload. For card.counter.changed, send key plus either value,
-            delta, or remove=true to delete that counter from the card.
+            Command payload. For commander.damage.changed, the actor must be the
+            target player and reaching 21 commander damage defeats that player.
+            For counter.changed with a player:<playerId> scope, the actor must
+            be that player and may send either value or delta. For
+            card.counter.changed, send key plus either value, delta, or
+            remove=true to delete that counter from the card. For
+            card.power_toughness.changed, power/toughness/loyalty may be numbers
+            or null to clear manually assigned stats. For card.moved into
+            battlefield, faceDown=true places the moved card face down. For
+            cards.moved into library, randomOrder=true randomizes only the moved
+            cards before placing them at the requested top/bottom position.
+            zone.random_card.selected logs one random card name from library,
+            hand, graveyard, or exile without moving it. Optional instanceId can
+            pin the selected card when the client opens the same random card in a
+            fixed one-card zone view. library.move_top may send targetPlayerId to
+            move top cards into another player's hand or battlefield, and
+            position=bottom when moving top cards to the bottom of the library.
+            library.view logs that the actor looked at their library order, with
+            optional count for top-card views. library.reveal may send to=<playerId>
+            to let another room player inspect the actor's full library; closing
+            that read-only view may send library.shuffle with
+            reason=revealed-library-closed to shuffle and clear the reveal.
+            dice.rolled logs a manual roll result, and battlefield.untap_all
+            untaps all tapped cards in the actor's own battlefield.
+            library.play_top_revealed toggles a persistent public top-library
+            reveal flag and does not move cards.
+            card.token.created creates the selected token payload on the actor
+            player's battlefield, or a generic 1/1 token when no card payload is
+            provided.
           additionalProperties: true
         clientActionId:
           type: string
