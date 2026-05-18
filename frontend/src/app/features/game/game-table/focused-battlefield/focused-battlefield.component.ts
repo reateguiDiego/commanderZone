@@ -142,14 +142,14 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
       return;
     }
 
-    this.emitBattlefieldSize(element.getBoundingClientRect());
+    this.emitBattlefieldSize(element);
     if (typeof ResizeObserver === 'undefined') {
       return;
     }
 
     this.resizeObserver = new ResizeObserver(([entry]) => {
       if (entry) {
-        this.emitBattlefieldSize(element.getBoundingClientRect());
+        this.emitBattlefieldSize(element);
       }
     });
     this.resizeObserver.observe(element);
@@ -284,14 +284,19 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
     return typeLine.includes('creature') || typeLine.includes('planeswalker');
   }
 
-  private emitBattlefieldSize(size: DOMRectReadOnly): void {
+  private emitBattlefieldSize(element: HTMLElement): void {
+    const bounds = element.getBoundingClientRect();
+    const width = Math.round(element.clientWidth || bounds.width);
+    const height = Math.round(element.clientHeight || bounds.height);
+    const left = Math.round(bounds.left);
+    const top = Math.round(bounds.top);
     const next = {
-      width: Math.round(size.width),
-      height: Math.round(size.height),
-      left: Math.round(size.left),
-      top: Math.round(size.top),
-      right: Math.round(size.right),
-      bottom: Math.round(size.bottom),
+      width,
+      height,
+      left,
+      top,
+      right: left + width,
+      bottom: top + height,
     };
     if (next.width <= 0 || next.height <= 0) {
       return;

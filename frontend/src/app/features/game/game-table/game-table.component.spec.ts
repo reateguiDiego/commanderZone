@@ -454,6 +454,60 @@ describe('GameTableComponent', () => {
     expect((fixture.nativeElement as HTMLElement).querySelector('app-roll-modal')).not.toBeNull();
   });
 
+  it('records roll modal results in the game log through a game command', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+    gamesApi.command.mockReturnValue(of({
+      event: { id: 'event-dice', type: 'dice.rolled', payload: {}, createdBy: 'user-1', createdAt: '' },
+      snapshot,
+    }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    await fixture.componentInstance.recordRollResult({
+      kind: 'd20',
+      label: 'Dado de 20 caras',
+      iterationCount: 4,
+      finalResult: '17',
+    });
+
+    expect(gamesApi.command).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'dice.rolled',
+      payload: {
+        kind: 'd20',
+        label: 'Dado de 20 caras',
+        finalResult: '17',
+      },
+    }), 'game-1');
+  });
+
+  it('untaps the current player battlefield with the U shortcut', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    snapshot.players['user-1']!.zones.battlefield[0]!.tapped = true;
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+    gamesApi.command.mockReturnValue(of({
+      event: { id: 'event-untap', type: 'battlefield.untap_all', payload: {}, createdBy: 'user-1', createdAt: '' },
+      snapshot,
+    }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'u', bubbles: true }));
+
+    await vi.waitFor(() => expect(gamesApi.command).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'battlefield.untap_all',
+      payload: { playerId: 'user-1' },
+    }), 'game-1'));
+  });
+
   it('resolves focused player deck visuals for the table background and current player sleeves', async () => {
     routeParams['id'] = 'game-1';
     authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
@@ -2404,15 +2458,15 @@ describe('GameTableComponent', () => {
     cardElement.setAttribute('data-testid', 'game-card');
     battlefield.appendChild(cardElement);
     document.body.appendChild(battlefield);
-    const battlefieldBounds = {
+    const transformedBattlefieldBounds = {
       x: 0,
       y: 0,
-      width: 320,
-      height: 260,
+      width: 420,
+      height: 340,
       top: 0,
       left: 0,
-      right: 320,
-      bottom: 260,
+      right: 420,
+      bottom: 340,
       toJSON: () => ({}),
     } as DOMRect;
     const cardBounds = {
@@ -2426,8 +2480,10 @@ describe('GameTableComponent', () => {
       bottom: 140,
       toJSON: () => ({}),
     } as DOMRect;
-    battlefield.getBoundingClientRect = () => battlefieldBounds;
+    battlefield.getBoundingClientRect = () => transformedBattlefieldBounds;
     cardElement.getBoundingClientRect = () => cardBounds;
+    Object.defineProperty(battlefield, 'clientWidth', { configurable: true, value: 320 });
+    Object.defineProperty(battlefield, 'clientHeight', { configurable: true, value: 260 });
     Object.defineProperty(cardElement, 'offsetWidth', { configurable: true, value: 100 });
     Object.defineProperty(cardElement, 'offsetHeight', { configurable: true, value: 140 });
 

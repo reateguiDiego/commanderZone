@@ -4012,6 +4012,7 @@ components:
             - game.concede
             - game.close
             - chat.message
+            - dice.rolled
             - life.changed
             - commander.damage.changed
             - counter.changed
@@ -4028,6 +4029,7 @@ components:
             - card.token_copy.created
             - card.controller.changed
             - turn.changed
+            - battlefield.untap_all
             - zone.changed
             - zone.move_all
             - zone.random_card.selected
@@ -4068,6 +4070,8 @@ components:
             to let another room player inspect the actor's full library; closing
             that read-only view may send library.shuffle with
             reason=revealed-library-closed to shuffle and clear the reveal.
+            dice.rolled logs a manual roll result, and battlefield.untap_all
+            untaps all tapped cards in the actor's own battlefield.
             library.play_top_revealed toggles a persistent public top-library
             reveal flag and does not move cards.
             card.token.created creates the selected token payload on the actor

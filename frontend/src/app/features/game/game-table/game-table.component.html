@@ -394,7 +394,10 @@
       />
 
       @if (rollModalOpen()) {
-        <app-roll-modal (closed)="closeRollModal()" />
+        <app-roll-modal
+          (rolled)="recordRollResult($event)"
+          (closed)="closeRollModal()"
+        />
       }
 
       @if (store.pendingBattlefieldMove(); as pendingMove) {
