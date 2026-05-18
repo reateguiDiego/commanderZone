@@ -59,6 +59,7 @@
             class="floating-panel game-table-game-log"
             data-testid="game-log-panel"
             [attr.data-active-tab]="store.activeFloatingTab()"
+            [class.has-unread-notifications]="hasUnreadFloatingNotifications()"
             (mouseenter)="queueFloatingContentScrollToBottom()"
             (mouseleave)="queueFloatingContentScrollToBottom()"
             (focusin)="queueFloatingContentScrollToBottom()"
@@ -68,18 +69,29 @@
             <header class="floating-handle">
               <button
                 type="button"
+                data-testid="game-log-open"
                 [class.active]="store.activeFloatingTab() === 'log'"
-                (click)="store.activeFloatingTab.set('log')"
+                [class.has-unread]="unreadLog()"
+                [attr.aria-label]="unreadLog() ? 'Game Log, unread actions' : 'Game Log'"
+                (click)="openFloatingTab('log')"
               >
-                Game Log
+                <span>Game Log</span>
+                @if (unreadLog()) {
+                  <lucide-icon class="tab-notification-icon" name="bell" size="13" aria-hidden="true" />
+                }
               </button>
               <button
                 type="button"
                 data-testid="chat-open"
                 [class.active]="store.activeFloatingTab() === 'chat'"
-                (click)="store.activeFloatingTab.set('chat')"
+                [class.has-unread]="unreadChat()"
+                [attr.aria-label]="unreadChat() ? 'Chat, unread messages' : 'Chat'"
+                (click)="openFloatingTab('chat')"
               >
-                Chat
+                <span>Chat</span>
+                @if (unreadChat()) {
+                  <lucide-icon class="tab-notification-icon" name="bell" size="13" aria-hidden="true" />
+                }
               </button>
             </header>
             <div appPrettyScroll class="floating-collapsed-preview panel-feed" aria-hidden="true">
