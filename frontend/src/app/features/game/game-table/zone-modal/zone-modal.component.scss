@@ -13,9 +13,13 @@
 
 .zone-modal {
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr) auto;
-  width: min(78rem, 100%);
-  max-height: min(48rem, calc(100dvh - 2rem));
+  grid-template-rows: auto minmax(0, 1fr);
+  width: clamp(20rem, 86vw, 78rem);
+  height: clamp(30rem, 82dvh, 48rem);
+  min-width: 20rem;
+  min-height: 30rem;
+  max-width: calc(100vw - 2rem);
+  max-height: calc(100dvh - 2rem);
   border: 1px solid var(--game-accent-line, rgb(215 180 106 / 32%));
   border-radius: 8px;
   background:
@@ -51,20 +55,22 @@
   text-transform: uppercase;
 }
 
-.zone-title-block h2 {
-  margin: 0;
-  overflow: hidden;
-  color: var(--game-text, #f3f0e8);
-  font-size: clamp(1.45rem, 3vw, 2.45rem);
-  font-weight: 1000;
-  line-height: 1.04;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .zone-title-block strong {
   color: var(--game-muted, #aaa99f);
   font-size: 0.86rem;
+  font-weight: 800;
+}
+
+.zone-title-block h2 {
+  margin: 0;
+  color: var(--game-text, #f3f0e8);
+  font-size: clamp(1rem, 1.6vw, 1.22rem);
+  line-height: 1.1;
+}
+
+.zone-title-block small {
+  color: var(--game-accent, #d7b46a);
+  font-size: 0.78rem;
   font-weight: 800;
 }
 
@@ -121,151 +127,30 @@ input {
 }
 
 .zone-modal-body {
-  display: grid;
-  grid-template-columns: minmax(14rem, 18rem) minmax(0, 1fr);
-  gap: 0.95rem;
   min-height: 0;
   padding: 1rem 1.1rem;
   overflow: hidden;
 }
 
-.zone-preview-panel {
-  display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
-  gap: 0.75rem;
-  min-height: 0;
+.zone-modal.has-zone-filters {
+  grid-template-rows: auto auto minmax(0, 1fr);
 }
 
-.zone-preview-art {
-  display: grid;
-  min-height: 18rem;
-  place-items: center;
-  border: 1px solid rgb(215 180 106 / 18%);
-  border-radius: 8px;
-  background:
-    radial-gradient(circle at 50% 0, rgb(215 180 106 / 12%), transparent 50%),
-    rgb(3 5 4 / 54%);
-  overflow: hidden;
-}
-
-.zone-preview-art img {
-  width: min(100%, 16.5rem);
-  max-height: 100%;
-  border-radius: 10px;
-  object-fit: contain;
-  box-shadow: 0 1rem 2.4rem rgb(0 0 0 / 48%);
-}
-
-.zone-preview-art span,
-.zone-preview-empty,
-.zone-list-state {
-  color: var(--game-muted, #aaa99f);
-  font-weight: 800;
-}
-
-.zone-preview-copy {
-  display: grid;
-  gap: 0.24rem;
-  min-width: 0;
-  padding: 0.75rem;
-  border: 1px solid rgb(215 180 106 / 14%);
-  border-radius: 8px;
-  background: rgb(7 8 7 / 52%);
-}
-
-.zone-preview-copy h3,
-.zone-preview-copy p {
-  margin: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.zone-preview-copy h3 {
-  color: var(--game-text, #f3f0e8);
-  font-size: 1rem;
-}
-
-.zone-preview-copy p {
-  color: var(--game-muted, #aaa99f);
-  font-size: 0.78rem;
-}
-
-.zone-list {
-  display: grid;
-  align-content: start;
-  gap: 0.4rem;
-  overflow: auto;
-}
-
-.zone-card-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 0.75rem;
-  min-height: 3.25rem;
-  padding: 0.48rem 0.65rem;
-  text-align: left;
-}
-
-.zone-card-row.active {
-  border-color: var(--game-accent-strong, rgb(215 180 106 / 58%));
-  background:
-    linear-gradient(90deg, rgb(215 180 106 / 18%), transparent 64%),
-    var(--game-surface-soft, rgb(32 37 29 / 72%));
-  box-shadow: inset 3px 0 0 var(--gold);
-}
-
-.zone-card-row-main {
-  display: grid;
-  gap: 0.12rem;
-  min-width: 0;
-}
-
-.zone-card-row-main strong,
-.zone-card-row-main small {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.zone-card-row-main strong {
-  font-size: 0.94rem;
-}
-
-.zone-card-row-main small {
-  color: var(--game-muted, #aaa99f);
-  font-size: 0.72rem;
-}
-
-.zone-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
-  padding: 0.75rem 1.1rem 1rem;
-  border-top: 1px solid var(--game-line-soft, rgb(61 69 53 / 46%));
-}
-
-.zone-actions button {
-  padding: 0 0.8rem;
-  font-weight: 900;
-}
-
-.zone-actions .secondary-action {
-  color: var(--gold);
+.zone-modal-body app-card-spoiler-grid {
+  height: 100%;
 }
 
 @media (max-width: 760px) {
   .zone-modal {
+    width: calc(100vw - 1rem);
+    height: calc(100dvh - 1rem);
+    min-width: 0;
+    min-height: 0;
     max-height: calc(100dvh - 1rem);
   }
 
   .zone-filters,
   .zone-modal-body {
     grid-template-columns: minmax(0, 1fr);
-  }
-
-  .zone-preview-panel {
-    display: none;
   }
 }

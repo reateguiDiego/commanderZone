@@ -483,8 +483,11 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
 
   handRowWidth(count: number): string {
     const normalizedCount = Math.max(1, count);
+    if (normalizedCount === 1) {
+      return 'var(--hand-card-row-width)';
+    }
 
-    return `calc(var(--hand-card-row-width) * ${normalizedCount})`;
+    return `calc(var(--hand-card-row-width) + (var(--hand-card-row-step) * ${normalizedCount - 1}))`;
   }
 
   handArrivalSide(card: GameCardInstance, _index: number): 'before' | 'after' | 'new' | null {
@@ -578,6 +581,18 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
     return card ? this.cardImage()(card) : null;
   }
 
+  canPreviewHandCard(card: GameCardInstance): boolean {
+    if (this.isPointerDragActive()) {
+      return false;
+    }
+
+    return (!this.readOnly() && this.isHandVisuallyRevealed()) || this.isRevealedHandCard(card);
+  }
+
+  isHandCardFaceDown(card: GameCardInstance): boolean {
+    return Boolean(card.hidden) || (this.showCardsFaceDown() && !this.isRevealedHandCard(card));
+  }
+
   isHandDropReceiverHighlighted(): boolean {
     const drag = this.pointerDrag();
 
@@ -590,6 +605,10 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
 
     return this.handDropReceiverRevealed()
       || Boolean(drag && (drag.mode === 'reorder' || drag.mode !== 'pending' && drag.overOwnHand));
+  }
+
+  private isRevealedHandCard(card: GameCardInstance): boolean {
+    return !card.hidden && (card.revealedTo?.length ?? 0) > 0;
   }
 
   handleHandCardClick(event: MouseEvent, playerId: string, card: GameCardInstance): void {

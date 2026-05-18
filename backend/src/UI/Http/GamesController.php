@@ -30,7 +30,7 @@ class GamesController extends ApiController
         if (!$game instanceof Game) {
             return $this->fail('Game not found.', 404);
         }
-        if (!$game->canBeAccessedBy($user)) {
+        if (!$game->canBeViewedBy($user)) {
             return $this->fail('Game access denied.', 403);
         }
 
@@ -49,7 +49,7 @@ class GamesController extends ApiController
         if (!$game instanceof Game) {
             return $this->fail('Game not found.', 404);
         }
-        if (!$game->canBeAccessedBy($user)) {
+        if (!$game->canBeControlledBy($user)) {
             return $this->fail('Game access denied.', 403);
         }
 
@@ -167,7 +167,7 @@ class GamesController extends ApiController
         if (!$game instanceof Game) {
             return $this->fail('Game not found.', 404);
         }
-        if (!$game->canBeAccessedBy($user)) {
+        if (!$game->canBeViewedBy($user)) {
             return $this->fail('Game access denied.', 403);
         }
         if (!$game->room()->hasPlayer($user)) {
@@ -285,7 +285,7 @@ class GamesController extends ApiController
         if (!$game instanceof Game) {
             return $this->fail('Game not found.', 404);
         }
-        if (!$game->canBeAccessedBy($user)) {
+        if (!$game->canBeViewedBy($user)) {
             return $this->fail('Game access denied.', 403);
         }
 
@@ -328,7 +328,7 @@ class GamesController extends ApiController
         if (!$game instanceof Game) {
             return $this->fail('Game not found.', 404);
         }
-        if (!$game->canBeAccessedBy($user)) {
+        if (!$game->canBeViewedBy($user)) {
             return $this->fail('Game access denied.', 403);
         }
 
@@ -337,7 +337,13 @@ class GamesController extends ApiController
             return $this->fail('Zone not found.', 404);
         }
 
-        $cards = $projection->projectZone($snapshot['players'][$playerId]['zones'][$zone], $playerId, $zone, $user);
+        $cards = $projection->projectZone(
+            $snapshot['players'][$playerId]['zones'][$zone],
+            $playerId,
+            $zone,
+            $user,
+            ($snapshot['players'][$playerId]['playTopLibraryRevealed'] ?? false) === true,
+        );
         $type = mb_strtolower(trim((string) $request->query->get('type', '')));
         $search = mb_strtolower(trim((string) $request->query->get('search', '')));
 

@@ -33,18 +33,22 @@ class GameCommandHandler
         'card.face_down.changed',
         'card.face.changed',
         'card.revealed',
+        'card.token.created',
         'card.token_copy.created',
         'card.controller.changed',
         'turn.changed',
         'zone.changed',
         'zone.move_all',
+        'zone.random_card.selected',
         'library.draw',
         'library.draw_many',
         'library.shuffle',
         'library.move_top',
         'library.reveal_top',
         'library.reveal',
+        'library.view',
         'library.play_top_revealed',
+        'library.reorder_top',
         'stack.card_added',
         'stack.item_removed',
         'arrow.created',
@@ -56,6 +60,7 @@ class GameCommandHandler
     private const ACTOR_OWN_PLAYER_COMMANDS = [
         'zone.changed',
         'zone.move_all',
+        'zone.random_card.selected',
         'card.moved',
         'cards.moved',
         'card.tapped',
@@ -63,6 +68,7 @@ class GameCommandHandler
         'card.face_down.changed',
         'card.face.changed',
         'card.revealed',
+        'card.token.created',
         'card.token_copy.created',
         'card.controller.changed',
         'card.power_toughness.changed',
@@ -128,18 +134,22 @@ class GameCommandHandler
             'card.face_down.changed' => $log = $this->applyCardFaceDown($snapshot, $payload),
             'card.face.changed' => $log = $this->applyCardFaceChanged($snapshot, $payload),
             'card.revealed' => $log = $this->applyCardRevealed($snapshot, $payload),
+            'card.token.created' => $log = $this->applyTokenCreated($snapshot, $payload),
             'card.token_copy.created' => $log = $this->applyTokenCopyCreated($snapshot, $payload, $actor),
             'card.controller.changed' => $log = $this->applyControllerChanged($snapshot, $payload),
             'turn.changed' => $log = $this->applyTurnChanged($snapshot, $payload),
             'zone.changed' => $log = $this->applyZoneChanged($snapshot, $payload),
             'zone.move_all' => $log = $this->applyZoneMoveAll($snapshot, $payload),
+            'zone.random_card.selected' => $log = $this->applyZoneRandomCardSelected($snapshot, $payload),
             'library.draw' => $log = $this->applyLibraryDraw($snapshot, $payload, 1),
             'library.draw_many' => $log = $this->applyLibraryDraw($snapshot, $payload, $this->positiveInt($payload['count'] ?? 1, 1, 99)),
             'library.shuffle' => $log = $this->applyLibraryShuffle($snapshot, $payload),
             'library.move_top' => $log = $this->applyLibraryMoveTop($snapshot, $payload),
             'library.reveal_top' => $log = $this->applyLibraryRevealTop($snapshot, $payload),
             'library.reveal' => $log = $this->applyLibraryReveal($snapshot, $payload),
+            'library.view' => $log = $this->applyLibraryView($snapshot, $payload),
             'library.play_top_revealed' => $log = $this->applyLibraryPlayTopRevealed($snapshot, $payload),
+            'library.reorder_top' => $log = $this->applyLibraryReorderTop($snapshot, $payload),
             'stack.card_added' => $log = $this->applyStackCardAdded($snapshot, $payload),
             'stack.item_removed' => $log = $this->applyStackItemRemoved($snapshot, $payload),
             'arrow.created' => $log = $this->applyArrowCreated($snapshot, $payload, $actor),
@@ -180,6 +190,8 @@ class GameCommandHandler
             $player['colorIdentity'] = $this->orderedColorIdentity(is_array($player['colorIdentity'] ?? null) ? $player['colorIdentity'] : []);
             $player['backgroundName'] = $this->visualName($player['backgroundName'] ?? null, Deck::DEFAULT_BACKGROUND_NAME);
             $player['sleevesName'] = $this->visualName($player['sleevesName'] ?? null, Deck::DEFAULT_SLEEVES_NAME);
+            $player['playTopLibraryRevealed'] = (bool) ($player['playTopLibraryRevealed'] ?? false);
+            $player['revealedLibraryTo'] = is_array($player['revealedLibraryTo'] ?? null) ? array_values($player['revealedLibraryTo']) : [];
             $player['counters'] ??= [];
             $player['commanderDamage'] ??= [];
             foreach (self::ZONES as $zone) {
@@ -241,6 +253,7 @@ class GameCommandHandler
             'counters' => is_array($card['counters'] ?? null) ? $card['counters'] : [],
             'zone' => $zone,
             'isToken' => (bool) ($card['isToken'] ?? false),
+            'isTokenCopy' => (bool) ($card['isTokenCopy'] ?? false),
             'isCommander' => (bool) ($card['isCommander'] ?? $zone === 'command'),
         ];
     }
@@ -574,18 +587,60 @@ class GameCommandHandler
         }
 
         $card = $this->takeCard($snapshot, $playerId, $fromZone, $instanceId);
+        $faceDownLeavingBattlefield = $this->isFaceDownBattlefieldCardLeaving($fromZone, $toZone, $card);
+        if (array_key_exists('faceDown', $payload)) {
+            $card['faceDown'] = (bool) $payload['faceDown'];
+            if ($card['faceDown']) {
+                $card['revealedTo'] = [$playerId];
+            }
+        }
+        if ($faceDownLeavingBattlefield) {
+            $card['faceDown'] = false;
+            $card['revealedTo'] = [];
+        }
+        if ($fromZone === 'library' && $toZone === 'hand') {
+            $card['faceDown'] = false;
+            $card['revealedTo'] = ($payload['reveal'] ?? false) === true ? ['all'] : [];
+        }
         $targetPlayerId = $this->moveDestinationPlayerId($snapshot, $playerId, $fromZone, $toZone, $card, $requestedTargetPlayerId);
         $this->putCard(
             $snapshot,
             $targetPlayerId,
             $toZone,
             $card,
-            $payload['position'] ?? 'top',
+            $this->moveDestinationPosition($fromZone, $toZone, $payload),
             $fromZone === 'battlefield' && $toZone === 'battlefield',
         );
 
+        if ($faceDownLeavingBattlefield) {
+            return '';
+        }
+
         if ($this->isEvaporatingTokenMove($card, $toZone)) {
             return sprintf('%s evaporated instead of moving to %s.', $this->cardLogName($card), $toZone);
+        }
+
+        if ($fromZone === 'hand' && $toZone === 'hand' && $targetPlayerId !== $playerId) {
+            return sprintf(
+                'Moved a card from %s hand to %s hand.',
+                $this->possessivePlayerName($snapshot, $playerId),
+                $this->possessivePlayerName($snapshot, $targetPlayerId),
+            );
+        }
+
+        if ($fromZone === 'library' && $toZone === 'hand') {
+            if (($payload['reveal'] ?? false) === true) {
+                return sprintf(
+                    'ha cogido %s de su library y la ha llevado a la mano revelada.',
+                    $this->cardLogName($card),
+                );
+            }
+
+            return 'ha cogido una carta mirando su library y la ha llevado a la mano.';
+        }
+
+        if ($fromZone === 'hand' && $toZone === 'battlefield' && ($card['faceDown'] ?? false) === true) {
+            return 'Played a card face down.';
         }
 
         return sprintf('Moved %s from %s to %s.', $this->cardLogName($card), $fromZone, $toZone);
@@ -614,9 +669,15 @@ class GameCommandHandler
                 continue;
             }
             $card = $this->takeCard($snapshot, $playerId, $fromZone, $instanceId);
-            $movedCardNames[] = $this->cardLogName($card);
+            $faceDownLeavingBattlefield = $this->isFaceDownBattlefieldCardLeaving($fromZone, $toZone, $card);
+            if ($faceDownLeavingBattlefield) {
+                $card['faceDown'] = false;
+                $card['revealedTo'] = [];
+            } else {
+                $movedCardNames[] = $this->cardLogName($card);
+            }
             $targetPlayerId = $this->moveDestinationPlayerId($snapshot, $playerId, $fromZone, $toZone, $card, $requestedTargetPlayerId);
-            $moves[] = [$targetPlayerId, $card];
+            $moves[] = [$targetPlayerId, $card, $faceDownLeavingBattlefield];
         }
 
         $randomOrder = ($payload['randomOrder'] ?? false) === true && $toZone === 'library' && count($moves) > 1;
@@ -625,16 +686,24 @@ class GameCommandHandler
         }
 
         $moved = 0;
-        foreach ($moves as [$targetPlayerId, $card]) {
+        $silentFaceDownMoves = 0;
+        foreach ($moves as [$targetPlayerId, $card, $faceDownLeavingBattlefield]) {
             $this->putCard(
                 $snapshot,
                 $targetPlayerId,
                 $toZone,
                 $card,
-                $payload['position'] ?? 'top',
+                $this->moveDestinationPosition($fromZone, $toZone, $payload),
                 $fromZone === 'battlefield' && $toZone === 'battlefield',
             );
             ++$moved;
+            if ($faceDownLeavingBattlefield) {
+                ++$silentFaceDownMoves;
+            }
+        }
+
+        if ($moved > 0 && $silentFaceDownMoves === $moved) {
+            return '';
         }
 
         if ($moved > 1) {
@@ -706,9 +775,10 @@ class GameCommandHandler
     {
         $location = $this->requiredCardLocation($snapshot, $payload);
         $card =& $snapshot['players'][$location['playerId']]['zones'][$location['zone']][$location['index']];
-        $card['revealedTo'] = $this->visibilityTargets($snapshot, $payload['to'] ?? 'all');
+        $targets = $this->visibilityTargets($snapshot, $payload['to'] ?? 'all');
+        $card['revealedTo'] = $targets;
 
-        return sprintf('Revealed %s.', $this->cardLogName($card));
+        return sprintf('ha revelado una carta a %s.', $this->visibilityTargetLabel($snapshot, $targets));
     }
 
     private function applyTokenCopyCreated(array &$snapshot, array $payload, User $actor): string
@@ -738,6 +808,7 @@ class GameCommandHandler
             'counters' => [],
             'zone' => 'battlefield',
             'isToken' => true,
+            'isTokenCopy' => true,
         ], $targetPlayerId, 'battlefield');
         $copy['position'] = $this->tokenCopyPosition(
             $source['position'] ?? null,
@@ -748,6 +819,35 @@ class GameCommandHandler
         $snapshot['players'][$targetPlayerId]['zones']['battlefield'][] = $copy;
 
         return sprintf('Created Token Copy Of %s.', $this->cardBaseName($source));
+    }
+
+    private function applyTokenCreated(array &$snapshot, array $payload): string
+    {
+        $playerId = $this->requiredPlayerId($snapshot, $payload);
+        $card = is_array($payload['card'] ?? null) ? $payload['card'] : [];
+        $hasCardPayload = $card !== [];
+        $name = $this->visualName($card['name'] ?? $payload['name'] ?? null, 'Token');
+        $token = $this->normalizeCard([
+            ...$card,
+            'instanceId' => Uuid::v7()->toRfc4122(),
+            'ownerId' => $playerId,
+            'controllerId' => $playerId,
+            'name' => $name,
+            'typeLine' => $card['typeLine'] ?? 'Token Creature',
+            'power' => $card['power'] ?? ($hasCardPayload ? null : 1),
+            'toughness' => $card['toughness'] ?? ($hasCardPayload ? null : 1),
+            'defaultPower' => $card['power'] ?? ($hasCardPayload ? null : 1),
+            'defaultToughness' => $card['toughness'] ?? ($hasCardPayload ? null : 1),
+            'tapped' => false,
+            'position' => $this->battlefieldCenterPosition(),
+            'zone' => 'battlefield',
+            'isToken' => true,
+            'isTokenCopy' => false,
+            'isCommander' => false,
+        ], $playerId, 'battlefield');
+        $snapshot['players'][$playerId]['zones']['battlefield'][] = $token;
+
+        return sprintf('Created %s.', $this->cardBaseName($token));
     }
 
     private function applyControllerChanged(array &$snapshot, array $payload): string
@@ -879,12 +979,45 @@ class GameCommandHandler
                 $playerId,
                 $toZone,
                 $card,
-                $payload['position'] ?? 'top',
+                $this->moveDestinationPosition($fromZone, $toZone, $payload),
                 $fromZone === 'battlefield' && $toZone === 'battlefield',
             );
         }
 
         return sprintf('Moved all cards from %s to %s.', $fromZone, $toZone);
+    }
+
+    private function applyZoneRandomCardSelected(array &$snapshot, array $payload): string
+    {
+        $playerId = $this->requiredPlayerId($snapshot, $payload);
+        $zone = $this->requiredZone($payload);
+        if (!in_array($zone, ['library', 'hand', 'graveyard', 'exile'], true)) {
+            throw new \InvalidArgumentException('zone does not support random selection.');
+        }
+
+        $cards = array_values(array_filter(
+            $snapshot['players'][$playerId]['zones'][$zone] ?? [],
+            static fn (mixed $card): bool => is_array($card),
+        ));
+        if ($cards === []) {
+            return '';
+        }
+
+        $requestedInstanceId = trim((string) ($payload['instanceId'] ?? ''));
+        $card = $requestedInstanceId !== ''
+            ? $this->cardByInstanceId($cards, $requestedInstanceId)
+            : $cards[random_int(0, count($cards) - 1)];
+        $this->pendingLogContext = [
+            'cardInstanceId' => (string) ($card['instanceId'] ?? ''),
+            'cardPlayerId' => $playerId,
+            'cardZone' => $zone,
+        ];
+
+        return sprintf(
+            'ha seleccionado al azar %s de %s.',
+            $this->cardLogName($card),
+            $this->zoneLogName($zone),
+        );
     }
 
     private function applyLibraryDraw(array &$snapshot, array $payload, int $count): string
@@ -900,30 +1033,68 @@ class GameCommandHandler
             ++$drawn;
         }
 
-        return sprintf('Drew %d card%s.', $drawn, $drawn === 1 ? '' : 's');
+        return sprintf('ha robado %d carta%s.', $drawn, $drawn === 1 ? '' : 's');
     }
 
     private function applyLibraryShuffle(array &$snapshot, array $payload): string
     {
         $playerId = $this->requiredPlayerId($snapshot, $payload);
         shuffle($snapshot['players'][$playerId]['zones']['library']);
+        foreach ($snapshot['players'][$playerId]['zones']['library'] as &$card) {
+            $card['revealedTo'] = [];
+        }
+        unset($card);
+        $snapshot['players'][$playerId]['revealedLibraryTo'] = [];
 
-        return sprintf('Shuffled %s library.', $this->playerName($snapshot, $playerId));
+        return 'ha hecho shuffle a su library.';
     }
 
     private function applyLibraryMoveTop(array &$snapshot, array $payload): string
     {
         $playerId = $this->requiredPlayerId($snapshot, $payload);
         $toZone = $this->requiredZone($payload, 'toZone');
+        $targetPlayerId = isset($payload['targetPlayerId'])
+            ? $this->requiredPlayerId($snapshot, $payload, 'targetPlayerId')
+            : $playerId;
         $count = $this->positiveInt($payload['count'] ?? 1, 1, 99);
         $moved = 0;
+        $movedCardNames = [];
         for ($i = 0; $i < $count; ++$i) {
             $card = $this->takeTopLibraryCard($snapshot, $playerId);
             if (!is_array($card)) {
                 break;
             }
-            $this->putCard($snapshot, $playerId, $toZone, $card, $payload['position'] ?? 'top');
+            $movedCardNames[] = $this->cardLogName($card);
+            $this->putCard(
+                $snapshot,
+                $targetPlayerId,
+                $toZone,
+                $card,
+                $this->moveDestinationPosition('library', $toZone, $payload),
+            );
             ++$moved;
+        }
+
+        if ($toZone === 'hand' && $targetPlayerId !== $playerId) {
+            return sprintf(
+                'Moved top %d library card%s to %s hand.',
+                $moved,
+                $moved === 1 ? '' : 's',
+                $this->possessivePlayerName($snapshot, $targetPlayerId),
+            );
+        }
+        if ($toZone === 'library' && ($payload['position'] ?? null) === 'bottom') {
+            return sprintf('Moved top %d card%s to bottom of library.', $moved, $moved === 1 ? '' : 's');
+        }
+        if ($toZone === 'battlefield' && $moved > 0) {
+            $this->pendingLogContext = ['cardNames' => $movedCardNames];
+
+            return sprintf(
+                'Moved top %d library card%s to %s battlefield.',
+                $moved,
+                $moved === 1 ? '' : 's',
+                $this->possessivePlayerName($snapshot, $targetPlayerId),
+            );
         }
 
         return sprintf('Moved top %d card%s to %s.', $moved, $moved === 1 ? '' : 's', $toZone);
@@ -936,15 +1107,26 @@ class GameCommandHandler
         $targets = $this->visibilityTargets($snapshot, $payload['to'] ?? 'all');
         $library =& $snapshot['players'][$playerId]['zones']['library'];
         $revealed = 0;
+        foreach ($library as &$card) {
+            $card['revealedTo'] = [];
+        }
+        unset($card);
+
         for ($i = 0; $i < $count; ++$i) {
             if (!isset($library[$i])) {
                 break;
             }
+            $library[$i]['faceDown'] = false;
             $library[$i]['revealedTo'] = $targets;
             ++$revealed;
         }
 
-        return sprintf('Revealed top %d library card%s.', $revealed, $revealed === 1 ? '' : 's');
+        return sprintf(
+            'Revealed top %d library card%s to %s.',
+            $revealed,
+            $revealed === 1 ? '' : 's',
+            $this->visibilityTargetLabel($snapshot, $targets),
+        );
     }
 
     private function applyLibraryReveal(array &$snapshot, array $payload): string
@@ -952,23 +1134,85 @@ class GameCommandHandler
         $playerId = $this->requiredPlayerId($snapshot, $payload);
         $targets = $this->visibilityTargets($snapshot, $payload['to'] ?? 'all');
         foreach ($snapshot['players'][$playerId]['zones']['library'] as &$card) {
+            $card['faceDown'] = false;
             $card['revealedTo'] = $targets;
         }
         unset($card);
+        $snapshot['players'][$playerId]['revealedLibraryTo'] = $targets;
 
-        return sprintf('Revealed %s library.', $this->playerName($snapshot, $playerId));
+        return sprintf(
+            'ha revelado su library a %s.',
+            $this->visibilityTargetLabel($snapshot, $targets),
+        );
+    }
+
+    private function applyLibraryView(array &$snapshot, array $payload): string
+    {
+        $playerId = $this->requiredPlayerId($snapshot, $payload);
+        $count = isset($payload['count'])
+            ? $this->positiveInt($payload['count'], 1, 99)
+            : null;
+
+        return $count === null
+            ? 'ha mirado el orden de su library.'
+            : sprintf('ha mirado sus proximas %d cartas de library.', $count);
     }
 
     private function applyLibraryPlayTopRevealed(array &$snapshot, array $payload): string
     {
         $playerId = $this->requiredPlayerId($snapshot, $payload);
-        $card = $this->takeTopLibraryCard($snapshot, $playerId);
-        if (!is_array($card)) {
-            throw new \InvalidArgumentException('Library is empty.');
-        }
-        $this->putCard($snapshot, $playerId, 'battlefield', $card);
+        $enabled = (bool) ($payload['enabled'] ?? true);
+        $snapshot['players'][$playerId]['playTopLibraryRevealed'] = $enabled;
 
-        return sprintf('Played %s from top of library.', $this->cardLogName($card));
+        return $enabled
+            ? 'juega con la top card de su library revelada.'
+            : 'deja de jugar con la top card de su library revelada.';
+    }
+
+    private function applyLibraryReorderTop(array &$snapshot, array $payload): string
+    {
+        $playerId = $this->requiredPlayerId($snapshot, $payload);
+        $instanceIds = $payload['instanceIds'] ?? [];
+        if (!is_array($instanceIds) || $instanceIds === []) {
+            throw new \InvalidArgumentException('instanceIds are required.');
+        }
+
+        $requestedIds = array_values(array_filter(
+            array_map(static fn (mixed $id): string => is_string($id) ? trim($id) : '', $instanceIds),
+            static fn (string $id): bool => $id !== '',
+        ));
+        if ($requestedIds === []) {
+            throw new \InvalidArgumentException('instanceIds are required.');
+        }
+
+        $library =& $snapshot['players'][$playerId]['zones']['library'];
+        $count = count($requestedIds);
+        if (count($library) < $count) {
+            throw new \InvalidArgumentException('Library does not contain enough cards.');
+        }
+
+        $topCards = array_slice($library, 0, $count);
+        $topById = [];
+        foreach ($topCards as $card) {
+            $instanceId = (string) ($card['instanceId'] ?? '');
+            if ($instanceId !== '') {
+                $topById[$instanceId] = $card;
+            }
+        }
+
+        $currentIds = array_keys($topById);
+        $sortedCurrentIds = $currentIds;
+        $sortedRequestedIds = $requestedIds;
+        sort($sortedCurrentIds);
+        sort($sortedRequestedIds);
+        if ($sortedCurrentIds !== $sortedRequestedIds) {
+            throw new \InvalidArgumentException('Can only reorder the currently viewed top library cards.');
+        }
+
+        $reorderedTop = array_map(static fn (string $id): array => $topById[$id], $requestedIds);
+        $library = array_values([...$reorderedTop, ...array_slice($library, $count)]);
+
+        return sprintf('ha cambiado el orden de sus proximos %d robos.', $count);
     }
 
     private function takeTopLibraryCard(array &$snapshot, string $playerId): ?array
@@ -1137,6 +1381,7 @@ class GameCommandHandler
      */
     private function appendLogEntry(array &$snapshot, string $type, string $message, User $actor, array $context = []): void
     {
+        $message = $this->messageWithoutActorPrefix($message, $actor);
         $entry = [
             'id' => Uuid::v7()->toRfc4122(),
             'type' => $type,
@@ -1151,6 +1396,24 @@ class GameCommandHandler
 
         $snapshot['eventLog'][] = $entry;
         $snapshot['eventLog'] = array_slice($snapshot['eventLog'], -250);
+    }
+
+    private function messageWithoutActorPrefix(string $message, User $actor): string
+    {
+        foreach ([$actor->displayName(), $actor->id()] as $actorLabel) {
+            $actorLabel = trim((string) $actorLabel);
+            if ($actorLabel === '') {
+                continue;
+            }
+
+            $message = preg_replace(
+                '/^'.preg_quote($actorLabel, '/').'(?:\\s+|:\\s*|-\\s*)/u',
+                '',
+                $message,
+            ) ?? $message;
+        }
+
+        return trim($message);
     }
 
     private function hasPlayerDefeatedLog(array $snapshot, string $playerId): bool
@@ -1251,7 +1514,7 @@ class GameCommandHandler
             return;
         }
 
-        $card['controllerId'] = $zone === 'battlefield' ? $playerId : $card['ownerId'];
+        $card['controllerId'] = $this->destinationControllerId($playerId, $zone, $card);
         $card['zone'] = $zone;
         if ($zone !== 'battlefield' || !$preserveBattlefieldStats) {
             $this->resetMutableStats($card);
@@ -1261,7 +1524,7 @@ class GameCommandHandler
         } elseif ($zone !== 'battlefield') {
             $card['position'] = ['x' => 0, 'y' => 0];
         }
-        if (!in_array($zone, self::HIDDEN_ZONES, true)) {
+        if (!in_array($zone, self::HIDDEN_ZONES, true) && !($zone === 'battlefield' && ($card['faceDown'] ?? false))) {
             $card['revealedTo'] = [];
         }
 
@@ -1292,6 +1555,44 @@ class GameCommandHandler
     }
 
     /**
+     * @return string|array<string,mixed>
+     */
+    private function moveDestinationPosition(string $fromZone, string $toZone, array $payload): string|array
+    {
+        if (array_key_exists('position', $payload)) {
+            $position = $payload['position'];
+
+            return is_array($position) ? $position : (string) $position;
+        }
+
+        return $toZone === 'battlefield' && $fromZone !== 'battlefield'
+            ? $this->battlefieldCenterPosition()
+            : 'top';
+    }
+
+    /**
+     * @param array<string,mixed> $card
+     */
+    private function destinationControllerId(string $playerId, string $zone, array $card): string
+    {
+        if ($zone === 'battlefield' || $zone === 'hand') {
+            return $playerId;
+        }
+
+        return (string) ($card['ownerId'] ?? $playerId);
+    }
+
+    /**
+     * @param array<string,mixed> $card
+     */
+    private function isFaceDownBattlefieldCardLeaving(string $fromZone, string $toZone, array $card): bool
+    {
+        return $fromZone === 'battlefield'
+            && $toZone !== 'battlefield'
+            && ($card['faceDown'] ?? false) === true;
+    }
+
+    /**
      * @param array<string,mixed> $card
      */
     private function isEvaporatingTokenMove(array $card, string $toZone): bool
@@ -1306,7 +1607,7 @@ class GameCommandHandler
     {
         $name = $this->cardBaseName($card);
 
-        return ($card['isToken'] ?? false) === true ? sprintf('Token Copy %s', $name) : $name;
+        return ($card['isTokenCopy'] ?? false) === true ? sprintf('Token Copy %s', $name) : $name;
     }
 
     /**
@@ -1317,6 +1618,42 @@ class GameCommandHandler
         $name = trim((string) ($card['name'] ?? ''));
 
         return $name === '' ? 'Unknown card' : $name;
+    }
+
+    private function zoneLogName(string $zone): string
+    {
+        return match ($zone) {
+            'library' => 'library',
+            'hand' => 'hand',
+            'graveyard' => 'graveyard',
+            'exile' => 'exile',
+            'battlefield' => 'battlefield',
+            'command' => 'command zone',
+            default => $zone,
+        };
+    }
+
+    /**
+     * @param list<array<string,mixed>> $cards
+     *
+     * @return array<string,mixed>
+     */
+    private function cardByInstanceId(array $cards, string $instanceId): array
+    {
+        foreach ($cards as $card) {
+            if (($card['instanceId'] ?? null) === $instanceId) {
+                return $card;
+            }
+        }
+
+        throw new \InvalidArgumentException('Random selected card not found.');
+    }
+
+    private function possessivePlayerName(array $snapshot, string $playerId): string
+    {
+        $name = $this->playerName($snapshot, $playerId);
+
+        return str_ends_with($name, 's') ? $name."'" : $name."'s";
     }
 
     /**
@@ -1701,6 +2038,10 @@ class GameCommandHandler
             return;
         }
 
+        if ($type === 'library.shuffle' && $this->canActorCloseRevealedLibrary($snapshot, $payload, $actor)) {
+            return;
+        }
+
         if (str_starts_with($type, 'library.') || in_array($type, self::ACTOR_OWN_PLAYER_COMMANDS, true)) {
             $this->assertActorPlayer($snapshot, $payload, $actor, 'playerId');
             return;
@@ -1719,6 +2060,36 @@ class GameCommandHandler
         if ($playerId !== $actor->id()) {
             throw new \InvalidArgumentException($message);
         }
+    }
+
+    private function canActorCloseRevealedLibrary(array $snapshot, array $payload, User $actor): bool
+    {
+        if (($payload['reason'] ?? null) !== 'revealed-library-closed') {
+            return false;
+        }
+
+        $playerId = trim((string) ($payload['playerId'] ?? ''));
+        if ($playerId === '' || $playerId === $actor->id() || !isset($snapshot['players'][$playerId])) {
+            return false;
+        }
+
+        $library = $snapshot['players'][$playerId]['zones']['library'] ?? [];
+        if (!is_array($library) || $library === []) {
+            return false;
+        }
+
+        foreach ($library as $card) {
+            if (!is_array($card)) {
+                return false;
+            }
+
+            $revealedTo = $card['revealedTo'] ?? [];
+            if (!is_array($revealedTo) || (!in_array('all', $revealedTo, true) && !in_array($actor->id(), $revealedTo, true))) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private function counterScopePlayerId(array $payload): ?string
@@ -1751,16 +2122,32 @@ class GameCommandHandler
             return ['all'];
         }
         if (is_array($target)) {
-            return array_values(array_filter(
+            $targets = array_values(array_filter(
                 $target,
                 static fn (mixed $playerId): bool => is_string($playerId) && isset($snapshot['players'][$playerId]),
             ));
+
+            return $targets === [] ? ['all'] : $targets;
         }
         if (is_string($target) && isset($snapshot['players'][$target])) {
             return [$target];
         }
 
         return ['all'];
+    }
+
+    /**
+     * @param list<string> $targets
+     */
+    private function visibilityTargetLabel(array $snapshot, array $targets): string
+    {
+        if (in_array('all', $targets, true)) {
+            return 'todos';
+        }
+
+        $names = array_values(array_map(fn (string $playerId): string => $this->playerName($snapshot, $playerId), $targets));
+
+        return $names === [] ? 'todos' : implode(', ', $names);
     }
 
     private function playerName(array $snapshot, string $playerId): string

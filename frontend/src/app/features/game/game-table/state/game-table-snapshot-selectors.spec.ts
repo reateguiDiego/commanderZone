@@ -73,6 +73,30 @@ describe('GameTableSnapshotSelectors', () => {
 
     expect(selectors.publicCardImage(card)).toBe('/back.jpg');
   });
+
+  it('uses the revealed top library card as the library preview image', () => {
+    const topCard = {
+      instanceId: 'top-card',
+      name: 'Public Top',
+      tapped: false,
+      zone: 'library' as const,
+      imageUris: { normal: '/top.jpg' },
+    };
+    const player = playerView({
+      playTopLibraryRevealed: true,
+      zones: {
+        library: [topCard],
+        hand: [],
+        battlefield: [],
+        graveyard: [],
+        exile: [],
+        command: [],
+      },
+    });
+
+    expect(selectors.zonePreviewCard(player, 'library')).toBe(topCard);
+    expect(selectors.zonePreviewImage(player, 'library')).toBe('/top.jpg');
+  });
 });
 
 function playerView(overrides: Partial<GamePlayerState> = {}): PlayerView {

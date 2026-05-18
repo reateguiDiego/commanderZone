@@ -130,11 +130,16 @@ export class GameTableSnapshotSelectors {
   }
 
   topVisibleCard(player: PlayerView, zone: GameZoneName): GameCardInstance | null {
-    if (zone === 'library' || zone === 'hand') {
+    if (zone === 'hand') {
       return null;
     }
 
     const cards = player.state.zones[zone] ?? [];
+    if (zone === 'library') {
+      const topCard = cards[0] ?? null;
+
+      return topCard && this.isLibraryTopCardVisible(player, topCard) ? topCard : null;
+    }
 
     return cards.at(-1) ?? null;
   }
@@ -145,6 +150,11 @@ export class GameTableSnapshotSelectors {
 
   zonePreviewImage(player: PlayerView, zone: GameZoneName): string | null {
     if (zone === 'library') {
+      const topCard = this.zonePreviewCard(player, zone);
+      if (topCard && !topCard.hidden) {
+        return this.publicCardImage(topCard);
+      }
+
       return this.zoneCount(player, zone) > 0 ? this.cardBackImage(player.state.sleevesName) : null;
     }
 
@@ -175,6 +185,10 @@ export class GameTableSnapshotSelectors {
     const activeFace = this.activeFaceImageUris(card);
 
     return this.bestImageUri(activeFace) ?? this.bestImageUri(card.imageUris) ?? this.bestImageUri(card.cardFaces?.[0]?.imageUris);
+  }
+
+  private isLibraryTopCardVisible(player: PlayerView, card: GameCardInstance): boolean {
+    return player.state.playTopLibraryRevealed === true || (card.revealedTo?.length ?? 0) > 0;
   }
 
   private activeFaceImageUris(card: GameCardInstance): CardImageUris | null {

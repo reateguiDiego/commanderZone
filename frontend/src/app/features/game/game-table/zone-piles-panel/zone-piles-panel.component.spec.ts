@@ -46,6 +46,26 @@ describe('ZonePilesPanelComponent', () => {
     expect(hiddenSpy).toHaveBeenCalled();
   });
 
+  it('emits a large-card preview when hovering a revealed library top card', async () => {
+    const topCard = card('library-1', 'Revealed Top', 'library');
+    const fixture = await renderZonePilesPanel({
+      library: [topCard],
+      zonePreviewImage: (_player, zone) => zone === 'library' ? '/assets/library-top.jpg' : null,
+      zonePreviewCard: (_player, zone) => zone === 'library' ? topCard : null,
+    });
+    const previewSpy = vi.fn();
+    const hiddenSpy = vi.fn();
+    fixture.componentInstance.cardPreviewShown.subscribe(previewSpy);
+    fixture.componentInstance.cardPreviewHidden.subscribe(hiddenSpy);
+
+    const zoneArt = zoneElement(fixture, 'library').querySelector('[data-testid="zone"]')!;
+    zoneArt.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+    zoneArt.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true }));
+
+    expect(previewSpy).toHaveBeenCalledWith({ card: topCard, playerId: 'player-1', zone: 'library', sourceRect: null });
+    expect(hiddenSpy).toHaveBeenCalled();
+  });
+
   it('does not open the command zone on left click', async () => {
     const fixture = await renderZonePilesPanel({
       command: [card('commander-1', 'Smeagol, Helpful Guide', 'command')],

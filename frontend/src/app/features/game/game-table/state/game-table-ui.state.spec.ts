@@ -35,7 +35,42 @@ describe('GameTableUiState', () => {
     expect(state.hoveredCard()).toBeNull();
     expect(state.activeHoveredSelection()).toBeNull();
   });
+
+  it('anchors lower-screen context menus upward near the pointer', () => {
+    setViewport(1024, 700);
+    const state = new GameTableUiState();
+
+    state.openContextMenu(pointerEvent(240, 660), { playerId: 'player-1', zone: 'hand', kind: 'card', card: gameCard() });
+
+    expect(state.contextMenu()).toEqual(expect.objectContaining({
+      x: 240,
+      y: 44,
+      verticalOrigin: 'bottom',
+    }));
+  });
+
+  it('anchors upper-screen context menus downward near the pointer', () => {
+    setViewport(1024, 700);
+    const state = new GameTableUiState();
+
+    state.openContextMenu(pointerEvent(240, 120), { playerId: 'player-1', zone: 'battlefield', kind: 'card', card: gameCard() });
+
+    expect(state.contextMenu()).toEqual(expect.objectContaining({
+      x: 240,
+      y: 124,
+      verticalOrigin: 'top',
+    }));
+  });
 });
+
+function setViewport(width: number, height: number): void {
+  Object.defineProperty(window, 'innerWidth', { configurable: true, value: width });
+  Object.defineProperty(window, 'innerHeight', { configurable: true, value: height });
+}
+
+function pointerEvent(clientX: number, clientY: number): MouseEvent {
+  return new MouseEvent('contextmenu', { clientX, clientY });
+}
 
 function gameCard(): GameCardInstance {
   return {

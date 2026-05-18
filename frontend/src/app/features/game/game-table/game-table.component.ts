@@ -5,6 +5,7 @@ import { LucideAngularModule } from 'lucide-angular';
 import { firstValueFrom } from 'rxjs';
 import { AppModalComponent } from '../../../shared/ui/app-modal/app-modal.component';
 import { PrettyScrollDirective } from '../../../shared/ui/pretty-scroll/pretty-scroll.directive';
+import { Card } from '../../../core/models/card.model';
 import { GameCardInstance, GameRematchVote, GameZoneName } from '../../../core/models/game.model';
 import { GamesApi } from '../../../core/api/games.api';
 import { GameTableCardActionsService } from './services/game-table-card-actions.service';
@@ -49,6 +50,7 @@ import { PowerToughnessDialogComponent, PowerToughnessDialogValueChange } from '
 import { GameArrowLayerComponent } from './game-arrow-layer/game-arrow-layer.component';
 import { ArrowTargetDialogComponent, ArrowTargetDialogValue } from './arrow-target-dialog/arrow-target-dialog.component';
 import { GameRematchModalComponent, RematchPlayerVoteView } from './game-rematch-modal/game-rematch-modal.component';
+import { TokenSearchModalComponent } from './token-search-modal/token-search-modal.component';
 
 interface DrawNumberActionRequest {
   readonly kind: 'draw';
@@ -65,6 +67,8 @@ interface MoveTopNumberActionRequest {
   readonly kind: 'moveTop';
   readonly playerId: string;
   readonly toZone: GameZoneName;
+  readonly targetPlayerId?: string;
+  readonly position?: 'top' | 'bottom';
   readonly title: string;
   readonly description: string;
   readonly defaultValue: number;
@@ -73,8 +77,38 @@ interface MoveTopNumberActionRequest {
   readonly confirmLabel: string;
 }
 
-type NumberActionRequest = DrawNumberActionRequest | MoveTopNumberActionRequest;
+interface ViewTopNumberActionRequest {
+  readonly kind: 'viewTop';
+  readonly playerId: string;
+  readonly title: string;
+  readonly description: string;
+  readonly defaultValue: number;
+  readonly min: number;
+  readonly max?: number;
+  readonly confirmLabel: string;
+}
+
+type NumberActionRequest = DrawNumberActionRequest | MoveTopNumberActionRequest | ViewTopNumberActionRequest;
 type RematchCountdownMode = 'initial' | 'courtesy';
+type TableExitAction = 'concede' | 'leave';
+
+interface ZoneMoveAllLibraryRequest {
+  readonly playerId: string;
+  readonly fromZone: GameZoneName;
+  readonly count: number;
+}
+
+interface HandCardGiveRequest {
+  readonly menu: GameContextMenu;
+  readonly targetPlayerId: string;
+  readonly targetPlayerName: string;
+  readonly cardName: string;
+}
+
+interface LibraryCardMoveToHandRequest {
+  readonly menu: GameContextMenu;
+  readonly cardName: string;
+}
 
 interface PowerToughnessActionRequest {
   readonly menu: GameContextMenu;
@@ -126,6 +160,7 @@ interface BattlefieldLayoutRect extends BattlefieldLayoutSize {
     GameArrowLayerComponent,
     ArrowTargetDialogComponent,
     GameRematchModalComponent,
+    TokenSearchModalComponent,
   ],
   providers: [
     GameTableStore,
@@ -182,7 +217,7 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
     const handPlayer = this.store.handPlayer();
     const currentPlayer = this.store.currentPlayer();
 
-    return handPlayer && currentPlayer && handPlayer.id !== currentPlayer.id
+    return handPlayer && currentPlayer && handPlayer.id !== currentPlayer.id && (card.hidden ?? false)
       ? this.store.cardBackImage(handPlayer)
       : this.store.cardImage(card);
   };
@@ -226,17 +261,30 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
     this.store.alignmentGuideFor(playerId);
   readonly isManaLaneHighlighted = (playerId: string): boolean => this.store.isManaLaneHighlighted(playerId);
   readonly canControlPlayer = (playerId: string): boolean => this.store.canControlPlayer(playerId);
-  readonly canUseHiddenZone = (playerId: string, zone: GameZoneName): boolean => this.store.canUseHiddenZone(playerId, zone);
   readonly numberActionDialog = signal<NumberActionRequest | null>(null);
   readonly powerToughnessDialog = signal<PowerToughnessActionRequest | null>(null);
   readonly arrowTargetDialog = signal<ArrowTargetDialogRequest | null>(null);
   readonly libraryMoveRandomOrder = signal(false);
+  readonly zoneMoveAllLibraryDialog = signal<ZoneMoveAllLibraryRequest | null>(null);
+  readonly zoneMoveAllLibraryRandomOrder = signal(false);
+  readonly handCardGiveDialog = signal<HandCardGiveRequest | null>(null);
+  readonly libraryCardMoveToHandDialog = signal<LibraryCardMoveToHandRequest | null>(null);
   readonly followActiveTurnPlayer = signal(false);
   readonly rematchModalOpen = signal(false);
   readonly rematchPending = signal(false);
   readonly rematchToast = signal<string | null>(null);
   readonly rematchCountdownSeconds = signal<number | null>(null);
   readonly rematchCountdownMode = signal<RematchCountdownMode | null>(null);
+  readonly tableExitAction = signal<TableExitAction | null>(null);
+  readonly tokenSearchPlayerId = signal<string | null>(null);
+  readonly tokenSearchPending = signal(false);
+  readonly tableExitTitle = computed(() => this.tableExitAction() === 'leave' ? 'Leave table?' : 'Concede game?');
+  readonly tableExitMessage = computed(() => this.tableExitAction() === 'leave'
+    ? 'You will concede this game and leave the room. This cannot be undone.'
+    : 'You will lose this game immediately. This cannot be undone.');
+  readonly tableExitPrimaryLabel = computed(() => this.tableExitAction() === 'leave' ? 'Leave table' : 'Concede');
+  private readonly leavingTable = signal(false);
+  private readonly tableExitPending = computed(() => this.tableExitAction() !== null || this.leavingTable());
   readonly focusEffectsEnabled = computed(() => this.arrowTargetDialog() === null && this.store.pendingArrowSource() === null);
   readonly battlefieldLayoutSize = signal<BattlefieldLayoutRect>({ width: 900, height: 520, left: 0, top: 0, right: 900, bottom: 520 });
   readonly closeGameDialogOpen = signal(false);
@@ -275,7 +323,7 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
     return kind && currentPlayerId ? `${currentPlayerId}:${kind}` : '';
   });
   readonly isCurrentPlayerWinner = computed(() => this.rematchPromptKind() === 'winner');
-  readonly shouldShowRematchVotesButton = computed(() => this.rematchPromptKind() !== null && !this.rematchModalOpen());
+  readonly shouldShowRematchVotesButton = computed(() => this.rematchPromptKind() !== null && !this.rematchModalOpen() && !this.tableExitPending());
   readonly rematchVotePlayers = computed<readonly RematchPlayerVoteView[]>(() => {
     const votes = this.store.snapshot()?.rematch?.votes ?? {};
 
@@ -343,6 +391,10 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
 
   constructor() {
     effect(() => {
+      if (this.tableExitPending()) {
+        return;
+      }
+
       const key = this.rematchPromptKey();
       if (!key || key === this.lastAutoRematchPromptKey) {
         return;
@@ -361,6 +413,11 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
     });
 
     effect(() => {
+      if (this.tableExitPending()) {
+        queueMicrotask(() => this.clearRematchCountdown());
+        return;
+      }
+
       const promptKey = this.rematchPromptKey();
       const missingPlayers = this.rematchMissingVotePlayers();
       const hasMissingVotes = missingPlayers.length > 0;
@@ -604,8 +661,8 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
         this.store.copyGameId();
         return;
       case 'refreshSnapshot':
-        void this.store.refetch(true);
         this.store.closeContextMenu();
+        window.location.reload();
         return;
       case 'focusCurrentPlayer':
         this.store.focusCurrentPlayer();
@@ -620,10 +677,10 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
         this.store.closeContextMenu();
         return;
       case 'leaveTable':
-        this.store.leaveTable();
+        this.requestTableExit('leave');
         return;
       case 'concedeGame':
-        void this.store.concedeGame();
+        this.requestTableExit('concede');
         return;
       case 'closeGame':
         this.openCloseGameDialog();
@@ -648,7 +705,10 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
         this.openDrawDialog(menu.playerId);
         return;
       case 'moveTop':
-        this.openMoveTopDialog(menu.playerId, action.zone);
+        this.openMoveTopDialog(menu.playerId, action.zone, {
+          targetPlayerId: action.targetPlayerId,
+          position: action.position,
+        });
         return;
       case 'shuffle':
         this.store.closeContextMenu();
@@ -656,11 +716,30 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
         return;
       case 'revealTop':
         this.store.closeContextMenu();
-        void this.store.revealTop(menu.playerId);
+        void this.store.revealTop(menu.playerId, action.target ?? 'all');
+        return;
+      case 'revealLibrary':
+        this.store.closeContextMenu();
+        void this.store.revealLibrary(menu.playerId, action.targetPlayerId);
+        return;
+      case 'playTopRevealed':
+        this.store.closeContextMenu();
+        void this.store.setPlayTopRevealed(menu.playerId, action.enabled);
+        return;
+      case 'openLibraryView':
+        if (action.mode === 'all') {
+          this.store.closeContextMenu();
+          void this.store.viewLibrary(menu.playerId);
+          return;
+        }
+        this.openViewTopLibraryDialog(menu.playerId);
         return;
       case 'moveAll':
+        this.moveAllFromZone(menu, action.zone, action.targetPlayerId);
+        return;
+      case 'selectRandomCard':
         this.store.closeContextMenu();
-        void this.store.command('zone.move_all', { playerId: menu.playerId, fromZone: menu.zone, toZone: action.zone });
+        void this.store.selectRandomZoneCard(menu.playerId, menu.zone);
         return;
       case 'tapCard':
         void this.store.tapCard(menu);
@@ -668,11 +747,17 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
       case 'faceDown':
         void this.store.faceDown(menu);
         return;
+      case 'playFaceDown':
+        void this.store.playFaceDown(menu);
+        return;
       case 'flipCardFace':
         void this.store.flipCardFace(menu);
         return;
       case 'revealCard':
-        void this.store.revealCard(menu);
+        void this.store.revealCard(menu, action.target);
+        return;
+      case 'createToken':
+        this.openTokenSearchModal(menu.playerId);
         return;
       case 'tokenCopy':
         void this.store.tokenCopy(menu);
@@ -699,9 +784,17 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
         void this.store.deleteAllCardCounters(menu);
         return;
       case 'giveToPlayer':
+        if (menu.zone === 'hand') {
+          this.openHandCardGiveDialog(menu, action.targetPlayerId);
+          return;
+        }
         void this.store.giveCardToPlayer(menu, action.targetPlayerId);
         return;
       case 'moveCard':
+        if (menu.zone === 'library' && action.zone === 'hand' && menu.card) {
+          this.openLibraryCardMoveToHandDialog(menu);
+          return;
+        }
         this.store.moveCard(menu, action.zone);
         return;
       case 'deleteArrow':
@@ -735,7 +828,13 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
         void this.store.draw(request.playerId, value);
         return;
       case 'moveTop':
-        void this.store.moveTop(request.playerId, request.toZone, value);
+        void this.store.moveTop(request.playerId, request.toZone, value, {
+          targetPlayerId: request.targetPlayerId,
+          position: request.position,
+        });
+        return;
+      case 'viewTop':
+        void this.store.viewTopLibrary(request.playerId, value);
         return;
     }
   }
@@ -748,6 +847,57 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
 
   cancelNumberAction(): void {
     this.numberActionDialog.set(null);
+  }
+
+  updateZoneMoveAllLibraryRandomOrder(event: Event): void {
+    const input = event.target instanceof HTMLInputElement ? event.target : null;
+    this.zoneMoveAllLibraryRandomOrder.set(input?.checked ?? false);
+  }
+
+  confirmZoneMoveAllToLibrary(position: 'top' | 'bottom'): void {
+    const request = this.zoneMoveAllLibraryDialog();
+    if (!request) {
+      return;
+    }
+
+    const randomOrder = request.count > 1 && this.zoneMoveAllLibraryRandomOrder();
+    this.zoneMoveAllLibraryDialog.set(null);
+    this.zoneMoveAllLibraryRandomOrder.set(false);
+    void this.store.moveAllZoneCards(request.playerId, request.fromZone, 'library', { position, randomOrder });
+  }
+
+  cancelZoneMoveAllToLibrary(): void {
+    this.zoneMoveAllLibraryDialog.set(null);
+    this.zoneMoveAllLibraryRandomOrder.set(false);
+  }
+
+  confirmHandCardGive(): void {
+    const request = this.handCardGiveDialog();
+    this.handCardGiveDialog.set(null);
+    if (!request) {
+      return;
+    }
+
+    void this.store.giveHandCardToPlayer(request.menu, request.targetPlayerId);
+  }
+
+  confirmLibraryCardMoveToHand(reveal: boolean): void {
+    const request = this.libraryCardMoveToHandDialog();
+    this.libraryCardMoveToHandDialog.set(null);
+    if (!request) {
+      return;
+    }
+
+    void this.store.moveLibraryCardToHand(request.menu, reveal);
+  }
+
+  cancelLibraryCardMoveToHand(): void {
+    this.libraryCardMoveToHandDialog.set(null);
+    this.store.closeContextMenu();
+  }
+
+  cancelHandCardGive(): void {
+    this.handCardGiveDialog.set(null);
   }
 
   updatePowerToughnessValue(change: PowerToughnessDialogValueChange): void {
@@ -807,6 +957,45 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
 
   cancelCloseGame(): void {
     this.closeGameDialogOpen.set(false);
+  }
+
+  async confirmTableExitAction(): Promise<void> {
+    const action = this.tableExitAction();
+    this.tableExitAction.set(null);
+    if (action === 'concede') {
+      await this.store.concedeGame();
+      return;
+    }
+    if (action === 'leave') {
+      await this.leaveTableFromContextMenu();
+    }
+  }
+
+  cancelTableExitAction(): void {
+    this.tableExitAction.set(null);
+  }
+
+  async createSelectedToken(card: Card): Promise<void> {
+    const playerId = this.tokenSearchPlayerId();
+    if (!playerId || this.tokenSearchPending()) {
+      return;
+    }
+
+    this.tokenSearchPending.set(true);
+    try {
+      await this.store.createToken(playerId, card);
+      this.tokenSearchPlayerId.set(null);
+    } finally {
+      this.tokenSearchPending.set(false);
+    }
+  }
+
+  closeTokenSearchModal(): void {
+    if (this.tokenSearchPending()) {
+      return;
+    }
+
+    this.tokenSearchPlayerId.set(null);
   }
 
   openRematchModal(): void {
@@ -884,18 +1073,117 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
     });
   }
 
-  private openMoveTopDialog(playerId: string, toZone: GameZoneName): void {
+  private openLibraryCardMoveToHandDialog(menu: GameContextMenu): void {
+    if (!menu.card) {
+      return;
+    }
+
     this.store.closeContextMenu();
+    this.libraryCardMoveToHandDialog.set({
+      menu,
+      cardName: menu.card.name,
+    });
+  }
+
+  private requestTableExit(action: TableExitAction): void {
+    this.store.closeContextMenu();
+    this.rematchModalOpen.set(false);
+    this.tableExitAction.set(action);
+  }
+
+  private openTokenSearchModal(playerId: string): void {
+    this.store.closeContextMenu();
+    this.tokenSearchPlayerId.set(playerId);
+  }
+
+  private async leaveTableFromContextMenu(): Promise<void> {
+    this.store.closeContextMenu();
+    this.rematchModalOpen.set(false);
+    this.leavingTable.set(true);
+    try {
+      await this.store.leaveTable();
+    } catch (error) {
+      this.leavingTable.set(false);
+      throw error;
+    }
+  }
+
+  private openMoveTopDialog(
+    playerId: string,
+    toZone: GameZoneName,
+    options: { targetPlayerId?: string; position?: 'top' | 'bottom' } = {},
+  ): void {
+    this.store.closeContextMenu();
+    const destination = this.libraryMoveTopDestinationLabel(toZone, options.targetPlayerId, options.position);
     this.numberActionDialog.set({
       kind: 'moveTop',
       playerId,
       toZone,
+      targetPlayerId: options.targetPlayerId,
+      position: options.position,
       title: 'Move top cards',
-      description: `Choose how many top library cards to move to ${this.store.zoneTitle(toZone).toLowerCase()}.`,
+      description: `Choose how many top library cards to move to ${destination}.`,
       defaultValue: 1,
       min: 1,
       confirmLabel: 'Move',
     });
+  }
+
+  private openViewTopLibraryDialog(playerId: string): void {
+    this.store.closeContextMenu();
+    this.numberActionDialog.set({
+      kind: 'viewTop',
+      playerId,
+      title: 'View top cards',
+      description: 'Choose how many top library cards to view.',
+      defaultValue: 1,
+      min: 1,
+      confirmLabel: 'View',
+    });
+  }
+
+  private libraryMoveTopDestinationLabel(toZone: GameZoneName, targetPlayerId?: string, position?: 'top' | 'bottom'): string {
+    if (toZone === 'library' && position === 'bottom') {
+      return 'the bottom of your library';
+    }
+    if (targetPlayerId) {
+      return `${this.store.playerDisplayName(targetPlayerId)} ${this.store.zoneTitle(toZone).toLowerCase()}`;
+    }
+
+    return this.store.zoneTitle(toZone).toLowerCase();
+  }
+
+  private moveAllFromZone(menu: GameContextMenu, toZone: GameZoneName, targetPlayerId?: string): void {
+    this.store.closeContextMenu();
+    const count = this.store.zoneCardInstanceIds(menu.playerId, menu.zone).length;
+    if (count <= 0) {
+      return;
+    }
+
+    if (toZone === 'library') {
+      this.zoneMoveAllLibraryDialog.set({ playerId: menu.playerId, fromZone: menu.zone, count });
+      return;
+    }
+
+    void this.store.moveAllZoneCards(menu.playerId, menu.zone, toZone, { targetPlayerId });
+  }
+
+  private openHandCardGiveDialog(menu: GameContextMenu, targetPlayerId: string): void {
+    if (!menu.card || menu.zone !== 'hand') {
+      return;
+    }
+
+    this.store.closeContextMenu();
+    this.handCardGiveDialog.set({
+      menu,
+      targetPlayerId,
+      targetPlayerName: this.playerName(targetPlayerId),
+      cardName: menu.card.name,
+    });
+  }
+
+  private playerName(playerId: string): string {
+    return this.store.players().find((player) => player.id === playerId)?.state.user.displayName || playerId;
   }
 
   private openPowerToughnessDialog(menu: GameContextMenu): void {

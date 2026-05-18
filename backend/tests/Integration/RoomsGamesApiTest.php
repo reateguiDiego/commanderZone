@@ -199,10 +199,14 @@ class RoomsGamesApiTest extends ApiTestCase
         self::assertArrayHasKey('updatedAt', $this->jsonResponse()['game']);
         self::assertSame('turn', $this->jsonResponse()['game']['snapshot']['timer']['mode']);
         self::assertSame(120, $this->jsonResponse()['game']['snapshot']['timer']['durationSeconds']);
-        foreach ($this->jsonResponse()['game']['snapshot']['players'] as $playerSnapshot) {
+        foreach ($this->jsonResponse()['game']['snapshot']['players'] as $playerId => $playerSnapshot) {
             self::assertSame(35, $playerSnapshot['life']);
             self::assertSame('back_5', $playerSnapshot['backgroundName']);
             self::assertSame('facedown_card', $playerSnapshot['sleevesName']);
+            if ((string) $playerId !== $this->jsonResponse()['game']['snapshot']['ownerId']) {
+                $this->assertHiddenHandProjection($playerSnapshot);
+                self::assertSame([], $playerSnapshot['zones']['library']);
+            }
         }
 
         $this->jsonRequest('POST', '/rooms', ['visibility' => 'private', 'maxPlayers' => 2, 'deckId' => $ownerDeckId], $ownerToken);
@@ -640,6 +644,18 @@ class RoomsGamesApiTest extends ApiTestCase
         $this->jsonRequest('GET', '/rooms/current', token: $fixture['tokens']['Rematch Leave Guest']);
         self::assertResponseIsSuccessful();
         self::assertNull($this->jsonResponse()['room']);
+
+        $guestPlayerId = $this->playerIdByName($fixture['snapshot'], 'Rematch Leave Guest');
+        $this->jsonRequest('GET', '/games/'.$gameId.'/snapshot', token: $fixture['tokens']['Rematch Leave Guest']);
+        self::assertResponseIsSuccessful();
+        $guestProjection = $this->jsonResponse()['game']['snapshot']['players'][$guestPlayerId];
+        $this->assertHiddenHandProjection($guestProjection);
+
+        $this->jsonRequest('POST', '/games/'.$gameId.'/commands', [
+            'type' => 'life.changed',
+            'payload' => ['playerId' => $guestPlayerId, 'delta' => -1],
+        ], $fixture['tokens']['Rematch Leave Guest']);
+        self::assertResponseStatusCodeSame(403);
 
         $this->jsonRequest('POST', '/games/'.$gameId.'/rematch-vote', [
             'vote' => 'leave',
@@ -1527,12 +1543,13 @@ class RoomsGamesApiTest extends ApiTestCase
 
         $this->jsonRequest('POST', '/games/'.$gameId.'/commands', [
             'type' => 'library.play_top_revealed',
-            'payload' => ['playerId' => $ownerPlayerId],
+            'payload' => ['playerId' => $ownerPlayerId, 'enabled' => true],
         ], $ownerToken);
         self::assertResponseStatusCodeSame(201);
         $afterPlayTop = $this->jsonResponse()['snapshot']['players'][$ownerPlayerId]['zones'];
-        self::assertCount(86, $afterPlayTop['library']);
-        self::assertCount(1, $afterPlayTop['battlefield']);
+        self::assertCount(87, $afterPlayTop['library']);
+        self::assertCount(0, $afterPlayTop['battlefield']);
+        self::assertTrue($this->jsonResponse()['snapshot']['players'][$ownerPlayerId]['playTopLibraryRevealed']);
     }
 
     public function testLifeCommanderDamageAndCountersCommandsUpdateSnapshot(): void
@@ -1735,7 +1752,7 @@ class RoomsGamesApiTest extends ApiTestCase
                 self::assertCount(7, $playerState['zones']['hand']);
                 self::assertCount(92, $playerState['zones']['library']);
             } else {
-                self::assertCount(0, $playerState['zones']['hand']);
+                $this->assertHiddenHandProjection($playerState);
             }
 
             $instanceIds = [];
@@ -2063,8 +2080,7 @@ class RoomsGamesApiTest extends ApiTestCase
         $this->jsonRequest('GET', '/games/'.$gameId.'/snapshot', token: $playerToken);
         self::assertResponseIsSuccessful();
         $playerProjection = $this->jsonResponse()['game']['snapshot'];
-        self::assertCount(0, $playerProjection['players'][$ownerPlayerId]['zones']['hand']);
-        self::assertSame(7, $playerProjection['players'][$ownerPlayerId]['zoneCounts']['hand']);
+        $this->assertHiddenHandProjection($playerProjection['players'][$ownerPlayerId]);
 
         $this->jsonRequest('POST', '/games/'.$gameId.'/commands', [
             'type' => 'library.reveal_top',
@@ -2340,6 +2356,23 @@ class RoomsGamesApiTest extends ApiTestCase
     private function assertRoomPlayersDoNotContainDisplayName(array $room, string $displayName): void
     {
         self::assertNotContains($displayName, $this->roomPlayerDisplayNames($room));
+    }
+
+    /**
+     * @param array<string,mixed> $playerState
+     */
+    private function assertHiddenHandProjection(array $playerState, int $expectedCount = 7): void
+    {
+        self::assertSame($expectedCount, $playerState['zoneCounts']['hand']);
+        self::assertCount($expectedCount, $playerState['zones']['hand']);
+
+        foreach ($playerState['zones']['hand'] as $index => $card) {
+            self::assertSame('Hidden card', $card['name']);
+            self::assertTrue($card['hidden']);
+            self::assertTrue($card['faceDown']);
+            self::assertSame('hand', $card['zone']);
+            self::assertStringContainsString(sprintf('hidden-hand-%d', $index), (string) $card['instanceId']);
+        }
     }
 
     /**

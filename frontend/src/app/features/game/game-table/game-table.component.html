@@ -358,6 +358,18 @@
         (secondary)="cancelCloseGame()"
       />
 
+      <app-modal
+        [open]="tableExitAction() !== null"
+        [title]="tableExitTitle()"
+        [message]="tableExitMessage()"
+        [primaryLabel]="tableExitPrimaryLabel()"
+        secondaryLabel="Cancel"
+        [danger]="true"
+        [lockBodyScroll]="false"
+        (primary)="confirmTableExitAction()"
+        (secondary)="cancelTableExitAction()"
+      />
+
       <app-game-rematch-modal
         [open]="rematchModalOpen()"
         [winner]="isCurrentPlayerWinner()"
@@ -373,6 +385,14 @@
         (closed)="closeRematchModal()"
       />
 
+      <app-token-search-modal
+        [open]="tokenSearchPlayerId() !== null"
+        [deckId]="store.currentDeckId()"
+        [pending]="tokenSearchPending()"
+        (tokenSelected)="createSelectedToken($event)"
+        (closed)="closeTokenSearchModal()"
+      />
+
       @if (store.pendingBattlefieldMove(); as pendingMove) {
         <app-modal
           [open]="true"
@@ -383,6 +403,38 @@
           [lockBodyScroll]="false"
           (primary)="store.confirmPendingBattlefieldMove()"
           (secondary)="store.cancelPendingBattlefieldMove()"
+        />
+      }
+
+      @if (handCardGiveDialog(); as giveRequest) {
+        <app-modal
+          [open]="true"
+          title="Give card?"
+          [message]="'You are giving ' + giveRequest.cardName + ' to ' + giveRequest.targetPlayerName + '. This moves it to their hand.'"
+          primaryLabel="Give card"
+          secondaryLabel="Cancel"
+          [lockBodyScroll]="false"
+          (primary)="confirmHandCardGive()"
+          (secondary)="cancelHandCardGive()"
+        />
+      }
+
+      @if (libraryCardMoveToHandDialog(); as libraryMoveRequest) {
+        <app-modal
+          [open]="true"
+          title="Move to hand?"
+          [message]="'Do you want to reveal ' + libraryMoveRequest.cardName + ' while moving it from library to hand?'"
+          primaryLabel="Reveal and move"
+          secondaryLabel="Move hidden"
+          secondaryVariant="primary"
+          [showTertiary]="true"
+          tertiaryLabel="Cancel"
+          footerLayout="split"
+          size="compact"
+          [lockBodyScroll]="false"
+          (primary)="confirmLibraryCardMoveToHand(true)"
+          (secondary)="confirmLibraryCardMoveToHand(false)"
+          (tertiary)="cancelLibraryCardMoveToHand()"
         />
       }
 
@@ -419,6 +471,39 @@
         </app-modal>
       }
 
+      @if (zoneMoveAllLibraryDialog(); as moveAllRequest) {
+        <app-modal
+          [open]="true"
+          title="Move all to library"
+          [message]="'Where do you want to put ' + moveAllRequest.count + ' cards?'"
+          primaryLabel="Top"
+          secondaryLabel="Bottom"
+          secondaryVariant="primary"
+          [showTertiary]="true"
+          tertiaryLabel="Cancel"
+          footerLayout="split"
+          size="compact"
+          [lockBodyScroll]="false"
+          (primary)="confirmZoneMoveAllToLibrary('top')"
+          (secondary)="confirmZoneMoveAllToLibrary('bottom')"
+          (tertiary)="cancelZoneMoveAllToLibrary()"
+        >
+          @if (moveAllRequest.count > 1) {
+            <label class="library-random-order-option">
+              <input
+                type="checkbox"
+                [checked]="zoneMoveAllLibraryRandomOrder()"
+                (change)="updateZoneMoveAllLibraryRandomOrder($event)"
+              />
+              <span>
+                <strong>Random order</strong>
+                <small>Shuffle only these cards before placing them.</small>
+              </span>
+            </label>
+          }
+        </app-modal>
+      }
+
       @if (store.pointerDragPreview(); as preview) {
         <div
           class="drag-card-preview"
@@ -434,7 +519,7 @@
           } @else {
             <span>{{ preview.card.name }}</span>
           }
-          <app-card-marker-rail [isToken]="preview.card.isToken === true" [counters]="cardCounters(preview.card)" />
+          <app-card-marker-rail [showTokenCopyMarker]="preview.card.isTokenCopy === true" [counters]="cardCounters(preview.card)" />
           @if (preview.count > 1) {
             <span class="drag-count-badge" aria-hidden="true">{{ preview.count }}</span>
           }
@@ -453,13 +538,11 @@
         <app-zone-modal
           [modal]="modal"
           [cardImage]="cardImage"
-          [canUseHiddenZone]="canUseHiddenZone"
           (close)="store.closeZoneModal()"
           (filterChanged)="store.updateZoneFilter($event)"
           (cardSelected)="store.selectZoneCard($event)"
-          (cardMoved)="store.moveZoneCard($event.card, $event.zone)"
-          (cardRevealed)="store.revealZoneCard($event)"
-          (cardMenuOpened)="store.openCardMenu($event.event, modal.playerId, modal.zone, $event.card)"
+          (cardsReordered)="store.reorderTopLibraryCards($event)"
+          (cardMenuOpened)="store.openZoneModalCardMenu($event.event, $event.card)"
         />
       }
     </main>

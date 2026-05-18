@@ -1,7 +1,11 @@
 import { Injectable, OnDestroy, WritableSignal, computed, effect, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
+import { firstValueFrom } from 'rxjs';
+import { GamesApi } from '../../../core/api/games.api';
+import { RoomsApi } from '../../../core/api/rooms.api';
 import { AuthStore } from '../../../core/auth/auth.store';
-import { GameCardInstance, GameCardPosition, GameCommandType, GameSnapshot, GameZoneName } from '../../../core/models/game.model';
+import { Card } from '../../../core/models/card.model';
+import { GameCardInstance, GameCardPosition, GameCommandType, GameSnapshot, GameZoneName, MercureGameEvent } from '../../../core/models/game.model';
 import { GameTableCommandService } from './services/game-table-command.service';
 import { GameTableBattlefieldDragContext, GameTableBattlefieldDragCoordinatorService } from './services/game-table-battlefield-drag-coordinator.service';
 import { GameTableDragService } from './services/game-table-drag.service';
@@ -96,6 +100,7 @@ export class GameTableStore implements OnDestroy {
   private targetToastTimer: number | null = null;
   private arrowCreationQueue: Promise<void> = Promise.resolve();
   private battlefieldPositionQueue: Promise<void> = Promise.resolve();
+  private openingRevealedLibraryPlayerId: string | null = null;
   private readonly optimisticBattlefieldPositions = new Map<string, BattlefieldPositionCommand>();
   private readonly viewportClampedBattlefieldPositions = new Map<string, ViewportClampedBattlefieldPosition>();
   private readonly optimisticCardCounters = new Map<string, PendingCardCounterCommand>();
@@ -115,6 +120,8 @@ export class GameTableStore implements OnDestroy {
   private readonly zoneActions = inject(GameTableZoneActionsService);
   private readonly session = inject(GameTableSessionService);
   private readonly selection = inject(GameTableSelectionService);
+  private readonly gamesApi = inject(GamesApi);
+  private readonly roomsApi = inject(RoomsApi);
   private readonly auth = inject(AuthStore);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
@@ -132,6 +139,10 @@ export class GameTableStore implements OnDestroy {
   readonly phases = ['untap', 'upkeep', 'draw', 'main-1', 'combat', 'main-2', 'end'];
   readonly gameId = signal(this.route.snapshot.paramMap.get('id') ?? '');
   readonly snapshot = signal<GameSnapshot | null>(null);
+  readonly viewerCanControlTable = signal(true);
+  readonly currentDeckId = signal<string | null>(null);
+  private readonly shuffleLibraryOnModalClosePlayerId = signal<string | null>(null);
+  private readonly shuffleLibraryOnModalCloseReason = signal<'owner-view' | 'revealed-library-closed' | null>(null);
   readonly focusedPlayerId = this.uiState.focusedPlayerId;
   readonly selectedCards: WritableSignal<SelectedCard[]> = this.selection.selectedCards as WritableSignal<SelectedCard[]>;
   readonly hoveredCard = this.uiState.hoveredCard;
@@ -162,7 +173,13 @@ export class GameTableStore implements OnDestroy {
   readonly players = computed<PlayerView[]>(() => this.selectors.players(this.snapshot()));
   readonly focusedPlayer = computed<PlayerView | null>(() => this.selectors.focusedPlayer(this.snapshot(), this.players(), this.focusedPlayerId()));
   readonly eventLog = computed<GameLogEntryView[]>(() => this.chatLogState.eventLogView(this.snapshot(), this.zones));
-  readonly currentPlayer = computed<PlayerView | null>(() => this.selectors.currentPlayer(this.players(), this.auth.user()?.id));
+  readonly currentPlayer = computed<PlayerView | null>(() => {
+    if (!this.viewerCanControlTable()) {
+      return null;
+    }
+
+    return this.selectors.currentPlayer(this.players(), this.auth.user()?.id);
+  });
   readonly handPlayer = computed<PlayerView | null>(() => this.focusedPlayer());
   readonly opponentTargetingPills = computed<ReadonlyMap<string, OpponentTargetingPill>>(() => this.buildOpponentTargetingPills());
   readonly opponentCardsTargetCards = computed<ReadonlyMap<string, readonly OpponentCardsTargetCard[]>>(() => this.buildOpponentCardsTargetCards());
@@ -213,7 +230,10 @@ export class GameTableStore implements OnDestroy {
   }
 
   async load(): Promise<void> {
-    await this.session.load(this.sessionContext());
+    await Promise.all([
+      this.refreshViewerControlAccess(),
+      this.session.load(this.sessionContext()),
+    ]);
   }
 
   async refetch(force = false): Promise<void> {
@@ -221,7 +241,10 @@ export class GameTableStore implements OnDestroy {
       this.pendingTransferState.clear();
       this.dropFeedbackState.clearPendingBattlefieldEntries();
     }
-    await this.session.refetch(this.sessionContext(), force);
+    await Promise.all([
+      this.refreshViewerControlAccess(),
+      this.session.refetch(this.sessionContext(), force),
+    ]);
   }
 
   focusPlayer(playerId: string): boolean {
@@ -279,6 +302,10 @@ export class GameTableStore implements OnDestroy {
     return this.selectors.zoneTitle(zone);
   }
 
+  playerDisplayName(playerId: string): string {
+    return this.playerName(playerId);
+  }
+
   zoneCount(player: PlayerView, zone: GameZoneName): number {
     return this.selectors.zoneCount(player, zone);
   }
@@ -286,6 +313,10 @@ export class GameTableStore implements OnDestroy {
   zoneCardCountById(playerId: string, zone: GameZoneName): number {
     const player = this.players().find((candidate) => candidate.id === playerId);
     return player ? this.zoneCount(player, zone) : 0;
+  }
+
+  zoneCardInstanceIds(playerId: string, zone: GameZoneName): string[] {
+    return this.snapshot()?.players[playerId]?.zones[zone]?.map((card) => card.instanceId) ?? [];
   }
 
   commanderCastCount(player: PlayerView): number {
@@ -482,11 +513,11 @@ export class GameTableStore implements OnDestroy {
     return this.selectors.zonePreviewImage(player, zone);
   }
 
-  topDraggableCard(player: PlayerView, zone: GameZoneName): GameCardInstance | null {
-    if (zone === 'library') {
-      return null;
-    }
+  isLibraryTopRevealed(playerId: string): boolean {
+    return this.snapshot()?.players[playerId]?.playTopLibraryRevealed === true;
+  }
 
+  topDraggableCard(player: PlayerView, zone: GameZoneName): GameCardInstance | null {
     return this.selectors.topDraggableCard(player, zone, this.canControlPlayer(player.id));
   }
 
@@ -595,6 +626,24 @@ export class GameTableStore implements OnDestroy {
 
   openZoneMenu(event: MouseEvent, playerId: string, zone: GameZoneName): void {
     this.interactionActions.openZoneMenu(this.interactionContext(), event, playerId, zone);
+  }
+
+  openZoneModalCardMenu(event: MouseEvent, card: GameCardInstance): void {
+    const modal = this.zoneModal();
+    if (!modal || modal.readOnly) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+
+    this.interactionActions.openCardMenu(
+      this.interactionContext(),
+      event,
+      modal.playerId,
+      modal.zone,
+      card,
+      { suppressRandomSelect: !modal.allowRandomSelect },
+    );
   }
 
   openGameMenu(event: MouseEvent): void {
@@ -820,16 +869,134 @@ export class GameTableStore implements OnDestroy {
     await this.libraryActions.shuffle(this.libraryActionContext(), playerId);
   }
 
-  async revealTop(playerId: string): Promise<void> {
-    await this.libraryActions.revealTop(this.libraryActionContext(), playerId);
+  async shuffleRevealedLibrary(playerId: string): Promise<void> {
+    await this.libraryActions.shuffleRevealedLibrary(this.libraryActionContext(), playerId);
   }
 
-  async moveTop(playerId: string, toZone: GameZoneName, count = 1): Promise<void> {
-    await this.libraryActions.moveTop(this.libraryActionContext(), playerId, toZone, count);
+  async revealTop(playerId: string, target = 'all'): Promise<void> {
+    await this.libraryActions.revealTop(this.libraryActionContext(), playerId, target);
+  }
+
+  async setPlayTopRevealed(playerId: string, enabled: boolean): Promise<void> {
+    await this.libraryActions.setPlayTopRevealed(this.libraryActionContext(), playerId, enabled);
+  }
+
+  async revealLibrary(playerId: string, targetPlayerId: string): Promise<void> {
+    await this.libraryActions.revealLibrary(this.libraryActionContext(), playerId, targetPlayerId);
+  }
+
+  async moveTop(
+    playerId: string,
+    toZone: GameZoneName,
+    count = 1,
+    options: { targetPlayerId?: string; position?: 'top' | 'bottom' } = {},
+  ): Promise<void> {
+    await this.libraryActions.moveTop(this.libraryActionContext(), playerId, toZone, count, options);
+  }
+
+  async viewLibrary(playerId: string): Promise<void> {
+    await this.libraryActions.view(this.libraryActionContext(), playerId);
+    await this.openZone(playerId, 'library');
+    this.shuffleLibraryOnModalClosePlayerId.set(playerId);
+    this.shuffleLibraryOnModalCloseReason.set('owner-view');
+  }
+
+  async viewTopLibrary(playerId: string, count: number): Promise<void> {
+    const sanitizedCount = Number.isFinite(count) ? Math.max(1, Math.floor(count)) : 1;
+    const cards = this.visibleCardsFromZone(playerId, 'library').slice(0, sanitizedCount);
+    if (cards.length === 0) {
+      this.error.set(`No cards in ${this.zoneTitle('library').toLowerCase()}.`);
+      return;
+    }
+
+    await this.libraryActions.view(this.libraryActionContext(), playerId, sanitizedCount);
+    this.openFixedZone(
+      playerId,
+      'library',
+      `${this.playerName(playerId)} top ${cards.length} library card${cards.length === 1 ? '' : 's'}`,
+      cards,
+      cards[0]?.instanceId ?? null,
+      false,
+      {
+        allowReorder: true,
+        drawOrderLabels: this.drawOrderLabels(cards.length),
+      },
+    );
+  }
+
+  async reorderTopLibraryCards(cards: readonly GameCardInstance[]): Promise<void> {
+    const modal = this.zoneModal();
+    if (!modal || !modal.allowReorder || modal.zone !== 'library') {
+      return;
+    }
+
+    const orderedCards = [...cards];
+    this.zoneActions.replaceZoneModalCards(orderedCards);
+    await this.libraryActions.reorderTop(
+      this.libraryActionContext(),
+      modal.playerId,
+      orderedCards.map((card) => card.instanceId),
+    );
+  }
+
+  async moveAllZoneCards(
+    playerId: string,
+    fromZone: GameZoneName,
+    toZone: GameZoneName,
+    options: { position?: 'top' | 'bottom'; randomOrder?: boolean; targetPlayerId?: string } = {},
+  ): Promise<void> {
+    if (!this.canControlPlayer(playerId)) {
+      this.error.set('You can only move your own cards.');
+      return;
+    }
+
+    const targetPlayerId = options.targetPlayerId ?? playerId;
+    const instanceIds = this.zoneCardInstanceIds(playerId, fromZone);
+    if (instanceIds.length === 0 || (fromZone === toZone && targetPlayerId === playerId)) {
+      this.closeContextMenu();
+      return;
+    }
+
+    await this.command('cards.moved', {
+      playerId,
+      fromZone,
+      toZone,
+      instanceIds,
+      ...(targetPlayerId !== playerId ? { targetPlayerId } : {}),
+      ...(options.position ? { position: options.position } : {}),
+      ...(options.randomOrder === true && toZone === 'library' && instanceIds.length > 1 ? { randomOrder: true } : {}),
+    });
+  }
+
+  async selectRandomZoneCard(playerId: string, zone: GameZoneName): Promise<void> {
+    if (!this.canControlPlayer(playerId)) {
+      this.error.set('You can only select random cards from your own zones.');
+      return;
+    }
+
+    const card = this.randomCardFromZone(playerId, zone);
+    if (!card) {
+      this.error.set(`No cards in ${this.zoneTitle(zone).toLowerCase()}.`);
+      return;
+    }
+
+    await this.command('zone.random_card.selected', { playerId, zone, instanceId: card.instanceId });
+    const selectedCard = this.cardFromCurrentSnapshot(playerId, zone, card.instanceId) ?? card;
+    this.openFixedZone(
+      playerId,
+      zone,
+      `${this.playerName(playerId)} random ${this.zoneTitle(zone).toLowerCase()} card`,
+      [selectedCard],
+      selectedCard.instanceId,
+    );
   }
 
   async playCard(playerId: string, zone: GameZoneName, card: GameCardInstance): Promise<void> {
     await this.cardActions.playCard(this.cardActionContext(), playerId, zone, card);
+  }
+
+  async playFaceDown(menu: GameContextMenu): Promise<void> {
+    await this.cardActions.playFaceDown(this.cardActionContext(), menu);
   }
 
   startBattlefieldPointerDrag(event: PointerEvent, playerId: string, card: GameCardInstance): void {
@@ -933,12 +1100,6 @@ export class GameTableStore implements OnDestroy {
   }
 
   dragTopZoneCard(event: DragEvent, player: PlayerView, zone: GameZoneName): void {
-    if (zone === 'library') {
-      event.preventDefault();
-      this.error.set('You cannot drag cards out of your library.');
-      return;
-    }
-
     const card = this.topDraggableCard(player, zone);
     if (!card) {
       event.preventDefault();
@@ -1196,6 +1357,10 @@ export class GameTableStore implements OnDestroy {
     await this.cardActions.moveCard(this.cardActionContext(), menu, toZone);
   }
 
+  async moveLibraryCardToHand(menu: GameContextMenu, reveal: boolean): Promise<void> {
+    await this.cardActions.moveLibraryCardToHand(this.cardActionContext(), menu, reveal);
+  }
+
   startArrowFrom(menu: GameContextMenu, targetCount = 1): void {
     if (!menu.card || menu.zone !== 'battlefield') {
       return;
@@ -1220,6 +1385,31 @@ export class GameTableStore implements OnDestroy {
 
   async giveCardToPlayer(menu: GameContextMenu, targetPlayerId: string): Promise<void> {
     await this.cardActions.giveCardToPlayer(this.cardActionContext(), menu, targetPlayerId);
+  }
+
+  async giveHandCardToPlayer(menu: GameContextMenu, targetPlayerId: string): Promise<void> {
+    if (!menu.card || menu.zone !== 'hand') {
+      return;
+    }
+    if (!this.canControlPlayer(menu.playerId)) {
+      this.error.set('You can only move your own cards.');
+      this.closeContextMenu();
+      return;
+    }
+    if (targetPlayerId === menu.playerId) {
+      this.closeContextMenu();
+      return;
+    }
+
+    await this.command('card.moved', {
+      playerId: menu.playerId,
+      fromZone: 'hand',
+      toZone: 'hand',
+      instanceId: menu.card.instanceId,
+      targetPlayerId,
+    });
+    this.clearSelection();
+    this.closeContextMenu();
   }
 
   async deleteArrow(menu: GameContextMenu): Promise<void> {
@@ -1273,12 +1463,18 @@ export class GameTableStore implements OnDestroy {
     await this.cardActions.flipCardFace(this.cardActionContext(), menu);
   }
 
-  async revealCard(menu: GameContextMenu): Promise<void> {
-    await this.cardActions.revealCard(this.cardActionContext(), menu);
+  async revealCard(menu: GameContextMenu, target: string = 'all'): Promise<void> {
+    await this.cardActions.revealCard(this.cardActionContext(), menu, target);
   }
 
   async tokenCopy(menu: GameContextMenu): Promise<void> {
     await this.cardActions.tokenCopy(this.cardActionContext(), menu);
+  }
+
+  async createToken(playerId: string, card: Card | null = null): Promise<void> {
+    const previousBattlefieldIds = this.battlefieldInstanceIds(playerId);
+    await this.cardActions.createToken(this.cardActionContext(), playerId, card);
+    this.markNewPowerToughnessTokensSettling(playerId, previousBattlefieldIds);
   }
 
   async setPowerToughness(menu: GameContextMenu, power: number, toughness: number): Promise<void> {
@@ -1453,8 +1649,20 @@ export class GameTableStore implements OnDestroy {
     await this.cardActions.revealZoneCard(this.cardActionContext(), card);
   }
 
-  async openZone(playerId: string, zone: GameZoneName): Promise<void> {
-    await this.zoneActions.openZone(this.zoneActionContext(), playerId, zone);
+  async openZone(playerId: string, zone: GameZoneName, selectedCardId: string | null = null, readOnly = false): Promise<void> {
+    await this.zoneActions.openZone(this.zoneActionContext(), playerId, zone, selectedCardId, readOnly);
+  }
+
+  openFixedZone(
+    playerId: string,
+    zone: GameZoneName,
+    title: string,
+    cards: GameCardInstance[],
+    selectedCardId: string | null = null,
+    allowRandomSelect = false,
+    options: { allowReorder?: boolean; drawOrderLabels?: readonly string[] } = {},
+  ): void {
+    this.zoneActions.openFixedZone(playerId, zone, title, cards, selectedCardId, allowRandomSelect, options);
   }
 
   async loadZone(): Promise<void> {
@@ -1469,8 +1677,77 @@ export class GameTableStore implements OnDestroy {
     this.zoneActions.selectZoneCard(card);
   }
 
-  closeZoneModal(): void {
+  async closeZoneModal(): Promise<void> {
+    const modal = this.zoneModal();
+    const shufflePlayerId = this.shuffleLibraryOnModalClosePlayerId();
+    const shuffleReason = this.shuffleLibraryOnModalCloseReason();
+    const shouldShuffleLibrary = shufflePlayerId !== null
+      && modal?.playerId === shufflePlayerId
+      && modal.zone === 'library'
+      && modal.showFilters;
+
+    this.shuffleLibraryOnModalClosePlayerId.set(null);
+    this.shuffleLibraryOnModalCloseReason.set(null);
     this.zoneActions.closeZoneModal();
+
+    if (shouldShuffleLibrary) {
+      if (shuffleReason === 'revealed-library-closed') {
+        await this.shuffleRevealedLibrary(shufflePlayerId);
+        return;
+      }
+
+      await this.shuffle(shufflePlayerId);
+    }
+  }
+
+  async handleRealtimeGameEvent(event: MercureGameEvent): Promise<void> {
+    if (event.event.type !== 'library.reveal') {
+      return;
+    }
+
+    const playerId = this.stringPayload(event.event.payload, 'playerId');
+    const targetPlayerId = this.stringPayload(event.event.payload, 'to');
+    const currentPlayerId = this.currentPlayer()?.id ?? null;
+    if (!playerId || !targetPlayerId || targetPlayerId !== currentPlayerId || playerId === currentPlayerId) {
+      return;
+    }
+
+    await this.openRevealedLibraryModal(playerId);
+  }
+
+  private async openRevealedLibraryModal(playerId: string): Promise<void> {
+    const currentModal = this.zoneModal();
+    if (currentModal?.playerId === playerId && currentModal.zone === 'library') {
+      return;
+    }
+    if (this.openingRevealedLibraryPlayerId === playerId) {
+      return;
+    }
+
+    this.openingRevealedLibraryPlayerId = playerId;
+    try {
+      await this.openZone(playerId, 'library', null, true);
+      this.shuffleLibraryOnModalClosePlayerId.set(playerId);
+      this.shuffleLibraryOnModalCloseReason.set('revealed-library-closed');
+    } finally {
+      this.openingRevealedLibraryPlayerId = null;
+    }
+  }
+
+  private drawOrderLabels(count: number): readonly string[] {
+    return Array.from({ length: count }, (_unused, index) => {
+      if (index === 0) {
+        return 'Proximo robo';
+      }
+      if (index === 1) {
+        return 'Segundo robo';
+      }
+      if (index === 2) {
+        return 'Tercer robo';
+      }
+
+      return `${index + 1} robo`;
+    });
   }
 
   startFloatingDrag(event: PointerEvent): void {
@@ -1541,7 +1818,25 @@ export class GameTableStore implements OnDestroy {
   }
 
   async leaveTable(): Promise<void> {
+    const current = this.currentPlayer();
+    this.closeContextMenu();
+    if (current && current.state.status !== 'conceded') {
+      await this.command('game.concede', {}, true);
+    }
+
+    if (this.viewerCanControlTable()) {
+      await this.recordLeaveRoomVote();
+    }
     await this.router.navigate(['/rooms']);
+  }
+
+  private async recordLeaveRoomVote(): Promise<void> {
+    const gameId = this.gameId();
+    if (!gameId) {
+      return;
+    }
+
+    await firstValueFrom(this.gamesApi.rematchVote(gameId, 'leave'));
   }
 
   async copyGameId(): Promise<void> {
@@ -1576,6 +1871,7 @@ export class GameTableStore implements OnDestroy {
         this.registerCardMovePendingTransfer(payload);
         return;
       case 'library.draw':
+      case 'library.draw_many':
         this.registerLibraryTopPendingTransfer(payload, 'hand');
         return;
       case 'library.move_top':
@@ -1622,13 +1918,14 @@ export class GameTableStore implements OnDestroy {
     if (!playerId || toZone === 'library') {
       return;
     }
+    const targetPlayerId = this.stringPayload(payload, 'targetPlayerId') ?? playerId;
 
     const rawCount = Number(payload['count'] ?? 1);
     const count = Number.isFinite(rawCount) ? Math.max(1, Math.floor(rawCount)) : 1;
     const library = this.snapshot()?.players[playerId]?.zones.library ?? [];
     const instanceIds = library.slice(0, count).map((card) => card.instanceId);
     if (toZone === 'battlefield') {
-      this.dropFeedbackState.markPendingBattlefieldEntry(playerId, instanceIds);
+      this.dropFeedbackState.markPendingBattlefieldEntry(targetPlayerId, instanceIds);
     }
     this.pendingTransferState.register({
       playerId,
@@ -1714,6 +2011,62 @@ export class GameTableStore implements OnDestroy {
     this.dropFeedbackState.trackSnapshot(nextSnapshot);
     this.pendingTransferState.reconcileSnapshot(nextSnapshot);
     this.snapshot.set(nextSnapshot);
+    this.openRevealedLibraryFromSnapshot(nextSnapshot);
+  }
+
+  private openRevealedLibraryFromSnapshot(snapshot: GameSnapshot | null): void {
+    const currentPlayerId = this.currentPlayer()?.id ?? null;
+    if (!snapshot || !currentPlayerId) {
+      return;
+    }
+
+    const revealedEntry = Object.entries(snapshot.players).find(([playerId, player]) =>
+      playerId !== currentPlayerId && (player.revealedLibraryTo ?? []).includes(currentPlayerId),
+    );
+    if (!revealedEntry) {
+      return;
+    }
+
+    void this.openRevealedLibraryModal(revealedEntry[0]);
+  }
+
+  private battlefieldInstanceIds(playerId: string): ReadonlySet<string> {
+    return new Set(this.battlefieldCards(playerId).map((card) => card.instanceId));
+  }
+
+  private randomCardFromZone(playerId: string, zone: GameZoneName): GameCardInstance | null {
+    const cards = this.visibleCardsFromZone(playerId, zone);
+    if (cards.length === 0) {
+      return null;
+    }
+
+    return cards[Math.floor(Math.random() * cards.length)] ?? null;
+  }
+
+  private visibleCardsFromZone(playerId: string, zone: GameZoneName): GameCardInstance[] {
+    return this.snapshot()?.players[playerId]?.zones[zone]?.filter((card) => !card.hidden) ?? [];
+  }
+
+  private cardFromCurrentSnapshot(playerId: string, zone: GameZoneName, instanceId: string): GameCardInstance | null {
+    return this.snapshot()?.players[playerId]?.zones[zone]?.find((card) => card.instanceId === instanceId) ?? null;
+  }
+
+  private battlefieldCards(playerId: string): readonly GameCardInstance[] {
+    return this.snapshot()?.players[playerId]?.zones.battlefield ?? [];
+  }
+
+  private markNewPowerToughnessTokensSettling(playerId: string, previousBattlefieldIds: ReadonlySet<string>): void {
+    const addedTokenIds = this.battlefieldCards(playerId)
+      .filter((battlefieldCard) => !previousBattlefieldIds.has(battlefieldCard.instanceId))
+      .filter((battlefieldCard) => battlefieldCard.isToken === true && this.shouldShowPowerToughness(battlefieldCard))
+      .map((battlefieldCard) => battlefieldCard.instanceId);
+
+    if (addedTokenIds.length === 0) {
+      return;
+    }
+
+    this.dropFeedbackState.markPendingBattlefieldEntry(playerId, addedTokenIds);
+    this.dropFeedbackState.trackSnapshot(this.snapshot());
   }
 
   private canAddCardCounter(card: GameCardInstance, key: string): boolean {
@@ -2251,6 +2604,7 @@ export class GameTableStore implements OnDestroy {
     return {
       currentPlayer: () => this.currentPlayer(),
       focusedPlayer: () => this.focusedPlayer(),
+      zoneCardCount: (playerId, zone) => this.zoneCardCountById(playerId, zone),
       setError: (message) => this.error.set(message),
       playCard: (playerId, zone, card) => this.playCard(playerId, zone, card),
     };
@@ -2268,6 +2622,7 @@ export class GameTableStore implements OnDestroy {
       isPending: () => this.pending(),
       setLoading: (loading) => this.loading.set(loading),
       setError: (message) => this.error.set(message),
+      handleRealtimeEvent: (event) => this.handleRealtimeGameEvent(event),
       navigateToWaitingRoom: (roomId) => {
         void this.router.navigate(['/rooms', roomId, 'waiting']);
       },
@@ -2500,12 +2855,34 @@ export class GameTableStore implements OnDestroy {
   }
 
   private ownPlayerId(snapshot: GameSnapshot): string | null {
+    if (!this.viewerCanControlTable()) {
+      return null;
+    }
+
     const userId = this.auth.user()?.id;
     if (!userId) {
       return null;
     }
 
     return Object.entries(snapshot.players).find(([, player]) => player.user.id === userId)?.[0] ?? null;
+  }
+
+  private async refreshViewerControlAccess(): Promise<void> {
+    const gameId = this.gameId();
+    if (!gameId) {
+      this.viewerCanControlTable.set(false);
+      this.currentDeckId.set(null);
+      return;
+    }
+
+    try {
+      const response = await firstValueFrom(this.roomsApi.current(true));
+      this.viewerCanControlTable.set(response.room?.gameId === gameId && response.viewerRole !== null);
+      this.currentDeckId.set(response.room?.gameId === gameId ? response.player?.deckId ?? null : null);
+    } catch {
+      this.viewerCanControlTable.set(false);
+      this.currentDeckId.set(null);
+    }
   }
 
   private resolvePlayerId(playerId: string): string | null {

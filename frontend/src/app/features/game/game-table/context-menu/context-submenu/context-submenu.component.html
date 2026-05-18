@@ -1,4 +1,10 @@
-<div class="submenu" [class.expanded]="expanded()">
+<div
+  class="submenu"
+  [class.expanded]="expanded()"
+  [class.direction-up]="direction() === 'up'"
+  [class.side-left]="side() === 'left'"
+  [class.child-side-left]="childSide() === 'left'"
+>
   <button type="button" class="submenu-trigger" [attr.aria-expanded]="expanded()" (click)="toggle($event)">
     <span>{{ label() }}</span>
     <span class="submenu-arrow" aria-hidden="true">&rsaquo;</span>
@@ -7,18 +13,40 @@
   @if (expanded()) {
     <div class="submenu-panel" role="menu">
       @for (item of items(); track item.value) {
-        <button
-          type="button"
-          role="menuitem"
-          [disabled]="item.disabled"
-          [class.danger-menu-item]="item.danger"
-          (click)="selectItem($event, item)"
-        >
-          <span>{{ item.label }}</span>
-          @if (item.shortcut) {
-            <kbd>{{ item.shortcut }}</kbd>
+        <div class="submenu-item">
+          <button
+            type="button"
+            role="menuitem"
+            [disabled]="item.disabled"
+            [class.danger-menu-item]="item.danger"
+            (click)="selectItem($event, item)"
+          >
+            <span>{{ item.label }}</span>
+            @if (item.children?.length) {
+              <span class="submenu-arrow" aria-hidden="true">&rsaquo;</span>
+            } @else if (item.shortcut) {
+              <kbd>{{ item.shortcut }}</kbd>
+            }
+          </button>
+          @if (item.children?.length && expandedChild() === item.value) {
+            <div class="submenu-child-panel" role="menu">
+              @for (child of item.children; track child.value) {
+                <button
+                  type="button"
+                  role="menuitem"
+                  [disabled]="child.disabled"
+                  [class.danger-menu-item]="child.danger"
+                  (click)="selectItem($event, child)"
+                >
+                  <span>{{ child.label }}</span>
+                  @if (child.shortcut) {
+                    <kbd>{{ child.shortcut }}</kbd>
+                  }
+                </button>
+              }
+            </div>
           }
-        </button>
+        </div>
       }
     </div>
   }

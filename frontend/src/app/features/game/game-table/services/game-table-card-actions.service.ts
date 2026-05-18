@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import { Card } from '../../../../core/models/card.model';
 import { GameCardInstance, GameCommandType, GameZoneName } from '../../../../core/models/game.model';
 import { GameContextMenu } from '../state/game-table-ui.state';
 import { ZoneModalState } from '../state/game-table-zone-modal.state';
@@ -44,6 +45,27 @@ export class GameTableCardActionsService {
     context.clearSelectedCards();
   }
 
+  async playFaceDown(context: GameTableCardActionContext, menu: GameContextMenu): Promise<void> {
+    if (!menu.card || menu.zone !== 'hand') {
+      return;
+    }
+    if (!context.canControlPlayer(menu.playerId)) {
+      context.setError('You can only move your own cards.');
+      context.closeContextMenu();
+      return;
+    }
+
+    await context.command('card.moved', {
+      playerId: menu.playerId,
+      fromZone: 'hand',
+      toZone: 'battlefield',
+      instanceId: menu.card.instanceId,
+      faceDown: true,
+    });
+    context.clearSelectedCards();
+    context.closeContextMenu();
+  }
+
   async moveCard(context: GameTableCardActionContext, menu: GameContextMenu, toZone: GameZoneName): Promise<void> {
     if (!menu.card) {
       return;
@@ -74,6 +96,30 @@ export class GameTableCardActionsService {
     await context.recordCommanderCastIfNeeded(menu.playerId, menu.zone, toZone);
     context.clearSelectedCards();
     context.closeContextMenu();
+  }
+
+  async moveLibraryCardToHand(context: GameTableCardActionContext, menu: GameContextMenu, reveal: boolean): Promise<void> {
+    if (!menu.card || menu.zone !== 'library') {
+      return;
+    }
+    if (!context.canControlPlayer(menu.playerId)) {
+      context.setError('You can only move your own cards.');
+      context.closeContextMenu();
+      return;
+    }
+
+    await context.command('card.moved', {
+      playerId: menu.playerId,
+      fromZone: 'library',
+      toZone: 'hand',
+      instanceId: menu.card.instanceId,
+      reveal,
+    });
+    context.clearSelectedCards();
+    context.closeContextMenu();
+    if (context.zoneModal()?.playerId === menu.playerId && context.zoneModal()?.zone === 'library') {
+      await context.loadZone();
+    }
   }
 
   async giveCardToPlayer(context: GameTableCardActionContext, menu: GameContextMenu, targetPlayerId: string): Promise<void> {
@@ -243,7 +289,7 @@ export class GameTableCardActionsService {
     context.closeContextMenu();
   }
 
-  async revealCard(context: GameTableCardActionContext, menu: GameContextMenu): Promise<void> {
+  async revealCard(context: GameTableCardActionContext, menu: GameContextMenu, target: string = 'all'): Promise<void> {
     if (!menu.card) {
       return;
     }
@@ -257,7 +303,7 @@ export class GameTableCardActionsService {
       playerId: menu.playerId,
       zone: menu.zone,
       instanceId: menu.card.instanceId,
-      to: 'all',
+      to: target,
     });
     context.closeContextMenu();
   }
@@ -279,6 +325,36 @@ export class GameTableCardActionsService {
       targetPlayerId: menu.playerId,
     });
     context.closeContextMenu();
+  }
+
+  async createToken(context: GameTableCardActionContext, playerId: string, card: Card | null = null): Promise<void> {
+    if (!context.canControlPlayer(playerId)) {
+      context.setError('You can only create tokens on your own battlefield.');
+      context.closeContextMenu();
+      return;
+    }
+
+    await context.command('card.token.created', {
+      playerId,
+      ...(card ? { card: this.tokenCardPayload(card) } : {}),
+    });
+    context.closeContextMenu();
+  }
+
+  private tokenCardPayload(card: Card): Record<string, unknown> {
+    return {
+      scryfallId: card.scryfallId,
+      name: card.name,
+      imageUris: card.imageUris,
+      cardFaces: card.cardFaces ?? [],
+      typeLine: card.typeLine,
+      manaCost: card.manaCost,
+      oracleText: card.oracleText,
+      colorIdentity: card.colorIdentity,
+      power: card.power ?? null,
+      toughness: card.toughness ?? null,
+      loyalty: card.loyalty ?? null,
+    };
   }
 
   async setPowerToughness(context: GameTableCardActionContext, menu: GameContextMenu, power: number, toughness: number): Promise<void> {

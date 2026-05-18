@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, ElementRef, HostListener, computed, inject, input, output, signal } from '@angular/core';
+import { LucideAngularModule } from 'lucide-angular';
 import { GameCardInstance, GameZoneName } from '../../../../core/models/game.model';
 import { GameContextMenu } from '../state/game-table-ui.state';
 import { PlayerView } from '../game-table.store';
@@ -22,14 +23,20 @@ export type ContextMenuAction =
   | { type: 'changeLife'; delta: number }
   | { type: 'drawCard' }
   | { type: 'drawPrompt' }
-  | { type: 'moveTop'; zone: GameZoneName }
+  | { type: 'moveTop'; zone: GameZoneName; targetPlayerId?: string; position?: 'top' | 'bottom' }
   | { type: 'shuffle' }
-  | { type: 'revealTop' }
-  | { type: 'moveAll'; zone: GameZoneName }
+  | { type: 'revealTop'; target?: string }
+  | { type: 'revealLibrary'; targetPlayerId: string }
+  | { type: 'playTopRevealed'; enabled: boolean }
+  | { type: 'openLibraryView'; mode: 'all' | 'top' }
+  | { type: 'moveAll'; zone: GameZoneName; targetPlayerId?: string }
+  | { type: 'selectRandomCard' }
   | { type: 'tapCard' }
   | { type: 'faceDown' }
+  | { type: 'playFaceDown' }
   | { type: 'flipCardFace' }
-  | { type: 'revealCard' }
+  | { type: 'revealCard'; target: string }
+  | { type: 'createToken' }
   | { type: 'tokenCopy' }
   | { type: 'drawArrow' }
   | { type: 'addToStack' }
@@ -45,11 +52,20 @@ export type ContextMenuAction =
   | { type: 'deleteCounter' }
   | { type: 'previewCard' };
 
-type ContextSubmenu = 'counters' | 'giveToPlayer' | 'moveTo';
+type ContextSubmenu =
+  | 'counters'
+  | 'giveToPlayer'
+  | 'moveTo'
+  | 'moveAllTo'
+  | 'revealTo'
+  | 'libraryMoveTop'
+  | 'libraryRevealTop'
+  | 'libraryReveal'
+  | 'libraryView';
 
 @Component({
   selector: 'app-context-menu',
-  imports: [ContextSubmenuComponent],
+  imports: [ContextSubmenuComponent, LucideAngularModule],
   templateUrl: './context-menu.component.html',
   styleUrl: './context-menu.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -80,6 +96,23 @@ export class ContextMenuComponent {
   readonly moveToMenuItems = computed<readonly ContextSubmenuItem[]>(() =>
     this.sortedItems(this.activeCardMoveTargets().map((zone) => ({ value: zone, label: this.zoneTitle()(zone) }))),
   );
+  readonly moveAllToMenuItems = computed<readonly ContextSubmenuItem[]>(() => this.buildMoveAllToMenuItems());
+  readonly revealToMenuItems = computed<readonly ContextSubmenuItem[]>(() => [
+    { value: 'all', label: 'Todos' },
+    ...this.sortedItems(this.players().map((player) => ({ value: player.id, label: this.playerLabel(player) }))),
+  ]);
+  readonly libraryMoveTopMenuItems = computed<readonly ContextSubmenuItem[]>(() => this.buildLibraryMoveTopMenuItems());
+  readonly libraryRevealTopMenuItems = computed<readonly ContextSubmenuItem[]>(() => this.buildVisibilityTargetMenuItems());
+  readonly libraryRevealMenuItems = computed<readonly ContextSubmenuItem[]>(() =>
+    this.sortedItems(this.giveToPlayerTargets().map((player) => ({
+      value: player.id,
+      label: this.playerLabel(player),
+    }))),
+  );
+  readonly libraryViewMenuItems = computed<readonly ContextSubmenuItem[]>(() => [
+    { value: 'all', label: 'View all library' },
+    { value: 'top', label: 'View X top cards' },
+  ]);
 
   isArrowMenu(): boolean {
     return this.menu().kind === 'arrow';
@@ -100,6 +133,16 @@ export class ContextMenuComponent {
     return !currentMenu.card && currentMenu.zone !== 'library';
   }
 
+  isLibraryCardMenu(): boolean {
+    const currentMenu = this.menu();
+    return currentMenu.kind === 'card' && currentMenu.zone === 'library';
+  }
+
+  isHandCardMenu(): boolean {
+    const currentMenu = this.menu();
+    return currentMenu.kind === 'card' && currentMenu.zone === 'hand';
+  }
+
   isCurrentPlayerActive(): boolean {
     const current = this.currentPlayer();
 
@@ -115,11 +158,13 @@ export class ContextMenuComponent {
     return this.canControlActivePlayer() && this.zoneCardCount()(currentMenu.playerId, currentMenu.zone) > 0;
   }
 
-  activeZoneMoveTargets(): readonly GameZoneName[] {
-    const currentZone = this.menu().zone;
-    return (['graveyard', 'exile'] satisfies readonly GameZoneName[])
-      .filter((zone) => zone !== currentZone)
-      .sort((left, right) => this.zoneTitle()(left).localeCompare(this.zoneTitle()(right)));
+  canSelectRandomFromActiveZone(): boolean {
+    const currentMenu = this.menu();
+    return currentMenu.suppressRandomSelect !== true
+      && !this.isLibraryCardMenu()
+      && this.canControlActivePlayer()
+      && this.isRandomSelectableZone(currentMenu.zone)
+      && this.zoneCardCount()(currentMenu.playerId, currentMenu.zone) > 0;
   }
 
   activeCardMoveTargets(): readonly GameZoneName[] {
@@ -155,6 +200,17 @@ export class ContextMenuComponent {
 
   canDeleteOwnedArrows(): boolean {
     return this.ownedArrowCount() > 1;
+  }
+
+  usesLeftSubmenus(): boolean {
+    const currentMenu = this.menu();
+    return !currentMenu.card && (currentMenu.zone === 'graveyard' || currentMenu.zone === 'exile');
+  }
+
+  isPlayTopLibraryRevealed(): boolean {
+    const player = this.players().find((candidate) => candidate.id === this.menu().playerId);
+
+    return player?.state.playTopLibraryRevealed === true;
   }
 
   tapLabel(): string {
@@ -210,9 +266,63 @@ export class ContextMenuComponent {
     this.actionSelected.emit({ type: 'moveCard', zone: zone as GameZoneName });
   }
 
+  selectMoveAllTo(target: string): void {
+    const [kind, value] = target.split(':', 2);
+    if (kind === 'battlefield' && value) {
+      this.actionSelected.emit({ type: 'moveAll', zone: 'battlefield', targetPlayerId: value });
+      return;
+    }
+    if (kind === 'zone' && this.isGameZone(value)) {
+      this.actionSelected.emit({ type: 'moveAll', zone: value });
+    }
+  }
+
+  selectRevealTarget(target: string): void {
+    this.actionSelected.emit({ type: 'revealCard', target });
+  }
+
+  selectLibraryMoveTop(target: string): void {
+    const [kind, value] = target.split(':', 2);
+    if (kind === 'zone' && this.isGameZone(value)) {
+      this.actionSelected.emit({
+        type: 'moveTop',
+        zone: value,
+        ...(value === 'library' ? { position: 'bottom' as const } : {}),
+      });
+      return;
+    }
+
+    if (kind === 'hand' && value) {
+      this.actionSelected.emit({ type: 'moveTop', zone: 'hand', targetPlayerId: value });
+      return;
+    }
+
+    if (kind === 'battlefield' && value) {
+      this.actionSelected.emit({ type: 'moveTop', zone: 'battlefield', targetPlayerId: value });
+    }
+  }
+
+  selectLibraryRevealTopTarget(target: string): void {
+    this.actionSelected.emit({ type: 'revealTop', target });
+  }
+
+  selectLibraryRevealTarget(targetPlayerId: string): void {
+    this.actionSelected.emit({ type: 'revealLibrary', targetPlayerId });
+  }
+
+  selectLibraryView(mode: string): void {
+    if (mode === 'all' || mode === 'top') {
+      this.actionSelected.emit({ type: 'openLibraryView', mode });
+    }
+  }
+
   private isActiveCardCommander(): boolean {
     const currentMenu = this.menu();
     return currentMenu.zone === 'command' || currentMenu.card?.isCommander === true;
+  }
+
+  private isRandomSelectableZone(zone: GameZoneName): boolean {
+    return zone === 'library' || zone === 'hand' || zone === 'graveyard' || zone === 'exile';
   }
 
   private hasPowerToughness(card: GameCardInstance): boolean {
@@ -230,15 +340,71 @@ export class ContextMenuComponent {
     return [...items].sort((left, right) => left.label.localeCompare(right.label));
   }
 
-  private buildCounterMenuItems(): readonly ContextSubmenuItem[] {
-    const cardCounters = this.menu().card?.counters ?? {};
-    const items = this.counterPresets().map((counter) => {
-      const hasCounter = Object.prototype.hasOwnProperty.call(cardCounters, counter);
-      const label = hasCounter ? `Remove ${this.titleCaseCounter(counter)}` : this.titleCaseCounter(counter);
-      const value = hasCounter ? `remove:${counter}` : counter;
+  private buildMoveAllToMenuItems(): readonly ContextSubmenuItem[] {
+    const currentZone = this.menu().zone;
+    if (currentZone !== 'graveyard' && currentZone !== 'exile') {
+      return [];
+    }
 
-      return { value, label };
-    });
+    const oppositeZone: GameZoneName = currentZone === 'graveyard' ? 'exile' : 'graveyard';
+    return [
+      { value: `zone:${oppositeZone}`, label: this.zoneTitle()(oppositeZone) },
+      { value: 'zone:library', label: this.zoneTitle()('library') },
+      {
+        value: 'battlefield',
+        label: this.zoneTitle()('battlefield'),
+        children: this.sortedItems(this.players().map((player) => ({
+          value: `battlefield:${player.id}`,
+          label: this.playerLabel(player),
+        }))),
+      },
+    ];
+  }
+
+  private buildLibraryMoveTopMenuItems(): readonly ContextSubmenuItem[] {
+    const targetPlayers = this.sortedItems(this.giveToPlayerTargets().map((player) => ({
+      value: player.id,
+      label: this.playerLabel(player),
+    })));
+
+    return [
+      { value: 'zone:library', label: 'X to bottom library' },
+      { value: 'zone:graveyard', label: 'X to graveyard' },
+      { value: 'zone:exile', label: 'X to exile' },
+      {
+        value: 'hand',
+        label: 'X to hand player',
+        disabled: targetPlayers.length === 0,
+        children: targetPlayers.map((player) => ({ ...player, value: `hand:${player.value}` })),
+      },
+      {
+        value: 'battlefield',
+        label: 'X to battlefield player',
+        disabled: targetPlayers.length === 0,
+        children: targetPlayers.map((player) => ({ ...player, value: `battlefield:${player.value}` })),
+      },
+    ];
+  }
+
+  private buildVisibilityTargetMenuItems(): readonly ContextSubmenuItem[] {
+    return [
+      { value: 'all', label: 'Todos' },
+      ...this.sortedItems(this.players().map((player) => ({ value: player.id, label: this.playerLabel(player) }))),
+    ];
+  }
+
+  private buildCounterMenuItems(): readonly ContextSubmenuItem[] {
+    const card = this.menu().card;
+    const cardCounters = card?.counters ?? {};
+    const items = this.counterPresets()
+      .filter((counter) => this.shouldShowCounterPreset(counter, card))
+      .map((counter) => {
+        const hasCounter = Object.prototype.hasOwnProperty.call(cardCounters, counter);
+        const label = hasCounter ? `Remove ${this.titleCaseCounter(counter)}` : this.titleCaseCounter(counter);
+        const value = hasCounter ? `remove:${counter}` : counter;
+
+        return { value, label };
+      });
 
     if (Object.keys(cardCounters).length > 1) {
       return this.sortedItems([
@@ -250,12 +416,29 @@ export class ContextMenuComponent {
     return this.sortedItems(items);
   }
 
+  private shouldShowCounterPreset(counter: string, card: GameCardInstance | undefined): boolean {
+    if ((counter === '+1/+1' || counter === '-1/-1') && (!card || !this.shouldShowPowerToughness()(card))) {
+      return false;
+    }
+
+    return true;
+  }
+
   private titleCaseCounter(counter: string): string {
     if (counter.startsWith('+') || counter.startsWith('-')) {
       return counter;
     }
 
     return counter.replace(/\b\w/g, (letter) => letter.toUpperCase());
+  }
+
+  private isGameZone(value: string | undefined): value is GameZoneName {
+    return value === 'library'
+      || value === 'hand'
+      || value === 'battlefield'
+      || value === 'graveyard'
+      || value === 'exile'
+      || value === 'command';
   }
 
   stopClick(event: MouseEvent): void {

@@ -1,6 +1,6 @@
 @if (hasMarkers()) {
   <span class="card-marker-rail" [class.compact]="compact()" aria-hidden="false">
-    @if (isToken()) {
+    @if (showTokenCopyMarker()) {
       <span class="card-marker token-copy-marker" title="Esta carta es un token copy" aria-label="Esta carta es un token copy">
         <img src="assets/icons/gameplay/token-copy.png" alt="" />
       </span>

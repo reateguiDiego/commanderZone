@@ -15,16 +15,18 @@
 .rematch-countdown {
   position: absolute;
   top: 0.85rem;
-  right: 0.85rem;
-  z-index: 2;
+  right: 3.45rem;
+  z-index: 1;
   display: grid;
   min-width: 7.25rem;
+  max-width: min(17rem, calc(100% - 6.25rem));
   padding: 0.5rem 0.65rem;
   border: 1px solid rgb(215 180 106 / 32%);
   border-radius: 8px;
   background: rgb(8 10 8 / 84%);
   color: var(--text);
   box-shadow: 0 0.65rem 1.4rem rgb(0 0 0 / 28%);
+  pointer-events: none;
   text-align: right;
 }
 
@@ -107,6 +109,7 @@
   .rematch-countdown {
     position: static;
     justify-self: stretch;
+    max-width: none;
     text-align: left;
   }
 

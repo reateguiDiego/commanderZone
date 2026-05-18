@@ -71,8 +71,10 @@ export class RoomsApi {
     });
   }
 
-  leave(roomId: string): Observable<LeaveRoomResponse> {
-    return this.http.post<LeaveRoomResponse>(`${API_BASE_URL}/rooms/${roomId}/leave`, {});
+  leave(roomId: string, skipGlobalLoading = false): Observable<LeaveRoomResponse> {
+    return this.http.post<LeaveRoomResponse>(`${API_BASE_URL}/rooms/${roomId}/leave`, {}, {
+      context: skipGlobalLoading ? withoutGlobalLoading() : undefined,
+    });
   }
 
   kickPlayer(roomId: string, playerId: string, skipGlobalLoading = false): Observable<RoomResponse> {

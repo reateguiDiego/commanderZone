@@ -1,0 +1,77 @@
+<app-modal
+  [open]="open"
+  title="Create token"
+  secondaryLabel="Close"
+  [showPrimary]="false"
+  [showCloseButton]="true"
+  [lockBodyScroll]="false"
+  size="wide"
+  (secondary)="close()"
+  (close)="close()"
+>
+  <section class="token-search-panel" (click)="$event.stopPropagation()" (contextmenu)="$event.stopPropagation()">
+    <label class="token-search-field">
+      <lucide-icon name="search" size="18" aria-hidden="true" />
+      <input
+        type="search"
+        name="tokenSearch"
+        placeholder="Search tokens"
+        autocomplete="off"
+        [disabled]="pending"
+        [ngModel]="query()"
+        (ngModelChange)="onQueryInput($event)"
+      />
+    </label>
+
+    <div class="token-search-status" aria-live="polite">
+      @if (loadingDeck() && !showingSearchResults()) {
+        <span>Loading deck tokens...</span>
+      } @else if (searching()) {
+        <span>Searching tokens...</span>
+      } @else if (error(); as message) {
+        <span class="error">{{ message }}</span>
+      } @else if (!showingSearchResults() && deckTokenCards().length > 0) {
+        <span>{{ deckTokenCards().length }} deck tokens</span>
+      } @else if (showingSearchResults()) {
+        <span>{{ displayCards().length }} token results</span>
+      }
+    </div>
+
+    <div appPrettyScroll class="token-grid">
+      @for (card of displayCards(); track card.scryfallId) {
+        <article class="token-card" [class.pending]="pending">
+          @if (imageFor(card); as image) {
+            <img [src]="image" [alt]="card.name" loading="lazy" />
+          } @else {
+            <span class="token-card-fallback">{{ card.name }}</span>
+          }
+          <button
+            class="token-add-button"
+            type="button"
+            [disabled]="pending"
+            [attr.aria-label]="'Create ' + card.name"
+            (click)="selectToken(card)"
+          >
+            <lucide-icon name="plus" size="22" aria-hidden="true" />
+          </button>
+          <span class="token-card-copy">
+            <strong>{{ card.name }}</strong>
+            @if (sourceLabel(card); as source) {
+              <small>{{ source }}</small>
+            } @else if (card.typeLine) {
+              <small>{{ card.typeLine }}</small>
+            }
+          </span>
+        </article>
+      } @empty {
+        <p class="empty-state">
+          @if (showingSearchResults()) {
+            No tokens found.
+          } @else {
+            This deck has no detected tokens.
+          }
+        </p>
+      }
+    </div>
+  </section>
+</app-modal>

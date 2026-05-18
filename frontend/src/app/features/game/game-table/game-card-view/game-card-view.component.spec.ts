@@ -277,12 +277,21 @@ describe('GameCardViewComponent', () => {
   it('marks token copies with a readable badge', async () => {
     const { fixture } = await renderHandCard();
 
-    fixture.componentRef.setInput('card', { ...gameCard(), isToken: true });
+    fixture.componentRef.setInput('card', { ...gameCard(), isToken: true, isTokenCopy: true });
     fixture.detectChanges();
 
     const badge = fixture.nativeElement.querySelector('.token-copy-marker') as HTMLElement | null;
     expect(badge).not.toBeNull();
     expect(badge?.getAttribute('title')).toBe('Esta carta es un token copy');
+  });
+
+  it('does not mark regular tokens as token copies', async () => {
+    const { fixture } = await renderHandCard();
+
+    fixture.componentRef.setInput('card', { ...gameCard(), isToken: true, isTokenCopy: false });
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.token-copy-marker')).toBeNull();
   });
 
   it('plays a face flip animation when the active face changes on the same card', async () => {

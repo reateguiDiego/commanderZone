@@ -7,6 +7,7 @@
       aria-modal="true"
       [attr.aria-label]="title"
       [class.modal-panel-compact]="size === 'compact'"
+      [class.modal-panel-wide]="size === 'wide'"
     >
       @if (showCloseButton) {
         <button class="modal-close-button" type="button" [attr.aria-label]="closeLabel" (click)="close.emit()">

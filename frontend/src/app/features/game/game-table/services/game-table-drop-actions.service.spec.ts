@@ -150,6 +150,30 @@ describe('GameTableDropActionsService', () => {
     expect(markPendingTransfer).toHaveBeenCalledWith('player-1', fromZone, ['moved']);
   });
 
+  it('draws the top library card when dropping library on the owner hand', async () => {
+    const snapshot = snapshotWith({
+      library: [card('library-top', 'Hidden Draw', 'library')],
+      hand: [card('hand-1', 'Sol Ring', 'hand')],
+    });
+    const commands: Array<{ type: GameCommandType; payload: Record<string, unknown> }> = [];
+    const markPendingTransfer = vi.fn();
+    const context = dropContext(
+      () => snapshot,
+      async (type, payload) => {
+        commands.push({ type, payload });
+      },
+      { markPendingTransfer },
+    );
+
+    await service.dropOnHand(context, dragEvent({ playerId: 'player-1', zone: 'library', instanceId: 'library-top' }), 'player-1');
+
+    expect(commands).toEqual([{
+      type: 'library.draw',
+      payload: { playerId: 'player-1', count: 1 },
+    }]);
+    expect(markPendingTransfer).toHaveBeenCalledWith('player-1', 'library', ['library-top']);
+  });
+
   it('allows moving multiple cards from graveyard to hand', async () => {
     let snapshot = snapshotWith({
       hand: [card('hand-1', 'Sol Ring', 'hand')],
@@ -428,7 +452,7 @@ function snapshotWith(zones: Partial<Record<GameZoneName, GameCardInstance[]>>):
         user: { id: 'player-1', email: 'player@test', displayName: 'Player', roles: [] },
         life: 40,
         zones: {
-          library: [],
+          library: zones.library ?? [],
           hand: zones.hand ?? [],
           battlefield: zones.battlefield ?? [],
           graveyard: zones.graveyard ?? [],

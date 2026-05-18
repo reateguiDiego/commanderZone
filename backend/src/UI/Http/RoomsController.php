@@ -3,6 +3,7 @@
 namespace App\UI\Http;
 
 use App\Application\Deck\CommanderDeckValidator;
+use App\Application\Game\GameProjectionService;
 use App\Application\Game\GameSnapshotFactory;
 use App\Application\Room\ActiveRoomMembershipService;
 use App\Domain\Deck\Deck;
@@ -374,6 +375,7 @@ class RoomsController extends ApiController
         #[CurrentUser] User $user,
         EntityManagerInterface $entityManager,
         GameSnapshotFactory $snapshotFactory,
+        GameProjectionService $projection,
         CommanderDeckValidator $deckValidator,
         RoomEventPublisher $roomEventPublisher,
     ): JsonResponse
@@ -453,7 +455,13 @@ class RoomsController extends ApiController
         $entityManager->flush();
         $roomEventPublisher->publish($room, 'room.started');
 
-        return $this->json(['room' => $room->toArray(), 'game' => $game->toArray()], 201);
+        return $this->json([
+            'room' => $room->toArray(),
+            'game' => [
+                ...$game->toArray(),
+                'snapshot' => $projection->project($game, $user),
+            ],
+        ], 201);
     }
 
     private function deckFromPayload(array $payload, User $user, EntityManagerInterface $entityManager): ?Deck

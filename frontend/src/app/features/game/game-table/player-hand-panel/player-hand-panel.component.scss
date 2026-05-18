@@ -17,6 +17,7 @@
   --hand-reveal-offset: var(--hand-hidden-offset);
   --hand-card-preview-height: 9.7rem;
   --hand-card-row-width: 7.2rem;
+  --hand-card-row-step: calc(var(--hand-card-row-width) - 0.64rem);
   border: 0;
   background: transparent;
   box-shadow: none;
@@ -143,6 +144,11 @@
     filter 520ms ease;
 }
 
+.hand-fan app-game-card-view {
+  --game-card-view-width: var(--hand-card-row-width);
+  --hand-row-card-step: var(--hand-card-row-step);
+}
+
 .hand-fan-compact-drop-target {
   padding-inline: 120px;
 }
@@ -187,6 +193,7 @@
 }
 
 .hand-fan-row::before {
+  inset: 0;
   border-color: rgb(215 180 106 / 24%);
   background:
     radial-gradient(ellipse at 50% 95%, rgb(215 180 106 / 18%), transparent 64%),
@@ -249,7 +256,7 @@
   height: var(--hand-card-preview-height);
   margin: 0;
   pointer-events: none;
-  transform: translateX(calc(-50% + (var(--hand-drop-slot-distance, 0) * var(--hand-card-row-width))));
+  transform: translateX(calc(-50% + (var(--hand-drop-slot-distance, 0) * var(--hand-card-row-step))));
   animation: hand-drop-slot-enter 120ms ease-out;
 }
 

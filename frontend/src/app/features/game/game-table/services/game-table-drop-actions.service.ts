@@ -191,6 +191,21 @@ export class GameTableDropActionsService {
     const instanceIds = movedCards.map((card) => card.instanceId);
     const isMultiMove = instanceIds.length > 1;
     const handDestinationPlayerId = this.destinationPlayerIdForMove(dragged.playerId, dragged.zone, 'hand', movedCards, targetPlayerId);
+
+    if (dragged.zone === 'library') {
+      if (targetPlayerId !== dragged.playerId) {
+        this.endBlockedDrag(context, 'You can only draw from your own library to your own hand.');
+        context.clearHandDropPreview();
+        return;
+      }
+
+      context.markPendingTransfer(dragged.playerId, 'library', instanceIds);
+      await context.command('library.draw', { playerId: dragged.playerId, count: 1 });
+      this.endCompletedDrag(context);
+      context.clearHandDropPreview();
+      return;
+    }
+
     if (dragged.zone !== 'hand') {
       context.markPendingTransfer(dragged.playerId, dragged.zone, instanceIds);
     }

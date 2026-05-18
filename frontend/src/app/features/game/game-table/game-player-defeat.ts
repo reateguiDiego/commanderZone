@@ -8,9 +8,9 @@ export function playerHasLethalCommanderDamage(player: PlayerView): boolean {
 }
 
 export function playerIsDefeated(player: PlayerView): boolean {
-  return player.state.life <= 0 || playerHasLethalCommanderDamage(player);
+  return player.state.status === 'conceded' || player.state.life <= 0 || playerHasLethalCommanderDamage(player);
 }
 
 export function playerIsActiveForTurn(player: PlayerView): boolean {
-  return player.state.status !== 'conceded' && !playerIsDefeated(player);
+  return !playerIsDefeated(player);
 }

@@ -1,101 +1,55 @@
 @let currentModal = modal();
 
 <section class="zone-modal-backdrop">
-  <div class="zone-modal" data-testid="zone-modal" (click)="stopClick($event)">
+  <div class="zone-modal" data-testid="zone-modal" [class.has-zone-filters]="currentModal.showFilters" (click)="stopClick($event)">
     <header class="zone-modal-header">
       <div class="zone-title-block">
         <span class="zone-eyebrow">{{ currentModal.zone }}</span>
         <h2>{{ currentModal.title }}</h2>
+        @if (currentModal.readOnly) {
+          <small>Read-only library review</small>
+        }
         <strong>{{ currentModal.total }} cards</strong>
       </div>
       <button class="zone-modal-close" type="button" data-testid="zone-modal-close" aria-label="Close zone" (click)="close.emit()">
         <lucide-icon name="x" size="18" />
       </button>
     </header>
-    <div class="zone-filters">
-      <label>
-        <span>Type</span>
-        <select [ngModel]="currentModal.type" (ngModelChange)="filterChanged.emit({ type: $event })">
-          <option value="">All types</option>
-          <option value="creature">Creatures</option>
-          <option value="instant">Instants</option>
-          <option value="sorcery">Sorceries</option>
-          <option value="artifact">Artifacts</option>
-          <option value="enchantment">Enchantments</option>
-          <option value="planeswalker">Planeswalkers</option>
-          <option value="land">Lands</option>
-        </select>
-      </label>
-      <label class="zone-search">
-        <span>Search</span>
-        <input placeholder="Search by name" [ngModel]="currentModal.search" (ngModelChange)="filterChanged.emit({ search: $event })" />
-      </label>
-    </div>
-    <div appPrettyScroll class="zone-modal-body">
-      <aside class="zone-preview-panel">
-        @if (currentModal.selectedCard; as selected) {
-          <div class="zone-preview-art">
-            @if (cardImage()(selected); as image) {
-              <img [src]="image" [alt]="selected.name" />
-            } @else {
-              <span>{{ selected.name }}</span>
-            }
-          </div>
-          <div class="zone-preview-copy">
-            <h3>{{ selected.name }}</h3>
-            <p>{{ cardTypeLine(selected) }}</p>
-            @if (selected.manaCost) {
-              <app-mana-symbols [value]="selected.manaCost" size="small" />
-            }
-          </div>
-        } @else {
-          <div class="zone-preview-empty">Select a card</div>
-        }
-      </aside>
-      <div appPrettyScroll class="zone-list">
-        @if (currentModal.loading) {
-          <div class="zone-list-state">Loading cards</div>
-        } @else {
-          @for (card of currentModal.cards; track card.instanceId) {
-          <button
-            type="button"
-            class="zone-card-row"
-            [class.active]="currentModal.selectedCard?.instanceId === card.instanceId"
-            (click)="cardSelected.emit(card)"
-            (dblclick)="cardMoved.emit({ card, zone: 'battlefield' })"
-            (contextmenu)="cardMenuOpened.emit({ event: $event, card })"
-          >
-            <span class="zone-card-row-main">
-              <strong>{{ card.name }}</strong>
-              <small>{{ cardTypeLine(card) }}</small>
-            </span>
-            @if (card.manaCost) {
-              <app-mana-symbols [value]="card.manaCost" size="small" />
-            }
-          </button>
-          } @empty {
-            <div class="zone-list-state">No cards found</div>
-          }
-        }
+    @if (currentModal.showFilters) {
+      <div class="zone-filters">
+        <label>
+          <span>Type</span>
+          <select [ngModel]="currentModal.type" (ngModelChange)="filterChanged.emit({ type: $event })">
+            <option value="">All types</option>
+            <option value="creature">Creatures</option>
+            <option value="instant">Instants</option>
+            <option value="sorcery">Sorceries</option>
+            <option value="artifact">Artifacts</option>
+            <option value="enchantment">Enchantments</option>
+            <option value="planeswalker">Planeswalkers</option>
+            <option value="land">Lands</option>
+          </select>
+        </label>
+        <label class="zone-search">
+          <span>Search</span>
+          <input placeholder="Search by name" [ngModel]="currentModal.search" (ngModelChange)="filterChanged.emit({ search: $event })" />
+        </label>
       </div>
-    </div>
-    @if (currentModal.selectedCard; as selected) {
-      <footer class="zone-actions">
-        @for (action of cardActions; track action.zone) {
-          @if (action.zone !== currentModal.zone) {
-            <button
-              type="button"
-              [attr.data-testid]="action.zone === 'battlefield' ? 'move-card-to-battlefield' : null"
-              (click)="cardMoved.emit({ card: selected, zone: action.zone })"
-            >
-              {{ action.label }}
-            </button>
-          }
-        }
-        @if (canUseHiddenZone()(currentModal.playerId, currentModal.zone)) {
-          <button type="button" class="secondary-action" (click)="cardRevealed.emit(selected)">Reveal</button>
-        }
-      </footer>
     }
+    <div class="zone-modal-body">
+      <app-card-spoiler-grid
+        [cards]="currentModal.cards"
+        [selectedCardId]="currentModal.selectedCard?.instanceId ?? null"
+        [loading]="currentModal.loading"
+        [allowContextMenu]="!currentModal.readOnly"
+        [allowReorder]="currentModal.allowReorder"
+        [orderLabels]="currentModal.drawOrderLabels"
+        [cardImage]="cardImage()"
+        emptyLabel="No cards found"
+        (cardSelected)="cardSelected.emit($event)"
+        (cardsReordered)="cardsReordered.emit($event)"
+        (cardMenuOpened)="cardMenuOpened.emit($event)"
+      />
+    </div>
   </div>
 </section>

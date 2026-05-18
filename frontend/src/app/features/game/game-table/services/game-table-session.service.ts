@@ -15,6 +15,7 @@ export interface GameTableSessionContext {
   isPending(): boolean;
   setLoading(loading: boolean): void;
   setError(message: string | null): void;
+  handleRealtimeEvent(event: MercureGameEvent): void | Promise<void>;
   navigateToWaitingRoom(roomId: string): void;
 }
 
@@ -83,11 +84,7 @@ export class GameTableSessionService {
 
   private subscribeToRealtime(context: GameTableSessionContext, gameId: string): void {
     this.realtime.subscribeToGame(gameId, (event) => {
-      if (this.handleRematchCreatedEvent(context, event)) {
-        return;
-      }
-
-      void this.refetch(context, false);
+      void this.handleRealtimeEvent(context, event);
     });
   }
 
@@ -120,6 +117,15 @@ export class GameTableSessionService {
 
     context.navigateToWaitingRoom(roomId);
     return true;
+  }
+
+  private async handleRealtimeEvent(context: GameTableSessionContext, event: MercureGameEvent): Promise<void> {
+    if (this.handleRematchCreatedEvent(context, event)) {
+      return;
+    }
+
+    await this.refetch(context, false);
+    await context.handleRealtimeEvent(event);
   }
 
   private hasProjectionMetadataChanged(current: GameSnapshot, next: GameSnapshot): boolean {

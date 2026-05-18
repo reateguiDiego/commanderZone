@@ -10,6 +10,7 @@ export interface CardSearchFilters {
   commanderLegal?: boolean;
   colorIdentity?: string[];
   type?: 'creature' | 'instant' | 'sorcery' | 'artifact' | 'enchantment' | 'planeswalker' | 'land';
+  tokenOnly?: boolean;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -30,6 +31,9 @@ export class CardsApi {
     }
     if (filters.type) {
       params = params.set('type', filters.type);
+    }
+    if (filters.tokenOnly !== undefined) {
+      params = params.set('tokenOnly', String(filters.tokenOnly));
     }
 
     return this.http.get<DataResponse<Card>>(`${API_BASE_URL}/cards/search`, {

@@ -32,18 +32,22 @@ export type GameCommandType =
   | 'card.face_down.changed'
   | 'card.face.changed'
   | 'card.revealed'
+  | 'card.token.created'
   | 'card.token_copy.created'
   | 'card.controller.changed'
   | 'turn.changed'
   | 'zone.changed'
   | 'zone.move_all'
+  | 'zone.random_card.selected'
   | 'library.draw'
   | 'library.draw_many'
   | 'library.shuffle'
   | 'library.move_top'
   | 'library.reveal_top'
   | 'library.reveal'
+  | 'library.view'
   | 'library.play_top_revealed'
+  | 'library.reorder_top'
   | 'stack.card_added'
   | 'stack.item_removed'
   | 'arrow.created'
@@ -77,6 +81,7 @@ export interface GameCardInstance {
   counters?: Record<string, number>;
   zone?: GameZoneName;
   isToken?: boolean;
+  isTokenCopy?: boolean;
   isCommander?: boolean;
 }
 
@@ -91,6 +96,8 @@ export interface GamePlayerState {
   colorIdentity?: string[];
   backgroundName?: string;
   sleevesName?: string;
+  playTopLibraryRevealed?: boolean;
+  revealedLibraryTo?: string[];
   life: number;
   zones: GameZones;
   zoneCounts?: GameZoneCounts;
@@ -121,6 +128,9 @@ export interface GameLogEntry {
   displayName: string | null;
   createdAt: string;
   cardNames?: string[];
+  cardInstanceId?: string;
+  cardPlayerId?: string;
+  cardZone?: GameZoneName;
 }
 
 export interface GameStackItem {

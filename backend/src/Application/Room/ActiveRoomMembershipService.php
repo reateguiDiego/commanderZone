@@ -40,7 +40,7 @@ final class ActiveRoomMembershipService
             ->addSelect('player')
             ->where('room.status != :archived')
             ->andWhere('room.players IS NOT EMPTY')
-            ->andWhere('room.owner = :user OR player.user = :user')
+            ->andWhere('player.user = :user')
             ->orderBy('room.createdAt', 'DESC')
             ->setParameter('archived', Room::STATUS_ARCHIVED)
             ->setParameter('user', $user)

@@ -31,7 +31,7 @@
     } @else {
       <span class="card-back"></span>
     }
-    <app-card-marker-rail [isToken]="currentCard.isToken === true" [counters]="visibleCounters()" [compact]="true" />
+    <app-card-marker-rail [showTokenCopyMarker]="currentCard.isTokenCopy === true" [counters]="visibleCounters()" [compact]="true" />
   </span>
 } @else {
   <button
@@ -98,7 +98,7 @@
   >
     <span class="card-visual">
       <app-card-marker-rail
-        [isToken]="currentCard.isToken === true"
+        [showTokenCopyMarker]="currentCard.isTokenCopy === true"
         [counters]="visibleCounters()"
         (counterChanged)="changeCounter($event)"
         (counterDeleteRequested)="requestCounterDelete($event)"

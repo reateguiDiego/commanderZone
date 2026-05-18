@@ -92,6 +92,7 @@ function context(
     isPending: () => false,
     setLoading: vi.fn(),
     setError: vi.fn(),
+    handleRealtimeEvent: vi.fn(),
     navigateToWaitingRoom,
   };
 }

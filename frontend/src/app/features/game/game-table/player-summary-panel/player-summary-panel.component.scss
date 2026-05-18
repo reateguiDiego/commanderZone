@@ -30,7 +30,7 @@
   align-content: center;
   gap: 0;
   min-width: 0;
-  overflow: visible;
+  overflow: hidden;
 }
 
 .player-copy small {
@@ -44,7 +44,7 @@
   display: inline-grid;
   width: min(100%, 22rem);
   max-width: 22rem;
-  overflow: visible;
+  overflow: hidden;
 }
 
 .player-copy small {
@@ -335,6 +335,42 @@
   background:
     linear-gradient(90deg, color-mix(in srgb, var(--player-accent) 7%, transparent), transparent 54%),
     rgb(255 255 255 / 2%);
+}
+
+@media (max-width: 1180px) {
+  .player-summary-panel {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.4rem;
+    max-width: none;
+    padding: 0.22rem 0.42rem;
+  }
+
+  .player-avatar,
+  .player-copy small,
+  .player-copy app-mana-symbols {
+    display: none;
+  }
+
+  .player-copy app-player-name {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .life-controls {
+    min-width: 3rem;
+    gap: 0.18rem;
+  }
+
+  .life-total {
+    min-width: 3rem;
+    min-height: 2.35rem;
+    border-radius: 7px;
+    font-size: 1.2rem;
+  }
+
+  .player-extra-actions {
+    --extra-actions-size: 1.58rem;
+  }
 }
 
 @media (max-width: 760px) {

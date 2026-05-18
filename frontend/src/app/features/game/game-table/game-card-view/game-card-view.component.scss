@@ -274,7 +274,7 @@
 
 .hand-card.hand-row-layout {
   transform:
-    translateX(calc(-50% + (var(--hand-row-distance, 0) * var(--game-card-view-width)) + var(--hand-shift-x, 0px)))
+    translateX(calc(-50% + (var(--hand-row-distance, 0) * var(--hand-row-card-step, var(--game-card-view-width))) + var(--hand-shift-x, 0px)))
     translateY(calc(var(--hand-reveal-offset, 0rem) + var(--hand-shift-y, 0px) - var(--hand-pivot-offset)))
     rotate(0deg)
     translateZ(0);

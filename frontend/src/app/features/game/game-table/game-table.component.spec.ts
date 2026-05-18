@@ -65,10 +65,13 @@ import {
   Zap,
 } from 'lucide-angular';
 import { EMPTY, Subject, of } from 'rxjs';
+import { CardsApi } from '../../../core/api/cards.api';
+import { DecksApi } from '../../../core/api/decks.api';
 import { GamesApi } from '../../../core/api/games.api';
+import { RoomsApi } from '../../../core/api/rooms.api';
 import { AuthStore } from '../../../core/auth/auth.store';
 import { CommandResponse } from '../../../core/models/api-responses.model';
-import { GameSnapshot } from '../../../core/models/game.model';
+import { GameCardInstance, GameSnapshot } from '../../../core/models/game.model';
 import { MercureService } from '../../../core/realtime/mercure.service';
 import { GameTableComponent } from './game-table.component';
 import { GameTableChatLogState } from './state/game-table-chat-log.state';
@@ -79,6 +82,16 @@ describe('GameTableComponent', () => {
     command: vi.fn(),
     rematchVote: vi.fn(),
     zone: vi.fn(),
+  };
+  const cardsApi = {
+    search: vi.fn(),
+  };
+  const decksApi = {
+    tokens: vi.fn(),
+  };
+  const roomsApi = {
+    current: vi.fn(),
+    leave: vi.fn(),
   };
   const authStore = {
     user: vi.fn(),
@@ -95,6 +108,16 @@ describe('GameTableComponent', () => {
     gamesApi.command.mockReset();
     gamesApi.rematchVote.mockReset();
     gamesApi.zone.mockReset();
+    gamesApi.rematchVote.mockReturnValue(of({ status: 'left', left: true, roomDeleted: false }));
+    cardsApi.search.mockReset().mockReturnValue(of({ data: [], page: 1, limit: 36 }));
+    decksApi.tokens.mockReset().mockReturnValue(of({ deckId: 'deck-1', data: [], unresolved: [] }));
+    roomsApi.current.mockReset().mockReturnValue(of({
+      room: { id: 'room-1', name: 'Room', status: 'started', visibility: 'public', format: 'commander', maxPlayers: 4, playerCount: 2, gameId: 'game-1' },
+      player: { playerId: 'user-1', deckId: 'deck-1', deckName: 'Deck', deckImageUrl: null },
+      turn: null,
+      viewerRole: 'player',
+    }));
+    roomsApi.leave.mockReset().mockReturnValue(of({ left: true, roomDeleted: false }));
     authStore.user.mockReset().mockReturnValue(null);
     authStore.logout.mockReset().mockResolvedValue(undefined);
     mercureService.gameEvents.mockReset().mockReturnValue(EMPTY);
@@ -102,7 +125,10 @@ describe('GameTableComponent', () => {
     await TestBed.configureTestingModule({
       imports: [GameTableComponent],
       providers: [
+        { provide: CardsApi, useValue: cardsApi },
+        { provide: DecksApi, useValue: decksApi },
         { provide: GamesApi, useValue: gamesApi },
+        { provide: RoomsApi, useValue: roomsApi },
         { provide: AuthStore, useValue: authStore },
         { provide: MercureService, useValue: mercureService },
         importProvidersFrom(LucideAngularModule.pick({
@@ -230,6 +256,179 @@ describe('GameTableComponent', () => {
 
     expect(gamesApi.command).toHaveBeenCalledWith(expect.objectContaining({ type: 'game.concede', payload: {} }), 'game-1');
     expect(fixture.componentInstance.store.snapshot()?.players['user-1'].status).toBe('conceded');
+  });
+
+  it('asks for confirmation before conceding from the table menu', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const activeSnapshot = snapshotWithStatus('active');
+    addOpponent(activeSnapshot);
+    const concededSnapshot = snapshotWithStatus('conceded');
+    addOpponent(concededSnapshot);
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot: activeSnapshot } }));
+    gamesApi.command.mockReturnValue(of({ event: { id: 'event-1', type: 'game.concede', payload: {}, createdBy: 'user-1', createdAt: '' }, snapshot: concededSnapshot }));
+    const router = TestBed.inject(Router);
+    const navigate = vi.spyOn(router, 'navigate').mockResolvedValue(true);
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.handleContextMenuAction({ type: 'concedeGame' }, {} as never);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.tableExitAction()).toBe('concede');
+    expect(fixture.componentInstance.tableExitMessage()).toContain('This cannot be undone.');
+    expect(gamesApi.command).not.toHaveBeenCalled();
+
+    await fixture.componentInstance.confirmTableExitAction();
+    await fixture.whenStable();
+
+    expect(gamesApi.command).toHaveBeenCalledWith(expect.objectContaining({ type: 'game.concede', payload: {} }), 'game-1');
+    expect(gamesApi.rematchVote).not.toHaveBeenCalled();
+    expect(navigate).not.toHaveBeenCalled();
+    expect(fixture.componentInstance.rematchPromptKind()).toBe('defeated');
+    expect(fixture.componentInstance.rematchModalOpen()).toBe(true);
+    expect(fixture.componentInstance.rematchVotePlayers().find((player) => player.playerId === 'user-1')?.defeated).toBe(true);
+  });
+
+  it('concedes before leaving the table from an active game', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const activeSnapshot = snapshotWithStatus('active');
+    const concededSnapshot = snapshotWithStatus('conceded');
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot: activeSnapshot } }));
+    gamesApi.command.mockReturnValue(of({
+      event: { id: 'event-1', type: 'game.concede', payload: {}, createdBy: 'user-1', createdAt: '' },
+      snapshot: concededSnapshot,
+    }));
+    const router = TestBed.inject(Router);
+    const navigate = vi.spyOn(router, 'navigate').mockResolvedValue(true);
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    await fixture.componentInstance.store.leaveTable();
+
+    expect(gamesApi.command).toHaveBeenCalledWith(expect.objectContaining({ type: 'game.concede', payload: {} }), 'game-1');
+    expect(gamesApi.rematchVote).toHaveBeenCalledWith('game-1', 'leave');
+    expect(roomsApi.leave).not.toHaveBeenCalled();
+    expect(navigate).toHaveBeenCalledWith(['/rooms']);
+  });
+
+  it('asks for confirmation before leaving the table from the table menu', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    snapshot.players['user-1']!.life = 0;
+    addOpponent(snapshot);
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const leaveTable = vi.spyOn(fixture.componentInstance.store, 'leaveTable').mockResolvedValue(undefined);
+
+    fixture.componentInstance.handleContextMenuAction({ type: 'leaveTable' }, {} as never);
+    await fixture.whenStable();
+
+    expect(fixture.componentInstance.tableExitAction()).toBe('leave');
+    expect(leaveTable).not.toHaveBeenCalled();
+    expect(gamesApi.rematchVote).not.toHaveBeenCalled();
+    expect(fixture.componentInstance.rematchModalOpen()).toBe(false);
+
+    await fixture.componentInstance.confirmTableExitAction();
+
+    expect(leaveTable).toHaveBeenCalled();
+    expect(gamesApi.rematchVote).not.toHaveBeenCalled();
+  });
+
+  it('treats a snapshot viewer without current room membership as read-only', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    roomsApi.current.mockReturnValue(of({ room: null, player: null, turn: null, viewerRole: null }));
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot: snapshotWithStatus('active') } }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(fixture.componentInstance.store.viewerCanControlTable()).toBe(false);
+    expect(fixture.componentInstance.store.currentPlayer()).toBeNull();
+    expect(fixture.componentInstance.store.canControlPlayer('user-1')).toBe(false);
+  });
+
+  it('opens token search from the battlefield menu and creates the selected token', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    const tokenSnapshot = snapshotWithStatus('active');
+    const tokenCard: GameCardInstance = {
+      instanceId: 'token-card-1',
+      ownerId: 'user-1',
+      controllerId: 'user-1',
+      scryfallId: 'token-1',
+      name: 'Goblin Token',
+      typeLine: 'Token Creature - Goblin',
+      power: 1,
+      toughness: 1,
+      defaultPower: 1,
+      defaultToughness: 1,
+      tapped: false,
+      counters: {},
+      isToken: true,
+    };
+    tokenSnapshot.version = 2;
+    tokenSnapshot.players['user-1']!.zones.battlefield = [
+      ...tokenSnapshot.players['user-1']!.zones.battlefield,
+      tokenCard,
+    ];
+    tokenSnapshot.players['user-1']!.zoneCounts!.battlefield = tokenSnapshot.players['user-1']!.zones.battlefield.length;
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+    gamesApi.command.mockReturnValue(of({
+      event: { id: 'event-token', type: 'card.token.created', payload: {}, createdBy: 'user-1', createdAt: '' },
+      snapshot: tokenSnapshot,
+    }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.handleContextMenuAction({ type: 'createToken' }, { playerId: 'user-1' } as never);
+    expect(fixture.componentInstance.tokenSearchPlayerId()).toBe('user-1');
+
+    await fixture.componentInstance.createSelectedToken({
+      id: 'token-1',
+      scryfallId: 'token-1',
+      name: 'Goblin Token',
+      manaCost: null,
+      typeLine: 'Token Creature - Goblin',
+      oracleText: null,
+      power: '1',
+      toughness: '1',
+      colors: ['R'],
+      colorIdentity: ['R'],
+      legalities: {},
+      imageUris: { normal: 'https://cards.test/token-1.jpg' },
+      layout: 'token',
+      commanderLegal: false,
+      set: 'tst',
+      collectorNumber: '1',
+    });
+
+    expect(gamesApi.command).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'card.token.created',
+      payload: expect.objectContaining({
+        playerId: 'user-1',
+        card: expect.objectContaining({
+          scryfallId: 'token-1',
+          name: 'Goblin Token',
+          imageUris: { normal: 'https://cards.test/token-1.jpg' },
+        }),
+      }),
+    }), 'game-1');
+    expect(fixture.componentInstance.tokenSearchPlayerId()).toBeNull();
+    expect(fixture.componentInstance.store.isBattlefieldEntrySettling('user-1', tokenCard)).toBe(true);
   });
 
   it('resolves the current player deck visuals for the table background and card sleeves', async () => {
@@ -407,7 +606,51 @@ describe('GameTableComponent', () => {
     expect(fixture.componentInstance.store.zoneModal()?.selectedCard).toBe(libraryCard);
   });
 
-  it('does not allow dragging cards out of the library pile', async () => {
+  it('shuffles the library after closing a view all library modal', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    const libraryCard = snapshot.players['user-1'].zones.library[0]!;
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+    gamesApi.command.mockReturnValue(of({
+      event: { id: 'event-library', type: 'library.view', payload: {}, createdBy: 'user-1', createdAt: '' },
+      snapshot,
+    }));
+    gamesApi.zone.mockReturnValue(of({
+      gameId: 'game-1',
+      playerId: 'user-1',
+      zone: 'library',
+      total: 1,
+      data: [libraryCard],
+    }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.handleContextMenuAction({ type: 'openLibraryView', mode: 'all' }, {
+      x: 0,
+      y: 0,
+      playerId: 'user-1',
+      zone: 'library',
+      kind: 'zone',
+    });
+
+    await vi.waitFor(() => expect(gamesApi.zone).toHaveBeenCalledOnce());
+    await fixture.componentInstance.store.closeZoneModal();
+
+    await vi.waitFor(() => expect(gamesApi.command).toHaveBeenCalledTimes(2));
+    expect(gamesApi.command).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      type: 'library.view',
+      payload: { playerId: 'user-1' },
+    }), 'game-1');
+    expect(gamesApi.command).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      type: 'library.shuffle',
+      payload: { playerId: 'user-1' },
+    }), 'game-1');
+  });
+
+  it('allows dragging the top card out of the library pile', async () => {
     routeParams['id'] = 'game-1';
     authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
     gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot: snapshotWithStatus('active') } }));
@@ -419,15 +662,22 @@ describe('GameTableComponent', () => {
     const player = fixture.componentInstance.store.players()[0];
     const setData = vi.fn();
     const event = {
-      dataTransfer: { setData, effectAllowed: '' },
+      dataTransfer: { setData, setDragImage: vi.fn(), effectAllowed: '' },
       preventDefault: vi.fn(),
     } as unknown as DragEvent;
 
     fixture.componentInstance.store.dragTopZoneCard(event, player, 'library');
 
-    expect(setData).not.toHaveBeenCalled();
-    expect(event.preventDefault).toHaveBeenCalledOnce();
-    expect(fixture.componentInstance.store.draggingCardInstanceId()).toBeNull();
+    const topLibraryCard = player.state.zones.library[0]!;
+    expect(setData).toHaveBeenCalledWith('text/plain', topLibraryCard.instanceId);
+    expect(setData).toHaveBeenCalledWith('application/json', JSON.stringify({
+      playerId: 'user-1',
+      zone: 'library',
+      instanceId: topLibraryCard.instanceId,
+      instanceIds: [topLibraryCard.instanceId],
+    }));
+    expect(event.preventDefault).not.toHaveBeenCalled();
+    expect(fixture.componentInstance.store.draggingCardInstanceId()).toBe(topLibraryCard.instanceId);
   });
 
   it('drags only one card when the current selection contains a single card', async () => {
@@ -877,6 +1127,114 @@ describe('GameTableComponent', () => {
     }), 'game-1'));
   });
 
+  it('asks for top or bottom when moving a whole zone to library', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    snapshot.players['user-1'].zones.graveyard = [
+      {
+        instanceId: 'grave-1',
+        ownerId: 'user-1',
+        controllerId: 'user-1',
+        name: 'First Grave Card',
+        typeLine: 'Creature',
+        tapped: false,
+        counters: {},
+      },
+      {
+        instanceId: 'grave-2',
+        ownerId: 'user-1',
+        controllerId: 'user-1',
+        name: 'Second Grave Card',
+        typeLine: 'Sorcery',
+        tapped: false,
+        counters: {},
+      },
+    ];
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+    gamesApi.command.mockReturnValue(of({
+      event: { id: 'event-zone-library', type: 'cards.moved', payload: {}, createdBy: 'user-1', createdAt: '' },
+      snapshot,
+    }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.handleContextMenuAction({ type: 'moveAll', zone: 'library' }, {
+      x: 0,
+      y: 0,
+      playerId: 'user-1',
+      zone: 'graveyard',
+      kind: 'zone',
+    });
+
+    expect(gamesApi.command).not.toHaveBeenCalled();
+    expect(fixture.componentInstance.zoneMoveAllLibraryDialog()).toEqual({
+      playerId: 'user-1',
+      fromZone: 'graveyard',
+      count: 2,
+    });
+
+    fixture.componentInstance.zoneMoveAllLibraryRandomOrder.set(true);
+    fixture.componentInstance.confirmZoneMoveAllToLibrary('bottom');
+
+    await vi.waitFor(() => expect(gamesApi.command).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'cards.moved',
+      payload: {
+        playerId: 'user-1',
+        fromZone: 'graveyard',
+        toZone: 'library',
+        instanceIds: ['grave-1', 'grave-2'],
+        position: 'bottom',
+        randomOrder: true,
+      },
+    }), 'game-1'));
+  });
+
+  it('moves a whole graveyard to a selected player battlefield', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    snapshot.players['user-1'].zones.graveyard = [{
+      instanceId: 'grave-1',
+      ownerId: 'user-1',
+      controllerId: 'user-1',
+      name: 'Creature Card',
+      typeLine: 'Creature',
+      tapped: false,
+      counters: {},
+    }];
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+    gamesApi.command.mockReturnValue(of({
+      event: { id: 'event-zone-battlefield', type: 'cards.moved', payload: {}, createdBy: 'user-1', createdAt: '' },
+      snapshot,
+    }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.handleContextMenuAction({ type: 'moveAll', zone: 'battlefield', targetPlayerId: 'user-2' }, {
+      x: 0,
+      y: 0,
+      playerId: 'user-1',
+      zone: 'graveyard',
+      kind: 'zone',
+    });
+
+    await vi.waitFor(() => expect(gamesApi.command).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'cards.moved',
+      payload: {
+        playerId: 'user-1',
+        fromZone: 'graveyard',
+        toZone: 'battlefield',
+        instanceIds: ['grave-1'],
+        targetPlayerId: 'user-2',
+      },
+    }), 'game-1'));
+  });
+
   it('gives a battlefield card to another player from the context menu', async () => {
     routeParams['id'] = 'game-1';
     authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
@@ -935,6 +1293,118 @@ describe('GameTableComponent', () => {
         playerId: 'user-1',
         zone: 'battlefield',
         instanceId: 'card-1',
+        targetPlayerId: 'user-2',
+      },
+    }), 'game-1'));
+  });
+
+  it('plays a hand card face down from the context menu', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    snapshot.players['user-1'].zones.hand = [{
+      instanceId: 'hand-1',
+      ownerId: 'user-1',
+      controllerId: 'user-1',
+      name: 'Hidden Card',
+      typeLine: 'Creature',
+      tapped: false,
+      counters: {},
+    }];
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+    gamesApi.command.mockReturnValue(of({
+      event: { id: 'event-play-face-down', type: 'card.moved', payload: {}, createdBy: 'user-1', createdAt: '' },
+      snapshot,
+    }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const card = snapshot.players['user-1'].zones.hand[0]!;
+    fixture.componentInstance.handleContextMenuAction({ type: 'playFaceDown' }, {
+      x: 0,
+      y: 0,
+      playerId: 'user-1',
+      zone: 'hand',
+      kind: 'card',
+      card,
+    });
+
+    await vi.waitFor(() => expect(gamesApi.command).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'card.moved',
+      payload: {
+        playerId: 'user-1',
+        fromZone: 'hand',
+        toZone: 'battlefield',
+        instanceId: 'hand-1',
+        faceDown: true,
+      },
+    }), 'game-1'));
+  });
+
+  it('asks for confirmation before giving a hand card to another player', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    snapshot.players['user-1'].zones.hand = [{
+      instanceId: 'hand-1',
+      ownerId: 'user-1',
+      controllerId: 'user-1',
+      name: 'Secret Card',
+      typeLine: 'Instant',
+      tapped: false,
+      counters: {},
+    }];
+    snapshot.players['user-2'] = {
+      user: { id: 'user-2', email: 'opponent@test', displayName: 'Opponent', roles: [] },
+      status: 'active',
+      concededAt: null,
+      colorIdentity: ['B'],
+      backgroundName: 'back_5',
+      sleevesName: 'facedown_card',
+      life: 40,
+      zones: { library: [], hand: [], battlefield: [], graveyard: [], exile: [], command: [] },
+      zoneCounts: { library: 0, hand: 0, battlefield: 0, graveyard: 0, exile: 0, command: 0 },
+      commanderDamage: {},
+      counters: {},
+    };
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+    gamesApi.command.mockReturnValue(of({
+      event: { id: 'event-give-hand', type: 'card.moved', payload: {}, createdBy: 'user-1', createdAt: '' },
+      snapshot,
+    }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const card = snapshot.players['user-1'].zones.hand[0]!;
+    fixture.componentInstance.handleContextMenuAction({ type: 'giveToPlayer', targetPlayerId: 'user-2' }, {
+      x: 0,
+      y: 0,
+      playerId: 'user-1',
+      zone: 'hand',
+      kind: 'card',
+      card,
+    });
+
+    expect(gamesApi.command).not.toHaveBeenCalled();
+    expect(fixture.componentInstance.handCardGiveDialog()).toEqual(expect.objectContaining({
+      targetPlayerId: 'user-2',
+      targetPlayerName: 'Opponent',
+      cardName: 'Secret Card',
+    }));
+
+    fixture.componentInstance.confirmHandCardGive();
+
+    await vi.waitFor(() => expect(gamesApi.command).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'card.moved',
+      payload: {
+        playerId: 'user-1',
+        fromZone: 'hand',
+        toZone: 'hand',
+        instanceId: 'hand-1',
         targetPlayerId: 'user-2',
       },
     }), 'game-1'));
@@ -1608,7 +2078,7 @@ describe('GameTableComponent', () => {
     const snapshot = snapshotWithStatus('active');
     gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
     gamesApi.command.mockReturnValue(of({
-      event: { id: 'event-draw', type: 'library.draw', payload: {}, createdBy: 'user-1', createdAt: '' },
+      event: { id: 'event-draw', type: 'library.draw_many', payload: {}, createdBy: 'user-1', createdAt: '' },
       snapshot,
     }));
 
@@ -1625,28 +2095,74 @@ describe('GameTableComponent', () => {
     });
     fixture.componentInstance.confirmNumberAction(3);
 
-    await vi.waitFor(() => expect(gamesApi.command).toHaveBeenCalledTimes(3));
-    expect(gamesApi.command).toHaveBeenNthCalledWith(1, expect.objectContaining({
-      type: 'library.draw',
+    await vi.waitFor(() => expect(gamesApi.command).toHaveBeenCalledOnce());
+    expect(gamesApi.command).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'library.draw_many',
       payload: {
         playerId: 'user-1',
-        count: 1,
+        count: 3,
       },
     }), 'game-1');
-    expect(gamesApi.command).toHaveBeenNthCalledWith(2, expect.objectContaining({
-      type: 'library.draw',
+  });
+
+  it('selects a random card from the clicked zone through the context menu', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    snapshot.players['user-1']!.zones.graveyard = [{
+      instanceId: 'grave-card',
+      ownerId: 'user-1',
+      controllerId: 'user-1',
+      name: 'Random Grave Card',
+      typeLine: 'Creature',
+      tapped: false,
+      counters: {},
+      zone: 'graveyard',
+    }];
+    snapshot.players['user-1']!.zoneCounts!.graveyard = 1;
+    const commandSnapshot = structuredClone(snapshot);
+    commandSnapshot.players['user-1']!.zones.graveyard[0]!.name = 'Random Grave Card From Command Snapshot';
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+    gamesApi.command.mockReturnValue(of({
+      event: { id: 'event-random', type: 'zone.random_card.selected', payload: {}, createdBy: 'user-1', createdAt: '' },
+      snapshot: commandSnapshot,
+    }));
+    gamesApi.zone.mockReturnValue(of({
+      gameId: 'game-1',
+      playerId: 'user-1',
+      zone: 'graveyard',
+      total: 1,
+      data: snapshot.players['user-1']!.zones.graveyard,
+    }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.handleContextMenuAction({ type: 'selectRandomCard' }, {
+      x: 0,
+      y: 0,
+      playerId: 'user-1',
+      zone: 'graveyard',
+      kind: 'zone',
+    });
+
+    await vi.waitFor(() => expect(gamesApi.command).toHaveBeenCalledOnce());
+    expect(gamesApi.command).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'zone.random_card.selected',
       payload: {
         playerId: 'user-1',
-        count: 1,
+        zone: 'graveyard',
+        instanceId: 'grave-card',
       },
     }), 'game-1');
-    expect(gamesApi.command).toHaveBeenNthCalledWith(3, expect.objectContaining({
-      type: 'library.draw',
-      payload: {
-        playerId: 'user-1',
-        count: 1,
-      },
-    }), 'game-1');
+    expect(gamesApi.zone).not.toHaveBeenCalled();
+    await vi.waitFor(() =>
+      expect(fixture.componentInstance.store.zoneModal()?.cards.map((card) => card.instanceId)).toEqual(['grave-card']),
+    );
+    expect(fixture.componentInstance.store.zoneModal()?.showFilters).toBe(false);
+    expect(fixture.componentInstance.store.zoneModal()?.selectedCard?.instanceId).toBe('grave-card');
+    expect(fixture.componentInstance.store.zoneModal()?.selectedCard?.name).toBe('Random Grave Card From Command Snapshot');
   });
 
   it('silently ignores a table action while another action is pending', async () => {
@@ -1973,6 +2489,85 @@ describe('GameTableComponent', () => {
     expect(fixture.componentInstance.store.error()).toBe('You can only open card actions for your own battlefield.');
   });
 
+  it('does not open context menus for command zone cards or the command zone', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    const commandCard = {
+      ...snapshot.players['user-1'].zones.battlefield[0]!,
+      instanceId: 'commander-card',
+      zone: 'command' as const,
+    };
+    snapshot.players['user-1'].zones.command = [commandCard];
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+    const cardEvent = {
+      preventDefault: vi.fn(),
+      stopPropagation: vi.fn(),
+    } as unknown as MouseEvent;
+    const zoneEvent = {
+      preventDefault: vi.fn(),
+      stopPropagation: vi.fn(),
+    } as unknown as MouseEvent;
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.store.openCardMenu(cardEvent, 'user-1', 'command', commandCard);
+    fixture.componentInstance.store.openZoneMenu(zoneEvent, 'user-1', 'command');
+
+    expect(fixture.componentInstance.store.contextMenu()).toBeNull();
+    expect(fixture.componentInstance.store.error()).toBeNull();
+  });
+
+  it('only opens graveyard and exile zone menus when they contain cards', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    snapshot.players['user-1'].zones.graveyard = [];
+    snapshot.players['user-1'].zones.exile = [{
+      ...snapshot.players['user-1'].zones.battlefield[0]!,
+      instanceId: 'exiled-card',
+      zone: 'exile',
+    }];
+    const zoneCounts = snapshot.players['user-1'].zoneCounts;
+    snapshot.players['user-1'].zoneCounts = {
+      library: zoneCounts?.library ?? snapshot.players['user-1'].zones.library.length,
+      hand: zoneCounts?.hand ?? snapshot.players['user-1'].zones.hand.length,
+      battlefield: zoneCounts?.battlefield ?? snapshot.players['user-1'].zones.battlefield.length,
+      graveyard: 0,
+      exile: 1,
+      command: zoneCounts?.command ?? snapshot.players['user-1'].zones.command.length,
+    };
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+    const emptyZoneEvent = {
+      preventDefault: vi.fn(),
+      stopPropagation: vi.fn(),
+      clientX: 100,
+      clientY: 100,
+    } as unknown as MouseEvent;
+    const populatedZoneEvent = {
+      preventDefault: vi.fn(),
+      stopPropagation: vi.fn(),
+      clientX: 120,
+      clientY: 120,
+    } as unknown as MouseEvent;
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.store.openZoneMenu(emptyZoneEvent, 'user-1', 'graveyard');
+    expect(fixture.componentInstance.store.contextMenu()).toBeNull();
+
+    fixture.componentInstance.store.openZoneMenu(populatedZoneEvent, 'user-1', 'exile');
+    expect(fixture.componentInstance.store.contextMenu()).toEqual(expect.objectContaining({
+      kind: 'zone',
+      playerId: 'user-1',
+      zone: 'exile',
+    }));
+  });
+
   it('does not play a hand card on double click', async () => {
     routeParams['id'] = 'game-1';
     authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
@@ -2139,7 +2734,7 @@ describe('GameTableChatLogState', () => {
     ];
 
     expect(state.eventLog(snapshot).map((entry) => entry.message)).toEqual([
-      'Commander cast count increased from 1 to 4 (+3 clicks).',
+      'Commander cast count increased from 1 to 4 (+3).',
     ]);
   });
 
@@ -2154,7 +2749,7 @@ describe('GameTableChatLogState', () => {
     ];
 
     expect(state.eventLog(snapshot).map((entry) => entry.message)).toEqual([
-      'Commander cast count decreased from 4 to 0 (-4 clicks).',
+      'Commander cast count decreased from 4 to 0 (-4).',
     ]);
   });
 
@@ -2168,7 +2763,7 @@ describe('GameTableChatLogState', () => {
     ];
 
     expect(state.eventLog(snapshot).map((entry) => entry.message)).toEqual([
-      'Commander cast count decreased from 17 to 15 (-2 clicks).',
+      'Commander cast count decreased from 17 to 15 (-2).',
     ]);
   });
 
@@ -2176,14 +2771,14 @@ describe('GameTableChatLogState', () => {
     const state = new GameTableChatLogState();
     const snapshot = snapshotWithStatus('active');
     snapshot.eventLog = [
-      gameLogEntry('event-1', 'counter.changed', 'Commander cast count increased from 5 to 18 (+13 clicks).'),
+      gameLogEntry('event-1', 'counter.changed', 'Commander cast count increased from 5 to 18 (+13).'),
       gameLogEntry('event-2', 'counter.changed', 'Set commander:user-1 counter casts to 17.'),
       gameLogEntry('event-3', 'counter.changed', 'Set commander:user-1 counter casts to 16.'),
     ];
 
     expect(state.eventLog(snapshot).map((entry) => entry.message)).toEqual([
-      'Commander cast count increased from 5 to 18 (+13 clicks).',
-      'Commander cast count decreased from 18 to 16 (-2 clicks).',
+      'Commander cast count increased from 5 to 18 (+13).',
+      'Commander cast count decreased from 18 to 16 (-2).',
     ]);
   });
 

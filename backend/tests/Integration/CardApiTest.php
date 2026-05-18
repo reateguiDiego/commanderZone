@@ -145,4 +145,21 @@ class CardApiTest extends ApiTestCase
         self::assertSame($liliana->scryfallId(), $this->jsonResponse()['data'][0]['scryfallId']);
         self::assertSame($contained->scryfallId(), $this->jsonResponse()['data'][1]['scryfallId']);
     }
+
+    public function testSearchCanFilterTokensOnly(): void
+    {
+        $token = $this->seedCard('00000000-0000-0000-0000-000000000021', 'Goblin Token', [
+            'layout' => 'token',
+            'type_line' => 'Token Creature - Goblin',
+        ]);
+        $this->seedCard('00000000-0000-0000-0000-000000000022', 'Goblin Instigator', [
+            'layout' => 'normal',
+            'type_line' => 'Creature - Goblin Rogue',
+        ]);
+
+        $this->jsonRequest('GET', '/cards/search?q=goblin&tokenOnly=true');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame([$token->scryfallId()], array_column($this->jsonResponse()['data'], 'scryfallId'));
+    }
 }

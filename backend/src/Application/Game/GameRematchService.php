@@ -151,6 +151,10 @@ class GameRematchService
      */
     private function playerIsDefeated(array $player): bool
     {
+        if (($player['status'] ?? 'active') === 'conceded') {
+            return true;
+        }
+
         if ((int) ($player['life'] ?? 0) <= 0) {
             return true;
         }
