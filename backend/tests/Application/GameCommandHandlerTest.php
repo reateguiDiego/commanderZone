@@ -465,6 +465,49 @@ class GameCommandHandlerTest extends TestCase
         self::assertSame('Created Goblin Token.', $game->snapshot()['eventLog'][0]['message']);
     }
 
+    public function testDiceRollCommandLogsResult(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->snapshot($actor->id(), []));
+
+        (new GameCommandHandler())->apply($game, 'dice.rolled', [
+            'kind' => 'd20',
+            'finalResult' => '17',
+        ], $actor);
+
+        self::assertSame('Tiro d20: 17.', $game->snapshot()['eventLog'][0]['message']);
+    }
+
+    public function testUntapAllBattlefieldCardsUntapsOnlyActorBattlefield(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $opponent = new User('opponent@example.test', 'Opponent');
+        $snapshot = $this->snapshot($actor->id(), [
+            'battlefield' => [
+                [
+                    ...$this->card('card-1', 'Tapped Card', 'battlefield', 2, 2, 2, 2),
+                    'tapped' => true,
+                ],
+                $this->card('card-2', 'Untapped Card', 'battlefield', 2, 2, 2, 2),
+            ],
+        ], $opponent->id());
+        $snapshot['players'][$opponent->id()]['zones']['battlefield'] = [[
+            ...$this->card('card-3', 'Opponent Card', 'battlefield', 2, 2, 2, 2),
+            'tapped' => true,
+        ]];
+        $game = new Game(new Room($actor), $snapshot);
+
+        (new GameCommandHandler())->apply($game, 'battlefield.untap_all', [
+            'playerId' => $actor->id(),
+        ], $actor);
+
+        $snapshot = $game->snapshot();
+        self::assertFalse($snapshot['players'][$actor->id()]['zones']['battlefield'][0]['tapped']);
+        self::assertFalse($snapshot['players'][$actor->id()]['zones']['battlefield'][1]['tapped']);
+        self::assertTrue($snapshot['players'][$opponent->id()]['zones']['battlefield'][0]['tapped']);
+        self::assertSame('Untapped 1 battlefield card.', $snapshot['eventLog'][0]['message']);
+    }
+
     public function testRevealedHandCardStoresTargetsWithoutLoggingCardName(): void
     {
         $actor = new User('owner@example.test', 'Owner');

@@ -47,6 +47,12 @@ export interface SelectedCard {
   card: GameCardInstance;
 }
 
+interface DiceRollCommand {
+  readonly kind: string;
+  readonly label: string;
+  readonly finalResult: string;
+}
+
 export type GameTableSyncStatus = 'pending' | 'connecting' | 'live' | 'degraded';
 
 export interface ChatRecipientOption {
@@ -435,7 +441,7 @@ export class GameTableStore implements OnDestroy {
         continue;
       }
 
-      const bounds = battlefield.getBoundingClientRect();
+      const bounds = this.battlefieldLayoutBounds(battlefield);
       if (bounds.width <= 0 || bounds.height <= 0) {
         continue;
       }
@@ -1624,6 +1630,35 @@ export class GameTableStore implements OnDestroy {
     await this.cardActions.toggleTapped(this.cardActionContext(), playerId, zone, card);
   }
 
+  async untapCurrentBattlefield(): Promise<void> {
+    const current = this.currentPlayer();
+    if (!current) {
+      return;
+    }
+
+    const hasTappedCards = current.state.zones.battlefield.some((card) => card.tapped);
+    if (!hasTappedCards) {
+      return;
+    }
+
+    await this.command('battlefield.untap_all', { playerId: current.id });
+  }
+
+  async recordDiceRoll(result: DiceRollCommand): Promise<void> {
+    const kind = result.kind.trim();
+    const label = result.label.trim();
+    const finalResult = result.finalResult.trim();
+    if (!kind || !finalResult) {
+      return;
+    }
+
+    await this.command('dice.rolled', {
+      kind,
+      label,
+      finalResult,
+    });
+  }
+
   async moveBattlefieldCard(playerId: string, card: GameCardInstance, event: DragEvent): Promise<void> {
     if (!this.canControlPlayer(playerId)) {
       this.error.set('You can only move your own cards.');
@@ -2475,11 +2510,20 @@ export class GameTableStore implements OnDestroy {
 
   private battlefieldElementSize(playerId: string): BattlefieldSize {
     const battlefield = this.battlefieldElement(playerId);
-    const bounds = battlefield?.getBoundingClientRect();
+    const bounds = battlefield ? this.battlefieldLayoutBounds(battlefield) : null;
 
     return bounds && bounds.width > 0 && bounds.height > 0
       ? { width: bounds.width, height: bounds.height }
       : this.battlefieldLayoutSize();
+  }
+
+  private battlefieldLayoutBounds(battlefield: HTMLElement): BattlefieldSize {
+    const bounds = battlefield.getBoundingClientRect();
+
+    return {
+      width: Math.round(battlefield.clientWidth || bounds.width),
+      height: Math.round(battlefield.clientHeight || bounds.height),
+    };
   }
 
   private battlefieldCardSize(playerId: string, instanceId: string): { width: number; height: number } {

@@ -17,10 +17,18 @@ class GameCommandHandler
     private const POSITION_UNIT_RATIO = 'ratio';
     private const TOKEN_COPY_LEGACY_OFFSET_X = 132;
     private const TOKEN_COPY_RATIO_OFFSET_X = 0.1683673469387755;
+    private const DICE_ROLL_LABELS = [
+        'coin' => 'moneda',
+        'd4' => 'd4',
+        'd6' => 'd6',
+        'd10' => 'd10',
+        'd20' => 'd20',
+    ];
     private const SUPPORTED_COMMANDS = [
         'game.concede',
         'game.close',
         'chat.message',
+        'dice.rolled',
         'life.changed',
         'commander.damage.changed',
         'counter.changed',
@@ -37,6 +45,7 @@ class GameCommandHandler
         'card.token_copy.created',
         'card.controller.changed',
         'turn.changed',
+        'battlefield.untap_all',
         'zone.changed',
         'zone.move_all',
         'zone.random_card.selected',
@@ -73,6 +82,7 @@ class GameCommandHandler
         'card.controller.changed',
         'card.power_toughness.changed',
         'card.counter.changed',
+        'battlefield.untap_all',
         'stack.card_added',
     ];
 
@@ -122,6 +132,7 @@ class GameCommandHandler
             'game.concede' => $log = $this->applyGameConcede($snapshot, $actor),
             'game.close' => $log = $this->applyGameClose($snapshot, $game, $actor),
             'chat.message' => $log = $this->applyChatMessage($snapshot, $payload, $actor),
+            'dice.rolled' => $log = $this->applyDiceRolled($payload),
             'life.changed' => $log = $this->applyLifeChanged($snapshot, $payload),
             'commander.damage.changed' => $log = $this->applyCommanderDamageChanged($snapshot, $payload),
             'counter.changed' => $log = $this->applyLegacyCounterChanged($snapshot, $payload),
@@ -138,6 +149,7 @@ class GameCommandHandler
             'card.token_copy.created' => $log = $this->applyTokenCopyCreated($snapshot, $payload, $actor),
             'card.controller.changed' => $log = $this->applyControllerChanged($snapshot, $payload),
             'turn.changed' => $log = $this->applyTurnChanged($snapshot, $payload),
+            'battlefield.untap_all' => $log = $this->applyBattlefieldUntapAll($snapshot, $payload),
             'zone.changed' => $log = $this->applyZoneChanged($snapshot, $payload),
             'zone.move_all' => $log = $this->applyZoneMoveAll($snapshot, $payload),
             'zone.random_card.selected' => $log = $this->applyZoneRandomCardSelected($snapshot, $payload),
@@ -316,6 +328,41 @@ class GameCommandHandler
         $snapshot['chat'] = array_slice($snapshot['chat'], -150);
 
         return null;
+    }
+
+    private function applyDiceRolled(array $payload): string
+    {
+        $kind = trim((string) ($payload['kind'] ?? ''));
+        if (!array_key_exists($kind, self::DICE_ROLL_LABELS)) {
+            throw new \InvalidArgumentException('dice.rolled requires a supported kind.');
+        }
+
+        $finalResult = trim((string) ($payload['finalResult'] ?? ''));
+        if ($finalResult === '') {
+            throw new \InvalidArgumentException('dice.rolled requires finalResult.');
+        }
+
+        if ($kind === 'coin') {
+            $result = match (strtolower($finalResult)) {
+                'cara' => 'Cara',
+                'cruz' => 'Cruz',
+                default => throw new \InvalidArgumentException('Invalid coin result.'),
+            };
+
+            return sprintf('Tiro %s: %s.', self::DICE_ROLL_LABELS[$kind], $result);
+        }
+
+        if (!ctype_digit($finalResult)) {
+            throw new \InvalidArgumentException('Invalid dice result.');
+        }
+
+        $sides = (int) substr($kind, 1);
+        $result = (int) $finalResult;
+        if ($result < 1 || $result > $sides) {
+            throw new \InvalidArgumentException('Invalid dice result.');
+        }
+
+        return sprintf('Tiro %s: %d.', self::DICE_ROLL_LABELS[$kind], $result);
     }
 
     private function chatTargetPlayerId(array $snapshot, array $payload, User $actor): ?string
@@ -966,6 +1013,28 @@ class GameCommandHandler
         ));
 
         return sprintf('Reordered %s.', $zone);
+    }
+
+    private function applyBattlefieldUntapAll(array &$snapshot, array $payload): string
+    {
+        $playerId = $this->requiredPlayerId($snapshot, $payload);
+        $battlefield =& $snapshot['players'][$playerId]['zones']['battlefield'];
+        $untapped = 0;
+        foreach ($battlefield as &$card) {
+            if (($card['tapped'] ?? false) !== true) {
+                continue;
+            }
+
+            $card['tapped'] = false;
+            ++$untapped;
+        }
+        unset($card);
+
+        if ($untapped === 0) {
+            return '';
+        }
+
+        return sprintf('Untapped %d battlefield card%s.', $untapped, $untapped === 1 ? '' : 's');
     }
 
     private function applyZoneMoveAll(array &$snapshot, array $payload): string

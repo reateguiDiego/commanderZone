@@ -52,6 +52,7 @@ import { ArrowTargetDialogComponent, ArrowTargetDialogValue } from './arrow-targ
 import { GameRematchModalComponent, RematchPlayerVoteView } from './game-rematch-modal/game-rematch-modal.component';
 import { TokenSearchModalComponent } from './token-search-modal/token-search-modal.component';
 import { RollModalComponent } from '../../../core/ui/roll-modal/roll-modal.component';
+import { type RollResult } from '../../../core/ui/roll-modal/roll';
 
 interface DrawNumberActionRequest {
   readonly kind: 'draw';
@@ -558,6 +559,12 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
           void this.store.shuffle(current.id);
         }
         break;
+      case 'u':
+        if (current) {
+          event.preventDefault();
+          void this.store.untapCurrentBattlefield();
+        }
+        break;
       case 't':
         if (selected && this.store.canControlPlayer(selected.playerId)) {
           event.preventDefault();
@@ -1022,6 +1029,14 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
 
   closeRollModal(): void {
     this.rollModalOpen.set(false);
+  }
+
+  async recordRollResult(result: RollResult): Promise<void> {
+    await this.store.recordDiceRoll({
+      kind: result.kind,
+      label: result.label,
+      finalResult: result.finalResult,
+    });
   }
 
   openRematchModal(): void {
