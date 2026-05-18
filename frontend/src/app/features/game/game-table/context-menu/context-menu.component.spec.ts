@@ -1,6 +1,6 @@
 import { importProvidersFrom } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { Ban, LogOut, LucideAngularModule, Maximize2, Plus, RefreshCcw } from 'lucide-angular';
+import { Ban, Dices, LogOut, LucideAngularModule, Maximize2, Plus, RefreshCcw } from 'lucide-angular';
 import { GameCardInstance, GameZoneName } from '../../../../core/models/game.model';
 import { GameContextMenu } from '../state/game-table-ui.state';
 import { ContextMenuComponent } from './context-menu.component';
@@ -12,6 +12,7 @@ describe('ContextMenuComponent', () => {
       providers: [
         importProvidersFrom(LucideAngularModule.pick({
           Ban,
+          Dices,
           LogOut,
           Maximize2,
           Plus,
@@ -134,7 +135,7 @@ describe('ContextMenuComponent', () => {
     expect(selected).toHaveBeenCalledWith({ type: 'moveAll', zone: 'battlefield', targetPlayerId: 'user-2' });
   });
 
-  it('keeps the empty battlefield menu limited to creating a token', () => {
+  it('keeps the empty battlefield menu limited to table battlefield actions', () => {
     const fixture = createContextMenuFixture({
       kind: 'zone',
       playerId: 'user-1',
@@ -143,7 +144,7 @@ describe('ContextMenuComponent', () => {
     const selected = vi.fn();
     fixture.componentInstance.actionSelected.subscribe(selected);
 
-    expect(buttonLabels(fixture)).toEqual(['Create Token']);
+    expect(buttonLabels(fixture)).toEqual(['Create Token', 'Tirar dado']);
     expect(menuText(fixture)).not.toContain('View');
     expect(menuText(fixture)).not.toContain('Move All');
 
@@ -151,6 +152,12 @@ describe('ContextMenuComponent', () => {
     button.click();
 
     expect(selected).toHaveBeenCalledWith({ type: 'createToken' });
+
+    const rollButton = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button'))
+      .find((candidate) => candidate.textContent?.includes('Tirar dado'));
+    rollButton?.click();
+
+    expect(selected).toHaveBeenCalledWith({ type: 'rollDice' });
   });
 
   it('uses distinct card options for library cards and shared options for graveyard and exile cards', () => {

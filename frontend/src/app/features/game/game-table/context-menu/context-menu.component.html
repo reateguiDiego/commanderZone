@@ -109,6 +109,12 @@
             <span>Create Token</span>
           </span>
         </button>
+        <button type="button" (click)="actionSelected.emit({ type: 'rollDice' })">
+          <span class="menu-item-label">
+            <lucide-icon name="dices" size="17" aria-hidden="true" />
+            <span>Tirar dado</span>
+          </span>
+        </button>
       }
     } @else {
       @if (canMoveActiveZoneCards()) {

@@ -642,7 +642,11 @@ class GameCommandHandler
         }
 
         if ($movesWithinLibrary) {
-            return sprintf('Moved %s to bottom of library.', $this->cardLogName($card));
+            return 'Moved a card to bottom of library.';
+        }
+
+        if ($toZone === 'library') {
+            return sprintf('Moved a card from %s to library.', $fromZone);
         }
 
         if ($fromZone === 'hand' && $toZone === 'battlefield' && ($card['faceDown'] ?? false) === true) {
@@ -712,7 +716,7 @@ class GameCommandHandler
             return '';
         }
 
-        if ($moved > 1) {
+        if ($moved > 1 && $toZone !== 'library') {
             $this->pendingLogContext = ['cardNames' => $movedCardNames];
         }
 

@@ -393,6 +393,10 @@
         (closed)="closeTokenSearchModal()"
       />
 
+      @if (rollModalOpen()) {
+        <app-roll-modal (closed)="closeRollModal()" />
+      }
+
       @if (store.pendingBattlefieldMove(); as pendingMove) {
         <app-modal
           [open]="true"
@@ -442,7 +446,7 @@
         <app-modal
           [open]="true"
           title="Devolver a biblioteca"
-          [message]="'Donde quieres poner ' + pendingMove.cardName + '?'"
+          [message]="pendingLibraryMoveMessage(pendingMove)"
           primaryLabel="Top"
           secondaryLabel="Bottom"
           secondaryVariant="primary"

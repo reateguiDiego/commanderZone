@@ -1702,7 +1702,32 @@ class GameCommandHandlerTest extends TestCase
             static fn (array $card): string => $card['instanceId'],
             $game->snapshot()['players'][$actor->id()]['zones']['library'],
         ));
-        self::assertSame('Moved Top Secret to bottom of library.', $game->snapshot()['eventLog'][0]['message']);
+        self::assertSame('Moved a card to bottom of library.', $game->snapshot()['eventLog'][0]['message']);
+        self::assertStringNotContainsString('Top Secret', $game->snapshot()['eventLog'][0]['message']);
+    }
+
+    public function testCardReturnedToLibraryDoesNotExposeCardNameInLog(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->snapshot($actor->id(), [
+            'battlefield' => [
+                $this->card('card-1', 'Private Return', 'battlefield', 1, 1, 1, 1),
+            ],
+        ]));
+
+        (new GameCommandHandler())->apply($game, 'card.moved', [
+            'playerId' => $actor->id(),
+            'fromZone' => 'battlefield',
+            'toZone' => 'library',
+            'instanceId' => 'card-1',
+            'position' => 'top',
+        ], $actor);
+
+        $log = $game->snapshot()['eventLog'][0] ?? null;
+        self::assertIsArray($log);
+        self::assertSame('Moved a card from battlefield to library.', $log['message']);
+        self::assertStringNotContainsString('Private Return', $log['message']);
+        self::assertArrayNotHasKey('cardNames', $log);
     }
 
     public function testMultipleCardsCanReturnToLibraryInRandomOrder(): void
@@ -1739,6 +1764,7 @@ class GameCommandHandlerTest extends TestCase
             'Moved 3 cards from graveyard to library in random order.',
             $game->snapshot()['eventLog'][0]['message'] ?? null,
         );
+        self::assertArrayNotHasKey('cardNames', $game->snapshot()['eventLog'][0]);
     }
 
     public function testArrowCreatedRequiresBothEndpointsOnBattlefield(): void
