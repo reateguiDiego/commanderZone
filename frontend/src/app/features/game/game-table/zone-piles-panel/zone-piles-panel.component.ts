@@ -84,7 +84,7 @@ export class ZonePilesPanelComponent {
   }
 
   previewZoneCard(event: MouseEvent, zone: GameZoneName): void {
-    if (zone !== 'command' && zone !== 'library') {
+    if (!this.canPreviewZoneCard(zone)) {
       return;
     }
 
@@ -101,8 +101,12 @@ export class ZonePilesPanelComponent {
   }
 
   hideZoneCardPreview(zone: GameZoneName): void {
-    if (zone === 'command' || zone === 'library') {
+    if (this.canPreviewZoneCard(zone)) {
       this.cardPreviewHidden.emit();
     }
+  }
+
+  private canPreviewZoneCard(zone: GameZoneName): boolean {
+    return zone === 'command' || zone === 'library' || zone === 'graveyard' || zone === 'exile';
   }
 }

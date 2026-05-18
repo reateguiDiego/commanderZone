@@ -66,6 +66,54 @@ describe('ZonePilesPanelComponent', () => {
     expect(hiddenSpy).toHaveBeenCalled();
   });
 
+  it('emits a large-card preview when hovering the visible graveyard and exile cards', async () => {
+    const graveyardTopCard = card('graveyard-2', 'Top Graveyard Card', 'graveyard');
+    const exileTopCard = card('exile-2', 'Top Exile Card', 'exile');
+    const fixture = await renderZonePilesPanel({
+      graveyard: [
+        card('graveyard-1', 'First Graveyard Card', 'graveyard'),
+        graveyardTopCard,
+      ],
+      exile: [
+        card('exile-1', 'First Exile Card', 'exile'),
+        exileTopCard,
+      ],
+      zonePreviewImage: (_player, zone) => {
+        if (zone === 'graveyard') {
+          return '/assets/graveyard-top.jpg';
+        }
+        if (zone === 'exile') {
+          return '/assets/exile-top.jpg';
+        }
+        return null;
+      },
+      zonePreviewCard: (_player, zone) => {
+        if (zone === 'graveyard') {
+          return graveyardTopCard;
+        }
+        if (zone === 'exile') {
+          return exileTopCard;
+        }
+        return null;
+      },
+    });
+    const previewSpy = vi.fn();
+    const hiddenSpy = vi.fn();
+    fixture.componentInstance.cardPreviewShown.subscribe(previewSpy);
+    fixture.componentInstance.cardPreviewHidden.subscribe(hiddenSpy);
+
+    const graveyardZoneArt = zoneElement(fixture, 'graveyard').querySelector('[data-testid="zone"]')!;
+    const exileZoneArt = zoneElement(fixture, 'exile').querySelector('[data-testid="zone"]')!;
+    graveyardZoneArt.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+    graveyardZoneArt.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true }));
+    exileZoneArt.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+    exileZoneArt.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true }));
+
+    expect(previewSpy).toHaveBeenCalledWith({ card: graveyardTopCard, playerId: 'player-1', zone: 'graveyard', sourceRect: null });
+    expect(previewSpy).toHaveBeenCalledWith({ card: exileTopCard, playerId: 'player-1', zone: 'exile', sourceRect: null });
+    expect(hiddenSpy).toHaveBeenCalledTimes(2);
+  });
+
   it('does not open the command zone on left click', async () => {
     const fixture = await renderZonePilesPanel({
       command: [card('commander-1', 'Smeagol, Helpful Guide', 'command')],

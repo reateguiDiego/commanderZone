@@ -349,7 +349,7 @@ class GameCommandHandler
                 default => throw new \InvalidArgumentException('Invalid coin result.'),
             };
 
-            return sprintf('Tiro %s: %s.', self::DICE_ROLL_LABELS[$kind], $result);
+            return sprintf('ha tirado una %s, ha salido %s.', self::DICE_ROLL_LABELS[$kind], $result);
         }
 
         if (!ctype_digit($finalResult)) {
@@ -362,7 +362,7 @@ class GameCommandHandler
             throw new \InvalidArgumentException('Invalid dice result.');
         }
 
-        return sprintf('Tiro %s: %d.', self::DICE_ROLL_LABELS[$kind], $result);
+        return sprintf('ha tirado un %s, ha salido un %d.', self::DICE_ROLL_LABELS[$kind], $result);
     }
 
     private function chatTargetPlayerId(array $snapshot, array $payload, User $actor): ?string

@@ -93,6 +93,7 @@ interface ViewTopNumberActionRequest {
 type NumberActionRequest = DrawNumberActionRequest | MoveTopNumberActionRequest | ViewTopNumberActionRequest;
 type RematchCountdownMode = 'initial' | 'courtesy';
 type TableExitAction = 'concede' | 'leave';
+type FloatingPanelTab = 'chat' | 'log';
 
 interface ZoneMoveAllLibraryRequest {
   readonly playerId: string;
@@ -299,6 +300,9 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
   });
   readonly latestLogEntry = computed(() => this.store.eventLog().at(-1) ?? null);
   readonly latestChatMessage = computed(() => this.store.snapshot()?.chat.at(-1) ?? null);
+  readonly unreadChat = signal(false);
+  readonly unreadLog = signal(false);
+  readonly hasUnreadFloatingNotifications = computed(() => this.unreadChat() || this.unreadLog());
   readonly tableToast = computed(() => this.store.tableToast() ?? this.rematchToast());
   readonly tableBackgroundImage = computed(() => `url("${this.store.gameBackgroundImage(this.store.focusedPlayer() ?? this.store.currentPlayer())}")`);
   readonly alivePlayers = computed(() => this.store.players().filter((player) => playerIsActiveForTurn(player)));
@@ -359,6 +363,11 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
   });
   readonly opponentTargetingPills = computed(() => this.store.opponentTargetingPills());
   readonly opponentCardsTargetCards = computed(() => this.store.opponentCardsTargetCards());
+  readonly opponentSidebarPlayers = computed(() => {
+    const focusedPlayerId = this.store.focusedPlayer()?.id ?? null;
+
+    return this.store.players().filter((player) => player.id !== focusedPlayerId);
+  });
   readonly arrowTargetPlayers = computed(() => {
     const currentPlayerId = this.store.currentPlayer()?.id;
     const players = this.store.players();
@@ -388,6 +397,8 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
   private rematchAutoLeaveKey = '';
   private lastAutoRematchPromptKey = '';
   private lastFocusedTurnPlayerId: string | null = null;
+  private lastObservedChatKey: string | null = null;
+  private lastObservedLogKey: string | null = null;
 
   @ViewChild('gameScreen', { static: true }) private readonly gameScreen?: ElementRef<HTMLElement>;
   @ViewChild(GameLogPanelComponent) private readonly gameLogPanel?: GameLogPanelComponent;
@@ -440,6 +451,29 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
         }
       });
     });
+
+    effect(() => {
+      const snapshot = this.store.snapshot();
+      const activeTab = this.store.activeFloatingTab();
+      const latestChat = snapshot?.chat.at(-1);
+      const eventLog = this.store.eventLog();
+      const latestLog = eventLog.at(-1);
+      const unreadKey = [
+        activeTab,
+        snapshot?.chat.length ?? 0,
+        latestChat?.createdAt ?? '',
+        latestChat?.userId ?? '',
+        latestChat?.message ?? '',
+        eventLog.length,
+        latestLog?.id ?? '',
+      ].join(':');
+
+      queueMicrotask(() => {
+        if (this.store.activeFloatingTab() === activeTab && unreadKey) {
+          this.syncFloatingUnreadState();
+        }
+      });
+    });
   }
 
   ngAfterViewChecked(): void {
@@ -476,6 +510,12 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
     for (const feed of this.autoScrollFeeds?.toArray() ?? []) {
       feed.nativeElement.scrollTop = feed.nativeElement.scrollHeight;
     }
+  }
+
+  openFloatingTab(tab: FloatingPanelTab): void {
+    this.store.activeFloatingTab.set(tab);
+    this.markFloatingTabRead(tab);
+    queueMicrotask(() => this.queueFloatingContentScrollToBottom());
   }
 
   queueFloatingContentScrollToBottom(): void {
@@ -690,11 +730,11 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
         this.store.closeContextMenu();
         return;
       case 'openChat':
-        this.store.activeFloatingTab.set('chat');
+        this.openFloatingTab('chat');
         this.store.closeContextMenu();
         return;
       case 'openLog':
-        this.store.activeFloatingTab.set('log');
+        this.openFloatingTab('log');
         this.store.closeContextMenu();
         return;
       case 'leaveTable':
@@ -1096,8 +1136,17 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
   focusPlayerBattlefield(playerId: string): void {
     const focused = this.store.focusPlayer(playerId);
     if (focused) {
-      this.queueBattlefieldReflow();
+      this.refreshFocusedPlayerView(playerId);
+      this.reapplyFollowActiveTurnPlayerIfNeeded(playerId);
     }
+  }
+
+  focusOpponentFromSidebar(playerId: string): void {
+    if (this.followActiveTurnPlayer()) {
+      this.updateFollowActiveTurnPlayer(false);
+    }
+
+    this.focusPlayerBattlefield(playerId);
   }
 
   updateFollowActiveTurnPlayer(enabled: boolean): void {
@@ -1255,12 +1304,98 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
       return;
     }
 
-    if (!activePlayerId || activePlayerId === this.lastFocusedTurnPlayerId) {
+    if (!activePlayerId) {
+      return;
+    }
+
+    const focusedPlayerId = this.store.focusedPlayer()?.id ?? null;
+    if (activePlayerId === this.lastFocusedTurnPlayerId && focusedPlayerId === activePlayerId) {
       return;
     }
 
     this.lastFocusedTurnPlayerId = activePlayerId;
     this.focusPlayerBattlefield(activePlayerId);
+  }
+
+  private syncFloatingUnreadState(): void {
+    const chatKey = this.latestChatKey();
+    const logKey = this.latestLogKey();
+    const activeTab = this.store.activeFloatingTab();
+
+    if (this.lastObservedChatKey === null) {
+      this.lastObservedChatKey = chatKey;
+      if (chatKey !== '0' && activeTab !== 'chat') {
+        this.unreadChat.set(true);
+      }
+    } else if (chatKey !== this.lastObservedChatKey) {
+      this.lastObservedChatKey = chatKey;
+      if (activeTab !== 'chat') {
+        this.unreadChat.set(true);
+      }
+    }
+
+    if (this.lastObservedLogKey === null) {
+      this.lastObservedLogKey = logKey;
+      if (logKey !== '0' && activeTab !== 'log') {
+        this.unreadLog.set(true);
+      }
+    } else if (logKey !== this.lastObservedLogKey) {
+      this.lastObservedLogKey = logKey;
+      if (activeTab !== 'log') {
+        this.unreadLog.set(true);
+      }
+    }
+
+    this.markFloatingTabRead(activeTab);
+  }
+
+  private markFloatingTabRead(tab: FloatingPanelTab): void {
+    if (tab === 'chat') {
+      this.unreadChat.set(false);
+      this.lastObservedChatKey = this.latestChatKey();
+      return;
+    }
+
+    this.unreadLog.set(false);
+    this.lastObservedLogKey = this.latestLogKey();
+  }
+
+  private latestChatKey(): string {
+    const messages = this.store.snapshot()?.chat ?? [];
+    const latest = messages.at(-1);
+
+    return latest ? `${messages.length}:${latest.createdAt}:${latest.userId}:${latest.message}` : '0';
+  }
+
+  private latestLogKey(): string {
+    const entries = this.store.eventLog();
+    const latest = entries.at(-1);
+
+    return latest ? `${entries.length}:${latest.id}` : '0';
+  }
+
+  private refreshFocusedPlayerView(playerId: string): void {
+    this.store.hideCardPreview();
+    this.queueBattlefieldReflow();
+    queueMicrotask(() => {
+      if (this.store.focusedPlayer()?.id === playerId) {
+        this.queueBattlefieldReflow();
+      }
+    });
+    window.requestAnimationFrame(() => {
+      if (this.store.focusedPlayer()?.id === playerId) {
+        this.queueBattlefieldReflow();
+      }
+    });
+  }
+
+  private reapplyFollowActiveTurnPlayerIfNeeded(focusedPlayerId: string): void {
+    const activePlayerId = this.store.snapshot()?.turn.activePlayerId ?? null;
+    if (!this.followActiveTurnPlayer() || !activePlayerId || activePlayerId === focusedPlayerId) {
+      return;
+    }
+
+    this.syncFollowActiveTurnPlayer(activePlayerId);
   }
 
   private openArrowTargetDialog(menu: GameContextMenu): void {

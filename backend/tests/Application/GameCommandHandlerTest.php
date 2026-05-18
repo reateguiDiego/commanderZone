@@ -475,7 +475,7 @@ class GameCommandHandlerTest extends TestCase
             'finalResult' => '17',
         ], $actor);
 
-        self::assertSame('Tiro d20: 17.', $game->snapshot()['eventLog'][0]['message']);
+        self::assertSame('ha tirado un d20, ha salido un 17.', $game->snapshot()['eventLog'][0]['message']);
     }
 
     public function testUntapAllBattlefieldCardsUntapsOnlyActorBattlefield(): void
