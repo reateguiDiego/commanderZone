@@ -363,6 +363,11 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
   });
   readonly opponentTargetingPills = computed(() => this.store.opponentTargetingPills());
   readonly opponentCardsTargetCards = computed(() => this.store.opponentCardsTargetCards());
+  readonly opponentSidebarPlayers = computed(() => {
+    const focusedPlayerId = this.store.focusedPlayer()?.id ?? null;
+
+    return this.store.players().filter((player) => player.id !== focusedPlayerId);
+  });
   readonly arrowTargetPlayers = computed(() => {
     const currentPlayerId = this.store.currentPlayer()?.id;
     const players = this.store.players();
@@ -1134,6 +1139,14 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
       this.refreshFocusedPlayerView(playerId);
       this.reapplyFollowActiveTurnPlayerIfNeeded(playerId);
     }
+  }
+
+  focusOpponentFromSidebar(playerId: string): void {
+    if (this.followActiveTurnPlayer()) {
+      this.updateFollowActiveTurnPlayer(false);
+    }
+
+    this.focusPlayerBattlefield(playerId);
   }
 
   updateFollowActiveTurnPlayer(enabled: boolean): void {

@@ -1113,6 +1113,36 @@ describe('GameTableComponent', () => {
     expect(fixture.componentInstance.store.focusedPlayer()?.id).toBe('user-2');
   });
 
+  it('updates the opponent sidebar for follow turn and disables follow when an opponent is clicked manually', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    addOpponent(snapshot);
+    snapshot.turn.activePlayerId = 'user-2';
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.updateFollowActiveTurnPlayer(true);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.store.focusedPlayer()?.id).toBe('user-2');
+    expect(fixture.componentInstance.opponentSidebarPlayers().map((player) => player.id)).toEqual(['user-1']);
+    expect(Array.from((fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>('[data-testid="opponent-mini-board"]'))
+      .map((board) => board.dataset['playerId'])).toEqual(['user-1']);
+
+    ((fixture.nativeElement as HTMLElement).querySelector('[data-testid="opponent-mini-board"][data-player-id="user-1"]') as HTMLElement)
+      .click();
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.followActiveTurnPlayer()).toBe(false);
+    expect(fixture.componentInstance.store.focusedPlayer()?.id).toBe('user-1');
+    expect(fixture.componentInstance.opponentSidebarPlayers().map((player) => player.id)).toEqual(['user-2']);
+  });
+
   it('refreshes the focused battlefield, background, and hand when focus turn follows a passed turn', async () => {
     routeParams['id'] = 'game-1';
     authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });

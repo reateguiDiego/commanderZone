@@ -1,5 +1,6 @@
 :host {
-  --card-spoiler-width: 10.6rem;
+  --card-spoiler-width: 250px;
+  --card-spoiler-height: 346px;
 
   display: block;
   min-height: 0;
@@ -21,7 +22,7 @@
   position: relative;
   display: block;
   width: var(--card-spoiler-width);
-  aspect-ratio: 0.716;
+  height: var(--card-spoiler-height);
   min-height: 0;
   padding: 0;
   border: 1px solid rgb(215 180 106 / 26%);
@@ -109,17 +110,7 @@
 }
 
 @media (max-width: 640px) {
-  :host {
-    --card-spoiler-width: 7.25rem;
-  }
-
   .card-spoiler-grid {
     gap: 0.65rem;
-  }
-}
-
-@media (max-width: 1260px) and (min-width: 641px) {
-  :host {
-    --card-spoiler-width: 8.8rem;
   }
 }

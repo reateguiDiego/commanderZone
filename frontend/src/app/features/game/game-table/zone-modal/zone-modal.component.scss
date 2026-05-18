@@ -14,8 +14,8 @@
 .zone-modal {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  width: clamp(20rem, 86vw, 78rem);
-  height: clamp(30rem, 82dvh, 48rem);
+  width: clamp(20rem, 90vw, 88rem);
+  height: clamp(30rem, 86dvh, 54rem);
   min-width: 20rem;
   min-height: 30rem;
   max-width: calc(100vw - 2rem);

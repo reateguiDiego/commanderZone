@@ -300,35 +300,33 @@
       <aside appPrettyScroll class="player-sidebar game-table-opponents">
         <button class="drawer-handle opponents-drawer-handle" type="button">Opponents</button>
         <div class="opponents-list">
-          @for (player of store.players(); track player.id) {
-            @if (store.focusedPlayer()?.id !== player.id) {
-              <app-opponent-mini-board
-                [player]="player"
-                [colorAccent]="colorAccent"
-                [deckLabel]="deckLabel"
-                [backgroundImage]="gameBackgroundImage"
-                [zoneCount]="zoneCount"
-                [cardPosition]="cardPosition"
-                [cardImage]="cardImage"
-                [isPlayerDropHighlighted]="isPlayerDropHighlighted"
-                [isCardDropSettling]="isCardDropSettling"
-                [isManaDropSettling]="isManaDropSettling"
-                [isBattlefieldEntrySettling]="isBattlefieldEntrySettling"
-                [isCommanderEntrySettling]="isCommanderEntrySettling"
-                [isCardTransferPending]="isCardTransferPending"
-                [arrowTargeting]="store.pendingArrowSource() !== null"
-                [targetingPill]="opponentTargetingPills().get(player.id) ?? null"
-                [cardsTargetCards]="opponentCardsTargetCards().get(player.id) ?? []"
-                [battlefieldSize]="battlefieldLayoutSize()"
-                (focusPlayer)="focusPlayerBattlefield($event)"
-                (dropAllowed)="store.allowDrop($event)"
-                (playerDropped)="store.dropOnPlayer($event.event, $event.playerId)"
-                (playerMenuOpened)="store.openPlayerMenu($event.event, $event.playerId)"
-                (cardPreviewShown)="store.showCardPreview($event)"
-                (cardPreviewHidden)="store.hideCardPreview()"
-                (battlefieldCardClicked)="store.handleBattlefieldCardClick($event.event, $event.playerId, $event.card)"
-              />
-            }
+          @for (player of opponentSidebarPlayers(); track player.id) {
+            <app-opponent-mini-board
+              [player]="player"
+              [colorAccent]="colorAccent"
+              [deckLabel]="deckLabel"
+              [backgroundImage]="gameBackgroundImage"
+              [zoneCount]="zoneCount"
+              [cardPosition]="cardPosition"
+              [cardImage]="cardImage"
+              [isPlayerDropHighlighted]="isPlayerDropHighlighted"
+              [isCardDropSettling]="isCardDropSettling"
+              [isManaDropSettling]="isManaDropSettling"
+              [isBattlefieldEntrySettling]="isBattlefieldEntrySettling"
+              [isCommanderEntrySettling]="isCommanderEntrySettling"
+              [isCardTransferPending]="isCardTransferPending"
+              [arrowTargeting]="store.pendingArrowSource() !== null"
+              [targetingPill]="opponentTargetingPills().get(player.id) ?? null"
+              [cardsTargetCards]="opponentCardsTargetCards().get(player.id) ?? []"
+              [battlefieldSize]="battlefieldLayoutSize()"
+              (focusPlayer)="focusOpponentFromSidebar($event)"
+              (dropAllowed)="store.allowDrop($event)"
+              (playerDropped)="store.dropOnPlayer($event.event, $event.playerId)"
+              (playerMenuOpened)="store.openPlayerMenu($event.event, $event.playerId)"
+              (cardPreviewShown)="store.showCardPreview($event)"
+              (cardPreviewHidden)="store.hideCardPreview()"
+              (battlefieldCardClicked)="store.handleBattlefieldCardClick($event.event, $event.playerId, $event.card)"
+            />
           }
         </div>
       </aside>
