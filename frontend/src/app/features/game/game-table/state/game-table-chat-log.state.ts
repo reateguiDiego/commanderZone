@@ -67,6 +67,20 @@ export class GameTableChatLogState {
   }
 
   private toLogEntryView(snapshot: GameSnapshot | null, zones: readonly GameZoneName[], entry: GameLogEntry): GameLogEntryView {
+    if (this.isLibraryDestinationLog(entry)) {
+      return {
+        ...entry,
+        card: null,
+        cardList: [],
+        cardListPrefix: '',
+        cardListSuffix: '',
+        cardListLabel: '',
+        messagePrefix: this.libraryDestinationMessage(entry.message),
+        messageSuffix: '',
+        appearance: this.logAppearance(entry),
+      };
+    }
+
     const cardListView = this.cardListView(entry);
     if (cardListView) {
       return {
@@ -209,6 +223,19 @@ export class GameTableChatLogState {
       messagePrefix: entry.message.slice(0, labelMatch.index),
       messageSuffix: entry.message.slice(labelMatch.index + labelMatch[1].length),
     };
+  }
+
+  private isLibraryDestinationLog(entry: GameLogEntry): boolean {
+    return (entry.type === 'card.moved' || entry.type === 'cards.moved')
+      && /\bto (?:bottom of )?library\b/i.test(entry.message);
+  }
+
+  private libraryDestinationMessage(message: string): string {
+    if (/\bto bottom of library\b/i.test(message)) {
+      return 'Moved a card to bottom of library.';
+    }
+
+    return message;
   }
 
   private allCards(snapshot: GameSnapshot | null, zones: readonly GameZoneName[]): GameCardInstance[] {

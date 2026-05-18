@@ -13,6 +13,47 @@ describe('GameTableChatLogState', () => {
     expect(entry?.cardList).toEqual(['Bear', 'Elf', 'Sol Ring']);
   });
 
+  it('does not expose aggregate card links when cards move to library', () => {
+    const state = new GameTableChatLogState();
+
+    const [entry] = state.eventLogView({
+      ...snapshot(),
+      eventLog: [{
+        id: 'event-library',
+        type: 'cards.moved',
+        message: 'Moved 3 cards from graveyard to library.',
+        actorId: 'player-1',
+        displayName: 'Player',
+        createdAt: '2026-05-14T00:00:00Z',
+        cardNames: ['Bear', 'Elf', 'Sol Ring'],
+      }],
+    }, ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command']);
+
+    expect(entry?.cardList).toEqual([]);
+    expect(entry?.cardListLabel).toBe('');
+    expect(entry?.messagePrefix).toBe('Moved 3 cards from graveyard to library.');
+  });
+
+  it('sanitizes older single-card library destination logs', () => {
+    const state = new GameTableChatLogState();
+
+    const [entry] = state.eventLogView({
+      ...snapshot(),
+      eventLog: [{
+        id: 'event-library-single',
+        type: 'card.moved',
+        message: 'Moved Top Secret to bottom of library.',
+        actorId: 'player-1',
+        displayName: 'Player',
+        createdAt: '2026-05-14T00:00:00Z',
+      }],
+    }, ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command']);
+
+    expect(entry?.card).toBeNull();
+    expect(entry?.messagePrefix).toBe('Moved a card to bottom of library.');
+    expect(entry?.messagePrefix).not.toContain('Top Secret');
+  });
+
   it('uses explicit card instance metadata before matching log text by name', () => {
     const state = new GameTableChatLogState();
     const base = snapshot();

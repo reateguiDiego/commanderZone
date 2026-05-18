@@ -51,6 +51,7 @@ import { GameArrowLayerComponent } from './game-arrow-layer/game-arrow-layer.com
 import { ArrowTargetDialogComponent, ArrowTargetDialogValue } from './arrow-target-dialog/arrow-target-dialog.component';
 import { GameRematchModalComponent, RematchPlayerVoteView } from './game-rematch-modal/game-rematch-modal.component';
 import { TokenSearchModalComponent } from './token-search-modal/token-search-modal.component';
+import { RollModalComponent } from '../../../core/ui/roll-modal/roll-modal.component';
 
 interface DrawNumberActionRequest {
   readonly kind: 'draw';
@@ -161,6 +162,7 @@ interface BattlefieldLayoutRect extends BattlefieldLayoutSize {
     ArrowTargetDialogComponent,
     GameRematchModalComponent,
     TokenSearchModalComponent,
+    RollModalComponent,
   ],
   providers: [
     GameTableStore,
@@ -278,6 +280,7 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
   readonly tableExitAction = signal<TableExitAction | null>(null);
   readonly tokenSearchPlayerId = signal<string | null>(null);
   readonly tokenSearchPending = signal(false);
+  readonly rollModalOpen = signal(false);
   readonly tableExitTitle = computed(() => this.tableExitAction() === 'leave' ? 'Leave table?' : 'Concede game?');
   readonly tableExitMessage = computed(() => this.tableExitAction() === 'leave'
     ? 'You will concede this game and leave the room. This cannot be undone.'
@@ -296,7 +299,7 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
   readonly latestLogEntry = computed(() => this.store.eventLog().at(-1) ?? null);
   readonly latestChatMessage = computed(() => this.store.snapshot()?.chat.at(-1) ?? null);
   readonly tableToast = computed(() => this.store.tableToast() ?? this.rematchToast());
-  readonly tableBackgroundImage = computed(() => `url("${this.store.gameBackgroundImage(this.store.currentPlayer())}")`);
+  readonly tableBackgroundImage = computed(() => `url("${this.store.gameBackgroundImage(this.store.focusedPlayer() ?? this.store.currentPlayer())}")`);
   readonly alivePlayers = computed(() => this.store.players().filter((player) => playerIsActiveForTurn(player)));
   readonly rematchVoteCountdownEnabled = computed(() => this.alivePlayers().length <= 1);
   readonly currentRematchVote = computed<GameRematchVote | null>(() => {
@@ -424,6 +427,17 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
       const countdownEnabled = this.rematchVoteCountdownEnabled();
 
       queueMicrotask(() => this.syncRematchCountdown(promptKey, hasMissingVotes, countdownEnabled));
+    });
+
+    effect(() => {
+      const activePlayerId = this.store.snapshot()?.turn.activePlayerId ?? null;
+      const followEnabled = this.followActiveTurnPlayer();
+
+      queueMicrotask(() => {
+        if (followEnabled && this.followActiveTurnPlayer()) {
+          this.syncFollowActiveTurnPlayer(activePlayerId);
+        }
+      });
     });
   }
 
@@ -759,6 +773,9 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
       case 'createToken':
         this.openTokenSearchModal(menu.playerId);
         return;
+      case 'rollDice':
+        this.openRollModal();
+        return;
       case 'tokenCopy':
         void this.store.tokenCopy(menu);
         return;
@@ -998,6 +1015,15 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
     this.tokenSearchPlayerId.set(null);
   }
 
+  openRollModal(): void {
+    this.store.closeContextMenu();
+    this.rollModalOpen.set(true);
+  }
+
+  closeRollModal(): void {
+    this.rollModalOpen.set(false);
+  }
+
   openRematchModal(): void {
     this.rematchModalOpen.set(true);
   }
@@ -1021,6 +1047,15 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
       && pendingMove.payload['toZone'] === 'library'
       && Array.isArray(instanceIds)
       && instanceIds.length > 1;
+  }
+
+  pendingLibraryMoveMessage(pendingMove: PendingLibraryMove): string {
+    const instanceIds = pendingMove.payload['instanceIds'];
+    const isMultiMove = Array.isArray(instanceIds) && instanceIds.length > 1;
+
+    return isMultiMove
+      ? 'Donde quieres poner estas cartas?'
+      : 'Donde quieres poner esta carta?';
   }
 
   updateLibraryMoveRandomOrder(event: Event): void {

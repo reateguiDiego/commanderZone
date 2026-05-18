@@ -37,6 +37,7 @@ export type ContextMenuAction =
   | { type: 'flipCardFace' }
   | { type: 'revealCard'; target: string }
   | { type: 'createToken' }
+  | { type: 'rollDice' }
   | { type: 'tokenCopy' }
   | { type: 'drawArrow' }
   | { type: 'addToStack' }

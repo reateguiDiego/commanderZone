@@ -17,6 +17,7 @@ import {
   CheckCircle2,
   CircleUserRound,
   Copy,
+  Dices,
   DoorOpen,
   Eye,
   EyeOff,
@@ -146,6 +147,7 @@ describe('GameTableComponent', () => {
           CheckCircle2,
           CircleUserRound,
           Copy,
+          Dices,
           DoorOpen,
           Eye,
           EyeOff,
@@ -431,12 +433,55 @@ describe('GameTableComponent', () => {
     expect(fixture.componentInstance.store.isBattlefieldEntrySettling('user-1', tokenCard)).toBe(true);
   });
 
-  it('resolves the current player deck visuals for the table background and card sleeves', async () => {
+  it('opens the shared roll modal from the own battlefield context menu action', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot: snapshotWithStatus('active') } }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await vi.waitFor(() => expect(fixture.componentInstance.store.loading()).toBe(false));
+
+    fixture.componentInstance.handleContextMenuAction({ type: 'rollDice' }, {
+      playerId: 'user-1',
+      zone: 'battlefield',
+      kind: 'zone',
+    } as never);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.rollModalOpen()).toBe(true);
+    expect((fixture.nativeElement as HTMLElement).querySelector('app-roll-modal')).not.toBeNull();
+  });
+
+  it('resolves focused player deck visuals for the table background and current player sleeves', async () => {
     routeParams['id'] = 'game-1';
     authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
     const snapshot = snapshotWithStatus('active');
     snapshot.players['user-1']!.backgroundName = 'back_5';
     snapshot.players['user-1']!.sleevesName = 'facedown_card';
+    snapshot.players['user-2'] = {
+      ...structuredClone(snapshot.players['user-1']!),
+      user: { id: 'user-2', email: 'opponent@test', displayName: 'Opponent', roles: [] },
+      backgroundName: 'U_2',
+      sleevesName: 'C_01',
+      zones: {
+        library: [],
+        hand: [],
+        battlefield: [],
+        graveyard: [],
+        exile: [],
+        command: [],
+      },
+      zoneCounts: {
+        library: 0,
+        hand: 0,
+        battlefield: 0,
+        graveyard: 0,
+        exile: 0,
+        command: 0,
+      },
+    };
     gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
 
     const fixture = TestBed.createComponent(GameTableComponent);
@@ -445,6 +490,8 @@ describe('GameTableComponent', () => {
     fixture.detectChanges();
 
     const gameScreen = fixture.nativeElement.querySelector('[data-testid="game-screen"]') as HTMLElement;
+    fixture.componentInstance.focusPlayerBattlefield('user-2');
+    fixture.detectChanges();
     const faceDownCard = {
       instanceId: 'face-down-card',
       ownerId: 'user-1',
@@ -454,7 +501,7 @@ describe('GameTableComponent', () => {
       faceDown: true,
     };
 
-    expect(gameScreen.style.getPropertyValue('--game-wallpaper-image')).toContain('/assets/images/backgrounds/back_5.png');
+    expect(gameScreen.style.getPropertyValue('--game-wallpaper-image')).toContain('/assets/images/play-mat/U_2.png');
     expect(fixture.componentInstance.store.cardImage(faceDownCard)).toBe('/assets/images/facedown_card.jpg');
     expect(fixture.componentInstance.store.zonePreviewImage(fixture.componentInstance.store.currentPlayer()!, 'library'))
       .toBe('/assets/images/facedown_card.jpg');
@@ -1031,6 +1078,8 @@ describe('GameTableComponent', () => {
         instanceId: 'card-1',
       },
     });
+    expect(fixture.componentInstance.pendingLibraryMoveMessage(fixture.componentInstance.store.pendingLibraryMove()!))
+      .toBe('Donde quieres poner esta carta?');
   });
 
   it('asks for one library position when selected cards move to the library', async () => {
