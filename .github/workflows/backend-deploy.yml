@@ -1,9 +1,7 @@
 name: Backend Deploy
 
 on:
-  push:
-    branches:
-      - main
+  workflow_call:
   workflow_dispatch:
 
 concurrency:
@@ -34,9 +32,15 @@ jobs:
           : "${SSH_PRIVATE_KEY:?Missing HETZNER_SSH_PRIVATE_KEY secret}"
           : "${REPO_DIR:?Missing HETZNER_REPO_DIR secret}"
           : "${ENV_FILE:?Missing HETZNER_ENV_FILE secret (must point to production .env.prod file)}"
+          EXPECTED_ENV_FILE="/opt/commanderZone/.env.prod"
 
           SSH_PORT="${SSH_PORT:-22}"
           BACKEND_DIR="${BACKEND_DIR:-backend}"
+
+          if [ "$ENV_FILE" != "$EXPECTED_ENV_FILE" ]; then
+            echo "HETZNER_ENV_FILE must be exactly $EXPECTED_ENV_FILE. Current: $ENV_FILE" >&2
+            exit 1
+          fi
 
           install -m 600 /dev/null ./deploy_key
           # Accept multiline keys and keys pasted with literal "\n", and remove CRLF.

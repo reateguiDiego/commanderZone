@@ -1,0 +1,67 @@
+name: Frontend E2E
+
+on:
+  workflow_dispatch:
+    inputs:
+      scryfall_limit:
+        description: "Number of cards to import before E2E (higher is slower but more stable)."
+        required: false
+        default: "2000"
+        type: string
+
+concurrency:
+  group: frontend-e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Install Playwright browsers
+        working-directory: frontend
+        run: npx playwright install --with-deps
+
+      - name: Start backend services
+        run: docker compose up -d database mercure mailpit api
+
+      - name: Run backend migrations
+        run: docker compose exec -T api php bin/console doctrine:migrations:migrate --no-interaction
+
+      - name: Seed cards for E2E deck flows
+        run: docker compose exec -T api php bin/console app:scryfall:sync --limit="${{ inputs.scryfall_limit }}"
+
+      - name: Run Playwright suite
+        working-directory: frontend
+        env:
+          CI: "1"
+          E2E_API_BASE_URL: http://127.0.0.1:8000
+        run: npm run e2e
+
+      - name: Upload Playwright artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-artifacts
+          path: |
+            frontend/playwright-report
+            frontend/test-results
+          if-no-files-found: ignore
+
+      - name: Print backend logs on failure
+        if: failure()
+        run: docker compose logs --tail=200 api database mercure

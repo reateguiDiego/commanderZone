@@ -127,8 +127,45 @@ The production frontend currently targets:
 
 Backend production values must be provided by the hosting environment or by an untracked `backend/.env.prod`. Use `backend/.env.prod.example` as a template and never commit real secrets.
 
-### Production Deploy Workflow Guardrail
+## GitHub Actions (CI/CD)
 
-The GitHub Actions deploy workflow (`.github/workflows/backend-deploy.yml`) runs on every push to `main` and on manual dispatch.
+### CI workflows for PRs
 
-For production safety, `HETZNER_ENV_FILE` is mandatory and must point to a `.env.prod` file on the server. Deploys are rejected if it is missing, points to `.env`, or does not resolve to an existing file.
+- `backend-ci.yml`: backend tests on PRs touching `backend/**`.
+- `frontend-ci.yml`: frontend build + unit tests on PRs touching `frontend/**`.
+
+Both are also reusable workflows (`workflow_call`) so the release pipeline can invoke them on merges to `main`.
+
+### Release workflow for `main`
+
+- `repo-main-release.yml` runs on `push` to `main` (and manual dispatch).
+- It orchestrates:
+  1. Backend CI
+  2. Frontend CI
+  3. Backend deploy (Hetzner)
+  4. Frontend deploy (Vercel production)
+
+Deploy order is backend first, then frontend. If frontend deploy fails after backend deploy succeeded, the release workflow fails and remains visible for follow-up (no automatic rollback).
+
+### Backend deploy guardrail
+
+`backend-deploy.yml` now runs via `workflow_call` (from the main release workflow) or manual dispatch.
+
+For production safety, `HETZNER_ENV_FILE` is mandatory and must be exactly:
+
+- `/opt/commanderZone/.env.prod`
+
+Deploys are rejected if that path is missing, different, points to `.env`, or does not exist on the server.
+
+### Frontend deploy requirements
+
+`frontend-deploy.yml` deploys to Vercel production (`vercel deploy --prod`) and requires these GitHub repository secrets:
+
+- `VERCEL_TOKEN`
+- `VERCEL_ORG_ID`
+- `VERCEL_PROJECT_ID`
+
+### E2E workflow (out of merge gate)
+
+- `frontend-e2e.yml` is manual (`workflow_dispatch`) and runs the Playwright suite with artifact upload.
+- It is intentionally outside the blocking PR/main merge gate to keep release validation focused on backend PHPUnit + frontend build/unit checks.
