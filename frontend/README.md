@@ -101,4 +101,3 @@ Implementation notes:
 - Auth uses JWT Bearer tokens stored locally under `commanderzone.jwt`.
 - The game table is intentionally manual. It does not implement Magic rules, priority, stack handling, legal move validation, or automatic gameplay.
 - Backend contracts are consumed as-is from Symfony.
-
