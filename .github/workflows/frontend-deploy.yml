@@ -13,10 +13,6 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
 
-    defaults:
-      run:
-        working-directory: frontend
-
     env:
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
@@ -42,9 +38,11 @@ jobs:
           : "${VERCEL_PROJECT_ID:?Missing VERCEL_PROJECT_ID secret}"
 
       - name: Install dependencies
+        working-directory: frontend
         run: npm ci
 
       - name: Build frontend (production)
+        working-directory: frontend
         run: npm run build:prod
 
       - name: Pull Vercel project settings
