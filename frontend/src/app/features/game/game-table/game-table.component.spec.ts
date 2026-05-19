@@ -545,7 +545,7 @@ describe('GameTableComponent', () => {
     snapshot.players['user-1']!.zones.battlefield[0]!.tapped = true;
     gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
     gamesApi.command.mockReturnValue(of({
-      event: { id: 'event-untap', type: 'battlefield.untap_all', payload: {}, createdBy: 'user-1', createdAt: '' },
+      event: { id: 'event-untap', type: 'card.tapped', payload: {}, createdBy: 'user-1', createdAt: '' },
       snapshot,
     }));
 
@@ -556,8 +556,13 @@ describe('GameTableComponent', () => {
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'u', bubbles: true }));
 
     await vi.waitFor(() => expect(gamesApi.command).toHaveBeenCalledWith(expect.objectContaining({
-      type: 'battlefield.untap_all',
-      payload: { playerId: 'user-1' },
+      type: 'card.tapped',
+      payload: {
+        playerId: 'user-1',
+        zone: 'battlefield',
+        instanceId: 'card-1',
+        tapped: false,
+      },
     }), 'game-1'));
   });
 
@@ -566,10 +571,11 @@ describe('GameTableComponent', () => {
     authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
     const snapshot = snapshotWithStatus('active');
     addOpponent(snapshot);
+    snapshot.players['user-1']!.zones.battlefield[0]!.tapped = true;
     snapshot.players['user-2']!.zones.battlefield[0]!.tapped = true;
     gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
     gamesApi.command.mockReturnValue(of({
-      event: { id: 'event-untap', type: 'battlefield.untap_all', payload: {}, createdBy: 'user-1', createdAt: '' },
+      event: { id: 'event-untap', type: 'card.tapped', payload: {}, createdBy: 'user-1', createdAt: '' },
       snapshot,
     }));
 
@@ -581,8 +587,13 @@ describe('GameTableComponent', () => {
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'u', bubbles: true }));
 
     await vi.waitFor(() => expect(gamesApi.command).toHaveBeenCalledWith(expect.objectContaining({
-      type: 'battlefield.untap_all',
-      payload: { playerId: 'user-1' },
+      type: 'card.tapped',
+      payload: {
+        playerId: 'user-1',
+        zone: 'battlefield',
+        instanceId: 'card-1',
+        tapped: false,
+      },
     }), 'game-1'));
   });
 
