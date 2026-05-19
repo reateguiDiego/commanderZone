@@ -1,0 +1,42 @@
+name: PR Required Checks
+
+on:
+  pull_request:
+    branches:
+      - main
+
+concurrency:
+  group: pr-required-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: backend
+    uses: ./.github/workflows/backend-ci-reusable.yml
+
+  frontend:
+    name: frontend
+    uses: ./.github/workflows/frontend-ci-reusable.yml
+
+  required:
+    name: required
+    runs-on: ubuntu-latest
+    needs:
+      - backend
+      - frontend
+    if: always()
+    steps:
+      - name: Verify backend and frontend checks succeeded
+        shell: bash
+        run: |
+          set -euo pipefail
+          BACKEND_RESULT="${{ needs.backend.result }}"
+          FRONTEND_RESULT="${{ needs.frontend.result }}"
+
+          echo "backend: $BACKEND_RESULT"
+          echo "frontend: $FRONTEND_RESULT"
+
+          if [ "$BACKEND_RESULT" != "success" ] || [ "$FRONTEND_RESULT" != "success" ]; then
+            echo "At least one required check failed." >&2
+            exit 1
+          fi
