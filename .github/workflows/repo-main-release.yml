@@ -13,11 +13,11 @@ concurrency:
 jobs:
   backend-ci:
     name: Validate Backend
-    uses: ./.github/workflows/backend-ci.yml
+    uses: ./.github/workflows/backend-ci-reusable.yml
 
   frontend-ci:
     name: Validate Frontend
-    uses: ./.github/workflows/frontend-ci.yml
+    uses: ./.github/workflows/frontend-ci-reusable.yml
 
   backend-deploy:
     name: Deploy Backend

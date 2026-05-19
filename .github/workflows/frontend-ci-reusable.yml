@@ -1,13 +1,7 @@
-name: Validate Frontend
+name: Frontend CI Reusable
 
 on:
-  pull_request:
-    branches:
-      - main
-
-concurrency:
-  group: frontend-ci-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  workflow_call:
 
 jobs:
   build-and-test:
