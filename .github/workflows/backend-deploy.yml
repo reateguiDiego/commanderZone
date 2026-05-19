@@ -4,9 +4,6 @@ on:
   push:
     branches:
       - main
-    paths:
-      - "backend/**"
-      - ".github/workflows/backend-deploy.yml"
   workflow_dispatch:
 
 concurrency:
@@ -36,6 +33,7 @@ jobs:
           : "${SSH_USER:?Missing HETZNER_SSH_USER secret}"
           : "${SSH_PRIVATE_KEY:?Missing HETZNER_SSH_PRIVATE_KEY secret}"
           : "${REPO_DIR:?Missing HETZNER_REPO_DIR secret}"
+          : "${ENV_FILE:?Missing HETZNER_ENV_FILE secret (must point to production .env.prod file)}"
 
           SSH_PORT="${SSH_PORT:-22}"
           BACKEND_DIR="${BACKEND_DIR:-backend}"
@@ -59,15 +57,30 @@ jobs:
 
           REPO_DIR="$1"
           BACKEND_DIR="$2"
-          ENV_FILE="${3:-}"
+          ENV_FILE="$3"
 
           cd "$REPO_DIR"
           git fetch origin main
           git checkout main
           git pull --ff-only origin main
 
-          if [ -z "${ENV_FILE:-}" ]; then
-            ENV_FILE="$REPO_DIR/.env.prod"
+          if [ -z "$ENV_FILE" ]; then
+            echo "HETZNER_ENV_FILE is required and cannot be empty." >&2
+            exit 1
+          fi
+
+          ENV_BASENAME="$(basename "$ENV_FILE")"
+          if [ "$ENV_BASENAME" = ".env" ]; then
+            echo "Refusing to deploy with .env. Use a production-specific env file (e.g. .env.prod)." >&2
+            exit 1
+          fi
+          if [ "$ENV_BASENAME" != ".env.prod" ]; then
+            echo "HETZNER_ENV_FILE must point to a .env.prod file. Current: $ENV_FILE" >&2
+            exit 1
+          fi
+          if [ ! -f "$ENV_FILE" ]; then
+            echo "Configured HETZNER_ENV_FILE does not exist on server: $ENV_FILE" >&2
+            exit 1
           fi
 
           COMPOSE_ARGS=(--project-directory "$REPO_DIR" --env-file "$ENV_FILE" -f "$REPO_DIR/docker-compose.yml")
