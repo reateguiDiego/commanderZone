@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { GameCardInstance } from '../../../../core/models/game.model';
-import { GameTableUiState } from '../state/game-table-ui.state';
+import { GameTableUiState } from '../state/core/game-table-ui.state';
 import { GameTableDragService } from './game-table-drag.service';
 import { GameTableInteractionActionsService } from './game-table-interaction-actions.service';
 import { GameTableSelectionService } from './game-table-selection.service';

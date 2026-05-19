@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { GameCommandType, GameZoneName } from '../../../../core/models/game.model';
-import { PlayerView } from '../state/game-table-snapshot-selectors';
+import { PlayerView } from '../state/core/game-table-snapshot-selectors';
 
 export interface GameTableLibraryActionContext {
   isCurrentPlayer(playerId: string): boolean;

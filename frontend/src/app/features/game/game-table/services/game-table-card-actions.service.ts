@@ -1,8 +1,8 @@
 import { Injectable } from '@angular/core';
 import { Card } from '../../../../core/models/card.model';
 import { GameCardInstance, GameCommandType, GameZoneName } from '../../../../core/models/game.model';
-import { GameContextMenu } from '../state/game-table-ui.state';
-import { ZoneModalState } from '../state/game-table-zone-modal.state';
+import { GameContextMenu } from '../state/core/game-table-ui.state';
+import { ZoneModalState } from '../state/zones/game-table-zone-modal.state';
 import type { PendingBattlefieldMove, PendingLibraryMove } from './game-table-drop-actions.service';
 
 export interface GameTableCardSelection {

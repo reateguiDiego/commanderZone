@@ -2,7 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { of } from 'rxjs';
 import { GamesApi } from '../../../../core/api/games.api';
 import { GameSnapshot, GameZoneName } from '../../../../core/models/game.model';
-import { GameTableZoneModalState } from '../state/game-table-zone-modal.state';
+import { GameTableZoneModalState } from '../state/zones/game-table-zone-modal.state';
 import { GameTableZoneActionsService } from './game-table-zone-actions.service';
 
 describe('GameTableZoneActionsService', () => {

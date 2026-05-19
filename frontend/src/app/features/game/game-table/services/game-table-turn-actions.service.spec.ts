@@ -1,5 +1,5 @@
 import { GameSnapshot } from '../../../../core/models/game.model';
-import { PlayerView } from '../state/game-table-snapshot-selectors';
+import { PlayerView } from '../state/core/game-table-snapshot-selectors';
 import { GameTableTurnActionsService } from './game-table-turn-actions.service';
 
 describe('GameTableTurnActionsService', () => {

@@ -1,0 +1,130 @@
+import { TestBed } from '@angular/core/testing';
+import { ActivatedRoute } from '@angular/router';
+import { GameCardInstance, GamePlayerState, GameSnapshot } from '../../../../../core/models/game.model';
+import { User } from '../../../../../core/models/user.model';
+import { GameTableCommandService } from '../../services/game-table-command.service';
+import { GameTableCoreState } from '../core/game-table-core.state';
+import { GameTableSnapshotSelectors } from '../core/game-table-snapshot-selectors';
+import { GameTableCardsState } from './game-table-cards.state';
+
+describe('GameTableCardsState', () => {
+  let state: GameTableCardsState;
+  let core: GameTableCoreState;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [
+        GameTableCardsState,
+        GameTableCoreState,
+        GameTableSnapshotSelectors,
+        {
+          provide: ActivatedRoute,
+          useValue: { snapshot: { paramMap: new Map([['id', 'game-1']]) } },
+        },
+        {
+          provide: GameTableCommandService,
+          useValue: { send: vi.fn() },
+        },
+      ],
+    });
+
+    state = TestBed.inject(GameTableCardsState);
+    core = TestBed.inject(GameTableCoreState);
+  });
+
+  afterEach(() => {
+    state.clearCardCounterFlushTimers();
+    vi.useRealTimers();
+  });
+
+  it('allows existing counters but blocks a sixth distinct counter', () => {
+    const card = cardWithCounters({
+      charge: 1,
+      shield: 1,
+      stun: 1,
+      finality: 1,
+      '+1/+1': 1,
+    });
+
+    expect(state.canAddCardCounter(card, '+1/+1')).toBe(true);
+    expect(state.canAddCardCounter(card, 'new-counter')).toBe(false);
+  });
+
+  it('updates the local snapshot optimistically when a counter is queued', () => {
+    vi.useFakeTimers();
+    core.snapshot.set(snapshot([cardWithCounters({ '+1/+1': 1 })]));
+
+    state.queueCardCounter({
+      setSnapshot: (next) => core.snapshot.set(next),
+      errorMessage: () => 'error',
+      refetch: vi.fn(),
+    }, {
+      playerId: 'player-1',
+      zone: 'battlefield',
+      instanceId: 'card-1',
+      key: '+1/+1',
+      value: 2,
+    });
+
+    const updated = core.snapshot()?.players['player-1']?.zones.battlefield[0];
+
+    expect(updated?.counters?.['+1/+1']).toBe(2);
+    expect(updated?.power).toBe(3);
+    expect(updated?.toughness).toBe(3);
+  });
+});
+
+function cardWithCounters(counters: Record<string, number>): GameCardInstance {
+  return {
+    instanceId: 'card-1',
+    name: 'Test Bear',
+    tapped: false,
+    power: 2,
+    toughness: 2,
+    defaultPower: 2,
+    defaultToughness: 2,
+    counters,
+  };
+}
+
+function snapshot(battlefield: GameCardInstance[]): GameSnapshot {
+  return {
+    version: 1,
+    ownerId: 'player-1',
+    players: {
+      'player-1': player(battlefield),
+    },
+    turn: { activePlayerId: 'player-1', phase: 'main-1', number: 1 },
+    stack: [],
+    arrows: [],
+    chat: [],
+    eventLog: [],
+    createdAt: '2026-05-19T00:00:00+00:00',
+  };
+}
+
+function player(battlefield: GameCardInstance[]): GamePlayerState {
+  return {
+    user: user('player-1'),
+    life: 40,
+    zones: {
+      library: [],
+      hand: [],
+      battlefield,
+      graveyard: [],
+      exile: [],
+      command: [],
+    },
+    commanderDamage: {},
+    counters: {},
+  };
+}
+
+function user(id: string): User {
+  return {
+    id,
+    email: `${id}@test.local`,
+    displayName: id,
+    roles: [],
+  };
+}

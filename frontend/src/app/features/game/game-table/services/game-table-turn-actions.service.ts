@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { GameCommandType, GameSnapshot } from '../../../../core/models/game.model';
-import { PlayerView } from '../state/game-table-snapshot-selectors';
-import { playerIsActiveForTurn } from '../game-player-defeat';
+import { PlayerView } from '../state/core/game-table-snapshot-selectors';
+import { playerIsActiveForTurn } from '../utils/game-player-defeat';
 
 export interface GameTableTurnActionContext {
   snapshot(): GameSnapshot | null;

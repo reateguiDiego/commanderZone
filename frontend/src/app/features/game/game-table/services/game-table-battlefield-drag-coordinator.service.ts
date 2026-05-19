@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { GameCardInstance, GameSnapshot, GameZoneName } from '../../../../core/models/game.model';
-import { GameTableBattlefieldDragState } from '../state/game-table-battlefield-drag.state';
+import { GameTableBattlefieldDragState } from '../state/drag-drop/game-table-battlefield-drag.state';
 import { GameTableDragService } from './game-table-drag.service';
 import { GameTablePointerDragService } from './game-table-pointer-drag.service';
 

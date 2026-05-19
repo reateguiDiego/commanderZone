@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { GamesApi } from '../../../../core/api/games.api';
 import { GameCardInstance, GameSnapshot, GameZoneName } from '../../../../core/models/game.model';
-import { GameTableZoneModalState, ZoneModalState } from '../state/game-table-zone-modal.state';
+import { GameTableZoneModalState, ZoneModalState } from '../state/zones/game-table-zone-modal.state';
 
 export interface GameTableZoneActionContext {
   gameId(): string;

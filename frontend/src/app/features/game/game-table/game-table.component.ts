@@ -24,34 +24,52 @@ import { GameTableSelectionService } from './services/game-table-selection.servi
 import { GameTableSessionService } from './services/game-table-session.service';
 import { GameTableTurnActionsService } from './services/game-table-turn-actions.service';
 import { GameTableZoneActionsService } from './services/game-table-zone-actions.service';
-import { GameTableChatLogState } from './state/game-table-chat-log.state';
-import { GameTableBattlefieldDragState } from './state/game-table-battlefield-drag.state';
-import { GameTableDropFeedbackState } from './state/game-table-drop-feedback.state';
-import { GameTablePendingTransferState } from './state/game-table-pending-transfer.state';
-import { GameTableSnapshotSelectors } from './state/game-table-snapshot-selectors';
-import { GameContextMenu, GameTableUiState } from './state/game-table-ui.state';
-import { GameTableZoneModalState } from './state/game-table-zone-modal.state';
+import { GameTableChatLogState } from './state/chat/game-table-chat-log.state';
+import { GameTableChatStore } from './state/chat/game-table-chat.store';
+import { GameTableCommandStore } from './state/core/game-table-command.store';
+import { GameTableCoreState } from './state/core/game-table-core.state';
+import { GameTablePendingTransferRegistrarState } from './state/core/game-table-pending-transfer-registrar.state';
+import { GameTableBattlefieldDragState } from './state/drag-drop/game-table-battlefield-drag.state';
+import { GameTableBattlefieldState } from './state/battlefield/game-table-battlefield.state';
+import { GameTableCardsState } from './state/cards/game-table-cards.state';
+import { GameTableContextStore } from './state/core/game-table-context.store';
+import { GameTableCountersState } from './state/cards/game-table-counters.state';
+import { GameTableDragDropStore } from './state/drag-drop/game-table-drag-drop.store';
+import { GameTableDropFeedbackState } from './state/drag-drop/game-table-drop-feedback.state';
+import { GameTableGameActionsStore } from './state/game-actions/game-table-game-actions.store';
+import { GameTableHandState } from './state/hand/game-table-hand.state';
+import { GameTableLibraryTopState } from './state/zones/game-table-library-top.state';
+import { GameTablePendingTransferState } from './state/core/game-table-pending-transfer.state';
+import { GameTableArrowsState } from './state/arrows/game-table-arrows.state';
+import { GameTableOpponentTargetsState } from './state/arrows/game-table-opponent-targets.state';
+import { GameTablePlayersStore } from './state/players/game-table-players.store';
+import { GameTableSnapshotCoordinatorState } from './state/core/game-table-snapshot-coordinator.state';
+import { GameTableSnapshotSelectors } from './state/core/game-table-snapshot-selectors';
+import { GameTableToastState } from './state/core/game-table-toast.state';
+import { GameContextMenu, GameTableUiState } from './state/core/game-table-ui.state';
+import { GameTableZoneModalState } from './state/zones/game-table-zone-modal.state';
+import { GameTableZonePilesState } from './state/zones/game-table-zone-piles.state';
 import { GameTableStore, PlayerView } from './game-table.store';
-import { playerIsActiveForTurn, playerIsDefeated } from './game-player-defeat';
-import { GameLogPanelComponent } from './game-log-panel/game-log-panel.component';
-import { ZonePilesPanelComponent } from './zone-piles-panel/zone-piles-panel.component';
-import { OpponentMiniBoardComponent } from './opponent-mini-board/opponent-mini-board.component';
-import { PlayerSummaryPanelComponent } from './player-summary-panel/player-summary-panel.component';
-import { TurnPhasePanelComponent } from './turn-phase-panel/turn-phase-panel.component';
-import { PlayerHandPanelComponent } from './player-hand-panel/player-hand-panel.component';
-import { FocusedBattlefieldComponent } from './focused-battlefield/focused-battlefield.component';
-import { ContextMenuAction, ContextMenuComponent } from './context-menu/context-menu.component';
-import { ZoneModalComponent } from './zone-modal/zone-modal.component';
-import { NumberActionDialogComponent } from './number-action-dialog/number-action-dialog.component';
-import { GameTableHeaderComponent } from './game-table-header/game-table-header.component';
-import { CardPreviewOverlayComponent } from './card-preview-overlay/card-preview-overlay.component';
-import { CardMarkerRailComponent } from './game-card-view/card-marker-rail/card-marker-rail.component';
-import { LoyaltyCounterComponent } from './game-card-view/loyalty-counter/loyalty-counter.component';
-import { PowerToughnessDialogComponent, PowerToughnessDialogValueChange } from './power-toughness-dialog/power-toughness-dialog.component';
-import { GameArrowLayerComponent } from './game-arrow-layer/game-arrow-layer.component';
-import { ArrowTargetDialogComponent, ArrowTargetDialogValue } from './arrow-target-dialog/arrow-target-dialog.component';
-import { GameRematchModalComponent, RematchPlayerVoteView } from './game-rematch-modal/game-rematch-modal.component';
-import { TokenSearchModalComponent } from './token-search-modal/token-search-modal.component';
+import { playerIsActiveForTurn, playerIsDefeated } from './utils/game-player-defeat';
+import { GameLogPanelComponent } from './components/game-log-panel/game-log-panel.component';
+import { ZonePilesPanelComponent } from './components/zone-piles-panel/zone-piles-panel.component';
+import { OpponentMiniBoardComponent } from './components/opponent-mini-board/opponent-mini-board.component';
+import { PlayerSummaryPanelComponent } from './components/player-summary-panel/player-summary-panel.component';
+import { TurnPhasePanelComponent } from './components/turn-phase-panel/turn-phase-panel.component';
+import { PlayerHandPanelComponent } from './components/player-hand-panel/player-hand-panel.component';
+import { FocusedBattlefieldComponent } from './components/focused-battlefield/focused-battlefield.component';
+import { ContextMenuAction, ContextMenuComponent } from './components/context-menu/context-menu.component';
+import { ZoneModalComponent } from './components/zone-modal/zone-modal.component';
+import { NumberActionDialogComponent } from './components/number-action-dialog/number-action-dialog.component';
+import { GameTableHeaderComponent } from './components/game-table-header/game-table-header.component';
+import { CardPreviewOverlayComponent } from './components/card-preview-overlay/card-preview-overlay.component';
+import { CardMarkerRailComponent } from './components/game-card-view/card-marker-rail/card-marker-rail.component';
+import { LoyaltyCounterComponent } from './components/game-card-view/loyalty-counter/loyalty-counter.component';
+import { PowerToughnessDialogComponent, PowerToughnessDialogValueChange } from './components/power-toughness-dialog/power-toughness-dialog.component';
+import { GameArrowLayerComponent } from './components/game-arrow-layer/game-arrow-layer.component';
+import { ArrowTargetDialogComponent, ArrowTargetDialogValue } from './components/arrow-target-dialog/arrow-target-dialog.component';
+import { GameRematchModalComponent, RematchPlayerVoteView } from './components/game-rematch-modal/game-rematch-modal.component';
+import { TokenSearchModalComponent } from './components/token-search-modal/token-search-modal.component';
 import { RollModalComponent } from '../../../core/ui/roll-modal/roll-modal.component';
 import { type RollResult } from '../../../core/ui/roll-modal/roll';
 
@@ -169,6 +187,24 @@ interface BattlefieldLayoutRect extends BattlefieldLayoutSize {
   ],
   providers: [
     GameTableStore,
+    GameTableCoreState,
+    GameTableCommandStore,
+    GameTablePendingTransferRegistrarState,
+    GameTableArrowsState,
+    GameTableOpponentTargetsState,
+    GameTableBattlefieldState,
+    GameTableCardsState,
+    GameTableContextStore,
+    GameTableCountersState,
+    GameTableChatStore,
+    GameTableDragDropStore,
+    GameTableGameActionsStore,
+    GameTableHandState,
+    GameTableLibraryTopState,
+    GameTablePlayersStore,
+    GameTableSnapshotCoordinatorState,
+    GameTableToastState,
+    GameTableZonePilesState,
     GameTableCardActionsService,
     GameTableCardStatsService,
     GameTableDebouncedValueCommandsService,

@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { GameCardInstance, GameZoneName } from '../../../../core/models/game.model';
-import { GameContextMenu, GameTableUiState } from '../state/game-table-ui.state';
+import { GameContextMenu, GameTableUiState } from '../state/core/game-table-ui.state';
 import { GameTableDragService } from './game-table-drag.service';
 import { GameTableSelectionService } from './game-table-selection.service';
 

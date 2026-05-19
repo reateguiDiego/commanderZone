@@ -76,7 +76,7 @@ import { CommandResponse } from '../../../core/models/api-responses.model';
 import { GameCardInstance, GameSnapshot } from '../../../core/models/game.model';
 import { MercureService } from '../../../core/realtime/mercure.service';
 import { GameTableComponent } from './game-table.component';
-import { GameTableChatLogState } from './state/game-table-chat-log.state';
+import { GameTableChatLogState } from './state/chat/game-table-chat-log.state';
 import { RollModalComponent } from '../../../core/ui/roll-modal/roll-modal.component';
 
 describe('GameTableComponent', () => {
@@ -553,6 +553,31 @@ describe('GameTableComponent', () => {
     fixture.detectChanges();
     await fixture.whenStable();
 
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'u', bubbles: true }));
+
+    await vi.waitFor(() => expect(gamesApi.command).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'battlefield.untap_all',
+      payload: { playerId: 'user-1' },
+    }), 'game-1'));
+  });
+
+  it('sends the U shortcut to the own battlefield when an opponent is focused', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    addOpponent(snapshot);
+    snapshot.players['user-2']!.zones.battlefield[0]!.tapped = true;
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+    gamesApi.command.mockReturnValue(of({
+      event: { id: 'event-untap', type: 'battlefield.untap_all', payload: {}, createdBy: 'user-1', createdAt: '' },
+      snapshot,
+    }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.store.focusPlayer('user-2');
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'u', bubbles: true }));
 
     await vi.waitFor(() => expect(gamesApi.command).toHaveBeenCalledWith(expect.objectContaining({

@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { GameCardInstance, GameCardPosition, GameCommandType, GameSnapshot, GameZoneName } from '../../../../core/models/game.model';
-import { HandDropPreview } from '../state/game-table-battlefield-drag.state';
+import { HandDropPreview } from '../state/drag-drop/game-table-battlefield-drag.state';
 import { GameTableBattlefieldDragContext, GameTableBattlefieldDragCoordinatorService } from './game-table-battlefield-drag-coordinator.service';
 import { GameTableDragService } from './game-table-drag.service';
 import { MarkPendingTransferOptions, PendingBattlefieldMove, PendingLibraryMove } from './game-table-drop-actions.service';
