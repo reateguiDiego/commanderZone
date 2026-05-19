@@ -254,13 +254,6 @@
   will-change: max-height;
 }
 
-.floating-panel.has-unread-notifications {
-  box-shadow:
-    0 1rem 2rem rgb(0 0 0 / 22%),
-    0 0 0 1px rgb(245 198 94 / 42%),
-    0 0 1.2rem rgb(245 198 94 / 24%);
-}
-
 .floating-panel[data-active-tab='log'] {
   grid-template-rows: auto minmax(0, 1fr);
 }

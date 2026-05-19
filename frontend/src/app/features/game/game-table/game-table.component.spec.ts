@@ -697,10 +697,13 @@ describe('GameTableComponent', () => {
     fixture.detectChanges();
 
     const chatButton = (fixture.nativeElement as HTMLElement).querySelector('[data-testid="chat-open"]') as HTMLElement;
+    const logButton = (fixture.nativeElement as HTMLElement).querySelector('[data-testid="game-log-open"]') as HTMLElement;
     expect(chatButton.classList).toContain('has-unread');
     expect(chatButton.querySelector('lucide-icon[name="bell"]')).not.toBeNull();
+    expect(logButton.classList).not.toContain('has-unread');
+    expect(logButton.querySelector('lucide-icon[name="bell"]')).toBeNull();
     expect((fixture.nativeElement as HTMLElement).querySelector('[data-testid="game-log-panel"]')?.classList)
-      .toContain('has-unread-notifications');
+      .not.toContain('has-unread-notifications');
 
     chatButton.click();
     fixture.detectChanges();
@@ -734,6 +737,10 @@ describe('GameTableComponent', () => {
     const logButton = (fixture.nativeElement as HTMLElement).querySelector('[data-testid="game-log-open"]') as HTMLElement;
     expect(logButton.classList).toContain('has-unread');
     expect(logButton.querySelector('lucide-icon[name="bell"]')).not.toBeNull();
+    expect(chatButton.classList).not.toContain('has-unread');
+    expect(chatButton.querySelector('lucide-icon[name="bell"]')).toBeNull();
+    expect((fixture.nativeElement as HTMLElement).querySelector('[data-testid="game-log-panel"]')?.classList)
+      .not.toContain('has-unread-notifications');
 
     logButton.click();
     fixture.detectChanges();
@@ -2739,6 +2746,144 @@ describe('GameTableComponent', () => {
 
     expect(gamesApi.command).not.toHaveBeenCalled();
     expect(fixture.componentInstance.store.error()).toBe('You can only change your own life total.');
+  });
+
+  it('debounces repeated life changes into one absolute command', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    const responseSnapshot = structuredClone(snapshot);
+    responseSnapshot.players['user-1']!.life = 57;
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+    gamesApi.command.mockReturnValue(of({
+      event: { id: 'event-life', type: 'life.changed', payload: {}, createdBy: 'user-1', createdAt: '' },
+      snapshot: responseSnapshot,
+    }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    vi.useFakeTimers();
+    for (let index = 0; index < 17; index += 1) {
+      await fixture.componentInstance.store.changeLife('user-1', 1);
+    }
+
+    expect(fixture.componentInstance.store.snapshot()?.players['user-1']?.life).toBe(57);
+    expect(gamesApi.command).not.toHaveBeenCalled();
+
+    await vi.runOnlyPendingTimersAsync();
+    vi.useRealTimers();
+
+    expect(gamesApi.command).toHaveBeenCalledOnce();
+    expect(gamesApi.command).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'life.changed',
+      payload: { playerId: 'user-1', life: 57 },
+    }), 'game-1');
+  });
+
+  it('debounces repeated commander damage changes into one absolute command', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    addOpponent(snapshot);
+    const responseSnapshot = structuredClone(snapshot);
+    responseSnapshot.players['user-1']!.commanderDamage = { 'user-2': 17 };
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+    gamesApi.command.mockReturnValue(of({
+      event: { id: 'event-damage', type: 'commander.damage.changed', payload: {}, createdBy: 'user-1', createdAt: '' },
+      snapshot: responseSnapshot,
+    }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    vi.useFakeTimers();
+    for (let index = 0; index < 17; index += 1) {
+      await fixture.componentInstance.store.setCommanderDamage('user-1', 'user-2', 1);
+    }
+
+    expect(fixture.componentInstance.store.snapshot()?.players['user-1']?.commanderDamage?.['user-2']).toBe(17);
+    expect(gamesApi.command).not.toHaveBeenCalled();
+
+    await vi.runOnlyPendingTimersAsync();
+    vi.useRealTimers();
+
+    expect(gamesApi.command).toHaveBeenCalledOnce();
+    expect(gamesApi.command).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'commander.damage.changed',
+      payload: { targetPlayerId: 'user-1', sourcePlayerId: 'user-2', damage: 17 },
+    }), 'game-1');
+  });
+
+  it('debounces repeated player counter changes into one absolute command', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    const responseSnapshot = structuredClone(snapshot);
+    responseSnapshot.players['user-1']!.counters = { poison: 17 };
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+    gamesApi.command.mockReturnValue(of({
+      event: { id: 'event-counter', type: 'counter.changed', payload: {}, createdBy: 'user-1', createdAt: '' },
+      snapshot: responseSnapshot,
+    }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    vi.useFakeTimers();
+    for (let index = 0; index < 17; index += 1) {
+      await fixture.componentInstance.store.changePlayerCounter('user-1', 'poison', 1);
+    }
+
+    expect(fixture.componentInstance.store.playerCounterValue('user-1', 'poison')).toBe(17);
+    expect(gamesApi.command).not.toHaveBeenCalled();
+
+    await vi.runOnlyPendingTimersAsync();
+    vi.useRealTimers();
+
+    expect(gamesApi.command).toHaveBeenCalledOnce();
+    expect(gamesApi.command).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'counter.changed',
+      payload: { scope: 'player:user-1', key: 'poison', value: 17 },
+    }), 'game-1');
+  });
+
+  it('debounces repeated commander cast count changes into one absolute command', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    const responseSnapshot = structuredClone(snapshot);
+    responseSnapshot.counters = { 'commander:user-1': { casts: 17 } };
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+    gamesApi.command.mockReturnValue(of({
+      event: { id: 'event-commander-casts', type: 'counter.changed', payload: {}, createdBy: 'user-1', createdAt: '' },
+      snapshot: responseSnapshot,
+    }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const player = fixture.componentInstance.store.players()[0]!;
+    vi.useFakeTimers();
+    for (let index = 0; index < 17; index += 1) {
+      await fixture.componentInstance.store.changeCommanderCastCount('user-1', 1);
+    }
+
+    expect(fixture.componentInstance.store.commanderCastCount(player)).toBe(17);
+    expect(gamesApi.command).not.toHaveBeenCalled();
+
+    await vi.runOnlyPendingTimersAsync();
+    vi.useRealTimers();
+
+    expect(gamesApi.command).toHaveBeenCalledOnce();
+    expect(gamesApi.command).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'counter.changed',
+      payload: { scope: 'commander:user-1', key: 'casts', value: 17 },
+    }), 'game-1');
   });
 
   it('explains why opponent battlefield cards cannot be selected', async () => {

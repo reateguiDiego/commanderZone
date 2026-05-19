@@ -7,6 +7,7 @@ import { AuthStore } from '../../../core/auth/auth.store';
 import { Card } from '../../../core/models/card.model';
 import { GameCardInstance, GameCardPosition, GameCommandType, GameSnapshot, GameZoneName, MercureGameEvent } from '../../../core/models/game.model';
 import { GameTableCommandService } from './services/game-table-command.service';
+import { GameTableDebouncedValueCommandContext, GameTableDebouncedValueCommandsService } from './services/game-table-debounced-value-commands.service';
 import { GameTableBattlefieldDragContext, GameTableBattlefieldDragCoordinatorService } from './services/game-table-battlefield-drag-coordinator.service';
 import { GameTableDragService } from './services/game-table-drag.service';
 import { GameTableLibraryActionContext, GameTableLibraryActionsService } from './services/game-table-library-actions.service';
@@ -100,7 +101,7 @@ interface PendingCardCounterCommand {
 export class GameTableStore implements OnDestroy {
   private readonly errorToastDurationMs = 3000;
   private readonly maxDistinctCardCounters = 5;
-  private readonly counterFlushDelayMs = 160;
+  private readonly cardCounterFlushDelayMs = 450;
   private readonly counterFlushRetryMs = 80;
   private errorToastTimer: number | null = null;
   private targetToastTimer: number | null = null;
@@ -114,6 +115,7 @@ export class GameTableStore implements OnDestroy {
   private readonly battlefieldLayoutSize = signal<BattlefieldSize>(DEFAULT_BATTLEFIELD_SIZE);
 
   private readonly commands = inject(GameTableCommandService);
+  private readonly debouncedValueCommands = inject(GameTableDebouncedValueCommandsService);
   private readonly cardActions = inject(GameTableCardActionsService);
   private readonly cardStats = inject(GameTableCardStatsService);
   private readonly battlefieldDrag = inject(GameTableBattlefieldDragCoordinatorService);
@@ -226,6 +228,7 @@ export class GameTableStore implements OnDestroy {
   ngOnDestroy(): void {
     this.clearErrorDismissTimer();
     this.clearTargetToastTimer();
+    this.debouncedValueCommands.clear();
     this.clearCardCounterFlushTimers();
     this.uiState.destroy();
     this.cardStats.clear();
@@ -326,7 +329,11 @@ export class GameTableStore implements OnDestroy {
   }
 
   commanderCastCount(player: PlayerView): number {
-    return this.selectors.commanderCastCount(this.snapshot(), player);
+    return this.debouncedValueCommands.counterValue(
+      `commander:${player.id}`,
+      'casts',
+      this.selectors.commanderCastCount(this.snapshot(), player),
+    );
   }
 
   countItems(count: number): number[] {
@@ -727,7 +734,10 @@ export class GameTableStore implements OnDestroy {
       return;
     }
 
-    await this.command('life.changed', { playerId, delta });
+    this.debouncedValueCommands.queueLife(this.debouncedValueCommandContext(), {
+      playerId,
+      life: this.debouncedValueCommands.lifeValue(this.snapshot(), playerId) + delta,
+    });
   }
 
   async setLife(playerId: string, value: string | number): Promise<void> {
@@ -736,7 +746,10 @@ export class GameTableStore implements OnDestroy {
       return;
     }
 
-    await this.command('life.changed', { playerId, life: Number(value) });
+    this.debouncedValueCommands.queueLife(this.debouncedValueCommandContext(), {
+      playerId,
+      life: Number(value),
+    });
   }
 
   async setCommanderDamage(targetPlayerId: string, sourcePlayerId: string, delta: number): Promise<void> {
@@ -745,11 +758,25 @@ export class GameTableStore implements OnDestroy {
       return;
     }
 
-    await this.command('commander.damage.changed', { targetPlayerId, sourcePlayerId, delta });
+    const currentDamage = this.debouncedValueCommands.commanderDamageValue(this.snapshot(), targetPlayerId, sourcePlayerId);
+    const nextDamage = Math.max(0, currentDamage + delta);
+    if (nextDamage === currentDamage) {
+      return;
+    }
+
+    this.debouncedValueCommands.queueCommanderDamage(this.debouncedValueCommandContext(), {
+      targetPlayerId,
+      sourcePlayerId,
+      damage: nextDamage,
+    });
   }
 
   playerCounterValue(playerId: string, key: string): number {
-    return Math.max(0, Number(this.snapshot()?.players[playerId]?.counters?.[key] ?? 0));
+    return this.debouncedValueCommands.counterValue(
+      `player:${playerId}`,
+      key,
+      Math.max(0, Number(this.snapshot()?.players[playerId]?.counters?.[key] ?? 0)),
+    );
   }
 
   async changePlayerCounter(playerId: string, key: string, delta: number): Promise<void> {
@@ -762,10 +789,16 @@ export class GameTableStore implements OnDestroy {
       return;
     }
 
-    await this.command('counter.changed', {
+    const currentValue = this.playerCounterValue(playerId, key);
+    const nextValue = Math.max(0, currentValue + delta);
+    if (nextValue === currentValue) {
+      return;
+    }
+
+    this.debouncedValueCommands.queueCounter(this.debouncedValueCommandContext(), {
       scope: `player:${playerId}`,
       key,
-      delta,
+      value: nextValue,
     });
   }
 
@@ -818,11 +851,25 @@ export class GameTableStore implements OnDestroy {
       return;
     }
 
-    await this.command('counter.changed', {
+    this.debouncedValueCommands.queueCounter(this.debouncedValueCommandContext(), {
       scope: `commander:${playerId}`,
       key: 'casts',
       value: nextCount,
     });
+  }
+
+  private debouncedValueCommandContext(): GameTableDebouncedValueCommandContext {
+    return {
+      gameId: () => this.gameId(),
+      pending: () => this.pending(),
+      setPending: (pending) => this.pending.set(pending),
+      setError: (message) => this.error.set(message),
+      send: (type, payload) => this.commands.send(this.gameId(), type, payload),
+      snapshot: () => this.snapshot(),
+      setSnapshot: (snapshot) => this.setSnapshot(snapshot),
+      refetch: () => this.refetch(true),
+      errorMessage: (error) => this.errorMessage(error),
+    };
   }
 
   private libraryActionContext(): GameTableLibraryActionContext {
@@ -2043,7 +2090,8 @@ export class GameTableStore implements OnDestroy {
   private setSnapshot(snapshot: GameSnapshot | null): void {
     const viewportSnapshot = this.applyViewportClampedBattlefieldPositions(snapshot);
     const positionSnapshot = this.applyOptimisticBattlefieldPositions(viewportSnapshot);
-    const nextSnapshot = this.applyOptimisticCardCounters(positionSnapshot);
+    const counterSnapshot = this.debouncedValueCommands.applyOptimisticValues(positionSnapshot);
+    const nextSnapshot = this.applyOptimisticCardCounters(counterSnapshot);
     this.dropFeedbackState.trackSnapshot(nextSnapshot);
     this.pendingTransferState.reconcileSnapshot(nextSnapshot);
     this.snapshot.set(nextSnapshot);
@@ -2130,7 +2178,7 @@ export class GameTableStore implements OnDestroy {
     const key = this.cardCounterCommandKey(command.playerId, command.zone, command.instanceId, command.key);
     this.optimisticCardCounters.set(key, command);
     this.updateLocalCardCounter(command);
-    this.scheduleCardCounterFlush(key, this.counterFlushDelayMs);
+    this.scheduleCardCounterFlush(key, this.cardCounterFlushDelayMs);
   }
 
   private scheduleCardCounterFlush(key: string, delayMs: number): void {

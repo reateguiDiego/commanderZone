@@ -59,7 +59,6 @@
             class="floating-panel game-table-game-log"
             data-testid="game-log-panel"
             [attr.data-active-tab]="store.activeFloatingTab()"
-            [class.has-unread-notifications]="hasUnreadFloatingNotifications()"
             (mouseenter)="queueFloatingContentScrollToBottom()"
             (mouseleave)="queueFloatingContentScrollToBottom()"
             (focusin)="queueFloatingContentScrollToBottom()"

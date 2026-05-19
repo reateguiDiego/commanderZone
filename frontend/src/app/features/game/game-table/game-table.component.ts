@@ -12,6 +12,7 @@ import { GameTableCardActionsService } from './services/game-table-card-actions.
 import { GameTableCardStatsService } from './services/game-table-card-stats.service';
 import { GameTableBattlefieldDragCoordinatorService } from './services/game-table-battlefield-drag-coordinator.service';
 import { GameTableCommandService } from './services/game-table-command.service';
+import { GameTableDebouncedValueCommandsService } from './services/game-table-debounced-value-commands.service';
 import { GameTableDragService } from './services/game-table-drag.service';
 import { GameTableDropActionsService, type PendingLibraryMove } from './services/game-table-drop-actions.service';
 import { GameTableInteractionActionsService } from './services/game-table-interaction-actions.service';
@@ -170,6 +171,7 @@ interface BattlefieldLayoutRect extends BattlefieldLayoutSize {
     GameTableStore,
     GameTableCardActionsService,
     GameTableCardStatsService,
+    GameTableDebouncedValueCommandsService,
     GameTableBattlefieldDragCoordinatorService,
     GameTableRealtimeService,
     GameTableCommandService,
@@ -302,7 +304,6 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
   readonly latestChatMessage = computed(() => this.store.snapshot()?.chat.at(-1) ?? null);
   readonly unreadChat = signal(false);
   readonly unreadLog = signal(false);
-  readonly hasUnreadFloatingNotifications = computed(() => this.unreadChat() || this.unreadLog());
   readonly tableToast = computed(() => this.store.tableToast() ?? this.rematchToast());
   readonly tableBackgroundImage = computed(() => `url("${this.store.gameBackgroundImage(this.store.focusedPlayer() ?? this.store.currentPlayer())}")`);
   readonly alivePlayers = computed(() => this.store.players().filter((player) => playerIsActiveForTurn(player)));
