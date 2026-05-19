@@ -1,4 +1,4 @@
-name: Backend CI
+name: Validate Backend
 
 on:
   pull_request:
