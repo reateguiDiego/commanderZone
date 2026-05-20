@@ -7,7 +7,7 @@
       "headers": [
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://api.commanderzone.com https://api.commanderzone.com/.well-known/mercure http://localhost:8000 http://localhost:3000 http://localhost:3000/.well-known/mercure http://127.0.0.1:8000 http://127.0.0.1:3000 http://127.0.0.1:3000/.well-known/mercure; font-src 'self' data:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self';"
+          "value": "default-src 'self'; script-src 'self' 'unsafe-hashes' 'sha256-MhtPZXr7+LpJUY5qtMutB+qWfQtMaPccfe7QXtCcEYc='; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://api.commanderzone.com https://api.commanderzone.com/.well-known/mercure http://localhost:8000 http://localhost:3000 http://localhost:3000/.well-known/mercure http://127.0.0.1:8000 http://127.0.0.1:3000 http://127.0.0.1:3000/.well-known/mercure; font-src 'self' data:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self';"
         },
         {
           "key": "Referrer-Policy",
