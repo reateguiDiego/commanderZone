@@ -13,10 +13,8 @@ describe('auth guards', () => {
         {
           provide: AuthStore,
           useValue: {
+            initialize: vi.fn().mockResolvedValue(undefined),
             isAuthenticated: () => false,
-            refreshSession: vi.fn().mockResolvedValue(null),
-            loadMe: vi.fn(),
-            clearSession: vi.fn(),
           },
         },
       ],
@@ -27,7 +25,7 @@ describe('auth guards', () => {
     expect(result).toEqual(TestBed.inject(Router).createUrlTree(['/auth/login'], { queryParams: { redirect: '/rooms/room-1/waiting' } }));
   });
 
-  it('redirects authenticated guests to dashboard', () => {
+  it('redirects authenticated guests to dashboard', async () => {
     TestBed.configureTestingModule({
       providers: [
         provideHttpClient(),
@@ -35,13 +33,14 @@ describe('auth guards', () => {
         {
           provide: AuthStore,
           useValue: {
+            initialize: vi.fn().mockResolvedValue(undefined),
             isAuthenticated: () => true,
           },
         },
       ],
     });
 
-    const result = TestBed.runInInjectionContext(() => guestGuard({ queryParamMap: convertToParamMap({ redirect: '/rooms/room-1/waiting' }) } as never, {} as never));
+    const result = await TestBed.runInInjectionContext(() => guestGuard({ queryParamMap: convertToParamMap({ redirect: '/rooms/room-1/waiting' }) } as never, {} as never));
 
     expect(result).toEqual(TestBed.inject(Router).parseUrl('/rooms/room-1/waiting'));
   });
