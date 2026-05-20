@@ -226,6 +226,11 @@ export class AuthStore {
   }
 
   private async restoreSessionFromRefreshCookie(): Promise<void> {
+    if (!this.userState()) {
+      this.tokenState.set(null);
+      return;
+    }
+
     const token = await this.refreshSession();
     if (!token) {
       this.clearSession();

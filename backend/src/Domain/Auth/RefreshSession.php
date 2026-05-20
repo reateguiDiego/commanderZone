@@ -83,6 +83,11 @@ class RefreshSession
         return $this->replacedByTokenHash;
     }
 
+    public function rotatedAt(): ?\DateTimeImmutable
+    {
+        return $this->rotatedAt;
+    }
+
     public function isActiveAt(\DateTimeImmutable $now): bool
     {
         return $this->revokedAt === null

@@ -74,6 +74,7 @@ describe('AuthStore backend auth', () => {
   });
 
   it('restores from refresh cookie on initialize', async () => {
+    localStorage.setItem('commanderzone.user', JSON.stringify(user));
     const store = TestBed.inject(AuthStore);
     await store.initialize();
 
