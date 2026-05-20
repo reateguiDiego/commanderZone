@@ -17,11 +17,11 @@ test('drag and drop moves a card to battlefield and syncs to opponent', async ({
 
   const contextA = await browser.newContext({
     baseURL,
-    storageState: authStorageState(baseURL, setup.playerA.token, setup.playerA.user),
+    storageState: authStorageState(baseURL, setup.playerA.user, setup.playerA.refreshToken),
   });
   const contextB = await browser.newContext({
     baseURL,
-    storageState: authStorageState(baseURL, setup.playerB.token, setup.playerB.user),
+    storageState: authStorageState(baseURL, setup.playerB.user, setup.playerB.refreshToken),
   });
 
   try {

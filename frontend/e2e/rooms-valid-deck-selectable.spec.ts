@@ -20,7 +20,7 @@ test('a Commander-valid deck appears selectable in Rooms UI', async ({ browser, 
 
   const context = await browser.newContext({
     baseURL,
-    storageState: authStorageState(baseURL, user.token, user.user),
+    storageState: authStorageState(baseURL, user.user, user.refreshToken),
   });
 
   try {

@@ -90,7 +90,7 @@ npm install
 npm start
 ```
 
-The frontend expects the API on `http://127.0.0.1:8000` and Mercure on `http://127.0.0.1:3000/.well-known/mercure`.
+The frontend expects the API on `http://localhost:8000` and Mercure on `http://127.0.0.1:3000/.well-known/mercure`.
 
 ## Environments
 
@@ -108,7 +108,7 @@ npm start
 
 Local frontend URLs are defined in `frontend/src/environments/environment.ts`:
 
-- API: `http://127.0.0.1:8000`
+- API: `http://localhost:8000`
 - Mercure: `http://127.0.0.1:3000/.well-known/mercure`
 
 ### Production

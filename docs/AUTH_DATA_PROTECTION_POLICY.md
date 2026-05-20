@@ -13,6 +13,7 @@ This policy defines how authentication data is protected in CommanderZone backen
 | Email verification token | One-way HMAC hash at rest | Plain token only used to verify ownership |
 | Email address | Stored as normalized lowercase | Operational PII; avoid logging raw value in security events |
 | Security audit email reference | HMAC hash | Enables correlation without exposing raw email in logs |
+| Refresh session token | One-way HMAC hash at rest | Plain token exists only in HttpOnly cookie (`commanderzone.refresh`) |
 
 ## Security Events
 
@@ -34,6 +35,7 @@ The backend logs these auth events with timestamp, IP, and identifiers:
 - Login lockout is applied progressively by email and IP after repeated failed attempts.
 - Password reset request and confirm endpoints are throttled by IP/email windows.
 - Email verification re-send endpoint is throttled by IP/email windows.
+- Refresh tokens are rotated on every `/auth/refresh` and refresh replay detection revokes active sessions for the user.
 
 ## Operational Notes
 

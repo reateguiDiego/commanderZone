@@ -45,7 +45,7 @@ test('user imports an invalid decklist and sees it as not Commander-usable', asy
 
   const ownerContext = await browser.newContext({
     baseURL,
-    storageState: authStorageState(baseURL, owner.token, owner.user),
+    storageState: authStorageState(baseURL, owner.user, owner.refreshToken),
   });
 
   let importedDeckId = '';

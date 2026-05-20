@@ -41,7 +41,7 @@ export class AuthApi {
   }
 
   login(payload: { email: string; password: string }): Observable<LoginResponse> {
-    return this.http.post<LoginResponse>(`${API_BASE_URL}/auth/login`, payload);
+    return this.http.post<LoginResponse>(`${API_BASE_URL}/auth/login`, payload, { withCredentials: true });
   }
 
   requestPasswordReset(email: string): Observable<PasswordResetRequestResponse> {
@@ -56,7 +56,7 @@ export class AuthApi {
     return this.http.post<PasswordResetConfirmResponse>(
       `${API_BASE_URL}/auth/password-reset/confirm`,
       payload,
-      { context: withoutGlobalLoading() },
+      { context: withoutGlobalLoading(), withCredentials: true },
     );
   }
 
@@ -72,7 +72,23 @@ export class AuthApi {
     return this.http.post<EmailVerificationConfirmResponse>(
       `${API_BASE_URL}/auth/email-verification/confirm`,
       payload,
-      { context: withoutGlobalLoading() },
+      { context: withoutGlobalLoading(), withCredentials: true },
+    );
+  }
+
+  refresh(): Observable<LoginResponse> {
+    return this.http.post<LoginResponse>(
+      `${API_BASE_URL}/auth/refresh`,
+      null,
+      { context: withoutGlobalLoading(), withCredentials: true },
+    );
+  }
+
+  logout(): Observable<void> {
+    return this.http.post<void>(
+      `${API_BASE_URL}/auth/logout`,
+      null,
+      { context: withoutGlobalLoading(), withCredentials: true },
     );
   }
 
