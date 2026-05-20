@@ -249,7 +249,7 @@ class AuthController extends ApiController
     #[Route('/auth/refresh', methods: ['POST'])]
     public function refresh(Request $request): JsonResponse
     {
-        $refreshToken = trim((string) $request->cookies->get($this->refreshSessionCookieManager->cookieName(), ''));
+        $refreshToken = $this->refreshTokenFromRequest($request);
         if ($refreshToken === '') {
             return $this->json(['error' => 'Authentication required.'], 401);
         }
@@ -272,6 +272,9 @@ class AuthController extends ApiController
             'token' => $this->jwtTokenManager->create($rotation->user),
         ]);
         $response->headers->setCookie($this->refreshSessionCookieManager->makeRefreshCookie($request, $rotation->refreshToken));
+        if ($this->refreshSessionCookieManager->hasCookieDomain()) {
+            $response->headers->setCookie($this->refreshSessionCookieManager->makeHostOnlyRefreshCookie($request, $rotation->refreshToken));
+        }
 
         return $response;
     }
@@ -279,7 +282,7 @@ class AuthController extends ApiController
     #[Route('/auth/logout', methods: ['POST'])]
     public function authLogout(Request $request): JsonResponse
     {
-        $refreshToken = trim((string) $request->cookies->get($this->refreshSessionCookieManager->cookieName(), ''));
+        $refreshToken = $this->refreshTokenFromRequest($request);
         if ($refreshToken !== '') {
             $this->refreshSessionService->revokeSession($refreshToken);
         }
@@ -831,6 +834,9 @@ class AuthController extends ApiController
 
         $response = $this->json($payload, $status);
         $response->headers->setCookie($this->refreshSessionCookieManager->makeRefreshCookie($request, $refreshToken));
+        if ($this->refreshSessionCookieManager->hasCookieDomain()) {
+            $response->headers->setCookie($this->refreshSessionCookieManager->makeHostOnlyRefreshCookie($request, $refreshToken));
+        }
 
         return $response;
     }
@@ -839,7 +845,36 @@ class AuthController extends ApiController
     {
         $response = $this->json($payload, $status);
         $response->headers->setCookie($this->refreshSessionCookieManager->makeClearedCookie($request));
+        if ($this->refreshSessionCookieManager->hasCookieDomain()) {
+            $response->headers->setCookie($this->refreshSessionCookieManager->makeHostOnlyClearedCookie($request));
+        }
 
         return $response;
+    }
+
+    private function refreshTokenFromRequest(Request $request): string
+    {
+        $name = $this->refreshSessionCookieManager->cookieName();
+        $rawCookieHeader = (string) $request->headers->get('Cookie', '');
+        if ($rawCookieHeader !== '') {
+            foreach (explode(';', $rawCookieHeader) as $cookiePart) {
+                $cookiePart = trim($cookiePart);
+                if ($cookiePart === '' || !str_contains($cookiePart, '=')) {
+                    continue;
+                }
+
+                [$cookieName, $cookieValue] = explode('=', $cookiePart, 2);
+                if (trim($cookieName) !== $name) {
+                    continue;
+                }
+
+                $decodedValue = urldecode(trim($cookieValue));
+                if ($decodedValue !== '') {
+                    return $decodedValue;
+                }
+            }
+        }
+
+        return trim((string) $request->cookies->get($name, ''));
     }
 }

@@ -29,15 +29,14 @@ class RefreshSessionCookieManager
         return self::COOKIE_NAME;
     }
 
+    public function hasCookieDomain(): bool
+    {
+        return trim($this->cookieDomain) !== '';
+    }
+
     public function makeRefreshCookie(Request $request, string $refreshToken): Cookie
     {
-        $cookie = Cookie::create(self::COOKIE_NAME)
-            ->withValue($refreshToken)
-            ->withHttpOnly(true)
-            ->withSecure($this->isSecureRequest($request))
-            ->withSameSite($this->resolvedSameSite())
-            ->withPath('/auth')
-            ->withExpires((new \DateTimeImmutable())->modify(sprintf('+%d seconds', $this->refreshTokenTtlSeconds)));
+        $cookie = $this->baseRefreshCookie($request, $refreshToken);
 
         $domain = trim($this->cookieDomain);
         if ($domain !== '') {
@@ -47,15 +46,14 @@ class RefreshSessionCookieManager
         return $cookie;
     }
 
+    public function makeHostOnlyRefreshCookie(Request $request, string $refreshToken): Cookie
+    {
+        return $this->baseRefreshCookie($request, $refreshToken);
+    }
+
     public function makeClearedCookie(Request $request): Cookie
     {
-        $cookie = Cookie::create(self::COOKIE_NAME)
-            ->withValue('')
-            ->withHttpOnly(true)
-            ->withSecure($this->isSecureRequest($request))
-            ->withSameSite($this->resolvedSameSite())
-            ->withPath('/auth')
-            ->withExpires((new \DateTimeImmutable())->modify('-1 year'));
+        $cookie = $this->baseClearCookie($request);
 
         $domain = trim($this->cookieDomain);
         if ($domain !== '') {
@@ -63,6 +61,33 @@ class RefreshSessionCookieManager
         }
 
         return $cookie;
+    }
+
+    public function makeHostOnlyClearedCookie(Request $request): Cookie
+    {
+        return $this->baseClearCookie($request);
+    }
+
+    private function baseRefreshCookie(Request $request, string $refreshToken): Cookie
+    {
+        return Cookie::create(self::COOKIE_NAME)
+            ->withValue($refreshToken)
+            ->withHttpOnly(true)
+            ->withSecure($this->isSecureRequest($request))
+            ->withSameSite($this->resolvedSameSite())
+            ->withPath('/auth')
+            ->withExpires((new \DateTimeImmutable())->modify(sprintf('+%d seconds', $this->refreshTokenTtlSeconds)));
+    }
+
+    private function baseClearCookie(Request $request): Cookie
+    {
+        return Cookie::create(self::COOKIE_NAME)
+            ->withValue('')
+            ->withHttpOnly(true)
+            ->withSecure($this->isSecureRequest($request))
+            ->withSameSite($this->resolvedSameSite())
+            ->withPath('/auth')
+            ->withExpires((new \DateTimeImmutable())->modify('-1 year'));
     }
 
     private function isSecureRequest(Request $request): bool
