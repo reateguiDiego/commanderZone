@@ -5,6 +5,9 @@
 :80 {
 	root * /app/public
 	encode zstd br gzip
+	handle /.well-known/mercure* {
+		reverse_proxy mercure:80
+	}
 	php_server
 }
 
