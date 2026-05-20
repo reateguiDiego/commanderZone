@@ -251,7 +251,7 @@ class AuthController extends ApiController
     {
         $refreshToken = trim((string) $request->cookies->get($this->refreshSessionCookieManager->cookieName(), ''));
         if ($refreshToken === '') {
-            return $this->jsonWithClearedSessionCookie($request, ['error' => 'Authentication required.'], 401);
+            return $this->json(['error' => 'Authentication required.'], 401);
         }
 
         try {
@@ -261,11 +261,11 @@ class AuthController extends ApiController
                 $request->headers->get('User-Agent'),
             );
         } catch (RefreshSessionReplayDetected) {
-            return $this->jsonWithClearedSessionCookie($request, ['error' => 'Authentication required.'], 401);
+            return $this->json(['error' => 'Authentication required.'], 401);
         }
 
         if ($rotation === null) {
-            return $this->jsonWithClearedSessionCookie($request, ['error' => 'Authentication required.'], 401);
+            return $this->json(['error' => 'Authentication required.'], 401);
         }
 
         $response = $this->json([

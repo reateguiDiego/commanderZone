@@ -14,6 +14,8 @@ class RefreshSessionService
         private readonly AuthTokenService $tokenService,
         #[Autowire('%env(int:AUTH_REFRESH_TOKEN_TTL)%')]
         private readonly int $refreshTokenTtlSeconds,
+        #[Autowire('%env(int:AUTH_REFRESH_REPLAY_GRACE_SECONDS)%')]
+        private readonly int $replayGraceSeconds,
     ) {
     }
 
@@ -50,6 +52,10 @@ class RefreshSessionService
         $now = new \DateTimeImmutable();
         if (!$session->isActiveAt($now)) {
             if ($session->isReplayCandidateAt($now)) {
+                if ($this->isGracefulReplay($session, $now)) {
+                    return null;
+                }
+
                 $this->revokeAllActiveSessionsForUser($session->user(), $now);
                 throw new RefreshSessionReplayDetected('Refresh token replay detected.');
             }
@@ -114,5 +120,19 @@ class RefreshSessionService
         }
 
         $this->entityManager->flush();
+    }
+
+    private function isGracefulReplay(RefreshSession $session, \DateTimeImmutable $now): bool
+    {
+        if ($this->replayGraceSeconds <= 0) {
+            return false;
+        }
+
+        $rotatedAt = $session->rotatedAt();
+        if ($rotatedAt === null) {
+            return false;
+        }
+
+        return $rotatedAt->modify(sprintf('+%d seconds', $this->replayGraceSeconds)) >= $now;
     }
 }
