@@ -9,6 +9,7 @@ use Symfony\Component\HttpFoundation\Request;
 class RefreshSessionCookieManager
 {
     private const COOKIE_NAME = 'commanderzone.refresh';
+    private const DOMAIN_PATTERN = '/^\.?[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+$/';
 
     public function __construct(
         #[Autowire('%env(int:AUTH_REFRESH_TOKEN_TTL)%')]
@@ -20,6 +21,7 @@ class RefreshSessionCookieManager
         #[Autowire('%kernel.environment%')]
         private readonly string $kernelEnvironment,
     ) {
+        $this->assertProductionConfiguration();
     }
 
     public function cookieName(): string
@@ -88,5 +90,25 @@ class RefreshSessionCookieManager
         return $this->kernelEnvironment === 'prod'
             ? Cookie::SAMESITE_NONE
             : Cookie::SAMESITE_LAX;
+    }
+
+    private function assertProductionConfiguration(): void
+    {
+        if ($this->kernelEnvironment !== 'prod') {
+            return;
+        }
+
+        if ($this->refreshTokenTtlSeconds <= 0) {
+            throw new \LogicException('AUTH_REFRESH_TOKEN_TTL must be a positive integer in production.');
+        }
+
+        $domain = trim($this->cookieDomain);
+        if ($domain === '') {
+            return;
+        }
+
+        if (!preg_match(self::DOMAIN_PATTERN, $domain)) {
+            throw new \LogicException('AUTH_REFRESH_COOKIE_DOMAIN must be a valid domain name in production.');
+        }
     }
 }
