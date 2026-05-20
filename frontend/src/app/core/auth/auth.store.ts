@@ -19,6 +19,7 @@ export class AuthStore {
   private readonly errorState = signal<string | null>(null);
   private readonly resolvedDisplayNameState = signal<string | null>(readStoredDisplayName());
   private initialized = false;
+  private initializeInFlight: Promise<void> | null = null;
   private refreshInFlight: Promise<string | null> | null = null;
 
   readonly token = this.tokenState.asReadonly();
@@ -33,9 +34,21 @@ export class AuthStore {
       return;
     }
 
-    this.initialized = true;
-    this.clearLegacyToken();
-    await this.restoreSessionFromRefreshCookie();
+    if (this.initializeInFlight) {
+      return this.initializeInFlight;
+    }
+
+    this.initializeInFlight = (async () => {
+      this.clearLegacyToken();
+      await this.restoreSessionFromRefreshCookie();
+      this.initialized = true;
+    })();
+
+    try {
+      await this.initializeInFlight;
+    } finally {
+      this.initializeInFlight = null;
+    }
   }
 
   async login(email: string, password: string): Promise<void> {
