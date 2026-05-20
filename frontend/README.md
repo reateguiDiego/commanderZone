@@ -11,7 +11,7 @@ npm start
 
 The app runs on `http://localhost:4200` by default and expects:
 
-- API: `http://127.0.0.1:8000`
+- API: `http://localhost:8000`
 - Mercure: `http://127.0.0.1:3000/.well-known/mercure`
 
 These local URLs live in `src/environments/environment.ts`. `npm start` uses the Angular development configuration and does not call production.
@@ -98,6 +98,6 @@ Implementation notes:
 
 ## Notes
 
-- Auth uses JWT Bearer tokens stored locally under `commanderzone.jwt`.
+- Auth uses short-lived JWT Bearer access tokens in memory, plus an HttpOnly refresh cookie (`commanderzone.refresh`) for session restoration.
 - The game table is intentionally manual. It does not implement Magic rules, priority, stack handling, legal move validation, or automatic gameplay.
 - Backend contracts are consumed as-is from Symfony.

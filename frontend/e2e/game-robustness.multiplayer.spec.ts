@@ -17,7 +17,7 @@ test('basic robustness with two full decks does not break UI or duplicate cards'
 
   const context = await browser.newContext({
     baseURL,
-    storageState: authStorageState(baseURL, setup.playerA.token, setup.playerA.user),
+    storageState: authStorageState(baseURL, setup.playerA.user, setup.playerA.refreshToken),
   });
 
   try {

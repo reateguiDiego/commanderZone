@@ -5,6 +5,7 @@ namespace App\Tests\Integration;
 use App\Application\Auth\AuthMailer;
 use App\Application\Auth\AuthTokenService;
 use App\Domain\User\User;
+use Symfony\Component\BrowserKit\Cookie;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 class AuthApiTest extends ApiTestCase
@@ -116,7 +117,7 @@ class AuthApiTest extends ApiTestCase
         self::assertResponseStatusCodeSame(401);
     }
 
-    public function testLoginIssuesJwtWith24HourTtl(): void
+    public function testLoginIssuesJwtWith15MinuteTtl(): void
     {
         $email = sprintf('jwt-ttl-%s@example.test', bin2hex(random_bytes(6)));
         $password = 'Password123';
@@ -139,8 +140,53 @@ class AuthApiTest extends ApiTestCase
         [$issuedAt, $expiresAt] = $this->extractJwtIssuedAndExpiry($token);
         $ttl = $expiresAt - $issuedAt;
 
-        self::assertGreaterThanOrEqual(86399, $ttl);
-        self::assertLessThanOrEqual(86401, $ttl);
+        self::assertGreaterThanOrEqual(899, $ttl);
+        self::assertLessThanOrEqual(901, $ttl);
+    }
+
+    public function testLoginSetsRefreshCookieAndRefreshRotatesIt(): void
+    {
+        $token = $this->registerAndLogin('refresh-rotation@example.test', 'Refresh Rotation');
+        self::assertNotSame('', $token);
+
+        $refreshCookie = $this->refreshCookieFromResponse();
+        self::assertNotNull($refreshCookie);
+        self::assertSame('commanderzone.refresh', $refreshCookie->getName());
+        self::assertTrue($refreshCookie->isHttpOnly());
+
+        $firstRefreshToken = (string) $refreshCookie->getValue();
+        self::assertNotSame('', $firstRefreshToken);
+
+        $this->jsonRequest('POST', '/auth/refresh');
+        self::assertResponseIsSuccessful();
+        self::assertArrayHasKey('token', $this->jsonResponse());
+        $rotatedCookie = $this->refreshCookieFromResponse();
+        self::assertNotNull($rotatedCookie);
+        $secondRefreshToken = (string) $rotatedCookie->getValue();
+        self::assertNotSame($firstRefreshToken, $secondRefreshToken);
+
+        $this->refreshWithCookie($firstRefreshToken);
+        self::assertResponseStatusCodeSame(401);
+        $this->jsonRequest('POST', '/auth/refresh');
+        self::assertResponseStatusCodeSame(401);
+    }
+
+    public function testAuthLogoutRevokesCurrentRefreshSessionAndClearsCookie(): void
+    {
+        $this->registerAndLogin('refresh-logout@example.test', 'Refresh Logout');
+        $refreshCookie = $this->refreshCookieFromResponse();
+        self::assertNotNull($refreshCookie);
+        $refreshToken = (string) $refreshCookie->getValue();
+        self::assertNotSame('', $refreshToken);
+
+        $this->jsonRequest('POST', '/auth/logout');
+        self::assertResponseStatusCodeSame(204);
+        $clearedCookie = $this->refreshCookieFromResponse();
+        self::assertNotNull($clearedCookie);
+        self::assertSame('', (string) $clearedCookie->getValue());
+
+        $this->refreshWithCookie($refreshToken);
+        self::assertResponseStatusCodeSame(401);
     }
 
     public function testMercureCookieEndpointRequiresAuthAndSetsCookie(): void
@@ -200,6 +246,7 @@ class AuthApiTest extends ApiTestCase
             'newPassword' => 'Password456',
         ]);
         self::assertResponseIsSuccessful();
+        self::assertNotNull($this->refreshCookieFromResponse());
         self::assertTrue($this->jsonResponse()['updated']);
         self::assertArrayHasKey('token', $this->jsonResponse());
         self::assertArrayHasKey('user', $this->jsonResponse());
@@ -396,6 +443,7 @@ class AuthApiTest extends ApiTestCase
 
         $this->jsonRequest('POST', '/auth/email-verification/confirm', ['token' => $verificationToken]);
         self::assertResponseIsSuccessful();
+        self::assertNotNull($this->refreshCookieFromResponse());
         self::assertTrue($this->jsonResponse()['verified']);
         self::assertArrayHasKey('token', $this->jsonResponse());
         $sessionToken = $this->jsonResponse()['token'];
@@ -623,6 +671,87 @@ class AuthApiTest extends ApiTestCase
         self::assertStringStartsWith('deleted+', $this->jsonResponse()['user']['email']);
     }
 
+    public function testPasswordChangeRevokesAllRefreshSessions(): void
+    {
+        $password = 'Password123';
+        $this->registerAndLogin('refresh-password-change@example.test', 'Refresh Password Change', $password);
+        $cookieA = $this->refreshCookieFromResponse();
+        self::assertNotNull($cookieA);
+        $refreshA = (string) $cookieA->getValue();
+
+        $this->jsonRequest('POST', '/auth/login', [
+            'email' => 'refresh-password-change@example.test',
+            'password' => $password,
+        ]);
+        self::assertResponseIsSuccessful();
+        $secondLoginToken = $this->jsonResponse()['token'] ?? null;
+        self::assertIsString($secondLoginToken);
+        $cookieB = $this->refreshCookieFromResponse();
+        self::assertNotNull($cookieB);
+        $refreshB = (string) $cookieB->getValue();
+        self::assertNotSame($refreshA, $refreshB);
+
+        $this->jsonRequest('PATCH', '/me/password', [
+            'currentPassword' => $password,
+            'newPassword' => 'Password456',
+        ], $secondLoginToken);
+        self::assertResponseIsSuccessful();
+
+        $this->refreshWithCookie($refreshA);
+        self::assertResponseStatusCodeSame(401);
+        $this->refreshWithCookie($refreshB);
+        self::assertResponseStatusCodeSame(401);
+    }
+
+    public function testPasswordResetRevokesAllRefreshSessions(): void
+    {
+        $password = 'Password123';
+        $this->registerAndLogin('refresh-password-reset@example.test', 'Refresh Password Reset', $password);
+        $cookieA = $this->refreshCookieFromResponse();
+        self::assertNotNull($cookieA);
+        $refreshA = (string) $cookieA->getValue();
+
+        $this->jsonRequest('POST', '/auth/login', [
+            'email' => 'refresh-password-reset@example.test',
+            'password' => $password,
+        ]);
+        self::assertResponseIsSuccessful();
+        $cookieB = $this->refreshCookieFromResponse();
+        self::assertNotNull($cookieB);
+        $refreshB = (string) $cookieB->getValue();
+
+        $this->jsonRequest('POST', '/auth/password-reset/request', ['email' => 'refresh-password-reset@example.test']);
+        self::assertResponseStatusCodeSame(202);
+        $passwordResetToken = $this->jsonResponse()['passwordResetToken'] ?? null;
+        self::assertIsString($passwordResetToken);
+
+        $this->jsonRequest('POST', '/auth/password-reset/confirm', [
+            'email' => 'refresh-password-reset@example.test',
+            'token' => $passwordResetToken,
+            'newPassword' => 'Password456',
+        ]);
+        self::assertResponseIsSuccessful();
+
+        $this->refreshWithCookie($refreshA);
+        self::assertResponseStatusCodeSame(401);
+        $this->refreshWithCookie($refreshB);
+        self::assertResponseStatusCodeSame(401);
+    }
+
+    public function testDeleteAccountRevokesAllRefreshSessions(): void
+    {
+        $token = $this->registerAndLogin('refresh-delete@example.test', 'Refresh Delete');
+        $cookie = $this->refreshCookieFromResponse();
+        self::assertNotNull($cookie);
+        $refreshToken = (string) $cookie->getValue();
+
+        $this->jsonRequest('DELETE', '/me', token: $token);
+        self::assertResponseStatusCodeSame(204);
+
+        $this->refreshWithCookie($refreshToken);
+        self::assertResponseStatusCodeSame(401);
+    }
+
     public function testDisplayNameLengthIsLimitedTo25Chars(): void
     {
         $this->jsonRequest('POST', '/auth/register', [
@@ -664,5 +793,22 @@ class AuthApiTest extends ApiTestCase
         self::assertNotFalse($decoded);
 
         return $decoded;
+    }
+
+    private function refreshCookieFromResponse(): ?\Symfony\Component\HttpFoundation\Cookie
+    {
+        foreach ($this->client->getResponse()->headers->getCookies() as $cookie) {
+            if ($cookie->getName() === 'commanderzone.refresh') {
+                return $cookie;
+            }
+        }
+
+        return null;
+    }
+
+    private function refreshWithCookie(string $refreshToken): void
+    {
+        $this->client->getCookieJar()->set(new Cookie('commanderzone.refresh', $refreshToken, null, '/auth'));
+        $this->jsonRequest('POST', '/auth/refresh');
     }
 }

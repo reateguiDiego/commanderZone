@@ -17,11 +17,11 @@ test('player can move a hand card to battlefield with manual fallback and sync t
 
   const contextA = await browser.newContext({
     baseURL,
-    storageState: authStorageState(baseURL, setup.playerA.token, setup.playerA.user),
+    storageState: authStorageState(baseURL, setup.playerA.user, setup.playerA.refreshToken),
   });
   const contextB = await browser.newContext({
     baseURL,
-    storageState: authStorageState(baseURL, setup.playerB.token, setup.playerB.user),
+    storageState: authStorageState(baseURL, setup.playerB.user, setup.playerB.refreshToken),
   });
 
   try {
