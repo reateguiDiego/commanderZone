@@ -189,6 +189,24 @@ class AuthApiTest extends ApiTestCase
         self::assertResponseStatusCodeSame(401);
     }
 
+    public function testRefreshUsesFirstCookieValueFromRawHeaderWhenDuplicateNamesArePresent(): void
+    {
+        $this->registerAndLogin('refresh-duplicate-cookie@example.test', 'Refresh Duplicate Cookie');
+        $refreshCookie = $this->refreshCookieFromResponse();
+        self::assertNotNull($refreshCookie);
+        $validRefreshToken = (string) $refreshCookie->getValue();
+        self::assertNotSame('', $validRefreshToken);
+
+        $staleRefreshToken = 'stale_refresh_token_for_duplicate_cookie_header';
+        $this->refreshWithRawCookieHeader(sprintf(
+            'commanderzone.refresh=%s; commanderzone.refresh=%s',
+            $validRefreshToken,
+            $staleRefreshToken
+        ));
+        self::assertResponseIsSuccessful();
+        self::assertArrayHasKey('token', $this->jsonResponse());
+    }
+
     public function testMercureCookieEndpointRequiresAuthAndSetsCookie(): void
     {
         $this->jsonRequest('POST', '/realtime/mercure-cookie');
@@ -810,5 +828,21 @@ class AuthApiTest extends ApiTestCase
     {
         $this->client->getCookieJar()->set(new Cookie('commanderzone.refresh', $refreshToken, null, '/auth'));
         $this->jsonRequest('POST', '/auth/refresh');
+    }
+
+    private function refreshWithRawCookieHeader(string $cookieHeader): void
+    {
+        $this->client->request(
+            'POST',
+            'http://127.0.0.1/auth/refresh',
+            [],
+            [],
+            [
+                'CONTENT_TYPE' => 'application/json',
+                'HTTP_ACCEPT' => 'application/json',
+                'HTTP_COOKIE' => $cookieHeader,
+            ],
+            ''
+        );
     }
 }
