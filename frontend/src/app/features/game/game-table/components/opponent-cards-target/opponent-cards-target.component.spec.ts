@@ -29,7 +29,9 @@ describe('OpponentCardsTargetComponent', () => {
     const labels = Array.from(fixture.nativeElement.querySelectorAll('.cards-target-role') as NodeListOf<HTMLElement>).map((label) =>
       label.textContent?.trim(),
     );
+    const targetSurface = fixture.nativeElement.querySelector('[data-testid="opponent-cards-target"]') as HTMLElement;
 
+    expect(targetSurface.dataset['motionZone']).toBe('user-2:battlefield');
     expect(cards.length).toBe(2);
     expect(cards[0]?.dataset['arrowCardPlayerId']).toBe('user-2');
     expect(cards[0]?.dataset['arrowCardInstanceId']).toBe('card-1');

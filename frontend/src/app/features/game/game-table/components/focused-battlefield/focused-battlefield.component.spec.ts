@@ -4,6 +4,13 @@ import { PlayerView } from '../../game-table.store';
 import { FocusedBattlefieldComponent } from './focused-battlefield.component';
 
 describe('FocusedBattlefieldComponent', () => {
+  it('exposes the player battlefield as a motion zone', async () => {
+    const { fixture } = await renderFocusedBattlefield();
+
+    const battlefield = fixture.nativeElement.querySelector('[data-testid="battlefield-zone"]') as HTMLElement;
+    expect(battlefield.dataset['motionZone']).toBe('player-1:battlefield');
+  });
+
   it('marks every card that acts as the active alignment reference', async () => {
     const { fixture } = await renderFocusedBattlefield({
       alignmentGuideFor: () => ({ y: 84, referenceInstanceIds: ['card-1', 'card-2'] }),

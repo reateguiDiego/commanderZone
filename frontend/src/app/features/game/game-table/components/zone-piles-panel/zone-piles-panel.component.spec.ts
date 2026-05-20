@@ -3,6 +3,29 @@ import { GameCardInstance, GameZoneName } from '../../../../../core/models/game.
 import { ZonePilesPanelComponent } from './zone-piles-panel.component';
 
 describe('ZonePilesPanelComponent', () => {
+  it('exposes the zone dock and each pile as motion zones', async () => {
+    const fixture = await renderZonePilesPanel();
+
+    const dock = fixture.nativeElement.querySelector('[data-testid="zone-piles"]') as HTMLElement;
+
+    expect(dock.dataset['motionZone']).toBe('player-1:zones');
+    expect(zoneElement(fixture, 'library').dataset['motionZone']).toBe('player-1:library');
+    expect(zoneElement(fixture, 'command').dataset['motionZone']).toBe('player-1:command');
+    expect(zoneElement(fixture, 'graveyard').dataset['motionZone']).toBe('player-1:graveyard');
+    expect(zoneElement(fixture, 'exile').dataset['motionZone']).toBe('player-1:exile');
+  });
+
+  it('exposes the top draggable pile card as a motion origin', async () => {
+    const graveyardCard = card('graveyard-1', 'Top Graveyard Card', 'graveyard');
+    const fixture = await renderZonePilesPanel({
+      graveyard: [graveyardCard],
+      topDraggableCard: (_player, zone) => zone === 'graveyard' ? graveyardCard : null,
+    });
+
+    expect(zoneElement(fixture, 'graveyard').dataset['motionOriginCardId']).toBe('graveyard-1');
+    expect(zoneElement(fixture, 'library').dataset['motionOriginCardId']).toBeUndefined();
+  });
+
   it('marks a zone stack while drop feedback is active', async () => {
     const fixture = await renderZonePilesPanel({
       isZoneDropSettling: (_playerId, zone) => zone === 'graveyard',
@@ -128,7 +151,7 @@ describe('ZonePilesPanelComponent', () => {
     expect(openedSpy).toHaveBeenCalledWith({ playerId: 'player-1', zone: 'graveyard' });
   });
 
-  it('renders library stack layers with the configured top-card image when the library has multiple cards', async () => {
+  it('renders library stack layers with the second-card image when the library has multiple cards', async () => {
     const fixture = await renderZonePilesPanel({
       library: [
         card('library-1', 'Top Card', 'library'),
@@ -136,6 +159,7 @@ describe('ZonePilesPanelComponent', () => {
         card('library-3', 'Third Card', 'library'),
       ],
       zonePreviewImage: (_player, zone) => zone === 'library' ? '/assets/library-top.jpg' : null,
+      zoneStackLayerImage: (_player, zone) => zone === 'library' ? '/assets/library-second.jpg' : null,
     });
 
     const library = zoneElement(fixture, 'library');
@@ -143,7 +167,7 @@ describe('ZonePilesPanelComponent', () => {
     const topImage = library.querySelector<HTMLImageElement>('.zone-card-stack-top');
 
     expect(layers.length).toBe(2);
-    expect(layers.every((layer) => layer.getAttribute('src') === '/assets/library-top.jpg')).toBe(true);
+    expect(layers.every((layer) => layer.getAttribute('src') === '/assets/library-second.jpg')).toBe(true);
     expect(topImage?.getAttribute('src')).toBe('/assets/library-top.jpg');
     expect(library.querySelector('[data-testid="zone"]')?.classList).toContain('card-stack');
   });
@@ -152,6 +176,7 @@ describe('ZonePilesPanelComponent', () => {
     const fixture = await renderZonePilesPanel({
       library: [card('library-1', 'Top Card', 'library')],
       zonePreviewImage: (_player, zone) => zone === 'library' ? '/assets/library-top.jpg' : null,
+      zoneStackLayerImage: () => null,
     });
 
     const library = zoneElement(fixture, 'library');
@@ -160,7 +185,7 @@ describe('ZonePilesPanelComponent', () => {
     expect(library.querySelector<HTMLImageElement>('.zone-card-stack-top')?.getAttribute('src')).toBe('/assets/library-top.jpg');
   });
 
-  it('uses the same stack treatment for visible graveyard and exile piles', async () => {
+  it('uses second-card stack layers for visible graveyard and exile piles', async () => {
     const fixture = await renderZonePilesPanel({
       graveyard: [
         card('graveyard-1', 'First Graveyard Card', 'graveyard'),
@@ -180,6 +205,15 @@ describe('ZonePilesPanelComponent', () => {
         }
         return null;
       },
+      zoneStackLayerImage: (_player, zone) => {
+        if (zone === 'graveyard') {
+          return '/assets/graveyard-second.jpg';
+        }
+        if (zone === 'exile') {
+          return '/assets/exile-second.jpg';
+        }
+        return null;
+      },
     });
 
     const graveyard = zoneElement(fixture, 'graveyard');
@@ -187,6 +221,8 @@ describe('ZonePilesPanelComponent', () => {
 
     expect(graveyard.querySelectorAll('.zone-card-stack-layer').length).toBe(1);
     expect(exile.querySelectorAll('.zone-card-stack-layer').length).toBe(2);
+    expect(graveyard.querySelector<HTMLImageElement>('.zone-card-stack-layer')?.getAttribute('src')).toBe('/assets/graveyard-second.jpg');
+    expect(exile.querySelector<HTMLImageElement>('.zone-card-stack-layer')?.getAttribute('src')).toBe('/assets/exile-second.jpg');
     expect(graveyard.querySelector<HTMLImageElement>('.zone-card-stack-top')?.getAttribute('src')).toBe('/assets/graveyard-top.jpg');
     expect(exile.querySelector<HTMLImageElement>('.zone-card-stack-top')?.getAttribute('src')).toBe('/assets/exile-top.jpg');
   });
@@ -203,6 +239,25 @@ describe('ZonePilesPanelComponent', () => {
     expect(zoneElement(fixture, 'graveyard').classList).toContain('dragging-zone-card');
     expect(zoneElement(fixture, 'exile').classList).not.toContain('dragging-zone-card');
   });
+
+  it('marks the source pile immediately when native drag starts', async () => {
+    const graveyardCard = card('graveyard-1', 'Top Graveyard Card', 'graveyard');
+    const fixture = await renderZonePilesPanel({
+      graveyard: [graveyardCard],
+      topDraggableCard: (_player, zone) => zone === 'graveyard' ? graveyardCard : null,
+      zonePreviewImage: (_player, zone) => zone === 'graveyard' ? '/assets/graveyard-top.jpg' : null,
+    });
+
+    const graveyard = zoneElement(fixture, 'graveyard');
+    graveyard.dispatchEvent(new Event('dragstart', { bubbles: true }));
+
+    expect(graveyard.classList).toContain('dragging-zone-card');
+
+    graveyard.dispatchEvent(new Event('dragend', { bubbles: true }));
+    fixture.detectChanges();
+
+    expect(graveyard.classList).not.toContain('dragging-zone-card');
+  });
 });
 
 interface RenderZonePilesPanelOptions {
@@ -216,6 +271,7 @@ interface RenderZonePilesPanelOptions {
   topDraggableCard?: (player: unknown, zone: GameZoneName) => GameCardInstance | null;
   zonePreviewCard?: (player: unknown, zone: GameZoneName) => GameCardInstance | null;
   zonePreviewImage?: (player: unknown, zone: GameZoneName) => string | null;
+  zoneStackLayerImage?: (player: unknown, zone: GameZoneName) => string | null;
 }
 
 async function renderZonePilesPanel(options: RenderZonePilesPanelOptions = {}): Promise<ComponentFixture<ZonePilesPanelComponent>> {
@@ -263,6 +319,7 @@ async function renderZonePilesPanel(options: RenderZonePilesPanelOptions = {}): 
   fixture.componentRef.setInput('isDropZoneHighlighted', () => false);
   fixture.componentRef.setInput('zoneTitle', (zone: GameZoneName) => zone);
   fixture.componentRef.setInput('zonePreviewImage', options.zonePreviewImage ?? (() => null));
+  fixture.componentRef.setInput('zoneStackLayerImage', options.zoneStackLayerImage ?? (() => null));
   fixture.componentRef.setInput('commanderCastCount', () => 0);
   fixture.componentRef.setInput('isZoneDropSettling', options.isZoneDropSettling ?? (() => false));
   fixture.componentRef.setInput('isZoneTransferPending', options.isZoneTransferPending ?? (() => false));

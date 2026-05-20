@@ -9,6 +9,7 @@
   [attr.data-player-id]="focusedPlayer.id"
   [attr.data-zone]="'battlefield'"
   [attr.data-game-drop-zone]="'battlefield'"
+  [attr.data-motion-zone]="focusedPlayer.id + ':battlefield'"
   [class.drop-target-active]="isDropZoneHighlighted()(focusedPlayer.id, 'battlefield')"
   [class.arrow-targeting]="allowArrowTargetSelection()"
   [class.board-transitioning]="boardTransitioning()"

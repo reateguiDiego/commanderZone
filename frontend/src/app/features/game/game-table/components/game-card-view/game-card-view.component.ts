@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, OnChanges, OnDestroy, computed, input, output, signal, type WritableSignal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, OnChanges, OnDestroy, computed, inject, input, output, signal, type WritableSignal } from '@angular/core';
 import { GameCardInstance, GameZoneName } from '../../../../../core/models/game.model';
 import { CARD_PREVIEW_HOVER_DELAY_MS, CardPreviewEvent, previewRectFromElement } from '../../models/card-preview.model';
 import {
@@ -12,7 +12,6 @@ type GameCardViewMode = 'battlefield' | 'hand' | 'mini';
 
 type DropPlacement = 'before' | 'after';
 type HandLayoutMode = 'fan' | 'row';
-type HandArrivalSide = 'before' | 'after' | 'new';
 type BattlefieldFocusEntry = 'left' | 'right' | 'fade' | null;
 type StatPulse = 'increase' | 'decrease' | null;
 
@@ -63,6 +62,7 @@ interface CardCounterDeleteRequestEvent {
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class GameCardViewComponent implements OnChanges, OnDestroy {
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly hoverLiftDelayMs = CARD_PREVIEW_HOVER_DELAY_MS;
   private readonly singleStatPulseMs = 420;
   private readonly repeatedStatPulseMs = 900;
@@ -72,6 +72,7 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
   private loyaltyPulseTimer: number | null = null;
   private hoveredCard: GameCardInstance | null = null;
   private activePreviewInstanceId: string | null = null;
+  private activePreviewSourceRect: CardPreviewEvent['sourceRect'] = null;
   private previousPowerValue: number | null | undefined;
   private previousToughnessValue: number | null | undefined;
   private previousLoyaltyValue: number | null | undefined;
@@ -81,7 +82,10 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
   private previousActiveFaceIndex: number | null = null;
   private faceFlipTimer: number | null = null;
   private pointerInside = false;
+  private previewBoundsListening = false;
+  private previewSuppressedUntilPointerExit = false;
   private readonly faceFlipAnimationMs = 620;
+  private readonly previewPointerMoveHandler = (event: PointerEvent): void => this.syncPreviewPointerBounds(event);
 
   readonly mode = input.required<GameCardViewMode>();
   readonly card = input.required<GameCardInstance>();
@@ -102,12 +106,13 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
   readonly statDropSettling = input(false);
   readonly commanderEntrySettling = input(false);
   readonly hoverInteractionsEnabled = input(true);
+  readonly activeHoverInstanceId = input<string | null>(null);
+  readonly motionActive = input(false);
   readonly faceDown = input(false);
   readonly hidden = input(false);
   readonly visible = input(true);
   readonly position = input<{ x: number; y: number } | null>(null);
   readonly handDropPlacement = input<DropPlacement | null>(null);
-  readonly handArrivalSide = input<HandArrivalSide | null>(null);
   readonly handLayout = input<HandLayoutMode>('fan');
   readonly battlefieldFocusEntry = input<BattlefieldFocusEntry>(null);
   readonly handIndex = input<number | null>(null);
@@ -182,6 +187,7 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
   readonly counterChanged = output<CardCounterChangeEvent>();
   readonly counterDeleteRequested = output<CardCounterDeleteRequestEvent>();
   readonly hoverLifted = signal(false);
+  readonly previewActive = signal(false);
   readonly powerPulse = signal<StatPulse>(null);
   readonly toughnessPulse = signal<StatPulse>(null);
   readonly loyaltyPulse = signal<StatPulse>(null);
@@ -200,6 +206,7 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
   });
 
   ngOnChanges(): void {
+    this.syncActiveHoverInstance();
     this.syncHoverInteractions();
     this.syncFaceFlipAnimation();
     this.syncStatPulses();
@@ -210,6 +217,7 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
     this.clearStatPulseTimers();
     this.clearStatOverlayArrivalTimer();
     this.clearFaceFlipTimer();
+    this.stopPreviewBoundsWatcher();
   }
 
   fallbackLabel(): string {
@@ -225,6 +233,15 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
     event.preventDefault();
     event.stopPropagation();
     this.cardDoubleClicked.emit({ event, card: this.card() });
+  }
+
+  onClick(event: MouseEvent): void {
+    this.previewSuppressedUntilPointerExit = this.mode() === 'battlefield' && this.zone() === 'battlefield';
+    this.deactivateHover(true);
+    if (this.previewSuppressedUntilPointerExit) {
+      this.startPreviewBoundsWatcher();
+    }
+    this.cardClicked.emit({ event, card: this.card() });
   }
 
   onPointerDown(event: PointerEvent): void {
@@ -245,6 +262,7 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
 
   onMouseLeave(): void {
     this.pointerInside = false;
+    this.previewSuppressedUntilPointerExit = false;
     this.hoveredCard = null;
     this.deactivateHover(true);
     this.cardMouseLeft.emit();
@@ -293,35 +311,65 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
   }
 
   private syncHoverInteractions(sourceElement: Element | null = null): void {
+    if (this.motionActive()) {
+      this.clearHoverLiftTimer();
+      return;
+    }
+
     const hoveredCard = this.hoveredCard;
     if (!this.pointerInside || !hoveredCard || !this.hoverInteractionsEnabled()) {
       this.deactivateHover(true);
       return;
     }
 
+    if (this.mode() !== 'battlefield' || this.zone() !== 'battlefield') {
+      this.previewSuppressedUntilPointerExit = false;
+    }
+
+    if (this.previewSuppressedUntilPointerExit) {
+      this.deactivateHover(false);
+      return;
+    }
+
     if (this.activePreviewInstanceId !== hoveredCard.instanceId) {
       this.deactivateHover(true);
       this.activePreviewInstanceId = hoveredCard.instanceId;
-      this.cardMouseEntered.emit({
-        card: hoveredCard,
-        playerId: this.playerId(),
-        zone: this.zone(),
-        sourceRect: previewRectFromElement(sourceElement),
-      });
+      this.activePreviewSourceRect = previewRectFromElement(sourceElement);
+      this.activatePreviewForCurrentCard();
+      this.emitCardPreview(hoveredCard);
+    } else {
+      this.activatePreviewForCurrentCard();
     }
 
     this.clearHoverLiftTimer();
     this.hoverLiftTimer = window.setTimeout(() => {
       if (this.pointerInside && this.hoverInteractionsEnabled() && this.hoveredCard?.instanceId === hoveredCard.instanceId) {
         this.hoverLifted.set(true);
+        if (this.previewActive()) {
+          this.emitCardPreview(hoveredCard);
+        }
       }
       this.hoverLiftTimer = null;
     }, this.hoverLiftDelayMs);
   }
 
+  private syncActiveHoverInstance(): void {
+    const activeInstanceId = this.activeHoverInstanceId();
+    if (activeInstanceId === null || activeInstanceId === this.card().instanceId) {
+      return;
+    }
+
+    this.pointerInside = false;
+    this.hoveredCard = null;
+    this.deactivateHover(false);
+  }
+
   private deactivateHover(emitPreviewHidden: boolean): void {
     this.clearHoverLiftTimer();
     this.hoverLifted.set(false);
+    this.previewActive.set(false);
+    this.activePreviewSourceRect = null;
+    this.stopPreviewBoundsWatcher();
     if (!emitPreviewHidden || this.activePreviewInstanceId === null) {
       this.activePreviewInstanceId = null;
       return;
@@ -329,6 +377,65 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
 
     this.activePreviewInstanceId = null;
     this.cardMouseLeft.emit();
+  }
+
+  private activatePreviewForCurrentCard(): void {
+    const isBattlefieldPreview = this.mode() === 'battlefield' && this.zone() === 'battlefield';
+
+    this.previewActive.set(isBattlefieldPreview);
+    this.startPreviewBoundsWatcher();
+  }
+
+  private emitCardPreview(card: GameCardInstance): void {
+    this.cardMouseEntered.emit({
+      card,
+      playerId: this.playerId(),
+      zone: this.zone(),
+      sourceRect: this.activePreviewSourceRect,
+    });
+  }
+
+  private startPreviewBoundsWatcher(): void {
+    if (this.previewBoundsListening) {
+      return;
+    }
+
+    window.addEventListener('pointermove', this.previewPointerMoveHandler, { passive: true });
+    this.previewBoundsListening = true;
+  }
+
+  private stopPreviewBoundsWatcher(): void {
+    if (!this.previewBoundsListening) {
+      return;
+    }
+
+    window.removeEventListener('pointermove', this.previewPointerMoveHandler);
+    this.previewBoundsListening = false;
+  }
+
+  private syncPreviewPointerBounds(event: PointerEvent): void {
+    const hasActivePreview = this.activePreviewInstanceId !== null;
+    if (!hasActivePreview && !this.previewActive() && !this.previewSuppressedUntilPointerExit) {
+      return;
+    }
+
+    const bounds = this.cardElement()?.getBoundingClientRect();
+    if (!bounds || this.isPointInsideBounds(event.clientX, event.clientY, bounds)) {
+      return;
+    }
+
+    this.pointerInside = false;
+    this.previewSuppressedUntilPointerExit = false;
+    this.hoveredCard = null;
+    this.deactivateHover(hasActivePreview);
+  }
+
+  private cardElement(): HTMLElement | null {
+    return this.host.nativeElement.querySelector<HTMLElement>('.game-card, .mini-battlefield-card');
+  }
+
+  private isPointInsideBounds(clientX: number, clientY: number, bounds: DOMRect): boolean {
+    return clientX >= bounds.left && clientX <= bounds.right && clientY >= bounds.top && clientY <= bounds.bottom;
   }
 
   private clearHoverLiftTimer(): void {

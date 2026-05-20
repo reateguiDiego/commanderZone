@@ -30,6 +30,10 @@ export class GameTableZonePilesState {
     return this.selectors.zonePreviewImage(player, zone);
   }
 
+  zoneStackLayerImage(player: PlayerView, zone: GameZoneName): string | null {
+    return this.selectors.zoneStackLayerImage(player, zone);
+  }
+
   isLibraryTopRevealed(playerId: string): boolean {
     return this.core.snapshot()?.players[playerId]?.playTopLibraryRevealed === true;
   }

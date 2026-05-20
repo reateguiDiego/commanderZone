@@ -150,6 +150,41 @@ describe('GameTableDropActionsService', () => {
     expect(markPendingTransfer).toHaveBeenCalledWith('player-1', fromZone, ['moved']);
   });
 
+  it('preserves the selected hand insertion point when moving a card from another zone to hand', async () => {
+    let snapshot = snapshotWith({
+      hand: [
+        card('hand-1', 'Sol Ring', 'hand'),
+        card('hand-2', 'Arcane Signet', 'hand'),
+      ],
+      graveyard: [card('moved', 'Returned Card', 'graveyard')],
+    });
+    const commands: Array<{ type: GameCommandType; payload: Record<string, unknown> }> = [];
+    const context = dropContext(
+      () => snapshot,
+      async (type, payload) => {
+        commands.push({ type, payload });
+        if (type === 'card.moved') {
+          snapshot = moveCardToHand(snapshot, 'player-1', 'graveyard', payload['instanceId'] as string);
+        }
+      },
+    );
+
+    await service.dropOnHand(context, dragEvent({ playerId: 'player-1', zone: 'graveyard', instanceId: 'moved' }), 'player-1');
+
+    expect(commands[1]).toEqual({
+      type: 'zone.changed',
+      payload: {
+        playerId: 'player-1',
+        zone: 'hand',
+        cards: [
+          expect.objectContaining({ instanceId: 'hand-1' }),
+          expect.objectContaining({ instanceId: 'moved' }),
+          expect.objectContaining({ instanceId: 'hand-2' }),
+        ],
+      },
+    });
+  });
+
   it('draws the top library card when dropping library on the owner hand', async () => {
     const snapshot = snapshotWith({
       library: [card('library-top', 'Hidden Draw', 'library')],
@@ -277,6 +312,33 @@ describe('GameTableDropActionsService', () => {
         instanceIds: ['moved', 'selected-2'],
       },
     });
+  });
+
+  it('marks the source zone pending before committing a direct zone pile drop', async () => {
+    const moved = card('moved', 'Returned Card', 'graveyard');
+    const snapshot = snapshotWith({ graveyard: [moved] });
+    const sequence: string[] = [];
+    const markPendingTransfer = vi.fn(() => sequence.push('pending'));
+    const command = vi.fn(async () => {
+      sequence.push('command');
+    });
+    const context = dropContext(
+      () => snapshot,
+      command,
+      { markPendingTransfer },
+    );
+
+    await service.dropOnZone(context, dragEvent({ playerId: 'player-1', zone: 'graveyard', instanceId: 'moved' }), 'player-1', 'battlefield');
+
+    expect(markPendingTransfer).toHaveBeenCalledWith('player-1', 'graveyard', ['moved']);
+    expect(command).toHaveBeenCalledWith('card.moved', expect.objectContaining({
+      playerId: 'player-1',
+      fromZone: 'graveyard',
+      toZone: 'battlefield',
+      targetPlayerId: 'player-1',
+      instanceId: 'moved',
+    }));
+    expect(sequence).toEqual(['pending', 'command']);
   });
 
   it('confirms a multi-card library move with random order when requested', async () => {

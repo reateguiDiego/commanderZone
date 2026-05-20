@@ -138,6 +138,32 @@
     0 0 1.35rem rgb(215 180 106 / 34%);
 }
 
+.game-card.battlefield-preview-active:not(.dragging) {
+  z-index: 96;
+  overflow: visible;
+}
+
+.game-card.battlefield-preview-active:not(.dragging) .card-visual {
+  border-color: rgb(246 220 151 / 78%);
+  box-shadow:
+    0 1.1rem 1.9rem rgb(0 0 0 / 42%),
+    0 0 0 1px rgb(255 232 166 / 46%),
+    0 0 1.25rem rgb(215 180 106 / 26%),
+    0 0.18rem 0 rgb(255 255 255 / 9%) inset;
+  filter: brightness(1.04) saturate(1.04);
+}
+
+.game-card.battlefield-preview-active:not(.dragging) .card-visual::before {
+  animation: battlefield-preview-sheen 560ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.game-card.battlefield-preview-active:not(.dragging) .card-visual::after {
+  opacity: 1;
+  box-shadow:
+    inset 0 0 0 1px rgb(255 238 184 / 32%),
+    inset 0 0 1.05rem rgb(215 180 106 / 13%);
+}
+
 .mini-battlefield-card.arrow-target-candidate {
   box-shadow:
     0 0 0 1px rgb(215 180 106 / 58%),
@@ -154,7 +180,6 @@
 .game-card.mana-drop-settling,
 .game-card.stat-drop-settling,
 .game-card.commander-entry-settling,
-.hand-card.drop-settling,
 .mini-battlefield-card.drop-settling,
 .mini-battlefield-card.mana-drop-settling,
 .mini-battlefield-card.commander-entry-settling {
@@ -166,22 +191,16 @@
   animation: card-arrival 620ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.hand-card.drop-settling .card-visual {
-  animation: card-arrival 620ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
 .game-card.mana-drop-settling .card-visual {
   animation: card-arrival 680ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .game-card.drop-settling .card-visual::before,
-.hand-card.drop-settling .card-visual::before,
 .game-card.mana-drop-settling .card-visual::before {
   animation: card-arrival-sheen 640ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .game-card.drop-settling .card-visual::after,
-.hand-card.drop-settling .card-visual::after,
 .game-card.mana-drop-settling .card-visual::after {
   animation: card-arrival-rim 640ms cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -238,13 +257,20 @@
 }
 
 .hand-card.alignment-reference .card-visual {
-  border-color: var(--game-accent-strong, rgb(215 180 106 / 58%));
-  outline: 4px solid rgb(215 180 106 / 58%);
-  outline-offset: -4px;
+  border-color: rgb(255 224 156 / 48%);
+  outline: 0;
   box-shadow:
     0 0.9rem 1.5rem rgb(0 0 0 / 34%),
-    0 0 0 2px rgb(215 180 106 / 40%),
-    0 0 1.1rem rgb(215 180 106 / 28%);
+    0 0 1.15rem rgb(255 220 145 / 24%),
+    0 0 2.2rem rgb(215 180 106 / 18%),
+    0 0.18rem 0 rgb(255 255 255 / 8%) inset;
+  filter: brightness(1.035) saturate(1.035);
+}
+
+.hand-card.alignment-reference .card-visual::after {
+  box-shadow:
+    inset 0 0 0 1px rgb(255 230 164 / 24%),
+    inset 0 0 1.25rem rgb(215 180 106 / 18%);
 }
 
 .hand-card {
@@ -267,8 +293,6 @@
     rotate(var(--hand-card-rotation, var(--hand-fan-rotation, 0deg)))
     translateZ(0);
   transform-origin: 50% calc(100% + var(--hand-fan-radius));
-  transition:
-    transform 740ms cubic-bezier(0.18, 1, 0.22, 1);
   will-change: transform;
 }
 
@@ -278,7 +302,6 @@
     translateY(calc(var(--hand-reveal-offset, 0rem) + var(--hand-shift-y, 0px) - var(--hand-pivot-offset)))
     rotate(0deg)
     translateZ(0);
-  transition-duration: 820ms;
 }
 
 .hand-card .card-visual {
@@ -306,45 +329,38 @@
 }
 
 .hand-card.hover-lifted .card-visual {
-  border-color: var(--game-accent-strong, rgb(215 180 106 / 58%));
+  border-color: rgb(246 220 151 / 78%);
   box-shadow:
-    0 1.3rem 1.9rem rgb(0 0 0 / 38%),
-    0 0 0 2px rgb(215 180 106 / 18%),
-    0 0.18rem 0 rgb(255 255 255 / 8%) inset;
-  transform: translateY(-1.35rem) scale(1.08) rotate(var(--hand-fan-counter-rotation, 0deg));
+    0 1.05rem 1.75rem rgb(0 0 0 / 40%),
+    0 0 0 1px rgb(255 232 166 / 42%),
+    0 0 1.15rem rgb(215 180 106 / 24%),
+    0 0.18rem 0 rgb(255 255 255 / 9%) inset;
+  filter: brightness(1.04) saturate(1.04);
+  transform: translateY(-0.72rem) scale(1.045);
 }
 
 .hand-card.hand-row-layout.hover-lifted .card-visual {
-  transform: translateY(-1.35rem) scale(1.08);
+  transform: translateY(-0.72rem) scale(1.045);
 }
 
-.hand-card.hand-settling {
-  z-index: calc(120 + var(--hand-depth, 0));
+.hand-card.hover-lifted .card-visual::before {
+  animation: hand-card-hover-sheen 560ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.hand-card.hand-settling .card-visual {
-  animation: hand-card-settle 460ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.hand-card.hand-arrival-before {
-  animation: hand-arrival-open-left 680ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.hand-card.hand-arrival-after {
-  animation: hand-arrival-open-right 680ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.hand-card.hand-arrival-new {
-  animation: hand-arrival-new-card 2000ms cubic-bezier(0.18, 1, 0.22, 1);
-}
-
-.hand-card.hand-arrival-before .card-visual,
-.hand-card.hand-arrival-after .card-visual,
-.hand-card.hand-arrival-new .card-visual {
+.hand-card.hover-lifted .card-visual::after {
+  opacity: 1;
   box-shadow:
-    0 1rem 1.7rem rgb(0 0 0 / 36%),
-    0 0 0 1px rgb(215 180 106 / 18%),
-    0 0 1.05rem rgb(215 180 106 / 12%);
+    inset 0 0 0 1px rgb(255 238 184 / 30%),
+    inset 0 0 1rem rgb(215 180 106 / 12%);
+}
+
+.hand-card.hand-motion-active {
+  pointer-events: none;
+  transition: none;
+}
+
+.hand-card.hand-motion-active .card-visual {
+  transition: none;
 }
 
 .hand-card.dragging {
@@ -352,23 +368,6 @@
   opacity: 0;
   pointer-events: none;
   transition: opacity 100ms ease;
-}
-
-@keyframes hand-card-settle {
-  0% {
-    filter: brightness(1.08) saturate(1.06);
-    transform: translateY(-0.26rem) scale(1.025);
-  }
-
-  56% {
-    filter: brightness(1.04) saturate(1.03);
-    transform: translateY(-0.1rem) scale(1.012);
-  }
-
-  100% {
-    filter: none;
-    transform: translateY(0) scale(1);
-  }
 }
 
 @keyframes card-arrival {
@@ -457,6 +456,38 @@
   100% {
     filter: none;
     box-shadow: none;
+  }
+}
+
+@keyframes battlefield-preview-sheen {
+  0% {
+    opacity: 0;
+    transform: translateX(-78%) rotate(7deg);
+  }
+
+  28% {
+    opacity: 0.72;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateX(78%) rotate(7deg);
+  }
+}
+
+@keyframes hand-card-hover-sheen {
+  0% {
+    opacity: 0;
+    transform: translateX(-78%) rotate(7deg);
+  }
+
+  30% {
+    opacity: 0.58;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateX(78%) rotate(7deg);
   }
 }
 
@@ -649,20 +680,16 @@
 
 @media (prefers-reduced-motion: reduce) {
   .game-card.drop-settling .card-visual,
-  .hand-card.drop-settling .card-visual,
   .game-card.mana-drop-settling .card-visual,
   .game-card.drop-settling .card-visual::before,
-  .hand-card.drop-settling .card-visual::before,
   .game-card.mana-drop-settling .card-visual::before,
+  .game-card.battlefield-preview-active .card-visual::before,
+  .hand-card.hover-lifted .card-visual::before,
   .game-card.drop-settling .card-visual::after,
-  .hand-card.drop-settling .card-visual::after,
   .game-card.mana-drop-settling .card-visual::after,
   .game-card.stat-drop-settling .power-toughness-overlay span,
   .power-toughness-overlay span.stat-pulse-increase,
   .power-toughness-overlay span.stat-pulse-decrease,
-  .hand-card.hand-arrival-before,
-  .hand-card.hand-arrival-after,
-  .hand-card.hand-arrival-new,
   .mini-battlefield-card.drop-settling,
   .mini-battlefield-card.mana-drop-settling {
     animation: reduced-card-drop-settle 220ms ease-out;

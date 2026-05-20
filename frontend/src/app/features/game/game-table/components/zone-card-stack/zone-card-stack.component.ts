@@ -16,11 +16,12 @@ export class ZoneCardStackComponent {
   private readonly maxVisualCards = 10;
 
   readonly image = input.required<string>();
+  readonly layerImage = input<string | null>(null);
   readonly label = input.required<string>();
   readonly count = input.required<number>();
 
   readonly stackLayers = computed(() => {
-    const visualCardCount = Math.min(this.maxVisualCards, Math.max(0, Math.floor(this.count())));
+    const visualCardCount = this.layerImage() ? Math.min(this.maxVisualCards, Math.max(0, Math.floor(this.count()))) : 1;
     const layerCount = Math.max(0, visualCardCount - 1);
     const maxOffset = 7;
 

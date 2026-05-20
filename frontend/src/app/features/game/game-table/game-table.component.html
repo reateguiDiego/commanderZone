@@ -219,11 +219,11 @@
             [isCommanderEntrySettling]="isCommanderEntrySettling"
             [isCardTransferPending]="isCardTransferPending"
             (battlefieldDragOver)="store.allowDrop($event)"
-            (battlefieldDropped)="store.dropOnZone($event.event, $event.playerId, $event.zone)"
+            (battlefieldDropped)="handleZoneDrop($event)"
             (battlefieldMenuOpened)="store.openZoneMenu($event.event, $event.playerId, $event.zone)"
-            (cardPointerDown)="store.startBattlefieldPointerDrag($event.event, $event.playerId, $event.card)"
+            (cardPointerDown)="startBattlefieldPointerDrag($event.event, $event.playerId, $event.card)"
             (cardClicked)="store.handleBattlefieldCardClick($event.event, $event.playerId, $event.card)"
-            (cardDoubleClicked)="store.toggleTapped($event.playerId, 'battlefield', $event.card)"
+            (cardDoubleClicked)="handleBattlefieldCardDoubleClicked($event)"
             (cardMenuOpened)="store.openCardMenu($event.event, $event.playerId, 'battlefield', $event.card)"
             (cardPreviewShown)="store.showCardPreview($event)"
             (cardPreviewHidden)="store.hideCardPreview()"
@@ -233,7 +233,7 @@
             (cardCounterChanged)="store.changeCardCounterForCard($event.playerId, $event.zone, $event.card, $event.key, $event.delta)"
             (cardCounterDeleteRequested)="store.openCounterDeleteMenu($event.event, $event.playerId, $event.zone, $event.card, $event.key)"
             (manaLaneDragOver)="store.allowDrop($event)"
-            (manaLaneDropped)="store.dropOnManaLane($event.event, $event.playerId)"
+            (manaLaneDropped)="handleManaLaneDrop($event)"
             (battlefieldSizeChanged)="updateBattlefieldLayoutSize($event)"
           />
 
@@ -247,7 +247,6 @@
                 [isDraggingCard]="isDraggingCard"
                 [isHandDropTarget]="isHandDropTarget"
                 [isDropZoneHighlighted]="isDropZoneHighlighted"
-                [isCardDropSettling]="isCardDropSettling"
                 [isCardTransferPending]="isCardTransferPending"
                 [interactionFrozen]="store.contextMenu() !== null"
                 [readOnly]="isHandPlayerReadOnly()"
@@ -255,11 +254,12 @@
                 [hasOpenHandContextMenu]="isHandContextMenuOpenForPlayer(handPlayer.id)"
                 [hasActiveCardDrag]="store.draggingCardInstanceId() !== null || store.pointerDragPreview() !== null"
                 [externalRevealAllowed]="store.handExternalRevealAllowed()"
+                [motionActive]="handMotionActive()"
                 (handDragOver)="store.previewDropOnHand($event.event, $event.playerId)"
-                (handDropped)="store.dropOnHand($event.event, $event.playerId)"
+                (handDropped)="handleHandDropped($event)"
                 (handCardClicked)="store.handleHandCardClick($event.event, $event.playerId, $event.card)"
-                (handCardPointerReordered)="store.reorderHandCard($event.playerId, $event.movedInstanceId, $event.targetInstanceId, $event.placement)"
-                (handCardPointerMoved)="store.moveHandCardByPointer($event.playerId, $event.targetPlayerId, $event.movedInstanceId, $event.toZone, $event.position, $event.rawZone)"
+                (handCardPointerReordered)="handleHandCardPointerReordered($event)"
+                (handCardPointerMoved)="handleHandCardPointerMoved($event)"
                 (handPointerDropTargetChanged)="store.updatePointerDropTarget($event)"
                 (cardMenuOpened)="store.openCardMenu($event.event, $event.playerId, 'hand', $event.card)"
                 (cardPreviewShown)="store.showCardPreview($event)"
@@ -279,6 +279,7 @@
           [zoneTitle]="zoneTitle"
           [zonePreviewCard]="zonePreviewCard"
           [zonePreviewImage]="zonePreviewImage"
+          [zoneStackLayerImage]="zoneStackLayerImage"
           [commanderCastCount]="commanderCastCount"
           [isZoneDropSettling]="isZoneDropSettling"
           [isZoneTransferPending]="isZoneTransferPending"
@@ -286,7 +287,7 @@
           (zoneDragStart)="store.dragTopZoneCard($event.event, $event.player, $event.zone)"
           (zoneDragEnd)="store.dragEnd()"
           (zoneDragOver)="store.allowDrop($event)"
-          (zoneDropped)="store.dropOnZone($event.event, $event.playerId, $event.zone)"
+          (zoneDropped)="handleZoneDrop($event)"
           (zoneOpened)="store.openZone($event.playerId, $event.zone)"
           (zoneDoubleClicked)="onZoneDoubleClick($event.playerId, $event.zone)"
           (zoneMenuOpened)="store.openZoneMenu($event.event, $event.playerId, $event.zone)"
@@ -320,7 +321,7 @@
               [battlefieldSize]="battlefieldLayoutSize()"
               (focusPlayer)="focusOpponentFromSidebar($event)"
               (dropAllowed)="store.allowDrop($event)"
-              (playerDropped)="store.dropOnPlayer($event.event, $event.playerId)"
+              (playerDropped)="handlePlayerDrop($event)"
               (playerMenuOpened)="store.openPlayerMenu($event.event, $event.playerId)"
               (cardPreviewShown)="store.showCardPreview($event)"
               (cardPreviewHidden)="store.hideCardPreview()"
@@ -528,25 +529,29 @@
           [style.top.px]="preview.y"
           [style.width.px]="preview.width"
           [style.height.px]="preview.height"
+          [style.--cz-drag-preview-width]="preview.width + 'px'"
+          [style.--cz-drag-preview-height]="preview.height + 'px'"
           aria-hidden="true"
         >
-          @if (store.cardImage(preview.card); as image) {
-            <img [src]="image" [alt]="preview.card.name" />
-          } @else {
-            <span>{{ preview.card.name }}</span>
-          }
-          <app-card-marker-rail [showTokenCopyMarker]="preview.card.isTokenCopy === true" [counters]="cardCounters(preview.card)" />
-          @if (preview.count > 1) {
-            <span class="drag-count-badge" aria-hidden="true">{{ preview.count }}</span>
-          }
-          @if (!preview.card.faceDown && shouldShowPowerToughness(preview.card)) {
-            <span class="power-toughness-overlay" aria-hidden="true">
-              <span>{{ cardPowerValue(preview.card) }}</span>
-              <span>{{ cardToughnessValue(preview.card) }}</span>
-            </span>
-          } @else if (!preview.card.faceDown && preview.card.loyalty !== null && preview.card.loyalty !== undefined) {
-            <app-loyalty-counter [value]="preview.card.loyalty" [pulse]="null" [entrySettling]="false" />
-          }
+          <div class="drag-card-preview-content">
+            @if (store.cardImage(preview.card); as image) {
+              <img [src]="image" [alt]="preview.card.name" />
+            } @else {
+              <span>{{ preview.card.name }}</span>
+            }
+            <app-card-marker-rail [showTokenCopyMarker]="preview.card.isTokenCopy === true" [counters]="cardCounters(preview.card)" />
+            @if (preview.count > 1) {
+              <span class="drag-count-badge" aria-hidden="true">{{ preview.count }}</span>
+            }
+            @if (!preview.card.faceDown && shouldShowPowerToughness(preview.card)) {
+              <span class="power-toughness-overlay" aria-hidden="true">
+                <span>{{ cardPowerValue(preview.card) }}</span>
+                <span>{{ cardToughnessValue(preview.card) }}</span>
+              </span>
+            } @else if (!preview.card.faceDown && preview.card.loyalty !== null && preview.card.loyalty !== undefined) {
+              <app-loyalty-counter [value]="preview.card.loyalty" [pulse]="null" [entrySettling]="false" />
+            }
+          </div>
         </div>
       }
 

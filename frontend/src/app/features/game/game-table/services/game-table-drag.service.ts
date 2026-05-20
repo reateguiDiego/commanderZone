@@ -11,8 +11,12 @@ interface PointerCardDrag {
   clientY: number;
   grabOffsetX: number;
   grabOffsetY: number;
-  cardWidth: number;
-  cardHeight: number;
+  visualWidth: number;
+  visualHeight: number;
+  logicalWidth: number;
+  logicalHeight: number;
+  visualOffsetFromLogicalX: number;
+  visualOffsetFromLogicalY: number;
   moved: boolean;
   position: { x: number; y: number };
 }
@@ -66,8 +70,8 @@ export class GameTableDragService {
     return {
       x: Math.round(drag.clientX - drag.grabOffsetX),
       y: Math.round(drag.clientY - drag.grabOffsetY),
-      width: drag.cardWidth,
-      height: drag.cardHeight,
+      width: drag.visualWidth,
+      height: drag.visualHeight,
     };
   }
 
@@ -92,14 +96,32 @@ export class GameTableDragService {
     target.setPointerCapture?.(event.pointerId);
 
     const cardBounds = target.getBoundingClientRect();
-    const cardWidth = visualBounds.width || target.offsetWidth || cardBounds.width;
-    const cardHeight = visualBounds.height || target.offsetHeight || cardBounds.height;
+    const visualWidth = visualBounds.width;
+    const visualHeight = visualBounds.height;
+    const logicalWidth = target.offsetWidth || cardBounds.width;
+    const logicalHeight = target.offsetHeight || cardBounds.height;
     const fieldBounds = battlefield.getBoundingClientRect();
     const current = {
-      x: target.offsetLeft || Math.max(0, Math.round(cardBounds.left - fieldBounds.left)),
-      y: target.offsetTop || Math.max(0, Math.round(cardBounds.top - fieldBounds.top)),
+      x: target.offsetLeft,
+      y: target.offsetTop,
     };
-    const grabOffset = this.pointerOffsetWithinBounds(event.clientX, event.clientY, visualBounds, cardWidth, cardHeight);
+    const measuredVisualOffsetFromLogicalX = visualBounds.left - cardBounds.left;
+    const measuredVisualOffsetFromLogicalY = visualBounds.top - cardBounds.top;
+    const visualOffsetFromLogicalX = this.visualOffsetFromLogical(
+      measuredVisualOffsetFromLogicalX,
+      visualBounds.left,
+      fieldBounds.left + current.x,
+      visualWidth,
+      logicalWidth,
+    );
+    const visualOffsetFromLogicalY = this.visualOffsetFromLogical(
+      measuredVisualOffsetFromLogicalY,
+      visualBounds.top,
+      fieldBounds.top + current.y,
+      visualHeight,
+      logicalHeight,
+    );
+    const grabOffset = this.pointerOffsetWithinBounds(event.clientX, event.clientY, visualBounds, visualWidth, visualHeight);
     this.pointerCardDrag = {
       playerId,
       instanceId: card.instanceId,
@@ -110,8 +132,12 @@ export class GameTableDragService {
       clientY: event.clientY,
       grabOffsetX: grabOffset.x,
       grabOffsetY: grabOffset.y,
-      cardWidth,
-      cardHeight,
+      visualWidth,
+      visualHeight,
+      logicalWidth,
+      logicalHeight,
+      visualOffsetFromLogicalX,
+      visualOffsetFromLogicalY,
       moved: false,
       position: current,
     };
@@ -126,14 +152,18 @@ export class GameTableDragService {
     if (!this.pointerCardDrag) {
       return null;
     }
-    const position = this.pointerDragPosition(
+    const position = this.pointerDragPositionFromVisualGeometry(
       this.pointerCardDrag.battlefield,
       event.clientX,
       event.clientY,
       this.pointerCardDrag.grabOffsetX,
       this.pointerCardDrag.grabOffsetY,
-      this.pointerCardDrag.cardWidth,
-      this.pointerCardDrag.cardHeight,
+      this.pointerCardDrag.visualWidth,
+      this.pointerCardDrag.visualHeight,
+      this.pointerCardDrag.logicalWidth,
+      this.pointerCardDrag.logicalHeight,
+      this.pointerCardDrag.visualOffsetFromLogicalX,
+      this.pointerCardDrag.visualOffsetFromLogicalY,
     );
     const distance = Math.hypot(event.clientX - this.pointerCardDrag.startClientX, event.clientY - this.pointerCardDrag.startClientY);
     if (distance < 4 && !this.pointerCardDrag.moved) {
@@ -220,7 +250,7 @@ export class GameTableDragService {
     event.dataTransfer?.setData('text/plain', card.instanceId);
     if (event.dataTransfer) {
       event.dataTransfer.effectAllowed = 'move';
-      this.setCardDragImage(event, card);
+      this.setCardDragImage(event);
     }
   }
 
@@ -364,6 +394,80 @@ export class GameTableDragService {
     );
   }
 
+  private pointerDragPositionFromVisualGeometry(
+    battlefield: HTMLElement,
+    clientX: number,
+    clientY: number,
+    grabOffsetX: number,
+    grabOffsetY: number,
+    visualWidth: number,
+    visualHeight: number,
+    logicalWidth: number,
+    logicalHeight: number,
+    visualOffsetFromLogicalX: number,
+    visualOffsetFromLogicalY: number,
+  ): { x: number; y: number } {
+    if (this.hasSameGeometry(visualWidth, visualHeight, logicalWidth, logicalHeight, visualOffsetFromLogicalX, visualOffsetFromLogicalY)) {
+      return this.pointerDragPosition(battlefield, clientX, clientY, grabOffsetX, grabOffsetY, logicalWidth, logicalHeight);
+    }
+
+    const bounds = battlefield.getBoundingClientRect();
+    let visualLeftViewport = clientX - grabOffsetX;
+    let visualTopViewport = clientY - grabOffsetY;
+    let visualBottomLimit = bounds.bottom;
+
+    if (this.isInsideBounds(clientX, clientY, bounds)) {
+      const manaLane = this.manaLaneForCardTop(battlefield, clientX, clientY, grabOffsetX, grabOffsetY, visualWidth);
+      const manaLaneBounds = manaLane?.getBoundingClientRect();
+      if (manaLaneBounds) {
+        visualTopViewport = manaLaneBounds.top + 8;
+        visualBottomLimit = manaLaneBounds.bottom - 8;
+      }
+    }
+
+    const clampedVisualLeft = this.clampViewportPosition(visualLeftViewport, bounds.left, bounds.right - visualWidth);
+    const clampedVisualTop = this.clampViewportPosition(visualTopViewport, bounds.top, visualBottomLimit - visualHeight);
+    const logicalLeftViewport = clampedVisualLeft - visualOffsetFromLogicalX;
+    const logicalTopViewport = clampedVisualTop - visualOffsetFromLogicalY;
+
+    return {
+      x: Math.round(logicalLeftViewport - bounds.left),
+      y: Math.round(logicalTopViewport - bounds.top),
+    };
+  }
+
+  private visualOffsetFromLogical(
+    measuredOffset: number,
+    visualStart: number,
+    logicalStart: number,
+    visualSize: number,
+    logicalSize: number,
+  ): number {
+    if (visualSize !== logicalSize) {
+      return visualStart - logicalStart;
+    }
+
+    return measuredOffset;
+  }
+
+  private hasSameGeometry(
+    visualWidth: number,
+    visualHeight: number,
+    logicalWidth: number,
+    logicalHeight: number,
+    visualOffsetFromLogicalX: number,
+    visualOffsetFromLogicalY: number,
+  ): boolean {
+    return visualOffsetFromLogicalX === 0
+      && visualOffsetFromLogicalY === 0
+      && visualWidth === logicalWidth
+      && visualHeight === logicalHeight;
+  }
+
+  private clampViewportPosition(value: number, min: number, max: number): number {
+    return Math.max(min, Math.min(Math.max(min, max), value));
+  }
+
   private isInsideBounds(clientX: number, clientY: number, bounds: DOMRect): boolean {
     return clientX >= bounds.left && clientX <= bounds.right && clientY >= bounds.top && clientY <= bounds.bottom;
   }
@@ -391,7 +495,15 @@ export class GameTableDragService {
     };
   }
 
-  private setCardDragImage(event: DragEvent, card: GameCardInstance): void {
+  private setCardDragImage(event: DragEvent): void {
+    try {
+      this.trySetCardDragImage(event);
+    } catch {
+      this.dragImageGeometry = null;
+    }
+  }
+
+  private trySetCardDragImage(event: DragEvent): void {
     const target = event.target instanceof Element
       ? event.target.closest<HTMLElement>('.game-card, .hand-card, .zone-stack, .zone-art img, .zone-art .card-back, .zone-art')
       : null;
@@ -402,17 +514,23 @@ export class GameTableDragService {
       return;
     }
 
+    let preview: { element: HTMLElement; width: number; height: number } | null = null;
     const bounds = source.getBoundingClientRect();
-    const preview = this.createNativeCardDragPreview(source, card);
-    const offset = this.pointerOffsetForDragPreview(event.clientX, event.clientY, bounds, preview.width, preview.height);
-    this.dragImageGeometry = {
-      width: preview.width,
-      height: preview.height,
-      offsetX: offset.x,
-      offsetY: offset.y,
-    };
-    event.dataTransfer.setDragImage(preview.element, this.dragImageGeometry.offsetX, this.dragImageGeometry.offsetY);
-    window.setTimeout(() => preview.element.remove(), 0);
+    try {
+      preview = this.createNativeCardDragPreview(source);
+      const offset = this.pointerOffsetForDragPreview(event.clientX, event.clientY, bounds);
+      this.dragImageGeometry = {
+        width: preview.width,
+        height: preview.height,
+        offsetX: offset.x,
+        offsetY: offset.y,
+      };
+      event.dataTransfer.setDragImage(preview.element, this.dragImageGeometry.offsetX, this.dragImageGeometry.offsetY);
+      window.setTimeout(() => preview?.element.remove(), 0);
+    } catch (error) {
+      preview?.element.remove();
+      throw error;
+    }
   }
 
   private dragImageSource(zoneArt: HTMLElement | null): HTMLElement | null {
@@ -423,129 +541,85 @@ export class GameTableDragService {
       ?? null;
   }
 
-  private createNativeCardDragPreview(source: HTMLElement, card: GameCardInstance): { element: HTMLElement; width: number; height: number } {
-    const sourceBounds = source.getBoundingClientRect();
-    const width = Math.max(1, Math.round(sourceBounds.width || source.offsetWidth || 100));
-    const height = Math.max(1, Math.round(sourceBounds.height || source.offsetHeight || Math.round(width / 0.716)));
+  private createNativeCardDragPreview(source: HTMLElement): { element: HTMLElement; width: number; height: number } {
+    const sourceRect = source.getBoundingClientRect();
+    const width = Math.max(1, sourceRect.width);
+    const height = Math.max(1, sourceRect.height);
     const preview = document.createElement('div');
     preview.setAttribute('aria-hidden', 'true');
     preview.style.position = 'fixed';
     preview.style.left = '-10000px';
     preview.style.top = '-10000px';
-    preview.style.zIndex = '4000';
-    preview.style.display = 'grid';
+    preview.style.zIndex = '5000';
     preview.style.width = `${width}px`;
     preview.style.height = `${height}px`;
-    preview.style.placeItems = 'center';
     preview.style.overflow = 'visible';
-    preview.style.padding = '0';
-    preview.style.border = '1px solid var(--game-accent-line, rgb(215 180 106 / 38%))';
-    preview.style.borderRadius = '9px';
-    preview.style.background = 'linear-gradient(145deg, var(--surface-3, #2b3026), var(--surface, #181b16))';
-    preview.style.boxShadow = '0 1.2rem 2rem rgb(0 0 0 / 42%), 0 0 0 2px rgb(215 180 106 / 22%)';
-    preview.style.color = 'var(--game-text, #f3f0e8)';
-    preview.style.fontSize = '0.72rem';
-    preview.style.fontWeight = '900';
-    preview.style.lineHeight = '1.15';
+    preview.style.boxShadow = [
+      '0 20px 46px rgb(0 0 0 / 50%)',
+      '0 0 0 1px rgb(255 255 255 / 10%)',
+    ].join(', ');
+    preview.style.filter = 'brightness(1.03) saturate(1.03)';
+    preview.style.opacity = '1';
     preview.style.pointerEvents = 'none';
-    preview.style.textAlign = 'center';
-
-    const imageSource = source instanceof HTMLImageElement ? source.currentSrc || source.src : '';
-    if (imageSource) {
-      const image = document.createElement('img');
-      image.src = imageSource;
-      image.alt = card.name;
-      image.draggable = false;
-      image.style.width = '100%';
-      image.style.height = '100%';
-      image.style.borderRadius = 'inherit';
-      image.style.clipPath = 'inset(1px round 8px)';
-      image.style.objectFit = 'cover';
-      image.style.pointerEvents = 'none';
-      image.style.userSelect = 'none';
-      preview.appendChild(image);
-    } else {
-      const label = document.createElement('span');
-      label.textContent = card.hidden ? 'Hidden card' : card.name;
-      preview.appendChild(label);
-    }
-
-    this.appendNativeLoyaltyCounter(preview, card, width);
+    preview.style.transform = 'none';
+    preview.style.transformOrigin = '50% 50%';
+    preview.appendChild(this.createNativeCardDragPreviewContent(source));
     document.body.appendChild(preview);
 
     return { element: preview, width, height };
   }
 
-  private appendNativeLoyaltyCounter(preview: HTMLElement, card: GameCardInstance, cardWidth: number): void {
-    if (card.loyalty === null || card.loyalty === undefined) {
-      return;
+  private createNativeCardDragPreviewContent(source: HTMLElement): HTMLElement {
+    const sourceRect = source.getBoundingClientRect();
+    const sourceStyle = window.getComputedStyle(source);
+    const layoutWidth = Math.max(1, Math.round(source.offsetWidth || sourceRect.width));
+    const layoutHeight = Math.max(1, Math.round(source.offsetHeight || sourceRect.height));
+    const positioner = document.createElement('div');
+    positioner.style.position = 'absolute';
+    positioner.style.left = '50%';
+    positioner.style.top = '50%';
+    positioner.style.width = `${layoutWidth}px`;
+    positioner.style.height = `${layoutHeight}px`;
+    positioner.style.overflow = 'visible';
+    positioner.style.pointerEvents = 'none';
+    positioner.style.transform = 'translate(-50%, -50%)';
+    positioner.style.transformOrigin = '50% 50%';
+
+    const clone = source.cloneNode(true) as HTMLElement;
+    clone.setAttribute('aria-hidden', 'true');
+    clone.removeAttribute('id');
+    clone.style.position = 'relative';
+    clone.style.left = '0';
+    clone.style.top = '0';
+    clone.style.width = '100%';
+    clone.style.height = '100%';
+    clone.style.margin = '0';
+    clone.style.pointerEvents = 'none';
+    clone.style.transform = sourceStyle.transform === 'none' ? 'none' : sourceStyle.transform;
+    clone.style.transformOrigin = sourceStyle.transformOrigin;
+
+    for (const image of Array.from(clone.querySelectorAll('img'))) {
+      image.draggable = false;
+      image.style.pointerEvents = 'none';
+      image.style.userSelect = 'none';
     }
 
-    const counterWidth = Math.max(25, Math.round(cardWidth * 0.325));
-    const counterHeight = Math.max(25, Math.round(cardWidth * 0.32));
-    const counter = document.createElement('span');
-    counter.style.position = 'absolute';
-    counter.style.right = '-5px';
-    counter.style.bottom = '-2px';
-    counter.style.zIndex = '6';
-    counter.style.display = 'block';
-    counter.style.width = `${counterWidth}px`;
-    counter.style.height = `${counterHeight}px`;
-    counter.style.filter = 'drop-shadow(0 2px 3px rgb(0 0 0 / 86%)) drop-shadow(0 0 1px rgb(255 255 255 / 24%))';
-    counter.style.pointerEvents = 'none';
+    positioner.appendChild(clone);
 
-    const shape = document.createElement('img');
-    shape.src = '/assets/icons/gameplay/loyalty.svg';
-    shape.alt = '';
-    shape.draggable = false;
-    shape.style.position = 'absolute';
-    shape.style.inset = '0';
-    shape.style.width = '100%';
-    shape.style.height = '100%';
-    shape.style.pointerEvents = 'none';
-    shape.style.userSelect = 'none';
-    counter.appendChild(shape);
-
-    const value = document.createElement('span');
-    value.textContent = `${card.loyalty}`;
-    value.style.position = 'absolute';
-    value.style.top = '54%';
-    value.style.left = '50%';
-    value.style.display = 'grid';
-    value.style.width = `${Math.round(counterWidth * 0.6)}px`;
-    value.style.height = `${Math.round(counterHeight * 0.43)}px`;
-    value.style.placeItems = 'center';
-    value.style.transform = 'translate(-50%, -50%)';
-    value.style.color = '#fff';
-    value.style.fontFamily = 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-    value.style.fontFeatureSettings = '"lnum" 1, "tnum" 1';
-    value.style.fontSize = `${Math.max(10, Math.round(counterHeight * 0.35))}px`;
-    value.style.fontVariantNumeric = 'lining-nums tabular-nums';
-    value.style.fontWeight = '900';
-    value.style.letterSpacing = '0';
-    value.style.lineHeight = '1';
-    value.style.textAlign = 'center';
-    value.style.textShadow = '0 1px 0 rgb(0 0 0 / 95%), 0 0 3px rgb(255 255 255 / 24%)';
-    counter.appendChild(value);
-
-    preview.appendChild(counter);
+    return positioner;
   }
 
   private pointerOffsetForDragPreview(
     clientX: number,
     clientY: number,
     sourceBounds: DOMRect,
-    previewWidth: number,
-    previewHeight: number,
   ): { x: number; y: number } {
-    const fallback = { x: previewWidth / 2, y: previewHeight / 2 };
+    const fallback = { x: sourceBounds.width / 2, y: sourceBounds.height / 2 };
     if (
       !Number.isFinite(clientX)
       || !Number.isFinite(clientY)
       || sourceBounds.width <= 0
       || sourceBounds.height <= 0
-      || previewWidth <= 0
-      || previewHeight <= 0
     ) {
       return fallback;
     }
@@ -557,8 +631,8 @@ export class GameTableDragService {
     }
 
     return {
-      x: sourceX / sourceBounds.width * previewWidth,
-      y: sourceY / sourceBounds.height * previewHeight,
+      x: sourceX,
+      y: sourceY,
     };
   }
 

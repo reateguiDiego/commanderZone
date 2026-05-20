@@ -1,7 +1,12 @@
 @let currentPlayer = player();
 
-<footer class="zone-dock game-table-zones" data-testid="zone-piles">
+<footer
+  class="zone-dock game-table-zones"
+  data-testid="zone-piles"
+  [attr.data-motion-zone]="currentPlayer.id + ':zones'"
+>
   @for (zone of zones(); track zone) {
+    @let topZoneCard = topDraggableCard()(currentPlayer, zone);
     <button
       type="button"
       class="zone-stack visual-zone"
@@ -10,14 +15,16 @@
       [attr.data-player-id]="currentPlayer.id"
       [attr.data-zone]="zone"
       [attr.data-game-drop-zone]="zone"
-      [attr.draggable]="topDraggableCard()(currentPlayer, zone) ? 'true' : null"
-      [class.draggable-zone]="topDraggableCard()(currentPlayer, zone)"
+      [attr.data-motion-zone]="currentPlayer.id + ':' + zone"
+      [attr.data-motion-origin-card-id]="topZoneCard?.instanceId ?? null"
+      [attr.draggable]="topZoneCard ? 'true' : null"
+      [class.draggable-zone]="topZoneCard"
       [class.drop-target-active]="isDropZoneHighlighted()(currentPlayer.id, zone)"
       [class.drop-settling]="isZoneDropSettling()(currentPlayer.id, zone)"
       [class.transfer-pending]="isZoneTransferPending()(currentPlayer.id, zone)"
-      [class.dragging-zone-card]="topDraggableCard()(currentPlayer, zone)?.instanceId === currentDraggingCardInstanceId()"
-      (dragstart)="zoneDragStart.emit({ event: $event, player: currentPlayer, zone })"
-      (dragend)="zoneDragEnd.emit()"
+      [class.dragging-zone-card]="isDraggingZone(zone, topZoneCard)"
+      (dragstart)="startZoneDrag($event, currentPlayer, zone, topZoneCard)"
+      (dragend)="clearZoneDrag($event); zoneDragEnd.emit()"
       (dragover)="zoneDragOver.emit($event)"
       (drop)="zoneDropped.emit({ event: $event, playerId: currentPlayer.id, zone })"
       (click)="openZone(zone)"
@@ -50,8 +57,10 @@
         >
           @if (image) {
             @if (zone !== 'command') {
+              @let layerImage = zoneStackLayerImage()(currentPlayer, zone);
               <app-zone-card-stack
                 [image]="image"
+                [layerImage]="layerImage"
                 [label]="zoneTitle()(zone)"
                 [count]="zoneCount()(currentPlayer, zone)"
               />

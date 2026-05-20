@@ -1,4 +1,4 @@
-import { AfterViewChecked, ChangeDetectionStrategy, Component, ElementRef, HostListener, OnDestroy, QueryList, ViewChild, ViewChildren, computed, effect, inject, signal } from '@angular/core';
+import { AfterViewChecked, AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, HostListener, OnDestroy, QueryList, ViewChild, ViewChildren, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { LucideAngularModule } from 'lucide-angular';
@@ -24,6 +24,7 @@ import { GameTableSelectionService } from './services/game-table-selection.servi
 import { GameTableSessionService } from './services/game-table-session.service';
 import { GameTableTurnActionsService } from './services/game-table-turn-actions.service';
 import { GameTableZoneActionsService } from './services/game-table-zone-actions.service';
+import { GameTableMotionService } from './services/game-table-motion.service';
 import { GameTableChatLogState } from './state/chat/game-table-chat-log.state';
 import { GameTableChatStore } from './state/chat/game-table-chat.store';
 import { GameTableCommandStore } from './state/core/game-table-command.store';
@@ -157,6 +158,72 @@ interface BattlefieldLayoutRect extends BattlefieldLayoutSize {
   readonly bottom: number;
 }
 
+interface BattlefieldCardDoubleClickEvent {
+  readonly event: MouseEvent;
+  readonly playerId: string;
+  readonly card: GameCardInstance;
+}
+
+interface HandCardPointerMovedEvent {
+  readonly playerId: string;
+  readonly targetPlayerId: string;
+  readonly movedInstanceId: string;
+  readonly toZone: GameZoneName;
+  readonly rawZone?: string;
+  readonly position?: { x: number; y: number };
+}
+
+interface HandDroppedEvent {
+  readonly event: DragEvent;
+  readonly playerId: string;
+}
+
+interface HandCardPointerReorderedEvent {
+  readonly playerId: string;
+  readonly movedInstanceId: string;
+  readonly targetInstanceId: string;
+  readonly placement: 'before' | 'after';
+}
+
+interface ZoneDropEvent {
+  readonly event: DragEvent;
+  readonly playerId: string;
+  readonly zone: GameZoneName;
+}
+
+interface ManaLaneDropEvent {
+  readonly event: DragEvent;
+  readonly playerId: string;
+}
+
+interface PlayerDropEvent {
+  readonly event: DragEvent;
+  readonly playerId: string;
+}
+
+type DropZoneTarget = GameZoneName | 'mana';
+
+interface HandDragPayload {
+  readonly playerId: string;
+  readonly zone: GameZoneName;
+  readonly instanceId: string;
+  readonly instanceIds?: readonly string[];
+}
+
+interface HandGhostOptions {
+  readonly sourceElement?: HTMLElement | null;
+  readonly sourceInstanceId?: string | null;
+  readonly sourceRect?: MotionSourceRect | null;
+  readonly targetPlayerId?: string | null;
+}
+
+interface MotionSourceRect {
+  readonly left: number;
+  readonly top: number;
+  readonly width: number;
+  readonly height: number;
+}
+
 @Component({
   selector: 'app-game-table',
   imports: [
@@ -221,6 +288,7 @@ interface BattlefieldLayoutRect extends BattlefieldLayoutSize {
     GameTableLibraryActionsService,
     GameTableTurnActionsService,
     GameTableZoneActionsService,
+    GameTableMotionService,
     GameTableSnapshotSelectors,
     GameTableUiState,
     GameTableBattlefieldDragState,
@@ -233,12 +301,14 @@ interface BattlefieldLayoutRect extends BattlefieldLayoutSize {
   styleUrl: './game-table.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class GameTableComponent implements AfterViewChecked, OnDestroy {
+export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDestroy {
   readonly store = inject(GameTableStore);
   private readonly gamesApi = inject(GamesApi);
   private readonly router = inject(Router);
+  private readonly motion = inject(GameTableMotionService);
+  private readonly changeDetectorRef = inject(ChangeDetectorRef);
+  readonly handMotionActive = this.motion.handMotionActive;
   readonly counterPresets = ['-1/-1', '+1/+1', 'red', 'green', 'blue', 'black', 'yellow'];
-  readonly moveZones: GameZoneName[] = ['battlefield', 'graveyard', 'exile', 'hand', 'command', 'library'];
   readonly colorAccent = (player: PlayerView | null): string => this.store.colorAccent(player);
   readonly topDraggableCard = (player: PlayerView, zone: GameZoneName): GameCardInstance | null => this.store.topDraggableCard(player, zone);
   readonly zoneCount = (player: PlayerView, zone: GameZoneName): number => this.store.zoneCount(player, zone);
@@ -248,6 +318,7 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
   readonly zoneTitle = (zone: GameZoneName): string => this.store.zoneTitle(zone);
   readonly zonePreviewCard = (player: PlayerView, zone: GameZoneName): GameCardInstance | null => this.store.zonePreviewCard(player, zone);
   readonly zonePreviewImage = (player: PlayerView, zone: GameZoneName): string | null => this.store.zonePreviewImage(player, zone);
+  readonly zoneStackLayerImage = (player: PlayerView, zone: GameZoneName): string | null => this.store.zoneStackLayerImage(player, zone);
   readonly commanderCastCount = (player: PlayerView): number => this.store.commanderCastCount(player);
   readonly playerCounterValue = (player: PlayerView, key: string): number => this.store.playerCounterValue(player.id, key);
   readonly deckLabel = (player: PlayerView | null): string => this.store.deckLabel(player);
@@ -275,6 +346,7 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
   readonly countItems = (count: number): number[] => this.store.countItems(count);
   readonly isSelected = (instanceId: string): boolean => this.store.isSelected(instanceId);
   readonly isDraggingCard = (card: GameCardInstance): boolean => this.store.isDraggingCard(card);
+  readonly moveZones: GameZoneName[] = ['battlefield', 'graveyard', 'exile', 'hand', 'command', 'library'];
   readonly isHandDropTarget = (playerId: string, card: GameCardInstance, placement: 'before' | 'after'): boolean =>
     this.store.isHandDropTarget(playerId, card, placement);
   readonly isCardDropSettling = (playerId: string, zone: GameZoneName, card: GameCardInstance): boolean =>
@@ -436,6 +508,7 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
   private lastFocusedTurnPlayerId: string | null = null;
   private lastObservedChatKey: string | null = null;
   private lastObservedLogKey: string | null = null;
+  private readonly battlefieldDragStartRects = new Map<string, MotionSourceRect>();
 
   @ViewChild('gameScreen', { static: true }) private readonly gameScreen?: ElementRef<HTMLElement>;
   @ViewChild(GameLogPanelComponent) private readonly gameLogPanel?: GameLogPanelComponent;
@@ -513,6 +586,12 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
     });
   }
 
+  ngAfterViewInit(): void {
+    if (this.gameScreen) {
+      this.motion.init(this.gameScreen);
+    }
+  }
+
   ngAfterViewChecked(): void {
     const snapshot = this.store.snapshot();
     if (!snapshot) {
@@ -536,6 +615,7 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.motion.destroy();
     this.clearQueuedFloatingContentScroll();
     this.clearQueuedBattlefieldReflow();
     this.clearRematchToastTimer();
@@ -627,7 +707,7 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
       case 'd':
         if (current) {
           event.preventDefault();
-          void this.store.draw(current.id);
+          void this.drawToHand(current.id);
         }
         break;
       case 's':
@@ -689,15 +769,48 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
     this.store.moveCardPointerDrag(event);
   }
 
+  startBattlefieldPointerDrag(event: PointerEvent, playerId: string, card: GameCardInstance): void {
+    const source = event.currentTarget instanceof HTMLElement ? event.currentTarget : null;
+    if (source) {
+      this.battlefieldDragStartRects.set(card.instanceId, this.motionRect(source.getBoundingClientRect()));
+    }
+
+    this.store.startBattlefieldPointerDrag(event, playerId, card);
+  }
+
   @HostListener('window:pointerup', ['$event'])
   handlePointerUp(event: PointerEvent): void {
     this.store.endFloatingDrag();
+
+    if (this.store.pointerDragPreview()) {
+      const handDropTargetPlayerId = this.pointerHandDropTargetPlayerId(event);
+      const draggingInstanceId = this.store.draggingCardInstanceId();
+      if (handDropTargetPlayerId) {
+        this.animateGhostToHand({
+          sourceElement: this.dragPreviewElement(),
+          sourceInstanceId: draggingInstanceId,
+          sourceRect: draggingInstanceId ? this.battlefieldDragStartRects.get(draggingInstanceId) ?? null : null,
+          targetPlayerId: handDropTargetPlayerId,
+        });
+        this.clearBattlefieldDragStartRect(draggingInstanceId);
+        void this.animateHandLayoutAfterAction(
+          () => this.store.endCardPointerDrag(event),
+        );
+        return;
+      }
+
+      this.clearBattlefieldDragStartRect(draggingInstanceId);
+      void this.store.endCardPointerDrag(event);
+      return;
+    }
+
     void this.store.endCardPointerDrag(event);
   }
 
   @HostListener('window:pointercancel', ['$event'])
   handlePointerCancel(event: PointerEvent): void {
     this.store.endFloatingDrag();
+    this.clearBattlefieldDragStartRect(this.store.draggingCardInstanceId());
     void this.store.cancelCardPointerDrag(event);
   }
 
@@ -709,6 +822,316 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
     const menu = this.store.contextMenu();
 
     return menu?.playerId === playerId && menu.zone === 'hand';
+  }
+
+  private async drawToHand(playerId: string, count = 1): Promise<void> {
+    await this.animateHandLayoutAfterAction(() => this.store.draw(playerId, count));
+  }
+
+  private async moveTopFromLibrary(request: MoveTopNumberActionRequest, count: number): Promise<void> {
+    const movesToHand = request.toZone === 'hand';
+
+    const action = () => this.store.moveTop(request.playerId, request.toZone, count, {
+      targetPlayerId: request.targetPlayerId,
+      position: request.position,
+    });
+
+    if (!movesToHand) {
+      await action();
+      return;
+    }
+
+    await this.animateHandLayoutAfterAction(action);
+  }
+
+  private async moveCardFromMenu(menu: GameContextMenu, toZone: GameZoneName, options: { position?: 'top' | 'bottom' } = {}): Promise<void> {
+    if (toZone !== 'hand' || menu.zone === 'hand' || !menu.card) {
+      await this.store.moveCard(menu, toZone, options);
+      return;
+    }
+
+    this.animateGhostToHand({
+      sourceInstanceId: menu.card.instanceId,
+      targetPlayerId: menu.playerId,
+    });
+    await this.animateHandLayoutAfterAction(() => this.store.moveCard(menu, toZone, options));
+  }
+
+  private async animateHandLayoutAfterAction(action: () => Promise<void>): Promise<void> {
+    const playFlip = this.motion.prepareHandDropHandoff('[data-zone="hand"][data-card-instance-id]');
+
+    try {
+      await action();
+    } catch (error) {
+      playFlip();
+      throw error;
+    }
+
+    this.changeDetectorRef.detectChanges();
+    playFlip();
+  }
+
+  private handDragPayload(event: DragEvent): HandDragPayload | null {
+    const raw = event.dataTransfer?.getData('application/json');
+    if (!raw) {
+      return null;
+    }
+
+    try {
+      const parsed: unknown = JSON.parse(raw);
+
+      return this.isHandDragPayload(parsed) ? parsed : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private isHandDragPayload(value: unknown): value is HandDragPayload {
+    if (!value || typeof value !== 'object') {
+      return false;
+    }
+
+    const payload = value as Record<string, unknown>;
+    const playerId = payload['playerId'];
+    const zone = payload['zone'];
+    const instanceId = payload['instanceId'];
+    const instanceIds = payload['instanceIds'];
+
+    return typeof playerId === 'string'
+      && this.isGameZoneName(zone)
+      && typeof instanceId === 'string'
+      && (instanceIds === undefined || Array.isArray(instanceIds) && instanceIds.every((id) => typeof id === 'string'));
+  }
+
+  private isGameZoneName(value: unknown): value is GameZoneName {
+    return typeof value === 'string' && this.moveZones.includes(value as GameZoneName);
+  }
+
+  private dragPayloadInstanceId(payload: HandDragPayload | null): string | null {
+    return payload?.instanceId ?? this.store.draggingCardInstanceId();
+  }
+
+  private animateGhostToHand(options: HandGhostOptions): void {
+    const targetPlayerId = options.targetPlayerId ?? this.store.handPlayer()?.id ?? null;
+    if (!targetPlayerId) {
+      return;
+    }
+
+    const handTarget = this.dropZoneTargetElement(targetPlayerId, 'hand');
+    if (!handTarget) {
+      return;
+    }
+
+    const ghostTarget = this.handGhostTarget(targetPlayerId) ?? { element: handTarget };
+    if (!options.sourceElement && !options.sourceInstanceId) {
+      ghostTarget.cleanup?.();
+      this.motion.impactZone(handTarget);
+      return;
+    }
+
+    if (options.sourceElement) {
+      this.motion.throwElementGhost(options.sourceElement, ghostTarget.element, {
+        scaleToTarget: true,
+        rotate: -6,
+        sourceRect: options.sourceRect,
+        onComplete: ghostTarget.cleanup,
+      });
+      this.motion.impactZone(handTarget);
+      return;
+    }
+
+    if (options.sourceInstanceId) {
+      this.motion.throwGhost(options.sourceInstanceId, ghostTarget.element, {
+        scaleToTarget: true,
+        rotate: -6,
+        sourceRect: options.sourceRect,
+        onComplete: ghostTarget.cleanup,
+      });
+    }
+    this.motion.impactZone(handTarget);
+  }
+
+  private motionRect(rect: DOMRect): MotionSourceRect {
+    return {
+      left: rect.left,
+      top: rect.top,
+      width: rect.width,
+      height: rect.height,
+    };
+  }
+
+  private clearBattlefieldDragStartRect(instanceId: string | null): void {
+    if (instanceId) {
+      this.battlefieldDragStartRects.delete(instanceId);
+    }
+  }
+
+  private animateDropToDropZone(
+    sourceInstanceId: string | null,
+    payload: HandDragPayload | null,
+    targetPlayerId: string,
+    targetZone: DropZoneTarget,
+  ): void {
+    if (!sourceInstanceId) {
+      return;
+    }
+
+    if (targetZone !== 'mana' && payload && payload.playerId === targetPlayerId && payload.zone === targetZone) {
+      return;
+    }
+
+    const target = this.dropZoneTargetElement(targetPlayerId, targetZone);
+    if (!target) {
+      return;
+    }
+
+    this.motion.throwGhost(sourceInstanceId, target, { scaleToTarget: true, rotate: -6 });
+    window.requestAnimationFrame(() => this.motion.impactZone(target));
+  }
+
+  private animateDropToPlayer(
+    targetPlayerId: string,
+    sourceInstanceId: string | null,
+    payload: HandDragPayload | null,
+  ): void {
+    if (!sourceInstanceId || (payload && payload.playerId === targetPlayerId)) {
+      return;
+    }
+
+    const target = this.playerDropTargetElement(targetPlayerId);
+    if (!target) {
+      return;
+    }
+
+    this.motion.throwGhost(sourceInstanceId, target, { scaleToTarget: true, rotate: -6 });
+    window.requestAnimationFrame(() => this.motion.impactZone(target));
+  }
+
+  private dropZoneTargetElement(playerId: string, zone: DropZoneTarget): HTMLElement | null {
+    return this.resolveDropTargetElement(`[data-game-drop-zone][data-player-id="${playerId}"][data-zone="${zone}"]`);
+  }
+
+  private handGhostTarget(playerId: string): { element: HTMLElement; cleanup?: () => void } | null {
+    const host = this.gameScreen?.nativeElement;
+    if (!host) {
+      return null;
+    }
+
+    const handArea = host.querySelector<HTMLElement>(`[data-testid="hand-area"][data-player-id="${playerId}"]`);
+    if (!handArea || !this.isDropTargetVisible(handArea)) {
+      return null;
+    }
+
+    const slot = Array.from(handArea.querySelectorAll<HTMLElement>('.hand-drop-slot'))
+      .find((element) => this.isDropTargetVisible(element));
+    if (slot) {
+      return { element: slot };
+    }
+
+    const preview = this.store.handDropPreview();
+    if (preview?.playerId !== playerId) {
+      return null;
+    }
+
+    const handCards = Array.from(handArea.querySelectorAll<HTMLElement>('[data-zone="hand"][data-card-instance-id]'));
+    const targetCard = handCards.find((element) => element.dataset['cardInstanceId'] === preview.targetInstanceId);
+    if (!targetCard || !this.isDropTargetVisible(targetCard)) {
+      return null;
+    }
+
+    const element = this.createVirtualHandSlotTarget(handArea, handCards, targetCard, preview.placement);
+
+    return { element, cleanup: () => element.remove() };
+  }
+
+  private createVirtualHandSlotTarget(
+    handArea: HTMLElement,
+    handCards: readonly HTMLElement[],
+    targetCard: HTMLElement,
+    placement: 'before' | 'after',
+  ): HTMLElement {
+    const targetRect = targetCard.getBoundingClientRect();
+    const rowStep = this.handRowStepPx(handCards, targetRect.width);
+    const targetCenterX = targetRect.left + targetRect.width / 2;
+    const slotCenterX = targetCenterX + (placement === 'after' ? rowStep / 2 : -rowStep / 2);
+    const element = document.createElement('span');
+
+    element.className = 'hand-ghost-slot-target';
+    element.style.position = 'fixed';
+    element.style.left = `${slotCenterX - targetRect.width / 2}px`;
+    element.style.top = `${targetRect.top}px`;
+    element.style.width = `${targetRect.width}px`;
+    element.style.height = `${targetRect.height}px`;
+    element.style.opacity = '0';
+    element.style.pointerEvents = 'none';
+    element.style.zIndex = '-1';
+    handArea.appendChild(element);
+
+    return element;
+  }
+
+  private handRowStepPx(handCards: readonly HTMLElement[], fallbackWidth: number): number {
+    const centers = handCards
+      .map((element) => {
+        const rect = element.getBoundingClientRect();
+
+        return rect.width > 0 ? rect.left + rect.width / 2 : null;
+      })
+      .filter((center): center is number => center !== null)
+      .sort((left, right) => left - right);
+    const distances = centers
+      .slice(1)
+      .map((center, index) => center - centers[index]!)
+      .filter((distance) => distance > 1);
+
+    return distances[0] ?? Math.max(1, fallbackWidth - 10);
+  }
+
+  private playerDropTargetElement(playerId: string): HTMLElement | null {
+    return this.resolveDropTargetElement(`[data-player-drop-target="${playerId}"]`);
+  }
+
+  private resolveDropTargetElement(selector: string): HTMLElement | null {
+    const host = this.gameScreen?.nativeElement;
+    if (!host) {
+      return null;
+    }
+
+    return Array.from(host.querySelectorAll<HTMLElement>(selector))
+      .find((element) => this.isDropTargetVisible(element)) ?? null;
+  }
+
+  private isDropTargetVisible(element: HTMLElement): boolean {
+    const rect = element.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) {
+      return false;
+    }
+
+    const style = window.getComputedStyle(element);
+    return style.display !== 'none'
+      && style.visibility !== 'hidden'
+      && style.opacity !== '0';
+  }
+
+  private dragPreviewElement(): HTMLElement | null {
+    return this.gameScreen?.nativeElement.querySelector<HTMLElement>('.drag-card-preview') ?? null;
+  }
+
+  private pointerHandDropTargetPlayerId(event: PointerEvent): string | null {
+    const activeDropTarget = this.store.activeDropTarget();
+    if (activeDropTarget?.zone === 'hand') {
+      return activeDropTarget.playerId;
+    }
+
+    for (const element of document.elementsFromPoint(event.clientX, event.clientY)) {
+      const target = element.closest<HTMLElement>('[data-game-drop-zone][data-zone="hand"]');
+      const playerId = target?.dataset['playerId'];
+      if (playerId) {
+        return playerId;
+      }
+    }
+
+    return null;
   }
 
   private queueBattlefieldReflow(): void {
@@ -740,11 +1163,11 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
 
     switch (action.type) {
       case 'drawMine':
-        if (current) void this.store.draw(current.id);
+        if (current) void this.drawToHand(current.id);
         this.store.closeContextMenu();
         return;
       case 'draw7Mine':
-        if (current) void this.store.draw(current.id, 7);
+        if (current) void this.drawToHand(current.id, 7);
         this.store.closeContextMenu();
         return;
       case 'revealTopMine':
@@ -797,7 +1220,7 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
         return;
       case 'drawCard':
         this.store.closeContextMenu();
-        void this.store.draw(menu.playerId);
+        void this.drawToHand(menu.playerId);
         return;
       case 'drawPrompt':
         this.openDrawDialog(menu.playerId);
@@ -896,7 +1319,7 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
           this.openLibraryCardMoveToHandDialog(menu);
           return;
         }
-        this.store.moveCard(menu, action.zone, { position: action.position });
+        void this.moveCardFromMenu(menu, action.zone, { position: action.position });
         return;
       case 'deleteArrow':
         void this.store.deleteArrow(menu);
@@ -926,13 +1349,10 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
 
     switch (request.kind) {
       case 'draw':
-        void this.store.draw(request.playerId, value);
+        void this.drawToHand(request.playerId, value);
         return;
       case 'moveTop':
-        void this.store.moveTop(request.playerId, request.toZone, value, {
-          targetPlayerId: request.targetPlayerId,
-          position: request.position,
-        });
+        void this.moveTopFromLibrary(request, value);
         return;
       case 'viewTop':
         void this.store.viewTopLibrary(request.playerId, value);
@@ -942,8 +1362,80 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
 
   onZoneDoubleClick(playerId: string, zone: GameZoneName): void {
     if (zone === 'library') {
-      void this.store.draw(playerId);
+      void this.drawToHand(playerId);
     }
+  }
+
+  async handleBattlefieldCardDoubleClicked(event: BattlefieldCardDoubleClickEvent): Promise<void> {
+    const animateRotation = this.motion.prepareCardRotationFlip(event.card.instanceId);
+
+    await this.store.toggleTapped(event.playerId, 'battlefield', event.card);
+    window.requestAnimationFrame(() => animateRotation());
+  }
+
+  async handleHandCardPointerMoved(event: HandCardPointerMovedEvent): Promise<void> {
+    if (event.toZone === 'hand') {
+      this.animateGhostToHand({
+        sourceInstanceId: event.movedInstanceId,
+        targetPlayerId: event.targetPlayerId,
+      });
+    }
+
+    await this.store.moveHandCardByPointer(
+      event.playerId,
+      event.targetPlayerId,
+      event.movedInstanceId,
+      event.toZone,
+      event.position,
+      event.rawZone,
+    );
+  }
+
+  handleZoneDrop(event: ZoneDropEvent): void {
+    const payload = this.handDragPayload(event.event);
+    const sourceInstanceId = this.dragPayloadInstanceId(payload);
+    this.animateDropToDropZone(sourceInstanceId, payload, event.playerId, event.zone);
+    void this.store.dropOnZone(event.event, event.playerId, event.zone);
+  }
+
+  handleManaLaneDrop(event: ManaLaneDropEvent): void {
+    const payload = this.handDragPayload(event.event);
+    const sourceInstanceId = this.dragPayloadInstanceId(payload);
+    this.animateDropToDropZone(sourceInstanceId, payload, event.playerId, 'mana');
+    void this.store.dropOnManaLane(event.event, event.playerId);
+  }
+
+  handlePlayerDrop(event: PlayerDropEvent): void {
+    const payload = this.handDragPayload(event.event);
+    const sourceInstanceId = this.dragPayloadInstanceId(payload);
+    this.animateDropToPlayer(event.playerId, sourceInstanceId, payload);
+    void this.store.dropOnPlayer(event.event, event.playerId);
+  }
+
+  async handleHandDropped(event: HandDroppedEvent): Promise<void> {
+    const payload = this.handDragPayload(event.event);
+    const dropOnHand = () => this.store.dropOnHand(event.event, event.playerId);
+
+    if (payload?.zone === 'hand') {
+      await dropOnHand();
+      return;
+    }
+
+    this.animateGhostToHand({
+      sourceElement: this.dragPreviewElement(),
+      sourceInstanceId: payload?.instanceId ?? this.store.draggingCardInstanceId(),
+      targetPlayerId: event.playerId,
+    });
+    await this.animateHandLayoutAfterAction(dropOnHand);
+  }
+
+  async handleHandCardPointerReordered(event: HandCardPointerReorderedEvent): Promise<void> {
+    await this.animateHandLayoutAfterAction(() => this.store.reorderHandCard(
+      event.playerId,
+      event.movedInstanceId,
+      event.targetInstanceId,
+      event.placement,
+    ));
   }
 
   cancelNumberAction(): void {
@@ -982,14 +1474,20 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
     void this.store.giveHandCardToPlayer(request.menu, request.targetPlayerId);
   }
 
-  confirmLibraryCardMoveToHand(reveal: boolean): void {
+  async confirmLibraryCardMoveToHand(reveal: boolean): Promise<void> {
     const request = this.libraryCardMoveToHandDialog();
     this.libraryCardMoveToHandDialog.set(null);
     if (!request) {
       return;
     }
 
-    void this.store.moveLibraryCardToHand(request.menu, reveal);
+    this.animateGhostToHand({
+      sourceInstanceId: request.menu.card?.instanceId ?? null,
+      targetPlayerId: request.menu.playerId,
+    });
+    await this.animateHandLayoutAfterAction(
+      () => this.store.moveLibraryCardToHand(request.menu, reveal),
+    );
   }
 
   cancelLibraryCardMoveToHand(): void {
@@ -1291,13 +1789,22 @@ export class GameTableComponent implements AfterViewChecked, OnDestroy {
 
   private moveAllFromZone(menu: GameContextMenu, toZone: GameZoneName, targetPlayerId?: string): void {
     this.store.closeContextMenu();
-    const count = this.store.zoneCardInstanceIds(menu.playerId, menu.zone).length;
-    if (count <= 0) {
+    const instanceIds = this.store.zoneCardInstanceIds(menu.playerId, menu.zone);
+    if (instanceIds.length <= 0) {
       return;
     }
 
     if (toZone === 'library') {
-      this.zoneMoveAllLibraryDialog.set({ playerId: menu.playerId, fromZone: menu.zone, count });
+      this.zoneMoveAllLibraryDialog.set({ playerId: menu.playerId, fromZone: menu.zone, count: instanceIds.length });
+      return;
+    }
+
+    if (toZone === 'hand' && menu.zone !== 'hand') {
+      this.animateGhostToHand({
+        sourceInstanceId: instanceIds[0] ?? null,
+        targetPlayerId: targetPlayerId ?? menu.playerId,
+      });
+      void this.animateHandLayoutAfterAction(() => this.store.moveAllZoneCards(menu.playerId, menu.zone, toZone, { targetPlayerId }));
       return;
     }
 

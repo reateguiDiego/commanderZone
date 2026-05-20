@@ -3,7 +3,7 @@
     class="zone-card-stack-layer"
     [style.--stack-offset.px]="layer.offset"
     [style.z-index]="layer.zIndex"
-    [src]="image()"
+    [src]="layerImage() ?? ''"
     alt=""
     draggable="false"
     aria-hidden="true"

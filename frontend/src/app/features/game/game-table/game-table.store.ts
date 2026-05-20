@@ -365,6 +365,10 @@ export class GameTableStore implements OnDestroy {
     return this.zonePilesState.zonePreviewImage(player, zone);
   }
 
+  zoneStackLayerImage(player: PlayerView, zone: GameZoneName): string | null {
+    return this.zonePilesState.zoneStackLayerImage(player, zone);
+  }
+
   isLibraryTopRevealed(playerId: string): boolean {
     return this.zonePilesState.isLibraryTopRevealed(playerId);
   }

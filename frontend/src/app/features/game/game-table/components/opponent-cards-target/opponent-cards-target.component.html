@@ -2,6 +2,7 @@
   #viewport
   class="cards-target"
   data-testid="opponent-cards-target"
+  [attr.data-motion-zone]="playerId() + ':battlefield'"
   (mouseleave)="cardPreviewHidden.emit()"
 >
   <span class="cards-target-grid" aria-hidden="false">

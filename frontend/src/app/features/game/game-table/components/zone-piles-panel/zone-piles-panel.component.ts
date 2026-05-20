@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, input, output, signal } from '@angular/core';
 import { GameCardInstance, GameZoneName } from '../../../../../core/models/game.model';
 import { PlayerView } from '../../game-table.store';
 import { ZoneCardStackComponent } from '../zone-card-stack/zone-card-stack.component';
@@ -47,10 +47,12 @@ export class ZonePilesPanelComponent {
   readonly isDropZoneHighlighted = input.required<(playerId: string, zone: GameZoneName) => boolean>();
   readonly zoneTitle = input.required<(zone: GameZoneName) => string>();
   readonly zonePreviewImage = input.required<(player: PlayerView, zone: GameZoneName) => string | null>();
+  readonly zoneStackLayerImage = input.required<(player: PlayerView, zone: GameZoneName) => string | null>();
   readonly commanderCastCount = input.required<(player: PlayerView) => number>();
   readonly isZoneDropSettling = input<(playerId: string, zone: GameZoneName) => boolean>(() => false);
   readonly isZoneTransferPending = input<(playerId: string, zone: GameZoneName) => boolean>(() => false);
   readonly currentDraggingCardInstanceId = input<string | null>(null);
+  readonly draggingVisualZone = signal<GameZoneName | null>(null);
 
   readonly zoneDragStart = output<ZoneDragStartEvent>();
   readonly zoneDragEnd = output<void>();
@@ -62,6 +64,33 @@ export class ZonePilesPanelComponent {
   readonly commanderCastChanged = output<CommanderCastChangeEvent>();
   readonly cardPreviewShown = output<CardPreviewEvent>();
   readonly cardPreviewHidden = output<void>();
+
+  startZoneDrag(event: DragEvent, player: PlayerView, zone: GameZoneName, topZoneCard: GameCardInstance | null): void {
+    if (topZoneCard) {
+      this.draggingVisualZone.set(zone);
+      if (event.currentTarget instanceof HTMLElement) {
+        event.currentTarget.classList.add('dragging-zone-card');
+      }
+    }
+
+    this.zoneDragStart.emit({ event, player, zone });
+
+    if (event.defaultPrevented) {
+      this.clearZoneDrag(event);
+    }
+  }
+
+  clearZoneDrag(event?: DragEvent): void {
+    this.draggingVisualZone.set(null);
+    if (event?.currentTarget instanceof HTMLElement) {
+      event.currentTarget.classList.remove('dragging-zone-card');
+    }
+  }
+
+  isDraggingZone(zone: GameZoneName, topZoneCard: GameCardInstance | null): boolean {
+    return this.draggingVisualZone() === zone
+      || topZoneCard?.instanceId === this.currentDraggingCardInstanceId();
+  }
 
   openZone(zone: GameZoneName): void {
     if (zone === 'library' || zone === 'command') {

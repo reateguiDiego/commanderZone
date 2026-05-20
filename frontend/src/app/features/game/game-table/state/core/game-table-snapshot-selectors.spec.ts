@@ -97,6 +97,106 @@ describe('GameTableSnapshotSelectors', () => {
     expect(selectors.zonePreviewCard(player, 'library')).toBe(topCard);
     expect(selectors.zonePreviewImage(player, 'library')).toBe('/top.jpg');
   });
+
+  it('uses the card back for library stack layers when only the top card is revealed', () => {
+    const player = playerView({
+      playTopLibraryRevealed: true,
+      zones: {
+        library: [
+          { instanceId: 'top-card', name: 'Public Top', tapped: false, imageUris: { normal: '/top.jpg' } },
+          { instanceId: 'second-card', name: 'Public Second', tapped: false, imageUris: { normal: '/second.jpg' } },
+        ],
+        hand: [],
+        battlefield: [],
+        graveyard: [],
+        exile: [],
+        command: [],
+      },
+    });
+
+    expect(selectors.zonePreviewImage(player, 'library')).toBe('/top.jpg');
+    expect(selectors.zoneStackLayerImage(player, 'library')).toBe('/assets/images/facedown_card.jpg');
+  });
+
+  it('uses the second library card image for stack layers when that card is explicitly revealed', () => {
+    const player = playerView({
+      zones: {
+        library: [
+          { instanceId: 'top-card', name: 'Hidden Top', tapped: false, imageUris: { normal: '/top.jpg' } },
+          { instanceId: 'second-card', name: 'Public Second', tapped: false, imageUris: { normal: '/second.jpg' }, revealedTo: ['player-1'] },
+        ],
+        hand: [],
+        battlefield: [],
+        graveyard: [],
+        exile: [],
+        command: [],
+      },
+    });
+
+    expect(selectors.zoneStackLayerImage(player, 'library')).toBe('/second.jpg');
+  });
+
+  it('uses the card back for hidden library stack layers', () => {
+    const player = playerView({
+      sleevesName: 'facedown_card',
+      zones: {
+        library: [
+          { instanceId: 'top-card', name: 'Hidden Top', tapped: false, imageUris: { normal: '/top.jpg' } },
+          { instanceId: 'second-card', name: 'Hidden Second', tapped: false, imageUris: { normal: '/second.jpg' } },
+        ],
+        hand: [],
+        battlefield: [],
+        graveyard: [],
+        exile: [],
+        command: [],
+      },
+    });
+
+    expect(selectors.zonePreviewImage(player, 'library')).toBe('/assets/images/facedown_card.jpg');
+    expect(selectors.zoneStackLayerImage(player, 'library')).toBe('/assets/images/facedown_card.jpg');
+  });
+
+  it('uses the second-from-top public card image for graveyard and exile stack layers', () => {
+    const player = playerView({
+      zones: {
+        library: [],
+        hand: [],
+        battlefield: [],
+        graveyard: [
+          { instanceId: 'graveyard-bottom', name: 'Bottom Graveyard', tapped: false, imageUris: { normal: '/graveyard-bottom.jpg' } },
+          { instanceId: 'graveyard-second', name: 'Second Graveyard', tapped: false, imageUris: { normal: '/graveyard-second.jpg' } },
+          { instanceId: 'graveyard-top', name: 'Top Graveyard', tapped: false, imageUris: { normal: '/graveyard-top.jpg' } },
+        ],
+        exile: [
+          { instanceId: 'exile-second', name: 'Second Exile', tapped: false, imageUris: { normal: '/exile-second.jpg' } },
+          { instanceId: 'exile-top', name: 'Top Exile', tapped: false, imageUris: { normal: '/exile-top.jpg' } },
+        ],
+        command: [],
+      },
+    });
+
+    expect(selectors.zonePreviewImage(player, 'graveyard')).toBe('/graveyard-top.jpg');
+    expect(selectors.zoneStackLayerImage(player, 'graveyard')).toBe('/graveyard-second.jpg');
+    expect(selectors.zonePreviewImage(player, 'exile')).toBe('/exile-top.jpg');
+    expect(selectors.zoneStackLayerImage(player, 'exile')).toBe('/exile-second.jpg');
+  });
+
+  it('does not provide a stack layer image for a single-card pile', () => {
+    const player = playerView({
+      zones: {
+        library: [],
+        hand: [],
+        battlefield: [],
+        graveyard: [
+          { instanceId: 'graveyard-top', name: 'Top Graveyard', tapped: false, imageUris: { normal: '/graveyard-top.jpg' } },
+        ],
+        exile: [],
+        command: [],
+      },
+    });
+
+    expect(selectors.zoneStackLayerImage(player, 'graveyard')).toBeNull();
+  });
 });
 
 function playerView(overrides: Partial<GamePlayerState> = {}): PlayerView {

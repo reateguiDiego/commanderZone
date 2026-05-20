@@ -2,6 +2,7 @@
   #viewport
   class="mini-battlefield"
   data-testid="opponent-mini-battlefield"
+  [attr.data-motion-zone]="playerId() + ':battlefield'"
   [style.--mini-battlefield-background]="backgroundImageCss()"
   (pointermove)="handlePointerMove($event)"
   (pointerleave)="handlePointerLeave()"

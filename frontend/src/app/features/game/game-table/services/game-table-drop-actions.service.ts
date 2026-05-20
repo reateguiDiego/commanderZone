@@ -148,6 +148,9 @@ export class GameTableDropActionsService {
     }
 
     this.notifyBorrowedCardsReturnToOwner(context, dragged.playerId, toZone, movedCards);
+    if (dragged.zone !== toZone || dragged.playerId !== targetPlayerId) {
+      context.markPendingTransfer(dragged.playerId, dragged.zone, instanceIds);
+    }
     await context.command(isMultiMove ? 'cards.moved' : 'card.moved', payload);
     await context.recordCommanderCastIfNeeded(dragged.playerId, dragged.zone, toZone, targetPlayerId);
     this.endCompletedDrag(context);

@@ -65,6 +65,30 @@ describe('GameCardViewComponent', () => {
     expect(cardElement.classList.contains('hover-lifted')).toBe(true);
   });
 
+  it('marks hand cards as motion active while a parent GSAP handoff is running', async () => {
+    const { fixture, cardElement } = await renderHandCard();
+
+    fixture.componentRef.setInput('motionActive', true);
+    fixture.detectChanges();
+
+    expect(cardElement.classList).toContain('hand-motion-active');
+  });
+
+  it('does not clear an existing hover lift when hand motion starts', async () => {
+    vi.useFakeTimers();
+    const { fixture, cardElement } = await renderHandCard();
+
+    cardElement.dispatchEvent(new MouseEvent('mouseenter'));
+    vi.advanceTimersByTime(CARD_PREVIEW_HOVER_DELAY_MS);
+    fixture.detectChanges();
+    expect(cardElement.classList).toContain('hover-lifted');
+
+    fixture.componentRef.setInput('motionActive', true);
+    fixture.detectChanges();
+
+    expect(cardElement.classList).toContain('hover-lifted');
+  });
+
   it('sets fan layout variables for hand cards', async () => {
     const { fixture, cardElement } = await renderHandCard();
 

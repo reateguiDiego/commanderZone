@@ -163,6 +163,26 @@ export class GameTableSnapshotSelectors {
     return card ? this.publicCardImage(card) : null;
   }
 
+  zoneStackLayerImage(player: PlayerView, zone: GameZoneName): string | null {
+    if (zone === 'hand' || zone === 'battlefield' || zone === 'command') {
+      return null;
+    }
+
+    const cards = player.state.zones[zone] ?? [];
+    const secondCard = zone === 'library' ? cards[1] ?? null : cards.at(-2) ?? null;
+    if (!secondCard) {
+      return null;
+    }
+
+    if (zone === 'library') {
+      return !secondCard.hidden && (secondCard.revealedTo?.length ?? 0) > 0
+        ? this.publicCardImage(secondCard)
+        : this.cardBackImage(player.state.sleevesName);
+    }
+
+    return this.publicCardImage(secondCard);
+  }
+
   topDraggableCard(player: PlayerView, zone: GameZoneName, canControlPlayer: boolean): GameCardInstance | null {
     if (!canControlPlayer || zone === 'hand' || zone === 'battlefield') {
       return null;

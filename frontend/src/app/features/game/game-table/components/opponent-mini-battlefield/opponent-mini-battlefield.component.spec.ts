@@ -23,6 +23,13 @@ describe('OpponentMiniBattlefieldComponent', () => {
     expect(fixture.nativeElement.querySelectorAll('[data-testid="mini-battlefield-card"]').length).toBe(2);
   });
 
+  it('exposes the opponent battlefield as a motion zone', () => {
+    fixture.detectChanges();
+
+    const battlefield = fixture.nativeElement.querySelector('[data-testid="opponent-mini-battlefield"]') as HTMLElement;
+    expect(battlefield.dataset['motionZone']).toBe('player-2:battlefield');
+  });
+
   it('updates when battlefield cards change', () => {
     fixture.detectChanges();
 

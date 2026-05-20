@@ -5,17 +5,25 @@
   class="hand-area"
   data-testid="hand-area"
   [attr.data-player-id]="handPlayer.id"
+  [attr.data-motion-zone]="handPlayer.id + ':hand'"
   [class.hand-revealed]="isHandVisuallyRevealed()"
   [class.hand-dragging]="isPointerDragActive()"
   [class.hand-external-dragging]="hasActiveCardDrag()"
+  [class.hand-motion-active]="motionActive()"
+  (pointerenter)="enterHand($event)"
+  (pointerleave)="leaveHand($event)"
   (mouseenter)="enterHand($event)"
   (mouseleave)="leaveHand($event)"
   (focusin)="focusHand()"
   (focusout)="blurHand($event)"
+  (dragover)="handleExternalHandDragOver($event, handPlayer.id)"
+  (drop)="handleExternalHandDrop($event, handPlayer.id)"
 >
   <span
     class="hand-hover-strip"
     aria-hidden="true"
+    (pointerenter)="enterHandHoverZone($event)"
+    (pointermove)="enterHandHoverZone($event)"
     (mouseenter)="enterHandHoverZone($event)"
   ></span>
   <div
@@ -27,11 +35,14 @@
     [attr.data-zone]="shouldRenderEmptyHandDropTarget() ? null : 'hand'"
     [class.hand-row-empty]="shouldRenderEmptyHandDropTarget()"
     [class.hand-row-expanded]="handLayoutMode() === 'row'"
+    (pointerenter)="enterHandScrollArea($event)"
+    (pointermove)="enterHandScrollArea($event)"
+    (pointerleave)="leaveHandScrollArea($event)"
     (mouseenter)="enterHandScrollArea($event)"
     (mouseleave)="leaveHandScrollArea($event)"
     (wheel)="handleHandWheel($event)"
-    (dragover)="handDragOver.emit({ event: $event, playerId: handPlayer.id })"
-    (drop)="handDropped.emit({ event: $event, playerId: handPlayer.id })"
+    (dragover)="handleExternalHandDragOver($event, handPlayer.id)"
+    (drop)="handleExternalHandDrop($event, handPlayer.id)"
   >
     @if (shouldRenderEmptyHandDropTarget()) {
       <div
@@ -41,8 +52,8 @@
         [attr.data-game-drop-zone]="'hand'"
         [attr.data-zone]="'hand'"
         [class.drop-target-active]="isEmptyHandDropTargetActive()"
-        (dragover)="$event.stopPropagation(); handDragOver.emit({ event: $event, playerId: handPlayer.id })"
-        (drop)="$event.stopPropagation(); handDropped.emit({ event: $event, playerId: handPlayer.id })"
+        (dragover)="handleExternalHandDragOver($event, handPlayer.id)"
+        (drop)="handleExternalHandDrop($event, handPlayer.id)"
       ></div>
     } @else {
       <div
@@ -72,14 +83,14 @@
           [selected]="isSelected()(card.instanceId)"
           [dragging]="isDraggingHandCard(card)"
           [alignmentReference]="isHandDropReceiverVisuallyHighlighted()"
-          [dropSettling]="isCardDropSettling()(handPlayer.id, 'hand', card)"
           [hoverInteractionsEnabled]="canPreviewHandCard(card)"
+          [motionActive]="motionActive()"
           [faceDown]="isHandCardFaceDown(card)"
           [hidden]="isHandCardFaceDown(card)"
           [draggable]="false"
           [handDropPlacement]="dropPlacement"
-          [handArrivalSide]="handArrivalSide(card, $index)"
           [handLayout]="handLayoutMode()"
+          [activeHoverInstanceId]="activeHandHoverInstanceId()"
           [handIndex]="$index"
           [handCount]="handCards.length"
           (cardPointerDown)="startHandPointerDrag($event.event, handPlayer.id, $event.card)"
@@ -87,8 +98,7 @@
           (cardDoubleClicked)="stopDoubleClick($event.event)"
           (cardMenuOpened)="openHandCardMenu($event.event, handPlayer.id, $event.card)"
           (cardPointerEntered)="enterHandCard($event.event, $event.card)"
-          (cardMouseEntered)="cardPreviewShown.emit($event)"
-          (cardMouseLeft)="leaveHandCard()"
+          (cardMouseLeft)="leaveHandCard(card)"
         />
         @if (dropPlacement === 'after') {
           <span
@@ -106,6 +116,7 @@
       <div
         class="hand-floating-card"
         aria-hidden="true"
+        [attr.data-motion-origin-card-id]="drag.card.instanceId"
         [style.left.px]="drag.x"
         [style.top.px]="drag.y"
         [style.width.px]="drag.cardWidth"

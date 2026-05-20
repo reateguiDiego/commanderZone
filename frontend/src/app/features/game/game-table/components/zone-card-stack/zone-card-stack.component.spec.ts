@@ -9,17 +9,24 @@ describe('ZoneCardStackComponent', () => {
     expect(topImage(fixture)?.getAttribute('src')).toBe('/assets/card.jpg');
   });
 
-  it('renders one visual image per card using the configured image', async () => {
-    const fixture = await renderZoneCardStack(4);
+  it('renders stack layers with the configured layer image', async () => {
+    const fixture = await renderZoneCardStack(4, '/assets/second-card.jpg');
 
     const layers = stackLayers(fixture);
     expect(layers.length).toBe(3);
-    expect(layers.every((layer) => layer.getAttribute('src') === '/assets/card.jpg')).toBe(true);
+    expect(layers.every((layer) => layer.getAttribute('src') === '/assets/second-card.jpg')).toBe(true);
+    expect(topImage(fixture)?.getAttribute('src')).toBe('/assets/card.jpg');
+  });
+
+  it('does not render stack layers when no second-card image is available', async () => {
+    const fixture = await renderZoneCardStack(4);
+
+    expect(stackLayers(fixture).length).toBe(0);
     expect(topImage(fixture)?.getAttribute('src')).toBe('/assets/card.jpg');
   });
 
   it('caps deep piles to a stable visual stack while keeping the real count outside', async () => {
-    const fixture = await renderZoneCardStack(78);
+    const fixture = await renderZoneCardStack(78, '/assets/second-card.jpg');
 
     const layers = stackLayers(fixture);
     expect(layers.length).toBe(9);
@@ -27,13 +34,14 @@ describe('ZoneCardStackComponent', () => {
   });
 });
 
-async function renderZoneCardStack(count: number): Promise<ComponentFixture<ZoneCardStackComponent>> {
+async function renderZoneCardStack(count: number, layerImage: string | null = null): Promise<ComponentFixture<ZoneCardStackComponent>> {
   await TestBed.configureTestingModule({
     imports: [ZoneCardStackComponent],
   }).compileComponents();
 
   const fixture = TestBed.createComponent(ZoneCardStackComponent);
   fixture.componentRef.setInput('image', '/assets/card.jpg');
+  fixture.componentRef.setInput('layerImage', layerImage);
   fixture.componentRef.setInput('label', 'Library');
   fixture.componentRef.setInput('count', count);
   fixture.detectChanges();

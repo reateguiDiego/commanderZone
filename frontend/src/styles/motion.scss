@@ -1,0 +1,116 @@
+:root {
+  --cz-motion-duration-fast: 140ms;
+  --cz-motion-duration-medium: 260ms;
+  --cz-motion-duration-slow: 420ms;
+  --cz-motion-ease-standard: cubic-bezier(0.16, 1, 0.3, 1);
+  --cz-motion-ease-impact: cubic-bezier(0.17, 1.26, 0.28, 1);
+  --cz-motion-ghost-shadow: 0 1.2rem 2rem rgb(0 0 0 / 42%), 0 0 0 2px rgb(215 180 106 / 22%);
+  --cz-motion-ghost-outline: rgb(215 180 106 / 58%);
+  --cz-motion-impact-glow: rgb(215 180 106 / 26%);
+}
+
+.cz-motion-ghost {
+  position: fixed;
+  z-index: 5000;
+  overflow: visible;
+  border: 1px solid var(--cz-motion-ghost-outline);
+  border-radius: 8px;
+  box-shadow: var(--cz-motion-ghost-shadow);
+  opacity: 0.92;
+  pointer-events: none;
+  transform-origin: 50% 50%;
+  user-select: none;
+  will-change: transform, opacity;
+}
+
+.cz-motion-ghost * {
+  pointer-events: none;
+  user-select: none;
+}
+
+.cz-drag-handoff {
+  position: fixed;
+  z-index: 5200;
+  overflow: visible;
+  pointer-events: none;
+  user-select: none;
+  animation: none;
+  will-change: transform, opacity;
+}
+
+.cz-drag-handoff,
+.cz-drag-handoff * {
+  pointer-events: none;
+  user-select: none;
+}
+
+.cz-drag-handoff.drag-card-preview {
+  animation: none;
+}
+
+.cz-zone-impact {
+  animation: cz-zone-impact var(--cz-motion-duration-slow) var(--cz-motion-ease-impact);
+}
+
+.cz-card-rotation-flip {
+  z-index: 120;
+  overflow: visible;
+  filter: brightness(1.035) saturate(1.02);
+  will-change: transform, filter;
+}
+
+.cz-card-rotation-flip .card-visual {
+  box-shadow:
+    0 1.15rem 2.35rem rgb(0 0 0 / 42%),
+    0 0 0 1px rgb(255 255 255 / 10%);
+}
+
+@keyframes cz-zone-impact {
+  0% {
+    filter: brightness(1.18) saturate(1.08);
+    box-shadow:
+      inset 0 0 0 2px rgb(215 180 106 / 44%),
+      0 0 1.2rem var(--cz-motion-impact-glow);
+    transform: scale(0.985);
+  }
+
+  56% {
+    filter: brightness(1.06) saturate(1.03);
+    box-shadow:
+      inset 0 0 0 1px rgb(215 180 106 / 18%),
+      0 0 0.65rem rgb(215 180 106 / 12%);
+    transform: scale(1.01);
+  }
+
+  100% {
+    filter: none;
+    box-shadow: none;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --cz-motion-duration-fast: 1ms;
+    --cz-motion-duration-medium: 1ms;
+    --cz-motion-duration-slow: 1ms;
+  }
+
+  .cz-motion-ghost {
+    transition: none;
+    animation: none;
+  }
+
+  .cz-drag-handoff {
+    transition: none;
+    animation: none;
+  }
+
+  .cz-zone-impact {
+    animation: none;
+  }
+
+  .cz-card-rotation-flip {
+    transition: none;
+  }
+}

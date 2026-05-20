@@ -9,6 +9,12 @@ describe('PlayerHandPanelComponent', () => {
     vi.useRealTimers();
   });
 
+  it('exposes the player hand as a motion zone', async () => {
+    const { handArea } = await renderHandPanel();
+
+    expect(handArea.dataset['motionZone']).toBe('player-1:hand');
+  });
+
   it('reveals the hand after a short deliberate hover', async () => {
     vi.useFakeTimers();
     const { fixture, handArea } = await renderHandPanel();
@@ -71,6 +77,21 @@ describe('PlayerHandPanelComponent', () => {
     vi.advanceTimersByTime(1);
     fixture.detectChanges();
 
+    expect(handFan.classList).not.toContain('hand-fan-row');
+  });
+
+  it('does not open row layout from hover while hand motion is active', async () => {
+    vi.useFakeTimers();
+    const { fixture, handArea } = await renderHandPanel({ motionActive: true });
+    const handFan = fixture.nativeElement.querySelector('.hand-fan') as HTMLElement;
+    const cardElement = fixture.nativeElement.querySelector('[data-card-instance-id="card-1"]') as HTMLElement;
+
+    handArea.dispatchEvent(new MouseEvent('mouseenter'));
+    cardElement.dispatchEvent(new MouseEvent('mouseenter'));
+    vi.advanceTimersByTime(500);
+    fixture.detectChanges();
+
+    expect(handArea.classList.contains('hand-revealed')).toBe(false);
     expect(handFan.classList).not.toContain('hand-fan-row');
   });
 
@@ -278,7 +299,7 @@ describe('PlayerHandPanelComponent', () => {
     fixture.detectChanges();
 
     expect(handArea.classList.contains('hand-revealed')).toBe(false);
-    expect(fixture.nativeElement.querySelector('.hand-fan')?.classList).not.toContain('hand-fan-row');
+    expect(fixture.nativeElement.querySelector('.hand-fan')?.classList).toContain('hand-fan-row');
 
     vi.advanceTimersByTime(1);
     fixture.detectChanges();
@@ -641,6 +662,43 @@ describe('PlayerHandPanelComponent', () => {
     animationFrame.mockRestore();
   });
 
+  it('keeps the current hand scroll when a card is added while the hand is in row layout', async () => {
+    const animationFrame = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+      window.setTimeout(() => callback(0), 0);
+      return 1;
+    });
+    const { fixture } = await renderHandPanel({
+      hasActiveCardDrag: true,
+      isDropZoneHighlighted: (_playerId, zone) => zone === 'hand',
+    });
+    const scrollRow = fixture.nativeElement.querySelector('[data-testid="hand-zone"]') as HTMLElement;
+    Object.defineProperty(scrollRow, 'scrollWidth', { configurable: true, value: 1200 });
+    Object.defineProperty(scrollRow, 'clientWidth', { configurable: true, value: 400 });
+    fixture.componentInstance.handDropReceiverRevealed.set(true);
+    fixture.detectChanges();
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+
+    let scrollLeft = 180;
+    Object.defineProperty(scrollRow, 'scrollLeft', {
+      configurable: true,
+      get: () => scrollLeft,
+      set: (value: number) => {
+        scrollLeft = value;
+      },
+    });
+
+    fixture.componentRef.setInput('player', playerView([
+      { instanceId: 'card-1', name: 'Arcane Signet', tapped: false },
+      { instanceId: 'card-2', name: 'Sol Ring', tapped: false },
+      { instanceId: 'card-3', name: 'Cultivate', tapped: false },
+    ]));
+    fixture.detectChanges();
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+
+    expect(scrollLeft).toBe(180);
+    animationFrame.mockRestore();
+  });
+
   it('uses the clipped hand row as the hand drop zone instead of the oversized visual fan', async () => {
     const { fixture } = await renderHandPanel();
     const scrollRow = fixture.nativeElement.querySelector('[data-testid="hand-zone"]') as HTMLElement;
@@ -653,6 +711,22 @@ describe('PlayerHandPanelComponent', () => {
     expect(scrollRow.getAttribute('data-game-drop-zone')).toBe('hand');
     expect(handFan.getAttribute('data-game-drop-zone')).toBeNull();
     expect(dragOver).toHaveBeenCalledOnce();
+  });
+
+  it('accepts external native drag events through the lower hand hit area', async () => {
+    const { fixture, handArea } = await renderHandPanel({ hasActiveCardDrag: true });
+    const hoverStrip = fixture.nativeElement.querySelector('.hand-hover-strip') as HTMLElement;
+    const dragOver = vi.fn();
+    const dropped = vi.fn();
+    fixture.componentInstance.handDragOver.subscribe(dragOver);
+    fixture.componentInstance.handDropped.subscribe(dropped);
+
+    hoverStrip.dispatchEvent(new Event('dragover', { bubbles: true }));
+    hoverStrip.dispatchEvent(new Event('drop', { bubbles: true }));
+
+    expect(handArea.classList).toContain('hand-external-dragging');
+    expect(dragOver).toHaveBeenCalledOnce();
+    expect(dropped).toHaveBeenCalledOnce();
   });
 
   it('keeps an empty hand as a compact drop target during a card drag', async () => {
@@ -720,17 +794,7 @@ describe('PlayerHandPanelComponent', () => {
     expect(fixture.nativeElement.querySelector('.hand-drag-count-badge')?.textContent?.trim()).toBe('2');
   });
 
-  it('passes drop feedback state to arriving hand cards', async () => {
-    const { fixture } = await renderHandPanel({
-      hand: [{ instanceId: 'card-1', name: 'Arcane Signet', tapped: false }],
-      isCardDropSettling: (_playerId, _zone, card) => card.instanceId === 'card-1',
-    });
-
-    expect(fixture.nativeElement.querySelector('[data-card-instance-id="card-1"]')?.classList).toContain('drop-settling');
-  });
-
-  it('presents only the newly arrived hand card before it joins the fan', async () => {
-    vi.useFakeTimers();
+  it('does not use card drop animation classes when a new card enters the hand', async () => {
     const { fixture } = await renderHandPanel({
       hand: [
         { instanceId: 'card-1', name: 'Arcane Signet', tapped: false },
@@ -746,25 +810,15 @@ describe('PlayerHandPanelComponent', () => {
     fixture.detectChanges();
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('[data-card-instance-id="card-1"]')?.classList).not.toContain('hand-arrival-before');
-    expect(fixture.nativeElement.querySelector('[data-card-instance-id="card-2"]')?.classList).not.toContain('hand-arrival-after');
-    expect(fixture.nativeElement.querySelector('[data-card-instance-id="card-3"]')?.classList).toContain('hand-arrival-new');
-    expect(fixture.nativeElement.querySelector('[data-card-instance-id="card-3"]')?.classList).not.toContain('hand-arrival-before');
-    expect(fixture.nativeElement.querySelector('[data-card-instance-id="card-1"]')?.classList).not.toContain('hand-settling');
-
-    vi.advanceTimersByTime(2000);
-    fixture.detectChanges();
-
-    expect(fixture.nativeElement.querySelector('[data-card-instance-id="card-3"]')?.classList).not.toContain('hand-arrival-new');
+    expect(fixture.nativeElement.querySelector('[data-card-instance-id="card-3"]')?.classList).not.toContain('drop-settling');
   });
 
-  it('does not use the presentation arrival animation for hand cards added by drag and drop', async () => {
+  it('does not use card drop animation classes for hand cards added by drag and drop', async () => {
     const { fixture } = await renderHandPanel({
       hand: [
         { instanceId: 'card-1', name: 'Arcane Signet', tapped: false },
         { instanceId: 'card-2', name: 'Sol Ring', tapped: false },
       ],
-      isCardDropSettling: (_playerId, _zone, card) => card.instanceId === 'card-3',
     });
 
     fixture.componentRef.setInput('player', playerView([
@@ -775,8 +829,7 @@ describe('PlayerHandPanelComponent', () => {
     fixture.detectChanges();
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('[data-card-instance-id="card-3"]')?.classList).not.toContain('hand-arrival-new');
-    expect(fixture.nativeElement.querySelector('[data-card-instance-id="card-1"]')?.classList).not.toContain('hand-arrival-before');
+    expect(fixture.nativeElement.querySelector('[data-card-instance-id="card-3"]')?.classList).not.toContain('drop-settling');
   });
 
   it('hides a hand card while it is pending transfer to another zone', async () => {
@@ -1041,6 +1094,7 @@ describe('PlayerHandPanelComponent', () => {
     expect(fixture.componentInstance.pointerDrag()?.mode).toBe('transfer');
     expect(fixture.nativeElement.querySelector('[data-card-instance-id="card-1"]')?.classList).toContain('dragging');
     expect(fixture.nativeElement.querySelector('.hand-floating-card')?.textContent).toContain('Arcane Signet');
+    expect((fixture.nativeElement.querySelector('.hand-floating-card') as HTMLElement).dataset['motionOriginCardId']).toBe('card-1');
   });
 
   it('emits a pointer move when a hand card is dragged out to the battlefield', async () => {
@@ -1323,9 +1377,10 @@ interface RenderHandPanelOptions {
   readOnly?: boolean;
   showCardsFaceDown?: boolean;
   hasOpenHandContextMenu?: boolean;
+  motionActive?: boolean;
   handZoneCount?: number;
   isDropZoneHighlighted?: (playerId: string, zone: GameZoneName) => boolean;
-  isCardDropSettling?: (playerId: string, zone: GameZoneName, card: GameCardInstance) => boolean;
+  isHandDropTarget?: (playerId: string, card: GameCardInstance, placement: 'before' | 'after') => boolean;
   isCardTransferPending?: (playerId: string, zone: GameZoneName, card: GameCardInstance) => boolean;
   isSelected?: (instanceId: string) => boolean;
   cardImage?: (card: GameCardInstance) => string | null;
@@ -1349,15 +1404,15 @@ async function renderHandPanel(options: RenderHandPanelOptions = {}): Promise<{ 
   fixture.componentRef.setInput('cardImage', options.cardImage ?? ((_card: GameCardInstance) => null));
   fixture.componentRef.setInput('isSelected', options.isSelected ?? ((_instanceId: string) => false));
   fixture.componentRef.setInput('isDraggingCard', (_card: GameCardInstance) => false);
-  fixture.componentRef.setInput('isHandDropTarget', (_playerId: string, _card: GameCardInstance, _placement: 'before' | 'after') => false);
+  fixture.componentRef.setInput('isHandDropTarget', options.isHandDropTarget ?? ((_playerId: string, _card: GameCardInstance, _placement: 'before' | 'after') => false));
   fixture.componentRef.setInput('isDropZoneHighlighted', options.isDropZoneHighlighted ?? ((_playerId: string, _zone: GameZoneName) => false));
-  fixture.componentRef.setInput('isCardDropSettling', options.isCardDropSettling ?? ((_playerId: string, _zone: GameZoneName, _card: GameCardInstance) => false));
   fixture.componentRef.setInput('isCardTransferPending', options.isCardTransferPending ?? ((_playerId: string, _zone: GameZoneName, _card: GameCardInstance) => false));
   fixture.componentRef.setInput('hasActiveCardDrag', options.hasActiveCardDrag ?? false);
   fixture.componentRef.setInput('externalRevealAllowed', options.externalRevealAllowed ?? true);
   fixture.componentRef.setInput('readOnly', options.readOnly ?? false);
   fixture.componentRef.setInput('showCardsFaceDown', options.showCardsFaceDown ?? false);
   fixture.componentRef.setInput('hasOpenHandContextMenu', options.hasOpenHandContextMenu ?? false);
+  fixture.componentRef.setInput('motionActive', options.motionActive ?? false);
   fixture.detectChanges();
 
   return {
