@@ -1,6 +1,7 @@
 import { Injectable, signal } from '@angular/core';
 import { GameCardInstance } from '../../../../../core/models/game.model';
 import { PendingArrowSource } from '../../models/game-table-arrow.model';
+import { GameTablePermanentRelationService } from '../../services/game-table-permanent-relation.service';
 import { GameContextMenu } from '../core/game-table-ui.state';
 import { GameTableCoreState } from '../core/game-table-core.state';
 
@@ -19,7 +20,10 @@ export class GameTableArrowsState {
   private arrowCreationQueue: Promise<void> = Promise.resolve();
   readonly pendingArrowSource = signal<PendingArrowSource | null>(null);
 
-  constructor(private readonly core: GameTableCoreState) {}
+  constructor(
+    private readonly core: GameTableCoreState,
+    private readonly permanentRelations: GameTablePermanentRelationService,
+  ) {}
 
   clearPendingArrowSource(): void {
     this.pendingArrowSource.set(null);
@@ -90,12 +94,11 @@ export class GameTableArrowsState {
 
   ownedArrowIds(playerId: string): readonly string[] {
     const snapshot = this.core.snapshot();
-    const battlefield = snapshot?.players[playerId]?.zones.battlefield;
-    if (!snapshot || !battlefield) {
+    if (!snapshot) {
       return [];
     }
 
-    const sourceInstanceIds = new Set(battlefield.map((card) => card.instanceId));
+    const sourceInstanceIds = this.permanentRelations.battlefieldInstanceIds(snapshot, playerId);
 
     return snapshot.arrows
       .filter((arrow) => arrow.ownerId === playerId || (!arrow.ownerId && sourceInstanceIds.has(arrow.fromInstanceId)))

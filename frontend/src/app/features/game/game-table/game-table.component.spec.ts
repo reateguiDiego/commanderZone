@@ -282,9 +282,45 @@ describe('GameTableComponent', () => {
         card,
       });
 
-      expect(prepareCardRotationFlip).toHaveBeenCalledWith('card-1');
+      expect(prepareCardRotationFlip).toHaveBeenCalledWith('card-1', expect.objectContaining({
+        onComplete: expect.any(Function),
+      }));
       expect(toggleTapped).toHaveBeenCalledWith('user-1', 'battlefield', card);
       expect(animateRotation).toHaveBeenCalledOnce();
+    } finally {
+      requestAnimationFrame.mockRestore();
+    }
+  });
+
+  it('blocks battlefield card drag until the tap animation completes', async () => {
+    const fixture = TestBed.createComponent(GameTableComponent);
+    const motion = fixture.debugElement.injector.get(GameTableMotionService);
+    vi.spyOn(fixture.componentInstance.store, 'canDragBattlefieldCard').mockReturnValue(true);
+    vi.spyOn(fixture.componentInstance.store, 'toggleTapped').mockResolvedValue(undefined);
+    let completeRotation: (() => void) | undefined;
+    vi.spyOn(motion, 'prepareCardRotationFlip').mockImplementation((_instanceId, options) => {
+      completeRotation = options?.onComplete;
+
+      return vi.fn();
+    });
+    const requestAnimationFrame = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+      callback(0);
+      return 1;
+    });
+    const card = { instanceId: 'card-1', name: 'Sol Ring', tapped: false } as GameCardInstance;
+
+    try {
+      await fixture.componentInstance.handleBattlefieldCardDoubleClicked({
+        event: new MouseEvent('dblclick'),
+        playerId: 'user-1',
+        card,
+      });
+
+      expect(fixture.componentInstance.canDragBattlefieldCard('user-1', card)).toBe(false);
+
+      completeRotation?.();
+
+      expect(fixture.componentInstance.canDragBattlefieldCard('user-1', card)).toBe(true);
     } finally {
       requestAnimationFrame.mockRestore();
     }
@@ -386,6 +422,41 @@ describe('GameTableComponent', () => {
 
     expect(endCardPointerDrag).toHaveBeenCalledWith(event);
     expect(prepareCardFlip).not.toHaveBeenCalled();
+  });
+
+  it('does not animate a pointer drag into hand when the pointer is not over the hand drop zone', () => {
+    const fixture = TestBed.createComponent(GameTableComponent);
+    const motion = fixture.debugElement.injector.get(GameTableMotionService);
+    const throwElementGhost = vi.spyOn(motion, 'throwElementGhost').mockImplementation(() => undefined);
+    const impactZone = vi.spyOn(motion, 'impactZone').mockImplementation(() => undefined);
+    const endCardPointerDrag = vi.spyOn(fixture.componentInstance.store, 'endCardPointerDrag').mockResolvedValue(undefined);
+    vi.spyOn(fixture.componentInstance.store, 'pointerDragPreview').mockReturnValue({
+      card: { instanceId: 'battlefield-1', name: 'Forest', tapped: false },
+      x: 120,
+      y: 520,
+      width: 103,
+      height: 144,
+      count: 1,
+    });
+    vi.spyOn(fixture.componentInstance.store, 'draggingCardInstanceId').mockReturnValue('battlefield-1');
+    vi.spyOn(fixture.componentInstance.store, 'activeDropTarget').mockReturnValue({ playerId: 'user-1', zone: 'hand' });
+    const originalElementsFromPoint = document.elementsFromPoint;
+    Object.defineProperty(document, 'elementsFromPoint', {
+      configurable: true,
+      value: vi.fn(() => []),
+    });
+    const event = new PointerEvent('pointerup', { clientX: 120, clientY: 520 });
+
+    fixture.componentInstance.handlePointerUp(event);
+
+    expect(endCardPointerDrag).toHaveBeenCalledWith(event);
+    expect(throwElementGhost).not.toHaveBeenCalled();
+    expect(impactZone).not.toHaveBeenCalled();
+
+    Object.defineProperty(document, 'elementsFromPoint', {
+      configurable: true,
+      value: originalElementsFromPoint,
+    });
   });
 
   it('captures hand reorder FLIP before updating the store and plays it after', async () => {
@@ -3397,7 +3468,7 @@ describe('GameTableChatLogState', () => {
     ];
 
     expect(state.eventLog(snapshot).map((entry) => entry.message)).toEqual([
-      'User lost 3 life (40 -> 37).',
+      'Lost 3 life (40 -> 37).',
     ]);
   });
 
@@ -3411,7 +3482,7 @@ describe('GameTableChatLogState', () => {
     ];
 
     expect(state.eventLog(snapshot).map((entry) => entry.message)).toEqual([
-      'User lost 2 life (40 -> 38).',
+      'Lost 2 life (40 -> 38).',
       'Set User life to 39.',
     ]);
   });

@@ -157,7 +157,7 @@ export class GameTablePointerDragService {
     const offsetY = cardSize.offsetY ?? cardSize.height / 2;
     const rawX = Math.round(event.clientX - bounds.left - offsetX);
     const rawY = manaLaneBounds
-      ? Math.round(manaLaneBounds.top - bounds.top + 8)
+      ? Math.round(manaLaneBounds.bottom - bounds.top - cardSize.height)
       : Math.round(event.clientY - bounds.top - offsetY);
 
     return {

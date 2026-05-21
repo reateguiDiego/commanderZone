@@ -25,6 +25,7 @@ import { SelectedCard } from './models/game-table-card.model';
 import { DiceRollCommand } from './models/game-table-dice.model';
 import { GameTableSyncStatus } from './models/game-table-sync.model';
 import { GameTableArrowsState } from './state/arrows/game-table-arrows.state';
+import { GameTableAttachmentsState } from './state/attachments/game-table-attachments.state';
 import { GameTableBattlefieldState } from './state/battlefield/game-table-battlefield.state';
 import { GameTableCardsState } from './state/cards/game-table-cards.state';
 import { GameTableChatStore } from './state/chat/game-table-chat.store';
@@ -38,6 +39,7 @@ import { GameTableHandState } from './state/hand/game-table-hand.state';
 import { GameTableLibraryTopState } from './state/zones/game-table-library-top.state';
 import { GameTableOpponentTargetsState } from './state/arrows/game-table-opponent-targets.state';
 import { GameTablePlayersStore } from './state/players/game-table-players.store';
+import { GameTablePermanentRelationService } from './services/game-table-permanent-relation.service';
 import { GameTableSnapshotCoordinatorState } from './state/core/game-table-snapshot-coordinator.state';
 import { GameTableToastState } from './state/core/game-table-toast.state';
 import { GameTableZonePilesState } from './state/zones/game-table-zone-piles.state';
@@ -63,6 +65,7 @@ export class GameTableStore implements OnDestroy {
   private readonly selection = inject(GameTableSelectionService);
   private readonly coreState = inject(GameTableCoreState);
   private readonly arrowsState = inject(GameTableArrowsState);
+  private readonly attachmentsState = inject(GameTableAttachmentsState);
   private readonly battlefieldState = inject(GameTableBattlefieldState);
   private readonly cardsState = inject(GameTableCardsState);
   private readonly chatStore = inject(GameTableChatStore);
@@ -75,6 +78,7 @@ export class GameTableStore implements OnDestroy {
   private readonly libraryTopState = inject(GameTableLibraryTopState);
   private readonly opponentTargetsState = inject(GameTableOpponentTargetsState);
   private readonly playersStore = inject(GameTablePlayersStore);
+  private readonly permanentRelations = inject(GameTablePermanentRelationService);
   private readonly snapshotCoordinatorState = inject(GameTableSnapshotCoordinatorState);
   private readonly toastState = inject(GameTableToastState);
   private readonly zonePilesState = inject(GameTableZonePilesState);
@@ -113,9 +117,11 @@ export class GameTableStore implements OnDestroy {
   readonly pendingBattlefieldMove = signal<PendingBattlefieldMove | null>(null);
   readonly pendingLibraryMove = signal<PendingLibraryMove | null>(null);
   readonly pendingArrowSource = this.arrowsState.pendingArrowSource;
+  readonly pendingAttachmentSource = this.attachmentsState.pendingAttachmentSource;
   readonly draggingCardInstanceId = this.dragDropStore.draggingCardInstanceId;
   readonly handDropPreview = this.handState.handDropPreview;
   readonly manaLaneDropPlayerId = this.dragDropStore.manaLaneDropPlayerId;
+  readonly landStackDropPreview = this.dragDropStore.landStackDropPreview;
   readonly handExternalRevealAllowed = this.dragDropStore.handExternalRevealAllowed;
   readonly alignmentGuide = this.dragDropStore.alignmentGuide;
   readonly activeDropTarget = this.dragDropStore.activeDropTarget;
@@ -230,6 +236,7 @@ export class GameTableStore implements OnDestroy {
     if (!target?.closest('[data-card-instance-id], .context-menu, .zone-modal, app-modal')) {
       this.clearSelection();
       this.pendingArrowSource.set(null);
+      this.pendingAttachmentSource.set(null);
     }
   }
 
@@ -784,6 +791,9 @@ export class GameTableStore implements OnDestroy {
     if (this.arrowsState.handleBattlefieldCardClick(this.contexts.arrowInteraction(), event, card)) {
       return;
     }
+    if (this.attachmentsState.handleBattlefieldCardClick(this.contexts.attachmentInteraction(), event, card)) {
+      return;
+    }
 
     this.interactionActions.handleBattlefieldCardClick(this.contexts.interaction(), event, playerId, card);
   }
@@ -917,6 +927,10 @@ export class GameTableStore implements OnDestroy {
     this.arrowsState.startArrowFrom(this.contexts.arrowInteraction(), menu, targetCount);
   }
 
+  startAttachmentFrom(menu: GameContextMenu): void {
+    this.attachmentsState.startAttachmentFrom(this.contexts.attachmentInteraction(), menu);
+  }
+
   async giveCardToPlayer(menu: GameContextMenu, targetPlayerId: string): Promise<void> {
     await this.cardActions.giveCardToPlayer(this.contexts.cardAction(), menu, targetPlayerId);
   }
@@ -977,8 +991,56 @@ export class GameTableStore implements OnDestroy {
     return this.arrowsState.ownedArrowCount(playerId);
   }
 
+  isAttachedEquipment(_playerId: string, card: GameCardInstance): boolean {
+    return this.attachmentsState.isAttachedEquipment(card.instanceId);
+  }
+
+  isAttachmentTarget(_playerId: string, card: GameCardInstance): boolean {
+    return this.attachmentsState.isAttachmentTarget(card.instanceId);
+  }
+
+  canAttachEquipment(_playerId: string, card: GameCardInstance): boolean {
+    return this.permanentRelations.canAttachSource(this.snapshot(), card);
+  }
+
+  async removeAttachment(menu: GameContextMenu): Promise<void> {
+    if (!menu.card || menu.zone !== 'battlefield') {
+      return;
+    }
+    if (!this.canControlOwnedCard(menu.playerId, menu.card)) {
+      this.error.set('You can only detach cards you control.');
+      this.closeContextMenu();
+      return;
+    }
+
+    this.closeContextMenu();
+    await this.attachmentsState.removeAttachment(this.contexts.attachmentInteraction(), menu.playerId, menu.card);
+  }
+
+  async removeAttachmentsFromTarget(menu: GameContextMenu): Promise<void> {
+    if (!menu.card || menu.zone !== 'battlefield') {
+      return;
+    }
+    if (!this.canControlOwnedCard(menu.playerId, menu.card)) {
+      this.error.set('You can only detach cards from permanents you control.');
+      this.closeContextMenu();
+      return;
+    }
+
+    this.closeContextMenu();
+    await this.attachmentsState.removeAttachmentsFromTarget(this.contexts.attachmentInteraction(), menu.playerId, menu.card);
+  }
+
   async moveSelected(toZone: GameZoneName): Promise<void> {
     await this.cardActions.moveSelected(this.contexts.cardAction(), toZone);
+  }
+
+  isLandStacked(playerId: string, card: GameCardInstance): boolean {
+    return this.cardActions.isLandStacked(this.contexts.cardAction(), playerId, card);
+  }
+
+  async removeLandStack(menu: GameContextMenu): Promise<void> {
+    await this.cardActions.removeLandStack(this.contexts.cardAction(), menu);
   }
 
   async moveActiveCard(toZone: GameZoneName): Promise<void> {

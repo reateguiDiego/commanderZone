@@ -34,13 +34,94 @@ class GameCommandHandlerTest extends TestCase
         self::assertSame(2, $graveyardCard['defaultToughness']);
     }
 
+    public function testUntapsCardWhenItLeavesBattlefield(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->snapshot($actor->id(), [
+            'battlefield' => [
+                [
+                    ...$this->card('card-1', 'Tapped Bear', 'battlefield', 2, 2, 2, 2),
+                    'tapped' => true,
+                    'rotation' => 90,
+                ],
+            ],
+        ]));
+
+        (new GameCommandHandler())->apply($game, 'card.moved', [
+            'playerId' => $actor->id(),
+            'fromZone' => 'battlefield',
+            'toZone' => 'graveyard',
+            'instanceId' => 'card-1',
+        ], $actor);
+
+        $graveyardCard = $game->snapshot()['players'][$actor->id()]['zones']['graveyard'][0];
+        self::assertFalse($graveyardCard['tapped']);
+        self::assertSame(0, $graveyardCard['rotation']);
+    }
+
+    public function testUntapsCardsWhenTheyLeaveBattlefieldTogether(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->snapshot($actor->id(), [
+            'battlefield' => [
+                [
+                    ...$this->card('card-1', 'Tapped Bear', 'battlefield', 2, 2, 2, 2),
+                    'tapped' => true,
+                    'rotation' => 90,
+                ],
+                [
+                    ...$this->card('card-2', 'Tapped Elk', 'battlefield', 3, 3, 3, 3),
+                    'tapped' => true,
+                    'rotation' => 90,
+                ],
+            ],
+        ]));
+
+        (new GameCommandHandler())->apply($game, 'cards.moved', [
+            'playerId' => $actor->id(),
+            'fromZone' => 'battlefield',
+            'toZone' => 'hand',
+            'instanceIds' => ['card-1', 'card-2'],
+        ], $actor);
+
+        $hand = $game->snapshot()['players'][$actor->id()]['zones']['hand'];
+        self::assertFalse($hand[0]['tapped']);
+        self::assertSame(0, $hand[0]['rotation']);
+        self::assertFalse($hand[1]['tapped']);
+        self::assertSame(0, $hand[1]['rotation']);
+    }
+
+    public function testNormalizeSnapshotUntapsLegacyCardsOutsideBattlefield(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $snapshot = $this->snapshot($actor->id(), [
+            'hand' => [
+                [
+                    ...$this->card('card-1', 'Legacy Tapped Hand', 'hand', 2, 2, 2, 2),
+                    'tapped' => true,
+                    'rotation' => 90,
+                ],
+            ],
+        ]);
+
+        $normalized = (new GameCommandHandler())->normalizeSnapshot($snapshot);
+        $handCard = $normalized['players'][$actor->id()]['zones']['hand'][0];
+
+        self::assertFalse($handCard['tapped']);
+        self::assertSame(0, $handCard['rotation']);
+    }
+
     public function testKeepsModifiedPowerToughnessWhenCardMovesToOpponentBattlefield(): void
     {
         $actor = new User('owner@example.test', 'Owner');
         $opponent = new User('opponent@example.test', 'Opponent');
         $game = new Game(new Room($actor), $this->snapshot($actor->id(), [
             'battlefield' => [
-                $this->card('card-1', 'Bear', 'battlefield', 9, 9, 2, 2),
+                [
+                    ...$this->card('card-1', 'Bear', 'battlefield', 9, 9, 2, 2),
+                    'tapped' => true,
+                    'rotation' => 90,
+                ],
             ],
         ], $opponent->id()));
 
@@ -55,6 +136,8 @@ class GameCommandHandlerTest extends TestCase
         $opponentCard = $game->snapshot()['players'][$opponent->id()]['zones']['battlefield'][0];
         self::assertSame(9, $opponentCard['power']);
         self::assertSame(9, $opponentCard['toughness']);
+        self::assertTrue($opponentCard['tapped']);
+        self::assertSame(90, $opponentCard['rotation']);
     }
 
     public function testCanMoveHandCardToBattlefieldFaceDown(): void
@@ -273,6 +356,33 @@ class GameCommandHandlerTest extends TestCase
             ['x' => 120, 'y' => 240],
             $game->snapshot()['players'][$actor->id()]['zones']['battlefield'][0]['position'],
         );
+    }
+
+    public function testCardsPositionCommandPersistsMultipleBattlefieldPositionsAtomically(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->snapshot($actor->id(), [
+            'battlefield' => [
+                $this->card('land-top', 'Forest', 'battlefield', 2, 2, 2, 2),
+                $this->card('land-under', 'Island', 'battlefield', 2, 2, 2, 2),
+                $this->card('land-bottom', 'Plains', 'battlefield', 2, 2, 2, 2),
+            ],
+        ]));
+
+        (new GameCommandHandler())->apply($game, 'cards.position.changed', [
+            'playerId' => $actor->id(),
+            'zone' => 'battlefield',
+            'positions' => [
+                ['instanceId' => 'land-top', 'position' => ['x' => 0.5, 'y' => 0.5, 'unit' => 'ratio']],
+                ['instanceId' => 'land-under', 'position' => ['x' => 0.5, 'y' => 0.46, 'unit' => 'ratio']],
+                ['instanceId' => 'land-bottom', 'position' => ['x' => 0.5, 'y' => 0.42, 'unit' => 'ratio']],
+            ],
+        ], $actor);
+
+        $battlefield = $game->snapshot()['players'][$actor->id()]['zones']['battlefield'];
+        self::assertSame(['x' => 0.5, 'y' => 0.5, 'unit' => 'ratio'], $battlefield[0]['position']);
+        self::assertSame(['x' => 0.5, 'y' => 0.46, 'unit' => 'ratio'], $battlefield[1]['position']);
+        self::assertSame(['x' => 0.5, 'y' => 0.42, 'unit' => 'ratio'], $battlefield[2]['position']);
     }
 
     public function testCommanderFlagIsPreservedWhenCommanderMovesBetweenZones(): void
@@ -1529,7 +1639,7 @@ class GameCommandHandlerTest extends TestCase
             $snapshot['players'][$actor->id()]['zones']['hand'],
         ));
         self::assertSame([
-            'Set '.$actor->id().' life to 0.',
+            'Lost 40 life (40 -> 0).',
             'ha muerto.',
         ], array_map(
             static fn (array $entry): string => $entry['message'],
@@ -1918,6 +2028,282 @@ class GameCommandHandlerTest extends TestCase
         self::assertSame(['x' => 0.5, 'y' => 0.5, 'unit' => 'ratio'], $game->snapshot()['players'][$opponent->id()]['zones']['battlefield'][0]['position']);
     }
 
+    public function testAttachmentCreatedStoresManualPermanentRelation(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->snapshot($actor->id(), [
+            'battlefield' => [
+                $this->card('equipment-card', 'Sword', 'battlefield', 1, 1, 1, 1),
+                $this->card('target-card', 'Bear', 'battlefield', 2, 2, 2, 2),
+            ],
+        ]));
+
+        (new GameCommandHandler())->apply($game, 'attachment.created', [
+            'equipmentInstanceId' => 'equipment-card',
+            'attachedToInstanceId' => 'target-card',
+        ], $actor);
+
+        $attachment = $game->snapshot()['attachments'][0];
+        self::assertSame($actor->id(), $attachment['ownerId']);
+        self::assertSame('equipment-card', $attachment['equipmentInstanceId']);
+        self::assertSame('target-card', $attachment['attachedToInstanceId']);
+        self::assertSame([], $game->snapshot()['eventLog']);
+    }
+
+    public function testAttachmentReequipReplacesPreviousTarget(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->snapshot($actor->id(), [
+            'battlefield' => [
+                $this->card('equipment-card', 'Sword', 'battlefield', 1, 1, 1, 1),
+                $this->card('first-target', 'Bear', 'battlefield', 2, 2, 2, 2),
+                $this->card('second-target', 'Elf', 'battlefield', 1, 1, 1, 1),
+            ],
+        ]));
+        $handler = new GameCommandHandler();
+
+        $handler->apply($game, 'attachment.created', [
+            'equipmentInstanceId' => 'equipment-card',
+            'attachedToInstanceId' => 'first-target',
+        ], $actor);
+        $handler->apply($game, 'attachment.created', [
+            'equipmentInstanceId' => 'equipment-card',
+            'attachedToInstanceId' => 'second-target',
+        ], $actor);
+
+        self::assertCount(1, $game->snapshot()['attachments']);
+        self::assertSame('second-target', $game->snapshot()['attachments'][0]['attachedToInstanceId']);
+    }
+
+    public function testAttachmentCannotUseLandAsEquipmentSource(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->snapshot($actor->id(), [
+            'battlefield' => [
+                [
+                    ...$this->card('land-card', 'Forest', 'battlefield', 0, 0, 0, 0),
+                    'typeLine' => 'Basic Land - Forest',
+                ],
+                [
+                    ...$this->card('target-card', 'Bear', 'battlefield', 2, 2, 2, 2),
+                    'typeLine' => 'Creature - Bear',
+                ],
+            ],
+        ]));
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Lands cannot be attached to another permanent.');
+
+        (new GameCommandHandler())->apply($game, 'attachment.created', [
+            'equipmentInstanceId' => 'land-card',
+            'attachedToInstanceId' => 'target-card',
+        ], $actor);
+    }
+
+    public function testAttachmentCanTargetLand(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->snapshot($actor->id(), [
+            'battlefield' => [
+                [
+                    ...$this->card('equipment-card', 'Sword', 'battlefield', 1, 1, 1, 1),
+                    'typeLine' => 'Artifact',
+                ],
+                [
+                    ...$this->card('land-card', 'Forest', 'battlefield', 0, 0, 0, 0),
+                    'typeLine' => 'Basic Land - Forest',
+                ],
+            ],
+        ]));
+
+        (new GameCommandHandler())->apply($game, 'attachment.created', [
+            'equipmentInstanceId' => 'equipment-card',
+            'attachedToInstanceId' => 'land-card',
+        ], $actor);
+
+        self::assertSame('land-card', $game->snapshot()['attachments'][0]['attachedToInstanceId']);
+    }
+
+    public function testAttachmentCannotCrossPlayerBattlefields(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $opponent = new User('opponent@example.test', 'Opponent');
+        $snapshot = $this->snapshot($actor->id(), [
+            'battlefield' => [
+                $this->card('equipment-card', 'Sword', 'battlefield', 1, 1, 1, 1),
+            ],
+        ]);
+        $snapshot['players'][$opponent->id()] = [
+            'user' => [
+                'id' => $opponent->id(),
+                'email' => $opponent->email(),
+                'displayName' => $opponent->displayName(),
+                'roles' => $opponent->getRoles(),
+            ],
+            'life' => 40,
+            'zones' => [
+                'library' => [],
+                'hand' => [],
+                'battlefield' => [
+                    $this->card('target-card', 'Bear', 'battlefield', 2, 2, 2, 2),
+                ],
+                'graveyard' => [],
+                'exile' => [],
+                'command' => [],
+            ],
+            'commanderDamage' => [],
+            'counters' => [],
+            'status' => 'active',
+        ];
+        $game = new Game(new Room($actor), $snapshot);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Attachments must stay on the same battlefield.');
+
+        (new GameCommandHandler())->apply($game, 'attachment.created', [
+            'equipmentInstanceId' => 'equipment-card',
+            'attachedToInstanceId' => 'target-card',
+        ], $actor);
+    }
+
+    public function testAttachmentAllowsBorrowedCardControlledOnActorBattlefield(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $opponent = new User('opponent@example.test', 'Opponent');
+        $game = new Game(new Room($actor), $this->snapshot($actor->id(), [
+            'battlefield' => [
+                [
+                    ...$this->card('borrowed-equipment', 'Sword', 'battlefield', 1, 1, 1, 1),
+                    'ownerId' => $opponent->id(),
+                    'controllerId' => $actor->id(),
+                ],
+                $this->card('target-card', 'Bear', 'battlefield', 2, 2, 2, 2),
+            ],
+        ]));
+
+        (new GameCommandHandler())->apply($game, 'attachment.created', [
+            'equipmentInstanceId' => 'borrowed-equipment',
+            'attachedToInstanceId' => 'target-card',
+        ], $actor);
+
+        self::assertSame('borrowed-equipment', $game->snapshot()['attachments'][0]['equipmentInstanceId']);
+    }
+
+    public function testAttachmentCannotUsePermanentWithAttachedCardsAsSource(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $snapshot = $this->snapshot($actor->id(), [
+            'battlefield' => [
+                $this->card('source-target', 'Bear', 'battlefield', 2, 2, 2, 2),
+                $this->card('attached-card', 'Sword', 'battlefield', 1, 1, 1, 1),
+                $this->card('new-target', 'Elf', 'battlefield', 1, 1, 1, 1),
+            ],
+        ]);
+        $snapshot['attachments'] = [[
+            'id' => 'attachment-1',
+            'ownerId' => $actor->id(),
+            'equipmentInstanceId' => 'attached-card',
+            'attachedToInstanceId' => 'source-target',
+            'createdAt' => '2026-01-01T00:00:00+00:00',
+        ]];
+        $game = new Game(new Room($actor), $snapshot);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Cards with attached permanents cannot be attached to another permanent.');
+
+        (new GameCommandHandler())->apply($game, 'attachment.created', [
+            'equipmentInstanceId' => 'source-target',
+            'attachedToInstanceId' => 'new-target',
+        ], $actor);
+    }
+
+    public function testAttachmentCanReequipNonLandPermanent(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->snapshot($actor->id(), [
+            'battlefield' => [
+                [
+                    ...$this->card('equipment-card', 'Sword', 'battlefield', 1, 1, 1, 1),
+                    'typeLine' => 'Artifact',
+                ],
+                [
+                    ...$this->card('creature-card', 'Bear', 'battlefield', 2, 2, 2, 2),
+                    'typeLine' => 'Creature - Bear',
+                ],
+                [
+                    ...$this->card('artifact-card', 'Relic', 'battlefield', 0, 0, 0, 0),
+                    'typeLine' => 'Artifact',
+                ],
+            ],
+        ]));
+        $handler = new GameCommandHandler();
+
+        $handler->apply($game, 'attachment.created', [
+            'equipmentInstanceId' => 'equipment-card',
+            'attachedToInstanceId' => 'creature-card',
+        ], $actor);
+        $handler->apply($game, 'attachment.created', [
+            'equipmentInstanceId' => 'equipment-card',
+            'attachedToInstanceId' => 'artifact-card',
+        ], $actor);
+
+        self::assertCount(1, $game->snapshot()['attachments']);
+        self::assertSame('artifact-card', $game->snapshot()['attachments'][0]['attachedToInstanceId']);
+    }
+
+    public function testAttachmentCanBeRemovedByEquipmentInstanceId(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $snapshot = $this->snapshot($actor->id(), [
+            'battlefield' => [
+                $this->card('equipment-card', 'Sword', 'battlefield', 1, 1, 1, 1),
+                $this->card('target-card', 'Bear', 'battlefield', 2, 2, 2, 2),
+            ],
+        ]);
+        $snapshot['attachments'] = [[
+            'id' => 'attachment-1',
+            'ownerId' => $actor->id(),
+            'equipmentInstanceId' => 'equipment-card',
+            'attachedToInstanceId' => 'target-card',
+            'createdAt' => '2026-01-01T00:00:00+00:00',
+        ]];
+        $game = new Game(new Room($actor), $snapshot);
+
+        (new GameCommandHandler())->apply($game, 'attachment.removed', [
+            'equipmentInstanceId' => 'equipment-card',
+        ], $actor);
+
+        self::assertSame([], $game->snapshot()['attachments']);
+        self::assertSame([], $game->snapshot()['eventLog']);
+    }
+
+    public function testAttachmentIsPrunedWhenEndpointLeavesBattlefield(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $snapshot = $this->snapshot($actor->id(), [
+            'battlefield' => [
+                $this->card('equipment-card', 'Sword', 'battlefield', 1, 1, 1, 1),
+                $this->card('target-card', 'Bear', 'battlefield', 2, 2, 2, 2),
+            ],
+        ]);
+        $snapshot['attachments'] = [[
+            'id' => 'attachment-1',
+            'equipmentInstanceId' => 'equipment-card',
+            'attachedToInstanceId' => 'target-card',
+            'createdAt' => '2026-01-01T00:00:00+00:00',
+        ]];
+        $game = new Game(new Room($actor), $snapshot);
+
+        (new GameCommandHandler())->apply($game, 'card.moved', [
+            'playerId' => $actor->id(),
+            'fromZone' => 'battlefield',
+            'toZone' => 'graveyard',
+            'instanceId' => 'target-card',
+        ], $actor);
+
+        self::assertSame([], $game->snapshot()['attachments']);
+    }
+
     /**
      * @param array<string,list<array<string,mixed>>> $actorZones
      */
@@ -1937,6 +2323,7 @@ class GameCommandHandlerTest extends TestCase
             'turn' => ['activePlayerId' => $actorId, 'phase' => 'main', 'number' => 1],
             'stack' => [],
             'arrows' => [],
+            'attachments' => [],
             'chat' => [],
             'eventLog' => [],
             'createdAt' => '2026-01-01T00:00:00+00:00',

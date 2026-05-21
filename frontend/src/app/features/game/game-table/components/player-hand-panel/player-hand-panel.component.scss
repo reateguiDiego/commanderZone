@@ -352,7 +352,7 @@
   border-radius: 10px;
   background: var(--game-surface-deep, rgb(7 8 7 / 88%));
   color: var(--game-text, #f3f0e8);
-  contain: layout paint style;
+  contain: layout style;
   filter:
     brightness(1.03)
     saturate(1.03);

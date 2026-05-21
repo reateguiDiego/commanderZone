@@ -6,14 +6,18 @@ import {
   ElementRef,
   OnDestroy,
   ViewChild,
+  computed,
   input,
   output,
   signal,
 } from '@angular/core';
-import { GameCardInstance, GameZoneName } from '../../../../../core/models/game.model';
+import { GameAttachment, GameCardInstance, GameZoneName } from '../../../../../core/models/game.model';
 import { PlayerView } from '../../game-table.store';
 import { GameCardViewComponent } from '../game-card-view/game-card-view.component';
 import { CardPreviewEvent } from '../../models/card-preview.model';
+import { LandStackDropPreview } from '../../state/drag-drop/game-table-battlefield-drag.state';
+import { buildLandStackGroups, LandStackView, landStackOffsetX, landStackOffsetY } from '../../utils/land-stack';
+import { AttachmentStackView, attachmentStackViewFor, buildAttachmentStackGroups } from '../../utils/attachment-stack';
 
 interface CardCounterView {
   key: string;
@@ -111,12 +115,18 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
   readonly firstCounter = input.required<(card: GameCardInstance) => CardCounterView | null>();
   readonly alignmentGuideFor = input.required<(playerId: string) => AlignmentGuideView | null>();
   readonly isManaLaneHighlighted = input.required<(playerId: string) => boolean>();
+  readonly landStackDropPreview = input<LandStackDropPreview | null>(null);
+  readonly attachments = input<readonly GameAttachment[]>([]);
   readonly isCardDropSettling = input<(playerId: string, zone: GameZoneName, card: GameCardInstance) => boolean>(() => false);
   readonly isManaDropSettling = input<(playerId: string, card: GameCardInstance) => boolean>(() => false);
   readonly isBattlefieldEntrySettling = input<(playerId: string, card: GameCardInstance) => boolean>(() => false);
   readonly isCommanderEntrySettling = input<(playerId: string, card: GameCardInstance) => boolean>(() => false);
   readonly isCardTransferPending = input<(playerId: string, zone: GameZoneName, card: GameCardInstance) => boolean>(() => false);
 
+  readonly landStackGroups = computed(() => buildLandStackGroups(
+    this.player().state.zones.battlefield,
+    (candidate) => this.cardPosition()(candidate),
+  ));
   readonly battlefieldDragOver = output<DragEvent>();
   readonly battlefieldDropped = output<BattlefieldDropEvent>();
   readonly battlefieldMenuOpened = output<BattlefieldZoneMenuEvent>();
@@ -135,6 +145,79 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
   readonly manaLaneDropped = output<{ event: DragEvent; playerId: string }>();
   readonly battlefieldSizeChanged = output<BattlefieldSizeEvent>();
   readonly boardTransitioning = signal(false);
+  readonly landStackViews = computed<ReadonlyMap<string, LandStackView>>(() => {
+    const views = new Map<string, LandStackView>();
+
+    for (const group of this.landStackGroups()) {
+      for (const member of group.members) {
+        views.set(member.card.instanceId, {
+          stackId: group.id,
+          size: group.members.length,
+          layer: member.layer,
+          role: member.role,
+        });
+      }
+    }
+
+    return views;
+  });
+  readonly landStackDisplayPositions = computed<ReadonlyMap<string, { x: number; y: number }>>(() => {
+    const positions = new Map<string, { x: number; y: number }>();
+
+    for (const group of this.landStackGroups()) {
+      const top = group.members.find((member) => member.layer === 0);
+      if (!top) {
+        continue;
+      }
+
+      for (const member of group.members) {
+        positions.set(member.card.instanceId, {
+          x: top.position.x + landStackOffsetX() * member.layer,
+          y: top.position.y - landStackOffsetY() * member.layer,
+        });
+      }
+    }
+
+    return positions;
+  });
+  readonly attachmentStackGroups = computed(() => buildAttachmentStackGroups(
+    this.player().state.zones.battlefield,
+    this.attachments(),
+    (candidate) => this.cardPosition()(candidate),
+  ));
+  readonly attachmentStackViews = computed<ReadonlyMap<string, AttachmentStackView>>(() => {
+    const views = new Map<string, AttachmentStackView>();
+
+    for (const group of this.attachmentStackGroups()) {
+      for (const member of group.members) {
+        const view = attachmentStackViewFor([group], member.card.instanceId);
+        if (view) {
+          views.set(member.card.instanceId, view);
+        }
+      }
+    }
+
+    return views;
+  });
+  readonly attachmentStackDisplayPositions = computed<ReadonlyMap<string, { x: number; y: number }>>(() => {
+    const positions = new Map<string, { x: number; y: number }>();
+
+    for (const group of this.attachmentStackGroups()) {
+      const target = group.members.find((member) => member.layer === 0);
+      if (!target) {
+        continue;
+      }
+
+      for (const member of group.members) {
+        positions.set(member.card.instanceId, {
+          x: target.position.x + landStackOffsetX() * member.layer,
+          y: target.position.y - landStackOffsetY() * member.layer,
+        });
+      }
+    }
+
+    return positions;
+  });
 
   ngAfterViewInit(): void {
     const element = this.battlefieldRoot?.nativeElement;
@@ -181,7 +264,7 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
   onCardDoubleClick(event: MouseEvent, playerId: string, card: GameCardInstance): void {
     event.preventDefault();
     event.stopPropagation();
-    if (!this.isCurrentPlayer()(playerId)) {
+    if (!this.isCurrentPlayer()(playerId) || this.attachmentStackView(card)?.role === 'equipment') {
       return;
     }
 
@@ -254,6 +337,42 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
 
   isAlignmentReference(card: GameCardInstance, guide: AlignmentGuideView | null): boolean {
     return Boolean(guide?.referenceInstanceIds.includes(card.instanceId));
+  }
+
+  landStackView(card: GameCardInstance): LandStackView | null {
+    return this.landStackViews().get(card.instanceId) ?? null;
+  }
+
+  attachmentStackView(card: GameCardInstance): AttachmentStackView | null {
+    return this.attachmentStackViews().get(card.instanceId) ?? null;
+  }
+
+  displayedCardPosition(card: GameCardInstance): { x: number; y: number } | null {
+    return this.landStackDisplayPositions().get(card.instanceId)
+      ?? this.attachmentStackDisplayPositions().get(card.instanceId)
+      ?? this.cardPosition()(card);
+  }
+
+  isLandStackDropTarget(playerId: string, card: GameCardInstance): boolean {
+    const preview = this.landStackDropPreview();
+
+    return preview?.playerId === playerId && preview.targetInstanceId === card.instanceId;
+  }
+
+  landStackDropSize(playerId: string, card: GameCardInstance): number | null {
+    const preview = this.landStackDropPreview();
+
+    return preview?.playerId === playerId && preview.targetInstanceId === card.instanceId && preview.kind === 'land'
+      ? preview.nextSize ?? null
+      : null;
+  }
+
+  stackDropKind(playerId: string, card: GameCardInstance): 'land' | 'attachment' {
+    const preview = this.landStackDropPreview();
+
+    return preview?.playerId === playerId && preview.targetInstanceId === card.instanceId
+      ? preview.kind
+      : 'land';
   }
 
   battlefieldFocusEntry(card: GameCardInstance): BattlefieldFocusEntry {

@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, ElementRef, OnChanges, OnDestroy, computed, inject, input, output, signal, type WritableSignal } from '@angular/core';
+import { LucideAngularModule } from 'lucide-angular';
 import { GameCardInstance, GameZoneName } from '../../../../../core/models/game.model';
 import { CARD_PREVIEW_HOVER_DELAY_MS, CardPreviewEvent, previewRectFromElement } from '../../models/card-preview.model';
 import {
@@ -14,6 +15,8 @@ type DropPlacement = 'before' | 'after';
 type HandLayoutMode = 'fan' | 'row';
 type BattlefieldFocusEntry = 'left' | 'right' | 'fade' | null;
 type StatPulse = 'increase' | 'decrease' | null;
+type LandStackRole = 'top' | 'under';
+type AttachmentStackRole = 'target' | 'equipment';
 
 interface CardCounterView {
   key: string;
@@ -56,14 +59,14 @@ interface CardCounterDeleteRequestEvent {
 
 @Component({
   selector: 'app-game-card-view',
-  imports: [CardMarkerRailComponent, LoyaltyCounterComponent],
+  imports: [CardMarkerRailComponent, LoyaltyCounterComponent, LucideAngularModule],
   templateUrl: './game-card-view.component.html',
   styleUrls: ['./game-card-view.component.scss', './game-card-view-effects.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class GameCardViewComponent implements OnChanges, OnDestroy {
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
-  private readonly hoverLiftDelayMs = CARD_PREVIEW_HOVER_DELAY_MS;
+  private readonly defaultHoverLiftDelayMs = CARD_PREVIEW_HOVER_DELAY_MS;
   private readonly singleStatPulseMs = 420;
   private readonly repeatedStatPulseMs = 900;
   private hoverLiftTimer: number | null = null;
@@ -122,6 +125,14 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
   readonly miniWidthPx = input<number | null>(null);
   readonly miniHeightPx = input<number | null>(null);
   readonly miniZIndex = input<number | null>(null);
+  readonly landStackRole = input<LandStackRole | null>(null);
+  readonly landStackLayer = input<number | null>(null);
+  readonly landStackSize = input<number | null>(null);
+  readonly attachmentStackRole = input<AttachmentStackRole | null>(null);
+  readonly attachmentStackLayer = input<number | null>(null);
+  readonly landStackDropTarget = input(false);
+  readonly landStackDropSize = input<number | null>(null);
+  readonly landStackDropKind = input<'land' | 'attachment'>('land');
   readonly showPowerToughness = input(false);
   readonly powerValue = input<number | null>(null);
   readonly toughnessValue = input<number | null>(null);
@@ -195,6 +206,43 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
   readonly faceFlipAnimating = signal(false);
   readonly statsVisible = computed(() => !this.faceDown() && this.showPowerToughness());
   readonly loyaltyVisible = computed(() => !this.faceDown() && this.loyaltyValue() !== null && !this.showPowerToughness());
+  readonly landStackZIndex = computed(() => {
+    const role = this.landStackRole();
+    if (!role) {
+      return null;
+    }
+
+    if (this.selected() && role === 'top') {
+      return 90;
+    }
+
+    return role === 'top' ? 48 : Math.max(22, 42 - (this.landStackLayer() ?? 1));
+  });
+  readonly cardZIndex = computed(() => {
+    if (
+      this.mode() === 'battlefield'
+      && this.zone() === 'battlefield'
+      && this.previewActive()
+      && this.hoverLifted()
+    ) {
+      return 96;
+    }
+
+    const landStackZIndex = this.landStackZIndex();
+    if (landStackZIndex !== null) {
+      return landStackZIndex;
+    }
+
+    const attachmentRole = this.attachmentStackRole();
+    if (attachmentRole === 'target') {
+      return this.selected() ? 90 : 48;
+    }
+    if (attachmentRole === 'equipment') {
+      return Math.max(22, 42 - (this.attachmentStackLayer() ?? 1));
+    }
+
+    return null;
+  });
 
   readonly handClass = (placement: DropPlacement): boolean => this.handDropPlacement() === placement;
 
@@ -350,7 +398,17 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
         }
       }
       this.hoverLiftTimer = null;
-    }, this.hoverLiftDelayMs);
+    }, this.hoverLiftDelayMs());
+  }
+
+  private hoverLiftDelayMs(): number {
+    return this.isBehindPermanentPile()
+      ? this.defaultHoverLiftDelayMs * 2
+      : this.defaultHoverLiftDelayMs;
+  }
+
+  private isBehindPermanentPile(): boolean {
+    return this.landStackRole() === 'under' || this.attachmentStackRole() === 'equipment';
   }
 
   private syncActiveHoverInstance(): void {

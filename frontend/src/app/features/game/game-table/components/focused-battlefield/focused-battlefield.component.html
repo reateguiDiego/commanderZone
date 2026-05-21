@@ -18,14 +18,17 @@
   (contextmenu)="battlefieldMenuOpened.emit({ event: $event, playerId: focusedPlayer.id, zone: 'battlefield' })"
 >
   @for (card of focusedPlayer.state.zones.battlefield; track card.instanceId) {
+    @let stackView = landStackView(card);
+    @let attachmentView = attachmentStackView(card);
+    @let displayPosition = displayedCardPosition(card);
     <app-game-card-view
       mode="battlefield"
       [card]="card"
       [playerId]="focusedPlayer.id"
       zone="battlefield"
       [image]="cardImage()(card)"
-      [freePosition]="!!cardPosition()(card)"
-      [position]="cardPosition()(card)"
+      [freePosition]="!!displayPosition"
+      [position]="displayPosition"
       [selected]="isCurrentPlayer()(focusedPlayer.id) && isSelected()(card.instanceId)"
       [dragging]="isDraggingCard()(card)"
       [locked]="!isCurrentPlayer()(focusedPlayer.id) || !canDragBattlefieldCard()(focusedPlayer.id, card)"
@@ -46,6 +49,14 @@
       [toughnessValue]="cardToughnessValue()(card)"
       [loyaltyValue]="card.loyalty ?? null"
       [counter]="firstCounter()(card)"
+      [landStackRole]="stackView?.role ?? null"
+      [landStackLayer]="stackView?.layer ?? null"
+      [landStackSize]="stackView?.size ?? null"
+      [attachmentStackRole]="attachmentView?.role ?? null"
+      [attachmentStackLayer]="attachmentView?.layer ?? null"
+      [landStackDropTarget]="isLandStackDropTarget(focusedPlayer.id, card)"
+      [landStackDropSize]="landStackDropSize(focusedPlayer.id, card)"
+      [landStackDropKind]="stackDropKind(focusedPlayer.id, card)"
       (cardPointerDown)="canInteractWithCard(focusedPlayer.id, $event.card) && cardPointerDown.emit({ event: $event.event, playerId: focusedPlayer.id, card: $event.card })"
       (cardClicked)="onCardClick($event.event, focusedPlayer.id, $event.card)"
       (cardDoubleClicked)="onCardDoubleClick($event.event, focusedPlayer.id, $event.card)"

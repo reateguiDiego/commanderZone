@@ -553,14 +553,16 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
   }
 
   enterHandCard(event: MouseEvent, card: GameCardInstance): void {
-    if (this.motionActive() || this.readOnly()) {
+    if (this.motionActive()) {
       return;
     }
 
-    this.activeHandHoverInstanceId.set(card.instanceId);
-    this.enterHand(event);
+    if (!this.readOnly()) {
+      this.activeHandHoverInstanceId.set(card.instanceId);
+      this.enterHand(event);
 
-    this.scheduleHandRowOpen();
+      this.scheduleHandRowOpen();
+    }
     if (this.canPreviewHandCard(card)) {
       this.cardPreviewShown.emit({
         card,
@@ -702,8 +704,8 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
   isHandDropReceiverVisuallyHighlighted(): boolean {
     const drag = this.pointerDrag();
 
-    return this.isExternalHandDropReceiverHighlighted()
-      || this.handDropReceiverRevealed()
+    return this.handDropReceiverRevealed()
+      || this.externalDropRowLocked()
       || Boolean(drag && (drag.mode === 'reorder' || drag.mode !== 'pending' && drag.overOwnHand));
   }
 

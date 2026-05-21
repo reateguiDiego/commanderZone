@@ -1,4 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { importProvidersFrom } from '@angular/core';
+import { Link, LucideAngularModule } from 'lucide-angular';
 import { GameCardInstance } from '../../../../../core/models/game.model';
 import { CARD_PREVIEW_HOVER_DELAY_MS } from '../../models/card-preview.model';
 import { GameCardViewComponent } from './game-card-view.component';
@@ -188,6 +190,142 @@ describe('GameCardViewComponent', () => {
 
     expect(cardElement.classList).toContain('focus-entry-fade');
     expect(cardElement.classList).not.toContain('focus-entry-left');
+  });
+
+  it('uses the normal battlefield hover glow for land stack cards after the behind-pile delay', async () => {
+    vi.useFakeTimers();
+    const { fixture, cardElement } = await renderHandCard();
+    const previewShown = vi.fn();
+    fixture.componentInstance.cardMouseEntered.subscribe(previewShown);
+
+    fixture.componentRef.setInput('mode', 'battlefield');
+    fixture.componentRef.setInput('zone', 'battlefield');
+    fixture.componentRef.setInput('landStackRole', 'under');
+    fixture.componentRef.setInput('landStackLayer', 2);
+    fixture.detectChanges();
+
+    expect(cardElement.style.zIndex).toBe('40');
+
+    cardElement.dispatchEvent(new PointerEvent('pointerenter', { bubbles: true }));
+    vi.advanceTimersByTime(CARD_PREVIEW_HOVER_DELAY_MS);
+    fixture.detectChanges();
+
+    expect(cardElement.classList).not.toContain('hover-lifted');
+    expect(cardElement.classList).not.toContain('battlefield-preview-active');
+    expect(cardElement.style.zIndex).toBe('40');
+
+    vi.advanceTimersByTime(CARD_PREVIEW_HOVER_DELAY_MS);
+    fixture.detectChanges();
+
+    expect(previewShown).toHaveBeenCalled();
+    expect(cardElement.classList).toContain('hover-lifted');
+    expect(cardElement.classList).toContain('battlefield-preview-active');
+    expect(cardElement.style.zIndex).toBe('96');
+
+    cardElement.dispatchEvent(new PointerEvent('pointerleave', { bubbles: true }));
+    fixture.detectChanges();
+
+    expect(cardElement.classList).not.toContain('battlefield-preview-active');
+    expect(cardElement.style.zIndex).toBe('40');
+  });
+
+  it('keeps selected under-stack cards below the stack top card', async () => {
+    const { fixture, cardElement } = await renderHandCard();
+
+    fixture.componentRef.setInput('mode', 'battlefield');
+    fixture.componentRef.setInput('zone', 'battlefield');
+    fixture.componentRef.setInput('selected', true);
+    fixture.componentRef.setInput('landStackRole', 'under');
+    fixture.componentRef.setInput('landStackLayer', 2);
+    fixture.detectChanges();
+
+    expect(cardElement.classList).toContain('selected');
+    expect(cardElement.style.zIndex).toBe('40');
+  });
+
+  it('keeps attachment stack targets eligible for the normal battlefield hover glow', async () => {
+    vi.useFakeTimers();
+    const { fixture, cardElement } = await renderHandCard();
+    const previewShown = vi.fn();
+    fixture.componentInstance.cardMouseEntered.subscribe(previewShown);
+
+    fixture.componentRef.setInput('mode', 'battlefield');
+    fixture.componentRef.setInput('zone', 'battlefield');
+    fixture.componentRef.setInput('attachmentStackRole', 'target');
+    fixture.detectChanges();
+
+    cardElement.dispatchEvent(new PointerEvent('pointerenter', { bubbles: true }));
+    vi.advanceTimersByTime(CARD_PREVIEW_HOVER_DELAY_MS);
+    fixture.detectChanges();
+
+    expect(previewShown).toHaveBeenCalled();
+    expect(cardElement.classList).toContain('hover-lifted');
+    expect(cardElement.classList).toContain('battlefield-preview-active');
+    expect(cardElement.style.zIndex).toBe('96');
+  });
+
+  it('uses the normal battlefield hover glow for attached cards under a target after the behind-pile delay', async () => {
+    vi.useFakeTimers();
+    const { fixture, cardElement } = await renderHandCard();
+
+    fixture.componentRef.setInput('mode', 'battlefield');
+    fixture.componentRef.setInput('zone', 'battlefield');
+    fixture.componentRef.setInput('attachmentStackRole', 'equipment');
+    fixture.componentRef.setInput('attachmentStackLayer', 1);
+    fixture.detectChanges();
+
+    expect(cardElement.style.zIndex).toBe('41');
+
+    cardElement.dispatchEvent(new PointerEvent('pointerenter', { bubbles: true }));
+    vi.advanceTimersByTime(CARD_PREVIEW_HOVER_DELAY_MS);
+    fixture.detectChanges();
+
+    expect(cardElement.classList).not.toContain('hover-lifted');
+    expect(cardElement.classList).not.toContain('battlefield-preview-active');
+    expect(cardElement.style.zIndex).toBe('41');
+
+    vi.advanceTimersByTime(CARD_PREVIEW_HOVER_DELAY_MS);
+    fixture.detectChanges();
+
+    expect(cardElement.classList).toContain('hover-lifted');
+    expect(cardElement.classList).toContain('battlefield-preview-active');
+    expect(cardElement.style.zIndex).toBe('96');
+  });
+
+  it('renders the attachment drop preview with the shared stack badge surface', async () => {
+    const { fixture, cardElement } = await renderHandCard();
+
+    fixture.componentRef.setInput('mode', 'battlefield');
+    fixture.componentRef.setInput('zone', 'battlefield');
+    fixture.componentRef.setInput('landStackDropTarget', true);
+    fixture.componentRef.setInput('landStackDropKind', 'attachment');
+    fixture.detectChanges();
+
+    const badge = fixture.nativeElement.querySelector('.land-stack-preview-badge') as HTMLElement | null;
+
+    expect(cardElement.classList).toContain('land-stack-drop-target');
+    expect(cardElement.classList).toContain('attachment-stack-drop-target');
+    expect(badge?.parentElement).toBe(cardElement);
+    expect(badge?.textContent?.trim()).toBe('Attach');
+    expect(badge?.querySelector('lucide-icon[name="link"]')).not.toBeNull();
+  });
+
+  it('renders the land stack drop preview as a stack badge', async () => {
+    const { fixture, cardElement } = await renderHandCard();
+
+    fixture.componentRef.setInput('mode', 'battlefield');
+    fixture.componentRef.setInput('zone', 'battlefield');
+    fixture.componentRef.setInput('landStackDropTarget', true);
+    fixture.componentRef.setInput('landStackDropKind', 'land');
+    fixture.componentRef.setInput('landStackDropSize', 3);
+    fixture.detectChanges();
+
+    const badge = fixture.nativeElement.querySelector('.land-stack-preview-badge') as HTMLElement | null;
+
+    expect(cardElement.classList).toContain('land-stack-drop-target');
+    expect(cardElement.classList).not.toContain('attachment-stack-drop-target');
+    expect(badge?.textContent?.trim()).toBe('Stack');
+    expect(badge?.querySelector('.land-stack-preview-icon')).not.toBeNull();
   });
 
   it('emits pointerdown so containers can start their card drag flow', async () => {
@@ -532,6 +670,7 @@ async function renderHandCard(
 ): Promise<{ fixture: ComponentFixture<GameCardViewComponent>; cardElement: HTMLButtonElement }> {
   await TestBed.configureTestingModule({
     imports: [GameCardViewComponent],
+    providers: [importProvidersFrom(LucideAngularModule.pick({ Link }))],
   }).compileComponents();
 
   const fixture = TestBed.createComponent(GameCardViewComponent);

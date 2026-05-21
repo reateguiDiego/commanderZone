@@ -341,6 +341,60 @@ describe('GameTableDropActionsService', () => {
     expect(sequence).toEqual(['pending', 'command']);
   });
 
+  it('stacks a land directly from a zone pile when dropped over another land', async () => {
+    const moved = land('moved', 'Returned Forest', 'graveyard');
+    const target = { ...land('target', 'Forest', 'battlefield'), position: { x: 122, y: 158 } };
+    const snapshot = snapshotWith({ graveyard: [moved], battlefield: [target] });
+    const command = vi.fn(async () => undefined);
+    const context = dropContext(
+      () => snapshot,
+      command,
+      {
+        snapBattlefieldPosition: vi.fn(() => ({ x: 700, y: 500 })),
+      },
+    );
+
+    await service.dropOnZone(context, dragEvent({ playerId: 'player-1', zone: 'graveyard', instanceId: 'moved' }), 'player-1', 'battlefield');
+
+    expect(command).toHaveBeenCalledWith('card.moved', expect.objectContaining({
+      playerId: 'player-1',
+      fromZone: 'graveyard',
+      toZone: 'battlefield',
+      targetPlayerId: 'player-1',
+      instanceId: 'moved',
+      position: { x: 132, y: 144 },
+    }));
+  });
+
+  it('attaches a nonland directly from a zone pile and bypasses alignment snap', async () => {
+    const moved = permanent('moved', 'Returned Aura', 'graveyard');
+    const target = { ...permanent('target', 'Baleful Strix', 'battlefield'), position: { x: 122, y: 158 } };
+    const snapshot = snapshotWith({ graveyard: [moved], battlefield: [target] });
+    const command = vi.fn(async () => undefined);
+    const context = dropContext(
+      () => snapshot,
+      command,
+      {
+        snapBattlefieldPosition: vi.fn(() => ({ x: 700, y: 500 })),
+      },
+    );
+
+    await service.dropOnZone(context, dragEvent({ playerId: 'player-1', zone: 'graveyard', instanceId: 'moved' }), 'player-1', 'battlefield');
+
+    expect(command).toHaveBeenNthCalledWith(1, 'card.moved', expect.objectContaining({
+      playerId: 'player-1',
+      fromZone: 'graveyard',
+      toZone: 'battlefield',
+      targetPlayerId: 'player-1',
+      instanceId: 'moved',
+      position: { x: 132, y: 144 },
+    }));
+    expect(command).toHaveBeenNthCalledWith(2, 'attachment.created', {
+      equipmentInstanceId: 'moved',
+      attachedToInstanceId: 'target',
+    });
+  });
+
   it('confirms a multi-card library move with random order when requested', async () => {
     const command = vi.fn(async () => undefined);
     const clearSelectedCards = vi.fn();
@@ -414,8 +468,8 @@ describe('GameTableDropActionsService', () => {
     }, 'mana', { clientY: 282 }), 'player-1', 'battlefield');
 
     expect(commands.map((entry) => entry.payload['position'])).toEqual([
-      { x: 122, y: 190 },
-      { x: 122, y: 190 },
+      { x: 122, y: 198 },
+      { x: 122, y: 198 },
     ]);
   });
 
@@ -466,6 +520,7 @@ function dropContext(
     clearSelectedCards: vi.fn(),
     suppressCardPreview: vi.fn(),
     setError: vi.fn(),
+    cardPosition: (card) => card.position ? { x: card.position.x, y: card.position.y } : null,
     snapBattlefieldPosition: (_playerId, _instanceId, position) => position,
     markPendingManaDrop: vi.fn(),
     markPendingTransfer: vi.fn(),
@@ -569,5 +624,19 @@ function card(instanceId: string, name: string, zone: GameZoneName): GameCardIns
     name,
     tapped: false,
     zone,
+  };
+}
+
+function land(instanceId: string, name: string, zone: GameZoneName): GameCardInstance {
+  return {
+    ...card(instanceId, name, zone),
+    typeLine: 'Basic Land - Forest',
+  };
+}
+
+function permanent(instanceId: string, name: string, zone: GameZoneName): GameCardInstance {
+  return {
+    ...card(instanceId, name, zone),
+    typeLine: 'Artifact',
   };
 }

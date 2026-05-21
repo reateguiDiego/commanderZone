@@ -117,6 +117,22 @@ describe('GameTableChatLogState', () => {
     expect(entries[0]?.message).toBe('Jace loyalty decreased from 7 to 3 (-4).');
   });
 
+  it('does not compact tap logs into a no-op state change', () => {
+    const state = new GameTableChatLogState();
+    const entries = state.eventLog({
+      ...snapshot(),
+      eventLog: [
+        logEntry('event-1', 'card.tapped', 'Tapped Watery Grave.'),
+        logEntry('event-2', 'card.tapped', 'Untapped Watery Grave.'),
+      ],
+    });
+
+    expect(entries.map((entry) => entry.message)).toEqual([
+      'Tapped Watery Grave.',
+      'Untapped Watery Grave.',
+    ]);
+  });
+
   it('compacts consecutive commander damage changes for the same source and target', () => {
     const state = new GameTableChatLogState();
     const entries = state.eventLog({
@@ -178,14 +194,14 @@ describe('GameTableChatLogState', () => {
     const entries = state.eventLog({
       ...snapshot(),
       eventLog: [
-        logEntry('event-1', 'life.changed', 'Set Player life to 0.'),
+        logEntry('event-1', 'life.changed', 'Lost 40 life (40 -> 0).'),
         logEntry('event-2', 'player.defeated', 'Player ha muerto.'),
         logEntry('event-3', 'library.draw', 'Drew 1 card.'),
       ],
     });
 
     expect(entries.map((entry) => entry.message)).toEqual([
-      'Set Player life to 0.',
+      'Lost 40 life (40 -> 0).',
       'Player ha muerto.',
     ]);
   });

@@ -18,7 +18,6 @@
       [rootElement]="gameScreen"
       (arrowMenuOpened)="store.openArrowMenu($event.event, $event.playerId, $event.arrowId)"
     />
-
     <main appPrettyScroll class="table-surface game-table-v2">
       @if (tableToast(); as toast) {
         <p class="table-error" role="status" aria-live="polite">{{ toast }}</p>
@@ -198,7 +197,7 @@
           <app-focused-battlefield
             [player]="player"
             [isCurrentPlayer]="isCurrentPlayer"
-            [allowArrowTargetSelection]="store.pendingArrowSource() !== null"
+            [allowArrowTargetSelection]="manualRelationTargetingActive()"
             [focusEffectsEnabled]="focusEffectsEnabled()"
             [isDropZoneHighlighted]="isDropZoneHighlighted"
             [cardPosition]="cardPosition"
@@ -213,6 +212,8 @@
             [firstCounter]="firstCounter"
             [alignmentGuideFor]="alignmentGuideFor"
             [isManaLaneHighlighted]="isManaLaneHighlighted"
+            [landStackDropPreview]="store.landStackDropPreview()"
+            [attachments]="snapshot.attachments ?? []"
             [isCardDropSettling]="isCardDropSettling"
             [isManaDropSettling]="isManaDropSettling"
             [isBattlefieldEntrySettling]="isBattlefieldEntrySettling"
@@ -315,7 +316,7 @@
               [isBattlefieldEntrySettling]="isBattlefieldEntrySettling"
               [isCommanderEntrySettling]="isCommanderEntrySettling"
               [isCardTransferPending]="isCardTransferPending"
-              [arrowTargeting]="store.pendingArrowSource() !== null"
+              [arrowTargeting]="manualRelationTargetingActive()"
               [targetingPill]="opponentTargetingPills().get(player.id) ?? null"
               [cardsTargetCards]="opponentCardsTargetCards().get(player.id) ?? []"
               [battlefieldSize]="battlefieldLayoutSize()"
@@ -540,9 +541,6 @@
               <span>{{ preview.card.name }}</span>
             }
             <app-card-marker-rail [showTokenCopyMarker]="preview.card.isTokenCopy === true" [counters]="cardCounters(preview.card)" />
-            @if (preview.count > 1) {
-              <span class="drag-count-badge" aria-hidden="true">{{ preview.count }}</span>
-            }
             @if (!preview.card.faceDown && shouldShowPowerToughness(preview.card)) {
               <span class="power-toughness-overlay" aria-hidden="true">
                 <span>{{ cardPowerValue(preview.card) }}</span>
@@ -552,6 +550,9 @@
               <app-loyalty-counter [value]="preview.card.loyalty" [pulse]="null" [entrySettling]="false" />
             }
           </div>
+          @if (preview.count > 1) {
+            <span class="drag-count-badge" aria-hidden="true">{{ preview.count }}</span>
+          }
         </div>
       }
 
@@ -602,6 +603,10 @@
         [canControlPlayer]="canControlPlayer"
         [zoneCardCount]="zoneCardCountById"
         [shouldShowPowerToughness]="shouldShowPowerToughness"
+        [isLandStacked]="isLandStacked"
+        [isAttachedEquipment]="isAttachedEquipment"
+        [isAttachmentTarget]="isAttachmentTarget"
+        [canAttachEquipment]="canAttachEquipment"
         [zoneTitle]="zoneTitle"
         [ownedArrowCount]="ownedArrowCount(menu.playerId)"
         (actionSelected)="handleContextMenuAction($event, menu)"

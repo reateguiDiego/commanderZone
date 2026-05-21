@@ -3,6 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { GameCardInstance, GamePlayerState, GameSnapshot } from '../../../../../core/models/game.model';
 import { User } from '../../../../../core/models/user.model';
 import { GameTableCoreState } from '../core/game-table-core.state';
+import { GameTablePermanentRelationService } from '../../services/game-table-permanent-relation.service';
 import { GameTableArrowInteractionContext, GameTableArrowsState } from './game-table-arrows.state';
 
 describe('GameTableArrowsState', () => {
@@ -15,6 +16,7 @@ describe('GameTableArrowsState', () => {
     TestBed.configureTestingModule({
       providers: [
         GameTableArrowsState,
+        GameTablePermanentRelationService,
         {
           provide: GameTableCoreState,
           useValue: { snapshot: snapshotSignal } satisfies Pick<GameTableCoreState, 'snapshot'>,

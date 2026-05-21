@@ -249,6 +249,12 @@ class GameProjectionService
 
     private function projectCard(array $card, string $viewerId, bool $ownerView): array
     {
+        $zone = (string) ($card['zone'] ?? '');
+        if ($zone !== 'battlefield') {
+            $card['tapped'] = false;
+            $card['rotation'] = 0;
+        }
+
         if (($card['faceDown'] ?? false) === true && !$ownerView && !$this->isVisibleCard($card, $viewerId)) {
             return [
                 'instanceId' => $card['instanceId'],
@@ -256,10 +262,10 @@ class GameProjectionService
                 'controllerId' => $card['controllerId'] ?? null,
                 'name' => 'Face-down card',
                 'hidden' => true,
-                'tapped' => (bool) ($card['tapped'] ?? false),
+                'tapped' => $zone === 'battlefield' && (bool) ($card['tapped'] ?? false),
                 'faceDown' => true,
                 'position' => $card['position'] ?? ['x' => 0, 'y' => 0],
-                'rotation' => $card['rotation'] ?? 0,
+                'rotation' => $zone === 'battlefield' ? $card['rotation'] ?? 0 : 0,
                 'counters' => $card['counters'] ?? [],
                 'zone' => $card['zone'] ?? null,
             ];

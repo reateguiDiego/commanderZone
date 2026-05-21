@@ -6,6 +6,9 @@ import {
 } from '../../services/game-table-battlefield-drag-coordinator.service';
 import { GameTableDragService } from '../../services/game-table-drag.service';
 import { PendingBattlefieldMove, PendingLibraryMove } from '../../services/game-table-drop-actions.service';
+import { GameTableMotionService } from '../../services/game-table-motion.service';
+import { attachmentDropTarget, attachmentRelationInstanceIds, createAttachmentStackMoves } from '../../utils/attachment-stack';
+import { createLandStackMoves, LandStackDropTarget, landStackDropTarget } from '../../utils/land-stack';
 import { GameTableBattlefieldDragState } from '../drag-drop/game-table-battlefield-drag.state';
 
 export interface GameTableHandContext {
@@ -49,6 +52,7 @@ export class GameTableHandState {
   private readonly battlefieldDrag = inject(GameTableBattlefieldDragCoordinatorService);
   private readonly battlefieldDragState = inject(GameTableBattlefieldDragState);
   private readonly drag = inject(GameTableDragService);
+  private readonly motion = inject(GameTableMotionService, { optional: true });
 
   readonly handDropPreview = this.battlefieldDragState.handDropPreview;
 
@@ -161,6 +165,18 @@ export class GameTableHandState {
       return;
     }
 
+    const landStackMove = toZone === 'battlefield' && position && targetPlayerId === playerId
+      ? this.handLandStackMove(context, playerId, sourceCard, position)
+      : null;
+    const attachmentStackMove = !landStackMove && toZone === 'battlefield' && position && targetPlayerId === playerId
+      ? this.handAttachmentStackMove(context, playerId, sourceCard, position)
+      : null;
+    const resolvedBattlefieldPosition = landStackMove
+      ? context.snapBattlefieldPosition(targetPlayerId, movedInstanceId, landStackMove.position, 'mana')
+      : attachmentStackMove
+        ? context.snapBattlefieldPosition(targetPlayerId, movedInstanceId, attachmentStackMove.position)
+      : battlefieldPosition;
+
     const payload: Record<string, unknown> = {
       playerId,
       fromZone: 'hand',
@@ -168,8 +184,8 @@ export class GameTableHandState {
       targetPlayerId,
       instanceId: movedInstanceId,
     };
-    if (toZone === 'battlefield' && battlefieldPosition) {
-      payload['position'] = battlefieldPosition;
+    if (toZone === 'battlefield' && resolvedBattlefieldPosition) {
+      payload['position'] = resolvedBattlefieldPosition;
     }
 
     if (toZone === 'battlefield' && targetPlayerId !== playerId) {
@@ -185,12 +201,120 @@ export class GameTableHandState {
 
     if (toZone === 'battlefield') {
       context.markPendingBattlefieldEntry(targetPlayerId, [movedInstanceId]);
-      context.moveLocalCardsFromHandToBattlefield(playerId, targetPlayerId, [movedInstanceId], battlefieldPosition);
+      context.moveLocalCardsFromHandToBattlefield(playerId, targetPlayerId, [movedInstanceId], resolvedBattlefieldPosition);
+      if (landStackMove) {
+        window.requestAnimationFrame(() => this.motion?.pulseLandStack(landStackMove.animatedInstanceIds, 'stack'));
+      }
+      if (attachmentStackMove) {
+        window.requestAnimationFrame(() => this.motion?.pulseLandStack(attachmentStackMove.animatedInstanceIds, 'stack'));
+      }
     }
 
     await context.command('card.moved', payload);
+    if (attachmentStackMove) {
+      await context.command('attachment.created', {
+        equipmentInstanceId: movedInstanceId,
+        attachedToInstanceId: attachmentStackMove.targetInstanceId,
+      });
+    }
     await context.recordCommanderCastIfNeeded(playerId, 'hand', toZone, targetPlayerId);
     context.clearSelectedCards();
+  }
+
+  private handLandStackMove(
+    context: GameTableHandContext,
+    playerId: string,
+    sourceCard: GameCardInstance,
+    dropPosition: { x: number; y: number },
+  ): { readonly position: { x: number; y: number }; readonly animatedInstanceIds: readonly string[] } | null {
+    const snapshot = context.snapshot();
+    const battlefield = snapshot?.players[playerId]?.zones.battlefield ?? [];
+    const battlefieldContext = context.battlefieldDragContext();
+    const droppedCard = { ...sourceCard, zone: 'battlefield' as const, position: dropPosition };
+    const target = landStackDropTarget(
+      [...battlefield, droppedCard],
+      sourceCard.instanceId,
+      dropPosition,
+      (card) => {
+        if (card.instanceId === sourceCard.instanceId) {
+          return dropPosition;
+        }
+
+        return battlefieldContext.cardPosition(card);
+      },
+      attachmentRelationInstanceIds(snapshot?.attachments ?? []),
+    );
+    if (!target) {
+      return null;
+    }
+
+    const moves = createLandStackMoves(target, droppedCard, this.handLandStackTopPosition(target));
+    const droppedMove = moves.find((move) => move.card.instanceId === sourceCard.instanceId);
+    if (!droppedMove) {
+      return null;
+    }
+
+    return {
+      position: droppedMove.position,
+      animatedInstanceIds: [
+        ...(target.targetStack ? target.targetStack.members.map((member) => member.card.instanceId) : [target.targetCard.instanceId]),
+        sourceCard.instanceId,
+      ],
+    };
+  }
+
+  private handLandStackTopPosition(target: LandStackDropTarget): { x: number; y: number } {
+    return target.targetPosition;
+  }
+
+  private handAttachmentStackMove(
+    context: GameTableHandContext,
+    playerId: string,
+    sourceCard: GameCardInstance,
+    dropPosition: { x: number; y: number },
+  ): { readonly position: { x: number; y: number }; readonly targetInstanceId: string; readonly animatedInstanceIds: readonly string[] } | null {
+    const snapshot = context.snapshot();
+    const battlefield = snapshot?.players[playerId]?.zones.battlefield ?? [];
+    const battlefieldContext = context.battlefieldDragContext();
+    const droppedCard = { ...sourceCard, zone: 'battlefield' as const, position: dropPosition };
+    const cards = [...battlefield, droppedCard];
+    const target = attachmentDropTarget(cards, snapshot?.attachments ?? [], sourceCard.instanceId, dropPosition, (card) => {
+      if (card.instanceId === sourceCard.instanceId) {
+        return dropPosition;
+      }
+
+      return battlefieldContext.cardPosition(card);
+    });
+    if (!target) {
+      return null;
+    }
+
+    const moves = createAttachmentStackMoves(
+      cards,
+      snapshot?.attachments ?? [],
+      sourceCard.instanceId,
+      target.targetCard.instanceId,
+      (card) => {
+        if (card.instanceId === sourceCard.instanceId) {
+          return dropPosition;
+        }
+
+        return battlefieldContext.cardPosition(card);
+      },
+    );
+    const droppedMove = moves.find((move) => move.instanceId === sourceCard.instanceId);
+    if (!droppedMove) {
+      return null;
+    }
+
+    return {
+      position: droppedMove.position,
+      targetInstanceId: target.targetCard.instanceId,
+      animatedInstanceIds: [
+        target.targetCard.instanceId,
+        ...moves.map((move) => move.instanceId),
+      ],
+    };
   }
 
   private async reorderHandCards(

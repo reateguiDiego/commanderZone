@@ -82,8 +82,8 @@ describe('GameTableMotionService', () => {
     expect(service.handMotionActive()).toBe(false);
   });
 
-  it('prepares a 0.6s FLIP handoff for hand layout changes', () => {
-    const existingLeft = addHandCard(host, 'card-left', { left: 10, top: 20, width: 72, height: 100 });
+  it('prepares hand growth feedback for hand layout changes', () => {
+    addHandCard(host, 'card-left', { left: 10, top: 20, width: 72, height: 100 });
     const playFlip = service.prepareHandDropHandoff();
     expect(service.handMotionActive()).toBe(true);
 
@@ -92,13 +92,7 @@ describe('GameTableMotionService', () => {
 
     playFlip();
 
-    expect(flipFromSpy).toHaveBeenCalledOnce();
-    expect(flipFromSpy.mock.calls[0]?.[1]).toMatchObject({
-      duration: 0.6,
-      ease: 'power3.out',
-      scale: false,
-      targets: [existingLeft, arriving, existingRight],
-    });
+    expect(flipFromSpy).not.toHaveBeenCalled();
     expect(gsapFromToSpy).toHaveBeenCalledOnce();
     expect(gsapFromToSpy.mock.calls[0]?.[0]).toEqual([arriving, existingRight]);
     expect(gsapFromToSpy.mock.calls[0]?.[1]).toMatchObject({
@@ -110,6 +104,74 @@ describe('GameTableMotionService', () => {
       filter: 'brightness(1)',
     });
     expect(service.handMotionActive()).toBe(false);
+  });
+
+  it('uses layered GSAP pulses when creating a land stack', () => {
+    const bottom = addBattlefieldStackCard(host, 'land-bottom', 'land-stack-under');
+    const top = addBattlefieldStackCard(host, 'land-top', 'land-stack-top');
+    const bottomVisual = bottom.querySelector<HTMLElement>('.card-visual');
+    const topVisual = top.querySelector<HTMLElement>('.card-visual');
+
+    service.pulseLandStack(['land-bottom', 'land-top'], 'stack');
+
+    expect(gsapFromToSpy).toHaveBeenCalledTimes(4);
+    expect(gsapFromToSpy.mock.calls[0]?.[0]).toEqual([bottom]);
+    expect(gsapFromToSpy.mock.calls[0]?.[1]).toMatchObject({
+      filter: 'brightness(1.38) saturate(1.22)',
+      scale: 1.085,
+      transformOrigin: '50% 96%',
+    });
+    expect(gsapFromToSpy.mock.calls[0]?.[2]).toMatchObject({
+      duration: 0.68,
+      ease: 'back.out(2.35)',
+      stagger: { each: 0.045, from: 'end' },
+    });
+    expect(gsapFromToSpy.mock.calls[1]?.[0]).toEqual([top]);
+    expect(gsapFromToSpy.mock.calls[1]?.[2]).toMatchObject({
+      delay: 0.065,
+      duration: 0.46,
+      ease: 'power3.out',
+    });
+    expect(gsapFromToSpy.mock.calls[2]?.[0]).toEqual([bottomVisual, topVisual]);
+    expect(gsapFromToSpy.mock.calls[2]?.[2]).toMatchObject({
+      duration: 0.78,
+      ease: 'power2.out',
+    });
+    expect(gsapFromToSpy.mock.calls[3]?.[0]).toBeInstanceOf(HTMLElement);
+    expect((gsapFromToSpy.mock.calls[3]?.[0] as HTMLElement).classList.contains('cz-land-stack-burst')).toBe(true);
+    expect(gsapFromToSpy.mock.calls[3]?.[2]).toMatchObject({
+      duration: 0.62,
+      ease: 'power3.out',
+      opacity: 0,
+      scale: 1.85,
+    });
+  });
+
+  it('rotates only the targeted stack card without muting sibling stack cards', () => {
+    const bottom = addBattlefieldStackCard(host, 'land-bottom', 'land-stack-under', { left: 100, top: 86, width: 72, height: 100 });
+    const top = addBattlefieldStackCard(host, 'land-top', 'land-stack-top', { left: 100, top: 100, width: 72, height: 100 });
+    const otherStackCard = addBattlefieldStackCard(host, 'other-stack-card', 'land-stack-under', { left: 360, top: 100, width: 72, height: 100 });
+    let completeRotation: (() => void) | undefined;
+    flipFromSpy.mockImplementationOnce((_state: Parameters<typeof Flip.from>[0], vars: Parameters<typeof Flip.from>[1]) => {
+      completeRotation = vars?.onComplete ? () => vars.onComplete?.() : undefined;
+
+      return null as unknown as gsap.core.Timeline;
+    });
+
+    const playFlip = service.prepareCardRotationFlip('land-top');
+
+    expect(bottom.classList).not.toContain('cz-card-rotation-muted');
+
+    playFlip();
+
+    expect(top.classList).toContain('cz-card-rotation-flip');
+    expect(bottom.classList).not.toContain('cz-card-rotation-muted');
+    expect(otherStackCard.classList).not.toContain('cz-card-rotation-muted');
+
+    completeRotation?.();
+
+    expect(top.classList).not.toContain('cz-card-rotation-flip');
+    expect(bottom.classList).not.toContain('cz-card-rotation-muted');
   });
 
 });
@@ -138,6 +200,19 @@ function addHandCard(
   visual.classList.add('card-visual');
   card.appendChild(visual);
   host.appendChild(card);
+
+  return card;
+}
+
+function addBattlefieldStackCard(
+  host: HTMLElement,
+  instanceId: string,
+  roleClass: 'land-stack-top' | 'land-stack-under',
+  rect?: { left: number; top: number; width: number; height: number },
+): HTMLElement {
+  const card = addHandCard(host, instanceId, rect);
+  card.dataset['zone'] = 'battlefield';
+  card.classList.add('land-stack-card', roleClass);
 
   return card;
 }

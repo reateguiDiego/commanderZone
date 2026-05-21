@@ -63,10 +63,25 @@ describe('GameTableBattlefieldDragCoordinatorService', () => {
     const manaLane = document.createElement('div');
     manaLane.dataset['manaLane'] = '';
     Object.defineProperty(manaLane, 'offsetTop', { configurable: true, value: 200 });
+    Object.defineProperty(manaLane, 'offsetHeight', { configurable: true, value: 180 });
     battlefield.appendChild(manaLane);
     document.body.appendChild(battlefield);
 
-    expect(service.positionWithManaLane('player-1', { x: 234, y: 88 })).toEqual({ x: 234, y: 208 });
+    expect(service.positionWithManaLane('player-1', { x: 234, y: 88 })).toEqual({ x: 234, y: 218 });
+  });
+
+  it('anchors three-card stacks to the mana row bottom edge', () => {
+    const battlefield = document.createElement('div');
+    battlefield.className = 'battlefield';
+    battlefield.dataset['playerId'] = 'player-1';
+    const manaLane = document.createElement('div');
+    manaLane.dataset['manaLane'] = '';
+    Object.defineProperty(manaLane, 'offsetTop', { configurable: true, value: 200 });
+    Object.defineProperty(manaLane, 'offsetHeight', { configurable: true, value: 180 });
+    battlefield.appendChild(manaLane);
+    document.body.appendChild(battlefield);
+
+    expect(service.positionWithManaLaneBottom('player-1', { x: 234, y: 88 }, 162)).toEqual({ x: 234, y: 218 });
   });
 
   it('does not activate mana row aid when only the dragged card overlaps the lane', () => {
@@ -113,7 +128,7 @@ describe('GameTableBattlefieldDragCoordinatorService', () => {
     });
 
     expect(state.manaLaneDropPlayerId()).toBe('player-1');
-    expect(updateLocalCardPosition).toHaveBeenCalledWith('player-1', selectedCard.instanceId, { x: 20, y: 248 });
+    expect(updateLocalCardPosition).toHaveBeenCalledWith('player-1', selectedCard.instanceId, { x: 20, y: 138 });
 
     Object.defineProperty(document, 'elementsFromPoint', {
       configurable: true,
@@ -139,12 +154,83 @@ describe('GameTableBattlefieldDragCoordinatorService', () => {
     });
 
     expect(state.manaLaneDropPlayerId()).toBe('player-1');
-    expect(updateLocalCardPosition).toHaveBeenCalledWith('player-1', selectedCard.instanceId, { x: 20, y: 248 });
+    expect(updateLocalCardPosition).toHaveBeenCalledWith('player-1', selectedCard.instanceId, { x: 20, y: 138 });
 
     Object.defineProperty(document, 'elementsFromPoint', {
       configurable: true,
       value: originalElementsFromPoint,
     });
+  });
+
+  it('does not show an alignment guide for a dragged card that is already in the mana row', () => {
+    const { battlefield, cardElement } = appendBattlefieldWithManaLane();
+    const selectedCard = card('dragged', { x: 20, y: 260 });
+    const referenceCard = card('reference', { x: 160, y: 268 });
+    const updateLocalCardPosition = vi.fn();
+    cardElement.dataset['cardInstanceId'] = selectedCard.instanceId;
+    state.setAlignmentGuide({ playerId: 'player-1', y: 90, referenceInstanceIds: ['old-reference'] });
+    const originalElementsFromPoint = document.elementsFromPoint;
+    Object.defineProperty(document, 'elementsFromPoint', {
+      configurable: true,
+      value: vi.fn(() => [battlefield]),
+    });
+
+    service.updateBattlefieldDragAid(pointerEvent(150, 180), selectedCard.instanceId, {
+      ...contextWithSnapshot(snapshotWithBattlefield([selectedCard, referenceCard])),
+      selectedCards: () => [{ playerId: 'player-1', zone: 'battlefield', card: selectedCard }],
+      updateLocalCardPosition,
+    });
+
+    expect(state.alignmentGuide()).toBeNull();
+    expect(updateLocalCardPosition).not.toHaveBeenCalledWith('player-1', selectedCard.instanceId, expect.objectContaining({ y: 268 }));
+
+    Object.defineProperty(document, 'elementsFromPoint', {
+      configurable: true,
+      value: originalElementsFromPoint,
+    });
+  });
+
+  it('does not snap mana row positions to normal battlefield rows', () => {
+    appendBattlefieldWithManaLane();
+    const selectedCard = card('dragged', { x: 20, y: 260 });
+    const referenceCard = card('reference', { x: 160, y: 268 });
+
+    const position = service.positionWithAlignmentGuide(
+      contextWithSnapshot(snapshotWithBattlefield([selectedCard, referenceCard])),
+      'player-1',
+      selectedCard.instanceId,
+      { x: 20, y: 260 },
+    );
+
+    expect(position).toEqual({ x: 20, y: 260 });
+  });
+
+  it('does not use under-stack lands as alignment row references', () => {
+    const position = service.positionWithAlignmentGuide(
+      contextWithSnapshot(snapshotWithBattlefield([
+        land('top', { x: 100, y: 200 }),
+        land('under', { x: 100, y: 186 }),
+      ])),
+      'player-1',
+      'dragged',
+      { x: 220, y: 186 },
+    );
+
+    expect(position).toEqual({ x: 220, y: 186 });
+  });
+
+  it('still uses the stack top card as an alignment row reference', () => {
+    const position = service.positionWithAlignmentGuide(
+      contextWithSnapshot(snapshotWithBattlefield([
+        land('top', { x: 100, y: 200 }),
+        land('under', { x: 100, y: 186 }),
+      ])),
+      'player-1',
+      'dragged',
+      { x: 220, y: 196 },
+    );
+
+    expect(position).toEqual({ x: 220, y: 200 });
   });
 
   it('does not activate hand target before the dragged card reaches the lower half activation band', () => {
@@ -257,7 +343,7 @@ describe('GameTableBattlefieldDragCoordinatorService', () => {
     });
   });
 
-  it('treats hand as the pointer drop zone when the dragged card crosses half of hand', () => {
+  it('does not treat hand as the pointer drop zone unless the pointer targets hand', () => {
     const { battlefield, cardElement } = appendBattlefieldAndHand();
     const selectedCard = card('dragged', { x: 20, y: 248 });
     cardElement.dataset['cardInstanceId'] = selectedCard.instanceId;
@@ -270,7 +356,7 @@ describe('GameTableBattlefieldDragCoordinatorService', () => {
     drag.startBattlefieldPointerDrag(pointerDownOnCard(cardElement, 50, 268), 'player-1', selectedCard);
     drag.moveCardPointerDrag(pointerEvent(150, 498), () => undefined);
 
-    expect(service.pointerDropZone(pointerEvent(150, 498), 'player-1', contextWithSnapshot(snapshotWithBattlefield([selectedCard])))).toBe('hand');
+    expect(service.pointerDropZone(pointerEvent(150, 498), 'player-1', contextWithSnapshot(snapshotWithBattlefield([selectedCard])))).toBeNull();
 
     Object.defineProperty(document, 'elementsFromPoint', {
       configurable: true,
@@ -406,7 +492,7 @@ describe('GameTableBattlefieldDragCoordinatorService', () => {
     }
   });
 
-  it('keeps hand active when the card exits below the hand while enough of it stays visible inside it', () => {
+  it('does not keep hand active by card overlap after the pointer leaves hand', () => {
     const { battlefield, hand, cardElement } = appendBattlefieldAndHand();
     const selectedCard = card('dragged', { x: 20, y: 248 });
     cardElement.dataset['cardInstanceId'] = selectedCard.instanceId;
@@ -429,7 +515,7 @@ describe('GameTableBattlefieldDragCoordinatorService', () => {
     });
 
     expect(state.handExternalRevealAllowed()).toBe(true);
-    expect(state.activeDropTarget()).toEqual({ playerId: 'player-1', zone: 'hand' });
+    expect(state.activeDropTarget()).toBeNull();
 
     Object.defineProperty(document, 'elementsFromPoint', {
       configurable: true,
@@ -518,6 +604,13 @@ function card(instanceId: string, position: { x: number; y: number }): GameCardI
     name: instanceId,
     tapped: false,
     position,
+  };
+}
+
+function land(instanceId: string, position: { x: number; y: number }): GameCardInstance {
+  return {
+    ...card(instanceId, position),
+    typeLine: 'Basic Land - Island',
   };
 }
 

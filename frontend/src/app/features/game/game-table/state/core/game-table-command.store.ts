@@ -44,9 +44,17 @@ export class GameTableCommandStore {
     } catch (error) {
       this.pendingTransferState.clear();
       this.dropFeedbackState.clearPendingBattlefieldEntries();
-      this.core.error.set(context.errorMessage(error));
+      const message = context.errorMessage(error);
+      if (!this.shouldSuppressCommandErrorToast(type, message)) {
+        this.core.error.set(message);
+      }
     } finally {
       this.core.pending.set(false);
     }
+  }
+
+  private shouldSuppressCommandErrorToast(type: GameCommandType, message: string): boolean {
+    return type === 'cards.position.changed'
+      && message === 'positions must contain at least one card position.';
   }
 }

@@ -40,7 +40,11 @@ export type ContextMenuAction =
   | { type: 'rollDice' }
   | { type: 'tokenCopy' }
   | { type: 'drawArrow' }
+  | { type: 'equipCard' }
+  | { type: 'unequipCard' }
+  | { type: 'unequipAttachedCards' }
   | { type: 'addToStack' }
+  | { type: 'removeStack' }
   | { type: 'setPowerToughness' }
   | { type: 'clearPowerToughness' }
   | { type: 'changeCounter'; counter: string }
@@ -84,6 +88,10 @@ export class ContextMenuComponent {
   readonly canControlPlayer = input.required<(playerId: string) => boolean>();
   readonly zoneCardCount = input.required<(playerId: string, zone: GameZoneName) => number>();
   readonly shouldShowPowerToughness = input.required<(card: GameCardInstance) => boolean>();
+  readonly isLandStacked = input<(playerId: string, card: GameCardInstance) => boolean>(() => false);
+  readonly isAttachedEquipment = input<(playerId: string, card: GameCardInstance) => boolean>(() => false);
+  readonly isAttachmentTarget = input<(playerId: string, card: GameCardInstance) => boolean>(() => false);
+  readonly canAttachEquipment = input<(playerId: string, card: GameCardInstance) => boolean>(() => true);
   readonly zoneTitle = input.required<(zone: GameZoneName) => string>();
   readonly ownedArrowCount = input(0);
 
@@ -187,6 +195,38 @@ export class ContextMenuComponent {
     }
 
     return this.hasPowerToughness(card) && !this.hasDefaultPowerToughness(card);
+  }
+
+  canRemoveLandStack(): boolean {
+    const currentMenu = this.menu();
+
+    return this.showsBattlefieldCardActions()
+      && !!currentMenu.card
+      && this.isLandStacked()(currentMenu.playerId, currentMenu.card);
+  }
+
+  canUnequipCard(): boolean {
+    const currentMenu = this.menu();
+
+    return this.showsBattlefieldCardActions()
+      && !!currentMenu.card
+      && this.isAttachedEquipment()(currentMenu.playerId, currentMenu.card);
+  }
+
+  canUnequipAttachedCards(): boolean {
+    const currentMenu = this.menu();
+
+    return this.showsBattlefieldCardActions()
+      && !!currentMenu.card
+      && this.isAttachmentTarget()(currentMenu.playerId, currentMenu.card);
+  }
+
+  canEquipCard(): boolean {
+    const currentMenu = this.menu();
+
+    return this.showsBattlefieldCardActions()
+      && !!currentMenu.card
+      && this.canAttachEquipment()(currentMenu.playerId, currentMenu.card);
   }
 
   powerToughnessLabel(): string {

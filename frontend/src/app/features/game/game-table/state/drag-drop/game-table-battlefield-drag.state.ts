@@ -1,5 +1,7 @@
 import { Injectable, signal } from '@angular/core';
 import { GameCardInstance, GameZoneName } from '../../../../../core/models/game.model';
+import { LandStackDetachSource } from '../../utils/land-stack';
+import { AttachmentStackDetachSource } from '../../utils/attachment-stack';
 
 export interface HandDropPreview {
   playerId: string;
@@ -27,6 +29,13 @@ export interface PointerDragPreview {
   count: number;
 }
 
+export interface LandStackDropPreview {
+  playerId: string;
+  targetInstanceId: string;
+  kind: 'land' | 'attachment';
+  nextSize?: 2 | 3;
+}
+
 @Injectable()
 export class GameTableBattlefieldDragState {
   readonly draggingCardInstanceId = signal<string | null>(null);
@@ -36,6 +45,9 @@ export class GameTableBattlefieldDragState {
   readonly activeDropTarget = signal<ActiveDropTarget | null>(null);
   readonly activePlayerDropTarget = signal<string | null>(null);
   readonly pointerDragPreview = signal<PointerDragPreview | null>(null);
+  readonly landStackDropPreview = signal<LandStackDropPreview | null>(null);
+  readonly landStackDetachSource = signal<LandStackDetachSource | null>(null);
+  readonly attachmentStackDetachSource = signal<AttachmentStackDetachSource | null>(null);
   readonly handExternalRevealAllowed = signal(true);
 
   beginCardDrag(instanceId: string): void {
@@ -49,6 +61,9 @@ export class GameTableBattlefieldDragState {
     this.activeDropTarget.set(null);
     this.activePlayerDropTarget.set(null);
     this.pointerDragPreview.set(null);
+    this.landStackDropPreview.set(null);
+    this.landStackDetachSource.set(null);
+    this.attachmentStackDetachSource.set(null);
     this.handExternalRevealAllowed.set(true);
     this.clearHandDropPreview();
   }
@@ -63,6 +78,18 @@ export class GameTableBattlefieldDragState {
 
   setPointerDragPreview(preview: PointerDragPreview): void {
     this.pointerDragPreview.set(preview);
+  }
+
+  setLandStackDropPreview(preview: LandStackDropPreview | null): void {
+    this.landStackDropPreview.set(preview);
+  }
+
+  setLandStackDetachSource(source: LandStackDetachSource | null): void {
+    this.landStackDetachSource.set(source);
+  }
+
+  setAttachmentStackDetachSource(source: AttachmentStackDetachSource | null): void {
+    this.attachmentStackDetachSource.set(source);
   }
 
   clearManaLaneAndAlignment(): void {
@@ -95,6 +122,7 @@ export class GameTableBattlefieldDragState {
     this.alignmentGuide.set(null);
     this.activePlayerDropTarget.set(null);
     this.activeDropTarget.set(null);
+    this.landStackDropPreview.set(null);
     this.handExternalRevealAllowed.set(true);
     this.clearHandDropPreview();
   }

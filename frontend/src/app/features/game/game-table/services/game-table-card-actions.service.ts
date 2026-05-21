@@ -1,9 +1,10 @@
 import { Injectable } from '@angular/core';
 import { Card } from '../../../../core/models/card.model';
-import { GameCardInstance, GameCommandType, GameZoneName } from '../../../../core/models/game.model';
+import { GameCardInstance, GameCardPosition, GameCommandType, GameZoneName } from '../../../../core/models/game.model';
 import { GameContextMenu } from '../state/core/game-table-ui.state';
 import { ZoneModalState } from '../state/zones/game-table-zone-modal.state';
 import type { PendingBattlefieldMove, PendingLibraryMove } from './game-table-drop-actions.service';
+import { buildLandStackGroups, landStackGroupContaining, removeLandStackMoves } from '../utils/land-stack';
 
 export interface GameTableCardSelection {
   playerId: string;
@@ -19,6 +20,10 @@ export interface GameTableCardActionContext {
   zoneModal(): ZoneModalState | null;
   replaceZoneModalCards(cards: GameCardInstance[]): void;
   loadZone(): Promise<void>;
+  battlefieldCards(playerId: string): readonly GameCardInstance[];
+  cardPosition(card: GameCardInstance): { x: number; y: number } | null;
+  battlefieldPosition(playerId: string, instanceId: string, position: { x: number; y: number }): GameCardPosition;
+  updateLocalCardPosition(playerId: string, instanceId: string, position: { x: number; y: number }): void;
   playerName(playerId: string): string;
   setError(message: string): void;
   closeContextMenu(): void;
@@ -195,6 +200,55 @@ export class GameTableCardActionsService {
       instanceIds,
     });
     context.clearSelectedCards();
+  }
+
+  isLandStacked(context: Pick<GameTableCardActionContext, 'battlefieldCards' | 'cardPosition'>, playerId: string, card: GameCardInstance): boolean {
+    const group = landStackGroupContaining(
+      buildLandStackGroups(context.battlefieldCards(playerId), context.cardPosition),
+      card.instanceId,
+    );
+
+    return group !== null;
+  }
+
+  async removeLandStack(context: GameTableCardActionContext, menu: GameContextMenu): Promise<void> {
+    if (!menu.card || menu.zone !== 'battlefield') {
+      return;
+    }
+    if (!context.canControlPlayer(menu.playerId)) {
+      context.setError('You can only change your own cards.');
+      context.closeContextMenu();
+      return;
+    }
+
+    const group = landStackGroupContaining(
+      buildLandStackGroups(context.battlefieldCards(menu.playerId), context.cardPosition),
+      menu.card.instanceId,
+    );
+    if (!group) {
+      context.closeContextMenu();
+      return;
+    }
+
+    const moves = removeLandStackMoves(group);
+    if (moves.length === 0) {
+      context.closeContextMenu();
+      return;
+    }
+
+    for (const move of moves) {
+      context.updateLocalCardPosition(menu.playerId, move.card.instanceId, move.position);
+    }
+
+    context.closeContextMenu();
+    await context.command('cards.position.changed', {
+      playerId: menu.playerId,
+      zone: 'battlefield',
+      positions: moves.map((move) => ({
+        instanceId: move.card.instanceId,
+        position: context.battlefieldPosition(menu.playerId, move.card.instanceId, move.position),
+      })),
+    });
   }
 
   async moveActiveCard(context: GameTableCardActionContext, toZone: GameZoneName): Promise<void> {

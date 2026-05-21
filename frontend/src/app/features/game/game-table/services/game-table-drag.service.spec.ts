@@ -41,7 +41,7 @@ describe('GameTableDragService', () => {
       clientY: 232,
     } as unknown as DragEvent, 'battlefield');
 
-    expect(position).toEqual({ x: 82, y: 148 });
+    expect(position).toEqual({ x: 82, y: 158 });
   });
 
   it('does not snap a battlefield drop to the mana row when only the card overlaps the lane', () => {
@@ -136,6 +136,16 @@ describe('GameTableDragService', () => {
   });
 
   it('uses the top card image for native zone pile drag previews', () => {
+    const battlefieldCard = document.createElement('button');
+    battlefieldCard.className = 'game-card';
+    battlefieldCard.dataset['testid'] = 'game-card';
+    battlefieldCard.dataset['zone'] = 'battlefield';
+    battlefieldCard.getBoundingClientRect = () => ({
+      ...rect(0, 116),
+      height: 162,
+      bottom: 162,
+      right: 116,
+    });
     const zoneStack = document.createElement('button');
     zoneStack.className = 'zone-stack';
     const zoneArt = document.createElement('span');
@@ -154,7 +164,7 @@ describe('GameTableDragService', () => {
     });
     zoneArt.append(layer, top);
     zoneStack.appendChild(zoneArt);
-    document.body.appendChild(zoneStack);
+    document.body.append(battlefieldCard, zoneStack);
     const dataTransfer = {
       effectAllowed: '',
       setData: vi.fn(),
@@ -179,9 +189,12 @@ describe('GameTableDragService', () => {
       expect(dragImage).toBeInstanceOf(HTMLElement);
       expect(image?.src).toContain('/assets/top.jpg');
       expect(image?.src).not.toContain('/assets/layer.jpg');
-      expect(offsetX).toBe(50);
-      expect(offsetY).toBe(70);
+      expect((dragImage as HTMLElement).style.width).toBe('116px');
+      expect((dragImage as HTMLElement).style.height).toBe('162px');
+      expect(offsetX).toBe(58);
+      expect(offsetY).toBe(81);
     } finally {
+      battlefieldCard.remove();
       zoneStack.remove();
     }
   });
@@ -315,7 +328,7 @@ describe('GameTableDragService', () => {
       clientY: 360,
     } as unknown as DragEvent, 'battlefield');
 
-    expect(position).toEqual({ x: 82, y: 248 });
+    expect(position).toEqual({ x: 82, y: 258 });
   });
 
   it.each([
@@ -417,6 +430,9 @@ describe('GameTableDragService', () => {
     expect(secondMove).toBe('card-1');
     expect(positions.at(-1)).toEqual({ x: 400, y: 180 });
     expect(service.pointerDragPreview()).toEqual({ x: 933, y: 721, width: 100, height: 140 });
+    const result = service.endCardPointerDrag(undefined, () => 'battlefield', () => undefined);
+
+    expect(result?.previewPosition).toEqual({ x: 400, y: 180 });
   });
 
   it('only starts a battlefield pointer drag from the visible card body', () => {
@@ -526,7 +542,7 @@ describe('GameTableDragService', () => {
       preventDefault: vi.fn(),
     } as unknown as PointerEvent, (_playerId, _instanceId, position) => positions.push(position));
 
-    expect(positions.at(-1)).toEqual({ x: 163, y: 148 });
+    expect(positions.at(-1)).toEqual({ x: 163, y: 180 });
   });
 
   it.each([

@@ -15,6 +15,10 @@ describe('GameTableHandState', () => {
   let pendingLibraryMove: PendingLibraryMove | null;
   let pendingBattlefieldMove: PendingBattlefieldMove | null;
   let clearedSelection: boolean;
+  let visualPositions: Record<string, { x: number; y: number }>;
+  let localBattlefieldMove:
+    | { playerId: string; targetPlayerId: string; movedInstanceIds: readonly string[]; position?: unknown }
+    | null;
 
   beforeEach(() => {
     TestBed.configureTestingModule({
@@ -39,6 +43,8 @@ describe('GameTableHandState', () => {
     pendingLibraryMove = null;
     pendingBattlefieldMove = null;
     clearedSelection = false;
+    visualPositions = {};
+    localBattlefieldMove = null;
   });
 
   it('reorders multiple selected hand cards around the target card', async () => {
@@ -70,6 +76,98 @@ describe('GameTableHandState', () => {
     expect(clearedSelection).toBe(true);
   });
 
+  it('stacks a land from hand directly onto a battlefield land', async () => {
+    currentSnapshot = snapshot([land('hand-land')], [land('battlefield-land', { x: 0.3, y: 0.4 })]);
+    visualPositions = { 'battlefield-land': { x: 100, y: 200 } };
+
+    await state.moveHandCardByPointer(context(), 'player-1', 'player-1', 'hand-land', 'battlefield', { x: 104, y: 202 });
+
+    expect(localBattlefieldMove).toEqual({
+      playerId: 'player-1',
+      targetPlayerId: 'player-1',
+      movedInstanceIds: ['hand-land'],
+      position: { x: 110, y: 186, unit: 'ratio' },
+    });
+    expect(commandCalls[0]).toEqual({
+      type: 'card.moved',
+      payload: {
+        playerId: 'player-1',
+        fromZone: 'hand',
+        toZone: 'battlefield',
+        targetPlayerId: 'player-1',
+        instanceId: 'hand-land',
+        position: { x: 110, y: 186, unit: 'ratio' },
+      },
+    });
+  });
+
+  it('adds a land from hand directly as the third card of a battlefield stack', async () => {
+    currentSnapshot = snapshot(
+      [land('hand-land')],
+      [
+        land('stack-top', { x: 100, y: 200 }),
+        land('stack-under', { x: 100, y: 186 }),
+      ],
+    );
+
+    await state.moveHandCardByPointer(context(), 'player-1', 'player-1', 'hand-land', 'battlefield', { x: 106, y: 196 });
+
+    expect(localBattlefieldMove).toEqual({
+      playerId: 'player-1',
+      targetPlayerId: 'player-1',
+      movedInstanceIds: ['hand-land'],
+      position: { x: 120, y: 172, unit: 'ratio' },
+    });
+    expect(commandCalls[0]).toEqual({
+      type: 'card.moved',
+      payload: {
+        playerId: 'player-1',
+        fromZone: 'hand',
+        toZone: 'battlefield',
+        targetPlayerId: 'player-1',
+        instanceId: 'hand-land',
+        position: { x: 120, y: 172, unit: 'ratio' },
+      },
+    });
+  });
+
+  it('attaches a non-land card from hand directly onto a battlefield permanent', async () => {
+    currentSnapshot = snapshot([card('hand-equipment')], [{
+      ...card('target-card'),
+      typeLine: 'Creature - Bear',
+      position: { x: 100, y: 200 },
+    }]);
+
+    await state.moveHandCardByPointer(context(), 'player-1', 'player-1', 'hand-equipment', 'battlefield', { x: 104, y: 202 });
+
+    expect(localBattlefieldMove).toEqual({
+      playerId: 'player-1',
+      targetPlayerId: 'player-1',
+      movedInstanceIds: ['hand-equipment'],
+      position: { x: 110, y: 186, unit: 'ratio' },
+    });
+    expect(commandCalls).toEqual([
+      {
+        type: 'card.moved',
+        payload: {
+          playerId: 'player-1',
+          fromZone: 'hand',
+          toZone: 'battlefield',
+          targetPlayerId: 'player-1',
+          instanceId: 'hand-equipment',
+          position: { x: 110, y: 186, unit: 'ratio' },
+        },
+      },
+      {
+        type: 'attachment.created',
+        payload: {
+          equipmentInstanceId: 'hand-equipment',
+          attachedToInstanceId: 'target-card',
+        },
+      },
+    ]);
+  });
+
   function context(): GameTableHandContext {
     return {
       zones: ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command'],
@@ -84,11 +182,15 @@ describe('GameTableHandState', () => {
         snapshot: () => currentSnapshot,
         selectedCards: () => [],
         findCard: () => null,
-        cardPosition: () => null,
+        cardPosition: (card) => visualPositions[card.instanceId] ?? card.position ?? null,
         updateLocalCardPosition: () => undefined,
       }),
-      snapBattlefieldPosition: (_playerId, _instanceId, position) => position,
-      moveLocalCardsFromHandToBattlefield: () => true,
+      snapBattlefieldPosition: (_playerId, _instanceId, position) => ({ ...position, unit: 'ratio' }),
+      moveLocalCardsFromHandToBattlefield: (playerId, targetPlayerId, movedInstanceIds, position) => {
+        localBattlefieldMove = { playerId, targetPlayerId, movedInstanceIds, position };
+
+        return true;
+      },
       markPendingManaDrop: () => undefined,
       markPendingBattlefieldEntry: () => undefined,
       markPendingTransfer: () => undefined,
@@ -110,12 +212,12 @@ describe('GameTableHandState', () => {
   }
 });
 
-function snapshot(hand: GameCardInstance[]): GameSnapshot {
+function snapshot(hand: GameCardInstance[], battlefield: GameCardInstance[] = []): GameSnapshot {
   return {
     version: 1,
     ownerId: 'player-1',
     players: {
-      'player-1': player(hand),
+      'player-1': player(hand, battlefield),
     },
     turn: { activePlayerId: 'player-1', phase: 'main-1', number: 1 },
     stack: [],
@@ -126,14 +228,14 @@ function snapshot(hand: GameCardInstance[]): GameSnapshot {
   };
 }
 
-function player(hand: GameCardInstance[]): GamePlayerState {
+function player(hand: GameCardInstance[], battlefield: GameCardInstance[]): GamePlayerState {
   return {
     user: user('player-1'),
     life: 40,
     zones: {
       library: [],
       hand,
-      battlefield: [],
+      battlefield,
       graveyard: [],
       exile: [],
       command: [],
@@ -148,6 +250,14 @@ function card(instanceId: string): GameCardInstance {
     instanceId,
     name: `Card ${instanceId}`,
     tapped: false,
+  };
+}
+
+function land(instanceId: string, position?: { x: number; y: number }): GameCardInstance {
+  return {
+    ...card(instanceId),
+    typeLine: 'Basic Land - Forest',
+    ...(position ? { position } : {}),
   };
 }
 

@@ -530,7 +530,7 @@
   border-radius: 10px;
   background: linear-gradient(145deg, var(--surface-3, #2b3026), var(--surface, #181b16));
   color: var(--game-text);
-  contain: layout paint style;
+  contain: layout style;
   filter:
     brightness(1.03)
     saturate(1.03);

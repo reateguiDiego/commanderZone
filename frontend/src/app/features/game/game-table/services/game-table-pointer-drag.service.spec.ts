@@ -131,7 +131,7 @@ describe('GameTablePointerDragService', () => {
       toZone: 'battlefield',
       kind: 'zone',
       rawZone: 'mana',
-      position: { x: 90, y: 180 },
+      position: { x: 90, y: 160 },
     });
 
     Object.defineProperty(document, 'elementsFromPoint', {
@@ -232,7 +232,7 @@ describe('GameTablePointerDragService', () => {
       toZone: 'battlefield',
       kind: 'zone',
       rawZone: 'mana',
-      position: { x: 120, y: 180 },
+      position: { x: 120, y: 160 },
     });
 
     Object.defineProperty(document, 'elementsFromPoint', {
@@ -280,7 +280,7 @@ describe('GameTablePointerDragService', () => {
       toZone: 'battlefield',
       kind: 'zone',
       rawZone: 'mana',
-      position: { x: 90, y: 248 },
+      position: { x: 90, y: 260 },
     });
 
     Object.defineProperty(document, 'elementsFromPoint', {

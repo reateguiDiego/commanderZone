@@ -13,6 +13,10 @@ interface ThrowGhostOptions {
   readonly onComplete?: () => void;
 }
 
+interface CardRotationFlipOptions {
+  readonly onComplete?: () => void;
+}
+
 interface MotionRect {
   readonly left: number;
   readonly top: number;
@@ -555,10 +559,10 @@ export class GameTableMotionService {
     };
   }
 
-  prepareCardRotationFlip(instanceId: string): () => void {
+  prepareCardRotationFlip(instanceId: string, options: CardRotationFlipOptions = {}): () => void {
     const source = this.findCard(instanceId);
     if (!source) {
-      return () => undefined;
+      return () => options.onComplete?.();
     }
 
     const state = Flip.getState(source);
@@ -567,11 +571,22 @@ export class GameTableMotionService {
       this.runInContext(() => {
         const target = this.findCard(instanceId);
         if (!target) {
+          options.onComplete?.();
           return;
         }
 
         gsap.killTweensOf(target);
         target.classList.add('cz-card-rotation-flip');
+        let completed = false;
+        const clearRotationClasses = () => {
+          if (completed) {
+            return;
+          }
+
+          completed = true;
+          target.classList.remove('cz-card-rotation-flip');
+          options.onComplete?.();
+        };
 
         if (this.prefersReducedMotion()) {
           gsap.fromTo(
@@ -581,7 +596,8 @@ export class GameTableMotionService {
               clearProps: 'filter',
               duration: 0.14,
               ease: 'power1.out',
-              onComplete: () => target.classList.remove('cz-card-rotation-flip'),
+              onComplete: clearRotationClasses,
+              onInterrupt: clearRotationClasses,
             },
           );
           return;
@@ -594,10 +610,200 @@ export class GameTableMotionService {
           nested: true,
           prune: true,
           targets: [target],
-          onComplete: () => target.classList.remove('cz-card-rotation-flip'),
+          onComplete: clearRotationClasses,
+          onInterrupt: clearRotationClasses,
         });
       });
     };
+  }
+
+  pulseLandStack(instanceIds: readonly string[], variant: 'stack' | 'detach' = 'stack'): void {
+    const cards = instanceIds
+      .map((instanceId) => this.findCard(instanceId))
+      .filter((card): card is HTMLElement => card !== null);
+    if (cards.length === 0) {
+      return;
+    }
+
+    this.runInContext(() => {
+      const visuals = this.cardVisuals(cards);
+      gsap.killTweensOf([...cards, ...visuals]);
+
+      if (this.prefersReducedMotion()) {
+        this.animateReducedLandStackPulse(cards);
+        return;
+      }
+
+      if (variant === 'stack') {
+        this.animateLandStackCreation(cards, visuals);
+        return;
+      }
+
+      this.animateLandStackDetach(cards);
+    });
+  }
+
+  private animateReducedLandStackPulse(cards: readonly HTMLElement[]): void {
+    gsap.fromTo(cards, { filter: 'brightness(1.12)' }, { clearProps: 'filter', duration: 0.14, ease: 'power1.out' });
+  }
+
+  private animateLandStackCreation(cards: readonly HTMLElement[], visuals: readonly HTMLElement[]): void {
+    const topCards = cards.filter((card) => card.classList.contains('land-stack-top'));
+    const primaryCards = topCards.length > 0 ? topCards : cards.slice(-1);
+    const underCards = cards.filter((card) => card.classList.contains('land-stack-under'));
+    const layeredCards = underCards.length > 0
+      ? underCards
+      : cards.filter((card) => !primaryCards.includes(card));
+    const burst = this.createLandStackBurst(primaryCards[0] ?? cards.at(-1) ?? null);
+
+    if (layeredCards.length > 0) {
+      gsap.fromTo(
+        layeredCards,
+        {
+          filter: 'brightness(1.38) saturate(1.22)',
+          rotate: (index: number) => (index % 2 === 0 ? -4.5 : 4.5),
+          scale: 1.085,
+          transformOrigin: '50% 96%',
+          willChange: 'transform, filter',
+          x: (index: number) => (index % 2 === 0 ? -13 : 13),
+          y: (index: number) => -34 - (index * 9),
+        },
+        {
+          clearProps: 'filter,rotate,scale,transformOrigin,willChange,x,y',
+          duration: 0.68,
+          ease: 'back.out(2.35)',
+          filter: 'brightness(1)',
+          rotate: 0,
+          scale: 1,
+          stagger: { each: 0.045, from: 'end' },
+          x: 0,
+          y: 0,
+        },
+      );
+    }
+
+    gsap.fromTo(
+      primaryCards,
+      {
+        filter: 'brightness(1.28) saturate(1.14)',
+        scale: 1.07,
+        transformOrigin: '50% 90%',
+        willChange: 'transform, filter',
+        y: -12,
+      },
+      {
+        clearProps: 'filter,scale,transformOrigin,willChange,y',
+        delay: layeredCards.length > 0 ? 0.065 : 0,
+        duration: 0.46,
+        ease: 'power3.out',
+        filter: 'brightness(1)',
+        scale: 1,
+        y: 0,
+      },
+    );
+
+    if (visuals.length === 0) {
+      this.animateLandStackBurst(burst);
+      return;
+    }
+
+    gsap.fromTo(
+      visuals,
+      {
+        boxShadow: '0 0 0 2px rgb(255 232 166 / 70%), 0 0 2.25rem rgb(232 199 126 / 58%), 0 1.1rem 2rem rgb(0 0 0 / 36%)',
+        filter: 'brightness(1.24) saturate(1.14)',
+      },
+      {
+        boxShadow: '0 0 0 0 rgb(232 199 126 / 0%), 0 0 0 rgb(232 199 126 / 0%), 0 0 0 rgb(0 0 0 / 0%)',
+        clearProps: 'boxShadow,filter',
+        duration: 0.78,
+        ease: 'power2.out',
+        filter: 'brightness(1)',
+        stagger: 0.025,
+      },
+    );
+
+    this.animateLandStackBurst(burst);
+  }
+
+  private createLandStackBurst(card: HTMLElement | null): HTMLElement | null {
+    if (!card) {
+      return null;
+    }
+
+    const rect = card.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) {
+      return null;
+    }
+
+    const burst = document.createElement('span');
+    const size = Math.max(rect.width * 0.72, 72);
+    burst.setAttribute('aria-hidden', 'true');
+    burst.classList.add('cz-land-stack-burst');
+    burst.style.position = 'fixed';
+    burst.style.left = `${rect.left + rect.width / 2 - size / 2}px`;
+    burst.style.top = `${rect.top + rect.height / 2 - size / 2}px`;
+    burst.style.width = `${size}px`;
+    burst.style.height = `${size}px`;
+    burst.style.borderRadius = '999px';
+    burst.style.pointerEvents = 'none';
+    burst.style.zIndex = '5100';
+    burst.style.border = '2px solid rgb(255 232 166 / 72%)';
+    burst.style.boxShadow = '0 0 0.65rem rgb(255 232 166 / 52%), 0 0 2rem rgb(215 180 106 / 46%)';
+    burst.style.background = 'radial-gradient(circle, rgb(255 232 166 / 18%) 0%, rgb(215 180 106 / 10%) 42%, rgb(215 180 106 / 0%) 70%)';
+    burst.style.mixBlendMode = 'screen';
+    burst.style.transformOrigin = '50% 50%';
+    burst.style.willChange = 'opacity, transform';
+    document.body.appendChild(burst);
+
+    return burst;
+  }
+
+  private animateLandStackBurst(burst: HTMLElement | null): void {
+    if (!burst) {
+      return;
+    }
+
+    gsap.fromTo(
+      burst,
+      {
+        opacity: 0.96,
+        scale: 0.62,
+      },
+      {
+        duration: 0.62,
+        ease: 'power3.out',
+        opacity: 0,
+        scale: 1.85,
+        onComplete: () => burst.remove(),
+      },
+    );
+  }
+
+  private animateLandStackDetach(cards: readonly HTMLElement[]): void {
+    gsap.fromTo(
+      cards,
+      {
+        filter: 'brightness(1.16) saturate(1.06)',
+        scale: 1.025,
+        y: -9,
+      },
+      {
+        clearProps: 'filter,scale,y',
+        duration: 0.34,
+        ease: 'back.out(2)',
+        filter: 'brightness(1)',
+        scale: 1,
+        stagger: 0.035,
+        y: 0,
+      },
+    );
+  }
+
+  private cardVisuals(cards: readonly HTMLElement[]): HTMLElement[] {
+    return cards
+      .map((card) => card.querySelector<HTMLElement>('.card-visual'))
+      .filter((visual): visual is HTMLElement => visual !== null);
   }
 
   private runInContext(animation: () => void): void {

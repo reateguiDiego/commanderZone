@@ -1,6 +1,9 @@
 import { Injectable, inject } from '@angular/core';
 import { GameCardInstance, GameSnapshot, GameZoneName } from '../../../../core/models/game.model';
 import { GameTableBattlefieldDragState } from '../state/drag-drop/game-table-battlefield-drag.state';
+import { DEFAULT_BATTLEFIELD_CARD_SIZE } from '../utils/battlefield-position';
+import { buildAttachmentStackGroups } from '../utils/attachment-stack';
+import { buildLandStackGroups } from '../utils/land-stack';
 import { GameTableDragService } from './game-table-drag.service';
 import { GameTablePointerDragService } from './game-table-pointer-drag.service';
 
@@ -64,14 +67,19 @@ export class GameTableBattlefieldDragCoordinatorService {
     if (this.isCardTopNearManaLane(event, selected.playerId, instanceId, position)) {
       this.state.setManaLaneDropPlayer(selected.playerId);
       this.state.setAlignmentGuide(null);
-      const manaY = this.manaLaneY(selected.playerId);
-      if (position && manaY !== null) {
-        context.updateLocalCardPosition(selected.playerId, instanceId, { x: position.x, y: manaY });
+      const manaPosition = position ? this.positionWithManaLaneBottom(selected.playerId, position) : null;
+      if (manaPosition) {
+        context.updateLocalCardPosition(selected.playerId, instanceId, manaPosition);
       }
       return;
     }
 
     this.state.setManaLaneDropPlayer(null);
+    if (position && this.isManaLanePosition(selected.playerId, position)) {
+      this.state.setAlignmentGuide(null);
+      return;
+    }
+
     const guide = position ? this.battlefieldDragGuide(context, selected.playerId, instanceId, position.y) : null;
     if (!position || !guide) {
       this.state.setAlignmentGuide(null);
@@ -97,15 +105,31 @@ export class GameTableBattlefieldDragCoordinatorService {
       return Math.abs(activeGuideY - position.y) <= this.battlefieldAlignmentSnapThreshold ? { ...position, y: activeGuideY } : position;
     }
 
+    if (this.isManaLanePosition(playerId, position)) {
+      return position;
+    }
+
     const guide = this.nearestBattlefieldRow(context, playerId, instanceId, position.y, this.battlefieldAlignmentSnapThreshold);
 
     return guide ? { ...position, y: guide.y } : position;
   }
 
   positionWithManaLane(playerId: string, position: { x: number; y: number }): { x: number; y: number } {
-    const y = this.manaLaneY(playerId);
+    return this.positionWithManaLaneBottom(playerId, position);
+  }
+
+  positionWithManaLaneBottom(
+    playerId: string,
+    position: { x: number; y: number },
+    visualHeight = DEFAULT_BATTLEFIELD_CARD_SIZE.height,
+  ): { x: number; y: number } {
+    const y = this.manaLaneBottomY(playerId, visualHeight);
 
     return y === null ? position : { ...position, y };
+  }
+
+  isManaLanePosition(playerId: string, position: { x: number; y: number }): boolean {
+    return this.isManaLaneRow(playerId, position.y);
   }
 
   updateExternalBattlefieldAlignmentGuide(
@@ -289,8 +313,11 @@ export class GameTableBattlefieldDragCoordinatorService {
   }
 
   private snapshotAlignmentRows(context: GameTableBattlefieldDragContext, playerId: string, instanceId: string): AlignmentRow[] {
+    const stackReferenceIds = this.stackAlignmentReferenceIds(context, playerId);
+
     return context.snapshot()?.players[playerId]?.zones.battlefield
       .filter((card) => card.instanceId !== instanceId)
+      .filter((card) => stackReferenceIds === null || stackReferenceIds.has(card.instanceId))
       .map((card) => ({ position: context.cardPosition(card), referenceInstanceIds: [card.instanceId] }))
       .filter((card): card is { position: { x: number; y: number }; referenceInstanceIds: string[] } => card.position !== null)
       .map((card) => ({ y: card.position.y, referenceInstanceIds: card.referenceInstanceIds }))
@@ -310,6 +337,8 @@ export class GameTableBattlefieldDragCoordinatorService {
     return Array.from(battlefield.querySelectorAll<HTMLElement>('[data-testid="game-card"][data-zone="battlefield"]'))
       .filter((element) => element.dataset['cardInstanceId'] !== instanceId)
       .filter((element) => !positionedInstanceIds.has(element.dataset['cardInstanceId'] ?? ''))
+      .filter((element) => !element.classList.contains('land-stack-under'))
+      .filter((element) => !element.classList.contains('attachment-stack-equipment'))
       .filter((element) => element.getClientRects().length > 0)
       .map((element) => ({
         y: element.offsetTop,
@@ -317,6 +346,39 @@ export class GameTableBattlefieldDragCoordinatorService {
       }))
       .filter((row) => row.referenceInstanceIds.length > 0)
       .filter((row) => !this.isManaLaneRow(playerId, row.y));
+  }
+
+  private stackAlignmentReferenceIds(
+    context: GameTableBattlefieldDragContext,
+    playerId: string,
+  ): ReadonlySet<string> | null {
+    const battlefield = context.snapshot()?.players[playerId]?.zones.battlefield;
+    if (!battlefield) {
+      return null;
+    }
+
+    const groups = buildLandStackGroups(battlefield, (card) => context.cardPosition(card));
+    const attachmentGroups = buildAttachmentStackGroups(
+      battlefield,
+      context.snapshot()?.attachments ?? [],
+      (card) => context.cardPosition(card),
+    );
+    if (groups.length === 0 && attachmentGroups.length === 0) {
+      return null;
+    }
+
+    const underIds = new Set(groups.flatMap((group) =>
+      group.members.filter((member) => member.role === 'under').map((member) => member.card.instanceId),
+    ));
+    for (const instanceId of attachmentGroups.flatMap((group) =>
+      group.members.filter((member) => member.role === 'equipment').map((member) => member.card.instanceId),
+    )) {
+      underIds.add(instanceId);
+    }
+
+    return new Set(battlefield
+      .filter((card) => !underIds.has(card.instanceId))
+      .map((card) => card.instanceId));
   }
 
   private mergeAlignmentRows(rows: readonly AlignmentRow[]): AlignmentRow[] {
@@ -348,6 +410,20 @@ export class GameTableBattlefieldDragCoordinatorService {
     const manaLane = this.manaLaneElement(playerId);
 
     return manaLane ? Math.round(manaLane.offsetTop + 8) : null;
+  }
+
+  private manaLaneBottomY(playerId: string, visualHeight: number): number | null {
+    const manaLane = this.manaLaneElement(playerId);
+    if (!manaLane) {
+      return null;
+    }
+
+    const laneHeight = manaLane.offsetHeight || manaLane.getBoundingClientRect().height;
+    if (laneHeight <= 0) {
+      return this.manaLaneY(playerId);
+    }
+
+    return Math.round(Math.max(0, manaLane.offsetTop + laneHeight - visualHeight));
   }
 
   private manaLaneElement(playerId: string): HTMLElement | null {
@@ -396,17 +472,15 @@ export class GameTableBattlefieldDragCoordinatorService {
   }
 
   private pointerDropZoneWithHandActivation(pointerZone: GameZoneName | null, playerId: string): GameZoneName | null {
+    if (pointerZone !== 'hand') {
+      return pointerZone;
+    }
+
     if (this.isHandDropActiveForPlayer(playerId)) {
-      return this.isDraggedCardInsideActiveHandBounds(playerId)
-        ? 'hand'
-        : (pointerZone === 'hand' ? null : pointerZone);
+      return this.isDraggedCardInsideActiveHandBounds(playerId) ? 'hand' : null;
     }
 
-    if (this.isDraggedCardInsideCollapsedHandForActivation(playerId)) {
-      return 'hand';
-    }
-
-    return pointerZone === 'hand' ? null : pointerZone;
+    return this.isDraggedCardInsideCollapsedHandForActivation(playerId) ? 'hand' : null;
   }
 
   private isHandDropActiveForPlayer(playerId: string): boolean {

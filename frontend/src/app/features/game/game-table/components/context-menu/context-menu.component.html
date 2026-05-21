@@ -146,6 +146,20 @@
           (itemSelected)="selectCounter($event)"
         />
         <button type="button" (click)="actionSelected.emit({ type: 'drawArrow' })">Draw Arrow</button>
+        @if (canEquipCard()) {
+          <button type="button" (click)="actionSelected.emit({ type: 'equipCard' })">
+            <span class="menu-item-label">
+              <lucide-icon name="link" size="17" aria-hidden="true" />
+              <span>Attach to...</span>
+            </span>
+          </button>
+        }
+        @if (canUnequipCard()) {
+          <button type="button" (click)="actionSelected.emit({ type: 'unequipCard' })">Unequip</button>
+        }
+        @if (canUnequipAttachedCards()) {
+          <button type="button" (click)="actionSelected.emit({ type: 'unequipAttachedCards' })">Detach all attached</button>
+        }
         <app-context-submenu
           label="Give To Player"
           [items]="giveToPlayerMenuItems()"
@@ -163,6 +177,9 @@
           (toggled)="toggleSubmenu($event, 'moveTo')"
           (itemSelected)="selectMoveTo($event)"
         />
+        @if (canRemoveLandStack()) {
+          <button type="button" (click)="actionSelected.emit({ type: 'removeStack' })">Remove stack</button>
+        }
         @if (canAddPowerToughness() || canRemovePowerToughness()) {
           <button type="button" (click)="actionSelected.emit(powerToughnessAction())">{{ powerToughnessLabel() }}</button>
         }

@@ -104,9 +104,28 @@ describe('FocusedBattlefieldComponent', () => {
     expect(cardElement(fixture, 'card-1').classList).not.toContain('focus-entry-left');
     expect(cardElement(fixture, 'card-3').classList).not.toContain('focus-entry-fade');
   });
+
+  it('renders land stack layers with the shared horizontal stack offset', async () => {
+    const positions = new Map([
+      ['land-top', { x: 100, y: 200 }],
+      ['land-under', { x: 100, y: 186 }],
+    ]);
+    const { fixture } = await renderFocusedBattlefield({
+      battlefieldCards: [
+        { instanceId: 'land-top', name: 'Command Tower', typeLine: 'Land', tapped: false },
+        { instanceId: 'land-under', name: 'Island', typeLine: 'Basic Land - Island', tapped: false },
+      ],
+      cardPosition: (card) => positions.get(card.instanceId) ?? null,
+    });
+
+    expect(cardElement(fixture, 'land-top').style.left).toBe('100px');
+    expect(cardElement(fixture, 'land-under').style.left).toBe('110px');
+    expect(cardElement(fixture, 'land-under').style.top).toBe('186px');
+  });
 });
 
 interface RenderFocusedBattlefieldOptions {
+  battlefieldCards?: GameCardInstance[];
   alignmentGuideFor?: (playerId: string) => { y: number; referenceInstanceIds: readonly string[] } | null;
   cardPosition?: (card: GameCardInstance) => { x: number; y: number } | null;
   isCurrentPlayer?: (playerId: string) => boolean;
@@ -122,7 +141,7 @@ async function renderFocusedBattlefield(options: RenderFocusedBattlefieldOptions
   }).compileComponents();
 
   const fixture = TestBed.createComponent(FocusedBattlefieldComponent);
-  fixture.componentRef.setInput('player', playerView());
+  fixture.componentRef.setInput('player', playerView(options.battlefieldCards));
   fixture.componentRef.setInput('isCurrentPlayer', options.isCurrentPlayer ?? ((_playerId: string) => true));
   fixture.componentRef.setInput('allowArrowTargetSelection', options.allowArrowTargetSelection ?? false);
   fixture.componentRef.setInput('focusEffectsEnabled', options.focusEffectsEnabled ?? true);
@@ -149,7 +168,7 @@ function cardElement(fixture: ComponentFixture<FocusedBattlefieldComponent>, ins
   return fixture.nativeElement.querySelector(`[data-card-instance-id="${instanceId}"]`);
 }
 
-function playerView(): PlayerView {
+function playerView(battlefieldCards?: GameCardInstance[]): PlayerView {
   return {
     id: 'player-1',
     state: {
@@ -159,7 +178,7 @@ function playerView(): PlayerView {
       zones: {
         library: [],
         hand: [],
-        battlefield: [
+        battlefield: battlefieldCards ?? [
           { instanceId: 'card-1', name: 'Llanowar Elves', typeLine: 'Creature - Elf Druid', tapped: false },
           { instanceId: 'card-2', name: 'Liliana of the Veil', typeLine: 'Legendary Planeswalker - Liliana', tapped: false },
           { instanceId: 'card-3', name: 'Sol Ring', typeLine: 'Artifact', tapped: false },

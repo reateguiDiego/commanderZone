@@ -35,6 +35,11 @@ interface DragImageGeometry {
   offsetY: number;
 }
 
+interface DragPreviewSize {
+  width: number;
+  height: number;
+}
+
 interface PointerDragPreviewGeometry {
   x: number;
   y: number;
@@ -47,6 +52,7 @@ interface PointerDragResult {
   instanceId: string;
   moved: boolean;
   position: { x: number; y: number };
+  previewPosition?: { x: number; y: number };
   dropZone: GameZoneName | null;
   battlefield: HTMLElement;
 }
@@ -200,6 +206,7 @@ export class GameTableDragService {
     if (!drag) {
       return null;
     }
+    const previewPosition = this.pointerDragPreviewPosition(drag);
 
     const dropZone = event ? resolveDropZone(event, drag.playerId) : null;
     this.pointerCardDrag = null;
@@ -219,6 +226,7 @@ export class GameTableDragService {
       instanceId: drag.instanceId,
       moved: drag.moved,
       position: drag.position,
+      ...(previewPosition ? { previewPosition } : {}),
       dropZone,
       battlefield: drag.battlefield,
     };
@@ -340,8 +348,10 @@ export class GameTableDragService {
     const bounds = battlefield.getBoundingClientRect();
     const manaLane = this.manaLaneForCardTop(battlefield, clientX, clientY, offsetX, offsetY, cardWidth);
     const manaLaneBounds = manaLane?.getBoundingClientRect();
-    const rawY = manaLaneBounds ? Math.round(manaLaneBounds.top - bounds.top + 8) : Math.round(clientY - bounds.top - offsetY);
-    const availableHeight = manaLaneBounds ? Math.round(manaLaneBounds.bottom - bounds.top - 8) : bounds.height;
+    const rawY = manaLaneBounds
+      ? Math.round(manaLaneBounds.bottom - bounds.top - cardHeight)
+      : Math.round(clientY - bounds.top - offsetY);
+    const availableHeight = manaLaneBounds ? Math.round(manaLaneBounds.bottom - bounds.top) : bounds.height;
 
     return this.clampPosition(Math.round(clientX - bounds.left - offsetX), rawY, bounds.width, availableHeight, cardWidth, cardHeight);
   }
@@ -420,8 +430,8 @@ export class GameTableDragService {
       const manaLane = this.manaLaneForCardTop(battlefield, clientX, clientY, grabOffsetX, grabOffsetY, visualWidth);
       const manaLaneBounds = manaLane?.getBoundingClientRect();
       if (manaLaneBounds) {
-        visualTopViewport = manaLaneBounds.top + 8;
-        visualBottomLimit = manaLaneBounds.bottom - 8;
+        visualTopViewport = manaLaneBounds.bottom - visualHeight;
+        visualBottomLimit = manaLaneBounds.bottom;
       }
     }
 
@@ -517,8 +527,9 @@ export class GameTableDragService {
     let preview: { element: HTMLElement; width: number; height: number } | null = null;
     const bounds = source.getBoundingClientRect();
     try {
-      preview = this.createNativeCardDragPreview(source);
-      const offset = this.pointerOffsetForDragPreview(event.clientX, event.clientY, bounds);
+      const normalizedSize = zoneArt ? this.battlefieldCardPreviewSize() : null;
+      preview = this.createNativeCardDragPreview(source, normalizedSize);
+      const offset = this.pointerOffsetForDragPreview(event.clientX, event.clientY, bounds, preview);
       this.dragImageGeometry = {
         width: preview.width,
         height: preview.height,
@@ -541,10 +552,10 @@ export class GameTableDragService {
       ?? null;
   }
 
-  private createNativeCardDragPreview(source: HTMLElement): { element: HTMLElement; width: number; height: number } {
+  private createNativeCardDragPreview(source: HTMLElement, forcedSize: DragPreviewSize | null = null): { element: HTMLElement; width: number; height: number } {
     const sourceRect = source.getBoundingClientRect();
-    const width = Math.max(1, sourceRect.width);
-    const height = Math.max(1, sourceRect.height);
+    const width = Math.max(1, forcedSize?.width ?? sourceRect.width);
+    const height = Math.max(1, forcedSize?.height ?? sourceRect.height);
     const preview = document.createElement('div');
     preview.setAttribute('aria-hidden', 'true');
     preview.style.position = 'fixed';
@@ -563,17 +574,17 @@ export class GameTableDragService {
     preview.style.pointerEvents = 'none';
     preview.style.transform = 'none';
     preview.style.transformOrigin = '50% 50%';
-    preview.appendChild(this.createNativeCardDragPreviewContent(source));
+    preview.appendChild(this.createNativeCardDragPreviewContent(source, { width, height }));
     document.body.appendChild(preview);
 
     return { element: preview, width, height };
   }
 
-  private createNativeCardDragPreviewContent(source: HTMLElement): HTMLElement {
+  private createNativeCardDragPreviewContent(source: HTMLElement, size: DragPreviewSize): HTMLElement {
     const sourceRect = source.getBoundingClientRect();
     const sourceStyle = window.getComputedStyle(source);
-    const layoutWidth = Math.max(1, Math.round(source.offsetWidth || sourceRect.width));
-    const layoutHeight = Math.max(1, Math.round(source.offsetHeight || sourceRect.height));
+    const layoutWidth = Math.max(1, Math.round(size.width || source.offsetWidth || sourceRect.width));
+    const layoutHeight = Math.max(1, Math.round(size.height || source.offsetHeight || sourceRect.height));
     const positioner = document.createElement('div');
     positioner.style.position = 'absolute';
     positioner.style.left = '50%';
@@ -613,8 +624,9 @@ export class GameTableDragService {
     clientX: number,
     clientY: number,
     sourceBounds: DOMRect,
+    previewSize: DragPreviewSize = sourceBounds,
   ): { x: number; y: number } {
-    const fallback = { x: sourceBounds.width / 2, y: sourceBounds.height / 2 };
+    const fallback = { x: previewSize.width / 2, y: previewSize.height / 2 };
     if (
       !Number.isFinite(clientX)
       || !Number.isFinite(clientY)
@@ -631,9 +643,22 @@ export class GameTableDragService {
     }
 
     return {
-      x: sourceX,
-      y: sourceY,
+      x: (sourceX / sourceBounds.width) * previewSize.width,
+      y: (sourceY / sourceBounds.height) * previewSize.height,
     };
+  }
+
+  private battlefieldCardPreviewSize(): DragPreviewSize {
+    const battlefieldCard = document.querySelector<HTMLElement>('[data-testid="game-card"][data-zone="battlefield"].game-card');
+    const bounds = battlefieldCard?.getBoundingClientRect();
+    if (bounds && bounds.width > 0 && bounds.height > 0) {
+      return { width: bounds.width, height: bounds.height };
+    }
+
+    const rootFontSize = Number.parseFloat(window.getComputedStyle(document.documentElement).fontSize) || 16;
+    const width = rootFontSize * 7.2;
+
+    return { width, height: width / 0.716 };
   }
 
   private pointerOffsetWithinBounds(clientX: number, clientY: number, bounds: DOMRect, width: number, height: number): { x: number; y: number } {
@@ -649,5 +674,23 @@ export class GameTableDragService {
     }
 
     return { x: rawX, y: rawY };
+  }
+
+  private pointerDragPreviewPosition(drag: PointerCardDrag): { x: number; y: number } | null {
+    const preview = this.pointerDragPreview();
+    if (!preview) {
+      return null;
+    }
+
+    const bounds = drag.battlefield.getBoundingClientRect();
+
+    return this.clampPosition(
+      Math.round(preview.x - bounds.left - drag.visualOffsetFromLogicalX),
+      Math.round(preview.y - bounds.top - drag.visualOffsetFromLogicalY),
+      bounds.width,
+      bounds.height,
+      drag.logicalWidth,
+      drag.logicalHeight,
+    );
   }
 }

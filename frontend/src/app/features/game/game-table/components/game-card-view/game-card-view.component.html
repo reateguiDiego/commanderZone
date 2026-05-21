@@ -65,6 +65,13 @@
     [class.stat-overlay-arriving]="statOverlayArriving()"
     [class.face-flipping]="faceFlipAnimating()"
     [class.loyalty-card]="loyaltyVisible()"
+    [class.land-stack-card]="landStackRole() !== null"
+    [class.land-stack-top]="landStackRole() === 'top'"
+    [class.land-stack-under]="landStackRole() === 'under'"
+    [class.attachment-stack-target]="attachmentStackRole() === 'target'"
+    [class.attachment-stack-equipment]="attachmentStackRole() === 'equipment'"
+    [class.land-stack-drop-target]="landStackDropTarget()"
+    [class.attachment-stack-drop-target]="landStackDropTarget() && landStackDropKind() === 'attachment'"
     [class.face-down]="faceDown()"
     [class.hand-motion-active]="motionActive()"
     [class.hand-drop-before]="handClass('before')"
@@ -75,6 +82,7 @@
     [class.focus-entry-fade]="battlefieldFocusEntry() === 'fade'"
     [disabled]="disabled()"
     [style.visibility]="visible() ? null : 'hidden'"
+    [style.z-index]="cardZIndex()"
     [style.left.px]="position()?.x"
     [style.top.px]="position()?.y"
     [style.--hand-index]="handIndex()"
@@ -86,6 +94,8 @@
     [style.--hand-fan-splay]="handFanSplayPx() + 'px'"
     [style.--hand-fan-arc]="handFanArcPx() + 'px'"
     [style.--hand-row-distance]="handRowDistance()"
+    [style.--land-stack-layer]="landStackLayer()"
+    [style.--land-stack-size]="landStackSize()"
     (pointerdown)="onPointerDown($event)"
     (pointerenter)="onMouseEnter($event, currentCard)"
     (pointermove)="onMouseEnter($event, currentCard)"
@@ -100,6 +110,17 @@
     (mouseenter)="onMouseEnter($event, currentCard)"
     (mouseleave)="onMouseLeave()"
   >
+    @if (landStackDropTarget()) {
+      <span class="land-stack-preview-badge">
+        @if (landStackDropKind() === 'attachment') {
+          <lucide-icon class="land-stack-preview-link-icon" name="link" size="25" aria-hidden="true" />
+          <span>Attach</span>
+        } @else {
+          <span class="land-stack-preview-icon" aria-hidden="true"></span>
+          <span>Stack</span>
+        }
+      </span>
+    }
     <span class="card-visual">
       <app-card-marker-rail
         [showTokenCopyMarker]="currentCard.isTokenCopy === true"

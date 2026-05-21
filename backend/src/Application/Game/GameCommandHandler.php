@@ -38,6 +38,7 @@ class GameCommandHandler
         'cards.moved',
         'card.tapped',
         'card.position.changed',
+        'cards.position.changed',
         'card.face_down.changed',
         'card.face.changed',
         'card.revealed',
@@ -62,6 +63,8 @@ class GameCommandHandler
         'stack.item_removed',
         'arrow.created',
         'arrow.removed',
+        'attachment.created',
+        'attachment.removed',
     ];
     private const COMMANDS_ALLOWED_WHEN_FINISHED = [
         'chat.message',
@@ -74,6 +77,7 @@ class GameCommandHandler
         'cards.moved',
         'card.tapped',
         'card.position.changed',
+        'cards.position.changed',
         'card.face_down.changed',
         'card.face.changed',
         'card.revealed',
@@ -142,6 +146,7 @@ class GameCommandHandler
             'cards.moved' => $log = $this->applyCardsMoved($snapshot, $payload),
             'card.tapped' => $log = $this->applyCardTapped($snapshot, $payload),
             'card.position.changed' => $log = $this->applyCardPositionChanged($snapshot, $payload),
+            'cards.position.changed' => $log = $this->applyCardsPositionChanged($snapshot, $payload),
             'card.face_down.changed' => $log = $this->applyCardFaceDown($snapshot, $payload),
             'card.face.changed' => $log = $this->applyCardFaceChanged($snapshot, $payload),
             'card.revealed' => $log = $this->applyCardRevealed($snapshot, $payload),
@@ -166,10 +171,12 @@ class GameCommandHandler
             'stack.item_removed' => $log = $this->applyStackItemRemoved($snapshot, $payload),
             'arrow.created' => $log = $this->applyArrowCreated($snapshot, $payload, $actor),
             'arrow.removed' => $log = $this->applyArrowRemoved($snapshot, $payload, $actor),
+            'attachment.created' => $log = $this->applyAttachmentCreated($snapshot, $payload, $actor),
+            'attachment.removed' => $log = $this->applyAttachmentRemoved($snapshot, $payload, $actor),
             default => throw new \InvalidArgumentException(sprintf('Unknown game command: %s', $type)),
         };
 
-        $this->pruneBattlefieldArrows($snapshot);
+        $this->pruneBattlefieldRelations($snapshot);
         $eventPayload = $type === 'chat.message' ? $this->chatEventPayload($payload) : $payload;
         $this->commit($snapshot, $type, $log, $actor);
         $game->replaceSnapshot($snapshot);
@@ -185,6 +192,7 @@ class GameCommandHandler
         $snapshot['ownerId'] = (string) ($snapshot['ownerId'] ?? '');
         $snapshot['stack'] ??= [];
         $snapshot['arrows'] ??= [];
+        $snapshot['attachments'] ??= [];
         $snapshot['chat'] ??= [];
         $snapshot['eventLog'] ??= [];
         $snapshot['counters'] ??= [];
@@ -224,7 +232,7 @@ class GameCommandHandler
         }
         unset($player);
 
-        $this->pruneBattlefieldArrows($snapshot);
+        $this->pruneBattlefieldRelations($snapshot);
 
         return $snapshot;
     }
@@ -237,6 +245,7 @@ class GameCommandHandler
         $loyalty = array_key_exists('loyalty', $card) ? $this->numericStat($card['loyalty']) : null;
         $defaultLoyalty = $this->defaultLoyalty($card, $loyalty);
         $loyalty ??= $defaultLoyalty;
+        $tapped = $zone === 'battlefield' && (bool) ($card['tapped'] ?? false);
 
         return [
             'instanceId' => (string) ($card['instanceId'] ?? Uuid::v7()->toRfc4122()),
@@ -256,12 +265,12 @@ class GameCommandHandler
             'defaultPower' => $baseStats['power'],
             'defaultToughness' => $baseStats['toughness'],
             'defaultLoyalty' => $defaultLoyalty,
-            'tapped' => (bool) ($card['tapped'] ?? false),
+            'tapped' => $tapped,
             'faceDown' => (bool) ($card['faceDown'] ?? false),
             'activeFaceIndex' => $this->activeFaceIndex($card),
             'revealedTo' => is_array($card['revealedTo'] ?? null) ? $card['revealedTo'] : [],
             'position' => $this->normalizedPosition($card['position'] ?? null),
-            'rotation' => (int) ($card['rotation'] ?? 0),
+            'rotation' => $tapped ? (int) ($card['rotation'] ?? 90) : 0,
             'counters' => is_array($card['counters'] ?? null) ? $card['counters'] : [],
             'zone' => $zone,
             'isToken' => (bool) ($card['isToken'] ?? false),
@@ -409,7 +418,7 @@ class GameCommandHandler
             $this->pendingDefeatedPlayerId = $playerId;
         }
 
-        return sprintf('Set %s life to %d.', $this->playerName($snapshot, $playerId), $newLife);
+        return $this->lifeChangeLog($oldLife, $newLife);
     }
 
     private function applyCommanderDamageChanged(array &$snapshot, array $payload): string
@@ -506,6 +515,15 @@ class GameCommandHandler
             $from,
             $to,
         );
+    }
+
+    private function lifeChangeLog(int $from, int $to): string
+    {
+        $amount = abs($to - $from);
+
+        return $to < $from
+            ? sprintf('Lost %d life (%d -> %d).', $amount, $from, $to)
+            : sprintf('Gained %d life (%d -> %d).', $amount, $from, $to);
     }
 
     private function playerCounterLog(string $playerName, string $key, int $from, int $to): string
@@ -795,6 +813,39 @@ class GameCommandHandler
         $card['position'] = $this->normalizedPosition($payload['position'] ?? null);
 
         return sprintf('Moved %s on battlefield.', $this->cardLogName($card));
+    }
+
+    private function applyCardsPositionChanged(array &$snapshot, array $payload): string
+    {
+        $playerId = $this->requiredPlayerId($snapshot, $payload);
+        $zone = $this->requiredZone($payload);
+        if ($zone !== 'battlefield') {
+            throw new \InvalidArgumentException('Only battlefield cards can be freely positioned.');
+        }
+
+        $positions = $payload['positions'] ?? null;
+        if (!is_array($positions) || $positions === []) {
+            throw new \InvalidArgumentException('positions must contain at least one card position.');
+        }
+
+        $moved = 0;
+        foreach ($positions as $positionPayload) {
+            if (!is_array($positionPayload)) {
+                throw new \InvalidArgumentException('Each position entry must be an object.');
+            }
+
+            $location = $this->requiredCardLocation($snapshot, [
+                'playerId' => $playerId,
+                'zone' => $zone,
+                'instanceId' => $positionPayload['instanceId'] ?? null,
+            ]);
+            $card =& $snapshot['players'][$location['playerId']]['zones'][$location['zone']][$location['index']];
+            $card['position'] = $this->normalizedPosition($positionPayload['position'] ?? null);
+            unset($card);
+            ++$moved;
+        }
+
+        return sprintf('Moved %d cards on battlefield.', $moved);
     }
 
     private function applyCardFaceDown(array &$snapshot, array $payload): string
@@ -1380,20 +1431,143 @@ class GameCommandHandler
         return 'Removed arrow.';
     }
 
+    private function applyAttachmentCreated(array &$snapshot, array $payload, User $actor): ?string
+    {
+        $equipmentInstanceId = trim((string) ($payload['equipmentInstanceId'] ?? ''));
+        $attachedToInstanceId = trim((string) ($payload['attachedToInstanceId'] ?? ''));
+        if ($equipmentInstanceId === '' || $attachedToInstanceId === '') {
+            throw new \InvalidArgumentException('equipmentInstanceId and attachedToInstanceId are required.');
+        }
+        if ($equipmentInstanceId === $attachedToInstanceId) {
+            throw new \InvalidArgumentException('A card cannot be attached to itself.');
+        }
+        $equipmentLocation = $this->battlefieldCardLocationByInstance($snapshot, $equipmentInstanceId);
+        $attachedToLocation = $this->battlefieldCardLocationByInstance($snapshot, $attachedToInstanceId);
+        $equipmentCard = $equipmentLocation['card'] ?? null;
+        $attachedToCard = $attachedToLocation['card'] ?? null;
+        if ($equipmentCard === null || $attachedToCard === null) {
+            throw new \InvalidArgumentException('Attachment endpoints must be battlefield cards.');
+        }
+        if (($equipmentLocation['playerId'] ?? null) !== ($attachedToLocation['playerId'] ?? null)) {
+            throw new \InvalidArgumentException('Attachments must stay on the same battlefield.');
+        }
+        if (($equipmentLocation['playerId'] ?? null) !== $actor->id()) {
+            throw new \InvalidArgumentException('You can only attach cards on your battlefield.');
+        }
+        if ($this->isLandCard($equipmentCard)) {
+            throw new \InvalidArgumentException('Lands cannot be attached to another permanent.');
+        }
+        foreach ($snapshot['attachments'] ?? [] as $attachment) {
+            if (($attachment['attachedToInstanceId'] ?? null) === $equipmentInstanceId) {
+                throw new \InvalidArgumentException('Cards with attached permanents cannot be attached to another permanent.');
+            }
+        }
+
+        $snapshot['attachments'] = array_values(array_filter(
+            $snapshot['attachments'] ?? [],
+            static fn (array $attachment): bool => ($attachment['equipmentInstanceId'] ?? null) !== $equipmentInstanceId,
+        ));
+        $snapshot['attachments'][] = [
+            'id' => Uuid::v7()->toRfc4122(),
+            'ownerId' => $actor->id(),
+            'equipmentInstanceId' => $equipmentInstanceId,
+            'attachedToInstanceId' => $attachedToInstanceId,
+            'createdAt' => (new \DateTimeImmutable())->format(DATE_ATOM),
+        ];
+
+        return null;
+    }
+
+    private function applyAttachmentRemoved(array &$snapshot, array $payload, User $actor): ?string
+    {
+        $id = trim((string) ($payload['id'] ?? ''));
+        $equipmentInstanceId = trim((string) ($payload['equipmentInstanceId'] ?? ''));
+        if ($id === '' && $equipmentInstanceId === '') {
+            throw new \InvalidArgumentException('id or equipmentInstanceId is required.');
+        }
+
+        foreach ($snapshot['attachments'] ?? [] as $attachment) {
+            $matches = $id !== ''
+                ? ($attachment['id'] ?? null) === $id
+                : ($attachment['equipmentInstanceId'] ?? null) === $equipmentInstanceId;
+            if (!$matches) {
+                continue;
+            }
+            if (isset($attachment['ownerId']) && (string) $attachment['ownerId'] !== $actor->id()) {
+                throw new \InvalidArgumentException('Only the attachment owner can remove it.');
+            }
+            break;
+        }
+
+        $snapshot['attachments'] = array_values(array_filter(
+            $snapshot['attachments'] ?? [],
+            static fn (array $attachment): bool => $id !== ''
+                ? ($attachment['id'] ?? null) !== $id
+                : ($attachment['equipmentInstanceId'] ?? null) !== $equipmentInstanceId,
+        ));
+
+        return null;
+    }
+
     private function battlefieldContainsInstance(array $snapshot, string $instanceId): bool
     {
-        foreach ($snapshot['players'] ?? [] as $player) {
+        return $this->battlefieldCardByInstance($snapshot, $instanceId) !== null;
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function battlefieldCardByInstance(array $snapshot, string $instanceId): ?array
+    {
+        $location = $this->battlefieldCardLocationByInstance($snapshot, $instanceId);
+
+        return $location['card'] ?? null;
+    }
+
+    /**
+     * @return array{playerId:string,card:array<string,mixed>}|null
+     */
+    private function battlefieldCardLocationByInstance(array $snapshot, string $instanceId): ?array
+    {
+        foreach ($snapshot['players'] ?? [] as $playerId => $player) {
             foreach (($player['zones']['battlefield'] ?? []) as $card) {
                 if (($card['instanceId'] ?? null) === $instanceId) {
-                    return true;
+                    return ['playerId' => (string) $playerId, 'card' => $card];
                 }
             }
         }
 
-        return false;
+        return null;
     }
 
-    private function pruneBattlefieldArrows(array &$snapshot): void
+    /**
+     * @param array<string,mixed> $card
+     */
+    private function isLandCard(array $card): bool
+    {
+        return preg_match('/\bland\b/i', (string) ($card['typeLine'] ?? '')) === 1;
+    }
+
+    private function pruneBattlefieldRelations(array &$snapshot): void
+    {
+        $battlefieldInstanceIds = $this->battlefieldInstanceIds($snapshot);
+
+        $snapshot['arrows'] = array_values(array_filter(
+            $snapshot['arrows'] ?? [],
+            static fn (array $arrow): bool => isset($battlefieldInstanceIds[(string) ($arrow['fromInstanceId'] ?? '')])
+                && isset($battlefieldInstanceIds[(string) ($arrow['toInstanceId'] ?? '')]),
+        ));
+        $snapshot['attachments'] = array_values(array_filter(
+            $snapshot['attachments'] ?? [],
+            static fn (array $attachment): bool => isset($battlefieldInstanceIds[(string) ($attachment['equipmentInstanceId'] ?? '')])
+                && isset($battlefieldInstanceIds[(string) ($attachment['attachedToInstanceId'] ?? '')]),
+        ));
+    }
+
+    /**
+     * @return array<string,true>
+     */
+    private function battlefieldInstanceIds(array $snapshot): array
     {
         $battlefieldInstanceIds = [];
         foreach ($snapshot['players'] ?? [] as $player) {
@@ -1405,11 +1579,7 @@ class GameCommandHandler
             }
         }
 
-        $snapshot['arrows'] = array_values(array_filter(
-            $snapshot['arrows'] ?? [],
-            static fn (array $arrow): bool => isset($battlefieldInstanceIds[(string) ($arrow['fromInstanceId'] ?? '')])
-                && isset($battlefieldInstanceIds[(string) ($arrow['toInstanceId'] ?? '')]),
-        ));
+        return $battlefieldInstanceIds;
     }
 
     private function commit(array &$snapshot, string $type, ?string $message, User $actor): void
@@ -1597,6 +1767,7 @@ class GameCommandHandler
         $card['zone'] = $zone;
         if ($zone !== 'battlefield' || !$preserveBattlefieldStats) {
             $this->resetMutableStats($card);
+            $this->resetTappedState($card);
         }
         if ($zone === 'battlefield' && is_array($position)) {
             $card['position'] = $this->normalizedPosition($position);
@@ -1831,6 +2002,12 @@ class GameCommandHandler
         $card['power'] = $card['defaultPower'] ?? null;
         $card['toughness'] = $card['defaultToughness'] ?? null;
         $card['loyalty'] = $card['defaultLoyalty'] ?? null;
+    }
+
+    private function resetTappedState(array &$card): void
+    {
+        $card['tapped'] = false;
+        $card['rotation'] = 0;
     }
 
     /**

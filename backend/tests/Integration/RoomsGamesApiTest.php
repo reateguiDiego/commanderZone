@@ -2067,6 +2067,32 @@ class RoomsGamesApiTest extends ApiTestCase
         self::assertSame(['x' => 420, 'y' => 220], $this->jsonResponse()['snapshot']['players'][$ownerPlayerId]['zones']['battlefield'][0]['position']);
 
         $this->jsonRequest('POST', '/games/'.$gameId.'/commands', [
+            'type' => 'cards.position.changed',
+            'payload' => [
+                'playerId' => $ownerPlayerId,
+                'zone' => 'battlefield',
+                'positions' => [
+                    [
+                        'instanceId' => $drawnCardId,
+                        'position' => ['x' => 0.5, 'y' => 0.5, 'unit' => 'ratio'],
+                    ],
+                ],
+            ],
+        ], $ownerToken);
+        self::assertResponseStatusCodeSame(201);
+        self::assertSame(
+            ['x' => 0.5, 'y' => 0.5, 'unit' => 'ratio'],
+            $this->jsonResponse()['snapshot']['players'][$ownerPlayerId]['zones']['battlefield'][0]['position'],
+        );
+
+        $this->jsonRequest('GET', '/games/'.$gameId.'/snapshot', token: $ownerToken);
+        self::assertResponseIsSuccessful();
+        self::assertSame(
+            ['x' => 0.5, 'y' => 0.5, 'unit' => 'ratio'],
+            $this->jsonResponse()['game']['snapshot']['players'][$ownerPlayerId]['zones']['battlefield'][0]['position'],
+        );
+
+        $this->jsonRequest('POST', '/games/'.$gameId.'/commands', [
             'type' => 'card.moved',
             'payload' => [
                 'playerId' => $ownerPlayerId,

@@ -161,6 +161,26 @@ class GameProjectionServiceTest extends TestCase
         self::assertTrue($library[0]['hidden']);
     }
 
+    public function testProjectionUntapsLegacyCardsOutsideBattlefield(): void
+    {
+        $owner = new User('owner@example.test', 'Owner');
+        $viewer = new User('viewer@example.test', 'Viewer');
+        $snapshot = $this->snapshot($owner->id(), $viewer->id());
+        $snapshot['players'][$owner->id()]['zones']['hand'] = [
+            [
+                ...$this->card('legacy-tapped-hand', 'Legacy Tapped Hand'),
+                'tapped' => true,
+                'rotation' => 90,
+            ],
+        ];
+
+        $hand = (new GameProjectionService(new GameCommandHandler()))
+            ->projectSnapshot($snapshot, $owner)['players'][$owner->id()]['zones']['hand'];
+
+        self::assertFalse($hand[0]['tapped']);
+        self::assertSame(0, $hand[0]['rotation']);
+    }
+
     private function snapshot(string $ownerId, string $viewerId): array
     {
         return [

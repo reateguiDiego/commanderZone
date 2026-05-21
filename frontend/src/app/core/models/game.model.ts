@@ -30,6 +30,7 @@ export type GameCommandType =
   | 'cards.moved'
   | 'card.tapped'
   | 'card.position.changed'
+  | 'cards.position.changed'
   | 'card.face_down.changed'
   | 'card.face.changed'
   | 'card.revealed'
@@ -53,7 +54,9 @@ export type GameCommandType =
   | 'stack.card_added'
   | 'stack.item_removed'
   | 'arrow.created'
-  | 'arrow.removed';
+  | 'arrow.removed'
+  | 'attachment.created'
+  | 'attachment.removed';
 
 export interface GameCardInstance {
   instanceId: string;
@@ -151,6 +154,14 @@ export interface GameArrow {
   createdAt: string;
 }
 
+export interface GameAttachment {
+  id: string;
+  ownerId?: string;
+  equipmentInstanceId: string;
+  attachedToInstanceId: string;
+  createdAt: string;
+}
+
 export type GameRematchVote = 'play_again' | 'leave';
 
 export interface GameRematchVoteState {
@@ -177,6 +188,7 @@ export interface GameSnapshot {
   };
   stack: GameStackItem[];
   arrows: GameArrow[];
+  attachments?: GameAttachment[];
   chat: ChatMessage[];
   eventLog: GameLogEntry[];
   rematch?: GameRematchState;

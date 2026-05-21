@@ -3621,7 +3621,7 @@ components:
           format: date-time
     GameSnapshot:
       type: object
-      required: [version, players, turn, stack, arrows, chat, eventLog, createdAt]
+      required: [version, players, turn, stack, arrows, attachments, chat, eventLog, createdAt]
       properties:
         version:
           type: integer
@@ -3644,6 +3644,10 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/GameArrow'
+        attachments:
+          type: array
+          items:
+            $ref: '#/components/schemas/GameAttachment'
         chat:
           type: array
           items:
@@ -4002,6 +4006,21 @@ components:
         createdAt:
           type: string
           format: date-time
+    GameAttachment:
+      type: object
+      required: [id, equipmentInstanceId, attachedToInstanceId, createdAt]
+      properties:
+        id:
+          type: string
+        ownerId:
+          type: string
+        equipmentInstanceId:
+          type: string
+        attachedToInstanceId:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
     GameCommand:
       type: object
       required: [type, payload]
@@ -4022,6 +4041,7 @@ components:
             - cards.moved
             - card.tapped
             - card.position.changed
+            - cards.position.changed
             - card.face_down.changed
             - card.face.changed
             - card.revealed
@@ -4045,6 +4065,8 @@ components:
             - stack.item_removed
             - arrow.created
             - arrow.removed
+            - attachment.created
+            - attachment.removed
         payload:
           type: object
           description: >
@@ -4070,13 +4092,21 @@ components:
             to let another room player inspect the actor's full library; closing
             that read-only view may send library.shuffle with
             reason=revealed-library-closed to shuffle and clear the reveal.
+            attachment.created manually attaches one non-land battlefield
+            permanent to another permanent on the same battlefield through
+            equipmentInstanceId and attachedToInstanceId; lands may be targets
+            but cannot be the attachment source, and permanents with attached
+            cards cannot be attachment sources. attachment.removed detaches by
+            id or equipmentInstanceId.
             dice.rolled logs a manual roll result, and battlefield.untap_all
             untaps all tapped cards in the actor's own battlefield.
             library.play_top_revealed toggles a persistent public top-library
             reveal flag and does not move cards.
             card.token.created creates the selected token payload on the actor
             player's battlefield, or a generic 1/1 token when no card payload is
-            provided.
+            provided. cards.position.changed persists multiple battlefield card
+            positions atomically with payload shape { playerId, zone:
+            battlefield, positions: [{ instanceId, position }] }.
           additionalProperties: true
         clientActionId:
           type: string

@@ -16,6 +16,7 @@ import { GameTableSessionContext, GameTableSessionService } from '../../services
 import { GameTableTurnActionContext } from '../../services/game-table-turn-actions.service';
 import { GameTableZoneActionContext, GameTableZoneActionsService } from '../../services/game-table-zone-actions.service';
 import { GameTableArrowInteractionContext } from '../arrows/game-table-arrows.state';
+import { GameTableAttachmentInteractionContext } from '../attachments/game-table-attachments.state';
 import { GameTableBattlefieldContext, GameTableBattlefieldState } from '../battlefield/game-table-battlefield.state';
 import { GameTableCardCounterContext } from '../cards/game-table-cards.state';
 import { GameTableDragDropContext, GameTableDragDropStore, GameTablePendingMoveContext } from '../drag-drop/game-table-drag-drop.store';
@@ -111,6 +112,11 @@ export class GameTableContextStore {
       zoneModal: () => this.zoneModalState.zoneModal(),
       replaceZoneModalCards: (cards) => this.zoneActions.replaceZoneModalCards(cards),
       loadZone: () => this.zoneActions.loadZone(this.zoneAction()),
+      battlefieldCards: (playerId) => this.core.snapshot()?.players[playerId]?.zones.battlefield ?? [],
+      cardPosition: (card) => this.battlefieldState.cardPosition(card),
+      battlefieldPosition: (playerId, instanceId, position) => this.battlefieldState.ratioPositionForBattlefield(playerId, instanceId, position),
+      updateLocalCardPosition: (playerId, instanceId, position) =>
+        this.battlefieldState.updateLocalCardPosition(this.battlefield(), playerId, instanceId, position),
       playerName: (playerId) => this.playersStore.playerName(playerId),
       setError: (message) => this.core.error.set(message),
       closeContextMenu: () => this.uiState.closeContextMenu(),
@@ -140,6 +146,25 @@ export class GameTableContextStore {
       setError: (message) => this.core.error.set(message),
       closeContextMenu: () => this.uiState.closeContextMenu(),
       showArrowTargetProgressToast: (remainingTargets) => this.toastState.showArrowTargetProgressToast(remainingTargets),
+      showTargetToast: (message) => this.toastState.showTargetToast(message),
+      clearTargetToast: () => this.toastState.clearTargetToast(),
+      command: (type, payload) => source.command(type, payload),
+    };
+  }
+
+  attachmentInteraction(): GameTableAttachmentInteractionContext {
+    const source = this.boundSource();
+
+    return {
+      snapshot: () => this.core.snapshot(),
+      canControlOwnedCard: (playerId, card) => this.playersStore.canControlOwnedCard(playerId, card, this.interaction()),
+      battlefieldCards: (playerId) => this.core.snapshot()?.players[playerId]?.zones.battlefield ?? [],
+      cardPosition: (card) => this.battlefieldState.cardPosition(card),
+      battlefieldPosition: (playerId, instanceId, position) => this.battlefieldState.ratioPositionForBattlefield(playerId, instanceId, position),
+      updateLocalCardPosition: (playerId, instanceId, position) =>
+        this.battlefieldState.updateLocalCardPosition(this.battlefield(), playerId, instanceId, position),
+      setError: (message) => this.core.error.set(message),
+      closeContextMenu: () => this.uiState.closeContextMenu(),
       showTargetToast: (message) => this.toastState.showTargetToast(message),
       clearTargetToast: () => this.toastState.clearTargetToast(),
       command: (type, payload) => source.command(type, payload),
@@ -224,6 +249,7 @@ export class GameTableContextStore {
       clearSelectedCards: () => this.selection.selectedCards.set([]),
       suppressCardPreview: () => this.uiState.suppressCardPreview(450),
       setError: (message) => this.core.error.set(message),
+      cardPosition: (card) => this.battlefieldState.cardPosition(card),
       snapBattlefieldPosition: (playerId, instanceId, position, rawZone) =>
         this.battlefieldState.snappedBattlefieldPosition(this.battlefield(), playerId, instanceId, position, rawZone),
       markPendingManaDrop: (playerId, instanceIds) => this.dropFeedbackState.markPendingManaDrop(playerId, instanceIds),
@@ -245,12 +271,14 @@ export class GameTableContextStore {
 
     return {
       zones: this.core.zones,
+      snapshot: () => this.core.snapshot(),
       players: () => this.playersStore.players(),
       selectedCards: () => this.selectedCards(),
       setSelectedCards: (cards) => this.selection.selectedCards.set(cards),
       canControlOwnedCard: (playerId, card) => this.playersStore.canControlOwnedCard(playerId, card, this.interaction()),
       battlefieldDragContext: () => this.battlefieldDrag(),
       pointerDragActionContext: () => this.pointerDragAction(),
+      cardPosition: (card) => this.battlefieldState.cardPosition(card),
       updateLocalCardPosition: (playerId, instanceId, position) =>
         this.battlefieldState.updateLocalCardPosition(this.battlefield(), playerId, instanceId, position),
       hideCardPreview: () => this.uiState.hideCardPreview(),
@@ -324,6 +352,8 @@ export class GameTableContextStore {
       isManaLaneHighlighted: (playerId) => this.dragDropStore.isManaLaneHighlighted(playerId),
       findCard: (playerId, zone, instanceId) => this.findCard(playerId, zone, instanceId),
       cardPosition: (card) => this.battlefieldState.cardPosition(card),
+      landStackDetachSource: () => this.dragDropStore.landStackDetachSource(),
+      attachmentStackDetachSource: () => this.dragDropStore.attachmentStackDetachSource(),
       canControlPlayer: (playerId) => this.playersStore.canControlPlayer(playerId, this.interaction()),
       canControlOwnedCard: (playerId, card) => this.playersStore.canControlOwnedCard(playerId, card, this.interaction()),
       playerName: (playerId) => this.playersStore.playerName(playerId),

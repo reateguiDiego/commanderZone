@@ -42,6 +42,7 @@ import { GameTableHandState } from './state/hand/game-table-hand.state';
 import { GameTableLibraryTopState } from './state/zones/game-table-library-top.state';
 import { GameTablePendingTransferState } from './state/core/game-table-pending-transfer.state';
 import { GameTableArrowsState } from './state/arrows/game-table-arrows.state';
+import { GameTableAttachmentsState } from './state/attachments/game-table-attachments.state';
 import { GameTableOpponentTargetsState } from './state/arrows/game-table-opponent-targets.state';
 import { GameTablePlayersStore } from './state/players/game-table-players.store';
 import { GameTableSnapshotCoordinatorState } from './state/core/game-table-snapshot-coordinator.state';
@@ -73,6 +74,7 @@ import { GameRematchModalComponent, RematchPlayerVoteView } from './components/g
 import { TokenSearchModalComponent } from './components/token-search-modal/token-search-modal.component';
 import { RollModalComponent } from '../../../core/ui/roll-modal/roll-modal.component';
 import { type RollResult } from '../../../core/ui/roll-modal/roll';
+import { GameTablePermanentRelationService } from './services/game-table-permanent-relation.service';
 
 interface DrawNumberActionRequest {
   readonly kind: 'draw';
@@ -258,6 +260,7 @@ interface MotionSourceRect {
     GameTableCommandStore,
     GameTablePendingTransferRegistrarState,
     GameTableArrowsState,
+    GameTableAttachmentsState,
     GameTableOpponentTargetsState,
     GameTableBattlefieldState,
     GameTableCardsState,
@@ -289,6 +292,7 @@ interface MotionSourceRect {
     GameTableTurnActionsService,
     GameTableZoneActionsService,
     GameTableMotionService,
+    GameTablePermanentRelationService,
     GameTableSnapshotSelectors,
     GameTableUiState,
     GameTableBattlefieldDragState,
@@ -361,9 +365,15 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     this.store.isCardTransferPending(playerId, zone, card);
   readonly ownedArrowCount = (playerId: string): number => this.store.ownedArrowCount(playerId);
   readonly isZoneTransferPending = (playerId: string, zone: GameZoneName): boolean => this.store.isZoneTransferPending(playerId, zone);
-  readonly canDragBattlefieldCard = (playerId: string, card: GameCardInstance): boolean => this.store.canDragBattlefieldCard(playerId, card);
+  private readonly tapAnimationLockedCardIds = signal<ReadonlySet<string>>(new Set<string>());
+  readonly canDragBattlefieldCard = (playerId: string, card: GameCardInstance): boolean =>
+    this.store.canDragBattlefieldCard(playerId, card) && !this.tapAnimationLockedCardIds().has(card.instanceId);
   readonly isPendingBattlefieldTransfer = (card: GameCardInstance): boolean => this.store.isPendingBattlefieldTransfer(card);
   readonly shouldShowPowerToughness = (card: GameCardInstance): boolean => this.store.shouldShowPowerToughness(card);
+  readonly isLandStacked = (playerId: string, card: GameCardInstance): boolean => this.store.isLandStacked(playerId, card);
+  readonly isAttachedEquipment = (playerId: string, card: GameCardInstance): boolean => this.store.isAttachedEquipment(playerId, card);
+  readonly isAttachmentTarget = (playerId: string, card: GameCardInstance): boolean => this.store.isAttachmentTarget(playerId, card);
+  readonly canAttachEquipment = (playerId: string, card: GameCardInstance): boolean => this.store.canAttachEquipment(playerId, card);
   readonly cardPowerValue = (card: GameCardInstance): number | null => this.store.cardPowerValue(card);
   readonly cardToughnessValue = (card: GameCardInstance): number | null => this.store.cardToughnessValue(card);
   readonly firstCounter = (card: GameCardInstance): { key: string; value: number } | null => this.store.firstCounter(card);
@@ -400,7 +410,10 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   readonly tableExitPrimaryLabel = computed(() => this.tableExitAction() === 'leave' ? 'Leave table' : 'Concede');
   private readonly leavingTable = signal(false);
   private readonly tableExitPending = computed(() => this.tableExitAction() !== null || this.leavingTable());
-  readonly focusEffectsEnabled = computed(() => this.arrowTargetDialog() === null && this.store.pendingArrowSource() === null);
+  readonly manualRelationTargetingActive = computed(() =>
+    this.store.pendingArrowSource() !== null || this.store.pendingAttachmentSource() !== null,
+  );
+  readonly focusEffectsEnabled = computed(() => this.arrowTargetDialog() === null && !this.manualRelationTargetingActive());
   readonly battlefieldLayoutSize = signal<BattlefieldLayoutRect>({ width: 900, height: 520, left: 0, top: 0, right: 900, bottom: 520 });
   readonly closeGameDialogOpen = signal(false);
   readonly isPowerToughnessDialogInvalid = computed(() => {
@@ -1118,11 +1131,6 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   }
 
   private pointerHandDropTargetPlayerId(event: PointerEvent): string | null {
-    const activeDropTarget = this.store.activeDropTarget();
-    if (activeDropTarget?.zone === 'hand') {
-      return activeDropTarget.playerId;
-    }
-
     for (const element of document.elementsFromPoint(event.clientX, event.clientY)) {
       const target = element.closest<HTMLElement>('[data-game-drop-zone][data-zone="hand"]');
       const playerId = target?.dataset['playerId'];
@@ -1289,8 +1297,20 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       case 'drawArrow':
         this.openArrowTargetDialog(menu);
         return;
+      case 'equipCard':
+        this.store.startAttachmentFrom(menu);
+        return;
+      case 'unequipCard':
+        void this.store.removeAttachment(menu);
+        return;
+      case 'unequipAttachedCards':
+        void this.store.removeAttachmentsFromTarget(menu);
+        return;
       case 'addToStack':
         void this.store.addToStack(menu);
+        return;
+      case 'removeStack':
+        void this.store.removeLandStack(menu);
         return;
       case 'setPowerToughness':
         this.openPowerToughnessDialog(menu);
@@ -1367,10 +1387,35 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   }
 
   async handleBattlefieldCardDoubleClicked(event: BattlefieldCardDoubleClickEvent): Promise<void> {
-    const animateRotation = this.motion.prepareCardRotationFlip(event.card.instanceId);
+    this.lockTapAnimation(event.card.instanceId);
+    const animateRotation = this.motion.prepareCardRotationFlip(event.card.instanceId, {
+      onComplete: () => this.unlockTapAnimation(event.card.instanceId),
+    });
 
-    await this.store.toggleTapped(event.playerId, 'battlefield', event.card);
-    window.requestAnimationFrame(() => animateRotation());
+    try {
+      await this.store.toggleTapped(event.playerId, 'battlefield', event.card);
+      window.requestAnimationFrame(() => animateRotation());
+    } catch (error) {
+      this.unlockTapAnimation(event.card.instanceId);
+      throw error;
+    }
+  }
+
+  private lockTapAnimation(instanceId: string): void {
+    this.tapAnimationLockedCardIds.update((current) => new Set([...current, instanceId]));
+  }
+
+  private unlockTapAnimation(instanceId: string): void {
+    this.tapAnimationLockedCardIds.update((current) => {
+      if (!current.has(instanceId)) {
+        return current;
+      }
+
+      const next = new Set(current);
+      next.delete(instanceId);
+
+      return next;
+    });
   }
 
   async handleHandCardPointerMoved(event: HandCardPointerMovedEvent): Promise<void> {

@@ -1,6 +1,6 @@
 import { importProvidersFrom } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { Ban, Dices, LogOut, LucideAngularModule, Maximize2, Plus, RefreshCcw } from 'lucide-angular';
+import { Ban, Dices, Link, LogOut, LucideAngularModule, Maximize2, Plus, RefreshCcw } from 'lucide-angular';
 import { GameCardInstance, GameZoneName } from '../../../../../core/models/game.model';
 import { GameContextMenu } from '../../state/core/game-table-ui.state';
 import { ContextMenuComponent } from './context-menu.component';
@@ -13,6 +13,7 @@ describe('ContextMenuComponent', () => {
         importProvidersFrom(LucideAngularModule.pick({
           Ban,
           Dices,
+          Link,
           LogOut,
           Maximize2,
           Plus,
@@ -373,6 +374,96 @@ describe('ContextMenuComponent', () => {
     expect((fixture.nativeElement as HTMLElement).querySelector('.submenu.direction-up')).toBeNull();
   });
 
+  it('shows remove stack only for battlefield cards that belong to a land stack', () => {
+    const stacked = createContextMenuFixture({
+      kind: 'card',
+      playerId: 'user-1',
+      zone: 'battlefield',
+      card: card('stacked-land'),
+    }, {
+      isLandStacked: (_playerId, target) => target.instanceId === 'stacked-land',
+    });
+    const loose = createContextMenuFixture({
+      kind: 'card',
+      playerId: 'user-1',
+      zone: 'battlefield',
+      card: card('loose-land'),
+    }, {
+      isLandStacked: () => false,
+    });
+
+    expect(menuText(stacked)).toContain('Remove stack');
+    expect(menuText(loose)).not.toContain('Remove stack');
+  });
+
+  it('shows attach only for valid battlefield source cards', () => {
+    const nonLand = createContextMenuFixture({
+      kind: 'card',
+      playerId: 'user-1',
+      zone: 'battlefield',
+      card: card('artifact-card'),
+    });
+    const land = createContextMenuFixture({
+      kind: 'card',
+      playerId: 'user-1',
+      zone: 'battlefield',
+      card: { ...card('land-card'), typeLine: 'Basic Land - Forest' },
+    }, {
+      canAttachEquipment: (_playerId, target) => !/\bland\b/i.test(target.typeLine ?? ''),
+    });
+    const attachmentTarget = createContextMenuFixture({
+      kind: 'card',
+      playerId: 'user-1',
+      zone: 'battlefield',
+      card: card('attachment-target'),
+    }, {
+      canAttachEquipment: (_playerId, target) => target.instanceId !== 'attachment-target',
+    });
+
+    expect(menuText(nonLand)).toContain('Attach to...');
+    expect(menuText(land)).not.toContain('Attach to...');
+    expect(menuText(attachmentTarget)).not.toContain('Attach to...');
+  });
+
+  it('shows detach all for a battlefield card with attached cards', () => {
+    const fixture = createContextMenuFixture({
+      kind: 'card',
+      playerId: 'user-1',
+      zone: 'battlefield',
+      card: card('target-card'),
+    }, {
+      isAttachmentTarget: (_playerId, target) => target.instanceId === 'target-card',
+    });
+    const selected = vi.fn();
+    fixture.componentInstance.actionSelected.subscribe(selected);
+
+    const detachAll = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button'))
+      .find((candidate) => candidate.textContent?.includes('Detach all attached'));
+    detachAll?.click();
+
+    expect(menuText(fixture)).toContain('Detach all attached');
+    expect(selected).toHaveBeenCalledWith({ type: 'unequipAttachedCards' });
+  });
+
+  it('emits removeStack from a stacked battlefield card menu', () => {
+    const fixture = createContextMenuFixture({
+      kind: 'card',
+      playerId: 'user-1',
+      zone: 'battlefield',
+      card: card('stacked-land'),
+    }, {
+      isLandStacked: () => true,
+    });
+    const selected = vi.fn();
+    fixture.componentInstance.actionSelected.subscribe(selected);
+
+    const removeStack = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button'))
+      .find((candidate) => candidate.textContent?.includes('Remove stack'));
+    removeStack?.click();
+
+    expect(selected).toHaveBeenCalledWith({ type: 'removeStack' });
+  });
+
   it('hides power toughness counters for cards without a power toughness box', () => {
     const fixture = createContextMenuFixture({
       kind: 'card',
@@ -579,6 +670,9 @@ describe('ContextMenuComponent', () => {
 interface ContextMenuFixtureOptions {
   canControlPlayer?: (playerId: string) => boolean;
   currentPlayer?: ReturnType<typeof player> | null;
+  canAttachEquipment?: (playerId: string, card: GameCardInstance) => boolean;
+  isAttachmentTarget?: (playerId: string, card: GameCardInstance) => boolean;
+  isLandStacked?: (playerId: string, card: GameCardInstance) => boolean;
   zoneCardCount?: (playerId: string, zone: GameZoneName) => number;
   ownedArrowCount?: number;
 }
@@ -605,6 +699,9 @@ function createContextMenuFixture(menu: Partial<GameContextMenu>, options: Conte
   fixture.componentRef.setInput('canControlPlayer', options.canControlPlayer ?? ((playerId: string) => playerId === 'user-1'));
   fixture.componentRef.setInput('zoneCardCount', options.zoneCardCount ?? (() => 1));
   fixture.componentRef.setInput('shouldShowPowerToughness', (target: GameCardInstance) => target.power !== null && target.power !== undefined && target.toughness !== null && target.toughness !== undefined);
+  fixture.componentRef.setInput('isLandStacked', options.isLandStacked ?? (() => false));
+  fixture.componentRef.setInput('isAttachmentTarget', options.isAttachmentTarget ?? (() => false));
+  fixture.componentRef.setInput('canAttachEquipment', options.canAttachEquipment ?? (() => true));
   fixture.componentRef.setInput('zoneTitle', titleForZone);
   fixture.componentRef.setInput('ownedArrowCount', options.ownedArrowCount ?? 0);
   fixture.detectChanges();

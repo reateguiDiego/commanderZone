@@ -58,7 +58,10 @@ export class GameTableChatLogState {
 
   eventLog(snapshot: GameSnapshot | null): GameLogEntry[] {
     return this.compactLog(this.suppressDefeatedPlayerLogs(
-      [...(snapshot?.eventLog ?? [])].filter((entry) => entry.type !== 'card.position.changed' && entry.message !== 'Reordered hand.'),
+      [...(snapshot?.eventLog ?? [])].filter((entry) =>
+        entry.type !== 'card.position.changed'
+        && entry.type !== 'cards.position.changed'
+        && entry.message !== 'Reordered hand.'),
     ));
   }
 
@@ -461,7 +464,13 @@ export class GameTableChatLogState {
   private mergeLife(previous: GameLogEntry, current: GameLogEntry): GameLogEntry | null {
     const previousLife = this.lifeChange(previous.message);
     const currentLife = this.lifeChange(current.message);
-    if (!previousLife || !currentLife || previousLife.playerName !== currentLife.playerName) {
+    if (
+      !previousLife
+      || !currentLife
+      || previousLife.playerName !== ''
+        && currentLife.playerName !== ''
+        && previousLife.playerName !== currentLife.playerName
+    ) {
       return null;
     }
 
@@ -479,7 +488,7 @@ export class GameTableChatLogState {
 
     return {
       ...current,
-      message: this.lifeChangeMessage(previousLife.playerName, from, currentLife.to),
+      message: this.lifeChangeMessage(previousLife.playerName || currentLife.playerName, from, currentLife.to),
     };
   }
 
@@ -489,25 +498,34 @@ export class GameTableChatLogState {
       return { playerName: setMatch[1], from: null, to: Number(setMatch[2]) };
     }
 
-    const changedMatch = /^(.+) (lost|gained) \d+ life \((-?\d+) -> (-?\d+)\)\.$/.exec(message);
+    const subjectChangedMatch = /^(.+) (lost|gained) \d+ life \((-?\d+) -> (-?\d+)\)\.$/.exec(message);
+    if (subjectChangedMatch) {
+      return {
+        playerName: subjectChangedMatch[1],
+        from: Number(subjectChangedMatch[3]),
+        to: Number(subjectChangedMatch[4]),
+      };
+    }
+
+    const changedMatch = /^(Lost|Gained) \d+ life \((-?\d+) -> (-?\d+)\)\.$/.exec(message);
     if (!changedMatch) {
       return null;
     }
 
     return {
-      playerName: changedMatch[1],
-      from: Number(changedMatch[3]),
-      to: Number(changedMatch[4]),
+      playerName: '',
+      from: Number(changedMatch[2]),
+      to: Number(changedMatch[3]),
     };
   }
 
-  private lifeChangeMessage(playerName: string, from: number, to: number): string {
+  private lifeChangeMessage(_playerName: string, from: number, to: number): string {
     const delta = to - from;
     const amount = Math.abs(delta);
 
     return delta < 0
-      ? `${playerName} lost ${amount} life (${from} -> ${to}).`
-      : `${playerName} gained ${amount} life (${from} -> ${to}).`;
+      ? `Lost ${amount} life (${from} -> ${to}).`
+      : `Gained ${amount} life (${from} -> ${to}).`;
   }
 
   private mergeCommanderDamage(previous: GameLogEntry, current: GameLogEntry): GameLogEntry | null {
@@ -664,9 +682,15 @@ export class GameTableChatLogState {
       return null;
     }
 
+    const initialState = this.initialTapState(previousMatch);
+    const finalState = currentMatch[1] === 'Tapped' ? 'tapped' : 'untapped';
+    if (initialState === finalState) {
+      return null;
+    }
+
     return {
       ...current,
-      message: `Changed ${currentMatch[2]} from ${this.initialTapState(previousMatch)} to ${currentMatch[1] === 'Tapped' ? 'tapped' : 'untapped'}.`,
+      message: `Changed ${currentMatch[2]} from ${initialState} to ${finalState}.`,
     };
   }
 
