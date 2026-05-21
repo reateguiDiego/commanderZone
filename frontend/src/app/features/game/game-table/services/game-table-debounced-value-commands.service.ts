@@ -1,6 +1,8 @@
 import { Injectable } from '@angular/core';
 import { GameCommandType, GameSnapshot } from '../../../../core/models/game.model';
 
+export const GAME_TABLE_VALUE_COMMAND_DEBOUNCE_MS = 450;
+
 interface PendingLifeCommand {
   playerId: string;
   life: number;
@@ -32,7 +34,7 @@ export interface GameTableDebouncedValueCommandContext {
 
 @Injectable()
 export class GameTableDebouncedValueCommandsService {
-  private readonly flushDelayMs = 450;
+  private readonly flushDelayMs = GAME_TABLE_VALUE_COMMAND_DEBOUNCE_MS;
   private readonly retryDelayMs = 80;
   private readonly optimisticLifeCommands = new Map<string, PendingLifeCommand>();
   private readonly optimisticCommanderDamageCommands = new Map<string, PendingCommanderDamageCommand>();

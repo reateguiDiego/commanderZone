@@ -43,7 +43,15 @@ const MANA_GRADIENT_COLORS: Record<ManaColor, string> = {
   R: '#ff5b36',
   G: '#4fd36b',
 };
+const MANA_BORDER_COLORS: Record<ManaColor, string> = {
+  W: '#d9ccb4',
+  U: '#7faeca',
+  B: '#9c8aac',
+  R: '#c77a62',
+  G: '#7faa7b',
+};
 const COLORLESS_GRADIENT_COLORS = ['#ded8bf', '#7c7a70'];
+const PLAYER_BORDER_VARIANTS = ['#f3dfaa', '#cdd7de', '#cdb8d5', '#d8b6a6', '#bcd1b4', '#bfc3a2', '#b7a6a0'] as const;
 
 @Component({
   selector: 'app-opponent-mini-board',
@@ -76,6 +84,7 @@ export class OpponentMiniBoardComponent {
   readonly isCommanderEntrySettling = input<(playerId: string, card: GameCardInstance) => boolean>(() => false);
   readonly isCardTransferPending = input<(playerId: string, zone: GameZoneName, card: GameCardInstance) => boolean>(() => false);
   readonly arrowTargeting = input(false);
+  readonly isActiveTurnPlayer = input(false);
   readonly targetingPill = input<OpponentTargetingPill | null>(null);
   readonly cardsTargetCards = input<readonly OpponentCardsTargetCard[]>([]);
 
@@ -127,6 +136,18 @@ export class OpponentMiniBoardComponent {
     return colors.length === 1 && colors[0] === 'W' ? '#1d1608' : '#fff8dd';
   }
 
+  deckBorderColor(player: PlayerView): string {
+    const identityColors = this.identityColors(player);
+    const baseColors = identityColors.length > 0
+      ? identityColors.map((color) => MANA_BORDER_COLORS[color])
+      : ['#a8a091'];
+    const base = baseColors[this.stableIndex(player.id, baseColors.length)] ?? baseColors[0];
+    const variantSeed = `${player.id}:${this.deckLabel()(player)}`;
+    const variant = PLAYER_BORDER_VARIANTS[this.stableIndex(variantSeed, PLAYER_BORDER_VARIANTS.length)];
+
+    return this.mixHexColors(base, variant, 0.28);
+  }
+
   private identityColors(player: PlayerView): ManaColor[] {
     const identity = player.state.colorIdentity ?? [];
 
@@ -159,5 +180,36 @@ export class OpponentMiniBoardComponent {
     const rounded = Number(value.toFixed(3));
 
     return `${rounded}%`;
+  }
+
+  private stableIndex(seed: string, length: number): number {
+    if (length <= 1) {
+      return 0;
+    }
+
+    let hash = 0;
+    for (let index = 0; index < seed.length; index += 1) {
+      hash = ((hash << 5) - hash + seed.charCodeAt(index)) | 0;
+    }
+
+    return Math.abs(hash) % length;
+  }
+
+  private mixHexColors(base: string, tint: string, tintWeight: number): string {
+    const baseRgb = this.hexToRgb(base);
+    const tintRgb = this.hexToRgb(tint);
+    const baseWeight = 1 - tintWeight;
+    const mixed = baseRgb.map((channel, index) => Math.round(channel * baseWeight + tintRgb[index] * tintWeight));
+
+    return `rgb(${mixed[0]} ${mixed[1]} ${mixed[2]})`;
+  }
+
+  private hexToRgb(hex: string): [number, number, number] {
+    const normalized = hex.replace('#', '');
+    const value = Number.parseInt(normalized.length === 3
+      ? normalized.split('').map((character) => `${character}${character}`).join('')
+      : normalized, 16);
+
+    return [(value >> 16) & 255, (value >> 8) & 255, value & 255];
   }
 }

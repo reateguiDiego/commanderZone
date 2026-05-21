@@ -40,9 +40,21 @@ describe('OpponentMiniBoardComponent', () => {
     const children = Array.from(header.children).map((child) => (child as HTMLElement).dataset['testid'] ?? child.className);
     const pill = fixture.nativeElement.querySelector('[data-testid="opponent-targeting-pill"]') as HTMLElement;
 
-    expect(children).toEqual(['opponent-deck-name', 'opponent-targeting-pill', 'opponent-life']);
+    expect(children).toEqual(['opponent-deck-name', 'opponent-targeting-pill', 'opponent-life-group']);
     expect(pill.textContent?.trim()).toBe('Objetivo de Opponent');
     expect(pill.classList.contains('opponent-targeting-pill-incoming')).toBe(true);
+  });
+
+  it('marks the active turn opponent with a turn pill', () => {
+    fixture.componentRef.setInput('isActiveTurnPlayer', true);
+    fixture.detectChanges();
+
+    const thumb = fixture.nativeElement.querySelector('[data-testid="opponent-mini-board"]') as HTMLElement;
+    const turnPill = fixture.nativeElement.querySelector('[data-testid="opponent-turn-pill"]') as HTMLElement;
+
+    expect(thumb.classList.contains('active-turn-player')).toBe(true);
+    expect(turnPill.textContent?.trim()).toBe('Turno');
+    expect(fixture.nativeElement.querySelector('[data-testid="opponent-life"]')?.textContent.trim()).toBe('39');
   });
 
   it('uses the player color identity as the thumb gradient', () => {

@@ -9,10 +9,12 @@
   [style.--player-identity-primary]="identityPrimaryColor(opponent)"
   [style.--player-identity-secondary]="identitySecondaryColor(opponent)"
   [style.--player-identity-text]="identityTextColor(opponent)"
+  [style.--player-card-border]="deckBorderColor(opponent)"
   [attr.data-player-id]="opponent.id"
   [attr.data-player-drop-target]="opponent.id"
   [class.conceded]="opponent.state.status === 'conceded'"
   [class.drop-target-active]="isPlayerDropHighlighted()(opponent.id)"
+  [class.active-turn-player]="isActiveTurnPlayer()"
   (click)="focusPlayer.emit(opponent.id)"
   (dragover)="dropAllowed.emit($event)"
   (drop)="playerDropped.emit({ event: $event, playerId: opponent.id })"
@@ -35,7 +37,12 @@
         {{ pill.text }}
       </span>
     }
-    <span class="opponent-life" data-testid="opponent-life">{{ opponent.state.life }}</span>
+    <span class="opponent-life-group">
+      @if (isActiveTurnPlayer()) {
+        <span class="opponent-turn-pill" data-testid="opponent-turn-pill">Turno</span>
+      }
+      <span class="opponent-life" data-testid="opponent-life">{{ opponent.state.life }}</span>
+    </span>
   </span>
   <span class="opponent-board-stage" [class.showing-cards-target]="!isDefeated(opponent) && cardsTargetCards().length > 0">
     @if (isDefeated(opponent)) {
@@ -95,7 +102,7 @@
           @case ('hand-fan') {
             <img
               class="opponent-zone-icon opponent-hand-icon"
-              src="/assets/icons/CM_cards_icon.png"
+              src="/assets/icons/CM/CM_cards_icon.png"
               alt=""
               aria-hidden="true"
               draggable="false"

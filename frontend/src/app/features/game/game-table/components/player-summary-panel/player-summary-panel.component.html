@@ -1,22 +1,23 @@
 @let currentPlayer = player();
+@let currentLifeFeedback = lifeFeedback();
 
 <div class="player-summary-panel" data-testid="player-summary-panel" [style.--player-accent]="colorAccent()(currentPlayer)">
   <app-player-avatar
     class="player-avatar"
     [displayName]="currentPlayer.state.user.displayName"
     [avatar]="currentPlayer.state.user.avatar"
-    size="md"
+    size="sm"
   />
   <div class="player-copy">
     <app-player-name
       data-testid="focused-player-name"
       [displayName]="currentPlayer.state.user.displayName"
       [nameStyle]="currentPlayer.state.user.displayNameStyle"
-      size="lg"
-      plateSize="md"
+      size="md"
+      plateSize="sm"
       plateWidth="100%"
-      plateHeight="3.35rem"
-      plateLabelWidth="calc(100% - 4rem)"
+      plateHeight="3rem"
+      plateLabelWidth="calc(100% - 3.05rem)"
       [fill]="true"
     />
     @if (deckLabel()(currentPlayer); as label) {
@@ -25,24 +26,60 @@
     <app-mana-symbols class="mana-row" [symbols]="manaSymbols()(currentPlayer)" fallback="Colorless" size="small" />
   </div>
   <div class="life-controls" data-testid="focused-player-life" [attr.data-player-id]="currentPlayer.id">
-    <button
-      type="button"
-      class="life-total"
-      data-testid="life-value"
-      [attr.data-player-id]="currentPlayer.id"
-      (click)="changeLife($event, 1)"
-      (contextmenu)="changeLife($event, -1)"
-      aria-label="Life total. Left click adds life, right click removes life."
-    >
-      {{ currentPlayer.state.life }}
-    </button>
+    <div class="life-stepper" aria-label="Life controls">
+      <button
+        type="button"
+        class="life-step-button life-step-decrease"
+        data-testid="life-decrease"
+        [attr.aria-label]="'Remove 1 life from ' + currentPlayer.state.user.displayName"
+        (click)="changeLife($event, -1)"
+      >
+        <lucide-icon name="minus" size="16" aria-hidden="true" />
+      </button>
+      <button
+        type="button"
+        class="life-total"
+        [class.life-total-gain]="currentLifeFeedback?.tone === 'gain'"
+        [class.life-total-damage]="currentLifeFeedback?.tone === 'damage'"
+        [class.life-total-neutral]="currentLifeFeedback?.tone === 'neutral'"
+        data-testid="life-value"
+        [attr.data-player-id]="currentPlayer.id"
+        (click)="changeLife($event, 1)"
+        (contextmenu)="changeLife($event, -1)"
+        aria-label="Life total"
+      >
+        {{ displayedLife() }}
+      </button>
+      <button
+        type="button"
+        class="life-step-button life-step-increase"
+        data-testid="life-increase"
+        [attr.aria-label]="'Add 1 life to ' + currentPlayer.state.user.displayName"
+        (click)="changeLife($event, 1)"
+      >
+        <lucide-icon name="plus" size="16" aria-hidden="true" />
+      </button>
+    </div>
+    <div class="life-feedback-layer" aria-hidden="true">
+      @if (currentLifeFeedback; as feedback) {
+        <span
+          class="life-feedback"
+          [class.life-feedback-exiting]="feedback.phase === 'exiting'"
+          [class.life-feedback-gain]="feedback.tone === 'gain'"
+          [class.life-feedback-damage]="feedback.tone === 'damage'"
+          [class.life-feedback-neutral]="feedback.tone === 'neutral'"
+        >
+          {{ feedback.delta > 0 ? '+' : '' }}{{ feedback.delta }}
+        </span>
+      }
+    </div>
     <app-extra-actions-menu
       class="player-extra-actions"
       data-testid="player-extra-menu-host"
       label="Extras"
       ariaLabel="Open extra player counters"
       menuLabel="Extra player counters"
-      icon="plus"
+      icon="chevron-down"
       align="right"
       variant="gold"
       (openedChange)="syncOtherCountersExpansion($event)"

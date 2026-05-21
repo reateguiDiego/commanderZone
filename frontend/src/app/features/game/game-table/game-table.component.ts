@@ -998,7 +998,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       return;
     }
 
-    this.motion.throwGhost(sourceInstanceId, target, { scaleToTarget: true, rotate: -6 });
+    this.motion.throwGhost(sourceInstanceId, target, { scaleToTarget: targetZone !== 'battlefield', rotate: -6 });
     window.requestAnimationFrame(() => this.motion.impactZone(target));
   }
 

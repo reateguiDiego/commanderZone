@@ -7,13 +7,13 @@ export const routes: Routes = [
     loadComponent: () => import('./features/onboarding/onboarding-page/onboarding-page.component')
       .then((component) => component.OnboardingPageComponent),
     pathMatch: 'full',
-    title: 'Play Commander online in seconds',
+    title: 'Commander Zone',
   },
   {
     path: 'room/:id',
     loadComponent: () => import('./features/onboarding/demo-room-page/demo-room-page.component')
       .then((component) => component.DemoRoomPageComponent),
-    title: 'Commander room',
+    title: 'Commander Zone',
   },
   {
     path: 'auth/login',
@@ -43,7 +43,7 @@ export const routes: Routes = [
     loadComponent: () => import('./features/game/game-table/game-table.component')
       .then((component) => component.GameTableComponent),
     canActivate: [authGuard],
-    title: 'Game table',
+    title: 'Commander Zone',
   },
   {
     path: '',

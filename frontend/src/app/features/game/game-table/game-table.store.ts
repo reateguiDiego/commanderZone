@@ -43,6 +43,7 @@ import { GameTablePermanentRelationService } from './services/game-table-permane
 import { GameTableSnapshotCoordinatorState } from './state/core/game-table-snapshot-coordinator.state';
 import { GameTableToastState } from './state/core/game-table-toast.state';
 import { GameTableZonePilesState } from './state/zones/game-table-zone-piles.state';
+import { clampPlayerLife } from './utils/player-life-bounds';
 
 export type { PlayerView } from './state/core/game-table-snapshot-selectors';
 export type { SelectedCard } from './models/game-table-card.model';
@@ -574,9 +575,15 @@ export class GameTableStore implements OnDestroy {
       return;
     }
 
+    const currentLife = this.debouncedValueCommands.lifeValue(this.snapshot(), playerId);
+    const nextLife = clampPlayerLife(currentLife + delta);
+    if (nextLife === currentLife) {
+      return;
+    }
+
     this.debouncedValueCommands.queueLife(this.contexts.debouncedValueCommand(), {
       playerId,
-      life: this.debouncedValueCommands.lifeValue(this.snapshot(), playerId) + delta,
+      life: nextLife,
     });
   }
 
@@ -588,7 +595,7 @@ export class GameTableStore implements OnDestroy {
 
     this.debouncedValueCommands.queueLife(this.contexts.debouncedValueCommand(), {
       playerId,
-      life: Number(value),
+      life: clampPlayerLife(Number(value)),
     });
   }
 

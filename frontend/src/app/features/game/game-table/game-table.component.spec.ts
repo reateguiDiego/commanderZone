@@ -38,6 +38,7 @@ import {
   Maximize2,
   Menu,
   MessageSquare,
+  Minus,
   MoreVertical,
   Pencil,
   Play,
@@ -187,6 +188,7 @@ describe('GameTableComponent', () => {
           Maximize2,
           Menu,
           MessageSquare,
+          Minus,
           MoreVertical,
           Pencil,
           Play,
@@ -457,6 +459,45 @@ describe('GameTableComponent', () => {
       configurable: true,
       value: originalElementsFromPoint,
     });
+  });
+
+  it('keeps zone-to-battlefield drop ghost at card scale', () => {
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    const motion = fixture.debugElement.injector.get(GameTableMotionService);
+    const throwGhost = vi.spyOn(motion, 'throwGhost').mockImplementation(() => undefined);
+    vi.spyOn(motion, 'impactZone').mockImplementation(() => undefined);
+    vi.spyOn(fixture.componentInstance.store, 'dropOnZone').mockResolvedValue(undefined);
+    const target = document.createElement('div');
+    target.dataset['gameDropZone'] = 'battlefield';
+    target.dataset['playerId'] = 'user-1';
+    target.dataset['zone'] = 'battlefield';
+    target.getBoundingClientRect = () => ({
+      x: 0,
+      y: 0,
+      width: 700,
+      height: 500,
+      top: 0,
+      left: 0,
+      bottom: 500,
+      right: 700,
+      toJSON: () => ({}),
+    }) as DOMRect;
+    fixture.nativeElement.querySelector('[data-testid="game-screen"]')?.appendChild(target);
+    const dataTransfer = dragDataTransfer();
+    dataTransfer.setData('application/json', JSON.stringify({
+      playerId: 'user-1',
+      zone: 'graveyard',
+      instanceId: 'graveyard-top',
+    }));
+
+    fixture.componentInstance.handleZoneDrop({
+      event: dragEvent('drop', dataTransfer, target),
+      playerId: 'user-1',
+      zone: 'battlefield',
+    });
+
+    expect(throwGhost).toHaveBeenCalledWith('graveyard-top', target, { scaleToTarget: false, rotate: -6 });
   });
 
   it('captures hand reorder FLIP before updating the store and plays it after', async () => {

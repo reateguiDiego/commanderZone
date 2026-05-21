@@ -1,66 +1,101 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Graveyard">
   <defs>
-    <linearGradient id="stone" x1="14" x2="48" y1="8" y2="50" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#f4df9b"/>
-      <stop offset="0.42" stop-color="#d7b46a"/>
-      <stop offset="1" stop-color="#7c622f"/>
+    <linearGradient id="stone" x1="38" x2="60" y1="8" y2="52" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#c8c0ad"/>
+      <stop offset="0.48" stop-color="#777568"/>
+      <stop offset="1" stop-color="#2c2d28"/>
     </linearGradient>
-    <linearGradient id="hand" x1="17" x2="37" y1="28" y2="52" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#f8e9b7"/>
-      <stop offset="0.54" stop-color="#d7b46a"/>
-      <stop offset="1" stop-color="#6d5428"/>
+    <linearGradient id="zombieSkin" x1="15" x2="39" y1="25" y2="55" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#b9c5a6"/>
+      <stop offset="0.5" stop-color="#6f7c60"/>
+      <stop offset="1" stop-color="#353b30"/>
+    </linearGradient>
+    <linearGradient id="bone" x1="18" x2="36" y1="33" y2="52" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#e0d8bd"/>
+      <stop offset="1" stop-color="#8f856d"/>
     </linearGradient>
   </defs>
+
   <path
-    d="M37.9 51.6V20.8c0-8.5 5.4-14.3 12.1-14.3s12.1 5.8 12.1 14.3v30.8H37.9Z"
-    fill="#070807"
-    stroke="#090806"
-    stroke-width="5.2"
+    d="M37.8 52V20.8c0-8.8 5.1-14.8 12.2-14.8s12.2 6 12.2 14.8V52H37.8Z"
+    fill="#050605"
+    stroke="#050605"
+    stroke-width="5"
     stroke-linejoin="round"
   />
   <path
-    d="M37.9 51.6V20.8c0-8.5 5.4-14.3 12.1-14.3s12.1 5.8 12.1 14.3v30.8H37.9Z"
-    fill="#10100e"
+    d="M37.8 52V20.8c0-8.8 5.1-14.8 12.2-14.8s12.2 6 12.2 14.8V52H37.8Z"
+    fill="#10110f"
     stroke="url(#stone)"
-    stroke-width="2.5"
+    stroke-width="2.4"
     stroke-linejoin="round"
   />
   <path
-    d="M43.2 25.8h13.6M50 18.6v14"
+    d="M43.5 25.9h13M50 18.5v14.4M45.1 42.3c4.7-2 8.5-.9 11.4 2.4"
     fill="none"
-    stroke="#d7b46a"
+    stroke="#b7ad95"
     stroke-linecap="round"
-    stroke-width="2.3"
-    opacity="0.86"
+    stroke-width="2"
+    opacity="0.76"
   />
   <path
-    d="M4.5 53.5c7-3.4 14.7-4 22.9-2.5 7.6 1.4 13.5 0.2 19.4-1.2 5.1-1.2 9.6-0.6 13.4 3.7H4.5Z"
-    fill="#070807"
-    stroke="#d7b46a"
+    d="M4.2 54c7.8-4 15.9-4.5 24.2-2.8 7 1.5 12.3 0 18-1.4 5.1-1.2 10-.5 13.8 4.2H4.2Z"
+    fill="#050605"
+    stroke="#817b68"
     stroke-linejoin="round"
-    stroke-width="1.6"
+    stroke-width="1.5"
   />
+
   <path
-    d="M19.7 49.5c-1.8-5.7-3.5-10.2-5.2-13.6-.8-1.6-.2-3.1 1.2-3.6 1.4-.5 2.8.2 3.5 1.7l2.2 5.1V25.7c0-1.8 1.1-3 2.6-3 1.4 0 2.4 1.1 2.5 2.9l.3 12.2 2.1-15.3c.3-1.8 1.5-2.9 3-2.7 1.5.2 2.3 1.6 2.1 3.4L32.3 38l3.3-11.4c.5-1.8 1.8-2.8 3.2-2.4 1.4.4 2 1.8 1.5 3.7l-3.1 12.5 3.7-5.4c1-1.4 2.4-1.8 3.5-.9 1.1.8 1.2 2.3.2 3.7l-8.4 11.8c-3.4 4.7-11.6 4.6-16.5-.1Z"
-    fill="url(#hand)"
-    stroke="#070807"
+    d="M20.7 50.5c-2.5-5.6-4.8-10.2-7-13.8-1.1-1.7-.7-3.4.6-4.1 1.4-.7 3 .1 3.8 1.7l3 5.7-.9-14.1c-.1-1.9.9-3.2 2.4-3.3 1.6-.1 2.7 1 2.9 2.9l1.1 13.2 1-16.8c.1-2 1.2-3.2 2.9-3.1 1.6.1 2.6 1.4 2.5 3.4L31.9 38l3.1-13.5c.5-1.9 1.8-3 3.3-2.7 1.6.4 2.2 1.9 1.8 3.8l-2.7 12.9 3.8-5.2c1.1-1.5 2.7-1.9 3.8-.9 1.1.9 1.2 2.5.1 4l-8.2 11.4c-3.4 4.9-11.4 5.9-16.2 2.7Z"
+    fill="url(#zombieSkin)"
+    stroke="#050605"
     stroke-linejoin="round"
     stroke-width="2.6"
   />
   <path
-    d="M21.8 49.4c-1.4-4.8-2.9-9.4-4.7-13.6M26.9 45.1 26.7 27M31 44.4l2-20M35.1 45.2l3.2-15.3"
+    d="M18.1 35.3c2.5.2 4.4 1 5.9 2.4M27.2 44.8l-.6-17.2M31.3 44.2l1.5-19.6M35 45.4l3-16.1"
     fill="none"
-    stroke="#fff3c7"
+    stroke="#20251f"
     stroke-linecap="round"
-    stroke-width="1.15"
-    opacity="0.7"
+    stroke-width="1.35"
+    opacity="0.76"
   />
   <path
-    d="M8.5 55.1c8.5-1.6 16.4-1.4 23.5.8 7.5 2.3 16.4 1.7 25.5-.8"
+    d="M22 49.8c1.8-1 3.5-1.1 5.2-.1M29.6 40.4c1.5-.8 2.9-.7 4.1.4"
     fill="none"
-    stroke="#d7b46a"
+    stroke="#d8d0b5"
+    stroke-linecap="round"
+    stroke-width="1.2"
+    opacity="0.62"
+  />
+  <path
+    d="m21 25.5-2.4-2.6 2.9.7 1-3.1 1.3 3.2 3-.9-2.2 2.9M29 20.8l-2.1-2.9 3 .9 1.4-3.2 1 3.4 3.1-.6-2.6 2.5M38 24.7l-1.7-3.1 2.7 1.3 1.7-2.7.5 3.4 3-.2-2.9 2.1"
+    fill="#1d211c"
+    opacity="0.92"
+  />
+  <path
+    d="M23.2 41.8c-2.3-.1-4.7.7-7.2 2.5M32.8 33.2c-2.1-.7-4.1-.5-6 .6M39.2 35.8c-1.7 1.3-3.2 3-4.4 5"
+    fill="none"
+    stroke="#3e261f"
+    stroke-linecap="round"
+    stroke-width="1.35"
+    opacity="0.72"
+  />
+  <path
+    d="M25.8 47.3c1.8-1.4 3.8-1.5 6.1-.3 1.2-2.5 3.3-4.1 6.1-4.9"
+    fill="none"
+    stroke="url(#bone)"
     stroke-linecap="round"
     stroke-width="2"
+    opacity="0.78"
+  />
+  <path
+    d="M8.3 55.6c8.5-1.7 16.4-1.5 23.7.8 7.5 2.3 16.4 1.7 25.7-.8"
+    fill="none"
+    stroke="#8a826d"
+    stroke-linecap="round"
+    stroke-width="1.9"
     opacity="0.74"
   />
 </svg>
