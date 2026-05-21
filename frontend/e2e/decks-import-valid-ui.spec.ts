@@ -42,7 +42,7 @@ test('user imports a Commander-valid decklist using existing UI flow', async ({ 
 
   const context = await browser.newContext({
     baseURL,
-    storageState: authStorageState(baseURL, user.token, user.user),
+    storageState: authStorageState(baseURL, user.user, user.refreshToken),
   });
 
   try {

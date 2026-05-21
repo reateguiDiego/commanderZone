@@ -1,0 +1,35 @@
+name: Main Release
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: main-release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend-ci:
+    name: Validate Backend
+    uses: ./.github/workflows/backend-ci-reusable.yml
+
+  frontend-ci:
+    name: Validate Frontend
+    uses: ./.github/workflows/frontend-ci-reusable.yml
+
+  backend-deploy:
+    name: Deploy Backend
+    needs:
+      - backend-ci
+      - frontend-ci
+    uses: ./.github/workflows/backend-deploy.yml
+    secrets: inherit
+
+  frontend-deploy:
+    name: Deploy Frontend
+    needs:
+      - backend-deploy
+    uses: ./.github/workflows/frontend-deploy.yml
+    secrets: inherit

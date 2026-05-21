@@ -43,11 +43,11 @@ test('private room invite flow: accepted friend joins, owner starts, both open g
 
   const contextOwner = await browser.newContext({
     baseURL,
-    storageState: authStorageState(baseURL, owner.token, owner.user),
+    storageState: authStorageState(baseURL, owner.user, owner.refreshToken),
   });
   const contextInvited = await browser.newContext({
     baseURL,
-    storageState: authStorageState(baseURL, invited.token, invited.user),
+    storageState: authStorageState(baseURL, invited.user, invited.refreshToken),
   });
 
   try {

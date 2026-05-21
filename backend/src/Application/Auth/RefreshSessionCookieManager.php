@@ -1,0 +1,139 @@
+<?php
+
+namespace App\Application\Auth;
+
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Symfony\Component\HttpFoundation\Cookie;
+use Symfony\Component\HttpFoundation\Request;
+
+class RefreshSessionCookieManager
+{
+    private const COOKIE_NAME = 'commanderzone.refresh';
+    private const DOMAIN_PATTERN = '/^\.?[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+$/';
+
+    public function __construct(
+        #[Autowire('%env(int:AUTH_REFRESH_TOKEN_TTL)%')]
+        private readonly int $refreshTokenTtlSeconds,
+        #[Autowire('%env(string:AUTH_REFRESH_COOKIE_DOMAIN)%')]
+        private readonly string $cookieDomain,
+        #[Autowire('%env(string:AUTH_REFRESH_COOKIE_SAMESITE)%')]
+        private readonly string $cookieSameSite,
+        #[Autowire('%kernel.environment%')]
+        private readonly string $kernelEnvironment,
+    ) {
+        $this->assertProductionConfiguration();
+    }
+
+    public function cookieName(): string
+    {
+        return self::COOKIE_NAME;
+    }
+
+    public function hasCookieDomain(): bool
+    {
+        return trim($this->cookieDomain) !== '';
+    }
+
+    public function makeRefreshCookie(Request $request, string $refreshToken): Cookie
+    {
+        $cookie = $this->baseRefreshCookie($request, $refreshToken);
+
+        $domain = trim($this->cookieDomain);
+        if ($domain !== '') {
+            $cookie = $cookie->withDomain($domain);
+        }
+
+        return $cookie;
+    }
+
+    public function makeHostOnlyRefreshCookie(Request $request, string $refreshToken): Cookie
+    {
+        return $this->baseRefreshCookie($request, $refreshToken);
+    }
+
+    public function makeClearedCookie(Request $request): Cookie
+    {
+        $cookie = $this->baseClearCookie($request);
+
+        $domain = trim($this->cookieDomain);
+        if ($domain !== '') {
+            $cookie = $cookie->withDomain($domain);
+        }
+
+        return $cookie;
+    }
+
+    public function makeHostOnlyClearedCookie(Request $request): Cookie
+    {
+        return $this->baseClearCookie($request);
+    }
+
+    private function baseRefreshCookie(Request $request, string $refreshToken): Cookie
+    {
+        return Cookie::create(self::COOKIE_NAME)
+            ->withValue($refreshToken)
+            ->withHttpOnly(true)
+            ->withSecure($this->isSecureRequest($request))
+            ->withSameSite($this->resolvedSameSite())
+            ->withPath('/auth')
+            ->withExpires((new \DateTimeImmutable())->modify(sprintf('+%d seconds', $this->refreshTokenTtlSeconds)));
+    }
+
+    private function baseClearCookie(Request $request): Cookie
+    {
+        return Cookie::create(self::COOKIE_NAME)
+            ->withValue('')
+            ->withHttpOnly(true)
+            ->withSecure($this->isSecureRequest($request))
+            ->withSameSite($this->resolvedSameSite())
+            ->withPath('/auth')
+            ->withExpires((new \DateTimeImmutable())->modify('-1 year'));
+    }
+
+    private function isSecureRequest(Request $request): bool
+    {
+        if ($this->kernelEnvironment === 'prod') {
+            return true;
+        }
+
+        return $request->isSecure();
+    }
+
+    private function resolvedSameSite(): ?string
+    {
+        $configured = mb_strtolower(trim($this->cookieSameSite));
+        if ($configured === 'lax') {
+            return Cookie::SAMESITE_LAX;
+        }
+        if ($configured === 'strict') {
+            return Cookie::SAMESITE_STRICT;
+        }
+        if ($configured === 'none') {
+            return Cookie::SAMESITE_NONE;
+        }
+
+        return $this->kernelEnvironment === 'prod'
+            ? Cookie::SAMESITE_NONE
+            : Cookie::SAMESITE_LAX;
+    }
+
+    private function assertProductionConfiguration(): void
+    {
+        if ($this->kernelEnvironment !== 'prod') {
+            return;
+        }
+
+        if ($this->refreshTokenTtlSeconds <= 0) {
+            throw new \LogicException('AUTH_REFRESH_TOKEN_TTL must be a positive integer in production.');
+        }
+
+        $domain = trim($this->cookieDomain);
+        if ($domain === '') {
+            return;
+        }
+
+        if (!preg_match(self::DOMAIN_PATTERN, $domain)) {
+            throw new \LogicException('AUTH_REFRESH_COOKIE_DOMAIN must be a valid domain name in production.');
+        }
+    }
+}

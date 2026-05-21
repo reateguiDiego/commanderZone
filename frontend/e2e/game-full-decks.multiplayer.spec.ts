@@ -17,11 +17,11 @@ test('game starts with two full decks and both players can see required zones', 
 
   const contextA = await browser.newContext({
     baseURL,
-    storageState: authStorageState(baseURL, setup.playerA.token, setup.playerA.user),
+    storageState: authStorageState(baseURL, setup.playerA.user, setup.playerA.refreshToken),
   });
   const contextB = await browser.newContext({
     baseURL,
-    storageState: authStorageState(baseURL, setup.playerB.token, setup.playerB.user),
+    storageState: authStorageState(baseURL, setup.playerB.user, setup.playerB.refreshToken),
   });
 
   try {

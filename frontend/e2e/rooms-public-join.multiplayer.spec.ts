@@ -29,11 +29,11 @@ test('public room is listed, second user joins, owner starts, both can open game
 
   const contextA = await browser.newContext({
     baseURL,
-    storageState: authStorageState(baseURL, playerA.token, playerA.user),
+    storageState: authStorageState(baseURL, playerA.user, playerA.refreshToken),
   });
   const contextB = await browser.newContext({
     baseURL,
-    storageState: authStorageState(baseURL, playerB.token, playerB.user),
+    storageState: authStorageState(baseURL, playerB.user, playerB.refreshToken),
   });
 
   try {

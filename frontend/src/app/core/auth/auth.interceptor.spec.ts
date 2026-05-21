@@ -13,11 +13,13 @@ describe('authInterceptor', () => {
   let client: HttpClient;
   let tokenState: ReturnType<typeof signal<string | null>>;
   let clearSession: ReturnType<typeof vi.fn>;
+  let refreshSession: ReturnType<typeof vi.fn>;
   let navigate: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     tokenState = signal<string | null>('token-1');
     clearSession = vi.fn(() => tokenState.set(null));
+    refreshSession = vi.fn().mockResolvedValue('token-2');
     navigate = vi.fn().mockResolvedValue(true);
 
     TestBed.configureTestingModule({
@@ -29,6 +31,7 @@ describe('authInterceptor', () => {
           useValue: {
             token: tokenState.asReadonly(),
             clearSession,
+            refreshSession,
           },
         },
         {
@@ -56,9 +59,36 @@ describe('authInterceptor', () => {
     request.flush({ user: { id: 'u1' } });
   });
 
-  it('clears session on 401 only when the failing request matches current token', () => {
+  it('retries once with refreshed token after 401', async () => {
+    const errors: HttpErrorResponse[] = [];
     client.get(`${API_BASE_URL}/me`).subscribe({
-      error: () => undefined,
+      error: (error) => errors.push(error),
+    });
+
+    const firstRequest = http.expectOne(`${API_BASE_URL}/me`);
+    firstRequest.flush(
+      { error: 'Unauthorized' },
+      { status: 401, statusText: 'Unauthorized' },
+    );
+
+    await Promise.resolve();
+    expect(refreshSession).toHaveBeenCalledTimes(1);
+
+    const retryRequest = http.expectOne(`${API_BASE_URL}/me`);
+    expect(retryRequest.request.headers.get('Authorization')).toBe('Bearer token-2');
+    expect(retryRequest.request.headers.get('X-Auth-Refresh-Retry')).toBe('1');
+    retryRequest.flush({ user: { id: 'u1' } });
+
+    expect(errors).toHaveLength(0);
+    expect(clearSession).not.toHaveBeenCalled();
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
+  it('clears session when refresh fails', async () => {
+    refreshSession.mockResolvedValue(null);
+    const errors: HttpErrorResponse[] = [];
+    client.get(`${API_BASE_URL}/me`).subscribe({
+      error: (error) => errors.push(error),
     });
 
     const request = http.expectOne(`${API_BASE_URL}/me`);
@@ -66,7 +96,9 @@ describe('authInterceptor', () => {
       { error: 'Unauthorized' },
       { status: 401, statusText: 'Unauthorized' },
     );
+    await Promise.resolve();
 
+    expect(errors).toHaveLength(1);
     expect(clearSession).toHaveBeenCalledTimes(1);
     expect(navigate).toHaveBeenCalledWith(['/auth/login']);
   });
@@ -86,6 +118,22 @@ describe('authInterceptor', () => {
     expect(clearSession).not.toHaveBeenCalled();
     expect(navigate).not.toHaveBeenCalled();
     expect(tokenState()).toBe('token-2');
+  });
+
+  it('does not attach auth headers to the refresh endpoint', () => {
+    client.post(`${API_BASE_URL}/auth/refresh`, null).subscribe({
+      error: () => undefined,
+    });
+
+    const request = http.expectOne(`${API_BASE_URL}/auth/refresh`);
+    expect(request.request.headers.has('Authorization')).toBe(false);
+    request.flush(
+      { error: 'Unauthorized' },
+      { status: 401, statusText: 'Unauthorized' },
+    );
+
+    expect(clearSession).toHaveBeenCalledTimes(1);
+    expect(navigate).toHaveBeenCalledWith(['/auth/login']);
   });
 
   it('does not attach auth headers to non-API requests', () => {

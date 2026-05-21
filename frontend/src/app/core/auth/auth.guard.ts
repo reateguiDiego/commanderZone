@@ -6,9 +6,13 @@ export const authGuard: CanActivateFn = (_route: ActivatedRouteSnapshot, state: 
   const auth = inject(AuthStore);
   const router = inject(Router);
 
-  return auth.isAuthenticated()
-    ? true
-    : router.createUrlTree(['/auth/login'], { queryParams: { redirect: safeRedirectUrl(state.url) ?? undefined } });
+  return auth.initialize().then(() => {
+    if (auth.isAuthenticated()) {
+      return true;
+    }
+
+    return router.createUrlTree(['/auth/login'], { queryParams: { redirect: safeRedirectUrl(state.url) ?? undefined } });
+  });
 };
 
 export const guestGuard: CanActivateFn = (route: ActivatedRouteSnapshot) => {
@@ -16,7 +20,7 @@ export const guestGuard: CanActivateFn = (route: ActivatedRouteSnapshot) => {
   const router = inject(Router);
   const redirect = safeRedirectUrl(route.queryParamMap.get('redirect'));
 
-  return auth.isAuthenticated() ? router.parseUrl(redirect ?? '/dashboard') : true;
+  return auth.initialize().then(() => auth.isAuthenticated() ? router.parseUrl(redirect ?? '/dashboard') : true);
 };
 
 function safeRedirectUrl(url: string | null): string | null {

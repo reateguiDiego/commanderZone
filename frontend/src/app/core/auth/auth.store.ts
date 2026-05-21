@@ -6,19 +6,21 @@ import { AuthApi } from '../api/auth.api';
 import { User } from '../models/user.model';
 import { AppBackgroundService } from '../ui/app-background.service';
 
-const TOKEN_KEY = 'commanderzone.jwt';
+const LEGACY_TOKEN_KEY = 'commanderzone.jwt';
 const USER_KEY = 'commanderzone.user';
 
 @Injectable({ providedIn: 'root' })
 export class AuthStore {
   private readonly authApi = inject(AuthApi);
   private readonly appBackground = inject(AppBackgroundService);
-  private readonly tokenState = signal<string | null>(readStoredToken());
+  private readonly tokenState = signal<string | null>(null);
   private readonly userState = signal<User | null>(readStoredUser());
   private readonly loadingState = signal(false);
   private readonly errorState = signal<string | null>(null);
   private readonly resolvedDisplayNameState = signal<string | null>(readStoredDisplayName());
   private initialized = false;
+  private initializeInFlight: Promise<void> | null = null;
+  private refreshInFlight: Promise<string | null> | null = null;
 
   readonly token = this.tokenState.asReadonly();
   readonly user = this.userState.asReadonly();
@@ -32,21 +34,36 @@ export class AuthStore {
       return;
     }
 
-    this.initialized = true;
-    if (this.tokenState()) {
-      await this.loadMe();
+    if (this.initializeInFlight) {
+      return this.initializeInFlight;
+    }
+
+    this.initializeInFlight = (async () => {
+      this.clearLegacyToken();
+      await this.restoreSessionFromRefreshCookie();
+      this.initialized = true;
+    })();
+
+    try {
+      await this.initializeInFlight;
+    } finally {
+      this.initializeInFlight = null;
     }
   }
 
   async login(email: string, password: string): Promise<void> {
     this.loadingState.set(true);
     this.errorState.set(null);
+    let requestToken: string | null = null;
 
     try {
       const response = await firstValueFrom(this.authApi.login({ email, password }));
+      requestToken = response.token;
       await this.establishSession(response.token);
     } catch (error) {
-      this.clearSession();
+      if (requestToken === null || this.tokenState() === requestToken) {
+        this.clearSession();
+      }
       this.errorState.set(errorMessageFromResponse(error, 'Could not login.'));
       throw error;
     } finally {
@@ -75,7 +92,9 @@ export class AuthStore {
     try {
       await this.establishSession(token);
     } catch (error) {
-      this.clearSession();
+      if (this.tokenState() === token) {
+        this.clearSession();
+      }
       this.errorState.set(errorMessageFromResponse(error, 'Could not complete login.'));
       throw error;
     } finally {
@@ -122,6 +141,11 @@ export class AuthStore {
 
   async logout(): Promise<void> {
     await this.markOffline();
+    try {
+      await firstValueFrom(this.authApi.logout());
+    } catch {
+      // Local logout must continue even if cookie revocation fails.
+    }
     this.clearSession();
     this.appBackground.useNewSessionBackground();
   }
@@ -161,7 +185,7 @@ export class AuthStore {
     this.tokenState.set(null);
     this.userState.set(null);
     this.resolvedDisplayNameState.set(null);
-    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(LEGACY_TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
   }
 
@@ -171,7 +195,6 @@ export class AuthStore {
 
   private setToken(token: string): void {
     this.tokenState.set(token);
-    localStorage.setItem(TOKEN_KEY, token);
   }
 
   private setUser(user: User): void {
@@ -187,6 +210,59 @@ export class AuthStore {
     this.resolvedDisplayNameState.set(null);
     await this.loadMe();
     this.appBackground.useNewSessionBackground();
+  }
+
+  async refreshSession(): Promise<string | null> {
+    if (this.refreshInFlight) {
+      return this.refreshInFlight;
+    }
+
+    this.refreshInFlight = this.refreshSessionInternal();
+    try {
+      return await this.refreshInFlight;
+    } finally {
+      this.refreshInFlight = null;
+    }
+  }
+
+  private async restoreSessionFromRefreshCookie(): Promise<void> {
+    if (!this.userState()) {
+      this.tokenState.set(null);
+      return;
+    }
+
+    const token = await this.refreshSession();
+    if (!token) {
+      this.clearSession();
+      return;
+    }
+
+    try {
+      await this.loadMe();
+    } catch {
+      this.clearSession();
+    }
+  }
+
+  private async refreshSessionInternal(): Promise<string | null> {
+    try {
+      const response = await firstValueFrom(this.authApi.refresh());
+      const token = (response.token ?? '').trim();
+      if (!token) {
+        this.tokenState.set(null);
+        return null;
+      }
+
+      this.tokenState.set(token);
+      return token;
+    } catch {
+      this.tokenState.set(null);
+      return null;
+    }
+  }
+
+  private clearLegacyToken(): void {
+    localStorage.removeItem(LEGACY_TOKEN_KEY);
   }
 
   private normalizeUser(user: User): User {
@@ -229,10 +305,6 @@ export class AuthStore {
 
     return null;
   }
-}
-
-function readStoredToken(): string | null {
-  return localStorage.getItem(TOKEN_KEY);
 }
 
 function readStoredUser(): User | null {

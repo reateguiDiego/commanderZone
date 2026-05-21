@@ -121,6 +121,7 @@ describe('API services', () => {
     expect(request.request.method).toBe('POST');
     expect(request.request.body).toEqual({ email: 'player@example.test', token: 'reset-token', newPassword: 'Password456' });
     expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);
+    expect(request.request.withCredentials).toBe(true);
     request.flush({ updated: true, token: 'jwt-token' });
   });
 
@@ -139,7 +140,26 @@ describe('API services', () => {
     expect(request.request.method).toBe('POST');
     expect(request.request.body).toEqual({ token: 'verify-token' });
     expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);
+    expect(request.request.withCredentials).toBe(true);
     request.flush({ verified: true, token: 'jwt-token', user: { id: 'user-1', email: 'player@example.test', roles: ['ROLE_USER'] } });
+  });
+
+  it('refreshes and revokes auth session with credentials', () => {
+    const auth = TestBed.inject(AuthApi);
+
+    auth.refresh().subscribe();
+    let request = http.expectOne(`${API_BASE_URL}/auth/refresh`);
+    expect(request.request.method).toBe('POST');
+    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);
+    expect(request.request.withCredentials).toBe(true);
+    request.flush({ token: 'jwt-token' });
+
+    auth.logout().subscribe();
+    request = http.expectOne(`${API_BASE_URL}/auth/logout`);
+    expect(request.request.method).toBe('POST');
+    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);
+    expect(request.request.withCredentials).toBe(true);
+    request.flush(null);
   });
 
   it('builds filtered card search requests', () => {

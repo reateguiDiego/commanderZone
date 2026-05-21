@@ -112,7 +112,8 @@ paths:
     post:
       tags: [Auth]
       security: []
-      summary: Login and receive a JWT access token (verified accounts only).
+      summary: Login and receive a short-lived JWT access token (verified accounts only).
+      description: Also sets an HttpOnly refresh cookie (`commanderzone.refresh`) used by `/auth/refresh`.
       requestBody:
         required: true
         content:
@@ -121,21 +122,42 @@ paths:
               $ref: '#/components/schemas/LoginRequest'
       responses:
         '200':
-          description: JWT token.
+          description: Access token plus refresh cookie.
           content:
             application/json:
               schema:
-                type: object
-                required: [token]
-                properties:
-                  token:
-                    type: string
+                $ref: '#/components/schemas/LoginResponse'
         '401':
           $ref: '#/components/responses/Error'
         '403':
           $ref: '#/components/responses/Error'
         '429':
           $ref: '#/components/responses/Error'
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      security:
+        - refreshCookieAuth: []
+      summary: Rotate refresh token cookie and return a new JWT access token.
+      description: Requires an HttpOnly refresh cookie. On success, returns a new access token and rotated refresh cookie.
+      responses:
+        '200':
+          description: Access token refreshed and cookie rotated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+  /auth/logout:
+    post:
+      tags: [Auth]
+      security:
+        - refreshCookieAuth: []
+      summary: Revoke current refresh session and clear refresh cookie.
+      responses:
+        '204':
+          description: Session revoked and refresh cookie cleared.
   /auth/password-reset/request:
     post:
       tags: [Auth]
@@ -2007,6 +2029,10 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
+    refreshCookieAuth:
+      type: apiKey
+      in: cookie
+      name: commanderzone.refresh
   parameters:
     Id:
       name: id
@@ -2088,6 +2114,13 @@ components:
           format: email
         password:
           type: string
+    LoginResponse:
+      type: object
+      required: [token]
+      properties:
+        token:
+          type: string
+          description: Short-lived access token intended for Authorization Bearer usage.
     PasswordResetRequest:
       type: object
       required: [email]

@@ -8,6 +8,9 @@ use App\Application\Auth\EmailVerificationService;
 use App\Application\Auth\LoginProtectionService;
 use App\Application\Auth\PasswordPolicy;
 use App\Application\Auth\PasswordResetService;
+use App\Application\Auth\RefreshSessionCookieManager;
+use App\Application\Auth\RefreshSessionReplayDetected;
+use App\Application\Auth\RefreshSessionService;
 use App\Application\Auth\SecurityAuditLogger;
 use App\Domain\Auth\EmailVerificationToken;
 use App\Domain\User\User;
@@ -123,6 +126,8 @@ class AuthController extends ApiController
         private readonly JWTTokenManagerInterface $jwtTokenManager,
         private readonly PasswordResetService $passwordResetService,
         private readonly EmailVerificationService $emailVerificationService,
+        private readonly RefreshSessionService $refreshSessionService,
+        private readonly RefreshSessionCookieManager $refreshSessionCookieManager,
         private readonly AuthMailer $authMailer,
         private readonly LoginProtectionService $loginProtectionService,
         private readonly PasswordPolicy $passwordPolicy,
@@ -234,7 +239,55 @@ class AuthController extends ApiController
         $this->loginProtectionService->resetFailures($email, $clientIp);
         $this->securityAuditLogger->log('auth.login.succeeded', $email, $user->id(), $clientIp);
 
-        return $this->json(['token' => $this->jwtTokenManager->create($user)]);
+        return $this->jsonWithSessionCookie(
+            $request,
+            ['token' => $this->jwtTokenManager->create($user)],
+            $user,
+        );
+    }
+
+    #[Route('/auth/refresh', methods: ['POST'])]
+    public function refresh(Request $request): JsonResponse
+    {
+        $refreshToken = $this->refreshTokenFromRequest($request);
+        if ($refreshToken === '') {
+            return $this->json(['error' => 'Authentication required.'], 401);
+        }
+
+        try {
+            $rotation = $this->refreshSessionService->rotateSession(
+                $refreshToken,
+                $request->getClientIp(),
+                $request->headers->get('User-Agent'),
+            );
+        } catch (RefreshSessionReplayDetected) {
+            return $this->json(['error' => 'Authentication required.'], 401);
+        }
+
+        if ($rotation === null) {
+            return $this->json(['error' => 'Authentication required.'], 401);
+        }
+
+        $response = $this->json([
+            'token' => $this->jwtTokenManager->create($rotation->user),
+        ]);
+        $response->headers->setCookie($this->refreshSessionCookieManager->makeRefreshCookie($request, $rotation->refreshToken));
+        if ($this->refreshSessionCookieManager->hasCookieDomain()) {
+            $response->headers->setCookie($this->refreshSessionCookieManager->makeHostOnlyRefreshCookie($request, $rotation->refreshToken));
+        }
+
+        return $response;
+    }
+
+    #[Route('/auth/logout', methods: ['POST'])]
+    public function authLogout(Request $request): JsonResponse
+    {
+        $refreshToken = $this->refreshTokenFromRequest($request);
+        if ($refreshToken !== '') {
+            $this->refreshSessionService->revokeSession($refreshToken);
+        }
+
+        return $this->jsonWithClearedSessionCookie($request, null, 204);
     }
 
     #[Route('/auth/password-reset/request', methods: ['POST'])]
@@ -323,11 +376,17 @@ class AuthController extends ApiController
         $this->loginProtectionService->resetFailures($user->email(), $clientIp);
         $entityManager->flush();
 
-        return $this->json([
-            'updated' => true,
-            'token' => $this->jwtTokenManager->create($user),
-            'user' => $user->toArray(),
-        ]);
+        $this->refreshSessionService->revokeAllActiveSessionsForUser($user);
+
+        return $this->jsonWithSessionCookie(
+            $request,
+            [
+                'updated' => true,
+                'token' => $this->jwtTokenManager->create($user),
+                'user' => $user->toArray(),
+            ],
+            $user,
+        );
     }
 
     #[Route('/auth/email-verification/request', methods: ['POST'])]
@@ -408,11 +467,15 @@ class AuthController extends ApiController
             'purpose' => $verificationToken->purpose(),
         ]);
 
-        return $this->json([
-            'verified' => true,
-            'user' => $user->toArray(),
-            'token' => $this->jwtTokenManager->create($user),
-        ]);
+        return $this->jsonWithSessionCookie(
+            $request,
+            [
+                'verified' => true,
+                'user' => $user->toArray(),
+                'token' => $this->jwtTokenManager->create($user),
+            ],
+            $user,
+        );
     }
 
     #[Route('/me', methods: ['GET'])]
@@ -585,6 +648,7 @@ class AuthController extends ApiController
         $user->useInitialAvatar();
         $user->resetDisplayNameStyle();
 
+        $this->refreshSessionService->revokeAllActiveSessionsForUser($user);
         $entityManager->flush();
 
         return $this->json(null, 204);
@@ -744,6 +808,7 @@ class AuthController extends ApiController
         }
 
         $user->setPassword($passwordHasher->hashPassword($user, $newPassword));
+        $this->refreshSessionService->revokeAllActiveSessionsForUser($user);
         $entityManager->flush();
 
         return $this->json(['user' => $user->toArray()]);
@@ -757,5 +822,59 @@ class AuthController extends ApiController
         $friendEventPublisher->publishPresenceChanged($user);
 
         return $this->json(null, 204);
+    }
+
+    private function jsonWithSessionCookie(Request $request, array $payload, User $user, int $status = 200): JsonResponse
+    {
+        $refreshToken = $this->refreshSessionService->issueSession(
+            $user,
+            $request->getClientIp(),
+            $request->headers->get('User-Agent'),
+        );
+
+        $response = $this->json($payload, $status);
+        $response->headers->setCookie($this->refreshSessionCookieManager->makeRefreshCookie($request, $refreshToken));
+        if ($this->refreshSessionCookieManager->hasCookieDomain()) {
+            $response->headers->setCookie($this->refreshSessionCookieManager->makeHostOnlyRefreshCookie($request, $refreshToken));
+        }
+
+        return $response;
+    }
+
+    private function jsonWithClearedSessionCookie(Request $request, mixed $payload = null, int $status = 200): JsonResponse
+    {
+        $response = $this->json($payload, $status);
+        $response->headers->setCookie($this->refreshSessionCookieManager->makeClearedCookie($request));
+        if ($this->refreshSessionCookieManager->hasCookieDomain()) {
+            $response->headers->setCookie($this->refreshSessionCookieManager->makeHostOnlyClearedCookie($request));
+        }
+
+        return $response;
+    }
+
+    private function refreshTokenFromRequest(Request $request): string
+    {
+        $name = $this->refreshSessionCookieManager->cookieName();
+        $rawCookieHeader = (string) $request->headers->get('Cookie', '');
+        if ($rawCookieHeader !== '') {
+            foreach (explode(';', $rawCookieHeader) as $cookiePart) {
+                $cookiePart = trim($cookiePart);
+                if ($cookiePart === '' || !str_contains($cookiePart, '=')) {
+                    continue;
+                }
+
+                [$cookieName, $cookieValue] = explode('=', $cookiePart, 2);
+                if (trim($cookieName) !== $name) {
+                    continue;
+                }
+
+                $decodedValue = urldecode(trim($cookieValue));
+                if ($decodedValue !== '') {
+                    return $decodedValue;
+                }
+            }
+        }
+
+        return trim((string) $request->cookies->get($name, ''));
     }
 }

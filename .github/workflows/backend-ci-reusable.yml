@@ -1,9 +1,7 @@
-name: Validate Backend
+name: Backend CI Reusable
 
 on:
-  pull_request:
-    branches:
-      - main
+  workflow_call:
 
 jobs:
   tests:
