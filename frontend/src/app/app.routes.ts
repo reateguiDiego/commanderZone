@@ -6,6 +6,7 @@ export const routes: Routes = [
     path: '',
     loadComponent: () => import('./features/onboarding/onboarding-page/onboarding-page.component')
       .then((component) => component.OnboardingPageComponent),
+    canActivate: [guestGuard],
     pathMatch: 'full',
     title: 'Commander Zone',
   },

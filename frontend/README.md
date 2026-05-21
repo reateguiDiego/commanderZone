@@ -99,5 +99,8 @@ Implementation notes:
 ## Notes
 
 - Auth uses short-lived JWT Bearer access tokens in memory, plus an HttpOnly refresh cookie (`commanderzone.refresh`) for session restoration.
+- The Angular router is host-agnostic; entering `/` behaves the same on `commanderzone.com` and `www.commanderzone.com` when both hosts serve the same SPA bundle.
+- Canonical host handling is a hosting/DNS concern outside the frontend app and should be implemented with host-level redirect/rewrite rules.
+- Cross-host session continuity depends on backend cookie configuration (`AUTH_REFRESH_COOKIE_DOMAIN`); if empty, refresh cookies are host-only.
 - The game table is intentionally manual. It does not implement Magic rules, priority, stack handling, legal move validation, or automatic gameplay.
 - Backend contracts are consumed as-is from Symfony.
