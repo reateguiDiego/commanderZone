@@ -25,7 +25,7 @@ describe('auth guards', () => {
     expect(result).toEqual(TestBed.inject(Router).createUrlTree(['/auth/login'], { queryParams: { redirect: '/rooms/room-1/waiting' } }));
   });
 
-  it('redirects authenticated guests to dashboard', async () => {
+  it('redirects authenticated guests to dashboard when no redirect is provided', async () => {
     TestBed.configureTestingModule({
       providers: [
         provideHttpClient(),
@@ -40,8 +40,28 @@ describe('auth guards', () => {
       ],
     });
 
-    const result = await TestBed.runInInjectionContext(() => guestGuard({ queryParamMap: convertToParamMap({ redirect: '/rooms/room-1/waiting' }) } as never, {} as never));
+    const result = await TestBed.runInInjectionContext(() => guestGuard({ queryParamMap: convertToParamMap({}) } as never, {} as never));
 
-    expect(result).toEqual(TestBed.inject(Router).parseUrl('/rooms/room-1/waiting'));
+    expect(result).toEqual(TestBed.inject(Router).parseUrl('/dashboard'));
+  });
+
+  it('allows unauthenticated guests', async () => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideHttpClient(),
+        provideRouter([]),
+        {
+          provide: AuthStore,
+          useValue: {
+            initialize: vi.fn().mockResolvedValue(undefined),
+            isAuthenticated: () => false,
+          },
+        },
+      ],
+    });
+
+    const result = await TestBed.runInInjectionContext(() => guestGuard({ queryParamMap: convertToParamMap({}) } as never, {} as never));
+
+    expect(result).toBe(true);
   });
 });
