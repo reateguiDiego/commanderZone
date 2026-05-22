@@ -55,6 +55,7 @@ import {
   Send,
   Settings,
   ShieldCheck,
+  Skull,
   Sparkles,
   Swords,
   TabletSmartphone,
@@ -147,6 +148,7 @@ describe('GameTableComponent', () => {
     authStore.user.mockReset().mockReturnValue(null);
     authStore.logout.mockReset().mockResolvedValue(undefined);
     mercureService.gameEvents.mockReset().mockReturnValue(EMPTY);
+    window.localStorage.clear();
 
     await TestBed.configureTestingModule({
       imports: [GameTableComponent],
@@ -208,6 +210,7 @@ describe('GameTableComponent', () => {
           Send,
           Settings,
           ShieldCheck,
+          Skull,
           Sparkles,
           Swords,
           TabletSmartphone,
@@ -266,6 +269,92 @@ describe('GameTableComponent', () => {
       expect(fixture.nativeElement.querySelector('.table-error')).toBeNull();
     } finally {
       vi.useRealTimers();
+      fixture.destroy();
+    }
+  });
+
+  it('renders battlefield zoom controls and applies zoom CSS variables locally', async () => {
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.componentInstance.store.loading.set(false);
+    fixture.componentInstance.store.snapshot.set(snapshotWithStatus('active'));
+    fixture.detectChanges();
+
+    const playerPanel = fixture.nativeElement.querySelector('[data-testid="player-panel"]') as HTMLElement;
+    const zoomControls = fixture.nativeElement.querySelector('[data-testid="battlefield-zoom-controls"]') as HTMLElement;
+    const zoomToggle = fixture.nativeElement.querySelector('.zoom-toggle-button') as HTMLButtonElement;
+    const requestAnimationFrame = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+      callback(0);
+      return 1;
+    });
+    const cancelAnimationFrame = vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => undefined);
+
+    try {
+      expect(zoomToggle.getAttribute('aria-expanded')).toBe('false');
+      zoomToggle.click();
+      fixture.detectChanges();
+
+      const zoomSlider = fixture.nativeElement.querySelector('[data-testid="battlefield-zoom-slider"]') as HTMLInputElement;
+
+      expect(fixture.nativeElement.querySelector('.zoom-toggle-button')).toBeNull();
+      expect(fixture.nativeElement.querySelector('[data-testid="battlefield-zoom-popover"]')).not.toBeNull();
+      expect(zoomControls.textContent).not.toContain('100%');
+      expect(zoomSlider.min).toBe('70');
+      expect(zoomSlider.max).toBe('140');
+      expect(zoomSlider.step).toBe('1');
+      expect(playerPanel.style.getPropertyValue('--battlefield-card-width')).toBe('7.2rem');
+
+      zoomSlider.value = '111';
+      zoomSlider.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+
+      expect(zoomControls.textContent).not.toContain('111%');
+      expect(playerPanel.style.getPropertyValue('--battlefield-card-width')).toBe('7.992rem');
+      expect(window.localStorage.getItem('commanderZone.gameTable.battlefieldZoomPercent')).toBe('111');
+      expect(requestAnimationFrame).toHaveBeenCalled();
+    } finally {
+      requestAnimationFrame.mockRestore();
+      cancelAnimationFrame.mockRestore();
+      fixture.destroy();
+    }
+  });
+
+  it('reflows the focused opponent battlefield with the local zoom applied', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    window.localStorage.setItem('commanderZone.gameTable.battlefieldZoomPercent', '120');
+    const snapshot = snapshotWithStatus('active');
+    addOpponent(snapshot);
+    snapshot.players['user-2']!.zones.battlefield[0]!.position = { x: 1, y: 1, unit: 'ratio' };
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const requestAnimationFrame = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+      callback(0);
+      return 1;
+    });
+    const cancelAnimationFrame = vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => undefined);
+    const reflow = vi.spyOn(fixture.componentInstance.store, 'reflowBattlefieldCardPositions');
+
+    try {
+      fixture.componentInstance.focusOpponentFromSidebar('user-2');
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      const playerPanel = fixture.nativeElement.querySelector('[data-testid="player-panel"]') as HTMLElement;
+      expect(fixture.componentInstance.store.focusedPlayer()?.id).toBe('user-2');
+      expect(playerPanel.dataset['playerId']).toBe('user-2');
+      expect(playerPanel.style.getPropertyValue('--battlefield-card-width')).toBe('8.64rem');
+      expect(reflow).toHaveBeenCalled();
+    } finally {
+      requestAnimationFrame.mockRestore();
+      cancelAnimationFrame.mockRestore();
       fixture.destroy();
     }
   });

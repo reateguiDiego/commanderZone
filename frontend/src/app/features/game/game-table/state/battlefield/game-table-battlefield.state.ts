@@ -38,8 +38,9 @@ export class GameTableBattlefieldState {
   readonly layoutSize = signal<BattlefieldSize>(DEFAULT_BATTLEFIELD_SIZE);
 
   cardPosition(card: GameCardInstance): { x: number; y: number } | null {
+    const playerId = card.controllerId ?? card.ownerId ?? '';
     const cardSize = isRatioPosition(card.position)
-      ? this.battlefieldCardSize(card.controllerId ?? card.ownerId ?? '', card.instanceId)
+      ? this.battlefieldCardSize(playerId, card.instanceId)
       : undefined;
 
     return this.selectors.cardPosition(card, this.layoutSize(), cardSize);
@@ -79,8 +80,35 @@ export class GameTableBattlefieldState {
       );
       const sourceCards = (nextSnapshot ?? snapshot).players[playerId]?.zones.battlefield ?? [];
       for (const card of sourceCards) {
+        const cardElement = cardElements.get(card.instanceId);
+        const cardBounds = cardElement?.getBoundingClientRect();
+        const cardWidth = Math.max(1, Math.round(cardElement?.offsetWidth || cardBounds?.width || 116));
+        const cardHeight = Math.max(1, Math.round(cardElement?.offsetHeight || cardBounds?.height || 162));
+        const cardSize = { width: cardWidth, height: cardHeight };
+        const positionKey = this.battlefieldPositionKey({ playerId, instanceId: card.instanceId });
+
         if (isRatioPosition(card.position)) {
-          this.viewportClampedBattlefieldPositions.delete(this.battlefieldPositionKey({ playerId, instanceId: card.instanceId }));
+          const ratioPosition = this.selectors.cardPosition(card, { width: bounds.width, height: bounds.height }, cardSize);
+          this.viewportClampedBattlefieldPositions.delete(positionKey);
+          if (!ratioPosition) {
+            continue;
+          }
+
+          const clamped = this.clampBattlefieldPosition(ratioPosition, bounds.width, bounds.height, cardWidth, cardHeight);
+          if (this.samePosition(clamped, ratioPosition)) {
+            continue;
+          }
+
+          const nextPosition = ratioBattlefieldPosition(clamped, { width: bounds.width, height: bounds.height }, cardSize);
+          if (sameBattlefieldPosition(card.position, nextPosition)) {
+            continue;
+          }
+
+          nextSnapshot ??= structuredClone(snapshot);
+          const nextCard = nextSnapshot.players[playerId]?.zones.battlefield.find((candidate) => candidate.instanceId === card.instanceId);
+          if (nextCard) {
+            nextCard.position = nextPosition;
+          }
           continue;
         }
 
@@ -89,11 +117,6 @@ export class GameTableBattlefieldState {
           continue;
         }
 
-        const cardElement = cardElements.get(card.instanceId);
-        const cardBounds = cardElement?.getBoundingClientRect();
-        const cardWidth = Math.max(1, Math.round(cardElement?.offsetWidth || cardBounds?.width || 116));
-        const cardHeight = Math.max(1, Math.round(cardElement?.offsetHeight || cardBounds?.height || 162));
-        const positionKey = this.battlefieldPositionKey({ playerId, instanceId: card.instanceId });
         const existingClamp = this.viewportClampedBattlefieldPositions.get(positionKey);
         const sourcePosition = existingClamp && this.samePosition(existingClamp.clampedPosition, position)
           ? existingClamp.sourcePosition
@@ -426,4 +449,5 @@ export class GameTableBattlefieldState {
     return Array.from(document.querySelectorAll<HTMLElement>('.battlefield'))
       .find((element) => element.dataset['playerId'] === playerId) ?? null;
   }
+
 }

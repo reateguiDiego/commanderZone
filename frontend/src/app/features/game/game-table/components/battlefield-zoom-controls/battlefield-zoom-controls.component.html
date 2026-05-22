@@ -1,0 +1,53 @@
+<div class="battlefield-zoom-controls" data-testid="battlefield-zoom-controls">
+  @if (!isExpanded()) {
+    <button
+      class="zoom-toggle-button"
+      type="button"
+      title="Battlefield zoom"
+      aria-label="Open battlefield zoom controls"
+      aria-expanded="false"
+      (click)="toggleExpanded()"
+    >
+      <lucide-icon name="search" size="14" aria-hidden="true" />
+    </button>
+  } @else {
+    <div class="zoom-popover" data-testid="battlefield-zoom-popover" aria-label="Battlefield zoom">
+      <span
+        class="zoom-slider-shell"
+        data-testid="battlefield-zoom-default-mark"
+        [style.--zoom-current-position]="currentZoomPosition()"
+        [style.--zoom-default-position]="defaultZoomPosition()"
+      >
+        <span class="zoom-track" aria-hidden="true">
+          <span class="zoom-default-mark"></span>
+          <span class="zoom-thumb">
+            <i [class]="zoomThumbSymbolClasses" aria-hidden="true"></i>
+          </span>
+        </span>
+        <input
+          class="zoom-slider"
+          data-testid="battlefield-zoom-slider"
+          type="range"
+          title="Battlefield zoom"
+          aria-label="Battlefield zoom"
+          [min]="minZoomPercent()"
+          [max]="maxZoomPercent()"
+          [step]="zoomStepPercent()"
+          [value]="zoomPercent()"
+          (input)="handleZoomInput($event)"
+        />
+      </span>
+
+      <button
+        class="reset-button"
+        type="button"
+        title="Reset zoom"
+        aria-label="Reset battlefield zoom"
+        [disabled]="!canResetZoom()"
+        (click)="resetZoom.emit()"
+      >
+        <lucide-icon name="rotate-ccw" size="14" aria-hidden="true" />
+      </button>
+    </div>
+  }
+</div>

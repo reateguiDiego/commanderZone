@@ -24,6 +24,7 @@
     @let attachmentView = attachmentStackView(card);
     @let displayPosition = displayedCardPosition(card);
     <app-game-card-view
+      style="--game-card-view-width: var(--battlefield-card-width, 7.2rem)"
       mode="battlefield"
       [card]="card"
       [playerId]="focusedPlayer.id"

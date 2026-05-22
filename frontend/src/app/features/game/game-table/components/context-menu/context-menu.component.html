@@ -12,30 +12,30 @@
   (click)="stopClick($event)"
 >
   @if (activeMenu.kind === 'game') {
-    @if (isCurrentPlayerActive()) {
-      <button type="button" class="danger-menu-item" (click)="actionSelected.emit({ type: 'concedeGame' })">
-        <span class="menu-item-label">
-          <lucide-icon name="ban" size="17" aria-hidden="true" />
-          <span>Concede</span>
-        </span>
-      </button>
-    }
+    <button type="button" (click)="actionSelected.emit({ type: 'refreshSnapshot' })">
+      <span class="menu-item-label">
+        <lucide-icon name="refresh-ccw" size="17" aria-hidden="true" />
+        <span>Refresh Snapshot</span>
+      </span>
+    </button>
     <button type="button" (click)="actionSelected.emit({ type: 'focusCurrentPlayer' })">
       <span class="menu-item-label">
         <lucide-icon name="maximize-2" size="17" aria-hidden="true" />
         <span>Focus My Board</span>
       </span>
     </button>
-    <button type="button" (click)="actionSelected.emit({ type: 'leaveTable' })">
+    @if (isCurrentPlayerActive()) {
+      <button type="button" class="danger-menu-item" (click)="actionSelected.emit({ type: 'concedeGame' })">
+        <span class="menu-item-label">
+          <lucide-icon name="skull" size="17" aria-hidden="true" />
+          <span>Concede</span>
+        </span>
+      </button>
+    }
+    <button type="button" class="danger-menu-item" (click)="actionSelected.emit({ type: 'leaveTable' })">
       <span class="menu-item-label">
         <lucide-icon name="log-out" size="17" aria-hidden="true" />
         <span>Leave Table</span>
-      </span>
-    </button>
-    <button type="button" (click)="actionSelected.emit({ type: 'refreshSnapshot' })">
-      <span class="menu-item-label">
-        <lucide-icon name="refresh-ccw" size="17" aria-hidden="true" />
-        <span>Refresh Snapshot</span>
       </span>
     </button>
   } @else if (isArrowMenu()) {

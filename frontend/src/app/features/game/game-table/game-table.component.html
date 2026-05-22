@@ -185,9 +185,26 @@
           data-testid="player-panel"
           [attr.data-player-id]="player.id"
           [attr.data-hand-count]="store.zoneCount(player, 'hand')"
+          [style.--battlefield-card-width]="battlefieldZoom.cardWidthRem()"
+          [style.--battlefield-gap]="battlefieldZoom.gapRem()"
+          [style.--battlefield-mana-lane-height]="battlefieldZoom.manaLaneMinHeightRem()"
           [class.active]="snapshot.turn.activePlayerId === player.id"
           [class.dragging-card]="store.draggingCardInstanceId()"
         >
+          <app-battlefield-zoom-controls
+            class="battlefield-zoom-host"
+            [zoomPercent]="battlefieldZoom.zoomPercent()"
+            [minZoomPercent]="battlefieldZoom.minZoomPercent"
+            [maxZoomPercent]="battlefieldZoom.maxZoomPercent"
+            [defaultZoomPercent]="battlefieldZoom.defaultZoomPercent"
+            [zoomStepPercent]="battlefieldZoom.zoomStepPercent"
+            [canResetZoom]="battlefieldZoom.canResetZoom()"
+            (zoomPercentChanged)="setBattlefieldZoom($event)"
+            (resetZoom)="resetBattlefieldZoom()"
+            (click)="$event.stopPropagation()"
+            (contextmenu)="$event.stopPropagation()"
+          />
+
           @if (shouldShowRematchVotesButton()) {
             <button class="rematch-votes-button secondary-button" type="button" (click)="openRematchModal(); $event.stopPropagation()">
               <lucide-icon name="vote" size="16" />
@@ -213,6 +230,7 @@
             [firstCounter]="firstCounter"
             [alignmentGuideFor]="alignmentGuideFor"
             [isManaLaneHighlighted]="isManaLaneHighlighted"
+            [layoutKey]="battlefieldZoom.zoomPercent()"
             [landStackDropPreview]="store.landStackDropPreview()"
             [attachments]="snapshot.attachments ?? []"
             [isCardDropSettling]="isCardDropSettling"

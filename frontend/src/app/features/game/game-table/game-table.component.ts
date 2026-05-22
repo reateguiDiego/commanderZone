@@ -32,6 +32,7 @@ import { GameTableCoreState } from './state/core/game-table-core.state';
 import { GameTablePendingTransferRegistrarState } from './state/core/game-table-pending-transfer-registrar.state';
 import { GameTableBattlefieldDragState } from './state/drag-drop/game-table-battlefield-drag.state';
 import { GameTableBattlefieldState } from './state/battlefield/game-table-battlefield.state';
+import { GameTableBattlefieldZoomState } from './state/battlefield/game-table-battlefield-zoom.state';
 import { GameTableCardsState } from './state/cards/game-table-cards.state';
 import { GameTableContextStore } from './state/core/game-table-context.store';
 import { GameTableCountersState } from './state/cards/game-table-counters.state';
@@ -60,6 +61,7 @@ import { PlayerSummaryPanelComponent } from './components/player-summary-panel/p
 import { TurnPhasePanelComponent } from './components/turn-phase-panel/turn-phase-panel.component';
 import { PlayerHandPanelComponent } from './components/player-hand-panel/player-hand-panel.component';
 import { FocusedBattlefieldComponent } from './components/focused-battlefield/focused-battlefield.component';
+import { BattlefieldZoomControlsComponent } from './components/battlefield-zoom-controls/battlefield-zoom-controls.component';
 import { ContextMenuAction, ContextMenuComponent } from './components/context-menu/context-menu.component';
 import { ZoneModalComponent } from './components/zone-modal/zone-modal.component';
 import { NumberActionDialogComponent } from './components/number-action-dialog/number-action-dialog.component';
@@ -249,6 +251,7 @@ interface MotionSourceRect {
     TurnPhasePanelComponent,
     PlayerHandPanelComponent,
     FocusedBattlefieldComponent,
+    BattlefieldZoomControlsComponent,
     ContextMenuComponent,
     ZoneModalComponent,
     NumberActionDialogComponent,
@@ -272,6 +275,7 @@ interface MotionSourceRect {
     GameTableAttachmentsState,
     GameTableOpponentTargetsState,
     GameTableBattlefieldState,
+    GameTableBattlefieldZoomState,
     GameTableCardsState,
     GameTableContextStore,
     GameTableCountersState,
@@ -320,6 +324,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   private readonly router = inject(Router);
   private readonly motion = inject(GameTableMotionService);
   private readonly changeDetectorRef = inject(ChangeDetectorRef);
+  readonly battlefieldZoom = inject(GameTableBattlefieldZoomState);
   readonly handMotionActive = this.motion.handMotionActive;
   readonly counterPresets = ['-1/-1', '+1/+1', 'red', 'green', 'blue', 'black', 'yellow'];
   readonly colorAccent = (player: PlayerView | null): string => this.store.colorAccent(player);
@@ -521,6 +526,8 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   private floatingScrollFrame: number | null = null;
   private floatingScrollTimer: number | null = null;
   private battlefieldReflowFrame: number | null = null;
+  private battlefieldZoomReflowFrame: number | null = null;
+  private destroyed = false;
   private rematchToastTimer: number | null = null;
   private rematchCountdownTimer: number | null = null;
   private rematchCountdownDeadlineMs: number | null = null;
@@ -637,9 +644,11 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   }
 
   ngOnDestroy(): void {
+    this.destroyed = true;
     this.motion.destroy();
     this.clearQueuedFloatingContentScroll();
     this.clearQueuedBattlefieldReflow();
+    this.clearQueuedBattlefieldZoomReflow();
     this.clearRematchToastTimer();
     this.clearRematchCountdown();
   }
@@ -701,6 +710,17 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
 
     this.battlefieldLayoutSize.set(size);
     this.store.setBattlefieldLayoutSize(size);
+    this.queueBattlefieldReflow();
+  }
+
+  setBattlefieldZoom(percent: number): void {
+    this.battlefieldZoom.setZoomPercent(percent);
+    this.queueBattlefieldZoomReflow();
+  }
+
+  resetBattlefieldZoom(): void {
+    this.battlefieldZoom.resetZoom();
+    this.queueBattlefieldZoomReflow();
   }
 
   @HostListener('window:resize')
@@ -1267,6 +1287,9 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
 
     this.battlefieldReflowFrame = window.requestAnimationFrame(() => {
       this.battlefieldReflowFrame = null;
+      if (this.destroyed) {
+        return;
+      }
       this.store.reflowBattlefieldCardPositions();
     });
   }
@@ -1278,6 +1301,28 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
 
     window.cancelAnimationFrame(this.battlefieldReflowFrame);
     this.battlefieldReflowFrame = null;
+  }
+
+  private queueBattlefieldZoomReflow(): void {
+    this.queueBattlefieldReflow();
+    this.clearQueuedBattlefieldZoomReflow();
+    this.battlefieldZoomReflowFrame = window.requestAnimationFrame(() => {
+      this.battlefieldZoomReflowFrame = null;
+      if (this.destroyed) {
+        return;
+      }
+      this.changeDetectorRef.detectChanges();
+      this.queueBattlefieldReflow();
+    });
+  }
+
+  private clearQueuedBattlefieldZoomReflow(): void {
+    if (this.battlefieldZoomReflowFrame === null) {
+      return;
+    }
+
+    window.cancelAnimationFrame(this.battlefieldZoomReflowFrame);
+    this.battlefieldZoomReflowFrame = null;
   }
 
   isZoneOnlyMenu(menu: GameContextMenu): boolean {
@@ -2099,15 +2144,15 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
 
   private refreshFocusedPlayerView(playerId: string): void {
     this.store.hideCardPreview();
-    this.queueBattlefieldReflow();
+    this.queueBattlefieldZoomReflow();
     queueMicrotask(() => {
-      if (this.store.focusedPlayer()?.id === playerId) {
-        this.queueBattlefieldReflow();
+      if (!this.destroyed && this.store.focusedPlayer()?.id === playerId) {
+        this.queueBattlefieldZoomReflow();
       }
     });
     window.requestAnimationFrame(() => {
-      if (this.store.focusedPlayer()?.id === playerId) {
-        this.queueBattlefieldReflow();
+      if (!this.destroyed && this.store.focusedPlayer()?.id === playerId) {
+        this.queueBattlefieldZoomReflow();
       }
     });
   }

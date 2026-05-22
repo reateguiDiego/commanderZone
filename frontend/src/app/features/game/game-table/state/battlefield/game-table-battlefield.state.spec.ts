@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { GameCardInstance, GamePlayerState, GameSnapshot } from '../../../../../core/models/game.model';
+import { GameCardInstance, GameCardPosition, GamePlayerState, GameSnapshot } from '../../../../../core/models/game.model';
 import { User } from '../../../../../core/models/user.model';
 import { GameTableBattlefieldDragCoordinatorService } from '../../services/game-table-battlefield-drag-coordinator.service';
 import { GameTableCommandService } from '../../services/game-table-command.service';
@@ -76,6 +76,28 @@ describe('GameTableBattlefieldState', () => {
     expect(currentSnapshot?.players['player-1']?.zones.battlefield[0]?.position).toEqual({ x: 200, y: 60 });
   });
 
+  it('uses measured card size for ratio positions so zoomed edge cards remain visible', () => {
+    currentSnapshot = snapshot({
+      hand: [],
+      battlefield: [card('card-1', 'Edge Card', { x: 1, y: 1, unit: 'ratio' })],
+    });
+    document.body.innerHTML = `
+      <section class="battlefield" data-player-id="player-1">
+        <div data-testid="game-card" data-card-instance-id="card-1"></div>
+      </section>
+    `;
+    const battlefield = document.querySelector<HTMLElement>('.battlefield')!;
+    const cardElement = document.querySelector<HTMLElement>('[data-card-instance-id="card-1"]')!;
+    Object.defineProperty(battlefield, 'clientWidth', { configurable: true, value: 300 });
+    Object.defineProperty(battlefield, 'clientHeight', { configurable: true, value: 200 });
+    Object.defineProperty(cardElement, 'offsetWidth', { configurable: true, value: 120 });
+    Object.defineProperty(cardElement, 'offsetHeight', { configurable: true, value: 180 });
+
+    state.setLayoutSize({ width: 300, height: 200 });
+
+    expect(state.cardPosition(currentSnapshot.players['player-1']!.zones.battlefield[0]!)).toEqual({ x: 180, y: 20 });
+  });
+
   function context(): GameTableBattlefieldContext {
     return {
       snapshot: () => currentSnapshot,
@@ -147,9 +169,11 @@ function player(options: {
   };
 }
 
-function card(instanceId: string, name: string, position?: { x: number; y: number }): GameCardInstance {
+function card(instanceId: string, name: string, position?: GameCardPosition): GameCardInstance {
   return {
     instanceId,
+    ownerId: 'player-1',
+    controllerId: 'player-1',
     name,
     tapped: false,
     ...(position ? { position } : {}),

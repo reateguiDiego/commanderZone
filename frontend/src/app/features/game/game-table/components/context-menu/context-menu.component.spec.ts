@@ -26,6 +26,7 @@ import {
   RotateCw,
   Search,
   Send,
+  Skull,
   Sparkles,
   Swords,
   Tickets,
@@ -70,6 +71,7 @@ describe('ContextMenuComponent', () => {
           RotateCw,
           Search,
           Send,
+          Skull,
           Sparkles,
           Swords,
           Tickets,
@@ -93,13 +95,17 @@ describe('ContextMenuComponent', () => {
       currentPlayer: player('user-1', 'User'),
     });
     const text = menuText(fixture);
+    const buttons = menuButtons(fixture);
 
     expect(buttonLabels(fixture)).toEqual([
-      'Concede',
-      'Focus My Board',
-      'Leave Table',
       'Refresh Snapshot',
+      'Focus My Board',
+      'Concede',
+      'Leave Table',
     ]);
+    expect(buttons[2]?.classList).toContain('danger-menu-item');
+    expect(buttons[3]?.classList).toContain('danger-menu-item');
+    expect((fixture.nativeElement as HTMLElement).querySelector('lucide-icon[name="skull"]')).not.toBeNull();
     expect((fixture.nativeElement as HTMLElement).querySelectorAll('lucide-icon')).toHaveLength(4);
     expect(text).not.toContain('Copy Game Id');
     expect(text).not.toContain('Draw 7 Mine');
@@ -117,10 +123,11 @@ describe('ContextMenuComponent', () => {
     });
 
     expect(buttonLabels(fixture)).toEqual([
+      'Refresh Snapshot',
       'Focus My Board',
       'Leave Table',
-      'Refresh Snapshot',
     ]);
+    expect(menuButtons(fixture)[2]?.classList).toContain('danger-menu-item');
   });
 
   it('hides player life actions when the current user cannot control that player', () => {
@@ -798,8 +805,12 @@ function menuText(fixture: ComponentFixture<ContextMenuComponent>): string {
 }
 
 function buttonLabels(fixture: ComponentFixture<ContextMenuComponent>): string[] {
-  return Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button'))
+  return menuButtons(fixture)
     .map((button) => (button.textContent ?? '').trim().replace(/\s+/g, ' '));
+}
+
+function menuButtons(fixture: ComponentFixture<ContextMenuComponent>): HTMLButtonElement[] {
+  return Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button'));
 }
 
 function card(instanceId: string): GameCardInstance {
