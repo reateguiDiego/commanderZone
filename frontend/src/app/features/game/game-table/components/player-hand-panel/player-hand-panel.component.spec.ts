@@ -1,12 +1,14 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { GameCardInstance, GameZoneName } from '../../../../../core/models/game.model';
 import { PlayerView } from '../../game-table.store';
+import { GameTableMotionService } from '../../services/game-table-motion.service';
 import { GameTablePointerDragService } from '../../services/game-table-pointer-drag.service';
 import { PlayerHandPanelComponent } from './player-hand-panel.component';
 
 describe('PlayerHandPanelComponent', () => {
   afterEach(() => {
     vi.useRealTimers();
+    vi.unstubAllGlobals();
   });
 
   it('exposes the player hand as a motion zone', async () => {
@@ -80,6 +82,64 @@ describe('PlayerHandPanelComponent', () => {
     expect(handFan.classList).not.toContain('hand-fan-row');
   });
 
+  it('runs hand layout FLIP when opening and closing the desktop row layout', async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal('matchMedia', matchMediaMock(false));
+    const playFlip = vi.fn();
+    const prepareHandLayoutFlip = vi.fn(() => playFlip);
+    const { fixture, handArea } = await renderHandPanel({ prepareHandLayoutFlip });
+    const cardElement = fixture.nativeElement.querySelector('[data-card-instance-id="card-1"]') as HTMLElement;
+
+    handArea.dispatchEvent(new MouseEvent('mouseenter'));
+    vi.advanceTimersByTime(200);
+    fixture.detectChanges();
+    cardElement.dispatchEvent(new MouseEvent('mouseenter'));
+    vi.advanceTimersByTime(180);
+    fixture.detectChanges();
+
+    expect(playFlip).toHaveBeenCalledTimes(1);
+
+    handArea.dispatchEvent(new MouseEvent('mouseleave'));
+    vi.advanceTimersByTime(260);
+    fixture.detectChanges();
+
+    expect(prepareHandLayoutFlip).toHaveBeenCalled();
+    expect(playFlip).toHaveBeenCalledTimes(2);
+  });
+
+  it('locks the owner hand in row layout below 1200px viewport height', async () => {
+    vi.stubGlobal('matchMedia', matchMediaMock(true));
+    const { fixture } = await renderHandPanel();
+
+    const handFan = fixture.nativeElement.querySelector('.hand-fan') as HTMLElement;
+    const handRow = fixture.nativeElement.querySelector('[data-testid="hand-zone"]') as HTMLElement;
+
+    expect(handFan.classList).toContain('hand-fan-row');
+    expect(handRow.classList).toContain('hand-row-expanded');
+  });
+
+  it('runs hand layout FLIP when leaving the compact viewport row lock', async () => {
+    const matchMedia = controlledMatchMediaMock(true);
+    vi.stubGlobal('matchMedia', matchMedia.matchMedia);
+    const playFlip = vi.fn();
+    const { fixture } = await renderHandPanel({ prepareHandLayoutFlip: vi.fn(() => playFlip) });
+
+    expect(fixture.nativeElement.querySelector('.hand-fan')?.classList).toContain('hand-fan-row');
+
+    matchMedia.setMatches(false);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.hand-fan')?.classList).not.toContain('hand-fan-row');
+    expect(playFlip).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps face-down read-only hands out of forced row layout below 1200px viewport height', async () => {
+    vi.stubGlobal('matchMedia', matchMediaMock(true));
+    const { fixture } = await renderHandPanel({ readOnly: true, showCardsFaceDown: true });
+
+    expect(fixture.nativeElement.querySelector('.hand-fan')?.classList).not.toContain('hand-fan-row');
+  });
+
   it('does not open row layout from hover while hand motion is active', async () => {
     vi.useFakeTimers();
     const { fixture, handArea } = await renderHandPanel({ motionActive: true });
@@ -113,6 +173,23 @@ describe('PlayerHandPanelComponent', () => {
     fixture.detectChanges();
 
     expect(handFan.classList).toContain('hand-fan-row');
+  });
+
+  it('marks the compact hand as hover active while a hand card is hovered', async () => {
+    vi.stubGlobal('matchMedia', matchMediaMock(true));
+    const { fixture, handArea } = await renderHandPanel();
+    const hoveredCard = fixture.componentInstance.player().state.zones.hand[0]!;
+    const cardElement = fixture.nativeElement.querySelector('[data-card-instance-id="card-1"]') as HTMLElement;
+
+    cardElement.dispatchEvent(new MouseEvent('mouseenter'));
+    fixture.detectChanges();
+
+    expect(handArea.classList).toContain('hand-card-hover-active');
+
+    fixture.componentInstance.leaveHandCard(hoveredCard);
+    fixture.detectChanges();
+
+    expect(handArea.classList).not.toContain('hand-card-hover-active');
   });
 
   it('debounces closing row layout when the pointer leaves the hand area', async () => {
@@ -486,6 +563,23 @@ describe('PlayerHandPanelComponent', () => {
       offsetX: 32,
       offsetY: 56,
     }));
+  });
+
+  it('emits when a pending hand pointer drag becomes an actual drag', async () => {
+    const { fixture } = await renderHandPanel();
+    const started = vi.fn();
+    fixture.componentInstance.handCardPointerDragStarted.subscribe(started);
+    const draggedCard = fixture.componentInstance.player().state.zones.hand[0]!;
+    const sourceElement = fixture.nativeElement.querySelector('[data-card-instance-id="card-1"]') as HTMLElement;
+
+    fixture.componentInstance.startHandPointerDrag(
+      pointerEvent({ currentTarget: sourceElement, pointerId: 1, clientX: 20, clientY: 20 }),
+      'player-1',
+      draggedCard,
+    );
+    fixture.componentInstance.moveHandPointerDrag(pointerEvent({ pointerId: 1, clientX: 55, clientY: 22 }));
+
+    expect(started).toHaveBeenCalledWith({ playerId: 'player-1', card: draggedCard });
   });
 
   it('expands the horizontal drop target only for compact non-empty hands', async () => {
@@ -1006,6 +1100,42 @@ describe('PlayerHandPanelComponent', () => {
     });
   });
 
+  it('starts card drag from a nested touch target when currentTarget is not available', async () => {
+    const { fixture } = await renderHandPanel();
+    const draggedCard = fixture.componentInstance.player().state.zones.hand[0]!;
+    const cardElement = fixture.nativeElement.querySelector('[data-card-instance-id="card-1"]') as HTMLElement;
+    const visualElement = cardElement.querySelector<HTMLElement>('.card-visual')!;
+
+    cardElement.getBoundingClientRect = () => ({
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 140,
+      top: 0,
+      right: 100,
+      bottom: 140,
+      left: 0,
+      toJSON: () => ({}),
+    } as DOMRect);
+    visualElement.getBoundingClientRect = cardElement.getBoundingClientRect;
+
+    fixture.componentInstance.startHandPointerDrag(pointerEvent({
+      currentTarget: null,
+      target: visualElement,
+      pointerType: 'touch',
+      pointerId: 1,
+      clientX: 20,
+      clientY: 20,
+    }), 'player-1', draggedCard);
+
+    expect(fixture.componentInstance.pointerDrag()).toMatchObject({
+      playerId: 'player-1',
+      pointerId: 1,
+      mode: 'pending',
+      card: draggedCard,
+    });
+  });
+
   it('drops hand targeting when a dragged hand card leaves above the revealed hand body below the retention threshold', async () => {
     const { fixture, handArea } = await renderHandPanel();
     handArea.style.setProperty('--hand-hidden-offset', '80px');
@@ -1300,8 +1430,9 @@ describe('PlayerHandPanelComponent', () => {
     });
   });
 
-  it('renders a simple insertion line and emits the pointer reorder', async () => {
+  it('keeps hand pointer reorder active while row locked below 1200px viewport height', async () => {
     vi.useFakeTimers();
+    vi.stubGlobal('matchMedia', matchMediaMock(true));
     const { fixture } = await renderHandPanel();
     const [draggedCard, targetCard] = fixture.componentInstance.player().state.zones.hand;
     const reordered = vi.fn();
@@ -1385,12 +1516,21 @@ interface RenderHandPanelOptions {
   isCardTransferPending?: (playerId: string, zone: GameZoneName, card: GameCardInstance) => boolean;
   isSelected?: (instanceId: string) => boolean;
   cardImage?: (card: GameCardInstance) => string | null;
+  prepareHandLayoutFlip?: (root: HTMLElement) => () => void;
 }
 
 async function renderHandPanel(options: RenderHandPanelOptions = {}): Promise<{ fixture: ComponentFixture<PlayerHandPanelComponent>; handArea: HTMLElement }> {
   await TestBed.configureTestingModule({
     imports: [PlayerHandPanelComponent],
-    providers: [GameTablePointerDragService],
+    providers: [
+      GameTablePointerDragService,
+      ...(options.prepareHandLayoutFlip
+        ? [{
+            provide: GameTableMotionService,
+            useValue: { prepareHandLayoutFlip: options.prepareHandLayoutFlip },
+          }]
+        : []),
+    ],
   }).compileComponents();
 
   const fixture = TestBed.createComponent(PlayerHandPanelComponent);
@@ -1430,6 +1570,44 @@ function pointerEvent(patch: Partial<PointerEvent> & { pointerId: number; client
     currentTarget: document.createElement('button'),
     ...patch,
   } as unknown as PointerEvent;
+}
+
+function matchMediaMock(matches: boolean): (query: string) => MediaQueryList {
+  return (query: string): MediaQueryList => ({
+    matches,
+    media: query,
+    onchange: null,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  } as unknown as MediaQueryList);
+}
+
+function controlledMatchMediaMock(initialMatches: boolean): {
+  matchMedia: (query: string) => MediaQueryList;
+  setMatches: (matches: boolean) => void;
+} {
+  const listeners = new Set<(event: MediaQueryListEvent) => void>();
+  const mediaQueryList = {
+    matches: initialMatches,
+    media: '(max-height: 1199px)',
+    onchange: null,
+    addEventListener: (_type: string, listener: (event: MediaQueryListEvent) => void) => listeners.add(listener),
+    removeEventListener: (_type: string, listener: (event: MediaQueryListEvent) => void) => listeners.delete(listener),
+    addListener: (listener: (event: MediaQueryListEvent) => void) => listeners.add(listener),
+    removeListener: (listener: (event: MediaQueryListEvent) => void) => listeners.delete(listener),
+    dispatchEvent: vi.fn(),
+  } as unknown as MediaQueryList;
+
+  return {
+    matchMedia: () => mediaQueryList,
+    setMatches: (matches: boolean) => {
+      Object.defineProperty(mediaQueryList, 'matches', { configurable: true, value: matches });
+      listeners.forEach((listener) => listener({ matches, media: mediaQueryList.media } as MediaQueryListEvent));
+    },
+  };
 }
 
 function playerView(hand: GameCardInstance[] = [

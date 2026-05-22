@@ -343,6 +343,32 @@ describe('GameTablePointerDragService', () => {
       value: originalElementsFromPoint,
     });
   });
+
+  it('can include hand drop targets for pointer flows that support hand drops', () => {
+    const hand = document.createElement('div');
+    hand.dataset['gameDropZone'] = 'hand';
+    hand.dataset['zone'] = 'hand';
+    hand.dataset['playerId'] = 'player-1';
+    const originalElementsFromPoint = document.elementsFromPoint;
+    Object.defineProperty(document, 'elementsFromPoint', {
+      configurable: true,
+      value: vi.fn(() => [hand]),
+    });
+
+    const target = service.zoneTargetAt(pointerEvent(20, 20), { width: 100, height: 140 }, { includeHand: true });
+
+    expect(target).toEqual({
+      targetPlayerId: 'player-1',
+      toZone: 'hand',
+      kind: 'zone',
+      rawZone: 'hand',
+    });
+
+    Object.defineProperty(document, 'elementsFromPoint', {
+      configurable: true,
+      value: originalElementsFromPoint,
+    });
+  });
 });
 
 function handCards(): GameCardInstance[] {

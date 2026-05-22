@@ -72,6 +72,49 @@ describe('RoomsComponent', () => {
     ]);
   });
 
+  it('shows and clears route toast passed from navigation state', () => {
+    vi.useFakeTimers();
+    const router = TestBed.inject(Router);
+    vi.spyOn(router, 'getCurrentNavigation').mockReturnValue({
+      extras: {
+        state: {
+          toast: 'Could not load game.',
+        },
+      },
+    } as never);
+
+    try {
+      const fixture = TestBed.createComponent(RoomsComponent);
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.textContent).toContain('Could not load game.');
+
+      vi.advanceTimersByTime(3000);
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.textContent).not.toContain('Could not load game.');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('does not show technical snapshot wording when receiving the stale game route toast', () => {
+    const router = TestBed.inject(Router);
+    vi.spyOn(router, 'getCurrentNavigation').mockReturnValue({
+      extras: {
+        state: {
+          toast: 'Could not load game.',
+        },
+      },
+    } as never);
+
+    const fixture = TestBed.createComponent(RoomsComponent);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('Could not load game.');
+    expect(fixture.nativeElement.textContent).not.toContain('snapshot');
+  });
+
   it('deletes owned waiting rooms after modal confirmation', async () => {
     const room = roomFixture({ id: 'room-1', name: 'Mesa del Bosque', visibility: 'private' });
     roomsApi.list.mockReturnValue(of({ data: [room] }));

@@ -11,19 +11,21 @@ import { GameTableDropFeedbackState } from './state/drag-drop/game-table-drop-fe
 import { GameTablePendingTransferState, type PendingTransferExpiration } from './state/core/game-table-pending-transfer.state';
 import { GameTableSnapshotSelectors, PlayerView } from './state/core/game-table-snapshot-selectors';
 import { GameContextMenu, GameTableUiState } from './state/core/game-table-ui.state';
-import { CardPreviewEvent } from './models/card-preview.model';
+import { CardPreviewEvent, previewRectFromElement } from './models/card-preview.model';
 import { GameTableZoneModalState } from './state/zones/game-table-zone-modal.state';
 import { GameTableCardActionsService } from './services/game-table-card-actions.service';
 import { GameTableCardStatsService } from './services/game-table-card-stats.service';
 import { PendingBattlefieldMove, PendingLibraryMove } from './services/game-table-drop-actions.service';
 import { GameTableInteractionActionsService } from './services/game-table-interaction-actions.service';
 import { PointerDropTarget } from './services/game-table-pointer-drag.service';
+import { GameTableZonePointerMoveActionsService } from './services/game-table-zone-pointer-move-actions.service';
 import { GameTableSessionService } from './services/game-table-session.service';
 import { GameTableZoneActionsService } from './services/game-table-zone-actions.service';
 import { BattlefieldSize } from './utils/battlefield-position';
 import { SelectedCard } from './models/game-table-card.model';
 import { DiceRollCommand } from './models/game-table-dice.model';
 import { GameTableSyncStatus } from './models/game-table-sync.model';
+import { ZonePointerDropRequest } from './models/game-table-zone-pointer-drag.model';
 import { GameTableArrowsState } from './state/arrows/game-table-arrows.state';
 import { GameTableAttachmentsState } from './state/attachments/game-table-attachments.state';
 import { GameTableBattlefieldState } from './state/battlefield/game-table-battlefield.state';
@@ -62,6 +64,7 @@ export class GameTableStore implements OnDestroy {
   private readonly libraryActions = inject(GameTableLibraryActionsService);
   private readonly turnActions = inject(GameTableTurnActionsService);
   private readonly zoneActions = inject(GameTableZoneActionsService);
+  private readonly zonePointerMoveActions = inject(GameTableZonePointerMoveActionsService);
   private readonly session = inject(GameTableSessionService);
   private readonly selection = inject(GameTableSelectionService);
   private readonly coreState = inject(GameTableCoreState);
@@ -235,6 +238,7 @@ export class GameTableStore implements OnDestroy {
     this.closeContextMenu();
     const target = event.target instanceof Element ? event.target : null;
     if (!target?.closest('[data-card-instance-id], .context-menu, .zone-modal, app-modal')) {
+      this.clearCardPreview();
       this.clearSelection();
       this.pendingArrowSource.set(null);
       this.pendingAttachmentSource.set(null);
@@ -420,6 +424,10 @@ export class GameTableStore implements OnDestroy {
     this.uiState.hideCardPreview();
   }
 
+  clearCardPreview(): void {
+    this.uiState.clearCardPreview();
+  }
+
   activeKeyboardCard(): SelectedCard | null {
     return this.interactionActions.activeKeyboardCard() as SelectedCard | null;
   }
@@ -481,10 +489,12 @@ export class GameTableStore implements OnDestroy {
   }
 
   openCardMenu(event: MouseEvent, playerId: string, zone: GameZoneName, card: GameCardInstance): void {
+    this.showPinnedCardPreview(event, playerId, zone, card);
     this.interactionActions.openCardMenu(this.contexts.interaction(), event, playerId, zone, card);
   }
 
   openZoneMenu(event: MouseEvent, playerId: string, zone: GameZoneName): void {
+    this.clearCardPreview();
     this.interactionActions.openZoneMenu(this.contexts.interaction(), event, playerId, zone);
   }
 
@@ -496,6 +506,7 @@ export class GameTableStore implements OnDestroy {
       return;
     }
 
+    this.showPinnedCardPreview(event, modal.playerId, modal.zone, card);
     this.interactionActions.openCardMenu(
       this.contexts.interaction(),
       event,
@@ -507,10 +518,12 @@ export class GameTableStore implements OnDestroy {
   }
 
   openGameMenu(event: MouseEvent): void {
+    this.clearCardPreview();
     this.interactionActions.openGameMenu(this.contexts.interaction(), event);
   }
 
   openPlayerMenu(event: MouseEvent, playerId: string): void {
+    this.clearCardPreview();
     this.interactionActions.openPlayerMenu(event, playerId);
   }
 
@@ -521,6 +534,7 @@ export class GameTableStore implements OnDestroy {
       return;
     }
 
+    this.clearCardPreview();
     this.uiState.openContextMenu(event, { playerId, zone: 'battlefield', kind: 'arrow', arrowId });
   }
 
@@ -532,11 +546,18 @@ export class GameTableStore implements OnDestroy {
       return;
     }
 
+    this.showPinnedCardPreview(event, playerId, zone, card);
     this.uiState.openContextMenu(event, { playerId, zone, card, kind: 'counter', counterKey: key });
   }
 
   closeContextMenu(): void {
+    this.clearCardPreview();
     this.interactionActions.closeContextMenu();
+  }
+
+  closeContextMenuForCardDrag(instanceId: string): void {
+    this.uiState.closeContextMenuForCardDrag(instanceId);
+    this.clearCardPreview();
   }
 
   async sendChat(): Promise<void> {
@@ -802,20 +823,25 @@ export class GameTableStore implements OnDestroy {
     if (event.detail > 2) {
       event.preventDefault();
       event.stopPropagation();
+      this.clearCardPreview();
       return;
     }
 
     if (this.arrowsState.handleBattlefieldCardClick(this.contexts.arrowInteraction(), event, card)) {
+      this.clearCardPreview();
       return;
     }
     if (this.attachmentsState.handleBattlefieldCardClick(this.contexts.attachmentInteraction(), event, card)) {
+      this.clearCardPreview();
       return;
     }
 
+    this.showPinnedCardPreview(event, playerId, 'battlefield', card);
     this.interactionActions.handleBattlefieldCardClick(this.contexts.interaction(), event, playerId, card);
   }
 
   handleHandCardClick(event: MouseEvent, playerId: string, card: GameCardInstance): void {
+    this.showPinnedCardPreview(event, playerId, 'hand', card);
     this.interactionActions.handleHandCardClick(this.contexts.interaction(), event, playerId, card);
   }
 
@@ -824,6 +850,14 @@ export class GameTableStore implements OnDestroy {
   }
 
   dragEnd(): void {
+    this.dragDropStore.dragEnd(this.contexts.dragDrop());
+  }
+
+  beginZonePointerDrag(instanceId: string): void {
+    this.dragDropStore.beginCardDrag(this.contexts.dragDrop(), instanceId);
+  }
+
+  endZonePointerDrag(): void {
     this.dragDropStore.dragEnd(this.contexts.dragDrop());
   }
 
@@ -847,6 +881,10 @@ export class GameTableStore implements OnDestroy {
 
   updatePointerDropTarget(target: PointerDropTarget | null): void {
     this.dragDropStore.updatePointerDropTarget(this.contexts.dragDrop(), target);
+  }
+
+  async moveZoneCardByPointer(request: ZonePointerDropRequest): Promise<void> {
+    await this.zonePointerMoveActions.moveZoneCardByPointer(this.contexts.dropAction(), request);
   }
 
   previewHandDrop(event: DragEvent, targetPlayerId: string, targetCard: GameCardInstance): void {
@@ -1379,6 +1417,15 @@ export class GameTableStore implements OnDestroy {
 
   private zoneValue(value: unknown): GameZoneName | null {
     return typeof value === 'string' && this.zones.includes(value as GameZoneName) ? value as GameZoneName : null;
+  }
+
+  private showPinnedCardPreview(event: MouseEvent, playerId: string, zone: GameZoneName, card: GameCardInstance): void {
+    this.uiState.showPinnedCardPreview({
+      card,
+      playerId,
+      zone,
+      sourceRect: previewRectFromElement(event.currentTarget instanceof Element ? event.currentTarget : null),
+    }, () => Boolean(this.draggingCardInstanceId()));
   }
 
   private setSnapshot(snapshot: GameSnapshot | null): void {

@@ -8,6 +8,8 @@ import {
   type CardMarkerCounterDeleteRequest,
 } from './card-marker-rail/card-marker-rail.component';
 import { LoyaltyCounterComponent } from './loyalty-counter/loyalty-counter.component';
+import { GameTableDoubleTapDirective } from '../../directives/game-table-double-tap.directive';
+import { GameTableLongPressDirective } from '../../directives/game-table-long-press.directive';
 
 type GameCardViewMode = 'battlefield' | 'hand' | 'mini';
 
@@ -59,7 +61,13 @@ interface CardCounterDeleteRequestEvent {
 
 @Component({
   selector: 'app-game-card-view',
-  imports: [CardMarkerRailComponent, LoyaltyCounterComponent, LucideAngularModule],
+  imports: [
+    CardMarkerRailComponent,
+    LoyaltyCounterComponent,
+    LucideAngularModule,
+    GameTableDoubleTapDirective,
+    GameTableLongPressDirective,
+  ],
   templateUrl: './game-card-view.component.html',
   styleUrls: ['./game-card-view.component.scss', './game-card-view-effects.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,

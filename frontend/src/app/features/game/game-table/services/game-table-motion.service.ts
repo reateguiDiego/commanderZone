@@ -37,12 +37,14 @@ export class GameTableMotionService {
   private context: gsap.Context | null = null;
   private host: HTMLElement | null = null;
   private reducedMotionQuery: MediaQueryList | null = null;
+  private compactMotionQuery: MediaQueryList | null = null;
 
   init(hostRef: ElementRef<HTMLElement>): void {
     this.destroy();
     const host = hostRef.nativeElement;
     this.host = host;
     this.reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    this.compactMotionQuery = window.matchMedia('(max-height: 1199px)');
 
     this.ngZone.runOutsideAngular(() => {
       this.context = gsap.context(() => undefined, host);
@@ -56,6 +58,7 @@ export class GameTableMotionService {
     this.context = null;
     this.host = null;
     this.reducedMotionQuery = null;
+    this.compactMotionQuery = null;
   }
 
   punchCard(instanceId: string, variant: CardPunchVariant = 'play'): void {
@@ -102,6 +105,11 @@ export class GameTableMotionService {
     const resolvedSource = typeof source === 'string' ? this.resolveTarget(source) : source;
     const destination = this.resolveTarget(target);
     if (!resolvedSource || !destination) {
+      options.onComplete?.();
+      return;
+    }
+
+    if (this.shouldSkipGhostMotion()) {
       options.onComplete?.();
       return;
     }
@@ -200,6 +208,10 @@ export class GameTableMotionService {
       return () => undefined;
     }
 
+    if (this.isCompactMotionViewport()) {
+      return () => undefined;
+    }
+
     const elements = this.cardElements(selector);
     const state = Flip.getState(elements);
     const isHandFlip = selector.includes('data-zone="hand"') || elements.some((element) => element.dataset['zone'] === 'hand');
@@ -229,6 +241,10 @@ export class GameTableMotionService {
   prepareHandDropHandoff(selector = '[data-zone="hand"][data-card-instance-id]'): () => void {
     const host = this.host;
     if (!host) {
+      return () => undefined;
+    }
+
+    if (this.isCompactMotionViewport()) {
       return () => undefined;
     }
 
@@ -336,6 +352,10 @@ export class GameTableMotionService {
   }
 
   prepareHandLayoutFlip(root: HTMLElement, selector = '[data-zone="hand"][data-card-instance-id]'): () => void {
+    if (this.isCompactMotionViewport()) {
+      return () => undefined;
+    }
+
     const elements = this.handCardElements(root, selector);
     if (elements.length === 0) {
       return () => undefined;
@@ -912,6 +932,14 @@ export class GameTableMotionService {
 
   private prefersReducedMotion(): boolean {
     return this.reducedMotionQuery?.matches ?? false;
+  }
+
+  private isCompactMotionViewport(): boolean {
+    return this.compactMotionQuery?.matches ?? false;
+  }
+
+  private shouldSkipGhostMotion(): boolean {
+    return this.prefersReducedMotion() || this.isCompactMotionViewport();
   }
 
 }

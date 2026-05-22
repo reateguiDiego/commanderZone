@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { LucideAngularModule } from 'lucide-angular';
 import { firstValueFrom } from 'rxjs';
+import { BodyScrollLockService } from '../../../shared/services/body-scroll-lock.service';
 import { AppModalComponent } from '../../../shared/ui/app-modal/app-modal.component';
 import { PrettyScrollDirective } from '../../../shared/ui/pretty-scroll/pretty-scroll.directive';
 import { Card } from '../../../core/models/card.model';
@@ -24,6 +25,7 @@ import { GameTableSelectionService } from './services/game-table-selection.servi
 import { GameTableSessionService } from './services/game-table-session.service';
 import { GameTableTurnActionsService } from './services/game-table-turn-actions.service';
 import { GameTableZoneActionsService } from './services/game-table-zone-actions.service';
+import { GameTableZonePointerMoveActionsService } from './services/game-table-zone-pointer-move-actions.service';
 import { GameTableMotionService } from './services/game-table-motion.service';
 import { GameTableChatLogState } from './state/chat/game-table-chat-log.state';
 import { GameTableChatStore } from './state/chat/game-table-chat.store';
@@ -77,6 +79,7 @@ import { TokenSearchModalComponent } from './components/token-search-modal/token
 import { RollModalComponent } from '../../../core/ui/roll-modal/roll-modal.component';
 import { type RollResult } from '../../../core/ui/roll-modal/roll';
 import { GameTablePermanentRelationService } from './services/game-table-permanent-relation.service';
+import { ZonePointerDropRequest } from './models/game-table-zone-pointer-drag.model';
 
 interface DrawNumberActionRequest {
   readonly kind: 'draw';
@@ -195,6 +198,11 @@ interface ZoneDropEvent {
   readonly zone: GameZoneName;
 }
 
+interface ZonePointerDroppedEvent {
+  readonly request: ZonePointerDropRequest | null;
+  readonly moved: boolean;
+}
+
 interface ManaLaneDropEvent {
   readonly event: DragEvent;
   readonly playerId: string;
@@ -304,6 +312,7 @@ interface MotionSourceRect {
     GameTableLibraryActionsService,
     GameTableTurnActionsService,
     GameTableZoneActionsService,
+    GameTableZonePointerMoveActionsService,
     GameTableMotionService,
     GameTablePermanentRelationService,
     GameTableSnapshotSelectors,
@@ -315,14 +324,16 @@ interface MotionSourceRect {
     GameTableChatLogState,
   ],
   templateUrl: './game-table.component.html',
-  styleUrl: './game-table.component.scss',
+  styleUrls: ['./game-table.component.scss', './game-table-responsive.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDestroy {
+  private readonly mobileScrollLockQuery = '(max-width: 1180px), (hover: none) and (pointer: coarse)';
   readonly store = inject(GameTableStore);
   private readonly gamesApi = inject(GamesApi);
   private readonly router = inject(Router);
   private readonly motion = inject(GameTableMotionService);
+  private readonly bodyScrollLock = inject(BodyScrollLockService);
   private readonly changeDetectorRef = inject(ChangeDetectorRef);
   readonly battlefieldZoom = inject(GameTableBattlefieldZoomState);
   readonly handMotionActive = this.motion.handMotionActive;
@@ -504,6 +515,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
 
     return this.store.players().filter((player) => player.id !== focusedPlayerId);
   });
+  readonly opponentsDrawerOpen = signal(false);
   readonly arrowTargetPlayers = computed(() => {
     const currentPlayerId = this.store.currentPlayer()?.id;
     const players = this.store.players();
@@ -538,6 +550,9 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   private lastObservedChatKey: string | null = null;
   private lastObservedLogKey: string | null = null;
   private readonly battlefieldDragStartRects = new Map<string, MotionSourceRect>();
+  private mobileScrollLockMediaQuery: MediaQueryList | null = null;
+  private mobileScrollLocked = false;
+  private readonly handleMobileScrollLockChange = (): void => this.syncMobileScrollLock();
 
   @ViewChild('gameScreen', { static: true }) private readonly gameScreen?: ElementRef<HTMLElement>;
   @ViewChild(GameLogPanelComponent) private readonly gameLogPanel?: GameLogPanelComponent;
@@ -619,6 +634,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     if (this.gameScreen) {
       this.motion.init(this.gameScreen);
     }
+    this.setupMobileScrollLock();
   }
 
   ngAfterViewChecked(): void {
@@ -645,6 +661,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
 
   ngOnDestroy(): void {
     this.destroyed = true;
+    this.destroyMobileScrollLock();
     this.motion.destroy();
     this.clearQueuedFloatingContentScroll();
     this.clearQueuedBattlefieldReflow();
@@ -653,10 +670,65 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     this.clearRematchCountdown();
   }
 
+  private setupMobileScrollLock(): void {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      return;
+    }
+
+    this.mobileScrollLockMediaQuery = window.matchMedia(this.mobileScrollLockQuery);
+    this.mobileScrollLockMediaQuery.addEventListener('change', this.handleMobileScrollLockChange);
+    this.syncMobileScrollLock();
+  }
+
+  private syncMobileScrollLock(): void {
+    const shouldLock = this.mobileScrollLockMediaQuery?.matches === true;
+    if (shouldLock === this.mobileScrollLocked) {
+      return;
+    }
+
+    this.mobileScrollLocked = shouldLock;
+    if (shouldLock) {
+      this.bodyScrollLock.lock();
+    } else {
+      this.bodyScrollLock.unlock();
+    }
+  }
+
+  private destroyMobileScrollLock(): void {
+    this.mobileScrollLockMediaQuery?.removeEventListener('change', this.handleMobileScrollLockChange);
+    this.mobileScrollLockMediaQuery = null;
+    if (!this.mobileScrollLocked) {
+      return;
+    }
+
+    this.mobileScrollLocked = false;
+    this.bodyScrollLock.unlock();
+  }
+
   scrollFloatingContentToBottom(): void {
     this.gameLogPanel?.scrollToBottom();
     for (const feed of this.autoScrollFeeds?.toArray() ?? []) {
       feed.nativeElement.scrollTop = feed.nativeElement.scrollHeight;
+    }
+  }
+
+  handleTableClick(event: MouseEvent): void {
+    this.store.handleTableClick(event);
+
+    const target = event.target instanceof Element ? event.target : null;
+    if (!target?.closest('.player-sidebar')) {
+      this.closeOpponentsDrawer();
+    }
+  }
+
+  toggleOpponentsDrawer(event: MouseEvent): void {
+    event.stopPropagation();
+    this.opponentsDrawerOpen.update((open) => !open);
+  }
+
+  closeOpponentsDrawer(): void {
+    if (this.opponentsDrawerOpen()) {
+      this.opponentsDrawerOpen.set(false);
     }
   }
 
@@ -1550,6 +1622,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   }
 
   async handleBattlefieldCardDoubleClicked(event: BattlefieldCardDoubleClickEvent): Promise<void> {
+    this.store.clearCardPreview();
     this.lockTapAnimation(event.card.instanceId);
     const animateRotation = this.motion.prepareCardRotationFlip(event.card.instanceId, {
       onComplete: () => this.unlockTapAnimation(event.card.instanceId),
@@ -1606,6 +1679,29 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       this.animateDropToDropZone(sourceInstanceId, payload, event.playerId, event.zone, event.event);
     }
     void this.store.dropOnZone(event.event, event.playerId, event.zone);
+  }
+
+  async handleZonePointerDropped(event: ZonePointerDroppedEvent): Promise<void> {
+    this.store.updatePointerDropTarget(null);
+    if (!event.moved || !event.request) {
+      this.store.endZonePointerDrag();
+      return;
+    }
+
+    if (event.request.toZone === 'hand') {
+      this.animateGhostToHand({
+        sourceInstanceId: event.request.instanceId,
+        targetPlayerId: event.request.targetPlayerId,
+      });
+    } else {
+      this.animateGhostToDropZone({
+        sourceInstanceId: event.request.instanceId,
+        targetPlayerId: event.request.targetPlayerId,
+        targetZone: event.request.rawZone === 'mana' ? 'mana' : event.request.toZone,
+      });
+    }
+
+    await this.store.moveZoneCardByPointer(event.request);
   }
 
   handleManaLaneDrop(event: ManaLaneDropEvent): void {
@@ -1906,6 +2002,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     }
 
     this.focusPlayerBattlefield(playerId);
+    this.closeOpponentsDrawer();
   }
 
   updateFollowActiveTurnPlayer(enabled: boolean): void {

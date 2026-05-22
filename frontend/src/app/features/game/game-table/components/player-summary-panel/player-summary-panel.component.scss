@@ -717,3 +717,25 @@
     min-width: 1.55rem;
   }
 }
+
+@media (max-height: 700px) and (max-width: 900px) {
+  .player-summary-panel {
+    gap: 0.25rem;
+    padding: 0.18rem 0.34rem;
+  }
+
+  .life-controls {
+    grid-template-rows: 1.58rem 0.4rem;
+    min-width: 4.35rem;
+  }
+
+  .life-total,
+  .life-step-button {
+    min-height: 1.58rem;
+  }
+
+  .life-total {
+    min-width: 2.45rem;
+    font-size: 0.9rem;
+  }
+}

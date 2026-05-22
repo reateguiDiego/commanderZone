@@ -180,6 +180,16 @@ describe('GameCardViewComponent', () => {
     expect(Number.parseFloat(cardElement.style.getPropertyValue('--hand-row-distance'))).toBeLessThan(0);
   });
 
+  it('marks the active hovered hand card before hover lift starts', async () => {
+    const { fixture, cardElement } = await renderHandCard();
+
+    fixture.componentRef.setInput('activeHoverInstanceId', 'card-1');
+    fixture.detectChanges();
+
+    expect(cardElement.classList).toContain('hand-active-hover');
+    expect(cardElement.classList).not.toContain('hover-lifted');
+  });
+
   it('applies battlefield focus entry classes by entry mode', async () => {
     const { fixture, cardElement } = await renderHandCard();
 
@@ -357,6 +367,58 @@ describe('GameCardViewComponent', () => {
     }));
 
     expect(pointerDown).toHaveBeenCalledOnce();
+  });
+
+  it('emits double click output from touch double tap', async () => {
+    vi.useFakeTimers();
+    const { fixture, cardElement } = await renderHandCard();
+    const doubleClicked = vi.fn();
+    fixture.componentInstance.cardDoubleClicked.subscribe(doubleClicked);
+
+    tap(cardElement, { pointerType: 'touch', pointerId: 1, clientX: 20, clientY: 30 });
+    vi.advanceTimersByTime(140);
+    const secondUp = tap(cardElement, { pointerType: 'touch', pointerId: 2, clientX: 21, clientY: 30 });
+
+    expect(doubleClicked).toHaveBeenCalledWith({
+      event: secondUp,
+      card: fixture.componentInstance.card(),
+    });
+  });
+
+  it('does not emit touch double tap when the gesture moves like a drag', async () => {
+    vi.useFakeTimers();
+    const { fixture, cardElement } = await renderHandCard();
+    const doubleClicked = vi.fn();
+    fixture.componentInstance.cardDoubleClicked.subscribe(doubleClicked);
+
+    cardElement.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true,
+      button: 0,
+      pointerId: 1,
+      pointerType: 'touch',
+      clientX: 20,
+      clientY: 30,
+    }));
+    window.dispatchEvent(new PointerEvent('pointermove', {
+      bubbles: true,
+      button: 0,
+      pointerId: 1,
+      pointerType: 'touch',
+      clientX: 38,
+      clientY: 30,
+    }));
+    window.dispatchEvent(new PointerEvent('pointerup', {
+      bubbles: true,
+      button: 0,
+      pointerId: 1,
+      pointerType: 'touch',
+      clientX: 38,
+      clientY: 30,
+    }));
+    vi.advanceTimersByTime(140);
+    tap(cardElement, { pointerType: 'touch', pointerId: 2, clientX: 20, clientY: 30 });
+
+    expect(doubleClicked).not.toHaveBeenCalled();
   });
 
   it('applies drop feedback classes without removing existing selected state', async () => {
@@ -700,4 +762,21 @@ function statElements(fixture: ComponentFixture<GameCardViewComponent>): [HTMLEl
   expect(elements.length).toBe(2);
 
   return [elements[0]!, elements[1]!];
+}
+
+function tap(target: EventTarget, init: PointerEventInit): PointerEvent {
+  target.dispatchEvent(new PointerEvent('pointerdown', {
+    bubbles: true,
+    cancelable: true,
+    button: 0,
+    ...init,
+  }));
+  const up = new PointerEvent('pointerup', {
+    bubbles: true,
+    cancelable: true,
+    button: 0,
+    ...init,
+  });
+  window.dispatchEvent(up);
+  return up;
 }

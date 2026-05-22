@@ -18,6 +18,7 @@ import { CardPreviewEvent } from '../../models/card-preview.model';
 import { LandStackDropPreview } from '../../state/drag-drop/game-table-battlefield-drag.state';
 import { buildLandStackGroups, LandStackView, landStackOffsetX, landStackOffsetY } from '../../utils/land-stack';
 import { AttachmentStackView, attachmentStackViewFor, buildAttachmentStackGroups } from '../../utils/attachment-stack';
+import { GameTableLongPressDirective } from '../../directives/game-table-long-press.directive';
 
 interface CardCounterView {
   key: string;
@@ -85,7 +86,7 @@ type BattlefieldFocusEntry = 'left' | 'right' | 'fade' | null;
 
 @Component({
   selector: 'app-focused-battlefield',
-  imports: [GameCardViewComponent],
+  imports: [GameCardViewComponent, GameTableLongPressDirective],
   templateUrl: './focused-battlefield.component.html',
   styleUrl: './focused-battlefield.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { GamesApi } from '../../../../core/api/games.api';
 import { GameSnapshot, MercureGameEvent } from '../../../../core/models/game.model';
 import { GameTableRealtimeService } from './game-table-realtime.service';
@@ -74,12 +74,26 @@ describe('GameTableSessionService', () => {
     expect(navigateToWaitingRoom).toHaveBeenCalledWith('room-1');
     expect(gamesApi.snapshot).toHaveBeenCalledTimes(1);
   });
+
+  it('navigates back to rooms with a user-facing toast when the initial game load fails', async () => {
+    const current = snapshot();
+    const navigateToRoomsWithLoadError = vi.fn();
+    const setError = vi.fn();
+    gamesApi.snapshot.mockReturnValue(throwError(() => new Error('not found')));
+
+    await service.load(context(current, vi.fn(), vi.fn(), navigateToRoomsWithLoadError, setError));
+
+    expect(navigateToRoomsWithLoadError).toHaveBeenCalledTimes(1);
+    expect(setError).not.toHaveBeenCalledWith('Could not load game snapshot.');
+  });
 });
 
 function context(
   currentSnapshot: GameSnapshot,
   setSnapshot: (snapshot: GameSnapshot) => void,
   navigateToWaitingRoom = vi.fn(),
+  navigateToRoomsWithLoadError = vi.fn(),
+  setError = vi.fn(),
 ): GameTableSessionContext {
   return {
     gameId: () => 'game-1',
@@ -91,8 +105,9 @@ function context(
     hasActivePointerDrag: () => false,
     isPending: () => false,
     setLoading: vi.fn(),
-    setError: vi.fn(),
+    setError,
     handleRealtimeEvent: vi.fn(),
+    navigateToRoomsWithLoadError,
     navigateToWaitingRoom,
   };
 }

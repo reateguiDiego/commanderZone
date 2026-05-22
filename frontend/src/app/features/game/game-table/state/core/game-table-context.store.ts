@@ -282,6 +282,8 @@ export class GameTableContextStore {
       updateLocalCardPosition: (playerId, instanceId, position) =>
         this.battlefieldState.updateLocalCardPosition(this.battlefield(), playerId, instanceId, position),
       hideCardPreview: () => this.uiState.hideCardPreview(),
+      clearCardPreview: () => this.uiState.clearCardPreview(),
+      closeContextMenuForCardDrag: (instanceId) => this.uiState.closeContextMenuForCardDrag(instanceId),
       suppressCardPreview: () => this.uiState.suppressCardPreview(450),
       clearHandDropPreview: () => this.handState.clearHandDropPreview(),
       setError: (message) => this.core.error.set(message),
@@ -417,6 +419,9 @@ export class GameTableContextStore {
       setLoading: (loading) => this.core.loading.set(loading),
       setError: (message) => this.core.error.set(message),
       handleRealtimeEvent: (event) => source.handleRealtimeGameEvent(event),
+      navigateToRoomsWithLoadError: () => {
+        void this.gameActionsStore.navigateToRoomsWithLoadError();
+      },
       navigateToWaitingRoom: (roomId) => {
         void this.gameActionsStore.navigateToWaitingRoom(roomId);
       },

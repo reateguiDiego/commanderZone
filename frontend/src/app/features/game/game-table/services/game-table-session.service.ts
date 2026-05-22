@@ -16,6 +16,7 @@ export interface GameTableSessionContext {
   setLoading(loading: boolean): void;
   setError(message: string | null): void;
   handleRealtimeEvent(event: MercureGameEvent): void | Promise<void>;
+  navigateToRoomsWithLoadError(): void;
   navigateToWaitingRoom(roomId: string): void;
 }
 
@@ -39,7 +40,7 @@ export class GameTableSessionService {
       this.subscribeToRealtime(context, gameId);
       this.startPolling(context);
     } catch {
-      context.setError('Could not load game snapshot.');
+      context.navigateToRoomsWithLoadError();
     } finally {
       context.setLoading(false);
     }

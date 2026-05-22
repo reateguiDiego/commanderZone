@@ -18,6 +18,10 @@ export interface PointerCardSize {
   offsetY?: number;
 }
 
+export interface PointerDropTargetOptions {
+  includeHand?: boolean;
+}
+
 export interface HandPointerDropPreview {
   targetInstanceId: string;
   placement: 'before' | 'after';
@@ -53,7 +57,7 @@ export class GameTablePointerDragService {
     return afterTarget ? { targetInstanceId: afterTarget.card.instanceId, placement: 'after' } : null;
   }
 
-  zoneTargetAt(event: PointerEvent, cardSize: PointerCardSize): PointerDropTarget | null {
+  zoneTargetAt(event: PointerEvent, cardSize: PointerCardSize, options: PointerDropTargetOptions = {}): PointerDropTarget | null {
     for (const element of this.elementsFromPoint(event.clientX, event.clientY)) {
       const playerTarget = element.closest<HTMLElement>('[data-player-drop-target]');
       const playerTargetId = playerTarget?.dataset['playerDropTarget'];
@@ -68,7 +72,7 @@ export class GameTablePointerDragService {
       const target = element.closest<HTMLElement>('[data-game-drop-zone]');
       const targetPlayerId = target?.dataset['playerId'];
       const rawZone = target?.dataset['zone'];
-      if (!targetPlayerId || !rawZone || rawZone === 'hand') {
+      if (!targetPlayerId || !rawZone || rawZone === 'hand' && options.includeHand !== true) {
         continue;
       }
 

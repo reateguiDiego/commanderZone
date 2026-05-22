@@ -47,6 +47,8 @@ export interface GameTableDragDropContext {
   readonly cardPosition: (card: GameCardInstance) => { x: number; y: number } | null;
   readonly updateLocalCardPosition: (playerId: string, instanceId: string, position: { x: number; y: number }) => void;
   readonly hideCardPreview: () => void;
+  readonly clearCardPreview: () => void;
+  readonly closeContextMenuForCardDrag: (instanceId: string) => void;
   readonly suppressCardPreview: () => void;
   readonly clearHandDropPreview: () => void;
   readonly setError: (message: string) => void;
@@ -364,13 +366,14 @@ export class GameTableDragDropStore {
     }
   }
 
-  beginCardDrag(context: Pick<GameTableDragDropContext, 'hideCardPreview'>, instanceId: string): void {
-    context.hideCardPreview();
+  beginCardDrag(context: Pick<GameTableDragDropContext, 'clearCardPreview' | 'closeContextMenuForCardDrag'>, instanceId: string): void {
+    context.closeContextMenuForCardDrag(instanceId);
+    context.clearCardPreview();
     this.battlefieldDragState.beginCardDrag(instanceId);
   }
 
-  endCardDrag(context: Pick<GameTableDragDropContext, 'hideCardPreview'>): void {
-    context.hideCardPreview();
+  endCardDrag(context: Pick<GameTableDragDropContext, 'clearCardPreview'>): void {
+    context.clearCardPreview();
     this.clearLandStackDropPreview();
     this.pendingTopLandStackSelection = null;
     this.pendingTopAttachmentStackSelection = null;

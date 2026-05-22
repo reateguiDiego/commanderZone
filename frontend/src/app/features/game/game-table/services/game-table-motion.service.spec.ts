@@ -12,19 +12,7 @@ describe('GameTableMotionService', () => {
   let gsapToSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
-    Object.defineProperty(window, 'matchMedia', {
-      writable: true,
-      value: vi.fn((query: string): MediaQueryList => ({
-        matches: false,
-        media: query,
-        onchange: null,
-        addListener: vi.fn(),
-        removeListener: vi.fn(),
-        addEventListener: vi.fn(),
-        removeEventListener: vi.fn(),
-        dispatchEvent: vi.fn(),
-      })),
-    });
+    stubMatchMedia(() => false);
 
     flipFromSpy = vi.spyOn(Flip, 'from').mockImplementation((_state, vars) => {
       vars?.onComplete?.();
@@ -129,6 +117,34 @@ describe('GameTableMotionService', () => {
     expect(gsapFromToSpy.mock.calls[0]?.[0]).not.toBe(handArea);
   });
 
+  it('skips ghost throws below 1200px viewport height', () => {
+    reinitWithMatchMedia((query) => query === '(max-height: 1199px)');
+    const source = addHandCard(host, 'card-1', { left: 10, top: 20, width: 72, height: 100 });
+    const target = addMotionTarget(host, { left: 300, top: 240, width: 72, height: 100 });
+    const onComplete = vi.fn();
+
+    service.throwElementGhost(source, target, { onComplete });
+
+    expect(onComplete).toHaveBeenCalledOnce();
+    expect(gsapToSpy).not.toHaveBeenCalled();
+    expect(document.body.querySelector('.cz-motion-ghost')).toBeNull();
+  });
+
+  it('keeps hand interactions unlocked by skipping hand handoff motion below 1200px viewport height', () => {
+    reinitWithMatchMedia((query) => query === '(max-height: 1199px)');
+    addHandCard(host, 'card-before', { left: 10, top: 20, width: 72, height: 100 });
+
+    const playHandoff = service.prepareHandDropHandoff();
+
+    expect(service.handMotionActive()).toBe(false);
+
+    addHandCard(host, 'card-after', { left: 100, top: 20, width: 72, height: 100 });
+    playHandoff();
+
+    expect(gsapFromToSpy).not.toHaveBeenCalled();
+    expect(service.handMotionActive()).toBe(false);
+  });
+
   it('uses layered GSAP pulses when creating a land stack', () => {
     const bottom = addBattlefieldStackCard(host, 'land-bottom', 'land-stack-under');
     const top = addBattlefieldStackCard(host, 'land-top', 'land-stack-top');
@@ -197,7 +213,28 @@ describe('GameTableMotionService', () => {
     expect(bottom.classList).not.toContain('cz-card-rotation-muted');
   });
 
+  function reinitWithMatchMedia(matches: (query: string) => boolean): void {
+    service.destroy();
+    stubMatchMedia(matches);
+    service.init(new ElementRef(host));
+  }
 });
+
+function stubMatchMedia(matches: (query: string) => boolean): void {
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    value: vi.fn((query: string): MediaQueryList => ({
+      matches: matches(query),
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })),
+  });
+}
 
 function addHandCard(
   host: HTMLElement,
@@ -238,4 +275,25 @@ function addBattlefieldStackCard(
   card.classList.add('land-stack-card', roleClass);
 
   return card;
+}
+
+function addMotionTarget(
+  host: HTMLElement,
+  rect: { left: number; top: number; width: number; height: number },
+): HTMLElement {
+  const target = document.createElement('div');
+  target.getBoundingClientRect = (): DOMRect => ({
+    x: rect.left,
+    y: rect.top,
+    width: rect.width,
+    height: rect.height,
+    top: rect.top,
+    right: rect.left + rect.width,
+    bottom: rect.top + rect.height,
+    left: rect.left,
+    toJSON: () => ({}),
+  } as DOMRect);
+  host.appendChild(target);
+
+  return target;
 }

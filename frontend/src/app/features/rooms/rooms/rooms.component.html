@@ -1,6 +1,10 @@
 <section class="page-stack">
   <div class="rooms-shell">
     <div class="rooms-main">
+      @if (routeToast()) {
+        <p class="notice error" role="status" aria-live="polite">{{ routeToast() }}</p>
+      }
+
       @if (error()) {
         <p class="notice error">{{ error() }}</p>
       }

@@ -35,10 +35,15 @@
   color: var(--game-text, #f3f0e8);
   cursor: pointer;
   pointer-events: auto;
+  -webkit-touch-callout: none;
 }
 
 .zone-stack.draggable-zone {
   cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-user-drag: none;
   transition:
     transform 160ms cubic-bezier(0.16, 1, 0.3, 1),
     filter 160ms cubic-bezier(0.16, 1, 0.3, 1),
@@ -188,7 +193,43 @@
   object-fit: cover;
   pointer-events: none;
   user-select: none;
+  -webkit-user-drag: none;
   transition: opacity 120ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.zone-floating-card {
+  position: fixed;
+  z-index: 4300;
+  display: grid;
+  overflow: hidden;
+  place-items: center;
+  border: 1px solid rgb(255 255 255 / 14%);
+  border-radius: 7px;
+  background: var(--game-surface, #181b16);
+  box-shadow:
+    0 1.25rem 2.6rem rgb(0 0 0 / 48%),
+    0 0 0 1px rgb(215 180 106 / 16%);
+  color: var(--game-text, #f3f0e8);
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1.1;
+  pointer-events: none;
+  text-align: center;
+  transform: translateZ(0);
+  user-select: none;
+}
+
+.zone-floating-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.zone-floating-card span {
+  padding: 0.4rem;
 }
 
 .zone-stack.dragging-zone-card .zone-card-image,
@@ -342,6 +383,15 @@
 }
 
 @media (max-width: 1180px) and (min-width: 761px) {
+  .zone-dock {
+    position: relative;
+    z-index: 330;
+    justify-self: end;
+    width: var(--game-zone-dock-width, min(31rem, calc(100vw - 1rem)));
+    height: var(--game-zone-row-height, 10.6rem);
+    overflow: hidden;
+  }
+
   .zone-stack {
     min-width: 0;
     min-height: 0;
@@ -354,6 +404,17 @@
 }
 
 @media (max-width: 760px) {
+  .zone-dock {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-rows: minmax(0, 1fr);
+    align-self: end;
+    justify-self: stretch;
+    width: 100%;
+    height: var(--game-zone-row-height, 6rem);
+    margin-bottom: 0;
+    background: rgb(4 5 4 / 74%);
+  }
+
   .zone-stack {
     min-width: 0;
     min-height: 0;
@@ -381,5 +442,128 @@
     min-width: 1.1rem;
     height: 1.1rem;
     font-size: 0.64rem;
+  }
+}
+
+@media (max-width: 430px), (max-height: 700px) and (max-width: 900px) {
+  .zone-stack {
+    padding: 0.18rem;
+  }
+
+  [data-testid='zone-pile'] {
+    gap: 0.08rem;
+  }
+
+  .zone-pile-label {
+    min-height: 0.9rem;
+    font-size: 0.52rem;
+  }
+
+  .zone-art {
+    width: min(2.15rem, 68%);
+  }
+
+  .zone-count-badge,
+  .commander-cast-count {
+    min-width: 1rem;
+    height: 1rem;
+    font-size: 0.58rem;
+  }
+}
+
+@media (max-height: 1199px) {
+  .zone-dock {
+    height: var(--game-zone-row-height, 5.45rem);
+    overflow: hidden;
+  }
+
+  .zone-count-badge,
+  .commander-cast-count {
+    top: -0.24rem;
+    right: -0.24rem;
+    bottom: auto;
+  }
+
+  .zone-art.card-stack .zone-count-badge {
+    top: -0.24rem;
+    right: -0.24rem;
+    bottom: auto;
+  }
+}
+
+@media (max-height: 767px) {
+  .zone-dock {
+    height: var(--game-zone-row-height, 5.45rem);
+    overflow: hidden;
+  }
+
+  .zone-stack {
+    padding: 0.16rem;
+  }
+
+  [data-testid='zone-pile'] {
+    gap: 0.04rem;
+  }
+
+  .zone-pile-label {
+    min-height: 0.78rem;
+    font-size: 0.5rem;
+  }
+
+  .zone-pile-logo {
+    height: 0.72rem;
+  }
+
+  .zone-art {
+    width: min(3rem, 72%);
+  }
+
+  .zone-count-badge,
+  .commander-cast-count {
+    top: -0.24rem;
+    right: -0.24rem;
+    bottom: auto;
+    min-width: 1.05rem;
+    height: 1.05rem;
+    font-size: 0.58rem;
+  }
+
+  .zone-art.card-stack .zone-count-badge {
+    top: -0.24rem;
+    right: -0.24rem;
+    bottom: auto;
+  }
+}
+
+@media (max-height: 767px) and (max-width: 760px) {
+  .zone-stack {
+    padding: 0.1rem;
+  }
+
+  .zone-pile-label {
+    min-height: 0.62rem;
+    font-size: 0.42rem;
+  }
+
+  .zone-pile-logo {
+    height: 0.56rem;
+  }
+
+  .zone-art {
+    width: min(1.58rem, 58%);
+  }
+
+  .zone-count-badge,
+  .commander-cast-count {
+    top: -0.22rem;
+    right: -0.22rem;
+    min-width: 0.9rem;
+    height: 0.9rem;
+    font-size: 0.5rem;
+  }
+
+  .zone-art.card-stack .zone-count-badge {
+    top: -0.22rem;
+    right: -0.22rem;
   }
 }

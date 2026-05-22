@@ -13,6 +13,9 @@
   [class.drop-target-active]="isDropZoneHighlighted()(focusedPlayer.id, 'battlefield')"
   [class.arrow-targeting]="allowArrowTargetSelection()"
   [class.board-transitioning]="boardTransitioning()"
+  appGameTableLongPress
+  [appGameTableLongPressSelfOnly]="true"
+  (appGameTableLongPressed)="battlefieldMenuOpened.emit({ event: $event, playerId: focusedPlayer.id, zone: 'battlefield' })"
   (pointerdown)="suppressExcessivePrimaryClick($event)"
   (dragstart)="preventUnexpectedNativeDragStart($event)"
   (dragover)="battlefieldDragOver.emit($event)"
