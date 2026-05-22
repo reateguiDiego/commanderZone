@@ -100,13 +100,17 @@ export class ContextMenuComponent {
   readonly expandedSubmenu = signal<ContextSubmenu | null>(null);
   readonly counterMenuItems = computed<readonly ContextSubmenuItem[]>(() => this.buildCounterMenuItems());
   readonly giveToPlayerMenuItems = computed<readonly ContextSubmenuItem[]>(() =>
-    this.sortedItems(this.giveToPlayerTargets().map((player) => ({ value: player.id, label: this.playerLabel(player) }))),
+    this.sortedItems(this.giveToPlayerTargets().map((player) => ({
+      value: player.id,
+      label: this.playerLabel(player),
+      icon: 'gift',
+    }))),
   );
   readonly moveToMenuItems = computed<readonly ContextSubmenuItem[]>(() => this.buildMoveToMenuItems());
   readonly moveAllToMenuItems = computed<readonly ContextSubmenuItem[]>(() => this.buildMoveAllToMenuItems());
   readonly revealToMenuItems = computed<readonly ContextSubmenuItem[]>(() => [
-    { value: 'all', label: 'Todos' },
-    ...this.sortedItems(this.players().map((player) => ({ value: player.id, label: this.playerLabel(player) }))),
+    { value: 'all', label: 'Todos', icon: 'users' },
+    ...this.sortedItems(this.players().map((player) => ({ value: player.id, label: this.playerLabel(player), icon: 'users' }))),
   ]);
   readonly libraryMoveTopMenuItems = computed<readonly ContextSubmenuItem[]>(() => this.buildLibraryMoveTopMenuItems());
   readonly libraryRevealTopMenuItems = computed<readonly ContextSubmenuItem[]>(() => this.buildVisibilityTargetMenuItems());
@@ -114,11 +118,12 @@ export class ContextMenuComponent {
     this.sortedItems(this.giveToPlayerTargets().map((player) => ({
       value: player.id,
       label: this.playerLabel(player),
+      icon: 'users',
     }))),
   );
   readonly libraryViewMenuItems = computed<readonly ContextSubmenuItem[]>(() => [
-    { value: 'all', label: 'View all library' },
-    { value: 'top', label: 'View X top cards' },
+    { value: 'all', label: 'View all library', icon: 'library' },
+    { value: 'top', label: 'View X top cards', icon: 'layers-3' },
   ]);
 
   isArrowMenu(): boolean {
@@ -392,28 +397,35 @@ export class ContextMenuComponent {
 
     const oppositeZone: GameZoneName = currentZone === 'graveyard' ? 'exile' : 'graveyard';
     return [
-      { value: `zone:${oppositeZone}`, label: this.zoneTitle()(oppositeZone) },
-      { value: 'zone:library', label: this.zoneTitle()('library') },
+      { value: `zone:${oppositeZone}`, label: this.zoneTitle()(oppositeZone), icon: this.zoneIcon(oppositeZone) },
+      { value: 'zone:library', label: this.zoneTitle()('library'), icon: this.zoneIcon('library') },
       {
         value: 'battlefield',
         label: this.zoneTitle()('battlefield'),
+        icon: this.zoneIcon('battlefield'),
         children: this.sortedItems(this.players().map((player) => ({
           value: `battlefield:${player.id}`,
           label: this.playerLabel(player),
+          icon: 'users',
         }))),
       },
     ];
   }
 
   private buildMoveToMenuItems(): readonly ContextSubmenuItem[] {
-    const items = this.sortedItems(this.activeCardMoveTargets().map((zone) => ({ value: zone, label: this.zoneTitle()(zone) })));
+    const items = this.sortedItems(this.activeCardMoveTargets().map((zone) => ({
+      value: zone,
+      label: this.zoneTitle()(zone),
+      icon: this.zoneIcon(zone),
+      imageOnly: zone === 'command',
+    })));
     if (!this.isLibraryCardMenu()) {
       return items;
     }
 
     return [
       ...items,
-      { value: 'library:bottom', label: 'Bottom Library' },
+      { value: 'library:bottom', label: 'Bottom Library', icon: 'library' },
     ];
   }
 
@@ -424,28 +436,30 @@ export class ContextMenuComponent {
     })));
 
     return [
-      { value: 'zone:library', label: 'X to bottom library' },
-      { value: 'zone:graveyard', label: 'X to graveyard' },
-      { value: 'zone:exile', label: 'X to exile' },
+      { value: 'zone:library', label: 'X to bottom library', icon: this.zoneIcon('library') },
+      { value: 'zone:graveyard', label: 'X to graveyard', icon: this.zoneIcon('graveyard') },
+      { value: 'zone:exile', label: 'X to exile', icon: this.zoneIcon('exile') },
       {
         value: 'hand',
         label: 'X to hand player',
+        icon: this.zoneIcon('hand'),
         disabled: targetPlayers.length === 0,
-        children: targetPlayers.map((player) => ({ ...player, value: `hand:${player.value}` })),
+        children: targetPlayers.map((player) => ({ ...player, value: `hand:${player.value}`, icon: 'users' })),
       },
       {
         value: 'battlefield',
         label: 'X to battlefield player',
+        icon: this.zoneIcon('battlefield'),
         disabled: targetPlayers.length === 0,
-        children: targetPlayers.map((player) => ({ ...player, value: `battlefield:${player.value}` })),
+        children: targetPlayers.map((player) => ({ ...player, value: `battlefield:${player.value}`, icon: 'users' })),
       },
     ];
   }
 
   private buildVisibilityTargetMenuItems(): readonly ContextSubmenuItem[] {
     return [
-      { value: 'all', label: 'Todos' },
-      ...this.sortedItems(this.players().map((player) => ({ value: player.id, label: this.playerLabel(player) }))),
+      { value: 'all', label: 'Todos', icon: 'users' },
+      ...this.sortedItems(this.players().map((player) => ({ value: player.id, label: this.playerLabel(player), icon: 'users' }))),
     ];
   }
 
@@ -495,6 +509,23 @@ export class ContextMenuComponent {
       || value === 'graveyard'
       || value === 'exile'
       || value === 'command';
+  }
+
+  private zoneIcon(zone: GameZoneName): string {
+    switch (zone) {
+      case 'library':
+        return 'library';
+      case 'hand':
+        return '/assets/icons/CM/CM_cards_icon.png';
+      case 'battlefield':
+        return 'swords';
+      case 'graveyard':
+        return '/assets/icons/gameplay/graveyard-gold.svg';
+      case 'exile':
+        return 'ban';
+      case 'command':
+        return '/assets/icons/CM/CM_logo_zone_header.png';
+    }
   }
 
   stopClick(event: MouseEvent): void {

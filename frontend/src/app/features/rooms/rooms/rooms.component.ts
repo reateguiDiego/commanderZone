@@ -34,11 +34,13 @@ export class RoomsComponent implements OnInit, OnDestroy {
   private readonly router = inject(Router);
   private readonly pageHeader = inject(PageHeaderStore);
   private roomSyncHandle?: number;
+  private routeToastHandle?: number;
   private roomSyncInFlight = false;
   private inviteRealtimeSubscription?: Subscription;
   readonly rooms = signal<Room[]>([]);
   readonly formats = signal<DeckFormat[]>([]);
   readonly incomingInvites = signal<RoomInvite[]>([]);
+  readonly routeToast = signal<string | null>(null);
   readonly currentRoom = signal<CurrentRoomSummary | null>(null);
   readonly currentRoomPlayer = signal<CurrentRoomPlayerSummary | null>(null);
   readonly currentRoomTurn = signal<CurrentRoomTurn | null>(null);
@@ -61,6 +63,7 @@ export class RoomsComponent implements OnInit, OnDestroy {
   roomId = '';
 
   constructor() {
+    this.showRouteToastFromNavigation();
     void this.loadRoomState(true).finally(() => this.scheduleRoomSync());
     void this.loadFormats(true);
     this.subscribeToInviteRealtime();
@@ -73,6 +76,9 @@ export class RoomsComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     if (this.roomSyncHandle !== undefined) {
       window.clearTimeout(this.roomSyncHandle);
+    }
+    if (this.routeToastHandle !== undefined) {
+      window.clearTimeout(this.routeToastHandle);
     }
     this.inviteRealtimeSubscription?.unsubscribe();
     this.pageHeader.clear();
@@ -414,6 +420,22 @@ export class RoomsComponent implements OnInit, OnDestroy {
     this.roomSyncHandle = window.setTimeout(() => {
       void this.syncRoomState();
     }, interval);
+  }
+
+  private showRouteToastFromNavigation(): void {
+    const state = this.router.getCurrentNavigation()?.extras.state ?? (typeof history === 'undefined' ? null : history.state);
+    const toast = typeof state?.['toast'] === 'string' ? state['toast'].trim() : '';
+    if (!toast) {
+      return;
+    }
+
+    this.routeToast.set(toast);
+    this.routeToastHandle = window.setTimeout(() => {
+      if (this.routeToast() === toast) {
+        this.routeToast.set(null);
+      }
+      this.routeToastHandle = undefined;
+    }, 3000);
   }
 
   private syncCurrentRoom(rooms: Room[]): void {

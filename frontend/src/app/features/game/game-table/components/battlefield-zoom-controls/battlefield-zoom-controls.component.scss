@@ -1,0 +1,171 @@
+:host {
+  display: block;
+}
+
+.battlefield-zoom-controls {
+  position: relative;
+  display: inline-block;
+  width: 1.7rem;
+  height: 1.7rem;
+}
+
+.zoom-toggle-button {
+  display: inline-grid;
+  width: 1.7rem;
+  height: 1.7rem;
+  place-items: center;
+  border: 1px solid rgb(215 180 106 / 10%);
+  border-radius: 6px;
+  background: rgb(7 8 7 / 14%);
+  color: rgb(243 240 232 / 34%);
+  cursor: pointer;
+  box-shadow: none;
+  backdrop-filter: blur(6px);
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease,
+    box-shadow 140ms ease,
+    color 140ms ease;
+}
+
+.zoom-toggle-button:hover,
+.zoom-toggle-button:focus-visible,
+.zoom-toggle-button[aria-expanded='true'] {
+  border-color: var(--game-accent, #d7b46a);
+  background: rgb(7 8 7 / 82%);
+  color: var(--game-text, #f3f0e8);
+  box-shadow: 0 0.7rem 1.35rem rgb(0 0 0 / 30%);
+}
+
+.zoom-popover {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 20;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42rem;
+  min-height: 2rem;
+  border: 1px solid var(--game-line-soft, rgb(61 69 53 / 46%));
+  border-radius: 8px;
+  padding: 0.2rem 0.25rem 0.2rem 0.55rem;
+  background: rgb(7 8 7 / 82%);
+  box-shadow: 0 0.7rem 1.35rem rgb(0 0 0 / 30%);
+  color: var(--game-text, #f3f0e8);
+  backdrop-filter: blur(10px);
+}
+
+.zoom-slider-shell {
+  --zoom-thumb-size: 0.88rem;
+
+  position: relative;
+  display: inline-block;
+  width: clamp(5.8rem, 9vw, 7.6rem);
+  height: 1.25rem;
+  cursor: pointer;
+}
+
+.zoom-track {
+  position: absolute;
+  top: 50%;
+  right: calc(var(--zoom-thumb-size) / 2);
+  left: calc(var(--zoom-thumb-size) / 2);
+  height: 0.32rem;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 18%);
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
+.zoom-default-mark {
+  position: absolute;
+  top: 50%;
+  left: var(--zoom-default-position, 50%);
+  width: 0.16rem;
+  height: 0.78rem;
+  border-radius: 999px;
+  background: rgb(255 238 184 / 88%);
+  box-shadow:
+    0 0 0.42rem rgb(215 180 106 / 48%),
+    0 0 0 1px rgb(7 8 7 / 42%);
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+}
+
+.zoom-thumb {
+  position: absolute;
+  top: 50%;
+  left: var(--zoom-current-position, 50%);
+  display: inline-grid;
+  width: var(--zoom-thumb-size);
+  height: var(--zoom-thumb-size);
+  place-items: center;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #f3e6c2;
+  font-size: 0.94rem;
+  line-height: 1;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+}
+
+.zoom-thumb .ms {
+  position: relative;
+  inset-block-start: -0.04rem;
+  inset-inline-start: -0.035rem;
+  filter:
+    drop-shadow(0 0 0.35rem rgb(215 180 106 / 42%))
+    drop-shadow(0 0.08rem 0.12rem rgb(0 0 0 / 45%));
+}
+
+.zoom-thumb .ms.ms-wp,
+.zoom-thumb .ms.ms-up,
+.zoom-thumb .ms.ms-bp,
+.zoom-thumb .ms.ms-rp,
+.zoom-thumb .ms.ms-gp {
+  inset-block-start: -0.055rem;
+  inset-inline-start: -0.05rem;
+}
+
+.zoom-slider {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  cursor: pointer;
+  opacity: 0;
+}
+
+.zoom-slider:focus-visible {
+  outline: none;
+}
+
+.zoom-slider-shell:has(.zoom-slider:focus-visible) {
+  outline: 2px solid var(--game-accent, #d7b46a);
+  outline-offset: 0.18rem;
+}
+
+.reset-button {
+  display: inline-grid;
+  width: 1.7rem;
+  height: 1.7rem;
+  place-items: center;
+  border: 1px solid var(--game-line-soft, rgb(61 69 53 / 52%));
+  border-radius: 6px;
+  background: rgb(255 255 255 / 6%);
+  color: var(--game-text-muted, #c8c0ae);
+  cursor: pointer;
+}
+
+.reset-button:hover:not(:disabled),
+.reset-button:focus-visible {
+  border-color: var(--game-accent, #d7b46a);
+  color: var(--game-text, #f3f0e8);
+}
+
+.reset-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.38;
+}

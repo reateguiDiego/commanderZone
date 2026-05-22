@@ -36,6 +36,27 @@ describe('GameTableUiState', () => {
     expect(state.activeHoveredSelection()).toBeNull();
   });
 
+  it('keeps a pinned preview open when hover leave events arrive', () => {
+    const state = new GameTableUiState();
+    const card = gameCard();
+
+    state.showPinnedCardPreview(card, () => false, 'player-1', 'battlefield');
+    state.hideCardPreview();
+
+    expect(state.hoveredCard()).toBe(card);
+    expect(state.activeHoveredSelection()).toEqual({ playerId: 'player-1', zone: 'battlefield', card });
+  });
+
+  it('clears a pinned preview explicitly', () => {
+    const state = new GameTableUiState();
+
+    state.showPinnedCardPreview(gameCard(), () => false, 'player-1', 'battlefield');
+    state.clearCardPreview();
+
+    expect(state.hoveredCard()).toBeNull();
+    expect(state.activeHoveredSelection()).toBeNull();
+  });
+
   it('anchors lower-screen context menus upward near the pointer', () => {
     setViewport(1024, 700);
     const state = new GameTableUiState();
@@ -60,6 +81,26 @@ describe('GameTableUiState', () => {
       y: 124,
       verticalOrigin: 'top',
     }));
+  });
+
+  it('closes a card context menu when that same card starts dragging', () => {
+    const state = new GameTableUiState();
+    const card = gameCard();
+
+    state.openContextMenu(pointerEvent(240, 120), { playerId: 'player-1', zone: 'battlefield', kind: 'card', card });
+    state.closeContextMenuForCardDrag(card.instanceId);
+
+    expect(state.contextMenu()).toBeNull();
+  });
+
+  it('keeps another card context menu open when a different card starts dragging', () => {
+    const state = new GameTableUiState();
+    const card = gameCard();
+
+    state.openContextMenu(pointerEvent(240, 120), { playerId: 'player-1', zone: 'battlefield', kind: 'card', card });
+    state.closeContextMenuForCardDrag('other-card');
+
+    expect(state.contextMenu()).toEqual(expect.objectContaining({ card }));
   });
 });
 

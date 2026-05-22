@@ -11,6 +11,9 @@
         [attr.aria-label]="card.name"
         [attr.data-card-instance-id]="card.instanceId"
         [attr.draggable]="allowReorder() ? 'true' : null"
+        appGameTableLongPress
+        [appGameTableLongPressDisabled]="!allowContextMenu()"
+        (appGameTableLongPressed)="openCardMenu($event, card)"
         (click)="selectCard(card)"
         (dblclick)="doubleClickCard($event, card)"
         (contextmenu)="openCardMenu($event, card)"

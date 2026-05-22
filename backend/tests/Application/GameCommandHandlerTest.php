@@ -1830,6 +1830,8 @@ class GameCommandHandlerTest extends TestCase
             static fn (array $card): string => $card['instanceId'],
             $game->snapshot()['players'][$actor->id()]['zones']['library'],
         ));
+        self::assertSame('Moved a card from graveyard to top of library.', $game->snapshot()['eventLog'][0]['message']);
+        self::assertSame('Moved a card from graveyard to bottom of library.', $game->snapshot()['eventLog'][1]['message']);
     }
 
     public function testViewedLibraryCardCanMoveToBottomOfSameLibrary(): void
@@ -1878,7 +1880,7 @@ class GameCommandHandlerTest extends TestCase
 
         $log = $game->snapshot()['eventLog'][0] ?? null;
         self::assertIsArray($log);
-        self::assertSame('Moved a card from battlefield to library.', $log['message']);
+        self::assertSame('Moved a card from battlefield to top of library.', $log['message']);
         self::assertStringNotContainsString('Private Return', $log['message']);
         self::assertArrayNotHasKey('cardNames', $log);
     }
@@ -1914,7 +1916,7 @@ class GameCommandHandlerTest extends TestCase
         self::assertEqualsCanonicalizing(['return-1', 'return-2', 'return-3'], array_slice($libraryIds, 0, 3));
         self::assertSame(['library-top', 'library-bottom'], array_slice($libraryIds, 3));
         self::assertSame(
-            'Moved 3 cards from graveyard to library in random order.',
+            'Moved 3 cards from graveyard to top of library in random order.',
             $game->snapshot()['eventLog'][0]['message'] ?? null,
         );
         self::assertArrayNotHasKey('cardNames', $game->snapshot()['eventLog'][0]);

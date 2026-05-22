@@ -64,4 +64,44 @@ describe('auth guards', () => {
 
     expect(result).toBe(true);
   });
+
+  it('redirects authenticated root visits to dashboard when no redirect is provided', async () => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideHttpClient(),
+        provideRouter([]),
+        {
+          provide: AuthStore,
+          useValue: {
+            initialize: vi.fn().mockResolvedValue(undefined),
+            isAuthenticated: () => true,
+          },
+        },
+      ],
+    });
+
+    const result = await TestBed.runInInjectionContext(() => guestGuard({ queryParamMap: convertToParamMap({}) } as never, {} as never));
+
+    expect(result).toEqual(TestBed.inject(Router).parseUrl('/dashboard'));
+  });
+
+  it('allows anonymous guests to access public pages', async () => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideHttpClient(),
+        provideRouter([]),
+        {
+          provide: AuthStore,
+          useValue: {
+            initialize: vi.fn().mockResolvedValue(undefined),
+            isAuthenticated: () => false,
+          },
+        },
+      ],
+    });
+
+    const result = await TestBed.runInInjectionContext(() => guestGuard({ queryParamMap: convertToParamMap({}) } as never, {} as never));
+
+    expect(result).toBe(true);
+  });
 });

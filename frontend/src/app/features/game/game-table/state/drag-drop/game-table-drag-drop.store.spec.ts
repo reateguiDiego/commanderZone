@@ -21,6 +21,7 @@ describe('GameTableDragDropStore', () => {
   let pendingTransferState: GameTablePendingTransferState;
   let selectedCards: SelectedCard[];
   let dropOnZone: ReturnType<typeof vi.fn>;
+  let updateActiveDropTarget: ReturnType<typeof vi.fn>;
   let updateBattlefieldDragAid: ReturnType<typeof vi.fn>;
   let updatePointerDropTarget: ReturnType<typeof vi.fn>;
   let updateExternalBattlefieldAlignmentGuide: ReturnType<typeof vi.fn>;
@@ -29,19 +30,24 @@ describe('GameTableDragDropStore', () => {
     dragPayload: ReturnType<typeof vi.fn>;
     dropPosition: ReturnType<typeof vi.fn>;
     moveCardPointerDrag: ReturnType<typeof vi.fn>;
+    hasActivePointerDrag: ReturnType<typeof vi.fn>;
+    cancelCardPointerDrag: ReturnType<typeof vi.fn>;
     pointerDragPreview: ReturnType<typeof vi.fn>;
   };
 
   beforeEach(() => {
     dropOnZone = vi.fn().mockResolvedValue(undefined);
+    updateActiveDropTarget = vi.fn();
     updateBattlefieldDragAid = vi.fn();
     updatePointerDropTarget = vi.fn();
     updateExternalBattlefieldAlignmentGuide = vi.fn();
     dragService = {
-      allowDrop: vi.fn(),
+      allowDrop: vi.fn().mockReturnValue(true),
       dragPayload: vi.fn().mockReturnValue(null),
       dropPosition: vi.fn().mockReturnValue(null),
       moveCardPointerDrag: vi.fn(),
+      hasActivePointerDrag: vi.fn().mockReturnValue(false),
+      cancelCardPointerDrag: vi.fn(),
       pointerDragPreview: vi.fn(),
     };
 
@@ -54,7 +60,7 @@ describe('GameTableDragDropStore', () => {
         {
           provide: GameTableBattlefieldDragCoordinatorService,
           useValue: {
-            updateActiveDropTarget: vi.fn(),
+            updateActiveDropTarget,
             updateHandDropPreview: vi.fn(),
             updateBattlefieldDragAid,
             updatePointerDropTarget,
@@ -69,7 +75,8 @@ describe('GameTableDragDropStore', () => {
             dragPayload: dragService.dragPayload,
             dropPosition: dragService.dropPosition,
             moveCardPointerDrag: dragService.moveCardPointerDrag,
-            cancelCardPointerDrag: vi.fn(),
+            hasActivePointerDrag: dragService.hasActivePointerDrag,
+            cancelCardPointerDrag: dragService.cancelCardPointerDrag,
             pointerDragPreview: dragService.pointerDragPreview,
             startBattlefieldPointerDrag: vi.fn(),
           },
@@ -136,6 +143,25 @@ describe('GameTableDragDropStore', () => {
     expect(dragState.activeDropTarget()).toBeNull();
     expect(dragState.activePlayerDropTarget()).toBeNull();
     expect(dragState.alignmentGuide()).toBeNull();
+  });
+
+  it('prioritizes hand drop target over mana row when both overlap', () => {
+    dragState.setManaLaneDropPlayer('player-1');
+    dragState.setLandStackDropPreview({ playerId: 'player-1', targetInstanceId: 'target', kind: 'land', nextSize: 2 });
+
+    store.updatePointerDropTarget(context(), {
+      kind: 'zone',
+      targetPlayerId: 'player-1',
+      toZone: 'hand',
+      rawZone: 'mana',
+      draggedInstanceId: 'card-1',
+      position: { x: 10, y: 20 },
+    });
+
+    expect(dragState.activeDropTarget()).toEqual({ playerId: 'player-1', zone: 'hand' });
+    expect(dragState.manaLaneDropPlayerId()).toBeNull();
+    expect(dragState.alignmentGuide()).toBeNull();
+    expect(dragState.landStackDropPreview()).toBeNull();
   });
 
   it('shows a relation preview instead of alignment for a hand card pointer-dragged over a battlefield target', () => {
@@ -354,6 +380,76 @@ describe('GameTableDragDropStore', () => {
     });
   });
 
+  it('shows the stack top as native land preview target when dragging over the under card of a two-card stack', () => {
+    vi.useFakeTimers();
+    const dragged = land('dragged', 0, 0);
+    const top = land('top', 100, 200);
+    const under = land('under', 100, 186);
+    const battlefield = document.createElement('div');
+    battlefield.dataset['gameDropZone'] = 'battlefield';
+    battlefield.dataset['playerId'] = 'player-1';
+    const ctx = context([playerView([top, under], [dragged])]);
+    dragService.dragPayload.mockReturnValue({
+      playerId: 'player-1',
+      zone: 'hand',
+      instanceId: 'dragged',
+      instanceIds: ['dragged'],
+    });
+    dragService.dropPosition.mockReturnValue({ x: 100, y: 200 });
+    store.beginCardDrag(ctx, 'dragged');
+
+    const underCardElement = document.createElement('button');
+    underCardElement.setAttribute('data-testid', 'game-card');
+    underCardElement.setAttribute('data-zone', 'battlefield');
+    underCardElement.setAttribute('data-card-instance-id', 'under');
+    underCardElement.setAttribute('data-owner-player-id', 'player-1');
+    underCardElement.classList.add('land-stack-under');
+    underCardElement.getBoundingClientRect = () => ({
+      x: 200,
+      y: 200,
+      left: 200,
+      top: 200,
+      right: 260,
+      bottom: 260,
+      width: 60,
+      height: 60,
+      toJSON: () => ({}),
+    }) as DOMRect;
+    document.body.appendChild(underCardElement);
+
+    store.allowDrop(ctx, { currentTarget: battlefield, clientX: 220, clientY: 220 } as unknown as DragEvent);
+    vi.advanceTimersByTime(LAND_STACK_DROP_PREVIEW_DELAY_MS);
+
+    expect(dragState.landStackDropPreview()).toEqual({
+      playerId: 'player-1',
+      targetInstanceId: 'top',
+      kind: 'land',
+      nextSize: 3,
+    });
+    underCardElement.remove();
+  });
+
+  it('suppresses mana row relation previews while the active pointer target is hand', () => {
+    vi.useFakeTimers();
+    const dragged = land('dragged', 100, 200);
+    const target = land('target', 100, 200);
+    const ctx = context([playerView([dragged, target])]);
+    dragService.moveCardPointerDrag.mockReturnValue('dragged');
+    dragService.pointerDragPreview.mockReturnValue({ x: 100, y: 200, width: 103, height: 144 });
+    updatePointerDropTarget.mockImplementation(() => {
+      dragState.setActiveDropTarget({ playerId: 'player-1', zone: 'hand' });
+    });
+
+    store.moveCardPointerDrag(ctx, {} as PointerEvent);
+    vi.advanceTimersByTime(LAND_STACK_DROP_PREVIEW_DELAY_MS);
+
+    expect(updatePointerDropTarget).toHaveBeenCalled();
+    expect(updateBattlefieldDragAid).not.toHaveBeenCalled();
+    expect(dragState.manaLaneDropPlayerId()).toBeNull();
+    expect(dragState.alignmentGuide()).toBeNull();
+    expect(dragState.landStackDropPreview()).toBeNull();
+  });
+
   it('debounces attachment drop preview while hovering a valid permanent target', () => {
     vi.useFakeTimers();
     const dragged = permanent('dragged', 100, 200);
@@ -436,6 +532,7 @@ describe('GameTableDragDropStore', () => {
       instanceIds: ['dragged'],
     });
     dragService.dropPosition.mockReturnValue({ x: 100, y: 200 });
+    store.beginCardDrag(ctx, 'dragged');
 
     store.allowDrop(ctx, { currentTarget: battlefield } as unknown as DragEvent);
 
@@ -465,6 +562,7 @@ describe('GameTableDragDropStore', () => {
     });
     dragService.dropPosition.mockReturnValue({ x: 100, y: 200 });
     dragState.setAlignmentGuide({ playerId: 'player-1', y: 200, referenceInstanceIds: ['previous'] });
+    store.beginCardDrag(ctx, 'dragged');
 
     store.allowDrop(ctx, { currentTarget: battlefield } as unknown as DragEvent);
     vi.advanceTimersByTime(LAND_STACK_DROP_PREVIEW_DELAY_MS);
@@ -493,6 +591,7 @@ describe('GameTableDragDropStore', () => {
       instanceIds: ['dragged', 'other-dragged'],
     });
     dragService.dropPosition.mockReturnValue({ x: 100, y: 200 });
+    store.beginCardDrag(ctx, 'dragged');
 
     store.allowDrop(ctx, { currentTarget: battlefield } as unknown as DragEvent);
     vi.advanceTimersByTime(LAND_STACK_DROP_PREVIEW_DELAY_MS);
@@ -514,6 +613,160 @@ describe('GameTableDragDropStore', () => {
     vi.advanceTimersByTime(LAND_STACK_DROP_PREVIEW_DELAY_MS);
 
     expect(dragState.landStackDropPreview()).toBeNull();
+  });
+
+  it('shows the stack top as land preview target when the pointer is hovering the second card of a two-card stack', () => {
+    vi.useFakeTimers();
+    const dragged = land('dragged', 340, 200);
+    const top = land('top', 100, 200);
+    const under = land('under', 100, 186);
+    const ctx = context([playerView([dragged, top, under])]);
+    dragService.moveCardPointerDrag.mockReturnValue('dragged');
+    dragService.pointerDragPreview.mockReturnValue({ x: 100, y: 200, width: 103, height: 144 });
+
+    const underCardElement = document.createElement('button');
+    underCardElement.setAttribute('data-testid', 'game-card');
+    underCardElement.setAttribute('data-zone', 'battlefield');
+    underCardElement.setAttribute('data-card-instance-id', 'under');
+    underCardElement.setAttribute('data-owner-player-id', 'player-1');
+    underCardElement.classList.add('land-stack-under');
+    underCardElement.getBoundingClientRect = () => ({
+      x: 200,
+      y: 200,
+      left: 200,
+      top: 200,
+      right: 260,
+      bottom: 260,
+      width: 60,
+      height: 60,
+      toJSON: () => ({}),
+    }) as DOMRect;
+    document.body.appendChild(underCardElement);
+
+    dragged.position = { x: 100, y: 200 };
+    store.moveCardPointerDrag(ctx, { clientX: 220, clientY: 220 } as PointerEvent);
+    vi.advanceTimersByTime(LAND_STACK_DROP_PREVIEW_DELAY_MS);
+
+    expect(dragState.landStackDropPreview()).toEqual({
+      playerId: 'player-1',
+      targetInstanceId: 'top',
+      kind: 'land',
+      nextSize: 3,
+    });
+    expect(updateBattlefieldDragAid).not.toHaveBeenCalled();
+    underCardElement.remove();
+  });
+
+  it('shows the stack top as external land preview target when the pointer is hovering the second card of a two-card stack', () => {
+    vi.useFakeTimers();
+    const dragged = land('dragged', 0, 0);
+    const top = land('top', 100, 200);
+    const under = land('under', 100, 186);
+    const ctx = context([playerView([top, under], [dragged])]);
+
+    const underCardElement = document.createElement('button');
+    underCardElement.setAttribute('data-testid', 'game-card');
+    underCardElement.setAttribute('data-zone', 'battlefield');
+    underCardElement.setAttribute('data-card-instance-id', 'under');
+    underCardElement.setAttribute('data-owner-player-id', 'player-1');
+    underCardElement.classList.add('land-stack-under');
+    underCardElement.getBoundingClientRect = () => ({
+      x: 200,
+      y: 200,
+      left: 200,
+      top: 200,
+      right: 260,
+      bottom: 260,
+      width: 60,
+      height: 60,
+      toJSON: () => ({}),
+    }) as DOMRect;
+    document.body.appendChild(underCardElement);
+
+    store.updatePointerDropTarget(ctx, {
+      kind: 'zone',
+      targetPlayerId: 'player-1',
+      toZone: 'battlefield',
+      rawZone: 'mana',
+      draggedInstanceId: 'dragged',
+      position: { x: 100, y: 200 },
+      pointerClient: { x: 220, y: 220 },
+    });
+    vi.advanceTimersByTime(LAND_STACK_DROP_PREVIEW_DELAY_MS);
+
+    expect(dragState.landStackDropPreview()).toEqual({
+      playerId: 'player-1',
+      targetInstanceId: 'top',
+      kind: 'land',
+      nextSize: 3,
+    });
+    expect(dragState.manaLaneDropPlayerId()).toBeNull();
+    underCardElement.remove();
+  });
+
+  it('shows the stack top as external land preview target when under overlap dominates even without pointer coordinates', () => {
+    vi.useFakeTimers();
+    const dragged = land('dragged', 0, 0);
+    const top = land('top', 100, 200);
+    const under = land('under', 100, 186);
+    const ctx = context([playerView([top, under], [dragged])]);
+
+    store.updatePointerDropTarget(ctx, {
+      kind: 'zone',
+      targetPlayerId: 'player-1',
+      toZone: 'battlefield',
+      rawZone: 'mana',
+      draggedInstanceId: 'dragged',
+      position: { x: 100, y: 186 },
+    });
+    vi.advanceTimersByTime(LAND_STACK_DROP_PREVIEW_DELAY_MS);
+
+    expect(dragState.landStackDropPreview()).toEqual({
+      playerId: 'player-1',
+      targetInstanceId: 'top',
+      kind: 'land',
+      nextSize: 3,
+    });
+  });
+
+  it('clears drop targets when the native drag payload is invalid', () => {
+    const battlefield = document.createElement('div');
+    battlefield.dataset['gameDropZone'] = 'battlefield';
+    battlefield.dataset['playerId'] = 'player-1';
+    dragService.allowDrop.mockReturnValue(false);
+    dragState.setActiveDropTarget({ playerId: 'player-1', zone: 'battlefield' });
+    dragState.setActivePlayerDropTarget('player-2');
+    dragState.setManaLaneDropPlayer('player-1');
+    dragState.setAlignmentGuide({ playerId: 'player-1', y: 240, referenceInstanceIds: ['card-1'] });
+    dragState.setLandStackDropPreview({ playerId: 'player-1', targetInstanceId: 'card-2', kind: 'land' });
+
+    store.allowDrop(context(), { currentTarget: battlefield } as unknown as DragEvent);
+
+    expect(dragState.activeDropTarget()).toBeNull();
+    expect(dragState.activePlayerDropTarget()).toBeNull();
+    expect(dragState.manaLaneDropPlayerId()).toBeNull();
+    expect(dragState.alignmentGuide()).toBeNull();
+    expect(dragState.landStackDropPreview()).toBeNull();
+  });
+
+  it('keeps internal dragover flow alive when there is an active internal drag without native payload types', () => {
+    const battlefield = document.createElement('div');
+    battlefield.dataset['gameDropZone'] = 'battlefield';
+    battlefield.dataset['playerId'] = 'player-1';
+    const ctx = context();
+    dragService.allowDrop.mockReturnValue(false);
+    store.beginCardDrag(ctx, 'card-1');
+    const event = {
+      currentTarget: battlefield,
+      dataTransfer: { dropEffect: 'none' },
+      preventDefault: vi.fn(),
+    } as unknown as DragEvent;
+
+    store.allowDrop(ctx, event);
+
+    expect(event.preventDefault).toHaveBeenCalled();
+    expect(event.dataTransfer!.dropEffect).toBe('move');
+    expect(updateActiveDropTarget).toHaveBeenCalled();
   });
 
   it('does not show land stack drop preview for the original stack while detaching a card', () => {
@@ -584,6 +837,8 @@ describe('GameTableDragDropStore', () => {
       cardPosition: (card) => card.position ? { x: card.position.x, y: card.position.y } : null,
       updateLocalCardPosition: () => undefined,
       hideCardPreview: () => undefined,
+      clearCardPreview: () => undefined,
+      closeContextMenuForCardDrag: () => undefined,
       suppressCardPreview: () => undefined,
       clearHandDropPreview: () => undefined,
       setError: () => undefined,

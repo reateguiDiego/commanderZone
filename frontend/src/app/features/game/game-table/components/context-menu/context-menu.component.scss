@@ -28,6 +28,37 @@
   border-color: transparent;
   background: transparent;
   text-align: left;
+  border-radius: 7px;
+  transition:
+    background-color 120ms ease,
+    box-shadow 120ms ease,
+    color 120ms ease,
+    transform 120ms ease;
+}
+
+.context-menu button:hover:not(:disabled),
+.context-menu button:focus-visible:not(:disabled) {
+  background:
+    linear-gradient(135deg, rgb(215 180 106 / 16%), rgb(215 180 106 / 6%)),
+    rgb(255 255 255 / 2%);
+  box-shadow:
+    inset 0 0 0 1px rgb(215 180 106 / 34%),
+    0 0.45rem 1rem rgb(0 0 0 / 28%);
+  transform: translateY(-1px);
+}
+
+.context-menu button:active:not(:disabled) {
+  background:
+    linear-gradient(135deg, rgb(215 180 106 / 20%), rgb(215 180 106 / 10%)),
+    rgb(255 255 255 / 3%);
+  box-shadow:
+    inset 0 0 0 1px rgb(215 180 106 / 44%),
+    0 0.22rem 0.55rem rgb(0 0 0 / 24%);
+  transform: translateY(0);
+}
+
+.context-menu button:focus-visible {
+  outline: none;
 }
 
 .context-menu.side-left-menu > button {
@@ -42,9 +73,66 @@
   gap: 0.62rem;
 }
 
+.menu-item-label > span:last-child {
+  text-transform: lowercase;
+}
+
+.menu-item-label > span:last-child::first-letter {
+  text-transform: uppercase;
+}
+
 .menu-item-label lucide-icon {
   flex: 0 0 auto;
   color: var(--game-accent, #d7b46a);
+}
+
+.menu-item-label .menu-item-image-icon {
+  width: 1.06rem;
+  height: 1.06rem;
+  flex: 0 0 auto;
+  display: block;
+  object-fit: contain;
+}
+
+.menu-item-pt-icon {
+  display: inline-flex;
+  width: 1.06rem;
+  flex: 0 0 auto;
+  justify-content: center;
+  align-items: center;
+  color: var(--game-accent, #d7b46a);
+  font-size: 0.68rem;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0;
+  transform: none;
+}
+
+.menu-item-remove-stack-icon {
+  display: inline-flex;
+  width: 1.06rem;
+  height: 1.06rem;
+  flex: 0 0 auto;
+  position: relative;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+}
+
+.menu-item-remove-stack-icon lucide-icon {
+  color: var(--game-accent, #d7b46a);
+}
+
+.menu-item-remove-stack-icon::after {
+  content: '×';
+  position: absolute;
+  right: -0.26rem;
+  bottom: -0.2rem;
+  color: var(--game-accent, #d7b46a);
+  font-size: 0.84rem;
+  font-weight: 900;
+  line-height: 1;
+  text-shadow: 0 0 0.18rem rgb(0 0 0 / 72%);
 }
 
 .danger-menu-item {
@@ -53,4 +141,14 @@
 
 .danger-menu-item .menu-item-label lucide-icon {
   color: #fecaca;
+}
+
+.context-menu .danger-menu-item:hover:not(:disabled),
+.context-menu .danger-menu-item:focus-visible:not(:disabled) {
+  background:
+    linear-gradient(135deg, rgb(239 68 68 / 18%), rgb(239 68 68 / 8%)),
+    rgb(255 255 255 / 2%);
+  box-shadow:
+    inset 0 0 0 1px rgb(248 113 113 / 42%),
+    0 0.45rem 1rem rgb(0 0 0 / 28%);
 }

@@ -1,6 +1,42 @@
 import { importProvidersFrom } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { Ban, Dices, Link, LogOut, LucideAngularModule, Maximize2, Plus, RefreshCcw } from 'lucide-angular';
+import {
+  Ban,
+  BarChart3,
+  Biohazard,
+  Copy,
+  Dices,
+  Eye,
+  EyeOff,
+  Gift,
+  Ghost,
+  Layers3,
+  Library,
+  Link,
+  Link2Off,
+  LogOut,
+  LucideAngularModule,
+  Maximize2,
+  Minus,
+  Pencil,
+  Plus,
+  Radiation,
+  RefreshCcw,
+  RotateCcw,
+  RotateCw,
+  Search,
+  Send,
+  Skull,
+  Sparkles,
+  Swords,
+  Tickets,
+  Trash,
+  Trash2,
+  Unlink2,
+  Upload,
+  UserPlus,
+  Users,
+} from 'lucide-angular';
 import { GameCardInstance, GameZoneName } from '../../../../../core/models/game.model';
 import { GameContextMenu } from '../../state/core/game-table-ui.state';
 import { ContextMenuComponent } from './context-menu.component';
@@ -12,12 +48,39 @@ describe('ContextMenuComponent', () => {
       providers: [
         importProvidersFrom(LucideAngularModule.pick({
           Ban,
+          BarChart3,
+          Biohazard,
+          Copy,
           Dices,
+          Eye,
+          EyeOff,
+          Gift,
+          Ghost,
+          Layers3,
+          Library,
           Link,
+          Link2Off,
           LogOut,
           Maximize2,
+          Minus,
+          Pencil,
           Plus,
+          Radiation,
           RefreshCcw,
+          RotateCcw,
+          RotateCw,
+          Search,
+          Send,
+          Skull,
+          Sparkles,
+          Swords,
+          Tickets,
+          Trash,
+          Trash2,
+          Unlink2,
+          Upload,
+          UserPlus,
+          Users,
         })),
       ],
     }).compileComponents();
@@ -32,13 +95,17 @@ describe('ContextMenuComponent', () => {
       currentPlayer: player('user-1', 'User'),
     });
     const text = menuText(fixture);
+    const buttons = menuButtons(fixture);
 
     expect(buttonLabels(fixture)).toEqual([
-      'Concede',
-      'Focus My Board',
-      'Leave Table',
       'Refresh Snapshot',
+      'Focus My Board',
+      'Concede',
+      'Leave Table',
     ]);
+    expect(buttons[2]?.classList).toContain('danger-menu-item');
+    expect(buttons[3]?.classList).toContain('danger-menu-item');
+    expect((fixture.nativeElement as HTMLElement).querySelector('lucide-icon[name="skull"]')).not.toBeNull();
     expect((fixture.nativeElement as HTMLElement).querySelectorAll('lucide-icon')).toHaveLength(4);
     expect(text).not.toContain('Copy Game Id');
     expect(text).not.toContain('Draw 7 Mine');
@@ -56,10 +123,11 @@ describe('ContextMenuComponent', () => {
     });
 
     expect(buttonLabels(fixture)).toEqual([
+      'Refresh Snapshot',
       'Focus My Board',
       'Leave Table',
-      'Refresh Snapshot',
     ]);
+    expect(menuButtons(fixture)[2]?.classList).toContain('danger-menu-item');
   });
 
   it('hides player life actions when the current user cannot control that player', () => {
@@ -514,7 +582,9 @@ describe('ContextMenuComponent', () => {
 
     expect(commanderText).toContain('Untap');
     expect(commanderText).toContain('Turn Face Up');
-    expect(commanderText).toContain('Command');
+    const commanderMoveIcon = Array.from((tappedCommander.nativeElement as HTMLElement).querySelectorAll('img'))
+      .find((image) => image.getAttribute('src')?.includes('/assets/icons/CM/CM_logo_zone_header.png'));
+    expect(commanderMoveIcon).not.toBeUndefined();
 
     const regularCard = createContextMenuFixture({
       kind: 'card',
@@ -735,8 +805,12 @@ function menuText(fixture: ComponentFixture<ContextMenuComponent>): string {
 }
 
 function buttonLabels(fixture: ComponentFixture<ContextMenuComponent>): string[] {
-  return Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button'))
+  return menuButtons(fixture)
     .map((button) => (button.textContent ?? '').trim().replace(/\s+/g, ' '));
+}
+
+function menuButtons(fixture: ComponentFixture<ContextMenuComponent>): HTMLButtonElement[] {
+  return Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button'));
 }
 
 function card(instanceId: string): GameCardInstance {

@@ -122,10 +122,138 @@ describe('FocusedBattlefieldComponent', () => {
     expect(cardElement(fixture, 'land-under').style.left).toBe('110px');
     expect(cardElement(fixture, 'land-under').style.top).toBe('186px');
   });
+
+  it('moves an overflowing zoomed land stack up as a group', async () => {
+    const positions = new Map([
+      ['land-top', { x: 100, y: 220 }],
+      ['land-under', { x: 100, y: 206 }],
+    ]);
+    const { fixture } = await renderFocusedBattlefield({
+      battlefieldCards: [
+        { instanceId: 'land-top', name: 'Forest', typeLine: 'Basic Land - Forest', tapped: false },
+        { instanceId: 'land-under', name: 'Swamp', typeLine: 'Basic Land - Swamp', tapped: false },
+      ],
+      cardPosition: (card) => positions.get(card.instanceId) ?? null,
+    });
+    const battlefield = fixture.nativeElement.querySelector('[data-testid="battlefield-zone"]') as HTMLElement;
+    Object.defineProperty(battlefield, 'clientHeight', { configurable: true, value: 360 });
+    Object.defineProperty(cardElement(fixture, 'land-top'), 'offsetHeight', { configurable: true, value: 202 });
+    Object.defineProperty(cardElement(fixture, 'land-under'), 'offsetHeight', { configurable: true, value: 202 });
+
+    fixture.componentRef.setInput('layoutKey', 120);
+    fixture.detectChanges();
+
+    expect(cardElement(fixture, 'land-top').style.top).toBe('158px');
+    expect(cardElement(fixture, 'land-under').style.top).toBe('144px');
+  });
+
+  it('recomputes measured stack layout after focusing another player at the same zoom', async () => {
+    const queuedFrames: FrameRequestCallback[] = [];
+    const requestAnimationFrameSpy = vi
+      .spyOn(window, 'requestAnimationFrame')
+      .mockImplementation((callback: FrameRequestCallback) => {
+        queuedFrames.push(callback);
+        return queuedFrames.length;
+      });
+    const cancelAnimationFrameSpy = vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => undefined);
+    const flushFrames = (): void => {
+      while (queuedFrames.length > 0) {
+        queuedFrames.shift()?.(0);
+      }
+    };
+
+    try {
+      const firstPlayerPositions = new Map([
+        ['first-land-top', { x: 100, y: 120 }],
+        ['first-land-under', { x: 100, y: 106 }],
+      ]);
+      const { fixture } = await renderFocusedBattlefield({
+        playerId: 'player-1',
+        layoutKey: 120,
+        battlefieldCards: [
+          { instanceId: 'first-land-top', name: 'Forest', typeLine: 'Basic Land - Forest', tapped: false },
+          { instanceId: 'first-land-under', name: 'Swamp', typeLine: 'Basic Land - Swamp', tapped: false },
+        ],
+        cardPosition: (card) => firstPlayerPositions.get(card.instanceId) ?? null,
+      });
+      flushFrames();
+      fixture.detectChanges();
+
+      const secondPlayerPositions = new Map([
+        ['second-land-top', { x: 100, y: 220 }],
+        ['second-land-under', { x: 100, y: 206 }],
+      ]);
+      fixture.componentRef.setInput('player', playerView([
+        { instanceId: 'second-land-top', name: 'Forest', typeLine: 'Basic Land - Forest', tapped: false },
+        { instanceId: 'second-land-under', name: 'Swamp', typeLine: 'Basic Land - Swamp', tapped: false },
+      ], 'player-2'));
+      fixture.componentRef.setInput('cardPosition', (card: GameCardInstance) => secondPlayerPositions.get(card.instanceId) ?? null);
+      fixture.detectChanges();
+
+      const battlefield = fixture.nativeElement.querySelector('[data-testid="battlefield-zone"]') as HTMLElement;
+      Object.defineProperty(battlefield, 'clientHeight', { configurable: true, value: 360 });
+      Object.defineProperty(cardElement(fixture, 'second-land-top'), 'offsetHeight', { configurable: true, value: 202 });
+      Object.defineProperty(cardElement(fixture, 'second-land-under'), 'offsetHeight', { configurable: true, value: 202 });
+
+      flushFrames();
+      fixture.detectChanges();
+
+      expect(cardElement(fixture, 'second-land-top').style.top).toBe('158px');
+      expect(cardElement(fixture, 'second-land-under').style.top).toBe('144px');
+    } finally {
+      requestAnimationFrameSpy.mockRestore();
+      cancelAnimationFrameSpy.mockRestore();
+    }
+  });
+
+  it('does not pull the dragged land into a transient stack layout before drop', async () => {
+    const positions = new Map([
+      ['land-top', { x: 100, y: 200 }],
+      ['land-under', { x: 100, y: 186 }],
+      ['dragged-land', { x: 118, y: 170 }],
+    ]);
+    const { fixture } = await renderFocusedBattlefield({
+      battlefieldCards: [
+        { instanceId: 'land-top', name: 'Command Tower', typeLine: 'Land', tapped: false },
+        { instanceId: 'land-under', name: 'Island', typeLine: 'Basic Land - Island', tapped: false },
+        { instanceId: 'dragged-land', name: 'Forest', typeLine: 'Basic Land - Forest', tapped: false },
+      ],
+      cardPosition: (card) => positions.get(card.instanceId) ?? null,
+      isDraggingCard: (card) => card.instanceId === 'dragged-land',
+    });
+
+    const dragged = cardElement(fixture, 'dragged-land');
+
+    expect(dragged.classList).not.toContain('land-stack-card');
+    expect(dragged.style.left).toBe('118px');
+    expect(dragged.style.top).toBe('170px');
+  });
+
+  it('prevents native dragstart on battlefield background to avoid ghost drags', async () => {
+    const { fixture } = await renderFocusedBattlefield();
+    const battlefield = fixture.nativeElement.querySelector('[data-testid="battlefield-zone"]') as HTMLElement;
+    const event = new Event('dragstart', { bubbles: true, cancelable: true });
+
+    battlefield.dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(true);
+  });
+
+  it('suppresses triple-click pointerdown interactions on battlefield surface', async () => {
+    const { fixture } = await renderFocusedBattlefield();
+    const battlefield = fixture.nativeElement.querySelector('[data-testid="battlefield-zone"]') as HTMLElement;
+    const event = new PointerEvent('pointerdown', { bubbles: true, cancelable: true, button: 0, detail: 3 });
+
+    battlefield.dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(true);
+  });
 });
 
 interface RenderFocusedBattlefieldOptions {
   battlefieldCards?: GameCardInstance[];
+  playerId?: string;
+  layoutKey?: unknown;
   alignmentGuideFor?: (playerId: string) => { y: number; referenceInstanceIds: readonly string[] } | null;
   cardPosition?: (card: GameCardInstance) => { x: number; y: number } | null;
   isCurrentPlayer?: (playerId: string) => boolean;
@@ -133,6 +261,7 @@ interface RenderFocusedBattlefieldOptions {
   isCardTransferPending?: (playerId: string, zone: GameZoneName, card: GameCardInstance) => boolean;
   firstCounter?: (card: GameCardInstance) => { key: string; value: number } | null;
   focusEffectsEnabled?: boolean;
+  isDraggingCard?: (card: GameCardInstance) => boolean;
 }
 
 async function renderFocusedBattlefield(options: RenderFocusedBattlefieldOptions = {}): Promise<{ fixture: ComponentFixture<FocusedBattlefieldComponent> }> {
@@ -141,14 +270,14 @@ async function renderFocusedBattlefield(options: RenderFocusedBattlefieldOptions
   }).compileComponents();
 
   const fixture = TestBed.createComponent(FocusedBattlefieldComponent);
-  fixture.componentRef.setInput('player', playerView(options.battlefieldCards));
+  fixture.componentRef.setInput('player', playerView(options.battlefieldCards, options.playerId));
   fixture.componentRef.setInput('isCurrentPlayer', options.isCurrentPlayer ?? ((_playerId: string) => true));
   fixture.componentRef.setInput('allowArrowTargetSelection', options.allowArrowTargetSelection ?? false);
   fixture.componentRef.setInput('focusEffectsEnabled', options.focusEffectsEnabled ?? true);
   fixture.componentRef.setInput('isDropZoneHighlighted', (_playerId: string, _zone: GameZoneName) => false);
   fixture.componentRef.setInput('cardPosition', options.cardPosition ?? ((_card: GameCardInstance) => null));
   fixture.componentRef.setInput('isSelected', (_instanceId: string) => false);
-  fixture.componentRef.setInput('isDraggingCard', (_card: GameCardInstance) => false);
+  fixture.componentRef.setInput('isDraggingCard', options.isDraggingCard ?? ((_card: GameCardInstance) => false));
   fixture.componentRef.setInput('canDragBattlefieldCard', (_playerId: string, _card: GameCardInstance) => true);
   fixture.componentRef.setInput('isPendingBattlefieldTransfer', (_card: GameCardInstance) => false);
   fixture.componentRef.setInput('cardImage', (_card: GameCardInstance) => null);
@@ -158,6 +287,7 @@ async function renderFocusedBattlefield(options: RenderFocusedBattlefieldOptions
   fixture.componentRef.setInput('firstCounter', options.firstCounter ?? ((_card: GameCardInstance) => null));
   fixture.componentRef.setInput('alignmentGuideFor', options.alignmentGuideFor ?? ((_playerId: string) => null));
   fixture.componentRef.setInput('isManaLaneHighlighted', (_playerId: string) => false);
+  fixture.componentRef.setInput('layoutKey', options.layoutKey ?? null);
   fixture.componentRef.setInput('isCardTransferPending', options.isCardTransferPending ?? ((_playerId: string, _zone: GameZoneName, _card: GameCardInstance) => false));
   fixture.detectChanges();
 
@@ -168,11 +298,11 @@ function cardElement(fixture: ComponentFixture<FocusedBattlefieldComponent>, ins
   return fixture.nativeElement.querySelector(`[data-card-instance-id="${instanceId}"]`);
 }
 
-function playerView(battlefieldCards?: GameCardInstance[]): PlayerView {
+function playerView(battlefieldCards?: GameCardInstance[], playerId = 'player-1'): PlayerView {
   return {
-    id: 'player-1',
+    id: playerId,
     state: {
-      user: { id: 'player-1', email: 'user@test', displayName: 'User', roles: [] },
+      user: { id: playerId, email: 'user@test', displayName: 'User', roles: [] },
       status: 'active',
       life: 40,
       zones: {

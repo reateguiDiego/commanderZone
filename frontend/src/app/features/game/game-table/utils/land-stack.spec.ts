@@ -80,6 +80,45 @@ describe('land stack utilities', () => {
     expect(moves).toEqual([{ card: battlefield[0], position: { x: 120, y: 172 } }]);
   });
 
+  it('targets the top land when hovering mainly over the second card of a two-card stack', () => {
+    const battlefield = [
+      land('dragged', 140, 220),
+      land('top', 100, 200),
+      land('under', 110, 186),
+    ];
+
+    const target = landStackDropTarget(battlefield, 'dragged', { x: 110, y: 186 }, positionFor);
+
+    expect(target?.targetCard.instanceId).toBe('top');
+    expect(target?.nextSize).toBe(3);
+  });
+
+  it('keeps the existing stack top as the only relation target from the exposed second card edge', () => {
+    const battlefield = [
+      land('dragged', 140, 220),
+      land('top', 100, 200),
+      land('under', 110, 186),
+    ];
+
+    const target = landStackDropTarget(battlefield, 'dragged', { x: 108, y: 196 }, positionFor);
+
+    expect(target?.targetCard.instanceId).toBe('top');
+    expect(target?.targetStack?.topCard.instanceId).toBe('top');
+  });
+
+  it('targets the top land when hovering over a legacy-offset under card', () => {
+    const battlefield = [
+      land('dragged', 140, 220),
+      land('top', 100, 200),
+      land('under', 100, 180),
+    ];
+
+    const target = landStackDropTarget(battlefield, 'dragged', { x: 100, y: 180 }, positionFor);
+
+    expect(target?.targetCard.instanceId).toBe('top');
+    expect(fullLandStackDropTarget(battlefield, 'dragged', { x: 100, y: 180 }, positionFor)).toBeNull();
+  });
+
   it('ignores the dragged land transient position when detecting the destination stack', () => {
     const battlefield = [
       land('dragged', 100, 200),

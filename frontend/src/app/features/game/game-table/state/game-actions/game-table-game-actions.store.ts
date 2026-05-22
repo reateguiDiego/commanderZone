@@ -52,6 +52,14 @@ export class GameTableGameActionsStore {
     await this.router.navigate(['/rooms']);
   }
 
+  async navigateToRoomsWithLoadError(): Promise<void> {
+    await this.router.navigate(['/rooms'], {
+      state: {
+        toast: 'Could not load game.',
+      },
+    });
+  }
+
   async navigateToWaitingRoom(roomId: string): Promise<void> {
     await this.router.navigate(['/rooms', roomId, 'waiting']);
   }

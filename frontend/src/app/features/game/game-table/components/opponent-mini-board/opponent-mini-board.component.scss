@@ -25,6 +25,9 @@
   cursor: pointer;
   pointer-events: auto;
   text-align: left;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-user-drag: none;
   transition:
     border-color 180ms ease,
     box-shadow 180ms ease,
@@ -126,7 +129,7 @@
 .opponent-deck-title {
   flex: 1 1 auto;
   min-width: 0;
-  padding: 0.03rem 0 0.08rem;
+  padding: 0.03rem 0 0.08rem 5px;
   color: rgb(255 255 255 / 94%);
   font-family: var(--font-display, inherit);
   font-size: 0.84rem;
@@ -244,17 +247,25 @@
   position: relative;
   z-index: 2;
   display: block;
+  isolation: isolate;
   min-height: 10.8rem;
   overflow: hidden;
   border: 1px solid rgb(232 225 208 / 9%);
   border-radius: 6px;
   background:
     linear-gradient(180deg, rgb(255 255 255 / 3%), rgb(0 0 0 / 12%)),
-    rgb(4 5 4 / 38%);
+    rgb(4 5 4);
   box-shadow:
     inset 0 1px 0 rgb(255 255 255 / 4%),
     inset 0 0 1.2rem rgb(0 0 0 / 22%);
   transform: translateZ(0);
+}
+
+.active-turn-player .opponent-board-stage {
+  border-color: rgb(232 225 208 / 9%);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 4%),
+    inset 0 0 1.2rem rgb(0 0 0 / 22%);
 }
 
 .opponent-board-stage::before {
@@ -283,8 +294,7 @@
     box-shadow 180ms ease;
 }
 
-.opponent-board-stage.showing-cards-target::after,
-.active-turn-player .opponent-board-stage::after {
+.opponent-board-stage.showing-cards-target::after {
   border-color: color-mix(in srgb, var(--gold, #d7b46a) 58%, rgb(232 225 208 / 12%));
   box-shadow:
     inset 0 0 1.6rem color-mix(in srgb, var(--gold, #d7b46a) 24%, transparent),
@@ -292,7 +302,7 @@
 }
 
 .active-turn-player .opponent-board-stage::before {
-  animation: active-turn-board-aura 3.1s ease-in-out infinite;
+  animation: none;
 }
 
 .opponent-defeated-board {
@@ -329,11 +339,7 @@
 }
 
 .opponent-board-stage app-opponent-mini-battlefield {
-  filter: saturate(0.76) brightness(0.9) contrast(0.98);
-}
-
-.active-turn-player .opponent-board-stage app-opponent-mini-battlefield {
-  filter: saturate(0.82) brightness(0.95) contrast(1);
+  filter: saturate(1.08) brightness(1.02) contrast(1.1);
 }
 
 @keyframes opponent-board-enter {
@@ -528,5 +534,37 @@
 
   .opponent-zone-count {
     gap: 0.32rem;
+  }
+}
+
+@media (max-width: 430px), (max-height: 700px) and (max-width: 900px) {
+  .player-thumb {
+    gap: 0.34rem;
+    padding: 0.26rem 0.18rem 0.2rem;
+  }
+
+  .opponent-board-stage,
+  .opponent-defeated-board {
+    min-height: 8.2rem;
+  }
+
+  .opponent-deck-title {
+    font-size: 0.72rem;
+  }
+
+  .opponent-life {
+    min-width: 2.35rem;
+    min-height: 1.72rem;
+    font-size: 0.84rem;
+  }
+
+  .opponent-zone-count {
+    gap: 0.2rem;
+    font-size: 0.8rem;
+  }
+
+  .opponent-zone-count strong {
+    min-width: 0.95rem;
+    font-size: 0.88rem;
   }
 }

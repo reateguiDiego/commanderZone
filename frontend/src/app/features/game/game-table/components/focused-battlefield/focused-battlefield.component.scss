@@ -3,19 +3,22 @@
 }
 
 .battlefield {
+  --game-card-view-width: var(--battlefield-card-width, 7.2rem);
+
   position: relative;
   z-index: 1;
   grid-area: battlefield;
   display: flex;
   flex-wrap: wrap;
   align-content: flex-start;
-  gap: 0.75rem;
+  gap: var(--battlefield-gap, 0.75rem);
   min-height: 0;
   overflow: hidden;
   padding: 0;
   border: 0;
   border-radius: 0;
   background: transparent;
+  -webkit-touch-callout: none;
 }
 
 .drop-target-active {
@@ -97,7 +100,7 @@
 .mana-lane {
   position: absolute;
   inset: auto 0 0;
-  min-height: 11.2rem;
+  min-height: var(--battlefield-mana-lane-height, 11.2rem);
   border: 1px solid transparent;
 }
 
@@ -108,11 +111,26 @@
 @media (max-width: 760px) {
   .battlefield {
     gap: 0.45rem;
+    overflow: auto;
+    overscroll-behavior: contain;
+    padding: 0.25rem 0.35rem 0.55rem;
+    scrollbar-width: thin;
   }
 
   .mana-lane {
     inset: auto 0 0;
     min-height: 7.4rem;
+  }
+}
+
+@media (max-width: 430px), (max-height: 700px) and (max-width: 900px) {
+  .battlefield {
+    gap: 0.35rem;
+    padding: 0.18rem 0.28rem 0.45rem;
+  }
+
+  .mana-lane {
+    min-height: 6.2rem;
   }
 }
 

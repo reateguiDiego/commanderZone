@@ -1,6 +1,6 @@
 import { importProvidersFrom } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { ChevronRight, LucideAngularModule, Play } from 'lucide-angular';
+import { ChevronRight, LucideAngularModule, Play, Swords } from 'lucide-angular';
 import { GameSnapshot } from '../../../../../core/models/game.model';
 import { PlayerView } from '../../state/core/game-table-snapshot-selectors';
 import { TurnPhasePanelComponent } from './turn-phase-panel.component';
@@ -49,7 +49,7 @@ async function renderTurnPhasePanel(options: {
 }): Promise<ComponentFixture<TurnPhasePanelComponent>> {
   await TestBed.configureTestingModule({
     imports: [TurnPhasePanelComponent],
-    providers: [importProvidersFrom(LucideAngularModule.pick({ ChevronRight, Play }))],
+    providers: [importProvidersFrom(LucideAngularModule.pick({ ChevronRight, Play, Swords }))],
   }).compileComponents();
 
   const fixture = TestBed.createComponent(TurnPhasePanelComponent);

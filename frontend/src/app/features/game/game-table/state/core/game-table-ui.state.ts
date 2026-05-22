@@ -21,6 +21,8 @@ export interface HoveredCardSelection {
   card: GameCardInstance;
 }
 
+type CardPreviewMode = 'hover' | 'pinned';
+
 @Injectable()
 export class GameTableUiState {
   private readonly hoverPreviewDelayMs = CARD_PREVIEW_HOVER_DELAY_MS;
@@ -35,6 +37,7 @@ export class GameTableUiState {
   readonly floatingMinimized = signal(false);
   private floatingDragOffset: { x: number; y: number } | null = null;
   private hoveredSelection: HoveredCardSelection | null = null;
+  private cardPreviewMode: CardPreviewMode | null = null;
   private hoverPreviewHandle?: number;
   private hoverPreviewToken = 0;
 
@@ -62,14 +65,46 @@ export class GameTableUiState {
       this.hoveredCard.set(card);
       this.hoveredPreview.set(preview);
       this.hoveredSelection = preview.playerId && preview.zone ? { playerId: preview.playerId, zone: preview.zone, card } : null;
+      this.cardPreviewMode = 'hover';
     }, this.hoverPreviewDelayMs);
   }
 
   hideCardPreview(): void {
+    if (this.cardPreviewMode === 'pinned') {
+      this.clearHoverPreviewTimer();
+      return;
+    }
+
+    this.clearCardPreview();
+  }
+
+  showPinnedCardPreview(preview: CardPreviewEvent, isDragging: () => boolean): void;
+  showPinnedCardPreview(card: GameCardInstance, isDragging: () => boolean, playerId?: string, zone?: GameZoneName): void;
+  showPinnedCardPreview(
+    cardOrPreview: GameCardInstance | CardPreviewEvent,
+    isDragging: () => boolean,
+    playerId?: string,
+    zone?: GameZoneName,
+  ): void {
+    this.clearHoverPreviewTimer();
+    const preview = this.normalizePreview(cardOrPreview, playerId, zone);
+    const card = preview.card;
+    if (card.hidden || isDragging()) {
+      return;
+    }
+
+    this.hoveredCard.set(card);
+    this.hoveredPreview.set(preview);
+    this.hoveredSelection = preview.playerId && preview.zone ? { playerId: preview.playerId, zone: preview.zone, card } : null;
+    this.cardPreviewMode = 'pinned';
+  }
+
+  clearCardPreview(): void {
     this.clearHoverPreviewTimer();
     this.hoveredCard.set(null);
     this.hoveredPreview.set(null);
     this.hoveredSelection = null;
+    this.cardPreviewMode = null;
   }
 
   activeHoveredSelection(): HoveredCardSelection | null {
@@ -88,15 +123,19 @@ export class GameTableUiState {
     this.contextMenu.set(null);
   }
 
+  closeContextMenuForCardDrag(instanceId: string): void {
+    const menu = this.contextMenu();
+    if ((menu?.kind === 'card' || menu?.kind === 'counter') && menu.card?.instanceId === instanceId) {
+      this.closeContextMenu();
+    }
+  }
+
   toggleFloatingMinimized(): void {
     this.floatingMinimized.update((value) => !value);
   }
 
   suppressCardPreview(durationMs: number): void {
-    this.clearHoverPreviewTimer();
-    this.hoveredCard.set(null);
-    this.hoveredPreview.set(null);
-    this.hoveredSelection = null;
+    this.clearCardPreview();
     this.hoverPreviewSuppressedUntil = Date.now() + durationMs;
   }
 

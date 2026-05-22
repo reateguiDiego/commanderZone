@@ -37,12 +37,14 @@ export class GameTableMotionService {
   private context: gsap.Context | null = null;
   private host: HTMLElement | null = null;
   private reducedMotionQuery: MediaQueryList | null = null;
+  private compactMotionQuery: MediaQueryList | null = null;
 
   init(hostRef: ElementRef<HTMLElement>): void {
     this.destroy();
     const host = hostRef.nativeElement;
     this.host = host;
     this.reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    this.compactMotionQuery = window.matchMedia('(max-height: 1199px)');
 
     this.ngZone.runOutsideAngular(() => {
       this.context = gsap.context(() => undefined, host);
@@ -56,6 +58,7 @@ export class GameTableMotionService {
     this.context = null;
     this.host = null;
     this.reducedMotionQuery = null;
+    this.compactMotionQuery = null;
   }
 
   punchCard(instanceId: string, variant: CardPunchVariant = 'play'): void {
@@ -102,6 +105,11 @@ export class GameTableMotionService {
     const resolvedSource = typeof source === 'string' ? this.resolveTarget(source) : source;
     const destination = this.resolveTarget(target);
     if (!resolvedSource || !destination) {
+      options.onComplete?.();
+      return;
+    }
+
+    if (this.shouldSkipGhostMotion()) {
       options.onComplete?.();
       return;
     }
@@ -200,6 +208,10 @@ export class GameTableMotionService {
       return () => undefined;
     }
 
+    if (this.isCompactMotionViewport()) {
+      return () => undefined;
+    }
+
     const elements = this.cardElements(selector);
     const state = Flip.getState(elements);
     const isHandFlip = selector.includes('data-zone="hand"') || elements.some((element) => element.dataset['zone'] === 'hand');
@@ -229,6 +241,10 @@ export class GameTableMotionService {
   prepareHandDropHandoff(selector = '[data-zone="hand"][data-card-instance-id]'): () => void {
     const host = this.host;
     if (!host) {
+      return () => undefined;
+    }
+
+    if (this.isCompactMotionViewport()) {
       return () => undefined;
     }
 
@@ -336,6 +352,10 @@ export class GameTableMotionService {
   }
 
   prepareHandLayoutFlip(root: HTMLElement, selector = '[data-zone="hand"][data-card-instance-id]'): () => void {
+    if (this.isCompactMotionViewport()) {
+      return () => undefined;
+    }
+
     const elements = this.handCardElements(root, selector);
     if (elements.length === 0) {
       return () => undefined;
@@ -493,45 +513,29 @@ export class GameTableMotionService {
     });
   }
 
-  private animateHandGrowth(currentElements: readonly HTMLElement[], addedElements: readonly HTMLElement[]): void {
-    const handSurface = currentElements[0]?.closest<HTMLElement>('.hand-area')
-      ?? currentElements[0]?.closest<HTMLElement>('.hand-fan')
-      ?? null;
+  private animateHandGrowth(currentElements: readonly HTMLElement[], _addedElements: readonly HTMLElement[]): void {
+    const cardVisuals = this.cardVisuals(currentElements);
+    const targets = cardVisuals.length > 0 ? cardVisuals : [...currentElements];
 
-    if (handSurface) {
-      gsap.killTweensOf(handSurface);
-      gsap.fromTo(
-        handSurface,
-        {
-          boxShadow: '0 -1.15rem 2.8rem rgb(215 180 106 / 18%), inset 0 0 0 1px rgb(215 180 106 / 22%)',
-          filter: 'brightness(1.08) saturate(1.06)',
-        },
-        {
-          boxShadow: '0 0 0 rgb(215 180 106 / 0%), inset 0 0 0 0 rgb(215 180 106 / 0%)',
-          clearProps: 'boxShadow,filter',
-          duration: 0.58,
-          ease: 'power2.out',
-          filter: 'brightness(1)',
-        },
-      );
-    }
-
-    if (addedElements.length === 0) {
+    if (targets.length === 0) {
       return;
     }
 
-    gsap.killTweensOf(addedElements);
+    gsap.killTweensOf(targets);
     gsap.fromTo(
-      addedElements,
+      targets,
       {
-        filter: 'brightness(1.28) saturate(1.14)',
+        filter: 'brightness(1.22) saturate(1.1) contrast(1.03)',
+        scale: 1.022,
+        transformOrigin: '50% 100%',
       },
       {
-        clearProps: 'filter',
-        duration: 0.42,
+        clearProps: 'filter,scale,transformOrigin',
+        duration: 0.62,
         ease: 'power2.out',
         filter: 'brightness(1)',
-        stagger: 0.025,
+        scale: 1,
+        stagger: { each: 0.018, from: 'center' },
       },
     );
   }
@@ -928,6 +932,14 @@ export class GameTableMotionService {
 
   private prefersReducedMotion(): boolean {
     return this.reducedMotionQuery?.matches ?? false;
+  }
+
+  private isCompactMotionViewport(): boolean {
+    return this.compactMotionQuery?.matches ?? false;
+  }
+
+  private shouldSkipGhostMotion(): boolean {
+    return this.prefersReducedMotion() || this.isCompactMotionViewport();
   }
 
 }

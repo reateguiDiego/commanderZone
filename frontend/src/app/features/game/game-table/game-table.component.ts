@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { LucideAngularModule } from 'lucide-angular';
 import { firstValueFrom } from 'rxjs';
+import { BodyScrollLockService } from '../../../shared/services/body-scroll-lock.service';
 import { AppModalComponent } from '../../../shared/ui/app-modal/app-modal.component';
 import { PrettyScrollDirective } from '../../../shared/ui/pretty-scroll/pretty-scroll.directive';
 import { Card } from '../../../core/models/card.model';
@@ -24,6 +25,7 @@ import { GameTableSelectionService } from './services/game-table-selection.servi
 import { GameTableSessionService } from './services/game-table-session.service';
 import { GameTableTurnActionsService } from './services/game-table-turn-actions.service';
 import { GameTableZoneActionsService } from './services/game-table-zone-actions.service';
+import { GameTableZonePointerMoveActionsService } from './services/game-table-zone-pointer-move-actions.service';
 import { GameTableMotionService } from './services/game-table-motion.service';
 import { GameTableChatLogState } from './state/chat/game-table-chat-log.state';
 import { GameTableChatStore } from './state/chat/game-table-chat.store';
@@ -32,6 +34,7 @@ import { GameTableCoreState } from './state/core/game-table-core.state';
 import { GameTablePendingTransferRegistrarState } from './state/core/game-table-pending-transfer-registrar.state';
 import { GameTableBattlefieldDragState } from './state/drag-drop/game-table-battlefield-drag.state';
 import { GameTableBattlefieldState } from './state/battlefield/game-table-battlefield.state';
+import { GameTableBattlefieldZoomState } from './state/battlefield/game-table-battlefield-zoom.state';
 import { GameTableCardsState } from './state/cards/game-table-cards.state';
 import { GameTableContextStore } from './state/core/game-table-context.store';
 import { GameTableCountersState } from './state/cards/game-table-counters.state';
@@ -60,6 +63,7 @@ import { PlayerSummaryPanelComponent } from './components/player-summary-panel/p
 import { TurnPhasePanelComponent } from './components/turn-phase-panel/turn-phase-panel.component';
 import { PlayerHandPanelComponent } from './components/player-hand-panel/player-hand-panel.component';
 import { FocusedBattlefieldComponent } from './components/focused-battlefield/focused-battlefield.component';
+import { BattlefieldZoomControlsComponent } from './components/battlefield-zoom-controls/battlefield-zoom-controls.component';
 import { ContextMenuAction, ContextMenuComponent } from './components/context-menu/context-menu.component';
 import { ZoneModalComponent } from './components/zone-modal/zone-modal.component';
 import { NumberActionDialogComponent } from './components/number-action-dialog/number-action-dialog.component';
@@ -75,6 +79,7 @@ import { TokenSearchModalComponent } from './components/token-search-modal/token
 import { RollModalComponent } from '../../../core/ui/roll-modal/roll-modal.component';
 import { type RollResult } from '../../../core/ui/roll-modal/roll';
 import { GameTablePermanentRelationService } from './services/game-table-permanent-relation.service';
+import { ZonePointerDropRequest } from './models/game-table-zone-pointer-drag.model';
 
 interface DrawNumberActionRequest {
   readonly kind: 'draw';
@@ -193,6 +198,11 @@ interface ZoneDropEvent {
   readonly zone: GameZoneName;
 }
 
+interface ZonePointerDroppedEvent {
+  readonly request: ZonePointerDropRequest | null;
+  readonly moved: boolean;
+}
+
 interface ManaLaneDropEvent {
   readonly event: DragEvent;
   readonly playerId: string;
@@ -219,6 +229,15 @@ interface HandGhostOptions {
   readonly targetPlayerId?: string | null;
 }
 
+interface ZoneGhostOptions {
+  readonly sourceElement?: HTMLElement | null;
+  readonly sourceInstanceId?: string | null;
+  readonly sourceRect?: MotionSourceRect | null;
+  readonly targetPlayerId: string;
+  readonly targetZone: DropZoneTarget;
+  readonly dropEvent?: DragEvent;
+}
+
 interface MotionSourceRect {
   readonly left: number;
   readonly top: number;
@@ -240,6 +259,7 @@ interface MotionSourceRect {
     TurnPhasePanelComponent,
     PlayerHandPanelComponent,
     FocusedBattlefieldComponent,
+    BattlefieldZoomControlsComponent,
     ContextMenuComponent,
     ZoneModalComponent,
     NumberActionDialogComponent,
@@ -263,6 +283,7 @@ interface MotionSourceRect {
     GameTableAttachmentsState,
     GameTableOpponentTargetsState,
     GameTableBattlefieldState,
+    GameTableBattlefieldZoomState,
     GameTableCardsState,
     GameTableContextStore,
     GameTableCountersState,
@@ -291,6 +312,7 @@ interface MotionSourceRect {
     GameTableLibraryActionsService,
     GameTableTurnActionsService,
     GameTableZoneActionsService,
+    GameTableZonePointerMoveActionsService,
     GameTableMotionService,
     GameTablePermanentRelationService,
     GameTableSnapshotSelectors,
@@ -302,15 +324,18 @@ interface MotionSourceRect {
     GameTableChatLogState,
   ],
   templateUrl: './game-table.component.html',
-  styleUrl: './game-table.component.scss',
+  styleUrls: ['./game-table.component.scss', './game-table-responsive.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDestroy {
+  private readonly mobileScrollLockQuery = '(max-width: 1180px), (hover: none) and (pointer: coarse)';
   readonly store = inject(GameTableStore);
   private readonly gamesApi = inject(GamesApi);
   private readonly router = inject(Router);
   private readonly motion = inject(GameTableMotionService);
+  private readonly bodyScrollLock = inject(BodyScrollLockService);
   private readonly changeDetectorRef = inject(ChangeDetectorRef);
+  readonly battlefieldZoom = inject(GameTableBattlefieldZoomState);
   readonly handMotionActive = this.motion.handMotionActive;
   readonly counterPresets = ['-1/-1', '+1/+1', 'red', 'green', 'blue', 'black', 'yellow'];
   readonly colorAccent = (player: PlayerView | null): string => this.store.colorAccent(player);
@@ -490,6 +515,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
 
     return this.store.players().filter((player) => player.id !== focusedPlayerId);
   });
+  readonly opponentsDrawerOpen = signal(false);
   readonly arrowTargetPlayers = computed(() => {
     const currentPlayerId = this.store.currentPlayer()?.id;
     const players = this.store.players();
@@ -512,6 +538,8 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   private floatingScrollFrame: number | null = null;
   private floatingScrollTimer: number | null = null;
   private battlefieldReflowFrame: number | null = null;
+  private battlefieldZoomReflowFrame: number | null = null;
+  private destroyed = false;
   private rematchToastTimer: number | null = null;
   private rematchCountdownTimer: number | null = null;
   private rematchCountdownDeadlineMs: number | null = null;
@@ -522,6 +550,9 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   private lastObservedChatKey: string | null = null;
   private lastObservedLogKey: string | null = null;
   private readonly battlefieldDragStartRects = new Map<string, MotionSourceRect>();
+  private mobileScrollLockMediaQuery: MediaQueryList | null = null;
+  private mobileScrollLocked = false;
+  private readonly handleMobileScrollLockChange = (): void => this.syncMobileScrollLock();
 
   @ViewChild('gameScreen', { static: true }) private readonly gameScreen?: ElementRef<HTMLElement>;
   @ViewChild(GameLogPanelComponent) private readonly gameLogPanel?: GameLogPanelComponent;
@@ -603,6 +634,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     if (this.gameScreen) {
       this.motion.init(this.gameScreen);
     }
+    this.setupMobileScrollLock();
   }
 
   ngAfterViewChecked(): void {
@@ -628,17 +660,75 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   }
 
   ngOnDestroy(): void {
+    this.destroyed = true;
+    this.destroyMobileScrollLock();
     this.motion.destroy();
     this.clearQueuedFloatingContentScroll();
     this.clearQueuedBattlefieldReflow();
+    this.clearQueuedBattlefieldZoomReflow();
     this.clearRematchToastTimer();
     this.clearRematchCountdown();
+  }
+
+  private setupMobileScrollLock(): void {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      return;
+    }
+
+    this.mobileScrollLockMediaQuery = window.matchMedia(this.mobileScrollLockQuery);
+    this.mobileScrollLockMediaQuery.addEventListener('change', this.handleMobileScrollLockChange);
+    this.syncMobileScrollLock();
+  }
+
+  private syncMobileScrollLock(): void {
+    const shouldLock = this.mobileScrollLockMediaQuery?.matches === true;
+    if (shouldLock === this.mobileScrollLocked) {
+      return;
+    }
+
+    this.mobileScrollLocked = shouldLock;
+    if (shouldLock) {
+      this.bodyScrollLock.lock();
+    } else {
+      this.bodyScrollLock.unlock();
+    }
+  }
+
+  private destroyMobileScrollLock(): void {
+    this.mobileScrollLockMediaQuery?.removeEventListener('change', this.handleMobileScrollLockChange);
+    this.mobileScrollLockMediaQuery = null;
+    if (!this.mobileScrollLocked) {
+      return;
+    }
+
+    this.mobileScrollLocked = false;
+    this.bodyScrollLock.unlock();
   }
 
   scrollFloatingContentToBottom(): void {
     this.gameLogPanel?.scrollToBottom();
     for (const feed of this.autoScrollFeeds?.toArray() ?? []) {
       feed.nativeElement.scrollTop = feed.nativeElement.scrollHeight;
+    }
+  }
+
+  handleTableClick(event: MouseEvent): void {
+    this.store.handleTableClick(event);
+
+    const target = event.target instanceof Element ? event.target : null;
+    if (!target?.closest('.player-sidebar')) {
+      this.closeOpponentsDrawer();
+    }
+  }
+
+  toggleOpponentsDrawer(event: MouseEvent): void {
+    event.stopPropagation();
+    this.opponentsDrawerOpen.update((open) => !open);
+  }
+
+  closeOpponentsDrawer(): void {
+    if (this.opponentsDrawerOpen()) {
+      this.opponentsDrawerOpen.set(false);
     }
   }
 
@@ -692,6 +782,17 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
 
     this.battlefieldLayoutSize.set(size);
     this.store.setBattlefieldLayoutSize(size);
+    this.queueBattlefieldReflow();
+  }
+
+  setBattlefieldZoom(percent: number): void {
+    this.battlefieldZoom.setZoomPercent(percent);
+    this.queueBattlefieldZoomReflow();
+  }
+
+  resetBattlefieldZoom(): void {
+    this.battlefieldZoom.resetZoom();
+    this.queueBattlefieldZoomReflow();
   }
 
   @HostListener('window:resize')
@@ -794,6 +895,9 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   @HostListener('window:pointerup', ['$event'])
   handlePointerUp(event: PointerEvent): void {
     this.store.endFloatingDrag();
+    if (!this.store.hasActivePointerDrag()) {
+      return;
+    }
 
     if (this.store.pointerDragPreview()) {
       const handDropTargetPlayerId = this.pointerHandDropTargetPlayerId(event);
@@ -810,6 +914,17 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
           () => this.store.endCardPointerDrag(event),
         );
         return;
+      }
+
+      const zoneDropTarget = this.pointerZonePileDropTarget(event);
+      if (zoneDropTarget) {
+        this.animateGhostToDropZone({
+          sourceElement: this.dragPreviewElement(),
+          sourceInstanceId: draggingInstanceId,
+          sourceRect: draggingInstanceId ? this.battlefieldDragStartRects.get(draggingInstanceId) ?? null : null,
+          targetPlayerId: zoneDropTarget.playerId,
+          targetZone: zoneDropTarget.zone,
+        });
       }
 
       this.clearBattlefieldDragStartRect(draggingInstanceId);
@@ -921,7 +1036,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   }
 
   private dragPayloadInstanceId(payload: HandDragPayload | null): string | null {
-    return payload?.instanceId ?? this.store.draggingCardInstanceId();
+    return payload?.instanceId ?? null;
   }
 
   private animateGhostToHand(options: HandGhostOptions): void {
@@ -984,6 +1099,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     payload: HandDragPayload | null,
     targetPlayerId: string,
     targetZone: DropZoneTarget,
+    dropEvent?: DragEvent,
   ): void {
     if (!sourceInstanceId) {
       return;
@@ -993,12 +1109,42 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       return;
     }
 
-    const target = this.dropZoneTargetElement(targetPlayerId, targetZone);
+    this.animateGhostToDropZone({
+      sourceInstanceId,
+      targetPlayerId,
+      targetZone,
+      dropEvent,
+    });
+  }
+
+  private animateGhostToDropZone(options: ZoneGhostOptions): void {
+    const sourceInstanceId = options.sourceInstanceId;
+    if (!options.sourceElement && !sourceInstanceId) {
+      return;
+    }
+
+    const targetZone = options.targetZone;
+    const target = this.dropZoneTargetElement(options.targetPlayerId, targetZone);
     if (!target) {
       return;
     }
 
-    this.motion.throwGhost(sourceInstanceId, target, { scaleToTarget: targetZone !== 'battlefield', rotate: -6 });
+    const ghostTarget = targetZone === 'battlefield'
+      ? this.createBattlefieldDropGhostTarget(target, options.dropEvent)
+      : { element: target };
+
+    const ghostOptions = {
+      scaleToTarget: targetZone !== 'battlefield',
+      rotate: -6,
+      sourceRect: options.sourceRect,
+      onComplete: ghostTarget.cleanup,
+    };
+
+    if (options.sourceElement) {
+      this.motion.throwElementGhost(options.sourceElement, ghostTarget.element, ghostOptions);
+    } else if (sourceInstanceId) {
+      this.motion.throwGhost(sourceInstanceId, ghostTarget.element, ghostOptions);
+    }
     window.requestAnimationFrame(() => this.motion.impactZone(target));
   }
 
@@ -1022,6 +1168,47 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
 
   private dropZoneTargetElement(playerId: string, zone: DropZoneTarget): HTMLElement | null {
     return this.resolveDropTargetElement(`[data-game-drop-zone][data-player-id="${playerId}"][data-zone="${zone}"]`);
+  }
+
+  private createBattlefieldDropGhostTarget(
+    battlefieldTarget: HTMLElement,
+    dropEvent?: DragEvent,
+  ): { element: HTMLElement; cleanup?: () => void } {
+    if (!dropEvent) {
+      return { element: battlefieldTarget };
+    }
+
+    const { clientX, clientY } = dropEvent;
+    if (!Number.isFinite(clientX) || !Number.isFinite(clientY)) {
+      return { element: battlefieldTarget };
+    }
+
+    const rect = battlefieldTarget.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) {
+      return { element: battlefieldTarget };
+    }
+
+    const clampedX = Math.min(Math.max(clientX, rect.left), rect.right);
+    const clampedY = Math.min(Math.max(clientY, rect.top), rect.bottom);
+    const element = document.createElement('span');
+
+    element.style.position = 'fixed';
+    element.style.left = `${clampedX}px`;
+    element.style.top = `${clampedY}px`;
+    element.style.width = '2px';
+    element.style.height = '2px';
+    element.style.transform = 'translate(-50%, -50%)';
+    // Motion service ignores fully transparent targets (opacity === 0).
+    // Keep it visually invisible but still eligible as animation destination.
+    element.style.opacity = '0.001';
+    element.style.pointerEvents = 'none';
+    element.style.zIndex = '-1';
+    document.body.appendChild(element);
+
+    return {
+      element,
+      cleanup: () => element.remove(),
+    };
   }
 
   private handGhostTarget(playerId: string): { element: HTMLElement; cleanup?: () => void } | null {
@@ -1131,11 +1318,34 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   }
 
   private pointerHandDropTargetPlayerId(event: PointerEvent): string | null {
+    const activeDropTarget = this.store.activeDropTarget();
+    if (!activeDropTarget || activeDropTarget.zone !== 'hand') {
+      return null;
+    }
+
     for (const element of document.elementsFromPoint(event.clientX, event.clientY)) {
       const target = element.closest<HTMLElement>('[data-game-drop-zone][data-zone="hand"]');
       const playerId = target?.dataset['playerId'];
-      if (playerId) {
+      if (playerId && playerId === activeDropTarget.playerId) {
         return playerId;
+      }
+    }
+
+    return null;
+  }
+
+  private pointerZonePileDropTarget(event: PointerEvent): { playerId: string; zone: GameZoneName } | null {
+    const activeDropTarget = this.store.activeDropTarget();
+    if (!activeDropTarget || activeDropTarget.zone === 'hand' || activeDropTarget.zone === 'battlefield') {
+      return null;
+    }
+
+    for (const element of document.elementsFromPoint(event.clientX, event.clientY)) {
+      const target = element.closest<HTMLElement>('[data-game-drop-zone]');
+      const playerId = target?.dataset['playerId'];
+      const zone = target?.dataset['zone'];
+      if (playerId === activeDropTarget.playerId && zone === activeDropTarget.zone) {
+        return activeDropTarget;
       }
     }
 
@@ -1149,6 +1359,9 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
 
     this.battlefieldReflowFrame = window.requestAnimationFrame(() => {
       this.battlefieldReflowFrame = null;
+      if (this.destroyed) {
+        return;
+      }
       this.store.reflowBattlefieldCardPositions();
     });
   }
@@ -1160,6 +1373,28 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
 
     window.cancelAnimationFrame(this.battlefieldReflowFrame);
     this.battlefieldReflowFrame = null;
+  }
+
+  private queueBattlefieldZoomReflow(): void {
+    this.queueBattlefieldReflow();
+    this.clearQueuedBattlefieldZoomReflow();
+    this.battlefieldZoomReflowFrame = window.requestAnimationFrame(() => {
+      this.battlefieldZoomReflowFrame = null;
+      if (this.destroyed) {
+        return;
+      }
+      this.changeDetectorRef.detectChanges();
+      this.queueBattlefieldReflow();
+    });
+  }
+
+  private clearQueuedBattlefieldZoomReflow(): void {
+    if (this.battlefieldZoomReflowFrame === null) {
+      return;
+    }
+
+    window.cancelAnimationFrame(this.battlefieldZoomReflowFrame);
+    this.battlefieldZoomReflowFrame = null;
   }
 
   isZoneOnlyMenu(menu: GameContextMenu): boolean {
@@ -1387,6 +1622,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   }
 
   async handleBattlefieldCardDoubleClicked(event: BattlefieldCardDoubleClickEvent): Promise<void> {
+    this.store.clearCardPreview();
     this.lockTapAnimation(event.card.instanceId);
     const animateRotation = this.motion.prepareCardRotationFlip(event.card.instanceId, {
       onComplete: () => this.unlockTapAnimation(event.card.instanceId),
@@ -1438,23 +1674,62 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
 
   handleZoneDrop(event: ZoneDropEvent): void {
     const payload = this.handDragPayload(event.event);
-    const sourceInstanceId = this.dragPayloadInstanceId(payload);
-    this.animateDropToDropZone(sourceInstanceId, payload, event.playerId, event.zone);
+    if (payload) {
+      const sourceInstanceId = this.dragPayloadInstanceId(payload);
+      this.animateDropToDropZone(sourceInstanceId, payload, event.playerId, event.zone, event.event);
+    }
     void this.store.dropOnZone(event.event, event.playerId, event.zone);
+  }
+
+  async handleZonePointerDropped(event: ZonePointerDroppedEvent): Promise<void> {
+    this.store.updatePointerDropTarget(null);
+    if (!event.moved || !event.request) {
+      this.store.endZonePointerDrag();
+      return;
+    }
+
+    if (event.request.toZone === 'hand') {
+      this.animateGhostToHand({
+        sourceInstanceId: event.request.instanceId,
+        targetPlayerId: event.request.targetPlayerId,
+      });
+    } else {
+      this.animateGhostToDropZone({
+        sourceInstanceId: event.request.instanceId,
+        targetPlayerId: event.request.targetPlayerId,
+        targetZone: event.request.rawZone === 'mana' ? 'mana' : event.request.toZone,
+      });
+    }
+
+    await this.store.moveZoneCardByPointer(event.request);
   }
 
   handleManaLaneDrop(event: ManaLaneDropEvent): void {
     const payload = this.handDragPayload(event.event);
-    const sourceInstanceId = this.dragPayloadInstanceId(payload);
-    this.animateDropToDropZone(sourceInstanceId, payload, event.playerId, 'mana');
+    if (payload) {
+      const sourceInstanceId = this.dragPayloadInstanceId(payload);
+      this.animateDropToDropZone(sourceInstanceId, payload, event.playerId, 'mana');
+    }
     void this.store.dropOnManaLane(event.event, event.playerId);
   }
 
   handlePlayerDrop(event: PlayerDropEvent): void {
     const payload = this.handDragPayload(event.event);
-    const sourceInstanceId = this.dragPayloadInstanceId(payload);
-    this.animateDropToPlayer(event.playerId, sourceInstanceId, payload);
+    if (payload) {
+      const sourceInstanceId = this.dragPayloadInstanceId(payload);
+      this.animateDropToPlayer(event.playerId, sourceInstanceId, payload);
+    }
     void this.store.dropOnPlayer(event.event, event.playerId);
+  }
+
+  handleNativeDragStart(event: DragEvent): void {
+    const source = event.target instanceof HTMLElement ? event.target.closest<HTMLElement>('[draggable="true"]') : null;
+    if (source) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
   }
 
   async handleHandDropped(event: HandDroppedEvent): Promise<void> {
@@ -1727,6 +2002,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     }
 
     this.focusPlayerBattlefield(playerId);
+    this.closeOpponentsDrawer();
   }
 
   updateFollowActiveTurnPlayer(enabled: boolean): void {
@@ -1965,15 +2241,15 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
 
   private refreshFocusedPlayerView(playerId: string): void {
     this.store.hideCardPreview();
-    this.queueBattlefieldReflow();
+    this.queueBattlefieldZoomReflow();
     queueMicrotask(() => {
-      if (this.store.focusedPlayer()?.id === playerId) {
-        this.queueBattlefieldReflow();
+      if (!this.destroyed && this.store.focusedPlayer()?.id === playerId) {
+        this.queueBattlefieldZoomReflow();
       }
     });
     window.requestAnimationFrame(() => {
-      if (this.store.focusedPlayer()?.id === playerId) {
-        this.queueBattlefieldReflow();
+      if (!this.destroyed && this.store.focusedPlayer()?.id === playerId) {
+        this.queueBattlefieldZoomReflow();
       }
     });
   }

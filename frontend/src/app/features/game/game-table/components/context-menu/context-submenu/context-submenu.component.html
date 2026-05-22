@@ -6,7 +6,20 @@
   [class.child-side-left]="childSide() === 'left'"
 >
   <button type="button" class="submenu-trigger" [attr.aria-expanded]="expanded()" (click)="toggle($event)">
-    <span>{{ label() }}</span>
+    <span class="submenu-item-label">
+      @if (icon()) {
+        @if (isCounterPillIcon(icon()!)) {
+          <span class="submenu-item-counter-pill-icon" aria-hidden="true">X</span>
+        } @else if (isGraveyardAssetIcon(icon()!)) {
+          <img class="submenu-item-image-icon submenu-item-graveyard-icon" [src]="icon()!" alt="" aria-hidden="true" draggable="false" />
+        } @else if (isAssetIcon(icon()!)) {
+          <img class="submenu-item-image-icon" [src]="icon()!" alt="" aria-hidden="true" draggable="false" />
+        } @else {
+          <lucide-icon [name]="icon()!" size="17" aria-hidden="true" />
+        }
+      }
+      <span>{{ label() }}</span>
+    </span>
     <span class="submenu-arrow" aria-hidden="true">&rsaquo;</span>
   </button>
 
@@ -19,9 +32,25 @@
             role="menuitem"
             [disabled]="item.disabled"
             [class.danger-menu-item]="item.danger"
+            [class.submenu-item-image-only]="item.imageOnly"
             (click)="selectItem($event, item)"
           >
-            <span>{{ item.label }}</span>
+            <span class="submenu-item-label">
+              @if (item.icon) {
+                @if (isCounterPillIcon(item.icon)) {
+                  <span class="submenu-item-counter-pill-icon" aria-hidden="true">X</span>
+                } @else if (isGraveyardAssetIcon(item.icon)) {
+                  <img class="submenu-item-image-icon submenu-item-graveyard-icon" [src]="item.icon" alt="" aria-hidden="true" draggable="false" />
+                } @else if (isAssetIcon(item.icon)) {
+                  <img class="submenu-item-image-icon" [src]="item.icon" alt="" aria-hidden="true" draggable="false" />
+                } @else {
+                  <lucide-icon [name]="item.icon" size="17" aria-hidden="true" />
+                }
+              }
+              @if (!item.imageOnly) {
+                <span>{{ item.label }}</span>
+              }
+            </span>
             @if (item.children?.length) {
               <span class="submenu-arrow" aria-hidden="true">&rsaquo;</span>
             } @else if (item.shortcut) {
@@ -38,7 +67,20 @@
                   [class.danger-menu-item]="child.danger"
                   (click)="selectItem($event, child)"
                 >
-                  <span>{{ child.label }}</span>
+                  <span class="submenu-item-label">
+                    @if (child.icon) {
+                      @if (isCounterPillIcon(child.icon)) {
+                        <span class="submenu-item-counter-pill-icon" aria-hidden="true">X</span>
+                      } @else if (isGraveyardAssetIcon(child.icon)) {
+                        <img class="submenu-item-image-icon submenu-item-graveyard-icon" [src]="child.icon" alt="" aria-hidden="true" draggable="false" />
+                      } @else if (isAssetIcon(child.icon)) {
+                        <img class="submenu-item-image-icon" [src]="child.icon" alt="" aria-hidden="true" draggable="false" />
+                      } @else {
+                        <lucide-icon [name]="child.icon" size="17" aria-hidden="true" />
+                      }
+                    }
+                    <span>{{ child.label }}</span>
+                  </span>
                   @if (child.shortcut) {
                     <kbd>{{ child.shortcut }}</kbd>
                   }

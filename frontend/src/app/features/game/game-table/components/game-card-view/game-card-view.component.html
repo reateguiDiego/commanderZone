@@ -77,6 +77,7 @@
     [class.hand-drop-before]="handClass('before')"
     [class.hand-drop-after]="handClass('after')"
     [class.hand-row-layout]="handLayout() === 'row'"
+    [class.hand-active-hover]="currentMode === 'hand' && activeHoverInstanceId() === currentCard.instanceId"
     [class.focus-entry-left]="battlefieldFocusEntry() === 'left'"
     [class.focus-entry-right]="battlefieldFocusEntry() === 'right'"
     [class.focus-entry-fade]="battlefieldFocusEntry() === 'fade'"
@@ -96,6 +97,11 @@
     [style.--hand-row-distance]="handRowDistance()"
     [style.--land-stack-layer]="landStackLayer()"
     [style.--land-stack-size]="landStackSize()"
+    appGameTableDoubleTap
+    [appGameTableDoubleTapDisabled]="disabled()"
+    (appGameTableDoubleTapped)="onDoubleClick($event)"
+    appGameTableLongPress
+    (appGameTableLongPressed)="cardMenuOpened.emit({ event: $event, card: currentCard })"
     (pointerdown)="onPointerDown($event)"
     (pointerenter)="onMouseEnter($event, currentCard)"
     (pointermove)="onMouseEnter($event, currentCard)"
@@ -113,10 +119,10 @@
     @if (landStackDropTarget()) {
       <span class="land-stack-preview-badge">
         @if (landStackDropKind() === 'attachment') {
-          <lucide-icon class="land-stack-preview-link-icon" name="link" size="25" aria-hidden="true" />
+          <lucide-icon class="land-stack-preview-link-icon" name="link" size="18" aria-hidden="true" />
           <span>Attach</span>
         } @else {
-          <span class="land-stack-preview-icon" aria-hidden="true"></span>
+          <lucide-icon class="land-stack-preview-stack-icon" name="layers-3" size="18" aria-hidden="true" />
           <span>Stack</span>
         }
       </span>

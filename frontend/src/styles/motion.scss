@@ -65,6 +65,17 @@
     0 0 0 1px rgb(255 255 255 / 10%);
 }
 
+.game-table-long-press-active .card-visual {
+  box-shadow: inset 0 0 0 2px rgb(246 220 151 / 82%);
+}
+
+.hand-card {
+  touch-action: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-user-drag: none;
+}
+
 @keyframes cz-zone-impact {
   0% {
     filter: brightness(1.18) saturate(1.08);

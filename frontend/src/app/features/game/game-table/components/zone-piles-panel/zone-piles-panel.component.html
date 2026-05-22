@@ -23,6 +23,9 @@
       [class.drop-settling]="isZoneDropSettling()(currentPlayer.id, zone)"
       [class.transfer-pending]="isZoneTransferPending()(currentPlayer.id, zone)"
       [class.dragging-zone-card]="isDraggingZone(zone, topZoneCard)"
+      appGameTableLongPress
+      (appGameTableLongPressed)="zoneMenuOpened.emit({ event: $event, playerId: currentPlayer.id, zone })"
+      (pointerdown)="startZonePointerDrag($event, zone, topZoneCard)"
       (dragstart)="startZoneDrag($event, currentPlayer, zone, topZoneCard)"
       (dragend)="clearZoneDrag($event); zoneDragEnd.emit()"
       (dragover)="zoneDragOver.emit($event)"
@@ -94,5 +97,24 @@
         }
       </span>
     </button>
+  }
+  @if (zonePointerDrag.dragMove(); as drag) {
+    @if (drag.dragging) {
+      <div
+        class="zone-floating-card"
+        aria-hidden="true"
+        [attr.data-motion-origin-card-id]="drag.source.card.instanceId"
+        [style.left.px]="drag.x"
+        [style.top.px]="drag.y"
+        [style.width.px]="drag.source.cardWidth"
+        [style.height.px]="drag.source.cardHeight"
+      >
+        @if (floatingCardImage(); as image) {
+          <img [src]="image" [alt]="drag.source.card.name" draggable="false" />
+        } @else {
+          <span>{{ drag.source.card.name }}</span>
+        }
+      </div>
+    }
   }
 </footer>

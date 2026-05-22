@@ -215,9 +215,12 @@ describe('PlayerSummaryPanelComponent', () => {
   });
 
   it('renders extra controls as read-only when the player cannot be edited', () => {
+    vi.useFakeTimers();
     const fixture = createFixture({ canEditCounters: false });
+    const lifeChanged = vi.fn();
     const commanderDamageChanged = vi.fn();
     const playerCounterChanged = vi.fn();
+    fixture.componentInstance.lifeChanged.subscribe(lifeChanged);
     fixture.componentInstance.commanderDamageChanged.subscribe(commanderDamageChanged);
     fixture.componentInstance.playerCounterChanged.subscribe(playerCounterChanged);
 
@@ -227,15 +230,23 @@ describe('PlayerSummaryPanelComponent', () => {
     const addCommanderDamage = fixture.nativeElement.querySelector('[aria-label="Add commander damage from Opponent"]');
     const removePoison = fixture.nativeElement.querySelector('[aria-label="Remove Poison counter"]');
     const readonlyValues = fixture.nativeElement.querySelectorAll('.counter-readonly-value');
+    const lifeDecrease = fixture.nativeElement.querySelector('[data-testid="life-decrease"]');
+    const lifeIncrease = fixture.nativeElement.querySelector('[data-testid="life-increase"]');
+    const lifeValue = fixture.nativeElement.querySelector('[data-testid="life-value"]') as HTMLButtonElement;
 
     expect(fixture.nativeElement.querySelector('.player-extra-actions .extra-actions-panel')?.textContent).not.toContain('Read only');
     expect(addCommanderDamage).toBeNull();
     expect(removePoison).toBeNull();
     expect(readonlyValues.length).toBeGreaterThan(0);
+    expect(lifeDecrease).toBeNull();
+    expect(lifeIncrease).toBeNull();
 
     fixture.componentInstance.changeCommanderDamage(new MouseEvent('click'), 'player-2', 1);
     fixture.componentInstance.changePlayerCounter(new MouseEvent('click'), 'poison', -1);
+    lifeValue.click();
+    vi.advanceTimersByTime(PLAYER_SUMMARY_ACTION_DEBOUNCE_MS);
 
+    expect(lifeChanged).not.toHaveBeenCalled();
     expect(commanderDamageChanged).not.toHaveBeenCalled();
     expect(playerCounterChanged).not.toHaveBeenCalled();
   });

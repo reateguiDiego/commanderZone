@@ -129,6 +129,9 @@ export class PlayerSummaryPanelComponent implements OnDestroy {
     if (delta < 0) {
       event.preventDefault();
     }
+    if (!this.canEditCounters()) {
+      return;
+    }
 
     const currentPlayer = this.player();
     const playerId = currentPlayer.id;

@@ -10,6 +10,7 @@
   [class.hand-dragging]="isPointerDragActive()"
   [class.hand-external-dragging]="hasActiveCardDrag()"
   [class.hand-motion-active]="motionActive()"
+  [class.hand-card-hover-active]="activeHandHoverInstanceId() !== null"
   (pointerenter)="enterHand($event)"
   (pointerleave)="leaveHand($event)"
   (mouseenter)="enterHand($event)"

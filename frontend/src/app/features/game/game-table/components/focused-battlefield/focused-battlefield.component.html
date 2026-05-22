@@ -13,6 +13,11 @@
   [class.drop-target-active]="isDropZoneHighlighted()(focusedPlayer.id, 'battlefield')"
   [class.arrow-targeting]="allowArrowTargetSelection()"
   [class.board-transitioning]="boardTransitioning()"
+  appGameTableLongPress
+  [appGameTableLongPressSelfOnly]="true"
+  (appGameTableLongPressed)="battlefieldMenuOpened.emit({ event: $event, playerId: focusedPlayer.id, zone: 'battlefield' })"
+  (pointerdown)="suppressExcessivePrimaryClick($event)"
+  (dragstart)="preventUnexpectedNativeDragStart($event)"
   (dragover)="battlefieldDragOver.emit($event)"
   (drop)="battlefieldDropped.emit({ event: $event, playerId: focusedPlayer.id, zone: 'battlefield' })"
   (contextmenu)="battlefieldMenuOpened.emit({ event: $event, playerId: focusedPlayer.id, zone: 'battlefield' })"
@@ -22,6 +27,7 @@
     @let attachmentView = attachmentStackView(card);
     @let displayPosition = displayedCardPosition(card);
     <app-game-card-view
+      style="--game-card-view-width: var(--battlefield-card-width, 7.2rem)"
       mode="battlefield"
       [card]="card"
       [playerId]="focusedPlayer.id"

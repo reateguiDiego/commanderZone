@@ -3,13 +3,20 @@
   class="game-screen"
   data-testid="game-screen"
   [style.--game-wallpaper-image]="tableBackgroundImage()"
-  (click)="store.handleTableClick($event)"
+  (click)="handleTableClick($event)"
   (contextmenu)="store.openGameMenu($event)"
+  (dragstart)="handleNativeDragStart($event)"
 >
   <app-game-table-header (click)="$event.stopPropagation()" (contextmenu)="$event.stopPropagation()" />
 
+  <aside class="orientation-lock" data-testid="game-orientation-lock" role="status" aria-live="polite">
+    <lucide-icon name="rotate-cw" size="34" aria-hidden="true" />
+    <strong>Rotate your device</strong>
+    <span>Games can only be played in landscape on mobile and tablet.</span>
+  </aside>
+
   @if (store.loading()) {
-    <p class="notice">Loading game snapshot...</p>
+    <p class="notice">Loading game...</p>
   } @else if (store.snapshot(); as snapshot) {
     <app-game-arrow-layer
       [snapshot]="snapshot"
@@ -184,9 +191,26 @@
           data-testid="player-panel"
           [attr.data-player-id]="player.id"
           [attr.data-hand-count]="store.zoneCount(player, 'hand')"
+          [style.--battlefield-card-width]="battlefieldZoom.cardWidthRem()"
+          [style.--battlefield-gap]="battlefieldZoom.gapRem()"
+          [style.--battlefield-mana-lane-height]="battlefieldZoom.manaLaneMinHeightRem()"
           [class.active]="snapshot.turn.activePlayerId === player.id"
           [class.dragging-card]="store.draggingCardInstanceId()"
         >
+          <app-battlefield-zoom-controls
+            class="battlefield-zoom-host"
+            [zoomPercent]="battlefieldZoom.zoomPercent()"
+            [minZoomPercent]="battlefieldZoom.minZoomPercent"
+            [maxZoomPercent]="battlefieldZoom.maxZoomPercent"
+            [defaultZoomPercent]="battlefieldZoom.defaultZoomPercent"
+            [zoomStepPercent]="battlefieldZoom.zoomStepPercent"
+            [canResetZoom]="battlefieldZoom.canResetZoom()"
+            (zoomPercentChanged)="setBattlefieldZoom($event)"
+            (resetZoom)="resetBattlefieldZoom()"
+            (click)="$event.stopPropagation()"
+            (contextmenu)="$event.stopPropagation()"
+          />
+
           @if (shouldShowRematchVotesButton()) {
             <button class="rematch-votes-button secondary-button" type="button" (click)="openRematchModal(); $event.stopPropagation()">
               <lucide-icon name="vote" size="16" />
@@ -212,6 +236,7 @@
             [firstCounter]="firstCounter"
             [alignmentGuideFor]="alignmentGuideFor"
             [isManaLaneHighlighted]="isManaLaneHighlighted"
+            [layoutKey]="battlefieldZoom.zoomPercent()"
             [landStackDropPreview]="store.landStackDropPreview()"
             [attachments]="snapshot.attachments ?? []"
             [isCardDropSettling]="isCardDropSettling"
@@ -260,6 +285,7 @@
                 (handDropped)="handleHandDropped($event)"
                 (handCardClicked)="store.handleHandCardClick($event.event, $event.playerId, $event.card)"
                 (handCardPointerReordered)="handleHandCardPointerReordered($event)"
+                (handCardPointerDragStarted)="store.closeContextMenuForCardDrag($event.card.instanceId)"
                 (handCardPointerMoved)="handleHandCardPointerMoved($event)"
                 (handPointerDropTargetChanged)="store.updatePointerDropTarget($event)"
                 (cardMenuOpened)="store.openCardMenu($event.event, $event.playerId, 'hand', $event.card)"
@@ -289,6 +315,10 @@
           (zoneDragEnd)="store.dragEnd()"
           (zoneDragOver)="store.allowDrop($event)"
           (zoneDropped)="handleZoneDrop($event)"
+          (zonePointerDragStarted)="store.beginZonePointerDrag($event.card.instanceId)"
+          (zonePointerDropTargetChanged)="store.updatePointerDropTarget($event)"
+          (zonePointerDropped)="handleZonePointerDropped($event)"
+          (zonePointerDragEnded)="store.endZonePointerDrag()"
           (zoneOpened)="store.openZone($event.playerId, $event.zone)"
           (zoneDoubleClicked)="onZoneDoubleClick($event.playerId, $event.zone)"
           (zoneMenuOpened)="store.openZoneMenu($event.event, $event.playerId, $event.zone)"
@@ -298,9 +328,17 @@
         />
       }
 
-      <aside appPrettyScroll class="player-sidebar game-table-opponents">
-        <button class="drawer-handle opponents-drawer-handle" type="button">Opponents</button>
-        <div class="opponents-list">
+      <aside appPrettyScroll class="player-sidebar game-table-opponents" [class.opponents-open]="opponentsDrawerOpen()">
+        <button
+          class="drawer-handle opponents-drawer-handle"
+          type="button"
+          [attr.aria-expanded]="opponentsDrawerOpen()"
+          aria-controls="game-table-opponents-list"
+          (click)="toggleOpponentsDrawer($event)"
+        >
+          Opponents
+        </button>
+        <div id="game-table-opponents-list" class="opponents-list">
           @for (player of opponentSidebarPlayers(); track player.id) {
             <app-opponent-mini-board
               [player]="player"

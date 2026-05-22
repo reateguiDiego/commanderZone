@@ -59,6 +59,8 @@ interface PointerDragResult {
 
 @Injectable()
 export class GameTableDragService {
+  private readonly payloadMimeType = 'text/x-commanderzone';
+  private readonly dragMarkerMimeType = 'application/x-commanderzone-drag';
   private pointerCardDrag: PointerCardDrag | null = null;
   private suppressCardClickInstanceId: string | null = null;
   private dragImageGeometry: DragImageGeometry | null = null;
@@ -158,6 +160,7 @@ export class GameTableDragService {
     if (!this.pointerCardDrag) {
       return null;
     }
+
     const position = this.pointerDragPositionFromVisualGeometry(
       this.pointerCardDrag.battlefield,
       event.clientX,
@@ -248,13 +251,16 @@ export class GameTableDragService {
 
   dragStart(event: DragEvent, playerId: string, zone: GameZoneName, card: GameCardInstance, instanceIds: readonly string[] = [card.instanceId]): void {
     const uniqueInstanceIds = [...new Set(instanceIds.length > 0 ? instanceIds : [card.instanceId])];
-    this.dragImageGeometry = null;
-    event.dataTransfer?.setData('application/json', JSON.stringify({
+    const payload = JSON.stringify({
       playerId,
       zone,
       instanceId: card.instanceId,
       instanceIds: uniqueInstanceIds,
-    }));
+    });
+    this.dragImageGeometry = null;
+    event.dataTransfer?.setData('application/json', payload);
+    event.dataTransfer?.setData(this.payloadMimeType, payload);
+    event.dataTransfer?.setData(this.dragMarkerMimeType, '1');
     event.dataTransfer?.setData('text/plain', card.instanceId);
     if (event.dataTransfer) {
       event.dataTransfer.effectAllowed = 'move';
@@ -262,15 +268,21 @@ export class GameTableDragService {
     }
   }
 
-  allowDrop(event: DragEvent): void {
+  allowDrop(event: DragEvent, zones?: readonly GameZoneName[]): boolean {
+    if (!this.isSupportedDragEvent(event)) {
+      return false;
+    }
+
     event.preventDefault();
     if (event.dataTransfer) {
       event.dataTransfer.dropEffect = 'move';
     }
+    return true;
   }
 
   dragPayload(event: DragEvent, zones: GameZoneName[]): DragPayload | null {
-    const raw = event.dataTransfer?.getData('application/json');
+    const raw = event.dataTransfer?.getData('application/json')
+      || event.dataTransfer?.getData(this.payloadMimeType);
     if (!raw) {
       return null;
     }
@@ -354,6 +366,18 @@ export class GameTableDragService {
     const availableHeight = manaLaneBounds ? Math.round(manaLaneBounds.bottom - bounds.top) : bounds.height;
 
     return this.clampPosition(Math.round(clientX - bounds.left - offsetX), rawY, bounds.width, availableHeight, cardWidth, cardHeight);
+  }
+
+  private isSupportedDragEvent(event: DragEvent): boolean {
+    const dataTransfer = event.dataTransfer;
+    if (!dataTransfer) {
+      return false;
+    }
+
+    const types = Array.from(dataTransfer.types ?? []);
+    return types.includes(this.dragMarkerMimeType)
+      || types.includes('application/json')
+      || types.includes(this.payloadMimeType);
   }
 
   private manaLaneForCardTop(

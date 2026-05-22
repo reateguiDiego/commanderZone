@@ -1,10 +1,11 @@
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
 import { GameCardInstance } from '../../../../../core/models/game.model';
 import { PrettyScrollDirective } from '../../../../../shared/ui/pretty-scroll/pretty-scroll.directive';
+import { GameTableLongPressDirective } from '../../directives/game-table-long-press.directive';
 
 @Component({
   selector: 'app-card-spoiler-grid',
-  imports: [PrettyScrollDirective],
+  imports: [PrettyScrollDirective, GameTableLongPressDirective],
   templateUrl: './card-spoiler-grid.component.html',
   styleUrl: './card-spoiler-grid.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

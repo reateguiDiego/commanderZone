@@ -258,6 +258,179 @@ describe('ZonePilesPanelComponent', () => {
 
     expect(graveyard.classList).not.toContain('dragging-zone-card');
   });
+
+  it('keeps native desktop drag behavior and ignores mouse pointer drags', async () => {
+    const graveyardCard = card('graveyard-1', 'Top Graveyard Card', 'graveyard');
+    const fixture = await renderZonePilesPanel({
+      graveyard: [graveyardCard],
+      topDraggableCard: (_player, zone) => zone === 'graveyard' ? graveyardCard : null,
+    });
+    const started = vi.fn();
+    fixture.componentInstance.zonePointerDragStarted.subscribe(started);
+    const graveyard = zoneElement(fixture, 'graveyard');
+    stubZoneArtRect(graveyard);
+
+    fixture.componentInstance.startZonePointerDrag(pointerEvent({
+      currentTarget: graveyard,
+      pointerType: 'mouse',
+      clientX: 20,
+      clientY: 20,
+    }), 'graveyard', graveyardCard);
+    fixture.componentInstance.moveZonePointerDrag(pointerEvent({
+      pointerType: 'mouse',
+      clientX: 80,
+      clientY: 20,
+    }));
+    fixture.detectChanges();
+
+    expect(started).not.toHaveBeenCalled();
+    expect(graveyard.getAttribute('draggable')).toBe('true');
+    expect(graveyard.classList).not.toContain('dragging-zone-card');
+  });
+
+  it('emits pointer drag events for touch drags and marks the source zone', async () => {
+    const graveyardCard = card('graveyard-1', 'Top Graveyard Card', 'graveyard');
+    const fixture = await renderZonePilesPanel({
+      graveyard: [graveyardCard],
+      topDraggableCard: (_player, zone) => zone === 'graveyard' ? graveyardCard : null,
+      zonePreviewImage: (_player, zone) => zone === 'graveyard' ? '/assets/graveyard-top.jpg' : null,
+    });
+    const started = vi.fn();
+    const targetChanged = vi.fn();
+    fixture.componentInstance.zonePointerDragStarted.subscribe(started);
+    fixture.componentInstance.zonePointerDropTargetChanged.subscribe(targetChanged);
+    const graveyard = zoneElement(fixture, 'graveyard');
+    stubZoneArtRect(graveyard);
+    const exile = document.createElement('button');
+    exile.dataset['gameDropZone'] = 'exile';
+    exile.dataset['zone'] = 'exile';
+    exile.dataset['playerId'] = 'player-1';
+    const restore = mockElementsFromPoint([exile]);
+
+    fixture.componentInstance.startZonePointerDrag(pointerEvent({
+      currentTarget: graveyard,
+      pointerType: 'touch',
+      pointerId: 7,
+      clientX: 20,
+      clientY: 20,
+    }), 'graveyard', graveyardCard);
+    fixture.componentInstance.moveZonePointerDrag(pointerEvent({
+      pointerType: 'touch',
+      pointerId: 7,
+      clientX: 80,
+      clientY: 20,
+    }));
+    fixture.detectChanges();
+
+    expect(started).toHaveBeenCalledWith({ playerId: 'player-1', zone: 'graveyard', card: graveyardCard });
+    expect(targetChanged).toHaveBeenCalledWith({
+      targetPlayerId: 'player-1',
+      toZone: 'exile',
+      kind: 'zone',
+      rawZone: 'exile',
+      draggedInstanceId: 'graveyard-1',
+      pointerClient: { x: 80, y: 20 },
+    });
+    expect(graveyard.classList).toContain('dragging-zone-card');
+    expect(fixture.nativeElement.querySelector('.zone-floating-card img')?.getAttribute('src')).toBe('/assets/graveyard-top.jpg');
+
+    restore();
+  });
+
+  it('emits a pointer drop request and suppresses the follow-up click after touch drag', async () => {
+    const graveyardCard = card('graveyard-1', 'Top Graveyard Card', 'graveyard');
+    const fixture = await renderZonePilesPanel({
+      graveyard: [graveyardCard],
+      topDraggableCard: (_player, zone) => zone === 'graveyard' ? graveyardCard : null,
+    });
+    const dropped = vi.fn();
+    const opened = vi.fn();
+    fixture.componentInstance.zonePointerDropped.subscribe(dropped);
+    fixture.componentInstance.zoneOpened.subscribe(opened);
+    const graveyard = zoneElement(fixture, 'graveyard');
+    stubZoneArtRect(graveyard);
+    const hand = document.createElement('div');
+    hand.dataset['gameDropZone'] = 'hand';
+    hand.dataset['zone'] = 'hand';
+    hand.dataset['playerId'] = 'player-1';
+    const restore = mockElementsFromPoint([hand]);
+
+    fixture.componentInstance.startZonePointerDrag(pointerEvent({
+      currentTarget: graveyard,
+      pointerType: 'touch',
+      pointerId: 8,
+      clientX: 20,
+      clientY: 20,
+    }), 'graveyard', graveyardCard);
+    fixture.componentInstance.moveZonePointerDrag(pointerEvent({
+      pointerType: 'touch',
+      pointerId: 8,
+      clientX: 20,
+      clientY: 80,
+    }));
+    fixture.componentInstance.endZonePointerDrag(pointerEvent({
+      pointerType: 'touch',
+      pointerId: 8,
+      clientX: 20,
+      clientY: 80,
+    }));
+    fixture.detectChanges();
+    graveyard.click();
+
+    expect(dropped).toHaveBeenCalledWith({
+      moved: true,
+      request: {
+        playerId: 'player-1',
+        targetPlayerId: 'player-1',
+        fromZone: 'graveyard',
+        toZone: 'hand',
+        instanceId: 'graveyard-1',
+        rawZone: 'hand',
+      },
+    });
+    expect(opened).not.toHaveBeenCalled();
+    expect(graveyard.classList).not.toContain('dragging-zone-card');
+
+    restore();
+  });
+
+  it('clears pointer drag visuals on pointer cancel', async () => {
+    const graveyardCard = card('graveyard-1', 'Top Graveyard Card', 'graveyard');
+    const fixture = await renderZonePilesPanel({
+      graveyard: [graveyardCard],
+      topDraggableCard: (_player, zone) => zone === 'graveyard' ? graveyardCard : null,
+    });
+    const ended = vi.fn();
+    fixture.componentInstance.zonePointerDragEnded.subscribe(ended);
+    const graveyard = zoneElement(fixture, 'graveyard');
+    stubZoneArtRect(graveyard);
+
+    fixture.componentInstance.startZonePointerDrag(pointerEvent({
+      currentTarget: graveyard,
+      pointerType: 'touch',
+      pointerId: 9,
+      clientX: 20,
+      clientY: 20,
+    }), 'graveyard', graveyardCard);
+    fixture.componentInstance.moveZonePointerDrag(pointerEvent({
+      pointerType: 'touch',
+      pointerId: 9,
+      clientX: 80,
+      clientY: 20,
+    }));
+    fixture.detectChanges();
+    fixture.componentInstance.cancelZonePointerDrag(pointerEvent({
+      pointerType: 'touch',
+      pointerId: 9,
+      clientX: 80,
+      clientY: 20,
+    }));
+    fixture.detectChanges();
+
+    expect(ended).toHaveBeenCalled();
+    expect(graveyard.classList).not.toContain('dragging-zone-card');
+    expect(fixture.nativeElement.querySelector('.zone-floating-card')).toBeNull();
+  });
 });
 
 interface RenderZonePilesPanelOptions {
@@ -340,4 +513,45 @@ function card(instanceId: string, name: string, zone: GameZoneName): GameCardIns
     zone,
     tapped: false,
   };
+}
+
+function stubZoneArtRect(zone: HTMLElement): void {
+  const zoneArt = zone.querySelector<HTMLElement>('.zone-art')!;
+  zoneArt.getBoundingClientRect = () => ({
+    x: 0,
+    y: 0,
+    width: 100,
+    height: 140,
+    top: 0,
+    right: 100,
+    bottom: 140,
+    left: 0,
+    toJSON: () => ({}),
+  } as DOMRect);
+}
+
+function mockElementsFromPoint(elements: Element[]): () => void {
+  const original = document.elementsFromPoint;
+  Object.defineProperty(document, 'elementsFromPoint', {
+    configurable: true,
+    value: vi.fn(() => elements),
+  });
+
+  return () => {
+    Object.defineProperty(document, 'elementsFromPoint', {
+      configurable: true,
+      value: original,
+    });
+  };
+}
+
+function pointerEvent(patch: Partial<PointerEvent> & { clientX: number; clientY: number }): PointerEvent {
+  return {
+    button: 0,
+    pointerId: 1,
+    pointerType: 'touch',
+    preventDefault: vi.fn(),
+    stopPropagation: vi.fn(),
+    ...patch,
+  } as unknown as PointerEvent;
 }

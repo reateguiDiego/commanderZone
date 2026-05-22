@@ -9,6 +9,7 @@ import { CardPreviewEvent } from '../../models/card-preview.model';
 import { OpponentTargetingPill } from '../../models/opponent-targeting-pill.model';
 import { PLAYER_DEFEATED_SKULL_IMAGE } from '../../utils/game-table-visual-assets';
 import { playerIsDefeated } from '../../utils/game-player-defeat';
+import { GameTableLongPressDirective } from '../../directives/game-table-long-press.directive';
 
 interface PlayerDropEvent {
   event: DragEvent;
@@ -55,7 +56,7 @@ const PLAYER_BORDER_VARIANTS = ['#f3dfaa', '#cdd7de', '#cdb8d5', '#d8b6a6', '#bc
 
 @Component({
   selector: 'app-opponent-mini-board',
-  imports: [LucideAngularModule, OpponentMiniBattlefieldComponent, OpponentCardsTargetComponent],
+  imports: [LucideAngularModule, OpponentMiniBattlefieldComponent, OpponentCardsTargetComponent, GameTableLongPressDirective],
   templateUrl: './opponent-mini-board.component.html',
   styleUrl: './opponent-mini-board.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

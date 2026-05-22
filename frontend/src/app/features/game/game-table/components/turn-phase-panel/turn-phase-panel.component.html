@@ -1,10 +1,10 @@
 @let currentTurn = turn();
 
-<div class="turn-phase-panel" data-testid="turn-panel">
+<div class="turn-phase-panel" data-testid="turn-panel" [class.is-current-turn-player]="isCurrentTurnPlayer()">
   <div class="turn-summary">
     <div class="turn-title">
-      <span data-testid="turn-number">Turno {{ currentTurn.number }}</span>
-      <strong data-testid="turn-active-player">{{ activePlayerName() }}</strong>
+      <span class="turn-number" data-testid="turn-number">Turno {{ currentTurn.number }}</span>
+      <strong class="turn-active-player" data-testid="turn-active-player">{{ activePlayerName() }}</strong>
     </div>
     <div class="turn-actions">
       @if (isCurrentTurnPlayer()) {
@@ -55,8 +55,12 @@
         [class.phase-combat]="phase === 'combat'"
         [attr.aria-current]="currentTurn.phase === phase ? 'step' : null"
       >
-        <span class="phase-node"></span>
-        <span>{{ phase }}</span>
+        <span class="phase-node">
+          @if (phase === 'combat') {
+            <lucide-icon class="phase-combat-sword" name="swords" size="21" aria-hidden="true" />
+          }
+        </span>
+        <span class="phase-label">{{ phaseDisplayLabel(phase) }}</span>
       </button>
     }
   </div>
