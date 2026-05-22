@@ -198,6 +198,12 @@ interface ZoneDropEvent {
   readonly zone: GameZoneName;
 }
 
+interface ZonePointerDragStartedEvent {
+  readonly playerId: string;
+  readonly zone: GameZoneName;
+  readonly card: GameCardInstance;
+}
+
 interface ZonePointerDroppedEvent {
   readonly request: ZonePointerDropRequest | null;
   readonly moved: boolean;
@@ -1679,6 +1685,11 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       this.animateDropToDropZone(sourceInstanceId, payload, event.playerId, event.zone, event.event);
     }
     void this.store.dropOnZone(event.event, event.playerId, event.zone);
+  }
+
+  handleZonePointerDragStarted(event: ZonePointerDragStartedEvent): void {
+    this.store.closeContextMenu();
+    this.store.beginZonePointerDrag(event.card.instanceId);
   }
 
   async handleZonePointerDropped(event: ZonePointerDroppedEvent): Promise<void> {

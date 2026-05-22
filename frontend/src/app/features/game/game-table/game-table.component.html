@@ -315,7 +315,7 @@
           (zoneDragEnd)="store.dragEnd()"
           (zoneDragOver)="store.allowDrop($event)"
           (zoneDropped)="handleZoneDrop($event)"
-          (zonePointerDragStarted)="store.beginZonePointerDrag($event.card.instanceId)"
+          (zonePointerDragStarted)="handleZonePointerDragStarted($event)"
           (zonePointerDropTargetChanged)="store.updatePointerDropTarget($event)"
           (zonePointerDropped)="handleZonePointerDropped($event)"
           (zonePointerDragEnded)="store.endZonePointerDrag()"
