@@ -38,7 +38,6 @@ export class GameTableSessionService {
     try {
       await this.refetch(context, true);
       this.subscribeToRealtime(context, gameId);
-      this.startPolling(context);
     } catch {
       context.navigateToRoomsWithLoadError();
     } finally {
@@ -87,16 +86,6 @@ export class GameTableSessionService {
     this.realtime.subscribeToGame(gameId, (event) => {
       void this.handleRealtimeEvent(context, event);
     });
-  }
-
-  private startPolling(context: GameTableSessionContext): void {
-    this.realtime.startPolling(
-      () => {
-        void this.refetch(context, false);
-      },
-      () => !context.isPending(),
-      4000,
-    );
   }
 
   private applySnapshot(context: GameTableSessionContext, nextSnapshot: GameSnapshot): void {

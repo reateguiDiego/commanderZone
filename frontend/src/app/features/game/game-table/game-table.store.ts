@@ -158,7 +158,7 @@ export class GameTableStore implements OnDestroy {
       pending: 'Applying action',
       connecting: 'Connecting',
       live: 'Live',
-      degraded: 'Polling backup',
+      degraded: 'Live degraded',
     };
 
     return labels[this.syncStatus()];
