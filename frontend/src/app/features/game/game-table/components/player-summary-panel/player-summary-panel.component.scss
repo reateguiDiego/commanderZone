@@ -59,6 +59,8 @@
 }
 
 .life-controls {
+  --life-stepper-side-width: 1.16rem;
+
   position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -93,14 +95,18 @@
 
 .life-stepper {
   display: grid;
-  grid-template-columns: 1.08rem minmax(3.34rem, 1fr) 1.24rem;
+  grid-template-columns: var(--life-stepper-side-width) minmax(3.34rem, 1fr) var(--life-stepper-side-width);
   align-items: stretch;
   min-width: 0;
 }
 
 .life-total,
 .life-step-button {
+  appearance: none;
+  -webkit-appearance: none;
   border: 0;
+  margin: 0;
+  padding: 0;
   background: transparent;
   color: color-mix(in srgb, var(--player-accent) 58%, var(--game-text, #f3f0e8));
   font-weight: 900;
@@ -150,15 +156,19 @@
 
 .life-step-button {
   display: grid;
-  min-width: 1.08rem;
+  min-width: var(--life-stepper-side-width);
   min-height: 2.24rem;
   place-items: center;
-  padding: 0;
   color: color-mix(in srgb, var(--player-accent) 58%, #f3f0e8);
 }
 
+.life-step-spacer {
+  min-width: var(--life-stepper-side-width);
+  min-height: 2.24rem;
+}
+
 .life-step-increase {
-  min-width: 1.24rem;
+  min-width: var(--life-stepper-side-width);
   padding-right: 0.12rem;
 }
 
@@ -299,6 +309,7 @@
 }
 
 .life-controls .player-extra-actions {
+  padding-inline: var(--life-stepper-side-width);
   border-top: 1px solid rgb(255 238 183 / 10%);
 }
 
@@ -311,13 +322,20 @@
   width: 100%;
   min-width: 0;
   min-height: 0.62rem;
+  appearance: none;
+  -webkit-appearance: none;
   border: 0;
   border-radius: 0 0 8px 8px;
-  padding: 0;
+  padding: 0 !important;
+  padding-inline: 0 !important;
+  padding-block: 0 !important;
   background: transparent;
   box-shadow: none;
   color: color-mix(in srgb, var(--player-accent) 88%, #f3f0e8);
-  align-items: start;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+  font-size: 0;
 }
 
 .life-controls .player-extra-actions ::ng-deep .extra-actions-toggle:hover,
@@ -337,7 +355,7 @@
   width: 0.6rem;
   height: 0.6rem;
   stroke-width: 3;
-  transform: translateY(-0.16rem);
+  transform: translateY(-0.12rem);
 }
 
 .player-counter-menu {
@@ -586,14 +604,12 @@
   }
 
   .life-controls {
+    --life-stepper-side-width: 1.11rem;
+
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: 1.95rem 0.5rem;
     min-width: 5.08rem;
     border-radius: 8px;
-  }
-
-  .life-stepper {
-    grid-template-columns: 1.04rem minmax(3rem, 1fr) 1.18rem;
   }
 
   .life-total {
@@ -603,13 +619,7 @@
   }
 
   .life-step-button {
-    min-width: 1.04rem;
     min-height: 1.95rem;
-  }
-
-  .life-step-increase {
-    min-width: 1.18rem;
-    padding-right: 0.1rem;
   }
 
   .life-step-button lucide-icon {
@@ -629,7 +639,7 @@
   .life-controls .player-extra-actions ::ng-deep .extra-actions-toggle lucide-icon {
     width: 0.56rem;
     height: 0.56rem;
-    transform: translateY(-0.14rem);
+    transform: translateY(-0.11rem);
   }
 }
 
@@ -647,14 +657,12 @@
   }
 
   .life-controls {
+    --life-stepper-side-width: 1.04rem;
+
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: 1.78rem 0.46rem;
     min-width: 4.8rem;
     border-radius: 0;
-  }
-
-  .life-stepper {
-    grid-template-columns: 0.98rem minmax(2.84rem, 1fr) 1.12rem;
   }
 
   .life-total {
@@ -664,13 +672,7 @@
   }
 
   .life-step-button {
-    min-width: 0.98rem;
     min-height: 1.78rem;
-  }
-
-  .life-step-increase {
-    min-width: 1.12rem;
-    padding-right: 0.08rem;
   }
 
   .life-step-button lucide-icon {
@@ -692,7 +694,7 @@
   .life-controls .player-extra-actions ::ng-deep .extra-actions-toggle lucide-icon {
     width: 0.52rem;
     height: 0.52rem;
-    transform: translateY(-0.12rem);
+    transform: translateY(-0.1rem);
   }
 
   .counter-row {

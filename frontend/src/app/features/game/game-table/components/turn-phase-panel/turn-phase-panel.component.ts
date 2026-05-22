@@ -52,6 +52,27 @@ export class TurnPhasePanelComponent {
     return phase === 'untap' || phase === 'upkeep' || phase === 'draw' || phase === 'end';
   }
 
+  phaseDisplayLabel(phase: string): string {
+    switch (phase) {
+      case 'untap':
+        return 'Untap';
+      case 'upkeep':
+        return 'Upkeep';
+      case 'draw':
+        return 'Draw';
+      case 'main-1':
+        return 'Main phase I';
+      case 'combat':
+        return 'Combat';
+      case 'main-2':
+        return 'Main phase II';
+      case 'end':
+        return 'End step';
+      default:
+        return this.phaseLabel(phase).replace('-', ' ');
+    }
+  }
+
   updateFollowActiveTurnPlayer(event: Event): void {
     const checked = event.target instanceof HTMLInputElement && event.target.checked;
     this.followActiveTurnPlayerChanged.emit(checked);

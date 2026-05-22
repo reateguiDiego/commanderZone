@@ -17,6 +17,111 @@
   border-color: transparent;
   background: transparent;
   text-align: left;
+  border-radius: 7px;
+  transition:
+    background-color 120ms ease,
+    box-shadow 120ms ease,
+    color 120ms ease,
+    transform 120ms ease;
+}
+
+.submenu-trigger:hover:not(:disabled),
+.submenu-trigger:focus-visible:not(:disabled) {
+  background:
+    linear-gradient(135deg, rgb(215 180 106 / 16%), rgb(215 180 106 / 6%)),
+    rgb(255 255 255 / 2%);
+  box-shadow:
+    inset 0 0 0 1px rgb(215 180 106 / 34%),
+    0 0.45rem 1rem rgb(0 0 0 / 28%);
+  transform: translateY(-1px);
+}
+
+.submenu-trigger:active:not(:disabled) {
+  background:
+    linear-gradient(135deg, rgb(215 180 106 / 20%), rgb(215 180 106 / 10%)),
+    rgb(255 255 255 / 3%);
+  box-shadow:
+    inset 0 0 0 1px rgb(215 180 106 / 44%),
+    0 0.22rem 0.55rem rgb(0 0 0 / 24%);
+  transform: translateY(0);
+}
+
+.submenu-trigger:focus-visible {
+  outline: none;
+}
+
+.submenu-item-label {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.62rem;
+}
+
+.submenu-item-label > span:last-child {
+  text-transform: lowercase;
+}
+
+.submenu-item-label > span:last-child::first-letter {
+  text-transform: uppercase;
+}
+
+.submenu-item-label lucide-icon {
+  flex: 0 0 auto;
+  color: var(--game-accent, #d7b46a);
+}
+
+.submenu-item-image-icon {
+  width: 1.06rem;
+  height: 1.06rem;
+  flex: 0 0 auto;
+  display: block;
+  object-fit: contain;
+}
+
+.submenu-item-graveyard-icon {
+  width: 1.12rem;
+  height: 1.12rem;
+  filter:
+    saturate(1.04)
+    contrast(1.05)
+    brightness(1.02)
+    drop-shadow(0 0.05rem 0.12rem rgb(0 0 0 / 55%));
+}
+
+.submenu-item-counter-pill-icon {
+  display: inline-flex;
+  width: 0.96rem;
+  height: 0.96rem;
+  flex: 0 0 auto;
+  position: relative;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  padding-top: 0.05rem;
+  border: 1px solid rgb(215 180 106 / 72%);
+  border-radius: 999px;
+  background: linear-gradient(145deg, rgb(7 8 7 / 96%), rgb(28 25 16 / 94%));
+  color: var(--game-accent, #d7b46a);
+  font-size: 0.5rem;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  box-shadow:
+    0 0.2rem 0.45rem rgb(0 0 0 / 42%),
+    0 0 0.45rem rgb(215 180 106 / 16%);
+}
+
+.submenu-item-counter-pill-icon::after {
+  content: '+';
+  position: absolute;
+  right: -0.1rem;
+  bottom: -0.08rem;
+  color: var(--game-accent, #d7b46a);
+  font-size: 1.68rem;
+  font-weight: 900;
+  line-height: 1;
+  text-shadow: 0 0 0.18rem rgb(0 0 0 / 72%);
 }
 
 .submenu.side-left .submenu-trigger,
@@ -27,6 +132,15 @@
 }
 
 .submenu-arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  width: 0.9rem;
+  height: 1rem;
+  line-height: 1;
+  position: relative;
+  top: -0.12rem;
   color: var(--game-accent, #d7b46a);
   transition: transform 140ms ease;
 }
@@ -85,6 +199,56 @@
   border-color: transparent;
   background: transparent;
   text-align: left;
+  border-radius: 7px;
+  transition:
+    background-color 120ms ease,
+    box-shadow 120ms ease,
+    color 120ms ease,
+    transform 120ms ease;
+}
+
+.submenu-panel button:hover:not(:disabled),
+.submenu-panel button:focus-visible:not(:disabled),
+.submenu-child-panel button:hover:not(:disabled),
+.submenu-child-panel button:focus-visible:not(:disabled) {
+  background:
+    linear-gradient(135deg, rgb(215 180 106 / 16%), rgb(215 180 106 / 6%)),
+    rgb(255 255 255 / 2%);
+  box-shadow:
+    inset 0 0 0 1px rgb(215 180 106 / 34%),
+    0 0.45rem 1rem rgb(0 0 0 / 28%);
+  transform: translateY(-1px);
+}
+
+.submenu-panel button:active:not(:disabled),
+.submenu-child-panel button:active:not(:disabled) {
+  background:
+    linear-gradient(135deg, rgb(215 180 106 / 20%), rgb(215 180 106 / 10%)),
+    rgb(255 255 255 / 3%);
+  box-shadow:
+    inset 0 0 0 1px rgb(215 180 106 / 44%),
+    0 0.22rem 0.55rem rgb(0 0 0 / 24%);
+  transform: translateY(0);
+}
+
+.submenu-panel button:focus-visible,
+.submenu-child-panel button:focus-visible {
+  outline: none;
+}
+
+.submenu-panel button.submenu-item-image-only {
+  justify-content: center;
+  padding-block: 0.36rem;
+}
+
+.submenu-panel button.submenu-item-image-only .submenu-item-label {
+  width: 100%;
+  justify-content: center;
+}
+
+.submenu-panel button.submenu-item-image-only .submenu-item-image-icon {
+  width: 100%;
+  height: 1.32rem;
 }
 
 .submenu-panel button:disabled {
@@ -119,4 +283,20 @@
 
 .danger-menu-item {
   color: #fecaca;
+}
+
+.danger-menu-item .submenu-item-label lucide-icon {
+  color: #fecaca;
+}
+
+.submenu-panel .danger-menu-item:hover:not(:disabled),
+.submenu-panel .danger-menu-item:focus-visible:not(:disabled),
+.submenu-child-panel .danger-menu-item:hover:not(:disabled),
+.submenu-child-panel .danger-menu-item:focus-visible:not(:disabled) {
+  background:
+    linear-gradient(135deg, rgb(239 68 68 / 18%), rgb(239 68 68 / 8%)),
+    rgb(255 255 255 / 2%);
+  box-shadow:
+    inset 0 0 0 1px rgb(248 113 113 / 42%),
+    0 0.45rem 1rem rgb(0 0 0 / 28%);
 }

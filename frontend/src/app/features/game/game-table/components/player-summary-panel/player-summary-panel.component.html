@@ -27,15 +27,19 @@
   </div>
   <div class="life-controls" data-testid="focused-player-life" [attr.data-player-id]="currentPlayer.id">
     <div class="life-stepper" aria-label="Life controls">
-      <button
-        type="button"
-        class="life-step-button life-step-decrease"
-        data-testid="life-decrease"
-        [attr.aria-label]="'Remove 1 life from ' + currentPlayer.state.user.displayName"
-        (click)="changeLife($event, -1)"
-      >
-        <lucide-icon name="minus" size="16" aria-hidden="true" />
-      </button>
+      @if (canEditCounters()) {
+        <button
+          type="button"
+          class="life-step-button life-step-decrease"
+          data-testid="life-decrease"
+          [attr.aria-label]="'Remove 1 life from ' + currentPlayer.state.user.displayName"
+          (click)="changeLife($event, -1)"
+        >
+          <lucide-icon name="minus" size="16" aria-hidden="true" />
+        </button>
+      } @else {
+        <span class="life-step-spacer" aria-hidden="true"></span>
+      }
       <button
         type="button"
         class="life-total"
@@ -50,15 +54,19 @@
       >
         {{ displayedLife() }}
       </button>
-      <button
-        type="button"
-        class="life-step-button life-step-increase"
-        data-testid="life-increase"
-        [attr.aria-label]="'Add 1 life to ' + currentPlayer.state.user.displayName"
-        (click)="changeLife($event, 1)"
-      >
-        <lucide-icon name="plus" size="16" aria-hidden="true" />
-      </button>
+      @if (canEditCounters()) {
+        <button
+          type="button"
+          class="life-step-button life-step-increase"
+          data-testid="life-increase"
+          [attr.aria-label]="'Add 1 life to ' + currentPlayer.state.user.displayName"
+          (click)="changeLife($event, 1)"
+        >
+          <lucide-icon name="plus" size="16" aria-hidden="true" />
+        </button>
+      } @else {
+        <span class="life-step-spacer" aria-hidden="true"></span>
+      }
     </div>
     <div class="life-feedback-layer" aria-hidden="true">
       @if (currentLifeFeedback; as feedback) {

@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, input, output, signal } from '@angular/core';
+import { LucideAngularModule } from 'lucide-angular';
 
 export type ContextSubmenuDirection = 'down' | 'up';
 export type ContextSubmenuSide = 'right' | 'left';
@@ -6,6 +7,8 @@ export type ContextSubmenuSide = 'right' | 'left';
 export interface ContextSubmenuItem {
   readonly value: string;
   readonly label: string;
+  readonly icon?: string;
+  readonly imageOnly?: boolean;
   readonly shortcut?: string;
   readonly danger?: boolean;
   readonly disabled?: boolean;
@@ -14,12 +17,14 @@ export interface ContextSubmenuItem {
 
 @Component({
   selector: 'app-context-submenu',
+  imports: [LucideAngularModule],
   templateUrl: './context-submenu.component.html',
   styleUrl: './context-submenu.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ContextSubmenuComponent {
   readonly label = input.required<string>();
+  readonly icon = input<string | null>(null);
   readonly items = input.required<readonly ContextSubmenuItem[]>();
   readonly expanded = input(false);
   readonly direction = input<ContextSubmenuDirection>('down');
@@ -48,5 +53,20 @@ export class ContextSubmenuComponent {
     }
 
     this.itemSelected.emit(item.value);
+  }
+
+  isAssetIcon(icon: string): boolean {
+    return icon.startsWith('assets/') || icon.startsWith('/assets/');
+  }
+
+  isCounterPillIcon(icon: string): boolean {
+    return icon === 'counter-pill';
+  }
+
+  isGraveyardAssetIcon(icon: string): boolean {
+    return icon.endsWith('/assets/icons/gameplay/graveyard.svg')
+      || icon.endsWith('assets/icons/gameplay/graveyard.svg')
+      || icon.endsWith('/assets/icons/gameplay/graveyard-gold.svg')
+      || icon.endsWith('assets/icons/gameplay/graveyard-gold.svg');
   }
 }

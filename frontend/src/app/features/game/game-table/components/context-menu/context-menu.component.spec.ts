@@ -1,6 +1,41 @@
 import { importProvidersFrom } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { Ban, Dices, Link, LogOut, LucideAngularModule, Maximize2, Plus, RefreshCcw } from 'lucide-angular';
+import {
+  Ban,
+  BarChart3,
+  Biohazard,
+  Copy,
+  Dices,
+  Eye,
+  EyeOff,
+  Gift,
+  Ghost,
+  Layers3,
+  Library,
+  Link,
+  Link2Off,
+  LogOut,
+  LucideAngularModule,
+  Maximize2,
+  Minus,
+  Pencil,
+  Plus,
+  Radiation,
+  RefreshCcw,
+  RotateCcw,
+  RotateCw,
+  Search,
+  Send,
+  Sparkles,
+  Swords,
+  Tickets,
+  Trash,
+  Trash2,
+  Unlink2,
+  Upload,
+  UserPlus,
+  Users,
+} from 'lucide-angular';
 import { GameCardInstance, GameZoneName } from '../../../../../core/models/game.model';
 import { GameContextMenu } from '../../state/core/game-table-ui.state';
 import { ContextMenuComponent } from './context-menu.component';
@@ -12,12 +47,38 @@ describe('ContextMenuComponent', () => {
       providers: [
         importProvidersFrom(LucideAngularModule.pick({
           Ban,
+          BarChart3,
+          Biohazard,
+          Copy,
           Dices,
+          Eye,
+          EyeOff,
+          Gift,
+          Ghost,
+          Layers3,
+          Library,
           Link,
+          Link2Off,
           LogOut,
           Maximize2,
+          Minus,
+          Pencil,
           Plus,
+          Radiation,
           RefreshCcw,
+          RotateCcw,
+          RotateCw,
+          Search,
+          Send,
+          Sparkles,
+          Swords,
+          Tickets,
+          Trash,
+          Trash2,
+          Unlink2,
+          Upload,
+          UserPlus,
+          Users,
         })),
       ],
     }).compileComponents();
@@ -514,7 +575,9 @@ describe('ContextMenuComponent', () => {
 
     expect(commanderText).toContain('Untap');
     expect(commanderText).toContain('Turn Face Up');
-    expect(commanderText).toContain('Command');
+    const commanderMoveIcon = Array.from((tappedCommander.nativeElement as HTMLElement).querySelectorAll('img'))
+      .find((image) => image.getAttribute('src')?.includes('/assets/icons/CM/CM_logo_zone_header.png'));
+    expect(commanderMoveIcon).not.toBeUndefined();
 
     const regularCard = createContextMenuFixture({
       kind: 'card',

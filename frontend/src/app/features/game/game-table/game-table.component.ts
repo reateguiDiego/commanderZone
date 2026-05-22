@@ -984,6 +984,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     payload: HandDragPayload | null,
     targetPlayerId: string,
     targetZone: DropZoneTarget,
+    dropEvent?: DragEvent,
   ): void {
     if (!sourceInstanceId) {
       return;
@@ -998,7 +999,14 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       return;
     }
 
-    this.motion.throwGhost(sourceInstanceId, target, { scaleToTarget: targetZone !== 'battlefield', rotate: -6 });
+    const ghostTarget = targetZone === 'battlefield'
+      ? this.createBattlefieldDropGhostTarget(target, dropEvent)
+      : { element: target };
+    this.motion.throwGhost(sourceInstanceId, ghostTarget.element, {
+      scaleToTarget: targetZone !== 'battlefield',
+      rotate: -6,
+      onComplete: ghostTarget.cleanup,
+    });
     window.requestAnimationFrame(() => this.motion.impactZone(target));
   }
 
@@ -1022,6 +1030,47 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
 
   private dropZoneTargetElement(playerId: string, zone: DropZoneTarget): HTMLElement | null {
     return this.resolveDropTargetElement(`[data-game-drop-zone][data-player-id="${playerId}"][data-zone="${zone}"]`);
+  }
+
+  private createBattlefieldDropGhostTarget(
+    battlefieldTarget: HTMLElement,
+    dropEvent?: DragEvent,
+  ): { element: HTMLElement; cleanup?: () => void } {
+    if (!dropEvent) {
+      return { element: battlefieldTarget };
+    }
+
+    const { clientX, clientY } = dropEvent;
+    if (!Number.isFinite(clientX) || !Number.isFinite(clientY)) {
+      return { element: battlefieldTarget };
+    }
+
+    const rect = battlefieldTarget.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) {
+      return { element: battlefieldTarget };
+    }
+
+    const clampedX = Math.min(Math.max(clientX, rect.left), rect.right);
+    const clampedY = Math.min(Math.max(clientY, rect.top), rect.bottom);
+    const element = document.createElement('span');
+
+    element.style.position = 'fixed';
+    element.style.left = `${clampedX}px`;
+    element.style.top = `${clampedY}px`;
+    element.style.width = '2px';
+    element.style.height = '2px';
+    element.style.transform = 'translate(-50%, -50%)';
+    // Motion service ignores fully transparent targets (opacity === 0).
+    // Keep it visually invisible but still eligible as animation destination.
+    element.style.opacity = '0.001';
+    element.style.pointerEvents = 'none';
+    element.style.zIndex = '-1';
+    document.body.appendChild(element);
+
+    return {
+      element,
+      cleanup: () => element.remove(),
+    };
   }
 
   private handGhostTarget(playerId: string): { element: HTMLElement; cleanup?: () => void } | null {
@@ -1439,7 +1488,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   handleZoneDrop(event: ZoneDropEvent): void {
     const payload = this.handDragPayload(event.event);
     const sourceInstanceId = this.dragPayloadInstanceId(payload);
-    this.animateDropToDropZone(sourceInstanceId, payload, event.playerId, event.zone);
+    this.animateDropToDropZone(sourceInstanceId, payload, event.playerId, event.zone, event.event);
     void this.store.dropOnZone(event.event, event.playerId, event.zone);
   }
 

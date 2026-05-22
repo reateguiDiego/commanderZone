@@ -27,10 +27,12 @@ import {
   Folder,
   FolderPlus,
   Globe,
+  Ghost,
   History,
   KeyRound,
   Layers3,
   Library,
+  Link2Off,
   Lock,
   LogIn,
   LogOut,
@@ -61,6 +63,7 @@ import {
   Trash2,
   TriangleAlert,
   Upload,
+  Unlink2,
   UserPlus,
   Users,
   Vote,
@@ -178,10 +181,12 @@ describe('GameTableComponent', () => {
           Folder,
           FolderPlus,
           Globe,
+          Ghost,
           History,
           KeyRound,
           Layers3,
           Library,
+          Link2Off,
           Lock,
           LogIn,
           LogOut,
@@ -211,6 +216,7 @@ describe('GameTableComponent', () => {
           Trash2,
           TriangleAlert,
           Upload,
+          Unlink2,
           UserPlus,
           Users,
           Vote,
@@ -497,7 +503,13 @@ describe('GameTableComponent', () => {
       zone: 'battlefield',
     });
 
-    expect(throwGhost).toHaveBeenCalledWith('graveyard-top', target, { scaleToTarget: false, rotate: -6 });
+    expect(throwGhost).toHaveBeenCalledOnce();
+    const [sourceId, ghostTarget, options] = throwGhost.mock.calls[0] ?? [];
+    expect(sourceId).toBe('graveyard-top');
+    expect(ghostTarget).toBeInstanceOf(HTMLElement);
+    expect((ghostTarget as HTMLElement).style.left).toBe('40px');
+    expect((ghostTarget as HTMLElement).style.top).toBe('40px');
+    expect(options).toEqual(expect.objectContaining({ scaleToTarget: false, rotate: -6 }));
   });
 
   it('captures hand reorder FLIP before updating the store and plays it after', async () => {
