@@ -13,7 +13,6 @@ describe('GameTableSessionService', () => {
   const realtime = {
     status: vi.fn(),
     subscribeToGame: vi.fn(),
-    startPolling: vi.fn(),
     stop: vi.fn(),
   };
 
