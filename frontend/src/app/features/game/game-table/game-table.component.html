@@ -5,6 +5,7 @@
   [style.--game-wallpaper-image]="tableBackgroundImage()"
   (click)="store.handleTableClick($event)"
   (contextmenu)="store.openGameMenu($event)"
+  (dragstart)="handleNativeDragStart($event)"
 >
   <app-game-table-header (click)="$event.stopPropagation()" (contextmenu)="$event.stopPropagation()" />
 

@@ -290,7 +290,9 @@
         @if (canRemoveLandStack()) {
           <button type="button" (click)="actionSelected.emit({ type: 'removeStack' })">
             <span class="menu-item-label">
-              <lucide-icon name="layers-3" size="17" aria-hidden="true" />
+              <span class="menu-item-remove-stack-icon" aria-hidden="true">
+                <lucide-icon name="layers-3" size="17" aria-hidden="true" />
+              </span>
               <span>Remove stack</span>
             </span>
           </button>

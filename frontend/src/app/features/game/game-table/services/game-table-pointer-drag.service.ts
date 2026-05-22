@@ -8,6 +8,7 @@ export interface PointerDropTarget {
   rawZone?: string;
   draggedInstanceId?: string;
   position?: { x: number; y: number };
+  pointerClient?: { x: number; y: number };
 }
 
 export interface PointerCardSize {

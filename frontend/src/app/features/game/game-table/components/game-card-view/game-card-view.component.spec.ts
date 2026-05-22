@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { importProvidersFrom } from '@angular/core';
-import { Link, LucideAngularModule } from 'lucide-angular';
+import { Layers3, Link, LucideAngularModule } from 'lucide-angular';
 import { GameCardInstance } from '../../../../../core/models/game.model';
 import { CARD_PREVIEW_HOVER_DELAY_MS } from '../../models/card-preview.model';
 import { GameCardViewComponent } from './game-card-view.component';
@@ -325,7 +325,7 @@ describe('GameCardViewComponent', () => {
     expect(cardElement.classList).toContain('land-stack-drop-target');
     expect(cardElement.classList).not.toContain('attachment-stack-drop-target');
     expect(badge?.textContent?.trim()).toBe('Stack');
-    expect(badge?.querySelector('.land-stack-preview-icon')).not.toBeNull();
+    expect(badge?.querySelector('lucide-icon[name="layers-3"]')).not.toBeNull();
   });
 
   it('emits pointerdown so containers can start their card drag flow', async () => {
@@ -670,7 +670,7 @@ async function renderHandCard(
 ): Promise<{ fixture: ComponentFixture<GameCardViewComponent>; cardElement: HTMLButtonElement }> {
   await TestBed.configureTestingModule({
     imports: [GameCardViewComponent],
-    providers: [importProvidersFrom(LucideAngularModule.pick({ Link }))],
+    providers: [importProvidersFrom(LucideAngularModule.pick({ Link, Layers3 }))],
   }).compileComponents();
 
   const fixture = TestBed.createComponent(GameCardViewComponent);

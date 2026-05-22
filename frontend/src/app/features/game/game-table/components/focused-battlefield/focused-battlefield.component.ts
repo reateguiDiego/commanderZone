@@ -124,7 +124,7 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
   readonly isCardTransferPending = input<(playerId: string, zone: GameZoneName, card: GameCardInstance) => boolean>(() => false);
 
   readonly landStackGroups = computed(() => buildLandStackGroups(
-    this.player().state.zones.battlefield,
+    this.player().state.zones.battlefield.filter((card) => !this.isDraggingCard()(card)),
     (candidate) => this.cardPosition()(candidate),
   ));
   readonly battlefieldDragOver = output<DragEvent>();
@@ -288,6 +288,25 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
     }
 
     this.cardMenuOpened.emit({ event, playerId, card });
+  }
+
+  preventUnexpectedNativeDragStart(event: DragEvent): void {
+    const source = event.target instanceof HTMLElement ? event.target.closest<HTMLElement>('[data-testid="game-card"][draggable="true"]') : null;
+    if (source) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  suppressExcessivePrimaryClick(event: PointerEvent): void {
+    if (event.button !== 0 || event.detail <= 2) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
   }
 
   changePower(event: MouseEvent, playerId: string, card: GameCardInstance, delta: number): void {

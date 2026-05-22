@@ -113,10 +113,10 @@
     @if (landStackDropTarget()) {
       <span class="land-stack-preview-badge">
         @if (landStackDropKind() === 'attachment') {
-          <lucide-icon class="land-stack-preview-link-icon" name="link" size="25" aria-hidden="true" />
+          <lucide-icon class="land-stack-preview-link-icon" name="link" size="18" aria-hidden="true" />
           <span>Attach</span>
         } @else {
-          <span class="land-stack-preview-icon" aria-hidden="true"></span>
+          <lucide-icon class="land-stack-preview-stack-icon" name="layers-3" size="18" aria-hidden="true" />
           <span>Stack</span>
         }
       </span>

@@ -110,7 +110,7 @@ describe('GameTableHandState', () => {
       ],
     );
 
-    await state.moveHandCardByPointer(context(), 'player-1', 'player-1', 'hand-land', 'battlefield', { x: 106, y: 196 });
+    await state.moveHandCardByPointer(context(), 'player-1', 'player-1', 'hand-land', 'battlefield', { x: 100, y: 200 });
 
     expect(localBattlefieldMove).toEqual({
       playerId: 'player-1',
@@ -128,6 +128,25 @@ describe('GameTableHandState', () => {
         instanceId: 'hand-land',
         position: { x: 120, y: 172, unit: 'ratio' },
       },
+    });
+  });
+
+  it('adds a hand land to the stack top relation when hovering the exposed second stack card', async () => {
+    currentSnapshot = snapshot(
+      [land('hand-land')],
+      [
+        land('stack-top', { x: 100, y: 200 }),
+        land('stack-under', { x: 100, y: 186 }),
+      ],
+    );
+
+    await state.moveHandCardByPointer(context(), 'player-1', 'player-1', 'hand-land', 'battlefield', { x: 106, y: 196 });
+
+    expect(localBattlefieldMove).toEqual({
+      playerId: 'player-1',
+      targetPlayerId: 'player-1',
+      movedInstanceIds: ['hand-land'],
+      position: { x: 120, y: 172, unit: 'ratio' },
     });
   });
 

@@ -219,6 +219,15 @@ interface HandGhostOptions {
   readonly targetPlayerId?: string | null;
 }
 
+interface ZoneGhostOptions {
+  readonly sourceElement?: HTMLElement | null;
+  readonly sourceInstanceId?: string | null;
+  readonly sourceRect?: MotionSourceRect | null;
+  readonly targetPlayerId: string;
+  readonly targetZone: DropZoneTarget;
+  readonly dropEvent?: DragEvent;
+}
+
 interface MotionSourceRect {
   readonly left: number;
   readonly top: number;
@@ -794,6 +803,9 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   @HostListener('window:pointerup', ['$event'])
   handlePointerUp(event: PointerEvent): void {
     this.store.endFloatingDrag();
+    if (!this.store.hasActivePointerDrag()) {
+      return;
+    }
 
     if (this.store.pointerDragPreview()) {
       const handDropTargetPlayerId = this.pointerHandDropTargetPlayerId(event);
@@ -810,6 +822,17 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
           () => this.store.endCardPointerDrag(event),
         );
         return;
+      }
+
+      const zoneDropTarget = this.pointerZonePileDropTarget(event);
+      if (zoneDropTarget) {
+        this.animateGhostToDropZone({
+          sourceElement: this.dragPreviewElement(),
+          sourceInstanceId: draggingInstanceId,
+          sourceRect: draggingInstanceId ? this.battlefieldDragStartRects.get(draggingInstanceId) ?? null : null,
+          targetPlayerId: zoneDropTarget.playerId,
+          targetZone: zoneDropTarget.zone,
+        });
       }
 
       this.clearBattlefieldDragStartRect(draggingInstanceId);
@@ -921,7 +944,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   }
 
   private dragPayloadInstanceId(payload: HandDragPayload | null): string | null {
-    return payload?.instanceId ?? this.store.draggingCardInstanceId();
+    return payload?.instanceId ?? null;
   }
 
   private animateGhostToHand(options: HandGhostOptions): void {
@@ -994,19 +1017,42 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       return;
     }
 
-    const target = this.dropZoneTargetElement(targetPlayerId, targetZone);
+    this.animateGhostToDropZone({
+      sourceInstanceId,
+      targetPlayerId,
+      targetZone,
+      dropEvent,
+    });
+  }
+
+  private animateGhostToDropZone(options: ZoneGhostOptions): void {
+    const sourceInstanceId = options.sourceInstanceId;
+    if (!options.sourceElement && !sourceInstanceId) {
+      return;
+    }
+
+    const targetZone = options.targetZone;
+    const target = this.dropZoneTargetElement(options.targetPlayerId, targetZone);
     if (!target) {
       return;
     }
 
     const ghostTarget = targetZone === 'battlefield'
-      ? this.createBattlefieldDropGhostTarget(target, dropEvent)
+      ? this.createBattlefieldDropGhostTarget(target, options.dropEvent)
       : { element: target };
-    this.motion.throwGhost(sourceInstanceId, ghostTarget.element, {
+
+    const ghostOptions = {
       scaleToTarget: targetZone !== 'battlefield',
       rotate: -6,
+      sourceRect: options.sourceRect,
       onComplete: ghostTarget.cleanup,
-    });
+    };
+
+    if (options.sourceElement) {
+      this.motion.throwElementGhost(options.sourceElement, ghostTarget.element, ghostOptions);
+    } else if (sourceInstanceId) {
+      this.motion.throwGhost(sourceInstanceId, ghostTarget.element, ghostOptions);
+    }
     window.requestAnimationFrame(() => this.motion.impactZone(target));
   }
 
@@ -1180,11 +1226,34 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   }
 
   private pointerHandDropTargetPlayerId(event: PointerEvent): string | null {
+    const activeDropTarget = this.store.activeDropTarget();
+    if (!activeDropTarget || activeDropTarget.zone !== 'hand') {
+      return null;
+    }
+
     for (const element of document.elementsFromPoint(event.clientX, event.clientY)) {
       const target = element.closest<HTMLElement>('[data-game-drop-zone][data-zone="hand"]');
       const playerId = target?.dataset['playerId'];
-      if (playerId) {
+      if (playerId && playerId === activeDropTarget.playerId) {
         return playerId;
+      }
+    }
+
+    return null;
+  }
+
+  private pointerZonePileDropTarget(event: PointerEvent): { playerId: string; zone: GameZoneName } | null {
+    const activeDropTarget = this.store.activeDropTarget();
+    if (!activeDropTarget || activeDropTarget.zone === 'hand' || activeDropTarget.zone === 'battlefield') {
+      return null;
+    }
+
+    for (const element of document.elementsFromPoint(event.clientX, event.clientY)) {
+      const target = element.closest<HTMLElement>('[data-game-drop-zone]');
+      const playerId = target?.dataset['playerId'];
+      const zone = target?.dataset['zone'];
+      if (playerId === activeDropTarget.playerId && zone === activeDropTarget.zone) {
+        return activeDropTarget;
       }
     }
 
@@ -1487,23 +1556,39 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
 
   handleZoneDrop(event: ZoneDropEvent): void {
     const payload = this.handDragPayload(event.event);
-    const sourceInstanceId = this.dragPayloadInstanceId(payload);
-    this.animateDropToDropZone(sourceInstanceId, payload, event.playerId, event.zone, event.event);
+    if (payload) {
+      const sourceInstanceId = this.dragPayloadInstanceId(payload);
+      this.animateDropToDropZone(sourceInstanceId, payload, event.playerId, event.zone, event.event);
+    }
     void this.store.dropOnZone(event.event, event.playerId, event.zone);
   }
 
   handleManaLaneDrop(event: ManaLaneDropEvent): void {
     const payload = this.handDragPayload(event.event);
-    const sourceInstanceId = this.dragPayloadInstanceId(payload);
-    this.animateDropToDropZone(sourceInstanceId, payload, event.playerId, 'mana');
+    if (payload) {
+      const sourceInstanceId = this.dragPayloadInstanceId(payload);
+      this.animateDropToDropZone(sourceInstanceId, payload, event.playerId, 'mana');
+    }
     void this.store.dropOnManaLane(event.event, event.playerId);
   }
 
   handlePlayerDrop(event: PlayerDropEvent): void {
     const payload = this.handDragPayload(event.event);
-    const sourceInstanceId = this.dragPayloadInstanceId(payload);
-    this.animateDropToPlayer(event.playerId, sourceInstanceId, payload);
+    if (payload) {
+      const sourceInstanceId = this.dragPayloadInstanceId(payload);
+      this.animateDropToPlayer(event.playerId, sourceInstanceId, payload);
+    }
     void this.store.dropOnPlayer(event.event, event.playerId);
+  }
+
+  handleNativeDragStart(event: DragEvent): void {
+    const source = event.target instanceof HTMLElement ? event.target.closest<HTMLElement>('[draggable="true"]') : null;
+    if (source) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
   }
 
   async handleHandDropped(event: HandDroppedEvent): Promise<void> {

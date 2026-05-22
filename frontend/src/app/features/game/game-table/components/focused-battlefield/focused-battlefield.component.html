@@ -13,6 +13,8 @@
   [class.drop-target-active]="isDropZoneHighlighted()(focusedPlayer.id, 'battlefield')"
   [class.arrow-targeting]="allowArrowTargetSelection()"
   [class.board-transitioning]="boardTransitioning()"
+  (pointerdown)="suppressExcessivePrimaryClick($event)"
+  (dragstart)="preventUnexpectedNativeDragStart($event)"
   (dragover)="battlefieldDragOver.emit($event)"
   (drop)="battlefieldDropped.emit({ event: $event, playerId: focusedPlayer.id, zone: 'battlefield' })"
   (contextmenu)="battlefieldMenuOpened.emit({ event: $event, playerId: focusedPlayer.id, zone: 'battlefield' })"

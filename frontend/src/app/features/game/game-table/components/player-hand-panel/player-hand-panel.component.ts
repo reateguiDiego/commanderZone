@@ -1419,7 +1419,16 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
       offsetY: drag.offsetY,
     });
     if (target && !insideOwnHand) {
-      return { mode: 'transfer', target: { ...target, draggedInstanceId: drag.card.instanceId }, preview: null, overOwnHand: false };
+      return {
+        mode: 'transfer',
+        target: {
+          ...target,
+          draggedInstanceId: drag.card.instanceId,
+          pointerClient: { x: event.clientX, y: event.clientY },
+        },
+        preview: null,
+        overOwnHand: false,
+      };
     }
 
     const overOwnHand = insideOwnHand || this.pointerDragService.isHandTargetAt(event, drag.playerId);

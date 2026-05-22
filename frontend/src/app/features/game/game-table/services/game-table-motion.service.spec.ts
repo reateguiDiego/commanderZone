@@ -83,27 +83,50 @@ describe('GameTableMotionService', () => {
   });
 
   it('prepares hand growth feedback for hand layout changes', () => {
-    addHandCard(host, 'card-left', { left: 10, top: 20, width: 72, height: 100 });
+    const left = addHandCard(host, 'card-left', { left: 10, top: 20, width: 72, height: 100 });
     const playFlip = service.prepareHandDropHandoff();
     expect(service.handMotionActive()).toBe(true);
 
     const arriving = addHandCard(host, 'card-new', { left: 90, top: 20, width: 72, height: 100 });
     const existingRight = addHandCard(host, 'card-right', { left: 210, top: 20, width: 72, height: 100 });
+    const cardVisuals = [left, arriving, existingRight].map((card) => card.querySelector<HTMLElement>('.card-visual')!);
 
     playFlip();
 
     expect(flipFromSpy).not.toHaveBeenCalled();
     expect(gsapFromToSpy).toHaveBeenCalledOnce();
-    expect(gsapFromToSpy.mock.calls[0]?.[0]).toEqual([arriving, existingRight]);
+    expect(gsapFromToSpy.mock.calls[0]?.[0]).toEqual(cardVisuals);
     expect(gsapFromToSpy.mock.calls[0]?.[1]).toMatchObject({
-      filter: 'brightness(1.28) saturate(1.14)',
+      filter: 'brightness(1.22) saturate(1.1) contrast(1.03)',
+      scale: 1.022,
+      transformOrigin: '50% 100%',
     });
     expect(gsapFromToSpy.mock.calls[0]?.[2]).toMatchObject({
-      duration: 0.42,
+      clearProps: 'filter,scale,transformOrigin',
+      duration: 0.62,
       ease: 'power2.out',
       filter: 'brightness(1)',
+      scale: 1,
+      stagger: { each: 0.018, from: 'center' },
     });
     expect(service.handMotionActive()).toBe(false);
+  });
+
+  it('does not pulse the hand surface when a card enters hand', () => {
+    const handArea = document.createElement('section');
+    handArea.classList.add('hand-area');
+    host.appendChild(handArea);
+    const left = addHandCard(handArea, 'card-left', { left: 10, top: 20, width: 72, height: 100 });
+    const playFlip = service.prepareHandDropHandoff();
+
+    const arriving = addHandCard(handArea, 'card-new', { left: 90, top: 20, width: 72, height: 100 });
+    const cardVisuals = [left, arriving].map((card) => card.querySelector<HTMLElement>('.card-visual')!);
+
+    playFlip();
+
+    expect(gsapFromToSpy).toHaveBeenCalledOnce();
+    expect(gsapFromToSpy.mock.calls[0]?.[0]).toEqual(cardVisuals);
+    expect(gsapFromToSpy.mock.calls[0]?.[0]).not.toBe(handArea);
   });
 
   it('uses layered GSAP pulses when creating a land stack', () => {

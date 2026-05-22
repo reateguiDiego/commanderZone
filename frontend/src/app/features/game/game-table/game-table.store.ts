@@ -786,6 +786,10 @@ export class GameTableStore implements OnDestroy {
     this.dragDropStore.moveCardPointerDrag(this.contexts.dragDrop(), event);
   }
 
+  hasActivePointerDrag(): boolean {
+    return this.dragDropStore.hasActivePointerDrag();
+  }
+
   async endCardPointerDrag(event?: PointerEvent): Promise<void> {
     await this.dragDropStore.endCardPointerDrag(this.contexts.dragDrop(), event);
   }
@@ -795,6 +799,12 @@ export class GameTableStore implements OnDestroy {
   }
 
   handleBattlefieldCardClick(event: MouseEvent, playerId: string, card: GameCardInstance): void {
+    if (event.detail > 2) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+
     if (this.arrowsState.handleBattlefieldCardClick(this.contexts.arrowInteraction(), event, card)) {
       return;
     }

@@ -20,6 +20,7 @@ import { GameTablePendingTransferState } from '../core/game-table-pending-transf
 import { PlayerView } from '../core/game-table-snapshot-selectors';
 import {
   buildLandStackGroups,
+  fullLandStackDropTarget,
   landStackDetachSource,
   landStackDropTarget,
   landStackGroupContaining,
@@ -82,6 +83,7 @@ export class GameTableDragDropStore {
   readonly landStackDropPreview = this.battlefieldDragState.landStackDropPreview;
   readonly landStackDetachSource = this.battlefieldDragState.landStackDetachSource;
   readonly attachmentStackDetachSource = this.battlefieldDragState.attachmentStackDetachSource;
+
   isCardDropSettling(playerId: string, zone: GameZoneName, card: GameCardInstance): boolean {
     return this.dropFeedbackState.isCardDropSettling(playerId, zone, card.instanceId);
   }
@@ -120,6 +122,10 @@ export class GameTableDragDropStore {
 
   isPlayerDropHighlighted(playerId: string): boolean {
     return this.battlefieldDragState.isPlayerDropHighlighted(playerId);
+  }
+
+  hasActivePointerDrag(): boolean {
+    return this.drag.hasActivePointerDrag();
   }
 
   isPendingBattlefieldTransfer(card: GameCardInstance, pendingBattlefieldMove: PendingBattlefieldMove | null): boolean {
@@ -219,8 +225,17 @@ export class GameTableDragDropStore {
       }
 
       this.battlefieldDrag.updatePointerDropTarget(event, context.battlefieldDragContext());
-      const hasLandStackDropTarget = this.updateLandStackDropPreview(context, draggingInstanceId, false);
-      if (hasLandStackDropTarget) {
+      if (this.isHandDropTargetActiveForInstance(context, draggingInstanceId)) {
+        this.clearLandStackDropPreview();
+        this.battlefieldDragState.clearManaLaneAndAlignment();
+        return;
+      }
+      const landStackPreviewResult = this.updateLandStackDropPreview(
+        context,
+        draggingInstanceId,
+        false,
+      );
+      if (landStackPreviewResult !== 'none') {
         this.battlefieldDragState.clearManaLaneAndAlignment();
         return;
       }
@@ -265,7 +280,12 @@ export class GameTableDragDropStore {
   }
 
   allowDrop(context: GameTableDragDropContext, event: DragEvent): void {
-    this.drag.allowDrop(event);
+    const allowDrop = this.drag.allowDrop(event, context.zones);
+    if (!allowDrop && !this.forceAllowActiveInternalDrag(event)) {
+      this.clearLandStackDropPreview();
+      this.battlefieldDragState.clearDropTargets();
+      return;
+    }
     this.battlefieldDrag.updateActiveDropTarget(event, context.battlefieldDragContext());
     if (this.updateNativeBattlefieldDropPreview(context, event)) {
       this.battlefieldDragState.setAlignmentGuide(null);
@@ -273,7 +293,12 @@ export class GameTableDragDropStore {
   }
 
   previewDropOnHand(context: GameTableDragDropContext, event: DragEvent, targetPlayerId: string): void {
-    this.drag.allowDrop(event);
+    const allowDrop = this.drag.allowDrop(event, context.zones);
+    if (!allowDrop && !this.forceAllowActiveInternalDrag(event)) {
+      this.clearLandStackDropPreview();
+      this.battlefieldDragState.clearDropTargets();
+      return;
+    }
     this.battlefieldDrag.updateActiveDropTarget(event, context.battlefieldDragContext());
     this.battlefieldDrag.updateHandDropPreview(event, targetPlayerId, context.battlefieldDragContext());
   }
@@ -283,6 +308,14 @@ export class GameTableDragDropStore {
     if (!target) {
       this.clearLandStackDropPreview();
       this.battlefieldDragState.clearDropTargets();
+      return;
+    }
+
+    if (target.kind === 'zone' && target.toZone === 'hand') {
+      this.battlefieldDragState.setActivePlayerDropTarget(null);
+      this.battlefieldDragState.setActiveDropTarget({ playerId: target.targetPlayerId, zone: 'hand' });
+      this.battlefieldDragState.clearManaLaneAndAlignment();
+      this.clearLandStackDropPreview();
       return;
     }
 
@@ -370,6 +403,16 @@ export class GameTableDragDropStore {
     });
   }
 
+  private forceAllowActiveInternalDrag(event: DragEvent): boolean {
+    if (!this.draggingCardInstanceId() || !event.dataTransfer) {
+      return false;
+    }
+
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+    return true;
+  }
+
   private prepareStackDrag(context: GameTableDragDropContext, playerId: string, card: GameCardInstance): void {
     this.clearLandStackDropPreview();
     this.battlefieldDragState.setLandStackDetachSource(null);
@@ -428,14 +471,18 @@ export class GameTableDragDropStore {
     context.setSelectedCards([{ playerId, zone: 'battlefield', card }]);
   }
 
-  private updateLandStackDropPreview(context: GameTableDragDropContext, instanceId: string, clearOnMiss = true): boolean {
+  private updateLandStackDropPreview(
+    context: GameTableDragDropContext,
+    instanceId: string,
+    clearOnMiss = true,
+  ): 'shown' | 'suppressed' | 'none' {
     const selected = this.battlefieldSelectionByInstanceId(context, instanceId);
     const position = selected ? context.cardPosition(selected.card) : null;
     if (!selected || !position || this.selectedDragInstanceIds(context, selected.playerId, 'battlefield', instanceId).length > 1) {
       if (clearOnMiss) {
         this.clearLandStackDropPreview();
       }
-      return false;
+      return 'none';
     }
 
     const player = context.players().find((candidate) => candidate.id === selected.playerId);
@@ -444,20 +491,36 @@ export class GameTableDragDropStore {
       ? landStackDropTarget(player.state.zones.battlefield, instanceId, position, context.cardPosition, blockedByAttachments)
       : null;
 
-    if (!target || this.isOriginalDetachStackTarget(target.targetCard.instanceId)) {
+    if (!target) {
+      if (
+        player
+        && fullLandStackDropTarget(player.state.zones.battlefield, instanceId, position, context.cardPosition)
+        && !this.isDetachingLandStackCard()
+      ) {
+        if (clearOnMiss) {
+          this.clearLandStackDropPreview();
+        }
+        return 'suppressed';
+      }
       if (clearOnMiss) {
         this.clearLandStackDropPreview();
       }
-      return false;
+      return 'none';
     }
 
+    if (this.isOriginalDetachStackTarget(target.targetCard.instanceId)) {
+      if (clearOnMiss) {
+        this.clearLandStackDropPreview();
+      }
+      return 'none';
+    }
     this.scheduleLandStackDropPreview({
       playerId: selected.playerId,
       targetInstanceId: target.targetCard.instanceId,
       kind: 'land',
       nextSize: target.nextSize,
     });
-    return true;
+    return 'shown';
   }
 
   private updateAttachmentDropPreview(context: GameTableDragDropContext, instanceId: string, clearOnMiss = true): boolean {
@@ -545,6 +608,11 @@ export class GameTableDragDropStore {
       return true;
     }
 
+    if (fullLandStackDropTarget(cards, sourceCard.instanceId, dropPosition, positionFor)) {
+      this.clearLandStackDropPreview();
+      return true;
+    }
+
     const attachmentTarget = attachmentDropTarget(
       cards,
       context.snapshot()?.attachments ?? [],
@@ -611,6 +679,11 @@ export class GameTableDragDropStore {
         kind: 'land',
         nextSize: landTarget.nextSize,
       });
+      return true;
+    }
+
+    if (fullLandStackDropTarget(cards, source.card.instanceId, target.position, positionFor)) {
+      this.clearLandStackDropPreview();
       return true;
     }
 
@@ -752,6 +825,20 @@ export class GameTableDragDropStore {
     return false;
   }
 
+  private isHandDropTargetActiveForInstance(context: Pick<GameTableDragDropContext, 'players'>, instanceId: string): boolean {
+    const target = this.battlefieldDragState.activeDropTarget();
+    if (!target || target.zone !== 'hand') {
+      return false;
+    }
+
+    const selected = this.battlefieldSelectionByInstanceId(context, instanceId);
+    if (!selected) {
+      return true;
+    }
+
+    return target.playerId === selected.playerId;
+  }
+
   private mergeSelections(left: readonly SelectedCard[], right: readonly SelectedCard[]): SelectedCard[] {
     const byId = new Map<string, SelectedCard>();
     for (const item of [...left, ...right]) {
@@ -770,6 +857,10 @@ export class GameTableDragDropStore {
     return detachSource.members
       .filter((member) => member.instanceId !== detachSource.detachedInstanceId)
       .some((member) => member.instanceId === targetInstanceId);
+  }
+
+  private isDetachingLandStackCard(): boolean {
+    return this.battlefieldDragState.landStackDetachSource() !== null;
   }
 
   private isOriginalAttachmentDetachTarget(targetInstanceId: string): boolean {

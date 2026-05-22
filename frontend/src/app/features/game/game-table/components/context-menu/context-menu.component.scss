@@ -108,6 +108,33 @@
   transform: none;
 }
 
+.menu-item-remove-stack-icon {
+  display: inline-flex;
+  width: 1.06rem;
+  height: 1.06rem;
+  flex: 0 0 auto;
+  position: relative;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+}
+
+.menu-item-remove-stack-icon lucide-icon {
+  color: var(--game-accent, #d7b46a);
+}
+
+.menu-item-remove-stack-icon::after {
+  content: '×';
+  position: absolute;
+  right: -0.26rem;
+  bottom: -0.2rem;
+  color: var(--game-accent, #d7b46a);
+  font-size: 0.84rem;
+  font-weight: 900;
+  line-height: 1;
+  text-shadow: 0 0 0.18rem rgb(0 0 0 / 72%);
+}
+
 .danger-menu-item {
   color: #fecaca;
 }

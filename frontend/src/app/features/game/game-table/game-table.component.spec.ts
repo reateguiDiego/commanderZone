@@ -424,12 +424,48 @@ describe('GameTableComponent', () => {
     const motion = fixture.debugElement.injector.get(GameTableMotionService);
     const prepareCardFlip = vi.spyOn(motion, 'prepareCardFlip');
     const endCardPointerDrag = vi.spyOn(fixture.componentInstance.store, 'endCardPointerDrag').mockResolvedValue(undefined);
+    vi.spyOn(fixture.componentInstance.store, 'hasActivePointerDrag').mockReturnValue(false);
     const event = new Event('pointerup') as PointerEvent;
 
     fixture.componentInstance.handlePointerUp(event);
 
-    expect(endCardPointerDrag).toHaveBeenCalledWith(event);
+    expect(endCardPointerDrag).not.toHaveBeenCalled();
     expect(prepareCardFlip).not.toHaveBeenCalled();
+  });
+
+  it('blocks native dragstart events for non-draggable game screen elements', () => {
+    const fixture = TestBed.createComponent(GameTableComponent);
+    const event = new Event('dragstart', { bubbles: true, cancelable: true });
+    const stopPropagation = vi.spyOn(event, 'stopPropagation');
+    const background = document.createElement('div');
+
+    Object.defineProperty(event, 'target', {
+      configurable: true,
+      value: background,
+    });
+
+    fixture.componentInstance.handleNativeDragStart(event as DragEvent);
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(stopPropagation).toHaveBeenCalled();
+  });
+
+  it('keeps native dragstart enabled for explicit draggable elements', () => {
+    const fixture = TestBed.createComponent(GameTableComponent);
+    const event = new Event('dragstart', { bubbles: true, cancelable: true });
+    const draggable = document.createElement('button');
+    draggable.setAttribute('draggable', 'true');
+    const stopPropagation = vi.spyOn(event, 'stopPropagation');
+
+    Object.defineProperty(event, 'target', {
+      configurable: true,
+      value: draggable,
+    });
+
+    fixture.componentInstance.handleNativeDragStart(event as DragEvent);
+
+    expect(event.defaultPrevented).toBe(false);
+    expect(stopPropagation).not.toHaveBeenCalled();
   });
 
   it('does not animate a pointer drag into hand when the pointer is not over the hand drop zone', () => {
@@ -438,6 +474,7 @@ describe('GameTableComponent', () => {
     const throwElementGhost = vi.spyOn(motion, 'throwElementGhost').mockImplementation(() => undefined);
     const impactZone = vi.spyOn(motion, 'impactZone').mockImplementation(() => undefined);
     const endCardPointerDrag = vi.spyOn(fixture.componentInstance.store, 'endCardPointerDrag').mockResolvedValue(undefined);
+    vi.spyOn(fixture.componentInstance.store, 'hasActivePointerDrag').mockReturnValue(true);
     vi.spyOn(fixture.componentInstance.store, 'pointerDragPreview').mockReturnValue({
       card: { instanceId: 'battlefield-1', name: 'Forest', tapped: false },
       x: 120,
@@ -465,6 +502,112 @@ describe('GameTableComponent', () => {
       configurable: true,
       value: originalElementsFromPoint,
     });
+  });
+
+  it('does not animate a pointer drag into hand when hand geometry overlaps but active drop target is not hand', () => {
+    const fixture = TestBed.createComponent(GameTableComponent);
+    const motion = fixture.debugElement.injector.get(GameTableMotionService);
+    const throwElementGhost = vi.spyOn(motion, 'throwElementGhost').mockImplementation(() => undefined);
+    const impactZone = vi.spyOn(motion, 'impactZone').mockImplementation(() => undefined);
+    const endCardPointerDrag = vi.spyOn(fixture.componentInstance.store, 'endCardPointerDrag').mockResolvedValue(undefined);
+    vi.spyOn(fixture.componentInstance.store, 'hasActivePointerDrag').mockReturnValue(true);
+    vi.spyOn(fixture.componentInstance.store, 'pointerDragPreview').mockReturnValue({
+      card: { instanceId: 'battlefield-1', name: 'Forest', tapped: false },
+      x: 120,
+      y: 520,
+      width: 103,
+      height: 144,
+      count: 1,
+    });
+    vi.spyOn(fixture.componentInstance.store, 'draggingCardInstanceId').mockReturnValue('battlefield-1');
+    vi.spyOn(fixture.componentInstance.store, 'activeDropTarget').mockReturnValue({ playerId: 'user-1', zone: 'battlefield' });
+    const overlappingHandTarget = document.createElement('div');
+    overlappingHandTarget.dataset['gameDropZone'] = 'hand';
+    overlappingHandTarget.dataset['zone'] = 'hand';
+    overlappingHandTarget.dataset['playerId'] = 'user-1';
+    const originalElementsFromPoint = document.elementsFromPoint;
+    Object.defineProperty(document, 'elementsFromPoint', {
+      configurable: true,
+      value: vi.fn(() => [overlappingHandTarget]),
+    });
+    const event = new PointerEvent('pointerup', { clientX: 120, clientY: 520 });
+
+    fixture.componentInstance.handlePointerUp(event);
+
+    expect(endCardPointerDrag).toHaveBeenCalledWith(event);
+    expect(throwElementGhost).not.toHaveBeenCalled();
+    expect(impactZone).not.toHaveBeenCalled();
+
+    Object.defineProperty(document, 'elementsFromPoint', {
+      configurable: true,
+      value: originalElementsFromPoint,
+    });
+  });
+
+  it('animates a battlefield pointer drag into a zone pile target', () => {
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    const motion = fixture.debugElement.injector.get(GameTableMotionService);
+    const throwElementGhost = vi.spyOn(motion, 'throwElementGhost').mockImplementation(() => undefined);
+    const impactZone = vi.spyOn(motion, 'impactZone').mockImplementation(() => undefined);
+    const endCardPointerDrag = vi.spyOn(fixture.componentInstance.store, 'endCardPointerDrag').mockResolvedValue(undefined);
+    vi.spyOn(fixture.componentInstance.store, 'hasActivePointerDrag').mockReturnValue(true);
+    vi.spyOn(fixture.componentInstance.store, 'pointerDragPreview').mockReturnValue({
+      card: { instanceId: 'battlefield-1', name: 'Forest', tapped: false },
+      x: 120,
+      y: 120,
+      width: 103,
+      height: 144,
+      count: 1,
+    });
+    vi.spyOn(fixture.componentInstance.store, 'draggingCardInstanceId').mockReturnValue('battlefield-1');
+    vi.spyOn(fixture.componentInstance.store, 'activeDropTarget').mockReturnValue({ playerId: 'user-1', zone: 'graveyard' });
+    const gameScreen = fixture.nativeElement.querySelector('[data-testid="game-screen"]') as HTMLElement;
+    const preview = document.createElement('div');
+    preview.className = 'drag-card-preview';
+    const target = document.createElement('button');
+    target.dataset['gameDropZone'] = 'graveyard';
+    target.dataset['playerId'] = 'user-1';
+    target.dataset['zone'] = 'graveyard';
+    target.getBoundingClientRect = () => ({
+      x: 320,
+      y: 40,
+      width: 92,
+      height: 128,
+      top: 40,
+      left: 320,
+      bottom: 168,
+      right: 412,
+      toJSON: () => ({}),
+    }) as DOMRect;
+    gameScreen.append(preview, target);
+    const originalElementsFromPoint = document.elementsFromPoint;
+    Object.defineProperty(document, 'elementsFromPoint', {
+      configurable: true,
+      value: vi.fn(() => [target]),
+    });
+    const requestAnimationFrame = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+      callback(0);
+      return 1;
+    });
+    const event = new PointerEvent('pointerup', { clientX: 120, clientY: 120 });
+
+    try {
+      fixture.componentInstance.handlePointerUp(event);
+
+      expect(throwElementGhost).toHaveBeenCalledWith(preview, target, expect.objectContaining({
+        scaleToTarget: true,
+        rotate: -6,
+      }));
+      expect(impactZone).toHaveBeenCalledWith(target);
+      expect(endCardPointerDrag).toHaveBeenCalledWith(event);
+    } finally {
+      requestAnimationFrame.mockRestore();
+      Object.defineProperty(document, 'elementsFromPoint', {
+        configurable: true,
+        value: originalElementsFromPoint,
+      });
+    }
   });
 
   it('keeps zone-to-battlefield drop ghost at card scale', () => {
@@ -510,6 +653,29 @@ describe('GameTableComponent', () => {
     expect((ghostTarget as HTMLElement).style.left).toBe('40px');
     expect((ghostTarget as HTMLElement).style.top).toBe('40px');
     expect(options).toEqual(expect.objectContaining({ scaleToTarget: false, rotate: -6 }));
+  });
+
+  it('skips ghost animation but still forwards battlefield drops without valid payload to clear drag state', () => {
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    const motion = fixture.debugElement.injector.get(GameTableMotionService);
+    const throwGhost = vi.spyOn(motion, 'throwGhost').mockImplementation(() => undefined);
+    const dropOnZone = vi.spyOn(fixture.componentInstance.store, 'dropOnZone').mockResolvedValue(undefined);
+    const target = document.createElement('div');
+    target.dataset['gameDropZone'] = 'battlefield';
+    target.dataset['playerId'] = 'user-1';
+    target.dataset['zone'] = 'battlefield';
+    fixture.nativeElement.querySelector('[data-testid="game-screen"]')?.appendChild(target);
+    const dataTransfer = dragDataTransfer();
+
+    fixture.componentInstance.handleZoneDrop({
+      event: dragEvent('drop', dataTransfer, target),
+      playerId: 'user-1',
+      zone: 'battlefield',
+    });
+
+    expect(throwGhost).not.toHaveBeenCalled();
+    expect(dropOnZone).toHaveBeenCalledWith(expect.anything(), 'user-1', 'battlefield');
   });
 
   it('captures hand reorder FLIP before updating the store and plays it after', async () => {
@@ -1102,6 +1268,38 @@ describe('GameTableComponent', () => {
     fixture.componentInstance.store.handleBattlefieldCardClick(event, 'user-1', card!);
 
     expect(fixture.componentInstance.store.activeKeyboardCard()?.card.instanceId).toBe('card-1');
+  });
+
+  it('ignores battlefield clicks beyond double click detail', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot: snapshotWithStatus('active') } }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const card = fixture.componentInstance.store.snapshot()?.players['user-1'].zones.battlefield[0];
+    expect(card).toBeTruthy();
+    const event = {
+      detail: 3,
+      preventDefault: vi.fn(),
+      stopPropagation: vi.fn(),
+      currentTarget: document.createElement('button'),
+      ctrlKey: false,
+      metaKey: false,
+      shiftKey: false,
+    } as unknown as MouseEvent;
+    const handleClick = vi.spyOn(
+      fixture.componentInstance.store['interactionActions'],
+      'handleBattlefieldCardClick',
+    );
+
+    fixture.componentInstance.store.handleBattlefieldCardClick(event, 'user-1', card!);
+
+    expect(event.preventDefault).toHaveBeenCalled();
+    expect(event.stopPropagation).toHaveBeenCalled();
+    expect(handleClick).not.toHaveBeenCalled();
   });
 
   it('clears selected cards when drag ends', async () => {

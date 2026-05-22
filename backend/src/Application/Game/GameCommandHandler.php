@@ -707,11 +707,11 @@ class GameCommandHandler
         }
 
         if ($movesWithinLibrary) {
-            return 'Moved a card to bottom of library.';
+            return sprintf('Moved a card to %s.', $this->libraryDestinationLabel($payload));
         }
 
         if ($toZone === 'library') {
-            return sprintf('Moved a card from %s to library.', $fromZone);
+            return sprintf('Moved a card from %s to %s.', $fromZone, $this->libraryDestinationLabel($payload));
         }
 
         if ($fromZone === 'hand' && $toZone === 'battlefield' && ($card['faceDown'] ?? false) === true) {
@@ -786,7 +786,13 @@ class GameCommandHandler
         }
 
         if ($randomOrder) {
-            return sprintf('Moved %d cards from %s to %s in random order.', $moved, $fromZone, $toZone);
+            return $toZone === 'library'
+                ? sprintf('Moved %d cards from %s to %s in random order.', $moved, $fromZone, $this->libraryDestinationLabel($payload))
+                : sprintf('Moved %d cards from %s to %s in random order.', $moved, $fromZone, $toZone);
+        }
+
+        if ($toZone === 'library') {
+            return sprintf('Moved %d cards from %s to %s.', $moved, $fromZone, $this->libraryDestinationLabel($payload));
         }
 
         return sprintf('Moved %d cards from %s to %s.', $moved, $fromZone, $toZone);
@@ -1114,7 +1120,9 @@ class GameCommandHandler
             );
         }
 
-        return sprintf('Moved all cards from %s to %s.', $fromZone, $toZone);
+        return $toZone === 'library'
+            ? sprintf('Moved all cards from %s to %s.', $fromZone, $this->libraryDestinationLabel($payload))
+            : sprintf('Moved all cards from %s to %s.', $fromZone, $toZone);
     }
 
     private function applyZoneRandomCardSelected(array &$snapshot, array $payload): string
@@ -1227,7 +1235,9 @@ class GameCommandHandler
             );
         }
 
-        return sprintf('Moved top %d card%s to %s.', $moved, $moved === 1 ? '' : 's', $toZone);
+        return $toZone === 'library'
+            ? sprintf('Moved top %d card%s to %s.', $moved, $moved === 1 ? '' : 's', $this->libraryDestinationLabel($payload))
+            : sprintf('Moved top %d card%s to %s.', $moved, $moved === 1 ? '' : 's', $toZone);
     }
 
     private function applyLibraryRevealTop(array &$snapshot, array $payload): string
@@ -1818,6 +1828,11 @@ class GameCommandHandler
         return $toZone === 'battlefield' && $fromZone !== 'battlefield'
             ? $this->battlefieldCenterPosition()
             : 'top';
+    }
+
+    private function libraryDestinationLabel(array $payload): string
+    {
+        return ($payload['position'] ?? 'top') === 'bottom' ? 'bottom of library' : 'top of library';
     }
 
     /**

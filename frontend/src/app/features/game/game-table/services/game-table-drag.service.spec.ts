@@ -435,6 +435,56 @@ describe('GameTableDragService', () => {
     expect(result?.previewPosition).toEqual({ x: 400, y: 180 });
   });
 
+  it('allows dragover only for app drag payloads and blocks native text drags', () => {
+    const unsupportedPreventDefault = vi.fn();
+    const unsupportedEvent = {
+      preventDefault: unsupportedPreventDefault,
+      dataTransfer: {
+        types: ['text/plain'],
+      },
+    } as unknown as DragEvent;
+
+    expect(service.allowDrop(unsupportedEvent)).toBe(false);
+    expect(unsupportedPreventDefault).not.toHaveBeenCalled();
+
+    const supportedPreventDefault = vi.fn();
+    const supportedEvent = {
+      preventDefault: supportedPreventDefault,
+      dataTransfer: {
+        types: ['text/x-commanderzone'],
+        dropEffect: 'none',
+      },
+    } as unknown as DragEvent;
+
+    expect(service.allowDrop(supportedEvent)).toBe(true);
+    expect(supportedPreventDefault).toHaveBeenCalled();
+    expect(supportedEvent.dataTransfer!.dropEffect).toBe('move');
+  });
+
+  it('reads drag payload from fallback custom mime type', () => {
+    const payload = {
+      playerId: 'player-1',
+      zone: 'graveyard',
+      instanceId: 'card-1',
+      instanceIds: ['card-1'],
+    };
+    const event = {
+      dataTransfer: {
+        getData: (type: string) => {
+          if (type === 'application/json') {
+            return '';
+          }
+          if (type === 'text/x-commanderzone') {
+            return JSON.stringify(payload);
+          }
+          return '';
+        },
+      },
+    } as unknown as DragEvent;
+
+    expect(service.dragPayload(event, ['graveyard', 'battlefield'])).toEqual(payload);
+  });
+
   it('only starts a battlefield pointer drag from the visible card body', () => {
     const battlefield = document.createElement('div');
     battlefield.className = 'battlefield';

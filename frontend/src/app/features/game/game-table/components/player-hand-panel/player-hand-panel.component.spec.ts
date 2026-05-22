@@ -1281,6 +1281,7 @@ describe('PlayerHandPanelComponent', () => {
       rawZone: 'battlefield',
       draggedInstanceId: 'card-1',
       position: { x: 120, y: 70 },
+      pointerClient: { x: 150, y: 100 },
     });
 
     fixture.componentInstance.endHandPointerDrag(pointerEvent({ pointerId: 1, clientX: 150, clientY: 100 }));
