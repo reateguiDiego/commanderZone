@@ -55,6 +55,22 @@ describe('GameTableZonePointerDragService', () => {
     expect(service.dragMove()).toBeNull();
   });
 
+  it('does not start while still within the long-press cancellation window', () => {
+    const zone = zoneElement();
+    service.start(pointerEvent({
+      currentTarget: zone,
+      pointerType: 'touch',
+      pointerId: 2,
+      clientX: 20,
+      clientY: 20,
+    }), 'player-1', 'graveyard', card());
+
+    const move = service.move(pointerEvent({ pointerId: 2, clientX: 31, clientY: 20 }));
+
+    expect(move).toBeNull();
+    expect(service.dragMove()).toBeNull();
+  });
+
   it('resolves a battlefield drop request after a touch drag crosses the threshold', () => {
     const zone = zoneElement();
     const battlefield = document.createElement('div');

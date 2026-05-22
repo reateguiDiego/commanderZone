@@ -1565,6 +1565,96 @@ describe('GameTableComponent', () => {
     }), 'game-1');
   });
 
+  it('drops a top zone pile card onto the battlefield through the native DOM drag path', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    const topLibraryCard = snapshot.players['user-1']!.zones.library[0]!;
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+    gamesApi.command.mockReturnValue(of({
+      event: { id: 'event-move', type: 'card.moved', payload: {}, createdBy: 'user-1', createdAt: '' },
+      snapshot,
+    }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await vi.waitFor(() => expect(fixture.componentInstance.store.loading()).toBe(false));
+    fixture.detectChanges();
+
+    const dataTransfer = dragDataTransfer();
+    const libraryButton = Array.from<HTMLElement>(fixture.nativeElement.querySelectorAll('.zone-stack'))
+      .find((element) => element.getAttribute('data-zone') === 'library');
+    expect(libraryButton).toBeTruthy();
+
+    const battlefield = fixture.nativeElement.querySelector('[data-testid="battlefield-zone"]') as HTMLElement;
+    battlefield.getBoundingClientRect = () => ({
+      x: 0,
+      y: 0,
+      width: 600,
+      height: 420,
+      top: 0,
+      right: 600,
+      bottom: 420,
+      left: 0,
+      toJSON: () => ({}),
+    } as DOMRect);
+
+    libraryButton!.dispatchEvent(dragEvent('dragstart', dataTransfer, libraryButton!));
+    fixture.detectChanges();
+    battlefield.dispatchEvent(dragEvent('dragover', dataTransfer, battlefield));
+    battlefield.dispatchEvent(dragEvent('drop', dataTransfer, battlefield));
+    await fixture.whenStable();
+
+    expect(gamesApi.command).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'card.moved',
+      payload: expect.objectContaining({
+        playerId: 'user-1',
+        fromZone: 'library',
+        toZone: 'battlefield',
+        targetPlayerId: 'user-1',
+        instanceId: topLibraryCard.instanceId,
+      }),
+    }), 'game-1');
+  });
+
+  it('closes an open zone menu when a zone pile pointer drag starts', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    const playerState = snapshot.players['user-1']!;
+    const exileCard: GameCardInstance = {
+      ...playerState.zones.battlefield[0]!,
+      instanceId: 'exile-card',
+      name: 'Exiled Card',
+      zone: 'exile',
+    };
+    playerState.zones.exile = [exileCard];
+    playerState.zoneCounts = { ...playerState.zoneCounts!, exile: 1 };
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.store.openZoneMenu({
+      preventDefault: vi.fn(),
+      stopPropagation: vi.fn(),
+      clientX: 120,
+      clientY: 120,
+    } as unknown as MouseEvent, 'user-1', 'exile');
+    expect(fixture.componentInstance.store.contextMenu()).toEqual(expect.objectContaining({ kind: 'zone', zone: 'exile' }));
+
+    fixture.componentInstance.handleZonePointerDragStarted({
+      playerId: 'user-1',
+      zone: 'exile',
+      card: exileCard,
+    });
+
+    expect(fixture.componentInstance.store.contextMenu()).toBeNull();
+    expect(fixture.componentInstance.store.draggingCardInstanceId()).toBe(exileCard.instanceId);
+  });
+
   it('drags only one card when the current selection contains a single card', async () => {
     routeParams['id'] = 'game-1';
     authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });

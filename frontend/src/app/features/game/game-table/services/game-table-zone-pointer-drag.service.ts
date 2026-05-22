@@ -19,7 +19,7 @@ interface ActiveZonePointerDrag {
 @Injectable()
 export class GameTableZonePointerDragService {
   private readonly pointerDrag = inject(GameTablePointerDragService);
-  private readonly dragThresholdPx = 8;
+  private readonly dragThresholdPx = 12;
   private activeDrag: ActiveZonePointerDrag | null = null;
 
   readonly dragMove = signal<ZonePointerDragMove | null>(null);
