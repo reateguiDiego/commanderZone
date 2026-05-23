@@ -669,6 +669,39 @@ describe('GameTableWebsocketGameplayService', () => {
     expect(snapshotState.players['player-1'].zones.battlefield[0]?.position).toEqual({ x: 0.42, y: 0.24, unit: 'ratio' });
   });
 
+  it('resolves pending commands when a global resync_required arrives', async () => {
+    const sent = service.sendCommand(context(), 'life.changed', { playerId: 'player-1', delta: -1 });
+
+    messages.next({
+      kind: 'resync_required',
+      gameId: 'game-1',
+      currentVersion: 2,
+      reason: 'version_gap',
+    });
+
+    await sent;
+    expect(refetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('debounces burst resync_required messages into a single refetch', async () => {
+    messages.next({
+      kind: 'resync_required',
+      gameId: 'game-1',
+      currentVersion: 2,
+      reason: 'version_gap',
+    });
+    messages.next({
+      kind: 'resync_required',
+      gameId: 'game-1',
+      currentVersion: 2,
+      reason: 'version_gap',
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(refetchSpy).toHaveBeenCalledTimes(1);
+  });
+
   it('rejects pending commands when command_ack is rejected', async () => {
     const sent = service.sendCommand(context(), 'life.changed', { playerId: 'player-1', delta: -1 });
     const message = sentMessage();

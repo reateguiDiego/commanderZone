@@ -279,7 +279,7 @@ final readonly class GameWebsocketCommandPatchService
 
         return GameWebsocketCommandResult::forViewers(
             $messagesByUserId,
-            $this->messages->resyncRequired($game->id(), $this->snapshotVersion($game)),
+            $this->messages->resyncRequired($game->id(), $this->snapshotVersion($game), 'projection_unavailable', $event->clientActionId()),
         );
     }
 

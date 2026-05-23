@@ -6,6 +6,7 @@ import {
   GameplayCommandAckMessage,
   GameplayErrorMessage,
   GameplayGamePatchMessage,
+  GameplayResyncRequiredMessage,
   GameplayServerMessage,
 } from '../../../../core/models/game-realtime.model';
 import { applyGameSnapshotPatch } from '../state/realtime/game-snapshot-patch-reducer';
@@ -77,6 +78,7 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
   private subscription?: Subscription;
   private context: GameTableWebsocketGameplayContext | null = null;
   private resyncPromise: Promise<void> | null = null;
+  private queuedResyncPromise: Promise<void> | null = null;
 
   readonly status = this.transport.status;
   readonly connected = signal(false);
@@ -107,6 +109,7 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
     this.subscription = undefined;
     this.context = null;
     this.resyncPromise = null;
+    this.queuedResyncPromise = null;
     this.connected.set(false);
     for (const clientActionId of [...this.pendingCommands.keys()]) {
       this.rejectPending(clientActionId, new Error('WebSocket connection closed before the command completed.'));
@@ -174,7 +177,7 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
         return;
 
       case 'resync_required':
-        await this.requestResync(context);
+        await this.handleResyncRequired(context, message);
         return;
 
       case 'error':
@@ -222,6 +225,11 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
     this.resolvePending(ack.clientActionId);
   }
 
+  private async handleResyncRequired(context: GameTableWebsocketGameplayContext, message: GameplayResyncRequiredMessage): Promise<void> {
+    this.closePendingForResync(message.clientActionId);
+    await this.requestResync(context);
+  }
+
   private handleError(message: GameplayErrorMessage): void {
     const clientActionId = message.clientActionId
       ?? (message.messageId ? this.messageIdToClientActionId.get(message.messageId) : undefined);
@@ -233,11 +241,23 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
   }
 
   private requestResync(context: GameTableWebsocketGameplayContext): Promise<void> {
-    this.resyncPromise ??= context.refetch(true).finally(() => {
-      this.resyncPromise = null;
+    if (this.resyncPromise) {
+      return this.resyncPromise;
+    }
+    if (this.queuedResyncPromise) {
+      return this.queuedResyncPromise;
+    }
+
+    this.queuedResyncPromise = Promise.resolve().then(() => {
+      this.queuedResyncPromise = null;
+      this.resyncPromise ??= context.refetch(true).finally(() => {
+        this.resyncPromise = null;
+      });
+
+      return this.resyncPromise;
     });
 
-    return this.resyncPromise;
+    return this.queuedResyncPromise;
   }
 
   private createPendingCommand(clientActionId: string, messageId: string): Promise<void> {
@@ -290,6 +310,17 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
     window.clearTimeout(pending.timeoutId);
     this.pendingCommands.delete(clientActionId);
     this.messageIdToClientActionId.delete(pending.messageId);
+  }
+
+  private closePendingForResync(clientActionId?: string): void {
+    if (clientActionId) {
+      this.resolvePending(clientActionId);
+      return;
+    }
+
+    for (const pendingClientActionId of [...this.pendingCommands.keys()]) {
+      this.resolvePending(pendingClientActionId);
+    }
   }
 
   private randomId(prefix: string): string {

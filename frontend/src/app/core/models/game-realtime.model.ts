@@ -66,6 +66,7 @@ export interface GameplayResyncRequiredMessage {
   gameId: string;
   currentVersion: number;
   reason: GameplayResyncReason;
+  clientActionId?: string;
 }
 
 export type GameplayResyncReason = 'version_gap' | 'stale_base_version' | 'permission_changed' | 'projection_unavailable';
@@ -222,6 +223,11 @@ export type GameSnapshotPatchOperation =
       op: 'player.life.set';
       playerId: string;
       value: number;
+    }
+  | {
+      op: 'game.counters.set';
+      scope: string;
+      counters: Record<string, number>;
     }
   | {
       op: 'player.counters.set';

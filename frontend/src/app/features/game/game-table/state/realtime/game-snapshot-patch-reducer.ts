@@ -69,6 +69,18 @@ export function applyGameSnapshotPatchOperations(snapshot: GameSnapshot, operati
 
 function applyOperation(snapshot: GameSnapshot, operation: GameSnapshotPatchOperation): OperationResult {
   switch (operation.op) {
+    case 'game.counters.set':
+      return {
+        status: 'applied',
+        snapshot: {
+          ...snapshot,
+          counters: {
+            ...(snapshot.counters ?? {}),
+            [operation.scope]: { ...operation.counters },
+          },
+        },
+      };
+
     case 'player.life.set':
       return updatePlayer(snapshot, operation.playerId, (player) => ({ ...player, life: operation.value }));
 

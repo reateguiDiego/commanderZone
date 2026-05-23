@@ -29,13 +29,14 @@ final readonly class GameWebsocketPatchBuilder
     {
         $baseVersion = $this->snapshotVersion($previousSnapshot);
         $version = $this->snapshotVersion($nextSnapshot);
+        $clientActionId = $event->clientActionId();
         if ($version !== $baseVersion + 1) {
-            return $this->messages->resyncRequired($gameId, $version);
+            return $this->messages->resyncRequired($gameId, $version, 'projection_unavailable', $clientActionId);
         }
 
         $operations = $this->operations($previousSnapshot, $nextSnapshot, $event, $eventPayload, $viewerId);
         if ($operations === null) {
-            return $this->messages->resyncRequired($gameId, $version);
+            return $this->messages->resyncRequired($gameId, $version, 'projection_unavailable', $clientActionId);
         }
 
         return $this->messages->gamePatch(
@@ -150,19 +151,36 @@ final readonly class GameWebsocketPatchBuilder
     private function counterChanged(array $nextSnapshot, array $payload): ?array
     {
         $scope = $this->payloadString($payload, 'scope');
-        if ($scope === null || !str_starts_with($scope, 'player:')) {
+        if ($scope === null) {
             return null;
         }
 
-        $playerId = substr($scope, strlen('player:'));
-        if ($playerId === '' || !isset($nextSnapshot['players'][$playerId]['counters'])) {
+        if (str_starts_with($scope, 'player:')) {
+            $playerId = substr($scope, strlen('player:'));
+            if ($playerId === '' || !isset($nextSnapshot['players'][$playerId]['counters'])) {
+                return null;
+            }
+
+            return [[
+                'op' => 'player.counters.set',
+                'playerId' => $playerId,
+                'counters' => $this->stringIntMap($nextSnapshot['players'][$playerId]['counters']),
+            ]];
+        }
+
+        $countersByScope = $nextSnapshot['counters'] ?? [];
+        if (!is_array($countersByScope)) {
             return null;
+        }
+        $scopeCounters = $countersByScope[$scope] ?? [];
+        if (!is_array($scopeCounters)) {
+            $scopeCounters = [];
         }
 
         return [[
-            'op' => 'player.counters.set',
-            'playerId' => $playerId,
-            'counters' => $this->stringIntMap($nextSnapshot['players'][$playerId]['counters']),
+            'op' => 'game.counters.set',
+            'scope' => $scope,
+            'counters' => $this->stringIntMap($scopeCounters),
         ]];
     }
 
@@ -171,19 +189,14 @@ final readonly class GameWebsocketPatchBuilder
      */
     private function chatMessage(array $previousSnapshot, array $nextSnapshot, array $payload): ?array
     {
-        if (($payload['private'] ?? false) === true) {
-            return null;
-        }
-
         $chatEntries = $this->appendedEntries($previousSnapshot, $nextSnapshot, 'chat');
-        if ($chatEntries === null || $chatEntries === []) {
-            return null;
+        $operations = [];
+        if ($chatEntries !== null && $chatEntries !== []) {
+            $operations[] = [
+                'op' => 'chat.append',
+                'entries' => $chatEntries,
+            ];
         }
-
-        $operations = [[
-            'op' => 'chat.append',
-            'entries' => $chatEntries,
-        ]];
         $eventLogEntries = $this->appendedEntries($previousSnapshot, $nextSnapshot, 'eventLog');
         if ($eventLogEntries !== null && $eventLogEntries !== []) {
             $operations[] = [

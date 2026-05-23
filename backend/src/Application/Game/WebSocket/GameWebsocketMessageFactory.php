@@ -106,13 +106,19 @@ final readonly class GameWebsocketMessageFactory
     /**
      * @return array<string,mixed>
      */
-    public function resyncRequired(string $gameId, int $currentVersion, string $reason = 'projection_unavailable'): array
+    public function resyncRequired(string $gameId, int $currentVersion, string $reason = 'projection_unavailable', ?string $clientActionId = null): array
     {
-        return [
+        $message = [
             'kind' => 'resync_required',
             'gameId' => $gameId,
             'currentVersion' => $currentVersion,
             'reason' => $reason,
         ];
+
+        if (is_string($clientActionId) && trim($clientActionId) !== '') {
+            $message['clientActionId'] = $clientActionId;
+        }
+
+        return $message;
     }
 }

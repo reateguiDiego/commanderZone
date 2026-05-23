@@ -723,24 +723,45 @@ class GameWebsocketPatchBuilderTest extends TestCase
         self::assertSame('projection_unavailable', $message['reason']);
     }
 
-    public function testSensitiveOrUnsupportedOperationsRequireResync(): void
+    public function testPrivateChatDoesNotForceResyncForUnrelatedViewer(): void
+    {
+        [$game, $actor, $opponent] = $this->game();
+        $spectator = new User('spectator@example.test', 'Spectator');
+
+        $privateChatForSpectator = $this->applyAndBuildProjected($game, $actor, 'chat.message', [
+            'message' => 'secret',
+            'targetPlayerId' => $opponent->id(),
+        ], 'action-private-chat', $spectator);
+        self::assertSame('game_patch', $privateChatForSpectator['kind']);
+        self::assertSame([], $privateChatForSpectator['operations']);
+    }
+
+    public function testPrivateChatProjectedToTargetIncludesChatAppend(): void
     {
         [$game, $actor, $opponent] = $this->game();
 
-        $privateChat = $this->applyAndBuild($game, $actor, 'chat.message', [
+        $privateChatForTarget = $this->applyAndBuildProjected($game, $actor, 'chat.message', [
             'message' => 'secret',
             'targetPlayerId' => $opponent->id(),
-        ], 'action-private-chat');
-        self::assertSame('resync_required', $privateChat['kind']);
-        self::assertSame('projection_unavailable', $privateChat['reason']);
+        ], 'action-private-chat-target', $opponent);
+        self::assertSame('game_patch', $privateChatForTarget['kind']);
+        self::assertSame('chat.append', $privateChatForTarget['operations'][0]['op'] ?? null);
+        self::assertCount(1, $privateChatForTarget['operations'][0]['entries'] ?? []);
+    }
+
+    public function testCounterChangedSupportsGlobalScopeWithoutResync(): void
+    {
+        [$game, $actor] = $this->game();
 
         $globalCounter = $this->applyAndBuild($game, $actor, 'counter.changed', [
             'scope' => 'global',
             'key' => 'storm',
             'value' => 3,
         ], 'action-global-counter');
-        self::assertSame('resync_required', $globalCounter['kind']);
-        self::assertSame('projection_unavailable', $globalCounter['reason']);
+        self::assertSame('game_patch', $globalCounter['kind']);
+        self::assertSame('game.counters.set', $globalCounter['operations'][0]['op'] ?? null);
+        self::assertSame('global', $globalCounter['operations'][0]['scope'] ?? null);
+        self::assertSame(3, $globalCounter['operations'][0]['counters']['storm'] ?? null);
     }
 
     public function testDoesNotEmitFullSnapshotPlayersOrZonesInGamePatchPayload(): void
@@ -766,6 +787,7 @@ class GameWebsocketPatchBuilderTest extends TestCase
 
         self::assertSame('resync_required', $message['kind']);
         self::assertSame('projection_unavailable', $message['reason']);
+        self::assertSame('action-gap', $message['clientActionId']);
     }
 
     public function testBuilderDoesNotDependOnMercurePublisher(): void

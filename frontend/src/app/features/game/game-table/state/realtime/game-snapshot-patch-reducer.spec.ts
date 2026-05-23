@@ -19,6 +19,20 @@ describe('game snapshot patch reducer', () => {
     expect(result.snapshot.players['player-1'].commanderDamage).toEqual({ 'player-2': 5 });
   });
 
+  it('applies shared game counters by scope', () => {
+    const snapshot = snapshotFixture();
+
+    const result = applyGameSnapshotPatch(snapshot, patch([
+      { op: 'game.counters.set', scope: 'global', counters: { storm: 3 } },
+    ]));
+
+    expect(result.status).toBe('applied');
+    expect(result.snapshot.version).toBe(2);
+    expect(result.snapshot.counters).toEqual({
+      global: { storm: 3 },
+    });
+  });
+
   it('preserves ratio positions and player visual state when setting card positions', () => {
     const snapshot = snapshotFixture();
 
