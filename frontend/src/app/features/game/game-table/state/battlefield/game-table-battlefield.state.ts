@@ -13,7 +13,6 @@ import {
   GameTableBattlefieldDragContext,
   GameTableBattlefieldDragCoordinatorService,
 } from '../../services/game-table-battlefield-drag-coordinator.service';
-import { GameTableCommandService } from '../../services/game-table-command.service';
 import { AlignmentGuide } from '../drag-drop/game-table-battlefield-drag.state';
 import { GameTableSnapshotSelectors } from '../core/game-table-snapshot-selectors';
 
@@ -32,7 +31,6 @@ export class GameTableBattlefieldState {
   private readonly optimisticBattlefieldPositions = new Map<string, BattlefieldPositionCommand>();
   private readonly viewportClampedBattlefieldPositions = new Map<string, ViewportClampedBattlefieldPosition>();
   private readonly battlefieldDrag = inject(GameTableBattlefieldDragCoordinatorService);
-  private readonly commands = inject(GameTableCommandService);
   private readonly selectors = inject(GameTableSnapshotSelectors);
 
   readonly layoutSize = signal<BattlefieldSize>(DEFAULT_BATTLEFIELD_SIZE);
@@ -170,7 +168,12 @@ export class GameTableBattlefieldState {
     }
   }
 
-  tryQueueBattlefieldPositionCommand(context: GameTableBattlefieldContext, gameId: string, payload: Record<string, unknown>): boolean {
+  tryQueueBattlefieldPositionCommand(
+    context: GameTableBattlefieldContext,
+    _gameId: string,
+    payload: Record<string, unknown>,
+    persist: () => Promise<void>,
+  ): boolean {
     const positionCommand = this.battlefieldPositionCommand(payload);
     if (!positionCommand) {
       return false;
@@ -179,7 +182,7 @@ export class GameTableBattlefieldState {
     this.optimisticBattlefieldPositions.set(this.battlefieldPositionKey(positionCommand), positionCommand);
     this.battlefieldPositionQueue = this.battlefieldPositionQueue
       .catch(() => undefined)
-      .then(() => this.persistBattlefieldPositionCommand(context, gameId, positionCommand, payload));
+      .then(() => this.persistBattlefieldPositionCommand(context, positionCommand, persist));
 
     return true;
   }
@@ -328,14 +331,12 @@ export class GameTableBattlefieldState {
 
   private async persistBattlefieldPositionCommand(
     context: GameTableBattlefieldContext,
-    gameId: string,
     positionCommand: BattlefieldPositionCommand,
-    payload: Record<string, unknown>,
+    persist: () => Promise<void>,
   ): Promise<void> {
     try {
-      const snapshot = await this.commands.send(gameId, 'card.position.changed', payload);
+      await persist();
       this.clearOptimisticBattlefieldPosition(positionCommand);
-      context.setSnapshot(snapshot);
     } catch (error) {
       this.clearOptimisticBattlefieldPosition(positionCommand);
       context.setError(context.errorMessage(error));

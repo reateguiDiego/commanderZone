@@ -20,9 +20,11 @@ import { GameTableInteractionActionsService } from './services/game-table-intera
 import { GameTableLibraryActionsService } from './services/game-table-library-actions.service';
 import { GameTablePointerDragActionsService } from './services/game-table-pointer-drag-actions.service';
 import { GameTablePointerDragService } from './services/game-table-pointer-drag.service';
-import { GameTableRealtimeService } from './services/game-table-realtime.service';
+import { GameTableRematchRealtimeService } from './services/game-table-rematch-realtime.service';
 import { GameTableSelectionService } from './services/game-table-selection.service';
 import { GameTableSessionService } from './services/game-table-session.service';
+import { GameTableWebsocketGameplayService } from './services/game-table-websocket-gameplay.service';
+import { GameTableWebsocketTransportService } from './services/game-table-websocket-transport.service';
 import { GameTableTurnActionsService } from './services/game-table-turn-actions.service';
 import { GameTableZoneActionsService } from './services/game-table-zone-actions.service';
 import { GameTableZonePointerMoveActionsService } from './services/game-table-zone-pointer-move-actions.service';
@@ -306,7 +308,9 @@ interface MotionSourceRect {
     GameTableCardStatsService,
     GameTableDebouncedValueCommandsService,
     GameTableBattlefieldDragCoordinatorService,
-    GameTableRealtimeService,
+    GameTableRematchRealtimeService,
+    GameTableWebsocketGameplayService,
+    GameTableWebsocketTransportService,
     GameTableCommandService,
     GameTableSelectionService,
     GameTableSessionService,

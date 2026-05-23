@@ -352,6 +352,20 @@ describe('API services', () => {
     request.flush({ event: {}, snapshot: { players: {}, turn: { activePlayerId: null, phase: 'beginning', number: 1 }, chat: [], createdAt: '' } });
   });
 
+  it('requests gameplay websocket tickets without triggering the global loading overlay', () => {
+    TestBed.inject(GamesApi).websocketTicket('game-1').subscribe();
+
+    const request = http.expectOne(`${API_BASE_URL}/games/game-1/websocket-ticket`);
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({});
+    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);
+    request.flush({
+      ticket: 'ticket-1',
+      expiresAt: '2026-01-01T00:00:30+00:00',
+      websocketUrl: 'ws://127.0.0.1:8081/games/game-1?ticket=ticket-1',
+    });
+  });
+
   it('deletes rooms through the room endpoint', () => {
     const rooms = TestBed.inject(RoomsApi);
 

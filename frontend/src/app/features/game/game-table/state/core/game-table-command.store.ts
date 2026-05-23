@@ -1,6 +1,7 @@
 import { inject, Injectable } from '@angular/core';
 import { GameCommandType, GameSnapshot } from '../../../../../core/models/game.model';
 import { GameTableCommandService } from '../../services/game-table-command.service';
+import { GameTableWebsocketGameplayContext, GameTableWebsocketGameplayService } from '../../services/game-table-websocket-gameplay.service';
 import { GameTableDropFeedbackState } from '../drag-drop/game-table-drop-feedback.state';
 import { GameTablePendingTransferState } from './game-table-pending-transfer.state';
 import { GameTableCoreState } from './game-table-core.state';
@@ -8,7 +9,12 @@ import { GameTablePendingTransferRegistrarState } from './game-table-pending-tra
 
 export interface GameTableCommandContext {
   readonly setSnapshot: (snapshot: GameSnapshot | null) => void;
-  readonly queueBattlefieldPositionCommand: (gameId: string, payload: Record<string, unknown>) => boolean;
+  readonly websocket: () => GameTableWebsocketGameplayContext;
+  readonly queueBattlefieldPositionCommand: (
+    gameId: string,
+    payload: Record<string, unknown>,
+    persist: () => Promise<void>,
+  ) => boolean;
   readonly errorMessage: (error: unknown) => string;
 }
 
@@ -19,6 +25,7 @@ export class GameTableCommandStore {
   private readonly dropFeedbackState = inject(GameTableDropFeedbackState);
   private readonly pendingTransferRegistrar = inject(GameTablePendingTransferRegistrarState);
   private readonly pendingTransferState = inject(GameTablePendingTransferState);
+  private readonly websocketCommands = inject(GameTableWebsocketGameplayService);
 
   async command(context: GameTableCommandContext, type: GameCommandType, payload: Record<string, unknown>, force = false): Promise<void> {
     const gameId = this.core.gameId();
@@ -26,7 +33,10 @@ export class GameTableCommandStore {
       return;
     }
 
-    if (type === 'card.position.changed' && context.queueBattlefieldPositionCommand(gameId, payload)) {
+    if (
+      type === 'card.position.changed'
+      && context.queueBattlefieldPositionCommand(gameId, payload, () => this.sendAndApplyCommand(context, gameId, type, payload))
+    ) {
       return;
     }
 
@@ -39,8 +49,7 @@ export class GameTableCommandStore {
     this.pendingTransferRegistrar.register(type, payload);
 
     try {
-      const snapshot = await this.commands.send(gameId, type, payload);
-      context.setSnapshot(snapshot);
+      await this.sendAndApplyCommand(context, gameId, type, payload);
     } catch (error) {
       this.pendingTransferState.clear();
       this.dropFeedbackState.clearPendingBattlefieldEntries();
@@ -56,5 +65,24 @@ export class GameTableCommandStore {
   private shouldSuppressCommandErrorToast(type: GameCommandType, message: string): boolean {
     return type === 'cards.position.changed'
       && message === 'positions must contain at least one card position.';
+  }
+
+  private async sendAndApplyCommand(
+    context: GameTableCommandContext,
+    gameId: string,
+    type: GameCommandType,
+    payload: Record<string, unknown>,
+  ): Promise<void> {
+    if (this.websocketCommands.isMigratedCommand(type)) {
+      const sentOverWebsocket = await this.websocketCommands.sendCommand(context.websocket(), type, payload);
+      if (sentOverWebsocket) {
+        return;
+      }
+
+      throw new Error('WebSocket gameplay connection is not available.');
+    }
+
+    const snapshot = await this.commands.send(gameId, type, payload);
+    context.setSnapshot(snapshot);
   }
 }

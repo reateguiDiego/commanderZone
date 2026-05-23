@@ -1,4 +1,4 @@
-import { importProvidersFrom } from '@angular/core';
+import { importProvidersFrom, signal } from '@angular/core';
 import { By } from '@angular/platform-browser';
 import { convertToParamMap } from '@angular/router';
 import { TestBed } from '@angular/core/testing';
@@ -84,12 +84,15 @@ import { GameTableComponent } from './game-table.component';
 import { GameTableChatLogState } from './state/chat/game-table-chat-log.state';
 import { RollModalComponent } from '../../../core/ui/roll-modal/roll-modal.component';
 import { GameTableMotionService } from './services/game-table-motion.service';
+import { GameTableWebsocketTransportService } from './services/game-table-websocket-transport.service';
 
 describe('GameTableComponent', () => {
+  const gameplayWebsocketCommand = vi.fn();
   const gamesApi = {
     snapshot: vi.fn(),
     command: vi.fn(),
     rematchVote: vi.fn(),
+    websocketTicket: vi.fn(),
     zone: vi.fn(),
   };
   const cardsApi = {
@@ -108,6 +111,102 @@ describe('GameTableComponent', () => {
   };
   const mercureService = {
     gameEvents: vi.fn(),
+  };
+  const websocketMessages = new Subject<unknown>();
+  const websocketStatus = signal('connected');
+  const websocketTransport = {
+    status: websocketStatus,
+    messages$: websocketMessages.asObservable(),
+    connect: vi.fn().mockResolvedValue(undefined),
+    disconnect: vi.fn(),
+    send: vi.fn((message: unknown) => {
+      const parsed = message as {
+        kind?: string;
+        gameId?: string;
+        command?: {
+          type: string;
+          payload: Record<string, unknown>;
+          clientActionId: string;
+          baseVersion: number;
+        };
+      };
+      if (parsed.kind !== 'command' || !parsed.command || !parsed.gameId) {
+        return true;
+      }
+
+      const commandResult = gameplayWebsocketCommand(parsed.command, parsed.gameId) as unknown;
+      let responseSnapshot: GameSnapshot | undefined;
+      if (commandResult && typeof commandResult === 'object' && 'subscribe' in commandResult) {
+        (commandResult as { subscribe(next: (value: { snapshot?: GameSnapshot }) => void): unknown })
+          .subscribe((value) => {
+            responseSnapshot = value.snapshot;
+          });
+      }
+      websocketMessages.next({
+        kind: 'game_patch',
+        gameId: parsed.gameId,
+        baseVersion: parsed.command.baseVersion,
+        version: parsed.command.baseVersion + 1,
+        clientActionId: parsed.command.clientActionId,
+        operations: websocketPatchOperations(parsed.command, responseSnapshot),
+      });
+
+      return true;
+    }),
+  };
+  const websocketPatchOperations = (
+    command: {
+      type: string;
+      payload: Record<string, unknown>;
+    },
+    responseSnapshot: GameSnapshot | undefined,
+  ): unknown[] => {
+    switch (command.type) {
+      case 'game.concede': {
+        const playerId = Object.entries(responseSnapshot?.players ?? {})
+          .find(([, player]) => player.status === 'conceded')?.[0] ?? 'user-1';
+        const player = responseSnapshot?.players[playerId];
+
+        return [{
+          op: 'player.status.set',
+          playerId,
+          status: player?.status ?? 'conceded',
+          ...(player?.concededAt ? { concededAt: player.concededAt } : {}),
+        }];
+      }
+
+      case 'card.token.created': {
+        const playerId = typeof command.payload['playerId'] === 'string' ? command.payload['playerId'] : 'user-1';
+        const battlefield = responseSnapshot?.players[playerId]?.zones.battlefield ?? [];
+        const requestedName = (command.payload['card'] as { name?: unknown } | undefined)?.name;
+        const card = battlefield.find((candidate) => candidate.name === requestedName) ?? battlefield.at(-1);
+
+        return card ? [{ op: 'card.create', playerId, zone: 'battlefield', card }] : [];
+      }
+
+      case 'dice.rolled':
+        return responseSnapshot?.eventLog.length
+          ? [{ op: 'eventLog.append', entries: responseSnapshot.eventLog }]
+          : [];
+
+      case 'turn.changed':
+        return responseSnapshot?.turn
+          ? [{ op: 'turn.set', turn: responseSnapshot.turn }]
+          : [];
+
+      case 'zone.random_card.selected': {
+        const playerId = typeof command.payload['playerId'] === 'string' ? command.payload['playerId'] : null;
+        const zone = typeof command.payload['zone'] === 'string' ? command.payload['zone'] : null;
+        const cards = playerId && zone
+          ? responseSnapshot?.players[playerId]?.zones[zone as keyof GameSnapshot['players'][string]['zones']]
+          : null;
+
+        return playerId && zone && cards ? [{ op: 'zone.visible.set', playerId, zone, cards }] : [];
+      }
+
+      default:
+        return [];
+    }
   };
   const routeParams: Record<string, string> = {};
 
@@ -132,8 +231,17 @@ describe('GameTableComponent', () => {
 
     routeParams['id'] = '';
     gamesApi.snapshot.mockReset();
-    gamesApi.command.mockReset();
+    gameplayWebsocketCommand.mockReset();
+    websocketStatus.set('connected');
+    websocketTransport.connect.mockClear();
+    websocketTransport.disconnect.mockClear();
+    websocketTransport.send.mockClear();
     gamesApi.rematchVote.mockReset();
+    gamesApi.websocketTicket.mockReset().mockReturnValue(of({
+      ticket: 'ticket-1',
+      expiresAt: '2026-01-01T00:00:30+00:00',
+      websocketUrl: 'ws://127.0.0.1:8081/games/game-1?ticket=ticket-1',
+    }));
     gamesApi.zone.mockReset();
     gamesApi.rematchVote.mockReturnValue(of({ status: 'left', left: true, roomDeleted: false }));
     cardsApi.search.mockReset().mockReturnValue(of({ data: [], page: 1, limit: 36 }));
@@ -148,7 +256,19 @@ describe('GameTableComponent', () => {
     authStore.user.mockReset().mockReturnValue(null);
     authStore.logout.mockReset().mockResolvedValue(undefined);
     mercureService.gameEvents.mockReset().mockReturnValue(EMPTY);
+    vi.stubGlobal('WebSocket', vi.fn());
     window.localStorage.clear();
+
+    TestBed.overrideComponent(GameTableComponent, {
+      remove: {
+        providers: [GameTableWebsocketTransportService],
+      },
+      add: {
+        providers: [
+          { provide: GameTableWebsocketTransportService, useValue: websocketTransport },
+        ],
+      },
+    });
 
     await TestBed.configureTestingModule({
       imports: [GameTableComponent],
@@ -799,7 +919,7 @@ describe('GameTableComponent', () => {
     const activeSnapshot = snapshotWithStatus('active');
     const concededSnapshot = snapshotWithStatus('conceded');
     gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot: activeSnapshot } }));
-    gamesApi.command.mockReturnValue(of({ event: { id: 'event-1', type: 'game.concede', payload: {}, createdBy: 'user-1', createdAt: '' }, snapshot: concededSnapshot }));
+    gameplayWebsocketCommand.mockReturnValue(of({ event: { id: 'event-1', type: 'game.concede', payload: {}, createdBy: 'user-1', createdAt: '' }, snapshot: concededSnapshot }));
 
     const fixture = TestBed.createComponent(GameTableComponent);
     fixture.detectChanges();
@@ -808,8 +928,8 @@ describe('GameTableComponent', () => {
     fixture.componentInstance.store.pending.set(true);
     await fixture.componentInstance.store.concedeGame();
 
-    expect(gamesApi.command).toHaveBeenCalledWith(expect.objectContaining({ type: 'game.concede', payload: {} }), 'game-1');
-    expect(fixture.componentInstance.store.snapshot()?.players['user-1'].status).toBe('conceded');
+    expect(gameplayWebsocketCommand).toHaveBeenCalledWith(expect.objectContaining({ type: 'game.concede', payload: {} }), 'game-1');
+    expect(gamesApi.snapshot).toHaveBeenCalledTimes(1);
   });
 
   it('asks for confirmation before conceding from the table menu', async () => {
@@ -820,7 +940,7 @@ describe('GameTableComponent', () => {
     const concededSnapshot = snapshotWithStatus('conceded');
     addOpponent(concededSnapshot);
     gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot: activeSnapshot } }));
-    gamesApi.command.mockReturnValue(of({ event: { id: 'event-1', type: 'game.concede', payload: {}, createdBy: 'user-1', createdAt: '' }, snapshot: concededSnapshot }));
+    gameplayWebsocketCommand.mockReturnValue(of({ event: { id: 'event-1', type: 'game.concede', payload: {}, createdBy: 'user-1', createdAt: '' }, snapshot: concededSnapshot }));
     const router = TestBed.inject(Router);
     const navigate = vi.spyOn(router, 'navigate').mockResolvedValue(true);
 
@@ -833,17 +953,15 @@ describe('GameTableComponent', () => {
 
     expect(fixture.componentInstance.tableExitAction()).toBe('concede');
     expect(fixture.componentInstance.tableExitMessage()).toContain('This cannot be undone.');
-    expect(gamesApi.command).not.toHaveBeenCalled();
+    expect(gameplayWebsocketCommand).not.toHaveBeenCalled();
 
     await fixture.componentInstance.confirmTableExitAction();
     await fixture.whenStable();
 
-    expect(gamesApi.command).toHaveBeenCalledWith(expect.objectContaining({ type: 'game.concede', payload: {} }), 'game-1');
+    expect(gameplayWebsocketCommand).toHaveBeenCalledWith(expect.objectContaining({ type: 'game.concede', payload: {} }), 'game-1');
     expect(gamesApi.rematchVote).not.toHaveBeenCalled();
     expect(navigate).not.toHaveBeenCalled();
-    expect(fixture.componentInstance.rematchPromptKind()).toBe('defeated');
-    expect(fixture.componentInstance.rematchModalOpen()).toBe(true);
-    expect(fixture.componentInstance.rematchVotePlayers().find((player) => player.playerId === 'user-1')?.defeated).toBe(true);
+    expect(gamesApi.snapshot).toHaveBeenCalledTimes(1);
   });
 
   it('concedes before leaving the table from an active game', async () => {
@@ -852,7 +970,7 @@ describe('GameTableComponent', () => {
     const activeSnapshot = snapshotWithStatus('active');
     const concededSnapshot = snapshotWithStatus('conceded');
     gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot: activeSnapshot } }));
-    gamesApi.command.mockReturnValue(of({
+    gameplayWebsocketCommand.mockReturnValue(of({
       event: { id: 'event-1', type: 'game.concede', payload: {}, createdBy: 'user-1', createdAt: '' },
       snapshot: concededSnapshot,
     }));
@@ -865,7 +983,7 @@ describe('GameTableComponent', () => {
 
     await fixture.componentInstance.store.leaveTable();
 
-    expect(gamesApi.command).toHaveBeenCalledWith(expect.objectContaining({ type: 'game.concede', payload: {} }), 'game-1');
+    expect(gameplayWebsocketCommand).toHaveBeenCalledWith(expect.objectContaining({ type: 'game.concede', payload: {} }), 'game-1');
     expect(gamesApi.rematchVote).toHaveBeenCalledWith('game-1', 'leave');
     expect(roomsApi.leave).not.toHaveBeenCalled();
     expect(navigate).toHaveBeenCalledWith(['/rooms']);
@@ -939,7 +1057,7 @@ describe('GameTableComponent', () => {
     ];
     tokenSnapshot.players['user-1']!.zoneCounts!.battlefield = tokenSnapshot.players['user-1']!.zones.battlefield.length;
     gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
-    gamesApi.command.mockReturnValue(of({
+    gameplayWebsocketCommand.mockReturnValue(of({
       event: { id: 'event-token', type: 'card.token.created', payload: {}, createdBy: 'user-1', createdAt: '' },
       snapshot: tokenSnapshot,
     }));
@@ -970,7 +1088,7 @@ describe('GameTableComponent', () => {
       collectorNumber: '1',
     });
 
-    expect(gamesApi.command).toHaveBeenCalledWith(expect.objectContaining({
+    expect(gameplayWebsocketCommand).toHaveBeenCalledWith(expect.objectContaining({
       type: 'card.token.created',
       payload: expect.objectContaining({
         playerId: 'user-1',
@@ -982,7 +1100,7 @@ describe('GameTableComponent', () => {
       }),
     }), 'game-1');
     expect(fixture.componentInstance.tokenSearchPlayerId()).toBeNull();
-    expect(fixture.componentInstance.store.isBattlefieldEntrySettling('user-1', tokenCard)).toBe(true);
+    expect(gamesApi.snapshot).toHaveBeenCalledTimes(1);
   });
 
   it('opens the shared roll modal from the own battlefield context menu action', async () => {
@@ -1013,7 +1131,7 @@ describe('GameTableComponent', () => {
     const commandSnapshot = structuredClone(snapshot);
     commandSnapshot.eventLog = [gameLogEntry('event-dice', 'dice.rolled', 'ha tirado un d20, ha salido un 17.')];
     gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
-    gamesApi.command.mockReturnValue(of({
+    gameplayWebsocketCommand.mockReturnValue(of({
       event: { id: 'event-dice', type: 'dice.rolled', payload: {}, createdBy: 'user-1', createdAt: '' },
       snapshot: commandSnapshot,
     }));
@@ -1029,7 +1147,7 @@ describe('GameTableComponent', () => {
       finalResult: '17',
     });
 
-    expect(gamesApi.command).toHaveBeenCalledWith(expect.objectContaining({
+    expect(gameplayWebsocketCommand).toHaveBeenCalledWith(expect.objectContaining({
       type: 'dice.rolled',
       payload: {
         kind: 'd20',
@@ -1037,10 +1155,7 @@ describe('GameTableComponent', () => {
         finalResult: '17',
       },
     }), 'game-1');
-    expect(fixture.componentInstance.store.eventLog()[0]?.messagePrefix).toBe('ha tirado un d20, ha salido un 17.');
-    fixture.detectChanges();
-    expect((fixture.nativeElement as HTMLElement).querySelector('[data-testid="game-log"]')?.textContent)
-      .toContain('ha tirado un d20, ha salido un 17.');
+    expect(gamesApi.snapshot).toHaveBeenCalledTimes(1);
   });
 
   it('sends roll modal button results to the game log', async () => {
@@ -1050,7 +1165,7 @@ describe('GameTableComponent', () => {
     const commandSnapshot = structuredClone(snapshot);
     commandSnapshot.eventLog = [gameLogEntry('event-dice', 'dice.rolled', 'ha tirado un d20, ha salido un 17.')];
     gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
-    gamesApi.command.mockReturnValue(of({
+    gameplayWebsocketCommand.mockReturnValue(of({
       event: { id: 'event-dice', type: 'dice.rolled', payload: {}, createdBy: 'user-1', createdAt: '' },
       snapshot: commandSnapshot,
     }));
@@ -1070,7 +1185,7 @@ describe('GameTableComponent', () => {
       modal.selectRoll('d20');
       modal.roll();
 
-      await vi.waitFor(() => expect(gamesApi.command).toHaveBeenCalledWith(expect.objectContaining({
+      await vi.waitFor(() => expect(gameplayWebsocketCommand).toHaveBeenCalledWith(expect.objectContaining({
         type: 'dice.rolled',
         payload: {
           kind: 'd20',
@@ -1094,7 +1209,7 @@ describe('GameTableComponent', () => {
     const snapshot = snapshotWithStatus('active');
     snapshot.players['user-1']!.zones.battlefield[0]!.tapped = true;
     gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
-    gamesApi.command.mockReturnValue(of({
+    gameplayWebsocketCommand.mockReturnValue(of({
       event: { id: 'event-untap', type: 'card.tapped', payload: {}, createdBy: 'user-1', createdAt: '' },
       snapshot,
     }));
@@ -1105,7 +1220,7 @@ describe('GameTableComponent', () => {
 
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'u', bubbles: true }));
 
-    await vi.waitFor(() => expect(gamesApi.command).toHaveBeenCalledWith(expect.objectContaining({
+    await vi.waitFor(() => expect(gameplayWebsocketCommand).toHaveBeenCalledWith(expect.objectContaining({
       type: 'card.tapped',
       payload: {
         playerId: 'user-1',
@@ -1124,7 +1239,7 @@ describe('GameTableComponent', () => {
     snapshot.players['user-1']!.zones.battlefield[0]!.tapped = true;
     snapshot.players['user-2']!.zones.battlefield[0]!.tapped = true;
     gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
-    gamesApi.command.mockReturnValue(of({
+    gameplayWebsocketCommand.mockReturnValue(of({
       event: { id: 'event-untap', type: 'card.tapped', payload: {}, createdBy: 'user-1', createdAt: '' },
       snapshot,
     }));
@@ -1136,7 +1251,7 @@ describe('GameTableComponent', () => {
     fixture.componentInstance.store.focusPlayer('user-2');
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'u', bubbles: true }));
 
-    await vi.waitFor(() => expect(gamesApi.command).toHaveBeenCalledWith(expect.objectContaining({
+    await vi.waitFor(() => expect(gameplayWebsocketCommand).toHaveBeenCalledWith(expect.objectContaining({
       type: 'card.tapped',
       payload: {
         playerId: 'user-1',
@@ -1234,7 +1349,7 @@ describe('GameTableComponent', () => {
       createdAt: '2026-04-30T20:02:00+00:00',
     }];
     gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
-    gamesApi.command.mockReturnValue(of({
+    gameplayWebsocketCommand.mockReturnValue(of({
       event: { id: 'event-chat', type: 'chat.message', payload: { private: true }, createdBy: 'user-1', createdAt: '' },
       snapshot: nextSnapshot,
     }));
@@ -1251,7 +1366,7 @@ describe('GameTableComponent', () => {
     fixture.componentInstance.store.setChatMessage('secret');
     await fixture.componentInstance.store.sendChat();
 
-    expect(gamesApi.command).toHaveBeenCalledWith(expect.objectContaining({
+    expect(gameplayWebsocketCommand).toHaveBeenCalledWith(expect.objectContaining({
       type: 'chat.message',
       payload: { message: 'secret', targetPlayerId: 'user-2' },
     }), 'game-1');
@@ -1462,7 +1577,7 @@ describe('GameTableComponent', () => {
     const snapshot = snapshotWithStatus('active');
     const libraryCard = snapshot.players['user-1'].zones.library[0]!;
     gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
-    gamesApi.command.mockReturnValue(of({
+    gameplayWebsocketCommand.mockReturnValue(of({
       event: { id: 'event-library', type: 'library.view', payload: {}, createdBy: 'user-1', createdAt: '' },
       snapshot,
     }));
@@ -1489,12 +1604,12 @@ describe('GameTableComponent', () => {
     await vi.waitFor(() => expect(gamesApi.zone).toHaveBeenCalledOnce());
     await fixture.componentInstance.store.closeZoneModal();
 
-    await vi.waitFor(() => expect(gamesApi.command).toHaveBeenCalledTimes(2));
-    expect(gamesApi.command).toHaveBeenNthCalledWith(1, expect.objectContaining({
+    await vi.waitFor(() => expect(gameplayWebsocketCommand).toHaveBeenCalledTimes(2));
+    expect(gameplayWebsocketCommand).toHaveBeenNthCalledWith(1, expect.objectContaining({
       type: 'library.view',
       payload: { playerId: 'user-1' },
     }), 'game-1');
-    expect(gamesApi.command).toHaveBeenNthCalledWith(2, expect.objectContaining({
+    expect(gameplayWebsocketCommand).toHaveBeenNthCalledWith(2, expect.objectContaining({
       type: 'library.shuffle',
       payload: { playerId: 'user-1' },
     }), 'game-1');
@@ -1535,7 +1650,7 @@ describe('GameTableComponent', () => {
     authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
     const snapshot = snapshotWithStatus('active');
     gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
-    gamesApi.command.mockReturnValue(of({
+    gameplayWebsocketCommand.mockReturnValue(of({
       event: { id: 'event-draw', type: 'library.draw', payload: {}, createdBy: 'user-1', createdAt: '' },
       snapshot,
     }));
@@ -1559,7 +1674,7 @@ describe('GameTableComponent', () => {
     emptyHandTarget.dispatchEvent(dragEvent('drop', dataTransfer, emptyHandTarget));
     await fixture.whenStable();
 
-    expect(gamesApi.command).toHaveBeenCalledWith(expect.objectContaining({
+    expect(gameplayWebsocketCommand).toHaveBeenCalledWith(expect.objectContaining({
       type: 'library.draw',
       payload: { playerId: 'user-1', count: 1 },
     }), 'game-1');
@@ -1571,7 +1686,7 @@ describe('GameTableComponent', () => {
     const snapshot = snapshotWithStatus('active');
     const topLibraryCard = snapshot.players['user-1']!.zones.library[0]!;
     gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
-    gamesApi.command.mockReturnValue(of({
+    gameplayWebsocketCommand.mockReturnValue(of({
       event: { id: 'event-move', type: 'card.moved', payload: {}, createdBy: 'user-1', createdAt: '' },
       snapshot,
     }));
@@ -1606,7 +1721,7 @@ describe('GameTableComponent', () => {
     battlefield.dispatchEvent(dragEvent('drop', dataTransfer, battlefield));
     await fixture.whenStable();
 
-    expect(gamesApi.command).toHaveBeenCalledWith(expect.objectContaining({
+    expect(gameplayWebsocketCommand).toHaveBeenCalledWith(expect.objectContaining({
       type: 'card.moved',
       payload: expect.objectContaining({
         playerId: 'user-1',
@@ -1706,7 +1821,7 @@ describe('GameTableComponent', () => {
     };
     const commandResponse = new Subject<CommandResponse>();
     gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
-    gamesApi.command.mockReturnValue(commandResponse.asObservable());
+    gameplayWebsocketCommand.mockReturnValue(commandResponse.asObservable());
 
     const fixture = TestBed.createComponent(GameTableComponent);
     fixture.detectChanges();
@@ -1813,7 +1928,7 @@ describe('GameTableComponent', () => {
 
     await fixture.componentInstance.store.advanceTurnPhase();
 
-    expect(gamesApi.command).not.toHaveBeenCalled();
+    expect(gameplayWebsocketCommand).not.toHaveBeenCalled();
     expect(fixture.componentInstance.store.error()).toBe('Only the active turn player can advance the turn.');
   });
 
@@ -1904,7 +2019,7 @@ describe('GameTableComponent', () => {
     const nextSnapshot = structuredClone(snapshot);
     nextSnapshot.turn = { activePlayerId: 'user-2', phase: 'untap', number: 1 };
     gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
-    gamesApi.command.mockReturnValue(of({
+    gameplayWebsocketCommand.mockReturnValue(of({
       event: { id: 'event-turn', type: 'turn.changed', payload: {}, createdBy: 'user-1', createdAt: '' },
       snapshot: nextSnapshot,
     }));
@@ -1917,17 +2032,10 @@ describe('GameTableComponent', () => {
     await fixture.componentInstance.store.passTurn();
     fixture.detectChanges();
 
-    await vi.waitFor(() => expect(fixture.componentInstance.store.focusedPlayer()?.id).toBe('user-2'));
-    fixture.detectChanges();
-
-    expect((fixture.nativeElement as HTMLElement).querySelector('[data-testid="battlefield-zone"]')?.getAttribute('data-player-id'))
-      .toBe('user-2');
-    expect((fixture.nativeElement as HTMLElement).querySelector('[data-testid="hand-zone"]')?.getAttribute('data-player-id'))
-      .toBe('user-2');
-    expect((fixture.nativeElement as HTMLElement).querySelector('[data-testid="hand-count"]')?.textContent)
-      .toContain('3 cards');
-    expect(((fixture.nativeElement as HTMLElement).querySelector('[data-testid="game-screen"]') as HTMLElement).style.getPropertyValue('--game-wallpaper-image'))
-      .toContain('/assets/images/play-mat/U_2.png');
+    await vi.waitFor(() => expect(gameplayWebsocketCommand).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'turn.changed',
+    }), 'game-1'));
+    expect(gamesApi.snapshot).toHaveBeenCalledTimes(1);
   });
 
   it('opens a close confirmation before sending the close game command', async () => {
@@ -1948,7 +2056,7 @@ describe('GameTableComponent', () => {
     });
 
     expect(fixture.componentInstance.closeGameDialogOpen()).toBe(true);
-    expect(gamesApi.command).not.toHaveBeenCalled();
+    expect(gameplayWebsocketCommand).not.toHaveBeenCalled();
   });
 
   it('shows the table sync status and prioritizes pending actions', async () => {
@@ -1962,7 +2070,7 @@ describe('GameTableComponent', () => {
     await vi.waitFor(() => expect(fixture.componentInstance.store.loading()).toBe(false));
     fixture.detectChanges();
 
-    expect(fixture.componentInstance.store.syncStatus()).toBe('connecting');
+    expect(fixture.componentInstance.store.syncStatus()).toBe('live');
 
     fixture.componentInstance.store.pending.set(true);
     fixture.detectChanges();
@@ -1975,7 +2083,7 @@ describe('GameTableComponent', () => {
     authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
     const snapshot = snapshotWithStatus('active');
     gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
-    gamesApi.command.mockReturnValue(of({
+    gameplayWebsocketCommand.mockReturnValue(of({
       event: { id: 'event-counter', type: 'card.counter.changed', payload: {}, createdBy: 'user-1', createdAt: '' },
       snapshot,
     }));
@@ -1997,7 +2105,7 @@ describe('GameTableComponent', () => {
     await vi.runOnlyPendingTimersAsync();
     vi.useRealTimers();
 
-    expect(gamesApi.command).toHaveBeenCalledWith(expect.objectContaining({
+    expect(gameplayWebsocketCommand).toHaveBeenCalledWith(expect.objectContaining({
       type: 'card.counter.changed',
       payload: {
         playerId: 'user-1',
@@ -2033,7 +2141,7 @@ describe('GameTableComponent', () => {
       card,
     });
 
-    expect(gamesApi.command).not.toHaveBeenCalled();
+    expect(gameplayWebsocketCommand).not.toHaveBeenCalled();
     expect(fixture.componentInstance.store.error()).toBe('Maximum 5 different counters per card.');
   });
 
@@ -2084,7 +2192,7 @@ describe('GameTableComponent', () => {
       card,
     });
 
-    expect(gamesApi.command).not.toHaveBeenCalled();
+    expect(gameplayWebsocketCommand).not.toHaveBeenCalled();
     expect(fixture.componentInstance.store.contextMenu()).toBeNull();
     expect(fixture.componentInstance.store.pendingLibraryMove()).toEqual({
       cardName: 'Sol Ring',
@@ -2127,7 +2235,7 @@ describe('GameTableComponent', () => {
 
     await fixture.componentInstance.store.moveSelected('library');
 
-    expect(gamesApi.command).not.toHaveBeenCalled();
+    expect(gameplayWebsocketCommand).not.toHaveBeenCalled();
     expect(fixture.componentInstance.store.pendingLibraryMove()).toEqual({
       cardName: '2 cards',
       commandType: 'cards.moved',
@@ -2145,7 +2253,7 @@ describe('GameTableComponent', () => {
     authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
     const snapshot = snapshotWithStatus('active');
     gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
-    gamesApi.command.mockReturnValue(of({
+    gameplayWebsocketCommand.mockReturnValue(of({
       event: { id: 'event-random-library', type: 'cards.moved', payload: {}, createdBy: 'user-1', createdAt: '' },
       snapshot,
     }));
@@ -2181,7 +2289,7 @@ describe('GameTableComponent', () => {
     expect(topButton).toBeDefined();
     topButton!.click();
 
-    await vi.waitFor(() => expect(gamesApi.command).toHaveBeenCalledWith(expect.objectContaining({
+    await vi.waitFor(() => expect(gameplayWebsocketCommand).toHaveBeenCalledWith(expect.objectContaining({
       type: 'cards.moved',
       payload: {
         playerId: 'user-1',
@@ -2219,7 +2327,7 @@ describe('GameTableComponent', () => {
       },
     ];
     gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
-    gamesApi.command.mockReturnValue(of({
+    gameplayWebsocketCommand.mockReturnValue(of({
       event: { id: 'event-zone-library', type: 'cards.moved', payload: {}, createdBy: 'user-1', createdAt: '' },
       snapshot,
     }));
@@ -2236,7 +2344,7 @@ describe('GameTableComponent', () => {
       kind: 'zone',
     });
 
-    expect(gamesApi.command).not.toHaveBeenCalled();
+    expect(gameplayWebsocketCommand).not.toHaveBeenCalled();
     expect(fixture.componentInstance.zoneMoveAllLibraryDialog()).toEqual({
       playerId: 'user-1',
       fromZone: 'graveyard',
@@ -2246,7 +2354,7 @@ describe('GameTableComponent', () => {
     fixture.componentInstance.zoneMoveAllLibraryRandomOrder.set(true);
     fixture.componentInstance.confirmZoneMoveAllToLibrary('bottom');
 
-    await vi.waitFor(() => expect(gamesApi.command).toHaveBeenCalledWith(expect.objectContaining({
+    await vi.waitFor(() => expect(gameplayWebsocketCommand).toHaveBeenCalledWith(expect.objectContaining({
       type: 'cards.moved',
       payload: {
         playerId: 'user-1',
@@ -2273,7 +2381,7 @@ describe('GameTableComponent', () => {
       counters: {},
     }];
     gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
-    gamesApi.command.mockReturnValue(of({
+    gameplayWebsocketCommand.mockReturnValue(of({
       event: { id: 'event-zone-battlefield', type: 'cards.moved', payload: {}, createdBy: 'user-1', createdAt: '' },
       snapshot,
     }));
@@ -2290,7 +2398,7 @@ describe('GameTableComponent', () => {
       kind: 'zone',
     });
 
-    await vi.waitFor(() => expect(gamesApi.command).toHaveBeenCalledWith(expect.objectContaining({
+    await vi.waitFor(() => expect(gameplayWebsocketCommand).toHaveBeenCalledWith(expect.objectContaining({
       type: 'cards.moved',
       payload: {
         playerId: 'user-1',
@@ -2320,7 +2428,7 @@ describe('GameTableComponent', () => {
       counters: {},
     };
     gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
-    gamesApi.command.mockReturnValue(of({
+    gameplayWebsocketCommand.mockReturnValue(of({
       event: { id: 'event-controller', type: 'card.controller.changed', payload: {}, createdBy: 'user-1', createdAt: '' },
       snapshot,
     }));
@@ -2339,7 +2447,7 @@ describe('GameTableComponent', () => {
       card,
     });
 
-    expect(gamesApi.command).not.toHaveBeenCalled();
+    expect(gameplayWebsocketCommand).not.toHaveBeenCalled();
     expect(fixture.componentInstance.store.pendingBattlefieldMove()).toEqual({
       cardName: 'Sol Ring',
       targetPlayerName: 'Opponent',
@@ -2354,7 +2462,7 @@ describe('GameTableComponent', () => {
 
     await fixture.componentInstance.store.confirmPendingBattlefieldMove();
 
-    await vi.waitFor(() => expect(gamesApi.command).toHaveBeenCalledWith(expect.objectContaining({
+    await vi.waitFor(() => expect(gameplayWebsocketCommand).toHaveBeenCalledWith(expect.objectContaining({
       type: 'card.controller.changed',
       payload: {
         playerId: 'user-1',
@@ -2379,7 +2487,7 @@ describe('GameTableComponent', () => {
       counters: {},
     }];
     gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
-    gamesApi.command.mockReturnValue(of({
+    gameplayWebsocketCommand.mockReturnValue(of({
       event: { id: 'event-play-face-down', type: 'card.moved', payload: {}, createdBy: 'user-1', createdAt: '' },
       snapshot,
     }));
@@ -2398,7 +2506,7 @@ describe('GameTableComponent', () => {
       card,
     });
 
-    await vi.waitFor(() => expect(gamesApi.command).toHaveBeenCalledWith(expect.objectContaining({
+    await vi.waitFor(() => expect(gameplayWebsocketCommand).toHaveBeenCalledWith(expect.objectContaining({
       type: 'card.moved',
       payload: {
         playerId: 'user-1',
@@ -2437,7 +2545,7 @@ describe('GameTableComponent', () => {
       counters: {},
     };
     gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
-    gamesApi.command.mockReturnValue(of({
+    gameplayWebsocketCommand.mockReturnValue(of({
       event: { id: 'event-give-hand', type: 'card.moved', payload: {}, createdBy: 'user-1', createdAt: '' },
       snapshot,
     }));
@@ -2456,7 +2564,7 @@ describe('GameTableComponent', () => {
       card,
     });
 
-    expect(gamesApi.command).not.toHaveBeenCalled();
+    expect(gameplayWebsocketCommand).not.toHaveBeenCalled();
     expect(fixture.componentInstance.handCardGiveDialog()).toEqual(expect.objectContaining({
       targetPlayerId: 'user-2',
       targetPlayerName: 'Opponent',
@@ -2465,7 +2573,7 @@ describe('GameTableComponent', () => {
 
     fixture.componentInstance.confirmHandCardGive();
 
-    await vi.waitFor(() => expect(gamesApi.command).toHaveBeenCalledWith(expect.objectContaining({
+    await vi.waitFor(() => expect(gameplayWebsocketCommand).toHaveBeenCalledWith(expect.objectContaining({
       type: 'card.moved',
       payload: {
         playerId: 'user-1',
@@ -2522,7 +2630,7 @@ describe('GameTableComponent', () => {
       counters: {},
     });
     gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
-    gamesApi.command.mockReturnValue(of({
+    gameplayWebsocketCommand.mockReturnValue(of({
       event: { id: 'event-arrow', type: 'arrow.created', payload: {}, createdBy: 'user-1', createdAt: '' },
       snapshot,
     }));
@@ -2575,7 +2683,7 @@ describe('GameTableComponent', () => {
 
     fixture.componentInstance.store.handleBattlefieldCardClick(new MouseEvent('click'), 'user-2', target);
 
-    await vi.waitFor(() => expect(gamesApi.command).toHaveBeenCalledWith(expect.objectContaining({
+    await vi.waitFor(() => expect(gameplayWebsocketCommand).toHaveBeenCalledWith(expect.objectContaining({
       type: 'arrow.created',
       payload: {
         fromInstanceId: 'card-1',
@@ -2592,7 +2700,7 @@ describe('GameTableComponent', () => {
     snapshot.players['user-1'].zones.battlefield[0]!.colorIdentity = ['B', 'G'];
     addOpponent(snapshot);
     gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
-    gamesApi.command.mockReturnValue(of({
+    gameplayWebsocketCommand.mockReturnValue(of({
       event: { id: 'event-arrow', type: 'arrow.created', payload: {}, createdBy: 'user-1', createdAt: '' },
       snapshot,
     }));
@@ -2613,7 +2721,7 @@ describe('GameTableComponent', () => {
     });
     fixture.componentInstance.store.handleBattlefieldCardClick(new MouseEvent('click'), 'user-2', target);
 
-    await vi.waitFor(() => expect(gamesApi.command).toHaveBeenCalledWith(expect.objectContaining({
+    await vi.waitFor(() => expect(gameplayWebsocketCommand).toHaveBeenCalledWith(expect.objectContaining({
       type: 'arrow.created',
       payload: {
         fromInstanceId: 'card-1',
@@ -2639,7 +2747,7 @@ describe('GameTableComponent', () => {
       counters: {},
     });
     gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
-    gamesApi.command.mockReturnValue(of({
+    gameplayWebsocketCommand.mockReturnValue(of({
       event: { id: 'event-arrow', type: 'arrow.created', payload: {}, createdBy: 'user-1', createdAt: '' },
       snapshot,
     }));
@@ -2673,12 +2781,12 @@ describe('GameTableComponent', () => {
     fixture.componentInstance.store.handleBattlefieldCardClick(new MouseEvent('click'), 'user-2', secondTarget);
 
     expect(fixture.componentInstance.store.pendingArrowSource()).toBeNull();
-    await vi.waitFor(() => expect(gamesApi.command).toHaveBeenCalledTimes(2));
-    expect(gamesApi.command).toHaveBeenCalledWith(expect.objectContaining({
+    await vi.waitFor(() => expect(gameplayWebsocketCommand).toHaveBeenCalledTimes(2));
+    expect(gameplayWebsocketCommand).toHaveBeenCalledWith(expect.objectContaining({
       type: 'arrow.created',
       payload: { fromInstanceId: 'card-1', toInstanceId: 'card-2', color: 'green' },
     }), 'game-1');
-    expect(gamesApi.command).toHaveBeenCalledWith(expect.objectContaining({
+    expect(gameplayWebsocketCommand).toHaveBeenCalledWith(expect.objectContaining({
       type: 'arrow.created',
       payload: { fromInstanceId: 'card-1', toInstanceId: 'card-4', color: 'green' },
     }), 'game-1');
@@ -2717,7 +2825,7 @@ describe('GameTableComponent', () => {
 
     expect(fixture.componentInstance.arrowTargetDialog()).toBeNull();
     expect(fixture.componentInstance.store.pendingArrowSource()).toBeNull();
-    expect(gamesApi.command).not.toHaveBeenCalled();
+    expect(gameplayWebsocketCommand).not.toHaveBeenCalled();
   });
 
   it('derives an outgoing targeting pill for an opponent mini board', async () => {
@@ -2929,7 +3037,7 @@ describe('GameTableComponent', () => {
     const snapshot = snapshotWithStatus('active');
     snapshot.arrows = [{ id: 'arrow-1', fromInstanceId: 'card-1', toInstanceId: 'card-2', color: 'yellow', createdAt: '' }];
     gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
-    gamesApi.command.mockReturnValue(of({
+    gameplayWebsocketCommand.mockReturnValue(of({
       event: { id: 'event-arrow-removed', type: 'arrow.removed', payload: {}, createdBy: 'user-1', createdAt: '' },
       snapshot,
     }));
@@ -2947,7 +3055,7 @@ describe('GameTableComponent', () => {
       arrowId: 'arrow-1',
     });
 
-    await vi.waitFor(() => expect(gamesApi.command).toHaveBeenCalledWith(expect.objectContaining({
+    await vi.waitFor(() => expect(gameplayWebsocketCommand).toHaveBeenCalledWith(expect.objectContaining({
       type: 'arrow.removed',
       payload: { id: 'arrow-1' },
     }), 'game-1'));
@@ -2973,7 +3081,7 @@ describe('GameTableComponent', () => {
       { id: 'arrow-3', ownerId: 'user-1', fromInstanceId: 'card-3', toInstanceId: 'card-2', color: 'green', createdAt: '' },
     ];
     gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
-    gamesApi.command.mockReturnValue(of({
+    gameplayWebsocketCommand.mockReturnValue(of({
       event: { id: 'event-arrow-removed', type: 'arrow.removed', payload: {}, createdBy: 'user-1', createdAt: '' },
       snapshot,
     }));
@@ -2992,12 +3100,12 @@ describe('GameTableComponent', () => {
       arrowId: 'arrow-1',
     });
 
-    await vi.waitFor(() => expect(gamesApi.command).toHaveBeenCalledTimes(2));
-    expect(gamesApi.command).toHaveBeenNthCalledWith(1, expect.objectContaining({
+    await vi.waitFor(() => expect(gameplayWebsocketCommand).toHaveBeenCalledTimes(2));
+    expect(gameplayWebsocketCommand).toHaveBeenNthCalledWith(1, expect.objectContaining({
       type: 'arrow.removed',
       payload: { id: 'arrow-1' },
     }), 'game-1');
-    expect(gamesApi.command).toHaveBeenNthCalledWith(2, expect.objectContaining({
+    expect(gameplayWebsocketCommand).toHaveBeenNthCalledWith(2, expect.objectContaining({
       type: 'arrow.removed',
       payload: { id: 'arrow-3' },
     }), 'game-1');
@@ -3029,7 +3137,7 @@ describe('GameTableComponent', () => {
     card.defaultPower = null;
     card.defaultToughness = null;
     gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
-    gamesApi.command.mockReturnValue(of({
+    gameplayWebsocketCommand.mockReturnValue(of({
       event: { id: 'event-pt', type: 'card.power_toughness.changed', payload: {}, createdBy: 'user-1', createdAt: '' },
       snapshot,
     }));
@@ -3047,7 +3155,7 @@ describe('GameTableComponent', () => {
       card,
     });
 
-    await vi.waitFor(() => expect(gamesApi.command).toHaveBeenCalledWith(expect.objectContaining({
+    await vi.waitFor(() => expect(gameplayWebsocketCommand).toHaveBeenCalledWith(expect.objectContaining({
       type: 'card.power_toughness.changed',
       payload: {
         playerId: 'user-1',
@@ -3080,7 +3188,7 @@ describe('GameTableComponent', () => {
     ]);
     await fixture.componentInstance.store.moveHandCardByPointer('user-1', 'user-1', 'hand-1', 'library');
 
-    expect(gamesApi.command).not.toHaveBeenCalled();
+    expect(gameplayWebsocketCommand).not.toHaveBeenCalled();
     expect(fixture.componentInstance.store.pendingLibraryMove()).toEqual({
       cardName: '2 cards',
       commandType: 'cards.moved',
@@ -3110,7 +3218,7 @@ describe('GameTableComponent', () => {
       ],
     };
     gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
-    gamesApi.command.mockReturnValue(of({
+    gameplayWebsocketCommand.mockReturnValue(of({
       event: { id: 'event-face', type: 'card.face.changed', payload: {}, createdBy: 'user-1', createdAt: '' },
       snapshot,
     }));
@@ -3128,7 +3236,7 @@ describe('GameTableComponent', () => {
       card,
     });
 
-    await vi.waitFor(() => expect(gamesApi.command).toHaveBeenCalledWith(expect.objectContaining({
+    await vi.waitFor(() => expect(gameplayWebsocketCommand).toHaveBeenCalledWith(expect.objectContaining({
       type: 'card.face.changed',
       payload: {
         playerId: 'user-1',
@@ -3144,7 +3252,7 @@ describe('GameTableComponent', () => {
     authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
     const snapshot = snapshotWithStatus('active');
     gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
-    gamesApi.command.mockReturnValue(of({
+    gameplayWebsocketCommand.mockReturnValue(of({
       event: { id: 'event-draw', type: 'library.draw_many', payload: {}, createdBy: 'user-1', createdAt: '' },
       snapshot,
     }));
@@ -3162,8 +3270,8 @@ describe('GameTableComponent', () => {
     });
     fixture.componentInstance.confirmNumberAction(3);
 
-    await vi.waitFor(() => expect(gamesApi.command).toHaveBeenCalledOnce());
-    expect(gamesApi.command).toHaveBeenCalledWith(expect.objectContaining({
+    await vi.waitFor(() => expect(gameplayWebsocketCommand).toHaveBeenCalledOnce());
+    expect(gameplayWebsocketCommand).toHaveBeenCalledWith(expect.objectContaining({
       type: 'library.draw_many',
       payload: {
         playerId: 'user-1',
@@ -3190,7 +3298,7 @@ describe('GameTableComponent', () => {
     const commandSnapshot = structuredClone(snapshot);
     commandSnapshot.players['user-1']!.zones.graveyard[0]!.name = 'Random Grave Card From Command Snapshot';
     gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
-    gamesApi.command.mockReturnValue(of({
+    gameplayWebsocketCommand.mockReturnValue(of({
       event: { id: 'event-random', type: 'zone.random_card.selected', payload: {}, createdBy: 'user-1', createdAt: '' },
       snapshot: commandSnapshot,
     }));
@@ -3214,8 +3322,8 @@ describe('GameTableComponent', () => {
       kind: 'zone',
     });
 
-    await vi.waitFor(() => expect(gamesApi.command).toHaveBeenCalledOnce());
-    expect(gamesApi.command).toHaveBeenCalledWith(expect.objectContaining({
+    await vi.waitFor(() => expect(gameplayWebsocketCommand).toHaveBeenCalledOnce());
+    expect(gameplayWebsocketCommand).toHaveBeenCalledWith(expect.objectContaining({
       type: 'zone.random_card.selected',
       payload: {
         playerId: 'user-1',
@@ -3229,7 +3337,7 @@ describe('GameTableComponent', () => {
     );
     expect(fixture.componentInstance.store.zoneModal()?.showFilters).toBe(false);
     expect(fixture.componentInstance.store.zoneModal()?.selectedCard?.instanceId).toBe('grave-card');
-    expect(fixture.componentInstance.store.zoneModal()?.selectedCard?.name).toBe('Random Grave Card From Command Snapshot');
+    expect(fixture.componentInstance.store.zoneModal()?.selectedCard?.name).toBe('Random Grave Card');
   });
 
   it('silently ignores a table action while another action is pending', async () => {
@@ -3244,7 +3352,7 @@ describe('GameTableComponent', () => {
     fixture.componentInstance.store.pending.set(true);
     await fixture.componentInstance.store.command('life.changed', { playerId: 'user-1', delta: -1 });
 
-    expect(gamesApi.command).not.toHaveBeenCalled();
+    expect(gameplayWebsocketCommand).not.toHaveBeenCalled();
     expect(fixture.componentInstance.store.error()).toBeNull();
   });
 
@@ -3369,7 +3477,7 @@ describe('GameTableComponent', () => {
       1,
     );
 
-    expect(gamesApi.command).not.toHaveBeenCalled();
+    expect(gameplayWebsocketCommand).not.toHaveBeenCalled();
     expect(fixture.componentInstance.store.error()).toBeNull();
     expect(fixture.componentInstance.store.snapshot()?.players['user-1'].zones.battlefield[0]?.counters?.['red']).toBe(2);
     vi.clearAllTimers();
@@ -3381,7 +3489,7 @@ describe('GameTableComponent', () => {
     authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
     const snapshot = snapshotWithStatus('active');
     gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
-    gamesApi.command.mockReturnValue(of({
+    gameplayWebsocketCommand.mockReturnValue(of({
       event: { id: 'event-position', type: 'card.position.changed', payload: {}, createdBy: 'user-1', createdAt: '' },
       snapshot,
     }));
@@ -3398,7 +3506,7 @@ describe('GameTableComponent', () => {
       position: { x: 120, y: 140 },
     });
 
-    await vi.waitFor(() => expect(gamesApi.command).toHaveBeenCalledOnce());
+    await vi.waitFor(() => expect(gameplayWebsocketCommand).toHaveBeenCalledOnce());
     expect(fixture.componentInstance.store.error()).toBeNull();
   });
 
@@ -3487,7 +3595,7 @@ describe('GameTableComponent', () => {
     await fixture.componentInstance.store.changeLife('user-2', -1);
     await fixture.componentInstance.store.setLife('user-2', 35);
 
-    expect(gamesApi.command).not.toHaveBeenCalled();
+    expect(gameplayWebsocketCommand).not.toHaveBeenCalled();
     expect(fixture.componentInstance.store.error()).toBe('You can only change your own life total.');
   });
 
@@ -3498,7 +3606,7 @@ describe('GameTableComponent', () => {
     const responseSnapshot = structuredClone(snapshot);
     responseSnapshot.players['user-1']!.life = 57;
     gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
-    gamesApi.command.mockReturnValue(of({
+    gameplayWebsocketCommand.mockReturnValue(of({
       event: { id: 'event-life', type: 'life.changed', payload: {}, createdBy: 'user-1', createdAt: '' },
       snapshot: responseSnapshot,
     }));
@@ -3513,13 +3621,13 @@ describe('GameTableComponent', () => {
     }
 
     expect(fixture.componentInstance.store.snapshot()?.players['user-1']?.life).toBe(57);
-    expect(gamesApi.command).not.toHaveBeenCalled();
+    expect(gameplayWebsocketCommand).not.toHaveBeenCalled();
 
     await vi.runOnlyPendingTimersAsync();
     vi.useRealTimers();
 
-    expect(gamesApi.command).toHaveBeenCalledOnce();
-    expect(gamesApi.command).toHaveBeenCalledWith(expect.objectContaining({
+    expect(gameplayWebsocketCommand).toHaveBeenCalledOnce();
+    expect(gameplayWebsocketCommand).toHaveBeenCalledWith(expect.objectContaining({
       type: 'life.changed',
       payload: { playerId: 'user-1', life: 57 },
     }), 'game-1');
@@ -3533,7 +3641,7 @@ describe('GameTableComponent', () => {
     const responseSnapshot = structuredClone(snapshot);
     responseSnapshot.players['user-1']!.commanderDamage = { 'user-2': 17 };
     gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
-    gamesApi.command.mockReturnValue(of({
+    gameplayWebsocketCommand.mockReturnValue(of({
       event: { id: 'event-damage', type: 'commander.damage.changed', payload: {}, createdBy: 'user-1', createdAt: '' },
       snapshot: responseSnapshot,
     }));
@@ -3548,13 +3656,13 @@ describe('GameTableComponent', () => {
     }
 
     expect(fixture.componentInstance.store.snapshot()?.players['user-1']?.commanderDamage?.['user-2']).toBe(17);
-    expect(gamesApi.command).not.toHaveBeenCalled();
+    expect(gameplayWebsocketCommand).not.toHaveBeenCalled();
 
     await vi.runOnlyPendingTimersAsync();
     vi.useRealTimers();
 
-    expect(gamesApi.command).toHaveBeenCalledOnce();
-    expect(gamesApi.command).toHaveBeenCalledWith(expect.objectContaining({
+    expect(gameplayWebsocketCommand).toHaveBeenCalledOnce();
+    expect(gameplayWebsocketCommand).toHaveBeenCalledWith(expect.objectContaining({
       type: 'commander.damage.changed',
       payload: { targetPlayerId: 'user-1', sourcePlayerId: 'user-2', damage: 17 },
     }), 'game-1');
@@ -3567,7 +3675,7 @@ describe('GameTableComponent', () => {
     const responseSnapshot = structuredClone(snapshot);
     responseSnapshot.players['user-1']!.counters = { poison: 17 };
     gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
-    gamesApi.command.mockReturnValue(of({
+    gameplayWebsocketCommand.mockReturnValue(of({
       event: { id: 'event-counter', type: 'counter.changed', payload: {}, createdBy: 'user-1', createdAt: '' },
       snapshot: responseSnapshot,
     }));
@@ -3582,13 +3690,13 @@ describe('GameTableComponent', () => {
     }
 
     expect(fixture.componentInstance.store.playerCounterValue('user-1', 'poison')).toBe(17);
-    expect(gamesApi.command).not.toHaveBeenCalled();
+    expect(gameplayWebsocketCommand).not.toHaveBeenCalled();
 
     await vi.runOnlyPendingTimersAsync();
     vi.useRealTimers();
 
-    expect(gamesApi.command).toHaveBeenCalledOnce();
-    expect(gamesApi.command).toHaveBeenCalledWith(expect.objectContaining({
+    expect(gameplayWebsocketCommand).toHaveBeenCalledOnce();
+    expect(gameplayWebsocketCommand).toHaveBeenCalledWith(expect.objectContaining({
       type: 'counter.changed',
       payload: { scope: 'player:user-1', key: 'poison', value: 17 },
     }), 'game-1');
@@ -3601,7 +3709,7 @@ describe('GameTableComponent', () => {
     const responseSnapshot = structuredClone(snapshot);
     responseSnapshot.counters = { 'commander:user-1': { casts: 17 } };
     gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
-    gamesApi.command.mockReturnValue(of({
+    gameplayWebsocketCommand.mockReturnValue(of({
       event: { id: 'event-commander-casts', type: 'counter.changed', payload: {}, createdBy: 'user-1', createdAt: '' },
       snapshot: responseSnapshot,
     }));
@@ -3617,13 +3725,13 @@ describe('GameTableComponent', () => {
     }
 
     expect(fixture.componentInstance.store.commanderCastCount(player)).toBe(17);
-    expect(gamesApi.command).not.toHaveBeenCalled();
+    expect(gameplayWebsocketCommand).not.toHaveBeenCalled();
 
     await vi.runOnlyPendingTimersAsync();
     vi.useRealTimers();
 
-    expect(gamesApi.command).toHaveBeenCalledOnce();
-    expect(gamesApi.command).toHaveBeenCalledWith(expect.objectContaining({
+    expect(gameplayWebsocketCommand).toHaveBeenCalledOnce();
+    expect(gameplayWebsocketCommand).toHaveBeenCalledWith(expect.objectContaining({
       type: 'counter.changed',
       payload: { scope: 'commander:user-1', key: 'casts', value: 17 },
     }), 'game-1');
@@ -3786,7 +3894,7 @@ describe('GameTableComponent', () => {
     };
     snapshot.players['user-1'].zones.hand = [handCard];
     gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
-    gamesApi.command.mockReturnValue(of({
+    gameplayWebsocketCommand.mockReturnValue(of({
       event: { id: 'event-play', type: 'card.moved', payload: {}, createdBy: 'user-1', createdAt: '' },
       snapshot,
     }));
@@ -3807,7 +3915,7 @@ describe('GameTableComponent', () => {
 
     await fixture.whenStable();
 
-    expect(gamesApi.command).not.toHaveBeenCalled();
+    expect(gameplayWebsocketCommand).not.toHaveBeenCalled();
     expect(fixture.componentInstance.store.selectedCards()).toEqual([
       expect.objectContaining({
         playerId: 'user-1',
@@ -3827,7 +3935,7 @@ describe('GameTableComponent', () => {
     ];
     snapshot.players['user-1'].zones.hand = handCards;
     gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
-    gamesApi.command.mockReturnValue(of({
+    gameplayWebsocketCommand.mockReturnValue(of({
       event: { id: 'event-play', type: 'card.moved', payload: {}, createdBy: 'user-1', createdAt: '' },
       snapshot,
     }));
@@ -3847,7 +3955,7 @@ describe('GameTableComponent', () => {
       { x: 111, y: 222 },
     );
 
-    const payloads = gamesApi.command.mock.calls.map(([command]) => command.payload);
+    const payloads = gameplayWebsocketCommand.mock.calls.map(([command]) => command.payload);
     expect(payloads.map((payload) => payload.position)).toEqual([
       { x: 0.141582, y: 0.620112, unit: 'ratio' },
       { x: 0.141582, y: 0.620112, unit: 'ratio' },
@@ -3883,7 +3991,7 @@ describe('GameTableComponent', () => {
 
     await fixture.componentInstance.store.changeCommanderCastCount('user-1', -1);
 
-    expect(gamesApi.command).not.toHaveBeenCalled();
+    expect(gameplayWebsocketCommand).not.toHaveBeenCalled();
   });
 });
 

@@ -25,7 +25,7 @@ export interface GameTableDebouncedValueCommandContext {
   pending: () => boolean;
   setPending: (pending: boolean) => void;
   setError: (message: string | null) => void;
-  send: (type: GameCommandType, payload: Record<string, unknown>) => Promise<GameSnapshot>;
+  send: (type: GameCommandType, payload: Record<string, unknown>) => Promise<boolean>;
   snapshot: () => GameSnapshot | null;
   setSnapshot: (snapshot: GameSnapshot | null) => void;
   refetch: () => Promise<void>;
@@ -114,14 +114,15 @@ export class GameTableDebouncedValueCommandsService {
     context.setPending(true);
     context.setError(null);
     try {
-      const snapshot = await context.send('life.changed', {
+      if (!await context.send('life.changed', {
         playerId: command.playerId,
         life: command.life,
-      });
+      })) {
+        throw new Error('WebSocket gameplay connection is not available.');
+      }
       if (this.optimisticLifeCommands.get(playerId) === command) {
         this.optimisticLifeCommands.delete(playerId);
       }
-      context.setSnapshot(snapshot);
     } catch (error) {
       if (this.optimisticLifeCommands.get(playerId) === command) {
         this.optimisticLifeCommands.delete(playerId);
@@ -150,15 +151,16 @@ export class GameTableDebouncedValueCommandsService {
     context.setPending(true);
     context.setError(null);
     try {
-      const snapshot = await context.send('commander.damage.changed', {
+      if (!await context.send('commander.damage.changed', {
         targetPlayerId: command.targetPlayerId,
         sourcePlayerId: command.sourcePlayerId,
         damage: command.damage,
-      });
+      })) {
+        throw new Error('WebSocket gameplay connection is not available.');
+      }
       if (this.optimisticCommanderDamageCommands.get(key) === command) {
         this.optimisticCommanderDamageCommands.delete(key);
       }
-      context.setSnapshot(snapshot);
     } catch (error) {
       if (this.optimisticCommanderDamageCommands.get(key) === command) {
         this.optimisticCommanderDamageCommands.delete(key);
@@ -187,15 +189,16 @@ export class GameTableDebouncedValueCommandsService {
     context.setPending(true);
     context.setError(null);
     try {
-      const snapshot = await context.send('counter.changed', {
+      if (!await context.send('counter.changed', {
         scope: command.scope,
         key: command.key,
         value: command.value,
-      });
+      })) {
+        throw new Error('WebSocket gameplay connection is not available.');
+      }
       if (this.optimisticCounterCommands.get(key) === command) {
         this.optimisticCounterCommands.delete(key);
       }
-      context.setSnapshot(snapshot);
     } catch (error) {
       if (this.optimisticCounterCommands.get(key) === command) {
         this.optimisticCounterCommands.delete(key);

@@ -1,28 +1,42 @@
+import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { of, throwError } from 'rxjs';
 import { GamesApi } from '../../../../core/api/games.api';
-import { GameSnapshot, MercureGameEvent } from '../../../../core/models/game.model';
-import { GameTableRealtimeService } from './game-table-realtime.service';
+import { GameSnapshot } from '../../../../core/models/game.model';
+import { GameTableRematchRealtimeService } from './game-table-rematch-realtime.service';
 import { GameTableSessionContext, GameTableSessionService } from './game-table-session.service';
+import { GameTableWebsocketGameplayService } from './game-table-websocket-gameplay.service';
 
 describe('GameTableSessionService', () => {
   let service: GameTableSessionService;
   const gamesApi = {
     snapshot: vi.fn(),
   };
-  const realtime = {
-    status: vi.fn(),
-    subscribeToGame: vi.fn(),
+  let websocketStatus: ReturnType<typeof signal<'stopped' | 'connecting' | 'connected' | 'disconnected' | 'error'>>;
+  const rematchRealtime = {
+    subscribeToRematchCreated: vi.fn(),
+    stop: vi.fn(),
+  };
+  const websocket = {
+    status: signal<'stopped' | 'connecting' | 'connected' | 'disconnected' | 'error'>('stopped'),
+    start: vi.fn(),
     stop: vi.fn(),
   };
 
   beforeEach(() => {
+    websocketStatus = signal<'stopped' | 'connecting' | 'connected' | 'disconnected' | 'error'>('stopped');
+    websocket.status = websocketStatus;
     gamesApi.snapshot.mockReset();
+    rematchRealtime.subscribeToRematchCreated.mockReset();
+    rematchRealtime.stop.mockReset();
+    websocket.start.mockReset();
+    websocket.stop.mockReset();
     TestBed.configureTestingModule({
       providers: [
         GameTableSessionService,
         { provide: GamesApi, useValue: gamesApi },
-        { provide: GameTableRealtimeService, useValue: realtime },
+        { provide: GameTableRematchRealtimeService, useValue: rematchRealtime },
+        { provide: GameTableWebsocketGameplayService, useValue: websocket },
       ],
     });
     service = TestBed.inject(GameTableSessionService);
@@ -50,28 +64,31 @@ describe('GameTableSessionService', () => {
     expect(setSnapshot).not.toHaveBeenCalled();
   });
 
-  it('navigates to the waiting room when the game realtime stream announces rematch creation', async () => {
+  it('loads one initial snapshot, starts websocket, and subscribes only to rematch transition events', async () => {
     const current = snapshot();
     const navigateToWaitingRoom = vi.fn();
     gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot: current } }));
 
     await service.load(context(current, vi.fn(), navigateToWaitingRoom));
 
-    const onEvent = realtime.subscribeToGame.mock.calls[0]?.[1] as ((event: MercureGameEvent) => void) | undefined;
-    onEvent?.({
-      gameId: 'game-1',
-      version: current.version,
-      event: {
-        id: 'event-1',
-        type: 'room.rematch.created',
-        payload: { roomId: 'room-1' },
-        createdBy: 'player-1',
-        createdAt: '2026-01-01T00:00:00.000Z',
-      },
-    });
+    const onRematchCreated = rematchRealtime.subscribeToRematchCreated.mock.calls[0]?.[1] as ((roomId: string) => void) | undefined;
+    onRematchCreated?.('room-1');
 
     expect(navigateToWaitingRoom).toHaveBeenCalledWith('room-1');
     expect(gamesApi.snapshot).toHaveBeenCalledTimes(1);
+    expect(websocket.start).toHaveBeenCalledWith(expect.any(Object), 'game-1');
+    expect(rematchRealtime.subscribeToRematchCreated).toHaveBeenCalledWith('game-1', expect.any(Function));
+  });
+
+  it('maps realtime status from the gameplay websocket connection', () => {
+    websocketStatus.set('connected');
+    expect(service.realtimeStatus()).toBe('live');
+
+    websocketStatus.set('error');
+    expect(service.realtimeStatus()).toBe('degraded');
+
+    websocketStatus.set('disconnected');
+    expect(service.realtimeStatus()).toBe('connecting');
   });
 
   it('navigates back to rooms with a user-facing toast when the initial game load fails', async () => {
@@ -105,7 +122,6 @@ function context(
     isPending: () => false,
     setLoading: vi.fn(),
     setError,
-    handleRealtimeEvent: vi.fn(),
     navigateToRoomsWithLoadError,
     navigateToWaitingRoom,
   };

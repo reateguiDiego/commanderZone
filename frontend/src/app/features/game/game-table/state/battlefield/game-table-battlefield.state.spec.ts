@@ -98,6 +98,54 @@ describe('GameTableBattlefieldState', () => {
     expect(state.cardPosition(currentSnapshot.players['player-1']!.zones.battlefield[0]!)).toEqual({ x: 180, y: 20 });
   });
 
+  it('queues the final battlefield position persist callback and keeps the optimistic ratio position local', async () => {
+    currentSnapshot = snapshot({
+      hand: [],
+      battlefield: [card('card-1', 'Edge Card', { x: 0.1, y: 0.2, unit: 'ratio' })],
+    });
+    const persist = vi.fn(async () => undefined);
+    const payload = {
+      playerId: 'player-1',
+      zone: 'battlefield',
+      instanceId: 'card-1',
+      position: { x: 0.35, y: 0.45, unit: 'ratio' },
+    };
+
+    const queued = state.tryQueueBattlefieldPositionCommand(context(), 'game-1', payload, persist);
+    const optimistic = state.applyOptimisticBattlefieldPositions(currentSnapshot);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(queued).toBe(true);
+    expect(optimistic?.players['player-1']?.zones.battlefield[0]?.position).toEqual({ x: 0.35, y: 0.45, unit: 'ratio' });
+    expect(persist).toHaveBeenCalledTimes(1);
+  });
+
+  it('normalizes local drag pixels to ratio without carrying zoom state into the command payload', () => {
+    document.body.innerHTML = `
+      <section class="battlefield" data-player-id="player-1">
+        <div data-testid="game-card" data-card-instance-id="card-1"></div>
+      </section>
+    `;
+    const battlefield = document.querySelector<HTMLElement>('.battlefield')!;
+    const cardElement = document.querySelector<HTMLElement>('[data-card-instance-id="card-1"]')!;
+    Object.defineProperty(battlefield, 'clientWidth', { configurable: true, value: 1000 });
+    Object.defineProperty(battlefield, 'clientHeight', { configurable: true, value: 800 });
+    Object.defineProperty(cardElement, 'offsetWidth', { configurable: true, value: 100 });
+    Object.defineProperty(cardElement, 'offsetHeight', { configurable: true, value: 200 });
+
+    const position = state.ratioPositionForBattlefield('player-1', 'card-1', { x: 450, y: 300 });
+    const payload = {
+      playerId: 'player-1',
+      zone: 'battlefield',
+      instanceId: 'card-1',
+      position,
+    };
+
+    expect(position).toEqual({ x: 0.5, y: 0.5, unit: 'ratio' });
+    expect(JSON.stringify(payload)).not.toContain('zoomPercent');
+  });
+
   function context(): GameTableBattlefieldContext {
     return {
       snapshot: () => currentSnapshot,

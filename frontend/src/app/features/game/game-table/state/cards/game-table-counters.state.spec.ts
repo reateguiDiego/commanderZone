@@ -208,7 +208,7 @@ function debouncedValueCommandContext(): GameTableDebouncedValueCommandContext {
     pending: () => false,
     setPending: vi.fn(),
     setError: vi.fn(),
-    send: vi.fn().mockResolvedValue(snapshot(card())),
+    send: vi.fn().mockResolvedValue(true),
     snapshot: () => snapshotSignal(),
     setSnapshot: (next) => snapshotSignal.set(next),
     refetch: vi.fn().mockResolvedValue(undefined),
@@ -221,6 +221,7 @@ function cardCounterContext(): GameTableCardCounterContext {
     setSnapshot: (next) => snapshotSignal.set(next),
     errorMessage: () => 'Action failed.',
     refetch: vi.fn().mockResolvedValue(undefined),
+    command: vi.fn().mockResolvedValue(true),
   };
 }
 

@@ -2,7 +2,6 @@ import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute } from '@angular/router';
 import { GameCardInstance, GamePlayerState, GameSnapshot } from '../../../../../core/models/game.model';
 import { User } from '../../../../../core/models/user.model';
-import { GameTableCommandService } from '../../services/game-table-command.service';
 import { GameTableCoreState } from '../core/game-table-core.state';
 import { GameTableSnapshotSelectors } from '../core/game-table-snapshot-selectors';
 import { GameTableCardsState } from './game-table-cards.state';
@@ -20,10 +19,6 @@ describe('GameTableCardsState', () => {
         {
           provide: ActivatedRoute,
           useValue: { snapshot: { paramMap: new Map([['id', 'game-1']]) } },
-        },
-        {
-          provide: GameTableCommandService,
-          useValue: { send: vi.fn() },
         },
       ],
     });
@@ -58,6 +53,7 @@ describe('GameTableCardsState', () => {
       setSnapshot: (next) => core.snapshot.set(next),
       errorMessage: () => 'error',
       refetch: vi.fn(),
+      command: vi.fn(),
     }, {
       playerId: 'player-1',
       zone: 'battlefield',
@@ -71,6 +67,54 @@ describe('GameTableCardsState', () => {
     expect(updated?.counters?.['+1/+1']).toBe(2);
     expect(updated?.power).toBe(3);
     expect(updated?.toughness).toBe(3);
+  });
+
+  it('keeps a zero-value card counter marker when initialized from the context menu', () => {
+    vi.useFakeTimers();
+    core.snapshot.set(snapshot([cardWithCounters({})]));
+
+    state.queueCardCounter({
+      setSnapshot: (next) => core.snapshot.set(next),
+      errorMessage: () => 'error',
+      refetch: vi.fn(),
+      command: vi.fn(),
+    }, {
+      playerId: 'player-1',
+      zone: 'battlefield',
+      instanceId: 'card-1',
+      key: '+1/+1',
+      value: 0,
+    });
+
+    const updated = core.snapshot()?.players['player-1']?.zones.battlefield[0];
+
+    expect(updated?.counters).toEqual({ '+1/+1': 0 });
+    expect(updated?.power).toBe(2);
+    expect(updated?.toughness).toBe(2);
+  });
+
+  it('removes a card counter only when the queued value is null', () => {
+    vi.useFakeTimers();
+    core.snapshot.set(snapshot([{ ...cardWithCounters({ '+1/+1': 2 }), power: 4, toughness: 4 }]));
+
+    state.queueCardCounter({
+      setSnapshot: (next) => core.snapshot.set(next),
+      errorMessage: () => 'error',
+      refetch: vi.fn(),
+      command: vi.fn(),
+    }, {
+      playerId: 'player-1',
+      zone: 'battlefield',
+      instanceId: 'card-1',
+      key: '+1/+1',
+      value: null,
+    });
+
+    const updated = core.snapshot()?.players['player-1']?.zones.battlefield[0];
+
+    expect(updated?.counters).toEqual({});
+    expect(updated?.power).toBe(2);
+    expect(updated?.toughness).toBe(2);
   });
 });
 
