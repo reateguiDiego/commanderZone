@@ -4,7 +4,7 @@
   } @else if (store.error()) {
     <p class="notice error">{{ store.error() }}</p>
   } @else if (store.decks().length === 0 && store.folders().length === 0) {
-    <p class="notice">No decks yet. Create one and import a decklist.</p>
+    <p class="notice">Your deck list feels a little empty. Jump in and start building!</p>
   }
 
   @if (!store.currentFolder() && store.hasDeckListContent()) {
@@ -209,7 +209,7 @@
 
   <app-modal
     [open]="store.createModalOpen()"
-    title="Create deck"
+    [title]="store.createModalTitle()"
     [primaryLabel]="store.createPrimaryLabel()"
     [primaryDisabled]="store.isCreatePrimaryDisabled()"
     [showSecondary]="!store.createFormLocked() && !store.createSubmitting()"
@@ -218,114 +218,130 @@
     (secondary)="store.cancelCreateFlow()"
   >
     <form class="form-stack create-deck-form" (ngSubmit)="store.submitCreateModal()">
-      <fieldset class="form-stack" [disabled]="store.isCreateFormDisabled()">
-        <label>
-          Deck name
-          <input
-            name="name"
-            placeholder="New deck name"
-            required
-            [maxlength]="store.maxDeckNameLength"
-            [(ngModel)]="store.newDeckName"
-          />
-          <small class="field-hint" [class.error-text]="store.isNewDeckNameTooLong()">
-            Maximum 20 characters. {{ store.newDeckNameHelp() }}
-          </small>
-        </label>
-
-        <app-format-select
-          name="format"
-          [formats]="store.formats()"
-          [required]="true"
-          [value]="store.newDeckFormatId"
-          (valueChange)="store.newDeckFormatId = $event; store.onFormatChange()"
-        />
-
-        @if (store.folderOptions().length > 0) {
-          <label>
-            Folder
-            <select name="folder" [(ngModel)]="store.newDeckFolderId">
-              <option value="">No folder</option>
-              @for (folder of store.folderOptions(); track folder.id) {
-                <option [value]="folder.id">{{ folder.name }}</option>
-              }
-            </select>
-          </label>
-        }
-
-        <app-visibility-choice
-          [(value)]="store.newDeckVisibility"
-          publicSubtitle="Visible in public profile"
-          privateSubtitle="Only you can see it"
-        />
-
-        @if (store.shouldWarnNewDeckPublicInPrivateFolder()) {
-          <p class="notice warning compact-notice">This deck is public, but its folder is private. It will not be publicly visible.</p>
-        }
-
-        @if (store.selectedFormat()?.hasCommander) {
-          <div class="form-stack">
-            <label for="commanderSearch">Commander</label>
-            <input type="hidden" name="commanderScryfallId" required [ngModel]="store.selectedCommander()?.scryfallId ?? ''" />
-            <app-card-autocomplete
-              placeholder="Search commander by name"
-              actionLabel="Select"
-              [disabled]="store.isCreateFormDisabled()"
-              [filters]="{ commanderLegal: true }"
-              [query]="store.commanderQuery"
-              (queryChange)="store.setCommanderQuery($event)"
-              (cardSelected)="store.selectCommander($event.card)"
-            />
-
-            @if (store.selectedCommander(); as commander) {
-              <article class="commander-preview-card">
-                @if (store.selectedCommanderImage(); as imageUrl) {
-                  <span
-                    class="commander-preview-image"
-                    tabindex="0"
-                    (mouseenter)="scheduleCommanderPreview($event, imageUrl)"
-                    (mousemove)="moveCommanderPreview($event)"
-                    (mouseleave)="hideCommanderPreview()"
-                    (blur)="hideCommanderPreview()"
-                  >
-                    <img class="commander-preview-thumb" [src]="imageUrl" [alt]="commander.name" />
-                  </span>
-                }
-                <div>
-                  <strong>{{ commander.name }}</strong>
-                  <span>{{ commander.typeLine || 'Unknown type' }}</span>
-                </div>
-              </article>
-            }
-          </div>
-        }
-
-        <label>
-          Import decklist
-          <textarea
-            appPrettyScroll
-            name="createdDecklist"
-            rows="8"
-            required
-            placeholder="Example: 1 Sol Ring (VOC) 168"
-            [(ngModel)]="store.createdDecklist"
-          ></textarea>
-        </label>
-      </fieldset>
-
-      @if (store.createdImportMessage()) {
-        <p class="notice" [class.warning]="store.createdMissing().length > 0" [class.error]="store.hasCreateImportError()">
-          {{ store.createdImportMessage() }}
-        </p>
-      }
-      @if (store.createdMissing().length > 0) {
-        <div class="notice warning">
-          <strong>Missing cards</strong>
-          <span>{{ store.createdMissing().join(', ') }}</span>
+      @if (store.createFormLocked()) {
+        <div class="notice create-import-result" [class.warning]="!store.hasCreateImportError()" [class.error]="store.hasCreateImportError()">
+          @if (store.createdImportMessage()) {
+            <p>{{ store.createdImportMessage() }}</p>
+          }
+          @if (store.createdMissing().length > 0) {
+            <div class="create-import-missing">
+              <strong>Missing cards</strong>
+              <span>{{ store.createdMissing().join(', ') }}</span>
+            </div>
+          }
         </div>
+      } @else {
+        <fieldset class="form-stack" [disabled]="store.isCreateFormDisabled()">
+          <label>
+            Deck name
+            <input
+              name="name"
+              placeholder="New deck name"
+              required
+              [maxlength]="store.maxDeckNameLength"
+              [(ngModel)]="store.newDeckName"
+            />
+            <small class="field-hint" [class.error-text]="store.isNewDeckNameTooLong()">
+              Maximum 20 characters. {{ store.newDeckNameHelp() }}
+            </small>
+          </label>
+
+          <app-format-select
+            name="format"
+            [formats]="store.formats()"
+            [required]="true"
+            [value]="store.newDeckFormatId"
+            (valueChange)="store.newDeckFormatId = $event; store.onFormatChange()"
+          />
+
+          @if (store.folderOptions().length > 0) {
+            <label>
+              Folder
+              <select name="folder" [(ngModel)]="store.newDeckFolderId">
+                <option value="">No folder</option>
+                @for (folder of store.folderOptions(); track folder.id) {
+                  <option [value]="folder.id">{{ folder.name }}</option>
+                }
+              </select>
+            </label>
+          }
+
+          <app-visibility-choice
+            [(value)]="store.newDeckVisibility"
+            publicSubtitle="Visible in public profile"
+            privateSubtitle="Only you can see it"
+          />
+
+          @if (store.shouldWarnNewDeckPublicInPrivateFolder()) {
+            <p class="notice warning compact-notice">This deck is public, but its folder is private. It will not be publicly visible.</p>
+          }
+
+          @if (store.selectedFormat()?.hasCommander) {
+            <div class="form-stack">
+              <label for="commanderSearch">Commander</label>
+              <input type="hidden" name="commanderScryfallId" required [ngModel]="store.selectedCommander()?.scryfallId ?? ''" />
+              <app-card-autocomplete
+                placeholder="Search commander by name"
+                actionLabel="Select"
+                [disabled]="store.isCreateFormDisabled()"
+                [filters]="{ commanderLegal: true }"
+                [commanderCandidateOnly]="true"
+                [query]="store.commanderQuery"
+                (queryChange)="store.setCommanderQuery($event)"
+                (cardSelected)="store.selectCommander($event.card)"
+              />
+
+              @if (store.selectedCommander(); as commander) {
+                <article class="commander-preview-card">
+                  @if (store.selectedCommanderImage(); as imageUrl) {
+                    <span
+                      class="commander-preview-image"
+                      tabindex="0"
+                      (mouseenter)="scheduleCommanderPreview($event, imageUrl)"
+                      (mousemove)="moveCommanderPreview($event)"
+                      (mouseleave)="hideCommanderPreview()"
+                      (blur)="hideCommanderPreview()"
+                    >
+                      <img class="commander-preview-thumb" [src]="imageUrl" [alt]="commander.name" />
+                    </span>
+                  }
+                  <div>
+                    <strong>{{ commander.name }}</strong>
+                    <span>{{ commander.typeLine || 'Unknown type' }}</span>
+                  </div>
+                </article>
+              }
+            </div>
+          }
+
+          <label>
+            Import decklist
+            <textarea
+              appPrettyScroll
+              name="createdDecklist"
+              rows="8"
+              required
+              placeholder="Example: 1 Sol Ring (VOC) 168"
+              [(ngModel)]="store.createdDecklist"
+            ></textarea>
+            <p class="app-disclaimer-callout">
+              If you include your commander in the import decklist, do not worry; we will remove it for you.
+            </p>
+          </label>
+        </fieldset>
       }
     </form>
   </app-modal>
+
+  <app-modal
+    [open]="store.createSuccessModalOpen()"
+    title="Deck saved"
+    [message]="store.createSuccessMessage()"
+    primaryLabel="Open deck"
+    secondaryLabel="Back to decks"
+    (primary)="store.openCreatedDeckFromSuccess()"
+    (secondary)="store.closeCreateSuccessModal()"
+  />
 
   <app-modal
     [open]="store.folderCreateModalOpen()"
@@ -410,13 +426,14 @@
 
   <app-modal
     [open]="store.deleteModalOpen()"
-    title="Delete deck"
-    [message]="store.deleteTarget() ? 'Delete ' + store.deleteTarget()!.name + '?' : ''"
-    primaryLabel="Delete"
+    [title]="store.deleteModalTitle()"
+    [message]="store.deleteModalMessage()"
+    [primaryLabel]="store.deleteModalPrimaryLabel()"
     secondaryLabel="Cancel"
-    [danger]="true"
+    [danger]="store.deleteModalIsDanger()"
+    [showSecondary]="store.deleteModalShowsSecondary()"
     (primary)="store.confirmDeleteDeck()"
-    (secondary)="store.deleteModalOpen.set(false)"
+    (secondary)="store.closeDeleteModal()"
   />
 
   @if (commanderHoverPreview(); as preview) {

@@ -19,8 +19,7 @@
 }
 
 .avatar-upload-header p,
-.upload-card p,
-.avatar-disclaimer {
+.upload-card p {
   margin: 0.22rem 0 0;
   color: var(--muted);
   font-size: 0.82rem;
@@ -36,7 +35,6 @@
 
 .avatar-preview-panel,
 .upload-card,
-.avatar-disclaimer,
 .crop-controls {
   border: 1px solid rgb(215 180 106 / 24%);
   border-radius: 12px;
@@ -91,12 +89,6 @@
   gap: 0.75rem;
   align-items: center;
   padding: 0.8rem;
-}
-
-.avatar-disclaimer {
-  padding: 0.8rem;
-  border-color: rgb(209 111 95 / 46%);
-  background: rgb(44 24 21 / 32%);
 }
 
 .crop-controls {

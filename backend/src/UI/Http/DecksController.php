@@ -12,6 +12,7 @@ use App\Domain\Card\Card;
 use App\Domain\Deck\Deck;
 use App\Domain\Deck\DeckCard;
 use App\Domain\Deck\DeckFolder;
+use App\Domain\Room\RoomPlayer;
 use App\Domain\User\User;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -247,6 +248,13 @@ class DecksController extends ApiController
         $deck = $this->ownedDeck($id, $user, $entityManager);
         if (!$deck) {
             return $this->fail('Deck not found.', 404);
+        }
+
+        $activeRoomPlayer = $entityManager->getRepository(RoomPlayer::class)->findOneBy(['deck' => $deck]);
+        if ($activeRoomPlayer instanceof RoomPlayer) {
+            return $this->fail('This deck cannot be deleted because it is being used in a game.', 409, [
+                'code' => 'deck.in_use',
+            ]);
         }
 
         $entityManager->remove($deck);

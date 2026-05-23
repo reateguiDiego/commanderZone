@@ -8,6 +8,7 @@ import { User } from './user.model';
 
 export interface ApiError {
   error: string;
+  code?: string;
 }
 
 export interface DataResponse<T> {

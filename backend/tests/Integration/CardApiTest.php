@@ -134,16 +134,18 @@ class CardApiTest extends ApiTestCase
         self::assertCount(2, $this->jsonResponse()['matches']);
     }
 
-    public function testSearchPrioritizesNamesStartingWithQuery(): void
+    public function testSearchMatchesContainedSubstringCaseInsensitive(): void
     {
-        $contained = $this->seedCard('00000000-0000-0000-0000-000000000012', 'A Liliana Contract');
-        $liliana = $this->seedCard('00000000-0000-0000-0000-000000000011', 'Liliana of the Veil');
+        $contained = $this->seedCard('00000000-0000-0000-0000-000000000012', 'Oath of Liliana');
+        $startsWith = $this->seedCard('00000000-0000-0000-0000-000000000011', 'Liliana of the Veil');
+        $this->seedCard('00000000-0000-0000-0000-000000000013', 'Professor Onyx');
 
-        $this->jsonRequest('GET', '/cards/search?q=liliana&limit=3');
+        $this->jsonRequest('GET', '/cards/search?q=LiLiAnA&limit=10');
 
         self::assertResponseIsSuccessful();
-        self::assertSame($liliana->scryfallId(), $this->jsonResponse()['data'][0]['scryfallId']);
-        self::assertSame($contained->scryfallId(), $this->jsonResponse()['data'][1]['scryfallId']);
+        $resultIds = array_column($this->jsonResponse()['data'], 'scryfallId');
+        self::assertContains($startsWith->scryfallId(), $resultIds);
+        self::assertContains($contained->scryfallId(), $resultIds);
     }
 
     public function testSearchCanFilterTokensOnly(): void
@@ -161,5 +163,45 @@ class CardApiTest extends ApiTestCase
 
         self::assertResponseIsSuccessful();
         self::assertSame([$token->scryfallId()], array_column($this->jsonResponse()['data'], 'scryfallId'));
+    }
+
+    public function testSearchDeduplicatesPrintingsByNameTypeAndManaCost(): void
+    {
+        $this->seedCard('00000000-0000-0000-0000-000000000031', 'Sol Ring', [
+            'set' => 'one',
+            'collector_number' => '1',
+            'type_line' => 'Artifact',
+            'mana_cost' => '{1}',
+        ]);
+        $this->seedCard('00000000-0000-0000-0000-000000000032', 'Sol Ring', [
+            'set' => 'two',
+            'collector_number' => '2',
+            'type_line' => 'Artifact',
+            'mana_cost' => '{1}',
+        ]);
+        $this->seedCard('00000000-0000-0000-0000-000000000033', 'Sol Ring', [
+            'set' => 'three',
+            'collector_number' => '3',
+            'type_line' => 'Artifact',
+            'mana_cost' => '{2}',
+        ]);
+
+        $this->jsonRequest('GET', '/cards/search?q=sol%20ring&limit=20');
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(2, $this->jsonResponse()['data']);
+    }
+
+    public function testSearchLimitIsCappedAtFiveHundred(): void
+    {
+        $this->seedCard('00000000-0000-0000-0000-000000000041', 'Sheoldred, Whispering One', [
+            'type_line' => 'Legendary Creature - Phyrexian Praetor',
+        ]);
+
+        $this->jsonRequest('GET', '/cards/search?q=one&limit=999');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(500, $this->jsonResponse()['limit']);
+        self::assertNotEmpty($this->jsonResponse()['data']);
     }
 }

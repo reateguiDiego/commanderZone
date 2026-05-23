@@ -17,6 +17,9 @@
               actionLabel="Add"
               [showQuantity]="true"
               [clearOnSelect]="true"
+              [excludeTokens]="true"
+              [excludeEmblems]="true"
+              [excludeSchemes]="true"
               (cardSelected)="store.addSearchedCard($event.card, $event.quantity)"
             />
           </div>

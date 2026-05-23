@@ -45,12 +45,15 @@ export function filterDistinctCardsByQuery(cards: Card[], query: string): Card[]
       seen.add(key);
       return true;
     })
-    .sort((left, right) => searchRank(left, normalizedQuery) - searchRank(right, normalizedQuery)
-      || left.name.localeCompare(right.name));
+    .sort((left, right) => left.name.localeCompare(right.name));
 }
 
 export function distinctCardKey(card: Card): string {
-  return normalizeCardSearch(card.name);
+  const normalizedName = normalizeCardSearch(card.name);
+  const normalizedTypeLine = normalizeCardSearch(card.typeLine ?? '');
+  const normalizedManaCost = normalizeCardSearch(card.manaCost ?? '');
+
+  return `${normalizedName}|${normalizedTypeLine}|${normalizedManaCost}`;
 }
 
 function isSearchableCardResult(card: Card): boolean {
@@ -62,8 +65,3 @@ function isSearchableCardResult(card: Card): boolean {
     && !/(^|\s)card(\s|$)/.test(typeLine);
 }
 
-function searchRank(card: Card, normalizedQuery: string): number {
-  const normalizedName = normalizeCardSearch(card.name);
-
-  return normalizedName.startsWith(normalizedQuery) ? 0 : 1;
-}

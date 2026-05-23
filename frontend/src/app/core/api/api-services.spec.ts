@@ -31,7 +31,7 @@ describe('API services', () => {
   it('builds card search requests with query params', () => {
     TestBed.inject(CardsApi).search('sol ring').subscribe();
 
-    const request = http.expectOne(`${API_BASE_URL}/cards/search?q=sol%20ring&page=1&limit=24`);
+    const request = http.expectOne(`${API_BASE_URL}/cards/search?q=sol%20ring&page=1&limit=500`);
     expect(request.request.method).toBe('GET');
     request.flush({ data: [], page: 1, limit: 24 });
   });

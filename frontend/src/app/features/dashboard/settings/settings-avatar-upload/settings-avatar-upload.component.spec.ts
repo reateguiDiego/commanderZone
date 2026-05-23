@@ -18,4 +18,15 @@ describe('SettingsAvatarUploadComponent', () => {
     expect(fixture.componentInstance.canSave()).toBe(false);
     expect(fixture.nativeElement.textContent).toContain('Maximum 2MB');
   });
+
+  it('uses the global disclaimer callout for avatar policy text', () => {
+    const fixture = TestBed.createComponent(SettingsAvatarUploadComponent);
+    fixture.detectChanges();
+
+    const disclaimer = fixture.nativeElement.querySelector('.app-disclaimer-callout');
+    expect(disclaimer).not.toBeNull();
+    expect(disclaimer.textContent).toContain(
+      'Avatar images must be non-offensive, non-sexual and appropriate for the CommanderZone community.',
+    );
+  });
 });

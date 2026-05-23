@@ -2,7 +2,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
-import { CardsApi } from '../../../core/api/cards.api';
+import { CARD_SEARCH_LIMIT, CardsApi } from '../../../core/api/cards.api';
 import { DecksApi } from '../../../core/api/decks.api';
 import { MissingDeckCard } from '../../../core/models/api-responses.model';
 import { Card, CardFace } from '../../../core/models/card.model';
@@ -400,7 +400,7 @@ export class DeckEditorStore {
     }
 
     try {
-      const response = await firstValueFrom(this.cardsApi.search(query, 1, 8));
+      const response = await firstValueFrom(this.cardsApi.search(query, 1, CARD_SEARCH_LIMIT));
       this.missingSearch.set({ name: query, cards: response.data });
     } catch {
       this.missingSearch.set({ name: query, cards: [] });

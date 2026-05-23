@@ -611,7 +611,7 @@ paths:
           schema:
             type: integer
             minimum: 1
-            maximum: 50
+            maximum: 500
             default: 25
         - name: commanderLegal
           in: query
@@ -1034,6 +1034,19 @@ paths:
       responses:
         '204':
           description: Deleted.
+        '409':
+          description: Deck is currently selected in a room or game.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Error'
+                  - type: object
+                    required: [code]
+                    properties:
+                      code:
+                        type: string
+                        enum: [deck.in_use]
   /decks/{id}/analysis:
     get:
       tags: [Decks]
@@ -2061,6 +2074,8 @@ components:
       required: [error]
       properties:
         error:
+          type: string
+        code:
           type: string
     RoomStartError:
       allOf:

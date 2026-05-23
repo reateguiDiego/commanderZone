@@ -1,12 +1,14 @@
-import { ChangeDetectionStrategy, Component, EventEmitter, Input, OnDestroy, Output, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, EventEmitter, HostListener, Input, OnDestroy, Output, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
 import { firstValueFrom } from 'rxjs';
-import { CardsApi, CardSearchFilters } from '../../../core/api/cards.api';
+import { CARD_SEARCH_LIMIT, CardsApi, CardSearchFilters } from '../../../core/api/cards.api';
 import { Card } from '../../../core/models/card.model';
 import { ManaSymbolsComponent } from '../../mana/mana-symbols/mana-symbols.component';
 import { PrettyScrollDirective } from '../../ui/pretty-scroll/pretty-scroll.directive';
+import { isCommanderCandidate } from '../../utils/commander-candidate';
 import { filterDistinctCardsByQuery, sanitizeCardSearchQuery } from '../../utils/card-search';
+import { isEmblemCard, isSchemeCard, isTokenCard } from '../../utils/token-card';
 
 export interface CardAutocompleteSelection {
   card: Card;
@@ -22,6 +24,7 @@ export interface CardAutocompleteSelection {
 })
 export class CardAutocompleteComponent implements OnDestroy {
   private readonly cardsApi = inject(CardsApi);
+  private readonly hostElement = inject<ElementRef<HTMLElement>>(ElementRef);
 
   readonly results = signal<Card[]>([]);
   readonly loading = signal(false);
@@ -33,6 +36,10 @@ export class CardAutocompleteComponent implements OnDestroy {
   @Input() clearOnSelect = false;
   @Input() showQuantity = false;
   @Input() filters: CardSearchFilters = {};
+  @Input() commanderCandidateOnly = false;
+  @Input() excludeTokens = false;
+  @Input() excludeEmblems = false;
+  @Input() excludeSchemes = false;
   @Input() query = '';
   @Input() disabled = false;
 
@@ -48,6 +55,20 @@ export class CardAutocompleteComponent implements OnDestroy {
     if (this.searchTimeout) {
       clearTimeout(this.searchTimeout);
     }
+  }
+
+  @HostListener('document:pointerdown', ['$event'])
+  onDocumentPointerDown(event: PointerEvent): void {
+    const target = event.target;
+    if (!(target instanceof Node)) {
+      return;
+    }
+
+    if (this.hostElement.nativeElement.contains(target)) {
+      return;
+    }
+
+    this.closeOverlay();
   }
 
   onQueryInput(value: string): void {
@@ -111,20 +132,39 @@ export class CardAutocompleteComponent implements OnDestroy {
 
   private async search(query: string, version: number): Promise<void> {
     try {
-      const response = await firstValueFrom(this.cardsApi.search(query, 1, 24, this.filters));
+      const response = await firstValueFrom(this.cardsApi.search(query, 1, CARD_SEARCH_LIMIT, this.filters));
       if (version !== this.searchVersion || query !== this.query.trim()) {
         return;
       }
 
       const distinctCards = filterDistinctCardsByQuery(response.data, query);
-      const signature = distinctCards.map((card) => card.scryfallId).join('|');
+      const filteredCards = distinctCards.filter((card) => {
+        if (this.excludeTokens && isTokenCard(card)) {
+          return false;
+        }
+
+        if (this.excludeEmblems && isEmblemCard(card)) {
+          return false;
+        }
+
+        if (this.excludeSchemes && isSchemeCard(card)) {
+          return false;
+        }
+
+        if (this.commanderCandidateOnly && !isCommanderCandidate(card)) {
+          return false;
+        }
+
+        return true;
+      });
+      const signature = filteredCards.map((card) => card.scryfallId).join('|');
       if (signature === this.lastSignature && query === this.lastQuery) {
         return;
       }
 
       this.lastQuery = query;
       this.lastSignature = signature;
-      this.results.set(distinctCards);
+      this.results.set(filteredCards);
     } catch {
       if (version === this.searchVersion) {
         this.results.set([]);
@@ -147,5 +187,16 @@ export class CardAutocompleteComponent implements OnDestroy {
     this.lastQuery = '';
     this.lastSignature = '';
     this.quantities.set({});
+  }
+
+  private closeOverlay(): void {
+    if (this.searchTimeout) {
+      clearTimeout(this.searchTimeout);
+      this.searchTimeout = null;
+    }
+
+    this.searchVersion += 1;
+    this.loading.set(false);
+    this.results.set([]);
   }
 }

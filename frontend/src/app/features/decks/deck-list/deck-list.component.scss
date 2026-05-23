@@ -302,6 +302,19 @@
   opacity: 0.72;
 }
 
+.create-import-result {
+  gap: 0.8rem;
+}
+
+.create-import-result p {
+  margin: 0;
+}
+
+.create-import-missing {
+  display: grid;
+  gap: 0.35rem;
+}
+
 .folder-drag-help {
   margin: 0;
   padding: 0.8rem 0.9rem;
