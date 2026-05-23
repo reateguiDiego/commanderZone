@@ -135,6 +135,12 @@ export interface GameResponse {
   game: Game;
 }
 
+export interface GameWebsocketTicketResponse {
+  ticket: string;
+  expiresAt: string;
+  websocketUrl: string;
+}
+
 export interface CommandResponse {
   event: GameEvent;
   snapshot: GameSnapshot;

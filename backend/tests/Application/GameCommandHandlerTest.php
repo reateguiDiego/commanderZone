@@ -1943,6 +1943,47 @@ class GameCommandHandlerTest extends TestCase
         ], $actor);
     }
 
+    public function testStackCommandsPreserveCardPayloadAndEventLog(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->snapshot($actor->id(), [
+            'battlefield' => [[
+                ...$this->card('card-1', 'Stack Bear', 'battlefield', 2, 2, 2, 2),
+                'ownerId' => $actor->id(),
+                'controllerId' => $actor->id(),
+                'position' => ['x' => 0.5, 'y' => 0.5, 'unit' => 'ratio'],
+                'revealedTo' => [],
+                'counters' => ['+1/+1' => 1],
+            ]],
+        ]));
+        $handler = new GameCommandHandler();
+
+        $handler->apply($game, 'stack.card_added', [
+            'playerId' => $actor->id(),
+            'zone' => 'battlefield',
+            'instanceId' => 'card-1',
+        ], $actor);
+
+        $stackItem = $game->snapshot()['stack'][0];
+        self::assertSame('card', $stackItem['kind']);
+        self::assertSame('card-1', $stackItem['card']['instanceId']);
+        self::assertSame($actor->id(), $stackItem['card']['ownerId']);
+        self::assertSame($actor->id(), $stackItem['card']['controllerId']);
+        self::assertSame('battlefield', $stackItem['card']['zone']);
+        self::assertFalse($stackItem['card']['tapped']);
+        self::assertSame(['x' => 0.5, 'y' => 0.5, 'unit' => 'ratio'], $stackItem['card']['position']);
+        self::assertSame([], $stackItem['card']['revealedTo']);
+        self::assertSame(['+1/+1' => 1], $stackItem['card']['counters']);
+        self::assertSame('Added Stack Bear to stack.', $game->snapshot()['eventLog'][0]['message']);
+
+        $handler->apply($game, 'stack.item_removed', [
+            'id' => $stackItem['id'],
+        ], $actor);
+
+        self::assertSame([], $game->snapshot()['stack']);
+        self::assertSame('Removed item from stack.', $game->snapshot()['eventLog'][1]['message']);
+    }
+
     public function testArrowCreatedStoresOwnerAndOnlyOwnerCanRemoveIt(): void
     {
         $actor = new User('owner@example.test', 'Owner');

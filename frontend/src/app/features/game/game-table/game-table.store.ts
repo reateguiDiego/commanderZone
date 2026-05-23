@@ -1,6 +1,6 @@
 import { Injectable, OnDestroy, WritableSignal, computed, effect, inject, signal } from '@angular/core';
 import { Card } from '../../../core/models/card.model';
-import { GameCardInstance, GameCommandType, GameSnapshot, GameZoneName, MercureGameEvent } from '../../../core/models/game.model';
+import { GameCardInstance, GameCommandType, GameSnapshot, GameZoneName } from '../../../core/models/game.model';
 import { GameTableDebouncedValueCommandsService } from './services/game-table-debounced-value-commands.service';
 import { GameTableDragService } from './services/game-table-drag.service';
 import { GameTableLibraryActionsService } from './services/game-table-library-actions.service';
@@ -170,7 +170,6 @@ export class GameTableStore implements OnDestroy {
       refetch: (force) => this.refetch(force),
       command: (type, payload, force) => this.command(type, payload, force),
       playCard: (playerId, zone, card) => this.playCard(playerId, zone, card),
-      handleRealtimeGameEvent: (event) => this.handleRealtimeGameEvent(event),
       setPendingBattlefieldMove: (move) => this.pendingBattlefieldMove.set(move),
       setPendingLibraryMove: (move) => this.pendingLibraryMove.set(move),
     });
@@ -1299,21 +1298,6 @@ export class GameTableStore implements OnDestroy {
     }
   }
 
-  async handleRealtimeGameEvent(event: MercureGameEvent): Promise<void> {
-    if (event.event.type !== 'library.reveal') {
-      return;
-    }
-
-    const playerId = this.stringPayload(event.event.payload, 'playerId');
-    const targetPlayerId = this.stringPayload(event.event.payload, 'to');
-    const currentPlayerId = this.currentPlayer()?.id ?? null;
-    if (!playerId || !targetPlayerId || targetPlayerId !== currentPlayerId || playerId === currentPlayerId) {
-      return;
-    }
-
-    await this.openRevealedLibraryModal(playerId);
-  }
-
   private async openRevealedLibraryModal(playerId: string): Promise<void> {
     const currentModal = this.zoneModal();
     if (currentModal?.playerId === playerId && currentModal.zone === 'library') {
@@ -1404,19 +1388,6 @@ export class GameTableStore implements OnDestroy {
 
   async changeCardLoyalty(playerId: string, zone: GameZoneName, card: GameCardInstance, delta: number): Promise<void> {
     await this.cardStats.changeLoyalty(this.contexts.cardStats(), playerId, zone, card, delta);
-  }
-
-  private stringPayload(payload: Record<string, unknown>, key: string): string | null {
-    const value = payload[key];
-    return typeof value === 'string' && value !== '' ? value : null;
-  }
-
-  private zonePayload(payload: Record<string, unknown>, key: string): GameZoneName | null {
-    return this.zoneValue(payload[key]);
-  }
-
-  private zoneValue(value: unknown): GameZoneName | null {
-    return typeof value === 'string' && this.zones.includes(value as GameZoneName) ? value as GameZoneName : null;
   }
 
   private showPinnedCardPreview(event: MouseEvent, playerId: string, zone: GameZoneName, card: GameCardInstance): void {

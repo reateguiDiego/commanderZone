@@ -5,6 +5,7 @@ namespace App\UI\Http;
 use App\Application\Game\GameCommandHandler;
 use App\Application\Game\GameProjectionService;
 use App\Application\Game\GameRematchService;
+use App\Application\Game\WebSocket\GameWebsocketTicketManager;
 use App\Domain\Game\Game;
 use App\Domain\Game\GameEvent;
 use App\Domain\Room\Room;
@@ -16,6 +17,7 @@ use Doctrine\DBAL\Exception\LockWaitTimeoutException;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Attribute\Route;
@@ -24,6 +26,7 @@ use Symfony\Component\Security\Http\Attribute\CurrentUser;
 class GamesController extends ApiController
 {
     #[Route('/games/{id}/snapshot', methods: ['GET'])]
+    #[Route('/games/{id}/bootstrap', methods: ['GET'])]
     public function snapshot(string $id, #[CurrentUser] User $user, EntityManagerInterface $entityManager, GameProjectionService $projection): JsonResponse
     {
         $game = $entityManager->getRepository(Game::class)->find($id);
@@ -39,6 +42,32 @@ class GamesController extends ApiController
                 ...$game->toArray(),
                 'snapshot' => $projection->project($game, $user),
             ],
+        ]);
+    }
+
+    #[Route('/games/{id}/websocket-ticket', methods: ['POST'])]
+    public function websocketTicket(
+        string $id,
+        #[CurrentUser] User $user,
+        EntityManagerInterface $entityManager,
+        GameWebsocketTicketManager $tickets,
+        #[Autowire('%game_websocket_public_url%')]
+        string $websocketPublicUrl,
+    ): JsonResponse {
+        $game = $entityManager->getRepository(Game::class)->find($id);
+        if (!$game instanceof Game) {
+            return $this->fail('Game not found.', 404);
+        }
+        if (!$game->canBeViewedBy($user)) {
+            return $this->fail('Game access denied.', 403);
+        }
+
+        $ticket = $tickets->issue($game->id(), $user->id());
+
+        return $this->json([
+            'ticket' => $ticket->ticket,
+            'expiresAt' => $ticket->expiresAt->format(DATE_ATOM),
+            'websocketUrl' => rtrim($websocketPublicUrl, '/').'/games/'.$game->id().'?ticket='.rawurlencode($ticket->ticket),
         ]);
     }
 

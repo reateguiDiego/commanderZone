@@ -25,6 +25,7 @@ describe('GameTableDragDropStore', () => {
   let updateBattlefieldDragAid: ReturnType<typeof vi.fn>;
   let updatePointerDropTarget: ReturnType<typeof vi.fn>;
   let updateExternalBattlefieldAlignmentGuide: ReturnType<typeof vi.fn>;
+  let endCardPointerDrag: ReturnType<typeof vi.fn>;
   let dragService: {
     allowDrop: ReturnType<typeof vi.fn>;
     dragPayload: ReturnType<typeof vi.fn>;
@@ -41,6 +42,7 @@ describe('GameTableDragDropStore', () => {
     updateBattlefieldDragAid = vi.fn();
     updatePointerDropTarget = vi.fn();
     updateExternalBattlefieldAlignmentGuide = vi.fn();
+    endCardPointerDrag = vi.fn();
     dragService = {
       allowDrop: vi.fn().mockReturnValue(true),
       dragPayload: vi.fn().mockReturnValue(null),
@@ -94,7 +96,7 @@ describe('GameTableDragDropStore', () => {
         },
         {
           provide: GameTablePointerDragActionsService,
-          useValue: { endCardPointerDrag: vi.fn() },
+          useValue: { endCardPointerDrag },
         },
       ],
     });
@@ -300,6 +302,20 @@ describe('GameTableDragDropStore', () => {
     expect(dragState.manaLaneDropPlayerId()).toBe('player-1');
     expect(dragState.activeDropTarget()).toBeNull();
     expect(dragState.landStackDropPreview()).toBeNull();
+  });
+
+  it('keeps pointermove local and does not finish persistent drag commands before drop', () => {
+    const dragged = land('dragged', 340, 200);
+    const target = land('target', 100, 200);
+    const ctx = context([playerView([dragged, target])]);
+    dragService.moveCardPointerDrag.mockReturnValue('dragged');
+    dragService.pointerDragPreview.mockReturnValue({ x: 180, y: 220, width: 103, height: 144 });
+
+    store.moveCardPointerDrag(ctx, { clientX: 200, clientY: 240 } as PointerEvent);
+
+    expect(dragService.moveCardPointerDrag).toHaveBeenCalled();
+    expect(endCardPointerDrag).not.toHaveBeenCalled();
+    expect(dropOnZone).not.toHaveBeenCalled();
   });
 
   it('marks an under land as a detach source when it starts a battlefield pointer drag', () => {

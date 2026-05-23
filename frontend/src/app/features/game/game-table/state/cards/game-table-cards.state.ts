@@ -1,7 +1,6 @@
 import { inject, Injectable } from '@angular/core';
-import { GameCardInstance, GameSnapshot, GameZoneName } from '../../../../../core/models/game.model';
+import { GameCardInstance, GameCommandType, GameSnapshot, GameZoneName } from '../../../../../core/models/game.model';
 import { PendingCardCounterCommand } from '../../models/game-table-card.model';
-import { GameTableCommandService } from '../../services/game-table-command.service';
 import { GameTableCoreState } from '../core/game-table-core.state';
 import { GameTableSnapshotSelectors, PlayerView } from '../core/game-table-snapshot-selectors';
 
@@ -9,6 +8,7 @@ export interface GameTableCardCounterContext {
   readonly setSnapshot: (snapshot: GameSnapshot | null) => void;
   readonly errorMessage: (error: unknown) => string;
   readonly refetch: (force: boolean) => Promise<void>;
+  readonly command: (type: GameCommandType, payload: Record<string, unknown>) => Promise<boolean>;
 }
 
 @Injectable()
@@ -16,7 +16,6 @@ export class GameTableCardsState {
   private readonly maxDistinctCardCounters = 5;
   private readonly cardCounterFlushDelayMs = 450;
   private readonly counterFlushRetryMs = 80;
-  private readonly commands = inject(GameTableCommandService);
   private readonly optimisticCardCounters = new Map<string, PendingCardCounterCommand>();
   private readonly cardCounterFlushTimers = new Map<string, number>();
 
@@ -149,17 +148,18 @@ export class GameTableCardsState {
     this.core.pending.set(true);
     this.core.error.set(null);
     try {
-      const snapshot = await this.commands.send(gameId, 'card.counter.changed', {
+      if (!await context.command('card.counter.changed', {
         playerId: command.playerId,
         zone: command.zone,
         instanceId: command.instanceId,
         key: command.key,
         ...(command.value === null ? { remove: true } : { value: command.value }),
-      });
+      })) {
+        throw new Error('WebSocket gameplay connection is not available.');
+      }
       if (this.optimisticCardCounters.get(key) === command) {
         this.optimisticCardCounters.delete(key);
       }
-      context.setSnapshot(snapshot);
     } catch (error) {
       if (this.optimisticCardCounters.get(key) === command) {
         this.optimisticCardCounters.delete(key);
@@ -198,7 +198,7 @@ export class GameTableCardsState {
     const nextValue = Math.max(0, Number(value ?? 0));
     const counters = { ...(card.counters ?? {}) };
     const previousValue = Number(counters[key] ?? 0);
-    if (nextValue <= 0) {
+    if (value === null) {
       delete counters[key];
     } else {
       counters[key] = nextValue;
