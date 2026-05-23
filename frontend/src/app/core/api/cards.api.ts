@@ -13,11 +13,13 @@ export interface CardSearchFilters {
   tokenOnly?: boolean;
 }
 
+export const CARD_SEARCH_LIMIT = 500;
+
 @Injectable({ providedIn: 'root' })
 export class CardsApi {
   private readonly http = inject(HttpClient);
 
-  search(query: string, page = 1, limit = 24, filters: CardSearchFilters = {}): Observable<DataResponse<Card>> {
+  search(query: string, page = 1, limit = CARD_SEARCH_LIMIT, filters: CardSearchFilters = {}): Observable<DataResponse<Card>> {
     let params = new HttpParams()
       .set('q', query)
       .set('page', page)

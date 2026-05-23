@@ -1,11 +1,10 @@
 import { Injectable, inject } from '@angular/core';
 import { AuthStore } from '../../../../../core/auth/auth.store';
-import { GameCardInstance, GameCommandType, GameSnapshot, GameZoneName, MercureGameEvent } from '../../../../../core/models/game.model';
+import { GameCardInstance, GameCommandType, GameSnapshot, GameZoneName } from '../../../../../core/models/game.model';
 import { SelectedCard } from '../../models/game-table-card.model';
 import { GameTableBattlefieldDragContext } from '../../services/game-table-battlefield-drag-coordinator.service';
 import { GameTableCardActionContext } from '../../services/game-table-card-actions.service';
 import { GameTableCardStatsContext } from '../../services/game-table-card-stats.service';
-import { GameTableCommandService } from '../../services/game-table-command.service';
 import { GameTableDebouncedValueCommandContext } from '../../services/game-table-debounced-value-commands.service';
 import { GameTableDragService } from '../../services/game-table-drag.service';
 import { GameTableDropActionContext, PendingBattlefieldMove, PendingLibraryMove } from '../../services/game-table-drop-actions.service';
@@ -15,6 +14,7 @@ import { GameTablePointerDragActionContext } from '../../services/game-table-poi
 import { GameTableSessionContext, GameTableSessionService } from '../../services/game-table-session.service';
 import { GameTableTurnActionContext } from '../../services/game-table-turn-actions.service';
 import { GameTableZoneActionContext, GameTableZoneActionsService } from '../../services/game-table-zone-actions.service';
+import { GameTableWebsocketGameplayService } from '../../services/game-table-websocket-gameplay.service';
 import { GameTableArrowInteractionContext } from '../arrows/game-table-arrows.state';
 import { GameTableAttachmentInteractionContext } from '../attachments/game-table-attachments.state';
 import { GameTableBattlefieldContext, GameTableBattlefieldState } from '../battlefield/game-table-battlefield.state';
@@ -38,7 +38,6 @@ export interface GameTableContextSource {
   readonly refetch: (force?: boolean) => Promise<void>;
   readonly command: (type: GameCommandType, payload: Record<string, unknown>, force?: boolean) => Promise<void>;
   readonly playCard: (playerId: string, zone: GameZoneName, card: GameCardInstance) => Promise<void>;
-  readonly handleRealtimeGameEvent: (event: MercureGameEvent) => void | Promise<void>;
   readonly setPendingBattlefieldMove: (move: PendingBattlefieldMove | null) => void;
   readonly setPendingLibraryMove: (move: PendingLibraryMove | null) => void;
 }
@@ -46,7 +45,6 @@ export interface GameTableContextSource {
 @Injectable()
 export class GameTableContextStore {
   private readonly auth = inject(AuthStore);
-  private readonly commands = inject(GameTableCommandService);
   private readonly core = inject(GameTableCoreState);
   private readonly battlefieldState = inject(GameTableBattlefieldState);
   private readonly drag = inject(GameTableDragService);
@@ -61,6 +59,7 @@ export class GameTableContextStore {
   private readonly sessionService = inject(GameTableSessionService);
   private readonly toastState = inject(GameTableToastState);
   private readonly uiState = inject(GameTableUiState);
+  private readonly websocketCommands = inject(GameTableWebsocketGameplayService);
   private readonly zoneActions = inject(GameTableZoneActionsService);
   private readonly zoneModalState = inject(GameTableZoneModalState);
   private readonly zonePilesState = inject(GameTableZonePilesState);
@@ -78,7 +77,7 @@ export class GameTableContextStore {
       pending: () => this.core.pending(),
       setPending: (pending) => this.core.pending.set(pending),
       setError: (message) => this.core.error.set(message),
-      send: (type, payload) => this.commands.send(this.core.gameId(), type, payload),
+      send: (type, payload) => this.websocketCommands.sendCommand(this.command().websocket(), type, payload),
       snapshot: () => this.core.snapshot(),
       setSnapshot: (snapshot) => source.setSnapshot(snapshot),
       refetch: () => source.refetch(true),
@@ -176,9 +175,16 @@ export class GameTableContextStore {
 
     return {
       setSnapshot: (snapshot) => source.setSnapshot(snapshot),
+      websocket: () => ({
+        gameId: () => this.core.gameId(),
+        snapshot: () => this.core.snapshot(),
+        setSnapshot: (snapshot) => source.setSnapshot(snapshot),
+        refetch: (force) => source.refetch(force),
+        setError: (message) => this.core.error.set(message),
+      }),
       errorMessage: (error) => this.errorMessage(error),
-      queueBattlefieldPositionCommand: (gameId, payload) =>
-        this.battlefieldState.tryQueueBattlefieldPositionCommand(this.battlefield(), gameId, payload),
+      queueBattlefieldPositionCommand: (gameId, payload, persist) =>
+        this.battlefieldState.tryQueueBattlefieldPositionCommand(this.battlefield(), gameId, payload, persist),
     };
   }
 
@@ -189,6 +195,7 @@ export class GameTableContextStore {
       setSnapshot: (snapshot) => source.setSnapshot(snapshot),
       errorMessage: (error) => this.errorMessage(error),
       refetch: (force) => source.refetch(force),
+      command: (type, payload) => this.websocketCommands.sendCommand(this.command().websocket(), type, payload),
     };
   }
 
@@ -418,7 +425,6 @@ export class GameTableContextStore {
       isPending: () => this.core.pending(),
       setLoading: (loading) => this.core.loading.set(loading),
       setError: (message) => this.core.error.set(message),
-      handleRealtimeEvent: (event) => source.handleRealtimeGameEvent(event),
       navigateToRoomsWithLoadError: () => {
         void this.gameActionsStore.navigateToRoomsWithLoadError();
       },

@@ -1,8 +1,9 @@
-import { Injectable, inject } from '@angular/core';
+import { Injectable, computed, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { GamesApi } from '../../../../core/api/games.api';
-import { GameSnapshot, MercureGameEvent } from '../../../../core/models/game.model';
-import { GameTableRealtimeService } from './game-table-realtime.service';
+import { GameSnapshot } from '../../../../core/models/game.model';
+import { GameTableRematchRealtimeService } from './game-table-rematch-realtime.service';
+import { GameTableWebsocketGameplayService } from './game-table-websocket-gameplay.service';
 
 export interface GameTableSessionContext {
   gameId(): string;
@@ -15,7 +16,6 @@ export interface GameTableSessionContext {
   isPending(): boolean;
   setLoading(loading: boolean): void;
   setError(message: string | null): void;
-  handleRealtimeEvent(event: MercureGameEvent): void | Promise<void>;
   navigateToRoomsWithLoadError(): void;
   navigateToWaitingRoom(roomId: string): void;
 }
@@ -23,9 +23,14 @@ export interface GameTableSessionContext {
 @Injectable()
 export class GameTableSessionService {
   private readonly gamesApi = inject(GamesApi);
-  private readonly realtime = inject(GameTableRealtimeService);
+  private readonly rematchRealtime = inject(GameTableRematchRealtimeService);
+  private readonly websocket = inject(GameTableWebsocketGameplayService);
   private deferredRemoteSnapshot: GameSnapshot | null = null;
-  readonly realtimeStatus = this.realtime.status;
+  readonly realtimeStatus = computed<'connecting' | 'live' | 'degraded'>(() => {
+    const status = this.websocket.status();
+
+    return status === 'connected' ? 'live' : status === 'error' ? 'degraded' : 'connecting';
+  });
 
   async load(context: GameTableSessionContext): Promise<void> {
     const gameId = context.gameId();
@@ -37,7 +42,14 @@ export class GameTableSessionService {
 
     try {
       await this.refetch(context, true);
-      this.subscribeToRealtime(context, gameId);
+      this.websocket.start({
+        gameId: () => context.gameId(),
+        snapshot: () => context.snapshot(),
+        setSnapshot: (snapshot) => context.setSnapshot(snapshot),
+        refetch: (force) => this.refetch(context, force),
+        setError: (message) => context.setError(message),
+      }, gameId);
+      this.subscribeToRematchRealtime(context, gameId);
     } catch {
       context.navigateToRoomsWithLoadError();
     } finally {
@@ -79,12 +91,13 @@ export class GameTableSessionService {
   }
 
   stop(): void {
-    this.realtime.stop();
+    this.websocket.stop();
+    this.rematchRealtime.stop();
   }
 
-  private subscribeToRealtime(context: GameTableSessionContext, gameId: string): void {
-    this.realtime.subscribeToGame(gameId, (event) => {
-      void this.handleRealtimeEvent(context, event);
+  private subscribeToRematchRealtime(context: GameTableSessionContext, gameId: string): void {
+    this.rematchRealtime.subscribeToRematchCreated(gameId, (roomId) => {
+      context.navigateToWaitingRoom(roomId);
     });
   }
 
@@ -93,29 +106,6 @@ export class GameTableSessionService {
     if (!context.focusedPlayerId()) {
       context.setFocusedPlayerId(context.ownPlayerId(nextSnapshot) ?? nextSnapshot.turn.activePlayerId ?? Object.keys(nextSnapshot.players)[0] ?? null);
     }
-  }
-
-  private handleRematchCreatedEvent(context: GameTableSessionContext, event: MercureGameEvent): boolean {
-    if (event.event.type !== 'room.rematch.created') {
-      return false;
-    }
-
-    const roomId = event.event.payload['roomId'];
-    if (typeof roomId !== 'string' || roomId.trim() === '') {
-      return false;
-    }
-
-    context.navigateToWaitingRoom(roomId);
-    return true;
-  }
-
-  private async handleRealtimeEvent(context: GameTableSessionContext, event: MercureGameEvent): Promise<void> {
-    if (this.handleRematchCreatedEvent(context, event)) {
-      return;
-    }
-
-    await this.refetch(context, false);
-    await context.handleRealtimeEvent(event);
   }
 
   private hasProjectionMetadataChanged(current: GameSnapshot, next: GameSnapshot): boolean {

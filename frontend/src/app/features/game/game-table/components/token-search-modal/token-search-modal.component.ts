@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, OnD
 import { FormsModule } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
 import { firstValueFrom } from 'rxjs';
-import { CardsApi } from '../../../../../core/api/cards.api';
+import { CARD_SEARCH_LIMIT, CardsApi } from '../../../../../core/api/cards.api';
 import { DecksApi } from '../../../../../core/api/decks.api';
 import { Card } from '../../../../../core/models/card.model';
 import { DeckToken } from '../../../../../core/models/deck.model';
@@ -167,7 +167,7 @@ export class TokenSearchModalComponent implements OnChanges, OnDestroy {
 
   private async searchTokens(query: string, version: number): Promise<void> {
     try {
-      const response = await firstValueFrom(this.cardsApi.search(query, 1, 36, { tokenOnly: true }));
+      const response = await firstValueFrom(this.cardsApi.search(query, 1, CARD_SEARCH_LIMIT, { tokenOnly: true }));
       if (version !== this.searchVersion || query !== this.query().trim()) {
         return;
       }

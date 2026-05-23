@@ -4,6 +4,26 @@ namespace App\Tests\Integration;
 
 class DeckbuildingApiTest extends ApiTestCase
 {
+    public function testDeckSelectedInRoomCannotBeDeleted(): void
+    {
+        $token = $this->registerAndLogin('deck-in-room@example.test', 'Deck In Room');
+
+        $this->jsonRequest('POST', '/decks', ['name' => 'Room Deck'], $token);
+        self::assertResponseStatusCodeSame(201);
+        $deckId = (string) $this->jsonResponse()['deck']['id'];
+
+        $this->jsonRequest('POST', '/rooms', ['visibility' => 'private', 'maxPlayers' => 2, 'deckId' => $deckId], $token);
+        self::assertResponseStatusCodeSame(201);
+
+        $this->jsonRequest('DELETE', '/decks/'.$deckId, token: $token);
+        self::assertResponseStatusCodeSame(409);
+        self::assertSame('deck.in_use', $this->jsonResponse()['code']);
+        self::assertSame('This deck cannot be deleted because it is being used in a game.', $this->jsonResponse()['error']);
+
+        $this->jsonRequest('GET', '/decks/'.$deckId, token: $token);
+        self::assertResponseIsSuccessful();
+    }
+
     public function testFoldersDecksCardsImportAndOwnership(): void
     {
         $token = $this->registerAndLogin('owner@example.test', 'Owner');

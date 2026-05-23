@@ -22,15 +22,14 @@ class CardsController extends ApiController
     {
         $query = Card::normalizeName((string) $request->query->get('q', ''));
         $page = max(1, (int) $request->query->get('page', 1));
-        $limit = min(50, max(1, (int) $request->query->get('limit', 25)));
+        $limit = min(500, max(1, (int) $request->query->get('limit', 25)));
 
         $where = [];
         $params = [];
 
         if ($query !== '') {
-            $where[] = 'normalized_name LIKE :query';
+            $where[] = 'LOWER(normalized_name) LIKE :query';
             $params['query'] = '%'.$query.'%';
-            $params['queryPrefix'] = $query.'%';
         }
 
         $commanderLegal = $request->query->get('commanderLegal');
@@ -70,15 +69,28 @@ class CardsController extends ApiController
             }
         }
 
-        $sql = 'SELECT id FROM card';
+        $sql = <<<'SQL'
+SELECT id
+FROM (
+    SELECT DISTINCT ON (
+        normalized_name,
+        COALESCE(LOWER(type_line), ''),
+        COALESCE(LOWER(mana_cost), '')
+    ) id, name
+    FROM card
+SQL;
         if ($where !== []) {
             $sql .= ' WHERE '.implode(' AND ', $where);
         }
-        if ($query !== '') {
-            $sql .= ' ORDER BY CASE WHEN normalized_name LIKE :queryPrefix THEN 0 ELSE 1 END ASC, name ASC';
-        } else {
-            $sql .= ' ORDER BY name ASC';
-        }
+        $sql .= <<<'SQL'
+    ORDER BY
+        normalized_name ASC,
+        COALESCE(LOWER(type_line), '') ASC,
+        COALESCE(LOWER(mana_cost), '') ASC,
+        name ASC
+) AS distinct_cards
+ORDER BY name ASC
+SQL;
         $sql .= sprintf(' LIMIT %d OFFSET %d', $limit, ($page - 1) * $limit);
 
         $ids = $entityManager->getConnection()->fetchFirstColumn($sql, $params);

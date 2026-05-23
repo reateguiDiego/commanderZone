@@ -1740,9 +1740,15 @@ class RoomsGamesApiTest extends ApiTestCase
         self::assertResponseIsSuccessful();
         $snapshot = $this->jsonResponse()['game']['snapshot'];
 
+        $this->jsonRequest('GET', '/games/'.$gameId.'/bootstrap', token: $ownerToken);
+        self::assertResponseIsSuccessful();
+        self::assertSame($snapshot, $this->jsonResponse()['game']['snapshot']);
+
         $ownerPlayerId = (string) $snapshot['ownerId'];
         foreach ($snapshot['players'] as $playerId => $playerState) {
             self::assertSame(40, $playerState['life']);
+            self::assertArrayHasKey('backgroundName', $playerState);
+            self::assertArrayHasKey('sleevesName', $playerState);
             self::assertCount(1, $playerState['zones']['command']);
             self::assertSame('command', $playerState['zones']['command'][0]['zone']);
             self::assertSame((string) $playerId, $playerState['zones']['command'][0]['ownerId']);

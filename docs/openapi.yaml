@@ -611,7 +611,7 @@ paths:
           schema:
             type: integer
             minimum: 1
-            maximum: 50
+            maximum: 500
             default: 25
         - name: commanderLegal
           in: query
@@ -1034,6 +1034,19 @@ paths:
       responses:
         '204':
           description: Deleted.
+        '409':
+          description: Deck is currently selected in a room or game.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Error'
+                  - type: object
+                    required: [code]
+                    properties:
+                      code:
+                        type: string
+                        enum: [deck.in_use]
   /decks/{id}/analysis:
     get:
       tags: [Decks]
@@ -1828,6 +1841,50 @@ paths:
           $ref: '#/components/responses/Error'
         '404':
           $ref: '#/components/responses/Error'
+  /games/{id}/bootstrap:
+    get:
+      tags: [Games]
+      summary: Get initial game bootstrap snapshot.
+      description: Returns the same projected GameSnapshot shape as /games/{id}/snapshot for initial client synchronization.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Game bootstrap snapshot.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [game]
+                properties:
+                  game:
+                    $ref: '#/components/schemas/Game'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+  /games/{id}/websocket-ticket:
+    post:
+      tags: [Games]
+      summary: Issue a short-lived gameplay WebSocket ticket.
+      description: The ticket is scoped to the game and current authenticated user. It is used only to open the gameplay WebSocket connection; commands are not executed over WebSocket yet.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Short-lived WebSocket ticket.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameWebsocketTicketResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
   /games/{id}/events:
     get:
       tags: [Games]
@@ -2062,6 +2119,20 @@ components:
       properties:
         error:
           type: string
+    GameWebsocketTicketResponse:
+      type: object
+      required: [ticket, expiresAt, websocketUrl]
+      properties:
+        ticket:
+          type: string
+          description: Signed short-lived ticket scoped to one game and user.
+        expiresAt:
+          type: string
+          format: date-time
+        websocketUrl:
+          type: string
+          format: uri
+          example: ws://127.0.0.1:8081/games/01966d5f-0000-7000-8000-000000000000?ticket=...
     RoomStartError:
       allOf:
         - $ref: '#/components/schemas/Error'

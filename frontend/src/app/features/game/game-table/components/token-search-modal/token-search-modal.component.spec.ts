@@ -35,7 +35,7 @@ describe('TokenSearchModalComponent', () => {
       }],
       unresolved: [],
     }));
-    cardsApi.search.mockReturnValue(of({ data: [cardFixture('token-2', 'Goblin Token')], page: 1, limit: 36 }));
+    cardsApi.search.mockReturnValue(of({ data: [cardFixture('token-2', 'Goblin Token')], page: 1, limit: 500 }));
   });
 
   it('shows detected deck tokens by default', async () => {
@@ -67,7 +67,7 @@ describe('TokenSearchModalComponent', () => {
       await fixture.whenStable();
       fixture.detectChanges();
 
-      expect(cardsApi.search).toHaveBeenCalledWith('goblin', 1, 36, { tokenOnly: true });
+      expect(cardsApi.search).toHaveBeenCalledWith('goblin', 1, 500, { tokenOnly: true });
       expect(fixture.nativeElement.textContent).toContain('Goblin Token');
 
       fixture.nativeElement.querySelector('.token-add-button')?.click();

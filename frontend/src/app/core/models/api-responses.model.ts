@@ -8,6 +8,7 @@ import { User } from './user.model';
 
 export interface ApiError {
   error: string;
+  code?: string;
 }
 
 export interface DataResponse<T> {
@@ -132,6 +133,12 @@ export interface RoomInviteResponse {
 
 export interface GameResponse {
   game: Game;
+}
+
+export interface GameWebsocketTicketResponse {
+  ticket: string;
+  expiresAt: string;
+  websocketUrl: string;
 }
 
 export interface CommandResponse {

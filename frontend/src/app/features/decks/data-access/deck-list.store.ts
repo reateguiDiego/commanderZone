@@ -5,6 +5,7 @@ import { firstValueFrom } from 'rxjs';
 import { DeckFoldersApi } from '../../../core/api/deck-folders.api';
 import { DeckFormatsApi } from '../../../core/api/deck-formats.api';
 import { DecksApi } from '../../../core/api/decks.api';
+import { ApiError } from '../../../core/models/api-responses.model';
 import { Card } from '../../../core/models/card.model';
 import { CommanderValidation, Deck, DeckFolder, DeckFolderVisibility, DeckFormat, DeckVisibility } from '../../../core/models/deck.model';
 import { bestCardArtImage, bestCardImage } from '../../../shared/utils/card-image';
@@ -34,6 +35,9 @@ export class DeckListStore {
   readonly deckEditModalOpen = signal(false);
   readonly deleteModalOpen = signal(false);
   readonly deleteTarget = signal<Deck | null>(null);
+  readonly deleteBlockedMessage = signal<string | null>(null);
+  readonly createSuccessModalOpen = signal(false);
+  readonly createSuccessDeck = signal<Deck | null>(null);
   readonly deckEditTarget = signal<Deck | null>(null);
   readonly folderTarget = signal<DeckFolder | null>(null);
   readonly createdDeck = signal<Deck | null>(null);
@@ -76,6 +80,20 @@ export class DeckListStore {
   readonly selectedFormat = computed(() => this.formats().find((format) => format.id === this.newDeckFormatId) ?? null);
   readonly selectedCommanderImage = computed(() => bestCardImage(this.selectedCommander()));
   readonly hasDeckListContent = computed(() => this.decks().length > 0 || this.folders().length > 0);
+  readonly deleteModalTitle = computed(() => this.deleteBlockedMessage() ? 'Deck in use' : 'Delete deck');
+  readonly deleteModalMessage = computed(() => {
+    const blockedMessage = this.deleteBlockedMessage();
+    if (blockedMessage) {
+      return blockedMessage;
+    }
+
+    const deck = this.deleteTarget();
+    return deck ? `Delete ${deck.name}?` : '';
+  });
+  readonly deleteModalPrimaryLabel = computed(() => this.deleteBlockedMessage() ? 'OK' : 'Delete');
+  readonly deleteModalShowsSecondary = computed(() => this.deleteBlockedMessage() === null);
+  readonly deleteModalIsDanger = computed(() => this.deleteBlockedMessage() === null);
+  readonly createSuccessMessage = computed(() => 'This deck has been saved. It is now in your saved decks list, and you can edit it however you like. Good luck with your Commander deck!');
 
   newDeckName = '';
   newDeckFormatId = 'commander';
@@ -149,6 +167,20 @@ export class DeckListStore {
     const deck = this.createdDeck();
     this.closeCreateModal();
     if (deck) {
+      this.createSuccessDeck.set(deck);
+      this.createSuccessModalOpen.set(true);
+    }
+  }
+
+  closeCreateSuccessModal(): void {
+    this.createSuccessModalOpen.set(false);
+    this.createSuccessDeck.set(null);
+  }
+
+  openCreatedDeckFromSuccess(): void {
+    const deck = this.createSuccessDeck();
+    this.closeCreateSuccessModal();
+    if (deck) {
       void this.router.navigate(['/decks', deck.id]);
     }
   }
@@ -172,7 +204,7 @@ export class DeckListStore {
 
   submitCreateModal(): void {
     if (this.createFormLocked()) {
-      this.closeCreateModal();
+      this.closeCreateFlow();
       return;
     }
 
@@ -185,10 +217,14 @@ export class DeckListStore {
 
   createPrimaryLabel(): string {
     if (this.createFormLocked()) {
-      return 'Close';
+      return 'Accept';
     }
 
     return this.createSubmitting() ? 'Creating...' : 'Create deck';
+  }
+
+  createModalTitle(): string {
+    return this.createFormLocked() ? 'Warning' : 'Create deck';
   }
 
   isCreateFormDisabled(): boolean {
@@ -389,7 +425,14 @@ export class DeckListStore {
 
   deleteDeck(deck: Deck): void {
     this.deleteTarget.set(deck);
+    this.deleteBlockedMessage.set(null);
     this.deleteModalOpen.set(true);
+  }
+
+  closeDeleteModal(): void {
+    this.deleteModalOpen.set(false);
+    this.deleteTarget.set(null);
+    this.deleteBlockedMessage.set(null);
   }
 
   enterFolder(folderId: string): void {
@@ -660,6 +703,11 @@ export class DeckListStore {
   }
 
   async confirmDeleteDeck(): Promise<void> {
+    if (this.deleteBlockedMessage()) {
+      this.closeDeleteModal();
+      return;
+    }
+
     const deck = this.deleteTarget();
     if (!deck) {
       return;
@@ -673,19 +721,43 @@ export class DeckListStore {
         delete next[deck.id];
         return next;
       });
-      this.deleteModalOpen.set(false);
-      this.deleteTarget.set(null);
-    } catch {
-      this.error.set('Could not delete deck.');
+      this.closeDeleteModal();
+    } catch (error) {
+      if (this.apiErrorCode(error) === 'deck.in_use') {
+        this.deleteBlockedMessage.set(this.apiErrorMessage(error, 'This deck cannot be deleted because it is being used in a game.'));
+        return;
+      }
+
+      this.error.set(this.apiErrorMessage(error, 'Could not delete deck.'));
     }
   }
 
   private apiErrorMessage(error: unknown, fallback: string): string {
-    if (error instanceof HttpErrorResponse && typeof error.error?.error === 'string' && error.error.error.trim()) {
-      return error.error.error;
+    const response = this.apiError(error);
+    if (response && response.error.trim()) {
+      return response.error;
     }
 
     return fallback;
+  }
+
+  private apiErrorCode(error: unknown): string | null {
+    return this.apiError(error)?.code ?? null;
+  }
+
+  private apiError(error: unknown): ApiError | null {
+    if (!(error instanceof HttpErrorResponse) || !error.error || typeof error.error !== 'object') {
+      return null;
+    }
+
+    const response = error.error as Partial<ApiError>;
+    if (typeof response.error !== 'string') {
+      return null;
+    }
+
+    return typeof response.code === 'string'
+      ? { error: response.error, code: response.code }
+      : { error: response.error };
   }
 
   private isCreateFormReady(): boolean {

@@ -92,9 +92,12 @@ jobs:
             COMPOSE_ARGS+=(-f "$REPO_DIR/docker-compose.prod.yml")
           fi
 
+          # Validate merged compose with production env interpolation before applying changes.
+          docker compose "${COMPOSE_ARGS[@]}" config >/dev/null
+
           # Ensure DB service is running and resolvable before running migrations from api.
           docker compose "${COMPOSE_ARGS[@]}" up -d database
-          docker compose "${COMPOSE_ARGS[@]}" up -d --build --no-deps api mercure
+          docker compose "${COMPOSE_ARGS[@]}" up -d --build --no-deps api mercure websocket
           DB_CONTAINER_ID="$(docker compose "${COMPOSE_ARGS[@]}" ps -q database)"
           if [ -z "$DB_CONTAINER_ID" ]; then
             echo "Database container not found in compose project." >&2
@@ -110,6 +113,24 @@ jobs:
           if [ "$DB_HEALTH" != "healthy" ] && [ "$DB_HEALTH" != "running" ]; then
             echo "Database container did not become ready. Current health: $DB_HEALTH" >&2
             docker compose "${COMPOSE_ARGS[@]}" logs --tail=100 database || true
+            exit 1
+          fi
+
+          WS_CONTAINER_ID="$(docker compose "${COMPOSE_ARGS[@]}" ps -q websocket)"
+          if [ -z "$WS_CONTAINER_ID" ]; then
+            echo "Websocket container not found in compose project." >&2
+            exit 1
+          fi
+          for i in $(seq 1 30); do
+            WS_HEALTH="$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}running{{end}}' "$WS_CONTAINER_ID" 2>/dev/null || true)"
+            if [ "$WS_HEALTH" = "healthy" ] || [ "$WS_HEALTH" = "running" ]; then
+              break
+            fi
+            sleep 2
+          done
+          if [ "$WS_HEALTH" != "healthy" ] && [ "$WS_HEALTH" != "running" ]; then
+            echo "Websocket container did not become ready. Current health: $WS_HEALTH" >&2
+            docker compose "${COMPOSE_ARGS[@]}" logs --tail=100 websocket || true
             exit 1
           fi
 

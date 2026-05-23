@@ -37,7 +37,7 @@ jobs:
         run: npx playwright install --with-deps
 
       - name: Start backend services
-        run: docker compose up -d database mercure mailpit api
+        run: docker compose up -d database mercure mailpit api websocket
 
       - name: Run backend migrations
         run: docker compose exec -T api php bin/console doctrine:migrations:migrate --no-interaction
@@ -64,4 +64,4 @@ jobs:
 
       - name: Print backend logs on failure
         if: failure()
-        run: docker compose logs --tail=200 api database mercure
+        run: docker compose logs --tail=200 api websocket database mercure
