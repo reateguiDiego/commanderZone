@@ -214,7 +214,9 @@ export class GameDebugWebsocketService implements OnDestroy {
 
   private debugWebsocketUrl(websocketUrl: string, gameId: string): string {
     const url = new URL(websocketUrl);
-    url.pathname = `/games/${encodeURIComponent(gameId)}/debug`;
+    const basePath = url.pathname.replace(/\/games\/[^/]+\/?$/, '');
+    const nextPath = `${basePath}/games/${encodeURIComponent(gameId)}/debug`;
+    url.pathname = nextPath.replace(/\/{2,}/g, '/');
     url.searchParams.delete('lastSeenVersion');
 
     return url.toString();
