@@ -66,4 +66,34 @@ class GameDebugHealthLiveStoreTest extends TestCase
         self::assertSame(1, $current['health']['traffic']['keepalive']['incoming']['messages']);
         self::assertSame(1, $current['health']['traffic']['keepalive']['outgoing']['messages']);
     }
+
+    public function testUpdatedAtTracksLastMutationInsteadOfReadTime(): void
+    {
+        $store = new GameDebugHealthLiveStore(new GameDebugHealthAggregator());
+        $store->subscribe('game-1', static function (): void {
+        });
+
+        $baseline = $store->reportForGame('game-1');
+        self::assertSame($baseline['generatedAt'], $baseline['updatedAt']);
+
+        sleep(1);
+        $afterRead = $store->reportForGame('game-1');
+        self::assertNotSame($baseline['generatedAt'], $afterRead['generatedAt']);
+        self::assertSame($afterRead['generatedAt'], $afterRead['updatedAt']);
+        self::assertNotSame($baseline['updatedAt'], $afterRead['updatedAt']);
+
+        sleep(1);
+        $store->recordIncomingMessage('game-1', [
+            'kind' => 'command',
+            'command' => ['type' => 'life.changed'],
+        ], 18);
+
+        $afterMutation = $store->reportForGame('game-1');
+        self::assertNotSame($afterRead['updatedAt'], $afterMutation['updatedAt']);
+
+        sleep(1);
+        $afterMutationRead = $store->reportForGame('game-1');
+        self::assertNotSame($afterMutation['generatedAt'], $afterMutationRead['generatedAt']);
+        self::assertSame($afterMutation['updatedAt'], $afterMutationRead['updatedAt']);
+    }
 }

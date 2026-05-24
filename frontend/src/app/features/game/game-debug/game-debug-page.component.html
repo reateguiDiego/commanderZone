@@ -62,6 +62,68 @@
       </article>
     </section>
 
+    <section class="debug-section">
+      <h2>Cola gameplay local</h2>
+      @if (queueMetrics(); as queue) {
+        <div class="debug-summary-grid">
+          <article>
+            <span>Depth</span>
+            <strong>{{ queue.queueDepth }}</strong>
+            <small>in-flight: {{ queue.inFlight ? 'si' : 'no' }}</small>
+          </article>
+          <article>
+            <span>Rates (60s)</span>
+            <strong>{{ queue.enqueueRate }} / {{ queue.drainRate }}</strong>
+            <small>enqueue/s - drain/s</small>
+          </article>
+          <article>
+            <span>Enqueue/Drain</span>
+            <strong>{{ queue.enqueueTotal }} / {{ queue.drainTotal }}</strong>
+            <small>acumulado local</small>
+          </article>
+          <article>
+            <span>Drops/Retry/Resync</span>
+            <strong>{{ queue.dropTotal }} / {{ queue.retryTotal }} / {{ queue.resyncTotal }}</strong>
+            <small>salud de cola local</small>
+          </article>
+        </div>
+      } @else {
+        <p class="debug-empty">Sin metricas locales de cola (abre la partida y genera actividad).</p>
+      }
+    </section>
+
+    <section class="debug-section">
+      <h2>Dead-letter local (ultimos 100)</h2>
+      @if (deadLetterEvents().length > 0) {
+        <div class="debug-table-wrap">
+          <table class="debug-table">
+            <thead>
+              <tr>
+                <th>At</th>
+                <th>Comando</th>
+                <th>Motivo</th>
+                <th>Retry</th>
+                <th>Detalle</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (entry of deadLetterEvents(); track entry.createdAt + entry.commandType + $index) {
+                <tr>
+                  <td>{{ entry.createdAt }}</td>
+                  <td>{{ entry.commandType }}</td>
+                  <td>{{ entry.reason }}</td>
+                  <td>{{ entry.retryCount }}</td>
+                  <td [title]="deadLetterTitle(entry)">{{ deadLetterTitle(entry) }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      } @else {
+        <p class="debug-empty">Sin eventos dead-letter.</p>
+      }
+    </section>
+
     <section class="debug-section debug-columns">
       <article>
         <h2>Keepalive cliente -&gt; servidor</h2>

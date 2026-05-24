@@ -9,7 +9,7 @@ import {
   GameDebugPlayerContext,
   GameDebugTrafficBucket,
 } from '../../../core/models/api-responses.model';
-import type { GameDebugSnapshotMetric } from './game-debug-snapshot-metrics.channel';
+import type { GameDebugDeadLetterEvent, GameDebugSnapshotMetric } from './game-debug-snapshot-metrics.channel';
 import { GameDebugSnapshotMetricsService } from './game-debug-snapshot-metrics.service';
 import { GameDebugWebsocketService } from './game-debug-websocket.service';
 
@@ -50,6 +50,8 @@ export class GameDebugPageComponent implements OnInit, OnDestroy {
 
     return report ? JSON.stringify(report, null, 2) : '';
   });
+  readonly queueMetrics = this.snapshotMetrics.queueMetrics;
+  readonly deadLetterEvents = computed(() => [...this.snapshotMetrics.deadLetterEvents()].reverse());
 
   ngOnInit(): void {
     this.snapshotMetrics.observe(this.gameId);
@@ -229,6 +231,11 @@ export class GameDebugPageComponent implements OnInit, OnDestroy {
 
   private snapshotMetric(action: GameDebugActionExchange): GameDebugSnapshotMetric | null {
     return this.snapshotMetrics.metricFor(action.clientActionId);
+  }
+
+  deadLetterTitle(entry: GameDebugDeadLetterEvent): string {
+    const details = entry.details?.trim();
+    return details && details !== '' ? details : 'Sin detalle adicional.';
   }
 
   private compareText(left: string | null | undefined, right: string | null | undefined): number {

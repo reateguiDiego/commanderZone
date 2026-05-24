@@ -269,6 +269,91 @@ describe('GameTableWebsocketGameplayService', () => {
     expect(metric?.['nextLines']).toBeGreaterThan(0);
   });
 
+  it('publishes queue metrics while debug observes gameplay traffic', async () => {
+    const channel = broadcastChannels[0];
+    channel.emit({
+      kind: 'debug_observe',
+      gameId: 'game-1',
+      observedAt: '2026-05-24T10:00:00.000Z',
+    });
+
+    const sent = service.sendCommand(context(), 'life.changed', { playerId: 'player-1', delta: -1 });
+    const message = sentMessage();
+
+    messages.next({
+      kind: 'game_patch',
+      gameId: 'game-1',
+      baseVersion: 1,
+      version: 2,
+      clientActionId: message.command.clientActionId,
+      operations: [{ op: 'player.life.set', playerId: 'player-1', value: 39 }],
+    });
+    await sent;
+
+    const queueMetrics = channel.sentMessages
+      .filter((item): item is Record<string, unknown> => typeof item === 'object' && item !== null && (item as { kind?: unknown }).kind === 'queue_metrics');
+    expect(queueMetrics.length).toBeGreaterThan(0);
+
+    const latest = queueMetrics.at(-1);
+    expect(latest).toMatchObject({
+      kind: 'queue_metrics',
+      gameId: 'game-1',
+      queueDepth: 0,
+      inFlight: false,
+      enqueueTotal: 1,
+      drainTotal: 1,
+      dropTotal: 0,
+      retryTotal: 0,
+    });
+    expect(Number(latest?.['enqueueRate'])).toBeGreaterThanOrEqual(0);
+    expect(Number(latest?.['drainRate'])).toBeGreaterThanOrEqual(0);
+  });
+
+  it('applies queue depth cap by dropping only coalescible commands', async () => {
+    const channel = broadcastChannels[0];
+    channel.emit({
+      kind: 'debug_observe',
+      gameId: 'game-1',
+      observedAt: '2026-05-24T10:00:00.000Z',
+    });
+
+    const blocker = service.sendCommand(context(), 'life.changed', { playerId: 'player-1', delta: -1 });
+    const blockerMessage = sentMessage();
+
+    const pending: Promise<unknown>[] = [];
+    pending.push(service.sendCommand(context(), 'chat.message', { message: 'sensitive-non-coalescible' }).catch(() => undefined));
+
+    for (let index = 0; index < 240; index += 1) {
+      pending.push(service.sendCommand(context(), 'card.position.changed', {
+        playerId: 'player-1',
+        zone: 'battlefield',
+        instanceId: `burst-${index}`,
+        position: { x: (index % 100) / 100, y: ((index * 3) % 100) / 100, unit: 'ratio' },
+      }).catch(() => undefined));
+    }
+    await Promise.resolve();
+
+    const droppedEvents = channel.sentMessages
+      .filter((item): item is Record<string, unknown> => typeof item === 'object' && item !== null && (item as { kind?: unknown }).kind === 'dead_letter_event')
+      .filter((item) => item['reason'] === 'queue_dropped');
+
+    expect(droppedEvents.length).toBeGreaterThan(0);
+    expect(droppedEvents.every((event) => event['commandType'] === 'card.position.changed')).toBe(true);
+    expect(droppedEvents.some((event) => event['commandType'] === 'chat.message')).toBe(false);
+
+    messages.next({
+      kind: 'game_patch',
+      gameId: 'game-1',
+      baseVersion: 1,
+      version: 2,
+      clientActionId: blockerMessage.command.clientActionId,
+      operations: [{ op: 'player.life.set', playerId: 'player-1', value: 39 }],
+    });
+    await blocker;
+    service.stop();
+    await Promise.allSettled(pending);
+  });
+
   it('sends power toughness and loyalty changes over websocket and applies stats patches without snapshot refetch', async () => {
     const sent = service.sendCommand(context(), 'card.power_toughness.changed', {
       playerId: 'player-1',

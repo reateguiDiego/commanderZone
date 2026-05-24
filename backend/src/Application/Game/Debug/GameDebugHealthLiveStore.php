@@ -10,6 +10,11 @@ final class GameDebugHealthLiveStore
     private array $states = [];
 
     /**
+     * @var array<string,\DateTimeImmutable>
+     */
+    private array $lastUpdatedAt = [];
+
+    /**
      * @var array<string,array<string,\Closure(array<string,mixed>):void>>
      */
     private array $subscribers = [];
@@ -44,7 +49,7 @@ final class GameDebugHealthLiveStore
     {
         unset($this->subscribers[$gameId][$subscriberId]);
         if (($this->subscribers[$gameId] ?? []) === []) {
-            unset($this->subscribers[$gameId], $this->states[$gameId]);
+            unset($this->subscribers[$gameId], $this->states[$gameId], $this->lastUpdatedAt[$gameId]);
         }
     }
 
@@ -53,12 +58,15 @@ final class GameDebugHealthLiveStore
      */
     public function reportForGame(string $gameId): array
     {
+        $generatedAt = new \DateTimeImmutable();
+        $updatedAt = $this->lastUpdatedAt[$gameId] ?? $generatedAt;
+
         return [
             'gameId' => $gameId,
             'enabled' => $this->isObserved($gameId),
             'health' => $this->aggregator->normalize($this->states[$gameId] ?? []),
-            'generatedAt' => (new \DateTimeImmutable())->format(DATE_ATOM),
-            'updatedAt' => (new \DateTimeImmutable())->format(DATE_ATOM),
+            'generatedAt' => $generatedAt->format(DATE_ATOM),
+            'updatedAt' => $updatedAt->format(DATE_ATOM),
         ];
     }
 
@@ -138,6 +146,7 @@ final class GameDebugHealthLiveStore
         }
 
         $this->states[$gameId] = $this->aggregator->normalize($mutator($this->states[$gameId] ?? []));
+        $this->lastUpdatedAt[$gameId] = new \DateTimeImmutable();
         if (!$publish) {
             return;
         }

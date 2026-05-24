@@ -15,6 +15,38 @@ export interface GameDebugSnapshotMetric {
   measuredAt: string;
 }
 
+export type GameDebugQueueDeadLetterReason =
+  | 'timeout'
+  | 'rejected'
+  | 'resync_retry_exhausted'
+  | 'queue_dropped'
+  | 'disconnect';
+
+export interface GameDebugQueueMetrics {
+  kind: 'queue_metrics';
+  gameId: string;
+  queueDepth: number;
+  inFlight: boolean;
+  enqueueTotal: number;
+  drainTotal: number;
+  dropTotal: number;
+  retryTotal: number;
+  resyncTotal: number;
+  enqueueRate: number;
+  drainRate: number;
+  measuredAt: string;
+}
+
+export interface GameDebugDeadLetterEvent {
+  kind: 'dead_letter_event';
+  gameId: string;
+  commandType: string;
+  reason: GameDebugQueueDeadLetterReason;
+  retryCount: number;
+  createdAt: string;
+  details: string | null;
+}
+
 export type GameDebugSnapshotMetricsMessage =
   | {
       kind: 'debug_observe';
@@ -25,7 +57,9 @@ export type GameDebugSnapshotMetricsMessage =
       kind: 'debug_unobserve';
       gameId: string;
     }
-  | GameDebugSnapshotMetric;
+  | GameDebugSnapshotMetric
+  | GameDebugQueueMetrics
+  | GameDebugDeadLetterEvent;
 
 export function createGameDebugSnapshotMetricsChannel(): BroadcastChannel | null {
   if (typeof BroadcastChannel === 'undefined') {
@@ -42,5 +76,9 @@ export function isGameDebugSnapshotMetricsMessage(value: unknown): value is Game
 
   const kind = String((value as { kind: unknown }).kind);
 
-  return kind === 'debug_observe' || kind === 'debug_unobserve' || kind === 'snapshot_metric';
+  return kind === 'debug_observe'
+    || kind === 'debug_unobserve'
+    || kind === 'snapshot_metric'
+    || kind === 'queue_metrics'
+    || kind === 'dead_letter_event';
 }
