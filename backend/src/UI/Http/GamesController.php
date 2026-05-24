@@ -6,6 +6,7 @@ use App\Application\Game\GameCommandHandler;
 use App\Application\Game\GameDisconnectVoteService;
 use App\Application\Game\GameProjectionService;
 use App\Application\Game\GameRematchService;
+use App\Application\Game\Debug\GameDebugHealthStore;
 use App\Application\Game\WebSocket\GameWebsocketRoomRegistry;
 use App\Application\Game\WebSocket\GameWebsocketTicketManager;
 use App\Domain\Game\Game;
@@ -70,6 +71,40 @@ class GamesController extends ApiController
             'ticket' => $ticket->ticket,
             'expiresAt' => $ticket->expiresAt->format(DATE_ATOM),
             'websocketUrl' => rtrim($websocketPublicUrl, '/').'/games/'.$game->id().'?ticket='.rawurlencode($ticket->ticket),
+        ]);
+    }
+
+    #[Route('/games/{id}/debug/health', methods: ['GET'])]
+    public function debugHealth(
+        string $id,
+        #[CurrentUser] User $user,
+        EntityManagerInterface $entityManager,
+        GameProjectionService $projection,
+        GameDebugHealthStore $debugHealth,
+        #[Autowire('%game_debug_health_enabled%')]
+        bool $debugHealthEnabled,
+    ): JsonResponse {
+        if (!$debugHealthEnabled) {
+            return $this->fail('Game debug health not found.', 404);
+        }
+
+        $game = $entityManager->getRepository(Game::class)->find($id);
+        if (!$game instanceof Game) {
+            return $this->fail('Game not found.', 404);
+        }
+        if (!$game->canBeViewedBy($user)) {
+            return $this->fail('Game access denied.', 403);
+        }
+
+        $report = $debugHealth->reportForGame($game->id());
+        $generatedAt = (new \DateTimeImmutable())->format(DATE_ATOM);
+
+        return $this->json([
+            'gameId' => $game->id(),
+            'snapshot' => $projection->project($game, $user),
+            'health' => $report['health'],
+            'generatedAt' => $generatedAt,
+            'updatedAt' => $report['updatedAt'] ?? $generatedAt,
         ]);
     }
 

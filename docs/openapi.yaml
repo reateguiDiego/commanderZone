@@ -1869,7 +1869,7 @@ paths:
     post:
       tags: [Games]
       summary: Issue a short-lived gameplay WebSocket ticket.
-      description: The ticket is scoped to the game and current authenticated user. It is used only to open the gameplay WebSocket connection; commands are not executed over WebSocket yet.
+      description: The ticket is scoped to the game and current authenticated user and is used to open the gameplay WebSocket connection.
       parameters:
         - $ref: '#/components/parameters/Id'
       responses:
@@ -1879,6 +1879,26 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/GameWebsocketTicketResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+  /games/{id}/debug/health:
+    get:
+      tags: [Games]
+      summary: Get private gameplay debug health for one game.
+      description: Returns projected snapshot plus technical WebSocket/sync diagnostics. This endpoint is intentionally private and may return 404 when GAME_DEBUG_HEALTH_ENABLED is disabled.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Projected snapshot and debug health report.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameDebugHealthResponse'
         '401':
           $ref: '#/components/responses/Error'
         '403':
@@ -2160,6 +2180,134 @@ components:
           type: string
           format: uri
           example: ws://127.0.0.1:8081/games/01966d5f-0000-7000-8000-000000000000?ticket=...
+    GameDebugHealthResponse:
+      type: object
+      required: [gameId, snapshot, health, generatedAt, updatedAt]
+      properties:
+        gameId:
+          type: string
+          format: uuid
+        snapshot:
+          $ref: '#/components/schemas/GameSnapshot'
+        health:
+          $ref: '#/components/schemas/GameDebugHealth'
+        generatedAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    GameDebugHealth:
+      type: object
+      required: [websocket, pipeline, replay, sync, errors, recent, events]
+      properties:
+        websocket:
+          type: object
+          required: [connections]
+          properties:
+            connections:
+              type: object
+              required: [total, byUser, transitions]
+              properties:
+                total:
+                  type: integer
+                byUser:
+                  type: object
+                  additionalProperties:
+                    type: object
+                    additionalProperties: true
+                transitions:
+                  type: object
+                  required: [online, offline]
+                  properties:
+                    online:
+                      type: integer
+                    offline:
+                      type: integer
+            lastSeen:
+              type: object
+              nullable: true
+              additionalProperties: true
+        pipeline:
+          type: object
+          required: [gamePatch, commandAck, resyncRequired, error, pong, presenceChanged]
+          properties:
+            gamePatch:
+              type: integer
+            commandAck:
+              type: object
+              required: [rejected, duplicate, resync_required]
+              properties:
+                rejected:
+                  type: integer
+                duplicate:
+                  type: integer
+                resync_required:
+                  type: integer
+            resyncRequired:
+              type: integer
+            error:
+              type: integer
+            pong:
+              type: integer
+            presenceChanged:
+              type: integer
+        replay:
+          type: object
+          required: [attempts, hits, misses, gaps, lastWindow]
+          properties:
+            attempts:
+              type: integer
+            hits:
+              type: integer
+            misses:
+              type: integer
+            gaps:
+              type: integer
+            lastWindow:
+              type: object
+              nullable: true
+              additionalProperties: true
+        sync:
+          type: object
+          required: [lastGamePatch, lastVersionGap, lastConflict, lastError]
+          properties:
+            lastGamePatch:
+              type: object
+              nullable: true
+              additionalProperties: true
+            lastVersionGap:
+              type: object
+              nullable: true
+              additionalProperties: true
+            lastConflict:
+              type: object
+              nullable: true
+              additionalProperties: true
+            lastError:
+              type: object
+              nullable: true
+              additionalProperties: true
+        errors:
+          type: object
+          required: [total, byCode]
+          properties:
+            total:
+              type: integer
+            byCode:
+              type: object
+              additionalProperties:
+                type: integer
+        recent:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        events:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
     RoomStartError:
       allOf:
         - $ref: '#/components/schemas/Error'
