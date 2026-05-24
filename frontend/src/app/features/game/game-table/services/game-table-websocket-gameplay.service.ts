@@ -26,6 +26,13 @@ export interface GameTableWebsocketGameplayContext {
 
 interface PendingWebsocketCommand {
   messageId: string;
+  clientActionId: string;
+  type: GameWebsocketCommandType;
+  payload: Record<string, unknown>;
+  context: GameTableWebsocketGameplayContext;
+  retryCount: number;
+  retryable: boolean;
+  coalesceKey: string | null;
   resolve(): void;
   reject(error: Error): void;
   timeoutId: number;
@@ -77,11 +84,58 @@ const WEBSOCKET_COMMANDS = new Set<GameWebsocketCommandType>([
   'disconnect.vote',
 ]);
 
+const COALESCED_COMMANDS = new Set<GameWebsocketCommandType>([
+  'life.changed',
+  'commander.damage.changed',
+  'counter.changed',
+  'card.position.changed',
+  'cards.position.changed',
+]);
+const RETRYABLE_COMMANDS = new Set<GameWebsocketCommandType>([
+  'life.changed',
+  'commander.damage.changed',
+  'counter.changed',
+  'card.position.changed',
+  'cards.position.changed',
+  'card.tapped',
+  'card.moved',
+  'cards.moved',
+  'zone.changed',
+  'zone.move_all',
+  'zone.random_card.selected',
+  'library.draw',
+  'library.draw_many',
+  'library.shuffle',
+  'library.move_top',
+  'library.reveal_top',
+  'library.reveal',
+  'library.view',
+  'library.play_top_revealed',
+  'library.reorder_top',
+  'card.face_down.changed',
+  'card.face.changed',
+  'card.revealed',
+  'card.counter.changed',
+  'card.power_toughness.changed',
+  'card.controller.changed',
+  'battlefield.untap_all',
+  'card.token.created',
+  'card.token_copy.created',
+  'stack.card_added',
+  'stack.item_removed',
+  'arrow.created',
+  'arrow.removed',
+  'attachment.created',
+  'attachment.removed',
+  'disconnect.vote',
+]);
+const MAX_RETRY_COUNT = 1;
+
 @Injectable()
 export class GameTableWebsocketGameplayService implements OnDestroy {
   private readonly transport = inject(GameTableWebsocketTransportService);
-  private readonly pendingCommands = new Map<string, PendingWebsocketCommand>();
-  private readonly messageIdToClientActionId = new Map<string, string>();
+  private readonly commandQueue: PendingWebsocketCommand[] = [];
+  private inFlightCommand: PendingWebsocketCommand | null = null;
   private subscription?: Subscription;
   private context: GameTableWebsocketGameplayContext | null = null;
   private resyncPromise: Promise<void> | null = null;
@@ -123,9 +177,8 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
     this.queuedResyncPromise = null;
     this.closeSnapshotMetricsChannel();
     this.connected.set(false);
-    for (const clientActionId of [...this.pendingCommands.keys()]) {
-      this.rejectPending(clientActionId, new Error('WebSocket connection closed before the command completed.'));
-    }
+    this.rejectInFlightCommand(new Error('WebSocket connection closed before the command completed.'));
+    this.rejectQueuedCommands(new Error('WebSocket connection closed before the command completed.'));
     this.transport.disconnect();
   }
 
@@ -145,27 +198,10 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
       return false;
     }
 
-    const clientActionId = this.randomId('action');
-    const messageId = this.randomId('message');
-    const pending = this.createPendingCommand(clientActionId, messageId);
-    const message = {
-      kind: 'command',
-      gameId,
-      messageId,
-      command: {
-        type,
-        payload: commandPayload,
-        clientActionId,
-        baseVersion: snapshot.version,
-      },
-    } satisfies GameplayClientMessage;
-
-    if (!this.transport.send(message)) {
-      this.resolvePending(clientActionId);
-      return false;
-    }
-
-    await pending;
+    const pending = this.createPendingCommand(context, type, commandPayload);
+    this.enqueueCommand(pending);
+    this.drainQueue();
+    await pending.wait;
     return true;
   }
 
@@ -178,6 +214,9 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
     switch (message.kind) {
       case 'connection_state':
         this.connected.set(message.status === 'connected');
+        if (message.status === 'connected') {
+          this.drainQueue();
+        }
         return;
 
       case 'game_patch':
@@ -208,7 +247,8 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
     const snapshot = context.snapshot();
     if (!snapshot) {
       await this.requestResync(context);
-      this.resolvePending(patch.clientActionId);
+      this.resolveInFlightCommand(patch.clientActionId);
+      this.drainQueue();
       return;
     }
 
@@ -217,42 +257,51 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
     if (result.status === 'applied') {
       context.setSnapshot(result.snapshot);
       this.publishSnapshotMetric(context.gameId(), patch, previousSnapshotSize, this.snapshotSize(result.snapshot));
-      this.resolvePending(patch.clientActionId);
+      this.resolveInFlightCommand(patch.clientActionId);
+      this.drainQueue();
       return;
     }
 
     if (result.status === 'ignored') {
-      this.resolvePending(patch.clientActionId);
+      this.resolveInFlightCommand(patch.clientActionId);
+      this.drainQueue();
       return;
     }
 
     await this.requestResync(context);
-    this.resolvePending(patch.clientActionId);
+    this.resolveInFlightCommand(patch.clientActionId);
+    this.drainQueue();
   }
 
   private async handleCommandAck(context: GameTableWebsocketGameplayContext, ack: GameplayCommandAckMessage): Promise<void> {
     if (ack.status === 'rejected') {
-      this.rejectPending(ack.clientActionId, new Error(ack.error?.message ?? 'WebSocket command rejected.'));
+      this.rejectInFlightCommand(new Error(ack.error?.message ?? 'WebSocket command rejected.'));
+      this.drainQueue();
       return;
     }
 
-    await this.requestResync(context);
-    this.resolvePending(ack.clientActionId);
+    if (ack.status === 'duplicate') {
+      await this.requestResync(context);
+      this.resolveInFlightCommand();
+      this.drainQueue();
+      return;
+    }
+
+    await this.handleCommandResyncRequired(context);
   }
 
   private async handleResyncRequired(context: GameTableWebsocketGameplayContext, message: GameplayResyncRequiredMessage): Promise<void> {
-    this.closePendingForResync(message.clientActionId);
+    this.resolveInFlightCommand(message.clientActionId);
     await this.requestResync(context);
+    this.drainQueue();
   }
 
   private handleError(message: GameplayErrorMessage): void {
-    const clientActionId = message.clientActionId
-      ?? (message.messageId ? this.messageIdToClientActionId.get(message.messageId) : undefined);
+    const clientActionId = message.clientActionId;
     const error = new Error(message.error.message || 'WebSocket gameplay error.');
-    if (clientActionId) {
-      this.rejectPending(clientActionId, error);
-    }
+    this.rejectInFlightCommand(error, clientActionId, message.messageId);
     this.context?.setError(message.error.message || 'WebSocket gameplay error.');
+    this.drainQueue();
   }
 
   private requestResync(context: GameTableWebsocketGameplayContext): Promise<void> {
@@ -267,6 +316,7 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
       this.queuedResyncPromise = null;
       this.resyncPromise ??= context.refetch(true).finally(() => {
         this.resyncPromise = null;
+        this.drainQueue();
       });
 
       return this.resyncPromise;
@@ -275,67 +325,211 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
     return this.queuedResyncPromise;
   }
 
-  private createPendingCommand(clientActionId: string, messageId: string): Promise<void> {
-    const pending = new Promise<void>((resolve, reject) => {
-      const timeoutId = window.setTimeout(() => {
-        this.rejectPending(clientActionId, new Error('WebSocket command timed out.'));
-      }, 10000);
-      this.pendingCommands.set(clientActionId, {
-        messageId,
-        resolve,
-        reject,
-        timeoutId,
-      });
-      this.messageIdToClientActionId.set(messageId, clientActionId);
+  private createPendingCommand(
+    context: GameTableWebsocketGameplayContext,
+    type: GameWebsocketCommandType,
+    payload: Record<string, unknown>,
+  ): PendingWebsocketCommand & { wait: Promise<void> } {
+    let resolve: () => void = () => undefined;
+    let reject: (error: Error) => void = () => undefined;
+    const wait = new Promise<void>((resolveCallback, rejectCallback) => {
+      resolve = resolveCallback;
+      reject = rejectCallback;
     });
 
-    return pending;
+    return {
+      messageId: '',
+      clientActionId: '',
+      type,
+      payload,
+      context,
+      retryCount: 0,
+      retryable: RETRYABLE_COMMANDS.has(type),
+      coalesceKey: this.coalesceKey(type, payload),
+      resolve,
+      reject,
+      timeoutId: 0,
+      wait,
+    };
   }
 
-  private resolvePending(clientActionId: string | undefined): void {
-    if (!clientActionId) {
+  private enqueueCommand(command: PendingWebsocketCommand): void {
+    if (command.coalesceKey !== null) {
+      for (let index = this.commandQueue.length - 1; index >= 0; index -= 1) {
+        const queued = this.commandQueue[index];
+        if (queued.coalesceKey !== command.coalesceKey) {
+          continue;
+        }
+
+        queued.payload = command.payload;
+        queued.context = command.context;
+        const previousResolve = queued.resolve;
+        const previousReject = queued.reject;
+        queued.resolve = () => {
+          previousResolve();
+          command.resolve();
+        };
+        queued.reject = (error) => {
+          previousReject(error);
+          command.reject(error);
+        };
+        return;
+      }
+    }
+
+    this.commandQueue.push(command);
+  }
+
+  private drainQueue(): void {
+    if (this.inFlightCommand || this.commandQueue.length === 0 || this.isResyncing() || this.transport.status() !== 'connected') {
       return;
     }
 
-    const pending = this.pendingCommands.get(clientActionId);
-    if (!pending) {
+    const queued = this.commandQueue.shift();
+    if (!queued) {
       return;
     }
 
-    this.clearPending(clientActionId);
-    pending.resolve();
-  }
-
-  private rejectPending(clientActionId: string, error: Error): void {
-    const pending = this.pendingCommands.get(clientActionId);
-    if (!pending) {
+    const snapshot = queued.context.snapshot();
+    const gameId = queued.context.gameId();
+    if (!snapshot || !gameId) {
+      queued.reject(new Error('WebSocket command could not be prepared because the local snapshot is unavailable.'));
+      this.drainQueue();
       return;
     }
 
-    this.clearPending(clientActionId);
-    pending.reject(error);
+    const clientActionId = this.randomId('action');
+    const messageId = this.randomId('message');
+    const message = {
+      kind: 'command',
+      gameId,
+      messageId,
+      command: {
+        type: queued.type,
+        payload: queued.payload,
+        clientActionId,
+        baseVersion: snapshot.version,
+      },
+    } satisfies GameplayClientMessage;
+
+    queued.messageId = messageId;
+    queued.clientActionId = clientActionId;
+    queued.timeoutId = window.setTimeout(() => {
+      this.rejectInFlightCommand(new Error('WebSocket command timed out.'), clientActionId, messageId);
+      this.drainQueue();
+    }, 10000);
+    this.inFlightCommand = queued;
+
+    if (!this.transport.send(message)) {
+      this.rejectInFlightCommand(new Error('WebSocket gameplay connection is not available.'), clientActionId, messageId);
+      this.drainQueue();
+    }
   }
 
-  private clearPending(clientActionId: string): void {
-    const pending = this.pendingCommands.get(clientActionId);
-    if (!pending) {
+  private resolveInFlightCommand(clientActionId?: string, messageId?: string): void {
+    const inFlight = this.inFlightCommand;
+    if (!inFlight || !this.matchesInFlight(inFlight, clientActionId, messageId)) {
       return;
     }
 
-    window.clearTimeout(pending.timeoutId);
-    this.pendingCommands.delete(clientActionId);
-    this.messageIdToClientActionId.delete(pending.messageId);
+    window.clearTimeout(inFlight.timeoutId);
+    this.inFlightCommand = null;
+    inFlight.resolve();
   }
 
-  private closePendingForResync(clientActionId?: string): void {
+  private rejectInFlightCommand(error: Error, clientActionId?: string, messageId?: string): void {
+    const inFlight = this.inFlightCommand;
+    if (!inFlight || !this.matchesInFlight(inFlight, clientActionId, messageId)) {
+      return;
+    }
+
+    window.clearTimeout(inFlight.timeoutId);
+    this.inFlightCommand = null;
+    inFlight.reject(error);
+  }
+
+  private rejectQueuedCommands(error: Error): void {
+    while (this.commandQueue.length > 0) {
+      const queued = this.commandQueue.shift();
+      queued?.reject(error);
+    }
+  }
+
+  private async handleCommandResyncRequired(
+    context: GameTableWebsocketGameplayContext,
+  ): Promise<void> {
+    const inFlight = this.inFlightCommand;
+    if (!inFlight) {
+      await this.requestResync(context);
+      this.drainQueue();
+      return;
+    }
+
+    window.clearTimeout(inFlight.timeoutId);
+    this.inFlightCommand = null;
+    await this.requestResync(context);
+
+    if (!inFlight.retryable || inFlight.retryCount >= MAX_RETRY_COUNT) {
+      inFlight.reject(new Error('WebSocket command requires resync and cannot be retried automatically.'));
+      this.drainQueue();
+      return;
+    }
+
+    inFlight.retryCount += 1;
+    inFlight.messageId = '';
+    inFlight.clientActionId = '';
+    inFlight.timeoutId = 0;
+    this.commandQueue.unshift(inFlight);
+    this.drainQueue();
+  }
+
+  private matchesInFlight(inFlight: PendingWebsocketCommand, clientActionId?: string, messageId?: string): boolean {
+    if (messageId) {
+      return inFlight.messageId === messageId;
+    }
     if (clientActionId) {
-      this.resolvePending(clientActionId);
-      return;
+      return inFlight.clientActionId === clientActionId;
     }
 
-    for (const pendingClientActionId of [...this.pendingCommands.keys()]) {
-      this.resolvePending(pendingClientActionId);
+    return true;
+  }
+
+  private isResyncing(): boolean {
+    return this.resyncPromise !== null || this.queuedResyncPromise !== null;
+  }
+
+  private coalesceKey(type: GameWebsocketCommandType, payload: Record<string, unknown>): string | null {
+    if (!COALESCED_COMMANDS.has(type)) {
+      return null;
     }
+
+    if (type === 'life.changed') {
+      return typeof payload['playerId'] === 'string' ? `${type}:${payload['playerId']}` : null;
+    }
+    if (type === 'commander.damage.changed') {
+      return typeof payload['targetPlayerId'] === 'string' && typeof payload['sourcePlayerId'] === 'string'
+        ? `${type}:${payload['targetPlayerId']}:${payload['sourcePlayerId']}`
+        : null;
+    }
+    if (type === 'counter.changed') {
+      return typeof payload['scope'] === 'string' && typeof payload['key'] === 'string'
+        ? `${type}:${payload['scope']}:${payload['key']}`
+        : null;
+    }
+    if (type === 'card.position.changed') {
+      return typeof payload['playerId'] === 'string'
+        && typeof payload['zone'] === 'string'
+        && typeof payload['instanceId'] === 'string'
+        ? `${type}:${payload['playerId']}:${payload['zone']}:${payload['instanceId']}`
+        : null;
+    }
+    if (type === 'cards.position.changed') {
+      return typeof payload['playerId'] === 'string' && typeof payload['zone'] === 'string'
+        ? `${type}:${payload['playerId']}:${payload['zone']}`
+        : null;
+    }
+
+    return null;
   }
 
   private randomId(prefix: string): string {

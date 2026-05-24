@@ -809,6 +809,144 @@ describe('GameTableWebsocketGameplayService', () => {
     expect(send).not.toHaveBeenCalled();
   });
 
+  it('serializes overlapping commands so the next command uses the latest baseVersion', async () => {
+    const firstSent = service.sendCommand(context(), 'life.changed', { playerId: 'player-1', delta: -1 });
+    const firstMessage = sentMessage();
+    const secondSent = service.sendCommand(context(), 'card.tapped', {
+      playerId: 'player-1',
+      zone: 'battlefield',
+      instanceId: 'battlefield-1',
+      tapped: true,
+    });
+
+    expect(send).toHaveBeenCalledTimes(1);
+
+    messages.next({
+      kind: 'game_patch',
+      gameId: 'game-1',
+      baseVersion: 1,
+      version: 2,
+      clientActionId: firstMessage.command.clientActionId,
+      operations: [{ op: 'player.life.set', playerId: 'player-1', value: 39 }],
+    });
+    await firstSent;
+
+    expect(send).toHaveBeenCalledTimes(2);
+    const secondMessage = sentMessage();
+    expect(secondMessage.command.baseVersion).toBe(2);
+
+    messages.next({
+      kind: 'game_patch',
+      gameId: 'game-1',
+      baseVersion: 2,
+      version: 3,
+      clientActionId: secondMessage.command.clientActionId,
+      operations: [{
+        op: 'card.state.set',
+        playerId: 'player-1',
+        zone: 'battlefield',
+        instanceId: 'battlefield-1',
+        tapped: true,
+      }],
+    });
+    await secondSent;
+  });
+
+  it('coalesces queued high-frequency commands using the latest payload', async () => {
+    const blocker = service.sendCommand(context(), 'life.changed', { playerId: 'player-1', delta: -1 });
+    const blockerMessage = sentMessage();
+    const firstPosition = service.sendCommand(context(), 'card.position.changed', {
+      playerId: 'player-1',
+      zone: 'battlefield',
+      instanceId: 'battlefield-1',
+      position: { x: 0.2, y: 0.3, unit: 'ratio' },
+    });
+    const secondPosition = service.sendCommand(context(), 'card.position.changed', {
+      playerId: 'player-1',
+      zone: 'battlefield',
+      instanceId: 'battlefield-1',
+      position: { x: 0.8, y: 0.6, unit: 'ratio' },
+    });
+
+    expect(send).toHaveBeenCalledTimes(1);
+
+    messages.next({
+      kind: 'game_patch',
+      gameId: 'game-1',
+      baseVersion: 1,
+      version: 2,
+      clientActionId: blockerMessage.command.clientActionId,
+      operations: [{ op: 'player.life.set', playerId: 'player-1', value: 39 }],
+    });
+    await blocker;
+
+    expect(send).toHaveBeenCalledTimes(2);
+    const coalescedMessage = sentMessage();
+    expect(coalescedMessage.command.type).toBe('card.position.changed');
+    expect(coalescedMessage.command.payload).toEqual({
+      playerId: 'player-1',
+      zone: 'battlefield',
+      instanceId: 'battlefield-1',
+      position: { x: 0.8, y: 0.6, unit: 'ratio' },
+    });
+
+    messages.next({
+      kind: 'game_patch',
+      gameId: 'game-1',
+      baseVersion: 2,
+      version: 3,
+      clientActionId: coalescedMessage.command.clientActionId,
+      operations: [{
+        op: 'card.position.set',
+        playerId: 'player-1',
+        zone: 'battlefield',
+        instanceId: 'battlefield-1',
+        position: { x: 0.8, y: 0.6, unit: 'ratio' },
+      }],
+    });
+
+    await firstPosition;
+    await secondPosition;
+  });
+
+  it('retries safe commands once after resync_required command_ack', async () => {
+    refetchSpy.mockImplementation(async () => {
+      snapshotState = {
+        ...snapshotState,
+        version: 5,
+      };
+    });
+
+    const sent = service.sendCommand(context(), 'life.changed', { playerId: 'player-1', delta: -1 });
+    const firstMessage = sentMessage();
+
+    messages.next({
+      kind: 'command_ack',
+      gameId: 'game-1',
+      messageId: firstMessage.messageId,
+      clientActionId: firstMessage.command.clientActionId,
+      status: 'resync_required',
+      version: 1,
+      error: { code: 'BASE_VERSION_MISMATCH', message: 'Need resync', retryable: true },
+    });
+    await vi.waitFor(() => expect(refetchSpy).toHaveBeenCalledTimes(1));
+    await vi.waitFor(() => expect(send).toHaveBeenCalledTimes(2));
+
+    const retriedMessage = sentMessage();
+    expect(retriedMessage.command.baseVersion).toBe(5);
+    expect(retriedMessage.command.clientActionId).not.toBe(firstMessage.command.clientActionId);
+
+    messages.next({
+      kind: 'game_patch',
+      gameId: 'game-1',
+      baseVersion: 5,
+      version: 6,
+      clientActionId: retriedMessage.command.clientActionId,
+      operations: [{ op: 'player.life.set', playerId: 'player-1', value: 39 }],
+    });
+    await sent;
+  });
+
   it('rejects the pending command on gameId mismatch errors', async () => {
     const sent = service.sendCommand(context(), 'life.changed', { playerId: 'player-1', delta: -1 });
     const message = sentMessage();

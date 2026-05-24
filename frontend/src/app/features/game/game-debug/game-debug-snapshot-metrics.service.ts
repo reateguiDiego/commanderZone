@@ -7,9 +7,12 @@ import type { GameDebugSnapshotMetric } from './game-debug-snapshot-metrics.chan
 
 @Injectable()
 export class GameDebugSnapshotMetricsService implements OnDestroy {
+  private static readonly MAX_METRICS = 500;
+
   private channel: BroadcastChannel | null = null;
   private observeTimer: number | null = null;
   private observedGameId: string | null = null;
+  private metricOrder: string[] = [];
 
   readonly metrics = signal<Record<string, GameDebugSnapshotMetric>>({});
 
@@ -19,6 +22,8 @@ export class GameDebugSnapshotMetricsService implements OnDestroy {
 
   observe(gameId: string): void {
     this.stop();
+    this.metrics.set({});
+    this.metricOrder = [];
     this.observedGameId = gameId;
     this.channel = createGameDebugSnapshotMetricsChannel();
     if (!this.channel) {
@@ -46,6 +51,8 @@ export class GameDebugSnapshotMetricsService implements OnDestroy {
     this.channel?.close();
     this.channel = null;
     this.observedGameId = null;
+    this.metricOrder = [];
+    this.metrics.set({});
   }
 
   metricFor(clientActionId: string | null | undefined): GameDebugSnapshotMetric | null {
@@ -69,6 +76,8 @@ export class GameDebugSnapshotMetricsService implements OnDestroy {
       ...current,
       [message.clientActionId]: message,
     }));
+
+    this.trackMetricKey(message.clientActionId);
   }
 
   private announceObservation(): void {
@@ -81,5 +90,26 @@ export class GameDebugSnapshotMetricsService implements OnDestroy {
       gameId: this.observedGameId,
       observedAt: new Date().toISOString(),
     });
+  }
+
+  private trackMetricKey(clientActionId: string): void {
+    const existingIndex = this.metricOrder.indexOf(clientActionId);
+    if (existingIndex >= 0) {
+      this.metricOrder.splice(existingIndex, 1);
+    }
+    this.metricOrder.push(clientActionId);
+
+    while (this.metricOrder.length > GameDebugSnapshotMetricsService.MAX_METRICS) {
+      const removedClientActionId = this.metricOrder.shift();
+      if (!removedClientActionId) {
+        continue;
+      }
+
+      this.metrics.update((current) => {
+        const next = { ...current };
+        delete next[removedClientActionId];
+        return next;
+      });
+    }
   }
 }
