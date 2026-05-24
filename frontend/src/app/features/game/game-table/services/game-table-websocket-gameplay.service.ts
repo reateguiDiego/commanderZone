@@ -9,6 +9,10 @@ import {
   GameplayResyncRequiredMessage,
   GameplayServerMessage,
 } from '../../../../core/models/game-realtime.model';
+import {
+  createGameDebugSnapshotMetricsChannel,
+  isGameDebugSnapshotMetricsMessage,
+} from '../../game-debug/game-debug-snapshot-metrics.channel';
 import { applyGameSnapshotPatch } from '../state/realtime/game-snapshot-patch-reducer';
 import { GameTableWebsocketTransportService } from './game-table-websocket-transport.service';
 
@@ -82,6 +86,9 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
   private context: GameTableWebsocketGameplayContext | null = null;
   private resyncPromise: Promise<void> | null = null;
   private queuedResyncPromise: Promise<void> | null = null;
+  private snapshotMetricsChannel: BroadcastChannel | null = null;
+  private observedDebugGameId: string | null = null;
+  private observedDebugUntil = 0;
 
   readonly status = this.transport.status;
   readonly connected = signal(false);
@@ -97,6 +104,7 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
   start(context: GameTableWebsocketGameplayContext, gameId: string): void {
     this.stop();
     this.context = context;
+    this.openSnapshotMetricsChannel();
     this.subscription = this.transport.messages$.subscribe((message) => {
       void this.handleMessage(message);
     });
@@ -113,6 +121,7 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
     this.context = null;
     this.resyncPromise = null;
     this.queuedResyncPromise = null;
+    this.closeSnapshotMetricsChannel();
     this.connected.set(false);
     for (const clientActionId of [...this.pendingCommands.keys()]) {
       this.rejectPending(clientActionId, new Error('WebSocket connection closed before the command completed.'));
@@ -203,9 +212,11 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
       return;
     }
 
+    const previousSnapshotSize = this.snapshotSize(snapshot);
     const result = applyGameSnapshotPatch(snapshot, patch);
     if (result.status === 'applied') {
       context.setSnapshot(result.snapshot);
+      this.publishSnapshotMetric(context.gameId(), patch, previousSnapshotSize, this.snapshotSize(result.snapshot));
       this.resolvePending(patch.clientActionId);
       return;
     }
@@ -361,5 +372,79 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
     const instanceId = (card as { instanceId?: unknown }).instanceId;
 
     return typeof instanceId === 'string' && instanceId.trim() !== '' ? instanceId : null;
+  }
+
+  private openSnapshotMetricsChannel(): void {
+    this.closeSnapshotMetricsChannel();
+    this.snapshotMetricsChannel = createGameDebugSnapshotMetricsChannel();
+    if (!this.snapshotMetricsChannel) {
+      return;
+    }
+
+    this.snapshotMetricsChannel.onmessage = (event) => {
+      const message = event.data;
+      if (!isGameDebugSnapshotMetricsMessage(message)) {
+        return;
+      }
+
+      if (message.kind === 'debug_observe') {
+        this.observedDebugGameId = message.gameId;
+        this.observedDebugUntil = Date.now() + 5000;
+      } else if (message.kind === 'debug_unobserve' && message.gameId === this.observedDebugGameId) {
+        this.observedDebugGameId = null;
+        this.observedDebugUntil = 0;
+      }
+    };
+  }
+
+  private closeSnapshotMetricsChannel(): void {
+    this.observedDebugGameId = null;
+    this.observedDebugUntil = 0;
+    this.snapshotMetricsChannel?.close();
+    this.snapshotMetricsChannel = null;
+  }
+
+  private publishSnapshotMetric(
+    gameId: string,
+    patch: GameplayGamePatchMessage,
+    previousSize: { lines: number; characters: number } | null,
+    nextSize: { lines: number; characters: number } | null,
+  ): void {
+    const channel = this.snapshotMetricsChannel;
+    if (!channel || !patch.clientActionId || this.observedDebugGameId !== gameId || Date.now() > this.observedDebugUntil) {
+      return;
+    }
+
+    channel.postMessage({
+      kind: 'snapshot_metric',
+      gameId,
+      clientActionId: patch.clientActionId,
+      version: patch.version,
+      previousLines: previousSize?.lines ?? 0,
+      nextLines: nextSize?.lines ?? 0,
+      lineDelta: (nextSize?.lines ?? 0) - (previousSize?.lines ?? 0),
+      previousCharacters: previousSize?.characters ?? 0,
+      nextCharacters: nextSize?.characters ?? 0,
+      characterDelta: (nextSize?.characters ?? 0) - (previousSize?.characters ?? 0),
+      operationCount: patch.operations.length,
+      measuredAt: new Date().toISOString(),
+    });
+  }
+
+  private snapshotSize(snapshot: GameSnapshot | null): { lines: number; characters: number } | null {
+    if (!snapshot || !this.shouldMeasureSnapshotSize()) {
+      return null;
+    }
+
+    const json = JSON.stringify(snapshot, null, 2);
+
+    return {
+      lines: json === '' ? 0 : json.split('\n').length,
+      characters: json.length,
+    };
+  }
+
+  private shouldMeasureSnapshotSize(): boolean {
+    return this.observedDebugGameId !== null && Date.now() <= this.observedDebugUntil;
   }
 }

@@ -16,8 +16,21 @@ describe('GameTableWebsocketGameplayService', () => {
   let refetchSpy: ReturnType<typeof vi.fn<(force?: boolean) => Promise<void>>>;
   let setError: (message: string | null) => void;
   let setErrorSpy: ReturnType<typeof vi.fn<(message: string | null) => void>>;
+  let broadcastChannels: FakeBroadcastChannel[];
+  const originalBroadcastChannel = globalThis.BroadcastChannel;
 
   beforeEach(() => {
+    broadcastChannels = [];
+    Object.defineProperty(globalThis, 'BroadcastChannel', {
+      configurable: true,
+      writable: true,
+      value: class extends FakeBroadcastChannel {
+        constructor(name: string) {
+          super(name, broadcastChannels);
+        }
+      },
+    });
+
     messages = new Subject<GameplayServerMessage>();
     status = signal('connected');
     send = vi.fn(() => true);
@@ -51,6 +64,11 @@ describe('GameTableWebsocketGameplayService', () => {
 
   afterEach(() => {
     service.stop();
+    Object.defineProperty(globalThis, 'BroadcastChannel', {
+      configurable: true,
+      writable: true,
+      value: originalBroadcastChannel,
+    });
   });
 
   it('starts transport with a lastSeenVersion provider based on the current snapshot', () => {
@@ -201,6 +219,54 @@ describe('GameTableWebsocketGameplayService', () => {
     const card = snapshotState.players['player-1'].zones.battlefield[0];
     expect(card?.tapped).toBe(true);
     expect(card?.position).toEqual(originalPosition);
+  });
+
+  it('publishes local snapshot growth metrics while debug is observing the game', async () => {
+    const channel = broadcastChannels[0];
+    channel.emit({
+      kind: 'debug_observe',
+      gameId: 'game-1',
+      observedAt: '2026-05-24T10:00:00.000Z',
+    });
+
+    const sent = service.sendCommand(context(), 'card.tapped', {
+      playerId: 'player-1',
+      zone: 'battlefield',
+      instanceId: 'battlefield-1',
+      tapped: true,
+    });
+    const message = sentMessage();
+
+    messages.next({
+      kind: 'game_patch',
+      gameId: 'game-1',
+      baseVersion: 1,
+      version: 2,
+      clientActionId: message.command.clientActionId,
+      operations: [{
+        op: 'card.state.set',
+        playerId: 'player-1',
+        zone: 'battlefield',
+        instanceId: 'battlefield-1',
+        tapped: true,
+      }],
+    });
+    await sent;
+
+    const metric = channel.sentMessages.find((item): item is Record<string, unknown> =>
+      typeof item === 'object' && item !== null && (item as { kind?: unknown }).kind === 'snapshot_metric',
+    );
+
+    expect(metric).toMatchObject({
+      kind: 'snapshot_metric',
+      gameId: 'game-1',
+      clientActionId: message.command.clientActionId,
+      version: 2,
+      operationCount: 1,
+      lineDelta: 0,
+    });
+    expect(metric?.['previousLines']).toBeGreaterThan(0);
+    expect(metric?.['nextLines']).toBeGreaterThan(0);
   });
 
   it('sends power toughness and loyalty changes over websocket and applies stats patches without snapshot refetch', async () => {
@@ -869,4 +935,26 @@ function card(instanceId: string, overrides: Partial<GameCardInstance> = {}): Ga
     tapped: false,
     ...overrides,
   };
+}
+
+class FakeBroadcastChannel {
+  onmessage: ((event: MessageEvent<unknown>) => void) | null = null;
+  readonly sentMessages: unknown[] = [];
+  closed = false;
+
+  constructor(readonly name: string, private readonly registry: FakeBroadcastChannel[]) {
+    this.registry.push(this);
+  }
+
+  postMessage(message: unknown): void {
+    this.sentMessages.push(message);
+  }
+
+  close(): void {
+    this.closed = true;
+  }
+
+  emit(message: unknown): void {
+    this.onmessage?.({ data: message } as MessageEvent<unknown>);
+  }
 }

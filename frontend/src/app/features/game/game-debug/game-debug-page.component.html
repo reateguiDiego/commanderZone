@@ -127,6 +127,11 @@
                     Ops <span>{{ actionSortLabel('operations') }}</span>
                   </button>
                 </th>
+                <th [attr.aria-sort]="actionAriaSort('snapshotGrowth')">
+                  <button type="button" class="debug-sort-button" (click)="sortActionsBy('snapshotGrowth')">
+                    Crec. lineas snapshot local <span>{{ actionSortLabel('snapshotGrowth') }}</span>
+                  </button>
+                </th>
                 <th [attr.aria-sort]="actionAriaSort('duration')">
                   <button type="button" class="debug-sort-button" (click)="sortActionsBy('duration')">
                     Tiempo <span>{{ actionSortLabel('duration') }}</span>
@@ -145,6 +150,7 @@
                     {{ action.outgoing?.characters ?? 0 }} caracteres del JSON
                   </td>
                   <td>{{ operationTypes(action) }}</td>
+                  <td [title]="snapshotGrowthTitle(action)">{{ snapshotGrowthLabel(action) }}</td>
                   <td>{{ formatMs(action.durationMs) }}</td>
                 </tr>
               }

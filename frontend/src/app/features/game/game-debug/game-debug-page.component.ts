@@ -9,9 +9,11 @@ import {
   GameDebugPlayerContext,
   GameDebugTrafficBucket,
 } from '../../../core/models/api-responses.model';
+import type { GameDebugSnapshotMetric } from './game-debug-snapshot-metrics.channel';
+import { GameDebugSnapshotMetricsService } from './game-debug-snapshot-metrics.service';
 import { GameDebugWebsocketService } from './game-debug-websocket.service';
 
-type GameDebugActionSortColumn = 'action' | 'player' | 'incoming' | 'outgoing' | 'operations' | 'duration' | 'at';
+type GameDebugActionSortColumn = 'action' | 'player' | 'incoming' | 'outgoing' | 'operations' | 'snapshotGrowth' | 'duration' | 'at';
 type GameDebugActionSortDirection = 'asc' | 'desc';
 
 interface GameDebugActionSort {
@@ -24,11 +26,12 @@ interface GameDebugActionSort {
   templateUrl: './game-debug-page.component.html',
   styleUrl: './game-debug-page.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  providers: [GameDebugWebsocketService],
+  providers: [GameDebugSnapshotMetricsService, GameDebugWebsocketService],
 })
 export class GameDebugPageComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly gamesApi = inject(GamesApi);
+  private readonly snapshotMetrics = inject(GameDebugSnapshotMetricsService);
   readonly debugWebsocket = inject(GameDebugWebsocketService);
 
   readonly gameId = this.route.snapshot.paramMap.get('id') ?? '';
@@ -49,10 +52,12 @@ export class GameDebugPageComponent implements OnInit, OnDestroy {
   });
 
   ngOnInit(): void {
+    this.snapshotMetrics.observe(this.gameId);
     void this.openDebug();
   }
 
   ngOnDestroy(): void {
+    this.snapshotMetrics.stop();
     this.debugWebsocket.disconnect();
   }
 
@@ -160,6 +165,28 @@ export class GameDebugPageComponent implements OnInit, OnDestroy {
     return ((bucket?.characters ?? 0) / messages).toFixed(2);
   }
 
+  snapshotGrowthLabel(action: GameDebugActionExchange): string {
+    const metric = this.snapshotMetric(action);
+    if (!metric) {
+      return 'sin dato local';
+    }
+
+    const sign = metric.lineDelta > 0 ? '+' : '';
+
+    return `${sign}${metric.lineDelta} lineas`;
+  }
+
+  snapshotGrowthTitle(action: GameDebugActionExchange): string {
+    const metric = this.snapshotMetric(action);
+    if (!metric) {
+      return 'La pestaña de partida local no ha reportado esta accion.';
+    }
+
+    const characterSign = metric.characterDelta > 0 ? '+' : '';
+
+    return `${metric.previousLines} -> ${metric.nextLines} lineas, ${characterSign}${metric.characterDelta} caracteres JSON locales`;
+  }
+
   private errorMessage(error: unknown): string {
     if (typeof error === 'object' && error !== null && 'error' in error) {
       const response = (error as { error?: { error?: string; detail?: string } }).error;
@@ -191,11 +218,17 @@ export class GameDebugPageComponent implements OnInit, OnDestroy {
           || this.compareNumber(left.outgoing?.messages ?? 0, right.outgoing?.messages ?? 0);
       case 'operations':
         return this.compareText(this.operationTypes(left), this.operationTypes(right));
+      case 'snapshotGrowth':
+        return this.compareNumber(this.snapshotMetric(left)?.lineDelta ?? 0, this.snapshotMetric(right)?.lineDelta ?? 0);
       case 'duration':
         return this.compareNumber(left.durationMs ?? 0, right.durationMs ?? 0);
       case 'at':
         return this.compareText(left.at, right.at);
     }
+  }
+
+  private snapshotMetric(action: GameDebugActionExchange): GameDebugSnapshotMetric | null {
+    return this.snapshotMetrics.metricFor(action.clientActionId);
   }
 
   private compareText(left: string | null | undefined, right: string | null | undefined): number {
