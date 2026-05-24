@@ -1203,14 +1203,21 @@ describe('GameTableComponent', () => {
     }
   });
 
-  it('untaps the current player battlefield with the U shortcut', async () => {
+  it('untaps the current player battlefield with one U shortcut command', async () => {
     routeParams['id'] = 'game-1';
     authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
     const snapshot = snapshotWithStatus('active');
     snapshot.players['user-1']!.zones.battlefield[0]!.tapped = true;
+    snapshot.players['user-1']!.zones.battlefield.push({
+      ...snapshot.players['user-1']!.zones.battlefield[0]!,
+      instanceId: 'card-2',
+      name: 'Arcane Signet',
+      tapped: true,
+    });
+    snapshot.players['user-1']!.zoneCounts!.battlefield = 2;
     gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
     gameplayWebsocketCommand.mockReturnValue(of({
-      event: { id: 'event-untap', type: 'card.tapped', payload: {}, createdBy: 'user-1', createdAt: '' },
+      event: { id: 'event-untap', type: 'battlefield.untap_all', payload: {}, createdBy: 'user-1', createdAt: '' },
       snapshot,
     }));
 
@@ -1220,13 +1227,11 @@ describe('GameTableComponent', () => {
 
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'u', bubbles: true }));
 
+    await vi.waitFor(() => expect(gameplayWebsocketCommand).toHaveBeenCalledTimes(1));
     await vi.waitFor(() => expect(gameplayWebsocketCommand).toHaveBeenCalledWith(expect.objectContaining({
-      type: 'card.tapped',
+      type: 'battlefield.untap_all',
       payload: {
         playerId: 'user-1',
-        zone: 'battlefield',
-        instanceId: 'card-1',
-        tapped: false,
       },
     }), 'game-1'));
   });
@@ -1240,7 +1245,7 @@ describe('GameTableComponent', () => {
     snapshot.players['user-2']!.zones.battlefield[0]!.tapped = true;
     gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
     gameplayWebsocketCommand.mockReturnValue(of({
-      event: { id: 'event-untap', type: 'card.tapped', payload: {}, createdBy: 'user-1', createdAt: '' },
+      event: { id: 'event-untap', type: 'battlefield.untap_all', payload: {}, createdBy: 'user-1', createdAt: '' },
       snapshot,
     }));
 
@@ -1251,15 +1256,29 @@ describe('GameTableComponent', () => {
     fixture.componentInstance.store.focusPlayer('user-2');
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'u', bubbles: true }));
 
+    await vi.waitFor(() => expect(gameplayWebsocketCommand).toHaveBeenCalledTimes(1));
     await vi.waitFor(() => expect(gameplayWebsocketCommand).toHaveBeenCalledWith(expect.objectContaining({
-      type: 'card.tapped',
+      type: 'battlefield.untap_all',
       payload: {
         playerId: 'user-1',
-        zone: 'battlefield',
-        instanceId: 'card-1',
-        tapped: false,
       },
     }), 'game-1'));
+  });
+
+  it('does not send the U shortcut command when the current player has no tapped battlefield cards', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'u', bubbles: true }));
+    await Promise.resolve();
+
+    expect(gameplayWebsocketCommand).not.toHaveBeenCalled();
   });
 
   it('resolves focused player deck visuals for the table background and current player sleeves', async () => {

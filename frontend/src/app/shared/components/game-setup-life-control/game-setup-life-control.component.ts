@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 
 @Component({
   selector: 'app-game-setup-life-control',
@@ -11,23 +11,27 @@ export class GameSetupLifeControlComponent {
   readonly label = input('Total life');
   readonly summary = input('Starting total');
   readonly step = input(5);
+  readonly minValue = input(1);
+  readonly maxValue = input(99);
   readonly disabled = input(false);
 
   readonly valueChange = output<number>();
+  readonly decreaseDisabled = computed(() => this.disabled() || this.value() <= this.minValue());
+  readonly increaseDisabled = computed(() => this.disabled() || this.value() >= this.maxValue());
 
   decrease(): void {
-    if (this.disabled()) {
+    if (this.decreaseDisabled()) {
       return;
     }
 
-    this.valueChange.emit(Math.max(1, this.value() - this.step()));
+    this.valueChange.emit(Math.max(this.minValue(), this.value() - this.step()));
   }
 
   increase(): void {
-    if (this.disabled()) {
+    if (this.increaseDisabled()) {
       return;
     }
 
-    this.valueChange.emit(this.value() + this.step());
+    this.valueChange.emit(Math.min(this.maxValue(), this.value() + this.step()));
   }
 }

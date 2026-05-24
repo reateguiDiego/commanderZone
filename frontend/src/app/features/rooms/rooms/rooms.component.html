@@ -36,12 +36,20 @@
     </div>
 
     <app-room-create-panel
-      [formats]="formats()"
       [actionsLocked]="currentRoom() !== null"
       (codeJoinRequested)="joinRoomByCode($event)"
-      (roomCreated)="createRoom($event)"
+      (createRequested)="openCreateRoomModal()"
     />
   </div>
+
+  <app-room-setup-modal
+    mode="create"
+    [open]="createRoomModalOpen()"
+    [formats]="formats()"
+    [actionsLocked]="currentRoom() !== null"
+    (closed)="closeCreateRoomModal()"
+    (createRequested)="createRoom($event)"
+  />
 
   <app-modal
     [open]="roomPendingDelete() !== null"

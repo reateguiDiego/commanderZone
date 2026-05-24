@@ -12,8 +12,9 @@ import { bestCardArtImage } from '../../../shared/utils/card-image';
 import { MercureService } from '../../../core/realtime/mercure.service';
 import { PageHeaderStore } from '../../../core/ui/page-header.store';
 import { AppModalComponent } from '../../../shared/ui/app-modal/app-modal.component';
+import { RoomSetupModalComponent, RoomCreatePayload } from '../shared/room-setup-modal/room-setup-modal.component';
 import { RoomBrowserComponent } from './components/room-browser/room-browser.component';
-import { RoomCreatePanelComponent, RoomCreatePayload } from './components/room-create-panel/room-create-panel.component';
+import { RoomCreatePanelComponent } from './components/room-create-panel/room-create-panel.component';
 import { RoomInvitesPanelComponent } from './components/room-invites-panel/room-invites-panel.component';
 
 const ROOM_LIST_POLL_INTERVAL_MS = 15000;
@@ -21,7 +22,7 @@ const ROOM_LIST_POLL_INTERVAL_WITH_CURRENT_ROOM_MS = ROOM_LIST_POLL_INTERVAL_MS 
 
 @Component({
   selector: 'app-rooms',
-  imports: [AppModalComponent, RoomBrowserComponent, RoomCreatePanelComponent, RoomInvitesPanelComponent],
+  imports: [AppModalComponent, RoomBrowserComponent, RoomCreatePanelComponent, RoomInvitesPanelComponent, RoomSetupModalComponent],
   templateUrl: './rooms.component.html',
   styleUrl: './rooms.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -50,6 +51,7 @@ export class RoomsComponent implements OnInit, OnDestroy {
   readonly leavingRoomId = signal<string | null>(null);
   readonly roomPendingDelete = signal<Room | null>(null);
   readonly createDeckRequiredModalOpen = signal(false);
+  readonly createRoomModalOpen = signal(false);
   readonly activeRoomsCount = computed(() => this.rooms().length);
   readonly openTablesCount = computed(() => this.rooms()
     .filter((room) => this.isRoomOpen(room))
@@ -144,8 +146,12 @@ export class RoomsComponent implements OnInit, OnDestroy {
       const response = await firstValueFrom(this.roomsApi.create(undefined, payload.visibility, {
         name: payload.name,
         maxPlayers: payload.maxPlayers,
+        startingLife: payload.startingLife,
+        timerMode: payload.timerMode,
+        timerDurationSeconds: payload.timerDurationSeconds,
         format: payload.format,
       }));
+      this.createRoomModalOpen.set(false);
       this.currentRoom.set(this.currentRoomSummaryFromRoom(response.room));
       this.currentRoomPlayer.set(this.currentRoomPlayerSummaryFromRoom(response.room));
       this.currentRoomTurn.set(null);
@@ -162,6 +168,18 @@ export class RoomsComponent implements OnInit, OnDestroy {
 
       this.error.set(message);
     }
+  }
+
+  openCreateRoomModal(): void {
+    if (this.currentRoom()) {
+      return;
+    }
+
+    this.createRoomModalOpen.set(true);
+  }
+
+  closeCreateRoomModal(): void {
+    this.createRoomModalOpen.set(false);
   }
 
   async joinRoom(): Promise<void> {

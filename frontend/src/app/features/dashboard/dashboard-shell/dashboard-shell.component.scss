@@ -129,7 +129,7 @@ app-dashboard-header {
   padding: 0;
 }
 
-@media (max-width: 1400px), (orientation: portrait) {
+@media (max-width: 1505px), (orientation: portrait) {
   .app-frame {
     grid-template-columns: 1fr;
     grid-template-rows: auto auto minmax(0, 1fr);

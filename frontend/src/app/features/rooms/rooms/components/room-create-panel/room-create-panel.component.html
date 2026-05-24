@@ -15,45 +15,12 @@
   <div class="rooms-create-header">
     <span class="eyebrow">Create a new room</span>
     <h3>Room setup</h3>
-    <p>Configure your table and invite players from the waiting page.</p>
   </div>
 
-  <form class="form-stack" [formGroup]="createRoomForm" (ngSubmit)="submit()">
-    <label>
-      Room name
-      <input formControlName="roomName" maxlength="120" placeholder="Ej. La taberna del comandante" />
-    </label>
-
-    <app-format-select
-      name="roomFormat"
-      [formats]="formats()"
-      [required]="true"
-      [value]="createRoomForm.controls.format.value ?? 'commander'"
-      (valueChange)="createRoomForm.controls.format.setValue($event)"
-    />
-
-    <div class="choice-stack">
-      <p class="choice-label">Players</p>
-      <div class="choice-group">
-        @for (value of maxPlayersOptions; track value) {
-          <button type="button" class="choice-button" [class.is-selected]="createRoomForm.value.players === value" (click)="createRoomForm.controls.players.setValue(value)">
-            {{ value }} players
-          </button>
-        }
-      </div>
-    </div>
-
-    <app-visibility-choice
-      label="Privacy"
-      [value]="createRoomForm.controls.privacy.value"
-      (valueChange)="createRoomForm.controls.privacy.setValue($event)"
-    />
-
-    <span class="action-tooltip-anchor" [attr.title]="actionsLocked() ? lockedRoomTooltip : null">
-      <button class="primary-button" type="submit" [disabled]="actionsLocked() || createRoomForm.invalid">
-        <lucide-icon name="plus" size="17" />
-        Create room
-      </button>
-    </span>
-  </form>
+  <span class="action-tooltip-anchor" [attr.title]="actionsLocked() ? lockedRoomTooltip : null">
+    <button class="primary-button" type="button" [disabled]="actionsLocked()" (click)="requestCreate()">
+      <lucide-icon name="plus" size="17" />
+      Create room
+    </button>
+  </span>
 </aside>

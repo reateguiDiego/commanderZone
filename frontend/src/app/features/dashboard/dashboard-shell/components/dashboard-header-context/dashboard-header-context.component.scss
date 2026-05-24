@@ -90,6 +90,10 @@
   gap: 0.45rem;
 }
 
+button[data-action-id="invite-friends"] {
+  max-width: 175px;
+}
+
 .page-header-action-feedback {
   justify-self: end;
   color: #b9f2cd;
@@ -193,7 +197,7 @@ button:disabled {
   }
 
   .page-header-detail-row.has-actions:not(.has-stats):has([data-action-id="copy-room-code"]) {
-    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-columns: minmax(0, 175px) repeat(2, minmax(3.45rem, 1fr));
     align-items: stretch;
   }
 
@@ -213,11 +217,11 @@ button:disabled {
 
   button[data-action-id="copy-room-code"],
   button[data-action-id="share-room-link"] {
-    width: 3.45rem;
     min-width: 3.45rem;
-    padding-inline: 0;
   }
+}
 
+@media (max-width: 520px) {
   button[data-action-id="copy-room-code"] span,
   button[data-action-id="share-room-link"] span {
     position: absolute;
@@ -230,7 +234,9 @@ button:disabled {
     clip: rect(0 0 0 0);
     white-space: nowrap;
   }
+}
 
+@media (max-width: 720px) {
   .page-header-stats {
     display: contents;
   }

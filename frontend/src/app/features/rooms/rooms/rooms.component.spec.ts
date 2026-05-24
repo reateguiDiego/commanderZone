@@ -3,7 +3,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { By } from '@angular/platform-browser';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
-import { Building2, DoorOpen, Globe, Library, Lock, LogOut, LucideAngularModule, Play, Plus, RefreshCcw, Search, Swords, Trash2, Users } from 'lucide-angular';
+import { Building2, DoorOpen, Globe, Library, Lock, LogOut, LucideAngularModule, Play, Plus, RefreshCcw, Search, Swords, Trash2, Users, X } from 'lucide-angular';
 import { of, throwError } from 'rxjs';
 import { DeckFormatsApi } from '../../../core/api/deck-formats.api';
 import { RoomsApi } from '../../../core/api/rooms.api';
@@ -50,7 +50,7 @@ describe('RoomsComponent', () => {
       imports: [RoomsComponent],
       providers: [
         provideRouter([]),
-        importProvidersFrom(LucideAngularModule.pick({ Building2, DoorOpen, Globe, Library, Lock, LogOut, Play, Plus, RefreshCcw, Search, Swords, Trash2, Users })),
+        importProvidersFrom(LucideAngularModule.pick({ Building2, DoorOpen, Globe, Library, Lock, LogOut, Play, Plus, RefreshCcw, Search, Swords, Trash2, Users, X })),
         { provide: RoomsApi, useValue: roomsApi },
         { provide: DeckFormatsApi, useValue: deckFormatsApi },
         { provide: AuthStore, useValue: { user: () => ({ id: 'user-1', email: 'owner@test', displayName: 'Owner' }) } },
@@ -194,6 +194,49 @@ describe('RoomsComponent', () => {
 
     await fixture.componentInstance.openListedRoom(listedRoom);
     expect(roomsApi.join).not.toHaveBeenCalled();
+  });
+
+  it('creates rooms with the complete setup payload from the modal', async () => {
+    const createdRoom = roomFixture({
+      id: 'room-created',
+      name: 'Mesa premium',
+      visibility: 'private',
+      maxPlayers: 5,
+      startingLife: 45,
+      timerMode: 'turn',
+      timerDurationSeconds: 180,
+    });
+    roomsApi.create.mockReturnValue(of({ room: createdRoom }));
+    const router = TestBed.inject(Router);
+    vi.spyOn(router, 'navigateByUrl').mockResolvedValue(true);
+
+    const fixture = TestBed.createComponent(RoomsComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.openCreateRoomModal();
+    expect(fixture.componentInstance.createRoomModalOpen()).toBe(true);
+
+    await fixture.componentInstance.createRoom({
+      name: 'Mesa premium',
+      format: 'commander',
+      visibility: 'private',
+      maxPlayers: 5,
+      startingLife: 45,
+      timerMode: 'turn',
+      timerDurationSeconds: 180,
+    });
+
+    expect(roomsApi.create).toHaveBeenCalledWith(undefined, 'private', {
+      name: 'Mesa premium',
+      maxPlayers: 5,
+      startingLife: 45,
+      timerMode: 'turn',
+      timerDurationSeconds: 180,
+      format: 'commander',
+    });
+    expect(fixture.componentInstance.createRoomModalOpen()).toBe(false);
+    expect(router.navigateByUrl).toHaveBeenCalledWith('/rooms/room-created/waiting');
   });
 
   it('opens a private listed room when the current user is already a player', async () => {

@@ -555,6 +555,57 @@ class GameWebsocketPatchBuilderTest extends TestCase
         ], $message['operations'][0]['cards']);
     }
 
+    public function testBattlefieldUntapAllReturnsEveryTappedCardForPlayerInSinglePatch(): void
+    {
+        foreach ([1, 10] as $tappedCount) {
+            [$game, $actor, $opponent] = $this->game();
+            $snapshot = $game->snapshot();
+            $battlefield = [];
+            for ($index = 1; $index <= $tappedCount; ++$index) {
+                $battlefield[] = [
+                    ...$this->card('tapped-'.$index, $actor->id(), ['x' => $index / 20, 'y' => $index / 20, 'unit' => 'ratio']),
+                    'tapped' => true,
+                    'rotation' => 90,
+                    'zone' => 'battlefield',
+                ];
+            }
+            $battlefield[] = [
+                ...$this->card('already-untapped', $actor->id(), ['x' => 0.8, 'y' => 0.8, 'unit' => 'ratio']),
+                'tapped' => false,
+                'rotation' => 0,
+                'zone' => 'battlefield',
+            ];
+            $snapshot['players'][$actor->id()]['zones']['battlefield'] = $battlefield;
+            $snapshot['players'][$actor->id()]['zoneCounts']['battlefield'] = count($battlefield);
+            $snapshot['players'][$opponent->id()]['zones']['battlefield'] = [[
+                ...$this->card('opponent-tapped', $opponent->id(), ['x' => 0.1, 'y' => 0.1, 'unit' => 'ratio']),
+                'tapped' => true,
+                'rotation' => 90,
+                'zone' => 'battlefield',
+            ]];
+            $snapshot['players'][$opponent->id()]['zoneCounts']['battlefield'] = 1;
+            $game->replaceSnapshot($snapshot);
+
+            $message = $this->applyAndBuildProjected($game, $actor, 'battlefield.untap_all', [
+                'playerId' => $actor->id(),
+            ], 'action-untap-all-'.$tappedCount, $actor);
+
+            self::assertSame('game_patch', $message['kind']);
+            self::assertSame('cards.state.set', $message['operations'][0]['op']);
+            self::assertSame($actor->id(), $message['operations'][0]['playerId']);
+            self::assertSame('battlefield', $message['operations'][0]['zone']);
+            self::assertCount($tappedCount, $message['operations'][0]['cards']);
+            self::assertSame(
+                array_map(
+                    static fn (int $index): array => ['instanceId' => 'tapped-'.$index, 'tapped' => false, 'rotation' => 90],
+                    range(1, $tappedCount),
+                ),
+                $message['operations'][0]['cards'],
+            );
+            self::assertSame('eventLog.append', $message['operations'][1]['op']);
+        }
+    }
+
     public function testTokenCreatedAndTokenCopyCreatedInsertOnlyNewCard(): void
     {
         [$game, $actor] = $this->gameWithAdvancedBattlefieldCards();
