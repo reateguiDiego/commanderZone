@@ -6,7 +6,7 @@ use App\Application\Game\GameCommandHandler;
 use App\Application\Game\GameDisconnectVoteService;
 use App\Application\Game\GameProjectionService;
 use App\Application\Game\GameRematchService;
-use App\Application\Game\Debug\GameDebugHealthStore;
+use App\Application\Game\Debug\GameDebugHealthAggregator;
 use App\Application\Game\WebSocket\GameWebsocketRoomRegistry;
 use App\Application\Game\WebSocket\GameWebsocketTicketManager;
 use App\Domain\Game\Game;
@@ -79,15 +79,8 @@ class GamesController extends ApiController
         string $id,
         #[CurrentUser] User $user,
         EntityManagerInterface $entityManager,
-        GameProjectionService $projection,
-        GameDebugHealthStore $debugHealth,
-        #[Autowire('%game_debug_health_enabled%')]
-        bool $debugHealthEnabled,
+        GameDebugHealthAggregator $debugHealth,
     ): JsonResponse {
-        if (!$debugHealthEnabled) {
-            return $this->fail('Game debug health not found.', 404);
-        }
-
         $game = $entityManager->getRepository(Game::class)->find($id);
         if (!$game instanceof Game) {
             return $this->fail('Game not found.', 404);
@@ -96,16 +89,48 @@ class GamesController extends ApiController
             return $this->fail('Game access denied.', 403);
         }
 
-        $report = $debugHealth->reportForGame($game->id());
         $generatedAt = (new \DateTimeImmutable())->format(DATE_ATOM);
 
         return $this->json([
             'gameId' => $game->id(),
-            'snapshot' => $projection->project($game, $user),
-            'health' => $report['health'],
+            'enabled' => true,
+            'context' => $this->debugHealthContext($game),
+            'health' => $debugHealth->normalize([]),
             'generatedAt' => $generatedAt,
-            'updatedAt' => $report['updatedAt'] ?? $generatedAt,
+            'updatedAt' => $generatedAt,
         ]);
+    }
+
+    /**
+     * @return array{players: list<array{playerId: string, displayName: string, deckName: ?string, status: string}>}
+     */
+    private function debugHealthContext(Game $game): array
+    {
+        $players = [];
+        $snapshotPlayers = $game->snapshot()['players'] ?? [];
+        if (!is_array($snapshotPlayers)) {
+            return ['players' => []];
+        }
+
+        foreach ($snapshotPlayers as $playerId => $player) {
+            if (!is_string($playerId) || !is_array($player)) {
+                continue;
+            }
+
+            $user = is_array($player['user'] ?? null) ? $player['user'] : [];
+            $displayName = is_string($user['displayName'] ?? null) && trim($user['displayName']) !== ''
+                ? trim($user['displayName'])
+                : $playerId;
+
+            $players[] = [
+                'playerId' => $playerId,
+                'displayName' => $displayName,
+                'deckName' => is_string($player['deckName'] ?? null) && trim($player['deckName']) !== '' ? trim($player['deckName']) : null,
+                'status' => is_string($player['status'] ?? null) && trim($player['status']) !== '' ? trim($player['status']) : 'active',
+            ];
+        }
+
+        return ['players' => $players];
     }
 
     #[Route('/games/{id}/commands', methods: ['POST'])]

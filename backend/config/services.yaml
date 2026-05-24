@@ -11,8 +11,6 @@ parameters:
     game_websocket_public_url_default: 'ws://127.0.0.1:8081'
     game_websocket_listen: '%env(default:game_websocket_listen_default:GAME_WEBSOCKET_LISTEN)%'
     game_websocket_public_url: '%env(default:game_websocket_public_url_default:GAME_WEBSOCKET_PUBLIC_URL)%'
-    game_debug_health_enabled_default: '0'
-    game_debug_health_enabled: '%env(bool:default:game_debug_health_enabled_default:GAME_DEBUG_HEALTH_ENABLED)%'
 
 services:
     # default configuration for services in *this* file

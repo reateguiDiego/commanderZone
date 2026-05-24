@@ -15,10 +15,8 @@
         <ini name="error_reporting" value="-1" />
         <env name="APP_ENV" value="test" force="true" />
         <env name="APP_DEBUG" value="1" force="true" />
-        <env name="GAME_DEBUG_HEALTH_ENABLED" value="1" force="true" />
         <server name="APP_ENV" value="test" force="true" />
         <server name="APP_DEBUG" value="1" force="true" />
-        <server name="GAME_DEBUG_HEALTH_ENABLED" value="1" force="true" />
         <server name="SHELL_VERBOSITY" value="-1" />
     </php>
 

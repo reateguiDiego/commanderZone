@@ -2,16 +2,8 @@
 
 namespace App\Tests\Integration;
 
-use Doctrine\ORM\EntityManagerInterface;
-
 class GameDebugHealthApiTest extends ApiTestCase
 {
-    protected function tearDown(): void
-    {
-        $this->setDebugHealthFlag('1');
-        parent::tearDown();
-    }
-
     public function testDebugHealthRequiresAuthentication(): void
     {
         $fixture = $this->startedGameFixture('debug-health-auth');
@@ -21,16 +13,18 @@ class GameDebugHealthApiTest extends ApiTestCase
         self::assertResponseStatusCodeSame(401);
     }
 
-    public function testDebugHealthReturnsNotFoundWhenFeatureFlagIsDisabled(): void
+    public function testDebugHealthReturnsEmptyReportWhenNoDebugWebsocketIsConnected(): void
     {
-        $fixture = $this->startedGameFixture('debug-health-flag-disabled');
-
-        $this->setDebugHealthFlag('0');
-        $this->rebootClient();
+        $fixture = $this->startedGameFixture('debug-health-empty');
 
         $this->jsonRequest('GET', '/games/'.$fixture['gameId'].'/debug/health', token: $fixture['ownerToken']);
 
-        self::assertResponseStatusCodeSame(404);
+        self::assertResponseIsSuccessful();
+        $response = $this->jsonResponse();
+        self::assertSame($fixture['gameId'], $response['gameId']);
+        self::assertTrue($response['enabled']);
+        self::assertIsArray($response['context']['players']);
+        self::assertIsArray($response['health']);
     }
 
     public function testDebugHealthReturnsNotFoundWhenGameDoesNotExist(): void
@@ -50,7 +44,7 @@ class GameDebugHealthApiTest extends ApiTestCase
         self::assertResponseStatusCodeSame(403);
     }
 
-    public function testDebugHealthReturnsProjectedSnapshotAndHealthReportForGameViewer(): void
+    public function testDebugHealthReturnsSanitizedHealthReportForGameViewer(): void
     {
         $fixture = $this->startedGameFixture('debug-health-success');
 
@@ -60,53 +54,32 @@ class GameDebugHealthApiTest extends ApiTestCase
         $response = $this->jsonResponse();
 
         self::assertSame($fixture['gameId'], $response['gameId']);
-        self::assertIsArray($response['snapshot']);
+        self::assertTrue($response['enabled']);
+        self::assertIsArray($response['context']);
+        self::assertIsArray($response['context']['players']);
+        self::assertArrayNotHasKey('snapshot', $response);
         self::assertIsArray($response['health']);
         self::assertIsString($response['generatedAt']);
         self::assertIsString($response['updatedAt']);
 
         self::assertArrayHasKey('websocket', $response['health']);
+        self::assertArrayHasKey('traffic', $response['health']);
+        self::assertArrayHasKey('actions', $response['health']);
         self::assertArrayHasKey('pipeline', $response['health']);
+        self::assertArrayHasKey('performance', $response['health']);
         self::assertArrayHasKey('replay', $response['health']);
         self::assertArrayHasKey('sync', $response['health']);
         self::assertArrayHasKey('errors', $response['health']);
         self::assertArrayHasKey('recent', $response['health']);
         self::assertArrayHasKey('events', $response['health']);
-
-        $ownerId = $fixture['ownerId'];
-        $players = $response['snapshot']['players'];
-        self::assertIsArray($players);
-        self::assertArrayHasKey($ownerId, $players);
-
-        $opponentId = null;
-        foreach (array_keys($players) as $playerId) {
-            if ($playerId !== $ownerId) {
-                $opponentId = $playerId;
-                break;
-            }
-        }
-
-        self::assertIsString($opponentId);
-        $opponentHand = $players[$opponentId]['zones']['hand'] ?? [];
-        self::assertNotEmpty($opponentHand);
-        foreach ($opponentHand as $card) {
-            self::assertSame('Hidden card', $card['name'] ?? null);
-            self::assertStringContainsString('-hidden-hand-', (string) ($card['instanceId'] ?? ''));
-        }
-    }
-
-    private function rebootClient(): void
-    {
-        self::ensureKernelShutdown();
-        $this->client = static::createClient();
-        $this->entityManager = static::getContainer()->get(EntityManagerInterface::class);
-    }
-
-    private function setDebugHealthFlag(string $value): void
-    {
-        putenv('GAME_DEBUG_HEALTH_ENABLED='.$value);
-        $_ENV['GAME_DEBUG_HEALTH_ENABLED'] = $value;
-        $_SERVER['GAME_DEBUG_HEALTH_ENABLED'] = $value;
+        self::assertSame(0, $response['health']['actions']['total']);
+        self::assertSame(0, $response['health']['traffic']['incoming']['messages']);
+        self::assertNotEmpty($response['context']['players']);
+        $displayNames = array_column($response['context']['players'], 'displayName');
+        self::assertContains('Ws Owner', $displayNames);
+        self::assertContains('Ws Player', $displayNames);
+        self::assertStringNotContainsString('Ws debug-health-success', json_encode($response, JSON_THROW_ON_ERROR));
+        self::assertStringNotContainsString('Hidden card', json_encode($response, JSON_THROW_ON_ERROR));
     }
 
     /**

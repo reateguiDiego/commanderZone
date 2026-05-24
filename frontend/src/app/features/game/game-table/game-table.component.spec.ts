@@ -11,6 +11,7 @@ import {
   Biohazard,
   Building2,
   BookmarkPlus,
+  Bug,
   Camera,
   ChevronDown,
   ChevronRight,
@@ -287,6 +288,7 @@ describe('GameTableComponent', () => {
           Biohazard,
           Building2,
           BookmarkPlus,
+          Bug,
           Camera,
           ChevronDown,
           ChevronRight,
@@ -1122,6 +1124,30 @@ describe('GameTableComponent', () => {
 
     expect(fixture.componentInstance.rollModalOpen()).toBe(true);
     expect((fixture.nativeElement as HTMLElement).querySelector('app-roll-modal')).not.toBeNull();
+  });
+
+  it('opens websocket debug in a new tab from the game context menu action', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot: snapshotWithStatus('active') } }));
+    const open = vi.spyOn(window, 'open').mockImplementation(() => null);
+
+    try {
+      const fixture = TestBed.createComponent(GameTableComponent);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      await vi.waitFor(() => expect(fixture.componentInstance.store.loading()).toBe(false));
+
+      fixture.componentInstance.handleContextMenuAction({ type: 'openDebug' }, {
+        playerId: 'user-1',
+        zone: 'battlefield',
+        kind: 'game',
+      } as never);
+
+      expect(open).toHaveBeenCalledWith('/games/game-1/debug', '_blank', 'noopener');
+    } finally {
+      open.mockRestore();
+    }
   });
 
   it('records roll modal results in the game log through a game command', async () => {

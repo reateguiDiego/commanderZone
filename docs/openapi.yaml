@@ -1889,12 +1889,12 @@ paths:
     get:
       tags: [Games]
       summary: Get private gameplay debug health for one game.
-      description: Returns projected snapshot plus technical WebSocket/sync diagnostics. This endpoint is intentionally private and may return 404 when GAME_DEBUG_HEALTH_ENABLED is disabled.
+      description: Returns sanitized debug page context and an empty technical baseline. Live WebSocket/sync diagnostics are collected only while a separate debug WebSocket is connected at /games/{id}/debug. It does not expose game snapshots, card names, chat text, or card instance identifiers.
       parameters:
         - $ref: '#/components/parameters/Id'
       responses:
         '200':
-          description: Projected snapshot and debug health report.
+          description: Sanitized debug health report.
           content:
             application/json:
               schema:
@@ -2182,13 +2182,35 @@ components:
           example: ws://127.0.0.1:8081/games/01966d5f-0000-7000-8000-000000000000?ticket=...
     GameDebugHealthResponse:
       type: object
-      required: [gameId, snapshot, health, generatedAt, updatedAt]
+      required: [gameId, enabled, context, health, generatedAt, updatedAt]
       properties:
         gameId:
           type: string
           format: uuid
-        snapshot:
-          $ref: '#/components/schemas/GameSnapshot'
+        enabled:
+          type: boolean
+          description: Whether live debug instrumentation is enabled for gameplay websocket traffic.
+        context:
+          type: object
+          required: [players]
+          properties:
+            players:
+              type: array
+              description: Player-facing context allowed in friend games. This does not include card names or zone contents.
+              items:
+                type: object
+                required: [playerId, displayName, deckName, status]
+                properties:
+                  playerId:
+                    type: string
+                    format: uuid
+                  displayName:
+                    type: string
+                  deckName:
+                    type: string
+                    nullable: true
+                  status:
+                    type: string
         health:
           $ref: '#/components/schemas/GameDebugHealth'
         generatedAt:
@@ -2199,7 +2221,7 @@ components:
           format: date-time
     GameDebugHealth:
       type: object
-      required: [websocket, pipeline, replay, sync, errors, recent, events]
+      required: [websocket, traffic, actions, pipeline, performance, replay, sync, errors, recent, events]
       properties:
         websocket:
           type: object
@@ -2207,7 +2229,7 @@ components:
           properties:
             connections:
               type: object
-              required: [total, byUser, transitions]
+              required: [total, byUser, transitions, disconnectRanking]
               properties:
                 total:
                   type: integer
@@ -2215,7 +2237,24 @@ components:
                   type: object
                   additionalProperties:
                     type: object
-                    additionalProperties: true
+                    properties:
+                      displayName:
+                        type: string
+                      status:
+                        type: string
+                      connections:
+                        type: integer
+                      disconnects:
+                        type: integer
+                      lastConnectedAt:
+                        type: string
+                        nullable: true
+                      lastDisconnectedAt:
+                        type: string
+                        nullable: true
+                      offlineSince:
+                        type: string
+                        nullable: true
                 transitions:
                   type: object
                   required: [online, offline]
@@ -2224,10 +2263,59 @@ components:
                       type: integer
                     offline:
                       type: integer
+                disconnectRanking:
+                  type: array
+                  items:
+                    type: object
+                    required: [userId, displayName, disconnects, status, lastDisconnectedAt]
+                    properties:
+                      userId:
+                        type: string
+                      displayName:
+                        type: string
+                      disconnects:
+                        type: integer
+                      status:
+                        type: string
+                      lastDisconnectedAt:
+                        type: string
+                        nullable: true
             lastSeen:
               type: object
               nullable: true
               additionalProperties: true
+        traffic:
+          type: object
+          required: [incoming, outgoing, keepalive]
+          properties:
+            incoming:
+              $ref: '#/components/schemas/GameDebugTrafficBucket'
+            outgoing:
+              $ref: '#/components/schemas/GameDebugTrafficBucket'
+            keepalive:
+              type: object
+              required: [incoming, outgoing]
+              properties:
+                incoming:
+                  $ref: '#/components/schemas/GameDebugTrafficBucket'
+                outgoing:
+                  $ref: '#/components/schemas/GameDebugTrafficBucket'
+        actions:
+          type: object
+          required: [total, byType, recent]
+          properties:
+            total:
+              type: integer
+            byType:
+              type: object
+              additionalProperties:
+                type: integer
+            recent:
+              type: array
+              description: Recent sanitized action exchanges with inbound/outbound counts, character sizes, operation types, and duration.
+              items:
+                type: object
+                additionalProperties: true
         pipeline:
           type: object
           required: [gamePatch, commandAck, resyncRequired, error, pong, presenceChanged]
@@ -2252,6 +2340,22 @@ components:
               type: integer
             presenceChanged:
               type: integer
+        performance:
+          type: object
+          required: [commands]
+          properties:
+            commands:
+              type: object
+              required: [count, totalMs, avgMs, maxMs]
+              properties:
+                count:
+                  type: integer
+                totalMs:
+                  type: number
+                avgMs:
+                  type: number
+                maxMs:
+                  type: number
         replay:
           type: object
           required: [attempts, hits, misses, gaps, lastWindow]
@@ -2290,7 +2394,7 @@ components:
               additionalProperties: true
         errors:
           type: object
-          required: [total, byCode]
+          required: [total, byCode, recent]
           properties:
             total:
               type: integer
@@ -2298,6 +2402,12 @@ components:
               type: object
               additionalProperties:
                 type: integer
+            recent:
+              type: array
+              description: Recent exact WebSocket/debug errors. Messages are included for diagnostics but card payloads are not stored.
+              items:
+                type: object
+                additionalProperties: true
         recent:
           type: array
           items:
@@ -2308,6 +2418,27 @@ components:
           items:
             type: object
             additionalProperties: true
+    GameDebugTrafficBucket:
+      type: object
+      required: [messages, characters, byKind, byAction, byChannel]
+      properties:
+        messages:
+          type: integer
+        characters:
+          type: integer
+          description: Total JSON payload characters observed in this direction.
+        byKind:
+          type: object
+          additionalProperties:
+            type: integer
+        byAction:
+          type: object
+          additionalProperties:
+            type: integer
+        byChannel:
+          type: object
+          additionalProperties:
+            type: integer
     RoomStartError:
       allOf:
         - $ref: '#/components/schemas/Error'

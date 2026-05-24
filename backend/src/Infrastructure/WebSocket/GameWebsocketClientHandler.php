@@ -7,7 +7,7 @@ use Amp\Http\Server\Response;
 use Amp\Websocket\Server\WebsocketClientHandler;
 use Amp\Websocket\WebsocketClient;
 use Amp\Websocket\WebsocketCloseCode;
-use App\Application\Game\Debug\GameDebugHealthStore;
+use App\Application\Game\Debug\GameDebugHealthLiveStore;
 use App\Application\Game\GameDisconnectVoteService;
 use App\Application\Game\WebSocket\GameWebsocketConnectionAuthorizer;
 use App\Application\Game\WebSocket\GameWebsocketCommandResult;
@@ -31,7 +31,7 @@ final readonly class GameWebsocketClientHandler implements WebsocketClientHandle
         private GameWebsocketMessageHandler $messages,
         private GameWebsocketMessageFactory $messageFactory,
         private GameWebsocketPatchReplayBuffer $replayBuffer,
-        private GameDebugHealthStore $debugHealth,
+        private GameDebugHealthLiveStore $debugHealth,
         private LoggerInterface $logger,
     ) {
     }
@@ -117,17 +117,19 @@ final readonly class GameWebsocketClientHandler implements WebsocketClientHandle
                 if ($message->isBinary()) {
                     $error = $this->errorMessage($peer, 'BINARY_NOT_SUPPORTED', 'Binary WebSocket messages are not supported.');
                     $peer->send($error);
-                    $this->safeRecordIncomingValidationError($peer->gameId, 'BINARY_NOT_SUPPORTED', 'Binary WebSocket messages are not supported.');
+                    $this->safeRecordIncomingValidationError($peer->gameId, 'BINARY_NOT_SUPPORTED', 'Binary WebSocket messages are not supported.', ['kind' => 'binary']);
                     $this->safeRecordOutboundMessage($peer->gameId, $error, 'direct');
                     continue;
                 }
 
+                $rawMessage = '';
                 try {
-                    $payload = json_decode($message->buffer(limit: 64 * 1024), true, flags: JSON_THROW_ON_ERROR);
+                    $rawMessage = $message->buffer(limit: 64 * 1024);
+                    $payload = json_decode($rawMessage, true, flags: JSON_THROW_ON_ERROR);
                 } catch (\Throwable) {
                     $error = $this->errorMessage($peer, 'INVALID_JSON', 'WebSocket message must be valid JSON.');
                     $peer->send($error);
-                    $this->safeRecordIncomingValidationError($peer->gameId, 'INVALID_JSON', 'WebSocket message must be valid JSON.');
+                    $this->safeRecordIncomingValidationError($peer->gameId, 'INVALID_JSON', 'WebSocket message must be valid JSON.', ['kind' => 'invalid_json', 'characters' => strlen($rawMessage)]);
                     $this->safeRecordOutboundMessage($peer->gameId, $error, 'direct');
                     continue;
                 }
@@ -135,18 +137,48 @@ final readonly class GameWebsocketClientHandler implements WebsocketClientHandle
                 if (!is_array($payload)) {
                     $error = $this->errorMessage($peer, 'INVALID_MESSAGE', 'WebSocket message must be a JSON object.');
                     $peer->send($error);
-                    $this->safeRecordIncomingValidationError($peer->gameId, 'INVALID_MESSAGE', 'WebSocket message must be a JSON object.');
+                    $this->safeRecordIncomingValidationError($peer->gameId, 'INVALID_MESSAGE', 'WebSocket message must be a JSON object.', ['kind' => 'invalid_message', 'characters' => strlen($rawMessage)]);
                     $this->safeRecordOutboundMessage($peer->gameId, $error, 'direct');
                     continue;
                 }
 
+                $isCommand = ($payload['kind'] ?? null) === 'command';
+                $debugEnabled = $this->debugHealth->isObserved($peer->gameId);
+                $incomingCharacters = strlen($rawMessage);
+                $incomingDebug = [];
+                if ($debugEnabled && $isCommand) {
+                    $incomingDebug = $this->incomingDebugSummary($payload, $incomingCharacters, $peer->userId);
+                } elseif ($debugEnabled) {
+                    $this->safeRecordIncomingMessage($peer->gameId, $payload, $incomingCharacters);
+                }
+
                 $this->publishDisconnectVoteTimeoutPatch($peer->gameId);
-                $reply = $this->messages->handle($payload, $peer);
+                $startedAt = microtime(true);
+                try {
+                    $reply = $this->messages->handle($payload, $peer);
+                } catch (\Throwable $exception) {
+                    $failedCommand = is_array($payload['command'] ?? null) ? $payload['command'] : [];
+                    $this->safeRecordIncomingValidationError($peer->gameId, 'UNHANDLED_WEBSOCKET_ERROR', $exception->getMessage(), [
+                        'kind' => is_string($payload['kind'] ?? null) ? $payload['kind'] : 'unknown',
+                        'action' => is_string($failedCommand['type'] ?? null) ? $failedCommand['type'] : null,
+                        'characters' => $incomingCharacters,
+                    ]);
+
+                    throw $exception;
+                }
                 if ($reply instanceof GameWebsocketCommandResult) {
+                    $outgoingDebug = [];
                     foreach ($this->rooms->peersForGame($peer->gameId) as $roomPeer) {
                         $messageForPeer = $reply->messageForPeer($roomPeer);
                         $roomPeer->send($messageForPeer);
-                        $this->safeRecordOutboundMessage($peer->gameId, $messageForPeer, 'broadcast');
+                        if ($isCommand && $debugEnabled) {
+                            $outgoingDebug[] = $this->outgoingDebugSummary($messageForPeer, 'broadcast', $roomPeer->userId);
+                        } else {
+                            $this->safeRecordOutboundMessage($peer->gameId, $messageForPeer, 'broadcast');
+                        }
+                    }
+                    if ($isCommand && $debugEnabled) {
+                        $this->safeRecordActionExchange($peer->gameId, $incomingDebug, $outgoingDebug, $this->elapsedMs($startedAt));
                     }
                     $this->replayBuffer->rememberResult($peer->gameId, $reply);
                     continue;
@@ -154,7 +186,13 @@ final readonly class GameWebsocketClientHandler implements WebsocketClientHandle
 
                 if ($reply !== null) {
                     $peer->send($reply);
-                    $this->safeRecordOutboundMessage($peer->gameId, $reply, 'direct');
+                    if ($isCommand && $debugEnabled) {
+                        $this->safeRecordActionExchange($peer->gameId, $incomingDebug, [$this->outgoingDebugSummary($reply, 'direct', $peer->userId)], $this->elapsedMs($startedAt));
+                    } else {
+                        $this->safeRecordOutboundMessage($peer->gameId, $reply, 'direct');
+                    }
+                } elseif ($isCommand && $debugEnabled) {
+                    $this->safeRecordActionExchange($peer->gameId, $incomingDebug, [], $this->elapsedMs($startedAt));
                 }
             }
         } finally {
@@ -283,6 +321,10 @@ final readonly class GameWebsocketClientHandler implements WebsocketClientHandle
 
     private function safeRecordConnectionSnapshot(string $gameId, string $userId, string $displayName, string $status, int $totalConnections, int $userConnections): void
     {
+        if (!$this->debugHealth->isObserved($gameId)) {
+            return;
+        }
+
         try {
             $this->debugHealth->recordConnectionSnapshot($gameId, $userId, $displayName, $status, $totalConnections, $userConnections);
         } catch (\Throwable $exception) {
@@ -295,6 +337,10 @@ final readonly class GameWebsocketClientHandler implements WebsocketClientHandle
      */
     private function safeRecordOutboundMessage(string $gameId, array $message, ?string $channel): void
     {
+        if (!$this->debugHealth->isObserved($gameId)) {
+            return;
+        }
+
         try {
             $this->debugHealth->recordOutboundMessage($gameId, $message, $channel);
         } catch (\Throwable $exception) {
@@ -302,10 +348,50 @@ final readonly class GameWebsocketClientHandler implements WebsocketClientHandle
         }
     }
 
-    private function safeRecordIncomingValidationError(string $gameId, string $code, string $message): void
+    /**
+     * @param array<string,mixed> $message
+     */
+    private function safeRecordIncomingMessage(string $gameId, array $message, int $characters): void
     {
+        if (!$this->debugHealth->isObserved($gameId)) {
+            return;
+        }
+
         try {
-            $this->debugHealth->recordIncomingValidationError($gameId, $code, $message);
+            $this->debugHealth->recordIncomingMessage($gameId, $message, $characters);
+        } catch (\Throwable $exception) {
+            $this->logger->warning('Could not record gameplay debug health incoming message.', ['exception' => $exception]);
+        }
+    }
+
+    /**
+     * @param array<string,mixed>       $incoming
+     * @param list<array<string,mixed>> $outgoing
+     */
+    private function safeRecordActionExchange(string $gameId, array $incoming, array $outgoing, float $durationMs): void
+    {
+        if (!$this->debugHealth->isObserved($gameId)) {
+            return;
+        }
+
+        try {
+            $this->debugHealth->recordActionExchange($gameId, $incoming, $outgoing, $durationMs);
+        } catch (\Throwable $exception) {
+            $this->logger->warning('Could not record gameplay debug health action exchange.', ['exception' => $exception]);
+        }
+    }
+
+    /**
+     * @param array<string,mixed>|null $meta
+     */
+    private function safeRecordIncomingValidationError(string $gameId, string $code, string $message, ?array $meta = null): void
+    {
+        if (!$this->debugHealth->isObserved($gameId)) {
+            return;
+        }
+
+        try {
+            $this->debugHealth->recordIncomingValidationError($gameId, $code, $message, $meta);
         } catch (\Throwable $exception) {
             $this->logger->warning('Could not record gameplay debug health incoming validation error.', ['exception' => $exception]);
         }
@@ -313,11 +399,66 @@ final readonly class GameWebsocketClientHandler implements WebsocketClientHandle
 
     private function safeRecordReplayResult(string $gameId, string $userId, int $lastSeenVersion, int $currentVersion, ?int $replayedCount, string $result): void
     {
+        if (!$this->debugHealth->isObserved($gameId)) {
+            return;
+        }
+
         try {
             $this->debugHealth->recordReplayResult($gameId, $userId, $lastSeenVersion, $currentVersion, $replayedCount, $result);
         } catch (\Throwable $exception) {
             $this->logger->warning('Could not record gameplay debug health replay result.', ['exception' => $exception]);
         }
+    }
+
+    /**
+     * @param array<string,mixed> $message
+     *
+     * @return array<string,mixed>
+     */
+    private function incomingDebugSummary(array $message, int $characters, string $userId): array
+    {
+        $command = is_array($message['command'] ?? null) ? $message['command'] : [];
+
+        return [
+            'userId' => $userId,
+            'kind' => is_string($message['kind'] ?? null) ? $message['kind'] : 'unknown',
+            'action' => is_string($command['type'] ?? null) ? $command['type'] : null,
+            'clientActionId' => is_string($command['clientActionId'] ?? null) ? $command['clientActionId'] : null,
+            'baseVersion' => is_int($command['baseVersion'] ?? null) ? $command['baseVersion'] : null,
+            'characters' => max(0, $characters),
+        ];
+    }
+
+    /**
+     * @param array<string,mixed> $message
+     *
+     * @return array<string,mixed>
+     */
+    private function outgoingDebugSummary(array $message, string $channel, string $recipientUserId): array
+    {
+        $summary = $message;
+        $summary['channel'] = $channel;
+        $summary['recipientUserId'] = $recipientUserId;
+        $summary['characters'] = $this->jsonCharacters($message);
+
+        return $summary;
+    }
+
+    /**
+     * @param array<string,mixed> $message
+     */
+    private function jsonCharacters(array $message): int
+    {
+        try {
+            return strlen(json_encode($message, JSON_THROW_ON_ERROR));
+        } catch (\JsonException) {
+            return 0;
+        }
+    }
+
+    private function elapsedMs(float $startedAt): float
+    {
+        return (microtime(true) - $startedAt) * 1000;
     }
 
     /**

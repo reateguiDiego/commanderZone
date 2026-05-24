@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { API_BASE_URL } from './api.config';
-import { CommandResponse, DisconnectVoteResponse, GameResponse, GameWebsocketTicketResponse, RematchVoteResponse } from '../models/api-responses.model';
+import { CommandResponse, DisconnectVoteResponse, GameDebugHealthResponse, GameResponse, GameWebsocketTicketResponse, RematchVoteResponse } from '../models/api-responses.model';
 import { withoutGlobalLoading } from '../loading/loading-context';
 import { GameCommand, GameDisconnectVoteChoice, GameRematchVote, GameZoneName, GameZoneResponse } from '../models/game.model';
 
@@ -20,6 +20,10 @@ export class GamesApi {
 
   websocketTicket(gameId: string): Observable<GameWebsocketTicketResponse> {
     return this.http.post<GameWebsocketTicketResponse>(`${API_BASE_URL}/games/${gameId}/websocket-ticket`, {}, { context: withoutGlobalLoading() });
+  }
+
+  debugHealth(gameId: string): Observable<GameDebugHealthResponse> {
+    return this.http.get<GameDebugHealthResponse>(`${API_BASE_URL}/games/${gameId}/debug/health`, { context: withoutGlobalLoading() });
   }
 
   rematchVote(gameId: string, vote: GameRematchVote): Observable<RematchVoteResponse> {
