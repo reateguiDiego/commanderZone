@@ -1830,8 +1830,8 @@ class GameCommandHandlerTest extends TestCase
             static fn (array $card): string => $card['instanceId'],
             $game->snapshot()['players'][$actor->id()]['zones']['library'],
         ));
-        self::assertSame('Moved a card from graveyard to top of library.', $game->snapshot()['eventLog'][0]['message']);
-        self::assertSame('Moved a card from graveyard to bottom of library.', $game->snapshot()['eventLog'][1]['message']);
+        self::assertSame('Moved Top Return from graveyard to top of library.', $game->snapshot()['eventLog'][0]['message']);
+        self::assertSame('Moved Bottom Return from graveyard to bottom of library.', $game->snapshot()['eventLog'][1]['message']);
     }
 
     public function testViewedLibraryCardCanMoveToBottomOfSameLibrary(): void
