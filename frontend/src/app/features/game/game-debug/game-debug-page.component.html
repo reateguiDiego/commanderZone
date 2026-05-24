@@ -1,0 +1,272 @@
+<main class="debug-page">
+  <header class="debug-header">
+    <div>
+      <p>Game debug</p>
+      <h1>WebSocket</h1>
+      <span>{{ gameId }}</span>
+    </div>
+    <div class="debug-actions">
+      <span class="debug-connection-status" [class.is-connected]="debugWebsocket.status() === 'connected'">
+        Debug WS: {{ debugWebsocket.status() }}
+      </span>
+      <button type="button" [disabled]="loading()" (click)="openDebug()">
+        Reiniciar
+      </button>
+    </div>
+  </header>
+
+  @if (loading()) {
+    <p class="debug-status">Cargando debug...</p>
+  }
+
+  @if (error(); as errorMessage) {
+    <p class="debug-error">{{ errorMessage }}</p>
+  }
+
+  @if (report(); as currentReport) {
+    @if (debugWebsocket.status() !== 'connected') {
+      <p class="debug-warning">
+        La pestaña debug esta abierta, pero el WebSocket de debug no esta conectado ahora mismo. La partida puede seguir jugando normal.
+      </p>
+    }
+
+    <section class="debug-summary-grid">
+      <article>
+        <span>Acciones</span>
+        <strong>{{ currentReport.health.actions.total }}</strong>
+        <small>desde reinicio debug</small>
+      </article>
+      <article>
+        <span>Cliente -&gt; servidor</span>
+        <strong>{{ currentReport.health.traffic.incoming.messages }}</strong>
+        <small>{{ averageJsonCharacters(currentReport.health.traffic.incoming) }} caracteres del JSON de media / mensaje</small>
+      </article>
+      <article>
+        <span>Servidor -&gt; cliente</span>
+        <strong>{{ currentReport.health.traffic.outgoing.messages }}</strong>
+        <small>{{ averageJsonCharacters(currentReport.health.traffic.outgoing) }} caracteres del JSON de media / mensaje</small>
+      </article>
+      <article>
+        <span>Errores</span>
+        <strong>{{ currentReport.health.errors.total }}</strong>
+      </article>
+      <article>
+        <span>Media comando</span>
+        <strong>{{ formatMs(currentReport.health.performance.commands.avgMs) }}</strong>
+        <small>max {{ formatMs(currentReport.health.performance.commands.maxMs) }}</small>
+      </article>
+      <article>
+        <span>Conexiones</span>
+        <strong>{{ currentReport.health.websocket.connections.total }}</strong>
+        <small>{{ currentReport.health.websocket.connections.transitions.offline }} desconexiones</small>
+      </article>
+    </section>
+
+    <section class="debug-section">
+      <h2>Cola gameplay local</h2>
+      @if (queueMetrics(); as queue) {
+        <div class="debug-summary-grid">
+          <article>
+            <span>Depth</span>
+            <strong>{{ queue.queueDepth }}</strong>
+            <small>in-flight: {{ queue.inFlight ? 'si' : 'no' }}</small>
+          </article>
+          <article>
+            <span>Rates (60s)</span>
+            <strong>{{ queue.enqueueRate }} / {{ queue.drainRate }}</strong>
+            <small>enqueue/s - drain/s</small>
+          </article>
+          <article>
+            <span>Enqueue/Drain</span>
+            <strong>{{ queue.enqueueTotal }} / {{ queue.drainTotal }}</strong>
+            <small>acumulado local</small>
+          </article>
+          <article>
+            <span>Drops/Retry/Resync</span>
+            <strong>{{ queue.dropTotal }} / {{ queue.retryTotal }} / {{ queue.resyncTotal }}</strong>
+            <small>salud de cola local</small>
+          </article>
+        </div>
+      } @else {
+        <p class="debug-empty">Sin metricas locales de cola (abre la partida y genera actividad).</p>
+      }
+    </section>
+
+    <section class="debug-section">
+      <h2>Dead-letter local (ultimos 100)</h2>
+      @if (deadLetterEvents().length > 0) {
+        <div class="debug-table-wrap">
+          <table class="debug-table">
+            <thead>
+              <tr>
+                <th>At</th>
+                <th>Comando</th>
+                <th>Motivo</th>
+                <th>Retry</th>
+                <th>Detalle</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (entry of deadLetterEvents(); track entry.createdAt + entry.commandType + $index) {
+                <tr>
+                  <td>{{ entry.createdAt }}</td>
+                  <td>{{ entry.commandType }}</td>
+                  <td>{{ entry.reason }}</td>
+                  <td>{{ entry.retryCount }}</td>
+                  <td [title]="deadLetterTitle(entry)">{{ deadLetterTitle(entry) }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      } @else {
+        <p class="debug-empty">Sin eventos dead-letter.</p>
+      }
+    </section>
+
+    <section class="debug-section debug-columns">
+      <article>
+        <h2>Keepalive cliente -&gt; servidor</h2>
+        <p><span>Mensajes</span><strong>{{ currentReport.health.traffic.keepalive.incoming.messages }}</strong></p>
+        <p><span>Media caracteres JSON / mensaje</span><strong>{{ averageJsonCharacters(currentReport.health.traffic.keepalive.incoming) }}</strong></p>
+      </article>
+      <article>
+        <h2>Keepalive servidor -&gt; cliente</h2>
+        <p><span>Mensajes</span><strong>{{ currentReport.health.traffic.keepalive.outgoing.messages }}</strong></p>
+        <p><span>Media caracteres JSON / mensaje</span><strong>{{ averageJsonCharacters(currentReport.health.traffic.keepalive.outgoing) }}</strong></p>
+      </article>
+    </section>
+
+    <section class="debug-section">
+      <h2>Jugadores</h2>
+      <div class="debug-player-list">
+        @for (player of currentReport.context.players; track player.playerId) {
+          <article>
+            <strong>{{ player.displayName }}</strong>
+            <span>{{ playerDeck(player) }}</span>
+            <div class="debug-player-metrics">
+              <small>Estado: {{ playerStatus(player) }}</small>
+              <small>Conexiones: {{ playerConnections(player) }}</small>
+              <small>Perdidas: {{ playerDisconnects(player) }}</small>
+              @if (playerLastDisconnectedAt(player); as lastDisconnectedAt) {
+                <small>Ultima perdida: {{ lastDisconnectedAt }}</small>
+              }
+            </div>
+          </article>
+        }
+      </div>
+    </section>
+
+    <section class="debug-section">
+      <h2>Acciones recientes</h2>
+      @if (actions().length > 0) {
+        <div class="debug-table-wrap">
+          <table class="debug-table">
+            <thead>
+              <tr>
+                <th [attr.aria-sort]="actionAriaSort('action')">
+                  <button type="button" class="debug-sort-button" (click)="sortActionsBy('action')">
+                    Accion <span>{{ actionSortLabel('action') }}</span>
+                  </button>
+                </th>
+                <th [attr.aria-sort]="actionAriaSort('player')">
+                  <button type="button" class="debug-sort-button" (click)="sortActionsBy('player')">
+                    Jugador <span>{{ actionSortLabel('player') }}</span>
+                  </button>
+                </th>
+                <th [attr.aria-sort]="actionAriaSort('incoming')">
+                  <button type="button" class="debug-sort-button" (click)="sortActionsBy('incoming')">
+                    Cliente -&gt; servidor <span>{{ actionSortLabel('incoming') }}</span>
+                  </button>
+                </th>
+                <th [attr.aria-sort]="actionAriaSort('outgoing')">
+                  <button type="button" class="debug-sort-button" (click)="sortActionsBy('outgoing')">
+                    Servidor -&gt; cliente <span>{{ actionSortLabel('outgoing') }}</span>
+                  </button>
+                </th>
+                <th [attr.aria-sort]="actionAriaSort('operations')">
+                  <button type="button" class="debug-sort-button" (click)="sortActionsBy('operations')">
+                    Ops <span>{{ actionSortLabel('operations') }}</span>
+                  </button>
+                </th>
+                <th [attr.aria-sort]="actionAriaSort('snapshotGrowth')">
+                  <button type="button" class="debug-sort-button" (click)="sortActionsBy('snapshotGrowth')">
+                    Crec. lineas snapshot local <span>{{ actionSortLabel('snapshotGrowth') }}</span>
+                  </button>
+                </th>
+                <th [attr.aria-sort]="actionAriaSort('duration')">
+                  <button type="button" class="debug-sort-button" (click)="sortActionsBy('duration')">
+                    Tiempo <span>{{ actionSortLabel('duration') }}</span>
+                  </button>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (action of actions(); track action.clientActionId ?? action.at) {
+                <tr>
+                  <td>{{ action.action }}</td>
+                  <td>{{ playerLabel(action.userId) }}</td>
+                  <td>{{ action.incoming?.characters ?? 0 }} caracteres del JSON</td>
+                  <td>
+                    {{ action.outgoing?.messages ?? 0 }} msg /
+                    {{ action.outgoing?.characters ?? 0 }} caracteres del JSON
+                  </td>
+                  <td>{{ operationTypes(action) }}</td>
+                  <td [title]="snapshotGrowthTitle(action)">{{ snapshotGrowthLabel(action) }}</td>
+                  <td>{{ formatMs(action.durationMs) }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      } @else {
+        <p class="debug-empty">Aun no hay acciones registradas.</p>
+      }
+    </section>
+
+    <section class="debug-section">
+      <h2>Errores</h2>
+      @if (errors().length > 0) {
+        <div class="debug-error-list">
+          @for (item of errors(); track item.at ?? item.code ?? $index) {
+            <article>
+              <strong>{{ item.code ?? 'UNKNOWN_ERROR' }}</strong>
+              <span>{{ item.message ?? 'Sin mensaje' }}</span>
+              @if (item.at) {
+                <small>{{ item.at }}</small>
+              }
+            </article>
+          }
+        </div>
+      } @else {
+        <p class="debug-empty">Sin errores registrados.</p>
+      }
+    </section>
+
+    <section class="debug-section debug-columns">
+      <article>
+        <h2>Acciones por tipo</h2>
+        @for (entry of recordEntries(currentReport.health.actions.byType); track entry.key) {
+          <p><span>{{ entry.key }}</span><strong>{{ entry.value }}</strong></p>
+        }
+      </article>
+      <article>
+        <h2>Mensajes servidor -&gt; cliente</h2>
+        @for (entry of recordEntries(currentReport.health.traffic.outgoing.byKind); track entry.key) {
+          <p><span>{{ entry.key }}</span><strong>{{ entry.value }}</strong></p>
+        }
+      </article>
+      <article>
+        <h2>Errores por codigo</h2>
+        @for (entry of recordEntries(currentReport.health.errors.byCode); track entry.key) {
+          <p><span>{{ entry.key }}</span><strong>{{ entry.value }}</strong></p>
+        }
+      </article>
+    </section>
+
+    <details class="debug-json">
+      <summary>JSON sanitizado</summary>
+      <pre>{{ reportJson() }}</pre>
+    </details>
+  }
+</main>

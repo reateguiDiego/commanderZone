@@ -24,6 +24,12 @@
         <span>Focus My Board</span>
       </span>
     </button>
+    <button type="button" (click)="actionSelected.emit({ type: 'openDebug' })">
+      <span class="menu-item-label">
+        <lucide-icon name="bug" size="17" aria-hidden="true" />
+        <span>Abrir debug</span>
+      </span>
+    </button>
     @if (isCurrentPlayerActive()) {
       <button type="button" class="danger-menu-item" (click)="actionSelected.emit({ type: 'concedeGame' })">
         <span class="menu-item-label">

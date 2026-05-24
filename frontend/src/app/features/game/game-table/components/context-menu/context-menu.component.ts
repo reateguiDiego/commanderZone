@@ -11,6 +11,7 @@ export type ContextMenuAction =
   | { type: 'revealTopMine' }
   | { type: 'shuffleMine' }
   | { type: 'copyGameId' }
+  | { type: 'openDebug' }
   | { type: 'refreshSnapshot' }
   | { type: 'focusCurrentPlayer' }
   | { type: 'openChat' }

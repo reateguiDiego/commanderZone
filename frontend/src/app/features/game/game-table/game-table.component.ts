@@ -1447,6 +1447,9 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
         this.store.focusCurrentPlayer();
         this.store.closeContextMenu();
         return;
+      case 'openDebug':
+        this.openDebugTab();
+        return;
       case 'openChat':
         this.openFloatingTab('chat');
         this.store.closeContextMenu();
@@ -1952,6 +1955,16 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       label: result.label,
       finalResult: result.finalResult,
     });
+  }
+
+  openDebugTab(): void {
+    const gameId = this.store.gameId();
+    this.store.closeContextMenu();
+    if (!gameId) {
+      return;
+    }
+
+    window.open(`/games/${encodeURIComponent(gameId)}/debug`, '_blank', 'noopener');
   }
 
   openRematchModal(): void {

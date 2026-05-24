@@ -145,6 +145,41 @@ class GameWebsocketPatchBuilderTest extends TestCase
         self::assertArrayNotHasKey('position', $message['operations'][0]);
     }
 
+    public function testCardTappedPatchSizeStaysStableAcrossRepeatedToggles(): void
+    {
+        [$game, $actor] = $this->gameWithBattlefieldCards();
+
+        $tapMessage = $this->applyAndBuild($game, $actor, 'card.tapped', [
+            'playerId' => $actor->id(),
+            'zone' => 'battlefield',
+            'instanceId' => 'battlefield-1',
+            'tapped' => true,
+        ], 'action-tap-1');
+        $untapMessage = $this->applyAndBuild($game, $actor, 'card.tapped', [
+            'playerId' => $actor->id(),
+            'zone' => 'battlefield',
+            'instanceId' => 'battlefield-1',
+            'tapped' => false,
+        ], 'action-tap-2');
+        [$movementGame, $movementActor] = $this->gameWithMovementCards();
+        $moveMessage = $this->applyAndBuildProjected($movementGame, $movementActor, 'card.moved', [
+            'playerId' => $movementActor->id(),
+            'fromZone' => 'hand',
+            'toZone' => 'battlefield',
+            'instanceId' => 'hand-1',
+        ], 'action-move-1', $movementActor);
+
+        $tapCharacters = strlen(json_encode($tapMessage, JSON_THROW_ON_ERROR));
+        $untapCharacters = strlen(json_encode($untapMessage, JSON_THROW_ON_ERROR));
+        $moveCharacters = strlen(json_encode($moveMessage, JSON_THROW_ON_ERROR));
+
+        self::assertSame(['card.state.set'], array_column($tapMessage['operations'], 'op'));
+        self::assertSame(['card.state.set'], array_column($untapMessage['operations'], 'op'));
+        self::assertLessThanOrEqual(2, abs($tapCharacters - $untapCharacters));
+        self::assertGreaterThan($tapCharacters, $moveCharacters);
+        self::assertGreaterThan($untapCharacters, $moveCharacters);
+    }
+
     public function testBuildsCardMovePatchWithCountsForVisibleMovement(): void
     {
         [$game, $actor] = $this->gameWithMovementCards();

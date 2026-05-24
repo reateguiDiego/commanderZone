@@ -4,6 +4,7 @@ import {
   Ban,
   BarChart3,
   Biohazard,
+  Bug,
   Copy,
   Dices,
   Eye,
@@ -50,6 +51,7 @@ describe('ContextMenuComponent', () => {
           Ban,
           BarChart3,
           Biohazard,
+          Bug,
           Copy,
           Dices,
           Eye,
@@ -100,13 +102,15 @@ describe('ContextMenuComponent', () => {
     expect(buttonLabels(fixture)).toEqual([
       'Refresh Snapshot',
       'Focus My Board',
+      'Abrir debug',
       'Concede',
       'Leave Table',
     ]);
-    expect(buttons[2]?.classList).toContain('danger-menu-item');
     expect(buttons[3]?.classList).toContain('danger-menu-item');
+    expect(buttons[4]?.classList).toContain('danger-menu-item');
     expect((fixture.nativeElement as HTMLElement).querySelector('lucide-icon[name="skull"]')).not.toBeNull();
-    expect((fixture.nativeElement as HTMLElement).querySelectorAll('lucide-icon')).toHaveLength(4);
+    expect((fixture.nativeElement as HTMLElement).querySelector('lucide-icon[name="bug"]')).not.toBeNull();
+    expect((fixture.nativeElement as HTMLElement).querySelectorAll('lucide-icon')).toHaveLength(5);
     expect(text).not.toContain('Copy Game Id');
     expect(text).not.toContain('Draw 7 Mine');
     expect(text).not.toContain('Open Chat');
@@ -125,9 +129,28 @@ describe('ContextMenuComponent', () => {
     expect(buttonLabels(fixture)).toEqual([
       'Refresh Snapshot',
       'Focus My Board',
+      'Abrir debug',
       'Leave Table',
     ]);
-    expect(menuButtons(fixture)[2]?.classList).toContain('danger-menu-item');
+    expect(menuButtons(fixture)[3]?.classList).toContain('danger-menu-item');
+  });
+
+  it('emits openDebug from the game menu', () => {
+    const fixture = createContextMenuFixture({
+      kind: 'game',
+      playerId: 'user-1',
+      zone: 'battlefield',
+    }, {
+      currentPlayer: player('user-1', 'User'),
+    });
+    const selected = vi.fn();
+    fixture.componentInstance.actionSelected.subscribe(selected);
+
+    const button = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button'))
+      .find((item) => item.textContent?.includes('Abrir debug'));
+    button?.click();
+
+    expect(selected).toHaveBeenCalledWith({ type: 'openDebug' });
   });
 
   it('hides player life actions when the current user cannot control that player', () => {
