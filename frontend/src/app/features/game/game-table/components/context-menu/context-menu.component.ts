@@ -516,7 +516,7 @@ export class ContextMenuComponent {
       case 'library':
         return 'library';
       case 'hand':
-        return '/assets/icons/CM/CM_cards_icon.png';
+        return '/assets/icons/CZ/CZ_cards_icon.png';
       case 'battlefield':
         return 'swords';
       case 'graveyard':
@@ -524,7 +524,7 @@ export class ContextMenuComponent {
       case 'exile':
         return 'ban';
       case 'command':
-        return '/assets/icons/CM/CM_logo_zone_header.png';
+        return '/assets/icons/CZ/CZ_logo_zone_header.png';
     }
   }
 
