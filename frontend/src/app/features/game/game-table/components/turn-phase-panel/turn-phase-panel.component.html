@@ -3,8 +3,12 @@
 <div class="turn-phase-panel" data-testid="turn-panel" [class.is-current-turn-player]="isCurrentTurnPlayer()">
   <div class="turn-summary">
     <div class="turn-title">
-      <span class="turn-number" data-testid="turn-number">Turno {{ currentTurn.number }}</span>
-      <strong class="turn-active-player" data-testid="turn-active-player">{{ activePlayerName() }}</strong>
+      <app-players-order
+        [players]="players()"
+        [activePlayerId]="currentTurn.activePlayerId"
+        [currentPlayerId]="currentPlayerId()"
+        [turnNumber]="currentTurn.number"
+      />
     </div>
     <div class="turn-actions">
       @if (isCurrentTurnPlayer()) {

@@ -1,0 +1,22 @@
+<div
+  class="players-order"
+  data-testid="players-order"
+  aria-label="Orden de turno"
+  [style.--players-order-count]="entries().length"
+>
+  @for (entry of entries(); track trackEntry($index, entry)) {
+    <article
+      class="player-order-card"
+      data-testid="player-order-card"
+      data-player-order-card
+      [attr.data-player-id]="entry.id"
+      [class.active]="entry.isActive"
+      [class.current-player]="entry.isCurrent"
+      [class.defeated]="entry.isDefeated"
+      [title]="entry.title"
+    >
+      <span class="player-order-name">{{ entry.name }}</span>
+      <span class="player-order-step">{{ entry.turnLabel }}</span>
+    </article>
+  }
+</div>

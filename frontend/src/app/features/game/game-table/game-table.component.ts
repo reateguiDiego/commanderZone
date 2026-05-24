@@ -527,8 +527,9 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   readonly opponentCardsTargetCards = computed(() => this.store.opponentCardsTargetCards());
   readonly opponentSidebarPlayers = computed(() => {
     const focusedPlayerId = this.store.focusedPlayer()?.id ?? null;
+    const opponents = this.store.players().filter((player) => player.id !== focusedPlayerId);
 
-    return this.store.players().filter((player) => player.id !== focusedPlayerId);
+    return this.sortOpponentSidebarPlayers(opponents);
   });
   readonly opponentsDrawerOpen = signal(false);
   readonly arrowTargetPlayers = computed(() => {
@@ -1993,10 +1994,10 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
 
   pendingLibraryMoveMessage(pendingMove: PendingLibraryMove): string {
     const instanceIds = pendingMove.payload['instanceIds'];
-    const isMultiMove = Array.isArray(instanceIds) && instanceIds.length > 1;
+    const movedCount = Array.isArray(instanceIds) ? instanceIds.length : 1;
 
-    return isMultiMove
-      ? 'Donde quieres poner estas cartas?'
+    return movedCount > 1
+      ? `Donde quieres poner estas ${movedCount} cartas?`
       : 'Donde quieres poner esta carta?';
   }
 
@@ -2180,6 +2181,23 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
 
   private playerName(playerId: string): string {
     return this.store.players().find((player) => player.id === playerId)?.state.user.displayName || playerId;
+  }
+
+  private sortOpponentSidebarPlayers(players: readonly PlayerView[]): PlayerView[] {
+    return players
+      .map((player, index) => ({
+        player,
+        index,
+        defeated: playerIsDefeated(player),
+      }))
+      .sort((left, right) => {
+        if (left.defeated !== right.defeated) {
+          return left.defeated ? 1 : -1;
+        }
+
+        return left.index - right.index;
+      })
+      .map(({ player }) => player);
   }
 
   private openPowerToughnessDialog(menu: GameContextMenu): void {

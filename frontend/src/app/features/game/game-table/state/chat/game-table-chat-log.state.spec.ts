@@ -13,7 +13,7 @@ describe('GameTableChatLogState', () => {
     expect(entry?.cardList).toEqual(['Bear', 'Elf', 'Sol Ring']);
   });
 
-  it('does not expose aggregate card links when cards move to library', () => {
+  it('exposes aggregate card links when public-zone cards move to library', () => {
     const state = new GameTableChatLogState();
 
     const [entry] = state.eventLogView({
@@ -29,9 +29,31 @@ describe('GameTableChatLogState', () => {
       }],
     }, ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command']);
 
+    expect(entry?.cardList).toEqual(['Bear', 'Elf', 'Sol Ring']);
+    expect(entry?.cardListLabel).toBe('3 cards');
+    expect(entry?.cardListPrefix).toBe('Moved ');
+    expect(entry?.cardListSuffix).toBe(' from graveyard to library.');
+  });
+
+  it('does not expose aggregate card links when hand cards move to library', () => {
+    const state = new GameTableChatLogState();
+
+    const [entry] = state.eventLogView({
+      ...snapshot(),
+      eventLog: [{
+        id: 'event-library',
+        type: 'cards.moved',
+        message: 'Moved 3 cards from hand to library.',
+        actorId: 'player-1',
+        displayName: 'Player',
+        createdAt: '2026-05-14T00:00:00Z',
+        cardNames: ['Bear', 'Elf', 'Sol Ring'],
+      }],
+    }, ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command']);
+
     expect(entry?.cardList).toEqual([]);
     expect(entry?.cardListLabel).toBe('');
-    expect(entry?.messagePrefix).toBe('Moved 3 cards from graveyard to library.');
+    expect(entry?.messagePrefix).toBe('Moved 3 cards from hand to library.');
   });
 
   it('sanitizes older single-card library destination logs', () => {

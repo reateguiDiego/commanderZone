@@ -2027,6 +2027,42 @@ describe('GameTableComponent', () => {
     expect(fixture.componentInstance.opponentSidebarPlayers().map((player) => player.id)).toEqual(['user-2']);
   });
 
+  it('keeps defeated opponents at the bottom of the opponent sidebar', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    addOpponent(snapshot);
+    snapshot.players['user-2']!.life = 0;
+    snapshot.players['user-3'] = {
+      ...snapshot.players['user-2']!,
+      user: { id: 'user-3', email: 'third@test', displayName: 'Third', roles: [] },
+      life: 32,
+    };
+    snapshot.players['user-4'] = {
+      ...snapshot.players['user-2']!,
+      user: { id: 'user-4', email: 'fourth@test', displayName: 'Fourth', roles: [] },
+      status: 'conceded',
+      concededAt: '2026-04-30T20:03:00+00:00',
+      life: 18,
+    };
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.opponentSidebarPlayers().map((player) => player.id)).toEqual([
+      'user-3',
+      'user-2',
+      'user-4',
+    ]);
+    expect(Array.from((fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>('[data-testid="opponent-mini-board"]'))
+      .map((board) => board.dataset['playerId'])).toEqual(['user-3', 'user-2', 'user-4']);
+  });
+
   it('refreshes the focused battlefield, background, and hand when focus turn follows a passed turn', async () => {
     routeParams['id'] = 'game-1';
     authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
@@ -2265,6 +2301,8 @@ describe('GameTableComponent', () => {
         instanceIds: ['card-1', 'card-2'],
       },
     });
+    expect(fixture.componentInstance.pendingLibraryMoveMessage(fixture.componentInstance.store.pendingLibraryMove()!))
+      .toBe('Donde quieres poner estas 2 cartas?');
   });
 
   it('allows random order when multiple cards are placed into library', async () => {

@@ -43,7 +43,7 @@
   }
 
   .player-strip {
-    grid-template-columns: minmax(9rem, 0.95fr) minmax(12rem, 1.05fr) 0 minmax(17rem, 22rem);
+    grid-template-columns: minmax(8rem, 0.82fr) minmax(13rem, 1.18fr) 0 minmax(17rem, 22rem);
   }
 
   .extras-panel {
@@ -124,7 +124,7 @@
   }
 
   .player-strip {
-    grid-template-columns: minmax(0, 1fr) minmax(8.5rem, 0.95fr);
+    grid-template-columns: minmax(0, 0.75fr) minmax(9rem, 1.25fr);
     width: 100%;
     margin-inline: 0;
     overflow: hidden;
