@@ -15,12 +15,12 @@ export class MercureService {
       let source: EventSource | null = null;
       let closed = false;
       const url = `${MERCURE_URL}?topic=${encodeURIComponent(`games/${gameId}`)}`;
-      this.authorizeMercure()
-        .then(() => {
+      this.prepareMercureConnection()
+        .then((withCredentials) => {
           if (closed) {
             return;
           }
-          source = new EventSource(url, { withCredentials: true });
+          source = withCredentials ? new EventSource(url, { withCredentials: true }) : new EventSource(url);
 
           source.onmessage = (message) => {
             try {
@@ -48,12 +48,12 @@ export class MercureService {
       let source: EventSource | null = null;
       let closed = false;
       const url = `${MERCURE_URL}?topic=${encodeURIComponent(`table-assistant/rooms/${roomId}`)}`;
-      this.authorizeMercure()
-        .then(() => {
+      this.prepareMercureConnection()
+        .then((withCredentials) => {
           if (closed) {
             return;
           }
-          source = new EventSource(url, { withCredentials: true });
+          source = withCredentials ? new EventSource(url, { withCredentials: true }) : new EventSource(url);
 
           source.onmessage = (message) => {
             try {
@@ -81,12 +81,12 @@ export class MercureService {
       let source: EventSource | null = null;
       let closed = false;
       const url = `${MERCURE_URL}?topic=${encodeURIComponent(`rooms/invites/users/${userId}`)}`;
-      this.authorizeMercure()
-        .then(() => {
+      this.prepareMercureConnection()
+        .then((withCredentials) => {
           if (closed) {
             return;
           }
-          source = new EventSource(url, { withCredentials: true });
+          source = withCredentials ? new EventSource(url, { withCredentials: true }) : new EventSource(url);
 
           source.onmessage = (message) => {
             try {
@@ -114,12 +114,12 @@ export class MercureService {
       let source: EventSource | null = null;
       let closed = false;
       const url = `${MERCURE_URL}?topic=${encodeURIComponent(`rooms/${roomId}/waiting`)}`;
-      this.authorizeMercure()
-        .then(() => {
+      this.prepareMercureConnection()
+        .then((withCredentials) => {
           if (closed) {
             return;
           }
-          source = new EventSource(url, { withCredentials: true });
+          source = withCredentials ? new EventSource(url, { withCredentials: true }) : new EventSource(url);
 
           source.onmessage = (message) => {
             try {
@@ -147,12 +147,12 @@ export class MercureService {
       let source: EventSource | null = null;
       let closed = false;
       const url = `${MERCURE_URL}?topic=${encodeURIComponent(`friends/users/${userId}`)}`;
-      this.authorizeMercure()
-        .then(() => {
+      this.prepareMercureConnection()
+        .then((withCredentials) => {
           if (closed) {
             return;
           }
-          source = new EventSource(url, { withCredentials: true });
+          source = withCredentials ? new EventSource(url, { withCredentials: true }) : new EventSource(url);
 
           source.onmessage = (message) => {
             try {
@@ -175,7 +175,58 @@ export class MercureService {
     });
   }
 
-  private async authorizeMercure(): Promise<void> {
-    await firstValueFrom(this.http.post<void>(`${API_BASE_URL}/realtime/mercure-cookie`, {}));
+  private async prepareMercureConnection(): Promise<boolean> {
+    if (!this.shouldUseCredentials()) {
+      return false;
+    }
+
+    try {
+      await firstValueFrom(this.http.post<void>(`${API_BASE_URL}/realtime/mercure-cookie`, {}));
+
+      return true;
+    } catch (error) {
+      if (this.canUseAnonymousFallback()) {
+        return false;
+      }
+
+      throw error;
+    }
+  }
+
+  private shouldUseCredentials(): boolean {
+    const apiHost = this.hostnameFromUrl(API_BASE_URL);
+    const mercureHost = this.hostnameFromUrl(MERCURE_URL);
+    if (!apiHost || !mercureHost) {
+      return true;
+    }
+
+    // Local loopback mixed hosts (localhost vs 127.0.0.1) cannot share Mercure cookies.
+    if (this.isLoopbackHost(apiHost) && this.isLoopbackHost(mercureHost) && apiHost !== mercureHost) {
+      return false;
+    }
+
+    return true;
+  }
+
+  private canUseAnonymousFallback(): boolean {
+    const apiHost = this.hostnameFromUrl(API_BASE_URL);
+    const mercureHost = this.hostnameFromUrl(MERCURE_URL);
+
+    return apiHost !== null
+      && mercureHost !== null
+      && this.isLoopbackHost(apiHost)
+      && this.isLoopbackHost(mercureHost);
+  }
+
+  private hostnameFromUrl(url: string): string | null {
+    try {
+      return new URL(url).hostname.toLowerCase();
+    } catch {
+      return null;
+    }
+  }
+
+  private isLoopbackHost(hostname: string): boolean {
+    return hostname === 'localhost' || hostname === '127.0.0.1';
   }
 }

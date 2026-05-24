@@ -23,6 +23,7 @@ import { GameTablePointerDragService } from './services/game-table-pointer-drag.
 import { GameTableRematchRealtimeService } from './services/game-table-rematch-realtime.service';
 import { GameTableSelectionService } from './services/game-table-selection.service';
 import { GameTableSessionService } from './services/game-table-session.service';
+import { GameTableDisconnectVoteService } from './services/game-table-disconnect-vote.service';
 import { GameTableWebsocketGameplayService } from './services/game-table-websocket-gameplay.service';
 import { GameTableWebsocketTransportService } from './services/game-table-websocket-transport.service';
 import { GameTableTurnActionsService } from './services/game-table-turn-actions.service';
@@ -77,6 +78,7 @@ import { PowerToughnessDialogComponent, PowerToughnessDialogValueChange } from '
 import { GameArrowLayerComponent } from './components/game-arrow-layer/game-arrow-layer.component';
 import { ArrowTargetDialogComponent, ArrowTargetDialogValue } from './components/arrow-target-dialog/arrow-target-dialog.component';
 import { GameRematchModalComponent, RematchPlayerVoteView } from './components/game-rematch-modal/game-rematch-modal.component';
+import { GameDisconnectVoteModalComponent } from './components/game-disconnect-vote-modal/game-disconnect-vote-modal.component';
 import { TokenSearchModalComponent } from './components/token-search-modal/token-search-modal.component';
 import { RollModalComponent } from '../../../core/ui/roll-modal/roll-modal.component';
 import { type RollResult } from '../../../core/ui/roll-modal/roll';
@@ -279,6 +281,7 @@ interface MotionSourceRect {
     GameArrowLayerComponent,
     ArrowTargetDialogComponent,
     GameRematchModalComponent,
+    GameDisconnectVoteModalComponent,
     TokenSearchModalComponent,
     RollModalComponent,
   ],
@@ -309,6 +312,7 @@ interface MotionSourceRect {
     GameTableDebouncedValueCommandsService,
     GameTableBattlefieldDragCoordinatorService,
     GameTableRematchRealtimeService,
+    GameTableDisconnectVoteService,
     GameTableWebsocketGameplayService,
     GameTableWebsocketTransportService,
     GameTableCommandService,
@@ -340,6 +344,7 @@ interface MotionSourceRect {
 export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDestroy {
   private readonly mobileScrollLockQuery = '(max-width: 1180px), (hover: none) and (pointer: coarse)';
   readonly store = inject(GameTableStore);
+  readonly disconnectVote = inject(GameTableDisconnectVoteService);
   private readonly gamesApi = inject(GamesApi);
   private readonly router = inject(Router);
   private readonly motion = inject(GameTableMotionService);
@@ -1963,6 +1968,18 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
 
   async abandonRematchRoom(): Promise<void> {
     await this.submitRematchVote('leave');
+  }
+
+  closeDisconnectVoteModal(): void {
+    this.disconnectVote.closeModal();
+  }
+
+  async voteDisconnectWait(): Promise<void> {
+    await this.disconnectVote.vote('wait');
+  }
+
+  async voteDisconnectExpel(): Promise<void> {
+    await this.disconnectVote.vote('expel');
   }
 
   pendingLibraryMoveSupportsRandomOrder(pendingMove: PendingLibraryMove): boolean {

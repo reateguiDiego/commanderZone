@@ -1953,6 +1953,33 @@ paths:
           $ref: '#/components/responses/Error'
         '404':
           $ref: '#/components/responses/Error'
+  /games/{id}/disconnect-vote:
+    post:
+      tags: [Games]
+      summary: Vote how to handle a disconnected player (wait or expel).
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DisconnectVoteRequest'
+      responses:
+        '201':
+          description: Disconnect vote stored.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DisconnectVoteResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
   /games/{id}/zones/{playerId}/{zone}:
     get:
       tags: [Games]
@@ -3762,6 +3789,10 @@ components:
             $ref: '#/components/schemas/GameLogEntry'
         rematch:
           $ref: '#/components/schemas/GameRematch'
+        disconnectVote:
+          oneOf:
+            - $ref: '#/components/schemas/GameDisconnectVote'
+            - type: 'null'
         createdAt:
           type: string
           format: date-time
@@ -4052,6 +4083,44 @@ components:
         votedAt:
           type: string
           format: date-time
+    GameDisconnectVote:
+      type: object
+      required: [targetPlayerId, status, openedAt, deadlineAt, cooldownUntil, votes]
+      properties:
+        targetPlayerId:
+          type: [string, 'null']
+          format: uuid
+        status:
+          type: string
+          enum: [open, resolved_wait, resolved_expel, cancelled]
+        openedAt:
+          type: [string, 'null']
+          format: date-time
+        deadlineAt:
+          type: [string, 'null']
+          format: date-time
+        cooldownUntil:
+          type: [string, 'null']
+          format: date-time
+        votes:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/GameDisconnectVoteEntry'
+    GameDisconnectVoteEntry:
+      type: object
+      required: [playerId, displayName, vote, votedAt]
+      properties:
+        playerId:
+          type: string
+          format: uuid
+        displayName:
+          type: string
+        vote:
+          type: string
+          enum: [wait, expel]
+        votedAt:
+          type: string
+          format: date-time
     RematchVoteRequest:
       type: object
       required: [vote]
@@ -4080,6 +4149,29 @@ components:
           type: boolean
         roomDeleted:
           type: boolean
+    DisconnectVoteRequest:
+      type: object
+      required: [targetPlayerId, vote]
+      properties:
+        targetPlayerId:
+          type: string
+          format: uuid
+        vote:
+          type: string
+          enum: [wait, expel]
+    DisconnectVoteResponse:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [recorded]
+        event:
+          $ref: '#/components/schemas/GameEvent'
+        snapshot:
+          $ref: '#/components/schemas/GameSnapshot'
+        version:
+          type: [integer, 'null']
     GameStackItem:
       type: object
       required: [id, kind, createdAt]

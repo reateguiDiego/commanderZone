@@ -3,6 +3,7 @@
 namespace App\Tests\Application\GameWebSocket;
 
 use App\Application\Game\GameCommandHandler;
+use App\Application\Game\GameDisconnectVoteService;
 use App\Application\Game\GameProjectionService;
 use App\Application\Game\WebSocket\GameWebsocketCommandPatchService;
 use App\Application\Game\WebSocket\GameWebsocketMessageFactory;
@@ -290,8 +291,10 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
 
         return new GameWebsocketCommandPatchService(
             new GameCommandHandler(),
+            new GameDisconnectVoteService(new GameCommandHandler()),
             new GameWebsocketPatchBuilder($messages),
             $messages,
+            new \App\Application\Game\WebSocket\GameWebsocketRoomRegistry(),
             $registry,
             new GameProjectionService(new GameCommandHandler()),
         );

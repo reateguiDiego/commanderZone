@@ -248,6 +248,38 @@ describe('game snapshot patch reducer', () => {
     expect(result.snapshot.timer).toEqual({ mode: 'turn', status: 'running', durationSeconds: 120, remainingSeconds: 87 });
   });
 
+  it('applies disconnect vote snapshot updates', () => {
+    const snapshot = snapshotFixture();
+
+    const result = applyGameSnapshotPatch(snapshot, patch([
+      {
+        op: 'disconnect.vote.set',
+        disconnectVote: {
+          targetPlayerId: 'player-2',
+          status: 'open',
+          openedAt: '2026-01-01T00:00:10.000Z',
+          deadlineAt: '2026-01-01T00:01:10.000Z',
+          cooldownUntil: null,
+          votes: {
+            'player-1': {
+              playerId: 'player-1',
+              displayName: 'Player 1',
+              vote: 'expel',
+              votedAt: '2026-01-01T00:00:15.000Z',
+            },
+          },
+        },
+      },
+    ]));
+
+    expect(result.status).toBe('applied');
+    expect(result.snapshot.disconnectVote).toEqual(expect.objectContaining({
+      targetPlayerId: 'player-2',
+      status: 'open',
+    }));
+    expect(result.snapshot.disconnectVote?.votes['player-1']?.vote).toBe('expel');
+  });
+
   it('applies append and set operations for shared gameplay collections', () => {
     const snapshot = snapshotFixture();
 

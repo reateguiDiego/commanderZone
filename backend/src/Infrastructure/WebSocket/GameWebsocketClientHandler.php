@@ -7,20 +7,26 @@ use Amp\Http\Server\Response;
 use Amp\Websocket\Server\WebsocketClientHandler;
 use Amp\Websocket\WebsocketClient;
 use Amp\Websocket\WebsocketCloseCode;
+use App\Application\Game\GameDisconnectVoteService;
 use App\Application\Game\WebSocket\GameWebsocketConnectionAuthorizer;
 use App\Application\Game\WebSocket\GameWebsocketCommandResult;
+use App\Application\Game\WebSocket\GameWebsocketDisconnectVoteOrchestrator;
 use App\Application\Game\WebSocket\GameWebsocketMessageHandler;
 use App\Application\Game\WebSocket\GameWebsocketMessageFactory;
 use App\Application\Game\WebSocket\GameWebsocketPeer;
 use App\Application\Game\WebSocket\GameWebsocketPatchReplayBuffer;
 use App\Application\Game\WebSocket\GameWebsocketRoomRegistry;
 use Psr\Log\LoggerInterface;
+use Revolt\EventLoop;
 
 final readonly class GameWebsocketClientHandler implements WebsocketClientHandler
 {
+    private const DISCONNECT_VOTE_GRACE_SECONDS = GameDisconnectVoteService::OFFLINE_GRACE_SECONDS;
+
     public function __construct(
         private GameWebsocketConnectionAuthorizer $authorizer,
         private GameWebsocketRoomRegistry $rooms,
+        private GameWebsocketDisconnectVoteOrchestrator $disconnectVotes,
         private GameWebsocketMessageHandler $messages,
         private GameWebsocketMessageFactory $messageFactory,
         private GameWebsocketPatchReplayBuffer $replayBuffer,
@@ -62,6 +68,7 @@ final readonly class GameWebsocketClientHandler implements WebsocketClientHandle
         );
 
         $this->rooms->join($peer);
+        $wasOffline = $this->rooms->countConnectionsForUserInGame($peer->gameId, $peer->userId) === 1;
         $peer->send([
             'kind' => 'connection_state',
             'gameId' => $peer->gameId,
@@ -84,6 +91,11 @@ final readonly class GameWebsocketClientHandler implements WebsocketClientHandle
             'gameId' => $peer->gameId,
             'connection' => $peer->presencePayload(),
         ], $peer->connectionId);
+        if ($wasOffline) {
+            $this->rooms->clearUserOffline($peer->gameId, $peer->userId);
+            $this->broadcastPresenceChanged($peer, 'online');
+            $this->publishDisconnectVotePatch($peer->gameId, $peer->userId, 'online');
+        }
 
         try {
             while (!$client->isClosed() && ($message = $client->receive()) !== null) {
@@ -104,6 +116,7 @@ final readonly class GameWebsocketClientHandler implements WebsocketClientHandle
                     continue;
                 }
 
+                $this->publishDisconnectVoteTimeoutPatch($peer->gameId);
                 $reply = $this->messages->handle($payload, $peer);
                 if ($reply instanceof GameWebsocketCommandResult) {
                     foreach ($this->rooms->peersForGame($peer->gameId) as $roomPeer) {
@@ -126,6 +139,11 @@ final readonly class GameWebsocketClientHandler implements WebsocketClientHandle
                     'connection' => $left->presencePayload(),
                     'leftAt' => (new \DateTimeImmutable())->format(DATE_ATOM),
                 ]);
+                if ($this->rooms->countConnectionsForUserInGame($left->gameId, $left->userId) === 0) {
+                    $this->rooms->markUserOffline($left->gameId, $left->userId);
+                    $this->broadcastPresenceChanged($left, 'offline');
+                    $this->scheduleDisconnectVoteOpenAfterGrace($left->gameId, $left->userId);
+                }
             }
         }
     }
@@ -175,6 +193,53 @@ final readonly class GameWebsocketClientHandler implements WebsocketClientHandle
         }
 
         return null;
+    }
+
+    private function broadcastPresenceChanged(GameWebsocketPeer $peer, string $status): void
+    {
+        $this->rooms->broadcast($peer->gameId, [
+            'kind' => 'player_presence_changed',
+            'gameId' => $peer->gameId,
+            'playerId' => $peer->userId,
+            'displayName' => $peer->displayName,
+            'status' => $status,
+            'changedAt' => (new \DateTimeImmutable())->format(DATE_ATOM),
+        ]);
+    }
+
+    private function publishDisconnectVotePatch(string $gameId, string $targetUserId, string $status): void
+    {
+        $result = $this->disconnectVotes->handlePresenceTransition($gameId, $targetUserId, $status);
+        $this->broadcastCommandResult($gameId, $result);
+    }
+
+    private function publishDisconnectVoteTimeoutPatch(string $gameId): void
+    {
+        $result = $this->disconnectVotes->resolveTimeout($gameId);
+        $this->broadcastCommandResult($gameId, $result);
+    }
+
+    private function scheduleDisconnectVoteOpenAfterGrace(string $gameId, string $targetUserId): void
+    {
+        EventLoop::delay((float) self::DISCONNECT_VOTE_GRACE_SECONDS, function () use ($gameId, $targetUserId): void {
+            if (!$this->rooms->isUserOfflineBeyondGrace($gameId, $targetUserId, self::DISCONNECT_VOTE_GRACE_SECONDS)) {
+                return;
+            }
+
+            $this->publishDisconnectVotePatch($gameId, $targetUserId, 'offline');
+        });
+    }
+
+    private function broadcastCommandResult(string $gameId, ?GameWebsocketCommandResult $result): void
+    {
+        if (!$result instanceof GameWebsocketCommandResult) {
+            return;
+        }
+
+        foreach ($this->rooms->peersForGame($gameId) as $roomPeer) {
+            $roomPeer->send($result->messageForPeer($roomPeer));
+        }
+        $this->replayBuffer->rememberResult($gameId, $result);
     }
 
     /**

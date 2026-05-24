@@ -703,6 +703,80 @@ class GameWebsocketPatchBuilderTest extends TestCase
         self::assertStringNotContainsString('"status":"finished"', $encodedClose);
     }
 
+    public function testBuildsDisconnectVotePatchWithEventLogAppend(): void
+    {
+        [$game, $actor, $opponent] = $this->game();
+        $previous = $game->snapshot();
+        $next = $previous;
+        $next['version'] = 2;
+        $next['disconnectVote'] = [
+            'targetPlayerId' => $opponent->id(),
+            'status' => 'open',
+            'openedAt' => '2026-01-01T00:00:00+00:00',
+            'deadlineAt' => '2026-01-01T00:01:00+00:00',
+            'cooldownUntil' => null,
+            'votes' => [],
+        ];
+        $next['eventLog'][] = [
+            'id' => 'log-disconnect',
+            'type' => 'disconnect.vote.updated',
+            'message' => 'Votacion abierta.',
+            'actorId' => null,
+            'displayName' => 'System',
+            'createdAt' => '2026-01-01T00:00:00+00:00',
+        ];
+
+        $event = new GameEvent($game, 'disconnect.vote.updated', ['reason' => 'opened'], null, 'action-disconnect');
+        $message = (new GameWebsocketPatchBuilder(new GameWebsocketMessageFactory()))->build($game->id(), $previous, $next, $event);
+
+        self::assertSame('disconnect.vote.set', $message['operations'][0]['op']);
+        self::assertSame($opponent->id(), $message['operations'][0]['disconnectVote']['targetPlayerId']);
+        self::assertSame('eventLog.append', $message['operations'][1]['op']);
+    }
+
+    public function testBuildsDisconnectVotePatchIncludingPlayerStatusWhenExpelled(): void
+    {
+        [$game, $actor, $opponent] = $this->game();
+        $previous = $game->snapshot();
+        $next = $previous;
+        $next['version'] = 2;
+        $next['players'][$opponent->id()]['status'] = 'conceded';
+        $next['players'][$opponent->id()]['concededAt'] = '2026-01-01T00:00:10+00:00';
+        $next['disconnectVote'] = [
+            'targetPlayerId' => $opponent->id(),
+            'status' => 'resolved_expel',
+            'openedAt' => null,
+            'deadlineAt' => null,
+            'cooldownUntil' => null,
+            'votes' => [
+                $actor->id() => [
+                    'playerId' => $actor->id(),
+                    'displayName' => 'Actor',
+                    'vote' => 'expel',
+                    'votedAt' => '2026-01-01T00:00:10+00:00',
+                ],
+            ],
+        ];
+        $next['eventLog'][] = [
+            'id' => 'log-disconnect-expel',
+            'type' => 'disconnect.vote.updated',
+            'message' => 'Votacion resuelta en expulsion.',
+            'actorId' => $actor->id(),
+            'displayName' => 'Actor',
+            'createdAt' => '2026-01-01T00:00:10+00:00',
+        ];
+
+        $event = new GameEvent($game, 'disconnect.vote.updated', ['reason' => 'vote.resolved'], $actor, 'action-disconnect-expel');
+        $message = (new GameWebsocketPatchBuilder(new GameWebsocketMessageFactory()))->build($game->id(), $previous, $next, $event);
+
+        self::assertSame('disconnect.vote.set', $message['operations'][0]['op']);
+        self::assertSame('player.status.set', $message['operations'][1]['op']);
+        self::assertSame($opponent->id(), $message['operations'][1]['playerId']);
+        self::assertSame('conceded', $message['operations'][1]['status']);
+        self::assertSame('2026-01-01T00:00:10+00:00', $message['operations'][1]['concededAt']);
+        self::assertSame('eventLog.append', $message['operations'][2]['op']);
+    }
+
     public function testZoneMoveAllRequiresResyncWhenProjectionWouldBeTooLarge(): void
     {
         [$game, $actor] = $this->gameWithMovementCards();

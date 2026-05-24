@@ -27,7 +27,9 @@ interface PendingWebsocketCommand {
   timeoutId: number;
 }
 
-const WEBSOCKET_COMMANDS = new Set<GameCommandType>([
+export type GameWebsocketCommandType = GameCommandType | 'disconnect.vote';
+
+const WEBSOCKET_COMMANDS = new Set<GameWebsocketCommandType>([
   'life.changed',
   'commander.damage.changed',
   'counter.changed',
@@ -68,6 +70,7 @@ const WEBSOCKET_COMMANDS = new Set<GameCommandType>([
   'attachment.removed',
   'game.concede',
   'game.close',
+  'disconnect.vote',
 ]);
 
 @Injectable()
@@ -87,7 +90,7 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
     this.stop();
   }
 
-  isMigratedCommand(type: GameCommandType): boolean {
+  isMigratedCommand(type: GameWebsocketCommandType): boolean {
     return WEBSOCKET_COMMANDS.has(type);
   }
 
@@ -117,7 +120,7 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
     this.transport.disconnect();
   }
 
-  async sendCommand(context: GameTableWebsocketGameplayContext, type: GameCommandType, payload: Record<string, unknown>): Promise<boolean> {
+  async sendCommand(context: GameTableWebsocketGameplayContext, type: GameWebsocketCommandType, payload: Record<string, unknown>): Promise<boolean> {
     if (!this.isMigratedCommand(type) || this.transport.status() !== 'connected') {
       return false;
     }
@@ -187,6 +190,7 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
       case 'connection_joined':
       case 'connection_left':
       case 'pong':
+      case 'player_presence_changed':
         return;
     }
   }
@@ -327,7 +331,7 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
     return globalThis.crypto?.randomUUID?.() ?? `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
   }
 
-  private websocketPayload(type: GameCommandType, payload: Record<string, unknown>): Record<string, unknown> | null {
+  private websocketPayload(type: GameWebsocketCommandType, payload: Record<string, unknown>): Record<string, unknown> | null {
     if (type !== 'zone.changed') {
       return payload;
     }

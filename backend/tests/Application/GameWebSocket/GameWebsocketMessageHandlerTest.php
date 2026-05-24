@@ -8,6 +8,7 @@ use App\Application\Game\WebSocket\GameWebsocketCommandPatchService;
 use App\Application\Game\WebSocket\GameWebsocketMessageFactory;
 use App\Application\Game\WebSocket\GameWebsocketPatchBuilder;
 use App\Application\Game\GameCommandHandler;
+use App\Application\Game\GameDisconnectVoteService;
 use App\Application\Game\GameProjectionService;
 use App\Domain\Game\Game;
 use App\Domain\Room\Room;
@@ -251,8 +252,10 @@ class GameWebsocketMessageHandlerTest extends TestCase
 
         return new GameWebsocketMessageHandler(new GameWebsocketCommandPatchService(
             new GameCommandHandler(),
+            new GameDisconnectVoteService(new GameCommandHandler()),
             new GameWebsocketPatchBuilder($messages),
             $messages,
+            new \App\Application\Game\WebSocket\GameWebsocketRoomRegistry(),
             $this->registry($game, $actor),
             new GameProjectionService(new GameCommandHandler()),
         ));

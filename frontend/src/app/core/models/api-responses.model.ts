@@ -1,6 +1,6 @@
 import { Card } from './card.model';
 import { Deck, DeckFolder, DeckFormat, CommanderValidation } from './deck.model';
-import { Game, GameEvent, GameRematchVote, GameSnapshot } from './game.model';
+import { Game, GameDisconnectVoteChoice, GameEvent, GameRematchVote, GameSnapshot } from './game.model';
 import { Friendship } from './friendship.model';
 import { RoomInvite } from './room-invite.model';
 import { CurrentRoomPlayerSummary, CurrentRoomSummary, CurrentRoomTurn, CurrentRoomViewerRole, Room } from './room.model';
@@ -163,4 +163,16 @@ export interface RematchVoteResponse {
 
 export interface RematchVoteRequest {
   vote: GameRematchVote;
+}
+
+export interface DisconnectVoteRequest {
+  targetPlayerId: string;
+  vote: GameDisconnectVoteChoice;
+}
+
+export interface DisconnectVoteResponse {
+  status: 'recorded';
+  event?: GameEvent | null;
+  snapshot?: GameSnapshot | null;
+  version?: number | null;
 }

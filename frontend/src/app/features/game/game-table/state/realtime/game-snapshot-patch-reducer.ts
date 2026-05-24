@@ -175,6 +175,20 @@ function applyOperation(snapshot: GameSnapshot, operation: GameSnapshotPatchOper
     case 'timer.set':
       return { status: 'applied', snapshot: { ...snapshot, timer: operation.timer ? { ...operation.timer } : undefined } };
 
+    case 'disconnect.vote.set':
+      return {
+        status: 'applied',
+        snapshot: {
+          ...snapshot,
+          disconnectVote: operation.disconnectVote
+            ? {
+                ...operation.disconnectVote,
+                votes: { ...operation.disconnectVote.votes },
+              }
+            : null,
+        },
+      };
+
     case 'chat.append':
       return { status: 'applied', snapshot: { ...snapshot, chat: [...snapshot.chat, ...operation.entries] } };
 
