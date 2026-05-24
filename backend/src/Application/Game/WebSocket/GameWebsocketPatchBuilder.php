@@ -107,6 +107,7 @@ final readonly class GameWebsocketPatchBuilder
             'attachment.removed' => $this->sharedCollectionChanged($previousSnapshot, $nextSnapshot, 'attachments', 'attachment.add', 'attachment.remove', 'attachments.set', 'attachment', 'attachments'),
             'game.concede' => $this->gameConcede($previousSnapshot, $nextSnapshot, $eventData),
             'game.close' => $this->eventLogOnly($previousSnapshot, $nextSnapshot),
+            'disconnect.vote.updated' => $this->disconnectVoteUpdated($previousSnapshot, $nextSnapshot),
             default => null,
         };
     }
@@ -1168,6 +1169,43 @@ final readonly class GameWebsocketPatchBuilder
                 'status' => (string) ($nextSnapshot['players'][$playerId]['status'] ?? 'active'),
                 'concededAt' => $nextSnapshot['players'][$playerId]['concededAt'] ?? null,
             ],
+            ...$this->eventLogAppendOperation($previousSnapshot, $nextSnapshot),
+        ];
+    }
+
+    /**
+     * @return list<array<string,mixed>>|null
+     */
+    private function disconnectVoteUpdated(array $previousSnapshot, array $nextSnapshot): ?array
+    {
+        $operations = [[
+            'op' => 'disconnect.vote.set',
+            'disconnectVote' => is_array($nextSnapshot['disconnectVote'] ?? null) ? $nextSnapshot['disconnectVote'] : null,
+        ]];
+        $targetPlayerId = is_string($nextSnapshot['disconnectVote']['targetPlayerId'] ?? null)
+            ? $nextSnapshot['disconnectVote']['targetPlayerId']
+            : null;
+        if ($targetPlayerId !== null) {
+            $previousPlayer = $previousSnapshot['players'][$targetPlayerId] ?? null;
+            $nextPlayer = $nextSnapshot['players'][$targetPlayerId] ?? null;
+            if (is_array($previousPlayer) && is_array($nextPlayer)) {
+                $previousStatus = (string) ($previousPlayer['status'] ?? 'active');
+                $nextStatus = (string) ($nextPlayer['status'] ?? 'active');
+                $previousConcededAt = $previousPlayer['concededAt'] ?? null;
+                $nextConcededAt = $nextPlayer['concededAt'] ?? null;
+                if ($previousStatus !== $nextStatus || $previousConcededAt !== $nextConcededAt) {
+                    $operations[] = [
+                        'op' => 'player.status.set',
+                        'playerId' => $targetPlayerId,
+                        'status' => $nextStatus,
+                        'concededAt' => $nextConcededAt,
+                    ];
+                }
+            }
+        }
+
+        return [
+            ...$operations,
             ...$this->eventLogAppendOperation($previousSnapshot, $nextSnapshot),
         ];
     }

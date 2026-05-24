@@ -70,7 +70,7 @@ export class GameTableChatLogState {
   }
 
   private toLogEntryView(snapshot: GameSnapshot | null, zones: readonly GameZoneName[], entry: GameLogEntry): GameLogEntryView {
-    if (this.isLibraryDestinationLog(entry)) {
+    if (this.isPrivateLibraryDestinationLog(entry)) {
       return {
         ...entry,
         card: null,
@@ -78,7 +78,7 @@ export class GameTableChatLogState {
         cardListPrefix: '',
         cardListSuffix: '',
         cardListLabel: '',
-        messagePrefix: this.libraryDestinationMessage(entry.message),
+        messagePrefix: this.privateLibraryDestinationMessage(entry.message),
         messageSuffix: '',
         appearance: this.logAppearance(entry),
       };
@@ -228,12 +228,23 @@ export class GameTableChatLogState {
     };
   }
 
-  private isLibraryDestinationLog(entry: GameLogEntry): boolean {
-    return (entry.type === 'card.moved' || entry.type === 'cards.moved')
-      && /\bto (?:bottom of )?library\b/i.test(entry.message);
+  private isPrivateLibraryDestinationLog(entry: GameLogEntry): boolean {
+    if (
+      (entry.type !== 'card.moved' && entry.type !== 'cards.moved')
+      || !/\bto (?:top of |bottom of )?library\b/i.test(entry.message)
+    ) {
+      return false;
+    }
+
+    return /\bfrom hand to\b/i.test(entry.message)
+      || !/\bfrom (?:battlefield|graveyard|exile|command) to\b/i.test(entry.message);
   }
 
-  private libraryDestinationMessage(message: string): string {
+  private privateLibraryDestinationMessage(message: string): string {
+    if (/\bfrom hand to\b/i.test(message)) {
+      return message;
+    }
+
     if (/\bto bottom of library\b/i.test(message)) {
       return 'Moved a card to bottom of library.';
     }

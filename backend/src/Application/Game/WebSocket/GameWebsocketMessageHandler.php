@@ -45,6 +45,7 @@ final readonly class GameWebsocketMessageHandler
         'attachment.removed',
         'game.concede',
         'game.close',
+        'disconnect.vote',
     ];
 
     public function __construct(private GameWebsocketCommandPatchService $commands)

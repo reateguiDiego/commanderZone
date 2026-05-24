@@ -37,7 +37,8 @@ export type GameplayServerMessage =
   | GameplayPongMessage
   | GameplayConnectionStateMessage
   | GameplayConnectionJoinedMessage
-  | GameplayConnectionLeftMessage;
+  | GameplayConnectionLeftMessage
+  | GameplayPlayerPresenceChangedMessage;
 
 export interface GameplayGamePatchMessage {
   kind: 'game_patch';
@@ -105,6 +106,15 @@ export interface GameplayConnectionLeftMessage {
   gameId: string;
   connection: GameplayConnectionPresence;
   leftAt: string;
+}
+
+export interface GameplayPlayerPresenceChangedMessage {
+  kind: 'player_presence_changed';
+  gameId: string;
+  playerId: string;
+  displayName: string;
+  status: 'online' | 'offline';
+  changedAt: string;
 }
 
 export interface GameplayConnectionPresence {
@@ -312,6 +322,10 @@ export type GameSnapshotPatchOperation =
   | {
       op: 'timer.set';
       timer: GameSnapshot['timer'];
+    }
+  | {
+      op: 'disconnect.vote.set';
+      disconnectVote: GameSnapshot['disconnectVote'];
     };
 
 export type GamePatchDecision = 'apply' | 'ignore' | 'resync';

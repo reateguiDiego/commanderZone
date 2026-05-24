@@ -40,6 +40,13 @@ export const routes: Routes = [
       .then((component) => component.EmailVerificationPageComponent),
   },
   {
+    path: 'games/:id/debug',
+    loadComponent: () => import('./features/game/game-debug/game-debug-page.component')
+      .then((component) => component.GameDebugPageComponent),
+    canActivate: [authGuard],
+    title: 'Commander Zone Debug',
+  },
+  {
     path: 'games/:id',
     loadComponent: () => import('./features/game/game-table/game-table.component')
       .then((component) => component.GameTableComponent),

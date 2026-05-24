@@ -1,0 +1,18 @@
+<aside class="room-log-panel">
+  <header>
+    <strong>Activity</strong>
+  </header>
+
+  <section appPrettyScroll class="room-log" aria-label="Activity">
+    @if (entries().length > 0) {
+      @for (entry of entries(); track entry.id) {
+        <article class="room-log-entry">
+          <span>{{ entry.time }}</span>
+          <strong>{{ entry.label }}</strong>
+        </article>
+      }
+    } @else {
+      <p class="muted">Room events will appear here.</p>
+    }
+  </section>
+</aside>

@@ -56,7 +56,8 @@ export type GameCommandType =
   | 'arrow.created'
   | 'arrow.removed'
   | 'attachment.created'
-  | 'attachment.removed';
+  | 'attachment.removed'
+  | 'disconnect.vote';
 
 export interface GameCardInstance {
   instanceId: string;
@@ -175,6 +176,25 @@ export interface GameRematchState {
   votes: Record<string, GameRematchVoteState>;
 }
 
+export type GameDisconnectVoteChoice = 'wait' | 'expel';
+export type GameDisconnectVoteStatus = 'open' | 'resolved_wait' | 'resolved_expel' | 'cancelled';
+
+export interface GameDisconnectVoteEntry {
+  playerId: string;
+  displayName: string;
+  vote: GameDisconnectVoteChoice;
+  votedAt: string;
+}
+
+export interface GameDisconnectVoteState {
+  targetPlayerId: string | null;
+  status: GameDisconnectVoteStatus;
+  openedAt: string | null;
+  deadlineAt: string | null;
+  cooldownUntil: string | null;
+  votes: Record<string, GameDisconnectVoteEntry>;
+}
+
 export interface GameSnapshot {
   version: number;
   ownerId?: string;
@@ -192,6 +212,7 @@ export interface GameSnapshot {
   chat: ChatMessage[];
   eventLog: GameLogEntry[];
   rematch?: GameRematchState;
+  disconnectVote?: GameDisconnectVoteState | null;
   createdAt: string;
   updatedAt?: string;
   counters?: Record<string, Record<string, number>>;

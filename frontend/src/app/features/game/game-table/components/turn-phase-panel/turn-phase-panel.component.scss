@@ -6,19 +6,14 @@
   display: grid;
   box-sizing: border-box;
   grid-template-columns: minmax(0, 1fr) clamp(4.65rem, 10vw, 5.8rem);
-  grid-template-rows: 2.15rem minmax(0, 1fr);
-  gap: 0.42rem 0.68rem;
+  grid-template-rows: clamp(2.14rem, 3.45vw, 2.48rem) minmax(0, 1fr);
+  gap: 0.06rem 0.68rem;
   width: 100%;
-  max-width: clamp(20rem, 34vw, 31.25rem);
+  max-width: clamp(27rem, 44vw, 39rem);
   min-width: 0;
   min-height: 0;
   overflow: clip;
   padding: 0.56rem 0.64rem;
-  border: 0;
-  border-radius: 0;
-  background: var(--game-surface-deep, rgb(7 8 7 / 88%));
-  box-shadow: none;
-  backdrop-filter: none;
 }
 
 .turn-summary {
@@ -26,42 +21,10 @@
 }
 
 .turn-title {
-  display: flex;
+  display: block;
+  height: 100%;
   min-width: 0;
   overflow: clip;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 0.45rem;
-  color: var(--game-text, #f3f0e8);
-  font-size: clamp(0.9rem, 1.28vw, 1.1rem);
-  font-weight: 900;
-  line-height: 1.15;
-}
-
-.turn-number {
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-items: center;
-  height: 1.18rem;
-  padding: 0 0.45rem;
-  border: 1px solid rgb(215 180 106 / 35%);
-  border-radius: 999px;
-  background: linear-gradient(165deg, rgb(18 19 16 / 84%), rgb(8 9 8 / 86%));
-  color: rgb(237 225 196 / 94%);
-  font-size: clamp(0.56rem, 0.72vw, 0.64rem);
-  font-weight: 800;
-  letter-spacing: 0;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-
-.turn-active-player {
-  min-width: 0;
-  overflow: hidden;
-  color: var(--game-accent, #d7b46a);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  text-shadow: 0 0 0.75rem rgb(215 180 106 / 16%);
 }
 
 .turn-focus-toggle {
@@ -85,6 +48,7 @@
   transition:
     color 160ms ease,
     filter 160ms ease;
+  margin-top: auto;
 }
 
 .turn-focus-toggle:hover {
@@ -118,10 +82,6 @@
   align-self: stretch;
   justify-self: center;
   width: 100%;
-}
-
-.turn-focus-toggle {
-  margin-top: auto;
 }
 
 .turn-action-button {
@@ -236,11 +196,13 @@
 .phase-tracker {
   position: relative;
   grid-column: 1;
+  align-self: stretch;
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 0.14rem;
-  align-items: start;
-  padding-top: 0.1rem;
+  gap: 0.08rem;
+  align-items: stretch;
+  min-height: 0;
+  padding-top: 0;
 }
 
 .phase-tracker button {
@@ -250,11 +212,12 @@
 
   position: relative;
   display: grid;
-  grid-template-rows: var(--phase-rail-size) minmax(0, auto);
-  align-items: center;
+  grid-template-rows: var(--phase-rail-size) minmax(0, 1fr) auto;
+  align-items: start;
   justify-items: center;
+  height: 100%;
   min-width: 0;
-  gap: 0.16rem;
+  gap: 0.04rem;
   padding: 0;
   border-color: transparent;
   background: transparent;
@@ -271,7 +234,7 @@
   z-index: 0;
   top: calc(var(--phase-rail-size) / 2);
   left: 50%;
-  width: calc(100% + 0.14rem);
+  width: calc(100% + 0.08rem);
   height: 2px;
   background: linear-gradient(90deg, rgb(140 136 126 / 35%), rgb(196 191 177 / 22%));
   transform: translateY(-50%);
@@ -391,7 +354,6 @@
   animation: active-phase-glow 2.4s ease-in-out infinite;
 }
 
-/* Combat stays sword-only (no node fill), including active/past states */
 .phase-tracker button.phase-combat.active .phase-node,
 .phase-tracker button.phase-combat.phase-past .phase-node {
   border-color: transparent;
@@ -439,6 +401,8 @@
 
 .phase-label {
   display: inline-flex;
+  grid-row: 3;
+  align-self: end;
   align-items: center;
   justify-content: center;
   min-height: 1.34rem;
@@ -613,13 +577,13 @@
 @media (max-width: 1180px) {
   .turn-phase-panel {
     grid-template-columns: minmax(0, 1fr) 3.95rem;
-    gap: 0.18rem 0.34rem;
-    max-width: 340px;
+    grid-template-rows: 1.62rem minmax(0, 1fr);
+    gap: 0.05rem 0.34rem;
+    max-width: 300px;
     padding: 0.32rem 0.38rem;
   }
 
   .turn-title {
-    gap: 0.22rem;
     font-size: 0.76rem;
   }
 
@@ -655,8 +619,7 @@
   }
 
   .phase-tracker {
-    gap: 0.03rem;
-    padding-top: 0.04rem;
+    gap: 0.02rem;
   }
 
   .phase-tracker button {
@@ -668,7 +631,7 @@
   }
 
   .phase-tracker button::after {
-    width: calc(100% + 0.03rem);
+    width: calc(100% + 0.02rem);
     height: 1px;
   }
 
@@ -686,7 +649,8 @@
 @media (max-width: 900px) {
   .turn-phase-panel {
     grid-template-columns: minmax(0, 1fr) 3.15rem;
-    max-width: 260px;
+    grid-template-rows: 1.32rem minmax(0, 1fr);
+    max-width: 236px;
     padding: 0.24rem 0.3rem;
   }
 
@@ -738,15 +702,14 @@
 @media (max-width: 760px) {
   .turn-phase-panel {
     grid-template-columns: minmax(0, 1fr) 2.7rem;
-    grid-template-rows: minmax(0, 1fr);
-    gap: 0.2rem;
-    max-width: 280px;
+    grid-template-rows: 1.24rem minmax(0, 1fr);
+    gap: 0.1rem 0.2rem;
+    max-width: 248px;
     padding: 0.28rem 0.35rem;
   }
 
   .turn-title {
     justify-content: start;
-    gap: 0.18rem;
     font-size: 0.62rem;
   }
 

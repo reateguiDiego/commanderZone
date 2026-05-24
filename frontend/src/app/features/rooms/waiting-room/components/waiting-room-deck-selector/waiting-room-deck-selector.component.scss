@@ -67,6 +67,7 @@
 .random-deck-button {
   justify-content: center;
   width: 2.75rem;
+  min-width: 2.75rem;
   height: 2.75rem;
   padding: 0.42rem;
 }
@@ -108,7 +109,6 @@
   padding: 0.35rem;
   background: rgb(10 14 10 / 98%);
   box-shadow: 0 1.6rem 3.4rem rgb(0 0 0 / 56%), 0 0 0 1px rgb(255 255 255 / 5%);
-  backdrop-filter: blur(16px);
 }
 
 .deck-option-main {
@@ -143,6 +143,26 @@
   text-transform: uppercase;
 }
 
+.random-deck-option {
+  border-color: rgb(215 180 106 / 44%);
+  background:
+    linear-gradient(90deg, rgb(215 180 106 / 12%), transparent 62%),
+    rgb(4 7 5 / 72%);
+}
+
+.random-deck-option img {
+  width: 1.1rem;
+  height: 1.1rem;
+  object-fit: contain;
+}
+
+.random-deck-option .deck-option-status {
+  color: #d7b46a;
+  font-size: 0.72rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
 .deck-colors {
   flex: 0 0 auto;
 }
@@ -164,12 +184,12 @@
   }
 
   .deck-select-menu {
-    position: fixed;
-    top: auto;
-    right: 0.75rem;
-    bottom: max(0.75rem, env(safe-area-inset-bottom));
-    left: 0.75rem;
-    width: auto;
+    position: absolute;
+    top: calc(100% + 0.35rem);
+    right: auto;
+    bottom: auto;
+    left: 0;
+    width: min(26rem, calc(100vw - 2rem));
     max-height: min(18rem, 52dvh);
     transform: none;
   }

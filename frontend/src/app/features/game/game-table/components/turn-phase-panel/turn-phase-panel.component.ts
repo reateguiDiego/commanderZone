@@ -2,10 +2,11 @@ import { ChangeDetectionStrategy, Component, input, output } from '@angular/core
 import { LucideAngularModule } from 'lucide-angular';
 import { GameSnapshot } from '../../../../../core/models/game.model';
 import { PlayerView } from '../../game-table.store';
+import { PlayersOrderComponent } from './players-order/players-order.component';
 
 @Component({
   selector: 'app-turn-phase-panel',
-  imports: [LucideAngularModule],
+  imports: [LucideAngularModule, PlayersOrderComponent],
   templateUrl: './turn-phase-panel.component.html',
   styleUrl: './turn-phase-panel.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -22,15 +23,6 @@ export class TurnPhasePanelComponent {
   readonly advancePhase = output<void>();
   readonly passTurn = output<void>();
   readonly followActiveTurnPlayerChanged = output<boolean>();
-
-  activePlayerName(): string {
-    const turn = this.turn();
-    if (this.currentPlayerId() === turn.activePlayerId) {
-      return 'Your Turn';
-    }
-
-    return this.players().find((player) => player.id === turn.activePlayerId)?.state.user.displayName ?? 'Unknown player';
-  }
 
   isCurrentTurnPlayer(): boolean {
     const currentPlayerId = this.currentPlayerId();

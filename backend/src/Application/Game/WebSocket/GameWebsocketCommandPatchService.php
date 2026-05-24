@@ -3,6 +3,7 @@
 namespace App\Application\Game\WebSocket;
 
 use App\Application\Game\GameCommandHandler;
+use App\Application\Game\GameDisconnectVoteService;
 use App\Application\Game\GameProjectionService;
 use App\Domain\Game\Game;
 use App\Domain\Game\GameEvent;
@@ -19,8 +20,10 @@ final readonly class GameWebsocketCommandPatchService
 {
     public function __construct(
         private GameCommandHandler $commands,
+        private GameDisconnectVoteService $disconnectVotes,
         private GameWebsocketPatchBuilder $patches,
         private GameWebsocketMessageFactory $messages,
+        private GameWebsocketRoomRegistry $rooms,
         private ManagerRegistry $managerRegistry,
         private GameProjectionService $projection,
     ) {
@@ -128,11 +131,21 @@ final readonly class GameWebsocketCommandPatchService
                 );
             }
 
-            $clientPayload = $payload;
             $previousSnapshot = $game->snapshot();
-            $handlerPayload = $this->handlerPayload($game, $type, $payload);
             try {
-                $event = $this->commands->apply($game, $type, $handlerPayload, $actor, $clientActionId);
+                if ($type === GameDisconnectVoteService::COMMAND_TYPE) {
+                    $recorded = $this->disconnectVotes->recordVote(
+                        $game,
+                        $actor,
+                        (string) ($payload['targetPlayerId'] ?? ''),
+                        (string) ($payload['vote'] ?? ''),
+                        $this->rooms->connectedUserIdsForGame($game->id()),
+                    );
+                    $event = $recorded['event'];
+                } else {
+                    $handlerPayload = $this->handlerPayload($game, $type, $payload);
+                    $event = $this->commands->apply($game, $type, $handlerPayload, $actor, $clientActionId);
+                }
             } catch (\InvalidArgumentException $exception) {
                 $manager->rollback();
 
@@ -150,7 +163,7 @@ final readonly class GameWebsocketCommandPatchService
             $manager->flush();
             $manager->commit();
 
-            return $this->projectedResult($game, $previousSnapshot, $game->snapshot(), $event, $this->eventPayload($type, $clientPayload));
+            return $this->projectedResult($game, $previousSnapshot, $game->snapshot(), $event, $this->eventPayload($type, $payload));
         } catch (UniqueConstraintViolationException) {
             if ($manager->getConnection()->isTransactionActive()) {
                 $manager->rollback();

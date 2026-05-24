@@ -1,14 +1,13 @@
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
 import { RoomPlayer } from '../../../../../core/models/room.model';
-import { ManaSymbolsComponent } from '../../../../../shared/mana/mana-symbols/mana-symbols.component';
 import { PlayerAvatarComponent } from '../../../../../shared/ui/player-avatar/player-avatar.component';
 import { PlayerNameComponent } from '../../../../../shared/ui/player-name/player-name.component';
 import { WaitingRoomDeckSelectorComponent, WaitingDeckOption } from '../waiting-room-deck-selector/waiting-room-deck-selector.component';
 
 @Component({
   selector: 'app-waiting-room-player-card',
-  imports: [LucideAngularModule, ManaSymbolsComponent, PlayerAvatarComponent, PlayerNameComponent, WaitingRoomDeckSelectorComponent],
+  imports: [LucideAngularModule, PlayerAvatarComponent, PlayerNameComponent, WaitingRoomDeckSelectorComponent],
   templateUrl: './waiting-room-player-card.component.html',
   styleUrl: './waiting-room-player-card.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -21,12 +20,14 @@ export class WaitingRoomPlayerCardComponent {
   readonly selectorOpen = input(false);
   readonly hasDeckArt = input(false);
   readonly deckName = input('Deck pending');
-  readonly deckColorIdentity = input<readonly string[]>([]);
   readonly deckOptions = input<readonly WaitingDeckOption[]>([]);
   readonly selectedDeck = input<WaitingDeckOption | null>(null);
   readonly selectedDeckId = input('');
+  readonly turnPosition = input<number | null>(null);
   readonly updatingDeck = input(false);
   readonly deckLocked = input(false);
+  readonly canRoll = input(false);
+  readonly rolling = input(false);
   readonly canKick = input(false);
   readonly kicking = input(false);
 
@@ -35,6 +36,7 @@ export class WaitingRoomPlayerCardComponent {
   readonly selectedDeckIdChange = output<string>();
   readonly deckSelected = output<string>();
   readonly randomDeckRequested = output<void>();
+  readonly rollRequested = output<void>();
   readonly kickRequested = output<RoomPlayer>();
 
   rollLabel(player: RoomPlayer): string {

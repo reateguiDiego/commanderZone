@@ -711,6 +711,10 @@ class GameCommandHandler
         }
 
         if ($toZone === 'library') {
+            if ($this->shouldRevealLibraryMoveNames($fromZone, $toZone)) {
+                return sprintf('Moved %s from %s to %s.', $this->cardLogName($card), $fromZone, $this->libraryDestinationLabel($payload));
+            }
+
             return sprintf('Moved a card from %s to %s.', $fromZone, $this->libraryDestinationLabel($payload));
         }
 
@@ -781,7 +785,7 @@ class GameCommandHandler
             return '';
         }
 
-        if ($moved > 1 && $toZone !== 'library') {
+        if ($moved > 1 && ($toZone !== 'library' || $this->shouldRevealLibraryMoveNames($fromZone, $toZone))) {
             $this->pendingLogContext = ['cardNames' => $movedCardNames];
         }
 
@@ -1833,6 +1837,11 @@ class GameCommandHandler
     private function libraryDestinationLabel(array $payload): string
     {
         return ($payload['position'] ?? 'top') === 'bottom' ? 'bottom of library' : 'top of library';
+    }
+
+    private function shouldRevealLibraryMoveNames(string $fromZone, string $toZone): bool
+    {
+        return $toZone === 'library' && !in_array($fromZone, self::HIDDEN_ZONES, true);
     }
 
     /**

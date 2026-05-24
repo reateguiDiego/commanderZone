@@ -11,6 +11,7 @@ import {
   Biohazard,
   Building2,
   BookmarkPlus,
+  Bug,
   Camera,
   ChevronDown,
   ChevronRight,
@@ -287,6 +288,7 @@ describe('GameTableComponent', () => {
           Biohazard,
           Building2,
           BookmarkPlus,
+          Bug,
           Camera,
           ChevronDown,
           ChevronRight,
@@ -1124,6 +1126,30 @@ describe('GameTableComponent', () => {
     expect((fixture.nativeElement as HTMLElement).querySelector('app-roll-modal')).not.toBeNull();
   });
 
+  it('opens websocket debug in a new tab from the game context menu action', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot: snapshotWithStatus('active') } }));
+    const open = vi.spyOn(window, 'open').mockImplementation(() => null);
+
+    try {
+      const fixture = TestBed.createComponent(GameTableComponent);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      await vi.waitFor(() => expect(fixture.componentInstance.store.loading()).toBe(false));
+
+      fixture.componentInstance.handleContextMenuAction({ type: 'openDebug' }, {
+        playerId: 'user-1',
+        zone: 'battlefield',
+        kind: 'game',
+      } as never);
+
+      expect(open).toHaveBeenCalledWith('/games/game-1/debug', '_blank', 'noopener');
+    } finally {
+      open.mockRestore();
+    }
+  });
+
   it('records roll modal results in the game log through a game command', async () => {
     routeParams['id'] = 'game-1';
     authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
@@ -1203,14 +1229,21 @@ describe('GameTableComponent', () => {
     }
   });
 
-  it('untaps the current player battlefield with the U shortcut', async () => {
+  it('untaps the current player battlefield with one U shortcut command', async () => {
     routeParams['id'] = 'game-1';
     authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
     const snapshot = snapshotWithStatus('active');
     snapshot.players['user-1']!.zones.battlefield[0]!.tapped = true;
+    snapshot.players['user-1']!.zones.battlefield.push({
+      ...snapshot.players['user-1']!.zones.battlefield[0]!,
+      instanceId: 'card-2',
+      name: 'Arcane Signet',
+      tapped: true,
+    });
+    snapshot.players['user-1']!.zoneCounts!.battlefield = 2;
     gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
     gameplayWebsocketCommand.mockReturnValue(of({
-      event: { id: 'event-untap', type: 'card.tapped', payload: {}, createdBy: 'user-1', createdAt: '' },
+      event: { id: 'event-untap', type: 'battlefield.untap_all', payload: {}, createdBy: 'user-1', createdAt: '' },
       snapshot,
     }));
 
@@ -1220,13 +1253,11 @@ describe('GameTableComponent', () => {
 
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'u', bubbles: true }));
 
+    await vi.waitFor(() => expect(gameplayWebsocketCommand).toHaveBeenCalledTimes(1));
     await vi.waitFor(() => expect(gameplayWebsocketCommand).toHaveBeenCalledWith(expect.objectContaining({
-      type: 'card.tapped',
+      type: 'battlefield.untap_all',
       payload: {
         playerId: 'user-1',
-        zone: 'battlefield',
-        instanceId: 'card-1',
-        tapped: false,
       },
     }), 'game-1'));
   });
@@ -1240,7 +1271,7 @@ describe('GameTableComponent', () => {
     snapshot.players['user-2']!.zones.battlefield[0]!.tapped = true;
     gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
     gameplayWebsocketCommand.mockReturnValue(of({
-      event: { id: 'event-untap', type: 'card.tapped', payload: {}, createdBy: 'user-1', createdAt: '' },
+      event: { id: 'event-untap', type: 'battlefield.untap_all', payload: {}, createdBy: 'user-1', createdAt: '' },
       snapshot,
     }));
 
@@ -1251,15 +1282,29 @@ describe('GameTableComponent', () => {
     fixture.componentInstance.store.focusPlayer('user-2');
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'u', bubbles: true }));
 
+    await vi.waitFor(() => expect(gameplayWebsocketCommand).toHaveBeenCalledTimes(1));
     await vi.waitFor(() => expect(gameplayWebsocketCommand).toHaveBeenCalledWith(expect.objectContaining({
-      type: 'card.tapped',
+      type: 'battlefield.untap_all',
       payload: {
         playerId: 'user-1',
-        zone: 'battlefield',
-        instanceId: 'card-1',
-        tapped: false,
       },
     }), 'game-1'));
+  });
+
+  it('does not send the U shortcut command when the current player has no tapped battlefield cards', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'u', bubbles: true }));
+    await Promise.resolve();
+
+    expect(gameplayWebsocketCommand).not.toHaveBeenCalled();
   });
 
   it('resolves focused player deck visuals for the table background and current player sleeves', async () => {
@@ -2008,6 +2053,42 @@ describe('GameTableComponent', () => {
     expect(fixture.componentInstance.opponentSidebarPlayers().map((player) => player.id)).toEqual(['user-2']);
   });
 
+  it('keeps defeated opponents at the bottom of the opponent sidebar', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    addOpponent(snapshot);
+    snapshot.players['user-2']!.life = 0;
+    snapshot.players['user-3'] = {
+      ...snapshot.players['user-2']!,
+      user: { id: 'user-3', email: 'third@test', displayName: 'Third', roles: [] },
+      life: 32,
+    };
+    snapshot.players['user-4'] = {
+      ...snapshot.players['user-2']!,
+      user: { id: 'user-4', email: 'fourth@test', displayName: 'Fourth', roles: [] },
+      status: 'conceded',
+      concededAt: '2026-04-30T20:03:00+00:00',
+      life: 18,
+    };
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.opponentSidebarPlayers().map((player) => player.id)).toEqual([
+      'user-3',
+      'user-2',
+      'user-4',
+    ]);
+    expect(Array.from((fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>('[data-testid="opponent-mini-board"]'))
+      .map((board) => board.dataset['playerId'])).toEqual(['user-3', 'user-2', 'user-4']);
+  });
+
   it('refreshes the focused battlefield, background, and hand when focus turn follows a passed turn', async () => {
     routeParams['id'] = 'game-1';
     authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
@@ -2246,6 +2327,8 @@ describe('GameTableComponent', () => {
         instanceIds: ['card-1', 'card-2'],
       },
     });
+    expect(fixture.componentInstance.pendingLibraryMoveMessage(fixture.componentInstance.store.pendingLibraryMove()!))
+      .toBe('Donde quieres poner estas 2 cartas?');
   });
 
   it('allows random order when multiple cards are placed into library', async () => {

@@ -1195,15 +1195,12 @@ export class GameTableStore implements OnDestroy {
       return;
     }
 
-    const tappedCards = current.state.zones.battlefield.filter((card) => card.tapped);
-    for (const card of tappedCards) {
-      await this.command('card.tapped', {
-        playerId: current.id,
-        zone: 'battlefield',
-        instanceId: card.instanceId,
-        tapped: false,
-      });
+    const hasTappedCards = current.state.zones.battlefield.some((card) => card.tapped);
+    if (!hasTappedCards) {
+      return;
     }
+
+    await this.command('battlefield.untap_all', { playerId: current.id });
   }
 
   async recordDiceRoll(result: DiceRollCommand): Promise<void> {

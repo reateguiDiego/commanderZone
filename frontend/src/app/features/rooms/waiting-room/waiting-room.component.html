@@ -8,141 +8,145 @@
       <main class="waiting-main">
         <section class="players-panel">
           <div class="players-panel-header">
-            <div>
-              <h3>Players ({{ room.players.length }}/{{ roomCapacity(room) }})</h3>
+            <div class="players-panel-heading">
+              <div class="players-title-row">
+                <h3>Players ({{ room.players.length }}/{{ roomCapacity(room) }})</h3>
+                <div class="players-panel-tools">
+                  @if (canViewRoomConfiguration(room)) {
+                    <button class="primary-button compact setup-button" type="button" (click)="openSetupModal(room)">
+                      <lucide-icon name="settings" size="16" />
+                      <span>Setup</span>
+                    </button>
+                  }
+                  <button class="secondary-button compact icon-action" type="button" title="Leave room" aria-label="Leave room" (click)="requestLeaveRoom(room)">
+                    <lucide-icon name="log-out" size="16" />
+                  </button>
+                  @if (canDeleteRoom(room)) {
+                    <button
+                      class="danger-button compact icon-action"
+                      type="button"
+                      title="Delete room"
+                      aria-label="Delete room"
+                      [disabled]="deletingRoomId() === room.id"
+                      (click)="requestDeleteRoom(room)"
+                    >
+                      <lucide-icon name="trash-2" size="16" />
+                    </button>
+                  }
+                </div>
+              </div>
               <p>Choose your deck and get ready before starting.</p>
-            </div>
-            <div class="players-panel-tools">
-              <button class="secondary-button compact icon-action" type="button" title="Leave room" aria-label="Leave room" (click)="requestLeaveRoom(room)">
-                <lucide-icon name="log-out" size="16" />
-              </button>
-              @if (canDeleteRoom(room)) {
-                <button
-                  class="danger-button compact icon-action"
-                  type="button"
-                  title="Delete room"
-                  aria-label="Delete room"
-                  [disabled]="deletingRoomId() === room.id"
-                  (click)="requestDeleteRoom(room)"
-                >
-                  <lucide-icon name="trash-2" size="16" />
-                </button>
-              }
             </div>
           </div>
 
-          <div
-            class="players-grid"
-            [class.capacity-two]="roomCapacity(room) <= 2"
-            [class.capacity-four]="roomCapacity(room) > 2 && roomCapacity(room) <= 4"
-            [class.capacity-six]="roomCapacity(room) > 4"
-          >
-            <app-waiting-room-game-setup
-              [isOwner]="canEditRoom(room)"
-              [joinedPlayers]="room.players.length"
-              [roomCapacity]="roomCapacity(room)"
-              [startingLife]="roomStartingLife(room)"
-              [timerMode]="roomTimerMode(room)"
-              [timerDurationSeconds]="roomTimerDurationSeconds(room)"
-              [updatingCapacity]="updatingCapacity()"
-              [updatingStartingLife]="updatingStartingLife()"
-              [updatingTimer]="updatingTimer()"
-              [maxPlayersOptions]="maxPlayersOptions"
-              [startingLifeStep]="startingLifeStep"
-              [roomLog]="roomLog()"
-              (capacityChange)="updateRoomCapacity($event)"
-              (startingLifeChange)="updateRoomStartingLife($event)"
-              (timerModeChange)="updateRoomTimerMode($event)"
-              (timerDurationSecondsChange)="updateRoomTimerDuration($event)"
-            />
+          <div class="waiting-board">
+            <div class="room-control-stack">
+              <app-waiting-room-log-panel [entries]="roomLog()" />
+            </div>
 
-            <app-waiting-room-turn-order
-              [rows]="turnOrderRows(room)"
-              [canRoll]="currentPlayerCanRoll()"
-              [currentPlayerRoll]="currentPlayerRoll()"
-              (rollRequested)="openRollModal()"
-            />
-
-            @for (seatIndex of seatIndexes; track seatIndex) {
-              @if (seatPlayer(room, seatIndex); as player) {
-                  <app-waiting-room-player-card
-                    [class.seat-one]="seatIndex === 0"
-                    [class.seat-two]="seatIndex === 1"
-                    [class.seat-three]="seatIndex === 2"
-                    [class.seat-four]="seatIndex === 3"
-                    [class.seat-five]="seatIndex === 4"
-                    [class.seat-six]="seatIndex === 5"
-                    [class.seat-odd-last]="isOddLastSeat(room, seatIndex)"
-                    [class.selector-open]="isCurrentUser(player.user.id) && deckSelectorOpen()"
-                    [class.has-deck-art]="shouldShowPlayerDeckArt(player)"
-                    [style.--player-deck-art]="shouldShowPlayerDeckArt(player) ? playerDeckBackground(player) : null"
-                    [style.view-transition-name]="'waiting-player-' + player.id"
-                    [player]="player"
-                    [host]="isHost(room, player.user.id)"
-                    [current]="isCurrentUser(player.user.id)"
-                    [ready]="isPlayerReady(player)"
-                    [selectorOpen]="isCurrentUser(player.user.id) && deckSelectorOpen()"
-                    [hasDeckArt]="shouldShowPlayerDeckArt(player)"
-                    [deckName]="playerDeckName(player)"
-                    [deckColorIdentity]="playerDeckColorIdentity(player)"
-                    [deckOptions]="deckOptions()"
-                    [selectedDeck]="selectedDeckOption()"
-                    [selectedDeckId]="selectedDeckId"
-                    [updatingDeck]="updatingDeck()"
-                    [deckLocked]="isCurrentUser(player.user.id) && currentPlayerDeckLocked()"
-                    [canKick]="canKickPlayer(room, player)"
-                    [kicking]="kickingPlayerId() === player.id"
-                    (deckSelectorToggled)="toggleDeckSelector()"
-                    (deckSelectorClosed)="closeDeckSelector()"
-                    (selectedDeckIdChange)="selectedDeckId = $event"
-                    (deckSelected)="selectDeck($event)"
-                    (randomDeckRequested)="selectRandomLegalDeck()"
-                    (kickRequested)="requestKickPlayer(room, $event)"
-                  />
-              } @else if (shouldRenderOpenSeat(room, seatIndex)) {
-                  <app-waiting-room-player-card
-                    class="empty-slot"
-                    [class.seat-one]="seatIndex === 0"
-                    [class.seat-two]="seatIndex === 1"
-                    [class.seat-three]="seatIndex === 2"
-                    [class.seat-four]="seatIndex === 3"
-                    [class.seat-five]="seatIndex === 4"
-                    [class.seat-six]="seatIndex === 5"
-                  />
+            <div
+              class="players-grid"
+              [class.capacity-two]="roomCapacity(room) <= 2"
+              [class.capacity-four]="roomCapacity(room) > 2 && roomCapacity(room) <= 4"
+              [class.capacity-six]="roomCapacity(room) > 4"
+            >
+              @for (player of turnOrderPlayers(room); track player.id; let seatIndex = $index) {
+                    <app-waiting-room-player-card
+                      [class.seat-one]="seatIndex === 0"
+                      [class.seat-two]="seatIndex === 1"
+                      [class.seat-three]="seatIndex === 2"
+                      [class.seat-four]="seatIndex === 3"
+                      [class.seat-five]="seatIndex === 4"
+                      [class.seat-six]="seatIndex === 5"
+                      [class.seat-odd-last]="isOddLastSeat(room, seatIndex)"
+                      [class.selector-open]="isCurrentUser(player.user.id) && deckSelectorOpen()"
+                      [class.has-deck-art]="shouldShowPlayerDeckArt(player)"
+                      [attr.data-waiting-player-id]="player.id"
+                      [style.--player-deck-art]="shouldShowPlayerDeckArt(player) ? playerDeckBackground(player) : null"
+                      [player]="player"
+                      [host]="isHost(room, player.user.id)"
+                      [current]="isCurrentUser(player.user.id)"
+                      [ready]="isPlayerReady(player)"
+                      [selectorOpen]="isCurrentUser(player.user.id) && deckSelectorOpen()"
+                      [hasDeckArt]="shouldShowPlayerDeckArt(player)"
+                      [deckName]="playerDeckName(player)"
+                      [deckOptions]="deckOptions()"
+                      [selectedDeck]="selectedDeckOption()"
+                      [selectedDeckId]="selectedDeckId"
+                      [turnPosition]="hasCompletedTurnOrder(room) ? seatIndex + 1 : null"
+                      [updatingDeck]="updatingDeck()"
+                      [deckLocked]="isCurrentUser(player.user.id) && currentPlayerDeckLocked()"
+                      [canRoll]="isCurrentUser(player.user.id) && currentPlayerCanRoll()"
+                      [rolling]="isCurrentUser(player.user.id) && rollingTurn()"
+                      [canKick]="canKickPlayer(room, player)"
+                      [kicking]="kickingPlayerId() === player.id"
+                      (deckSelectorToggled)="toggleDeckSelector()"
+                      (deckSelectorClosed)="closeDeckSelector()"
+                      (selectedDeckIdChange)="selectedDeckId = $event"
+                      (deckSelected)="selectDeck($event)"
+                      (randomDeckRequested)="selectRandomLegalDeck()"
+                      (rollRequested)="openRollModal()"
+                      (kickRequested)="requestKickPlayer(room, $event)"
+                    />
               }
-            }
+              @for (seatIndex of seatIndexes; track seatIndex) {
+                @if (seatIndex >= room.players.length && shouldRenderOpenSeat(room, seatIndex)) {
+                    <app-waiting-room-player-card
+                      class="empty-slot"
+                      [class.seat-one]="seatIndex === 0"
+                      [class.seat-two]="seatIndex === 1"
+                      [class.seat-three]="seatIndex === 2"
+                      [class.seat-four]="seatIndex === 3"
+                      [class.seat-five]="seatIndex === 4"
+                      [class.seat-six]="seatIndex === 5"
+                    />
+                }
+              }
+            </div>
           </div>
 
           @if (isRoomOwner(room)) {
             <div class="start-game-row">
+              <span class="start-status-pill" [class.is-ready]="canStartRoom(room)">
+                {{ canStartRoom(room) ? 'All players ready' : 'Waiting for decks and rolls' }}
+              </span>
               <button class="primary-button start-button" type="button" [disabled]="!canStartRoom(room)" (click)="startRoom(room.id)">
                 <lucide-icon name="play" size="18" />
-                <span>
-                  Start game
-                  <small>{{ canStartRoom(room) ? 'All players ready' : 'Waiting for decks and rolls' }}</small>
-                </span>
+                <span>Start</span>
               </button>
             </div>
           }
         </section>
-
-        <footer class="room-summary">
-          <span><lucide-icon name="swords" size="15" /> Commander</span>
-          <span><lucide-icon name="users" size="15" /> {{ roomCapacity(room) }} players</span>
-          <span>
-            <lucide-icon [name]="isPrivateRoom(room) ? 'lock' : 'globe'" size="15" />
-            {{ room.visibility }}
-          </span>
-          <span><lucide-icon name="door-open" size="15" /> {{ room.status }}</span>
-        </footer>
       </main>
     </div>
+
+    <app-room-setup-modal
+      mode="edit"
+      [open]="setupModalOpen()"
+      [joinedPlayers]="room.players.length"
+      [maxPlayers]="roomCapacity(room)"
+      [startingLife]="roomStartingLife(room)"
+      [timerMode]="roomTimerMode(room)"
+      [timerDurationSeconds]="roomTimerDurationSeconds(room)"
+      [updatingCapacity]="updatingCapacity()"
+      [updatingStartingLife]="updatingStartingLife()"
+      [updatingTimer]="updatingTimer()"
+      [actionsLocked]="!canEditRoom(room)"
+      [readOnly]="!canEditRoom(room)"
+      [maxPlayersOptions]="maxPlayersOptions"
+      [startingLifeStep]="startingLifeStep"
+      (closed)="closeSetupModal()"
+      (maxPlayersChange)="updateRoomCapacity($event)"
+      (startingLifeChange)="updateRoomStartingLife($event)"
+      (timerModeChange)="updateRoomTimerMode($event)"
+      (timerDurationSecondsChange)="updateRoomTimerDuration($event)"
+    />
 
     <app-modal
       [open]="rollModalOpen()"
       [title]="rollModalTitle()"
       [message]="rollModalMessage()"
-      primaryLabel="Roll d20"
+      primaryLabel="Roll"
       secondaryLabel="Cancel"
       (primary)="rollTurnOrder()"
       (secondary)="closeRollModal()"
@@ -150,6 +154,9 @@
       <div class="roll-dice-preview" aria-hidden="true">
         <img src="/assets/icons/chance/dice_20.png" alt="" />
       </div>
+      <p class="app-disclaimer-callout roll-lock-warning">
+        After rolling, your deck selection will be locked and cannot be changed.
+      </p>
     </app-modal>
 
     <app-modal

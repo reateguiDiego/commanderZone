@@ -5,6 +5,7 @@ import {
   GameplayClientMessage,
   GameplayCommandAckMessage,
   GameplayErrorMessage,
+  GameplayPingMessage,
   GameplayServerMessage,
 } from '../../../../core/models/game-realtime.model';
 
@@ -26,6 +27,7 @@ export class GameTableWebsocketTransportService implements OnDestroy {
   private reconnectTimer: number | null = null;
   private reconnectAttempts = 0;
   private connectOptions: GameTableWebsocketConnectOptions = {};
+  private pingTimer: number | null = null;
 
   readonly status = signal<GameTableWebsocketStatus>('stopped');
   readonly messages$ = this.messagesSubject.asObservable();
@@ -51,6 +53,7 @@ export class GameTableWebsocketTransportService implements OnDestroy {
     this.clearReconnectTimer();
     const socket = this.socket;
     this.socket = null;
+    this.stopPing();
     if (socket && socket.readyState !== WebSocket.CLOSED && socket.readyState !== WebSocket.CLOSING) {
       socket.close();
     }
@@ -97,6 +100,7 @@ export class GameTableWebsocketTransportService implements OnDestroy {
       if (this.socket === socket) {
         this.reconnectAttempts = 0;
         this.status.set('connected');
+        this.startPing();
       }
     };
     socket.onopen = handleOpen;
@@ -116,6 +120,7 @@ export class GameTableWebsocketTransportService implements OnDestroy {
       }
 
       this.socket = null;
+      this.stopPing();
       if (this.closeRequested) {
         this.connectedGameId = null;
         this.status.set('stopped');
@@ -237,7 +242,37 @@ export class GameTableWebsocketTransportService implements OnDestroy {
         'connection_state',
         'connection_joined',
         'connection_left',
+        'player_presence_changed',
       ].includes(message['kind']);
+  }
+
+  private startPing(): void {
+    this.stopPing();
+    this.pingTimer = window.setInterval(() => this.sendPing(), 15000);
+  }
+
+  private stopPing(): void {
+    if (this.pingTimer === null) {
+      return;
+    }
+
+    window.clearInterval(this.pingTimer);
+    this.pingTimer = null;
+  }
+
+  private sendPing(): void {
+    const socket = this.socket;
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+      return;
+    }
+
+    const ping: GameplayPingMessage = {
+      kind: 'ping',
+      gameId: this.connectedGameId ?? undefined,
+      messageId: this.randomId('ping'),
+      sentAt: new Date().toISOString(),
+    };
+    socket.send(JSON.stringify(ping));
   }
 
   private isValidCommandAck(message: GameplayCommandAckMessage): boolean {
@@ -264,5 +299,9 @@ export class GameTableWebsocketTransportService implements OnDestroy {
 
   private isRecord(value: unknown): value is JsonRecord {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
+  }
+
+  private randomId(prefix: string): string {
+    return globalThis.crypto?.randomUUID?.() ?? `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
   }
 }

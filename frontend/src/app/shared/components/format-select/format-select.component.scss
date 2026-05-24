@@ -1,1 +1,123 @@
-﻿:host{display:block}.format-select-field{display:grid;gap:.35rem}.format-select-field span{color:#e7cf91;font-size:.72rem;font-weight:900;letter-spacing:.08em;text-transform:uppercase}.format-select-field select{min-height:2.75rem;width:100%;border-radius:12px;background:rgb(4 6 5/.66)}
+:host {
+  display: block;
+}
+
+.format-select-field {
+  display: grid;
+  gap: 0.35rem;
+  position: relative;
+}
+
+.format-select-field > span {
+  color: #e7cf91;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.format-select-control {
+  position: relative;
+}
+
+.format-select-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+  min-height: 2.75rem;
+  border: 1px solid rgb(215 180 106 / 24%);
+  border-radius: 12px;
+  padding: 0 0.85rem;
+  background: rgb(4 6 5 / 66%);
+  color: var(--text);
+  font: inherit;
+  font-weight: 850;
+  text-align: left;
+  cursor: pointer;
+}
+
+.format-select-trigger:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.format-select-trigger:focus-visible {
+  outline: 2px solid rgb(255 231 166 / 76%);
+  outline-offset: 2px;
+}
+
+.format-select-caret {
+  width: 0.48rem;
+  height: 0.48rem;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  opacity: 0.9;
+  transform: rotate(45deg) translateY(-0.12rem);
+  transition: transform 150ms ease;
+}
+
+.is-open .format-select-caret {
+  transform: rotate(225deg) translate(-0.12rem, -0.12rem);
+}
+
+.format-select-menu {
+  position: absolute;
+  z-index: 50;
+  top: calc(100% + 0.45rem);
+  left: 0;
+  right: 0;
+  display: grid;
+  gap: 0.18rem;
+  max-height: 14rem;
+  overflow-y: auto;
+  border: 1px solid rgb(215 180 106 / 34%);
+  border-radius: 12px;
+  padding: 0.35rem;
+  background:
+    radial-gradient(circle at 18% 0%, rgb(215 180 106 / 13%), transparent 9rem),
+    rgb(7 10 7 / 98%);
+  box-shadow:
+    0 1.2rem 2.4rem rgb(0 0 0 / 45%),
+    inset 0 1px 0 rgb(255 255 255 / 6%);
+}
+
+.format-select-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.7rem;
+  min-height: 2.4rem;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 0 0.7rem;
+  background: transparent;
+  color: rgb(255 249 232 / 82%);
+  font: inherit;
+  font-weight: 800;
+  text-align: left;
+  cursor: pointer;
+}
+
+.format-select-option:hover,
+.format-select-option:focus-visible {
+  border-color: rgb(215 180 106 / 28%);
+  background: rgb(215 180 106 / 9%);
+  outline: none;
+}
+
+.format-select-option.is-selected {
+  border-color: rgb(215 180 106 / 48%);
+  background:
+    linear-gradient(180deg, rgb(215 180 106 / 18%), rgb(215 180 106 / 8%));
+  color: #fff2c4;
+}
+
+.format-select-selected-mark {
+  width: 0.42rem;
+  height: 0.42rem;
+  border-radius: 999px;
+  background: #ffe9a9;
+  box-shadow: 0 0 0.9rem rgb(255 231 166 / 55%);
+}

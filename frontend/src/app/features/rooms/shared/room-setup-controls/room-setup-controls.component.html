@@ -1,0 +1,35 @@
+<div class="setup-controls">
+  <app-game-setup-life-control
+    label="Total life"
+    summary=""
+    [value]="startingLife()"
+    [step]="startingLifeStep()"
+    [disabled]="disabled() || updatingStartingLife()"
+    (valueChange)="startingLifeChange.emit($event)"
+  />
+
+  <div class="setup-control timer-control">
+    <div class="control-copy">
+      <span class="eyebrow">Timer</span>
+      <strong>{{ timerSummary() }}</strong>
+    </div>
+    <app-table-assistant-timer-settings
+      [compact]="true"
+      [timerMode]="timerMode()"
+      [timerDurationSeconds]="timerDurationSeconds()"
+      [timerModes]="['none', 'turn']"
+      [disabled]="disabled() || updatingTimer()"
+      (timerModeChange)="changeTimerMode($event)"
+      (timerDurationSecondsChange)="timerDurationSecondsChange.emit($event)"
+    />
+  </div>
+
+  <app-game-setup-seats-control
+    label="Seats"
+    [value]="maxPlayers()"
+    [minimumValue]="minimumPlayers()"
+    [options]="maxPlayersOptions()"
+    [disabled]="disabled() || updatingCapacity()"
+    (valueChange)="maxPlayersChange.emit($event)"
+  />
+</div>

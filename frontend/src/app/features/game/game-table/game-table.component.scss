@@ -229,7 +229,7 @@
   z-index: 700;
   grid-area: mainTop;
   display: grid;
-  grid-template-columns: minmax(0, 500px) minmax(0, 500px) minmax(0, 1fr) minmax(0, 340px);
+  grid-template-columns: minmax(0, 420px) minmax(0, 660px) minmax(0, 1fr) minmax(0, 340px);
   gap: 0;
   min-width: 0;
   min-height: 0;
@@ -695,4 +695,5 @@
     filter: none;
   }
 }
+
 

@@ -23,6 +23,7 @@ import { GameTablePointerDragService } from './services/game-table-pointer-drag.
 import { GameTableRematchRealtimeService } from './services/game-table-rematch-realtime.service';
 import { GameTableSelectionService } from './services/game-table-selection.service';
 import { GameTableSessionService } from './services/game-table-session.service';
+import { GameTableDisconnectVoteService } from './services/game-table-disconnect-vote.service';
 import { GameTableWebsocketGameplayService } from './services/game-table-websocket-gameplay.service';
 import { GameTableWebsocketTransportService } from './services/game-table-websocket-transport.service';
 import { GameTableTurnActionsService } from './services/game-table-turn-actions.service';
@@ -77,6 +78,7 @@ import { PowerToughnessDialogComponent, PowerToughnessDialogValueChange } from '
 import { GameArrowLayerComponent } from './components/game-arrow-layer/game-arrow-layer.component';
 import { ArrowTargetDialogComponent, ArrowTargetDialogValue } from './components/arrow-target-dialog/arrow-target-dialog.component';
 import { GameRematchModalComponent, RematchPlayerVoteView } from './components/game-rematch-modal/game-rematch-modal.component';
+import { GameDisconnectVoteModalComponent } from './components/game-disconnect-vote-modal/game-disconnect-vote-modal.component';
 import { TokenSearchModalComponent } from './components/token-search-modal/token-search-modal.component';
 import { RollModalComponent } from '../../../core/ui/roll-modal/roll-modal.component';
 import { type RollResult } from '../../../core/ui/roll-modal/roll';
@@ -279,6 +281,7 @@ interface MotionSourceRect {
     GameArrowLayerComponent,
     ArrowTargetDialogComponent,
     GameRematchModalComponent,
+    GameDisconnectVoteModalComponent,
     TokenSearchModalComponent,
     RollModalComponent,
   ],
@@ -309,6 +312,7 @@ interface MotionSourceRect {
     GameTableDebouncedValueCommandsService,
     GameTableBattlefieldDragCoordinatorService,
     GameTableRematchRealtimeService,
+    GameTableDisconnectVoteService,
     GameTableWebsocketGameplayService,
     GameTableWebsocketTransportService,
     GameTableCommandService,
@@ -340,6 +344,7 @@ interface MotionSourceRect {
 export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDestroy {
   private readonly mobileScrollLockQuery = '(max-width: 1180px), (hover: none) and (pointer: coarse)';
   readonly store = inject(GameTableStore);
+  readonly disconnectVote = inject(GameTableDisconnectVoteService);
   private readonly gamesApi = inject(GamesApi);
   private readonly router = inject(Router);
   private readonly motion = inject(GameTableMotionService);
@@ -522,8 +527,9 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   readonly opponentCardsTargetCards = computed(() => this.store.opponentCardsTargetCards());
   readonly opponentSidebarPlayers = computed(() => {
     const focusedPlayerId = this.store.focusedPlayer()?.id ?? null;
+    const opponents = this.store.players().filter((player) => player.id !== focusedPlayerId);
 
-    return this.store.players().filter((player) => player.id !== focusedPlayerId);
+    return this.sortOpponentSidebarPlayers(opponents);
   });
   readonly opponentsDrawerOpen = signal(false);
   readonly arrowTargetPlayers = computed(() => {
@@ -1442,6 +1448,9 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
         this.store.focusCurrentPlayer();
         this.store.closeContextMenu();
         return;
+      case 'openDebug':
+        this.openDebugTab();
+        return;
       case 'openChat':
         this.openFloatingTab('chat');
         this.store.closeContextMenu();
@@ -1949,6 +1958,16 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     });
   }
 
+  openDebugTab(): void {
+    const gameId = this.store.gameId();
+    this.store.closeContextMenu();
+    if (!gameId) {
+      return;
+    }
+
+    window.open(`/games/${encodeURIComponent(gameId)}/debug`, '_blank', 'noopener');
+  }
+
   openRematchModal(): void {
     this.rematchModalOpen.set(true);
   }
@@ -1965,6 +1984,18 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     await this.submitRematchVote('leave');
   }
 
+  closeDisconnectVoteModal(): void {
+    this.disconnectVote.closeModal();
+  }
+
+  async voteDisconnectWait(): Promise<void> {
+    await this.disconnectVote.vote('wait');
+  }
+
+  async voteDisconnectExpel(): Promise<void> {
+    await this.disconnectVote.vote('expel');
+  }
+
   pendingLibraryMoveSupportsRandomOrder(pendingMove: PendingLibraryMove): boolean {
     const instanceIds = pendingMove.payload['instanceIds'];
 
@@ -1976,10 +2007,10 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
 
   pendingLibraryMoveMessage(pendingMove: PendingLibraryMove): string {
     const instanceIds = pendingMove.payload['instanceIds'];
-    const isMultiMove = Array.isArray(instanceIds) && instanceIds.length > 1;
+    const movedCount = Array.isArray(instanceIds) ? instanceIds.length : 1;
 
-    return isMultiMove
-      ? 'Donde quieres poner estas cartas?'
+    return movedCount > 1
+      ? `Donde quieres poner estas ${movedCount} cartas?`
       : 'Donde quieres poner esta carta?';
   }
 
@@ -2163,6 +2194,23 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
 
   private playerName(playerId: string): string {
     return this.store.players().find((player) => player.id === playerId)?.state.user.displayName || playerId;
+  }
+
+  private sortOpponentSidebarPlayers(players: readonly PlayerView[]): PlayerView[] {
+    return players
+      .map((player, index) => ({
+        player,
+        index,
+        defeated: playerIsDefeated(player),
+      }))
+      .sort((left, right) => {
+        if (left.defeated !== right.defeated) {
+          return left.defeated ? 1 : -1;
+        }
+
+        return left.index - right.index;
+      })
+      .map(({ player }) => player);
   }
 
   private openPowerToughnessDialog(menu: GameContextMenu): void {

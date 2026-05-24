@@ -3,8 +3,11 @@
 namespace App\UI\Http;
 
 use App\Application\Game\GameCommandHandler;
+use App\Application\Game\GameDisconnectVoteService;
 use App\Application\Game\GameProjectionService;
 use App\Application\Game\GameRematchService;
+use App\Application\Game\Debug\GameDebugHealthAggregator;
+use App\Application\Game\WebSocket\GameWebsocketRoomRegistry;
 use App\Application\Game\WebSocket\GameWebsocketTicketManager;
 use App\Domain\Game\Game;
 use App\Domain\Game\GameEvent;
@@ -69,6 +72,65 @@ class GamesController extends ApiController
             'expiresAt' => $ticket->expiresAt->format(DATE_ATOM),
             'websocketUrl' => rtrim($websocketPublicUrl, '/').'/games/'.$game->id().'?ticket='.rawurlencode($ticket->ticket),
         ]);
+    }
+
+    #[Route('/games/{id}/debug/health', methods: ['GET'])]
+    public function debugHealth(
+        string $id,
+        #[CurrentUser] User $user,
+        EntityManagerInterface $entityManager,
+        GameDebugHealthAggregator $debugHealth,
+    ): JsonResponse {
+        $game = $entityManager->getRepository(Game::class)->find($id);
+        if (!$game instanceof Game) {
+            return $this->fail('Game not found.', 404);
+        }
+        if (!$game->canBeViewedBy($user)) {
+            return $this->fail('Game access denied.', 403);
+        }
+
+        $generatedAt = (new \DateTimeImmutable())->format(DATE_ATOM);
+
+        return $this->json([
+            'gameId' => $game->id(),
+            'enabled' => true,
+            'context' => $this->debugHealthContext($game),
+            'health' => $debugHealth->normalize([]),
+            'generatedAt' => $generatedAt,
+            'updatedAt' => $generatedAt,
+        ]);
+    }
+
+    /**
+     * @return array{players: list<array{playerId: string, displayName: string, deckName: ?string, status: string}>}
+     */
+    private function debugHealthContext(Game $game): array
+    {
+        $players = [];
+        $snapshotPlayers = $game->snapshot()['players'] ?? [];
+        if (!is_array($snapshotPlayers)) {
+            return ['players' => []];
+        }
+
+        foreach ($snapshotPlayers as $playerId => $player) {
+            if (!is_string($playerId) || !is_array($player)) {
+                continue;
+            }
+
+            $user = is_array($player['user'] ?? null) ? $player['user'] : [];
+            $displayName = is_string($user['displayName'] ?? null) && trim($user['displayName']) !== ''
+                ? trim($user['displayName'])
+                : $playerId;
+
+            $players[] = [
+                'playerId' => $playerId,
+                'displayName' => $displayName,
+                'deckName' => is_string($player['deckName'] ?? null) && trim($player['deckName']) !== '' ? trim($player['deckName']) : null,
+                'status' => is_string($player['status'] ?? null) && trim($player['status']) !== '' ? trim($player['status']) : 'active',
+            ];
+        }
+
+        return ['players' => $players];
     }
 
     #[Route('/games/{id}/commands', methods: ['POST'])]
@@ -305,6 +367,70 @@ class GamesController extends ApiController
             'snapshot' => $projectedSnapshot,
             'version' => $projectedSnapshot['version'] ?? null,
         ]);
+    }
+
+    #[Route('/games/{id}/disconnect-vote', methods: ['POST'])]
+    public function disconnectVote(
+        string $id,
+        Request $request,
+        #[CurrentUser] User $user,
+        EntityManagerInterface $entityManager,
+        GameProjectionService $projection,
+        GameDisconnectVoteService $disconnectVotes,
+        GameWebsocketRoomRegistry $rooms,
+        GameEventPublisher $gamePublisher,
+    ): JsonResponse {
+        $game = $entityManager->getRepository(Game::class)->find($id);
+        if (!$game instanceof Game) {
+            return $this->fail('Game not found.', 404);
+        }
+        if (!$game->canBeControlledBy($user)) {
+            return $this->fail('Game access denied.', 403);
+        }
+
+        $payload = $this->payload($request);
+        $targetPlayerId = trim((string) ($payload['targetPlayerId'] ?? ''));
+        $vote = trim((string) ($payload['vote'] ?? ''));
+        if ($targetPlayerId === '' || $vote === '') {
+            return $this->fail('targetPlayerId and vote are required.');
+        }
+
+        try {
+            $entityManager->beginTransaction();
+            $entityManager->lock($game, LockMode::PESSIMISTIC_WRITE);
+            $recorded = $disconnectVotes->recordVote(
+                $game,
+                $user,
+                $targetPlayerId,
+                $vote,
+                array_values(array_unique([...$rooms->connectedUserIdsForGame($game->id()), $user->id()])),
+            );
+            $event = $recorded['event'];
+            $entityManager->persist($event);
+            $entityManager->flush();
+            $entityManager->commit();
+        } catch (\InvalidArgumentException $exception) {
+            if ($entityManager->getConnection()->isTransactionActive()) {
+                $entityManager->rollback();
+            }
+
+            return $this->fail($exception->getMessage());
+        } catch (\Throwable $exception) {
+            if ($entityManager->getConnection()->isTransactionActive()) {
+                $entityManager->rollback();
+            }
+
+            throw $exception;
+        }
+
+        $gamePublisher->publish($game, $event);
+
+        return $this->json([
+            'status' => 'recorded',
+            'event' => $event->toArray(),
+            'snapshot' => $projection->project($game, $user),
+            'version' => $game->snapshot()['version'] ?? null,
+        ], 201);
     }
 
     #[Route('/games/{id}/events', methods: ['GET'])]

@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, ElementRef, HostListener, inject, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, HostListener, computed, inject, input, output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
 import { ManaSymbolsComponent } from '../../../../../shared/mana/mana-symbols/mana-symbols.component';
@@ -21,6 +21,7 @@ export interface WaitingDeckOption {
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class WaitingRoomDeckSelectorComponent {
+  readonly randomDeckOptionValue = '__random_deck__';
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
   readonly deckOptions = input<readonly WaitingDeckOption[]>([]);
@@ -28,12 +29,25 @@ export class WaitingRoomDeckSelectorComponent {
   readonly selectedDeckId = input('');
   readonly selectorOpen = input(false);
   readonly updatingDeck = input(false);
+  readonly canRoll = input(false);
+  readonly rolling = input(false);
+  readonly showRandomDeckOption = computed(() => this.deckOptions().length > 1);
 
   readonly selectorToggled = output<void>();
   readonly selectorClosed = output<void>();
   readonly selectedDeckIdChange = output<string>();
   readonly deckSelected = output<string>();
   readonly randomDeckRequested = output<void>();
+  readonly rollRequested = output<void>();
+
+  selectNativeDeck(deckId: string): void {
+    if (deckId === this.randomDeckOptionValue) {
+      this.randomDeckRequested.emit();
+      return;
+    }
+
+    this.selectedDeckIdChange.emit(deckId);
+  }
 
   @HostListener('document:click', ['$event'])
   closeFromOutside(event: MouseEvent): void {

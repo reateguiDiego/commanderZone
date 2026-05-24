@@ -1,0 +1,48 @@
+:host {
+  display: block;
+}
+
+.setup-controls {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.setup-control {
+  display: grid;
+  gap: 0.55rem;
+  min-height: 0;
+  border: 1px solid rgb(215 180 106 / 28%);
+  border-radius: 15px;
+  padding: 0.72rem;
+  background:
+    linear-gradient(180deg, rgb(255 245 211 / 4%), transparent 38%),
+    rgb(5 8 5 / 58%);
+  box-shadow:
+    0 0.8rem 1.6rem rgb(0 0 0 / 20%),
+    inset 0 1px 0 rgb(255 255 255 / 5%);
+}
+
+.timer-control {
+  grid-template-columns: minmax(4.8rem, 0.38fr) minmax(0, 1fr);
+  align-items: center;
+}
+
+.control-copy strong {
+  display: block;
+  color: #ffe9a9;
+  font-size: 1rem;
+  line-height: 1.15;
+}
+
+.eyebrow {
+  color: #fde68a;
+  font-size: 0.72rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+@media (max-width: 520px) {
+  .timer-control {
+    grid-template-columns: 1fr;
+  }
+}

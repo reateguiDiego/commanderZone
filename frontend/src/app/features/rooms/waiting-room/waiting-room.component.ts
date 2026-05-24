@@ -1,6 +1,8 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, OnDestroy, computed, effect, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, NgZone, OnDestroy, computed, effect, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
+import { gsap } from 'gsap';
+import { Flip } from 'gsap/Flip';
 import { LucideAngularModule } from 'lucide-angular';
 import { Subscription, firstValueFrom } from 'rxjs';
 import { DecksApi } from '../../../core/api/decks.api';
@@ -17,14 +19,23 @@ import { AppModalComponent } from '../../../shared/ui/app-modal/app-modal.compon
 import { PlayerNameComponent } from '../../../shared/ui/player-name/player-name.component';
 import { PrettyScrollDirective } from '../../../shared/ui/pretty-scroll/pretty-scroll.directive';
 import { bestCardArtImage } from '../../../shared/utils/card-image';
+import { RoomSetupModalComponent } from '../shared/room-setup-modal/room-setup-modal.component';
 import { WaitingDeckOption } from './components/waiting-room-deck-selector/waiting-room-deck-selector.component';
-import { WaitingRoomGameSetupComponent, WaitingRoomLogEntry } from './components/waiting-room-game-setup/waiting-room-game-setup.component';
+import { WaitingRoomLogEntry, WaitingRoomLogPanelComponent } from './components/waiting-room-log-panel/waiting-room-log-panel.component';
 import { WaitingRoomPlayerCardComponent } from './components/waiting-room-player-card/waiting-room-player-card.component';
-import { WaitingRoomTurnOrderComponent, WaitingTurnOrderRow } from './components/waiting-room-turn-order/waiting-room-turn-order.component';
+
+gsap.registerPlugin(Flip);
 
 interface TurnOrderTiePrompt {
   readonly key: string;
   readonly tiedWithNames: readonly string[];
+}
+
+interface WaitingTurnOrderRow {
+  readonly id: string;
+  readonly label: string;
+  readonly rollLabel: string;
+  readonly rolled: boolean;
 }
 
 @Component({
@@ -34,15 +45,17 @@ interface TurnOrderTiePrompt {
     AppModalComponent,
     PlayerNameComponent,
     PrettyScrollDirective,
-    WaitingRoomGameSetupComponent,
+    RoomSetupModalComponent,
+    WaitingRoomLogPanelComponent,
     WaitingRoomPlayerCardComponent,
-    WaitingRoomTurnOrderComponent,
   ],
   templateUrl: './waiting-room.component.html',
   styleUrl: './waiting-room.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class WaitingRoomComponent implements OnDestroy {
+  private readonly hostRef = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly ngZone = inject(NgZone);
   private readonly decksApi = inject(DecksApi);
   private readonly friendsApi = inject(FriendsApi);
   private readonly roomsApi = inject(RoomsApi);
@@ -64,6 +77,7 @@ export class WaitingRoomComponent implements OnDestroy {
   private copiedFeedbackHandle?: number;
   private startingLifeLogChange?: { from: number; to: number };
   private timerLogHandle?: number;
+  private playerOrderAnimationFrame?: number;
   private timerLogChange?: {
     fromMode: RoomTimerMode;
     toMode: RoomTimerMode;
@@ -108,6 +122,7 @@ export class WaitingRoomComponent implements OnDestroy {
   readonly kickingPlayerId = signal<string | null>(null);
   readonly updatingDeck = signal(false);
   readonly rollModalOpen = signal(false);
+  readonly setupModalOpen = signal(false);
   readonly rollingTurn = signal(false);
   readonly updatingCapacity = signal(false);
   readonly updatingStartingLife = signal(false);
@@ -178,6 +193,10 @@ export class WaitingRoomComponent implements OnDestroy {
     if (this.timerLogHandle !== undefined) {
       window.clearTimeout(this.timerLogHandle);
     }
+    if (this.playerOrderAnimationFrame !== undefined) {
+      window.cancelAnimationFrame(this.playerOrderAnimationFrame);
+    }
+    Flip.killFlipsOf(this.playerOrderElements(), true);
     this.inviteRealtimeSubscription?.unsubscribe();
     this.roomRealtimeSubscription?.unsubscribe();
     this.pageHeader.clear();
@@ -330,14 +349,26 @@ export class WaitingRoomComponent implements OnDestroy {
     this.rollModalOpen.set(false);
   }
 
+  openSetupModal(room: Room): void {
+    if (!this.canViewRoomConfiguration(room)) {
+      return;
+    }
+
+    this.setupModalOpen.set(true);
+  }
+
+  closeSetupModal(): void {
+    this.setupModalOpen.set(false);
+  }
+
   rollModalTitle(): string {
-    return this.currentTieBreakPrompt() ? 'Tirada de desempate' : 'Roll d20';
+    return this.currentTieBreakPrompt() ? 'Tirada de desempate' : 'Roll dice';
   }
 
   rollModalMessage(): string {
     const prompt = this.currentTieBreakPrompt();
     if (!prompt) {
-      return 'This roll sets your turn order. If you tie with another player, only tied players will roll again to break that position.';
+      return 'This roll sets your turn order.';
     }
 
     return `Has empatado con ${this.tiePromptNames(prompt.tiedWithNames)}. Vuelve a tirar para desempatar.`;
@@ -516,6 +547,10 @@ export class WaitingRoomComponent implements OnDestroy {
 
   canEditRoom(room: Room): boolean {
     return room.status === 'waiting' && this.isRoomOwner(room);
+  }
+
+  canViewRoomConfiguration(room: Room): boolean {
+    return room.status === 'waiting' && this.isCurrentUserInRoom(room);
   }
 
   canKickPlayer(room: Room, player: RoomPlayer): boolean {
@@ -736,7 +771,7 @@ export class WaitingRoomComponent implements OnDestroy {
   }
 
   turnOrderPlayers(room: Room): readonly RoomPlayer[] {
-    if (this.allPlayersRolled(room)) {
+    if (this.hasAnyTurnRoll(room)) {
       return [...room.players].sort((firstPlayer, secondPlayer) => this.comparePlayersByTurnOrder(firstPlayer, secondPlayer));
     }
 
@@ -909,29 +944,16 @@ export class WaitingRoomComponent implements OnDestroy {
     const previousOrder = previousRoom ? this.turnOrderPlayers(previousRoom).map((player) => player.id).join('|') : '';
     const nextSeatOrderIds = this.nextSeatOrderIds(room);
     const nextOrder = room ? this.playersBySeatOrder(room, nextSeatOrderIds).map((player) => player.id).join('|') : '';
-    const shouldAnimateOrder = previousOrder !== '' && nextOrder !== '' && previousOrder !== nextOrder && !!room && this.hasCompletedTurnOrder(room);
-    const transitionDocument = document as Document & {
-      startViewTransition?: (updateCallback: () => void) => { finished: Promise<void> };
-    };
+    const playOrderFlip = this.shouldAnimatePlayerOrder(previousOrder, nextOrder, room)
+      ? this.preparePlayerOrderFlip()
+      : () => undefined;
 
-    if (!shouldAnimateOrder || typeof transitionDocument.startViewTransition !== 'function') {
-      this.applyCurrentRoom(room);
-      return;
-    }
-
-    document.documentElement.classList.add('waiting-room-transition');
-    const transition = transitionDocument.startViewTransition(() => {
-      this.applyCurrentRoom(room);
-    });
-    void transition.finished
-      .catch(() => {})
-      .finally(() => {
-        document.documentElement.classList.remove('waiting-room-transition');
-      });
+    this.applyCurrentRoom(room, nextSeatOrderIds);
+    playOrderFlip();
   }
 
-  private applyCurrentRoom(room: Room | null): void {
-    this.seatOrderIds = this.nextSeatOrderIds(room);
+  private applyCurrentRoom(room: Room | null, seatOrderIds = this.nextSeatOrderIds(room)): void {
+    this.seatOrderIds = seatOrderIds;
     this.currentRoom.set(room);
     this.updatePageHeader(room);
   }
@@ -941,7 +963,7 @@ export class WaitingRoomComponent implements OnDestroy {
       return [];
     }
 
-    if (this.hasCompletedTurnOrder(room)) {
+    if (this.hasAnyTurnRoll(room)) {
       return [...room.players]
         .sort((firstPlayer, secondPlayer) => this.comparePlayersByTurnOrder(firstPlayer, secondPlayer))
         .map((player) => player.id);
@@ -967,6 +989,57 @@ export class WaitingRoomComponent implements OnDestroy {
     const newPlayers = room.players.filter((player) => !orderedPlayerIds.has(player.id));
 
     return [...orderedPlayers, ...newPlayers];
+  }
+
+  private shouldAnimatePlayerOrder(previousOrder: string, nextOrder: string, room: Room | null): boolean {
+    return previousOrder !== ''
+      && nextOrder !== ''
+      && previousOrder !== nextOrder
+      && this.hasAnyTurnRoll(room)
+      && !this.prefersReducedMotion()
+      && this.playerOrderElements().length > 0;
+  }
+
+  private preparePlayerOrderFlip(): () => void {
+    const elements = this.playerOrderElements();
+    if (elements.length === 0) {
+      return () => undefined;
+    }
+
+    Flip.killFlipsOf(elements, true);
+    const state = Flip.getState(elements);
+
+    return () => {
+      if (this.playerOrderAnimationFrame !== undefined) {
+        window.cancelAnimationFrame(this.playerOrderAnimationFrame);
+      }
+
+      this.playerOrderAnimationFrame = window.requestAnimationFrame(() => {
+        this.playerOrderAnimationFrame = undefined;
+        const currentElements = this.playerOrderElements();
+        if (currentElements.length === 0) {
+          return;
+        }
+
+        this.ngZone.runOutsideAngular(() => {
+          Flip.killFlipsOf(currentElements, true);
+          Flip.from(state, {
+            absolute: false,
+            duration: 1.04,
+            ease: 'power3.out',
+            nested: true,
+            prune: true,
+            scale: false,
+            stagger: 0.035,
+            targets: currentElements,
+          });
+        });
+      });
+    };
+  }
+
+  private playerOrderElements(): HTMLElement[] {
+    return Array.from(this.hostRef.nativeElement.querySelectorAll<HTMLElement>('[data-waiting-player-id]'));
   }
 
   private updatePageHeader(room: Room | null): void {
@@ -1133,6 +1206,10 @@ export class WaitingRoomComponent implements OnDestroy {
     return room.players.length > 0 && room.players.every((player) => this.turnRollsFor(player).length > 0);
   }
 
+  private hasAnyTurnRoll(room: Room | null): boolean {
+    return !!room && room.players.some((player) => this.turnRollsFor(player).length > 0);
+  }
+
   private comparePlayersByTurnOrder(firstPlayer: RoomPlayer, secondPlayer: RoomPlayer): number {
     const firstRolls = this.turnRollsFor(firstPlayer);
     const secondRolls = this.turnRollsFor(secondPlayer);
@@ -1169,6 +1246,11 @@ export class WaitingRoomComponent implements OnDestroy {
 
   private hasTurnOrderTies(room: Room): boolean {
     return room.players.some((player) => this.playerNeedsTieBreak(room, player));
+  }
+
+  private prefersReducedMotion(): boolean {
+    return typeof window.matchMedia === 'function'
+      && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   }
 
   private turnRollsFor(player: RoomPlayer): readonly number[] {

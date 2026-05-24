@@ -1,8 +1,9 @@
 import { importProvidersFrom } from '@angular/core';
 import { Component } from '@angular/core';
+import { By } from '@angular/platform-browser';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
-import { Copy, DoorOpen, Globe, Lock, LogOut, LucideAngularModule, Play, Plus, Send, ShieldCheck, Swords, Trash2, TriangleAlert, UserPlus, Users } from 'lucide-angular';
+import { Copy, DoorOpen, Globe, Lock, LogOut, LucideAngularModule, Play, Plus, Send, Settings, ShieldCheck, Swords, Trash2, TriangleAlert, UserPlus, Users, X } from 'lucide-angular';
 import { of } from 'rxjs';
 import { DecksApi } from '../../../core/api/decks.api';
 import { FriendsApi } from '../../../core/api/friends.api';
@@ -12,6 +13,7 @@ import { CommanderValidation, Deck } from '../../../core/models/deck.model';
 import { Room } from '../../../core/models/room.model';
 import { MercureService } from '../../../core/realtime/mercure.service';
 import { PageHeaderStore } from '../../../core/ui/page-header.store';
+import { RoomSetupModalComponent } from '../shared/room-setup-modal/room-setup-modal.component';
 import { WaitingRoomComponent } from './waiting-room.component';
 
 @Component({
@@ -58,7 +60,7 @@ describe('WaitingRoomComponent', () => {
       imports: [WaitingRoomComponent],
       providers: [
         provideRouter([{ path: 'rooms', component: DummyRoomsPageComponent }]),
-        importProvidersFrom(LucideAngularModule.pick({ Copy, DoorOpen, Globe, Lock, LogOut, Play, Plus, Send, ShieldCheck, Swords, Trash2, TriangleAlert, UserPlus, Users })),
+        importProvidersFrom(LucideAngularModule.pick({ Copy, DoorOpen, Globe, Lock, LogOut, Play, Plus, Send, Settings, ShieldCheck, Swords, Trash2, TriangleAlert, UserPlus, Users, X })),
         { provide: DecksApi, useValue: { list: vi.fn().mockReturnValue(of({ data: [{ id: 'deck-1', name: 'Verdant Bloom', format: 'commander', folderId: null }] })), validateCommander: vi.fn().mockReturnValue(of({ valid: true })) } },
         { provide: FriendsApi, useValue: { list: vi.fn().mockReturnValue(of({ data: [] })) } },
         { provide: RoomsApi, useValue: roomsApi },
@@ -83,7 +85,54 @@ describe('WaitingRoomComponent', () => {
     fixture.detectChanges();
 
     expect(fixture.nativeElement.textContent).toContain('Players');
+    expect(fixture.nativeElement.textContent).toContain('Setup');
+    const setupButton = fixture.nativeElement.querySelector('.players-panel-tools .setup-button') as HTMLButtonElement | null;
+    expect(setupButton?.classList.contains('primary-button')).toBe(true);
+    expect(setupButton?.querySelector('lucide-icon')?.getAttribute('name')).toBe('settings');
+    expect(fixture.nativeElement.querySelector('.players-panel-tools .start-status-pill')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.start-game-row .start-status-pill')?.textContent).toContain('Waiting for decks and rolls');
+    expect(fixture.nativeElement.querySelector('app-waiting-room-log-panel')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('app-waiting-room-turn-order')).toBeNull();
     expect(fixture.nativeElement.querySelector('select[name="waitingDeckId"]')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('option[value="__random_deck__"]')).toBeNull();
+  });
+
+  it('shows read-only setup to non-host room players', async () => {
+    const fixture = TestBed.createComponent(WaitingRoomComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const nonHostRoom = room({
+      owner: { id: 'user-2', email: 'other@test', displayName: 'Other', roles: [] },
+      players: [
+        {
+          id: 'player-1',
+          user: { id: 'user-1', email: 'owner@test', displayName: 'Owner', roles: [] },
+          deckId: null,
+          turnRoll: null,
+        },
+      ],
+    });
+    fixture.componentInstance.currentRoom.set(nonHostRoom);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('Setup');
+    expect(fixture.nativeElement.textContent).not.toContain('Configuration');
+
+    fixture.componentInstance.openSetupModal(nonHostRoom);
+    fixture.detectChanges();
+
+    const setupModal = fixture.debugElement.query(By.directive(RoomSetupModalComponent)).componentInstance as RoomSetupModalComponent;
+    expect(setupModal.readOnly()).toBe(true);
+    expect(setupModal.actionsLocked()).toBe(true);
+    expect(fixture.nativeElement.querySelector('.modal-panel footer')).toBeNull();
+    expect(fixture.nativeElement.textContent).not.toContain('Done');
+
+    roomsApi.update.mockClear();
+    setupModal.maxPlayersChange.emit(3);
+    await fixture.whenStable();
+
+    expect(roomsApi.update).not.toHaveBeenCalled();
   });
 
   it('publishes the room name and invite action to the shared page header', async () => {
@@ -239,6 +288,27 @@ describe('WaitingRoomComponent', () => {
     expect(component.currentRoom()?.timerDurationSeconds).toBe(180);
   });
 
+  it('updates room setup from the waiting setup modal', async () => {
+    const fixture = TestBed.createComponent(WaitingRoomComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const component = fixture.componentInstance;
+    component.openSetupModal(room());
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.modal-panel')?.classList.contains('modal-panel-compact')).toBe(true);
+    const setupModal = fixture.debugElement.query(By.directive(RoomSetupModalComponent)).componentInstance as RoomSetupModalComponent;
+    expect(setupModal.readOnly()).toBe(false);
+    expect(setupModal.actionsLocked()).toBe(false);
+    roomsApi.update.mockReturnValueOnce(of({ room: room({ maxPlayers: 3 }) }));
+    setupModal.maxPlayersChange.emit(3);
+    await fixture.whenStable();
+
+    expect(roomsApi.update).toHaveBeenCalledWith('room-1', { maxPlayers: 3 }, true);
+    expect(component.currentRoom()?.maxPlayers).toBe(3);
+  });
+
   it('lets the room owner confirm kicking another player', async () => {
     const fixture = TestBed.createComponent(WaitingRoomComponent);
     fixture.detectChanges();
@@ -280,7 +350,7 @@ describe('WaitingRoomComponent', () => {
     expect(component.currentRoom()?.players).toHaveLength(1);
   });
 
-  it('orders player seats by d20 once every player has rolled', async () => {
+  it('orders player seats by d20 and keeps unrolled players behind rolled players', async () => {
     const fixture = TestBed.createComponent(WaitingRoomComponent);
     fixture.detectChanges();
     await fixture.whenStable();
@@ -299,6 +369,18 @@ describe('WaitingRoomComponent', () => {
     expect(component.hasCompletedTurnOrder(rolledRoom)).toBe(true);
     expect(component.isOddLastSeat(rolledRoom, 2)).toBe(true);
     expect(component.shouldRenderOpenSeat(rolledRoom, 3)).toBe(false);
+
+    const partialRoom = room({
+      players: [
+        { ...readyPlayer('player-1', 'user-1', 'Owner', 8), turnRoll: null, turnRolls: [] },
+        readyPlayer('player-2', 'user-2', 'Guest 2', 4),
+        readyPlayer('player-3', 'user-3', 'Guest 3', 12),
+      ],
+    });
+
+    expect(component.hasCompletedTurnOrder(partialRoom)).toBe(false);
+    expect(component.turnOrderPlayers(partialRoom).map((player) => player.user.displayName)).toEqual(['Guest 3', 'Guest 2', 'Owner']);
+    expect(component.seatPlayer(partialRoom, 0)?.user.displayName).toBe('Guest 3');
   });
 
   it('keeps tied players rollable and resolves order by repeated tie-break rolls', async () => {
@@ -383,7 +465,38 @@ describe('WaitingRoomComponent', () => {
     expect(component.hasCompletedTurnOrder(waitingRoom)).toBe(false);
     expect(component.playerDeckName(waitingRoom.players[1])).toBe('Deck pending');
     expect(fixture.nativeElement.textContent).not.toContain('1. Owner');
-    expect(fixture.nativeElement.textContent).toContain('Guest 2 - Deck pending');
+    expect(fixture.nativeElement.textContent).toContain('Guest 2');
+    expect(fixture.nativeElement.textContent).toContain('Deck pending');
+  });
+
+  it('opens the roll modal from the current player card', async () => {
+    const fixture = TestBed.createComponent(WaitingRoomComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.currentRoom.set(room({
+      players: [
+        {
+          id: 'player-1',
+          user: { id: 'user-1', email: 'owner@test', displayName: 'Owner', roles: [] },
+          deckId: 'deck-1',
+          turnRoll: null,
+        },
+      ],
+    }));
+    fixture.detectChanges();
+
+    const rollButton = fixture.nativeElement.querySelector('button[aria-label="Roll dice"]') as HTMLButtonElement | null;
+    expect(rollButton).toBeDefined();
+
+    rollButton?.click();
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.rollModalOpen()).toBe(true);
+    expect(fixture.nativeElement.textContent).toContain('Roll dice');
+    expect(fixture.nativeElement.textContent).toContain('This roll sets your turn order.');
+    expect(fixture.nativeElement.textContent).not.toContain('only tied players will roll again');
+    expect(fixture.nativeElement.textContent).toContain('After rolling, your deck selection will be locked');
   });
 
   it('closes the deck selector from outside clicks and supports random legal decks', async () => {
@@ -401,6 +514,7 @@ describe('WaitingRoomComponent', () => {
     component.toggleDeckSelector();
     fixture.detectChanges();
     expect(component.deckSelectorOpen()).toBe(true);
+    expect(fixture.nativeElement.querySelector('.random-deck-option')?.textContent).toContain('Random deck');
 
     document.body.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     fixture.detectChanges();

@@ -145,6 +145,41 @@ class GameWebsocketPatchBuilderTest extends TestCase
         self::assertArrayNotHasKey('position', $message['operations'][0]);
     }
 
+    public function testCardTappedPatchSizeStaysStableAcrossRepeatedToggles(): void
+    {
+        [$game, $actor] = $this->gameWithBattlefieldCards();
+
+        $tapMessage = $this->applyAndBuild($game, $actor, 'card.tapped', [
+            'playerId' => $actor->id(),
+            'zone' => 'battlefield',
+            'instanceId' => 'battlefield-1',
+            'tapped' => true,
+        ], 'action-tap-1');
+        $untapMessage = $this->applyAndBuild($game, $actor, 'card.tapped', [
+            'playerId' => $actor->id(),
+            'zone' => 'battlefield',
+            'instanceId' => 'battlefield-1',
+            'tapped' => false,
+        ], 'action-tap-2');
+        [$movementGame, $movementActor] = $this->gameWithMovementCards();
+        $moveMessage = $this->applyAndBuildProjected($movementGame, $movementActor, 'card.moved', [
+            'playerId' => $movementActor->id(),
+            'fromZone' => 'hand',
+            'toZone' => 'battlefield',
+            'instanceId' => 'hand-1',
+        ], 'action-move-1', $movementActor);
+
+        $tapCharacters = strlen(json_encode($tapMessage, JSON_THROW_ON_ERROR));
+        $untapCharacters = strlen(json_encode($untapMessage, JSON_THROW_ON_ERROR));
+        $moveCharacters = strlen(json_encode($moveMessage, JSON_THROW_ON_ERROR));
+
+        self::assertSame(['card.state.set'], array_column($tapMessage['operations'], 'op'));
+        self::assertSame(['card.state.set'], array_column($untapMessage['operations'], 'op'));
+        self::assertLessThanOrEqual(2, abs($tapCharacters - $untapCharacters));
+        self::assertGreaterThan($tapCharacters, $moveCharacters);
+        self::assertGreaterThan($untapCharacters, $moveCharacters);
+    }
+
     public function testBuildsCardMovePatchWithCountsForVisibleMovement(): void
     {
         [$game, $actor] = $this->gameWithMovementCards();
@@ -555,6 +590,57 @@ class GameWebsocketPatchBuilderTest extends TestCase
         ], $message['operations'][0]['cards']);
     }
 
+    public function testBattlefieldUntapAllReturnsEveryTappedCardForPlayerInSinglePatch(): void
+    {
+        foreach ([1, 10] as $tappedCount) {
+            [$game, $actor, $opponent] = $this->game();
+            $snapshot = $game->snapshot();
+            $battlefield = [];
+            for ($index = 1; $index <= $tappedCount; ++$index) {
+                $battlefield[] = [
+                    ...$this->card('tapped-'.$index, $actor->id(), ['x' => $index / 20, 'y' => $index / 20, 'unit' => 'ratio']),
+                    'tapped' => true,
+                    'rotation' => 90,
+                    'zone' => 'battlefield',
+                ];
+            }
+            $battlefield[] = [
+                ...$this->card('already-untapped', $actor->id(), ['x' => 0.8, 'y' => 0.8, 'unit' => 'ratio']),
+                'tapped' => false,
+                'rotation' => 0,
+                'zone' => 'battlefield',
+            ];
+            $snapshot['players'][$actor->id()]['zones']['battlefield'] = $battlefield;
+            $snapshot['players'][$actor->id()]['zoneCounts']['battlefield'] = count($battlefield);
+            $snapshot['players'][$opponent->id()]['zones']['battlefield'] = [[
+                ...$this->card('opponent-tapped', $opponent->id(), ['x' => 0.1, 'y' => 0.1, 'unit' => 'ratio']),
+                'tapped' => true,
+                'rotation' => 90,
+                'zone' => 'battlefield',
+            ]];
+            $snapshot['players'][$opponent->id()]['zoneCounts']['battlefield'] = 1;
+            $game->replaceSnapshot($snapshot);
+
+            $message = $this->applyAndBuildProjected($game, $actor, 'battlefield.untap_all', [
+                'playerId' => $actor->id(),
+            ], 'action-untap-all-'.$tappedCount, $actor);
+
+            self::assertSame('game_patch', $message['kind']);
+            self::assertSame('cards.state.set', $message['operations'][0]['op']);
+            self::assertSame($actor->id(), $message['operations'][0]['playerId']);
+            self::assertSame('battlefield', $message['operations'][0]['zone']);
+            self::assertCount($tappedCount, $message['operations'][0]['cards']);
+            self::assertSame(
+                array_map(
+                    static fn (int $index): array => ['instanceId' => 'tapped-'.$index, 'tapped' => false, 'rotation' => 90],
+                    range(1, $tappedCount),
+                ),
+                $message['operations'][0]['cards'],
+            );
+            self::assertSame('eventLog.append', $message['operations'][1]['op']);
+        }
+    }
+
     public function testTokenCreatedAndTokenCopyCreatedInsertOnlyNewCard(): void
     {
         [$game, $actor] = $this->gameWithAdvancedBattlefieldCards();
@@ -701,6 +787,80 @@ class GameWebsocketPatchBuilderTest extends TestCase
         self::assertSame('game.close', $close['operations'][0]['entries'][0]['type']);
         self::assertStringNotContainsString('"snapshot"', $encodedClose);
         self::assertStringNotContainsString('"status":"finished"', $encodedClose);
+    }
+
+    public function testBuildsDisconnectVotePatchWithEventLogAppend(): void
+    {
+        [$game, $actor, $opponent] = $this->game();
+        $previous = $game->snapshot();
+        $next = $previous;
+        $next['version'] = 2;
+        $next['disconnectVote'] = [
+            'targetPlayerId' => $opponent->id(),
+            'status' => 'open',
+            'openedAt' => '2026-01-01T00:00:00+00:00',
+            'deadlineAt' => '2026-01-01T00:01:00+00:00',
+            'cooldownUntil' => null,
+            'votes' => [],
+        ];
+        $next['eventLog'][] = [
+            'id' => 'log-disconnect',
+            'type' => 'disconnect.vote.updated',
+            'message' => 'Votacion abierta.',
+            'actorId' => null,
+            'displayName' => 'System',
+            'createdAt' => '2026-01-01T00:00:00+00:00',
+        ];
+
+        $event = new GameEvent($game, 'disconnect.vote.updated', ['reason' => 'opened'], null, 'action-disconnect');
+        $message = (new GameWebsocketPatchBuilder(new GameWebsocketMessageFactory()))->build($game->id(), $previous, $next, $event);
+
+        self::assertSame('disconnect.vote.set', $message['operations'][0]['op']);
+        self::assertSame($opponent->id(), $message['operations'][0]['disconnectVote']['targetPlayerId']);
+        self::assertSame('eventLog.append', $message['operations'][1]['op']);
+    }
+
+    public function testBuildsDisconnectVotePatchIncludingPlayerStatusWhenExpelled(): void
+    {
+        [$game, $actor, $opponent] = $this->game();
+        $previous = $game->snapshot();
+        $next = $previous;
+        $next['version'] = 2;
+        $next['players'][$opponent->id()]['status'] = 'conceded';
+        $next['players'][$opponent->id()]['concededAt'] = '2026-01-01T00:00:10+00:00';
+        $next['disconnectVote'] = [
+            'targetPlayerId' => $opponent->id(),
+            'status' => 'resolved_expel',
+            'openedAt' => null,
+            'deadlineAt' => null,
+            'cooldownUntil' => null,
+            'votes' => [
+                $actor->id() => [
+                    'playerId' => $actor->id(),
+                    'displayName' => 'Actor',
+                    'vote' => 'expel',
+                    'votedAt' => '2026-01-01T00:00:10+00:00',
+                ],
+            ],
+        ];
+        $next['eventLog'][] = [
+            'id' => 'log-disconnect-expel',
+            'type' => 'disconnect.vote.updated',
+            'message' => 'Votacion resuelta en expulsion.',
+            'actorId' => $actor->id(),
+            'displayName' => 'Actor',
+            'createdAt' => '2026-01-01T00:00:10+00:00',
+        ];
+
+        $event = new GameEvent($game, 'disconnect.vote.updated', ['reason' => 'vote.resolved'], $actor, 'action-disconnect-expel');
+        $message = (new GameWebsocketPatchBuilder(new GameWebsocketMessageFactory()))->build($game->id(), $previous, $next, $event);
+
+        self::assertSame('disconnect.vote.set', $message['operations'][0]['op']);
+        self::assertSame('player.status.set', $message['operations'][1]['op']);
+        self::assertSame($opponent->id(), $message['operations'][1]['playerId']);
+        self::assertSame('conceded', $message['operations'][1]['status']);
+        self::assertSame('2026-01-01T00:00:10+00:00', $message['operations'][1]['concededAt']);
+        self::assertSame('eventLog.append', $message['operations'][2]['op']);
     }
 
     public function testZoneMoveAllRequiresResyncWhenProjectionWouldBeTooLarge(): void

@@ -435,6 +435,20 @@
         (closed)="closeRematchModal()"
       />
 
+      <app-game-disconnect-vote-modal
+        [open]="disconnectVote.modalOpen()"
+        [targetPlayerName]="disconnectVote.targetPlayerName()"
+        [targetOnline]="disconnectVote.targetIsOnline()"
+        [currentVote]="disconnectVote.currentVote()"
+        [players]="disconnectVote.players()"
+        [pending]="disconnectVote.pending()"
+        [countdownSeconds]="disconnectVote.countdownSeconds()"
+        [error]="disconnectVote.error()"
+        (voteWait)="voteDisconnectWait()"
+        (voteExpel)="voteDisconnectExpel()"
+        (closed)="closeDisconnectVoteModal()"
+      />
+
       <app-token-search-modal
         [open]="tokenSearchPlayerId() !== null"
         [deckId]="store.currentDeckId()"

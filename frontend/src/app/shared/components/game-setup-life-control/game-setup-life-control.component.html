@@ -1,13 +1,15 @@
 <div class="setup-control life-control">
   <div class="control-copy">
     <span class="eyebrow">{{ label() }}</span>
-    <strong>{{ summary() }}</strong>
+    @if (summary()) {
+      <strong>{{ summary() }}</strong>
+    }
   </div>
   <div class="life-editor" aria-label="Starting life">
     <button
       type="button"
       class="life-step-button"
-      [disabled]="disabled()"
+      [disabled]="decreaseDisabled()"
       aria-label="Decrease starting life"
       (click)="decrease()"
     >
@@ -19,7 +21,7 @@
     <button
       type="button"
       class="life-step-button"
-      [disabled]="disabled()"
+      [disabled]="increaseDisabled()"
       aria-label="Increase starting life"
       (click)="increase()"
     >

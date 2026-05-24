@@ -5,9 +5,12 @@
     [ngModel]="selectedDeckId()"
     aria-hidden="true"
     tabindex="-1"
-    (ngModelChange)="selectedDeckIdChange.emit($event)"
+    (ngModelChange)="selectNativeDeck($event)"
   >
     <option value="" disabled>Select a deck</option>
+    @if (showRandomDeckOption()) {
+      <option [value]="randomDeckOptionValue">Random deck</option>
+    }
     @for (deck of deckOptions(); track deck.id) {
       <option [value]="deck.id">{{ deck.name }}</option>
     }
@@ -36,6 +39,21 @@
 
       @if (selectorOpen()) {
         <div appPrettyScroll class="deck-select-menu" role="listbox" aria-label="Deck selection">
+          @if (showRandomDeckOption()) {
+            <button
+              class="deck-select-option random-deck-option"
+              type="button"
+              role="option"
+              aria-selected="false"
+              (click)="randomDeckRequested.emit()"
+            >
+              <span class="deck-option-main">
+                <img src="/assets/icons/chance/dice_20.png" alt="" />
+                <span class="deck-option-name">Random deck</span>
+              </span>
+              <span class="deck-option-status">Choose one</span>
+            </button>
+          }
           @for (deck of deckOptions(); track deck.id) {
             <button
               class="deck-select-option"
@@ -63,7 +81,7 @@
       }
     </div>
 
-    <button class="random-deck-button" type="button" title="Random deck" aria-label="Random deck" [disabled]="updatingDeck()" (click)="randomDeckRequested.emit()">
+    <button class="random-deck-button" type="button" title="Roll dice" aria-label="Roll dice" [disabled]="updatingDeck() || rolling() || !canRoll()" (click)="rollRequested.emit()">
       <img src="/assets/icons/chance/dice_20.png" alt="" />
     </button>
   </div>

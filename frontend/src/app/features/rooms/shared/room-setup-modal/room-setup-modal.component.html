@@ -1,0 +1,105 @@
+<app-modal
+  [open]="open()"
+  [title]="title()"
+  [message]="message()"
+  [size]="mode() === 'edit' ? 'compact' : 'default'"
+  [primaryLabel]="mode() === 'create' ? 'Create' : 'Done'"
+  secondaryLabel="Cancel"
+  [showPrimary]="!(mode() === 'edit' && readOnly())"
+  [showSecondary]="false"
+  [primaryDisabled]="mode() === 'create' && (actionsLocked() || createRoomForm.invalid)"
+  [showCloseButton]="true"
+  (close)="closed.emit()"
+  (secondary)="closed.emit()"
+  (primary)="confirmPrimaryAction()"
+>
+  @if (mode() === 'create') {
+    <form class="setup-modal-form" [formGroup]="createRoomForm" (ngSubmit)="submitCreate()">
+      <div class="setup-modal-row">
+        <div class="create-fields">
+        <label class="room-name-field">
+          Room name
+          <input formControlName="roomName" maxlength="30" placeholder="Ej. La taberna" />
+          <small class="character-count">{{ roomNameLength() }}/30</small>
+        </label>
+        </div>
+
+        <app-game-setup-life-control
+          class="modal-setup-field"
+          label="Total life"
+          summary=""
+          [value]="createStartingLife()"
+          [step]="startingLifeStep()"
+          [disabled]="actionsLocked()"
+          (valueChange)="createStartingLife.set($event)"
+        />
+      </div>
+
+      <div class="setup-modal-row">
+        <div class="create-fields">
+        <app-format-select
+          name="roomFormat"
+          [formats]="formats()"
+          [required]="true"
+          [value]="createRoomForm.controls.format.value ?? 'commander'"
+          (valueChange)="createRoomForm.controls.format.setValue($event)"
+        />
+        </div>
+
+        <div class="setup-control timer-control modal-setup-field">
+          <div class="control-copy">
+            <span class="eyebrow">Timer</span>
+            <strong>{{ createTimerSummary() }}</strong>
+          </div>
+          <app-table-assistant-timer-settings
+            [compact]="true"
+            [timerMode]="createTimerMode()"
+            [timerDurationSeconds]="createTimerDurationSeconds()"
+            [timerModes]="['none', 'turn']"
+            [disabled]="actionsLocked()"
+            (timerModeChange)="changeCreateTimerMode($event)"
+            (timerDurationSecondsChange)="createTimerDurationSeconds.set($event)"
+          />
+        </div>
+      </div>
+
+      <div class="setup-modal-row">
+        <div class="create-fields">
+        <app-visibility-choice
+          label="Privacy"
+          [value]="createRoomForm.controls.privacy.value"
+          (valueChange)="createRoomForm.controls.privacy.setValue($event)"
+        />
+        </div>
+
+        <app-game-setup-seats-control
+          class="modal-setup-field"
+          label="Seats"
+          [value]="createMaxPlayers()"
+          [minimumValue]="2"
+          [options]="maxPlayersOptions()"
+          [disabled]="actionsLocked()"
+          (valueChange)="createMaxPlayers.set($event)"
+        />
+      </div>
+    </form>
+  } @else {
+    <app-room-setup-controls
+      [maxPlayers]="maxPlayers()"
+      [minimumPlayers]="joinedPlayers()"
+      [startingLife]="startingLife()"
+      [timerMode]="timerMode()"
+      [timerDurationSeconds]="timerDurationSeconds()"
+      [maxPlayersOptions]="maxPlayersOptions()"
+      [startingLifeStep]="startingLifeStep()"
+      [disabled]="actionsLocked()"
+      [updatingCapacity]="updatingCapacity()"
+      [updatingStartingLife]="updatingStartingLife()"
+      [updatingTimer]="updatingTimer()"
+      (maxPlayersChange)="maxPlayersChange.emit($event)"
+      (startingLifeChange)="startingLifeChange.emit($event)"
+      (timerModeChange)="timerModeChange.emit($event)"
+      (timerDurationSecondsChange)="timerDurationSecondsChange.emit($event)"
+    />
+  }
+</app-modal>
