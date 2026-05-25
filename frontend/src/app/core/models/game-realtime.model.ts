@@ -164,6 +164,13 @@ export type GameSnapshotPatchOperation =
       zoneCounts?: Partial<Record<GameZoneName, number>>;
     }
   | {
+      op: 'card.remove';
+      playerId: string;
+      zone: GameZoneName;
+      instanceId: string;
+      zoneCounts?: Partial<Record<GameZoneName, number>>;
+    }
+  | {
       op: 'card.state.set';
       playerId: string;
       zone: GameZoneName;

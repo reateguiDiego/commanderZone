@@ -1003,13 +1003,28 @@ export class GameTableStore implements OnDestroy {
       return;
     }
 
-    await this.command('card.moved', {
-      playerId: menu.playerId,
-      fromZone: 'hand',
-      toZone: 'hand',
-      instanceId: menu.card.instanceId,
-      targetPlayerId,
-    });
+    const selected = this.selectedCards();
+    const validSelection = selected.length > 1
+      && selected.some((item) => item.card.instanceId === menu.card?.instanceId)
+      && selected.every((item) => item.playerId === menu.playerId && item.zone === 'hand');
+
+    if (validSelection) {
+      await this.command('cards.moved', {
+        playerId: menu.playerId,
+        fromZone: 'hand',
+        toZone: 'hand',
+        instanceIds: selected.map((item) => item.card.instanceId),
+        targetPlayerId,
+      });
+    } else {
+      await this.command('card.moved', {
+        playerId: menu.playerId,
+        fromZone: 'hand',
+        toZone: 'hand',
+        instanceId: menu.card.instanceId,
+        targetPlayerId,
+      });
+    }
     this.clearSelection();
     this.closeContextMenu();
   }
@@ -1156,7 +1171,7 @@ export class GameTableStore implements OnDestroy {
   }
 
   async setCardCounter(menu: GameContextMenu, key: string, value: number): Promise<void> {
-    await this.countersState.setCardCounter(menu, key, value);
+    await this.countersState.setCardCounter(menu, key, value, this.selectedCards());
   }
 
   async deleteCardCounter(menu: GameContextMenu): Promise<void> {
@@ -1164,11 +1179,11 @@ export class GameTableStore implements OnDestroy {
   }
 
   async deleteCardCounterByKey(menu: GameContextMenu, key: string): Promise<void> {
-    await this.countersState.deleteCardCounterByKey(menu, key);
+    await this.countersState.deleteCardCounterByKey(menu, key, this.selectedCards());
   }
 
   async deleteAllCardCounters(menu: GameContextMenu): Promise<void> {
-    await this.countersState.deleteAllCardCounters(menu);
+    await this.countersState.deleteAllCardCounters(menu, this.selectedCards());
   }
 
   async changeCardCounterForCard(

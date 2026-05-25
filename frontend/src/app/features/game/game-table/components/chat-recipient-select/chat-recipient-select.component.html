@@ -1,0 +1,34 @@
+<div class="chat-recipient-select" [class.open]="open()">
+  <button
+    type="button"
+    class="chat-recipient-trigger"
+    data-testid="chat-recipient"
+    aria-label="Chat recipient"
+    [attr.aria-expanded]="open()"
+    (click)="toggleOpen($event)"
+  >
+    <lucide-icon name="send" size="15" aria-hidden="true" />
+    <span>{{ selectedRecipientLabel() }}</span>
+    <lucide-icon class="chevron" name="chevron-down" size="15" aria-hidden="true" />
+  </button>
+
+  @if (open()) {
+    <div class="chat-recipient-overlay" role="listbox">
+      @for (recipient of recipients(); track optionValue(recipient)) {
+        <button
+          type="button"
+          role="option"
+          class="chat-recipient-option"
+          [class.selected]="optionValue(recipient) === selectedValue()"
+          [attr.aria-selected]="optionValue(recipient) === selectedValue()"
+          (click)="selectRecipient($event, recipient)"
+        >
+          <span>{{ recipient.label }}</span>
+          @if (optionValue(recipient) === selectedValue()) {
+            <lucide-icon name="check" size="15" aria-hidden="true" />
+          }
+        </button>
+      }
+    </div>
+  }
+</div>

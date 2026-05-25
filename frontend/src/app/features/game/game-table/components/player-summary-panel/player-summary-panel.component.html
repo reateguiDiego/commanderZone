@@ -1,7 +1,15 @@
 @let currentPlayer = player();
 @let currentLifeFeedback = lifeFeedback();
 
-<div class="player-summary-panel" data-testid="player-summary-panel" [style.--player-accent]="colorAccent()(currentPlayer)">
+<div
+  class="player-summary-panel"
+  data-testid="player-summary-panel"
+  [class.player-summary-panel-long-name]="hasLongDisplayName()"
+  [style.--player-accent]="colorAccent()(currentPlayer)"
+>
+  @if (contextLabel(); as label) {
+    <p class="player-summary-context-label">{{ label }}</p>
+  }
   <app-player-avatar
     class="player-avatar"
     [displayName]="currentPlayer.state.user.displayName"
@@ -20,10 +28,12 @@
       plateLabelWidth="calc(100% - 3.05rem)"
       [fill]="true"
     />
-    @if (deckLabel()(currentPlayer); as label) {
-      <small>{{ label }}</small>
-    }
-    <app-mana-symbols class="mana-row" [symbols]="manaSymbols()(currentPlayer)" fallback="Colorless" size="small" />
+    <div class="player-deck-meta">
+      @if (deckLabel()(currentPlayer); as label) {
+        <small>{{ label }}</small>
+      }
+      <app-mana-symbols class="mana-row" [symbols]="manaSymbols()(currentPlayer)" fallback="Colorless" size="small" />
+    </div>
   </div>
   <div class="life-controls" data-testid="focused-player-life" [attr.data-player-id]="currentPlayer.id">
     <div class="life-stepper" aria-label="Life controls">
@@ -190,4 +200,14 @@
       </section>
     </app-extra-actions-menu>
   </div>
+  @if (returnActionLabel(); as label) {
+    <button
+      type="button"
+      class="summary-return-button"
+      data-testid="return-own-battlefield"
+      (click)="requestReturn($event)"
+    >
+      <span>{{ label }}</span>
+    </button>
+  }
 </div>

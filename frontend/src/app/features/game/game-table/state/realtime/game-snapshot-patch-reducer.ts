@@ -132,6 +132,9 @@ function applyOperation(snapshot: GameSnapshot, operation: GameSnapshotPatchOper
     case 'card.move':
       return moveCard(snapshot, operation);
 
+    case 'card.remove':
+      return removeCard(snapshot, operation);
+
     case 'card.state.set':
       return updateCard(snapshot, operation.playerId, operation.zone, operation.instanceId, (card) => ({
         ...card,
@@ -483,6 +486,35 @@ function moveCard(snapshot: GameSnapshot, operation: Extract<GameSnapshotPatchOp
     const zoneCounts = mergeZoneCounts(player, operation.zoneCounts ?? {});
 
     return zoneCounts ? { ...player, zoneCounts } : null;
+  });
+}
+
+function removeCard(snapshot: GameSnapshot, operation: Extract<GameSnapshotPatchOperation, { op: 'card.remove' }>): OperationResult {
+  const player = snapshot.players[operation.playerId];
+  const cards = player?.zones[operation.zone];
+  if (!player || !Array.isArray(cards)) {
+    return { status: 'failed', reason: 'target_not_found' };
+  }
+
+  if (!cards.some((card) => card.instanceId === operation.instanceId)) {
+    return { status: 'failed', reason: 'target_not_found' };
+  }
+
+  const nextSnapshot = replaceZoneSnapshotOnly(
+    snapshot,
+    operation.playerId,
+    operation.zone,
+    cards.filter((card) => card.instanceId !== operation.instanceId),
+  );
+
+  if (!operation.zoneCounts) {
+    return { status: 'applied', snapshot: nextSnapshot };
+  }
+
+  return updatePlayer(nextSnapshot, operation.playerId, (updatedPlayer) => {
+    const zoneCounts = mergeZoneCounts(updatedPlayer, operation.zoneCounts ?? {});
+
+    return zoneCounts ? { ...updatedPlayer, zoneCounts } : null;
   });
 }
 

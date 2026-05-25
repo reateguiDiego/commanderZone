@@ -1783,6 +1783,9 @@ class GameCommandHandler
             $this->resetMutableStats($card);
             $this->resetTappedState($card);
         }
+        if ($zone !== 'battlefield') {
+            $card['counters'] = [];
+        }
         if ($zone === 'battlefield' && is_array($position)) {
             $card['position'] = $this->normalizedPosition($position);
         } elseif ($zone !== 'battlefield') {

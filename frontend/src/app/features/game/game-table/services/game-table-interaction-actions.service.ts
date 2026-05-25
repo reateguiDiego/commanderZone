@@ -3,6 +3,7 @@ import { GameCardInstance, GameZoneName } from '../../../../core/models/game.mod
 import { GameContextMenu, GameTableUiState } from '../state/core/game-table-ui.state';
 import { GameTableDragService } from './game-table-drag.service';
 import { GameTableSelectionService } from './game-table-selection.service';
+import { GameTableToastState } from '../state/core/game-table-toast.state';
 
 interface ControlPlayerView {
   id: string;
@@ -32,6 +33,7 @@ export class GameTableInteractionActionsService {
   private readonly selection = inject(GameTableSelectionService);
   private readonly uiState = inject(GameTableUiState);
   private readonly drag = inject(GameTableDragService);
+  private readonly toastState = inject(GameTableToastState);
 
   isCurrentPlayer(context: Pick<GameTableInteractionContext, 'currentPlayer'>, playerId: string): boolean {
     return this.selection.isCurrentPlayer(context.currentPlayer(), playerId);
@@ -77,7 +79,10 @@ export class GameTableInteractionActionsService {
       return;
     }
 
-    this.selection.toggleSelection(event, playerId, zone, card);
+    const result = this.selection.toggleSelection(event, playerId, zone, card);
+    if (result === 'replacedSource') {
+      this.toastState.showTargetToast('La seleccion multiple solo puede ser con cartas de una misma zona.');
+    }
   }
 
   handleBattlefieldCardClick(context: GameTableInteractionContext, event: MouseEvent, playerId: string, card: GameCardInstance): void {

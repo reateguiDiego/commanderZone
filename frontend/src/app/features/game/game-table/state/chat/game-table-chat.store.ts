@@ -3,7 +3,8 @@ import { AuthStore } from '../../../../../core/auth/auth.store';
 import { ChatRecipientOption } from '../../models/game-table-chat.model';
 import { GameTableCoreState } from '../core/game-table-core.state';
 import { GameLogEntryView, GameTableChatLogState } from './game-table-chat-log.state';
-import { GameTableSnapshotSelectors } from '../core/game-table-snapshot-selectors';
+import { GameTableSnapshotSelectors, PlayerView } from '../core/game-table-snapshot-selectors';
+import { playerIsDefeated } from '../../utils/game-player-defeat';
 
 @Injectable()
 export class GameTableChatStore {
@@ -57,6 +58,7 @@ export class GameTableChatStore {
     const currentPlayerId = Object.entries(players).find(([, player]) => player.user.id === this.auth.user()?.id)?.[0] ?? null;
     const opponents = Object.entries(players)
       .filter(([playerId]) => playerId !== currentPlayerId)
+      .filter(([playerId, player]) => !playerIsDefeated({ id: playerId, state: player } as PlayerView))
       .map(([playerId, player]) => ({
         playerId,
         label: player.user.displayName,

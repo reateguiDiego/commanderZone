@@ -38,6 +38,38 @@ describe('GameTableChatStore', () => {
     expect(store.selectedChatTargetPlayerId()).toBe('user-2');
     expect(store.selectedChatTargetValue()).toBe('user-2');
   });
+
+  it('excludes defeated players from private chat recipients', () => {
+    TestBed.configureTestingModule({
+      providers: [
+        GameTableChatStore,
+        GameTableChatLogState,
+        GameTableCoreState,
+        GameTableSnapshotSelectors,
+        {
+          provide: AuthStore,
+          useValue: { user: signal<User | null>(user('user-1', 'User')).asReadonly() } satisfies Pick<AuthStore, 'user'>,
+        },
+        {
+          provide: ActivatedRoute,
+          useValue: { snapshot: { paramMap: new Map([['id', 'game-1']]) } },
+        },
+      ],
+    });
+
+    const core = TestBed.inject(GameTableCoreState);
+    const state = snapshot();
+    state.players['user-2']!.life = 0;
+    state.players['user-3'] = player('user-3', 'Alive opponent');
+    core.snapshot.set(state);
+
+    const store = TestBed.inject(GameTableChatStore);
+
+    expect(store.chatRecipients()).toEqual([
+      { playerId: null, label: 'Todos' },
+      { playerId: 'user-3', label: 'Alive opponent' },
+    ]);
+  });
 });
 
 function snapshot(): GameSnapshot {

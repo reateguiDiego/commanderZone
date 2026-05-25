@@ -276,6 +276,55 @@ describe('GameTableDropActionsService', () => {
     });
   });
 
+  it('moves battlefield tokens to library directly so backend can evaporate them', async () => {
+    const moved = { ...card('token-1', 'Goblin Token', 'battlefield'), isToken: true };
+    const snapshot = snapshotWith({ battlefield: [moved] });
+    const command = vi.fn(async () => undefined);
+    const setPendingLibraryMove = vi.fn();
+    const markPendingTransfer = vi.fn();
+    const context = dropContext(
+      () => snapshot,
+      command,
+      { setPendingLibraryMove, markPendingTransfer },
+    );
+
+    await service.dropOnZone(context, dragEvent({ playerId: 'player-1', zone: 'battlefield', instanceId: 'token-1' }), 'player-1', 'library');
+
+    expect(setPendingLibraryMove).not.toHaveBeenCalled();
+    expect(markPendingTransfer).toHaveBeenCalledWith('player-1', 'battlefield', ['token-1']);
+    expect(command).toHaveBeenCalledWith('card.moved', {
+      playerId: 'player-1',
+      fromZone: 'battlefield',
+      toZone: 'library',
+      targetPlayerId: 'player-1',
+      instanceId: 'token-1',
+    });
+  });
+
+  it('moves battlefield token copies to library directly so backend can evaporate them', async () => {
+    const moved = { ...card('copy-1', 'Copied Token', 'battlefield'), isTokenCopy: true };
+    const snapshot = snapshotWith({ battlefield: [moved] });
+    const command = vi.fn(async () => undefined);
+    const setPendingLibraryMove = vi.fn();
+    const markPendingTransfer = vi.fn();
+    const context = dropContext(
+      () => snapshot,
+      command,
+      { setPendingLibraryMove, markPendingTransfer },
+    );
+
+    await service.dropOnZone(context, dragEvent({ playerId: 'player-1', zone: 'battlefield', instanceId: 'copy-1' }), 'player-1', 'library');
+
+    expect(setPendingLibraryMove).not.toHaveBeenCalled();
+    expect(markPendingTransfer).toHaveBeenCalledWith('player-1', 'battlefield', ['copy-1']);
+    expect(command).toHaveBeenCalledWith('card.moved', expect.objectContaining({
+      playerId: 'player-1',
+      fromZone: 'battlefield',
+      toZone: 'library',
+      instanceId: 'copy-1',
+    }));
+  });
+
   it('opens one pending library placement for all selected cards when dropping multiple cards on library', async () => {
     const snapshot = snapshotWith({
       battlefield: [
@@ -467,10 +516,17 @@ describe('GameTableDropActionsService', () => {
       instanceIds: ['moved', 'selected-2'],
     }, 'mana', { clientY: 282 }), 'player-1', 'battlefield');
 
-    expect(commands.map((entry) => entry.payload['position'])).toEqual([
-      { x: 122, y: 198 },
-      { x: 122, y: 198 },
-    ]);
+    expect(commands).toEqual([{
+      type: 'cards.moved',
+      payload: {
+        playerId: 'player-1',
+        fromZone: 'hand',
+        toZone: 'battlefield',
+        targetPlayerId: 'player-1',
+        instanceIds: ['moved', 'selected-2'],
+        position: { x: 122, y: 198 },
+      },
+    }]);
   });
 
   it('keeps the exact previewed battlefield position for every selected card when no vertical snap is active', async () => {
@@ -492,10 +548,49 @@ describe('GameTableDropActionsService', () => {
       instanceIds: ['moved', 'selected-2'],
     }, 'battlefield'), 'player-1', 'battlefield');
 
-    expect(commands.map((entry) => entry.payload['position'])).toEqual([
-      { x: 122, y: 158 },
-      { x: 122, y: 158 },
-    ]);
+    expect(commands).toEqual([{
+      type: 'cards.moved',
+      payload: {
+        playerId: 'player-1',
+        fromZone: 'hand',
+        toZone: 'battlefield',
+        targetPlayerId: 'player-1',
+        instanceIds: ['moved', 'selected-2'],
+        position: { x: 122, y: 158 },
+      },
+    }]);
+  });
+
+  it('moves multiple pile cards to battlefield with one aggregate command', async () => {
+    const first = card('moved', 'Returned Card', 'graveyard');
+    const second = card('selected-2', 'Second Returned Card', 'graveyard');
+    const snapshot = snapshotWith({ graveyard: [first, second] });
+    const commands: Array<{ type: GameCommandType; payload: Record<string, unknown> }> = [];
+    const context = dropContext(
+      () => snapshot,
+      async (type, payload) => {
+        commands.push({ type, payload });
+      },
+    );
+
+    await service.dropOnZone(context, dragEvent({
+      playerId: 'player-1',
+      zone: 'graveyard',
+      instanceId: 'moved',
+      instanceIds: ['moved', 'selected-2'],
+    }, 'battlefield'), 'player-1', 'battlefield');
+
+    expect(commands).toEqual([{
+      type: 'cards.moved',
+      payload: {
+        playerId: 'player-1',
+        fromZone: 'graveyard',
+        toZone: 'battlefield',
+        targetPlayerId: 'player-1',
+        instanceIds: ['moved', 'selected-2'],
+        position: { x: 122, y: 158 },
+      },
+    }]);
   });
 });
 

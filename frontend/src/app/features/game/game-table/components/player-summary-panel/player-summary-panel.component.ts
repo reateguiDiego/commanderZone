@@ -50,6 +50,7 @@ interface LifeFeedback {
 
 export const PLAYER_SUMMARY_ACTION_DEBOUNCE_MS = GAME_TABLE_VALUE_COMMAND_DEBOUNCE_MS;
 export const PLAYER_SUMMARY_LIFE_FEEDBACK_EXIT_MS = 1180;
+const CONTEXT_PANEL_LONG_NAME_THRESHOLD = 18;
 
 const PLAYER_COUNTER_TRACKERS: readonly PlayerCounterTracker[] = [
   { key: 'poison', label: 'Poison', icon: 'biohazard' },
@@ -83,11 +84,17 @@ export class PlayerSummaryPanelComponent implements OnDestroy {
   readonly manaSymbols = input.required<(player: PlayerView | null) => string[]>();
   readonly playerCounterValue = input.required<(player: PlayerView, key: PlayerCounterKey) => number>();
   readonly canEditCounters = input.required<boolean>();
+  readonly contextLabel = input<string | null>(null);
+  readonly returnActionLabel = input<string | null>(null);
   readonly lifeChanged = output<LifeChangeEvent>();
   readonly commanderDamageChanged = output<CommanderDamageChangeEvent>();
   readonly playerCounterChanged = output<PlayerCounterChangeEvent>();
+  readonly returnRequested = output<void>();
   readonly lifeFeedback = signal<LifeFeedback | null>(null);
   readonly otherCountersExpanded = signal(false);
+  readonly hasLongDisplayName = computed(
+    () => this.player().state.user.displayName.trim().length > CONTEXT_PANEL_LONG_NAME_THRESHOLD,
+  );
   readonly commanderDamageRows = computed<readonly CommanderDamageRow[]>(() => {
     const targetPlayer = this.player();
 
@@ -199,6 +206,12 @@ export class PlayerSummaryPanelComponent implements OnDestroy {
     event.preventDefault();
     event.stopPropagation();
     this.otherCountersExpanded.update((expanded) => !expanded);
+  }
+
+  requestReturn(event: MouseEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.returnRequested.emit();
   }
 
   counterValue(key: PlayerCounterKey): number {

@@ -32,18 +32,20 @@
 
       @if (store.focusedPlayer(); as player) {
         <div class="player-strip game-table-main-top">
-          <app-player-summary-panel
-            [player]="player"
-            [players]="store.players()"
-            [colorAccent]="colorAccent"
-            [deckLabel]="deckLabel"
-            [manaSymbols]="manaSymbols"
-            [playerCounterValue]="playerCounterValue"
-            [canEditCounters]="canControlPlayer(player.id)"
-            (lifeChanged)="store.changeLife($event.playerId, $event.delta)"
-            (commanderDamageChanged)="store.setCommanderDamage($event.targetPlayerId, $event.sourcePlayerId, $event.delta)"
-            (playerCounterChanged)="store.changePlayerCounter($event.playerId, $event.key, $event.delta)"
-          />
+          @if (store.currentPlayer() ?? player; as summaryPlayer) {
+            <app-player-summary-panel
+              [player]="summaryPlayer"
+              [players]="store.players()"
+              [colorAccent]="colorAccent"
+              [deckLabel]="deckLabel"
+              [manaSymbols]="manaSymbols"
+              [playerCounterValue]="playerCounterValue"
+              [canEditCounters]="canControlPlayer(summaryPlayer.id)"
+              (lifeChanged)="store.changeLife($event.playerId, $event.delta)"
+              (commanderDamageChanged)="store.setCommanderDamage($event.targetPlayerId, $event.sourcePlayerId, $event.delta)"
+              (playerCounterChanged)="store.changePlayerCounter($event.playerId, $event.key, $event.delta)"
+            />
+          }
 
           <app-turn-phase-panel
             [turn]="snapshot.turn"
@@ -159,18 +161,11 @@
                 </div>
                 <form class="chat-form" (ngSubmit)="store.sendChat()">
                   @if (store.shouldShowChatRecipientSelect()) {
-                    <label class="chat-recipient-select" aria-label="Chat recipient">
-                      <select
-                        data-testid="chat-recipient"
-                        name="chatRecipient"
-                        [ngModel]="store.selectedChatTargetValue()"
-                        (ngModelChange)="store.setChatTargetPlayerId($event)"
-                      >
-                        @for (recipient of store.chatRecipients(); track recipient.playerId ?? 'all') {
-                          <option [value]="recipient.playerId ?? 'all'">{{ recipient.label }}</option>
-                        }
-                      </select>
-                    </label>
+                    <app-chat-recipient-select
+                      [recipients]="store.chatRecipients()"
+                      [selectedValue]="store.selectedChatTargetValue()"
+                      (valueChanged)="store.setChatTargetPlayerId($event)"
+                    />
                   }
                   <input
                     data-testid="chat-input"
@@ -210,6 +205,29 @@
             (click)="$event.stopPropagation()"
             (contextmenu)="$event.stopPropagation()"
           />
+
+          @if (focusedOpponentPlayer(); as battlefieldOwner) {
+            <div
+              class="battlefield-owner-summary"
+              data-testid="battlefield-owner-summary"
+              (click)="$event.stopPropagation()"
+              (contextmenu)="$event.stopPropagation()"
+            >
+              <app-player-summary-panel
+                class="player-summary-panel-context"
+                contextLabel="Estas viendo a:"
+                returnActionLabel="Ir a tu battlefield"
+                [player]="battlefieldOwner"
+                [players]="store.players()"
+                [colorAccent]="colorAccent"
+                [deckLabel]="deckLabel"
+                [manaSymbols]="manaSymbols"
+                [playerCounterValue]="playerCounterValue"
+                [canEditCounters]="false"
+                (returnRequested)="returnToCurrentPlayerBattlefield()"
+              />
+            </div>
+          }
 
           @if (shouldShowRematchVotesButton()) {
             <button class="rematch-votes-button secondary-button" type="button" (click)="openRematchModal(); $event.stopPropagation()">

@@ -76,6 +76,31 @@ describe('GameTableHandState', () => {
     expect(clearedSelection).toBe(true);
   });
 
+  it('moves multiple selected hand cards to battlefield with one aggregate command', async () => {
+    selectedInstanceIds = ['a', 'c'];
+
+    await state.moveHandCardByPointer(context(), 'player-1', 'player-1', 'a', 'battlefield', { x: 120, y: 180 });
+
+    expect(localBattlefieldMove).toEqual({
+      playerId: 'player-1',
+      targetPlayerId: 'player-1',
+      movedInstanceIds: ['a', 'c'],
+      position: { x: 120, y: 180, unit: 'ratio' },
+    });
+    expect(commandCalls).toEqual([{
+      type: 'cards.moved',
+      payload: {
+        playerId: 'player-1',
+        fromZone: 'hand',
+        toZone: 'battlefield',
+        targetPlayerId: 'player-1',
+        instanceIds: ['a', 'c'],
+        position: { x: 120, y: 180, unit: 'ratio' },
+      },
+    }]);
+    expect(clearedSelection).toBe(true);
+  });
+
   it('stacks a land from hand directly onto a battlefield land', async () => {
     currentSnapshot = snapshot([land('hand-land')], [land('battlefield-land', { x: 0.3, y: 0.4 })]);
     visualPositions = { 'battlefield-land': { x: 100, y: 200 } };

@@ -484,6 +484,23 @@ describe('game snapshot patch reducer', () => {
     }));
   });
 
+  it('removes an evaporated card without inserting it into another zone', () => {
+    const snapshot = snapshotFixture();
+
+    const result = applyGameSnapshotPatch(snapshot, patch([
+      {
+        op: 'card.remove',
+        playerId: 'player-1',
+        zone: 'battlefield',
+        instanceId: 'battlefield-1',
+      },
+    ]));
+
+    expect(result.status).toBe('applied');
+    expect(result.snapshot.players['player-1'].zones.battlefield.map((entry) => entry.instanceId)).toEqual(['battlefield-2']);
+    expect(result.snapshot.players['player-1'].zones.graveyard.map((entry) => entry.instanceId)).toEqual(['graveyard-1']);
+  });
+
   it('does not apply patches with a version gap', () => {
     const snapshot = snapshotFixture();
 

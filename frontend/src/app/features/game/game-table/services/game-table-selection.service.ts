@@ -12,6 +12,8 @@ interface CurrentPlayerView {
   state: { status?: string };
 }
 
+export type SelectionToggleResult = 'updated' | 'replacedSource';
+
 @Injectable()
 export class GameTableSelectionService {
   readonly selectedCards = signal<SelectedCardState[]>([]);
@@ -28,17 +30,24 @@ export class GameTableSelectionService {
     this.selectedCards.set([{ playerId, zone, card }]);
   }
 
-  toggleSelection(event: MouseEvent, playerId: string, zone: GameZoneName, card: GameCardInstance): void {
+  toggleSelection(event: MouseEvent, playerId: string, zone: GameZoneName, card: GameCardInstance): SelectionToggleResult {
     const selected = this.selectedCards();
     const existing = selected.some((item) => item.card.instanceId === card.instanceId);
     if (event.shiftKey) {
+      const first = selected[0];
+      if (!existing && first && (first.zone !== zone || first.playerId !== playerId)) {
+        this.selectedCards.set([{ playerId, zone, card }]);
+        return 'replacedSource';
+      }
+
       this.selectedCards.set(existing
         ? selected.filter((item) => item.card.instanceId !== card.instanceId)
         : [...selected, { playerId, zone, card }]);
-      return;
+      return 'updated';
     }
 
     this.selectedCards.set([{ playerId, zone, card }]);
+    return 'updated';
   }
 
   isSelected(instanceId: string): boolean {

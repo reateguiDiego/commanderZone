@@ -258,12 +258,19 @@ describe('game realtime contract', () => {
         zone: 'battlefield',
       },
     } satisfies GameSnapshotPatchOperation;
+    const remove = {
+      op: 'card.remove',
+      playerId: 'player-1',
+      zone: 'battlefield',
+      instanceId: 'token-1',
+    } satisfies GameSnapshotPatchOperation;
 
     expect(projection.op).toBe('card.projection.set');
     expect(counters.counters).toEqual({ charge: 2 });
     expect(stats.power).toBe(3);
     expect(batchState.cards).toHaveLength(1);
     expect(create.card.isToken).toBe(true);
+    expect(remove.instanceId).toBe('token-1');
   });
 
   it('defines zone count patches without sending cards or zones', () => {

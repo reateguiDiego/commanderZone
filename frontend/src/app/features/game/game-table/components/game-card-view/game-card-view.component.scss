@@ -96,11 +96,13 @@
   position: absolute;
 }
 
-.game-card.loyalty-card {
+.game-card.loyalty-card.hand-card,
+.game-card.loyalty-card.commander-entry-settling {
   overflow: visible;
 }
 
-.game-card.loyalty-card .card-visual {
+.game-card.loyalty-card.hand-card .card-visual,
+.game-card.loyalty-card.commander-entry-settling .card-visual {
   overflow: visible;
 }
 
@@ -123,33 +125,37 @@
     0 0.18rem 0 rgb(255 255 255 / 8%) inset;
 }
 
+.game-card.selected:not(.hand-card) .card-visual {
+  box-shadow:
+    inset 0 0 0 1px rgb(255 232 166 / 48%),
+    inset 0 0 1.1rem rgb(215 180 106 / 20%),
+    inset 0 0.18rem 0 rgb(255 255 255 / 8%);
+}
+
 .game-card.arrow-target-candidate:not(.dragging) .card-visual {
   box-shadow:
-    0 0 0 1px rgb(215 180 106 / 44%),
-    0 0.8rem 1.45rem rgb(0 0 0 / 34%),
-    0 0 1.05rem rgb(215 180 106 / 18%);
+    inset 0 0 0 1px rgb(215 180 106 / 44%),
+    inset 0 0 1.05rem rgb(215 180 106 / 18%);
 }
 
 .game-card.arrow-target-candidate:not(.dragging):hover .card-visual {
   border-color: var(--game-accent, #d7b46a);
   box-shadow:
-    0 0 0 2px rgb(215 180 106 / 68%),
-    0 1rem 1.8rem rgb(0 0 0 / 42%),
-    0 0 1.35rem rgb(215 180 106 / 34%);
+    inset 0 0 0 2px rgb(215 180 106 / 68%),
+    inset 0 0 1.35rem rgb(215 180 106 / 34%);
 }
 
 .game-card.battlefield-preview-active:not(.dragging) {
   z-index: 96;
-  overflow: visible;
+  overflow: hidden;
 }
 
 .game-card.battlefield-preview-active:not(.dragging) .card-visual {
   border-color: rgb(246 220 151 / 78%);
   box-shadow:
-    0 1.1rem 1.9rem rgb(0 0 0 / 42%),
-    0 0 0 1px rgb(255 232 166 / 46%),
-    0 0 1.25rem rgb(215 180 106 / 26%),
-    0 0.18rem 0 rgb(255 255 255 / 9%) inset;
+    inset 0 0 0 1px rgb(255 232 166 / 46%),
+    inset 0 0 1.25rem rgb(215 180 106 / 26%),
+    inset 0 0.18rem 0 rgb(255 255 255 / 9%);
   filter: brightness(1.04) saturate(1.04);
 }
 
@@ -180,7 +186,7 @@
 .game-card.land-stack-drop-target,
 .game-card.attachment-stack-target,
 .game-card.attachment-stack-equipment {
-  overflow: visible;
+  overflow: hidden;
 }
 
 .game-card.land-stack-drop-target {
@@ -191,30 +197,30 @@
 .game-card.land-stack-drop-target .card-visual,
 .game-card.attachment-stack-target .card-visual,
 .game-card.attachment-stack-equipment .card-visual {
-  overflow: visible;
+  overflow: hidden;
 }
 
 .game-card.land-stack-under .card-visual,
 .game-card.attachment-stack-equipment .card-visual {
   box-shadow:
-    0 0 0 1px rgb(215 180 106 / 18%),
-    0 -0.32rem 0.8rem rgb(255 232 166 / 11%);
+    inset 0 0 0 1px rgb(215 180 106 / 18%),
+    inset 0 0.8rem 0.8rem -0.32rem rgb(255 232 166 / 11%);
 }
 
 .game-card.land-stack-under:hover .card-visual,
 .game-card.attachment-stack-equipment:hover .card-visual {
   border-color: rgb(246 220 151 / 72%);
   box-shadow:
-    0 0 0 1px rgb(255 232 166 / 38%),
-    0 0 1rem rgb(215 180 106 / 24%);
+    inset 0 0 0 1px rgb(255 232 166 / 38%),
+    inset 0 0 1rem rgb(215 180 106 / 24%);
 }
 
 .game-card.land-stack-card.cz-card-rotation-muted:hover .card-visual,
 .game-card.attachment-stack-equipment.cz-card-rotation-muted:hover .card-visual {
   border-color: inherit;
   box-shadow:
-    0 0 0 1px rgb(215 180 106 / 18%),
-    0 -0.32rem 0.8rem rgb(255 232 166 / 11%);
+    inset 0 0 0 1px rgb(215 180 106 / 18%),
+    inset 0 0.8rem 0.8rem -0.32rem rgb(255 232 166 / 11%);
 }
 
 .game-card.land-stack-drop-target .card-visual {
@@ -231,12 +237,13 @@
 .game-card.land-stack-drop-target::after {
   content: '';
   position: absolute;
-  inset: -0.58rem;
-  border-radius: 12px;
+  inset: 0;
+  z-index: 4;
+  border-radius: inherit;
   pointer-events: none;
   box-shadow:
-    0 0 1rem rgb(215 180 106 / 42%),
-    0 0 2.1rem rgb(255 232 166 / 16%);
+    inset 0 0 1rem rgb(215 180 106 / 34%),
+    inset 0 0 2.1rem rgb(255 232 166 / 12%);
 }
 
 .game-card.attachment-stack-drop-target .card-visual {
@@ -251,12 +258,13 @@
 .game-card.attachment-stack-drop-target::after {
   content: '';
   position: absolute;
-  inset: -0.52rem;
-  border-radius: 12px;
+  inset: 0;
+  z-index: 4;
+  border-radius: inherit;
   pointer-events: none;
   box-shadow:
-    0 0 1rem rgb(89 190 255 / 34%),
-    0 0 2rem rgb(190 235 255 / 14%);
+    inset 0 0 1rem rgb(89 190 255 / 30%),
+    inset 0 0 2rem rgb(190 235 255 / 12%);
 }
 
 .game-card.land-stack-drop-target .card-visual::before {
@@ -341,9 +349,13 @@
 .game-card.drop-settling,
 .game-card.mana-drop-settling,
 .game-card.stat-drop-settling,
-.game-card.commander-entry-settling,
 .mini-battlefield-card.drop-settling,
-.mini-battlefield-card.mana-drop-settling,
+.mini-battlefield-card.mana-drop-settling {
+  z-index: 100;
+  overflow: hidden;
+}
+
+.game-card.commander-entry-settling,
 .mini-battlefield-card.commander-entry-settling {
   z-index: 100;
   overflow: visible;
@@ -382,10 +394,6 @@
   animation: stat-box-arrival 1240ms cubic-bezier(0.17, 1.26, 0.28, 1);
 }
 
-.game-card.stat-drop-settling.loyalty-card .card-visual {
-  overflow: visible;
-}
-
 .game-card.stat-drop-settling .power-toughness-overlay span + span,
 .game-card.stat-overlay-arriving .power-toughness-overlay span + span {
   animation-delay: 80ms;
@@ -393,7 +401,7 @@
 
 .game-card.alignment-reference {
   z-index: 70;
-  overflow: visible;
+  overflow: hidden;
 }
 
 .game-card.alignment-reference .card-visual {
@@ -401,16 +409,18 @@
   border-color: var(--game-accent-strong, rgb(215 180 106 / 58%));
   outline: 4px solid rgb(215 180 106 / 58%);
   outline-offset: -4px;
-  box-shadow: 0 0 0 2px rgb(215 180 106 / 40%), 0 0 1.1rem rgb(215 180 106 / 28%);
+  box-shadow:
+    inset 0 0 0 2px rgb(215 180 106 / 40%),
+    inset 0 0 1.1rem rgb(215 180 106 / 28%);
 }
 
 .game-card.alignment-reference::after {
   content: '';
   position: absolute;
-  inset: -0.36rem;
+  inset: 0;
   z-index: 2;
   border: 1px solid rgb(215 180 106 / 54%);
-  border-radius: 10px;
+  border-radius: inherit;
   pointer-events: none;
 }
 
@@ -618,18 +628,16 @@
   0% {
     filter: brightness(1.18) saturate(1.08) contrast(1.02);
     box-shadow:
-      0 1.3rem 2.2rem rgb(0 0 0 / 44%),
-      0 0 0 1px rgb(215 180 106 / 46%),
-      0 0 1.55rem rgb(215 180 106 / 24%),
-      0 0.16rem 0 rgb(255 255 255 / 10%) inset;
+      inset 0 0 0 1px rgb(215 180 106 / 46%),
+      inset 0 0 1.55rem rgb(215 180 106 / 24%),
+      inset 0 0.16rem 0 rgb(255 255 255 / 10%);
   }
 
   55% {
     filter: brightness(1.08) saturate(1.04);
     box-shadow:
-      0 0.95rem 1.65rem rgb(0 0 0 / 34%),
-      0 0 0 1px rgb(215 180 106 / 24%),
-      0 0 0.8rem rgb(215 180 106 / 13%);
+      inset 0 0 0 1px rgb(215 180 106 / 24%),
+      inset 0 0 0.8rem rgb(215 180 106 / 13%);
   }
 
   100% {
@@ -776,9 +784,8 @@
     border-color: rgb(255 249 215 / 96%);
     background: rgb(120 78 10 / 98%);
     box-shadow:
-      0 0 0 2px rgb(255 249 215 / 48%),
-      0 0 1.35rem rgb(255 202 63 / 58%),
-      0 0.85rem 1.25rem rgb(0 0 0 / 50%);
+      inset 0 0 0 2px rgb(255 249 215 / 48%),
+      inset 0 0 0.9rem rgb(255 202 63 / 42%);
     color: #fffbe8;
   }
 
@@ -788,9 +795,8 @@
     border-color: rgb(255 249 215 / 100%);
     background: rgb(154 98 12 / 98%);
     box-shadow:
-      0 0 0 3px rgb(215 180 106 / 34%),
-      0 0 1.7rem rgb(255 202 63 / 64%),
-      0 0.65rem 1rem rgb(0 0 0 / 42%);
+      inset 0 0 0 3px rgb(215 180 106 / 34%),
+      inset 0 0 1rem rgb(255 202 63 / 48%);
   }
 
   46% {
@@ -799,8 +805,8 @@
     border-color: rgb(215 180 106 / 88%);
     background: rgb(77 50 11 / 96%);
     box-shadow:
-      0 0 0 2px rgb(215 180 106 / 24%),
-      0 0 1.05rem rgb(215 180 106 / 34%);
+      inset 0 0 0 2px rgb(215 180 106 / 24%),
+      inset 0 0 0.85rem rgb(215 180 106 / 28%);
   }
 
   66% {
@@ -843,38 +849,33 @@
   font-size: 0.72rem;
   font-weight: 900;
   cursor: pointer;
+  transform: translateZ(0);
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    box-shadow 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
 }
 
 .power-toughness-overlay span.stat-pulse-increase {
-  animation: stat-value-increase-hold 420ms ease-in-out infinite alternate;
+  color: #fff8da;
+  border-color: rgb(255 245 196 / 100%);
+  background: rgb(122 79 10 / 98%);
+  box-shadow:
+    inset 0 0 0 2px rgb(255 236 150 / 34%),
+    inset 0 0 0.92rem rgb(255 198 47 / 44%);
+  transform: translateZ(0) scale(1.12);
 }
 
 .power-toughness-overlay span.stat-pulse-decrease {
-  animation: stat-value-decrease-hold 420ms ease-in-out infinite alternate;
-}
-
-@keyframes stat-value-increase-hold {
-  from {
-    color: #fff8da;
-    border-color: rgb(255 245 196 / 100%);
-    background: rgb(122 79 10 / 98%);
-    box-shadow:
-      0 0 0 2px rgb(255 236 150 / 46%),
-      0 0 1.45rem rgb(255 198 47 / 78%),
-      0 0.5rem 0.9rem rgb(0 0 0 / 38%);
-    transform: translateY(-0.12rem) scale(1.22);
-  }
-
-  to {
-    color: #fff3b8;
-    border-color: rgb(255 218 91 / 96%);
-    background: rgb(164 106 16 / 98%);
-    box-shadow:
-      0 0 0 3px rgb(215 180 106 / 32%),
-      0 0 1.85rem rgb(215 180 106 / 72%),
-      0 0.5rem 0.9rem rgb(0 0 0 / 38%);
-    transform: translateY(0.04rem) scale(1.32);
-  }
+  color: #fff1ed;
+  border-color: rgb(255 192 176 / 100%);
+  background: rgb(118 24 18 / 98%);
+  box-shadow:
+    inset 0 0 0 2px rgb(255 112 92 / 32%),
+    inset 0 0 0.92rem rgb(255 62 42 / 42%);
+  transform: translateZ(0) scale(1.12);
 }
 
 .mini-battlefield-card {
@@ -929,30 +930,6 @@
 
   .mini-card {
     width: 4.95rem;
-  }
-}
-
-@keyframes stat-value-decrease-hold {
-  from {
-    color: #fff1ed;
-    border-color: rgb(255 192 176 / 100%);
-    background: rgb(118 24 18 / 98%);
-    box-shadow:
-      0 0 0 2px rgb(255 112 92 / 42%),
-      0 0 1.45rem rgb(255 62 42 / 72%),
-      0 0.5rem 0.9rem rgb(0 0 0 / 38%);
-    transform: translateY(0.12rem) scale(1.2);
-  }
-
-  to {
-    color: #ffe1d9;
-    border-color: rgb(255 128 104 / 96%);
-    background: rgb(142 32 24 / 98%);
-    box-shadow:
-      0 0 0 3px rgb(255 92 72 / 30%),
-      0 0 1.85rem rgb(255 62 42 / 66%),
-      0 0.5rem 0.9rem rgb(0 0 0 / 38%);
-    transform: translateY(-0.03rem) scale(1.3);
   }
 }
 

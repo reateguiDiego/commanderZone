@@ -1,6 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { GameCardInstance } from '../../../../core/models/game.model';
 import { GameTableUiState } from '../state/core/game-table-ui.state';
+import { GameTableToastState } from '../state/core/game-table-toast.state';
 import { GameTableDragService } from './game-table-drag.service';
 import { GameTableInteractionActionsService } from './game-table-interaction-actions.service';
 import { GameTableSelectionService } from './game-table-selection.service';
@@ -8,18 +9,21 @@ import { GameTableSelectionService } from './game-table-selection.service';
 describe('GameTableInteractionActionsService', () => {
   let service: GameTableInteractionActionsService;
   let uiState: { openContextMenu: ReturnType<typeof vi.fn>; openContextMenuAt: ReturnType<typeof vi.fn> };
+  let toastState: { showTargetToast: ReturnType<typeof vi.fn> };
 
   beforeEach(() => {
     uiState = {
       openContextMenu: vi.fn(),
       openContextMenuAt: vi.fn(),
     };
+    toastState = { showTargetToast: vi.fn() };
     TestBed.configureTestingModule({
       providers: [
         GameTableInteractionActionsService,
         GameTableSelectionService,
         { provide: GameTableUiState, useValue: uiState },
-        { provide: GameTableDragService, useValue: {} },
+        { provide: GameTableDragService, useValue: { consumeSuppressedClick: vi.fn(() => false) } },
+        { provide: GameTableToastState, useValue: toastState },
       ],
     });
 
@@ -89,7 +93,28 @@ describe('GameTableInteractionActionsService', () => {
       { playerId: 'player-1', zone: 'library', kind: 'zone' },
     );
   });
+
+  it('shows the homogeneous-zone selection toast when shift selection changes source', () => {
+    const context = interactionContext();
+    const battlefieldCard = handCard({ instanceId: 'battlefield-card', zone: 'battlefield' });
+    const handCardInstance = handCard({ instanceId: 'hand-card', zone: 'hand' });
+
+    service.toggleCardSelection(context, clickEvent(false), 'player-1', 'battlefield', battlefieldCard);
+    service.toggleCardSelection(context, clickEvent(true), 'player-1', 'hand', handCardInstance);
+
+    expect(toastState.showTargetToast).toHaveBeenCalledWith('La seleccion multiple solo puede ser con cartas de una misma zona.');
+  });
 });
+
+function interactionContext() {
+  return {
+    currentPlayer: () => ({ id: 'player-1', state: { status: 'active' } }),
+    focusedPlayer: () => null,
+    zoneCardCount: () => 0,
+    setError: vi.fn(),
+    playCard: vi.fn(),
+  };
+}
 
 function contextMenuEvent(): MouseEvent {
   const target = document.createElement('button');
@@ -101,6 +126,15 @@ function contextMenuEvent(): MouseEvent {
     clientY: 380,
     preventDefault: vi.fn(),
     stopPropagation: vi.fn(),
+  } as unknown as MouseEvent;
+}
+
+function clickEvent(shiftKey: boolean): MouseEvent {
+  const target = document.createElement('button');
+
+  return {
+    currentTarget: target,
+    shiftKey,
   } as unknown as MouseEvent;
 }
 

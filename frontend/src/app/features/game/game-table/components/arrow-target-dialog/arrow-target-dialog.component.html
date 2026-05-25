@@ -18,12 +18,12 @@
       <span class="select-shell">
         <select
           data-testid="arrow-target-player-select"
-          [value]="selectedPlayerId()"
+          [value]="effectiveSelectedPlayerId()"
           (input)="updatePlayer($any($event.target).value)"
           (change)="updatePlayer($any($event.target).value)"
           autofocus
         >
-          @for (player of players(); track player.id) {
+          @for (player of availablePlayers(); track player.id) {
             <option [value]="player.id">{{ playerLabel()(player) }}</option>
           }
         </select>

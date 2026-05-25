@@ -83,6 +83,19 @@ describe('GameTableUiState', () => {
     }));
   });
 
+  it('places narrow-screen context menus to the left of the pointer when there is room', () => {
+    setViewport(420, 700);
+    const state = new GameTableUiState();
+
+    state.openContextMenu(pointerEvent(360, 120), { playerId: 'player-1', zone: 'battlefield', kind: 'card', card: gameCard() });
+
+    expect(state.contextMenu()).toEqual(expect.objectContaining({
+      x: 96,
+      y: 124,
+      verticalOrigin: 'top',
+    }));
+  });
+
   it('closes a card context menu when that same card starts dragging', () => {
     const state = new GameTableUiState();
     const card = gameCard();

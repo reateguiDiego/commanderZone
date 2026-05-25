@@ -224,6 +224,36 @@ class GameWebsocketPatchBuilderTest extends TestCase
         self::assertStringNotContainsString('"zones"', $encoded);
     }
 
+    public function testBuildsCardRemovePatchForEvaporatedToken(): void
+    {
+        [$game, $actor] = $this->gameWithMovementCards();
+        $snapshot = $game->snapshot();
+        $snapshot['players'][$actor->id()]['zones']['battlefield'][] = [
+            'instanceId' => 'token-1',
+            'name' => 'Bear Token',
+            'zone' => 'battlefield',
+            'power' => 2,
+            'toughness' => 2,
+            'defaultPower' => 2,
+            'defaultToughness' => 2,
+            'tapped' => false,
+            'isToken' => true,
+        ];
+        $game->replaceSnapshot($snapshot);
+
+        $message = $this->applyAndBuildProjected($game, $actor, 'card.moved', [
+            'playerId' => $actor->id(),
+            'fromZone' => 'battlefield',
+            'toZone' => 'graveyard',
+            'instanceId' => 'token-1',
+        ], 'action-token-remove', $actor);
+
+        self::assertSame('card.remove', $message['operations'][0]['op']);
+        self::assertSame($actor->id(), $message['operations'][0]['playerId']);
+        self::assertSame('battlefield', $message['operations'][0]['zone']);
+        self::assertSame('token-1', $message['operations'][0]['instanceId']);
+    }
+
     public function testBuildsPrivateMovePatchWithCountsAndPlaceholderForOpponent(): void
     {
         [$game, $actor, $opponent] = $this->gameWithMovementCards();
