@@ -996,7 +996,7 @@ final readonly class GameWebsocketPatchBuilder
                 'from' => ['playerId' => $move['fromPlayerId'], 'zone' => $move['fromZone']],
                 'to' => ['playerId' => $move['toPlayerId'], 'zone' => $move['toZone']],
             ];
-            if ($previousCard !== null && $nextCard === null) {
+            if ($previousCard !== null && $nextCard === null && !$destinationHidden) {
                 $operations[] = [
                     'op' => 'card.remove',
                     'playerId' => $move['fromPlayerId'],

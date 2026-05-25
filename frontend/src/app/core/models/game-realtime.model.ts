@@ -129,6 +129,14 @@ export interface GameplayErrorPayload {
   code: string;
   message: string;
   retryable: boolean;
+  conflict?: GameplayVersionConflict;
+}
+
+export interface GameplayVersionConflict {
+  commandBaseVersion: number;
+  currentVersion: number;
+  delta: number;
+  classification: 'concurrent_write' | 'stale_client';
 }
 
 export type GameSnapshotPatchOperation =

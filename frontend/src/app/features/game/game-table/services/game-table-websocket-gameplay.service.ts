@@ -8,6 +8,7 @@ import {
   GameplayGamePatchMessage,
   GameplayResyncRequiredMessage,
   GameplayServerMessage,
+  GameplayVersionConflict,
 } from '../../../../core/models/game-realtime.model';
 import {
   createGameDebugSnapshotMetricsChannel,
@@ -47,6 +48,7 @@ interface QueueCounters {
   dropTotal: number;
   retryTotal: number;
   resyncTotal: number;
+  lateAckIgnoredTotal: number;
 }
 
 interface QueueRates {
@@ -168,6 +170,7 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
     dropTotal: 0,
     retryTotal: 0,
     resyncTotal: 0,
+    lateAckIgnoredTotal: 0,
   };
   private readonly queueRates: QueueRates = {
     enqueueTimestamps: [],
@@ -311,20 +314,30 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
   }
 
   private async handleCommandAck(context: GameTableWebsocketGameplayContext, ack: GameplayCommandAckMessage): Promise<void> {
+    if (!this.matchesInFlightCommandAck(ack)) {
+      this.recordLateAckIgnored(context.gameId());
+      return;
+    }
+
     if (ack.status === 'rejected') {
-      this.rejectInFlightCommand(new Error(ack.error?.message ?? 'WebSocket command rejected.'));
+      this.rejectInFlightCommand(
+        new Error(ack.error?.message ?? 'WebSocket command rejected.'),
+        ack.clientActionId,
+        ack.messageId,
+        'rejected',
+      );
       this.drainQueue();
       return;
     }
 
     if (ack.status === 'duplicate') {
+      this.resolveInFlightCommand(ack.clientActionId, ack.messageId);
       await this.requestResync(context);
-      this.resolveInFlightCommand();
       this.drainQueue();
       return;
     }
 
-    await this.handleCommandResyncRequired(context);
+    await this.handleCommandResyncRequired(context, ack);
   }
 
   private async handleResyncRequired(context: GameTableWebsocketGameplayContext, message: GameplayResyncRequiredMessage): Promise<void> {
@@ -474,16 +487,17 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
     }
   }
 
-  private resolveInFlightCommand(clientActionId?: string, messageId?: string): void {
+  private resolveInFlightCommand(clientActionId?: string, messageId?: string): boolean {
     const inFlight = this.inFlightCommand;
     if (!inFlight || !this.matchesInFlight(inFlight, clientActionId, messageId)) {
-      return;
+      return false;
     }
 
     window.clearTimeout(inFlight.timeoutId);
     this.inFlightCommand = null;
     inFlight.resolve();
     this.publishQueueMetrics(inFlight.context.gameId());
+    return true;
   }
 
   private rejectInFlightCommand(
@@ -491,10 +505,10 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
     clientActionId?: string,
     messageId?: string,
     reason: GameDebugQueueDeadLetterReason = 'rejected',
-  ): void {
+  ): boolean {
     const inFlight = this.inFlightCommand;
     if (!inFlight || !this.matchesInFlight(inFlight, clientActionId, messageId)) {
-      return;
+      return false;
     }
 
     window.clearTimeout(inFlight.timeoutId);
@@ -502,6 +516,7 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
     this.recordDeadLetter(inFlight, reason, error.message);
     inFlight.reject(error);
     this.publishQueueMetrics(inFlight.context.gameId());
+    return true;
   }
 
   private rejectQueuedCommands(error: Error, reason: GameDebugQueueDeadLetterReason = 'rejected'): void {
@@ -517,17 +532,30 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
 
   private async handleCommandResyncRequired(
     context: GameTableWebsocketGameplayContext,
+    ack?: GameplayCommandAckMessage,
   ): Promise<void> {
     const inFlight = this.inFlightCommand;
     if (!inFlight) {
-      await this.requestResync(context);
+      if (ack) {
+        this.recordLateAckIgnored(context.gameId());
+      } else {
+        await this.requestResync(context);
+      }
       this.drainQueue();
+      return;
+    }
+    if (ack && !this.matchesInFlight(inFlight, ack.clientActionId, ack.messageId)) {
+      this.recordLateAckIgnored(context.gameId());
       return;
     }
 
     window.clearTimeout(inFlight.timeoutId);
     this.inFlightCommand = null;
-    await this.requestResync(context);
+
+    const fastRetry = this.canRetryWithoutResync(context, ack?.error?.conflict);
+    if (!fastRetry) {
+      await this.requestResync(context);
+    }
 
     if (!inFlight.retryable || inFlight.retryCount >= MAX_RETRY_COUNT) {
       this.recordDeadLetter(inFlight, 'resync_retry_exhausted', 'Resync required and retry budget exhausted.');
@@ -556,6 +584,36 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
     }
 
     return true;
+  }
+
+  private matchesInFlightCommandAck(ack: GameplayCommandAckMessage): boolean {
+    const inFlight = this.inFlightCommand;
+    if (!inFlight) {
+      return false;
+    }
+
+    return this.matchesInFlight(inFlight, ack.clientActionId, ack.messageId);
+  }
+
+  private canRetryWithoutResync(
+    context: GameTableWebsocketGameplayContext,
+    conflict?: GameplayVersionConflict,
+  ): boolean {
+    if (!conflict || conflict.classification !== 'concurrent_write') {
+      return false;
+    }
+
+    const snapshotVersion = context.snapshot()?.version;
+    if (!snapshotVersion) {
+      return false;
+    }
+
+    return snapshotVersion === conflict.currentVersion;
+  }
+
+  private recordLateAckIgnored(gameId: string): void {
+    this.queueCounters.lateAckIgnoredTotal += 1;
+    this.publishQueueMetrics(gameId);
   }
 
   private isResyncing(): boolean {
@@ -706,6 +764,7 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
       dropTotal: this.queueCounters.dropTotal,
       retryTotal: this.queueCounters.retryTotal,
       resyncTotal: this.queueCounters.resyncTotal,
+      lateAckIgnoredTotal: this.queueCounters.lateAckIgnoredTotal,
       enqueueRate: Number((this.queueRates.enqueueTimestamps.length / (QUEUE_RATE_WINDOW_MS / 1000)).toFixed(2)),
       drainRate: Number((this.queueRates.drainTimestamps.length / (QUEUE_RATE_WINDOW_MS / 1000)).toFixed(2)),
       measuredAt: new Date(now).toISOString(),
@@ -741,6 +800,7 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
     this.queueCounters.dropTotal = 0;
     this.queueCounters.retryTotal = 0;
     this.queueCounters.resyncTotal = 0;
+    this.queueCounters.lateAckIgnoredTotal = 0;
     this.queueRates.enqueueTimestamps = [];
     this.queueRates.drainTimestamps = [];
     this.deadLetter.length = 0;

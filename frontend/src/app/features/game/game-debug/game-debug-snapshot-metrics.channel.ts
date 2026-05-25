@@ -32,6 +32,7 @@ export interface GameDebugQueueMetrics {
   dropTotal: number;
   retryTotal: number;
   resyncTotal: number;
+  lateAckIgnoredTotal: number;
   enqueueRate: number;
   drainRate: number;
   measuredAt: string;

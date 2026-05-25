@@ -67,6 +67,10 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
         self::assertSame('command_ack', $message['kind']);
         self::assertSame('resync_required', $message['status']);
         self::assertSame('BASE_VERSION_MISMATCH', $message['error']['code']);
+        self::assertSame(2, $message['error']['conflict']['commandBaseVersion']);
+        self::assertSame(1, $message['error']['conflict']['currentVersion']);
+        self::assertSame(0, $message['error']['conflict']['delta']);
+        self::assertSame('stale_client', $message['error']['conflict']['classification']);
         self::assertSame(40, $game->snapshot()['players'][$actor->id()]['life']);
     }
 
@@ -89,6 +93,33 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
         self::assertSame('command_ack', $message['kind']);
         self::assertSame('duplicate', $message['status']);
         self::assertSame(40, $game->snapshot()['players'][$actor->id()]['life']);
+    }
+
+    public function testBaseVersionMismatchIncludesConcurrentWriteConflictMetadata(): void
+    {
+        [$game, $actor] = $this->game();
+        $snapshot = $game->snapshot();
+        $snapshot['version'] = 2;
+        $game->replaceSnapshot($snapshot);
+        $service = $this->service($game, existingEvent: null, expectPersist: false, expectFlush: false, expectClear: true);
+
+        $message = $service->apply(
+            $game->id(),
+            $actor->id(),
+            'life.changed',
+            ['playerId' => $actor->id(), 'delta' => -2],
+            'action-2',
+            1,
+            'message-2',
+        );
+
+        self::assertSame('command_ack', $message['kind']);
+        self::assertSame('resync_required', $message['status']);
+        self::assertSame('BASE_VERSION_MISMATCH', $message['error']['code']);
+        self::assertSame(1, $message['error']['conflict']['commandBaseVersion']);
+        self::assertSame(2, $message['error']['conflict']['currentVersion']);
+        self::assertSame(1, $message['error']['conflict']['delta']);
+        self::assertSame('concurrent_write', $message['error']['conflict']['classification']);
     }
 
     public function testInvalidCommandPayloadReturnsRejectedAck(): void

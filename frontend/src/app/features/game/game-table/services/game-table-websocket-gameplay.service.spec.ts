@@ -887,6 +887,115 @@ describe('GameTableWebsocketGameplayService', () => {
     expect(refetchSpy).toHaveBeenCalledTimes(1);
   });
 
+  it('ignores late rejected ack for a previous command and keeps the current in-flight command', async () => {
+    const channel = broadcastChannels[0];
+    channel.emit({
+      kind: 'debug_observe',
+      gameId: 'game-1',
+      observedAt: '2026-05-24T10:00:00.000Z',
+    });
+
+    const firstSent = service.sendCommand(context(), 'life.changed', { playerId: 'player-1', delta: -1 });
+    const firstMessage = sentMessage();
+    messages.next({
+      kind: 'game_patch',
+      gameId: 'game-1',
+      baseVersion: 1,
+      version: 2,
+      clientActionId: firstMessage.command.clientActionId,
+      operations: [{ op: 'player.life.set', playerId: 'player-1', value: 39 }],
+    });
+    await firstSent;
+
+    const secondSent = service.sendCommand(context(), 'card.tapped', {
+      playerId: 'player-1',
+      zone: 'battlefield',
+      instanceId: 'battlefield-1',
+      tapped: true,
+    });
+    const secondMessage = sentMessage();
+
+    messages.next({
+      kind: 'command_ack',
+      gameId: 'game-1',
+      messageId: firstMessage.messageId,
+      clientActionId: firstMessage.command.clientActionId,
+      status: 'rejected',
+      version: 2,
+      error: { code: 'COMMAND_REJECTED', message: 'Late reject', retryable: false },
+    });
+    messages.next({
+      kind: 'game_patch',
+      gameId: 'game-1',
+      baseVersion: 2,
+      version: 3,
+      clientActionId: secondMessage.command.clientActionId,
+      operations: [{
+        op: 'card.state.set',
+        playerId: 'player-1',
+        zone: 'battlefield',
+        instanceId: 'battlefield-1',
+        tapped: true,
+      }],
+    });
+
+    await expect(secondSent).resolves.toBe(true);
+    expect(refetchSpy).not.toHaveBeenCalled();
+
+    const latestQueueMetric = channel.sentMessages
+      .filter((item): item is Record<string, unknown> => typeof item === 'object' && item !== null && (item as { kind?: unknown }).kind === 'queue_metrics')
+      .at(-1);
+    expect(latestQueueMetric?.['lateAckIgnoredTotal']).toBeGreaterThanOrEqual(1);
+  });
+
+  it('ignores late duplicate ack and does not trigger resync for the current in-flight command', async () => {
+    const firstSent = service.sendCommand(context(), 'life.changed', { playerId: 'player-1', delta: -1 });
+    const firstMessage = sentMessage();
+    messages.next({
+      kind: 'game_patch',
+      gameId: 'game-1',
+      baseVersion: 1,
+      version: 2,
+      clientActionId: firstMessage.command.clientActionId,
+      operations: [{ op: 'player.life.set', playerId: 'player-1', value: 39 }],
+    });
+    await firstSent;
+
+    const secondSent = service.sendCommand(context(), 'card.tapped', {
+      playerId: 'player-1',
+      zone: 'battlefield',
+      instanceId: 'battlefield-1',
+      tapped: true,
+    });
+    const secondMessage = sentMessage();
+
+    messages.next({
+      kind: 'command_ack',
+      gameId: 'game-1',
+      messageId: firstMessage.messageId,
+      clientActionId: firstMessage.command.clientActionId,
+      status: 'duplicate',
+      version: 2,
+    });
+    messages.next({
+      kind: 'game_patch',
+      gameId: 'game-1',
+      baseVersion: 2,
+      version: 3,
+      clientActionId: secondMessage.command.clientActionId,
+      operations: [{
+        op: 'card.state.set',
+        playerId: 'player-1',
+        zone: 'battlefield',
+        instanceId: 'battlefield-1',
+        tapped: true,
+      }],
+    });
+
+    await expect(secondSent).resolves.toBe(true);
+    expect(refetchSpy).not.toHaveBeenCalled();
+  });
+
   it('returns false so callers can use HTTP fallback when websocket is not connected before sending', async () => {
     status.set('connecting');
 
@@ -1028,6 +1137,57 @@ describe('GameTableWebsocketGameplayService', () => {
       version: 6,
       clientActionId: retriedMessage.command.clientActionId,
       operations: [{ op: 'player.life.set', playerId: 'player-1', value: 39 }],
+    });
+    await sent;
+  });
+
+  it('retries mismatch without refetch when conflict is concurrent_write and snapshot is already current', async () => {
+    const sent = service.sendCommand(context(), 'life.changed', { playerId: 'player-1', delta: -1 });
+    const firstMessage = sentMessage();
+
+    messages.next({
+      kind: 'game_patch',
+      gameId: 'game-1',
+      baseVersion: 1,
+      version: 2,
+      clientActionId: 'other-client-action',
+      operations: [{ op: 'player.life.set', playerId: 'player-1', value: 39 }],
+    });
+
+    messages.next({
+      kind: 'command_ack',
+      gameId: 'game-1',
+      messageId: firstMessage.messageId,
+      clientActionId: firstMessage.command.clientActionId,
+      status: 'resync_required',
+      version: 2,
+      error: {
+        code: 'BASE_VERSION_MISMATCH',
+        message: 'Need resync',
+        retryable: true,
+        conflict: {
+          commandBaseVersion: 1,
+          currentVersion: 2,
+          delta: 1,
+          classification: 'concurrent_write',
+        },
+      },
+    });
+
+    await vi.waitFor(() => expect(send).toHaveBeenCalledTimes(2));
+    expect(refetchSpy).not.toHaveBeenCalled();
+
+    const retriedMessage = sentMessage();
+    expect(retriedMessage.command.baseVersion).toBe(2);
+    expect(retriedMessage.command.clientActionId).not.toBe(firstMessage.command.clientActionId);
+
+    messages.next({
+      kind: 'game_patch',
+      gameId: 'game-1',
+      baseVersion: 2,
+      version: 3,
+      clientActionId: retriedMessage.command.clientActionId,
+      operations: [{ op: 'player.life.set', playerId: 'player-1', value: 38 }],
     });
     await sent;
   });
