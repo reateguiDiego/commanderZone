@@ -86,6 +86,11 @@
             <strong>{{ queue.dropTotal }} / {{ queue.retryTotal }} / {{ queue.resyncTotal }}</strong>
             <small>salud de cola local</small>
           </article>
+          <article>
+            <span>Rejected/Circuit/QueueFull</span>
+            <strong>{{ queue.rejectedTotal }} / {{ queue.circuitBlockedTotal }} / {{ queue.queueFullTotal }}</strong>
+            <small>proteccion anti-loop local</small>
+          </article>
         </div>
       } @else {
         <p class="debug-empty">Sin metricas locales de cola (abre la partida y genera actividad).</p>

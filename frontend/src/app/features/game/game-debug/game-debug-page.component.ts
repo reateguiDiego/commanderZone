@@ -50,7 +50,19 @@ export class GameDebugPageComponent implements OnInit, OnDestroy {
 
     return report ? JSON.stringify(report, null, 2) : '';
   });
-  readonly queueMetrics = this.snapshotMetrics.queueMetrics;
+  readonly queueMetrics = computed(() => {
+    const queue = this.snapshotMetrics.queueMetrics();
+    if (!queue) {
+      return null;
+    }
+
+    return {
+      ...queue,
+      rejectedTotal: queue.rejectedTotal ?? 0,
+      circuitBlockedTotal: queue.circuitBlockedTotal ?? 0,
+      queueFullTotal: queue.queueFullTotal ?? 0,
+    };
+  });
   readonly deadLetterEvents = computed(() => [...this.snapshotMetrics.deadLetterEvents()].reverse());
 
   ngOnInit(): void {
