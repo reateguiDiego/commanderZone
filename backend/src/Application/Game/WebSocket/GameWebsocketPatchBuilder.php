@@ -198,7 +198,7 @@ final readonly class GameWebsocketPatchBuilder
                 'entries' => $chatEntries,
             ];
         }
-        $eventLogEntries = $this->appendedEntries($previousSnapshot, $nextSnapshot, 'eventLog');
+        $eventLogEntries = $this->appendedEventLogEntries($previousSnapshot, $nextSnapshot);
         if ($eventLogEntries !== null && $eventLogEntries !== []) {
             $operations[] = [
                 'op' => 'eventLog.append',
@@ -214,7 +214,7 @@ final readonly class GameWebsocketPatchBuilder
      */
     private function eventLogOnly(array $previousSnapshot, array $nextSnapshot): ?array
     {
-        $eventLogEntries = $this->appendedEntries($previousSnapshot, $nextSnapshot, 'eventLog');
+        $eventLogEntries = $this->appendedEventLogEntries($previousSnapshot, $nextSnapshot);
         if ($eventLogEntries === null || $eventLogEntries === []) {
             return null;
         }
@@ -238,7 +238,7 @@ final readonly class GameWebsocketPatchBuilder
             'op' => 'turn.set',
             'turn' => $nextSnapshot['turn'],
         ]];
-        $eventLogEntries = $this->appendedEntries($previousSnapshot, $nextSnapshot, 'eventLog');
+        $eventLogEntries = $this->appendedEventLogEntries($previousSnapshot, $nextSnapshot);
         if ($eventLogEntries !== null && $eventLogEntries !== []) {
             $operations[] = [
                 'op' => 'eventLog.append',
@@ -1235,11 +1235,76 @@ final readonly class GameWebsocketPatchBuilder
     }
 
     /**
+     * @return list<array<string,mixed>>|null
+     */
+    private function appendedEventLogEntries(array $previousSnapshot, array $nextSnapshot): ?array
+    {
+        $previous = $previousSnapshot['eventLog'] ?? [];
+        $next = $nextSnapshot['eventLog'] ?? [];
+        if (!is_array($previous) || !is_array($next)) {
+            return null;
+        }
+        if ($previous === []) {
+            return array_values($next);
+        }
+
+        $previousIds = $this->eventLogEntryIds($previous);
+        $nextIds = $this->eventLogEntryIds($next);
+        if ($previousIds === null || $nextIds === null) {
+            return null;
+        }
+
+        $maxOverlap = min(count($previousIds), count($nextIds));
+        for ($overlap = $maxOverlap; $overlap > 0; --$overlap) {
+            if ($this->hasEventLogOverlap($previousIds, $nextIds, $overlap)) {
+                return array_values(array_slice($next, $overlap));
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param list<string> $previousIds
+     * @param list<string> $nextIds
+     */
+    private function hasEventLogOverlap(array $previousIds, array $nextIds, int $overlap): bool
+    {
+        $previousStart = count($previousIds) - $overlap;
+        for ($index = 0; $index < $overlap; ++$index) {
+            if ($previousIds[$previousStart + $index] !== $nextIds[$index]) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * @param list<array<string,mixed>> $entries
+     *
+     * @return list<string>|null
+     */
+    private function eventLogEntryIds(array $entries): ?array
+    {
+        $ids = [];
+        foreach ($entries as $entry) {
+            $id = $entry['id'] ?? null;
+            if (!is_string($id) || $id === '') {
+                return null;
+            }
+            $ids[] = $id;
+        }
+
+        return $ids;
+    }
+
+    /**
      * @return list<array<string,mixed>>
      */
     private function eventLogAppendOperation(array $previousSnapshot, array $nextSnapshot, bool $sanitizePrivateCard = false): array
     {
-        $eventLogEntries = $this->appendedEntries($previousSnapshot, $nextSnapshot, 'eventLog');
+        $eventLogEntries = $this->appendedEventLogEntries($previousSnapshot, $nextSnapshot);
         if ($sanitizePrivateCard && is_array($eventLogEntries)) {
             $eventLogEntries = array_map(
                 fn (array $entry): array => $this->sanitizedPrivateCardLogEntry($entry),

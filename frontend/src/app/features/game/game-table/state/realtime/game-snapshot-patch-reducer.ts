@@ -27,6 +27,7 @@ type OperationResult =
   | { status: 'failed'; reason: Exclude<GameSnapshotPatchFailureReason, 'version_gap'> };
 
 const ZONE_NAMES: readonly GameZoneName[] = ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command'];
+const MAX_EVENT_LOG_ENTRIES = 250;
 
 export function applyGameSnapshotPatch(snapshot: GameSnapshot, patch: GameplayGamePatchMessage): GameSnapshotPatchApplyResult {
   const decision = getGamePatchDecision(snapshot.version, patch);
@@ -196,7 +197,13 @@ function applyOperation(snapshot: GameSnapshot, operation: GameSnapshotPatchOper
       return { status: 'applied', snapshot: { ...snapshot, chat: [...snapshot.chat, ...operation.entries] } };
 
     case 'eventLog.append':
-      return { status: 'applied', snapshot: { ...snapshot, eventLog: [...snapshot.eventLog, ...operation.entries] } };
+      return {
+        status: 'applied',
+        snapshot: {
+          ...snapshot,
+          eventLog: [...snapshot.eventLog, ...operation.entries].slice(-MAX_EVENT_LOG_ENTRIES),
+        },
+      };
 
     case 'stack.item.add':
       return addStackItem(snapshot, operation.item);

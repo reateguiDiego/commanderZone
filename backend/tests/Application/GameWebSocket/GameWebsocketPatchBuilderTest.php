@@ -819,6 +819,55 @@ class GameWebsocketPatchBuilderTest extends TestCase
         self::assertStringNotContainsString('"status":"finished"', $encodedClose);
     }
 
+    public function testBuildsEventLogAppendAcrossSlidingWindowRollover(): void
+    {
+        [$game, $actor] = $this->game();
+        $previous = $game->snapshot();
+        $previous['eventLog'] = [];
+        for ($index = 1; $index <= 250; ++$index) {
+            $previous['eventLog'][] = [
+                'id' => sprintf('log-%03d', $index),
+                'type' => 'life.changed',
+                'message' => sprintf('Life changed %d', $index),
+                'actorId' => $actor->id(),
+                'displayName' => $actor->displayName(),
+                'createdAt' => sprintf('2026-01-01T00:00:%02d+00:00', $index % 60),
+            ];
+        }
+
+        $next = $previous;
+        $next['version'] = 2;
+        $next['eventLog'] = [
+            ...array_slice($previous['eventLog'], 2),
+            [
+                'id' => 'log-251',
+                'type' => 'life.changed',
+                'message' => 'Life changed 251',
+                'actorId' => $actor->id(),
+                'displayName' => $actor->displayName(),
+                'createdAt' => '2026-01-01T00:04:11+00:00',
+            ],
+            [
+                'id' => 'log-252',
+                'type' => 'life.changed',
+                'message' => 'Life changed 252',
+                'actorId' => $actor->id(),
+                'displayName' => $actor->displayName(),
+                'createdAt' => '2026-01-01T00:04:12+00:00',
+            ],
+        ];
+
+        $event = new GameEvent($game, 'dice.rolled', ['kind' => 'd6', 'finalResult' => '4'], $actor, 'action-rollover');
+        $message = (new GameWebsocketPatchBuilder(new GameWebsocketMessageFactory()))->build($game->id(), $previous, $next, $event);
+
+        self::assertSame('game_patch', $message['kind']);
+        self::assertSame('eventLog.append', $message['operations'][0]['op']);
+        self::assertSame(['log-251', 'log-252'], array_map(
+            static fn (array $entry): string => (string) $entry['id'],
+            $message['operations'][0]['entries'],
+        ));
+    }
+
     public function testBuildsDisconnectVotePatchWithEventLogAppend(): void
     {
         [$game, $actor, $opponent] = $this->game();
