@@ -115,6 +115,31 @@ describe('GameTableCountersState', () => {
     expect(closeContextMenu).toHaveBeenCalled();
   });
 
+  it('queues card counter changes for every selected battlefield card', async () => {
+    const first = card();
+    const second = { ...card(), instanceId: 'card-2' };
+
+    await state.setCardCounter(menu(first), 'red', 0, [
+      { playerId: 'player-1', zone: 'battlefield', card: first },
+      { playerId: 'player-1', zone: 'battlefield', card: second },
+    ]);
+
+    expect(queueCardCounter).toHaveBeenCalledWith(expect.anything(), {
+      playerId: 'player-1',
+      zone: 'battlefield',
+      instanceId: 'card-1',
+      key: 'red',
+      value: 0,
+    });
+    expect(queueCardCounter).toHaveBeenCalledWith(expect.anything(), {
+      playerId: 'player-1',
+      zone: 'battlefield',
+      instanceId: 'card-2',
+      key: 'red',
+      value: 0,
+    });
+  });
+
   it('keeps card counter limits and error messages unchanged', async () => {
     canAddCardCounter.mockReturnValue(false);
 

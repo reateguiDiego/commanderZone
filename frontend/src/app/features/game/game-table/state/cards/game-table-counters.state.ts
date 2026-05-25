@@ -7,6 +7,12 @@ import { GameTablePlayersStore } from '../players/game-table-players.store';
 import { GameContextMenu, GameTableUiState } from '../core/game-table-ui.state';
 import { GameTableCardsState } from './game-table-cards.state';
 
+interface CardCounterSelection {
+  readonly playerId: string;
+  readonly zone: GameZoneName;
+  readonly card: GameCardInstance;
+}
+
 @Injectable()
 export class GameTableCountersState {
   constructor(
@@ -74,7 +80,7 @@ export class GameTableCountersState {
     this.uiState.closeContextMenu();
   }
 
-  async setCardCounter(menu: GameContextMenu, key: string, value: number): Promise<void> {
+  async setCardCounter(menu: GameContextMenu, key: string, value: number, selectedCards: readonly CardCounterSelection[] = []): Promise<void> {
     if (!menu.card) {
       return;
     }
@@ -83,19 +89,22 @@ export class GameTableCountersState {
       this.uiState.closeContextMenu();
       return;
     }
-    if (!this.cardsState.canAddCardCounter(menu.card, key)) {
+    const targets = this.actionTargets(menu, selectedCards, 'battlefield');
+    if (targets.some((item) => !this.cardsState.canAddCardCounter(item.card, key))) {
       this.core.error.set('Maximum 5 different counters per card.');
       this.uiState.closeContextMenu();
       return;
     }
 
-    this.cardsState.queueCardCounter(this.contextStore.cardCounter(), {
-      playerId: menu.playerId,
-      zone: menu.zone,
-      instanceId: menu.card.instanceId,
-      key,
-      value: Math.max(0, value),
-    });
+    for (const item of targets) {
+      this.cardsState.queueCardCounter(this.contextStore.cardCounter(), {
+        playerId: item.playerId,
+        zone: item.zone,
+        instanceId: item.card.instanceId,
+        key,
+        value: Math.max(0, value),
+      });
+    }
     this.uiState.closeContextMenu();
   }
 
@@ -106,7 +115,7 @@ export class GameTableCountersState {
     await this.deleteCardCounterByKey(menu, menu.counterKey);
   }
 
-  async deleteCardCounterByKey(menu: GameContextMenu, key: string): Promise<void> {
+  async deleteCardCounterByKey(menu: GameContextMenu, key: string, selectedCards: readonly CardCounterSelection[] = []): Promise<void> {
     if (!menu.card) {
       return;
     }
@@ -116,34 +125,38 @@ export class GameTableCountersState {
       return;
     }
 
-    this.cardsState.queueCardCounter(this.contextStore.cardCounter(), {
-      playerId: menu.playerId,
-      zone: menu.zone,
-      instanceId: menu.card.instanceId,
-      key,
-      value: null,
-    });
-    this.uiState.closeContextMenu();
-  }
-
-  async deleteAllCardCounters(menu: GameContextMenu): Promise<void> {
-    if (!menu.card) {
-      return;
-    }
-    if (!this.canControlPlayer(menu.playerId)) {
-      this.core.error.set('You can only change your own cards.');
-      this.uiState.closeContextMenu();
-      return;
-    }
-
-    for (const key of Object.keys(menu.card.counters ?? {})) {
+    for (const item of this.actionTargets(menu, selectedCards, 'battlefield')) {
       this.cardsState.queueCardCounter(this.contextStore.cardCounter(), {
-        playerId: menu.playerId,
-        zone: menu.zone,
-        instanceId: menu.card.instanceId,
+        playerId: item.playerId,
+        zone: item.zone,
+        instanceId: item.card.instanceId,
         key,
         value: null,
       });
+    }
+    this.uiState.closeContextMenu();
+  }
+
+  async deleteAllCardCounters(menu: GameContextMenu, selectedCards: readonly CardCounterSelection[] = []): Promise<void> {
+    if (!menu.card) {
+      return;
+    }
+    if (!this.canControlPlayer(menu.playerId)) {
+      this.core.error.set('You can only change your own cards.');
+      this.uiState.closeContextMenu();
+      return;
+    }
+
+    for (const item of this.actionTargets(menu, selectedCards, 'battlefield')) {
+      for (const key of Object.keys(item.card.counters ?? {})) {
+        this.cardsState.queueCardCounter(this.contextStore.cardCounter(), {
+          playerId: item.playerId,
+          zone: item.zone,
+          instanceId: item.card.instanceId,
+          key,
+          value: null,
+        });
+      }
     }
     this.uiState.closeContextMenu();
   }
@@ -181,5 +194,22 @@ export class GameTableCountersState {
 
   private canControlPlayer(playerId: string): boolean {
     return this.playersStore.canControlPlayer(playerId, this.contextStore.interaction());
+  }
+
+  private actionTargets(
+    menu: GameContextMenu,
+    selectedCards: readonly CardCounterSelection[],
+    zone: GameZoneName,
+  ): readonly CardCounterSelection[] {
+    if (!menu.card) {
+      return [];
+    }
+
+    const selectedHasMenuCard = selectedCards.some((item) => item.card.instanceId === menu.card?.instanceId);
+    const validSelection = selectedCards.length > 1
+      && selectedHasMenuCard
+      && selectedCards.every((item) => item.playerId === menu.playerId && item.zone === menu.zone && item.zone === zone);
+
+    return validSelection ? selectedCards : [{ playerId: menu.playerId, zone: menu.zone, card: menu.card }];
   }
 }

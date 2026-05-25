@@ -314,6 +314,47 @@ describe('game snapshot patch reducer', () => {
     expect(result.snapshot.attachments?.map((entry) => entry.id)).toEqual(['attachment-1']);
   });
 
+  it('keeps only the latest 250 event log entries when appending', () => {
+    const snapshot = snapshotFixture();
+    snapshot.eventLog = Array.from({ length: 250 }, (_, index) => ({
+      id: `log-${index + 1}`,
+      type: 'life.changed',
+      message: `Life changed ${index + 1}`,
+      actorId: 'player-1',
+      displayName: 'Player 1',
+      createdAt: `2026-01-01T00:00:${String(index % 60).padStart(2, '0')}.000Z`,
+    }));
+
+    const result = applyGameSnapshotPatch(snapshot, patch([
+      {
+        op: 'eventLog.append',
+        entries: [
+          {
+            id: 'log-251',
+            type: 'life.changed',
+            message: 'Life changed 251',
+            actorId: 'player-1',
+            displayName: 'Player 1',
+            createdAt: '2026-01-01T00:04:11.000Z',
+          },
+          {
+            id: 'log-252',
+            type: 'life.changed',
+            message: 'Life changed 252',
+            actorId: 'player-1',
+            displayName: 'Player 1',
+            createdAt: '2026-01-01T00:04:12.000Z',
+          },
+        ],
+      },
+    ]));
+
+    expect(result.status).toBe('applied');
+    expect(result.snapshot.eventLog).toHaveLength(250);
+    expect(result.snapshot.eventLog[0]?.id).toBe('log-3');
+    expect(result.snapshot.eventLog.at(-1)?.id).toBe('log-252');
+  });
+
   it('applies small stack and relation add/remove operations', () => {
     const snapshot = {
       ...snapshotFixture(),
@@ -482,6 +523,23 @@ describe('game snapshot patch reducer', () => {
       name: 'Token',
       isToken: true,
     }));
+  });
+
+  it('removes an evaporated card without inserting it into another zone', () => {
+    const snapshot = snapshotFixture();
+
+    const result = applyGameSnapshotPatch(snapshot, patch([
+      {
+        op: 'card.remove',
+        playerId: 'player-1',
+        zone: 'battlefield',
+        instanceId: 'battlefield-1',
+      },
+    ]));
+
+    expect(result.status).toBe('applied');
+    expect(result.snapshot.players['player-1'].zones.battlefield.map((entry) => entry.instanceId)).toEqual(['battlefield-2']);
+    expect(result.snapshot.players['player-1'].zones.graveyard.map((entry) => entry.instanceId)).toEqual(['graveyard-1']);
   });
 
   it('does not apply patches with a version gap', () => {

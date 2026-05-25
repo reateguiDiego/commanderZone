@@ -108,6 +108,12 @@ final readonly class GameWebsocketDisconnectVoteOrchestrator
             }
 
             return null;
+        } catch (\Throwable $exception) {
+            if ($manager->getConnection()->isTransactionActive()) {
+                $manager->rollback();
+            }
+
+            throw $exception;
         } finally {
             $manager->clear();
         }

@@ -4,6 +4,7 @@ import { GameCardInstance, GameZoneName } from '../../../../../core/models/game.
 import { GameContextMenu } from '../../state/core/game-table-ui.state';
 import { PlayerView } from '../../game-table.store';
 import { ContextSubmenuComponent, ContextSubmenuItem } from './context-submenu/context-submenu.component';
+import { playerIsDefeated } from '../../utils/game-player-defeat';
 
 export type ContextMenuAction =
   | { type: 'drawMine' }
@@ -272,7 +273,7 @@ export class ContextMenuComponent {
 
   giveToPlayerTargets(): readonly PlayerView[] {
     const activePlayerId = this.menu().playerId;
-    return this.players().filter((player) => player.id !== activePlayerId && player.state.status !== 'conceded');
+    return this.players().filter((player) => player.id !== activePlayerId && !playerIsDefeated(player));
   }
 
   playerLabel(player: PlayerView): string {
@@ -496,6 +497,10 @@ export class ContextMenuComponent {
   }
 
   private titleCaseCounter(counter: string): string {
+    if (counter === 'yellow') {
+      return 'White';
+    }
+
     if (counter.startsWith('+') || counter.startsWith('-')) {
       return counter;
     }

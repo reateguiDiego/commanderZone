@@ -52,7 +52,7 @@ export class OnboardingPageComponent {
 
   constructor() {
     this.appBackground.setDashboardMode(false);
-    this.title.setTitle('Commander Zone');
+    this.title.setTitle('CommanderZone');
     this.meta.updateTag({
       name: 'description',
       content: 'Import your deck, create a room, share the link and start playing. No downloads required.',

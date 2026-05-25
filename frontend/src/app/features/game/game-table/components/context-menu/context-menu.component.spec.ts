@@ -452,6 +452,7 @@ describe('ContextMenuComponent', () => {
     fixture.detectChanges();
     const countersText = menuText(fixture);
     expect(countersText).toContain('+1/+1');
+    expect(countersText).toContain('White');
     expect(countersText).not.toContain('Charge');
     fixture.componentInstance.toggleSubmenu(new MouseEvent('click'), 'giveToPlayer');
     fixture.detectChanges();

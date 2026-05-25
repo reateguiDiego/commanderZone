@@ -80,6 +80,7 @@ import { ArrowTargetDialogComponent, ArrowTargetDialogValue } from './components
 import { GameRematchModalComponent, RematchPlayerVoteView } from './components/game-rematch-modal/game-rematch-modal.component';
 import { GameDisconnectVoteModalComponent } from './components/game-disconnect-vote-modal/game-disconnect-vote-modal.component';
 import { TokenSearchModalComponent } from './components/token-search-modal/token-search-modal.component';
+import { ChatRecipientSelectComponent } from './components/chat-recipient-select/chat-recipient-select.component';
 import { RollModalComponent } from '../../../core/ui/roll-modal/roll-modal.component';
 import { type RollResult } from '../../../core/ui/roll-modal/roll';
 import { GameTablePermanentRelationService } from './services/game-table-permanent-relation.service';
@@ -283,6 +284,7 @@ interface MotionSourceRect {
     GameRematchModalComponent,
     GameDisconnectVoteModalComponent,
     TokenSearchModalComponent,
+    ChatRecipientSelectComponent,
     RollModalComponent,
   ],
   providers: [
@@ -467,6 +469,12 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   readonly unreadLog = signal(false);
   readonly tableToast = computed(() => this.store.tableToast() ?? this.rematchToast());
   readonly tableBackgroundImage = computed(() => `url("${this.store.gameBackgroundImage(this.store.focusedPlayer() ?? this.store.currentPlayer())}")`);
+  readonly focusedOpponentPlayer = computed<PlayerView | null>(() => {
+    const currentPlayer = this.store.currentPlayer();
+    const focusedPlayer = this.store.focusedPlayer();
+
+    return currentPlayer && focusedPlayer && currentPlayer.id !== focusedPlayer.id ? focusedPlayer : null;
+  });
   readonly alivePlayers = computed(() => this.store.players().filter((player) => playerIsActiveForTurn(player)));
   readonly rematchVoteCountdownEnabled = computed(() => this.alivePlayers().length <= 1);
   readonly currentRematchVote = computed<GameRematchVote | null>(() => {
@@ -534,7 +542,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   readonly opponentsDrawerOpen = signal(false);
   readonly arrowTargetPlayers = computed(() => {
     const currentPlayerId = this.store.currentPlayer()?.id;
-    const players = this.store.players();
+    const players = this.store.players().filter((player) => playerIsActiveForTurn(player));
     if (!currentPlayerId) {
       return players;
     }
@@ -2051,6 +2059,18 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     this.closeOpponentsDrawer();
   }
 
+  returnToCurrentPlayerBattlefield(): void {
+    const currentPlayer = this.store.currentPlayer();
+    if (!currentPlayer) {
+      return;
+    }
+    if (this.followActiveTurnPlayer()) {
+      this.updateFollowActiveTurnPlayer(false);
+    }
+
+    this.focusPlayerBattlefield(currentPlayer.id);
+  }
+
   updateFollowActiveTurnPlayer(enabled: boolean): void {
     this.followActiveTurnPlayer.set(enabled);
     if (!enabled) {
@@ -2183,12 +2203,17 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       return;
     }
 
+    const selected = this.store.selectedCards();
+    const validSelection = selected.length > 1
+      && selected.some((item) => item.card.instanceId === menu.card?.instanceId)
+      && selected.every((item) => item.playerId === menu.playerId && item.zone === 'hand');
+
     this.store.closeContextMenu();
     this.handCardGiveDialog.set({
       menu,
       targetPlayerId,
       targetPlayerName: this.playerName(targetPlayerId),
-      cardName: menu.card.name,
+      cardName: validSelection ? `${selected.length} cards` : menu.card.name,
     });
   }
 

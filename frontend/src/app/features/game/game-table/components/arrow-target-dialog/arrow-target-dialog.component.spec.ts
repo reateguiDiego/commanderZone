@@ -74,15 +74,35 @@ describe('ArrowTargetDialogComponent', () => {
 
     expect(cancelled).toHaveBeenCalledOnce();
   });
+
+  it('filters defeated players and falls back to the first alive player', async () => {
+    const fixture = await renderDialog('player-2', [
+      { id: 'player-1', state: playerState('player-1', 'Alice') },
+      { id: 'player-2', state: { ...playerState('player-2', 'Bob'), life: 0 } },
+      { id: 'player-3', state: playerState('player-3', 'Cara') },
+    ]);
+    const confirmed = vi.fn();
+    fixture.componentInstance.confirmed.subscribe(confirmed);
+
+    const options = Array.from(fixture.nativeElement.querySelectorAll('option')) as HTMLOptionElement[];
+    expect(options.map((option) => option.textContent?.trim())).toEqual(['Alice', 'Cara']);
+
+    (fixture.nativeElement.querySelector('[data-testid="arrow-target-confirm"]') as HTMLButtonElement).click();
+
+    expect(confirmed).toHaveBeenCalledWith({ playerId: 'player-1', multipleTargets: false, targetCount: 1 });
+  });
 });
 
-async function renderDialog(selectedPlayerId = 'player-1'): Promise<ComponentFixture<ArrowTargetDialogComponent>> {
+async function renderDialog(
+  selectedPlayerId = 'player-1',
+  dialogPlayers: PlayerView[] = players(),
+): Promise<ComponentFixture<ArrowTargetDialogComponent>> {
   await TestBed.configureTestingModule({
     imports: [ArrowTargetDialogComponent],
   }).compileComponents();
 
   const fixture = TestBed.createComponent(ArrowTargetDialogComponent);
-  fixture.componentRef.setInput('players', players());
+  fixture.componentRef.setInput('players', dialogPlayers);
   fixture.componentRef.setInput('selectedPlayerId', selectedPlayerId);
   fixture.componentRef.setInput('multipleTargets', false);
   fixture.componentRef.setInput('targetCount', 1);

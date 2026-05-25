@@ -224,6 +224,36 @@ class GameWebsocketPatchBuilderTest extends TestCase
         self::assertStringNotContainsString('"zones"', $encoded);
     }
 
+    public function testBuildsCardRemovePatchForEvaporatedToken(): void
+    {
+        [$game, $actor] = $this->gameWithMovementCards();
+        $snapshot = $game->snapshot();
+        $snapshot['players'][$actor->id()]['zones']['battlefield'][] = [
+            'instanceId' => 'token-1',
+            'name' => 'Bear Token',
+            'zone' => 'battlefield',
+            'power' => 2,
+            'toughness' => 2,
+            'defaultPower' => 2,
+            'defaultToughness' => 2,
+            'tapped' => false,
+            'isToken' => true,
+        ];
+        $game->replaceSnapshot($snapshot);
+
+        $message = $this->applyAndBuildProjected($game, $actor, 'card.moved', [
+            'playerId' => $actor->id(),
+            'fromZone' => 'battlefield',
+            'toZone' => 'graveyard',
+            'instanceId' => 'token-1',
+        ], 'action-token-remove', $actor);
+
+        self::assertSame('card.remove', $message['operations'][0]['op']);
+        self::assertSame($actor->id(), $message['operations'][0]['playerId']);
+        self::assertSame('battlefield', $message['operations'][0]['zone']);
+        self::assertSame('token-1', $message['operations'][0]['instanceId']);
+    }
+
     public function testBuildsPrivateMovePatchWithCountsAndPlaceholderForOpponent(): void
     {
         [$game, $actor, $opponent] = $this->gameWithMovementCards();
@@ -787,6 +817,55 @@ class GameWebsocketPatchBuilderTest extends TestCase
         self::assertSame('game.close', $close['operations'][0]['entries'][0]['type']);
         self::assertStringNotContainsString('"snapshot"', $encodedClose);
         self::assertStringNotContainsString('"status":"finished"', $encodedClose);
+    }
+
+    public function testBuildsEventLogAppendAcrossSlidingWindowRollover(): void
+    {
+        [$game, $actor] = $this->game();
+        $previous = $game->snapshot();
+        $previous['eventLog'] = [];
+        for ($index = 1; $index <= 250; ++$index) {
+            $previous['eventLog'][] = [
+                'id' => sprintf('log-%03d', $index),
+                'type' => 'life.changed',
+                'message' => sprintf('Life changed %d', $index),
+                'actorId' => $actor->id(),
+                'displayName' => $actor->displayName(),
+                'createdAt' => sprintf('2026-01-01T00:00:%02d+00:00', $index % 60),
+            ];
+        }
+
+        $next = $previous;
+        $next['version'] = 2;
+        $next['eventLog'] = [
+            ...array_slice($previous['eventLog'], 2),
+            [
+                'id' => 'log-251',
+                'type' => 'life.changed',
+                'message' => 'Life changed 251',
+                'actorId' => $actor->id(),
+                'displayName' => $actor->displayName(),
+                'createdAt' => '2026-01-01T00:04:11+00:00',
+            ],
+            [
+                'id' => 'log-252',
+                'type' => 'life.changed',
+                'message' => 'Life changed 252',
+                'actorId' => $actor->id(),
+                'displayName' => $actor->displayName(),
+                'createdAt' => '2026-01-01T00:04:12+00:00',
+            ],
+        ];
+
+        $event = new GameEvent($game, 'dice.rolled', ['kind' => 'd6', 'finalResult' => '4'], $actor, 'action-rollover');
+        $message = (new GameWebsocketPatchBuilder(new GameWebsocketMessageFactory()))->build($game->id(), $previous, $next, $event);
+
+        self::assertSame('game_patch', $message['kind']);
+        self::assertSame('eventLog.append', $message['operations'][0]['op']);
+        self::assertSame(['log-251', 'log-252'], array_map(
+            static fn (array $entry): string => (string) $entry['id'],
+            $message['operations'][0]['entries'],
+        ));
     }
 
     public function testBuildsDisconnectVotePatchWithEventLogAppend(): void

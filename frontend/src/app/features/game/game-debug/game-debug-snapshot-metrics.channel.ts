@@ -20,6 +20,8 @@ export type GameDebugQueueDeadLetterReason =
   | 'rejected'
   | 'resync_retry_exhausted'
   | 'queue_dropped'
+  | 'queue_full'
+  | 'circuit_blocked'
   | 'disconnect';
 
 export interface GameDebugQueueMetrics {
@@ -32,6 +34,10 @@ export interface GameDebugQueueMetrics {
   dropTotal: number;
   retryTotal: number;
   resyncTotal: number;
+  lateAckIgnoredTotal: number;
+  rejectedTotal?: number;
+  circuitBlockedTotal?: number;
+  queueFullTotal?: number;
   enqueueRate: number;
   drainRate: number;
   measuredAt: string;

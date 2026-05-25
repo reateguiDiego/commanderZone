@@ -61,13 +61,15 @@ export class GameTableCardActionsService {
       return;
     }
 
-    await context.command('card.moved', {
-      playerId: menu.playerId,
-      fromZone: 'hand',
-      toZone: 'battlefield',
-      instanceId: menu.card.instanceId,
-      faceDown: true,
-    });
+    for (const item of this.actionTargets(context, menu, 'hand')) {
+      await context.command('card.moved', {
+        playerId: item.playerId,
+        fromZone: 'hand',
+        toZone: 'battlefield',
+        instanceId: item.card.instanceId,
+        faceDown: true,
+      });
+    }
     context.clearSelectedCards();
     context.closeContextMenu();
   }
@@ -86,17 +88,45 @@ export class GameTableCardActionsService {
       context.closeContextMenu();
       return;
     }
+    const targets = this.actionTargets(context, menu);
+    if (targets.length > 1) {
+      const first = targets[0]!;
+      const payload: Record<string, unknown> = {
+        playerId: first.playerId,
+        fromZone: first.zone,
+        toZone,
+        instanceIds: targets.map((item) => item.card.instanceId),
+        ...(options.position ? { position: options.position } : {}),
+      };
+
+      if (toZone === 'library' && !options.position) {
+        context.setPendingLibraryMove({
+          cardName: `${targets.length} cards`,
+          commandType: 'cards.moved',
+          payload,
+        });
+        context.closeContextMenu();
+        return;
+      }
+
+      await context.command('cards.moved', payload);
+      context.clearSelectedCards();
+      context.closeContextMenu();
+      return;
+    }
+
+    const target = targets[0] ?? { playerId: menu.playerId, zone: menu.zone, card: menu.card };
     const payload: Record<string, unknown> = {
-      playerId: menu.playerId,
-      fromZone: menu.zone,
+      playerId: target.playerId,
+      fromZone: target.zone,
       toZone,
-      instanceId: menu.card.instanceId,
+      instanceId: target.card.instanceId,
       ...(options.position ? { position: options.position } : {}),
     };
 
     if (toZone === 'library' && !options.position) {
       context.setPendingLibraryMove({
-        cardName: menu.card.name,
+        cardName: target.card.name,
         commandType: 'card.moved',
         payload,
       });
@@ -105,7 +135,7 @@ export class GameTableCardActionsService {
     }
 
     await context.command('card.moved', payload);
-    await context.recordCommanderCastIfNeeded(menu.playerId, menu.zone, toZone);
+    await context.recordCommanderCastIfNeeded(target.playerId, target.zone, toZone);
     this.removeMovedLibraryCardFromFixedModal(context, menu, toZone, options.position);
     context.clearSelectedCards();
     context.closeContextMenu();
@@ -149,17 +179,33 @@ export class GameTableCardActionsService {
       return;
     }
 
-    context.setPendingBattlefieldMove({
-      cardName: menu.card.name,
-      targetPlayerName: context.playerName(targetPlayerId),
-      commandType: 'card.controller.changed',
-      payload: {
-        playerId: menu.playerId,
-        zone: 'battlefield',
-        instanceId: menu.card.instanceId,
-        targetPlayerId,
-      },
-    });
+    const targets = this.actionTargets(context, menu, 'battlefield');
+    if (targets.length > 1) {
+      context.setPendingBattlefieldMove({
+        cardName: `${targets.length} cards`,
+        targetPlayerName: context.playerName(targetPlayerId),
+        commandType: 'cards.moved',
+        payload: {
+          playerId: menu.playerId,
+          fromZone: 'battlefield',
+          toZone: 'battlefield',
+          instanceIds: targets.map((item) => item.card.instanceId),
+          targetPlayerId,
+        },
+      });
+    } else {
+      context.setPendingBattlefieldMove({
+        cardName: menu.card.name,
+        targetPlayerName: context.playerName(targetPlayerId),
+        commandType: 'card.controller.changed',
+        payload: {
+          playerId: menu.playerId,
+          zone: 'battlefield',
+          instanceId: menu.card.instanceId,
+          targetPlayerId,
+        },
+      });
+    }
     context.closeContextMenu();
   }
 
@@ -297,12 +343,15 @@ export class GameTableCardActionsService {
       return;
     }
 
-    await context.command('card.tapped', {
-      playerId: menu.playerId,
-      zone: menu.zone,
-      instanceId: menu.card.instanceId,
-      tapped: !menu.card.tapped,
-    });
+    const tapped = !menu.card.tapped;
+    for (const item of this.actionTargets(context, menu)) {
+      await context.command('card.tapped', {
+        playerId: item.playerId,
+        zone: item.zone,
+        instanceId: item.card.instanceId,
+        tapped,
+      });
+    }
     context.closeContextMenu();
   }
 
@@ -316,12 +365,15 @@ export class GameTableCardActionsService {
       return;
     }
 
-    await context.command('card.face_down.changed', {
-      playerId: menu.playerId,
-      zone: menu.zone,
-      instanceId: menu.card.instanceId,
-      faceDown: !menu.card.faceDown,
-    });
+    const faceDown = !menu.card.faceDown;
+    for (const item of this.actionTargets(context, menu)) {
+      await context.command('card.face_down.changed', {
+        playerId: item.playerId,
+        zone: item.zone,
+        instanceId: item.card.instanceId,
+        faceDown,
+      });
+    }
     context.closeContextMenu();
   }
 
@@ -335,19 +387,20 @@ export class GameTableCardActionsService {
       return;
     }
 
-    const faceCount = menu.card.cardFaces?.length ?? 0;
-    if (faceCount < 2) {
-      context.closeContextMenu();
-      return;
-    }
+    for (const item of this.actionTargets(context, menu)) {
+      const faceCount = item.card.cardFaces?.length ?? 0;
+      if (faceCount < 2) {
+        continue;
+      }
 
-    const currentIndex = Number.isInteger(menu.card.activeFaceIndex) ? Number(menu.card.activeFaceIndex) : 0;
-    await context.command('card.face.changed', {
-      playerId: menu.playerId,
-      zone: menu.zone,
-      instanceId: menu.card.instanceId,
-      faceIndex: (currentIndex + 1) % faceCount,
-    });
+      const currentIndex = Number.isInteger(item.card.activeFaceIndex) ? Number(item.card.activeFaceIndex) : 0;
+      await context.command('card.face.changed', {
+        playerId: item.playerId,
+        zone: item.zone,
+        instanceId: item.card.instanceId,
+        faceIndex: (currentIndex + 1) % faceCount,
+      });
+    }
     context.closeContextMenu();
   }
 
@@ -361,12 +414,14 @@ export class GameTableCardActionsService {
       return;
     }
 
-    await context.command('card.revealed', {
-      playerId: menu.playerId,
-      zone: menu.zone,
-      instanceId: menu.card.instanceId,
-      to: target,
-    });
+    for (const item of this.actionTargets(context, menu)) {
+      await context.command('card.revealed', {
+        playerId: item.playerId,
+        zone: item.zone,
+        instanceId: item.card.instanceId,
+        to: target,
+      });
+    }
     context.closeContextMenu();
   }
 
@@ -380,12 +435,14 @@ export class GameTableCardActionsService {
       return;
     }
 
-    await context.command('card.token_copy.created', {
-      playerId: menu.playerId,
-      zone: menu.zone,
-      instanceId: menu.card.instanceId,
-      targetPlayerId: menu.playerId,
-    });
+    for (const item of this.actionTargets(context, menu)) {
+      await context.command('card.token_copy.created', {
+        playerId: item.playerId,
+        zone: item.zone,
+        instanceId: item.card.instanceId,
+        targetPlayerId: item.playerId,
+      });
+    }
     context.closeContextMenu();
   }
 
@@ -441,6 +498,24 @@ export class GameTableCardActionsService {
       toughness: card.toughness ?? null,
       loyalty: card.loyalty ?? null,
     };
+  }
+
+  private actionTargets(
+    context: Pick<GameTableCardActionContext, 'selectedCards'>,
+    menu: GameContextMenu,
+    zone?: GameZoneName,
+  ): GameTableCardSelection[] {
+    if (!menu.card) {
+      return [];
+    }
+
+    const selected = context.selectedCards();
+    const selectedHasMenuCard = selected.some((item) => item.card.instanceId === menu.card?.instanceId);
+    const validSelection = selected.length > 1
+      && selectedHasMenuCard
+      && selected.every((item) => item.playerId === menu.playerId && item.zone === menu.zone && (!zone || item.zone === zone));
+
+    return validSelection ? selected : [{ playerId: menu.playerId, zone: menu.zone, card: menu.card }];
   }
 
   async setPowerToughness(context: GameTableCardActionContext, menu: GameContextMenu, power: number, toughness: number): Promise<void> {

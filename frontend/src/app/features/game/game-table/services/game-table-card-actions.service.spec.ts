@@ -54,17 +54,73 @@ describe('GameTableCardActionsService', () => {
       },
     }]);
   });
+
+  it('moves every selected card when the context menu card belongs to the selection', async () => {
+    const battlefield = [card('card-1', 'Creature', 100, 100), card('card-2', 'Creature', 200, 100)];
+    const commands: Array<{ type: GameCommandType; payload: Record<string, unknown> }> = [];
+    const closeContextMenu = vi.fn();
+    const clearSelectedCards = vi.fn();
+    const ctx = context(battlefield, {
+      selectedCards: () => battlefield.map((target) => ({ playerId: 'player-1', zone: 'battlefield', card: target })),
+      command: async (type, payload) => {
+        commands.push({ type, payload });
+      },
+      closeContextMenu,
+      clearSelectedCards,
+    });
+
+    await service.moveCard(ctx, menu(battlefield[0]!), 'graveyard');
+
+    expect(commands).toEqual([{
+      type: 'cards.moved',
+      payload: {
+        playerId: 'player-1',
+        fromZone: 'battlefield',
+        toZone: 'graveyard',
+        instanceIds: ['card-1', 'card-2'],
+      },
+    }]);
+    expect(clearSelectedCards).toHaveBeenCalledOnce();
+    expect(closeContextMenu).toHaveBeenCalledOnce();
+  });
+
+  it('applies tap state from the context menu card to all selected cards', async () => {
+    const battlefield = [
+      { ...card('card-1', 'Creature', 100, 100), tapped: false },
+      { ...card('card-2', 'Creature', 200, 100), tapped: true },
+    ];
+    const commands: Array<{ type: GameCommandType; payload: Record<string, unknown> }> = [];
+    const ctx = context(battlefield, {
+      selectedCards: () => battlefield.map((target) => ({ playerId: 'player-1', zone: 'battlefield', card: target })),
+      command: async (type, payload) => {
+        commands.push({ type, payload });
+      },
+    });
+
+    await service.tapCard(ctx, menu(battlefield[0]!));
+
+    expect(commands).toEqual([
+      {
+        type: 'card.tapped',
+        payload: { playerId: 'player-1', zone: 'battlefield', instanceId: 'card-1', tapped: true },
+      },
+      {
+        type: 'card.tapped',
+        payload: { playerId: 'player-1', zone: 'battlefield', instanceId: 'card-2', tapped: true },
+      },
+    ]);
+  });
 });
 
 function context(
   battlefield: readonly GameCardInstance[],
-  overrides: Partial<Pick<GameTableCardActionContext, 'closeContextMenu' | 'command' | 'updateLocalCardPosition'>> = {},
+  overrides: Partial<Pick<GameTableCardActionContext, 'clearSelectedCards' | 'closeContextMenu' | 'command' | 'selectedCards' | 'updateLocalCardPosition'>> = {},
 ): GameTableCardActionContext {
   return {
     canControlPlayer: () => true,
     activeKeyboardCard: () => null,
-    selectedCards: () => [],
-    clearSelectedCards: vi.fn(),
+    selectedCards: overrides.selectedCards ?? (() => []),
+    clearSelectedCards: overrides.clearSelectedCards ?? vi.fn(),
     zoneModal: () => null,
     replaceZoneModalCards: vi.fn(),
     loadZone: vi.fn(async () => undefined),

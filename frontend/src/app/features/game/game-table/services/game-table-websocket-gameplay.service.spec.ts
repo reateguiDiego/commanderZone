@@ -16,6 +16,7 @@ describe('GameTableWebsocketGameplayService', () => {
   let refetchSpy: ReturnType<typeof vi.fn<(force?: boolean) => Promise<void>>>;
   let setError: (message: string | null) => void;
   let setErrorSpy: ReturnType<typeof vi.fn<(message: string | null) => void>>;
+  let onCommandBlockedSpy: ReturnType<typeof vi.fn<(reason: string, type: string, payload: Record<string, unknown>) => void>>;
   let broadcastChannels: FakeBroadcastChannel[];
   const originalBroadcastChannel = globalThis.BroadcastChannel;
 
@@ -41,6 +42,7 @@ describe('GameTableWebsocketGameplayService', () => {
     setError = (message) => {
       setErrorSpy(message);
     };
+    onCommandBlockedSpy = vi.fn<(reason: string, type: string, payload: Record<string, unknown>) => void>();
 
     TestBed.configureTestingModule({
       providers: [
@@ -304,6 +306,9 @@ describe('GameTableWebsocketGameplayService', () => {
       drainTotal: 1,
       dropTotal: 0,
       retryTotal: 0,
+      rejectedTotal: 0,
+      circuitBlockedTotal: 0,
+      queueFullTotal: 0,
     });
     expect(Number(latest?.['enqueueRate'])).toBeGreaterThanOrEqual(0);
     expect(Number(latest?.['drainRate'])).toBeGreaterThanOrEqual(0);
@@ -333,13 +338,110 @@ describe('GameTableWebsocketGameplayService', () => {
     }
     await Promise.resolve();
 
-    const droppedEvents = channel.sentMessages
+    const pressureEvents = channel.sentMessages
       .filter((item): item is Record<string, unknown> => typeof item === 'object' && item !== null && (item as { kind?: unknown }).kind === 'dead_letter_event')
-      .filter((item) => item['reason'] === 'queue_dropped');
+      .filter((item) => item['reason'] === 'queue_dropped' || item['reason'] === 'queue_full');
 
-    expect(droppedEvents.length).toBeGreaterThan(0);
-    expect(droppedEvents.every((event) => event['commandType'] === 'card.position.changed')).toBe(true);
-    expect(droppedEvents.some((event) => event['commandType'] === 'chat.message')).toBe(false);
+    expect(pressureEvents.length).toBeGreaterThan(0);
+    expect(pressureEvents.every((event) => event['commandType'] === 'card.position.changed')).toBe(true);
+    expect(pressureEvents.some((event) => event['commandType'] === 'chat.message')).toBe(false);
+
+    messages.next({
+      kind: 'game_patch',
+      gameId: 'game-1',
+      baseVersion: 1,
+      version: 2,
+      clientActionId: blockerMessage.command.clientActionId,
+      operations: [{ op: 'player.life.set', playerId: 'player-1', value: 39 }],
+    });
+    await blocker;
+    service.stop();
+    await Promise.allSettled(pending);
+  });
+
+  it('activates a circuit breaker after repeated rejected acknowledgements and unblocks after cooldown', async () => {
+    vi.useFakeTimers();
+    try {
+      const channel = broadcastChannels[0];
+      channel.emit({
+        kind: 'debug_observe',
+        gameId: 'game-1',
+        observedAt: '2026-05-24T10:00:00.000Z',
+      });
+
+      for (let index = 0; index < 3; index += 1) {
+        const sent = service.sendCommand(context(), 'life.changed', { playerId: 'player-1', delta: -1 });
+        const message = sentMessage();
+        messages.next({
+          kind: 'command_ack',
+          gameId: 'game-1',
+          messageId: message.messageId,
+          clientActionId: message.command.clientActionId,
+          status: 'rejected',
+          version: 1,
+          error: { code: 'COMMAND_REJECTED', message: `Denied-${index}`, retryable: false },
+        });
+        await expect(sent).rejects.toThrow(`Denied-${index}`);
+      }
+
+      const sendCallCount = send.mock.calls.length;
+      await expect(service.sendCommand(context(), 'life.changed', { playerId: 'player-1', delta: -1 }))
+        .rejects.toThrow('Action temporarily blocked after repeated command rejections.');
+      await expect(service.sendCommand(context(), 'life.changed', { playerId: 'player-1', delta: -1 }))
+        .rejects.toThrow('Action temporarily blocked after repeated command rejections.');
+      expect(send).toHaveBeenCalledTimes(sendCallCount);
+      expect(setErrorSpy).toHaveBeenCalledTimes(1);
+      expect(onCommandBlockedSpy).toHaveBeenCalledWith(
+        'circuit_blocked',
+        'life.changed',
+        { playerId: 'player-1', delta: -1 },
+      );
+
+      const blockedEvent = channel.sentMessages
+        .filter((item): item is Record<string, unknown> => typeof item === 'object' && item !== null)
+        .find((item) => item['kind'] === 'dead_letter_event' && item['reason'] === 'circuit_blocked');
+      expect(blockedEvent).toBeTruthy();
+
+      vi.advanceTimersByTime(2_001);
+      const retried = service.sendCommand(context(), 'life.changed', { playerId: 'player-1', delta: -1 });
+      const retriedMessage = sentMessage();
+      expect(send).toHaveBeenCalledTimes(sendCallCount + 1);
+      messages.next({
+        kind: 'game_patch',
+        gameId: 'game-1',
+        baseVersion: snapshotState.version,
+        version: snapshotState.version + 1,
+        clientActionId: retriedMessage.command.clientActionId,
+        operations: [{ op: 'player.life.set', playerId: 'player-1', value: 35 }],
+      });
+      await expect(retried).resolves.toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('rejects incoming commands as queue_full when queue depth is saturated by non-droppable commands', async () => {
+    const channel = broadcastChannels[0];
+    channel.emit({
+      kind: 'debug_observe',
+      gameId: 'game-1',
+      observedAt: '2026-05-24T10:00:00.000Z',
+    });
+
+    const blocker = service.sendCommand(context(), 'life.changed', { playerId: 'player-1', delta: -1 });
+    const blockerMessage = sentMessage();
+    const pending: Promise<unknown>[] = [];
+
+    for (let index = 0; index < 260; index += 1) {
+      pending.push(service.sendCommand(context(), 'chat.message', { message: `msg-${index}` }).catch(() => undefined));
+    }
+    await Promise.resolve();
+
+    const fullEvents = channel.sentMessages
+      .filter((item): item is Record<string, unknown> => typeof item === 'object' && item !== null)
+      .filter((item) => item['kind'] === 'dead_letter_event' && item['reason'] === 'queue_full');
+    expect(fullEvents.length).toBeGreaterThan(0);
+    expect(onCommandBlockedSpy).toHaveBeenCalledWith('queue_full', 'chat.message', expect.any(Object));
 
     messages.next({
       kind: 'game_patch',
@@ -887,6 +989,115 @@ describe('GameTableWebsocketGameplayService', () => {
     expect(refetchSpy).toHaveBeenCalledTimes(1);
   });
 
+  it('ignores late rejected ack for a previous command and keeps the current in-flight command', async () => {
+    const channel = broadcastChannels[0];
+    channel.emit({
+      kind: 'debug_observe',
+      gameId: 'game-1',
+      observedAt: '2026-05-24T10:00:00.000Z',
+    });
+
+    const firstSent = service.sendCommand(context(), 'life.changed', { playerId: 'player-1', delta: -1 });
+    const firstMessage = sentMessage();
+    messages.next({
+      kind: 'game_patch',
+      gameId: 'game-1',
+      baseVersion: 1,
+      version: 2,
+      clientActionId: firstMessage.command.clientActionId,
+      operations: [{ op: 'player.life.set', playerId: 'player-1', value: 39 }],
+    });
+    await firstSent;
+
+    const secondSent = service.sendCommand(context(), 'card.tapped', {
+      playerId: 'player-1',
+      zone: 'battlefield',
+      instanceId: 'battlefield-1',
+      tapped: true,
+    });
+    const secondMessage = sentMessage();
+
+    messages.next({
+      kind: 'command_ack',
+      gameId: 'game-1',
+      messageId: firstMessage.messageId,
+      clientActionId: firstMessage.command.clientActionId,
+      status: 'rejected',
+      version: 2,
+      error: { code: 'COMMAND_REJECTED', message: 'Late reject', retryable: false },
+    });
+    messages.next({
+      kind: 'game_patch',
+      gameId: 'game-1',
+      baseVersion: 2,
+      version: 3,
+      clientActionId: secondMessage.command.clientActionId,
+      operations: [{
+        op: 'card.state.set',
+        playerId: 'player-1',
+        zone: 'battlefield',
+        instanceId: 'battlefield-1',
+        tapped: true,
+      }],
+    });
+
+    await expect(secondSent).resolves.toBe(true);
+    expect(refetchSpy).not.toHaveBeenCalled();
+
+    const latestQueueMetric = channel.sentMessages
+      .filter((item): item is Record<string, unknown> => typeof item === 'object' && item !== null && (item as { kind?: unknown }).kind === 'queue_metrics')
+      .at(-1);
+    expect(latestQueueMetric?.['lateAckIgnoredTotal']).toBeGreaterThanOrEqual(1);
+  });
+
+  it('ignores late duplicate ack and does not trigger resync for the current in-flight command', async () => {
+    const firstSent = service.sendCommand(context(), 'life.changed', { playerId: 'player-1', delta: -1 });
+    const firstMessage = sentMessage();
+    messages.next({
+      kind: 'game_patch',
+      gameId: 'game-1',
+      baseVersion: 1,
+      version: 2,
+      clientActionId: firstMessage.command.clientActionId,
+      operations: [{ op: 'player.life.set', playerId: 'player-1', value: 39 }],
+    });
+    await firstSent;
+
+    const secondSent = service.sendCommand(context(), 'card.tapped', {
+      playerId: 'player-1',
+      zone: 'battlefield',
+      instanceId: 'battlefield-1',
+      tapped: true,
+    });
+    const secondMessage = sentMessage();
+
+    messages.next({
+      kind: 'command_ack',
+      gameId: 'game-1',
+      messageId: firstMessage.messageId,
+      clientActionId: firstMessage.command.clientActionId,
+      status: 'duplicate',
+      version: 2,
+    });
+    messages.next({
+      kind: 'game_patch',
+      gameId: 'game-1',
+      baseVersion: 2,
+      version: 3,
+      clientActionId: secondMessage.command.clientActionId,
+      operations: [{
+        op: 'card.state.set',
+        playerId: 'player-1',
+        zone: 'battlefield',
+        instanceId: 'battlefield-1',
+        tapped: true,
+      }],
+    });
+
+    await expect(secondSent).resolves.toBe(true);
+    expect(refetchSpy).not.toHaveBeenCalled();
+  });
+
   it('returns false so callers can use HTTP fallback when websocket is not connected before sending', async () => {
     status.set('connecting');
 
@@ -932,6 +1143,76 @@ describe('GameTableWebsocketGameplayService', () => {
         zone: 'battlefield',
         instanceId: 'battlefield-1',
         tapped: true,
+      }],
+    });
+    await secondSent;
+  });
+
+  it('dedupes identical in-flight safe commands and resolves both from a single websocket send', async () => {
+    const firstSent = service.sendCommand(context(), 'life.changed', { playerId: 'player-1', delta: -1 });
+    const firstMessage = sentMessage();
+    const secondSent = service.sendCommand(context(), 'life.changed', { playerId: 'player-1', delta: -1 });
+
+    expect(send).toHaveBeenCalledTimes(1);
+
+    messages.next({
+      kind: 'game_patch',
+      gameId: 'game-1',
+      baseVersion: 1,
+      version: 2,
+      clientActionId: firstMessage.command.clientActionId,
+      operations: [{ op: 'player.life.set', playerId: 'player-1', value: 39 }],
+    });
+
+    await expect(firstSent).resolves.toBe(true);
+    await expect(secondSent).resolves.toBe(true);
+    expect(send).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not dedupe non-safe in-flight commands', async () => {
+    const firstSent = service.sendCommand(context(), 'card.moved', {
+      playerId: 'player-1',
+      fromZone: 'battlefield',
+      toZone: 'graveyard',
+      instanceId: 'battlefield-1',
+    });
+    const firstMessage = sentMessage();
+    const secondSent = service.sendCommand(context(), 'card.moved', {
+      playerId: 'player-1',
+      fromZone: 'battlefield',
+      toZone: 'graveyard',
+      instanceId: 'battlefield-2',
+    });
+
+    expect(send).toHaveBeenCalledTimes(1);
+    messages.next({
+      kind: 'game_patch',
+      gameId: 'game-1',
+      baseVersion: 1,
+      version: 2,
+      clientActionId: firstMessage.command.clientActionId,
+      operations: [{
+        op: 'card.remove',
+        playerId: 'player-1',
+        zone: 'battlefield',
+        instanceId: 'battlefield-1',
+      }],
+    });
+    await firstSent;
+
+    expect(send).toHaveBeenCalledTimes(2);
+    const secondMessage = sentMessage();
+    messages.next({
+      kind: 'game_patch',
+      gameId: 'game-1',
+      baseVersion: 2,
+      version: 3,
+      clientActionId: secondMessage.command.clientActionId,
+      operations: [{
+        op: 'card.remove',
+        playerId: 'player-1',
+        zone: 'battlefield',
+        instanceId: 'battlefield-2',
       }],
     });
     await secondSent;
@@ -1032,6 +1313,57 @@ describe('GameTableWebsocketGameplayService', () => {
     await sent;
   });
 
+  it('retries mismatch without refetch when conflict is concurrent_write and snapshot is already current', async () => {
+    const sent = service.sendCommand(context(), 'life.changed', { playerId: 'player-1', delta: -1 });
+    const firstMessage = sentMessage();
+
+    messages.next({
+      kind: 'game_patch',
+      gameId: 'game-1',
+      baseVersion: 1,
+      version: 2,
+      clientActionId: 'other-client-action',
+      operations: [{ op: 'player.life.set', playerId: 'player-1', value: 39 }],
+    });
+
+    messages.next({
+      kind: 'command_ack',
+      gameId: 'game-1',
+      messageId: firstMessage.messageId,
+      clientActionId: firstMessage.command.clientActionId,
+      status: 'resync_required',
+      version: 2,
+      error: {
+        code: 'BASE_VERSION_MISMATCH',
+        message: 'Need resync',
+        retryable: true,
+        conflict: {
+          commandBaseVersion: 1,
+          currentVersion: 2,
+          delta: 1,
+          classification: 'concurrent_write',
+        },
+      },
+    });
+
+    await vi.waitFor(() => expect(send).toHaveBeenCalledTimes(2));
+    expect(refetchSpy).not.toHaveBeenCalled();
+
+    const retriedMessage = sentMessage();
+    expect(retriedMessage.command.baseVersion).toBe(2);
+    expect(retriedMessage.command.clientActionId).not.toBe(firstMessage.command.clientActionId);
+
+    messages.next({
+      kind: 'game_patch',
+      gameId: 'game-1',
+      baseVersion: 2,
+      version: 3,
+      clientActionId: retriedMessage.command.clientActionId,
+      operations: [{ op: 'player.life.set', playerId: 'player-1', value: 38 }],
+    });
+    await sent;
+  });
+
   it('rejects the pending command on gameId mismatch errors', async () => {
     const sent = service.sendCommand(context(), 'life.changed', { playerId: 'player-1', delta: -1 });
     const message = sentMessage();
@@ -1062,6 +1394,7 @@ describe('GameTableWebsocketGameplayService', () => {
       },
       refetch,
       setError,
+      onCommandBlocked: (reason, type, payload) => onCommandBlockedSpy(reason, type, payload),
     };
   }
 });

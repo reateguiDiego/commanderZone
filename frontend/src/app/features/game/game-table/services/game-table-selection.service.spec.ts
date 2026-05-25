@@ -21,6 +21,17 @@ describe('GameTableSelectionService', () => {
 
     expect(service.selectedCards().map((selected) => selected.card.instanceId)).toEqual(['card-2', 'card-1']);
   });
+
+  it('replaces the selection when shift click crosses source zones', () => {
+    const battlefieldCard = card('battlefield-card');
+    const handCard = card('hand-card');
+
+    service.toggleSelection(mouseEvent({ shiftKey: true }), 'player-1', 'battlefield', battlefieldCard);
+    const result = service.toggleSelection(mouseEvent({ shiftKey: true }), 'player-1', 'hand', handCard);
+
+    expect(result).toBe('replacedSource');
+    expect(service.selectedCards()).toEqual([{ playerId: 'player-1', zone: 'hand', card: handCard }]);
+  });
 });
 
 function mouseEvent(modifiers: Partial<Pick<MouseEvent, 'ctrlKey' | 'metaKey' | 'shiftKey'>> = {}): MouseEvent {

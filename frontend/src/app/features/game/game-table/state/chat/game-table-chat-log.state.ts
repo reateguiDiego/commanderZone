@@ -215,17 +215,23 @@ export class GameTableChatLogState {
       return null;
     }
 
-    const labelMatch = /(\d+ cards)/.exec(entry.message);
+    const labelMatch = /(\d+ (?:cards|cartas))/i.exec(entry.message);
     if (!labelMatch || labelMatch.index === undefined) {
       return null;
     }
 
     return {
       cardList,
-      label: labelMatch[1],
+      label: this.aggregateCardListLabel(labelMatch[1]),
       messagePrefix: entry.message.slice(0, labelMatch.index),
       messageSuffix: entry.message.slice(labelMatch.index + labelMatch[1].length),
     };
+  }
+
+  private aggregateCardListLabel(label: string): string {
+    const countMatch = /^(\d+)\s+(?:cards|cartas)$/i.exec(label.trim());
+
+    return countMatch ? `${countMatch[1]} cartas` : label;
   }
 
   private isPrivateLibraryDestinationLog(entry: GameLogEntry): boolean {

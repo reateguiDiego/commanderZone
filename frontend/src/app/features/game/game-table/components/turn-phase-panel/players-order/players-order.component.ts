@@ -13,6 +13,7 @@ import {
 import { gsap } from 'gsap';
 import { Flip } from 'gsap/Flip';
 import { PlayerView } from '../../../game-table.store';
+import { playerIsDefeated } from '../../../utils/game-player-defeat';
 
 gsap.registerPlugin(Flip);
 
@@ -44,7 +45,7 @@ export class PlayersOrderComponent implements OnChanges, OnDestroy {
   private preparedFlip: (() => void) | null = null;
 
   readonly entries = computed<PlayersOrderEntry[]>(() => {
-    const players = this.players();
+    const players = this.players().filter((player) => !playerIsDefeated(player));
     const activePlayerId = this.activePlayerId();
     const activeIndex = players.findIndex((player) => player.id === activePlayerId);
     const turnOrder = activeIndex >= 0
@@ -63,7 +64,7 @@ export class PlayersOrderComponent implements OnChanges, OnDestroy {
         title: this.playerTitle(name, turnDistance),
         isActive,
         isCurrent,
-        isDefeated: player.state.status === 'conceded' || player.state.life <= 0,
+        isDefeated: false,
       };
     });
   });

@@ -129,6 +129,14 @@ export interface GameplayErrorPayload {
   code: string;
   message: string;
   retryable: boolean;
+  conflict?: GameplayVersionConflict;
+}
+
+export interface GameplayVersionConflict {
+  commandBaseVersion: number;
+  currentVersion: number;
+  delta: number;
+  classification: 'concurrent_write' | 'stale_client';
 }
 
 export type GameSnapshotPatchOperation =
@@ -161,6 +169,13 @@ export type GameSnapshotPatchOperation =
         index?: number;
       };
       card?: GameCardInstance;
+      zoneCounts?: Partial<Record<GameZoneName, number>>;
+    }
+  | {
+      op: 'card.remove';
+      playerId: string;
+      zone: GameZoneName;
+      instanceId: string;
       zoneCounts?: Partial<Record<GameZoneName, number>>;
     }
   | {

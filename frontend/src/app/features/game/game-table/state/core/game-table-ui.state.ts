@@ -206,9 +206,11 @@ export class GameTableUiState {
     const edgeOffset = openUp
       ? Math.max(edgeGap, viewportHeight - clientY + clickGap)
       : Math.max(edgeGap, clientY + clickGap);
+    const prefersLeftOfPointer = viewportWidth > 0 && viewportWidth < width * 2;
+    const preferredX = prefersLeftOfPointer ? clientX - width - clickGap : clientX;
 
     return {
-      x: Math.max(edgeGap, Math.min(clientX, viewportWidth - width - edgeGap)),
+      x: Math.max(edgeGap, Math.min(preferredX, viewportWidth - width - edgeGap)),
       y: edgeOffset,
       verticalOrigin: openUp ? 'bottom' : 'top',
     };

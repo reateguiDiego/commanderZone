@@ -54,6 +54,22 @@ describe('PlayersOrderComponent', () => {
       'player-3',
     ]);
   });
+
+  it('hides defeated players from the turn order', async () => {
+    const fixture = await renderPlayersOrder({
+      activePlayerId: 'player-1',
+      currentPlayerId: 'player-1',
+      players: [
+        player('player-1', 'Alive'),
+        player('player-2', 'Dead', { life: 0 }),
+        player('player-3', 'Conceded', { status: 'conceded' }),
+      ],
+    });
+
+    const cards = orderCards(fixture);
+    expect(cards).toHaveLength(1);
+    expect(cards[0]?.dataset['playerId']).toBe('player-1');
+  });
 });
 
 async function renderPlayersOrder(options: {
@@ -84,7 +100,7 @@ function orderCards(fixture: ComponentFixture<PlayersOrderComponent>): HTMLEleme
   return Array.from(fixture.nativeElement.querySelectorAll('[data-testid="player-order-card"]'));
 }
 
-function player(id: string, displayName: string): PlayerView {
+function player(id: string, displayName: string, overrides: Partial<PlayerView['state']> = {}): PlayerView {
   return {
     id,
     state: {
@@ -100,6 +116,7 @@ function player(id: string, displayName: string): PlayerView {
         exile: [],
         command: [],
       },
+      ...overrides,
     },
   } as unknown as PlayerView;
 }

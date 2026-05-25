@@ -7,7 +7,7 @@ describe('GameTableChatLogState', () => {
 
     const [entry] = state.eventLogView(snapshot(), ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command']);
 
-    expect(entry?.cardListLabel).toBe('3 cards');
+    expect(entry?.cardListLabel).toBe('3 cartas');
     expect(entry?.cardListPrefix).toBe('Moved ');
     expect(entry?.cardListSuffix).toBe(' from battlefield to graveyard.');
     expect(entry?.cardList).toEqual(['Bear', 'Elf', 'Sol Ring']);
@@ -30,7 +30,7 @@ describe('GameTableChatLogState', () => {
     }, ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command']);
 
     expect(entry?.cardList).toEqual(['Bear', 'Elf', 'Sol Ring']);
-    expect(entry?.cardListLabel).toBe('3 cards');
+    expect(entry?.cardListLabel).toBe('3 cartas');
     expect(entry?.cardListPrefix).toBe('Moved ');
     expect(entry?.cardListSuffix).toBe(' from graveyard to library.');
   });

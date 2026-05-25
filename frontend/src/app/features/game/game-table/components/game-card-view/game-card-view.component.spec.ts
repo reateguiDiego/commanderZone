@@ -725,6 +725,27 @@ describe('GameCardViewComponent', () => {
     expect(toughnessElement.classList).toContain('stat-pulse-decrease');
     expect(toughnessElement.classList).not.toContain('stat-pulse-increase');
   });
+
+  it('does not render marker rails in mini mode', async () => {
+    await TestBed.configureTestingModule({
+      imports: [GameCardViewComponent],
+      providers: [importProvidersFrom(LucideAngularModule.pick({ Link, Layers3 }))],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(GameCardViewComponent);
+    fixture.componentRef.setInput('mode', 'mini');
+    fixture.componentRef.setInput('card', { ...gameCard(), counters: { red: 1 }, isTokenCopy: true });
+    fixture.componentRef.setInput('playerId', 'player-1');
+    fixture.componentRef.setInput('zone', 'battlefield');
+    fixture.componentRef.setInput('miniLeftPx', 0);
+    fixture.componentRef.setInput('miniTopPx', 0);
+    fixture.componentRef.setInput('miniWidthPx', 40);
+    fixture.componentRef.setInput('miniHeightPx', 56);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('[data-testid="mini-battlefield-card"]')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('app-card-marker-rail')).toBeNull();
+  });
 });
 
 async function renderHandCard(

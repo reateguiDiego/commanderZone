@@ -481,6 +481,42 @@ describe('GameTableComponent', () => {
     }
   });
 
+  it('keeps the header summary on the current player and shows a readonly focused battlefield owner summary', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    addOpponent(snapshot);
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.focusOpponentFromSidebar('user-2');
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const headerLife = fixture.nativeElement.querySelector('.player-strip [data-testid="focused-player-life"]') as HTMLElement;
+    const ownerSummary = fixture.nativeElement.querySelector('[data-testid="battlefield-owner-summary"]') as HTMLElement;
+    const ownerLife = ownerSummary.querySelector('[data-testid="focused-player-life"]') as HTMLElement;
+
+    expect(fixture.componentInstance.store.focusedPlayer()?.id).toBe('user-2');
+    expect(headerLife.dataset['playerId']).toBe('user-1');
+    expect(ownerSummary.textContent).toContain('Estas viendo a:');
+    expect(ownerSummary.textContent).toContain('Opponent');
+    expect(ownerLife.dataset['playerId']).toBe('user-2');
+    expect(ownerSummary.querySelector('[data-testid="life-decrease"]')).toBeNull();
+    expect(ownerSummary.querySelector('[data-testid="life-increase"]')).toBeNull();
+
+    (ownerSummary.querySelector('[data-testid="return-own-battlefield"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(fixture.componentInstance.store.focusedPlayer()?.id).toBe('user-1');
+    expect(fixture.nativeElement.querySelector('[data-testid="battlefield-owner-summary"]')).toBeNull();
+  });
+
   it('keeps battlefield double click tap logic and animates the rotation after the state update', async () => {
     const fixture = TestBed.createComponent(GameTableComponent);
     const motion = fixture.debugElement.injector.get(GameTableMotionService);
@@ -4019,7 +4055,7 @@ describe('GameTableComponent', () => {
     snapshot.players['user-1'].zones.hand = handCards;
     gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
     gameplayWebsocketCommand.mockReturnValue(of({
-      event: { id: 'event-play', type: 'card.moved', payload: {}, createdBy: 'user-1', createdAt: '' },
+      event: { id: 'event-play', type: 'cards.moved', payload: {}, createdBy: 'user-1', createdAt: '' },
       snapshot,
     }));
     const fixture = TestBed.createComponent(GameTableComponent);
@@ -4038,11 +4074,17 @@ describe('GameTableComponent', () => {
       { x: 111, y: 222 },
     );
 
-    const payloads = gameplayWebsocketCommand.mock.calls.map(([command]) => command.payload);
-    expect(payloads.map((payload) => payload.position)).toEqual([
-      { x: 0.141582, y: 0.620112, unit: 'ratio' },
-      { x: 0.141582, y: 0.620112, unit: 'ratio' },
-    ]);
+    expect(gameplayWebsocketCommand).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'cards.moved',
+      payload: {
+        playerId: 'user-1',
+        fromZone: 'hand',
+        toZone: 'battlefield',
+        targetPlayerId: 'user-1',
+        instanceIds: ['hand-1', 'hand-2'],
+        position: { x: 0.141582, y: 0.620112, unit: 'ratio' },
+      },
+    }), 'game-1');
   });
 
   it('marks turn changes with the phase log appearance', async () => {

@@ -83,12 +83,13 @@ export class GameTableCardStatsService {
       return;
     }
 
+    const key = this.powerToughnessKey(playerId, zone, card.instanceId);
+    const pendingChange = this.pendingChanges.get(key);
     const currentCard = context.findCard(playerId, zone, card.instanceId) ?? card;
-    const currentPower = currentCard.power ?? 0;
-    const currentToughness = currentCard.toughness ?? 0;
+    const currentPower = pendingChange?.power ?? currentCard.power ?? 0;
+    const currentToughness = pendingChange?.toughness ?? currentCard.toughness ?? 0;
     const nextPower = stat === 'power' ? currentPower + delta : currentPower;
     const nextToughness = stat === 'toughness' ? currentToughness + delta : currentToughness;
-    const key = this.powerToughnessKey(playerId, zone, card.instanceId);
 
     context.updateLocalCardPowerToughness(playerId, zone, card.instanceId, nextPower, nextToughness);
     this.pendingChanges.set(key, {

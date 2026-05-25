@@ -117,13 +117,15 @@ export class GameTableDropActionsService {
     }
 
     if (isMultiMove && toZone === 'battlefield' && targetPlayerId === dragged.playerId && payloadPosition) {
-      await this.moveMultipleCardsToBattlefieldPositions(
-        context,
-        dragged.playerId,
-        dragged.zone,
+      context.markPendingTransfer(dragged.playerId, dragged.zone, instanceIds);
+      await context.command('cards.moved', {
+        playerId: dragged.playerId,
+        fromZone: dragged.zone,
+        toZone,
+        targetPlayerId,
         instanceIds,
-        payloadPosition,
-      );
+        position: payloadPosition,
+      });
       await context.recordCommanderCastIfNeeded(dragged.playerId, dragged.zone, toZone, targetPlayerId);
       this.endCompletedDrag(context);
       return;
@@ -138,6 +140,13 @@ export class GameTableDropActionsService {
         payload,
       });
       context.endCardDrag();
+      return;
+    }
+
+    if (toZone === 'library' && movedCards.every((card) => this.evaporatesWhenMovedToLibrary(card))) {
+      context.markPendingTransfer(dragged.playerId, dragged.zone, instanceIds);
+      await context.command(isMultiMove ? 'cards.moved' : 'card.moved', payload);
+      this.endCompletedDrag(context);
       return;
     }
 
@@ -425,26 +434,6 @@ export class GameTableDropActionsService {
     return cards.length === instanceIds.length ? cards : null;
   }
 
-  private async moveMultipleCardsToBattlefieldPositions(
-    context: GameTableDropActionContext,
-    playerId: string,
-    fromZone: GameZoneName,
-    instanceIds: readonly string[],
-    position: GameCardPosition,
-  ): Promise<void> {
-    context.markPendingTransfer(playerId, fromZone, instanceIds);
-    for (const instanceId of instanceIds) {
-      await context.command('card.moved', {
-        playerId,
-        fromZone,
-        toZone: 'battlefield',
-        targetPlayerId: playerId,
-        instanceId,
-        position,
-      });
-    }
-  }
-
   private battlefieldRelationMove(
     context: GameTableDropActionContext,
     dragged: { playerId: string; zone: GameZoneName; instanceId: string; instanceIds: readonly string[] },
@@ -537,6 +526,10 @@ export class GameTableDropActionsService {
     context.endCardDrag();
     context.clearSelectedCards();
     context.suppressCardPreview();
+  }
+
+  private evaporatesWhenMovedToLibrary(card: GameCardInstance): boolean {
+    return card.isToken === true || card.isTokenCopy === true;
   }
 
   private isGameZone(value: unknown): value is GameZoneName {

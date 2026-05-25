@@ -389,16 +389,14 @@ export class GameTableHandState {
     if (toZone === 'battlefield' && position) {
       context.markPendingBattlefieldEntry(targetPlayerId, movedInstanceIds);
       context.moveLocalCardsFromHandToBattlefield(playerId, targetPlayerId, movedInstanceIds, position);
-      for (const instanceId of movedInstanceIds) {
-        await context.command('card.moved', {
-          playerId,
-          fromZone: 'hand',
-          toZone,
-          targetPlayerId,
-          instanceId,
-          position,
-        });
-      }
+      await context.command('cards.moved', {
+        playerId,
+        fromZone: 'hand',
+        toZone,
+        targetPlayerId,
+        instanceIds: movedInstanceIds,
+        position,
+      });
       context.clearSelectedCards();
       return;
     }

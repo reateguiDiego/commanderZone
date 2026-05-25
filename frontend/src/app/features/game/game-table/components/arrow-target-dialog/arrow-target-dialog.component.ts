@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import { PlayerView } from '../../game-table.store';
+import { playerIsDefeated } from '../../utils/game-player-defeat';
 
 export interface ArrowTargetDialogValue {
   readonly playerId: string;
@@ -19,6 +20,13 @@ export class ArrowTargetDialogComponent {
   readonly multipleTargets = input(false);
   readonly targetCount = input(1);
   readonly playerLabel = input.required<(player: PlayerView) => string>();
+  readonly availablePlayers = computed(() => this.players().filter((player) => !playerIsDefeated(player)));
+  readonly effectiveSelectedPlayerId = computed(() => {
+    const selectedPlayerId = this.selectedPlayerId();
+    return this.availablePlayers().some((player) => player.id === selectedPlayerId)
+      ? selectedPlayerId
+      : this.availablePlayers()[0]?.id ?? selectedPlayerId;
+  });
   readonly effectiveTargetCount = computed(() => this.normalizedTargetCount(this.multipleTargets(), this.targetCount()));
 
   readonly valueChanged = output<ArrowTargetDialogValue>();
@@ -30,16 +38,16 @@ export class ArrowTargetDialogComponent {
   }
 
   updateMultipleTargets(multipleTargets: boolean): void {
-    this.emitValue(this.selectedPlayerId(), multipleTargets, this.targetCount());
+    this.emitValue(this.effectiveSelectedPlayerId(), multipleTargets, this.targetCount());
   }
 
   updateTargetCount(value: string): void {
-    this.emitValue(this.selectedPlayerId(), this.multipleTargets(), Number(value));
+    this.emitValue(this.effectiveSelectedPlayerId(), this.multipleTargets(), Number(value));
   }
 
   confirm(): void {
     this.confirmed.emit({
-      playerId: this.selectedPlayerId(),
+      playerId: this.effectiveSelectedPlayerId(),
       multipleTargets: this.multipleTargets(),
       targetCount: this.effectiveTargetCount(),
     });

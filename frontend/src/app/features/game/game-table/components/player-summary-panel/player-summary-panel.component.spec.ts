@@ -250,13 +250,42 @@ describe('PlayerSummaryPanelComponent', () => {
     expect(commanderDamageChanged).not.toHaveBeenCalled();
     expect(playerCounterChanged).not.toHaveBeenCalled();
   });
+
+  it('renders optional battlefield context copy and emits the return action', () => {
+    const fixture = createFixture({
+      contextLabel: 'Estas viendo a:',
+      displayName: 'Nombre de jugador extremadamente largo',
+      returnActionLabel: 'Ir a tu battlefield',
+    });
+    const returnRequested = vi.fn();
+    fixture.componentInstance.returnRequested.subscribe(returnRequested);
+
+    const panel = fixture.nativeElement.querySelector('[data-testid="player-summary-panel"]') as HTMLElement;
+    const returnButton = fixture.nativeElement.querySelector('[data-testid="return-own-battlefield"]') as HTMLButtonElement;
+
+    expect(panel.textContent).toContain('Estas viendo a:');
+    expect(panel.classList).toContain('player-summary-panel-long-name');
+    expect(panel.querySelector('.player-deck-meta')?.textContent).toContain('Test deck');
+    expect(returnButton.textContent).toContain('Ir a tu battlefield');
+
+    returnButton.click();
+
+    expect(returnRequested).toHaveBeenCalledOnce();
+  });
 });
 
 function createFixture(
-  options: { canEditCounters?: boolean; counterValues?: Partial<Record<string, number>>; life?: number } = {},
+  options: {
+    canEditCounters?: boolean;
+    counterValues?: Partial<Record<string, number>>;
+    contextLabel?: string;
+    displayName?: string;
+    life?: number;
+    returnActionLabel?: string;
+  } = {},
 ): ComponentFixture<PlayerSummaryPanelComponent> {
   const fixture = TestBed.createComponent(PlayerSummaryPanelComponent);
-  const currentPlayer = player('player-1', 'Player', { commanderDamage: { 'player-2': 7 }, life: options.life });
+  const currentPlayer = player('player-1', options.displayName ?? 'Player', { commanderDamage: { 'player-2': 7 }, life: options.life });
   const opponent = player('player-2', 'Opponent', {
     command: [card('commander-1', 'Raggadragga, Goreguts Boss')],
   });
@@ -269,6 +298,8 @@ function createFixture(
     options.counterValues ? options.counterValues[key] ?? 0 : key === 'poison' ? 3 : 0
   ));
   fixture.componentRef.setInput('canEditCounters', options.canEditCounters ?? true);
+  fixture.componentRef.setInput('contextLabel', options.contextLabel ?? null);
+  fixture.componentRef.setInput('returnActionLabel', options.returnActionLabel ?? null);
   fixture.detectChanges();
 
   return fixture;
