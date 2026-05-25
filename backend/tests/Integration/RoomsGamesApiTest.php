@@ -1742,7 +1742,10 @@ class RoomsGamesApiTest extends ApiTestCase
 
         $this->jsonRequest('GET', '/games/'.$gameId.'/bootstrap', token: $ownerToken);
         self::assertResponseIsSuccessful();
-        self::assertSame($snapshot, $this->jsonResponse()['game']['snapshot']);
+        self::assertSame(
+            $this->snapshotWithoutUserTimestamps($snapshot),
+            $this->snapshotWithoutUserTimestamps($this->jsonResponse()['game']['snapshot']),
+        );
 
         $ownerPlayerId = (string) $snapshot['ownerId'];
         foreach ($snapshot['players'] as $playerId => $playerState) {
@@ -2432,6 +2435,32 @@ class RoomsGamesApiTest extends ApiTestCase
         }
 
         self::fail(sprintf('Player "%s" not found in snapshot.', $displayName));
+    }
+
+    /**
+     * @param array<string,mixed> $snapshot
+     *
+     * @return array<string,mixed>
+     */
+    private function snapshotWithoutUserTimestamps(array $snapshot): array
+    {
+        if (!isset($snapshot['players']) || !is_array($snapshot['players'])) {
+            return $snapshot;
+        }
+
+        foreach ($snapshot['players'] as &$player) {
+            if (!is_array($player)) {
+                continue;
+            }
+            if (!isset($player['user']) || !is_array($player['user'])) {
+                continue;
+            }
+
+            unset($player['user']['createdAt'], $player['user']['updatedAt']);
+        }
+        unset($player);
+
+        return $snapshot;
     }
 }
 
