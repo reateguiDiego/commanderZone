@@ -1,23 +1,47 @@
 <section class="number-action-backdrop" data-testid="number-action-dialog">
-  <form class="number-action-dialog" (click)="$event.stopPropagation()" (ngSubmit)="confirm()">
+  <form class="number-action-dialog" (click)="$event.stopPropagation()" (submit)="onSubmit($event)">
     <header>
       <h2>{{ title() }}</h2>
       <p>{{ description() }}</p>
     </header>
 
-    <input
-      type="number"
-      data-testid="number-action-input"
-      [attr.min]="min()"
-      [attr.max]="max()"
-      [value]="defaultValue()"
-      (input)="updateValue($any($event.target).value)"
-      autofocus
-    />
+    <div class="number-selector" data-testid="number-action-selector">
+      <input
+        type="number"
+        data-testid="number-action-input"
+        [attr.min]="min()"
+        [attr.max]="max()"
+        [value]="displayValue()"
+        (input)="updateValueFromInput($event)"
+        autofocus
+      />
+      <div class="number-stepper" aria-label="Adjust value">
+        <button
+          class="number-stepper-button"
+          type="button"
+          data-testid="number-action-increase"
+          aria-label="Increase value"
+          [disabled]="!canStepUp()"
+          (click)="step(1)"
+        >
+          <lucide-icon name="chevron-up" [size]="15" [strokeWidth]="2.7" />
+        </button>
+        <button
+          class="number-stepper-button"
+          type="button"
+          data-testid="number-action-decrease"
+          aria-label="Decrease value"
+          [disabled]="!canStepDown()"
+          (click)="step(-1)"
+        >
+          <lucide-icon name="chevron-down" [size]="15" [strokeWidth]="2.7" />
+        </button>
+      </div>
+    </div>
 
     <footer>
       <button type="button" data-testid="number-action-cancel" (click)="cancelled.emit()">{{ cancelLabel() }}</button>
-      <button type="submit" data-testid="number-action-confirm">{{ confirmLabel() }}</button>
+      <button class="primary-action" type="submit" data-testid="number-action-confirm">{{ confirmLabel() }}</button>
     </footer>
   </form>
 </section>

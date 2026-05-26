@@ -80,7 +80,8 @@ describe('GameTableLibraryTopState', () => {
       false,
       {
         allowReorder: true,
-        drawOrderLabels: ['Proximo robo', 'Segundo robo'],
+        drawOrderLabels: ['PROXIMO ROBO', 'SEGUNDO ROBO'],
+        viewTopCount: 2,
       },
     );
   });
@@ -96,7 +97,7 @@ describe('GameTableLibraryTopState', () => {
   });
 
   it('keeps the current draw order labels', () => {
-    expect(state.drawOrderLabels(4)).toEqual(['Proximo robo', 'Segundo robo', 'Tercer robo', '4 robo']);
+    expect(state.drawOrderLabels(4)).toEqual(['PROXIMO ROBO', 'SEGUNDO ROBO', 'TERCER ROBO', 'ROBO 4']);
   });
 });
 
@@ -156,7 +157,8 @@ function zoneModal(cards: GameCardInstance[]): ZoneModalState {
     readOnly: false,
     allowRandomSelect: false,
     allowReorder: true,
-    drawOrderLabels: ['Proximo robo', 'Segundo robo'],
+    drawOrderLabels: ['PROXIMO ROBO', 'SEGUNDO ROBO'],
+    viewTopCount: 2,
     selectedCard: cards[0] ?? null,
     loading: false,
   };

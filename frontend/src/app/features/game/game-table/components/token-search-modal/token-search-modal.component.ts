@@ -10,6 +10,14 @@ import { AppModalComponent } from '../../../../../shared/ui/app-modal/app-modal.
 import { PrettyScrollDirective } from '../../../../../shared/ui/pretty-scroll/pretty-scroll.directive';
 import { filterDistinctCardsByQuery, sanitizeCardSearchQuery } from '../../../../../shared/utils/card-search';
 
+export interface TokenSearchSelection {
+  readonly card: Card;
+  readonly quantity: number;
+}
+
+const MIN_TOKEN_QUANTITY = 1;
+const MAX_TOKEN_QUANTITY = 20;
+
 @Component({
   selector: 'app-token-search-modal',
   imports: [FormsModule, LucideAngularModule, AppModalComponent, PrettyScrollDirective],
@@ -27,6 +35,7 @@ export class TokenSearchModalComponent implements OnChanges, OnDestroy {
   readonly loadingDeck = signal(false);
   readonly searching = signal(false);
   readonly error = signal<string | null>(null);
+  readonly quantity = signal(MIN_TOKEN_QUANTITY);
   readonly showingSearchResults = computed(() => this.query().trim().length >= 2);
   readonly deckTokenCards = computed(() => {
     const seen = new Set<string>();
@@ -50,7 +59,7 @@ export class TokenSearchModalComponent implements OnChanges, OnDestroy {
   @Input() deckId: string | null = null;
   @Input() pending = false;
 
-  @Output() tokenSelected = new EventEmitter<Card>();
+  @Output() tokenSelected = new EventEmitter<TokenSearchSelection>();
   @Output() closed = new EventEmitter<void>();
 
   private searchTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -105,7 +114,19 @@ export class TokenSearchModalComponent implements OnChanges, OnDestroy {
       return;
     }
 
-    this.tokenSelected.emit(card);
+    this.tokenSelected.emit({ card, quantity: this.quantity() });
+  }
+
+  onQuantityInput(value: string | number): void {
+    this.quantity.set(this.normalizedQuantity(value));
+  }
+
+  adjustQuantity(delta: number): void {
+    if (this.pending) {
+      return;
+    }
+
+    this.quantity.set(this.normalizedQuantity(this.quantity() + delta));
   }
 
   close(): void {
@@ -191,6 +212,7 @@ export class TokenSearchModalComponent implements OnChanges, OnDestroy {
     this.searchResults.set([]);
     this.searching.set(false);
     this.error.set(null);
+    this.quantity.set(MIN_TOKEN_QUANTITY);
     this.clearSearchTimeout();
   }
 
@@ -201,5 +223,14 @@ export class TokenSearchModalComponent implements OnChanges, OnDestroy {
 
     clearTimeout(this.searchTimeout);
     this.searchTimeout = null;
+  }
+
+  private normalizedQuantity(value: string | number): number {
+    const parsed = typeof value === 'number' ? value : Number.parseInt(value, 10);
+    if (!Number.isFinite(parsed)) {
+      return MIN_TOKEN_QUANTITY;
+    }
+
+    return Math.max(MIN_TOKEN_QUANTITY, Math.min(MAX_TOKEN_QUANTITY, parsed));
   }
 }

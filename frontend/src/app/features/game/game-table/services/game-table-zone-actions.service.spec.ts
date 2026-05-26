@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { of } from 'rxjs';
 import { GamesApi } from '../../../../core/api/games.api';
-import { GameSnapshot, GameZoneName } from '../../../../core/models/game.model';
+import { GameCardInstance, GameSnapshot, GameZoneName } from '../../../../core/models/game.model';
 import { GameTableZoneModalState } from '../state/zones/game-table-zone-modal.state';
 import { GameTableZoneActionsService } from './game-table-zone-actions.service';
 
@@ -24,6 +24,21 @@ describe('GameTableZoneActionsService', () => {
 
     expect(gamesApi.zone).toHaveBeenCalledWith('game-1', 'player-1', 'exile', { type: '', search: '', limit: 200 });
     expect(state.zoneModal()?.zone).toBe('exile');
+  });
+
+  it('preserves fixed reorder slots when replacing top-library modal cards', () => {
+    const { service, state } = setup();
+    const cards = [card('card-1'), card('card-2'), card('card-3')];
+    service.openFixedZone('player-1', 'library', 'Top 3', cards, 'card-1', false, {
+      allowReorder: true,
+      drawOrderLabels: ['PROXIMO ROBO', 'SEGUNDO ROBO', 'TERCER ROBO'],
+    });
+
+    service.replaceZoneModalCards([cards[1]!, cards[2]!]);
+
+    expect(state.zoneModal()?.cards.map((entry) => entry.instanceId)).toEqual(['card-2', 'card-3']);
+    expect(state.zoneModal()?.total).toBe(3);
+    expect(state.zoneModal()?.drawOrderLabels).toEqual(['PROXIMO ROBO', 'SEGUNDO ROBO', 'TERCER ROBO']);
   });
 });
 
@@ -104,5 +119,14 @@ function snapshotWithZoneCount(zone: Extract<GameZoneName, 'graveyard' | 'exile'
     chat: [],
     eventLog: [],
     createdAt: '2026-05-14T00:00:00Z',
+  };
+}
+
+function card(instanceId: string): GameCardInstance {
+  return {
+    instanceId,
+    name: instanceId,
+    zone: 'library',
+    tapped: false,
   };
 }

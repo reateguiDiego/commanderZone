@@ -2,8 +2,10 @@
 
 namespace App\UI\Http;
 
+use App\Application\Card\CardLocalizationService;
 use App\Application\Card\CardResolver;
 use App\Domain\Card\Card;
+use App\Domain\Localization\LanguageCatalog;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\RedirectResponse;
@@ -18,8 +20,13 @@ class CardsController extends ApiController
     private const IMAGE_MODES = ['uri', 'redirect', 'binary'];
 
     #[Route('/cards/search', methods: ['GET'])]
-    public function search(Request $request, EntityManagerInterface $entityManager): JsonResponse
+    public function search(Request $request, EntityManagerInterface $entityManager, CardLocalizationService $localization): JsonResponse
     {
+        $requestedLanguage = $this->requestedLanguage($request);
+        if ($requestedLanguage === false) {
+            return $this->fail('lang filter is invalid.');
+        }
+
         $query = Card::normalizeName((string) $request->query->get('q', ''));
         $page = max(1, (int) $request->query->get('page', 1));
         $limit = min(500, max(1, (int) $request->query->get('limit', 25)));
@@ -111,20 +118,26 @@ SQL;
                 $cards[] = $cardsById[$id]->toArray();
             }
         }
+        $cards = $localization->localizeCardPayloads($cards, $requestedLanguage);
 
         return $this->json(['data' => $cards, 'page' => $page, 'limit' => $limit]);
     }
 
     #[Route('/cards/resolve', methods: ['GET'])]
-    public function resolve(Request $request, CardResolver $resolver): JsonResponse
+    public function resolve(Request $request, CardResolver $resolver, CardLocalizationService $localization): JsonResponse
     {
+        $requestedLanguage = $this->requestedLanguage($request);
+        if ($requestedLanguage === false) {
+            return $this->fail('lang filter is invalid.');
+        }
+
         $matches = $resolver->resolveCandidates([
             'scryfallId' => $request->query->get('scryfallId'),
             'name' => $request->query->get('name'),
             'setCode' => $request->query->get('setCode'),
             'collectorNumber' => $request->query->get('collectorNumber'),
             'flavorName' => $request->query->get('flavorName'),
-        ]);
+        ], $requestedLanguage);
 
         if ($matches === []) {
             return $this->fail('Card not found.', 404);
@@ -132,11 +145,14 @@ SQL;
 
         if (count($matches) > 1) {
             return $this->fail('Card resolution is ambiguous.', 409, [
-                'matches' => array_map(static fn (Card $card) => $card->toArray(), $matches),
+                'matches' => array_map(
+                    fn (Card $card): array => $localization->localizeCard($card, $requestedLanguage)->toArray(),
+                    $matches,
+                ),
             ]);
         }
 
-        return $this->json(['card' => $matches[0]->toArray()]);
+        return $this->json(['card' => $localization->localizeCard($matches[0], $requestedLanguage)->toArray()]);
     }
 
     #[Route('/cards/{scryfallId}/image', methods: ['GET'])]
@@ -193,14 +209,19 @@ SQL;
     }
 
     #[Route('/cards/{scryfallId}', methods: ['GET'])]
-    public function show(string $scryfallId, EntityManagerInterface $entityManager): JsonResponse
+    public function show(string $scryfallId, Request $request, EntityManagerInterface $entityManager, CardLocalizationService $localization): JsonResponse
     {
+        $requestedLanguage = $this->requestedLanguage($request);
+        if ($requestedLanguage === false) {
+            return $this->fail('lang filter is invalid.');
+        }
+
         $card = $entityManager->getRepository(Card::class)->findOneBy(['scryfallId' => $scryfallId]);
         if (!$card instanceof Card) {
             return $this->fail('Card not found.', 404);
         }
 
-        return $this->json(['card' => $card->toArray()]);
+        return $this->json(['card' => $localization->localizeCard($card, $requestedLanguage)->toArray()]);
     }
 
     private function isAllowedImageUri(string $uri): bool
@@ -208,5 +229,19 @@ SQL;
         $host = parse_url($uri, PHP_URL_HOST);
 
         return is_string($host) && (str_ends_with($host, '.scryfall.io') || $host === 'scryfall.io');
+    }
+
+    private function requestedLanguage(Request $request): string|false|null
+    {
+        if (!$request->query->has('lang')) {
+            return null;
+        }
+
+        $requestedLanguage = LanguageCatalog::normalize($request->query->get('lang'));
+        if (!LanguageCatalog::isSupported($requestedLanguage)) {
+            return false;
+        }
+
+        return $requestedLanguage;
     }
 }

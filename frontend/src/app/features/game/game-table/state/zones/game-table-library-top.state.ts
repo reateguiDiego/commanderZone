@@ -22,13 +22,14 @@ export class GameTableLibraryTopState {
 
   async viewTopLibrary(playerId: string, count: number): Promise<void> {
     const sanitizedCount = Number.isFinite(count) ? Math.max(1, Math.floor(count)) : 1;
+    await this.libraryActions.view(this.contextStore.libraryAction(), playerId, sanitizedCount);
+
     const cards = this.visibleLibraryCards(playerId).slice(0, sanitizedCount);
     if (cards.length === 0) {
       this.core.error.set(`No cards in ${this.zonePilesState.zoneTitle('library').toLowerCase()}.`);
       return;
     }
 
-    await this.libraryActions.view(this.contextStore.libraryAction(), playerId, sanitizedCount);
     this.zoneActions.openFixedZone(
       playerId,
       'library',
@@ -39,6 +40,7 @@ export class GameTableLibraryTopState {
       {
         allowReorder: true,
         drawOrderLabels: this.drawOrderLabels(cards.length),
+        viewTopCount: sanitizedCount,
       },
     );
   }
@@ -61,16 +63,16 @@ export class GameTableLibraryTopState {
   drawOrderLabels(count: number): readonly string[] {
     return Array.from({ length: count }, (_unused, index) => {
       if (index === 0) {
-        return 'Proximo robo';
+        return 'PROXIMO ROBO';
       }
       if (index === 1) {
-        return 'Segundo robo';
+        return 'SEGUNDO ROBO';
       }
       if (index === 2) {
-        return 'Tercer robo';
+        return 'TERCER ROBO';
       }
 
-      return `${index + 1} robo`;
+      return `ROBO ${index + 1}`;
     });
   }
 

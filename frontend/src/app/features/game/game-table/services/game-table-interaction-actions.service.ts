@@ -125,7 +125,11 @@ export class GameTableInteractionActionsService {
     playerId: string,
     zone: GameZoneName,
     card: GameCardInstance,
-    options: { suppressRandomSelect?: boolean } = {},
+    options: {
+      suppressRandomSelect?: boolean;
+      sourceRect?: GameContextMenu['sourceRect'];
+      menuPosition?: { x: number; y: number };
+    } = {},
   ): void {
     this.prepareContextMenuEvent(event);
     if (zone === 'command') {
@@ -136,7 +140,20 @@ export class GameTableInteractionActionsService {
       return;
     }
 
-    this.uiState.openContextMenu(event, { playerId, zone, card, kind: 'card', ...options });
+    const target = {
+      playerId,
+      zone,
+      card,
+      kind: 'card' as const,
+      suppressRandomSelect: options.suppressRandomSelect,
+      sourceRect: options.sourceRect,
+    };
+    if (options.menuPosition) {
+      this.uiState.openContextMenuAt(options.menuPosition, target);
+      return;
+    }
+
+    this.uiState.openContextMenu(event, target);
   }
 
   openZoneMenu(context: GameTableInteractionContext, event: MouseEvent, playerId: string, zone: GameZoneName): void {

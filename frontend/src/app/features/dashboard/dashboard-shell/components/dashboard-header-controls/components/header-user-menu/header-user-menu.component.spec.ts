@@ -1,13 +1,34 @@
 import { importProvidersFrom } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { signal } from '@angular/core';
 import { Check, ChevronRight, LogOut, LucideAngularModule, Maximize2, Menu, Settings } from 'lucide-angular';
+import { LanguagePreferencesService } from '../../../../../../../core/localization/language-preferences.service';
 import { HeaderUserMenuComponent } from './header-user-menu.component';
 
 describe('HeaderUserMenuComponent', () => {
+  const languageSignal = signal<'en' | 'fr' | 'es' | 'de' | 'it' | 'ja' | 'zhs' | 'pt' | 'ru' | 'ko' | 'zht' | 'nl' | 'ca'>('en');
+  const updateCardLanguage = vi.fn(async (code: 'en' | 'fr' | 'es' | 'de' | 'it' | 'ja' | 'zhs' | 'pt' | 'ru' | 'ko' | 'zht' | 'nl' | 'ca') => {
+    languageSignal.set(code);
+  });
+
   beforeEach(async () => {
+    languageSignal.set('en');
+    updateCardLanguage.mockReset();
+    updateCardLanguage.mockImplementation(async (code: 'en' | 'fr' | 'es' | 'de' | 'it' | 'ja' | 'zhs' | 'pt' | 'ru' | 'ko' | 'zht' | 'nl' | 'ca') => {
+      languageSignal.set(code);
+    });
     await TestBed.configureTestingModule({
       imports: [HeaderUserMenuComponent],
-      providers: [importProvidersFrom(LucideAngularModule.pick({ Check, ChevronRight, LogOut, Maximize2, Menu, Settings }))],
+      providers: [
+        importProvidersFrom(LucideAngularModule.pick({ Check, ChevronRight, LogOut, Maximize2, Menu, Settings })),
+        {
+          provide: LanguagePreferencesService,
+          useValue: {
+            cardLanguage: languageSignal.asReadonly(),
+            updateCardLanguage,
+          } satisfies Pick<LanguagePreferencesService, 'cardLanguage' | 'updateCardLanguage'>,
+        },
+      ],
     }).compileComponents();
   });
 
@@ -55,7 +76,7 @@ describe('HeaderUserMenuComponent', () => {
     expect(fixture.nativeElement.querySelector('.header-menu-panel')).toBeNull();
   });
 
-  it('updates selected language from the language picker', () => {
+  it('updates selected language from the language picker', async () => {
     const fixture = TestBed.createComponent(HeaderUserMenuComponent);
     fixture.detectChanges();
 
@@ -78,8 +99,9 @@ describe('HeaderUserMenuComponent', () => {
       .find((button) => button.textContent?.includes('Frances')) as HTMLButtonElement;
     frenchButton.click();
     fixture.detectChanges();
+    await Promise.resolve();
 
-    expect(fixture.componentInstance.selectedLanguage()).toBe('fr');
+    expect(updateCardLanguage).toHaveBeenCalledWith('fr');
     expect(
       (fixture.nativeElement.querySelector('.menu-item-flag') as HTMLImageElement)?.getAttribute('src'),
     ).toContain('france.png');

@@ -33,6 +33,11 @@ export interface GameTableCardActionContext {
   command(type: GameCommandType, payload: Record<string, unknown>): Promise<void>;
 }
 
+type LibraryTopViewSourceContext = {
+  readonly type: 'libraryTopView';
+  readonly count: number;
+};
+
 @Injectable()
 export class GameTableCardActionsService {
   async playCard(context: GameTableCardActionContext, playerId: string, zone: GameZoneName, card: GameCardInstance): Promise<void> {
@@ -121,6 +126,7 @@ export class GameTableCardActionsService {
       fromZone: target.zone,
       toZone,
       instanceId: target.card.instanceId,
+      ...this.viewedLibrarySourcePayload(context, target.playerId, target.card),
       ...(options.position ? { position: options.position } : {}),
     };
 
@@ -136,7 +142,7 @@ export class GameTableCardActionsService {
 
     await context.command('card.moved', payload);
     await context.recordCommanderCastIfNeeded(target.playerId, target.zone, toZone);
-    this.removeMovedLibraryCardFromFixedModal(context, menu, toZone, options.position);
+    this.removeCardFromFixedLibraryModal(context, target.playerId, target.card.instanceId);
     context.clearSelectedCards();
     context.closeContextMenu();
   }
@@ -151,15 +157,24 @@ export class GameTableCardActionsService {
       return;
     }
 
+    const sourcePayload = this.viewedLibrarySourcePayload(context, menu.playerId, menu.card);
+    const shouldRemoveFromFixedModal = sourcePayload.sourceContext !== undefined;
+
     await context.command('card.moved', {
       playerId: menu.playerId,
       fromZone: 'library',
       toZone: 'hand',
       instanceId: menu.card.instanceId,
       reveal,
+      ...sourcePayload,
     });
     context.clearSelectedCards();
     context.closeContextMenu();
+    if (shouldRemoveFromFixedModal) {
+      this.removeCardFromFixedLibraryModal(context, menu.playerId, menu.card.instanceId);
+      return;
+    }
+
     if (context.zoneModal()?.playerId === menu.playerId && context.zoneModal()?.zone === 'library') {
       await context.loadZone();
     }
@@ -446,31 +461,48 @@ export class GameTableCardActionsService {
     context.closeContextMenu();
   }
 
-  private removeMovedLibraryCardFromFixedModal(
+  private viewedLibrarySourcePayload(
     context: GameTableCardActionContext,
-    menu: GameContextMenu,
-    toZone: GameZoneName,
-    position: 'top' | 'bottom' | undefined,
-  ): void {
+    playerId: string,
+    card: GameCardInstance,
+  ): { readonly sourceContext?: LibraryTopViewSourceContext } {
     const modal = context.zoneModal();
     if (
-      menu.zone !== 'library'
-      || toZone !== 'library'
-      || position !== 'bottom'
-      || !menu.card
-      || !modal
-      || modal.zone !== 'library'
-      || modal.playerId !== menu.playerId
-      || modal.showFilters
+      !this.isFixedViewedLibraryCard(modal, playerId, card.instanceId)
     ) {
+      return {};
+    }
+
+    return {
+      sourceContext: {
+        type: 'libraryTopView',
+        count: Math.max(1, Math.floor(modal.viewTopCount ?? modal.total)),
+      },
+    };
+  }
+
+  private removeCardFromFixedLibraryModal(
+    context: GameTableCardActionContext,
+    playerId: string,
+    instanceId: string,
+  ): void {
+    const modal = context.zoneModal();
+    if (!this.isFixedViewedLibraryCard(modal, playerId, instanceId)) {
       return;
     }
 
-    const movedInstanceId = menu.card.instanceId;
-    context.replaceZoneModalCards(modal.cards.filter((card) => card.instanceId !== movedInstanceId));
+    context.replaceZoneModalCards(modal.cards.filter((card) => card.instanceId !== instanceId));
   }
 
-  async createToken(context: GameTableCardActionContext, playerId: string, card: Card | null = null): Promise<void> {
+  private isFixedViewedLibraryCard(modal: ZoneModalState | null, playerId: string, instanceId: string): modal is ZoneModalState {
+    return !!modal
+      && modal.zone === 'library'
+      && modal.playerId === playerId
+      && !modal.showFilters
+      && modal.cards.some((card) => card.instanceId === instanceId);
+  }
+
+  async createToken(context: GameTableCardActionContext, playerId: string, card: Card | null = null, quantity = 1): Promise<void> {
     if (!context.canControlPlayer(playerId)) {
       context.setError('You can only create tokens on your own battlefield.');
       context.closeContextMenu();
@@ -479,6 +511,7 @@ export class GameTableCardActionsService {
 
     await context.command('card.token.created', {
       playerId,
+      quantity,
       ...(card ? { card: this.tokenCardPayload(card) } : {}),
     });
     context.closeContextMenu();
@@ -618,8 +651,14 @@ export class GameTableCardActionsService {
       fromZone: modal.zone,
       toZone,
       instanceId: card.instanceId,
+      ...this.viewedLibrarySourcePayload(context, modal.playerId, card),
     });
     await context.recordCommanderCastIfNeeded(modal.playerId, modal.zone, toZone);
+    if (this.isFixedViewedLibraryCard(context.zoneModal(), modal.playerId, card.instanceId)) {
+      this.removeCardFromFixedLibraryModal(context, modal.playerId, card.instanceId);
+      return;
+    }
+
     await context.loadZone();
   }
 

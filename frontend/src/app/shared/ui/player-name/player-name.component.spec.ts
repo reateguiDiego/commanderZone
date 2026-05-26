@@ -51,6 +51,7 @@ describe('PlayerNameComponent', () => {
     const name = fixture.nativeElement.querySelector('.player-name-shell') as HTMLElement;
     expect(name.classList.contains('name-length-ultra')).toBe(true);
     expect(name.style.getPropertyValue('--player-name-auto-font-size')).toBe('0.44rem');
+    expect(name.style.getPropertyValue('--player-name-plain-font-size')).toBe('0.72rem');
     expect(name.getAttribute('title')).toBe('CommanderZonePilotName25');
   });
 

@@ -2,6 +2,7 @@
 
 namespace App\Domain\User;
 
+use App\Domain\Localization\LanguageCatalog;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
@@ -71,6 +72,12 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
     #[ORM\Column(type: 'string', length: 7, nullable: true)]
     private ?string $avatarInitialTextColor = null;
+
+    #[ORM\Column(type: 'string', length: 8)]
+    private string $cardLanguage = LanguageCatalog::DEFAULT_LANGUAGE;
+
+    #[ORM\Column(type: 'string', length: 8)]
+    private string $appLanguage = LanguageCatalog::DEFAULT_LANGUAGE;
 
     public function __construct(string $email, string $displayName)
     {
@@ -272,6 +279,36 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $style;
     }
 
+    public function cardLanguage(): string
+    {
+        return $this->cardLanguage;
+    }
+
+    public function appLanguage(): string
+    {
+        return $this->appLanguage;
+    }
+
+    public function updateCardLanguage(string $language): void
+    {
+        if (!LanguageCatalog::isSupported($language)) {
+            throw new \InvalidArgumentException('Unsupported card language.');
+        }
+
+        $this->cardLanguage = $language;
+        $this->touch();
+    }
+
+    public function updateAppLanguage(string $language): void
+    {
+        if (!LanguageCatalog::isSupported($language)) {
+            throw new \InvalidArgumentException('Unsupported app language.');
+        }
+
+        $this->appLanguage = $language;
+        $this->touch();
+    }
+
     public function toArray(): array
     {
         return [
@@ -281,6 +318,10 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
             'pendingEmail' => $this->pendingEmail,
             'displayName' => $this->displayName,
             'displayNameStyle' => $this->displayNameStyle(),
+            'preferences' => [
+                'cardLanguage' => $this->cardLanguage,
+                'appLanguage' => $this->appLanguage,
+            ],
             'roles' => $this->getRoles(),
             'avatar' => $this->avatar(),
             'createdAt' => $this->createdAt->format(DATE_ATOM),

@@ -204,4 +204,67 @@ class CardApiTest extends ApiTestCase
         self::assertSame(500, $this->jsonResponse()['limit']);
         self::assertNotEmpty($this->jsonResponse()['data']);
     }
+
+    public function testCardEndpointsSupportLanguageSelectionAndFallbacks(): void
+    {
+        $englishPrint = $this->seedCard('00000000-0000-0000-0000-000000000051', 'Sol Ring', [
+            'set' => 'tst',
+            'collector_number' => '51',
+            'lang' => 'en',
+            'printed_name' => null,
+            'image_uris' => ['normal' => 'https://cards.scryfall.io/sol-ring-en.jpg'],
+        ]);
+        $spanishPrint = $this->seedCard('00000000-0000-0000-0000-000000000052', 'Sol Ring', [
+            'set' => 'tst',
+            'collector_number' => '51',
+            'lang' => 'es',
+            'printed_name' => 'Anillo solar',
+            'image_uris' => ['normal' => 'https://cards.scryfall.io/sol-ring-es.jpg'],
+        ]);
+        $japaneseOnlyPrint = $this->seedCard('00000000-0000-0000-0000-000000000053', 'Dark Ritual', [
+            'set' => 'tst',
+            'collector_number' => '53',
+            'lang' => 'ja',
+            'printed_name' => 'Dark Ritual JA',
+            'image_uris' => ['normal' => 'https://cards.scryfall.io/dark-ritual-ja.jpg'],
+        ]);
+
+        $this->jsonRequest('GET', '/cards/search?q=sol%20ring&lang=es&limit=5');
+        self::assertResponseIsSuccessful();
+        self::assertSame($spanishPrint->scryfallId(), $this->jsonResponse()['data'][0]['scryfallId']);
+        self::assertSame('Anillo solar', $this->jsonResponse()['data'][0]['printedName']);
+
+        $this->jsonRequest('GET', '/cards/resolve?setCode=tst&collectorNumber=51&lang=es');
+        self::assertResponseIsSuccessful();
+        self::assertSame($spanishPrint->scryfallId(), $this->jsonResponse()['card']['scryfallId']);
+
+        $this->jsonRequest('GET', '/cards/'.$englishPrint->scryfallId().'?lang=es');
+        self::assertResponseIsSuccessful();
+        self::assertSame($spanishPrint->scryfallId(), $this->jsonResponse()['card']['scryfallId']);
+
+        $this->jsonRequest('GET', '/cards/'.$spanishPrint->scryfallId().'?lang=ru');
+        self::assertResponseIsSuccessful();
+        self::assertSame($englishPrint->scryfallId(), $this->jsonResponse()['card']['scryfallId']);
+
+        $this->jsonRequest('GET', '/cards/'.$japaneseOnlyPrint->scryfallId().'?lang=fr');
+        self::assertResponseIsSuccessful();
+        self::assertSame($japaneseOnlyPrint->scryfallId(), $this->jsonResponse()['card']['scryfallId']);
+    }
+
+    public function testCardEndpointsRejectInvalidLanguageFilters(): void
+    {
+        $card = $this->seedCard('00000000-0000-0000-0000-000000000061', 'Swords to Plowshares');
+
+        $this->jsonRequest('GET', '/cards/search?q=swords&lang=zz');
+        self::assertResponseStatusCodeSame(400);
+        self::assertSame('lang filter is invalid.', $this->jsonResponse()['error']);
+
+        $this->jsonRequest('GET', '/cards/resolve?scryfallId='.$card->scryfallId().'&lang=zz');
+        self::assertResponseStatusCodeSame(400);
+        self::assertSame('lang filter is invalid.', $this->jsonResponse()['error']);
+
+        $this->jsonRequest('GET', '/cards/'.$card->scryfallId().'?lang=zz');
+        self::assertResponseStatusCodeSame(400);
+        self::assertSame('lang filter is invalid.', $this->jsonResponse()['error']);
+    }
 }

@@ -111,6 +111,30 @@ function fontSizeForLength(length: number): string {
   return '0.92rem';
 }
 
+function plainFontSizeForLength(length: number): string {
+  if (length >= 23) {
+    return '0.72rem';
+  }
+
+  if (length >= 19) {
+    return '0.82rem';
+  }
+
+  if (length >= 15) {
+    return '0.96rem';
+  }
+
+  if (length >= 11) {
+    return '1.12rem';
+  }
+
+  if (length >= 7) {
+    return '1.28rem';
+  }
+
+  return '1.56rem';
+}
+
 @Component({
   selector: 'app-player-name',
   imports: [],
@@ -142,6 +166,7 @@ export class PlayerNameComponent {
   readonly plateMetrics = computed(() => PLATE_METRICS[this.resolvedPlateSize()]);
   readonly lengthClass = computed<PlayerNameLengthClass>(() => lengthClass(this.labelLength()));
   readonly nameplateFontSize = computed(() => fontSizeForLength(this.labelLength()));
+  readonly plainFontSize = computed(() => plainFontSizeForLength(this.labelLength()));
   readonly plateWidthValue = computed(() => this.plateWidth()?.trim() || this.plateMetrics().width);
   readonly plateHeightValue = computed(() => this.plateHeight()?.trim() || this.plateMetrics().height);
   readonly plateLabelWidthValue = computed(() => this.plateLabelWidth()?.trim() || this.plateMetrics().labelWidth);

@@ -269,6 +269,12 @@ paths:
                 email:
                   type: string
                   format: email
+                cardLanguage:
+                  type: string
+                  enum: [en, fr, de, it, es, ja, zhs, pt, ru, ko, zht, nl, ca]
+                appLanguage:
+                  type: string
+                  enum: [en, fr, de, it, es, ja, zhs, pt, ru, ko, zht, nl, ca]
       responses:
         '200':
           description: Updated user.
@@ -633,6 +639,12 @@ paths:
           description: When true, restricts results to token cards in the local catalog.
           schema:
             type: boolean
+        - name: lang
+          in: query
+          description: Preferred card language. Falls back to English, then to the original printing.
+          schema:
+            type: string
+            enum: [en, fr, de, it, es, ja, zhs, pt, ru, ko, zht, nl, ca]
       responses:
         '200':
           description: Card search results.
@@ -679,6 +691,12 @@ paths:
           in: query
           schema:
             type: string
+        - name: lang
+          in: query
+          description: Preferred card language. Falls back to English, then to the original printing.
+          schema:
+            type: string
+            enum: [en, fr, de, it, es, ja, zhs, pt, ru, ko, zht, nl, ca]
       responses:
         '200':
           description: Resolved card.
@@ -713,6 +731,12 @@ paths:
       summary: Get a card by Scryfall id.
       parameters:
         - $ref: '#/components/parameters/ScryfallId'
+        - name: lang
+          in: query
+          description: Preferred card language. Falls back to English, then to the original printing.
+          schema:
+            type: string
+            enum: [en, fr, de, it, es, ja, zhs, pt, ru, ko, zht, nl, ca]
       responses:
         '200':
           description: Card detail.
@@ -2757,7 +2781,7 @@ components:
           pattern: '^#[0-9a-fA-F]{6}$'
     User:
       type: object
-      required: [id, email, emailVerified, pendingEmail, displayName, displayNameStyle, roles, avatar, createdAt, updatedAt]
+      required: [id, email, emailVerified, pendingEmail, displayName, displayNameStyle, preferences, roles, avatar, createdAt, updatedAt]
       properties:
         id:
           type: string
@@ -2775,6 +2799,8 @@ components:
           maxLength: 25
         displayNameStyle:
           $ref: '#/components/schemas/UserDisplayNameStyle'
+        preferences:
+          $ref: '#/components/schemas/UserPreferences'
         roles:
           type: array
           items:
@@ -2787,6 +2813,16 @@ components:
         updatedAt:
           type: string
           format: date-time
+    UserPreferences:
+      type: object
+      required: [cardLanguage, appLanguage]
+      properties:
+        cardLanguage:
+          type: string
+          enum: [en, fr, de, it, es, ja, zhs, pt, ru, ko, zht, nl, ca]
+        appLanguage:
+          type: string
+          enum: [en, fr, de, it, es, ja, zhs, pt, ru, ko, zht, nl, ca]
     FriendUser:
       type: object
       required: [id, displayName]
@@ -4618,8 +4654,9 @@ components:
             reveal flag and does not move cards.
             card.token.created creates the selected token payload on the actor
             player's battlefield, or a generic 1/1 token when no card payload is
-            provided. cards.position.changed persists multiple battlefield card
-            positions atomically with payload shape { playerId, zone:
+            provided. It may include quantity from 1 to 20 to create multiple
+            token instances atomically in one command. cards.position.changed
+            persists multiple battlefield card positions atomically with payload shape { playerId, zone:
             battlefield, positions: [{ instanceId, position }] }.
           additionalProperties: true
         clientActionId:

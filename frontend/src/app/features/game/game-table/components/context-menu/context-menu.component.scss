@@ -73,14 +73,6 @@
   gap: 0.62rem;
 }
 
-.menu-item-label > span:last-child {
-  text-transform: lowercase;
-}
-
-.menu-item-label > span:last-child::first-letter {
-  text-transform: uppercase;
-}
-
 .menu-item-label lucide-icon {
   flex: 0 0 auto;
   color: var(--game-accent, #d7b46a);

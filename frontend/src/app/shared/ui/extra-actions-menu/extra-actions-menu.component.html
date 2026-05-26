@@ -7,6 +7,7 @@
   [class.align-left]="align() === 'left'"
   [class.align-center]="align() === 'center'"
   [class.align-right]="align() === 'right'"
+  [class.viewport-safe]="viewportSafe()"
 >
   <button
     type="button"
@@ -26,6 +27,10 @@
       class="extra-actions-panel"
       role="menu"
       [attr.aria-label]="menuLabel()"
+      [style.left.px]="viewportPanelStyle()?.left"
+      [style.top.px]="viewportPanelStyle()?.top"
+      [style.width.px]="viewportPanelStyle()?.width"
+      [style.max-height]="viewportPanelMaxHeight()"
       (click)="stopMenuClick($event)"
       (contextmenu)="stopMenuContextMenu($event)"
     >

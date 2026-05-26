@@ -6,6 +6,8 @@ import { catchError, debounceTime, distinctUntilChanged, firstValueFrom, map, of
 import { AuthApi, AvatarUpdatePayload, DisplayNameStyleUpdatePayload } from '../../../../../../../core/api/auth.api';
 import { appImageUrl } from '../../../../../../../core/assets/app-image-url';
 import { AuthStore } from '../../../../../../../core/auth/auth.store';
+import { isSupportedLanguageCode, LANGUAGE_OPTIONS, normalizeLanguageCode, SupportedLanguageCode } from '../../../../../../../core/localization/language-preferences';
+import { LanguagePreferencesService } from '../../../../../../../core/localization/language-preferences.service';
 import { UserAvatar, UserDisplayNameStyle } from '../../../../../../../core/models/user.model';
 import { AppModalComponent } from '../../../../../../../shared/ui/app-modal/app-modal.component';
 import { PlayerNameComponent } from '../../../../../../../shared/ui/player-name/player-name.component';
@@ -20,6 +22,8 @@ type AvatarTierTab = 'basic' | 'premium';
 interface ProfileSnapshot {
   readonly email: string;
   readonly displayName: string;
+  readonly cardLanguage: SupportedLanguageCode;
+  readonly appLanguage: SupportedLanguageCode;
 }
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -46,6 +50,7 @@ const DEFAULT_INITIAL_TEXT_COLOR = '#16120a';
 export class DashboardSettingsModalComponent {
   private readonly authStore = inject(AuthStore);
   private readonly authApi = inject(AuthApi);
+  private readonly languagePreferences = inject(LanguagePreferencesService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly formBuilder = inject(NonNullableFormBuilder);
   private wasOpen = false;
@@ -68,7 +73,15 @@ export class DashboardSettingsModalComponent {
   readonly avatarUploadOpen = signal(false);
   readonly avatarEditorTier = signal<AvatarTierTab>('basic');
   readonly displayNameStyleEditorOpen = signal(false);
-  readonly profileBaseline = signal<ProfileSnapshot>({ email: '', displayName: '' });
+  readonly profileBaseline = signal<ProfileSnapshot>({
+    email: '',
+    displayName: '',
+    cardLanguage: 'en',
+    appLanguage: 'en',
+  });
+  readonly languageOptions = LANGUAGE_OPTIONS;
+  readonly selectedCardLanguage = signal<SupportedLanguageCode>('en');
+  readonly selectedAppLanguage = signal<SupportedLanguageCode>('en');
 
   readonly profileForm = this.formBuilder.group({
     email: ['', [Validators.required, Validators.pattern(EMAIL_PATTERN)]],
@@ -82,7 +95,10 @@ export class DashboardSettingsModalComponent {
     const formValue = this.profileFormValue();
     const email = formValue.email.trim().toLowerCase();
     const displayName = formValue.displayName.trim();
-    return email !== baseline.email.toLowerCase() || displayName !== baseline.displayName;
+    return email !== baseline.email.toLowerCase()
+      || displayName !== baseline.displayName
+      || this.selectedCardLanguage() !== baseline.cardLanguage
+      || this.selectedAppLanguage() !== baseline.appLanguage;
   });
 
   readonly canSave = computed(() => {
@@ -212,15 +228,23 @@ export class DashboardSettingsModalComponent {
       return;
     }
 
-    const payload: { email?: string; displayName?: string } = {};
+    const payload: { email?: string; displayName?: string; cardLanguage?: SupportedLanguageCode; appLanguage?: SupportedLanguageCode } = {};
     const nextEmail = this.profileForm.controls.email.value.trim();
     const nextDisplayName = this.profileForm.controls.displayName.value.trim();
+    const nextCardLanguage = this.selectedCardLanguage();
+    const nextAppLanguage = this.selectedAppLanguage();
 
     if (this.emailChanged()) {
       payload.email = nextEmail;
     }
     if (this.displayNameChanged()) {
       payload.displayName = nextDisplayName;
+    }
+    if (nextCardLanguage !== this.profileBaseline().cardLanguage) {
+      payload.cardLanguage = nextCardLanguage;
+    }
+    if (nextAppLanguage !== this.profileBaseline().appLanguage) {
+      payload.appLanguage = nextAppLanguage;
     }
 
     this.saveInProgress.set(true);
@@ -230,7 +254,12 @@ export class DashboardSettingsModalComponent {
     try {
       await firstValueFrom(this.authApi.updateMe(payload));
       await this.authStore.loadMe();
-      this.profileBaseline.set({ email: nextEmail, displayName: nextDisplayName });
+      this.profileBaseline.set({
+        email: nextEmail,
+        displayName: nextDisplayName,
+        cardLanguage: nextCardLanguage,
+        appLanguage: nextAppLanguage,
+      });
       this.profileForm.markAsPristine();
       this.emailAvailability.set('idle');
       this.userNameAvailability.set('idle');
@@ -320,19 +349,41 @@ export class DashboardSettingsModalComponent {
 
   private initializeForm(): void {
     const user = this.authStore.user();
+    const cardLanguage = normalizeLanguageCode(user?.preferences?.cardLanguage ?? this.languagePreferences.cardLanguage());
+    const appLanguage = normalizeLanguageCode(user?.preferences?.appLanguage ?? this.languagePreferences.appLanguage());
     const baseline = {
       email: user?.email ?? '',
       displayName: user?.displayName ?? '',
+      cardLanguage,
+      appLanguage,
     } satisfies ProfileSnapshot;
 
     this.profileBaseline.set(baseline);
-    this.profileForm.setValue(baseline);
+    this.selectedCardLanguage.set(cardLanguage);
+    this.selectedAppLanguage.set(appLanguage);
+    this.profileForm.setValue({ email: baseline.email, displayName: baseline.displayName });
     this.profileForm.markAsPristine();
     this.profileForm.markAsUntouched();
     this.profileFormValue.set(this.profileForm.getRawValue());
     this.profileFormValid.set(this.profileForm.valid);
     this.activeTab.set('general');
     this.resetLocalState();
+  }
+
+  setCardLanguage(language: string): void {
+    if (!isSupportedLanguageCode(language)) {
+      return;
+    }
+
+    this.selectedCardLanguage.set(language);
+  }
+
+  setAppLanguage(language: string): void {
+    if (!isSupportedLanguageCode(language)) {
+      return;
+    }
+
+    this.selectedAppLanguage.set(language);
   }
 
   private resetLocalState(): void {

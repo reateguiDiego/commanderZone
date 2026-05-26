@@ -13,6 +13,7 @@ class GameCommandHandler
     private const ZONES = ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command'];
     private const HIDDEN_ZONES = ['library', 'hand'];
     private const MAX_CARD_COUNTER_TYPES = 5;
+    private const MAX_TOKEN_CREATE_QUANTITY = 20;
     private const COMMANDER_DAMAGE_DEFEAT_THRESHOLD = 21;
     private const POSITION_UNIT_RATIO = 'ratio';
     private const TOKEN_COPY_LEGACY_OFFSET_X = 132;
@@ -695,6 +696,13 @@ class GameCommandHandler
             );
         }
 
+        $libraryTopViewMessage = $fromZone === 'library'
+            ? $this->libraryTopViewMoveMessage($payload, $toZone)
+            : null;
+        if ($libraryTopViewMessage !== null) {
+            return $libraryTopViewMessage;
+        }
+
         if ($fromZone === 'library' && $toZone === 'hand') {
             if (($payload['reveal'] ?? false) === true) {
                 return sprintf(
@@ -723,6 +731,30 @@ class GameCommandHandler
         }
 
         return sprintf('Moved %s from %s to %s.', $this->cardLogName($card), $fromZone, $toZone);
+    }
+
+    private function libraryTopViewMoveMessage(array $payload, string $toZone): ?string
+    {
+        $sourceContext = $payload['sourceContext'] ?? null;
+        if (!is_array($sourceContext) || ($sourceContext['type'] ?? null) !== 'libraryTopView') {
+            return null;
+        }
+
+        $count = (int) ($sourceContext['count'] ?? 0);
+        if ($count < 1) {
+            return null;
+        }
+
+        $destination = $toZone === 'library'
+            ? $this->libraryDestinationLabel($payload)
+            : $toZone;
+
+        return sprintf(
+            'Moved a card from the viewed top %d library %s to %s.',
+            $count,
+            $count === 1 ? 'card' : 'cards',
+            $destination,
+        );
     }
 
     private function applyCardsMoved(array &$snapshot, array $payload): string
@@ -945,27 +977,34 @@ class GameCommandHandler
         $card = is_array($payload['card'] ?? null) ? $payload['card'] : [];
         $hasCardPayload = $card !== [];
         $name = $this->visualName($card['name'] ?? $payload['name'] ?? null, 'Token');
-        $token = $this->normalizeCard([
-            ...$card,
-            'instanceId' => Uuid::v7()->toRfc4122(),
-            'ownerId' => $playerId,
-            'controllerId' => $playerId,
-            'name' => $name,
-            'typeLine' => $card['typeLine'] ?? 'Token Creature',
-            'power' => $card['power'] ?? ($hasCardPayload ? null : 1),
-            'toughness' => $card['toughness'] ?? ($hasCardPayload ? null : 1),
-            'defaultPower' => $card['power'] ?? ($hasCardPayload ? null : 1),
-            'defaultToughness' => $card['toughness'] ?? ($hasCardPayload ? null : 1),
-            'tapped' => false,
-            'position' => $this->battlefieldCenterPosition(),
-            'zone' => 'battlefield',
-            'isToken' => true,
-            'isTokenCopy' => false,
-            'isCommander' => false,
-        ], $playerId, 'battlefield');
-        $snapshot['players'][$playerId]['zones']['battlefield'][] = $token;
+        $quantity = $this->positiveInt($payload['quantity'] ?? 1, 1, self::MAX_TOKEN_CREATE_QUANTITY);
+        $tokens = [];
+        for ($index = 0; $index < $quantity; $index++) {
+            $tokens[] = $this->normalizeCard([
+                ...$card,
+                'instanceId' => Uuid::v7()->toRfc4122(),
+                'ownerId' => $playerId,
+                'controllerId' => $playerId,
+                'name' => $name,
+                'typeLine' => $card['typeLine'] ?? 'Token Creature',
+                'power' => $card['power'] ?? ($hasCardPayload ? null : 1),
+                'toughness' => $card['toughness'] ?? ($hasCardPayload ? null : 1),
+                'defaultPower' => $card['power'] ?? ($hasCardPayload ? null : 1),
+                'defaultToughness' => $card['toughness'] ?? ($hasCardPayload ? null : 1),
+                'tapped' => false,
+                'position' => $this->tokenPosition($index, $quantity),
+                'zone' => 'battlefield',
+                'isToken' => true,
+                'isTokenCopy' => false,
+                'isCommander' => false,
+            ], $playerId, 'battlefield');
+        }
 
-        return sprintf('Created %s.', $this->cardBaseName($token));
+        array_push($snapshot['players'][$playerId]['zones']['battlefield'], ...$tokens);
+
+        return $quantity === 1
+            ? sprintf('Created %s.', $this->cardBaseName($tokens[0]))
+            : sprintf('Created %d %s.', $quantity, $this->pluralCardName($this->cardBaseName($tokens[0])));
     }
 
     private function applyControllerChanged(array &$snapshot, array $payload): string
@@ -1299,7 +1338,7 @@ class GameCommandHandler
 
         return $count === null
             ? 'ha mirado el orden de su library.'
-            : sprintf('ha mirado sus proximas %d cartas de library.', $count);
+            : sprintf('ha mirado sus proximos %d robos en library.', $count);
     }
 
     private function applyLibraryPlayTopRevealed(array &$snapshot, array $payload): string
@@ -1356,7 +1395,7 @@ class GameCommandHandler
         $reorderedTop = array_map(static fn (string $id): array => $topById[$id], $requestedIds);
         $library = array_values([...$reorderedTop, ...array_slice($library, $count)]);
 
-        return sprintf('ha cambiado el orden de sus proximos %d robos.', $count);
+        return sprintf('ha alterado el orden de sus proximos %d robos.', $count);
     }
 
     private function takeTopLibraryCard(array &$snapshot, string $playerId): ?array
@@ -1897,6 +1936,11 @@ class GameCommandHandler
         return $name === '' ? 'Unknown card' : $name;
     }
 
+    private function pluralCardName(string $name): string
+    {
+        return str_ends_with($name, 's') ? $name : $name.'s';
+    }
+
     private function zoneLogName(string $zone): string
     {
         return match ($zone) {
@@ -2017,11 +2061,34 @@ class GameCommandHandler
     }
 
     /**
-     * @return array{x:int,y:int}
+     * @return array{x:float,y:float,unit:string}
      */
     private function battlefieldCenterPosition(): array
     {
         return ['x' => 0.5, 'y' => 0.5, 'unit' => self::POSITION_UNIT_RATIO];
+    }
+
+    /**
+     * @return array{x:float,y:float,unit:string}
+     */
+    private function tokenPosition(int $index, int $quantity): array
+    {
+        if ($quantity <= 1) {
+            return $this->battlefieldCenterPosition();
+        }
+
+        $column = $index % 5;
+        $row = intdiv($index, 5);
+        $columns = min($quantity, 5);
+        $rows = (int) ceil($quantity / 5);
+        $x = 0.5 + ($column - (($columns - 1) / 2)) * 0.028;
+        $y = 0.5 + ($row - (($rows - 1) / 2)) * 0.04;
+
+        return [
+            'x' => max(0.08, min(0.92, $x)),
+            'y' => max(0.12, min(0.88, $y)),
+            'unit' => self::POSITION_UNIT_RATIO,
+        ];
     }
 
     private function resetMutableStats(array &$card): void
