@@ -45,15 +45,52 @@
           } @else {
             <span class="token-card-fallback">{{ card.name }}</span>
           }
-          <button
-            class="token-add-button"
-            type="button"
-            [disabled]="pending"
-            [attr.aria-label]="'Create ' + card.name"
-            (click)="selectToken(card)"
-          >
-            <lucide-icon name="plus" size="22" aria-hidden="true" />
-          </button>
+          <div class="token-add-controls" aria-label="Token creation controls">
+            <span class="token-quantity-stepper">
+              <label class="token-quantity-field">
+                <span aria-hidden="true">x</span>
+                <input
+                  type="number"
+                  inputmode="numeric"
+                  min="1"
+                  max="20"
+                  [disabled]="pending"
+                  [attr.aria-label]="'Quantity for ' + card.name"
+                  [ngModel]="quantity()"
+                  (ngModelChange)="onQuantityInput($event)"
+                />
+              </label>
+              <span class="token-quantity-arrows">
+                <button
+                  type="button"
+                  class="token-quantity-button"
+                  [disabled]="pending || quantity() >= 20"
+                  [attr.aria-label]="'Increase token quantity for ' + card.name"
+                  (click)="adjustQuantity(1)"
+                >
+                  <span class="token-quantity-arrow token-quantity-arrow-up" aria-hidden="true"></span>
+                </button>
+                <button
+                  type="button"
+                  class="token-quantity-button"
+                  [disabled]="pending || quantity() <= 1"
+                  [attr.aria-label]="'Reduce token quantity for ' + card.name"
+                  (click)="adjustQuantity(-1)"
+                >
+                  <span class="token-quantity-arrow token-quantity-arrow-down" aria-hidden="true"></span>
+                </button>
+              </span>
+            </span>
+            <button
+              class="token-add-button"
+              type="button"
+              [disabled]="pending"
+              [attr.aria-label]="'Create ' + quantity() + ' ' + card.name"
+              (click)="selectToken(card)"
+            >
+              <lucide-icon name="plus" size="22" aria-hidden="true" />
+            </button>
+          </div>
           <span class="token-card-copy">
             <strong>{{ card.name }}</strong>
             @if (sourceLabel(card); as source) {

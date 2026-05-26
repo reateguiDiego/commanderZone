@@ -1,11 +1,17 @@
+import { importProvidersFrom } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { ChevronDown, ChevronUp, LucideAngularModule } from 'lucide-angular';
 import { NumberActionDialogComponent } from './number-action-dialog.component';
 
 describe('NumberActionDialogComponent', () => {
-  it('emits the numeric value from a native form submit', async () => {
+  beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [NumberActionDialogComponent],
+      providers: [importProvidersFrom(LucideAngularModule.pick({ ChevronDown, ChevronUp }))],
     }).compileComponents();
+  });
+
+  it('emits the numeric value from a native form submit', async () => {
     const fixture = createFixture();
     const confirmed = vi.fn();
     fixture.componentInstance.confirmed.subscribe(confirmed);
@@ -22,6 +28,33 @@ describe('NumberActionDialogComponent', () => {
 
     expect(confirmed).toHaveBeenCalledWith(3);
     expect(submitEvent.defaultPrevented).toBe(true);
+  });
+
+  it('adjusts the value with premium stepper buttons and keeps the confirm action primary', () => {
+    const fixture = createFixture();
+    fixture.componentRef.setInput('min', 1);
+    fixture.componentRef.setInput('max', 3);
+    fixture.componentRef.setInput('defaultValue', 2);
+    fixture.detectChanges();
+
+    const input = fixture.nativeElement.querySelector('[data-testid="number-action-input"]') as HTMLInputElement;
+    const increase = fixture.nativeElement.querySelector('[data-testid="number-action-increase"]') as HTMLButtonElement;
+    const decrease = fixture.nativeElement.querySelector('[data-testid="number-action-decrease"]') as HTMLButtonElement;
+    const confirm = fixture.nativeElement.querySelector('[data-testid="number-action-confirm"]') as HTMLButtonElement;
+
+    expect(confirm.classList.contains('primary-action')).toBe(true);
+
+    increase.click();
+    fixture.detectChanges();
+
+    expect(input.value).toBe('3');
+    expect(increase.disabled).toBe(true);
+
+    decrease.click();
+    fixture.detectChanges();
+
+    expect(input.value).toBe('2');
+    expect(increase.disabled).toBe(false);
   });
 });
 

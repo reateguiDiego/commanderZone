@@ -15,6 +15,7 @@ export interface ZoneModalState {
   allowRandomSelect: boolean;
   allowReorder: boolean;
   drawOrderLabels: readonly string[];
+  viewTopCount: number | null;
   selectedCard: GameCardInstance | null;
   loading: boolean;
 }
@@ -38,6 +39,7 @@ export class GameTableZoneModalState {
       allowRandomSelect: true,
       allowReorder: false,
       drawOrderLabels: [],
+      viewTopCount: null,
       selectedCard: null,
       loading: true,
     });
@@ -50,7 +52,7 @@ export class GameTableZoneModalState {
     cards: GameCardInstance[],
     selectedCardId: string | null = null,
     allowRandomSelect = false,
-    options: { allowReorder?: boolean; drawOrderLabels?: readonly string[] } = {},
+    options: { allowReorder?: boolean; drawOrderLabels?: readonly string[]; viewTopCount?: number | null } = {},
   ): void {
     this.zoneModal.set({
       playerId,
@@ -66,6 +68,7 @@ export class GameTableZoneModalState {
       allowRandomSelect,
       allowReorder: options.allowReorder === true,
       drawOrderLabels: options.drawOrderLabels ?? [],
+      viewTopCount: options.viewTopCount ?? null,
       selectedCard: cards.find((card) => card.instanceId === selectedCardId) ?? cards[0] ?? null,
       loading: false,
     });
@@ -120,12 +123,16 @@ export class GameTableZoneModalState {
       return;
     }
 
+    const fixedSlotCount = modal.allowReorder
+      ? Math.max(modal.total, modal.drawOrderLabels.length, cards.length)
+      : cards.length;
+
     this.zoneModal.set({
       ...modal,
       cards,
-      total: cards.length,
+      total: fixedSlotCount,
       selectedCard: cards.find((card) => card.instanceId === modal.selectedCardId) ?? cards[0] ?? null,
-      drawOrderLabels: modal.drawOrderLabels.slice(0, cards.length),
+      drawOrderLabels: modal.allowReorder ? modal.drawOrderLabels : modal.drawOrderLabels.slice(0, cards.length),
     });
   }
 

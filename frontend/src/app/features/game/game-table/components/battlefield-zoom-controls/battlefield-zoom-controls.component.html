@@ -17,6 +17,11 @@
         data-testid="battlefield-zoom-default-mark"
         [style.--zoom-current-position]="currentZoomPosition()"
         [style.--zoom-default-position]="defaultZoomPosition()"
+        (pointerdown)="startSliderDrag($event)"
+        (pointermove)="moveSliderDrag($event)"
+        (pointerup)="endSliderDrag($event)"
+        (pointercancel)="endSliderDrag($event)"
+        (lostpointercapture)="cancelSliderDrag()"
       >
         <span class="zoom-track" aria-hidden="true">
           <span class="zoom-default-mark"></span>

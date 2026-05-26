@@ -100,21 +100,21 @@ describe('ContextMenuComponent', () => {
     const buttons = menuButtons(fixture);
 
     expect(buttonLabels(fixture)).toEqual([
-      'Refresh Snapshot',
-      'Focus My Board',
+      'Refresh snapshot',
+      'Focus my board',
       'Abrir debug',
       'Concede',
-      'Leave Table',
+      'Leave table',
     ]);
     expect(buttons[3]?.classList).toContain('danger-menu-item');
     expect(buttons[4]?.classList).toContain('danger-menu-item');
     expect((fixture.nativeElement as HTMLElement).querySelector('lucide-icon[name="skull"]')).not.toBeNull();
     expect((fixture.nativeElement as HTMLElement).querySelector('lucide-icon[name="bug"]')).not.toBeNull();
     expect((fixture.nativeElement as HTMLElement).querySelectorAll('lucide-icon')).toHaveLength(5);
-    expect(text).not.toContain('Copy Game Id');
-    expect(text).not.toContain('Draw 7 Mine');
-    expect(text).not.toContain('Open Chat');
-    expect(text).not.toContain('Shuffle Mine');
+    expect(text).not.toContain('Copy game id');
+    expect(text).not.toContain('Draw 7 mine');
+    expect(text).not.toContain('Open chat');
+    expect(text).not.toContain('Shuffle mine');
   });
 
   it('does not expose concede in the game menu after the current player has conceded', () => {
@@ -127,10 +127,10 @@ describe('ContextMenuComponent', () => {
     });
 
     expect(buttonLabels(fixture)).toEqual([
-      'Refresh Snapshot',
-      'Focus My Board',
+      'Refresh snapshot',
+      'Focus my board',
       'Abrir debug',
-      'Leave Table',
+      'Leave table',
     ]);
     expect(menuButtons(fixture)[3]?.classList).toContain('danger-menu-item');
   });
@@ -162,7 +162,7 @@ describe('ContextMenuComponent', () => {
       canControlPlayer: () => false,
     });
 
-    expect(menuText(fixture)).toContain('Focus Player');
+    expect(menuText(fixture)).toContain('Focus player');
     expect(menuText(fixture)).not.toContain('Life -1');
     expect(menuText(fixture)).not.toContain('Life +1');
   });
@@ -176,8 +176,8 @@ describe('ContextMenuComponent', () => {
       zoneCardCount: () => 2,
     });
 
-    expect(menuText(graveyardMenu)).toContain('Move All To');
-    expect(menuText(graveyardMenu)).not.toContain('Move All To Exile');
+    expect(menuText(graveyardMenu)).toContain('Move all to');
+    expect(menuText(graveyardMenu)).not.toContain('Move all to exile');
     graveyardMenu.componentInstance.toggleSubmenu(new MouseEvent('click'), 'moveAllTo');
     graveyardMenu.detectChanges();
 
@@ -207,8 +207,8 @@ describe('ContextMenuComponent', () => {
       zoneCardCount: () => 0,
     });
 
-    expect(menuText(emptyExileMenu)).not.toContain('Move All To Graveyard');
-    expect(menuText(emptyExileMenu)).not.toContain('Move All To Exile');
+    expect(menuText(emptyExileMenu)).not.toContain('Move all to graveyard');
+    expect(menuText(emptyExileMenu)).not.toContain('Move all to exile');
   });
 
   it('emits move-all targets from the shared graveyard and exile submenu', () => {
@@ -236,9 +236,9 @@ describe('ContextMenuComponent', () => {
     const selected = vi.fn();
     fixture.componentInstance.actionSelected.subscribe(selected);
 
-    expect(buttonLabels(fixture)).toEqual(['Create Token', 'Tirar dado']);
+    expect(buttonLabels(fixture)).toEqual(['Create token', 'Tirar dado']);
     expect(menuText(fixture)).not.toContain('View');
-    expect(menuText(fixture)).not.toContain('Move All');
+    expect(menuText(fixture)).not.toContain('Move all');
 
     const button = (fixture.nativeElement as HTMLElement).querySelector('button') as HTMLButtonElement;
     button.click();
@@ -273,12 +273,12 @@ describe('ContextMenuComponent', () => {
     });
 
     expect(menuText(libraryMenu)).not.toContain('Reveal');
-    expect(menuText(libraryMenu)).not.toContain('Select Random Card');
-    expect(menuText(libraryMenu)).not.toContain('Make A Token Copy');
-    expect(menuText(graveyardMenu)).toContain('Make A Token Copy');
-    expect(menuText(graveyardMenu)).toContain('Select Random Card');
-    expect(menuText(exileMenu)).toContain('Make A Token Copy');
-    expect(menuText(exileMenu)).toContain('Select Random Card');
+    expect(menuText(libraryMenu)).not.toContain('Select random card');
+    expect(menuText(libraryMenu)).not.toContain('Make a token copy');
+    expect(menuText(graveyardMenu)).toContain('Make a token copy');
+    expect(menuText(graveyardMenu)).toContain('Select random card');
+    expect(menuText(exileMenu)).toContain('Make a token copy');
+    expect(menuText(exileMenu)).toContain('Select random card');
     expect(menuText(graveyardMenu)).not.toContain('Reveal');
     expect(menuText(exileMenu)).not.toContain('Reveal');
   });
@@ -293,11 +293,11 @@ describe('ContextMenuComponent', () => {
     const text = menuText(fixture);
 
     expect(text).toContain('Reveal');
-    expect(text).toContain('Make A Token Copy');
-    expect(text).toContain('Play Face Down');
-    expect(text).toContain('Give To');
-    expect(text).toContain('Select Random Card');
-    expect(text).not.toContain('Add To Stack');
+    expect(text).toContain('Make a token copy');
+    expect(text).toContain('Play face down');
+    expect(text).toContain('Give to');
+    expect(text).toContain('Select random card');
+    expect(text).not.toContain('Add to stack');
     fixture.componentInstance.toggleSubmenu(new MouseEvent('click'), 'giveToPlayer');
     fixture.detectChanges();
     const giveText = menuText(fixture);
@@ -315,9 +315,9 @@ describe('ContextMenuComponent', () => {
     expect(revealText).toContain('User');
     expect(revealText).toContain('Opponent');
     expect((fixture.nativeElement as HTMLElement).querySelector('.submenu.direction-up')).not.toBeNull();
-    expect(text).not.toContain('Tap / Untap');
+    expect(text).not.toContain('Tap / untap');
     expect(text).not.toContain('Power/Toughness');
-    expect(text).not.toContain('Move To Hand');
+    expect(text).not.toContain('Move to hand');
   });
 
   it('reveals hand cards to a selected player from the reveal submenu', () => {
@@ -346,7 +346,7 @@ describe('ContextMenuComponent', () => {
     fixture.componentInstance.actionSelected.subscribe(selected);
 
     const playFaceDown = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button'))
-      .find((button) => button.textContent?.includes('Play Face Down'));
+      .find((button) => button.textContent?.includes('Play face down'));
     playFaceDown?.click();
     fixture.componentInstance.selectGiveToPlayer('user-2');
 
@@ -364,7 +364,7 @@ describe('ContextMenuComponent', () => {
     fixture.componentInstance.actionSelected.subscribe(selected);
 
     const button = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button'))
-      .find((candidate) => candidate.textContent?.includes('Select Random Card'));
+      .find((candidate) => candidate.textContent?.includes('Select random card'));
     button?.click();
 
     expect(selected).toHaveBeenCalledWith({ type: 'selectRandomCard' });
@@ -379,7 +379,7 @@ describe('ContextMenuComponent', () => {
       suppressRandomSelect: true,
     });
 
-    expect(menuText(fixture)).not.toContain('Select Random Card');
+    expect(menuText(fixture)).not.toContain('Select random card');
   });
 
   it('exposes the requested library menu structure and emits nested actions', () => {
@@ -392,14 +392,14 @@ describe('ContextMenuComponent', () => {
     fixture.componentInstance.actionSelected.subscribe(selected);
 
     expect(buttonLabels(fixture)).toEqual([
-      'Draw Card D',
-      'Draw X Cards',
-      'Move Top›',
-      'Reveal Top Card›',
-      'Reveal Library›',
-      'Play With Top Card Revealed',
+      'Draw card D',
+      'Draw X cards',
+      'Move top›',
+      'Reveal top card›',
+      'Reveal library›',
+      'Play with top card revealed',
       'Shuffle S',
-      'Select Random Card',
+      'Select random card',
       'View›',
     ]);
 
@@ -409,7 +409,7 @@ describe('ContextMenuComponent', () => {
     expect((fixture.nativeElement as HTMLElement).querySelector('.submenu.direction-up')).not.toBeNull();
     expect((fixture.nativeElement as HTMLElement).querySelector('.submenu.side-left')).toBeNull();
     expect((fixture.nativeElement as HTMLElement).querySelector('.submenu.child-side-left')).toBeNull();
-    expect(menuText(fixture)).toContain('X to bottom library');
+    expect(menuText(fixture)).toContain('X to bottom of library');
     expect(menuText(fixture)).toContain('X to hand player');
     fixture.componentInstance.selectLibraryMoveTop('zone:library');
     fixture.componentInstance.selectLibraryMoveTop('hand:user-2');
@@ -420,7 +420,7 @@ describe('ContextMenuComponent', () => {
     fixture.componentInstance.toggleSubmenu(new MouseEvent('click'), 'libraryReveal');
     fixture.componentInstance.selectLibraryRevealTarget('user-2');
     const playTopButton = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button'))
-      .find((button) => button.textContent?.includes('Play With Top Card Revealed'));
+      .find((button) => button.textContent?.includes('Play with top card revealed'));
     playTopButton?.click();
     fixture.componentInstance.selectLibraryView('top');
     fixture.componentInstance.selectLibraryView('all');
@@ -445,8 +445,8 @@ describe('ContextMenuComponent', () => {
     const text = menuText(fixture);
 
     expect(text).toContain('Tap');
-    expect(text).toContain('Turn Face Down');
-    expect(text).toContain('Power/Toughness');
+    expect(text).toContain('Turn face down');
+    expect(text).toContain('power/toughness');
     expect(text).toContain('Counters');
     fixture.componentInstance.toggleSubmenu(new MouseEvent('click'), 'counters');
     fixture.detectChanges();
@@ -586,7 +586,7 @@ describe('ContextMenuComponent', () => {
     fixture.componentInstance.toggleSubmenu(new MouseEvent('click'), 'moveTo');
     fixture.detectChanges();
 
-    expect(menuText(fixture)).toContain('Bottom Library');
+    expect(menuText(fixture)).toContain('Bottom of library');
 
     fixture.componentInstance.selectMoveTo('library:bottom');
 
@@ -605,7 +605,7 @@ describe('ContextMenuComponent', () => {
     const commanderText = menuText(tappedCommander);
 
     expect(commanderText).toContain('Untap');
-    expect(commanderText).toContain('Turn Face Up');
+    expect(commanderText).toContain('Turn face up');
     const commanderMoveIcon = Array.from((tappedCommander.nativeElement as HTMLElement).querySelectorAll('img'))
       .find((image) => image.getAttribute('src')?.includes('/assets/icons/CZ/CZ_logo_zone_header.png'));
     expect(commanderMoveIcon).not.toBeUndefined();
@@ -644,10 +644,10 @@ describe('ContextMenuComponent', () => {
     fixture.componentInstance.actionSelected.subscribe(selected);
 
     const button = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button'))
-      .find((candidate) => candidate.textContent?.includes('Remove Power/Toughness'));
+      .find((candidate) => candidate.textContent?.includes('Remove power/toughness'));
     button?.click();
 
-    expect(menuText(fixture)).toContain('Remove Power/Toughness');
+    expect(menuText(fixture)).toContain('Remove power/toughness');
     expect(selected).toHaveBeenCalledWith({ type: 'clearPowerToughness' });
   });
 
@@ -659,7 +659,7 @@ describe('ContextMenuComponent', () => {
       card: { ...card('creature-1'), power: 2, toughness: 2, defaultPower: 2, defaultToughness: 2 },
     });
 
-    expect(menuText(fixture)).not.toContain('Remove Power/Toughness');
+    expect(menuText(fixture)).not.toContain('Remove power/toughness');
   });
 
   it('shows a compact delete action for arrow menus', () => {
@@ -673,10 +673,10 @@ describe('ContextMenuComponent', () => {
     fixture.componentInstance.actionSelected.subscribe(selected);
 
     const button = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button'))
-      .find((candidate) => candidate.textContent?.includes('Delete Arrow'));
+      .find((candidate) => candidate.textContent?.includes('Delete arrow'));
     button?.click();
 
-    expect(menuText(fixture)).toContain('Delete Arrow');
+    expect(menuText(fixture)).toContain('Delete arrow');
     expect(selected).toHaveBeenCalledWith({ type: 'deleteArrow' });
   });
 
@@ -693,11 +693,11 @@ describe('ContextMenuComponent', () => {
     fixture.componentInstance.actionSelected.subscribe(selected);
 
     const button = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button'))
-      .find((candidate) => candidate.textContent?.includes('Delete Arrows'));
+      .find((candidate) => candidate.textContent?.includes('Delete arrows'));
     button?.click();
 
-    expect(menuText(fixture)).toContain('Delete Arrow');
-    expect(menuText(fixture)).toContain('Delete Arrows');
+    expect(menuText(fixture)).toContain('Delete arrow');
+    expect(menuText(fixture)).toContain('Delete arrows');
     expect(selected).toHaveBeenCalledWith({ type: 'deleteArrows' });
   });
 
@@ -713,10 +713,10 @@ describe('ContextMenuComponent', () => {
     fixture.componentInstance.actionSelected.subscribe(selected);
 
     const button = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button'))
-      .find((candidate) => candidate.textContent?.includes('Delete Counter'));
+      .find((candidate) => candidate.textContent?.includes('Delete counter'));
     button?.click();
 
-    expect(menuText(fixture)).toContain('Delete Counter');
+    expect(menuText(fixture)).toContain('Delete counter');
     expect(selected).toHaveBeenCalledWith({ type: 'deleteCounter' });
   });
 
@@ -749,12 +749,12 @@ describe('ContextMenuComponent', () => {
     fixture.detectChanges();
 
     const text = menuText(fixture);
-    expect(text).toContain('Remove Red');
-    expect(text).toContain('Remove Green');
-    expect(text).toContain('Remove All Counters');
+    expect(text).toContain('Remove red');
+    expect(text).toContain('Remove green');
+    expect(text).toContain('Remove all counters');
 
     const removeRed = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button'))
-      .find((candidate) => candidate.textContent?.includes('Remove Red'));
+      .find((candidate) => candidate.textContent?.includes('Remove red'));
     removeRed?.click();
 
     expect(selected).toHaveBeenCalledWith({ type: 'removeCounter', counter: 'red' });

@@ -6,7 +6,6 @@ import { firstValueFrom } from 'rxjs';
 import { BodyScrollLockService } from '../../../shared/services/body-scroll-lock.service';
 import { AppModalComponent } from '../../../shared/ui/app-modal/app-modal.component';
 import { PrettyScrollDirective } from '../../../shared/ui/pretty-scroll/pretty-scroll.directive';
-import { Card } from '../../../core/models/card.model';
 import { GameCardInstance, GameRematchVote, GameZoneName } from '../../../core/models/game.model';
 import { GamesApi } from '../../../core/api/games.api';
 import { GameTableCardActionsService } from './services/game-table-card-actions.service';
@@ -79,7 +78,7 @@ import { GameArrowLayerComponent } from './components/game-arrow-layer/game-arro
 import { ArrowTargetDialogComponent, ArrowTargetDialogValue } from './components/arrow-target-dialog/arrow-target-dialog.component';
 import { GameRematchModalComponent, RematchPlayerVoteView } from './components/game-rematch-modal/game-rematch-modal.component';
 import { GameDisconnectVoteModalComponent } from './components/game-disconnect-vote-modal/game-disconnect-vote-modal.component';
-import { TokenSearchModalComponent } from './components/token-search-modal/token-search-modal.component';
+import { TokenSearchModalComponent, TokenSearchSelection } from './components/token-search-modal/token-search-modal.component';
 import { ChatRecipientSelectComponent } from './components/chat-recipient-select/chat-recipient-select.component';
 import { RollModalComponent } from '../../../core/ui/roll-modal/roll-modal.component';
 import { type RollResult } from '../../../core/ui/roll-modal/roll';
@@ -169,6 +168,17 @@ interface BattlefieldLayoutRect extends BattlefieldLayoutSize {
   readonly right: number;
   readonly bottom: number;
 }
+
+interface ContextMenuAvoidRect {
+  readonly left: number;
+  readonly top: number;
+  readonly right: number;
+  readonly bottom: number;
+}
+
+const CONTEXT_MENU_AVOID_WIDTH = 264;
+const CONTEXT_MENU_AVOID_COMPACT_WIDTH = 172;
+const CONTEXT_MENU_AVOID_HEIGHT = 360;
 
 interface BattlefieldCardDoubleClickEvent {
   readonly event: MouseEvent;
@@ -457,6 +467,23 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   );
   readonly focusEffectsEnabled = computed(() => this.arrowTargetDialog() === null && !this.manualRelationTargetingActive());
   readonly battlefieldLayoutSize = signal<BattlefieldLayoutRect>({ width: 900, height: 520, left: 0, top: 0, right: 900, bottom: 520 });
+  readonly contextMenuAvoidRect = computed<ContextMenuAvoidRect | null>(() => {
+    const menu = this.store.contextMenu();
+    const viewportHeight = window.innerHeight || 0;
+    if (!menu || viewportHeight <= 0) {
+      return null;
+    }
+
+    const width = menu.kind === 'counter' || menu.kind === 'arrow' ? CONTEXT_MENU_AVOID_COMPACT_WIDTH : CONTEXT_MENU_AVOID_WIDTH;
+    const top = menu.verticalOrigin === 'bottom' ? viewportHeight - menu.y - CONTEXT_MENU_AVOID_HEIGHT : menu.y;
+
+    return {
+      left: menu.x,
+      top,
+      right: menu.x + width,
+      bottom: top + CONTEXT_MENU_AVOID_HEIGHT,
+    };
+  });
   readonly closeGameDialogOpen = signal(false);
   readonly isPowerToughnessDialogInvalid = computed(() => {
     const request = this.powerToughnessDialog();
@@ -927,16 +954,23 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       const handDropTargetPlayerId = this.pointerHandDropTargetPlayerId(event);
       const draggingInstanceId = this.store.draggingCardInstanceId();
       if (handDropTargetPlayerId) {
+        const draggedCards = this.battlefieldDragCardsForMotion(draggingInstanceId);
+        const allDraggedCardsEvaporate = draggedCards.length > 0
+          && draggedCards.every((card) => this.cardEvaporatesOutsideBattlefield(card, 'hand'));
+        const sourceRect = draggingInstanceId ? this.battlefieldDragStartRects.get(draggingInstanceId) ?? null : null;
         this.animateGhostToHand({
           sourceElement: this.dragPreviewElement(),
           sourceInstanceId: draggingInstanceId,
-          sourceRect: draggingInstanceId ? this.battlefieldDragStartRects.get(draggingInstanceId) ?? null : null,
+          sourceRect,
           targetPlayerId: handDropTargetPlayerId,
         });
         this.clearBattlefieldDragStartRect(draggingInstanceId);
-        void this.animateHandLayoutAfterAction(
-          () => this.store.endCardPointerDrag(event),
-        );
+        if (allDraggedCardsEvaporate) {
+          void this.store.endCardPointerDrag(event);
+          return;
+        }
+
+        void this.animateHandLayoutAfterAction(() => this.store.endCardPointerDrag(event));
         return;
       }
 
@@ -997,7 +1031,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   }
 
   private async moveCardFromMenu(menu: GameContextMenu, toZone: GameZoneName, options: { position?: 'top' | 'bottom' } = {}): Promise<void> {
-    if (toZone !== 'hand' || menu.zone === 'hand' || !menu.card) {
+    if (toZone !== 'hand' || menu.zone === 'hand' || !menu.card || this.cardEvaporatesOutsideBattlefield(menu.card, toZone)) {
       await this.store.moveCard(menu, toZone, options);
       return;
     }
@@ -1061,6 +1095,53 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
 
   private dragPayloadInstanceId(payload: HandDragPayload | null): string | null {
     return payload?.instanceId ?? null;
+  }
+
+  private dragPayloadCards(payload: HandDragPayload): readonly GameCardInstance[] {
+    const instanceIds = payload.instanceIds?.length ? payload.instanceIds : [payload.instanceId];
+
+    return instanceIds
+      .map((instanceId) => this.cardFromSnapshot(payload.playerId, payload.zone, instanceId))
+      .filter((card): card is GameCardInstance => Boolean(card));
+  }
+
+  private battlefieldDragCardsForMotion(instanceId: string | null): readonly GameCardInstance[] {
+    if (!instanceId) {
+      return [];
+    }
+
+    const selectedBattlefieldCards = this.store.selectedCards()
+      .filter((selection) => selection.zone === 'battlefield')
+      .map((selection) => selection.card);
+    if (selectedBattlefieldCards.some((card) => card.instanceId === instanceId)) {
+      return selectedBattlefieldCards;
+    }
+
+    const card = this.battlefieldCardFromSnapshot(instanceId);
+
+    return card ? [card] : [];
+  }
+
+  private battlefieldCardFromSnapshot(instanceId: string): GameCardInstance | null {
+    const players = this.store.snapshot()?.players ?? {};
+    for (const player of Object.values(players)) {
+      const card = player.zones.battlefield.find((candidate) => candidate.instanceId === instanceId);
+      if (card) {
+        return card;
+      }
+    }
+
+    return null;
+  }
+
+  private cardFromSnapshot(playerId: string, zone: GameZoneName, instanceId: string): GameCardInstance | null {
+    return this.store.snapshot()?.players[playerId]?.zones[zone]?.find((card) => card.instanceId === instanceId) ?? null;
+  }
+
+  private cardEvaporatesOutsideBattlefield(card: GameCardInstance | null, targetZone: DropZoneTarget): boolean {
+    return targetZone !== 'battlefield'
+      && targetZone !== 'mana'
+      && (card?.isToken === true || card?.isTokenCopy === true);
   }
 
   private animateGhostToHand(options: HandGhostOptions): void {
@@ -1426,6 +1507,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   }
 
   handleContextMenuAction(action: ContextMenuAction, menu: GameContextMenu): void {
+    this.store.clearCardPreview();
     const current = this.store.currentPlayer();
 
     switch (action.type) {
@@ -1773,6 +1855,17 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       return;
     }
 
+    const payloadCards = payload ? this.dragPayloadCards(payload) : [];
+    if (payloadCards.length > 0 && payloadCards.every((card) => this.cardEvaporatesOutsideBattlefield(card, 'hand'))) {
+      this.animateGhostToHand({
+        sourceElement: this.dragPreviewElement(),
+        sourceInstanceId: payload?.instanceId ?? this.store.draggingCardInstanceId(),
+        targetPlayerId: event.playerId,
+      });
+      await dropOnHand();
+      return;
+    }
+
     this.animateGhostToHand({
       sourceElement: this.dragPreviewElement(),
       sourceInstanceId: payload?.instanceId ?? this.store.draggingCardInstanceId(),
@@ -1926,7 +2019,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     this.tableExitAction.set(null);
   }
 
-  async createSelectedToken(card: Card): Promise<void> {
+  async createSelectedToken(selection: TokenSearchSelection): Promise<void> {
     const playerId = this.tokenSearchPlayerId();
     if (!playerId || this.tokenSearchPending()) {
       return;
@@ -1934,7 +2027,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
 
     this.tokenSearchPending.set(true);
     try {
-      await this.store.createToken(playerId, card);
+      await this.store.createToken(playerId, selection.card, selection.quantity);
       this.tokenSearchPlayerId.set(null);
     } finally {
       this.tokenSearchPending.set(false);

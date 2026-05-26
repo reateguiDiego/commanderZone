@@ -1,6 +1,15 @@
 import { Injectable, signal } from '@angular/core';
 import { GameCardInstance, GameZoneName } from '../../../../../core/models/game.model';
-import { CARD_PREVIEW_HOVER_DELAY_MS, CardPreviewEvent } from '../../models/card-preview.model';
+import { CARD_PREVIEW_HOVER_DELAY_MS, CardPreviewEvent, CardPreviewSourceRect } from '../../models/card-preview.model';
+
+const CONTEXT_MENU_WIDTH = 264;
+const CONTEXT_MENU_COMPACT_WIDTH = 172;
+const CONTEXT_MENU_ESTIMATED_HEIGHT = 360;
+const CONTEXT_MENU_EDGE_GAP = 8;
+const CONTEXT_MENU_CLICK_GAP = 4;
+const PREVIEW_ESTIMATED_WIDTH = 288;
+const PREVIEW_ESTIMATED_HEIGHT = 402;
+const PREVIEW_ESTIMATED_MARGIN = 12;
 
 export interface GameContextMenu {
   x: number;
@@ -13,6 +22,7 @@ export interface GameContextMenu {
   counterKey?: string;
   suppressRandomSelect?: boolean;
   kind?: 'zone' | 'card' | 'game' | 'player' | 'arrow' | 'counter';
+  sourceRect?: CardPreviewSourceRect | null;
 }
 
 export interface HoveredCardSelection {
@@ -112,11 +122,11 @@ export class GameTableUiState {
   }
 
   openContextMenu(event: MouseEvent, target: Omit<GameContextMenu, 'x' | 'y'>): void {
-    this.contextMenu.set({ ...this.menuPosition(event.clientX, event.clientY), ...target });
+    this.contextMenu.set({ ...this.menuPosition(event.clientX, event.clientY, target), ...target });
   }
 
   openContextMenuAt(position: { x: number; y: number }, target: Omit<GameContextMenu, 'x' | 'y'>): void {
-    this.contextMenu.set({ ...this.menuPosition(position.x, position.y), ...target });
+    this.contextMenu.set({ ...this.menuPosition(position.x, position.y, target), ...target });
   }
 
   closeContextMenu(): void {
@@ -195,19 +205,27 @@ export class GameTableUiState {
     };
   }
 
-  private menuPosition(clientX: number, clientY: number): Pick<GameContextMenu, 'x' | 'y' | 'verticalOrigin'> {
-    const width = 260;
-    const height = 360;
+  private menuPosition(
+    clientX: number,
+    clientY: number,
+    target?: Pick<GameContextMenu, 'kind' | 'sourceRect'>,
+  ): Pick<GameContextMenu, 'x' | 'y' | 'verticalOrigin'> {
+    const width = target?.kind === 'counter' || target?.kind === 'arrow' ? CONTEXT_MENU_COMPACT_WIDTH : CONTEXT_MENU_WIDTH;
+    const height = CONTEXT_MENU_ESTIMATED_HEIGHT;
     const viewportWidth = window.innerWidth || 0;
     const viewportHeight = window.innerHeight || 0;
-    const edgeGap = 8;
-    const clickGap = 4;
+    const edgeGap = CONTEXT_MENU_EDGE_GAP;
+    const clickGap = CONTEXT_MENU_CLICK_GAP;
     const openUp = clientY + height + edgeGap > viewportHeight;
     const edgeOffset = openUp
       ? Math.max(edgeGap, viewportHeight - clientY + clickGap)
       : Math.max(edgeGap, clientY + clickGap);
     const prefersLeftOfPointer = viewportWidth > 0 && viewportWidth < width * 2;
-    const preferredX = prefersLeftOfPointer ? clientX - width - clickGap : clientX;
+    const preferredX = this.shouldOpenLeftOfCard(clientX, edgeOffset, width, height, openUp, target)
+      ? (target?.sourceRect?.left ?? clientX) - width - clickGap
+      : prefersLeftOfPointer
+        ? clientX - width - clickGap
+        : clientX;
 
     return {
       x: Math.max(edgeGap, Math.min(preferredX, viewportWidth - width - edgeGap)),
@@ -215,4 +233,47 @@ export class GameTableUiState {
       verticalOrigin: openUp ? 'bottom' : 'top',
     };
   }
+
+  private shouldOpenLeftOfCard(
+    clientX: number,
+    edgeOffset: number,
+    width: number,
+    height: number,
+    openUp: boolean,
+    target?: Pick<GameContextMenu, 'kind' | 'sourceRect'>,
+  ): boolean {
+    const source = target?.sourceRect;
+    if (!source || (target?.kind !== 'card' && target?.kind !== 'counter')) {
+      return false;
+    }
+
+    const viewportWidth = window.innerWidth || 0;
+    const viewportHeight = window.innerHeight || 0;
+    if (viewportWidth <= 0 || viewportHeight <= 0) {
+      return false;
+    }
+
+    const top = openUp ? viewportHeight - edgeOffset - height : edgeOffset;
+    const defaultMenuRect = {
+      left: Math.max(CONTEXT_MENU_EDGE_GAP, Math.min(clientX, viewportWidth - width - CONTEXT_MENU_EDGE_GAP)),
+      top,
+      right: Math.max(CONTEXT_MENU_EDGE_GAP, Math.min(clientX, viewportWidth - width - CONTEXT_MENU_EDGE_GAP)) + width,
+      bottom: top + height,
+    };
+    const estimatedPreviewRect = {
+      left: Math.max(CONTEXT_MENU_EDGE_GAP, viewportWidth - PREVIEW_ESTIMATED_WIDTH - PREVIEW_ESTIMATED_MARGIN),
+      top: Math.max(CONTEXT_MENU_EDGE_GAP, (viewportHeight - PREVIEW_ESTIMATED_HEIGHT) / 2),
+      right: viewportWidth - PREVIEW_ESTIMATED_MARGIN,
+      bottom: Math.max(CONTEXT_MENU_EDGE_GAP, (viewportHeight - PREVIEW_ESTIMATED_HEIGHT) / 2) + PREVIEW_ESTIMATED_HEIGHT,
+    };
+
+    return rectsOverlap(defaultMenuRect, estimatedPreviewRect);
+  }
+}
+
+function rectsOverlap(
+  a: { left: number; top: number; right: number; bottom: number },
+  b: { left: number; top: number; right: number; bottom: number },
+): boolean {
+  return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
 }

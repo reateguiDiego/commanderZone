@@ -649,6 +649,34 @@ describe('GameTableComponent', () => {
     expect(calls).toEqual(['prepare:[data-zone="hand"][data-card-instance-id]', 'playFlip']);
   });
 
+  it('does not run hand FLIP for a battlefield token dropped into hand because it evaporates', async () => {
+    const fixture = TestBed.createComponent(GameTableComponent);
+    const snapshot = snapshotWithStatus('active');
+    snapshot.players['user-1'].zones.battlefield = [{
+      ...snapshot.players['user-1'].zones.battlefield[0]!,
+      instanceId: 'token-1',
+      name: 'Goblin Token',
+      isToken: true,
+    }];
+    fixture.componentInstance.store.snapshot.set(snapshot);
+    const motion = fixture.debugElement.injector.get(GameTableMotionService);
+    const prepareHandDropHandoff = vi.spyOn(motion, 'prepareHandDropHandoff');
+    const dropOnHand = vi.spyOn(fixture.componentInstance.store, 'dropOnHand').mockResolvedValue(undefined);
+    const dataTransfer = dragDataTransfer();
+    const target = document.createElement('div');
+    dataTransfer.setData('application/json', JSON.stringify({
+      playerId: 'user-1',
+      zone: 'battlefield',
+      instanceId: 'token-1',
+    }));
+    const event = dragEvent('drop', dataTransfer, target);
+
+    await fixture.componentInstance.handleHandDropped({ event, playerId: 'user-1' });
+
+    expect(dropOnHand).toHaveBeenCalledWith(event, 'user-1');
+    expect(prepareHandDropHandoff).not.toHaveBeenCalled();
+  });
+
   it('drops same-player native hand events directly', async () => {
     const fixture = TestBed.createComponent(GameTableComponent);
     const dropOnHand = vi.spyOn(fixture.componentInstance.store, 'dropOnHand').mockResolvedValue(undefined);
@@ -1108,28 +1136,32 @@ describe('GameTableComponent', () => {
     expect(fixture.componentInstance.tokenSearchPlayerId()).toBe('user-1');
 
     await fixture.componentInstance.createSelectedToken({
-      id: 'token-1',
-      scryfallId: 'token-1',
-      name: 'Goblin Token',
-      manaCost: null,
-      typeLine: 'Token Creature - Goblin',
-      oracleText: null,
-      power: '1',
-      toughness: '1',
-      colors: ['R'],
-      colorIdentity: ['R'],
-      legalities: {},
-      imageUris: { normal: 'https://cards.test/token-1.jpg' },
-      layout: 'token',
-      commanderLegal: false,
-      set: 'tst',
-      collectorNumber: '1',
+      card: {
+        id: 'token-1',
+        scryfallId: 'token-1',
+        name: 'Goblin Token',
+        manaCost: null,
+        typeLine: 'Token Creature - Goblin',
+        oracleText: null,
+        power: '1',
+        toughness: '1',
+        colors: ['R'],
+        colorIdentity: ['R'],
+        legalities: {},
+        imageUris: { normal: 'https://cards.test/token-1.jpg' },
+        layout: 'token',
+        commanderLegal: false,
+        set: 'tst',
+        collectorNumber: '1',
+      },
+      quantity: 3,
     });
 
     expect(gameplayWebsocketCommand).toHaveBeenCalledWith(expect.objectContaining({
       type: 'card.token.created',
       payload: expect.objectContaining({
         playerId: 'user-1',
+        quantity: 3,
         card: expect.objectContaining({
           scryfallId: 'token-1',
           name: 'Goblin Token',

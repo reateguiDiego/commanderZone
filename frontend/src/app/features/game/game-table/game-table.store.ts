@@ -490,8 +490,9 @@ export class GameTableStore implements OnDestroy {
   }
 
   openCardMenu(event: MouseEvent, playerId: string, zone: GameZoneName, card: GameCardInstance): void {
-    this.showPinnedCardPreview(event, playerId, zone, card);
-    this.interactionActions.openCardMenu(this.contexts.interaction(), event, playerId, zone, card);
+    const sourceRect = this.previewSourceRect(event);
+    this.showPinnedCardPreview(event, playerId, zone, card, sourceRect);
+    this.interactionActions.openCardMenu(this.contexts.interaction(), event, playerId, zone, card, { sourceRect });
   }
 
   openZoneMenu(event: MouseEvent, playerId: string, zone: GameZoneName): void {
@@ -507,14 +508,19 @@ export class GameTableStore implements OnDestroy {
       return;
     }
 
-    this.showPinnedCardPreview(event, modal.playerId, modal.zone, card);
+    const sourceRect = this.previewSourceRect(event);
+    this.clearCardPreview();
     this.interactionActions.openCardMenu(
       this.contexts.interaction(),
       event,
       modal.playerId,
       modal.zone,
       card,
-      { suppressRandomSelect: !modal.allowRandomSelect },
+      {
+        suppressRandomSelect: !modal.allowRandomSelect,
+        sourceRect,
+        menuPosition: this.cardCenterPosition(event, sourceRect),
+      },
     );
   }
 
@@ -547,8 +553,9 @@ export class GameTableStore implements OnDestroy {
       return;
     }
 
-    this.showPinnedCardPreview(event, playerId, zone, card);
-    this.uiState.openContextMenu(event, { playerId, zone, card, kind: 'counter', counterKey: key });
+    const sourceRect = this.previewSourceRect(event);
+    this.showPinnedCardPreview(event, playerId, zone, card, sourceRect);
+    this.uiState.openContextMenu(event, { playerId, zone, card, kind: 'counter', counterKey: key, sourceRect });
   }
 
   closeContextMenu(): void {
@@ -1138,9 +1145,9 @@ export class GameTableStore implements OnDestroy {
     await this.cardActions.tokenCopy(this.contexts.cardAction(), menu);
   }
 
-  async createToken(playerId: string, card: Card | null = null): Promise<void> {
+  async createToken(playerId: string, card: Card | null = null, quantity = 1): Promise<void> {
     const previousBattlefieldIds = this.battlefieldInstanceIds(playerId);
-    await this.cardActions.createToken(this.contexts.cardAction(), playerId, card);
+    await this.cardActions.createToken(this.contexts.cardAction(), playerId, card, quantity);
     this.markNewPowerToughnessTokensSettling(playerId, previousBattlefieldIds);
   }
 
@@ -1272,7 +1279,7 @@ export class GameTableStore implements OnDestroy {
     cards: GameCardInstance[],
     selectedCardId: string | null = null,
     allowRandomSelect = false,
-    options: { allowReorder?: boolean; drawOrderLabels?: readonly string[] } = {},
+    options: { allowReorder?: boolean; drawOrderLabels?: readonly string[]; viewTopCount?: number | null } = {},
   ): void {
     this.zoneActions.openFixedZone(playerId, zone, title, cards, selectedCardId, allowRandomSelect, options);
   }
@@ -1404,13 +1411,34 @@ export class GameTableStore implements OnDestroy {
     await this.cardStats.changeLoyalty(this.contexts.cardStats(), playerId, zone, card, delta);
   }
 
-  private showPinnedCardPreview(event: MouseEvent, playerId: string, zone: GameZoneName, card: GameCardInstance): void {
+  private showPinnedCardPreview(
+    event: MouseEvent,
+    playerId: string,
+    zone: GameZoneName,
+    card: GameCardInstance,
+    sourceRect = this.previewSourceRect(event),
+  ): void {
     this.uiState.showPinnedCardPreview({
       card,
       playerId,
       zone,
-      sourceRect: previewRectFromElement(event.currentTarget instanceof Element ? event.currentTarget : null),
+      sourceRect,
     }, () => Boolean(this.draggingCardInstanceId()));
+  }
+
+  private previewSourceRect(event: MouseEvent): CardPreviewEvent['sourceRect'] {
+    return previewRectFromElement(event.currentTarget instanceof Element ? event.currentTarget : null);
+  }
+
+  private cardCenterPosition(event: MouseEvent, sourceRect: CardPreviewEvent['sourceRect']): { x: number; y: number } {
+    if (!sourceRect) {
+      return { x: event.clientX, y: event.clientY };
+    }
+
+    return {
+      x: sourceRect.left + sourceRect.width / 2,
+      y: sourceRect.top + sourceRect.height / 2,
+    };
   }
 
   private setSnapshot(snapshot: GameSnapshot | null): void {

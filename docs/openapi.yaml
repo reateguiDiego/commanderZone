@@ -4654,8 +4654,9 @@ components:
             reveal flag and does not move cards.
             card.token.created creates the selected token payload on the actor
             player's battlefield, or a generic 1/1 token when no card payload is
-            provided. cards.position.changed persists multiple battlefield card
-            positions atomically with payload shape { playerId, zone:
+            provided. It may include quantity from 1 to 20 to create multiple
+            token instances atomically in one command. cards.position.changed
+            persists multiple battlefield card positions atomically with payload shape { playerId, zone:
             battlefield, positions: [{ instanceId, position }] }.
           additionalProperties: true
         clientActionId:

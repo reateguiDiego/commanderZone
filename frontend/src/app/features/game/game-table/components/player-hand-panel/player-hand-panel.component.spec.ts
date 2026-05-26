@@ -503,6 +503,34 @@ describe('PlayerHandPanelComponent', () => {
     expect(fixture.componentInstance.pointerDrag()).toBeNull();
   });
 
+  it('does not open menus, emit clicks, or start pointer drags from hidden hand placeholders', async () => {
+    const { fixture } = await renderHandPanel({
+      hand: [
+        { instanceId: 'hidden-hand-1', ownerId: 'player-1', controllerId: 'player-1', name: 'Hidden card', tapped: false, hidden: true, faceDown: true, zone: 'hand' },
+      ],
+    });
+    const menuOpened = vi.fn();
+    const cardClicked = vi.fn();
+    fixture.componentInstance.cardMenuOpened.subscribe(menuOpened);
+    fixture.componentInstance.handCardClicked.subscribe(cardClicked);
+    const cardElement = fixture.nativeElement.querySelector('[data-card-instance-id="hidden-hand-1"]') as HTMLElement;
+
+    cardElement.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    cardElement.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+    cardElement.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true,
+      button: 0,
+      clientX: 20,
+      clientY: 20,
+      pointerId: 1,
+    }));
+    fixture.detectChanges();
+
+    expect(cardClicked).not.toHaveBeenCalled();
+    expect(menuOpened).not.toHaveBeenCalled();
+    expect(fixture.componentInstance.pointerDrag()).toBeNull();
+  });
+
   it('does not start a hand drag from transparent card chrome outside the card visual', async () => {
     const { fixture } = await renderHandPanel();
     const draggedCard = fixture.componentInstance.player().state.zones.hand[0]!;

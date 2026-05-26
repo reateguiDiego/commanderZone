@@ -139,9 +139,71 @@
   overflow: visible;
 }
 
-.players-grid.capacity-two { grid-template-columns: minmax(300px, 22rem); }
-.players-grid.capacity-four { grid-template-columns: repeat(2, minmax(300px, 22rem)); }
-.players-grid.capacity-six { grid-template-columns: repeat(3, minmax(300px, 22rem)); }
+.players-grid.capacity-two {
+  grid-template-columns: minmax(300px, 22rem);
+  max-width: 22rem;
+}
+
+.players-grid.capacity-three,
+.players-grid.capacity-four {
+  grid-template-columns: repeat(2, minmax(300px, 22rem));
+  max-width: calc((22rem * 2) + 1.1rem);
+}
+
+.players-grid.capacity-five,
+.players-grid.capacity-six {
+  grid-template-columns: repeat(3, minmax(300px, 22rem));
+  max-width: calc((22rem * 3) + (1.1rem * 2));
+}
+
+.players-grid app-waiting-room-player-card.seat-one { grid-column: 1; grid-row: 1; }
+.players-grid app-waiting-room-player-card.seat-two { grid-column: 2; grid-row: 1; }
+.players-grid app-waiting-room-player-card.seat-three { grid-column: 3; grid-row: 1; }
+.players-grid app-waiting-room-player-card.seat-four { grid-column: 1; grid-row: 2; }
+.players-grid app-waiting-room-player-card.seat-five { grid-column: 2; grid-row: 2; }
+.players-grid app-waiting-room-player-card.seat-six { grid-column: 3; grid-row: 2; }
+
+.players-grid.capacity-two app-waiting-room-player-card.seat-two {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.players-grid.capacity-three app-waiting-room-player-card.seat-two {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.players-grid.capacity-three app-waiting-room-player-card.seat-three {
+  grid-column: 2;
+  grid-row: 1 / 3;
+  align-self: center;
+}
+
+.players-grid.capacity-four app-waiting-room-player-card.seat-three {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.players-grid.capacity-four app-waiting-room-player-card.seat-four {
+  grid-column: 2;
+  grid-row: 2;
+}
+
+.players-grid.capacity-five app-waiting-room-player-card.seat-three {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.players-grid.capacity-five app-waiting-room-player-card.seat-four {
+  grid-column: 2;
+  grid-row: 2;
+}
+
+.players-grid.capacity-five app-waiting-room-player-card.seat-five {
+  grid-column: 3;
+  grid-row: 1 / 3;
+  align-self: center;
+}
 
 .start-game-row {
   display: grid;
@@ -209,9 +271,41 @@
     grid-template-columns: minmax(0, 17rem);
   }
 
+  .players-grid.capacity-five,
   .players-grid.capacity-six {
     grid-template-columns: repeat(2, minmax(300px, 22rem));
+    grid-template-rows: repeat(3, 21rem);
     max-width: calc((22rem * 2) + 1.1rem);
+  }
+
+  .players-grid.capacity-five app-waiting-room-player-card.seat-one,
+  .players-grid.capacity-six app-waiting-room-player-card.seat-one { grid-column: 1; grid-row: 1; }
+
+  .players-grid.capacity-five app-waiting-room-player-card.seat-two,
+  .players-grid.capacity-six app-waiting-room-player-card.seat-two { grid-column: 2; grid-row: 1; }
+
+  .players-grid.capacity-five app-waiting-room-player-card.seat-three,
+  .players-grid.capacity-six app-waiting-room-player-card.seat-three { grid-column: 1; grid-row: 2; }
+
+  .players-grid.capacity-five app-waiting-room-player-card.seat-four,
+  .players-grid.capacity-six app-waiting-room-player-card.seat-four { grid-column: 2; grid-row: 2; }
+
+  .players-grid.capacity-five app-waiting-room-player-card.seat-five,
+  .players-grid.capacity-six app-waiting-room-player-card.seat-five {
+    grid-column: 1;
+    grid-row: 3;
+    align-self: stretch;
+  }
+
+  .players-grid.capacity-six app-waiting-room-player-card.seat-six {
+    grid-column: 2;
+    grid-row: 3;
+  }
+
+  .players-grid.capacity-five app-waiting-room-player-card.seat-five {
+    grid-column: 1 / -1;
+    justify-self: center;
+    width: min(22rem, 100%);
   }
 }
 
@@ -234,6 +328,17 @@
     grid-template-columns: repeat(2, minmax(300px, 22rem));
     grid-template-rows: repeat(3, 21rem);
   }
+
+  .players-grid.capacity-three app-waiting-room-player-card.seat-one { grid-column: 1; grid-row: 1; }
+  .players-grid.capacity-three app-waiting-room-player-card.seat-two { grid-column: 2; grid-row: 1; }
+
+  .players-grid.capacity-three app-waiting-room-player-card.seat-three {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    align-self: stretch;
+    justify-self: center;
+    width: min(22rem, 100%);
+  }
 }
 
 @media (max-width: 900px) {
@@ -244,6 +349,20 @@
     grid-template-columns: minmax(min(300px, 100%), min(22rem, 100%));
     grid-template-rows: none;
     justify-content: center;
+  }
+
+  .players-grid app-waiting-room-player-card.seat-one,
+  .players-grid app-waiting-room-player-card.seat-two,
+  .players-grid app-waiting-room-player-card.seat-three,
+  .players-grid app-waiting-room-player-card.seat-four,
+  .players-grid app-waiting-room-player-card.seat-five,
+  .players-grid app-waiting-room-player-card.seat-six,
+  .players-grid app-waiting-room-player-card.seat-odd-last {
+    grid-column: 1;
+    grid-row: auto;
+    align-self: stretch;
+    justify-self: stretch;
+    width: 100%;
   }
 }
 

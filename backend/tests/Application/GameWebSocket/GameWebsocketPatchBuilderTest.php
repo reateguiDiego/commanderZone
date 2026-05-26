@@ -254,6 +254,121 @@ class GameWebsocketPatchBuilderTest extends TestCase
         self::assertSame('token-1', $message['operations'][0]['instanceId']);
     }
 
+    public function testBuildsCardRemovePatchesForTokensAndTokenCopiesMovedToHandOrZonePiles(): void
+    {
+        foreach (['card.moved', 'cards.moved', 'zone.move_all'] as $commandType) {
+            foreach (['hand', 'library', 'graveyard', 'exile', 'command'] as $toZone) {
+                foreach ([false, true] as $isTokenCopy) {
+                    [$game, $actor] = $this->gameWithMovementCards();
+                    $snapshot = $game->snapshot();
+                    $snapshot['players'][$actor->id()]['zones']['battlefield'] = [[
+                        ...$this->card('token-1', $actor->id(), ['x' => 0.2, 'y' => 0.2, 'unit' => 'ratio']),
+                        'name' => 'Bear Token',
+                        'zone' => 'battlefield',
+                        'isToken' => true,
+                        'isTokenCopy' => $isTokenCopy,
+                    ]];
+                    $snapshot['players'][$actor->id()]['zoneCounts']['battlefield'] = 1;
+                    $game->replaceSnapshot($snapshot);
+
+                    $payload = match ($commandType) {
+                        'cards.moved' => [
+                            'playerId' => $actor->id(),
+                            'fromZone' => 'battlefield',
+                            'toZone' => $toZone,
+                            'instanceIds' => ['token-1'],
+                        ],
+                        'zone.move_all' => [
+                            'playerId' => $actor->id(),
+                            'fromZone' => 'battlefield',
+                            'toZone' => $toZone,
+                        ],
+                        default => [
+                            'playerId' => $actor->id(),
+                            'fromZone' => 'battlefield',
+                            'toZone' => $toZone,
+                            'instanceId' => 'token-1',
+                        ],
+                    };
+
+                    $message = $this->applyAndBuildProjected(
+                        $game,
+                        $actor,
+                        $commandType,
+                        $payload,
+                        sprintf('action-token-remove-%s-%s-%s', $commandType, $toZone, $isTokenCopy ? 'copy' : 'token'),
+                        $actor,
+                    );
+
+                    self::assertSame('card.remove', $message['operations'][0]['op']);
+                    self::assertSame($actor->id(), $message['operations'][0]['playerId']);
+                    self::assertSame('battlefield', $message['operations'][0]['zone']);
+                    self::assertSame('token-1', $message['operations'][0]['instanceId']);
+                }
+            }
+        }
+    }
+
+    public function testBuildsCardRemoveForEvaporatedTokensMovedToHiddenZonesForOpponent(): void
+    {
+        foreach (['card.moved', 'cards.moved', 'zone.move_all'] as $commandType) {
+            foreach (['hand', 'library'] as $toZone) {
+                foreach ([false, true] as $isTokenCopy) {
+                    [$game, $actor, $opponent] = $this->gameWithMovementCards();
+                    $snapshot = $game->snapshot();
+                    $snapshot['players'][$actor->id()]['zones']['hand'] = [];
+                    $snapshot['players'][$actor->id()]['zones']['library'] = [];
+                    $snapshot['players'][$actor->id()]['zones']['battlefield'] = [[
+                        ...$this->card('token-1', $actor->id(), ['x' => 0.2, 'y' => 0.2, 'unit' => 'ratio']),
+                        'name' => 'Bear Token',
+                        'zone' => 'battlefield',
+                        'isToken' => true,
+                        'isTokenCopy' => $isTokenCopy,
+                    ]];
+                    $snapshot['players'][$actor->id()]['zoneCounts']['hand'] = 0;
+                    $snapshot['players'][$actor->id()]['zoneCounts']['library'] = 0;
+                    $snapshot['players'][$actor->id()]['zoneCounts']['battlefield'] = 1;
+                    $game->replaceSnapshot($snapshot);
+
+                    $payload = match ($commandType) {
+                        'cards.moved' => [
+                            'playerId' => $actor->id(),
+                            'fromZone' => 'battlefield',
+                            'toZone' => $toZone,
+                            'instanceIds' => ['token-1'],
+                        ],
+                        'zone.move_all' => [
+                            'playerId' => $actor->id(),
+                            'fromZone' => 'battlefield',
+                            'toZone' => $toZone,
+                        ],
+                        default => [
+                            'playerId' => $actor->id(),
+                            'fromZone' => 'battlefield',
+                            'toZone' => $toZone,
+                            'instanceId' => 'token-1',
+                        ],
+                    };
+
+                    $message = $this->applyAndBuildProjected(
+                        $game,
+                        $actor,
+                        $commandType,
+                        $payload,
+                        sprintf('action-token-hidden-remove-%s-%s-%s', $commandType, $toZone, $isTokenCopy ? 'copy' : 'token'),
+                        $opponent,
+                    );
+
+                    self::assertSame('card.remove', $message['operations'][0]['op']);
+                    self::assertSame($actor->id(), $message['operations'][0]['playerId']);
+                    self::assertSame('battlefield', $message['operations'][0]['zone']);
+                    self::assertSame('token-1', $message['operations'][0]['instanceId']);
+                    self::assertNotContains('card.move', array_column($message['operations'], 'op'));
+                }
+            }
+        }
+    }
+
     public function testBuildsPrivateMovePatchWithCountsAndPlaceholderForOpponent(): void
     {
         [$game, $actor, $opponent] = $this->gameWithMovementCards();
@@ -266,10 +381,10 @@ class GameWebsocketPatchBuilderTest extends TestCase
         ], 'action-private-move', $opponent);
         $encoded = json_encode($message, JSON_THROW_ON_ERROR);
 
-        self::assertSame('card.move', $message['operations'][0]['op']);
+        self::assertSame('card.remove', $message['operations'][0]['op']);
         self::assertSame('battlefield-1', $message['operations'][0]['instanceId']);
-        self::assertSame('Hidden card', $message['operations'][0]['card']['name']);
-        self::assertTrue($message['operations'][0]['card']['hidden']);
+        self::assertSame($actor->id(), $message['operations'][0]['playerId']);
+        self::assertSame('battlefield', $message['operations'][0]['zone']);
         self::assertContains([                                                                                           
             'op' => 'zone.counts.set',
             'playerId' => $actor->id(),
@@ -697,6 +812,25 @@ class GameWebsocketPatchBuilderTest extends TestCase
         self::assertSame('card.create', $copy['operations'][0]['op']);
         self::assertTrue($copy['operations'][0]['card']['isTokenCopy']);
         self::assertNotSame('advanced-1', $copy['operations'][0]['card']['instanceId']);
+    }
+
+    public function testTokenCreatedQuantityBuildsOnePatchWithMultipleCreateOperations(): void
+    {
+        [$game, $actor] = $this->gameWithAdvancedBattlefieldCards();
+
+        $message = $this->applyAndBuildProjected($game, $actor, 'card.token.created', [
+            'playerId' => $actor->id(),
+            'quantity' => 3,
+            'card' => ['name' => 'Beast Token', 'power' => 3, 'toughness' => 3],
+        ], 'action-token-quantity', $actor);
+
+        self::assertSame(['card.create', 'card.create', 'card.create'], array_column(array_slice($message['operations'], 0, 3), 'op'));
+        self::assertSame(['Beast Token', 'Beast Token', 'Beast Token'], array_column(array_column(array_slice($message['operations'], 0, 3), 'card'), 'name'));
+        self::assertCount(3, array_unique(array_map(
+            static fn (array $operation): string => (string) $operation['card']['instanceId'],
+            array_slice($message['operations'], 0, 3),
+        )));
+        self::assertSame('eventLog.append', $message['operations'][count($message['operations']) - 1]['op']);
     }
 
     public function testBuildsStackAddAndRemovePatchesWithoutFullSnapshot(): void

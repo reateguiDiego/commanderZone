@@ -553,7 +553,7 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
   }
 
   startHandPointerDrag(event: PointerEvent, playerId: string, card: GameCardInstance): void {
-    if (this.readOnly()) {
+    if (!this.canInteractWithHandCard(card)) {
       event.preventDefault();
       return;
     }
@@ -613,7 +613,7 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
       return;
     }
 
-    if (!this.readOnly()) {
+    if (this.canInteractWithHandCard(card)) {
       this.activeHandHoverInstanceId.set(card.instanceId);
       this.enterHand(event);
 
@@ -769,6 +769,10 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
     return !card.hidden && (card.revealedTo?.length ?? 0) > 0;
   }
 
+  private canInteractWithHandCard(card: GameCardInstance): boolean {
+    return !this.readOnly() && card.hidden !== true;
+  }
+
   private visualHandCards(cards: readonly GameCardInstance[], playerId: string): readonly GameCardInstance[] {
     if (this.stableHandInstanceIds.size === 0) {
       return cards;
@@ -891,7 +895,7 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
   }
 
   handleHandCardClick(event: MouseEvent, playerId: string, card: GameCardInstance): void {
-    if (this.readOnly()) {
+    if (!this.canInteractWithHandCard(card)) {
       event.preventDefault();
       event.stopPropagation();
       return;
@@ -908,7 +912,7 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
   }
 
   openHandCardMenu(event: MouseEvent, playerId: string, card: GameCardInstance): void {
-    if (this.readOnly()) {
+    if (!this.canInteractWithHandCard(card)) {
       event.preventDefault();
       event.stopPropagation();
       return;

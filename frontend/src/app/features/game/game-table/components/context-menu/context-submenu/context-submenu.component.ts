@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, input, output, signal } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
+import { contextMenuDisplayLabel } from '../context-menu-label';
 
 export type ContextSubmenuDirection = 'down' | 'up';
 export type ContextSubmenuSide = 'right' | 'left';
@@ -12,6 +13,7 @@ export interface ContextSubmenuItem {
   readonly shortcut?: string;
   readonly danger?: boolean;
   readonly disabled?: boolean;
+  readonly preserveCase?: boolean;
   readonly children?: readonly ContextSubmenuItem[];
 }
 
@@ -53,6 +55,14 @@ export class ContextSubmenuComponent {
     }
 
     this.itemSelected.emit(item.value);
+  }
+
+  displayLabel(itemOrLabel: ContextSubmenuItem | string): string {
+    if (typeof itemOrLabel !== 'string' && itemOrLabel.preserveCase === true) {
+      return itemOrLabel.label;
+    }
+
+    return contextMenuDisplayLabel(typeof itemOrLabel === 'string' ? itemOrLabel : itemOrLabel.label);
   }
 
   isAssetIcon(icon: string): boolean {

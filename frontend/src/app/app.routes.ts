@@ -8,13 +8,13 @@ export const routes: Routes = [
       .then((component) => component.OnboardingPageComponent),
     canActivate: [guestGuard],
     pathMatch: 'full',
-    title: 'Commander Zone',
+    title: 'CommanderZone',
   },
   {
     path: 'room/:id',
     loadComponent: () => import('./features/onboarding/demo-room-page/demo-room-page.component')
       .then((component) => component.DemoRoomPageComponent),
-    title: 'Commander Zone',
+    title: 'CommanderZone',
   },
   {
     path: 'auth/login',
@@ -44,14 +44,14 @@ export const routes: Routes = [
     loadComponent: () => import('./features/game/game-debug/game-debug-page.component')
       .then((component) => component.GameDebugPageComponent),
     canActivate: [authGuard],
-    title: 'Commander Zone Debug',
+    title: 'CommanderZone Debug',
   },
   {
     path: 'games/:id',
     loadComponent: () => import('./features/game/game-table/game-table.component')
       .then((component) => component.GameTableComponent),
     canActivate: [authGuard],
-    title: 'Commander Zone',
+    title: 'CommanderZone',
   },
   {
     path: '',

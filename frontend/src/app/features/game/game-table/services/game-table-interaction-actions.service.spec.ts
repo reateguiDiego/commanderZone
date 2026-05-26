@@ -94,6 +94,27 @@ describe('GameTableInteractionActionsService', () => {
     );
   });
 
+  it('opens card context menus at an explicit anchor when provided', () => {
+    const event = contextMenuEvent();
+    const card = handCard({ instanceId: 'card-1', zone: 'library' });
+
+    service.openCardMenu(interactionContext(), event, 'player-1', 'library', card, {
+      sourceRect: { left: 120, top: 320, right: 240, bottom: 480, width: 120, height: 160 },
+      menuPosition: { x: 180, y: 400 },
+    });
+
+    expect(uiState.openContextMenu).not.toHaveBeenCalled();
+    expect(uiState.openContextMenuAt).toHaveBeenCalledWith(
+      { x: 180, y: 400 },
+      expect.objectContaining({
+        playerId: 'player-1',
+        zone: 'library',
+        card,
+        kind: 'card',
+      }),
+    );
+  });
+
   it('shows the homogeneous-zone selection toast when shift selection changes source', () => {
     const context = interactionContext();
     const battlefieldCard = handCard({ instanceId: 'battlefield-card', zone: 'battlefield' });
