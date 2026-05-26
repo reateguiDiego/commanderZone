@@ -7,6 +7,8 @@ use App\Application\Deck\DeckAnalysisService;
 use App\Application\Deck\DecklistExporter;
 use App\Application\Deck\DecklistParser;
 use App\Application\Deck\DecklistPreviewer;
+use App\Application\Card\CardLocalizationService;
+use App\Domain\Localization\LanguageCatalog;
 use App\Application\Card\CardResolver;
 use App\Domain\Card\Card;
 use App\Domain\Deck\Deck;
@@ -25,7 +27,7 @@ class DecksController extends ApiController
     private const MAX_DECK_NAME_LENGTH = 20;
 
     #[Route('/decks', methods: ['GET'])]
-    public function list(Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager): JsonResponse
+    public function list(Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, CardLocalizationService $localization): JsonResponse
     {
         $criteria = ['owner' => $user];
         if ($request->query->has('folderId')) {
@@ -43,11 +45,14 @@ class DecksController extends ApiController
 
         $decks = $entityManager->getRepository(Deck::class)->findBy($criteria, ['id' => 'DESC']);
 
-        return $this->json(['data' => array_map(static fn (Deck $deck) => $deck->toArray(), $decks)]);
+        return $this->json(['data' => array_map(
+            fn (Deck $deck): array => $this->localizeDeckPayload($deck->toArray(), $user, $localization),
+            $decks,
+        )]);
     }
 
     #[Route('/decks', methods: ['POST'])]
-    public function create(Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager): JsonResponse
+    public function create(Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, CardLocalizationService $localization): JsonResponse
     {
         $payload = $this->payload($request);
         $name = trim((string) ($payload['name'] ?? ''));
@@ -66,11 +71,11 @@ class DecksController extends ApiController
         $entityManager->persist($deck);
         $entityManager->flush();
 
-        return $this->json(['deck' => $deck->toArray(true)], 201);
+        return $this->json(['deck' => $this->localizeDeckPayload($deck->toArray(true), $user, $localization)], 201);
     }
 
     #[Route('/decks/quick-build', methods: ['POST'])]
-    public function quickBuild(Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, CardResolver $cardResolver): JsonResponse
+    public function quickBuild(Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, CardResolver $cardResolver, CardLocalizationService $localization): JsonResponse
     {
         $payload = $this->payload($request);
         $name = trim((string) ($payload['name'] ?? ''));
@@ -114,21 +119,21 @@ class DecksController extends ApiController
         $entityManager->flush();
 
         return $this->json([
-            'deck' => $deck->toArray(true),
+            'deck' => $this->localizeDeckPayload($deck->toArray(true), $user, $localization),
             'missing' => $this->missingNames($missingCards),
             'missingCards' => $missingCards,
         ], 201);
     }
 
     #[Route('/decks/{id}', methods: ['GET'])]
-    public function show(string $id, #[CurrentUser] User $user, EntityManagerInterface $entityManager): JsonResponse
+    public function show(string $id, #[CurrentUser] User $user, EntityManagerInterface $entityManager, CardLocalizationService $localization): JsonResponse
     {
         $deck = $this->ownedDeck($id, $user, $entityManager);
         if (!$deck) {
             return $this->fail('Deck not found.', 404);
         }
 
-        return $this->json(['deck' => $deck->toArray(true)]);
+        return $this->json(['deck' => $this->localizeDeckPayload($deck->toArray(true), $user, $localization)]);
     }
 
     #[Route('/decks/{id}/analysis', methods: ['GET'])]
@@ -149,7 +154,7 @@ class DecksController extends ApiController
     }
 
     #[Route('/decks/{id}/sections', methods: ['GET'])]
-    public function sections(string $id, #[CurrentUser] User $user, EntityManagerInterface $entityManager): JsonResponse
+    public function sections(string $id, #[CurrentUser] User $user, EntityManagerInterface $entityManager, CardLocalizationService $localization): JsonResponse
     {
         $deck = $this->ownedDeck($id, $user, $entityManager);
         if (!$deck) {
@@ -187,6 +192,7 @@ class DecksController extends ApiController
         $tokenPayload = $this->derivedTokens($deck, $entityManager);
         $sections['tokens'] = $tokenPayload['data'];
         $counts['tokens'] = count($tokenPayload['data']);
+        $sections = $this->localizeSectionsPayload($sections, $user, $localization);
 
         return $this->json([
             'deckId' => $deck->id(),
@@ -196,21 +202,23 @@ class DecksController extends ApiController
     }
 
     #[Route('/decks/{id}/tokens', methods: ['GET'])]
-    public function tokens(string $id, #[CurrentUser] User $user, EntityManagerInterface $entityManager): JsonResponse
+    public function tokens(string $id, #[CurrentUser] User $user, EntityManagerInterface $entityManager, CardLocalizationService $localization): JsonResponse
     {
         $deck = $this->ownedDeck($id, $user, $entityManager);
         if (!$deck) {
             return $this->fail('Deck not found.', 404);
         }
 
+        $payload = $this->derivedTokens($deck, $entityManager);
+
         return $this->json([
             'deckId' => $deck->id(),
-            ...$this->derivedTokens($deck, $entityManager),
+            ...$this->localizeTokensPayload($payload, $user, $localization),
         ]);
     }
 
     #[Route('/decks/{id}', methods: ['PATCH'])]
-    public function update(string $id, Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager): JsonResponse
+    public function update(string $id, Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, CardLocalizationService $localization): JsonResponse
     {
         $deck = $this->ownedDeck($id, $user, $entityManager);
         if (!$deck) {
@@ -239,7 +247,7 @@ class DecksController extends ApiController
 
         $entityManager->flush();
 
-        return $this->json(['deck' => $deck->toArray(true)]);
+        return $this->json(['deck' => $this->localizeDeckPayload($deck->toArray(true), $user, $localization)]);
     }
 
     #[Route('/decks/{id}', methods: ['DELETE'])]
@@ -264,7 +272,7 @@ class DecksController extends ApiController
     }
 
     #[Route('/decks/{id}/import', methods: ['POST'])]
-    public function import(string $id, Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, DecklistParser $parser, DecklistPreviewer $previewer, CardResolver $cardResolver): JsonResponse
+    public function import(string $id, Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, DecklistParser $parser, DecklistPreviewer $previewer, CardResolver $cardResolver, CardLocalizationService $localization): JsonResponse
     {
         $deck = $this->ownedDeck($id, $user, $entityManager);
         if (!$deck) {
@@ -329,7 +337,7 @@ class DecksController extends ApiController
 
         return $this->json([
             'format' => $format,
-            'deck' => $deck->toArray(true),
+            'deck' => $this->localizeDeckPayload($deck->toArray(true), $user, $localization),
             'missing' => $this->missingNames($preview['missingCards']),
             'summary' => $summary,
             'missingCards' => $preview['missingCards'],
@@ -353,7 +361,7 @@ class DecksController extends ApiController
     }
 
     #[Route('/decks/{id}/cards', methods: ['POST'])]
-    public function addCard(string $id, Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, CardResolver $cardResolver): JsonResponse
+    public function addCard(string $id, Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, CardResolver $cardResolver, CardLocalizationService $localization): JsonResponse
     {
         $deck = $this->ownedDeck($id, $user, $entityManager);
         if (!$deck) {
@@ -381,11 +389,11 @@ class DecksController extends ApiController
         $deck->addOrIncrementCard($card, (int) ($payload['quantity'] ?? 1), $section);
         $entityManager->flush();
 
-        return $this->json(['deck' => $deck->toArray(true)], 201);
+        return $this->json(['deck' => $this->localizeDeckPayload($deck->toArray(true), $user, $localization)], 201);
     }
 
     #[Route('/decks/{id}/cards', methods: ['PATCH'])]
-    public function updateCards(string $id, Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager): JsonResponse
+    public function updateCards(string $id, Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, CardLocalizationService $localization): JsonResponse
     {
         $deck = $this->ownedDeck($id, $user, $entityManager);
         if (!$deck) {
@@ -433,11 +441,11 @@ class DecksController extends ApiController
         $deck->touch();
         $entityManager->flush();
 
-        return $this->json(['deck' => $deck->toArray(true)]);
+        return $this->json(['deck' => $this->localizeDeckPayload($deck->toArray(true), $user, $localization)]);
     }
 
     #[Route('/decks/{id}/commanders', methods: ['PUT'])]
-    public function replaceCommanders(string $id, Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, CardResolver $cardResolver): JsonResponse
+    public function replaceCommanders(string $id, Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, CardResolver $cardResolver, CardLocalizationService $localization): JsonResponse
     {
         $deck = $this->ownedDeck($id, $user, $entityManager);
         if (!$deck) {
@@ -515,11 +523,11 @@ class DecksController extends ApiController
         $deck->touch();
         $entityManager->flush();
 
-        return $this->json(['deck' => $deck->toArray(true)]);
+        return $this->json(['deck' => $this->localizeDeckPayload($deck->toArray(true), $user, $localization)]);
     }
 
     #[Route('/decks/{id}/cards/{deckCardId}', methods: ['PATCH'])]
-    public function updateCard(string $id, string $deckCardId, Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager): JsonResponse
+    public function updateCard(string $id, string $deckCardId, Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, CardLocalizationService $localization): JsonResponse
     {
         $deck = $this->ownedDeck($id, $user, $entityManager);
         if (!$deck) {
@@ -548,7 +556,7 @@ class DecksController extends ApiController
         $deck->touch();
         $entityManager->flush();
 
-        return $this->json(['deck' => $deck->toArray(true)]);
+        return $this->json(['deck' => $this->localizeDeckPayload($deck->toArray(true), $user, $localization)]);
     }
 
     #[Route('/decks/{id}/cards/{deckCardId}/printings', methods: ['GET'])]
@@ -566,12 +574,15 @@ class DecksController extends ApiController
 
         return $this->json([
             'deckCardId' => $deckCard->id(),
-            'data' => array_map(static fn (Card $card): array => $card->toArray(), $this->printVersionCards($deckCard->card(), $entityManager)),
+            'data' => array_map(
+                static fn (Card $card): array => $card->toArray(),
+                $this->printVersionCards($deckCard->card(), $entityManager, $user->cardLanguage()),
+            ),
         ]);
     }
 
     #[Route('/decks/{id}/cards/{deckCardId}/printing', methods: ['PATCH'])]
-    public function selectCardPrinting(string $id, string $deckCardId, Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager): JsonResponse
+    public function selectCardPrinting(string $id, string $deckCardId, Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, CardLocalizationService $localization): JsonResponse
     {
         $deck = $this->ownedDeck($id, $user, $entityManager);
         if (!$deck) {
@@ -609,11 +620,11 @@ class DecksController extends ApiController
 
         $entityManager->flush();
 
-        return $this->json(['deck' => $deck->toArray(true)]);
+        return $this->json(['deck' => $this->localizeDeckPayload($deck->toArray(true), $user, $localization)]);
     }
 
     #[Route('/decks/{id}/cards/{deckCardId}', methods: ['DELETE'])]
-    public function deleteCard(string $id, string $deckCardId, #[CurrentUser] User $user, EntityManagerInterface $entityManager): JsonResponse
+    public function deleteCard(string $id, string $deckCardId, #[CurrentUser] User $user, EntityManagerInterface $entityManager, CardLocalizationService $localization): JsonResponse
     {
         $deck = $this->ownedDeck($id, $user, $entityManager);
         if (!$deck) {
@@ -629,7 +640,7 @@ class DecksController extends ApiController
         $entityManager->remove($deckCard);
         $entityManager->flush();
 
-        return $this->json(['deck' => $deck->toArray(true)]);
+        return $this->json(['deck' => $this->localizeDeckPayload($deck->toArray(true), $user, $localization)]);
     }
 
     #[Route('/decks/{id}/validate-commander', methods: ['POST'])]
@@ -770,8 +781,9 @@ class DecksController extends ApiController
     /**
      * @return list<Card>
      */
-    private function printVersionCards(Card $card, EntityManagerInterface $entityManager): array
+    private function printVersionCards(Card $card, EntityManagerInterface $entityManager, ?string $preferredLanguage = null): array
     {
+        $preferredLanguage = LanguageCatalog::normalize($preferredLanguage);
         $candidates = $entityManager->getRepository(Card::class)
             ->createQueryBuilder('card')
             ->andWhere('card.normalizedName IN (:names)')
@@ -786,11 +798,31 @@ class DecksController extends ApiController
             fn (Card $candidate): bool => $this->isEquivalentPrintVersion($card, $candidate),
         ));
 
-        usort($cards, static function (Card $left, Card $right) use ($card): int {
+        usort($cards, static function (Card $left, Card $right) use ($card, $preferredLanguage): int {
             if ($left->scryfallId() === $card->scryfallId()) {
                 return -1;
             }
             if ($right->scryfallId() === $card->scryfallId()) {
+                return 1;
+            }
+
+            if ($preferredLanguage !== null) {
+                $leftPreferred = $left->lang() === $preferredLanguage;
+                $rightPreferred = $right->lang() === $preferredLanguage;
+                if ($leftPreferred && !$rightPreferred) {
+                    return -1;
+                }
+                if ($rightPreferred && !$leftPreferred) {
+                    return 1;
+                }
+            }
+
+            $leftEnglish = $left->lang() === LanguageCatalog::DEFAULT_LANGUAGE;
+            $rightEnglish = $right->lang() === LanguageCatalog::DEFAULT_LANGUAGE;
+            if ($leftEnglish && !$rightEnglish) {
+                return -1;
+            }
+            if ($rightEnglish && !$leftEnglish) {
                 return 1;
             }
 
@@ -928,5 +960,96 @@ class DecksController extends ApiController
         }
 
         return ['data' => $data, 'unresolved' => $unresolved];
+    }
+
+    /**
+     * @param array<string,mixed> $deckPayload
+     *
+     * @return array<string,mixed>
+     */
+    private function localizeDeckPayload(array $deckPayload, User $user, CardLocalizationService $localization): array
+    {
+        if (is_array($deckPayload['commander'] ?? null)) {
+            $deckPayload['commander'] = $localization->localizeCardPayload($deckPayload['commander'], $user->cardLanguage(), true);
+        }
+
+        if (is_array($deckPayload['cards'] ?? null)) {
+            $deckPayload['cards'] = array_values(array_map(
+                fn (mixed $line): mixed => $this->localizeDeckCardLine($line, $user, $localization),
+                $deckPayload['cards'],
+            ));
+        }
+
+        return $deckPayload;
+    }
+
+    /**
+     * @param mixed $line
+     *
+     * @return mixed
+     */
+    private function localizeDeckCardLine(mixed $line, User $user, CardLocalizationService $localization): mixed
+    {
+        if (!is_array($line) || !is_array($line['card'] ?? null)) {
+            return $line;
+        }
+
+        $line['card'] = $localization->localizeCardPayload($line['card'], $user->cardLanguage(), true);
+
+        return $line;
+    }
+
+    /**
+     * @param array<string,mixed> $sections
+     *
+     * @return array<string,mixed>
+     */
+    private function localizeSectionsPayload(array $sections, User $user, CardLocalizationService $localization): array
+    {
+        foreach ([DeckCard::SECTION_COMMANDER, DeckCard::SECTION_MAIN, DeckCard::SECTION_SIDEBOARD, DeckCard::SECTION_MAYBEBOARD] as $section) {
+            if (!is_array($sections[$section] ?? null)) {
+                continue;
+            }
+
+            $sections[$section] = array_values(array_map(
+                fn (mixed $line): mixed => $this->localizeDeckCardLine($line, $user, $localization),
+                $sections[$section],
+            ));
+        }
+
+        if (is_array($sections['tokens'] ?? null)) {
+            $sections['tokens'] = $this->localizeTokensData($sections['tokens'], $user, $localization);
+        }
+
+        return $sections;
+    }
+
+    /**
+     * @param array{data:list<array<string,mixed>>,unresolved:list<array<string,mixed>>} $payload
+     *
+     * @return array{data:list<array<string,mixed>>,unresolved:list<array<string,mixed>>}
+     */
+    private function localizeTokensPayload(array $payload, User $user, CardLocalizationService $localization): array
+    {
+        return [
+            'data' => $this->localizeTokensData($payload['data'] ?? [], $user, $localization),
+            'unresolved' => $payload['unresolved'] ?? [],
+        ];
+    }
+
+    /**
+     * @param list<array<string,mixed>> $tokens
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function localizeTokensData(array $tokens, User $user, CardLocalizationService $localization): array
+    {
+        return array_values(array_map(function (array $tokenEntry) use ($user, $localization): array {
+            if (is_array($tokenEntry['token'] ?? null)) {
+                $tokenEntry['token'] = $localization->localizeCardPayload($tokenEntry['token'], $user->cardLanguage(), true);
+            }
+
+            return $tokenEntry;
+        }, $tokens));
     }
 }

@@ -1,28 +1,8 @@
 import { ChangeDetectionStrategy, Component, ElementRef, HostListener, computed, inject, output, signal } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
 import { FullscreenService } from '../../../../../../core/fullscreen/fullscreen.service';
-import { publicAssetUrl } from '../../../../../../core/assets/app-image-url';
-
-type GameTableHeaderLanguageCode = 'es' | 'fr' | 'en' | 'it' | 'de' | 'pt' | 'ja' | 'zh' | 'nl' | 'ca';
-
-interface GameTableHeaderLanguageOption {
-  readonly code: GameTableHeaderLanguageCode;
-  readonly label: string;
-  readonly flagAsset: string;
-}
-
-const GAME_TABLE_HEADER_LANGUAGE_OPTIONS: readonly GameTableHeaderLanguageOption[] = [
-  { code: 'es', label: 'Espanol', flagAsset: publicAssetUrl('assets/icons/flags/spain.png') },
-  { code: 'fr', label: 'Frances', flagAsset: publicAssetUrl('assets/icons/flags/france.png') },
-  { code: 'en', label: 'Ingles', flagAsset: publicAssetUrl('assets/icons/flags/uk.png') },
-  { code: 'it', label: 'Italiano', flagAsset: publicAssetUrl('assets/icons/flags/italy.png') },
-  { code: 'de', label: 'Aleman', flagAsset: publicAssetUrl('assets/icons/flags/germany.png') },
-  { code: 'pt', label: 'Portugues', flagAsset: publicAssetUrl('assets/icons/flags/portugal.png') },
-  { code: 'ja', label: 'Japones', flagAsset: publicAssetUrl('assets/icons/flags/japan.png') },
-  { code: 'zh', label: 'Chino', flagAsset: publicAssetUrl('assets/icons/flags/china.png') },
-  { code: 'nl', label: 'Holandes', flagAsset: publicAssetUrl('assets/icons/flags/holand.png') },
-  { code: 'ca', label: 'Catalan', flagAsset: publicAssetUrl('assets/icons/flags/catalan.png') },
-];
+import { LANGUAGE_OPTIONS, SupportedLanguageCode } from '../../../../../../core/localization/language-preferences';
+import { LanguagePreferencesService } from '../../../../../../core/localization/language-preferences.service';
 
 @Component({
   selector: 'app-game-table-header-menu',
@@ -34,13 +14,14 @@ const GAME_TABLE_HEADER_LANGUAGE_OPTIONS: readonly GameTableHeaderLanguageOption
 export class GameTableHeaderMenuComponent {
   private readonly elementRef = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly fullscreen = inject(FullscreenService);
+  private readonly languagePreferences = inject(LanguagePreferencesService);
   private readonly languageCollator = new Intl.Collator('es', { sensitivity: 'base' });
   readonly settingsSelected = output<void>();
   readonly logoffSelected = output<void>();
   readonly menuOpen = signal(false);
   readonly languagePickerOpen = signal(false);
-  readonly selectedLanguage = signal<GameTableHeaderLanguageCode>('es');
-  readonly languages = GAME_TABLE_HEADER_LANGUAGE_OPTIONS;
+  readonly selectedLanguage = this.languagePreferences.cardLanguage;
+  readonly languages = LANGUAGE_OPTIONS;
   readonly sortedLanguages = computed(() =>
     [...this.languages].sort((left, right) => this.languageCollator.compare(left.label, right.label)),
   );
@@ -72,8 +53,13 @@ export class GameTableHeaderMenuComponent {
     this.languagePickerOpen.update((open) => !open);
   }
 
-  selectLanguage(code: GameTableHeaderLanguageCode): void {
-    this.selectedLanguage.set(code);
+  async selectLanguage(code: SupportedLanguageCode): Promise<void> {
+    if (code === this.selectedLanguage()) {
+      this.languagePickerOpen.set(false);
+      return;
+    }
+
+    await this.languagePreferences.updateCardLanguage(code);
     this.languagePickerOpen.set(false);
   }
 

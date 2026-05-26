@@ -266,6 +266,16 @@ class Card
         return $this->flavorName;
     }
 
+    public function lang(): ?string
+    {
+        return $this->lang;
+    }
+
+    public function printedName(): ?string
+    {
+        return $this->printedName;
+    }
+
     public function colorIdentity(): array
     {
         return $this->colorIdentity;
@@ -286,7 +296,7 @@ class Card
         return [
             'id' => $this->id,
             'scryfallId' => $this->scryfallId,
-            'name' => $this->name,
+            'name' => $this->displayName(),
             'manaCost' => $this->manaCost,
             'typeLine' => $this->typeLine,
             'oracleText' => $this->oracleText,
@@ -311,6 +321,13 @@ class Card
             'printedName' => $this->printedName,
             'flavorName' => $this->flavorName,
         ];
+    }
+
+    private function displayName(): string
+    {
+        $printedName = trim((string) $this->printedName);
+
+        return $printedName !== '' ? $printedName : $this->name;
     }
 
     private function cardString(array $data, string $key): ?string

@@ -3,6 +3,7 @@
 namespace App\Application\Card;
 
 use App\Domain\Card\Card;
+use App\Domain\Localization\LanguageCatalog;
 use Doctrine\ORM\EntityManagerInterface;
 
 class CardResolver
@@ -14,8 +15,9 @@ class CardResolver
     /**
      * @return list<Card>
      */
-    public function resolveCandidates(array $criteria): array
+    public function resolveCandidates(array $criteria, ?string $preferredLanguage = null): array
     {
+        $preferredLanguage = LanguageCatalog::normalize($preferredLanguage);
         $scryfallId = trim((string) ($criteria['scryfallId'] ?? ''));
         if ($scryfallId !== '') {
             $card = $this->entityManager->getRepository(Card::class)->findOneBy(['scryfallId' => $scryfallId]);
@@ -31,7 +33,13 @@ class CardResolver
                 'collectorNumber' => $collectorNumber,
             ]);
 
-            return array_values(array_filter($matches, static fn (mixed $card) => $card instanceof Card));
+            $resolvedMatches = array_values(array_filter($matches, static fn (mixed $card) => $card instanceof Card));
+            $preferred = $this->preferredPrint($resolvedMatches, $preferredLanguage);
+            if ($preferred instanceof Card) {
+                return [$preferred];
+            }
+
+            return $resolvedMatches;
         }
 
         $name = trim((string) ($criteria['name'] ?? ''));
@@ -57,23 +65,29 @@ class CardResolver
                 'collectorNumber' => $collectorNumber,
             ]);
 
-            return array_values(array_filter($matches, static fn (mixed $card) => $card instanceof Card));
+            $resolvedMatches = array_values(array_filter($matches, static fn (mixed $card) => $card instanceof Card));
+            $preferred = $this->preferredPrint($resolvedMatches, $preferredLanguage);
+            if ($preferred instanceof Card) {
+                return [$preferred];
+            }
+
+            return $resolvedMatches;
         }
 
         return [];
     }
 
-    public function resolveOne(array $criteria): ?Card
+    public function resolveOne(array $criteria, ?string $preferredLanguage = null): ?Card
     {
-        return $this->resolveCandidates($criteria)[0] ?? null;
+        return $this->resolveCandidates($criteria, $preferredLanguage)[0] ?? null;
     }
 
     /**
      * @return array{card:?Card,error:?string,matches:list<Card>}
      */
-    public function resolveUnique(array $criteria): array
+    public function resolveUnique(array $criteria, ?string $preferredLanguage = null): array
     {
-        $matches = $this->resolveCandidates($criteria);
+        $matches = $this->resolveCandidates($criteria, $preferredLanguage);
         if ($matches === []) {
             return ['card' => null, 'error' => 'not_found', 'matches' => []];
         }
@@ -99,6 +113,36 @@ class CardResolver
         }
 
         return $this->resolveDecklistName((string) ($entry['name'] ?? ''));
+    }
+
+    /**
+     * @param list<Card> $matches
+     */
+    private function preferredPrint(array $matches, ?string $preferredLanguage): ?Card
+    {
+        if ($matches === []) {
+            return null;
+        }
+
+        if (!LanguageCatalog::isSupported($preferredLanguage) || $preferredLanguage === null) {
+            return null;
+        }
+
+        foreach ($matches as $match) {
+            if ($match->lang() === $preferredLanguage) {
+                return $match;
+            }
+        }
+
+        if ($preferredLanguage !== LanguageCatalog::DEFAULT_LANGUAGE) {
+            foreach ($matches as $match) {
+                if ($match->lang() === LanguageCatalog::DEFAULT_LANGUAGE) {
+                    return $match;
+                }
+            }
+        }
+
+        return $matches[0] ?? null;
     }
 
     private function resolveDecklistName(string $name): ?Card
