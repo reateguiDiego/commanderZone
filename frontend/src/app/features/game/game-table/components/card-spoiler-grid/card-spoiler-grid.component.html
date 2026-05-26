@@ -2,35 +2,49 @@
   @if (loading()) {
     <div class="card-spoiler-state">Loading cards</div>
   } @else {
-    @for (card of cards(); track card.instanceId) {
-      <button
-        type="button"
-        class="card-spoiler"
-        [class.active]="selectedCardId() === card.instanceId"
-        [class.reorderable]="allowReorder()"
-        [attr.aria-label]="card.name"
-        [attr.data-card-instance-id]="card.instanceId"
-        [attr.draggable]="allowReorder() ? 'true' : null"
-        appGameTableLongPress
-        [appGameTableLongPressDisabled]="!allowContextMenu()"
-        (appGameTableLongPressed)="openCardMenu($event, card)"
-        (click)="selectCard(card)"
-        (dblclick)="doubleClickCard($event, card)"
-        (contextmenu)="openCardMenu($event, card)"
-        (dragstart)="dragStart($event, card)"
-        (dragover)="dragOver($event)"
-        (drop)="dropCard($event, card)"
-        (dragend)="dragEnd()"
-      >
-        @if (allowReorder() && orderLabel($index); as label) {
-          <span class="draw-order-label">{{ label }}</span>
-        }
-        @if (cardImage()(card); as image) {
-          <img [src]="image" [alt]="card.name" loading="lazy" />
-        } @else {
-          <span class="card-spoiler-fallback">{{ card.name }}</span>
-        }
-      </button>
+    @for (slot of slots(); track slotTrackBy($index, slot)) {
+      @if (slot.card; as card) {
+        <button
+          type="button"
+          class="card-spoiler"
+          [class.active]="selectedCardId() === card.instanceId"
+          [class.reorderable]="allowReorder()"
+          [class.dragging]="isDraggedCard(card)"
+          [class.drop-target]="isDropTargetCard(card)"
+          [attr.aria-label]="card.name"
+          [attr.data-card-instance-id]="card.instanceId"
+          [attr.draggable]="allowReorder() ? 'true' : null"
+          appGameTableLongPress
+          [appGameTableLongPressDisabled]="!allowContextMenu()"
+          (appGameTableLongPressed)="openCardMenu($event, card)"
+          (click)="selectCard(card)"
+          (dblclick)="doubleClickCard($event, card)"
+          (contextmenu)="openCardMenu($event, card)"
+          (dragstart)="dragStart($event, card)"
+          (dragover)="dragOver($event, card)"
+          (dragleave)="dragLeave($event, card)"
+          (drop)="dropCard($event, card)"
+          (dragend)="dragEnd()"
+        >
+          @if (allowReorder() && orderLabel(slot.index); as label) {
+            <span class="draw-order-label">{{ label }}</span>
+          }
+          <span class="zone-art" [class.empty]="isDraggedCard(card)">
+            @if (cardImage()(card); as image) {
+              <img [src]="image" [alt]="card.name" loading="lazy" />
+            } @else {
+              <span class="card-spoiler-fallback">{{ card.name }}</span>
+            }
+          </span>
+        </button>
+      } @else {
+        <div class="card-spoiler empty-slot" aria-hidden="true">
+          @if (allowReorder() && orderLabel(slot.index); as label) {
+            <span class="draw-order-label">{{ label }}</span>
+          }
+          <span class="zone-art empty"></span>
+        </div>
+      }
     } @empty {
       <div class="card-spoiler-state">{{ emptyLabel() }}</div>
     }

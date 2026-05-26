@@ -43,6 +43,7 @@
         [loading]="currentModal.loading"
         [allowContextMenu]="!currentModal.readOnly"
         [allowReorder]="currentModal.allowReorder"
+        [allowSelection]="!currentModal.allowReorder"
         [orderLabels]="currentModal.drawOrderLabels"
         [cardImage]="cardImage()"
         emptyLabel="No cards found"

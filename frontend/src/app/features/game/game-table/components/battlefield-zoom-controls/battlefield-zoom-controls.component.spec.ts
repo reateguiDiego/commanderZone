@@ -116,6 +116,31 @@ describe('BattlefieldZoomControlsComponent', () => {
     expect(resetZoom).toHaveBeenCalledOnce();
   });
 
+  it('emits zoom changes from pointer movement on the visible slider track', async () => {
+    const fixture = await renderControls();
+    openZoomControls(fixture);
+    const zoomPercentChanged = vi.fn();
+    fixture.componentInstance.zoomPercentChanged.subscribe(zoomPercentChanged);
+    const sliderShell = fixture.nativeElement.querySelector('.zoom-slider-shell') as HTMLElement;
+    const sliderTrack = fixture.nativeElement.querySelector('.zoom-track') as HTMLElement;
+    sliderTrack.getBoundingClientRect = () => ({
+      bottom: 20,
+      height: 10,
+      left: 10,
+      right: 110,
+      top: 10,
+      width: 100,
+      x: 10,
+      y: 10,
+      toJSON: () => ({}),
+    });
+
+    sliderShell.dispatchEvent(pointerEvent('pointerdown', 90));
+
+    expect(zoomPercentChanged).toHaveBeenCalledWith(126);
+    expect(sliderInput(fixture).value).toBe('126');
+  });
+
   it('snaps slider changes close to the default zoom', async () => {
     const fixture = await renderControls();
     openZoomControls(fixture);
@@ -198,4 +223,8 @@ function resetButton(fixture: ComponentFixture<BattlefieldZoomControlsComponent>
 
 function sliderInput(fixture: ComponentFixture<BattlefieldZoomControlsComponent>): HTMLInputElement {
   return fixture.nativeElement.querySelector('[data-testid="battlefield-zoom-slider"]');
+}
+
+function pointerEvent(type: string, clientX: number): PointerEvent {
+  return new MouseEvent(type, { bubbles: true, button: 0, clientX }) as PointerEvent;
 }

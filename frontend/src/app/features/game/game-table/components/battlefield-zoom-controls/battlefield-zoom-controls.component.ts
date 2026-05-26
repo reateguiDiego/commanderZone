@@ -80,6 +80,7 @@ export class BattlefieldZoomControlsComponent {
   readonly zoomThumbSymbolClasses = `ms ms-cost ${this.pickRandomManaSymbolClass()}`;
   readonly currentZoomPosition = computed(() => this.sliderPosition(this.zoomPercent()));
   readonly defaultZoomPosition = computed(() => this.sliderPosition(this.defaultZoomPercent()));
+  private isSliderDragging = false;
 
   @HostListener('document:pointerdown', ['$event'])
   closeWhenClickingOutside(event: PointerEvent): void {
@@ -97,6 +98,38 @@ export class BattlefieldZoomControlsComponent {
 
   toggleExpanded(): void {
     this.isExpanded.update((isExpanded) => !isExpanded);
+  }
+
+  startSliderDrag(event: PointerEvent): void {
+    if (event.button !== 0) {
+      return;
+    }
+
+    this.isSliderDragging = true;
+    const target = event.currentTarget instanceof HTMLElement ? event.currentTarget : null;
+    target?.setPointerCapture?.(event.pointerId);
+    this.emitZoomFromPointer(event);
+  }
+
+  moveSliderDrag(event: PointerEvent): void {
+    if (!this.isSliderDragging) {
+      return;
+    }
+
+    this.emitZoomFromPointer(event);
+  }
+
+  endSliderDrag(event: PointerEvent): void {
+    if (!this.isSliderDragging) {
+      return;
+    }
+
+    this.emitZoomFromPointer(event);
+    this.cancelSliderDrag();
+  }
+
+  cancelSliderDrag(): void {
+    this.isSliderDragging = false;
   }
 
   private pickRandomManaSymbolClass(): (typeof ZOOM_THUMB_MANA_SYMBOL_CLASSES)[number] {
@@ -132,6 +165,28 @@ export class BattlefieldZoomControlsComponent {
       inputElement.value = String(nextPercent);
     }
 
+    this.zoomPercentChanged.emit(nextPercent);
+  }
+
+  private emitZoomFromPointer(event: PointerEvent): void {
+    const shell = event.currentTarget instanceof HTMLElement ? event.currentTarget : null;
+    const track = shell?.querySelector<HTMLElement>('.zoom-track') ?? null;
+    if (!shell || !track) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    const trackRect = track.getBoundingClientRect();
+    const ratio = trackRect.width > 0
+      ? Math.max(0, Math.min(1, (event.clientX - trackRect.left) / trackRect.width))
+      : 0;
+    const rawPercent = this.minZoomPercent() + ratio * (this.maxZoomPercent() - this.minZoomPercent());
+    const nextPercent = this.applyDefaultZoomSnap(rawPercent);
+    const input = shell.querySelector<HTMLInputElement>('.zoom-slider');
+    if (input) {
+      input.value = String(nextPercent);
+    }
     this.zoomPercentChanged.emit(nextPercent);
   }
 

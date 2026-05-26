@@ -944,22 +944,27 @@ final readonly class GameWebsocketPatchBuilder
     private function tokenCreated(array $previousSnapshot, array $nextSnapshot): ?array
     {
         $created = $this->createdBattlefieldCards($previousSnapshot, $nextSnapshot);
-        if (count($created) !== 1) {
+        if ($created === []) {
             return null;
         }
 
-        $entry = $created[0];
-
-        return [
-            [
+        $operations = [];
+        $hasSensitiveProjection = false;
+        foreach ($created as $entry) {
+            $operations[] = [
                 'op' => 'card.create',
                 'playerId' => $entry['playerId'],
                 'zone' => 'battlefield',
                 'index' => $entry['index'],
                 'card' => $entry['card'],
-            ],
+            ];
+            $hasSensitiveProjection = $hasSensitiveProjection || $this->isSensitiveProjectedCard($entry['card']);
+        }
+
+        return [
+            ...$operations,
             ...$this->zoneCountOperations($previousSnapshot, $nextSnapshot),
-            ...$this->eventLogAppendOperation($previousSnapshot, $nextSnapshot, $this->isSensitiveProjectedCard($entry['card'])),
+            ...$this->eventLogAppendOperation($previousSnapshot, $nextSnapshot, $hasSensitiveProjection),
         ];
     }
 

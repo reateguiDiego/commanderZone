@@ -5,6 +5,7 @@ import { GameContextMenu } from '../../state/core/game-table-ui.state';
 import { PlayerView } from '../../game-table.store';
 import { ContextSubmenuComponent, ContextSubmenuItem } from './context-submenu/context-submenu.component';
 import { playerIsDefeated } from '../../utils/game-player-defeat';
+import { contextMenuDisplayLabel } from './context-menu-label';
 
 export type ContextMenuAction =
   | { type: 'drawMine' }
@@ -98,6 +99,7 @@ export class ContextMenuComponent {
   readonly ownedArrowCount = input(0);
 
   readonly actionSelected = output<ContextMenuAction>();
+  readonly interacted = output<void>();
   readonly close = output<void>();
   readonly expandedSubmenu = signal<ContextSubmenu | null>(null);
   readonly counterMenuItems = computed<readonly ContextSubmenuItem[]>(() => this.buildCounterMenuItems());
@@ -106,13 +108,19 @@ export class ContextMenuComponent {
       value: player.id,
       label: this.playerLabel(player),
       icon: 'gift',
+      preserveCase: true,
     }))),
   );
   readonly moveToMenuItems = computed<readonly ContextSubmenuItem[]>(() => this.buildMoveToMenuItems());
   readonly moveAllToMenuItems = computed<readonly ContextSubmenuItem[]>(() => this.buildMoveAllToMenuItems());
   readonly revealToMenuItems = computed<readonly ContextSubmenuItem[]>(() => [
     { value: 'all', label: 'Todos', icon: 'users' },
-    ...this.sortedItems(this.players().map((player) => ({ value: player.id, label: this.playerLabel(player), icon: 'users' }))),
+    ...this.sortedItems(this.players().map((player) => ({
+      value: player.id,
+      label: this.playerLabel(player),
+      icon: 'users',
+      preserveCase: true,
+    }))),
   ]);
   readonly libraryMoveTopMenuItems = computed<readonly ContextSubmenuItem[]>(() => this.buildLibraryMoveTopMenuItems());
   readonly libraryRevealTopMenuItems = computed<readonly ContextSubmenuItem[]>(() => this.buildVisibilityTargetMenuItems());
@@ -121,6 +129,7 @@ export class ContextMenuComponent {
       value: player.id,
       label: this.playerLabel(player),
       icon: 'users',
+      preserveCase: true,
     }))),
   );
   readonly libraryViewMenuItems = computed<readonly ContextSubmenuItem[]>(() => [
@@ -280,6 +289,10 @@ export class ContextMenuComponent {
     return player.state.user.displayName || player.id;
   }
 
+  displayLabel(label: string): string {
+    return contextMenuDisplayLabel(label);
+  }
+
   isSubmenuExpanded(submenu: ContextSubmenu): boolean {
     return this.expandedSubmenu() === submenu;
   }
@@ -409,6 +422,7 @@ export class ContextMenuComponent {
           value: `battlefield:${player.id}`,
           label: this.playerLabel(player),
           icon: 'users',
+          preserveCase: true,
         }))),
       },
     ];
@@ -427,7 +441,7 @@ export class ContextMenuComponent {
 
     return [
       ...items,
-      { value: 'library:bottom', label: 'Bottom Library', icon: 'library' },
+      { value: 'library:bottom', label: 'Bottom of Library', icon: 'library' },
     ];
   }
 
@@ -435,10 +449,11 @@ export class ContextMenuComponent {
     const targetPlayers = this.sortedItems(this.giveToPlayerTargets().map((player) => ({
       value: player.id,
       label: this.playerLabel(player),
+      preserveCase: true,
     })));
 
     return [
-      { value: 'zone:library', label: 'X to bottom library', icon: this.zoneIcon('library') },
+      { value: 'zone:library', label: 'X to bottom of library', icon: this.zoneIcon('library') },
       { value: 'zone:graveyard', label: 'X to graveyard', icon: this.zoneIcon('graveyard') },
       { value: 'zone:exile', label: 'X to exile', icon: this.zoneIcon('exile') },
       {
@@ -461,7 +476,12 @@ export class ContextMenuComponent {
   private buildVisibilityTargetMenuItems(): readonly ContextSubmenuItem[] {
     return [
       { value: 'all', label: 'Todos', icon: 'users' },
-      ...this.sortedItems(this.players().map((player) => ({ value: player.id, label: this.playerLabel(player), icon: 'users' }))),
+      ...this.sortedItems(this.players().map((player) => ({
+        value: player.id,
+        label: this.playerLabel(player),
+        icon: 'users',
+        preserveCase: true,
+      }))),
     ];
   }
 
@@ -536,6 +556,7 @@ export class ContextMenuComponent {
 
   stopClick(event: MouseEvent): void {
     event.stopPropagation();
+    this.interacted.emit();
   }
 
   @HostListener('document:mousedown', ['$event'])

@@ -645,6 +645,7 @@
         [card]="preview.card"
         [image]="store.cardImage(preview.card)"
         [sourceRect]="preview.sourceRect"
+        [avoidRect]="contextMenuAvoidRect()"
         [battlefieldRect]="battlefieldLayoutSize()"
       />
     }
@@ -680,6 +681,7 @@
         [canAttachEquipment]="canAttachEquipment"
         [zoneTitle]="zoneTitle"
         [ownedArrowCount]="ownedArrowCount(menu.playerId)"
+        (interacted)="store.clearCardPreview()"
         (actionSelected)="handleContextMenuAction($event, menu)"
         (close)="store.closeContextMenu()"
       />

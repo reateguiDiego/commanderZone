@@ -25,6 +25,10 @@
   white-space: nowrap;
 }
 
+.player-name-shell:not(.has-nameplate) {
+  font-size: var(--player-name-plain-font-size, var(--player-name-base-font-size));
+}
+
 .player-name-shell.fill {
   width: 100%;
 }

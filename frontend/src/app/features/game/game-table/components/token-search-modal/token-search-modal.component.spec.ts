@@ -1,6 +1,6 @@
 import { importProvidersFrom } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { Plus, Search, X, LucideAngularModule } from 'lucide-angular';
+import { ChevronDown, ChevronUp, Plus, Search, X, LucideAngularModule } from 'lucide-angular';
 import { of } from 'rxjs';
 import { CardsApi } from '../../../../../core/api/cards.api';
 import { DecksApi } from '../../../../../core/api/decks.api';
@@ -21,7 +21,7 @@ describe('TokenSearchModalComponent', () => {
       providers: [
         { provide: DecksApi, useValue: decksApi },
         { provide: CardsApi, useValue: cardsApi },
-        importProvidersFrom(LucideAngularModule.pick({ Plus, Search, X })),
+        importProvidersFrom(LucideAngularModule.pick({ ChevronDown, ChevronUp, Plus, Search, X })),
       ],
     }).compileComponents();
 
@@ -70,11 +70,27 @@ describe('TokenSearchModalComponent', () => {
       expect(cardsApi.search).toHaveBeenCalledWith('goblin', 1, 500, { tokenOnly: true });
       expect(fixture.nativeElement.textContent).toContain('Goblin Token');
 
+      fixture.componentInstance.onQuantityInput('3');
+      fixture.detectChanges();
       fixture.nativeElement.querySelector('.token-add-button')?.click();
-      expect(selected).toHaveBeenCalledWith(expect.objectContaining({ scryfallId: 'token-2' }));
+      expect(selected).toHaveBeenCalledWith({
+        card: expect.objectContaining({ scryfallId: 'token-2' }),
+        quantity: 3,
+      });
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('clamps token quantity to the supported range', () => {
+    fixture.componentRef.setInput('open', true);
+    fixture.detectChanges();
+
+    fixture.componentInstance.onQuantityInput('99');
+    expect(fixture.componentInstance.quantity()).toBe(20);
+
+    fixture.componentInstance.onQuantityInput('0');
+    expect(fixture.componentInstance.quantity()).toBe(1);
   });
 });
 

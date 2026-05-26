@@ -496,15 +496,22 @@ function removeCard(snapshot: GameSnapshot, operation: Extract<GameSnapshotPatch
     return { status: 'failed', reason: 'target_not_found' };
   }
 
-  if (!cards.some((card) => card.instanceId === operation.instanceId)) {
+  const zonesWithCard = ZONE_NAMES.filter((zone) =>
+    player.zones[zone].some((card) => card.instanceId === operation.instanceId),
+  );
+
+  if (!zonesWithCard.includes(operation.zone)) {
     return { status: 'failed', reason: 'target_not_found' };
   }
 
-  const nextSnapshot = replaceZoneSnapshotOnly(
+  const nextSnapshot = zonesWithCard.reduce(
+    (currentSnapshot, zone) => replaceZoneSnapshotOnly(
+      currentSnapshot,
+      operation.playerId,
+      zone,
+      currentSnapshot.players[operation.playerId]!.zones[zone].filter((card) => card.instanceId !== operation.instanceId),
+    ),
     snapshot,
-    operation.playerId,
-    operation.zone,
-    cards.filter((card) => card.instanceId !== operation.instanceId),
   );
 
   if (!operation.zoneCounts) {

@@ -501,6 +501,26 @@ describe('game snapshot patch reducer', () => {
     expect(result.snapshot.players['player-1'].zones.graveyard.map((entry) => entry.instanceId)).toEqual(['graveyard-1']);
   });
 
+  it('removes stale local copies of an evaporated card from hidden destinations', () => {
+    const snapshot = snapshotFixture();
+    snapshot.players['player-1'].zones.hand = [
+      card('battlefield-1', { zone: 'hand', hidden: true, faceDown: true }),
+    ];
+
+    const result = applyGameSnapshotPatch(snapshot, patch([
+      {
+        op: 'card.remove',
+        playerId: 'player-1',
+        zone: 'battlefield',
+        instanceId: 'battlefield-1',
+      },
+    ]));
+
+    expect(result.status).toBe('applied');
+    expect(result.snapshot.players['player-1'].zones.battlefield.map((entry) => entry.instanceId)).toEqual(['battlefield-2']);
+    expect(result.snapshot.players['player-1'].zones.hand).toEqual([]);
+  });
+
   it('does not apply patches with a version gap', () => {
     const snapshot = snapshotFixture();
 

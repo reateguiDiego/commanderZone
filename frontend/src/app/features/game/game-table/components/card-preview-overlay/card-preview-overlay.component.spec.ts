@@ -27,6 +27,19 @@ describe('CardPreviewOverlayComponent', () => {
     expect(fixture.componentInstance.previewStyle().top).toBe(94);
   });
 
+  it('moves away from an open context menu when the default position would cover it', async () => {
+    const fixture = await renderPreview({
+      avoidRect: {
+        left: 590,
+        top: 40,
+        right: 880,
+        bottom: 80,
+      },
+    });
+
+    expect(fixture.componentInstance.previewStyle().top).toBe(94);
+  });
+
   it('moves above the hovered source when there is no room below it', async () => {
     const fixture = await renderPreview({
       sourceRect: {
@@ -67,6 +80,12 @@ async function renderPreview(options: {
     width: number;
     height: number;
   } | null;
+  avoidRect?: {
+    left: number;
+    top: number;
+    right: number;
+    bottom: number;
+  } | null;
 } = {}): Promise<ComponentFixture<CardPreviewOverlayComponent>> {
   await TestBed.configureTestingModule({
     imports: [CardPreviewOverlayComponent],
@@ -84,6 +103,7 @@ async function renderPreview(options: {
     height: 520,
   });
   fixture.componentRef.setInput('sourceRect', options.sourceRect ?? null);
+  fixture.componentRef.setInput('avoidRect', options.avoidRect ?? null);
   fixture.detectChanges();
 
   return fixture;

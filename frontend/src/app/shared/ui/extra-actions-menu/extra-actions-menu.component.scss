@@ -106,6 +106,15 @@
   right: 0;
 }
 
+.viewport-safe .extra-actions-panel {
+  position: fixed;
+  right: auto;
+  bottom: auto;
+  transform: none;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
 .extra-actions-panel ::ng-deep button {
   display: grid;
   gap: 0.08rem;

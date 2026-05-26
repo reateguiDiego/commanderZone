@@ -47,8 +47,10 @@
             <div
               class="players-grid"
               [class.capacity-two]="roomCapacity(room) <= 2"
-              [class.capacity-four]="roomCapacity(room) > 2 && roomCapacity(room) <= 4"
-              [class.capacity-six]="roomCapacity(room) > 4"
+              [class.capacity-three]="roomCapacity(room) === 3"
+              [class.capacity-four]="roomCapacity(room) === 4"
+              [class.capacity-five]="roomCapacity(room) === 5"
+              [class.capacity-six]="roomCapacity(room) >= 6"
             >
               @for (player of turnOrderPlayers(room); track player.id; let seatIndex = $index) {
                     <app-waiting-room-player-card

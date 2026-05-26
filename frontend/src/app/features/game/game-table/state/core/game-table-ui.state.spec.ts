@@ -90,7 +90,33 @@ describe('GameTableUiState', () => {
     state.openContextMenu(pointerEvent(360, 120), { playerId: 'player-1', zone: 'battlefield', kind: 'card', card: gameCard() });
 
     expect(state.contextMenu()).toEqual(expect.objectContaining({
-      x: 96,
+      x: 92,
+      y: 124,
+      verticalOrigin: 'top',
+    }));
+  });
+
+  it('opens card context menus to the left of the card when the default position would collide with the preview', () => {
+    setViewport(900, 520);
+    const state = new GameTableUiState();
+
+    state.openContextMenu(pointerEvent(650, 120), {
+      playerId: 'player-1',
+      zone: 'battlefield',
+      kind: 'card',
+      card: gameCard(),
+      sourceRect: {
+        left: 650,
+        top: 90,
+        right: 760,
+        bottom: 245,
+        width: 110,
+        height: 155,
+      },
+    });
+
+    expect(state.contextMenu()).toEqual(expect.objectContaining({
+      x: 382,
       y: 124,
       verticalOrigin: 'top',
     }));

@@ -30,7 +30,54 @@ describe('CardSpoilerGridComponent', () => {
     }));
   });
 
-  it('renders draw labels and emits a reordered card list', async () => {
+  it('renders draw labels, shows drag feedback and emits a swapped card list', async () => {
+    await TestBed.configureTestingModule({
+      imports: [CardSpoilerGridComponent],
+    }).compileComponents();
+    const fixture = createFixture([
+      card('card-1', 'Top Card'),
+      card('card-2', 'Second Card'),
+      card('card-3', 'Third Card'),
+    ]);
+    fixture.componentRef.setInput('allowReorder', true);
+    fixture.componentRef.setInput('orderLabels', ['PROXIMO ROBO', 'SEGUNDO ROBO', 'TERCER ROBO']);
+    const reordered = vi.fn();
+    fixture.componentInstance.cardsReordered.subscribe(reordered);
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    const buttons = host.querySelectorAll<HTMLButtonElement>('[data-card-instance-id]');
+    expect(buttons[0]?.querySelector('.draw-order-label')?.textContent?.trim()).toBe('PROXIMO ROBO');
+
+    const firstButton = buttons[0] as HTMLButtonElement;
+    const thirdButton = buttons[2] as HTMLButtonElement;
+    setCardRect(firstButton);
+    setCardRect(thirdButton);
+
+    firstButton.dispatchEvent(new MouseEvent('dragstart', { bubbles: true, clientX: 16 }));
+    fixture.detectChanges();
+    const draggingButton = host.querySelector<HTMLButtonElement>('[data-card-instance-id="card-1"]');
+    expect(draggingButton?.classList).toContain('dragging');
+    expect(draggingButton?.querySelector('.zone-art')?.classList).toContain('empty');
+    expect(draggingButton?.querySelector('.draw-order-label')?.textContent?.trim()).toBe('PROXIMO ROBO');
+
+    thirdButton.dispatchEvent(new MouseEvent('dragover', { bubbles: true, cancelable: true, clientX: 84 }));
+    fixture.detectChanges();
+    const dropTargetButton = host.querySelector<HTMLButtonElement>('[data-card-instance-id="card-3"]');
+    expect(dropTargetButton?.classList).toContain('drop-target');
+    expect(dropTargetButton?.classList).not.toContain('drop-after');
+    expect(dropTargetButton?.classList).not.toContain('drop-before');
+
+    thirdButton.dispatchEvent(new MouseEvent('drop', { bubbles: true, cancelable: true, clientX: 84 }));
+
+    expect(reordered).toHaveBeenCalledWith([
+      expect.objectContaining({ instanceId: 'card-3' }),
+      expect.objectContaining({ instanceId: 'card-2' }),
+      expect.objectContaining({ instanceId: 'card-1' }),
+    ]);
+  });
+
+  it('renders fixed empty reorder slots without making them drop targets', async () => {
     await TestBed.configureTestingModule({
       imports: [CardSpoilerGridComponent],
     }).compileComponents();
@@ -39,22 +86,41 @@ describe('CardSpoilerGridComponent', () => {
       card('card-2', 'Second Card'),
     ]);
     fixture.componentRef.setInput('allowReorder', true);
-    fixture.componentRef.setInput('orderLabels', ['Proximo robo', 'Segundo robo']);
-    const reordered = vi.fn();
-    fixture.componentInstance.cardsReordered.subscribe(reordered);
+    fixture.componentRef.setInput('orderLabels', ['PROXIMO ROBO', 'SEGUNDO ROBO', 'TERCER ROBO']);
     fixture.detectChanges();
 
     const host = fixture.nativeElement as HTMLElement;
-    const buttons = host.querySelectorAll<HTMLButtonElement>('[data-card-instance-id]');
-    expect(buttons[0]?.querySelector('.draw-order-label')?.textContent?.trim()).toBe('Proximo robo');
+    const slots = host.querySelectorAll<HTMLElement>('.card-spoiler');
+    const cardButtons = host.querySelectorAll<HTMLButtonElement>('[data-card-instance-id]');
+    const emptySlot = host.querySelector<HTMLElement>('.empty-slot');
 
-    fixture.componentInstance.dragStart(dragEvent(), card('card-1', 'Top Card'));
-    fixture.componentInstance.dropCard(dragEvent(), card('card-2', 'Second Card'));
+    expect(slots.length).toBe(3);
+    expect(cardButtons.length).toBe(2);
+    expect(emptySlot?.querySelector('.draw-order-label')?.textContent?.trim()).toBe('TERCER ROBO');
+    expect(emptySlot?.querySelector('.zone-art')?.classList).toContain('empty');
+    expect(emptySlot?.getAttribute('draggable')).toBeNull();
+  });
 
-    expect(reordered).toHaveBeenCalledWith([
-      expect.objectContaining({ instanceId: 'card-2' }),
-      expect.objectContaining({ instanceId: 'card-1' }),
-    ]);
+  it('does not emit selection when left-click selection is disabled', async () => {
+    await TestBed.configureTestingModule({
+      imports: [CardSpoilerGridComponent],
+    }).compileComponents();
+    const fixture = createFixture();
+    fixture.componentRef.setInput('allowSelection', false);
+    const selected = vi.fn();
+    const menuOpened = vi.fn();
+    fixture.componentInstance.cardSelected.subscribe(selected);
+    fixture.componentInstance.cardMenuOpened.subscribe(menuOpened);
+    fixture.detectChanges();
+
+    const cardButton = fixture.nativeElement.querySelector('[data-card-instance-id="card-1"]') as HTMLButtonElement;
+    cardButton.click();
+    cardButton.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+
+    expect(selected).not.toHaveBeenCalled();
+    expect(menuOpened).toHaveBeenCalledWith(expect.objectContaining({
+      card: expect.objectContaining({ instanceId: 'card-1' }),
+    }));
   });
 });
 
@@ -76,13 +142,16 @@ function card(instanceId: string, name: string): GameCardInstance {
   };
 }
 
-function dragEvent(): DragEvent {
-  return {
-    preventDefault: vi.fn(),
-    currentTarget: document.createElement('button'),
-    dataTransfer: {
-      setData: vi.fn(),
-      setDragImage: vi.fn(),
-    },
-  } as unknown as DragEvent;
+function setCardRect(currentTarget: HTMLElement): void {
+  currentTarget.getBoundingClientRect = () => ({
+    bottom: 140,
+    height: 140,
+    left: 0,
+    right: 100,
+    top: 0,
+    width: 100,
+    x: 0,
+    y: 0,
+    toJSON: () => ({}),
+  });
 }
