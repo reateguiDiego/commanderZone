@@ -94,13 +94,26 @@ final readonly class GameWebsocketMessageFactory
     /**
      * @return array<string,mixed>
      */
-    public function resyncRequiredCommand(string $gameId, ?string $messageId, string $clientActionId, int $version, string $code, string $message): array
+    public function resyncRequiredCommand(
+        string $gameId,
+        ?string $messageId,
+        string $clientActionId,
+        int $version,
+        string $code,
+        string $message,
+        ?array $conflict = null,
+    ): array
     {
-        return $this->commandAck($gameId, $messageId, $clientActionId, 'resync_required', $version, [
+        $error = [
             'code' => $code,
             'message' => $message,
             'retryable' => true,
-        ]);
+        ];
+        if (is_array($conflict) && $conflict !== []) {
+            $error['conflict'] = $conflict;
+        }
+
+        return $this->commandAck($gameId, $messageId, $clientActionId, 'resync_required', $version, $error);
     }
 
     /**

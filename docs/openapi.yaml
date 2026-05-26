@@ -2388,6 +2388,23 @@ components:
               type: object
               nullable: true
               additionalProperties: true
+              properties:
+                status:
+                  type: string
+                version:
+                  type: integer
+                clientActionId:
+                  type: string
+                  nullable: true
+                code:
+                  type: string
+                  nullable: true
+                message:
+                  type: string
+                at:
+                  type: string
+                conflict:
+                  $ref: '#/components/schemas/GameWebsocketVersionConflict'
             lastError:
               type: object
               nullable: true
@@ -2408,6 +2425,15 @@ components:
               items:
                 type: object
                 additionalProperties: true
+                properties:
+                  code:
+                    type: string
+                  message:
+                    type: string
+                  at:
+                    type: string
+                  conflict:
+                    $ref: '#/components/schemas/GameWebsocketVersionConflict'
         recent:
           type: array
           items:
@@ -2439,6 +2465,19 @@ components:
           type: object
           additionalProperties:
             type: integer
+    GameWebsocketVersionConflict:
+      type: object
+      required: [commandBaseVersion, currentVersion, delta, classification]
+      properties:
+        commandBaseVersion:
+          type: integer
+        currentVersion:
+          type: integer
+        delta:
+          type: integer
+        classification:
+          type: string
+          enum: [concurrent_write, stale_client]
     RoomStartError:
       allOf:
         - $ref: '#/components/schemas/Error'

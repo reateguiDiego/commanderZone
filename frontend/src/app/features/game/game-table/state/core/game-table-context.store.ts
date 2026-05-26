@@ -31,6 +31,7 @@ import { GameTableZoneModalState } from '../zones/game-table-zone-modal.state';
 import { GameTableZonePilesState } from '../zones/game-table-zone-piles.state';
 import { GameTableCommandContext } from './game-table-command.store';
 import { GameTableCoreState } from './game-table-core.state';
+import { gameTableErrorMessage } from './game-table-error-message.util';
 import { GameTableToastState } from './game-table-toast.state';
 
 export interface GameTableContextSource {
@@ -40,6 +41,8 @@ export interface GameTableContextSource {
   readonly playCard: (playerId: string, zone: GameZoneName, card: GameCardInstance) => Promise<void>;
   readonly setPendingBattlefieldMove: (move: PendingBattlefieldMove | null) => void;
   readonly setPendingLibraryMove: (move: PendingLibraryMove | null) => void;
+  readonly pendingBattlefieldMove: () => PendingBattlefieldMove | null;
+  readonly pendingLibraryMove: () => PendingLibraryMove | null;
 }
 
 @Injectable()
@@ -181,6 +184,7 @@ export class GameTableContextStore {
         setSnapshot: (snapshot) => source.setSnapshot(snapshot),
         refetch: (force) => source.refetch(force),
         setError: (message) => this.core.error.set(message),
+        onCommandBlocked: (_reason, type, payload) => this.handleCommandBlocked(source, type, payload),
       }),
       errorMessage: (error) => this.errorMessage(error),
       queueBattlefieldPositionCommand: (gameId, payload, persist) =>
@@ -503,12 +507,51 @@ export class GameTableContextStore {
   }
 
   private errorMessage(error: unknown): string {
-    if (typeof error === 'object' && error !== null && 'error' in error) {
-      const response = (error as { error?: { error?: string; detail?: string } }).error;
-      return response?.error ?? response?.detail ?? 'Action failed.';
+    return gameTableErrorMessage(error);
+  }
+
+  private handleCommandBlocked(
+    source: GameTableContextSource,
+    type: GameCommandType | 'disconnect.vote',
+    payload: Record<string, unknown>,
+  ): void {
+    const pendingBattlefieldMove = source.pendingBattlefieldMove();
+    if (
+      pendingBattlefieldMove
+      && (pendingBattlefieldMove.commandType ?? 'card.moved') === type
+      && this.samePayload(pendingBattlefieldMove.payload, payload)
+    ) {
+      source.setPendingBattlefieldMove(null);
     }
 
-    return error instanceof Error ? error.message : 'Action failed.';
+    const pendingLibraryMove = source.pendingLibraryMove();
+    if (
+      pendingLibraryMove
+      && pendingLibraryMove.commandType === type
+      && this.samePayload(pendingLibraryMove.payload, payload)
+    ) {
+      source.setPendingLibraryMove(null);
+    }
+  }
+
+  private samePayload(left: Record<string, unknown>, right: Record<string, unknown>): boolean {
+    return this.stableStringify(left) === this.stableStringify(right);
+  }
+
+  private stableStringify(value: unknown): string {
+    if (Array.isArray(value)) {
+      return `[${value.map((entry) => this.stableStringify(entry)).join(',')}]`;
+    }
+
+    if (value && typeof value === 'object') {
+      const record = value as Record<string, unknown>;
+      const keys = Object.keys(record).sort();
+
+      return `{${keys.map((key) => `${JSON.stringify(key)}:${this.stableStringify(record[key])}`).join(',')}}`;
+    }
+
+    const serialized = JSON.stringify(value);
+    return serialized ?? 'null';
   }
 
   private boundSource(): GameTableContextSource {

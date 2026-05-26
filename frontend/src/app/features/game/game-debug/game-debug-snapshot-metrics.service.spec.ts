@@ -47,6 +47,10 @@ describe('GameDebugSnapshotMetricsService', () => {
       dropTotal: 2,
       retryTotal: 1,
       resyncTotal: 4,
+      lateAckIgnoredTotal: 0,
+      rejectedTotal: 3,
+      circuitBlockedTotal: 1,
+      queueFullTotal: 1,
       enqueueRate: 0.25,
       drainRate: 0.2,
       measuredAt: '2026-05-24T18:00:00.000Z',
@@ -67,6 +71,7 @@ describe('GameDebugSnapshotMetricsService', () => {
       enqueueTotal: 10,
       drainTotal: 7,
       dropTotal: 2,
+      rejectedTotal: 3,
     });
     expect(service.deadLetterEvents()).toEqual([
       expect.objectContaining({
@@ -89,6 +94,7 @@ describe('GameDebugSnapshotMetricsService', () => {
       dropTotal: 0,
       retryTotal: 0,
       resyncTotal: 0,
+      lateAckIgnoredTotal: 0,
       enqueueRate: 0.02,
       drainRate: 0.02,
       measuredAt: '2026-05-24T18:00:00.000Z',

@@ -172,6 +172,8 @@ export class GameTableStore implements OnDestroy {
       playCard: (playerId, zone, card) => this.playCard(playerId, zone, card),
       setPendingBattlefieldMove: (move) => this.pendingBattlefieldMove.set(move),
       setPendingLibraryMove: (move) => this.pendingLibraryMove.set(move),
+      pendingBattlefieldMove: () => this.pendingBattlefieldMove(),
+      pendingLibraryMove: () => this.pendingLibraryMove(),
     });
     this.pendingTransferState.setExpirationHandler((expiration) => this.handlePendingTransferExpired(expiration));
     effect(() => {

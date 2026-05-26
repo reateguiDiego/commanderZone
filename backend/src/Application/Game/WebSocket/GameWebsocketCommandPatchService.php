@@ -120,6 +120,8 @@ final readonly class GameWebsocketCommandPatchService
 
             if ($baseVersion !== $currentVersion) {
                 $manager->rollback();
+                $delta = max(0, $currentVersion - $baseVersion);
+                $classification = $delta === 1 ? 'concurrent_write' : 'stale_client';
 
                 return $this->messages->resyncRequiredCommand(
                     $game->id(),
@@ -128,6 +130,12 @@ final readonly class GameWebsocketCommandPatchService
                     $currentVersion,
                     'BASE_VERSION_MISMATCH',
                     'Command baseVersion does not match the current game version.',
+                    [
+                        'commandBaseVersion' => $baseVersion,
+                        'currentVersion' => $currentVersion,
+                        'delta' => $delta,
+                        'classification' => $classification,
+                    ],
                 );
             }
 

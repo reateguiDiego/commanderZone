@@ -51,6 +51,12 @@ describe('game realtime contract', () => {
           code: 'COMMAND_REJECTED',
           message: 'Command rejected',
           retryable: false,
+          conflict: {
+            commandBaseVersion: 7,
+            currentVersion: 8,
+            delta: 1,
+            classification: 'concurrent_write',
+          },
         },
       },
       {
