@@ -159,8 +159,30 @@
             </div>
           </form>
         } @else {
-          <section class="game-tab-placeholder">
-            <p>Hello world</p>
+          <section class="settings-form game-settings-form">
+            <label>
+              Card language
+              <select
+                [value]="selectedCardLanguage()"
+                (change)="setCardLanguage($any($event.target).value)"
+              >
+                @for (language of languageOptions; track language.code) {
+                  <option [value]="language.code">{{ language.label }}</option>
+                }
+              </select>
+            </label>
+
+            <label>
+              App language
+              <select
+                [value]="selectedAppLanguage()"
+                (change)="setAppLanguage($any($event.target).value)"
+              >
+                @for (language of languageOptions; track language.code) {
+                  <option [value]="language.code">{{ language.label }}</option>
+                }
+              </select>
+            </label>
           </section>
         }
       </section>

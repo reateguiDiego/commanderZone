@@ -13,6 +13,7 @@ use App\Application\Auth\RefreshSessionReplayDetected;
 use App\Application\Auth\RefreshSessionService;
 use App\Application\Auth\SecurityAuditLogger;
 use App\Domain\Auth\EmailVerificationToken;
+use App\Domain\Localization\LanguageCatalog;
 use App\Domain\User\User;
 use App\Infrastructure\Realtime\FriendEventPublisher;
 use Doctrine\ORM\EntityManagerInterface;
@@ -495,7 +496,9 @@ class AuthController extends ApiController
 
         $hasDisplayNameUpdate = array_key_exists('displayName', $payload);
         $hasEmailUpdate = array_key_exists('email', $payload);
-        if (!$hasDisplayNameUpdate && !$hasEmailUpdate) {
+        $hasCardLanguageUpdate = array_key_exists('cardLanguage', $payload);
+        $hasAppLanguageUpdate = array_key_exists('appLanguage', $payload);
+        if (!$hasDisplayNameUpdate && !$hasEmailUpdate && !$hasCardLanguageUpdate && !$hasAppLanguageUpdate) {
             return $this->fail('At least one profile field must be provided.');
         }
 
@@ -513,6 +516,24 @@ class AuthController extends ApiController
             }
 
             $user->rename($displayName);
+        }
+
+        if ($hasCardLanguageUpdate) {
+            $cardLanguage = LanguageCatalog::normalize($payload['cardLanguage'] ?? null);
+            if (!LanguageCatalog::isSupported($cardLanguage)) {
+                return $this->fail('cardLanguage is invalid.');
+            }
+
+            $user->updateCardLanguage((string) $cardLanguage);
+        }
+
+        if ($hasAppLanguageUpdate) {
+            $appLanguage = LanguageCatalog::normalize($payload['appLanguage'] ?? null);
+            if (!LanguageCatalog::isSupported($appLanguage)) {
+                return $this->fail('appLanguage is invalid.');
+            }
+
+            $user->updateAppLanguage((string) $appLanguage);
         }
 
         if ($hasEmailUpdate) {

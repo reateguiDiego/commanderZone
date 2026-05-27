@@ -5,6 +5,7 @@ import { API_BASE_URL } from './api.config';
 import { withoutGlobalLoading } from '../loading/loading-context';
 import { Card } from '../models/card.model';
 import { CardImageResponse, CardResponse, DataResponse } from '../models/api-responses.model';
+import { LanguagePreferencesService } from '../localization/language-preferences.service';
 
 export interface CardSearchFilters {
   commanderLegal?: boolean;
@@ -18,12 +19,14 @@ export const CARD_SEARCH_LIMIT = 500;
 @Injectable({ providedIn: 'root' })
 export class CardsApi {
   private readonly http = inject(HttpClient);
+  private readonly languagePreferences = inject(LanguagePreferencesService);
 
   search(query: string, page = 1, limit = CARD_SEARCH_LIMIT, filters: CardSearchFilters = {}): Observable<DataResponse<Card>> {
     let params = new HttpParams()
       .set('q', query)
       .set('page', page)
-      .set('limit', limit);
+      .set('limit', limit)
+      .set('lang', this.languagePreferences.cardLanguage());
 
     if (filters.commanderLegal !== undefined) {
       params = params.set('commanderLegal', String(filters.commanderLegal));
@@ -45,7 +48,9 @@ export class CardsApi {
   }
 
   get(scryfallId: string): Observable<CardResponse> {
-    return this.http.get<CardResponse>(`${API_BASE_URL}/cards/${scryfallId}`);
+    return this.http.get<CardResponse>(`${API_BASE_URL}/cards/${scryfallId}`, {
+      params: { lang: this.languagePreferences.cardLanguage() },
+    });
   }
 
   image(scryfallId: string, format: 'small' | 'normal' | 'large' | 'png' | 'art_crop' | 'border_crop' = 'normal'): Observable<CardImageResponse> {

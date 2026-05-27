@@ -1,3 +1,4 @@
+import { SupportedLanguageCode } from '../localization/language-preferences';
 export type UserAvatarType = 'initial' | 'preset' | 'upload';
 export type UserDisplayNameStyleType = 'plain' | 'preset';
 
@@ -19,6 +20,11 @@ export interface UserDisplayNameStyle {
   textColor?: string | null;
 }
 
+export interface UserPreferences {
+  cardLanguage: SupportedLanguageCode;
+  appLanguage: SupportedLanguageCode;
+}
+
 export interface User {
   id: string;
   email: string;
@@ -26,4 +32,5 @@ export interface User {
   displayNameStyle?: UserDisplayNameStyle;
   roles: string[];
   avatar?: UserAvatar;
+  preferences?: UserPreferences;
 }
