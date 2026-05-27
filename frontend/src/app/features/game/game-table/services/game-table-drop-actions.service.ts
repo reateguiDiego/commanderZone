@@ -41,6 +41,7 @@ export interface GameTableDropActionContext {
   snapBattlefieldPosition(playerId: string, instanceId: string, position: { x: number; y: number }, rawZone?: string): GameCardPosition;
   markPendingManaDrop(playerId: string, instanceIds: readonly string[]): void;
   markPendingTransfer(playerId: string, fromZone: GameZoneName, instanceIds: readonly string[], options?: MarkPendingTransferOptions): void;
+  syncOpenZoneModalAfterMove(playerId: string, fromZone: GameZoneName, instanceIds: readonly string[]): Promise<void>;
   command(type: GameCommandType, payload: Record<string, unknown>): Promise<void>;
   recordCommanderCastIfNeeded(playerId: string, fromZone: GameZoneName, toZone?: GameZoneName, targetPlayerId?: string): Promise<void>;
 }
@@ -331,8 +332,12 @@ export class GameTableDropActionsService {
     const fromZone = pendingMove.payload['fromZone'];
     const targetPlayerId = pendingMove.payload['targetPlayerId'];
     const playerId = pendingMove.payload['playerId'];
+    const instanceIds = this.payloadInstanceIds(pendingMove.payload);
     if (pendingMove.commandType !== 'card.controller.changed' && typeof playerId === 'string' && this.isGameZone(fromZone) && typeof targetPlayerId === 'string') {
       await context.recordCommanderCastIfNeeded(playerId, fromZone, 'battlefield', targetPlayerId);
+    }
+    if (typeof playerId === 'string' && this.isGameZone(fromZone) && instanceIds.length > 0) {
+      await context.syncOpenZoneModalAfterMove(playerId, fromZone, instanceIds);
     }
     context.setPendingBattlefieldMove(null);
     context.clearSelectedCards();
@@ -535,6 +540,15 @@ export class GameTableDropActionsService {
   private isGameZone(value: unknown): value is GameZoneName {
     return typeof value === 'string'
       && ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command'].includes(value);
+  }
+
+  private payloadInstanceIds(payload: Record<string, unknown>): string[] {
+    const instanceIds = payload['instanceIds'];
+    if (Array.isArray(instanceIds)) {
+      return instanceIds.filter((instanceId): instanceId is string => typeof instanceId === 'string');
+    }
+
+    return typeof payload['instanceId'] === 'string' ? [payload['instanceId']] : [];
   }
 
   private destinationPlayerIdForMove(

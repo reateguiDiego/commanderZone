@@ -9,6 +9,7 @@ use App\Domain\Friendship\Friendship;
 use App\Domain\Room\Room;
 use App\Domain\Room\RoomInvite;
 use App\Domain\Room\RoomPlayer;
+use App\Domain\Room\RoomWaitingLogEntry;
 use App\Domain\TableAssistant\TableAssistantRoom;
 use App\Domain\User\User;
 use App\Infrastructure\Realtime\RoomInviteEventPublisher;
@@ -143,11 +144,17 @@ class RoomInvitesController extends ApiController
 
         $room = $invite->room();
         $wasPlayer = $room->hasPlayer($user);
+        $previousDeckId = $wasPlayer ? $room->playerFor($user)?->deck()?->id() : null;
         if (!$wasPlayer && $activeRoomMembership->otherRoomFor($user, $room) instanceof Room) {
             return $this->fail('Leave your current room before accepting another room invite.', 409);
         }
         if (!$room->addPlayer(new RoomPlayer($room, $user, $deck))) {
             return $this->fail('Room is full.', 409);
+        }
+        if (!$wasPlayer) {
+            $room->appendWaitingLog(sprintf('%s joined the room.', $this->userDisplayName($user)), RoomWaitingLogEntry::TONE_SUCCESS);
+        } elseif ($deck instanceof Deck && $deck->id() !== $previousDeckId) {
+            $room->appendWaitingLog(sprintf('%s selected deck: %s.', $this->userDisplayName($user), $deck->name()));
         }
         $invite->accept();
         $entityManager->flush();
@@ -254,5 +261,12 @@ class RoomInvitesController extends ApiController
     private function hasDeckIdInPayload(array $payload): bool
     {
         return isset($payload['deckId']) && is_string($payload['deckId']) && trim($payload['deckId']) !== '';
+    }
+
+    private function userDisplayName(User $user): string
+    {
+        $name = trim($user->displayName());
+
+        return $name !== '' ? $name : 'A player';
     }
 }

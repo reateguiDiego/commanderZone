@@ -12,6 +12,7 @@ use App\Domain\Game\Game;
 use App\Domain\Room\Room;
 use App\Domain\Room\RoomInvite;
 use App\Domain\Room\RoomPlayer;
+use App\Domain\Room\RoomWaitingLogEntry;
 use App\Domain\User\User;
 use App\Infrastructure\Realtime\RoomEventPublisher;
 use Doctrine\ORM\EntityManagerInterface;
@@ -103,6 +104,7 @@ class RoomsController extends ApiController
         $room->setTimerMode($this->timerModeFromPayload($payload));
         $room->setTimerDurationSeconds($this->timerDurationFromPayload($payload));
         $room->addPlayer(new RoomPlayer($room, $user, $deck));
+        $room->appendWaitingLog(sprintf('%s joined the room.', $this->userDisplayName($user)), RoomWaitingLogEntry::TONE_SUCCESS);
 
         $entityManager->persist($room);
         $entityManager->flush();
@@ -143,6 +145,10 @@ class RoomsController extends ApiController
         }
 
         $payload = $this->payload($request);
+        $previousMaxPlayers = $room->maxPlayers();
+        $previousStartingLife = $room->startingLife();
+        $previousTimerMode = $room->timerMode();
+        $previousTimerDurationSeconds = $room->timerDurationSeconds();
         if (array_key_exists('maxPlayers', $payload)) {
             $maxPlayers = $this->maxPlayersFromPayload($payload);
             if ($maxPlayers < $room->players()->count()) {
@@ -159,6 +165,7 @@ class RoomsController extends ApiController
         if (array_key_exists('timerDurationSeconds', $payload)) {
             $room->setTimerDurationSeconds($this->timerDurationFromPayload($payload));
         }
+        $this->appendRoomSettingsLog($room, $previousMaxPlayers, $previousStartingLife, $previousTimerMode, $previousTimerDurationSeconds);
 
         $entityManager->flush();
         $roomEventPublisher->publish($room, 'room.updated');
@@ -237,11 +244,17 @@ class RoomsController extends ApiController
         }
 
         $wasPlayer = $room->hasPlayer($user);
+        $previousDeckId = $wasPlayer ? $room->playerFor($user)?->deck()?->id() : null;
         if (!$wasPlayer && $activeRoomMembership->otherRoomFor($user, $room) instanceof Room) {
             return $this->fail('Leave your current room before joining another room.', 409);
         }
         if (!$room->addPlayer(new RoomPlayer($room, $user, $deck))) {
             return $this->fail('Room is full.', 409);
+        }
+        if (!$wasPlayer) {
+            $room->appendWaitingLog(sprintf('%s joined the room.', $this->userDisplayName($user)), RoomWaitingLogEntry::TONE_SUCCESS);
+        } elseif ($deck instanceof Deck && $deck->id() !== $previousDeckId) {
+            $room->appendWaitingLog(sprintf('%s selected deck: %s.', $this->userDisplayName($user), $deck->name()));
         }
         $entityManager->flush();
         $roomEventPublisher->publish($room, $wasPlayer ? 'room.player.updated' : 'room.player.joined');
@@ -272,6 +285,7 @@ class RoomsController extends ApiController
         }
 
         $player->rollTurnOrder($this->uniqueTurnOrderRoll($room, $player));
+        $room->appendWaitingLog(sprintf('%s rolled %s.', $this->userDisplayName($user), implode(' - ', $player->turnRolls())));
         $entityManager->flush();
         $roomEventPublisher->publish($room, 'room.player.rolled');
 
@@ -298,6 +312,7 @@ class RoomsController extends ApiController
             return $this->json(['left' => true, 'roomDeleted' => true]);
         }
 
+        $leavingName = $this->userDisplayName($user);
         $room->removeUser($user);
         if ($room->players()->count() === 0) {
             $this->removeRoomWithGame($room, $entityManager);
@@ -307,6 +322,7 @@ class RoomsController extends ApiController
             return $this->json(['left' => true, 'roomDeleted' => true]);
         }
 
+        $room->appendWaitingLog(sprintf('%s left the room.', $leavingName));
         $entityManager->flush();
         $roomEventPublisher->publish($room, 'room.player.left');
 
@@ -341,7 +357,9 @@ class RoomsController extends ApiController
             return $this->fail('The room owner cannot be kicked.', 400);
         }
 
+        $kickedName = $this->userDisplayName($targetPlayer->user());
         $room->removeUser($targetPlayer->user());
+        $room->appendWaitingLog(sprintf('%s left the room.', $kickedName));
         $entityManager->flush();
         $roomEventPublisher->publish($room, 'room.player.left');
 
@@ -474,6 +492,57 @@ class RoomsController extends ApiController
         $deck = $entityManager->getRepository(Deck::class)->find($deckId);
 
         return $deck instanceof Deck && $deck->owner()->id() === $user->id() ? $deck : null;
+    }
+
+    private function appendRoomSettingsLog(
+        Room $room,
+        int $previousMaxPlayers,
+        int $previousStartingLife,
+        string $previousTimerMode,
+        int $previousTimerDurationSeconds,
+    ): void {
+        if ($room->maxPlayers() !== $previousMaxPlayers) {
+            $room->appendWaitingLog(sprintf('Room size changed from %d to %d players.', $previousMaxPlayers, $room->maxPlayers()));
+        }
+
+        if ($room->startingLife() !== $previousStartingLife) {
+            $delta = $room->startingLife() - $previousStartingLife;
+            $room->appendWaitingLog(sprintf(
+                'Starting life changed from %d to %d (%s%d life).',
+                $previousStartingLife,
+                $room->startingLife(),
+                $delta > 0 ? '+' : '',
+                $delta,
+            ));
+        }
+
+        if ($room->timerMode() !== $previousTimerMode || $room->timerDurationSeconds() !== $previousTimerDurationSeconds) {
+            $room->appendWaitingLog(sprintf(
+                'Timer changed from %s to %s.',
+                $this->timerLabel($previousTimerMode, $previousTimerDurationSeconds),
+                $this->timerLabel($room->timerMode(), $room->timerDurationSeconds()),
+            ));
+        }
+    }
+
+    private function timerLabel(string $mode, int $durationSeconds): string
+    {
+        if ($mode === Room::TIMER_NONE) {
+            return 'off';
+        }
+
+        $minutes = intdiv($durationSeconds, 60);
+        $seconds = $durationSeconds % 60;
+        $duration = $seconds === 0 ? sprintf('%d min', $minutes) : sprintf('%d:%02d', $minutes, $seconds);
+
+        return sprintf('%s per turn', $duration);
+    }
+
+    private function userDisplayName(User $user): string
+    {
+        $name = trim($user->displayName());
+
+        return $name !== '' ? $name : 'A player';
     }
 
     private function roomFromCode(string $code, EntityManagerInterface $entityManager): ?Room

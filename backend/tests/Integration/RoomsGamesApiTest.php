@@ -185,6 +185,7 @@ class RoomsGamesApiTest extends ApiTestCase
         self::assertSame(35, $this->jsonResponse()['room']['startingLife']);
         self::assertSame('turn', $this->jsonResponse()['room']['timerMode']);
         self::assertSame(120, $this->jsonResponse()['room']['timerDurationSeconds']);
+        self::assertSame('success', $this->jsonResponse()['room']['waitingLog'][0]['tone'] ?? null);
 
         $this->jsonRequest('POST', '/rooms/'.$firstRoomId.'/join', ['deckId' => $guestDeckId], $guestToken);
         self::assertResponseIsSuccessful();
@@ -194,6 +195,7 @@ class RoomsGamesApiTest extends ApiTestCase
 
         $this->jsonRequest('POST', '/rooms/'.$firstRoomId.'/start', token: $ownerToken);
         self::assertResponseStatusCodeSame(201);
+        self::assertSame([], $this->jsonResponse()['room']['waitingLog']);
         $firstGameId = (string) $this->jsonResponse()['game']['id'];
         self::assertArrayHasKey('createdAt', $this->jsonResponse()['game']);
         self::assertArrayHasKey('updatedAt', $this->jsonResponse()['game']);
@@ -1316,6 +1318,8 @@ class RoomsGamesApiTest extends ApiTestCase
         self::assertSame($roomId, $lastPayload['roomId']);
         self::assertSame($roomId, $lastPayload['room']['id']);
         self::assertCount(2, $lastPayload['room']['players']);
+        self::assertNotEmpty($lastPayload['room']['waitingLog']);
+        self::assertContains('success', array_column($lastPayload['room']['waitingLog'], 'tone'));
 
         $playersByDeckName = [];
         foreach ($lastPayload['room']['players'] as $player) {

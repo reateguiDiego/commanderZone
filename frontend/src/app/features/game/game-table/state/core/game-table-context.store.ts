@@ -271,6 +271,8 @@ export class GameTableContextStore {
         sourceVersion: this.core.snapshot()?.version ?? null,
         expires: options?.expires,
       }),
+      syncOpenZoneModalAfterMove: (playerId, fromZone, instanceIds) =>
+        this.syncOpenZoneModalAfterMove(playerId, fromZone, instanceIds),
       command: (type, payload) => source.command(type, payload),
       recordCommanderCastIfNeeded: (playerId, fromZone, toZone, targetPlayerId) =>
         this.recordCommanderCastIfNeeded(playerId, fromZone, toZone, targetPlayerId),
@@ -504,6 +506,21 @@ export class GameTableContextStore {
     }
 
     return Object.entries(snapshot.players).find(([, player]) => player.user.id === userId)?.[0] ?? null;
+  }
+
+  private async syncOpenZoneModalAfterMove(playerId: string, fromZone: GameZoneName, instanceIds: readonly string[]): Promise<void> {
+    const modal = this.zoneModalState.zoneModal();
+    if (!modal || modal.playerId !== playerId || modal.zone !== fromZone || instanceIds.length === 0) {
+      return;
+    }
+
+    if (modal.showFilters) {
+      await this.zoneActions.loadZone(this.zoneAction());
+      return;
+    }
+
+    const movedIds = new Set(instanceIds);
+    this.zoneActions.replaceZoneModalCards(modal.cards.filter((card) => !movedIds.has(card.instanceId)));
   }
 
   private errorMessage(error: unknown): string {

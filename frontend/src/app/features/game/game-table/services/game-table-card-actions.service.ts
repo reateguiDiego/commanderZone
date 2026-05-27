@@ -180,12 +180,17 @@ export class GameTableCardActionsService {
     }
   }
 
-  async giveCardToPlayer(context: GameTableCardActionContext, menu: GameContextMenu, targetPlayerId: string): Promise<void> {
-    if (!menu.card || menu.zone !== 'battlefield') {
+  async giveCardToPlayer(
+    context: GameTableCardActionContext,
+    menu: GameContextMenu,
+    targetPlayerId: string,
+    toZone: 'battlefield' | 'hand' = 'battlefield',
+  ): Promise<void> {
+    if (!menu.card) {
       return;
     }
     if (!context.canControlPlayer(menu.playerId)) {
-      context.setError('You can only give cards from your own battlefield.');
+      context.setError('You can only give your own cards.');
       context.closeContextMenu();
       return;
     }
@@ -194,33 +199,69 @@ export class GameTableCardActionsService {
       return;
     }
 
-    const targets = this.actionTargets(context, menu, 'battlefield');
-    if (targets.length > 1) {
-      context.setPendingBattlefieldMove({
-        cardName: `${targets.length} cards`,
-        targetPlayerName: context.playerName(targetPlayerId),
-        commandType: 'cards.moved',
-        payload: {
-          playerId: menu.playerId,
-          fromZone: 'battlefield',
-          toZone: 'battlefield',
-          instanceIds: targets.map((item) => item.card.instanceId),
-          targetPlayerId,
-        },
-      });
-    } else {
-      context.setPendingBattlefieldMove({
-        cardName: menu.card.name,
-        targetPlayerName: context.playerName(targetPlayerId),
-        commandType: 'card.controller.changed',
-        payload: {
-          playerId: menu.playerId,
-          zone: 'battlefield',
-          instanceId: menu.card.instanceId,
-          targetPlayerId,
-        },
-      });
+    const targets = this.actionTargets(context, menu);
+    if (toZone === 'battlefield' && menu.zone === 'battlefield') {
+      if (targets.length > 1) {
+        context.setPendingBattlefieldMove({
+          cardName: `${targets.length} cards`,
+          targetPlayerName: context.playerName(targetPlayerId),
+          commandType: 'cards.moved',
+          payload: {
+            playerId: menu.playerId,
+            fromZone: 'battlefield',
+            toZone: 'battlefield',
+            instanceIds: targets.map((item) => item.card.instanceId),
+            targetPlayerId,
+          },
+        });
+      } else {
+        context.setPendingBattlefieldMove({
+          cardName: menu.card.name,
+          targetPlayerName: context.playerName(targetPlayerId),
+          commandType: 'card.controller.changed',
+          payload: {
+            playerId: menu.playerId,
+            zone: 'battlefield',
+            instanceId: menu.card.instanceId,
+            targetPlayerId,
+          },
+        });
+      }
+      context.closeContextMenu();
+      return;
     }
+
+    const firstTarget = targets[0] ?? { playerId: menu.playerId, zone: menu.zone, card: menu.card };
+    const instanceIds = targets.map((item) => item.card.instanceId);
+    const isMultiMove = instanceIds.length > 1;
+    const payload: Record<string, unknown> = {
+      playerId: firstTarget.playerId,
+      fromZone: firstTarget.zone,
+      toZone,
+      targetPlayerId,
+      ...(isMultiMove ? { instanceIds } : { instanceId: firstTarget.card.instanceId }),
+      ...(!isMultiMove ? this.viewedLibrarySourcePayload(context, firstTarget.playerId, firstTarget.card) : {}),
+    };
+
+    if (toZone === 'battlefield') {
+      context.setPendingBattlefieldMove({
+        cardName: isMultiMove ? `${targets.length} cards` : firstTarget.card.name,
+        targetPlayerName: context.playerName(targetPlayerId),
+        payload: {
+          ...payload,
+        },
+        commandType: isMultiMove ? 'cards.moved' : 'card.moved',
+      });
+      context.closeContextMenu();
+      return;
+    }
+
+    await context.command(isMultiMove ? 'cards.moved' : 'card.moved', payload);
+    await context.recordCommanderCastIfNeeded(firstTarget.playerId, firstTarget.zone, toZone);
+    if (!isMultiMove) {
+      this.removeCardFromFixedLibraryModal(context, firstTarget.playerId, firstTarget.card.instanceId);
+    }
+    context.clearSelectedCards();
     context.closeContextMenu();
   }
 

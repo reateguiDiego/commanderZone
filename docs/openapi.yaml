@@ -3871,7 +3871,7 @@ components:
           format: uuid
     Room:
       type: object
-      required: [id, name, owner, status, visibility, format, maxPlayers, startingLife, timerMode, timerDurationSeconds, players, createdAt, updatedAt]
+      required: [id, name, owner, status, visibility, format, maxPlayers, startingLife, timerMode, timerDurationSeconds, players, waitingLog, createdAt, updatedAt]
       properties:
         id:
           type: string
@@ -3910,6 +3910,10 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/RoomPlayer'
+        waitingLog:
+          type: array
+          items:
+            $ref: '#/components/schemas/WaitingRoomLogEntry'
         gameId:
           type: [string, 'null']
           format: uuid
@@ -3917,6 +3921,22 @@ components:
           type: string
           format: date-time
         updatedAt:
+          type: string
+          format: date-time
+    WaitingRoomLogEntry:
+      type: object
+      required: [id, label, tone, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        label:
+          type: string
+          maxLength: 255
+        tone:
+          type: string
+          enum: [default, success]
+        createdAt:
           type: string
           format: date-time
     RoomPlayer:

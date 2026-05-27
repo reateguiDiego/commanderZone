@@ -208,13 +208,12 @@ export class GameTableMotionService {
       return () => undefined;
     }
 
-    if (this.isCompactMotionViewport()) {
-      return () => undefined;
-    }
-
     const elements = this.cardElements(selector);
     const state = Flip.getState(elements);
     const isHandFlip = selector.includes('data-zone="hand"') || elements.some((element) => element.dataset['zone'] === 'hand');
+    if (isHandFlip && this.isCompactMotionViewport()) {
+      return () => undefined;
+    }
     const clearPreparedHandMotion = isHandFlip ? this.markHandMotionActive() : undefined;
 
     return () => {
@@ -939,7 +938,7 @@ export class GameTableMotionService {
   }
 
   private shouldSkipGhostMotion(): boolean {
-    return this.prefersReducedMotion() || this.isCompactMotionViewport();
+    return this.prefersReducedMotion();
   }
 
 }

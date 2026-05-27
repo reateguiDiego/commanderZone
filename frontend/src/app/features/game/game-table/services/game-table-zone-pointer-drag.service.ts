@@ -6,13 +6,15 @@ import {
   ZonePointerDropRequest,
   ZonePointerDropResult,
 } from '../models/game-table-zone-pointer-drag.model';
-import { GameTablePointerDragService, PointerDropTarget } from './game-table-pointer-drag.service';
+import { GameTablePointerDragService, PointerCardSize, PointerDropTarget } from './game-table-pointer-drag.service';
 
 interface ActiveZonePointerDrag {
   readonly source: ZonePointerDragSource;
   readonly startX: number;
   readonly startY: number;
   readonly pointerTarget: HTMLElement | null;
+  readonly dropCardSize: PointerCardSize;
+  readonly battlefieldDropCardSize: PointerCardSize;
   readonly dragging: boolean;
 }
 
@@ -20,6 +22,7 @@ interface ActiveZonePointerDrag {
 export class GameTableZonePointerDragService {
   private readonly pointerDrag = inject(GameTablePointerDragService);
   private readonly dragThresholdPx = 12;
+  private readonly cardAspectRatio = 0.716;
   private activeDrag: ActiveZonePointerDrag | null = null;
 
   readonly dragMove = signal<ZonePointerDragMove | null>(null);
@@ -34,6 +37,21 @@ export class GameTableZonePointerDragService {
     if (!bounds || bounds.width <= 0 || bounds.height <= 0) {
       return false;
     }
+    const previewSize = this.previewCardSize(bounds);
+    const offsetRatioX = this.clamp(event.clientX - bounds.left, 0, bounds.width) / bounds.width;
+    const offsetRatioY = this.clamp(event.clientY - bounds.top, 0, bounds.height) / bounds.height;
+    const dropCardSize = {
+      width: bounds.width,
+      height: bounds.height,
+      offsetX: this.clamp(event.clientX - bounds.left, 0, bounds.width),
+      offsetY: this.clamp(event.clientY - bounds.top, 0, bounds.height),
+    };
+    const battlefieldDropCardSize = {
+      width: previewSize.width,
+      height: previewSize.height,
+      offsetX: this.clamp(offsetRatioX * previewSize.width, 0, previewSize.width),
+      offsetY: this.clamp(offsetRatioY * previewSize.height, 0, previewSize.height),
+    };
 
     pointerTarget?.setPointerCapture?.(event.pointerId);
     this.activeDrag = {
@@ -43,14 +61,16 @@ export class GameTableZonePointerDragService {
         card,
         pointerId: event.pointerId,
         pointerType: event.pointerType,
-        cardWidth: bounds.width,
-        cardHeight: bounds.height,
-        offsetX: this.clamp(event.clientX - bounds.left, 0, bounds.width),
-        offsetY: this.clamp(event.clientY - bounds.top, 0, bounds.height),
+        cardWidth: previewSize.width,
+        cardHeight: previewSize.height,
+        offsetX: this.clamp(offsetRatioX * previewSize.width, 0, previewSize.width),
+        offsetY: this.clamp(offsetRatioY * previewSize.height, 0, previewSize.height),
       },
       startX: event.clientX,
       startY: event.clientY,
       pointerTarget,
+      dropCardSize,
+      battlefieldDropCardSize,
       dragging: false,
     };
     this.dragMove.set(null);
@@ -71,7 +91,7 @@ export class GameTableZonePointerDragService {
 
     event.preventDefault();
     const dragging = true;
-    const target = this.dropTarget(event, active.source);
+    const target = this.dropTarget(event, active.source, active.dropCardSize, active.battlefieldDropCardSize);
     const move = this.dragMoveAt(event, active.source, target, dragging);
     this.activeDrag = { ...active, dragging };
     this.dragMove.set(move);
@@ -118,17 +138,23 @@ export class GameTableZonePointerDragService {
     return { source: active.source, request: null, moved: active.dragging };
   }
 
-  private dropTarget(event: PointerEvent, source: ZonePointerDragSource): PointerDropTarget | null {
-    const target = this.pointerDrag.zoneTargetAt(event, {
-      width: source.cardWidth,
-      height: source.cardHeight,
-      offsetX: source.offsetX,
-      offsetY: source.offsetY,
-    }, { includeHand: true });
+  private dropTarget(
+    event: PointerEvent,
+    source: ZonePointerDragSource,
+    dropCardSize: PointerCardSize,
+    battlefieldDropCardSize: PointerCardSize,
+  ): PointerDropTarget | null {
+    const target = this.pointerDrag.zoneTargetAt(event, dropCardSize, { includeHand: true });
+    const normalizedBattlefieldTarget = target?.toZone === 'battlefield'
+      ? this.pointerDrag.zoneTargetAt(event, battlefieldDropCardSize, { includeHand: true })
+      : null;
+    const resolvedTarget = normalizedBattlefieldTarget?.rawZone === 'mana'
+      ? normalizedBattlefieldTarget
+      : target;
 
-    return target
+    return resolvedTarget
       ? {
-          ...target,
+          ...resolvedTarget,
           draggedInstanceId: source.card.instanceId,
           pointerClient: { x: event.clientX, y: event.clientY },
         }
@@ -166,6 +192,15 @@ export class GameTableZonePointerDragService {
     return pointerTarget?.querySelector<HTMLElement>('.zone-art')?.getBoundingClientRect()
       ?? pointerTarget?.getBoundingClientRect()
       ?? null;
+  }
+
+  private previewCardSize(bounds: DOMRect): { readonly width: number; readonly height: number } {
+    const width = this.clamp(Math.round(bounds.width * 2.2), 88, 128);
+
+    return {
+      width,
+      height: Math.round(width / this.cardAspectRatio),
+    };
   }
 
   private releasePointer(active: ActiveZonePointerDrag, event: PointerEvent): void {

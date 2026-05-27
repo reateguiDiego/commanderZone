@@ -13,6 +13,7 @@ export interface ZoneModalState {
   showFilters: boolean;
   readOnly: boolean;
   allowRandomSelect: boolean;
+  allowGiveDestination?: boolean;
   allowReorder: boolean;
   drawOrderLabels: readonly string[];
   viewTopCount: number | null;
@@ -37,6 +38,7 @@ export class GameTableZoneModalState {
       showFilters: true,
       readOnly,
       allowRandomSelect: true,
+      allowGiveDestination: false,
       allowReorder: false,
       drawOrderLabels: [],
       viewTopCount: null,
@@ -52,7 +54,7 @@ export class GameTableZoneModalState {
     cards: GameCardInstance[],
     selectedCardId: string | null = null,
     allowRandomSelect = false,
-    options: { allowReorder?: boolean; drawOrderLabels?: readonly string[]; viewTopCount?: number | null } = {},
+    options: { allowGiveDestination?: boolean; allowReorder?: boolean; drawOrderLabels?: readonly string[]; viewTopCount?: number | null } = {},
   ): void {
     this.zoneModal.set({
       playerId,
@@ -66,6 +68,7 @@ export class GameTableZoneModalState {
       showFilters: false,
       readOnly: false,
       allowRandomSelect,
+      allowGiveDestination: options.allowGiveDestination === true,
       allowReorder: options.allowReorder === true,
       drawOrderLabels: options.drawOrderLabels ?? [],
       viewTopCount: options.viewTopCount ?? null,

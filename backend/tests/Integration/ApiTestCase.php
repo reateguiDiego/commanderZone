@@ -113,6 +113,7 @@ abstract class ApiTestCase extends WebTestCase
             'friendship',
             'game_event',
             'game',
+            'room_waiting_log_entry',
             'room_player',
             'room',
             'deck_card',

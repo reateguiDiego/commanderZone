@@ -479,6 +479,38 @@ describe('GameTableDropActionsService', () => {
     expect(suppressCardPreview).toHaveBeenCalledOnce();
   });
 
+  it('syncs an open source modal after confirming a pending battlefield move', async () => {
+    const command = vi.fn(async () => undefined);
+    const syncOpenZoneModalAfterMove = vi.fn(async () => undefined);
+    const context = dropContext(
+      () => snapshotWith({}),
+      command,
+      { syncOpenZoneModalAfterMove },
+    );
+
+    await service.confirmPendingBattlefieldMove(context, {
+      cardName: 'Gift Card',
+      targetPlayerName: 'Opponent',
+      commandType: 'card.moved',
+      payload: {
+        playerId: 'player-1',
+        fromZone: 'library',
+        toZone: 'battlefield',
+        targetPlayerId: 'player-2',
+        instanceId: 'library-1',
+      },
+    });
+
+    expect(command).toHaveBeenCalledWith('card.moved', {
+      playerId: 'player-1',
+      fromZone: 'library',
+      toZone: 'battlefield',
+      targetPlayerId: 'player-2',
+      instanceId: 'library-1',
+    });
+    expect(syncOpenZoneModalAfterMove).toHaveBeenCalledWith('player-1', 'library', ['library-1']);
+  });
+
   it('notifies the controller when a borrowed battlefield card returns to its owner zone', async () => {
     const borrowed = { ...card('borrowed', 'Borrowed Bear', 'battlefield'), ownerId: 'owner-1', controllerId: 'player-1' };
     const snapshot = snapshotWith({ battlefield: [borrowed] });
@@ -619,6 +651,7 @@ function dropContext(
     snapBattlefieldPosition: (_playerId, _instanceId, position) => position,
     markPendingManaDrop: vi.fn(),
     markPendingTransfer: vi.fn(),
+    syncOpenZoneModalAfterMove: vi.fn(async () => undefined),
     command,
     recordCommanderCastIfNeeded: vi.fn(async () => undefined),
     ...overrides,

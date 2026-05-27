@@ -518,6 +518,7 @@ export class GameTableStore implements OnDestroy {
       card,
       {
         suppressRandomSelect: !modal.allowRandomSelect,
+        fromFixedZoneModal: modal.allowGiveDestination,
         sourceRect,
         menuPosition: this.cardCenterPosition(event, sourceRect),
       },
@@ -796,6 +797,8 @@ export class GameTableStore implements OnDestroy {
       `${this.playerName(playerId)} random ${this.zoneTitle(zone).toLowerCase()} card`,
       [selectedCard],
       selectedCard.instanceId,
+      false,
+      { allowGiveDestination: true },
     );
   }
 
@@ -994,8 +997,8 @@ export class GameTableStore implements OnDestroy {
     this.attachmentsState.startAttachmentFrom(this.contexts.attachmentInteraction(), menu);
   }
 
-  async giveCardToPlayer(menu: GameContextMenu, targetPlayerId: string): Promise<void> {
-    await this.cardActions.giveCardToPlayer(this.contexts.cardAction(), menu, targetPlayerId);
+  async giveCardToPlayer(menu: GameContextMenu, targetPlayerId: string, zone: 'battlefield' | 'hand' = 'battlefield'): Promise<void> {
+    await this.cardActions.giveCardToPlayer(this.contexts.cardAction(), menu, targetPlayerId, zone);
   }
 
   async giveHandCardToPlayer(menu: GameContextMenu, targetPlayerId: string): Promise<void> {
@@ -1279,7 +1282,7 @@ export class GameTableStore implements OnDestroy {
     cards: GameCardInstance[],
     selectedCardId: string | null = null,
     allowRandomSelect = false,
-    options: { allowReorder?: boolean; drawOrderLabels?: readonly string[]; viewTopCount?: number | null } = {},
+    options: { allowGiveDestination?: boolean; allowReorder?: boolean; drawOrderLabels?: readonly string[]; viewTopCount?: number | null } = {},
   ): void {
     this.zoneActions.openFixedZone(playerId, zone, title, cards, selectedCardId, allowRandomSelect, options);
   }

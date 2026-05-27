@@ -351,7 +351,34 @@ describe('ContextMenuComponent', () => {
     fixture.componentInstance.selectGiveToPlayer('user-2');
 
     expect(selected).toHaveBeenCalledWith({ type: 'playFaceDown' });
-    expect(selected).toHaveBeenCalledWith({ type: 'giveToPlayer', targetPlayerId: 'user-2' });
+    expect(selected).toHaveBeenCalledWith({ type: 'giveToPlayer', zone: 'hand', targetPlayerId: 'user-2' });
+  });
+
+  it('shows battlefield and hand destinations before player names for random modal cards', () => {
+    const fixture = createContextMenuFixture({
+      kind: 'card',
+      playerId: 'user-1',
+      zone: 'graveyard',
+      card: card('random-card'),
+      fromFixedZoneModal: true,
+      suppressRandomSelect: true,
+    });
+    const selected = vi.fn();
+    fixture.componentInstance.actionSelected.subscribe(selected);
+
+    fixture.componentInstance.toggleSubmenu(new MouseEvent('click'), 'giveToPlayer');
+    fixture.detectChanges();
+
+    const text = menuText(fixture);
+    expect(text).toContain('Give to');
+    expect(text).toContain('Battlefield');
+    expect(text).toContain('Hand');
+
+    fixture.componentInstance.selectGiveToDestination('battlefield:user-2');
+    fixture.componentInstance.selectGiveToDestination('hand:user-2');
+
+    expect(selected).toHaveBeenCalledWith({ type: 'giveToPlayer', zone: 'battlefield', targetPlayerId: 'user-2' });
+    expect(selected).toHaveBeenCalledWith({ type: 'giveToPlayer', zone: 'hand', targetPlayerId: 'user-2' });
   });
 
   it('emits select random from zone menus', () => {

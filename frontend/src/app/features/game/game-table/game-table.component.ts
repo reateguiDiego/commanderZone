@@ -1672,11 +1672,12 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
         void this.store.deleteAllCardCounters(menu);
         return;
       case 'giveToPlayer':
-        if (menu.zone === 'hand') {
+        const giveDestination = action.zone ?? (menu.zone === 'hand' ? 'hand' : 'battlefield');
+        if (giveDestination === 'hand' && menu.zone === 'hand') {
           this.openHandCardGiveDialog(menu, action.targetPlayerId);
           return;
         }
-        void this.store.giveCardToPlayer(menu, action.targetPlayerId);
+        void this.store.giveCardToPlayer(menu, action.targetPlayerId, giveDestination);
         return;
       case 'moveCard':
         if (menu.zone === 'library' && action.zone === 'hand' && menu.card) {

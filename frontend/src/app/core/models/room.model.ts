@@ -15,6 +15,15 @@ export interface RoomPlayer {
   turnRolls?: number[];
 }
 
+export type WaitingRoomLogTone = 'default' | 'success';
+
+export interface WaitingRoomLogEntry {
+  id: string;
+  label: string;
+  tone: WaitingRoomLogTone;
+  createdAt: string;
+}
+
 export interface Room {
   id: string;
   name: string;
@@ -27,6 +36,7 @@ export interface Room {
   timerMode: RoomTimerMode;
   timerDurationSeconds: number;
   players: RoomPlayer[];
+  waitingLog?: WaitingRoomLogEntry[];
   gameId: string | null;
 }
 

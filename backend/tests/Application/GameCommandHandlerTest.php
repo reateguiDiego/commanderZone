@@ -195,6 +195,33 @@ class GameCommandHandlerTest extends TestCase
         self::assertStringNotContainsString('Gift Card', $log['message']);
     }
 
+    public function testCanGiveLibraryCardToOpponentBattlefieldAndRemoveItFromSource(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $opponent = new User('opponent@example.test', 'Opponent');
+        $game = new Game(new Room($actor), $this->snapshot($actor->id(), [
+            'library' => [
+                $this->card('card-1', 'Gift Card', 'library', 2, 2, 2, 2),
+            ],
+        ], $opponent->id()));
+
+        (new GameCommandHandler())->apply($game, 'card.moved', [
+            'playerId' => $actor->id(),
+            'fromZone' => 'library',
+            'toZone' => 'battlefield',
+            'targetPlayerId' => $opponent->id(),
+            'instanceId' => 'card-1',
+            'sourceContext' => ['type' => 'libraryTopView', 'count' => 1],
+        ], $actor);
+
+        self::assertSame([], $game->snapshot()['players'][$actor->id()]['zones']['library']);
+        $opponentBattlefieldCard = $game->snapshot()['players'][$opponent->id()]['zones']['battlefield'][0];
+        self::assertSame('card-1', $opponentBattlefieldCard['instanceId']);
+        self::assertSame('battlefield', $opponentBattlefieldCard['zone']);
+        self::assertSame($actor->id(), $opponentBattlefieldCard['ownerId']);
+        self::assertSame($opponent->id(), $opponentBattlefieldCard['controllerId']);
+    }
+
     public function testFaceDownBattlefieldCardLeavesBattlefieldWithoutLog(): void
     {
         $actor = new User('owner@example.test', 'Owner');

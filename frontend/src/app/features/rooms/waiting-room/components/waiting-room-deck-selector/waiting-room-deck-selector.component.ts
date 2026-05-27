@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, ElementRef, HostListener, computed, inject, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, HostListener, computed, inject, input, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
 import { ManaSymbolsComponent } from '../../../../../shared/mana/mana-symbols/mana-symbols.component';
@@ -23,6 +23,7 @@ export interface WaitingDeckOption {
 export class WaitingRoomDeckSelectorComponent {
   readonly randomDeckOptionValue = '__random_deck__';
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly menuGapPx = 6;
 
   readonly deckOptions = input<readonly WaitingDeckOption[]>([]);
   readonly selectedDeck = input<WaitingDeckOption | null>(null);
@@ -32,6 +33,7 @@ export class WaitingRoomDeckSelectorComponent {
   readonly canRoll = input(false);
   readonly rolling = input(false);
   readonly showRandomDeckOption = computed(() => this.deckOptions().length > 1);
+  readonly menuDirection = signal<'down' | 'up'>('down');
 
   readonly selectorToggled = output<void>();
   readonly selectorClosed = output<void>();
@@ -39,6 +41,14 @@ export class WaitingRoomDeckSelectorComponent {
   readonly deckSelected = output<string>();
   readonly randomDeckRequested = output<void>();
   readonly rollRequested = output<void>();
+
+  toggleSelector(): void {
+    if (!this.selectorOpen()) {
+      this.updateMenuDirection();
+    }
+
+    this.selectorToggled.emit();
+  }
 
   selectNativeDeck(deckId: string): void {
     if (deckId === this.randomDeckOptionValue) {
@@ -58,5 +68,24 @@ export class WaitingRoomDeckSelectorComponent {
     if (!this.host.nativeElement.contains(event.target)) {
       this.selectorClosed.emit();
     }
+  }
+
+  @HostListener('window:resize')
+  @HostListener('window:scroll')
+  updateMenuDirection(): void {
+    const trigger = this.host.nativeElement.querySelector<HTMLElement>('.deck-select-trigger');
+    if (!trigger) {
+      this.menuDirection.set('down');
+      return;
+    }
+
+    const triggerBounds = trigger.getBoundingClientRect();
+    const menu = this.host.nativeElement.querySelector<HTMLElement>('.deck-select-menu');
+    const estimatedMenuHeight = menu?.getBoundingClientRect().height
+      ?? Math.min(288, Math.max(160, (window.innerHeight || 0) * 0.52));
+    const spaceBelow = (window.innerHeight || 0) - triggerBounds.bottom - this.menuGapPx;
+    const spaceAbove = triggerBounds.top - this.menuGapPx;
+
+    this.menuDirection.set(spaceBelow < estimatedMenuHeight && spaceAbove > spaceBelow ? 'up' : 'down');
   }
 }

@@ -21,6 +21,7 @@ export interface GameContextMenu {
   arrowId?: string;
   counterKey?: string;
   suppressRandomSelect?: boolean;
+  fromFixedZoneModal?: boolean;
   kind?: 'zone' | 'card' | 'game' | 'player' | 'arrow' | 'counter';
   sourceRect?: CardPreviewSourceRect | null;
 }

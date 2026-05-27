@@ -87,21 +87,15 @@
         </span>
       </button>
     }
-    <button type="button" (click)="actionSelected.emit({ type: 'openZone', zone: 'command' })">
-      <span class="menu-item-label">
-        <img class="menu-item-image-icon" src="/assets/icons/CZ/CZ_logo_zone_header.png" alt="" aria-hidden="true" draggable="false" />
-        <span>{{ displayLabel('View Command') }}</span>
-      </span>
-    </button>
     <button type="button" (click)="actionSelected.emit({ type: 'openZone', zone: 'exile' })">
       <span class="menu-item-label">
-        <lucide-icon name="radiation" size="17" aria-hidden="true" />
+        <lucide-icon name="ban" size="17" aria-hidden="true" />
         <span>{{ displayLabel('View Exile') }}</span>
       </span>
     </button>
     <button type="button" (click)="actionSelected.emit({ type: 'openZone', zone: 'graveyard' })">
       <span class="menu-item-label">
-        <lucide-icon name="biohazard" size="17" aria-hidden="true" />
+        <img class="menu-item-image-icon" src="/assets/icons/gameplay/graveyard-gold.svg" alt="" aria-hidden="true" draggable="false" />
         <span>{{ displayLabel('View Graveyard') }}</span>
       </span>
     </button>
@@ -382,14 +376,27 @@
               <span>{{ displayLabel('Play Face Down') }}</span>
             </span>
           </button>
+          @if (!activeMenu.fromFixedZoneModal) {
+            <app-context-submenu
+              label="Give To"
+              icon="gift"
+              [items]="giveToPlayerMenuItems()"
+              [expanded]="isSubmenuExpanded('giveToPlayer')"
+              direction="up"
+              (toggled)="toggleSubmenu($event, 'giveToPlayer')"
+              (itemSelected)="selectGiveToPlayer($event)"
+            />
+          }
+        }
+        @if (canGiveFixedZoneCard()) {
           <app-context-submenu
             label="Give To"
             icon="gift"
-            [items]="giveToPlayerMenuItems()"
+            [items]="giveToDestinationMenuItems()"
             [expanded]="isSubmenuExpanded('giveToPlayer')"
-            direction="up"
+            direction="down"
             (toggled)="toggleSubmenu($event, 'giveToPlayer')"
-            (itemSelected)="selectGiveToPlayer($event)"
+            (itemSelected)="selectGiveToDestination($event)"
           />
         }
         @if (canSelectRandomFromActiveZone()) {

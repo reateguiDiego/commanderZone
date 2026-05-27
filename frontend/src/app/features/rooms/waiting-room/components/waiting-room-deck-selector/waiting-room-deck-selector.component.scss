@@ -96,6 +96,7 @@
   position: absolute;
   z-index: 2800;
   top: calc(100% + 0.35rem);
+  bottom: auto;
   left: 50%;
   width: min(26rem, calc(100vw - 2rem));
   transform: translateX(-50%);
@@ -109,6 +110,11 @@
   padding: 0.35rem;
   background: rgb(10 14 10 / 98%);
   box-shadow: 0 1.6rem 3.4rem rgb(0 0 0 / 56%), 0 0 0 1px rgb(255 255 255 / 5%);
+}
+
+.deck-select-menu.open-up {
+  top: auto;
+  bottom: calc(100% + 0.35rem);
 }
 
 .deck-option-main {
@@ -186,11 +192,16 @@
   .deck-select-menu {
     position: absolute;
     top: calc(100% + 0.35rem);
-    right: auto;
     bottom: auto;
+    right: auto;
     left: 0;
     width: min(26rem, calc(100vw - 2rem));
     max-height: min(18rem, 52dvh);
     transform: none;
+  }
+
+  .deck-select-menu.open-up {
+    top: auto;
+    bottom: calc(100% + 0.35rem);
   }
 }

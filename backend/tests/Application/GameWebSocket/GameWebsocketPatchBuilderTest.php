@@ -24,11 +24,18 @@ class GameWebsocketPatchBuilderTest extends TestCase
         self::assertSame(1, $message['baseVersion']);
         self::assertSame(2, $message['version']);
         self::assertSame('action-life', $message['clientActionId']);
-        self::assertSame([[
+        self::assertSame([
+            [
             'op' => 'player.life.set',
             'playerId' => $actor->id(),
             'value' => 37,
-        ]], $message['operations']);
+            ],
+            [
+                'op' => 'eventLog.append',
+                'entries' => [$message['operations'][1]['entries'][0]],
+            ],
+        ], $message['operations']);
+        self::assertSame('life.changed', $message['operations'][1]['entries'][0]['type']);
     }
 
     public function testBuildsCommanderDamageAndPlayerCounterPatches(): void
@@ -40,22 +47,36 @@ class GameWebsocketPatchBuilderTest extends TestCase
             'sourcePlayerId' => $opponent->id(),
             'damage' => 7,
         ], 'action-damage');
-        self::assertSame([[
+        self::assertSame([
+            [
             'op' => 'player.commanderDamage.set',
             'playerId' => $actor->id(),
             'commanderDamage' => [$opponent->id() => 7],
-        ]], $commanderDamage['operations']);
+            ],
+            [
+                'op' => 'eventLog.append',
+                'entries' => [$commanderDamage['operations'][1]['entries'][0]],
+            ],
+        ], $commanderDamage['operations']);
+        self::assertSame('commander.damage.changed', $commanderDamage['operations'][1]['entries'][0]['type']);
 
         $counter = $this->applyAndBuild($game, $actor, 'counter.changed', [
             'scope' => 'player:'.$actor->id(),
             'key' => 'poison',
             'value' => 2,
         ], 'action-counter');
-        self::assertSame([[
+        self::assertSame([
+            [
             'op' => 'player.counters.set',
             'playerId' => $actor->id(),
             'counters' => ['poison' => 2],
-        ]], $counter['operations']);
+            ],
+            [
+                'op' => 'eventLog.append',
+                'entries' => [$counter['operations'][1]['entries'][0]],
+            ],
+        ], $counter['operations']);
+        self::assertSame('counter.changed', $counter['operations'][1]['entries'][0]['type']);
     }
 
     public function testBuildsChatDiceAndTurnPatchesFromAppendedEntries(): void
@@ -1135,6 +1156,8 @@ class GameWebsocketPatchBuilderTest extends TestCase
         self::assertSame('game.counters.set', $globalCounter['operations'][0]['op'] ?? null);
         self::assertSame('global', $globalCounter['operations'][0]['scope'] ?? null);
         self::assertSame(3, $globalCounter['operations'][0]['counters']['storm'] ?? null);
+        self::assertSame('eventLog.append', $globalCounter['operations'][1]['op'] ?? null);
+        self::assertSame('counter.changed', $globalCounter['operations'][1]['entries'][0]['type'] ?? null);
     }
 
     public function testDoesNotEmitFullSnapshotPlayersOrZonesInGamePatchPayload(): void

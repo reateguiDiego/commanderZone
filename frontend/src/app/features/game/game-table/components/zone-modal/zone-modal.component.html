@@ -19,7 +19,7 @@
       <div class="zone-filters">
         <label>
           <span>Type</span>
-          <select [ngModel]="currentModal.type" (ngModelChange)="filterChanged.emit({ type: $event })">
+          <select [ngModel]="currentModal.type" (ngModelChange)="updateType($event)">
             <option value="">All types</option>
             <option value="creature">Creatures</option>
             <option value="instant">Instants</option>
@@ -32,7 +32,7 @@
         </label>
         <label class="zone-search">
           <span>Search</span>
-          <input placeholder="Search by name" [ngModel]="currentModal.search" (ngModelChange)="filterChanged.emit({ search: $event })" />
+          <input placeholder="Search by name" [ngModel]="currentModal.search" (ngModelChange)="updateSearch($event)" />
         </label>
       </div>
     }
