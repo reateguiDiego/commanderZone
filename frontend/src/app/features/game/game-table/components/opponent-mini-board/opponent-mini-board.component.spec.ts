@@ -104,7 +104,7 @@ describe('OpponentMiniBoardComponent', () => {
     expect(board).not.toBeNull();
     expect(board.style.getPropertyValue('--opponent-defeated-background')).toContain('/assets/images/backgrounds/back_5.png');
     expect(skull).not.toBeNull();
-    expect(skull.getAttribute('src')).toBe('/assets/images/skull.png');
+    expect(skull.getAttribute('src')).toBe('/assets/icons/gameplay/skull.png');
   });
 
   it('replaces the mini battlefield with a defeated board when opponent has lethal commander damage', () => {

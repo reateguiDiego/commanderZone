@@ -1,7 +1,9 @@
-import { ChangeDetectionStrategy, Component, ElementRef, computed, inject, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, OnDestroy, computed, inject, input, output, signal } from '@angular/core';
+import { LucideAngularModule } from 'lucide-angular';
 import { GameCardInstance } from '../../../../../core/models/game.model';
 import { PrettyScrollDirective } from '../../../../../shared/ui/pretty-scroll/pretty-scroll.directive';
 import { GameTableLongPressDirective } from '../../directives/game-table-long-press.directive';
+import { activeCardFaceIndex, hasAlternateFaceContent, nextCardFaceIndex } from '../../utils/double-faced-card';
 
 type CardSpoilerSlot = {
   index: number;
@@ -10,12 +12,12 @@ type CardSpoilerSlot = {
 
 @Component({
   selector: 'app-card-spoiler-grid',
-  imports: [PrettyScrollDirective, GameTableLongPressDirective],
+  imports: [PrettyScrollDirective, GameTableLongPressDirective, LucideAngularModule],
   templateUrl: './card-spoiler-grid.component.html',
   styleUrl: './card-spoiler-grid.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class CardSpoilerGridComponent {
+export class CardSpoilerGridComponent implements OnDestroy {
   private readonly hostElement = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
 
   readonly cards = input.required<readonly GameCardInstance[]>();
@@ -48,6 +50,14 @@ export class CardSpoilerGridComponent {
   private draggedCardId: string | null = null;
   private dropTargetCardId: string | null = null;
   private dragPreviewElement: HTMLElement | null = null;
+  private readonly facePreviewIndexes = signal<Record<string, number>>({});
+  private readonly faceFlipCardIds = signal<Record<string, true>>({});
+  private readonly faceFlipTimers = new Map<string, number>();
+  private readonly faceFlipAnimationMs = 620;
+
+  ngOnDestroy(): void {
+    this.clearFaceFlipTimers();
+  }
 
   selectCard(card: GameCardInstance): void {
     if (!this.allowSelection()) {
@@ -86,6 +96,58 @@ export class CardSpoilerGridComponent {
 
   isDropTargetCard(card: GameCardInstance): boolean {
     return this.dropTargetCardId === card.instanceId && this.draggedCardId !== card.instanceId;
+  }
+
+  isFaceFlipping(card: GameCardInstance): boolean {
+    return this.faceFlipCardIds()[card.instanceId] === true;
+  }
+
+  canShowFaceToggle(card: GameCardInstance): boolean {
+    return card.hidden !== true
+      && card.faceDown !== true
+      && hasAlternateFaceContent(card, this.facePreviewIndex(card) ?? activeCardFaceIndex(card));
+  }
+
+  stopFaceToggleEvent(event: Event): void {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  stopFaceTogglePointer(event: PointerEvent): void {
+    event.stopPropagation();
+    if (event.button === 0) {
+      event.preventDefault();
+    }
+  }
+
+  lookAtOtherFace(event: Event, card: GameCardInstance): void {
+    this.stopFaceToggleEvent(event);
+    const nextFaceIndex = nextCardFaceIndex(card, this.facePreviewIndex(card) ?? activeCardFaceIndex(card));
+    if (nextFaceIndex === null) {
+      return;
+    }
+
+    this.facePreviewIndexes.update((indexes) => ({ ...indexes, [card.instanceId]: nextFaceIndex }));
+    this.startFaceFlipAnimation(card);
+  }
+
+  resetFacePreview(card: GameCardInstance): void {
+    if (this.facePreviewIndex(card) === null) {
+      return;
+    }
+
+    this.facePreviewIndexes.update((indexes) => {
+      const { [card.instanceId]: _removed, ...rest } = indexes;
+
+      return rest;
+    });
+    this.startFaceFlipAnimation(card);
+  }
+
+  previewCard(card: GameCardInstance): GameCardInstance {
+    const faceIndex = this.facePreviewIndex(card);
+
+    return faceIndex === null ? card : { ...card, activeFaceIndex: faceIndex };
   }
 
   dragStart(event: DragEvent, card: GameCardInstance): void {
@@ -239,6 +301,40 @@ export class CardSpoilerGridComponent {
     this.draggedCardId = null;
     this.removeDragPreview();
     this.clearDropTarget();
+  }
+
+  private startFaceFlipAnimation(card: GameCardInstance): void {
+    this.clearFaceFlipTimer(card.instanceId);
+    this.faceFlipCardIds.update((cardIds) => ({ ...cardIds, [card.instanceId]: true }));
+    this.faceFlipTimers.set(card.instanceId, window.setTimeout(() => {
+      this.faceFlipTimers.delete(card.instanceId);
+      this.faceFlipCardIds.update((cardIds) => {
+        const nextCardIds = { ...cardIds };
+        delete nextCardIds[card.instanceId];
+
+        return nextCardIds;
+      });
+    }, this.faceFlipAnimationMs));
+  }
+
+  private clearFaceFlipTimer(cardId: string): void {
+    const timer = this.faceFlipTimers.get(cardId);
+    if (timer !== undefined) {
+      window.clearTimeout(timer);
+      this.faceFlipTimers.delete(cardId);
+    }
+  }
+
+  private clearFaceFlipTimers(): void {
+    for (const timer of this.faceFlipTimers.values()) {
+      window.clearTimeout(timer);
+    }
+    this.faceFlipTimers.clear();
+    this.faceFlipCardIds.set({});
+  }
+
+  private facePreviewIndex(card: GameCardInstance): number | null {
+    return this.facePreviewIndexes()[card.instanceId] ?? null;
   }
 
   private hasSameOrder(left: readonly GameCardInstance[], right: readonly GameCardInstance[]): boolean {

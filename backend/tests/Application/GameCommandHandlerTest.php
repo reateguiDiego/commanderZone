@@ -1162,7 +1162,7 @@ class GameCommandHandlerTest extends TestCase
 
         $card = $game->snapshot()['players'][$actor->id()]['zones']['battlefield'][0];
         self::assertSame(1, $card['activeFaceIndex']);
-        self::assertSame('Flipped Front // Back to face 2.', $game->snapshot()['eventLog'][0]['message']);
+        self::assertSame('Flipped Front to Back.', $game->snapshot()['eventLog'][0]['message']);
     }
 
     public function testResetsModifiedLoyaltyWhenPlaneswalkerLeavesBattlefield(): void
@@ -2647,6 +2647,62 @@ class GameCommandHandlerTest extends TestCase
         ], $actor);
 
         self::assertSame([], $game->snapshot()['attachments']);
+    }
+
+    public function testChatReactionIsPersistedAndToggledPerPlayer(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $opponent = new User('opponent@example.test', 'Opponent');
+        $game = new Game(new Room($actor), $this->snapshot($actor->id(), [], $opponent->id()));
+        $handler = new GameCommandHandler();
+
+        $handler->apply($game, 'chat.message', ['message' => 'hello table'], $actor);
+        $messageId = $game->snapshot()['chat'][0]['id'] ?? null;
+
+        self::assertIsString($messageId);
+
+        $handler->apply($game, 'chat.reaction.toggled', [
+            'messageId' => $messageId,
+            'reaction' => 'like',
+        ], $opponent);
+
+        $message = $game->snapshot()['chat'][0];
+        self::assertSame($opponent->id(), $message['reactions']['like'][0]['userId'] ?? null);
+        self::assertSame('Opponent', $message['reactions']['like'][0]['displayName'] ?? null);
+
+        $handler->apply($game, 'chat.reaction.toggled', [
+            'messageId' => $messageId,
+            'reaction' => 'love',
+        ], $opponent);
+
+        $message = $game->snapshot()['chat'][0];
+        self::assertArrayNotHasKey('like', $message['reactions']);
+        self::assertSame($opponent->id(), $message['reactions']['love'][0]['userId'] ?? null);
+
+        $handler->apply($game, 'chat.reaction.toggled', [
+            'messageId' => $messageId,
+            'reaction' => 'love',
+        ], $opponent);
+
+        self::assertSame([], $game->snapshot()['chat'][0]['reactions']);
+    }
+
+    public function testChatReactionRejectsOwnMessage(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->snapshot($actor->id(), []));
+        $handler = new GameCommandHandler();
+
+        $handler->apply($game, 'chat.message', ['message' => 'own message'], $actor);
+        $messageId = $game->snapshot()['chat'][0]['id'] ?? null;
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('You cannot react to this chat message.');
+
+        $handler->apply($game, 'chat.reaction.toggled', [
+            'messageId' => $messageId,
+            'reaction' => 'like',
+        ], $actor);
     }
 
     /**

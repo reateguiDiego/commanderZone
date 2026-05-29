@@ -86,6 +86,16 @@ class GameWebsocketPatchBuilderTest extends TestCase
         $chat = $this->applyAndBuild($game, $actor, 'chat.message', ['message' => 'hello'], 'action-chat');
         self::assertSame('chat.append', $chat['operations'][0]['op']);
         self::assertSame('hello', $chat['operations'][0]['entries'][0]['message']);
+        $messageId = $chat['operations'][0]['entries'][0]['id'] ?? null;
+        self::assertIsString($messageId);
+
+        $reaction = $this->applyAndBuild($game, $opponent, 'chat.reaction.toggled', [
+            'messageId' => $messageId,
+            'reaction' => 'like',
+        ], 'action-chat-reaction');
+        self::assertSame('chat.message.set', $reaction['operations'][0]['op']);
+        self::assertSame($messageId, $reaction['operations'][0]['message']['id']);
+        self::assertSame($opponent->id(), $reaction['operations'][0]['message']['reactions']['like'][0]['userId'] ?? null);
 
         $dice = $this->applyAndBuild($game, $actor, 'dice.rolled', ['kind' => 'd6', 'finalResult' => '4'], 'action-dice');
         self::assertSame('eventLog.append', $dice['operations'][0]['op']);
@@ -156,14 +166,50 @@ class GameWebsocketPatchBuilderTest extends TestCase
             'tapped' => true,
         ], 'action-tap');
 
-        self::assertSame([[
-            'op' => 'card.state.set',
+        self::assertSame([
+            [
+                'op' => 'card.state.set',
+                'playerId' => $actor->id(),
+                'zone' => 'battlefield',
+                'instanceId' => 'battlefield-1',
+                'tapped' => true,
+            ],
+            [
+                'op' => 'eventLog.append',
+                'entries' => $message['operations'][1]['entries'],
+            ],
+        ], $message['operations']);
+        self::assertSame('card.tapped', $message['operations'][1]['entries'][0]['type'] ?? null);
+        self::assertSame('Tapped Battlefield One.', $message['operations'][1]['entries'][0]['message'] ?? null);
+        self::assertArrayNotHasKey('position', $message['operations'][0]);
+    }
+
+    public function testBuildsCardUntappedPatchWithEventLog(): void
+    {
+        [$game, $actor] = $this->gameWithBattlefieldCards();
+
+        $message = $this->applyAndBuild($game, $actor, 'card.tapped', [
             'playerId' => $actor->id(),
             'zone' => 'battlefield',
             'instanceId' => 'battlefield-1',
-            'tapped' => true,
-        ]], $message['operations']);
-        self::assertArrayNotHasKey('position', $message['operations'][0]);
+            'tapped' => false,
+        ], 'action-untap');
+
+        self::assertSame([
+            [
+                'op' => 'card.state.set',
+                'playerId' => $actor->id(),
+                'zone' => 'battlefield',
+                'instanceId' => 'battlefield-1',
+                'tapped' => false,
+            ],
+            [
+                'op' => 'eventLog.append',
+                'entries' => $message['operations'][1]['entries'],
+            ],
+        ], $message['operations']);
+        self::assertSame('card.tapped', $message['operations'][1]['entries'][0]['type'] ?? null);
+        self::assertSame('Untapped Battlefield One.', $message['operations'][1]['entries'][0]['message'] ?? null);
     }
 
     public function testCardTappedPatchSizeStaysStableAcrossRepeatedToggles(): void
@@ -194,9 +240,9 @@ class GameWebsocketPatchBuilderTest extends TestCase
         $untapCharacters = strlen(json_encode($untapMessage, JSON_THROW_ON_ERROR));
         $moveCharacters = strlen(json_encode($moveMessage, JSON_THROW_ON_ERROR));
 
-        self::assertSame(['card.state.set'], array_column($tapMessage['operations'], 'op'));
-        self::assertSame(['card.state.set'], array_column($untapMessage['operations'], 'op'));
-        self::assertLessThanOrEqual(2, abs($tapCharacters - $untapCharacters));
+        self::assertSame(['card.state.set', 'eventLog.append'], array_column($tapMessage['operations'], 'op'));
+        self::assertSame(['card.state.set', 'eventLog.append'], array_column($untapMessage['operations'], 'op'));
+        self::assertLessThanOrEqual(4, abs($tapCharacters - $untapCharacters));
         self::assertGreaterThan($tapCharacters, $moveCharacters);
         self::assertGreaterThan($untapCharacters, $moveCharacters);
     }
@@ -1219,8 +1265,14 @@ class GameWebsocketPatchBuilderTest extends TestCase
         [$game, $actor, $opponent] = $this->game();
         $snapshot = $game->snapshot();
         $snapshot['players'][$actor->id()]['zones']['battlefield'] = [
-            $this->card('battlefield-1', $actor->id(), ['x' => 0.2, 'y' => 0.2, 'unit' => 'ratio']),
-            $this->card('battlefield-2', $actor->id(), ['x' => 0.4, 'y' => 0.4, 'unit' => 'ratio']),
+            [
+                ...$this->card('battlefield-1', $actor->id(), ['x' => 0.2, 'y' => 0.2, 'unit' => 'ratio']),
+                'name' => 'Battlefield One',
+            ],
+            [
+                ...$this->card('battlefield-2', $actor->id(), ['x' => 0.4, 'y' => 0.4, 'unit' => 'ratio']),
+                'name' => 'Battlefield Two',
+            ],
         ];
         $snapshot['players'][$actor->id()]['zoneCounts']['battlefield'] = 2;
         $game->replaceSnapshot($snapshot);

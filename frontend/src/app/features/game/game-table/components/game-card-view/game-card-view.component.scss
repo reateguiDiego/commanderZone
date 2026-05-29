@@ -186,6 +186,17 @@
   overflow: hidden;
 }
 
+.game-card.attachment-stack-aura:not(.dragging) {
+  overflow: visible;
+}
+
+.game-card.attachment-stack-aura:not(.dragging) .card-visual {
+  border-color: rgb(205 242 255 / 96%);
+  box-shadow:
+    0 0 1.25rem rgb(89 190 255 / 76%),
+    0 0 2.65rem rgb(190 235 255 / 46%);
+}
+
 .game-card.land-stack-drop-target {
   z-index: 120;
   overflow: visible;

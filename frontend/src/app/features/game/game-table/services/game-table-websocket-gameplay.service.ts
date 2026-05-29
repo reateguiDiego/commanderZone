@@ -18,6 +18,7 @@ import {
   isGameDebugSnapshotMetricsMessage,
 } from '../../game-debug/game-debug-snapshot-metrics.channel';
 import { applyGameSnapshotPatch } from '../state/realtime/game-snapshot-patch-reducer';
+import { GameTableRealtimeAnimationBusService } from './game-table-realtime-animation-bus.service';
 import { GameTableWebsocketTransportService } from './game-table-websocket-transport.service';
 
 export interface GameTableWebsocketGameplayContext {
@@ -72,6 +73,7 @@ const WEBSOCKET_COMMANDS = new Set<GameWebsocketCommandType>([
   'commander.damage.changed',
   'counter.changed',
   'chat.message',
+  'chat.reaction.toggled',
   'dice.rolled',
   'turn.changed',
   'card.position.changed',
@@ -176,6 +178,7 @@ const ERROR_THROTTLE_MS = 2_000;
 @Injectable()
 export class GameTableWebsocketGameplayService implements OnDestroy {
   private readonly transport = inject(GameTableWebsocketTransportService);
+  private readonly realtimeAnimationBus = inject(GameTableRealtimeAnimationBusService);
   private readonly commandQueue: PendingWebsocketCommand[] = [];
   private inFlightCommand: PendingWebsocketCommand | null = null;
   private subscription?: Subscription;
@@ -346,6 +349,13 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
     const previousSnapshotSize = this.snapshotSize(snapshot);
     const result = applyGameSnapshotPatch(snapshot, patch);
     if (result.status === 'applied') {
+      const isLocalPatch = this.isPatchForInFlightCommand(patch);
+      this.realtimeAnimationBus.emitPatchAnimation({
+        previousSnapshot: snapshot,
+        nextSnapshot: result.snapshot,
+        patch,
+        isLocalPatch,
+      });
       context.setSnapshot(result.snapshot);
       this.publishSnapshotMetric(context.gameId(), patch, previousSnapshotSize, this.snapshotSize(result.snapshot));
       this.resolveInFlightCommand(patch.clientActionId);
@@ -362,6 +372,12 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
     await this.requestResync(context);
     this.resolveInFlightCommand(patch.clientActionId);
     this.drainQueue();
+  }
+
+  private isPatchForInFlightCommand(patch: GameplayGamePatchMessage): boolean {
+    const inFlight = this.inFlightCommand;
+
+    return Boolean(inFlight && this.matchesInFlight(inFlight, patch.clientActionId));
   }
 
   private async handleCommandAck(context: GameTableWebsocketGameplayContext, ack: GameplayCommandAckMessage): Promise<void> {

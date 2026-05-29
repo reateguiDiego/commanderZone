@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, HostBinding, input, output } from '@angular/core';
 
 type StatPulse = 'increase' | 'decrease' | null;
 
@@ -12,7 +12,13 @@ export class LoyaltyCounterComponent {
   readonly value = input.required<number>();
   readonly pulse = input<StatPulse>(null);
   readonly entrySettling = input(false);
+  readonly inline = input(false);
   readonly loyaltyChanged = output<{ event: MouseEvent; delta: number }>();
+
+  @HostBinding('class.inline-loyalty-counter')
+  get inlineLoyaltyCounter(): boolean {
+    return this.inline();
+  }
 
   changeLoyaltyFromPointer(event: PointerEvent): void {
     event.preventDefault();

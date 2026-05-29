@@ -111,7 +111,7 @@ describe('GameTableHandState', () => {
       playerId: 'player-1',
       targetPlayerId: 'player-1',
       movedInstanceIds: ['hand-land'],
-      position: { x: 110, y: 186, unit: 'ratio' },
+      position: { x: 110, y: 182, unit: 'ratio' },
     });
     expect(commandCalls[0]).toEqual({
       type: 'card.moved',
@@ -121,7 +121,7 @@ describe('GameTableHandState', () => {
         toZone: 'battlefield',
         targetPlayerId: 'player-1',
         instanceId: 'hand-land',
-        position: { x: 110, y: 186, unit: 'ratio' },
+        position: { x: 110, y: 182, unit: 'ratio' },
       },
     });
   });
@@ -131,7 +131,7 @@ describe('GameTableHandState', () => {
       [land('hand-land')],
       [
         land('stack-top', { x: 100, y: 200 }),
-        land('stack-under', { x: 100, y: 186 }),
+        land('stack-under', { x: 100, y: 182 }),
       ],
     );
 
@@ -141,7 +141,7 @@ describe('GameTableHandState', () => {
       playerId: 'player-1',
       targetPlayerId: 'player-1',
       movedInstanceIds: ['hand-land'],
-      position: { x: 120, y: 172, unit: 'ratio' },
+      position: { x: 120, y: 164, unit: 'ratio' },
     });
     expect(commandCalls[0]).toEqual({
       type: 'card.moved',
@@ -151,7 +151,7 @@ describe('GameTableHandState', () => {
         toZone: 'battlefield',
         targetPlayerId: 'player-1',
         instanceId: 'hand-land',
-        position: { x: 120, y: 172, unit: 'ratio' },
+        position: { x: 120, y: 164, unit: 'ratio' },
       },
     });
   });
@@ -161,7 +161,7 @@ describe('GameTableHandState', () => {
       [land('hand-land')],
       [
         land('stack-top', { x: 100, y: 200 }),
-        land('stack-under', { x: 100, y: 186 }),
+        land('stack-under', { x: 100, y: 182 }),
       ],
     );
 
@@ -171,7 +171,7 @@ describe('GameTableHandState', () => {
       playerId: 'player-1',
       targetPlayerId: 'player-1',
       movedInstanceIds: ['hand-land'],
-      position: { x: 120, y: 172, unit: 'ratio' },
+      position: { x: 120, y: 164, unit: 'ratio' },
     });
   });
 
@@ -188,7 +188,7 @@ describe('GameTableHandState', () => {
       playerId: 'player-1',
       targetPlayerId: 'player-1',
       movedInstanceIds: ['hand-equipment'],
-      position: { x: 110, y: 186, unit: 'ratio' },
+      position: { x: 110, y: 182, unit: 'ratio' },
     });
     expect(commandCalls).toEqual([
       {
@@ -199,7 +199,7 @@ describe('GameTableHandState', () => {
           toZone: 'battlefield',
           targetPlayerId: 'player-1',
           instanceId: 'hand-equipment',
-          position: { x: 110, y: 186, unit: 'ratio' },
+          position: { x: 110, y: 182, unit: 'ratio' },
         },
       },
       {

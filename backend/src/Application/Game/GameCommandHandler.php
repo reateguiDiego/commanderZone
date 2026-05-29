@@ -12,6 +12,7 @@ class GameCommandHandler
 {
     private const ZONES = ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command'];
     private const HIDDEN_ZONES = ['library', 'hand'];
+    private const CHAT_REACTIONS = ['like', 'dislike', 'love', 'laugh', 'angry', 'vomit', 'cry'];
     private const MAX_CARD_COUNTER_TYPES = 5;
     private const MAX_TOKEN_CREATE_QUANTITY = 20;
     private const COMMANDER_DAMAGE_DEFEAT_THRESHOLD = 21;
@@ -29,6 +30,7 @@ class GameCommandHandler
         'game.concede',
         'game.close',
         'chat.message',
+        'chat.reaction.toggled',
         'dice.rolled',
         'life.changed',
         'commander.damage.changed',
@@ -69,6 +71,7 @@ class GameCommandHandler
     ];
     private const COMMANDS_ALLOWED_WHEN_FINISHED = [
         'chat.message',
+        'chat.reaction.toggled',
     ];
     private const ACTOR_OWN_PLAYER_COMMANDS = [
         'zone.changed',
@@ -137,6 +140,7 @@ class GameCommandHandler
             'game.concede' => $log = $this->applyGameConcede($snapshot, $actor),
             'game.close' => $log = $this->applyGameClose($snapshot, $game, $actor),
             'chat.message' => $log = $this->applyChatMessage($snapshot, $payload, $actor),
+            'chat.reaction.toggled' => $log = $this->applyChatReactionToggled($snapshot, $payload, $actor),
             'dice.rolled' => $log = $this->applyDiceRolled($payload),
             'life.changed' => $log = $this->applyLifeChanged($snapshot, $payload),
             'commander.damage.changed' => $log = $this->applyCommanderDamageChanged($snapshot, $payload),
@@ -195,6 +199,7 @@ class GameCommandHandler
         $snapshot['arrows'] ??= [];
         $snapshot['attachments'] ??= [];
         $snapshot['chat'] ??= [];
+        $snapshot['chat'] = $this->normalizeChatMessages(is_array($snapshot['chat']) ? $snapshot['chat'] : []);
         $snapshot['eventLog'] ??= [];
         $snapshot['counters'] ??= [];
         $snapshot['updatedAt'] ??= $snapshot['createdAt'] ?? (new \DateTimeImmutable())->format(DATE_ATOM);
@@ -280,6 +285,102 @@ class GameCommandHandler
         ];
     }
 
+    /**
+     * @param list<mixed> $messages
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function normalizeChatMessages(array $messages): array
+    {
+        $normalized = [];
+        foreach ($messages as $message) {
+            if (!is_array($message)) {
+                continue;
+            }
+
+            $createdAt = is_string($message['createdAt'] ?? null)
+                ? $message['createdAt']
+                : (new \DateTimeImmutable())->format(DATE_ATOM);
+            $entry = [
+                'id' => $this->chatMessageId($message),
+                'userId' => (string) ($message['userId'] ?? ''),
+                'displayName' => (string) ($message['displayName'] ?? ''),
+                'message' => (string) ($message['message'] ?? ''),
+                'createdAt' => $createdAt,
+                'reactions' => $this->normalizeChatReactions($message['reactions'] ?? []),
+            ];
+
+            $targetPlayerId = $message['targetPlayerId'] ?? null;
+            if (is_string($targetPlayerId) && $targetPlayerId !== '' && $targetPlayerId !== 'all') {
+                $entry['targetPlayerId'] = $targetPlayerId;
+                $entry['targetDisplayName'] = is_string($message['targetDisplayName'] ?? null)
+                    ? $message['targetDisplayName']
+                    : null;
+            }
+
+            $normalized[] = $entry;
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * @param array<string,mixed> $message
+     */
+    private function chatMessageId(array $message): string
+    {
+        $id = $message['id'] ?? null;
+        if (is_string($id) && trim($id) !== '') {
+            return $id;
+        }
+
+        return 'legacy-chat-'.substr(hash('sha256', json_encode([
+            $message['createdAt'] ?? '',
+            $message['userId'] ?? '',
+            $message['targetPlayerId'] ?? 'all',
+            $message['message'] ?? '',
+        ], JSON_THROW_ON_ERROR)), 0, 24);
+    }
+
+    /**
+     * @param mixed $reactions
+     *
+     * @return array<string,list<array{userId:string,displayName:string,createdAt:string}>>
+     */
+    private function normalizeChatReactions(mixed $reactions): array
+    {
+        if (!is_array($reactions)) {
+            return [];
+        }
+
+        $normalized = [];
+        foreach (self::CHAT_REACTIONS as $reaction) {
+            $entries = $reactions[$reaction] ?? [];
+            if (!is_array($entries)) {
+                continue;
+            }
+
+            foreach ($entries as $entry) {
+                if (!is_array($entry)) {
+                    continue;
+                }
+
+                $userId = $entry['userId'] ?? null;
+                if (!is_string($userId) || trim($userId) === '') {
+                    continue;
+                }
+
+                $normalized[$reaction][] = [
+                    'userId' => $userId,
+                    'displayName' => is_string($entry['displayName'] ?? null) ? $entry['displayName'] : $userId,
+                    'createdAt' => is_string($entry['createdAt'] ?? null) ? $entry['createdAt'] : (new \DateTimeImmutable())->format(DATE_ATOM),
+                ];
+            }
+        }
+
+        return array_filter($normalized, static fn (array $entries): bool => $entries !== []);
+    }
+
     private function visualName(mixed $value, string $fallback): string
     {
         if (!is_string($value)) {
@@ -324,10 +425,12 @@ class GameCommandHandler
 
         $targetPlayerId = $this->chatTargetPlayerId($snapshot, $payload, $actor);
         $chatMessage = [
+            'id' => Uuid::v7()->toRfc4122(),
             'userId' => $actor->id(),
             'displayName' => $actor->displayName(),
             'message' => mb_substr($message, 0, 800),
             'createdAt' => (new \DateTimeImmutable())->format(DATE_ATOM),
+            'reactions' => [],
         ];
         if ($targetPlayerId !== null) {
             $chatMessage['targetPlayerId'] = $targetPlayerId;
@@ -338,6 +441,81 @@ class GameCommandHandler
         $snapshot['chat'] = array_slice($snapshot['chat'], -150);
 
         return null;
+    }
+
+    private function applyChatReactionToggled(array &$snapshot, array $payload, User $actor): ?string
+    {
+        $messageId = trim((string) ($payload['messageId'] ?? ''));
+        $reaction = trim((string) ($payload['reaction'] ?? ''));
+        if ($messageId === '' || !in_array($reaction, self::CHAT_REACTIONS, true)) {
+            throw new \InvalidArgumentException('chat.reaction.toggled requires a valid messageId and reaction.');
+        }
+
+        foreach ($snapshot['chat'] as &$message) {
+            if (!is_array($message) || ($message['id'] ?? null) !== $messageId) {
+                continue;
+            }
+
+            if (!$this->canReactToChatMessage($message, $actor->id())) {
+                throw new \InvalidArgumentException('You cannot react to this chat message.');
+            }
+
+            $message['reactions'] = $this->toggleChatReaction($message['reactions'] ?? [], $reaction, $actor);
+
+            return null;
+        }
+        unset($message);
+
+        throw new \InvalidArgumentException('Chat message not found.');
+    }
+
+    /**
+     * @param mixed $reactions
+     *
+     * @return array<string,list<array{userId:string,displayName:string,createdAt:string}>>
+     */
+    private function toggleChatReaction(mixed $reactions, string $reaction, User $actor): array
+    {
+        $normalized = $this->normalizeChatReactions($reactions);
+        $wasSelected = false;
+        foreach ($normalized as $type => $entries) {
+            $nextEntries = [];
+            foreach ($entries as $entry) {
+                if (($entry['userId'] ?? null) === $actor->id()) {
+                    $wasSelected = $wasSelected || $type === $reaction;
+                    continue;
+                }
+                $nextEntries[] = $entry;
+            }
+            $normalized[$type] = $nextEntries;
+        }
+
+        if (!$wasSelected) {
+            $normalized[$reaction][] = [
+                'userId' => $actor->id(),
+                'displayName' => $actor->displayName(),
+                'createdAt' => (new \DateTimeImmutable())->format(DATE_ATOM),
+            ];
+        }
+
+        return array_filter($normalized, static fn (array $entries): bool => $entries !== []);
+    }
+
+    /**
+     * @param array<string,mixed> $message
+     */
+    private function canReactToChatMessage(array $message, string $actorId): bool
+    {
+        if (($message['userId'] ?? null) === $actorId) {
+            return false;
+        }
+
+        $targetPlayerId = $message['targetPlayerId'] ?? null;
+        if (!is_string($targetPlayerId) || $targetPlayerId === '' || $targetPlayerId === 'all') {
+            return true;
+        }
+
+        return $targetPlayerId === $actorId || ($message['userId'] ?? null) === $actorId;
     }
 
     private function applyDiceRolled(array $payload): string
@@ -912,13 +1090,15 @@ class GameCommandHandler
         }
 
         $faceIndex = $this->positiveInt($payload['faceIndex'] ?? 0, 0, count($faces) - 1);
+        $previousFaceName = $this->cardFaceLogName($card, $this->activeFaceIndex($card));
         $card['activeFaceIndex'] = $faceIndex;
+        $nextFaceName = $this->cardFaceLogName($card, $faceIndex);
 
         if ($location['zone'] !== 'battlefield') {
             return '';
         }
 
-        return sprintf('Flipped %s to face %d.', $this->cardLogName($card), $faceIndex + 1);
+        return sprintf('Flipped %s to %s.', $previousFaceName, $nextFaceName);
     }
 
     private function applyCardRevealed(array &$snapshot, array $payload): string
@@ -1929,6 +2109,19 @@ class GameCommandHandler
     /**
      * @param array<string,mixed> $card
      */
+    private function cardFaceLogName(array $card, int $faceIndex): string
+    {
+        $faces = is_array($card['cardFaces'] ?? null) ? array_values($card['cardFaces']) : [];
+        $face = $faces[$faceIndex] ?? null;
+        $name = is_array($face) ? trim((string) ($face['name'] ?? '')) : '';
+        $name = $name === '' ? $this->cardBaseName($card) : $name;
+
+        return ($card['isTokenCopy'] ?? false) === true ? sprintf('Token Copy %s', $name) : $name;
+    }
+
+    /**
+     * @param array<string,mixed> $card
+     */
     private function cardBaseName(array $card): string
     {
         $name = trim((string) ($card['name'] ?? ''));
@@ -2365,7 +2558,7 @@ class GameCommandHandler
         if ($type === 'game.concede' || $type === 'game.close') {
             return;
         }
-        if (($snapshot['players'][$actorId]['status'] ?? 'active') === 'conceded' && !in_array($type, ['chat.message', 'game.close'], true)) {
+        if (($snapshot['players'][$actorId]['status'] ?? 'active') === 'conceded' && !in_array($type, ['chat.message', 'chat.reaction.toggled', 'game.close'], true)) {
             throw new \InvalidArgumentException('Conceded players cannot perform game actions.');
         }
 

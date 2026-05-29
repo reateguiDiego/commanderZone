@@ -71,11 +71,12 @@ final readonly class GameWebsocketPatchBuilder
             'commander.damage.changed' => $this->commanderDamageChanged($previousSnapshot, $nextSnapshot, $payload),
             'counter.changed' => $this->counterChanged($previousSnapshot, $nextSnapshot, $payload),
             'chat.message' => $this->chatMessage($previousSnapshot, $nextSnapshot, $payload),
+            'chat.reaction.toggled' => $this->chatReactionToggled($previousSnapshot, $nextSnapshot, $payload),
             'dice.rolled' => $this->eventLogOnly($previousSnapshot, $nextSnapshot),
             'turn.changed' => $this->turnChanged($previousSnapshot, $nextSnapshot),
             'card.position.changed' => $this->cardPositionChanged($nextSnapshot, $payload),
             'cards.position.changed' => $this->cardsPositionChanged($nextSnapshot, $payload),
-            'card.tapped' => $this->cardTapped($nextSnapshot, $payload),
+            'card.tapped' => $this->cardTapped($previousSnapshot, $nextSnapshot, $payload),
             'card.moved' => $this->cardMoved($previousSnapshot, $nextSnapshot, $payload),
             'cards.moved' => $this->cardsMoved($previousSnapshot, $nextSnapshot, $payload),
             'zone.changed' => $this->zoneChanged($previousSnapshot, $nextSnapshot, $payload),
@@ -224,6 +225,30 @@ final readonly class GameWebsocketPatchBuilder
     /**
      * @return list<array<string,mixed>>|null
      */
+    private function chatReactionToggled(array $previousSnapshot, array $nextSnapshot, array $payload): ?array
+    {
+        $messageId = $this->payloadString($payload, 'messageId');
+        if ($messageId === null) {
+            return null;
+        }
+
+        $previousMessage = $this->chatMessageById($previousSnapshot, $messageId);
+        $nextMessage = $this->chatMessageById($nextSnapshot, $messageId);
+        if ($nextMessage === null) {
+            return $previousMessage === null ? [] : null;
+        }
+
+        return $previousMessage === $nextMessage
+            ? []
+            : [[
+                'op' => 'chat.message.set',
+                'message' => $nextMessage,
+            ]];
+    }
+
+    /**
+     * @return list<array<string,mixed>>|null
+     */
     private function eventLogOnly(array $previousSnapshot, array $nextSnapshot): ?array
     {
         $eventLogEntries = $this->appendedEventLogEntries($previousSnapshot, $nextSnapshot);
@@ -332,7 +357,7 @@ final readonly class GameWebsocketPatchBuilder
     /**
      * @return list<array<string,mixed>>|null
      */
-    private function cardTapped(array $nextSnapshot, array $payload): ?array
+    private function cardTapped(array $previousSnapshot, array $nextSnapshot, array $payload): ?array
     {
         $playerId = $this->payloadString($payload, 'playerId');
         $zone = $this->payloadString($payload, 'zone');
@@ -346,13 +371,16 @@ final readonly class GameWebsocketPatchBuilder
             return null;
         }
 
-        return [[
-            'op' => 'card.state.set',
-            'playerId' => $playerId,
-            'zone' => $zone,
-            'instanceId' => $instanceId,
-            'tapped' => (bool) ($card['tapped'] ?? false),
-        ]];
+        return [
+            [
+                'op' => 'card.state.set',
+                'playerId' => $playerId,
+                'zone' => $zone,
+                'instanceId' => $instanceId,
+                'tapped' => (bool) ($card['tapped'] ?? false),
+            ],
+            ...$this->eventLogAppendOperation($previousSnapshot, $nextSnapshot),
+        ];
     }
 
     /**
@@ -1249,6 +1277,25 @@ final readonly class GameWebsocketPatchBuilder
         }
 
         return array_values(array_slice($next, count($previous)));
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function chatMessageById(array $snapshot, string $messageId): ?array
+    {
+        $messages = $snapshot['chat'] ?? [];
+        if (!is_array($messages)) {
+            return null;
+        }
+
+        foreach ($messages as $message) {
+            if (is_array($message) && ($message['id'] ?? null) === $messageId) {
+                return $message;
+            }
+        }
+
+        return null;
     }
 
     /**

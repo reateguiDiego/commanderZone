@@ -18,6 +18,9 @@ interface CardListPopover {
 })
 export class GameLogPanelComponent implements AfterViewChecked, OnDestroy {
   readonly entries = input.required<ReadonlyArray<GameLogEntryView>>();
+  readonly highlightedEntryIds = input<readonly string[]>([]);
+  readonly fadingEntryIds = input<readonly string[]>([]);
+  readonly playerColor = input<(playerId: string) => string>(() => '');
   readonly logTime = input.required<(createdAt: string) => string>();
   readonly previewCard = output<GameCardInstance>();
   readonly hidePreview = output<void>();

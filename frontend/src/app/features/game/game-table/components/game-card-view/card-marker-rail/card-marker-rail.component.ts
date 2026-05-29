@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, HostBinding, computed, input, output } from '@angular/core';
 
 export interface CardMarkerCounter {
   readonly key: string;
@@ -42,12 +42,18 @@ export class CardMarkerRailComponent {
   readonly showTokenCopyMarker = input(false);
   readonly counters = input<readonly CardMarkerCounter[]>([]);
   readonly compact = input(false);
+  readonly inline = input(false);
   readonly hasMarkers = computed(() => this.showTokenCopyMarker() || this.counters().length > 0);
   readonly markerCounters = computed<readonly CardMarkerCounterView[]>(() =>
     this.counters().map((counter) => this.counterView(counter)),
   );
   readonly counterChanged = output<CardMarkerCounterChange>();
   readonly counterDeleteRequested = output<CardMarkerCounterDeleteRequest>();
+
+  @HostBinding('class.inline-marker-rail')
+  get inlineMarkerRail(): boolean {
+    return this.inline();
+  }
 
   changeCounter(event: MouseEvent, counter: CardMarkerCounterView, delta: number): void {
     event.preventDefault();

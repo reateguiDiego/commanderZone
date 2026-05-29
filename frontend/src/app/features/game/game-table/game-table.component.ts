@@ -2,11 +2,12 @@ import { AfterViewChecked, AfterViewInit, ChangeDetectionStrategy, ChangeDetecto
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { LucideAngularModule } from 'lucide-angular';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, Subscription } from 'rxjs';
 import { BodyScrollLockService } from '../../../shared/services/body-scroll-lock.service';
 import { AppModalComponent } from '../../../shared/ui/app-modal/app-modal.component';
 import { PrettyScrollDirective } from '../../../shared/ui/pretty-scroll/pretty-scroll.directive';
-import { GameCardInstance, GameRematchVote, GameZoneName } from '../../../core/models/game.model';
+import { ChatMessage, ChatReactionType, GameCardInstance, GameRematchVote, GameSnapshot, GameZoneName } from '../../../core/models/game.model';
+import { GameSnapshotPatchOperation } from '../../../core/models/game-realtime.model';
 import { GamesApi } from '../../../core/api/games.api';
 import { GameTableCardActionsService } from './services/game-table-card-actions.service';
 import { GameTableCardStatsService } from './services/game-table-card-stats.service';
@@ -29,6 +30,12 @@ import { GameTableTurnActionsService } from './services/game-table-turn-actions.
 import { GameTableZoneActionsService } from './services/game-table-zone-actions.service';
 import { GameTableZonePointerMoveActionsService } from './services/game-table-zone-pointer-move-actions.service';
 import { GameTableMotionService } from './services/game-table-motion.service';
+import { GameTableChatReadStateService, type GameTableChatReadContext } from './services/game-table-chat-read-state.service';
+import { GameTableNotificationSoundService } from './services/game-table-notification-sound.service';
+import {
+  GameTableRealtimeAnimationBusService,
+  type GameTableRealtimePatchAnimationEvent,
+} from './services/game-table-realtime-animation-bus.service';
 import { GameTableChatLogState } from './state/chat/game-table-chat-log.state';
 import { GameTableChatStore } from './state/chat/game-table-chat.store';
 import { GameTableCommandStore } from './state/core/game-table-command.store';
@@ -84,6 +91,7 @@ import { RollModalComponent } from '../../../core/ui/roll-modal/roll-modal.compo
 import { type RollResult } from '../../../core/ui/roll-modal/roll';
 import { GameTablePermanentRelationService } from './services/game-table-permanent-relation.service';
 import { ZonePointerDropRequest } from './models/game-table-zone-pointer-drag.model';
+import { buildCardPreviewAttachmentInfo, buildCardPreviewCardStateInfo, resolveCardPreviewCard } from './utils/card-preview-attachment-info';
 
 interface DrawNumberActionRequest {
   readonly kind: 'draw';
@@ -125,6 +133,7 @@ type NumberActionRequest = DrawNumberActionRequest | MoveTopNumberActionRequest 
 type RematchCountdownMode = 'initial' | 'courtesy';
 type TableExitAction = 'concede' | 'leave';
 type FloatingPanelTab = 'chat' | 'log';
+const CHAT_REACTION_WINDOW_MS = 30 * 60 * 1000;
 
 interface ZoneMoveAllLibraryRequest {
   readonly playerId: string;
@@ -235,6 +244,15 @@ interface PlayerDropEvent {
 }
 
 type DropZoneTarget = GameZoneName | 'mana';
+type PendingCardMotionTarget =
+  | { readonly kind: 'zone'; readonly zone: DropZoneTarget }
+  | { readonly kind: 'player' };
+
+interface ChatReactionOption {
+  readonly type: ChatReactionType;
+  readonly label: string;
+  readonly emoji: string;
+}
 
 interface HandDragPayload {
   readonly playerId: string;
@@ -250,6 +268,13 @@ interface HandGhostOptions {
   readonly targetPlayerId?: string | null;
 }
 
+interface PlayerGhostOptions {
+  readonly sourceElement?: HTMLElement | null;
+  readonly sourceInstanceId?: string | null;
+  readonly sourceRect?: MotionSourceRect | null;
+  readonly targetPlayerId: string;
+}
+
 interface ZoneGhostOptions {
   readonly sourceElement?: HTMLElement | null;
   readonly sourceInstanceId?: string | null;
@@ -257,6 +282,13 @@ interface ZoneGhostOptions {
   readonly targetPlayerId: string;
   readonly targetZone: DropZoneTarget;
   readonly dropEvent?: DragEvent;
+}
+
+interface PendingCardMotion {
+  readonly sourceInstanceId: string;
+  readonly sourceRect?: MotionSourceRect | null;
+  readonly targetPlayerId: string;
+  readonly target: PendingCardMotionTarget;
 }
 
 interface MotionSourceRect {
@@ -340,6 +372,9 @@ interface MotionSourceRect {
     GameTableZoneActionsService,
     GameTableZonePointerMoveActionsService,
     GameTableMotionService,
+    GameTableChatReadStateService,
+    GameTableNotificationSoundService,
+    GameTableRealtimeAnimationBusService,
     GameTablePermanentRelationService,
     GameTableSnapshotSelectors,
     GameTableUiState,
@@ -350,7 +385,7 @@ interface MotionSourceRect {
     GameTableChatLogState,
   ],
   templateUrl: './game-table.component.html',
-  styleUrls: ['./game-table.component.scss', './game-table-responsive.scss'],
+  styleUrls: ['./game-table.component.scss', './game-table-chat-panel.scss', './game-table-responsive.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDestroy {
@@ -360,6 +395,9 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   private readonly gamesApi = inject(GamesApi);
   private readonly router = inject(Router);
   private readonly motion = inject(GameTableMotionService);
+  private readonly chatReadState = inject(GameTableChatReadStateService);
+  private readonly notificationSound = inject(GameTableNotificationSoundService);
+  private readonly realtimeAnimations = inject(GameTableRealtimeAnimationBusService);
   private readonly bodyScrollLock = inject(BodyScrollLockService);
   private readonly changeDetectorRef = inject(ChangeDetectorRef);
   readonly battlefieldZoom = inject(GameTableBattlefieldZoomState);
@@ -445,6 +483,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   readonly zoneMoveAllLibraryRandomOrder = signal(false);
   readonly handCardGiveDialog = signal<HandCardGiveRequest | null>(null);
   readonly libraryCardMoveToHandDialog = signal<LibraryCardMoveToHandRequest | null>(null);
+  private readonly pendingCardMotion = signal<PendingCardMotion | null>(null);
   readonly followActiveTurnPlayer = signal(false);
   readonly rematchModalOpen = signal(false);
   readonly rematchPending = signal(false);
@@ -492,8 +531,34 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   });
   readonly latestLogEntry = computed(() => this.store.eventLog().at(-1) ?? null);
   readonly latestChatMessage = computed(() => this.store.snapshot()?.chat.at(-1) ?? null);
+  readonly hoveredPreviewAttachmentInfo = computed(() => {
+    const preview = this.store.hoveredPreview();
+    const snapshot = this.store.snapshot();
+
+    return preview ? buildCardPreviewAttachmentInfo(snapshot, resolveCardPreviewCard(snapshot, preview)) : null;
+  });
+  readonly hoveredPreviewCardStateInfo = computed(() => {
+    const preview = this.store.hoveredPreview();
+    const snapshot = this.store.snapshot();
+
+    return preview ? buildCardPreviewCardStateInfo(resolveCardPreviewCard(snapshot, preview)) : null;
+  });
   readonly unreadChat = signal(false);
   readonly unreadLog = signal(false);
+  readonly highlightedChatMessageKeys = signal<readonly string[]>([]);
+  readonly fadingChatMessageKeys = signal<readonly string[]>([]);
+  readonly highlightedLogEntryIds = signal<readonly string[]>([]);
+  readonly fadingLogEntryIds = signal<readonly string[]>([]);
+  readonly chatReactionClockMs = signal(Date.now());
+  readonly chatReactionOptions: readonly ChatReactionOption[] = [
+    { type: 'like', label: 'Like', emoji: '👍' },
+    { type: 'dislike', label: 'Dislike', emoji: '👎' },
+    { type: 'love', label: 'Love', emoji: '❤️' },
+    { type: 'laugh', label: 'Laugh', emoji: '😂' },
+    { type: 'angry', label: 'Very angry', emoji: '🤬' },
+    { type: 'vomit', label: 'Vomit', emoji: '🤮' },
+    { type: 'cry', label: 'Cry', emoji: '😭' },
+  ];
   readonly tableToast = computed(() => this.store.tableToast() ?? this.rematchToast());
   readonly tableBackgroundImage = computed(() => `url("${this.store.gameBackgroundImage(this.store.focusedPlayer() ?? this.store.currentPlayer())}")`);
   readonly focusedOpponentPlayer = computed<PlayerView | null>(() => {
@@ -594,13 +659,19 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   private rematchToastTimer: number | null = null;
   private rematchCountdownTimer: number | null = null;
   private rematchCountdownDeadlineMs: number | null = null;
+  private chatReactionClockTimer: number | null = null;
   private rematchCountdownKey = '';
   private rematchAutoLeaveKey = '';
   private lastAutoRematchPromptKey = '';
   private lastFocusedTurnPlayerId: string | null = null;
   private lastObservedChatKey: string | null = null;
   private lastObservedLogKey: string | null = null;
+  private lastObservedLogEntryId: string | null = null;
+  private lastUnreadChatNotificationKey: string | null = null;
+  private readonly chatHighlightTimers = new Map<string, number>();
+  private readonly logHighlightTimers = new Map<string, number>();
   private readonly battlefieldDragStartRects = new Map<string, MotionSourceRect>();
+  private readonly realtimeAnimationSubscriptions = new Subscription();
   private mobileScrollLockMediaQuery: MediaQueryList | null = null;
   private mobileScrollLocked = false;
   private readonly handleMobileScrollLockChange = (): void => this.syncMobileScrollLock();
@@ -610,6 +681,10 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   @ViewChildren('autoScrollFeed') private readonly autoScrollFeeds?: QueryList<ElementRef<HTMLElement>>;
 
   constructor() {
+    this.realtimeAnimationSubscriptions.add(
+      this.realtimeAnimations.patchAnimation$.subscribe((event) => this.handleRealtimePatchAnimation(event)),
+    );
+
     effect(() => {
       if (this.tableExitPending()) {
         return;
@@ -685,6 +760,8 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     if (this.gameScreen) {
       this.motion.init(this.gameScreen);
     }
+    this.notificationSound.startUserGestureUnlock();
+    this.startChatReactionClock();
     this.setupMobileScrollLock();
   }
 
@@ -712,6 +789,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
 
   ngOnDestroy(): void {
     this.destroyed = true;
+    this.realtimeAnimationSubscriptions.unsubscribe();
     this.destroyMobileScrollLock();
     this.motion.destroy();
     this.clearQueuedFloatingContentScroll();
@@ -719,6 +797,22 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     this.clearQueuedBattlefieldZoomReflow();
     this.clearRematchToastTimer();
     this.clearRematchCountdown();
+    this.clearChatReactionClock();
+    this.clearMessageHighlightTimers();
+  }
+
+  private startChatReactionClock(): void {
+    this.clearChatReactionClock();
+    this.chatReactionClockTimer = window.setInterval(() => this.chatReactionClockMs.set(Date.now()), 30_000);
+  }
+
+  private clearChatReactionClock(): void {
+    if (this.chatReactionClockTimer === null) {
+      return;
+    }
+
+    window.clearInterval(this.chatReactionClockTimer);
+    this.chatReactionClockTimer = null;
   }
 
   private setupMobileScrollLock(): void {
@@ -787,6 +881,82 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     this.store.activeFloatingTab.set(tab);
     this.markFloatingTabRead(tab);
     queueMicrotask(() => this.queueFloatingContentScrollToBottom());
+  }
+
+  chatMessageKey(message: ChatMessage, index: number): string {
+    return this.chatReadState.messageKey(message, index);
+  }
+
+  isChatMessageHighlighted(message: ChatMessage, index: number): boolean {
+    return this.highlightedChatMessageKeys().includes(this.chatMessageKey(message, index));
+  }
+
+  isChatMessageEvaporating(message: ChatMessage, index: number): boolean {
+    return this.fadingChatMessageKeys().includes(this.chatMessageKey(message, index));
+  }
+
+  chatAuthorColor(userId: string): string {
+    const palette = ['#f97316', '#22c55e', '#38bdf8', '#f472b6', '#a78bfa', '#facc15', '#fb7185', '#2dd4bf'];
+    let hash = 0;
+    for (const character of userId) {
+      hash = (hash * 31 + character.charCodeAt(0)) % palette.length;
+    }
+
+    return palette[hash];
+  }
+
+  isOwnChatMessage(message: ChatMessage): boolean {
+    const currentPlayer = this.store.currentPlayer();
+    const currentUserId = currentPlayer?.state.user.id ?? currentPlayer?.id ?? null;
+
+    return currentUserId !== null && message.userId === currentUserId;
+  }
+
+  chatReactionCount(message: ChatMessage, reaction: ChatReactionType): number {
+    return message.reactions?.[reaction]?.length ?? 0;
+  }
+
+  chatReactionUsers(message: ChatMessage, reaction: ChatReactionType): string {
+    return message.reactions?.[reaction]?.map((entry) => entry.displayName).join(', ') ?? '';
+  }
+
+  canReactToChatMessage(message: ChatMessage): boolean {
+    return this.isChatMessageReactable(message, this.chatReactionClockMs());
+  }
+
+  private isChatMessageReactable(message: ChatMessage, nowMs: number): boolean {
+    if (!message.id || this.isOwnChatMessage(message)) {
+      return false;
+    }
+
+    const createdAtMs = Date.parse(message.createdAt);
+    return Number.isFinite(createdAtMs) && nowMs - createdAtMs <= CHAT_REACTION_WINDOW_MS;
+  }
+
+  hasOwnChatReaction(message: ChatMessage, reaction: ChatReactionType): boolean {
+    const currentPlayer = this.store.currentPlayer();
+    const currentUserId = currentPlayer?.state.user.id ?? currentPlayer?.id ?? null;
+
+    return currentUserId
+      ? message.reactions?.[reaction]?.some((entry) => entry.userId === currentUserId) === true
+      : false;
+  }
+
+  hasAnyChatReaction(message: ChatMessage): boolean {
+    return this.chatReactionOptions.some((reaction) => this.chatReactionCount(message, reaction.type) > 0);
+  }
+
+  shouldShowChatReactionUsers(message: ChatMessage, reaction: ChatReactionType): boolean {
+    return this.chatReactionCount(message, reaction) > 0;
+  }
+
+  toggleChatReaction(event: MouseEvent, message: ChatMessage, reaction: ChatReactionType): void {
+    event.stopPropagation();
+    if (!this.isChatMessageReactable(message, Date.now())) {
+      return;
+    }
+
+    void this.store.toggleChatReaction(message.id, reaction);
   }
 
   queueFloatingContentScrollToBottom(): void {
@@ -1031,16 +1201,332 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   }
 
   private async moveCardFromMenu(menu: GameContextMenu, toZone: GameZoneName, options: { position?: 'top' | 'bottom' } = {}): Promise<void> {
+    const modalMotion = this.menuCardMotion(menu, menu.playerId, { kind: 'zone', zone: toZone }, { fromFixedZoneModalOnly: true });
+    if (toZone === 'library' && !options.position) {
+      this.pendingCardMotion.set(modalMotion);
+      await this.store.moveCard(menu, toZone, options);
+      if (!this.store.pendingLibraryMove()) {
+        this.pendingCardMotion.set(null);
+      }
+      return;
+    }
+
     if (toZone !== 'hand' || menu.zone === 'hand' || !menu.card || this.cardEvaporatesOutsideBattlefield(menu.card, toZone)) {
+      this.animateCardMotion(modalMotion);
       await this.store.moveCard(menu, toZone, options);
       return;
     }
 
     this.animateGhostToHand({
       sourceInstanceId: menu.card.instanceId,
+      sourceRect: menu.sourceRect,
       targetPlayerId: menu.playerId,
     });
     await this.animateHandLayoutAfterAction(() => this.store.moveCard(menu, toZone, options));
+  }
+
+  private async giveCardFromMenu(
+    menu: GameContextMenu,
+    targetPlayerId: string,
+    destination: 'battlefield' | 'hand',
+  ): Promise<void> {
+    if (destination === 'hand' && menu.zone === 'hand') {
+      this.openHandCardGiveDialog(menu, targetPlayerId);
+      return;
+    }
+
+    const giveMotion = this.menuCardMotion(menu, targetPlayerId, { kind: 'player' });
+    if (destination === 'battlefield') {
+      this.pendingCardMotion.set(giveMotion);
+      await this.store.giveCardToPlayer(menu, targetPlayerId, destination);
+      if (!this.store.pendingBattlefieldMove()) {
+        this.pendingCardMotion.set(null);
+      }
+      return;
+    }
+
+    this.animateCardMotion(giveMotion);
+    await this.store.giveCardToPlayer(menu, targetPlayerId, destination);
+  }
+
+  private menuCardMotion(
+    menu: GameContextMenu,
+    targetPlayerId: string,
+    target: PendingCardMotionTarget,
+    options: { fromFixedZoneModalOnly?: boolean } = {},
+  ): PendingCardMotion | null {
+    if (!menu.card || options.fromFixedZoneModalOnly && !menu.fromFixedZoneModal) {
+      return null;
+    }
+
+    return {
+      sourceInstanceId: menu.card.instanceId,
+      sourceRect: menu.sourceRect ?? null,
+      targetPlayerId,
+      target,
+    };
+  }
+
+  private animateCardMotion(motion: PendingCardMotion | null): void {
+    if (!motion) {
+      return;
+    }
+
+    if (motion.target.kind === 'player') {
+      this.animateGhostToPlayer({
+        sourceInstanceId: motion.sourceInstanceId,
+        sourceRect: motion.sourceRect,
+        targetPlayerId: motion.targetPlayerId,
+      });
+      return;
+    }
+
+    if (motion.target.zone === 'hand') {
+      this.animateGhostToHand({
+        sourceInstanceId: motion.sourceInstanceId,
+        sourceRect: motion.sourceRect,
+        targetPlayerId: motion.targetPlayerId,
+      });
+      return;
+    }
+
+    this.animateGhostToDropZone({
+      sourceInstanceId: motion.sourceInstanceId,
+      sourceRect: motion.sourceRect,
+      targetPlayerId: motion.targetPlayerId,
+      targetZone: motion.target.zone,
+    });
+  }
+
+  private handleRealtimePatchAnimation(event: GameTableRealtimePatchAnimationEvent): void {
+    const rotationAnimations = this.realtimePatchRotationAnimationsFor(event);
+
+    if (!event.isLocalPatch) {
+      this.playRealtimeMoveGhosts(event);
+    }
+
+    if (rotationAnimations.length > 0 || !event.isLocalPatch) {
+      window.requestAnimationFrame(() => {
+        if (this.destroyed) {
+          return;
+        }
+
+        for (const playAnimation of rotationAnimations) {
+          playAnimation();
+        }
+
+        if (!event.isLocalPatch) {
+          this.playRealtimePatchArrivalAnimations(event);
+        }
+      });
+    }
+  }
+
+  private realtimePatchRotationAnimationsFor(event: GameTableRealtimePatchAnimationEvent): Array<() => void> {
+    if (event.isLocalPatch) {
+      return [];
+    }
+
+    const animations: Array<() => void> = [];
+    const positionSelectors = new Set<string>();
+
+    for (const operation of event.patch.operations) {
+      switch (operation.op) {
+        case 'card.state.set':
+          this.collectRealtimeCardStateAnimation(event.previousSnapshot, operation, animations);
+          break;
+        case 'cards.state.set':
+          this.collectRealtimeCardsStateAnimations(event.previousSnapshot, operation, animations);
+          break;
+        case 'card.position.set':
+          if (this.shouldAnimateRealtimeCardPosition(event.previousSnapshot, operation.playerId, operation.zone, operation.instanceId, operation.position)) {
+            positionSelectors.add(this.realtimeBattlefieldCardSelector(operation.instanceId));
+          }
+          break;
+        case 'cards.position.set':
+          for (const position of operation.positions) {
+            if (this.shouldAnimateRealtimeCardPosition(event.previousSnapshot, operation.playerId, operation.zone, position.instanceId, position.position)) {
+              positionSelectors.add(this.realtimeBattlefieldCardSelector(position.instanceId));
+            }
+          }
+          break;
+      }
+    }
+
+    if (positionSelectors.size > 0) {
+      animations.push(this.motion.prepareCardFlip([...positionSelectors].join(',')));
+    }
+
+    return animations;
+  }
+
+  private collectRealtimeCardStateAnimation(
+    snapshot: GameSnapshot,
+    operation: Extract<GameSnapshotPatchOperation, { op: 'card.state.set' }>,
+    animations: Array<() => void>,
+  ): void {
+    if (!this.shouldAnimateFocusedBattlefield(operation.playerId, operation.zone)) {
+      return;
+    }
+
+    const card = snapshot.players[operation.playerId]?.zones[operation.zone]?.find((candidate) => candidate.instanceId === operation.instanceId) ?? null;
+    if (!card || !this.hasRealtimeRotationStateChange(card, operation)) {
+      return;
+    }
+
+    animations.push(this.motion.prepareCardRotationFlip(operation.instanceId));
+  }
+
+  private collectRealtimeCardsStateAnimations(
+    snapshot: GameSnapshot,
+    operation: Extract<GameSnapshotPatchOperation, { op: 'cards.state.set' }>,
+    animations: Array<() => void>,
+  ): void {
+    if (!this.shouldAnimateFocusedBattlefield(operation.playerId, operation.zone)) {
+      return;
+    }
+
+    for (const state of operation.cards) {
+      const card = snapshot.players[operation.playerId]?.zones[operation.zone]?.find((candidate) => candidate.instanceId === state.instanceId) ?? null;
+      if (card && this.hasRealtimeRotationStateChange(card, state)) {
+        animations.push(this.motion.prepareCardRotationFlip(state.instanceId));
+      }
+    }
+  }
+
+  private hasRealtimeRotationStateChange(
+    card: GameCardInstance,
+    state: Pick<Extract<GameSnapshotPatchOperation, { op: 'card.state.set' }>, 'tapped' | 'rotation'>,
+  ): boolean {
+    return state.tapped !== undefined && card.tapped !== state.tapped
+      || state.rotation !== undefined && card.rotation !== state.rotation;
+  }
+
+  private shouldAnimateRealtimeCardPosition(
+    snapshot: GameSnapshot,
+    playerId: string,
+    zone: GameZoneName,
+    instanceId: string,
+    nextPosition: GameCardInstance['position'],
+  ): boolean {
+    if (!this.shouldAnimateFocusedBattlefield(playerId, zone)) {
+      return false;
+    }
+
+    const card = snapshot.players[playerId]?.zones[zone]?.find((candidate) => candidate.instanceId === instanceId) ?? null;
+
+    return Boolean(card && JSON.stringify(card.position ?? null) !== JSON.stringify(nextPosition ?? null));
+  }
+
+  private playRealtimeMoveGhosts(event: GameTableRealtimePatchAnimationEvent): void {
+    for (const operation of event.patch.operations) {
+      if (operation.op === 'card.move') {
+        this.playRealtimeCardMoveGhost(operation);
+      }
+    }
+  }
+
+  private playRealtimeCardMoveGhost(operation: Extract<GameSnapshotPatchOperation, { op: 'card.move' }>): void {
+    if (!this.shouldAnimateVisibleRemoteMoveSource(operation.from.playerId, operation.from.zone)) {
+      return;
+    }
+
+    if (!this.cardFromSnapshot(operation.from.playerId, operation.from.zone, operation.instanceId)) {
+      return;
+    }
+
+    if (operation.to.playerId !== operation.from.playerId) {
+      this.animateGhostToPlayer({
+        sourceInstanceId: operation.instanceId,
+        targetPlayerId: operation.to.playerId,
+      });
+      return;
+    }
+
+    if (operation.to.zone === 'hand') {
+      this.animateGhostToHand({
+        sourceInstanceId: operation.instanceId,
+        targetPlayerId: operation.to.playerId,
+      });
+      return;
+    }
+
+    this.animateGhostToDropZone({
+      sourceInstanceId: operation.instanceId,
+      targetPlayerId: operation.to.playerId,
+      targetZone: operation.to.zone,
+    });
+  }
+
+  private shouldAnimateVisibleRemoteMoveSource(playerId: string, zone: GameZoneName): boolean {
+    const focusedPlayerId = this.store.focusedPlayer()?.id;
+    if (focusedPlayerId !== playerId) {
+      return false;
+    }
+
+    return zone === 'battlefield'
+      || zone === 'hand'
+      || this.store.dockZones.includes(zone);
+  }
+
+  private playRealtimePatchArrivalAnimations(event: GameTableRealtimePatchAnimationEvent): void {
+    const punchCardIds = new Set<string>();
+
+    for (const operation of event.patch.operations) {
+      switch (operation.op) {
+        case 'card.move':
+          if (this.shouldAnimateFocusedBattlefield(operation.to.playerId, operation.to.zone)) {
+            punchCardIds.add(operation.instanceId);
+          }
+          break;
+        case 'card.create':
+          if (this.shouldAnimateFocusedBattlefield(operation.playerId, operation.zone)) {
+            punchCardIds.add(operation.card.instanceId);
+          }
+          break;
+        case 'card.counters.set':
+        case 'card.stats.set':
+          if (this.shouldAnimateFocusedBattlefield(operation.playerId, operation.zone)) {
+            punchCardIds.add(operation.instanceId);
+          }
+          break;
+        case 'card.state.set':
+          if (operation.counters !== undefined && this.shouldAnimateFocusedBattlefield(operation.playerId, operation.zone)) {
+            punchCardIds.add(operation.instanceId);
+          }
+          break;
+      }
+    }
+
+    if (punchCardIds.size === 0) {
+      return;
+    }
+
+    window.requestAnimationFrame(() => {
+      if (this.destroyed) {
+        return;
+      }
+
+      for (const instanceId of punchCardIds) {
+        this.motion.punchCard(instanceId, 'damage');
+      }
+    });
+  }
+
+  private shouldAnimateFocusedBattlefield(playerId: string, zone: GameZoneName): boolean {
+    return zone === 'battlefield' && this.store.focusedPlayer()?.id === playerId;
+  }
+
+  private realtimeBattlefieldCardSelector(instanceId: string): string {
+    return `[data-zone="battlefield"][data-card-instance-id="${this.cssEscape(instanceId)}"]`;
+  }
+
+  private cssEscape(value: string): string {
+    if (typeof CSS !== 'undefined' && typeof CSS.escape === 'function') {
+      return CSS.escape(value);
+    }
+
+    return value.replace(/["\\]/g, '\\$&');
   }
 
   private async animateHandLayoutAfterAction(action: () => Promise<void>): Promise<void> {
@@ -1262,12 +1748,30 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       return;
     }
 
-    const target = this.playerDropTargetElement(targetPlayerId);
+    this.animateGhostToPlayer({ sourceInstanceId, targetPlayerId });
+  }
+
+  private animateGhostToPlayer(options: PlayerGhostOptions): void {
+    if (!options.sourceElement && !options.sourceInstanceId) {
+      return;
+    }
+
+    const target = this.playerDropTargetElement(options.targetPlayerId);
     if (!target) {
       return;
     }
 
-    this.motion.throwGhost(sourceInstanceId, target, { scaleToTarget: true, rotate: -6 });
+    const ghostOptions = {
+      scaleToTarget: true,
+      rotate: -6,
+      sourceRect: options.sourceRect,
+    };
+
+    if (options.sourceElement) {
+      this.motion.throwElementGhost(options.sourceElement, target, ghostOptions);
+    } else if (options.sourceInstanceId) {
+      this.motion.throwGhost(options.sourceInstanceId, target, ghostOptions);
+    }
     window.requestAnimationFrame(() => this.motion.impactZone(target));
   }
 
@@ -1673,11 +2177,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
         return;
       case 'giveToPlayer':
         const giveDestination = action.zone ?? (menu.zone === 'hand' ? 'hand' : 'battlefield');
-        if (giveDestination === 'hand' && menu.zone === 'hand') {
-          this.openHandCardGiveDialog(menu, action.targetPlayerId);
-          return;
-        }
-        void this.store.giveCardToPlayer(menu, action.targetPlayerId, giveDestination);
+        void this.giveCardFromMenu(menu, action.targetPlayerId, giveDestination);
         return;
       case 'moveCard':
         if (menu.zone === 'library' && action.zone === 'hand' && menu.card) {
@@ -1917,6 +2417,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       return;
     }
 
+    this.animateCardMotion(this.menuCardMotion(request.menu, request.targetPlayerId, { kind: 'player' }));
     void this.store.giveHandCardToPlayer(request.menu, request.targetPlayerId);
   }
 
@@ -1929,6 +2430,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
 
     this.animateGhostToHand({
       sourceInstanceId: request.menu.card?.instanceId ?? null,
+      sourceRect: request.menu.sourceRect,
       targetPlayerId: request.menu.playerId,
     });
     await this.animateHandLayoutAfterAction(
@@ -2121,17 +2623,33 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     this.libraryMoveRandomOrder.set(input?.checked ?? false);
   }
 
+  confirmPendingBattlefieldMove(): void {
+    const motion = this.pendingCardMotion();
+    this.pendingCardMotion.set(null);
+    this.animateCardMotion(motion);
+    void this.store.confirmPendingBattlefieldMove();
+  }
+
+  cancelPendingBattlefieldMove(): void {
+    this.pendingCardMotion.set(null);
+    void this.store.cancelPendingBattlefieldMove();
+  }
+
   confirmPendingLibraryMove(position: 'top' | 'bottom'): void {
     const pendingMove = this.store.pendingLibraryMove();
     const randomOrder = pendingMove
       ? this.pendingLibraryMoveSupportsRandomOrder(pendingMove) && this.libraryMoveRandomOrder()
       : false;
 
+    const motion = this.pendingCardMotion();
+    this.pendingCardMotion.set(null);
     this.libraryMoveRandomOrder.set(false);
+    this.animateCardMotion(motion);
     void this.store.confirmPendingLibraryMove(position, randomOrder);
   }
 
   cancelPendingLibraryMove(): void {
+    this.pendingCardMotion.set(null);
     this.libraryMoveRandomOrder.set(false);
     void this.store.cancelPendingLibraryMove();
   }
@@ -2151,6 +2669,12 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
 
     this.focusPlayerBattlefield(playerId);
     this.closeOpponentsDrawer();
+  }
+
+  handleOpponentMiniBattlefieldCardClick(event: { event: MouseEvent; playerId: string; card: GameCardInstance }): void {
+    event.event.preventDefault();
+    event.event.stopPropagation();
+    this.focusOpponentFromSidebar(event.playerId);
   }
 
   returnToCurrentPlayerBattlefield(): void {
@@ -2369,49 +2893,251 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     const logKey = this.latestLogKey();
     const activeTab = this.store.activeFloatingTab();
 
-    if (this.lastObservedChatKey === null) {
-      this.lastObservedChatKey = chatKey;
-      if (chatKey !== '0' && activeTab !== 'chat') {
-        this.unreadChat.set(true);
-      }
-    } else if (chatKey !== this.lastObservedChatKey) {
-      this.lastObservedChatKey = chatKey;
-      if (activeTab !== 'chat') {
-        this.unreadChat.set(true);
-      }
-    }
+    this.syncChatUnreadState(activeTab, chatKey);
 
-    if (this.lastObservedLogKey === null) {
-      this.lastObservedLogKey = logKey;
-      if (logKey !== '0' && activeTab !== 'log') {
-        this.unreadLog.set(true);
-      }
-    } else if (logKey !== this.lastObservedLogKey) {
-      this.lastObservedLogKey = logKey;
-      if (activeTab !== 'log') {
-        this.unreadLog.set(true);
-      }
-    }
+    this.syncLogUnreadState(activeTab, logKey);
 
     this.markFloatingTabRead(activeTab);
   }
 
   private markFloatingTabRead(tab: FloatingPanelTab): void {
     if (tab === 'chat') {
-      this.unreadChat.set(false);
-      this.lastObservedChatKey = this.latestChatKey();
+      this.markChatRead();
       return;
     }
 
+    this.fadeHighlightedLogEntryIds();
     this.unreadLog.set(false);
     this.lastObservedLogKey = this.latestLogKey();
+    this.lastObservedLogEntryId = this.store.eventLog().at(-1)?.id ?? null;
+  }
+
+  private syncChatUnreadState(activeTab: FloatingPanelTab, chatKey: string): void {
+    if (this.lastObservedChatKey === null) {
+      this.lastObservedChatKey = chatKey;
+      this.syncInitialChatReadState(activeTab);
+      return;
+    }
+
+    this.lastObservedChatKey = chatKey;
+    if (activeTab === 'chat') {
+      return;
+    }
+
+    const unreadMessageKey = this.latestUnreadChatMessageKey();
+    const unreadMessageKeys = this.unreadChatMessageKeys();
+    this.unreadChat.set(unreadMessageKeys.length > 0);
+    if (unreadMessageKey && unreadMessageKey !== this.lastUnreadChatNotificationKey) {
+      this.lastUnreadChatNotificationKey = unreadMessageKey;
+      this.addHighlightedChatMessageKeys(unreadMessageKeys);
+      this.notificationSound.playChatMessage();
+    }
+  }
+
+  private syncInitialChatReadState(activeTab: FloatingPanelTab): void {
+    if (activeTab === 'chat') {
+      this.markChatRead();
+      return;
+    }
+
+    const context = this.chatReadContext();
+    if (!context) {
+      return;
+    }
+
+    if (!this.chatReadState.hasStoredReadKey(context)) {
+      this.chatReadState.markRead(context);
+      return;
+    }
+
+    const unreadMessageKey = this.chatReadState.latestUnreadMessageKey(context);
+    this.unreadChat.set(unreadMessageKey !== null);
+    this.lastUnreadChatNotificationKey = unreadMessageKey;
+  }
+
+  private markChatRead(): void {
+    this.fadeHighlightedChatMessageKeys();
+    this.unreadChat.set(false);
+    this.lastObservedChatKey = this.latestChatKey();
+    this.lastUnreadChatNotificationKey = null;
+
+    const context = this.chatReadContext();
+    if (context) {
+      this.chatReadState.markRead(context);
+    }
+  }
+
+  private latestUnreadChatMessageKey(): string | null {
+    const context = this.chatReadContext();
+
+    return context ? this.chatReadState.latestUnreadMessageKey(context) : null;
+  }
+
+  private unreadChatMessageKeys(): string[] {
+    const context = this.chatReadContext();
+
+    return context ? this.chatReadState.unreadMessageKeys(context) : [];
+  }
+
+  private syncLogUnreadState(activeTab: FloatingPanelTab, logKey: string): void {
+    const previousLatestLogEntryId = this.lastObservedLogEntryId;
+    const latestLogEntryId = this.store.eventLog().at(-1)?.id ?? null;
+
+    if (this.lastObservedLogKey === null) {
+      this.lastObservedLogKey = logKey;
+      this.lastObservedLogEntryId = latestLogEntryId;
+      return;
+    }
+
+    if (logKey === this.lastObservedLogKey) {
+      return;
+    }
+
+    this.lastObservedLogKey = logKey;
+    this.lastObservedLogEntryId = latestLogEntryId;
+    if (activeTab !== 'log') {
+      this.unreadLog.set(true);
+      this.addHighlightedLogEntryIds(this.newLogEntryIdsAfter(previousLatestLogEntryId));
+      this.notificationSound.playGameLogMessage();
+    }
+  }
+
+  private newLogEntryIdsAfter(previousLatestLogEntryId: string | null): string[] {
+    const entries = this.store.eventLog();
+    if (!previousLatestLogEntryId) {
+      return entries.map((entry) => entry.id);
+    }
+
+    const previousIndex = entries.findIndex((entry) => entry.id === previousLatestLogEntryId);
+
+    return entries.slice(previousIndex + 1).map((entry) => entry.id);
+  }
+
+  private chatReadContext(): GameTableChatReadContext | null {
+    const gameId = this.store.gameId();
+    const currentPlayer = this.store.currentPlayer();
+    const snapshot = this.store.snapshot();
+    if (!gameId || !currentPlayer || !snapshot) {
+      return null;
+    }
+
+    return {
+      gameId,
+      currentPlayerId: currentPlayer.id,
+      currentUserId: currentPlayer.state.user.id,
+      messages: snapshot.chat,
+    };
+  }
+
+  private addHighlightedChatMessageKeys(keys: readonly string[]): void {
+    if (keys.length === 0) {
+      return;
+    }
+
+    const highlighted = new Set(this.highlightedChatMessageKeys());
+    const fading = new Set(this.fadingChatMessageKeys());
+    for (const key of keys) {
+      highlighted.add(key);
+      fading.delete(key);
+      this.clearChatHighlightTimer(key);
+    }
+
+    this.highlightedChatMessageKeys.set([...highlighted]);
+    this.fadingChatMessageKeys.set([...fading]);
+  }
+
+  private fadeHighlightedChatMessageKeys(): void {
+    const keys = this.highlightedChatMessageKeys().filter((key) => !this.fadingChatMessageKeys().includes(key));
+    if (keys.length === 0) {
+      return;
+    }
+
+    this.fadingChatMessageKeys.update((current) => [...new Set([...current, ...keys])]);
+    for (const key of keys) {
+      this.clearChatHighlightTimer(key);
+      this.chatHighlightTimers.set(key, window.setTimeout(() => this.removeHighlightedChatMessageKey(key), 3000));
+    }
+  }
+
+  private removeHighlightedChatMessageKey(key: string): void {
+    this.clearChatHighlightTimer(key);
+    this.highlightedChatMessageKeys.update((keys) => keys.filter((candidate) => candidate !== key));
+    this.fadingChatMessageKeys.update((keys) => keys.filter((candidate) => candidate !== key));
+  }
+
+  private clearChatHighlightTimer(key: string): void {
+    const timer = this.chatHighlightTimers.get(key);
+    if (timer === undefined) {
+      return;
+    }
+
+    window.clearTimeout(timer);
+    this.chatHighlightTimers.delete(key);
+  }
+
+  private addHighlightedLogEntryIds(ids: readonly string[]): void {
+    if (ids.length === 0) {
+      return;
+    }
+
+    const highlighted = new Set(this.highlightedLogEntryIds());
+    const fading = new Set(this.fadingLogEntryIds());
+    for (const id of ids) {
+      highlighted.add(id);
+      fading.delete(id);
+      this.clearLogHighlightTimer(id);
+    }
+
+    this.highlightedLogEntryIds.set([...highlighted]);
+    this.fadingLogEntryIds.set([...fading]);
+  }
+
+  private fadeHighlightedLogEntryIds(): void {
+    const ids = this.highlightedLogEntryIds().filter((id) => !this.fadingLogEntryIds().includes(id));
+    if (ids.length === 0) {
+      return;
+    }
+
+    this.fadingLogEntryIds.update((current) => [...new Set([...current, ...ids])]);
+    for (const id of ids) {
+      this.clearLogHighlightTimer(id);
+      this.logHighlightTimers.set(id, window.setTimeout(() => this.removeHighlightedLogEntryId(id), 3000));
+    }
+  }
+
+  private removeHighlightedLogEntryId(id: string): void {
+    this.clearLogHighlightTimer(id);
+    this.highlightedLogEntryIds.update((ids) => ids.filter((candidate) => candidate !== id));
+    this.fadingLogEntryIds.update((ids) => ids.filter((candidate) => candidate !== id));
+  }
+
+  private clearLogHighlightTimer(id: string): void {
+    const timer = this.logHighlightTimers.get(id);
+    if (timer === undefined) {
+      return;
+    }
+
+    window.clearTimeout(timer);
+    this.logHighlightTimers.delete(id);
+  }
+
+  private clearMessageHighlightTimers(): void {
+    for (const timer of this.chatHighlightTimers.values()) {
+      window.clearTimeout(timer);
+    }
+    this.chatHighlightTimers.clear();
+
+    for (const timer of this.logHighlightTimers.values()) {
+      window.clearTimeout(timer);
+    }
+    this.logHighlightTimers.clear();
   }
 
   private latestChatKey(): string {
     const messages = this.store.snapshot()?.chat ?? [];
     const latest = messages.at(-1);
 
-    return latest ? `${messages.length}:${latest.createdAt}:${latest.userId}:${latest.message}` : '0';
+    return latest ? `${messages.length}:${latest.id ?? latest.createdAt}:${latest.userId}:${latest.message}` : '0';
   }
 
   private latestLogKey(): string {

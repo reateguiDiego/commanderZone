@@ -4,6 +4,7 @@
   } @else {
     @for (slot of slots(); track slotTrackBy($index, slot)) {
       @if (slot.card; as card) {
+        @let visibleCard = previewCard(card);
         <button
           type="button"
           class="card-spoiler"
@@ -11,7 +12,7 @@
           [class.reorderable]="allowReorder()"
           [class.dragging]="isDraggedCard(card)"
           [class.drop-target]="isDropTargetCard(card)"
-          [attr.aria-label]="card.name"
+          [attr.aria-label]="visibleCard.name"
           [attr.data-card-instance-id]="card.instanceId"
           [attr.draggable]="allowReorder() ? 'true' : null"
           appGameTableLongPress
@@ -25,15 +26,32 @@
           (dragleave)="dragLeave($event, card)"
           (drop)="dropCard($event, card)"
           (dragend)="dragEnd()"
+          (mouseleave)="resetFacePreview(card)"
         >
           @if (allowReorder() && orderLabel(slot.index); as label) {
             <span class="draw-order-label">{{ label }}</span>
           }
-          <span class="zone-art" [class.empty]="isDraggedCard(card)">
-            @if (cardImage()(card); as image) {
-              <img [src]="image" [alt]="card.name" loading="lazy" />
+          <span class="zone-art" [class.empty]="isDraggedCard(card)" [class.face-flipping]="isFaceFlipping(card)">
+            @if (cardImage()(visibleCard); as image) {
+              <img [src]="image" [alt]="visibleCard.name" loading="lazy" />
             } @else {
-              <span class="card-spoiler-fallback">{{ card.name }}</span>
+              <span class="card-spoiler-fallback">{{ visibleCard.name }}</span>
+            }
+            @if (canShowFaceToggle(card)) {
+              <span
+                class="double-face-toggle"
+                role="button"
+                tabindex="-1"
+                aria-label="Look at other face"
+                title="Look at other face"
+                draggable="false"
+                (pointerdown)="stopFaceTogglePointer($event)"
+                (click)="lookAtOtherFace($event, card)"
+                (dblclick)="stopFaceToggleEvent($event)"
+                (dragstart)="stopFaceToggleEvent($event)"
+              >
+                <lucide-icon name="rotate-cw" size="19" aria-hidden="true" />
+              </span>
             }
           </span>
         </button>

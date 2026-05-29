@@ -21,6 +21,9 @@
         [miniWidthPx]="layout.width"
         [miniHeightPx]="layout.height"
         [miniZIndex]="miniCardZIndex(layout, cardIndex)"
+        [activeHoverInstanceId]="activePreviewInstanceId()"
+        [attachmentStackRole]="attachmentStackView(card.instanceId)?.role ?? null"
+        [attachmentStackLayer]="attachmentStackView(card.instanceId)?.layer ?? null"
         [dropSettling]="isCardDropSettling()(playerId(), 'battlefield', card)"
         [manaDropSettling]="isManaDropSettling()(playerId(), card)"
         [statDropSettling]="isBattlefieldEntrySettling()(playerId(), card)"
@@ -28,6 +31,7 @@
         [visible]="!isCardTransferPending()(playerId(), 'battlefield', card)"
         [arrowTargetCandidate]="arrowTargeting()"
         (cardClicked)="clickBattlefieldCard($event.event, $event.card)"
+        (cardFaceLookRequested)="showCardPreview($event)"
       />
     }
   }

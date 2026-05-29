@@ -16,6 +16,9 @@
     [class.mana-drop-settling]="manaDropSettling() && !commanderEntrySettling()"
     [class.commander-entry-settling]="commanderEntrySettling()"
     [class.arrow-target-candidate]="arrowTargetCandidate()"
+    [class.mini-preview-active]="activeHoverInstanceId() === currentCard.instanceId"
+    [class.attachment-stack-target]="attachmentStackRole() === 'target'"
+    [class.attachment-stack-equipment]="attachmentStackRole() === 'equipment'"
     [class.face-flipping]="faceFlipAnimating()"
     [style.visibility]="visible() ? null : 'hidden'"
     [style.left.px]="miniLeftPx()"
@@ -25,12 +28,28 @@
     [style.z-index]="miniZIndex()"
     (click)="cardClicked.emit({ event: $event, card: currentCard })"
     (mouseenter)="onMouseEnter($event, currentCard)"
-    (mouseleave)="cardMouseLeft.emit()"
+    (mouseleave)="onMouseLeave()"
   >
     @if (image(); as cardImage) {
       <img [src]="cardImage" [alt]="currentCard.name" />
     } @else {
       <span class="card-back"></span>
+    }
+    @if (canShowFaceToggle()) {
+      <span
+        class="double-face-toggle"
+        role="button"
+        tabindex="-1"
+        aria-label="Look at other face"
+        title="Look at other face"
+        draggable="false"
+        (pointerdown)="stopFaceTogglePointer($event)"
+        (click)="lookAtOtherFace($event)"
+        (dblclick)="stopFaceToggleEvent($event)"
+        (dragstart)="stopFaceToggleEvent($event)"
+      >
+        <lucide-icon name="rotate-cw" size="13" aria-hidden="true" />
+      </span>
     }
   </span>
 } @else {
@@ -69,6 +88,7 @@
     [class.land-stack-under]="landStackRole() === 'under'"
     [class.attachment-stack-target]="attachmentStackRole() === 'target'"
     [class.attachment-stack-equipment]="attachmentStackRole() === 'equipment'"
+    [class.attachment-stack-aura]="attachmentStackHighlighted()"
     [class.land-stack-drop-target]="landStackDropTarget()"
     [class.attachment-stack-drop-target]="landStackDropTarget() && landStackDropKind() === 'attachment'"
     [class.face-down]="faceDown()"
@@ -137,6 +157,22 @@
         <img [src]="cardImage" [alt]="currentCard.name" draggable="false" />
       } @else {
         <span>{{ fallbackLabel() }}</span>
+      }
+      @if (canShowFaceToggle()) {
+        <span
+          class="double-face-toggle"
+          role="button"
+          tabindex="-1"
+          aria-label="Look at other face"
+          title="Look at other face"
+          draggable="false"
+          (pointerdown)="stopFaceTogglePointer($event)"
+          (click)="lookAtOtherFace($event)"
+          (dblclick)="stopFaceToggleEvent($event)"
+          (dragstart)="stopFaceToggleEvent($event)"
+        >
+          <lucide-icon name="rotate-cw" size="19" aria-hidden="true" />
+        </span>
       }
       @if (statsVisible()) {
         <span

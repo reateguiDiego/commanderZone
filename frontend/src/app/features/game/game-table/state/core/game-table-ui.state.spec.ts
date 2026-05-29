@@ -36,6 +36,31 @@ describe('GameTableUiState', () => {
     expect(state.activeHoveredSelection()).toBeNull();
   });
 
+  it('does not show delayed hover previews while a context menu is open', () => {
+    vi.useFakeTimers();
+    const state = new GameTableUiState();
+
+    state.openContextMenu(pointerEvent(240, 200), { playerId: 'player-1', zone: 'hand', kind: 'card', card: gameCard() });
+    state.showCardPreview(gameCard(), () => false, 'player-1', 'hand');
+    vi.advanceTimersByTime(CARD_PREVIEW_HOVER_DELAY_MS);
+
+    expect(state.hoveredCard()).toBeNull();
+    expect(state.activeHoveredSelection()).toBeNull();
+  });
+
+  it('clears pending hover previews when a context menu opens', () => {
+    vi.useFakeTimers();
+    const state = new GameTableUiState();
+
+    state.showCardPreview(gameCard(), () => false, 'player-1', 'hand');
+    vi.advanceTimersByTime(CARD_PREVIEW_HOVER_DELAY_MS - 1);
+    state.openContextMenu(pointerEvent(240, 200), { playerId: 'player-1', zone: 'hand', kind: 'card', card: gameCard() });
+    vi.advanceTimersByTime(1);
+
+    expect(state.hoveredCard()).toBeNull();
+    expect(state.activeHoveredSelection()).toBeNull();
+  });
+
   it('keeps a pinned preview open when hover leave events arrive', () => {
     const state = new GameTableUiState();
     const card = gameCard();

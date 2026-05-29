@@ -19,7 +19,7 @@ describe('attachment stack layout', () => {
     );
 
     expect(moves).toEqual([
-      { instanceId: 'equipment', position: { x: 110, y: 66 } },
+      { instanceId: 'equipment', position: { x: 110, y: 62 } },
     ]);
   });
 
@@ -36,9 +36,9 @@ describe('attachment stack layout', () => {
     );
 
     expect(moves).toEqual([
-      { instanceId: 'equipment-a', position: { x: 110, y: 66 } },
-      { instanceId: 'equipment-b', position: { x: 120, y: 52 } },
-      { instanceId: 'equipment-c', position: { x: 130, y: 38 } },
+      { instanceId: 'equipment-a', position: { x: 110, y: 62 } },
+      { instanceId: 'equipment-b', position: { x: 120, y: 44 } },
+      { instanceId: 'equipment-c', position: { x: 130, y: 26 } },
     ]);
   });
 
@@ -62,18 +62,18 @@ describe('attachment stack layout', () => {
     );
 
     expect(moves).toEqual([
-      { instanceId: 'equipment-b', position: { x: 110, y: 66 } },
-      { instanceId: 'equipment-c', position: { x: 310, y: 66 } },
-      { instanceId: 'equipment-a', position: { x: 320, y: 52 } },
+      { instanceId: 'equipment-b', position: { x: 110, y: 62 } },
+      { instanceId: 'equipment-c', position: { x: 310, y: 62 } },
+      { instanceId: 'equipment-a', position: { x: 320, y: 44 } },
     ]);
   });
 
   it('compacts equipment when detaching from the middle of the stack', () => {
     const cards = [
       card('target', 100, 80),
-      card('equipment-a', 100, 66),
-      card('equipment-b', 100, 52),
-      card('equipment-c', 100, 38),
+      card('equipment-a', 100, 62),
+      card('equipment-b', 100, 44),
+      card('equipment-c', 100, 26),
     ];
     const attachments = [
       attachment('attachment-a', 'equipment-a', 'target'),
@@ -84,14 +84,14 @@ describe('attachment stack layout', () => {
     const source = attachmentStackDetachSource('player-1', attachments, group, 'equipment-b')!;
 
     expect(detachAttachmentStackMoves(source)).toEqual([
-      { instanceId: 'equipment-a', position: { x: 110, y: 66 } },
-      { instanceId: 'equipment-c', position: { x: 120, y: 52 } },
+      { instanceId: 'equipment-a', position: { x: 110, y: 62 } },
+      { instanceId: 'equipment-c', position: { x: 120, y: 44 } },
     ]);
   });
 
   it('spreads all equipment beside the target when removing a stack', () => {
     const group = buildAttachmentStackGroups(
-      [card('target', 300, 80), card('equipment-a', 300, 66), card('equipment-b', 300, 52)],
+      [card('target', 300, 80), card('equipment-a', 300, 62), card('equipment-b', 300, 44)],
       [attachment('attachment-a', 'equipment-a', 'target'), attachment('attachment-b', 'equipment-b', 'target')],
       positionFor,
     )[0]!;
@@ -137,7 +137,7 @@ describe('attachment stack layout', () => {
 
   it('uses the attachment stack target when dropping over attached equipment', () => {
     const target = attachmentDropTarget(
-      [card('equipment-new', 90, 50), card('target', 100, 80), card('equipment-a', 100, 66)],
+      [card('equipment-new', 90, 50), card('target', 100, 80), card('equipment-a', 100, 62)],
       [attachment('attachment-a', 'equipment-a', 'target')],
       'equipment-new',
       { x: 90, y: 50 },
@@ -166,7 +166,7 @@ describe('attachment stack layout', () => {
     const targetStack = [
       card('equipment', 100, 80),
       card('target', 300, 80, 'Basic Land - Island'),
-      card('target-under', 310, 66, 'Basic Land - Island'),
+      card('target-under', 310, 62, 'Basic Land - Island'),
     ];
 
     expect(attachmentDropTarget(

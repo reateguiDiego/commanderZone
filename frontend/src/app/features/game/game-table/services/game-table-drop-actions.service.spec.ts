@@ -411,7 +411,7 @@ describe('GameTableDropActionsService', () => {
       toZone: 'battlefield',
       targetPlayerId: 'player-1',
       instanceId: 'moved',
-      position: { x: 132, y: 144 },
+      position: { x: 132, y: 140 },
     }));
   });
 
@@ -436,7 +436,7 @@ describe('GameTableDropActionsService', () => {
       toZone: 'battlefield',
       targetPlayerId: 'player-1',
       instanceId: 'moved',
-      position: { x: 132, y: 144 },
+      position: { x: 132, y: 140 },
     }));
     expect(command).toHaveBeenNthCalledWith(2, 'attachment.created', {
       equipmentInstanceId: 'moved',
@@ -449,10 +449,11 @@ describe('GameTableDropActionsService', () => {
     const clearSelectedCards = vi.fn();
     const suppressCardPreview = vi.fn();
     const setPendingLibraryMove = vi.fn();
+    const syncOpenZoneModalAfterMove = vi.fn(async () => undefined);
     const context = dropContext(
       () => snapshotWith({}),
       command,
-      { clearSelectedCards, suppressCardPreview, setPendingLibraryMove },
+      { clearSelectedCards, suppressCardPreview, setPendingLibraryMove, syncOpenZoneModalAfterMove },
     );
 
     await service.confirmPendingLibraryMove(context, {
@@ -474,6 +475,7 @@ describe('GameTableDropActionsService', () => {
       position: 'top',
       randomOrder: true,
     });
+    expect(syncOpenZoneModalAfterMove).toHaveBeenCalledWith('player-1', 'battlefield', ['moved', 'selected-2']);
     expect(setPendingLibraryMove).toHaveBeenCalledWith(null);
     expect(clearSelectedCards).toHaveBeenCalledOnce();
     expect(suppressCardPreview).toHaveBeenCalledOnce();

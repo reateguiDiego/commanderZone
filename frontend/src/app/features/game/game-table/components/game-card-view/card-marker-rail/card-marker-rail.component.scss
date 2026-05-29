@@ -6,6 +6,13 @@
   pointer-events: none;
 }
 
+:host(.inline-marker-rail) {
+  position: static;
+  inset: auto;
+  display: block;
+  z-index: auto;
+}
+
 .card-marker-rail {
   display: grid;
   grid-auto-flow: column;
@@ -167,4 +174,10 @@
   min-width: 0.52rem;
   height: 0.52rem;
   font-size: 0.42rem;
+}
+
+:host(.inline-marker-rail) .card-marker-rail {
+  grid-auto-flow: row;
+  grid-template-rows: none;
+  justify-items: center;
 }

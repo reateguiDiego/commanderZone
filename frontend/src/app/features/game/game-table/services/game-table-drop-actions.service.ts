@@ -360,6 +360,10 @@ export class GameTableDropActionsService {
     if (typeof playerId === 'string' && this.isGameZone(fromZone)) {
       await context.recordCommanderCastIfNeeded(playerId, fromZone, 'library');
     }
+    const instanceIds = this.payloadInstanceIds(pendingMove.payload);
+    if (typeof playerId === 'string' && this.isGameZone(fromZone) && instanceIds.length > 0) {
+      await context.syncOpenZoneModalAfterMove(playerId, fromZone, instanceIds);
+    }
     context.setPendingLibraryMove(null);
     context.clearSelectedCards();
     context.suppressCardPreview();

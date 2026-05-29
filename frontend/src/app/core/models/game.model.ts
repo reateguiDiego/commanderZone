@@ -20,6 +20,7 @@ export type GameCommandType =
   | 'game.concede'
   | 'game.close'
   | 'chat.message'
+  | 'chat.reaction.toggled'
   | 'dice.rolled'
   | 'life.changed'
   | 'commander.damage.changed'
@@ -117,13 +118,25 @@ export interface GameTurn {
   number: number;
 }
 
+export type ChatReactionType = 'like' | 'dislike' | 'love' | 'laugh' | 'angry' | 'vomit' | 'cry';
+
+export interface ChatReactionEntry {
+  userId: string;
+  displayName: string;
+  createdAt: string;
+}
+
+export type ChatReactions = Partial<Record<ChatReactionType, ChatReactionEntry[]>>;
+
 export interface ChatMessage {
+  id?: string;
   userId: string;
   displayName: string;
   message: string;
   targetPlayerId?: string | null;
   targetDisplayName?: string | null;
   createdAt: string;
+  reactions?: ChatReactions;
 }
 
 export interface GameLogEntry {

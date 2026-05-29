@@ -1,6 +1,6 @@
 import { Injectable, OnDestroy, WritableSignal, computed, effect, inject, signal } from '@angular/core';
 import { Card } from '../../../core/models/card.model';
-import { GameCardInstance, GameCommandType, GameSnapshot, GameZoneName } from '../../../core/models/game.model';
+import { ChatReactionType, GameCardInstance, GameCommandType, GameSnapshot, GameZoneName } from '../../../core/models/game.model';
 import { GameTableDebouncedValueCommandsService } from './services/game-table-debounced-value-commands.service';
 import { GameTableDragService } from './services/game-table-drag.service';
 import { GameTableLibraryActionsService } from './services/game-table-library-actions.service';
@@ -171,7 +171,10 @@ export class GameTableStore implements OnDestroy {
       command: (type, payload, force) => this.command(type, payload, force),
       playCard: (playerId, zone, card) => this.playCard(playerId, zone, card),
       setPendingBattlefieldMove: (move) => this.pendingBattlefieldMove.set(move),
-      setPendingLibraryMove: (move) => this.pendingLibraryMove.set(move),
+      setPendingLibraryMove: (move) => {
+        this.clearCardPreview();
+        this.pendingLibraryMove.set(move);
+      },
       pendingBattlefieldMove: () => this.pendingBattlefieldMove(),
       pendingLibraryMove: () => this.pendingLibraryMove(),
     });
@@ -491,7 +494,7 @@ export class GameTableStore implements OnDestroy {
 
   openCardMenu(event: MouseEvent, playerId: string, zone: GameZoneName, card: GameCardInstance): void {
     const sourceRect = this.previewSourceRect(event);
-    this.showPinnedCardPreview(event, playerId, zone, card, sourceRect);
+    this.clearCardPreview();
     this.interactionActions.openCardMenu(this.contexts.interaction(), event, playerId, zone, card, { sourceRect });
   }
 
@@ -555,7 +558,7 @@ export class GameTableStore implements OnDestroy {
     }
 
     const sourceRect = this.previewSourceRect(event);
-    this.showPinnedCardPreview(event, playerId, zone, card, sourceRect);
+    this.clearCardPreview();
     this.uiState.openContextMenu(event, { playerId, zone, card, kind: 'counter', counterKey: key, sourceRect });
   }
 
@@ -581,6 +584,14 @@ export class GameTableStore implements OnDestroy {
       ...(targetPlayerId ? { targetPlayerId } : {}),
     });
     this.chatStore.clearMessage();
+  }
+
+  async toggleChatReaction(messageId: string | null | undefined, reaction: ChatReactionType): Promise<void> {
+    if (!messageId) {
+      return;
+    }
+
+    await this.command('chat.reaction.toggled', { messageId, reaction });
   }
 
   setChatMessage(value: string): void {
@@ -735,7 +746,7 @@ export class GameTableStore implements OnDestroy {
 
   async viewLibrary(playerId: string): Promise<void> {
     await this.libraryActions.view(this.contexts.libraryAction(), playerId);
-    await this.openZone(playerId, 'library');
+    await this.openZone(playerId, 'library', null, false, { allowGiveDestination: true });
     this.shuffleLibraryOnModalClosePlayerId.set(playerId);
     this.shuffleLibraryOnModalCloseReason.set('owner-view');
   }
@@ -1271,8 +1282,18 @@ export class GameTableStore implements OnDestroy {
     await this.cardActions.revealZoneCard(this.contexts.cardAction(), card);
   }
 
-  async openZone(playerId: string, zone: GameZoneName, selectedCardId: string | null = null, readOnly = false): Promise<void> {
-    await this.zoneActions.openZone(this.contexts.zoneAction(), playerId, zone, selectedCardId, readOnly);
+  async openZone(
+    playerId: string,
+    zone: GameZoneName,
+    selectedCardId: string | null = null,
+    readOnly = false,
+    options: { allowGiveDestination?: boolean } = {},
+  ): Promise<void> {
+    this.clearCardPreview();
+    await this.zoneActions.openZone(this.contexts.zoneAction(), playerId, zone, selectedCardId, readOnly, {
+      ...options,
+      allowGiveDestination: options.allowGiveDestination === true || (!readOnly && this.zoneAllowsModalGiveTo(zone)),
+    });
   }
 
   openFixedZone(
@@ -1284,6 +1305,7 @@ export class GameTableStore implements OnDestroy {
     allowRandomSelect = false,
     options: { allowGiveDestination?: boolean; allowReorder?: boolean; drawOrderLabels?: readonly string[]; viewTopCount?: number | null } = {},
   ): void {
+    this.clearCardPreview();
     this.zoneActions.openFixedZone(playerId, zone, title, cards, selectedCardId, allowRandomSelect, options);
   }
 
@@ -1339,6 +1361,10 @@ export class GameTableStore implements OnDestroy {
     } finally {
       this.openingRevealedLibraryPlayerId = null;
     }
+  }
+
+  private zoneAllowsModalGiveTo(zone: GameZoneName): boolean {
+    return zone === 'graveyard' || zone === 'exile';
   }
 
   startFloatingDrag(event: PointerEvent): void {

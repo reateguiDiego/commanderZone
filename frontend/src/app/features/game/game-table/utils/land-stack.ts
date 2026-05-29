@@ -46,7 +46,7 @@ export interface LandStackDetachSource {
   }[];
 }
 
-const STACK_OFFSET_Y = 14;
+const STACK_OFFSET_Y = 18;
 const STACK_OFFSET_X = 10;
 const PREVIOUS_STACK_OFFSET_Y = 28;
 const LEGACY_STACK_OFFSET_Y = 20;
@@ -59,6 +59,11 @@ const REMOVE_STACK_GAP = 14;
 interface PositionedLand {
   readonly card: GameCardInstance;
   readonly position: { x: number; y: number };
+}
+
+interface StackLayerScore {
+  readonly distance: number;
+  readonly legacyPenalty: number;
 }
 
 export function isLandCard(card: GameCardInstance | null | undefined): boolean {
@@ -316,14 +321,30 @@ function nearestStackLayer(
     .map((candidate) => ({
       candidate,
       dx: nearestLayerXDistance(candidate.position.x, top.position.x, layer),
-      dy: nearestLayerDistance(candidate.position.y, top.position.y, layer),
+      yScore: nearestLayerScore(candidate.position.y, top.position.y, layer),
     }))
-    .filter((entry) => entry.dx <= STACK_X_TOLERANCE && entry.dy <= STACK_Y_TOLERANCE)
-    .sort((left, right) => left.dy - right.dy || left.dx - right.dx)[0]?.candidate ?? null;
+    .filter((entry) => entry.dx <= STACK_X_TOLERANCE && entry.yScore.distance <= STACK_Y_TOLERANCE)
+    .sort((left, right) =>
+      left.yScore.legacyPenalty - right.yScore.legacyPenalty
+      || left.yScore.distance - right.yScore.distance
+      || left.dx - right.dx,
+    )[0]?.candidate ?? null;
 }
 
-function nearestLayerDistance(candidateY: number, topY: number, layer: 1 | 2): number {
-  return Math.min(...STACK_LAYER_OFFSETS.map((offset) => Math.abs(candidateY - (topY - offset * layer))));
+function nearestLayerScore(candidateY: number, topY: number, layer: 1 | 2): StackLayerScore {
+  const currentDistance = Math.min(
+    Math.abs(candidateY - topY),
+    Math.abs(candidateY - (topY - STACK_OFFSET_Y * layer)),
+  );
+  if (currentDistance <= STACK_Y_TOLERANCE) {
+    return { distance: currentDistance, legacyPenalty: 0 };
+  }
+
+  const legacyDistance = Math.min(...STACK_LAYER_OFFSETS
+    .filter((offset) => offset !== STACK_OFFSET_Y)
+    .map((offset) => Math.abs(candidateY - (topY - offset * layer))));
+
+  return { distance: legacyDistance, legacyPenalty: 1 };
 }
 
 function nearestLayerXDistance(candidateX: number, topX: number, layer: 1 | 2): number {

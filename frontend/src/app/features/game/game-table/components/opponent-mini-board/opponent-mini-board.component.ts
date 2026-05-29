@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
-import { GameCardInstance, GameZoneName } from '../../../../../core/models/game.model';
+import { GameAttachment, GameCardInstance, GameZoneName } from '../../../../../core/models/game.model';
 import { PlayerView } from '../../game-table.store';
 import { OpponentCardsTargetComponent } from '../opponent-cards-target/opponent-cards-target.component';
 import { OpponentCardsTargetCard } from '../../models/opponent-cards-target-card.model';
@@ -71,6 +71,7 @@ export class OpponentMiniBoardComponent {
   ];
 
   readonly player = input.required<PlayerView>();
+  readonly attachments = input<readonly GameAttachment[]>([]);
   readonly colorAccent = input.required<(player: PlayerView | null) => string>();
   readonly deckLabel = input.required<(player: PlayerView | null) => string>();
   readonly backgroundImage = input.required<(player: PlayerView | null) => string>();

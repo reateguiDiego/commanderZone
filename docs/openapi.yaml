@@ -2077,6 +2077,12 @@ paths:
                   payload:
                     message: Hello
                     targetPlayerId: 01966d5f-0000-7000-8000-000000000001
+              chatReaction:
+                value:
+                  type: chat.reaction.toggled
+                  payload:
+                    messageId: 01966d5f-0000-7000-8000-000000000010
+                    reaction: like
               life:
                 value:
                   type: life.changed
@@ -4356,8 +4362,11 @@ components:
           type: integer
     ChatMessage:
       type: object
-      required: [userId, displayName, message, createdAt]
+      required: [id, userId, displayName, message, createdAt]
       properties:
+        id:
+          type: string
+          description: Stable chat message identifier used by persisted reactions and read-state clients.
         userId:
           type: string
           format: uuid
@@ -4375,11 +4384,30 @@ components:
         createdAt:
           type: string
           format: date-time
+        reactions:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              $ref: '#/components/schemas/ChatReactionEntry'
+          description: Reaction buckets keyed by like, dislike, love, laugh, angry, vomit or cry.
         cardNames:
           type: array
           items:
             type: string
           description: Card names included in aggregate card movement log entries.
+    ChatReactionEntry:
+      type: object
+      required: [userId, displayName, createdAt]
+      properties:
+        userId:
+          type: string
+          format: uuid
+        displayName:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
     GameLogEntry:
       type: object
       required: [id, type, message, actorId, displayName, createdAt]
@@ -4565,6 +4593,7 @@ components:
             - game.concede
             - game.close
             - chat.message
+            - chat.reaction.toggled
             - dice.rolled
             - life.changed
             - commander.damage.changed

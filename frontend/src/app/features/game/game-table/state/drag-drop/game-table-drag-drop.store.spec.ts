@@ -266,7 +266,7 @@ describe('GameTableDragDropStore', () => {
   it('does not promote a loose dragged land into a whole stack when its transient position overlaps a stack', () => {
     const dragged = land('dragged', 340, 200);
     const top = land('top', 100, 200);
-    const under = land('under', 100, 186);
+    const under = land('under', 100, 182);
     const ctx = context([playerView([dragged, top, under])]);
     dragService.moveCardPointerDrag.mockReturnValue('dragged');
     dragService.pointerDragPreview.mockReturnValue({ x: 100, y: 214, width: 103, height: 144 });
@@ -283,7 +283,7 @@ describe('GameTableDragDropStore', () => {
 
   it('keeps mana lane targeting while dragging a whole land stack over mana row', () => {
     const top = land('top', 100, 200);
-    const under = land('under', 100, 186);
+    const under = land('under', 100, 182);
     const ctx = context([playerView([top, under])]);
     dragService.moveCardPointerDrag.mockReturnValue('top');
     dragService.pointerDragPreview.mockReturnValue({ x: 100, y: 200, width: 103, height: 144 });
@@ -334,8 +334,8 @@ describe('GameTableDragDropStore', () => {
 
   it('marks the bottom land as a detach source when it starts a battlefield pointer drag', () => {
     const top = land('top', 100, 200);
-    const middle = land('middle', 100, 186);
-    const bottom = land('bottom', 100, 172);
+    const middle = land('middle', 100, 182);
+    const bottom = land('bottom', 100, 164);
     const ctx = context([playerView([top, middle, bottom])]);
 
     store.startBattlefieldPointerDrag(ctx, { detail: 1, shiftKey: false } as PointerEvent, 'player-1', bottom);
@@ -400,7 +400,7 @@ describe('GameTableDragDropStore', () => {
     vi.useFakeTimers();
     const dragged = land('dragged', 0, 0);
     const top = land('top', 100, 200);
-    const under = land('under', 100, 186);
+    const under = land('under', 100, 182);
     const battlefield = document.createElement('div');
     battlefield.dataset['gameDropZone'] = 'battlefield';
     battlefield.dataset['playerId'] = 'player-1';
@@ -635,7 +635,7 @@ describe('GameTableDragDropStore', () => {
     vi.useFakeTimers();
     const dragged = land('dragged', 340, 200);
     const top = land('top', 100, 200);
-    const under = land('under', 100, 186);
+    const under = land('under', 100, 182);
     const ctx = context([playerView([dragged, top, under])]);
     dragService.moveCardPointerDrag.mockReturnValue('dragged');
     dragService.pointerDragPreview.mockReturnValue({ x: 100, y: 200, width: 103, height: 144 });
@@ -677,7 +677,7 @@ describe('GameTableDragDropStore', () => {
     vi.useFakeTimers();
     const dragged = land('dragged', 0, 0);
     const top = land('top', 100, 200);
-    const under = land('under', 100, 186);
+    const under = land('under', 100, 182);
     const ctx = context([playerView([top, under], [dragged])]);
 
     const underCardElement = document.createElement('button');
@@ -724,7 +724,7 @@ describe('GameTableDragDropStore', () => {
     vi.useFakeTimers();
     const dragged = land('dragged', 0, 0);
     const top = land('top', 100, 200);
-    const under = land('under', 100, 186);
+    const under = land('under', 100, 182);
     const ctx = context([playerView([top, under], [dragged])]);
 
     store.updatePointerDropTarget(ctx, {
@@ -733,7 +733,7 @@ describe('GameTableDragDropStore', () => {
       toZone: 'battlefield',
       rawZone: 'mana',
       draggedInstanceId: 'dragged',
-      position: { x: 100, y: 186 },
+      position: { x: 100, y: 182 },
     });
     vi.advanceTimersByTime(LAND_STACK_DROP_PREVIEW_DELAY_MS);
 
@@ -788,10 +788,10 @@ describe('GameTableDragDropStore', () => {
   it('does not show land stack drop preview for the original stack while detaching a card', () => {
     vi.useFakeTimers();
     const top = land('top', 100, 200);
-    const under = land('under', 100, 186);
+    const under = land('under', 100, 182);
     const ctx = context([playerView([top, under])]);
     dragService.moveCardPointerDrag.mockReturnValue('under');
-    dragService.pointerDragPreview.mockReturnValue({ x: 100, y: 186, width: 103, height: 144 });
+    dragService.pointerDragPreview.mockReturnValue({ x: 100, y: 182, width: 103, height: 144 });
 
     store.startBattlefieldPointerDrag(ctx, { detail: 1, shiftKey: false } as PointerEvent, 'player-1', under);
     under.position = { x: 100, y: 200 };

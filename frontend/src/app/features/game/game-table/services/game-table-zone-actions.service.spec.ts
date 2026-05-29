@@ -26,6 +26,15 @@ describe('GameTableZoneActionsService', () => {
     expect(state.zoneModal()?.zone).toBe('exile');
   });
 
+  it('can allow give destinations for a view-all library modal', async () => {
+    const { service, state } = setup(snapshotWithZoneCount('graveyard', 0));
+
+    await service.openZone(context(), 'player-1', 'library', null, false, { allowGiveDestination: true });
+
+    expect(state.zoneModal()?.zone).toBe('library');
+    expect(state.zoneModal()?.allowGiveDestination).toBe(true);
+  });
+
   it('preserves fixed reorder slots when replacing top-library modal cards', () => {
     const { service, state } = setup();
     const cards = [card('card-1'), card('card-2'), card('card-3')];
@@ -39,6 +48,19 @@ describe('GameTableZoneActionsService', () => {
     expect(state.zoneModal()?.cards.map((entry) => entry.instanceId)).toEqual(['card-2', 'card-3']);
     expect(state.zoneModal()?.total).toBe(3);
     expect(state.zoneModal()?.drawOrderLabels).toEqual(['PROXIMO ROBO', 'SEGUNDO ROBO', 'TERCER ROBO']);
+  });
+
+  it('removes cards from a loaded modal without switching it to loading', () => {
+    const { service, state } = setup();
+    const cards = [card('card-1'), card('card-2'), card('card-3')];
+    state.open('player-1', 'library', 'Library');
+    state.setLoaded(cards, 3);
+
+    service.removeZoneModalCards(['card-2']);
+
+    expect(state.zoneModal()?.loading).toBe(false);
+    expect(state.zoneModal()?.total).toBe(2);
+    expect(state.zoneModal()?.cards.map((entry) => entry.instanceId)).toEqual(['card-1', 'card-3']);
   });
 });
 

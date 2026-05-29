@@ -6,10 +6,11 @@
   transition: left 140ms ease, top 140ms ease, opacity 120ms ease;
 }
 
-.card-preview-overlay img,
-.card-preview-overlay > span {
+.card-preview-visual {
+  position: relative;
   display: block;
   width: 100%;
+  overflow: hidden;
   border: 3px solid var(--game-surface-deep, rgb(7 8 7 / 88%));
   border-radius: 16px;
   clip-path: inset(2px round 15px);
@@ -18,7 +19,19 @@
     0 0 0 1px rgb(215 180 106 / 20%);
 }
 
-.card-preview-overlay > span {
+.card-preview-visual img,
+.card-preview-fallback {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 100%;
+}
+
+.card-preview-visual img {
+  border-radius: inherit;
+}
+
+.card-preview-fallback {
   aspect-ratio: 0.716;
   display: grid;
   place-items: center;
@@ -30,8 +43,252 @@
   text-align: center;
 }
 
+.card-preview-visual.face-flipping {
+  perspective: 760px;
+  transform-style: preserve-3d;
+  animation: card-preview-face-flip 620ms cubic-bezier(0.19, 1, 0.22, 1);
+}
+
+.card-preview-visual.face-flipping::before,
+.card-preview-visual.face-flipping::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.card-preview-visual.face-flipping::before {
+  background:
+    radial-gradient(circle at 50% 50%, rgb(255 245 196 / 44%) 0 18%, transparent 58%),
+    linear-gradient(108deg, transparent 18%, rgb(255 244 190 / 0%) 34%, rgb(255 244 190 / 54%) 49%, rgb(109 184 255 / 22%) 54%, transparent 70%);
+  mix-blend-mode: screen;
+  animation: card-preview-face-flip-sheen 620ms cubic-bezier(0.19, 1, 0.22, 1);
+}
+
+.card-preview-visual.face-flipping::after {
+  animation: card-preview-face-flip-rim 620ms ease-out;
+}
+
+.attachment-preview {
+  position: relative;
+  margin-top: 0;
+  padding: 0.62rem 0.68rem 0.7rem;
+  overflow: hidden;
+  border: 1px solid rgb(190 235 255 / 28%);
+  border-radius: 14px;
+  background:
+    linear-gradient(135deg, rgb(19 28 30 / 92%), rgb(7 9 9 / 88%)),
+    radial-gradient(circle at 12% 0%, rgb(89 190 255 / 22%), transparent 42%);
+  box-shadow:
+    0 0.9rem 1.8rem rgb(0 0 0 / 38%),
+    0 0 1.4rem rgb(89 190 255 / 18%),
+    inset 0 0 0 1px rgb(255 255 255 / 7%);
+  color: var(--game-text, #f3f0e8);
+}
+
+.attachment-preview::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 10%), transparent);
+  opacity: 0.44;
+  transform: translateX(-58%) skewX(-18deg);
+}
+
+.attachment-preview-layout {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.72rem;
+  align-items: start;
+  justify-items: center;
+}
+
+.attachment-preview-layout-with-attachments {
+  grid-template-columns: minmax(0, 1fr) auto;
+  justify-items: stretch;
+}
+
+.attachment-preview-column {
+  min-width: 0;
+}
+
+.card-state-column {
+  justify-items: center;
+  min-width: 4.8rem;
+}
+
+.attachment-preview-layout-with-attachments .card-state-column {
+  padding-left: 0.72rem;
+  border-left: 1px solid rgb(190 235 255 / 14%);
+}
+
+.attachment-preview-row {
+  position: relative;
+  display: grid;
+  gap: 0.34rem;
+}
+
+.attachment-preview-row + .attachment-preview-row {
+  margin-top: 0.58rem;
+  padding-top: 0.58rem;
+  border-top: 1px solid rgb(190 235 255 / 14%);
+}
+
+.attachment-preview-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.22rem;
+  color: rgb(190 235 255 / 74%);
+  font-size: 0.58rem;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.attachment-preview-label lucide-icon {
+  color: rgb(190 235 255 / 82%);
+  filter: drop-shadow(0 0 0.28rem rgb(89 190 255 / 34%));
+}
+
+.attachment-preview-name {
+  overflow: hidden;
+  color: #f8fbff;
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attachment-preview-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.attachment-preview-chip {
+  max-width: 100%;
+  overflow: hidden;
+  padding: 0.22rem 0.42rem;
+  border: 1px solid rgb(190 235 255 / 24%);
+  border-radius: 999px;
+  background: rgb(190 235 255 / 10%);
+  color: #f8fbff;
+  font-size: 0.66rem;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.preview-power-toughness {
+  position: static;
+  justify-self: center;
+  display: flex;
+}
+
+.preview-power-toughness span {
+  display: grid;
+  min-width: 1.35rem;
+  height: 1.35rem;
+  place-items: center;
+  border: 1px solid var(--game-accent-strong, rgb(215 180 106 / 58%));
+  border-radius: 3px;
+  background: var(--game-surface-deep, rgb(7 8 7 / 88%));
+  color: var(--game-text, #f3f0e8);
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.preview-loyalty-counter,
+.preview-card-marker-rail {
+  justify-self: center;
+  pointer-events: none;
+}
+
 @media (max-width: 1180px) {
   .card-preview-overlay {
     display: none;
+  }
+}
+
+@keyframes card-preview-face-flip {
+  0% {
+    filter: brightness(1) saturate(1);
+    transform: rotateY(0deg) scale(1);
+    box-shadow:
+      inset 0 0 0 rgb(215 180 106 / 0%);
+  }
+
+  38% {
+    filter: brightness(1.36) saturate(1.18) contrast(1.06);
+    transform: rotateY(78deg) scale(1.045);
+    box-shadow:
+      inset 0 0 1rem rgb(255 224 148 / 34%);
+  }
+
+  56% {
+    filter: brightness(1.24) saturate(1.12);
+    transform: rotateY(-14deg) scale(1.035);
+  }
+
+  78% {
+    filter: brightness(1.08) saturate(1.05);
+    transform: rotateY(4deg) scale(1.012);
+  }
+
+  100% {
+    filter: none;
+    transform: rotateY(0deg) scale(1);
+    box-shadow: none;
+  }
+}
+
+@keyframes card-preview-face-flip-sheen {
+  0% {
+    opacity: 0;
+    transform: translateX(-38%) rotate(-10deg) scale(0.86);
+  }
+
+  32% {
+    opacity: 0.82;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateX(38%) rotate(8deg) scale(1.18);
+  }
+}
+
+@keyframes card-preview-face-flip-rim {
+  0% {
+    opacity: 0;
+    box-shadow:
+      inset 0 0 0 1px rgb(255 244 190 / 0%),
+      inset 0 0 0 rgb(109 184 255 / 0%);
+  }
+
+  42% {
+    opacity: 1;
+    box-shadow:
+      inset 0 0 0 1px rgb(255 244 190 / 72%),
+      inset 0 0 1.2rem rgb(109 184 255 / 30%);
+  }
+
+  100% {
+    opacity: 0;
+    box-shadow:
+      inset 0 0 0 1px rgb(215 180 106 / 0%),
+      inset 0 0 0 rgb(109 184 255 / 0%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card-preview-visual.face-flipping,
+  .card-preview-visual.face-flipping::before,
+  .card-preview-visual.face-flipping::after {
+    animation: none;
   }
 }

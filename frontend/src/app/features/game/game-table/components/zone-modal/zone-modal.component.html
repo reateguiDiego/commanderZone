@@ -46,7 +46,7 @@
         [allowSelection]="!currentModal.allowReorder"
         [orderLabels]="currentModal.drawOrderLabels"
         [cardImage]="cardImage()"
-        emptyLabel="No cards found"
+        emptyLabel="I'm empty now. You can close me if you want, and only if you want. 🙂"
         (cardSelected)="cardSelected.emit($event)"
         (cardsReordered)="cardsReordered.emit($event)"
         (cardMenuOpened)="cardMenuOpened.emit($event)"
