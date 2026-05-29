@@ -76,6 +76,42 @@ describe('GameTableBattlefieldState', () => {
     expect(currentSnapshot?.players['player-1']?.zones.battlefield[0]?.position).toEqual({ x: 200, y: 60 });
   });
 
+  it('does not rewrite land stack positions during reflow because the view clamps the stack as one group', () => {
+    currentSnapshot = snapshot({
+      hand: [],
+      battlefield: [
+        { ...card('top', 'Forest', { x: 100, y: 198 }), typeLine: 'Basic Land - Forest' },
+        { ...card('middle', 'Island', { x: 110, y: 184 }), typeLine: 'Basic Land - Island' },
+        { ...card('bottom', 'Swamp', { x: 120, y: 170 }), typeLine: 'Basic Land - Swamp' },
+      ],
+    });
+    document.body.innerHTML = `
+      <section class="battlefield" data-player-id="player-1">
+        <div data-testid="game-card" data-card-instance-id="top"></div>
+        <div data-testid="game-card" data-card-instance-id="middle"></div>
+        <div data-testid="game-card" data-card-instance-id="bottom"></div>
+      </section>
+    `;
+    const battlefield = document.querySelector<HTMLElement>('.battlefield')!;
+    Object.defineProperty(battlefield, 'clientWidth', { configurable: true, value: 500 });
+    Object.defineProperty(battlefield, 'clientHeight', { configurable: true, value: 360 });
+    for (const cardElement of document.querySelectorAll<HTMLElement>('[data-card-instance-id]')) {
+      Object.defineProperty(cardElement, 'offsetWidth', { configurable: true, value: 116 });
+      Object.defineProperty(cardElement, 'offsetHeight', { configurable: true, value: 202 });
+    }
+
+    state.reflowBattlefieldCardPositions(context());
+
+    expect(currentSnapshot?.players['player-1']?.zones.battlefield.map((item) => ({
+      id: item.instanceId,
+      position: item.position,
+    }))).toEqual([
+      { id: 'top', position: { x: 100, y: 198 } },
+      { id: 'middle', position: { x: 110, y: 184 } },
+      { id: 'bottom', position: { x: 120, y: 170 } },
+    ]);
+  });
+
   it('uses measured card size for ratio positions so zoomed edge cards remain visible', () => {
     currentSnapshot = snapshot({
       hand: [],

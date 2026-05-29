@@ -424,7 +424,7 @@ describe('TableAssistantRoomComponent', () => {
 
     expect(fixture.nativeElement.querySelector('.elimination-overlay')).not.toBeNull();
     expect(fixture.nativeElement.querySelector('.skull-image')?.getAttribute('src')).toBe(
-      '/assets/images/skull.png',
+      '/assets/icons/gameplay/skull.png',
     );
     expect(fixture.nativeElement.textContent).not.toContain('Vida manual');
     expect(fixture.nativeElement.textContent).not.toContain('Eliminar');

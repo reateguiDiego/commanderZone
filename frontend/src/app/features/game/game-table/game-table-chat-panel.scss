@@ -1,0 +1,293 @@
+.panel-feed {
+  display: grid;
+  align-content: start;
+  gap: 0.25rem;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 0.35rem;
+}
+
+.floating-collapsed-preview {
+  align-content: end;
+  grid-row: 2 / 4;
+  height: 100%;
+}
+
+.chat-panel-content {
+  display: grid;
+  grid-row: 2 / 4;
+  grid-template-rows: minmax(0, 1fr) auto;
+  overflow: hidden;
+}
+
+.panel-feed p {
+  display: grid;
+  grid-template-columns: auto auto auto minmax(0, 1fr);
+  gap: 0.35rem;
+  min-width: 0;
+  margin: 0;
+  padding: 0.45rem;
+  border-radius: 6px;
+  background: rgb(243 240 232 / 5%);
+}
+
+.panel-feed p.collapsed-chat-entry {
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+.panel-feed p.collapsed-empty {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.panel-feed p.private-chat-message {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--game-accent) 13%, transparent), rgb(243 240 232 / 5%));
+}
+
+.panel-feed p.chat-entry {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: baseline;
+  column-gap: 0.5rem;
+}
+
+.chat-message-body {
+  position: relative;
+  display: grid;
+  font-size: 0.82rem;
+  line-height: 1.32;
+  overflow-wrap: anywhere;
+}
+
+.panel-feed .chat-message-body strong {
+  margin-right: 0.16rem;
+  color: var(--chat-author-color, var(--game-accent));
+}
+
+.panel-feed .chat-message-body em {
+  color: rgb(243 240 232 / 74%);
+  font-style: normal;
+}
+
+.chat-message-separator {
+  margin-right: 0.3rem;
+  color: rgb(243 240 232 / 58%);
+}
+
+.chat-reaction-overlay {
+  display: inline-flex;
+  position: absolute;
+  right: 0;
+  top: 100%;
+  z-index: 4;
+  gap: 0.1rem;
+  padding: 0.18rem;
+  border: 1px solid rgb(255 213 107 / 32%);
+  border-radius: 999px;
+  background: #090907;
+  box-shadow: 0 0.6rem 1.1rem rgb(0 0 0 / 58%);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-0.12rem);
+  visibility: hidden;
+  transition:
+    opacity 140ms ease,
+    transform 140ms ease,
+    visibility 0s linear 140ms;
+}
+
+.chat-entry:hover .chat-reaction-overlay,
+.chat-entry:focus-within .chat-reaction-overlay {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+  visibility: visible;
+  transition-delay: 220ms, 220ms, 0s;
+}
+
+.chat-entry:has(.chat-reaction-pill:hover) .chat-reaction-overlay {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-0.12rem);
+  visibility: hidden;
+  transition-delay: 0s;
+}
+
+.chat-reaction {
+  display: grid;
+  place-items: center;
+  min-width: 2.05rem;
+  height: 1.88rem;
+  padding: 0 0.32rem;
+  border: 0;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 8%);
+  color: var(--game-text);
+}
+
+.chat-reaction-icon {
+  font-size: 1.5em;
+}
+
+.chat-reaction:hover,
+.chat-reaction.active {
+  outline: 1px solid rgb(255 213 107 / 62%);
+  background: rgb(255 213 107 / 18%);
+}
+
+.chat-reaction-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.18rem;
+}
+
+.chat-reaction-pill {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.12rem;
+  padding: 0.05rem 0.3rem;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 7%);
+}
+
+.chat-reaction-users {
+  position: absolute;
+  top: calc(100% + 0.28rem);
+  left: 0;
+  z-index: 6;
+  width: max-content;
+  min-width: 10rem;
+  max-width: 18rem;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid rgb(255 213 107 / 42%);
+  border-radius: 6px;
+  background: #090907;
+  box-shadow: 0 0.75rem 1.4rem rgb(0 0 0 / 62%);
+  color: var(--game-text);
+  font-size: 0.76rem;
+  line-height: 1.25;
+  white-space: normal;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-0.12rem);
+  visibility: hidden;
+  transition:
+    opacity 140ms ease,
+    transform 140ms ease,
+    visibility 0s linear 140ms;
+}
+
+.chat-reaction-pill:hover .chat-reaction-users {
+  opacity: 1;
+  transform: translateY(0);
+  visibility: visible;
+  transition-delay: 260ms, 260ms, 0s;
+}
+
+.chat-reaction-users b {
+  display: block;
+  margin-bottom: 0.12rem;
+  color: #ffd56b;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+}
+
+.panel-feed p.new-message-highlight {
+  background:
+    radial-gradient(circle at 0% 50%, rgb(255 213 107 / 22%), transparent 9rem),
+    linear-gradient(90deg, rgb(77 55 16 / 58%), rgb(243 240 232 / 6%));
+  box-shadow:
+    inset 0 0 0 1px rgb(255 213 107 / 58%),
+    inset 0 0 1rem rgb(255 213 107 / 12%),
+    0 0 0.65rem rgb(255 213 107 / 28%);
+}
+
+.panel-feed p.new-message-evaporating {
+  animation: chat-new-message-evaporate 3s ease forwards;
+}
+
+@keyframes chat-new-message-evaporate {
+  to {
+    background: rgb(243 240 232 / 5%);
+    box-shadow: none;
+  }
+}
+
+.panel-feed p.death-entry {
+  border: 1px solid rgb(239 68 68 / 46%);
+  background:
+    radial-gradient(circle at 0% 50%, rgb(239 68 68 / 25%), transparent 10rem),
+    linear-gradient(90deg, rgb(70 12 12 / 72%), rgb(24 9 9 / 76%));
+  box-shadow: inset 0 0 18px rgb(239 68 68 / 12%);
+}
+
+.panel-feed p.death-entry strong,
+.panel-feed p.death-entry span {
+  color: rgb(255 190 190);
+}
+
+.panel-feed small {
+  color: var(--game-text-muted);
+  font-size: 0.68rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.panel-feed strong {
+  color: var(--game-accent);
+  font-size: 0.72rem;
+}
+
+.panel-feed em {
+  color: var(--game-text-muted);
+  font-size: 0.7rem;
+  font-style: normal;
+}
+
+.panel-feed span {
+  color: var(--game-text);
+  font-size: 0.82rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.log-card-name {
+  color: var(--game-accent);
+  overflow-wrap: anywhere;
+  text-decoration: underline;
+  word-break: normal;
+}
+
+.chat-form {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.35rem;
+  border-top: 1px solid var(--game-line-soft);
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 3%), transparent),
+    rgb(0 0 0 / 18%);
+}
+
+.chat-form input {
+  flex: 1;
+  min-width: 0;
+  min-height: 2rem;
+  border: 1px solid var(--game-line-soft);
+  border-radius: 6px;
+  background: var(--game-surface-soft);
+  color: var(--game-text);
+  padding: 0 0.55rem;
+}
+
+.chat-form button {
+  width: 1.95rem;
+  height: 1.95rem;
+  border: 1px solid var(--game-line-soft);
+  border-radius: 6px;
+  background: var(--game-surface-soft);
+  color: var(--game-text);
+  cursor: pointer;
+}
+
+.chat-form button:hover {
+  border-color: var(--game-accent-strong);
+}

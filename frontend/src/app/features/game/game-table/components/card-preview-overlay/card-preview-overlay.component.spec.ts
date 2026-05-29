@@ -1,4 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { importProvidersFrom } from '@angular/core';
+import { Link, LucideAngularModule } from 'lucide-angular';
 import { GameCardInstance } from '../../../../../core/models/game.model';
 import { CardPreviewOverlayComponent } from './card-preview-overlay.component';
 
@@ -69,6 +71,100 @@ describe('CardPreviewOverlayComponent', () => {
 
     expect(fixture.componentInstance.previewStyle().top).toBeLessThan(210);
   });
+
+  it('renders premium attachment details when provided', async () => {
+    const fixture = await renderPreview({
+      attachmentInfo: {
+        attachedTo: { instanceId: 'target', name: 'Kor Duelist' },
+        attachedCards: [
+          { instanceId: 'sword', name: 'Sword of Fire and Ice' },
+          { instanceId: 'aura', name: 'Ethereal Armor' },
+          { instanceId: 'greaves', name: 'Lightning Greaves' },
+        ],
+      },
+    });
+    const element = fixture.nativeElement as HTMLElement;
+
+    expect(fixture.componentInstance.previewStyle().width).toBe(270);
+    expect(element.querySelector('.attachment-preview')?.textContent).toContain('Attached to');
+    expect(element.querySelector('.attachment-preview')?.textContent).toContain('Kor Duelist');
+    expect(element.querySelector('.attachment-preview')?.textContent).toContain('Attached');
+    expect(element.querySelector('.attachment-preview')?.textContent).not.toContain('Attached cards');
+    expect(element.querySelector('.attachment-preview')?.textContent).toContain('Sword of Fire and Ice');
+    expect(element.querySelector('.attachment-preview')?.textContent).toContain('Lightning Greaves');
+    expect(element.querySelector('.attachment-preview')?.textContent).not.toContain('+1');
+    expect(element.querySelector('.attachment-preview-label-with-icon lucide-icon')).not.toBeNull();
+    expect(element.querySelector('.attached-to-row .attachment-preview-label-with-icon lucide-icon')).not.toBeNull();
+  });
+
+  it('plays the face flip animation when the hover preview changes card face', async () => {
+    const fixture = await renderPreview();
+
+    vi.useFakeTimers();
+    try {
+      const visual = fixture.nativeElement.querySelector('.card-preview-visual') as HTMLElement;
+
+      expect(visual.classList).not.toContain('face-flipping');
+
+      fixture.componentRef.setInput('card', { ...gameCard(), activeFaceIndex: 1 });
+      fixture.detectChanges();
+
+      expect(visual.classList).toContain('face-flipping');
+
+      vi.advanceTimersByTime(620);
+      fixture.detectChanges();
+
+      expect(visual.classList).not.toContain('face-flipping');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('renders modified power toughness and counters in the same premium detail box', async () => {
+    const fixture = await renderPreview({
+      attachmentInfo: {
+        attachedTo: null,
+        attachedCards: [{ instanceId: 'aura', name: 'Ethereal Armor' }],
+      },
+      cardStateInfo: {
+        powerToughness: { power: 4, toughness: 5 },
+        loyalty: 6,
+        counters: [
+          { key: '+1/+1', value: 2 },
+          { key: 'charge', value: 3 },
+        ],
+      },
+    });
+    const detailBox = fixture.nativeElement.querySelector('.attachment-preview') as HTMLElement;
+
+    expect(detailBox.textContent).toContain('Attached');
+    expect(detailBox.textContent).not.toContain('Attached cards');
+    expect(detailBox.textContent).toContain('Current');
+    expect(detailBox.textContent).not.toContain('Current P/T');
+    expect(detailBox.textContent).not.toContain('Loyalty');
+    expect(Array.from(detailBox.querySelectorAll('.preview-power-toughness span')).map((entry) => entry.textContent?.trim())).toEqual(['4', '5']);
+    expect(detailBox.textContent).toContain('6');
+    expect(detailBox.textContent).toContain('+1/+1');
+    expect(detailBox.textContent).toContain('charge');
+    expect(detailBox.querySelector('app-loyalty-counter')).not.toBeNull();
+    expect(detailBox.querySelector('app-card-marker-rail')).not.toBeNull();
+  });
+
+  it('does not show the column separator when only card state details are shown', async () => {
+    const fixture = await renderPreview({
+      cardStateInfo: {
+        powerToughness: { power: 4, toughness: 5 },
+        loyalty: 6,
+        counters: [],
+      },
+    });
+    const detailBox = fixture.nativeElement.querySelector('.attachment-preview') as HTMLElement;
+    const layout = detailBox.querySelector('.attachment-preview-layout') as HTMLElement;
+
+    expect(detailBox.textContent).toContain('Current');
+    expect(detailBox.textContent).not.toContain('Attached');
+    expect(layout.classList.contains('attachment-preview-layout-with-attachments')).toBe(false);
+  });
 });
 
 async function renderPreview(options: {
@@ -86,9 +182,19 @@ async function renderPreview(options: {
     right: number;
     bottom: number;
   } | null;
+  attachmentInfo?: {
+    attachedTo: { instanceId: string; name: string } | null;
+    attachedCards: readonly { instanceId: string; name: string }[];
+  } | null;
+  cardStateInfo?: {
+    powerToughness: { power: number; toughness: number } | null;
+    loyalty: number | null;
+    counters: readonly { key: string; value: number }[];
+  } | null;
 } = {}): Promise<ComponentFixture<CardPreviewOverlayComponent>> {
   await TestBed.configureTestingModule({
     imports: [CardPreviewOverlayComponent],
+    providers: [importProvidersFrom(LucideAngularModule.pick({ Link }))],
   }).compileComponents();
 
   const fixture = TestBed.createComponent(CardPreviewOverlayComponent);
@@ -104,6 +210,8 @@ async function renderPreview(options: {
   });
   fixture.componentRef.setInput('sourceRect', options.sourceRect ?? null);
   fixture.componentRef.setInput('avoidRect', options.avoidRect ?? null);
+  fixture.componentRef.setInput('attachmentInfo', options.attachmentInfo ?? null);
+  fixture.componentRef.setInput('cardStateInfo', options.cardStateInfo ?? null);
   fixture.detectChanges();
 
   return fixture;

@@ -1,5 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { GameCardInstance, GameZoneName } from '../../../../../core/models/game.model';
+import { GameAttachment, GameCardInstance, GameZoneName } from '../../../../../core/models/game.model';
 import { PlayerView } from '../../game-table.store';
 import { FocusedBattlefieldComponent } from './focused-battlefield.component';
 
@@ -108,7 +108,7 @@ describe('FocusedBattlefieldComponent', () => {
   it('renders land stack layers with the shared horizontal stack offset', async () => {
     const positions = new Map([
       ['land-top', { x: 100, y: 200 }],
-      ['land-under', { x: 100, y: 186 }],
+      ['land-under', { x: 100, y: 182 }],
     ]);
     const { fixture } = await renderFocusedBattlefield({
       battlefieldCards: [
@@ -120,19 +120,97 @@ describe('FocusedBattlefieldComponent', () => {
 
     expect(cardElement(fixture, 'land-top').style.left).toBe('100px');
     expect(cardElement(fixture, 'land-under').style.left).toBe('110px');
-    expect(cardElement(fixture, 'land-under').style.top).toBe('186px');
+    expect(cardElement(fixture, 'land-under').style.top).toBe('182px');
+  });
+
+  it('changes land stack vertical spacing slightly with battlefield zoom', async () => {
+    const positions = new Map([
+      ['land-top', { x: 100, y: 200 }],
+      ['land-under', { x: 100, y: 182 }],
+    ]);
+    const { fixture } = await renderFocusedBattlefield({
+      zoomPercent: 70,
+      battlefieldCards: [
+        { instanceId: 'land-top', name: 'Command Tower', typeLine: 'Land', tapped: false },
+        { instanceId: 'land-under', name: 'Island', typeLine: 'Basic Land - Island', tapped: false },
+      ],
+      cardPosition: (card) => positions.get(card.instanceId) ?? null,
+    });
+
+    expect(cardElement(fixture, 'land-under').style.top).toBe('188px');
+
+    fixture.componentRef.setInput('zoomPercent', 140);
+    fixture.componentRef.setInput('layoutKey', 140);
+    fixture.detectChanges();
+
+    expect(cardElement(fixture, 'land-under').style.top).toBe('175px');
+  });
+
+  it('changes attachment stack vertical spacing slightly with battlefield zoom', async () => {
+    const positions = new Map([
+      ['target', { x: 100, y: 200 }],
+      ['equipment', { x: 100, y: 182 }],
+    ]);
+    const { fixture } = await renderFocusedBattlefield({
+      zoomPercent: 70,
+      battlefieldCards: [
+        { instanceId: 'target', name: 'Baleful Strix', typeLine: 'Creature - Bird', tapped: false },
+        { instanceId: 'equipment', name: 'Sword', typeLine: 'Artifact', tapped: false },
+      ],
+      attachments: [attachment('attachment-1', 'equipment', 'target')],
+      cardPosition: (card) => positions.get(card.instanceId) ?? null,
+    });
+
+    expect(cardElement(fixture, 'equipment').style.top).toBe('188px');
+
+    fixture.componentRef.setInput('zoomPercent', 140);
+    fixture.componentRef.setInput('layoutKey', 140);
+    fixture.detectChanges();
+
+    expect(cardElement(fixture, 'equipment').style.top).toBe('175px');
+  });
+
+  it('highlights every card in an attachment stack while hovering one member', async () => {
+    const positions = new Map([
+      ['target', { x: 100, y: 200 }],
+      ['equipment', { x: 100, y: 182 }],
+      ['loose-card', { x: 260, y: 200 }],
+    ]);
+    const { fixture } = await renderFocusedBattlefield({
+      battlefieldCards: [
+        { instanceId: 'target', name: 'Baleful Strix', typeLine: 'Creature - Bird', tapped: false },
+        { instanceId: 'equipment', name: 'Sword', typeLine: 'Artifact', tapped: false },
+        { instanceId: 'loose-card', name: 'Sol Ring', typeLine: 'Artifact', tapped: false },
+      ],
+      attachments: [attachment('attachment-1', 'equipment', 'target')],
+      cardPosition: (card) => positions.get(card.instanceId) ?? null,
+    });
+
+    cardElement(fixture, 'equipment').dispatchEvent(new PointerEvent('pointerenter', { bubbles: true }));
+    fixture.detectChanges();
+
+    expect(cardElement(fixture, 'target').classList).toContain('attachment-stack-aura');
+    expect(cardElement(fixture, 'equipment').classList).toContain('attachment-stack-aura');
+    expect(cardElement(fixture, 'loose-card').classList).not.toContain('attachment-stack-aura');
+
+    cardElement(fixture, 'equipment').dispatchEvent(new PointerEvent('pointerleave', { bubbles: true }));
+    fixture.detectChanges();
+
+    expect(cardElement(fixture, 'target').classList).not.toContain('attachment-stack-aura');
+    expect(cardElement(fixture, 'equipment').classList).not.toContain('attachment-stack-aura');
   });
 
   it('moves an overflowing zoomed land stack up as a group', async () => {
     const positions = new Map([
       ['land-top', { x: 100, y: 220 }],
-      ['land-under', { x: 100, y: 206 }],
+      ['land-under', { x: 100, y: 202 }],
     ]);
     const { fixture } = await renderFocusedBattlefield({
       battlefieldCards: [
         { instanceId: 'land-top', name: 'Forest', typeLine: 'Basic Land - Forest', tapped: false },
         { instanceId: 'land-under', name: 'Swamp', typeLine: 'Basic Land - Swamp', tapped: false },
       ],
+      zoomPercent: 120,
       cardPosition: (card) => positions.get(card.instanceId) ?? null,
     });
     const battlefield = fixture.nativeElement.querySelector('[data-testid="battlefield-zone"]') as HTMLElement;
@@ -144,7 +222,7 @@ describe('FocusedBattlefieldComponent', () => {
     fixture.detectChanges();
 
     expect(cardElement(fixture, 'land-top').style.top).toBe('158px');
-    expect(cardElement(fixture, 'land-under').style.top).toBe('144px');
+    expect(cardElement(fixture, 'land-under').style.top).toBe('136.5px');
   });
 
   it('recomputes measured stack layout after focusing another player at the same zoom', async () => {
@@ -165,11 +243,12 @@ describe('FocusedBattlefieldComponent', () => {
     try {
       const firstPlayerPositions = new Map([
         ['first-land-top', { x: 100, y: 120 }],
-        ['first-land-under', { x: 100, y: 106 }],
+        ['first-land-under', { x: 100, y: 102 }],
       ]);
       const { fixture } = await renderFocusedBattlefield({
         playerId: 'player-1',
         layoutKey: 120,
+        zoomPercent: 120,
         battlefieldCards: [
           { instanceId: 'first-land-top', name: 'Forest', typeLine: 'Basic Land - Forest', tapped: false },
           { instanceId: 'first-land-under', name: 'Swamp', typeLine: 'Basic Land - Swamp', tapped: false },
@@ -181,7 +260,7 @@ describe('FocusedBattlefieldComponent', () => {
 
       const secondPlayerPositions = new Map([
         ['second-land-top', { x: 100, y: 220 }],
-        ['second-land-under', { x: 100, y: 206 }],
+        ['second-land-under', { x: 100, y: 202 }],
       ]);
       fixture.componentRef.setInput('player', playerView([
         { instanceId: 'second-land-top', name: 'Forest', typeLine: 'Basic Land - Forest', tapped: false },
@@ -199,7 +278,7 @@ describe('FocusedBattlefieldComponent', () => {
       fixture.detectChanges();
 
       expect(cardElement(fixture, 'second-land-top').style.top).toBe('158px');
-      expect(cardElement(fixture, 'second-land-under').style.top).toBe('144px');
+      expect(cardElement(fixture, 'second-land-under').style.top).toBe('136.5px');
     } finally {
       requestAnimationFrameSpy.mockRestore();
       cancelAnimationFrameSpy.mockRestore();
@@ -209,7 +288,7 @@ describe('FocusedBattlefieldComponent', () => {
   it('does not pull the dragged land into a transient stack layout before drop', async () => {
     const positions = new Map([
       ['land-top', { x: 100, y: 200 }],
-      ['land-under', { x: 100, y: 186 }],
+      ['land-under', { x: 100, y: 182 }],
       ['dragged-land', { x: 118, y: 170 }],
     ]);
     const { fixture } = await renderFocusedBattlefield({
@@ -254,6 +333,8 @@ interface RenderFocusedBattlefieldOptions {
   battlefieldCards?: GameCardInstance[];
   playerId?: string;
   layoutKey?: unknown;
+  zoomPercent?: number;
+  attachments?: readonly GameAttachment[];
   alignmentGuideFor?: (playerId: string) => { y: number; referenceInstanceIds: readonly string[] } | null;
   cardPosition?: (card: GameCardInstance) => { x: number; y: number } | null;
   isCurrentPlayer?: (playerId: string) => boolean;
@@ -288,6 +369,8 @@ async function renderFocusedBattlefield(options: RenderFocusedBattlefieldOptions
   fixture.componentRef.setInput('alignmentGuideFor', options.alignmentGuideFor ?? ((_playerId: string) => null));
   fixture.componentRef.setInput('isManaLaneHighlighted', (_playerId: string) => false);
   fixture.componentRef.setInput('layoutKey', options.layoutKey ?? null);
+  fixture.componentRef.setInput('zoomPercent', options.zoomPercent ?? 100);
+  fixture.componentRef.setInput('attachments', options.attachments ?? []);
   fixture.componentRef.setInput('isCardTransferPending', options.isCardTransferPending ?? ((_playerId: string, _zone: GameZoneName, _card: GameCardInstance) => false));
   fixture.detectChanges();
 
@@ -296,6 +379,15 @@ async function renderFocusedBattlefield(options: RenderFocusedBattlefieldOptions
 
 function cardElement(fixture: ComponentFixture<FocusedBattlefieldComponent>, instanceId: string): HTMLElement {
   return fixture.nativeElement.querySelector(`[data-card-instance-id="${instanceId}"]`);
+}
+
+function attachment(id: string, equipmentInstanceId: string, attachedToInstanceId: string): GameAttachment {
+  return {
+    id,
+    equipmentInstanceId,
+    attachedToInstanceId,
+    createdAt: '2026-05-29T00:00:00+00:00',
+  };
 }
 
 function playerView(battlefieldCards?: GameCardInstance[], playerId = 'player-1'): PlayerView {

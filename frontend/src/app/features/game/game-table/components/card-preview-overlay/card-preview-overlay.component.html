@@ -7,9 +7,86 @@
   [style.width.px]="style.width"
   aria-live="polite"
 >
-  @if (image(); as cardImage) {
-    <img [src]="cardImage" [alt]="card().name" />
-  } @else {
-    <span>{{ card().name }}</span>
+  <div class="card-preview-visual" [class.face-flipping]="faceFlipAnimating()">
+    @if (image(); as cardImage) {
+      <img [src]="cardImage" [alt]="card().name" />
+    } @else {
+      <span class="card-preview-fallback">{{ card().name }}</span>
+    }
+  </div>
+
+  @if (hasDetailInfo()) {
+    <section class="attachment-preview" aria-label="Card preview details">
+      <div class="attachment-preview-layout" [class.attachment-preview-layout-with-attachments]="hasAttachmentDetails()">
+        @if (hasAttachmentDetails()) {
+          @if (attachmentInfo(); as info) {
+            <div class="attachment-preview-column">
+              @if (info.attachedTo; as attachedTo) {
+                <div class="attachment-preview-row attached-to-row">
+                  <span class="attachment-preview-label attachment-preview-label-with-icon">
+                    <lucide-icon name="link" size="11" strokeWidth="2.6" aria-hidden="true" />
+                    <span>Attached to</span>
+                  </span>
+                  <span class="attachment-preview-name">{{ attachedTo.name }}</span>
+                </div>
+              }
+
+              @if (info.attachedCards.length > 0) {
+                <div class="attachment-preview-row">
+                  <span class="attachment-preview-label attachment-preview-label-with-icon">
+                    <lucide-icon name="link" size="11" strokeWidth="2.6" aria-hidden="true" />
+                    <span>Attached</span>
+                  </span>
+                  <div class="attachment-preview-chips">
+                    @for (attachedCard of info.attachedCards; track attachedCard.instanceId) {
+                      <span class="attachment-preview-chip">{{ attachedCard.name }}</span>
+                    }
+                  </div>
+                </div>
+              }
+            </div>
+          }
+        }
+
+        @if (cardStateInfo(); as stateInfo) {
+          <div class="attachment-preview-column card-state-column">
+            @if (stateInfo.powerToughness; as powerToughness) {
+              <div class="attachment-preview-row">
+                <span class="attachment-preview-label">Current</span>
+                <span class="power-toughness-overlay preview-power-toughness" aria-label="Power and toughness">
+                  <span>{{ powerToughness.power }}</span>
+                  <span>{{ powerToughness.toughness }}</span>
+                </span>
+              </div>
+            }
+
+            @if (stateInfo.loyalty !== null) {
+              <div class="attachment-preview-row">
+                <span class="attachment-preview-label">Current</span>
+                <app-loyalty-counter
+                  class="preview-loyalty-counter"
+                  [inline]="true"
+                  [value]="stateInfo.loyalty"
+                  [pulse]="null"
+                  [entrySettling]="false"
+                />
+              </div>
+            }
+
+            @if (stateInfo.counters.length > 0) {
+              <div class="attachment-preview-row">
+                <span class="attachment-preview-label">Counters</span>
+                <app-card-marker-rail
+                  class="preview-card-marker-rail"
+                  [inline]="true"
+                  [showTokenCopyMarker]="false"
+                  [counters]="stateInfo.counters"
+                />
+              </div>
+            }
+          </div>
+        }
+      </div>
+    </section>
   }
 </aside>

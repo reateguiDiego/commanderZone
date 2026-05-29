@@ -10,9 +10,10 @@ import {
   output,
   signal,
 } from '@angular/core';
-import { GameCardInstance, GameZoneName } from '../../../../../core/models/game.model';
+import { GameAttachment, GameCardInstance, GameZoneName } from '../../../../../core/models/game.model';
 import { GameCardViewComponent } from '../game-card-view/game-card-view.component';
 import { CardPreviewEvent, CardPreviewSourceRect } from '../../models/card-preview.model';
+import { AttachmentStackView, attachmentStackViewFor, buildAttachmentStackGroups } from '../../utils/attachment-stack';
 import {
   MiniBattlefieldCardLayout,
   MiniBattlefieldSize,
@@ -28,12 +29,12 @@ import {
 })
 export class OpponentMiniBattlefieldComponent implements AfterViewInit, OnDestroy {
   private resizeObserver: ResizeObserver | null = null;
-  private activePreviewInstanceId: string | null = null;
 
   @ViewChild('viewport', { static: true }) private readonly viewport?: ElementRef<HTMLElement>;
 
   readonly playerId = input.required<string>();
   readonly cards = input.required<readonly GameCardInstance[]>();
+  readonly attachments = input<readonly GameAttachment[]>([]);
   readonly backgroundImage = input<string>('');
   readonly battlefieldSize = input<MiniBattlefieldSize>({ width: 900, height: 520 });
   readonly cardPosition = input.required<(card: GameCardInstance) => { x: number; y: number } | null>();
@@ -50,12 +51,34 @@ export class OpponentMiniBattlefieldComponent implements AfterViewInit, OnDestro
   readonly battlefieldCardClicked = output<{ event: MouseEvent; playerId: string; card: GameCardInstance }>();
 
   readonly viewportSize = signal<MiniBattlefieldSize>({ width: 240, height: 172 });
-  readonly cardLayouts = computed(() =>
-    layoutOpponentMiniBattlefield(this.cards(), this.viewportSize(), {
+  readonly activePreviewInstanceId = signal<string | null>(null);
+  readonly attachmentStackGroups = computed(() => buildAttachmentStackGroups(
+    this.cards(),
+    this.attachments(),
+    (candidate) => this.cardPosition()(candidate),
+  ));
+  readonly attachmentStackViews = computed<ReadonlyMap<string, AttachmentStackView>>(() => {
+    const views = new Map<string, AttachmentStackView>();
+
+    for (const group of this.attachmentStackGroups()) {
+      for (const member of group.members) {
+        const view = attachmentStackViewFor([group], member.card.instanceId);
+        if (view) {
+          views.set(member.card.instanceId, view);
+        }
+      }
+    }
+
+    return views;
+  });
+  readonly cardLayouts = computed(() => {
+    const baseLayouts = layoutOpponentMiniBattlefield(this.cards(), this.viewportSize(), {
       boardSize: this.battlefieldSize(),
       getPosition: this.cardPosition(),
-    }),
-  );
+    });
+
+    return this.withAttachmentStackLayouts(baseLayouts);
+  });
   readonly cardLayoutById = computed(() => new Map(this.cardLayouts().map((layout) => [layout.instanceId, layout])));
   readonly backgroundImageCss = computed(() => {
     const image = this.backgroundImage().trim();
@@ -91,11 +114,32 @@ export class OpponentMiniBattlefieldComponent implements AfterViewInit, OnDestro
   }
 
   miniCardZIndex(layout: MiniBattlefieldCardLayout, index: number): number {
-    return Math.round((layout.top + layout.height) * 10) + index;
+    const baseZIndex = Math.round((layout.top + layout.height) * 10) + index;
+    if (layout.instanceId === this.activePreviewInstanceId()) {
+      return baseZIndex + 1000;
+    }
+
+    const attachmentView = this.attachmentStackView(layout.instanceId);
+    if (attachmentView?.role === 'target') {
+      return baseZIndex + 20;
+    }
+    if (attachmentView?.role === 'equipment') {
+      return baseZIndex + Math.max(1, 12 - attachmentView.layer);
+    }
+
+    return baseZIndex;
+  }
+
+  attachmentStackView(instanceId: string): AttachmentStackView | null {
+    return this.attachmentStackViews().get(instanceId) ?? null;
   }
 
   showCardPreview(event: CardPreviewEvent): void {
-    this.cardPreviewShown.emit({ ...event, playerId: this.playerId(), zone: 'battlefield' });
+    this.cardPreviewShown.emit({
+      ...event,
+      playerId: this.playerId(),
+      zone: 'battlefield',
+    });
   }
 
   clickBattlefieldCard(event: MouseEvent, card: GameCardInstance): void {
@@ -111,11 +155,11 @@ export class OpponentMiniBattlefieldComponent implements AfterViewInit, OnDestro
       return;
     }
 
-    if (target.card.instanceId === this.activePreviewInstanceId) {
+    if (target.card.instanceId === this.activePreviewInstanceId()) {
       return;
     }
 
-    this.activePreviewInstanceId = target.card.instanceId;
+    this.activePreviewInstanceId.set(target.card.instanceId);
     this.cardPreviewShown.emit({
       card: target.card,
       playerId: this.playerId(),
@@ -140,12 +184,49 @@ export class OpponentMiniBattlefieldComponent implements AfterViewInit, OnDestro
   }
 
   private clearActivePreview(): void {
-    if (this.activePreviewInstanceId === null) {
+    if (this.activePreviewInstanceId() === null) {
       return;
     }
 
-    this.activePreviewInstanceId = null;
+    this.activePreviewInstanceId.set(null);
     this.cardPreviewHidden.emit();
+  }
+
+  private withAttachmentStackLayouts(baseLayouts: readonly MiniBattlefieldCardLayout[]): MiniBattlefieldCardLayout[] {
+    const layoutsById = new Map(baseLayouts.map((layout) => [layout.instanceId, { ...layout }]));
+    const viewport = this.viewportSize();
+
+    for (const group of this.attachmentStackGroups()) {
+      const targetLayout = layoutsById.get(group.targetCard.instanceId);
+      if (!targetLayout) {
+        continue;
+      }
+
+      const offsetX = Math.max(3, targetLayout.width * 0.1);
+      const offsetY = Math.max(4, targetLayout.height * 0.09);
+      const proposed = group.members.map((member) => {
+        const currentLayout = layoutsById.get(member.card.instanceId);
+
+        return currentLayout
+          ? {
+              ...currentLayout,
+              left: targetLayout.left + offsetX * member.layer,
+              top: targetLayout.top - offsetY * member.layer,
+            }
+          : null;
+      }).filter((layout): layout is MiniBattlefieldCardLayout => layout !== null);
+
+      const shift = miniStackViewportShift(proposed, viewport);
+      for (const layout of proposed) {
+        layoutsById.set(layout.instanceId, {
+          ...layout,
+          left: roundMiniPixel(layout.left + shift.x),
+          top: roundMiniPixel(layout.top + shift.y),
+        });
+      }
+    }
+
+    return baseLayouts.map((layout) => layoutsById.get(layout.instanceId) ?? layout);
   }
 
   private cardAtPoint(event: PointerEvent): { card: GameCardInstance; sourceRect: CardPreviewSourceRect } | null {
@@ -194,4 +275,26 @@ export class OpponentMiniBattlefieldComponent implements AfterViewInit, OnDestro
       height: layout.height,
     };
   }
+}
+
+function miniStackViewportShift(
+  layouts: readonly MiniBattlefieldCardLayout[],
+  viewport: MiniBattlefieldSize,
+): { x: number; y: number } {
+  if (layouts.length === 0) {
+    return { x: 0, y: 0 };
+  }
+
+  const minLeft = Math.min(...layouts.map((layout) => layout.left));
+  const minTop = Math.min(...layouts.map((layout) => layout.top));
+  const maxRight = Math.max(...layouts.map((layout) => layout.left + layout.width));
+  const maxBottom = Math.max(...layouts.map((layout) => layout.top + layout.height));
+  const x = minLeft < 0 ? -minLeft : maxRight > viewport.width ? viewport.width - maxRight : 0;
+  const y = minTop < 0 ? -minTop : maxBottom > viewport.height ? viewport.height - maxBottom : 0;
+
+  return { x, y };
+}
+
+function roundMiniPixel(value: number): number {
+  return Math.round(value * 100) / 100;
 }

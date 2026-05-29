@@ -29,6 +29,7 @@ export interface GameTableCardActionContext {
   closeContextMenu(): void;
   setPendingBattlefieldMove(move: PendingBattlefieldMove | null): void;
   setPendingLibraryMove(move: PendingLibraryMove | null): void;
+  syncOpenZoneModalAfterMove(playerId: string, fromZone: GameZoneName, instanceIds: readonly string[]): Promise<void>;
   recordCommanderCastIfNeeded(playerId: string, fromZone: GameZoneName, toZone?: GameZoneName): Promise<void>;
   command(type: GameCommandType, payload: Record<string, unknown>): Promise<void>;
 }
@@ -115,6 +116,7 @@ export class GameTableCardActionsService {
       }
 
       await context.command('cards.moved', payload);
+      await context.syncOpenZoneModalAfterMove(first.playerId, first.zone, targets.map((item) => item.card.instanceId));
       context.clearSelectedCards();
       context.closeContextMenu();
       return;
@@ -142,7 +144,7 @@ export class GameTableCardActionsService {
 
     await context.command('card.moved', payload);
     await context.recordCommanderCastIfNeeded(target.playerId, target.zone, toZone);
-    this.removeCardFromFixedLibraryModal(context, target.playerId, target.card.instanceId);
+    await context.syncOpenZoneModalAfterMove(target.playerId, target.zone, [target.card.instanceId]);
     context.clearSelectedCards();
     context.closeContextMenu();
   }
@@ -157,27 +159,17 @@ export class GameTableCardActionsService {
       return;
     }
 
-    const sourcePayload = this.viewedLibrarySourcePayload(context, menu.playerId, menu.card);
-    const shouldRemoveFromFixedModal = sourcePayload.sourceContext !== undefined;
-
     await context.command('card.moved', {
       playerId: menu.playerId,
       fromZone: 'library',
       toZone: 'hand',
       instanceId: menu.card.instanceId,
       reveal,
-      ...sourcePayload,
+      ...this.viewedLibrarySourcePayload(context, menu.playerId, menu.card),
     });
+    await context.syncOpenZoneModalAfterMove(menu.playerId, 'library', [menu.card.instanceId]);
     context.clearSelectedCards();
     context.closeContextMenu();
-    if (shouldRemoveFromFixedModal) {
-      this.removeCardFromFixedLibraryModal(context, menu.playerId, menu.card.instanceId);
-      return;
-    }
-
-    if (context.zoneModal()?.playerId === menu.playerId && context.zoneModal()?.zone === 'library') {
-      await context.loadZone();
-    }
   }
 
   async giveCardToPlayer(
@@ -258,9 +250,7 @@ export class GameTableCardActionsService {
 
     await context.command(isMultiMove ? 'cards.moved' : 'card.moved', payload);
     await context.recordCommanderCastIfNeeded(firstTarget.playerId, firstTarget.zone, toZone);
-    if (!isMultiMove) {
-      this.removeCardFromFixedLibraryModal(context, firstTarget.playerId, firstTarget.card.instanceId);
-    }
+    await context.syncOpenZoneModalAfterMove(firstTarget.playerId, firstTarget.zone, instanceIds);
     context.clearSelectedCards();
     context.closeContextMenu();
   }
@@ -522,19 +512,6 @@ export class GameTableCardActionsService {
     };
   }
 
-  private removeCardFromFixedLibraryModal(
-    context: GameTableCardActionContext,
-    playerId: string,
-    instanceId: string,
-  ): void {
-    const modal = context.zoneModal();
-    if (!this.isFixedViewedLibraryCard(modal, playerId, instanceId)) {
-      return;
-    }
-
-    context.replaceZoneModalCards(modal.cards.filter((card) => card.instanceId !== instanceId));
-  }
-
   private isFixedViewedLibraryCard(modal: ZoneModalState | null, playerId: string, instanceId: string): modal is ZoneModalState {
     return !!modal
       && modal.zone === 'library'
@@ -695,12 +672,7 @@ export class GameTableCardActionsService {
       ...this.viewedLibrarySourcePayload(context, modal.playerId, card),
     });
     await context.recordCommanderCastIfNeeded(modal.playerId, modal.zone, toZone);
-    if (this.isFixedViewedLibraryCard(context.zoneModal(), modal.playerId, card.instanceId)) {
-      this.removeCardFromFixedLibraryModal(context, modal.playerId, card.instanceId);
-      return;
-    }
-
-    await context.loadZone();
+    await context.syncOpenZoneModalAfterMove(modal.playerId, modal.zone, [card.instanceId]);
   }
 
   async revealZoneCard(context: GameTableCardActionContext, card: GameCardInstance): Promise<void> {

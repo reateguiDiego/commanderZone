@@ -327,6 +327,10 @@ export type GameSnapshotPatchOperation =
       entries: GameSnapshot['chat'];
     }
   | {
+      op: 'chat.message.set';
+      message: GameSnapshot['chat'][number];
+    }
+  | {
       op: 'eventLog.append';
       entries: GameSnapshot['eventLog'];
     }

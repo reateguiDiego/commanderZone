@@ -17,13 +17,20 @@ export class GameTableZoneActionsService {
   private readonly gamesApi = inject(GamesApi);
   private readonly zoneModalState = inject(GameTableZoneModalState);
 
-  async openZone(context: GameTableZoneActionContext, playerId: string, zone: GameZoneName, selectedCardId: string | null = null, readOnly = false): Promise<void> {
+  async openZone(
+    context: GameTableZoneActionContext,
+    playerId: string,
+    zone: GameZoneName,
+    selectedCardId: string | null = null,
+    readOnly = false,
+    options: { allowGiveDestination?: boolean } = {},
+  ): Promise<void> {
     if (this.shouldBlockEmptyZone(context.snapshot(), playerId, zone)) {
       context.setError(`No cards in ${context.zoneTitle(zone).toLowerCase()}.`);
       return;
     }
 
-    this.zoneModalState.open(playerId, zone, `${context.playerName(playerId)} ${context.zoneTitle(zone)}`, selectedCardId, readOnly);
+    this.zoneModalState.open(playerId, zone, `${context.playerName(playerId)} ${context.zoneTitle(zone)}`, selectedCardId, readOnly, options);
     await this.loadZone(context);
   }
 
@@ -66,6 +73,10 @@ export class GameTableZoneActionsService {
 
   replaceZoneModalCards(cards: GameCardInstance[]): void {
     this.zoneModalState.replaceCards(cards);
+  }
+
+  removeZoneModalCards(instanceIds: readonly string[]): void {
+    this.zoneModalState.removeCards(instanceIds);
   }
 
   closeZoneModal(): void {

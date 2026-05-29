@@ -3,6 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { Subject } from 'rxjs';
 import { GameplayClientMessage, GameplayServerMessage } from '../../../../core/models/game-realtime.model';
 import { GameCardInstance, GameSnapshot } from '../../../../core/models/game.model';
+import { GameTableRealtimeAnimationBusService } from './game-table-realtime-animation-bus.service';
 import { GameTableWebsocketTransportService } from './game-table-websocket-transport.service';
 import { GameTableWebsocketGameplayContext, GameTableWebsocketGameplayService } from './game-table-websocket-gameplay.service';
 
@@ -47,6 +48,7 @@ describe('GameTableWebsocketGameplayService', () => {
     TestBed.configureTestingModule({
       providers: [
         GameTableWebsocketGameplayService,
+        GameTableRealtimeAnimationBusService,
         {
           provide: GameTableWebsocketTransportService,
           useValue: {
@@ -117,6 +119,31 @@ describe('GameTableWebsocketGameplayService', () => {
 
     expect(snapshotState.version).toBe(2);
     expect(snapshotState.turn).toEqual({ activePlayerId: 'player-2', phase: 'combat', number: 2 });
+  });
+
+  it('emits one realtime animation hook for each applied remote patch', async () => {
+    const animationBus = TestBed.inject(GameTableRealtimeAnimationBusService);
+    const patchAnimation = vi.fn();
+    const subscription = animationBus.patchAnimation$.subscribe(patchAnimation);
+
+    try {
+      messages.next({
+        kind: 'game_patch',
+        gameId: 'game-1',
+        baseVersion: 1,
+        version: 2,
+        operations: [{ op: 'turn.set', turn: { activePlayerId: 'player-2', phase: 'combat', number: 2 } }],
+      });
+
+      expect(patchAnimation).toHaveBeenCalledTimes(1);
+      expect(patchAnimation).toHaveBeenCalledWith(expect.objectContaining({
+        previousSnapshot: expect.objectContaining({ version: 1 }),
+        nextSnapshot: expect.objectContaining({ version: 2 }),
+        isLocalPatch: false,
+      }));
+    } finally {
+      subscription.unsubscribe();
+    }
   });
 
   it('sends final card position commands over websocket and applies ratio patches without snapshot refetch', async () => {

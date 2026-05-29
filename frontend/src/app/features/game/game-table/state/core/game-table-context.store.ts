@@ -124,6 +124,8 @@ export class GameTableContextStore {
       closeContextMenu: () => this.uiState.closeContextMenu(),
       setPendingBattlefieldMove: (move) => source.setPendingBattlefieldMove(move),
       setPendingLibraryMove: (move) => source.setPendingLibraryMove(move),
+      syncOpenZoneModalAfterMove: (playerId, fromZone, instanceIds) =>
+        this.syncOpenZoneModalAfterMove(playerId, fromZone, instanceIds),
       recordCommanderCastIfNeeded: (playerId, fromZone, toZone) => this.recordCommanderCastIfNeeded(playerId, fromZone, toZone),
       command: (type, payload) => source.command(type, payload),
     };
@@ -514,13 +516,7 @@ export class GameTableContextStore {
       return;
     }
 
-    if (modal.showFilters) {
-      await this.zoneActions.loadZone(this.zoneAction());
-      return;
-    }
-
-    const movedIds = new Set(instanceIds);
-    this.zoneActions.replaceZoneModalCards(modal.cards.filter((card) => !movedIds.has(card.instanceId)));
+    this.zoneActions.removeZoneModalCards(instanceIds);
   }
 
   private errorMessage(error: unknown): string {

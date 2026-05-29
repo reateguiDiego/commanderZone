@@ -85,6 +85,7 @@ import { GameTableComponent } from './game-table.component';
 import { GameTableChatLogState } from './state/chat/game-table-chat-log.state';
 import { RollModalComponent } from '../../../core/ui/roll-modal/roll-modal.component';
 import { GameTableMotionService } from './services/game-table-motion.service';
+import { GameTableNotificationSoundService } from './services/game-table-notification-sound.service';
 import { GameTableWebsocketTransportService } from './services/game-table-websocket-transport.service';
 
 describe('GameTableComponent', () => {
@@ -581,6 +582,56 @@ describe('GameTableComponent', () => {
     }
   });
 
+  it('plays remote ghosts when the focused opponent moves a pile card to hand', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    addOpponent(snapshot);
+    const pileCard = {
+      ...snapshot.players['user-2']!.zones.battlefield[0]!,
+      instanceId: 'opponent-graveyard-card',
+      name: 'Mystic Remora',
+      zone: 'graveyard' as const,
+    };
+    snapshot.players['user-2']!.zones.graveyard = [pileCard];
+    snapshot.players['user-2']!.zoneCounts = {
+      ...snapshot.players['user-2']!.zoneCounts!,
+      graveyard: 1,
+    };
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await vi.waitFor(() => expect(fixture.componentInstance.store.loading()).toBe(false));
+    fixture.componentInstance.store.focusPlayer('user-2');
+    fixture.detectChanges();
+
+    const motion = fixture.debugElement.injector.get(GameTableMotionService);
+    const throwGhost = vi.spyOn(motion, 'throwGhost').mockImplementation(() => undefined);
+    vi.spyOn(motion, 'impactZone').mockImplementation(() => undefined);
+    const handTarget = appendDropZone(fixture.nativeElement, 'user-2', 'hand');
+
+    websocketMessages.next({
+      kind: 'game_patch',
+      gameId: 'game-1',
+      baseVersion: 1,
+      version: 2,
+      operations: [{
+        op: 'card.move',
+        instanceId: 'opponent-graveyard-card',
+        from: { playerId: 'user-2', zone: 'graveyard' },
+        to: { playerId: 'user-2', zone: 'hand' },
+      }],
+      event: { id: 'event-move', type: 'card.moved', payload: {}, createdBy: 'user-2', createdAt: '' },
+    });
+
+    await vi.waitFor(() => expect(throwGhost).toHaveBeenCalledWith('opponent-graveyard-card', handTarget, expect.objectContaining({
+      scaleToTarget: true,
+      rotate: -6,
+    })));
+  });
+
   it('delegates hand pointer moves without drag-drop motion effects', async () => {
     const fixture = TestBed.createComponent(GameTableComponent);
     const motion = fixture.debugElement.injector.get(GameTableMotionService);
@@ -928,6 +979,142 @@ describe('GameTableComponent', () => {
     expect((ghostTarget as HTMLElement).style.left).toBe('40px');
     expect((ghostTarget as HTMLElement).style.top).toBe('40px');
     expect(options).toEqual(expect.objectContaining({ scaleToTarget: false, rotate: -6 }));
+  });
+
+  it('animates a fixed zone modal card to its move destination before removing it', async () => {
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    const motion = fixture.debugElement.injector.get(GameTableMotionService);
+    const throwGhost = vi.spyOn(motion, 'throwGhost').mockImplementation(() => undefined);
+    const moveCard = vi.spyOn(fixture.componentInstance.store, 'moveCard').mockResolvedValue(undefined);
+    const target = appendDropZone(fixture.nativeElement, 'user-1', 'graveyard');
+    const card = {
+      instanceId: 'library-card',
+      ownerId: 'user-1',
+      controllerId: 'user-1',
+      name: 'Plains',
+      typeLine: 'Basic Land - Plains',
+      tapped: false,
+      counters: {},
+    };
+    const sourceRect = { left: 24, top: 48, right: 116, bottom: 176, width: 92, height: 128 };
+
+    fixture.componentInstance.handleContextMenuAction({ type: 'moveCard', zone: 'graveyard' }, {
+      x: 0,
+      y: 0,
+      playerId: 'user-1',
+      zone: 'library',
+      kind: 'card',
+      card,
+      fromFixedZoneModal: true,
+      sourceRect,
+    });
+
+    expect(throwGhost).toHaveBeenCalledWith('library-card', target, expect.objectContaining({
+      scaleToTarget: true,
+      rotate: -6,
+      sourceRect,
+    }));
+    await vi.waitFor(() => expect(moveCard).toHaveBeenCalledWith(expect.objectContaining({
+      card,
+      fromFixedZoneModal: true,
+    }), 'graveyard', { position: undefined }));
+  });
+
+  it('animates a fixed zone modal card to another player hand when giving it', async () => {
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    const motion = fixture.debugElement.injector.get(GameTableMotionService);
+    const throwGhost = vi.spyOn(motion, 'throwGhost').mockImplementation(() => undefined);
+    const giveCardToPlayer = vi.spyOn(fixture.componentInstance.store, 'giveCardToPlayer').mockResolvedValue(undefined);
+    const target = appendPlayerDropTarget(fixture.nativeElement, 'user-2');
+    const card = {
+      instanceId: 'graveyard-card',
+      ownerId: 'user-1',
+      controllerId: 'user-1',
+      name: 'Lightning Bolt',
+      typeLine: 'Instant',
+      tapped: false,
+      counters: {},
+    };
+    const sourceRect = { left: 32, top: 64, right: 124, bottom: 192, width: 92, height: 128 };
+
+    fixture.componentInstance.handleContextMenuAction({ type: 'giveToPlayer', targetPlayerId: 'user-2', zone: 'hand' }, {
+      x: 0,
+      y: 0,
+      playerId: 'user-1',
+      zone: 'graveyard',
+      kind: 'card',
+      card,
+      fromFixedZoneModal: true,
+      sourceRect,
+    });
+
+    expect(throwGhost).toHaveBeenCalledWith('graveyard-card', target, expect.objectContaining({
+      scaleToTarget: true,
+      rotate: -6,
+      sourceRect,
+    }));
+    await vi.waitFor(() => expect(giveCardToPlayer).toHaveBeenCalledWith(expect.objectContaining({
+      card,
+      fromFixedZoneModal: true,
+    }), 'user-2', 'hand'));
+  });
+
+  it('waits for confirmation before animating a fixed zone modal card given to a battlefield', async () => {
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    const motion = fixture.debugElement.injector.get(GameTableMotionService);
+    const throwGhost = vi.spyOn(motion, 'throwGhost').mockImplementation(() => undefined);
+    const giveCardToPlayer = vi.spyOn(fixture.componentInstance.store, 'giveCardToPlayer').mockImplementation(async () => {
+      fixture.componentInstance.store.pendingBattlefieldMove.set({
+        cardName: 'Lightning Bolt',
+        targetPlayerName: 'Opponent',
+        commandType: 'card.moved',
+        payload: {
+          playerId: 'user-1',
+          fromZone: 'graveyard',
+          toZone: 'battlefield',
+          instanceId: 'graveyard-card',
+          targetPlayerId: 'user-2',
+        },
+      });
+    });
+    const confirmPendingBattlefieldMove = vi.spyOn(fixture.componentInstance.store, 'confirmPendingBattlefieldMove').mockResolvedValue(undefined);
+    const target = appendPlayerDropTarget(fixture.nativeElement, 'user-2');
+    const card = {
+      instanceId: 'graveyard-card',
+      ownerId: 'user-1',
+      controllerId: 'user-1',
+      name: 'Lightning Bolt',
+      typeLine: 'Instant',
+      tapped: false,
+      counters: {},
+    };
+    const sourceRect = { left: 32, top: 64, right: 124, bottom: 192, width: 92, height: 128 };
+
+    fixture.componentInstance.handleContextMenuAction({ type: 'giveToPlayer', targetPlayerId: 'user-2', zone: 'battlefield' }, {
+      x: 0,
+      y: 0,
+      playerId: 'user-1',
+      zone: 'graveyard',
+      kind: 'card',
+      card,
+      fromFixedZoneModal: true,
+      sourceRect,
+    });
+
+    await vi.waitFor(() => expect(giveCardToPlayer).toHaveBeenCalled());
+    expect(throwGhost).not.toHaveBeenCalled();
+
+    fixture.componentInstance.confirmPendingBattlefieldMove();
+
+    expect(throwGhost).toHaveBeenCalledWith('graveyard-card', target, expect.objectContaining({
+      scaleToTarget: true,
+      rotate: -6,
+      sourceRect,
+    }));
+    expect(confirmPendingBattlefieldMove).toHaveBeenCalledOnce();
   });
 
   it('skips ghost animation but still forwards battlefield drops without valid payload to clear drag state', () => {
@@ -1496,6 +1683,9 @@ describe('GameTableComponent', () => {
     await fixture.whenStable();
     await vi.waitFor(() => expect(fixture.componentInstance.store.loading()).toBe(false));
     fixture.detectChanges();
+    const notificationSound = fixture.debugElement.injector.get(GameTableNotificationSoundService);
+    const playChatMessage = vi.spyOn(notificationSound, 'playChatMessage').mockImplementation(() => undefined);
+    const playGameLogMessage = vi.spyOn(notificationSound, 'playGameLogMessage').mockImplementation(() => undefined);
 
     const nextSnapshot = structuredClone(snapshot);
     nextSnapshot.chat = [{
@@ -1514,6 +1704,8 @@ describe('GameTableComponent', () => {
     const logButton = (fixture.nativeElement as HTMLElement).querySelector('[data-testid="game-log-open"]') as HTMLElement;
     expect(chatButton.classList).toContain('has-unread');
     expect(chatButton.querySelector('lucide-icon[name="bell"]')).not.toBeNull();
+    expect(playChatMessage).toHaveBeenCalledOnce();
+    expect(playGameLogMessage).not.toHaveBeenCalled();
     expect(logButton.classList).not.toContain('has-unread');
     expect(logButton.querySelector('lucide-icon[name="bell"]')).toBeNull();
     expect((fixture.nativeElement as HTMLElement).querySelector('[data-testid="game-log-panel"]')?.classList)
@@ -1526,7 +1718,332 @@ describe('GameTableComponent', () => {
     expect(chatButton.querySelector('lucide-icon[name="bell"]')).toBeNull();
   });
 
+  it('highlights unread chat messages and evaporates the highlight after reading them', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await vi.waitFor(() => expect(fixture.componentInstance.store.loading()).toBe(false));
+    fixture.detectChanges();
+
+    const nextSnapshot = structuredClone(snapshot);
+    nextSnapshot.chat = [chatMessage('user-2', 'Opponent', 'New message', null, '2026-04-30T20:03:00+00:00')];
+    fixture.componentInstance.store.snapshot.set(nextSnapshot);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const chatButton = (fixture.nativeElement as HTMLElement).querySelector('[data-testid="chat-open"]') as HTMLElement;
+    expect(chatButton.classList).toContain('has-unread');
+
+    vi.useFakeTimers();
+    try {
+      chatButton.click();
+      fixture.detectChanges();
+
+      const chatMessageElement = (fixture.nativeElement as HTMLElement).querySelector('[data-testid="chat-message"]') as HTMLElement;
+      expect(chatMessageElement.classList).toContain('new-message-highlight');
+      expect(chatMessageElement.classList).toContain('new-message-evaporating');
+      expect(chatMessageElement.textContent).toContain('Opponent:New message');
+
+      vi.advanceTimersByTime(3000);
+      fixture.detectChanges();
+
+      expect(chatMessageElement.classList).not.toContain('new-message-highlight');
+      expect(chatMessageElement.classList).not.toContain('new-message-evaporating');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('renders player colors and sends persisted chat reactions', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    const message = chatMessage('user-2', 'Opponent', 'Reactable message', null, new Date().toISOString());
+    snapshot.chat = [{
+      ...message,
+      reactions: {
+        like: [{ userId: 'user-3', displayName: 'Third Player', createdAt: '2026-04-30T20:04:00+00:00' }],
+      },
+    }];
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+    gameplayWebsocketCommand.mockReturnValue(of({
+      event: { id: 'event-chat-reaction', type: 'chat.reaction.toggled', payload: {}, createdBy: 'user-1', createdAt: '' },
+      snapshot,
+    }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await vi.waitFor(() => expect(fixture.componentInstance.store.loading()).toBe(false));
+
+    const chatButton = (fixture.nativeElement as HTMLElement).querySelector('[data-testid="chat-open"]') as HTMLElement;
+    chatButton.click();
+    fixture.detectChanges();
+
+    const author = (fixture.nativeElement as HTMLElement).querySelector('.chat-message-body strong') as HTMLElement;
+    expect(author.style.getPropertyValue('--chat-author-color')).not.toBe('');
+    expect((fixture.nativeElement as HTMLElement).querySelector('[data-testid="chat-message"]')?.textContent)
+      .toContain('Opponent:Reactable message');
+    expect((fixture.nativeElement as HTMLElement).querySelector('.chat-reaction-users')?.textContent)
+      .toContain('Third Player');
+
+    const reactions = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('[data-testid="chat-reaction"]')) as HTMLButtonElement[];
+    reactions[0]?.click();
+    fixture.detectChanges();
+
+    expect(gameplayWebsocketCommand).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'chat.reaction.toggled',
+      payload: { messageId: message.id, reaction: 'like' },
+    }), 'game-1');
+  });
+
+  it('does not render reaction actions for own chat messages', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    snapshot.chat = [chatMessage('user-1', 'User', 'Own message', null, '2026-04-30T20:03:00+00:00')];
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await vi.waitFor(() => expect(fixture.componentInstance.store.loading()).toBe(false));
+
+    const chatButton = (fixture.nativeElement as HTMLElement).querySelector('[data-testid="chat-open"]') as HTMLElement;
+    chatButton.click();
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).querySelector('[data-testid="chat-reaction"]')).toBeNull();
+  });
+
+  it('does not render reaction actions for chat messages older than 30 minutes', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    const staleCreatedAt = new Date(Date.now() - (31 * 60 * 1000)).toISOString();
+    snapshot.chat = [{
+      ...chatMessage('user-2', 'Opponent', 'Old message', null, staleCreatedAt),
+      reactions: {
+        like: [{ userId: 'user-3', displayName: 'Third Player', createdAt: staleCreatedAt }],
+      },
+    }];
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await vi.waitFor(() => expect(fixture.componentInstance.store.loading()).toBe(false));
+
+    const chatButton = (fixture.nativeElement as HTMLElement).querySelector('[data-testid="chat-open"]') as HTMLElement;
+    chatButton.click();
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).querySelector('[data-testid="chat-reaction"]')).toBeNull();
+    expect((fixture.nativeElement as HTMLElement).querySelector('.chat-reaction-pill')?.textContent)
+      .toContain('1');
+  });
+
+  it('shows reaction authors for private chat messages', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    snapshot.chat = [{
+      ...chatMessage('user-2', 'Opponent', 'Private reaction', 'user-1', '2026-04-30T20:03:00+00:00'),
+      reactions: {
+        cry: [{ userId: 'user-3', displayName: 'Third Player', createdAt: '2026-04-30T20:04:00+00:00' }],
+      },
+    }];
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await vi.waitFor(() => expect(fixture.componentInstance.store.loading()).toBe(false));
+
+    const chatButton = (fixture.nativeElement as HTMLElement).querySelector('[data-testid="chat-open"]') as HTMLElement;
+    chatButton.click();
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).querySelector('.chat-reaction-users')?.textContent)
+      .toContain('Third Player');
+  });
+
+  it('does not mark existing chat history as unread on initial load', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    snapshot.chat = [{
+      userId: 'user-2',
+      displayName: 'Opponent',
+      message: 'Already read',
+      targetPlayerId: null,
+      targetDisplayName: null,
+      createdAt: '2026-04-30T20:03:00+00:00',
+    }];
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await vi.waitFor(() => expect(fixture.componentInstance.store.loading()).toBe(false));
+    fixture.detectChanges();
+    const notificationSound = fixture.debugElement.injector.get(GameTableNotificationSoundService);
+    const playChatMessage = vi.spyOn(notificationSound, 'playChatMessage').mockImplementation(() => undefined);
+
+    fixture.componentInstance.store.snapshot.set(structuredClone(snapshot));
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const chatButton = (fixture.nativeElement as HTMLElement).querySelector('[data-testid="chat-open"]') as HTMLElement;
+    expect(chatButton.classList).not.toContain('has-unread');
+    expect(chatButton.querySelector('lucide-icon[name="bell"]')).toBeNull();
+    expect(playChatMessage).not.toHaveBeenCalled();
+  });
+
+  it('persists read public chat messages for the current player', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await vi.waitFor(() => expect(fixture.componentInstance.store.loading()).toBe(false));
+    fixture.detectChanges();
+
+    const firstChatSnapshot = structuredClone(snapshot);
+    firstChatSnapshot.chat = [chatMessage('user-2', 'Opponent', 'Public one', null, '2026-04-30T20:03:00+00:00')];
+    fixture.componentInstance.store.snapshot.set(firstChatSnapshot);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const firstChatButton = (fixture.nativeElement as HTMLElement).querySelector('[data-testid="chat-open"]') as HTMLElement;
+    expect(firstChatButton.classList).toContain('has-unread');
+    firstChatButton.click();
+    fixture.detectChanges();
+    expect(firstChatButton.classList).not.toContain('has-unread');
+    fixture.destroy();
+
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot: firstChatSnapshot } }));
+    const reloadedFixture = TestBed.createComponent(GameTableComponent);
+    reloadedFixture.detectChanges();
+    await reloadedFixture.whenStable();
+    await vi.waitFor(() => expect(reloadedFixture.componentInstance.store.loading()).toBe(false));
+    reloadedFixture.detectChanges();
+    const notificationSound = reloadedFixture.debugElement.injector.get(GameTableNotificationSoundService);
+    const playChatMessage = vi.spyOn(notificationSound, 'playChatMessage').mockImplementation(() => undefined);
+
+    const reloadedChatButton = (reloadedFixture.nativeElement as HTMLElement).querySelector('[data-testid="chat-open"]') as HTMLElement;
+    expect(reloadedChatButton.classList).not.toContain('has-unread');
+    expect(playChatMessage).not.toHaveBeenCalled();
+
+    const secondChatSnapshot = structuredClone(firstChatSnapshot);
+    secondChatSnapshot.chat = [
+      ...firstChatSnapshot.chat,
+      chatMessage('user-2', 'Opponent', 'Public two', null, '2026-04-30T20:04:00+00:00'),
+    ];
+    reloadedFixture.componentInstance.store.snapshot.set(secondChatSnapshot);
+    await reloadedFixture.whenStable();
+    reloadedFixture.detectChanges();
+
+    expect(reloadedChatButton.classList).toContain('has-unread');
+    expect(playChatMessage).toHaveBeenCalledOnce();
+  });
+
+  it('persists read private chat messages for the current player', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    addOpponent(snapshot);
+    const readSnapshot = structuredClone(snapshot);
+    readSnapshot.chat = [chatMessage('user-2', 'Opponent', 'Private one', 'user-1', '2026-04-30T20:03:00+00:00')];
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot: readSnapshot } }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await vi.waitFor(() => expect(fixture.componentInstance.store.loading()).toBe(false));
+    fixture.detectChanges();
+
+    const chatButton = (fixture.nativeElement as HTMLElement).querySelector('[data-testid="chat-open"]') as HTMLElement;
+    chatButton.click();
+    fixture.detectChanges();
+    fixture.destroy();
+
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot: readSnapshot } }));
+    const reloadedFixture = TestBed.createComponent(GameTableComponent);
+    reloadedFixture.detectChanges();
+    await reloadedFixture.whenStable();
+    await vi.waitFor(() => expect(reloadedFixture.componentInstance.store.loading()).toBe(false));
+    reloadedFixture.detectChanges();
+    const notificationSound = reloadedFixture.debugElement.injector.get(GameTableNotificationSoundService);
+    const playChatMessage = vi.spyOn(notificationSound, 'playChatMessage').mockImplementation(() => undefined);
+
+    const reloadedChatButton = (reloadedFixture.nativeElement as HTMLElement).querySelector('[data-testid="chat-open"]') as HTMLElement;
+    expect(reloadedChatButton.classList).not.toContain('has-unread');
+
+    const nextSnapshot = structuredClone(readSnapshot);
+    nextSnapshot.chat = [
+      ...readSnapshot.chat,
+      chatMessage('user-2', 'Opponent', 'Private two', 'user-1', '2026-04-30T20:04:00+00:00'),
+    ];
+    reloadedFixture.componentInstance.store.snapshot.set(nextSnapshot);
+    await reloadedFixture.whenStable();
+    reloadedFixture.detectChanges();
+
+    expect(reloadedChatButton.classList).toContain('has-unread');
+    expect(playChatMessage).toHaveBeenCalledOnce();
+  });
+
   it('marks game log as unread when a new action arrives while chat is active', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await vi.waitFor(() => expect(fixture.componentInstance.store.loading()).toBe(false));
+    fixture.detectChanges();
+    const notificationSound = fixture.debugElement.injector.get(GameTableNotificationSoundService);
+    const playChatMessage = vi.spyOn(notificationSound, 'playChatMessage').mockImplementation(() => undefined);
+    const playGameLogMessage = vi.spyOn(notificationSound, 'playGameLogMessage').mockImplementation(() => undefined);
+
+    const chatButton = (fixture.nativeElement as HTMLElement).querySelector('[data-testid="chat-open"]') as HTMLElement;
+    chatButton.click();
+    fixture.detectChanges();
+
+    const nextSnapshot = structuredClone(snapshot);
+    nextSnapshot.eventLog = [gameLogEntry('event-life', 'life.changed', 'Changed life.')];
+    fixture.componentInstance.store.snapshot.set(nextSnapshot);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const logButton = (fixture.nativeElement as HTMLElement).querySelector('[data-testid="game-log-open"]') as HTMLElement;
+    expect(logButton.classList).toContain('has-unread');
+    expect(logButton.querySelector('lucide-icon[name="bell"]')).not.toBeNull();
+    expect(playGameLogMessage).toHaveBeenCalledOnce();
+    expect(playChatMessage).not.toHaveBeenCalled();
+    expect(chatButton.classList).not.toContain('has-unread');
+    expect(chatButton.querySelector('lucide-icon[name="bell"]')).toBeNull();
+    expect((fixture.nativeElement as HTMLElement).querySelector('[data-testid="game-log-panel"]')?.classList)
+      .not.toContain('has-unread-notifications');
+
+    logButton.click();
+    fixture.detectChanges();
+
+    expect(logButton.classList).not.toContain('has-unread');
+    expect(logButton.querySelector('lucide-icon[name="bell"]')).toBeNull();
+  });
+
+  it('highlights unread game log entries and evaporates the highlight after reading them', async () => {
     routeParams['id'] = 'game-1';
     authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
     const snapshot = snapshotWithStatus('active');
@@ -1550,17 +2067,52 @@ describe('GameTableComponent', () => {
 
     const logButton = (fixture.nativeElement as HTMLElement).querySelector('[data-testid="game-log-open"]') as HTMLElement;
     expect(logButton.classList).toContain('has-unread');
-    expect(logButton.querySelector('lucide-icon[name="bell"]')).not.toBeNull();
-    expect(chatButton.classList).not.toContain('has-unread');
-    expect(chatButton.querySelector('lucide-icon[name="bell"]')).toBeNull();
-    expect((fixture.nativeElement as HTMLElement).querySelector('[data-testid="game-log-panel"]')?.classList)
-      .not.toContain('has-unread-notifications');
 
-    logButton.click();
+    vi.useFakeTimers();
+    try {
+      logButton.click();
+      fixture.detectChanges();
+
+      const logEntry = (fixture.nativeElement as HTMLElement).querySelector('[data-testid="game-log-entry"]') as HTMLElement;
+      expect(logEntry.classList).toContain('new-message-highlight');
+      expect(logEntry.classList).toContain('new-message-evaporating');
+
+      vi.advanceTimersByTime(3000);
+      fixture.detectChanges();
+
+      expect(logEntry.classList).not.toContain('new-message-highlight');
+      expect(logEntry.classList).not.toContain('new-message-evaporating');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('does not mark existing game log history as unread on initial load', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    snapshot.eventLog = [gameLogEntry('event-life', 'life.changed', 'Changed life.')];
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await vi.waitFor(() => expect(fixture.componentInstance.store.loading()).toBe(false));
+    fixture.detectChanges();
+    const notificationSound = fixture.debugElement.injector.get(GameTableNotificationSoundService);
+    const playGameLogMessage = vi.spyOn(notificationSound, 'playGameLogMessage').mockImplementation(() => undefined);
+
+    const chatButton = (fixture.nativeElement as HTMLElement).querySelector('[data-testid="chat-open"]') as HTMLElement;
+    chatButton.click();
+    fixture.detectChanges();
+    fixture.componentInstance.store.snapshot.set(structuredClone(snapshot));
+    await fixture.whenStable();
     fixture.detectChanges();
 
+    const logButton = (fixture.nativeElement as HTMLElement).querySelector('[data-testid="game-log-open"]') as HTMLElement;
     expect(logButton.classList).not.toContain('has-unread');
     expect(logButton.querySelector('lucide-icon[name="bell"]')).toBeNull();
+    expect(playGameLogMessage).not.toHaveBeenCalled();
   });
 
   it('keeps a clicked battlefield card as the active shortcut card', async () => {
@@ -1726,6 +2278,91 @@ describe('GameTableComponent', () => {
       type: 'library.shuffle',
       payload: { playerId: 'user-1' },
     }), 'game-1');
+  });
+
+  it('opens view-all library card menus with give destinations enabled', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    const libraryCard = snapshot.players['user-1'].zones.library[0]!;
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+    gameplayWebsocketCommand.mockReturnValue(of({
+      event: { id: 'event-library', type: 'library.view', payload: {}, createdBy: 'user-1', createdAt: '' },
+      snapshot,
+    }));
+    gamesApi.zone.mockReturnValue(of({
+      gameId: 'game-1',
+      playerId: 'user-1',
+      zone: 'library',
+      total: 1,
+      data: [libraryCard],
+    }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    await fixture.componentInstance.store.viewLibrary('user-1');
+    fixture.componentInstance.store.openZoneModalCardMenu({
+      preventDefault: vi.fn(),
+      stopPropagation: vi.fn(),
+      currentTarget: document.createElement('button'),
+      clientX: 120,
+      clientY: 160,
+    } as unknown as MouseEvent, libraryCard);
+
+    expect(fixture.componentInstance.store.contextMenu()).toEqual(expect.objectContaining({
+      kind: 'card',
+      zone: 'library',
+      card: libraryCard,
+      fromFixedZoneModal: true,
+    }));
+  });
+
+  it.each(['graveyard', 'exile'] as const)('opens %s modal card menus with give destinations enabled', async (zone) => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    const zoneCard = {
+      instanceId: `${zone}-card`,
+      ownerId: 'user-1',
+      controllerId: 'user-1',
+      name: `${zone} card`,
+      typeLine: 'Artifact',
+      zone,
+      tapped: false,
+      counters: {},
+    };
+    snapshot.players['user-1']!.zones[zone] = [zoneCard];
+    snapshot.players['user-1']!.zoneCounts![zone] = 1;
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+    gamesApi.zone.mockReturnValue(of({
+      gameId: 'game-1',
+      playerId: 'user-1',
+      zone,
+      total: 1,
+      data: [zoneCard],
+    }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    await fixture.componentInstance.store.openZone('user-1', zone);
+    fixture.componentInstance.store.openZoneModalCardMenu({
+      preventDefault: vi.fn(),
+      stopPropagation: vi.fn(),
+      currentTarget: document.createElement('button'),
+      clientX: 120,
+      clientY: 160,
+    } as unknown as MouseEvent, zoneCard);
+
+    expect(fixture.componentInstance.store.contextMenu()).toEqual(expect.objectContaining({
+      kind: 'card',
+      zone,
+      card: zoneCard,
+      fromFixedZoneModal: true,
+    }));
   });
 
   it('allows dragging the top card out of the library pile', async () => {
@@ -2332,6 +2969,15 @@ describe('GameTableComponent', () => {
     await fixture.whenStable();
 
     const card = snapshot.players['user-1'].zones.battlefield[0]!;
+    fixture.componentInstance.store.handleBattlefieldCardClick({
+      stopPropagation: vi.fn(),
+      currentTarget: document.createElement('button'),
+      ctrlKey: false,
+      metaKey: false,
+      shiftKey: false,
+    } as unknown as MouseEvent, 'user-1', card);
+    expect(fixture.componentInstance.store.hoveredPreview()?.card.instanceId).toBe(card.instanceId);
+
     fixture.componentInstance.handleContextMenuAction({ type: 'moveCard', zone: 'library' }, {
       x: 0,
       y: 0,
@@ -2343,6 +2989,7 @@ describe('GameTableComponent', () => {
 
     expect(gameplayWebsocketCommand).not.toHaveBeenCalled();
     expect(fixture.componentInstance.store.contextMenu()).toBeNull();
+    expect(fixture.componentInstance.store.hoveredPreview()).toBeNull();
     expect(fixture.componentInstance.store.pendingLibraryMove()).toEqual({
       cardName: 'Sol Ring',
       commandType: 'card.moved',
@@ -2587,6 +3234,9 @@ describe('GameTableComponent', () => {
     const fixture = TestBed.createComponent(GameTableComponent);
     fixture.detectChanges();
     await fixture.whenStable();
+    const motion = fixture.debugElement.injector.get(GameTableMotionService);
+    const throwGhost = vi.spyOn(motion, 'throwGhost').mockImplementation(() => undefined);
+    const target = appendPlayerDropTarget(fixture.nativeElement, 'user-2');
 
     const card = snapshot.players['user-1'].zones.battlefield[0]!;
     fixture.componentInstance.handleContextMenuAction({ type: 'giveToPlayer', targetPlayerId: 'user-2' }, {
@@ -2611,8 +3261,12 @@ describe('GameTableComponent', () => {
       },
     });
 
-    await fixture.componentInstance.store.confirmPendingBattlefieldMove();
+    fixture.componentInstance.confirmPendingBattlefieldMove();
 
+    expect(throwGhost).toHaveBeenCalledWith('card-1', target, expect.objectContaining({
+      scaleToTarget: true,
+      rotate: -6,
+    }));
     await vi.waitFor(() => expect(gameplayWebsocketCommand).toHaveBeenCalledWith(expect.objectContaining({
       type: 'card.controller.changed',
       payload: {
@@ -2704,6 +3358,9 @@ describe('GameTableComponent', () => {
     const fixture = TestBed.createComponent(GameTableComponent);
     fixture.detectChanges();
     await fixture.whenStable();
+    const motion = fixture.debugElement.injector.get(GameTableMotionService);
+    const throwGhost = vi.spyOn(motion, 'throwGhost').mockImplementation(() => undefined);
+    const target = appendPlayerDropTarget(fixture.nativeElement, 'user-2');
 
     const card = snapshot.players['user-1'].zones.hand[0]!;
     fixture.componentInstance.handleContextMenuAction({ type: 'giveToPlayer', targetPlayerId: 'user-2' }, {
@@ -2724,6 +3381,10 @@ describe('GameTableComponent', () => {
 
     fixture.componentInstance.confirmHandCardGive();
 
+    expect(throwGhost).toHaveBeenCalledWith('hand-1', target, expect.objectContaining({
+      scaleToTarget: true,
+      rotate: -6,
+    }));
     await vi.waitFor(() => expect(gameplayWebsocketCommand).toHaveBeenCalledWith(expect.objectContaining({
       type: 'card.moved',
       payload: {
@@ -3923,6 +4584,42 @@ describe('GameTableComponent', () => {
     expect(fixture.componentInstance.store.error()).toBe('You can only select cards on your own battlefield.');
   });
 
+  it('focuses the opponent battlefield when a mini battlefield card is clicked', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    snapshot.players['user-2'] = {
+      ...snapshot.players['user-1'],
+      user: { id: 'user-2', email: 'guest@test', displayName: 'Guest', roles: [] },
+      zones: {
+        ...snapshot.players['user-1'].zones,
+        battlefield: [{
+          ...snapshot.players['user-1'].zones.battlefield[0]!,
+          instanceId: 'opponent-card',
+          ownerId: 'user-2',
+          controllerId: 'user-2',
+        }],
+      },
+    };
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.handleOpponentMiniBattlefieldCardClick({
+      event: {
+        preventDefault: vi.fn(),
+        stopPropagation: vi.fn(),
+      } as unknown as MouseEvent,
+      playerId: 'user-2',
+      card: snapshot.players['user-2'].zones.battlefield[0]!,
+    });
+
+    expect(fixture.componentInstance.store.focusedPlayer()?.id).toBe('user-2');
+    expect(fixture.componentInstance.store.error()).toBeNull();
+  });
+
   it('explains why opponent battlefield card menus cannot be opened', async () => {
     routeParams['id'] = 'game-1';
     authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
@@ -3953,6 +4650,33 @@ describe('GameTableComponent', () => {
 
     expect(fixture.componentInstance.store.contextMenu()).toBeNull();
     expect(fixture.componentInstance.store.error()).toBe('You can only open card actions for your own battlefield.');
+  });
+
+  it('does not pin a card preview when opening a card context menu', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const card = snapshot.players['user-1'].zones.battlefield[0]!;
+    fixture.componentInstance.store.showCardPreview(card, 'user-1', 'battlefield');
+    fixture.componentInstance.store.openCardMenu({
+      preventDefault: vi.fn(),
+      stopPropagation: vi.fn(),
+      currentTarget: document.createElement('button'),
+      clientX: 160,
+      clientY: 180,
+    } as unknown as MouseEvent, 'user-1', 'battlefield', card);
+
+    expect(fixture.componentInstance.store.contextMenu()).toEqual(expect.objectContaining({
+      kind: 'card',
+      card,
+    }));
+    expect(fixture.componentInstance.store.hoveredPreview()).toBeNull();
   });
 
   it('does not open context menus for command zone cards or the command zone', async () => {
@@ -4353,6 +5077,46 @@ function addOpponent(snapshot: GameSnapshot): void {
   };
 }
 
+function appendDropZone(host: HTMLElement, playerId: string, zone: string): HTMLElement {
+  const target = document.createElement('div');
+  target.dataset['gameDropZone'] = 'true';
+  target.dataset['playerId'] = playerId;
+  target.dataset['zone'] = zone;
+  target.getBoundingClientRect = () => ({
+    x: 320,
+    y: 40,
+    width: 120,
+    height: 80,
+    top: 40,
+    left: 320,
+    bottom: 120,
+    right: 440,
+    toJSON: () => ({}),
+  }) as DOMRect;
+  host.querySelector('[data-testid="game-screen"]')?.appendChild(target);
+
+  return target;
+}
+
+function appendPlayerDropTarget(host: HTMLElement, playerId: string): HTMLElement {
+  const target = document.createElement('div');
+  target.dataset['playerDropTarget'] = playerId;
+  target.getBoundingClientRect = () => ({
+    x: 480,
+    y: 36,
+    width: 160,
+    height: 96,
+    top: 36,
+    left: 480,
+    bottom: 132,
+    right: 640,
+    toJSON: () => ({}),
+  }) as DOMRect;
+  host.querySelector('[data-testid="game-screen"]')?.appendChild(target);
+
+  return target;
+}
+
 function dragDataTransfer(): DataTransfer {
   const data = new Map<string, string>();
 
@@ -4397,5 +5161,23 @@ function gameLogEntry(id: string, type: string, message: string): GameSnapshot['
     actorId: 'user-1',
     displayName: 'User',
     createdAt: '2026-04-30T20:00:00+00:00',
+  };
+}
+
+function chatMessage(
+  userId: string,
+  displayName: string,
+  message: string,
+  targetPlayerId: string | null,
+  createdAt: string,
+): GameSnapshot['chat'][number] {
+  return {
+    id: `${userId}-${createdAt}`,
+    userId,
+    displayName,
+    message,
+    targetPlayerId,
+    targetDisplayName: targetPlayerId ? 'User' : null,
+    createdAt,
   };
 }

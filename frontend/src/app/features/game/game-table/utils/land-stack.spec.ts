@@ -13,12 +13,12 @@ describe('land stack utilities', () => {
   it('detects compact two and three card land stacks', () => {
     const two = buildLandStackGroups([
       land('top', 100, 200),
-      land('under', 110, 186),
+      land('under', 110, 182),
     ], positionFor);
     const three = buildLandStackGroups([
       land('top', 100, 200),
-      land('under', 110, 186),
-      land('bottom', 120, 172),
+      land('under', 110, 182),
+      land('bottom', 120, 164),
     ], positionFor);
 
     expect(two[0]?.members.map((member) => member.card.instanceId)).toEqual(['top', 'under']);
@@ -38,6 +38,16 @@ describe('land stack utilities', () => {
     ], positionFor);
 
     expect(previous[0]?.members.map((member) => member.card.instanceId)).toEqual(['top', 'under', 'bottom']);
+    expect(groups[0]?.members.map((member) => member.card.instanceId)).toEqual(['top', 'under', 'bottom']);
+  });
+
+  it('detects a stack whose cards were bottom-clamped to the same row during zoom reflow', () => {
+    const groups = buildLandStackGroups([
+      land('top', 100, 200),
+      land('under', 110, 200),
+      land('bottom', 120, 200),
+    ], positionFor);
+
     expect(groups[0]?.members.map((member) => member.card.instanceId)).toEqual(['top', 'under', 'bottom']);
   });
 
@@ -63,31 +73,31 @@ describe('land stack utilities', () => {
 
     expect(target?.targetCard.instanceId).toBe('target');
     expect(target?.nextSize).toBe(2);
-    expect(moves).toEqual([{ card: battlefield[0], position: { x: 110, y: 186 } }]);
+    expect(moves).toEqual([{ card: battlefield[0], position: { x: 110, y: 182 } }]);
   });
 
   it('adds the third land to the bottom of an existing two card stack', () => {
     const battlefield = [
       land('dragged', 140, 220),
       land('top', 100, 200),
-      land('under', 100, 186),
+      land('under', 100, 182),
     ];
     const target = landStackDropTarget(battlefield, 'dragged', { x: 100, y: 200 }, positionFor);
     const moves = target ? createLandStackMoves(target, battlefield[0]!) : [];
 
     expect(target?.targetCard.instanceId).toBe('top');
     expect(target?.nextSize).toBe(3);
-    expect(moves).toEqual([{ card: battlefield[0], position: { x: 120, y: 172 } }]);
+    expect(moves).toEqual([{ card: battlefield[0], position: { x: 120, y: 164 } }]);
   });
 
   it('targets the top land when hovering mainly over the second card of a two-card stack', () => {
     const battlefield = [
       land('dragged', 140, 220),
       land('top', 100, 200),
-      land('under', 110, 186),
+      land('under', 110, 182),
     ];
 
-    const target = landStackDropTarget(battlefield, 'dragged', { x: 110, y: 186 }, positionFor);
+    const target = landStackDropTarget(battlefield, 'dragged', { x: 110, y: 182 }, positionFor);
 
     expect(target?.targetCard.instanceId).toBe('top');
     expect(target?.nextSize).toBe(3);
@@ -97,7 +107,7 @@ describe('land stack utilities', () => {
     const battlefield = [
       land('dragged', 140, 220),
       land('top', 100, 200),
-      land('under', 110, 186),
+      land('under', 110, 182),
     ];
 
     const target = landStackDropTarget(battlefield, 'dragged', { x: 108, y: 196 }, positionFor);
@@ -123,29 +133,29 @@ describe('land stack utilities', () => {
     const battlefield = [
       land('dragged', 100, 200),
       land('top', 100, 200),
-      land('under', 100, 186),
+      land('under', 100, 182),
     ];
     const target = landStackDropTarget(battlefield, 'dragged', { x: 100, y: 200 }, positionFor);
     const moves = target ? createLandStackMoves(target, battlefield[0]!) : [];
 
     expect(target?.targetCard.instanceId).toBe('top');
     expect(target?.nextSize).toBe(3);
-    expect(moves).toEqual([{ card: battlefield[0], position: { x: 120, y: 172 } }]);
+    expect(moves).toEqual([{ card: battlefield[0], position: { x: 120, y: 164 } }]);
   });
 
   it('reanchors an existing two card stack when adding the third land with a new top position', () => {
     const battlefield = [
       land('dragged', 140, 220),
       land('top', 100, 200),
-      land('under', 100, 186),
+      land('under', 100, 182),
     ];
     const target = landStackDropTarget(battlefield, 'dragged', { x: 100, y: 200 }, positionFor);
     const moves = target ? createLandStackMoves(target, battlefield[0]!, { x: 100, y: 296 }) : [];
 
     expect(moves.map((move) => ({ id: move.card.instanceId, position: move.position }))).toEqual([
       { id: 'top', position: { x: 100, y: 296 } },
-      { id: 'under', position: { x: 110, y: 282 } },
-      { id: 'dragged', position: { x: 120, y: 268 } },
+      { id: 'under', position: { x: 110, y: 278 } },
+      { id: 'dragged', position: { x: 120, y: 260 } },
     ]);
   });
 
@@ -153,8 +163,8 @@ describe('land stack utilities', () => {
     const battlefield = [
       land('dragged', 140, 220),
       land('top', 100, 200),
-      land('under', 100, 186),
-      land('bottom', 100, 172),
+      land('under', 100, 182),
+      land('bottom', 100, 164),
     ];
 
     expect(landStackDropTarget(battlefield, 'dragged', { x: 100, y: 200 }, positionFor)).toBeNull();
@@ -186,8 +196,8 @@ describe('land stack utilities', () => {
   it('separates a stack around its current top position', () => {
     const group = buildLandStackGroups([
       land('top', 100, 200),
-      land('under', 100, 186),
-      land('bottom', 100, 172),
+      land('under', 100, 182),
+      land('bottom', 100, 164),
     ], positionFor)[0]!;
 
     expect(removeLandStackMoves(group).map((move) => ({ id: move.card.instanceId, position: move.position }))).toEqual([
@@ -200,8 +210,8 @@ describe('land stack utilities', () => {
   it('separates a stack toward the left when the top card is close to the right edge', () => {
     const group = buildLandStackGroups([
       land('top', 400, 200),
-      land('under', 400, 186),
-      land('bottom', 400, 172),
+      land('under', 400, 182),
+      land('bottom', 400, 164),
     ], positionFor)[0]!;
 
     expect(removeLandStackMoves(group).map((move) => ({ id: move.card.instanceId, position: move.position }))).toEqual([
@@ -214,28 +224,28 @@ describe('land stack utilities', () => {
   it('recompacts a three card stack after extracting the middle land', () => {
     const group = buildLandStackGroups([
       land('top', 100, 200),
-      land('middle', 100, 186),
-      land('bottom', 100, 172),
+      land('middle', 100, 182),
+      land('bottom', 100, 164),
     ], positionFor)[0]!;
     const source = landStackDetachSource('player-1', group, 'middle')!;
 
     expect(detachLandStackMoves(source)).toEqual([
       { instanceId: 'top', position: { x: 100, y: 200 } },
-      { instanceId: 'bottom', position: { x: 110, y: 186 } },
+      { instanceId: 'bottom', position: { x: 110, y: 182 } },
     ]);
   });
 
   it('keeps the two upper lands compact after extracting the bottom land', () => {
     const group = buildLandStackGroups([
       land('top', 100, 200),
-      land('middle', 100, 186),
-      land('bottom', 100, 172),
+      land('middle', 100, 182),
+      land('bottom', 100, 164),
     ], positionFor)[0]!;
     const source = landStackDetachSource('player-1', group, 'bottom')!;
 
     expect(detachLandStackMoves(source)).toEqual([
       { instanceId: 'top', position: { x: 100, y: 200 } },
-      { instanceId: 'middle', position: { x: 110, y: 186 } },
+      { instanceId: 'middle', position: { x: 110, y: 182 } },
     ]);
   });
 });

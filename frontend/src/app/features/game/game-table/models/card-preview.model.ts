@@ -18,6 +18,32 @@ export interface CardPreviewEvent {
   readonly sourceRect: CardPreviewSourceRect | null;
 }
 
+export interface CardPreviewAttachmentItem {
+  readonly instanceId: string;
+  readonly name: string;
+}
+
+export interface CardPreviewAttachmentInfo {
+  readonly attachedTo: CardPreviewAttachmentItem | null;
+  readonly attachedCards: readonly CardPreviewAttachmentItem[];
+}
+
+export interface CardPreviewCounterItem {
+  readonly key: string;
+  readonly value: number;
+}
+
+export interface CardPreviewPowerToughnessInfo {
+  readonly power: number;
+  readonly toughness: number;
+}
+
+export interface CardPreviewCardStateInfo {
+  readonly powerToughness: CardPreviewPowerToughnessInfo | null;
+  readonly loyalty: number | null;
+  readonly counters: readonly CardPreviewCounterItem[];
+}
+
 export function previewRectFromElement(element: Element | null): CardPreviewSourceRect | null {
   if (!element) {
     return null;
