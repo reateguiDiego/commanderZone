@@ -6,6 +6,7 @@ import { catchError, debounceTime, distinctUntilChanged, firstValueFrom, map, of
 import { AuthApi, AvatarUpdatePayload, DisplayNameStyleUpdatePayload } from '../../../../../../../core/api/auth.api';
 import { appImageUrl } from '../../../../../../../core/assets/app-image-url';
 import { AuthStore } from '../../../../../../../core/auth/auth.store';
+import { AppShellI18nService } from '../../../../../../../core/localization/app-shell-i18n.service';
 import { isSupportedLanguageCode, LANGUAGE_OPTIONS, normalizeLanguageCode, SupportedLanguageCode } from '../../../../../../../core/localization/language-preferences';
 import { LanguagePreferencesService } from '../../../../../../../core/localization/language-preferences.service';
 import { UserAvatar, UserDisplayNameStyle } from '../../../../../../../core/models/user.model';
@@ -51,6 +52,7 @@ export class DashboardSettingsModalComponent {
   private readonly authStore = inject(AuthStore);
   private readonly authApi = inject(AuthApi);
   private readonly languagePreferences = inject(LanguagePreferencesService);
+  private readonly i18n = inject(AppShellI18nService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly formBuilder = inject(NonNullableFormBuilder);
   private wasOpen = false;
@@ -80,6 +82,23 @@ export class DashboardSettingsModalComponent {
     appLanguage: 'en',
   });
   readonly languageOptions = LANGUAGE_OPTIONS;
+  readonly localizedLanguageOptions = computed(() =>
+    this.languageOptions.map((language) => ({
+      ...language,
+      label: this.i18n.languageName(language.code),
+    })),
+  );
+  readonly settingsTitle = computed(() => this.i18n.text('settingsTitle'));
+  readonly cancelLabel = computed(() => this.i18n.text('cancel'));
+  readonly saveLabel = computed(() => this.i18n.text('save'));
+  readonly backToSettingsLabel = computed(() => this.i18n.text('backToSettings'));
+  readonly predefinedAvatarsLabel = computed(() => this.i18n.text('predefinedAvatars'));
+  readonly uploadImageLabel = computed(() => this.i18n.text('uploadImage'));
+  readonly settingsSectionsLabel = computed(() => this.i18n.text('settingsSections'));
+  readonly generalTabLabel = computed(() => this.i18n.text('generalTab'));
+  readonly gameTabLabel = computed(() => this.i18n.text('gameTab'));
+  readonly cardLanguageLabel = computed(() => this.i18n.text('cardLanguage'));
+  readonly appLanguageLabel = computed(() => this.i18n.text('appLanguage'));
   readonly selectedCardLanguage = signal<SupportedLanguageCode>('en');
   readonly selectedAppLanguage = signal<SupportedLanguageCode>('en');
 

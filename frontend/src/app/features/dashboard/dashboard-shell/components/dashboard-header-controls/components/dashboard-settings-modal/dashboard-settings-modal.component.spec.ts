@@ -109,6 +109,46 @@ describe('DashboardSettingsModalComponent', () => {
     expect(reloadSpy).toHaveBeenCalledTimes(1);
   });
 
+  it('persists only app language changes without forcing reload', async () => {
+    const fixture = TestBed.createComponent(DashboardSettingsModalComponent);
+    const reloadSpy = vi.spyOn(fixture.componentInstance as unknown as { reloadPage(): void }, 'reloadPage')
+      .mockImplementation(() => undefined);
+    fixture.componentRef.setInput('open', true);
+    fixture.detectChanges();
+
+    fixture.componentInstance.setAppLanguage('fr');
+    fixture.detectChanges();
+
+    await fixture.componentInstance.savePreferences();
+
+    expect(authApiMock.updateMe).toHaveBeenCalledWith({ appLanguage: 'fr' });
+    expect(reloadSpy).not.toHaveBeenCalled();
+  });
+
+  it('shows persisted language selections in game tab selectors', () => {
+    const fixture = TestBed.createComponent(DashboardSettingsModalComponent);
+    fixture.componentRef.setInput('open', true);
+    fixture.detectChanges();
+
+    fixture.componentInstance.profileBaseline.set({
+      email: 'player@example.test',
+      displayName: 'Player',
+      cardLanguage: 'fr',
+      appLanguage: 'de',
+    });
+    fixture.componentInstance.selectedCardLanguage.set('fr');
+    fixture.componentInstance.selectedAppLanguage.set('de');
+    fixture.componentInstance.switchTab('game');
+    fixture.detectChanges();
+
+    const selects = fixture.nativeElement.querySelectorAll('.game-settings-form select') as NodeListOf<HTMLSelectElement>;
+    const cardLanguageSelect = selects.item(0);
+    const appLanguageSelect = selects.item(1);
+
+    expect(cardLanguageSelect?.value).toBe('fr');
+    expect(appLanguageSelect?.value).toBe('de');
+  });
+
   it('shows avatar editor and persists preset selection through the API', async () => {
     const fixture = TestBed.createComponent(DashboardSettingsModalComponent);
     fixture.componentRef.setInput('open', true);
