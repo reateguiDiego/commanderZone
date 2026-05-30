@@ -67,6 +67,37 @@ class GameWebsocketCardLocalizationResolverTest extends TestCase
         self::assertSame('en', $lookup['es']['source-1']['lang']);
     }
 
+    public function testFallsBackToRequestedLanguageByNormalizedNameWhenExactPrintIsMissing(): void
+    {
+        $sourceResult = $this->resultWithRows([$this->sourceRow()]);
+        $exactCandidates = $this->resultWithRows([
+            $this->candidateRow(sourceScryfallId: 'source-1', candidateScryfallId: 'en-cmm-1', lang: 'en', imageStatus: null),
+        ]);
+        $fallbackCandidates = $this->resultWithRows([
+            $this->candidateRow(sourceScryfallId: 'source-1', candidateScryfallId: 'es-alt-99', lang: 'es', imageStatus: null),
+        ]);
+        $payloadResult = $this->resultWithRows([
+            $this->payloadRow(scryfallId: 'es-alt-99', lang: 'es', printedName: 'Anillo solar'),
+        ]);
+
+        $connection = $this->createMock(Connection::class);
+        $connection->method('fetchOne')->willThrowException(new \RuntimeException('not supported in test'));
+        $connection->expects(self::exactly(4))
+            ->method('executeQuery')
+            ->willReturnOnConsecutiveCalls(
+                $sourceResult,
+                $exactCandidates,
+                $fallbackCandidates,
+                $payloadResult,
+            );
+
+        $resolver = new GameWebsocketCardLocalizationResolver($connection);
+        $lookup = $resolver->buildLocalizedLookup($this->snapshotWithCard('source-1'), [], ['es']);
+
+        self::assertSame('Anillo solar', $lookup['es']['source-1']['name']);
+        self::assertSame('es', $lookup['es']['source-1']['lang']);
+    }
+
     public function testDoesNotQueryLegacyExactCandidatesWhenPrintTablesCoverRequestedSourceIds(): void
     {
         $sourceResult = $this->resultWithRows([
