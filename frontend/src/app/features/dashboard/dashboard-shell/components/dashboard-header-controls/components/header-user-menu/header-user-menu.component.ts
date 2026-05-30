@@ -61,6 +61,7 @@ export class HeaderUserMenuComponent {
     }
 
     await this.languagePreferences.updateCardLanguage(code);
+    this.reloadPage();
     this.languagePickerOpen.set(false);
   }
 
@@ -82,6 +83,10 @@ export class HeaderUserMenuComponent {
   closeMenu(): void {
     this.menuOpen.set(false);
     this.languagePickerOpen.set(false);
+  }
+
+  private reloadPage(): void {
+    window.location.reload();
   }
 }
 

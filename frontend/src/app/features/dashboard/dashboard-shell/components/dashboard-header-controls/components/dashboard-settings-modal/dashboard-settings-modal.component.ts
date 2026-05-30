@@ -250,6 +250,7 @@ export class DashboardSettingsModalComponent {
     this.saveInProgress.set(true);
     this.errorMessage.set(null);
     this.statusMessage.set(null);
+    const shouldReloadForCardLanguage = payload.cardLanguage !== undefined;
 
     try {
       await firstValueFrom(this.authApi.updateMe(payload));
@@ -263,6 +264,10 @@ export class DashboardSettingsModalComponent {
       this.profileForm.markAsPristine();
       this.emailAvailability.set('idle');
       this.userNameAvailability.set('idle');
+      if (shouldReloadForCardLanguage) {
+        this.reloadPage();
+        return;
+      }
       this.statusMessage.set('Preferences saved.');
     } catch {
       this.errorMessage.set('No se pudieron guardar los cambios.');
@@ -484,5 +489,9 @@ export class DashboardSettingsModalComponent {
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe((availability) => this.userNameAvailability.set(availability));
+  }
+
+  private reloadPage(): void {
+    window.location.reload();
   }
 }

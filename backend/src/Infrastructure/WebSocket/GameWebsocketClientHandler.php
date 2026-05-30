@@ -436,12 +436,60 @@ final readonly class GameWebsocketClientHandler implements WebsocketClientHandle
      */
     private function outgoingDebugSummary(array $message, string $channel, string $recipientUserId): array
     {
-        $summary = $message;
-        $summary['channel'] = $channel;
-        $summary['recipientUserId'] = $recipientUserId;
-        $summary['characters'] = $this->jsonCharacters($message);
+        $operationTypes = $this->operationTypes($message);
+        $summary = [
+            'kind' => is_string($message['kind'] ?? null) ? $message['kind'] : 'unknown',
+            'status' => is_string($message['status'] ?? null) ? $message['status'] : null,
+            'version' => is_int($message['version'] ?? null) ? $message['version'] : null,
+            'currentVersion' => is_int($message['currentVersion'] ?? null) ? $message['currentVersion'] : null,
+            'operationCount' => is_array($message['operations'] ?? null) ? count($message['operations']) : 0,
+            'operationTypes' => $operationTypes,
+            'characters' => $this->jsonCharacters($message),
+            'channel' => $channel,
+            'recipientUserId' => $recipientUserId,
+            'error' => is_array($message['error'] ?? null)
+                ? [
+                    'code' => is_string($message['error']['code'] ?? null) ? $message['error']['code'] : null,
+                ]
+                : null,
+        ];
+
+        if ($operationTypes !== []) {
+            $summary['operations'] = array_map(
+                static fn (string $operationType): array => ['op' => $operationType],
+                $operationTypes,
+            );
+        }
 
         return $summary;
+    }
+
+    /**
+     * @param array<string,mixed> $message
+     *
+     * @return list<string>
+     */
+    private function operationTypes(array $message): array
+    {
+        if (!is_array($message['operations'] ?? null)) {
+            return [];
+        }
+
+        $types = [];
+        foreach ($message['operations'] as $operation) {
+            if (!is_array($operation)) {
+                continue;
+            }
+
+            $operationType = $operation['op'] ?? null;
+            if (!is_string($operationType) || trim($operationType) === '') {
+                continue;
+            }
+
+            $types[$operationType] = true;
+        }
+
+        return array_values(array_keys($types));
     }
 
     /**

@@ -60,6 +60,7 @@ export class GameTableHeaderMenuComponent {
     }
 
     await this.languagePreferences.updateCardLanguage(code);
+    window.location.reload();
     this.languagePickerOpen.set(false);
   }
 

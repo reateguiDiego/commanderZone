@@ -78,6 +78,8 @@ describe('HeaderUserMenuComponent', () => {
 
   it('updates selected language from the language picker', async () => {
     const fixture = TestBed.createComponent(HeaderUserMenuComponent);
+    const reloadSpy = vi.spyOn(fixture.componentInstance as unknown as { reloadPage(): void }, 'reloadPage')
+      .mockImplementation(() => undefined);
     fixture.detectChanges();
 
     const trigger = fixture.nativeElement.querySelector('.icon-button') as HTMLButtonElement;
@@ -102,6 +104,7 @@ describe('HeaderUserMenuComponent', () => {
     await Promise.resolve();
 
     expect(updateCardLanguage).toHaveBeenCalledWith('fr');
+    expect(reloadSpy).toHaveBeenCalledTimes(1);
     expect(
       (fixture.nativeElement.querySelector('.menu-item-flag') as HTMLImageElement)?.getAttribute('src'),
     ).toContain('france.png');

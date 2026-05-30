@@ -241,6 +241,7 @@ if (-not $SkipBackend -and -not $SkipMigrations) {
     Invoke-Step 'Running Doctrine migrations' {
         Set-Location $Backend
         php bin/console doctrine:migrations:migrate --no-interaction
+        php bin/console doctrine:migrations:up-to-date
         Set-Location $Root
     }
 }

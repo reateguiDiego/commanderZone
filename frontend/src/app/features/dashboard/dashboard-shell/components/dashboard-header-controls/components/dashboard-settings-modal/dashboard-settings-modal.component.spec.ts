@@ -93,6 +93,8 @@ describe('DashboardSettingsModalComponent', () => {
 
   it('persists game language preferences through /me', async () => {
     const fixture = TestBed.createComponent(DashboardSettingsModalComponent);
+    const reloadSpy = vi.spyOn(fixture.componentInstance as unknown as { reloadPage(): void }, 'reloadPage')
+      .mockImplementation(() => undefined);
     fixture.componentRef.setInput('open', true);
     fixture.detectChanges();
 
@@ -104,6 +106,7 @@ describe('DashboardSettingsModalComponent', () => {
 
     expect(authApiMock.updateMe).toHaveBeenCalledWith({ cardLanguage: 'es', appLanguage: 'fr' });
     expect(authStoreMock.loadMe).toHaveBeenCalled();
+    expect(reloadSpy).toHaveBeenCalledTimes(1);
   });
 
   it('shows avatar editor and persists preset selection through the API', async () => {

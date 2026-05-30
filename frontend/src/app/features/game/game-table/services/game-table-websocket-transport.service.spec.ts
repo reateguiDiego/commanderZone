@@ -201,7 +201,36 @@ describe('GameTableWebsocketTransportService', () => {
     }));
     await service.connect('game-1');
     sockets[0].fail();
-    expect(service.status()).toBe('error');
+    expect(service.status()).toBe('disconnected');
+  });
+
+  it('reconnects when the socket errors before it ever opens, even if close is not emitted', async () => {
+    vi.useFakeTimers();
+    try {
+      gamesApi.websocketTicket
+        .mockReturnValueOnce(of({
+          ticket: 'ticket-1',
+          expiresAt: '2026-01-01T00:00:30+00:00',
+          websocketUrl: 'ws://127.0.0.1:8081/games/game-1?ticket=ticket-1',
+        }))
+        .mockReturnValueOnce(of({
+          ticket: 'ticket-2',
+          expiresAt: '2026-01-01T00:00:30+00:00',
+          websocketUrl: 'ws://127.0.0.1:8081/games/game-1?ticket=ticket-2',
+        }));
+
+      await service.connect('game-1');
+      sockets[0].fail();
+      expect(service.status()).toBe('disconnected');
+
+      await vi.advanceTimersByTimeAsync(250);
+
+      expect(sockets).toHaveLength(2);
+      expect(sockets[1].url).toBe('ws://127.0.0.1:8081/games/game-1?ticket=ticket-2');
+      expect(service.status()).toBe('connecting');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('processes connection_state, pong and error messages', async () => {

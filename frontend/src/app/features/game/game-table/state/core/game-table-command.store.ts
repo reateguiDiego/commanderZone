@@ -54,7 +54,7 @@ export class GameTableCommandStore {
       this.pendingTransferState.clear();
       this.dropFeedbackState.clearPendingBattlefieldEntries();
       const message = context.errorMessage(error);
-      if (!this.shouldSuppressCommandErrorToast(type, message)) {
+      if (!this.shouldSuppressCommandErrorToast(type, message, error)) {
         this.core.error.set(message);
       }
     } finally {
@@ -62,7 +62,13 @@ export class GameTableCommandStore {
     }
   }
 
-  private shouldSuppressCommandErrorToast(type: GameCommandType, message: string): boolean {
+  private shouldSuppressCommandErrorToast(type: GameCommandType, message: string, error: unknown): boolean {
+    const rawMessage = error instanceof Error ? error.message.toLowerCase() : '';
+
+    if (type === 'turn.changed' && rawMessage.includes('conceded players cannot perform game actions')) {
+      return true;
+    }
+
     return type === 'cards.position.changed'
       && message === 'positions must contain at least one card position.';
   }

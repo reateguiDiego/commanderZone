@@ -1953,6 +1953,28 @@ class GameCommandHandlerTest extends TestCase
         self::assertSame($defeated->id(), $game->snapshot()['turn']['activePlayerId']);
     }
 
+    public function testConcedeByActiveTurnPlayerAdvancesTurnToNextAlivePlayer(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $next = new User('next@example.test', 'Next');
+        $other = new User('other@example.test', 'Other');
+        $snapshot = $this->snapshot($actor->id(), [], $next->id());
+        $snapshot['players'][$other->id()] = $this->player($other->id(), []);
+        $snapshot['turn'] = [
+            'activePlayerId' => $actor->id(),
+            'phase' => 'main-1',
+            'number' => 3,
+        ];
+        $game = new Game(new Room($actor), $snapshot);
+
+        (new GameCommandHandler())->apply($game, 'game.concede', [], $actor);
+
+        self::assertSame('conceded', $game->snapshot()['players'][$actor->id()]['status']);
+        self::assertSame($next->id(), $game->snapshot()['turn']['activePlayerId']);
+        self::assertSame('untap', $game->snapshot()['turn']['phase']);
+        self::assertSame(3, $game->snapshot()['turn']['number']);
+    }
+
     public function testMovingCardToSameZoneDoesNotCreateLogEntry(): void
     {
         $actor = new User('owner@example.test', 'Owner');

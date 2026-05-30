@@ -1020,6 +1020,47 @@ class GameWebsocketPatchBuilderTest extends TestCase
         self::assertStringNotContainsString('"status":"finished"', $encodedClose);
     }
 
+    public function testConcedeDoesNotEmitTurnSetWhenTurnDoesNotChange(): void
+    {
+        [$game, $actor, $opponent] = $this->gameWithBattlefieldCards();
+        $snapshot = $game->snapshot();
+        $snapshot['turn']['activePlayerId'] = $opponent->id();
+        $game->replaceSnapshot($snapshot);
+
+        $concede = $this->applyAndBuild($game, $actor, 'game.concede', [], 'action-concede-no-turn');
+
+        self::assertNotContains('turn.set', array_column($concede['operations'], 'op'));
+        self::assertContains('player.status.set', array_column($concede['operations'], 'op'));
+        self::assertContains('eventLog.append', array_column($concede['operations'], 'op'));
+    }
+
+    public function testConcedeEmitsTurnSetWhenTurnChangesInSnapshot(): void
+    {
+        [$game, $actor, $opponent] = $this->gameWithBattlefieldCards();
+        $previous = $game->snapshot();
+        $next = $previous;
+        $next['version'] = $previous['version'] + 1;
+        $next['players'][$actor->id()]['status'] = 'conceded';
+        $next['players'][$actor->id()]['concededAt'] = '2026-01-01T00:00:01+00:00';
+        $next['turn'] = ['activePlayerId' => $opponent->id(), 'phase' => 'untap', 'number' => 2];
+        $next['eventLog'][] = [
+            'id' => 'log-concede-turn-shift',
+            'type' => 'game.concede',
+            'message' => 'Actor conceded.',
+            'actorId' => $actor->id(),
+            'displayName' => $actor->displayName(),
+            'createdAt' => '2026-01-01T00:00:01+00:00',
+        ];
+        $event = new GameEvent($game, 'game.concede', [], $actor, 'action-concede-turn-shift');
+
+        $message = (new GameWebsocketPatchBuilder(new GameWebsocketMessageFactory()))
+            ->build($game->id(), $previous, $next, $event);
+
+        self::assertContains('player.status.set', array_column($message['operations'], 'op'));
+        self::assertContains('turn.set', array_column($message['operations'], 'op'));
+        self::assertContains('eventLog.append', array_column($message['operations'], 'op'));
+    }
+
     public function testBuildsEventLogAppendAcrossSlidingWindowRollover(): void
     {
         [$game, $actor] = $this->game();

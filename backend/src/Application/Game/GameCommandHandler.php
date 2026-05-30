@@ -398,9 +398,25 @@ class GameCommandHandler
         if (!isset($snapshot['players'][$playerId])) {
             throw new \InvalidArgumentException('Actor is not a game player.');
         }
+        $previousActivePlayerId = (string) ($snapshot['turn']['activePlayerId'] ?? '');
+        $wasActiveTurnPlayer = $previousActivePlayerId !== '' && $previousActivePlayerId === $playerId;
+        $previousTurnNumber = max(1, (int) ($snapshot['turn']['number'] ?? 1));
 
         $snapshot['players'][$playerId]['status'] = 'conceded';
         $snapshot['players'][$playerId]['concededAt'] = (new \DateTimeImmutable())->format(DATE_ATOM);
+        if ($wasActiveTurnPlayer) {
+            $nextActivePlayerId = $this->turnEligiblePlayerId($snapshot, $playerId);
+            if ($nextActivePlayerId !== '' && $nextActivePlayerId !== $playerId) {
+                $snapshot['turn']['activePlayerId'] = $nextActivePlayerId;
+                $snapshot['turn']['phase'] = 'untap';
+                $snapshot['turn']['number'] = $this->nextTurnNumberAfterActivePlayerShift(
+                    $snapshot,
+                    $previousActivePlayerId,
+                    $nextActivePlayerId,
+                    $previousTurnNumber,
+                );
+            }
+        }
 
         return sprintf('%s conceded.', $this->playerName($snapshot, $playerId));
     }
@@ -1964,6 +1980,23 @@ class GameCommandHandler
     {
         return ($snapshot['players'][$playerId]['status'] ?? 'active') === 'active'
             && !$this->playerIsDefeated($snapshot, $playerId);
+    }
+
+    private function nextTurnNumberAfterActivePlayerShift(
+        array $snapshot,
+        string $previousActivePlayerId,
+        string $nextActivePlayerId,
+        int $currentTurnNumber,
+    ): int {
+        $players = is_array($snapshot['players'] ?? null) ? $snapshot['players'] : [];
+        $playerIds = array_keys($players);
+        $previousIndex = array_search($previousActivePlayerId, $playerIds, true);
+        $nextIndex = array_search($nextActivePlayerId, $playerIds, true);
+        if (!is_int($previousIndex) || !is_int($nextIndex)) {
+            return $currentTurnNumber;
+        }
+
+        return $nextIndex <= $previousIndex ? $currentTurnNumber + 1 : $currentTurnNumber;
     }
 
     private function takeCard(array &$snapshot, string $playerId, string $zone, string $instanceId): array
