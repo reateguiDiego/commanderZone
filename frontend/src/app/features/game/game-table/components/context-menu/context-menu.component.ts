@@ -53,7 +53,7 @@ export type ContextMenuAction =
   | { type: 'changeCounter'; counter: string }
   | { type: 'removeCounter'; counter: string }
   | { type: 'removeAllCounters' }
-  | { type: 'giveToPlayer'; targetPlayerId: string }
+  | { type: 'giveToPlayer'; zone?: 'battlefield' | 'hand'; targetPlayerId: string }
   | { type: 'moveCard'; zone: GameZoneName; position?: 'top' | 'bottom' }
   | { type: 'deleteArrow' }
   | { type: 'deleteArrows' }
@@ -111,6 +111,7 @@ export class ContextMenuComponent {
       preserveCase: true,
     }))),
   );
+  readonly giveToDestinationMenuItems = computed<readonly ContextSubmenuItem[]>(() => this.buildGiveToDestinationMenuItems());
   readonly moveToMenuItems = computed<readonly ContextSubmenuItem[]>(() => this.buildMoveToMenuItems());
   readonly moveAllToMenuItems = computed<readonly ContextSubmenuItem[]>(() => this.buildMoveAllToMenuItems());
   readonly revealToMenuItems = computed<readonly ContextSubmenuItem[]>(() => [
@@ -280,6 +281,15 @@ export class ContextMenuComponent {
     return (this.menu().card?.cardFaces?.length ?? 0) > 1;
   }
 
+  canGiveFixedZoneCard(): boolean {
+    const currentMenu = this.menu();
+
+    return currentMenu.kind === 'card'
+      && currentMenu.fromFixedZoneModal === true
+      && !!currentMenu.card
+      && this.giveToPlayerTargets().length > 0;
+  }
+
   giveToPlayerTargets(): readonly PlayerView[] {
     const activePlayerId = this.menu().playerId;
     return this.players().filter((player) => player.id !== activePlayerId && !playerIsDefeated(player));
@@ -318,7 +328,14 @@ export class ContextMenuComponent {
   }
 
   selectGiveToPlayer(targetPlayerId: string): void {
-    this.actionSelected.emit({ type: 'giveToPlayer', targetPlayerId });
+    this.actionSelected.emit({ type: 'giveToPlayer', zone: this.menu().zone === 'hand' ? 'hand' : 'battlefield', targetPlayerId });
+  }
+
+  selectGiveToDestination(target: string): void {
+    const [zone, targetPlayerId] = target.split(':', 2);
+    if ((zone === 'battlefield' || zone === 'hand') && targetPlayerId) {
+      this.actionSelected.emit({ type: 'giveToPlayer', zone, targetPlayerId });
+    }
   }
 
   selectMoveTo(zone: string): void {
@@ -442,6 +459,32 @@ export class ContextMenuComponent {
     return [
       ...items,
       { value: 'library:bottom', label: 'Bottom of Library', icon: 'library' },
+    ];
+  }
+
+  private buildGiveToDestinationMenuItems(): readonly ContextSubmenuItem[] {
+    const targetPlayers = this.sortedItems(this.giveToPlayerTargets().map((player) => ({
+      value: player.id,
+      label: this.playerLabel(player),
+      icon: 'users',
+      preserveCase: true,
+    })));
+
+    return [
+      {
+        value: 'battlefield',
+        label: 'Battlefield',
+        icon: this.zoneIcon('battlefield'),
+        disabled: targetPlayers.length === 0,
+        children: targetPlayers.map((player) => ({ ...player, value: `battlefield:${player.value}` })),
+      },
+      {
+        value: 'hand',
+        label: 'Hand',
+        icon: this.zoneIcon('hand'),
+        disabled: targetPlayers.length === 0,
+        children: targetPlayers.map((player) => ({ ...player, value: `hand:${player.value}` })),
+      },
     ];
   }
 

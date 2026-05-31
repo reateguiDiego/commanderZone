@@ -132,6 +132,7 @@ function context(options: ContextOptions = {}): GameTableDropActionContext {
     snapBattlefieldPosition: vi.fn((_playerId, _instanceId, position) => ({ ...position, unit: 'ratio' as const })),
     markPendingManaDrop: vi.fn(),
     markPendingTransfer: vi.fn(),
+    syncOpenZoneModalAfterMove: vi.fn(async () => undefined),
     command: vi.fn(async () => undefined),
     recordCommanderCastIfNeeded: vi.fn(async () => undefined),
   };

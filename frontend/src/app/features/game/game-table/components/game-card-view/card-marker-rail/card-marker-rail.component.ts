@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, HostBinding, computed, input, output } from '@angular/core';
+import { LucideAngularModule } from 'lucide-angular';
 
 export interface CardMarkerCounter {
   readonly key: string;
@@ -34,20 +35,29 @@ const COLOR_COUNTER_STYLES: Record<string, string> = {
 
 @Component({
   selector: 'app-card-marker-rail',
+  imports: [LucideAngularModule],
   templateUrl: './card-marker-rail.component.html',
   styleUrl: './card-marker-rail.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class CardMarkerRailComponent {
   readonly showTokenCopyMarker = input(false);
+  readonly showRulingsMarker = input(false);
   readonly counters = input<readonly CardMarkerCounter[]>([]);
   readonly compact = input(false);
-  readonly hasMarkers = computed(() => this.showTokenCopyMarker() || this.counters().length > 0);
+  readonly inline = input(false);
+  readonly hasMarkers = computed(() => this.showTokenCopyMarker() || this.showRulingsMarker() || this.counters().length > 0);
   readonly markerCounters = computed<readonly CardMarkerCounterView[]>(() =>
     this.counters().map((counter) => this.counterView(counter)),
   );
   readonly counterChanged = output<CardMarkerCounterChange>();
   readonly counterDeleteRequested = output<CardMarkerCounterDeleteRequest>();
+  readonly rulingsRequested = output<MouseEvent>();
+
+  @HostBinding('class.inline-marker-rail')
+  get inlineMarkerRail(): boolean {
+    return this.inline();
+  }
 
   changeCounter(event: MouseEvent, counter: CardMarkerCounterView, delta: number): void {
     event.preventDefault();
@@ -76,6 +86,12 @@ export class CardMarkerRailComponent {
   swallowMouseEvent(event: MouseEvent): void {
     event.preventDefault();
     event.stopPropagation();
+  }
+
+  requestRulings(event: MouseEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.rulingsRequested.emit(event);
   }
 
   private counterView(counter: CardMarkerCounter): CardMarkerCounterView {

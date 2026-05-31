@@ -18,7 +18,7 @@
 
   <div class="deck-select-row">
     <div class="deck-select">
-      <button class="deck-select-trigger" type="button" aria-haspopup="listbox" [attr.aria-expanded]="selectorOpen()" [disabled]="updatingDeck()" (click)="selectorToggled.emit()">
+      <button class="deck-select-trigger" type="button" aria-haspopup="listbox" [attr.aria-expanded]="selectorOpen()" [disabled]="updatingDeck()" (click)="toggleSelector()">
         @if (selectedDeck(); as deck) {
           <span class="deck-option-main">
             <span class="deck-option-name">{{ deck.name }}</span>
@@ -38,7 +38,7 @@
       </button>
 
       @if (selectorOpen()) {
-        <div appPrettyScroll class="deck-select-menu" role="listbox" aria-label="Deck selection">
+        <div appPrettyScroll class="deck-select-menu" [class.open-up]="menuDirection() === 'up'" role="listbox" aria-label="Deck selection">
           @if (showRandomDeckOption()) {
             <button
               class="deck-select-option random-deck-option"

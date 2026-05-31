@@ -3,6 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { Subject } from 'rxjs';
 import { GameplayClientMessage, GameplayServerMessage } from '../../../../core/models/game-realtime.model';
 import { GameCardInstance, GameSnapshot } from '../../../../core/models/game.model';
+import { GameTableRealtimeAnimationBusService } from './game-table-realtime-animation-bus.service';
 import { GameTableWebsocketTransportService } from './game-table-websocket-transport.service';
 import { GameTableWebsocketGameplayContext, GameTableWebsocketGameplayService } from './game-table-websocket-gameplay.service';
 
@@ -47,6 +48,7 @@ describe('GameTableWebsocketGameplayService', () => {
     TestBed.configureTestingModule({
       providers: [
         GameTableWebsocketGameplayService,
+        GameTableRealtimeAnimationBusService,
         {
           provide: GameTableWebsocketTransportService,
           useValue: {
@@ -117,6 +119,31 @@ describe('GameTableWebsocketGameplayService', () => {
 
     expect(snapshotState.version).toBe(2);
     expect(snapshotState.turn).toEqual({ activePlayerId: 'player-2', phase: 'combat', number: 2 });
+  });
+
+  it('emits one realtime animation hook for each applied remote patch', async () => {
+    const animationBus = TestBed.inject(GameTableRealtimeAnimationBusService);
+    const patchAnimation = vi.fn();
+    const subscription = animationBus.patchAnimation$.subscribe(patchAnimation);
+
+    try {
+      messages.next({
+        kind: 'game_patch',
+        gameId: 'game-1',
+        baseVersion: 1,
+        version: 2,
+        operations: [{ op: 'turn.set', turn: { activePlayerId: 'player-2', phase: 'combat', number: 2 } }],
+      });
+
+      expect(patchAnimation).toHaveBeenCalledTimes(1);
+      expect(patchAnimation).toHaveBeenCalledWith(expect.objectContaining({
+        previousSnapshot: expect.objectContaining({ version: 1 }),
+        nextSnapshot: expect.objectContaining({ version: 2 }),
+        isLocalPatch: false,
+      }));
+    } finally {
+      subscription.unsubscribe();
+    }
   });
 
   it('sends final card position commands over websocket and applies ratio patches without snapshot refetch', async () => {
@@ -442,6 +469,41 @@ describe('GameTableWebsocketGameplayService', () => {
       .filter((item) => item['kind'] === 'dead_letter_event' && item['reason'] === 'queue_full');
     expect(fullEvents.length).toBeGreaterThan(0);
     expect(onCommandBlockedSpy).toHaveBeenCalledWith('queue_full', 'chat.message', expect.any(Object));
+
+    messages.next({
+      kind: 'game_patch',
+      gameId: 'game-1',
+      baseVersion: 1,
+      version: 2,
+      clientActionId: blockerMessage.command.clientActionId,
+      operations: [{ op: 'player.life.set', playerId: 'player-1', value: 39 }],
+    });
+    await blocker;
+    service.stop();
+    await Promise.allSettled(pending);
+  });
+
+  it('dedupes repeated identical dead letter debug events inside a short time window', async () => {
+    const channel = broadcastChannels[0];
+    channel.emit({
+      kind: 'debug_observe',
+      gameId: 'game-1',
+      observedAt: '2026-05-24T10:00:00.000Z',
+    });
+
+    const blocker = service.sendCommand(context(), 'life.changed', { playerId: 'player-1', delta: -1 });
+    const blockerMessage = sentMessage();
+    const pending: Promise<unknown>[] = [];
+
+    for (let index = 0; index < 260; index += 1) {
+      pending.push(service.sendCommand(context(), 'chat.message', { message: `dedupe-${index}` }).catch(() => undefined));
+    }
+    await Promise.resolve();
+
+    const fullEvents = channel.sentMessages
+      .filter((item): item is Record<string, unknown> => typeof item === 'object' && item !== null)
+      .filter((item) => item['kind'] === 'dead_letter_event' && item['reason'] === 'queue_full' && item['commandType'] === 'chat.message');
+    expect(fullEvents.length).toBe(1);
 
     messages.next({
       kind: 'game_patch',
@@ -1273,6 +1335,55 @@ describe('GameTableWebsocketGameplayService', () => {
 
     await firstPosition;
     await secondPosition;
+  });
+
+  it('drops queued turn.changed commands when concede starts locally', async () => {
+    const blocker = service.sendCommand(context(), 'life.changed', { playerId: 'player-1', delta: -1 });
+    const blockerMessage = sentMessage();
+    const queuedTurn = service.sendCommand(context(), 'turn.changed', {
+      activePlayerId: 'player-2',
+      phase: 'untap',
+      number: 2,
+    });
+    await Promise.resolve();
+
+    service.prepareForLocalConcede();
+
+    await expect(queuedTurn).resolves.toBe(true);
+    expect(send).toHaveBeenCalledTimes(1);
+
+    messages.next({
+      kind: 'game_patch',
+      gameId: 'game-1',
+      baseVersion: 1,
+      version: 2,
+      clientActionId: blockerMessage.command.clientActionId,
+      operations: [{ op: 'player.life.set', playerId: 'player-1', value: 39 }],
+    });
+    await blocker;
+  });
+
+  it('suppresses the expected conceded rejection for in-flight turn.changed when concede starts', async () => {
+    const turnChange = service.sendCommand(context(), 'turn.changed', {
+      activePlayerId: 'player-2',
+      phase: 'untap',
+      number: 2,
+    });
+    const turnMessage = sentMessage();
+
+    service.prepareForLocalConcede();
+    messages.next({
+      kind: 'command_ack',
+      gameId: 'game-1',
+      messageId: turnMessage.messageId,
+      clientActionId: turnMessage.command.clientActionId,
+      status: 'rejected',
+      version: 1,
+      error: { code: 'COMMAND_REJECTED', message: 'Conceded players cannot perform game actions.', retryable: false },
+    });
+
+    await expect(turnChange).resolves.toBe(true);
+    expect(setErrorSpy).not.toHaveBeenCalled();
   });
 
   it('retries safe commands once after resync_required command_ack', async () => {

@@ -231,15 +231,27 @@ class CardLocalizationService
      */
     private function preferredLocalizedCandidate(Card $source, array $candidates, string $requestedLanguage): ?Card
     {
-        $exactRequested = $this->matchLocalizedCandidate($source, $candidates, $requestedLanguage);
-        if ($exactRequested instanceof Card) {
+        $exactRequested = $this->matchExactLocalizedCandidate($source, $candidates, $requestedLanguage);
+        if ($exactRequested instanceof Card && $this->isUsableLocalizedCandidate($source, $exactRequested, $requestedLanguage)) {
             return $exactRequested;
         }
 
+        foreach ($candidates as $candidate) {
+            if ($this->isUsableLocalizedCandidate($source, $candidate, $requestedLanguage)) {
+                return $candidate;
+            }
+        }
+
         if ($requestedLanguage !== LanguageCatalog::DEFAULT_LANGUAGE) {
-            $english = $this->matchLocalizedCandidate($source, $candidates, LanguageCatalog::DEFAULT_LANGUAGE);
-            if ($english instanceof Card) {
-                return $english;
+            $exactEnglish = $this->matchExactLocalizedCandidate($source, $candidates, LanguageCatalog::DEFAULT_LANGUAGE);
+            if ($exactEnglish instanceof Card && $this->isUsableLocalizedCandidate($source, $exactEnglish, LanguageCatalog::DEFAULT_LANGUAGE)) {
+                return $exactEnglish;
+            }
+
+            foreach ($candidates as $candidate) {
+                if ($this->isUsableLocalizedCandidate($source, $candidate, LanguageCatalog::DEFAULT_LANGUAGE)) {
+                    return $candidate;
+                }
             }
         }
 
@@ -249,7 +261,7 @@ class CardLocalizationService
     /**
      * @param list<Card> $candidates
      */
-    private function matchLocalizedCandidate(Card $source, array $candidates, string $language): ?Card
+    private function matchExactLocalizedCandidate(Card $source, array $candidates, string $language): ?Card
     {
         $sourceSetCode = $source->setCode();
         $sourceCollectorNumber = $source->collectorNumber();
@@ -269,16 +281,6 @@ class CardLocalizationService
             }
         }
 
-        if ($sourceSetCode !== null && $sourceCollectorNumber !== null) {
-            return null;
-        }
-
-        foreach ($candidates as $candidate) {
-            if ($candidate->lang() === $language) {
-                return $candidate;
-            }
-        }
-
         return null;
     }
 
@@ -292,5 +294,50 @@ class CardLocalizationService
         $printedName = trim((string) ($card->printedName() ?? ''));
 
         return $printedName !== '' ? $printedName : $card->name();
+    }
+
+    private function isUsableLocalizedCandidate(Card $source, Card $candidate, string $requestedLanguage): bool
+    {
+        if ($candidate->lang() !== $requestedLanguage) {
+            return false;
+        }
+
+        if ($this->isImageStatusUnavailable($candidate->imageStatus())) {
+            return false;
+        }
+
+        if ($requestedLanguage === LanguageCatalog::DEFAULT_LANGUAGE) {
+            return true;
+        }
+
+        // Legacy fallback for rows imported before image_status existed.
+        if ($candidate->imageStatus() !== null) {
+            return true;
+        }
+
+        $printedName = trim((string) ($candidate->printedName() ?? ''));
+        if ($printedName !== '') {
+            return true;
+        }
+
+        $candidateType = trim((string) ($candidate->typeLine() ?? ''));
+        $sourceType = trim((string) ($source->typeLine() ?? ''));
+        if ($candidateType !== '' && $candidateType !== $sourceType) {
+            return true;
+        }
+
+        $candidateOracle = trim((string) ($candidate->oracleText() ?? ''));
+        $sourceOracle = trim((string) ($source->oracleText() ?? ''));
+
+        return $candidateOracle !== '' && $candidateOracle !== $sourceOracle;
+    }
+
+    private function isImageStatusUnavailable(?string $imageStatus): bool
+    {
+        if ($imageStatus === null) {
+            return false;
+        }
+
+        return in_array(strtolower(trim($imageStatus)), ['missing', 'placeholder'], true);
     }
 }

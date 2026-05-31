@@ -1,10 +1,13 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { importProvidersFrom } from '@angular/core';
+import { CircleQuestionMark, LucideAngularModule } from 'lucide-angular';
 import { CardMarkerRailComponent } from './card-marker-rail.component';
 
 describe('CardMarkerRailComponent', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [CardMarkerRailComponent],
+      providers: [importProvidersFrom(LucideAngularModule.pick({ CircleQuestionMark }))],
     }).compileComponents();
   });
 
@@ -34,6 +37,31 @@ describe('CardMarkerRailComponent', () => {
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelector('.token-copy-marker')).toBeNull();
+  });
+
+  it('renders a rulings marker when enabled', () => {
+    const fixture = createFixture();
+
+    fixture.componentRef.setInput('showRulingsMarker', true);
+    fixture.detectChanges();
+
+    const marker = fixture.nativeElement.querySelector('.oracle-rulings-marker') as HTMLElement | null;
+    expect(marker).not.toBeNull();
+    expect(marker?.getAttribute('title')).toBe('Open Oracle rulings on Scryfall');
+  });
+
+  it('emits rulings requests from marker clicks', () => {
+    const fixture = createFixture();
+    const requested = vi.fn();
+    fixture.componentInstance.rulingsRequested.subscribe(requested);
+
+    fixture.componentRef.setInput('showRulingsMarker', true);
+    fixture.detectChanges();
+
+    const marker = fixture.nativeElement.querySelector('.oracle-rulings-marker') as HTMLElement;
+    marker.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+    expect(requested).toHaveBeenCalledWith(expect.any(MouseEvent));
   });
 
   it('renders color counters as badge-only markers', () => {
@@ -118,6 +146,26 @@ describe('CardMarkerRailComponent', () => {
     const marker = fixture.nativeElement.querySelector('.counter-marker') as HTMLElement;
     marker.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0 }));
     marker.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, button: 0 }));
+    marker.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+    expect(parentPointerDown).not.toHaveBeenCalled();
+    expect(parentClick).not.toHaveBeenCalled();
+  });
+
+  it('does not bubble rulings marker pointer or click events to the card button', () => {
+    const fixture = createFixture();
+    const parentClick = vi.fn();
+    const parentPointerDown = vi.fn();
+
+    fixture.componentRef.setInput('showRulingsMarker', true);
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    host.addEventListener('click', parentClick);
+    host.addEventListener('pointerdown', parentPointerDown);
+
+    const marker = fixture.nativeElement.querySelector('.oracle-rulings-marker') as HTMLElement;
+    marker.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0 }));
     marker.dispatchEvent(new MouseEvent('click', { bubbles: true }));
 
     expect(parentPointerDown).not.toHaveBeenCalled();

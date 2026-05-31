@@ -5,6 +5,13 @@
   z-index: 6;
 }
 
+:host(.inline-loyalty-counter) {
+  position: static;
+  inset: auto;
+  display: block;
+  z-index: auto;
+}
+
 .loyalty-counter {
   position: relative;
   display: block;

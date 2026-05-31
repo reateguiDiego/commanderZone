@@ -133,6 +133,8 @@ class GameSnapshotFactory
             'typeLine' => $card->typeLine(),
             'manaCost' => $card->manaCost(),
             'oracleText' => $card->oracleText(),
+            'lang' => $card->lang(),
+            'printedName' => $card->printedName(),
             'colorIdentity' => $this->orderedColorIdentity($card->colorIdentity()),
             'power' => $this->numericCardStat($card->power()),
             'toughness' => $this->numericCardStat($card->toughness()),

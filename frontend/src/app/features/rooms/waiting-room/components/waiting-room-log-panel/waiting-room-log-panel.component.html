@@ -6,8 +6,8 @@
   <section appPrettyScroll class="room-log" aria-label="Activity">
     @if (entries().length > 0) {
       @for (entry of entries(); track entry.id) {
-        <article class="room-log-entry">
-          <span>{{ entry.time }}</span>
+        <article class="room-log-entry" [class.success]="entry.tone === 'success'">
+          <span>{{ entryTime(entry) }}</span>
           <strong>{{ entry.label }}</strong>
         </article>
       }

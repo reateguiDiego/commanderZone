@@ -18,6 +18,7 @@ import {
   isGameDebugSnapshotMetricsMessage,
 } from '../../game-debug/game-debug-snapshot-metrics.channel';
 import { applyGameSnapshotPatch } from '../state/realtime/game-snapshot-patch-reducer';
+import { GameTableRealtimeAnimationBusService } from './game-table-realtime-animation-bus.service';
 import { GameTableWebsocketTransportService } from './game-table-websocket-transport.service';
 
 export interface GameTableWebsocketGameplayContext {
@@ -72,6 +73,7 @@ const WEBSOCKET_COMMANDS = new Set<GameWebsocketCommandType>([
   'commander.damage.changed',
   'counter.changed',
   'chat.message',
+  'chat.reaction.toggled',
   'dice.rolled',
   'turn.changed',
   'card.position.changed',
@@ -172,10 +174,13 @@ const REJECTION_WINDOW_MS = 2_000;
 const REJECTION_THRESHOLD = 3;
 const CIRCUIT_COOLDOWN_MS = 2_000;
 const ERROR_THROTTLE_MS = 2_000;
+const DEAD_LETTER_DEDUP_WINDOW_MS = 1_000;
+const COMMAND_TIMEOUT_MS = 15_000;
 
 @Injectable()
 export class GameTableWebsocketGameplayService implements OnDestroy {
   private readonly transport = inject(GameTableWebsocketTransportService);
+  private readonly realtimeAnimationBus = inject(GameTableRealtimeAnimationBusService);
   private readonly commandQueue: PendingWebsocketCommand[] = [];
   private inFlightCommand: PendingWebsocketCommand | null = null;
   private subscription?: Subscription;
@@ -201,9 +206,11 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
     drainTimestamps: [],
   };
   private readonly deadLetter: GameDebugDeadLetterEvent[] = [];
+  private readonly deadLetterDedupeBySignature = new Map<string, number>();
   private readonly rejectedBySignature = new Map<string, number[]>();
   private readonly blockedSignatures = new Map<string, number>();
   private readonly throttledErrors = new Map<string, number>();
+  private readonly concedeSuppressedTurnChangeSignatures = new Set<string>();
 
   readonly status = this.transport.status;
   readonly connected = signal(false);
@@ -296,6 +303,11 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
     return true;
   }
 
+  prepareForLocalConcede(): void {
+    this.resolveQueuedTurnChangedCommands();
+    this.markInFlightTurnChangedForConcedeSuppression();
+  }
+
   private async handleMessage(message: GameplayServerMessage): Promise<void> {
     const context = this.context;
     if (!context) {
@@ -346,6 +358,13 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
     const previousSnapshotSize = this.snapshotSize(snapshot);
     const result = applyGameSnapshotPatch(snapshot, patch);
     if (result.status === 'applied') {
+      const isLocalPatch = this.isPatchForInFlightCommand(patch);
+      this.realtimeAnimationBus.emitPatchAnimation({
+        previousSnapshot: snapshot,
+        nextSnapshot: result.snapshot,
+        patch,
+        isLocalPatch,
+      });
       context.setSnapshot(result.snapshot);
       this.publishSnapshotMetric(context.gameId(), patch, previousSnapshotSize, this.snapshotSize(result.snapshot));
       this.resolveInFlightCommand(patch.clientActionId);
@@ -364,6 +383,12 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
     this.drainQueue();
   }
 
+  private isPatchForInFlightCommand(patch: GameplayGamePatchMessage): boolean {
+    const inFlight = this.inFlightCommand;
+
+    return Boolean(inFlight && this.matchesInFlight(inFlight, patch.clientActionId));
+  }
+
   private async handleCommandAck(context: GameTableWebsocketGameplayContext, ack: GameplayCommandAckMessage): Promise<void> {
     if (!this.matchesInFlightCommandAck(ack)) {
       this.recordLateAckIgnored(context.gameId());
@@ -372,6 +397,11 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
 
     if (ack.status === 'rejected') {
       const inFlight = this.inFlightCommand;
+      if (inFlight && this.shouldSuppressConcedeTurnChangedRejection(inFlight, ack)) {
+        this.resolveInFlightCommand(ack.clientActionId, ack.messageId);
+        this.drainQueue();
+        return;
+      }
       if (inFlight) {
         this.queueCounters.rejectedTotal += 1;
         this.trackRejectedSignature(inFlight.signature);
@@ -536,7 +566,7 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
     queued.timeoutId = window.setTimeout(() => {
       this.rejectInFlightCommand(new Error('WebSocket command timed out.'), clientActionId, messageId, 'timeout');
       this.drainQueue();
-    }, 10000);
+    }, COMMAND_TIMEOUT_MS);
     this.inFlightCommand = queued;
     this.queueCounters.drainTotal += 1;
     this.recordRate(this.queueRates.drainTimestamps);
@@ -921,6 +951,15 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
   }
 
   private recordDeadLetterEvent(event: GameDebugDeadLetterEvent): void {
+    const now = Date.now();
+    this.pruneDeadLetterDedup(now);
+    const dedupeSignature = this.deadLetterSignature(event);
+    const previous = this.deadLetterDedupeBySignature.get(dedupeSignature);
+    if (previous !== undefined && now - previous < DEAD_LETTER_DEDUP_WINDOW_MS) {
+      return;
+    }
+    this.deadLetterDedupeBySignature.set(dedupeSignature, now);
+
     this.deadLetter.push(event);
     while (this.deadLetter.length > MAX_DEAD_LETTER) {
       this.deadLetter.shift();
@@ -1001,9 +1040,23 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
     this.queueRates.enqueueTimestamps = [];
     this.queueRates.drainTimestamps = [];
     this.deadLetter.length = 0;
+    this.deadLetterDedupeBySignature.clear();
     this.rejectedBySignature.clear();
     this.blockedSignatures.clear();
     this.throttledErrors.clear();
+    this.concedeSuppressedTurnChangeSignatures.clear();
+  }
+
+  private deadLetterSignature(event: GameDebugDeadLetterEvent): string {
+    return `${event.gameId}|${event.commandType}|${event.reason}|${event.retryCount}|${event.details ?? ''}`;
+  }
+
+  private pruneDeadLetterDedup(now: number): void {
+    for (const [signature, timestamp] of this.deadLetterDedupeBySignature.entries()) {
+      if (now - timestamp > DEAD_LETTER_DEDUP_WINDOW_MS) {
+        this.deadLetterDedupeBySignature.delete(signature);
+      }
+    }
   }
 
   private openSnapshotMetricsChannel(): void {
@@ -1094,5 +1147,44 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
       }
       channel.postMessage(event);
     }
+  }
+
+  private resolveQueuedTurnChangedCommands(): void {
+    for (let index = this.commandQueue.length - 1; index >= 0; index -= 1) {
+      const queued = this.commandQueue[index];
+      if (queued.type !== 'turn.changed') {
+        continue;
+      }
+
+      this.commandQueue.splice(index, 1);
+      queued.resolve();
+      this.publishQueueMetrics(queued.context.gameId());
+    }
+  }
+
+  private markInFlightTurnChangedForConcedeSuppression(): void {
+    const inFlight = this.inFlightCommand;
+    if (!inFlight || inFlight.type !== 'turn.changed') {
+      return;
+    }
+
+    this.concedeSuppressedTurnChangeSignatures.add(this.inFlightCommandSignature(inFlight));
+  }
+
+  private shouldSuppressConcedeTurnChangedRejection(inFlight: PendingWebsocketCommand, ack: GameplayCommandAckMessage): boolean {
+    if (inFlight.type !== 'turn.changed') {
+      return false;
+    }
+
+    if (!this.concedeSuppressedTurnChangeSignatures.delete(this.inFlightCommandSignature(inFlight))) {
+      return false;
+    }
+
+    const message = (ack.error?.message ?? '').toLowerCase();
+    return message.includes('conceded players cannot perform game actions');
+  }
+
+  private inFlightCommandSignature(command: PendingWebsocketCommand): string {
+    return `${command.clientActionId}|${command.messageId}|${command.signature}`;
   }
 }

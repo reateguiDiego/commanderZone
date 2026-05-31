@@ -67,15 +67,16 @@ final readonly class GameWebsocketPatchBuilder
         $payload = $eventPayload ?? (is_array($eventData['payload'] ?? null) ? $eventData['payload'] : []);
 
         return match ($type) {
-            'life.changed' => $this->lifeChanged($nextSnapshot, $payload),
-            'commander.damage.changed' => $this->commanderDamageChanged($nextSnapshot, $payload),
-            'counter.changed' => $this->counterChanged($nextSnapshot, $payload),
+            'life.changed' => $this->lifeChanged($previousSnapshot, $nextSnapshot, $payload),
+            'commander.damage.changed' => $this->commanderDamageChanged($previousSnapshot, $nextSnapshot, $payload),
+            'counter.changed' => $this->counterChanged($previousSnapshot, $nextSnapshot, $payload),
             'chat.message' => $this->chatMessage($previousSnapshot, $nextSnapshot, $payload),
+            'chat.reaction.toggled' => $this->chatReactionToggled($previousSnapshot, $nextSnapshot, $payload),
             'dice.rolled' => $this->eventLogOnly($previousSnapshot, $nextSnapshot),
             'turn.changed' => $this->turnChanged($previousSnapshot, $nextSnapshot),
             'card.position.changed' => $this->cardPositionChanged($nextSnapshot, $payload),
             'cards.position.changed' => $this->cardsPositionChanged($nextSnapshot, $payload),
-            'card.tapped' => $this->cardTapped($nextSnapshot, $payload),
+            'card.tapped' => $this->cardTapped($previousSnapshot, $nextSnapshot, $payload),
             'card.moved' => $this->cardMoved($previousSnapshot, $nextSnapshot, $payload),
             'cards.moved' => $this->cardsMoved($previousSnapshot, $nextSnapshot, $payload),
             'zone.changed' => $this->zoneChanged($previousSnapshot, $nextSnapshot, $payload),
@@ -115,41 +116,47 @@ final readonly class GameWebsocketPatchBuilder
     /**
      * @return list<array<string,mixed>>|null
      */
-    private function lifeChanged(array $nextSnapshot, array $payload): ?array
+    private function lifeChanged(array $previousSnapshot, array $nextSnapshot, array $payload): ?array
     {
         $playerId = $this->payloadString($payload, 'playerId');
         if ($playerId === null || !isset($nextSnapshot['players'][$playerId]['life'])) {
             return null;
         }
 
-        return [[
-            'op' => 'player.life.set',
-            'playerId' => $playerId,
-            'value' => (int) $nextSnapshot['players'][$playerId]['life'],
-        ]];
+        return [
+            [
+                'op' => 'player.life.set',
+                'playerId' => $playerId,
+                'value' => (int) $nextSnapshot['players'][$playerId]['life'],
+            ],
+            ...$this->eventLogAppendOperation($previousSnapshot, $nextSnapshot),
+        ];
     }
 
     /**
      * @return list<array<string,mixed>>|null
      */
-    private function commanderDamageChanged(array $nextSnapshot, array $payload): ?array
+    private function commanderDamageChanged(array $previousSnapshot, array $nextSnapshot, array $payload): ?array
     {
         $targetPlayerId = $this->payloadString($payload, 'targetPlayerId');
         if ($targetPlayerId === null || !isset($nextSnapshot['players'][$targetPlayerId]['commanderDamage'])) {
             return null;
         }
 
-        return [[
-            'op' => 'player.commanderDamage.set',
-            'playerId' => $targetPlayerId,
-            'commanderDamage' => $this->stringIntMap($nextSnapshot['players'][$targetPlayerId]['commanderDamage']),
-        ]];
+        return [
+            [
+                'op' => 'player.commanderDamage.set',
+                'playerId' => $targetPlayerId,
+                'commanderDamage' => $this->stringIntMap($nextSnapshot['players'][$targetPlayerId]['commanderDamage']),
+            ],
+            ...$this->eventLogAppendOperation($previousSnapshot, $nextSnapshot),
+        ];
     }
 
     /**
      * @return list<array<string,mixed>>|null
      */
-    private function counterChanged(array $nextSnapshot, array $payload): ?array
+    private function counterChanged(array $previousSnapshot, array $nextSnapshot, array $payload): ?array
     {
         $scope = $this->payloadString($payload, 'scope');
         if ($scope === null) {
@@ -162,11 +169,14 @@ final readonly class GameWebsocketPatchBuilder
                 return null;
             }
 
-            return [[
-                'op' => 'player.counters.set',
-                'playerId' => $playerId,
-                'counters' => $this->stringIntMap($nextSnapshot['players'][$playerId]['counters']),
-            ]];
+            return [
+                [
+                    'op' => 'player.counters.set',
+                    'playerId' => $playerId,
+                    'counters' => $this->stringIntMap($nextSnapshot['players'][$playerId]['counters']),
+                ],
+                ...$this->eventLogAppendOperation($previousSnapshot, $nextSnapshot),
+            ];
         }
 
         $countersByScope = $nextSnapshot['counters'] ?? [];
@@ -178,11 +188,14 @@ final readonly class GameWebsocketPatchBuilder
             $scopeCounters = [];
         }
 
-        return [[
-            'op' => 'game.counters.set',
-            'scope' => $scope,
-            'counters' => $this->stringIntMap($scopeCounters),
-        ]];
+        return [
+            [
+                'op' => 'game.counters.set',
+                'scope' => $scope,
+                'counters' => $this->stringIntMap($scopeCounters),
+            ],
+            ...$this->eventLogAppendOperation($previousSnapshot, $nextSnapshot),
+        ];
     }
 
     /**
@@ -207,6 +220,30 @@ final readonly class GameWebsocketPatchBuilder
         }
 
         return $operations;
+    }
+
+    /**
+     * @return list<array<string,mixed>>|null
+     */
+    private function chatReactionToggled(array $previousSnapshot, array $nextSnapshot, array $payload): ?array
+    {
+        $messageId = $this->payloadString($payload, 'messageId');
+        if ($messageId === null) {
+            return null;
+        }
+
+        $previousMessage = $this->chatMessageById($previousSnapshot, $messageId);
+        $nextMessage = $this->chatMessageById($nextSnapshot, $messageId);
+        if ($nextMessage === null) {
+            return $previousMessage === null ? [] : null;
+        }
+
+        return $previousMessage === $nextMessage
+            ? []
+            : [[
+                'op' => 'chat.message.set',
+                'message' => $nextMessage,
+            ]];
     }
 
     /**
@@ -320,7 +357,7 @@ final readonly class GameWebsocketPatchBuilder
     /**
      * @return list<array<string,mixed>>|null
      */
-    private function cardTapped(array $nextSnapshot, array $payload): ?array
+    private function cardTapped(array $previousSnapshot, array $nextSnapshot, array $payload): ?array
     {
         $playerId = $this->payloadString($payload, 'playerId');
         $zone = $this->payloadString($payload, 'zone');
@@ -334,13 +371,16 @@ final readonly class GameWebsocketPatchBuilder
             return null;
         }
 
-        return [[
-            'op' => 'card.state.set',
-            'playerId' => $playerId,
-            'zone' => $zone,
-            'instanceId' => $instanceId,
-            'tapped' => (bool) ($card['tapped'] ?? false),
-        ]];
+        return [
+            [
+                'op' => 'card.state.set',
+                'playerId' => $playerId,
+                'zone' => $zone,
+                'instanceId' => $instanceId,
+                'tapped' => (bool) ($card['tapped'] ?? false),
+            ],
+            ...$this->eventLogAppendOperation($previousSnapshot, $nextSnapshot),
+        ];
     }
 
     /**
@@ -1177,13 +1217,26 @@ final readonly class GameWebsocketPatchBuilder
             return null;
         }
 
-        return [
+        $operations = [
             [
                 'op' => 'player.status.set',
                 'playerId' => $playerId,
                 'status' => (string) ($nextSnapshot['players'][$playerId]['status'] ?? 'active'),
                 'concededAt' => $nextSnapshot['players'][$playerId]['concededAt'] ?? null,
             ],
+        ];
+
+        $previousTurn = $previousSnapshot['turn'] ?? null;
+        $nextTurn = $nextSnapshot['turn'] ?? null;
+        if (is_array($previousTurn) && is_array($nextTurn) && $previousTurn !== $nextTurn) {
+            $operations[] = [
+                'op' => 'turn.set',
+                'turn' => $nextTurn,
+            ];
+        }
+
+        return [
+            ...$operations,
             ...$this->eventLogAppendOperation($previousSnapshot, $nextSnapshot),
         ];
     }
@@ -1237,6 +1290,25 @@ final readonly class GameWebsocketPatchBuilder
         }
 
         return array_values(array_slice($next, count($previous)));
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function chatMessageById(array $snapshot, string $messageId): ?array
+    {
+        $messages = $snapshot['chat'] ?? [];
+        if (!is_array($messages)) {
+            return null;
+        }
+
+        foreach ($messages as $message) {
+            if (is_array($message) && ($message['id'] ?? null) === $messageId) {
+                return $message;
+            }
+        }
+
+        return null;
     }
 
     /**

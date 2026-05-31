@@ -124,6 +124,8 @@ export class GameTableContextStore {
       closeContextMenu: () => this.uiState.closeContextMenu(),
       setPendingBattlefieldMove: (move) => source.setPendingBattlefieldMove(move),
       setPendingLibraryMove: (move) => source.setPendingLibraryMove(move),
+      syncOpenZoneModalAfterMove: (playerId, fromZone, instanceIds) =>
+        this.syncOpenZoneModalAfterMove(playerId, fromZone, instanceIds),
       recordCommanderCastIfNeeded: (playerId, fromZone, toZone) => this.recordCommanderCastIfNeeded(playerId, fromZone, toZone),
       command: (type, payload) => source.command(type, payload),
     };
@@ -271,6 +273,8 @@ export class GameTableContextStore {
         sourceVersion: this.core.snapshot()?.version ?? null,
         expires: options?.expires,
       }),
+      syncOpenZoneModalAfterMove: (playerId, fromZone, instanceIds) =>
+        this.syncOpenZoneModalAfterMove(playerId, fromZone, instanceIds),
       command: (type, payload) => source.command(type, payload),
       recordCommanderCastIfNeeded: (playerId, fromZone, toZone, targetPlayerId) =>
         this.recordCommanderCastIfNeeded(playerId, fromZone, toZone, targetPlayerId),
@@ -504,6 +508,15 @@ export class GameTableContextStore {
     }
 
     return Object.entries(snapshot.players).find(([, player]) => player.user.id === userId)?.[0] ?? null;
+  }
+
+  private async syncOpenZoneModalAfterMove(playerId: string, fromZone: GameZoneName, instanceIds: readonly string[]): Promise<void> {
+    const modal = this.zoneModalState.zoneModal();
+    if (!modal || modal.playerId !== playerId || modal.zone !== fromZone || instanceIds.length === 0) {
+      return;
+    }
+
+    this.zoneActions.removeZoneModalCards(instanceIds);
   }
 
   private errorMessage(error: unknown): string {

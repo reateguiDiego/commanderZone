@@ -4,7 +4,8 @@ import { PrettyScrollDirective } from '../../../../../shared/ui/pretty-scroll/pr
 export interface WaitingRoomLogEntry {
   id: string;
   label: string;
-  time: string;
+  tone?: 'default' | 'success';
+  createdAt: string;
 }
 
 @Component({
@@ -16,4 +17,13 @@ export interface WaitingRoomLogEntry {
 })
 export class WaitingRoomLogPanelComponent {
   readonly entries = input<readonly WaitingRoomLogEntry[]>([]);
+
+  entryTime(entry: WaitingRoomLogEntry): string {
+    const date = new Date(entry.createdAt);
+    if (Number.isNaN(date.getTime())) {
+      return '';
+    }
+
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
 }

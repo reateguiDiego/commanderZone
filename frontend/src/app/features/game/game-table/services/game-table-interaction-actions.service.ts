@@ -126,6 +126,7 @@ export class GameTableInteractionActionsService {
     zone: GameZoneName,
     card: GameCardInstance,
     options: {
+      fromFixedZoneModal?: boolean;
       suppressRandomSelect?: boolean;
       sourceRect?: GameContextMenu['sourceRect'];
       menuPosition?: { x: number; y: number };
@@ -145,6 +146,7 @@ export class GameTableInteractionActionsService {
       zone,
       card,
       kind: 'card' as const,
+      fromFixedZoneModal: options.fromFixedZoneModal,
       suppressRandomSelect: options.suppressRandomSelect,
       sourceRect: options.sourceRect,
     };

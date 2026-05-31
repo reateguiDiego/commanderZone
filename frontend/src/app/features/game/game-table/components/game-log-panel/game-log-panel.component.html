@@ -4,9 +4,11 @@
       data-testid="game-log-entry"
       [class.phase-entry]="entry.appearance === 'phase'"
       [class.death-entry]="entry.appearance === 'death'"
+      [class.new-message-highlight]="highlightedEntryIds().includes(entry.id)"
+      [class.new-message-evaporating]="fadingEntryIds().includes(entry.id)"
     >
       <small>{{ logTime()(entry.createdAt) }}</small>
-      <strong>{{ entry.displayName ?? 'System' }}</strong>
+      <strong [style.--log-author-color]="entry.actorId ? playerColor()(entry.actorId) : null">{{ entry.displayName ?? 'System' }}</strong>
       <span>
         @if (entry.cardList.length > 0) {
           {{ entry.cardListPrefix }}

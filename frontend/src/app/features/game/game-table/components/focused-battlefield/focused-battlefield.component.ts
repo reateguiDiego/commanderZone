@@ -19,6 +19,11 @@ import { LandStackDropPreview } from '../../state/drag-drop/game-table-battlefie
 import { buildLandStackGroups, LandStackView, landStackOffsetX, landStackOffsetY } from '../../utils/land-stack';
 import { AttachmentStackView, attachmentStackViewFor, buildAttachmentStackGroups } from '../../utils/attachment-stack';
 import { GameTableLongPressDirective } from '../../directives/game-table-long-press.directive';
+import {
+  DEFAULT_BATTLEFIELD_ZOOM_PERCENT,
+  MAX_BATTLEFIELD_ZOOM_PERCENT,
+  MIN_BATTLEFIELD_ZOOM_PERCENT,
+} from '../../state/battlefield/game-table-battlefield-zoom.state';
 
 interface CardCounterView {
   key: string;
@@ -84,6 +89,9 @@ interface BattlefieldSizeEvent {
 
 type BattlefieldFocusEntry = 'left' | 'right' | 'fade' | null;
 
+const MIN_STACK_VISUAL_OFFSET_Y = 12;
+const MAX_STACK_VISUAL_OFFSET_Y = 25;
+
 @Component({
   selector: 'app-focused-battlefield',
   imports: [GameCardViewComponent, GameTableLongPressDirective],
@@ -119,6 +127,7 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
   readonly alignmentGuideFor = input.required<(playerId: string) => AlignmentGuideView | null>();
   readonly isManaLaneHighlighted = input.required<(playerId: string) => boolean>();
   readonly layoutKey = input<unknown>(null);
+  readonly zoomPercent = input(DEFAULT_BATTLEFIELD_ZOOM_PERCENT);
   readonly landStackDropPreview = input<LandStackDropPreview | null>(null);
   readonly attachments = input<readonly GameAttachment[]>([]);
   readonly isCardDropSettling = input<(playerId: string, zone: GameZoneName, card: GameCardInstance) => boolean>(() => false);
@@ -149,6 +158,7 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
   readonly manaLaneDropped = output<{ event: DragEvent; playerId: string }>();
   readonly battlefieldSizeChanged = output<BattlefieldSizeEvent>();
   readonly boardTransitioning = signal(false);
+  readonly hoveredAttachmentStackId = signal<string | null>(null);
   private readonly measuredLayoutVersion = signal(0);
   readonly landStackViews = computed<ReadonlyMap<string, LandStackView>>(() => {
     const views = new Map<string, LandStackView>();
@@ -170,6 +180,7 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
     this.layoutKey();
     this.measuredLayoutVersion();
     const positions = new Map<string, { x: number; y: number }>();
+    const stackOffsetY = this.stackVisualOffsetY();
 
     for (const group of this.landStackGroups()) {
       const top = group.members.find((member) => member.layer === 0);
@@ -181,7 +192,7 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
         member,
         position: {
           x: top.position.x + landStackOffsetX() * member.layer,
-          y: top.position.y - landStackOffsetY() * member.layer,
+          y: top.position.y - stackOffsetY * member.layer,
         },
       }));
       const shiftY = this.verticalOverflowShift(rawPositions.map((item) => ({
@@ -192,7 +203,7 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
       for (const member of group.members) {
         positions.set(member.card.instanceId, {
           x: top.position.x + landStackOffsetX() * member.layer,
-          y: top.position.y - landStackOffsetY() * member.layer - shiftY,
+          y: top.position.y - stackOffsetY * member.layer - shiftY,
         });
       }
     }
@@ -222,6 +233,7 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
     this.layoutKey();
     this.measuredLayoutVersion();
     const positions = new Map<string, { x: number; y: number }>();
+    const stackOffsetY = this.stackVisualOffsetY();
 
     for (const group of this.attachmentStackGroups()) {
       const target = group.members.find((member) => member.layer === 0);
@@ -233,7 +245,7 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
         member,
         position: {
           x: target.position.x + landStackOffsetX() * member.layer,
-          y: target.position.y - landStackOffsetY() * member.layer,
+          y: target.position.y - stackOffsetY * member.layer,
         },
       }));
       const shiftY = this.verticalOverflowShift(rawPositions.map((item) => ({
@@ -244,7 +256,7 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
       for (const member of group.members) {
         positions.set(member.card.instanceId, {
           x: target.position.x + landStackOffsetX() * member.layer,
-          y: target.position.y - landStackOffsetY() * member.layer - shiftY,
+          y: target.position.y - stackOffsetY * member.layer - shiftY,
         });
       }
     }
@@ -413,6 +425,22 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
     return this.attachmentStackViews().get(card.instanceId) ?? null;
   }
 
+  isAttachmentStackHighlighted(card: GameCardInstance): boolean {
+    const hoveredStackId = this.hoveredAttachmentStackId();
+    const attachmentView = this.attachmentStackView(card);
+
+    return hoveredStackId !== null && attachmentView?.stackId === hoveredStackId;
+  }
+
+  onCardPointerEntered(card: GameCardInstance): void {
+    this.hoveredAttachmentStackId.set(this.attachmentStackView(card)?.stackId ?? null);
+  }
+
+  onCardPointerLeft(): void {
+    this.hoveredAttachmentStackId.set(null);
+    this.cardPreviewHidden.emit();
+  }
+
   displayedCardPosition(card: GameCardInstance): { x: number; y: number } | null {
     this.layoutKey();
     this.measuredLayoutVersion();
@@ -549,6 +577,47 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
     const shiftY = this.verticalOverflowShift([{ instanceId, position }]);
 
     return shiftY > 0 ? { ...position, y: position.y - shiftY } : position;
+  }
+
+  private stackVisualOffsetY(): number {
+    const zoomPercent = Math.max(
+      MIN_BATTLEFIELD_ZOOM_PERCENT,
+      Math.min(MAX_BATTLEFIELD_ZOOM_PERCENT, Math.round(this.zoomPercent())),
+    );
+    const offset = zoomPercent <= DEFAULT_BATTLEFIELD_ZOOM_PERCENT
+      ? this.interpolateStackVisualOffset(
+        zoomPercent,
+        MIN_BATTLEFIELD_ZOOM_PERCENT,
+        DEFAULT_BATTLEFIELD_ZOOM_PERCENT,
+        MIN_STACK_VISUAL_OFFSET_Y,
+        landStackOffsetY(),
+      )
+      : this.interpolateStackVisualOffset(
+        zoomPercent,
+        DEFAULT_BATTLEFIELD_ZOOM_PERCENT,
+        MAX_BATTLEFIELD_ZOOM_PERCENT,
+        landStackOffsetY(),
+        MAX_STACK_VISUAL_OFFSET_Y,
+      );
+
+    return Number(offset.toFixed(2));
+  }
+
+  private interpolateStackVisualOffset(
+    value: number,
+    minValue: number,
+    maxValue: number,
+    minOffset: number,
+    maxOffset: number,
+  ): number {
+    const range = maxValue - minValue;
+    if (range <= 0) {
+      return minOffset;
+    }
+
+    const ratio = (value - minValue) / range;
+
+    return minOffset + (maxOffset - minOffset) * ratio;
   }
 
   private verticalOverflowShift(items: readonly { instanceId: string; position: { x: number; y: number } }[]): number {

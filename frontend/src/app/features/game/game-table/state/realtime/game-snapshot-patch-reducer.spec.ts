@@ -286,7 +286,20 @@ describe('game snapshot patch reducer', () => {
     const result = applyGameSnapshotPatch(snapshot, patch([
       {
         op: 'chat.append',
-        entries: [{ userId: 'player-1', displayName: 'Player 1', message: 'go', createdAt: '2026-01-01T00:00:02.000Z' }],
+        entries: [{ id: 'chat-1', userId: 'player-1', displayName: 'Player 1', message: 'go', createdAt: '2026-01-01T00:00:02.000Z' }],
+      },
+      {
+        op: 'chat.message.set',
+        message: {
+          id: 'chat-1',
+          userId: 'player-1',
+          displayName: 'Player 1',
+          message: 'go',
+          createdAt: '2026-01-01T00:00:02.000Z',
+          reactions: {
+            like: [{ userId: 'player-2', displayName: 'Player 2', createdAt: '2026-01-01T00:00:03.000Z' }],
+          },
+        },
       },
       {
         op: 'eventLog.append',
@@ -308,6 +321,7 @@ describe('game snapshot patch reducer', () => {
 
     expect(result.status).toBe('applied');
     expect(result.snapshot.chat).toHaveLength(1);
+    expect(result.snapshot.chat[0]?.reactions?.like?.[0]?.displayName).toBe('Player 2');
     expect(result.snapshot.eventLog.map((entry) => entry.id)).toEqual(['log-1', 'log-2']);
     expect(result.snapshot.stack.map((entry) => entry.id)).toEqual(['stack-1']);
     expect(result.snapshot.arrows.map((entry) => entry.id)).toEqual(['arrow-1']);

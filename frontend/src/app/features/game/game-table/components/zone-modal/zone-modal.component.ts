@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnDestroy, input, output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
 import { GameCardInstance } from '../../../../../core/models/game.model';
@@ -12,7 +12,10 @@ import { ZoneModalState } from '../../state/zones/game-table-zone-modal.state';
   styleUrl: './zone-modal.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class ZoneModalComponent {
+export class ZoneModalComponent implements OnDestroy {
+  private searchDebounceHandle?: number;
+  private readonly searchDebounceMs = 250;
+
   readonly modal = input.required<ZoneModalState>();
   readonly cardImage = input.required<(card: GameCardInstance) => string | null>();
 
@@ -22,7 +25,28 @@ export class ZoneModalComponent {
   readonly cardsReordered = output<readonly GameCardInstance[]>();
   readonly cardMenuOpened = output<{ event: MouseEvent; card: GameCardInstance }>();
 
+  ngOnDestroy(): void {
+    if (this.searchDebounceHandle !== undefined) {
+      window.clearTimeout(this.searchDebounceHandle);
+    }
+  }
+
   stopClick(event: MouseEvent): void {
     event.stopPropagation();
+  }
+
+  updateType(type: string): void {
+    this.filterChanged.emit({ type });
+  }
+
+  updateSearch(search: string): void {
+    if (this.searchDebounceHandle !== undefined) {
+      window.clearTimeout(this.searchDebounceHandle);
+    }
+
+    this.searchDebounceHandle = window.setTimeout(() => {
+      this.searchDebounceHandle = undefined;
+      this.filterChanged.emit({ search });
+    }, this.searchDebounceMs);
   }
 }

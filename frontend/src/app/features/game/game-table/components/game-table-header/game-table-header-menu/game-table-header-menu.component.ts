@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, ElementRef, HostListener, computed,
 import { LucideAngularModule } from 'lucide-angular';
 import { FullscreenService } from '../../../../../../core/fullscreen/fullscreen.service';
 import { LANGUAGE_OPTIONS, SupportedLanguageCode } from '../../../../../../core/localization/language-preferences';
+import { AppShellI18nService } from '../../../../../../core/localization/app-shell-i18n.service';
 import { LanguagePreferencesService } from '../../../../../../core/localization/language-preferences.service';
 
 @Component({
@@ -15,18 +16,35 @@ export class GameTableHeaderMenuComponent {
   private readonly elementRef = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly fullscreen = inject(FullscreenService);
   private readonly languagePreferences = inject(LanguagePreferencesService);
-  private readonly languageCollator = new Intl.Collator('es', { sensitivity: 'base' });
+  private readonly i18n = inject(AppShellI18nService);
   readonly settingsSelected = output<void>();
   readonly logoffSelected = output<void>();
   readonly menuOpen = signal(false);
   readonly languagePickerOpen = signal(false);
-  readonly selectedLanguage = this.languagePreferences.cardLanguage;
+  readonly selectedLanguage = this.languagePreferences.appLanguage;
   readonly languages = LANGUAGE_OPTIONS;
+  readonly menuLabel = computed(() => this.i18n.text('menu'));
+  readonly headerMenuLabel = computed(() => this.i18n.text('headerMenu'));
+  readonly userMenuLabel = computed(() => this.i18n.text('userMenu'));
+  readonly settingsLabel = computed(() => this.i18n.text('settings'));
+  readonly fullscreenLabel = computed(() => this.i18n.text('fullscreen'));
+  readonly languageLabel = computed(() => this.i18n.text('language'));
+  readonly languageOptionsLabel = computed(() => this.i18n.text('languageOptions'));
+  readonly logOffLabel = computed(() => this.i18n.text('logOff'));
+  readonly flagAltPrefix = computed(() => this.i18n.text('flagAltPrefix'));
+  readonly localizedLanguages = computed(() =>
+    this.languages.map((language) => ({
+      ...language,
+      label: this.i18n.languageName(language.code),
+    })),
+  );
   readonly sortedLanguages = computed(() =>
-    [...this.languages].sort((left, right) => this.languageCollator.compare(left.label, right.label)),
+    [...this.localizedLanguages()].sort((left, right) =>
+      left.label.localeCompare(right.label, this.selectedLanguage(), { sensitivity: 'base' }),
+    ),
   );
   readonly selectedLanguageOption = computed(
-    () => this.languages.find((language) => language.code === this.selectedLanguage()) ?? this.languages[0],
+    () => this.localizedLanguages().find((language) => language.code === this.selectedLanguage()) ?? this.localizedLanguages()[0],
   );
   readonly selectedLanguageLabel = computed(() => this.selectedLanguageOption().label);
   readonly selectedLanguageFlagAsset = computed(() => this.selectedLanguageOption().flagAsset);
@@ -59,7 +77,8 @@ export class GameTableHeaderMenuComponent {
       return;
     }
 
-    await this.languagePreferences.updateCardLanguage(code);
+    await this.languagePreferences.updatePreferences({ cardLanguage: code, appLanguage: code });
+    this.reloadPage();
     this.languagePickerOpen.set(false);
   }
 
@@ -81,5 +100,9 @@ export class GameTableHeaderMenuComponent {
   closeMenu(): void {
     this.menuOpen.set(false);
     this.languagePickerOpen.set(false);
+  }
+
+  private reloadPage(): void {
+    window.location.reload();
   }
 }

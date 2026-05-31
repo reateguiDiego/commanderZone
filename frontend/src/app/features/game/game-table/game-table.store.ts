@@ -1,6 +1,6 @@
 import { Injectable, OnDestroy, WritableSignal, computed, effect, inject, signal } from '@angular/core';
 import { Card } from '../../../core/models/card.model';
-import { GameCardInstance, GameCommandType, GameSnapshot, GameZoneName } from '../../../core/models/game.model';
+import { ChatReactionType, GameCardInstance, GameCommandType, GameSnapshot, GameZoneName } from '../../../core/models/game.model';
 import { GameTableDebouncedValueCommandsService } from './services/game-table-debounced-value-commands.service';
 import { GameTableDragService } from './services/game-table-drag.service';
 import { GameTableLibraryActionsService } from './services/game-table-library-actions.service';
@@ -46,6 +46,7 @@ import { GameTableSnapshotCoordinatorState } from './state/core/game-table-snaps
 import { GameTableToastState } from './state/core/game-table-toast.state';
 import { GameTableZonePilesState } from './state/zones/game-table-zone-piles.state';
 import { clampPlayerLife } from './utils/player-life-bounds';
+import { GameTableWebsocketGameplayService } from './services/game-table-websocket-gameplay.service';
 
 export type { PlayerView } from './state/core/game-table-snapshot-selectors';
 export type { SelectedCard } from './models/game-table-card.model';
@@ -55,6 +56,7 @@ export type { GameTableSyncStatus } from './models/game-table-sync.model';
 @Injectable()
 export class GameTableStore implements OnDestroy {
   private openingRevealedLibraryPlayerId: string | null = null;
+  private locallyConcededPlayerId: string | null = null;
 
   private readonly debouncedValueCommands = inject(GameTableDebouncedValueCommandsService);
   private readonly cardActions = inject(GameTableCardActionsService);
@@ -66,6 +68,7 @@ export class GameTableStore implements OnDestroy {
   private readonly zoneActions = inject(GameTableZoneActionsService);
   private readonly zonePointerMoveActions = inject(GameTableZonePointerMoveActionsService);
   private readonly session = inject(GameTableSessionService);
+  private readonly websocketGameplay = inject(GameTableWebsocketGameplayService);
   private readonly selection = inject(GameTableSelectionService);
   private readonly coreState = inject(GameTableCoreState);
   private readonly arrowsState = inject(GameTableArrowsState);
@@ -171,7 +174,10 @@ export class GameTableStore implements OnDestroy {
       command: (type, payload, force) => this.command(type, payload, force),
       playCard: (playerId, zone, card) => this.playCard(playerId, zone, card),
       setPendingBattlefieldMove: (move) => this.pendingBattlefieldMove.set(move),
-      setPendingLibraryMove: (move) => this.pendingLibraryMove.set(move),
+      setPendingLibraryMove: (move) => {
+        this.clearCardPreview();
+        this.pendingLibraryMove.set(move);
+      },
       pendingBattlefieldMove: () => this.pendingBattlefieldMove(),
       pendingLibraryMove: () => this.pendingLibraryMove(),
     });
@@ -477,8 +483,9 @@ export class GameTableStore implements OnDestroy {
   canAdvanceTurnPhase(): boolean {
     const activePlayerId = this.snapshot()?.turn.activePlayerId ?? null;
     const currentPlayerId = this.currentPlayer()?.id ?? null;
+    const blockedByLocalConcede = this.locallyConcededPlayerId !== null && this.locallyConcededPlayerId === currentPlayerId;
 
-    return !!activePlayerId && activePlayerId === currentPlayerId && !this.pending();
+    return !!activePlayerId && activePlayerId === currentPlayerId && !this.pending() && !blockedByLocalConcede;
   }
 
   toggleCardSelection(event: MouseEvent, playerId: string, zone: GameZoneName, card: GameCardInstance): void {
@@ -491,7 +498,7 @@ export class GameTableStore implements OnDestroy {
 
   openCardMenu(event: MouseEvent, playerId: string, zone: GameZoneName, card: GameCardInstance): void {
     const sourceRect = this.previewSourceRect(event);
-    this.showPinnedCardPreview(event, playerId, zone, card, sourceRect);
+    this.clearCardPreview();
     this.interactionActions.openCardMenu(this.contexts.interaction(), event, playerId, zone, card, { sourceRect });
   }
 
@@ -518,6 +525,7 @@ export class GameTableStore implements OnDestroy {
       card,
       {
         suppressRandomSelect: !modal.allowRandomSelect,
+        fromFixedZoneModal: modal.allowGiveDestination,
         sourceRect,
         menuPosition: this.cardCenterPosition(event, sourceRect),
       },
@@ -554,7 +562,7 @@ export class GameTableStore implements OnDestroy {
     }
 
     const sourceRect = this.previewSourceRect(event);
-    this.showPinnedCardPreview(event, playerId, zone, card, sourceRect);
+    this.clearCardPreview();
     this.uiState.openContextMenu(event, { playerId, zone, card, kind: 'counter', counterKey: key, sourceRect });
   }
 
@@ -580,6 +588,14 @@ export class GameTableStore implements OnDestroy {
       ...(targetPlayerId ? { targetPlayerId } : {}),
     });
     this.chatStore.clearMessage();
+  }
+
+  async toggleChatReaction(messageId: string | null | undefined, reaction: ChatReactionType): Promise<void> {
+    if (!messageId) {
+      return;
+    }
+
+    await this.command('chat.reaction.toggled', { messageId, reaction });
   }
 
   setChatMessage(value: string): void {
@@ -734,7 +750,7 @@ export class GameTableStore implements OnDestroy {
 
   async viewLibrary(playerId: string): Promise<void> {
     await this.libraryActions.view(this.contexts.libraryAction(), playerId);
-    await this.openZone(playerId, 'library');
+    await this.openZone(playerId, 'library', null, false, { allowGiveDestination: true });
     this.shuffleLibraryOnModalClosePlayerId.set(playerId);
     this.shuffleLibraryOnModalCloseReason.set('owner-view');
   }
@@ -796,6 +812,8 @@ export class GameTableStore implements OnDestroy {
       `${this.playerName(playerId)} random ${this.zoneTitle(zone).toLowerCase()} card`,
       [selectedCard],
       selectedCard.instanceId,
+      false,
+      { allowGiveDestination: true },
     );
   }
 
@@ -994,8 +1012,8 @@ export class GameTableStore implements OnDestroy {
     this.attachmentsState.startAttachmentFrom(this.contexts.attachmentInteraction(), menu);
   }
 
-  async giveCardToPlayer(menu: GameContextMenu, targetPlayerId: string): Promise<void> {
-    await this.cardActions.giveCardToPlayer(this.contexts.cardAction(), menu, targetPlayerId);
+  async giveCardToPlayer(menu: GameContextMenu, targetPlayerId: string, zone: 'battlefield' | 'hand' = 'battlefield'): Promise<void> {
+    await this.cardActions.giveCardToPlayer(this.contexts.cardAction(), menu, targetPlayerId, zone);
   }
 
   async giveHandCardToPlayer(menu: GameContextMenu, targetPlayerId: string): Promise<void> {
@@ -1268,8 +1286,18 @@ export class GameTableStore implements OnDestroy {
     await this.cardActions.revealZoneCard(this.contexts.cardAction(), card);
   }
 
-  async openZone(playerId: string, zone: GameZoneName, selectedCardId: string | null = null, readOnly = false): Promise<void> {
-    await this.zoneActions.openZone(this.contexts.zoneAction(), playerId, zone, selectedCardId, readOnly);
+  async openZone(
+    playerId: string,
+    zone: GameZoneName,
+    selectedCardId: string | null = null,
+    readOnly = false,
+    options: { allowGiveDestination?: boolean } = {},
+  ): Promise<void> {
+    this.clearCardPreview();
+    await this.zoneActions.openZone(this.contexts.zoneAction(), playerId, zone, selectedCardId, readOnly, {
+      ...options,
+      allowGiveDestination: options.allowGiveDestination === true || (!readOnly && this.zoneAllowsModalGiveTo(zone)),
+    });
   }
 
   openFixedZone(
@@ -1279,8 +1307,9 @@ export class GameTableStore implements OnDestroy {
     cards: GameCardInstance[],
     selectedCardId: string | null = null,
     allowRandomSelect = false,
-    options: { allowReorder?: boolean; drawOrderLabels?: readonly string[]; viewTopCount?: number | null } = {},
+    options: { allowGiveDestination?: boolean; allowReorder?: boolean; drawOrderLabels?: readonly string[]; viewTopCount?: number | null } = {},
   ): void {
+    this.clearCardPreview();
     this.zoneActions.openFixedZone(playerId, zone, title, cards, selectedCardId, allowRandomSelect, options);
   }
 
@@ -1338,6 +1367,10 @@ export class GameTableStore implements OnDestroy {
     }
   }
 
+  private zoneAllowsModalGiveTo(zone: GameZoneName): boolean {
+    return zone === 'graveyard' || zone === 'exile';
+  }
+
   startFloatingDrag(event: PointerEvent): void {
     this.uiState.startFloatingDrag(event);
   }
@@ -1351,18 +1384,40 @@ export class GameTableStore implements OnDestroy {
   }
 
   async command(type: GameCommandType, payload: Record<string, unknown>, force = false): Promise<void> {
+    const currentPlayerId = this.currentPlayer()?.id ?? null;
+    if (
+      type === 'turn.changed'
+      && this.locallyConcededPlayerId !== null
+      && currentPlayerId !== null
+      && this.locallyConcededPlayerId === currentPlayerId
+    ) {
+      return;
+    }
+
     await this.commandStore.command(this.contexts.command(), type, payload, force);
   }
 
   async concedeGame(): Promise<void> {
     const current = this.currentPlayer();
+    if (!current) {
+      this.closeContextMenu();
+      return;
+    }
+
     if (current?.state.status === 'conceded') {
       this.closeContextMenu();
       return;
     }
 
     this.closeContextMenu();
-    await this.command('game.concede', {}, true);
+    this.locallyConcededPlayerId = current.id;
+    this.websocketGameplay.prepareForLocalConcede();
+    try {
+      await this.command('game.concede', {}, true);
+    } catch (error) {
+      this.locallyConcededPlayerId = null;
+      throw error;
+    }
   }
 
   async concede(): Promise<void> {
@@ -1442,6 +1497,15 @@ export class GameTableStore implements OnDestroy {
   }
 
   private setSnapshot(snapshot: GameSnapshot | null): void {
+    if (snapshot === null) {
+      this.locallyConcededPlayerId = null;
+    } else if (this.locallyConcededPlayerId !== null) {
+      const localPlayerStatus = snapshot.players[this.locallyConcededPlayerId]?.status ?? null;
+      if (localPlayerStatus !== 'conceded') {
+        this.locallyConcededPlayerId = null;
+      }
+    }
+
     this.snapshotCoordinatorState.setSnapshot({
       openRevealedLibraryFromSnapshot: (nextSnapshot) => this.openRevealedLibraryFromSnapshot(nextSnapshot),
     }, snapshot);

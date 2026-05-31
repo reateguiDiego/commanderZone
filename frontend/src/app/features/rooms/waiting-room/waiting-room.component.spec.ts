@@ -368,7 +368,7 @@ describe('WaitingRoomComponent', () => {
     expect(component.seatPlayer(rolledRoom, 0)?.user.displayName).toBe('Guest 2');
     expect(component.hasCompletedTurnOrder(rolledRoom)).toBe(true);
     expect(component.isOddLastSeat(rolledRoom, 2)).toBe(true);
-    expect(component.shouldRenderOpenSeat(rolledRoom, 3)).toBe(false);
+    expect(component.shouldRenderOpenSeat(rolledRoom, 3)).toBe(true);
 
     const partialRoom = room({
       players: [
@@ -566,29 +566,26 @@ describe('WaitingRoomComponent', () => {
 
     await component.selectRandomLegalDeck();
     expect(component.selectedDeckId).toBe('valid-1');
-    expect(component.roomLog()[component.roomLog().length - 1]?.label).toBe('Owner picked a random deck from 1 legal options: Legal.');
+    expect(roomsApi.join).toHaveBeenCalledWith('room-1', 'valid-1', true);
   });
 
-  it('debounces starting life log entries across repeated updates', async () => {
-    vi.useFakeTimers();
-    try {
-      const fixture = TestBed.createComponent(WaitingRoomComponent);
-      fixture.detectChanges();
-      await fixture.whenStable();
+  it('renders persisted room log entries from room state', async () => {
+    const fixture = TestBed.createComponent(WaitingRoomComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
 
-      const component = fixture.componentInstance;
-      roomsApi.update
-        .mockReturnValueOnce(of({ room: room({ startingLife: 41 }) }))
-        .mockReturnValueOnce(of({ room: room({ startingLife: 42 }) }));
+    fixture.componentInstance.currentRoom.set(room({
+      waitingLog: [{
+        id: 'log-1',
+        label: 'Guest joined the room.',
+        tone: 'success',
+        createdAt: '2026-05-27T10:00:00+00:00',
+      }],
+    }));
+    fixture.detectChanges();
 
-      await component.updateRoomStartingLife(41);
-      await component.updateRoomStartingLife(42);
-      vi.advanceTimersByTime(850);
-
-      expect(component.roomLog()[component.roomLog().length - 1]?.label).toBe('Starting life changed from 40 to 42 (+2 life).');
-    } finally {
-      vi.useRealTimers();
-    }
+    expect(fixture.nativeElement.textContent).toContain('Guest joined the room.');
+    expect(fixture.nativeElement.querySelector('.room-log-entry.success')).not.toBeNull();
   });
 
   it('locks deck changes after the current player has rolled', async () => {
@@ -669,6 +666,7 @@ function baseRoom(): Room {
         turnRoll: null,
       },
     ],
+    waitingLog: [],
     gameId: null,
   };
 }

@@ -9,6 +9,7 @@ final readonly class GameWebsocketMessageHandler
         'commander.damage.changed',
         'counter.changed',
         'chat.message',
+        'chat.reaction.toggled',
         'dice.rolled',
         'turn.changed',
         'card.position.changed',

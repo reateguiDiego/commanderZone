@@ -117,7 +117,7 @@ describe('GameTableMotionService', () => {
     expect(gsapFromToSpy.mock.calls[0]?.[0]).not.toBe(handArea);
   });
 
-  it('skips ghost throws below 1200px viewport height', () => {
+  it('keeps ghost throws enabled below 1200px viewport height', () => {
     reinitWithMatchMedia((query) => query === '(max-height: 1199px)');
     const source = addHandCard(host, 'card-1', { left: 10, top: 20, width: 72, height: 100 });
     const target = addMotionTarget(host, { left: 300, top: 240, width: 72, height: 100 });
@@ -126,7 +126,7 @@ describe('GameTableMotionService', () => {
     service.throwElementGhost(source, target, { onComplete });
 
     expect(onComplete).toHaveBeenCalledOnce();
-    expect(gsapToSpy).not.toHaveBeenCalled();
+    expect(gsapToSpy).toHaveBeenCalledOnce();
     expect(document.body.querySelector('.cz-motion-ghost')).toBeNull();
   });
 

@@ -10,6 +10,7 @@ import {
 import { LoyaltyCounterComponent } from './loyalty-counter/loyalty-counter.component';
 import { GameTableDoubleTapDirective } from '../../directives/game-table-double-tap.directive';
 import { GameTableLongPressDirective } from '../../directives/game-table-long-press.directive';
+import { activeCardFaceIndex, hasAlternateFaceContent, nextCardFaceIndex } from '../../utils/double-faced-card';
 
 type GameCardViewMode = 'battlefield' | 'hand' | 'mini';
 
@@ -73,6 +74,8 @@ interface CardCounterDeleteRequestEvent {
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class GameCardViewComponent implements OnChanges, OnDestroy {
+  private static readonly rulingsAvailabilityByScryfallId = new Map<string, boolean>();
+  private static readonly rulingsLookupInFlightByScryfallId = new Map<string, Promise<boolean>>();
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly defaultHoverLiftDelayMs = CARD_PREVIEW_HOVER_DELAY_MS;
   private readonly singleStatPulseMs = 420;
@@ -91,10 +94,13 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
   private statOverlayArrivalTimer: number | null = null;
   private previousFaceInstanceId: string | null = null;
   private previousActiveFaceIndex: number | null = null;
+  private previousFaceDown: boolean | null = null;
+  private previewFaceIndexOverride: number | null = null;
   private faceFlipTimer: number | null = null;
   private pointerInside = false;
   private previewBoundsListening = false;
   private previewSuppressedUntilPointerExit = false;
+  private pendingRulingsLookupScryfallId: string | null = null;
   private readonly faceFlipAnimationMs = 620;
   private readonly previewPointerMoveHandler = (event: PointerEvent): void => this.syncPreviewPointerBounds(event);
 
@@ -138,6 +144,7 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
   readonly landStackSize = input<number | null>(null);
   readonly attachmentStackRole = input<AttachmentStackRole | null>(null);
   readonly attachmentStackLayer = input<number | null>(null);
+  readonly attachmentStackHighlighted = input(false);
   readonly landStackDropTarget = input(false);
   readonly landStackDropSize = input<number | null>(null);
   readonly landStackDropKind = input<'land' | 'attachment'>('land');
@@ -200,6 +207,7 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
   readonly cardPointerEntered = output<CardMouseEvent>();
   readonly cardMouseEntered = output<CardPreviewEvent>();
   readonly cardMouseLeft = output<void>();
+  readonly cardFaceLookRequested = output<CardPreviewEvent>();
   readonly powerChanged = output<CardStatChangeEvent>();
   readonly toughnessChanged = output<CardStatChangeEvent>();
   readonly loyaltyChanged = output<CardStatChangeEvent>();
@@ -207,13 +215,22 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
   readonly counterDeleteRequested = output<CardCounterDeleteRequestEvent>();
   readonly hoverLifted = signal(false);
   readonly previewActive = signal(false);
+  readonly hasRulingsForMarker = signal(false);
   readonly powerPulse = signal<StatPulse>(null);
   readonly toughnessPulse = signal<StatPulse>(null);
   readonly loyaltyPulse = signal<StatPulse>(null);
   readonly statOverlayArriving = signal(false);
   readonly faceFlipAnimating = signal(false);
+  readonly canShowFaceToggle = computed(() => {
+    const currentCard = this.card();
+
+    return !this.faceDown()
+      && currentCard.hidden !== true
+      && hasAlternateFaceContent(currentCard, this.previewFaceIndexOverride ?? activeCardFaceIndex(currentCard));
+  });
   readonly statsVisible = computed(() => !this.faceDown() && this.showPowerToughness());
   readonly loyaltyVisible = computed(() => !this.faceDown() && this.loyaltyValue() !== null && !this.showPowerToughness());
+  readonly showRulingsMarker = computed(() => this.rulingsMarkerEligible() && this.hasRulingsForMarker());
   readonly landStackZIndex = computed(() => {
     const role = this.landStackRole();
     if (!role) {
@@ -262,6 +279,7 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
   });
 
   ngOnChanges(): void {
+    this.syncRulingsMarkerAvailability();
     this.syncActiveHoverInstance();
     this.syncHoverInteractions();
     this.syncFaceFlipAnimation();
@@ -310,6 +328,9 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
   }
 
   onMouseEnter(event: MouseEvent, card: GameCardInstance): void {
+    if (this.hoveredCard?.instanceId !== card.instanceId) {
+      this.previewFaceIndexOverride = null;
+    }
     this.pointerInside = true;
     this.hoveredCard = card;
     this.cardPointerEntered.emit({ event, card });
@@ -320,6 +341,7 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
     this.pointerInside = false;
     this.previewSuppressedUntilPointerExit = false;
     this.hoveredCard = null;
+    this.previewFaceIndexOverride = null;
     this.deactivateHover(true);
     this.cardMouseLeft.emit();
   }
@@ -327,6 +349,7 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
   onDragStart(event: DragEvent, card: GameCardInstance): void {
     this.pointerInside = false;
     this.hoveredCard = null;
+    this.previewFaceIndexOverride = null;
     this.deactivateHover(true);
     this.cardDragStarted.emit({ event, card });
   }
@@ -357,6 +380,22 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
     this.counterDeleteRequested.emit({ event: request.event, card: this.card(), key: request.key });
   }
 
+  async openRulings(event: MouseEvent): Promise<void> {
+    event.preventDefault();
+    event.stopPropagation();
+    const scryfallId = this.card().scryfallId?.trim();
+    if (!scryfallId) {
+      return;
+    }
+
+    const hasRulings = await this.hasRulings(scryfallId);
+    if (!hasRulings) {
+      return;
+    }
+
+    window.open(`https://scryfall.com/card/${encodeURIComponent(scryfallId)}#rulings`, '_blank', 'noopener');
+  }
+
   stopStatPointer(event: PointerEvent): void {
     event.stopPropagation();
   }
@@ -364,6 +403,34 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
   stopStatDoubleClick(event: MouseEvent): void {
     event.preventDefault();
     event.stopPropagation();
+  }
+
+  stopFaceTogglePointer(event: PointerEvent): void {
+    event.stopPropagation();
+    if (event.button === 0) {
+      event.preventDefault();
+    }
+  }
+
+  stopFaceToggleEvent(event: Event): void {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  lookAtOtherFace(event: Event): void {
+    this.stopFaceToggleEvent(event);
+    const currentCard = this.card();
+    const nextFaceIndex = this.nextPreviewFaceIndex(currentCard);
+    if (nextFaceIndex === null) {
+      return;
+    }
+
+    this.previewFaceIndexOverride = nextFaceIndex;
+    this.activePreviewInstanceId = currentCard.instanceId;
+    this.activePreviewSourceRect ??= previewRectFromElement(this.cardElement());
+    this.activatePreviewForCurrentCard();
+    this.emitCardPreview(currentCard);
+    this.cardFaceLookRequested.emit(this.previewEvent(currentCard));
   }
 
   private syncHoverInteractions(sourceElement: Element | null = null): void {
@@ -434,6 +501,7 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
     this.clearHoverLiftTimer();
     this.hoverLifted.set(false);
     this.previewActive.set(false);
+    this.previewFaceIndexOverride = null;
     this.activePreviewSourceRect = null;
     this.stopPreviewBoundsWatcher();
     if (!emitPreviewHidden || this.activePreviewInstanceId === null) {
@@ -453,12 +521,24 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
   }
 
   private emitCardPreview(card: GameCardInstance): void {
-    this.cardMouseEntered.emit({
-      card,
+    this.cardMouseEntered.emit(this.previewEvent(card));
+  }
+
+  private previewEvent(card: GameCardInstance): CardPreviewEvent {
+    return {
+      card: this.previewCard(card),
       playerId: this.playerId(),
       zone: this.zone(),
       sourceRect: this.activePreviewSourceRect,
-    });
+    };
+  }
+
+  private previewCard(card: GameCardInstance): GameCardInstance {
+    return this.previewFaceIndexOverride === null ? card : { ...card, activeFaceIndex: this.previewFaceIndexOverride };
+  }
+
+  private nextPreviewFaceIndex(card: GameCardInstance): number | null {
+    return nextCardFaceIndex(card, this.previewFaceIndexOverride ?? activeCardFaceIndex(card));
   }
 
   private startPreviewBoundsWatcher(): void {
@@ -605,17 +685,22 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
   private syncFaceFlipAnimation(): void {
     const currentCard = this.card();
     const activeFaceIndex = currentCard.activeFaceIndex ?? 0;
+    const faceDown = Boolean(this.faceDown() || this.hidden() || currentCard.faceDown || currentCard.hidden);
     const isSameCard = this.previousFaceInstanceId === currentCard.instanceId;
     const faceChanged = isSameCard
       && this.previousActiveFaceIndex !== null
       && this.previousActiveFaceIndex !== activeFaceIndex;
+    const faceDownChanged = isSameCard
+      && this.previousFaceDown !== null
+      && this.previousFaceDown !== faceDown;
 
-    if (faceChanged && this.canPlayFaceFlipAnimation()) {
+    if ((faceChanged || faceDownChanged) && this.canPlayFaceFlipAnimation()) {
       this.startFaceFlipAnimation();
     }
 
     this.previousFaceInstanceId = currentCard.instanceId;
     this.previousActiveFaceIndex = activeFaceIndex;
+    this.previousFaceDown = faceDown;
   }
 
   private canPlayFaceFlipAnimation(): boolean {
@@ -682,4 +767,98 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
         return this.loyaltyPulse;
     }
   }
+
+  private async hasRulings(scryfallId: string): Promise<boolean> {
+    const cached = GameCardViewComponent.rulingsAvailabilityByScryfallId.get(scryfallId);
+    if (cached !== undefined) {
+      return cached;
+    }
+
+    const inFlight = GameCardViewComponent.rulingsLookupInFlightByScryfallId.get(scryfallId);
+    if (inFlight) {
+      return inFlight;
+    }
+
+    const lookup = this.fetchHasRulings(scryfallId);
+    GameCardViewComponent.rulingsLookupInFlightByScryfallId.set(scryfallId, lookup);
+
+    try {
+      const result = await lookup;
+      GameCardViewComponent.rulingsAvailabilityByScryfallId.set(scryfallId, result);
+      return result;
+    } finally {
+      GameCardViewComponent.rulingsLookupInFlightByScryfallId.delete(scryfallId);
+    }
+  }
+
+  private async fetchHasRulings(scryfallId: string): Promise<boolean> {
+    try {
+      const response = await fetch(`https://api.scryfall.com/cards/${encodeURIComponent(scryfallId)}/rulings`);
+      if (!response.ok) {
+        return false;
+      }
+
+      const payload: unknown = await response.json();
+      const data = isRecord(payload) ? payload['data'] : undefined;
+
+      return Array.isArray(data) && data.length > 0;
+    } catch {
+      return false;
+    }
+  }
+
+  private syncRulingsMarkerAvailability(): void {
+    if (!this.rulingsMarkerEligible()) {
+      this.pendingRulingsLookupScryfallId = null;
+      this.hasRulingsForMarker.set(false);
+      return;
+    }
+
+    const scryfallId = this.card().scryfallId?.trim() ?? '';
+    if (scryfallId === '') {
+      this.pendingRulingsLookupScryfallId = null;
+      this.hasRulingsForMarker.set(false);
+      return;
+    }
+
+    const cached = GameCardViewComponent.rulingsAvailabilityByScryfallId.get(scryfallId);
+    if (cached !== undefined) {
+      this.pendingRulingsLookupScryfallId = null;
+      this.hasRulingsForMarker.set(cached);
+      return;
+    }
+
+    this.hasRulingsForMarker.set(false);
+    this.pendingRulingsLookupScryfallId = scryfallId;
+    void this.hasRulings(scryfallId).then((hasRulings) => {
+      if (this.pendingRulingsLookupScryfallId !== scryfallId) {
+        return;
+      }
+
+      if (this.card().scryfallId?.trim() !== scryfallId || !this.rulingsMarkerEligible()) {
+        return;
+      }
+
+      this.hasRulingsForMarker.set(hasRulings);
+    });
+  }
+
+  private rulingsMarkerEligible(): boolean {
+    const currentCard = this.card();
+    const scryfallId = currentCard.scryfallId?.trim() ?? '';
+
+    return this.mode() === 'battlefield'
+      && this.zone() === 'battlefield'
+      && this.faceDown() !== true
+      && this.hidden() !== true
+      && currentCard.faceDown !== true
+      && currentCard.hidden !== true
+      && currentCard.isToken !== true
+      && currentCard.isTokenCopy !== true
+      && scryfallId !== '';
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
 }

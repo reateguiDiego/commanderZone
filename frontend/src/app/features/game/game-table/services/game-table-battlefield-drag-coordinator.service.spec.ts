@@ -209,21 +209,21 @@ describe('GameTableBattlefieldDragCoordinatorService', () => {
     const position = service.positionWithAlignmentGuide(
       contextWithSnapshot(snapshotWithBattlefield([
         land('top', { x: 100, y: 200 }),
-        land('under', { x: 100, y: 186 }),
+        land('under', { x: 100, y: 182 }),
       ])),
       'player-1',
       'dragged',
-      { x: 220, y: 186 },
+      { x: 220, y: 182 },
     );
 
-    expect(position).toEqual({ x: 220, y: 186 });
+    expect(position).toEqual({ x: 220, y: 182 });
   });
 
   it('still uses the stack top card as an alignment row reference', () => {
     const position = service.positionWithAlignmentGuide(
       contextWithSnapshot(snapshotWithBattlefield([
         land('top', { x: 100, y: 200 }),
-        land('under', { x: 100, y: 186 }),
+        land('under', { x: 100, y: 182 }),
       ])),
       'player-1',
       'dragged',

@@ -124,13 +124,18 @@
                 }
               } @else {
                 @if (latestChatMessage(); as message) {
-                  <p class="collapsed-chat-entry">
+                  <p class="chat-entry collapsed-chat-entry">
                     <small>{{ logTime(message.createdAt) }}</small>
-                    <strong>{{ message.displayName }}</strong>
-                    @if (message.targetDisplayName) {
-                      <em>to {{ message.targetDisplayName }}</em>
-                    }
-                    <span>{{ message.message }}</span>
+                    <span class="chat-message-body">
+                      <span class="chat-message-line">
+                        <strong [style.--chat-author-color]="chatAuthorColor(message.userId)">{{ message.displayName }}</strong>
+                        @if (message.targetDisplayName) {
+                          <em>to {{ message.targetDisplayName }}</em>
+                        }
+                        <span class="chat-message-separator">:</span>
+                        <span class="chat-message-text">{{ message.message }}</span>
+                      </span>
+                    </span>
                   </p>
                 } @else {
                   <p class="collapsed-empty"><span>No chat messages yet.</span></p>
@@ -141,6 +146,9 @@
               <app-game-log-panel
                 class="floating-expanded-content"
                 [entries]="store.eventLog()"
+                [highlightedEntryIds]="highlightedLogEntryIds()"
+                [fadingEntryIds]="fadingLogEntryIds()"
+                [playerColor]="chatAuthorColor"
                 [logTime]="logTime"
                 (previewCard)="store.showCardPreview($event)"
                 (hidePreview)="store.hideCardPreview()"
@@ -148,14 +156,59 @@
             } @else {
               <div class="chat-panel-content floating-expanded-content" data-testid="chat-panel">
                 <div #autoScrollFeed appPrettyScroll class="panel-feed" data-testid="chat-feed">
-                  @for (message of snapshot.chat; track message.createdAt + message.userId) {
-                    <p data-testid="chat-message" [class.private-chat-message]="message.targetPlayerId">
+                  @for (message of snapshot.chat; track message.id ?? message.createdAt + message.userId) {
+                    <p
+                      class="chat-entry"
+                      data-testid="chat-message"
+                      [class.private-chat-message]="message.targetPlayerId"
+                      [class.new-message-highlight]="isChatMessageHighlighted(message, $index)"
+                      [class.new-message-evaporating]="isChatMessageEvaporating(message, $index)"
+                    >
                       <small>{{ logTime(message.createdAt) }}</small>
-                      <strong>{{ message.displayName }}</strong>
-                      @if (message.targetDisplayName) {
-                        <em>to {{ message.targetDisplayName }}</em>
-                      }
-                      <span>{{ message.message }}</span>
+                      <span class="chat-message-body">
+                        <span class="chat-message-line">
+                          <strong [style.--chat-author-color]="chatAuthorColor(message.userId)">{{ message.displayName }}</strong>
+                          @if (message.targetDisplayName) {
+                            <em>to {{ message.targetDisplayName }}</em>
+                          }
+                          <span class="chat-message-separator">:</span>
+                          <span class="chat-message-text">{{ message.message }}</span>
+                        </span>
+                        @if (canReactToChatMessage(message)) {
+                          <span class="chat-reaction-overlay">
+                            @for (reaction of chatReactionOptions; track reaction.type) {
+                              <button
+                                type="button"
+                                class="chat-reaction"
+                                data-testid="chat-reaction"
+                                [class.active]="hasOwnChatReaction(message, reaction.type)"
+                                [disabled]="!message.id"
+                                [attr.aria-label]="reaction.label"
+                                (click)="toggleChatReaction($event, message, reaction.type)"
+                              >
+                                <span class="chat-reaction-icon" aria-hidden="true">{{ reaction.emoji }}</span>
+                              </button>
+                            }
+                          </span>
+                        }
+                        @if (hasAnyChatReaction(message)) {
+                          <span class="chat-reaction-summary">
+                            @for (reaction of chatReactionOptions; track reaction.type) {
+                              @if (chatReactionCount(message, reaction.type) > 0) {
+                                <span class="chat-reaction-pill">
+                                  <span class="chat-reaction-icon" aria-hidden="true">{{ reaction.emoji }}</span>
+                                  <b>{{ chatReactionCount(message, reaction.type) }}</b>
+                                  @if (shouldShowChatReactionUsers(message, reaction.type)) {
+                                    <span class="chat-reaction-users" role="tooltip">
+                                      <b>Reacted by</b> {{ chatReactionUsers(message, reaction.type) }}
+                                    </span>
+                                  }
+                                </span>
+                              }
+                            }
+                          </span>
+                        }
+                      </span>
                     </p>
                   }
                 </div>
@@ -255,6 +308,7 @@
             [alignmentGuideFor]="alignmentGuideFor"
             [isManaLaneHighlighted]="isManaLaneHighlighted"
             [layoutKey]="battlefieldZoom.zoomPercent()"
+            [zoomPercent]="battlefieldZoom.zoomPercent()"
             [landStackDropPreview]="store.landStackDropPreview()"
             [attachments]="snapshot.attachments ?? []"
             [isCardDropSettling]="isCardDropSettling"
@@ -360,6 +414,7 @@
           @for (player of opponentSidebarPlayers(); track player.id) {
             <app-opponent-mini-board
               [player]="player"
+              [attachments]="snapshot.attachments ?? []"
               [colorAccent]="colorAccent"
               [deckLabel]="deckLabel"
               [backgroundImage]="gameBackgroundImage"
@@ -383,7 +438,7 @@
               (playerMenuOpened)="store.openPlayerMenu($event.event, $event.playerId)"
               (cardPreviewShown)="store.showCardPreview($event)"
               (cardPreviewHidden)="store.hideCardPreview()"
-              (battlefieldCardClicked)="store.handleBattlefieldCardClick($event.event, $event.playerId, $event.card)"
+              (battlefieldCardClicked)="handleOpponentMiniBattlefieldCardClick($event)"
             />
           }
         </div>
@@ -490,8 +545,8 @@
           primaryLabel="Confirmar"
           secondaryLabel="Cancelar"
           [lockBodyScroll]="false"
-          (primary)="store.confirmPendingBattlefieldMove()"
-          (secondary)="store.cancelPendingBattlefieldMove()"
+          (primary)="confirmPendingBattlefieldMove()"
+          (secondary)="cancelPendingBattlefieldMove()"
         />
       }
 
@@ -647,6 +702,8 @@
         [sourceRect]="preview.sourceRect"
         [avoidRect]="contextMenuAvoidRect()"
         [battlefieldRect]="battlefieldLayoutSize()"
+        [attachmentInfo]="hoveredPreviewAttachmentInfo()"
+        [cardStateInfo]="hoveredPreviewCardStateInfo()"
       />
     }
 

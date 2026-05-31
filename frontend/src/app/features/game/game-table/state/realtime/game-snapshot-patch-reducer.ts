@@ -196,6 +196,9 @@ function applyOperation(snapshot: GameSnapshot, operation: GameSnapshotPatchOper
     case 'chat.append':
       return { status: 'applied', snapshot: { ...snapshot, chat: [...snapshot.chat, ...operation.entries] } };
 
+    case 'chat.message.set':
+      return updateChatMessage(snapshot, operation.message);
+
     case 'eventLog.append':
       return {
         status: 'applied',
@@ -566,4 +569,21 @@ function replaceZoneSnapshotOnly(snapshot: GameSnapshot, playerId: string, zone:
       },
     },
   };
+}
+
+function updateChatMessage(snapshot: GameSnapshot, message: GameSnapshot['chat'][number]): OperationResult {
+  const messageId = message.id;
+  if (!messageId) {
+    return { status: 'failed', reason: 'invalid_operation' };
+  }
+
+  const messageIndex = snapshot.chat.findIndex((entry) => entry.id === messageId);
+  if (messageIndex < 0) {
+    return { status: 'failed', reason: 'target_not_found' };
+  }
+
+  const nextChat = [...snapshot.chat];
+  nextChat[messageIndex] = { ...message };
+
+  return { status: 'applied', snapshot: { ...snapshot, chat: nextChat } };
 }

@@ -351,7 +351,34 @@ describe('ContextMenuComponent', () => {
     fixture.componentInstance.selectGiveToPlayer('user-2');
 
     expect(selected).toHaveBeenCalledWith({ type: 'playFaceDown' });
-    expect(selected).toHaveBeenCalledWith({ type: 'giveToPlayer', targetPlayerId: 'user-2' });
+    expect(selected).toHaveBeenCalledWith({ type: 'giveToPlayer', zone: 'hand', targetPlayerId: 'user-2' });
+  });
+
+  it('shows battlefield and hand destinations before player names for random modal cards', () => {
+    const fixture = createContextMenuFixture({
+      kind: 'card',
+      playerId: 'user-1',
+      zone: 'graveyard',
+      card: card('random-card'),
+      fromFixedZoneModal: true,
+      suppressRandomSelect: true,
+    });
+    const selected = vi.fn();
+    fixture.componentInstance.actionSelected.subscribe(selected);
+
+    fixture.componentInstance.toggleSubmenu(new MouseEvent('click'), 'giveToPlayer');
+    fixture.detectChanges();
+
+    const text = menuText(fixture);
+    expect(text).toContain('Give to');
+    expect(text).toContain('Battlefield');
+    expect(text).toContain('Hand');
+
+    fixture.componentInstance.selectGiveToDestination('battlefield:user-2');
+    fixture.componentInstance.selectGiveToDestination('hand:user-2');
+
+    expect(selected).toHaveBeenCalledWith({ type: 'giveToPlayer', zone: 'battlefield', targetPlayerId: 'user-2' });
+    expect(selected).toHaveBeenCalledWith({ type: 'giveToPlayer', zone: 'hand', targetPlayerId: 'user-2' });
   });
 
   it('emits select random from zone menus', () => {
@@ -593,6 +620,49 @@ describe('ContextMenuComponent', () => {
     expect(selected).toHaveBeenCalledWith({ type: 'moveCard', zone: 'library', position: 'bottom' });
   });
 
+  it('allows giving cards from the view-all library modal to active players', () => {
+    const fixture = createContextMenuFixture({
+      kind: 'card',
+      playerId: 'user-1',
+      zone: 'library',
+      card: card('library-card'),
+      fromFixedZoneModal: true,
+    }, {
+      players: [
+        player('user-1', 'User'),
+        player('user-2', 'Opponent'),
+        player('user-3', 'Defeated', 'conceded'),
+      ],
+    });
+    const selected = vi.fn();
+    fixture.componentInstance.actionSelected.subscribe(selected);
+
+    fixture.componentInstance.toggleSubmenu(new MouseEvent('click'), 'giveToPlayer');
+    fixture.detectChanges();
+
+    const text = menuText(fixture);
+    expect(text).toContain('Give to');
+    expect(text).toContain('Battlefield');
+    expect(text).toContain('Hand');
+    expect(text).not.toContain('Defeated');
+    expect(fixture.componentInstance.giveToDestinationMenuItems()).toEqual([
+      expect.objectContaining({
+        value: 'battlefield',
+        children: [expect.objectContaining({ value: 'battlefield:user-2', label: 'Opponent' })],
+      }),
+      expect.objectContaining({
+        value: 'hand',
+        children: [expect.objectContaining({ value: 'hand:user-2', label: 'Opponent' })],
+      }),
+    ]);
+
+    fixture.componentInstance.selectGiveToDestination('battlefield:user-2');
+    fixture.componentInstance.selectGiveToDestination('hand:user-2');
+
+    expect(selected).toHaveBeenCalledWith({ type: 'giveToPlayer', zone: 'battlefield', targetPlayerId: 'user-2' });
+    expect(selected).toHaveBeenCalledWith({ type: 'giveToPlayer', zone: 'hand', targetPlayerId: 'user-2' });
+  });
+
   it('uses dynamic battlefield labels and only exposes command moves for commanders', () => {
     const tappedCommander = createContextMenuFixture({
       kind: 'card',
@@ -764,6 +834,7 @@ describe('ContextMenuComponent', () => {
 interface ContextMenuFixtureOptions {
   canControlPlayer?: (playerId: string) => boolean;
   currentPlayer?: ReturnType<typeof player> | null;
+  players?: ReturnType<typeof player>[];
   canAttachEquipment?: (playerId: string, card: GameCardInstance) => boolean;
   isAttachmentTarget?: (playerId: string, card: GameCardInstance) => boolean;
   isLandStacked?: (playerId: string, card: GameCardInstance) => boolean;
@@ -783,7 +854,7 @@ function createContextMenuFixture(menu: Partial<GameContextMenu>, options: Conte
   } satisfies GameContextMenu);
   fixture.componentRef.setInput('currentPlayer', options.currentPlayer ?? null);
   fixture.componentRef.setInput('isGameOwner', false);
-  fixture.componentRef.setInput('players', [
+  fixture.componentRef.setInput('players', options.players ?? [
     player('user-1', 'User'),
     player('user-2', 'Opponent'),
   ]);

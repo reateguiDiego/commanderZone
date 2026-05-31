@@ -110,9 +110,19 @@ export class GameTableWebsocketTransportService implements OnDestroy {
       }
     };
     socket.onerror = () => {
-      if (this.socket === socket) {
-        this.status.set('error');
+      if (this.socket !== socket) {
+        return;
       }
+
+      this.status.set('error');
+      if (socket.readyState === WebSocket.OPEN || this.closeRequested) {
+        return;
+      }
+
+      this.socket = null;
+      this.stopPing();
+      this.status.set('disconnected');
+      this.scheduleReconnect(gameId);
     };
     socket.onclose = () => {
       if (this.socket !== socket) {

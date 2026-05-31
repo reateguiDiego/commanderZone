@@ -21,7 +21,7 @@ import { PrettyScrollDirective } from '../../../shared/ui/pretty-scroll/pretty-s
 import { bestCardArtImage } from '../../../shared/utils/card-image';
 import { RoomSetupModalComponent } from '../shared/room-setup-modal/room-setup-modal.component';
 import { WaitingDeckOption } from './components/waiting-room-deck-selector/waiting-room-deck-selector.component';
-import { WaitingRoomLogEntry, WaitingRoomLogPanelComponent } from './components/waiting-room-log-panel/waiting-room-log-panel.component';
+import { WaitingRoomLogPanelComponent } from './components/waiting-room-log-panel/waiting-room-log-panel.component';
 import { WaitingRoomPlayerCardComponent } from './components/waiting-room-player-card/waiting-room-player-card.component';
 
 gsap.registerPlugin(Flip);
@@ -72,18 +72,8 @@ export class WaitingRoomComponent implements OnDestroy {
   private navigatingToGame = false;
   private deletingOnDestroy = false;
   private seatOrderIds: string[] = [];
-  private suppressedOwnDeckUpdateDeckId: string | null = null;
-  private startingLifeLogHandle?: number;
   private copiedFeedbackHandle?: number;
-  private startingLifeLogChange?: { from: number; to: number };
-  private timerLogHandle?: number;
   private playerOrderAnimationFrame?: number;
-  private timerLogChange?: {
-    fromMode: RoomTimerMode;
-    toMode: RoomTimerMode;
-    fromDurationSeconds: number;
-    toDurationSeconds: number;
-  };
   private lastAutoTiePromptKey = '';
 
   readonly roomId = computed(() => this.route.snapshot.paramMap.get('id')?.trim() ?? '');
@@ -117,7 +107,7 @@ export class WaitingRoomComponent implements OnDestroy {
   readonly roomPendingDelete = signal<Room | null>(null);
   readonly playerPendingKick = signal<RoomPlayer | null>(null);
   readonly invalidDeckSelection = signal<WaitingDeckOption | null>(null);
-  readonly roomLog = signal<WaitingRoomLogEntry[]>([]);
+  readonly roomLog = computed(() => this.currentRoom()?.waitingLog ?? []);
   readonly deletingRoomId = signal<string | null>(null);
   readonly kickingPlayerId = signal<string | null>(null);
   readonly updatingDeck = signal(false);
@@ -184,14 +174,8 @@ export class WaitingRoomComponent implements OnDestroy {
     if (this.roomSyncHandle !== undefined) {
       window.clearInterval(this.roomSyncHandle);
     }
-    if (this.startingLifeLogHandle !== undefined) {
-      window.clearTimeout(this.startingLifeLogHandle);
-    }
     if (this.copiedFeedbackHandle !== undefined) {
       window.clearTimeout(this.copiedFeedbackHandle);
-    }
-    if (this.timerLogHandle !== undefined) {
-      window.clearTimeout(this.timerLogHandle);
     }
     if (this.playerOrderAnimationFrame !== undefined) {
       window.cancelAnimationFrame(this.playerOrderAnimationFrame);
@@ -235,7 +219,7 @@ export class WaitingRoomComponent implements OnDestroy {
     this.inviteModalOpen.set(false);
   }
 
-  async updateDeckSelection(logMessage?: string): Promise<void> {
+  async updateDeckSelection(): Promise<void> {
     const room = this.currentRoom();
     if (!room || this.selectedDeckId.trim() === '') {
       return;
@@ -252,9 +236,6 @@ export class WaitingRoomComponent implements OnDestroy {
       const response = await firstValueFrom(this.roomsApi.join(room.id, this.selectedDeckId, true));
       this.setCurrentRoom(response.room);
       this.syncSelectedDeckFromRoom(response.room);
-      if (logMessage) {
-        this.appendRoomLog(logMessage);
-      }
       await this.loadRoomState(true);
     } catch (error) {
       this.error.set(this.errorMessage(error, 'Could not update deck for this room.'));
@@ -420,11 +401,9 @@ export class WaitingRoomComponent implements OnDestroy {
 
     this.error.set(null);
     this.updatingStartingLife.set(true);
-    const previousStartingLife = this.roomStartingLife(room);
     try {
       const response = await firstValueFrom(this.roomsApi.update(room.id, { startingLife }, true));
       this.setCurrentRoom(response.room);
-      this.scheduleStartingLifeLog(previousStartingLife, this.roomStartingLife(response.room));
     } catch (error) {
       this.error.set(this.errorMessage(error, 'Could not update starting life.'));
     } finally {
@@ -497,9 +476,8 @@ export class WaitingRoomComponent implements OnDestroy {
     const randomIndex = Math.floor(Math.random() * legalDecks.length);
     const selectedDeck = legalDecks[randomIndex];
     this.selectedDeckId = selectedDeck.id;
-    this.suppressedOwnDeckUpdateDeckId = selectedDeck.id;
     this.deckSelectorOpen.set(false);
-    await this.updateDeckSelection(`${this.auth.user()?.displayName ?? 'You'} picked a random deck from ${legalDecks.length} legal options: ${selectedDeck.name}.`);
+    await this.updateDeckSelection();
   }
 
   async copyRoomCode(room: Room): Promise<void> {
@@ -808,8 +786,7 @@ export class WaitingRoomComponent implements OnDestroy {
   }
 
   shouldRenderOpenSeat(room: Room, seatIndex: number): boolean {
-    return seatIndex < this.roomCapacity(room)
-      && !this.isCompanionSlotForCenteredOddPlayer(room, seatIndex);
+    return seatIndex < this.roomCapacity(room);
   }
 
   private async loadDecks(): Promise<void> {
@@ -1105,96 +1082,17 @@ export class WaitingRoomComponent implements OnDestroy {
     return this.isDeckInvalid(deckId) ? 1 : 0;
   }
 
-  private scheduleStartingLifeLog(from: number, to: number): void {
-    if (from === to) {
-      return;
-    }
-
-    this.startingLifeLogChange = {
-      from: this.startingLifeLogChange?.from ?? from,
-      to,
-    };
-
-    if (this.startingLifeLogHandle !== undefined) {
-      window.clearTimeout(this.startingLifeLogHandle);
-    }
-
-    this.startingLifeLogHandle = window.setTimeout(() => {
-      const change = this.startingLifeLogChange;
-      this.startingLifeLogHandle = undefined;
-      this.startingLifeLogChange = undefined;
-      if (!change || change.from === change.to) {
-        return;
-      }
-
-      const delta = change.to - change.from;
-      const sign = delta > 0 ? '+' : '';
-      this.appendRoomLog(`Starting life changed from ${change.from} to ${change.to} (${sign}${delta} life).`);
-    }, 850);
-  }
-
-  private scheduleTimerLog(fromMode: RoomTimerMode, toMode: RoomTimerMode, fromDurationSeconds: number, toDurationSeconds: number): void {
-    if (fromMode === toMode && fromDurationSeconds === toDurationSeconds) {
-      return;
-    }
-
-    this.timerLogChange = {
-      fromMode: this.timerLogChange?.fromMode ?? fromMode,
-      fromDurationSeconds: this.timerLogChange?.fromDurationSeconds ?? fromDurationSeconds,
-      toMode,
-      toDurationSeconds,
-    };
-
-    if (this.timerLogHandle !== undefined) {
-      window.clearTimeout(this.timerLogHandle);
-    }
-
-    this.timerLogHandle = window.setTimeout(() => {
-      const change = this.timerLogChange;
-      this.timerLogHandle = undefined;
-      this.timerLogChange = undefined;
-      if (!change || (change.fromMode === change.toMode && change.fromDurationSeconds === change.toDurationSeconds)) {
-        return;
-      }
-
-      this.appendRoomLog(`Timer changed from ${this.timerLabel(change.fromMode, change.fromDurationSeconds)} to ${this.timerLabel(change.toMode, change.toDurationSeconds)}.`);
-    }, 850);
-  }
-
-  private timerLabel(mode: RoomTimerMode, durationSeconds: number): string {
-    if (mode === 'none') {
-      return 'off';
-    }
-
-    return `${this.formatDuration(durationSeconds)} per turn`;
-  }
-
-  private formatDuration(durationSeconds: number): string {
-    const minutes = Math.floor(durationSeconds / 60);
-    const seconds = durationSeconds % 60;
-
-    return seconds === 0 ? `${minutes} min` : `${minutes}:${seconds.toString().padStart(2, '0')}`;
-  }
-
   private async updateRoomTimer(options: { timerMode?: RoomTimerMode; timerDurationSeconds?: number }): Promise<void> {
     const room = this.currentRoom();
     if (!room || !this.canEditRoom(room)) {
       return;
     }
 
-    const previousMode = this.roomTimerMode(room);
-    const previousDurationSeconds = this.roomTimerDurationSeconds(room);
     this.error.set(null);
     this.updatingTimer.set(true);
     try {
       const response = await firstValueFrom(this.roomsApi.update(room.id, options, true));
       this.setCurrentRoom(response.room);
-      this.scheduleTimerLog(
-        previousMode,
-        this.roomTimerMode(response.room),
-        previousDurationSeconds,
-        this.roomTimerDurationSeconds(response.room),
-      );
     } catch (error) {
       this.error.set(this.errorMessage(error, 'Could not update timer settings.'));
     } finally {
@@ -1339,12 +1237,10 @@ export class WaitingRoomComponent implements OnDestroy {
     }
 
     if (!event.room) {
-      this.appendRoomLog(this.describeWaitingRoomEvent(event, null));
       await this.loadRoomState(true);
       return;
     }
 
-    this.appendRoomLog(this.describeWaitingRoomEvent(event, event.room));
     this.setCurrentRoom(event.room);
     this.syncSelectedDeckFromRoom(event.room);
     if (event.room.status === 'waiting' && this.isCurrentUserInRoom(event.room) && this.inviteModalOpen()) {
@@ -1354,99 +1250,6 @@ export class WaitingRoomComponent implements OnDestroy {
       this.navigatingToGame = true;
       await this.router.navigate(['/games', event.room.gameId]);
     }
-  }
-
-  private appendRoomLog(label: string): void {
-    const trimmedLabel = label.trim();
-    if (!trimmedLabel) {
-      return;
-    }
-
-    const entry: WaitingRoomLogEntry = {
-      id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-      label: trimmedLabel,
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    };
-
-    this.roomLog.update((entries) => [...entries, entry].slice(-30));
-  }
-
-  private describeWaitingRoomEvent(event: WaitingRoomEvent, nextRoom: Room | null): string {
-    const previousRoom = this.currentRoom();
-
-    switch (event.type) {
-      case 'room.created':
-        return 'Room created.';
-      case 'room.updated':
-        return '';
-      case 'room.player.joined':
-        return `${this.changedPlayerName(previousRoom, nextRoom, 'joined')} joined the room.`;
-      case 'room.player.updated':
-        return this.describePlayerDeckChange(previousRoom, nextRoom);
-      case 'room.player.rolled':
-        return this.describeRollEvent(previousRoom, nextRoom);
-      case 'room.player.left':
-        return `${this.changedPlayerName(previousRoom, nextRoom, 'left')} left the room.`;
-      case 'room.started':
-        return 'Game started.';
-      case 'room.deleted':
-        return 'Room deleted.';
-    }
-  }
-
-  private describeRollEvent(previousRoom: Room | null, nextRoom: Room | null): string {
-    const player = nextRoom?.players.find((nextPlayer) => {
-      const previousPlayer = previousRoom?.players.find((candidate) => candidate.id === nextPlayer.id);
-
-      return nextPlayer.turnRoll !== null && previousPlayer?.turnRoll !== nextPlayer.turnRoll;
-    });
-
-    if (!player) {
-      return 'A player rolled the d20.';
-    }
-
-    return `${player.user.displayName} rolled ${player.turnRoll}.`;
-  }
-
-  private describePlayerDeckChange(previousRoom: Room | null, nextRoom: Room | null): string {
-    const player = nextRoom?.players.find((nextPlayer) => {
-      const previousPlayer = previousRoom?.players.find((candidate) => candidate.id === nextPlayer.id);
-
-      return previousPlayer && previousPlayer.deckId !== nextPlayer.deckId;
-    });
-
-    if (!player) {
-      return '';
-    }
-
-    if (player.user.id === this.currentUserId() && player.deckId === this.suppressedOwnDeckUpdateDeckId) {
-      this.suppressedOwnDeckUpdateDeckId = null;
-      return '';
-    }
-
-    return `${player.user.displayName} selected deck: ${this.playerDeckName(player)}.`;
-  }
-
-  private changedPlayerName(previousRoom: Room | null, nextRoom: Room | null, change: 'joined' | 'left' | 'updated'): string {
-    if (change === 'joined') {
-      const player = nextRoom?.players.find((nextPlayer) => !previousRoom?.players.some((previousPlayer) => previousPlayer.id === nextPlayer.id));
-
-      return player?.user.displayName ?? 'A player';
-    }
-
-    if (change === 'left') {
-      const player = previousRoom?.players.find((previousPlayer) => !nextRoom?.players.some((nextPlayer) => nextPlayer.id === previousPlayer.id));
-
-      return player?.user.displayName ?? 'A player';
-    }
-
-    const player = nextRoom?.players.find((nextPlayer) => {
-      const previousPlayer = previousRoom?.players.find((candidate) => candidate.id === nextPlayer.id);
-
-      return previousPlayer && previousPlayer.deckId !== nextPlayer.deckId;
-    });
-
-    return player?.user.displayName ?? 'A player';
   }
 
   private async isCommanderValidDeck(deckId: string): Promise<boolean> {

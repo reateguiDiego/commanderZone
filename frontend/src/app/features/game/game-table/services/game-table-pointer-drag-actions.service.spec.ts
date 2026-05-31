@@ -260,7 +260,7 @@ describe('GameTablePointerDragActionsService', () => {
       updateLocalCardPosition,
     ), { clientX: 120, clientY: 220 } as PointerEvent);
 
-    expect(updateLocalCardPosition).toHaveBeenCalledWith('player-1', 'dragged', { x: 110, y: 186 });
+    expect(updateLocalCardPosition).toHaveBeenCalledWith('player-1', 'dragged', { x: 110, y: 182 });
     expect(pulseLandStack).toHaveBeenCalledWith(['target', 'dragged'], 'stack');
     expect(commands).toEqual([{
       type: 'cards.position.changed',
@@ -268,7 +268,7 @@ describe('GameTablePointerDragActionsService', () => {
         playerId: 'player-1',
         zone: 'battlefield',
         positions: [
-          { instanceId: 'dragged', position: { x: 110, y: 186, unit: 'ratio' } },
+          { instanceId: 'dragged', position: { x: 110, y: 182, unit: 'ratio' } },
         ],
       },
     }]);
@@ -286,7 +286,7 @@ describe('GameTablePointerDragActionsService', () => {
     const snapshot = snapshotWith({
       battlefield: [
         land('top', 100, 200),
-        land('under', 100, 186),
+        land('under', 100, 182),
         land('dragged', 260, 200),
       ],
     });
@@ -304,7 +304,7 @@ describe('GameTablePointerDragActionsService', () => {
       updateLocalCardPosition,
     ), { clientX: 120, clientY: 220 } as PointerEvent);
 
-    expect(updateLocalCardPosition).toHaveBeenCalledWith('player-1', 'dragged', { x: 120, y: 172 });
+    expect(updateLocalCardPosition).toHaveBeenCalledWith('player-1', 'dragged', { x: 120, y: 164 });
     expect(pulseLandStack).toHaveBeenCalledWith(['top', 'under', 'dragged'], 'stack');
     expect(commands[0]).toEqual({
       type: 'cards.position.changed',
@@ -312,7 +312,7 @@ describe('GameTablePointerDragActionsService', () => {
         playerId: 'player-1',
         zone: 'battlefield',
         positions: [
-          { instanceId: 'dragged', position: { x: 120, y: 172, unit: 'ratio' } },
+          { instanceId: 'dragged', position: { x: 120, y: 164, unit: 'ratio' } },
         ],
       },
     });
@@ -332,7 +332,7 @@ describe('GameTablePointerDragActionsService', () => {
     const snapshot = snapshotWith({
       battlefield: [
         land('top', 100, 200),
-        land('under', 100, 186),
+        land('under', 100, 182),
         land('dragged', 260, 200),
       ],
     });
@@ -352,8 +352,8 @@ describe('GameTablePointerDragActionsService', () => {
 
     expect(battlefieldDragService.positionWithManaLaneBottom).toHaveBeenCalledWith('player-1', { x: 100, y: 200 }, 162);
     expect(updateLocalCardPosition).toHaveBeenCalledWith('player-1', 'top', { x: 100, y: 296 });
-    expect(updateLocalCardPosition).toHaveBeenCalledWith('player-1', 'under', { x: 110, y: 282 });
-    expect(updateLocalCardPosition).toHaveBeenCalledWith('player-1', 'dragged', { x: 120, y: 268 });
+    expect(updateLocalCardPosition).toHaveBeenCalledWith('player-1', 'under', { x: 110, y: 278 });
+    expect(updateLocalCardPosition).toHaveBeenCalledWith('player-1', 'dragged', { x: 120, y: 260 });
     expect(commands[0]).toEqual({
       type: 'cards.position.changed',
       payload: {
@@ -361,8 +361,8 @@ describe('GameTablePointerDragActionsService', () => {
         zone: 'battlefield',
         positions: [
           { instanceId: 'top', position: { x: 100, y: 296, unit: 'ratio' } },
-          { instanceId: 'under', position: { x: 110, y: 282, unit: 'ratio' } },
-          { instanceId: 'dragged', position: { x: 120, y: 268, unit: 'ratio' } },
+          { instanceId: 'under', position: { x: 110, y: 278, unit: 'ratio' } },
+          { instanceId: 'dragged', position: { x: 120, y: 260, unit: 'ratio' } },
         ],
       },
     });
@@ -380,8 +380,8 @@ describe('GameTablePointerDragActionsService', () => {
     const snapshot = snapshotWith({
       battlefield: [
         land('top', 100, 200),
-        land('under', 100, 186),
-        land('bottom', 100, 172),
+        land('under', 100, 182),
+        land('bottom', 100, 164),
         land('dragged', 260, 200),
       ],
     });
@@ -433,7 +433,7 @@ describe('GameTablePointerDragActionsService', () => {
       updateLocalCardPosition,
     ), { clientX: 120, clientY: 220 } as PointerEvent);
 
-    expect(updateLocalCardPosition).toHaveBeenCalledWith('player-1', 'equipment', { x: 110, y: 186 });
+    expect(updateLocalCardPosition).toHaveBeenCalledWith('player-1', 'equipment', { x: 110, y: 182 });
     expect(commands).toEqual([
       {
         type: 'cards.position.changed',
@@ -441,7 +441,7 @@ describe('GameTablePointerDragActionsService', () => {
           playerId: 'player-1',
           zone: 'battlefield',
           positions: [
-            { instanceId: 'equipment', position: { x: 110, y: 186, unit: 'ratio' } },
+            { instanceId: 'equipment', position: { x: 110, y: 182, unit: 'ratio' } },
           ],
         },
       },
@@ -469,7 +469,7 @@ describe('GameTablePointerDragActionsService', () => {
         battlefield: [
           { ...card('new-target', 'Bear', 'battlefield'), position: { x: 100, y: 200 }, typeLine: 'Creature - Bear' },
           { ...card('source-target', 'Relic', 'battlefield'), position: { x: 260, y: 200 }, typeLine: 'Artifact' },
-          { ...card('attached-card', 'Sword', 'battlefield'), position: { x: 260, y: 186 }, typeLine: 'Artifact' },
+          { ...card('attached-card', 'Sword', 'battlefield'), position: { x: 260, y: 182 }, typeLine: 'Artifact' },
         ],
       }),
       attachments: [{
@@ -562,8 +562,8 @@ describe('GameTablePointerDragActionsService', () => {
     const snapshot = snapshotWith({
       battlefield: [
         land('top', 100, 200),
-        land('under', 100, 186),
-        land('bottom', 100, 172),
+        land('under', 100, 182),
+        land('bottom', 100, 164),
       ],
     });
     const updateLocalCardPosition = vi.fn();
@@ -586,8 +586,8 @@ describe('GameTablePointerDragActionsService', () => {
 
     expect(battlefieldDragService.positionWithManaLaneBottom).toHaveBeenCalledWith('player-1', { x: 120, y: 320 }, 162);
     expect(updateLocalCardPosition).toHaveBeenCalledWith('player-1', 'top', { x: 120, y: 296 });
-    expect(updateLocalCardPosition).toHaveBeenCalledWith('player-1', 'under', { x: 130, y: 282 });
-    expect(updateLocalCardPosition).toHaveBeenCalledWith('player-1', 'bottom', { x: 140, y: 268 });
+    expect(updateLocalCardPosition).toHaveBeenCalledWith('player-1', 'under', { x: 130, y: 278 });
+    expect(updateLocalCardPosition).toHaveBeenCalledWith('player-1', 'bottom', { x: 140, y: 260 });
     expect(commands).toEqual([{
       type: 'cards.position.changed',
       payload: {
@@ -595,8 +595,8 @@ describe('GameTablePointerDragActionsService', () => {
         zone: 'battlefield',
         positions: [
           { instanceId: 'top', position: { x: 120, y: 296, unit: 'ratio' } },
-          { instanceId: 'under', position: { x: 130, y: 282, unit: 'ratio' } },
-          { instanceId: 'bottom', position: { x: 140, y: 268, unit: 'ratio' } },
+          { instanceId: 'under', position: { x: 130, y: 278, unit: 'ratio' } },
+          { instanceId: 'bottom', position: { x: 140, y: 260, unit: 'ratio' } },
         ],
       },
     }]);
@@ -615,7 +615,7 @@ describe('GameTablePointerDragActionsService', () => {
     const snapshot = snapshotWith({
       battlefield: [
         land('top', 100, 200),
-        land('under', 100, 186),
+        land('under', 100, 182),
       ],
     });
     const commands: Array<{ type: GameCommandType; payload: Record<string, unknown> }> = [];
@@ -632,7 +632,7 @@ describe('GameTablePointerDragActionsService', () => {
         detachedInstanceId: 'under',
         members: [
           { instanceId: 'top', x: 100, y: 200, layer: 0 },
-          { instanceId: 'under', x: 100, y: 186, layer: 1 },
+          { instanceId: 'under', x: 100, y: 182, layer: 1 },
         ],
       }),
     }, { clientX: 120, clientY: 280 } as PointerEvent);
@@ -658,7 +658,7 @@ describe('GameTablePointerDragActionsService', () => {
 
   it('moves every card from a whole land stack to hand when dropped over hand', async () => {
     const top = land('top', 100, 200);
-    const under = land('under', 100, 186);
+    const under = land('under', 100, 182);
     dragService.endCardPointerDrag.mockReturnValue({
       playerId: 'player-1',
       instanceId: 'top',
@@ -700,7 +700,7 @@ describe('GameTablePointerDragActionsService', () => {
 
   it('moves every card from a whole land stack to a zone pile when dropped over one', async () => {
     const top = land('top', 100, 200);
-    const under = land('under', 100, 186);
+    const under = land('under', 100, 182);
     dragService.endCardPointerDrag.mockReturnValue({
       playerId: 'player-1',
       instanceId: 'top',
@@ -743,7 +743,7 @@ describe('GameTablePointerDragActionsService', () => {
       playerId: 'player-1',
       instanceId: 'middle',
       moved: true,
-      position: { x: 100, y: 186 },
+      position: { x: 100, y: 182 },
       previewPosition: { x: 260, y: 206 },
       dropZone: 'battlefield',
       battlefield: document.createElement('div'),
@@ -751,8 +751,8 @@ describe('GameTablePointerDragActionsService', () => {
     const snapshot = snapshotWith({
       battlefield: [
         land('top', 100, 200),
-        land('middle', 100, 186),
-        land('bottom', 100, 172),
+        land('middle', 100, 182),
+        land('bottom', 100, 164),
       ],
     });
     const commands: Array<{ type: GameCommandType; payload: Record<string, unknown> }> = [];
@@ -776,8 +776,8 @@ describe('GameTablePointerDragActionsService', () => {
         detachedInstanceId: 'middle',
         members: [
           { instanceId: 'top', x: 100, y: 200, layer: 0 },
-          { instanceId: 'middle', x: 100, y: 186, layer: 1 },
-          { instanceId: 'bottom', x: 100, y: 172, layer: 2 },
+          { instanceId: 'middle', x: 100, y: 182, layer: 1 },
+          { instanceId: 'bottom', x: 100, y: 164, layer: 2 },
         ],
       }),
     }, { clientX: 120, clientY: 280 } as PointerEvent);
@@ -790,7 +790,7 @@ describe('GameTablePointerDragActionsService', () => {
         positions: [
           { instanceId: 'middle', position: { x: 260, y: 210, unit: 'ratio' } },
           { instanceId: 'top', position: { x: 100, y: 200, unit: 'ratio' } },
-          { instanceId: 'bottom', position: { x: 110, y: 186, unit: 'ratio' } },
+          { instanceId: 'bottom', position: { x: 110, y: 182, unit: 'ratio' } },
         ],
       },
     });
@@ -809,8 +809,8 @@ describe('GameTablePointerDragActionsService', () => {
     const snapshot = snapshotWith({
       battlefield: [
         land('top', 100, 200),
-        land('middle', 100, 186),
-        land('bottom', 100, 172),
+        land('middle', 100, 182),
+        land('bottom', 100, 164),
         land('target', 420, 200),
       ],
     });
@@ -828,8 +828,8 @@ describe('GameTablePointerDragActionsService', () => {
         detachedInstanceId: 'middle',
         members: [
           { instanceId: 'top', x: 100, y: 200, layer: 0 },
-          { instanceId: 'middle', x: 100, y: 186, layer: 1 },
-          { instanceId: 'bottom', x: 100, y: 172, layer: 2 },
+          { instanceId: 'middle', x: 100, y: 182, layer: 1 },
+          { instanceId: 'bottom', x: 100, y: 164, layer: 2 },
         ],
       }),
     }, { clientX: 420, clientY: 200 } as PointerEvent);
@@ -840,9 +840,9 @@ describe('GameTablePointerDragActionsService', () => {
         playerId: 'player-1',
         zone: 'battlefield',
         positions: [
-          { instanceId: 'middle', position: { x: 430, y: 186, unit: 'ratio' } },
+          { instanceId: 'middle', position: { x: 430, y: 182, unit: 'ratio' } },
           { instanceId: 'top', position: { x: 100, y: 200, unit: 'ratio' } },
-          { instanceId: 'bottom', position: { x: 110, y: 186, unit: 'ratio' } },
+          { instanceId: 'bottom', position: { x: 110, y: 182, unit: 'ratio' } },
         ],
       },
     });
@@ -861,8 +861,8 @@ describe('GameTablePointerDragActionsService', () => {
     const snapshot = snapshotWith({
       battlefield: [
         land('top', 100, 200),
-        land('middle', 100, 186),
-        land('bottom', 100, 172),
+        land('middle', 100, 182),
+        land('bottom', 100, 164),
       ],
     });
     const commands: Array<{ type: GameCommandType; payload: Record<string, unknown> }> = [];
@@ -879,8 +879,8 @@ describe('GameTablePointerDragActionsService', () => {
         detachedInstanceId: 'middle',
         members: [
           { instanceId: 'top', x: 100, y: 200, layer: 0 },
-          { instanceId: 'middle', x: 100, y: 186, layer: 1 },
-          { instanceId: 'bottom', x: 100, y: 172, layer: 2 },
+          { instanceId: 'middle', x: 100, y: 182, layer: 1 },
+          { instanceId: 'bottom', x: 100, y: 164, layer: 2 },
         ],
       }),
     }, { clientX: 120, clientY: 280 } as PointerEvent);
@@ -893,7 +893,7 @@ describe('GameTablePointerDragActionsService', () => {
         positions: [
           { instanceId: 'middle', position: { x: 260, y: 200, unit: 'ratio' } },
           { instanceId: 'top', position: { x: 100, y: 200, unit: 'ratio' } },
-          { instanceId: 'bottom', position: { x: 110, y: 186, unit: 'ratio' } },
+          { instanceId: 'bottom', position: { x: 110, y: 182, unit: 'ratio' } },
         ],
       },
     }]);
@@ -912,8 +912,8 @@ describe('GameTablePointerDragActionsService', () => {
     const snapshot = snapshotWith({
       battlefield: [
         land('top', 100, 200),
-        land('middle', 100, 186),
-        land('bottom', 100, 172),
+        land('middle', 100, 182),
+        land('bottom', 100, 164),
       ],
     });
     const commands: Array<{ type: GameCommandType; payload: Record<string, unknown> }> = [];
@@ -930,8 +930,8 @@ describe('GameTablePointerDragActionsService', () => {
         detachedInstanceId: 'bottom',
         members: [
           { instanceId: 'top', x: 100, y: 200, layer: 0 },
-          { instanceId: 'middle', x: 100, y: 186, layer: 1 },
-          { instanceId: 'bottom', x: 100, y: 172, layer: 2 },
+          { instanceId: 'middle', x: 100, y: 182, layer: 1 },
+          { instanceId: 'bottom', x: 100, y: 164, layer: 2 },
         ],
       }),
     }, { clientX: 120, clientY: 280 } as PointerEvent);
@@ -944,7 +944,7 @@ describe('GameTablePointerDragActionsService', () => {
         positions: [
           { instanceId: 'bottom', position: { x: 260, y: 214, unit: 'ratio' } },
           { instanceId: 'top', position: { x: 100, y: 200, unit: 'ratio' } },
-          { instanceId: 'middle', position: { x: 110, y: 186, unit: 'ratio' } },
+          { instanceId: 'middle', position: { x: 110, y: 182, unit: 'ratio' } },
         ],
       },
     }]);
@@ -957,7 +957,7 @@ describe('GameTablePointerDragActionsService', () => {
       playerId: 'player-1',
       instanceId: 'middle',
       moved: true,
-      position: { x: 100, y: 186 },
+      position: { x: 100, y: 182 },
       previewPosition: { x: 260, y: 212 },
       dropZone: 'battlefield',
       battlefield: document.createElement('div'),
@@ -965,8 +965,8 @@ describe('GameTablePointerDragActionsService', () => {
     const snapshot = snapshotWith({
       battlefield: [
         land('top', 100, 200),
-        land('middle', 100, 186),
-        land('bottom', 100, 172),
+        land('middle', 100, 182),
+        land('bottom', 100, 164),
       ],
     });
     const commands: Array<{ type: GameCommandType; payload: Record<string, unknown> }> = [];
@@ -990,8 +990,8 @@ describe('GameTablePointerDragActionsService', () => {
         detachedInstanceId: 'middle',
         members: [
           { instanceId: 'top', x: 100, y: 200, layer: 0 },
-          { instanceId: 'middle', x: 100, y: 186, layer: 1 },
-          { instanceId: 'bottom', x: 100, y: 172, layer: 2 },
+          { instanceId: 'middle', x: 100, y: 182, layer: 1 },
+          { instanceId: 'bottom', x: 100, y: 164, layer: 2 },
         ],
       }),
     }, { clientX: 120, clientY: 280 } as PointerEvent);
@@ -1006,7 +1006,7 @@ describe('GameTablePointerDragActionsService', () => {
         positions: [
           { instanceId: 'middle', position: { x: 260, y: 296, unit: 'ratio' } },
           { instanceId: 'top', position: { x: 100, y: 200, unit: 'ratio' } },
-          { instanceId: 'bottom', position: { x: 110, y: 186, unit: 'ratio' } },
+          { instanceId: 'bottom', position: { x: 110, y: 182, unit: 'ratio' } },
         ],
       },
     });
@@ -1018,16 +1018,16 @@ describe('GameTablePointerDragActionsService', () => {
       playerId: 'player-1',
       instanceId: 'middle',
       moved: true,
-      position: { x: 100, y: 186 },
-      previewPosition: { x: 100, y: 186 },
+      position: { x: 100, y: 182 },
+      previewPosition: { x: 100, y: 182 },
       dropZone: 'battlefield',
       battlefield: document.createElement('div'),
     });
     const snapshot = snapshotWith({
       battlefield: [
         land('top', 100, 200),
-        land('middle', 100, 186),
-        land('bottom', 100, 172),
+        land('middle', 100, 182),
+        land('bottom', 100, 164),
       ],
     });
     const commands: Array<{ type: GameCommandType; payload: Record<string, unknown> }> = [];
@@ -1044,8 +1044,8 @@ describe('GameTablePointerDragActionsService', () => {
         detachedInstanceId: 'middle',
         members: [
           { instanceId: 'top', x: 100, y: 200, layer: 0 },
-          { instanceId: 'middle', x: 100, y: 186, layer: 1 },
-          { instanceId: 'bottom', x: 100, y: 172, layer: 2 },
+          { instanceId: 'middle', x: 100, y: 182, layer: 1 },
+          { instanceId: 'bottom', x: 100, y: 164, layer: 2 },
         ],
       }),
     }, { clientX: 360, clientY: 280 } as PointerEvent);
@@ -1059,7 +1059,7 @@ describe('GameTablePointerDragActionsService', () => {
         positions: [
           { instanceId: 'middle', position: { x: 330, y: 240, unit: 'ratio' } },
           { instanceId: 'top', position: { x: 100, y: 200, unit: 'ratio' } },
-          { instanceId: 'bottom', position: { x: 110, y: 186, unit: 'ratio' } },
+          { instanceId: 'bottom', position: { x: 110, y: 182, unit: 'ratio' } },
         ],
       },
     });

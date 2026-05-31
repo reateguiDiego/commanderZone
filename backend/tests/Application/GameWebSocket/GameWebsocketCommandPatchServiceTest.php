@@ -41,11 +41,14 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
         self::assertSame(1, $message['baseVersion']);
         self::assertSame(2, $message['version']);
         self::assertSame('action-1', $message['clientActionId']);
-        self::assertSame([[
+        self::assertCount(2, $message['operations']);
+        self::assertSame([
             'op' => 'player.life.set',
             'playerId' => $actor->id(),
             'value' => 38,
-        ]], $message['operations']);
+        ], $message['operations'][0]);
+        self::assertSame('eventLog.append', $message['operations'][1]['op']);
+        self::assertSame('life.changed', $message['operations'][1]['entries'][0]['type']);
         self::assertArrayNotHasKey('status', $message);
     }
 

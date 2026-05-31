@@ -6,16 +6,34 @@ import { LanguagePreferencesService } from '../../../../../../../core/localizati
 import { HeaderUserMenuComponent } from './header-user-menu.component';
 
 describe('HeaderUserMenuComponent', () => {
-  const languageSignal = signal<'en' | 'fr' | 'es' | 'de' | 'it' | 'ja' | 'zhs' | 'pt' | 'ru' | 'ko' | 'zht' | 'nl' | 'ca'>('en');
-  const updateCardLanguage = vi.fn(async (code: 'en' | 'fr' | 'es' | 'de' | 'it' | 'ja' | 'zhs' | 'pt' | 'ru' | 'ko' | 'zht' | 'nl' | 'ca') => {
-    languageSignal.set(code);
+  const cardLanguageSignal = signal<'en' | 'fr' | 'es' | 'de' | 'it' | 'ja' | 'zhs' | 'pt' | 'ru' | 'ko' | 'zht' | 'nl' | 'ca'>('en');
+  const appLanguageSignal = signal<'en' | 'fr' | 'es' | 'de' | 'it' | 'ja' | 'zhs' | 'pt' | 'ru' | 'ko' | 'zht' | 'nl' | 'ca'>('en');
+  const updatePreferences = vi.fn(async (payload: {
+    cardLanguage?: 'en' | 'fr' | 'es' | 'de' | 'it' | 'ja' | 'zhs' | 'pt' | 'ru' | 'ko' | 'zht' | 'nl' | 'ca';
+    appLanguage?: 'en' | 'fr' | 'es' | 'de' | 'it' | 'ja' | 'zhs' | 'pt' | 'ru' | 'ko' | 'zht' | 'nl' | 'ca';
+  }) => {
+    if (payload.cardLanguage) {
+      cardLanguageSignal.set(payload.cardLanguage);
+    }
+    if (payload.appLanguage) {
+      appLanguageSignal.set(payload.appLanguage);
+    }
   });
 
   beforeEach(async () => {
-    languageSignal.set('en');
-    updateCardLanguage.mockReset();
-    updateCardLanguage.mockImplementation(async (code: 'en' | 'fr' | 'es' | 'de' | 'it' | 'ja' | 'zhs' | 'pt' | 'ru' | 'ko' | 'zht' | 'nl' | 'ca') => {
-      languageSignal.set(code);
+    cardLanguageSignal.set('en');
+    appLanguageSignal.set('en');
+    updatePreferences.mockReset();
+    updatePreferences.mockImplementation(async (payload: {
+      cardLanguage?: 'en' | 'fr' | 'es' | 'de' | 'it' | 'ja' | 'zhs' | 'pt' | 'ru' | 'ko' | 'zht' | 'nl' | 'ca';
+      appLanguage?: 'en' | 'fr' | 'es' | 'de' | 'it' | 'ja' | 'zhs' | 'pt' | 'ru' | 'ko' | 'zht' | 'nl' | 'ca';
+    }) => {
+      if (payload.cardLanguage) {
+        cardLanguageSignal.set(payload.cardLanguage);
+      }
+      if (payload.appLanguage) {
+        appLanguageSignal.set(payload.appLanguage);
+      }
     });
     await TestBed.configureTestingModule({
       imports: [HeaderUserMenuComponent],
@@ -24,9 +42,10 @@ describe('HeaderUserMenuComponent', () => {
         {
           provide: LanguagePreferencesService,
           useValue: {
-            cardLanguage: languageSignal.asReadonly(),
-            updateCardLanguage,
-          } satisfies Pick<LanguagePreferencesService, 'cardLanguage' | 'updateCardLanguage'>,
+            cardLanguage: cardLanguageSignal.asReadonly(),
+            appLanguage: appLanguageSignal.asReadonly(),
+            updatePreferences,
+          } satisfies Pick<LanguagePreferencesService, 'cardLanguage' | 'appLanguage' | 'updatePreferences'>,
         },
       ],
     }).compileComponents();
@@ -78,6 +97,8 @@ describe('HeaderUserMenuComponent', () => {
 
   it('updates selected language from the language picker', async () => {
     const fixture = TestBed.createComponent(HeaderUserMenuComponent);
+    const reloadSpy = vi.spyOn(fixture.componentInstance as unknown as { reloadPage(): void }, 'reloadPage')
+      .mockImplementation(() => undefined);
     fixture.detectChanges();
 
     const trigger = fixture.nativeElement.querySelector('.icon-button') as HTMLButtonElement;
@@ -96,12 +117,13 @@ describe('HeaderUserMenuComponent', () => {
       fixture.nativeElement.querySelectorAll('.language-item') as NodeListOf<HTMLButtonElement>,
     );
     const frenchButton = languageItems
-      .find((button) => button.textContent?.includes('Frances')) as HTMLButtonElement;
+      .find((button) => button.textContent?.includes('French')) as HTMLButtonElement;
     frenchButton.click();
     fixture.detectChanges();
     await Promise.resolve();
 
-    expect(updateCardLanguage).toHaveBeenCalledWith('fr');
+    expect(updatePreferences).toHaveBeenCalledWith({ cardLanguage: 'fr', appLanguage: 'fr' });
+    expect(reloadSpy).toHaveBeenCalledTimes(1);
     expect(
       (fixture.nativeElement.querySelector('.menu-item-flag') as HTMLImageElement)?.getAttribute('src'),
     ).toContain('france.png');
@@ -152,7 +174,7 @@ describe('HeaderUserMenuComponent', () => {
     );
     const labels = languageItems.map((button) => button.textContent ?? '');
 
-    expect(labels.some((text) => text.includes('Holandes'))).toBe(true);
+    expect(labels.some((text) => text.includes('Dutch'))).toBe(true);
     expect(labels.some((text) => text.includes('Catalan'))).toBe(true);
   });
 

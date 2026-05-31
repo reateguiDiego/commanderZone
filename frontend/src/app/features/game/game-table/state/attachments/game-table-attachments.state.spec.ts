@@ -175,8 +175,8 @@ describe('GameTableAttachmentsState', () => {
       playerId: 'player-1',
       zone: 'battlefield',
       positions: [
-        { instanceId: 'first-equipment', position: { x: 110, y: 66, unit: 'ratio' } },
-        { instanceId: 'equipment-card', position: { x: 120, y: 52, unit: 'ratio' } },
+        { instanceId: 'first-equipment', position: { x: 110, y: 62, unit: 'ratio' } },
+        { instanceId: 'equipment-card', position: { x: 120, y: 44, unit: 'ratio' } },
       ],
     });
     expect(context.command).toHaveBeenNthCalledWith(2, 'attachment.created', {

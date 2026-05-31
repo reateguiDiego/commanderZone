@@ -114,6 +114,63 @@ describe('GameTableZonePointerDragService', () => {
     restore();
   });
 
+  it('clamps zone pointer drops to the mana row using normal battlefield card size', () => {
+    const zone = zoneElement();
+    const battlefield = document.createElement('div');
+    battlefield.className = 'battlefield';
+    battlefield.getBoundingClientRect = () => ({
+      x: 10,
+      y: 10,
+      width: 500,
+      height: 320,
+      top: 10,
+      right: 510,
+      bottom: 330,
+      left: 10,
+      toJSON: () => ({}),
+    } as DOMRect);
+    const manaLane = document.createElement('div');
+    manaLane.dataset['gameDropZone'] = 'mana';
+    manaLane.dataset['zone'] = 'mana';
+    manaLane.dataset['playerId'] = 'player-1';
+    manaLane.dataset['manaLane'] = '';
+    manaLane.getBoundingClientRect = () => ({
+      x: 10,
+      y: 210,
+      width: 500,
+      height: 120,
+      top: 210,
+      right: 510,
+      bottom: 330,
+      left: 10,
+      toJSON: () => ({}),
+    } as DOMRect);
+    battlefield.appendChild(manaLane);
+    const restore = mockElementsFromPoint([manaLane]);
+
+    service.start(pointerEvent({
+      currentTarget: zone,
+      pointerType: 'touch',
+      pointerId: 7,
+      clientX: 20,
+      clientY: 20,
+    }), 'player-1', 'graveyard', card());
+    service.move(pointerEvent({ pointerId: 7, clientX: 150, clientY: 240 }));
+    const result = service.end(pointerEvent({ pointerId: 7, clientX: 150, clientY: 240 }));
+
+    expect(result?.request).toEqual({
+      playerId: 'player-1',
+      targetPlayerId: 'player-1',
+      fromZone: 'graveyard',
+      toZone: 'battlefield',
+      instanceId: 'graveyard-1',
+      rawZone: 'mana',
+      position: { x: 114, y: 141 },
+    });
+
+    restore();
+  });
+
   it('resolves hand and pile zones for touch drags', () => {
     const zone = zoneElement();
     const hand = document.createElement('div');

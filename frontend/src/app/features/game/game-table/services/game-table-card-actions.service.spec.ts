@@ -173,6 +173,86 @@ describe('GameTableCardActionsService', () => {
     expect(loadZone).not.toHaveBeenCalled();
   });
 
+  it('removes a moved card from an open searchable zone modal without reloading it', async () => {
+    const graveyardCard = libraryCard('grave-card');
+    const command = vi.fn(async () => undefined);
+    const loadZone = vi.fn(async () => undefined);
+    const replaceZoneModalCards = vi.fn();
+    const ctx = context([], {
+      command,
+      loadZone,
+      replaceZoneModalCards,
+      zoneModal: () => ({
+        playerId: 'player-1',
+        zone: 'graveyard',
+        title: 'Player Graveyard',
+        selectedCardId: 'grave-card',
+        cards: [graveyardCard],
+        total: 1,
+        type: '',
+        search: '',
+        showFilters: true,
+        readOnly: false,
+        allowRandomSelect: true,
+        allowReorder: false,
+        drawOrderLabels: [],
+        viewTopCount: null,
+        selectedCard: graveyardCard,
+        loading: false,
+      }),
+    });
+
+    await service.moveCard(ctx, { ...menu(graveyardCard), zone: 'graveyard' }, 'exile');
+
+    expect(command).toHaveBeenCalledWith('card.moved', {
+      playerId: 'player-1',
+      fromZone: 'graveyard',
+      toZone: 'exile',
+      instanceId: 'grave-card',
+    });
+    expect(replaceZoneModalCards).toHaveBeenCalledWith([]);
+    expect(loadZone).not.toHaveBeenCalled();
+  });
+
+  it('removes a card from an open fixed zone modal after giving it to another hand', async () => {
+    const exileCards = [libraryCard('exile-1'), libraryCard('exile-2')];
+    const command = vi.fn(async () => undefined);
+    const replaceZoneModalCards = vi.fn();
+    const ctx = context([], {
+      command,
+      replaceZoneModalCards,
+      zoneModal: () => ({
+        playerId: 'player-1',
+        zone: 'exile',
+        title: 'Player Exile',
+        selectedCardId: 'exile-1',
+        cards: exileCards,
+        total: 2,
+        type: '',
+        search: '',
+        showFilters: false,
+        readOnly: false,
+        allowRandomSelect: true,
+        allowReorder: false,
+        drawOrderLabels: [],
+        viewTopCount: null,
+        selectedCard: exileCards[0]!,
+        loading: false,
+      }),
+    });
+
+    await service.giveCardToPlayer(ctx, { ...menu(exileCards[0]!), zone: 'exile' }, 'player-2', 'hand');
+
+    expect(command).toHaveBeenCalledWith('card.moved', {
+      playerId: 'player-1',
+      fromZone: 'exile',
+      toZone: 'hand',
+      targetPlayerId: 'player-2',
+      instanceId: 'exile-1',
+    });
+    expect(replaceZoneModalCards).toHaveBeenCalledWith([exileCards[1]]);
+  });
+
   it('applies tap state from the context menu card to all selected cards', async () => {
     const battlefield = [
       { ...card('card-1', 'Creature', 100, 100), tapped: false },
@@ -203,16 +283,20 @@ describe('GameTableCardActionsService', () => {
 
 function context(
   battlefield: readonly GameCardInstance[],
-  overrides: Partial<Pick<GameTableCardActionContext, 'clearSelectedCards' | 'closeContextMenu' | 'command' | 'loadZone' | 'replaceZoneModalCards' | 'selectedCards' | 'updateLocalCardPosition' | 'zoneModal'>> = {},
+  overrides: Partial<Pick<GameTableCardActionContext, 'clearSelectedCards' | 'closeContextMenu' | 'command' | 'loadZone' | 'replaceZoneModalCards' | 'selectedCards' | 'syncOpenZoneModalAfterMove' | 'updateLocalCardPosition' | 'zoneModal'>> = {},
 ): GameTableCardActionContext {
+  const zoneModal = overrides.zoneModal ?? (() => null);
+  const loadZone = overrides.loadZone ?? vi.fn(async () => undefined);
+  const replaceZoneModalCards = overrides.replaceZoneModalCards ?? vi.fn();
+
   return {
     canControlPlayer: () => true,
     activeKeyboardCard: () => null,
     selectedCards: overrides.selectedCards ?? (() => []),
     clearSelectedCards: overrides.clearSelectedCards ?? vi.fn(),
-    zoneModal: overrides.zoneModal ?? (() => null),
-    replaceZoneModalCards: overrides.replaceZoneModalCards ?? vi.fn(),
-    loadZone: overrides.loadZone ?? vi.fn(async () => undefined),
+    zoneModal,
+    replaceZoneModalCards,
+    loadZone,
     battlefieldCards: () => battlefield,
     cardPosition: (target) => target.position ? { x: target.position.x, y: target.position.y } : null,
     battlefieldPosition: (_playerId, _instanceId, position): GameCardPosition => ({ ...position, unit: 'ratio' }),
@@ -222,6 +306,15 @@ function context(
     closeContextMenu: overrides.closeContextMenu ?? vi.fn(),
     setPendingBattlefieldMove: vi.fn(),
     setPendingLibraryMove: vi.fn(),
+    syncOpenZoneModalAfterMove: overrides.syncOpenZoneModalAfterMove ?? (async (playerId, fromZone, instanceIds) => {
+      const modal = zoneModal();
+      if (!modal || modal.playerId !== playerId || modal.zone !== fromZone || instanceIds.length === 0) {
+        return;
+      }
+
+      const movedIds = new Set(instanceIds);
+      replaceZoneModalCards(modal.cards.filter((entry) => !movedIds.has(entry.instanceId)));
+    }),
     recordCommanderCastIfNeeded: vi.fn(async () => undefined),
     command: overrides.command ?? vi.fn(async () => undefined),
   };

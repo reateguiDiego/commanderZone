@@ -15,6 +15,8 @@ import {
 } from '../../services/game-table-battlefield-drag-coordinator.service';
 import { AlignmentGuide } from '../drag-drop/game-table-battlefield-drag.state';
 import { GameTableSnapshotSelectors } from '../core/game-table-snapshot-selectors';
+import { buildAttachmentStackGroups } from '../../utils/attachment-stack';
+import { buildLandStackGroups } from '../../utils/land-stack';
 
 export interface GameTableBattlefieldContext {
   readonly snapshot: () => GameSnapshot | null;
@@ -23,6 +25,13 @@ export interface GameTableBattlefieldContext {
   readonly errorMessage: (error: unknown) => string;
   readonly battlefieldDragContext: () => GameTableBattlefieldDragContext;
   readonly alignmentGuideFor: (playerId: string) => AlignmentGuide | null;
+}
+
+interface MeasuredBattlefieldCard {
+  readonly card: GameCardInstance;
+  readonly currentPosition: { x: number; y: number };
+  readonly sourcePosition: { x: number; y: number };
+  readonly cardSize: { width: number; height: number };
 }
 
 @Injectable()
@@ -77,81 +86,122 @@ export class GameTableBattlefieldState {
           .filter(([instanceId]) => instanceId !== ''),
       );
       const sourceCards = (nextSnapshot ?? snapshot).players[playerId]?.zones.battlefield ?? [];
+      const measuredCards = new Map<string, MeasuredBattlefieldCard>();
       for (const card of sourceCards) {
         const cardElement = cardElements.get(card.instanceId);
         const cardBounds = cardElement?.getBoundingClientRect();
         const cardWidth = Math.max(1, Math.round(cardElement?.offsetWidth || cardBounds?.width || 116));
         const cardHeight = Math.max(1, Math.round(cardElement?.offsetHeight || cardBounds?.height || 162));
         const cardSize = { width: cardWidth, height: cardHeight };
+        const currentPosition = this.selectors.cardPosition(card, { width: bounds.width, height: bounds.height }, isRatioPosition(card.position) ? cardSize : undefined);
+        if (!currentPosition) {
+          continue;
+        }
+
         const positionKey = this.battlefieldPositionKey({ playerId, instanceId: card.instanceId });
-
         if (isRatioPosition(card.position)) {
-          const ratioPosition = this.selectors.cardPosition(card, { width: bounds.width, height: bounds.height }, cardSize);
           this.viewportClampedBattlefieldPositions.delete(positionKey);
-          if (!ratioPosition) {
-            continue;
-          }
-
-          const clamped = this.clampBattlefieldPosition(ratioPosition, bounds.width, bounds.height, cardWidth, cardHeight);
-          if (this.samePosition(clamped, ratioPosition)) {
-            continue;
-          }
-
-          const nextPosition = ratioBattlefieldPosition(clamped, { width: bounds.width, height: bounds.height }, cardSize);
-          if (sameBattlefieldPosition(card.position, nextPosition)) {
-            continue;
-          }
-
-          nextSnapshot ??= structuredClone(snapshot);
-          const nextCard = nextSnapshot.players[playerId]?.zones.battlefield.find((candidate) => candidate.instanceId === card.instanceId);
-          if (nextCard) {
-            nextCard.position = nextPosition;
-          }
-          continue;
-        }
-
-        const position = this.selectors.cardPosition(card, { width: bounds.width, height: bounds.height });
-        if (!position) {
-          continue;
-        }
-
-        const existingClamp = this.viewportClampedBattlefieldPositions.get(positionKey);
-        const sourcePosition = existingClamp && this.samePosition(existingClamp.clampedPosition, position)
-          ? existingClamp.sourcePosition
-          : position;
-        const clamped = this.clampBattlefieldPosition(sourcePosition, bounds.width, bounds.height, cardWidth, cardHeight);
-        if (this.samePosition(clamped, sourcePosition)) {
-          this.viewportClampedBattlefieldPositions.delete(positionKey);
-          if (this.samePosition(position, sourcePosition)) {
-            continue;
-          }
         } else {
-          this.viewportClampedBattlefieldPositions.set(positionKey, {
-            playerId,
-            instanceId: card.instanceId,
-            sourcePosition,
-            clampedPosition: clamped,
-          });
-          if (this.samePosition(clamped, position)) {
-            continue;
-          }
-        }
-
-        if (this.samePosition(clamped, position)) {
+          const existingClamp = this.viewportClampedBattlefieldPositions.get(positionKey);
+          const sourcePosition = existingClamp && this.samePosition(existingClamp.clampedPosition, currentPosition)
+            ? existingClamp.sourcePosition
+            : currentPosition;
+          measuredCards.set(card.instanceId, { card, currentPosition, sourcePosition, cardSize });
           continue;
         }
 
-        nextSnapshot ??= structuredClone(snapshot);
-        const nextCard = nextSnapshot.players[playerId]?.zones.battlefield.find((candidate) => candidate.instanceId === card.instanceId);
-        if (nextCard) {
-          nextCard.position = clamped;
+        measuredCards.set(card.instanceId, { card, currentPosition, sourcePosition: currentPosition, cardSize });
+      }
+
+      const sourcePositionFor = (card: GameCardInstance): { x: number; y: number } | null =>
+        measuredCards.get(card.instanceId)?.sourcePosition ?? null;
+      const processed = new Set<string>();
+
+      for (const group of buildLandStackGroups(sourceCards, sourcePositionFor)) {
+        for (const member of group.members) {
+          processed.add(member.card.instanceId);
+          this.viewportClampedBattlefieldPositions.delete(this.battlefieldPositionKey({ playerId, instanceId: member.card.instanceId }));
         }
+      }
+      for (const group of buildAttachmentStackGroups(sourceCards, snapshot.attachments ?? [], sourcePositionFor)) {
+        for (const member of group.members) {
+          processed.add(member.card.instanceId);
+          this.viewportClampedBattlefieldPositions.delete(this.battlefieldPositionKey({ playerId, instanceId: member.card.instanceId }));
+        }
+      }
+
+      for (const measured of measuredCards.values()) {
+        if (processed.has(measured.card.instanceId)) {
+          continue;
+        }
+
+        const clamped = this.clampBattlefieldPosition(
+          measured.sourcePosition,
+          bounds.width,
+          bounds.height,
+          measured.cardSize.width,
+          measured.cardSize.height,
+        );
+        nextSnapshot = this.applyReflowedPosition(snapshot, nextSnapshot, playerId, bounds, measured, measured.sourcePosition, clamped);
       }
     }
 
     if (nextSnapshot) {
       context.setSnapshot(nextSnapshot);
     }
+  }
+
+  private applyReflowedPosition(
+    snapshot: GameSnapshot,
+    nextSnapshot: GameSnapshot | null,
+    playerId: string,
+    bounds: BattlefieldSize,
+    measured: MeasuredBattlefieldCard,
+    sourcePosition: { x: number; y: number },
+    nextPosition: { x: number; y: number },
+  ): GameSnapshot | null {
+    const positionKey = this.battlefieldPositionKey({ playerId, instanceId: measured.card.instanceId });
+
+    if (isRatioPosition(measured.card.position)) {
+      this.viewportClampedBattlefieldPositions.delete(positionKey);
+      const ratioPosition = ratioBattlefieldPosition(nextPosition, bounds, measured.cardSize);
+      if (sameBattlefieldPosition(measured.card.position, ratioPosition)) {
+        return nextSnapshot;
+      }
+
+      nextSnapshot ??= structuredClone(snapshot);
+      const nextCard = nextSnapshot.players[playerId]?.zones.battlefield.find((candidate) => candidate.instanceId === measured.card.instanceId);
+      if (nextCard) {
+        nextCard.position = ratioPosition;
+      }
+
+      return nextSnapshot;
+    }
+
+    if (this.samePosition(nextPosition, sourcePosition)) {
+      this.viewportClampedBattlefieldPositions.delete(positionKey);
+      if (this.samePosition(measured.currentPosition, sourcePosition)) {
+        return nextSnapshot;
+      }
+    } else {
+      this.viewportClampedBattlefieldPositions.set(positionKey, {
+        playerId,
+        instanceId: measured.card.instanceId,
+        sourcePosition,
+        clampedPosition: nextPosition,
+      });
+      if (this.samePosition(measured.currentPosition, nextPosition)) {
+        return nextSnapshot;
+      }
+    }
+
+    nextSnapshot ??= structuredClone(snapshot);
+    const nextCard = nextSnapshot.players[playerId]?.zones.battlefield.find((candidate) => candidate.instanceId === measured.card.instanceId);
+    if (nextCard) {
+      nextCard.position = nextPosition;
+    }
+
+    return nextSnapshot;
   }
 
   updateLocalCardPosition(context: GameTableBattlefieldContext, playerId: string, instanceId: string, position: { x: number; y: number }): void {

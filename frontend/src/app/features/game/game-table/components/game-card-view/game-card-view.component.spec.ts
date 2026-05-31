@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { importProvidersFrom } from '@angular/core';
-import { Layers3, Link, LucideAngularModule } from 'lucide-angular';
+import { CircleQuestionMark, Layers3, Link, LucideAngularModule, RotateCw } from 'lucide-angular';
 import { GameCardInstance } from '../../../../../core/models/game.model';
 import { CARD_PREVIEW_HOVER_DELAY_MS } from '../../models/card-preview.model';
 import { GameCardViewComponent } from './game-card-view.component';
@@ -518,6 +518,155 @@ describe('GameCardViewComponent', () => {
     expect(fixture.nativeElement.querySelector('.token-copy-marker')).toBeNull();
   });
 
+  it('shows the rulings marker for visible non-token battlefield cards with scryfall id', async () => {
+    const { fixture } = await renderHandCard();
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ data: [{ object: 'ruling' }] }),
+    } as Response);
+
+    fixture.componentRef.setInput('mode', 'battlefield');
+    fixture.componentRef.setInput('zone', 'battlefield');
+    fixture.componentRef.setInput('card', { ...gameCard(), scryfallId: 'e71c8c39-3fbb-4a42-9cf6-b3224f5a56fc' });
+    fixture.detectChanges();
+
+    await vi.waitFor(() => {
+      expect(fixture.nativeElement.querySelector('.oracle-rulings-marker')).not.toBeNull();
+    });
+    fetchSpy.mockRestore();
+  });
+
+  it('does not show the rulings marker when the card has no rulings', async () => {
+    const { fixture } = await renderHandCard();
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ data: [] }),
+    } as Response);
+
+    fixture.componentRef.setInput('mode', 'battlefield');
+    fixture.componentRef.setInput('zone', 'battlefield');
+    fixture.componentRef.setInput('card', { ...gameCard(), scryfallId: '33333333-3fbb-4a42-9cf6-b3224f5a56fc' });
+    fixture.detectChanges();
+
+    await vi.waitFor(() => {
+      expect(fetchSpy).toHaveBeenCalledWith('https://api.scryfall.com/cards/33333333-3fbb-4a42-9cf6-b3224f5a56fc/rulings');
+    });
+    expect(fixture.nativeElement.querySelector('.oracle-rulings-marker')).toBeNull();
+    fetchSpy.mockRestore();
+  });
+
+  it('hides the rulings marker for hidden or face-down cards', async () => {
+    const { fixture } = await renderHandCard();
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ data: [{ object: 'ruling' }] }),
+    } as Response);
+
+    fixture.componentRef.setInput('mode', 'battlefield');
+    fixture.componentRef.setInput('zone', 'battlefield');
+    fixture.componentRef.setInput('card', { ...gameCard(), scryfallId: 'e71c8c39-3fbb-4a42-9cf6-b3224f5a56fc' });
+    fixture.detectChanges();
+    await vi.waitFor(() => {
+      expect(fixture.nativeElement.querySelector('.oracle-rulings-marker')).not.toBeNull();
+    });
+
+    fixture.componentRef.setInput('hidden', true);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.oracle-rulings-marker')).toBeNull();
+
+    fixture.componentRef.setInput('hidden', false);
+    fixture.componentRef.setInput('faceDown', true);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.oracle-rulings-marker')).toBeNull();
+    fetchSpy.mockRestore();
+  });
+
+  it('hides the rulings marker for tokens and token copies', async () => {
+    const { fixture } = await renderHandCard();
+
+    fixture.componentRef.setInput('mode', 'battlefield');
+    fixture.componentRef.setInput('zone', 'battlefield');
+    fixture.componentRef.setInput('card', { ...gameCard(), scryfallId: 'e71c8c39-3fbb-4a42-9cf6-b3224f5a56fc', isToken: true });
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.oracle-rulings-marker')).toBeNull();
+
+    fixture.componentRef.setInput('card', {
+      ...gameCard(),
+      scryfallId: 'e71c8c39-3fbb-4a42-9cf6-b3224f5a56fc',
+      isToken: false,
+      isTokenCopy: true,
+    });
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.oracle-rulings-marker')).toBeNull();
+  });
+
+  it('does not show the rulings marker in hand mode', async () => {
+    const { fixture } = await renderHandCard();
+
+    fixture.componentRef.setInput('card', { ...gameCard(), scryfallId: 'e71c8c39-3fbb-4a42-9cf6-b3224f5a56fc' });
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.oracle-rulings-marker')).toBeNull();
+  });
+
+  it('opens scryfall rulings in a new tab from the rulings marker without triggering card click', async () => {
+    const { fixture } = await renderHandCard();
+    const clicked = vi.fn();
+    const open = vi.spyOn(window, 'open').mockImplementation(() => null);
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ data: [{ object: 'ruling' }] }),
+    } as Response);
+    fixture.componentInstance.cardClicked.subscribe(clicked);
+
+    fixture.componentRef.setInput('mode', 'battlefield');
+    fixture.componentRef.setInput('zone', 'battlefield');
+    fixture.componentRef.setInput('card', { ...gameCard(), scryfallId: '11111111-3fbb-4a42-9cf6-b3224f5a56fc' });
+    fixture.detectChanges();
+
+    await vi.waitFor(() => {
+      expect(fixture.nativeElement.querySelector('.oracle-rulings-marker')).not.toBeNull();
+    });
+
+    const marker = fixture.nativeElement.querySelector('.oracle-rulings-marker') as HTMLElement;
+    marker?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+    await vi.waitFor(() => {
+      expect(open).toHaveBeenCalledWith(
+        'https://scryfall.com/card/11111111-3fbb-4a42-9cf6-b3224f5a56fc#rulings',
+        '_blank',
+        'noopener',
+      );
+    });
+    expect(fetchSpy).toHaveBeenCalledWith('https://api.scryfall.com/cards/11111111-3fbb-4a42-9cf6-b3224f5a56fc/rulings');
+    expect(clicked).not.toHaveBeenCalled();
+    fetchSpy.mockRestore();
+    open.mockRestore();
+  });
+
+  it('does not open scryfall when the card has no rulings', async () => {
+    const { fixture } = await renderHandCard();
+    const open = vi.spyOn(window, 'open').mockImplementation(() => null);
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ data: [] }),
+    } as Response);
+
+    fixture.componentRef.setInput('mode', 'battlefield');
+    fixture.componentRef.setInput('zone', 'battlefield');
+    fixture.componentRef.setInput('card', { ...gameCard(), scryfallId: '22222222-3fbb-4a42-9cf6-b3224f5a56fc' });
+    fixture.detectChanges();
+
+    await vi.waitFor(() => {
+      expect(fetchSpy).toHaveBeenCalledWith('https://api.scryfall.com/cards/22222222-3fbb-4a42-9cf6-b3224f5a56fc/rulings');
+    });
+
+    expect(fixture.nativeElement.querySelector('.oracle-rulings-marker')).toBeNull();
+    expect(open).not.toHaveBeenCalled();
+    fetchSpy.mockRestore();
+    open.mockRestore();
+  });
+
   it('plays a face flip animation when the active face changes on the same card', async () => {
     vi.useFakeTimers();
     const { fixture, cardElement } = await renderHandCard();
@@ -531,6 +680,177 @@ describe('GameCardViewComponent', () => {
     fixture.detectChanges();
 
     expect(cardElement.classList).not.toContain('face-flipping');
+  });
+
+  it('plays a face flip animation when the card turns face down or face up', async () => {
+    vi.useFakeTimers();
+    const { fixture, cardElement } = await renderHandCard();
+
+    fixture.componentRef.setInput('card', { ...gameCard(), faceDown: true });
+    fixture.detectChanges();
+
+    expect(cardElement.classList).toContain('face-flipping');
+
+    vi.advanceTimersByTime(620);
+    fixture.detectChanges();
+
+    fixture.componentRef.setInput('card', { ...gameCard(), faceDown: false });
+    fixture.detectChanges();
+
+    expect(cardElement.classList).toContain('face-flipping');
+  });
+
+  it('plays a face flip animation when the effective face-down input changes', async () => {
+    vi.useFakeTimers();
+    const { fixture, cardElement } = await renderHandCard();
+
+    fixture.componentRef.setInput('faceDown', true);
+    fixture.detectChanges();
+
+    expect(cardElement.classList).toContain('face-flipping');
+
+    vi.advanceTimersByTime(620);
+    fixture.detectChanges();
+
+    fixture.componentRef.setInput('faceDown', false);
+    fixture.detectChanges();
+
+    expect(cardElement.classList).toContain('face-flipping');
+  });
+
+  it('shows a centered face look affordance for double-faced cards and previews the other face', async () => {
+    const { fixture, cardElement } = await renderHandCard();
+    const clicked = vi.fn();
+    const doubleClicked = vi.fn();
+    const menuOpened = vi.fn();
+    const previewShown = vi.fn();
+    fixture.componentInstance.cardClicked.subscribe(clicked);
+    fixture.componentInstance.cardDoubleClicked.subscribe(doubleClicked);
+    fixture.componentInstance.cardMenuOpened.subscribe(menuOpened);
+    fixture.componentInstance.cardMouseEntered.subscribe(previewShown);
+
+    expect(fixture.nativeElement.querySelector('.double-face-toggle')).toBeNull();
+
+    fixture.componentRef.setInput('card', {
+      ...gameCard(),
+      name: 'Birgi, God of Storytelling // Harnfel, Horn of Bounty',
+      cardFaces: [
+        cardFace('Birgi, God of Storytelling'),
+        cardFace('Harnfel, Horn of Bounty'),
+      ],
+    });
+    fixture.detectChanges();
+
+    const toggle = fixture.nativeElement.querySelector('.double-face-toggle') as HTMLElement | null;
+
+    expect(toggle).not.toBeNull();
+    expect(toggle?.getAttribute('title')).toBe('Look at other face');
+    expect(toggle?.getAttribute('aria-label')).toBe('Look at other face');
+    expect(toggle?.querySelector('lucide-icon[name="rotate-cw"]')).not.toBeNull();
+
+    toggle?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+    expect(previewShown).toHaveBeenCalledWith(expect.objectContaining({
+      card: expect.objectContaining({ activeFaceIndex: 1 }),
+    }));
+
+    toggle?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+    expect(previewShown).toHaveBeenLastCalledWith(expect.objectContaining({
+      card: expect.objectContaining({ activeFaceIndex: 0 }),
+    }));
+
+    toggle?.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+
+    expect(clicked).not.toHaveBeenCalled();
+    expect(doubleClicked).not.toHaveBeenCalled();
+    expect(menuOpened).not.toHaveBeenCalled();
+
+    toggle?.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+
+    expect(menuOpened).toHaveBeenCalledWith(expect.objectContaining({
+      card: expect.objectContaining({ instanceId: 'card-1' }),
+    }));
+
+    cardElement.dispatchEvent(new PointerEvent('pointerleave', { bubbles: true }));
+    cardElement.dispatchEvent(new PointerEvent('pointerenter', { bubbles: true }));
+
+    const lastPreview = previewShown.mock.calls.at(-1)?.[0];
+    expect(lastPreview?.card.instanceId).toBe('card-1');
+    expect(lastPreview?.card.activeFaceIndex).toBeUndefined();
+  });
+
+  it('shows a smaller face look affordance in mini mode and emits the alternate preview request', async () => {
+    await TestBed.configureTestingModule({
+      imports: [GameCardViewComponent],
+      providers: [importProvidersFrom(LucideAngularModule.pick({ CircleQuestionMark, Link, Layers3, RotateCw }))],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(GameCardViewComponent);
+    const previewRequested = vi.fn();
+    const clicked = vi.fn();
+    fixture.componentInstance.cardFaceLookRequested.subscribe(previewRequested);
+    fixture.componentInstance.cardClicked.subscribe(clicked);
+    fixture.componentRef.setInput('mode', 'mini');
+    fixture.componentRef.setInput('card', {
+      ...gameCard(),
+      cardFaces: [
+        cardFace('Birgi, God of Storytelling'),
+        cardFace('Harnfel, Horn of Bounty'),
+      ],
+    });
+    fixture.componentRef.setInput('playerId', 'player-1');
+    fixture.componentRef.setInput('zone', 'battlefield');
+    fixture.detectChanges();
+
+    const miniCard = fixture.nativeElement.querySelector('[data-testid="mini-battlefield-card"]') as HTMLElement;
+    const toggle = miniCard.querySelector('.double-face-toggle') as HTMLElement | null;
+
+    expect(toggle).not.toBeNull();
+    expect(toggle?.querySelector('lucide-icon[name="rotate-cw"]')).not.toBeNull();
+
+    toggle?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    toggle?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+    expect(previewRequested).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      card: expect.objectContaining({ activeFaceIndex: 1 }),
+    }));
+    expect(previewRequested).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      card: expect.objectContaining({ activeFaceIndex: 0 }),
+    }));
+    expect(clicked).not.toHaveBeenCalled();
+  });
+
+  it('does not show the face toggle affordance for hidden double-faced cards', async () => {
+    const { fixture } = await renderHandCard();
+
+    fixture.componentRef.setInput('card', {
+      ...gameCard(),
+      name: 'Birgi, God of Storytelling // Harnfel, Horn of Bounty',
+      hidden: true,
+      cardFaces: [
+        cardFace('Birgi, God of Storytelling'),
+        cardFace('Harnfel, Horn of Bounty'),
+      ],
+    });
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.double-face-toggle')).toBeNull();
+  });
+
+  it('does not show the face toggle affordance when the alternate face has no content', async () => {
+    const { fixture } = await renderHandCard();
+
+    fixture.componentRef.setInput('card', {
+      ...gameCard(),
+      cardFaces: [
+        cardFace('Visible Face'),
+        emptyCardFace(),
+      ],
+    });
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.double-face-toggle')).toBeNull();
   });
 
   it('plays the face flip animation on stable battlefield cards', async () => {
@@ -729,7 +1049,7 @@ describe('GameCardViewComponent', () => {
   it('does not render marker rails in mini mode', async () => {
     await TestBed.configureTestingModule({
       imports: [GameCardViewComponent],
-      providers: [importProvidersFrom(LucideAngularModule.pick({ Link, Layers3 }))],
+      providers: [importProvidersFrom(LucideAngularModule.pick({ CircleQuestionMark, Link, Layers3, RotateCw }))],
     }).compileComponents();
 
     const fixture = TestBed.createComponent(GameCardViewComponent);
@@ -753,7 +1073,7 @@ async function renderHandCard(
 ): Promise<{ fixture: ComponentFixture<GameCardViewComponent>; cardElement: HTMLButtonElement }> {
   await TestBed.configureTestingModule({
     imports: [GameCardViewComponent],
-    providers: [importProvidersFrom(LucideAngularModule.pick({ Link, Layers3 }))],
+    providers: [importProvidersFrom(LucideAngularModule.pick({ CircleQuestionMark, Link, Layers3, RotateCw }))],
   }).compileComponents();
 
   const fixture = TestBed.createComponent(GameCardViewComponent);
@@ -775,6 +1095,34 @@ function gameCard(): GameCardInstance {
     instanceId: 'card-1',
     name: 'Arcane Signet',
     tapped: false,
+  };
+}
+
+function cardFace(name: string) {
+  return {
+    name,
+    manaCost: null,
+    typeLine: null,
+    oracleText: null,
+    power: null,
+    toughness: null,
+    loyalty: null,
+    colors: [],
+    imageUris: {},
+  };
+}
+
+function emptyCardFace() {
+  return {
+    name: null,
+    manaCost: null,
+    typeLine: null,
+    oracleText: null,
+    power: null,
+    toughness: null,
+    loyalty: null,
+    colors: [],
+    imageUris: {},
   };
 }
 

@@ -233,6 +233,44 @@ class GameProjectionServiceTest extends TestCase
         self::assertSame('Hidden card', $frenchProjection['players'][$owner->id()]['zones']['hand'][0]['name']);
     }
 
+    public function testProjectionCanUsePrecomputedLocalizationLookupWithoutServiceHydration(): void
+    {
+        $owner = new User('owner@example.test', 'Owner');
+        $spanishViewer = new User('spanish@example.test', 'Spanish');
+        $spanishViewer->updateCardLanguage('es');
+
+        $snapshot = $this->snapshot($owner->id(), $spanishViewer->id());
+        $snapshot['players'][$owner->id()]['zones']['battlefield'] = [[
+            ...$this->card('public-card', 'Sol Ring'),
+            'ownerId' => $owner->id(),
+            'controllerId' => $owner->id(),
+            'zone' => 'battlefield',
+            'scryfallId' => 'sol-ring-print',
+            'revealedTo' => ['all'],
+        ]];
+
+        $lookup = [
+            'es' => [
+                'sol-ring-print' => [
+                    'name' => 'Anillo solar',
+                    'printedName' => 'Anillo solar',
+                    'lang' => 'es',
+                    'imageUris' => ['normal' => 'https://cards.example/sol-ring-es.jpg'],
+                    'cardFaces' => [],
+                    'typeLine' => 'Artefacto',
+                    'manaCost' => '{1}',
+                    'oracleText' => '{T}: Agrega {C}.',
+                ],
+            ],
+        ];
+
+        $projection = (new GameProjectionService(new GameCommandHandler()))->projectSnapshot($snapshot, $spanishViewer, true, $lookup);
+
+        self::assertSame('Anillo solar', $projection['players'][$owner->id()]['zones']['battlefield'][0]['name']);
+        self::assertSame('es', $projection['players'][$owner->id()]['zones']['battlefield'][0]['lang']);
+        self::assertSame('Artefacto', $projection['players'][$owner->id()]['zones']['battlefield'][0]['typeLine']);
+    }
+
     public function testProjectedSnapshotPreservesGameplayContractFieldsForUiBootstrap(): void
     {
         $owner = new User('owner@example.test', 'Owner');

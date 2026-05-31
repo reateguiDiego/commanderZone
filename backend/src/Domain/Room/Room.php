@@ -68,6 +68,10 @@ class Room
     #[ORM\OneToMany(mappedBy: 'room', targetEntity: RoomPlayer::class, cascade: ['persist', 'remove'], orphanRemoval: true)]
     private Collection $players;
 
+    #[ORM\OneToMany(mappedBy: 'room', targetEntity: RoomWaitingLogEntry::class, cascade: ['persist', 'remove'], orphanRemoval: true)]
+    #[ORM\OrderBy(['createdAt' => 'ASC'])]
+    private Collection $waitingLogEntries;
+
     #[ORM\OneToOne(targetEntity: Game::class)]
     private ?Game $game = null;
 
@@ -83,6 +87,7 @@ class Room
         $this->owner = $owner;
         $this->name = self::defaultNameForOwner($owner);
         $this->players = new ArrayCollection();
+        $this->waitingLogEntries = new ArrayCollection();
         $this->createdAt = new \DateTimeImmutable();
         $this->updatedAt = $this->createdAt;
     }
@@ -354,6 +359,7 @@ class Room
     {
         $this->status = self::STATUS_STARTED;
         $this->game = $game;
+        $this->waitingLogEntries->clear();
         $this->touch();
     }
 
@@ -377,10 +383,25 @@ class Room
             'timerMode' => $this->timerMode,
             'timerDurationSeconds' => $this->timerDurationSeconds,
             'players' => array_map(static fn (RoomPlayer $player) => $player->toArray(), $this->orderedPlayers()),
+            'waitingLog' => array_map(
+                static fn (RoomWaitingLogEntry $entry): array => $entry->toArray(),
+                $this->waitingLogEntries->toArray(),
+            ),
             'gameId' => $this->game?->id(),
             'createdAt' => $this->createdAt->format(DATE_ATOM),
             'updatedAt' => $this->updatedAt->format(DATE_ATOM),
         ];
+    }
+
+    public function appendWaitingLog(string $label, string $tone = RoomWaitingLogEntry::TONE_DEFAULT): void
+    {
+        $trimmed = trim($label);
+        if ($trimmed === '') {
+            return;
+        }
+
+        $this->waitingLogEntries->add(new RoomWaitingLogEntry($this, $trimmed, $tone));
+        $this->touch();
     }
 
     private function touch(): void

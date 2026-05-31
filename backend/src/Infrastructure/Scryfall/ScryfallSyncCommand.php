@@ -19,6 +19,12 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
 #[AsCommand(name: 'app:scryfall:sync', description: 'Imports Scryfall bulk card data into the local database.')]
 class ScryfallSyncCommand extends Command
 {
+    /**
+     * @var list<string>
+     */
+    private const SUPPORTED_BULK_TYPES = ['default_cards', 'all_cards'];
+    private ?bool $printTablesAvailable = null;
+
     public function __construct(
         private readonly HttpClientInterface $httpClient,
         private readonly Connection $connection,
@@ -34,6 +40,7 @@ class ScryfallSyncCommand extends Command
     {
         $this
             ->addOption('file', null, InputOption::VALUE_REQUIRED, 'Local Scryfall JSON file to import instead of downloading bulk data.')
+            ->addOption('bulk-type', null, InputOption::VALUE_REQUIRED, 'Scryfall bulk type to import when downloading. Supported values: default_cards, all_cards.', 'all_cards')
             ->addOption('limit', null, InputOption::VALUE_REQUIRED, 'Maximum number of cards to import. Useful for development.', null)
             ->addOption('memory-limit', null, InputOption::VALUE_REQUIRED, 'PHP memory_limit used for this import.', null)
             ->addOption('skip-existing', null, InputOption::VALUE_NONE, 'Skip Scryfall ids already present in the database. Useful when resuming a failed import.');
@@ -45,9 +52,18 @@ class ScryfallSyncCommand extends Command
         ini_set('memory_limit', is_string($memoryLimit) && $memoryLimit !== '' ? $memoryLimit : $this->defaultMemoryLimit);
 
         $file = $input->getOption('file');
+        $bulkType = is_string($input->getOption('bulk-type')) ? trim((string) $input->getOption('bulk-type')) : 'all_cards';
         $limit = $input->getOption('limit') !== null ? (int) $input->getOption('limit') : null;
         $existingIds = $input->getOption('skip-existing') ? $this->loadExistingScryfallIds($output) : [];
-        $cards = is_string($file) && $file !== '' ? $this->loadLocalFile($file) : $this->downloadDefaultCards();
+        if (!in_array($bulkType, self::SUPPORTED_BULK_TYPES, true)) {
+            throw new \InvalidArgumentException(sprintf(
+                'Unsupported bulk type "%s". Supported values: %s.',
+                $bulkType,
+                implode(', ', self::SUPPORTED_BULK_TYPES),
+            ));
+        }
+
+        $cards = is_string($file) && $file !== '' ? $this->loadLocalFile($file) : $this->downloadBulkCards($bulkType);
 
         $count = 0;
         $skipped = 0;
@@ -66,6 +82,9 @@ class ScryfallSyncCommand extends Command
             }
 
             $this->upsertCard($cardData);
+            if ($this->printTablesAvailable()) {
+                $this->upsertCardPrintAndLocale($cardData);
+            }
             $existingIds[$scryfallId] = true;
             ++$count;
 
@@ -84,7 +103,7 @@ class ScryfallSyncCommand extends Command
         return Command::SUCCESS;
     }
 
-    private function downloadDefaultCards(): iterable
+    private function downloadBulkCards(string $bulkType): iterable
     {
         $headers = [
             'Accept' => 'application/json',
@@ -94,17 +113,17 @@ class ScryfallSyncCommand extends Command
         $bulkResponse = $this->httpClient->request('GET', 'https://api.scryfall.com/bulk-data', ['headers' => $headers])->toArray();
         $downloadUri = null;
         foreach ($bulkResponse['data'] ?? [] as $bulkData) {
-            if (($bulkData['type'] ?? null) === 'default_cards') {
+            if (($bulkData['type'] ?? null) === $bulkType) {
                 $downloadUri = $bulkData['download_uri'] ?? null;
                 break;
             }
         }
 
         if (!is_string($downloadUri)) {
-            throw new \RuntimeException('Scryfall default_cards bulk download URI was not found.');
+            throw new \RuntimeException(sprintf('Scryfall %s bulk download URI was not found.', $bulkType));
         }
 
-        $temporaryFile = tempnam(sys_get_temp_dir(), 'scryfall-default-cards-');
+        $temporaryFile = tempnam(sys_get_temp_dir(), sprintf('scryfall-%s-', str_replace('_', '-', $bulkType)));
         if ($temporaryFile === false) {
             throw new \RuntimeException('Could not create temporary file for Scryfall bulk download.');
         }
@@ -171,6 +190,7 @@ INSERT INTO card (
     lang,
     printed_name,
     flavor_name,
+    image_status,
     updated_at
 ) VALUES (
     :id,
@@ -200,6 +220,7 @@ INSERT INTO card (
     :lang,
     :printed_name,
     :flavor_name,
+    :image_status,
     NOW()
 )
 ON CONFLICT (scryfall_id) DO UPDATE SET
@@ -228,6 +249,7 @@ ON CONFLICT (scryfall_id) DO UPDATE SET
     lang = EXCLUDED.lang,
     printed_name = EXCLUDED.printed_name,
     flavor_name = EXCLUDED.flavor_name,
+    image_status = EXCLUDED.image_status,
     updated_at = NOW()
 SQL,
             [
@@ -258,9 +280,173 @@ SQL,
                 'lang' => $data['lang'] ?? null,
                 'printed_name' => $data['printed_name'] ?? null,
                 'flavor_name' => $data['flavor_name'] ?? null,
+                'image_status' => isset($data['image_status']) && is_scalar($data['image_status']) && (string) $data['image_status'] !== ''
+                    ? (string) $data['image_status']
+                    : null,
             ],
             [
                 'commander_legal' => ParameterType::BOOLEAN,
+            ],
+        );
+    }
+
+    private function upsertCardPrintAndLocale(array $data): void
+    {
+        $name = (string) ($data['name'] ?? '');
+        $normalizedName = Card::normalizeName($name);
+        $lang = isset($data['lang']) && is_scalar($data['lang']) ? (string) $data['lang'] : null;
+        $imageUris = $this->json($data['image_uris'] ?? ($data['card_faces'][0]['image_uris'] ?? []));
+        $cardFaces = $this->json($this->cardFaces($data));
+        $legalities = $data['legalities'] ?? [];
+
+        $this->connection->executeStatement(
+            <<<'SQL'
+INSERT INTO card_print (
+    scryfall_id,
+    normalized_name,
+    set_code,
+    collector_number,
+    default_name,
+    default_lang,
+    default_mana_cost,
+    default_type_line,
+    default_oracle_text,
+    default_image_uris,
+    default_card_faces,
+    layout,
+    commander_legal,
+    updated_at
+) VALUES (
+    :scryfall_id,
+    :normalized_name,
+    :set_code,
+    :collector_number,
+    :default_name,
+    :default_lang,
+    :default_mana_cost,
+    :default_type_line,
+    :default_oracle_text,
+    :default_image_uris,
+    :default_card_faces,
+    :layout,
+    :commander_legal,
+    NOW()
+)
+ON CONFLICT (scryfall_id) DO UPDATE SET
+    normalized_name = EXCLUDED.normalized_name,
+    set_code = EXCLUDED.set_code,
+    collector_number = EXCLUDED.collector_number,
+    default_name = CASE
+        WHEN EXCLUDED.default_lang = 'en' OR card_print.default_lang IS NULL THEN EXCLUDED.default_name
+        ELSE card_print.default_name
+    END,
+    default_lang = CASE
+        WHEN EXCLUDED.default_lang = 'en' OR card_print.default_lang IS NULL THEN EXCLUDED.default_lang
+        ELSE card_print.default_lang
+    END,
+    default_mana_cost = CASE
+        WHEN EXCLUDED.default_lang = 'en' OR card_print.default_lang IS NULL THEN EXCLUDED.default_mana_cost
+        ELSE card_print.default_mana_cost
+    END,
+    default_type_line = CASE
+        WHEN EXCLUDED.default_lang = 'en' OR card_print.default_lang IS NULL THEN EXCLUDED.default_type_line
+        ELSE card_print.default_type_line
+    END,
+    default_oracle_text = CASE
+        WHEN EXCLUDED.default_lang = 'en' OR card_print.default_lang IS NULL THEN EXCLUDED.default_oracle_text
+        ELSE card_print.default_oracle_text
+    END,
+    default_image_uris = CASE
+        WHEN EXCLUDED.default_lang = 'en' OR card_print.default_lang IS NULL THEN EXCLUDED.default_image_uris
+        ELSE card_print.default_image_uris
+    END,
+    default_card_faces = CASE
+        WHEN EXCLUDED.default_lang = 'en' OR card_print.default_lang IS NULL THEN EXCLUDED.default_card_faces
+        ELSE card_print.default_card_faces
+    END,
+    layout = EXCLUDED.layout,
+    commander_legal = EXCLUDED.commander_legal,
+    updated_at = NOW()
+SQL,
+            [
+                'scryfall_id' => (string) $data['id'],
+                'normalized_name' => $normalizedName,
+                'set_code' => $data['set'] ?? null,
+                'collector_number' => $data['collector_number'] ?? null,
+                'default_name' => $name,
+                'default_lang' => $lang,
+                'default_mana_cost' => $this->cardString($data, 'mana_cost'),
+                'default_type_line' => $this->cardString($data, 'type_line'),
+                'default_oracle_text' => $this->oracleText($data),
+                'default_image_uris' => $imageUris,
+                'default_card_faces' => $cardFaces,
+                'layout' => $data['layout'] ?? 'normal',
+                'commander_legal' => ($legalities['commander'] ?? null) === 'legal',
+            ],
+            [
+                'commander_legal' => ParameterType::BOOLEAN,
+            ],
+        );
+
+        if ($lang === null || $lang === '') {
+            return;
+        }
+
+        $printedName = isset($data['printed_name']) && is_scalar($data['printed_name']) && (string) $data['printed_name'] !== ''
+            ? (string) $data['printed_name']
+            : null;
+
+        $this->connection->executeStatement(
+            <<<'SQL'
+INSERT INTO card_print_locale (
+    print_scryfall_id,
+    lang,
+    name,
+    printed_name,
+    mana_cost,
+    type_line,
+    oracle_text,
+    image_uris,
+    card_faces,
+    image_status,
+    updated_at
+) VALUES (
+    :print_scryfall_id,
+    :lang,
+    :name,
+    :printed_name,
+    :mana_cost,
+    :type_line,
+    :oracle_text,
+    :image_uris,
+    :card_faces,
+    :image_status,
+    NOW()
+)
+ON CONFLICT (print_scryfall_id, lang) DO UPDATE SET
+    name = EXCLUDED.name,
+    printed_name = EXCLUDED.printed_name,
+    mana_cost = EXCLUDED.mana_cost,
+    type_line = EXCLUDED.type_line,
+    oracle_text = EXCLUDED.oracle_text,
+    image_uris = EXCLUDED.image_uris,
+    card_faces = EXCLUDED.card_faces,
+    image_status = EXCLUDED.image_status,
+    updated_at = NOW()
+SQL,
+            [
+                'print_scryfall_id' => (string) $data['id'],
+                'lang' => $lang,
+                'name' => $name,
+                'printed_name' => $printedName,
+                'mana_cost' => $this->cardString($data, 'mana_cost'),
+                'type_line' => $this->cardString($data, 'type_line'),
+                'oracle_text' => $this->oracleText($data),
+                'image_uris' => $imageUris,
+                'card_faces' => $cardFaces,
+                'image_status' => isset($data['image_status']) && is_scalar($data['image_status']) && (string) $data['image_status'] !== ''
+                    ? (string) $data['image_status']
+                    : null,
             ],
         );
     }
@@ -392,5 +578,22 @@ SQL,
     private function formatBytes(int $bytes): string
     {
         return sprintf('%.1f MB', $bytes / 1024 / 1024);
+    }
+
+    private function printTablesAvailable(): bool
+    {
+        if ($this->printTablesAvailable !== null) {
+            return $this->printTablesAvailable;
+        }
+
+        $cardPrint = $this->connection->fetchOne("SELECT to_regclass('public.card_print')");
+        $cardPrintLocale = $this->connection->fetchOne("SELECT to_regclass('public.card_print_locale')");
+
+        $this->printTablesAvailable = is_string($cardPrint)
+            && $cardPrint !== ''
+            && is_string($cardPrintLocale)
+            && $cardPrintLocale !== '';
+
+        return $this->printTablesAvailable;
     }
 }

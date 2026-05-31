@@ -21,6 +21,7 @@ export interface GameContextMenu {
   arrowId?: string;
   counterKey?: string;
   suppressRandomSelect?: boolean;
+  fromFixedZoneModal?: boolean;
   kind?: 'zone' | 'card' | 'game' | 'player' | 'arrow' | 'counter';
   sourceRect?: CardPreviewSourceRect | null;
 }
@@ -60,6 +61,10 @@ export class GameTableUiState {
     zone?: GameZoneName,
   ): void {
     this.clearHoverPreviewTimer();
+    if (this.contextMenu()) {
+      return;
+    }
+
     const preview = this.normalizePreview(cardOrPreview, playerId, zone);
     const card = preview.card;
     if (card.hidden || isDragging() || Date.now() < this.hoverPreviewSuppressedUntil) {
@@ -68,7 +73,7 @@ export class GameTableUiState {
 
     const token = ++this.hoverPreviewToken;
     this.hoverPreviewHandle = window.setTimeout(() => {
-      if (token !== this.hoverPreviewToken || isDragging()) {
+      if (token !== this.hoverPreviewToken || isDragging() || this.contextMenu()) {
         return;
       }
 
@@ -122,10 +127,12 @@ export class GameTableUiState {
   }
 
   openContextMenu(event: MouseEvent, target: Omit<GameContextMenu, 'x' | 'y'>): void {
+    this.clearCardPreview();
     this.contextMenu.set({ ...this.menuPosition(event.clientX, event.clientY, target), ...target });
   }
 
   openContextMenuAt(position: { x: number; y: number }, target: Omit<GameContextMenu, 'x' | 'y'>): void {
+    this.clearCardPreview();
     this.contextMenu.set({ ...this.menuPosition(position.x, position.y, target), ...target });
   }
 
