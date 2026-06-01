@@ -119,6 +119,17 @@ class RoomsGamesApiTest extends ApiTestCase
 
     public function testRandomDeckSelectionIsLoggedWithOptionCount(): void
     {
+        $this->seedCard('abababab-0000-7000-8000-000000000001', 'Random Commander', [
+            'type_line' => 'Legendary Creature - Human Soldier',
+            'color_identity' => [],
+            'set' => 'tst',
+            'collector_number' => '1',
+        ]);
+        $this->seedCard('abababab-1111-7111-8111-111111111111', 'Random Plains', [
+            'type_line' => 'Basic Land - Plains',
+            'set' => 'tst',
+            'collector_number' => '2',
+        ]);
         $ownerToken = $this->registerAndLogin('random-deck-log-owner@example.test', 'Random Deck Owner');
         $deckId = $this->quickBuildDeck($ownerToken, 'Random Picked Deck', [
             ['scryfallId' => 'abababab-0000-7000-8000-000000000001', 'quantity' => 1, 'section' => 'commander'],
@@ -526,11 +537,11 @@ class RoomsGamesApiTest extends ApiTestCase
         $ownerToken = $this->registerAndLogin('started-leave-owner@example.test', 'Started Leave Owner');
         $playerToken = $this->registerAndLogin('started-leave-player@example.test', 'Started Leave Player');
 
-        $ownerDeckId = $this->quickBuildDeck($ownerToken, 'Started Leave Owner Deck', [
+        $ownerDeckId = $this->quickBuildDeck($ownerToken, 'Start Leave Owner', [
             ['scryfallId' => 'eeeeeeee-2222-7222-8222-222222222222', 'quantity' => 1, 'section' => 'commander'],
             ['scryfallId' => 'eeeeeeee-3333-7333-8333-333333333333', 'quantity' => 99, 'section' => 'main'],
         ]);
-        $playerDeckId = $this->quickBuildDeck($playerToken, 'Started Leave Player Deck', [
+        $playerDeckId = $this->quickBuildDeck($playerToken, 'Start Leave Player', [
             ['scryfallId' => 'eeeeeeee-2222-7222-8222-222222222222', 'quantity' => 1, 'section' => 'commander'],
             ['scryfallId' => 'eeeeeeee-3333-7333-8333-333333333333', 'quantity' => 99, 'section' => 'main'],
         ]);
