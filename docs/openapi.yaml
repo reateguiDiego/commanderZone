@@ -601,9 +601,11 @@ paths:
       tags: [Cards]
       security: []
       summary: Search cards imported from Scryfall.
+      description: Searches canonical card names and localized card names imported from Scryfall, including printed and flavor names where available.
       parameters:
         - name: q
           in: query
+          description: Search text matched against canonical names, localized printed names, and flavor names.
           schema:
             type: string
         - name: page
@@ -755,6 +757,7 @@ paths:
       tags: [Cards]
       security: []
       summary: Resolve or proxy a Scryfall card image.
+      description: Returns the image for the requested Scryfall id only. It does not accept a language parameter; localized images are returned in localized card payloads.
       parameters:
         - $ref: '#/components/parameters/ScryfallId'
         - name: format
@@ -2966,6 +2969,7 @@ components:
             $ref: '#/components/schemas/CardFaceStatsEntry'
     Card:
       type: object
+      description: Card catalog and deck-builder payloads may include fully localized card text. Gameplay projections preserve card identity and gameplay metadata, and localize only imageUris/cardFaces imageUris per viewer language.
       required: [id, scryfallId, name, colors, colorIdentity, legalities, imageUris, cardFaces, layout, commanderLegal]
       properties:
         id:

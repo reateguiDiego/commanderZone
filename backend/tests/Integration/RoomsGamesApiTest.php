@@ -2,6 +2,7 @@
 
 namespace App\Tests\Integration;
 
+use App\Domain\Card\Card;
 use App\Tests\Support\RecordingMercureHub;
 
 class RoomsGamesApiTest extends ApiTestCase
@@ -31,6 +32,48 @@ class RoomsGamesApiTest extends ApiTestCase
         self::assertNull($current['player']['deckName']);
         self::assertNull($current['turn']['number']);
         self::assertSame('owner_player', $current['viewerRole']);
+    }
+
+    public function testCurrentRoomLocalizesDeckImageForViewerCardLanguage(): void
+    {
+        $ownerToken = $this->registerAndLogin('current-room-localized-owner@example.test', 'Current Localized');
+        $this->jsonRequest('PATCH', '/me', ['cardLanguage' => 'es'], $ownerToken);
+        self::assertResponseIsSuccessful();
+
+        $commanderId = '11111111-2222-7333-8444-555555555555';
+        $landId = '66666666-2222-7333-8444-555555555555';
+        $this->seedCard($commanderId, 'Localized Commander', [
+            'type_line' => 'Legendary Creature - Human Soldier',
+            'image_uris' => ['art_crop' => 'https://cards.scryfall.io/art_crop/front/original-commander.jpg'],
+        ]);
+        $this->seedCard($landId, 'Localized Plains', [
+            'type_line' => 'Basic Land - Plains',
+        ]);
+        $this->seedLocalizedPrintLocale(
+            $commanderId,
+            'Localized Commander',
+            'es',
+            'Comandante localizado',
+            'https://cards.scryfall.io/art_crop/front/spanish-commander.jpg',
+        );
+
+        $deckId = $this->quickBuildDeck($ownerToken, 'Localized Deck', [
+            ['scryfallId' => $commanderId, 'quantity' => 1, 'section' => 'commander'],
+            ['scryfallId' => $landId, 'quantity' => 99, 'section' => 'main'],
+        ]);
+
+        $this->jsonRequest('POST', '/rooms', [
+            'visibility' => 'public',
+            'maxPlayers' => 2,
+            'deckId' => $deckId,
+        ], $ownerToken);
+        self::assertResponseStatusCodeSame(201);
+
+        $this->jsonRequest('GET', '/rooms/current', token: $ownerToken);
+        self::assertResponseIsSuccessful();
+        $current = $this->jsonResponse();
+
+        self::assertSame('https://cards.scryfall.io/art_crop/front/spanish-commander.jpg', $current['player']['deckImageUrl']);
     }
 
     public function testCurrentRoomEndpointIgnoresRoomsWithoutPlayers(): void
@@ -2391,6 +2434,88 @@ class RoomsGamesApiTest extends ApiTestCase
         self::assertResponseStatusCodeSame(201);
 
         return (string) $this->jsonResponse()['deck']['id'];
+    }
+
+    private function seedLocalizedPrintLocale(string $scryfallId, string $defaultName, string $lang, string $printedName, string $artCropUrl): void
+    {
+        $this->entityManager->getConnection()->executeStatement(
+            <<<'SQL'
+INSERT INTO card_print (
+    scryfall_id,
+    normalized_name,
+    set_code,
+    collector_number,
+    default_name,
+    default_lang,
+    default_mana_cost,
+    default_type_line,
+    default_oracle_text,
+    default_image_uris,
+    default_card_faces,
+    layout,
+    commander_legal,
+    updated_at
+) VALUES (
+    :scryfallId,
+    :normalizedName,
+    'tst',
+    '1',
+    :defaultName,
+    'en',
+    '{1}',
+    'Legendary Creature - Human Soldier',
+    '',
+    :defaultImageUris,
+    '[]',
+    'normal',
+    true,
+    NOW()
+)
+SQL,
+            [
+                'scryfallId' => $scryfallId,
+                'normalizedName' => Card::normalizeName($defaultName),
+                'defaultName' => $defaultName,
+                'defaultImageUris' => json_encode(['art_crop' => 'https://cards.scryfall.io/art_crop/front/original-commander.jpg'], JSON_THROW_ON_ERROR),
+            ],
+        );
+
+        $this->entityManager->getConnection()->executeStatement(
+            <<<'SQL'
+INSERT INTO card_print_locale (
+    print_scryfall_id,
+    lang,
+    name,
+    printed_name,
+    mana_cost,
+    type_line,
+    oracle_text,
+    image_uris,
+    card_faces,
+    image_status,
+    updated_at
+) VALUES (
+    :scryfallId,
+    :lang,
+    :defaultName,
+    :printedName,
+    '{1}',
+    'Criatura legendaria - Humano Soldado',
+    '',
+    :imageUris,
+    '[]',
+    'highres_scan',
+    NOW()
+)
+SQL,
+            [
+                'scryfallId' => $scryfallId,
+                'lang' => $lang,
+                'defaultName' => $defaultName,
+                'printedName' => $printedName,
+                'imageUris' => json_encode(['art_crop' => $artCropUrl], JSON_THROW_ON_ERROR),
+            ],
+        );
     }
 
     private function rollTurnOrder(string $roomId, string $token): int

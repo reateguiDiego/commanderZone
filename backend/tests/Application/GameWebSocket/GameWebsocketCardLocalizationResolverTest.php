@@ -98,6 +98,39 @@ class GameWebsocketCardLocalizationResolverTest extends TestCase
         self::assertSame('es', $lookup['es']['source-1']['lang']);
     }
 
+    public function testBuildsLocalizedImagePayloadsForMultipleViewerLanguages(): void
+    {
+        $languages = ['es', 'de', 'pt', 'en', 'it', 'ja'];
+        $candidates = [];
+        $payloads = [];
+        foreach ($languages as $language) {
+            $candidates[] = $this->candidateRow(
+                sourceScryfallId: 'source-1',
+                candidateScryfallId: 'sol-ring-'.$language,
+                lang: $language,
+                imageStatus: null,
+            );
+            $payloads[] = $this->payloadRow(
+                scryfallId: 'sol-ring-'.$language,
+                lang: $language,
+                printedName: $language === 'en' ? null : 'Sol Ring '.$language,
+            );
+        }
+
+        $resolver = $this->resolverWithRows(
+            sources: [$this->sourceRow()],
+            candidates: $candidates,
+            payloads: $payloads,
+        );
+
+        $lookup = $resolver->buildLocalizedLookup($this->snapshotWithCard('source-1'), [], $languages);
+
+        foreach ($languages as $language) {
+            self::assertSame($language, $lookup[$language]['source-1']['lang']);
+            self::assertSame(sprintf('https://img/%s.jpg', $language), $lookup[$language]['source-1']['imageUris']['normal']);
+        }
+    }
+
     public function testDoesNotQueryLegacyExactCandidatesWhenPrintTablesCoverRequestedSourceIds(): void
     {
         $sourceResult = $this->resultWithRows([
@@ -173,7 +206,7 @@ class GameWebsocketCardLocalizationResolverTest extends TestCase
     private function resultWithRows(array $rows): Result
     {
         $result = $this->createMock(Result::class);
-        $result->method('fetchAllAssociative')->willReturn($rows);
+        $result->expects(self::atLeastOnce())->method('fetchAllAssociative')->willReturn($rows);
 
         return $result;
     }

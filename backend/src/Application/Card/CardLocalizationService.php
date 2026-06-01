@@ -17,9 +17,14 @@ class CardLocalizationService
      * @var array<string,Card>
      */
     private array $localizedBySourceAndLanguage = [];
+    private ?CardLocalizedPayloadResolver $localizedPayloadResolver;
 
-    public function __construct(private readonly EntityManagerInterface $entityManager)
+    public function __construct(
+        private readonly EntityManagerInterface $entityManager,
+        ?CardLocalizedPayloadResolver $localizedPayloadResolver = null,
+    )
     {
+        $this->localizedPayloadResolver = $localizedPayloadResolver;
     }
 
     /**
@@ -159,42 +164,7 @@ class CardLocalizationService
      */
     public function localizeCardPayload(array $card, ?string $requestedLanguage, bool $preserveIdentity = false): array
     {
-        $requestedLanguage = LanguageCatalog::normalize($requestedLanguage);
-        if (!LanguageCatalog::isSupported($requestedLanguage) || $requestedLanguage === null) {
-            return $card;
-        }
-
-        $scryfallId = trim((string) ($card['scryfallId'] ?? ''));
-        if ($scryfallId === '') {
-            return $card;
-        }
-
-        $source = $this->cardsByScryfallId[$scryfallId] ?? null;
-        if (!$source instanceof Card) {
-            $this->primeForLanguage([$scryfallId], $requestedLanguage);
-            $source = $this->cardsByScryfallId[$scryfallId] ?? null;
-            if (!$source instanceof Card) {
-                return $card;
-            }
-        }
-
-        $localized = $this->localizeCard($source, $requestedLanguage);
-        $localizedPayload = $localized->toArray();
-
-        if (!$preserveIdentity) {
-            return $localizedPayload;
-        }
-
-        $card['name'] = $this->localizedName($localized);
-        $card['imageUris'] = $localizedPayload['imageUris'] ?? [];
-        $card['cardFaces'] = $localizedPayload['cardFaces'] ?? [];
-        $card['typeLine'] = $localizedPayload['typeLine'] ?? null;
-        $card['manaCost'] = $localizedPayload['manaCost'] ?? null;
-        $card['oracleText'] = $localizedPayload['oracleText'] ?? null;
-        $card['lang'] = $localized->lang();
-        $card['printedName'] = $localized->printedName();
-
-        return $card;
+        return $this->localizeCardPayloads([$card], $requestedLanguage, $preserveIdentity)[0] ?? $card;
     }
 
     /**
@@ -217,13 +187,59 @@ class CardLocalizationService
             }
         }
         if ($scryfallIds !== []) {
-            $this->primeForLanguage(array_values(array_unique($scryfallIds)), $requestedLanguage);
+            $scryfallIds = array_values(array_unique($scryfallIds));
         }
 
-        return array_values(array_map(
-            fn (array $card): array => $this->localizeCardPayload($card, $requestedLanguage, $preserveIdentity),
-            $cards,
-        ));
+        if ($scryfallIds === []) {
+            return $cards;
+        }
+
+        $lookup = $this->payloadResolver()->buildLocalizedLookupForScryfallIds($scryfallIds, [$requestedLanguage]);
+        $localizedBySource = $lookup[$requestedLanguage] ?? [];
+        if ($localizedBySource === []) {
+            return $cards;
+        }
+
+        $localizedCardsByScryfallId = [];
+        if (!$preserveIdentity) {
+            $localizedIds = array_values(array_unique(array_filter(
+                array_map(
+                    static fn (array $payload): string => trim((string) ($payload['scryfallId'] ?? '')),
+                    $localizedBySource,
+                ),
+                static fn (string $id): bool => $id !== '',
+            )));
+            $localizedCardsByScryfallId = $this->cardsByScryfallIds($localizedIds);
+        }
+
+        return array_values(array_map(function (array $card) use ($preserveIdentity, $localizedBySource, $localizedCardsByScryfallId): array {
+            $scryfallId = trim((string) ($card['scryfallId'] ?? ''));
+            $localizedPayload = $localizedBySource[$scryfallId] ?? null;
+            if (!is_array($localizedPayload)) {
+                return $card;
+            }
+
+            if (!$preserveIdentity) {
+                $localizedId = trim((string) ($localizedPayload['scryfallId'] ?? ''));
+                $localizedCard = $localizedCardsByScryfallId[$localizedId] ?? null;
+                if ($localizedCard instanceof Card) {
+                    return $localizedCard->toArray();
+                }
+            }
+
+            return $this->mergeLocalizedPayload($card, $localizedPayload, $preserveIdentity);
+        }, $cards));
+    }
+
+    /**
+     * @param list<string> $scryfallIds
+     * @param list<string> $requestedLanguages
+     *
+     * @return array<string,array<string,array<string,mixed>>>
+     */
+    public function localizedPayloadLookupForScryfallIds(array $scryfallIds, array $requestedLanguages): array
+    {
+        return $this->payloadResolver()->buildLocalizedLookupForScryfallIds($scryfallIds, $requestedLanguages);
     }
 
     /**
@@ -294,6 +310,82 @@ class CardLocalizationService
         $printedName = trim((string) ($card->printedName() ?? ''));
 
         return $printedName !== '' ? $printedName : $card->name();
+    }
+
+    /**
+     * @param list<string> $scryfallIds
+     *
+     * @return array<string,Card>
+     */
+    private function cardsByScryfallIds(array $scryfallIds): array
+    {
+        if ($scryfallIds === []) {
+            return [];
+        }
+
+        $cards = $this->entityManager->getRepository(Card::class)
+            ->createQueryBuilder('card')
+            ->andWhere('card.scryfallId IN (:ids)')
+            ->setParameter('ids', $scryfallIds)
+            ->getQuery()
+            ->getResult();
+
+        $cardsByScryfallId = [];
+        foreach ($cards as $card) {
+            if ($card instanceof Card) {
+                $cardsByScryfallId[$card->scryfallId()] = $card;
+            }
+        }
+
+        return $cardsByScryfallId;
+    }
+
+    /**
+     * @param array<string,mixed> $card
+     * @param array<string,mixed> $localizedPayload
+     *
+     * @return array<string,mixed>
+     */
+    private function mergeLocalizedPayload(array $card, array $localizedPayload, bool $preserveIdentity): array
+    {
+        if (!$preserveIdentity) {
+            $card['scryfallId'] = $localizedPayload['scryfallId'] ?? ($card['scryfallId'] ?? null);
+        }
+
+        $card['name'] = $this->localizedPayloadName($localizedPayload, (string) ($card['name'] ?? ''));
+        $card['imageUris'] = $localizedPayload['imageUris'] ?? [];
+        $card['cardFaces'] = $localizedPayload['cardFaces'] ?? [];
+        $card['typeLine'] = $localizedPayload['typeLine'] ?? null;
+        $card['manaCost'] = $localizedPayload['manaCost'] ?? null;
+        $card['oracleText'] = $localizedPayload['oracleText'] ?? null;
+        $card['lang'] = $localizedPayload['lang'] ?? ($card['lang'] ?? null);
+        $card['printedName'] = $localizedPayload['printedName'] ?? ($card['printedName'] ?? null);
+
+        return $card;
+    }
+
+    /**
+     * @param array<string,mixed> $localizedPayload
+     */
+    private function localizedPayloadName(array $localizedPayload, string $fallback): string
+    {
+        $printedName = trim((string) ($localizedPayload['printedName'] ?? ''));
+        if ($printedName !== '') {
+            return $printedName;
+        }
+
+        $name = trim((string) ($localizedPayload['name'] ?? ''));
+
+        return $name !== '' ? $name : $fallback;
+    }
+
+    private function payloadResolver(): CardLocalizedPayloadResolver
+    {
+        if (!$this->localizedPayloadResolver instanceof CardLocalizedPayloadResolver) {
+            $this->localizedPayloadResolver = new CardLocalizedPayloadResolver($this->entityManager->getConnection());
+        }
+
+        return $this->localizedPayloadResolver;
     }
 
     private function isUsableLocalizedCandidate(Card $source, Card $candidate, string $requestedLanguage): bool

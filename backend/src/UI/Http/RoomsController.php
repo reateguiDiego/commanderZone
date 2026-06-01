@@ -2,6 +2,7 @@
 
 namespace App\UI\Http;
 
+use App\Application\Card\CardLocalizationService;
 use App\Application\Deck\CommanderDeckValidator;
 use App\Application\Game\GameCommandHandler;
 use App\Application\Game\GameProjectionService;
@@ -30,7 +31,7 @@ use Symfony\Component\Security\Http\Attribute\CurrentUser;
 class RoomsController extends ApiController
 {
     #[Route('/rooms', methods: ['GET'])]
-    public function list(Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager): JsonResponse
+    public function list(Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, CardLocalizationService $localization): JsonResponse
     {
         $status = (string) $request->query->get('status', 'active');
         $queryBuilder = $entityManager->getRepository(Room::class)->createQueryBuilder('room')
@@ -51,11 +52,24 @@ class RoomsController extends ApiController
         usort($rooms, static fn (Room $left, Room $right): int => self::roomListRank($left) <=> self::roomListRank($right)
             ?: $left->name() <=> $right->name());
 
-        return $this->json(['data' => array_map(fn (Room $room) => $this->roomListArray($room, $user), $rooms)]);
+        $roomData = $this->localizeRoomArrays(
+            array_map(static fn (Room $room): array => $room->toArray(), $rooms),
+            $user,
+            $localization,
+        );
+        foreach ($rooms as $index => $room) {
+            if (!$room instanceof Room || !isset($roomData[$index])) {
+                continue;
+            }
+
+            $roomData[$index] = $this->maskPrivateRoomForList($roomData[$index], $room, $user);
+        }
+
+        return $this->json(['data' => array_values($roomData)]);
     }
 
     #[Route('/rooms/current', methods: ['GET'])]
-    public function current(#[CurrentUser] User $user, ActiveRoomMembershipService $activeRoomMembership): JsonResponse
+    public function current(#[CurrentUser] User $user, ActiveRoomMembershipService $activeRoomMembership, CardLocalizationService $localization): JsonResponse
     {
         $room = $activeRoomMembership->currentRoomFor($user);
 
@@ -65,7 +79,7 @@ class RoomsController extends ApiController
 
         return $this->json([
             'room' => $this->currentRoomSummaryArray($room),
-            'player' => $this->currentRoomPlayerArray($room->playerFor($user)),
+            'player' => $this->currentRoomPlayerArray($room->playerFor($user), $user, $localization),
             'turn' => $this->currentRoomTurnArray($room),
             'viewerRole' => $this->currentRoomViewerRole($room, $user),
         ]);
@@ -79,6 +93,7 @@ class RoomsController extends ApiController
         RoomEventPublisher $roomEventPublisher,
         ActiveRoomMembershipService $activeRoomMembership,
         LoggerInterface $logger,
+        CardLocalizationService $localization,
     ): JsonResponse
     {
         $payload = $this->payload($request);
@@ -133,11 +148,11 @@ class RoomsController extends ApiController
         }
         $roomEventPublisher->publish($room, 'room.created');
 
-        return $this->json(['room' => $room->toArray()], 201);
+        return $this->json(['room' => $this->roomArray($room, $user, $localization)], 201);
     }
 
     #[Route('/rooms/{id}', methods: ['GET'])]
-    public function show(string $id, #[CurrentUser] User $user, EntityManagerInterface $entityManager): JsonResponse
+    public function show(string $id, #[CurrentUser] User $user, EntityManagerInterface $entityManager, CardLocalizationService $localization): JsonResponse
     {
         $room = $entityManager->getRepository(Room::class)->find($id);
         if (!$room instanceof Room) {
@@ -147,11 +162,11 @@ class RoomsController extends ApiController
             return $this->fail('Room access denied.', 403);
         }
 
-        return $this->json(['room' => $room->toArray()]);
+        return $this->json(['room' => $this->roomArray($room, $user, $localization)]);
     }
 
     #[Route('/rooms/{id}', methods: ['PATCH'])]
-    public function update(string $id, Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, RoomEventPublisher $roomEventPublisher): JsonResponse
+    public function update(string $id, Request $request, #[CurrentUser] User $user, EntityManagerInterface $entityManager, RoomEventPublisher $roomEventPublisher, CardLocalizationService $localization): JsonResponse
     {
         $room = $entityManager->getRepository(Room::class)->find($id);
         if (!$room instanceof Room) {
@@ -190,7 +205,7 @@ class RoomsController extends ApiController
         $entityManager->flush();
         $roomEventPublisher->publish($room, 'room.updated');
 
-        return $this->json(['room' => $room->toArray()]);
+        return $this->json(['room' => $this->roomArray($room, $user, $localization)]);
     }
 
     #[Route('/rooms/{id}/join', methods: ['POST'])]
@@ -202,6 +217,7 @@ class RoomsController extends ApiController
         CommanderDeckValidator $deckValidator,
         RoomEventPublisher $roomEventPublisher,
         ActiveRoomMembershipService $activeRoomMembership,
+        CardLocalizationService $localization,
     ): JsonResponse
     {
         $room = $entityManager->getRepository(Room::class)->find($id);
@@ -209,7 +225,7 @@ class RoomsController extends ApiController
             return $this->fail('Room not found.', 404);
         }
 
-        return $this->joinRoom($room, $request, $user, $entityManager, $deckValidator, $roomEventPublisher, $activeRoomMembership);
+        return $this->joinRoom($room, $request, $user, $entityManager, $deckValidator, $roomEventPublisher, $activeRoomMembership, $localization);
     }
 
     #[Route('/rooms/code/{code}/join', methods: ['POST'])]
@@ -221,6 +237,7 @@ class RoomsController extends ApiController
         CommanderDeckValidator $deckValidator,
         RoomEventPublisher $roomEventPublisher,
         ActiveRoomMembershipService $activeRoomMembership,
+        CardLocalizationService $localization,
     ): JsonResponse
     {
         $room = $this->roomFromCode($code, $entityManager);
@@ -228,7 +245,7 @@ class RoomsController extends ApiController
             return $this->fail('Room not found.', 404);
         }
 
-        return $this->joinRoom($room, $request, $user, $entityManager, $deckValidator, $roomEventPublisher, $activeRoomMembership);
+        return $this->joinRoom($room, $request, $user, $entityManager, $deckValidator, $roomEventPublisher, $activeRoomMembership, $localization);
     }
 
     private function joinRoom(
@@ -239,6 +256,7 @@ class RoomsController extends ApiController
         CommanderDeckValidator $deckValidator,
         RoomEventPublisher $roomEventPublisher,
         ActiveRoomMembershipService $activeRoomMembership,
+        CardLocalizationService $localization,
     ): JsonResponse
     {
         if ($room->status() !== Room::STATUS_WAITING) {
@@ -287,11 +305,11 @@ class RoomsController extends ApiController
         $entityManager->flush();
         $roomEventPublisher->publish($room, $wasPlayer ? 'room.player.updated' : 'room.player.joined');
 
-        return $this->json(['room' => $room->toArray()]);
+        return $this->json(['room' => $this->roomArray($room, $user, $localization)]);
     }
 
     #[Route('/rooms/{id}/roll-turn', methods: ['POST'])]
-    public function rollTurn(string $id, #[CurrentUser] User $user, EntityManagerInterface $entityManager, RoomEventPublisher $roomEventPublisher): JsonResponse
+    public function rollTurn(string $id, #[CurrentUser] User $user, EntityManagerInterface $entityManager, RoomEventPublisher $roomEventPublisher, CardLocalizationService $localization): JsonResponse
     {
         $room = $entityManager->getRepository(Room::class)->find($id);
         if (!$room instanceof Room) {
@@ -317,7 +335,7 @@ class RoomsController extends ApiController
         $entityManager->flush();
         $roomEventPublisher->publish($room, 'room.player.rolled');
 
-        return $this->json(['room' => $room->toArray()]);
+        return $this->json(['room' => $this->roomArray($room, $user, $localization)]);
     }
 
     #[Route('/rooms/{id}/leave', methods: ['POST'])]
@@ -419,6 +437,7 @@ class RoomsController extends ApiController
         #[CurrentUser] User $user,
         EntityManagerInterface $entityManager,
         RoomEventPublisher $roomEventPublisher,
+        CardLocalizationService $localization,
     ): JsonResponse
     {
         $room = $entityManager->getRepository(Room::class)->find($id);
@@ -446,7 +465,7 @@ class RoomsController extends ApiController
         $entityManager->flush();
         $roomEventPublisher->publish($room, 'room.player.left');
 
-        return $this->json(['room' => $room->toArray()]);
+        return $this->json(['room' => $this->roomArray($room, $user, $localization)]);
     }
 
     #[Route('/rooms/{id}', methods: ['DELETE'])]
@@ -479,6 +498,7 @@ class RoomsController extends ApiController
         GameProjectionService $projection,
         CommanderDeckValidator $deckValidator,
         RoomEventPublisher $roomEventPublisher,
+        CardLocalizationService $localization,
     ): JsonResponse
     {
         $room = $entityManager->getRepository(Room::class)->find($id);
@@ -557,7 +577,7 @@ class RoomsController extends ApiController
         $roomEventPublisher->publish($room, 'room.started');
 
         return $this->json([
-            'room' => $room->toArray(),
+            'room' => $this->roomArray($room, $user, $localization),
             'game' => [
                 ...$game->toArray(),
                 'snapshot' => $projection->project($game, $user),
@@ -720,9 +740,8 @@ class RoomsController extends ApiController
         return Room::DEFAULT_MAX_PLAYERS;
     }
 
-    private function roomListArray(Room $room, User $viewer): array
+    private function maskPrivateRoomForList(array $data, Room $room, User $viewer): array
     {
-        $data = $room->toArray();
         if ($room->visibility() === Room::VISIBILITY_PRIVATE && $room->owner()->id() !== $viewer->id()) {
             $data['owner'] = [
                 'id' => 'private-host-'.$room->id(),
@@ -735,6 +754,54 @@ class RoomsController extends ApiController
         }
 
         return $data;
+    }
+
+    private function roomArray(Room $room, User $viewer, CardLocalizationService $localization): array
+    {
+        return $this->localizeRoomArrays([$room->toArray()], $viewer, $localization)[0] ?? $room->toArray();
+    }
+
+    /**
+     * @param list<array<string,mixed>> $rooms
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function localizeRoomArrays(array $rooms, User $viewer, CardLocalizationService $localization): array
+    {
+        $payloads = [];
+        $targets = [];
+        foreach ($rooms as $roomIndex => $room) {
+            if (!is_array($room['players'] ?? null)) {
+                continue;
+            }
+
+            foreach ($room['players'] as $playerIndex => $player) {
+                if (!is_array($player) || !is_array($player['deck']['commander'] ?? null)) {
+                    continue;
+                }
+
+                $targets[] = ['roomIndex' => $roomIndex, 'playerIndex' => $playerIndex];
+                $payloads[] = $player['deck']['commander'];
+            }
+        }
+
+        if ($payloads === []) {
+            return $rooms;
+        }
+
+        $localizedPayloads = $localization->localizeCardPayloads($payloads, $viewer->cardLanguage(), true);
+        foreach ($targets as $offset => $target) {
+            $roomIndex = $target['roomIndex'];
+            $playerIndex = $target['playerIndex'];
+            if (
+                is_array($localizedPayloads[$offset] ?? null)
+                && is_array($rooms[$roomIndex]['players'][$playerIndex]['deck'] ?? null)
+            ) {
+                $rooms[$roomIndex]['players'][$playerIndex]['deck']['commander'] = $localizedPayloads[$offset];
+            }
+        }
+
+        return $rooms;
     }
 
     private function currentRoomSummaryArray(Room $room): array
@@ -751,7 +818,7 @@ class RoomsController extends ApiController
         ];
     }
 
-    private function currentRoomPlayerArray(?RoomPlayer $player): ?array
+    private function currentRoomPlayerArray(?RoomPlayer $player, User $viewer, CardLocalizationService $localization): ?array
     {
         if (!$player instanceof RoomPlayer) {
             return null;
@@ -763,7 +830,7 @@ class RoomsController extends ApiController
             'playerId' => $player->id(),
             'deckId' => $deck?->id(),
             'deckName' => $deck?->name(),
-            'deckImageUrl' => $deck instanceof Deck ? $this->deckArtImageUrl($deck) : null,
+            'deckImageUrl' => $deck instanceof Deck ? $this->deckArtImageUrl($deck, $viewer, $localization) : null,
         ];
     }
 
@@ -805,14 +872,15 @@ class RoomsController extends ApiController
         $entityManager->remove($room);
     }
 
-    private function deckArtImageUrl(Deck $deck): ?string
+    private function deckArtImageUrl(Deck $deck, User $viewer, CardLocalizationService $localization): ?string
     {
         foreach ($deck->cards() as $deckCard) {
             if (!$deckCard instanceof DeckCard || $deckCard->section() !== DeckCard::SECTION_COMMANDER) {
                 continue;
             }
 
-            $imageUris = $deckCard->card()->imageUris();
+            $card = $localization->localizeCardPayload($deckCard->card()->toArray(), $viewer->cardLanguage(), true);
+            $imageUris = is_array($card['imageUris'] ?? null) ? $card['imageUris'] : $deckCard->card()->imageUris();
             foreach (['art_crop', 'border_crop', 'large', 'normal'] as $format) {
                 $imageUrl = $imageUris[$format] ?? null;
                 if (is_string($imageUrl) && $imageUrl !== '') {
