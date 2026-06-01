@@ -20,7 +20,7 @@ import { GameTableInteractionActionsService } from './services/game-table-intera
 import { GameTableLibraryActionsService } from './services/game-table-library-actions.service';
 import { GameTablePointerDragActionsService } from './services/game-table-pointer-drag-actions.service';
 import { GameTablePointerDragService } from './services/game-table-pointer-drag.service';
-import { GameTableRematchRealtimeService } from './services/game-table-rematch-realtime.service';
+import { GameTableGameRealtimeService } from './services/game-table-game-realtime.service';
 import { GameTableSelectionService } from './services/game-table-selection.service';
 import { GameTableSessionService } from './services/game-table-session.service';
 import { GameTableDisconnectVoteService } from './services/game-table-disconnect-vote.service';
@@ -367,7 +367,7 @@ interface MotionSourceRect {
     GameTableCardStatsService,
     GameTableDebouncedValueCommandsService,
     GameTableBattlefieldDragCoordinatorService,
-    GameTableRematchRealtimeService,
+    GameTableGameRealtimeService,
     GameTableDisconnectVoteService,
     GameTableWebsocketGameplayService,
     GameTableWebsocketTransportService,

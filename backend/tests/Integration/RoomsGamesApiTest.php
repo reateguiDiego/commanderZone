@@ -442,6 +442,80 @@ class RoomsGamesApiTest extends ApiTestCase
         self::assertResponseStatusCodeSame(404);
     }
 
+    public function testLeavingStartedRoomConcedesPlayerAndPublishesGameEvent(): void
+    {
+        $this->seedCard('eeeeeeee-2222-7222-8222-222222222222', 'Commander Started Leave', [
+            'type_line' => 'Legendary Creature - Human Soldier',
+            'color_identity' => [],
+            'set' => 'tst',
+            'collector_number' => '6',
+        ]);
+        $this->seedCard('eeeeeeee-3333-7333-8333-333333333333', 'Plains Started Leave', [
+            'type_line' => 'Basic Land - Plains',
+            'set' => 'tst',
+            'collector_number' => '60',
+        ]);
+        $ownerToken = $this->registerAndLogin('started-leave-owner@example.test', 'Started Leave Owner');
+        $playerToken = $this->registerAndLogin('started-leave-player@example.test', 'Started Leave Player');
+
+        $ownerDeckId = $this->quickBuildDeck($ownerToken, 'Started Leave Owner Deck', [
+            ['scryfallId' => 'eeeeeeee-2222-7222-8222-222222222222', 'quantity' => 1, 'section' => 'commander'],
+            ['scryfallId' => 'eeeeeeee-3333-7333-8333-333333333333', 'quantity' => 99, 'section' => 'main'],
+        ]);
+        $playerDeckId = $this->quickBuildDeck($playerToken, 'Started Leave Player Deck', [
+            ['scryfallId' => 'eeeeeeee-2222-7222-8222-222222222222', 'quantity' => 1, 'section' => 'commander'],
+            ['scryfallId' => 'eeeeeeee-3333-7333-8333-333333333333', 'quantity' => 99, 'section' => 'main'],
+        ]);
+
+        $this->jsonRequest('POST', '/rooms', ['visibility' => 'public', 'maxPlayers' => 2, 'deckId' => $ownerDeckId], $ownerToken);
+        self::assertResponseStatusCodeSame(201);
+        $roomId = (string) $this->jsonResponse()['room']['id'];
+
+        $this->jsonRequest('POST', '/rooms/'.$roomId.'/join', ['deckId' => $playerDeckId], $playerToken);
+        self::assertResponseIsSuccessful();
+        $this->rollTurnOrder($roomId, $ownerToken);
+        $this->rollTurnOrder($roomId, $playerToken);
+
+        $this->jsonRequest('POST', '/rooms/'.$roomId.'/start', token: $ownerToken);
+        self::assertResponseStatusCodeSame(201);
+        $gameId = (string) $this->jsonResponse()['game']['id'];
+        $leavingPlayerId = $this->playerIdByName($this->jsonResponse()['game']['snapshot'], 'Started Leave Player');
+
+        RecordingMercureHub::reset();
+        $this->jsonRequest('POST', '/rooms/'.$roomId.'/leave', token: $playerToken);
+        self::assertResponseIsSuccessful();
+        self::assertSame(['left' => true, 'roomDeleted' => false], $this->jsonResponse());
+
+        $this->jsonRequest('GET', '/games/'.$gameId.'/snapshot', token: $ownerToken);
+        self::assertResponseIsSuccessful();
+        $snapshot = $this->jsonResponse()['game']['snapshot'];
+        self::assertSame('conceded', $snapshot['players'][$leavingPlayerId]['status']);
+        self::assertNotNull($snapshot['players'][$leavingPlayerId]['concededAt']);
+        self::assertSame('leave', $snapshot['rematch']['votes'][$leavingPlayerId]['vote'] ?? null);
+
+        $this->jsonRequest('GET', '/rooms/'.$roomId, token: $ownerToken);
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $this->jsonResponse()['room']['players']);
+
+        $gameUpdates = array_values(array_filter(
+            RecordingMercureHub::updates(),
+            static fn (array $update): bool => $update['topics'] === ['games/'.$gameId],
+        ));
+        self::assertNotEmpty($gameUpdates);
+        $gamePayload = json_decode($gameUpdates[array_key_last($gameUpdates)]['data'], true, flags: JSON_THROW_ON_ERROR);
+        self::assertSame('rematch.vote', $gamePayload['event']['type'] ?? null);
+        self::assertSame($leavingPlayerId, $gamePayload['event']['createdBy'] ?? null);
+        self::assertSame('leave', $gamePayload['event']['payload']['vote'] ?? null);
+
+        $roomUpdates = array_values(array_filter(
+            RecordingMercureHub::updates(),
+            static fn (array $update): bool => $update['topics'] === ['rooms/'.$roomId.'/waiting'],
+        ));
+        self::assertNotEmpty($roomUpdates);
+        $roomPayload = json_decode($roomUpdates[array_key_last($roomUpdates)]['data'], true, flags: JSON_THROW_ON_ERROR);
+        self::assertSame('room.player.left', $roomPayload['type'] ?? null);
+    }
+
     public function testDefeatedPlayerPlayAgainVoteWaitsUntilGameEnds(): void
     {
         $fixture = $this->startedRematchGameFixture('wait', [

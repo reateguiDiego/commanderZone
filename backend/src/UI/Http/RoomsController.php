@@ -3,18 +3,23 @@
 namespace App\UI\Http;
 
 use App\Application\Deck\CommanderDeckValidator;
+use App\Application\Game\GameCommandHandler;
 use App\Application\Game\GameProjectionService;
+use App\Application\Game\GameRematchService;
 use App\Application\Game\GameSnapshotFactory;
 use App\Application\Room\ActiveRoomMembershipService;
 use App\Domain\Deck\Deck;
 use App\Domain\Deck\DeckCard;
 use App\Domain\Game\Game;
+use App\Domain\Game\GameEvent;
 use App\Domain\Room\Room;
 use App\Domain\Room\RoomInvite;
 use App\Domain\Room\RoomPlayer;
 use App\Domain\Room\RoomWaitingLogEntry;
 use App\Domain\User\User;
+use App\Infrastructure\Realtime\GameEventPublisher;
 use App\Infrastructure\Realtime\RoomEventPublisher;
+use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -308,7 +313,15 @@ class RoomsController extends ApiController
     }
 
     #[Route('/rooms/{id}/leave', methods: ['POST'])]
-    public function leave(string $id, #[CurrentUser] User $user, EntityManagerInterface $entityManager, RoomEventPublisher $roomEventPublisher): JsonResponse
+    public function leave(
+        string $id,
+        #[CurrentUser] User $user,
+        EntityManagerInterface $entityManager,
+        RoomEventPublisher $roomEventPublisher,
+        GameCommandHandler $gameCommandHandler,
+        GameEventPublisher $gameEventPublisher,
+        GameRematchService $gameRematch,
+    ): JsonResponse
     {
         $room = $entityManager->getRepository(Room::class)->find($id);
         if (!$room instanceof Room) {
@@ -328,17 +341,64 @@ class RoomsController extends ApiController
         }
 
         $leavingName = $this->userDisplayName($user);
-        $room->removeUser($user);
-        if ($room->players()->count() === 0) {
-            $this->removeRoomWithGame($room, $entityManager);
+        $game = $room->game();
+        $gameRealtimeEvent = null;
+        $roomDeleted = false;
+
+        try {
+            $entityManager->beginTransaction();
+            if ($game instanceof Game) {
+                $entityManager->lock($game, LockMode::PESSIMISTIC_WRITE);
+            }
+
+            $lastRoomPlayer = $room->players()->count() === 1;
+            if (!$lastRoomPlayer && $startedRoom && $game instanceof Game && $this->gameHasSnapshotPlayer($game, $user)) {
+                if ($this->gameCanConcedeLeavingPlayer($game, $user)) {
+                    $gameConcedeEvent = $gameCommandHandler->apply($game, 'game.concede', [], $user);
+                    $entityManager->persist($gameConcedeEvent);
+                    $gameRealtimeEvent = $gameConcedeEvent;
+                }
+
+                if ($this->gameCanRecordLeaveVote($game, $user)) {
+                    $recorded = $gameRematch->recordVote($game, $user, GameRematchService::VOTE_LEAVE);
+                    $entityManager->persist($recorded['event']);
+                    $gameRealtimeEvent = $recorded['event'];
+                }
+            }
+
+            $room->removeUser($user);
+            if ($room->players()->count() === 0) {
+                $this->removeRoomWithGame($room, $entityManager);
+                $roomDeleted = true;
+            } else {
+                $room->appendWaitingLog(sprintf('%s left the room.', $leavingName));
+            }
+
             $entityManager->flush();
+            $entityManager->commit();
+        } catch (\InvalidArgumentException $exception) {
+            if ($entityManager->getConnection()->isTransactionActive()) {
+                $entityManager->rollback();
+            }
+
+            return $this->fail($exception->getMessage());
+        } catch (\Throwable $exception) {
+            if ($entityManager->getConnection()->isTransactionActive()) {
+                $entityManager->rollback();
+            }
+
+            throw $exception;
+        }
+
+        if ($roomDeleted) {
             $roomEventPublisher->publishDeleted($id);
 
             return $this->json(['left' => true, 'roomDeleted' => true]);
         }
 
-        $room->appendWaitingLog(sprintf('%s left the room.', $leavingName));
-        $entityManager->flush();
+        if ($game instanceof Game && $gameRealtimeEvent instanceof GameEvent) {
+            $gameEventPublisher->publish($game, $gameRealtimeEvent);
+        }
         $roomEventPublisher->publish($room, 'room.player.left');
 
         return $this->json(['left' => true, 'roomDeleted' => false]);
@@ -558,6 +618,34 @@ class RoomsController extends ApiController
         $name = trim($user->displayName());
 
         return $name !== '' ? $name : 'A player';
+    }
+
+    private function gameCanConcedeLeavingPlayer(Game $game, User $user): bool
+    {
+        if ($game->status() !== Game::STATUS_ACTIVE) {
+            return false;
+        }
+
+        $player = $game->snapshot()['players'][$user->id()] ?? null;
+
+        return is_array($player) && ($player['status'] ?? 'active') !== 'conceded';
+    }
+
+    private function gameCanRecordLeaveVote(Game $game, User $user): bool
+    {
+        $player = $game->snapshot()['players'][$user->id()] ?? null;
+        if (!is_array($player)) {
+            return false;
+        }
+
+        $vote = $game->snapshot()['rematch']['votes'][$user->id()]['vote'] ?? null;
+
+        return $vote !== GameRematchService::VOTE_LEAVE;
+    }
+
+    private function gameHasSnapshotPlayer(Game $game, User $user): bool
+    {
+        return is_array($game->snapshot()['players'][$user->id()] ?? null);
     }
 
     private function roomFromCode(string $code, EntityManagerInterface $entityManager): ?Room
