@@ -569,6 +569,11 @@ TXT,
             'collector_number' => '3',
             'lang' => 'pt',
         ]);
+        $commonLanguagePrint = $this->seedCard('00000000-0000-0000-0000-000000000205', 'Sol Ring', [
+            'set' => 'four',
+            'collector_number' => '4',
+            'lang' => 'ph',
+        ]);
         $differentCard = $this->seedCard('00000000-0000-0000-0000-000000000203', 'Arcane Signet', [
             'set' => 'one',
             'collector_number' => '3',
@@ -594,20 +599,22 @@ TXT,
         self::assertSame($firstPrint->scryfallId(), $printings[0]['scryfallId']);
         self::assertContains($secondPrint->scryfallId(), array_column($printings, 'scryfallId'));
         self::assertContains($thirdPrint->scryfallId(), array_column($printings, 'scryfallId'));
+        self::assertContains($commonLanguagePrint->scryfallId(), array_column($printings, 'scryfallId'));
+        self::assertSame($secondPrint->scryfallId(), $printings[1]['scryfallId']);
         self::assertLessThan(
             array_search($thirdPrint->scryfallId(), array_column($printings, 'scryfallId'), true),
-            array_search($secondPrint->scryfallId(), array_column($printings, 'scryfallId'), true),
+            array_search($commonLanguagePrint->scryfallId(), array_column($printings, 'scryfallId'), true),
         );
         self::assertNotContains($differentCard->scryfallId(), array_column($printings, 'scryfallId'));
 
         $this->jsonRequest('PATCH', '/decks/'.$deckId.'/cards/'.$deckCardId.'/printing', [
-            'scryfallId' => $secondPrint->scryfallId(),
+            'scryfallId' => $commonLanguagePrint->scryfallId(),
         ], $token);
         self::assertResponseIsSuccessful();
         $updatedLine = $this->jsonResponse()['deck']['cards'][0];
         self::assertSame($deckCardId, $updatedLine['id']);
         self::assertSame(2, $updatedLine['quantity']);
-        self::assertSame($secondPrint->scryfallId(), $updatedLine['card']['scryfallId']);
+        self::assertSame($commonLanguagePrint->scryfallId(), $updatedLine['card']['scryfallId']);
 
         $this->jsonRequest('PATCH', '/decks/'.$deckId.'/cards/'.$deckCardId.'/printing', [
             'scryfallId' => $differentCard->scryfallId(),

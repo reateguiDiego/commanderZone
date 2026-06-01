@@ -20,6 +20,14 @@ describe('ManaSymbolService', () => {
       'ms ms-cost ms-e',
       'ms ms-cost ms-s',
     ]);
+    expect(tokens.map((token) => token.label)).toEqual([
+      'Two generic mana',
+      'White mana',
+      'Blue mana',
+      'Tap',
+      'Energy counter',
+      'Snow mana',
+    ]);
   });
 
   it('parses hybrid and phyrexian symbols', () => {
@@ -31,6 +39,12 @@ describe('ManaSymbolService', () => {
       'ms ms-cost ms-wp',
       'ms ms-cost ms-cw',
     ]);
+    expect(tokens.map((token) => token.label)).toEqual([
+      'White mana or Blue mana',
+      'Two generic mana or White mana',
+      'White mana or 2 life',
+      'Colorless mana or White mana',
+    ]);
   });
 
   it('keeps unknown symbols as fallback tokens', () => {
@@ -38,6 +52,7 @@ describe('ManaSymbolService', () => {
 
     expect(token.known).toBe(false);
     expect(token.raw).toBe('{UNKNOWN}');
+    expect(token.label).toBe('{UNKNOWN}');
   });
 
   it('parses oracle text into text and symbol parts', () => {

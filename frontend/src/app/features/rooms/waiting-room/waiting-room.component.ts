@@ -219,7 +219,7 @@ export class WaitingRoomComponent implements OnDestroy {
     this.inviteModalOpen.set(false);
   }
 
-  async updateDeckSelection(): Promise<void> {
+  async updateDeckSelection(randomDeckOptionCount?: number): Promise<void> {
     const room = this.currentRoom();
     if (!room || this.selectedDeckId.trim() === '') {
       return;
@@ -233,7 +233,9 @@ export class WaitingRoomComponent implements OnDestroy {
         return;
       }
 
-      const response = await firstValueFrom(this.roomsApi.join(room.id, this.selectedDeckId, true));
+      const response = await firstValueFrom(randomDeckOptionCount === undefined
+        ? this.roomsApi.join(room.id, this.selectedDeckId, true)
+        : this.roomsApi.join(room.id, this.selectedDeckId, true, { randomDeckOptionCount }));
       this.setCurrentRoom(response.room);
       this.syncSelectedDeckFromRoom(response.room);
       await this.loadRoomState(true);
@@ -477,7 +479,7 @@ export class WaitingRoomComponent implements OnDestroy {
     const selectedDeck = legalDecks[randomIndex];
     this.selectedDeckId = selectedDeck.id;
     this.deckSelectorOpen.set(false);
-    await this.updateDeckSelection();
+    await this.updateDeckSelection(legalDecks.length);
   }
 
   async copyRoomCode(room: Room): Promise<void> {

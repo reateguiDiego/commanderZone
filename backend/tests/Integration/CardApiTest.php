@@ -234,7 +234,15 @@ class CardApiTest extends ApiTestCase
         self::assertSame($spanishPrint->scryfallId(), $this->jsonResponse()['data'][0]['scryfallId']);
         self::assertSame('Anillo solar', $this->jsonResponse()['data'][0]['printedName']);
 
+        $this->jsonRequest('GET', '/cards/search?q=anillo%20solar&lang=es&limit=5');
+        self::assertResponseIsSuccessful();
+        self::assertSame($spanishPrint->scryfallId(), $this->jsonResponse()['data'][0]['scryfallId']);
+
         $this->jsonRequest('GET', '/cards/resolve?setCode=tst&collectorNumber=51&lang=es');
+        self::assertResponseIsSuccessful();
+        self::assertSame($spanishPrint->scryfallId(), $this->jsonResponse()['card']['scryfallId']);
+
+        $this->jsonRequest('GET', '/cards/resolve?name=Anillo%20solar&lang=es');
         self::assertResponseIsSuccessful();
         self::assertSame($spanishPrint->scryfallId(), $this->jsonResponse()['card']['scryfallId']);
 
@@ -249,6 +257,18 @@ class CardApiTest extends ApiTestCase
         $this->jsonRequest('GET', '/cards/'.$japaneseOnlyPrint->scryfallId().'?lang=fr');
         self::assertResponseIsSuccessful();
         self::assertSame($japaneseOnlyPrint->scryfallId(), $this->jsonResponse()['card']['scryfallId']);
+    }
+
+    public function testSearchMatchesFlavorName(): void
+    {
+        $card = $this->seedCard('00000000-0000-0000-0000-000000000071', 'Zilortha, Strength Incarnate', [
+            'flavor_name' => 'Godzilla, King of the Monsters',
+        ]);
+
+        $this->jsonRequest('GET', '/cards/search?q=godzilla&limit=5');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame($card->scryfallId(), $this->jsonResponse()['data'][0]['scryfallId']);
     }
 
     public function testCardEndpointsRejectInvalidLanguageFilters(): void

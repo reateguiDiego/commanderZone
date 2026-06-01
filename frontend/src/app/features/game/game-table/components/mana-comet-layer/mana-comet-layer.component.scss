@@ -1,0 +1,181 @@
+:host {
+  display: contents;
+}
+
+.mana-comet-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 1885;
+  pointer-events: none;
+}
+
+.mana-comet {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  color: #fff833;
+  animation: mana-comet-flight 880ms cubic-bezier(0.16, 0.86, 0.26, 1) both;
+  will-change: transform, opacity, filter;
+}
+
+.mana-comet[data-mana-color='W'] {
+  color: #fff833;
+}
+
+.mana-comet[data-mana-color='U'] {
+  color: #00d9ff;
+}
+
+.mana-comet[data-mana-color='B'] {
+  color: #d100ff;
+}
+
+.mana-comet[data-mana-color='R'] {
+  color: #ff2d00;
+}
+
+.mana-comet[data-mana-color='G'] {
+  color: #39ff14;
+}
+
+.mana-comet[data-mana-color='C'] {
+  color: #f4f7ff;
+}
+
+.mana-comet-star {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: grid;
+  place-items: center;
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 999px;
+  color: currentColor;
+  transform: translate(-50%, -50%);
+  filter:
+    drop-shadow(0 0.08rem 0.08rem rgb(0 0 0 / 82%))
+    drop-shadow(0 0 0.45rem currentColor)
+    drop-shadow(0 0 0.9rem rgb(255 239 154 / 48%));
+}
+
+.mana-comet-star app-mana-symbols {
+  display: block;
+  font-size: 1.45rem;
+  line-height: 1;
+}
+
+.mana-comet-trail {
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: var(--mana-comet-trail-length, 4rem);
+  height: 0.22rem;
+  border-radius: 999px;
+  background:
+    linear-gradient(90deg, transparent, rgb(255 255 255 / 18%) 20%, currentColor 78%, #fff7c5);
+  color: currentColor;
+  filter:
+    blur(0.01rem)
+    drop-shadow(0 0 0.38rem currentColor);
+  opacity: 0;
+  transform:
+    translateY(-50%)
+    rotate(var(--mana-comet-angle, 0deg));
+  transform-origin: right center;
+  animation: mana-comet-trail 880ms cubic-bezier(0.16, 0.86, 0.26, 1) both;
+}
+
+.mana-comet-card-ghost {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 2rem;
+  height: 2.75rem;
+  border: 1px solid rgb(255 241 184 / 34%);
+  border-radius: 0.22rem;
+  background:
+    linear-gradient(135deg, rgb(255 255 255 / 20%), transparent 45%),
+    rgb(255 255 255 / 8%);
+  box-shadow:
+    0 0 0.6rem rgb(255 231 148 / 30%),
+    inset 0 0 0.55rem rgb(255 255 255 / 9%);
+  opacity: 0;
+  transform: translate(-50%, -50%) rotate(-8deg) scale(0.86);
+  animation: mana-comet-card-ghost 880ms ease both;
+}
+
+@keyframes mana-comet-flight {
+  0% {
+    opacity: 0;
+    filter: brightness(1.25);
+    transform: translate3d(var(--mana-comet-start-x), var(--mana-comet-start-y), 0) scale(0.72);
+  }
+
+  9% {
+    opacity: 1;
+  }
+
+  62% {
+    opacity: 1;
+    filter: brightness(1.1);
+  }
+
+  86% {
+    opacity: 1;
+    filter: brightness(1.45);
+    transform: translate3d(var(--mana-comet-end-x), var(--mana-comet-end-y), 0) scale(1);
+  }
+
+  100% {
+    opacity: 0;
+    filter: brightness(2);
+    transform: translate3d(var(--mana-comet-end-x), var(--mana-comet-end-y), 0) scale(0.22);
+  }
+}
+
+@keyframes mana-comet-trail {
+  0%,
+  12% {
+    opacity: 0;
+    transform:
+      translateY(-50%)
+      rotate(var(--mana-comet-angle, 0deg))
+      scaleX(0.16);
+  }
+
+  38% {
+    opacity: 0.9;
+    transform:
+      translateY(-50%)
+      rotate(var(--mana-comet-angle, 0deg))
+      scaleX(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform:
+      translateY(-50%)
+      rotate(var(--mana-comet-angle, 0deg))
+      scaleX(0.42);
+  }
+}
+
+@keyframes mana-comet-card-ghost {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) rotate(-10deg) scale(0.76);
+  }
+
+  12% {
+    opacity: 0.62;
+  }
+
+  38%,
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) rotate(-4deg) scale(1.14);
+  }
+}

@@ -2,6 +2,7 @@
 
 namespace App\Tests\Integration;
 
+use App\Domain\Card\Card;
 use App\Tests\Support\RecordingMercureHub;
 
 class RoomsGamesApiTest extends ApiTestCase
@@ -31,6 +32,48 @@ class RoomsGamesApiTest extends ApiTestCase
         self::assertNull($current['player']['deckName']);
         self::assertNull($current['turn']['number']);
         self::assertSame('owner_player', $current['viewerRole']);
+    }
+
+    public function testCurrentRoomLocalizesDeckImageForViewerCardLanguage(): void
+    {
+        $ownerToken = $this->registerAndLogin('current-room-localized-owner@example.test', 'Current Localized');
+        $this->jsonRequest('PATCH', '/me', ['cardLanguage' => 'es'], $ownerToken);
+        self::assertResponseIsSuccessful();
+
+        $commanderId = '11111111-2222-7333-8444-555555555555';
+        $landId = '66666666-2222-7333-8444-555555555555';
+        $this->seedCard($commanderId, 'Localized Commander', [
+            'type_line' => 'Legendary Creature - Human Soldier',
+            'image_uris' => ['art_crop' => 'https://cards.scryfall.io/art_crop/front/original-commander.jpg'],
+        ]);
+        $this->seedCard($landId, 'Localized Plains', [
+            'type_line' => 'Basic Land - Plains',
+        ]);
+        $this->seedLocalizedPrintLocale(
+            $commanderId,
+            'Localized Commander',
+            'es',
+            'Comandante localizado',
+            'https://cards.scryfall.io/art_crop/front/spanish-commander.jpg',
+        );
+
+        $deckId = $this->quickBuildDeck($ownerToken, 'Localized Deck', [
+            ['scryfallId' => $commanderId, 'quantity' => 1, 'section' => 'commander'],
+            ['scryfallId' => $landId, 'quantity' => 99, 'section' => 'main'],
+        ]);
+
+        $this->jsonRequest('POST', '/rooms', [
+            'visibility' => 'public',
+            'maxPlayers' => 2,
+            'deckId' => $deckId,
+        ], $ownerToken);
+        self::assertResponseStatusCodeSame(201);
+
+        $this->jsonRequest('GET', '/rooms/current', token: $ownerToken);
+        self::assertResponseIsSuccessful();
+        $current = $this->jsonResponse();
+
+        self::assertSame('https://cards.scryfall.io/art_crop/front/spanish-commander.jpg', $current['player']['deckImageUrl']);
     }
 
     public function testCurrentRoomEndpointIgnoresRoomsWithoutPlayers(): void
@@ -72,6 +115,42 @@ class RoomsGamesApiTest extends ApiTestCase
         self::assertCount(1, $rooms);
         self::assertSame($roomId, $rooms[0]['id']);
         self::assertCount(2, $rooms[0]['players']);
+    }
+
+    public function testRandomDeckSelectionIsLoggedWithOptionCount(): void
+    {
+        $this->seedCard('abababab-0000-7000-8000-000000000001', 'Random Commander', [
+            'type_line' => 'Legendary Creature - Human Soldier',
+            'color_identity' => [],
+            'set' => 'tst',
+            'collector_number' => '1',
+        ]);
+        $this->seedCard('abababab-1111-7111-8111-111111111111', 'Random Plains', [
+            'type_line' => 'Basic Land - Plains',
+            'set' => 'tst',
+            'collector_number' => '2',
+        ]);
+        $ownerToken = $this->registerAndLogin('random-deck-log-owner@example.test', 'Random Deck Owner');
+        $deckId = $this->quickBuildDeck($ownerToken, 'Random Picked Deck', [
+            ['scryfallId' => 'abababab-0000-7000-8000-000000000001', 'quantity' => 1, 'section' => 'commander'],
+            ['scryfallId' => 'abababab-1111-7111-8111-111111111111', 'quantity' => 99, 'section' => 'main'],
+        ]);
+
+        $this->jsonRequest('POST', '/rooms', ['visibility' => 'private', 'maxPlayers' => 2], $ownerToken);
+        self::assertResponseStatusCodeSame(201);
+        $roomId = (string) $this->jsonResponse()['room']['id'];
+
+        $this->jsonRequest('POST', '/rooms/'.$roomId.'/join', [
+            'deckId' => $deckId,
+            'randomDeckOptionCount' => 4,
+        ], $ownerToken);
+        self::assertResponseIsSuccessful();
+
+        $waitingLogLabels = array_column($this->jsonResponse()['room']['waitingLog'], 'label');
+        self::assertContains(
+            'Random Deck Owner ha seleccionado un random deck entre 4 opciones: Random Picked Deck.',
+            $waitingLogLabels,
+        );
     }
 
     public function testOwnerLeavingNonStartedRoomDeletesRoomAndClearsAllMemberships(): void
@@ -440,6 +519,80 @@ class RoomsGamesApiTest extends ApiTestCase
 
         $this->jsonRequest('GET', '/games/'.$gameId.'/snapshot', token: $ownerToken);
         self::assertResponseStatusCodeSame(404);
+    }
+
+    public function testLeavingStartedRoomConcedesPlayerAndPublishesGameEvent(): void
+    {
+        $this->seedCard('eeeeeeee-2222-7222-8222-222222222222', 'Commander Started Leave', [
+            'type_line' => 'Legendary Creature - Human Soldier',
+            'color_identity' => [],
+            'set' => 'tst',
+            'collector_number' => '6',
+        ]);
+        $this->seedCard('eeeeeeee-3333-7333-8333-333333333333', 'Plains Started Leave', [
+            'type_line' => 'Basic Land - Plains',
+            'set' => 'tst',
+            'collector_number' => '60',
+        ]);
+        $ownerToken = $this->registerAndLogin('started-leave-owner@example.test', 'Started Leave Owner');
+        $playerToken = $this->registerAndLogin('started-leave-player@example.test', 'Started Leave Player');
+
+        $ownerDeckId = $this->quickBuildDeck($ownerToken, 'Start Leave Owner', [
+            ['scryfallId' => 'eeeeeeee-2222-7222-8222-222222222222', 'quantity' => 1, 'section' => 'commander'],
+            ['scryfallId' => 'eeeeeeee-3333-7333-8333-333333333333', 'quantity' => 99, 'section' => 'main'],
+        ]);
+        $playerDeckId = $this->quickBuildDeck($playerToken, 'Start Leave Player', [
+            ['scryfallId' => 'eeeeeeee-2222-7222-8222-222222222222', 'quantity' => 1, 'section' => 'commander'],
+            ['scryfallId' => 'eeeeeeee-3333-7333-8333-333333333333', 'quantity' => 99, 'section' => 'main'],
+        ]);
+
+        $this->jsonRequest('POST', '/rooms', ['visibility' => 'public', 'maxPlayers' => 2, 'deckId' => $ownerDeckId], $ownerToken);
+        self::assertResponseStatusCodeSame(201);
+        $roomId = (string) $this->jsonResponse()['room']['id'];
+
+        $this->jsonRequest('POST', '/rooms/'.$roomId.'/join', ['deckId' => $playerDeckId], $playerToken);
+        self::assertResponseIsSuccessful();
+        $this->rollTurnOrder($roomId, $ownerToken);
+        $this->rollTurnOrder($roomId, $playerToken);
+
+        $this->jsonRequest('POST', '/rooms/'.$roomId.'/start', token: $ownerToken);
+        self::assertResponseStatusCodeSame(201);
+        $gameId = (string) $this->jsonResponse()['game']['id'];
+        $leavingPlayerId = $this->playerIdByName($this->jsonResponse()['game']['snapshot'], 'Started Leave Player');
+
+        RecordingMercureHub::reset();
+        $this->jsonRequest('POST', '/rooms/'.$roomId.'/leave', token: $playerToken);
+        self::assertResponseIsSuccessful();
+        self::assertSame(['left' => true, 'roomDeleted' => false], $this->jsonResponse());
+
+        $this->jsonRequest('GET', '/games/'.$gameId.'/snapshot', token: $ownerToken);
+        self::assertResponseIsSuccessful();
+        $snapshot = $this->jsonResponse()['game']['snapshot'];
+        self::assertSame('conceded', $snapshot['players'][$leavingPlayerId]['status']);
+        self::assertNotNull($snapshot['players'][$leavingPlayerId]['concededAt']);
+        self::assertSame('leave', $snapshot['rematch']['votes'][$leavingPlayerId]['vote'] ?? null);
+
+        $this->jsonRequest('GET', '/rooms/'.$roomId, token: $ownerToken);
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $this->jsonResponse()['room']['players']);
+
+        $gameUpdates = array_values(array_filter(
+            RecordingMercureHub::updates(),
+            static fn (array $update): bool => $update['topics'] === ['games/'.$gameId],
+        ));
+        self::assertNotEmpty($gameUpdates);
+        $gamePayload = json_decode($gameUpdates[array_key_last($gameUpdates)]['data'], true, flags: JSON_THROW_ON_ERROR);
+        self::assertSame('rematch.vote', $gamePayload['event']['type'] ?? null);
+        self::assertSame($leavingPlayerId, $gamePayload['event']['createdBy'] ?? null);
+        self::assertSame('leave', $gamePayload['event']['payload']['vote'] ?? null);
+
+        $roomUpdates = array_values(array_filter(
+            RecordingMercureHub::updates(),
+            static fn (array $update): bool => $update['topics'] === ['rooms/'.$roomId.'/waiting'],
+        ));
+        self::assertNotEmpty($roomUpdates);
+        $roomPayload = json_decode($roomUpdates[array_key_last($roomUpdates)]['data'], true, flags: JSON_THROW_ON_ERROR);
+        self::assertSame('room.player.left', $roomPayload['type'] ?? null);
     }
 
     public function testDefeatedPlayerPlayAgainVoteWaitsUntilGameEnds(): void
@@ -2292,6 +2445,88 @@ class RoomsGamesApiTest extends ApiTestCase
         self::assertResponseStatusCodeSame(201);
 
         return (string) $this->jsonResponse()['deck']['id'];
+    }
+
+    private function seedLocalizedPrintLocale(string $scryfallId, string $defaultName, string $lang, string $printedName, string $artCropUrl): void
+    {
+        $this->entityManager->getConnection()->executeStatement(
+            <<<'SQL'
+INSERT INTO card_print (
+    scryfall_id,
+    normalized_name,
+    set_code,
+    collector_number,
+    default_name,
+    default_lang,
+    default_mana_cost,
+    default_type_line,
+    default_oracle_text,
+    default_image_uris,
+    default_card_faces,
+    layout,
+    commander_legal,
+    updated_at
+) VALUES (
+    :scryfallId,
+    :normalizedName,
+    'tst',
+    '1',
+    :defaultName,
+    'en',
+    '{1}',
+    'Legendary Creature - Human Soldier',
+    '',
+    :defaultImageUris,
+    '[]',
+    'normal',
+    true,
+    NOW()
+)
+SQL,
+            [
+                'scryfallId' => $scryfallId,
+                'normalizedName' => Card::normalizeName($defaultName),
+                'defaultName' => $defaultName,
+                'defaultImageUris' => json_encode(['art_crop' => 'https://cards.scryfall.io/art_crop/front/original-commander.jpg'], JSON_THROW_ON_ERROR),
+            ],
+        );
+
+        $this->entityManager->getConnection()->executeStatement(
+            <<<'SQL'
+INSERT INTO card_print_locale (
+    print_scryfall_id,
+    lang,
+    name,
+    printed_name,
+    mana_cost,
+    type_line,
+    oracle_text,
+    image_uris,
+    card_faces,
+    image_status,
+    updated_at
+) VALUES (
+    :scryfallId,
+    :lang,
+    :defaultName,
+    :printedName,
+    '{1}',
+    'Criatura legendaria - Humano Soldado',
+    '',
+    :imageUris,
+    '[]',
+    'highres_scan',
+    NOW()
+)
+SQL,
+            [
+                'scryfallId' => $scryfallId,
+                'lang' => $lang,
+                'defaultName' => $defaultName,
+                'printedName' => $printedName,
+                'imageUris' => json_encode(['art_crop' => $artCropUrl], JSON_THROW_ON_ERROR),
+            ],
+        );
     }
 
     private function rollTurnOrder(string $roomId, string $token): int

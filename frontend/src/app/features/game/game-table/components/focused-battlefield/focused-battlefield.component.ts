@@ -14,11 +14,14 @@ import {
 import { GameAttachment, GameCardInstance, GameZoneName } from '../../../../../core/models/game.model';
 import { PlayerView } from '../../game-table.store';
 import { GameCardViewComponent } from '../game-card-view/game-card-view.component';
+import { ManaPoolPanelComponent } from '../mana-pool-panel/mana-pool-panel.component';
 import { CardPreviewEvent } from '../../models/card-preview.model';
 import { LandStackDropPreview } from '../../state/drag-drop/game-table-battlefield-drag.state';
 import { buildLandStackGroups, LandStackView, landStackOffsetX, landStackOffsetY } from '../../utils/land-stack';
 import { AttachmentStackView, attachmentStackViewFor, buildAttachmentStackGroups } from '../../utils/attachment-stack';
 import { GameTableLongPressDirective } from '../../directives/game-table-long-press.directive';
+import { ManaPool } from '../../state/mana/game-table-mana-pool.state';
+import { ManaPoolColor } from '../../utils/mana-source-detector';
 import {
   DEFAULT_BATTLEFIELD_ZOOM_PERCENT,
   MAX_BATTLEFIELD_ZOOM_PERCENT,
@@ -45,6 +48,11 @@ interface BattlefieldZoneMenuEvent {
   event: MouseEvent;
   playerId: string;
   zone: GameZoneName;
+}
+
+interface BattlefieldManaPoolMenuEvent {
+  event: MouseEvent;
+  playerId: string;
 }
 
 interface BattlefieldCardPointerEvent {
@@ -91,10 +99,11 @@ type BattlefieldFocusEntry = 'left' | 'right' | 'fade' | null;
 
 const MIN_STACK_VISUAL_OFFSET_Y = 12;
 const MAX_STACK_VISUAL_OFFSET_Y = 25;
+const EMPTY_MANA_POOL: ManaPool = { ANY: 0, W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 };
 
 @Component({
   selector: 'app-focused-battlefield',
-  imports: [GameCardViewComponent, GameTableLongPressDirective],
+  imports: [GameCardViewComponent, GameTableLongPressDirective, ManaPoolPanelComponent],
   templateUrl: './focused-battlefield.component.html',
   styleUrl: './focused-battlefield.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -126,6 +135,10 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
   readonly firstCounter = input.required<(card: GameCardInstance) => CardCounterView | null>();
   readonly alignmentGuideFor = input.required<(playerId: string) => AlignmentGuideView | null>();
   readonly isManaLaneHighlighted = input.required<(playerId: string) => boolean>();
+  readonly manaPool = input<(playerId: string) => ManaPool>(() => EMPTY_MANA_POOL);
+  readonly canEditManaPool = input<(playerId: string) => boolean>(() => false);
+  readonly isManaPoolHidden = input<(playerId: string) => boolean>(() => false);
+  readonly pendingManaColors = input<readonly ManaPoolColor[]>([]);
   readonly layoutKey = input<unknown>(null);
   readonly zoomPercent = input(DEFAULT_BATTLEFIELD_ZOOM_PERCENT);
   readonly landStackDropPreview = input<LandStackDropPreview | null>(null);
@@ -143,6 +156,7 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
   readonly battlefieldDragOver = output<DragEvent>();
   readonly battlefieldDropped = output<BattlefieldDropEvent>();
   readonly battlefieldMenuOpened = output<BattlefieldZoneMenuEvent>();
+  readonly manaPoolMenuOpened = output<BattlefieldManaPoolMenuEvent>();
   readonly cardPointerDown = output<BattlefieldCardPointerEvent>();
   readonly cardClicked = output<BattlefieldCardMouseEvent>();
   readonly cardDoubleClicked = output<BattlefieldCardMouseEvent>();
@@ -156,6 +170,11 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
   readonly cardCounterDeleteRequested = output<BattlefieldCardCounterDeleteRequestEvent>();
   readonly manaLaneDragOver = output<DragEvent>();
   readonly manaLaneDropped = output<{ event: DragEvent; playerId: string }>();
+  readonly manaPoolColorAdded = output<{ playerId: string; color: ManaPoolColor }>();
+  readonly manaPoolColorRemoved = output<{ playerId: string; color: ManaPoolColor }>();
+  readonly manaPoolAnyAdded = output<{ playerId: string }>();
+  readonly manaPoolAnyRemoved = output<{ playerId: string }>();
+  readonly manaPoolHidden = output<{ playerId: string }>();
   readonly battlefieldSizeChanged = output<BattlefieldSizeEvent>();
   readonly boardTransitioning = signal(false);
   readonly hoveredAttachmentStackId = signal<string | null>(null);

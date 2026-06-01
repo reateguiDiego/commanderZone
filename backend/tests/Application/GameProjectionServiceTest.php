@@ -182,7 +182,7 @@ class GameProjectionServiceTest extends TestCase
         self::assertSame(0, $hand[0]['rotation']);
     }
 
-    public function testProjectionLocalizesVisibleCardsPerViewerLanguageWithoutLeakingHiddenZones(): void
+    public function testProjectionLocalizesOnlyVisibleCardImagesPerViewerLanguageWithoutLeakingHiddenZones(): void
     {
         $owner = new User('owner@example.test', 'Owner');
         $spanishViewer = new User('spanish@example.test', 'Spanish');
@@ -198,6 +198,8 @@ class GameProjectionServiceTest extends TestCase
             'controllerId' => $owner->id(),
             'zone' => 'battlefield',
             'scryfallId' => 'sol-ring-print',
+            'typeLine' => 'Artifact',
+            'oracleText' => '{T}: Add {C}.',
             'revealedTo' => ['all'],
         ]];
         $snapshot['players'][$owner->id()]['zones']['hand'] = [[
@@ -210,16 +212,28 @@ class GameProjectionServiceTest extends TestCase
 
         $localization = $this->getMockBuilder(CardLocalizationService::class)
             ->disableOriginalConstructor()
-            ->onlyMethods(['primeForLanguage', 'localizeCardPayload'])
+            ->onlyMethods(['localizedImagePayloadLookupForScryfallIds'])
             ->getMock();
         $localization
-            ->method('localizeCardPayload')
-            ->willReturnCallback(static function (array $card, ?string $language, bool $preserveIdentity): array {
-                if ($preserveIdentity && ($card['scryfallId'] ?? null) === 'sol-ring-print') {
-                    $card['name'] = $language === 'es' ? 'Anillo solar' : ($language === 'fr' ? 'Anneau solaire' : $card['name']);
+            ->expects(self::exactly(2))
+            ->method('localizedImagePayloadLookupForScryfallIds')
+            ->willReturnCallback(static function (array $scryfallIds, array $languages): array {
+                $language = $languages[0] ?? null;
+                if (!is_string($language)) {
+                    return [];
                 }
 
-                return $card;
+                return [
+                    $language => [
+                        'sol-ring-print' => [
+                            'scryfallId' => 'sol-ring-print',
+                            'name' => $language === 'es' ? 'Anillo solar' : ($language === 'fr' ? 'Anneau solaire' : 'Sol Ring'),
+                            'typeLine' => $language === 'es' ? 'Artefacto' : ($language === 'fr' ? 'Artefact' : 'Artifact'),
+                            'oracleText' => $language === 'es' ? '{T}: Agrega {C}.' : ($language === 'fr' ? '{T}: Ajoutez {C}.' : '{T}: Add {C}.'),
+                            'imageUris' => ['normal' => sprintf('https://cards.example/sol-ring-%s.jpg', $language)],
+                        ],
+                    ],
+                ];
             });
 
         $projection = new GameProjectionService(new GameCommandHandler(), $localization);
@@ -227,13 +241,19 @@ class GameProjectionServiceTest extends TestCase
         $spanishProjection = $projection->projectSnapshot($snapshot, $spanishViewer);
         $frenchProjection = $projection->projectSnapshot($snapshot, $frenchViewer);
 
-        self::assertSame('Anillo solar', $spanishProjection['players'][$owner->id()]['zones']['battlefield'][0]['name']);
-        self::assertSame('Anneau solaire', $frenchProjection['players'][$owner->id()]['zones']['battlefield'][0]['name']);
+        self::assertSame('Sol Ring', $spanishProjection['players'][$owner->id()]['zones']['battlefield'][0]['name']);
+        self::assertSame('Sol Ring', $frenchProjection['players'][$owner->id()]['zones']['battlefield'][0]['name']);
+        self::assertSame('Artifact', $spanishProjection['players'][$owner->id()]['zones']['battlefield'][0]['typeLine'] ?? null);
+        self::assertSame('Artifact', $frenchProjection['players'][$owner->id()]['zones']['battlefield'][0]['typeLine'] ?? null);
+        self::assertSame('https://cards.example/sol-ring-es.jpg', $spanishProjection['players'][$owner->id()]['zones']['battlefield'][0]['imageUris']['normal']);
+        self::assertSame('https://cards.example/sol-ring-fr.jpg', $frenchProjection['players'][$owner->id()]['zones']['battlefield'][0]['imageUris']['normal']);
         self::assertSame('Hidden card', $spanishProjection['players'][$owner->id()]['zones']['hand'][0]['name']);
         self::assertSame('Hidden card', $frenchProjection['players'][$owner->id()]['zones']['hand'][0]['name']);
+        self::assertArrayNotHasKey('imageUris', $spanishProjection['players'][$owner->id()]['zones']['hand'][0]);
+        self::assertArrayNotHasKey('imageUris', $frenchProjection['players'][$owner->id()]['zones']['hand'][0]);
     }
 
-    public function testProjectionCanUsePrecomputedLocalizationLookupWithoutServiceHydration(): void
+    public function testProjectionCanUsePrecomputedLocalizationLookupForImagesWithoutMetadataHydration(): void
     {
         $owner = new User('owner@example.test', 'Owner');
         $spanishViewer = new User('spanish@example.test', 'Spanish');
@@ -246,6 +266,7 @@ class GameProjectionServiceTest extends TestCase
             'controllerId' => $owner->id(),
             'zone' => 'battlefield',
             'scryfallId' => 'sol-ring-print',
+            'typeLine' => 'Artifact',
             'revealedTo' => ['all'],
         ]];
 
@@ -266,9 +287,140 @@ class GameProjectionServiceTest extends TestCase
 
         $projection = (new GameProjectionService(new GameCommandHandler()))->projectSnapshot($snapshot, $spanishViewer, true, $lookup);
 
-        self::assertSame('Anillo solar', $projection['players'][$owner->id()]['zones']['battlefield'][0]['name']);
-        self::assertSame('es', $projection['players'][$owner->id()]['zones']['battlefield'][0]['lang']);
-        self::assertSame('Artefacto', $projection['players'][$owner->id()]['zones']['battlefield'][0]['typeLine']);
+        self::assertSame('Sol Ring', $projection['players'][$owner->id()]['zones']['battlefield'][0]['name']);
+        self::assertArrayNotHasKey('lang', $projection['players'][$owner->id()]['zones']['battlefield'][0]);
+        self::assertSame('Artifact', $projection['players'][$owner->id()]['zones']['battlefield'][0]['typeLine']);
+        self::assertSame('https://cards.example/sol-ring-es.jpg', $projection['players'][$owner->id()]['zones']['battlefield'][0]['imageUris']['normal']);
+    }
+
+    public function testProjectionLocalizesRevealedOpponentHandImagesWithoutChangingMetadata(): void
+    {
+        $owner = new User('owner@example.test', 'Owner');
+        $viewer = new User('viewer@example.test', 'Viewer');
+        $viewer->updateCardLanguage('es');
+        $snapshot = $this->snapshot($owner->id(), $viewer->id());
+        $snapshot['players'][$owner->id()]['zones']['hand'] = [[
+            ...$this->card('revealed-hand', 'Private Tutor'),
+            'ownerId' => $owner->id(),
+            'controllerId' => $owner->id(),
+            'zone' => 'hand',
+            'scryfallId' => 'private-tutor-print',
+            'typeLine' => 'Instant',
+            'revealedTo' => [$viewer->id()],
+        ]];
+
+        $lookup = [
+            'es' => [
+                'private-tutor-print' => [
+                    'name' => 'Tutor privado',
+                    'imageUris' => ['normal' => 'https://cards.example/private-tutor-es.jpg'],
+                    'typeLine' => 'Instantaneo',
+                    'oracleText' => 'Busca una carta.',
+                    'cardFaces' => [],
+                ],
+            ],
+        ];
+
+        $hand = (new GameProjectionService(new GameCommandHandler()))
+            ->projectSnapshot($snapshot, $viewer, true, $lookup)['players'][$owner->id()]['zones']['hand'];
+
+        self::assertCount(1, $hand);
+        self::assertSame('Private Tutor', $hand[0]['name']);
+        self::assertSame('Instant', $hand[0]['typeLine']);
+        self::assertSame('https://cards.example/private-tutor-es.jpg', $hand[0]['imageUris']['normal']);
+    }
+
+    public function testProjectionLocalizesDoubleFacedCardFaceImagesWithoutChangingFaceMetadata(): void
+    {
+        $owner = new User('owner@example.test', 'Owner');
+        $viewer = new User('viewer@example.test', 'Viewer');
+        $viewer->updateCardLanguage('es');
+        $snapshot = $this->snapshot($owner->id(), $viewer->id());
+        $snapshot['players'][$owner->id()]['zones']['battlefield'] = [[
+            ...$this->card('dfc-card', 'Front // Back'),
+            'ownerId' => $owner->id(),
+            'controllerId' => $owner->id(),
+            'zone' => 'battlefield',
+            'scryfallId' => 'dfc-print',
+            'cardFaces' => [
+                [
+                    'name' => 'Front',
+                    'typeLine' => 'Instant',
+                    'oracleText' => 'Front text.',
+                    'imageUris' => ['normal' => 'https://cards.example/front-en.jpg'],
+                ],
+                [
+                    'name' => 'Back',
+                    'typeLine' => 'Sorcery',
+                    'oracleText' => 'Back text.',
+                    'imageUris' => ['normal' => 'https://cards.example/back-en.jpg'],
+                ],
+            ],
+        ]];
+        $lookup = [
+            'es' => [
+                'dfc-print' => [
+                    'imageUris' => ['normal' => 'https://cards.example/root-es.jpg'],
+                    'cardFaces' => [
+                        ['name' => 'Frente', 'typeLine' => 'Instantaneo', 'imageUris' => ['normal' => 'https://cards.example/front-es.jpg']],
+                        ['name' => 'Reverso', 'typeLine' => 'Conjuro', 'imageUris' => ['normal' => 'https://cards.example/back-es.jpg']],
+                    ],
+                ],
+            ],
+        ];
+
+        $card = (new GameProjectionService(new GameCommandHandler()))
+            ->projectSnapshot($snapshot, $viewer, true, $lookup)['players'][$owner->id()]['zones']['battlefield'][0];
+
+        self::assertSame('Front', $card['cardFaces'][0]['name']);
+        self::assertSame('Instant', $card['cardFaces'][0]['typeLine']);
+        self::assertSame('Back', $card['cardFaces'][1]['name']);
+        self::assertSame('Sorcery', $card['cardFaces'][1]['typeLine']);
+        self::assertSame('https://cards.example/front-es.jpg', $card['cardFaces'][0]['imageUris']['normal']);
+        self::assertSame('https://cards.example/back-es.jpg', $card['cardFaces'][1]['imageUris']['normal']);
+    }
+
+    public function testProjectionUsesEachViewerLanguageImageForTheSameVisibleCard(): void
+    {
+        $owner = new User('owner@example.test', 'Owner');
+        $snapshot = [
+            ...$this->snapshot($owner->id(), $owner->id()),
+            'players' => [
+                $owner->id() => $this->player($owner->id(), []),
+            ],
+        ];
+        $snapshot['players'][$owner->id()]['zones']['battlefield'] = [[
+            ...$this->card('public-card', 'Sol Ring'),
+            'ownerId' => $owner->id(),
+            'controllerId' => $owner->id(),
+            'zone' => 'battlefield',
+            'scryfallId' => 'sol-ring-print',
+            'typeLine' => 'Artifact',
+            'revealedTo' => ['all'],
+        ]];
+
+        $languages = ['es', 'de', 'pt', 'en', 'it', 'ja'];
+        $lookup = [];
+        foreach ($languages as $language) {
+            $viewer = new User($language.'@example.test', strtoupper($language));
+            $viewer->updateCardLanguage($language);
+            $snapshot['players'][$viewer->id()] = $this->player($viewer->id(), []);
+            $lookup[$language]['sol-ring-print'] = [
+                'name' => 'Localized name '.$language,
+                'typeLine' => 'Localized type '.$language,
+                'oracleText' => 'Localized text '.$language,
+                'imageUris' => ['normal' => sprintf('https://cards.example/sol-ring-%s.jpg', $language)],
+                'cardFaces' => [],
+            ];
+
+            $projected = (new GameProjectionService(new GameCommandHandler()))
+                ->projectSnapshot($snapshot, $viewer, true, $lookup);
+            $card = $projected['players'][$owner->id()]['zones']['battlefield'][0];
+
+            self::assertSame('Sol Ring', $card['name']);
+            self::assertSame('Artifact', $card['typeLine']);
+            self::assertSame(sprintf('https://cards.example/sol-ring-%s.jpg', $language), $card['imageUris']['normal']);
+        }
     }
 
     public function testProjectedSnapshotPreservesGameplayContractFieldsForUiBootstrap(): void

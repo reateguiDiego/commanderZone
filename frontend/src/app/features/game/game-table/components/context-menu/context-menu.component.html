@@ -66,6 +66,13 @@
         <span>{{ displayLabel('Delete Counter') }}</span>
       </span>
     </button>
+  } @else if (isManaPoolMenu()) {
+    <button type="button" (click)="actionSelected.emit({ type: 'resetManaPool' })">
+      <span class="menu-item-label">
+        <lucide-icon name="rotate-ccw" size="17" aria-hidden="true" />
+        <span>{{ displayLabel('Reset Mana Pool') }}</span>
+      </span>
+    </button>
   } @else if (activeMenu.kind === 'player') {
     <button type="button" (click)="actionSelected.emit({ type: 'focusPlayer' })">
       <span class="menu-item-label">
@@ -191,6 +198,19 @@
             <span>{{ displayLabel('Tirar dado') }}</span>
           </span>
         </button>
+        @if (canShowManaPool()) {
+          <button type="button" (click)="actionSelected.emit({ type: 'showManaPool' })">
+            <span class="menu-item-label">
+              <app-mana-symbols
+                class="menu-item-mana-icon"
+                [symbols]="[manaAssistantIconSymbol()]"
+                [costBackground]="false"
+                aria-hidden="true"
+              />
+              <span>{{ displayLabel('Show Mana Pool') }}</span>
+            </span>
+          </button>
+        }
       }
     } @else {
       @if (canMoveActiveZoneCards()) {
@@ -239,6 +259,19 @@
             <span>{{ displayLabel('Draw Arrow') }}</span>
           </span>
         </button>
+        @if (canUseManaAssistant()) {
+          <button type="button" (click)="actionSelected.emit({ type: 'addManaFromCard' })">
+            <span class="menu-item-label">
+              <app-mana-symbols
+                class="menu-item-mana-icon"
+                [symbols]="[manaAssistantIconSymbol()]"
+                [costBackground]="false"
+                aria-hidden="true"
+              />
+              <span>{{ displayLabel('Add Mana') }}</span>
+            </span>
+          </button>
+        }
         @if (canEquipCard()) {
           <button type="button" (click)="actionSelected.emit({ type: 'equipCard' })">
             <span class="menu-item-label">

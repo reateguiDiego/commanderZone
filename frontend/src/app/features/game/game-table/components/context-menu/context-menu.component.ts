@@ -6,6 +6,8 @@ import { PlayerView } from '../../game-table.store';
 import { ContextSubmenuComponent, ContextSubmenuItem } from './context-submenu/context-submenu.component';
 import { playerIsDefeated } from '../../utils/game-player-defeat';
 import { contextMenuDisplayLabel } from './context-menu-label';
+import { ManaSourceSuggestion } from '../../utils/mana-source-detector';
+import { ManaSymbolsComponent } from '../../../../../shared/mana/mana-symbols/mana-symbols.component';
 
 export type ContextMenuAction =
   | { type: 'drawMine' }
@@ -35,12 +37,15 @@ export type ContextMenuAction =
   | { type: 'moveAll'; zone: GameZoneName; targetPlayerId?: string }
   | { type: 'selectRandomCard' }
   | { type: 'tapCard' }
+  | { type: 'addManaFromCard' }
   | { type: 'faceDown' }
   | { type: 'playFaceDown' }
   | { type: 'flipCardFace' }
   | { type: 'revealCard'; target: string }
   | { type: 'createToken' }
   | { type: 'rollDice' }
+  | { type: 'showManaPool' }
+  | { type: 'resetManaPool' }
   | { type: 'tokenCopy' }
   | { type: 'drawArrow' }
   | { type: 'equipCard' }
@@ -73,7 +78,7 @@ type ContextSubmenu =
 
 @Component({
   selector: 'app-context-menu',
-  imports: [ContextSubmenuComponent, LucideAngularModule],
+  imports: [ContextSubmenuComponent, LucideAngularModule, ManaSymbolsComponent],
   templateUrl: './context-menu.component.html',
   styleUrl: './context-menu.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -95,6 +100,8 @@ export class ContextMenuComponent {
   readonly isAttachedEquipment = input<(playerId: string, card: GameCardInstance) => boolean>(() => false);
   readonly isAttachmentTarget = input<(playerId: string, card: GameCardInstance) => boolean>(() => false);
   readonly canAttachEquipment = input<(playerId: string, card: GameCardInstance) => boolean>(() => true);
+  readonly manaSourceSuggestion = input<(playerId: string, card: GameCardInstance) => ManaSourceSuggestion | null>(() => null);
+  readonly isManaPoolHidden = input<(playerId: string) => boolean>(() => false);
   readonly zoneTitle = input.required<(zone: GameZoneName) => string>();
   readonly ownedArrowCount = input(0);
 
@@ -137,6 +144,7 @@ export class ContextMenuComponent {
     { value: 'all', label: 'View all library', icon: 'library' },
     { value: 'top', label: 'View X top cards', icon: 'layers-3' },
   ]);
+  readonly manaAssistantIconSymbol = computed(() => this.randomManaIdentitySymbol());
 
   isArrowMenu(): boolean {
     return this.menu().kind === 'arrow';
@@ -145,6 +153,10 @@ export class ContextMenuComponent {
   isCompactDeleteMenu(): boolean {
     const kind = this.menu().kind;
     return kind === 'arrow' || kind === 'counter';
+  }
+
+  isManaPoolMenu(): boolean {
+    return this.menu().kind === 'manaPool';
   }
 
   isLibraryMenu(): boolean {
@@ -271,6 +283,31 @@ export class ContextMenuComponent {
 
   tapLabel(): string {
     return this.menu().card?.tapped ? 'Untap' : 'Tap';
+  }
+
+  canUseManaAssistant(): boolean {
+    const currentMenu = this.menu();
+    if (
+      !this.showsBattlefieldCardActions()
+      || !this.canControlActivePlayer()
+      || this.isManaPoolHidden()(currentMenu.playerId)
+      || !currentMenu.card
+      || currentMenu.card.faceDown
+    ) {
+      return false;
+    }
+
+    const suggestion = this.manaSourceSuggestion()(currentMenu.playerId, currentMenu.card);
+    return suggestion !== null && suggestion.kind !== 'none';
+  }
+
+  canShowManaPool(): boolean {
+    const currentMenu = this.menu();
+
+    return currentMenu.zone === 'battlefield'
+      && !currentMenu.card
+      && this.canControlActivePlayer()
+      && this.isManaPoolHidden()(currentMenu.playerId);
   }
 
   faceDownLabel(): string {
@@ -400,6 +437,20 @@ export class ContextMenuComponent {
   private isActiveCardCommander(): boolean {
     const currentMenu = this.menu();
     return currentMenu.zone === 'command' || currentMenu.card?.isCommander === true;
+  }
+
+  private randomManaIdentitySymbol(): string {
+    const player = this.players().find((candidate) => candidate.id === this.menu().playerId);
+    const identity = (player?.state.colorIdentity ?? [])
+      .map((color) => color.toUpperCase())
+      .filter((color) => this.isManaColor(color));
+    const choices = identity.length > 0 ? identity : ['C'];
+
+    return choices[Math.floor(Math.random() * choices.length)] ?? 'C';
+  }
+
+  private isManaColor(value: string): value is 'W' | 'U' | 'B' | 'R' | 'G' | 'C' {
+    return value === 'W' || value === 'U' || value === 'B' || value === 'R' || value === 'G' || value === 'C';
   }
 
   private isRandomSelectableZone(zone: GameZoneName): boolean {

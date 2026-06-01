@@ -57,11 +57,16 @@ export class DeckCardImageCache {
   }
 
   private async fetchImage(card: Card): Promise<string | null> {
+    const localImage = bestCardImage(card);
+    if (localImage !== null) {
+      return localImage;
+    }
+
     try {
       const response = await firstValueFrom(this.cardsApi.image(card.scryfallId, 'normal'));
       return response.uri;
     } catch {
-      return bestCardImage(card);
+      return null;
     }
   }
 }

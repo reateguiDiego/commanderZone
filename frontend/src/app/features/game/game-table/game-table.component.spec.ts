@@ -87,6 +87,7 @@ import { RollModalComponent } from '../../../core/ui/roll-modal/roll-modal.compo
 import { GameTableMotionService } from './services/game-table-motion.service';
 import { GameTableNotificationSoundService } from './services/game-table-notification-sound.service';
 import { GameTableWebsocketTransportService } from './services/game-table-websocket-transport.service';
+import { GameTableCardActionsService } from './services/game-table-card-actions.service';
 
 describe('GameTableComponent', () => {
   const gameplayWebsocketCommand = vi.fn();
@@ -548,11 +549,367 @@ describe('GameTableComponent', () => {
       expect(prepareCardRotationFlip).toHaveBeenCalledWith('card-1', expect.objectContaining({
         onComplete: expect.any(Function),
       }));
-      expect(toggleTapped).toHaveBeenCalledWith('user-1', 'battlefield', card);
+      expect(toggleTapped).toHaveBeenCalledWith('user-1', 'battlefield', card, { addAutomaticMana: false });
       expect(animateRotation).toHaveBeenCalledOnce();
     } finally {
       requestAnimationFrame.mockRestore();
     }
+  });
+
+  it('adds mana automatically when a visible tap-only land is tapped', async () => {
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const fixture = TestBed.createComponent(GameTableComponent);
+    const snapshot = snapshotWithStatus('active');
+    const forest = {
+      ...snapshot.players['user-1']!.zones.battlefield[0]!,
+      name: 'Forest',
+      typeLine: 'Basic Land - Forest',
+      oracleText: '',
+      tapped: false,
+    };
+    snapshot.players['user-1']!.zones.battlefield = [forest];
+    fixture.componentInstance.store.snapshot.set(snapshot);
+    fixture.componentInstance.store.focusPlayer('user-1');
+    vi.spyOn(fixture.componentInstance.store, 'canControlPlayer').mockReturnValue(true);
+    const toggleTapped = vi.spyOn(fixture.debugElement.injector.get(GameTableCardActionsService), 'toggleTapped').mockResolvedValue(undefined);
+
+    await fixture.componentInstance.store.toggleTapped('user-1', 'battlefield', forest);
+
+    expect(toggleTapped).toHaveBeenCalledOnce();
+    expect(fixture.componentInstance.store.manaPool('user-1').G).toBe(1);
+  });
+
+  it('adds mana automatically when a visible tap-only mana artifact is tapped', async () => {
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const fixture = TestBed.createComponent(GameTableComponent);
+    const snapshot = snapshotWithStatus('active');
+    const solRing = {
+      ...snapshot.players['user-1']!.zones.battlefield[0]!,
+      name: 'Sol Ring',
+      typeLine: 'Artifact',
+      oracleText: '{T}: Add {C}{C}.',
+      tapped: false,
+    };
+    snapshot.players['user-1']!.zones.battlefield = [solRing];
+    fixture.componentInstance.store.snapshot.set(snapshot);
+    fixture.componentInstance.store.focusPlayer('user-1');
+    vi.spyOn(fixture.componentInstance.store, 'canControlPlayer').mockReturnValue(true);
+    vi.spyOn(fixture.debugElement.injector.get(GameTableCardActionsService), 'toggleTapped').mockResolvedValue(undefined);
+
+    await fixture.componentInstance.store.toggleTapped('user-1', 'battlefield', solRing);
+
+    expect(fixture.componentInstance.store.manaPool('user-1').C).toBe(2);
+  });
+
+  it('opens the mana dialog when a visible tap-only mana artifact needs a color choice', async () => {
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const fixture = TestBed.createComponent(GameTableComponent);
+    const snapshot = snapshotWithStatus('active');
+    const arcaneSignet = {
+      ...snapshot.players['user-1']!.zones.battlefield[0]!,
+      name: 'Arcane Signet',
+      typeLine: 'Artifact',
+      oracleText: "{T}: Add one mana of any color in your commander's color identity.",
+      tapped: false,
+    };
+    snapshot.players['user-1']!.colorIdentity = ['U', 'R'];
+    snapshot.players['user-1']!.zones.battlefield = [arcaneSignet];
+    fixture.componentInstance.store.snapshot.set(snapshot);
+    fixture.componentInstance.store.focusPlayer('user-1');
+    vi.spyOn(fixture.componentInstance.store, 'canControlPlayer').mockReturnValue(true);
+    vi.spyOn(fixture.debugElement.injector.get(GameTableCardActionsService), 'toggleTapped').mockResolvedValue(undefined);
+    const requestAnimationFrame = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+      callback(0);
+      return 1;
+    });
+
+    try {
+      await fixture.componentInstance.handleBattlefieldCardDoubleClicked({
+        event: new MouseEvent('dblclick'),
+        playerId: 'user-1',
+        card: arcaneSignet,
+      });
+
+      expect(fixture.componentInstance.manaActionDialog()?.suggestion.kind).toBe('choice');
+      expect(fixture.componentInstance.manaActionDialog()?.suggestion.colors).toEqual(['U', 'R']);
+      expect(fixture.componentInstance.store.manaPool('user-1').U).toBe(0);
+      expect(fixture.componentInstance.store.manaPool('user-1').R).toBe(0);
+    } finally {
+      requestAnimationFrame.mockRestore();
+    }
+  });
+
+  it('adds mana automatically when a tap-only choice source has a single available color', async () => {
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const fixture = TestBed.createComponent(GameTableComponent);
+    const snapshot = snapshotWithStatus('active');
+    const arcaneSignet = {
+      ...snapshot.players['user-1']!.zones.battlefield[0]!,
+      name: 'Arcane Signet',
+      typeLine: 'Artifact',
+      oracleText: "{T}: Add one mana of any color in your commander's color identity.",
+      tapped: false,
+    };
+    snapshot.players['user-1']!.colorIdentity = ['G'];
+    snapshot.players['user-1']!.zones.battlefield = [arcaneSignet];
+    fixture.componentInstance.store.snapshot.set(snapshot);
+    fixture.componentInstance.store.focusPlayer('user-1');
+    vi.spyOn(fixture.componentInstance.store, 'canControlPlayer').mockReturnValue(true);
+    vi.spyOn(fixture.debugElement.injector.get(GameTableCardActionsService), 'toggleTapped').mockResolvedValue(undefined);
+
+    await fixture.componentInstance.store.toggleTapped('user-1', 'battlefield', arcaneSignet);
+
+    expect(fixture.componentInstance.store.manaPool('user-1').G).toBe(1);
+    expect(fixture.componentInstance.manaActionDialog()).toBeNull();
+  });
+
+  it('opens the mana dialog directly for ambiguous tapped mana cards while the mana pool is visible', async () => {
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const fixture = TestBed.createComponent(GameTableComponent);
+    const snapshot = snapshotWithStatus('active');
+    const llanowarElves = {
+      ...snapshot.players['user-1']!.zones.battlefield[0]!,
+      name: 'Llanowar Elves',
+      typeLine: 'Creature - Elf Druid',
+      oracleText: '{T}: Add {G}.',
+      tapped: false,
+    };
+    snapshot.players['user-1']!.zones.battlefield = [llanowarElves];
+    fixture.componentInstance.store.snapshot.set(snapshot);
+    fixture.componentInstance.store.focusPlayer('user-1');
+    vi.spyOn(fixture.componentInstance.store, 'canControlPlayer').mockReturnValue(true);
+    vi.spyOn(fixture.debugElement.injector.get(GameTableCardActionsService), 'toggleTapped').mockResolvedValue(undefined);
+    const requestAnimationFrame = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+      callback(0);
+      return 1;
+    });
+
+    try {
+      await fixture.componentInstance.handleBattlefieldCardDoubleClicked({
+        event: new MouseEvent('dblclick', { clientX: 160, clientY: 220 }),
+        playerId: 'user-1',
+        card: llanowarElves,
+      });
+      fixture.detectChanges();
+
+      expect(fixture.componentInstance.store.manaPool('user-1').G).toBe(0);
+      expect(fixture.componentInstance.manaActionDialog()?.suggestion.cardName).toBe('Llanowar Elves');
+      expect(fixture.nativeElement.querySelector('app-tap-mana-intent-menu')).toBeNull();
+    } finally {
+      requestAnimationFrame.mockRestore();
+    }
+  });
+
+  it('waits for the mana comet before adding confirmed card mana to the pool', () => {
+    vi.useFakeTimers();
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const fixture = TestBed.createComponent(GameTableComponent);
+    const snapshot = snapshotWithStatus('active');
+    const card = {
+      ...snapshot.players['user-1']!.zones.battlefield[0]!,
+      name: 'Llanowar Elves',
+      typeLine: 'Creature - Elf Druid',
+      oracleText: '{T}: Add {G}.',
+    };
+    const manaTarget = document.createElement('button');
+    manaTarget.dataset['manaPoolColor'] = 'G';
+    document.body.appendChild(manaTarget);
+    vi.spyOn(manaTarget, 'getBoundingClientRect').mockReturnValue(rect(300, 90, 40, 40));
+    snapshot.players['user-1']!.zones.battlefield = [card];
+    fixture.componentInstance.store.snapshot.set(snapshot);
+    fixture.componentInstance.store.focusPlayer('user-1');
+    vi.spyOn(fixture.componentInstance.store, 'canControlPlayer').mockReturnValue(true);
+    const addMana = vi.spyOn(fixture.componentInstance.store, 'addMana');
+    const requestAnimationFrame = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+      callback(0);
+      return 1;
+    });
+
+    try {
+      const request: NonNullable<ReturnType<typeof fixture.componentInstance.manaActionDialog>> = {
+        menu: {
+          x: 120,
+          y: 160,
+          kind: 'card',
+          playerId: 'user-1',
+          zone: 'battlefield',
+          card,
+        },
+        suggestion: {
+          kind: 'fixed',
+          cardName: 'Llanowar Elves',
+          summary: 'Add {G}.',
+          additions: [{ color: 'G', amount: 1 }],
+          colors: ['G'],
+          amount: 1,
+          restriction: null,
+          manualOnly: false,
+        },
+        selectedColor: 'G',
+        amount: 1,
+        position: { x: 120, y: 160 },
+      };
+      fixture.componentInstance.manaActionDialog.set(request);
+
+      fixture.componentInstance.confirmManaActionDialog();
+
+      expect(addMana).not.toHaveBeenCalled();
+
+      vi.advanceTimersByTime(879);
+      expect(addMana).not.toHaveBeenCalled();
+
+      vi.advanceTimersByTime(1);
+      expect(addMana).toHaveBeenCalledWith('user-1', [{ color: 'G', amount: 1 }]);
+    } finally {
+      requestAnimationFrame.mockRestore();
+      manaTarget.remove();
+      vi.useRealTimers();
+    }
+  });
+
+  it('materializes an off-identity mana target before animating the comet into it', () => {
+    vi.useFakeTimers();
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const fixture = TestBed.createComponent(GameTableComponent);
+    const snapshot = snapshotWithStatus('active');
+    const card = {
+      ...snapshot.players['user-1']!.zones.battlefield[0]!,
+      name: 'Exotic Orchard',
+      typeLine: 'Land',
+      oracleText: '{T}: Add one mana of any color that a land an opponent controls could produce.',
+    };
+    snapshot.players['user-1']!.colorIdentity = ['G'];
+    snapshot.players['user-1']!.zones.battlefield = [card];
+    fixture.componentInstance.store.snapshot.set(snapshot);
+    fixture.componentInstance.store.focusPlayer('user-1');
+    vi.spyOn(fixture.componentInstance.store, 'canControlPlayer').mockReturnValue(true);
+    fixture.detectChanges();
+
+    const getBoundingClientRect = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      return this.dataset['manaPoolColor'] === 'U'
+        ? rect(320, 80, 42, 42)
+        : rect(80, 120, 92, 128);
+    });
+    const requestAnimationFrame = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+      callback(0);
+      return 1;
+    });
+
+    try {
+      expect(fixture.nativeElement.querySelector('[data-mana-pool-color="U"]')).toBeNull();
+
+      fixture.componentInstance.manaActionDialog.set({
+        menu: {
+          x: 120,
+          y: 160,
+          kind: 'card',
+          playerId: 'user-1',
+          zone: 'battlefield',
+          card,
+        },
+        suggestion: {
+          kind: 'choice',
+          cardName: 'Exotic Orchard',
+          summary: 'Choose one mana from:',
+          additions: [],
+          colors: ['U', 'G'],
+          amount: 1,
+          restriction: null,
+          manualOnly: false,
+        },
+        selectedColor: 'U',
+        amount: 1,
+        position: { x: 120, y: 160 },
+      });
+
+      fixture.componentInstance.confirmManaActionDialog();
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelector('[data-mana-pool-color="U"]')).not.toBeNull();
+      expect(fixture.componentInstance.store.manaPool('user-1').U).toBe(0);
+      expect(fixture.componentInstance.manaComets.effects().some((effect) => effect.color === 'U')).toBe(true);
+
+      vi.advanceTimersByTime(880);
+      fixture.detectChanges();
+
+      expect(fixture.componentInstance.store.manaPool('user-1').U).toBe(1);
+      expect(fixture.nativeElement.querySelector('[data-mana-pool-color="U"]')).not.toBeNull();
+    } finally {
+      requestAnimationFrame.mockRestore();
+      getBoundingClientRect.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
+  it('does not open a tap mana intent menu when the mana pool is hidden', async () => {
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const fixture = TestBed.createComponent(GameTableComponent);
+    const snapshot = snapshotWithStatus('active');
+    const llanowarElves = {
+      ...snapshot.players['user-1']!.zones.battlefield[0]!,
+      name: 'Llanowar Elves',
+      typeLine: 'Creature - Elf Druid',
+      oracleText: '{T}: Add {G}.',
+      tapped: false,
+    };
+    snapshot.players['user-1']!.zones.battlefield = [llanowarElves];
+    fixture.componentInstance.store.snapshot.set(snapshot);
+    fixture.componentInstance.store.focusPlayer('user-1');
+    fixture.componentInstance.store.hideManaPool('user-1');
+    vi.spyOn(fixture.componentInstance.store, 'canControlPlayer').mockReturnValue(true);
+    vi.spyOn(fixture.debugElement.injector.get(GameTableCardActionsService), 'toggleTapped').mockResolvedValue(undefined);
+    const requestAnimationFrame = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+      callback(0);
+      return 1;
+    });
+
+    try {
+      await fixture.componentInstance.handleBattlefieldCardDoubleClicked({
+        event: new MouseEvent('dblclick', { clientX: 160, clientY: 220 }),
+        playerId: 'user-1',
+        card: llanowarElves,
+      });
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelector('app-tap-mana-intent-menu')).toBeNull();
+    } finally {
+      requestAnimationFrame.mockRestore();
+    }
+  });
+
+  it('resets local mana values when the mana pool is hidden', () => {
+    const fixture = TestBed.createComponent(GameTableComponent);
+
+    fixture.componentInstance.store.incrementMana('user-1', 'G');
+    fixture.componentInstance.store.incrementMana('user-1', 'U');
+    fixture.componentInstance.store.hideManaPool('user-1');
+    fixture.componentInstance.store.showManaPool('user-1');
+
+    expect(fixture.componentInstance.store.manaPool('user-1').G).toBe(0);
+    expect(fixture.componentInstance.store.manaPool('user-1').U).toBe(0);
+  });
+
+  it('does not add automatic tap-only land mana when the mana pool is hidden', async () => {
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const fixture = TestBed.createComponent(GameTableComponent);
+    const snapshot = snapshotWithStatus('active');
+    const forest = {
+      ...snapshot.players['user-1']!.zones.battlefield[0]!,
+      name: 'Forest',
+      typeLine: 'Basic Land - Forest',
+      oracleText: '',
+      tapped: false,
+    };
+    snapshot.players['user-1']!.zones.battlefield = [forest];
+    fixture.componentInstance.store.snapshot.set(snapshot);
+    fixture.componentInstance.store.focusPlayer('user-1');
+    fixture.componentInstance.store.hideManaPool('user-1');
+    vi.spyOn(fixture.componentInstance.store, 'canControlPlayer').mockReturnValue(true);
+    vi.spyOn(fixture.debugElement.injector.get(GameTableCardActionsService), 'toggleTapped').mockResolvedValue(undefined);
+
+    await fixture.componentInstance.store.toggleTapped('user-1', 'battlefield', forest);
+
+    expect(fixture.componentInstance.store.manaPool('user-1').G).toBe(0);
   });
 
   it('blocks battlefield card drag until the tap animation completes', async () => {
@@ -5187,6 +5544,20 @@ function dragEvent(type: string, dataTransfer: DataTransfer, target: HTMLElement
   });
 
   return event;
+}
+
+function rect(x: number, y: number, width: number, height: number): DOMRect {
+  return {
+    x,
+    y,
+    width,
+    height,
+    top: y,
+    right: x + width,
+    bottom: y + height,
+    left: x,
+    toJSON: () => ({}),
+  };
 }
 
 function gameLogEntry(id: string, type: string, message: string): GameSnapshot['eventLog'][number] {

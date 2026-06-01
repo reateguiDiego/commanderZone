@@ -2,10 +2,15 @@ import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { of, throwError } from 'rxjs';
 import { GamesApi } from '../../../../core/api/games.api';
-import { GameSnapshot } from '../../../../core/models/game.model';
-import { GameTableRematchRealtimeService } from './game-table-rematch-realtime.service';
+import { GameSnapshot, MercureGameEvent } from '../../../../core/models/game.model';
+import { GameTableGameRealtimeService, GameTableRealtimeHandlers } from './game-table-game-realtime.service';
 import { GameTableSessionContext, GameTableSessionService } from './game-table-session.service';
 import { GameTableWebsocketGameplayService } from './game-table-websocket-gameplay.service';
+
+const gameRealtime = {
+  subscribe: vi.fn(),
+  stop: vi.fn(),
+};
 
 describe('GameTableSessionService', () => {
   let service: GameTableSessionService;
@@ -13,10 +18,6 @@ describe('GameTableSessionService', () => {
     snapshot: vi.fn(),
   };
   let websocketStatus: ReturnType<typeof signal<'stopped' | 'connecting' | 'connected' | 'disconnected' | 'error'>>;
-  const rematchRealtime = {
-    subscribeToRematchCreated: vi.fn(),
-    stop: vi.fn(),
-  };
   const websocket = {
     status: signal<'stopped' | 'connecting' | 'connected' | 'disconnected' | 'error'>('stopped'),
     start: vi.fn(),
@@ -27,15 +28,15 @@ describe('GameTableSessionService', () => {
     websocketStatus = signal<'stopped' | 'connecting' | 'connected' | 'disconnected' | 'error'>('stopped');
     websocket.status = websocketStatus;
     gamesApi.snapshot.mockReset();
-    rematchRealtime.subscribeToRematchCreated.mockReset();
-    rematchRealtime.stop.mockReset();
+    gameRealtime.subscribe.mockReset();
+    gameRealtime.stop.mockReset();
     websocket.start.mockReset();
     websocket.stop.mockReset();
     TestBed.configureTestingModule({
       providers: [
         GameTableSessionService,
         { provide: GamesApi, useValue: gamesApi },
-        { provide: GameTableRematchRealtimeService, useValue: rematchRealtime },
+        { provide: GameTableGameRealtimeService, useValue: gameRealtime },
         { provide: GameTableWebsocketGameplayService, useValue: websocket },
       ],
     });
@@ -64,20 +65,51 @@ describe('GameTableSessionService', () => {
     expect(setSnapshot).not.toHaveBeenCalled();
   });
 
-  it('loads one initial snapshot, starts websocket, and subscribes only to rematch transition events', async () => {
+  it('loads one initial snapshot, starts websocket, and subscribes to game events', async () => {
     const current = snapshot();
     const navigateToWaitingRoom = vi.fn();
     gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot: current } }));
 
     await service.load(context(current, vi.fn(), navigateToWaitingRoom));
 
-    const onRematchCreated = rematchRealtime.subscribeToRematchCreated.mock.calls[0]?.[1] as ((roomId: string) => void) | undefined;
-    onRematchCreated?.('room-1');
+    const handlers = gameRealtimeHandlers();
+    handlers.onRematchCreated('room-1');
 
     expect(navigateToWaitingRoom).toHaveBeenCalledWith('room-1');
     expect(gamesApi.snapshot).toHaveBeenCalledTimes(1);
     expect(websocket.start).toHaveBeenCalledWith(expect.any(Object), 'game-1');
-    expect(rematchRealtime.subscribeToRematchCreated).toHaveBeenCalledWith('game-1', expect.any(Function));
+    expect(gameRealtime.subscribe).toHaveBeenCalledWith('game-1', expect.objectContaining({
+      onSnapshotInvalidated: expect.any(Function),
+      onRematchCreated: expect.any(Function),
+    }));
+  });
+
+  it('refetches the snapshot when a non-rematch game event arrives from Mercure', async () => {
+    const current = snapshot();
+    const next = snapshot({ status: 'conceded', concededAt: '2026-01-01T00:00:10.000Z' });
+    next.version = current.version + 1;
+    const setSnapshot = vi.fn();
+    gamesApi.snapshot
+      .mockReturnValueOnce(of({ game: { id: 'game-1', status: 'active', snapshot: current } }))
+      .mockReturnValueOnce(of({ game: { id: 'game-1', status: 'active', snapshot: next } }));
+
+    await service.load(context(current, setSnapshot));
+    gameRealtimeHandlers().onSnapshotInvalidated(gameEvent('game.concede', next.version));
+    await Promise.resolve();
+
+    expect(gamesApi.snapshot).toHaveBeenCalledTimes(2);
+    expect(setSnapshot).toHaveBeenLastCalledWith(next);
+  });
+
+  it('does not refetch when the current snapshot is already at the realtime event version', async () => {
+    const current = snapshot();
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot: current } }));
+
+    await service.load(context(current, vi.fn()));
+    gameRealtimeHandlers().onSnapshotInvalidated(gameEvent('game.concede', current.version));
+    await Promise.resolve();
+
+    expect(gamesApi.snapshot).toHaveBeenCalledTimes(1);
   });
 
   it('maps realtime status from the gameplay websocket connection', () => {
@@ -103,6 +135,24 @@ describe('GameTableSessionService', () => {
     expect(setError).not.toHaveBeenCalledWith('Could not load game snapshot.');
   });
 });
+
+function gameRealtimeHandlers(): GameTableRealtimeHandlers {
+  return gameRealtime.subscribe.mock.calls[0]?.[1] as GameTableRealtimeHandlers;
+}
+
+function gameEvent(type: string, version: number): MercureGameEvent {
+  return {
+    gameId: 'game-1',
+    version,
+    event: {
+      id: 'event-1',
+      type,
+      payload: {},
+      createdBy: 'player-1',
+      createdAt: '2026-01-01T00:00:10.000Z',
+    },
+  };
+}
 
 function context(
   currentSnapshot: GameSnapshot,

@@ -799,31 +799,10 @@ class DecksController extends ApiController
         ));
 
         usort($cards, static function (Card $left, Card $right) use ($card, $preferredLanguage): int {
-            if ($left->scryfallId() === $card->scryfallId()) {
-                return -1;
-            }
-            if ($right->scryfallId() === $card->scryfallId()) {
-                return 1;
-            }
-
-            if ($preferredLanguage !== null) {
-                $leftPreferred = $left->lang() === $preferredLanguage;
-                $rightPreferred = $right->lang() === $preferredLanguage;
-                if ($leftPreferred && !$rightPreferred) {
-                    return -1;
-                }
-                if ($rightPreferred && !$leftPreferred) {
-                    return 1;
-                }
-            }
-
-            $leftEnglish = $left->lang() === LanguageCatalog::DEFAULT_LANGUAGE;
-            $rightEnglish = $right->lang() === LanguageCatalog::DEFAULT_LANGUAGE;
-            if ($leftEnglish && !$rightEnglish) {
-                return -1;
-            }
-            if ($rightEnglish && !$leftEnglish) {
-                return 1;
+            $leftPriority = self::printingLanguagePriority($left, $card, $preferredLanguage);
+            $rightPriority = self::printingLanguagePriority($right, $card, $preferredLanguage);
+            if ($leftPriority !== $rightPriority) {
+                return $leftPriority <=> $rightPriority;
             }
 
             return [$left->name(), $left->setCode() ?? '', $left->collectorNumber() ?? '']
@@ -831,6 +810,28 @@ class DecksController extends ApiController
         });
 
         return $cards;
+    }
+
+    private static function printingLanguagePriority(Card $candidate, Card $current, ?string $preferredLanguage): int
+    {
+        if ($candidate->scryfallId() === $current->scryfallId()) {
+            return 0;
+        }
+
+        $candidateLanguage = LanguageCatalog::normalize($candidate->lang());
+        if ($preferredLanguage !== null && $candidateLanguage === $preferredLanguage) {
+            return 1;
+        }
+
+        if ($candidateLanguage === LanguageCatalog::DEFAULT_LANGUAGE) {
+            return 2;
+        }
+
+        if (LanguageCatalog::isCommonPrintLanguage($candidateLanguage)) {
+            return 3;
+        }
+
+        return 4;
     }
 
     private function isEquivalentPrintVersion(Card $source, Card $candidate): bool
@@ -969,15 +970,46 @@ class DecksController extends ApiController
      */
     private function localizeDeckPayload(array $deckPayload, User $user, CardLocalizationService $localization): array
     {
+        $payloads = [];
+        $targets = [];
         if (is_array($deckPayload['commander'] ?? null)) {
-            $deckPayload['commander'] = $localization->localizeCardPayload($deckPayload['commander'], $user->cardLanguage(), true);
+            $targets[] = ['kind' => 'commander'];
+            $payloads[] = $deckPayload['commander'];
         }
 
         if (is_array($deckPayload['cards'] ?? null)) {
-            $deckPayload['cards'] = array_values(array_map(
-                fn (mixed $line): mixed => $this->localizeDeckCardLine($line, $user, $localization),
-                $deckPayload['cards'],
-            ));
+            foreach ($deckPayload['cards'] as $index => $line) {
+                if (!is_array($line) || !is_array($line['card'] ?? null)) {
+                    continue;
+                }
+
+                $targets[] = ['kind' => 'card', 'index' => $index];
+                $payloads[] = $line['card'];
+            }
+        }
+
+        if ($payloads !== []) {
+            $localizedPayloads = $localization->localizeCardPayloads($payloads, $user->cardLanguage(), true);
+            foreach ($targets as $offset => $target) {
+                $localizedPayload = $localizedPayloads[$offset] ?? null;
+                if (!is_array($localizedPayload)) {
+                    continue;
+                }
+
+                if ($target['kind'] === 'commander') {
+                    $deckPayload['commander'] = $localizedPayload;
+                    continue;
+                }
+
+                $index = $target['index'] ?? null;
+                if (is_int($index) && is_array($deckPayload['cards'][$index] ?? null)) {
+                    $deckPayload['cards'][$index]['card'] = $localizedPayload;
+                }
+            }
+        }
+
+        if (is_array($deckPayload['cards'] ?? null)) {
+            $deckPayload['cards'] = array_values($deckPayload['cards']);
         }
 
         return $deckPayload;
@@ -1011,10 +1043,7 @@ class DecksController extends ApiController
                 continue;
             }
 
-            $sections[$section] = array_values(array_map(
-                fn (mixed $line): mixed => $this->localizeDeckCardLine($line, $user, $localization),
-                $sections[$section],
-            ));
+            $sections[$section] = $this->localizeDeckCardLines($sections[$section], $user, $localization);
         }
 
         if (is_array($sections['tokens'] ?? null)) {
@@ -1044,12 +1073,54 @@ class DecksController extends ApiController
      */
     private function localizeTokensData(array $tokens, User $user, CardLocalizationService $localization): array
     {
-        return array_values(array_map(function (array $tokenEntry) use ($user, $localization): array {
-            if (is_array($tokenEntry['token'] ?? null)) {
-                $tokenEntry['token'] = $localization->localizeCardPayload($tokenEntry['token'], $user->cardLanguage(), true);
+        $payloads = [];
+        $indexes = [];
+        foreach ($tokens as $index => $tokenEntry) {
+            if (is_array($tokenEntry) && is_array($tokenEntry['token'] ?? null)) {
+                $indexes[] = $index;
+                $payloads[] = $tokenEntry['token'];
+            }
+        }
+
+        if ($payloads !== []) {
+            $localizedPayloads = $localization->localizeCardPayloads($payloads, $user->cardLanguage(), true);
+            foreach ($indexes as $offset => $index) {
+                if (is_array($localizedPayloads[$offset] ?? null) && is_array($tokens[$index] ?? null)) {
+                    $tokens[$index]['token'] = $localizedPayloads[$offset];
+                }
+            }
+        }
+
+        return array_values($tokens);
+    }
+
+    /**
+     * @param list<mixed> $lines
+     *
+     * @return list<mixed>
+     */
+    private function localizeDeckCardLines(array $lines, User $user, CardLocalizationService $localization): array
+    {
+        $payloads = [];
+        $indexes = [];
+        foreach ($lines as $index => $line) {
+            if (!is_array($line) || !is_array($line['card'] ?? null)) {
+                continue;
             }
 
-            return $tokenEntry;
-        }, $tokens));
+            $indexes[] = $index;
+            $payloads[] = $line['card'];
+        }
+
+        if ($payloads !== []) {
+            $localizedPayloads = $localization->localizeCardPayloads($payloads, $user->cardLanguage(), true);
+            foreach ($indexes as $offset => $index) {
+                if (is_array($localizedPayloads[$offset] ?? null) && is_array($lines[$index] ?? null)) {
+                    $lines[$index]['card'] = $localizedPayloads[$offset];
+                }
+            }
+        }
+
+        return array_values($lines);
     }
 }

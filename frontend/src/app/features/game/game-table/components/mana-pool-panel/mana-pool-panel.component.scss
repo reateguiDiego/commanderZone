@@ -1,0 +1,393 @@
+:host {
+  --mana-pool-control-stack-height: 3.08rem;
+  --mana-pool-color-width: 4.25rem;
+
+  display: block;
+  pointer-events: auto;
+}
+
+.mana-pool-panel {
+  position: relative;
+  display: flex;
+  align-items: end;
+  gap: 0.4rem;
+  width: fit-content;
+  max-width: calc(100vw - 1.2rem);
+  padding: 0.08rem 0.45rem 0.08rem 0;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  box-shadow: none;
+  color: #f6ebcc;
+  backdrop-filter: none;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease,
+    box-shadow 120ms ease,
+    backdrop-filter 120ms ease;
+}
+
+.mana-pool-panel:hover,
+.mana-pool-panel:focus-within,
+.mana-pool-panel.controls-active {
+  border-color: rgb(231 204 132 / 34%);
+  background: rgb(18 20 24 / 84%);
+  box-shadow: 0 0.7rem 1.8rem rgb(0 0 0 / 24%);
+  backdrop-filter: blur(10px);
+}
+
+.mana-pool-hide-button {
+  position: absolute;
+  z-index: 5;
+  top: -0.45rem;
+  right: -0.45rem;
+  display: grid;
+  place-items: center;
+  width: 1.15rem;
+  height: 1.15rem;
+  padding: 0;
+  border-radius: 999px;
+  background: #ff173d;
+  color: #fff;
+  box-shadow: 0 0.1rem 0.35rem rgb(0 0 0 / 55%);
+  line-height: 0;
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(0.92);
+  transition:
+    background 120ms ease,
+    opacity 120ms ease,
+    transform 120ms ease;
+}
+
+.mana-pool-hide-button:hover {
+  background: #ff3557;
+}
+
+.mana-pool-panel:hover .mana-pool-hide-button,
+.mana-pool-panel:focus-within .mana-pool-hide-button,
+.mana-pool-panel.controls-active .mana-pool-hide-button {
+  opacity: 1;
+  pointer-events: auto;
+  transform: scale(1);
+}
+
+.mana-pool-hide-button lucide-icon {
+  display: grid;
+  place-items: center;
+  width: 0.75rem;
+  height: 0.75rem;
+  line-height: 0;
+}
+
+button {
+  border: 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: default;
+  opacity: 0.42;
+}
+
+.step-button {
+  --mana-step-accent: #f4d783;
+  --mana-step-glow: rgb(244 215 131 / 42%);
+
+  display: inline-grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 1px solid rgb(255 244 203 / 34%);
+  border-radius: 7px;
+  padding: 0;
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 18%), rgb(255 255 255 / 5%)),
+    rgb(18 20 24 / 88%);
+  color: #fff8df;
+  box-shadow:
+    inset 0 0.06rem 0 rgb(255 255 255 / 28%),
+    0 0.16rem 0.38rem rgb(0 0 0 / 48%),
+    0 0 0.55rem var(--mana-step-glow);
+  text-shadow: 0 0.05rem 0.08rem rgb(0 0 0 / 78%);
+  transition:
+    background 120ms ease,
+    border-color 120ms ease,
+    box-shadow 120ms ease,
+    color 120ms ease,
+    transform 120ms ease;
+  line-height: 0;
+}
+
+.step-button lucide-icon {
+  display: grid;
+  place-items: center;
+  width: 0.94rem;
+  height: 0.94rem;
+  line-height: 0;
+  pointer-events: none;
+}
+
+.step-button-spacer {
+  display: block;
+  width: 1.5rem;
+  height: 1.5rem;
+  pointer-events: none;
+  visibility: hidden;
+}
+
+.step-button:not(:disabled):hover {
+  border-color: var(--mana-step-accent);
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 26%), rgb(255 255 255 / 8%)),
+    rgb(27 29 34 / 94%);
+  box-shadow:
+    inset 0 0.06rem 0 rgb(255 255 255 / 36%),
+    0 0.18rem 0.44rem rgb(0 0 0 / 54%),
+    0 0 0.8rem var(--mana-step-glow);
+  transform: translateY(-0.03rem);
+}
+
+.step-button:not(:disabled):active {
+  transform: translateY(0.03rem);
+}
+
+.step-button:focus-visible {
+  outline: 2px solid var(--mana-step-accent);
+  outline-offset: 2px;
+}
+
+.step-button:disabled {
+  border-color: rgb(255 255 255 / 18%);
+  background: rgb(255 255 255 / 8%);
+  box-shadow:
+    inset 0 0.05rem 0 rgb(255 255 255 / 14%),
+    0 0.1rem 0.22rem rgb(0 0 0 / 34%);
+  opacity: 0.5;
+}
+
+.step-button--add {
+  --mana-step-accent: #a8ff62;
+  --mana-step-glow: rgb(168 255 98 / 38%);
+}
+
+.step-button--remove {
+  --mana-step-accent: #ff6b7e;
+  --mana-step-glow: rgb(255 107 126 / 32%);
+}
+
+.any-color-pool {
+  position: relative;
+  flex: 0 0 var(--mana-pool-color-width);
+  width: var(--mana-pool-color-width);
+  height: var(--mana-pool-control-stack-height);
+}
+
+.any-color-symbol {
+  position: absolute;
+  z-index: 1;
+  inset: 0 auto auto 0;
+  flex: 0 0 var(--mana-pool-color-width);
+  width: var(--mana-pool-color-width);
+  height: var(--mana-pool-control-stack-height);
+  padding: 0;
+  background: transparent;
+  color: var(--mana-pool-symbol-color, #fff833);
+}
+
+.any-color-symbol:not(:disabled):hover {
+  background: transparent;
+}
+
+.any-color-symbol.mana-empty,
+.mana-value-button.mana-empty {
+  opacity: 0.42;
+}
+
+.any-color-cell {
+  position: absolute;
+  inset: 0;
+}
+
+.any-color-cell app-mana-symbols {
+  position: absolute;
+  display: block;
+  font-size: 0.55rem;
+  line-height: 1;
+  filter:
+    drop-shadow(0 0.08rem 0.08rem rgb(0 0 0 / 72%))
+    drop-shadow(0 0 0.38rem var(--mana-pool-symbol-color, #fff833));
+}
+
+.any-color-cell--w {
+  background: transparent;
+}
+
+.any-color-cell--w app-mana-symbols {
+  top: 0.48rem;
+  left: 1.15rem;
+}
+
+.any-color-cell--u {
+  background: transparent;
+}
+
+.any-color-cell--u app-mana-symbols {
+  top: 0.48rem;
+  right: 1.15rem;
+}
+
+.any-color-cell--b {
+  background: transparent;
+}
+
+.any-color-cell--b app-mana-symbols {
+  right: 0.77rem;
+  bottom: 0.94rem;
+}
+
+.any-color-cell--r {
+  background: transparent;
+}
+
+.any-color-cell--r app-mana-symbols {
+  left: 50%;
+  bottom: 0.26rem;
+  transform: translateX(-50%);
+}
+
+.any-color-cell--g {
+  background: transparent;
+}
+
+.any-color-cell--g app-mana-symbols {
+  bottom: 0.94rem;
+  left: 0.77rem;
+}
+
+.any-color-symbol strong {
+  position: absolute;
+  z-index: 4;
+  right: 0.3rem;
+  bottom: 0;
+  min-width: 1ch;
+  font-size: 1.23rem;
+  font-weight: 800;
+  line-height: 1;
+  color: #fff;
+  text-shadow:
+    0 0.08rem 0.08rem rgb(0 0 0 / 90%),
+    0.08rem 0 0.08rem rgb(0 0 0 / 88%),
+    -0.08rem 0 0.08rem rgb(0 0 0 / 88%),
+    0 -0.08rem 0.08rem rgb(0 0 0 / 88%);
+  pointer-events: none;
+}
+
+.mana-pool-grid {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: repeat(var(--mana-pool-visible-color-count, 6), var(--mana-pool-color-width));
+  align-items: start;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.mana-pool-color {
+  position: relative;
+  width: var(--mana-pool-color-width);
+  height: var(--mana-pool-control-stack-height);
+}
+
+.mana-step-stack {
+  position: absolute;
+  z-index: 3;
+  top: 0;
+  left: 50%;
+  display: grid;
+  grid-template-columns: repeat(2, 1.5rem);
+  justify-content: center;
+  gap: 0.05rem;
+  width: 3.08rem;
+  height: 1.5rem;
+  align-items: start;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+
+.any-color-pool:hover .mana-step-stack,
+.any-color-pool:focus-within .mana-step-stack,
+.any-color-pool.controls-active .mana-step-stack,
+.mana-pool-color:hover .mana-step-stack,
+.mana-pool-color:focus-within .mana-step-stack,
+.mana-pool-color.controls-active .mana-step-stack {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.mana-value-button {
+  display: flex;
+  position: relative;
+  z-index: 1;
+  align-items: start;
+  justify-content: center;
+  width: var(--mana-pool-color-width);
+  min-width: var(--mana-pool-color-width);
+  height: var(--mana-pool-control-stack-height);
+  min-height: 0;
+  padding: 0;
+  border-radius: 6px;
+  background: transparent;
+  overflow: visible;
+}
+
+.mana-value-button:not(:disabled):hover {
+  background: transparent;
+}
+
+.mana-value-button strong {
+  position: absolute;
+  z-index: 4;
+  right: 0.3rem;
+  bottom: 0;
+  min-width: 1ch;
+  font-size: 1.23rem;
+  font-weight: 800;
+  line-height: 1;
+  color: #fff;
+  text-shadow:
+    0 0.08rem 0.08rem rgb(0 0 0 / 90%),
+    0.08rem 0 0.08rem rgb(0 0 0 / 88%),
+    -0.08rem 0 0.08rem rgb(0 0 0 / 88%),
+    0 -0.08rem 0.08rem rgb(0 0 0 / 88%);
+  pointer-events: none;
+}
+
+.mana-value-button app-mana-symbols {
+  display: block;
+  font-size: 3.5em;
+  line-height: 1;
+  color: var(--mana-pool-symbol-color, #fff833);
+  transform: translateY(-0.62rem);
+  filter:
+    drop-shadow(0 0.08rem 0.08rem rgb(0 0 0 / 72%))
+    drop-shadow(0 0 0.38rem var(--mana-pool-symbol-color, #fff833));
+}
+
+@media (max-width: 760px) {
+  .mana-pool-panel {
+    padding: 0.08rem 0.45rem 0.08rem 0;
+  }
+
+  .mana-pool-grid {
+    grid-template-columns: repeat(var(--mana-pool-visible-color-count, 6), var(--mana-pool-color-width));
+  }
+}
+
+@media (max-width: 430px) {
+  .mana-pool-grid {
+    grid-template-columns: repeat(var(--mana-pool-visible-color-count, 6), var(--mana-pool-color-width));
+  }
+}

@@ -15,14 +15,29 @@ describe('DeckCardImageCache', () => {
     });
 
     const cache = TestBed.inject(DeckCardImageCache);
-    const [first, second] = await Promise.all([cache.resolve(card()), cache.resolve(card())]);
+    const [first, second] = await Promise.all([cache.resolve(cardWithoutImage()), cache.resolve(cardWithoutImage())]);
 
     expect(first).toBe('https://img.test/sol-ring.jpg');
     expect(second).toBe('https://img.test/sol-ring.jpg');
     expect(image).toHaveBeenCalledOnce();
   });
 
-  it('uses the local card image fallback when the endpoint fails', async () => {
+  it('uses the localized card payload image without calling the image endpoint', async () => {
+    const image = vi.fn().mockReturnValue(of({ uri: 'https://img.test/original.jpg' }));
+    TestBed.configureTestingModule({
+      providers: [
+        DeckCardImageCache,
+        { provide: CardsApi, useValue: { image } },
+      ],
+    });
+
+    const cache = TestBed.inject(DeckCardImageCache);
+
+    expect(await cache.resolve(card())).toBe('https://img.test/fallback.jpg');
+    expect(image).not.toHaveBeenCalled();
+  });
+
+  it('returns null when no local image exists and the endpoint fails', async () => {
     TestBed.configureTestingModule({
       providers: [
         DeckCardImageCache,
@@ -32,7 +47,7 @@ describe('DeckCardImageCache', () => {
 
     const cache = TestBed.inject(DeckCardImageCache);
 
-    expect(await cache.resolve(card())).toBe('https://img.test/fallback.jpg');
+    expect(await cache.resolve(cardWithoutImage())).toBeNull();
   });
 
   it('clears cached urls', async () => {
@@ -44,7 +59,7 @@ describe('DeckCardImageCache', () => {
     });
 
     const cache = TestBed.inject(DeckCardImageCache);
-    await cache.resolve(card());
+    await cache.resolve(cardWithoutImage());
     cache.clear();
 
     expect(cache.imageUrl(card())).toBe('https://img.test/fallback.jpg');
@@ -67,5 +82,12 @@ function card(): Card {
     commanderLegal: true,
     set: null,
     collectorNumber: null,
+  };
+}
+
+function cardWithoutImage(): Card {
+  return {
+    ...card(),
+    imageUris: {},
   };
 }

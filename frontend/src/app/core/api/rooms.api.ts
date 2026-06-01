@@ -7,6 +7,10 @@ import { RoomInvite } from '../models/room-invite.model';
 import { Room, RoomFormat, RoomTimerMode, RoomVisibility } from '../models/room.model';
 import { withoutGlobalLoading } from '../loading/loading-context';
 
+export interface JoinRoomOptions {
+  readonly randomDeckOptionCount?: number;
+}
+
 @Injectable({ providedIn: 'root' })
 export class RoomsApi {
   private readonly http = inject(HttpClient);
@@ -47,8 +51,8 @@ export class RoomsApi {
     });
   }
 
-  join(roomId: string, deckId?: string, skipGlobalLoading = false): Observable<RoomResponse> {
-    return this.http.post<RoomResponse>(`${API_BASE_URL}/rooms/${roomId}/join`, this.deckPayload(deckId), {
+  join(roomId: string, deckId?: string, skipGlobalLoading = false, options?: JoinRoomOptions): Observable<RoomResponse> {
+    return this.http.post<RoomResponse>(`${API_BASE_URL}/rooms/${roomId}/join`, this.joinPayload(deckId, options), {
       context: skipGlobalLoading ? withoutGlobalLoading() : undefined,
     });
   }
@@ -117,5 +121,14 @@ export class RoomsApi {
 
   private deckPayload(deckId?: string): { deckId?: string } {
     return deckId ? { deckId } : {};
+  }
+
+  private joinPayload(deckId?: string, options?: JoinRoomOptions): { deckId?: string; randomDeckOptionCount?: number } {
+    return {
+      ...this.deckPayload(deckId),
+      ...(typeof options?.randomDeckOptionCount === 'number'
+        ? { randomDeckOptionCount: options.randomDeckOptionCount }
+        : {}),
+    };
   }
 }

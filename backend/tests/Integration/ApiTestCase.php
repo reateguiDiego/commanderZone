@@ -120,6 +120,8 @@ abstract class ApiTestCase extends WebTestCase
             'deck_card',
             'deck',
             'deck_folder',
+            'card_print_locale',
+            'card_print',
             'card',
             'app_user',
         ];

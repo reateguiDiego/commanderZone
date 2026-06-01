@@ -1,8 +1,8 @@
 import { Injectable, computed, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { GamesApi } from '../../../../core/api/games.api';
-import { GameSnapshot } from '../../../../core/models/game.model';
-import { GameTableRematchRealtimeService } from './game-table-rematch-realtime.service';
+import { GameSnapshot, MercureGameEvent } from '../../../../core/models/game.model';
+import { GameTableGameRealtimeService } from './game-table-game-realtime.service';
 import { GameTableWebsocketGameplayService } from './game-table-websocket-gameplay.service';
 
 export interface GameTableSessionContext {
@@ -23,7 +23,7 @@ export interface GameTableSessionContext {
 @Injectable()
 export class GameTableSessionService {
   private readonly gamesApi = inject(GamesApi);
-  private readonly rematchRealtime = inject(GameTableRematchRealtimeService);
+  private readonly gameRealtime = inject(GameTableGameRealtimeService);
   private readonly websocket = inject(GameTableWebsocketGameplayService);
   private deferredRemoteSnapshot: GameSnapshot | null = null;
   readonly realtimeStatus = computed<'connecting' | 'live' | 'degraded'>(() => {
@@ -49,7 +49,7 @@ export class GameTableSessionService {
         refetch: (force) => this.refetch(context, force),
         setError: (message) => context.setError(message),
       }, gameId);
-      this.subscribeToRematchRealtime(context, gameId);
+      this.subscribeToGameRealtime(context, gameId);
     } catch {
       context.navigateToRoomsWithLoadError();
     } finally {
@@ -92,13 +92,25 @@ export class GameTableSessionService {
 
   stop(): void {
     this.websocket.stop();
-    this.rematchRealtime.stop();
+    this.gameRealtime.stop();
   }
 
-  private subscribeToRematchRealtime(context: GameTableSessionContext, gameId: string): void {
-    this.rematchRealtime.subscribeToRematchCreated(gameId, (roomId) => {
-      context.navigateToWaitingRoom(roomId);
+  private subscribeToGameRealtime(context: GameTableSessionContext, gameId: string): void {
+    this.gameRealtime.subscribe(gameId, {
+      onSnapshotInvalidated: (event) => this.refetchIfSnapshotIsBehind(context, event),
+      onRematchCreated: (roomId) => {
+        context.navigateToWaitingRoom(roomId);
+      },
     });
+  }
+
+  private refetchIfSnapshotIsBehind(context: GameTableSessionContext, event: MercureGameEvent): void {
+    const currentSnapshot = context.snapshot();
+    if (typeof event.version === 'number' && currentSnapshot && currentSnapshot.version >= event.version) {
+      return;
+    }
+
+    void this.refetch(context, false);
   }
 
   private applySnapshot(context: GameTableSessionContext, nextSnapshot: GameSnapshot): void {

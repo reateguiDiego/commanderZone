@@ -35,19 +35,52 @@ class CardsController extends ApiController
         $params = [];
 
         if ($query !== '') {
-            $where[] = 'LOWER(normalized_name) LIKE :query';
+            $foldedQuery = $this->foldLatinAccents($query);
+            $accentFoldedName = $this->accentFoldSql('LOWER(c.normalized_name)');
+            $accentFoldedPrintedName = $this->accentFoldSql("LOWER(COALESCE(c.printed_name, ''))");
+            $accentFoldedFlavorName = $this->accentFoldSql("LOWER(COALESCE(c.flavor_name, ''))");
+            $localizedSearchConditions = [
+                "(LOWER(c.normalized_name) LIKE :query OR {$accentFoldedName} LIKE :foldedQuery)",
+                "(LOWER(COALESCE(c.printed_name, '')) LIKE :query OR {$accentFoldedPrintedName} LIKE :foldedQuery)",
+                "(LOWER(COALESCE(c.flavor_name, '')) LIKE :query OR {$accentFoldedFlavorName} LIKE :foldedQuery)",
+            ];
+            if ($this->printLocaleTablesAvailable($entityManager)) {
+                $localeLanguageCondition = $requestedLanguage !== null ? ' AND locale.lang = :queryLang' : '';
+                $accentFoldedLocaleName = $this->accentFoldSql("LOWER(COALESCE(locale.name, ''))");
+                $accentFoldedLocalePrintedName = $this->accentFoldSql("LOWER(COALESCE(locale.printed_name, ''))");
+                $localizedSearchConditions[] = <<<SQL
+EXISTS (
+    SELECT 1
+    FROM card_print_locale locale
+    WHERE locale.print_scryfall_id = c.scryfall_id
+{$localeLanguageCondition}
+      AND (
+          LOWER(COALESCE(locale.name, '')) LIKE :query
+          OR {$accentFoldedLocaleName} LIKE :foldedQuery
+          OR LOWER(COALESCE(locale.printed_name, '')) LIKE :query
+          OR {$accentFoldedLocalePrintedName} LIKE :foldedQuery
+      )
+)
+SQL;
+                if ($requestedLanguage !== null) {
+                    $params['queryLang'] = $requestedLanguage;
+                }
+            }
+
+            $where[] = '('.implode(' OR ', $localizedSearchConditions).')';
             $params['query'] = '%'.$query.'%';
+            $params['foldedQuery'] = '%'.$foldedQuery.'%';
         }
 
         $commanderLegal = $request->query->get('commanderLegal');
         if ($commanderLegal !== null && $commanderLegal !== '') {
-            $where[] = 'commander_legal = :commanderLegal';
+            $where[] = 'c.commander_legal = :commanderLegal';
             $params['commanderLegal'] = filter_var($commanderLegal, FILTER_VALIDATE_BOOLEAN);
         }
 
         $tokenOnly = $request->query->get('tokenOnly');
         if ($tokenOnly !== null && $tokenOnly !== '' && filter_var($tokenOnly, FILTER_VALIDATE_BOOLEAN)) {
-            $where[] = '(layout IN (:tokenLayout, :doubleFacedTokenLayout) OR LOWER(type_line) LIKE :tokenTypeLine)';
+            $where[] = '(c.layout IN (:tokenLayout, :doubleFacedTokenLayout) OR LOWER(c.type_line) LIKE :tokenTypeLine)';
             $params['tokenLayout'] = 'token';
             $params['doubleFacedTokenLayout'] = 'double_faced_token';
             $params['tokenTypeLine'] = '%token%';
@@ -60,7 +93,7 @@ class CardsController extends ApiController
                 return $this->fail('type filter is invalid.');
             }
 
-            $where[] = 'LOWER(type_line) LIKE :type';
+            $where[] = 'LOWER(c.type_line) LIKE :type';
             $params['type'] = '%'.$type.'%';
         }
 
@@ -71,7 +104,7 @@ class CardsController extends ApiController
                     return $this->fail('colorIdentity filter is invalid.');
                 }
 
-                $where[] = sprintf('color_identity::text LIKE :colorIdentity%d', $index);
+                $where[] = sprintf('c.color_identity::text LIKE :colorIdentity%d', $index);
                 $params[sprintf('colorIdentity%d', $index)] = '%"'.$color.'"%';
             }
         }
@@ -80,21 +113,21 @@ class CardsController extends ApiController
 SELECT id
 FROM (
     SELECT DISTINCT ON (
-        normalized_name,
-        COALESCE(LOWER(type_line), ''),
-        COALESCE(LOWER(mana_cost), '')
-    ) id, name
-    FROM card
+        c.normalized_name,
+        COALESCE(LOWER(c.type_line), ''),
+        COALESCE(LOWER(c.mana_cost), '')
+    ) c.id, c.name
+    FROM card c
 SQL;
         if ($where !== []) {
             $sql .= ' WHERE '.implode(' AND ', $where);
         }
         $sql .= <<<'SQL'
     ORDER BY
-        normalized_name ASC,
-        COALESCE(LOWER(type_line), '') ASC,
-        COALESCE(LOWER(mana_cost), '') ASC,
-        name ASC
+        c.normalized_name ASC,
+        COALESCE(LOWER(c.type_line), '') ASC,
+        COALESCE(LOWER(c.mana_cost), '') ASC,
+        c.name ASC
 ) AS distinct_cards
 ORDER BY name ASC
 SQL;
@@ -146,13 +179,13 @@ SQL;
         if (count($matches) > 1) {
             return $this->fail('Card resolution is ambiguous.', 409, [
                 'matches' => array_map(
-                    fn (Card $card): array => $localization->localizeCard($card, $requestedLanguage)->toArray(),
+                    fn (Card $card): array => $localization->localizeCardPayload($card->toArray(), $requestedLanguage),
                     $matches,
                 ),
             ]);
         }
 
-        return $this->json(['card' => $localization->localizeCard($matches[0], $requestedLanguage)->toArray()]);
+        return $this->json(['card' => $localization->localizeCardPayload($matches[0]->toArray(), $requestedLanguage)]);
     }
 
     #[Route('/cards/{scryfallId}/image', methods: ['GET'])]
@@ -221,7 +254,7 @@ SQL;
             return $this->fail('Card not found.', 404);
         }
 
-        return $this->json(['card' => $localization->localizeCard($card, $requestedLanguage)->toArray()]);
+        return $this->json(['card' => $localization->localizeCardPayload($card->toArray(), $requestedLanguage)]);
     }
 
     private function isAllowedImageUri(string $uri): bool
@@ -243,5 +276,57 @@ SQL;
         }
 
         return $requestedLanguage;
+    }
+
+    private function printLocaleTablesAvailable(EntityManagerInterface $entityManager): bool
+    {
+        try {
+            $connection = $entityManager->getConnection();
+            $cardPrint = $connection->fetchOne("SELECT to_regclass('public.card_print')");
+            $cardPrintLocale = $connection->fetchOne("SELECT to_regclass('public.card_print_locale')");
+
+            return is_string($cardPrint)
+                && $cardPrint !== ''
+                && is_string($cardPrintLocale)
+                && $cardPrintLocale !== '';
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    private function foldLatinAccents(string $value): string
+    {
+        return strtr($value, [
+            'á' => 'a',
+            'à' => 'a',
+            'ä' => 'a',
+            'â' => 'a',
+            'ã' => 'a',
+            'å' => 'a',
+            'é' => 'e',
+            'è' => 'e',
+            'ë' => 'e',
+            'ê' => 'e',
+            'í' => 'i',
+            'ì' => 'i',
+            'ï' => 'i',
+            'î' => 'i',
+            'ó' => 'o',
+            'ò' => 'o',
+            'ö' => 'o',
+            'ô' => 'o',
+            'õ' => 'o',
+            'ú' => 'u',
+            'ù' => 'u',
+            'ü' => 'u',
+            'û' => 'u',
+            'ñ' => 'n',
+            'ç' => 'c',
+        ]);
+    }
+
+    private function accentFoldSql(string $expression): string
+    {
+        return "TRANSLATE({$expression}, 'áàäâãåéèëêíìïîóòöôõúùüûñç', 'aaaaaaeeeeiiiiooooouuuunc')";
     }
 }

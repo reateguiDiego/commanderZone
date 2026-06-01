@@ -55,6 +55,19 @@ class CardLocalizationServiceTest extends TestCase
         self::assertSame('Sol Ring', $localized->name());
     }
 
+    public function testDoesNotFallbackToCommonPrintLanguageWhenRequestedLanguageAndEnglishAreUnavailable(): void
+    {
+        $source = $this->card('src-sol-ring-it', 'Sol Ring', 'it', null, null, 'Anello Solare');
+        $commonLanguagePrint = $this->card('sol-ring-ph-alt', 'Sol Ring', 'ph', 'lea', '233', 'Sol Ring PH', null, 'Artifact', 'highres_scan');
+
+        $service = $this->serviceWithCards([$source, $commonLanguagePrint]);
+
+        $localized = $service->localizeCard($source, 'es');
+
+        self::assertSame('src-sol-ring-it', $localized->scryfallId());
+        self::assertSame('it', $localized->lang());
+    }
+
     public function testFallsBackToEnglishWhenRequestedCandidateHasPlaceholderImageStatus(): void
     {
         $source = $this->card(

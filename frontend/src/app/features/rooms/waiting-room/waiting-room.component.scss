@@ -326,7 +326,18 @@
   .players-grid {
     grid-row: 1;
     grid-template-columns: repeat(2, minmax(300px, 22rem));
-    grid-template-rows: repeat(3, 21rem);
+    grid-template-rows: none;
+    grid-auto-rows: 21rem;
+    align-content: start;
+  }
+
+  .players-grid.capacity-two,
+  .players-grid.capacity-three,
+  .players-grid.capacity-four,
+  .players-grid.capacity-five,
+  .players-grid.capacity-six {
+    grid-template-rows: none;
+    grid-auto-rows: 21rem;
   }
 
   .players-grid.capacity-three app-waiting-room-player-card.seat-one { grid-column: 1; grid-row: 1; }

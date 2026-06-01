@@ -22,7 +22,7 @@ export interface GameContextMenu {
   counterKey?: string;
   suppressRandomSelect?: boolean;
   fromFixedZoneModal?: boolean;
-  kind?: 'zone' | 'card' | 'game' | 'player' | 'arrow' | 'counter';
+  kind?: 'zone' | 'card' | 'game' | 'player' | 'arrow' | 'counter' | 'manaPool';
   sourceRect?: CardPreviewSourceRect | null;
 }
 

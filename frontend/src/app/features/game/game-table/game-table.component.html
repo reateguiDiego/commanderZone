@@ -25,6 +25,7 @@
       [rootElement]="gameScreen"
       (arrowMenuOpened)="store.openArrowMenu($event.event, $event.playerId, $event.arrowId)"
     />
+    <app-mana-comet-layer [effects]="manaComets.effects()" />
     <main appPrettyScroll class="table-surface game-table-v2">
       @if (tableToast(); as toast) {
         <p class="table-error" role="status" aria-live="polite">{{ toast }}</p>
@@ -307,6 +308,10 @@
             [firstCounter]="firstCounter"
             [alignmentGuideFor]="alignmentGuideFor"
             [isManaLaneHighlighted]="isManaLaneHighlighted"
+            [manaPool]="store.manaPool"
+            [canEditManaPool]="canControlPlayer"
+            [isManaPoolHidden]="store.isManaPoolHidden"
+            [pendingManaColors]="pendingManaPoolColorsFor(player.id)"
             [layoutKey]="battlefieldZoom.zoomPercent()"
             [zoomPercent]="battlefieldZoom.zoomPercent()"
             [landStackDropPreview]="store.landStackDropPreview()"
@@ -319,6 +324,7 @@
             (battlefieldDragOver)="store.allowDrop($event)"
             (battlefieldDropped)="handleZoneDrop($event)"
             (battlefieldMenuOpened)="store.openZoneMenu($event.event, $event.playerId, $event.zone)"
+            (manaPoolMenuOpened)="store.openManaPoolMenu($event.event, $event.playerId)"
             (cardPointerDown)="startBattlefieldPointerDrag($event.event, $event.playerId, $event.card)"
             (cardClicked)="store.handleBattlefieldCardClick($event.event, $event.playerId, $event.card)"
             (cardDoubleClicked)="handleBattlefieldCardDoubleClicked($event)"
@@ -332,6 +338,11 @@
             (cardCounterDeleteRequested)="store.openCounterDeleteMenu($event.event, $event.playerId, $event.zone, $event.card, $event.key)"
             (manaLaneDragOver)="store.allowDrop($event)"
             (manaLaneDropped)="handleManaLaneDrop($event)"
+            (manaPoolColorAdded)="store.incrementMana($event.playerId, $event.color)"
+            (manaPoolColorRemoved)="store.decrementMana($event.playerId, $event.color)"
+            (manaPoolAnyAdded)="store.incrementAnyMana($event.playerId)"
+            (manaPoolAnyRemoved)="store.decrementAnyMana($event.playerId)"
+            (manaPoolHidden)="store.hideManaPool($event.playerId)"
             (battlefieldSizeChanged)="updateBattlefieldLayoutSize($event)"
           />
 
@@ -466,6 +477,18 @@
           (valueChanged)="updatePowerToughnessValue($event)"
           (confirmed)="confirmPowerToughnessDialog()"
           (cancelled)="cancelPowerToughnessDialog()"
+        />
+      }
+
+      @if (manaActionDialog(); as dialog) {
+        <app-mana-action-dialog
+          [suggestion]="dialog.suggestion"
+          [selectedColor]="dialog.selectedColor"
+          [amount]="dialog.amount"
+          [position]="dialog.position"
+          (valueChanged)="updateManaActionDialog($event)"
+          (confirmed)="confirmManaActionDialog($event)"
+          (cancelled)="cancelManaActionDialog()"
         />
       }
 
@@ -736,6 +759,8 @@
         [isAttachedEquipment]="isAttachedEquipment"
         [isAttachmentTarget]="isAttachmentTarget"
         [canAttachEquipment]="canAttachEquipment"
+        [manaSourceSuggestion]="manaSourceSuggestion"
+        [isManaPoolHidden]="store.isManaPoolHidden"
         [zoneTitle]="zoneTitle"
         [ownedArrowCount]="ownedArrowCount(menu.playerId)"
         (interacted)="store.clearCardPreview()"

@@ -46,41 +46,14 @@
             <span class="token-card-fallback">{{ card.name }}</span>
           }
           <div class="token-add-controls" aria-label="Token creation controls">
-            <span class="token-quantity-stepper">
-              <label class="token-quantity-field">
-                <span aria-hidden="true">x</span>
-                <input
-                  type="number"
-                  inputmode="numeric"
-                  min="1"
-                  max="20"
-                  [disabled]="pending"
-                  [attr.aria-label]="'Quantity for ' + card.name"
-                  [ngModel]="quantity()"
-                  (ngModelChange)="onQuantityInput($event)"
-                />
-              </label>
-              <span class="token-quantity-arrows">
-                <button
-                  type="button"
-                  class="token-quantity-button"
-                  [disabled]="pending || quantity() >= 20"
-                  [attr.aria-label]="'Increase token quantity for ' + card.name"
-                  (click)="adjustQuantity(1)"
-                >
-                  <span class="token-quantity-arrow token-quantity-arrow-up" aria-hidden="true"></span>
-                </button>
-                <button
-                  type="button"
-                  class="token-quantity-button"
-                  [disabled]="pending || quantity() <= 1"
-                  [attr.aria-label]="'Reduce token quantity for ' + card.name"
-                  (click)="adjustQuantity(-1)"
-                >
-                  <span class="token-quantity-arrow token-quantity-arrow-down" aria-hidden="true"></span>
-                </button>
-              </span>
-            </span>
+            <app-game-x-quantity-stepper
+              [value]="quantity()"
+              [min]="1"
+              [max]="20"
+              [disabled]="pending"
+              [ariaLabel]="'token quantity for ' + card.name"
+              (valueChanged)="onQuantityInput($event)"
+            />
             <button
               class="token-add-button"
               type="button"

@@ -53,6 +53,22 @@ class CardResolver
                 return $resolvedMatches;
             }
 
+            $localizedMatches = $this->entityManager->getRepository(Card::class)
+                ->createQueryBuilder('card')
+                ->andWhere('LOWER(card.printedName) = :printedName')
+                ->setParameter('printedName', Card::normalizeName($name))
+                ->orderBy('card.commanderLegal', 'DESC')
+                ->addOrderBy('card.normalizedName', 'ASC')
+                ->addOrderBy('card.setCode', 'ASC')
+                ->addOrderBy('card.collectorNumber', 'ASC')
+                ->getQuery()
+                ->getResult();
+
+            $resolvedLocalizedMatches = array_values(array_filter($localizedMatches, static fn (mixed $card) => $card instanceof Card));
+            if ($resolvedLocalizedMatches !== []) {
+                return $resolvedLocalizedMatches;
+            }
+
             $card = $this->resolveDecklistName($name);
 
             return $card instanceof Card ? [$card] : [];

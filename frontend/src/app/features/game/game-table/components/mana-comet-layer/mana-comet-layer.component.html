@@ -1,0 +1,21 @@
+<div class="mana-comet-layer" aria-hidden="true">
+  @for (effect of effects(); track effect.id) {
+    <span
+      class="mana-comet"
+      [style.--mana-comet-start-x]="effect.startX + 'px'"
+      [style.--mana-comet-start-y]="effect.startY + 'px'"
+      [style.--mana-comet-end-x]="effect.endX + 'px'"
+      [style.--mana-comet-end-y]="effect.endY + 'px'"
+      [style.--mana-comet-angle]="effect.angleDeg + 'deg'"
+      [style.--mana-comet-trail-length]="effect.trailLength + 'px'"
+      [style.animation-delay.ms]="effect.delayMs"
+      [attr.data-mana-color]="effect.color"
+    >
+      <span class="mana-comet-card-ghost"></span>
+      <span class="mana-comet-trail"></span>
+      <span class="mana-comet-star">
+        <app-mana-symbols [symbols]="[effect.color]" size="small" [costBackground]="false" />
+      </span>
+    </span>
+  }
+</div>
