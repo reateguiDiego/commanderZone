@@ -21,6 +21,7 @@ If your PowerShell execution policy already allows local scripts, this shorter f
 - Runs `composer install` in `backend/`.
 - Starts PostgreSQL and Mercure with Docker Compose.
 - Runs Doctrine migrations.
+- Verifies migrations are fully up-to-date (fails if any pending migration remains).
 - Validates the Symfony container.
 - Validates the Doctrine schema.
 - Lints YAML config and `docs/openapi.yaml`.
@@ -85,3 +86,16 @@ Fully refresh the project after a bigger pull, including rebuilding the API cont
 ```powershell
 .\update-project.ps1 -BuildApi
 ```
+
+## Fast preflight before playing
+
+To quickly verify local CORS + room creation after a pull:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\local-room-preflight.ps1
+```
+
+This check fails when migrations are pending and validates `POST /rooms` for both origins:
+
+- `http://localhost:4200`
+- `http://127.0.0.1:4200`

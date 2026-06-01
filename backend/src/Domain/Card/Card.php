@@ -94,6 +94,9 @@ class Card
     #[ORM\Column(type: 'string', length: 255, nullable: true)]
     private ?string $flavorName = null;
 
+    #[ORM\Column(type: 'string', length: 32, nullable: true)]
+    private ?string $imageStatus = null;
+
     #[ORM\Column(type: 'datetime_immutable')]
     private \DateTimeImmutable $updatedAt;
 
@@ -139,6 +142,9 @@ class Card
         $this->lang = $data['lang'] ?? null;
         $this->printedName = $data['printed_name'] ?? null;
         $this->flavorName = $data['flavor_name'] ?? null;
+        $this->imageStatus = isset($data['image_status']) && is_scalar($data['image_status']) && (string) $data['image_status'] !== ''
+            ? (string) $data['image_status']
+            : null;
         $this->touch();
     }
 
@@ -266,6 +272,21 @@ class Card
         return $this->flavorName;
     }
 
+    public function imageStatus(): ?string
+    {
+        return $this->imageStatus;
+    }
+
+    public function lang(): ?string
+    {
+        return $this->lang;
+    }
+
+    public function printedName(): ?string
+    {
+        return $this->printedName;
+    }
+
     public function colorIdentity(): array
     {
         return $this->colorIdentity;
@@ -286,7 +307,7 @@ class Card
         return [
             'id' => $this->id,
             'scryfallId' => $this->scryfallId,
-            'name' => $this->name,
+            'name' => $this->displayName(),
             'manaCost' => $this->manaCost,
             'typeLine' => $this->typeLine,
             'oracleText' => $this->oracleText,
@@ -311,6 +332,13 @@ class Card
             'printedName' => $this->printedName,
             'flavorName' => $this->flavorName,
         ];
+    }
+
+    private function displayName(): string
+    {
+        $printedName = trim((string) $this->printedName);
+
+        return $printedName !== '' ? $printedName : $this->name;
     }
 
     private function cardString(array $data, string $key): ?string

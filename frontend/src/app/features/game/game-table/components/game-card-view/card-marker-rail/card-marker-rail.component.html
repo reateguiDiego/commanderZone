@@ -1,36 +1,53 @@
 @if (hasMarkers()) {
-  <span class="card-marker-rail" [class.compact]="compact()" aria-hidden="false">
-    @if (showTokenCopyMarker()) {
-      <span class="card-marker token-copy-marker" title="Esta carta es un token copy" aria-label="Esta carta es un token copy">
-        <img src="assets/icons/gameplay/token-copy.png" alt="" />
-      </span>
-    }
-    @for (currentCounter of markerCounters(); track currentCounter.key) {
-      <span
-        class="card-marker counter-marker"
-        [class.color-counter-marker]="currentCounter.kind === 'color'"
-        [class.stat-counter-marker]="currentCounter.kind === 'stat'"
-        [class.generic-counter-marker]="currentCounter.kind === 'generic'"
-        [style.--counter-color]="currentCounter.color"
-        [attr.aria-label]="currentCounter.key + ' counter ' + currentCounter.value"
-        [title]="currentCounter.key + ' counter. Left click adds, right click removes.'"
-        role="button"
-        tabindex="0"
-        (pointerdown)="stopMarkerPointer($event)"
-        (pointerup)="onMarkerPointerUp($event, currentCounter.key)"
-        (click)="swallowMouseEvent($event)"
-        (auxclick)="swallowMouseEvent($event)"
-        (dblclick)="swallowMouseEvent($event)"
-        (contextmenu)="changeCounter($event, currentCounter, -1)"
-      >
-        @if (currentCounter.kind === 'stat') {
-          <strong class="counter-value-badge">{{ currentCounter.value }}</strong>
-          <span>{{ currentCounter.label }}</span>
-        } @else {
-          <span>{{ currentCounter.label }}</span>
-          <strong class="counter-value-badge">{{ currentCounter.value }}</strong>
-        }
-      </span>
-    }
-  </span>
+  @if (showTokenCopyMarker() || markerCounters().length > 0) {
+    <span class="card-marker-rail" [class.compact]="compact()" aria-hidden="false">
+      @if (showTokenCopyMarker()) {
+        <span class="card-marker token-copy-marker" title="Esta carta es un token copy" aria-label="Esta carta es un token copy">
+          <img src="assets/icons/gameplay/token-copy.png" alt="" />
+        </span>
+      }
+      @for (currentCounter of markerCounters(); track currentCounter.key) {
+        <span
+          class="card-marker counter-marker"
+          [class.color-counter-marker]="currentCounter.kind === 'color'"
+          [class.stat-counter-marker]="currentCounter.kind === 'stat'"
+          [class.generic-counter-marker]="currentCounter.kind === 'generic'"
+          [style.--counter-color]="currentCounter.color"
+          [attr.aria-label]="currentCounter.key + ' counter ' + currentCounter.value"
+          [title]="currentCounter.key + ' counter. Left click adds, right click removes.'"
+          role="button"
+          tabindex="0"
+          (pointerdown)="stopMarkerPointer($event)"
+          (pointerup)="onMarkerPointerUp($event, currentCounter.key)"
+          (click)="swallowMouseEvent($event)"
+          (auxclick)="swallowMouseEvent($event)"
+          (dblclick)="swallowMouseEvent($event)"
+          (contextmenu)="changeCounter($event, currentCounter, -1)"
+        >
+          @if (currentCounter.kind === 'stat') {
+            <strong class="counter-value-badge">{{ currentCounter.value }}</strong>
+            <span>{{ currentCounter.label }}</span>
+          } @else {
+            <span>{{ currentCounter.label }}</span>
+            <strong class="counter-value-badge">{{ currentCounter.value }}</strong>
+          }
+        </span>
+      }
+    </span>
+  }
+  @if (showRulingsMarker()) {
+    <span
+      class="oracle-rulings-marker"
+      role="button"
+      tabindex="0"
+      title="Open Oracle rulings on Scryfall"
+      aria-label="Open Oracle rulings on Scryfall"
+      (pointerdown)="stopMarkerPointer($event)"
+      (click)="requestRulings($event)"
+      (auxclick)="swallowMouseEvent($event)"
+      (dblclick)="swallowMouseEvent($event)"
+    >
+      <lucide-icon name="circle-question-mark" size="16" strokeWidth="2.5" aria-hidden="true" />
+    </span>
+  }
 }

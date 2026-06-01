@@ -517,6 +517,8 @@ class GameCommandHandlerTest extends TestCase
             'battlefield' => [
                 [
                     ...$this->card('card-1', 'Bear', 'battlefield', 4, 4, 2, 2),
+                    'lang' => 'es',
+                    'printedName' => 'Oso',
                     'tapped' => true,
                     'counters' => ['charge' => 2],
                     'loyalty' => 6,
@@ -537,6 +539,8 @@ class GameCommandHandlerTest extends TestCase
         $copy = $battlefield[1];
         self::assertNotSame('card-1', $copy['instanceId']);
         self::assertSame('Bear', $copy['name']);
+        self::assertSame('es', $copy['lang']);
+        self::assertSame('Oso', $copy['printedName']);
         self::assertSame(2, $copy['power']);
         self::assertSame(2, $copy['toughness']);
         self::assertSame(3, $copy['loyalty']);
@@ -1951,6 +1955,28 @@ class GameCommandHandlerTest extends TestCase
         ], $actor);
 
         self::assertSame($defeated->id(), $game->snapshot()['turn']['activePlayerId']);
+    }
+
+    public function testConcedeByActiveTurnPlayerAdvancesTurnToNextAlivePlayer(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $next = new User('next@example.test', 'Next');
+        $other = new User('other@example.test', 'Other');
+        $snapshot = $this->snapshot($actor->id(), [], $next->id());
+        $snapshot['players'][$other->id()] = $this->player($other->id(), []);
+        $snapshot['turn'] = [
+            'activePlayerId' => $actor->id(),
+            'phase' => 'main-1',
+            'number' => 3,
+        ];
+        $game = new Game(new Room($actor), $snapshot);
+
+        (new GameCommandHandler())->apply($game, 'game.concede', [], $actor);
+
+        self::assertSame('conceded', $game->snapshot()['players'][$actor->id()]['status']);
+        self::assertSame($next->id(), $game->snapshot()['turn']['activePlayerId']);
+        self::assertSame('untap', $game->snapshot()['turn']['phase']);
+        self::assertSame(3, $game->snapshot()['turn']['number']);
     }
 
     public function testMovingCardToSameZoneDoesNotCreateLogEntry(): void

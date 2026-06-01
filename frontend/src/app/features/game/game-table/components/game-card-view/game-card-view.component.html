@@ -149,7 +149,9 @@
     <span class="card-visual">
       <app-card-marker-rail
         [showTokenCopyMarker]="currentCard.isTokenCopy === true"
+        [showRulingsMarker]="showRulingsMarker()"
         [counters]="visibleCounters()"
+        (rulingsRequested)="openRulings($event)"
         (counterChanged)="changeCounter($event)"
         (counterDeleteRequested)="requestCounterDelete($event)"
       />

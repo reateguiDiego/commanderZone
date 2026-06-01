@@ -22,6 +22,10 @@ class AuthApiTest extends ApiTestCase
         self::assertSame('initial', $this->jsonResponse()['user']['avatar']['type']);
         self::assertSame('P', $this->jsonResponse()['user']['avatar']['initial']['letter']);
         self::assertSame(['type' => 'plain', 'presetId' => 'plain'], $this->jsonResponse()['user']['displayNameStyle']);
+        self::assertSame([
+            'cardLanguage' => 'en',
+            'appLanguage' => 'en',
+        ], $this->jsonResponse()['user']['preferences']);
         self::assertArrayHasKey('createdAt', $this->jsonResponse()['user']);
         self::assertArrayHasKey('updatedAt', $this->jsonResponse()['user']);
 
@@ -603,6 +607,26 @@ class AuthApiTest extends ApiTestCase
 
         $this->jsonRequest('PATCH', '/me/display-name-style', [
             'presetId' => 'not-available',
+        ], $token);
+        self::assertResponseStatusCodeSame(400);
+    }
+
+    public function testProfileLanguagePreferencesCanBeUpdated(): void
+    {
+        $token = $this->registerAndLogin('language@example.test', 'Language User');
+
+        $this->jsonRequest('PATCH', '/me', [
+            'cardLanguage' => 'ja',
+            'appLanguage' => 'es',
+        ], $token);
+        self::assertResponseIsSuccessful();
+        self::assertSame([
+            'cardLanguage' => 'ja',
+            'appLanguage' => 'es',
+        ], $this->jsonResponse()['user']['preferences']);
+
+        $this->jsonRequest('PATCH', '/me', [
+            'cardLanguage' => 'zzz',
         ], $token);
         self::assertResponseStatusCodeSame(400);
     }

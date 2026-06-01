@@ -1,15 +1,15 @@
 <app-modal
   [open]="open()"
-  title="Settings"
-  secondaryLabel="Cancel"
-  primaryLabel="Save"
+  [title]="settingsTitle()"
+  [secondaryLabel]="cancelLabel()"
+  [primaryLabel]="saveLabel()"
   [showSecondary]="!nestedEditorOpen()"
   [showPrimary]="!nestedEditorOpen()"
   [primaryDisabled]="!canSave()"
   [showBackButton]="nestedEditorOpen()"
-  backLabel="Back to settings"
+  [backLabel]="backToSettingsLabel()"
   [showHeaderAction]="avatarEditorOpen() && (avatarUploadOpen() || avatarEditorTier() === 'premium')"
-  [headerActionLabel]="avatarUploadOpen() ? 'Predefined avatars' : 'Upload image'"
+  [headerActionLabel]="avatarUploadOpen() ? predefinedAvatarsLabel() : uploadImageLabel()"
   (back)="closeNestedEditor()"
   (headerAction)="toggleAvatarUploadMode()"
   (secondary)="cancel()"
@@ -49,9 +49,9 @@
         }
       }
     } @else {
-      <nav class="settings-tabs" aria-label="Settings sections">
-        <button type="button" [class.active]="activeTab() === 'general'" (click)="switchTab('general')">General</button>
-        <button type="button" [class.active]="activeTab() === 'game'" (click)="switchTab('game')">Game</button>
+      <nav class="settings-tabs" [attr.aria-label]="settingsSectionsLabel()">
+        <button type="button" [class.active]="activeTab() === 'general'" (click)="switchTab('general')">{{ generalTabLabel() }}</button>
+        <button type="button" [class.active]="activeTab() === 'game'" (click)="switchTab('game')">{{ gameTabLabel() }}</button>
       </nav>
 
       <section class="settings-content">
@@ -159,8 +159,30 @@
             </div>
           </form>
         } @else {
-          <section class="game-tab-placeholder">
-            <p>Hello world</p>
+          <section class="settings-form game-settings-form">
+            <label>
+              {{ cardLanguageLabel() }}
+              <select
+                [value]="selectedCardLanguage()"
+                (change)="setCardLanguage($any($event.target).value)"
+              >
+                @for (language of localizedLanguageOptions(); track language.code) {
+                  <option [value]="language.code" [selected]="selectedCardLanguage() === language.code">{{ language.label }}</option>
+                }
+              </select>
+            </label>
+
+            <label>
+              {{ appLanguageLabel() }}
+              <select
+                [value]="selectedAppLanguage()"
+                (change)="setAppLanguage($any($event.target).value)"
+              >
+                @for (language of localizedLanguageOptions(); track language.code) {
+                  <option [value]="language.code" [selected]="selectedAppLanguage() === language.code">{{ language.label }}</option>
+                }
+              </select>
+            </label>
           </section>
         }
       </section>

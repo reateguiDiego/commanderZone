@@ -1217,13 +1217,26 @@ final readonly class GameWebsocketPatchBuilder
             return null;
         }
 
-        return [
+        $operations = [
             [
                 'op' => 'player.status.set',
                 'playerId' => $playerId,
                 'status' => (string) ($nextSnapshot['players'][$playerId]['status'] ?? 'active'),
                 'concededAt' => $nextSnapshot['players'][$playerId]['concededAt'] ?? null,
             ],
+        ];
+
+        $previousTurn = $previousSnapshot['turn'] ?? null;
+        $nextTurn = $nextSnapshot['turn'] ?? null;
+        if (is_array($previousTurn) && is_array($nextTurn) && $previousTurn !== $nextTurn) {
+            $operations[] = [
+                'op' => 'turn.set',
+                'turn' => $nextTurn,
+            ];
+        }
+
+        return [
+            ...$operations,
             ...$this->eventLogAppendOperation($previousSnapshot, $nextSnapshot),
         ];
     }

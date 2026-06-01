@@ -556,10 +556,18 @@ TXT,
         $firstPrint = $this->seedCard('00000000-0000-0000-0000-000000000201', 'Sol Ring', [
             'set' => 'one',
             'collector_number' => '1',
+            'lang' => 'en',
         ]);
         $secondPrint = $this->seedCard('00000000-0000-0000-0000-000000000202', 'Sol Ring', [
             'set' => 'two',
             'collector_number' => '2',
+            'lang' => 'es',
+            'printed_name' => 'Anillo solar',
+        ]);
+        $thirdPrint = $this->seedCard('00000000-0000-0000-0000-000000000204', 'Sol Ring', [
+            'set' => 'three',
+            'collector_number' => '3',
+            'lang' => 'pt',
         ]);
         $differentCard = $this->seedCard('00000000-0000-0000-0000-000000000203', 'Arcane Signet', [
             'set' => 'one',
@@ -577,11 +585,19 @@ TXT,
         $deckId = (string) $deck['id'];
         $deckCardId = (string) $deck['cards'][0]['id'];
 
+        $this->jsonRequest('PATCH', '/me', ['cardLanguage' => 'es'], $token);
+        self::assertResponseIsSuccessful();
+
         $this->jsonRequest('GET', '/decks/'.$deckId.'/cards/'.$deckCardId.'/printings', token: $token);
         self::assertResponseIsSuccessful();
         $printings = $this->jsonResponse()['data'];
         self::assertSame($firstPrint->scryfallId(), $printings[0]['scryfallId']);
         self::assertContains($secondPrint->scryfallId(), array_column($printings, 'scryfallId'));
+        self::assertContains($thirdPrint->scryfallId(), array_column($printings, 'scryfallId'));
+        self::assertLessThan(
+            array_search($thirdPrint->scryfallId(), array_column($printings, 'scryfallId'), true),
+            array_search($secondPrint->scryfallId(), array_column($printings, 'scryfallId'), true),
+        );
         self::assertNotContains($differentCard->scryfallId(), array_column($printings, 'scryfallId'));
 
         $this->jsonRequest('PATCH', '/decks/'.$deckId.'/cards/'.$deckCardId.'/printing', [

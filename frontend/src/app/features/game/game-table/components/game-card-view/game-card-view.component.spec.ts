@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { importProvidersFrom } from '@angular/core';
-import { Layers3, Link, LucideAngularModule, RotateCw } from 'lucide-angular';
+import { CircleQuestionMark, Layers3, Link, LucideAngularModule, RotateCw } from 'lucide-angular';
 import { GameCardInstance } from '../../../../../core/models/game.model';
 import { CARD_PREVIEW_HOVER_DELAY_MS } from '../../models/card-preview.model';
 import { GameCardViewComponent } from './game-card-view.component';
@@ -518,6 +518,155 @@ describe('GameCardViewComponent', () => {
     expect(fixture.nativeElement.querySelector('.token-copy-marker')).toBeNull();
   });
 
+  it('shows the rulings marker for visible non-token battlefield cards with scryfall id', async () => {
+    const { fixture } = await renderHandCard();
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ data: [{ object: 'ruling' }] }),
+    } as Response);
+
+    fixture.componentRef.setInput('mode', 'battlefield');
+    fixture.componentRef.setInput('zone', 'battlefield');
+    fixture.componentRef.setInput('card', { ...gameCard(), scryfallId: 'e71c8c39-3fbb-4a42-9cf6-b3224f5a56fc' });
+    fixture.detectChanges();
+
+    await vi.waitFor(() => {
+      expect(fixture.nativeElement.querySelector('.oracle-rulings-marker')).not.toBeNull();
+    });
+    fetchSpy.mockRestore();
+  });
+
+  it('does not show the rulings marker when the card has no rulings', async () => {
+    const { fixture } = await renderHandCard();
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ data: [] }),
+    } as Response);
+
+    fixture.componentRef.setInput('mode', 'battlefield');
+    fixture.componentRef.setInput('zone', 'battlefield');
+    fixture.componentRef.setInput('card', { ...gameCard(), scryfallId: '33333333-3fbb-4a42-9cf6-b3224f5a56fc' });
+    fixture.detectChanges();
+
+    await vi.waitFor(() => {
+      expect(fetchSpy).toHaveBeenCalledWith('https://api.scryfall.com/cards/33333333-3fbb-4a42-9cf6-b3224f5a56fc/rulings');
+    });
+    expect(fixture.nativeElement.querySelector('.oracle-rulings-marker')).toBeNull();
+    fetchSpy.mockRestore();
+  });
+
+  it('hides the rulings marker for hidden or face-down cards', async () => {
+    const { fixture } = await renderHandCard();
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ data: [{ object: 'ruling' }] }),
+    } as Response);
+
+    fixture.componentRef.setInput('mode', 'battlefield');
+    fixture.componentRef.setInput('zone', 'battlefield');
+    fixture.componentRef.setInput('card', { ...gameCard(), scryfallId: 'e71c8c39-3fbb-4a42-9cf6-b3224f5a56fc' });
+    fixture.detectChanges();
+    await vi.waitFor(() => {
+      expect(fixture.nativeElement.querySelector('.oracle-rulings-marker')).not.toBeNull();
+    });
+
+    fixture.componentRef.setInput('hidden', true);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.oracle-rulings-marker')).toBeNull();
+
+    fixture.componentRef.setInput('hidden', false);
+    fixture.componentRef.setInput('faceDown', true);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.oracle-rulings-marker')).toBeNull();
+    fetchSpy.mockRestore();
+  });
+
+  it('hides the rulings marker for tokens and token copies', async () => {
+    const { fixture } = await renderHandCard();
+
+    fixture.componentRef.setInput('mode', 'battlefield');
+    fixture.componentRef.setInput('zone', 'battlefield');
+    fixture.componentRef.setInput('card', { ...gameCard(), scryfallId: 'e71c8c39-3fbb-4a42-9cf6-b3224f5a56fc', isToken: true });
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.oracle-rulings-marker')).toBeNull();
+
+    fixture.componentRef.setInput('card', {
+      ...gameCard(),
+      scryfallId: 'e71c8c39-3fbb-4a42-9cf6-b3224f5a56fc',
+      isToken: false,
+      isTokenCopy: true,
+    });
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.oracle-rulings-marker')).toBeNull();
+  });
+
+  it('does not show the rulings marker in hand mode', async () => {
+    const { fixture } = await renderHandCard();
+
+    fixture.componentRef.setInput('card', { ...gameCard(), scryfallId: 'e71c8c39-3fbb-4a42-9cf6-b3224f5a56fc' });
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.oracle-rulings-marker')).toBeNull();
+  });
+
+  it('opens scryfall rulings in a new tab from the rulings marker without triggering card click', async () => {
+    const { fixture } = await renderHandCard();
+    const clicked = vi.fn();
+    const open = vi.spyOn(window, 'open').mockImplementation(() => null);
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ data: [{ object: 'ruling' }] }),
+    } as Response);
+    fixture.componentInstance.cardClicked.subscribe(clicked);
+
+    fixture.componentRef.setInput('mode', 'battlefield');
+    fixture.componentRef.setInput('zone', 'battlefield');
+    fixture.componentRef.setInput('card', { ...gameCard(), scryfallId: '11111111-3fbb-4a42-9cf6-b3224f5a56fc' });
+    fixture.detectChanges();
+
+    await vi.waitFor(() => {
+      expect(fixture.nativeElement.querySelector('.oracle-rulings-marker')).not.toBeNull();
+    });
+
+    const marker = fixture.nativeElement.querySelector('.oracle-rulings-marker') as HTMLElement;
+    marker?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+    await vi.waitFor(() => {
+      expect(open).toHaveBeenCalledWith(
+        'https://scryfall.com/card/11111111-3fbb-4a42-9cf6-b3224f5a56fc#rulings',
+        '_blank',
+        'noopener',
+      );
+    });
+    expect(fetchSpy).toHaveBeenCalledWith('https://api.scryfall.com/cards/11111111-3fbb-4a42-9cf6-b3224f5a56fc/rulings');
+    expect(clicked).not.toHaveBeenCalled();
+    fetchSpy.mockRestore();
+    open.mockRestore();
+  });
+
+  it('does not open scryfall when the card has no rulings', async () => {
+    const { fixture } = await renderHandCard();
+    const open = vi.spyOn(window, 'open').mockImplementation(() => null);
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ data: [] }),
+    } as Response);
+
+    fixture.componentRef.setInput('mode', 'battlefield');
+    fixture.componentRef.setInput('zone', 'battlefield');
+    fixture.componentRef.setInput('card', { ...gameCard(), scryfallId: '22222222-3fbb-4a42-9cf6-b3224f5a56fc' });
+    fixture.detectChanges();
+
+    await vi.waitFor(() => {
+      expect(fetchSpy).toHaveBeenCalledWith('https://api.scryfall.com/cards/22222222-3fbb-4a42-9cf6-b3224f5a56fc/rulings');
+    });
+
+    expect(fixture.nativeElement.querySelector('.oracle-rulings-marker')).toBeNull();
+    expect(open).not.toHaveBeenCalled();
+    fetchSpy.mockRestore();
+    open.mockRestore();
+  });
+
   it('plays a face flip animation when the active face changes on the same card', async () => {
     vi.useFakeTimers();
     const { fixture, cardElement } = await renderHandCard();
@@ -634,7 +783,7 @@ describe('GameCardViewComponent', () => {
   it('shows a smaller face look affordance in mini mode and emits the alternate preview request', async () => {
     await TestBed.configureTestingModule({
       imports: [GameCardViewComponent],
-      providers: [importProvidersFrom(LucideAngularModule.pick({ Link, Layers3, RotateCw }))],
+      providers: [importProvidersFrom(LucideAngularModule.pick({ CircleQuestionMark, Link, Layers3, RotateCw }))],
     }).compileComponents();
 
     const fixture = TestBed.createComponent(GameCardViewComponent);
@@ -900,7 +1049,7 @@ describe('GameCardViewComponent', () => {
   it('does not render marker rails in mini mode', async () => {
     await TestBed.configureTestingModule({
       imports: [GameCardViewComponent],
-      providers: [importProvidersFrom(LucideAngularModule.pick({ Link, Layers3, RotateCw }))],
+      providers: [importProvidersFrom(LucideAngularModule.pick({ CircleQuestionMark, Link, Layers3, RotateCw }))],
     }).compileComponents();
 
     const fixture = TestBed.createComponent(GameCardViewComponent);
@@ -924,7 +1073,7 @@ async function renderHandCard(
 ): Promise<{ fixture: ComponentFixture<GameCardViewComponent>; cardElement: HTMLButtonElement }> {
   await TestBed.configureTestingModule({
     imports: [GameCardViewComponent],
-    providers: [importProvidersFrom(LucideAngularModule.pick({ Link, Layers3, RotateCw }))],
+    providers: [importProvidersFrom(LucideAngularModule.pick({ CircleQuestionMark, Link, Layers3, RotateCw }))],
   }).compileComponents();
 
   const fixture = TestBed.createComponent(GameCardViewComponent);

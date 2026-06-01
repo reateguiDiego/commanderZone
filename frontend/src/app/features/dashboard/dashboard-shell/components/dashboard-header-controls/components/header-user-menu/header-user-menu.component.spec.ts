@@ -1,13 +1,53 @@
 import { importProvidersFrom } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { signal } from '@angular/core';
 import { Check, ChevronRight, LogOut, LucideAngularModule, Maximize2, Menu, Settings } from 'lucide-angular';
+import { LanguagePreferencesService } from '../../../../../../../core/localization/language-preferences.service';
 import { HeaderUserMenuComponent } from './header-user-menu.component';
 
 describe('HeaderUserMenuComponent', () => {
+  const cardLanguageSignal = signal<'en' | 'fr' | 'es' | 'de' | 'it' | 'ja' | 'zhs' | 'pt' | 'ru' | 'ko' | 'zht' | 'nl' | 'ca'>('en');
+  const appLanguageSignal = signal<'en' | 'fr' | 'es' | 'de' | 'it' | 'ja' | 'zhs' | 'pt' | 'ru' | 'ko' | 'zht' | 'nl' | 'ca'>('en');
+  const updatePreferences = vi.fn(async (payload: {
+    cardLanguage?: 'en' | 'fr' | 'es' | 'de' | 'it' | 'ja' | 'zhs' | 'pt' | 'ru' | 'ko' | 'zht' | 'nl' | 'ca';
+    appLanguage?: 'en' | 'fr' | 'es' | 'de' | 'it' | 'ja' | 'zhs' | 'pt' | 'ru' | 'ko' | 'zht' | 'nl' | 'ca';
+  }) => {
+    if (payload.cardLanguage) {
+      cardLanguageSignal.set(payload.cardLanguage);
+    }
+    if (payload.appLanguage) {
+      appLanguageSignal.set(payload.appLanguage);
+    }
+  });
+
   beforeEach(async () => {
+    cardLanguageSignal.set('en');
+    appLanguageSignal.set('en');
+    updatePreferences.mockReset();
+    updatePreferences.mockImplementation(async (payload: {
+      cardLanguage?: 'en' | 'fr' | 'es' | 'de' | 'it' | 'ja' | 'zhs' | 'pt' | 'ru' | 'ko' | 'zht' | 'nl' | 'ca';
+      appLanguage?: 'en' | 'fr' | 'es' | 'de' | 'it' | 'ja' | 'zhs' | 'pt' | 'ru' | 'ko' | 'zht' | 'nl' | 'ca';
+    }) => {
+      if (payload.cardLanguage) {
+        cardLanguageSignal.set(payload.cardLanguage);
+      }
+      if (payload.appLanguage) {
+        appLanguageSignal.set(payload.appLanguage);
+      }
+    });
     await TestBed.configureTestingModule({
       imports: [HeaderUserMenuComponent],
-      providers: [importProvidersFrom(LucideAngularModule.pick({ Check, ChevronRight, LogOut, Maximize2, Menu, Settings }))],
+      providers: [
+        importProvidersFrom(LucideAngularModule.pick({ Check, ChevronRight, LogOut, Maximize2, Menu, Settings })),
+        {
+          provide: LanguagePreferencesService,
+          useValue: {
+            cardLanguage: cardLanguageSignal.asReadonly(),
+            appLanguage: appLanguageSignal.asReadonly(),
+            updatePreferences,
+          } satisfies Pick<LanguagePreferencesService, 'cardLanguage' | 'appLanguage' | 'updatePreferences'>,
+        },
+      ],
     }).compileComponents();
   });
 
@@ -55,8 +95,10 @@ describe('HeaderUserMenuComponent', () => {
     expect(fixture.nativeElement.querySelector('.header-menu-panel')).toBeNull();
   });
 
-  it('updates selected language from the language picker', () => {
+  it('updates selected language from the language picker', async () => {
     const fixture = TestBed.createComponent(HeaderUserMenuComponent);
+    const reloadSpy = vi.spyOn(fixture.componentInstance as unknown as { reloadPage(): void }, 'reloadPage')
+      .mockImplementation(() => undefined);
     fixture.detectChanges();
 
     const trigger = fixture.nativeElement.querySelector('.icon-button') as HTMLButtonElement;
@@ -75,11 +117,13 @@ describe('HeaderUserMenuComponent', () => {
       fixture.nativeElement.querySelectorAll('.language-item') as NodeListOf<HTMLButtonElement>,
     );
     const frenchButton = languageItems
-      .find((button) => button.textContent?.includes('Frances')) as HTMLButtonElement;
+      .find((button) => button.textContent?.includes('French')) as HTMLButtonElement;
     frenchButton.click();
     fixture.detectChanges();
+    await Promise.resolve();
 
-    expect(fixture.componentInstance.selectedLanguage()).toBe('fr');
+    expect(updatePreferences).toHaveBeenCalledWith({ cardLanguage: 'fr', appLanguage: 'fr' });
+    expect(reloadSpy).toHaveBeenCalledTimes(1);
     expect(
       (fixture.nativeElement.querySelector('.menu-item-flag') as HTMLImageElement)?.getAttribute('src'),
     ).toContain('france.png');
@@ -130,7 +174,7 @@ describe('HeaderUserMenuComponent', () => {
     );
     const labels = languageItems.map((button) => button.textContent ?? '');
 
-    expect(labels.some((text) => text.includes('Holandes'))).toBe(true);
+    expect(labels.some((text) => text.includes('Dutch'))).toBe(true);
     expect(labels.some((text) => text.includes('Catalan'))).toBe(true);
   });
 

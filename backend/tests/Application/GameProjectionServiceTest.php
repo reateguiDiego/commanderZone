@@ -2,6 +2,7 @@
 
 namespace App\Tests\Application;
 
+use App\Application\Card\CardLocalizationService;
 use App\Application\Game\GameCommandHandler;
 use App\Application\Game\GameProjectionService;
 use App\Domain\User\User;
@@ -179,6 +180,95 @@ class GameProjectionServiceTest extends TestCase
 
         self::assertFalse($hand[0]['tapped']);
         self::assertSame(0, $hand[0]['rotation']);
+    }
+
+    public function testProjectionLocalizesVisibleCardsPerViewerLanguageWithoutLeakingHiddenZones(): void
+    {
+        $owner = new User('owner@example.test', 'Owner');
+        $spanishViewer = new User('spanish@example.test', 'Spanish');
+        $frenchViewer = new User('french@example.test', 'French');
+        $spanishViewer->updateCardLanguage('es');
+        $frenchViewer->updateCardLanguage('fr');
+
+        $snapshot = $this->snapshot($owner->id(), $spanishViewer->id());
+        $snapshot['players'][$frenchViewer->id()] = $this->player($frenchViewer->id(), []);
+        $snapshot['players'][$owner->id()]['zones']['battlefield'] = [[
+            ...$this->card('public-card', 'Sol Ring'),
+            'ownerId' => $owner->id(),
+            'controllerId' => $owner->id(),
+            'zone' => 'battlefield',
+            'scryfallId' => 'sol-ring-print',
+            'revealedTo' => ['all'],
+        ]];
+        $snapshot['players'][$owner->id()]['zones']['hand'] = [[
+            ...$this->card('hidden-hand', 'Private Spell'),
+            'ownerId' => $owner->id(),
+            'controllerId' => $owner->id(),
+            'zone' => 'hand',
+            'scryfallId' => 'private-print',
+        ]];
+
+        $localization = $this->getMockBuilder(CardLocalizationService::class)
+            ->disableOriginalConstructor()
+            ->onlyMethods(['primeForLanguage', 'localizeCardPayload'])
+            ->getMock();
+        $localization
+            ->method('localizeCardPayload')
+            ->willReturnCallback(static function (array $card, ?string $language, bool $preserveIdentity): array {
+                if ($preserveIdentity && ($card['scryfallId'] ?? null) === 'sol-ring-print') {
+                    $card['name'] = $language === 'es' ? 'Anillo solar' : ($language === 'fr' ? 'Anneau solaire' : $card['name']);
+                }
+
+                return $card;
+            });
+
+        $projection = new GameProjectionService(new GameCommandHandler(), $localization);
+
+        $spanishProjection = $projection->projectSnapshot($snapshot, $spanishViewer);
+        $frenchProjection = $projection->projectSnapshot($snapshot, $frenchViewer);
+
+        self::assertSame('Anillo solar', $spanishProjection['players'][$owner->id()]['zones']['battlefield'][0]['name']);
+        self::assertSame('Anneau solaire', $frenchProjection['players'][$owner->id()]['zones']['battlefield'][0]['name']);
+        self::assertSame('Hidden card', $spanishProjection['players'][$owner->id()]['zones']['hand'][0]['name']);
+        self::assertSame('Hidden card', $frenchProjection['players'][$owner->id()]['zones']['hand'][0]['name']);
+    }
+
+    public function testProjectionCanUsePrecomputedLocalizationLookupWithoutServiceHydration(): void
+    {
+        $owner = new User('owner@example.test', 'Owner');
+        $spanishViewer = new User('spanish@example.test', 'Spanish');
+        $spanishViewer->updateCardLanguage('es');
+
+        $snapshot = $this->snapshot($owner->id(), $spanishViewer->id());
+        $snapshot['players'][$owner->id()]['zones']['battlefield'] = [[
+            ...$this->card('public-card', 'Sol Ring'),
+            'ownerId' => $owner->id(),
+            'controllerId' => $owner->id(),
+            'zone' => 'battlefield',
+            'scryfallId' => 'sol-ring-print',
+            'revealedTo' => ['all'],
+        ]];
+
+        $lookup = [
+            'es' => [
+                'sol-ring-print' => [
+                    'name' => 'Anillo solar',
+                    'printedName' => 'Anillo solar',
+                    'lang' => 'es',
+                    'imageUris' => ['normal' => 'https://cards.example/sol-ring-es.jpg'],
+                    'cardFaces' => [],
+                    'typeLine' => 'Artefacto',
+                    'manaCost' => '{1}',
+                    'oracleText' => '{T}: Agrega {C}.',
+                ],
+            ],
+        ];
+
+        $projection = (new GameProjectionService(new GameCommandHandler()))->projectSnapshot($snapshot, $spanishViewer, true, $lookup);
+
+        self::assertSame('Anillo solar', $projection['players'][$owner->id()]['zones']['battlefield'][0]['name']);
+        self::assertSame('es', $projection['players'][$owner->id()]['zones']['battlefield'][0]['lang']);
+        self::assertSame('Artefacto', $projection['players'][$owner->id()]['zones']['battlefield'][0]['typeLine']);
     }
 
     public function testProjectedSnapshotPreservesGameplayContractFieldsForUiBootstrap(): void

@@ -4,6 +4,7 @@ import { of } from 'rxjs';
 import { ArrowLeft, Check, LucideAngularModule, Trash2, Upload, X } from 'lucide-angular';
 import { AuthApi } from '../../../../../../../core/api/auth.api';
 import { AuthStore } from '../../../../../../../core/auth/auth.store';
+import { LanguagePreferencesService } from '../../../../../../../core/localization/language-preferences.service';
 import { DashboardSettingsModalComponent } from './dashboard-settings-modal.component';
 
 describe('DashboardSettingsModalComponent', () => {
@@ -17,8 +18,20 @@ describe('DashboardSettingsModalComponent', () => {
   };
 
   const authStoreMock = {
-    user: signal({ id: 'user-1', email: 'player@example.test', displayName: 'Player', roles: ['ROLE_USER'], avatar: { type: 'initial', imageUrl: null }, displayNameStyle: { type: 'plain', presetId: 'plain' } }),
+    user: signal({
+      id: 'user-1',
+      email: 'player@example.test',
+      displayName: 'Player',
+      roles: ['ROLE_USER'],
+      avatar: { type: 'initial', imageUrl: null },
+      displayNameStyle: { type: 'plain', presetId: 'plain' },
+      preferences: { cardLanguage: 'en', appLanguage: 'en' },
+    }),
     loadMe: vi.fn(async () => undefined),
+  };
+  const languagePreferencesMock = {
+    cardLanguage: signal<'en' | 'fr' | 'de' | 'it' | 'es' | 'ja' | 'zhs' | 'pt' | 'ru' | 'ko' | 'zht' | 'nl' | 'ca'>('en').asReadonly(),
+    appLanguage: signal<'en' | 'fr' | 'de' | 'it' | 'es' | 'ja' | 'zhs' | 'pt' | 'ru' | 'ko' | 'zht' | 'nl' | 'ca'>('en').asReadonly(),
   };
 
   beforeEach(async () => {
@@ -30,6 +43,7 @@ describe('DashboardSettingsModalComponent', () => {
         importProvidersFrom(LucideAngularModule.pick({ ArrowLeft, Check, Trash2, Upload, X })),
         { provide: AuthApi, useValue: authApiMock },
         { provide: AuthStore, useValue: authStoreMock },
+        { provide: LanguagePreferencesService, useValue: languagePreferencesMock },
       ],
     }).compileComponents();
   });
@@ -47,7 +61,8 @@ describe('DashboardSettingsModalComponent', () => {
     gameTab.click();
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.textContent).toContain('Hello world');
+    expect(fixture.nativeElement.textContent).toContain('Card language');
+    expect(fixture.nativeElement.textContent).toContain('App language');
   });
 
   it('disables save when there are no changes', () => {
@@ -55,7 +70,12 @@ describe('DashboardSettingsModalComponent', () => {
     fixture.componentRef.setInput('open', true);
     fixture.detectChanges();
 
-    fixture.componentInstance.profileBaseline.set({ email: 'player@example.test', displayName: 'Player' });
+    fixture.componentInstance.profileBaseline.set({
+      email: 'player@example.test',
+      displayName: 'Player',
+      cardLanguage: 'en',
+      appLanguage: 'en',
+    });
     fixture.componentInstance.profileForm.setValue({ email: 'player@example.test', displayName: 'Player' });
     expect(fixture.componentInstance.canSave()).toBe(false);
   });
@@ -69,6 +89,64 @@ describe('DashboardSettingsModalComponent', () => {
     fixture.detectChanges();
 
     expect(fixture.componentInstance.canSave()).toBe(true);
+  });
+
+  it('persists game language preferences through /me', async () => {
+    const fixture = TestBed.createComponent(DashboardSettingsModalComponent);
+    const reloadSpy = vi.spyOn(fixture.componentInstance as unknown as { reloadPage(): void }, 'reloadPage')
+      .mockImplementation(() => undefined);
+    fixture.componentRef.setInput('open', true);
+    fixture.detectChanges();
+
+    fixture.componentInstance.setCardLanguage('es');
+    fixture.componentInstance.setAppLanguage('fr');
+    fixture.detectChanges();
+
+    await fixture.componentInstance.savePreferences();
+
+    expect(authApiMock.updateMe).toHaveBeenCalledWith({ cardLanguage: 'es', appLanguage: 'fr' });
+    expect(authStoreMock.loadMe).toHaveBeenCalled();
+    expect(reloadSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('persists only app language changes without forcing reload', async () => {
+    const fixture = TestBed.createComponent(DashboardSettingsModalComponent);
+    const reloadSpy = vi.spyOn(fixture.componentInstance as unknown as { reloadPage(): void }, 'reloadPage')
+      .mockImplementation(() => undefined);
+    fixture.componentRef.setInput('open', true);
+    fixture.detectChanges();
+
+    fixture.componentInstance.setAppLanguage('fr');
+    fixture.detectChanges();
+
+    await fixture.componentInstance.savePreferences();
+
+    expect(authApiMock.updateMe).toHaveBeenCalledWith({ appLanguage: 'fr' });
+    expect(reloadSpy).not.toHaveBeenCalled();
+  });
+
+  it('shows persisted language selections in game tab selectors', () => {
+    const fixture = TestBed.createComponent(DashboardSettingsModalComponent);
+    fixture.componentRef.setInput('open', true);
+    fixture.detectChanges();
+
+    fixture.componentInstance.profileBaseline.set({
+      email: 'player@example.test',
+      displayName: 'Player',
+      cardLanguage: 'fr',
+      appLanguage: 'de',
+    });
+    fixture.componentInstance.selectedCardLanguage.set('fr');
+    fixture.componentInstance.selectedAppLanguage.set('de');
+    fixture.componentInstance.switchTab('game');
+    fixture.detectChanges();
+
+    const selects = fixture.nativeElement.querySelectorAll('.game-settings-form select') as NodeListOf<HTMLSelectElement>;
+    const cardLanguageSelect = selects.item(0);
+    const appLanguageSelect = selects.item(1);
+
+    expect(cardLanguageSelect?.value).toBe('fr');
+    expect(appLanguageSelect?.value).toBe('de');
   });
 
   it('shows avatar editor and persists preset selection through the API', async () => {

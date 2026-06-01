@@ -7,6 +7,7 @@ use App\Application\Game\GameDisconnectVoteService;
 use App\Application\Game\GameProjectionService;
 use App\Domain\Game\Game;
 use App\Domain\Game\GameEvent;
+use App\Domain\Localization\LanguageCatalog;
 use App\Domain\Room\RoomPlayer;
 use App\Domain\User\User;
 use Doctrine\DBAL\Exception\DeadlockException;
@@ -26,6 +27,7 @@ final readonly class GameWebsocketCommandPatchService
         private GameWebsocketRoomRegistry $rooms,
         private ManagerRegistry $managerRegistry,
         private GameProjectionService $projection,
+        private ?GameWebsocketCardLocalizationResolver $cardLocalizationResolver = null,
     ) {
     }
 
@@ -290,11 +292,13 @@ final readonly class GameWebsocketCommandPatchService
      */
     private function projectedResult(Game $game, array $previousSnapshot, array $nextSnapshot, GameEvent $event, ?array $eventPayload): GameWebsocketCommandResult
     {
+        $viewers = $this->viewers($game);
+        $localizedLookup = $this->localizedLookup($previousSnapshot, $nextSnapshot, $viewers);
         $messagesByUserId = [];
-        foreach ($this->viewers($game) as $viewer) {
+        foreach ($viewers as $viewer) {
             $viewerCanUseOwnHiddenZones = $game->room()->hasPlayer($viewer);
-            $previousProjection = $this->projection->projectSnapshot($previousSnapshot, $viewer, $viewerCanUseOwnHiddenZones);
-            $nextProjection = $this->projection->projectSnapshot($nextSnapshot, $viewer, $viewerCanUseOwnHiddenZones);
+            $previousProjection = $this->projection->projectSnapshot($previousSnapshot, $viewer, $viewerCanUseOwnHiddenZones, $localizedLookup);
+            $nextProjection = $this->projection->projectSnapshot($nextSnapshot, $viewer, $viewerCanUseOwnHiddenZones, $localizedLookup);
             $messagesByUserId[$viewer->id()] = $this->patches->build($game->id(), $previousProjection, $nextProjection, $event, $eventPayload, $viewer->id());
         }
 
@@ -322,5 +326,37 @@ final readonly class GameWebsocketCommandPatchService
     private function snapshotVersion(Game $game): int
     {
         return max(1, (int) ($game->snapshot()['version'] ?? 1));
+    }
+
+    /**
+     * @param list<User> $viewers
+     *
+     * @return array<string,array<string,array<string,mixed>>>
+     */
+    private function localizedLookup(array $previousSnapshot, array $nextSnapshot, array $viewers): array
+    {
+        if (!$this->cardLocalizationResolver instanceof GameWebsocketCardLocalizationResolver) {
+            return [];
+        }
+
+        $languages = [];
+        foreach ($viewers as $viewer) {
+            $language = LanguageCatalog::normalize($viewer->cardLanguage());
+            if ($language === null || !LanguageCatalog::isSupported($language)) {
+                continue;
+            }
+
+            $languages[$language] = true;
+        }
+
+        if ($languages === []) {
+            return [];
+        }
+
+        return $this->cardLocalizationResolver->buildLocalizedLookup(
+            $previousSnapshot,
+            $nextSnapshot,
+            array_keys($languages),
+        );
     }
 }

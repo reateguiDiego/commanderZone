@@ -16,6 +16,7 @@ use App\Domain\Room\RoomWaitingLogEntry;
 use App\Domain\User\User;
 use App\Infrastructure\Realtime\RoomEventPublisher;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Attribute\Route;
@@ -72,6 +73,7 @@ class RoomsController extends ApiController
         EntityManagerInterface $entityManager,
         RoomEventPublisher $roomEventPublisher,
         ActiveRoomMembershipService $activeRoomMembership,
+        LoggerInterface $logger,
     ): JsonResponse
     {
         $payload = $this->payload($request);
@@ -106,8 +108,21 @@ class RoomsController extends ApiController
         $room->addPlayer(new RoomPlayer($room, $user, $deck));
         $room->appendWaitingLog(sprintf('%s joined the room.', $this->userDisplayName($user)), RoomWaitingLogEntry::TONE_SUCCESS);
 
-        $entityManager->persist($room);
-        $entityManager->flush();
+        try {
+            $entityManager->persist($room);
+            $entityManager->flush();
+        } catch (\Throwable $exception) {
+            $logger->critical('Room creation failed while persisting waiting room state. Check pending migrations/schema mismatch.', [
+                'ownerId' => $user->id(),
+                'ownerEmail' => $user->email(),
+                'roomVisibility' => $room->visibility(),
+                'roomFormat' => $room->format(),
+                'payloadKeys' => array_keys($payload),
+                'exception' => $exception,
+            ]);
+
+            throw $exception;
+        }
         foreach ($deletedRoomIds as $deletedRoomId) {
             $roomEventPublisher->publishDeleted($deletedRoomId);
         }

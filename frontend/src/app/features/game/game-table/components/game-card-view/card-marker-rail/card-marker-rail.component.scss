@@ -1,9 +1,11 @@
 :host {
   position: absolute;
   inset-block-start: 0.34rem;
+  inset-block-end: 0.34rem;
   inset-inline-start: 5px;
   z-index: 8;
   pointer-events: none;
+  display: block;
 }
 
 :host(.inline-marker-rail) {
@@ -49,6 +51,42 @@
   height: 112%;
   object-fit: contain;
   filter: drop-shadow(0 0.12rem 0.16rem rgb(0 0 0 / 68%));
+}
+
+.oracle-rulings-marker {
+  position: absolute;
+  inset-block-end: 0;
+  inset-inline-start: 0;
+  display: grid;
+  width: 1.26rem;
+  min-width: 1.26rem;
+  height: 1.26rem;
+  min-height: 1.26rem;
+  place-items: center;
+  border-radius: 999px;
+  background: rgb(7 8 7 / 92%);
+  box-shadow:
+    0 0.2rem 0.55rem rgb(0 0 0 / 56%),
+    0 0 0.38rem rgb(215 180 106 / 18%);
+  pointer-events: auto;
+  cursor: pointer;
+  transition:
+    box-shadow 140ms ease,
+    filter 140ms ease,
+    transform 140ms ease;
+}
+
+.oracle-rulings-marker:hover,
+.oracle-rulings-marker:focus-visible {
+  box-shadow:
+    0 0.24rem 0.62rem rgb(0 0 0 / 56%),
+    0 0 0.62rem rgb(215 180 106 / 34%);
+  filter: brightness(1.08);
+}
+
+.oracle-rulings-marker lucide-icon {
+  color: var(--gold, #d7b46a);
+  filter: drop-shadow(0 0.1rem 0.16rem rgb(0 0 0 / 68%));
 }
 
 .counter-marker {
@@ -148,6 +186,17 @@
 .compact .token-copy-marker {
   width: 1.05rem;
   height: 1.05rem;
+}
+
+.compact .oracle-rulings-marker {
+  width: 0.9rem;
+  min-width: 0.9rem;
+  height: 0.9rem;
+  min-height: 0.9rem;
+}
+
+.compact .oracle-rulings-marker lucide-icon {
+  transform: scale(0.78);
 }
 
 .compact .counter-marker {

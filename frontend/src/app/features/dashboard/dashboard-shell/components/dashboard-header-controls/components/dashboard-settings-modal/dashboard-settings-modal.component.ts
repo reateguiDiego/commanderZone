@@ -6,6 +6,9 @@ import { catchError, debounceTime, distinctUntilChanged, firstValueFrom, map, of
 import { AuthApi, AvatarUpdatePayload, DisplayNameStyleUpdatePayload } from '../../../../../../../core/api/auth.api';
 import { appImageUrl } from '../../../../../../../core/assets/app-image-url';
 import { AuthStore } from '../../../../../../../core/auth/auth.store';
+import { AppShellI18nService } from '../../../../../../../core/localization/app-shell-i18n.service';
+import { isSupportedLanguageCode, LANGUAGE_OPTIONS, normalizeLanguageCode, SupportedLanguageCode } from '../../../../../../../core/localization/language-preferences';
+import { LanguagePreferencesService } from '../../../../../../../core/localization/language-preferences.service';
 import { UserAvatar, UserDisplayNameStyle } from '../../../../../../../core/models/user.model';
 import { AppModalComponent } from '../../../../../../../shared/ui/app-modal/app-modal.component';
 import { PlayerNameComponent } from '../../../../../../../shared/ui/player-name/player-name.component';
@@ -20,6 +23,8 @@ type AvatarTierTab = 'basic' | 'premium';
 interface ProfileSnapshot {
   readonly email: string;
   readonly displayName: string;
+  readonly cardLanguage: SupportedLanguageCode;
+  readonly appLanguage: SupportedLanguageCode;
 }
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -46,6 +51,8 @@ const DEFAULT_INITIAL_TEXT_COLOR = '#16120a';
 export class DashboardSettingsModalComponent {
   private readonly authStore = inject(AuthStore);
   private readonly authApi = inject(AuthApi);
+  private readonly languagePreferences = inject(LanguagePreferencesService);
+  private readonly i18n = inject(AppShellI18nService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly formBuilder = inject(NonNullableFormBuilder);
   private wasOpen = false;
@@ -68,7 +75,32 @@ export class DashboardSettingsModalComponent {
   readonly avatarUploadOpen = signal(false);
   readonly avatarEditorTier = signal<AvatarTierTab>('basic');
   readonly displayNameStyleEditorOpen = signal(false);
-  readonly profileBaseline = signal<ProfileSnapshot>({ email: '', displayName: '' });
+  readonly profileBaseline = signal<ProfileSnapshot>({
+    email: '',
+    displayName: '',
+    cardLanguage: 'en',
+    appLanguage: 'en',
+  });
+  readonly languageOptions = LANGUAGE_OPTIONS;
+  readonly localizedLanguageOptions = computed(() =>
+    this.languageOptions.map((language) => ({
+      ...language,
+      label: this.i18n.languageName(language.code),
+    })),
+  );
+  readonly settingsTitle = computed(() => this.i18n.text('settingsTitle'));
+  readonly cancelLabel = computed(() => this.i18n.text('cancel'));
+  readonly saveLabel = computed(() => this.i18n.text('save'));
+  readonly backToSettingsLabel = computed(() => this.i18n.text('backToSettings'));
+  readonly predefinedAvatarsLabel = computed(() => this.i18n.text('predefinedAvatars'));
+  readonly uploadImageLabel = computed(() => this.i18n.text('uploadImage'));
+  readonly settingsSectionsLabel = computed(() => this.i18n.text('settingsSections'));
+  readonly generalTabLabel = computed(() => this.i18n.text('generalTab'));
+  readonly gameTabLabel = computed(() => this.i18n.text('gameTab'));
+  readonly cardLanguageLabel = computed(() => this.i18n.text('cardLanguage'));
+  readonly appLanguageLabel = computed(() => this.i18n.text('appLanguage'));
+  readonly selectedCardLanguage = signal<SupportedLanguageCode>('en');
+  readonly selectedAppLanguage = signal<SupportedLanguageCode>('en');
 
   readonly profileForm = this.formBuilder.group({
     email: ['', [Validators.required, Validators.pattern(EMAIL_PATTERN)]],
@@ -82,7 +114,10 @@ export class DashboardSettingsModalComponent {
     const formValue = this.profileFormValue();
     const email = formValue.email.trim().toLowerCase();
     const displayName = formValue.displayName.trim();
-    return email !== baseline.email.toLowerCase() || displayName !== baseline.displayName;
+    return email !== baseline.email.toLowerCase()
+      || displayName !== baseline.displayName
+      || this.selectedCardLanguage() !== baseline.cardLanguage
+      || this.selectedAppLanguage() !== baseline.appLanguage;
   });
 
   readonly canSave = computed(() => {
@@ -212,9 +247,11 @@ export class DashboardSettingsModalComponent {
       return;
     }
 
-    const payload: { email?: string; displayName?: string } = {};
+    const payload: { email?: string; displayName?: string; cardLanguage?: SupportedLanguageCode; appLanguage?: SupportedLanguageCode } = {};
     const nextEmail = this.profileForm.controls.email.value.trim();
     const nextDisplayName = this.profileForm.controls.displayName.value.trim();
+    const nextCardLanguage = this.selectedCardLanguage();
+    const nextAppLanguage = this.selectedAppLanguage();
 
     if (this.emailChanged()) {
       payload.email = nextEmail;
@@ -222,18 +259,34 @@ export class DashboardSettingsModalComponent {
     if (this.displayNameChanged()) {
       payload.displayName = nextDisplayName;
     }
+    if (nextCardLanguage !== this.profileBaseline().cardLanguage) {
+      payload.cardLanguage = nextCardLanguage;
+    }
+    if (nextAppLanguage !== this.profileBaseline().appLanguage) {
+      payload.appLanguage = nextAppLanguage;
+    }
 
     this.saveInProgress.set(true);
     this.errorMessage.set(null);
     this.statusMessage.set(null);
+    const shouldReloadForCardLanguage = payload.cardLanguage !== undefined;
 
     try {
       await firstValueFrom(this.authApi.updateMe(payload));
       await this.authStore.loadMe();
-      this.profileBaseline.set({ email: nextEmail, displayName: nextDisplayName });
+      this.profileBaseline.set({
+        email: nextEmail,
+        displayName: nextDisplayName,
+        cardLanguage: nextCardLanguage,
+        appLanguage: nextAppLanguage,
+      });
       this.profileForm.markAsPristine();
       this.emailAvailability.set('idle');
       this.userNameAvailability.set('idle');
+      if (shouldReloadForCardLanguage) {
+        this.reloadPage();
+        return;
+      }
       this.statusMessage.set('Preferences saved.');
     } catch {
       this.errorMessage.set('No se pudieron guardar los cambios.');
@@ -320,19 +373,41 @@ export class DashboardSettingsModalComponent {
 
   private initializeForm(): void {
     const user = this.authStore.user();
+    const cardLanguage = normalizeLanguageCode(user?.preferences?.cardLanguage ?? this.languagePreferences.cardLanguage());
+    const appLanguage = normalizeLanguageCode(user?.preferences?.appLanguage ?? this.languagePreferences.appLanguage());
     const baseline = {
       email: user?.email ?? '',
       displayName: user?.displayName ?? '',
+      cardLanguage,
+      appLanguage,
     } satisfies ProfileSnapshot;
 
     this.profileBaseline.set(baseline);
-    this.profileForm.setValue(baseline);
+    this.selectedCardLanguage.set(cardLanguage);
+    this.selectedAppLanguage.set(appLanguage);
+    this.profileForm.setValue({ email: baseline.email, displayName: baseline.displayName });
     this.profileForm.markAsPristine();
     this.profileForm.markAsUntouched();
     this.profileFormValue.set(this.profileForm.getRawValue());
     this.profileFormValid.set(this.profileForm.valid);
     this.activeTab.set('general');
     this.resetLocalState();
+  }
+
+  setCardLanguage(language: string): void {
+    if (!isSupportedLanguageCode(language)) {
+      return;
+    }
+
+    this.selectedCardLanguage.set(language);
+  }
+
+  setAppLanguage(language: string): void {
+    if (!isSupportedLanguageCode(language)) {
+      return;
+    }
+
+    this.selectedAppLanguage.set(language);
   }
 
   private resetLocalState(): void {
@@ -433,5 +508,9 @@ export class DashboardSettingsModalComponent {
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe((availability) => this.userNameAvailability.set(availability));
+  }
+
+  private reloadPage(): void {
+    window.location.reload();
   }
 }

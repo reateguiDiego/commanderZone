@@ -12,9 +12,10 @@ Monorepo for an online Magic: The Gathering Commander table.
 ```bash
 docker compose up -d
 docker compose exec api php bin/console doctrine:migrations:migrate
+docker compose exec api php bin/console doctrine:migrations:up-to-date
 ```
 
-The API runs through FrankenPHP at `http://127.0.0.1:8000`.
+The API runs through FrankenPHP at both `http://127.0.0.1:8000` and `http://localhost:8000`.
 
 For local CLI work outside Docker:
 
@@ -26,7 +27,7 @@ php bin/console doctrine:migrations:migrate
 symfony serve
 ```
 
-The backend expects PostgreSQL on `127.0.0.1:5433` from the host, PostgreSQL on `database:5432` from Docker, and Mercure on `http://127.0.0.1:3000/.well-known/mercure`.
+The backend expects PostgreSQL on `127.0.0.1:5433` from the host, PostgreSQL on `database:5432` from Docker, and Mercure on `http://127.0.0.1:3000/.well-known/mercure` or `http://localhost:3000/.well-known/mercure`.
 
 ## Useful commands
 
@@ -90,7 +91,13 @@ npm install
 npm start
 ```
 
-The frontend expects the API on `http://localhost:8000` and Mercure on `http://127.0.0.1:3000/.well-known/mercure`.
+The frontend expects loopback local services and supports both hosts:
+
+- API: `http://localhost:8000` or `http://127.0.0.1:8000`
+- Mercure: `http://localhost:3000/.well-known/mercure` or `http://127.0.0.1:3000/.well-known/mercure`
+- Gameplay WebSocket ticket base: `ws://localhost:8081` or `ws://127.0.0.1:8081`
+
+Use one host consistently in the browser tab (`localhost` or `127.0.0.1`) to reduce local cookie/origin confusion.
 
 ## Environments
 
@@ -101,6 +108,7 @@ Use this mode for day-to-day development. It keeps the frontend connected to the
 ```bash
 docker compose up -d
 docker compose exec api php bin/console doctrine:migrations:migrate --no-interaction
+docker compose exec api php bin/console doctrine:migrations:up-to-date
 
 cd frontend
 npm start
@@ -109,7 +117,15 @@ npm start
 Local frontend URLs are defined in `frontend/src/environments/environment.ts`:
 
 - API: `http://localhost:8000`
-- Mercure: `http://127.0.0.1:3000/.well-known/mercure`
+- Mercure: `http://localhost:3000/.well-known/mercure`
+
+### Local post-pull preflight (recommended before playing)
+
+Run the preflight script to fail fast on pending migrations and verify CORS + room creation from both local origins:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\local-room-preflight.ps1
+```
 
 ### Production
 

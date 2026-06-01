@@ -46,6 +46,7 @@ import { GameTableSnapshotCoordinatorState } from './state/core/game-table-snaps
 import { GameTableToastState } from './state/core/game-table-toast.state';
 import { GameTableZonePilesState } from './state/zones/game-table-zone-piles.state';
 import { clampPlayerLife } from './utils/player-life-bounds';
+import { GameTableWebsocketGameplayService } from './services/game-table-websocket-gameplay.service';
 import { GameTableManaPoolState, ManaPool } from './state/mana/game-table-mana-pool.state';
 import { detectManaSource, ManaAddition, ManaPoolColor, ManaSourceSuggestion } from './utils/mana-source-detector';
 
@@ -57,6 +58,7 @@ export type { GameTableSyncStatus } from './models/game-table-sync.model';
 @Injectable()
 export class GameTableStore implements OnDestroy {
   private openingRevealedLibraryPlayerId: string | null = null;
+  private locallyConcededPlayerId: string | null = null;
 
   private readonly debouncedValueCommands = inject(GameTableDebouncedValueCommandsService);
   private readonly cardActions = inject(GameTableCardActionsService);
@@ -68,6 +70,7 @@ export class GameTableStore implements OnDestroy {
   private readonly zoneActions = inject(GameTableZoneActionsService);
   private readonly zonePointerMoveActions = inject(GameTableZonePointerMoveActionsService);
   private readonly session = inject(GameTableSessionService);
+  private readonly websocketGameplay = inject(GameTableWebsocketGameplayService);
   private readonly selection = inject(GameTableSelectionService);
   private readonly coreState = inject(GameTableCoreState);
   private readonly arrowsState = inject(GameTableArrowsState);
@@ -540,8 +543,9 @@ export class GameTableStore implements OnDestroy {
   canAdvanceTurnPhase(): boolean {
     const activePlayerId = this.snapshot()?.turn.activePlayerId ?? null;
     const currentPlayerId = this.currentPlayer()?.id ?? null;
+    const blockedByLocalConcede = this.locallyConcededPlayerId !== null && this.locallyConcededPlayerId === currentPlayerId;
 
-    return !!activePlayerId && activePlayerId === currentPlayerId && !this.pending();
+    return !!activePlayerId && activePlayerId === currentPlayerId && !this.pending() && !blockedByLocalConcede;
   }
 
   toggleCardSelection(event: MouseEvent, playerId: string, zone: GameZoneName, card: GameCardInstance): void {
@@ -1440,18 +1444,40 @@ export class GameTableStore implements OnDestroy {
   }
 
   async command(type: GameCommandType, payload: Record<string, unknown>, force = false): Promise<void> {
+    const currentPlayerId = this.currentPlayer()?.id ?? null;
+    if (
+      type === 'turn.changed'
+      && this.locallyConcededPlayerId !== null
+      && currentPlayerId !== null
+      && this.locallyConcededPlayerId === currentPlayerId
+    ) {
+      return;
+    }
+
     await this.commandStore.command(this.contexts.command(), type, payload, force);
   }
 
   async concedeGame(): Promise<void> {
     const current = this.currentPlayer();
+    if (!current) {
+      this.closeContextMenu();
+      return;
+    }
+
     if (current?.state.status === 'conceded') {
       this.closeContextMenu();
       return;
     }
 
     this.closeContextMenu();
-    await this.command('game.concede', {}, true);
+    this.locallyConcededPlayerId = current.id;
+    this.websocketGameplay.prepareForLocalConcede();
+    try {
+      await this.command('game.concede', {}, true);
+    } catch (error) {
+      this.locallyConcededPlayerId = null;
+      throw error;
+    }
   }
 
   async concede(): Promise<void> {
@@ -1531,6 +1557,15 @@ export class GameTableStore implements OnDestroy {
   }
 
   private setSnapshot(snapshot: GameSnapshot | null): void {
+    if (snapshot === null) {
+      this.locallyConcededPlayerId = null;
+    } else if (this.locallyConcededPlayerId !== null) {
+      const localPlayerStatus = snapshot.players[this.locallyConcededPlayerId]?.status ?? null;
+      if (localPlayerStatus !== 'conceded') {
+        this.locallyConcededPlayerId = null;
+      }
+    }
+
     this.snapshotCoordinatorState.setSnapshot({
       openRevealedLibraryFromSnapshot: (nextSnapshot) => this.openRevealedLibraryFromSnapshot(nextSnapshot),
     }, snapshot);

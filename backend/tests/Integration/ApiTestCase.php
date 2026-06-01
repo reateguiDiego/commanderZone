@@ -100,6 +100,7 @@ abstract class ApiTestCase extends WebTestCase
     {
         $connection = $this->entityManager->getConnection();
         \assert($connection instanceof Connection);
+        $this->ensureCardImageStatusColumn($connection);
 
         $tables = [
             'game_debug_health',
@@ -132,5 +133,23 @@ abstract class ApiTestCase extends WebTestCase
         }
 
         $connection->executeStatement('TRUNCATE '.implode(', ', $existingTables).' RESTART IDENTITY CASCADE');
+    }
+
+    private function ensureCardImageStatusColumn(Connection $connection): void
+    {
+        $schemaManager = $connection->createSchemaManager();
+        if (!$schemaManager->tablesExist(['card'])) {
+            return;
+        }
+
+        $columns = array_map(
+            static fn (\Doctrine\DBAL\Schema\Column $column): string => $column->getName(),
+            $schemaManager->listTableColumns('card'),
+        );
+        if (in_array('image_status', $columns, true)) {
+            return;
+        }
+
+        $connection->executeStatement('ALTER TABLE card ADD COLUMN image_status VARCHAR(32) DEFAULT NULL');
     }
 }

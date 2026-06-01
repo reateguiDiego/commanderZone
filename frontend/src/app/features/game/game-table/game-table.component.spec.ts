@@ -168,13 +168,20 @@ describe('GameTableComponent', () => {
         const playerId = Object.entries(responseSnapshot?.players ?? {})
           .find(([, player]) => player.status === 'conceded')?.[0] ?? 'user-1';
         const player = responseSnapshot?.players[playerId];
-
-        return [{
+        const operations: unknown[] = [{
           op: 'player.status.set',
           playerId,
           status: player?.status ?? 'conceded',
           ...(player?.concededAt ? { concededAt: player.concededAt } : {}),
         }];
+        if (responseSnapshot?.turn) {
+          operations.push({
+            op: 'turn.set',
+            turn: responseSnapshot.turn,
+          });
+        }
+
+        return operations;
       }
 
       case 'card.token.created': {
@@ -1183,6 +1190,35 @@ describe('GameTableComponent', () => {
 
     expect(gameplayWebsocketCommand).toHaveBeenCalledWith(expect.objectContaining({ type: 'game.concede', payload: {} }), 'game-1');
     expect(gamesApi.snapshot).toHaveBeenCalledTimes(1);
+  });
+
+  it('blocks local turn changes immediately after conceding', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const activeSnapshot = snapshotWithStatus('active');
+    addOpponent(activeSnapshot);
+    const concededSnapshot = snapshotWithStatus('conceded');
+    addOpponent(concededSnapshot);
+    concededSnapshot.turn = { activePlayerId: 'user-1', phase: 'main-1', number: 1 };
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot: activeSnapshot } }));
+    gameplayWebsocketCommand.mockReturnValue(of({
+      event: { id: 'event-concede', type: 'game.concede', payload: {}, createdBy: 'user-1', createdAt: '' },
+      snapshot: concededSnapshot,
+    }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    await fixture.componentInstance.store.concedeGame();
+    await fixture.componentInstance.store.passTurn();
+
+    expect(gameplayWebsocketCommand).toHaveBeenCalledTimes(1);
+    expect(gameplayWebsocketCommand).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ type: 'game.concede', payload: {} }),
+      'game-1',
+    );
   });
 
   it('asks for confirmation before conceding from the table menu', async () => {

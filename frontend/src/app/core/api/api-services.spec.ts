@@ -1,5 +1,6 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { API_BASE_URL } from './api.config';
 import { AuthApi } from './auth.api';
@@ -13,13 +14,23 @@ import { LandingApi } from './landing.api';
 import { RoomsApi } from './rooms.api';
 import { SKIP_GLOBAL_LOADING } from '../loading/loading-context';
 import { TableAssistantApi } from '../../features/table-assistant/data-access/table-assistant.api';
+import { LanguagePreferencesService } from '../localization/language-preferences.service';
 
 describe('API services', () => {
   let http: HttpTestingController;
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      providers: [provideHttpClient(), provideHttpClientTesting()],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        {
+          provide: LanguagePreferencesService,
+          useValue: {
+            cardLanguage: signal<'en' | 'fr' | 'de' | 'it' | 'es' | 'ja' | 'zhs' | 'pt' | 'ru' | 'ko' | 'zht' | 'nl' | 'ca'>('en').asReadonly(),
+          } satisfies Pick<LanguagePreferencesService, 'cardLanguage'>,
+        },
+      ],
     });
     http = TestBed.inject(HttpTestingController);
   });
@@ -31,7 +42,7 @@ describe('API services', () => {
   it('builds card search requests with query params', () => {
     TestBed.inject(CardsApi).search('sol ring').subscribe();
 
-    const request = http.expectOne(`${API_BASE_URL}/cards/search?q=sol%20ring&page=1&limit=500`);
+    const request = http.expectOne(`${API_BASE_URL}/cards/search?q=sol%20ring&page=1&limit=500&lang=en`);
     expect(request.request.method).toBe('GET');
     request.flush({ data: [], page: 1, limit: 24 });
   });
@@ -165,7 +176,7 @@ describe('API services', () => {
   it('builds filtered card search requests', () => {
     TestBed.inject(CardsApi).search('atraxa', 1, 8, { commanderLegal: true, tokenOnly: true }).subscribe();
 
-    const request = http.expectOne(`${API_BASE_URL}/cards/search?q=atraxa&page=1&limit=8&commanderLegal=true&tokenOnly=true`);
+    const request = http.expectOne(`${API_BASE_URL}/cards/search?q=atraxa&page=1&limit=8&lang=en&commanderLegal=true&tokenOnly=true`);
     expect(request.request.method).toBe('GET');
     request.flush({ data: [], page: 1, limit: 8 });
   });
@@ -177,6 +188,14 @@ describe('API services', () => {
     expect(request.request.method).toBe('GET');
     expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);
     request.flush({ scryfallId: 'card-1', format: 'normal', uri: 'http://image.test/card-1.jpg' });
+  });
+
+  it('requests card detail with the preferred language query parameter', () => {
+    TestBed.inject(CardsApi).get('card-1').subscribe();
+
+    const request = http.expectOne(`${API_BASE_URL}/cards/card-1?lang=en`);
+    expect(request.request.method).toBe('GET');
+    request.flush({ card: { id: 'card-1', scryfallId: 'card-1', name: 'Sol Ring' } });
   });
 
   it('posts deck imports with the backend payload shape', () => {

@@ -2,7 +2,9 @@
 
 namespace App\Application\Game;
 
+use App\Application\Card\CardLocalizationService;
 use App\Domain\Game\Game;
+use App\Domain\Localization\LanguageCatalog;
 use App\Domain\Room\RoomPlayer;
 use App\Domain\User\User;
 
@@ -10,7 +12,10 @@ class GameProjectionService
 {
     private const HIDDEN_ZONES = ['library', 'hand'];
 
-    public function __construct(private readonly GameCommandHandler $normalizer)
+    public function __construct(
+        private readonly GameCommandHandler $normalizer,
+        private readonly ?CardLocalizationService $cardLocalization = null,
+    )
     {
     }
 
@@ -21,12 +26,17 @@ class GameProjectionService
         return $this->projectSnapshot($this->withCurrentPlayerUsers($game, $snapshot), $viewer, $game->room()->hasPlayer($viewer));
     }
 
-    public function projectSnapshot(array $snapshot, User $viewer, bool $viewerCanUseOwnHiddenZones = true): array
+    public function projectSnapshot(array $snapshot, User $viewer, bool $viewerCanUseOwnHiddenZones = true, array $localizedCardsByLanguage = []): array
     {
         $viewerId = $viewer->id();
+        $requestedLanguage = $viewer->cardLanguage();
 
         if (!isset($snapshot['players']) || !is_array($snapshot['players'])) {
             return $snapshot;
+        }
+
+        if ($localizedCardsByLanguage === [] && $this->cardLocalization instanceof CardLocalizationService) {
+            $this->cardLocalization->primeForLanguage($this->snapshotScryfallIds($snapshot), $requestedLanguage);
         }
 
         $snapshot['chat'] = array_values(array_filter(
@@ -51,6 +61,8 @@ class GameProjectionService
                         $viewerId,
                         (string) $playerId,
                         ($player['playTopLibraryRevealed'] ?? false) === true,
+                        $requestedLanguage,
+                        $localizedCardsByLanguage,
                     );
                 } elseif ($this->zoneIsHidden((string) $zone) && !$isOwnHiddenZone) {
                     $cards = array_values(array_filter(
@@ -59,7 +71,7 @@ class GameProjectionService
                     ));
                 } else {
                     $cards = array_values(array_map(
-                        fn (array $card): array => $this->projectCard($card, $viewerId, $playerId === $viewerId),
+                        fn (array $card): array => $this->projectCard($card, $viewerId, $playerId === $viewerId, $requestedLanguage, $localizedCardsByLanguage),
                         $cards,
                     ));
                 }
@@ -72,22 +84,23 @@ class GameProjectionService
         return $snapshot;
     }
 
-    public function projectZone(array $cards, string $ownerId, string $zone, User $viewer, bool $playTopLibraryRevealed = false): array
+    public function projectZone(array $cards, string $ownerId, string $zone, User $viewer, bool $playTopLibraryRevealed = false, array $localizedCardsByLanguage = []): array
     {
         $viewerId = $viewer->id();
+        $requestedLanguage = $viewer->cardLanguage();
         if ($ownerId !== $viewerId && $this->zoneIsHidden($zone)) {
             if ($zone === 'hand') {
                 return $this->projectOpponentHand($cards, $viewerId, $ownerId);
             }
             if ($zone === 'library') {
-                return $this->projectOpponentLibraryZone($cards, $viewerId, $ownerId, $playTopLibraryRevealed);
+                return $this->projectOpponentLibraryZone($cards, $viewerId, $ownerId, $playTopLibraryRevealed, $requestedLanguage, $localizedCardsByLanguage);
             }
 
             $cards = array_values(array_filter($cards, fn (array $card): bool => $this->isVisibleCard($card, $viewerId)));
         }
 
         return array_values(array_map(
-            fn (array $card): array => $this->projectCard($card, $viewerId, $ownerId === $viewerId),
+            fn (array $card): array => $this->projectCard($card, $viewerId, $ownerId === $viewerId, $requestedLanguage, $localizedCardsByLanguage),
             $cards,
         ));
     }
@@ -173,7 +186,7 @@ class GameProjectionService
      *
      * @return list<array<string,mixed>>
      */
-    private function projectOpponentLibrary(array $cards, string $viewerId, string $ownerId, bool $playTopRevealed = false): array
+    private function projectOpponentLibrary(array $cards, string $viewerId, string $ownerId, bool $playTopRevealed = false, ?string $requestedLanguage = null, array $localizedCardsByLanguage = []): array
     {
         $cards = array_values($cards);
         if ($cards === []) {
@@ -187,7 +200,7 @@ class GameProjectionService
                 $topCard['revealedTo'] = ['all'];
             }
 
-            return [$this->projectCard($topCard, $viewerId, false)];
+            return [$this->projectCard($topCard, $viewerId, false, $requestedLanguage, $localizedCardsByLanguage)];
         }
 
         $topRevealedTo = $topCard['revealedTo'] ?? [];
@@ -203,7 +216,7 @@ class GameProjectionService
      *
      * @return list<array<string,mixed>>
      */
-    private function projectOpponentLibraryZone(array $cards, string $viewerId, string $ownerId, bool $playTopRevealed = false): array
+    private function projectOpponentLibraryZone(array $cards, string $viewerId, string $ownerId, bool $playTopRevealed = false, ?string $requestedLanguage = null, array $localizedCardsByLanguage = []): array
     {
         $visibleCards = array_values(array_filter(
             $cards,
@@ -212,12 +225,12 @@ class GameProjectionService
 
         if (count($visibleCards) > 1) {
             return array_values(array_map(
-                fn (array $card): array => $this->projectCard($this->faceUpLibraryCard($card), $viewerId, false),
+                fn (array $card): array => $this->projectCard($this->faceUpLibraryCard($card), $viewerId, false, $requestedLanguage, $localizedCardsByLanguage),
                 $visibleCards,
             ));
         }
 
-        return $this->projectOpponentLibrary($cards, $viewerId, $ownerId, $playTopRevealed);
+        return $this->projectOpponentLibrary($cards, $viewerId, $ownerId, $playTopRevealed, $requestedLanguage, $localizedCardsByLanguage);
     }
 
     /**
@@ -247,7 +260,7 @@ class GameProjectionService
         ];
     }
 
-    private function projectCard(array $card, string $viewerId, bool $ownerView): array
+    private function projectCard(array $card, string $viewerId, bool $ownerView, ?string $requestedLanguage = null, array $localizedCardsByLanguage = []): array
     {
         $zone = (string) ($card['zone'] ?? '');
         if ($zone !== 'battlefield') {
@@ -271,7 +284,47 @@ class GameProjectionService
             ];
         }
 
+        if ($localizedCardsByLanguage !== []) {
+            $card = $this->localizeCardPayloadFromLookup($card, $requestedLanguage, $localizedCardsByLanguage);
+        } elseif ($this->cardLocalization instanceof CardLocalizationService) {
+            $card = $this->cardLocalization->localizeCardPayload($card, $requestedLanguage, true);
+        }
+
         unset($card['basePower'], $card['baseToughness'], $card['baseLoyalty']);
+
+        return $card;
+    }
+
+    /**
+     * @param array<string,array<string,array<string,mixed>>> $localizedCardsByLanguage
+     *
+     * @return array<string,mixed>
+     */
+    private function localizeCardPayloadFromLookup(array $card, ?string $requestedLanguage, array $localizedCardsByLanguage): array
+    {
+        $requestedLanguage = LanguageCatalog::normalize($requestedLanguage);
+        if ($requestedLanguage === null || !LanguageCatalog::isSupported($requestedLanguage)) {
+            return $card;
+        }
+
+        $scryfallId = trim((string) ($card['scryfallId'] ?? ''));
+        if ($scryfallId === '') {
+            return $card;
+        }
+
+        $localized = $localizedCardsByLanguage[$requestedLanguage][$scryfallId] ?? null;
+        if (!is_array($localized)) {
+            return $card;
+        }
+
+        $card['name'] = (string) ($localized['name'] ?? $card['name'] ?? '');
+        $card['imageUris'] = is_array($localized['imageUris'] ?? null) ? $localized['imageUris'] : ($card['imageUris'] ?? []);
+        $card['cardFaces'] = is_array($localized['cardFaces'] ?? null) ? $localized['cardFaces'] : ($card['cardFaces'] ?? []);
+        $card['typeLine'] = $localized['typeLine'] ?? null;
+        $card['manaCost'] = $localized['manaCost'] ?? null;
+        $card['oracleText'] = $localized['oracleText'] ?? null;
+        $card['lang'] = $localized['lang'] ?? ($card['lang'] ?? null);
+        $card['printedName'] = $localized['printedName'] ?? ($card['printedName'] ?? null);
 
         return $card;
     }
@@ -291,5 +344,44 @@ class GameProjectionService
         }
 
         return $snapshot;
+    }
+
+    /**
+     * @param array<string,mixed> $snapshot
+     *
+     * @return list<string>
+     */
+    private function snapshotScryfallIds(array $snapshot): array
+    {
+        $scryfallIds = [];
+        $players = $snapshot['players'] ?? null;
+        if (!is_array($players)) {
+            return [];
+        }
+
+        foreach ($players as $player) {
+            if (!is_array($player) || !is_array($player['zones'] ?? null)) {
+                continue;
+            }
+
+            foreach ($player['zones'] as $cards) {
+                if (!is_array($cards)) {
+                    continue;
+                }
+
+                foreach ($cards as $card) {
+                    if (!is_array($card)) {
+                        continue;
+                    }
+
+                    $scryfallId = trim((string) ($card['scryfallId'] ?? ''));
+                    if ($scryfallId !== '') {
+                        $scryfallIds[$scryfallId] = true;
+                    }
+                }
+            }
+        }
+
+        return array_keys($scryfallIds);
     }
 }
