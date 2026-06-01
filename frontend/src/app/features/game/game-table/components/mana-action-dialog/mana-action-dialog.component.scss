@@ -1,0 +1,162 @@
+.mana-action-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1500;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgb(0 0 0 / 48%);
+}
+
+.mana-action-panel {
+  width: min(27rem, calc(100vw - 2rem));
+  padding: 1rem;
+  border: 1px solid rgb(231 204 132 / 36%);
+  border-radius: 8px;
+  background: #17191f;
+  color: #f7efd7;
+  box-shadow: 0 1.4rem 3rem rgb(0 0 0 / 38%);
+}
+
+header {
+  display: grid;
+  gap: 0.2rem;
+  margin-bottom: 0.8rem;
+}
+
+header span {
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0;
+  color: rgb(247 239 215 / 68%);
+}
+
+header strong {
+  font-size: 1rem;
+}
+
+p {
+  margin: 0 0 0.85rem;
+  color: rgb(247 239 215 / 82%);
+  line-height: 1.35;
+}
+
+.mana-restriction {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  padding: 0.55rem;
+  border-radius: 6px;
+  background: rgb(230 184 87 / 13%);
+  color: #f3d99b;
+}
+
+.fixed-mana-preview,
+.mana-choice-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-bottom: 0.9rem;
+}
+
+.fixed-mana-preview span,
+.mana-choice {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  min-width: 3.15rem;
+  min-height: 2rem;
+  border-radius: 6px;
+  background: rgb(255 255 255 / 8%);
+}
+
+.fixed-mana-preview strong {
+  font-size: 0.9rem;
+}
+
+button {
+  border: 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.mana-choice {
+  border: 1px solid transparent;
+}
+
+.mana-choice.selected {
+  border-color: rgb(231 204 132 / 70%);
+  background: rgb(231 204 132 / 18%);
+}
+
+.mana-choice:hover,
+.mana-amount-control button:hover {
+  background: rgb(255 255 255 / 14%);
+}
+
+.mana-amount-control {
+  display: grid;
+  grid-template-columns: 2.2rem 1fr 2.2rem;
+  align-items: end;
+  gap: 0.45rem;
+  margin-bottom: 0.9rem;
+}
+
+.mana-amount-control button {
+  display: inline-grid;
+  place-items: center;
+  min-height: 2.2rem;
+  border-radius: 6px;
+  background: rgb(255 255 255 / 8%);
+}
+
+.mana-amount-control label {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.mana-amount-control label span {
+  font-size: 0.72rem;
+  color: rgb(247 239 215 / 68%);
+}
+
+.mana-amount-control input {
+  width: 100%;
+  min-height: 2.2rem;
+  border: 1px solid rgb(255 255 255 / 14%);
+  border-radius: 6px;
+  background: rgb(0 0 0 / 22%);
+  color: inherit;
+  text-align: center;
+}
+
+footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.55rem;
+}
+
+.primary-button,
+.secondary-button {
+  min-height: 2.2rem;
+  padding: 0 0.9rem;
+  border-radius: 6px;
+}
+
+.primary-button {
+  background: #d7b46a;
+  color: #1f1a10;
+  font-weight: 700;
+}
+
+.secondary-button {
+  background: rgb(255 255 255 / 9%);
+}

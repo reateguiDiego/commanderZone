@@ -1,0 +1,63 @@
+<div class="mana-action-backdrop" role="presentation">
+  <section class="mana-action-panel" role="dialog" aria-modal="true" aria-label="Add mana">
+    <header>
+      <span>Mana Assistant</span>
+      <strong>{{ suggestion().cardName }}</strong>
+    </header>
+
+    <p>{{ suggestion().summary }}</p>
+
+    @if (suggestion().restriction; as restriction) {
+      <p class="mana-restriction">
+        <lucide-icon name="triangle-alert" size="15" aria-hidden="true" />
+        <span>{{ restriction }}</span>
+      </p>
+    }
+
+    @if (suggestion().additions.length > 0) {
+      <div class="fixed-mana-preview" aria-label="Mana to add">
+        @for (addition of suggestion().additions; track addition.color) {
+          <span>
+            <app-mana-symbols [symbols]="[addition.color]" size="small" />
+            <strong>{{ addition.amount }}</strong>
+          </span>
+        }
+      </div>
+    } @else if (canAddMana()) {
+      <div class="mana-choice-grid" aria-label="Choose mana color">
+        @for (color of suggestion().colors; track color) {
+          <button
+            type="button"
+            class="mana-choice"
+            [class.selected]="selectedColor() === color"
+            (click)="updateColor(color)"
+          >
+            <app-mana-symbols [symbols]="[color]" size="small" />
+          </button>
+        }
+      </div>
+
+      @if (suggestion().kind === 'variable' || suggestion().amount > 1) {
+        <div class="mana-amount-control">
+          <button type="button" [disabled]="amount() <= 1" (click)="stepAmount(-1)">
+            <lucide-icon name="minus" size="15" aria-hidden="true" />
+          </button>
+          <label>
+            <span>Amount</span>
+            <input type="number" min="1" [value]="amount()" (input)="updateAmount($event)" />
+          </label>
+          <button type="button" (click)="stepAmount(1)">
+            <lucide-icon name="plus" size="15" aria-hidden="true" />
+          </button>
+        </div>
+      }
+    }
+
+    <footer>
+      <button type="button" class="secondary-button" (click)="cancelled.emit()">Cancel</button>
+      <button type="button" class="primary-button" [disabled]="canAddMana() && suggestion().additions.length === 0 && selectedColor() === null" (click)="confirmed.emit()">
+        {{ confirmLabel() }}
+      </button>
+    </footer>
+  </section>
+</div>

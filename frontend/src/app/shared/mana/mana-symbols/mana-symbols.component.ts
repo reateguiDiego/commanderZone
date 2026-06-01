@@ -16,11 +16,16 @@ export class ManaSymbolsComponent {
   readonly symbols = input<readonly string[] | null | undefined>(null);
   readonly fallback = input('');
   readonly size = input<ManaSymbolsSize>('normal');
+  readonly costBackground = input(true);
 
   readonly tokens = computed(() => {
     const symbols = this.symbols();
 
     return symbols ? this.manaSymbols.parseSymbols(symbols) : this.manaSymbols.parseCost(this.value());
   });
-  readonly ariaLabel = computed(() => this.tokens().map((token) => token.raw).join(' ') || this.fallback());
+  readonly ariaLabel = computed(() => this.tokens().map((token) => token.label).join(' ') || this.fallback());
+
+  tokenClassName(className: string): string {
+    return this.costBackground() ? className : className.replace(/\bms-cost\b/g, '').replace(/\s+/g, ' ').trim();
+  }
 }

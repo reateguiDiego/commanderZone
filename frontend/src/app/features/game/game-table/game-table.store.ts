@@ -46,6 +46,8 @@ import { GameTableSnapshotCoordinatorState } from './state/core/game-table-snaps
 import { GameTableToastState } from './state/core/game-table-toast.state';
 import { GameTableZonePilesState } from './state/zones/game-table-zone-piles.state';
 import { clampPlayerLife } from './utils/player-life-bounds';
+import { GameTableManaPoolState, ManaPool } from './state/mana/game-table-mana-pool.state';
+import { detectManaSource, ManaAddition, ManaPoolColor, ManaSourceSuggestion } from './utils/mana-source-detector';
 
 export type { PlayerView } from './state/core/game-table-snapshot-selectors';
 export type { SelectedCard } from './models/game-table-card.model';
@@ -86,6 +88,7 @@ export class GameTableStore implements OnDestroy {
   private readonly snapshotCoordinatorState = inject(GameTableSnapshotCoordinatorState);
   private readonly toastState = inject(GameTableToastState);
   private readonly zonePilesState = inject(GameTableZonePilesState);
+  private readonly manaPoolState = inject(GameTableManaPoolState);
   private readonly uiState = inject(GameTableUiState);
   private readonly zoneModalState = inject(GameTableZoneModalState);
   private readonly dropFeedbackState = inject(GameTableDropFeedbackState);
@@ -163,6 +166,10 @@ export class GameTableStore implements OnDestroy {
 
     return labels[this.syncStatus()];
   });
+
+  private readonly hiddenManaPoolPlayerIds = signal<ReadonlySet<string>>(new Set());
+  readonly manaPool = (playerId: string): ManaPool => this.manaPoolState.pool(playerId);
+  readonly isManaPoolHidden = (playerId: string): boolean => this.hiddenManaPoolPlayerIds().has(playerId);
 
   constructor() {
     this.contexts.bind({
@@ -403,6 +410,59 @@ export class GameTableStore implements OnDestroy {
 
   manaSymbols(player: PlayerView | null): string[] {
     return this.playersStore.manaSymbols(player);
+  }
+
+  manaSourceSuggestion(playerId: string, card: GameCardInstance): ManaSourceSuggestion {
+    return detectManaSource(card, { colorIdentity: this.snapshot()?.players[playerId]?.colorIdentity ?? [] });
+  }
+
+  addMana(playerId: string, additions: readonly ManaAddition[]): void {
+    this.manaPoolState.add(playerId, additions);
+  }
+
+  incrementMana(playerId: string, color: ManaPoolColor): void {
+    this.manaPoolState.increment(playerId, color);
+  }
+
+  decrementMana(playerId: string, color: ManaPoolColor): void {
+    this.manaPoolState.decrement(playerId, color);
+  }
+
+  incrementAnyMana(playerId: string): void {
+    this.manaPoolState.incrementAny(playerId);
+  }
+
+  decrementAnyMana(playerId: string): void {
+    this.manaPoolState.decrementAny(playerId);
+  }
+
+  resetManaColor(playerId: string, color: ManaPoolColor): void {
+    this.manaPoolState.resetColor(playerId, color);
+  }
+
+  resetAnyMana(playerId: string): void {
+    this.manaPoolState.resetAny(playerId);
+  }
+
+  resetManaPool(playerId: string): void {
+    this.manaPoolState.reset(playerId);
+  }
+
+  hideManaPool(playerId: string): void {
+    this.hiddenManaPoolPlayerIds.update((current) => new Set([...current, playerId]));
+  }
+
+  showManaPool(playerId: string): void {
+    this.hiddenManaPoolPlayerIds.update((current) => {
+      if (!current.has(playerId)) {
+        return current;
+      }
+
+      const next = new Set(current);
+      next.delete(playerId);
+
+      return next;
+    });
   }
 
   logTime(createdAt: string): string {

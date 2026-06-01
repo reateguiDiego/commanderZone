@@ -41,6 +41,7 @@ import {
 import { GameCardInstance, GameZoneName } from '../../../../../core/models/game.model';
 import { GameContextMenu } from '../../state/core/game-table-ui.state';
 import { ContextMenuComponent } from './context-menu.component';
+import { ManaSourceSuggestion } from '../../utils/mana-source-detector';
 
 describe('ContextMenuComponent', () => {
   beforeEach(async () => {
@@ -133,6 +134,27 @@ describe('ContextMenuComponent', () => {
       'Leave table',
     ]);
     expect(menuButtons(fixture)[3]?.classList).toContain('danger-menu-item');
+  });
+
+  it('exposes add mana for battlefield cards with a mana suggestion', () => {
+    const fixture = createContextMenuFixture({
+      kind: 'card',
+      zone: 'battlefield',
+      card: card('card-1', '{T}: Add {C}{C}.'),
+    }, {
+      manaSourceSuggestion: () => ({
+        kind: 'fixed',
+        cardName: 'Sol Ring',
+        summary: 'Add {C}{C}.',
+        additions: [{ color: 'C', amount: 2 }],
+        colors: ['C'],
+        amount: 0,
+        restriction: null,
+        manualOnly: false,
+      }),
+    });
+
+    expect(buttonLabels(fixture)).toContain('Add mana');
   });
 
   it('emits openDebug from the game menu', () => {
@@ -250,6 +272,32 @@ describe('ContextMenuComponent', () => {
     rollButton?.click();
 
     expect(selected).toHaveBeenCalledWith({ type: 'rollDice' });
+  });
+
+  it('shows the mana pool opener from the own battlefield menu only when the panel is hidden', () => {
+    const visible = createContextMenuFixture({
+      kind: 'zone',
+      playerId: 'user-1',
+      zone: 'battlefield',
+    });
+    const hidden = createContextMenuFixture({
+      kind: 'zone',
+      playerId: 'user-1',
+      zone: 'battlefield',
+    }, {
+      isManaPoolHidden: () => true,
+    });
+    const selected = vi.fn();
+    hidden.componentInstance.actionSelected.subscribe(selected);
+
+    expect(menuText(visible)).not.toContain('Show mana pool');
+    expect(buttonLabels(hidden)).toEqual(['Create token', 'Tirar dado', 'Show mana pool']);
+
+    const showButton = Array.from((hidden.nativeElement as HTMLElement).querySelectorAll('button'))
+      .find((candidate) => candidate.textContent?.includes('Show mana pool'));
+    showButton?.click();
+
+    expect(selected).toHaveBeenCalledWith({ type: 'showManaPool' });
   });
 
   it('uses distinct card options for library cards and shared options for graveyard and exile cards', () => {
@@ -838,6 +886,8 @@ interface ContextMenuFixtureOptions {
   canAttachEquipment?: (playerId: string, card: GameCardInstance) => boolean;
   isAttachmentTarget?: (playerId: string, card: GameCardInstance) => boolean;
   isLandStacked?: (playerId: string, card: GameCardInstance) => boolean;
+  manaSourceSuggestion?: (playerId: string, card: GameCardInstance) => ManaSourceSuggestion | null;
+  isManaPoolHidden?: (playerId: string) => boolean;
   zoneCardCount?: (playerId: string, zone: GameZoneName) => number;
   ownedArrowCount?: number;
 }
@@ -867,6 +917,8 @@ function createContextMenuFixture(menu: Partial<GameContextMenu>, options: Conte
   fixture.componentRef.setInput('isLandStacked', options.isLandStacked ?? (() => false));
   fixture.componentRef.setInput('isAttachmentTarget', options.isAttachmentTarget ?? (() => false));
   fixture.componentRef.setInput('canAttachEquipment', options.canAttachEquipment ?? (() => true));
+  fixture.componentRef.setInput('manaSourceSuggestion', options.manaSourceSuggestion ?? (() => null));
+  fixture.componentRef.setInput('isManaPoolHidden', options.isManaPoolHidden ?? (() => false));
   fixture.componentRef.setInput('zoneTitle', titleForZone);
   fixture.componentRef.setInput('ownedArrowCount', options.ownedArrowCount ?? 0);
   fixture.detectChanges();
@@ -908,13 +960,14 @@ function menuButtons(fixture: ComponentFixture<ContextMenuComponent>): HTMLButto
   return Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button'));
 }
 
-function card(instanceId: string): GameCardInstance {
+function card(instanceId: string, oracleText = ''): GameCardInstance {
   return {
     instanceId,
     ownerId: 'user-1',
     controllerId: 'user-1',
     name: 'Sol Ring',
     typeLine: 'Artifact',
+    oracleText,
     tapped: false,
     counters: {},
   };

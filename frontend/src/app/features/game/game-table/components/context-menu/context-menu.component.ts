@@ -6,6 +6,7 @@ import { PlayerView } from '../../game-table.store';
 import { ContextSubmenuComponent, ContextSubmenuItem } from './context-submenu/context-submenu.component';
 import { playerIsDefeated } from '../../utils/game-player-defeat';
 import { contextMenuDisplayLabel } from './context-menu-label';
+import { ManaSourceSuggestion } from '../../utils/mana-source-detector';
 
 export type ContextMenuAction =
   | { type: 'drawMine' }
@@ -35,12 +36,14 @@ export type ContextMenuAction =
   | { type: 'moveAll'; zone: GameZoneName; targetPlayerId?: string }
   | { type: 'selectRandomCard' }
   | { type: 'tapCard' }
+  | { type: 'addManaFromCard' }
   | { type: 'faceDown' }
   | { type: 'playFaceDown' }
   | { type: 'flipCardFace' }
   | { type: 'revealCard'; target: string }
   | { type: 'createToken' }
   | { type: 'rollDice' }
+  | { type: 'showManaPool' }
   | { type: 'tokenCopy' }
   | { type: 'drawArrow' }
   | { type: 'equipCard' }
@@ -95,6 +98,8 @@ export class ContextMenuComponent {
   readonly isAttachedEquipment = input<(playerId: string, card: GameCardInstance) => boolean>(() => false);
   readonly isAttachmentTarget = input<(playerId: string, card: GameCardInstance) => boolean>(() => false);
   readonly canAttachEquipment = input<(playerId: string, card: GameCardInstance) => boolean>(() => true);
+  readonly manaSourceSuggestion = input<(playerId: string, card: GameCardInstance) => ManaSourceSuggestion | null>(() => null);
+  readonly isManaPoolHidden = input<(playerId: string) => boolean>(() => false);
   readonly zoneTitle = input.required<(zone: GameZoneName) => string>();
   readonly ownedArrowCount = input(0);
 
@@ -271,6 +276,25 @@ export class ContextMenuComponent {
 
   tapLabel(): string {
     return this.menu().card?.tapped ? 'Untap' : 'Tap';
+  }
+
+  canUseManaAssistant(): boolean {
+    const currentMenu = this.menu();
+    if (!this.showsBattlefieldCardActions() || !currentMenu.card || currentMenu.card.faceDown) {
+      return false;
+    }
+
+    const suggestion = this.manaSourceSuggestion()(currentMenu.playerId, currentMenu.card);
+    return suggestion !== null && suggestion.kind !== 'none';
+  }
+
+  canShowManaPool(): boolean {
+    const currentMenu = this.menu();
+
+    return currentMenu.zone === 'battlefield'
+      && !currentMenu.card
+      && this.canControlActivePlayer()
+      && this.isManaPoolHidden()(currentMenu.playerId);
   }
 
   faceDownLabel(): string {

@@ -63,6 +63,7 @@ import { GameTableToastState } from './state/core/game-table-toast.state';
 import { GameContextMenu, GameTableUiState } from './state/core/game-table-ui.state';
 import { GameTableZoneModalState } from './state/zones/game-table-zone-modal.state';
 import { GameTableZonePilesState } from './state/zones/game-table-zone-piles.state';
+import { GameTableManaPoolState } from './state/mana/game-table-mana-pool.state';
 import { GameTableStore, PlayerView } from './game-table.store';
 import { playerIsActiveForTurn, playerIsDefeated } from './utils/game-player-defeat';
 import { GameLogPanelComponent } from './components/game-log-panel/game-log-panel.component';
@@ -76,6 +77,7 @@ import { BattlefieldZoomControlsComponent } from './components/battlefield-zoom-
 import { ContextMenuAction, ContextMenuComponent } from './components/context-menu/context-menu.component';
 import { ZoneModalComponent } from './components/zone-modal/zone-modal.component';
 import { NumberActionDialogComponent } from './components/number-action-dialog/number-action-dialog.component';
+import { ManaActionDialogComponent, ManaActionDialogValueChange } from './components/mana-action-dialog/mana-action-dialog.component';
 import { GameTableHeaderComponent } from './components/game-table-header/game-table-header.component';
 import { CardPreviewOverlayComponent } from './components/card-preview-overlay/card-preview-overlay.component';
 import { CardMarkerRailComponent } from './components/game-card-view/card-marker-rail/card-marker-rail.component';
@@ -92,6 +94,7 @@ import { type RollResult } from '../../../core/ui/roll-modal/roll';
 import { GameTablePermanentRelationService } from './services/game-table-permanent-relation.service';
 import { ZonePointerDropRequest } from './models/game-table-zone-pointer-drag.model';
 import { buildCardPreviewAttachmentInfo, buildCardPreviewCardStateInfo, resolveCardPreviewCard } from './utils/card-preview-attachment-info';
+import { ManaPoolColor, ManaSourceSuggestion } from './utils/mana-source-detector';
 
 interface DrawNumberActionRequest {
   readonly kind: 'draw';
@@ -157,6 +160,13 @@ interface PowerToughnessActionRequest {
   readonly menu: GameContextMenu;
   readonly power: string;
   readonly toughness: string;
+}
+
+interface ManaActionRequest {
+  readonly menu: GameContextMenu;
+  readonly suggestion: ManaSourceSuggestion;
+  readonly selectedColor: ManaPoolColor | null;
+  readonly amount: number;
 }
 
 interface ArrowTargetDialogRequest {
@@ -316,6 +326,7 @@ interface MotionSourceRect {
     ContextMenuComponent,
     ZoneModalComponent,
     NumberActionDialogComponent,
+    ManaActionDialogComponent,
     GameTableHeaderComponent,
     CardPreviewOverlayComponent,
     CardMarkerRailComponent,
@@ -351,6 +362,7 @@ interface MotionSourceRect {
     GameTableSnapshotCoordinatorState,
     GameTableToastState,
     GameTableZonePilesState,
+    GameTableManaPoolState,
     GameTableCardActionsService,
     GameTableCardStatsService,
     GameTableDebouncedValueCommandsService,
@@ -474,9 +486,12 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   readonly alignmentGuideFor = (playerId: string): { y: number; referenceInstanceIds: readonly string[] } | null =>
     this.store.alignmentGuideFor(playerId);
   readonly isManaLaneHighlighted = (playerId: string): boolean => this.store.isManaLaneHighlighted(playerId);
+  readonly manaSourceSuggestion = (playerId: string, card: GameCardInstance): ManaSourceSuggestion =>
+    this.store.manaSourceSuggestion(playerId, card);
   readonly canControlPlayer = (playerId: string): boolean => this.store.canControlPlayer(playerId);
   readonly numberActionDialog = signal<NumberActionRequest | null>(null);
   readonly powerToughnessDialog = signal<PowerToughnessActionRequest | null>(null);
+  readonly manaActionDialog = signal<ManaActionRequest | null>(null);
   readonly arrowTargetDialog = signal<ArrowTargetDialogRequest | null>(null);
   readonly libraryMoveRandomOrder = signal(false);
   readonly zoneMoveAllLibraryDialog = signal<ZoneMoveAllLibraryRequest | null>(null);
@@ -2121,6 +2136,9 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       case 'tapCard':
         void this.store.tapCard(menu);
         return;
+      case 'addManaFromCard':
+        this.openManaActionDialog(menu);
+        return;
       case 'faceDown':
         void this.store.faceDown(menu);
         return;
@@ -2138,6 +2156,10 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
         return;
       case 'rollDice':
         this.openRollModal();
+        return;
+      case 'showManaPool':
+        this.store.showManaPool(menu.playerId);
+        this.store.closeContextMenu();
         return;
       case 'tokenCopy':
         void this.store.tokenCopy(menu);
@@ -2223,6 +2245,36 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
         void this.store.viewTopLibrary(request.playerId, value);
         return;
     }
+  }
+
+  updateManaActionDialog(change: ManaActionDialogValueChange): void {
+    this.manaActionDialog.update((request) => request ? {
+      ...request,
+      selectedColor: change.color ?? request.selectedColor,
+      amount: change.amount ?? request.amount,
+    } : request);
+  }
+
+  confirmManaActionDialog(): void {
+    const request = this.manaActionDialog();
+    this.manaActionDialog.set(null);
+    if (!request || request.suggestion.manualOnly) {
+      return;
+    }
+
+    const additions = request.suggestion.additions.length > 0
+      ? request.suggestion.additions
+      : request.selectedColor
+        ? [{ color: request.selectedColor, amount: request.amount }]
+        : [];
+
+    if (additions.length > 0) {
+      this.store.addMana(request.menu.playerId, additions);
+    }
+  }
+
+  cancelManaActionDialog(): void {
+    this.manaActionDialog.set(null);
   }
 
   onZoneDoubleClick(playerId: string, zone: GameZoneName): void {
@@ -2866,6 +2918,25 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       menu,
       power: String(menu.card.power ?? 0),
       toughness: String(menu.card.toughness ?? 0),
+    });
+  }
+
+  private openManaActionDialog(menu: GameContextMenu): void {
+    if (!menu.card) {
+      return;
+    }
+
+    const suggestion = this.store.manaSourceSuggestion(menu.playerId, menu.card);
+    this.store.closeContextMenu();
+    if (suggestion.kind === 'none') {
+      return;
+    }
+
+    this.manaActionDialog.set({
+      menu,
+      suggestion,
+      selectedColor: suggestion.colors[0] ?? null,
+      amount: suggestion.amount > 0 ? suggestion.amount : 1,
     });
   }
 

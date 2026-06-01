@@ -307,6 +307,9 @@
             [firstCounter]="firstCounter"
             [alignmentGuideFor]="alignmentGuideFor"
             [isManaLaneHighlighted]="isManaLaneHighlighted"
+            [manaPool]="store.manaPool"
+            [canEditManaPool]="canControlPlayer"
+            [isManaPoolHidden]="store.isManaPoolHidden"
             [layoutKey]="battlefieldZoom.zoomPercent()"
             [zoomPercent]="battlefieldZoom.zoomPercent()"
             [landStackDropPreview]="store.landStackDropPreview()"
@@ -332,6 +335,14 @@
             (cardCounterDeleteRequested)="store.openCounterDeleteMenu($event.event, $event.playerId, $event.zone, $event.card, $event.key)"
             (manaLaneDragOver)="store.allowDrop($event)"
             (manaLaneDropped)="handleManaLaneDrop($event)"
+            (manaPoolColorAdded)="store.incrementMana($event.playerId, $event.color)"
+            (manaPoolColorRemoved)="store.decrementMana($event.playerId, $event.color)"
+            (manaPoolColorReset)="store.resetManaColor($event.playerId, $event.color)"
+            (manaPoolAnyAdded)="store.incrementAnyMana($event.playerId)"
+            (manaPoolAnyRemoved)="store.decrementAnyMana($event.playerId)"
+            (manaPoolAnyReset)="store.resetAnyMana($event.playerId)"
+            (manaPoolReset)="store.resetManaPool($event.playerId)"
+            (manaPoolHidden)="store.hideManaPool($event.playerId)"
             (battlefieldSizeChanged)="updateBattlefieldLayoutSize($event)"
           />
 
@@ -466,6 +477,17 @@
           (valueChanged)="updatePowerToughnessValue($event)"
           (confirmed)="confirmPowerToughnessDialog()"
           (cancelled)="cancelPowerToughnessDialog()"
+        />
+      }
+
+      @if (manaActionDialog(); as dialog) {
+        <app-mana-action-dialog
+          [suggestion]="dialog.suggestion"
+          [selectedColor]="dialog.selectedColor"
+          [amount]="dialog.amount"
+          (valueChanged)="updateManaActionDialog($event)"
+          (confirmed)="confirmManaActionDialog()"
+          (cancelled)="cancelManaActionDialog()"
         />
       }
 
@@ -736,6 +758,8 @@
         [isAttachedEquipment]="isAttachedEquipment"
         [isAttachmentTarget]="isAttachmentTarget"
         [canAttachEquipment]="canAttachEquipment"
+        [manaSourceSuggestion]="manaSourceSuggestion"
+        [isManaPoolHidden]="store.isManaPoolHidden"
         [zoneTitle]="zoneTitle"
         [ownedArrowCount]="ownedArrowCount(menu.playerId)"
         (interacted)="store.clearCardPreview()"
