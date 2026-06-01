@@ -264,8 +264,6 @@ class GameCommandHandler
             'typeLine' => $card['typeLine'] ?? null,
             'manaCost' => $card['manaCost'] ?? null,
             'oracleText' => $card['oracleText'] ?? null,
-            'lang' => $card['lang'] ?? null,
-            'printedName' => $card['printedName'] ?? null,
             'colorIdentity' => $this->orderedColorIdentity(is_array($card['colorIdentity'] ?? null) ? $card['colorIdentity'] : []),
             'power' => $power,
             'toughness' => $toughness,

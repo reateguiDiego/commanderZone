@@ -517,8 +517,6 @@ class GameCommandHandlerTest extends TestCase
             'battlefield' => [
                 [
                     ...$this->card('card-1', 'Bear', 'battlefield', 4, 4, 2, 2),
-                    'lang' => 'es',
-                    'printedName' => 'Oso',
                     'tapped' => true,
                     'counters' => ['charge' => 2],
                     'loyalty' => 6,
@@ -539,8 +537,8 @@ class GameCommandHandlerTest extends TestCase
         $copy = $battlefield[1];
         self::assertNotSame('card-1', $copy['instanceId']);
         self::assertSame('Bear', $copy['name']);
-        self::assertSame('es', $copy['lang']);
-        self::assertSame('Oso', $copy['printedName']);
+        self::assertArrayNotHasKey('lang', $copy);
+        self::assertArrayNotHasKey('printedName', $copy);
         self::assertSame(2, $copy['power']);
         self::assertSame(2, $copy['toughness']);
         self::assertSame(3, $copy['loyalty']);

@@ -212,11 +212,11 @@ class GameProjectionServiceTest extends TestCase
 
         $localization = $this->getMockBuilder(CardLocalizationService::class)
             ->disableOriginalConstructor()
-            ->onlyMethods(['localizedPayloadLookupForScryfallIds'])
+            ->onlyMethods(['localizedImagePayloadLookupForScryfallIds'])
             ->getMock();
         $localization
             ->expects(self::exactly(2))
-            ->method('localizedPayloadLookupForScryfallIds')
+            ->method('localizedImagePayloadLookupForScryfallIds')
             ->willReturnCallback(static function (array $scryfallIds, array $languages): array {
                 $language = $languages[0] ?? null;
                 if (!is_string($language)) {
