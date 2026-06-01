@@ -86,6 +86,23 @@
   object-fit: contain;
 }
 
+.menu-item-mana-icon {
+  display: inline-flex;
+  width: 1.06rem;
+  height: 1.06rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  color: var(--gold, var(--game-accent, #d7b46a));
+  font-size: 1.16rem;
+  line-height: 1;
+  filter: drop-shadow(0 0.08rem 0.08rem rgb(0 0 0 / 62%));
+}
+
+.menu-item-mana-icon ::ng-deep .ms {
+  color: var(--gold, var(--game-accent, #d7b46a));
+}
+
 .menu-item-pt-icon {
   display: inline-flex;
   width: 1.06rem;

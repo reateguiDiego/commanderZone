@@ -1677,7 +1677,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/DeckSelection'
+              $ref: '#/components/schemas/JoinRoomRequest'
       responses:
         '200':
           description: Joined room.
@@ -1713,7 +1713,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/DeckSelection'
+              $ref: '#/components/schemas/JoinRoomRequest'
       responses:
         '200':
           description: Joined room.
@@ -3850,6 +3850,15 @@ components:
         deckId:
           type: string
           format: uuid
+    JoinRoomRequest:
+      allOf:
+        - $ref: '#/components/schemas/DeckSelection'
+        - type: object
+          properties:
+            randomDeckOptionCount:
+              type: integer
+              minimum: 1
+              description: Optional client-side count of legal deck options when the user selected a random deck, used only for waiting-room activity copy.
     CreateRoomRequest:
       allOf:
         - $ref: '#/components/schemas/DeckSelection'

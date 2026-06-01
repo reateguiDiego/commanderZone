@@ -56,21 +56,21 @@ export class ManaPoolPanelComponent {
   readonly pool = input.required<ManaPool>();
   readonly backgroundName = input<string | null | undefined>(null);
   readonly colorIdentity = input<readonly string[] | null | undefined>(IDENTITY_MANA_COLORS);
+  readonly pendingColors = input<readonly ManaPoolColor[]>([]);
 
   readonly colorAdded = output<ManaPoolColor>();
   readonly colorRemoved = output<ManaPoolColor>();
-  readonly colorReset = output<ManaPoolColor>();
   readonly anyAdded = output<void>();
   readonly anyRemoved = output<void>();
-  readonly anyReset = output<void>();
-  readonly poolReset = output<void>();
   readonly hidden = output<void>();
+  readonly menuOpened = output<MouseEvent>();
 
   readonly activeControls = signal<string | null>(null);
-  readonly resetMenuOpen = signal(false);
   readonly colors = computed<readonly ManaPoolColor[]>(() => {
     const identity = new Set((this.colorIdentity() ?? []).map((color) => color.toUpperCase()));
-    const visibleIdentityColors = IDENTITY_MANA_COLORS.filter((color) => identity.has(color));
+    const pending = new Set(this.pendingColors());
+    const pool = this.pool();
+    const visibleIdentityColors = IDENTITY_MANA_COLORS.filter((color) => identity.has(color) || pool[color] > 0 || pending.has(color));
 
     return [...visibleIdentityColors, 'C'];
   });
@@ -80,31 +80,26 @@ export class ManaPoolPanelComponent {
   readonly symbolColor = computed(() => contrastManaColorForBackground(this.backgroundName()));
   readonly symbolColorStyle = computed(() => MANA_SYMBOL_PAINT_COLORS[this.symbolColor()]);
 
-  activateControls(key: string, event: MouseEvent): void {
+  activateControls(key: string, event: PointerEvent): void {
+    if (event.pointerType === 'mouse') {
+      return;
+    }
+
     event.preventDefault();
     event.stopPropagation();
-    this.resetMenuOpen.set(false);
     this.activeControls.set(key);
   }
 
-  openResetMenu(event: MouseEvent): void {
+  openContextMenu(event: MouseEvent): void {
     event.preventDefault();
     event.stopPropagation();
     this.activeControls.set(null);
-    this.resetMenuOpen.set(true);
-  }
-
-  resetPool(event: MouseEvent): void {
-    event.preventDefault();
-    event.stopPropagation();
-    this.resetMenuOpen.set(false);
-    this.poolReset.emit();
+    this.menuOpened.emit(event);
   }
 
   hidePanel(event: MouseEvent): void {
     event.preventDefault();
     event.stopPropagation();
-    this.resetMenuOpen.set(false);
     this.hidden.emit();
   }
 
@@ -128,14 +123,13 @@ export class ManaPoolPanelComponent {
     return MANA_TYPE_NAMES[color];
   }
 
-  @HostListener('document:mousedown', ['$event'])
-  closeTransientControls(event: MouseEvent): void {
+  @HostListener('document:pointerdown', ['$event'])
+  closeTransientControls(event: PointerEvent): void {
     const target = event.target instanceof Node ? event.target : null;
     if (target && this.host.nativeElement.contains(target)) {
       return;
     }
 
     this.activeControls.set(null);
-    this.resetMenuOpen.set(false);
   }
 }

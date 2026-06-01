@@ -14,11 +14,25 @@
   width: fit-content;
   max-width: calc(100vw - 1.2rem);
   padding: 0.08rem 0.45rem 0.08rem 0;
-  border: 1px solid rgb(231 204 132 / 34%);
+  border: 1px solid transparent;
   border-radius: 8px;
+  background: transparent;
+  box-shadow: none;
+  color: #f6ebcc;
+  backdrop-filter: none;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease,
+    box-shadow 120ms ease,
+    backdrop-filter 120ms ease;
+}
+
+.mana-pool-panel:hover,
+.mana-pool-panel:focus-within,
+.mana-pool-panel.controls-active {
+  border-color: rgb(231 204 132 / 34%);
   background: rgb(18 20 24 / 84%);
   box-shadow: 0 0.7rem 1.8rem rgb(0 0 0 / 24%);
-  color: #f6ebcc;
   backdrop-filter: blur(10px);
 }
 
@@ -37,10 +51,25 @@
   color: #fff;
   box-shadow: 0 0.1rem 0.35rem rgb(0 0 0 / 55%);
   line-height: 0;
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(0.92);
+  transition:
+    background 120ms ease,
+    opacity 120ms ease,
+    transform 120ms ease;
 }
 
 .mana-pool-hide-button:hover {
   background: #ff3557;
+}
+
+.mana-pool-panel:hover .mana-pool-hide-button,
+.mana-pool-panel:focus-within .mana-pool-hide-button,
+.mana-pool-panel.controls-active .mana-pool-hide-button {
+  opacity: 1;
+  pointer-events: auto;
+  transform: scale(1);
 }
 
 .mana-pool-hide-button lucide-icon {
@@ -345,36 +374,6 @@ button:disabled {
   filter:
     drop-shadow(0 0.08rem 0.08rem rgb(0 0 0 / 72%))
     drop-shadow(0 0 0.38rem var(--mana-pool-symbol-color, #fff833));
-}
-
-.mana-reset-menu {
-  position: absolute;
-  z-index: 6;
-  top: calc(100% + 0.25rem);
-  right: 0.35rem;
-  min-width: 9.5rem;
-  padding: 0.25rem;
-  border: 1px solid rgb(231 204 132 / 34%);
-  border-radius: 7px;
-  background: rgb(16 17 20 / 96%);
-  box-shadow: 0 0.55rem 1.25rem rgb(0 0 0 / 36%);
-}
-
-.mana-reset-menu button {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  width: 100%;
-  padding: 0.45rem 0.55rem;
-  border-radius: 5px;
-  background: transparent;
-  color: #f6ebcc;
-  font-size: 0.78rem;
-  text-align: left;
-}
-
-.mana-reset-menu button:not(:disabled):hover {
-  background: rgb(255 255 255 / 12%);
 }
 
 @media (max-width: 760px) {

@@ -1,5 +1,5 @@
 import { GameCardInstance } from '../../../../core/models/game.model';
-import { detectManaSource } from './mana-source-detector';
+import { automaticTapOnlyManaSourceSuggestion, detectManaSource } from './mana-source-detector';
 
 describe('detectManaSource', () => {
   it('detects fixed colorless mana from Sol Ring', () => {
@@ -32,6 +32,31 @@ describe('detectManaSource', () => {
 
     expect(suggestion.kind).toBe('fixed');
     expect(suggestion.additions).toEqual([{ color: 'B', amount: 1 }, { color: 'R', amount: 1 }]);
+  });
+
+  it('detects multicolor lands with explicit or text as color choices', () => {
+    const suggestion = detectManaSource(card(
+      'Hinterland Harbor',
+      'Land',
+      '{T}: Add {G} or {U}.',
+    ));
+
+    expect(suggestion.kind).toBe('choice');
+    expect(suggestion.additions).toEqual([]);
+    expect(suggestion.colors).toEqual(['U', 'G']);
+    expect(suggestion.amount).toBe(1);
+  });
+
+  it('detects lands with multiple basic land types as color choices', () => {
+    const suggestion = detectManaSource(card(
+      'Breeding Pool',
+      'Land - Forest Island',
+      '',
+    ));
+
+    expect(suggestion.kind).toBe('choice');
+    expect(suggestion.additions).toEqual([]);
+    expect(suggestion.colors).toEqual(['U', 'G']);
   });
 
   it('marks restricted mana sources without enforcing the restriction', () => {
@@ -97,6 +122,24 @@ describe('detectManaSource', () => {
     const suggestion = detectManaSource({ ...doubleFacedCard(0), faceDown: true });
 
     expect(suggestion.kind).toBe('none');
+  });
+
+  it('returns automatic tap mana suggestions only for active lands or artifacts with a single tap-only mana ability', () => {
+    expect(automaticTapOnlyManaSourceSuggestion(card('Forest', 'Basic Land - Forest', '')).additions).toEqual([{ color: 'G', amount: 1 }]);
+    expect(automaticTapOnlyManaSourceSuggestion(card('Sol Ring', 'Artifact', '{T}: Add {C}{C}.')).additions).toEqual([{ color: 'C', amount: 2 }]);
+    expect(automaticTapOnlyManaSourceSuggestion(card('Arcane Signet', 'Artifact', "{T}: Add one mana of any color in your commander's color identity."), { colorIdentity: ['U', 'R'] }).colors).toEqual(['U', 'R']);
+    expect(automaticTapOnlyManaSourceSuggestion(card('Arcane Signet', 'Artifact', "{T}: Add one mana of any color in your commander's color identity."), { colorIdentity: ['G'] }).additions).toEqual([{ color: 'G', amount: 1 }]);
+    expect(automaticTapOnlyManaSourceSuggestion(card('Hinterland Harbor', 'Land', 'Hinterland Harbor enters the battlefield tapped unless you control a Forest or an Island. {T}: Add {G} or {U}.')).colors).toEqual(['U', 'G']);
+    expect(automaticTapOnlyManaSourceSuggestion(card("Gaea's Cradle", 'Legendary Land', '{T}: Add {G} for each creature you control.')).kind).toBe('variable');
+    expect(automaticTapOnlyManaSourceSuggestion(card('Llanowar Elves', 'Creature - Elf Druid', '{T}: Add {G}.')).kind).toBe('none');
+    expect(automaticTapOnlyManaSourceSuggestion(card('Rakdos Signet', 'Artifact', '{1}, {T}: Add {B}{R}.')).kind).toBe('none');
+    expect(automaticTapOnlyManaSourceSuggestion(card('Ancient Tomb', 'Land', '{T}: Add {C}{C}. Ancient Tomb deals 2 damage to you.')).kind).toBe('none');
+    expect(automaticTapOnlyManaSourceSuggestion(card('Temple of the False God', 'Land', '{T}: Add {C}{C}. Activate only if you control five or more lands.')).kind).toBe('none');
+  });
+
+  it('uses the active face when checking automatic tap-only land mana', () => {
+    expect(automaticTapOnlyManaSourceSuggestion(doubleFacedLand(0)).additions).toEqual([{ color: 'R', amount: 1 }]);
+    expect(automaticTapOnlyManaSourceSuggestion(doubleFacedLand(1)).kind).toBe('none');
   });
 });
 
@@ -169,6 +212,41 @@ function backManaDoubleFacedCard(activeFaceIndex: number): GameCardInstance {
         manaCost: null,
         typeLine: 'Artifact',
         oracleText: '{T}: Add {U}.',
+        power: null,
+        toughness: null,
+        loyalty: null,
+        colors: [],
+        imageUris: {},
+      },
+    ],
+    tapped: false,
+  };
+}
+
+function doubleFacedLand(activeFaceIndex: number): GameCardInstance {
+  return {
+    instanceId: `land-dfc-${activeFaceIndex}`,
+    name: 'Mana Land // Quiet Back',
+    typeLine: 'Land',
+    oracleText: '{T}: Add {R}.',
+    activeFaceIndex,
+    cardFaces: [
+      {
+        name: 'Mana Land',
+        manaCost: null,
+        typeLine: 'Land',
+        oracleText: '{T}: Add {R}.',
+        power: null,
+        toughness: null,
+        loyalty: null,
+        colors: [],
+        imageUris: {},
+      },
+      {
+        name: 'Quiet Back',
+        manaCost: null,
+        typeLine: 'Creature - Human',
+        oracleText: 'Whenever Quiet Back attacks, surveil 1.',
         power: null,
         toughness: null,
         loyalty: null,

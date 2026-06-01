@@ -58,9 +58,9 @@ describe('ManaPoolPanelComponent', () => {
     expect(symbols.every((symbol) => !symbol.classList.contains('ms-cost'))).toBe(true);
   });
 
-  it('always shows any color and colorless, and filters colored mana by deck color identity', () => {
+  it('always shows any color and colorless, and uses deck color identity as the base colored mana set', () => {
     const fixture = createFixture(
-      { ANY: 1, W: 1, U: 2, B: 3, R: 4, G: 5, C: 6 },
+      { ANY: 1, W: 0, U: 2, B: 3, R: 0, G: 0, C: 6 },
       null,
       ['U', 'B'],
     );
@@ -81,6 +81,42 @@ describe('ManaPoolPanelComponent', () => {
     expect(buttonTitles).not.toContain('White mana');
     expect(buttonTitles).not.toContain('Red mana');
     expect(buttonTitles).not.toContain('Green mana');
+  });
+
+  it('shows off-identity colored mana while its pool amount is positive and hides it again at zero', () => {
+    const fixture = createFixture(
+      { ANY: 0, W: 1, U: 0, B: 0, R: 0, G: 0, C: 0 },
+      null,
+      ['U'],
+    );
+
+    expect(colorButtonTitles(fixture)).toContain('White mana');
+    expect(colorButtonTitles(fixture)).toContain('Blue mana');
+
+    fixture.componentRef.setInput('pool', { ANY: 0, W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 });
+    fixture.detectChanges();
+
+    expect(colorButtonTitles(fixture)).not.toContain('White mana');
+    expect(colorButtonTitles(fixture)).toContain('Blue mana');
+    expect(colorButtonTitles(fixture)).toContain('Colorless mana');
+  });
+
+  it('shows off-identity colored mana while it has a pending comet target', () => {
+    const fixture = createFixture(
+      { ANY: 0, W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 },
+      null,
+      ['G'],
+      ['U'],
+    );
+
+    expect(colorButtonTitles(fixture)).toContain('Blue mana');
+    expect(colorButtonTitles(fixture)).toContain('Green mana');
+
+    fixture.componentRef.setInput('pendingColors', []);
+    fixture.detectChanges();
+
+    expect(colorButtonTitles(fixture)).not.toContain('Blue mana');
+    expect(colorButtonTitles(fixture)).toContain('Green mana');
   });
 
   it('renders an any color symbol group with all five colored mana symbols', () => {
@@ -112,20 +148,17 @@ describe('ManaPoolPanelComponent', () => {
     expect(contrastManaColorForBackground(null)).toBe('W');
   });
 
-  it('opens reset from the panel context menu', () => {
+  it('emits a context menu request from the panel context menu', () => {
     const fixture = createFixture({ ANY: 0, W: 1, U: 0, B: 0, R: 0, G: 0, C: 0 });
-    let resetAll = 0;
-    fixture.componentInstance.poolReset.subscribe(() => ++resetAll);
+    const opened = vi.fn();
+    fixture.componentInstance.menuOpened.subscribe(opened);
 
     const panel = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('.mana-pool-panel');
     panel?.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
     fixture.detectChanges();
 
-    const resetButton = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button'))
-      .find((button) => button.textContent?.includes('Reset mana pool'));
-    resetButton?.click();
-
-    expect(resetAll).toBe(1);
+    expect(opened).toHaveBeenCalledOnce();
+    expect((fixture.nativeElement as HTMLElement).querySelector('.mana-reset-menu')).toBeNull();
   });
 
   it('emits any color manual changes', () => {
@@ -153,17 +186,30 @@ describe('ManaPoolPanelComponent', () => {
     expect(buttons.find((button) => button.title === 'Add White mana')?.disabled).toBe(true);
   });
 
-  it('activates touch controls from a symbol click and emits hide', () => {
+  it('does not pin controls for mouse pointer activation', () => {
+    const fixture = createFixture({ ANY: 0, W: 1, U: 0, B: 0, R: 0, G: 0, C: 0 });
+    const whiteButton = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button'))
+      .find((button) => button.title === 'White mana');
+
+    dispatchPointerDown(whiteButton, 'mouse');
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).querySelector('.mana-pool-color.controls-active')).toBeNull();
+    expect((fixture.nativeElement as HTMLElement).querySelector('.mana-pool-panel.controls-active')).toBeNull();
+  });
+
+  it('activates touch controls from a symbol pointer interaction and emits hide', () => {
     const fixture = createFixture({ ANY: 0, W: 1, U: 0, B: 0, R: 0, G: 0, C: 0 });
     let hidden = 0;
     fixture.componentInstance.hidden.subscribe(() => ++hidden);
 
     const whiteButton = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button'))
       .find((button) => button.title === 'White mana');
-    whiteButton?.click();
+    dispatchPointerDown(whiteButton, 'touch');
     fixture.detectChanges();
 
     expect((fixture.nativeElement as HTMLElement).querySelector('.mana-pool-color.controls-active')).not.toBeNull();
+    expect((fixture.nativeElement as HTMLElement).querySelector('.mana-pool-panel.controls-active')).not.toBeNull();
 
     const hideButton = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button'))
       .find((button) => button.title === 'Hide mana pool');
@@ -177,14 +223,39 @@ function createFixture(
   pool: ManaPool,
   backgroundName: string | null = null,
   colorIdentity?: readonly string[],
+  pendingColors: readonly ManaPoolColor[] = [],
 ): ComponentFixture<ManaPoolPanelComponent> {
   const fixture = TestBed.createComponent(ManaPoolPanelComponent);
   fixture.componentRef.setInput('pool', pool);
   fixture.componentRef.setInput('backgroundName', backgroundName);
+  fixture.componentRef.setInput('pendingColors', pendingColors);
   if (colorIdentity) {
     fixture.componentRef.setInput('colorIdentity', colorIdentity);
   }
   fixture.detectChanges();
 
   return fixture;
+}
+
+function dispatchPointerDown(target: Element | undefined, pointerType: 'mouse' | 'touch' | 'pen'): void {
+  if (!target) {
+    return;
+  }
+
+  const supportsPointerEvent = typeof PointerEvent === 'function';
+  const event = supportsPointerEvent
+    ? new PointerEvent('pointerdown', { bubbles: true, cancelable: true, pointerType })
+    : new MouseEvent('pointerdown', { bubbles: true, cancelable: true });
+
+  if (!supportsPointerEvent && !('pointerType' in event)) {
+    Object.defineProperty(event, 'pointerType', { value: pointerType });
+  }
+
+  target.dispatchEvent(event);
+}
+
+function colorButtonTitles(fixture: ComponentFixture<ManaPoolPanelComponent>): readonly string[] {
+  const poolGrid = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('.mana-pool-grid');
+
+  return Array.from(poolGrid?.querySelectorAll('button') ?? []).map((button) => button.title);
 }

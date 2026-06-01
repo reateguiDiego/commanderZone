@@ -1,11 +1,16 @@
-<div class="mana-action-backdrop" role="presentation">
-  <section class="mana-action-panel" role="dialog" aria-modal="true" aria-label="Add mana">
-    <header>
-      <span>Mana Assistant</span>
-      <strong>{{ suggestion().cardName }}</strong>
-    </header>
-
-    <p>{{ suggestion().summary }}</p>
+<ng-template #manaActionContent>
+  <section class="mana-action-content" (click)="stopPopoverPointer($event)" (contextmenu)="stopPopoverPointer($event)">
+    @if (showSummary()) {
+      <p class="mana-summary">
+        @for (part of summaryParts(); track $index) {
+          @if (part.kind === 'mana') {
+            <app-mana-symbols [symbols]="[part.value]" size="small" />
+          } @else {
+            <span>{{ part.value }}</span>
+          }
+        }
+      </p>
+    }
 
     @if (suggestion().restriction; as restriction) {
       <p class="mana-restriction">
@@ -14,50 +19,170 @@
       </p>
     }
 
-    @if (suggestion().additions.length > 0) {
-      <div class="fixed-mana-preview" aria-label="Mana to add">
-        @for (addition of suggestion().additions; track addition.color) {
-          <span>
-            <app-mana-symbols [symbols]="[addition.color]" size="small" />
-            <strong>{{ addition.amount }}</strong>
-          </span>
-        }
-      </div>
-    } @else if (canAddMana()) {
-      <div class="mana-choice-grid" aria-label="Choose mana color">
-        @for (color of suggestion().colors; track color) {
-          <button
-            type="button"
-            class="mana-choice"
-            [class.selected]="selectedColor() === color"
-            (click)="updateColor(color)"
-          >
-            <app-mana-symbols [symbols]="[color]" size="small" />
-          </button>
-        }
-      </div>
+    @if (hasProductionParts()) {
+      <section class="mana-production-panel" aria-label="Mana production parts">
+        @for (part of productionParts(); track part.id) {
+          <article class="mana-production-part" [class.mana-production-part--fixed]="part.kind === 'fixed'">
+            <header class="mana-production-part-header">
+              <span>{{ part.label }}</span>
+              <small>
+                @switch (part.kind) {
+                  @case ('fixed') {
+                    Fixed
+                  }
+                  @case ('choice') {
+                    Choose {{ part.amount }}
+                  }
+                  @case ('variable') {
+                    Manual
+                  }
+                }
+              </small>
+            </header>
 
-      @if (suggestion().kind === 'variable' || suggestion().amount > 1) {
-        <div class="mana-amount-control">
-          <button type="button" [disabled]="amount() <= 1" (click)="stepAmount(-1)">
-            <lucide-icon name="minus" size="15" aria-hidden="true" />
-          </button>
-          <label>
-            <span>Amount</span>
-            <input type="number" min="1" [value]="amount()" (input)="updateAmount($event)" />
-          </label>
-          <button type="button" (click)="stepAmount(1)">
-            <lucide-icon name="plus" size="15" aria-hidden="true" />
-          </button>
-        </div>
-      }
+            @switch (part.kind) {
+              @case ('fixed') {
+                <div class="mana-production-fixed" aria-label="Fixed mana">
+                  @for (addition of part.additions; track addition.color) {
+                    <span class="mana-production-fixed-item">
+                      <app-mana-symbols [symbols]="[addition.color]" size="small" />
+                      @if (addition.amount > 1) {
+                        <strong>{{ addition.amount }}</strong>
+                      }
+                    </span>
+                  }
+                </div>
+              }
+              @case ('choice') {
+                <div class="mana-production-colors" aria-label="Choose color">
+                  @for (color of part.colors; track color) {
+                    <button
+                      type="button"
+                      class="mana-production-color"
+                      [class.selected]="selectedProductionColor(part) === color"
+                      (click)="updateProductionColor(part, color)"
+                    >
+                      <app-mana-symbols [symbols]="[color]" size="small" />
+                    </button>
+                  }
+                </div>
+              }
+              @case ('variable') {
+                <div class="mana-production-colors" aria-label="Choose color">
+                  @for (color of part.colors; track color) {
+                    <button
+                      type="button"
+                      class="mana-production-color"
+                      [class.selected]="selectedProductionColor(part) === color"
+                      (click)="updateProductionColor(part, color)"
+                    >
+                      <app-mana-symbols [symbols]="[color]" size="small" />
+                    </button>
+                  }
+                </div>
+                <div class="mana-production-stepper">
+                  <app-game-x-quantity-stepper
+                    [value]="selectedProductionAmount(part)"
+                    [min]="1"
+                    [max]="99"
+                    ariaLabel="mana quantity"
+                    testIdPrefix="mana-production-quantity"
+                    (valueChanged)="updateProductionAmount(part, $event)"
+                  />
+                </div>
+              }
+            }
+          </article>
+        }
+      </section>
     }
 
-    <footer>
-      <button type="button" class="secondary-button" (click)="cancelled.emit()">Cancel</button>
-      <button type="button" class="primary-button" [disabled]="canAddMana() && suggestion().additions.length === 0 && selectedColor() === null" (click)="confirmed.emit()">
-        {{ confirmLabel() }}
-      </button>
-    </footer>
+    @if (showSelectionPanel()) {
+      <section class="mana-selection-panel">
+        @if (showFixedPreview()) {
+          <div class="mana-choice-grid" aria-label="Mana to add">
+            @for (addition of suggestion().additions; track addition.color) {
+              <span class="mana-choice mana-choice--fixed selected">
+                <app-mana-symbols [symbols]="[addition.color]" size="small" />
+                <strong>{{ addition.amount }}</strong>
+              </span>
+            }
+          </div>
+        } @else if (showColorSelector()) {
+          <div class="mana-choice-grid" aria-label="Choose mana color">
+            @for (color of suggestion().colors; track color) {
+              <button
+                type="button"
+                class="mana-choice"
+                [class.selected]="selectedColor() === color"
+                (click)="updateColor(color)"
+              >
+                <app-mana-symbols [symbols]="[color]" size="small" />
+              </button>
+            }
+          </div>
+        }
+
+        @if (showAmountSelector()) {
+          <div class="mana-amount-control" aria-label="Mana amount">
+            <app-game-x-quantity-stepper
+              [value]="amount()"
+              [min]="1"
+              [max]="99"
+              ariaLabel="mana quantity"
+              testIdPrefix="mana-action-quantity"
+              (valueChanged)="updateAmount($event)"
+            />
+          </div>
+        }
+      </section>
+    }
   </section>
-</div>
+</ng-template>
+
+@if (popoverLayout(); as popoverLayout) {
+  <section
+    class="mana-action-popover"
+    [class.mana-action-popover--above]="popoverLayout.placement === 'above'"
+    [class.mana-action-popover--below]="popoverLayout.placement === 'below'"
+    [style.left.px]="popoverLayout.left"
+    [style.top.px]="popoverLayout.top"
+    [style.bottom.px]="popoverLayout.bottom"
+    [style.width.px]="popoverLayout.width"
+    [style.max-height.px]="popoverLayout.maxHeight"
+    [style.--mana-action-arrow-left]="popoverLayout.arrowLeft + 'px'"
+    role="dialog"
+    [attr.aria-label]="suggestion().cardName + ' mana action'"
+    (click)="stopPopoverPointer($event)"
+    (contextmenu)="stopPopoverPointer($event)"
+  >
+    <div class="mana-action-popover-frame">
+      <header class="mana-popover-header">
+        <h2>{{ suggestion().cardName }}</h2>
+      </header>
+
+      <ng-container [ngTemplateOutlet]="manaActionContent" />
+
+      <footer class="mana-popover-actions">
+        <button type="button" class="secondary-button" (click)="cancelled.emit()">Cancel</button>
+        <button type="button" class="primary-button" [disabled]="primaryDisabled()" (click)="confirm()">
+          {{ confirmLabel() }}
+        </button>
+      </footer>
+    </div>
+  </section>
+} @else {
+  <app-modal
+    [open]="true"
+    [title]="suggestion().cardName"
+    secondaryLabel="Cancel"
+    [primaryLabel]="confirmLabel()"
+    [primaryDisabled]="primaryDisabled()"
+    [lockBodyScroll]="false"
+    size="compact"
+    (primary)="confirm()"
+    (secondary)="cancelled.emit()"
+  >
+    <ng-container [ngTemplateOutlet]="manaActionContent" />
+  </app-modal>
+}

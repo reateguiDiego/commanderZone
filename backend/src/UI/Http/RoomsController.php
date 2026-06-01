@@ -265,6 +265,7 @@ class RoomsController extends ApiController
 
         $wasPlayer = $room->hasPlayer($user);
         $previousDeckId = $wasPlayer ? $room->playerFor($user)?->deck()?->id() : null;
+        $randomDeckOptionCount = $this->randomDeckOptionCountFromPayload($payload);
         if (!$wasPlayer && $activeRoomMembership->otherRoomFor($user, $room) instanceof Room) {
             return $this->fail('Leave your current room before joining another room.', 409);
         }
@@ -273,6 +274,13 @@ class RoomsController extends ApiController
         }
         if (!$wasPlayer) {
             $room->appendWaitingLog(sprintf('%s joined the room.', $this->userDisplayName($user)), RoomWaitingLogEntry::TONE_SUCCESS);
+        } elseif ($deck instanceof Deck && $randomDeckOptionCount !== null) {
+            $room->appendWaitingLog(sprintf(
+                '%s ha seleccionado un random deck entre %d opciones: %s.',
+                $this->userDisplayName($user),
+                $randomDeckOptionCount,
+                $deck->name(),
+            ));
         } elseif ($deck instanceof Deck && $deck->id() !== $previousDeckId) {
             $room->appendWaitingLog(sprintf('%s selected deck: %s.', $this->userDisplayName($user), $deck->name()));
         }
@@ -884,5 +892,18 @@ class RoomsController extends ApiController
     private function hasDeckIdInPayload(array $payload): bool
     {
         return isset($payload['deckId']) && is_string($payload['deckId']) && trim($payload['deckId']) !== '';
+    }
+
+    private function randomDeckOptionCountFromPayload(array $payload): ?int
+    {
+        $optionCount = $payload['randomDeckOptionCount'] ?? null;
+        if (is_int($optionCount) && $optionCount > 0) {
+            return $optionCount;
+        }
+        if (is_numeric($optionCount) && (int) $optionCount > 0) {
+            return (int) $optionCount;
+        }
+
+        return null;
     }
 }

@@ -501,6 +501,18 @@ describe('API services', () => {
     expect(request.request.body).toEqual({ deckId: 'deck-1' });
     request.flush({ invite: {}, room: roomFixture('room-1') });
   });
+
+  it('sends random deck metadata when joining a room from random selection', () => {
+    const rooms = TestBed.inject(RoomsApi);
+
+    rooms.join('room-1', 'deck-1', true, { randomDeckOptionCount: 4 }).subscribe();
+    const request = http.expectOne(`${API_BASE_URL}/rooms/room-1/join`);
+
+    expect(request.request.method).toBe('POST');
+    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);
+    expect(request.request.body).toEqual({ deckId: 'deck-1', randomDeckOptionCount: 4 });
+    request.flush({ room: roomFixture('room-1') });
+  });
 });
 
 

@@ -74,6 +74,31 @@ class RoomsGamesApiTest extends ApiTestCase
         self::assertCount(2, $rooms[0]['players']);
     }
 
+    public function testRandomDeckSelectionIsLoggedWithOptionCount(): void
+    {
+        $ownerToken = $this->registerAndLogin('random-deck-log-owner@example.test', 'Random Deck Owner');
+        $deckId = $this->quickBuildDeck($ownerToken, 'Random Picked Deck', [
+            ['scryfallId' => 'abababab-0000-7000-8000-000000000001', 'quantity' => 1, 'section' => 'commander'],
+            ['scryfallId' => 'abababab-1111-7111-8111-111111111111', 'quantity' => 99, 'section' => 'main'],
+        ]);
+
+        $this->jsonRequest('POST', '/rooms', ['visibility' => 'private', 'maxPlayers' => 2], $ownerToken);
+        self::assertResponseStatusCodeSame(201);
+        $roomId = (string) $this->jsonResponse()['room']['id'];
+
+        $this->jsonRequest('POST', '/rooms/'.$roomId.'/join', [
+            'deckId' => $deckId,
+            'randomDeckOptionCount' => 4,
+        ], $ownerToken);
+        self::assertResponseIsSuccessful();
+
+        $waitingLogLabels = array_column($this->jsonResponse()['room']['waitingLog'], 'label');
+        self::assertContains(
+            'Random Deck Owner ha seleccionado un random deck entre 4 opciones: Random Picked Deck.',
+            $waitingLogLabels,
+        );
+    }
+
     public function testOwnerLeavingNonStartedRoomDeletesRoomAndClearsAllMemberships(): void
     {
         $ownerToken = $this->registerAndLogin('owner-leave-room-owner@example.test', 'Owner Leave Host');

@@ -118,6 +118,25 @@ describe('ContextMenuComponent', () => {
     expect(text).not.toContain('Shuffle mine');
   });
 
+  it('renders mana pool reset as a gold context menu action', () => {
+    const fixture = createContextMenuFixture({
+      kind: 'manaPool',
+      playerId: 'user-1',
+      zone: 'battlefield',
+    });
+    const selected = vi.fn();
+    fixture.componentInstance.actionSelected.subscribe(selected);
+    const button = menuButtons(fixture)[0];
+
+    expect(buttonLabels(fixture)).toEqual(['Reset mana pool']);
+    expect(button?.classList).not.toContain('danger-menu-item');
+    expect((fixture.nativeElement as HTMLElement).querySelector('lucide-icon[name="rotate-ccw"]')).not.toBeNull();
+
+    button?.click();
+
+    expect(selected).toHaveBeenCalledWith({ type: 'resetManaPool' });
+  });
+
   it('does not expose concede in the game menu after the current player has conceded', () => {
     const fixture = createContextMenuFixture({
       kind: 'game',
@@ -137,11 +156,16 @@ describe('ContextMenuComponent', () => {
   });
 
   it('exposes add mana for battlefield cards with a mana suggestion', () => {
+    const random = vi.spyOn(Math, 'random').mockReturnValue(0.75);
     const fixture = createContextMenuFixture({
       kind: 'card',
       zone: 'battlefield',
       card: card('card-1', '{T}: Add {C}{C}.'),
     }, {
+      players: [
+        player('user-1', 'User', 'active', ['U', 'R']),
+        player('user-2', 'Opponent'),
+      ],
       manaSourceSuggestion: () => ({
         kind: 'fixed',
         cardName: 'Sol Ring',
@@ -154,7 +178,35 @@ describe('ContextMenuComponent', () => {
       }),
     });
 
-    expect(buttonLabels(fixture)).toContain('Add mana');
+    try {
+      expect(buttonLabels(fixture)).toContain('Add mana');
+      expect((fixture.nativeElement as HTMLElement).querySelector('.menu-item-mana-icon .ms-r')).not.toBeNull();
+      expect((fixture.nativeElement as HTMLElement).querySelector('lucide-icon[name="sparkles"]')).toBeNull();
+    } finally {
+      random.mockRestore();
+    }
+  });
+
+  it('hides add mana for battlefield cards when the mana pool is hidden', () => {
+    const fixture = createContextMenuFixture({
+      kind: 'card',
+      zone: 'battlefield',
+      card: card('card-1', '{T}: Add {G}.'),
+    }, {
+      isManaPoolHidden: () => true,
+      manaSourceSuggestion: () => ({
+        kind: 'fixed',
+        cardName: 'Forest',
+        summary: 'Add {G}.',
+        additions: [{ color: 'G', amount: 1 }],
+        colors: ['G'],
+        amount: 0,
+        restriction: null,
+        manualOnly: false,
+      }),
+    });
+
+    expect(buttonLabels(fixture)).not.toContain('Add mana');
   });
 
   it('emits openDebug from the game menu', () => {
@@ -275,10 +327,16 @@ describe('ContextMenuComponent', () => {
   });
 
   it('shows the mana pool opener from the own battlefield menu only when the panel is hidden', () => {
+    const random = vi.spyOn(Math, 'random').mockReturnValue(0.75);
     const visible = createContextMenuFixture({
       kind: 'zone',
       playerId: 'user-1',
       zone: 'battlefield',
+    }, {
+      players: [
+        player('user-1', 'User', 'active', ['U', 'R']),
+        player('user-2', 'Opponent'),
+      ],
     });
     const hidden = createContextMenuFixture({
       kind: 'zone',
@@ -286,18 +344,28 @@ describe('ContextMenuComponent', () => {
       zone: 'battlefield',
     }, {
       isManaPoolHidden: () => true,
+      players: [
+        player('user-1', 'User', 'active', ['U', 'R']),
+        player('user-2', 'Opponent'),
+      ],
     });
     const selected = vi.fn();
     hidden.componentInstance.actionSelected.subscribe(selected);
 
-    expect(menuText(visible)).not.toContain('Show mana pool');
-    expect(buttonLabels(hidden)).toEqual(['Create token', 'Tirar dado', 'Show mana pool']);
+    try {
+      expect(menuText(visible)).not.toContain('Show mana pool');
+      expect(buttonLabels(hidden)).toEqual(['Create token', 'Tirar dado', 'Show mana pool']);
+      expect((hidden.nativeElement as HTMLElement).querySelector('.menu-item-mana-icon .ms-r')).not.toBeNull();
+      expect((hidden.nativeElement as HTMLElement).querySelector('lucide-icon[name="sparkles"]')).toBeNull();
 
-    const showButton = Array.from((hidden.nativeElement as HTMLElement).querySelectorAll('button'))
-      .find((candidate) => candidate.textContent?.includes('Show mana pool'));
-    showButton?.click();
+      const showButton = Array.from((hidden.nativeElement as HTMLElement).querySelectorAll('button'))
+        .find((candidate) => candidate.textContent?.includes('Show mana pool'));
+      showButton?.click();
 
-    expect(selected).toHaveBeenCalledWith({ type: 'showManaPool' });
+      expect(selected).toHaveBeenCalledWith({ type: 'showManaPool' });
+    } finally {
+      random.mockRestore();
+    }
   });
 
   it('uses distinct card options for library cards and shared options for graveyard and exile cards', () => {
@@ -926,12 +994,18 @@ function createContextMenuFixture(menu: Partial<GameContextMenu>, options: Conte
   return fixture;
 }
 
-function player(id: string, displayName: string, status: 'active' | 'conceded' = 'active') {
+function player(
+  id: string,
+  displayName: string,
+  status: 'active' | 'conceded' = 'active',
+  colorIdentity: readonly string[] = [],
+) {
   return {
     id,
     state: {
       user: { id, email: `${id}@test`, displayName, roles: [] },
       status,
+      colorIdentity,
       life: 40,
       zones: {
         library: [],

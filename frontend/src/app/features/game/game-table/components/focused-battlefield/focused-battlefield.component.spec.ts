@@ -1,4 +1,6 @@
+import { importProvidersFrom } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { LucideAngularModule, Minus, Plus, RotateCcw, X } from 'lucide-angular';
 import { GameAttachment, GameCardInstance, GameZoneName } from '../../../../../core/models/game.model';
 import { PlayerView } from '../../game-table.store';
 import { FocusedBattlefieldComponent } from './focused-battlefield.component';
@@ -9,6 +11,21 @@ describe('FocusedBattlefieldComponent', () => {
 
     const battlefield = fixture.nativeElement.querySelector('[data-testid="battlefield-zone"]') as HTMLElement;
     expect(battlefield.dataset['motionZone']).toBe('player-1:battlefield');
+  });
+
+  it('anchors the mana pool panel inside the mana row overlay', async () => {
+    const { fixture } = await renderFocusedBattlefield({
+      canEditManaPool: () => true,
+      isManaPoolHidden: () => false,
+    });
+
+    const manaLane = fixture.nativeElement.querySelector('[data-mana-lane]') as HTMLElement;
+    const manaPanel = fixture.nativeElement.querySelector('app-mana-pool-panel') as HTMLElement;
+
+    expect(manaLane).not.toBeNull();
+    expect(manaPanel).not.toBeNull();
+    expect(manaLane.contains(manaPanel)).toBe(true);
+    expect(manaPanel.classList).toContain('mana-pool-panel-anchor');
   });
 
   it('marks every card that acts as the active alignment reference', async () => {
@@ -343,11 +360,16 @@ interface RenderFocusedBattlefieldOptions {
   firstCounter?: (card: GameCardInstance) => { key: string; value: number } | null;
   focusEffectsEnabled?: boolean;
   isDraggingCard?: (card: GameCardInstance) => boolean;
+  canEditManaPool?: (playerId: string) => boolean;
+  isManaPoolHidden?: (playerId: string) => boolean;
 }
 
 async function renderFocusedBattlefield(options: RenderFocusedBattlefieldOptions = {}): Promise<{ fixture: ComponentFixture<FocusedBattlefieldComponent> }> {
   await TestBed.configureTestingModule({
     imports: [FocusedBattlefieldComponent],
+    providers: [
+      importProvidersFrom(LucideAngularModule.pick({ Minus, Plus, RotateCcw, X })),
+    ],
   }).compileComponents();
 
   const fixture = TestBed.createComponent(FocusedBattlefieldComponent);
@@ -368,6 +390,8 @@ async function renderFocusedBattlefield(options: RenderFocusedBattlefieldOptions
   fixture.componentRef.setInput('firstCounter', options.firstCounter ?? ((_card: GameCardInstance) => null));
   fixture.componentRef.setInput('alignmentGuideFor', options.alignmentGuideFor ?? ((_playerId: string) => null));
   fixture.componentRef.setInput('isManaLaneHighlighted', (_playerId: string) => false);
+  fixture.componentRef.setInput('canEditManaPool', options.canEditManaPool ?? ((_playerId: string) => false));
+  fixture.componentRef.setInput('isManaPoolHidden', options.isManaPoolHidden ?? ((_playerId: string) => false));
   fixture.componentRef.setInput('layoutKey', options.layoutKey ?? null);
   fixture.componentRef.setInput('zoomPercent', options.zoomPercent ?? 100);
   fixture.componentRef.setInput('attachments', options.attachments ?? []);

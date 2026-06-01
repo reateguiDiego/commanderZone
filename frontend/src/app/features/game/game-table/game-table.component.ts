@@ -32,6 +32,7 @@ import { GameTableZonePointerMoveActionsService } from './services/game-table-zo
 import { GameTableMotionService } from './services/game-table-motion.service';
 import { GameTableChatReadStateService, type GameTableChatReadContext } from './services/game-table-chat-read-state.service';
 import { GameTableNotificationSoundService } from './services/game-table-notification-sound.service';
+import { GameTableManaCometService } from './services/game-table-mana-comet.service';
 import {
   GameTableRealtimeAnimationBusService,
   type GameTableRealtimePatchAnimationEvent,
@@ -64,7 +65,7 @@ import { GameContextMenu, GameTableUiState } from './state/core/game-table-ui.st
 import { GameTableZoneModalState } from './state/zones/game-table-zone-modal.state';
 import { GameTableZonePilesState } from './state/zones/game-table-zone-piles.state';
 import { GameTableManaPoolState } from './state/mana/game-table-mana-pool.state';
-import { GameTableStore, PlayerView } from './game-table.store';
+import { GameTableStore, PlayerView, SelectedCard } from './game-table.store';
 import { playerIsActiveForTurn, playerIsDefeated } from './utils/game-player-defeat';
 import { GameLogPanelComponent } from './components/game-log-panel/game-log-panel.component';
 import { ZonePilesPanelComponent } from './components/zone-piles-panel/zone-piles-panel.component';
@@ -78,6 +79,7 @@ import { ContextMenuAction, ContextMenuComponent } from './components/context-me
 import { ZoneModalComponent } from './components/zone-modal/zone-modal.component';
 import { NumberActionDialogComponent } from './components/number-action-dialog/number-action-dialog.component';
 import { ManaActionDialogComponent, ManaActionDialogValueChange } from './components/mana-action-dialog/mana-action-dialog.component';
+import { ManaCometLayerComponent } from './components/mana-comet-layer/mana-comet-layer.component';
 import { GameTableHeaderComponent } from './components/game-table-header/game-table-header.component';
 import { CardPreviewOverlayComponent } from './components/card-preview-overlay/card-preview-overlay.component';
 import { CardMarkerRailComponent } from './components/game-card-view/card-marker-rail/card-marker-rail.component';
@@ -94,7 +96,11 @@ import { type RollResult } from '../../../core/ui/roll-modal/roll';
 import { GameTablePermanentRelationService } from './services/game-table-permanent-relation.service';
 import { ZonePointerDropRequest } from './models/game-table-zone-pointer-drag.model';
 import { buildCardPreviewAttachmentInfo, buildCardPreviewCardStateInfo, resolveCardPreviewCard } from './utils/card-preview-attachment-info';
-import { ManaPoolColor, ManaSourceSuggestion } from './utils/mana-source-detector';
+import { ManaAddition, ManaPoolColor, ManaSourceSuggestion } from './utils/mana-source-detector';
+
+const MANA_POOL_TARGET_COLORS: readonly ManaPoolColor[] = ['W', 'U', 'B', 'R', 'G', 'C'];
+
+type PendingManaPoolColorCounts = Readonly<Record<string, Readonly<Partial<Record<ManaPoolColor, number>>>>>;
 
 interface DrawNumberActionRequest {
   readonly kind: 'draw';
@@ -167,6 +173,7 @@ interface ManaActionRequest {
   readonly suggestion: ManaSourceSuggestion;
   readonly selectedColor: ManaPoolColor | null;
   readonly amount: number;
+  readonly position: { x: number; y: number } | null;
 }
 
 interface ArrowTargetDialogRequest {
@@ -198,6 +205,11 @@ interface ContextMenuAvoidRect {
 const CONTEXT_MENU_AVOID_WIDTH = 264;
 const CONTEXT_MENU_AVOID_COMPACT_WIDTH = 172;
 const CONTEXT_MENU_AVOID_HEIGHT = 360;
+
+interface ViewportPoint {
+  readonly x: number;
+  readonly y: number;
+}
 
 interface BattlefieldCardDoubleClickEvent {
   readonly event: MouseEvent;
@@ -327,6 +339,7 @@ interface MotionSourceRect {
     ZoneModalComponent,
     NumberActionDialogComponent,
     ManaActionDialogComponent,
+    ManaCometLayerComponent,
     GameTableHeaderComponent,
     CardPreviewOverlayComponent,
     CardMarkerRailComponent,
@@ -386,6 +399,7 @@ interface MotionSourceRect {
     GameTableMotionService,
     GameTableChatReadStateService,
     GameTableNotificationSoundService,
+    GameTableManaCometService,
     GameTableRealtimeAnimationBusService,
     GameTablePermanentRelationService,
     GameTableSnapshotSelectors,
@@ -408,6 +422,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   private readonly router = inject(Router);
   private readonly motion = inject(GameTableMotionService);
   private readonly chatReadState = inject(GameTableChatReadStateService);
+  readonly manaComets = inject(GameTableManaCometService);
   private readonly notificationSound = inject(GameTableNotificationSoundService);
   private readonly realtimeAnimations = inject(GameTableRealtimeAnimationBusService);
   private readonly bodyScrollLock = inject(BodyScrollLockService);
@@ -430,6 +445,11 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   readonly deckLabel = (player: PlayerView | null): string => this.store.deckLabel(player);
   readonly gameBackgroundImage = (player: PlayerView | null): string => this.store.gameBackgroundImage(player);
   readonly manaSymbols = (player: PlayerView | null): string[] => this.store.manaSymbols(player);
+  readonly pendingManaPoolColorsFor = (playerId: string): readonly ManaPoolColor[] => {
+    const counts = this.pendingManaPoolColorCounts()[playerId] ?? {};
+
+    return MANA_POOL_TARGET_COLORS.filter((color) => (counts[color] ?? 0) > 0);
+  };
   readonly cardPosition = (card: GameCardInstance): { x: number; y: number } | null => this.store.cardPosition(card);
   readonly cardImage = (card: GameCardInstance): string | null => this.store.cardImage(card);
   readonly handCardImage = (card: GameCardInstance): string | null => {
@@ -468,6 +488,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   readonly ownedArrowCount = (playerId: string): number => this.store.ownedArrowCount(playerId);
   readonly isZoneTransferPending = (playerId: string, zone: GameZoneName): boolean => this.store.isZoneTransferPending(playerId, zone);
   private readonly tapAnimationLockedCardIds = signal<ReadonlySet<string>>(new Set<string>());
+  private readonly pendingManaPoolColorCounts = signal<PendingManaPoolColorCounts>({});
   readonly canDragBattlefieldCard = (playerId: string, card: GameCardInstance): boolean =>
     this.store.canDragBattlefieldCard(playerId, card) && !this.tapAnimationLockedCardIds().has(card.instanceId);
   readonly isPendingBattlefieldTransfer = (card: GameCardInstance): boolean => this.store.isPendingBattlefieldTransfer(card);
@@ -1075,12 +1096,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       case 't':
         if (selected && this.store.canControlPlayer(selected.playerId)) {
           event.preventDefault();
-          void this.store.command('card.tapped', {
-            playerId: selected.playerId,
-            zone: selected.zone,
-            instanceId: selected.card.instanceId,
-            tapped: !selected.card.tapped,
-          });
+          void this.toggleSelectedCardTapped(selected);
         }
         break;
       case 'z':
@@ -2134,7 +2150,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
         void this.store.selectRandomZoneCard(menu.playerId, menu.zone);
         return;
       case 'tapCard':
-        void this.store.tapCard(menu);
+        void this.tapCardFromMenu(menu);
         return;
       case 'addManaFromCard':
         this.openManaActionDialog(menu);
@@ -2159,6 +2175,10 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
         return;
       case 'showManaPool':
         this.store.showManaPool(menu.playerId);
+        this.store.closeContextMenu();
+        return;
+      case 'resetManaPool':
+        this.store.resetManaPool(menu.playerId);
         this.store.closeContextMenu();
         return;
       case 'tokenCopy':
@@ -2255,21 +2275,26 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     } : request);
   }
 
-  confirmManaActionDialog(): void {
+  confirmManaActionDialog(dialogAdditions: readonly ManaAddition[] = []): void {
     const request = this.manaActionDialog();
     this.manaActionDialog.set(null);
     if (!request || request.suggestion.manualOnly) {
       return;
     }
 
-    const additions = request.suggestion.additions.length > 0
+    const additions = dialogAdditions.length > 0
+      ? dialogAdditions
+      : request.suggestion.additions.length > 0
       ? request.suggestion.additions
       : request.selectedColor
         ? [{ color: request.selectedColor, amount: request.amount }]
         : [];
 
     if (additions.length > 0) {
-      this.store.addMana(request.menu.playerId, additions);
+      this.addManaFromCardAfterComet(request.menu.playerId, request.menu.card ?? undefined, additions, {
+        x: request.menu.x,
+        y: request.menu.y,
+      });
     }
   }
 
@@ -2289,14 +2314,265 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     const animateRotation = this.motion.prepareCardRotationFlip(event.card.instanceId, {
       onComplete: () => this.unlockTapAnimation(event.card.instanceId),
     });
+    const automaticManaSuggestion = this.store.automaticTapManaSuggestion(event.playerId, 'battlefield', event.card);
+    const automaticManaDialogSuggestion = this.nonFixedAutomaticTapManaSuggestion(automaticManaSuggestion);
+    const tapManaIntentSuggestion = this.store.tapManaIntentSuggestion(event.playerId, 'battlefield', event.card);
 
     try {
-      await this.store.toggleTapped(event.playerId, 'battlefield', event.card);
+      await this.store.toggleTapped(event.playerId, 'battlefield', event.card, { addAutomaticMana: false });
       window.requestAnimationFrame(() => animateRotation());
+      this.addAutomaticFixedManaAfterComet(event.playerId, event.card, automaticManaSuggestion, {
+        x: event.event.clientX,
+        y: event.event.clientY,
+      });
+      this.openAutomaticTapManaDialog(event.playerId, 'battlefield', event.card, automaticManaDialogSuggestion);
+      this.openTapManaIntentDialog(event.playerId, 'battlefield', event.card, tapManaIntentSuggestion, event.event);
     } catch (error) {
       this.unlockTapAnimation(event.card.instanceId);
       throw error;
     }
+  }
+
+  private async tapCardFromMenu(menu: GameContextMenu): Promise<void> {
+    const automaticManaSuggestion = menu.card && this.store.selectedCards().length <= 1
+      ? this.store.automaticTapManaSuggestion(menu.playerId, menu.zone, menu.card)
+      : null;
+    const automaticManaDialogSuggestion = this.nonFixedAutomaticTapManaSuggestion(automaticManaSuggestion);
+    const tapManaIntentSuggestion = menu.card && this.store.selectedCards().length <= 1
+      ? this.store.tapManaIntentSuggestion(menu.playerId, menu.zone, menu.card)
+      : null;
+
+    await this.store.tapCard(menu, { addAutomaticMana: false });
+    if (menu.card) {
+      this.addAutomaticFixedManaAfterComet(menu.playerId, menu.card, automaticManaSuggestion, { x: menu.x, y: menu.y });
+      this.openAutomaticTapManaDialog(menu.playerId, menu.zone, menu.card, automaticManaDialogSuggestion);
+      this.openTapManaIntentDialog(menu.playerId, menu.zone, menu.card, tapManaIntentSuggestion, undefined, { x: menu.x, y: menu.y });
+    }
+  }
+
+  private async toggleSelectedCardTapped(selected: SelectedCard): Promise<void> {
+    const automaticManaSuggestion = this.store.automaticTapManaSuggestion(selected.playerId, selected.zone, selected.card);
+    const automaticManaDialogSuggestion = this.nonFixedAutomaticTapManaSuggestion(automaticManaSuggestion);
+    const tapManaIntentSuggestion = this.store.tapManaIntentSuggestion(selected.playerId, selected.zone, selected.card);
+
+    await this.store.toggleTapped(selected.playerId, selected.zone, selected.card, { addAutomaticMana: false });
+    this.addAutomaticFixedManaAfterComet(selected.playerId, selected.card, automaticManaSuggestion);
+    this.openAutomaticTapManaDialog(selected.playerId, selected.zone, selected.card, automaticManaDialogSuggestion);
+    this.openTapManaIntentDialog(selected.playerId, selected.zone, selected.card, tapManaIntentSuggestion);
+  }
+
+  private nonFixedAutomaticTapManaSuggestion(suggestion: ManaSourceSuggestion | null): ManaSourceSuggestion | null {
+    if (!suggestion || suggestion.kind === 'fixed') {
+      return null;
+    }
+
+    return suggestion;
+  }
+
+  private addAutomaticFixedManaAfterComet(
+    playerId: string,
+    card: GameCardInstance,
+    suggestion: ManaSourceSuggestion | null,
+    fallbackPosition?: ViewportPoint,
+  ): void {
+    if (suggestion?.kind !== 'fixed' || suggestion.additions.length === 0) {
+      return;
+    }
+
+    this.addManaFromCardAfterComet(playerId, card, suggestion.additions, fallbackPosition);
+  }
+
+  private openAutomaticTapManaDialog(
+    playerId: string,
+    zone: GameZoneName,
+    card: GameCardInstance,
+    suggestion: ManaSourceSuggestion | null,
+  ): void {
+    if (!suggestion) {
+      return;
+    }
+
+    const position = zone === 'battlefield' ? this.tapManaIntentPosition(card) : null;
+    this.manaActionDialog.set({
+      menu: {
+        x: position?.x ?? 0,
+        y: position?.y ?? 0,
+        kind: 'card',
+        playerId,
+        zone,
+        card,
+      },
+      suggestion,
+      selectedColor: suggestion.colors[0] ?? null,
+      amount: suggestion.amount > 0 ? suggestion.amount : 1,
+      position,
+    });
+  }
+
+  private openTapManaIntentDialog(
+    playerId: string,
+    zone: GameZoneName,
+    card: GameCardInstance,
+    suggestion: ManaSourceSuggestion | null,
+    event?: MouseEvent,
+    fallbackPosition?: { x: number; y: number },
+  ): void {
+    if (!suggestion || this.manaActionDialog()) {
+      return;
+    }
+
+    const position = this.tapManaIntentPosition(card, event, fallbackPosition);
+    this.openManaActionDialogFor({
+      x: position.x,
+      y: position.y,
+      kind: 'card',
+      playerId,
+      zone,
+      card,
+    }, suggestion);
+  }
+
+  private tapManaIntentPosition(
+    card: GameCardInstance,
+    event?: MouseEvent,
+    fallbackPosition?: { x: number; y: number },
+  ): { x: number; y: number } {
+    const cardElement = this.battlefieldCardElement(card.instanceId, event);
+    const bounds = cardElement?.getBoundingClientRect();
+    const x = bounds ? bounds.left + bounds.width / 2 : fallbackPosition?.x ?? event?.clientX ?? window.innerWidth / 2;
+    const y = bounds ? bounds.top + this.tappedCardTopOffset(bounds) : fallbackPosition?.y ?? event?.clientY ?? window.innerHeight / 2;
+
+    return {
+      x: Math.max(64, Math.min(window.innerWidth - 64, x)),
+      y: Math.max(48, y),
+    };
+  }
+
+  private battlefieldCardElement(instanceId: string, event?: MouseEvent): HTMLElement | null {
+    const target = event?.target instanceof HTMLElement
+      ? event.target.closest<HTMLElement>('[data-zone="battlefield"][data-card-instance-id]')
+      : null;
+    if (target?.dataset['cardInstanceId'] === instanceId) {
+      return target;
+    }
+
+    return document.querySelector<HTMLElement>(this.realtimeBattlefieldCardSelector(instanceId));
+  }
+
+  private tappedCardTopOffset(bounds: DOMRect): number {
+    return Math.max(0, (bounds.height - bounds.width) / 2);
+  }
+
+  private addManaFromCardAfterComet(
+    playerId: string,
+    card: GameCardInstance | undefined,
+    additions: readonly ManaAddition[],
+    fallbackPosition?: ViewportPoint,
+  ): void {
+    if (additions.length === 0) {
+      return;
+    }
+
+    if (!this.canAnimateManaComets(playerId)) {
+      this.store.addMana(playerId, additions);
+      return;
+    }
+
+    const pendingTargetColors = this.showPendingManaTargetColors(playerId, additions);
+    this.changeDetectorRef.detectChanges();
+
+    window.requestAnimationFrame(() => {
+      const source = this.manaCometSourcePoint(card, fallbackPosition);
+      if (!source) {
+        this.finishManaCometAdd(playerId, additions, pendingTargetColors);
+        return;
+      }
+
+      const animated = this.manaComets.animateFromSource(
+        source,
+        additions,
+        () => this.finishManaCometAdd(playerId, additions, pendingTargetColors),
+      );
+      if (!animated) {
+        this.finishManaCometAdd(playerId, additions, pendingTargetColors);
+      }
+    });
+  }
+
+  private showPendingManaTargetColors(playerId: string, additions: readonly ManaAddition[]): readonly ManaPoolColor[] {
+    const colors = Array.from(new Set(additions.map((addition) => addition.color)));
+    if (colors.length === 0) {
+      return [];
+    }
+
+    this.pendingManaPoolColorCounts.update((current) => {
+      const playerCounts = { ...(current[playerId] ?? {}) };
+      for (const color of colors) {
+        playerCounts[color] = (playerCounts[color] ?? 0) + 1;
+      }
+
+      return { ...current, [playerId]: playerCounts };
+    });
+
+    return colors;
+  }
+
+  private finishManaCometAdd(
+    playerId: string,
+    additions: readonly ManaAddition[],
+    pendingTargetColors: readonly ManaPoolColor[],
+  ): void {
+    this.store.addMana(playerId, additions);
+    this.hidePendingManaTargetColors(playerId, pendingTargetColors);
+  }
+
+  private hidePendingManaTargetColors(playerId: string, colors: readonly ManaPoolColor[]): void {
+    if (colors.length === 0) {
+      return;
+    }
+
+    this.pendingManaPoolColorCounts.update((current) => {
+      const currentPlayerCounts = current[playerId];
+      if (!currentPlayerCounts) {
+        return current;
+      }
+
+      const nextPlayerCounts: Partial<Record<ManaPoolColor, number>> = { ...currentPlayerCounts };
+      for (const color of colors) {
+        const nextCount = (nextPlayerCounts[color] ?? 0) - 1;
+        if (nextCount > 0) {
+          nextPlayerCounts[color] = nextCount;
+        } else {
+          delete nextPlayerCounts[color];
+        }
+      }
+
+      if (Object.keys(nextPlayerCounts).length === 0) {
+        const remaining: Record<string, Readonly<Partial<Record<ManaPoolColor, number>>>> = { ...current };
+        delete remaining[playerId];
+        return remaining;
+      }
+
+      return { ...current, [playerId]: nextPlayerCounts };
+    });
+  }
+
+  private canAnimateManaComets(playerId: string): boolean {
+    return this.store.focusedPlayer()?.id === playerId
+      && this.canControlPlayer(playerId)
+      && !this.store.isManaPoolHidden(playerId);
+  }
+
+  private manaCometSourcePoint(card: GameCardInstance | undefined, fallbackPosition?: ViewportPoint): ViewportPoint | null {
+    const bounds = card ? this.battlefieldCardElement(card.instanceId)?.getBoundingClientRect() : null;
+    if (bounds && bounds.width > 0 && bounds.height > 0) {
+      return {
+        x: bounds.left + bounds.width / 2,
+        y: bounds.top + bounds.height / 2,
+      };
+    }
+
+    return fallbackPosition ?? null;
   }
 
   private lockTapAnimation(instanceId: string): void {
@@ -2927,16 +3203,25 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     }
 
     const suggestion = this.store.manaSourceSuggestion(menu.playerId, menu.card);
-    this.store.closeContextMenu();
     if (suggestion.kind === 'none') {
+      this.store.closeContextMenu();
       return;
     }
 
+    this.openManaActionDialogFor(menu, suggestion);
+  }
+
+  private openManaActionDialogFor(menu: GameContextMenu, suggestion: ManaSourceSuggestion): void {
+    this.store.closeContextMenu();
+    const position = menu.card && menu.zone === 'battlefield'
+      ? this.tapManaIntentPosition(menu.card, undefined, { x: menu.x, y: menu.y })
+      : null;
     this.manaActionDialog.set({
       menu,
       suggestion,
       selectedColor: suggestion.colors[0] ?? null,
       amount: suggestion.amount > 0 ? suggestion.amount : 1,
+      position,
     });
   }
 

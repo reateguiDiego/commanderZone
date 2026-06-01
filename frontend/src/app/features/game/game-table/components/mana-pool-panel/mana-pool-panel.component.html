@@ -1,9 +1,10 @@
 <section
   class="mana-pool-panel"
   aria-label="Mana pool"
+  [class.controls-active]="activeControls() !== null"
   [style.--mana-pool-symbol-color]="symbolColorStyle()"
   (click)="$event.stopPropagation()"
-  (contextmenu)="openResetMenu($event)"
+  (contextmenu)="openContextMenu($event)"
 >
   <button
     type="button"
@@ -20,9 +21,10 @@
       type="button"
       class="any-color-symbol"
       [class.mana-empty]="anyValue() === 0"
+      data-mana-pool-color="ANY"
       title="Any color"
       aria-label="Any color"
-      (click)="activateControls('ANY', $event)"
+      (pointerdown)="activateControls('ANY', $event)"
     >
       @for (color of anyColorSymbols; track color) {
         <span class="any-color-cell any-color-cell--{{ color.toLowerCase() }}" aria-hidden="true">
@@ -65,9 +67,10 @@
           type="button"
           class="mana-value-button"
           [class.mana-empty]="value(color) === 0"
+          [attr.data-mana-pool-color]="color"
           [title]="manaTypeName(color)"
           [attr.aria-label]="manaTypeName(color)"
-          (click)="activateControls(color, $event)"
+          (pointerdown)="activateControls(color, $event)"
         >
           <app-mana-symbols [symbols]="[color]" size="small" [costBackground]="false" />
           <strong>{{ value(color) }}</strong>
@@ -100,13 +103,4 @@
       </div>
     }
   </div>
-
-  @if (resetMenuOpen()) {
-    <div class="mana-reset-menu" role="menu" aria-label="Mana pool menu">
-      <button type="button" role="menuitem" [disabled]="total() === 0" (click)="resetPool($event)">
-        <lucide-icon name="rotate-ccw" size="14" aria-hidden="true" />
-        <span>Reset mana pool</span>
-      </button>
-    </div>
-  }
 </section>

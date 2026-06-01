@@ -50,6 +50,11 @@ interface BattlefieldZoneMenuEvent {
   zone: GameZoneName;
 }
 
+interface BattlefieldManaPoolMenuEvent {
+  event: MouseEvent;
+  playerId: string;
+}
+
 interface BattlefieldCardPointerEvent {
   event: PointerEvent;
   playerId: string;
@@ -133,6 +138,7 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
   readonly manaPool = input<(playerId: string) => ManaPool>(() => EMPTY_MANA_POOL);
   readonly canEditManaPool = input<(playerId: string) => boolean>(() => false);
   readonly isManaPoolHidden = input<(playerId: string) => boolean>(() => false);
+  readonly pendingManaColors = input<readonly ManaPoolColor[]>([]);
   readonly layoutKey = input<unknown>(null);
   readonly zoomPercent = input(DEFAULT_BATTLEFIELD_ZOOM_PERCENT);
   readonly landStackDropPreview = input<LandStackDropPreview | null>(null);
@@ -150,6 +156,7 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
   readonly battlefieldDragOver = output<DragEvent>();
   readonly battlefieldDropped = output<BattlefieldDropEvent>();
   readonly battlefieldMenuOpened = output<BattlefieldZoneMenuEvent>();
+  readonly manaPoolMenuOpened = output<BattlefieldManaPoolMenuEvent>();
   readonly cardPointerDown = output<BattlefieldCardPointerEvent>();
   readonly cardClicked = output<BattlefieldCardMouseEvent>();
   readonly cardDoubleClicked = output<BattlefieldCardMouseEvent>();
@@ -165,11 +172,8 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
   readonly manaLaneDropped = output<{ event: DragEvent; playerId: string }>();
   readonly manaPoolColorAdded = output<{ playerId: string; color: ManaPoolColor }>();
   readonly manaPoolColorRemoved = output<{ playerId: string; color: ManaPoolColor }>();
-  readonly manaPoolColorReset = output<{ playerId: string; color: ManaPoolColor }>();
   readonly manaPoolAnyAdded = output<{ playerId: string }>();
   readonly manaPoolAnyRemoved = output<{ playerId: string }>();
-  readonly manaPoolAnyReset = output<{ playerId: string }>();
-  readonly manaPoolReset = output<{ playerId: string }>();
   readonly manaPoolHidden = output<{ playerId: string }>();
   readonly battlefieldSizeChanged = output<BattlefieldSizeEvent>();
   readonly boardTransitioning = signal(false);

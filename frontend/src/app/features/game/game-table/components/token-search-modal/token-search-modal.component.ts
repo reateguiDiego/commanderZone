@@ -9,6 +9,7 @@ import { DeckToken } from '../../../../../core/models/deck.model';
 import { AppModalComponent } from '../../../../../shared/ui/app-modal/app-modal.component';
 import { PrettyScrollDirective } from '../../../../../shared/ui/pretty-scroll/pretty-scroll.directive';
 import { filterDistinctCardsByQuery, sanitizeCardSearchQuery } from '../../../../../shared/utils/card-search';
+import { GameXQuantityStepperComponent } from '../game-x-quantity-stepper/game-x-quantity-stepper.component';
 
 export interface TokenSearchSelection {
   readonly card: Card;
@@ -20,7 +21,7 @@ const MAX_TOKEN_QUANTITY = 20;
 
 @Component({
   selector: 'app-token-search-modal',
-  imports: [FormsModule, LucideAngularModule, AppModalComponent, PrettyScrollDirective],
+  imports: [FormsModule, LucideAngularModule, AppModalComponent, PrettyScrollDirective, GameXQuantityStepperComponent],
   templateUrl: './token-search-modal.component.html',
   styleUrl: './token-search-modal.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -119,14 +120,6 @@ export class TokenSearchModalComponent implements OnChanges, OnDestroy {
 
   onQuantityInput(value: string | number): void {
     this.quantity.set(this.normalizedQuantity(value));
-  }
-
-  adjustQuantity(delta: number): void {
-    if (this.pending) {
-      return;
-    }
-
-    this.quantity.set(this.normalizedQuantity(this.quantity() + delta));
   }
 
   close(): void {

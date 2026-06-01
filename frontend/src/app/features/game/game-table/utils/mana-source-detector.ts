@@ -16,6 +16,28 @@ export interface ManaAddition {
   readonly amount: number;
 }
 
+export type ManaProductionPart =
+  | {
+    readonly id: string;
+    readonly kind: 'fixed';
+    readonly label: string;
+    readonly additions: readonly ManaAddition[];
+  }
+  | {
+    readonly id: string;
+    readonly kind: 'choice';
+    readonly label: string;
+    readonly amount: number;
+    readonly colors: readonly ManaPoolColor[];
+  }
+  | {
+    readonly id: string;
+    readonly kind: 'variable';
+    readonly label: string;
+    readonly amount: number;
+    readonly colors: readonly ManaPoolColor[];
+  };
+
 export interface ManaSourceSuggestion {
   readonly kind: ManaSourceSuggestionKind;
   readonly cardName: string;
@@ -25,6 +47,7 @@ export interface ManaSourceSuggestion {
   readonly amount: number;
   readonly restriction: string | null;
   readonly manualOnly: boolean;
+  readonly productionParts?: readonly ManaProductionPart[];
 }
 
 export interface ManaSourceDetectionContext {
@@ -41,7 +64,7 @@ const COLOR_ORDER: readonly ManaPoolColor[] = ['W', 'U', 'B', 'R', 'G', 'C'];
 const COLORED_MANA: readonly ManaPoolColor[] = ['W', 'U', 'B', 'R', 'G'];
 const MANA_SYMBOL_PATTERN = /\{([WUBRGC])\}/gi;
 const DIRECT_ADD_PATTERN = /\badd\s+((?:\{[WUBRGC]\})+)/gi;
-const ADD_OR_PATTERN = /\badd\s+\{([WUBRGC])\}(?:(?:,|\s+or)\s+\{([WUBRGC])\})+/gi;
+const CHOICE_ADD_PATTERN = /\badd\s+((?:\{[WUBRGC]\}(?:\s*,\s*|\s*,?\s+or\s+)?)+)/gi;
 
 const DEFAULT_NONE: Omit<ManaSourceSuggestion, 'cardName'> = {
   kind: 'none',
@@ -59,7 +82,7 @@ export function detectManaSource(
 ): ManaSourceSuggestion {
   const { cardName, oracleText, typeLine } = activeCardText(card);
 
-  if (oracleText === '' && !basicLandColor(typeLine)) {
+  if (oracleText === '' && landColors(typeLine).length === 0) {
     return none(cardName);
   }
 
@@ -83,6 +106,11 @@ export function detectManaSource(
     return variable;
   }
 
+  const choiceColors = explicitChoiceColors(oracleText);
+  if (choiceColors.length > 0) {
+    return choice(cardName, choiceColors, 1, restriction);
+  }
+
   const directAdditions = directSymbolAdditions(oracleText);
   if (directAdditions.length > 0) {
     return {
@@ -95,11 +123,6 @@ export function detectManaSource(
       restriction,
       manualOnly: false,
     };
-  }
-
-  const choiceColors = explicitChoiceColors(oracleText);
-  if (choiceColors.length > 0) {
-    return choice(cardName, choiceColors, 1, restriction);
   }
 
   const amount = wordAmount(text);
@@ -115,8 +138,14 @@ export function detectManaSource(
     return choice(cardName, COLOR_ORDER, amount, restriction);
   }
 
-  const landColor = basicLandColor(typeLine);
-  if (landColor) {
+  const landTypeColors = landColors(typeLine);
+  if (landTypeColors.length > 1) {
+    return choice(cardName, landTypeColors, 1, null);
+  }
+
+  if (landTypeColors.length === 1) {
+    const landColor = landTypeColors[0] as ManaPoolColor;
+
     return {
       kind: 'fixed',
       cardName,
@@ -130,6 +159,38 @@ export function detectManaSource(
   }
 
   return none(cardName);
+}
+
+export function automaticTapOnlyManaSourceSuggestion(
+  card: GameCardInstance,
+  context: ManaSourceDetectionContext = {},
+): ManaSourceSuggestion {
+  const { cardName, oracleText, typeLine } = activeCardText(card);
+  const isLand = isLandType(typeLine);
+  const isArtifact = isArtifactType(typeLine);
+  if (!isLand && !isArtifact) {
+    return none(cardName);
+  }
+
+  if (oracleText === '') {
+    return isLand ? automaticEligibleSuggestion(cardName, detectManaSource(card, context)) : none(cardName);
+  }
+
+  if (!isSingleTapOnlyManaAbility(oracleText)) {
+    return none(cardName);
+  }
+
+  return automaticEligibleSuggestion(cardName, detectManaSource(card, context));
+}
+
+function automaticEligibleSuggestion(cardName: string, suggestion: ManaSourceSuggestion): ManaSourceSuggestion {
+  if (suggestion.manualOnly || suggestion.restriction !== null) {
+    return none(cardName);
+  }
+
+  return suggestion.kind === 'fixed' || suggestion.kind === 'choice' || suggestion.kind === 'variable'
+    ? suggestion
+    : none(cardName);
 }
 
 function activeCardText(card: GameCardInstance): ManaSourceCardText {
@@ -190,6 +251,20 @@ function choice(
   restriction: string | null,
 ): ManaSourceSuggestion {
   const cleanColors = orderedUniqueColors(colors);
+  if (cleanColors.length === 1 && cleanColors[0]) {
+    const additions = [{ color: cleanColors[0], amount }];
+
+    return {
+      kind: restriction ? 'restricted' : 'fixed',
+      cardName,
+      summary: restriction ? `Add ${formatAdditions(additions)} with a restriction.` : `Add ${formatAdditions(additions)}.`,
+      additions,
+      colors: cleanColors,
+      amount: 0,
+      restriction,
+      manualOnly: false,
+    };
+  }
 
   return {
     kind: restriction ? 'restricted' : 'choice',
@@ -308,9 +383,15 @@ function directSymbols(oracleText: string): readonly ManaPoolColor[] {
 
 function explicitChoiceColors(oracleText: string): readonly ManaPoolColor[] {
   const colors: ManaPoolColor[] = [];
-  for (const match of oracleText.matchAll(ADD_OR_PATTERN)) {
-    for (const value of match.slice(1)) {
-      const color = value?.toUpperCase() as ManaPoolColor | undefined;
+
+  for (const match of oracleText.matchAll(CHOICE_ADD_PATTERN)) {
+    const addClause = match[1] ?? '';
+    if (!/(?:,|\bor\b)/i.test(addClause)) {
+      continue;
+    }
+
+    for (const symbol of addClause.matchAll(MANA_SYMBOL_PATTERN)) {
+      const color = symbol[1]?.toUpperCase() as ManaPoolColor | undefined;
       if (isManaColor(color)) {
         colors.push(color);
       }
@@ -336,28 +417,57 @@ function restrictionText(oracleText: string): string | null {
   return match?.[1]?.trim() || null;
 }
 
-function basicLandColor(typeLine: string): ManaPoolColor | null {
+function isSingleTapOnlyManaAbility(oracleText: string): boolean {
+  const normalized = stripWrappingParentheses(oracleText.trim().replace(/\s+/g, ' '));
+  const tapActivationCount = normalized.match(/\{[^}]*T[^}]*\}\s*:/gi)?.length ?? 0;
+  const sentences = normalized
+    .split(/(?<=\.)\s+/)
+    .map((sentence) => stripWrappingParentheses(sentence.trim()))
+    .filter((sentence) => sentence.length > 0);
+  const activatedAbilityIndex = sentences.findIndex((sentence) => /\{[^}]*T[^}]*\}\s*:/i.test(sentence));
+  const activatedAbility = activatedAbilityIndex >= 0 ? sentences[activatedAbilityIndex] : '';
+
+  return tapActivationCount === 1
+    && activatedAbilityIndex === sentences.length - 1
+    && /^\{T\}: Add .+\.$/i.test(activatedAbility);
+}
+
+function stripWrappingParentheses(value: string): string {
+  return value.startsWith('(') && value.endsWith(')') ? value.slice(1, -1).trim() : value;
+}
+
+function isLandType(typeLine: string): boolean {
+  return /\bland\b/i.test(typeLine);
+}
+
+function isArtifactType(typeLine: string): boolean {
+  return /\bartifact\b/i.test(typeLine);
+}
+
+function landColors(typeLine: string): readonly ManaPoolColor[] {
   const lowerType = typeLine.toLowerCase();
+  const colors: ManaPoolColor[] = [];
+
   if (lowerType.includes('plains')) {
-    return 'W';
+    colors.push('W');
   }
   if (lowerType.includes('island')) {
-    return 'U';
+    colors.push('U');
   }
   if (lowerType.includes('swamp')) {
-    return 'B';
+    colors.push('B');
   }
   if (lowerType.includes('mountain')) {
-    return 'R';
+    colors.push('R');
   }
   if (lowerType.includes('forest')) {
-    return 'G';
+    colors.push('G');
   }
   if (lowerType.includes('wastes')) {
-    return 'C';
+    colors.push('C');
   }
 
-  return null;
+  return orderedUniqueColors(colors);
 }
 
 function commanderColors(context: ManaSourceDetectionContext): readonly ManaPoolColor[] {

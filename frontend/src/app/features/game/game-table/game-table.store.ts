@@ -48,12 +48,17 @@ import { GameTableZonePilesState } from './state/zones/game-table-zone-piles.sta
 import { clampPlayerLife } from './utils/player-life-bounds';
 import { GameTableWebsocketGameplayService } from './services/game-table-websocket-gameplay.service';
 import { GameTableManaPoolState, ManaPool } from './state/mana/game-table-mana-pool.state';
-import { detectManaSource, ManaAddition, ManaPoolColor, ManaSourceSuggestion } from './utils/mana-source-detector';
+import { ManaAddition, ManaPoolColor, ManaSourceSuggestion } from './utils/mana-source-detector';
+import { automaticTapOnlyManaSourceSuggestionWithAttachments, detectManaSourceWithAttachments } from './utils/mana-source-attachment-detector';
 
 export type { PlayerView } from './state/core/game-table-snapshot-selectors';
 export type { SelectedCard } from './models/game-table-card.model';
 export type { ChatRecipientOption } from './models/game-table-chat.model';
 export type { GameTableSyncStatus } from './models/game-table-sync.model';
+
+interface AutomaticTapManaTarget extends SelectedCard {
+  readonly suggestion: ManaSourceSuggestion;
+}
 
 @Injectable()
 export class GameTableStore implements OnDestroy {
@@ -416,11 +421,82 @@ export class GameTableStore implements OnDestroy {
   }
 
   manaSourceSuggestion(playerId: string, card: GameCardInstance): ManaSourceSuggestion {
-    return detectManaSource(card, { colorIdentity: this.snapshot()?.players[playerId]?.colorIdentity ?? [] });
+    return detectManaSourceWithAttachments(
+      card,
+      this.attachedCardsForTarget(card.instanceId),
+      { colorIdentity: this.snapshot()?.players[playerId]?.colorIdentity ?? [] },
+    );
   }
 
   addMana(playerId: string, additions: readonly ManaAddition[]): void {
     this.manaPoolState.add(playerId, additions);
+  }
+
+  automaticTapManaSuggestion(playerId: string, zone: GameZoneName, card: GameCardInstance): ManaSourceSuggestion | null {
+    if (zone !== 'battlefield' || card.tapped || !this.isManaPoolVisibleForPlayer(playerId)) {
+      return null;
+    }
+
+    const suggestion = automaticTapOnlyManaSourceSuggestionWithAttachments(
+      card,
+      this.attachedCardsForTarget(card.instanceId),
+      { colorIdentity: this.snapshot()?.players[playerId]?.colorIdentity ?? [] },
+    );
+
+    return suggestion.kind === 'none' ? null : suggestion;
+  }
+
+  tapManaIntentSuggestion(playerId: string, zone: GameZoneName, card: GameCardInstance): ManaSourceSuggestion | null {
+    if (zone !== 'battlefield' || card.tapped || !this.isManaPoolVisibleForPlayer(playerId)) {
+      return null;
+    }
+
+    if (this.automaticTapManaSuggestion(playerId, zone, card)) {
+      return null;
+    }
+
+    const suggestion = this.manaSourceSuggestion(playerId, card);
+    return suggestion.kind !== 'none' && !suggestion.manualOnly ? suggestion : null;
+  }
+
+  private attachedCardsForTarget(instanceId: string): readonly GameCardInstance[] {
+    const snapshot = this.snapshot();
+
+    return this.permanentRelations.attachmentsForTarget(snapshot, instanceId)
+      .map((attachment) => this.permanentRelations.battlefieldCard(snapshot, attachment.equipmentInstanceId)?.card ?? null)
+      .filter((card): card is GameCardInstance => card !== null);
+  }
+
+  private automaticManaTargetsForTapMenu(menu: GameContextMenu): readonly AutomaticTapManaTarget[] {
+    if (!menu.card || menu.card.tapped) {
+      return [];
+    }
+
+    const selected = this.selectedCards();
+    const selectedHasMenuCard = selected.some((item) => item.card.instanceId === menu.card?.instanceId);
+    const validSelection = selected.length > 1
+      && selectedHasMenuCard
+      && selected.every((item) => item.playerId === menu.playerId && item.zone === menu.zone);
+    const targets = validSelection ? selected : [{ playerId: menu.playerId, zone: menu.zone, card: menu.card }];
+
+    return targets.flatMap((target) => {
+      const suggestion = this.automaticTapManaSuggestion(target.playerId, target.zone, target.card);
+      return suggestion ? [{ ...target, suggestion }] : [];
+    });
+  }
+
+  private addAutomaticFixedTapMana(targets: readonly AutomaticTapManaTarget[]): void {
+    for (const target of targets) {
+      if (target.suggestion.kind === 'fixed' && target.suggestion.additions.length > 0) {
+        this.manaPoolState.add(target.playerId, target.suggestion.additions);
+      }
+    }
+  }
+
+  private isManaPoolVisibleForPlayer(playerId: string): boolean {
+    return this.focusedPlayerId() === playerId
+      && this.canControlPlayer(playerId)
+      && !this.isManaPoolHidden(playerId);
   }
 
   incrementMana(playerId: string, color: ManaPoolColor): void {
@@ -452,6 +528,7 @@ export class GameTableStore implements OnDestroy {
   }
 
   hideManaPool(playerId: string): void {
+    this.manaPoolState.reset(playerId);
     this.hiddenManaPoolPlayerIds.update((current) => new Set([...current, playerId]));
   }
 
@@ -565,6 +642,13 @@ export class GameTableStore implements OnDestroy {
   openZoneMenu(event: MouseEvent, playerId: string, zone: GameZoneName): void {
     this.clearCardPreview();
     this.interactionActions.openZoneMenu(this.contexts.interaction(), event, playerId, zone);
+  }
+
+  openManaPoolMenu(event: MouseEvent, playerId: string): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.clearCardPreview();
+    this.uiState.openContextMenu(event, { playerId, zone: 'battlefield', kind: 'manaPool' });
   }
 
   openZoneModalCardMenu(event: MouseEvent, card: GameCardInstance): void {
@@ -1203,8 +1287,12 @@ export class GameTableStore implements OnDestroy {
     await this.cardActions.moveActiveCard(this.contexts.cardAction(), toZone);
   }
 
-  async tapCard(menu: GameContextMenu): Promise<void> {
+  async tapCard(menu: GameContextMenu, options: { addAutomaticMana?: boolean } = {}): Promise<void> {
+    const automaticManaTargets = this.automaticManaTargetsForTapMenu(menu);
     await this.cardActions.tapCard(this.contexts.cardAction(), menu);
+    if (options.addAutomaticMana ?? true) {
+      this.addAutomaticFixedTapMana(automaticManaTargets);
+    }
   }
 
   async faceDown(menu: GameContextMenu): Promise<void> {
@@ -1287,8 +1375,20 @@ export class GameTableStore implements OnDestroy {
     await this.cardActions.addToStack(this.contexts.cardAction(), menu);
   }
 
-  async toggleTapped(playerId: string, zone: GameZoneName, card: GameCardInstance): Promise<void> {
+  async toggleTapped(
+    playerId: string,
+    zone: GameZoneName,
+    card: GameCardInstance,
+    options: { addAutomaticMana?: boolean } = {},
+  ): Promise<void> {
+    const automaticManaSuggestion = this.automaticTapManaSuggestion(playerId, zone, card);
+    const automaticManaTargets = automaticManaSuggestion
+      ? [{ playerId, zone, card, suggestion: automaticManaSuggestion }]
+      : [];
     await this.cardActions.toggleTapped(this.contexts.cardAction(), playerId, zone, card);
+    if (options.addAutomaticMana ?? true) {
+      this.addAutomaticFixedTapMana(automaticManaTargets);
+    }
   }
 
   async untapCurrentBattlefield(): Promise<void> {

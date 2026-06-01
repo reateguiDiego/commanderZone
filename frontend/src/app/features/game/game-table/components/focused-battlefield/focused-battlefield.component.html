@@ -81,22 +81,6 @@
   @if (activeAlignmentGuide; as guide) {
     <div class="alignment-guide" [style.top.px]="guide.y" aria-hidden="true"></div>
   }
-  @if (canEditManaPool()(focusedPlayer.id) && !isManaPoolHidden()(focusedPlayer.id)) {
-    <app-mana-pool-panel
-      class="mana-pool-panel-anchor"
-      [pool]="manaPool()(focusedPlayer.id)"
-      [backgroundName]="focusedPlayer.state.backgroundName"
-      [colorIdentity]="focusedPlayer.state.colorIdentity ?? []"
-      (colorAdded)="manaPoolColorAdded.emit({ playerId: focusedPlayer.id, color: $event })"
-      (colorRemoved)="manaPoolColorRemoved.emit({ playerId: focusedPlayer.id, color: $event })"
-      (colorReset)="manaPoolColorReset.emit({ playerId: focusedPlayer.id, color: $event })"
-      (anyAdded)="manaPoolAnyAdded.emit({ playerId: focusedPlayer.id })"
-      (anyRemoved)="manaPoolAnyRemoved.emit({ playerId: focusedPlayer.id })"
-      (anyReset)="manaPoolAnyReset.emit({ playerId: focusedPlayer.id })"
-      (poolReset)="manaPoolReset.emit({ playerId: focusedPlayer.id })"
-      (hidden)="manaPoolHidden.emit({ playerId: focusedPlayer.id })"
-    />
-  }
   <div
     class="mana-lane"
     [class.drag-over]="isManaLaneHighlighted()(focusedPlayer.id)"
@@ -107,5 +91,21 @@
     (dragover)="manaLaneDragOver.emit($event)"
     (drop)="manaLaneDropped.emit({ event: $event, playerId: focusedPlayer.id })"
     aria-label="Mana row"
-  ></div>
+  >
+    @if (canEditManaPool()(focusedPlayer.id) && !isManaPoolHidden()(focusedPlayer.id)) {
+      <app-mana-pool-panel
+        class="mana-pool-panel-anchor"
+        [pool]="manaPool()(focusedPlayer.id)"
+        [backgroundName]="focusedPlayer.state.backgroundName"
+        [colorIdentity]="focusedPlayer.state.colorIdentity ?? []"
+        [pendingColors]="pendingManaColors()"
+        (colorAdded)="manaPoolColorAdded.emit({ playerId: focusedPlayer.id, color: $event })"
+        (colorRemoved)="manaPoolColorRemoved.emit({ playerId: focusedPlayer.id, color: $event })"
+        (anyAdded)="manaPoolAnyAdded.emit({ playerId: focusedPlayer.id })"
+        (anyRemoved)="manaPoolAnyRemoved.emit({ playerId: focusedPlayer.id })"
+        (hidden)="manaPoolHidden.emit({ playerId: focusedPlayer.id })"
+        (menuOpened)="manaPoolMenuOpened.emit({ event: $event, playerId: focusedPlayer.id })"
+      />
+    }
+  </div>
 </div>

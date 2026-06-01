@@ -1,0 +1,34 @@
+<div class="number-selector" [attr.aria-label]="ariaLabel()">
+  <input
+    type="number"
+    [attr.data-testid]="testIdPrefix() ? testIdPrefix() + '-input' : null"
+    [attr.min]="min()"
+    [attr.max]="max()"
+    [disabled]="disabled()"
+    [attr.aria-label]="ariaLabel()"
+    [value]="value()"
+    (input)="updateFromInput($event)"
+  />
+  <div class="number-stepper" aria-label="Adjust value">
+    <button
+      class="number-stepper-button"
+      type="button"
+      [attr.data-testid]="testIdPrefix() ? testIdPrefix() + '-increase' : null"
+      aria-label="Increase value"
+      [disabled]="!canStepUp()"
+      (click)="adjust(1)"
+    >
+      <lucide-icon name="chevron-up" [size]="15" [strokeWidth]="2.7" aria-hidden="true" />
+    </button>
+    <button
+      class="number-stepper-button"
+      type="button"
+      [attr.data-testid]="testIdPrefix() ? testIdPrefix() + '-decrease' : null"
+      aria-label="Decrease value"
+      [disabled]="!canStepDown()"
+      (click)="adjust(-1)"
+    >
+      <lucide-icon name="chevron-down" [size]="15" [strokeWidth]="2.7" aria-hidden="true" />
+    </button>
+  </div>
+</div>

@@ -566,7 +566,7 @@ describe('WaitingRoomComponent', () => {
 
     await component.selectRandomLegalDeck();
     expect(component.selectedDeckId).toBe('valid-1');
-    expect(roomsApi.join).toHaveBeenCalledWith('room-1', 'valid-1', true);
+    expect(roomsApi.join).toHaveBeenCalledWith('room-1', 'valid-1', true, { randomDeckOptionCount: 1 });
   });
 
   it('renders persisted room log entries from room state', async () => {
