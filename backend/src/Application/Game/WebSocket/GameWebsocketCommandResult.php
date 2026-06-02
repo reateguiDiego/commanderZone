@@ -11,6 +11,7 @@ final readonly class GameWebsocketCommandResult
     private function __construct(
         private array $messagesByUserId,
         private array $fallbackMessage,
+        private ?array $debugProfile = null,
     ) {
     }
 
@@ -18,9 +19,9 @@ final readonly class GameWebsocketCommandResult
      * @param array<string,array<string,mixed>> $messagesByUserId
      * @param array<string,mixed>               $fallbackMessage
      */
-    public static function forViewers(array $messagesByUserId, array $fallbackMessage): self
+    public static function forViewers(array $messagesByUserId, array $fallbackMessage, ?array $debugProfile = null): self
     {
-        return new self($messagesByUserId, $fallbackMessage);
+        return new self($messagesByUserId, $fallbackMessage, $debugProfile);
     }
 
     /**
@@ -45,5 +46,13 @@ final readonly class GameWebsocketCommandResult
     public function messagesByUserId(): array
     {
         return $this->messagesByUserId;
+    }
+
+    /**
+     * @return array<string,float>|null
+     */
+    public function debugProfile(): ?array
+    {
+        return $this->debugProfile;
     }
 }

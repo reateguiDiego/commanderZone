@@ -5,6 +5,7 @@ namespace App\Tests\Application\GameWebSocket;
 use App\Application\Game\GameCommandHandler;
 use App\Application\Game\GameDisconnectVoteService;
 use App\Application\Game\GameProjectionService;
+use App\Application\Game\WebSocket\GameWebsocketCardLocalizationResolver;
 use App\Application\Game\WebSocket\GameWebsocketCommandPatchService;
 use App\Application\Game\WebSocket\GameWebsocketMessageFactory;
 use App\Application\Game\WebSocket\GameWebsocketPatchBuilder;
@@ -252,6 +253,56 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
         self::assertStringNotContainsString('"zones"', $encoded);
     }
 
+    public function testNonCardCommandPassesExplicitEmptyLocalizationLookupToProjection(): void
+    {
+        [$game, $actor] = $this->game();
+        $actor->updateCardLanguage('es');
+        $capturedLookups = [];
+        $projection = $this->getMockBuilder(GameProjectionService::class)
+            ->setConstructorArgs([new GameCommandHandler()])
+            ->onlyMethods(['projectSnapshot'])
+            ->getMock();
+        $projection
+            ->expects(self::exactly(2))
+            ->method('projectSnapshot')
+            ->willReturnCallback(function (array $snapshot, User $viewer, bool $viewerCanUseOwnHiddenZones, ?array $localizedLookup = null) use (&$capturedLookups): array {
+                self::assertTrue($viewerCanUseOwnHiddenZones);
+                $capturedLookups[] = $localizedLookup;
+
+                return $snapshot;
+            });
+
+        $connection = $this->createMock(\Doctrine\DBAL\Connection::class);
+        $connection->expects(self::never())->method('executeQuery');
+        $resolver = new GameWebsocketCardLocalizationResolver($connection);
+
+        $service = $this->service(
+            $game,
+            existingEvent: null,
+            expectPersist: true,
+            expectFlush: true,
+            expectClear: true,
+            projection: $projection,
+            resolver: $resolver,
+        );
+
+        $result = $service->apply(
+            $game->id(),
+            $actor->id(),
+            'life.changed',
+            ['playerId' => $actor->id(), 'delta' => -2],
+            'action-empty-lookup',
+            1,
+            'message-empty-lookup',
+        );
+        $message = $result->messageForUserId($actor->id());
+
+        self::assertSame('game_patch', $message['kind']);
+        self::assertSame('player.life.set', $message['operations'][0]['op']);
+        self::assertSame([[], []], $capturedLookups);
+        self::assertNotNull($result->debugProfile());
+    }
+
     /**
      * @return array{Game, User}
      */
@@ -290,6 +341,8 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
         bool $expectClear,
         ?User $actor = null,
         bool $expectTransaction = true,
+        ?GameProjectionService $projection = null,
+        ?GameWebsocketCardLocalizationResolver $resolver = null,
     ): GameWebsocketCommandPatchService {
         $actor ??= $game->room()->owner();
         $gameRepository = $this->createMock(EntityRepository::class);
@@ -316,10 +369,14 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
         $registry = $this->createMock(ManagerRegistry::class);
         $registry->expects(self::once())->method('getManagerForClass')->with(Game::class)->willReturn($manager);
 
-        return $this->serviceWithRegistry($registry);
+        return $this->serviceWithRegistry($registry, $projection, $resolver);
     }
 
-    private function serviceWithRegistry(ManagerRegistry $registry): GameWebsocketCommandPatchService
+    private function serviceWithRegistry(
+        ManagerRegistry $registry,
+        ?GameProjectionService $projection = null,
+        ?GameWebsocketCardLocalizationResolver $resolver = null,
+    ): GameWebsocketCommandPatchService
     {
         $messages = new GameWebsocketMessageFactory();
 
@@ -330,7 +387,8 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
             $messages,
             new \App\Application\Game\WebSocket\GameWebsocketRoomRegistry(),
             $registry,
-            new GameProjectionService(new GameCommandHandler()),
+            $projection ?? new GameProjectionService(new GameCommandHandler()),
+            $resolver,
         );
     }
 

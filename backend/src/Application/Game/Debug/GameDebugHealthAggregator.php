@@ -213,7 +213,7 @@ final class GameDebugHealthAggregator
      *
      * @return array<string,mixed>
      */
-    public function recordActionExchange(array $state, array $incoming, array $outgoing, float $durationMs): array
+    public function recordActionExchange(array $state, array $incoming, array $outgoing, float $durationMs, ?array $phases = null): array
     {
         $state = $this->normalize($state);
         $timestamp = $this->now();
@@ -253,6 +253,10 @@ final class GameDebugHealthAggregator
             'outgoing' => $outgoingSummary,
             'at' => $timestamp,
         ];
+        $normalizedPhases = $this->normalizeActionPhases($phases, $durationMs);
+        if ($normalizedPhases !== null) {
+            $exchange['phases'] = $normalizedPhases;
+        }
 
         $state['actions']['recent'][] = $exchange;
         if (count($state['actions']['recent']) > self::MAX_ACTION_ITEMS) {
@@ -269,6 +273,26 @@ final class GameDebugHealthAggregator
         $state = $this->appendRecent($state, $exchange);
 
         return $this->appendEvent($state, $exchange);
+    }
+
+    /**
+     * @param array<string,mixed>|null $phases
+     *
+     * @return array<string,float>|null
+     */
+    private function normalizeActionPhases(?array $phases, float $durationMs): ?array
+    {
+        if (!is_array($phases)) {
+            return null;
+        }
+
+        $normalized = [];
+        foreach (['load', 'apply', 'persist', 'localization', 'projection', 'patch'] as $phase) {
+            $normalized[$phase] = round(max(0, (float) ($phases[$phase] ?? 0)), 2);
+        }
+        $normalized['total'] = round(max(0, (float) ($phases['total'] ?? $durationMs)), 2);
+
+        return $normalized;
     }
 
     /**

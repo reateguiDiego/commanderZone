@@ -2349,9 +2349,18 @@ components:
                 type: integer
             recent:
               type: array
-              description: Recent sanitized action exchanges with inbound/outbound counts, character sizes, operation types, and duration.
+              description: Recent sanitized action exchanges with inbound/outbound counts, character sizes, operation types, duration, and optional backend phase timings.
               items:
                 type: object
+                properties:
+                  kind:
+                    type: string
+                  action:
+                    type: string
+                  durationMs:
+                    type: number
+                  phases:
+                    $ref: '#/components/schemas/GameDebugActionPhases'
                 additionalProperties: true
         pipeline:
           type: object
@@ -2502,6 +2511,24 @@ components:
           type: object
           additionalProperties:
             type: integer
+    GameDebugActionPhases:
+      type: object
+      required: [load, apply, persist, localization, projection, patch, total]
+      properties:
+        load:
+          type: number
+        apply:
+          type: number
+        persist:
+          type: number
+        localization:
+          type: number
+        projection:
+          type: number
+        patch:
+          type: number
+        total:
+          type: number
     GameWebsocketVersionConflict:
       type: object
       required: [commandBaseVersion, currentVersion, delta, classification]
