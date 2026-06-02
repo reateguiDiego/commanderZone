@@ -27,6 +27,23 @@ describe('GameCardViewComponent', () => {
     expect(cardElement.classList.contains('hover-lifted')).toBe(true);
   });
 
+  it('keeps a hovered hand card lifted when clicked to avoid a selection bounce', async () => {
+    vi.useFakeTimers();
+    const { fixture, cardElement } = await renderHandCard();
+    const hoverCleared = vi.fn();
+    fixture.componentInstance.cardMouseLeft.subscribe(hoverCleared);
+
+    cardElement.dispatchEvent(new MouseEvent('mouseenter'));
+    vi.advanceTimersByTime(CARD_PREVIEW_HOVER_DELAY_MS);
+    fixture.detectChanges();
+
+    cardElement.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    fixture.detectChanges();
+
+    expect(cardElement.classList).toContain('hover-lifted');
+    expect(hoverCleared).not.toHaveBeenCalled();
+  });
+
   it('cancels hand card lifting when hover ends first', async () => {
     vi.useFakeTimers();
     const { fixture, cardElement } = await renderHandCard();

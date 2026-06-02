@@ -21,9 +21,9 @@ export class GameTableBattlefieldZoomState {
   readonly canZoomIn = computed(() => this.zoomPercent() < MAX_BATTLEFIELD_ZOOM_PERCENT);
   readonly canZoomOut = computed(() => this.zoomPercent() > MIN_BATTLEFIELD_ZOOM_PERCENT);
   readonly canResetZoom = computed(() => this.zoomPercent() !== DEFAULT_BATTLEFIELD_ZOOM_PERCENT);
-  readonly cardWidthRem = computed(() => this.scaledRem(BASE_CARD_WIDTH_REM));
-  readonly gapRem = computed(() => this.scaledRem(BASE_GAP_REM));
-  readonly manaLaneMinHeightRem = computed(() => this.scaledRem(BASE_MANA_LANE_MIN_HEIGHT_REM));
+  readonly cardWidthRem = computed(() => this.cardWidthRemFor(this.zoomPercent()));
+  readonly gapRem = computed(() => this.gapRemFor(this.zoomPercent()));
+  readonly manaLaneMinHeightRem = computed(() => this.manaLaneMinHeightRemFor(this.zoomPercent()));
 
   zoomIn(): void {
     this.setZoomPercent(this.zoomPercent() + BATTLEFIELD_ZOOM_STEP_PERCENT);
@@ -47,8 +47,20 @@ export class GameTableBattlefieldZoomState {
     this.persistZoomPercent(nextPercent);
   }
 
-  private scaledRem(baseRem: number): string {
-    const rem = baseRem * (this.zoomPercent() / 100);
+  cardWidthRemFor(percent: BattlefieldZoomPercent): string {
+    return this.scaledRem(BASE_CARD_WIDTH_REM, percent);
+  }
+
+  gapRemFor(percent: BattlefieldZoomPercent): string {
+    return this.scaledRem(BASE_GAP_REM, percent);
+  }
+
+  manaLaneMinHeightRemFor(percent: BattlefieldZoomPercent): string {
+    return this.scaledRem(BASE_MANA_LANE_MIN_HEIGHT_REM, percent);
+  }
+
+  private scaledRem(baseRem: number, percent: BattlefieldZoomPercent): string {
+    const rem = baseRem * (percent / 100);
 
     return `${Number(rem.toFixed(3))}rem`;
   }

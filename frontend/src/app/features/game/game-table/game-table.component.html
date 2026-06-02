@@ -15,6 +15,26 @@
     <span>Games can only be played in landscape on mobile and tablet.</span>
   </aside>
 
+  <aside class="unsupported-resolution-lock" data-testid="game-unsupported-resolution-lock" role="status" aria-live="polite">
+    <lucide-icon name="triangle-alert" size="34" aria-hidden="true" />
+    <strong>This table needs a little more room</strong>
+    <span>
+      Sorry, this resolution is too cramped for a Commander game. Please adjust browser zoom or use a larger window.
+    </span>
+    <small>Use Ctrl+0 in your browser to reset zoom to 100%, then refresh or resize this window.</small>
+    <div class="unsupported-resolution-actions">
+      <button
+        type="button"
+        class="unsupported-resolution-button unsupported-resolution-button-danger"
+        data-testid="unsupported-resolution-leave-room"
+        (click)="requestUnsupportedViewportLeave($event)"
+      >
+        <lucide-icon name="door-open" size="16" aria-hidden="true" />
+        <span>Leave room</span>
+      </button>
+    </div>
+  </aside>
+
   @if (store.loading()) {
     <p class="notice">Loading game...</p>
   } @else if (store.snapshot(); as snapshot) {
@@ -62,7 +82,7 @@
             (followActiveTurnPlayerChanged)="updateFollowActiveTurnPlayer($event)"
           />
 
-          <div class="extras-panel game-table-extras" aria-hidden="true"></div>
+          <app-game-ad-banner class="extras-panel game-table-extras" />
 
           <section
             class="floating-panel game-table-game-log"
@@ -240,25 +260,27 @@
           data-testid="player-panel"
           [attr.data-player-id]="player.id"
           [attr.data-hand-count]="store.zoneCount(player, 'hand')"
-          [style.--battlefield-card-width]="battlefieldZoom.cardWidthRem()"
-          [style.--battlefield-gap]="battlefieldZoom.gapRem()"
-          [style.--battlefield-mana-lane-height]="battlefieldZoom.manaLaneMinHeightRem()"
+          [style.--battlefield-card-width]="effectiveBattlefieldCardWidthRem()"
+          [style.--battlefield-gap]="effectiveBattlefieldGapRem()"
+          [style.--battlefield-mana-lane-height]="effectiveBattlefieldManaLaneHeightRem()"
           [class.active]="snapshot.turn.activePlayerId === player.id"
           [class.dragging-card]="store.draggingCardInstanceId()"
         >
-          <app-battlefield-zoom-controls
-            class="battlefield-zoom-host"
-            [zoomPercent]="battlefieldZoom.zoomPercent()"
-            [minZoomPercent]="battlefieldZoom.minZoomPercent"
-            [maxZoomPercent]="battlefieldZoom.maxZoomPercent"
-            [defaultZoomPercent]="battlefieldZoom.defaultZoomPercent"
-            [zoomStepPercent]="battlefieldZoom.zoomStepPercent"
-            [canResetZoom]="battlefieldZoom.canResetZoom()"
-            (zoomPercentChanged)="setBattlefieldZoom($event)"
-            (resetZoom)="resetBattlefieldZoom()"
-            (click)="$event.stopPropagation()"
-            (contextmenu)="$event.stopPropagation()"
-          />
+          @if (!aggressiveCompactViewport()) {
+            <app-battlefield-zoom-controls
+              class="battlefield-zoom-host"
+              [zoomPercent]="battlefieldZoom.zoomPercent()"
+              [minZoomPercent]="battlefieldZoom.minZoomPercent"
+              [maxZoomPercent]="battlefieldZoom.maxZoomPercent"
+              [defaultZoomPercent]="battlefieldZoom.defaultZoomPercent"
+              [zoomStepPercent]="battlefieldZoom.zoomStepPercent"
+              [canResetZoom]="battlefieldZoom.canResetZoom()"
+              (zoomPercentChanged)="setBattlefieldZoom($event)"
+              (resetZoom)="resetBattlefieldZoom()"
+              (click)="$event.stopPropagation()"
+              (contextmenu)="$event.stopPropagation()"
+            />
+          }
 
           @if (focusedOpponentPlayer(); as battlefieldOwner) {
             <div
@@ -312,8 +334,8 @@
             [canEditManaPool]="canControlPlayer"
             [isManaPoolHidden]="store.isManaPoolHidden"
             [pendingManaColors]="pendingManaPoolColorsFor(player.id)"
-            [layoutKey]="battlefieldZoom.zoomPercent()"
-            [zoomPercent]="battlefieldZoom.zoomPercent()"
+            [layoutKey]="effectiveBattlefieldZoomPercent()"
+            [zoomPercent]="effectiveBattlefieldZoomPercent()"
             [landStackDropPreview]="store.landStackDropPreview()"
             [attachments]="snapshot.attachments ?? []"
             [isCardDropSettling]="isCardDropSettling"

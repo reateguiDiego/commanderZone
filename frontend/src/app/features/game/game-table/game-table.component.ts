@@ -44,7 +44,7 @@ import { GameTableCoreState } from './state/core/game-table-core.state';
 import { GameTablePendingTransferRegistrarState } from './state/core/game-table-pending-transfer-registrar.state';
 import { GameTableBattlefieldDragState } from './state/drag-drop/game-table-battlefield-drag.state';
 import { GameTableBattlefieldState } from './state/battlefield/game-table-battlefield.state';
-import { GameTableBattlefieldZoomState } from './state/battlefield/game-table-battlefield-zoom.state';
+import { GameTableBattlefieldZoomState, MIN_BATTLEFIELD_ZOOM_PERCENT } from './state/battlefield/game-table-battlefield-zoom.state';
 import { GameTableCardsState } from './state/cards/game-table-cards.state';
 import { GameTableContextStore } from './state/core/game-table-context.store';
 import { GameTableCountersState } from './state/cards/game-table-counters.state';
@@ -81,6 +81,7 @@ import { NumberActionDialogComponent } from './components/number-action-dialog/n
 import { ManaActionDialogComponent, ManaActionDialogValueChange } from './components/mana-action-dialog/mana-action-dialog.component';
 import { ManaCometLayerComponent } from './components/mana-comet-layer/mana-comet-layer.component';
 import { GameTableHeaderComponent } from './components/game-table-header/game-table-header.component';
+import { GameAdBannerComponent } from './components/game-ad-banner/game-ad-banner.component';
 import { CardPreviewOverlayComponent } from './components/card-preview-overlay/card-preview-overlay.component';
 import { CardMarkerRailComponent } from './components/game-card-view/card-marker-rail/card-marker-rail.component';
 import { LoyaltyCounterComponent } from './components/game-card-view/loyalty-counter/loyalty-counter.component';
@@ -341,6 +342,7 @@ interface MotionSourceRect {
     ManaActionDialogComponent,
     ManaCometLayerComponent,
     GameTableHeaderComponent,
+    GameAdBannerComponent,
     CardPreviewOverlayComponent,
     CardMarkerRailComponent,
     LoyaltyCounterComponent,
@@ -416,6 +418,7 @@ interface MotionSourceRect {
 })
 export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDestroy {
   private readonly mobileScrollLockQuery = '(max-width: 1180px), (hover: none) and (pointer: coarse)';
+  private readonly aggressiveCompactQuery = '(max-width: 1180px) and (max-height: 768px)';
   readonly store = inject(GameTableStore);
   readonly disconnectVote = inject(GameTableDisconnectVoteService);
   private readonly gamesApi = inject(GamesApi);
@@ -428,6 +431,15 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   private readonly bodyScrollLock = inject(BodyScrollLockService);
   private readonly changeDetectorRef = inject(ChangeDetectorRef);
   readonly battlefieldZoom = inject(GameTableBattlefieldZoomState);
+  readonly aggressiveCompactViewport = signal(false);
+  readonly effectiveBattlefieldZoomPercent = computed(() => (
+    this.aggressiveCompactViewport()
+      ? MIN_BATTLEFIELD_ZOOM_PERCENT
+      : this.battlefieldZoom.zoomPercent()
+  ));
+  readonly effectiveBattlefieldCardWidthRem = computed(() => this.battlefieldZoom.cardWidthRemFor(this.effectiveBattlefieldZoomPercent()));
+  readonly effectiveBattlefieldGapRem = computed(() => this.battlefieldZoom.gapRemFor(this.effectiveBattlefieldZoomPercent()));
+  readonly effectiveBattlefieldManaLaneHeightRem = computed(() => this.battlefieldZoom.manaLaneMinHeightRemFor(this.effectiveBattlefieldZoomPercent()));
   readonly handMotionActive = this.motion.handMotionActive;
   readonly counterPresets = ['-1/-1', '+1/+1', 'red', 'green', 'blue', 'black', 'yellow'];
   readonly colorAccent = (player: PlayerView | null): string => this.store.colorAccent(player);
@@ -709,8 +721,10 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   private readonly battlefieldDragStartRects = new Map<string, MotionSourceRect>();
   private readonly realtimeAnimationSubscriptions = new Subscription();
   private mobileScrollLockMediaQuery: MediaQueryList | null = null;
+  private aggressiveCompactMediaQuery: MediaQueryList | null = null;
   private mobileScrollLocked = false;
   private readonly handleMobileScrollLockChange = (): void => this.syncMobileScrollLock();
+  private readonly handleAggressiveCompactChange = (): void => this.syncAggressiveCompactViewport();
 
   @ViewChild('gameScreen', { static: true }) private readonly gameScreen?: ElementRef<HTMLElement>;
   @ViewChild(GameLogPanelComponent) private readonly gameLogPanel?: GameLogPanelComponent;
@@ -799,6 +813,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     this.notificationSound.startUserGestureUnlock();
     this.startChatReactionClock();
     this.setupMobileScrollLock();
+    this.setupAggressiveCompactViewport();
   }
 
   ngAfterViewChecked(): void {
@@ -827,6 +842,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     this.destroyed = true;
     this.realtimeAnimationSubscriptions.unsubscribe();
     this.destroyMobileScrollLock();
+    this.destroyAggressiveCompactViewport();
     this.motion.destroy();
     this.clearQueuedFloatingContentScroll();
     this.clearQueuedBattlefieldReflow();
@@ -884,6 +900,31 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
 
     this.mobileScrollLocked = false;
     this.bodyScrollLock.unlock();
+  }
+
+  private setupAggressiveCompactViewport(): void {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      return;
+    }
+
+    this.aggressiveCompactMediaQuery = window.matchMedia(this.aggressiveCompactQuery);
+    this.aggressiveCompactMediaQuery.addEventListener('change', this.handleAggressiveCompactChange);
+    this.syncAggressiveCompactViewport();
+  }
+
+  private syncAggressiveCompactViewport(): void {
+    const isAggressiveCompact = this.aggressiveCompactMediaQuery?.matches === true;
+    if (isAggressiveCompact === this.aggressiveCompactViewport()) {
+      return;
+    }
+
+    this.aggressiveCompactViewport.set(isAggressiveCompact);
+    this.queueBattlefieldZoomReflow();
+  }
+
+  private destroyAggressiveCompactViewport(): void {
+    this.aggressiveCompactMediaQuery?.removeEventListener('change', this.handleAggressiveCompactChange);
+    this.aggressiveCompactMediaQuery = null;
   }
 
   scrollFloatingContentToBottom(): void {
@@ -1050,6 +1091,11 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   resetBattlefieldZoom(): void {
     this.battlefieldZoom.resetZoom();
     this.queueBattlefieldZoomReflow();
+  }
+
+  requestUnsupportedViewportLeave(event: MouseEvent): void {
+    event.stopPropagation();
+    this.requestTableExit('leave');
   }
 
   @HostListener('window:resize')
@@ -1490,11 +1536,6 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   }
 
   private shouldAnimateVisibleRemoteMoveSource(playerId: string, zone: GameZoneName): boolean {
-    const focusedPlayerId = this.store.focusedPlayer()?.id;
-    if (focusedPlayerId !== playerId) {
-      return false;
-    }
-
     return zone === 'battlefield'
       || zone === 'hand'
       || this.store.dockZones.includes(zone);
@@ -1560,8 +1601,14 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     return value.replace(/["\\]/g, '\\$&');
   }
 
-  private async animateHandLayoutAfterAction(action: () => Promise<void>): Promise<void> {
-    const playFlip = this.motion.prepareHandDropHandoff('[data-zone="hand"][data-card-instance-id]');
+  private async animateHandLayoutAfterAction(
+    action: () => Promise<void>,
+    options: { readonly freezeHand?: boolean } = {},
+  ): Promise<void> {
+    const handCardSelector = '[data-zone="hand"][data-card-instance-id]';
+    const playFlip = options.freezeHand === undefined
+      ? this.motion.prepareHandDropHandoff(handCardSelector)
+      : this.motion.prepareHandDropHandoff(handCardSelector, options);
 
     try {
       await action();
@@ -2709,7 +2756,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       event.movedInstanceId,
       event.targetInstanceId,
       event.placement,
-    ));
+    ), { freezeHand: false });
   }
 
   cancelNumberAction(): void {

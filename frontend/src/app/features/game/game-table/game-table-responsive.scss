@@ -1,4 +1,4 @@
-@media (max-width: 1365px) {
+@media (max-width: 1180px), (max-height: 1199px) {
   .drag-card-preview {
     width: 6.4rem;
   }
@@ -8,6 +8,12 @@
   .game-screen,
   .table-surface {
     overscroll-behavior: none;
+  }
+}
+
+@media (max-width: 1180px), (max-height: 1199px) {
+  .game-screen {
+    --game-hand-panel-extra-height: 2.45rem;
   }
 }
 
@@ -23,11 +29,35 @@
   }
 }
 
-@media (max-width: 1180px) and (min-width: 761px) {
+@media (max-width: 745.5px) and (max-height: 524px) {
+  .game-screen > .unsupported-resolution-lock {
+    inset: 0;
+    display: grid;
+    width: 100dvw;
+    height: 100dvh;
+  }
+}
+
+@media (max-width: 760px) and (orientation: portrait) {
+  .game-screen > .unsupported-resolution-lock {
+    position: fixed;
+    inset: 0;
+    z-index: 12100;
+    display: grid;
+    width: 100dvw;
+    height: 100dvh;
+  }
+}
+
+@media (max-width: 1180px) and (min-width: 761px) and (min-height: 769px) {
   .game-screen {
     --game-log-overlay-peek-height: 96px;
     --game-zone-row-height: 10.6rem;
     --game-side-column-width: 4.5rem;
+    --game-top-summary-column: minmax(9rem, 2fr);
+    --game-top-turn-column: minmax(13rem, 3fr);
+    --game-top-extras-column: minmax(7rem, 3fr);
+    --game-top-log-column: minmax(9rem, 2fr);
     --game-zone-dock-width: min(31rem, calc(100vw - 1rem));
     --game-hand-left-extension: 0px;
   }
@@ -43,11 +73,15 @@
   }
 
   .player-strip {
-    grid-template-columns: minmax(8rem, 0.82fr) minmax(13rem, 1.18fr) 0 minmax(17rem, 22rem);
+    grid-template-columns:
+      var(--game-top-summary-column)
+      var(--game-top-turn-column)
+      var(--game-top-extras-column)
+      var(--game-top-log-column);
   }
 
   .extras-panel {
-    display: none;
+    display: block;
   }
 
   .player-sidebar {
@@ -99,16 +133,18 @@
   }
 }
 
-@media (max-width: 760px) {
+@media (max-width: 760px) and (min-height: 769px) {
   .game-screen {
     --game-log-overlay-peek-height: 2.35rem;
     --game-zone-row-height: 6rem;
+    --game-hand-panel-extra-height: 2.15rem;
     --game-opponents-top: 3.15rem;
     --game-side-column-width: 0px;
     --game-zone-dock-width: 100%;
     --game-zone-dock-overlap: 0px;
     --game-table-side-margin: 0;
     --game-hand-left-extension: 0px;
+    --game-hand-right-reserve: 2.5rem;
     --bottom-gap: max(0.42rem, env(safe-area-inset-bottom));
   }
 
@@ -222,9 +258,10 @@
   }
 }
 
-@media (max-width: 430px) {
+@media (max-width: 430px) and (min-height: 769px) {
   .game-screen {
     --game-zone-row-height: 5.7rem;
+    --game-hand-panel-extra-height: 1.85rem;
   }
 
   .player-strip {
@@ -241,56 +278,353 @@
   }
 }
 
-@media (max-height: 700px) and (max-width: 900px) {
-  .game-screen {
-    --game-log-overlay-peek-height: 2.1rem;
-    --game-zone-row-height: 5.4rem;
-    --game-opponents-top: 2.85rem;
-  }
-
-  .table-surface {
-    grid-template-rows: 2.85rem minmax(0, 1fr) var(--game-zone-row-height);
-  }
-
-  .player-sidebar {
-    top: var(--game-opponents-top);
-    max-height: calc(100dvh - var(--game-opponents-top) - var(--game-zone-row-height) - var(--bottom-gap));
-  }
-}
-
-@media (max-height: 1199px) {
+@media (max-height: 1199px) and (min-height: 769px),
+  (max-height: 1199px) and (min-width: 1181px) {
   .game-screen {
     --game-zone-row-height: 5.45rem;
-  }
-}
-
-@media (max-height: 1199px) and (max-width: 1180px) and (min-width: 761px) {
-  .game-screen {
-    --game-zone-row-height: 5.3rem;
-  }
-}
-
-@media (max-height: 1199px) and (max-width: 760px) {
-  .game-screen {
-    --game-zone-row-height: 3rem;
+    --game-hand-panel-extra-height: 2.75rem;
   }
 
   .table-surface {
-    grid-template-rows: 3.15rem minmax(0, 1fr) var(--game-zone-row-height);
+    grid-template-rows: var(--game-log-overlay-peek-height) minmax(0, 1fr) var(--game-hand-panel-height);
   }
 
   .focused-board {
-    grid-template-rows: minmax(0, 1fr) var(--game-zone-row-height);
+    grid-template-rows: minmax(0, 1fr) var(--game-hand-panel-height);
   }
 
-  .player-sidebar {
-    bottom: calc(var(--game-zone-row-height) + var(--bottom-gap));
-    max-height: calc(100dvh - var(--game-opponents-top) - var(--game-zone-row-height) - var(--bottom-gap));
+  .floating-panel {
+    height: 100%;
+  }
+
+  .floating-panel:hover,
+  .floating-panel:focus-within {
+    height: min(58dvh, 26rem);
+    max-height: none;
   }
 }
 
-@media (max-height: 1199px) and (max-width: 430px) {
+@media (max-height: 1199px) and (min-height: 769px) and (max-width: 1180px) and (min-width: 761px) {
+  .game-screen {
+    --game-zone-row-height: 5.3rem;
+    --game-hand-panel-extra-height: 2.75rem;
+  }
+}
+
+@media (max-height: 1199px) and (min-height: 769px) and (max-width: 760px) {
+  .game-screen {
+    --game-zone-row-height: 3rem;
+    --game-hand-panel-extra-height: 2.75rem;
+  }
+
+  .table-surface {
+    grid-template-rows: 3.15rem minmax(0, 1fr) var(--game-hand-panel-height);
+  }
+
+  .focused-board {
+    grid-template-rows: minmax(0, 1fr) var(--game-hand-panel-height);
+  }
+
+  .player-sidebar {
+    bottom: calc(var(--game-hand-panel-height) + var(--bottom-gap));
+    max-height: calc(100dvh - var(--game-opponents-top) - var(--game-hand-panel-height) - var(--bottom-gap));
+  }
+
+  .floating-panel {
+    bottom: calc(var(--game-hand-panel-height) + var(--bottom-gap));
+  }
+}
+
+@media (max-height: 1199px) and (min-height: 769px) and (max-width: 430px) {
   .game-screen {
     --game-zone-row-height: 2.85rem;
+    --game-hand-panel-extra-height: 2.75rem;
+  }
+}
+
+@media (max-height: 768px) and (max-width: 1180px) {
+  .game-screen {
+    --game-log-overlay-peek-height: 2.35rem;
+    --game-zone-row-height: 5.45rem;
+    --game-side-column-width: 4.5rem;
+    --game-top-summary-column: minmax(8.2rem, 2fr);
+    --game-top-turn-column: minmax(11.5rem, 3fr);
+    --game-top-extras-column: minmax(5.8rem, 3fr);
+    --game-top-log-column: minmax(5.8rem, 2fr);
+    --game-zone-dock-width: var(--game-side-column-width);
+    --game-zone-dock-overlap: 0px;
+    --game-hand-left-reserve: 2.5rem;
+    --game-hand-right-reserve: 0px;
+    --game-hand-panel-extra-height: 0rem;
+  }
+
+  .table-surface {
+    grid-template-columns: minmax(0, 1fr) var(--game-side-column-width);
+    grid-template-rows: var(--game-log-overlay-peek-height) minmax(0, 1fr);
+    grid-template-areas:
+      "mainTop mainTop"
+      "board zones";
+  }
+
+  .focused-board {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .player-strip {
+    z-index: 2400;
+    grid-template-columns:
+      var(--game-top-summary-column)
+      var(--game-top-turn-column)
+      var(--game-top-extras-column)
+      var(--game-top-log-column);
+    align-items: center;
+    column-gap: 0.16rem;
+    min-height: 0;
+    padding: 0.08rem 0.24rem 0.08rem 0.12rem;
+    overflow: visible;
+  }
+
+  .extras-panel {
+    display: block;
+  }
+
+  .player-sidebar {
+    position: fixed;
+    top: calc(var(--game-log-overlay-peek-height, var(--game-opponents-top, 3.15rem)) + 0.2rem);
+    right: auto;
+    bottom: 0;
+    left: 0;
+    z-index: 850;
+    max-height: calc(100dvh - var(--game-log-overlay-peek-height, var(--game-opponents-top, 3.15rem)) - 0.2rem);
+    grid-template-columns: minmax(0, 1fr) 2.5rem;
+    overflow: visible;
+    border-right: 0;
+    border-left: 0;
+    background: transparent;
+    pointer-events: none;
+    transform: translateX(calc(-100% + 2.5rem));
+  }
+
+  .player-sidebar.opponents-open,
+  .player-sidebar:hover,
+  .player-sidebar:focus-within {
+    overflow-x: hidden;
+    overflow-y: auto;
+    border-right: 1px solid var(--game-accent-line);
+    background: rgb(4 5 4 / 90%);
+    pointer-events: auto;
+    transform: translateX(0);
+  }
+
+  .drawer-handle {
+    grid-column: 2;
+    align-self: start;
+    min-height: 5.2rem;
+    height: min(8.6rem, calc(100dvh - var(--game-log-overlay-peek-height, var(--game-opponents-top, 3.15rem)) - 1rem));
+    margin-top: 0.3rem;
+    border-right: 0;
+    border-bottom: 1px solid var(--game-accent-line);
+    border-left: 1px solid var(--game-accent-line);
+    background: rgb(0 0 0 / 74%);
+    pointer-events: auto;
+  }
+
+  .game-screen .player-strip > app-player-summary-panel ::ng-deep .extra-actions-panel {
+    z-index: 2800;
+  }
+
+  .game-screen .player-strip > app-player-summary-panel ::ng-deep .player-summary-panel {
+    grid-template-columns: 1.12rem minmax(0, 1fr) 4rem;
+    gap: 0.16rem;
+    align-items: center;
+    height: 100%;
+    max-width: none;
+    padding: 0 0.24rem;
+  }
+
+  .game-screen .player-strip > app-player-summary-panel ::ng-deep .player-deck-meta,
+  .game-screen .player-strip > app-player-summary-panel ::ng-deep .nameplate-image {
+    display: none;
+  }
+
+  .game-screen .player-strip > app-player-summary-panel ::ng-deep .player-avatar {
+    display: inline-grid;
+    width: 1.12rem;
+    height: 1.12rem;
+    place-self: center;
+    overflow: visible;
+  }
+
+  .game-screen .player-strip > app-player-summary-panel ::ng-deep .player-avatar-shell.size-sm {
+    --avatar-size: 1.12rem;
+
+    box-shadow:
+      0 0 0 1px rgb(5 7 8 / 86%),
+      0 0.12rem 0.26rem rgb(0 0 0 / 34%),
+      0 0 0.42rem color-mix(in srgb, var(--player-accent) 14%, transparent);
+  }
+
+  .game-screen .player-strip > app-player-summary-panel ::ng-deep .player-copy app-player-name {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .game-screen .player-strip > app-player-summary-panel ::ng-deep .player-name-shell {
+    width: 100%;
+    height: auto;
+    min-height: 1.12rem;
+    padding: 0;
+    background: transparent;
+    font-size: 0.62rem;
+    line-height: 1.16;
+  }
+
+  .game-screen .player-strip > app-player-summary-panel ::ng-deep .player-name-label {
+    position: static;
+    width: 100%;
+    padding: 0.03rem 0 0.06rem;
+    overflow: hidden;
+    text-align: left;
+    text-overflow: ellipsis;
+    transform: none;
+    white-space: nowrap;
+  }
+
+  .game-screen .player-strip > app-player-summary-panel ::ng-deep .life-controls {
+    --life-stepper-side-width: 0.72rem;
+    --extra-actions-size: 0.38rem;
+
+    grid-template-rows: 1.16rem 0.38rem;
+    align-self: center;
+    min-width: 4rem;
+    border-color: color-mix(in srgb, var(--player-accent) 54%, rgb(7 10 11));
+    border-radius: 7px;
+    background:
+      radial-gradient(circle at 50% -30%, color-mix(in srgb, var(--player-accent) 34%, transparent), transparent 66%),
+      linear-gradient(180deg, rgb(17 24 24 / 96%), rgb(4 6 7 / 96%));
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 12%),
+      inset 0 -1px 0 rgb(0 0 0 / 56%),
+      0 0.12rem 0.28rem rgb(0 0 0 / 28%),
+      0 0 0.42rem color-mix(in srgb, var(--player-accent) 12%, transparent);
+  }
+
+  .game-screen .player-strip > app-player-summary-panel ::ng-deep .life-stepper {
+    grid-template-columns: var(--life-stepper-side-width) minmax(2.3rem, 1fr) var(--life-stepper-side-width);
+  }
+
+  .game-screen .player-strip > app-player-summary-panel ::ng-deep .life-total,
+  .game-screen .player-strip > app-player-summary-panel ::ng-deep .life-step-button,
+  .game-screen .player-strip > app-player-summary-panel ::ng-deep .life-step-spacer {
+    min-height: 1.16rem;
+  }
+
+  .game-screen .player-strip > app-player-summary-panel ::ng-deep .life-total {
+    min-width: 2.3rem;
+    font-size: 0.84rem;
+  }
+
+  .game-screen .player-strip > app-player-summary-panel ::ng-deep .life-step-button {
+    min-width: var(--life-stepper-side-width);
+    padding: 0;
+  }
+
+  .game-screen .player-strip > app-player-summary-panel ::ng-deep .life-step-button lucide-icon {
+    display: block;
+    width: 0.44rem;
+    height: 0.44rem;
+    stroke-width: 3;
+  }
+
+  .game-screen .player-strip > app-player-summary-panel ::ng-deep .life-step-button lucide-icon svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    stroke-width: 2.35;
+  }
+
+  .game-screen .player-strip > app-player-summary-panel ::ng-deep .life-controls .player-extra-actions {
+    padding-inline: var(--life-stepper-side-width);
+  }
+
+  .game-screen .player-strip > app-player-summary-panel ::ng-deep .extra-actions-toggle {
+    min-height: 0.38rem;
+    align-items: center;
+    justify-content: center;
+    line-height: 0;
+  }
+
+  .game-screen .player-strip > app-player-summary-panel ::ng-deep .extra-actions-toggle lucide-icon {
+    display: block;
+    width: 0.36rem;
+    height: 0.36rem;
+    transform: translateY(-0.02rem);
+  }
+
+  .game-screen .player-strip > app-player-summary-panel ::ng-deep .extra-actions-toggle lucide-icon svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    stroke-width: 2.35;
+  }
+
+  .floating-panel {
+    position: relative;
+    inset: auto;
+    z-index: 720;
+    align-self: stretch;
+    justify-self: stretch;
+    width: 100%;
+    max-width: none;
+    height: 100%;
+    max-height: none;
+    border-color: rgb(215 180 106 / 20%);
+    background: rgb(5 7 6 / 82%);
+    transform: none;
+  }
+
+  .floating-panel:hover,
+  .floating-panel:focus-within {
+    position: absolute;
+    top: 0;
+    right: 0.24rem;
+    z-index: 2600;
+    width: min(24rem, calc(100vw - 0.7rem));
+    height: min(58dvh, 26rem);
+    max-height: none;
+    background: #090907;
+  }
+
+  .floating-panel header {
+    height: 100%;
+    align-items: center;
+    gap: 0.1rem;
+    padding: 0.1rem;
+    border-bottom: 0;
+  }
+
+  .floating-panel header button {
+    min-height: 1.18rem;
+    border-radius: 7px;
+    padding-inline: 0.2rem;
+    font-size: 0.58rem;
+    line-height: 1;
+  }
+
+  .floating-panel:hover header,
+  .floating-panel:focus-within header {
+    height: auto;
+    min-height: var(--game-log-overlay-peek-height);
+    border-bottom: 1px solid var(--game-line-soft);
+  }
+
+  .floating-panel:not(:hover):not(:focus-within) .floating-collapsed-preview,
+  .floating-panel:not(:hover):not(:focus-within) .floating-expanded-content {
+    display: none;
+  }
+
+  .opponents-list {
+    grid-column: 1;
   }
 }

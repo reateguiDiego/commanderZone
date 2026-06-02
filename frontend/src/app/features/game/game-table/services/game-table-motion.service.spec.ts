@@ -130,19 +130,117 @@ describe('GameTableMotionService', () => {
     expect(document.body.querySelector('.cz-motion-ghost')).toBeNull();
   });
 
-  it('keeps hand interactions unlocked by skipping hand handoff motion below 1200px viewport height', () => {
+  it('keeps ghost throws enabled in compact width viewports', () => {
+    reinitWithMatchMedia((query) => query === '(max-width: 1180px)');
+    const source = addHandCard(host, 'card-1', { left: 10, top: 20, width: 72, height: 100 });
+    const target = addMotionTarget(host, { left: 300, top: 240, width: 72, height: 100 });
+    const onComplete = vi.fn();
+
+    service.throwElementGhost(source, target, { onComplete });
+
+    expect(onComplete).toHaveBeenCalledOnce();
+    expect(gsapToSpy).toHaveBeenCalledOnce();
+    expect(document.body.querySelector('.cz-motion-ghost')).toBeNull();
+  });
+
+  it('keeps ghost throws enabled in aggressive compact viewports', () => {
+    reinitWithMatchMedia((query) => query === '(max-width: 1180px)' || query === '(max-height: 1199px)');
+    const source = addHandCard(host, 'card-1', { left: 10, top: 20, width: 72, height: 100 });
+    const target = addMotionTarget(host, { left: 300, top: 240, width: 72, height: 100 });
+    const onComplete = vi.fn();
+
+    service.throwElementGhost(source, target, { onComplete });
+
+    expect(onComplete).toHaveBeenCalledOnce();
+    expect(gsapToSpy).toHaveBeenCalledOnce();
+    expect(document.body.querySelector('.cz-motion-ghost')).toBeNull();
+  });
+
+  it('runs hand handoff motion below 1200px viewport height', () => {
     reinitWithMatchMedia((query) => query === '(max-height: 1199px)');
     addHandCard(host, 'card-before', { left: 10, top: 20, width: 72, height: 100 });
 
     const playHandoff = service.prepareHandDropHandoff();
+
+    expect(service.handMotionActive()).toBe(true);
+
+    addHandCard(host, 'card-after', { left: 100, top: 20, width: 72, height: 100 });
+    playHandoff();
+
+    expect(gsapFromToSpy).toHaveBeenCalledOnce();
+    expect(service.handMotionActive()).toBe(false);
+  });
+
+  it('runs hand handoff motion in compact width viewports', () => {
+    reinitWithMatchMedia((query) => query === '(max-width: 1180px)');
+    addHandCard(host, 'card-before', { left: 10, top: 20, width: 72, height: 100 });
+
+    const playHandoff = service.prepareHandDropHandoff();
+
+    expect(service.handMotionActive()).toBe(true);
+
+    addHandCard(host, 'card-after', { left: 100, top: 20, width: 72, height: 100 });
+    playHandoff();
+
+    expect(gsapFromToSpy).toHaveBeenCalledOnce();
+    expect(service.handMotionActive()).toBe(false);
+  });
+
+  it('can run hand handoff motion without freezing hand interactions', () => {
+    addHandCard(host, 'card-before', { left: 10, top: 20, width: 72, height: 100 });
+
+    const playHandoff = service.prepareHandDropHandoff('[data-zone="hand"][data-card-instance-id]', { freezeHand: false });
 
     expect(service.handMotionActive()).toBe(false);
 
     addHandCard(host, 'card-after', { left: 100, top: 20, width: 72, height: 100 });
     playHandoff();
 
-    expect(gsapFromToSpy).not.toHaveBeenCalled();
+    expect(gsapFromToSpy).toHaveBeenCalledOnce();
     expect(service.handMotionActive()).toBe(false);
+  });
+
+  it('runs hand card FLIP below 1200px viewport height', () => {
+    reinitWithMatchMedia((query) => query === '(max-height: 1199px)');
+    const card = addHandCard(host, 'card-1');
+
+    const playFlip = service.prepareCardFlip('[data-zone="hand"][data-card-instance-id]');
+
+    expect(service.handMotionActive()).toBe(true);
+
+    playFlip();
+
+    expect(flipFromSpy).toHaveBeenCalledOnce();
+    expect(flipFromSpy.mock.calls[0]?.[1]).toMatchObject({
+      duration: 0.34,
+      ease: 'power3.out',
+      targets: [card],
+    });
+    expect(service.handMotionActive()).toBe(false);
+  });
+
+  it('runs hand layout FLIP below 1200px viewport height', () => {
+    reinitWithMatchMedia((query) => query === '(max-height: 1199px)');
+    const animationFrame = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+      callback(0);
+      return 1;
+    });
+    const card = addHandCard(host, 'card-1');
+
+    try {
+      const playFlip = service.prepareHandLayoutFlip(host);
+
+      playFlip();
+
+      expect(flipFromSpy).toHaveBeenCalledOnce();
+      expect(flipFromSpy.mock.calls[0]?.[1]).toMatchObject({
+        duration: 0.48,
+        ease: 'power3.out',
+        targets: [card],
+      });
+    } finally {
+      animationFrame.mockRestore();
+    }
   });
 
   it('uses layered GSAP pulses when creating a land stack', () => {

@@ -1,8 +1,16 @@
 :host {
-  display: contents;
+  container: turn-phase-panel / inline-size;
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
 }
 
 .turn-phase-panel {
+  --turn-compact-control-size: 1.42rem;
+  --turn-compact-phase-font-size: 0.58rem;
+
   display: grid;
   box-sizing: border-box;
   grid-template-columns: minmax(0, 1fr) clamp(4.65rem, 10vw, 5.8rem);
@@ -28,6 +36,7 @@
 }
 
 .turn-focus-toggle {
+  position: relative;
   display: inline-grid;
   grid-template-columns: auto minmax(0, auto);
   align-items: center;
@@ -51,6 +60,19 @@
   margin-top: auto;
 }
 
+.turn-focus-toggle::before {
+  display: grid;
+  width: 0.7rem;
+  height: 0.7rem;
+  place-items: center;
+  border: 2px solid currentColor;
+  border-radius: 0.22rem;
+  font-size: 0.56rem;
+  font-weight: 1000;
+  line-height: 1;
+  content: "";
+}
+
 .turn-focus-toggle:hover {
   border-color: rgb(215 180 106 / 26%);
   color: var(--game-text, #f3f0e8);
@@ -58,12 +80,17 @@
 }
 
 .turn-focus-toggle input {
-  display: grid;
-  width: 0.7rem;
-  height: 0.7rem;
+  position: absolute;
+  inset: 0;
+  opacity: 0;
   margin: 0;
-  accent-color: var(--game-accent, #d7b46a);
   cursor: pointer;
+}
+
+.turn-focus-toggle:has(input:checked)::before {
+  background: var(--game-accent, #d7b46a);
+  color: #120c02;
+  content: "\2713";
 }
 
 .turn-focus-toggle:has(input:checked) {
@@ -574,185 +601,235 @@
   overflow: hidden;
 }
 
-@media (max-width: 1180px) {
+@container turn-phase-panel (max-width: 34rem) {
   .turn-phase-panel {
-    grid-template-columns: minmax(0, 1fr) 3.95rem;
-    grid-template-rows: 1.62rem minmax(0, 1fr);
-    gap: 0.05rem 0.34rem;
-    max-width: 300px;
-    padding: 0.32rem 0.38rem;
+    grid-template-columns: auto minmax(0, 1fr) auto auto auto;
+    grid-template-rows: minmax(1.2rem, auto) minmax(var(--turn-compact-control-size), auto);
+    align-content: center;
+    align-items: center;
+    gap: 0.12rem 0.28rem;
+    max-width: none;
+    height: 100%;
+    padding: 0.12rem 0.24rem;
+    overflow: visible;
   }
 
   .turn-title {
-    font-size: 0.76rem;
-  }
-
-  .turn-actions {
-    gap: 0.16rem;
-  }
-
-  .turn-action-button {
-    grid-template-columns: 0.7rem minmax(0, 1fr) 0.7rem;
-    gap: 0.14rem;
-    min-height: 1.35rem;
-    padding: 0 0.28rem;
-    border-radius: 7px;
-    font-size: 0.5rem;
-    line-height: 0.95;
-  }
-
-  .turn-action-button lucide-icon {
-    width: 0.7rem;
-    height: 0.7rem;
-  }
-
-  .turn-focus-toggle {
-    gap: 0.16rem;
-    min-height: 0.9rem;
-    padding: 0;
-    font-size: 0.42rem;
-  }
-
-  .turn-focus-toggle input {
-    width: 0.56rem;
-    height: 0.56rem;
+    grid-column: 1 / -1;
+    grid-row: 1;
+    display: block;
+    min-height: 0;
   }
 
   .phase-tracker {
-    gap: 0.02rem;
+    grid-column: 3;
+    grid-row: 2;
+    grid-template-columns: minmax(0, max-content);
+    justify-self: end;
+    align-self: center;
+    width: auto;
+    min-width: 0;
+    overflow: visible;
   }
 
   .phase-tracker button {
-    --phase-rail-size: 0.72rem;
-    --phase-node-size: 0.64rem;
-    --phase-node-border: 1px;
-
-    font-size: 0.38rem;
+    display: none;
+    min-height: 0;
   }
 
-  .phase-tracker button::after {
-    width: calc(100% + 0.02rem);
-    height: 1px;
+  .phase-tracker button.active {
+    display: grid;
+    grid-template-rows: minmax(0, 1fr);
+    align-items: center;
+    justify-items: end;
+    width: auto;
+    height: auto;
   }
 
-  .phase-tracker button.phase-compact {
-    --phase-node-size: 0.3rem;
-    --phase-node-border: 1px;
-  }
-
-  .phase-tracker button.phase-combat {
-    --phase-node-size: 0.48rem;
-    --phase-node-border: 1px;
-  }
-}
-
-@media (max-width: 900px) {
-  .turn-phase-panel {
-    grid-template-columns: minmax(0, 1fr) 3.15rem;
-    grid-template-rows: 1.32rem minmax(0, 1fr);
-    max-width: 236px;
-    padding: 0.24rem 0.3rem;
-  }
-
-  .turn-title {
-    font-size: 0.62rem;
-  }
-
-  .turn-action-button {
-    grid-template-columns: 0.58rem minmax(0, 1fr) 0.58rem;
-    min-height: 1.22rem;
-    padding: 0 0.22rem;
-    font-size: 0.42rem;
-  }
-
-  .turn-action-button lucide-icon {
-    width: 0.58rem;
-    height: 0.58rem;
-  }
-
-  .turn-focus-toggle {
-    font-size: 0.34rem;
-  }
-
-  .turn-focus-toggle input {
-    width: 0.48rem;
-    height: 0.48rem;
-  }
-
-  .phase-tracker button {
-    --phase-rail-size: 0.56rem;
-    --phase-node-size: 0.5rem;
-
-    font-size: 0;
-  }
-
-  .phase-tracker button.phase-compact {
-    --phase-node-size: 0.24rem;
-  }
-
-  .phase-tracker button.phase-combat {
-    --phase-node-size: 0.38rem;
+  .phase-tracker button::after,
+  .phase-node {
+    display: none;
   }
 
   .phase-label {
-    display: none;
-  }
-}
-
-@media (max-width: 760px) {
-  .turn-phase-panel {
-    grid-template-columns: minmax(0, 1fr) 2.7rem;
-    grid-template-rows: 1.24rem minmax(0, 1fr);
-    gap: 0.1rem 0.2rem;
-    max-width: 248px;
-    padding: 0.28rem 0.35rem;
-  }
-
-  .turn-title {
-    justify-content: start;
-    font-size: 0.62rem;
-  }
-
-  .turn-focus-toggle {
-    min-height: 1rem;
-    padding: 0;
-    font-size: 0;
-  }
-
-  .turn-focus-toggle input {
-    width: 0.82rem;
-    height: 0.82rem;
+    grid-row: 1;
+    min-height: var(--turn-compact-control-size);
+    height: var(--turn-compact-control-size);
+    min-width: 2.8rem;
+    max-width: min(7rem, 100%);
+    overflow: hidden;
+    padding: 0 0.36rem;
+    border-radius: 999px;
+    font-size: var(--turn-compact-phase-font-size);
+    line-height: 1;
+    white-space: nowrap;
+    text-overflow: ellipsis;
   }
 
   .turn-actions {
-    gap: 0.2rem;
+    display: contents;
   }
 
   .turn-action-button {
-    min-width: 2.1rem;
-    min-height: 1.45rem;
-    grid-template-columns: 1fr;
-    place-items: center;
-    padding: 0;
-    font-size: 0;
+    grid-row: 2;
+    align-self: center;
+    min-width: 5.15rem;
+    width: auto;
   }
 
-  .turn-action-button::before {
-    opacity: 0.46;
+  .pass-turn-button {
+    grid-column: 5;
   }
 
-  .phase-tracker button {
-    --phase-rail-size: 0.58rem;
-    --phase-node-size: 0.48rem;
-
-    font-size: 0;
+  .advance-phase-button {
+    grid-column: 4;
+    min-width: 4.35rem;
   }
 
-  .phase-tracker button.phase-compact {
-    --phase-node-size: 0.28rem;
+  .turn-phase-panel.is-current-turn-player .advance-phase-button {
+    margin-left: clamp(0.32rem, 1.4cqw, 0.72rem);
   }
 
-  .phase-tracker button.phase-combat {
-    --phase-node-size: 0.38rem;
+  .turn-focus-toggle {
+    grid-column: 1;
+    grid-row: 2;
+    align-self: center;
+    grid-template-columns: 0.72rem minmax(0, 1fr);
+    min-width: 5rem;
+    width: auto;
+    gap: 0.18rem;
+    margin-top: 0;
+    padding: 0 0.34rem;
+  }
+
+  .turn-focus-toggle::before {
+    width: 0.66rem;
+    height: 0.66rem;
+  }
+
+  .turn-focus-toggle span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+@media (max-height: 768px) and (max-width: 1180px) {
+  .turn-phase-panel {
+    --turn-compact-control-size: 1.36rem;
+    --turn-compact-phase-font-size: 0.56rem;
+
+    grid-template-columns: auto minmax(0, 1fr) auto auto auto;
+    grid-template-rows: minmax(0, 1fr);
+    align-content: center;
+    align-items: center;
+    gap: 0.08rem;
+    max-width: none;
+    height: 100%;
+    padding: 0 0.12rem;
+    overflow: visible;
+  }
+
+  .turn-title {
+    display: none;
+  }
+
+  .phase-tracker {
+    grid-column: 3;
+    grid-row: 1;
+  }
+
+  .turn-action-button,
+  .turn-focus-toggle {
+    grid-row: 1;
+  }
+
+  .phase-label {
+    min-width: 2.85rem;
+    max-width: min(5.4rem, 100%);
+    padding-inline: 0.24rem;
+  }
+
+  .advance-phase-button {
+    min-width: 4.15rem;
+    gap: 0.1rem;
+    margin-left: 0.34rem;
+    padding-inline: 0.24rem;
+  }
+
+  .pass-turn-button {
+    min-width: 5rem;
+  }
+
+  .turn-focus-toggle {
+    min-width: 4.65rem;
+    padding-inline: 0.24rem;
+  }
+
+}
+
+@container turn-phase-panel (max-width: 21rem) {
+  .turn-phase-panel {
+    grid-template-columns: minmax(3.5rem, max-content) minmax(0, 1fr) auto auto;
+    grid-template-rows: repeat(2, minmax(0, 1fr));
+    gap: 0.04rem 0.18rem;
+    padding-inline: 0.1rem;
+  }
+
+  .phase-tracker {
+    grid-column: 1;
+    grid-row: 1;
+    justify-self: start;
+    align-self: end;
+  }
+
+  .phase-label {
+    min-width: 3.2rem;
+    max-width: 4.35rem;
+    min-height: 1.02rem;
+    height: 1.02rem;
+    padding-inline: 0.22rem;
+    font-size: 0.5rem;
+  }
+
+  .turn-focus-toggle {
+    grid-column: 1;
+    grid-row: 2;
+    align-self: start;
+    grid-template-columns: 0.5rem minmax(0, 1fr);
+    gap: 0.12rem;
+    min-width: 3.9rem;
+    min-height: 1rem;
+    padding-inline: 0.22rem;
+    font-size: 0.46rem;
+  }
+
+  .turn-focus-toggle::before {
+    width: 0.48rem;
+    height: 0.48rem;
+    border-width: 1px;
+    border-radius: 0.16rem;
+    font-size: 0.42rem;
+  }
+
+  .advance-phase-button,
+  .pass-turn-button {
+    grid-row: 1 / 3;
+    align-self: center;
+  }
+
+  .advance-phase-button {
+    grid-column: 3;
+    min-width: 3.9rem;
+    margin-left: 0;
+  }
+
+  .turn-phase-panel.is-current-turn-player .advance-phase-button {
+    margin-left: 0;
+  }
+
+  .pass-turn-button {
+    grid-column: 4;
+    min-width: 4.45rem;
   }
 }

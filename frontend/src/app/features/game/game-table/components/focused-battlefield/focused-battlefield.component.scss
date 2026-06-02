@@ -124,7 +124,7 @@
   border-color: var(--game-accent-strong, rgb(215 180 106 / 58%));
 }
 
-@media (max-width: 760px) {
+@media (max-width: 760px) and (min-height: 769px) {
   .battlefield {
     --focused-mana-lane-height: 7.4rem;
     --focused-mana-pool-stack-clearance: 2.8rem;
@@ -146,7 +146,8 @@
   }
 }
 
-@media (max-width: 430px), (max-height: 700px) and (max-width: 900px) {
+@media (max-width: 430px) and (min-height: 769px),
+  (max-height: 768px) and (max-width: 1180px) {
   .battlefield {
     --focused-mana-lane-height: 6.2rem;
     --focused-mana-pool-stack-clearance: 2.35rem;

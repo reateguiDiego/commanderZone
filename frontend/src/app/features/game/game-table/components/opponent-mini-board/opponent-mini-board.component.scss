@@ -490,7 +490,7 @@
   transform: translateY(-0.04rem);
 }
 
-@media (max-width: 760px) {
+@media (max-width: 760px) and (min-height: 769px) {
   .player-thumb {
     gap: 0.42rem;
     padding: 0.32rem 0.2rem 0.22rem;
@@ -537,7 +537,8 @@
   }
 }
 
-@media (max-width: 430px), (max-height: 700px) and (max-width: 900px) {
+@media (max-width: 430px) and (min-height: 769px),
+  (max-height: 768px) and (max-width: 1180px) {
   .player-thumb {
     gap: 0.34rem;
     padding: 0.26rem 0.18rem 0.2rem;

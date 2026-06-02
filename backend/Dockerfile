@@ -10,6 +10,8 @@ RUN install-php-extensions \
 	zip \
 	opcache
 
+RUN echo "memory_limit=512M" > /usr/local/etc/php/conf.d/commanderzone-memory.ini
+
 COPY --from=composer /usr/bin/composer /usr/bin/composer
 
 COPY composer.json composer.lock symfony.lock ./

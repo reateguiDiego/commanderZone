@@ -996,6 +996,44 @@ describe('GameTableComponent', () => {
     })));
   });
 
+  it('plays remote ghosts when a visible opponent battlefield card moves over websocket', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    addOpponent(snapshot);
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await vi.waitFor(() => expect(fixture.componentInstance.store.loading()).toBe(false));
+    fixture.detectChanges();
+
+    const motion = fixture.debugElement.injector.get(GameTableMotionService);
+    const throwGhost = vi.spyOn(motion, 'throwGhost').mockImplementation(() => undefined);
+    vi.spyOn(motion, 'impactZone').mockImplementation(() => undefined);
+    const playerTarget = appendPlayerDropTarget(fixture.nativeElement, 'user-1');
+
+    websocketMessages.next({
+      kind: 'game_patch',
+      gameId: 'game-1',
+      baseVersion: 1,
+      version: 2,
+      operations: [{
+        op: 'card.move',
+        instanceId: 'card-2',
+        from: { playerId: 'user-2', zone: 'battlefield' },
+        to: { playerId: 'user-1', zone: 'battlefield' },
+      }],
+      event: { id: 'event-opponent-move', type: 'card.moved', payload: {}, createdBy: 'user-2', createdAt: '' },
+    });
+
+    await vi.waitFor(() => expect(throwGhost).toHaveBeenCalledWith('card-2', playerTarget, expect.objectContaining({
+      scaleToTarget: true,
+      rotate: -6,
+    })));
+  });
+
   it('delegates hand pointer moves without drag-drop motion effects', async () => {
     const fixture = TestBed.createComponent(GameTableComponent);
     const motion = fixture.debugElement.injector.get(GameTableMotionService);
@@ -1509,8 +1547,11 @@ describe('GameTableComponent', () => {
     const motion = fixture.debugElement.injector.get(GameTableMotionService);
     const calls: string[] = [];
     const playFlip = vi.fn(() => calls.push('playFlip'));
-    const prepareHandDropHandoff = vi.spyOn(motion, 'prepareHandDropHandoff').mockImplementation((selector?: string) => {
+    const prepareHandDropHandoff = vi.spyOn(motion, 'prepareHandDropHandoff').mockImplementation((selector?: string, options?: { readonly freezeHand?: boolean }) => {
       calls.push(`prepare:${selector ?? ''}`);
+      if (options) {
+        calls.push(`freeze:${String(options.freezeHand)}`);
+      }
       return playFlip;
     });
     const reorderHandCard = vi.spyOn(fixture.componentInstance.store, 'reorderHandCard').mockImplementation(async () => {
@@ -1524,10 +1565,10 @@ describe('GameTableComponent', () => {
       placement: 'before',
     });
 
-    expect(prepareHandDropHandoff).toHaveBeenCalledWith('[data-zone="hand"][data-card-instance-id]');
+    expect(prepareHandDropHandoff).toHaveBeenCalledWith('[data-zone="hand"][data-card-instance-id]', { freezeHand: false });
     expect(reorderHandCard).toHaveBeenCalledWith('user-1', 'hand-2', 'hand-1', 'before');
     expect(playFlip).toHaveBeenCalledOnce();
-    expect(calls).toEqual(['prepare:[data-zone="hand"][data-card-instance-id]', 'reorder', 'playFlip']);
+    expect(calls).toEqual(['prepare:[data-zone="hand"][data-card-instance-id]', 'freeze:false', 'reorder', 'playFlip']);
   });
 
   it('concedes through a dedicated game command even if another action is pending', async () => {
@@ -1659,6 +1700,28 @@ describe('GameTableComponent', () => {
 
     expect(leaveTable).toHaveBeenCalled();
     expect(gamesApi.rematchVote).not.toHaveBeenCalled();
+  });
+
+  it('reuses the table leave confirmation from the unsupported resolution overlay', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    addOpponent(snapshot);
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const leaveTable = vi.spyOn(fixture.componentInstance.store, 'leaveTable').mockResolvedValue(undefined);
+
+    const leaveButton = fixture.nativeElement.querySelector('[data-testid="unsupported-resolution-leave-room"]') as HTMLButtonElement;
+    leaveButton.click();
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.tableExitAction()).toBe('leave');
+
+    await fixture.componentInstance.confirmTableExitAction();
+
+    expect(leaveTable).toHaveBeenCalled();
   });
 
   it('treats a snapshot viewer without current room membership as read-only', async () => {

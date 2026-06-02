@@ -17,6 +17,14 @@ interface CardRotationFlipOptions {
   readonly onComplete?: () => void;
 }
 
+interface CardFlipOptions {
+  readonly freezeHand?: boolean;
+}
+
+interface HandDropHandoffOptions {
+  readonly freezeHand?: boolean;
+}
+
 interface MotionRect {
   readonly left: number;
   readonly top: number;
@@ -37,14 +45,16 @@ export class GameTableMotionService {
   private context: gsap.Context | null = null;
   private host: HTMLElement | null = null;
   private reducedMotionQuery: MediaQueryList | null = null;
-  private compactMotionQuery: MediaQueryList | null = null;
+  private compactMotionHeightQuery: MediaQueryList | null = null;
+  private compactMotionWidthQuery: MediaQueryList | null = null;
 
   init(hostRef: ElementRef<HTMLElement>): void {
     this.destroy();
     const host = hostRef.nativeElement;
     this.host = host;
     this.reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
-    this.compactMotionQuery = window.matchMedia('(max-height: 1199px)');
+    this.compactMotionHeightQuery = window.matchMedia('(max-height: 1199px)');
+    this.compactMotionWidthQuery = window.matchMedia('(max-width: 1180px)');
 
     this.ngZone.runOutsideAngular(() => {
       this.context = gsap.context(() => undefined, host);
@@ -58,7 +68,8 @@ export class GameTableMotionService {
     this.context = null;
     this.host = null;
     this.reducedMotionQuery = null;
-    this.compactMotionQuery = null;
+    this.compactMotionHeightQuery = null;
+    this.compactMotionWidthQuery = null;
   }
 
   punchCard(instanceId: string, variant: CardPunchVariant = 'play'): void {
@@ -202,7 +213,10 @@ export class GameTableMotionService {
     return Boolean(fanRoot?.querySelector('.hand-card'));
   }
 
-  prepareCardFlip(selector = '[data-card-instance-id], [data-motion-origin-card-id]'): () => void {
+  prepareCardFlip(
+    selector = '[data-card-instance-id], [data-motion-origin-card-id]',
+    options: CardFlipOptions = {},
+  ): () => void {
     const host = this.host;
     if (!host) {
       return () => undefined;
@@ -211,10 +225,9 @@ export class GameTableMotionService {
     const elements = this.cardElements(selector);
     const state = Flip.getState(elements);
     const isHandFlip = selector.includes('data-zone="hand"') || elements.some((element) => element.dataset['zone'] === 'hand');
-    if (isHandFlip && this.isCompactMotionViewport()) {
-      return () => undefined;
-    }
-    const clearPreparedHandMotion = isHandFlip ? this.markHandMotionActive() : undefined;
+    const clearPreparedHandMotion = isHandFlip && options.freezeHand !== false
+      ? this.markHandMotionActive()
+      : undefined;
 
     return () => {
       this.runInContext(() => {
@@ -237,13 +250,12 @@ export class GameTableMotionService {
     };
   }
 
-  prepareHandDropHandoff(selector = '[data-zone="hand"][data-card-instance-id]'): () => void {
+  prepareHandDropHandoff(
+    selector = '[data-zone="hand"][data-card-instance-id]',
+    options: HandDropHandoffOptions = {},
+  ): () => void {
     const host = this.host;
     if (!host) {
-      return () => undefined;
-    }
-
-    if (this.isCompactMotionViewport()) {
       return () => undefined;
     }
 
@@ -251,7 +263,9 @@ export class GameTableMotionService {
     const beforeInstanceIds = this.cardInstanceIds(beforeElements);
     const beforeCount = beforeElements.length;
     const beforeSnapshots = this.handElementSnapshots(beforeElements);
-    const clearPreparedHandMotion = this.markHandMotionActive();
+    const clearPreparedHandMotion = options.freezeHand === false
+      ? () => undefined
+      : this.markHandMotionActive();
     let cleared = false;
     let animationStarted = false;
     let clearFallbackTimer: number | null = null;
@@ -351,10 +365,6 @@ export class GameTableMotionService {
   }
 
   prepareHandLayoutFlip(root: HTMLElement, selector = '[data-zone="hand"][data-card-instance-id]'): () => void {
-    if (this.isCompactMotionViewport()) {
-      return () => undefined;
-    }
-
     const elements = this.handCardElements(root, selector);
     if (elements.length === 0) {
       return () => undefined;
@@ -934,7 +944,8 @@ export class GameTableMotionService {
   }
 
   private isCompactMotionViewport(): boolean {
-    return this.compactMotionQuery?.matches ?? false;
+    return (this.compactMotionHeightQuery?.matches ?? false)
+      || (this.compactMotionWidthQuery?.matches ?? false);
   }
 
   private shouldSkipGhostMotion(): boolean {
