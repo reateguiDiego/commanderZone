@@ -1375,6 +1375,10 @@ paths:
     get:
       tags: [Decks]
       summary: List available print versions for a deck card.
+      description: >
+        Returns all equivalent print versions for manual selection. Sorting priority is:
+        current print, preferred language, English, common print-language bucket
+        (`ph`, `qya`, `grc`, `he`, `sa`, `ar`), then remaining prints.
       parameters:
         - $ref: '#/components/parameters/Id'
         - name: deckCardId
@@ -4273,6 +4277,10 @@ components:
             type: integer
     GameCard:
       type: object
+      description: >
+        Gameplay projection payload. Localized text metadata (`lang`, `printedName`)
+        is intentionally omitted; per-viewer localization only swaps imageUris and
+        cardFaces imageUris while preserving gameplay identity/state fields.
       required: [instanceId, name, tapped]
       properties:
         instanceId:

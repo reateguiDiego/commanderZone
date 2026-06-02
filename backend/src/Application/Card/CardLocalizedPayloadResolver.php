@@ -22,6 +22,11 @@ final class CardLocalizedPayloadResolver
         'manaCost',
         'oracleText',
     ];
+    private const IMAGE_ONLY_SOURCE_FIELDS = [
+        'scryfallId',
+        'imageUris',
+        'cardFaces',
+    ];
 
     private ?bool $printTablesAvailable = null;
 
@@ -36,6 +41,39 @@ final class CardLocalizedPayloadResolver
      * @return array<string,array<string,array<string,mixed>>>
      */
     public function buildLocalizedLookupForScryfallIds(array $scryfallIds, array $requestedLanguages): array
+    {
+        return $this->buildLocalizedLookup(
+            $scryfallIds,
+            $requestedLanguages,
+            self::SOURCE_FIELDS,
+            true,
+        );
+    }
+
+    /**
+     * @param list<string> $scryfallIds
+     * @param list<string> $requestedLanguages
+     *
+     * @return array<string,array<string,array<string,mixed>>>
+     */
+    public function buildLocalizedImageLookupForScryfallIds(array $scryfallIds, array $requestedLanguages): array
+    {
+        return $this->buildLocalizedLookup(
+            $scryfallIds,
+            $requestedLanguages,
+            self::IMAGE_ONLY_SOURCE_FIELDS,
+            false,
+        );
+    }
+
+    /**
+     * @param list<string> $scryfallIds
+     * @param list<string> $requestedLanguages
+     * @param list<string> $fields
+     *
+     * @return array<string,array<string,array<string,mixed>>>
+     */
+    private function buildLocalizedLookup(array $scryfallIds, array $requestedLanguages, array $fields, bool $preferPrintedName): array
     {
         $languages = $this->normalizeRequestedLanguages($requestedLanguages);
         $sourceIds = array_values(array_unique(array_filter(
@@ -60,7 +98,7 @@ final class CardLocalizedPayloadResolver
             foreach ($sources as $scryfallId => $source) {
                 $selectedReference = $this->preferredCandidateReference($exactCandidates[$scryfallId] ?? [], $language);
                 if ($selectedReference === null) {
-                    $localizedLookup[$language][$scryfallId] = $this->payloadFromRow($source);
+                    $localizedLookup[$language][$scryfallId] = $this->payloadFromRow($source, $fields, $preferPrintedName);
                     continue;
                 }
 
@@ -83,7 +121,7 @@ final class CardLocalizedPayloadResolver
                 }
 
                 $row = $payloadsByReference[$reference] ?? $source;
-                $localizedLookup[$language][$scryfallId] = $this->payloadFromRow($row);
+                $localizedLookup[$language][$scryfallId] = $this->payloadFromRow($row, $fields, $preferPrintedName);
             }
         }
 
@@ -409,10 +447,10 @@ SQL,
      *
      * @return array<string,mixed>
      */
-    private function payloadFromRow(array $row): array
+    private function payloadFromRow(array $row, array $fields = self::SOURCE_FIELDS, bool $preferPrintedName = true): array
     {
         $payload = [];
-        foreach (self::SOURCE_FIELDS as $field) {
+        foreach ($fields as $field) {
             $payload[$field] = match ($field) {
                 'imageUris' => $this->decodeJsonArray($row['image_uris'] ?? []),
                 'cardFaces' => $this->decodeJsonArray($row['card_faces'] ?? []),
@@ -420,8 +458,10 @@ SQL,
             };
         }
 
-        $displayName = trim((string) ($payload['printedName'] ?? ''));
-        $payload['name'] = $displayName !== '' ? $displayName : (string) ($payload['name'] ?? '');
+        if ($preferPrintedName && in_array('name', $fields, true)) {
+            $displayName = trim((string) ($payload['printedName'] ?? ''));
+            $payload['name'] = $displayName !== '' ? $displayName : (string) ($payload['name'] ?? '');
+        }
 
         return $payload;
     }

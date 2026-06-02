@@ -25,8 +25,9 @@ class GameWebsocketCardLocalizationResolverTest extends TestCase
 
         $lookup = $resolver->buildLocalizedLookup($this->snapshotWithCard('source-1'), [], ['es']);
 
-        self::assertSame('Anillo solar', $lookup['es']['source-1']['name']);
-        self::assertSame('es', $lookup['es']['source-1']['lang']);
+        self::assertSame('https://img/es.jpg', $lookup['es']['source-1']['imageUris']['normal']);
+        self::assertArrayNotHasKey('name', $lookup['es']['source-1']);
+        self::assertArrayNotHasKey('lang', $lookup['es']['source-1']);
     }
 
     public function testFallsBackToExactEnglishWhenRequestedExactPrintIsUnavailable(): void
@@ -44,8 +45,9 @@ class GameWebsocketCardLocalizationResolverTest extends TestCase
 
         $lookup = $resolver->buildLocalizedLookup($this->snapshotWithCard('source-1'), [], ['es']);
 
-        self::assertSame('Sol Ring', $lookup['es']['source-1']['name']);
-        self::assertSame('en', $lookup['es']['source-1']['lang']);
+        self::assertSame('https://img/en.jpg', $lookup['es']['source-1']['imageUris']['normal']);
+        self::assertArrayNotHasKey('name', $lookup['es']['source-1']);
+        self::assertArrayNotHasKey('lang', $lookup['es']['source-1']);
     }
 
     public function testFallsBackToEnglishWhenRequestedLanguageRowsAreUnavailable(): void
@@ -63,8 +65,9 @@ class GameWebsocketCardLocalizationResolverTest extends TestCase
 
         $lookup = $resolver->buildLocalizedLookup($this->snapshotWithCard('source-1'), [], ['es']);
 
-        self::assertSame('Sol Ring', $lookup['es']['source-1']['name']);
-        self::assertSame('en', $lookup['es']['source-1']['lang']);
+        self::assertSame('https://img/en.jpg', $lookup['es']['source-1']['imageUris']['normal']);
+        self::assertArrayNotHasKey('name', $lookup['es']['source-1']);
+        self::assertArrayNotHasKey('lang', $lookup['es']['source-1']);
     }
 
     public function testFallsBackToRequestedLanguageByNormalizedNameWhenExactPrintIsMissing(): void
@@ -94,8 +97,9 @@ class GameWebsocketCardLocalizationResolverTest extends TestCase
         $resolver = new GameWebsocketCardLocalizationResolver($connection);
         $lookup = $resolver->buildLocalizedLookup($this->snapshotWithCard('source-1'), [], ['es']);
 
-        self::assertSame('Anillo solar', $lookup['es']['source-1']['name']);
-        self::assertSame('es', $lookup['es']['source-1']['lang']);
+        self::assertSame('https://img/es.jpg', $lookup['es']['source-1']['imageUris']['normal']);
+        self::assertArrayNotHasKey('name', $lookup['es']['source-1']);
+        self::assertArrayNotHasKey('lang', $lookup['es']['source-1']);
     }
 
     public function testBuildsLocalizedImagePayloadsForMultipleViewerLanguages(): void
@@ -126,8 +130,9 @@ class GameWebsocketCardLocalizationResolverTest extends TestCase
         $lookup = $resolver->buildLocalizedLookup($this->snapshotWithCard('source-1'), [], $languages);
 
         foreach ($languages as $language) {
-            self::assertSame($language, $lookup[$language]['source-1']['lang']);
             self::assertSame(sprintf('https://img/%s.jpg', $language), $lookup[$language]['source-1']['imageUris']['normal']);
+            self::assertArrayNotHasKey('name', $lookup[$language]['source-1']);
+            self::assertArrayNotHasKey('lang', $lookup[$language]['source-1']);
         }
     }
 
@@ -172,8 +177,9 @@ class GameWebsocketCardLocalizationResolverTest extends TestCase
         $resolver = new GameWebsocketCardLocalizationResolver($connection);
         $lookup = $resolver->buildLocalizedLookup($this->snapshotWithCard('source-1'), [], ['es']);
 
-        self::assertSame('Anillo solar', $lookup['es']['source-1']['name']);
-        self::assertSame('es', $lookup['es']['source-1']['lang']);
+        self::assertSame('https://img/es.jpg', $lookup['es']['source-1']['imageUris']['normal']);
+        self::assertArrayNotHasKey('name', $lookup['es']['source-1']);
+        self::assertArrayNotHasKey('lang', $lookup['es']['source-1']);
     }
 
     /**

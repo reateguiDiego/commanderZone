@@ -40,7 +40,7 @@ final class GameWebsocketCardLocalizationResolver
             return [];
         }
 
-        $localizedLookup = $this->localizedPayloadResolver->buildLocalizedLookupForScryfallIds(
+        $localizedLookup = $this->localizedPayloadResolver->buildLocalizedImageLookupForScryfallIds(
             $sourceIds,
             $requestedLanguages,
         );

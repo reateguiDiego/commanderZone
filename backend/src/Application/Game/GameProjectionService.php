@@ -36,7 +36,7 @@ class GameProjectionService
         }
 
         if ($localizedCardsByLanguage === [] && $this->cardLocalization instanceof CardLocalizationService) {
-            $localizedCardsByLanguage = $this->cardLocalization->localizedPayloadLookupForScryfallIds(
+            $localizedCardsByLanguage = $this->cardLocalization->localizedImagePayloadLookupForScryfallIds(
                 $this->snapshotScryfallIds($snapshot),
                 $this->requestedLanguages($requestedLanguage),
             );
@@ -92,7 +92,7 @@ class GameProjectionService
         $viewerId = $viewer->id();
         $requestedLanguage = $viewer->cardLanguage();
         if ($localizedCardsByLanguage === [] && $this->cardLocalization instanceof CardLocalizationService) {
-            $localizedCardsByLanguage = $this->cardLocalization->localizedPayloadLookupForScryfallIds(
+            $localizedCardsByLanguage = $this->cardLocalization->localizedImagePayloadLookupForScryfallIds(
                 $this->cardsScryfallIds($cards),
                 $this->requestedLanguages($requestedLanguage),
             );
@@ -300,7 +300,7 @@ class GameProjectionService
             $card = $this->localizeCardImagesFromService($card, $requestedLanguage);
         }
 
-        unset($card['basePower'], $card['baseToughness'], $card['baseLoyalty']);
+        unset($card['basePower'], $card['baseToughness'], $card['baseLoyalty'], $card['lang'], $card['printedName']);
 
         return $card;
     }
@@ -339,9 +339,7 @@ class GameProjectionService
             return $card;
         }
 
-        $localized = $this->cardLocalization->localizeCardPayload($card, $requestedLanguage, true);
-
-        return $this->applyLocalizedImages($card, $localized);
+        return $this->cardLocalization->localizeCardPayloadImagesOnly($card, $requestedLanguage);
     }
 
     /**

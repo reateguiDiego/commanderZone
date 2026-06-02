@@ -243,6 +243,51 @@ class CardLocalizationService
     }
 
     /**
+     * @param list<string> $scryfallIds
+     * @param list<string> $requestedLanguages
+     *
+     * @return array<string,array<string,array<string,mixed>>>
+     */
+    public function localizedImagePayloadLookupForScryfallIds(array $scryfallIds, array $requestedLanguages): array
+    {
+        return $this->payloadResolver()->buildLocalizedImageLookupForScryfallIds($scryfallIds, $requestedLanguages);
+    }
+
+    /**
+     * @param array<string,mixed> $card
+     *
+     * @return array<string,mixed>
+     */
+    public function localizeCardPayloadImagesOnly(array $card, ?string $requestedLanguage): array
+    {
+        $requestedLanguage = LanguageCatalog::normalize($requestedLanguage);
+        if (!LanguageCatalog::isSupported($requestedLanguage) || $requestedLanguage === null) {
+            return $card;
+        }
+
+        $scryfallId = trim((string) ($card['scryfallId'] ?? ''));
+        if ($scryfallId === '') {
+            return $card;
+        }
+
+        $lookup = $this->payloadResolver()->buildLocalizedImageLookupForScryfallIds([$scryfallId], [$requestedLanguage]);
+        $localized = $lookup[$requestedLanguage][$scryfallId] ?? null;
+        if (!is_array($localized)) {
+            return $card;
+        }
+
+        if (is_array($localized['imageUris'] ?? null) && $localized['imageUris'] !== []) {
+            $card['imageUris'] = $localized['imageUris'];
+        }
+
+        if (is_array($card['cardFaces'] ?? null) && is_array($localized['cardFaces'] ?? null)) {
+            $card['cardFaces'] = $this->mergeLocalizedCardFaceImages($card['cardFaces'], $localized['cardFaces']);
+        }
+
+        return $card;
+    }
+
+    /**
      * @param list<Card> $candidates
      */
     private function preferredLocalizedCandidate(Card $source, array $candidates, string $requestedLanguage): ?Card
@@ -377,6 +422,30 @@ class CardLocalizationService
         $name = trim((string) ($localizedPayload['name'] ?? ''));
 
         return $name !== '' ? $name : $fallback;
+    }
+
+    /**
+     * @param list<array<string,mixed>> $sourceFaces
+     * @param list<array<string,mixed>> $localizedFaces
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function mergeLocalizedCardFaceImages(array $sourceFaces, array $localizedFaces): array
+    {
+        return array_values(array_map(
+            static function (array $face, int $index) use ($localizedFaces): array {
+                $localizedFace = $localizedFaces[$index] ?? null;
+                if (!is_array($localizedFace) || !is_array($localizedFace['imageUris'] ?? null) || $localizedFace['imageUris'] === []) {
+                    return $face;
+                }
+
+                $face['imageUris'] = $localizedFace['imageUris'];
+
+                return $face;
+            },
+            $sourceFaces,
+            array_keys($sourceFaces),
+        ));
     }
 
     private function payloadResolver(): CardLocalizedPayloadResolver

@@ -799,31 +799,10 @@ class DecksController extends ApiController
         ));
 
         usort($cards, static function (Card $left, Card $right) use ($card, $preferredLanguage): int {
-            if ($left->scryfallId() === $card->scryfallId()) {
-                return -1;
-            }
-            if ($right->scryfallId() === $card->scryfallId()) {
-                return 1;
-            }
-
-            if ($preferredLanguage !== null) {
-                $leftPreferred = $left->lang() === $preferredLanguage;
-                $rightPreferred = $right->lang() === $preferredLanguage;
-                if ($leftPreferred && !$rightPreferred) {
-                    return -1;
-                }
-                if ($rightPreferred && !$leftPreferred) {
-                    return 1;
-                }
-            }
-
-            $leftEnglish = $left->lang() === LanguageCatalog::DEFAULT_LANGUAGE;
-            $rightEnglish = $right->lang() === LanguageCatalog::DEFAULT_LANGUAGE;
-            if ($leftEnglish && !$rightEnglish) {
-                return -1;
-            }
-            if ($rightEnglish && !$leftEnglish) {
-                return 1;
+            $leftPriority = self::printingLanguagePriority($left, $card, $preferredLanguage);
+            $rightPriority = self::printingLanguagePriority($right, $card, $preferredLanguage);
+            if ($leftPriority !== $rightPriority) {
+                return $leftPriority <=> $rightPriority;
             }
 
             return [$left->name(), $left->setCode() ?? '', $left->collectorNumber() ?? '']
@@ -831,6 +810,28 @@ class DecksController extends ApiController
         });
 
         return $cards;
+    }
+
+    private static function printingLanguagePriority(Card $candidate, Card $current, ?string $preferredLanguage): int
+    {
+        if ($candidate->scryfallId() === $current->scryfallId()) {
+            return 0;
+        }
+
+        $candidateLanguage = LanguageCatalog::normalize($candidate->lang());
+        if ($preferredLanguage !== null && $candidateLanguage === $preferredLanguage) {
+            return 1;
+        }
+
+        if ($candidateLanguage === LanguageCatalog::DEFAULT_LANGUAGE) {
+            return 2;
+        }
+
+        if (LanguageCatalog::isCommonPrintLanguage($candidateLanguage)) {
+            return 3;
+        }
+
+        return 4;
     }
 
     private function isEquivalentPrintVersion(Card $source, Card $candidate): bool
