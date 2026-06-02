@@ -1,4 +1,4 @@
-import { AfterViewChecked, ChangeDetectionStrategy, Component, ElementRef, HostListener, OnChanges, OnDestroy, OnInit, computed, inject, input, output, signal } from '@angular/core';
+import { AfterViewChecked, ChangeDetectionStrategy, Component, ElementRef, HostListener, OnChanges, OnDestroy, computed, inject, input, output, signal } from '@angular/core';
 import { GameCardInstance, GameZoneName } from '../../../../../core/models/game.model';
 import { PrettyScrollDirective } from '../../../../../shared/ui/pretty-scroll/pretty-scroll.directive';
 import { PlayerView } from '../../game-table.store';
@@ -72,9 +72,8 @@ interface ResolvedHandPointerDrag {
   styleUrl: './player-hand-panel.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, OnDestroy, OnInit {
+export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, OnDestroy {
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
-  private readonly rowLockedByViewportQuery = '(max-height: 1199px)';
   private readonly pointerDragService = inject(GameTablePointerDragService);
   private readonly motion = inject(GameTableMotionService, { optional: true });
   private readonly revealDelayMs = 200;
@@ -106,11 +105,6 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
   private focusInside = false;
   private pointerInside = false;
   private suppressedClickInstanceId: string | null = null;
-  private rowLockedByViewportMediaQuery: MediaQueryList | null = null;
-  private readonly handleRowLockedByViewportChange = (): void => {
-    this.setRowLockedByViewport(this.rowLockedByViewportMediaQuery?.matches === true, { animateWhenUnlocking: true });
-  };
-
   readonly player = input.required<PlayerView>();
   readonly zoneCount = input.required<(player: PlayerView, zone: GameZoneName) => number>();
   readonly cardImage = input.required<(card: GameCardInstance) => string | null>();
@@ -142,7 +136,6 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
   readonly handHovered = signal(false);
   readonly handDropReceiverRevealed = signal(false);
   readonly externalDropRowLocked = signal(false);
-  readonly rowLockedByViewport = signal(false);
   readonly pointerDrag = signal<HandPointerDrag | null>(null);
   readonly activeHandHoverInstanceId = signal<string | null>(null);
   readonly displayHandCards = computed<readonly GameCardInstance[]>(() => {
@@ -164,10 +157,6 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
     });
   });
   readonly handLayoutMode = computed<'fan' | 'row'>(() => {
-    if (this.rowLockedByViewport() && this.canUseVisibleHandRowLayout()) {
-      return 'row';
-    }
-
     if (this.externalDropRowLocked() && !this.readOnly() && !this.showCardsFaceDown()) {
       return 'row';
     }
@@ -201,10 +190,6 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
     return (this.handHovered() || this.hasOpenHandContextMenu()) && this.isHandVisuallyRevealed() ? 'row' : 'fan';
   });
 
-  ngOnInit(): void {
-    this.setupRowLockedByViewport();
-  }
-
   ngAfterViewChecked(): void {
     this.syncHandDropReceiverReveal(this.isExternalHandDropReceiverHighlighted());
 
@@ -213,7 +198,7 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
     const handCount = hand.length;
     const currentLayoutMode = this.handLayoutMode();
     const externalDragActive = this.hasActiveCardDrag() && !this.hasOwnPointerDrag();
-    const skipRowAnchorAdjustments = externalDragActive || this.externalDropRowLocked() || this.rowLockedByViewport();
+    const skipRowAnchorAdjustments = externalDragActive || this.externalDropRowLocked();
     if (this.motionActive()) {
       this.previousHandCount = handCount;
       this.previousHandLayoutMode = currentLayoutMode;
@@ -276,44 +261,11 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
   }
 
   ngOnDestroy(): void {
-    this.destroyRowLockedByViewport();
     this.clearRevealTimer();
     this.clearHandHoverTimers();
     this.clearHandDropRevealTimers();
     this.clearReorderPreviewTimer();
     this.clearPostMotionHoldTimer();
-  }
-
-  private setupRowLockedByViewport(): void {
-    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
-      return;
-    }
-
-    this.rowLockedByViewportMediaQuery = window.matchMedia(this.rowLockedByViewportQuery);
-    this.setRowLockedByViewport(this.rowLockedByViewportMediaQuery.matches, { animateWhenUnlocking: false });
-    this.rowLockedByViewportMediaQuery.addEventListener('change', this.handleRowLockedByViewportChange);
-  }
-
-  private destroyRowLockedByViewport(): void {
-    this.rowLockedByViewportMediaQuery?.removeEventListener('change', this.handleRowLockedByViewportChange);
-    this.rowLockedByViewportMediaQuery = null;
-  }
-
-  private setRowLockedByViewport(matches: boolean, options: { animateWhenUnlocking: boolean }): void {
-    if (this.rowLockedByViewport() === matches) {
-      return;
-    }
-
-    const previousLayoutMode = this.handLayoutMode();
-    const playFlip = options.animateWhenUnlocking && !matches
-      ? this.prepareHoverLayoutFlip({ allowWhileRowLocked: true })
-      : () => undefined;
-
-    this.rowLockedByViewport.set(matches);
-
-    if (previousLayoutMode !== this.handLayoutMode()) {
-      playFlip();
-    }
   }
 
   @HostListener('window:pointermove', ['$event'])
@@ -371,6 +323,7 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
       return;
     }
 
+    const pendingReorderPreview = this.pendingReorderPreview;
     this.clearReorderPreviewTimer();
     this.handPointerDropTargetChanged.emit(null);
     if (drag.mode === 'pending') {
@@ -386,7 +339,7 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
     const resolved = this.resolvePointerDrag(event, drag, drag.mode);
 
     const reorderPreview = resolved?.mode === 'reorder'
-      ? resolved.preview ?? drag.preview
+      ? resolved.preview ?? drag.preview ?? pendingReorderPreview
       : drag.mode === 'reorder' && drag.preview && !resolved?.target
         ? drag.preview
         : null;
@@ -968,10 +921,6 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
     return !this.showCardsFaceDown() && (!this.isExternalCardDrag() || this.externalRevealAllowed());
   }
 
-  private canUseVisibleHandRowLayout(): boolean {
-    return !this.readOnly() && !this.showCardsFaceDown();
-  }
-
   private isExternalCardDrag(): boolean {
     return this.hasActiveCardDrag() && !this.hasOwnPointerDrag();
   }
@@ -982,7 +931,9 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
 
   private keepHandRevealedDuringOwnPointerDrag(): void {
     this.clearRevealTimer();
+    this.clearHandHoverTimers();
     this.handRevealed.set(true);
+    this.handHovered.set(true);
   }
 
   private keepVisibleHandLockedForMotion(): void {
@@ -1235,11 +1186,6 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
   }
 
   private updateHoverLayoutWithFlip(update: () => void): void {
-    if (this.rowLockedByViewport()) {
-      update();
-      return;
-    }
-
     const previousLayoutMode = this.handLayoutMode();
     const playFlip = this.prepareHoverLayoutFlip();
 
@@ -1252,9 +1198,8 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
     playFlip();
   }
 
-  private prepareHoverLayoutFlip(options: { allowWhileRowLocked?: boolean } = {}): () => void {
-    if ((!options.allowWhileRowLocked && this.rowLockedByViewport())
-      || this.motionActive()
+  private prepareHoverLayoutFlip(): () => void {
+    if (this.motionActive()
       || this.readOnly()
       || this.showCardsFaceDown()
       || this.displayHandCards().length === 0) {
@@ -1515,7 +1460,8 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
     }
 
     const overOwnHand = insideOwnHand || this.pointerDragService.isHandTargetAt(event, drag.playerId);
-    if (insideOwnHand || drag.mode === 'pending' && intendedMode === 'reorder' && overOwnHand) {
+    const ownHandReorderGesture = drag.mode === 'reorder' || drag.mode === 'pending' && intendedMode === 'reorder';
+    if (insideOwnHand || ownHandReorderGesture) {
       return {
         mode: 'reorder',
         target: null,

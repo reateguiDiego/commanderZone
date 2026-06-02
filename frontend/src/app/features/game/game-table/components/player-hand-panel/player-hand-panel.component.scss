@@ -10,8 +10,27 @@
   grid-template-rows: minmax(0, 1fr);
   align-self: end;
   justify-self: start;
-  width: max(0px, calc(100% + var(--game-hand-left-extension, 0px) - var(--game-zone-dock-overlap, 12rem)));
+  width: max(
+    0px,
+    calc(
+      100% + var(--game-hand-left-extension, 0px) -
+      var(--game-zone-dock-overlap, 12rem) -
+      var(--game-hand-left-reserve, 0px) -
+      var(--game-hand-right-reserve, 0px)
+    )
+  );
+  max-width: max(
+    0px,
+    calc(
+      100% + var(--game-hand-left-extension, 0px) -
+      var(--game-zone-dock-overlap, 12rem) -
+      var(--game-hand-left-reserve, 0px) -
+      var(--game-hand-right-reserve, 0px)
+    )
+  );
+  margin-left: var(--game-hand-left-reserve, 0px);
   margin-top: 0;
+  box-sizing: border-box;
   --hand-hidden-offset: 1.05rem;
   --hand-reveal-offset: var(--hand-hidden-offset);
   --hand-card-preview-height: 9.7rem;
@@ -427,7 +446,7 @@
   opacity: 0;
 }
 
-@media (max-width: 1365px) {
+@media (max-width: 1180px), (max-height: 1199px) {
   .hand-area {
     --hand-card-row-width: 6.4rem;
     --hand-row-expanded-extra-height: 2.45rem;
@@ -452,7 +471,7 @@
   }
 }
 
-@media (max-width: 760px) {
+@media (max-width: 760px) and (min-height: 769px) {
   .hand-area {
     min-height: calc(11rem + 2.15rem);
     height: calc(11rem + 2.15rem);
@@ -483,7 +502,7 @@
   }
 }
 
-@media (max-width: 430px), (max-height: 700px) and (max-width: 900px) {
+@media (max-width: 430px) and (min-height: 769px) {
   .hand-area {
     min-height: calc(9.8rem + 1.85rem);
     height: calc(9.8rem + 1.85rem);
@@ -511,31 +530,92 @@
   }
 }
 
-@media (min-height: 768px) and (max-height: 1199px) {
+@media (min-height: 769px) and (max-height: 1199px),
+  (max-height: 1199px) and (min-width: 1181px) {
+  .hand-area {
+    --hand-row-visible-height: min(var(--game-hand-panel-height, 8.2rem), 5.95rem);
+    --hand-row-card-drop: -0.55rem;
+    --hand-row-card-visible-slice: calc(var(--hand-row-visible-height) - var(--hand-row-card-drop));
+    --hand-row-hover-headroom: calc(var(--hand-row-card-drop) + 2.35rem);
+
+    align-self: end;
+    min-height: calc(var(--game-zone-row-height, 11.15rem) + var(--hand-row-expanded-extra-height));
+    height: calc(var(--game-zone-row-height, 11.15rem) + var(--hand-row-expanded-extra-height));
+    margin-top: 0;
+    clip-path: inset(-8rem 0 0 0);
+  }
+
+  .hand-area.hand-card-hover-active,
+  :host ::ng-deep .hand-area:has(.hand-card.selected) {
+    z-index: 1600;
+  }
+
+  .hand-row-expanded {
+    position: relative;
+    align-self: end;
+    justify-self: stretch;
+    align-items: start;
+    width: 100%;
+    max-width: 100%;
+    min-height: calc(var(--hand-row-visible-height) + var(--hand-row-hover-headroom));
+    height: calc(var(--hand-row-visible-height) + var(--hand-row-hover-headroom));
+    max-height: calc(var(--hand-row-visible-height) + var(--hand-row-hover-headroom));
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-top: var(--hand-row-hover-headroom);
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .hand-area.hand-card-hover-active .hand-row-expanded,
+  :host ::ng-deep .hand-area:has(.hand-card.selected) .hand-row-expanded {
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .hand-fan-row {
+    height: var(--hand-row-visible-height);
+    max-height: var(--hand-row-visible-height);
+    overflow: visible;
+  }
+
+  :host ::ng-deep .hand-fan-row .hand-card.hand-row-layout {
+    --hand-pivot-offset: 0rem;
+    top: var(--hand-row-card-drop);
+    bottom: auto;
+    clip-path: inset(0 0 calc(100% - var(--hand-row-card-visible-slice)) 0);
+  }
+
+  :host ::ng-deep .hand-fan-row .hand-card.hand-row-layout.hover-lifted .card-visual,
+  :host ::ng-deep .hand-fan-row .hand-card.hand-row-layout.hand-active-hover .card-visual {
+    transform: translateY(-0.72rem) scale(1.045);
+  }
+
+  :host ::ng-deep .hand-fan-row .hand-card.hand-row-layout.hover-lifted,
+  :host ::ng-deep .hand-fan-row .hand-card.hand-row-layout.hand-active-hover,
+  :host ::ng-deep .hand-fan-row .hand-card.hand-row-layout.selected {
+    z-index: 1500;
+    overflow: visible;
+    clip-path: none;
+  }
+}
+
+@media (min-height: 769px) and (max-height: 1199px) and (max-width: 1180px) and (min-width: 761px) {
   .hand-area {
     align-self: end;
+  }
+}
+
+@media (min-height: 769px) and (max-height: 1199px) and (max-width: 760px) {
+  .hand-area {
+    align-self: end;
+    min-height: calc(var(--game-zone-row-height, 11.15rem) + var(--hand-row-expanded-extra-height));
+    height: calc(var(--game-zone-row-height, 11.15rem) + var(--hand-row-expanded-extra-height));
     margin-top: 0;
   }
 }
 
-@media (min-height: 768px) and (max-height: 1199px) and (max-width: 1180px) and (min-width: 761px) {
-  .hand-area {
-    align-self: end;
-  }
-}
-
-@media (min-height: 768px) and (max-height: 1199px) and (max-width: 760px) {
-  .hand-area {
-    align-self: end;
-    margin-top: 0;
-  }
-}
-
-@media (max-height: 767px) {
-  .hand-area {
-    --hand-card-row-step: calc(var(--hand-card-row-width) - 0.64rem);
-  }
-
+@media (max-height: 768px) and (max-width: 1180px) {
   .empty-hand-drop-target {
     min-width: min(18rem, calc(100vw - 4rem));
   }
@@ -545,20 +625,27 @@
   }
 }
 
-@media (max-height: 1199px) {
+@media (max-height: 768px) and (max-width: 1180px) {
   .hand-area {
-    --hand-card-row-width: 7.2rem;
     --hand-card-row-step: calc(var(--hand-card-row-width) - 0.64rem);
     --hand-card-preview-height: 9.7rem;
-    --hand-compact-visible-height: var(--game-zone-row-height, 5.45rem);
+    --hand-row-card-drop: 0.9rem;
+    --hand-compact-visible-height: calc(var(--game-zone-row-height, 5.45rem) - var(--hand-row-card-drop));
+    --hand-row-hover-headroom: calc(var(--hand-row-card-drop) + 2.35rem);
     --hand-row-expanded-extra-height: 0rem;
     --hand-reveal-offset: 0rem;
     min-height: var(--game-zone-row-height, 5.45rem);
     height: var(--game-zone-row-height, 5.45rem);
     max-height: var(--game-zone-row-height, 5.45rem);
     margin-top: 0;
-    overflow: hidden;
+    overflow: visible;
     pointer-events: auto;
+    clip-path: inset(-8rem 0 0 0);
+  }
+
+  .hand-area.hand-card-hover-active,
+  :host ::ng-deep .hand-area:has(.hand-card.selected) {
+    z-index: 1600;
   }
 
   .hand-area.hand-revealed,
@@ -577,6 +664,36 @@
     pointer-events: auto;
   }
 
+  .hand-row-expanded {
+    position: relative;
+    align-self: end;
+    justify-self: stretch;
+    width: 100%;
+    max-width: 100%;
+    min-height: calc(var(--game-zone-row-height, 5.45rem) + var(--hand-row-hover-headroom));
+    height: calc(var(--game-zone-row-height, 5.45rem) + var(--hand-row-hover-headroom));
+    max-height: calc(var(--game-zone-row-height, 5.45rem) + var(--hand-row-hover-headroom));
+    overflow-x: auto;
+    padding-top: calc(var(--hand-row-hover-headroom) + 0.12rem);
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .hand-area.hand-card-hover-active .hand-row,
+  .hand-area.hand-card-hover-active .hand-row-expanded,
+  .hand-area.hand-card-hover-active .hand-fan,
+  :host ::ng-deep .hand-area:has(.hand-card.selected) .hand-row,
+  :host ::ng-deep .hand-area:has(.hand-card.selected) .hand-row-expanded,
+  :host ::ng-deep .hand-area:has(.hand-card.selected) .hand-fan {
+    z-index: 1600;
+  }
+
+  .hand-area.hand-card-hover-active .hand-row-expanded,
+  :host ::ng-deep .hand-area:has(.hand-card.selected) .hand-row-expanded {
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
   .hand-fan {
     min-height: var(--game-zone-row-height, 5.45rem);
     height: var(--game-zone-row-height, 5.45rem);
@@ -588,17 +705,30 @@
     height: var(--game-zone-row-height, 5.45rem);
     max-height: var(--game-zone-row-height, 5.45rem);
     filter: none;
+    overflow: visible;
   }
 
   :host ::ng-deep .hand-fan-row .hand-card.hand-row-layout {
     --hand-pivot-offset: 0rem;
-    top: 0;
+    top: var(--hand-row-card-drop);
     bottom: auto;
     clip-path: inset(0 0 calc(100% - var(--hand-compact-visible-height)) 0);
   }
 
   :host ::ng-deep .hand-fan-row .hand-card.hand-row-layout.hover-lifted .card-visual {
-    transform: none;
+    transform: translateY(-0.72rem) scale(1.045);
+  }
+
+  :host ::ng-deep .hand-fan-row .hand-card.hand-row-layout.hand-active-hover .card-visual {
+    transform: translateY(-0.72rem) scale(1.045);
+  }
+
+  :host ::ng-deep .hand-fan-row .hand-card.hand-row-layout.hover-lifted,
+  :host ::ng-deep .hand-fan-row .hand-card.hand-row-layout.hand-active-hover,
+  :host ::ng-deep .hand-fan-row .hand-card.hand-row-layout.selected {
+    z-index: 1500;
+    overflow: visible;
+    clip-path: none;
   }
 
   .hand-hover-strip {
@@ -626,11 +756,13 @@
   }
 }
 
-@media (max-height: 767px) and (max-width: 760px) {
+@media (max-height: 768px) and (max-width: 1180px) {
   .hand-area {
     --hand-card-row-step: calc(var(--hand-card-row-width) - 0.64rem);
   }
+}
 
+@media (max-height: 768px) and (max-width: 760px) {
   .hand-row {
     padding-inline: 0.48rem;
   }
@@ -647,6 +779,12 @@
     padding: 0.14rem 0.32rem;
     font-size: 0.56rem;
   }
+}
+
+.hand-area.hand-dragging {
+  z-index: 5200;
+  overflow: visible;
+  clip-path: none;
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -730,135 +730,19 @@
     rgb(255 255 255 / 2%);
 }
 
-@media (max-width: 1180px) {
-  .player-summary-panel {
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 0.4rem;
-    max-width: none;
-    padding: 0.22rem 0.42rem;
+@media (max-width: 1180px), (max-height: 1199px) {
+  :host(:not(.player-summary-panel-context)) .player-summary-panel {
+    grid-template-columns: 3.35rem minmax(0, 1fr) auto;
   }
 
-  :host(:not(.player-summary-panel-context)) .player-avatar,
-  :host(:not(.player-summary-panel-context)) .player-deck-meta {
-    display: none;
+  :host(:not(.player-summary-panel-context)) ::ng-deep .player-name-shell {
+    min-height: 1.12rem;
+    font-size: 0.62rem;
+    line-height: 1.16;
   }
 
-  .player-copy app-player-name {
-    width: 100%;
-    max-width: 100%;
-  }
-
-  .life-controls {
-    --life-stepper-side-width: 1.11rem;
-
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: 1.95rem 0.5rem;
-    min-width: 5.08rem;
-    border-radius: 8px;
-  }
-
-  .life-total {
-    min-width: 3rem;
-    min-height: 1.95rem;
-    font-size: 1.08rem;
-  }
-
-  .life-step-button {
-    min-height: 1.95rem;
-  }
-
-  .life-step-button lucide-icon {
-    width: 0.74rem;
-    height: 0.74rem;
-  }
-
-  .player-extra-actions {
-    --extra-actions-size: 0.5rem;
-  }
-
-  .life-controls .player-extra-actions ::ng-deep .extra-actions-toggle {
-    min-height: 0.5rem;
-    border-radius: 0 0 7px 7px;
-  }
-
-  .life-controls .player-extra-actions ::ng-deep .extra-actions-toggle lucide-icon {
-    width: 0.56rem;
-    height: 0.56rem;
-    transform: translateY(-0.11rem);
-  }
-}
-
-@media (max-width: 760px) {
-  .player-summary-panel {
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 0.35rem;
-    padding: 0.32rem 0.45rem;
-  }
-
-  :host(:not(.player-summary-panel-context)) .player-avatar,
-  :host(:not(.player-summary-panel-context)) .player-deck-meta {
-    display: none;
-  }
-
-  .life-controls {
-    --life-stepper-side-width: 1.04rem;
-
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: 1.78rem 0.46rem;
-    min-width: 4.8rem;
-    border-radius: 0;
-  }
-
-  .life-total {
-    min-width: 2.84rem;
-    min-height: 1.78rem;
-    font-size: 0.98rem;
-  }
-
-  .life-step-button {
-    min-height: 1.78rem;
-  }
-
-  .life-step-button lucide-icon {
-    width: 0.68rem;
-    height: 0.68rem;
-  }
-
-  .player-extra-actions {
-    --extra-actions-size: 0.46rem;
-    --extra-actions-radius: 0;
-    --extra-actions-menu-width: min(19rem, calc(100vw - 1rem));
-  }
-
-  .life-controls .player-extra-actions ::ng-deep .extra-actions-toggle {
-    min-height: 0.46rem;
-    border-radius: 0;
-  }
-
-  .life-controls .player-extra-actions ::ng-deep .extra-actions-toggle lucide-icon {
-    width: 0.52rem;
-    height: 0.52rem;
-    transform: translateY(-0.1rem);
-  }
-
-  .counter-row {
-    gap: 0.45rem;
-    min-height: 2.45rem;
-    padding-inline: 0.45rem 0.35rem;
-  }
-
-  .counter-stepper {
-    grid-template-columns: 1.8rem 1.55rem 1.55rem;
-    gap: 0.16rem;
-  }
-
-  .counter-value {
-    min-width: 1.8rem;
-  }
-
-  .counter-stepper .counter-step-button {
-    width: 1.55rem;
-    min-width: 1.55rem;
+  :host(:not(.player-summary-panel-context)) ::ng-deep .player-name-label {
+    padding: 0.03rem 0 0.06rem;
   }
 }
 
@@ -883,27 +767,5 @@
 
   :host(.player-summary-panel-context) .summary-return-button {
     grid-column: 2;
-  }
-}
-
-@media (max-height: 700px) and (max-width: 900px) {
-  .player-summary-panel {
-    gap: 0.25rem;
-    padding: 0.18rem 0.34rem;
-  }
-
-  .life-controls {
-    grid-template-rows: 1.58rem 0.4rem;
-    min-width: 4.35rem;
-  }
-
-  .life-total,
-  .life-step-button {
-    min-height: 1.58rem;
-  }
-
-  .life-total {
-    min-width: 2.45rem;
-    font-size: 0.9rem;
   }
 }

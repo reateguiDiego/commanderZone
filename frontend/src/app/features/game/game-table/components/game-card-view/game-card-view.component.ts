@@ -310,8 +310,11 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
   }
 
   onClick(event: MouseEvent): void {
-    this.previewSuppressedUntilPointerExit = this.mode() === 'battlefield' && this.zone() === 'battlefield';
-    this.deactivateHover(true);
+    const isBattlefieldClick = this.mode() === 'battlefield' && this.zone() === 'battlefield';
+    this.previewSuppressedUntilPointerExit = isBattlefieldClick;
+    if (isBattlefieldClick) {
+      this.deactivateHover(true);
+    }
     if (this.previewSuppressedUntilPointerExit) {
       this.startPreviewBoundsWatcher();
     }

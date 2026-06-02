@@ -76,3 +76,8 @@ export interface OpeningHandCard {
   manaCost: string | null;
   imageUrl: string | null;
 }
+
+export interface PrintVersionGroup {
+  title: string;
+  cards: Card[];
+}

@@ -4,6 +4,9 @@ import { ActivatedRoute } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { CARD_SEARCH_LIMIT, CardsApi } from '../../../core/api/cards.api';
 import { DecksApi } from '../../../core/api/decks.api';
+import { AppShellI18nService } from '../../../core/localization/app-shell-i18n.service';
+import { SupportedLanguageCode } from '../../../core/localization/language-preferences';
+import { LanguagePreferencesService } from '../../../core/localization/language-preferences.service';
 import { MissingDeckCard } from '../../../core/models/api-responses.model';
 import { Card, CardFace } from '../../../core/models/card.model';
 import { CommanderValidation, Deck, DeckCard, DeckSection, DeckToken, UnresolvedDeckToken } from '../../../core/models/deck.model';
@@ -26,6 +29,7 @@ import {
   MissingCardItem,
   MissingSearchResult,
   OpeningHandCard,
+  PrintVersionGroup,
   PointerPosition,
 } from '../models/deck-editor.models';
 
@@ -47,12 +51,15 @@ const CARD_MENU_WIDTH = 300;
 const CARD_MENU_HEIGHT = 390;
 const CARD_MENU_IMAGE_PREVIEW_WIDTH = 224;
 const CARD_MENU_POPOVER_GAP = 12;
+const COMMON_PRINT_LANGUAGE_CODES = ['ph', 'qya', 'grc', 'he', 'sa', 'ar'] as const;
 
 @Injectable()
 export class DeckEditorStore {
   private readonly decksApi = inject(DecksApi);
   private readonly cardsApi = inject(CardsApi);
   private readonly route = inject(ActivatedRoute);
+  private readonly languagePreferences = inject(LanguagePreferencesService);
+  private readonly i18n = inject(AppShellI18nService);
   private readonly importExport = inject(DeckImportExportService);
   private readonly analysisService = inject(DeckAnalysisService);
   private readonly clientValidation = inject(ClientCommanderValidationService);
@@ -148,6 +155,7 @@ export class DeckEditorStore {
   readonly missingItems = computed(() => this.buildMissingItems());
   readonly cardGroups = computed(() => this.buildCardGroups());
   readonly cardColumns = computed(() => this.buildCardColumns());
+  readonly printVersionGroups = computed(() => this.buildPrintVersionGroups());
 
   deckName = '';
   decklist = '';
@@ -660,6 +668,52 @@ export class DeckEditorStore {
     const setCode = card.set?.toUpperCase();
     const collectorNumber = card.collectorNumber;
     return [setCode, collectorNumber].filter(Boolean).join(' #') || 'Unknown printing';
+  }
+
+  private buildPrintVersionGroups(): PrintVersionGroup[] {
+    const cards = this.printVersionOptions();
+    if (cards.length === 0) {
+      return [];
+    }
+
+    const preferredLanguage = this.languagePreferences.cardLanguage();
+    const preferredCards = cards.filter((card) => this.printVersionLanguage(card) === preferredLanguage);
+    const alternativeCards = cards.filter((card) => this.isCommonPrintLanguage(this.printVersionLanguage(card)));
+    const englishCards = preferredLanguage === 'en'
+      ? []
+      : cards.filter((card) => this.printVersionLanguage(card) === 'en');
+
+    const groups: PrintVersionGroup[] = [];
+    if (preferredCards.length > 0) {
+      groups.push({
+        title: this.localizedLanguageName(preferredLanguage),
+        cards: preferredCards,
+      });
+    }
+    if (preferredLanguage === 'en') {
+      if (alternativeCards.length > 0) {
+        groups.push({
+          title: this.localizedAlternativesTitle(),
+          cards: alternativeCards,
+        });
+      }
+      return groups;
+    }
+
+    if (alternativeCards.length > 0) {
+      groups.push({
+        title: this.localizedAlternativesTitle(),
+        cards: alternativeCards,
+      });
+    }
+    if (englishCards.length > 0) {
+      groups.push({
+        title: this.localizedLanguageName('en'),
+        cards: englishCards,
+      });
+    }
+
+    return groups;
   }
 
   showHoverList(event: MouseEvent, title: string, items: string[]): void {
@@ -1358,6 +1412,23 @@ export class DeckEditorStore {
   private normalizeQuantity(value: unknown): number {
     const parsed = Number.parseInt(String(value ?? '1'), 10);
     return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+  }
+
+  private localizedAlternativesTitle(): string {
+    return this.i18n.locale() === 'es' ? 'Alternativos' : 'Alternatives';
+  }
+
+  private localizedLanguageName(code: SupportedLanguageCode): string {
+    return this.i18n.languageName(code);
+  }
+
+  private printVersionLanguage(card: Card): string | null {
+    const language = card.lang?.trim().toLowerCase();
+    return language ? language : null;
+  }
+
+  private isCommonPrintLanguage(language: string | null): boolean {
+    return language !== null && (COMMON_PRINT_LANGUAGE_CODES as readonly string[]).includes(language);
   }
 
   private updatePreviewPosition(pointer: PointerPosition, card: Card, imageUrl: string | null): void {
