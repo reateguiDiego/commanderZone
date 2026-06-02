@@ -297,9 +297,30 @@
   color: var(--muted);
 }
 
+.print-version-sections,
+.print-version-section {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.print-version-section {
+  padding-top: 0.2rem;
+}
+
+.print-version-section-title {
+  margin: 0;
+  color: var(--gold);
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 .print-version-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(8.5rem, 10rem));
+  justify-content: start;
+  align-items: start;
   gap: 0.75rem;
 }
 
