@@ -452,30 +452,38 @@
               <strong>Only one print version</strong>
               <span>This card only has one print version available in the database.</span>
             </div>
+          } @else if (store.printVersionGroups().length === 0) {
+            <p class="notice warning">No print versions found for this card.</p>
           } @else {
-            <div class="print-version-grid">
-              @for (card of store.printVersionOptions(); track card.scryfallId) {
-                <button
-                  class="print-version-card"
-                  type="button"
-                  [class.current]="store.isCurrentPrintVersion(card)"
-                  (click)="store.selectPrintVersion(card)"
-                >
-                  @if (store.printVersionImage(card); as imageUrl) {
-                    <img [src]="imageUrl" [alt]="card.name" loading="lazy" />
-                  } @else {
-                    <span class="card-fallback tall">{{ card.name }}</span>
-                  }
-                  <span class="print-version-copy">
-                    <strong>{{ card.name }}</strong>
-                    <small>{{ store.printVersionMeta(card) }}</small>
-                    @if (store.isCurrentPrintVersion(card)) {
-                      <em>Current</em>
+            <div class="print-version-sections">
+              @for (group of store.printVersionGroups(); track group.title) {
+                <section class="print-version-section">
+                  <h3 class="print-version-section-title">{{ group.title }}</h3>
+
+                  <div class="print-version-grid">
+                    @for (card of group.cards; track card.scryfallId) {
+                      <button
+                        class="print-version-card"
+                        type="button"
+                        [class.current]="store.isCurrentPrintVersion(card)"
+                        (click)="store.selectPrintVersion(card)"
+                      >
+                        @if (store.printVersionImage(card); as imageUrl) {
+                          <img [src]="imageUrl" [alt]="card.name" loading="lazy" />
+                        } @else {
+                          <span class="card-fallback tall">{{ card.name }}</span>
+                        }
+                        <span class="print-version-copy">
+                          <strong>{{ card.name }}</strong>
+                          <small>{{ store.printVersionMeta(card) }}</small>
+                          @if (store.isCurrentPrintVersion(card)) {
+                            <em>Current</em>
+                          }
+                        </span>
+                      </button>
                     }
-                  </span>
-                </button>
-              } @empty {
-                <p class="notice warning">No print versions found for this card.</p>
+                  </div>
+                </section>
               }
             </div>
           }
