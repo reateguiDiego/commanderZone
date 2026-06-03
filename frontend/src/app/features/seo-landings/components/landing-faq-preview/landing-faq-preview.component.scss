@@ -37,10 +37,10 @@
   display: grid;
   gap: 0.55rem;
   min-width: 0;
-  border: 1px solid rgb(255 255 255 / 12%);
-  border-radius: 0.5rem;
+  border: 1px solid rgb(215 180 106 / 10%);
+  border-radius: 8px;
   padding: 1rem;
-  background: rgb(255 255 255 / 4%);
+  background: rgb(15 18 14 / 58%);
 }
 
 .landing-faq-preview h3,
@@ -49,6 +49,6 @@
 }
 
 .landing-faq-preview h3 {
-  color: var(--text);
+  color: rgb(255 231 174 / 94%);
   font-size: 1rem;
 }

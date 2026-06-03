@@ -1,8 +1,8 @@
 .landing-hero {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 1.5rem;
-  padding: clamp(2rem, 5vw, 5rem) 0 clamp(1.5rem, 4vw, 3rem);
+  gap: clamp(1.35rem, 3vw, 2.5rem);
+  padding: clamp(2.2rem, 5vw, 5.5rem) 0 clamp(1.5rem, 4vw, 3rem);
 }
 
 .landing-hero__content {
@@ -18,7 +18,7 @@
 }
 
 .landing-hero__eyebrow {
-  color: var(--accent);
+  color: var(--gold);
   font-size: 0.82rem;
   font-weight: 800;
   letter-spacing: 0.08em;
@@ -27,7 +27,8 @@
 
 .landing-hero h1 {
   color: var(--text);
-  font-size: clamp(2.1rem, 7vw, 5.75rem);
+  max-width: 12ch;
+  font-size: clamp(2.6rem, 7vw, 5.9rem);
   line-height: 0.96;
   overflow-wrap: anywhere;
 }
@@ -50,9 +51,12 @@
   width: min(100%, 54rem);
   margin: 0;
   overflow: hidden;
-  border: 1px solid rgb(255 255 255 / 12%);
-  border-radius: 0.5rem;
-  background: rgb(255 255 255 / 5%);
+  border: 1px solid rgb(215 180 106 / 22%);
+  border-radius: 10px;
+  background:
+    linear-gradient(135deg, rgb(215 180 106 / 12%), transparent 46%),
+    rgb(8 10 7 / 72%);
+  box-shadow: 0 1.4rem 3rem rgb(0 0 0 / 34%);
   aspect-ratio: 1200 / 630;
 }
 
@@ -63,28 +67,12 @@
   object-fit: cover;
 }
 
-.landing-link {
-  display: inline-flex;
+.landing-hero__actions a {
   width: 100%;
   min-height: 2.75rem;
-  align-items: center;
-  justify-content: center;
-  border-radius: 0.5rem;
-  padding: 0.75rem 1rem;
   font-weight: 800;
   overflow-wrap: anywhere;
   text-align: center;
-  text-decoration: none;
-}
-
-.landing-link--primary {
-  background: var(--accent);
-  color: #16120a;
-}
-
-.landing-link--secondary {
-  border: 1px solid rgb(255 255 255 / 18%);
-  color: var(--text);
 }
 
 .landing-hero__highlights {
@@ -94,17 +82,25 @@
 }
 
 .landing-hero__highlights li {
-  border: 1px solid rgb(255 255 255 / 12%);
-  border-radius: 0.5rem;
-  padding: 0.65rem 0.8rem;
-  background: rgb(255 255 255 / 5%);
-  color: var(--text);
+  border-radius: 7px;
+  padding: 0.55rem 0.72rem;
+  background: rgb(215 180 106 / 10%);
+  color: rgb(243 240 232 / 88%);
   font-weight: 700;
   overflow-wrap: anywhere;
 }
 
 @media (width >= 768px) {
-  .landing-link {
+  .landing-hero__actions a {
     width: auto;
+  }
+
+  .landing-hero {
+    grid-template-columns: minmax(0, 0.95fr) minmax(22rem, 0.75fr);
+    align-items: center;
+  }
+
+  .landing-hero__highlights {
+    grid-column: 1 / -1;
   }
 }

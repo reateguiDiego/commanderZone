@@ -28,8 +28,9 @@
 .landing-comparison__table {
   min-width: 0;
   overflow: hidden;
-  border: 1px solid rgb(255 255 255 / 12%);
-  border-radius: 0.5rem;
+  border-radius: 10px;
+  background: rgb(11 13 11 / 58%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 5%);
 }
 
 .landing-comparison__row {
@@ -40,13 +41,17 @@
 }
 
 .landing-comparison__row + .landing-comparison__row {
-  border-top: 1px solid rgb(255 255 255 / 10%);
+  border-top: 1px solid rgb(255 255 255 / 7%);
 }
 
 .landing-comparison__row--head {
-  background: rgb(255 255 255 / 6%);
+  background: rgb(215 180 106 / 12%);
   color: var(--text);
   font-weight: 800;
+}
+
+.landing-comparison__row:not(.landing-comparison__row--head):nth-child(odd) {
+  background: rgb(255 255 255 / 3%);
 }
 
 .landing-comparison__row--head span:first-child {
@@ -54,7 +59,7 @@
 }
 
 .landing-comparison strong {
-  color: var(--text);
+  color: rgb(255 231 174 / 94%);
 }
 
 .landing-comparison span {

@@ -47,6 +47,8 @@ describe('CookieConsentBannerComponent', () => {
     expect(element.querySelector('.cookie-banner')).not.toBeNull();
     expect(buttons).toEqual(['Configure', 'Reject', 'Accept']);
     expect(links).toEqual(['/privacy-policy/', '/cookie-policy/']);
+    expect(element.querySelector('button.primary-button')?.textContent?.trim()).toBe('Accept');
+    expect(element.querySelectorAll('button.secondary-button')).toHaveLength(2);
   });
 
   it('can reject cookies without enabling analytics', () => {

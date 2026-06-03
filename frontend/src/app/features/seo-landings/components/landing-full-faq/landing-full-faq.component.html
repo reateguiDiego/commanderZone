@@ -6,7 +6,7 @@
     }
   </div>
 
-  <div class="landing-full-faq__items">
+  <div class="landing-full-faq__items app-pretty-scroll">
     @for (item of content().items; track item.question; let first = $first) {
       <details [attr.open]="first ? '' : null">
         <summary>

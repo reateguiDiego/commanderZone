@@ -7,10 +7,10 @@
     <p class="not-found-page__copy">{{ page.description }}</p>
 
     <nav class="not-found-page__actions" [attr.aria-label]="page.navLabel">
-      <a class="not-found-page__button not-found-page__button--primary" [href]="homePath()">
+      <a class="primary-button" [href]="homePath()">
         {{ page.homeLabel }}
       </a>
-      <a class="not-found-page__button not-found-page__button--secondary" [href]="faqPath()">
+      <a class="secondary-button" [href]="faqPath()">
         {{ page.faqLabel }}
       </a>
     </nav>

@@ -1,7 +1,7 @@
 .landing-breadcrumb {
   overflow: hidden;
   color: var(--muted);
-  font-size: 0.86rem;
+  font-size: 0.78rem;
 }
 
 .landing-breadcrumb ol {
@@ -21,8 +21,8 @@
 }
 
 .landing-breadcrumb li + li::before {
-  color: rgb(255 255 255 / 35%);
-  content: "/";
+  color: rgb(215 180 106 / 46%);
+  content: ">";
 }
 
 .landing-breadcrumb a,
@@ -34,10 +34,10 @@
 .landing-breadcrumb a {
   display: inline-flex;
   min-width: 2.75rem;
-  min-height: 2.75rem;
+  min-height: 2.45rem;
   align-items: center;
   justify-content: center;
-  color: var(--accent);
+  color: var(--gold);
   font-weight: 700;
   text-decoration: none;
 }

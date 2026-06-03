@@ -23,6 +23,10 @@ describe('SeoLandingPageComponent', () => {
     },
     siteName: 'CommanderZone',
     homeLink: { label: 'CommanderZone home', href: '/en/' },
+    publicNavigationLinks: [
+      { label: 'Play online', href: '/en/play-commander-online/' },
+      { label: 'FAQ', href: '/en/faq/' },
+    ],
     localeLinks: [
       { locale: 'en', label: 'English', href: '/en/play-commander-online/' },
       { locale: 'de', label: 'Deutsch mit extra langem lokalisierten Text', href: '/de/commander-online-spielen/' },
@@ -151,6 +155,14 @@ describe('SeoLandingPageComponent', () => {
     fixture.detectChanges();
   });
 
+  afterEach(() => {
+    if (!fixture.componentRef.hostView.destroyed) {
+      fixture.destroy();
+    }
+    document.documentElement.classList.remove('app-pretty-scroll', 'seo-scroll-context');
+    document.body.classList.remove('app-pretty-scroll', 'seo-scroll-context');
+  });
+
   it('renders a complete SEO landing from typed static content', () => {
     const element: HTMLElement = fixture.nativeElement;
 
@@ -160,6 +172,28 @@ describe('SeoLandingPageComponent', () => {
     expect(element.textContent).toContain('Built for Commander pods');
     expect(element.textContent).toContain('Commander online FAQ');
     expect(element.textContent).toContain('Related CommanderZone pages');
+  });
+
+  it('enables the app custom scrollbar while the SEO layout is mounted', () => {
+    expect(document.documentElement.classList.contains('app-pretty-scroll')).toBe(true);
+    expect(document.documentElement.classList.contains('seo-scroll-context')).toBe(true);
+    expect(document.body.classList.contains('app-pretty-scroll')).toBe(true);
+    expect(document.body.classList.contains('seo-scroll-context')).toBe(true);
+
+    fixture.destroy();
+
+    expect(document.documentElement.classList.contains('app-pretty-scroll')).toBe(false);
+    expect(document.documentElement.classList.contains('seo-scroll-context')).toBe(false);
+    expect(document.body.classList.contains('app-pretty-scroll')).toBe(false);
+    expect(document.body.classList.contains('seo-scroll-context')).toBe(false);
+  });
+
+  it('marks SEO scrollable content areas with the app pretty scrollbar class', () => {
+    const element: HTMLElement = fixture.nativeElement;
+
+    expect(element.querySelector('.seo-language-selector__menu')?.classList.contains('app-pretty-scroll')).toBe(true);
+    expect(element.querySelector('.landing-faq-preview__grid')?.classList.contains('app-pretty-scroll')).toBe(true);
+    expect(element.querySelector('.landing-internal-links ul')?.classList.contains('app-pretty-scroll')).toBe(true);
   });
 
   it('keeps semantic heading structure with a single H1', () => {
@@ -178,12 +212,40 @@ describe('SeoLandingPageComponent', () => {
 
     expect(links).toContain('/rooms');
     expect(links).toContain('/decks');
+    expect(links).toContain('/en/faq/');
     expect(links).toContain('/de/commander-online-spielen/');
     expect(links).toContain('/en/import-commander-deck/');
     expect(anchors.every((link) => Boolean(link.getAttribute('href')))).toBe(true);
     expect(element.querySelector('button')).toBeNull();
-    expect(element.querySelector('details')?.hasAttribute('open')).toBe(true);
+    expect(element.querySelector('summary')).not.toBeNull();
+    expect(element.querySelector('.landing-full-faq details')?.hasAttribute('open')).toBe(true);
     expect(element.textContent).toContain('No. It is a manual Commander table.');
+  });
+
+  it('renders the CommanderZone public header with crawlable menu and logo', () => {
+    const element: HTMLElement = fixture.nativeElement;
+    const logo = element.querySelector('.seo-landing-layout__brand img') as HTMLImageElement;
+    const publicMenuLinks = Array.from(element.querySelectorAll('.seo-landing-layout__nav a') as NodeListOf<HTMLAnchorElement>);
+
+    expect(logo.getAttribute('src')).toBe('/assets/icons/CZ/CZ_logo.png');
+    expect(element.querySelector('.seo-landing-layout__brand')?.getAttribute('href')).toBe('/en/');
+    expect(element.querySelector('.seo-landing-layout__menu')).toBeNull();
+    expect(publicMenuLinks.map((link) => link.getAttribute('href'))).toEqual([
+      '/en/play-commander-online/',
+      '/en/faq/',
+    ]);
+    expect(publicMenuLinks.every((link) => link.classList.contains('primary-button'))).toBe(true);
+  });
+
+  it('uses the app button classes for hero and final CTA links', () => {
+    const element: HTMLElement = fixture.nativeElement;
+    const heroPrimary = element.querySelector('.landing-hero__actions a[href="/rooms"]');
+    const heroSecondary = element.querySelector('.landing-hero__actions a[href="/decks"]');
+    const ctaPrimary = element.querySelector('.landing-cta__actions a[href="/rooms"]');
+
+    expect(heroPrimary?.classList.contains('primary-button')).toBe(true);
+    expect(heroSecondary?.classList.contains('secondary-button')).toBe(true);
+    expect(ctaPrimary?.classList.contains('primary-button')).toBe(true);
   });
 
   it('renders a stable SEO hero image without layout shift or lazy loading', () => {

@@ -40,10 +40,9 @@
   display: grid;
   grid-template-columns: 1fr;
   gap: 0.35rem 0.9rem;
-  border: 1px solid rgb(255 255 255 / 12%);
-  border-radius: 0.5rem;
-  padding: 1rem;
-  background: rgb(255 255 255 / 4%);
+  border-radius: 8px;
+  padding: 0.95rem 1rem;
+  background: rgb(255 255 255 / 3%);
   counter-increment: landing-step;
 }
 
@@ -53,9 +52,10 @@
   width: 2rem;
   height: 2rem;
   place-items: center;
+  border: 1px solid rgb(215 180 106 / 42%);
   border-radius: 999px;
-  background: var(--accent);
-  color: #16120a;
+  background: rgb(215 180 106 / 12%);
+  color: var(--gold);
   content: counter(landing-step);
   font-weight: 900;
 }

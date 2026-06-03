@@ -1,7 +1,7 @@
 .landing-section {
   display: grid;
-  gap: 1rem;
-  padding: clamp(1.5rem, 3vw, 3rem) 0;
+  gap: 0.95rem;
+  padding: clamp(1.6rem, 3vw, 3.25rem) 0;
 }
 
 .landing-section__header,
@@ -18,7 +18,7 @@
 }
 
 .landing-section__eyebrow {
-  color: var(--accent);
+  color: var(--gold);
   font-size: 0.78rem;
   font-weight: 800;
   letter-spacing: 0.06em;
@@ -48,6 +48,11 @@
   display: inline-flex;
   min-height: 2.75rem;
   align-items: center;
-  color: var(--accent);
+  color: var(--gold);
   font-weight: 800;
+}
+
+.landing-section__links a::after {
+  margin-left: 0.35rem;
+  content: "->";
 }

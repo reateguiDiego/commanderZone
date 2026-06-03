@@ -37,6 +37,11 @@
 }
 
 .landing-faq__item {
-  border-top: 1px solid rgb(255 255 255 / 12%);
+  border-top: 1px solid rgb(215 180 106 / 14%);
   padding-top: 1rem;
+}
+
+.landing-faq__item:first-child {
+  border-top: 0;
+  padding-top: 0;
 }

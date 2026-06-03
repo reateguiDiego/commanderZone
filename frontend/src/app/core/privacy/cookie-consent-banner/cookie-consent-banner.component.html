@@ -14,7 +14,7 @@
         <div class="cookie-banner__settings">
           <button
             type="button"
-            class="cookie-banner__toggle"
+            class="secondary-button compact cookie-banner__toggle"
             [class.cookie-banner__toggle--enabled]="analyticsEnabled()"
             [attr.aria-pressed]="analyticsEnabled()"
             (click)="toggleAnalytics()"
@@ -27,19 +27,19 @@
 
     <div class="cookie-banner__actions">
       @if (showSettings()) {
-        <button type="button" class="cookie-banner__button cookie-banner__button--primary" (click)="saveSettings()">
+        <button type="button" class="primary-button compact" (click)="saveSettings()">
           Save
         </button>
       } @else {
-        <button type="button" class="cookie-banner__button cookie-banner__button--ghost" (click)="openSettings()">
+        <button type="button" class="secondary-button compact" (click)="openSettings()">
           Configure
         </button>
       }
 
-      <button type="button" class="cookie-banner__button cookie-banner__button--ghost" (click)="rejectAll()">
+      <button type="button" class="secondary-button compact" (click)="rejectAll()">
         Reject
       </button>
-      <button type="button" class="cookie-banner__button cookie-banner__button--primary" (click)="acceptAll()">
+      <button type="button" class="primary-button compact" (click)="acceptAll()">
         Accept
       </button>
     </div>

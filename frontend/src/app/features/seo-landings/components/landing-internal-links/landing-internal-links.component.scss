@@ -1,7 +1,7 @@
 .landing-internal-links {
   display: grid;
   gap: 1rem;
-  padding: clamp(1.5rem, 3vw, 3rem) 0;
+  padding: clamp(1.25rem, 3vw, 2.5rem) 0;
 }
 
 .landing-internal-links h2,
@@ -21,22 +21,30 @@
 }
 
 .landing-internal-links ul {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(14rem, 100%), 1fr));
-  gap: 0.75rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
 .landing-internal-links a {
-  display: block;
+  display: inline-flex;
   min-width: 0;
-  border: 1px solid rgb(255 255 255 / 12%);
-  border-radius: 0.5rem;
-  padding: 0.85rem;
-  color: var(--accent);
+  min-height: 2.45rem;
+  align-items: center;
+  border-radius: 7px;
+  padding: 0.45rem 0.7rem;
+  background: rgb(255 255 255 / 4%);
+  color: var(--gold);
   font-weight: 800;
   overflow-wrap: anywhere;
   text-decoration: none;
+}
+
+.landing-internal-links a:hover,
+.landing-internal-links a:focus-visible {
+  background: rgb(215 180 106 / 10%);
+  color: var(--text);
 }

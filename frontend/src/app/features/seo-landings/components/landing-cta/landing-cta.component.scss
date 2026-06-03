@@ -3,10 +3,12 @@
   grid-template-columns: 1fr;
   gap: 1rem;
   align-items: center;
-  border: 1px solid rgb(215 180 106 / 28%);
-  border-radius: 0.5rem;
+  border-radius: 10px;
   padding: clamp(1rem, 3vw, 1.5rem);
-  background: rgb(255 255 255 / 5%);
+  background:
+    linear-gradient(135deg, rgb(215 180 106 / 18%), transparent 45%),
+    rgb(13 15 13 / 82%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 6%);
 }
 
 .landing-cta h2,
@@ -32,27 +34,11 @@
 }
 
 .landing-cta__actions a {
-  display: inline-flex;
   width: 100%;
   min-height: 2.6rem;
-  align-items: center;
-  justify-content: center;
-  border-radius: 0.5rem;
-  padding: 0.7rem 0.95rem;
   font-weight: 800;
   overflow-wrap: anywhere;
   text-align: center;
-  text-decoration: none;
-}
-
-.landing-cta__primary {
-  background: var(--accent);
-  color: #16120a;
-}
-
-.landing-cta__secondary {
-  border: 1px solid rgb(255 255 255 / 18%);
-  color: var(--text);
 }
 
 @media (width >= 768px) {
