@@ -68,6 +68,7 @@ export interface GameCardInstance {
   name: string;
   imageUris?: Record<string, string>;
   cardFaces?: CardFace[];
+  hasRulings?: boolean;
   typeLine?: string | null;
   manaCost?: string | null;
   oracleText?: string | null;

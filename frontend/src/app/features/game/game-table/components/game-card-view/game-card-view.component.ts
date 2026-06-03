@@ -227,7 +227,7 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
   });
   readonly statsVisible = computed(() => !this.faceDown() && this.showPowerToughness());
   readonly loyaltyVisible = computed(() => !this.faceDown() && this.loyaltyValue() !== null && !this.showPowerToughness());
-  readonly showRulingsMarker = computed(() => this.rulingsMarkerEligible());
+  readonly showRulingsMarker = computed(() => this.rulingsMarkerEligible() && this.card().hasRulings === true);
   readonly landStackZIndex = computed(() => {
     const role = this.landStackRole();
     if (!role) {
@@ -382,7 +382,7 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
   openRulings(event: MouseEvent): void {
     event.preventDefault();
     event.stopPropagation();
-    if (!this.rulingsMarkerEligible()) {
+    if (!this.showRulingsMarker()) {
       return;
     }
 

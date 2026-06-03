@@ -15,6 +15,7 @@ class GameProjectionService
     public function __construct(
         private readonly GameCommandHandler $normalizer,
         private readonly ?CardLocalizationService $cardLocalization = null,
+        private readonly ?GameCardRulingsLookup $cardRulingsLookup = null,
     )
     {
     }
@@ -34,6 +35,8 @@ class GameProjectionService
         if (!isset($snapshot['players']) || !is_array($snapshot['players'])) {
             return $snapshot;
         }
+
+        $snapshot = $this->hydrateSnapshotRulingsMetadata($snapshot);
 
         if ($localizedCardsByLanguage === null && $this->cardLocalization instanceof CardLocalizationService) {
             $localizedCardsByLanguage = $this->cardLocalization->localizedImagePayloadLookupForScryfallIds(
@@ -91,6 +94,7 @@ class GameProjectionService
     {
         $viewerId = $viewer->id();
         $requestedLanguage = $viewer->cardLanguage();
+        $cards = $this->hydrateCardsRulingsMetadata($cards);
         if ($localizedCardsByLanguage === null && $this->cardLocalization instanceof CardLocalizationService) {
             $localizedCardsByLanguage = $this->cardLocalization->localizedImagePayloadLookupForScryfallIds(
                 $this->cardsScryfallIds($cards),
@@ -400,6 +404,85 @@ class GameProjectionService
         }
 
         return $snapshot;
+    }
+
+    private function hydrateSnapshotRulingsMetadata(array $snapshot): array
+    {
+        if (!$this->cardRulingsLookup instanceof GameCardRulingsLookup) {
+            return $snapshot;
+        }
+
+        $lookup = $this->cardRulingsLookup->hasRulingsByScryfallIds($this->snapshotScryfallIds($snapshot));
+        if ($lookup === []) {
+            return $snapshot;
+        }
+
+        foreach ($snapshot['players'] as &$player) {
+            if (!is_array($player) || !is_array($player['zones'] ?? null)) {
+                continue;
+            }
+
+            foreach ($player['zones'] as &$cards) {
+                if (!is_array($cards)) {
+                    continue;
+                }
+
+                $cards = $this->applyRulingsLookupToCards($cards, $lookup);
+            }
+            unset($cards);
+        }
+        unset($player);
+
+        return $snapshot;
+    }
+
+    /**
+     * @param array<int,array<string,mixed>> $cards
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    private function hydrateCardsRulingsMetadata(array $cards): array
+    {
+        if (!$this->cardRulingsLookup instanceof GameCardRulingsLookup) {
+            return $cards;
+        }
+
+        $lookup = $this->cardRulingsLookup->hasRulingsByScryfallIds($this->cardsScryfallIds($cards));
+        if ($lookup === []) {
+            return $cards;
+        }
+
+        return $this->applyRulingsLookupToCards($cards, $lookup);
+    }
+
+    /**
+     * @param array<int,array<string,mixed>> $cards
+     * @param array<string,bool> $lookup
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    private function applyRulingsLookupToCards(array $cards, array $lookup): array
+    {
+        foreach ($cards as $index => $card) {
+            if (!is_array($card)) {
+                continue;
+            }
+
+            $scryfallId = trim((string) ($card['scryfallId'] ?? ''));
+            if ($scryfallId === '' || !isset($lookup[$scryfallId])) {
+                continue;
+            }
+
+            if ($lookup[$scryfallId]) {
+                $card['hasRulings'] = true;
+            } elseif (!array_key_exists('hasRulings', $card)) {
+                $card['hasRulings'] = false;
+            }
+
+            $cards[$index] = $card;
+        }
+
+        return $cards;
     }
 
     /**

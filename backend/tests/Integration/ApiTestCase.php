@@ -92,6 +92,7 @@ abstract class ApiTestCase extends WebTestCase
 
         $this->entityManager->persist($card);
         $this->entityManager->flush();
+        $this->syncSeededCardPrintTables($card);
 
         return $card;
     }
@@ -101,6 +102,9 @@ abstract class ApiTestCase extends WebTestCase
         $connection = $this->entityManager->getConnection();
         \assert($connection instanceof Connection);
         $this->ensureCardImageStatusColumn($connection);
+        $this->ensureCardHasRulingsColumn($connection);
+        $this->ensureCardPrintTables($connection);
+        $this->ensureRoomWaitingLogEntryTable($connection);
 
         $tables = [
             'game_debug_health',
@@ -153,5 +157,235 @@ abstract class ApiTestCase extends WebTestCase
         }
 
         $connection->executeStatement('ALTER TABLE card ADD COLUMN image_status VARCHAR(32) DEFAULT NULL');
+    }
+
+    private function ensureCardHasRulingsColumn(Connection $connection): void
+    {
+        $schemaManager = $connection->createSchemaManager();
+        if (!$schemaManager->tablesExist(['card'])) {
+            return;
+        }
+
+        $columns = array_map(
+            static fn (\Doctrine\DBAL\Schema\Column $column): string => $column->getName(),
+            $schemaManager->listTableColumns('card'),
+        );
+        if (in_array('has_rulings', $columns, true)) {
+            return;
+        }
+
+        $connection->executeStatement('ALTER TABLE card ADD COLUMN has_rulings BOOLEAN NOT NULL DEFAULT false');
+    }
+
+    private function ensureRoomWaitingLogEntryTable(Connection $connection): void
+    {
+        $schemaManager = $connection->createSchemaManager();
+        if ($schemaManager->tablesExist(['room_waiting_log_entry']) || !$schemaManager->tablesExist(['room'])) {
+            return;
+        }
+
+        $connection->executeStatement(
+            <<<'SQL'
+CREATE TABLE room_waiting_log_entry (
+    id VARCHAR(36) NOT NULL,
+    room_id VARCHAR(36) NOT NULL,
+    label VARCHAR(255) NOT NULL,
+    tone VARCHAR(20) NOT NULL,
+    created_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL,
+    PRIMARY KEY(id)
+)
+SQL,
+        );
+        $connection->executeStatement('CREATE INDEX idx_room_waiting_log_room_created ON room_waiting_log_entry (room_id, created_at)');
+        $connection->executeStatement(
+            'ALTER TABLE room_waiting_log_entry ADD CONSTRAINT FK_ROOM_WAITING_LOG_ROOM FOREIGN KEY (room_id) REFERENCES room (id) ON DELETE CASCADE',
+        );
+    }
+
+    private function ensureCardPrintTables(Connection $connection): void
+    {
+        $schemaManager = $connection->createSchemaManager();
+        if (!$schemaManager->tablesExist(['card_print'])) {
+            $connection->executeStatement(
+                <<<'SQL'
+CREATE TABLE card_print (
+    scryfall_id VARCHAR(36) NOT NULL PRIMARY KEY,
+    normalized_name VARCHAR(255) NOT NULL,
+    set_code VARCHAR(16) DEFAULT NULL,
+    collector_number VARCHAR(32) DEFAULT NULL,
+    default_name VARCHAR(255) NOT NULL,
+    default_lang VARCHAR(8) DEFAULT NULL,
+    default_mana_cost VARCHAR(255) DEFAULT NULL,
+    default_type_line TEXT DEFAULT NULL,
+    default_oracle_text TEXT DEFAULT NULL,
+    default_image_uris JSON NOT NULL,
+    default_card_faces JSON NOT NULL,
+    layout VARCHAR(80) NOT NULL,
+    commander_legal BOOLEAN NOT NULL,
+    updated_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL
+)
+SQL,
+            );
+            $connection->executeStatement('CREATE INDEX idx_card_print_normalized_name ON card_print (normalized_name)');
+            $connection->executeStatement('CREATE INDEX idx_card_print_set_collector ON card_print (set_code, collector_number)');
+        }
+
+        if ($schemaManager->tablesExist(['card_print_locale'])) {
+            return;
+        }
+
+        $connection->executeStatement(
+            <<<'SQL'
+CREATE TABLE card_print_locale (
+    print_scryfall_id VARCHAR(36) NOT NULL,
+    lang VARCHAR(8) NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    printed_name VARCHAR(255) DEFAULT NULL,
+    mana_cost VARCHAR(255) DEFAULT NULL,
+    type_line TEXT DEFAULT NULL,
+    oracle_text TEXT DEFAULT NULL,
+    image_uris JSON NOT NULL,
+    card_faces JSON NOT NULL,
+    image_status VARCHAR(32) DEFAULT NULL,
+    updated_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL,
+    PRIMARY KEY (print_scryfall_id, lang)
+)
+SQL,
+        );
+        $connection->executeStatement('CREATE INDEX idx_card_print_locale_lang ON card_print_locale (lang)');
+        $connection->executeStatement(
+            'ALTER TABLE card_print_locale ADD CONSTRAINT fk_card_print_locale_print FOREIGN KEY (print_scryfall_id) REFERENCES card_print (scryfall_id) ON DELETE CASCADE',
+        );
+    }
+
+    private function syncSeededCardPrintTables(Card $card): void
+    {
+        $connection = $this->entityManager->getConnection();
+        $schemaManager = $connection->createSchemaManager();
+        if (!$schemaManager->tablesExist(['card_print'])) {
+            return;
+        }
+
+        $connection->executeStatement(
+            <<<'SQL'
+INSERT INTO card_print (
+    scryfall_id,
+    normalized_name,
+    set_code,
+    collector_number,
+    default_name,
+    default_lang,
+    default_mana_cost,
+    default_type_line,
+    default_oracle_text,
+    default_image_uris,
+    default_card_faces,
+    layout,
+    commander_legal,
+    updated_at
+) VALUES (
+    :scryfall_id,
+    :normalized_name,
+    :set_code,
+    :collector_number,
+    :default_name,
+    :default_lang,
+    :default_mana_cost,
+    :default_type_line,
+    :default_oracle_text,
+    :default_image_uris,
+    :default_card_faces,
+    :layout,
+    :commander_legal,
+    NOW()
+)
+ON CONFLICT (scryfall_id) DO UPDATE SET
+    normalized_name = EXCLUDED.normalized_name,
+    set_code = EXCLUDED.set_code,
+    collector_number = EXCLUDED.collector_number,
+    default_name = EXCLUDED.default_name,
+    default_lang = EXCLUDED.default_lang,
+    default_mana_cost = EXCLUDED.default_mana_cost,
+    default_type_line = EXCLUDED.default_type_line,
+    default_oracle_text = EXCLUDED.default_oracle_text,
+    default_image_uris = EXCLUDED.default_image_uris,
+    default_card_faces = EXCLUDED.default_card_faces,
+    layout = EXCLUDED.layout,
+    commander_legal = EXCLUDED.commander_legal,
+    updated_at = NOW()
+SQL,
+            [
+                'scryfall_id' => $card->scryfallId(),
+                'normalized_name' => Card::normalizeName($card->name()),
+                'set_code' => $card->setCode(),
+                'collector_number' => $card->collectorNumber(),
+                'default_name' => $card->name(),
+                'default_lang' => $card->lang() ?? 'en',
+                'default_mana_cost' => $card->manaCost(),
+                'default_type_line' => $card->typeLine(),
+                'default_oracle_text' => $card->oracleText(),
+                'default_image_uris' => json_encode($card->imageUris(), JSON_THROW_ON_ERROR),
+                'default_card_faces' => json_encode($card->cardFaces(), JSON_THROW_ON_ERROR),
+                'layout' => $card->layout(),
+                'commander_legal' => $card->isCommanderLegal(),
+            ],
+        );
+
+        if (!$schemaManager->tablesExist(['card_print_locale'])) {
+            return;
+        }
+
+        $lang = $card->lang() ?? 'en';
+        $connection->executeStatement(
+            <<<'SQL'
+INSERT INTO card_print_locale (
+    print_scryfall_id,
+    lang,
+    name,
+    printed_name,
+    mana_cost,
+    type_line,
+    oracle_text,
+    image_uris,
+    card_faces,
+    image_status,
+    updated_at
+) VALUES (
+    :print_scryfall_id,
+    :lang,
+    :name,
+    :printed_name,
+    :mana_cost,
+    :type_line,
+    :oracle_text,
+    :image_uris,
+    :card_faces,
+    :image_status,
+    NOW()
+)
+ON CONFLICT (print_scryfall_id, lang) DO UPDATE SET
+    name = EXCLUDED.name,
+    printed_name = EXCLUDED.printed_name,
+    mana_cost = EXCLUDED.mana_cost,
+    type_line = EXCLUDED.type_line,
+    oracle_text = EXCLUDED.oracle_text,
+    image_uris = EXCLUDED.image_uris,
+    card_faces = EXCLUDED.card_faces,
+    image_status = EXCLUDED.image_status,
+    updated_at = NOW()
+SQL,
+            [
+                'print_scryfall_id' => $card->scryfallId(),
+                'lang' => $lang,
+                'name' => $card->name(),
+                'printed_name' => $card->printedName(),
+                'mana_cost' => $card->manaCost(),
+                'type_line' => $card->typeLine(),
+                'oracle_text' => $card->oracleText(),
+                'image_uris' => json_encode($card->imageUris(), JSON_THROW_ON_ERROR),
+                'card_faces' => json_encode($card->cardFaces(), JSON_THROW_ON_ERROR),
+                'image_status' => $card->imageStatus(),
+            ],
+        );
     }
 }

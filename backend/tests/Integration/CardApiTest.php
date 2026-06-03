@@ -18,6 +18,7 @@ class CardApiTest extends ApiTestCase
         $this->jsonRequest('GET', '/cards/'.$card->scryfallId());
         self::assertResponseIsSuccessful();
         self::assertSame('Sol Ring', $this->jsonResponse()['card']['name']);
+        self::assertFalse($this->jsonResponse()['card']['hasRulings']);
 
         $this->jsonRequest('GET', '/cards/'.$card->scryfallId().'/image?format=normal&mode=uri');
         self::assertResponseIsSuccessful();
@@ -77,6 +78,21 @@ class CardApiTest extends ApiTestCase
         self::assertArrayHasKey('handModifier', $faces[0]);
         self::assertArrayHasKey('lifeModifier', $faces[0]);
         self::assertSame('https://cards.scryfall.io/back.jpg', $faces[1]['imageUris']['normal']);
+    }
+
+    public function testCardPayloadIncludesPersistedHasRulingsMetadata(): void
+    {
+        $card = $this->seedCard('00000000-0000-0000-0000-0000000000ab', 'Rules Lawyer', [
+            'has_rulings' => true,
+        ]);
+
+        $this->jsonRequest('GET', '/cards/'.$card->scryfallId());
+        self::assertResponseIsSuccessful();
+        self::assertTrue($this->jsonResponse()['card']['hasRulings']);
+
+        $this->jsonRequest('GET', '/cards/search?q=rules%20lawyer&limit=5');
+        self::assertResponseIsSuccessful();
+        self::assertTrue($this->jsonResponse()['data'][0]['hasRulings']);
     }
 
     public function testCardResponseIncludesFaceStatsWithBattleDefenseAndModifiers(): void

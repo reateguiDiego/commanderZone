@@ -99,6 +99,16 @@ class GameSnapshotFactoryTest extends TestCase
         self::assertCount(2, array_unique($backgroundNames));
     }
 
+    public function testIncludesPersistedRulingsMetadataInGameCardSnapshots(): void
+    {
+        $card = $this->cardWithColorIdentity(['G']);
+        $this->setPrivateProperty($card, 'hasRulings', true);
+
+        $snapshot = $this->snapshotWithCommander($card);
+
+        self::assertTrue($snapshot['players']['owner-id']['zones']['command'][0]['hasRulings']);
+    }
+
     /**
      * @param array<string,mixed> $faceStats
      * @param list<array<string,mixed>> $cardFaces

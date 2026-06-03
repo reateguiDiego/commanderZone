@@ -3048,6 +3048,9 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/CardFace'
+        hasRulings:
+          type: boolean
+          description: Persisted metadata indicating whether this card has Scryfall rulings.
         layout:
           type: string
         commanderLegal:
@@ -4333,6 +4336,9 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/CardFace'
+        hasRulings:
+          type: boolean
+          description: Persisted metadata indicating whether this card has Scryfall rulings.
         typeLine:
           type: [string, 'null']
         manaCost:

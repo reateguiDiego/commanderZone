@@ -535,29 +535,34 @@ describe('GameCardViewComponent', () => {
     expect(fixture.nativeElement.querySelector('.token-copy-marker')).toBeNull();
   });
 
-  it('shows the rulings marker for visible non-token battlefield cards with scryfall id', async () => {
+  it('shows the rulings marker for visible non-token battlefield cards with persisted rulings metadata', async () => {
     const { fixture } = await renderHandCard();
 
     fixture.componentRef.setInput('mode', 'battlefield');
     fixture.componentRef.setInput('zone', 'battlefield');
-    fixture.componentRef.setInput('card', { ...gameCard(), scryfallId: 'e71c8c39-3fbb-4a42-9cf6-b3224f5a56fc' });
+    fixture.componentRef.setInput('card', {
+      ...gameCard(),
+      scryfallId: 'e71c8c39-3fbb-4a42-9cf6-b3224f5a56fc',
+      hasRulings: true,
+    });
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelector('.oracle-rulings-marker')).not.toBeNull();
   });
 
-  it('shows the rulings marker without depending on a remote rulings prefetch', async () => {
+  it('hides the rulings marker when the backend metadata says there are no rulings', async () => {
     const { fixture } = await renderHandCard();
-    const fetchSpy = vi.spyOn(globalThis, 'fetch');
 
     fixture.componentRef.setInput('mode', 'battlefield');
     fixture.componentRef.setInput('zone', 'battlefield');
-    fixture.componentRef.setInput('card', { ...gameCard(), scryfallId: '33333333-3fbb-4a42-9cf6-b3224f5a56fc' });
+    fixture.componentRef.setInput('card', {
+      ...gameCard(),
+      scryfallId: '33333333-3fbb-4a42-9cf6-b3224f5a56fc',
+      hasRulings: false,
+    });
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('.oracle-rulings-marker')).not.toBeNull();
-    expect(fetchSpy).not.toHaveBeenCalled();
-    fetchSpy.mockRestore();
+    expect(fixture.nativeElement.querySelector('.oracle-rulings-marker')).toBeNull();
   });
 
   it('hides the rulings marker for hidden or face-down cards', async () => {
@@ -565,7 +570,11 @@ describe('GameCardViewComponent', () => {
 
     fixture.componentRef.setInput('mode', 'battlefield');
     fixture.componentRef.setInput('zone', 'battlefield');
-    fixture.componentRef.setInput('card', { ...gameCard(), scryfallId: 'e71c8c39-3fbb-4a42-9cf6-b3224f5a56fc' });
+    fixture.componentRef.setInput('card', {
+      ...gameCard(),
+      scryfallId: 'e71c8c39-3fbb-4a42-9cf6-b3224f5a56fc',
+      hasRulings: true,
+    });
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('.oracle-rulings-marker')).not.toBeNull();
 
@@ -584,13 +593,19 @@ describe('GameCardViewComponent', () => {
 
     fixture.componentRef.setInput('mode', 'battlefield');
     fixture.componentRef.setInput('zone', 'battlefield');
-    fixture.componentRef.setInput('card', { ...gameCard(), scryfallId: 'e71c8c39-3fbb-4a42-9cf6-b3224f5a56fc', isToken: true });
+    fixture.componentRef.setInput('card', {
+      ...gameCard(),
+      scryfallId: 'e71c8c39-3fbb-4a42-9cf6-b3224f5a56fc',
+      hasRulings: true,
+      isToken: true,
+    });
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('.oracle-rulings-marker')).toBeNull();
 
     fixture.componentRef.setInput('card', {
       ...gameCard(),
       scryfallId: 'e71c8c39-3fbb-4a42-9cf6-b3224f5a56fc',
+      hasRulings: true,
       isToken: false,
       isTokenCopy: true,
     });
@@ -601,7 +616,11 @@ describe('GameCardViewComponent', () => {
   it('does not show the rulings marker in hand mode', async () => {
     const { fixture } = await renderHandCard();
 
-    fixture.componentRef.setInput('card', { ...gameCard(), scryfallId: 'e71c8c39-3fbb-4a42-9cf6-b3224f5a56fc' });
+    fixture.componentRef.setInput('card', {
+      ...gameCard(),
+      scryfallId: 'e71c8c39-3fbb-4a42-9cf6-b3224f5a56fc',
+      hasRulings: true,
+    });
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelector('.oracle-rulings-marker')).toBeNull();
@@ -615,7 +634,11 @@ describe('GameCardViewComponent', () => {
 
     fixture.componentRef.setInput('mode', 'battlefield');
     fixture.componentRef.setInput('zone', 'battlefield');
-    fixture.componentRef.setInput('card', { ...gameCard(), scryfallId: '11111111-3fbb-4a42-9cf6-b3224f5a56fc' });
+    fixture.componentRef.setInput('card', {
+      ...gameCard(),
+      scryfallId: '11111111-3fbb-4a42-9cf6-b3224f5a56fc',
+      hasRulings: true,
+    });
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelector('.oracle-rulings-marker')).not.toBeNull();
@@ -638,7 +661,12 @@ describe('GameCardViewComponent', () => {
 
     fixture.componentRef.setInput('mode', 'battlefield');
     fixture.componentRef.setInput('zone', 'battlefield');
-    fixture.componentRef.setInput('card', { ...gameCard(), scryfallId: '22222222-3fbb-4a42-9cf6-b3224f5a56fc', isToken: true });
+    fixture.componentRef.setInput('card', {
+      ...gameCard(),
+      scryfallId: '22222222-3fbb-4a42-9cf6-b3224f5a56fc',
+      hasRulings: true,
+      isToken: true,
+    });
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelector('.oracle-rulings-marker')).toBeNull();
