@@ -2,7 +2,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import ts from 'typescript';
 
-export const SITEMAP_BASE_URL = 'https://commanderzone.com';
+export const SITEMAP_BASE_URL = 'https://www.commanderzone.com';
 export const SITEMAP_INDEX_PUBLIC_PATH = 'sitemap-index.xml';
 export const SEO_SITEMAP_PUBLIC_PATH = 'sitemaps/sitemap-seo.xml';
 

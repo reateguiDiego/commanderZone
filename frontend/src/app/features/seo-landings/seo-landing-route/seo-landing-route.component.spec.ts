@@ -57,19 +57,19 @@ describe('SeoLandingRouteComponent', () => {
     expect(document.head.querySelector('meta[data-cz-seo="true"][property="og:title"]')?.getAttribute('content')).toContain('Asistente de mesa');
     expect(document.head.querySelector('meta[data-cz-seo="true"][property="og:description"]')?.getAttribute('content')).toContain('Asistente de mesa');
     expect(document.head.querySelector('meta[data-cz-seo="true"][property="og:type"]')?.getAttribute('content')).toBe('website');
-    expect(document.head.querySelector('meta[data-cz-seo="true"][property="og:url"]')?.getAttribute('content')).toBe('https://commanderzone.com/es/asistente-de-mesa-magic/');
-    expect(document.head.querySelector('meta[data-cz-seo="true"][property="og:image"]')?.getAttribute('content')).toBe('https://commanderzone.com/assets/og/table-assistant-og.png');
+    expect(document.head.querySelector('meta[data-cz-seo="true"][property="og:url"]')?.getAttribute('content')).toBe('https://www.commanderzone.com/es/asistente-de-mesa-magic/');
+    expect(document.head.querySelector('meta[data-cz-seo="true"][property="og:image"]')?.getAttribute('content')).toBe('https://www.commanderzone.com/assets/og/table-assistant-og.png');
     expect(document.head.querySelector('meta[data-cz-seo="true"][property="og:locale"]')?.getAttribute('content')).toBe('es_ES');
     expect(document.head.querySelectorAll('meta[data-cz-seo="true"][property="og:locale:alternate"]').length).toBe(12);
     expect(document.head.querySelector('meta[data-cz-seo="true"][name="twitter:card"]')?.getAttribute('content')).toBe('summary_large_image');
     expect(document.head.querySelector('meta[data-cz-seo="true"][name="twitter:title"]')?.getAttribute('content')).toContain('Asistente de mesa');
     expect(document.head.querySelector('meta[data-cz-seo="true"][name="twitter:description"]')?.getAttribute('content')).toContain('Asistente de mesa');
-    expect(document.head.querySelector('meta[data-cz-seo="true"][name="twitter:image"]')?.getAttribute('content')).toBe('https://commanderzone.com/assets/og/table-assistant-og.png');
-    expect(canonical?.getAttribute('href')).toBe('https://commanderzone.com/es/asistente-de-mesa-magic/');
-    expect(preload?.getAttribute('href')).toBe('https://commanderzone.com/assets/og/table-assistant-og.png');
+    expect(document.head.querySelector('meta[data-cz-seo="true"][name="twitter:image"]')?.getAttribute('content')).toBe('https://www.commanderzone.com/assets/og/table-assistant-og.png');
+    expect(canonical?.getAttribute('href')).toBe('https://www.commanderzone.com/es/asistente-de-mesa-magic/');
+    expect(preload?.getAttribute('href')).toBe('https://www.commanderzone.com/assets/og/table-assistant-og.png');
     expect(preload?.getAttribute('fetchpriority')).toBe('high');
     expect(alternates.length).toBe(14);
-    expect(xDefault?.getAttribute('href')).toBe('https://commanderzone.com/es/asistente-de-mesa-magic/');
+    expect(xDefault?.getAttribute('href')).toBe('https://www.commanderzone.com/es/asistente-de-mesa-magic/');
     const jsonLdGraph = jsonLd?.textContent ? getJsonLdGraph(jsonLd.textContent) : [];
     expect(jsonLdGraph.map((node) => node['@type'])).toEqual(expect.arrayContaining([
       'Organization',
@@ -78,7 +78,7 @@ describe('SeoLandingRouteComponent', () => {
       'FAQPage',
     ]));
     expect(jsonLdGraph.find((node) => node['@type'] === 'SoftwareApplication')?.['url']).toBe(
-      'https://commanderzone.com/es/asistente-de-mesa-magic/',
+      'https://www.commanderzone.com/es/asistente-de-mesa-magic/',
     );
     expect(jsonLdGraph.find((node) => node['@type'] === 'FAQPage')?.['mainEntity']).toEqual(expect.arrayContaining([
       expect.objectContaining({

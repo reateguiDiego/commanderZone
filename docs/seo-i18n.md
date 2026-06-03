@@ -193,7 +193,7 @@ Rules:
 
 Redirects must preserve the SEO architecture:
 
-- Canonical production origin is `https://commanderzone.com`.
+- Canonical production origin is `https://www.commanderzone.com`.
 - Redirect rules must not create alternate canonical hosts.
 - Redirect validation is handled by `npm run validate:canonical`.
 - Do not redirect localized SEO URLs to a different language unless it is a deliberate user navigation outside canonical metadata.

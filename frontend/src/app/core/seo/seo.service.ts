@@ -48,7 +48,7 @@ export interface SeoLinkTag {
 export type SeoMetaTag = Readonly<Record<string, string>>;
 
 const SEO_MANAGED_ATTRIBUTE = 'data-cz-seo';
-export const SEO_CANONICAL_ORIGIN = 'https://commanderzone.com';
+export const SEO_CANONICAL_ORIGIN = 'https://www.commanderzone.com';
 export const SEO_DEFAULT_OPEN_GRAPH_IMAGE = '/assets/og/default-og.png';
 const OPEN_GRAPH_LOCALES: Readonly<Record<LocaleCode, string>> = {
   es: 'es_ES',

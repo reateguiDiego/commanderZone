@@ -37,7 +37,7 @@ function assertSitemapIndex(xml) {
     throw new Error('sitemap-index.xml must be a valid sitemap index.');
   }
 
-  if (!xml.includes('<loc>https://commanderzone.com/sitemaps/sitemap-seo.xml</loc>')) {
+  if (!xml.includes('<loc>https://www.commanderzone.com/sitemaps/sitemap-seo.xml</loc>')) {
     throw new Error('sitemap-index.xml must reference sitemap-seo.xml.');
   }
 }

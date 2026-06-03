@@ -17,7 +17,7 @@ const disallowRules = directives
 
 assertHasDirective(directives, 'user-agent', '*');
 assertHasDirective(directives, 'allow', '/');
-assertHasDirective(directives, 'sitemap', 'https://commanderzone.com/sitemap-index.xml');
+assertHasDirective(directives, 'sitemap', 'https://www.commanderzone.com/sitemap-index.xml');
 assertNoGlobalDisallow(disallowRules);
 assertSeoRoutesAreAllowed(seoRoutes, disallowRules);
 assertInternalRoutesAreNotBlockedInRobots(disallowRules);
