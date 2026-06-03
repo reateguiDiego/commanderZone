@@ -99,7 +99,7 @@ type BattlefieldFocusEntry = 'left' | 'right' | 'fade' | null;
 
 const MIN_STACK_VISUAL_OFFSET_Y = 12;
 const MAX_STACK_VISUAL_OFFSET_Y = 25;
-const EMPTY_MANA_POOL: ManaPool = { ANY: 0, W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 };
+const EMPTY_MANA_POOL: ManaPool = { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 };
 
 @Component({
   selector: 'app-focused-battlefield',
@@ -172,8 +172,6 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
   readonly manaLaneDropped = output<{ event: DragEvent; playerId: string }>();
   readonly manaPoolColorAdded = output<{ playerId: string; color: ManaPoolColor }>();
   readonly manaPoolColorRemoved = output<{ playerId: string; color: ManaPoolColor }>();
-  readonly manaPoolAnyAdded = output<{ playerId: string }>();
-  readonly manaPoolAnyRemoved = output<{ playerId: string }>();
   readonly manaPoolHidden = output<{ playerId: string }>();
   readonly battlefieldSizeChanged = output<BattlefieldSizeEvent>();
   readonly boardTransitioning = signal(false);

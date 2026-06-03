@@ -2317,7 +2317,6 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   updateManaActionDialog(change: ManaActionDialogValueChange): void {
     this.manaActionDialog.update((request) => request ? {
       ...request,
-      selectedColor: change.color ?? request.selectedColor,
       amount: change.amount ?? request.amount,
     } : request);
   }

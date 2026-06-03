@@ -30,9 +30,6 @@
                   @case ('fixed') {
                     Fixed
                   }
-                  @case ('choice') {
-                    Choose {{ part.amount }}
-                  }
                   @case ('variable') {
                     Manual
                   }
@@ -53,33 +50,7 @@
                   }
                 </div>
               }
-              @case ('choice') {
-                <div class="mana-production-colors" aria-label="Choose color">
-                  @for (color of part.colors; track color) {
-                    <button
-                      type="button"
-                      class="mana-production-color"
-                      [class.selected]="selectedProductionColor(part) === color"
-                      (click)="updateProductionColor(part, color)"
-                    >
-                      <app-mana-symbols [symbols]="[color]" size="small" />
-                    </button>
-                  }
-                </div>
-              }
               @case ('variable') {
-                <div class="mana-production-colors" aria-label="Choose color">
-                  @for (color of part.colors; track color) {
-                    <button
-                      type="button"
-                      class="mana-production-color"
-                      [class.selected]="selectedProductionColor(part) === color"
-                      (click)="updateProductionColor(part, color)"
-                    >
-                      <app-mana-symbols [symbols]="[color]" size="small" />
-                    </button>
-                  }
-                </div>
                 <div class="mana-production-stepper">
                   <app-game-x-quantity-stepper
                     [value]="selectedProductionAmount(part)"
@@ -106,19 +77,6 @@
                 <app-mana-symbols [symbols]="[addition.color]" size="small" />
                 <strong>{{ addition.amount }}</strong>
               </span>
-            }
-          </div>
-        } @else if (showColorSelector()) {
-          <div class="mana-choice-grid" aria-label="Choose mana color">
-            @for (color of suggestion().colors; track color) {
-              <button
-                type="button"
-                class="mana-choice"
-                [class.selected]="selectedColor() === color"
-                (click)="updateColor(color)"
-              >
-                <app-mana-symbols [symbols]="[color]" size="small" />
-              </button>
             }
           </div>
         }

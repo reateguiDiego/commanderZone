@@ -601,7 +601,7 @@ describe('GameTableComponent', () => {
     expect(fixture.componentInstance.store.manaPool('user-1').C).toBe(2);
   });
 
-  it('opens the mana dialog when a visible tap-only mana artifact needs a color choice', async () => {
+  it('does not open the mana dialog for visible tap-only any-color artifacts', async () => {
     authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
     const fixture = TestBed.createComponent(GameTableComponent);
     const snapshot = snapshotWithStatus('active');
@@ -630,8 +630,7 @@ describe('GameTableComponent', () => {
         card: arcaneSignet,
       });
 
-      expect(fixture.componentInstance.manaActionDialog()?.suggestion.kind).toBe('choice');
-      expect(fixture.componentInstance.manaActionDialog()?.suggestion.colors).toEqual(['U', 'R']);
+      expect(fixture.componentInstance.manaActionDialog()).toBeNull();
       expect(fixture.componentInstance.store.manaPool('user-1').U).toBe(0);
       expect(fixture.componentInstance.store.manaPool('user-1').R).toBe(0);
     } finally {
@@ -639,7 +638,7 @@ describe('GameTableComponent', () => {
     }
   });
 
-  it('adds mana automatically when a tap-only choice source has a single available color', async () => {
+  it('does not add mana automatically from tap-only any-color sources even with a single commander color', async () => {
     authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
     const fixture = TestBed.createComponent(GameTableComponent);
     const snapshot = snapshotWithStatus('active');
@@ -659,7 +658,7 @@ describe('GameTableComponent', () => {
 
     await fixture.componentInstance.store.toggleTapped('user-1', 'battlefield', arcaneSignet);
 
-    expect(fixture.componentInstance.store.manaPool('user-1').G).toBe(1);
+    expect(fixture.componentInstance.store.manaPool('user-1').G).toBe(0);
     expect(fixture.componentInstance.manaActionDialog()).toBeNull();
   });
 
@@ -808,11 +807,11 @@ describe('GameTableComponent', () => {
           card,
         },
         suggestion: {
-          kind: 'choice',
+          kind: 'variable',
           cardName: 'Exotic Orchard',
-          summary: 'Choose one mana from:',
+          summary: 'Add {U}',
           additions: [],
-          colors: ['U', 'G'],
+          colors: ['U'],
           amount: 1,
           restriction: null,
           manualOnly: false,

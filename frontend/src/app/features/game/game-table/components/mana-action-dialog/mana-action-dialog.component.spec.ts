@@ -85,24 +85,6 @@ describe('ManaActionDialogComponent', () => {
     expect(fixture.nativeElement.querySelector('.mana-selection-panel')).toBeNull();
   });
 
-  it('removes repeated color symbols from choice summaries', () => {
-    const fixture = createFixture({
-      kind: 'choice',
-      cardName: 'Exotic Orchard',
-      summary: 'Choose one mana from {W}, {U}, {B}, {R}, {G}.',
-      additions: [],
-      colors: ['W', 'U', 'B', 'R', 'G'],
-      amount: 1,
-      restriction: null,
-      manualOnly: false,
-    });
-    const element = fixture.nativeElement as HTMLElement;
-
-    expect(element.querySelector('.mana-summary')?.textContent?.trim()).toBe('Choose one mana from:');
-    expect(element.querySelector('.mana-summary app-mana-symbols')).toBeNull();
-    expect(element.querySelectorAll('.mana-choice app-mana-symbols').length).toBe(5);
-  });
-
   it('uses the selection panel when mana needs quantity or fixed preview', () => {
     const fixedFixture = createFixture({
       kind: 'fixed',
@@ -151,6 +133,45 @@ describe('ManaActionDialogComponent', () => {
     expect(primaryButton(fixture).disabled).toBe(false);
   });
 
+  it('does not render a multi-color selector even if a suggestion carries multiple colors', () => {
+    const fixture = createFixture({
+      kind: 'variable',
+      cardName: 'Manual Source',
+      summary: 'Variable mana amount.',
+      additions: [],
+      colors: ['U', 'G'],
+      amount: 1,
+      restriction: null,
+      manualOnly: false,
+    }, 'U', 1);
+    const element = fixture.nativeElement as HTMLElement;
+
+    expect(element.querySelector('.mana-choice-grid')).toBeNull();
+    expect(element.querySelectorAll('.mana-choice app-mana-symbols').length).toBe(0);
+    expect(element.querySelector('app-game-x-quantity-stepper')).not.toBeNull();
+  });
+
+  it('keeps variable mana confirmation anchored to the provided selected color', () => {
+    const fixture = createFixture({
+      kind: 'variable',
+      cardName: 'Manual Source',
+      summary: 'Variable mana amount.',
+      additions: [],
+      colors: ['U', 'G'],
+      amount: 1,
+      restriction: null,
+      manualOnly: false,
+    }, 'U', 3);
+    let additions: readonly { color: string; amount: number }[] = [];
+    fixture.componentInstance.confirmed.subscribe((value) => {
+      additions = value;
+    });
+
+    primaryButton(fixture).click();
+
+    expect(additions).toEqual([{ color: 'U', amount: 3 }]);
+  });
+
   it('emits selected color and amount for variable mana', () => {
     const fixture = createFixture({
       kind: 'variable',
@@ -178,25 +199,11 @@ describe('ManaActionDialogComponent', () => {
       cardName: 'Command Tower',
       summary: 'Build mana from:',
       additions: [],
-      colors: ['W', 'U', 'G'],
+      colors: ['G'],
       amount: 1,
       restriction: null,
       manualOnly: false,
       productionParts: [
-        {
-          id: 'base',
-          kind: 'choice',
-          label: 'Command Tower',
-          amount: 1,
-          colors: ['U', 'G'],
-        },
-        {
-          id: 'attachment-fertile-ground',
-          kind: 'choice',
-          label: 'Fertile Ground',
-          amount: 1,
-          colors: ['W', 'U', 'B', 'R', 'G'],
-        },
         {
           id: 'attachment-overgrowth',
           kind: 'fixed',
@@ -211,19 +218,11 @@ describe('ManaActionDialogComponent', () => {
     });
     const element = fixture.nativeElement as HTMLElement;
 
-    const baseBlue = element.querySelectorAll('.mana-production-part')[0]?.querySelectorAll('.mana-production-color')[0] as HTMLButtonElement;
-    const fertileWhite = element.querySelectorAll('.mana-production-part')[1]?.querySelectorAll('.mana-production-color')[0] as HTMLButtonElement;
-    baseBlue.click();
-    fertileWhite.click();
-    fixture.detectChanges();
     primaryButton(fixture).click();
 
-    expect(element.querySelectorAll('.mana-production-part').length).toBe(3);
+    expect(element.querySelectorAll('.mana-production-part').length).toBe(1);
     expect(element.textContent).not.toContain('Build mana from');
-    expect(element.textContent).toContain('Command Tower');
     expect(additions).toEqual([
-      { color: 'W', amount: 1 },
-      { color: 'U', amount: 1 },
       { color: 'G', amount: 2 },
     ]);
   });
@@ -268,12 +267,12 @@ describe('ManaActionDialogComponent', () => {
   it('keeps the popover inside the left viewport edge', () => {
     setViewportSize(320, 240);
     const fixture = createFixture({
-      kind: 'choice',
+      kind: 'fixed',
       cardName: 'Exotic Orchard',
-      summary: 'Choose one mana from {W}, {U}.',
-      additions: [],
-      colors: ['W', 'U'],
-      amount: 1,
+      summary: 'Add {U}.',
+      additions: [{ color: 'U', amount: 1 }],
+      colors: ['U'],
+      amount: 0,
       restriction: null,
       manualOnly: false,
     }, null, 1, { x: 4, y: 24 });

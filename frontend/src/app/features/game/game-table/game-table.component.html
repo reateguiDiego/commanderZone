@@ -362,8 +362,6 @@
             (manaLaneDropped)="handleManaLaneDrop($event)"
             (manaPoolColorAdded)="store.incrementMana($event.playerId, $event.color)"
             (manaPoolColorRemoved)="store.decrementMana($event.playerId, $event.color)"
-            (manaPoolAnyAdded)="store.incrementAnyMana($event.playerId)"
-            (manaPoolAnyRemoved)="store.decrementAnyMana($event.playerId)"
             (manaPoolHidden)="store.hideManaPool($event.playerId)"
             (battlefieldSizeChanged)="updateBattlefieldLayoutSize($event)"
           />

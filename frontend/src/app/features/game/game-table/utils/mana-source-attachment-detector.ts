@@ -20,7 +20,6 @@ interface AttachedManaEffect {
 }
 
 const COLOR_ORDER: readonly ManaPoolColor[] = ['W', 'U', 'B', 'R', 'G', 'C'];
-const COLORED_MANA: readonly ManaPoolColor[] = ['W', 'U', 'B', 'R', 'G'];
 const MANA_SYMBOL_PATTERN = /\{([WUBRGC])\}/gi;
 const DIRECT_ADD_PATTERN = /\badd(?:s)?(?:\s+an?\s+additional)?\s+((?:\{[WUBRGC]\})+)/gi;
 
@@ -60,7 +59,7 @@ export function mergeAttachedManaSourceSuggestion(
   const baseColors = suggestionColors(baseSuggestion);
   const baseParts = productionPartsFromSuggestion(baseSuggestion);
   const effects = attachedCards
-    .map((attachedCard) => detectAttachedManaEffect(attachedCard, baseColors))
+    .map((attachedCard) => detectAttachedManaEffect(attachedCard))
     .filter((effect): effect is AttachedManaEffect => effect !== null);
 
   if (effects.length === 0) {
@@ -83,7 +82,7 @@ export function mergeAttachedManaSourceSuggestion(
     cardName: baseSuggestion.cardName,
     summary: safeColors.length === 1
       ? `Add {${safeColors[0]}}`
-      : `Choose X mana from ${safeColors.map((color) => `{${color}}`).join(', ')}.`,
+      : 'Add mana from attached sources.',
     additions: [],
     colors: safeColors,
     amount: 1,
@@ -93,7 +92,7 @@ export function mergeAttachedManaSourceSuggestion(
   };
 }
 
-function detectAttachedManaEffect(card: GameCardInstance, baseColors: readonly ManaPoolColor[]): AttachedManaEffect | null {
+function detectAttachedManaEffect(card: GameCardInstance): AttachedManaEffect | null {
   const { cardName, oracleText, typeLine } = activeCardText(card);
   if (!oracleText) {
     return null;
@@ -104,9 +103,8 @@ function detectAttachedManaEffect(card: GameCardInstance, baseColors: readonly M
     return null;
   }
 
-  return {
-    part: attachedManaPart(card.instanceId, cardName, oracleText, text, baseColors),
-  };
+  const part = attachedManaPart(card.instanceId, cardName, oracleText, text);
+  return part ? { part } : null;
 }
 
 function activeCardText(card: GameCardInstance): ActiveCardText {
@@ -160,8 +158,7 @@ function attachedManaPart(
   label: string,
   oracleText: string,
   text: string,
-  baseColors: readonly ManaPoolColor[],
-): ManaProductionPart {
+): ManaProductionPart | null {
   const fixedAdditions = directSymbolAdditions(oracleText);
   if (fixedAdditions.length > 0 && !text.includes('chosen color')) {
     return {
@@ -172,59 +169,23 @@ function attachedManaPart(
     };
   }
 
-  const amount = wordAmount(text);
   if (
     text.includes('any color')
     || text.includes('any one color')
     || text.includes('chosen color')
   ) {
-    return {
-      id: `attachment-${id}`,
-      kind: 'choice',
-      label,
-      amount,
-      colors: COLORED_MANA,
-    };
+    return null;
   }
 
   if (text.includes('any combination of colors')) {
-    return {
-      id: `attachment-${id}`,
-      kind: 'variable',
-      label,
-      amount,
-      colors: COLORED_MANA,
-    };
+    return null;
   }
 
   if (text.includes('any type that') || text.includes('a type that')) {
-    return {
-      id: `attachment-${id}`,
-      kind: 'choice',
-      label,
-      amount,
-      colors: baseColors.length > 0 ? baseColors : COLOR_ORDER,
-    };
+    return null;
   }
 
-  const directColors = directSymbols(oracleText);
-  if (directColors.length > 0) {
-    return {
-      id: `attachment-${id}`,
-      kind: 'choice',
-      label,
-      amount,
-      colors: directColors,
-    };
-  }
-
-  return {
-    id: `attachment-${id}`,
-    kind: 'variable',
-    label,
-    amount,
-    colors: baseColors.length > 0 ? baseColors : COLOR_ORDER,
-  };
+  return null;
 }
 
 function productionPartsFromSuggestion(suggestion: ManaSourceSuggestion): readonly ManaProductionPart[] {
@@ -239,16 +200,6 @@ function productionPartsFromSuggestion(suggestion: ManaSourceSuggestion): readon
 
   if (suggestion.colors.length === 0) {
     return [];
-  }
-
-  if (suggestion.kind === 'choice' || suggestion.kind === 'restricted') {
-    return [{
-      id: 'base',
-      kind: 'choice',
-      label: suggestion.cardName,
-      amount: Math.max(1, suggestion.amount),
-      colors: suggestion.colors,
-    }];
   }
 
   if (suggestion.kind === 'variable') {
@@ -308,10 +259,6 @@ function suggestionColors(suggestion: ManaSourceSuggestion): readonly ManaPoolCo
   ]);
 }
 
-function directSymbols(oracleText: string): readonly ManaPoolColor[] {
-  return orderedUniqueColors(Array.from(oracleText.matchAll(MANA_SYMBOL_PATTERN), (match) => match[1]?.toUpperCase() as ManaPoolColor));
-}
-
 function isLandPermanent(card: GameCardInstance): boolean {
   return /\bland\b/i.test(activeCardText(card).typeLine || card.typeLine || '');
 }
@@ -331,15 +278,4 @@ function isManaColor(value: string | undefined): value is ManaPoolColor {
 
 function totalAmount(additions: readonly ManaAddition[]): number {
   return additions.reduce((total, addition) => total + addition.amount, 0);
-}
-
-function wordAmount(text: string): number {
-  if (/\bthree mana\b/.test(text)) {
-    return 3;
-  }
-  if (/\btwo mana\b/.test(text)) {
-    return 2;
-  }
-
-  return 1;
 }

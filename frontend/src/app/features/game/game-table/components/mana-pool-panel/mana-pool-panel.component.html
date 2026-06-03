@@ -16,50 +16,6 @@
     <lucide-icon name="x" size="12" aria-hidden="true" />
   </button>
 
-  <div class="any-color-pool" [class.controls-active]="activeControls() === 'ANY'">
-    <button
-      type="button"
-      class="any-color-symbol"
-      [class.mana-empty]="anyValue() === 0"
-      data-mana-pool-color="ANY"
-      title="Any color"
-      aria-label="Any color"
-      (pointerdown)="activateControls('ANY', $event)"
-    >
-      @for (color of anyColorSymbols; track color) {
-        <span class="any-color-cell any-color-cell--{{ color.toLowerCase() }}" aria-hidden="true">
-          <app-mana-symbols [symbols]="[color]" [costBackground]="false" />
-        </span>
-      }
-      <strong>{{ anyValue() }}</strong>
-    </button>
-    <div class="mana-step-stack">
-      <button
-        type="button"
-        class="step-button step-button--add"
-        title="Add Any color"
-        aria-label="Add Any color"
-        [disabled]="!canAddAny()"
-        (click)="anyAdded.emit()"
-      >
-        <lucide-icon name="plus" size="15" aria-hidden="true" />
-      </button>
-      @if (anyValue() > 0) {
-        <button
-          type="button"
-          class="step-button step-button--remove"
-          title="Remove Any color"
-          aria-label="Remove Any color"
-          (click)="anyRemoved.emit()"
-        >
-          <lucide-icon name="minus" size="15" aria-hidden="true" />
-        </button>
-      } @else {
-        <span class="step-button-spacer" aria-hidden="true"></span>
-      }
-    </div>
-  </div>
-
   <div class="mana-pool-grid" [style.--mana-pool-visible-color-count]="visibleColorCount()">
     @for (color of colors(); track color) {
       <div class="mana-pool-color" [class.controls-active]="activeControls() === color">

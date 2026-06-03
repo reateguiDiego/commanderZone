@@ -101,8 +101,6 @@
         [pendingColors]="pendingManaColors()"
         (colorAdded)="manaPoolColorAdded.emit({ playerId: focusedPlayer.id, color: $event })"
         (colorRemoved)="manaPoolColorRemoved.emit({ playerId: focusedPlayer.id, color: $event })"
-        (anyAdded)="manaPoolAnyAdded.emit({ playerId: focusedPlayer.id })"
-        (anyRemoved)="manaPoolAnyRemoved.emit({ playerId: focusedPlayer.id })"
         (hidden)="manaPoolHidden.emit({ playerId: focusedPlayer.id })"
         (menuOpened)="manaPoolMenuOpened.emit({ event: $event, playerId: focusedPlayer.id })"
       />

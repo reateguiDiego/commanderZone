@@ -6,7 +6,6 @@ import { ManaPoolColor } from '../../utils/mana-source-detector';
 
 const IDENTITY_MANA_COLORS: readonly ManaPoolColor[] = ['W', 'U', 'B', 'R', 'G'];
 const MANA_POOL_COLORS: readonly ManaPoolColor[] = [...IDENTITY_MANA_COLORS, 'C'];
-const ANY_COLOR_MANA_SYMBOLS: readonly ManaPoolColor[] = ['W', 'U', 'B', 'R', 'G'];
 const MANA_TYPE_NAMES: Readonly<Record<ManaPoolColor, string>> = {
   W: 'White mana',
   U: 'Blue mana',
@@ -60,8 +59,6 @@ export class ManaPoolPanelComponent {
 
   readonly colorAdded = output<ManaPoolColor>();
   readonly colorRemoved = output<ManaPoolColor>();
-  readonly anyAdded = output<void>();
-  readonly anyRemoved = output<void>();
   readonly hidden = output<void>();
   readonly menuOpened = output<MouseEvent>();
 
@@ -74,9 +71,8 @@ export class ManaPoolPanelComponent {
 
     return [...visibleIdentityColors, 'C'];
   });
-  readonly anyColorSymbols = ANY_COLOR_MANA_SYMBOLS;
   readonly visibleColorCount = computed(() => this.colors().length);
-  readonly total = computed(() => this.anyValue() + MANA_POOL_COLORS.reduce((sum, color) => sum + this.pool()[color], 0));
+  readonly total = computed(() => MANA_POOL_COLORS.reduce((sum, color) => sum + this.pool()[color], 0));
   readonly symbolColor = computed(() => contrastManaColorForBackground(this.backgroundName()));
   readonly symbolColorStyle = computed(() => MANA_SYMBOL_PAINT_COLORS[this.symbolColor()]);
 
@@ -103,16 +99,8 @@ export class ManaPoolPanelComponent {
     this.hidden.emit();
   }
 
-  canAddAny(): boolean {
-    return this.anyValue() < MAX_MANA_POOL_AMOUNT;
-  }
-
   canAdd(color: ManaPoolColor): boolean {
     return this.value(color) < MAX_MANA_POOL_AMOUNT;
-  }
-
-  anyValue(): number {
-    return this.pool().ANY;
   }
 
   value(color: ManaPoolColor): number {
