@@ -21,15 +21,15 @@
   gap: 1rem;
   align-items: flex-start;
   justify-content: space-between;
-  border: 1px solid rgb(255 255 255 / 10%);
+  border: 1px solid rgb(var(--cz-text-rgb) / 10%);
   border-radius: 8px;
   padding: 1rem;
-  background: rgb(255 255 255 / 5%);
+  background: rgb(var(--cz-text-rgb) / 5%);
 }
 
 .assignment,
 .notice {
-  color: rgb(226 232 240 / 72%);
+  color: rgb(var(--cz-text-rgb) / 72%);
 }
 
 .room-meta-strip {
@@ -48,16 +48,16 @@
   place-items: center;
   width: 3.15rem;
   height: 3.15rem;
-  border: 1px solid rgb(255 255 255 / 14%);
+  border: 1px solid rgb(var(--cz-text-rgb) / 14%);
   border-radius: 999px;
-  background: rgb(15 23 42 / 88%);
+  background: rgb(var(--cz-bg-rgb) / 88%);
 }
 
 .person-symbol {
   display: block;
   width: 1.35rem;
   height: 1.35rem;
-  background: #e0f2fe;
+  background: var(--cz-text);
   clip-path: polygon(
     50% 0,
     68% 15%,
@@ -80,10 +80,10 @@
   min-width: 1.35rem;
   height: 1.35rem;
   padding: 0 0.25rem;
-  border: 2px solid rgb(15 23 42);
+  border: 2px solid rgb(var(--cz-bg-rgb) / 100%);
   border-radius: 999px;
-  background: #67e8f9;
-  color: #082f49;
+  background: var(--cz-info);
+  color: var(--cz-surface);
   font-size: 0.76rem;
   font-weight: 900;
 }
@@ -101,10 +101,10 @@
 .global-trackers article {
   display: grid;
   gap: 0.35rem;
-  border: 1px solid rgb(255 255 255 / 10%);
+  border: 1px solid rgb(var(--cz-text-rgb) / 10%);
   border-radius: 8px;
   padding: 0.75rem;
-  background: rgb(255 255 255 / 5%);
+  background: rgb(var(--cz-text-rgb) / 5%);
 }
 
 .global-trackers strong {
@@ -113,10 +113,10 @@
 
 button {
   min-height: 2.75rem;
-  border: 1px solid rgb(255 255 255 / 12%);
+  border: 1px solid rgb(var(--cz-text-rgb) / 12%);
   border-radius: 8px;
   padding: 0 0.85rem;
-  background: rgb(255 255 255 / 7%);
+  background: rgb(var(--cz-text-rgb) / 7%);
   color: inherit;
   font-weight: 700;
   cursor: pointer;
@@ -128,9 +128,9 @@ button:disabled {
 }
 
 .primary-button {
-  border-color: #67e8f9;
-  background: #67e8f9;
-  color: #082f49;
+  border-color: var(--cz-info);
+  background: var(--cz-info);
+  color: var(--cz-surface);
 }
 
 .symbol-button {
@@ -151,8 +151,8 @@ button:disabled {
 }
 
 .player-panel {
-  --player-gradient: linear-gradient(135deg, #38bdf8, #1d4ed8);
-  --player-accent: #38bdf8;
+  --player-gradient: linear-gradient(135deg, var(--cz-info), var(--cz-primary));
+  --player-accent: var(--cz-info);
   --extras-button-size: 2.25rem;
   --extras-gutter: 0.08rem;
 
@@ -161,7 +161,7 @@ button:disabled {
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-  border: 1px solid rgb(255 255 255 / 12%);
+  border: 1px solid rgb(var(--cz-text-rgb) / 12%);
   border-radius: 8px;
   background: var(--player-gradient);
   transition:
@@ -189,7 +189,7 @@ button:disabled {
   position: absolute;
   inset: 0;
   z-index: 0;
-  background: linear-gradient(145deg, rgb(2 6 23 / 26%), rgb(2 6 23 / 8%));
+  background: linear-gradient(145deg, rgb(var(--cz-bg-rgb) / 26%), rgb(var(--cz-bg-rgb) / 8%));
 }
 
 .player-panel.active {
@@ -240,7 +240,7 @@ button:disabled {
   display: grid;
   place-items: center;
   pointer-events: none;
-  background: rgb(2 6 23 / 30%);
+  background: rgb(var(--cz-bg-rgb) / 30%);
 }
 
 .skull-image {
@@ -296,7 +296,7 @@ button:disabled {
 .player-panel h2 {
   max-width: 15ch;
   overflow: hidden;
-  color: white;
+  color: var(--cz-text);
   font-size: clamp(0.78rem, 1.6vw, 0.98rem);
   line-height: 1.25;
   text-overflow: clip;
@@ -307,7 +307,7 @@ button:disabled {
   width: 0.72rem;
   height: 0.72rem;
   flex: 0 0 auto;
-  border: 1px solid rgb(255 255 255 / 60%);
+  border: 1px solid rgb(var(--cz-text-rgb) / 60%);
   border-radius: 999px;
 }
 
@@ -346,15 +346,15 @@ button:disabled {
   grid-template-columns: minmax(0, 1fr) auto auto auto;
   gap: 0.5rem;
   align-items: center;
-  border: 1px solid rgb(255 255 255 / 9%);
+  border: 1px solid rgb(var(--cz-text-rgb) / 9%);
   border-radius: 8px;
   padding: 0.5rem;
-  background: rgb(255 255 255 / 4%);
+  background: rgb(var(--cz-text-rgb) / 4%);
 }
 
 .commander-damage-trigger {
   z-index: 2;
-  --extra-actions-accent: #f4c95d;
+  --extra-actions-accent: var(--cz-accent);
   --extra-actions-menu-width: 12.5rem;
   --extra-actions-size: var(--extras-button-size);
   --extra-actions-z-index: 5;
@@ -388,7 +388,7 @@ button:disabled {
 }
 
 .commander-damage-board header strong {
-  color: #f7dfaa;
+  color: var(--cz-secondary);
   font-size: 0.82rem;
 }
 
@@ -411,17 +411,17 @@ button:disabled {
 }
 
 .commander-damage-list .lethal {
-  border-color: rgb(248 113 113 / 65%);
-  background: rgb(127 29 29 / 24%);
+  border-color: rgb(var(--cz-danger-rgb) / 65%);
+  background: rgb(var(--cz-surface-rgb) / 24%);
 }
 
 .commander-damage-list small {
-  color: #fecaca;
+  color: var(--cz-text);
   font-weight: 800;
 }
 
 .error {
-  color: #fecaca;
+  color: var(--cz-text);
 }
 
 .room-meta-strip {
@@ -475,10 +475,10 @@ button:disabled {
     display: grid;
     gap: 0.35rem;
     width: min(24rem, 100%);
-    border: 1px solid rgb(255 255 255 / 12%);
+    border: 1px solid rgb(var(--cz-text-rgb) / 12%);
     border-radius: 8px;
     padding: 1.25rem;
-    background: rgb(15 23 42 / 92%);
+    background: rgb(var(--cz-bg-rgb) / 92%);
     text-align: center;
   }
 
@@ -487,6 +487,6 @@ button:disabled {
   }
 
   .orientation-lock span {
-    color: rgb(226 232 240 / 72%);
+    color: rgb(var(--cz-text-rgb) / 72%);
   }
 }

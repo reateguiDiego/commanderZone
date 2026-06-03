@@ -1,3 +1,4 @@
+import { RuntimeTranslatePipe } from '../../localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, computed, inject, output, signal } from '@angular/core';
 import { BodyScrollLockService } from '../../../shared/services/body-scroll-lock.service';
 import {
@@ -9,6 +10,7 @@ import {
 
 @Component({
   selector: 'app-roll-modal',
+  imports: [RuntimeTranslatePipe],
   templateUrl: './roll-modal.component.html',
   styleUrl: './roll-modal.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

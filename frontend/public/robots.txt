@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+
+# Runtime/internal routes are not blocked here. They must use route-level
+# noindex when configured, so crawlers can read the robots meta directive.
+Sitemap: https://commanderzone.com/sitemap-index.xml

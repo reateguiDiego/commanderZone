@@ -1,10 +1,11 @@
+import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
 import { PageHeaderState } from '../../../../../core/ui/page-header.store';
 
 @Component({
   selector: 'app-dashboard-header-context',
-  imports: [LucideAngularModule],
+  imports: [RuntimeTranslatePipe, LucideAngularModule],
   templateUrl: './dashboard-header-context.component.html',
   styleUrl: './dashboard-header-context.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

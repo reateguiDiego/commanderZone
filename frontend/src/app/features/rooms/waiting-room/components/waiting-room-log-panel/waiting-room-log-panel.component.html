@@ -1,9 +1,9 @@
 <aside class="room-log-panel">
   <header>
-    <strong>Activity</strong>
+    <strong>{{ 'rooms.waitingRoomLogPanel.activity' | runtimeTranslate }}</strong>
   </header>
 
-  <section appPrettyScroll class="room-log" aria-label="Activity">
+  <section appPrettyScroll class="room-log" [attr.aria-label]="'rooms.waitingRoomLogPanel.activity' | runtimeTranslate">
     @if (entries().length > 0) {
       @for (entry of entries(); track entry.id) {
         <article class="room-log-entry" [class.success]="entry.tone === 'success'">
@@ -12,7 +12,7 @@
         </article>
       }
     } @else {
-      <p class="muted">Room events will appear here.</p>
+      <p class="muted">{{ 'rooms.waitingRoomLogPanel.roomEventsWillAppearHere' | runtimeTranslate }}</p>
     }
   </section>
 </aside>

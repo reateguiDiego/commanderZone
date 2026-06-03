@@ -61,6 +61,13 @@
         </div>
       }
 
+      <a class="menu-item" role="menuitem" [href]="publicFaqHref()">
+        <span class="menu-item-main">
+          <lucide-icon name="circle-question-mark" size="16" />
+          <span>{{ publicFaqLabel() }}</span>
+        </span>
+      </a>
+
       <button class="menu-item danger" type="button" role="menuitem" (click)="selectLogoff()">
         <span class="menu-item-main">
           <lucide-icon name="log-out" size="16" />

@@ -1,9 +1,10 @@
+import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, computed, input, output, signal } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
 
 @Component({
   selector: 'app-number-action-dialog',
-  imports: [LucideAngularModule],
+  imports: [RuntimeTranslatePipe, LucideAngularModule],
   templateUrl: './number-action-dialog.component.html',
   styleUrl: './number-action-dialog.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

@@ -1,3 +1,4 @@
+import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
 import { GameSnapshot } from '../../../../../core/models/game.model';
@@ -6,7 +7,7 @@ import { PlayersOrderComponent } from './players-order/players-order.component';
 
 @Component({
   selector: 'app-turn-phase-panel',
-  imports: [LucideAngularModule, PlayersOrderComponent],
+  imports: [RuntimeTranslatePipe, LucideAngularModule, PlayersOrderComponent],
   templateUrl: './turn-phase-panel.component.html',
   styleUrl: './turn-phase-panel.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

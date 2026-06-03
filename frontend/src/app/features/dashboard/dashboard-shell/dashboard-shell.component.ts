@@ -1,3 +1,4 @@
+import { RuntimeTranslatePipe } from '../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, HostListener, OnDestroy, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
@@ -11,7 +12,7 @@ import { DashboardHeaderComponent } from './components/dashboard-header/dashboar
 
 @Component({
   selector: 'app-dashboard-shell',
-  imports: [
+  imports: [RuntimeTranslatePipe, 
     RouterOutlet,
     RouterLink,
     RouterLinkActive,

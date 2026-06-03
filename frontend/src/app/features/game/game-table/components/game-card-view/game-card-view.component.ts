@@ -1,3 +1,4 @@
+import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, ElementRef, OnChanges, OnDestroy, computed, inject, input, output, signal, type WritableSignal } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
 import { GameCardInstance, GameZoneName } from '../../../../../core/models/game.model';
@@ -62,7 +63,7 @@ interface CardCounterDeleteRequestEvent {
 
 @Component({
   selector: 'app-game-card-view',
-  imports: [
+  imports: [RuntimeTranslatePipe, 
     CardMarkerRailComponent,
     LoyaltyCounterComponent,
     LucideAngularModule,
@@ -74,8 +75,6 @@ interface CardCounterDeleteRequestEvent {
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class GameCardViewComponent implements OnChanges, OnDestroy {
-  private static readonly rulingsAvailabilityByScryfallId = new Map<string, boolean>();
-  private static readonly rulingsLookupInFlightByScryfallId = new Map<string, Promise<boolean>>();
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly defaultHoverLiftDelayMs = CARD_PREVIEW_HOVER_DELAY_MS;
   private readonly singleStatPulseMs = 420;
@@ -100,7 +99,6 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
   private pointerInside = false;
   private previewBoundsListening = false;
   private previewSuppressedUntilPointerExit = false;
-  private pendingRulingsLookupScryfallId: string | null = null;
   private readonly faceFlipAnimationMs = 620;
   private readonly previewPointerMoveHandler = (event: PointerEvent): void => this.syncPreviewPointerBounds(event);
 
@@ -215,7 +213,6 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
   readonly counterDeleteRequested = output<CardCounterDeleteRequestEvent>();
   readonly hoverLifted = signal(false);
   readonly previewActive = signal(false);
-  readonly hasRulingsForMarker = signal(false);
   readonly powerPulse = signal<StatPulse>(null);
   readonly toughnessPulse = signal<StatPulse>(null);
   readonly loyaltyPulse = signal<StatPulse>(null);
@@ -230,7 +227,7 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
   });
   readonly statsVisible = computed(() => !this.faceDown() && this.showPowerToughness());
   readonly loyaltyVisible = computed(() => !this.faceDown() && this.loyaltyValue() !== null && !this.showPowerToughness());
-  readonly showRulingsMarker = computed(() => this.rulingsMarkerEligible() && this.hasRulingsForMarker());
+  readonly showRulingsMarker = computed(() => this.rulingsMarkerEligible() && this.card().hasRulings === true);
   readonly landStackZIndex = computed(() => {
     const role = this.landStackRole();
     if (!role) {
@@ -279,7 +276,6 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
   });
 
   ngOnChanges(): void {
-    this.syncRulingsMarkerAvailability();
     this.syncActiveHoverInstance();
     this.syncHoverInteractions();
     this.syncFaceFlipAnimation();
@@ -383,16 +379,15 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
     this.counterDeleteRequested.emit({ event: request.event, card: this.card(), key: request.key });
   }
 
-  async openRulings(event: MouseEvent): Promise<void> {
+  openRulings(event: MouseEvent): void {
     event.preventDefault();
     event.stopPropagation();
-    const scryfallId = this.card().scryfallId?.trim();
-    if (!scryfallId) {
+    if (!this.showRulingsMarker()) {
       return;
     }
 
-    const hasRulings = await this.hasRulings(scryfallId);
-    if (!hasRulings) {
+    const scryfallId = this.card().scryfallId?.trim();
+    if (!scryfallId) {
       return;
     }
 
@@ -771,81 +766,6 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
     }
   }
 
-  private async hasRulings(scryfallId: string): Promise<boolean> {
-    const cached = GameCardViewComponent.rulingsAvailabilityByScryfallId.get(scryfallId);
-    if (cached !== undefined) {
-      return cached;
-    }
-
-    const inFlight = GameCardViewComponent.rulingsLookupInFlightByScryfallId.get(scryfallId);
-    if (inFlight) {
-      return inFlight;
-    }
-
-    const lookup = this.fetchHasRulings(scryfallId);
-    GameCardViewComponent.rulingsLookupInFlightByScryfallId.set(scryfallId, lookup);
-
-    try {
-      const result = await lookup;
-      GameCardViewComponent.rulingsAvailabilityByScryfallId.set(scryfallId, result);
-      return result;
-    } finally {
-      GameCardViewComponent.rulingsLookupInFlightByScryfallId.delete(scryfallId);
-    }
-  }
-
-  private async fetchHasRulings(scryfallId: string): Promise<boolean> {
-    try {
-      const response = await fetch(`https://api.scryfall.com/cards/${encodeURIComponent(scryfallId)}/rulings`);
-      if (!response.ok) {
-        return false;
-      }
-
-      const payload: unknown = await response.json();
-      const data = isRecord(payload) ? payload['data'] : undefined;
-
-      return Array.isArray(data) && data.length > 0;
-    } catch {
-      return false;
-    }
-  }
-
-  private syncRulingsMarkerAvailability(): void {
-    if (!this.rulingsMarkerEligible()) {
-      this.pendingRulingsLookupScryfallId = null;
-      this.hasRulingsForMarker.set(false);
-      return;
-    }
-
-    const scryfallId = this.card().scryfallId?.trim() ?? '';
-    if (scryfallId === '') {
-      this.pendingRulingsLookupScryfallId = null;
-      this.hasRulingsForMarker.set(false);
-      return;
-    }
-
-    const cached = GameCardViewComponent.rulingsAvailabilityByScryfallId.get(scryfallId);
-    if (cached !== undefined) {
-      this.pendingRulingsLookupScryfallId = null;
-      this.hasRulingsForMarker.set(cached);
-      return;
-    }
-
-    this.hasRulingsForMarker.set(false);
-    this.pendingRulingsLookupScryfallId = scryfallId;
-    void this.hasRulings(scryfallId).then((hasRulings) => {
-      if (this.pendingRulingsLookupScryfallId !== scryfallId) {
-        return;
-      }
-
-      if (this.card().scryfallId?.trim() !== scryfallId || !this.rulingsMarkerEligible()) {
-        return;
-      }
-
-      this.hasRulingsForMarker.set(hasRulings);
-    });
-  }
-
   private rulingsMarkerEligible(): boolean {
     const currentCard = this.card();
     const scryfallId = currentCard.scryfallId?.trim() ?? '';
@@ -860,8 +780,4 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
       && currentCard.isTokenCopy !== true
       && scryfallId !== '';
   }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
 }

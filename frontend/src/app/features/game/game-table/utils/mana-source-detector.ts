@@ -4,7 +4,6 @@ export type ManaPoolColor = 'W' | 'U' | 'B' | 'R' | 'G' | 'C';
 export type ManaSourceSuggestionKind =
   | 'none'
   | 'fixed'
-  | 'choice'
   | 'variable'
   | 'restricted'
   | 'tokenSource'
@@ -22,13 +21,6 @@ export type ManaProductionPart =
     readonly kind: 'fixed';
     readonly label: string;
     readonly additions: readonly ManaAddition[];
-  }
-  | {
-    readonly id: string;
-    readonly kind: 'choice';
-    readonly label: string;
-    readonly amount: number;
-    readonly colors: readonly ManaPoolColor[];
   }
   | {
     readonly id: string;
@@ -61,7 +53,6 @@ interface ManaSourceCardText {
 }
 
 const COLOR_ORDER: readonly ManaPoolColor[] = ['W', 'U', 'B', 'R', 'G', 'C'];
-const COLORED_MANA: readonly ManaPoolColor[] = ['W', 'U', 'B', 'R', 'G'];
 const MANA_SYMBOL_PATTERN = /\{([WUBRGC])\}/gi;
 const DIRECT_ADD_PATTERN = /\badd\s+((?:\{[WUBRGC]\})+)/gi;
 const CHOICE_ADD_PATTERN = /\badd\s+((?:\{[WUBRGC]\}(?:\s*,\s*|\s*,?\s+or\s+)?)+)/gi;
@@ -101,14 +92,30 @@ export function detectManaSource(
     return manualOnly(cardName, 'tokenSource', 'This card creates mana-producing tokens. Use the pool manually after resolving it.', restriction);
   }
 
-  const variable = variableSuggestion(cardName, oracleText, text, context, restriction);
+  const variable = variableSuggestion(cardName, oracleText, text, restriction);
   if (variable) {
     return variable;
   }
 
   const choiceColors = explicitChoiceColors(oracleText);
   if (choiceColors.length > 0) {
-    return choice(cardName, choiceColors, 1, restriction);
+    return none(cardName);
+  }
+
+  if (text.includes('any color in your commander')) {
+    return none(cardName);
+  }
+
+  if (text.includes('any color') || text.includes('any one color')) {
+    return none(cardName);
+  }
+
+  if (text.includes('any type that a land you control could produce')) {
+    return none(cardName);
+  }
+
+  if (text.includes('any combination') || text.includes('choose a color')) {
+    return none(cardName);
   }
 
   const directAdditions = directSymbolAdditions(oracleText);
@@ -125,22 +132,9 @@ export function detectManaSource(
     };
   }
 
-  const amount = wordAmount(text);
-  if (text.includes('any color in your commander')) {
-    return choice(cardName, commanderColors(context), amount, restriction);
-  }
-
-  if (text.includes('any color') || text.includes('any one color')) {
-    return choice(cardName, COLORED_MANA, amount, restriction);
-  }
-
-  if (text.includes('any type that a land you control could produce')) {
-    return choice(cardName, COLOR_ORDER, amount, restriction);
-  }
-
   const landTypeColors = landColors(typeLine);
   if (landTypeColors.length > 1) {
-    return choice(cardName, landTypeColors, 1, null);
+    return none(cardName);
   }
 
   if (landTypeColors.length === 1) {
@@ -188,7 +182,7 @@ function automaticEligibleSuggestion(cardName: string, suggestion: ManaSourceSug
     return none(cardName);
   }
 
-  return suggestion.kind === 'fixed' || suggestion.kind === 'choice' || suggestion.kind === 'variable'
+  return suggestion.kind === 'fixed' || suggestion.kind === 'variable'
     ? suggestion
     : none(cardName);
 }
@@ -228,7 +222,7 @@ function none(cardName: string): ManaSourceSuggestion {
 
 function manualOnly(
   cardName: string,
-  kind: Exclude<ManaSourceSuggestionKind, 'none' | 'fixed' | 'choice' | 'variable' | 'restricted'>,
+  kind: Exclude<ManaSourceSuggestionKind, 'none' | 'fixed' | 'variable' | 'restricted'>,
   summary: string,
   restriction: string | null,
 ): ManaSourceSuggestion {
@@ -244,62 +238,32 @@ function manualOnly(
   };
 }
 
-function choice(
-  cardName: string,
-  colors: readonly ManaPoolColor[],
-  amount: number,
-  restriction: string | null,
-): ManaSourceSuggestion {
-  const cleanColors = orderedUniqueColors(colors);
-  if (cleanColors.length === 1 && cleanColors[0]) {
-    const additions = [{ color: cleanColors[0], amount }];
-
-    return {
-      kind: restriction ? 'restricted' : 'fixed',
-      cardName,
-      summary: restriction ? `Add ${formatAdditions(additions)} with a restriction.` : `Add ${formatAdditions(additions)}.`,
-      additions,
-      colors: cleanColors,
-      amount: 0,
-      restriction,
-      manualOnly: false,
-    };
-  }
-
-  return {
-    kind: restriction ? 'restricted' : 'choice',
-    cardName,
-    summary: `Choose ${amount === 1 ? 'one mana' : `${amount} mana`} from ${cleanColors.map((color) => `{${color}}`).join(', ')}.`,
-    additions: [],
-    colors: cleanColors,
-    amount,
-    restriction,
-    manualOnly: false,
-  };
-}
-
 function variableSuggestion(
   cardName: string,
   oracleText: string,
   text: string,
-  context: ManaSourceDetectionContext,
   restriction: string | null,
 ): ManaSourceSuggestion | null {
   if (!hasVariableAmount(text)) {
     return null;
   }
 
-  const explicitColors = explicitChoiceColors(oracleText);
+  if (
+    text.includes('any color')
+    || text.includes('any one color')
+    || text.includes('any combination')
+    || text.includes('choose a color')
+    || text.includes('commander')
+    || explicitChoiceColors(oracleText).length > 0
+  ) {
+    return null;
+  }
+
   const directColors = directSymbols(oracleText);
-  const colors = explicitColors.length > 0
-    ? explicitColors
-    : directColors.length > 0
-      ? directColors
-      : text.includes('commander')
-        ? commanderColors(context)
-        : text.includes('any color') || text.includes('any combination')
-          ? COLORED_MANA
-          : COLOR_ORDER;
+  const colors = directColors.length === 1 ? directColors : [];
+  if (colors.length === 0) {
+    return null;
+  }
 
   return {
     kind: 'variable',
@@ -401,17 +365,6 @@ function explicitChoiceColors(oracleText: string): readonly ManaPoolColor[] {
   return orderedUniqueColors(colors);
 }
 
-function wordAmount(text: string): number {
-  if (/\bthree mana\b/.test(text)) {
-    return 3;
-  }
-  if (/\btwo mana\b/.test(text)) {
-    return 2;
-  }
-
-  return 1;
-}
-
 function restrictionText(oracleText: string): string | null {
   const match = oracleText.match(/(Spend this mana only[^.]*\.?|Activate only[^.]*\.?)/i);
   return match?.[1]?.trim() || null;
@@ -468,11 +421,6 @@ function landColors(typeLine: string): readonly ManaPoolColor[] {
   }
 
   return orderedUniqueColors(colors);
-}
-
-function commanderColors(context: ManaSourceDetectionContext): readonly ManaPoolColor[] {
-  const colors = orderedUniqueColors((context.colorIdentity ?? []).map((color) => color.toUpperCase() as ManaPoolColor));
-  return colors.length > 0 ? colors : COLORED_MANA;
 }
 
 function orderedUniqueColors(colors: readonly ManaPoolColor[]): readonly ManaPoolColor[] {

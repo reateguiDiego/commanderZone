@@ -1,0 +1,24 @@
+<section class="landing-comparison" [attr.id]="content().id || null">
+  <div class="landing-comparison__header">
+    <h2>{{ content().title }}</h2>
+    @if (content().intro) {
+      <p>{{ content().intro }}</p>
+    }
+  </div>
+
+  <div class="landing-comparison__table app-pretty-scroll" role="table" [attr.aria-label]="content().title">
+    <div class="landing-comparison__row landing-comparison__row--head" role="row">
+      <span role="columnheader"></span>
+      <span role="columnheader">{{ content().firstColumnLabel }}</span>
+      <span role="columnheader">{{ content().secondColumnLabel }}</span>
+    </div>
+
+    @for (row of content().rows; track row.label) {
+      <div class="landing-comparison__row" role="row">
+        <strong role="rowheader">{{ row.label }}</strong>
+        <span role="cell">{{ row.firstValue }}</span>
+        <span role="cell">{{ row.secondValue }}</span>
+      </div>
+    }
+  </div>
+</section>

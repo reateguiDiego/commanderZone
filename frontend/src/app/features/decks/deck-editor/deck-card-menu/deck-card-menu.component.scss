@@ -32,10 +32,10 @@
   max-height: min(24.375rem, calc(100dvh - 1.5rem));
   overflow: auto;
   padding: 0.5rem;
-  border: 1px solid rgb(215 180 106 / 34%);
+  border: 1px solid rgb(var(--cz-primary-rgb) / 34%);
   border-radius: 8px;
   background:
-    linear-gradient(180deg, rgb(30 34 26 / 98%), rgb(15 18 14 / 98%));
+    linear-gradient(180deg, rgb(var(--cz-bg-rgb) / 98%), rgb(var(--cz-bg-rgb) / 98%));
   box-shadow: var(--shadow);
 }
 
@@ -43,9 +43,9 @@
   align-self: start;
   overflow: hidden;
   width: 14rem;
-  border: 1px solid rgb(215 180 106 / 34%);
+  border: 1px solid rgb(var(--cz-primary-rgb) / 34%);
   border-radius: 12px;
-  background: rgb(8 10 8 / 82%);
+  background: rgb(var(--cz-bg-rgb) / 82%);
   box-shadow: var(--shadow);
 }
 
@@ -72,7 +72,7 @@
   display: grid;
   gap: 0.18rem;
   padding: 0.35rem 0.45rem 0.55rem;
-  border-bottom: 1px solid rgb(215 180 106 / 18%);
+  border-bottom: 1px solid rgb(var(--cz-primary-rgb) / 18%);
 }
 
 .card-menu-header span {
@@ -99,7 +99,7 @@
   display: grid;
   gap: 0.45rem;
   padding: 0.35rem 0.35rem 0.55rem;
-  border-bottom: 1px solid rgb(255 255 255 / 8%);
+  border-bottom: 1px solid rgb(var(--cz-text-rgb) / 8%);
 }
 
 .card-menu-copy-controls {
@@ -122,8 +122,8 @@
 .card-menu-amount input {
   min-width: 0;
   min-height: 2.35rem;
-  border-color: rgb(215 180 106 / 32%);
-  background: rgb(8 10 8 / 78%);
+  border-color: rgb(var(--cz-primary-rgb) / 32%);
+  background: rgb(var(--cz-bg-rgb) / 78%);
   padding: 0.45rem 0.55rem;
   text-align: center;
   font-weight: 800;
@@ -149,13 +149,13 @@
 }
 
 .add-action {
-  border-color: rgb(125 179 111 / 34%);
-  background: rgb(125 179 111 / 12%);
+  border-color: rgb(var(--cz-success-rgb) / 34%);
+  background: rgb(var(--cz-success-rgb) / 12%);
 }
 
 .remove-action {
-  border-color: rgb(209 111 95 / 34%);
-  background: rgb(209 111 95 / 12%);
+  border-color: rgb(var(--cz-danger-rgb) / 34%);
+  background: rgb(var(--cz-danger-rgb) / 12%);
 }
 
 .move-action {
@@ -163,14 +163,14 @@
 }
 
 .print-action {
-  border-color: rgb(136 184 217 / 28%);
-  background: rgb(136 184 217 / 9%);
+  border-color: rgb(var(--cz-info-rgb) / 28%);
+  background: rgb(var(--cz-info-rgb) / 9%);
   color: var(--text);
 }
 
 .card-row-menu button:hover {
-  border-color: rgb(215 180 106 / 30%);
-  background: rgb(255 255 255 / 6%);
+  border-color: rgb(var(--cz-primary-rgb) / 30%);
+  background: rgb(var(--cz-text-rgb) / 6%);
   color: var(--text);
 }
 

@@ -1,3 +1,4 @@
+import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, inject, input, output, signal } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
 import { FullscreenService } from '../../../../../core/fullscreen/fullscreen.service';
@@ -10,7 +11,7 @@ import { HeaderUserMenuComponent } from './components/header-user-menu/header-us
 
 @Component({
   selector: 'app-dashboard-header-controls',
-  imports: [
+  imports: [RuntimeTranslatePipe, 
     LucideAngularModule,
     PlayerAvatarComponent,
     PlayerNameComponent,

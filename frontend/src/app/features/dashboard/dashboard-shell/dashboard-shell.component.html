@@ -1,24 +1,24 @@
 <div class="app-frame" [class.room-focus]="roomFocus()">
   <aside class="sidebar">
-    <a class="brand" routerLink="/dashboard" aria-label="CommanderZone dashboard">
+    <a class="brand" routerLink="/dashboard" [attr.aria-label]="'navigation.dashboard.dashboardShell.commanderzoneDashboard' | runtimeTranslate">
       <span class="brand-mark">
         <img src="/assets/icons/CZ/CZ_logo.png" alt="" aria-hidden="true" />
       </span>
     </a>
 
     @if (!roomFocus()) {
-      <nav class="nav-list" aria-label="Primary">
+      <nav class="nav-list" [attr.aria-label]="'navigation.dashboard.dashboardShell.primary' | runtimeTranslate">
         <a routerLink="/decks" routerLinkActive="active">
           <lucide-icon name="layers-3" size="18" />
-          <span class="nav-label">Decks</span>
+          <span class="nav-label">{{ 'navigation.dashboard.dashboardShell.decks' | runtimeTranslate }}</span>
         </a>
         <a routerLink="/rooms" routerLinkActive="active">
           <lucide-icon name="door-open" size="18" />
-          <span class="nav-label">Rooms</span>
+          <span class="nav-label">{{ 'navigation.dashboard.dashboardShell.rooms' | runtimeTranslate }}</span>
         </a>
         <a routerLink="/table-assistant" routerLinkActive="active">
           <lucide-icon name="tablet-smartphone" size="18" />
-          <span class="nav-label">Asistente de Mesa</span>
+          <span class="nav-label">{{ 'navigation.dashboard.dashboardShell.asistenteDeMesa' | runtimeTranslate }}</span>
         </a>
       </nav>
     }

@@ -1,0 +1,22 @@
+{
+  "name": "CommanderZone",
+  "short_name": "CommanderZone",
+  "description": "Manual online Commander tables and public SEO resources for Magic: The Gathering players.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#10131a",
+  "theme_color": "#10131a",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "16x16 32x32 48x48",
+      "type": "image/x-icon"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ]
+}

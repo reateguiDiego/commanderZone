@@ -1,16 +1,16 @@
 <section class="avatar-upload">
   <header class="avatar-upload-header">
-    <h3>Upload image</h3>
-    <p>Choose your own image and frame it inside the avatar circle.</p>
+    <h3>{{ 'settings.settingsAvatarUpload.uploadImage' | runtimeTranslate }}</h3>
+    <p>{{ 'settings.settingsAvatarUpload.chooseYourOwnImageAndFrameIt' | runtimeTranslate }}</p>
   </header>
 
   <div class="avatar-upload-body">
-    <section class="avatar-preview-panel" aria-label="Uploaded avatar preview">
+    <section class="avatar-preview-panel" [attr.aria-label]="'settings.settingsAvatarUpload.uploadedAvatarPreview' | runtimeTranslate">
       <div class="avatar-preview">
         @if (previewImageUrl()) {
           <img
             [src]="previewImageUrl()"
-            alt="Avatar preview"
+            [alt]="'settings.settingsAvatarUpload.avatarPreview' | runtimeTranslate"
             draggable="false"
             [style.width]="previewImageSize()"
             [style.height]="previewImageSize()"
@@ -27,31 +27,31 @@
     <section class="upload-controls">
       <div class="upload-card">
         <div>
-          <h4>Image file</h4>
-          <p>PNG, JPG, WEBP or another browser-supported image. Maximum 2MB.</p>
+          <h4>{{ 'settings.settingsAvatarUpload.imageFile' | runtimeTranslate }}</h4>
+          <p>{{ 'settings.settingsAvatarUpload.pngJpgWebpOrAnotherBrowserSupported' | runtimeTranslate }}</p>
         </div>
         <input #fileInput class="file-input" type="file" accept="image/*" (change)="onFileSelected($event)" />
         <button class="secondary-button" type="button" [disabled]="saving()" (click)="openFilePicker(fileInput)">
           <lucide-icon name="upload" size="16" />
-          Choose image
+          {{ 'settings.settingsAvatarUpload.chooseImage' | runtimeTranslate }}
         </button>
       </div>
 
       <p class="app-disclaimer-callout">
-        Avatar images must be non-offensive, non-sexual and appropriate for the CommanderZone community.
+        {{ 'settings.settingsAvatarUpload.avatarImagesMustBeNonOffensiveNon' | runtimeTranslate }}
       </p>
 
       <div class="crop-controls">
         <label>
-          Horizontal
+          {{ 'settings.settingsAvatarUpload.horizontal' | runtimeTranslate }}
           <input type="range" min="0" max="100" step="1" [value]="cropX()" [disabled]="!uploadedImageUrl()" (input)="setCropX($event)" />
         </label>
         <label>
-          Vertical
+          {{ 'settings.settingsAvatarUpload.vertical' | runtimeTranslate }}
           <input type="range" min="0" max="100" step="1" [value]="cropY()" [disabled]="!uploadedImageUrl()" (input)="setCropY($event)" />
         </label>
         <label>
-          Zoom
+          {{ 'settings.settingsAvatarUpload.zoom' | runtimeTranslate }}
           <input type="range" min="100" max="250" step="1" [value]="zoom() * 100" [disabled]="!uploadedImageUrl()" (input)="setZoom($event)" />
         </label>
       </div>

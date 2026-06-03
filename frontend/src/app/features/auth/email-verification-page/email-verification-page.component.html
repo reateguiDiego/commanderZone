@@ -1,17 +1,17 @@
 <main class="email-verification-screen">
   <section class="email-verification-card">
     <header>
-      <h1>Verificar email</h1>
-      <p>Usa el token recibido para activar tu cuenta.</p>
+      <h1>{{ 'auth.emailVerificationPage.verificarEmail' | runtimeTranslate }}</h1>
+      <p>{{ 'auth.emailVerificationPage.usaElTokenRecibidoParaActivarTu' | runtimeTranslate }}</p>
     </header>
 
     <form class="form-stack" [formGroup]="verificationForm">
       @if (registeredNotice()) {
-        <p class="notice success">Registro completado. Revisa tu correo y confirma tu cuenta.</p>
+        <p class="notice success">{{ 'auth.emailVerificationPage.registroCompletadoRevisaTuCorreoYConfirma' | runtimeTranslate }}</p>
       }
 
       <label>
-        Token de verificacion
+        {{ 'auth.emailVerificationPage.tokenDeVerificacion' | runtimeTranslate }}
         <input type="text" autocomplete="one-time-code" formControlName="token" />
       </label>
 
@@ -20,7 +20,7 @@
       }
 
       @if (verifySuccess()) {
-        <p class="notice success">Email verificado. Iniciando sesion...</p>
+        <p class="notice success">{{ 'auth.emailVerificationPage.emailVerificadoIniciandoSesion' | runtimeTranslate }}</p>
       }
 
       <button class="primary-button" type="button" [disabled]="!canConfirm()" (click)="confirmToken()">
@@ -30,7 +30,7 @@
       <hr />
 
       <label>
-        Reenviar verificacion (email)
+        {{ 'auth.emailVerificationPage.reenviarVerificacionEmail' | runtimeTranslate }}
         <input type="email" autocomplete="email" formControlName="email" />
       </label>
 
@@ -39,7 +39,7 @@
       }
 
       @if (resendSuccess()) {
-        <p class="notice success">Si el email existe y no esta verificado, se envio un nuevo correo.</p>
+        <p class="notice success">{{ 'auth.emailVerificationPage.siElEmailExisteYNoEsta' | runtimeTranslate }}</p>
       }
 
       <button class="secondary-button" type="button" [disabled]="!canResend()" (click)="resendVerificationEmail()">
@@ -47,7 +47,7 @@
       </button>
     </form>
 
-    <a class="back-link" routerLink="/auth/login">Volver al login</a>
+    <a class="back-link" routerLink="/auth/login">{{ 'auth.emailVerificationPage.volverAlLogin' | runtimeTranslate }}</a>
   </section>
 </main>
 

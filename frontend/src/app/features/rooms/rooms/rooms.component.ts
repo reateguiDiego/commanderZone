@@ -1,3 +1,4 @@
+import { RuntimeTranslatePipe } from '../../../core/localization/runtime-translate.pipe';
 ﻿import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
@@ -22,7 +23,7 @@ const ROOM_LIST_POLL_INTERVAL_WITH_CURRENT_ROOM_MS = ROOM_LIST_POLL_INTERVAL_MS 
 
 @Component({
   selector: 'app-rooms',
-  imports: [AppModalComponent, RoomBrowserComponent, RoomCreatePanelComponent, RoomInvitesPanelComponent, RoomSetupModalComponent],
+  imports: [RuntimeTranslatePipe, AppModalComponent, RoomBrowserComponent, RoomCreatePanelComponent, RoomInvitesPanelComponent, RoomSetupModalComponent],
   templateUrl: './rooms.component.html',
   styleUrl: './rooms.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -644,31 +645,31 @@ export class RoomsComponent implements OnInit, OnDestroy {
 
   private updatePageHeader(): void {
     this.pageHeader.set({
-      title: 'Rooms',
+      title: 'rooms.header.title',
       stats: [
         {
           id: 'active-rooms',
-          label: 'Active rooms',
+          label: 'rooms.header.activeRooms',
           value: this.activeRoomsCount(),
           icon: 'building-2',
         },
         {
           id: 'open-rooms',
-          label: 'Open rooms',
+          label: 'rooms.header.openRooms',
           value: this.openTablesCount(),
           icon: 'door-open',
           tone: 'success',
         },
         {
           id: 'private-rooms',
-          label: 'Private rooms',
+          label: 'rooms.header.privateRooms',
           value: this.privateRoomsCount(),
           icon: 'lock',
           tone: 'private',
         },
         {
           id: 'started-games',
-          label: 'Started games',
+          label: 'rooms.header.startedGames',
           value: this.startedRoomsCount(),
           icon: 'swords',
           tone: 'started',

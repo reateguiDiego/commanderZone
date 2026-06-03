@@ -1,9 +1,11 @@
+import { RuntimeTranslatePipe } from '../../../../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, HostBinding, input, output } from '@angular/core';
 
 type StatPulse = 'increase' | 'decrease' | null;
 
 @Component({
   selector: 'app-loyalty-counter',
+  imports: [RuntimeTranslatePipe],
   templateUrl: './loyalty-counter.component.html',
   styleUrl: './loyalty-counter.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

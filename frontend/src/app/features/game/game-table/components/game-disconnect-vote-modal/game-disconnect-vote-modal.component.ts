@@ -1,3 +1,4 @@
+import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
 import { AppModalComponent } from '../../../../../shared/ui/app-modal/app-modal.component';
 import { GameDisconnectVoteChoice } from '../../../../../core/models/game.model';
@@ -5,7 +6,7 @@ import { DisconnectVotePlayerView } from '../../services/game-table-disconnect-v
 
 @Component({
   selector: 'app-game-disconnect-vote-modal',
-  imports: [AppModalComponent],
+  imports: [RuntimeTranslatePipe, AppModalComponent],
   templateUrl: './game-disconnect-vote-modal.component.html',
   styleUrl: './game-disconnect-vote-modal.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

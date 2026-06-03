@@ -1,6 +1,6 @@
 <div appPrettyScroll class="card-spoiler-grid" data-testid="card-spoiler-grid">
   @if (loading()) {
-    <div class="card-spoiler-state">Loading cards</div>
+    <div class="card-spoiler-state">{{ 'game.cardSpoilerGrid.loadingCards' | runtimeTranslate }}</div>
   } @else {
     @for (slot of slots(); track slotTrackBy($index, slot)) {
       @if (slot.card; as card) {
@@ -42,8 +42,8 @@
                 class="double-face-toggle"
                 role="button"
                 tabindex="-1"
-                aria-label="Look at other face"
-                title="Look at other face"
+                [attr.aria-label]="'game.cardSpoilerGrid.lookAtOtherFace' | runtimeTranslate"
+                [title]="'game.cardSpoilerGrid.lookAtOtherFace' | runtimeTranslate"
                 draggable="false"
                 (pointerdown)="stopFaceTogglePointer($event)"
                 (click)="lookAtOtherFace($event, card)"

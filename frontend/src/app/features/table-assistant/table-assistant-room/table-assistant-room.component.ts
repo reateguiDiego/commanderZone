@@ -1,3 +1,4 @@
+import { RuntimeTranslatePipe } from '../../../core/localization/runtime-translate.pipe';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -39,7 +40,7 @@ import {
 
 @Component({
   selector: 'app-table-assistant-room',
-  imports: [
+  imports: [RuntimeTranslatePipe, 
     TableAssistantReplayModalComponent,
     ExtraActionsMenuComponent,
     RollModalComponent,
@@ -354,7 +355,7 @@ export class TableAssistantRoomComponent {
   }
 
   playerBackground(player: TableAssistantPlayer): string {
-    return `linear-gradient(145deg, rgba(2, 6, 23, 0.22), rgba(2, 6, 23, 0.04)), ${this.playerGradient(player)}`;
+    return `linear-gradient(145deg, rgb(var(--cz-bg-rgb) / 22%), rgb(var(--cz-bg-rgb) / 4%)), ${this.playerGradient(player)}`;
   }
 
   playerAccent(player: TableAssistantPlayer): string {

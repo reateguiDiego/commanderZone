@@ -1,3 +1,4 @@
+import { RuntimeTranslatePipe } from '../../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, effect, inject, input } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
 import { ManaSymbolsComponent } from '../../../../shared/mana/mana-symbols/mana-symbols.component';
@@ -7,7 +8,7 @@ import { DeckCardMenuComponent } from '../deck-card-menu/deck-card-menu.componen
 
 @Component({
   selector: 'app-deck-commander-showcase',
-  imports: [LucideAngularModule, ManaSymbolsComponent, DeckCardMenuComponent],
+  imports: [RuntimeTranslatePipe, LucideAngularModule, ManaSymbolsComponent, DeckCardMenuComponent],
   templateUrl: './deck-commander-showcase.component.html',
   styleUrl: './deck-commander-showcase.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

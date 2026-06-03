@@ -26,7 +26,7 @@
     @if (deckLabel()(opponent); as label) {
       <strong class="opponent-deck-title" data-testid="opponent-deck-name">{{ label }}</strong>
     } @else {
-      <strong class="opponent-deck-title muted" data-testid="opponent-deck-name">Deck pending</strong>
+      <strong class="opponent-deck-title muted" data-testid="opponent-deck-name">{{ 'game.opponentMiniBoard.deckPending' | runtimeTranslate }}</strong>
     }
     @if (targetingPill(); as pill) {
       <span
@@ -41,7 +41,7 @@
     }
     <span class="opponent-life-group">
       @if (isActiveTurnPlayer()) {
-        <span class="opponent-turn-pill" data-testid="opponent-turn-pill">Turno</span>
+        <span class="opponent-turn-pill" data-testid="opponent-turn-pill">{{ 'game.opponentMiniBoard.turno' | runtimeTranslate }}</span>
       }
       <span class="opponent-life" data-testid="opponent-life">{{ opponent.state.life }}</span>
     </span>
@@ -57,7 +57,7 @@
           class="opponent-defeated-skull"
           data-testid="opponent-mini-battlefield-skull"
           [src]="defeatedSkullImage"
-          alt="Player defeated"
+          [alt]="'game.opponentMiniBoard.playerDefeated' | runtimeTranslate"
           draggable="false"
         />
       </div>
@@ -94,7 +94,7 @@
       />
     }
   </span>
-  <span class="opponent-zone-counts" aria-label="Opponent zone counts">
+  <span class="opponent-zone-counts" [attr.aria-label]="'game.opponentMiniBoard.opponentZoneCounts' | runtimeTranslate">
     @for (summary of opponentZoneSummaries; track summary.zone) {
       <span
         class="opponent-zone-count"

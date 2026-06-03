@@ -1,3 +1,4 @@
+import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, ElementRef, OnDestroy, computed, inject, input, output, signal } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
 import { GameCardInstance } from '../../../../../core/models/game.model';
@@ -12,7 +13,7 @@ type CardSpoilerSlot = {
 
 @Component({
   selector: 'app-card-spoiler-grid',
-  imports: [PrettyScrollDirective, GameTableLongPressDirective, LucideAngularModule],
+  imports: [RuntimeTranslatePipe, PrettyScrollDirective, GameTableLongPressDirective, LucideAngularModule],
   templateUrl: './card-spoiler-grid.component.html',
   styleUrl: './card-spoiler-grid.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

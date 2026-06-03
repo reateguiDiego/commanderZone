@@ -1,0 +1,19 @@
+<section class="landing-faq" [attr.id]="content().id || null">
+  <div class="landing-faq__header">
+    <h2>{{ content().title }}</h2>
+    @if (content().intro) {
+      <p>{{ content().intro }}</p>
+    }
+  </div>
+
+  <div class="landing-faq__items app-pretty-scroll">
+    @for (item of content().items; track item.question) {
+      <article class="landing-faq__item">
+        <h3>{{ item.question }}</h3>
+        @for (paragraph of item.answer; track paragraph) {
+          <p>{{ paragraph }}</p>
+        }
+      </article>
+    }
+  </div>
+</section>

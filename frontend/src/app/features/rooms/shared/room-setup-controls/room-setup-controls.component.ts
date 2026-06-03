@@ -1,3 +1,4 @@
+import { RuntimeTranslatePipe } from '../../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import { RoomTimerMode } from '../../../../core/models/room.model';
 import { GameSetupLifeControlComponent } from '../../../../shared/components/game-setup-life-control/game-setup-life-control.component';
@@ -7,7 +8,7 @@ import { TableAssistantTimerSettingsComponent } from '../../../table-assistant/t
 
 @Component({
   selector: 'app-room-setup-controls',
-  imports: [
+  imports: [RuntimeTranslatePipe, 
     GameSetupLifeControlComponent,
     GameSetupSeatsControlComponent,
     TableAssistantTimerSettingsComponent,

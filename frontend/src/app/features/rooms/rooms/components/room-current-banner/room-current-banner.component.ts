@@ -1,3 +1,4 @@
+import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { LucideAngularModule } from 'lucide-angular';
@@ -6,7 +7,7 @@ import { CurrentRoomPlayerSummary, CurrentRoomSummary, CurrentRoomTurn, CurrentR
 
 @Component({
   selector: 'app-room-current-banner',
-  imports: [RouterLink, LucideAngularModule],
+  imports: [RuntimeTranslatePipe, RouterLink, LucideAngularModule],
   templateUrl: './room-current-banner.component.html',
   styleUrl: './room-current-banner.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

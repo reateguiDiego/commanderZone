@@ -1,3 +1,4 @@
+import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -59,7 +60,7 @@ const DEFAULT_ZOOM_SNAP_DISTANCE_PERCENT = 2;
 
 @Component({
   selector: 'app-battlefield-zoom-controls',
-  imports: [LucideAngularModule],
+  imports: [RuntimeTranslatePipe, LucideAngularModule],
   templateUrl: './battlefield-zoom-controls.component.html',
   styleUrl: './battlefield-zoom-controls.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

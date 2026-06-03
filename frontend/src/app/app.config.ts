@@ -1,6 +1,7 @@
-import { provideHttpClient, withInterceptors } from '@angular/common/http';
+import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/http';
 import { ApplicationConfig, importProvidersFrom, provideBrowserGlobalErrorListeners } from '@angular/core';
 import { provideRouter } from '@angular/router';
+import { provideTranslateLoader, provideTranslateService } from '@ngx-translate/core';
 import {
   ArrowLeft,
   Ban,
@@ -79,12 +80,19 @@ import {
 import { routes } from './app.routes';
 import { authInterceptor } from './core/auth/auth.interceptor';
 import { loadingInterceptor } from './core/loading/loading.interceptor';
+import { DEFAULT_LOCALE } from './core/localization/locale-config';
+import { RuntimeTranslationLoader } from './core/localization/runtime-translation-loader';
 
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
     provideRouter(routes),
-    provideHttpClient(withInterceptors([loadingInterceptor, authInterceptor])),
+    provideHttpClient(withFetch(), withInterceptors([loadingInterceptor, authInterceptor])),
+    provideTranslateService({
+      fallbackLang: DEFAULT_LOCALE.code,
+      lang: DEFAULT_LOCALE.code,
+      loader: provideTranslateLoader(RuntimeTranslationLoader),
+    }),
     importProvidersFrom(
       LucideAngularModule.pick({
         ArrowLeft,

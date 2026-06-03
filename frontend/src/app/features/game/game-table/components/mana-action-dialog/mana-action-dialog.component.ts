@@ -1,3 +1,4 @@
+import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, ElementRef, HostListener, computed, inject, input, output, signal } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
@@ -11,7 +12,6 @@ type ManaActionSummaryPart =
   | { readonly kind: 'mana'; readonly value: string };
 
 export interface ManaActionDialogValueChange {
-  readonly color?: ManaPoolColor;
   readonly amount?: number;
 }
 
@@ -44,7 +44,7 @@ const MANA_COLOR_ORDER: readonly ManaPoolColor[] = ['W', 'U', 'B', 'R', 'G', 'C'
 
 @Component({
   selector: 'app-mana-action-dialog',
-  imports: [NgTemplateOutlet, AppModalComponent, LucideAngularModule, ManaSymbolsComponent, GameXQuantityStepperComponent],
+  imports: [RuntimeTranslatePipe, NgTemplateOutlet, AppModalComponent, LucideAngularModule, ManaSymbolsComponent, GameXQuantityStepperComponent],
   templateUrl: './mana-action-dialog.component.html',
   styleUrl: './mana-action-dialog.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -78,14 +78,13 @@ export class ManaActionDialogComponent {
     return additions.length === 1 && additions[0]?.amount === 1;
   });
   readonly showFixedPreview = computed(() => this.hasFixedAdditions() && !this.isSingleFixedMana());
-  readonly showColorSelector = computed(() => this.canAddMana() && !this.hasProductionParts() && !this.hasFixedAdditions() && this.suggestion().colors.length > 1);
   readonly showAmountSelector = computed(() => (
     this.canAddMana()
     && !this.hasProductionParts()
     && !this.hasFixedAdditions()
     && (this.suggestion().kind === 'variable' || this.suggestion().amount > 1)
   ));
-  readonly showSelectionPanel = computed(() => this.canAddMana() && !this.hasProductionParts() && (this.showFixedPreview() || this.showColorSelector() || this.showAmountSelector()));
+  readonly showSelectionPanel = computed(() => this.canAddMana() && !this.hasProductionParts() && (this.showFixedPreview() || this.showAmountSelector()));
   readonly confirmationAdditions = computed(() => this.hasProductionParts() ? this.productionAdditions() : this.standardAdditions());
   readonly primaryDisabled = computed(() => this.canAddMana() && this.confirmationAdditions().length === 0);
   readonly popoverLayout = computed(() => {
@@ -93,10 +92,6 @@ export class ManaActionDialogComponent {
 
     return position ? this.resolvePopoverLayout(position, this.viewportSize()) : null;
   });
-
-  updateColor(color: ManaPoolColor): void {
-    this.valueChanged.emit({ color });
-  }
 
   updateAmount(amount: number): void {
     this.valueChanged.emit({ amount });
@@ -137,9 +132,7 @@ export class ManaActionDialogComponent {
       return 0;
     }
 
-    return part.kind === 'variable'
-      ? this.productionAmounts()[part.id] ?? Math.max(1, part.amount)
-      : Math.max(1, part.amount);
+    return this.productionAmounts()[part.id] ?? Math.max(1, part.amount);
   }
 
   confirm(): void {
@@ -211,8 +204,7 @@ export class ManaActionDialogComponent {
     }
 
     return suggestion.summary
-      .replace(/^(Add (?:\{[WUBRGC]\})+)\.$/, '$1')
-      .replace(/^(Choose .+ mana from)\s+\{[WUBRGC]\}(?:\s*,\s*\{[WUBRGC]\})*\.$/, '$1:');
+      .replace(/^(Add (?:\{[WUBRGC]\})+)\.$/, '$1');
   }
 
   private standardAdditions(): readonly ManaAddition[] {

@@ -1,3 +1,4 @@
+import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
 import { AppModalComponent } from '../../../../../shared/ui/app-modal/app-modal.component';
 import { GameRematchVote } from '../../../../../core/models/game.model';
@@ -14,7 +15,7 @@ export type RematchCountdownMode = 'initial' | 'courtesy';
 
 @Component({
   selector: 'app-game-rematch-modal',
-  imports: [AppModalComponent],
+  imports: [RuntimeTranslatePipe, AppModalComponent],
   templateUrl: './game-rematch-modal.component.html',
   styleUrl: './game-rematch-modal.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

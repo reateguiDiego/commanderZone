@@ -1,3 +1,4 @@
+import { RuntimeTranslatePipe } from '../../../core/localization/runtime-translate.pipe';
 import { AfterViewChecked, AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, HostListener, OnDestroy, QueryList, ViewChild, ViewChildren, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -323,7 +324,7 @@ interface MotionSourceRect {
 
 @Component({
   selector: 'app-game-table',
-  imports: [
+  imports: [RuntimeTranslatePipe, 
     FormsModule,
     LucideAngularModule,
     AppModalComponent,
@@ -599,13 +600,13 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   readonly fadingLogEntryIds = signal<readonly string[]>([]);
   readonly chatReactionClockMs = signal(Date.now());
   readonly chatReactionOptions: readonly ChatReactionOption[] = [
-    { type: 'like', label: 'Like', emoji: '👍' },
-    { type: 'dislike', label: 'Dislike', emoji: '👎' },
-    { type: 'love', label: 'Love', emoji: '❤️' },
-    { type: 'laugh', label: 'Laugh', emoji: '😂' },
-    { type: 'angry', label: 'Very angry', emoji: '🤬' },
-    { type: 'vomit', label: 'Vomit', emoji: '🤮' },
-    { type: 'cry', label: 'Cry', emoji: '😭' },
+    { type: 'like', label: 'game.reactions.like', emoji: '👍' },
+    { type: 'dislike', label: 'game.reactions.dislike', emoji: '👎' },
+    { type: 'love', label: 'game.reactions.love', emoji: '❤️' },
+    { type: 'laugh', label: 'game.reactions.laugh', emoji: '😂' },
+    { type: 'angry', label: 'game.reactions.angry', emoji: '🤬' },
+    { type: 'vomit', label: 'game.reactions.vomit', emoji: '🤮' },
+    { type: 'cry', label: 'game.reactions.cry', emoji: '😭' },
   ];
   readonly tableToast = computed(() => this.store.tableToast() ?? this.rematchToast());
   readonly tableBackgroundImage = computed(() => `url("${this.store.gameBackgroundImage(this.store.focusedPlayer() ?? this.store.currentPlayer())}")`);
@@ -2317,7 +2318,6 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   updateManaActionDialog(change: ManaActionDialogValueChange): void {
     this.manaActionDialog.update((request) => request ? {
       ...request,
-      selectedColor: change.color ?? request.selectedColor,
       amount: change.amount ?? request.amount,
     } : request);
   }
@@ -3079,11 +3079,11 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     this.numberActionDialog.set({
       kind: 'draw',
       playerId,
-      title: 'Draw cards',
-      description: 'Choose how many cards to draw from your library.',
+      title: 'game.numberAction.drawCards.title',
+      description: 'game.numberAction.drawCards.description',
       defaultValue: 1,
       min: 1,
-      confirmLabel: 'Draw',
+      confirmLabel: 'game.numberAction.drawCards.confirm',
     });
   }
 
@@ -3135,11 +3135,11 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       toZone,
       targetPlayerId: options.targetPlayerId,
       position: options.position,
-      title: 'Move top cards',
-      description: `Choose how many top library cards to move to ${destination}.`,
+      title: 'game.numberAction.moveTopCards.title',
+      description: 'game.numberAction.moveTopCards.description',
       defaultValue: 1,
       min: 1,
-      confirmLabel: 'Move',
+      confirmLabel: 'game.numberAction.moveTopCards.confirm',
     });
   }
 
@@ -3148,11 +3148,11 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     this.numberActionDialog.set({
       kind: 'viewTop',
       playerId,
-      title: 'View top cards',
-      description: 'Choose how many top library cards to view.',
+      title: 'game.numberAction.viewTopCards.title',
+      description: 'game.numberAction.viewTopCards.description',
       defaultValue: 1,
       min: 1,
-      confirmLabel: 'View',
+      confirmLabel: 'game.numberAction.viewTopCards.confirm',
     });
   }
 

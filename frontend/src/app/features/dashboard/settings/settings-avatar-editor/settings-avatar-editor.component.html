@@ -1,11 +1,11 @@
 <section class="avatar-editor" (click)="closeInitialControls()">
   <header class="avatar-editor-header">
     <div>
-      <h3>Choose avatar</h3>
+      <h3>{{ 'settings.settingsAvatarEditor.chooseAvatar' | runtimeTranslate }}</h3>
     </div>
   </header>
 
-  <section class="avatar-preview-panel" aria-label="Avatar preview">
+  <section class="avatar-preview-panel" [attr.aria-label]="'settings.settingsAvatarEditor.avatarPreview' | runtimeTranslate">
     <div
       class="avatar-preview"
       [class.premium-preview]="previewIsPremium()"
@@ -13,25 +13,25 @@
       [style.color]="previewImageUrl() ? null : previewInitialTextColor()"
     >
       @if (previewImageUrl()) {
-        <img [src]="previewImageUrl()" alt="Avatar preview" draggable="false" (dragstart)="preventAvatarDrag($event)" />
+        <img [src]="previewImageUrl()" [alt]="'settings.settingsAvatarEditor.avatarPreview' | runtimeTranslate" draggable="false" (dragstart)="preventAvatarDrag($event)" />
       } @else {
         <span>{{ previewInitialLetter() }}</span>
       }
     </div>
     <div class="avatar-preview-copy">
-      <span>Current selection</span>
+      <span>{{ 'settings.settingsAvatarEditor.currentSelection' | runtimeTranslate }}</span>
       <strong>{{ currentSelectionLabel() }}</strong>
     </div>
   </section>
 
   <section class="avatar-options">
-    <nav class="avatar-tier-tabs" aria-label="Avatar tiers">
-      <button type="button" [class.active]="activeTier() === 'basic'" (click)="switchTier('basic')">Basic</button>
-      <button type="button" [class.active]="activeTier() === 'premium'" (click)="switchTier('premium')">Premium</button>
+    <nav class="avatar-tier-tabs" [attr.aria-label]="'settings.settingsAvatarEditor.avatarTiers' | runtimeTranslate">
+      <button type="button" [class.active]="activeTier() === 'basic'" (click)="switchTier('basic')">{{ 'settings.settingsAvatarEditor.basic' | runtimeTranslate }}</button>
+      <button type="button" [class.active]="activeTier() === 'premium'" (click)="switchTier('premium')">{{ 'settings.settingsAvatarEditor.premium' | runtimeTranslate }}</button>
     </nav>
 
     @if (activeTier() === 'basic') {
-      <section class="preset-tier basic-tier" aria-label="Basic avatars">
+      <section class="preset-tier basic-tier" [attr.aria-label]="'settings.settingsAvatarEditor.basicAvatars' | runtimeTranslate">
         <app-settings-initial-avatar-option
           [selected]="initialSelected()"
           [controlsOpen]="initialControlsOpen()"
@@ -64,7 +64,7 @@
         }
       </section>
     } @else {
-      <section class="preset-tier" aria-label="Premium avatars">
+      <section class="preset-tier" [attr.aria-label]="'settings.settingsAvatarEditor.premiumAvatars' | runtimeTranslate">
         <div class="preset-grid premium-grid">
           @for (presetAvatar of premiumPresetAvatars; track presetAvatar.id) {
             <button
@@ -80,7 +80,7 @@
               <span class="avatar-image-frame">
                 <img [src]="presetAvatar.displayUrl" [alt]="presetAvatar.label" draggable="false" />
               </span>
-              <span class="premium-badge">Premium</span>
+              <span class="premium-badge">{{ 'settings.settingsAvatarEditor.premium' | runtimeTranslate }}</span>
             </button>
           }
         </div>

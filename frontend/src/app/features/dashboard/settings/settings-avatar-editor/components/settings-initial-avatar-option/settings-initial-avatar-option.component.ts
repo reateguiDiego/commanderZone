@@ -1,8 +1,9 @@
+import { RuntimeTranslatePipe } from '../../../../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 
 @Component({
   selector: 'app-settings-initial-avatar-option',
-  imports: [],
+  imports: [RuntimeTranslatePipe, ],
   templateUrl: './settings-initial-avatar-option.component.html',
   styleUrl: './settings-initial-avatar-option.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

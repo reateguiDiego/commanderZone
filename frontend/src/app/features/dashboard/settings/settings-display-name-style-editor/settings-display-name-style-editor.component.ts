@@ -1,3 +1,4 @@
+import { RuntimeTranslatePipe } from '../../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, computed, input, output, signal } from '@angular/core';
 import { DisplayNameStyleUpdatePayload } from '../../../../core/api/auth.api';
 import { UserDisplayNameStyle } from '../../../../core/models/user.model';
@@ -13,7 +14,7 @@ interface DisplayNameStyleOption {
 
 @Component({
   selector: 'app-settings-display-name-style-editor',
-  imports: [PlayerNameComponent],
+  imports: [RuntimeTranslatePipe, PlayerNameComponent],
   templateUrl: './settings-display-name-style-editor.component.html',
   styleUrl: './settings-display-name-style-editor.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

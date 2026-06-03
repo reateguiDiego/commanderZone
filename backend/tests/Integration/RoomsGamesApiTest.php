@@ -96,6 +96,53 @@ class RoomsGamesApiTest extends ApiTestCase
         self::assertNull($current['viewerRole']);
     }
 
+    public function testStartedGameSnapshotCarriesRulingsMetadataForCards(): void
+    {
+        $commanderId = '77777777-2222-7333-8444-555555555555';
+        $landId = '88888888-2222-7333-8444-555555555555';
+        $this->seedCard($commanderId, 'Rulings Commander', [
+            'type_line' => 'Legendary Creature - Human Soldier',
+            'has_rulings' => true,
+        ]);
+        $this->seedCard($landId, 'Rulings Plains', [
+            'type_line' => 'Basic Land - Plains',
+            'has_rulings' => false,
+        ]);
+
+        $ownerToken = $this->registerAndLogin('rulings-snapshot-owner@example.test', 'Rulings Snapshot Owner');
+        $guestToken = $this->registerAndLogin('rulings-snapshot-guest@example.test', 'Rulings Snapshot Guest');
+        $deckId = $this->quickBuildDeck($ownerToken, 'Rulings Deck', [
+            ['scryfallId' => $commanderId, 'quantity' => 1, 'section' => 'commander'],
+            ['scryfallId' => $landId, 'quantity' => 99, 'section' => 'main'],
+        ]);
+        $guestDeckId = $this->quickBuildDeck($guestToken, 'Guest Rulings', [
+            ['scryfallId' => $commanderId, 'quantity' => 1, 'section' => 'commander'],
+            ['scryfallId' => $landId, 'quantity' => 99, 'section' => 'main'],
+        ]);
+
+        $this->jsonRequest('POST', '/rooms', [
+            'visibility' => 'public',
+            'maxPlayers' => 2,
+            'deckId' => $deckId,
+        ], $ownerToken);
+        self::assertResponseStatusCodeSame(201);
+        $roomId = (string) $this->jsonResponse()['room']['id'];
+
+        $this->jsonRequest('POST', '/rooms/'.$roomId.'/join', ['deckId' => $guestDeckId], $guestToken);
+        self::assertResponseIsSuccessful();
+
+        $this->rollTurnOrder($roomId, $ownerToken);
+        $this->rollTurnOrder($roomId, $guestToken);
+
+        $this->jsonRequest('POST', '/rooms/'.$roomId.'/start', token: $ownerToken);
+        self::assertResponseStatusCodeSame(201);
+
+        $snapshot = $this->jsonResponse()['game']['snapshot'];
+        $ownerPlayerId = array_key_first($snapshot['players']);
+        self::assertNotNull($ownerPlayerId);
+        self::assertTrue($snapshot['players'][$ownerPlayerId]['zones']['command'][0]['hasRulings']);
+    }
+
     public function testActiveRoomsListReturnsHydratedPlayersWithoutDuplicatingRooms(): void
     {
         $ownerToken = $this->registerAndLogin('rooms-list-owner@example.test', 'Rooms List Owner');
@@ -2482,6 +2529,18 @@ INSERT INTO card_print (
     true,
     NOW()
 )
+ON CONFLICT (scryfall_id) DO UPDATE SET
+    normalized_name = EXCLUDED.normalized_name,
+    default_name = EXCLUDED.default_name,
+    default_lang = EXCLUDED.default_lang,
+    default_mana_cost = EXCLUDED.default_mana_cost,
+    default_type_line = EXCLUDED.default_type_line,
+    default_oracle_text = EXCLUDED.default_oracle_text,
+    default_image_uris = EXCLUDED.default_image_uris,
+    default_card_faces = EXCLUDED.default_card_faces,
+    layout = EXCLUDED.layout,
+    commander_legal = EXCLUDED.commander_legal,
+    updated_at = NOW()
 SQL,
             [
                 'scryfallId' => $scryfallId,
@@ -2518,6 +2577,16 @@ INSERT INTO card_print_locale (
     'highres_scan',
     NOW()
 )
+ON CONFLICT (print_scryfall_id, lang) DO UPDATE SET
+    name = EXCLUDED.name,
+    printed_name = EXCLUDED.printed_name,
+    mana_cost = EXCLUDED.mana_cost,
+    type_line = EXCLUDED.type_line,
+    oracle_text = EXCLUDED.oracle_text,
+    image_uris = EXCLUDED.image_uris,
+    card_faces = EXCLUDED.card_faces,
+    image_status = EXCLUDED.image_status,
+    updated_at = NOW()
 SQL,
             [
                 'scryfallId' => $scryfallId,

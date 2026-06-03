@@ -507,20 +507,8 @@ export class GameTableStore implements OnDestroy {
     this.manaPoolState.decrement(playerId, color);
   }
 
-  incrementAnyMana(playerId: string): void {
-    this.manaPoolState.incrementAny(playerId);
-  }
-
-  decrementAnyMana(playerId: string): void {
-    this.manaPoolState.decrementAny(playerId);
-  }
-
   resetManaColor(playerId: string, color: ManaPoolColor): void {
     this.manaPoolState.resetColor(playerId, color);
-  }
-
-  resetAnyMana(playerId: string): void {
-    this.manaPoolState.resetAny(playerId);
   }
 
   resetManaPool(playerId: string): void {

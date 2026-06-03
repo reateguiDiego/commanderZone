@@ -1,0 +1,42 @@
+<details class="seo-language-selector">
+  <summary class="seo-language-selector__trigger" aria-label="Language versions">
+    <span class="seo-language-selector__label">Language</span>
+    <img
+      class="seo-language-selector__flag"
+      [src]="flagAsset(currentLink().locale)"
+      alt=""
+      width="24"
+      height="24"
+      aria-hidden="true"
+    />
+    <span class="seo-language-selector__current">{{ currentLink().label }}</span>
+  </summary>
+
+  <nav class="seo-language-selector__menu app-pretty-scroll" aria-label="Language versions">
+    @for (link of links(); track link.locale) {
+      <a
+        class="seo-language-selector__link"
+        [class.is-current]="isCurrentLocale(link.locale)"
+        [href]="link.href"
+        [attr.hreflang]="link.locale"
+        [attr.aria-label]="link.ariaLabel"
+        [attr.aria-current]="isCurrentLocale(link.locale) ? 'page' : null"
+      >
+        <span class="seo-language-selector__option">
+          <img
+            class="seo-language-selector__flag"
+            [src]="flagAsset(link.locale)"
+            alt=""
+            width="24"
+            height="24"
+            aria-hidden="true"
+          />
+          <span>{{ link.label }}</span>
+        </span>
+        @if (isCurrentLocale(link.locale)) {
+          <span class="seo-language-selector__current-mark" aria-hidden="true"></span>
+        }
+      </a>
+    }
+  </nav>
+</details>

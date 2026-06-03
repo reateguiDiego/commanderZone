@@ -1,0 +1,17 @@
+<section class="landing-steps" [attr.id]="content().id || null">
+  <div class="landing-steps__header">
+    <h2>{{ content().title }}</h2>
+    @if (content().intro) {
+      <p>{{ content().intro }}</p>
+    }
+  </div>
+
+  <ol class="landing-steps__list">
+    @for (step of content().steps; track step.title) {
+      <li>
+        <h3>{{ step.title }}</h3>
+        <p>{{ step.description }}</p>
+      </li>
+    }
+  </ol>
+</section>

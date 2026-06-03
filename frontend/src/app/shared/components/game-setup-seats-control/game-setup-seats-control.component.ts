@@ -1,7 +1,9 @@
+import { RuntimeTranslatePipe } from '../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
 
 @Component({
   selector: 'app-game-setup-seats-control',
+  imports: [RuntimeTranslatePipe],
   templateUrl: './game-setup-seats-control.component.html',
   styleUrl: './game-setup-seats-control.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

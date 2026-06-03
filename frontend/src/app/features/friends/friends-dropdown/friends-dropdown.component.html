@@ -1,7 +1,7 @@
-<section appPrettyScroll class="friends-menu" aria-label="Friends">
+<section appPrettyScroll class="friends-menu" [attr.aria-label]="'navigation.friends.friendsDropdown.friends' | runtimeTranslate">
   <header class="friends-header">
-    <span class="section-title">Friend list</span>
-    <button class="icon-button compact-icon" type="button" title="Search users" (click)="store.toggleSearch()">
+    <span class="section-title">{{ 'navigation.friends.friendsDropdown.friendList' | runtimeTranslate }}</span>
+    <button class="icon-button compact-icon" type="button" [title]="'navigation.friends.friendsDropdown.searchUsers' | runtimeTranslate" (click)="store.toggleSearch()">
       <lucide-icon name="search" size="15" />
     </button>
   </header>
@@ -13,10 +13,10 @@
   @if (store.searchOpen()) {
     <div class="search-panel">
       <label class="search-field">
-        Find users
+        {{ 'navigation.friends.friendsDropdown.findUsers' | runtimeTranslate }}
         <input
           name="friendSearch"
-          placeholder="Email or username"
+          [placeholder]="'navigation.friends.friendsDropdown.emailOrUsername' | runtimeTranslate"
           autocomplete="off"
           [ngModel]="store.searchQuery()"
           (ngModelChange)="store.updateSearch($event)"
@@ -24,7 +24,7 @@
       </label>
 
       @if (store.searchQuery().trim().length >= 2) {
-        <div class="search-results" aria-label="User search results">
+        <div class="search-results" [attr.aria-label]="'navigation.friends.friendsDropdown.userSearchResults' | runtimeTranslate">
           @for (result of store.searchResults(); track result.id) {
             <div class="friend-table-row">
               <span class="row-avatar-wrap">
@@ -42,7 +42,7 @@
               </span>
 
               @if (result.friendshipStatus === null || result.friendshipStatus === 'declined') {
-                <button class="icon-action add-action single-icon-slot" type="button" [disabled]="store.loading()" title="Send friend request" (click)="store.sendRequest(result.id)">
+                <button class="icon-action add-action single-icon-slot" type="button" [disabled]="store.loading()" [title]="'navigation.friends.friendsDropdown.sendFriendRequest' | runtimeTranslate" (click)="store.sendRequest(result.id)">
                   <lucide-icon name="plus" size="15" />
                 </button>
               } @else {
@@ -50,14 +50,14 @@
               }
             </div>
           } @empty {
-            <p class="dropdown-notice">No users found.</p>
+            <p class="dropdown-notice">{{ 'navigation.friends.friendsDropdown.noUsersFound' | runtimeTranslate }}</p>
           }
         </div>
       }
     </div>
   }
 
-  <div class="friend-table" aria-label="Friend list">
+  <div class="friend-table" [attr.aria-label]="'navigation.friends.friendsDropdown.friendList' | runtimeTranslate">
     @for (row of store.rows(); track row.kind + row.id) {
       <div class="friend-table-row" [class.incoming-row]="row.kind === 'incoming'" [class.room-invite-row]="row.kind === 'room-invite'" [class.pending-row]="row.kind === 'pending'" [class.child-row]="row.kind === 'room-invite' && !!row.parentFriendId">
         <span class="row-avatar-wrap">
@@ -79,7 +79,7 @@
           />
           <small>{{ row.detail }}</small>
           @if (row.kind === 'room-invite') {
-            <em>Invitacion de sala</em>
+            <em>{{ 'navigation.friends.friendsDropdown.invitacionDeSala' | runtimeTranslate }}</em>
           }
         </span>
 
@@ -94,13 +94,13 @@
           </span>
         } @else if (row.kind === 'pending') {
           <span class="single-action">
-            <button class="icon-action reject-action" type="button" [disabled]="store.loading()" title="Cancel request" (click)="runPrimaryAction(row)">
+            <button class="icon-action reject-action" type="button" [disabled]="store.loading()" [title]="'navigation.friends.friendsDropdown.cancelRequest' | runtimeTranslate" (click)="runPrimaryAction(row)">
               <lucide-icon name="x" size="15" />
             </button>
           </span>
         } @else {
           <span class="single-action">
-            <button class="icon-action reject-action" type="button" [disabled]="store.loading()" title="Remove friend" (click)="runPrimaryAction(row)">
+            <button class="icon-action reject-action" type="button" [disabled]="store.loading()" [title]="'navigation.friends.friendsDropdown.removeFriend' | runtimeTranslate" (click)="runPrimaryAction(row)">
               <lucide-icon name="x" size="15" />
             </button>
           </span>
@@ -109,7 +109,7 @@
 
     } @empty {
       @if (!store.searchOpen()) {
-        <p class="dropdown-notice">No friends or pending requests.</p>
+        <p class="dropdown-notice">{{ 'navigation.friends.friendsDropdown.noFriendsOrPendingRequests' | runtimeTranslate }}</p>
       }
     }
   </div>

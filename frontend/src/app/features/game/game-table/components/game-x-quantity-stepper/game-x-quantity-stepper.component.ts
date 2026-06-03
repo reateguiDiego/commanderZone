@@ -1,9 +1,10 @@
+import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
 
 @Component({
   selector: 'app-game-x-quantity-stepper',
-  imports: [LucideAngularModule],
+  imports: [RuntimeTranslatePipe, LucideAngularModule],
   templateUrl: './game-x-quantity-stepper.component.html',
   styleUrl: './game-x-quantity-stepper.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

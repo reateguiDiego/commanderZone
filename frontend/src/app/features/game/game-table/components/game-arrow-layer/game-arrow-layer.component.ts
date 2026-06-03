@@ -1,3 +1,4 @@
+import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import {
   AfterViewInit,
   ChangeDetectionStrategy,
@@ -73,6 +74,7 @@ export interface GameArrowMenuEvent {
 
 @Component({
   selector: 'app-game-arrow-layer',
+  imports: [RuntimeTranslatePipe],
   templateUrl: './game-arrow-layer.component.html',
   styleUrl: './game-arrow-layer.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

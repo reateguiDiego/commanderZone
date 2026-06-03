@@ -1,6 +1,6 @@
 <app-modal
   [open]="open"
-  title="Create token"
+  [title]="'game.tokenSearchModal.createToken' | runtimeTranslate"
   secondaryLabel="Close"
   [showPrimary]="false"
   [showCloseButton]="true"
@@ -15,7 +15,7 @@
       <input
         type="search"
         name="tokenSearch"
-        placeholder="Search tokens"
+        [placeholder]="'game.tokenSearchModal.searchTokens' | runtimeTranslate"
         autocomplete="off"
         [disabled]="pending"
         [ngModel]="query()"
@@ -25,9 +25,9 @@
 
     <div class="token-search-status" aria-live="polite">
       @if (loadingDeck() && !showingSearchResults()) {
-        <span>Loading deck tokens...</span>
+        <span>{{ 'game.tokenSearchModal.loadingDeckTokens' | runtimeTranslate }}</span>
       } @else if (searching()) {
-        <span>Searching tokens...</span>
+        <span>{{ 'game.tokenSearchModal.searchingTokens' | runtimeTranslate }}</span>
       } @else if (error(); as message) {
         <span class="error">{{ message }}</span>
       } @else if (!showingSearchResults() && deckTokenCards().length > 0) {
@@ -45,7 +45,7 @@
           } @else {
             <span class="token-card-fallback">{{ card.name }}</span>
           }
-          <div class="token-add-controls" aria-label="Token creation controls">
+          <div class="token-add-controls" [attr.aria-label]="'game.tokenSearchModal.tokenCreationControls' | runtimeTranslate">
             <app-game-x-quantity-stepper
               [value]="quantity()"
               [min]="1"

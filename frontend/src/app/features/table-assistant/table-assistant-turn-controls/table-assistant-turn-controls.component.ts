@@ -1,3 +1,4 @@
+import { RuntimeTranslatePipe } from '../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import { TableAssistantTimerMode, TableAssistantTimerStatus } from '../models/table-assistant.models';
 
@@ -5,6 +6,7 @@ type TimerAlertLevel = 'none' | 'warning' | 'critical';
 
 @Component({
   selector: 'app-table-assistant-turn-controls',
+  imports: [RuntimeTranslatePipe],
   templateUrl: './table-assistant-turn-controls.component.html',
   styleUrl: './table-assistant-turn-controls.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

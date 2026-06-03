@@ -1,26 +1,26 @@
 <aside class="panel rooms-create-panel">
   <div class="room-code-card">
     <label>
-      Join by room code
-      <input name="roomCode" placeholder="CZ-ABC-DEF-123" [value]="roomCode()" (input)="setRoomCode($event)" />
+      {{ 'rooms.roomCreatePanel.joinByRoomCode' | runtimeTranslate }}
+      <input name="roomCode" [placeholder]="'rooms.roomCreatePanel.czAbcDef123' | runtimeTranslate" [value]="roomCode()" (input)="setRoomCode($event)" />
     </label>
     <span class="action-tooltip-anchor" [attr.title]="actionsLocked() ? lockedRoomTooltip : null">
       <button class="primary-button" type="button" [disabled]="actionsLocked() || !roomCode().trim()" (click)="joinByCode()">
         <lucide-icon name="search" size="16" />
-        Join
+        {{ 'rooms.roomCreatePanel.join' | runtimeTranslate }}
       </button>
     </span>
   </div>
 
   <div class="rooms-create-header">
-    <span class="eyebrow">Create a new room</span>
-    <h3>Room setup</h3>
+    <span class="eyebrow">{{ 'rooms.roomCreatePanel.createANewRoom' | runtimeTranslate }}</span>
+    <h3>{{ 'rooms.roomCreatePanel.roomSetup' | runtimeTranslate }}</h3>
   </div>
 
   <span class="action-tooltip-anchor" [attr.title]="actionsLocked() ? lockedRoomTooltip : null">
     <button class="primary-button" type="button" [disabled]="actionsLocked()" (click)="requestCreate()">
       <lucide-icon name="plus" size="17" />
-      Create room
+      {{ 'rooms.roomCreatePanel.createRoom' | runtimeTranslate }}
     </button>
   </span>
 </aside>

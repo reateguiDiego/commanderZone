@@ -1,14 +1,17 @@
+import { RuntimeTranslatePipe } from '../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, ElementRef, EventEmitter, HostListener, Input, OnDestroy, Output, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
 import { firstValueFrom } from 'rxjs';
-import { CARD_SEARCH_LIMIT, CardsApi, CardSearchFilters } from '../../../core/api/cards.api';
+import { CardsApi, CardSearchFilters } from '../../../core/api/cards.api';
 import { Card } from '../../../core/models/card.model';
 import { ManaSymbolsComponent } from '../../mana/mana-symbols/mana-symbols.component';
 import { PrettyScrollDirective } from '../../ui/pretty-scroll/pretty-scroll.directive';
 import { isCommanderCandidate } from '../../utils/commander-candidate';
 import { filterDistinctCardsByQuery, sanitizeCardSearchQuery } from '../../utils/card-search';
 import { isEmblemCard, isSchemeCard, isTokenCard } from '../../utils/token-card';
+
+const AUTOCOMPLETE_SEARCH_LIMIT = 40;
 
 export interface CardAutocompleteSelection {
   card: Card;
@@ -17,7 +20,7 @@ export interface CardAutocompleteSelection {
 
 @Component({
   selector: 'app-card-autocomplete',
-  imports: [FormsModule, LucideAngularModule, ManaSymbolsComponent, PrettyScrollDirective],
+  imports: [RuntimeTranslatePipe, FormsModule, LucideAngularModule, ManaSymbolsComponent, PrettyScrollDirective],
   templateUrl: './card-autocomplete.component.html',
   styleUrl: './card-autocomplete.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -132,7 +135,7 @@ export class CardAutocompleteComponent implements OnDestroy {
 
   private async search(query: string, version: number): Promise<void> {
     try {
-      const response = await firstValueFrom(this.cardsApi.search(query, 1, CARD_SEARCH_LIMIT, this.filters));
+      const response = await firstValueFrom(this.cardsApi.search(query, 1, AUTOCOMPLETE_SEARCH_LIMIT, this.filters));
       if (version !== this.searchVersion || query !== this.query.trim()) {
         return;
       }

@@ -2,24 +2,24 @@
   <button
     class="brand-mark table-logo-button"
     type="button"
-    aria-label="Opciones de partida de CommanderZone"
+    [attr.aria-label]="'tableAssistant.tableAssistantTableMenu.opcionesDePartidaDeCommanderzone' | runtimeTranslate"
     (click)="toggleMenu()"
   >
-    CZ
+    {{ 'tableAssistant.tableAssistantTableMenu.cz' | runtimeTranslate }}
   </button>
   @if (menuOpen()) {
-    <div class="table-exit-menu" role="dialog" aria-label="Opciones de partida">
+    <div class="table-exit-menu" role="dialog" [attr.aria-label]="'tableAssistant.tableAssistantTableMenu.opcionesDePartida' | runtimeTranslate">
       <button class="menu-action primary" type="button" (click)="selectNewTable()">
-        Nueva partida
+        {{ 'tableAssistant.tableAssistantTableMenu.nuevaPartida' | runtimeTranslate }}
       </button>
-      <button class="menu-action" type="button" (click)="selectRoll()">Tirar dado</button>
+      <button class="menu-action" type="button" (click)="selectRoll()">{{ 'tableAssistant.tableAssistantTableMenu.tirarDado' | runtimeTranslate }}</button>
       <button class="menu-action" type="button" (click)="selectFullscreen()">
-        Pantalla completa
+        {{ 'tableAssistant.tableAssistantTableMenu.pantallaCompleta' | runtimeTranslate }}
       </button>
       <button class="menu-action" type="button" (click)="selectDashboard()">
-        Salir al dashboard
+        {{ 'tableAssistant.tableAssistantTableMenu.salirAlDashboard' | runtimeTranslate }}
       </button>
-      <button class="menu-action subtle" type="button" (click)="closeMenu()">Seguir jugando</button>
+      <button class="menu-action subtle" type="button" (click)="closeMenu()">{{ 'tableAssistant.tableAssistantTableMenu.seguirJugando' | runtimeTranslate }}</button>
     </div>
   }
 </div>

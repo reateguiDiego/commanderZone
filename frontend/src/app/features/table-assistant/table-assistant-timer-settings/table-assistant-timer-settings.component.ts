@@ -1,10 +1,11 @@
+import { RuntimeTranslatePipe } from '../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, ElementRef, HostListener, computed, inject, input, output, signal } from '@angular/core';
 import { PrettyScrollDirective } from '../../../shared/ui/pretty-scroll/pretty-scroll.directive';
 import { TableAssistantTimerMode } from '../models/table-assistant.models';
 
 @Component({
   selector: 'app-table-assistant-timer-settings',
-  imports: [PrettyScrollDirective],
+  imports: [RuntimeTranslatePipe, PrettyScrollDirective],
   templateUrl: './table-assistant-timer-settings.component.html',
   styleUrl: './table-assistant-timer-settings.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

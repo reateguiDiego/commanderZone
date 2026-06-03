@@ -6,13 +6,13 @@
 
   <div class="banner-main">
     <div class="room-copy">
-      <span class="eyebrow">Current room</span>
+      <span class="eyebrow">{{ 'rooms.roomCurrentBanner.currentRoom' | runtimeTranslate }}</span>
       <div class="room-title-line">
         <span class="room-state-dot" [class.is-private]="currentRoom.visibility === 'private'"></span>
         <h2>{{ currentRoom.name }}</h2>
         <span class="visibility-pill" [class.is-private]="currentRoom.visibility === 'private'">{{ currentRoom.visibility }}</span>
       </div>
-      <div class="room-chips" aria-label="Current room details">
+      <div class="room-chips" [attr.aria-label]="'rooms.roomCurrentBanner.currentRoomDetails' | runtimeTranslate">
         <span class="room-chip">{{ formatName() }}</span>
         <span class="room-chip">{{ playerCountLabel() }} players</span>
       </div>
@@ -27,13 +27,13 @@
         }
       </div>
       <div class="deck-copy">
-        <span>Your deck</span>
+        <span>{{ 'rooms.roomCurrentBanner.yourDeck' | runtimeTranslate }}</span>
         <strong>{{ playerDeckName() }}</strong>
       </div>
     </div>
 
     <div class="turn-summary">
-      <span>Turn</span>
+      <span>{{ 'rooms.roomCurrentBanner.turn' | runtimeTranslate }}</span>
       <strong>{{ turnLabel() }}</strong>
     </div>
   </div>

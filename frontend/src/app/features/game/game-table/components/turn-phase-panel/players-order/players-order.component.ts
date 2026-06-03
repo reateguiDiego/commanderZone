@@ -1,3 +1,4 @@
+import { RuntimeTranslatePipe } from '../../../../../../core/localization/runtime-translate.pipe';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -29,6 +30,7 @@ interface PlayersOrderEntry {
 
 @Component({
   selector: 'app-players-order',
+  imports: [RuntimeTranslatePipe],
   templateUrl: './players-order.component.html',
   styleUrl: './players-order.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

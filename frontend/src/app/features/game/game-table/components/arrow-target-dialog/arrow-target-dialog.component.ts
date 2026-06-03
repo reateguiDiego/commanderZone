@@ -1,3 +1,4 @@
+import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import { PlayerView } from '../../game-table.store';
 import { playerIsDefeated } from '../../utils/game-player-defeat';
@@ -10,6 +11,7 @@ export interface ArrowTargetDialogValue {
 
 @Component({
   selector: 'app-arrow-target-dialog',
+  imports: [RuntimeTranslatePipe],
   templateUrl: './arrow-target-dialog.component.html',
   styleUrl: './arrow-target-dialog.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

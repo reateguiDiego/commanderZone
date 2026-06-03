@@ -18,8 +18,8 @@
       <div class="setup-modal-row">
         <div class="create-fields">
         <label class="room-name-field">
-          Room name
-          <input formControlName="roomName" maxlength="30" placeholder="Ej. La taberna" />
+          {{ 'rooms.roomSetupModal.roomName' | runtimeTranslate }}
+          <input formControlName="roomName" maxlength="30" [placeholder]="'rooms.roomSetupModal.ejLaTaberna' | runtimeTranslate" />
           <small class="character-count">{{ roomNameLength() }}/30</small>
         </label>
         </div>
@@ -48,7 +48,7 @@
 
         <div class="setup-control timer-control modal-setup-field">
           <div class="control-copy">
-            <span class="eyebrow">Timer</span>
+            <span class="eyebrow">{{ 'rooms.roomSetupModal.timer' | runtimeTranslate }}</span>
             <strong>{{ createTimerSummary() }}</strong>
           </div>
           <app-table-assistant-timer-settings

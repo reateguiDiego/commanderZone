@@ -153,6 +153,23 @@ describe('CardAutocompleteComponent', () => {
 
     expect(fixture.componentInstance.results()).toEqual([]);
   });
+
+  it('uses a reduced backend limit for interactive autocomplete searches', async () => {
+    const cardsApi = TestBed.inject(CardsApi) as unknown as { search: ReturnType<typeof vi.fn> };
+
+    vi.useFakeTimers();
+    try {
+      const fixture = TestBed.createComponent(CardAutocompleteComponent);
+      fixture.detectChanges();
+
+      fixture.componentInstance.onQueryInput('sol');
+      await vi.advanceTimersByTimeAsync(350);
+
+      expect(cardsApi.search).toHaveBeenCalledWith('sol', 1, 40, {});
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
 
 function card(name: string, typeLine: string | null, oracleText: string | null, layout = 'normal'): Card {

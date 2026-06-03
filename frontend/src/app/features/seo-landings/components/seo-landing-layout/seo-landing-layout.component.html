@@ -1,0 +1,44 @@
+<div class="seo-landing-layout" [attr.data-route-key]="content().routeKey" [attr.lang]="content().locale">
+  <header class="seo-landing-layout__header">
+    <a class="seo-landing-layout__brand" [href]="content().homeLink?.href ?? '/'" [attr.aria-label]="content().homeLink?.ariaLabel">
+      <img src="/assets/icons/CZ/CZ_logo.png" alt="" aria-hidden="true" width="256" height="124" />
+      <span>{{ content().siteName ?? content().homeLink?.label ?? 'CommanderZone' }}</span>
+    </a>
+
+    <div class="seo-landing-layout__header-links">
+      @if (content().publicNavigationLinks?.length) {
+        <nav class="seo-landing-layout__nav" aria-label="Public navigation">
+          @for (link of content().publicNavigationLinks; track link.href) {
+            <a class="primary-button compact" [href]="link.href" [attr.aria-label]="link.ariaLabel">{{ link.label }}</a>
+          }
+        </nav>
+      }
+
+      @if (content().localeLinks?.length) {
+        <app-seo-language-selector [currentLocale]="content().locale" [links]="content().localeLinks ?? []" />
+      }
+    </div>
+  </header>
+
+  @if (content().breadcrumb; as breadcrumb) {
+    <app-landing-breadcrumb [content]="breadcrumb" />
+  }
+
+  <main class="seo-landing-layout__main">
+    <ng-content />
+  </main>
+
+  @if (content().internalLinks; as internalLinks) {
+    <app-landing-internal-links [content]="internalLinks" />
+  }
+
+  @if (content().footerLinks?.length) {
+    <footer class="seo-landing-layout__footer">
+      <nav aria-label="Public footer">
+        @for (link of content().footerLinks; track link.href) {
+          <a [href]="link.href" [attr.aria-label]="link.ariaLabel">{{ link.label }}</a>
+        }
+      </nav>
+    </footer>
+  }
+</div>

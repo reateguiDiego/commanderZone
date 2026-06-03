@@ -19,7 +19,7 @@
             <div class="deck-group-body-inner">
               <div class="deck-card-list">
                 @if (group.id === 'commander' && group.cards.length === 0) {
-                  <p class="notice warning compact-notice">No commander assigned yet.</p>
+                  <p class="notice warning compact-notice">{{ 'deckBuilder.deckCardTextView.noCommanderAssignedYet' | runtimeTranslate }}</p>
                 } @else if (group.id === 'commander') {
                   <app-deck-commander-showcase [entries]="group.cards" />
                 } @else {

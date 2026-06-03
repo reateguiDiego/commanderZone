@@ -1,3 +1,4 @@
+import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
 import { RoomPlayer } from '../../../../../core/models/room.model';
@@ -7,7 +8,7 @@ import { WaitingRoomDeckSelectorComponent, WaitingDeckOption } from '../waiting-
 
 @Component({
   selector: 'app-waiting-room-player-card',
-  imports: [LucideAngularModule, PlayerAvatarComponent, PlayerNameComponent, WaitingRoomDeckSelectorComponent],
+  imports: [RuntimeTranslatePipe, LucideAngularModule, PlayerAvatarComponent, PlayerNameComponent, WaitingRoomDeckSelectorComponent],
   templateUrl: './waiting-room-player-card.component.html',
   styleUrl: './waiting-room-player-card.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

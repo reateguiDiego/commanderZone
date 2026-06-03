@@ -11,17 +11,17 @@
 
   <aside class="orientation-lock" data-testid="game-orientation-lock" role="status" aria-live="polite">
     <lucide-icon name="rotate-cw" size="34" aria-hidden="true" />
-    <strong>Rotate your device</strong>
-    <span>Games can only be played in landscape on mobile and tablet.</span>
+    <strong>{{ 'game.gameTable.rotateYourDevice' | runtimeTranslate }}</strong>
+    <span>{{ 'game.gameTable.gamesCanOnlyBePlayedInLandscape' | runtimeTranslate }}</span>
   </aside>
 
   <aside class="unsupported-resolution-lock" data-testid="game-unsupported-resolution-lock" role="status" aria-live="polite">
     <lucide-icon name="triangle-alert" size="34" aria-hidden="true" />
-    <strong>This table needs a little more room</strong>
+    <strong>{{ 'game.gameTable.thisTableNeedsALittleMoreRoom' | runtimeTranslate }}</strong>
     <span>
-      Sorry, this resolution is too cramped for a Commander game. Please adjust browser zoom or use a larger window.
+      {{ 'game.gameTable.sorryThisResolutionIsTooCrampedFor' | runtimeTranslate }}
     </span>
-    <small>Use Ctrl+0 in your browser to reset zoom to 100%, then refresh or resize this window.</small>
+    <small>{{ 'game.gameTable.useCtrl0InYourBrowserTo' | runtimeTranslate }}</small>
     <div class="unsupported-resolution-actions">
       <button
         type="button"
@@ -30,13 +30,13 @@
         (click)="requestUnsupportedViewportLeave($event)"
       >
         <lucide-icon name="door-open" size="16" aria-hidden="true" />
-        <span>Leave room</span>
+        <span>{{ 'game.gameTable.leaveRoom' | runtimeTranslate }}</span>
       </button>
     </div>
   </aside>
 
   @if (store.loading()) {
-    <p class="notice">Loading game...</p>
+    <p class="notice">{{ 'game.gameTable.loadingGame' | runtimeTranslate }}</p>
   } @else if (store.snapshot(); as snapshot) {
     <app-game-arrow-layer
       [snapshot]="snapshot"
@@ -100,10 +100,10 @@
                 data-testid="game-log-open"
                 [class.active]="store.activeFloatingTab() === 'log'"
                 [class.has-unread]="unreadLog()"
-                [attr.aria-label]="unreadLog() ? 'Game Log, unread actions' : 'Game Log'"
+                [attr.aria-label]="(unreadLog() ? 'game.gameTable.gameLogUnreadActions' : 'game.gameTable.gameLog') | runtimeTranslate"
                 (click)="openFloatingTab('log')"
               >
-                <span>Game Log</span>
+                <span>{{ 'game.gameTable.gameLog' | runtimeTranslate }}</span>
                 @if (unreadLog()) {
                   <lucide-icon class="tab-notification-icon" name="bell" size="13" aria-hidden="true" />
                 }
@@ -113,10 +113,10 @@
                 data-testid="chat-open"
                 [class.active]="store.activeFloatingTab() === 'chat'"
                 [class.has-unread]="unreadChat()"
-                [attr.aria-label]="unreadChat() ? 'Chat, unread messages' : 'Chat'"
+                [attr.aria-label]="(unreadChat() ? 'game.gameTable.chatUnreadMessages' : 'game.gameTable.chat') | runtimeTranslate"
                 (click)="openFloatingTab('chat')"
               >
-                <span>Chat</span>
+                <span>{{ 'game.gameTable.chat' | runtimeTranslate }}</span>
                 @if (unreadChat()) {
                   <lucide-icon class="tab-notification-icon" name="bell" size="13" aria-hidden="true" />
                 }
@@ -141,7 +141,7 @@
                     </span>
                   </p>
                 } @else {
-                  <p class="collapsed-empty"><span>No game actions yet.</span></p>
+                  <p class="collapsed-empty"><span>{{ 'game.gameTable.noGameActionsYet' | runtimeTranslate }}</span></p>
                 }
               } @else {
                 @if (latestChatMessage(); as message) {
@@ -159,7 +159,7 @@
                     </span>
                   </p>
                 } @else {
-                  <p class="collapsed-empty"><span>No chat messages yet.</span></p>
+                  <p class="collapsed-empty"><span>{{ 'game.gameTable.noChatMessagesYet' | runtimeTranslate }}</span></p>
                 }
               }
             </div>
@@ -204,7 +204,7 @@
                                 data-testid="chat-reaction"
                                 [class.active]="hasOwnChatReaction(message, reaction.type)"
                                 [disabled]="!message.id"
-                                [attr.aria-label]="reaction.label"
+                                [attr.aria-label]="reaction.label | runtimeTranslate"
                                 (click)="toggleChatReaction($event, message, reaction.type)"
                               >
                                 <span class="chat-reaction-icon" aria-hidden="true">{{ reaction.emoji }}</span>
@@ -221,7 +221,7 @@
                                   <b>{{ chatReactionCount(message, reaction.type) }}</b>
                                   @if (shouldShowChatReactionUsers(message, reaction.type)) {
                                     <span class="chat-reaction-users" role="tooltip">
-                                      <b>Reacted by</b> {{ chatReactionUsers(message, reaction.type) }}
+                                      <b>{{ 'game.gameTable.reactedBy' | runtimeTranslate }}</b> {{ chatReactionUsers(message, reaction.type) }}
                                     </span>
                                   }
                                 </span>
@@ -244,7 +244,7 @@
                   <input
                     data-testid="chat-input"
                     name="chatMessage"
-                    placeholder="Message"
+                    [placeholder]="'game.gameTable.message' | runtimeTranslate"
                     [ngModel]="store.chatMessage()"
                     (ngModelChange)="store.setChatMessage($event)"
                   />
@@ -308,7 +308,7 @@
           @if (shouldShowRematchVotesButton()) {
             <button class="rematch-votes-button secondary-button" type="button" (click)="openRematchModal(); $event.stopPropagation()">
               <lucide-icon name="vote" size="16" />
-              <span>Votaciones</span>
+              <span>{{ 'game.gameTable.votaciones' | runtimeTranslate }}</span>
             </button>
           }
 
@@ -362,8 +362,6 @@
             (manaLaneDropped)="handleManaLaneDrop($event)"
             (manaPoolColorAdded)="store.incrementMana($event.playerId, $event.color)"
             (manaPoolColorRemoved)="store.decrementMana($event.playerId, $event.color)"
-            (manaPoolAnyAdded)="store.incrementAnyMana($event.playerId)"
-            (manaPoolAnyRemoved)="store.decrementAnyMana($event.playerId)"
             (manaPoolHidden)="store.hideManaPool($event.playerId)"
             (battlefieldSizeChanged)="updateBattlefieldLayoutSize($event)"
           />
@@ -441,7 +439,7 @@
           aria-controls="game-table-opponents-list"
           (click)="toggleOpponentsDrawer($event)"
         >
-          Opponents
+          {{ 'game.gameTable.opponents' | runtimeTranslate }}
         </button>
         <div id="game-table-opponents-list" class="opponents-list">
           @for (player of opponentSidebarPlayers(); track player.id) {
@@ -516,7 +514,7 @@
 
       <app-modal
         [open]="closeGameDialogOpen()"
-        title="Close game?"
+        [title]="'game.gameTable.closeGame' | runtimeTranslate"
         message="This finishes the current game and sends the table back to the rooms list."
         primaryLabel="Close game"
         secondaryLabel="Cancel"
@@ -585,7 +583,7 @@
       @if (store.pendingBattlefieldMove(); as pendingMove) {
         <app-modal
           [open]="true"
-          title="Mover carta a otro battlefield"
+          [title]="'game.gameTable.moverCartaAOtroBattlefield' | runtimeTranslate"
           [message]="'Vas a poner ' + pendingMove.cardName + ' en el battlefield de ' + pendingMove.targetPlayerName + '.'"
           primaryLabel="Confirmar"
           secondaryLabel="Cancelar"
@@ -598,7 +596,7 @@
       @if (handCardGiveDialog(); as giveRequest) {
         <app-modal
           [open]="true"
-          title="Give card?"
+          [title]="'game.gameTable.giveCard' | runtimeTranslate"
           [message]="'You are giving ' + giveRequest.cardName + ' to ' + giveRequest.targetPlayerName + '. This moves it to their hand.'"
           primaryLabel="Give card"
           secondaryLabel="Cancel"
@@ -611,7 +609,7 @@
       @if (libraryCardMoveToHandDialog(); as libraryMoveRequest) {
         <app-modal
           [open]="true"
-          title="Move to hand?"
+          [title]="'game.gameTable.moveToHand' | runtimeTranslate"
           [message]="'Do you want to reveal ' + libraryMoveRequest.cardName + ' while moving it from library to hand?'"
           primaryLabel="Reveal and move"
           secondaryLabel="Move hidden"
@@ -630,7 +628,7 @@
       @if (store.pendingLibraryMove(); as pendingMove) {
         <app-modal
           [open]="true"
-          title="Devolver a biblioteca"
+          [title]="'game.gameTable.devolverABiblioteca' | runtimeTranslate"
           [message]="pendingLibraryMoveMessage(pendingMove)"
           primaryLabel="Top"
           secondaryLabel="Bottom"
@@ -652,8 +650,8 @@
                 (change)="updateLibraryMoveRandomOrder($event)"
               />
               <span>
-                <strong>Random order</strong>
-                <small>Shuffle only these cards before placing them.</small>
+                <strong>{{ 'game.gameTable.randomOrder' | runtimeTranslate }}</strong>
+                <small>{{ 'game.gameTable.shuffleOnlyTheseCardsBeforePlacingThem' | runtimeTranslate }}</small>
               </span>
             </label>
           }
@@ -663,7 +661,7 @@
       @if (zoneMoveAllLibraryDialog(); as moveAllRequest) {
         <app-modal
           [open]="true"
-          title="Move all to library"
+          [title]="'game.gameTable.moveAllToLibrary' | runtimeTranslate"
           [message]="'Where do you want to put ' + moveAllRequest.count + ' cards?'"
           primaryLabel="Top"
           secondaryLabel="Bottom"
@@ -685,8 +683,8 @@
                 (change)="updateZoneMoveAllLibraryRandomOrder($event)"
               />
               <span>
-                <strong>Random order</strong>
-                <small>Shuffle only these cards before placing them.</small>
+                <strong>{{ 'game.gameTable.randomOrder' | runtimeTranslate }}</strong>
+                <small>{{ 'game.gameTable.shuffleOnlyTheseCardsBeforePlacingThem' | runtimeTranslate }}</small>
               </span>
             </label>
           }

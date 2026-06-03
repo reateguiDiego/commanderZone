@@ -21,18 +21,18 @@
 .segmented-control button,
 .wheel-options button {
   min-height: 2.55rem;
-  border: 1px solid rgb(215 180 106 / 20%);
+  border: 1px solid rgb(var(--cz-primary-rgb) / 20%);
   border-radius: 10px;
   padding: 0 0.75rem;
   color: var(--text);
-  background: rgb(255 255 255 / 5%);
+  background: rgb(var(--cz-text-rgb) / 5%);
   font-weight: 850;
   cursor: pointer;
 }
 
 .segmented-control button.active {
-  border-color: rgb(215 180 106 / 58%);
-  background: linear-gradient(135deg, rgb(155 111 37 / 56%), rgb(75 90 55 / 34%));
+  border-color: rgb(var(--cz-primary-rgb) / 58%);
+  background: linear-gradient(135deg, rgb(var(--cz-secondary-rgb) / 56%), rgb(var(--cz-surface-rgb) / 34%));
 }
 
 .segmented-control button:disabled,
@@ -48,13 +48,13 @@
   grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
   gap: 0.45rem;
   align-items: center;
-  border: 1px solid rgb(126 148 112 / 24%);
+  border: 1px solid rgb(var(--cz-success-rgb) / 24%);
   border-radius: 14px;
   padding: 0.6rem;
   background:
-    radial-gradient(circle at 12% 0, rgb(215 180 106 / 20%), transparent 42%),
-    linear-gradient(145deg, rgb(15 20 14 / 96%), rgb(5 8 6 / 98%));
-  box-shadow: 0 1.25rem 2.6rem rgb(0 0 0 / 42%), inset 0 1px 0 rgb(255 255 255 / 6%);
+    radial-gradient(circle at 12% 0, rgb(var(--cz-primary-rgb) / 20%), transparent 42%),
+    linear-gradient(145deg, rgb(var(--cz-bg-rgb) / 96%), rgb(var(--cz-bg-rgb) / 98%));
+  box-shadow: 0 1.25rem 2.6rem rgb(var(--cz-bg-rgb) / 42%), inset 0 1px 0 rgb(var(--cz-text-rgb) / 6%);
 }
 
 .wheel-column {
@@ -72,8 +72,8 @@
   max-height: 4.95rem;
   overflow-y: auto;
   border-radius: 10px;
-  border: 1px solid rgb(215 180 106 / 14%);
-  background: rgb(0 0 0 / 28%);
+  border: 1px solid rgb(var(--cz-primary-rgb) / 14%);
+  background: rgb(var(--cz-bg-rgb) / 28%);
 }
 
 .wheel-options button {
@@ -81,16 +81,16 @@
   border: 0;
   border-radius: 0;
   background: transparent;
-  color: rgb(232 222 204 / 62%);
+  color: rgb(var(--cz-text-rgb) / 62%);
 }
 
 .wheel-options button.selected {
-  background: linear-gradient(135deg, rgb(215 180 106 / 26%), rgb(126 148 112 / 16%));
+  background: linear-gradient(135deg, rgb(var(--cz-primary-rgb) / 26%), rgb(var(--cz-success-rgb) / 16%));
   color: var(--text);
 }
 
 .timer-wheel strong {
-  color: #ffe9a9;
+  color: var(--cz-secondary);
 }
 
 .compact {

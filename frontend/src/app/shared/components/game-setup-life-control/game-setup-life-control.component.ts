@@ -1,7 +1,9 @@
+import { RuntimeTranslatePipe } from '../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 
 @Component({
   selector: 'app-game-setup-life-control',
+  imports: [RuntimeTranslatePipe],
   templateUrl: './game-setup-life-control.component.html',
   styleUrl: './game-setup-life-control.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

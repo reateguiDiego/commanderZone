@@ -1,0 +1,106 @@
+.landing-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: clamp(1.35rem, 3vw, 2.5rem);
+  padding: clamp(2.2rem, 5vw, 5.5rem) 0 clamp(1.5rem, 4vw, 3rem);
+}
+
+.landing-hero__content {
+  display: grid;
+  gap: 1rem;
+  max-width: 58rem;
+}
+
+.landing-hero__eyebrow,
+.landing-hero h1,
+.landing-hero__subtitle {
+  margin: 0;
+}
+
+.landing-hero__eyebrow {
+  color: var(--gold);
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.landing-hero h1 {
+  color: var(--text);
+  max-width: 12ch;
+  font-size: clamp(2.6rem, 7vw, 5.9rem);
+  line-height: 0.96;
+  overflow-wrap: anywhere;
+}
+
+.landing-hero__subtitle {
+  max-width: 44rem;
+  color: var(--muted);
+  font-size: clamp(1rem, 2vw, 1.25rem);
+  line-height: 1.55;
+}
+
+.landing-hero__actions,
+.landing-hero__highlights {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.landing-hero__media {
+  width: min(100%, 54rem);
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid rgb(var(--cz-primary-rgb) / 22%);
+  border-radius: 10px;
+  background:
+    linear-gradient(135deg, rgb(var(--cz-primary-rgb) / 12%), transparent 46%),
+    rgb(var(--cz-bg-rgb) / 72%);
+  box-shadow: 0 1.4rem 3rem rgb(var(--cz-bg-rgb) / 34%);
+  aspect-ratio: 1200 / 630;
+}
+
+.landing-hero__media img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.landing-hero__actions a {
+  width: 100%;
+  min-height: 2.75rem;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+
+.landing-hero__highlights {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.landing-hero__highlights li {
+  border-radius: 7px;
+  padding: 0.55rem 0.72rem;
+  background: rgb(var(--cz-primary-rgb) / 10%);
+  color: rgb(var(--cz-text-rgb) / 88%);
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+@media (width >= 768px) {
+  .landing-hero__actions a {
+    width: auto;
+  }
+
+  .landing-hero {
+    grid-template-columns: minmax(0, 0.95fr) minmax(22rem, 0.75fr);
+    align-items: center;
+  }
+
+  .landing-hero__highlights {
+    grid-column: 1 / -1;
+  }
+}

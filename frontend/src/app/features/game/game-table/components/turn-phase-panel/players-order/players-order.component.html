@@ -1,7 +1,7 @@
 <div
   class="players-order"
   data-testid="players-order"
-  aria-label="Orden de turno"
+  [attr.aria-label]="'game.playersOrder.ordenDeTurno' | runtimeTranslate"
   [style.--players-order-count]="entries().length"
 >
   @for (entry of entries(); track trackEntry($index, entry)) {

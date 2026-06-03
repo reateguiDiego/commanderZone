@@ -1,14 +1,14 @@
 @if (player(); as player) {
   @if (host()) {
-    <span class="host-ribbon">Host</span>
+    <span class="host-ribbon">{{ 'rooms.waitingRoomPlayerCard.host' | runtimeTranslate }}</span>
   }
 
   @if (canKick()) {
     <button
       class="player-kick-button"
       type="button"
-      title="Kick player"
-      aria-label="Kick player"
+      [title]="'rooms.waitingRoomPlayerCard.kickPlayer' | runtimeTranslate"
+      [attr.aria-label]="'rooms.waitingRoomPlayerCard.kickPlayer' | runtimeTranslate"
       [disabled]="kicking()"
       (click)="kickRequested.emit(player)"
     >
@@ -17,13 +17,13 @@
   }
 
   @if (player.turnRoll !== null || (player.turnRolls?.length ?? 0) > 0) {
-    <div class="roll-badge" aria-label="D20 roll result">
+    <div class="roll-badge" [attr.aria-label]="'rooms.waitingRoomPlayerCard.d20RollResult' | runtimeTranslate">
       @if (turnPosition() !== null) {
-        <span class="roll-badge-label">Turn order</span>
+        <span class="roll-badge-label">{{ 'rooms.waitingRoomPlayerCard.turnOrder' | runtimeTranslate }}</span>
         <strong>#{{ turnPosition() }}</strong>
         <small>D20 {{ rollLabel(player) }}</small>
       } @else {
-        <span class="roll-badge-label">D20 roll</span>
+        <span class="roll-badge-label">{{ 'rooms.waitingRoomPlayerCard.d20Roll' | runtimeTranslate }}</span>
         <strong>{{ rollLabel(player) }}</strong>
       }
     </div>
@@ -83,8 +83,8 @@
     <div class="empty-slot-icon waiting-pulse">
       <lucide-icon name="plus" size="24" />
     </div>
-    <strong>Open slot</strong>
-    <span class="waiting-dots" aria-label="Waiting for player">
+    <strong>{{ 'rooms.waitingRoomPlayerCard.openSlot' | runtimeTranslate }}</strong>
+    <span class="waiting-dots" [attr.aria-label]="'rooms.waitingRoomPlayerCard.waitingForPlayer' | runtimeTranslate">
       <i></i><i></i><i></i>
     </span>
   </div>

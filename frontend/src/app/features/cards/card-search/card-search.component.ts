@@ -1,3 +1,4 @@
+import { RuntimeTranslatePipe } from '../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -10,7 +11,7 @@ import { bestCardImage } from '../../../shared/utils/card-image';
 
 @Component({
   selector: 'app-card-search',
-  imports: [FormsModule, RouterLink, LucideAngularModule, ManaSymbolsComponent],
+  imports: [RuntimeTranslatePipe, FormsModule, RouterLink, LucideAngularModule, ManaSymbolsComponent],
   templateUrl: './card-search.component.html',
   styleUrl: './card-search.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

@@ -1,0 +1,31 @@
+.landing-trust-bar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(12rem, 100%), 1fr));
+  gap: 0.65rem;
+  padding: 0.5rem 0 1rem;
+}
+
+.landing-trust-bar__item {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+  border-radius: 7px;
+  padding: 0.75rem 0.85rem;
+  background: rgb(var(--cz-primary-rgb) / 9%);
+  box-shadow: inset 0 1px 0 rgb(var(--cz-text-rgb) / 5%);
+}
+
+.landing-trust-bar strong,
+.landing-trust-bar span {
+  overflow-wrap: anywhere;
+}
+
+.landing-trust-bar strong {
+  color: var(--gold);
+  font-size: 1.1rem;
+}
+
+.landing-trust-bar span {
+  color: var(--muted);
+  line-height: 1.45;
+}

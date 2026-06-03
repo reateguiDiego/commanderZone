@@ -1,16 +1,18 @@
 import { importProvidersFrom } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
-import { Check, ChevronRight, LogOut, LucideAngularModule, Maximize2, Menu, Settings } from 'lucide-angular';
+import { Check, ChevronRight, CircleQuestionMark, LogOut, LucideAngularModule, Maximize2, Menu, Settings } from 'lucide-angular';
+import { SupportedLanguageCode } from '../../../../../../../core/localization/language-preferences';
 import { LanguagePreferencesService } from '../../../../../../../core/localization/language-preferences.service';
+import { HYBRID_LANGUAGE_OPTIONS, RuntimeLanguageSelectorService } from '../../../../../../../core/localization/runtime-language-selector.service';
 import { HeaderUserMenuComponent } from './header-user-menu.component';
 
 describe('HeaderUserMenuComponent', () => {
-  const cardLanguageSignal = signal<'en' | 'fr' | 'es' | 'de' | 'it' | 'ja' | 'zhs' | 'pt' | 'ru' | 'ko' | 'zht' | 'nl' | 'ca'>('en');
-  const appLanguageSignal = signal<'en' | 'fr' | 'es' | 'de' | 'it' | 'ja' | 'zhs' | 'pt' | 'ru' | 'ko' | 'zht' | 'nl' | 'ca'>('en');
+  const cardLanguageSignal = signal<SupportedLanguageCode>('en');
+  const appLanguageSignal = signal<SupportedLanguageCode>('en');
   const updatePreferences = vi.fn(async (payload: {
-    cardLanguage?: 'en' | 'fr' | 'es' | 'de' | 'it' | 'ja' | 'zhs' | 'pt' | 'ru' | 'ko' | 'zht' | 'nl' | 'ca';
-    appLanguage?: 'en' | 'fr' | 'es' | 'de' | 'it' | 'ja' | 'zhs' | 'pt' | 'ru' | 'ko' | 'zht' | 'nl' | 'ca';
+    cardLanguage?: SupportedLanguageCode;
+    appLanguage?: SupportedLanguageCode;
   }) => {
     if (payload.cardLanguage) {
       cardLanguageSignal.set(payload.cardLanguage);
@@ -19,14 +21,18 @@ describe('HeaderUserMenuComponent', () => {
       appLanguageSignal.set(payload.appLanguage);
     }
   });
+  const selectRuntimeLanguage = vi.fn(async (code: SupportedLanguageCode) => {
+    await updatePreferences({ cardLanguage: code, appLanguage: code });
+  });
 
   beforeEach(async () => {
     cardLanguageSignal.set('en');
     appLanguageSignal.set('en');
     updatePreferences.mockReset();
+    selectRuntimeLanguage.mockReset();
     updatePreferences.mockImplementation(async (payload: {
-      cardLanguage?: 'en' | 'fr' | 'es' | 'de' | 'it' | 'ja' | 'zhs' | 'pt' | 'ru' | 'ko' | 'zht' | 'nl' | 'ca';
-      appLanguage?: 'en' | 'fr' | 'es' | 'de' | 'it' | 'ja' | 'zhs' | 'pt' | 'ru' | 'ko' | 'zht' | 'nl' | 'ca';
+      cardLanguage?: SupportedLanguageCode;
+      appLanguage?: SupportedLanguageCode;
     }) => {
       if (payload.cardLanguage) {
         cardLanguageSignal.set(payload.cardLanguage);
@@ -35,10 +41,13 @@ describe('HeaderUserMenuComponent', () => {
         appLanguageSignal.set(payload.appLanguage);
       }
     });
+    selectRuntimeLanguage.mockImplementation(async (code: SupportedLanguageCode) => {
+      await updatePreferences({ cardLanguage: code, appLanguage: code });
+    });
     await TestBed.configureTestingModule({
       imports: [HeaderUserMenuComponent],
       providers: [
-        importProvidersFrom(LucideAngularModule.pick({ Check, ChevronRight, LogOut, Maximize2, Menu, Settings })),
+        importProvidersFrom(LucideAngularModule.pick({ Check, ChevronRight, CircleQuestionMark, LogOut, Maximize2, Menu, Settings })),
         {
           provide: LanguagePreferencesService,
           useValue: {
@@ -46,6 +55,14 @@ describe('HeaderUserMenuComponent', () => {
             appLanguage: appLanguageSignal.asReadonly(),
             updatePreferences,
           } satisfies Pick<LanguagePreferencesService, 'cardLanguage' | 'appLanguage' | 'updatePreferences'>,
+        },
+        {
+          provide: RuntimeLanguageSelectorService,
+          useValue: {
+            selectedLanguage: appLanguageSignal.asReadonly(),
+            languageOptions: HYBRID_LANGUAGE_OPTIONS,
+            selectLanguage: selectRuntimeLanguage,
+          } satisfies Pick<RuntimeLanguageSelectorService, 'selectedLanguage' | 'languageOptions' | 'selectLanguage'>,
         },
       ],
     }).compileComponents();
@@ -97,8 +114,6 @@ describe('HeaderUserMenuComponent', () => {
 
   it('updates selected language from the language picker', async () => {
     const fixture = TestBed.createComponent(HeaderUserMenuComponent);
-    const reloadSpy = vi.spyOn(fixture.componentInstance as unknown as { reloadPage(): void }, 'reloadPage')
-      .mockImplementation(() => undefined);
     fixture.detectChanges();
 
     const trigger = fixture.nativeElement.querySelector('.icon-button') as HTMLButtonElement;
@@ -117,13 +132,13 @@ describe('HeaderUserMenuComponent', () => {
       fixture.nativeElement.querySelectorAll('.language-item') as NodeListOf<HTMLButtonElement>,
     );
     const frenchButton = languageItems
-      .find((button) => button.textContent?.includes('French')) as HTMLButtonElement;
+      .find((button) => button.textContent?.includes('Français')) as HTMLButtonElement;
     frenchButton.click();
     fixture.detectChanges();
     await Promise.resolve();
 
+    expect(selectRuntimeLanguage).toHaveBeenCalledWith('fr');
     expect(updatePreferences).toHaveBeenCalledWith({ cardLanguage: 'fr', appLanguage: 'fr' });
-    expect(reloadSpy).toHaveBeenCalledTimes(1);
     expect(
       (fixture.nativeElement.querySelector('.menu-item-flag') as HTMLImageElement)?.getAttribute('src'),
     ).toContain('france.png');
@@ -153,7 +168,7 @@ describe('HeaderUserMenuComponent', () => {
     expect(labels).toEqual(sorted);
   });
 
-  it('includes dutch and catalan options in language picker', () => {
+  it('includes dutch and catalan native options in language picker', () => {
     const fixture = TestBed.createComponent(HeaderUserMenuComponent);
     fixture.detectChanges();
 
@@ -174,8 +189,22 @@ describe('HeaderUserMenuComponent', () => {
     );
     const labels = languageItems.map((button) => button.textContent ?? '');
 
-    expect(labels.some((text) => text.includes('Dutch'))).toBe(true);
-    expect(labels.some((text) => text.includes('Catalan'))).toBe(true);
+    expect(labels.some((text) => text.includes('Nederlands'))).toBe(true);
+    expect(labels.some((text) => text.includes('Català'))).toBe(true);
+  });
+
+  it('links to the public FAQ from the internal app menu', () => {
+    const fixture = TestBed.createComponent(HeaderUserMenuComponent);
+    fixture.detectChanges();
+
+    const trigger = fixture.nativeElement.querySelector('.icon-button') as HTMLButtonElement;
+    trigger.click();
+    fixture.detectChanges();
+
+    const faqLink = fixture.nativeElement.querySelector('a.menu-item[href="/en/faq/"]') as HTMLAnchorElement | null;
+
+    expect(faqLink).toBeTruthy();
+    expect(faqLink?.textContent).toContain('FAQ');
   });
 
   it('emits logoff when selecting log off option', () => {

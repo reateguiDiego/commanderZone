@@ -1,0 +1,22 @@
+<section class="landing-section" [attr.id]="content().id || null">
+  <div class="landing-section__header">
+    @if (content().eyebrow) {
+      <p class="landing-section__eyebrow">{{ content().eyebrow }}</p>
+    }
+    <h2>{{ content().title }}</h2>
+  </div>
+
+  <div class="landing-section__body">
+    @for (paragraph of content().body; track paragraph) {
+      <p>{{ paragraph }}</p>
+    }
+  </div>
+
+  @if (content().links?.length) {
+    <nav class="landing-section__links" aria-label="Section links">
+      @for (link of content().links; track link.href) {
+        <a [href]="link.href" [attr.aria-label]="link.ariaLabel">{{ link.label }}</a>
+      }
+    </nav>
+  }
+</section>

@@ -4,6 +4,7 @@ namespace App\Tests\Application;
 
 use App\Application\Card\CardLocalizationService;
 use App\Application\Game\GameCommandHandler;
+use App\Application\Game\GameCardRulingsLookup;
 use App\Application\Game\GameProjectionService;
 use App\Domain\User\User;
 use PHPUnit\Framework\TestCase;
@@ -291,6 +292,105 @@ class GameProjectionServiceTest extends TestCase
         self::assertArrayNotHasKey('lang', $projection['players'][$owner->id()]['zones']['battlefield'][0]);
         self::assertSame('Artifact', $projection['players'][$owner->id()]['zones']['battlefield'][0]['typeLine']);
         self::assertSame('https://cards.example/sol-ring-es.jpg', $projection['players'][$owner->id()]['zones']['battlefield'][0]['imageUris']['normal']);
+    }
+
+    public function testProjectionDoesNotFallbackToLocalizationServiceWhenPrecomputedLookupIsExplicitlyEmpty(): void
+    {
+        $owner = new User('owner@example.test', 'Owner');
+        $viewer = new User('viewer@example.test', 'Viewer');
+        $viewer->updateCardLanguage('es');
+        $snapshot = $this->snapshot($owner->id(), $viewer->id());
+        $snapshot['players'][$owner->id()]['zones']['battlefield'] = [[
+            ...$this->card('public-card', 'Sol Ring'),
+            'ownerId' => $owner->id(),
+            'controllerId' => $owner->id(),
+            'zone' => 'battlefield',
+            'scryfallId' => 'sol-ring-print',
+            'revealedTo' => ['all'],
+        ]];
+
+        $localization = $this->getMockBuilder(CardLocalizationService::class)
+            ->disableOriginalConstructor()
+            ->onlyMethods(['localizedImagePayloadLookupForScryfallIds', 'localizeCardPayloadImagesOnly'])
+            ->getMock();
+        $localization->expects(self::never())->method('localizedImagePayloadLookupForScryfallIds');
+        $localization->expects(self::never())->method('localizeCardPayloadImagesOnly');
+
+        $projection = (new GameProjectionService(new GameCommandHandler(), $localization))
+            ->projectSnapshot($snapshot, $viewer, true, []);
+
+        self::assertSame(
+            'https://cards.example/public-card.jpg',
+            $projection['players'][$owner->id()]['zones']['battlefield'][0]['imageUris']['normal'],
+        );
+    }
+
+    public function testProjectionFallsBackToLocalizationServiceWhenLookupIsNotProvided(): void
+    {
+        $owner = new User('owner@example.test', 'Owner');
+        $viewer = new User('viewer@example.test', 'Viewer');
+        $viewer->updateCardLanguage('es');
+        $snapshot = $this->snapshot($owner->id(), $viewer->id());
+        $snapshot['players'][$owner->id()]['zones']['battlefield'] = [[
+            ...$this->card('public-card', 'Sol Ring'),
+            'ownerId' => $owner->id(),
+            'controllerId' => $owner->id(),
+            'zone' => 'battlefield',
+            'scryfallId' => 'sol-ring-print',
+            'revealedTo' => ['all'],
+        ]];
+
+        $localization = $this->getMockBuilder(CardLocalizationService::class)
+            ->disableOriginalConstructor()
+            ->onlyMethods(['localizedImagePayloadLookupForScryfallIds', 'localizeCardPayloadImagesOnly'])
+            ->getMock();
+        $localization
+            ->expects(self::once())
+            ->method('localizedImagePayloadLookupForScryfallIds')
+            ->with(['sol-ring-print'], ['es'])
+            ->willReturn([
+                'es' => [
+                    'sol-ring-print' => [
+                        'imageUris' => ['normal' => 'https://cards.example/sol-ring-es.jpg'],
+                        'cardFaces' => [],
+                    ],
+                ],
+            ]);
+        $localization->expects(self::never())->method('localizeCardPayloadImagesOnly');
+
+        $projection = (new GameProjectionService(new GameCommandHandler(), $localization))
+            ->projectSnapshot($snapshot, $viewer);
+
+        self::assertSame(
+            'https://cards.example/sol-ring-es.jpg',
+            $projection['players'][$owner->id()]['zones']['battlefield'][0]['imageUris']['normal'],
+        );
+    }
+
+    public function testProjectionHydratesPersistedRulingsMetadataForLegacySnapshots(): void
+    {
+        $owner = new User('owner@example.test', 'Owner');
+        $viewer = new User('viewer@example.test', 'Viewer');
+        $snapshot = $this->snapshot($owner->id(), $viewer->id());
+        $snapshot['players'][$owner->id()]['zones']['battlefield'] = [[
+            ...$this->card('public-card', 'Rules Lawyer'),
+            'ownerId' => $owner->id(),
+            'controllerId' => $owner->id(),
+            'zone' => 'battlefield',
+            'scryfallId' => 'rules-lawyer-print',
+        ]];
+
+        $rulingsLookup = $this->createMock(GameCardRulingsLookup::class);
+        $rulingsLookup
+            ->expects(self::once())
+            ->method('hasRulingsByScryfallIds')
+            ->with(['rules-lawyer-print'])
+            ->willReturn(['rules-lawyer-print' => true]);
+
+        $projection = (new GameProjectionService(new GameCommandHandler(), null, $rulingsLookup))
+            ->projectSnapshot($snapshot, $viewer);
+
+        self::assertTrue($projection['players'][$owner->id()]['zones']['battlefield'][0]['hasRulings']);
     }
 
     public function testProjectionLocalizesRevealedOpponentHandImagesWithoutChangingMetadata(): void

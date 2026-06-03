@@ -12,13 +12,13 @@
   <button
     type="button"
     class="extra-actions-toggle"
-    [attr.aria-label]="ariaLabel()"
+    [attr.aria-label]="ariaLabel() | runtimeTranslate"
     [attr.aria-expanded]="open()"
     (click)="toggle($event)"
   >
     <lucide-icon [name]="icon()" size="17" aria-hidden="true" />
     @if (showText()) {
-      <span>{{ label() }}</span>
+      <span>{{ label() | runtimeTranslate }}</span>
     }
   </button>
 
@@ -26,7 +26,7 @@
     <div
       class="extra-actions-panel"
       role="menu"
-      [attr.aria-label]="menuLabel()"
+      [attr.aria-label]="menuLabel() | runtimeTranslate"
       [style.left.px]="viewportPanelStyle()?.left"
       [style.top.px]="viewportPanelStyle()?.top"
       [style.width.px]="viewportPanelStyle()?.width"

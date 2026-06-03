@@ -1,3 +1,4 @@
+import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, OnChanges, OnDestroy, computed, input, signal } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
 import { GameCardInstance } from '../../../../../core/models/game.model';
@@ -36,7 +37,7 @@ const DETAIL_INFO_ESTIMATED_HEIGHT = 104;
 
 @Component({
   selector: 'app-card-preview-overlay',
-  imports: [LucideAngularModule, CardMarkerRailComponent, LoyaltyCounterComponent],
+  imports: [RuntimeTranslatePipe, LucideAngularModule, CardMarkerRailComponent, LoyaltyCounterComponent],
   templateUrl: './card-preview-overlay.component.html',
   styleUrl: './card-preview-overlay.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

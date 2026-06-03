@@ -1,3 +1,4 @@
+import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, computed, input, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DeckFormat } from '../../../../../core/models/deck.model';
@@ -9,7 +10,7 @@ import { RoomRowComponent } from '../room-row/room-row.component';
 
 @Component({
   selector: 'app-room-browser',
-  imports: [FormsModule, PrettyScrollDirective, FormatSelectComponent, RoomCurrentBannerComponent, RoomRowComponent],
+  imports: [RuntimeTranslatePipe, FormsModule, PrettyScrollDirective, FormatSelectComponent, RoomCurrentBannerComponent, RoomRowComponent],
   templateUrl: './room-browser.component.html',
   styleUrl: './room-browser.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

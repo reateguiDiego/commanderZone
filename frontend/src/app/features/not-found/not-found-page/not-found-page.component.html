@@ -1,0 +1,18 @@
+@let page = content();
+
+<main class="not-found-page" [attr.lang]="locale()">
+  <section class="not-found-page__panel" aria-labelledby="not-found-title">
+    <p class="not-found-page__eyebrow">{{ page.eyebrow }}</p>
+    <h1 id="not-found-title">{{ page.title }}</h1>
+    <p class="not-found-page__copy">{{ page.description }}</p>
+
+    <nav class="not-found-page__actions" [attr.aria-label]="page.navLabel">
+      <a class="primary-button" [href]="homePath()">
+        {{ page.homeLabel }}
+      </a>
+      <a class="secondary-button" [href]="faqPath()">
+        {{ page.faqLabel }}
+      </a>
+    </nav>
+  </section>
+</main>

@@ -1,4 +1,5 @@
-import { Injectable } from '@angular/core';
+import { DOCUMENT, isPlatformBrowser } from '@angular/common';
+import { Injectable, PLATFORM_ID, inject } from '@angular/core';
 import { publicAssetUrl } from '../assets/app-image-url';
 
 const BACKGROUND_SESSION_KEY = 'commanderzone.backgroundImage';
@@ -10,6 +11,8 @@ const BACKGROUND_IMAGES = Array.from(
 
 @Injectable({ providedIn: 'root' })
 export class AppBackgroundService {
+  private readonly document = inject(DOCUMENT);
+  private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
   private currentImageUrl = this.resolveSessionBackground();
 
   get imageUrl(): string {
@@ -21,36 +24,54 @@ export class AppBackgroundService {
   }
 
   setDashboardMode(enabled: boolean): void {
-    document.body.classList.toggle('dashboard-background', enabled);
+    if (!this.isBrowser) {
+      return;
+    }
+
+    this.document.body.classList.toggle('dashboard-background', enabled);
   }
 
   useNewSessionBackground(): void {
-    const previousImage = sessionStorage.getItem(PREVIOUS_BACKGROUND_SESSION_KEY);
+    const storage = this.sessionStorage();
+    if (!storage) {
+      return;
+    }
+
+    const previousImage = storage.getItem(PREVIOUS_BACKGROUND_SESSION_KEY);
     const nextImage = this.pickRandomBackground([this.currentImageUrl, previousImage]);
-    sessionStorage.setItem(PREVIOUS_BACKGROUND_SESSION_KEY, this.currentImageUrl);
+    storage.setItem(PREVIOUS_BACKGROUND_SESSION_KEY, this.currentImageUrl);
     this.currentImageUrl = nextImage;
-    sessionStorage.setItem(BACKGROUND_SESSION_KEY, this.currentImageUrl);
+    storage.setItem(BACKGROUND_SESSION_KEY, this.currentImageUrl);
     this.applyBackground();
   }
 
   private resolveSessionBackground(): string {
-    const storedImage = sessionStorage.getItem(BACKGROUND_SESSION_KEY);
+    const storage = this.sessionStorage();
+    if (!storage) {
+      return BACKGROUND_IMAGES[0];
+    }
+
+    const storedImage = storage.getItem(BACKGROUND_SESSION_KEY);
     if (storedImage) {
       const normalizedStoredImage = publicAssetUrl(storedImage);
       if (BACKGROUND_IMAGES.includes(normalizedStoredImage)) {
-        sessionStorage.setItem(BACKGROUND_SESSION_KEY, normalizedStoredImage);
+        storage.setItem(BACKGROUND_SESSION_KEY, normalizedStoredImage);
         return normalizedStoredImage;
       }
     }
 
     const image = this.pickRandomBackground();
-    sessionStorage.setItem(BACKGROUND_SESSION_KEY, image);
+    storage.setItem(BACKGROUND_SESSION_KEY, image);
 
     return image;
   }
 
   private applyBackground(): void {
-    document.documentElement.style.setProperty('--app-session-background', `url("${this.currentImageUrl}")`);
+    if (!this.isBrowser) {
+      return;
+    }
+
+    this.document.documentElement.style.setProperty('--app-session-background', `url("${this.currentImageUrl}")`);
   }
 
   private pickRandomBackground(excludedImages: readonly (string | null | undefined)[] = []): string {
@@ -62,9 +83,25 @@ export class AppBackgroundService {
   }
 
   private randomIndex(length: number): number {
+    if (!this.isBrowser) {
+      return 0;
+    }
+
     const values = new Uint32Array(1);
     crypto.getRandomValues(values);
 
     return values[0] % length;
+  }
+
+  private sessionStorage(): Storage | null {
+    if (!this.isBrowser) {
+      return null;
+    }
+
+    try {
+      return globalThis.sessionStorage ?? null;
+    } catch {
+      return null;
+    }
   }
 }

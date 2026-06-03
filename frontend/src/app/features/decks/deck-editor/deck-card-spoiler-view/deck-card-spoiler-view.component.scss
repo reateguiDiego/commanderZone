@@ -57,9 +57,9 @@
 .spoiler-image-frame {
   position: relative;
   aspect-ratio: 488 / 680;
-  border: 1px solid rgb(215 180 106 / 18%);
+  border: 1px solid rgb(var(--cz-primary-rgb) / 18%);
   border-radius: 8px;
-  background: rgb(0 0 0 / 16%);
+  background: rgb(var(--cz-bg-rgb) / 16%);
   overflow: hidden;
 }
 
@@ -77,7 +77,7 @@
   gap: 0.55rem;
   height: 100%;
   padding: 0.75rem;
-  background: #242014;
+  background: var(--cz-bg);
   text-align: center;
 }
 
@@ -90,11 +90,11 @@
   justify-content: center;
   min-width: 1.9rem;
   height: 1.9rem;
-  border: 1px solid rgb(255 255 255 / 24%);
+  border: 1px solid rgb(var(--cz-text-rgb) / 24%);
   border-radius: 999px;
-  background: rgb(18 21 17 / 88%);
+  background: rgb(var(--cz-bg-rgb) / 88%);
   color: var(--text);
-  box-shadow: 0 8px 22px rgb(0 0 0 / 28%);
+  box-shadow: 0 8px 22px rgb(var(--cz-bg-rgb) / 28%);
 }
 
 .quantity-badge {

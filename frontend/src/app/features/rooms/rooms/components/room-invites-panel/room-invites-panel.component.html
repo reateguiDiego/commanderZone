@@ -1,8 +1,8 @@
 <section class="panel">
   <div class="tool-header compact-header">
     <div>
-      <span class="eyebrow">Invites</span>
-      <h3>Pending room invites</h3>
+      <span class="eyebrow">{{ 'rooms.roomInvitesPanel.invites' | runtimeTranslate }}</span>
+      <h3>{{ 'rooms.roomInvitesPanel.pendingRoomInvites' | runtimeTranslate }}</h3>
     </div>
   </div>
   <div appPrettyScroll class="dense-list compact-list invites-list">
@@ -18,8 +18,8 @@
           <small>{{ invite.room.visibility }} - {{ invite.room.players.length }} players</small>
         </span>
         <div class="invite-actions">
-          <button class="primary-button compact" type="button" (click)="accepted.emit(invite)">Accept</button>
-          <button class="secondary-button compact" type="button" (click)="declined.emit(invite)">Decline</button>
+          <button class="primary-button compact" type="button" (click)="accepted.emit(invite)">{{ 'rooms.roomInvitesPanel.accept' | runtimeTranslate }}</button>
+          <button class="secondary-button compact" type="button" (click)="declined.emit(invite)">{{ 'rooms.roomInvitesPanel.decline' | runtimeTranslate }}</button>
         </div>
       </div>
     }

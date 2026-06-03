@@ -129,7 +129,15 @@ class GameDebugHealthAggregatorTest extends TestCase
                 'name' => 'Must Not Leak 2',
             ]],
             'characters' => 498,
-        ]], 12.3456);
+        ]], 12.3456, [
+            'load' => 1.111,
+            'apply' => 2.222,
+            'persist' => 3.333,
+            'localization' => 0.444,
+            'projection' => 4.444,
+            'patch' => 0.555,
+            'total' => 12.3456,
+        ]);
 
         self::assertSame(1, $state['actions']['total']);
         self::assertSame(1, $state['actions']['byType']['card.tapped']);
@@ -138,6 +146,15 @@ class GameDebugHealthAggregatorTest extends TestCase
         self::assertSame(192, $state['traffic']['incoming']['characters']);
         self::assertSame(1010, $state['traffic']['outgoing']['characters']);
         self::assertSame(12.35, $state['actions']['recent'][0]['durationMs']);
+        self::assertSame([
+            'load' => 1.11,
+            'apply' => 2.22,
+            'persist' => 3.33,
+            'localization' => 0.44,
+            'projection' => 4.44,
+            'patch' => 0.56,
+            'total' => 12.35,
+        ], $state['actions']['recent'][0]['phases']);
         self::assertSame('user-1', $state['actions']['recent'][0]['userId']);
         self::assertSame(2, $state['actions']['recent'][0]['outgoing']['messages']);
         self::assertSame(2, $state['actions']['recent'][0]['outgoing']['recipientCount']);

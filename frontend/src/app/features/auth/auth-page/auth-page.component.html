@@ -1,20 +1,20 @@
 <main class="auth-screen">
   <section class="auth-panel">
     <div class="auth-copy">
-      <img class="auth-logo" src="/assets/icons/CZ/CZ_logo.png" alt="CommanderZone" />
-      <p>Accede a tus mazos, salas y mesa manual de Commander.</p>
+      <img class="auth-logo" src="/assets/icons/CZ/CZ_logo.png" [alt]="'auth.authPage.commanderzone' | runtimeTranslate" />
+      <p>{{ 'auth.authPage.accedeATusMazosSalasYMesa' | runtimeTranslate }}</p>
     </div>
 
     <div class="auth-card">
-      <div class="segmented" role="tablist" aria-label="Auth mode">
-        <button type="button" [class.active]="mode() === 'login'" (click)="setMode('login')">Login</button>
-        <button type="button" [class.active]="mode() === 'register'" (click)="setMode('register')">Register</button>
+      <div class="segmented" role="tablist" [attr.aria-label]="'auth.authPage.authMode' | runtimeTranslate">
+        <button type="button" [class.active]="mode() === 'login'" (click)="setMode('login')">{{ 'auth.authPage.login' | runtimeTranslate }}</button>
+        <button type="button" [class.active]="mode() === 'register'" (click)="setMode('register')">{{ 'auth.authPage.register' | runtimeTranslate }}</button>
       </div>
 
       @if (mode() === 'login') {
         <form class="form-stack" [formGroup]="loginForm" (ngSubmit)="submitLogin()">
           <label>
-            Email
+            {{ 'auth.authPage.email' | runtimeTranslate }}
             <input
               type="email"
               autocomplete="email"
@@ -24,12 +24,12 @@
               (focus)="enableLoginAutocomplete()"
             />
             @if (loginEmailInvalid()) {
-              <span class="field-error">Introduce un email valido.</span>
+              <span class="field-error">{{ 'auth.authPage.introduceUnEmailValido' | runtimeTranslate }}</span>
             }
           </label>
 
           <label>
-            Password
+            {{ 'auth.authPage.password' | runtimeTranslate }}
             <div class="password-field">
               <input
                 [type]="loginPasswordVisible() ? 'text' : 'password'"
@@ -49,7 +49,7 @@
               </button>
             </div>
           </label>
-          <a class="secondary-link" routerLink="/auth/password-reset">He olvidado mi contrasena</a>
+          <a class="secondary-link" routerLink="/auth/password-reset">{{ 'auth.authPage.heOlvidadoMiContrasena' | runtimeTranslate }}</a>
 
           @if (auth.error()) {
             <p class="notice error">{{ auth.error() }}</p>
@@ -63,49 +63,49 @@
       } @else {
         <form class="form-stack" [formGroup]="registerForm" (ngSubmit)="submitRegister()">
           <label>
-            Email
+            {{ 'auth.authPage.email' | runtimeTranslate }}
             <input type="email" autocomplete="email" formControlName="email" />
             @if (registerEmailInvalid()) {
-              <span class="field-error">Introduce un email valido.</span>
+              <span class="field-error">{{ 'auth.authPage.introduceUnEmailValido' | runtimeTranslate }}</span>
             }
             @if (registerEmailAvailabilityVisible()) {
               @if (emailAvailability() === 'checking') {
-                <span class="availability muted">Comprobando email...</span>
+                <span class="availability muted">{{ 'auth.authPage.comprobandoEmail' | runtimeTranslate }}</span>
               }
               @if (emailAvailability() === 'available') {
-                <span class="availability available"><lucide-icon name="check" size="14" /> Email disponible</span>
+                <span class="availability available"><lucide-icon name="check" size="14" /> {{ 'auth.authPage.emailDisponible' | runtimeTranslate }}</span>
               }
               @if (emailAvailability() === 'taken') {
-                <span class="availability taken"><lucide-icon name="x" size="14" /> Email ya registrado</span>
+                <span class="availability taken"><lucide-icon name="x" size="14" /> {{ 'auth.authPage.emailYaRegistrado' | runtimeTranslate }}</span>
               }
               @if (emailAvailability() === 'error') {
-                <span class="availability taken"><lucide-icon name="x" size="14" /> No se pudo comprobar ahora</span>
+                <span class="availability taken"><lucide-icon name="x" size="14" /> {{ 'auth.authPage.noSePudoComprobarAhora' | runtimeTranslate }}</span>
               }
             }
           </label>
 
           <label>
-            User name
+            {{ 'auth.authPage.userName' | runtimeTranslate }}
             <input type="text" autocomplete="nickname" formControlName="displayName" maxlength="25" />
             @if (controlInvalid('displayName')) {
-              <span class="field-error">User name entre 4 y 25 caracteres.</span>
+              <span class="field-error">{{ 'auth.authPage.userNameEntre4Y25Caracteres' | runtimeTranslate }}</span>
             }
             @if (userNameAvailability() === 'checking') {
-              <span class="availability muted">Comprobando disponibilidad...</span>
+              <span class="availability muted">{{ 'auth.authPage.comprobandoDisponibilidad' | runtimeTranslate }}</span>
             }
             @if (userNameAvailability() === 'available') {
-              <span class="availability available"><lucide-icon name="check" size="14" /> User name disponible</span>
+              <span class="availability available"><lucide-icon name="check" size="14" /> {{ 'auth.authPage.userNameDisponible' | runtimeTranslate }}</span>
             }
             @if (userNameAvailability() === 'taken') {
-              <span class="availability taken"><lucide-icon name="x" size="14" /> User name no disponible</span>
+              <span class="availability taken"><lucide-icon name="x" size="14" /> {{ 'auth.authPage.userNameNoDisponible' | runtimeTranslate }}</span>
             }
             @if (userNameAvailability() === 'error') {
-              <span class="availability taken"><lucide-icon name="x" size="14" /> No se pudo comprobar ahora</span>
+              <span class="availability taken"><lucide-icon name="x" size="14" /> {{ 'auth.authPage.noSePudoComprobarAhora' | runtimeTranslate }}</span>
             }
           </label>
 
           <label>
-            Password
+            {{ 'auth.authPage.password' | runtimeTranslate }}
             <div class="password-field">
               <input [type]="registerPasswordVisible() ? 'text' : 'password'" autocomplete="new-password" formControlName="password" />
               <button
@@ -118,12 +118,12 @@
               </button>
             </div>
             @if (controlInvalid('password')) {
-              <span class="field-error">Minimo 8 caracteres, con minuscula, mayuscula y numero.</span>
+              <span class="field-error">{{ 'auth.authPage.minimo8CaracteresConMinusculaMayusculaY' | runtimeTranslate }}</span>
             }
           </label>
 
           <label>
-            Confirmar password
+            {{ 'auth.authPage.confirmarPassword' | runtimeTranslate }}
             <div class="password-field">
               <input [type]="registerConfirmPasswordVisible() ? 'text' : 'password'" autocomplete="new-password" formControlName="confirmPassword" />
               <button
@@ -136,7 +136,7 @@
               </button>
             </div>
             @if (registerPasswordMismatchVisible()) {
-              <span class="field-error">Las contrasenas no coinciden.</span>
+              <span class="field-error">{{ 'auth.authPage.lasContrasenasNoCoinciden' | runtimeTranslate }}</span>
             }
           </label>
 

@@ -178,111 +178,8 @@ button:disabled {
   --mana-step-glow: rgb(255 107 126 / 32%);
 }
 
-.any-color-pool {
-  position: relative;
-  flex: 0 0 var(--mana-pool-color-width);
-  width: var(--mana-pool-color-width);
-  height: var(--mana-pool-control-stack-height);
-}
-
-.any-color-symbol {
-  position: absolute;
-  z-index: 1;
-  inset: 0 auto auto 0;
-  flex: 0 0 var(--mana-pool-color-width);
-  width: var(--mana-pool-color-width);
-  height: var(--mana-pool-control-stack-height);
-  padding: 0;
-  background: transparent;
-  color: var(--mana-pool-symbol-color, #fff833);
-}
-
-.any-color-symbol:not(:disabled):hover {
-  background: transparent;
-}
-
-.any-color-symbol.mana-empty,
 .mana-value-button.mana-empty {
   opacity: 0.42;
-}
-
-.any-color-cell {
-  position: absolute;
-  inset: 0;
-}
-
-.any-color-cell app-mana-symbols {
-  position: absolute;
-  display: block;
-  font-size: 0.55rem;
-  line-height: 1;
-  filter:
-    drop-shadow(0 0.08rem 0.08rem rgb(0 0 0 / 72%))
-    drop-shadow(0 0 0.38rem var(--mana-pool-symbol-color, #fff833));
-}
-
-.any-color-cell--w {
-  background: transparent;
-}
-
-.any-color-cell--w app-mana-symbols {
-  top: 0.48rem;
-  left: 1.15rem;
-}
-
-.any-color-cell--u {
-  background: transparent;
-}
-
-.any-color-cell--u app-mana-symbols {
-  top: 0.48rem;
-  right: 1.15rem;
-}
-
-.any-color-cell--b {
-  background: transparent;
-}
-
-.any-color-cell--b app-mana-symbols {
-  right: 0.77rem;
-  bottom: 0.94rem;
-}
-
-.any-color-cell--r {
-  background: transparent;
-}
-
-.any-color-cell--r app-mana-symbols {
-  left: 50%;
-  bottom: 0.26rem;
-  transform: translateX(-50%);
-}
-
-.any-color-cell--g {
-  background: transparent;
-}
-
-.any-color-cell--g app-mana-symbols {
-  bottom: 0.94rem;
-  left: 0.77rem;
-}
-
-.any-color-symbol strong {
-  position: absolute;
-  z-index: 4;
-  right: 0.3rem;
-  bottom: 0;
-  min-width: 1ch;
-  font-size: 1.23rem;
-  font-weight: 800;
-  line-height: 1;
-  color: #fff;
-  text-shadow:
-    0 0.08rem 0.08rem rgb(0 0 0 / 90%),
-    0.08rem 0 0.08rem rgb(0 0 0 / 88%),
-    -0.08rem 0 0.08rem rgb(0 0 0 / 88%),
-    0 -0.08rem 0.08rem rgb(0 0 0 / 88%);
-  pointer-events: none;
 }
 
 .mana-pool-grid {
@@ -317,9 +214,6 @@ button:disabled {
   transform: translateX(-50%);
 }
 
-.any-color-pool:hover .mana-step-stack,
-.any-color-pool:focus-within .mana-step-stack,
-.any-color-pool.controls-active .mana-step-stack,
 .mana-pool-color:hover .mana-step-stack,
 .mana-pool-color:focus-within .mana-step-stack,
 .mana-pool-color.controls-active .mana-step-stack {

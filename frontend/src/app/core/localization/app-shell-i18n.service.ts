@@ -12,6 +12,7 @@ type AppShellTextKey =
   | 'fullscreen'
   | 'language'
   | 'languageOptions'
+  | 'publicFaq'
   | 'logOff'
   | 'flagAltPrefix'
   | 'settingsTitle'
@@ -24,7 +25,9 @@ type AppShellTextKey =
   | 'gameTab'
   | 'settingsSections'
   | 'cardLanguage'
-  | 'appLanguage';
+  | 'appLanguage'
+  | 'visualTheme'
+  | 'visualThemeHelp';
 
 const APP_SHELL_TEXTS: Record<AppShellLocale, Record<AppShellTextKey, string>> = {
   en: {
@@ -35,6 +38,7 @@ const APP_SHELL_TEXTS: Record<AppShellLocale, Record<AppShellTextKey, string>> =
     fullscreen: 'Fullscreen',
     language: 'Language',
     languageOptions: 'Language options',
+    publicFaq: 'FAQ',
     logOff: 'Log off',
     flagAltPrefix: 'Flag of ',
     settingsTitle: 'Settings',
@@ -48,6 +52,8 @@ const APP_SHELL_TEXTS: Record<AppShellLocale, Record<AppShellTextKey, string>> =
     settingsSections: 'Settings sections',
     cardLanguage: 'Card language',
     appLanguage: 'App language',
+    visualTheme: 'Visual theme',
+    visualThemeHelp: 'Stored locally in this browser.',
   },
   es: {
     menu: 'Menu',
@@ -57,6 +63,7 @@ const APP_SHELL_TEXTS: Record<AppShellLocale, Record<AppShellTextKey, string>> =
     fullscreen: 'Pantalla completa',
     language: 'Idioma',
     languageOptions: 'Opciones de idioma',
+    publicFaq: 'FAQ',
     logOff: 'Cerrar sesion',
     flagAltPrefix: 'Bandera de ',
     settingsTitle: 'Configuracion',
@@ -70,6 +77,8 @@ const APP_SHELL_TEXTS: Record<AppShellLocale, Record<AppShellTextKey, string>> =
     settingsSections: 'Secciones de configuracion',
     cardLanguage: 'Idioma de cartas',
     appLanguage: 'Idioma de la app',
+    visualTheme: 'Tema visual',
+    visualThemeHelp: 'Se guarda localmente en este navegador.',
   },
 };
 

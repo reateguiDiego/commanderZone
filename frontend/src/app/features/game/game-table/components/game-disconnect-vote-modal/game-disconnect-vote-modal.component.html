@@ -1,6 +1,6 @@
 <app-modal
   [open]="open()"
-  title="Jugador desconectado"
+  [title]="'game.gameDisconnectVoteModal.jugadorDesconectado' | runtimeTranslate"
   [message]="targetPlayerName()
     ? (targetPlayerName() + ' se ha desconectado. Votad si queréis esperar su reconexion o expulsarlo de la mesa.')
     : 'Un jugador se ha desconectado. Votad si queréis esperar su reconexion o expulsarlo de la mesa.'"
@@ -17,22 +17,22 @@
 >
   <section class="disconnect-vote-body">
     @if (currentVote(); as vote) {
-      <p class="vote-line">Tu voto: <strong>{{ voteLabel(vote) }}</strong></p>
+      <p class="vote-line">{{ 'game.gameDisconnectVoteModal.tuVoto' | runtimeTranslate }} <strong>{{ voteLabel(vote) }}</strong></p>
     }
 
     @if (countdownSeconds() !== null) {
-      <p class="vote-line countdown">Tiempo restante: <strong>{{ countdownSeconds() }}s</strong></p>
+      <p class="vote-line countdown">{{ 'game.gameDisconnectVoteModal.tiempoRestante' | runtimeTranslate }} <strong>{{ countdownSeconds() }}s</strong></p>
     }
 
     @if (targetOnline()) {
-      <p class="vote-line reconnect">El jugador objetivo ya aparece online.</p>
+      <p class="vote-line reconnect">{{ 'game.gameDisconnectVoteModal.elJugadorObjetivoYaApareceOnline' | runtimeTranslate }}</p>
     }
 
     @if (error(); as errorMessage) {
       <p class="vote-error">{{ errorMessage }}</p>
     }
 
-    <div class="votes-box" aria-label="Votos de desconexion">
+    <div class="votes-box" [attr.aria-label]="'game.gameDisconnectVoteModal.votosDeDesconexion' | runtimeTranslate">
       @for (player of players(); track player.playerId) {
         <article class="vote-row">
           <span class="player-name">{{ player.displayName }}</span>

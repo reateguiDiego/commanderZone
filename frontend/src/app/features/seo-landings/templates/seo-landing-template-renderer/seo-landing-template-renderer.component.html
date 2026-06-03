@@ -1,0 +1,61 @@
+@for (block of blocks(); track block) {
+  @switch (block) {
+    @case ('hero') {
+      <app-landing-hero [content]="content().hero" />
+    }
+
+    @case ('trustBar') {
+      @if (content().trustBar; as trustBar) {
+        <app-landing-trust-bar [content]="trustBar" />
+      }
+    }
+
+    @case ('sections') {
+      @for (section of content().sections ?? []; track section.id || section.title) {
+        <app-landing-section [content]="section" />
+      }
+    }
+
+    @case ('featureGrid') {
+      @if (content().featureGrid; as featureGrid) {
+        <app-landing-feature-grid [content]="featureGrid" />
+      }
+    }
+
+    @case ('steps') {
+      @if (content().steps; as steps) {
+        <app-landing-steps [content]="steps" />
+      }
+    }
+
+    @case ('useCases') {
+      @if (content().useCases; as useCases) {
+        <app-landing-use-cases [content]="useCases" />
+      }
+    }
+
+    @case ('comparison') {
+      @if (content().comparison; as comparison) {
+        <app-landing-comparison [content]="comparison" />
+      }
+    }
+
+    @case ('faqPreview') {
+      @if (content().faqPreview; as faqPreview) {
+        <app-landing-faq-preview [content]="faqPreview" />
+      }
+    }
+
+    @case ('fullFaq') {
+      @if (content().fullFaq || content().faq; as faq) {
+        <app-landing-full-faq [content]="faq" />
+      }
+    }
+
+    @case ('cta') {
+      @if (content().cta; as cta) {
+        <app-landing-cta [content]="cta" />
+      }
+    }
+  }
+}

@@ -32,46 +32,45 @@ describe('mana source attachment detector', () => {
     ]);
   });
 
-  it('merges multicolor land choices with any-color attached mana', () => {
+  it('does not merge multicolor land choices with any-color attached mana', () => {
     const suggestion = detectManaSourceWithAttachments(
       card('Command Tower', 'Land', "{T}: Add one mana of any color in your commander's color identity."),
       [card('Fertile Ground', 'Enchantment - Aura', 'Enchant land / Whenever enchanted land is tapped for mana, its controller adds one mana of any color.')],
       { colorIdentity: ['U', 'G'] },
     );
 
-    expect(suggestion.kind).toBe('variable');
+    expect(suggestion.kind).toBe('none');
     expect(suggestion.additions).toEqual([]);
-    expect(suggestion.colors).toEqual(['W', 'U', 'B', 'R', 'G']);
-    expect(suggestion.summary).toBe('Choose X mana from {W}, {U}, {B}, {R}, {G}.');
-    expect(suggestion.productionParts?.map((part) => part.kind)).toEqual(['choice', 'choice']);
-    expect(suggestion.productionParts?.[0]?.label).toBe('Command Tower');
+    expect(suggestion.colors).toEqual([]);
+    expect(suggestion.productionParts).toBeUndefined();
   });
 
-  it('keeps explicit land colors when the attached card adds fixed extra mana', () => {
+  it('keeps only fixed attached extra mana when the base land is multicolor', () => {
     const suggestion = detectManaSourceWithAttachments(
       card('Hinterland Harbor', 'Land', '{T}: Add {G} or {U}.'),
       [card('Overgrowth', 'Enchantment - Aura', 'Enchant land / Whenever enchanted land is tapped for mana, its controller adds an additional {G}{G}.')],
     );
 
     expect(suggestion.kind).toBe('variable');
-    expect(suggestion.colors).toEqual(['U', 'G']);
+    expect(suggestion.colors).toEqual(['G']);
     expect(suggestion.additions).toEqual([]);
-    expect(suggestion.productionParts?.[0]).toEqual({
+    expect(suggestion.productionParts).toEqual([{
       id: 'attachment-Overgrowth',
       kind: 'fixed',
       label: 'Overgrowth',
       additions: [{ color: 'G', amount: 2 }],
-    });
+    }]);
   });
 
-  it('uses all colored mana for unknown chosen-color attached effects', () => {
+  it('ignores unknown chosen-color attached effects', () => {
     const suggestion = detectManaSourceWithAttachments(
       card('Forest', 'Basic Land - Forest', ''),
       [card('Utopia Sprawl', 'Enchantment - Aura', 'Enchant Forest / As Utopia Sprawl enters, choose a color. Whenever enchanted Forest is tapped for mana, its controller adds one mana of the chosen color.')],
     );
 
-    expect(suggestion.kind).toBe('variable');
-    expect(suggestion.colors).toEqual(['W', 'U', 'B', 'R', 'G']);
+    expect(suggestion.kind).toBe('fixed');
+    expect(suggestion.additions).toEqual([{ color: 'G', amount: 1 }]);
+    expect(suggestion.productionParts).toBeUndefined();
   });
 
   it('ignores attachments that do not affect mana', () => {

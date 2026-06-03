@@ -1,3 +1,4 @@
+import { RuntimeTranslatePipe } from '../../../core/localization/runtime-translate.pipe';
 import { AfterViewInit, ChangeDetectionStrategy, Component, DestroyRef, WritableSignal, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -18,7 +19,7 @@ const USER_NAME_MAX_LENGTH = 25;
 
 @Component({
   selector: 'app-auth-page',
-  imports: [ReactiveFormsModule, LucideAngularModule, RouterLink],
+  imports: [RuntimeTranslatePipe, ReactiveFormsModule, LucideAngularModule, RouterLink],
   templateUrl: './auth-page.component.html',
   styleUrl: './auth-page.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

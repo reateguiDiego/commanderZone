@@ -1,0 +1,43 @@
+.landing-breadcrumb {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.landing-breadcrumb ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.landing-breadcrumb li {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.landing-breadcrumb li + li::before {
+  color: rgb(var(--cz-primary-rgb) / 46%);
+  content: ">";
+}
+
+.landing-breadcrumb a,
+.landing-breadcrumb span {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.landing-breadcrumb a {
+  display: inline-flex;
+  min-width: 2.75rem;
+  min-height: 2.45rem;
+  align-items: center;
+  justify-content: center;
+  color: var(--gold);
+  font-weight: 700;
+  text-decoration: none;
+}

@@ -1,3 +1,4 @@
+import { RuntimeTranslatePipe } from '../../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, DestroyRef, computed, effect, inject, input, output, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -26,7 +27,7 @@ export type RoomSetupModalMode = 'create' | 'edit';
 
 @Component({
   selector: 'app-room-setup-modal',
-  imports: [
+  imports: [RuntimeTranslatePipe, 
     AppModalComponent,
     FormatSelectComponent,
     GameSetupLifeControlComponent,

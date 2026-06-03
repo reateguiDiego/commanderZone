@@ -26,7 +26,7 @@
   height: 100dvh;
   padding: 1rem;
   border-right: 1px solid var(--line);
-  background: rgb(17 19 15 / 84%);
+  background: rgb(var(--cz-bg-rgb) / 84%);
   backdrop-filter: blur(16px);
   isolation: isolate;
   overflow: hidden;
@@ -38,7 +38,7 @@
   inset: -1rem;
   z-index: 0;
   background:
-    linear-gradient(rgb(8 10 8 / 72%), rgb(8 10 8 / 82%)),
+    linear-gradient(rgb(var(--cz-bg-rgb) / 72%), rgb(var(--cz-bg-rgb) / 82%)),
     var(--app-session-background) center / cover no-repeat;
   filter: blur(18px) saturate(1.18);
   opacity: 0.72;
@@ -88,8 +88,8 @@
 
 .nav-list a:hover,
 .nav-list a.active {
-  border-color: rgb(215 180 106 / 36%);
-  background: rgb(215 180 106 / 10%);
+  border-color: rgb(var(--cz-primary-rgb) / 36%);
+  background: rgb(var(--cz-primary-rgb) / 10%);
   color: var(--text);
 }
 
@@ -155,7 +155,7 @@ app-dashboard-header {
     padding: 0.55rem;
     border-right: 0;
     border-bottom: 0;
-    background: rgb(13 15 12 / 92%);
+    background: rgb(var(--cz-bg-rgb) / 92%);
   }
 
   .brand {
@@ -175,7 +175,7 @@ app-dashboard-header {
   .nav-list a {
     justify-content: center;
     gap: 0.35rem;
-    min-height: 2.25rem;
+    min-height: 2.75rem;
     padding: 0.45rem 0.5rem;
     font-size: clamp(0.72rem, 1.8vw, 0.86rem);
     white-space: nowrap;
@@ -225,7 +225,7 @@ app-dashboard-header {
 
   .nav-list a {
     flex-direction: column;
-    min-height: 2.35rem;
+    min-height: 2.75rem;
     padding: 0.35rem 0.3rem;
     font-size: 0.66rem;
     text-align: center;

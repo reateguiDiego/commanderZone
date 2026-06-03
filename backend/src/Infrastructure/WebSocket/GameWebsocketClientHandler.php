@@ -178,7 +178,13 @@ final readonly class GameWebsocketClientHandler implements WebsocketClientHandle
                         }
                     }
                     if ($isCommand && $debugEnabled) {
-                        $this->safeRecordActionExchange($peer->gameId, $incomingDebug, $outgoingDebug, $this->elapsedMs($startedAt));
+                        $this->safeRecordActionExchange(
+                            $peer->gameId,
+                            $incomingDebug,
+                            $outgoingDebug,
+                            $this->elapsedMs($startedAt),
+                            $reply->debugProfile(),
+                        );
                     }
                     $this->replayBuffer->rememberResult($peer->gameId, $reply);
                     continue;
@@ -368,14 +374,14 @@ final readonly class GameWebsocketClientHandler implements WebsocketClientHandle
      * @param array<string,mixed>       $incoming
      * @param list<array<string,mixed>> $outgoing
      */
-    private function safeRecordActionExchange(string $gameId, array $incoming, array $outgoing, float $durationMs): void
+    private function safeRecordActionExchange(string $gameId, array $incoming, array $outgoing, float $durationMs, ?array $phases = null): void
     {
         if (!$this->debugHealth->isObserved($gameId)) {
             return;
         }
 
         try {
-            $this->debugHealth->recordActionExchange($gameId, $incoming, $outgoing, $durationMs);
+            $this->debugHealth->recordActionExchange($gameId, $incoming, $outgoing, $durationMs, $phases);
         } catch (\Throwable $exception) {
             $this->logger->warning('Could not record gameplay debug health action exchange.', ['exception' => $exception]);
         }

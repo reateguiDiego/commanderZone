@@ -1,18 +1,18 @@
 <section class="analysis-panel compact-analysis-panel mana-balance-panel">
   <div class="analysis-panel-header compact-analysis-header">
     <div>
-      <h3>Mana balance</h3>
-      <p>Colored source share versus color demand.</p>
+      <h3>{{ 'deckBuilder.deckManaBalancePanel.manaBalance' | runtimeTranslate }}</h3>
+      <p>{{ 'deckBuilder.deckManaBalancePanel.coloredSourceShareVersusColorDemand' | runtimeTranslate }}</p>
     </div>
     @if (store.manaSourceProfiles().length > 0) {
       <div class="mana-donut-stack">
         <div class="mana-donut" [style.background]="store.manaSourceDonutBackground()">
           <span>
             <strong>{{ store.manaSourceTotal() }}</strong>
-            <small>sources</small>
+            <small>{{ 'deckBuilder.deckManaBalancePanel.sources' | runtimeTranslate }}</small>
           </span>
         </div>
-        <small>Source mix</small>
+        <small>{{ 'deckBuilder.deckManaBalancePanel.sourceMix' | runtimeTranslate }}</small>
       </div>
     }
   </div>

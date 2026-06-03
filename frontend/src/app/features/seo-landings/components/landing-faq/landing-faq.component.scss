@@ -1,0 +1,47 @@
+.landing-faq {
+  display: grid;
+  gap: 1.25rem;
+  padding: clamp(1.5rem, 3vw, 3rem) 0;
+}
+
+.landing-faq__header,
+.landing-faq__items,
+.landing-faq__item {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.landing-faq__header {
+  max-width: 46rem;
+}
+
+.landing-faq h2,
+.landing-faq h3,
+.landing-faq p {
+  margin: 0;
+}
+
+.landing-faq h2 {
+  color: var(--text);
+  font-size: clamp(1.55rem, 3vw, 2.5rem);
+}
+
+.landing-faq h3 {
+  color: var(--text);
+  font-size: 1.05rem;
+}
+
+.landing-faq p {
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.landing-faq__item {
+  border-top: 1px solid rgb(var(--cz-primary-rgb) / 14%);
+  padding-top: 1rem;
+}
+
+.landing-faq__item:first-child {
+  border-top: 0;
+  padding-top: 0;
+}

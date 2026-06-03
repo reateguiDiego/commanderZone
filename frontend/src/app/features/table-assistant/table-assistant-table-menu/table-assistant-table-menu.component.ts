@@ -1,7 +1,9 @@
+import { RuntimeTranslatePipe } from '../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, ElementRef, HostListener, inject, output, signal } from '@angular/core';
 
 @Component({
   selector: 'app-table-assistant-table-menu',
+  imports: [RuntimeTranslatePipe],
   templateUrl: './table-assistant-table-menu.component.html',
   styleUrl: './table-assistant-table-menu.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

@@ -2,7 +2,7 @@
   @if (showTokenCopyMarker() || markerCounters().length > 0) {
     <span class="card-marker-rail" [class.compact]="compact()" aria-hidden="false">
       @if (showTokenCopyMarker()) {
-        <span class="card-marker token-copy-marker" title="Esta carta es un token copy" aria-label="Esta carta es un token copy">
+        <span class="card-marker token-copy-marker" [title]="'game.cardMarkerRail.estaCartaEsUnTokenCopy' | runtimeTranslate" [attr.aria-label]="'game.cardMarkerRail.estaCartaEsUnTokenCopy' | runtimeTranslate">
           <img src="assets/icons/gameplay/token-copy.png" alt="" />
         </span>
       }
@@ -40,8 +40,8 @@
       class="oracle-rulings-marker"
       role="button"
       tabindex="0"
-      title="Open Oracle rulings on Scryfall"
-      aria-label="Open Oracle rulings on Scryfall"
+      [title]="'game.cardMarkerRail.openOracleRulingsOnScryfall' | runtimeTranslate"
+      [attr.aria-label]="'game.cardMarkerRail.openOracleRulingsOnScryfall' | runtimeTranslate"
       (pointerdown)="stopMarkerPointer($event)"
       (click)="requestRulings($event)"
       (auxclick)="swallowMouseEvent($event)"

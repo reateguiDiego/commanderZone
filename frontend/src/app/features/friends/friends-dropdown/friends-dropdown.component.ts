@@ -1,3 +1,4 @@
+import { RuntimeTranslatePipe } from '../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
@@ -9,7 +10,7 @@ import { FriendsStore } from '../data-access/friends.store';
 
 @Component({
   selector: 'app-friends-dropdown',
-  imports: [FormsModule, LucideAngularModule, PrettyScrollDirective, PlayerAvatarComponent, PlayerNameComponent],
+  imports: [RuntimeTranslatePipe, FormsModule, LucideAngularModule, PrettyScrollDirective, PlayerAvatarComponent, PlayerNameComponent],
   templateUrl: './friends-dropdown.component.html',
   styleUrl: './friends-dropdown.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

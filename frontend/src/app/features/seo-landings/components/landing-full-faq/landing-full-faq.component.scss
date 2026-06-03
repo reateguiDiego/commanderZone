@@ -1,0 +1,76 @@
+.landing-full-faq {
+  display: grid;
+  gap: 1.25rem;
+  padding: clamp(1.5rem, 3vw, 3rem) 0;
+}
+
+.landing-full-faq__header,
+.landing-full-faq__items {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.landing-full-faq__header {
+  max-width: 46rem;
+}
+
+.landing-full-faq h2,
+.landing-full-faq h3,
+.landing-full-faq p {
+  margin: 0;
+}
+
+.landing-full-faq h2 {
+  color: var(--text);
+  font-size: clamp(1.55rem, 3vw, 2.5rem);
+}
+
+.landing-full-faq__header p,
+.landing-full-faq details p {
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.landing-full-faq details {
+  min-width: 0;
+  border: 1px solid rgb(var(--cz-primary-rgb) / 12%);
+  border-radius: 8px;
+  padding: 0.75rem 0.95rem;
+  background: rgb(var(--cz-bg-rgb) / 58%);
+}
+
+.landing-full-faq details[open] {
+  border-color: rgb(var(--cz-primary-rgb) / 28%);
+  background:
+    linear-gradient(135deg, rgb(var(--cz-primary-rgb) / 7%), transparent 48%),
+    rgb(var(--cz-bg-rgb) / 68%);
+}
+
+.landing-full-faq summary {
+  display: flex;
+  min-height: 2.75rem;
+  align-items: center;
+  gap: 0.75rem;
+  cursor: pointer;
+  color: var(--text);
+  touch-action: manipulation;
+}
+
+.landing-full-faq summary::marker {
+  color: var(--gold);
+}
+
+.landing-full-faq h3,
+.landing-full-faq p {
+  overflow-wrap: anywhere;
+}
+
+.landing-full-faq h3 {
+  display: inline;
+  color: rgb(var(--cz-secondary-rgb) / 94%);
+  font-size: 1rem;
+}
+
+.landing-full-faq details p {
+  padding: 0.45rem 0 0;
+}

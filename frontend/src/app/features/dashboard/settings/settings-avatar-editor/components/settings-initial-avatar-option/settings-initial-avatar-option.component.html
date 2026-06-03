@@ -14,9 +14,9 @@
   </button>
 
   @if (selected() && controlsOpen()) {
-    <div class="initial-avatar-controls" aria-label="Initial avatar customization">
+    <div class="initial-avatar-controls" [attr.aria-label]="'settings.settingsInitialAvatarOption.initialAvatarCustomization' | runtimeTranslate">
       <label>
-        <span>Main color</span>
+        <span>{{ 'settings.settingsInitialAvatarOption.mainColor' | runtimeTranslate }}</span>
         <input
           type="color"
           [value]="backgroundColor()"
@@ -25,7 +25,7 @@
         />
       </label>
       <label>
-        <span>Secondary color</span>
+        <span>{{ 'settings.settingsInitialAvatarOption.secondaryColor' | runtimeTranslate }}</span>
         <input
           type="color"
           [value]="textColor()"
@@ -34,7 +34,7 @@
         />
       </label>
       <label class="letter-field">
-        <span>Letters</span>
+        <span>{{ 'settings.settingsInitialAvatarOption.letters' | runtimeTranslate }}</span>
         <input
           type="text"
           maxlength="2"

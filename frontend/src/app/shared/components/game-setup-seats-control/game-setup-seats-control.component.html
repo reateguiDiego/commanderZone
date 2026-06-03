@@ -3,7 +3,7 @@
     <span class="eyebrow">{{ label() }}</span>
     <strong>{{ value() }}</strong>
   </div>
-  <div class="capacity-editor" aria-label="Table size">
+  <div class="capacity-editor" [attr.aria-label]="'rooms.setup.gameSetupSeatsControl.tableSize' | runtimeTranslate">
     @for (option of options(); track option) {
       <button
         type="button"

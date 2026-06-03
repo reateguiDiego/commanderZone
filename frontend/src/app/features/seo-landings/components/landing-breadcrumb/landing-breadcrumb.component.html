@@ -1,0 +1,13 @@
+<nav class="landing-breadcrumb" aria-label="Breadcrumb">
+  <ol>
+    @for (item of content().items; track item.href; let last = $last) {
+      <li>
+        @if (last) {
+          <span aria-current="page">{{ item.label }}</span>
+        } @else {
+          <a [href]="item.href" [attr.aria-label]="item.ariaLabel">{{ item.label }}</a>
+        }
+      </li>
+    }
+  </ol>
+</nav>

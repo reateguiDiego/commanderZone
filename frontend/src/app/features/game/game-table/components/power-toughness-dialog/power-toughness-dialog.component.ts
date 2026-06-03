@@ -1,3 +1,4 @@
+import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
 
 export interface PowerToughnessDialogValueChange {
@@ -7,6 +8,7 @@ export interface PowerToughnessDialogValueChange {
 
 @Component({
   selector: 'app-power-toughness-dialog',
+  imports: [RuntimeTranslatePipe],
   templateUrl: './power-toughness-dialog.component.html',
   styleUrl: './power-toughness-dialog.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

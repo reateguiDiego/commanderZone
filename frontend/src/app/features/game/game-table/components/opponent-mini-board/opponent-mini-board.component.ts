@@ -1,3 +1,4 @@
+import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
 import { GameAttachment, GameCardInstance, GameZoneName } from '../../../../../core/models/game.model';
@@ -56,7 +57,7 @@ const PLAYER_BORDER_VARIANTS = ['#f3dfaa', '#cdd7de', '#cdb8d5', '#d8b6a6', '#bc
 
 @Component({
   selector: 'app-opponent-mini-board',
-  imports: [LucideAngularModule, OpponentMiniBattlefieldComponent, OpponentCardsTargetComponent, GameTableLongPressDirective],
+  imports: [RuntimeTranslatePipe, LucideAngularModule, OpponentMiniBattlefieldComponent, OpponentCardsTargetComponent, GameTableLongPressDirective],
   templateUrl: './opponent-mini-board.component.html',
   styleUrl: './opponent-mini-board.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -64,10 +65,10 @@ const PLAYER_BORDER_VARIANTS = ['#f3dfaa', '#cdd7de', '#cdb8d5', '#d8b6a6', '#bc
 export class OpponentMiniBoardComponent {
   readonly defeatedSkullImage = PLAYER_DEFEATED_SKULL_IMAGE;
   readonly opponentZoneSummaries: readonly OpponentZoneSummary[] = [
-    { zone: 'hand', icon: 'hand-fan', title: 'Hand' },
-    { zone: 'library', icon: 'deck', title: 'Library' },
-    { zone: 'graveyard', icon: 'grave', title: 'Graveyard' },
-    { zone: 'exile', icon: 'ban', title: 'Exile' },
+    { zone: 'hand', icon: 'hand-fan', title: 'game.zones.hand' },
+    { zone: 'library', icon: 'deck', title: 'game.zones.library' },
+    { zone: 'graveyard', icon: 'grave', title: 'game.zones.graveyard' },
+    { zone: 'exile', icon: 'ban', title: 'game.zones.exile' },
   ];
 
   readonly player = input.required<PlayerView>();

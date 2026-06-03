@@ -1,11 +1,10 @@
 import { Injectable, signal } from '@angular/core';
 import { ManaAddition, ManaPoolColor } from '../../utils/mana-source-detector';
 
-export type ManaPool = Readonly<Record<ManaPoolColor, number> & { ANY: number }>;
+export type ManaPool = Readonly<Record<ManaPoolColor, number>>;
 
 const MAX_MANA_POOL_AMOUNT = 99;
 const EMPTY_POOL: ManaPool = {
-  ANY: 0,
   W: 0,
   U: 0,
   B: 0,
@@ -41,20 +40,8 @@ export class GameTableManaPoolState {
     this.change(playerId, color, -1);
   }
 
-  incrementAny(playerId: string): void {
-    this.changeAny(playerId, 1);
-  }
-
-  decrementAny(playerId: string): void {
-    this.changeAny(playerId, -1);
-  }
-
   resetColor(playerId: string, color: ManaPoolColor): void {
     this.updatePool(playerId, (pool) => ({ ...pool, [color]: 0 }));
-  }
-
-  resetAny(playerId: string): void {
-    this.updatePool(playerId, (pool) => ({ ...pool, ANY: 0 }));
   }
 
   reset(playerId: string): void {
@@ -63,10 +50,6 @@ export class GameTableManaPoolState {
 
   private change(playerId: string, color: ManaPoolColor, delta: number): void {
     this.updatePool(playerId, (pool) => ({ ...pool, [color]: this.clampAmount(pool[color] + delta) }));
-  }
-
-  private changeAny(playerId: string, delta: number): void {
-    this.updatePool(playerId, (pool) => ({ ...pool, ANY: this.clampAmount(pool.ANY + delta) }));
   }
 
   private updatePool(playerId: string, update: (pool: ManaPool) => ManaPool): void {

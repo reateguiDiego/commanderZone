@@ -1,3 +1,4 @@
+import { RuntimeTranslatePipe } from '../../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, computed, input, output, signal } from '@angular/core';
 import { AvatarUpdatePayload } from '../../../../core/api/auth.api';
 import { appImageUrl } from '../../../../core/assets/app-image-url';
@@ -14,7 +15,7 @@ const INITIAL_LETTER_MAX_LENGTH = 2;
 
 @Component({
   selector: 'app-settings-avatar-editor',
-  imports: [SettingsInitialAvatarOptionComponent],
+  imports: [RuntimeTranslatePipe, SettingsInitialAvatarOptionComponent],
   templateUrl: './settings-avatar-editor.component.html',
   styleUrl: './settings-avatar-editor.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

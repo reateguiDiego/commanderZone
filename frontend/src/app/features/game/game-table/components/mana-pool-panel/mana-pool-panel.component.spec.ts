@@ -16,7 +16,7 @@ describe('ManaPoolPanelComponent', () => {
   });
 
   it('renders mana amounts and emits manual changes', () => {
-    const fixture = createFixture({ ANY: 0, W: 1, U: 0, B: 0, R: 0, G: 2, C: 3 });
+    const fixture = createFixture({ W: 1, U: 0, B: 0, R: 0, G: 2, C: 3 });
     const added: ManaPoolColor[] = [];
     const removed: ManaPoolColor[] = [];
     fixture.componentInstance.colorAdded.subscribe((color) => added.push(color));
@@ -38,7 +38,7 @@ describe('ManaPoolPanelComponent', () => {
   });
 
   it('uses English mana type names as color tooltips', () => {
-    const fixture = createFixture({ ANY: 0, W: 1, U: 1, B: 1, R: 1, G: 1, C: 1 });
+    const fixture = createFixture({ W: 1, U: 1, B: 1, R: 1, G: 1, C: 1 });
     const buttons = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button'));
 
     expect(buttons.some((button) => button.title === 'White mana')).toBe(true);
@@ -50,7 +50,7 @@ describe('ManaPoolPanelComponent', () => {
   });
 
   it('renders mana symbols without colored cost backgrounds', () => {
-    const fixture = createFixture({ ANY: 0, W: 1, U: 1, B: 1, R: 1, G: 1, C: 1 });
+    const fixture = createFixture({ W: 1, U: 1, B: 1, R: 1, G: 1, C: 1 });
     const poolGrid = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('.mana-pool-grid');
     const symbols = Array.from(poolGrid?.querySelectorAll('.ms') ?? []);
 
@@ -58,9 +58,9 @@ describe('ManaPoolPanelComponent', () => {
     expect(symbols.every((symbol) => !symbol.classList.contains('ms-cost'))).toBe(true);
   });
 
-  it('always shows any color and colorless, and uses deck color identity as the base colored mana set', () => {
+  it('always shows colorless and uses deck color identity as the base colored mana set', () => {
     const fixture = createFixture(
-      { ANY: 1, W: 0, U: 2, B: 3, R: 0, G: 0, C: 6 },
+      { W: 0, U: 2, B: 3, R: 0, G: 0, C: 6 },
       null,
       ['U', 'B'],
     );
@@ -70,7 +70,7 @@ describe('ManaPoolPanelComponent', () => {
     const symbols = Array.from(poolGrid?.querySelectorAll('.ms') ?? []);
     const buttonTitles = buttons.map((button) => button.title);
 
-    expect(element.querySelector('.any-color-symbol')).not.toBeNull();
+    expect(element.querySelector('.any-color-symbol')).toBeNull();
     expect(symbols.length).toBe(3);
     expect(symbols.some((symbol) => symbol.classList.contains('ms-u'))).toBe(true);
     expect(symbols.some((symbol) => symbol.classList.contains('ms-b'))).toBe(true);
@@ -83,9 +83,18 @@ describe('ManaPoolPanelComponent', () => {
     expect(buttonTitles).not.toContain('Green mana');
   });
 
+  it('does not render any-color pool controls', () => {
+    const fixture = createFixture({ W: 1, U: 1, B: 1, R: 1, G: 1, C: 1 });
+    const element = fixture.nativeElement as HTMLElement;
+    const buttons = Array.from(element.querySelectorAll('button'));
+
+    expect(element.querySelector('[data-mana-pool-color="ANY"]')).toBeNull();
+    expect(buttons.some((button) => button.title.includes('Any color'))).toBe(false);
+  });
+
   it('shows off-identity colored mana while its pool amount is positive and hides it again at zero', () => {
     const fixture = createFixture(
-      { ANY: 0, W: 1, U: 0, B: 0, R: 0, G: 0, C: 0 },
+      { W: 1, U: 0, B: 0, R: 0, G: 0, C: 0 },
       null,
       ['U'],
     );
@@ -93,7 +102,7 @@ describe('ManaPoolPanelComponent', () => {
     expect(colorButtonTitles(fixture)).toContain('White mana');
     expect(colorButtonTitles(fixture)).toContain('Blue mana');
 
-    fixture.componentRef.setInput('pool', { ANY: 0, W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 });
+    fixture.componentRef.setInput('pool', { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 });
     fixture.detectChanges();
 
     expect(colorButtonTitles(fixture)).not.toContain('White mana');
@@ -103,7 +112,7 @@ describe('ManaPoolPanelComponent', () => {
 
   it('shows off-identity colored mana while it has a pending comet target', () => {
     const fixture = createFixture(
-      { ANY: 0, W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 },
+      { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 },
       null,
       ['G'],
       ['U'],
@@ -119,24 +128,8 @@ describe('ManaPoolPanelComponent', () => {
     expect(colorButtonTitles(fixture)).toContain('Green mana');
   });
 
-  it('renders an any color symbol group with all five colored mana symbols', () => {
-    const fixture = createFixture({ ANY: 4, W: 1, U: 1, B: 1, R: 1, G: 1, C: 1 });
-    const anyColorSymbol = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('.any-color-symbol');
-    const symbols = Array.from(anyColorSymbol?.querySelectorAll('.ms') ?? []);
-
-    expect(anyColorSymbol?.title).toBe('Any color');
-    expect(anyColorSymbol?.textContent).toContain('4');
-    expect(symbols.length).toBe(5);
-    expect(symbols.some((symbol) => symbol.classList.contains('ms-w'))).toBe(true);
-    expect(symbols.some((symbol) => symbol.classList.contains('ms-u'))).toBe(true);
-    expect(symbols.some((symbol) => symbol.classList.contains('ms-b'))).toBe(true);
-    expect(symbols.some((symbol) => symbol.classList.contains('ms-r'))).toBe(true);
-    expect(symbols.some((symbol) => symbol.classList.contains('ms-g'))).toBe(true);
-    expect(symbols.every((symbol) => !symbol.classList.contains('ms-cost'))).toBe(true);
-  });
-
   it('paints every mana symbol with the contrast color selected from the player background', () => {
-    const fixture = createFixture({ ANY: 0, W: 1, U: 1, B: 1, R: 1, G: 1, C: 1 }, 'R_1');
+    const fixture = createFixture({ W: 1, U: 1, B: 1, R: 1, G: 1, C: 1 }, 'R_1');
     const panel = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('.mana-pool-panel');
 
     expect(contrastManaColorForBackground('R_1')).toBe('U');
@@ -149,7 +142,7 @@ describe('ManaPoolPanelComponent', () => {
   });
 
   it('emits a context menu request from the panel context menu', () => {
-    const fixture = createFixture({ ANY: 0, W: 1, U: 0, B: 0, R: 0, G: 0, C: 0 });
+    const fixture = createFixture({ W: 1, U: 0, B: 0, R: 0, G: 0, C: 0 });
     const opened = vi.fn();
     fixture.componentInstance.menuOpened.subscribe(opened);
 
@@ -161,33 +154,16 @@ describe('ManaPoolPanelComponent', () => {
     expect((fixture.nativeElement as HTMLElement).querySelector('.mana-reset-menu')).toBeNull();
   });
 
-  it('emits any color manual changes', () => {
-    const fixture = createFixture({ ANY: 1, W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 });
-    let added = 0;
-    let removed = 0;
-    fixture.componentInstance.anyAdded.subscribe(() => ++added);
-    fixture.componentInstance.anyRemoved.subscribe(() => ++removed);
-
-    const buttons = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button'));
-
-    buttons.find((button) => button.title === 'Add Any color')?.click();
-    buttons.find((button) => button.title === 'Remove Any color' && !button.disabled)?.click();
-
-    expect(added).toBe(1);
-    expect(removed).toBe(1);
-  });
-
   it('does not render remove controls for zero amounts and disables add controls at 99', () => {
-    const fixture = createFixture({ ANY: 0, W: 99, U: 0, B: 0, R: 0, G: 0, C: 0 });
+    const fixture = createFixture({ W: 99, U: 0, B: 0, R: 0, G: 0, C: 0 });
     const buttons = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button'));
 
-    expect(buttons.some((button) => button.title === 'Remove Any color')).toBe(false);
     expect(buttons.some((button) => button.title === 'Remove Blue mana')).toBe(false);
     expect(buttons.find((button) => button.title === 'Add White mana')?.disabled).toBe(true);
   });
 
   it('does not pin controls for mouse pointer activation', () => {
-    const fixture = createFixture({ ANY: 0, W: 1, U: 0, B: 0, R: 0, G: 0, C: 0 });
+    const fixture = createFixture({ W: 1, U: 0, B: 0, R: 0, G: 0, C: 0 });
     const whiteButton = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button'))
       .find((button) => button.title === 'White mana');
 
@@ -199,7 +175,7 @@ describe('ManaPoolPanelComponent', () => {
   });
 
   it('activates touch controls from a symbol pointer interaction and emits hide', () => {
-    const fixture = createFixture({ ANY: 0, W: 1, U: 0, B: 0, R: 0, G: 0, C: 0 });
+    const fixture = createFixture({ W: 1, U: 0, B: 0, R: 0, G: 0, C: 0 });
     let hidden = 0;
     fixture.componentInstance.hidden.subscribe(() => ++hidden);
 

@@ -1,6 +1,7 @@
 {
   "version": 2,
   "public": true,
+  "trailingSlash": true,
   "headers": [
     {
       "source": "/(.*)",
@@ -14,6 +15,10 @@
           "value": "strict-origin-when-cross-origin"
         },
         {
+          "key": "Strict-Transport-Security",
+          "value": "max-age=31536000"
+        },
+        {
           "key": "X-Content-Type-Options",
           "value": "nosniff"
         },
@@ -22,6 +27,19 @@
           "value": "DENY"
         }
       ]
+    }
+  ],
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.commanderzone.com"
+        }
+      ],
+      "destination": "https://commanderzone.com/:path*",
+      "permanent": true
     }
   ],
   "rewrites": [

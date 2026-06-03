@@ -2,7 +2,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
-import { CARD_SEARCH_LIMIT, CardsApi } from '../../../core/api/cards.api';
+import { CardsApi } from '../../../core/api/cards.api';
 import { DecksApi } from '../../../core/api/decks.api';
 import { AppShellI18nService } from '../../../core/localization/app-shell-i18n.service';
 import { SupportedLanguageCode } from '../../../core/localization/language-preferences';
@@ -52,6 +52,7 @@ const CARD_MENU_HEIGHT = 390;
 const CARD_MENU_IMAGE_PREVIEW_WIDTH = 224;
 const CARD_MENU_POPOVER_GAP = 12;
 const COMMON_PRINT_LANGUAGE_CODES = ['ph', 'qya', 'grc', 'he', 'sa', 'ar'] as const;
+const MISSING_CARD_SEARCH_LIMIT = 60;
 
 @Injectable()
 export class DeckEditorStore {
@@ -408,7 +409,7 @@ export class DeckEditorStore {
     }
 
     try {
-      const response = await firstValueFrom(this.cardsApi.search(query, 1, CARD_SEARCH_LIMIT));
+      const response = await firstValueFrom(this.cardsApi.search(query, 1, MISSING_CARD_SEARCH_LIMIT));
       this.missingSearch.set({ name: query, cards: response.data });
     } catch {
       this.missingSearch.set({ name: query, cards: [] });
@@ -1283,7 +1284,7 @@ export class DeckEditorStore {
   private buildManaSourceDonutBackground(): string {
     const profiles = this.manaSourceProfiles();
     if (profiles.length === 0) {
-      return 'conic-gradient(rgb(255 255 255 / 8%) 0deg 360deg)';
+      return 'conic-gradient(rgb(var(--cz-text-rgb) / 8%) 0deg 360deg)';
     }
 
     const palette: Record<'W' | 'U' | 'B' | 'R' | 'G' | 'C', string> = {

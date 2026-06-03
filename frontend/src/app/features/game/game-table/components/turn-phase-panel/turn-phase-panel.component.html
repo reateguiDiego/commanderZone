@@ -21,7 +21,7 @@
           (click)="passTurn.emit()"
         >
           <lucide-icon name="chevron-right" size="18" aria-hidden="true" />
-          <span>Pasar turno</span>
+          <span>{{ 'game.turnPhasePanel.pasarTurno' | runtimeTranslate }}</span>
         </button>
         <button
           type="button"
@@ -35,18 +35,18 @@
           <span data-testid="end-step">{{ nextPhaseLabel() }}</span>
         </button>
       }
-      <label class="turn-focus-toggle" title="Focus the active turn player">
+      <label class="turn-focus-toggle" [title]="'game.turnPhasePanel.focusTheActiveTurnPlayer' | runtimeTranslate">
         <input
           type="checkbox"
           data-testid="follow-active-turn-player"
           [checked]="followActiveTurnPlayer()"
           (change)="updateFollowActiveTurnPlayer($event)"
         />
-        <span>Focus turn</span>
+        <span>{{ 'game.turnPhasePanel.focusTurn' | runtimeTranslate }}</span>
       </label>
     </div>
   </div>
-  <div class="phase-tracker" aria-label="Turn phases">
+  <div class="phase-tracker" [attr.aria-label]="'game.turnPhasePanel.turnPhases' | runtimeTranslate">
     <span class="sr-only" data-testid="active-phase">{{ currentTurn.phase }}</span>
     @for (phase of phases(); track phase) {
       <button

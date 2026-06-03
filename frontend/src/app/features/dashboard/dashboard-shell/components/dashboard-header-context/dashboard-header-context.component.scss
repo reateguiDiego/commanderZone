@@ -34,21 +34,21 @@
   flex: 0 0 auto;
   width: 2rem;
   height: 2rem;
-  border: 1px solid rgb(209 111 95 / 58%);
+  border: 1px solid rgb(var(--cz-danger-rgb) / 58%);
   border-radius: 999px;
   background:
-    radial-gradient(circle, rgb(209 111 95 / 28%), rgb(80 16 16 / 36%));
-  color: #ffb4a8;
+    radial-gradient(circle, rgb(var(--cz-danger-rgb) / 28%), rgb(var(--cz-surface-rgb) / 36%));
+  color: var(--cz-secondary);
   box-shadow:
-    0 0 0 1px rgb(209 111 95 / 12%),
-    0 0 22px rgb(209 111 95 / 36%);
+    0 0 0 1px rgb(var(--cz-danger-rgb) / 12%),
+    0 0 22px rgb(var(--cz-danger-rgb) / 36%);
 }
 
 .page-title-warning::after {
   content: "";
   position: absolute;
   inset: -0.25rem;
-  border: 1px solid rgb(209 111 95 / 42%);
+  border: 1px solid rgb(var(--cz-danger-rgb) / 42%);
   border-radius: inherit;
   opacity: 0;
   animation: warning-ring 1.8s ease-out infinite;
@@ -90,13 +90,17 @@
   gap: 0.45rem;
 }
 
+.page-header-detail-row button {
+  min-height: 2.75rem;
+}
+
 button[data-action-id="invite-friends"] {
   max-width: 175px;
 }
 
 .page-header-action-feedback {
   justify-self: end;
-  color: #b9f2cd;
+  color: var(--cz-secondary);
   font-size: 0.76rem;
   font-weight: 800;
   animation: action-feedback-in 180ms ease both;
@@ -117,10 +121,10 @@ button[data-action-id="invite-friends"] {
 .icon-only {
   display: inline-grid;
   place-items: center;
-  width: 2.15rem;
-  min-width: 2.15rem;
-  min-height: 2.15rem;
-  height: 2.15rem;
+  width: 2.75rem;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  height: 2.75rem;
   padding-inline: 0;
 }
 
@@ -142,9 +146,9 @@ button[data-action-id="invite-friends"] {
   gap: 0.34rem;
   min-height: 2rem;
   padding: 0.34rem 0.5rem;
-  border: 1px solid rgb(215 180 106 / 20%);
+  border: 1px solid rgb(var(--cz-primary-rgb) / 20%);
   border-radius: 7px;
-  background: rgb(12 14 11 / 44%);
+  background: rgb(var(--cz-bg-rgb) / 44%);
   color: var(--muted);
   font-size: 0.72rem;
   white-space: nowrap;
@@ -162,18 +166,18 @@ button:disabled {
 }
 
 .tone-success {
-  border-color: rgb(125 207 152 / 34%);
-  color: #bdebc9;
+  border-color: rgb(var(--cz-info-rgb) / 34%);
+  color: var(--cz-secondary);
 }
 
 .tone-private {
-  border-color: rgb(177 162 136 / 36%);
-  color: #e2d6c2;
+  border-color: rgb(var(--cz-primary-rgb) / 36%);
+  color: var(--cz-secondary);
 }
 
 .tone-started {
-  border-color: rgb(109 165 250 / 34%);
-  color: #c8ddff;
+  border-color: rgb(var(--cz-info-rgb) / 34%);
+  color: var(--cz-secondary);
 }
 
 @media (max-width: 720px) {
@@ -212,6 +216,7 @@ button:disabled {
   }
 
   .page-header-detail-row.has-actions:not(.has-stats) button:not(.icon-only) {
+    min-height: 2.75rem;
     width: 100%;
   }
 

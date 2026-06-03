@@ -1,3 +1,4 @@
+import { RuntimeTranslatePipe } from '../../../core/localization/runtime-translate.pipe';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, ElementRef, NgZone, OnDestroy, computed, effect, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -40,7 +41,7 @@ interface WaitingTurnOrderRow {
 
 @Component({
   selector: 'app-waiting-room',
-  imports: [
+  imports: [RuntimeTranslatePipe, 
     LucideAngularModule,
     AppModalComponent,
     PlayerNameComponent,
@@ -1028,7 +1029,7 @@ export class WaitingRoomComponent implements OnDestroy {
           ? [
             {
               id: 'invite-friends',
-              label: 'Invite friends',
+              label: 'rooms.waiting.header.inviteFriends',
               icon: 'user-plus',
               tooltip: this.isRoomFull(room) ? 'Room is full' : 'Invite friends',
               disabled: this.isRoomFull(room),

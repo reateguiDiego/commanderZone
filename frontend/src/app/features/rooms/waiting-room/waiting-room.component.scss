@@ -65,7 +65,7 @@
   max-width: 175px;
   border-radius: 12px;
   padding-inline: 0.85rem;
-  color: #fff4d6;
+  color: var(--cz-text);
   font-weight: 850;
   white-space: nowrap;
 }
@@ -74,11 +74,11 @@
   display: inline-flex;
   align-items: center;
   min-height: 2.35rem;
-  border: 1px solid rgb(209 111 95 / 34%);
+  border: 1px solid rgb(var(--cz-danger-rgb) / 34%);
   border-radius: 999px;
   padding: 0.35rem 0.72rem;
-  color: #f2b2a8;
-  background: rgb(209 111 95 / 10%);
+  color: var(--cz-secondary);
+  background: rgb(var(--cz-danger-rgb) / 10%);
   font-size: 0.78rem;
   font-weight: 800;
   line-height: 1.15;
@@ -86,18 +86,18 @@
 }
 
 .start-status-pill.is-ready {
-  border-color: rgb(128 179 122 / 44%);
-  color: #b9e8a9;
-  background: rgb(128 179 122 / 10%);
+  border-color: rgb(var(--cz-success-rgb) / 44%);
+  color: var(--cz-secondary);
+  background: rgb(var(--cz-success-rgb) / 10%);
 }
 
 .metric {
   gap: 0.35rem;
-  border: 1px solid rgb(215 180 106 / 30%);
+  border: 1px solid rgb(var(--cz-primary-rgb) / 30%);
   border-radius: 999px;
   padding: 0.35rem 0.55rem;
-  color: #f5ddb0;
-  background: rgb(215 180 106 / 10%);
+  color: var(--cz-secondary);
+  background: rgb(var(--cz-primary-rgb) / 10%);
   font-size: 0.78rem;
   font-weight: 750;
 }
@@ -235,10 +235,10 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  border: 1px solid rgb(215 180 106 / 18%);
+  border: 1px solid rgb(var(--cz-primary-rgb) / 18%);
   border-radius: 16px;
   padding: 0.65rem;
-  background: rgb(11 13 10 / 48%);
+  background: rgb(var(--cz-bg-rgb) / 48%);
 }
 
 .friend-row span { min-width: 0; }
@@ -254,7 +254,7 @@
 
 .friend-row small { color: var(--muted); }
 
-.danger-button { display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem; min-height: 2.45rem; border: 1px solid rgb(248 113 113 / 42%); border-radius: 7px; padding: 0.62rem 0.9rem; background: rgb(127 29 29 / 20%); color: #fecaca; font-weight: 800; }
+.danger-button { display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem; min-height: 2.45rem; border: 1px solid rgb(var(--cz-danger-rgb) / 42%); border-radius: 7px; padding: 0.62rem 0.9rem; background: rgb(var(--cz-surface-rgb) / 20%); color: var(--cz-text); font-weight: 800; }
 
 .danger-button:disabled {
   cursor: not-allowed;

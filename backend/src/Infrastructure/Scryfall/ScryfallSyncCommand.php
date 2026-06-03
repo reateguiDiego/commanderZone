@@ -5,8 +5,6 @@ namespace App\Infrastructure\Scryfall;
 use App\Domain\Card\Card;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\ParameterType;
-use JsonMachine\Items;
-use JsonMachine\JsonDecoder\ExtJsonDecoder;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -14,7 +12,6 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Uid\Uuid;
-use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 #[AsCommand(name: 'app:scryfall:sync', description: 'Imports Scryfall bulk card data into the local database.')]
 class ScryfallSyncCommand extends Command
@@ -26,10 +23,8 @@ class ScryfallSyncCommand extends Command
     private ?bool $printTablesAvailable = null;
 
     public function __construct(
-        private readonly HttpClientInterface $httpClient,
+        private readonly ScryfallBulkDataClient $bulkDataClient,
         private readonly Connection $connection,
-        #[Autowire('%env(SCRYFALL_USER_AGENT)%')]
-        private readonly string $userAgent,
         #[Autowire('%env(default::SCRYFALL_SYNC_MEMORY_LIMIT)%')]
         private readonly string $defaultMemoryLimit = '512M',
     ) {
@@ -40,6 +35,7 @@ class ScryfallSyncCommand extends Command
     {
         $this
             ->addOption('file', null, InputOption::VALUE_REQUIRED, 'Local Scryfall JSON file to import instead of downloading bulk data.')
+            ->addOption('rulings-file', null, InputOption::VALUE_REQUIRED, 'Local Scryfall rulings JSON file used to compute has_rulings metadata.')
             ->addOption('bulk-type', null, InputOption::VALUE_REQUIRED, 'Scryfall bulk type to import when downloading. Supported values: default_cards, all_cards.', 'all_cards')
             ->addOption('limit', null, InputOption::VALUE_REQUIRED, 'Maximum number of cards to import. Useful for development.', null)
             ->addOption('memory-limit', null, InputOption::VALUE_REQUIRED, 'PHP memory_limit used for this import.', null)
@@ -52,6 +48,7 @@ class ScryfallSyncCommand extends Command
         ini_set('memory_limit', is_string($memoryLimit) && $memoryLimit !== '' ? $memoryLimit : $this->defaultMemoryLimit);
 
         $file = $input->getOption('file');
+        $rulingsFile = $input->getOption('rulings-file');
         $bulkType = is_string($input->getOption('bulk-type')) ? trim((string) $input->getOption('bulk-type')) : 'all_cards';
         $limit = $input->getOption('limit') !== null ? (int) $input->getOption('limit') : null;
         $existingIds = $input->getOption('skip-existing') ? $this->loadExistingScryfallIds($output) : [];
@@ -63,7 +60,12 @@ class ScryfallSyncCommand extends Command
             ));
         }
 
-        $cards = is_string($file) && $file !== '' ? $this->loadLocalFile($file) : $this->downloadBulkCards($bulkType);
+        $cards = $this->bulkDataClient->loadBulkItems($bulkType, is_string($file) && $file !== '' ? $file : null);
+        $oracleIdsWithRulings = $this->oracleIdsWithRulings(
+            is_string($rulingsFile) && trim($rulingsFile) !== '' ? trim($rulingsFile) : null,
+            is_string($file) && $file !== '',
+            $output,
+        );
 
         $count = 0;
         $skipped = 0;
@@ -81,7 +83,7 @@ class ScryfallSyncCommand extends Command
                 continue;
             }
 
-            $this->upsertCard($cardData);
+            $this->upsertCard($cardData, $this->hasRulings($cardData, $oracleIdsWithRulings));
             if ($this->printTablesAvailable()) {
                 $this->upsertCardPrintAndLocale($cardData);
             }
@@ -103,59 +105,44 @@ class ScryfallSyncCommand extends Command
         return Command::SUCCESS;
     }
 
-    private function downloadBulkCards(string $bulkType): iterable
+    /**
+     * @return array<string,true>
+     */
+    private function oracleIdsWithRulings(?string $rulingsFile, bool $usingLocalCardsFile, OutputInterface $output): array
     {
-        $headers = [
-            'Accept' => 'application/json',
-            'User-Agent' => $this->userAgent,
-        ];
+        if ($usingLocalCardsFile && $rulingsFile === null) {
+            $output->writeln('<comment>Local cards file provided without --rulings-file. has_rulings will default to false unless the card payload already includes it.</comment>');
 
-        $bulkResponse = $this->httpClient->request('GET', 'https://api.scryfall.com/bulk-data', ['headers' => $headers])->toArray();
-        $downloadUri = null;
-        foreach ($bulkResponse['data'] ?? [] as $bulkData) {
-            if (($bulkData['type'] ?? null) === $bulkType) {
-                $downloadUri = $bulkData['download_uri'] ?? null;
-                break;
+            return [];
+        }
+
+        $oracleIds = [];
+        foreach ($this->bulkDataClient->loadBulkItems('rulings', $rulingsFile) as $entry) {
+            if (!is_array($entry)) {
+                continue;
+            }
+
+            $oracleId = trim((string) ($entry['oracle_id'] ?? ''));
+            if ($oracleId !== '') {
+                $oracleIds[$oracleId] = true;
             }
         }
 
-        if (!is_string($downloadUri)) {
-            throw new \RuntimeException(sprintf('Scryfall %s bulk download URI was not found.', $bulkType));
-        }
-
-        $temporaryFile = tempnam(sys_get_temp_dir(), sprintf('scryfall-%s-', str_replace('_', '-', $bulkType)));
-        if ($temporaryFile === false) {
-            throw new \RuntimeException('Could not create temporary file for Scryfall bulk download.');
-        }
-
-        $handle = fopen($temporaryFile, 'wb');
-        if ($handle === false) {
-            throw new \RuntimeException('Could not open temporary file for Scryfall bulk download.');
-        }
-
-        $response = $this->httpClient->request('GET', $downloadUri, ['headers' => $headers]);
-        foreach ($this->httpClient->stream($response) as $chunk) {
-            fwrite($handle, $chunk->getContent());
-        }
-        fclose($handle);
-
-        try {
-            yield from Items::fromFile($temporaryFile, ['decoder' => new ExtJsonDecoder(true)]);
-        } finally {
-            @unlink($temporaryFile);
-        }
+        return $oracleIds;
     }
 
-    private function loadLocalFile(string $file): iterable
+    private function hasRulings(array $data, array $oracleIdsWithRulings): bool
     {
-        if (!is_file($file)) {
-            throw new \RuntimeException(sprintf('File "%s" does not exist.', $file));
+        if (array_key_exists('has_rulings', $data)) {
+            return (bool) $data['has_rulings'];
         }
 
-        return Items::fromFile($file, ['decoder' => new ExtJsonDecoder(true)]);
+        $oracleId = trim((string) ($data['oracle_id'] ?? ''));
+
+        return $oracleId !== '' && isset($oracleIdsWithRulings[$oracleId]);
     }
 
-    private function upsertCard(array $data): void
+    private function upsertCard(array $data, bool $hasRulings): void
     {
         $name = (string) $data['name'];
         $legalities = $data['legalities'] ?? [];
@@ -191,6 +178,7 @@ INSERT INTO card (
     printed_name,
     flavor_name,
     image_status,
+    has_rulings,
     updated_at
 ) VALUES (
     :id,
@@ -221,6 +209,7 @@ INSERT INTO card (
     :printed_name,
     :flavor_name,
     :image_status,
+    :has_rulings,
     NOW()
 )
 ON CONFLICT (scryfall_id) DO UPDATE SET
@@ -250,6 +239,7 @@ ON CONFLICT (scryfall_id) DO UPDATE SET
     printed_name = EXCLUDED.printed_name,
     flavor_name = EXCLUDED.flavor_name,
     image_status = EXCLUDED.image_status,
+    has_rulings = EXCLUDED.has_rulings,
     updated_at = NOW()
 SQL,
             [
@@ -283,9 +273,11 @@ SQL,
                 'image_status' => isset($data['image_status']) && is_scalar($data['image_status']) && (string) $data['image_status'] !== ''
                     ? (string) $data['image_status']
                     : null,
+                'has_rulings' => $hasRulings,
             ],
             [
                 'commander_legal' => ParameterType::BOOLEAN,
+                'has_rulings' => ParameterType::BOOLEAN,
             ],
         );
     }

@@ -14,7 +14,7 @@
       </header>
 
       @if (group.id === 'commander' && group.cards.length === 0) {
-        <p class="notice warning compact-notice">No commander assigned yet.</p>
+        <p class="notice warning compact-notice">{{ 'deckBuilder.deckCardSpoilerView.noCommanderAssignedYet' | runtimeTranslate }}</p>
       } @else {
         <div class="spoiler-card-grid">
           @for (entry of group.cards; track entry.id) {
@@ -38,7 +38,7 @@
                   <span class="quantity-badge">x{{ entry.quantity }}</span>
                 }
                 @if (store.hasAlternateFace(entry.card)) {
-                  <button class="face-toggle-button" type="button" title="Flip face" (click)="store.toggleCardFace($event, entry.card)">
+                  <button class="face-toggle-button" type="button" [title]="'deckBuilder.deckCardSpoilerView.flipFace' | runtimeTranslate" (click)="store.toggleCardFace($event, entry.card)">
                     <lucide-icon name="rotate-cw" size="15" />
                   </button>
                 }

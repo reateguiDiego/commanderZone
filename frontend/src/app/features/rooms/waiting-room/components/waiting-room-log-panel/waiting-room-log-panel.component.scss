@@ -11,15 +11,15 @@
   width: 100%;
   min-height: 0;
   max-height: calc((21rem * 2) + 0.85rem);
-  border: 1px solid rgb(215 180 106 / 18%);
+  border: 1px solid rgb(var(--cz-primary-rgb) / 18%);
   border-radius: 14px;
   padding: 0.9rem;
   background:
-    linear-gradient(180deg, rgb(255 246 213 / 5%), transparent 34%),
-    rgb(6 10 7 / 58%);
+    linear-gradient(180deg, rgb(var(--cz-text-rgb) / 5%), transparent 34%),
+    rgb(var(--cz-bg-rgb) / 58%);
   box-shadow:
-    0 0.75rem 1.8rem rgb(0 0 0 / 22%),
-    inset 0 1px 0 rgb(255 255 255 / 5%);
+    0 0.75rem 1.8rem rgb(var(--cz-bg-rgb) / 22%),
+    inset 0 1px 0 rgb(var(--cz-text-rgb) / 5%);
 }
 
 header {
@@ -28,13 +28,13 @@ header {
 }
 
 header strong {
-  color: #ffe9a9;
+  color: var(--cz-secondary);
   font-size: 1rem;
   line-height: 1.1;
 }
 
 .eyebrow {
-  color: #f8d987;
+  color: var(--cz-text);
   font-size: 0.68rem;
   font-weight: 900;
   letter-spacing: 0.08em;
@@ -68,10 +68,10 @@ header strong {
   display: grid;
   flex: 0 0 auto;
   gap: 0.12rem;
-  border: 1px solid rgb(215 180 106 / 14%);
+  border: 1px solid rgb(var(--cz-primary-rgb) / 14%);
   border-radius: 12px;
   padding: 0.52rem 0.58rem;
-  background: rgb(0 0 0 / 18%);
+  background: rgb(var(--cz-bg-rgb) / 18%);
 }
 
 .room-log-entry span {
@@ -81,18 +81,18 @@ header strong {
 }
 
 .room-log-entry strong {
-  color: #f5ddb0;
+  color: var(--cz-secondary);
   font-size: 0.8rem;
   line-height: 1.25;
 }
 
 .room-log-entry.success {
-  border-color: rgb(74 222 128 / 34%);
+  border-color: rgb(var(--cz-success-rgb) / 34%);
   background:
-    linear-gradient(90deg, rgb(34 197 94 / 16%), transparent 72%),
-    rgb(0 0 0 / 18%);
+    linear-gradient(90deg, rgb(var(--cz-success-rgb) / 16%), transparent 72%),
+    rgb(var(--cz-bg-rgb) / 18%);
 }
 
 .room-log-entry.success strong {
-  color: #a7f3d0;
+  color: var(--cz-secondary);
 }
