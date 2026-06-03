@@ -601,7 +601,7 @@ describe('GameTableComponent', () => {
     expect(fixture.componentInstance.store.manaPool('user-1').C).toBe(2);
   });
 
-  it('does not open the mana dialog for visible tap-only any-color artifacts', async () => {
+  it('opens the mana dialog for visible tap-only any-color artifacts with multiple commander colors', async () => {
     authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
     const fixture = TestBed.createComponent(GameTableComponent);
     const snapshot = snapshotWithStatus('active');
@@ -630,7 +630,8 @@ describe('GameTableComponent', () => {
         card: arcaneSignet,
       });
 
-      expect(fixture.componentInstance.manaActionDialog()).toBeNull();
+      expect(fixture.componentInstance.manaActionDialog()?.suggestion.cardName).toBe('Arcane Signet');
+      expect(fixture.componentInstance.manaActionDialog()?.suggestion.colors).toEqual(['U', 'R']);
       expect(fixture.componentInstance.store.manaPool('user-1').U).toBe(0);
       expect(fixture.componentInstance.store.manaPool('user-1').R).toBe(0);
     } finally {
@@ -638,7 +639,7 @@ describe('GameTableComponent', () => {
     }
   });
 
-  it('does not add mana automatically from tap-only any-color sources even with a single commander color', async () => {
+  it('adds mana automatically from tap-only any-color sources with a single commander color', async () => {
     authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
     const fixture = TestBed.createComponent(GameTableComponent);
     const snapshot = snapshotWithStatus('active');
@@ -658,7 +659,7 @@ describe('GameTableComponent', () => {
 
     await fixture.componentInstance.store.toggleTapped('user-1', 'battlefield', arcaneSignet);
 
-    expect(fixture.componentInstance.store.manaPool('user-1').G).toBe(0);
+    expect(fixture.componentInstance.store.manaPool('user-1').G).toBe(1);
     expect(fixture.componentInstance.manaActionDialog()).toBeNull();
   });
 
@@ -694,6 +695,43 @@ describe('GameTableComponent', () => {
       expect(fixture.componentInstance.store.manaPool('user-1').G).toBe(0);
       expect(fixture.componentInstance.manaActionDialog()?.suggestion.cardName).toBe('Llanowar Elves');
       expect(fixture.nativeElement.querySelector('app-tap-mana-intent-menu')).toBeNull();
+    } finally {
+      requestAnimationFrame.mockRestore();
+    }
+  });
+
+  it('opens a mana ability selector for cards with multiple tap mana abilities', async () => {
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const fixture = TestBed.createComponent(GameTableComponent);
+    const snapshot = snapshotWithStatus('active');
+    const delightedHalfling = {
+      ...snapshot.players['user-1']!.zones.battlefield[0]!,
+      name: 'Delighted Halfling',
+      typeLine: 'Creature - Halfling Citizen',
+      oracleText: "{T}: Add {C}. / {T}: Add one mana of any color. Spend this mana only to cast a legendary spell.",
+      tapped: false,
+    };
+    snapshot.players['user-1']!.zones.battlefield = [delightedHalfling];
+    fixture.componentInstance.store.snapshot.set(snapshot);
+    fixture.componentInstance.store.focusPlayer('user-1');
+    vi.spyOn(fixture.componentInstance.store, 'canControlPlayer').mockReturnValue(true);
+    vi.spyOn(fixture.debugElement.injector.get(GameTableCardActionsService), 'toggleTapped').mockResolvedValue(undefined);
+    const requestAnimationFrame = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+      callback(0);
+      return 1;
+    });
+
+    try {
+      await fixture.componentInstance.handleBattlefieldCardDoubleClicked({
+        event: new MouseEvent('dblclick', { clientX: 160, clientY: 220 }),
+        playerId: 'user-1',
+        card: delightedHalfling,
+      });
+
+      const dialog = fixture.componentInstance.manaActionDialog();
+      expect(dialog?.suggestion.cardName).toBe('Delighted Halfling');
+      expect(dialog?.suggestion.abilityOptions?.length).toBe(2);
+      expect(fixture.componentInstance.store.manaPool('user-1').C).toBe(0);
     } finally {
       requestAnimationFrame.mockRestore();
     }
@@ -5253,6 +5291,106 @@ describe('GameTableComponent', () => {
         card: expect.objectContaining({ instanceId: 'hand-card' }),
       }),
     ]);
+  });
+
+  it('selects every hand card from the context menu action', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    const handCards = [
+      { ...snapshot.players['user-1'].zones.battlefield[0]!, instanceId: 'hand-1', zone: 'hand' as const },
+      {
+        ...snapshot.players['user-1'].zones.battlefield[0]!,
+        instanceId: 'hand-2',
+        ownerId: 'user-2',
+        controllerId: 'user-2',
+        zone: 'hand' as const,
+      },
+    ];
+    snapshot.players['user-1'].zones.hand = handCards;
+    snapshot.players['user-1'].zoneCounts!.hand = handCards.length;
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.handleContextMenuAction({ type: 'selectAllZoneCards' }, {
+      x: 0,
+      y: 0,
+      kind: 'card',
+      playerId: 'user-1',
+      zone: 'hand',
+      card: handCards[0],
+    });
+
+    expect(fixture.componentInstance.store.selectedCards().map((selection) => selection.card.instanceId)).toEqual(['hand-1', 'hand-2']);
+    expect(fixture.componentInstance.store.contextMenu()).toBeNull();
+  });
+
+  it('opens the hand zone context menu when the hand panel requests it', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    snapshot.players['user-1'].zones.hand = [
+      { ...snapshot.players['user-1'].zones.battlefield[0]!, instanceId: 'hand-1', zone: 'hand' as const },
+      { ...snapshot.players['user-1'].zones.battlefield[0]!, instanceId: 'hand-2', zone: 'hand' as const },
+    ];
+    snapshot.players['user-1'].zoneCounts!.hand = 2;
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.store.openZoneMenu({
+      preventDefault: vi.fn(),
+      stopPropagation: vi.fn(),
+      currentTarget: document.createElement('section'),
+      clientX: 120,
+      clientY: 140,
+    } as unknown as MouseEvent, 'user-1', 'hand');
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.store.contextMenu()).toEqual(expect.objectContaining({
+      kind: 'zone',
+      playerId: 'user-1',
+      zone: 'hand',
+    }));
+  });
+
+  it('selects every battlefield card from the context menu action', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    const battlefieldCards = [
+      snapshot.players['user-1'].zones.battlefield[0]!,
+      {
+        ...snapshot.players['user-1'].zones.battlefield[0]!,
+        instanceId: 'card-2',
+        ownerId: 'user-2',
+        controllerId: 'user-2',
+        name: 'Arcane Signet',
+      },
+    ];
+    snapshot.players['user-1'].zones.battlefield = battlefieldCards;
+    snapshot.players['user-1'].zoneCounts!.battlefield = battlefieldCards.length;
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.handleContextMenuAction({ type: 'selectAllZoneCards' }, {
+      x: 0,
+      y: 0,
+      kind: 'zone',
+      playerId: 'user-1',
+      zone: 'battlefield',
+    });
+
+    expect(fixture.componentInstance.store.selectedCards().map((selection) => selection.card.instanceId)).toEqual(['card-1', 'card-2']);
+    expect(fixture.componentInstance.store.contextMenu()).toBeNull();
   });
 
   it('keeps the exact previewed battlefield position when pointer-moving selected hand cards', async () => {

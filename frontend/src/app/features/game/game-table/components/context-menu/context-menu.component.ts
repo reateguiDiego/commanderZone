@@ -37,6 +37,7 @@ export type ContextMenuAction =
   | { type: 'openLibraryView'; mode: 'all' | 'top' }
   | { type: 'moveAll'; zone: GameZoneName; targetPlayerId?: string }
   | { type: 'selectRandomCard' }
+  | { type: 'selectAllZoneCards' }
   | { type: 'tapCard' }
   | { type: 'addManaFromCard' }
   | { type: 'faceDown' }
@@ -202,6 +203,19 @@ export class ContextMenuComponent {
       && this.canControlActivePlayer()
       && this.isRandomSelectableZone(currentMenu.zone)
       && this.zoneCardCount()(currentMenu.playerId, currentMenu.zone) > 0;
+  }
+
+  canSelectAllActiveZoneCards(): boolean {
+    const currentMenu = this.menu();
+    return (currentMenu.zone === 'hand' || currentMenu.zone === 'battlefield')
+      && this.canControlActivePlayer()
+      && this.zoneCardCount()(currentMenu.playerId, currentMenu.zone) > 1;
+  }
+
+  selectAllActiveZoneLabel(): string {
+    return this.menu().zone === 'hand'
+      ? 'game.contextMenu.labels.selectAllHandCards'
+      : 'game.contextMenu.labels.selectAllBattlefieldCards';
   }
 
   activeCardMoveTargets(): readonly GameZoneName[] {

@@ -386,6 +386,7 @@
                 [motionActive]="handMotionActive()"
                 (handDragOver)="store.previewDropOnHand($event.event, $event.playerId)"
                 (handDropped)="handleHandDropped($event)"
+                (handMenuOpened)="store.openZoneMenu($event.event, $event.playerId, 'hand')"
                 (handCardClicked)="store.handleHandCardClick($event.event, $event.playerId, $event.card)"
                 (handCardPointerReordered)="handleHandCardPointerReordered($event)"
                 (handCardPointerDragStarted)="store.closeContextMenuForCardDrag($event.card.instanceId)"

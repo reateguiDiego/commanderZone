@@ -32,6 +32,18 @@ describe('GameTableSelectionService', () => {
     expect(result).toBe('replacedSource');
     expect(service.selectedCards()).toEqual([{ playerId: 'player-1', zone: 'hand', card: handCard }]);
   });
+
+  it('selects several cards from the same zone at once', () => {
+    const firstCard = card('card-1');
+    const secondCard = card('card-2');
+
+    service.selectMany('player-1', 'battlefield', [firstCard, secondCard]);
+
+    expect(service.selectedCards()).toEqual([
+      { playerId: 'player-1', zone: 'battlefield', card: firstCard },
+      { playerId: 'player-1', zone: 'battlefield', card: secondCard },
+    ]);
+  });
 });
 
 function mouseEvent(modifiers: Partial<Pick<MouseEvent, 'ctrlKey' | 'metaKey' | 'shiftKey'>> = {}): MouseEvent {

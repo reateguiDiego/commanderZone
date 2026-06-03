@@ -19,6 +19,7 @@
   (focusout)="blurHand($event)"
   (dragover)="handleExternalHandDragOver($event, handPlayer.id)"
   (drop)="handleExternalHandDrop($event, handPlayer.id)"
+  (contextmenu)="openHandMenu($event, handPlayer.id)"
 >
   <span
     class="hand-hover-strip"

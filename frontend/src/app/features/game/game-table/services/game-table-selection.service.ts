@@ -30,6 +30,10 @@ export class GameTableSelectionService {
     this.selectedCards.set([{ playerId, zone, card }]);
   }
 
+  selectMany(playerId: string, zone: GameZoneName, cards: readonly GameCardInstance[]): void {
+    this.selectedCards.set(cards.map((card) => ({ playerId, zone, card })));
+  }
+
   toggleSelection(event: MouseEvent, playerId: string, zone: GameZoneName, card: GameCardInstance): SelectionToggleResult {
     const selected = this.selectedCards();
     const existing = selected.some((item) => item.card.instanceId === card.instanceId);

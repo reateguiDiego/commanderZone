@@ -16,14 +16,16 @@ describe('detectManaSource', () => {
     expect(suggestion.additions).toEqual([{ color: 'G', amount: 1 }]);
   });
 
-  it('does not suggest any-color commander identity sources', () => {
+  it('limits commander identity choices when oracle text references commander identity', () => {
     const suggestion = detectManaSource(
       card('Arcane Signet', 'Artifact', "{T}: Add one mana of any color in your commander's color identity."),
       { colorIdentity: ['U', 'R'] },
     );
 
-    expect(suggestion.kind).toBe('none');
-    expect(suggestion.manualOnly).toBe(true);
+    expect(suggestion.kind).toBe('variable');
+    expect(suggestion.colors).toEqual(['U', 'R']);
+    expect(suggestion.amount).toBe(1);
+    expect(suggestion.manualOnly).toBe(false);
   });
 
   it('detects explicit color choices from signets', () => {
@@ -33,41 +35,55 @@ describe('detectManaSource', () => {
     expect(suggestion.additions).toEqual([{ color: 'B', amount: 1 }, { color: 'R', amount: 1 }]);
   });
 
-  it('does not suggest multicolor lands with explicit or text', () => {
+  it('detects multicolor lands with explicit or text as color choices', () => {
     const suggestion = detectManaSource(card(
       'Hinterland Harbor',
       'Land',
       '{T}: Add {G} or {U}.',
     ));
 
-    expect(suggestion.kind).toBe('none');
+    expect(suggestion.kind).toBe('variable');
     expect(suggestion.additions).toEqual([]);
-    expect(suggestion.colors).toEqual([]);
+    expect(suggestion.colors).toEqual(['U', 'G']);
+    expect(suggestion.amount).toBe(1);
   });
 
-  it('does not suggest lands with multiple basic land types', () => {
+  it('detects lands with multiple basic land types as color choices', () => {
     const suggestion = detectManaSource(card(
       'Breeding Pool',
       'Land - Forest Island',
       '',
     ));
 
-    expect(suggestion.kind).toBe('none');
+    expect(suggestion.kind).toBe('variable');
     expect(suggestion.additions).toEqual([]);
-    expect(suggestion.colors).toEqual([]);
+    expect(suggestion.colors).toEqual(['U', 'G']);
   });
 
-  it('does not suggest restricted any-color mana sources', () => {
+  it('detects multiple tap mana abilities as selectable alternatives', () => {
     const suggestion = detectManaSource(card(
       'Delighted Halfling',
       'Creature - Halfling Citizen',
       "{T}: Add {C}. / {T}: Add one mana of any color. Spend this mana only to cast a legendary spell, and that spell can't be countered.",
     ));
 
-    expect(suggestion.kind).toBe('none');
+    expect(suggestion.kind).toBe('variable');
+    expect(suggestion.abilityOptions).toEqual([
+      expect.objectContaining({
+        id: 'tap-0',
+        additions: [{ color: 'C', amount: 1 }],
+        colors: ['C'],
+      }),
+      expect.objectContaining({
+        id: 'tap-1',
+        additions: [],
+        colors: ['W', 'U', 'B', 'R', 'G'],
+        restriction: expect.stringContaining('Spend this mana only'),
+      }),
+    ]);
   });
 
-  it('does not suggest chosen-color variable mana and keeps fixed-color variable mana', () => {
+  it('detects chosen-color tap mana abilities as selectable manual alternatives', () => {
     const nykthos = detectManaSource(card(
       'Nykthos, Shrine to Nyx',
       'Legendary Land',
@@ -75,7 +91,11 @@ describe('detectManaSource', () => {
     ));
     const cradle = detectManaSource(card("Gaea's Cradle", 'Legendary Land', '{T}: Add {G} for each creature you control.'));
 
-    expect(nykthos.kind).toBe('none');
+    expect(nykthos.kind).toBe('variable');
+    expect(nykthos.abilityOptions).toEqual([
+      expect.objectContaining({ additions: [{ color: 'C', amount: 1 }] }),
+      expect.objectContaining({ additions: [], colors: ['W', 'U', 'B', 'R', 'G'], amount: 1 }),
+    ]);
     expect(cradle.kind).toBe('variable');
     expect(cradle.colors).toEqual(['G']);
   });
@@ -125,12 +145,13 @@ describe('detectManaSource', () => {
   it('returns automatic tap mana suggestions only for active lands or artifacts with a single tap-only mana ability', () => {
     expect(automaticTapOnlyManaSourceSuggestion(card('Forest', 'Basic Land - Forest', '')).additions).toEqual([{ color: 'G', amount: 1 }]);
     expect(automaticTapOnlyManaSourceSuggestion(card('Sol Ring', 'Artifact', '{T}: Add {C}{C}.')).additions).toEqual([{ color: 'C', amount: 2 }]);
-    expect(automaticTapOnlyManaSourceSuggestion(card('Arcane Signet', 'Artifact', "{T}: Add one mana of any color in your commander's color identity."), { colorIdentity: ['U', 'R'] }).kind).toBe('none');
-    expect(automaticTapOnlyManaSourceSuggestion(card('Arcane Signet', 'Artifact', "{T}: Add one mana of any color in your commander's color identity."), { colorIdentity: ['G'] }).kind).toBe('none');
-    expect(automaticTapOnlyManaSourceSuggestion(card('Hinterland Harbor', 'Land', 'Hinterland Harbor enters the battlefield tapped unless you control a Forest or an Island. {T}: Add {G} or {U}.')).kind).toBe('none');
+    expect(automaticTapOnlyManaSourceSuggestion(card('Arcane Signet', 'Artifact', "{T}: Add one mana of any color in your commander's color identity."), { colorIdentity: ['U', 'R'] }).colors).toEqual(['U', 'R']);
+    expect(automaticTapOnlyManaSourceSuggestion(card('Arcane Signet', 'Artifact', "{T}: Add one mana of any color in your commander's color identity."), { colorIdentity: ['G'] }).additions).toEqual([{ color: 'G', amount: 1 }]);
+    expect(automaticTapOnlyManaSourceSuggestion(card('Hinterland Harbor', 'Land', 'Hinterland Harbor enters the battlefield tapped unless you control a Forest or an Island. {T}: Add {G} or {U}.')).colors).toEqual(['U', 'G']);
     expect(automaticTapOnlyManaSourceSuggestion(card("Gaea's Cradle", 'Legendary Land', '{T}: Add {G} for each creature you control.')).kind).toBe('variable');
     expect(automaticTapOnlyManaSourceSuggestion(card('Llanowar Elves', 'Creature - Elf Druid', '{T}: Add {G}.')).kind).toBe('none');
     expect(automaticTapOnlyManaSourceSuggestion(card('Rakdos Signet', 'Artifact', '{1}, {T}: Add {B}{R}.')).kind).toBe('none');
+    expect(automaticTapOnlyManaSourceSuggestion(card('Delighted Halfling', 'Creature - Halfling Citizen', "{T}: Add {C}. / {T}: Add one mana of any color. Spend this mana only to cast a legendary spell.")).kind).toBe('none');
     expect(automaticTapOnlyManaSourceSuggestion(card('Ancient Tomb', 'Land', '{T}: Add {C}{C}. Ancient Tomb deals 2 damage to you.')).kind).toBe('none');
     expect(automaticTapOnlyManaSourceSuggestion(card('Temple of the False God', 'Land', '{T}: Add {C}{C}. Activate only if you control five or more lands.')).kind).toBe('none');
   });

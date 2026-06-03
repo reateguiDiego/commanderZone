@@ -2197,6 +2197,9 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
         this.store.closeContextMenu();
         void this.store.selectRandomZoneCard(menu.playerId, menu.zone);
         return;
+      case 'selectAllZoneCards':
+        this.store.selectAllZoneCards(menu.playerId, menu.zone);
+        return;
       case 'tapCard':
         void this.tapCardFromMenu(menu);
         return;
@@ -2318,6 +2321,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   updateManaActionDialog(change: ManaActionDialogValueChange): void {
     this.manaActionDialog.update((request) => request ? {
       ...request,
+      selectedColor: change.color ?? request.selectedColor,
       amount: change.amount ?? request.amount,
     } : request);
   }

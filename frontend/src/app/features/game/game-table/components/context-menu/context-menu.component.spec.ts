@@ -5,6 +5,7 @@ import {
   BarChart3,
   Biohazard,
   Bug,
+  Check,
   Copy,
   Dices,
   Eye,
@@ -53,6 +54,7 @@ describe('ContextMenuComponent', () => {
           BarChart3,
           Biohazard,
           Bug,
+          Check,
           Copy,
           Dices,
           Eye,
@@ -135,6 +137,83 @@ describe('ContextMenuComponent', () => {
     button?.click();
 
     expect(selected).toHaveBeenCalledWith({ type: 'resetManaPool' });
+  });
+
+  it('offers selecting all battlefield cards from the battlefield context menu when there are several cards', () => {
+    const fixture = createContextMenuFixture({
+      kind: 'zone',
+      playerId: 'user-1',
+      zone: 'battlefield',
+    }, {
+      zoneCardCount: (_playerId, zone) => zone === 'battlefield' ? 2 : 0,
+    });
+    const selected = vi.fn();
+    fixture.componentInstance.actionSelected.subscribe(selected);
+
+    const selectAll = menuButtons(fixture)
+      .find((button) => button.textContent?.includes('Select all battlefield cards'));
+
+    expect(selectAll).toBeDefined();
+
+    selectAll?.click();
+
+    expect(selected).toHaveBeenCalledWith({ type: 'selectAllZoneCards' });
+  });
+
+  it('offers selecting all hand cards from a hand card context menu when there are several cards', () => {
+    const fixture = createContextMenuFixture({
+      kind: 'card',
+      playerId: 'user-1',
+      zone: 'hand',
+      card: card('hand-card-1'),
+    }, {
+      zoneCardCount: (_playerId, zone) => zone === 'hand' ? 3 : 0,
+    });
+    const selected = vi.fn();
+    fixture.componentInstance.actionSelected.subscribe(selected);
+
+    const selectAll = menuButtons(fixture)
+      .find((button) => button.textContent?.includes('Select all hand cards'));
+
+    expect(selectAll).toBeDefined();
+
+    selectAll?.click();
+
+    expect(selected).toHaveBeenCalledWith({ type: 'selectAllZoneCards' });
+  });
+
+  it('offers selecting all hand cards from the hand zone context menu when there are several cards', () => {
+    const fixture = createContextMenuFixture({
+      kind: 'zone',
+      playerId: 'user-1',
+      zone: 'hand',
+    }, {
+      zoneCardCount: (_playerId, zone) => zone === 'hand' ? 3 : 0,
+    });
+    const selected = vi.fn();
+    fixture.componentInstance.actionSelected.subscribe(selected);
+
+    const selectAll = menuButtons(fixture)
+      .find((button) => button.textContent?.includes('Select all hand cards'));
+
+    expect(selectAll).toBeDefined();
+
+    selectAll?.click();
+
+    expect(selected).toHaveBeenCalledWith({ type: 'selectAllZoneCards' });
+  });
+
+  it('hides select all zone cards when the active zone has a single card', () => {
+    const fixture = createContextMenuFixture({
+      kind: 'card',
+      playerId: 'user-1',
+      zone: 'hand',
+      card: card('hand-card-1'),
+    }, {
+      zoneCardCount: (_playerId, zone) => zone === 'hand' ? 1 : 0,
+    });
+
+    expect(menuText(fixture)).not.toContain('Select all hand cards');
   });
 
   it('does not expose concede in the game menu after the current player has conceded', () => {

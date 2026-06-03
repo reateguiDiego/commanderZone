@@ -261,6 +261,8 @@ export const RUNTIME_TRANSLATION_FALLBACKS: Readonly<Record<string, string>> = {
   "game.contextMenu.labels.revealLibrary": "Reveal Library",
   "game.contextMenu.labels.revealTopCard": "Reveal Top Card",
   "game.contextMenu.labels.selectRandomCard": "Select Random Card",
+  "game.contextMenu.labels.selectAllBattlefieldCards": "Select All Battlefield Cards",
+  "game.contextMenu.labels.selectAllHandCards": "Select All Hand Cards",
   "game.contextMenu.labels.showManaPool": "Show Mana Pool",
   "game.contextMenu.labels.shuffle": "Shuffle",
   "game.contextMenu.labels.tirarDado": "Tirar dado",
