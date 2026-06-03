@@ -160,6 +160,38 @@
           </form>
         } @else {
           <section class="settings-form game-settings-form">
+            <section class="theme-settings-panel" [attr.aria-label]="visualThemeLabel()">
+              <div class="theme-settings-copy">
+                <h3>{{ visualThemeLabel() }}</h3>
+                <p>{{ visualThemeHelp() }}</p>
+              </div>
+
+              <div class="theme-options">
+                @for (theme of themeOptions; track theme.id) {
+                  <button
+                    class="theme-option"
+                    type="button"
+                    [class.selected]="selectedThemeId() === theme.id"
+                    [attr.aria-pressed]="selectedThemeId() === theme.id"
+                    (click)="selectTheme(theme.id)"
+                  >
+                    <span class="theme-option-copy">
+                      <strong>{{ theme.label }}</strong>
+                      <small>{{ theme.description }}</small>
+                    </span>
+                    <span class="theme-swatches" aria-hidden="true">
+                      <span [style.background]="theme.palette.bg"></span>
+                      <span [style.background]="theme.palette.surface"></span>
+                      <span [style.background]="theme.palette.surfaceElevated"></span>
+                      <span [style.background]="theme.palette.primary"></span>
+                      <span [style.background]="theme.palette.secondary"></span>
+                      <span [style.background]="theme.palette.text"></span>
+                    </span>
+                  </button>
+                }
+              </div>
+            </section>
+
             <label>
               {{ cardLanguageLabel() }}
               <select

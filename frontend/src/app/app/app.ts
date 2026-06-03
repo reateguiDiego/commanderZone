@@ -11,6 +11,7 @@ import { RouteRobotsMetaService } from '../core/seo/route-robots-meta.service';
 import { AppBackgroundService } from '../core/ui/app-background.service';
 import { FooterDisclaimerComponent } from '../shared/components/footer-disclaimer/footer-disclaimer.component';
 import { RuntimeLanguageSelectorService } from '../core/localization/runtime-language-selector.service';
+import { AppThemeService } from '../core/theme/app-theme.service';
 
 @Component({
   selector: 'app-root',
@@ -26,11 +27,14 @@ export class App {
   private readonly routeRobots = inject(RouteRobotsMetaService);
   private readonly router = inject(Router);
   private readonly platformId = inject(PLATFORM_ID);
+  private readonly theme = inject(AppThemeService);
   readonly loading = inject(LoadingStore);
   private readonly currentPath = signal(this.normalizedPath(this.router.url));
   readonly showDisclaimer = computed(() => !this.isDisclaimerHiddenPath(this.currentPath()));
 
   constructor() {
+    this.theme.initialize();
+
     if (isPlatformBrowser(this.platformId)) {
       void this.auth.initialize().catch(() => undefined);
     }

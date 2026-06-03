@@ -42,7 +42,7 @@
   gap: 0.35rem 0.9rem;
   border-radius: 8px;
   padding: 0.95rem 1rem;
-  background: rgb(255 255 255 / 3%);
+  background: rgb(var(--cz-text-rgb) / 3%);
   counter-increment: landing-step;
 }
 
@@ -52,9 +52,9 @@
   width: 2rem;
   height: 2rem;
   place-items: center;
-  border: 1px solid rgb(215 180 106 / 42%);
+  border: 1px solid rgb(var(--cz-primary-rgb) / 42%);
   border-radius: 999px;
-  background: rgb(215 180 106 / 12%);
+  background: rgb(var(--cz-primary-rgb) / 12%);
   color: var(--gold);
   content: counter(landing-step);
   font-weight: 900;

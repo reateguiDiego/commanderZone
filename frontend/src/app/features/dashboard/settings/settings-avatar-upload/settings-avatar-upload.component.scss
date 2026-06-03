@@ -36,9 +36,9 @@
 .avatar-preview-panel,
 .upload-card,
 .crop-controls {
-  border: 1px solid rgb(215 180 106 / 24%);
+  border: 1px solid rgb(var(--cz-primary-rgb) / 24%);
   border-radius: 12px;
-  background: rgb(10 12 9 / 64%);
+  background: rgb(var(--cz-bg-rgb) / 64%);
 }
 
 .avatar-preview-panel {
@@ -46,8 +46,8 @@
   place-items: center;
   padding: 1rem;
   background:
-    radial-gradient(circle at 50% 8%, rgb(230 191 101 / 20%), transparent 42%),
-    rgb(9 11 8 / 72%);
+    radial-gradient(circle at 50% 8%, rgb(var(--cz-accent-rgb) / 20%), transparent 42%),
+    rgb(var(--cz-bg-rgb) / 72%);
 }
 
 .avatar-preview {
@@ -57,11 +57,11 @@
   display: grid;
   place-items: center;
   overflow: hidden;
-  border: 2px solid rgb(232 196 111 / 62%);
+  border: 2px solid rgb(var(--cz-accent-rgb) / 62%);
   border-radius: 50%;
-  color: #16120a;
-  background: linear-gradient(145deg, #edcd83, #8e6530);
-  box-shadow: 0 0 0 7px rgb(7 8 6 / 62%), 0 18px 42px rgb(0 0 0 / 38%);
+  color: var(--cz-bg);
+  background: linear-gradient(145deg, var(--cz-text), var(--cz-surface));
+  box-shadow: 0 0 0 7px rgb(var(--cz-bg-rgb) / 62%), 0 18px 42px rgb(var(--cz-bg-rgb) / 38%);
 }
 
 .avatar-preview img {
@@ -110,7 +110,7 @@
 .crop-controls input[type='range'] {
   width: 100%;
   margin: 0;
-  accent-color: #d5a84f;
+  accent-color: var(--cz-accent);
   cursor: pointer;
 }
 
@@ -131,16 +131,16 @@
 }
 
 .secondary-button {
-  border: 1px solid rgb(215 180 106 / 32%);
+  border: 1px solid rgb(var(--cz-primary-rgb) / 32%);
   color: var(--text);
-  background: rgb(8 10 8 / 72%);
+  background: rgb(var(--cz-bg-rgb) / 72%);
 }
 
 .primary-button {
   min-width: 8rem;
-  border: 1px solid rgb(235 200 120 / 72%);
-  color: #16120a;
-  background: linear-gradient(180deg, #f0cf82, #b9822e);
+  border: 1px solid rgb(var(--cz-primary-rgb) / 72%);
+  color: var(--cz-bg);
+  background: linear-gradient(180deg, var(--cz-text), var(--cz-secondary));
 }
 
 button:disabled,
@@ -151,7 +151,7 @@ input:disabled {
 
 .avatar-error {
   margin: 0;
-  color: #ff8c78;
+  color: var(--cz-primary);
   font-size: 0.78rem;
   font-weight: 800;
 }

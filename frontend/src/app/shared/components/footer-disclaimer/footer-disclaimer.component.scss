@@ -8,8 +8,8 @@
   z-index: 2;
   overflow: hidden;
   margin-top: auto;
-  border-top: 1px solid rgb(215 180 106 / 20%);
-  background: rgb(17 19 15 / 84%);
+  border-top: 1px solid rgb(var(--cz-primary-rgb) / 20%);
+  background: rgb(var(--cz-bg-rgb) / 84%);
   backdrop-filter: blur(16px);
 }
 
@@ -19,7 +19,7 @@
   inset: -1rem;
   z-index: -1;
   background:
-    linear-gradient(rgb(8 10 8 / 78%), rgb(8 10 8 / 88%)),
+    linear-gradient(rgb(var(--cz-bg-rgb) / 78%), rgb(var(--cz-bg-rgb) / 88%)),
     var(--app-session-background) center / cover no-repeat;
   filter: blur(18px) saturate(1.18);
   opacity: 0.72;
@@ -32,14 +32,14 @@
   width: min(82rem, calc(100vw - 2rem));
   margin: 0 auto;
   padding: 1.15rem 1rem 1.35rem;
-  color: rgb(239 232 212 / 64%);
+  color: rgb(var(--cz-text-rgb) / 64%);
   font-size: 0.74rem;
   line-height: 1.48;
 }
 
 .app-disclaimer h2 {
   margin: 0;
-  color: rgb(231 207 145 / 88%);
+  color: rgb(var(--cz-text-rgb) / 88%);
   font-size: 0.78rem;
   font-weight: 900;
   letter-spacing: 0.12em;
@@ -51,18 +51,18 @@
 }
 
 .legal-mark {
-  color: #fff;
+  color: var(--cz-text);
   font-weight: 900;
 }
 
 .app-disclaimer a {
-  color: rgb(255 231 169 / 90%);
+  color: rgb(var(--cz-secondary-rgb) / 90%);
   font-weight: 800;
-  text-decoration-color: rgb(215 180 106 / 48%);
+  text-decoration-color: rgb(var(--cz-primary-rgb) / 48%);
   text-underline-offset: 0.18rem;
 }
 
 .app-disclaimer a:hover {
-  color: #fff6d7;
+  color: var(--cz-text);
   text-decoration-color: currentColor;
 }

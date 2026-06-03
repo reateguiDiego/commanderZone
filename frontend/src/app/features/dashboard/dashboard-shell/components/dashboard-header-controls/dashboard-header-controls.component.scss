@@ -38,17 +38,17 @@
 .friends-trigger:hover,
 .friends-dropdown.open .friends-trigger {
   background:
-    radial-gradient(circle at 16% 50%, rgb(238 211 139 / 16%), transparent 44%),
-    rgb(13 16 12 / 42%);
+    radial-gradient(circle at 16% 50%, rgb(var(--cz-text-rgb) / 16%), transparent 44%),
+    rgb(var(--cz-bg-rgb) / 42%);
   color: var(--text);
   box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 6%),
-    0 0.8rem 1.6rem rgb(0 0 0 / 18%),
-    0 0 1rem rgb(215 180 106 / 10%);
+    inset 0 1px 0 rgb(var(--cz-text-rgb) / 6%),
+    0 0.8rem 1.6rem rgb(var(--cz-bg-rgb) / 18%),
+    0 0 1rem rgb(var(--cz-primary-rgb) / 10%);
 }
 
 .friends-trigger-avatar {
-  filter: drop-shadow(0 0 0.55rem rgb(215 180 106 / 18%));
+  filter: drop-shadow(0 0 0.55rem rgb(var(--cz-primary-rgb) / 18%));
 }
 
 .friends-trigger app-player-name {
@@ -64,11 +64,11 @@
   height: 1.15rem;
   padding: 0 0.25rem;
   border-radius: 999px;
-  background: #31f66b;
-  color: #06250f;
+  background: var(--cz-success);
+  color: var(--cz-bg);
   font-size: 0.72rem;
   font-weight: 850;
-  box-shadow: 0 0 12px rgb(49 246 107 / 58%);
+  box-shadow: 0 0 12px rgb(var(--cz-success-rgb) / 58%);
 }
 
 .request-badge {
@@ -81,13 +81,13 @@
   min-width: 1.35rem;
   height: 1.15rem;
   padding: 0 0.28rem;
-  border: 1px solid rgb(255 216 77 / 58%);
+  border: 1px solid rgb(var(--cz-accent-rgb) / 58%);
   border-radius: 999px;
-  background: #ffd84d;
-  color: #241a02;
+  background: var(--cz-accent);
+  color: var(--cz-bg);
   font-size: 0.68rem;
   font-weight: 850;
-  box-shadow: 0 0 13px rgb(255 216 77 / 52%);
+  box-shadow: 0 0 13px rgb(var(--cz-accent-rgb) / 52%);
 }
 
 .friends-dropdown app-friends-dropdown {
@@ -100,11 +100,11 @@
 @keyframes friend-request-pulse {
   0%,
   100% {
-    box-shadow: 0 0 0 rgb(255 216 77 / 0%);
+    box-shadow: 0 0 0 rgb(var(--cz-accent-rgb) / 0%);
   }
 
   50% {
-    box-shadow: 0 0 0 4px rgb(255 216 77 / 10%);
+    box-shadow: 0 0 0 4px rgb(var(--cz-accent-rgb) / 10%);
   }
 }
 

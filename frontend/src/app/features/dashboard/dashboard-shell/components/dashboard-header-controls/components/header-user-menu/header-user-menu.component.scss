@@ -27,11 +27,11 @@
   display: grid;
   gap: 0.4rem;
   width: min(15rem, 80vw);
-  border: 1px solid rgb(255 255 255 / 14%);
+  border: 1px solid rgb(var(--cz-text-rgb) / 14%);
   border-radius: 10px;
   padding: 0.55rem;
-  background: linear-gradient(145deg, rgb(12 15 14 / 96%), rgb(8 10 10 / 94%));
-  box-shadow: 0 0.95rem 2rem rgb(0 0 0 / 42%);
+  background: linear-gradient(145deg, rgb(var(--cz-bg-rgb) / 96%), rgb(var(--cz-bg-rgb) / 94%));
+  box-shadow: 0 0.95rem 2rem rgb(var(--cz-bg-rgb) / 42%);
   backdrop-filter: blur(14px);
 }
 
@@ -56,8 +56,8 @@
 .menu-item:hover,
 .language-item:hover,
 .language-item.selected {
-  border-color: rgb(215 180 106 / 32%);
-  background: rgb(215 180 106 / 10%);
+  border-color: rgb(var(--cz-primary-rgb) / 32%);
+  background: rgb(var(--cz-primary-rgb) / 10%);
 }
 
 .menu-item.with-detail {
@@ -89,16 +89,16 @@
 }
 
 .menu-item.danger {
-  color: #ffb4b4;
+  color: var(--cz-secondary);
 }
 
 .language-list {
   display: grid;
   gap: 0.32rem;
-  border: 1px solid rgb(255 255 255 / 10%);
+  border: 1px solid rgb(var(--cz-text-rgb) / 10%);
   border-radius: 8px;
   padding: 0.35rem;
-  background: rgb(255 255 255 / 4%);
+  background: rgb(var(--cz-text-rgb) / 4%);
 }
 
 .language-item {

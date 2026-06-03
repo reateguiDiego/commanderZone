@@ -89,7 +89,7 @@
   align-items: center;
   cursor: pointer;
   padding: 0.3rem 0.1rem;
-  border-bottom: 1px solid rgb(255 255 255 / 7%);
+  border-bottom: 1px solid rgb(var(--cz-text-rgb) / 7%);
   background: transparent;
 }
 
@@ -175,13 +175,13 @@
   margin-left: 0.3rem;
   border: 0;
   border-radius: 999px;
-  background: rgb(255 255 255 / 5%);
+  background: rgb(var(--cz-text-rgb) / 5%);
   color: var(--muted);
   vertical-align: text-bottom;
 }
 
 .face-toggle-button:hover {
-  background: rgb(255 255 255 / 10%);
+  background: rgb(var(--cz-text-rgb) / 10%);
   color: var(--text);
 }
 

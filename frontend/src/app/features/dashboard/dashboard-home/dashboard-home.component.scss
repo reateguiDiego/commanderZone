@@ -19,7 +19,7 @@
   left: 50%;
   top: 50%;
   z-index: -1;
-  color: rgb(255 245 215 / 5%);
+  color: rgb(var(--cz-text-rgb) / 5%);
   font-size: clamp(4.5rem, 14vw, 13rem);
   font-weight: 1000;
   letter-spacing: -0.09em;
@@ -28,43 +28,43 @@
   transform: translate(-50%, -54%);
   white-space: nowrap;
   pointer-events: none;
-  text-shadow: 0 0 4rem rgb(0 0 0 / 42%);
+  text-shadow: 0 0 4rem rgb(var(--cz-bg-rgb) / 42%);
 }
 
 .welcome-kicker {
   margin: 0;
-  color: rgb(247 211 133 / 92%);
+  color: rgb(var(--cz-text-rgb) / 92%);
   font-size: clamp(0.78rem, 1.4vw, 0.95rem);
   font-weight: 950;
   letter-spacing: 0.22em;
   text-transform: uppercase;
-  text-shadow: 0 0.2rem 1.3rem rgb(0 0 0 / 72%);
+  text-shadow: 0 0.2rem 1.3rem rgb(var(--cz-bg-rgb) / 72%);
 }
 
 h1 {
   max-width: 12ch;
   margin: 0 auto;
-  color: #fff8ea;
+  color: var(--cz-text);
   font-size: clamp(3rem, 9vw, 7.6rem);
   font-weight: 1000;
   line-height: 0.88;
   letter-spacing: -0.085em;
   text-wrap: balance;
   text-shadow:
-    0 0.08em 0.1em rgb(0 0 0 / 86%),
-    0 0.24em 0.85em rgb(0 0 0 / 68%),
-    0 0 2.7rem rgb(232 184 92 / 28%);
+    0 0.08em 0.1em rgb(var(--cz-bg-rgb) / 86%),
+    0 0.24em 0.85em rgb(var(--cz-bg-rgb) / 68%),
+    0 0 2.7rem rgb(var(--cz-accent-rgb) / 28%);
 }
 
 .dashboard-welcome > p:not(.welcome-kicker) {
   max-width: 44rem;
   margin: 0 auto;
-  color: rgb(236 228 210 / 86%);
+  color: rgb(var(--cz-text-rgb) / 86%);
   font-size: clamp(1.05rem, 2.1vw, 1.45rem);
   font-weight: 650;
   line-height: 1.45;
   text-wrap: balance;
-  text-shadow: 0 0.15rem 1.1rem rgb(0 0 0 / 82%);
+  text-shadow: 0 0.15rem 1.1rem rgb(var(--cz-bg-rgb) / 82%);
 }
 
 @media (max-width: 720px) {

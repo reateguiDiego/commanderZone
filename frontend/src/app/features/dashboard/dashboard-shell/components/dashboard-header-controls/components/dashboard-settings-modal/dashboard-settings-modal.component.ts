@@ -11,6 +11,8 @@ import { AppShellI18nService } from '../../../../../../../core/localization/app-
 import { isSupportedLanguageCode, LANGUAGE_OPTIONS, normalizeLanguageCode, SupportedLanguageCode } from '../../../../../../../core/localization/language-preferences';
 import { LanguagePreferencesService } from '../../../../../../../core/localization/language-preferences.service';
 import { UserAvatar, UserDisplayNameStyle } from '../../../../../../../core/models/user.model';
+import { APP_THEMES, AppThemeId } from '../../../../../../../core/theme/app-theme';
+import { AppThemeService } from '../../../../../../../core/theme/app-theme.service';
 import { AppModalComponent } from '../../../../../../../shared/ui/app-modal/app-modal.component';
 import { PlayerNameComponent } from '../../../../../../../shared/ui/player-name/player-name.component';
 import { SettingsDisplayNameStyleEditorComponent } from '../../../../../settings/settings-display-name-style-editor/settings-display-name-style-editor.component';
@@ -53,6 +55,7 @@ export class DashboardSettingsModalComponent {
   private readonly authStore = inject(AuthStore);
   private readonly authApi = inject(AuthApi);
   private readonly languagePreferences = inject(LanguagePreferencesService);
+  private readonly appTheme = inject(AppThemeService);
   private readonly i18n = inject(AppShellI18nService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly formBuilder = inject(NonNullableFormBuilder);
@@ -100,6 +103,10 @@ export class DashboardSettingsModalComponent {
   readonly gameTabLabel = computed(() => this.i18n.text('gameTab'));
   readonly cardLanguageLabel = computed(() => this.i18n.text('cardLanguage'));
   readonly appLanguageLabel = computed(() => this.i18n.text('appLanguage'));
+  readonly visualThemeLabel = computed(() => this.i18n.text('visualTheme'));
+  readonly visualThemeHelp = computed(() => this.i18n.text('visualThemeHelp'));
+  readonly themeOptions = APP_THEMES;
+  readonly selectedThemeId = this.appTheme.themeId;
   readonly selectedCardLanguage = signal<SupportedLanguageCode>('en');
   readonly selectedAppLanguage = signal<SupportedLanguageCode>('en');
 
@@ -409,6 +416,10 @@ export class DashboardSettingsModalComponent {
     }
 
     this.selectedAppLanguage.set(language);
+  }
+
+  selectTheme(themeId: AppThemeId): void {
+    this.appTheme.selectTheme(themeId);
   }
 
   private resetLocalState(): void {

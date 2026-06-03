@@ -38,12 +38,12 @@
   display: grid;
   gap: 0.65rem;
   min-width: 0;
-  border: 1px solid rgb(215 180 106 / 12%);
+  border: 1px solid rgb(var(--cz-primary-rgb) / 12%);
   border-radius: 8px;
   padding: 1rem;
   background:
-    linear-gradient(135deg, rgb(128 179 122 / 8%), transparent 48%),
-    rgb(15 18 14 / 60%);
+    linear-gradient(135deg, rgb(var(--cz-success-rgb) / 8%), transparent 48%),
+    rgb(var(--cz-bg-rgb) / 60%);
 }
 
 .landing-use-case h3,

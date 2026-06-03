@@ -17,13 +17,13 @@
   align-items: center;
   justify-content: space-between;
   margin: 0.75rem 0 0.5rem;
-  border: 1px solid rgb(255 255 255 / 10%);
+  border: 1px solid rgb(var(--cz-text-rgb) / 10%);
   border-radius: 10px;
   padding: 0.6rem;
   background:
-    linear-gradient(135deg, rgb(215 180 106 / 8%), transparent 42%),
-    rgb(12 15 12 / 86%);
-  box-shadow: 0 1rem 2.4rem rgb(0 0 0 / 24%);
+    linear-gradient(135deg, rgb(var(--cz-primary-rgb) / 8%), transparent 42%),
+    rgb(var(--cz-bg-rgb) / 86%);
+  box-shadow: 0 1rem 2.4rem rgb(var(--cz-bg-rgb) / 24%);
   backdrop-filter: blur(16px);
 }
 
@@ -47,7 +47,7 @@
   height: auto;
   max-height: 2.8rem;
   object-fit: contain;
-  filter: drop-shadow(0 0.45rem 0.7rem rgb(0 0 0 / 42%));
+  filter: drop-shadow(0 0.45rem 0.7rem rgb(var(--cz-bg-rgb) / 42%));
 }
 
 .seo-landing-layout__brand span {
@@ -95,7 +95,7 @@
 }
 
 .seo-landing-layout__footer {
-  border-top: 1px solid rgb(255 255 255 / 10%);
+  border-top: 1px solid rgb(var(--cz-text-rgb) / 10%);
   padding: 1.25rem 0 2rem;
 }
 

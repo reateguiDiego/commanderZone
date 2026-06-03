@@ -51,12 +51,12 @@
   width: min(100%, 54rem);
   margin: 0;
   overflow: hidden;
-  border: 1px solid rgb(215 180 106 / 22%);
+  border: 1px solid rgb(var(--cz-primary-rgb) / 22%);
   border-radius: 10px;
   background:
-    linear-gradient(135deg, rgb(215 180 106 / 12%), transparent 46%),
-    rgb(8 10 7 / 72%);
-  box-shadow: 0 1.4rem 3rem rgb(0 0 0 / 34%);
+    linear-gradient(135deg, rgb(var(--cz-primary-rgb) / 12%), transparent 46%),
+    rgb(var(--cz-bg-rgb) / 72%);
+  box-shadow: 0 1.4rem 3rem rgb(var(--cz-bg-rgb) / 34%);
   aspect-ratio: 1200 / 630;
 }
 
@@ -84,8 +84,8 @@
 .landing-hero__highlights li {
   border-radius: 7px;
   padding: 0.55rem 0.72rem;
-  background: rgb(215 180 106 / 10%);
-  color: rgb(243 240 232 / 88%);
+  background: rgb(var(--cz-primary-rgb) / 10%);
+  color: rgb(var(--cz-text-rgb) / 88%);
   font-weight: 700;
   overflow-wrap: anywhere;
 }

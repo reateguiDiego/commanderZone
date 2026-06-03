@@ -13,11 +13,11 @@
   gap: 0.8rem;
   min-width: 0;
   padding: 0.95rem 1rem;
-  border: 1px solid rgb(215 180 106 / 18%);
+  border: 1px solid rgb(var(--cz-primary-rgb) / 18%);
   border-radius: 8px;
   background:
-    linear-gradient(180deg, rgb(36 41 31 / 72%), rgb(22 27 20 / 68%));
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 5%);
+    linear-gradient(180deg, rgb(var(--cz-surface-rgb) / 72%), rgb(var(--cz-bg-rgb) / 68%));
+  box-shadow: inset 0 1px 0 rgb(var(--cz-text-rgb) / 5%);
 }
 
 .analysis-panel h3 {
@@ -51,9 +51,9 @@
   align-items: center;
   min-height: 2.15rem;
   padding: 0.4rem 0.55rem;
-  border: 1px solid rgb(255 255 255 / 6%);
+  border: 1px solid rgb(var(--cz-text-rgb) / 6%);
   border-radius: 7px;
-  background: rgb(8 10 8 / 18%);
+  background: rgb(var(--cz-bg-rgb) / 18%);
 }
 
 .analysis-list-row > * {
@@ -66,8 +66,8 @@
 }
 
 .hoverable-analysis-row:hover {
-  border-color: rgb(215 180 106 / 25%);
-  background: rgb(215 180 106 / 7%);
+  border-color: rgb(var(--cz-primary-rgb) / 25%);
+  background: rgb(var(--cz-primary-rgb) / 7%);
 }
 
 .analysis-list-count {

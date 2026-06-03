@@ -4,17 +4,17 @@
   align-items: center;
   gap: 0.65rem;
   padding: 0.65rem;
-  border: 1px solid rgb(215 180 106 / 24%);
+  border: 1px solid rgb(var(--cz-primary-rgb) / 24%);
   border-radius: 14px;
   color: var(--text);
   background:
-    radial-gradient(circle at 8% 50%, rgb(235 200 120 / 18%), transparent 32%),
-    rgb(6 8 6 / 76%);
+    radial-gradient(circle at 8% 50%, rgb(var(--cz-primary-rgb) / 18%), transparent 32%),
+    rgb(var(--cz-bg-rgb) / 76%);
 }
 
 .initial-avatar-option.selected {
-  border-color: rgb(235 200 120 / 84%);
-  box-shadow: 0 0 0 3px rgb(220 172 82 / 16%);
+  border-color: rgb(var(--cz-primary-rgb) / 84%);
+  box-shadow: 0 0 0 3px rgb(var(--cz-accent-rgb) / 16%);
 }
 
 .initial-avatar-select {
@@ -40,9 +40,9 @@
   aspect-ratio: 1;
   display: grid;
   place-items: center;
-  border: 2px solid rgb(235 200 120 / 70%);
+  border: 2px solid rgb(var(--cz-primary-rgb) / 70%);
   border-radius: 50%;
-  box-shadow: 0 0 0 4px rgb(7 8 6 / 62%);
+  box-shadow: 0 0 0 4px rgb(var(--cz-bg-rgb) / 62%);
   font-size: 2.1rem;
   font-weight: 900;
   text-transform: uppercase;
@@ -70,9 +70,9 @@
 .initial-avatar-controls input {
   width: 100%;
   min-height: 2.35rem;
-  border: 1px solid rgb(214 185 119 / 24%);
+  border: 1px solid rgb(var(--cz-primary-rgb) / 24%);
   border-radius: 10px;
-  background: rgb(6 8 6 / 88%);
+  background: rgb(var(--cz-bg-rgb) / 88%);
   color: var(--text);
   font: inherit;
 }

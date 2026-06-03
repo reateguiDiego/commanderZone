@@ -6,9 +6,9 @@
   border-radius: 10px;
   padding: clamp(1rem, 3vw, 1.5rem);
   background:
-    linear-gradient(135deg, rgb(215 180 106 / 18%), transparent 45%),
-    rgb(13 15 13 / 82%);
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 6%);
+    linear-gradient(135deg, rgb(var(--cz-primary-rgb) / 18%), transparent 45%),
+    rgb(var(--cz-bg-rgb) / 82%);
+  box-shadow: inset 0 1px 0 rgb(var(--cz-text-rgb) / 6%);
 }
 
 .landing-cta h2,

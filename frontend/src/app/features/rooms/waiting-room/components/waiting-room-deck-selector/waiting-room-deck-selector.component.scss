@@ -40,9 +40,9 @@
 .random-deck-button {
   display: flex;
   align-items: center;
-  border: 1px solid rgb(215 180 106 / 30%);
+  border: 1px solid rgb(var(--cz-primary-rgb) / 30%);
   border-radius: 14px;
-  background: rgb(4 7 5 / 72%);
+  background: rgb(var(--cz-bg-rgb) / 72%);
   color: var(--text);
 }
 
@@ -82,8 +82,8 @@
 .deck-select-option:hover,
 .deck-select-option.selected,
 .random-deck-button:hover:not(:disabled) {
-  border-color: rgb(215 180 106 / 62%);
-  background: rgb(215 180 106 / 12%);
+  border-color: rgb(var(--cz-primary-rgb) / 62%);
+  background: rgb(var(--cz-primary-rgb) / 12%);
 }
 
 .deck-select-trigger:disabled,
@@ -105,11 +105,11 @@
   max-height: min(13rem, 44vh);
   overflow-y: auto;
   overflow-x: hidden;
-  border: 1px solid rgb(239 197 109 / 46%);
+  border: 1px solid rgb(var(--cz-accent-rgb) / 46%);
   border-radius: 16px;
   padding: 0.35rem;
-  background: rgb(10 14 10 / 98%);
-  box-shadow: 0 1.6rem 3.4rem rgb(0 0 0 / 56%), 0 0 0 1px rgb(255 255 255 / 5%);
+  background: rgb(var(--cz-bg-rgb) / 98%);
+  box-shadow: 0 1.6rem 3.4rem rgb(var(--cz-bg-rgb) / 56%), 0 0 0 1px rgb(var(--cz-text-rgb) / 5%);
 }
 
 .deck-select-menu.open-up {
@@ -139,7 +139,7 @@
 
 .deck-warning {
   flex: 0 0 auto;
-  color: #f5b86b;
+  color: var(--cz-accent);
 }
 
 .deck-validating {
@@ -150,10 +150,10 @@
 }
 
 .random-deck-option {
-  border-color: rgb(215 180 106 / 44%);
+  border-color: rgb(var(--cz-primary-rgb) / 44%);
   background:
-    linear-gradient(90deg, rgb(215 180 106 / 12%), transparent 62%),
-    rgb(4 7 5 / 72%);
+    linear-gradient(90deg, rgb(var(--cz-primary-rgb) / 12%), transparent 62%),
+    rgb(var(--cz-bg-rgb) / 72%);
 }
 
 .random-deck-option img {
@@ -163,7 +163,7 @@
 }
 
 .random-deck-option .deck-option-status {
-  color: #d7b46a;
+  color: var(--cz-primary);
   font-size: 0.72rem;
   font-weight: 850;
   text-transform: uppercase;

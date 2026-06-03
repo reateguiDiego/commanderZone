@@ -9,7 +9,7 @@
   display: grid;
   place-items: center;
   padding: 1rem;
-  background: rgb(7 8 7 / 58%);
+  background: rgb(var(--cz-bg-rgb) / 58%);
   backdrop-filter: blur(4px);
 }
 
@@ -21,9 +21,9 @@
   max-height: calc(100dvh - 2rem);
   overflow: auto;
   padding: 1rem;
-  border: 1px solid rgb(215 180 106 / 36%);
+  border: 1px solid rgb(var(--cz-primary-rgb) / 36%);
   border-radius: 8px;
-  background: rgb(24 27 22 / 96%);
+  background: rgb(var(--cz-surface-rgb) / 96%);
   box-shadow: var(--shadow);
 }
 
@@ -37,31 +37,31 @@
   width: 2.15rem;
   height: 2.15rem;
   padding: 0;
-  border: 1px solid rgb(215 180 106 / 32%);
+  border: 1px solid rgb(var(--cz-primary-rgb) / 32%);
   border-radius: 999px;
   color: var(--text);
-  background: rgb(8 10 8 / 74%);
+  background: rgb(var(--cz-bg-rgb) / 74%);
   cursor: pointer;
   line-height: 0;
 }
 
 .modal-close-button:hover {
-  border-color: rgb(235 200 120 / 68%);
-  background: rgb(28 32 25 / 92%);
+  border-color: rgb(var(--cz-primary-rgb) / 68%);
+  background: rgb(var(--cz-bg-rgb) / 92%);
 }
 
 .modal-panel-compact {
   gap: 0.8rem;
   width: min(31rem, 100%);
   padding: 1.1rem;
-  border-color: rgb(215 180 106 / 48%);
+  border-color: rgb(var(--cz-primary-rgb) / 48%);
   border-radius: 14px;
   background:
-    radial-gradient(circle at 12% 0%, rgb(215 180 106 / 12%), transparent 16rem),
-    linear-gradient(145deg, rgb(22 27 20 / 98%), rgb(8 10 8 / 98%));
+    radial-gradient(circle at 12% 0%, rgb(var(--cz-primary-rgb) / 12%), transparent 16rem),
+    linear-gradient(145deg, rgb(var(--cz-bg-rgb) / 98%), rgb(var(--cz-bg-rgb) / 98%));
   box-shadow:
-    0 1.4rem 3rem rgb(0 0 0 / 52%),
-    0 0 0 1px rgb(255 255 255 / 4%) inset;
+    0 1.4rem 3rem rgb(var(--cz-bg-rgb) / 52%),
+    0 0 0 1px rgb(var(--cz-text-rgb) / 4%) inset;
 }
 
 .modal-panel-wide {
@@ -100,10 +100,10 @@
   display: inline-grid;
   place-items: center;
   padding: 0;
-  border: 1px solid rgb(215 180 106 / 32%);
+  border: 1px solid rgb(var(--cz-primary-rgb) / 32%);
   border-radius: 10px;
   color: var(--text);
-  background: rgb(8 10 8 / 74%);
+  background: rgb(var(--cz-bg-rgb) / 74%);
   cursor: pointer;
   line-height: 0;
 }
@@ -116,7 +116,7 @@
 }
 
 .modal-back-button:hover {
-  border-color: rgb(235 200 120 / 68%);
+  border-color: rgb(var(--cz-primary-rgb) / 68%);
 }
 
 .modal-header-action {
@@ -124,10 +124,10 @@
   min-width: 8rem;
   min-height: 2.25rem;
   padding: 0 0.95rem;
-  border: 1px solid rgb(235 200 120 / 72%);
+  border: 1px solid rgb(var(--cz-primary-rgb) / 72%);
   border-radius: 10px;
-  color: #16120a;
-  background: linear-gradient(180deg, #f0cf82, #b9822e);
+  color: var(--cz-bg);
+  background: linear-gradient(180deg, var(--cz-text), var(--cz-secondary));
   font-weight: 900;
   cursor: pointer;
 }
@@ -179,19 +179,19 @@
 }
 
 .modal-panel-compact footer .primary-button {
-  color: #171209;
+  color: var(--cz-bg);
   background:
-    linear-gradient(180deg, #efcf81, #bd8732);
-  border-color: rgb(243 210 130 / 76%);
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 30%);
+    linear-gradient(180deg, var(--cz-text), var(--cz-secondary));
+  border-color: rgb(var(--cz-text-rgb) / 76%);
+  box-shadow: inset 0 1px 0 rgb(var(--cz-text-rgb) / 30%);
 }
 
 .modal-panel-compact footer .secondary-button {
-  background: rgb(19 23 18 / 86%);
-  border-color: rgb(215 180 106 / 28%);
+  background: rgb(var(--cz-bg-rgb) / 86%);
+  border-color: rgb(var(--cz-primary-rgb) / 28%);
 }
 
 .danger-action {
-  background: linear-gradient(180deg, #a8483c, #713027);
-  border-color: rgb(209 111 95 / 72%);
+  background: linear-gradient(180deg, var(--cz-surface), var(--cz-surface));
+  border-color: rgb(var(--cz-danger-rgb) / 72%);
 }

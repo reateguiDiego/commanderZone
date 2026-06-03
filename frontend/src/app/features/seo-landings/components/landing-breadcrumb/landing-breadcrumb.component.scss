@@ -21,7 +21,7 @@
 }
 
 .landing-breadcrumb li + li::before {
-  color: rgb(215 180 106 / 46%);
+  color: rgb(var(--cz-primary-rgb) / 46%);
   content: ">";
 }
 

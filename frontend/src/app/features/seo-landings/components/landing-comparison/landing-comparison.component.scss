@@ -29,8 +29,8 @@
   min-width: 0;
   overflow: hidden;
   border-radius: 10px;
-  background: rgb(11 13 11 / 58%);
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 5%);
+  background: rgb(var(--cz-bg-rgb) / 58%);
+  box-shadow: inset 0 1px 0 rgb(var(--cz-text-rgb) / 5%);
 }
 
 .landing-comparison__row {
@@ -41,17 +41,17 @@
 }
 
 .landing-comparison__row + .landing-comparison__row {
-  border-top: 1px solid rgb(255 255 255 / 7%);
+  border-top: 1px solid rgb(var(--cz-text-rgb) / 7%);
 }
 
 .landing-comparison__row--head {
-  background: rgb(215 180 106 / 12%);
+  background: rgb(var(--cz-primary-rgb) / 12%);
   color: var(--text);
   font-weight: 800;
 }
 
 .landing-comparison__row:not(.landing-comparison__row--head):nth-child(odd) {
-  background: rgb(255 255 255 / 3%);
+  background: rgb(var(--cz-text-rgb) / 3%);
 }
 
 .landing-comparison__row--head span:first-child {
@@ -59,7 +59,7 @@
 }
 
 .landing-comparison strong {
-  color: rgb(255 231 174 / 94%);
+  color: rgb(var(--cz-secondary-rgb) / 94%);
 }
 
 .landing-comparison span {

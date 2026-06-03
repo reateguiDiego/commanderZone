@@ -25,9 +25,9 @@
   max-height: min(var(--friends-menu-height), calc(100dvh - 6rem));
   overflow: auto;
   padding: var(--friends-menu-padding);
-  border: 1px solid rgb(128 179 122 / 36%);
+  border: 1px solid rgb(var(--cz-success-rgb) / 36%);
   border-radius: 8px;
-  background: rgb(24 27 22 / 98%);
+  background: rgb(var(--cz-bg-rgb) / 98%);
   box-shadow: var(--shadow);
 }
 
@@ -39,7 +39,7 @@
 }
 
 .section-title {
-  color: #f4c95d;
+  color: var(--cz-accent);
   font-size: 0.8rem;
   font-weight: 820;
   text-transform: uppercase;
@@ -76,11 +76,11 @@
   padding: var(--friend-row-padding-block) var(--friend-row-padding-inline);
   border: 1px solid transparent;
   border-radius: 7px;
-  background: rgb(32 37 29 / 68%);
+  background: rgb(var(--cz-bg-rgb) / 68%);
 }
 
 .friend-table-row:hover {
-  border-color: rgb(244 201 93 / 38%);
+  border-color: rgb(var(--cz-accent-rgb) / 38%);
 }
 
 .friend-table-row.child-row {
@@ -90,18 +90,18 @@
 }
 
 .incoming-row {
-  border-color: rgb(244 201 93 / 52%);
-  background: linear-gradient(90deg, rgb(244 201 93 / 18%), rgb(46 74 50 / 52%));
+  border-color: rgb(var(--cz-accent-rgb) / 52%);
+  background: linear-gradient(90deg, rgb(var(--cz-accent-rgb) / 18%), rgb(var(--cz-surface-rgb) / 52%));
 }
 
 .room-invite-row {
-  border-color: rgb(114 167 199 / 55%);
-  background: linear-gradient(90deg, rgb(114 167 199 / 18%), rgb(46 74 50 / 52%));
+  border-color: rgb(var(--cz-info-rgb) / 55%);
+  background: linear-gradient(90deg, rgb(var(--cz-info-rgb) / 18%), rgb(var(--cz-surface-rgb) / 52%));
 }
 
 .pending-row {
-  border-color: rgb(114 167 199 / 38%);
-  background: rgb(35 48 50 / 70%);
+  border-color: rgb(var(--cz-info-rgb) / 38%);
+  background: rgb(var(--cz-surface-rgb) / 70%);
 }
 
 .row-main {
@@ -132,7 +132,7 @@
 .row-main em {
   display: block;
   margin-top: 0.15rem;
-  color: #f7dfaa;
+  color: var(--cz-secondary);
   font-style: normal;
   font-weight: 760;
 }
@@ -150,12 +150,12 @@
   padding: 0.65rem;
   border: 1px solid var(--line);
   border-radius: 7px;
-  background: rgb(32 37 29 / 65%);
+  background: rgb(var(--cz-bg-rgb) / 65%);
 }
 
 .dropdown-notice.error {
-  border-color: rgb(209 111 95 / 52%);
-  color: #ffd5cf;
+  border-color: rgb(var(--cz-danger-rgb) / 52%);
+  color: var(--cz-text);
 }
 
 .row-avatar-wrap {
@@ -170,37 +170,37 @@
   bottom: -0.05rem;
   width: 0.7rem;
   height: 0.7rem;
-  border: 2px solid rgb(24 27 22 / 98%);
+  border: 2px solid rgb(var(--cz-bg-rgb) / 98%);
   border-radius: 999px;
-  background: #8d9586;
-  box-shadow: 0 0 0 3px rgb(141 149 134 / 16%);
+  background: var(--cz-primary);
+  box-shadow: 0 0 0 3px rgb(var(--cz-primary-rgb) / 16%);
 }
 
 .row-marker.online {
-  background: #31f66b;
+  background: var(--cz-success);
   box-shadow:
-    0 0 0 3px rgb(49 246 107 / 20%),
-    0 0 14px rgb(49 246 107 / 62%);
+    0 0 0 3px rgb(var(--cz-success-rgb) / 20%),
+    0 0 14px rgb(var(--cz-success-rgb) / 62%);
 }
 
 .row-marker.in-game {
-  background: #45c7ff;
+  background: var(--cz-info);
   box-shadow:
-    0 0 0 3px rgb(69 199 255 / 18%),
-    0 0 12px rgb(69 199 255 / 45%);
+    0 0 0 3px rgb(var(--cz-info-rgb) / 18%),
+    0 0 12px rgb(var(--cz-info-rgb) / 45%);
 }
 
 .incoming-marker {
-  background: #ffd84d;
+  background: var(--cz-accent);
   box-shadow:
-    0 0 0 3px rgb(255 216 77 / 20%),
-    0 0 12px rgb(255 216 77 / 52%);
+    0 0 0 3px rgb(var(--cz-accent-rgb) / 20%),
+    0 0 12px rgb(var(--cz-accent-rgb) / 52%);
 }
 
 .pending-marker,
 .search-marker {
-  background: #79c7ff;
-  box-shadow: 0 0 0 3px rgb(121 199 255 / 16%);
+  background: var(--cz-info);
+  box-shadow: 0 0 0 3px rgb(var(--cz-info-rgb) / 16%);
 }
 
 .action-button,
@@ -250,15 +250,15 @@
 
 .add-action,
 .accept-action {
-  border-color: rgb(49 246 107 / 42%);
-  background: rgb(49 246 107 / 16%);
-  color: #dfffe7;
+  border-color: rgb(var(--cz-success-rgb) / 42%);
+  background: rgb(var(--cz-success-rgb) / 16%);
+  color: var(--cz-text);
 }
 
 .reject-action {
-  border-color: rgb(255 104 92 / 42%);
-  background: rgb(255 104 92 / 13%);
-  color: #ffd8d4;
+  border-color: rgb(var(--cz-danger-rgb) / 42%);
+  background: rgb(var(--cz-danger-rgb) / 13%);
+  color: var(--cz-text);
 }
 
 .action-button:disabled,

@@ -4,9 +4,9 @@
   --cz-motion-duration-slow: 420ms;
   --cz-motion-ease-standard: cubic-bezier(0.16, 1, 0.3, 1);
   --cz-motion-ease-impact: cubic-bezier(0.17, 1.26, 0.28, 1);
-  --cz-motion-ghost-shadow: 0 1.2rem 2rem rgb(0 0 0 / 42%), 0 0 0 2px rgb(215 180 106 / 22%);
-  --cz-motion-ghost-outline: rgb(215 180 106 / 58%);
-  --cz-motion-impact-glow: rgb(215 180 106 / 26%);
+  --cz-motion-ghost-shadow: 0 1.2rem 2rem rgb(var(--cz-bg-rgb) / 42%), 0 0 0 2px rgb(var(--cz-accent-rgb) / 22%);
+  --cz-motion-ghost-outline: rgb(var(--cz-accent-rgb) / 58%);
+  --cz-motion-impact-glow: rgb(var(--cz-accent-rgb) / 26%);
 }
 
 .cz-motion-ghost {
@@ -61,12 +61,12 @@
 
 .cz-card-rotation-flip .card-visual {
   box-shadow:
-    0 1.15rem 2.35rem rgb(0 0 0 / 42%),
-    0 0 0 1px rgb(255 255 255 / 10%);
+    0 1.15rem 2.35rem rgb(var(--cz-bg-rgb) / 42%),
+    0 0 0 1px rgb(var(--cz-text-rgb) / 10%);
 }
 
 .game-table-long-press-active .card-visual {
-  box-shadow: inset 0 0 0 2px rgb(246 220 151 / 82%);
+  box-shadow: inset 0 0 0 2px rgb(var(--cz-accent-rgb) / 82%);
 }
 
 .hand-card {
@@ -80,7 +80,7 @@
   0% {
     filter: brightness(1.18) saturate(1.08);
     box-shadow:
-      inset 0 0 0 2px rgb(215 180 106 / 44%),
+      inset 0 0 0 2px rgb(var(--cz-accent-rgb) / 44%),
       0 0 1.2rem var(--cz-motion-impact-glow);
     transform: scale(0.985);
   }
@@ -88,8 +88,8 @@
   56% {
     filter: brightness(1.06) saturate(1.03);
     box-shadow:
-      inset 0 0 0 1px rgb(215 180 106 / 18%),
-      0 0 0.65rem rgb(215 180 106 / 12%);
+      inset 0 0 0 1px rgb(var(--cz-accent-rgb) / 18%),
+      0 0 0.65rem rgb(var(--cz-accent-rgb) / 12%);
     transform: scale(1.01);
   }
 

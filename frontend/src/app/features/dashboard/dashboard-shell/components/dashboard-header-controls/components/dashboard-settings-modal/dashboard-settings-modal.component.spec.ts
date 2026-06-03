@@ -5,6 +5,7 @@ import { ArrowLeft, Check, LucideAngularModule, Trash2, Upload, X } from 'lucide
 import { AuthApi } from '../../../../../../../core/api/auth.api';
 import { AuthStore } from '../../../../../../../core/auth/auth.store';
 import { LanguagePreferencesService } from '../../../../../../../core/localization/language-preferences.service';
+import { AppThemeService } from '../../../../../../../core/theme/app-theme.service';
 import { DashboardSettingsModalComponent } from './dashboard-settings-modal.component';
 
 describe('DashboardSettingsModalComponent', () => {
@@ -35,6 +36,7 @@ describe('DashboardSettingsModalComponent', () => {
   };
 
   beforeEach(async () => {
+    localStorage.clear();
     vi.clearAllMocks();
 
     await TestBed.configureTestingModule({
@@ -46,6 +48,11 @@ describe('DashboardSettingsModalComponent', () => {
         { provide: LanguagePreferencesService, useValue: languagePreferencesMock },
       ],
     }).compileComponents();
+  });
+
+  afterEach(() => {
+    localStorage.clear();
+    document.documentElement.removeAttribute('data-theme');
   });
 
   it('renders general tab and game tab content when toggling tabs', () => {
@@ -63,6 +70,42 @@ describe('DashboardSettingsModalComponent', () => {
 
     expect(fixture.nativeElement.textContent).toContain('Card language');
     expect(fixture.nativeElement.textContent).toContain('App language');
+    expect(fixture.nativeElement.textContent).toContain('Visual theme');
+  });
+
+  it('renders theme presets with sunrise selected by default', () => {
+    const fixture = TestBed.createComponent(DashboardSettingsModalComponent);
+    fixture.componentRef.setInput('open', true);
+    fixture.detectChanges();
+
+    fixture.componentInstance.switchTab('game');
+    fixture.detectChanges();
+
+    const selectedTheme = fixture.nativeElement.querySelector('.theme-option.selected') as HTMLButtonElement;
+
+    expect(fixture.nativeElement.textContent).toContain('Sunrise');
+    expect(fixture.nativeElement.textContent).toContain('Arcade Neon Clash');
+    expect(selectedTheme?.textContent).toContain('Sunrise');
+    expect(TestBed.inject(AppThemeService).themeId()).toBe('sunrise');
+  });
+
+  it('changes visual theme locally without calling the profile API', () => {
+    const fixture = TestBed.createComponent(DashboardSettingsModalComponent);
+    fixture.componentRef.setInput('open', true);
+    fixture.detectChanges();
+
+    fixture.componentInstance.switchTab('game');
+    fixture.detectChanges();
+
+    const mysticButton = Array.from(fixture.nativeElement.querySelectorAll('.theme-option') as NodeListOf<HTMLButtonElement>)
+      .find((button) => button.textContent?.includes('Mystic Grove')) as HTMLButtonElement;
+    mysticButton.click();
+    fixture.detectChanges();
+
+    expect(TestBed.inject(AppThemeService).themeId()).toBe('mystic-grove');
+    expect(localStorage.getItem('commanderzone.theme')).toBe('mystic-grove');
+    expect(document.documentElement.dataset['theme']).toBe('mystic-grove');
+    expect(authApiMock.updateMe).not.toHaveBeenCalled();
   });
 
   it('disables save when there are no changes', () => {

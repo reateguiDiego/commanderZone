@@ -1,10 +1,10 @@
 .setup-panel {
   display: grid;
   gap: 0.9rem;
-  border: 1px solid rgb(215 180 106 / 28%);
+  border: 1px solid rgb(var(--cz-primary-rgb) / 28%);
   border-radius: 18px;
   padding: clamp(0.9rem, 2vw, 1.2rem);
-  background: rgb(7 10 8 / 82%);
+  background: rgb(var(--cz-bg-rgb) / 82%);
   overflow: visible;
 }
 
@@ -43,10 +43,10 @@ label {
 .setup-section {
   display: grid;
   gap: 0.75rem;
-  border: 1px solid rgb(126 148 112 / 28%);
+  border: 1px solid rgb(var(--cz-success-rgb) / 28%);
   border-radius: 16px;
   padding: 1rem;
-  background: rgb(18 25 17 / 68%);
+  background: rgb(var(--cz-bg-rgb) / 68%);
   overflow: visible;
 }
 
@@ -83,7 +83,7 @@ label {
 .ghost-button,
 .primary-button {
   min-height: 2.75rem;
-  border: 1px solid rgb(215 180 106 / 20%);
+  border: 1px solid rgb(var(--cz-primary-rgb) / 20%);
   border-radius: 10px;
   padding: 0 0.75rem;
   color: var(--text);
@@ -103,7 +103,7 @@ label {
   width: 2rem;
   height: 2rem;
   border-radius: 999px;
-  background: rgb(215 180 106 / 12%);
+  background: rgb(var(--cz-primary-rgb) / 12%);
   color: var(--accent);
   font-weight: 900;
 }
@@ -119,7 +119,7 @@ label {
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  background: linear-gradient(135deg, rgb(5 9 6 / 78%), rgb(5 9 6 / 42%)), var(--selected-gradient);
+  background: linear-gradient(135deg, rgb(var(--cz-bg-rgb) / 78%), rgb(var(--cz-bg-rgb) / 42%)), var(--selected-gradient);
   cursor: pointer;
 }
 
@@ -131,14 +131,14 @@ label {
   gap: 0.3rem;
   max-height: 15rem;
   overflow: auto;
-  border: 1px solid rgb(215 180 106 / 26%);
+  border: 1px solid rgb(var(--cz-primary-rgb) / 26%);
   border-radius: 12px;
   padding: 0.35rem;
-  background: rgb(5 8 5 / 98%);
+  background: rgb(var(--cz-bg-rgb) / 98%);
 }
 
 .color-option {
-  background: linear-gradient(135deg, rgb(5 9 6 / 42%), rgb(5 9 6 / 12%)), var(--option-gradient);
+  background: linear-gradient(135deg, rgb(var(--cz-bg-rgb) / 42%), rgb(var(--cz-bg-rgb) / 12%)), var(--option-gradient);
 }
 
 .color-option.selected {
@@ -148,7 +148,7 @@ label {
 .mana-symbols {
   display: inline-flex;
   gap: 0.2rem;
-  color: var(--selected-accent, var(--option-accent, #f7dfaa));
+  color: var(--selected-accent, var(--option-accent, var(--cz-secondary)));
   font-size: 1rem;
 }
 
@@ -157,14 +157,14 @@ label {
 }
 
 .ghost-button {
-  background: rgb(255 255 255 / 5%);
+  background: rgb(var(--cz-text-rgb) / 5%);
   cursor: pointer;
 }
 
 .primary-button {
-  border-color: rgb(215 180 106 / 76%);
-  background: linear-gradient(135deg, #a87927, #d7b46a);
-  color: #141106;
+  border-color: rgb(var(--cz-primary-rgb) / 76%);
+  background: linear-gradient(135deg, var(--cz-secondary), var(--cz-primary));
+  color: var(--cz-bg);
   cursor: pointer;
 }
 
@@ -173,7 +173,7 @@ label {
 }
 
 .error-message {
-  color: #fecaca;
+  color: var(--cz-text);
 }
 
 @media (max-width: 980px) {

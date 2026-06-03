@@ -14,11 +14,11 @@
   padding: 0.9rem;
   color: var(--text);
   background:
-    linear-gradient(135deg, rgb(215 180 106 / 10%), transparent 48%),
-    rgb(15 18 14 / 96%);
-  border: 1px solid rgb(215 180 106 / 28%);
+    linear-gradient(135deg, rgb(var(--cz-primary-rgb) / 10%), transparent 48%),
+    rgb(var(--cz-bg-rgb) / 96%);
+  border: 1px solid rgb(var(--cz-primary-rgb) / 28%);
   border-radius: 10px;
-  box-shadow: 0 1rem 2.5rem rgb(0 0 0 / 34%);
+  box-shadow: 0 1rem 2.5rem rgb(var(--cz-bg-rgb) / 34%);
   backdrop-filter: blur(14px);
   pointer-events: auto;
 }
@@ -37,7 +37,7 @@
 .cookie-banner__copy {
   max-width: 44rem;
   margin: 0;
-  color: rgb(243 240 232 / 78%);
+  color: rgb(var(--cz-text-rgb) / 78%);
   font-size: 0.88rem;
   line-height: 1.45;
 }
@@ -70,8 +70,8 @@
 
 .cookie-banner__toggle:hover,
 .cookie-banner__toggle--enabled {
-  border-color: rgb(215 180 106 / 62%);
-  background: rgb(215 180 106 / 12%);
+  border-color: rgb(var(--cz-primary-rgb) / 62%);
+  background: rgb(var(--cz-primary-rgb) / 12%);
 }
 
 @media (min-width: 48rem) {

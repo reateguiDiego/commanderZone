@@ -5,7 +5,7 @@
   display: grid;
   place-items: center;
   padding: 0.75rem;
-  background: rgb(2 6 23 / 72%);
+  background: rgb(var(--cz-bg-rgb) / 72%);
   backdrop-filter: blur(12px);
 }
 
@@ -13,11 +13,11 @@
   display: grid;
   gap: 0.42rem;
   width: min(14.5rem, 100%);
-  border: 1px solid rgb(255 255 255 / 14%);
+  border: 1px solid rgb(var(--cz-text-rgb) / 14%);
   border-radius: 8px;
   padding: 0.55rem;
-  background: linear-gradient(145deg, rgb(15 23 42 / 98%), rgb(2 6 23 / 96%));
-  box-shadow: 0 1.4rem 3rem rgb(0 0 0 / 48%);
+  background: linear-gradient(145deg, rgb(var(--cz-bg-rgb) / 98%), rgb(var(--cz-bg-rgb) / 96%));
+  box-shadow: 0 1.4rem 3rem rgb(var(--cz-bg-rgb) / 48%);
 }
 
 header,
@@ -34,7 +34,7 @@ footer {
 }
 
 .eyebrow {
-  color: #fde68a;
+  color: var(--cz-text);
   font-size: 0.72rem;
   font-weight: 850;
   text-transform: uppercase;
@@ -42,10 +42,10 @@ footer {
 
 button {
   min-height: 2rem;
-  border: 1px solid rgb(255 255 255 / 12%);
+  border: 1px solid rgb(var(--cz-text-rgb) / 12%);
   border-radius: 8px;
   padding: 0 0.55rem;
-  background: rgb(255 255 255 / 7%);
+  background: rgb(var(--cz-text-rgb) / 7%);
   color: inherit;
   font-weight: 750;
   cursor: pointer;
@@ -72,9 +72,9 @@ header button {
 
 .roll-options .selected,
 .primary-action {
-  border-color: #67e8f9;
-  background: #67e8f9;
-  color: #082f49;
+  border-color: var(--cz-info);
+  background: var(--cz-info);
+  color: var(--cz-surface);
 }
 
 .roll-icon {
@@ -87,13 +87,13 @@ header button {
   display: grid;
   place-items: center;
   min-height: 2.7rem;
-  border: 1px solid rgb(255 255 255 / 10%);
+  border: 1px solid rgb(var(--cz-text-rgb) / 10%);
   border-radius: 8px;
-  background: rgb(255 255 255 / 5%);
+  background: rgb(var(--cz-text-rgb) / 5%);
 }
 
 .roll-result span {
-  color: rgb(226 232 240 / 72%);
+  color: rgb(var(--cz-text-rgb) / 72%);
   font-size: 0.65rem;
 }
 
@@ -103,9 +103,9 @@ header button {
 }
 
 .empty strong {
-  color: rgb(226 232 240 / 34%);
+  color: rgb(var(--cz-text-rgb) / 34%);
 }
 
 .secondary-action {
-  color: rgb(226 232 240 / 78%);
+  color: rgb(var(--cz-text-rgb) / 78%);
 }

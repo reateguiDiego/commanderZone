@@ -8,23 +8,23 @@
   align-items: center;
   gap: 0.45rem;
   min-height: 4.55rem;
-  border: 1px solid rgb(215 180 106 / 24%);
+  border: 1px solid rgb(var(--cz-primary-rgb) / 24%);
   border-radius: 16px;
   padding: 0.45rem;
   background:
-    linear-gradient(135deg, rgb(215 180 106 / 10%), rgb(0 0 0 / 0%) 56%),
-    rgb(12 14 11 / 68%);
+    linear-gradient(135deg, rgb(var(--cz-primary-rgb) / 10%), rgb(var(--cz-bg-rgb) / 0%) 56%),
+    rgb(var(--cz-bg-rgb) / 68%);
 }
 
 .control-copy strong {
   display: block;
-  color: #ffe9a9;
+  color: var(--cz-secondary);
   font-size: 1.2rem;
   line-height: 1.05;
 }
 
 .eyebrow {
-  color: #fde68a;
+  color: var(--cz-text);
   font-size: 0.72rem;
   font-weight: 850;
   text-transform: uppercase;
@@ -34,10 +34,10 @@
   display: inline-flex;
   justify-content: space-between;
   gap: 0.22rem;
-  border: 1px solid rgb(215 180 106 / 28%);
+  border: 1px solid rgb(var(--cz-primary-rgb) / 28%);
   border-radius: 14px;
   padding: 0.28rem;
-  background: rgb(12 14 11 / 70%);
+  background: rgb(var(--cz-bg-rgb) / 70%);
 }
 
 .capacity-editor button {
@@ -51,9 +51,9 @@
 }
 
 .capacity-editor button.selected {
-  border-color: rgb(215 180 106 / 62%);
-  background: rgb(215 180 106 / 16%);
-  color: #ffe9a9;
+  border-color: rgb(var(--cz-primary-rgb) / 62%);
+  background: rgb(var(--cz-primary-rgb) / 16%);
+  color: var(--cz-secondary);
 }
 
 .capacity-editor button:disabled {
