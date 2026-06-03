@@ -15,6 +15,7 @@
             <app-card-autocomplete
               [placeholder]="'deckBuilder.deckEditor.addCardsByName' | runtimeTranslate"
               actionLabel="Add"
+              [minQueryLength]="3"
               [showQuantity]="true"
               [clearOnSelect]="true"
               [excludeTokens]="true"

@@ -431,6 +431,17 @@ describe('DeckEditorComponent', () => {
 
     expect(store.printVersionGroups().map((group) => group.title)).toEqual(['Ingles']);
   });
+
+  it('uses a reduced limit when searching missing cards in the deck editor', async () => {
+    await setup({ id: 'deck-1' }, buildDeckWithSingleCard());
+    const fixture = TestBed.createComponent(DeckEditorComponent);
+    const cardsApi = TestBed.inject(CardsApi) as unknown as { search: ReturnType<typeof vi.fn> };
+
+    fixture.componentInstance.store.missingSearchQuery = 'Sol Ring';
+    await fixture.componentInstance.store.searchMissingQuery();
+
+    expect(cardsApi.search).toHaveBeenCalledWith('Sol Ring', 1, 60);
+  });
 });
 
 function deckCard(id: string, section: DeckSection, card: Card): DeckCard {

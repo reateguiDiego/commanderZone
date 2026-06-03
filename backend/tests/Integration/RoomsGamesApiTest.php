@@ -2529,6 +2529,18 @@ INSERT INTO card_print (
     true,
     NOW()
 )
+ON CONFLICT (scryfall_id) DO UPDATE SET
+    normalized_name = EXCLUDED.normalized_name,
+    default_name = EXCLUDED.default_name,
+    default_lang = EXCLUDED.default_lang,
+    default_mana_cost = EXCLUDED.default_mana_cost,
+    default_type_line = EXCLUDED.default_type_line,
+    default_oracle_text = EXCLUDED.default_oracle_text,
+    default_image_uris = EXCLUDED.default_image_uris,
+    default_card_faces = EXCLUDED.default_card_faces,
+    layout = EXCLUDED.layout,
+    commander_legal = EXCLUDED.commander_legal,
+    updated_at = NOW()
 SQL,
             [
                 'scryfallId' => $scryfallId,
@@ -2565,6 +2577,16 @@ INSERT INTO card_print_locale (
     'highres_scan',
     NOW()
 )
+ON CONFLICT (print_scryfall_id, lang) DO UPDATE SET
+    name = EXCLUDED.name,
+    printed_name = EXCLUDED.printed_name,
+    mana_cost = EXCLUDED.mana_cost,
+    type_line = EXCLUDED.type_line,
+    oracle_text = EXCLUDED.oracle_text,
+    image_uris = EXCLUDED.image_uris,
+    card_faces = EXCLUDED.card_faces,
+    image_status = EXCLUDED.image_status,
+    updated_at = NOW()
 SQL,
             [
                 'scryfallId' => $scryfallId,
