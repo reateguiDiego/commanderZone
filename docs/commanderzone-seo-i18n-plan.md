@@ -1728,7 +1728,7 @@ Prepare Search Console sitemap submission workflow.
 
 Requirements:
 - Ensure robots.txt references the final sitemap index:
-  Sitemap: https://commanderzone.com/sitemap-index.xml
+  Sitemap: https://www.commanderzone.com/sitemap-index.xml
 - Document manual Search Console steps:
   1. Open the verified property.
   2. Go to Sitemaps.

@@ -28,12 +28,12 @@ for (const file of requiredFiles.filter((requiredFile) => requiredFile.startsWit
 }
 
 const robots = await readPublicFile('robots.txt');
-if (!robots.includes('Sitemap: https://commanderzone.com/sitemap-index.xml')) {
+if (!robots.includes('Sitemap: https://www.commanderzone.com/sitemap-index.xml')) {
   throw new Error('robots.txt must reference the absolute production sitemap index URL.');
 }
 
 const sitemapIndex = await readPublicFile('sitemap-index.xml');
-if (!sitemapIndex.includes('<loc>https://commanderzone.com/sitemaps/sitemap-seo.xml</loc>')) {
+if (!sitemapIndex.includes('<loc>https://www.commanderzone.com/sitemaps/sitemap-seo.xml</loc>')) {
   throw new Error('sitemap-index.xml must reference the production SEO sitemap URL.');
 }
 

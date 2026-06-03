@@ -22,7 +22,7 @@ Recommended baseline:
 
 - `MAILER_FROM_ADDRESS=no-reply@commanderzone.com`
 - `MAILER_FROM_NAME=CommanderZone`
-- `AUTH_PUBLIC_APP_URL=https://commanderzone.com`
+- `AUTH_PUBLIC_APP_URL=https://www.commanderzone.com`
 
 ## MAILER_DSN Examples
 

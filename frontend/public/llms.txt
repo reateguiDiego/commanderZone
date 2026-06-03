@@ -7,22 +7,22 @@ This file is provided for AI crawler readability. It is not a Google ranking sig
 
 ## Public SEO pages
 
-- Home: https://commanderzone.com/es/
-- Play Commander online: https://commanderzone.com/es/jugar-commander-online/
-- Play Magic online with friends: https://commanderzone.com/es/jugar-magic-online-con-amigos/
-- Create a Commander room: https://commanderzone.com/es/crear-sala-commander-online/
-- Import a Commander deck: https://commanderzone.com/es/importar-mazo-commander/
-- Commander deck builder: https://commanderzone.com/es/deck-builder-commander/
-- Magic and Commander table assistant: https://commanderzone.com/es/asistente-de-mesa-magic/
-- Ways to play Commander online: https://commanderzone.com/es/formas-de-jugar-commander-online/
-- How to play Commander online: https://commanderzone.com/es/como-jugar-commander-online/
-- FAQ: https://commanderzone.com/es/faq/
+- Home: https://www.commanderzone.com/es/
+- Play Commander online: https://www.commanderzone.com/es/jugar-commander-online/
+- Play Magic online with friends: https://www.commanderzone.com/es/jugar-magic-online-con-amigos/
+- Create a Commander room: https://www.commanderzone.com/es/crear-sala-commander-online/
+- Import a Commander deck: https://www.commanderzone.com/es/importar-mazo-commander/
+- Commander deck builder: https://www.commanderzone.com/es/deck-builder-commander/
+- Magic and Commander table assistant: https://www.commanderzone.com/es/asistente-de-mesa-magic/
+- Ways to play Commander online: https://www.commanderzone.com/es/formas-de-jugar-commander-online/
+- How to play Commander online: https://www.commanderzone.com/es/como-jugar-commander-online/
+- FAQ: https://www.commanderzone.com/es/faq/
 
 ## Localized URLs
 
 CommanderZone publishes localized public SEO pages in 13 locales.
 Use the sitemap index for the complete localized URL set:
-https://commanderzone.com/sitemap-index.xml
+https://www.commanderzone.com/sitemap-index.xml
 
 ## Scope
 

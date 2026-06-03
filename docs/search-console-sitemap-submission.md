@@ -7,19 +7,19 @@ Phase 30 prepares the manual sitemap submission workflow for CommanderZone.
 The public sitemap entry point is:
 
 ```text
-https://commanderzone.com/sitemap-index.xml
+https://www.commanderzone.com/sitemap-index.xml
 ```
 
 `robots.txt` must reference the final sitemap index:
 
 ```text
-Sitemap: https://commanderzone.com/sitemap-index.xml
+Sitemap: https://www.commanderzone.com/sitemap-index.xml
 ```
 
 The sitemap index currently points to:
 
 ```text
-https://commanderzone.com/sitemaps/sitemap-seo.xml
+https://www.commanderzone.com/sitemaps/sitemap-seo.xml
 ```
 
 Submit the sitemap index, not individual localized landing URLs.
@@ -40,11 +40,11 @@ Sitemap submission is a discovery hint for Google. It does not guarantee crawlin
 
 Before submitting or resubmitting the sitemap, verify:
 
-- `https://commanderzone.com/sitemap-index.xml` returns HTTP 200.
-- `https://commanderzone.com/sitemaps/sitemap-seo.xml` returns HTTP 200.
-- `https://commanderzone.com/robots.txt` returns HTTP 200.
-- `robots.txt` includes `Sitemap: https://commanderzone.com/sitemap-index.xml`.
-- `sitemap-index.xml` uses the canonical production domain: `https://commanderzone.com`.
+- `https://www.commanderzone.com/sitemap-index.xml` returns HTTP 200.
+- `https://www.commanderzone.com/sitemaps/sitemap-seo.xml` returns HTTP 200.
+- `https://www.commanderzone.com/robots.txt` returns HTTP 200.
+- `robots.txt` includes `Sitemap: https://www.commanderzone.com/sitemap-index.xml`.
+- `sitemap-index.xml` uses the canonical production domain: `https://www.commanderzone.com`.
 - `sitemaps/sitemap-seo.xml` uses the canonical production domain for all `<loc>` URLs.
 - Internal/runtime routes are not included in the SEO sitemap.
 - The sitemap includes only indexable public SEO landing URLs.

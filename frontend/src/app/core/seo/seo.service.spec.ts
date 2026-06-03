@@ -19,12 +19,12 @@ import { SEARCH_CONSOLE_VERIFICATION_TOKEN, normalizeSearchConsoleVerificationTo
 
 describe('SeoService helpers', () => {
   it('uses the production canonical origin by default', () => {
-    expect(SEO_CANONICAL_ORIGIN).toBe('https://commanderzone.com');
+    expect(SEO_CANONICAL_ORIGIN).toBe('https://www.commanderzone.com');
     expect(buildSeoCanonicalUrl('tableAssistant', 'es')).toBe(
-      'https://commanderzone.com/es/asistente-de-mesa-magic/',
+      'https://www.commanderzone.com/es/asistente-de-mesa-magic/',
     );
     expect(toSeoAbsoluteUrl('/assets/og/play-commander-og.png')).toBe(
-      'https://commanderzone.com/assets/og/play-commander-og.png',
+      'https://www.commanderzone.com/assets/og/play-commander-og.png',
     );
   });
 
@@ -135,10 +135,10 @@ describe('SeoService', () => {
       'Play Commander online with static localized content.',
     );
     expect(document.head.querySelector('link[data-cz-seo="true"][rel="canonical"]')?.getAttribute('href')).toBe(
-      'https://commanderzone.com/en/play-commander-online/',
+      'https://www.commanderzone.com/en/play-commander-online/',
     );
     expect(document.head.querySelector('link[data-cz-seo="true"][rel="preload"][as="image"]')?.getAttribute('href')).toBe(
-      'https://commanderzone.com/assets/og/play-commander-og.png',
+      'https://www.commanderzone.com/assets/og/play-commander-og.png',
     );
     expect(document.head.querySelector('link[data-cz-seo="true"][rel="preload"][as="image"]')?.getAttribute('fetchpriority')).toBe(
       'high',
@@ -159,7 +159,7 @@ describe('SeoService', () => {
       'summary_large_image',
     );
     expect(document.head.querySelector('meta[data-cz-seo="true"][property="og:image"]')?.getAttribute('content')).toBe(
-      'https://commanderzone.com/assets/og/play-commander-og.png',
+      'https://www.commanderzone.com/assets/og/play-commander-og.png',
     );
     expect(document.head.querySelector('script[data-cz-seo="true"][type="application/ld+json"]')?.textContent).toContain(
       '"@type":"WebPage"',
@@ -179,7 +179,7 @@ describe('SeoService', () => {
     expect(document.head.querySelectorAll('link[data-cz-seo="true"][rel="canonical"]').length).toBe(1);
     expect(document.head.querySelectorAll('script[data-cz-seo="true"][type="application/ld+json"]').length).toBe(1);
     expect(document.head.querySelector('link[data-cz-seo="true"][rel="canonical"]')?.getAttribute('href')).toBe(
-      'https://commanderzone.com/es/faq/',
+      'https://www.commanderzone.com/es/faq/',
     );
   });
 });
@@ -214,7 +214,7 @@ describe('SeoService with Search Console verification configured', () => {
       'real-search-console-token',
     );
     expect(document.head.querySelector('link[data-cz-seo="true"][rel="canonical"]')?.getAttribute('href')).toBe(
-      'https://commanderzone.com/es/',
+      'https://www.commanderzone.com/es/',
     );
   });
 });

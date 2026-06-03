@@ -51,7 +51,7 @@ Fallback methods must use real values from Google Search Console. Do not hardcod
 
 DNS TXT verification remains the preferred method.
 
-If HTML file verification is required, place the exact Google-provided `google*.html` file in `frontend/public/`. Angular copies that folder to the deployed public root, so the file will be available at `https://commanderzone.com/google...html`. The validation script checks Search Console HTML files in the public root and rejects obvious placeholder content.
+If HTML file verification is required, place the exact Google-provided `google*.html` file in `frontend/public/`. Angular copies that folder to the deployed public root, so the file will be available at `https://www.commanderzone.com/google...html`. The validation script checks Search Console HTML files in the public root and rejects obvious placeholder content.
 
 If HTML meta verification is required, set `googleSearchConsoleVerification` in the active Angular environment file to the real token provided by Google Search Console. Leave it empty by default. When configured, the public SEO home route can render the `google-site-verification` meta tag during prerender.
 

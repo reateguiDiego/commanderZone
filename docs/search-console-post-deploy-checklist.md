@@ -9,11 +9,11 @@ Use the verified `commanderzone.com` Search Console property. Do not use private
 Complete these checks after the production deployment finishes:
 
 - Verify the Domain property in Google Search Console.
-- Confirm the canonical production domain is `https://commanderzone.com`.
-- Confirm `https://commanderzone.com/robots.txt` is reachable.
-- Confirm `https://commanderzone.com/sitemap-index.xml` is reachable.
-- Confirm `https://commanderzone.com/sitemaps/sitemap-seo.xml` is reachable.
-- Confirm `robots.txt` references `Sitemap: https://commanderzone.com/sitemap-index.xml`.
+- Confirm the canonical production domain is `https://www.commanderzone.com`.
+- Confirm `https://www.commanderzone.com/robots.txt` is reachable.
+- Confirm `https://www.commanderzone.com/sitemap-index.xml` is reachable.
+- Confirm `https://www.commanderzone.com/sitemaps/sitemap-seo.xml` is reachable.
+- Confirm `robots.txt` references `Sitemap: https://www.commanderzone.com/sitemap-index.xml`.
 - Submit `sitemap-index.xml` in **Indexing > Sitemaps**.
 - Inspect representative SEO URLs from `docs/search-console-url-inspection-checklist.md`.
 - Request indexing for priority URLs if Search Console says they are eligible and the live test is clean.

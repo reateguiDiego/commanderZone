@@ -122,7 +122,7 @@ describe('SEO landing static content', () => {
     const mainEntity = faqPage?.['mainEntity'];
     const faqQuestions = Array.isArray(mainEntity) ? mainEntity : [];
 
-    expect(JSON.stringify(content.jsonLd)).toContain('https://commanderzone.com/es/asistente-de-mesa-magic/');
+    expect(JSON.stringify(content.jsonLd)).toContain('https://www.commanderzone.com/es/asistente-de-mesa-magic/');
     expect(JSON.stringify(content.jsonLd)).toContain('"inLanguage":"es"');
     expect(softwareApplication?.['name']).toBe(content.hero.title);
     expect(softwareApplication?.['description']).toBe(content.seo.description);
@@ -131,7 +131,7 @@ describe('SEO landing static content', () => {
         '@type': 'ListItem',
         position: 2,
         name: content.hero.title,
-        item: 'https://commanderzone.com/es/asistente-de-mesa-magic/',
+        item: 'https://www.commanderzone.com/es/asistente-de-mesa-magic/',
       }),
     ]));
     expect(faqQuestions.length).toBe(content.faq.items.length);

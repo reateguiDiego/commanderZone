@@ -2,9 +2,10 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 
 const workspaceRoot = process.cwd();
-const canonicalOrigin = 'https://commanderzone.com';
+const canonicalOrigin = 'https://www.commanderzone.com';
 const canonicalHost = new URL(canonicalOrigin).host;
-const alternateHost = `www.${canonicalHost}`;
+const alternateHost = 'commanderzone.com';
+const alternateOrigin = `https://${alternateHost}`;
 
 const vercelConfig = JSON.parse(await readWorkspaceFile('vercel.json'));
 const seoService = await readWorkspaceFile('src/app/core/seo/seo.service.ts');
@@ -44,15 +45,28 @@ function assertVercelRedirects(config) {
   }
 
   const redirects = config.redirects ?? [];
-  const wwwToCanonical = redirects.find((redirect) => {
+  const alternateRootToCanonical = redirects.find((redirect) => {
     const hostRule = redirect.has?.find((rule) => rule.type === 'host');
     return hostRule?.value === alternateHost
+      && redirect.source === '/'
+      && redirect.destination === `${canonicalOrigin}/`
+      && redirect.permanent === true;
+  });
+
+  if (!alternateRootToCanonical) {
+    throw new Error(`vercel.json must permanently redirect ${alternateHost}/ to ${canonicalOrigin}/.`);
+  }
+
+  const alternatePathsToCanonical = redirects.find((redirect) => {
+    const hostRule = redirect.has?.find((rule) => rule.type === 'host');
+    return hostRule?.value === alternateHost
+      && redirect.source === '/:path*'
       && redirect.destination === `${canonicalOrigin}/:path*`
       && redirect.permanent === true;
   });
 
-  if (!wwwToCanonical) {
-    throw new Error(`vercel.json must permanently redirect ${alternateHost} to ${canonicalOrigin}.`);
+  if (!alternatePathsToCanonical) {
+    throw new Error(`vercel.json must permanently redirect ${alternateHost} paths to ${canonicalOrigin}.`);
   }
 
   const loop = redirects.find((redirect) => {
@@ -64,9 +78,9 @@ function assertVercelRedirects(config) {
     throw new Error('vercel.json must not redirect the canonical host back to itself.');
   }
 
-  const redirectsToWww = redirects.find((redirect) => redirect.destination?.includes(`://${alternateHost}`));
-  if (redirectsToWww) {
-    throw new Error('vercel.json must not redirect production traffic to the www host.');
+  const redirectsToAlternate = redirects.find((redirect) => redirect.destination?.startsWith(alternateOrigin));
+  if (redirectsToAlternate) {
+    throw new Error(`vercel.json must not redirect production traffic to the non-canonical host ${alternateHost}.`);
   }
 }
 
@@ -92,8 +106,8 @@ function assertPublicSeoAssetsUseCanonicalOrigin(robots, sitemapIndex, seoSitema
       throw new Error(`Sitemap URL must use the canonical origin: ${url}`);
     }
 
-    if (url.startsWith('http://') || url.includes(`://${alternateHost}`)) {
-      throw new Error(`Sitemap URL must use HTTPS and the apex canonical host: ${url}`);
+    if (url.startsWith('http://') || url.startsWith(`${alternateOrigin}/`)) {
+      throw new Error(`Sitemap URL must use HTTPS and the canonical host: ${url}`);
     }
   }
 }
