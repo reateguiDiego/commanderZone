@@ -1,4 +1,4 @@
-import { importProvidersFrom } from '@angular/core';
+import { computed, importProvidersFrom, signal } from '@angular/core';
 import { convertToParamMap } from '@angular/router';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, provideRouter } from '@angular/router';
@@ -33,17 +33,34 @@ import {
 import { of } from 'rxjs';
 import { CardsApi } from '../../../core/api/cards.api';
 import { DecksApi } from '../../../core/api/decks.api';
+import { AppShellI18nService } from '../../../core/localization/app-shell-i18n.service';
+import { SupportedLanguageCode } from '../../../core/localization/language-preferences';
+import { LanguagePreferencesService } from '../../../core/localization/language-preferences.service';
 import { Card } from '../../../core/models/card.model';
 import { Deck, DeckCard, DeckSection } from '../../../core/models/deck.model';
 import { PageHeaderStore } from '../../../core/ui/page-header.store';
 import { DeckEditorComponent } from './deck-editor.component';
 
 describe('DeckEditorComponent', () => {
-  async function setup(routeParams: Record<string, string> = {}, deck?: Deck) {
+  async function setup(
+    routeParams: Record<string, string> = {},
+    deck?: Deck,
+    languageConfig: { cardLanguage?: SupportedLanguageCode; appLanguage?: SupportedLanguageCode } = {},
+  ) {
+    const cardLanguage = signal<SupportedLanguageCode>(languageConfig.cardLanguage ?? 'en');
+    const appLanguage = signal<SupportedLanguageCode>(languageConfig.appLanguage ?? 'en');
     const decksApi = {
       get: vi.fn().mockReturnValue(of({ deck })),
       tokens: vi.fn().mockReturnValue(of({ data: [], unresolved: [] })),
       validateCommander: vi.fn().mockReturnValue(of(validCommanderValidation())),
+    };
+    const languagePreferencesMock = {
+      cardLanguage,
+      appLanguage,
+    };
+    const i18nMock = {
+      locale: computed(() => appLanguage() === 'es' ? 'es' : 'en'),
+      languageName: (code: SupportedLanguageCode) => languageNamesForLocale(appLanguage() === 'es' ? 'es' : 'en')[code],
     };
 
     await TestBed.configureTestingModule({
@@ -79,6 +96,8 @@ describe('DeckEditorComponent', () => {
         })),
         { provide: CardsApi, useValue: { search: vi.fn().mockReturnValue(of({ data: [] })), image: vi.fn() } },
         { provide: DecksApi, useValue: decksApi },
+        { provide: LanguagePreferencesService, useValue: languagePreferencesMock },
+        { provide: AppShellI18nService, useValue: i18nMock },
         {
           provide: ActivatedRoute,
           useValue: { snapshot: { paramMap: convertToParamMap(routeParams) } },
@@ -347,6 +366,71 @@ describe('DeckEditorComponent', () => {
     expect(header?.titleWarning?.tone).toBe('danger');
     expect(header?.titleWarning?.tooltip).toContain('Banned card');
   });
+
+  it('groups print versions by preferred language, alternatives, and English for Spanish card preference', async () => {
+    const deck = buildDeckWithSingleCard();
+    await setup({ id: 'deck-1' }, deck, { cardLanguage: 'es', appLanguage: 'es' });
+    const fixture = TestBed.createComponent(DeckEditorComponent);
+    const { store } = fixture.componentInstance;
+
+    store.printVersionEntry.set(deck.cards?.[0] ?? null);
+    store.printVersionModalOpen.set(true);
+    store.printVersionOptions.set([
+      printCard('sol-ring-es-1', 'es', 'one', '1'),
+      printCard('sol-ring-ph-1', 'ph', 'four', '4'),
+      printCard('sol-ring-en-1', 'en', 'two', '2'),
+      printCard('sol-ring-es-2', 'es', 'five', '5'),
+      printCard('sol-ring-pt-1', 'pt', 'three', '3'),
+      printCard('sol-ring-en-2', 'en', 'six', '6'),
+    ]);
+
+    const groups = store.printVersionGroups();
+
+    expect(groups.map((group) => group.title)).toEqual(['Espanol', 'Alternativos', 'Ingles']);
+    expect(groups[0]?.cards.map((card) => card.scryfallId)).toEqual(['sol-ring-es-1', 'sol-ring-es-2']);
+    expect(groups[1]?.cards.map((card) => card.scryfallId)).toEqual(['sol-ring-ph-1']);
+    expect(groups[2]?.cards.map((card) => card.scryfallId)).toEqual(['sol-ring-en-1', 'sol-ring-en-2']);
+    expect(groups.flatMap((group) => group.cards.map((card) => card.scryfallId))).not.toContain('sol-ring-pt-1');
+  });
+
+  it('groups print versions as English then alternatives when preferred language is English', async () => {
+    const deck = buildDeckWithSingleCard();
+    await setup({ id: 'deck-1' }, deck, { cardLanguage: 'en', appLanguage: 'en' });
+    const fixture = TestBed.createComponent(DeckEditorComponent);
+    const { store } = fixture.componentInstance;
+
+    store.printVersionEntry.set(deck.cards?.[0] ?? null);
+    store.printVersionModalOpen.set(true);
+    store.printVersionOptions.set([
+      printCard('sol-ring-en-1', 'en', 'one', '1'),
+      printCard('sol-ring-ph-1', 'ph', 'two', '2'),
+      printCard('sol-ring-fr-1', 'fr', 'three', '3'),
+      printCard('sol-ring-en-2', 'en', 'four', '4'),
+    ]);
+
+    const groups = store.printVersionGroups();
+
+    expect(groups.map((group) => group.title)).toEqual(['English', 'Alternatives']);
+    expect(groups[0]?.cards.map((card) => card.scryfallId)).toEqual(['sol-ring-en-1', 'sol-ring-en-2']);
+    expect(groups[1]?.cards.map((card) => card.scryfallId)).toEqual(['sol-ring-ph-1']);
+    expect(groups.flatMap((group) => group.cards.map((card) => card.scryfallId))).not.toContain('sol-ring-fr-1');
+  });
+
+  it('returns only non-empty print version sections', async () => {
+    const deck = buildDeckWithSingleCard();
+    await setup({ id: 'deck-1' }, deck, { cardLanguage: 'es', appLanguage: 'es' });
+    const fixture = TestBed.createComponent(DeckEditorComponent);
+    const { store } = fixture.componentInstance;
+
+    store.printVersionEntry.set(deck.cards?.[0] ?? null);
+    store.printVersionModalOpen.set(true);
+    store.printVersionOptions.set([
+      printCard('sol-ring-en-1', 'en', 'one', '1'),
+      printCard('sol-ring-en-2', 'en', 'two', '2'),
+    ]);
+
+    expect(store.printVersionGroups().map((group) => group.title)).toEqual(['Ingles']);
+  });
 });
 
 function deckCard(id: string, section: DeckSection, card: Card): DeckCard {
@@ -363,6 +447,16 @@ function manyDeckCards(prefix: string, count: number, typeLine: string): DeckCar
 
 function estimatedGroupWeight(id: string, quantity: number): number {
   return id === 'commander' ? 10 : 2 + quantity;
+}
+
+function buildDeckWithSingleCard(): Deck {
+  return {
+    id: 'deck-1',
+    name: 'Print deck',
+    format: 'commander',
+    folderId: null,
+    cards: [deckCard('main-card', 'main', card('Sol Ring', 'Artifact'))],
+  };
 }
 
 function validCommanderValidation() {
@@ -393,4 +487,49 @@ function card(name: string, typeLine: string, layout = 'normal'): Card {
     set: null,
     collectorNumber: null,
   };
+}
+
+function printCard(scryfallId: string, lang: string, setCode: string, collectorNumber: string): Card {
+  return {
+    ...card('Sol Ring', 'Artifact'),
+    id: scryfallId,
+    scryfallId,
+    lang,
+    set: setCode,
+    collectorNumber,
+  };
+}
+
+function languageNamesForLocale(locale: 'en' | 'es'): Record<SupportedLanguageCode, string> {
+  return locale === 'es'
+    ? {
+      en: 'Ingles',
+      fr: 'Frances',
+      de: 'Aleman',
+      it: 'Italiano',
+      es: 'Espanol',
+      ja: 'Japones',
+      zhs: 'Chino (S)',
+      pt: 'Portugues',
+      ru: 'Ruso',
+      ko: 'Coreano',
+      zht: 'Chino (T)',
+      nl: 'Holandes',
+      ca: 'Catalan',
+    }
+    : {
+      en: 'English',
+      fr: 'French',
+      de: 'German',
+      it: 'Italian',
+      es: 'Spanish',
+      ja: 'Japanese',
+      zhs: 'Chinese (Simplified)',
+      pt: 'Portuguese',
+      ru: 'Russian',
+      ko: 'Korean',
+      zht: 'Chinese (Traditional)',
+      nl: 'Dutch',
+      ca: 'Catalan',
+    };
 }

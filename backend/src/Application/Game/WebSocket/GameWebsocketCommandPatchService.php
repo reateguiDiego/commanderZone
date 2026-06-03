@@ -68,6 +68,9 @@ final readonly class GameWebsocketCommandPatchService
         }
 
         $manager = $this->manager();
+        $startedAt = microtime(true);
+        $phaseTimings = $this->emptyDebugPhaseTimings();
+        $loadStartedAt = microtime(true);
 
         try {
             $game = $manager->getRepository(Game::class)->find($gameId);
@@ -142,6 +145,8 @@ final readonly class GameWebsocketCommandPatchService
             }
 
             $previousSnapshot = $game->snapshot();
+            $phaseTimings['load'] = $this->elapsedMs($loadStartedAt);
+            $applyStartedAt = microtime(true);
             try {
                 if ($type === GameDisconnectVoteService::COMMAND_TYPE) {
                     $recorded = $this->disconnectVotes->recordVote(
@@ -168,12 +173,23 @@ final readonly class GameWebsocketCommandPatchService
                     $exception->getMessage(),
                 );
             }
+            $phaseTimings['apply'] = $this->elapsedMs($applyStartedAt);
 
+            $persistStartedAt = microtime(true);
             $manager->persist($event);
             $manager->flush();
             $manager->commit();
+            $phaseTimings['persist'] = $this->elapsedMs($persistStartedAt);
 
-            return $this->projectedResult($game, $previousSnapshot, $game->snapshot(), $event, $this->eventPayload($type, $payload));
+            return $this->projectedResult(
+                $game,
+                $previousSnapshot,
+                $game->snapshot(),
+                $event,
+                $this->eventPayload($type, $payload),
+                $phaseTimings,
+                $startedAt,
+            );
         } catch (UniqueConstraintViolationException) {
             if ($manager->getConnection()->isTransactionActive()) {
                 $manager->rollback();
@@ -289,22 +305,43 @@ final readonly class GameWebsocketCommandPatchService
      * @param array<string,mixed>      $previousSnapshot
      * @param array<string,mixed>      $nextSnapshot
      * @param array<string,mixed>|null $eventPayload
+     * @param array<string,float>      $phaseTimings
      */
-    private function projectedResult(Game $game, array $previousSnapshot, array $nextSnapshot, GameEvent $event, ?array $eventPayload): GameWebsocketCommandResult
+    private function projectedResult(
+        Game $game,
+        array $previousSnapshot,
+        array $nextSnapshot,
+        GameEvent $event,
+        ?array $eventPayload,
+        array $phaseTimings,
+        float $startedAt,
+    ): GameWebsocketCommandResult
     {
         $viewers = $this->viewers($game);
+        $localizationStartedAt = microtime(true);
         $localizedLookup = $this->localizedLookup($previousSnapshot, $nextSnapshot, $viewers);
+        $phaseTimings['localization'] = $this->elapsedMs($localizationStartedAt);
         $messagesByUserId = [];
+        $projectionMs = 0.0;
+        $patchMs = 0.0;
         foreach ($viewers as $viewer) {
             $viewerCanUseOwnHiddenZones = $game->room()->hasPlayer($viewer);
+            $projectionStartedAt = microtime(true);
             $previousProjection = $this->projection->projectSnapshot($previousSnapshot, $viewer, $viewerCanUseOwnHiddenZones, $localizedLookup);
             $nextProjection = $this->projection->projectSnapshot($nextSnapshot, $viewer, $viewerCanUseOwnHiddenZones, $localizedLookup);
+            $projectionMs += $this->elapsedMs($projectionStartedAt);
+            $patchStartedAt = microtime(true);
             $messagesByUserId[$viewer->id()] = $this->patches->build($game->id(), $previousProjection, $nextProjection, $event, $eventPayload, $viewer->id());
+            $patchMs += $this->elapsedMs($patchStartedAt);
         }
+        $phaseTimings['projection'] = round($projectionMs, 2);
+        $phaseTimings['patch'] = round($patchMs, 2);
+        $phaseTimings['total'] = $this->elapsedMs($startedAt);
 
         return GameWebsocketCommandResult::forViewers(
             $messagesByUserId,
             $this->messages->resyncRequired($game->id(), $this->snapshotVersion($game), 'projection_unavailable', $event->clientActionId()),
+            $this->normalizeDebugProfile($phaseTimings),
         );
     }
 
@@ -331,14 +368,10 @@ final readonly class GameWebsocketCommandPatchService
     /**
      * @param list<User> $viewers
      *
-     * @return array<string,array<string,array<string,mixed>>>
+     * @return array<string,array<string,array<string,mixed>>>|null
      */
-    private function localizedLookup(array $previousSnapshot, array $nextSnapshot, array $viewers): array
+    private function localizedLookup(array $previousSnapshot, array $nextSnapshot, array $viewers): ?array
     {
-        if (!$this->cardLocalizationResolver instanceof GameWebsocketCardLocalizationResolver) {
-            return [];
-        }
-
         $languages = [];
         foreach ($viewers as $viewer) {
             $language = LanguageCatalog::normalize($viewer->cardLanguage());
@@ -353,10 +386,51 @@ final readonly class GameWebsocketCommandPatchService
             return [];
         }
 
+        if (!$this->cardLocalizationResolver instanceof GameWebsocketCardLocalizationResolver) {
+            return null;
+        }
+
         return $this->cardLocalizationResolver->buildLocalizedLookup(
             $previousSnapshot,
             $nextSnapshot,
             array_keys($languages),
         );
+    }
+
+    /**
+     * @return array{load: float, apply: float, persist: float, localization: float, projection: float, patch: float, total: float}
+     */
+    private function emptyDebugPhaseTimings(): array
+    {
+        return [
+            'load' => 0.0,
+            'apply' => 0.0,
+            'persist' => 0.0,
+            'localization' => 0.0,
+            'projection' => 0.0,
+            'patch' => 0.0,
+            'total' => 0.0,
+        ];
+    }
+
+    private function elapsedMs(float $startedAt): float
+    {
+        return round(max(0, (microtime(true) - $startedAt) * 1000), 2);
+    }
+
+    /**
+     * @param array<string,float> $phaseTimings
+     *
+     * @return array<string,float>
+     */
+    private function normalizeDebugProfile(array $phaseTimings): array
+    {
+        $normalized = [];
+        foreach ($this->emptyDebugPhaseTimings() as $phase => $defaultValue) {
+            $value = $phaseTimings[$phase] ?? $defaultValue;
+            $normalized[$phase] = round(max(0, (float) $value), 2);
+        }
+
+        return $normalized;
     }
 }

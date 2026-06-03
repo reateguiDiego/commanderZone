@@ -111,9 +111,9 @@ final class GameDebugHealthLiveStore
      * @param array<string,mixed>       $incoming
      * @param list<array<string,mixed>> $outgoing
      */
-    public function recordActionExchange(string $gameId, array $incoming, array $outgoing, float $durationMs): void
+    public function recordActionExchange(string $gameId, array $incoming, array $outgoing, float $durationMs, ?array $phases = null): void
     {
-        $this->mutate($gameId, fn (array $state): array => $this->aggregator->recordActionExchange($state, $incoming, $outgoing, $durationMs));
+        $this->mutate($gameId, fn (array $state): array => $this->aggregator->recordActionExchange($state, $incoming, $outgoing, $durationMs, $phases));
     }
 
     /**

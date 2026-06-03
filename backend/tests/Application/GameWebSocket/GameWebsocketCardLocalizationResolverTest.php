@@ -136,6 +136,105 @@ class GameWebsocketCardLocalizationResolverTest extends TestCase
         }
     }
 
+    public function testOnlyLocalizesCardsAffectedBySnapshotChanges(): void
+    {
+        $sourceResult = $this->resultWithRows([
+            $this->sourceRow('source-2'),
+        ]);
+        $candidateResult = $this->resultWithRows([
+            $this->candidateRow(sourceScryfallId: 'source-2', candidateScryfallId: 'es-cmm-2', lang: 'es', imageStatus: null),
+        ]);
+        $fallbackResult = $this->optionalResultWithRows([]);
+        $payloadResult = $this->resultWithRows([
+            $this->payloadRow(scryfallId: 'es-cmm-2', lang: 'es', printedName: 'Arcane Signet'),
+        ]);
+
+        $connection = $this->createMock(Connection::class);
+        $connection->method('fetchOne')->willThrowException(new \RuntimeException('not supported in test'));
+        $connection->expects(self::exactly(4))
+            ->method('executeQuery')
+            ->willReturnCallback(function (string $sql, array $params = []) use ($sourceResult, $candidateResult, $fallbackResult, $payloadResult): Result {
+                if (str_contains($sql, 'FROM card') && str_contains($sql, 'AND lang IN (:languages)')) {
+                    self::assertSame(['es-cmm-2'], $params['ids'] ?? null);
+
+                    return $payloadResult;
+                }
+
+                if (str_contains($sql, 'FROM card') && str_contains($sql, 'WHERE scryfall_id IN (:ids)')) {
+                    self::assertSame(['source-2'], $params['ids'] ?? null);
+
+                    return $sourceResult;
+                }
+
+                if (str_contains($sql, 'FROM card source') && str_contains($sql, 'candidate.lang IN (:languages)')) {
+                    self::assertSame(['source-2'], $params['sourceIds'] ?? null);
+
+                    return $candidateResult;
+                }
+
+                if (str_contains($sql, 'SELECT DISTINCT ON (source.scryfall_id, candidate.lang)')) {
+                    self::assertSame(['source-2'], $params['sourceIds'] ?? null);
+
+                    return $fallbackResult;
+                }
+
+                self::fail('Unexpected SQL in resolver test: '.$sql);
+            });
+
+        $resolver = new GameWebsocketCardLocalizationResolver($connection);
+        $lookup = $resolver->buildLocalizedLookup(
+            $this->snapshotWithCards([
+                $this->snapshotCard(instanceId: 'card-1', scryfallId: 'source-1'),
+                $this->snapshotCard(instanceId: 'card-2', scryfallId: 'source-2', tapped: false),
+            ]),
+            $this->snapshotWithCards([
+                $this->snapshotCard(instanceId: 'card-1', scryfallId: 'source-1'),
+                $this->snapshotCard(instanceId: 'card-2', scryfallId: 'source-2', tapped: true),
+            ]),
+            ['es'],
+        );
+
+        self::assertSame('https://img/es.jpg', $lookup['es']['source-2']['imageUris']['normal']);
+        self::assertArrayNotHasKey('source-1', $lookup['es']);
+    }
+
+    public function testVisibilityChangesStillProduceLocalizedLookupForAffectedCards(): void
+    {
+        $sourceResult = $this->resultWithRows([$this->sourceRow()]);
+        $candidateResult = $this->resultWithRows([
+            $this->candidateRow(sourceScryfallId: 'source-1', candidateScryfallId: 'es-cmm-1', lang: 'es', imageStatus: null),
+        ]);
+        $fallbackResult = $this->optionalResultWithRows([]);
+        $payloadResult = $this->resultWithRows([
+            $this->payloadRow(scryfallId: 'es-cmm-1', lang: 'es', printedName: 'Anillo solar'),
+        ]);
+
+        $connection = $this->createMock(Connection::class);
+        $connection->method('fetchOne')->willThrowException(new \RuntimeException('not supported in test'));
+        $connection->expects(self::exactly(4))
+            ->method('executeQuery')
+            ->willReturnOnConsecutiveCalls(
+                $sourceResult,
+                $candidateResult,
+                $fallbackResult,
+                $payloadResult,
+            );
+
+        $resolver = new GameWebsocketCardLocalizationResolver($connection);
+
+        $lookup = $resolver->buildLocalizedLookup(
+            $this->snapshotWithCards([
+                [...$this->snapshotCard(instanceId: 'card-1', scryfallId: 'source-1'), 'revealedTo' => []],
+            ]),
+            $this->snapshotWithCards([
+                [...$this->snapshotCard(instanceId: 'card-1', scryfallId: 'source-1'), 'revealedTo' => ['viewer-1']],
+            ]),
+            ['es'],
+        );
+
+        self::assertSame('https://img/es.jpg', $lookup['es']['source-1']['imageUris']['normal']);
+    }
+
     public function testDoesNotQueryLegacyExactCandidatesWhenPrintTablesCoverRequestedSourceIds(): void
     {
         $sourceResult = $this->resultWithRows([
@@ -218,12 +317,23 @@ class GameWebsocketCardLocalizationResolverTest extends TestCase
     }
 
     /**
+     * @param list<array<string,mixed>> $rows
+     */
+    private function optionalResultWithRows(array $rows): Result
+    {
+        $result = $this->createMock(Result::class);
+        $result->method('fetchAllAssociative')->willReturn($rows);
+
+        return $result;
+    }
+
+    /**
      * @return array<string,mixed>
      */
-    private function sourceRow(): array
+    private function sourceRow(string $scryfallId = 'source-1'): array
     {
         return [
-            'scryfall_id' => 'source-1',
+            'scryfall_id' => $scryfallId,
             'normalized_name' => 'sol ring',
             'set_code' => 'cmm',
             'collector_number' => '1',
@@ -275,16 +385,38 @@ class GameWebsocketCardLocalizationResolverTest extends TestCase
      */
     private function snapshotWithCard(string $scryfallId): array
     {
+        return $this->snapshotWithCards([
+            $this->snapshotCard(instanceId: 'card-1', scryfallId: $scryfallId),
+        ]);
+    }
+
+    /**
+     * @param list<array<string,mixed>> $cards
+     *
+     * @return array<string,mixed>
+     */
+    private function snapshotWithCards(array $cards): array
+    {
         return [
             'players' => [
                 'player-1' => [
                     'zones' => [
-                        'library' => [
-                            ['scryfallId' => $scryfallId],
-                        ],
+                        'library' => $cards,
                     ],
                 ],
             ],
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function snapshotCard(string $instanceId, string $scryfallId, bool $tapped = false): array
+    {
+        return [
+            'instanceId' => $instanceId,
+            'scryfallId' => $scryfallId,
+            'tapped' => $tapped,
         ];
     }
 }

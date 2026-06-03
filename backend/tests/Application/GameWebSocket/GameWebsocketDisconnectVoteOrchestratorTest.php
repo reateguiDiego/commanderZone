@@ -5,6 +5,7 @@ namespace App\Tests\Application\GameWebSocket;
 use App\Application\Game\GameCommandHandler;
 use App\Application\Game\GameDisconnectVoteService;
 use App\Application\Game\GameProjectionService;
+use App\Application\Game\WebSocket\GameWebsocketCardLocalizationResolver;
 use App\Application\Game\WebSocket\GameWebsocketDisconnectVoteOrchestrator;
 use App\Application\Game\WebSocket\GameWebsocketMessageFactory;
 use App\Application\Game\WebSocket\GameWebsocketPatchBuilder;
@@ -75,6 +76,56 @@ class GameWebsocketDisconnectVoteOrchestratorTest extends TestCase
         self::assertNull($result);
     }
 
+    public function testProjectedDisconnectVoteUsesExplicitEmptyLocalizationLookupWhenResolverFindsNoCardDelta(): void
+    {
+        [$game, $owner] = $this->game();
+        $owner->updateCardLanguage('es');
+        $capturedLookups = [];
+        $projection = $this->getMockBuilder(GameProjectionService::class)
+            ->setConstructorArgs([new GameCommandHandler()])
+            ->onlyMethods(['projectSnapshot'])
+            ->getMock();
+        $projection
+            ->expects(self::exactly(2))
+            ->method('projectSnapshot')
+            ->willReturnCallback(function (array $snapshot, User $viewer, bool $viewerCanUseOwnHiddenZones, ?array $localizedLookup = null) use (&$capturedLookups): array {
+                self::assertTrue($viewerCanUseOwnHiddenZones);
+                $capturedLookups[] = $localizedLookup;
+
+                return $snapshot;
+            });
+
+        $connection = $this->createMock(Connection::class);
+        $connection->expects(self::never())->method('executeQuery');
+        $resolver = new GameWebsocketCardLocalizationResolver($connection);
+
+        $registry = $this->createMock(ManagerRegistry::class);
+        $orchestrator = $this->orchestrator($registry, $projection, $resolver);
+        $method = new \ReflectionMethod($orchestrator, 'projectedResult');
+        $method->setAccessible(true);
+
+        $result = $method->invoke(
+            $orchestrator,
+            $game,
+            $game->snapshot(),
+            [
+                ...$game->snapshot(),
+                'disconnectVotes' => [
+                    'open' => true,
+                    'targetPlayerId' => $owner->id(),
+                    'openedAt' => '2026-01-01T00:00:10+00:00',
+                    'expiresAt' => '2026-01-01T00:01:10+00:00',
+                    'votes' => [],
+                    'requiredVotes' => 0,
+                ],
+            ],
+            new GameEvent($game, 'disconnect.vote.updated', [], $owner, 'action-disconnect'),
+        );
+
+        self::assertInstanceOf(\App\Application\Game\WebSocket\GameWebsocketCommandResult::class, $result);
+        self::assertSame([[], []], $capturedLookups);
+    }
+
     private function invokeMutateGame(
         GameWebsocketDisconnectVoteOrchestrator $orchestrator,
         string $gameId,
@@ -111,7 +162,11 @@ class GameWebsocketDisconnectVoteOrchestratorTest extends TestCase
         return $registry;
     }
 
-    private function orchestrator(ManagerRegistry $registry): GameWebsocketDisconnectVoteOrchestrator
+    private function orchestrator(
+        ManagerRegistry $registry,
+        ?GameProjectionService $projection = null,
+        ?GameWebsocketCardLocalizationResolver $resolver = null,
+    ): GameWebsocketDisconnectVoteOrchestrator
     {
         $messages = new GameWebsocketMessageFactory();
         $handler = new GameCommandHandler();
@@ -122,7 +177,8 @@ class GameWebsocketDisconnectVoteOrchestratorTest extends TestCase
             $messages,
             new GameWebsocketRoomRegistry(),
             $registry,
-            new GameProjectionService($handler),
+            $projection ?? new GameProjectionService($handler),
+            $resolver,
         );
     }
 

@@ -32,10 +32,7 @@ final class GameWebsocketCardLocalizationResolver
     public function buildLocalizedLookup(array $previousSnapshot, array $nextSnapshot, array $requestedLanguages): array
     {
         $startedAt = microtime(true);
-        $sourceIds = array_values(array_unique([
-            ...$this->snapshotScryfallIds($previousSnapshot),
-            ...$this->snapshotScryfallIds($nextSnapshot),
-        ]));
+        $sourceIds = $this->changedSnapshotScryfallIds($previousSnapshot, $nextSnapshot);
         if ($sourceIds === []) {
             return [];
         }
@@ -62,37 +59,82 @@ final class GameWebsocketCardLocalizationResolver
      *
      * @return list<string>
      */
-    private function snapshotScryfallIds(array $snapshot): array
+    private function changedSnapshotScryfallIds(array $previousSnapshot, array $nextSnapshot): array
     {
-        $ids = [];
+        $previousCards = $this->snapshotCardsByStableId($previousSnapshot);
+        $nextCards = $this->snapshotCardsByStableId($nextSnapshot);
+        $sourceIds = [];
+
+        foreach (array_unique([...array_keys($previousCards), ...array_keys($nextCards)]) as $stableId) {
+            $previousCard = $previousCards[$stableId] ?? null;
+            $nextCard = $nextCards[$stableId] ?? null;
+            if ($previousCard === $nextCard) {
+                continue;
+            }
+
+            foreach ([$previousCard, $nextCard] as $cardEntry) {
+                if (!is_array($cardEntry)) {
+                    continue;
+                }
+
+                $scryfallId = trim((string) (($cardEntry['card']['scryfallId'] ?? null) ?? ''));
+                if ($scryfallId !== '') {
+                    $sourceIds[$scryfallId] = true;
+                }
+            }
+        }
+
+        return array_keys($sourceIds);
+    }
+
+    /**
+     * @param array<string,mixed> $snapshot
+     *
+     * @return array<string,array{card: array<string,mixed>, slot: string}>
+     */
+    private function snapshotCardsByStableId(array $snapshot): array
+    {
+        $cardsByStableId = [];
         $players = $snapshot['players'] ?? null;
         if (!is_array($players)) {
             return [];
         }
 
-        foreach ($players as $player) {
+        foreach ($players as $playerId => $player) {
             if (!is_array($player) || !is_array($player['zones'] ?? null)) {
                 continue;
             }
 
-            foreach ($player['zones'] as $cards) {
+            foreach ($player['zones'] as $zone => $cards) {
                 if (!is_array($cards)) {
                     continue;
                 }
 
-                foreach ($cards as $card) {
+                foreach (array_values($cards) as $index => $card) {
                     if (!is_array($card)) {
                         continue;
                     }
 
-                    $scryfallId = trim((string) ($card['scryfallId'] ?? ''));
-                    if ($scryfallId !== '') {
-                        $ids[$scryfallId] = true;
+                    $instanceId = trim((string) ($card['instanceId'] ?? ''));
+                    if ($instanceId === '') {
+                        $instanceId = sprintf(
+                            '%s|%s|%d|%s',
+                            (string) $playerId,
+                            (string) $zone,
+                            $index,
+                            trim((string) ($card['scryfallId'] ?? '')),
+                        );
                     }
+
+                    $cardsByStableId[$instanceId] = [
+                        'card' => $card,
+                        'slot' => sprintf('%s|%s|%d', (string) $playerId, (string) $zone, $index),
+                    ];
                 }
             }
         }
 
-        return array_keys($ids);
+        return $cardsByStableId;
     }
+
 }
