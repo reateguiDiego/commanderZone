@@ -1,9 +1,10 @@
+import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, input, output, signal } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
 
 @Component({
   selector: 'app-room-create-panel',
-  imports: [LucideAngularModule],
+  imports: [RuntimeTranslatePipe, LucideAngularModule],
   templateUrl: './room-create-panel.component.html',
   styleUrl: './room-create-panel.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

@@ -3,7 +3,7 @@
 
   <div class="analysis-side-column">
     <section class="analysis-panel">
-      <h3>Type breakdown</h3>
+      <h3>{{ 'deckBuilder.deckAnalysisPanel.typeBreakdown' | runtimeTranslate }}</h3>
       <div class="analysis-list-grid">
         @for (metric of store.visibleTypeMetrics(); track metric.label) {
           <div
@@ -20,7 +20,7 @@
     </section>
 
     <section class="analysis-panel">
-      <h3>Utility counts</h3>
+      <h3>{{ 'deckBuilder.deckAnalysisPanel.utilityCounts' | runtimeTranslate }}</h3>
       <div class="analysis-list-grid">
         @for (metric of store.visibleUtilityMetrics(); track metric.label) {
           <div

@@ -1,7 +1,9 @@
 ﻿import { Routes } from '@angular/router';
 import { authGuard, guestGuard } from './core/auth/auth.guard';
+import { SEO_LANDING_ROUTES } from './features/seo-landings/seo-landing.routes';
 
 export const routes: Routes = [
+  ...SEO_LANDING_ROUTES,
   {
     path: '',
     loadComponent: () => import('./features/onboarding/onboarding-page/onboarding-page.component')

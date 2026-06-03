@@ -1,3 +1,4 @@
+import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { AuthStore } from '../../../../../core/auth/auth.store';
@@ -9,7 +10,7 @@ import { GameTableHeaderMenuComponent } from './game-table-header-menu/game-tabl
 
 @Component({
   selector: 'app-game-table-header',
-  imports: [
+  imports: [RuntimeTranslatePipe, 
     PlayerAvatarComponent,
     PlayerNameComponent,
     DashboardSettingsModalComponent,

@@ -1,3 +1,4 @@
+import { RuntimeTranslatePipe } from '../../../core/localization/runtime-translate.pipe';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -39,7 +40,7 @@ import {
 
 @Component({
   selector: 'app-table-assistant-room',
-  imports: [
+  imports: [RuntimeTranslatePipe, 
     TableAssistantReplayModalComponent,
     ExtraActionsMenuComponent,
     RollModalComponent,

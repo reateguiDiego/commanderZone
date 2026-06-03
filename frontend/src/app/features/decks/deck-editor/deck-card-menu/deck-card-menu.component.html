@@ -3,14 +3,14 @@
   <div class="card-menu-popover" [class.with-image-preview]="menu.showImagePreview" [style.top.px]="menu.top" [style.left.px]="menu.left" (click)="$event.stopPropagation()">
     <div appPrettyScroll class="card-row-menu">
       <header class="card-menu-header">
-        <span>Editing card</span>
+        <span>{{ 'deckBuilder.deckCardMenu.editingCard' | runtimeTranslate }}</span>
         <strong>{{ entry().card.name }}</strong>
         <small>{{ entry().quantity }} {{ entry().quantity === 1 ? 'copy' : 'copies' }} in {{ entry().section }}</small>
       </header>
 
-      <section class="card-menu-quantity-panel" aria-label="Copy quantity controls">
-        <label class="card-menu-amount" title="Quantity to add or remove">
-          <span>Quantity</span>
+      <section class="card-menu-quantity-panel" [attr.aria-label]="'deckBuilder.deckCardMenu.copyQuantityControls' | runtimeTranslate">
+        <label class="card-menu-amount" [title]="'deckBuilder.deckCardMenu.quantityToAddOrRemove' | runtimeTranslate">
+          <span>{{ 'deckBuilder.deckCardMenu.quantity' | runtimeTranslate }}</span>
           <input
             type="number"
             min="1"
@@ -21,43 +21,43 @@
         </label>
         <div class="card-menu-copy-controls">
           <button class="copy-action add-action" type="button" (click)="store.addCardCopy($event, entry())">
-            <span>Add</span>
+            <span>{{ 'deckBuilder.deckCardMenu.add' | runtimeTranslate }}</span>
           </button>
           <button class="copy-action remove-action" type="button" (click)="store.removeCardCopy($event, entry())">
             <lucide-icon name="minus" size="16" />
-            <span>Remove</span>
+            <span>{{ 'deckBuilder.deckCardMenu.remove' | runtimeTranslate }}</span>
           </button>
         </div>
       </section>
 
       <button class="move-action print-action" type="button" (click)="store.openPrintVersionModal($event, entry())">
-        <span>Select print version</span>
+        <span>{{ 'deckBuilder.deckCardMenu.selectPrintVersion' | runtimeTranslate }}</span>
       </button>
 
       @if (entry().section !== 'main') {
         <button class="move-action" type="button" (click)="store.moveCardToSection($event, entry(), 'main')">
-          <span>Move to main</span>
+          <span>{{ 'deckBuilder.deckCardMenu.moveToMain' | runtimeTranslate }}</span>
         </button>
       }
       @if (entry().section !== 'commander') {
         <button class="move-action" type="button" (click)="store.moveCardToSection($event, entry(), 'commander')">
-          <span>Move to commander</span>
+          <span>{{ 'deckBuilder.deckCardMenu.moveToCommander' | runtimeTranslate }}</span>
         </button>
       }
       @if (entry().section !== 'sideboard') {
         <button class="move-action" type="button" (click)="store.moveCardToSection($event, entry(), 'sideboard')">
-          <span>Move to sideboard</span>
+          <span>{{ 'deckBuilder.deckCardMenu.moveToSideboard' | runtimeTranslate }}</span>
         </button>
       }
       @if (entry().section !== 'maybeboard') {
         <button class="move-action" type="button" (click)="store.moveCardToSection($event, entry(), 'maybeboard')">
-          <span>Move to considering</span>
+          <span>{{ 'deckBuilder.deckCardMenu.moveToConsidering' | runtimeTranslate }}</span>
         </button>
       }
     </div>
 
     @if (menu.showImagePreview) {
-      <aside class="card-menu-image-preview" aria-label="Selected card preview">
+      <aside class="card-menu-image-preview" [attr.aria-label]="'deckBuilder.deckCardMenu.selectedCardPreview' | runtimeTranslate">
         @if (store.displayCardImageUrl(entry().card); as imageUrl) {
           <img [src]="imageUrl" [alt]="store.displayCardName(entry().card)" />
         } @else {

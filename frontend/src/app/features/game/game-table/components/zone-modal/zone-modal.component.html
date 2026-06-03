@@ -7,32 +7,32 @@
         <span class="zone-eyebrow">{{ currentModal.zone }}</span>
         <h2>{{ currentModal.title }}</h2>
         @if (currentModal.readOnly) {
-          <small>Read-only library review</small>
+          <small>{{ 'game.zoneModal.readOnlyLibraryReview' | runtimeTranslate }}</small>
         }
         <strong>{{ currentModal.total }} cards</strong>
       </div>
-      <button class="zone-modal-close" type="button" data-testid="zone-modal-close" aria-label="Close zone" (click)="close.emit()">
+      <button class="zone-modal-close" type="button" data-testid="zone-modal-close" [attr.aria-label]="'game.zoneModal.closeZone' | runtimeTranslate" (click)="close.emit()">
         <lucide-icon name="x" size="18" />
       </button>
     </header>
     @if (currentModal.showFilters) {
       <div class="zone-filters">
         <label>
-          <span>Type</span>
+          <span>{{ 'game.zoneModal.type' | runtimeTranslate }}</span>
           <select [ngModel]="currentModal.type" (ngModelChange)="updateType($event)">
-            <option value="">All types</option>
-            <option value="creature">Creatures</option>
-            <option value="instant">Instants</option>
-            <option value="sorcery">Sorceries</option>
-            <option value="artifact">Artifacts</option>
-            <option value="enchantment">Enchantments</option>
-            <option value="planeswalker">Planeswalkers</option>
-            <option value="land">Lands</option>
+            <option value="">{{ 'game.zoneModal.allTypes' | runtimeTranslate }}</option>
+            <option value="creature">{{ 'game.zoneModal.creatures' | runtimeTranslate }}</option>
+            <option value="instant">{{ 'game.zoneModal.instants' | runtimeTranslate }}</option>
+            <option value="sorcery">{{ 'game.zoneModal.sorceries' | runtimeTranslate }}</option>
+            <option value="artifact">{{ 'game.zoneModal.artifacts' | runtimeTranslate }}</option>
+            <option value="enchantment">{{ 'game.zoneModal.enchantments' | runtimeTranslate }}</option>
+            <option value="planeswalker">{{ 'game.zoneModal.planeswalkers' | runtimeTranslate }}</option>
+            <option value="land">{{ 'game.zoneModal.lands' | runtimeTranslate }}</option>
           </select>
         </label>
         <label class="zone-search">
-          <span>Search</span>
-          <input placeholder="Search by name" [ngModel]="currentModal.search" (ngModelChange)="updateSearch($event)" />
+          <span>{{ 'game.zoneModal.search' | runtimeTranslate }}</span>
+          <input [placeholder]="'game.zoneModal.searchByName' | runtimeTranslate" [ngModel]="currentModal.search" (ngModelChange)="updateSearch($event)" />
         </label>
       </div>
     }

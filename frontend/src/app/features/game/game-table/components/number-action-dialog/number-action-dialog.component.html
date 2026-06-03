@@ -1,8 +1,8 @@
 <section class="number-action-backdrop" data-testid="number-action-dialog">
   <form class="number-action-dialog" (click)="$event.stopPropagation()" (submit)="onSubmit($event)">
     <header>
-      <h2>{{ title() }}</h2>
-      <p>{{ description() }}</p>
+      <h2>{{ title() | runtimeTranslate }}</h2>
+      <p>{{ description() | runtimeTranslate }}</p>
     </header>
 
     <div class="number-selector" data-testid="number-action-selector">
@@ -15,12 +15,12 @@
         (input)="updateValueFromInput($event)"
         autofocus
       />
-      <div class="number-stepper" aria-label="Adjust value">
+      <div class="number-stepper" [attr.aria-label]="'game.numberActionDialog.adjustValue' | runtimeTranslate">
         <button
           class="number-stepper-button"
           type="button"
           data-testid="number-action-increase"
-          aria-label="Increase value"
+          [attr.aria-label]="'game.numberActionDialog.increaseValue' | runtimeTranslate"
           [disabled]="!canStepUp()"
           (click)="step(1)"
         >
@@ -30,7 +30,7 @@
           class="number-stepper-button"
           type="button"
           data-testid="number-action-decrease"
-          aria-label="Decrease value"
+          [attr.aria-label]="'game.numberActionDialog.decreaseValue' | runtimeTranslate"
           [disabled]="!canStepDown()"
           (click)="step(-1)"
         >
@@ -40,8 +40,8 @@
     </div>
 
     <footer>
-      <button type="button" data-testid="number-action-cancel" (click)="cancelled.emit()">{{ cancelLabel() }}</button>
-      <button class="primary-action" type="submit" data-testid="number-action-confirm">{{ confirmLabel() }}</button>
+      <button type="button" data-testid="number-action-cancel" (click)="cancelled.emit()">{{ cancelLabel() | runtimeTranslate }}</button>
+      <button class="primary-action" type="submit" data-testid="number-action-confirm">{{ confirmLabel() | runtimeTranslate }}</button>
     </footer>
   </form>
 </section>

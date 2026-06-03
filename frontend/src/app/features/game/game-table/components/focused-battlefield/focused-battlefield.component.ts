@@ -1,3 +1,4 @@
+import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import {
   AfterViewInit,
   ChangeDetectionStrategy,
@@ -103,7 +104,7 @@ const EMPTY_MANA_POOL: ManaPool = { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 };
 
 @Component({
   selector: 'app-focused-battlefield',
-  imports: [GameCardViewComponent, GameTableLongPressDirective, ManaPoolPanelComponent],
+  imports: [RuntimeTranslatePipe, GameCardViewComponent, GameTableLongPressDirective, ManaPoolPanelComponent],
   templateUrl: './focused-battlefield.component.html',
   styleUrl: './focused-battlefield.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

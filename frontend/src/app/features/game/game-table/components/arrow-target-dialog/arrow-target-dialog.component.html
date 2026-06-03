@@ -3,18 +3,18 @@
     class="arrow-target-dialog"
     role="dialog"
     aria-modal="true"
-    aria-label="Select arrow target player"
+    [attr.aria-label]="'game.arrowTargetDialog.selectArrowTargetPlayer' | runtimeTranslate"
     (click)="$event.stopPropagation()"
     (ngSubmit)="confirm()"
   >
     <header class="dialog-header">
-      <span class="dialog-kicker">Draw arrow</span>
-      <h2>Choose target board</h2>
-      <p>The selected battlefield opens behind this panel before you pick a card.</p>
+      <span class="dialog-kicker">{{ 'game.arrowTargetDialog.drawArrow' | runtimeTranslate }}</span>
+      <h2>{{ 'game.arrowTargetDialog.chooseTargetBoard' | runtimeTranslate }}</h2>
+      <p>{{ 'game.arrowTargetDialog.theSelectedBattlefieldOpensBehindThisPanel' | runtimeTranslate }}</p>
     </header>
 
     <label class="field">
-      <span>Target player</span>
+      <span>{{ 'game.arrowTargetDialog.targetPlayer' | runtimeTranslate }}</span>
       <span class="select-shell">
         <select
           data-testid="arrow-target-player-select"
@@ -38,14 +38,14 @@
         (change)="updateMultipleTargets($any($event.target).checked)"
       />
       <span>
-        <strong>Multiple targets?</strong>
-        <small>Draw several arrows from this card</small>
+        <strong>{{ 'game.arrowTargetDialog.multipleTargets' | runtimeTranslate }}</strong>
+        <small>{{ 'game.arrowTargetDialog.drawSeveralArrowsFromThisCard' | runtimeTranslate }}</small>
       </span>
     </label>
 
     @if (multipleTargets()) {
       <label class="target-count-field">
-        <span>Targets</span>
+        <span>{{ 'game.arrowTargetDialog.targets' | runtimeTranslate }}</span>
         <input
           type="number"
           data-testid="arrow-target-count-input"
@@ -65,7 +65,7 @@
         data-testid="arrow-target-cancel"
         (click)="cancelled.emit()"
       >
-        Cancel
+        {{ 'game.arrowTargetDialog.cancel' | runtimeTranslate }}
       </button>
       <button
         type="button"
@@ -73,7 +73,7 @@
         data-testid="arrow-target-confirm"
         (click)="confirm()"
       >
-        Select target
+        {{ 'game.arrowTargetDialog.selectTarget' | runtimeTranslate }}
       </button>
     </footer>
   </form>

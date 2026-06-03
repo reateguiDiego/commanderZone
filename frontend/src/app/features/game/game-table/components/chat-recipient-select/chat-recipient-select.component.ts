@@ -1,10 +1,11 @@
+import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, ElementRef, HostListener, computed, inject, input, output, signal } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
 import { ChatRecipientOption } from '../../models/game-table-chat.model';
 
 @Component({
   selector: 'app-chat-recipient-select',
-  imports: [LucideAngularModule],
+  imports: [RuntimeTranslatePipe, LucideAngularModule],
   templateUrl: './chat-recipient-select.component.html',
   styleUrl: './chat-recipient-select.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

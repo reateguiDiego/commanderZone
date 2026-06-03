@@ -3,15 +3,15 @@
     <button
       class="zoom-toggle-button"
       type="button"
-      title="Battlefield zoom"
-      aria-label="Open battlefield zoom controls"
+      [title]="'game.battlefieldZoomControls.battlefieldZoom' | runtimeTranslate"
+      [attr.aria-label]="'game.battlefieldZoomControls.openBattlefieldZoomControls' | runtimeTranslate"
       aria-expanded="false"
       (click)="toggleExpanded()"
     >
       <lucide-icon name="search" size="14" aria-hidden="true" />
     </button>
   } @else {
-    <div class="zoom-popover" data-testid="battlefield-zoom-popover" aria-label="Battlefield zoom">
+    <div class="zoom-popover" data-testid="battlefield-zoom-popover" [attr.aria-label]="'game.battlefieldZoomControls.battlefieldZoom' | runtimeTranslate">
       <span
         class="zoom-slider-shell"
         data-testid="battlefield-zoom-default-mark"
@@ -33,8 +33,8 @@
           class="zoom-slider"
           data-testid="battlefield-zoom-slider"
           type="range"
-          title="Battlefield zoom"
-          aria-label="Battlefield zoom"
+          [title]="'game.battlefieldZoomControls.battlefieldZoom' | runtimeTranslate"
+          [attr.aria-label]="'game.battlefieldZoomControls.battlefieldZoom' | runtimeTranslate"
           [min]="minZoomPercent()"
           [max]="maxZoomPercent()"
           [step]="zoomStepPercent()"
@@ -46,8 +46,8 @@
       <button
         class="reset-button"
         type="button"
-        title="Reset zoom"
-        aria-label="Reset battlefield zoom"
+        [title]="'game.battlefieldZoomControls.resetZoom' | runtimeTranslate"
+        [attr.aria-label]="'game.battlefieldZoomControls.resetBattlefieldZoom' | runtimeTranslate"
         [disabled]="!canResetZoom()"
         (click)="resetZoom.emit()"
       >

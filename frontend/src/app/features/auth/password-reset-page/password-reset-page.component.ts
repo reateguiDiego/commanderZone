@@ -1,3 +1,4 @@
+import { RuntimeTranslatePipe } from '../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -11,7 +12,7 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 @Component({
   selector: 'app-password-reset-page',
-  imports: [ReactiveFormsModule, RouterLink, LucideAngularModule],
+  imports: [RuntimeTranslatePipe, ReactiveFormsModule, RouterLink, LucideAngularModule],
   templateUrl: './password-reset-page.component.html',
   styleUrl: './password-reset-page.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

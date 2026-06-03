@@ -1,4 +1,4 @@
-<section class="timer-settings" [class.compact]="compact()" aria-label="Temporizador">
+<section class="timer-settings" [class.compact]="compact()" [attr.aria-label]="'tableAssistant.tableAssistantTimerSettings.temporizador' | runtimeTranslate">
   <div class="segmented-control">
     @for (option of timerModes(); track option) {
       <button type="button" [class.active]="timerMode() === option" [attr.aria-pressed]="timerMode() === option" [disabled]="disabled()" (click)="setTimerMode(option)">
@@ -12,9 +12,9 @@
   </div>
 
   @if (timerMode() !== 'none' && (durationPickerOpen() || !compact())) {
-    <section class="timer-wheel" aria-label="Duracion por turno">
+    <section class="timer-wheel" [attr.aria-label]="'tableAssistant.tableAssistantTimerSettings.duracionPorTurno' | runtimeTranslate">
       <div class="wheel-column">
-        <span>Min</span>
+        <span>{{ 'tableAssistant.tableAssistantTimerSettings.min' | runtimeTranslate }}</span>
         <div appPrettyScroll class="wheel-options">
           @for (minutes of timerMinuteOptions; track minutes) {
             <button type="button" [class.selected]="timerDurationMinutes() === minutes" [disabled]="disabled()" (click)="setTimerDurationMinutes(minutes)">{{ minutes }}</button>
@@ -22,7 +22,7 @@
         </div>
       </div>
       <div class="wheel-column">
-        <span>Seg</span>
+        <span>{{ 'tableAssistant.tableAssistantTimerSettings.seg' | runtimeTranslate }}</span>
         <div appPrettyScroll class="wheel-options">
           @for (seconds of timerSecondOptions; track seconds) {
             <button type="button" [class.selected]="timerDurationRemainderSeconds() === seconds" [disabled]="isSecondOptionDisabled(seconds)" (click)="setTimerDurationRemainderSeconds(seconds)">{{ seconds.toString().padStart(2, '0') }}</button>

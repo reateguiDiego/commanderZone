@@ -1,3 +1,4 @@
+import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, ElementRef, HostListener, computed, inject, input, output, signal } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
 import { ManaSymbolsComponent } from '../../../../../shared/mana/mana-symbols/mana-symbols.component';
@@ -44,7 +45,7 @@ function isManaPoolColor(value: string | undefined): value is ManaPoolColor {
 
 @Component({
   selector: 'app-mana-pool-panel',
-  imports: [LucideAngularModule, ManaSymbolsComponent],
+  imports: [RuntimeTranslatePipe, LucideAngularModule, ManaSymbolsComponent],
   templateUrl: './mana-pool-panel.component.html',
   styleUrl: './mana-pool-panel.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

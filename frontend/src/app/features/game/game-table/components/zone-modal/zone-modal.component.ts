@@ -1,3 +1,4 @@
+import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, OnDestroy, input, output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
@@ -7,7 +8,7 @@ import { ZoneModalState } from '../../state/zones/game-table-zone-modal.state';
 
 @Component({
   selector: 'app-zone-modal',
-  imports: [FormsModule, LucideAngularModule, CardSpoilerGridComponent],
+  imports: [RuntimeTranslatePipe, FormsModule, LucideAngularModule, CardSpoilerGridComponent],
   templateUrl: './zone-modal.component.html',
   styleUrl: './zone-modal.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

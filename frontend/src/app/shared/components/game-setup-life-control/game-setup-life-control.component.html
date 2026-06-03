@@ -5,12 +5,12 @@
       <strong>{{ summary() }}</strong>
     }
   </div>
-  <div class="life-editor" aria-label="Starting life">
+  <div class="life-editor" [attr.aria-label]="'rooms.setup.gameSetupLifeControl.startingLife' | runtimeTranslate">
     <button
       type="button"
       class="life-step-button"
       [disabled]="decreaseDisabled()"
-      aria-label="Decrease starting life"
+      [attr.aria-label]="'rooms.setup.gameSetupLifeControl.decreaseStartingLife' | runtimeTranslate"
       (click)="decrease()"
     >
       -
@@ -22,7 +22,7 @@
       type="button"
       class="life-step-button"
       [disabled]="increaseDisabled()"
-      aria-label="Increase starting life"
+      [attr.aria-label]="'rooms.setup.gameSetupLifeControl.increaseStartingLife' | runtimeTranslate"
       (click)="increase()"
     >
       +

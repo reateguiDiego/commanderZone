@@ -13,11 +13,11 @@ export interface RollResult {
 }
 
 export const ROLL_OPTIONS: readonly RollOption[] = [
-  { kind: 'coin', label: 'Moneda' },
-  { kind: 'd4', label: 'Dado de 4 caras' },
-  { kind: 'd6', label: 'Dado de 6 caras' },
-  { kind: 'd10', label: 'Dado de 10 caras' },
-  { kind: 'd20', label: 'Dado de 20 caras' },
+  { kind: 'coin', label: 'modals.roll.options.coin' },
+  { kind: 'd4', label: 'modals.roll.options.d4' },
+  { kind: 'd6', label: 'modals.roll.options.d6' },
+  { kind: 'd10', label: 'modals.roll.options.d10' },
+  { kind: 'd20', label: 'modals.roll.options.d20' },
 ] as const;
 
 export type RandomSource = () => number;
@@ -36,7 +36,7 @@ export function rollOption(
 
   return {
     kind: option.kind,
-    label: option.label,
+    label: runtimeTranslationFallback(option.label),
     iterationCount,
     finalResult,
   };
@@ -44,7 +44,7 @@ export function rollOption(
 
 function rollOnce(kind: RollKind, random: RandomSource): string {
   if (kind === 'coin') {
-    return randomInteger(1, 2, random) === 1 ? 'Cara' : 'Cruz';
+    return runtimeTranslationFallback(randomInteger(1, 2, random) === 1 ? 'modals.roll.results.heads' : 'modals.roll.results.tails');
   }
 
   return String(randomInteger(1, sidesFor(kind), random));
@@ -65,3 +65,4 @@ function randomInteger(minimum: number, maximum: number, random: RandomSource): 
   const normalized = Math.min(Math.max(random(), 0), 0.999999999);
   return Math.floor(normalized * (maximum - minimum + 1)) + minimum;
 }
+import { runtimeTranslationFallback } from '../../localization/runtime-translate.pipe';

@@ -62,6 +62,11 @@ CommanderZone usa una arquitectura híbrida SEO/i18n.
    - Distinto copy.
    - Distinta meta description.
    - Distintas FAQs contextuales.
+
+8. Each logical SEO landing must reuse the same component/template across all locales.
+   - Locale differences must come from localized routes and static localized content, not from duplicated Angular components.
+   - Do not create one Angular component per language or one landing component per locale.
+   - The expected SEO architecture is 10 logical SEO landings, 13 locales, and 130 localized SEO URLs using shared components and templates.
 ```
 
 ---
@@ -559,6 +564,38 @@ Requirements:
 - No hay duplicados.
 ```
 
+No crear un componente Angular por idioma.
+
+   Correcto:
+   - Una landing lógica por intención SEO.
+   - Un componente/renderer reutilizable para landings SEO.
+   - Plantillas compartidas por tipo de landing.
+   - Contenido estático localizado por idioma.
+   - URLs localizadas por idioma.
+
+   Incorrecto:
+   - PlayCommanderEsComponent.
+   - PlayCommanderEnComponent.
+   - PlayCommanderFrComponent.
+   - Un componente por locale.
+   - Un layout duplicado por idioma.
+
+   Ejemplo correcto:
+   - Landing lógica: playCommanderOnline
+   - Componente reutilizable: SeoLandingPageComponent
+   - Template reutilizable: ProductLandingTemplate
+   - Contenido localizado:
+     content/play-commander-online/es.content.ts
+     content/play-commander-online/en.content.ts
+     content/play-commander-online/fr.content.ts
+
+   Resultado esperado:
+   - 10 landings lógicas.
+   - 13 idiomas.
+   - 130 URLs SEO localizadas.
+   - Componentes compartidos.
+   - No 130 componentes.
+
 ---
 
 # Fase 9 — Crear infraestructura de landings nuevas
@@ -834,6 +871,9 @@ Requirements:
 - Use the static SeoLandingContent system.
 - Use the shared responsive landing components.
 - Use the landing composition templates.
+- Each logical SEO landing must reuse the same component/template across all locales.
+- Locale differences must come from localized routes and static localized content, not from duplicated Angular components.
+- The expected result is 10 logical SEO landings, 13 locales, 130 localized SEO URLs, shared components, and no per-locale components.
 - Do not create one-off layouts.
 - Do not duplicate layout code.
 - Every landing must support all locales:
@@ -884,6 +924,10 @@ Do not:
 - create one landing per keyword variation
 - hide competitor/comparison content
 - create non-responsive layouts
+- Do not create one Angular component per language.
+- Do not create one landing component per locale.
+- Do not duplicate templates per language.
+- Do not create 130 components for 130 URLs.
 ```
 
 ## Done

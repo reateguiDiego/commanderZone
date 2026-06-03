@@ -1,3 +1,4 @@
+import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, ElementRef, HostListener, computed, inject, input, output, signal } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
@@ -43,7 +44,7 @@ const MANA_COLOR_ORDER: readonly ManaPoolColor[] = ['W', 'U', 'B', 'R', 'G', 'C'
 
 @Component({
   selector: 'app-mana-action-dialog',
-  imports: [NgTemplateOutlet, AppModalComponent, LucideAngularModule, ManaSymbolsComponent, GameXQuantityStepperComponent],
+  imports: [RuntimeTranslatePipe, NgTemplateOutlet, AppModalComponent, LucideAngularModule, ManaSymbolsComponent, GameXQuantityStepperComponent],
   templateUrl: './mana-action-dialog.component.html',
   styleUrl: './mana-action-dialog.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

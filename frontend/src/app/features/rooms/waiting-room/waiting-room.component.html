@@ -15,18 +15,18 @@
                   @if (canViewRoomConfiguration(room)) {
                     <button class="primary-button compact setup-button" type="button" (click)="openSetupModal(room)">
                       <lucide-icon name="settings" size="16" />
-                      <span>Setup</span>
+                      <span>{{ 'rooms.waitingRoom.setup' | runtimeTranslate }}</span>
                     </button>
                   }
-                  <button class="secondary-button compact icon-action" type="button" title="Leave room" aria-label="Leave room" (click)="requestLeaveRoom(room)">
+                  <button class="secondary-button compact icon-action" type="button" [title]="'rooms.waitingRoom.leaveRoom' | runtimeTranslate" [attr.aria-label]="'rooms.waitingRoom.leaveRoom' | runtimeTranslate" (click)="requestLeaveRoom(room)">
                     <lucide-icon name="log-out" size="16" />
                   </button>
                   @if (canDeleteRoom(room)) {
                     <button
                       class="danger-button compact icon-action"
                       type="button"
-                      title="Delete room"
-                      aria-label="Delete room"
+                      [title]="'rooms.waitingRoom.deleteRoom' | runtimeTranslate"
+                      [attr.aria-label]="'rooms.waitingRoom.deleteRoom' | runtimeTranslate"
                       [disabled]="deletingRoomId() === room.id"
                       (click)="requestDeleteRoom(room)"
                     >
@@ -35,7 +35,7 @@
                   }
                 </div>
               </div>
-              <p>Choose your deck and get ready before starting.</p>
+              <p>{{ 'rooms.waitingRoom.chooseYourDeckAndGetReadyBefore' | runtimeTranslate }}</p>
             </div>
           </div>
 
@@ -114,7 +114,7 @@
               </span>
               <button class="primary-button start-button" type="button" [disabled]="!canStartRoom(room)" (click)="startRoom(room.id)">
                 <lucide-icon name="play" size="18" />
-                <span>Start</span>
+                <span>{{ 'rooms.waitingRoom.start' | runtimeTranslate }}</span>
               </button>
             </div>
           }
@@ -157,20 +157,20 @@
         <img src="/assets/icons/chance/dice_20.png" alt="" />
       </div>
       <p class="app-disclaimer-callout roll-lock-warning">
-        After rolling, your deck selection will be locked and cannot be changed.
+        {{ 'rooms.waitingRoom.afterRollingYourDeckSelectionWillBe' | runtimeTranslate }}
       </p>
     </app-modal>
 
     <app-modal
       [open]="inviteModalOpen()"
-      title="Invite friends"
+      [title]="'rooms.waitingRoom.inviteFriends' | runtimeTranslate"
       message="Choose accepted friends to invite to this room."
       secondaryLabel="Close"
       [showPrimary]="false"
       (secondary)="closeInviteModal()"
     >
       @if (friends().length === 0) {
-        <p class="muted-text">No accepted friends yet.</p>
+        <p class="muted-text">{{ 'rooms.waitingRoom.noAcceptedFriendsYet' | runtimeTranslate }}</p>
       } @else {
         <div appPrettyScroll class="friends-list invite-modal-list">
           @for (friend of friends(); track friend.id) {
@@ -185,9 +185,9 @@
                 <small>{{ friend.presence || 'offline' }}</small>
               </span>
               @if (isFriendInCurrentRoom(friend.id)) {
-                <span class="metric">In room</span>
+                <span class="metric">{{ 'rooms.waitingRoom.inRoom' | runtimeTranslate }}</span>
               } @else if (hasPendingInvite(friend.id)) {
-                <span class="metric">Invited</span>
+                <span class="metric">{{ 'rooms.waitingRoom.invited' | runtimeTranslate }}</span>
               } @else {
                 <button class="secondary-button compact" type="button" [disabled]="!canInviteFriend(room, friend.id)" (click)="inviteFriend(friend.id)">
                   {{ isInviting(friend.id) ? 'Sending' : 'Invite' }}
@@ -199,12 +199,12 @@
       }
     </app-modal>
   } @else {
-    <p class="notice">Loading room state...</p>
+    <p class="notice">{{ 'rooms.waitingRoom.loadingRoomState' | runtimeTranslate }}</p>
   }
 
   <app-modal
     [open]="roomPendingLeave() !== null"
-    title="Leave room"
+    [title]="'rooms.waitingRoom.leaveRoom' | runtimeTranslate"
     message="You will leave this room and return to the rooms list."
     primaryLabel="Leave room"
     secondaryLabel="Cancel"
@@ -219,7 +219,7 @@
 
   <app-modal
     [open]="roomPendingDelete() !== null"
-    title="Delete room"
+    [title]="'rooms.waitingRoom.deleteRoom' | runtimeTranslate"
     message="This action cannot be undone."
     primaryLabel="Delete room"
     secondaryLabel="Cancel"
@@ -234,7 +234,7 @@
 
   <app-modal
     [open]="playerPendingKick() !== null"
-    title="Kick player"
+    [title]="'rooms.waitingRoom.kickPlayer' | runtimeTranslate"
     [message]="'Quieres expulsar a ' + (playerPendingKick()?.user?.displayName ?? 'este jugador') + ' de la sala?'"
     primaryLabel="Confirmar"
     secondaryLabel="Cancelar"
@@ -245,7 +245,7 @@
 
   <app-modal
     [open]="invalidDeckSelection() !== null"
-    title="Invalid deck"
+    [title]="'rooms.waitingRoom.invalidDeck' | runtimeTranslate"
     [message]="'No puedes seleccionar ' + (invalidDeckSelection()?.name ?? 'este mazo') + ' porque tiene errores de Commander.'"
     primaryLabel="Aceptar"
     [showSecondary]="false"

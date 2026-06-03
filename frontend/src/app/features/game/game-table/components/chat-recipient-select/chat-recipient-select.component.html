@@ -3,7 +3,7 @@
     type="button"
     class="chat-recipient-trigger"
     data-testid="chat-recipient"
-    aria-label="Chat recipient"
+    [attr.aria-label]="'game.chatRecipientSelect.chatRecipient' | runtimeTranslate"
     [attr.aria-expanded]="open()"
     (click)="toggleOpen($event)"
   >

@@ -1,6 +1,6 @@
 <section
   class="mana-pool-panel"
-  aria-label="Mana pool"
+  [attr.aria-label]="'game.manaPoolPanel.manaPool' | runtimeTranslate"
   [class.controls-active]="activeControls() !== null"
   [style.--mana-pool-symbol-color]="symbolColorStyle()"
   (click)="$event.stopPropagation()"
@@ -9,8 +9,8 @@
   <button
     type="button"
     class="mana-pool-hide-button"
-    title="Hide mana pool"
-    aria-label="Hide mana pool"
+    [title]="'game.manaPoolPanel.hideManaPool' | runtimeTranslate"
+    [attr.aria-label]="'game.manaPoolPanel.hideManaPool' | runtimeTranslate"
     (click)="hidePanel($event)"
   >
     <lucide-icon name="x" size="12" aria-hidden="true" />

@@ -1,0 +1,72 @@
+.landing-comparison {
+  display: grid;
+  gap: 1.25rem;
+  padding: clamp(1.5rem, 3vw, 3rem) 0;
+}
+
+.landing-comparison__header {
+  display: grid;
+  gap: 0.55rem;
+  max-width: 46rem;
+}
+
+.landing-comparison h2,
+.landing-comparison p {
+  margin: 0;
+}
+
+.landing-comparison h2 {
+  color: var(--text);
+  font-size: clamp(1.55rem, 3vw, 2.5rem);
+}
+
+.landing-comparison p {
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.landing-comparison__table {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid rgb(255 255 255 / 12%);
+  border-radius: 0.5rem;
+}
+
+.landing-comparison__row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+  padding: 0.85rem;
+}
+
+.landing-comparison__row + .landing-comparison__row {
+  border-top: 1px solid rgb(255 255 255 / 10%);
+}
+
+.landing-comparison__row--head {
+  background: rgb(255 255 255 / 6%);
+  color: var(--text);
+  font-weight: 800;
+}
+
+.landing-comparison__row--head span:first-child {
+  display: none;
+}
+
+.landing-comparison strong {
+  color: var(--text);
+}
+
+.landing-comparison span {
+  color: var(--muted);
+}
+
+@media (width >= 768px) {
+  .landing-comparison__row {
+    grid-template-columns: minmax(8rem, 1fr) repeat(2, minmax(0, 1fr));
+  }
+
+  .landing-comparison__row--head span:first-child {
+    display: block;
+  }
+}

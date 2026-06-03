@@ -1,10 +1,10 @@
 <section class="page-stack deck-list-page">
   @if (store.loading()) {
-    <p class="notice">Loading decks...</p>
+    <p class="notice">{{ 'deckBuilder.deckList.loadingDecks' | runtimeTranslate }}</p>
   } @else if (store.error()) {
     <p class="notice error">{{ store.error() }}</p>
   } @else if (store.decks().length === 0 && store.folders().length === 0) {
-    <p class="notice">Your deck list feels a little empty. Jump in and start building!</p>
+    <p class="notice">{{ 'deckBuilder.deckList.yourDeckListFeelsALittleEmpty' | runtimeTranslate }}</p>
   }
 
   @if (!store.currentFolder() && store.hasDeckListContent()) {
@@ -34,10 +34,10 @@
               </span>
             </span>
             <div class="deck-row-actions table-actions">
-              <button class="icon-button" type="button" title="Rename folder" (click)="store.openRenameFolderModal(folder); $event.stopPropagation()">
+              <button class="icon-button" type="button" [title]="'deckBuilder.deckList.renameFolder' | runtimeTranslate" (click)="store.openRenameFolderModal(folder); $event.stopPropagation()">
                 <lucide-icon name="pencil" size="15" />
               </button>
-              <button class="icon-button danger" type="button" title="Delete folder" (click)="store.deleteFolder(folder); $event.stopPropagation()">
+              <button class="icon-button danger" type="button" [title]="'deckBuilder.deckList.deleteFolder' | runtimeTranslate" (click)="store.deleteFolder(folder); $event.stopPropagation()">
                 <lucide-icon name="trash-2" size="15" />
               </button>
             </div>
@@ -87,15 +87,15 @@
             </span>
             <div class="deck-card-footer">
               @if (store.deckHasIssues(deck)) {
-                <span class="deck-list-warning" [attr.title]="store.deckIssueTooltip(deck)" aria-label="Deck warnings">
+                <span class="deck-list-warning" [attr.title]="store.deckIssueTooltip(deck)" [attr.aria-label]="'deckBuilder.deckList.deckWarnings' | runtimeTranslate">
                   <lucide-icon name="triangle-alert" size="16" />
                 </span>
               }
               <div class="deck-row-actions table-actions">
-                <button class="icon-button" type="button" title="Edit deck" (click)="store.openDeckEditModal(deck); $event.stopPropagation()">
+                <button class="icon-button" type="button" [title]="'deckBuilder.deckList.editDeck' | runtimeTranslate" (click)="store.openDeckEditModal(deck); $event.stopPropagation()">
                   <lucide-icon name="pencil" size="16" />
                 </button>
-                <button class="icon-button danger" type="button" title="Delete deck" (click)="store.deleteDeck(deck); $event.stopPropagation()">
+                <button class="icon-button danger" type="button" [title]="'deckBuilder.deckList.deleteDeck' | runtimeTranslate" (click)="store.deleteDeck(deck); $event.stopPropagation()">
                   <lucide-icon name="trash-2" size="16" />
                 </button>
               </div>
@@ -119,7 +119,7 @@
           <div class="folder-heading">
             <button class="text-button compact" type="button" (click)="store.leaveFolder()">
               <lucide-icon name="arrow-left" size="16" />
-              Decks
+              {{ 'deckBuilder.deckList.decks' | runtimeTranslate }}
             </button>
             <span class="folder-icon-wrap">
               <lucide-icon name="folder" size="18" />
@@ -129,10 +129,10 @@
             </div>
           </div>
           <div class="button-row">
-            <button class="icon-button" type="button" title="Rename folder" (click)="store.openRenameFolderModal(store.currentFolder()!)">
+            <button class="icon-button" type="button" [title]="'deckBuilder.deckList.renameFolder' | runtimeTranslate" (click)="store.openRenameFolderModal(store.currentFolder()!)">
               <lucide-icon name="pencil" size="16" />
             </button>
-            <button class="icon-button danger" type="button" title="Delete folder" (click)="store.deleteFolder(store.currentFolder()!)">
+            <button class="icon-button danger" type="button" [title]="'deckBuilder.deckList.deleteFolder' | runtimeTranslate" (click)="store.deleteFolder(store.currentFolder()!)">
               <lucide-icon name="trash-2" size="16" />
             </button>
           </div>
@@ -182,27 +182,27 @@
               </span>
               <div class="deck-card-footer">
                 @if (store.deckHasIssues(deck)) {
-                  <span class="deck-list-warning" [attr.title]="store.deckIssueTooltip(deck)" aria-label="Deck warnings">
+                  <span class="deck-list-warning" [attr.title]="store.deckIssueTooltip(deck)" [attr.aria-label]="'deckBuilder.deckList.deckWarnings' | runtimeTranslate">
                     <lucide-icon name="triangle-alert" size="16" />
                   </span>
                 }
                 <div class="deck-row-actions table-actions">
-                  <button class="icon-button" type="button" title="Edit deck" (click)="store.openDeckEditModal(deck); $event.stopPropagation()">
+                  <button class="icon-button" type="button" [title]="'deckBuilder.deckList.editDeck' | runtimeTranslate" (click)="store.openDeckEditModal(deck); $event.stopPropagation()">
                     <lucide-icon name="pencil" size="16" />
                   </button>
-                  <button class="icon-button danger" type="button" title="Delete deck" (click)="store.deleteDeck(deck); $event.stopPropagation()">
+                  <button class="icon-button danger" type="button" [title]="'deckBuilder.deckList.deleteDeck' | runtimeTranslate" (click)="store.deleteDeck(deck); $event.stopPropagation()">
                     <lucide-icon name="trash-2" size="16" />
                   </button>
                 </div>
               </div>
             </div>
           } @empty {
-            <p class="notice">No decks in this folder yet.</p>
+            <p class="notice">{{ 'deckBuilder.deckList.noDecksInThisFolderYet' | runtimeTranslate }}</p>
           }
         </div>
       </section>
       @if (store.draggedDeckId()) {
-        <div class="folder-unfile-hint">Drag outside this folder panel to remove the deck from the folder.</div>
+        <div class="folder-unfile-hint">{{ 'deckBuilder.deckList.dragOutsideThisFolderPanelToRemove' | runtimeTranslate }}</div>
       }
     </div>
   }
@@ -225,7 +225,7 @@
           }
           @if (store.createdMissing().length > 0) {
             <div class="create-import-missing">
-              <strong>Missing cards</strong>
+              <strong>{{ 'deckBuilder.deckList.missingCards' | runtimeTranslate }}</strong>
               <span>{{ store.createdMissing().join(', ') }}</span>
             </div>
           }
@@ -233,10 +233,10 @@
       } @else {
         <fieldset class="form-stack" [disabled]="store.isCreateFormDisabled()">
           <label>
-            Deck name
+            {{ 'deckBuilder.deckList.deckName' | runtimeTranslate }}
             <input
               name="name"
-              placeholder="New deck name"
+              [placeholder]="'deckBuilder.deckList.newDeckName' | runtimeTranslate"
               required
               [maxlength]="store.maxDeckNameLength"
               [(ngModel)]="store.newDeckName"
@@ -256,9 +256,9 @@
 
           @if (store.folderOptions().length > 0) {
             <label>
-              Folder
+              {{ 'deckBuilder.deckList.folder' | runtimeTranslate }}
               <select name="folder" [(ngModel)]="store.newDeckFolderId">
-                <option value="">No folder</option>
+                <option value="">{{ 'deckBuilder.deckList.noFolder' | runtimeTranslate }}</option>
                 @for (folder of store.folderOptions(); track folder.id) {
                   <option [value]="folder.id">{{ folder.name }}</option>
                 }
@@ -273,15 +273,15 @@
           />
 
           @if (store.shouldWarnNewDeckPublicInPrivateFolder()) {
-            <p class="notice warning compact-notice">This deck is public, but its folder is private. It will not be publicly visible.</p>
+            <p class="notice warning compact-notice">{{ 'deckBuilder.deckList.thisDeckIsPublicButItsFolder' | runtimeTranslate }}</p>
           }
 
           @if (store.selectedFormat()?.hasCommander) {
             <div class="form-stack">
-              <label for="commanderSearch">Commander</label>
+              <label for="commanderSearch">{{ 'deckBuilder.deckList.commander' | runtimeTranslate }}</label>
               <input type="hidden" name="commanderScryfallId" required [ngModel]="store.selectedCommander()?.scryfallId ?? ''" />
               <app-card-autocomplete
-                placeholder="Search commander by name"
+                [placeholder]="'deckBuilder.deckList.searchCommanderByName' | runtimeTranslate"
                 actionLabel="Select"
                 [disabled]="store.isCreateFormDisabled()"
                 [filters]="{ commanderLegal: true }"
@@ -315,17 +315,17 @@
           }
 
           <label>
-            Import decklist
+            {{ 'deckBuilder.deckList.importDecklist' | runtimeTranslate }}
             <textarea
               appPrettyScroll
               name="createdDecklist"
               rows="8"
               required
-              placeholder="Example: 1 Sol Ring (VOC) 168"
+              [placeholder]="'deckBuilder.deckList.example1SolRingVoc168' | runtimeTranslate"
               [(ngModel)]="store.createdDecklist"
             ></textarea>
             <p class="app-disclaimer-callout">
-              If you include your commander in the import decklist, do not worry; we will remove it for you.
+              {{ 'deckBuilder.deckList.ifYouIncludeYourCommanderInThe' | runtimeTranslate }}
             </p>
           </label>
         </fieldset>
@@ -335,7 +335,7 @@
 
   <app-modal
     [open]="store.createSuccessModalOpen()"
-    title="Deck saved"
+    [title]="'deckBuilder.deckList.deckSaved' | runtimeTranslate"
     [message]="store.createSuccessMessage()"
     primaryLabel="Open deck"
     secondaryLabel="Back to decks"
@@ -345,7 +345,7 @@
 
   <app-modal
     [open]="store.folderCreateModalOpen()"
-    title="Create folder"
+    [title]="'deckBuilder.deckList.createFolder' | runtimeTranslate"
     primaryLabel="Create"
     secondaryLabel="Cancel"
     (primary)="store.createFolder()"
@@ -353,11 +353,11 @@
   >
     <div class="form-stack">
       <p class="folder-drag-help">
-        After creating a folder, drag decks onto it to organize them. You can also drag decks out of a folder to remove them without deleting anything.
+        {{ 'deckBuilder.deckList.afterCreatingAFolderDragDecksOnto' | runtimeTranslate }}
       </p>
       <label>
-        Folder name
-        <input name="folderName" placeholder="Jeskai, Brews, Testing..." [(ngModel)]="store.newFolderName" />
+        {{ 'deckBuilder.deckList.folderName' | runtimeTranslate }}
+        <input name="folderName" [placeholder]="'deckBuilder.deckList.jeskaiBrewsTesting' | runtimeTranslate" [(ngModel)]="store.newFolderName" />
       </label>
       <app-visibility-choice
         [(value)]="store.newFolderVisibility"
@@ -369,7 +369,7 @@
 
   <app-modal
     [open]="store.deckEditModalOpen()"
-    title="Edit deck"
+    [title]="'deckBuilder.deckList.editDeck' | runtimeTranslate"
     primaryLabel="Save"
     secondaryLabel="Cancel"
     (primary)="store.saveDeckEdit()"
@@ -377,7 +377,7 @@
   >
     <div class="form-stack">
       <label>
-        Deck name
+        {{ 'deckBuilder.deckList.deckName' | runtimeTranslate }}
         <input name="editDeckName" [(ngModel)]="store.editDeckName" />
       </label>
       <app-visibility-choice
@@ -387,14 +387,14 @@
       />
 
       @if (store.shouldWarnEditDeckPublicInPrivateFolder()) {
-        <p class="notice warning compact-notice">This deck is public, but its folder is private. It will not be publicly visible.</p>
+        <p class="notice warning compact-notice">{{ 'deckBuilder.deckList.thisDeckIsPublicButItsFolder' | runtimeTranslate }}</p>
       }
     </div>
   </app-modal>
 
   <app-modal
     [open]="store.folderRenameModalOpen()"
-    title="Rename folder"
+    [title]="'deckBuilder.deckList.renameFolder' | runtimeTranslate"
     primaryLabel="Save"
     secondaryLabel="Cancel"
     (primary)="store.renameFolder()"
@@ -402,7 +402,7 @@
   >
     <div class="form-stack">
       <label>
-        Folder name
+        {{ 'deckBuilder.deckList.folderName' | runtimeTranslate }}
         <input name="renameFolderName" [(ngModel)]="store.renameFolderName" />
       </label>
       <app-visibility-choice
@@ -415,7 +415,7 @@
 
   <app-modal
     [open]="store.folderDeleteModalOpen()"
-    title="Delete folder"
+    [title]="'deckBuilder.deckList.deleteFolder' | runtimeTranslate"
     [message]="store.folderTarget() ? 'Delete ' + store.folderTarget()!.name + '? Decks will stay without folder.' : ''"
     primaryLabel="Delete"
     secondaryLabel="Cancel"
@@ -440,7 +440,7 @@
     <img
       class="commander-floating-preview"
       [src]="preview.imageUrl"
-      alt="Commander enlarged preview"
+      [alt]="'deckBuilder.deckList.commanderEnlargedPreview' | runtimeTranslate"
       [style.left.px]="preview.x"
       [style.top.px]="preview.y"
     />

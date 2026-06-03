@@ -1,3 +1,4 @@
+import { RuntimeTranslatePipe } from '../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, ElementRef, EventEmitter, HostListener, Input, OnDestroy, Output, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
@@ -17,7 +18,7 @@ export interface CardAutocompleteSelection {
 
 @Component({
   selector: 'app-card-autocomplete',
-  imports: [FormsModule, LucideAngularModule, ManaSymbolsComponent, PrettyScrollDirective],
+  imports: [RuntimeTranslatePipe, FormsModule, LucideAngularModule, ManaSymbolsComponent, PrettyScrollDirective],
   templateUrl: './card-autocomplete.component.html',
   styleUrl: './card-autocomplete.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

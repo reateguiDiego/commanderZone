@@ -1,3 +1,4 @@
+import { RuntimeTranslatePipe } from '../../../core/localization/runtime-translate.pipe';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -25,7 +26,7 @@ import { TableAssistantTimerSettingsComponent } from '../table-assistant-timer-s
 
 @Component({
   selector: 'app-table-assistant-setup',
-  imports: [
+  imports: [RuntimeTranslatePipe, 
     FormsModule,
     PrettyScrollDirective,
     GameSetupLifeControlComponent,

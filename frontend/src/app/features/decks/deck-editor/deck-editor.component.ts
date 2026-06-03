@@ -1,3 +1,4 @@
+import { RuntimeTranslatePipe } from '../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, HostListener, NgZone, OnDestroy, effect, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
@@ -15,7 +16,7 @@ import { DeckCardTextViewComponent } from './deck-card-text-view/deck-card-text-
 
 @Component({
   selector: 'app-deck-editor',
-  imports: [
+  imports: [RuntimeTranslatePipe, 
     FormsModule,
     RouterLink,
     LucideAngularModule,
@@ -68,7 +69,7 @@ export class DeckEditorComponent implements OnDestroy {
       const deck = this.store.deck();
       if (!deck) {
         this.pageHeader.set({
-          title: 'Deck editor',
+          title: 'deckBuilder.deckEditor.header.title',
           actions: [this.backToDecksAction()],
         });
         return;
@@ -79,7 +80,7 @@ export class DeckEditorComponent implements OnDestroy {
         titleWarning: this.store.hasDeckIssues()
           ? {
             icon: 'triangle-alert',
-            label: 'Deck warnings',
+            label: 'deckBuilder.deckEditor.header.deckWarnings',
             tooltip: this.store.deckIssueTooltip(),
             tone: 'danger',
           }
@@ -88,19 +89,19 @@ export class DeckEditorComponent implements OnDestroy {
           this.backToDecksAction(),
           {
             id: 'import-deck',
-            label: 'Import',
+            label: 'deckBuilder.deckEditor.header.import',
             icon: 'upload',
             iconOnly: true,
-            tooltip: 'Import',
+            tooltip: 'deckBuilder.deckEditor.header.import',
             variant: 'primary',
             execute: () => this.store.openImportModal(),
           },
           {
             id: 'export-deck',
-            label: 'Export',
+            label: 'deckBuilder.deckEditor.header.export',
             icon: 'file-down',
             iconOnly: true,
-            tooltip: 'Export',
+            tooltip: 'deckBuilder.deckEditor.header.export',
             variant: 'secondary',
             execute: () => this.store.exportDeck(deck),
           },
@@ -193,7 +194,7 @@ export class DeckEditorComponent implements OnDestroy {
   private backToDecksAction() {
     return {
       id: 'back-to-decks',
-      label: 'Back to decks',
+      label: 'deckBuilder.deckEditor.header.backToDecks',
       icon: 'arrow-left',
       variant: 'secondary' as const,
       execute: () => {

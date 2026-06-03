@@ -1,17 +1,17 @@
 <section class="name-style-editor">
-  <header class="name-style-preview" aria-label="Name style preview">
-    <span>Current selection</span>
+  <header class="name-style-preview" [attr.aria-label]="'settings.settingsDisplayNameStyleEditor.nameStylePreview' | runtimeTranslate">
+    <span>{{ 'settings.settingsDisplayNameStyleEditor.currentSelection' | runtimeTranslate }}</span>
     <app-player-name [displayName]="displayName()" [nameStyle]="previewStyle()" size="lg" plateSize="lg" />
     <label class="name-color-picker">
-      Text color
+      {{ 'settings.settingsDisplayNameStyleEditor.textColor' | runtimeTranslate }}
       <input type="color" [value]="previewTextColor()" [disabled]="saving()" (input)="updateTextColor($any($event.target).value)" />
     </label>
   </header>
 
   <section class="style-options">
-    <nav class="style-tier-tabs" aria-label="Name style tiers">
-      <button type="button" [class.active]="activeTier() === 'basic'" (click)="switchTier('basic')">Basic</button>
-      <button type="button" [class.active]="activeTier() === 'premium'" (click)="switchTier('premium')">Premium</button>
+    <nav class="style-tier-tabs" [attr.aria-label]="'settings.settingsDisplayNameStyleEditor.nameStyleTiers' | runtimeTranslate">
+      <button type="button" [class.active]="activeTier() === 'basic'" (click)="switchTier('basic')">{{ 'settings.settingsDisplayNameStyleEditor.basic' | runtimeTranslate }}</button>
+      <button type="button" [class.active]="activeTier() === 'premium'" (click)="switchTier('premium')">{{ 'settings.settingsDisplayNameStyleEditor.premium' | runtimeTranslate }}</button>
     </nav>
 
     <div class="style-grid" [class.premium-grid]="activeTier() === 'premium'">
@@ -31,7 +31,7 @@
             plateSize="md"
           />
           @if (option.preset.tier === 'premium') {
-            <span class="premium-badge">Premium</span>
+            <span class="premium-badge">{{ 'settings.settingsDisplayNameStyleEditor.premium' | runtimeTranslate }}</span>
           }
         </button>
       }

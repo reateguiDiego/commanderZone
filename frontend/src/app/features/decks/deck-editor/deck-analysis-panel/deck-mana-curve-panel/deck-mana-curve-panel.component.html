@@ -1,12 +1,12 @@
 <section class="analysis-panel">
   <div class="analysis-panel-header">
     <div>
-      <h3>Mana curve</h3>
-      <p>Main deck by mana value.</p>
+      <h3>{{ 'deckBuilder.deckManaCurvePanel.manaCurve' | runtimeTranslate }}</h3>
+      <p>{{ 'deckBuilder.deckManaCurvePanel.mainDeckByManaValue' | runtimeTranslate }}</p>
     </div>
     <div class="analysis-legend">
-      <span><i class="legend-dot permanent-dot"></i> Permanents</span>
-      <span><i class="legend-dot spell-dot"></i> Spells</span>
+      <span><i class="legend-dot permanent-dot"></i> {{ 'deckBuilder.deckManaCurvePanel.permanents' | runtimeTranslate }}</span>
+      <span><i class="legend-dot spell-dot"></i> {{ 'deckBuilder.deckManaCurvePanel.spells' | runtimeTranslate }}</span>
     </div>
   </div>
 
@@ -38,12 +38,12 @@
   <section class="opening-hand-panel">
     <div class="analysis-panel-header compact-analysis-header">
       <div>
-        <h3>Sample hand</h3>
-        <p>Seven random cards from the main deck.</p>
+        <h3>{{ 'deckBuilder.deckManaCurvePanel.sampleHand' | runtimeTranslate }}</h3>
+        <p>{{ 'deckBuilder.deckManaCurvePanel.sevenRandomCardsFromTheMainDeck' | runtimeTranslate }}</p>
       </div>
       <button class="secondary-button compact" type="button" (click)="store.drawOpeningHand()">
         <lucide-icon name="shuffle" size="15" />
-        Draw again
+        {{ 'deckBuilder.deckManaCurvePanel.drawAgain' | runtimeTranslate }}
       </button>
     </div>
     <div class="opening-hand-list">
@@ -62,7 +62,7 @@
           }
         </button>
       } @empty {
-        <p class="notice compact-notice">No cards available.</p>
+        <p class="notice compact-notice">{{ 'deckBuilder.deckManaCurvePanel.noCardsAvailable' | runtimeTranslate }}</p>
       }
     </div>
   </section>

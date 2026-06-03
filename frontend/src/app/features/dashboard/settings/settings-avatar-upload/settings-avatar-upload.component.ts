@@ -1,3 +1,4 @@
+import { RuntimeTranslatePipe } from '../../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, computed, input, output, signal } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
 import { AvatarUpdatePayload } from '../../../../core/api/auth.api';
@@ -9,7 +10,7 @@ const AVATAR_SIZE = 512;
 
 @Component({
   selector: 'app-settings-avatar-upload',
-  imports: [LucideAngularModule],
+  imports: [RuntimeTranslatePipe, LucideAngularModule],
   templateUrl: './settings-avatar-upload.component.html',
   styleUrl: './settings-avatar-upload.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

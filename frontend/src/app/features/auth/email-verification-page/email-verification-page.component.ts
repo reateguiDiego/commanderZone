@@ -1,3 +1,4 @@
+import { RuntimeTranslatePipe } from '../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -10,7 +11,7 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 @Component({
   selector: 'app-email-verification-page',
-  imports: [ReactiveFormsModule, RouterLink, LucideAngularModule],
+  imports: [RuntimeTranslatePipe, ReactiveFormsModule, RouterLink, LucideAngularModule],
   templateUrl: './email-verification-page.component.html',
   styleUrl: './email-verification-page.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

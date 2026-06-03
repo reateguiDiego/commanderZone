@@ -1,0 +1,88 @@
+import {
+  getDefaultLocale,
+  getLocaleByCode,
+  getLocaleHreflang,
+  isSupportedLocale,
+  LocaleCode,
+  SUPPORTED_LOCALE_CODES,
+  SUPPORTED_LOCALES,
+} from './locale-config';
+
+describe('locale config', () => {
+  const expectedLocaleCodes = [
+    'es',
+    'en',
+    'de',
+    'fr',
+    'it',
+    'pt',
+    'ja',
+    'ko',
+    'zh-hans',
+    'zh-hant',
+    'nl',
+    'ca',
+    'ru',
+  ] as const satisfies readonly LocaleCode[];
+
+  it('defines the supported locales in the approved order', () => {
+    expect(SUPPORTED_LOCALE_CODES).toEqual(expectedLocaleCodes);
+  });
+
+  it('stores code, hreflang, label, and native label for every locale', () => {
+    for (const locale of SUPPORTED_LOCALES) {
+      expect(locale.code).toBeTruthy();
+      expect(locale.hreflang).toBeTruthy();
+      expect(locale.label).toBeTruthy();
+      expect(locale.nativeLabel).toBeTruthy();
+    }
+  });
+
+  it('does not contain duplicated locale codes or hreflang values', () => {
+    const localeCodes = SUPPORTED_LOCALES.map((locale) => locale.code);
+    const hreflangValues = SUPPORTED_LOCALES.map((locale) => locale.hreflang);
+
+    expect(new Set(localeCodes).size).toBe(localeCodes.length);
+    expect(new Set(hreflangValues).size).toBe(hreflangValues.length);
+  });
+
+  it('identifies supported locale codes', () => {
+    expect(isSupportedLocale('es')).toBe(true);
+    expect(isSupportedLocale('zh-hans')).toBe(true);
+    expect(isSupportedLocale('zh-hant')).toBe(true);
+  });
+
+  it('rejects unsupported or empty locale codes', () => {
+    expect(isSupportedLocale('zhs')).toBe(false);
+    expect(isSupportedLocale('zh')).toBe(false);
+    expect(isSupportedLocale('')).toBe(false);
+    expect(isSupportedLocale(null)).toBe(false);
+    expect(isSupportedLocale(undefined)).toBe(false);
+  });
+
+  it('returns locales by code', () => {
+    expect(getLocaleByCode('en')).toEqual({
+      code: 'en',
+      hreflang: 'en',
+      label: 'English',
+      nativeLabel: 'English',
+    });
+    expect(getLocaleByCode('zh-hans')?.hreflang).toBe('zh-Hans');
+    expect(getLocaleByCode('unknown')).toBeUndefined();
+  });
+
+  it('returns the default locale', () => {
+    expect(getDefaultLocale()).toEqual({
+      code: 'es',
+      hreflang: 'es',
+      label: 'Spanish',
+      nativeLabel: 'Español',
+    });
+  });
+
+  it('returns hreflang values for supported locale codes', () => {
+    expect(getLocaleHreflang('es')).toBe('es');
+    expect(getLocaleHreflang('zh-hans')).toBe('zh-Hans');
+    expect(getLocaleHreflang('zh-hant')).toBe('zh-Hant');
+  });
+});

@@ -1,4 +1,6 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
+import { TranslateService } from '@ngx-translate/core';
+import { runtimeTranslationFallback } from '../localization/runtime-translate.pipe';
 
 export type PageHeaderActionVariant = 'primary' | 'secondary';
 
@@ -46,13 +48,46 @@ export interface PageHeaderState {
 
 @Injectable({ providedIn: 'root' })
 export class PageHeaderStore {
+  private readonly translate = inject(TranslateService, { optional: true });
+
   readonly state = signal<PageHeaderState | null>(null);
 
   set(header: PageHeaderState): void {
-    this.state.set(header);
+    this.state.set({
+      ...header,
+      title: this.translateText(header.title),
+      eyebrow: header.eyebrow ? this.translateText(header.eyebrow) : undefined,
+      titleWarning: header.titleWarning
+        ? {
+            ...header.titleWarning,
+            label: this.translateText(header.titleWarning.label),
+            tooltip: this.translateText(header.titleWarning.tooltip),
+          }
+        : undefined,
+      actions: header.actions?.map((action) => ({
+        ...action,
+        label: this.translateText(action.label),
+        tooltip: action.tooltip ? this.translateText(action.tooltip) : undefined,
+      })),
+      actionFeedback: header.actionFeedback
+        ? {
+            ...header.actionFeedback,
+            message: this.translateText(header.actionFeedback.message),
+          }
+        : header.actionFeedback,
+      stats: header.stats?.map((stat) => ({
+        ...stat,
+        label: this.translateText(stat.label),
+      })),
+    });
   }
 
   clear(): void {
     this.state.set(null);
+  }
+
+  private translateText(value: string): string {
+    const translated = this.translate?.instant(value);
+    return typeof translated === 'string' && translated !== value ? translated : runtimeTranslationFallback(value);
   }
 }

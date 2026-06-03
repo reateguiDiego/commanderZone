@@ -1,7 +1,7 @@
 @if (arrowViews().length > 0) {
   <svg
     class="game-arrow-layer"
-    aria-label="Battlefield arrows"
+    [attr.aria-label]="'game.gameArrowLayer.battlefieldArrows' | runtimeTranslate"
     [attr.viewBox]="'0 0 ' + viewport().width + ' ' + viewport().height"
   >
     <defs>

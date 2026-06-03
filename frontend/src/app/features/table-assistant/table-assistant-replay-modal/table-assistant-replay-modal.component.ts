@@ -1,3 +1,4 @@
+import { RuntimeTranslatePipe } from '../../../core/localization/runtime-translate.pipe';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -27,7 +28,7 @@ type ArrangementModalMode = 'initial' | 'replay';
 
 @Component({
   selector: 'app-table-assistant-replay-modal',
-  imports: [PrettyScrollDirective, ReactiveFormsModule],
+  imports: [RuntimeTranslatePipe, PrettyScrollDirective, ReactiveFormsModule],
   templateUrl: './table-assistant-replay-modal.component.html',
   styleUrl: './table-assistant-replay-modal.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

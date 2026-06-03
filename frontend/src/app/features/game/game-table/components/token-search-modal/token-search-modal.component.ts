@@ -1,3 +1,4 @@
+import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, OnDestroy, Output, SimpleChanges, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
@@ -21,7 +22,7 @@ const MAX_TOKEN_QUANTITY = 20;
 
 @Component({
   selector: 'app-token-search-modal',
-  imports: [FormsModule, LucideAngularModule, AppModalComponent, PrettyScrollDirective, GameXQuantityStepperComponent],
+  imports: [RuntimeTranslatePipe, FormsModule, LucideAngularModule, AppModalComponent, PrettyScrollDirective, GameXQuantityStepperComponent],
   templateUrl: './token-search-modal.component.html',
   styleUrl: './token-search-modal.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

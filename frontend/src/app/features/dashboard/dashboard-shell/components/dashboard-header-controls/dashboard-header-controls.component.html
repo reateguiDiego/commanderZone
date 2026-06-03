@@ -4,11 +4,11 @@
       class="friends-trigger"
       [class.has-requests]="!friendsOpen() && pendingNotificationsCount() > 0"
       type="button"
-      title="Friends"
+      [title]="'navigation.dashboard.dashboardHeaderControls.friends' | runtimeTranslate"
       (click)="toggleFriends.emit($event)"
     >
       @if (!friendsOpen() && pendingNotificationsCount() > 0) {
-        <span class="request-badge" aria-label="Pending friend requests">
+        <span class="request-badge" [attr.aria-label]="'navigation.dashboard.dashboardHeaderControls.pendingFriendRequests' | runtimeTranslate">
           <lucide-icon name="bell" size="12" />
           {{ pendingNotificationsCount() }}
         </span>
@@ -22,7 +22,7 @@
         [fill]="true"
       />
       @if (!friendsOpen() && onlineFriendsCount() > 0) {
-        <span class="online-badge" aria-label="Online friends">{{ onlineFriendsCount() }}</span>
+        <span class="online-badge" [attr.aria-label]="'navigation.dashboard.dashboardHeaderControls.onlineFriends' | runtimeTranslate">{{ onlineFriendsCount() }}</span>
       }
     </button>
     @if (friendsOpen()) {

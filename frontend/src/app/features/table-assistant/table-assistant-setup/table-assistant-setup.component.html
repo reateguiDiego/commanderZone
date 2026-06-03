@@ -1,9 +1,9 @@
-<form class="setup-panel" aria-label="Configurar Asistente de Mesa" novalidate (ngSubmit)="createRoom()">
+<form class="setup-panel" [attr.aria-label]="'tableAssistant.tableAssistantSetup.configurarAsistenteDeMesa' | runtimeTranslate" novalidate (ngSubmit)="createRoom()">
   <div class="setup-header">
     <div>
-      <span class="eyebrow">Nueva partida</span>
-      <h2>Configura la mesa</h2>
-      <p>Jugadores, vidas y temporizador. Lo demas se ajusta durante la partida.</p>
+      <span class="eyebrow">{{ 'tableAssistant.tableAssistantSetup.nuevaPartida' | runtimeTranslate }}</span>
+      <h2>{{ 'tableAssistant.tableAssistantSetup.configuraLaMesa' | runtimeTranslate }}</h2>
+      <p>{{ 'tableAssistant.tableAssistantSetup.jugadoresVidasYTemporizadorLoDemasSe' | runtimeTranslate }}</p>
     </div>
   </div>
 
@@ -13,7 +13,7 @@
 
   <div class="setup-grid">
     <section class="setup-section players-section">
-      <h3>Jugadores</h3>
+      <h3>{{ 'tableAssistant.tableAssistantSetup.jugadores' | runtimeTranslate }}</h3>
       <div class="setup-number-controls">
         <app-game-setup-seats-control
           label="Jugadores"
@@ -64,8 +64,8 @@
     </section>
 
     <section class="setup-section rules-section">
-      <h3>Reglas de mesa</h3>
-      <p class="muted">Daño de comandante siempre activo. Temporizador opcional.</p>
+      <h3>{{ 'tableAssistant.tableAssistantSetup.reglasDeMesa' | runtimeTranslate }}</h3>
+      <p class="muted">{{ 'tableAssistant.tableAssistantSetup.danoDeComandanteSiempreActivoTemporizadorOpcional' | runtimeTranslate }}</p>
 
       <app-table-assistant-timer-settings
         [timerMode]="timerMode()"

@@ -90,7 +90,7 @@
     [attr.data-game-drop-zone]="'mana'"
     (dragover)="manaLaneDragOver.emit($event)"
     (drop)="manaLaneDropped.emit({ event: $event, playerId: focusedPlayer.id })"
-    aria-label="Mana row"
+    [attr.aria-label]="'game.focusedBattlefield.manaRow' | runtimeTranslate"
   >
     @if (canEditManaPool()(focusedPlayer.id) && !isManaPoolHidden()(focusedPlayer.id)) {
       <app-mana-pool-panel

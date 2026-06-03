@@ -1,3 +1,4 @@
+import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, ElementRef, HostListener, computed, inject, input, output, signal } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
 import { GameCardInstance, GameZoneName } from '../../../../../core/models/game.model';
@@ -78,7 +79,7 @@ type ContextSubmenu =
 
 @Component({
   selector: 'app-context-menu',
-  imports: [ContextSubmenuComponent, LucideAngularModule, ManaSymbolsComponent],
+  imports: [RuntimeTranslatePipe, ContextSubmenuComponent, LucideAngularModule, ManaSymbolsComponent],
   templateUrl: './context-menu.component.html',
   styleUrl: './context-menu.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -122,7 +123,7 @@ export class ContextMenuComponent {
   readonly moveToMenuItems = computed<readonly ContextSubmenuItem[]>(() => this.buildMoveToMenuItems());
   readonly moveAllToMenuItems = computed<readonly ContextSubmenuItem[]>(() => this.buildMoveAllToMenuItems());
   readonly revealToMenuItems = computed<readonly ContextSubmenuItem[]>(() => [
-    { value: 'all', label: 'Todos', icon: 'users' },
+    { value: 'all', label: 'game.contextMenu.labels.todos', icon: 'users' },
     ...this.sortedItems(this.players().map((player) => ({
       value: player.id,
       label: this.playerLabel(player),
@@ -141,8 +142,8 @@ export class ContextMenuComponent {
     }))),
   );
   readonly libraryViewMenuItems = computed<readonly ContextSubmenuItem[]>(() => [
-    { value: 'all', label: 'View all library', icon: 'library' },
-    { value: 'top', label: 'View X top cards', icon: 'layers-3' },
+    { value: 'all', label: 'game.contextMenu.labels.viewAllLibrary', icon: 'library' },
+    { value: 'top', label: 'game.contextMenu.labels.viewXTopCards', icon: 'layers-3' },
   ]);
   readonly manaAssistantIconSymbol = computed(() => this.randomManaIdentitySymbol());
 
@@ -509,7 +510,7 @@ export class ContextMenuComponent {
 
     return [
       ...items,
-      { value: 'library:bottom', label: 'Bottom of Library', icon: 'library' },
+      { value: 'library:bottom', label: 'game.contextMenu.labels.bottomOfLibrary', icon: 'library' },
     ];
   }
 
@@ -524,14 +525,14 @@ export class ContextMenuComponent {
     return [
       {
         value: 'battlefield',
-        label: 'Battlefield',
+        label: 'game.contextMenu.labels.battlefield',
         icon: this.zoneIcon('battlefield'),
         disabled: targetPlayers.length === 0,
         children: targetPlayers.map((player) => ({ ...player, value: `battlefield:${player.value}` })),
       },
       {
         value: 'hand',
-        label: 'Hand',
+        label: 'game.contextMenu.labels.hand',
         icon: this.zoneIcon('hand'),
         disabled: targetPlayers.length === 0,
         children: targetPlayers.map((player) => ({ ...player, value: `hand:${player.value}` })),
@@ -547,19 +548,19 @@ export class ContextMenuComponent {
     })));
 
     return [
-      { value: 'zone:library', label: 'X to bottom of library', icon: this.zoneIcon('library') },
-      { value: 'zone:graveyard', label: 'X to graveyard', icon: this.zoneIcon('graveyard') },
-      { value: 'zone:exile', label: 'X to exile', icon: this.zoneIcon('exile') },
+      { value: 'zone:library', label: 'game.contextMenu.labels.xToBottomOfLibrary', icon: this.zoneIcon('library') },
+      { value: 'zone:graveyard', label: 'game.contextMenu.labels.xToGraveyard', icon: this.zoneIcon('graveyard') },
+      { value: 'zone:exile', label: 'game.contextMenu.labels.xToExile', icon: this.zoneIcon('exile') },
       {
         value: 'hand',
-        label: 'X to hand player',
+        label: 'game.contextMenu.labels.xToHandPlayer',
         icon: this.zoneIcon('hand'),
         disabled: targetPlayers.length === 0,
         children: targetPlayers.map((player) => ({ ...player, value: `hand:${player.value}`, icon: 'users' })),
       },
       {
         value: 'battlefield',
-        label: 'X to battlefield player',
+        label: 'game.contextMenu.labels.xToBattlefieldPlayer',
         icon: this.zoneIcon('battlefield'),
         disabled: targetPlayers.length === 0,
         children: targetPlayers.map((player) => ({ ...player, value: `battlefield:${player.value}`, icon: 'users' })),
@@ -569,7 +570,7 @@ export class ContextMenuComponent {
 
   private buildVisibilityTargetMenuItems(): readonly ContextSubmenuItem[] {
     return [
-      { value: 'all', label: 'Todos', icon: 'users' },
+      { value: 'all', label: 'game.contextMenu.labels.todos', icon: 'users' },
       ...this.sortedItems(this.players().map((player) => ({
         value: player.id,
         label: this.playerLabel(player),
@@ -595,7 +596,7 @@ export class ContextMenuComponent {
     if (Object.keys(cardCounters).length > 1) {
       return this.sortedItems([
         ...items,
-        { value: 'removeAll', label: 'Remove All Counters' },
+        { value: 'removeAll', label: 'game.contextMenu.labels.removeAllCounters' },
       ]);
     }
 

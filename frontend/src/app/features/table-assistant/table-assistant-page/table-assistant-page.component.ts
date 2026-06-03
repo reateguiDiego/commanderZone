@@ -1,3 +1,4 @@
+import { RuntimeTranslatePipe } from '../../../core/localization/runtime-translate.pipe';
 ﻿import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
 import { PageHeaderStore } from '../../../core/ui/page-header.store';
 import { TableAssistantSetupComponent } from '../table-assistant-setup/table-assistant-setup.component';
@@ -9,7 +10,7 @@ interface Benefit {
 
 @Component({
   selector: 'app-table-assistant-page',
-  imports: [TableAssistantSetupComponent],
+  imports: [RuntimeTranslatePipe, TableAssistantSetupComponent],
   templateUrl: './table-assistant-page.component.html',
   styleUrl: './table-assistant-page.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -20,16 +21,16 @@ export class TableAssistantPageComponent implements OnInit, OnDestroy {
   readonly setupOpen = signal(false);
   readonly benefits: Benefit[] = [
     {
-      title: 'Vidas y comandante',
-      description: 'Controla vidas y daño de comandante sin convertir la partida en una hoja de cálculo.',
+      title: 'tableAssistant.page.benefits.lifeAndCommander.title',
+      description: 'tableAssistant.page.benefits.lifeAndCommander.description',
     },
     {
-      title: 'Turnos simples',
-      description: 'Marca jugador activo y temporizador si la mesa quiere ritmo, sin reglas automáticas.',
+      title: 'tableAssistant.page.benefits.simpleTurns.title',
+      description: 'tableAssistant.page.benefits.simpleTurns.description',
     },
     {
-      title: 'Mesa compartida',
-      description: 'Pensado para un único móvil o tablet en el centro de la mesa.',
+      title: 'tableAssistant.page.benefits.sharedTable.title',
+      description: 'tableAssistant.page.benefits.sharedTable.description',
     },
   ];
 
@@ -57,11 +58,11 @@ export class TableAssistantPageComponent implements OnInit, OnDestroy {
 
   private setHeader(): void {
     this.pageHeader.set({
-      title: 'Asistente de Mesa',
+      title: 'tableAssistant.page.header.title',
       actions: [
         {
           id: 'start-table-assistant',
-          label: 'Empezar partida',
+          label: 'tableAssistant.page.header.startGame',
           icon: 'play',
           disabled: this.setupOpen(),
           variant: 'primary',

@@ -17,7 +17,7 @@
           <span class="quantity-badge">x{{ entry.quantity }}</span>
         }
         @if (store.hasAlternateFace(entry.card)) {
-          <button class="face-toggle-button" type="button" title="Flip face" (click)="store.toggleCardFace($event, entry.card)">
+          <button class="face-toggle-button" type="button" [title]="'deckBuilder.deckCommanderShowcase.flipFace' | runtimeTranslate" (click)="store.toggleCardFace($event, entry.card)">
             <lucide-icon name="rotate-cw" size="15" />
           </button>
         }

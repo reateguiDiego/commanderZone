@@ -16,7 +16,7 @@
   </div>
 
   @if (hasDetailInfo()) {
-    <section class="attachment-preview" aria-label="Card preview details">
+    <section class="attachment-preview" [attr.aria-label]="'game.cardPreviewOverlay.cardPreviewDetails' | runtimeTranslate">
       <div class="attachment-preview-layout" [class.attachment-preview-layout-with-attachments]="hasAttachmentDetails()">
         @if (hasAttachmentDetails()) {
           @if (attachmentInfo(); as info) {
@@ -25,7 +25,7 @@
                 <div class="attachment-preview-row attached-to-row">
                   <span class="attachment-preview-label attachment-preview-label-with-icon">
                     <lucide-icon name="link" size="11" strokeWidth="2.6" aria-hidden="true" />
-                    <span>Attached to</span>
+                    <span>{{ 'game.cardPreviewOverlay.attachedTo' | runtimeTranslate }}</span>
                   </span>
                   <span class="attachment-preview-name">{{ attachedTo.name }}</span>
                 </div>
@@ -35,7 +35,7 @@
                 <div class="attachment-preview-row">
                   <span class="attachment-preview-label attachment-preview-label-with-icon">
                     <lucide-icon name="link" size="11" strokeWidth="2.6" aria-hidden="true" />
-                    <span>Attached</span>
+                    <span>{{ 'game.cardPreviewOverlay.attached' | runtimeTranslate }}</span>
                   </span>
                   <div class="attachment-preview-chips">
                     @for (attachedCard of info.attachedCards; track attachedCard.instanceId) {
@@ -52,8 +52,8 @@
           <div class="attachment-preview-column card-state-column">
             @if (stateInfo.powerToughness; as powerToughness) {
               <div class="attachment-preview-row">
-                <span class="attachment-preview-label">Current</span>
-                <span class="power-toughness-overlay preview-power-toughness" aria-label="Power and toughness">
+                <span class="attachment-preview-label">{{ 'game.cardPreviewOverlay.current' | runtimeTranslate }}</span>
+                <span class="power-toughness-overlay preview-power-toughness" [attr.aria-label]="'game.cardPreviewOverlay.powerAndToughness' | runtimeTranslate">
                   <span>{{ powerToughness.power }}</span>
                   <span>{{ powerToughness.toughness }}</span>
                 </span>
@@ -62,7 +62,7 @@
 
             @if (stateInfo.loyalty !== null) {
               <div class="attachment-preview-row">
-                <span class="attachment-preview-label">Current</span>
+                <span class="attachment-preview-label">{{ 'game.cardPreviewOverlay.current' | runtimeTranslate }}</span>
                 <app-loyalty-counter
                   class="preview-loyalty-counter"
                   [inline]="true"
@@ -75,7 +75,7 @@
 
             @if (stateInfo.counters.length > 0) {
               <div class="attachment-preview-row">
-                <span class="attachment-preview-label">Counters</span>
+                <span class="attachment-preview-label">{{ 'game.cardPreviewOverlay.counters' | runtimeTranslate }}</span>
                 <app-card-marker-rail
                   class="preview-card-marker-rail"
                   [inline]="true"

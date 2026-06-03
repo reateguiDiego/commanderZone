@@ -2,16 +2,16 @@
   <div class="page-header-context">
     <div class="page-header-title">
       @if (headerState.eyebrow) {
-        <span class="eyebrow">{{ headerState.eyebrow }}</span>
+        <span class="eyebrow">{{ headerState.eyebrow | runtimeTranslate }}</span>
       }
       <div class="page-header-title-line">
-        <h1>{{ headerState.title }}</h1>
+        <h1>{{ headerState.title | runtimeTranslate }}</h1>
         @if (headerState.titleWarning; as warning) {
           <span
             class="page-title-warning"
             [class.tone-danger]="warning.tone === 'danger'"
-            [attr.title]="warning.tooltip"
-            [attr.aria-label]="warning.label"
+            [attr.title]="warning.tooltip | runtimeTranslate"
+            [attr.aria-label]="warning.label | runtimeTranslate"
           >
             <lucide-icon [name]="warning.icon" size="20" />
           </span>
@@ -25,7 +25,7 @@
       [class.has-actions]="headerState.actions?.length"
     >
       @if (headerState.stats?.length) {
-        <div class="page-header-stats" aria-label="Page summary">
+        <div class="page-header-stats" [attr.aria-label]="'navigation.dashboard.dashboardHeaderContext.pageSummary' | runtimeTranslate">
           @for (stat of headerState.stats; track stat.id) {
             <div
               class="header-stat"
@@ -36,7 +36,7 @@
               @if (stat.icon) {
                 <lucide-icon [name]="stat.icon" size="14" />
               }
-              <span>{{ stat.label }}</span>
+              <span>{{ stat.label | runtimeTranslate }}</span>
               <strong>{{ stat.value }}</strong>
             </div>
           }
@@ -54,21 +54,21 @@
                 [class.primary-button]="action.variant === 'primary'"
                 [class.secondary-button]="action.variant === 'secondary'"
                 [attr.data-action-id]="action.id"
-                [attr.title]="action.tooltip ?? null"
-                [attr.aria-label]="action.iconOnly ? action.label : null"
+                [attr.title]="action.tooltip ? (action.tooltip | runtimeTranslate) : null"
+                [attr.aria-label]="action.iconOnly ? (action.label | runtimeTranslate) : null"
                 [disabled]="action.disabled"
                 (click)="action.execute()"
               >
                 @if (action.icon) {
                   <lucide-icon [name]="action.icon" size="16" />
                 }
-                <span [class.sr-only]="action.iconOnly">{{ action.label }}</span>
+                <span [class.sr-only]="action.iconOnly">{{ action.label | runtimeTranslate }}</span>
               </button>
             }
           </div>
           @if (headerState.actionFeedback; as feedback) {
             <span class="page-header-action-feedback" [class.tone-success]="feedback.tone === 'success'">
-              {{ feedback.message }}
+              {{ feedback.message | runtimeTranslate }}
             </span>
           }
         </div>

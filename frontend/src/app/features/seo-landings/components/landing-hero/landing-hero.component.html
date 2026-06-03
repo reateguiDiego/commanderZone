@@ -1,0 +1,30 @@
+<header class="landing-hero">
+  <div class="landing-hero__content">
+    @if (content().eyebrow) {
+      <p class="landing-hero__eyebrow">{{ content().eyebrow }}</p>
+    }
+
+    <h1>{{ content().title }}</h1>
+    <p class="landing-hero__subtitle">{{ content().subtitle }}</p>
+
+    <nav class="landing-hero__actions" aria-label="Primary landing actions">
+      <a class="landing-link landing-link--primary" [href]="content().primaryLink.href" [attr.aria-label]="content().primaryLink.ariaLabel">
+        {{ content().primaryLink.label }}
+      </a>
+
+      @if (content().secondaryLink; as secondaryLink) {
+        <a class="landing-link landing-link--secondary" [href]="secondaryLink.href" [attr.aria-label]="secondaryLink.ariaLabel">
+          {{ secondaryLink.label }}
+        </a>
+      }
+    </nav>
+  </div>
+
+  @if (content().highlights?.length) {
+    <ul class="landing-hero__highlights" aria-label="Landing highlights">
+      @for (highlight of content().highlights; track highlight) {
+        <li>{{ highlight }}</li>
+      }
+    </ul>
+  }
+</header>

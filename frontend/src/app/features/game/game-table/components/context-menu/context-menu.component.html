@@ -15,47 +15,47 @@
     <button type="button" (click)="actionSelected.emit({ type: 'refreshSnapshot' })">
       <span class="menu-item-label">
         <lucide-icon name="refresh-ccw" size="17" aria-hidden="true" />
-        <span>{{ displayLabel('Refresh Snapshot') }}</span>
+        <span>{{ displayLabel('game.contextMenu.labels.refreshSnapshot') }}</span>
       </span>
     </button>
     <button type="button" (click)="actionSelected.emit({ type: 'focusCurrentPlayer' })">
       <span class="menu-item-label">
         <lucide-icon name="maximize-2" size="17" aria-hidden="true" />
-        <span>{{ displayLabel('Focus My Board') }}</span>
+        <span>{{ displayLabel('game.contextMenu.labels.focusMyBoard') }}</span>
       </span>
     </button>
     <button type="button" (click)="actionSelected.emit({ type: 'openDebug' })">
       <span class="menu-item-label">
         <lucide-icon name="bug" size="17" aria-hidden="true" />
-        <span>{{ displayLabel('Abrir debug') }}</span>
+        <span>{{ displayLabel('game.contextMenu.labels.abrirDebug') }}</span>
       </span>
     </button>
     @if (isCurrentPlayerActive()) {
       <button type="button" class="danger-menu-item" (click)="actionSelected.emit({ type: 'concedeGame' })">
         <span class="menu-item-label">
           <lucide-icon name="skull" size="17" aria-hidden="true" />
-          <span>{{ displayLabel('Concede') }}</span>
+          <span>{{ displayLabel('game.contextMenu.labels.concede') }}</span>
         </span>
       </button>
     }
     <button type="button" class="danger-menu-item" (click)="actionSelected.emit({ type: 'leaveTable' })">
       <span class="menu-item-label">
         <lucide-icon name="log-out" size="17" aria-hidden="true" />
-        <span>{{ displayLabel('Leave Table') }}</span>
+        <span>{{ displayLabel('game.contextMenu.labels.leaveTable') }}</span>
       </span>
     </button>
   } @else if (isArrowMenu()) {
     <button type="button" class="danger-menu-item" (click)="actionSelected.emit({ type: 'deleteArrow' })">
       <span class="menu-item-label">
         <lucide-icon name="trash-2" size="17" aria-hidden="true" />
-        <span>{{ displayLabel('Delete Arrow') }}</span>
+        <span>{{ displayLabel('game.contextMenu.labels.deleteArrow') }}</span>
       </span>
     </button>
     @if (canDeleteOwnedArrows()) {
       <button type="button" class="danger-menu-item" (click)="actionSelected.emit({ type: 'deleteArrows' })">
         <span class="menu-item-label">
           <lucide-icon name="trash" size="17" aria-hidden="true" />
-          <span>{{ displayLabel('Delete Arrows') }}</span>
+          <span>{{ displayLabel('game.contextMenu.labels.deleteArrows') }}</span>
         </span>
       </button>
     }
@@ -63,47 +63,47 @@
     <button type="button" class="danger-menu-item" (click)="actionSelected.emit({ type: 'deleteCounter' })">
       <span class="menu-item-label">
         <lucide-icon name="trash-2" size="17" aria-hidden="true" />
-        <span>{{ displayLabel('Delete Counter') }}</span>
+        <span>{{ displayLabel('game.contextMenu.labels.deleteCounter') }}</span>
       </span>
     </button>
   } @else if (isManaPoolMenu()) {
     <button type="button" (click)="actionSelected.emit({ type: 'resetManaPool' })">
       <span class="menu-item-label">
         <lucide-icon name="rotate-ccw" size="17" aria-hidden="true" />
-        <span>{{ displayLabel('Reset Mana Pool') }}</span>
+        <span>{{ displayLabel('game.contextMenu.labels.resetManaPool') }}</span>
       </span>
     </button>
   } @else if (activeMenu.kind === 'player') {
     <button type="button" (click)="actionSelected.emit({ type: 'focusPlayer' })">
       <span class="menu-item-label">
         <lucide-icon name="maximize-2" size="17" aria-hidden="true" />
-        <span>{{ displayLabel('Focus Player') }}</span>
+        <span>{{ displayLabel('game.contextMenu.labels.focusPlayer') }}</span>
       </span>
     </button>
     @if (canControlActivePlayer()) {
       <button type="button" (click)="actionSelected.emit({ type: 'changeLife', delta: -1 })">
         <span class="menu-item-label">
           <lucide-icon name="minus" size="17" aria-hidden="true" />
-          <span>{{ displayLabel('Life -1') }}</span>
+          <span>{{ displayLabel('game.contextMenu.labels.life1') }}</span>
         </span>
       </button>
       <button type="button" (click)="actionSelected.emit({ type: 'changeLife', delta: 1 })">
         <span class="menu-item-label">
           <lucide-icon name="plus" size="17" aria-hidden="true" />
-          <span>{{ displayLabel('Life +1') }}</span>
+          <span>{{ displayLabel('game.contextMenu.labels.life1') }}</span>
         </span>
       </button>
     }
     <button type="button" (click)="actionSelected.emit({ type: 'openZone', zone: 'exile' })">
       <span class="menu-item-label">
         <lucide-icon name="ban" size="17" aria-hidden="true" />
-        <span>{{ displayLabel('View Exile') }}</span>
+        <span>{{ displayLabel('game.contextMenu.labels.viewExile') }}</span>
       </span>
     </button>
     <button type="button" (click)="actionSelected.emit({ type: 'openZone', zone: 'graveyard' })">
       <span class="menu-item-label">
         <img class="menu-item-image-icon" src="/assets/icons/gameplay/graveyard-gold.svg" alt="" aria-hidden="true" draggable="false" />
-        <span>{{ displayLabel('View Graveyard') }}</span>
+        <span>{{ displayLabel('game.contextMenu.labels.viewGraveyard') }}</span>
       </span>
     </button>
   } @else if (isLibraryMenu()) {
@@ -111,19 +111,19 @@
       <button type="button" (click)="actionSelected.emit({ type: 'drawCard' })">
         <span class="menu-item-label">
           <lucide-icon name="plus" size="17" aria-hidden="true" />
-          <span>{{ displayLabel('Draw Card') }}</span>
+          <span>{{ displayLabel('game.contextMenu.labels.drawCard') }}</span>
         </span>
         &nbsp;
-        <kbd>D</kbd>
+        <kbd>{{ 'game.contextMenu.d' | runtimeTranslate }}</kbd>
       </button>
       <button type="button" (click)="actionSelected.emit({ type: 'drawPrompt' })">
         <span class="menu-item-label">
           <lucide-icon name="layers-3" size="17" aria-hidden="true" />
-          <span>{{ displayLabel('Draw X Cards') }}</span>
+          <span>{{ displayLabel('game.contextMenu.labels.drawXCards') }}</span>
         </span>
       </button>
       <app-context-submenu
-        label="Move Top"
+        label="game.contextMenu.labels.moveTop"
         icon="send"
         [items]="libraryMoveTopMenuItems()"
         [expanded]="isSubmenuExpanded('libraryMoveTop')"
@@ -132,7 +132,7 @@
         (itemSelected)="selectLibraryMoveTop($event)"
       />
       <app-context-submenu
-        label="Reveal Top Card"
+        label="game.contextMenu.labels.revealTopCard"
         icon="eye"
         [items]="libraryRevealTopMenuItems()"
         [expanded]="isSubmenuExpanded('libraryRevealTop')"
@@ -141,7 +141,7 @@
         (itemSelected)="selectLibraryRevealTopTarget($event)"
       />
       <app-context-submenu
-        label="Reveal Library"
+        label="game.contextMenu.labels.revealLibrary"
         icon="eye"
         [items]="libraryRevealMenuItems()"
         [expanded]="isSubmenuExpanded('libraryReveal')"
@@ -158,23 +158,23 @@
       <button type="button" (click)="actionSelected.emit({ type: 'shuffle' })">
         <span class="menu-item-label">
           <lucide-icon name="refresh-ccw" size="17" aria-hidden="true" />
-          <span>{{ displayLabel('Shuffle') }}</span>
+          <span>{{ displayLabel('game.contextMenu.labels.shuffle') }}</span>
         </span>
         &nbsp;
-        <kbd>S</kbd>
+        <kbd>{{ 'game.contextMenu.s' | runtimeTranslate }}</kbd>
       </button>
     }
     @if (canSelectRandomFromActiveZone()) {
       <button type="button" (click)="actionSelected.emit({ type: 'selectRandomCard' })">
         <span class="menu-item-label">
           <lucide-icon name="dices" size="17" aria-hidden="true" />
-          <span>{{ displayLabel('Select Random Card') }}</span>
+          <span>{{ displayLabel('game.contextMenu.labels.selectRandomCard') }}</span>
         </span>
       </button>
     }
     @if (isCurrentPlayer()(activeMenu.playerId)) {
       <app-context-submenu
-        label="View"
+        label="game.contextMenu.labels.view"
         icon="library"
         [items]="libraryViewMenuItems()"
         [expanded]="isSubmenuExpanded('libraryView')"
@@ -189,13 +189,13 @@
         <button type="button" (click)="actionSelected.emit({ type: 'createToken' })">
           <span class="menu-item-label">
             <lucide-icon name="ghost" size="17" aria-hidden="true" />
-            <span>{{ displayLabel('Create Token') }}</span>
+            <span>{{ displayLabel('game.contextMenu.labels.createToken') }}</span>
           </span>
         </button>
         <button type="button" (click)="actionSelected.emit({ type: 'rollDice' })">
           <span class="menu-item-label">
             <lucide-icon name="dices" size="17" aria-hidden="true" />
-            <span>{{ displayLabel('Tirar dado') }}</span>
+            <span>{{ displayLabel('game.contextMenu.labels.tirarDado') }}</span>
           </span>
         </button>
         @if (canShowManaPool()) {
@@ -207,7 +207,7 @@
                 [costBackground]="false"
                 aria-hidden="true"
               />
-              <span>{{ displayLabel('Show Mana Pool') }}</span>
+              <span>{{ displayLabel('game.contextMenu.labels.showManaPool') }}</span>
             </span>
           </button>
         }
@@ -215,7 +215,7 @@
     } @else {
       @if (canMoveActiveZoneCards()) {
         <app-context-submenu
-          label="Move All To"
+          label="game.contextMenu.labels.moveAllTo"
           icon="send"
           [items]="moveAllToMenuItems()"
           [expanded]="isSubmenuExpanded('moveAllTo')"
@@ -230,14 +230,14 @@
         <button type="button" (click)="actionSelected.emit({ type: 'selectRandomCard' })">
           <span class="menu-item-label">
             <lucide-icon name="dices" size="17" aria-hidden="true" />
-            <span>{{ displayLabel('Select Random Card') }}</span>
+            <span>{{ displayLabel('game.contextMenu.labels.selectRandomCard') }}</span>
           </span>
         </button>
       }
       <button type="button" (click)="actionSelected.emit({ type: 'openZone', zone: activeMenu.zone })">
         <span class="menu-item-label">
           <lucide-icon name="eye" size="17" aria-hidden="true" />
-          <span>{{ displayLabel('View') }}</span>
+          <span>{{ displayLabel('game.contextMenu.labels.view') }}</span>
         </span>
       </button>
     }
@@ -245,7 +245,7 @@
     @if (canControlPlayer()(activeMenu.playerId)) {
       @if (showsBattlefieldCardActions()) {
         <app-context-submenu
-          label="Counters"
+          label="game.contextMenu.labels.counters"
           icon="counter-pill"
           [items]="counterMenuItems()"
           [expanded]="isSubmenuExpanded('counters')"
@@ -256,7 +256,7 @@
         <button type="button" (click)="actionSelected.emit({ type: 'drawArrow' })">
           <span class="menu-item-label">
             <lucide-icon name="send" size="17" aria-hidden="true" />
-            <span>{{ displayLabel('Draw Arrow') }}</span>
+            <span>{{ displayLabel('game.contextMenu.labels.drawArrow') }}</span>
           </span>
         </button>
         @if (canUseManaAssistant()) {
@@ -268,7 +268,7 @@
                 [costBackground]="false"
                 aria-hidden="true"
               />
-              <span>{{ displayLabel('Add Mana') }}</span>
+              <span>{{ displayLabel('game.contextMenu.labels.addMana') }}</span>
             </span>
           </button>
         }
@@ -276,7 +276,7 @@
           <button type="button" (click)="actionSelected.emit({ type: 'equipCard' })">
             <span class="menu-item-label">
               <lucide-icon name="link" size="17" aria-hidden="true" />
-              <span>{{ displayLabel('Attach to...') }}</span>
+              <span>{{ displayLabel('game.contextMenu.labels.attachTo') }}</span>
             </span>
           </button>
         }
@@ -284,7 +284,7 @@
           <button type="button" (click)="actionSelected.emit({ type: 'unequipCard' })">
             <span class="menu-item-label">
               <lucide-icon name="unlink-2" size="17" aria-hidden="true" />
-              <span>{{ displayLabel('Unequip') }}</span>
+              <span>{{ displayLabel('game.contextMenu.labels.unequip') }}</span>
             </span>
           </button>
         }
@@ -292,12 +292,12 @@
           <button type="button" (click)="actionSelected.emit({ type: 'unequipAttachedCards' })">
             <span class="menu-item-label">
               <lucide-icon name="link-2-off" size="17" aria-hidden="true" />
-              <span>{{ displayLabel('Detach all attached') }}</span>
+              <span>{{ displayLabel('game.contextMenu.labels.detachAllAttached') }}</span>
             </span>
           </button>
         }
         <app-context-submenu
-          label="Give To Player"
+          label="game.contextMenu.labels.giveToPlayer"
           icon="gift"
           [items]="giveToPlayerMenuItems()"
           [expanded]="isSubmenuExpanded('giveToPlayer')"
@@ -308,11 +308,11 @@
         <button type="button" (click)="actionSelected.emit({ type: 'tokenCopy' })">
           <span class="menu-item-label">
             <lucide-icon name="ghost" size="17" aria-hidden="true" />
-            <span>{{ displayLabel('Make A Token Copy') }}</span>
+            <span>{{ displayLabel('game.contextMenu.labels.makeATokenCopy') }}</span>
           </span>
         </button>
         <app-context-submenu
-          label="Move To"
+          label="game.contextMenu.labels.moveTo"
           icon="upload"
           [items]="moveToMenuItems()"
           [expanded]="isSubmenuExpanded('moveTo')"
@@ -326,14 +326,14 @@
               <span class="menu-item-remove-stack-icon" aria-hidden="true">
                 <lucide-icon name="layers-3" size="17" aria-hidden="true" />
               </span>
-              <span>{{ displayLabel('Remove stack') }}</span>
+              <span>{{ displayLabel('game.contextMenu.labels.removeStack') }}</span>
             </span>
           </button>
         }
         @if (canAddPowerToughness() || canRemovePowerToughness()) {
           <button type="button" (click)="actionSelected.emit(powerToughnessAction())">
             <span class="menu-item-label">
-              <span class="menu-item-pt-icon" aria-hidden="true">X/X</span>
+              <span class="menu-item-pt-icon" aria-hidden="true">{{ 'game.contextMenu.xX' | runtimeTranslate }}</span>
               <span>{{ displayLabel(powerToughnessLabel()) }}</span>
             </span>
           </button>
@@ -343,7 +343,7 @@
             <button type="button" (click)="actionSelected.emit({ type: 'flipCardFace' })">
               <span class="menu-item-label">
                 <lucide-icon name="rotate-cw" size="17" aria-hidden="true" />
-                <span>{{ displayLabel('Flip Card Face') }}</span>
+                <span>{{ displayLabel('game.contextMenu.labels.flipCardFace') }}</span>
               </span>
             </button>
           }
@@ -352,14 +352,14 @@
               <lucide-icon name="eye-off" size="17" aria-hidden="true" />
               <span>{{ displayLabel(faceDownLabel()) }}</span>
             </span>
-            <kbd>Z</kbd>
+            <kbd>{{ 'game.contextMenu.z' | runtimeTranslate }}</kbd>
           </button>
           <button type="button" (click)="actionSelected.emit({ type: 'tapCard' })">
             <span class="menu-item-label">
               <lucide-icon name="rotate-ccw" size="17" aria-hidden="true" />
               <span>{{ displayLabel(tapLabel()) }}</span>
             </span>
-            <kbd>T</kbd>
+            <kbd>{{ 'game.contextMenu.t' | runtimeTranslate }}</kbd>
           </button>
         } @else {
           <button type="button" (click)="actionSelected.emit({ type: 'tapCard' })">
@@ -367,13 +367,13 @@
               <lucide-icon name="rotate-ccw" size="17" aria-hidden="true" />
               <span>{{ displayLabel(tapLabel()) }}</span>
             </span>
-            <kbd>T</kbd>
+            <kbd>{{ 'game.contextMenu.t' | runtimeTranslate }}</kbd>
           </button>
           @if (canFlipCardFace()) {
             <button type="button" (click)="actionSelected.emit({ type: 'flipCardFace' })">
               <span class="menu-item-label">
                 <lucide-icon name="rotate-cw" size="17" aria-hidden="true" />
-                <span>{{ displayLabel('Flip Card Face') }}</span>
+                <span>{{ displayLabel('game.contextMenu.labels.flipCardFace') }}</span>
               </span>
             </button>
           }
@@ -382,7 +382,7 @@
               <lucide-icon name="eye-off" size="17" aria-hidden="true" />
               <span>{{ displayLabel(faceDownLabel()) }}</span>
             </span>
-            <kbd>Z</kbd>
+            <kbd>{{ 'game.contextMenu.z' | runtimeTranslate }}</kbd>
           </button>
         }
       } @else {
@@ -390,7 +390,7 @@
           <button type="button" (click)="actionSelected.emit({ type: 'flipCardFace' })">
             <span class="menu-item-label">
               <lucide-icon name="rotate-cw" size="17" aria-hidden="true" />
-              <span>{{ displayLabel('Flip Card Face') }}</span>
+              <span>{{ displayLabel('game.contextMenu.labels.flipCardFace') }}</span>
             </span>
           </button>
         }
@@ -398,7 +398,7 @@
           <button type="button" (click)="actionSelected.emit({ type: 'tokenCopy' })">
             <span class="menu-item-label">
               <lucide-icon name="ghost" size="17" aria-hidden="true" />
-              <span>{{ displayLabel('Make A Token Copy') }}</span>
+              <span>{{ displayLabel('game.contextMenu.labels.makeATokenCopy') }}</span>
             </span>
           </button>
         }
@@ -406,12 +406,12 @@
           <button type="button" (click)="actionSelected.emit({ type: 'playFaceDown' })">
             <span class="menu-item-label">
               <lucide-icon name="eye-off" size="17" aria-hidden="true" />
-              <span>{{ displayLabel('Play Face Down') }}</span>
+              <span>{{ displayLabel('game.contextMenu.labels.playFaceDown') }}</span>
             </span>
           </button>
           @if (!activeMenu.fromFixedZoneModal) {
             <app-context-submenu
-              label="Give To"
+              label="game.contextMenu.labels.giveTo"
               icon="gift"
               [items]="giveToPlayerMenuItems()"
               [expanded]="isSubmenuExpanded('giveToPlayer')"
@@ -423,7 +423,7 @@
         }
         @if (canGiveFixedZoneCard()) {
           <app-context-submenu
-            label="Give To"
+            label="game.contextMenu.labels.giveTo"
             icon="gift"
             [items]="giveToDestinationMenuItems()"
             [expanded]="isSubmenuExpanded('giveToPlayer')"
@@ -436,12 +436,12 @@
           <button type="button" (click)="actionSelected.emit({ type: 'selectRandomCard' })">
             <span class="menu-item-label">
               <lucide-icon name="dices" size="17" aria-hidden="true" />
-              <span>{{ displayLabel('Select Random Card') }}</span>
+              <span>{{ displayLabel('game.contextMenu.labels.selectRandomCard') }}</span>
             </span>
           </button>
         }
         <app-context-submenu
-          label="Move To"
+          label="game.contextMenu.labels.moveTo"
           icon="upload"
           [items]="moveToMenuItems()"
           [expanded]="isSubmenuExpanded('moveTo')"
@@ -451,7 +451,7 @@
         />
         @if (activeMenu.zone === 'hand') {
           <app-context-submenu
-            label="Reveal"
+            label="game.contextMenu.labels.reveal"
             icon="eye"
             [items]="revealToMenuItems()"
             [expanded]="isSubmenuExpanded('revealTo')"
@@ -465,7 +465,7 @@
       <button type="button" (click)="actionSelected.emit({ type: 'previewCard' })">
         <span class="menu-item-label">
           <lucide-icon name="search" size="17" aria-hidden="true" />
-          <span>{{ displayLabel('Preview Card') }}</span>
+          <span>{{ displayLabel('game.contextMenu.labels.previewCard') }}</span>
         </span>
       </button>
     }

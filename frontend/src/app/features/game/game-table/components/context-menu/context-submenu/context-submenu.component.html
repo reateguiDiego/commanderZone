@@ -9,7 +9,7 @@
     <span class="submenu-item-label">
       @if (icon()) {
         @if (isCounterPillIcon(icon()!)) {
-          <span class="submenu-item-counter-pill-icon" aria-hidden="true">X</span>
+          <span class="submenu-item-counter-pill-icon" aria-hidden="true">{{ 'game.contextSubmenu.x' | runtimeTranslate }}</span>
         } @else if (isGraveyardAssetIcon(icon()!)) {
           <img class="submenu-item-image-icon submenu-item-graveyard-icon" [src]="icon()!" alt="" aria-hidden="true" draggable="false" />
         } @else if (isAssetIcon(icon()!)) {
@@ -38,7 +38,7 @@
             <span class="submenu-item-label">
               @if (item.icon) {
                 @if (isCounterPillIcon(item.icon)) {
-                  <span class="submenu-item-counter-pill-icon" aria-hidden="true">X</span>
+                  <span class="submenu-item-counter-pill-icon" aria-hidden="true">{{ 'game.contextSubmenu.x' | runtimeTranslate }}</span>
                 } @else if (isGraveyardAssetIcon(item.icon)) {
                   <img class="submenu-item-image-icon submenu-item-graveyard-icon" [src]="item.icon" alt="" aria-hidden="true" draggable="false" />
                 } @else if (isAssetIcon(item.icon)) {
@@ -70,7 +70,7 @@
                   <span class="submenu-item-label">
                     @if (child.icon) {
                       @if (isCounterPillIcon(child.icon)) {
-                        <span class="submenu-item-counter-pill-icon" aria-hidden="true">X</span>
+                        <span class="submenu-item-counter-pill-icon" aria-hidden="true">{{ 'game.contextSubmenu.x' | runtimeTranslate }}</span>
                       } @else if (isGraveyardAssetIcon(child.icon)) {
                         <img class="submenu-item-image-icon submenu-item-graveyard-icon" [src]="child.icon" alt="" aria-hidden="true" draggable="false" />
                       } @else if (isAssetIcon(child.icon)) {

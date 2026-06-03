@@ -1,0 +1,61 @@
+.landing-use-cases {
+  display: grid;
+  gap: 1.25rem;
+  padding: clamp(1.5rem, 3vw, 3rem) 0;
+}
+
+.landing-use-cases__header {
+  display: grid;
+  gap: 0.55rem;
+  max-width: 46rem;
+}
+
+.landing-use-cases h2,
+.landing-use-cases h3,
+.landing-use-cases p {
+  margin: 0;
+}
+
+.landing-use-cases h2 {
+  color: var(--text);
+  font-size: clamp(1.55rem, 3vw, 2.5rem);
+  line-height: 1.12;
+}
+
+.landing-use-cases__header p,
+.landing-use-case p {
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.landing-use-cases__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(16rem, 100%), 1fr));
+  gap: 0.875rem;
+}
+
+.landing-use-case {
+  display: grid;
+  gap: 0.65rem;
+  min-width: 0;
+  border: 1px solid rgb(255 255 255 / 12%);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  background: rgb(255 255 255 / 4%);
+}
+
+.landing-use-case h3,
+.landing-use-case p,
+.landing-use-case a {
+  overflow-wrap: anywhere;
+}
+
+.landing-use-case h3 {
+  color: var(--text);
+  font-size: 1rem;
+}
+
+.landing-use-case a {
+  color: var(--accent);
+  font-weight: 800;
+}

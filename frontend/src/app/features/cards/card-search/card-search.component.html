@@ -1,22 +1,22 @@
 <section class="page-stack">
   <div class="tool-header">
     <div>
-      <span class="eyebrow">Cards</span>
-      <h2>Search library</h2>
+      <span class="eyebrow">{{ 'deckBuilder.cards.cardSearch.cards' | runtimeTranslate }}</span>
+      <h2>{{ 'deckBuilder.cards.cardSearch.searchLibrary' | runtimeTranslate }}</h2>
     </div>
     <form class="search-bar" (ngSubmit)="search()">
       <lucide-icon name="search" size="18" />
-      <input name="query" placeholder="Sol Ring, Atraxa, Lightning Greaves..." [(ngModel)]="query" />
-      <button class="primary-button compact" type="submit">Search</button>
+      <input name="query" [placeholder]="'deckBuilder.cards.cardSearch.solRingAtraxaLightningGreaves' | runtimeTranslate" [(ngModel)]="query" />
+      <button class="primary-button compact" type="submit">{{ 'deckBuilder.cards.cardSearch.search' | runtimeTranslate }}</button>
     </form>
   </div>
 
   @if (loading()) {
-    <p class="notice">Searching cards...</p>
+    <p class="notice">{{ 'deckBuilder.cards.cardSearch.searchingCards' | runtimeTranslate }}</p>
   } @else if (error()) {
     <p class="notice error">{{ error() }}</p>
   } @else if (searched() && results().length === 0) {
-    <p class="notice">No cards found.</p>
+    <p class="notice">{{ 'deckBuilder.cards.cardSearch.noCardsFound' | runtimeTranslate }}</p>
   }
 
   <div class="card-results">

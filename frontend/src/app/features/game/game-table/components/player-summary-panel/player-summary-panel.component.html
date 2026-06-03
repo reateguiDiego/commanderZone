@@ -36,7 +36,7 @@
     </div>
   </div>
   <div class="life-controls" data-testid="focused-player-life" [attr.data-player-id]="currentPlayer.id">
-    <div class="life-stepper" aria-label="Life controls">
+    <div class="life-stepper" [attr.aria-label]="'game.playerSummaryPanel.lifeControls' | runtimeTranslate">
       @if (canEditCounters()) {
         <button
           type="button"
@@ -60,7 +60,7 @@
         [attr.data-player-id]="currentPlayer.id"
         (click)="changeLife($event, 1)"
         (contextmenu)="changeLife($event, -1)"
-        aria-label="Life total"
+        [attr.aria-label]="'game.playerSummaryPanel.lifeTotal' | runtimeTranslate"
       >
         {{ displayedLife() }}
       </button>
@@ -94,20 +94,20 @@
     <app-extra-actions-menu
       class="player-extra-actions"
       data-testid="player-extra-menu-host"
-      label="Extras"
-      ariaLabel="Open extra player counters"
-      menuLabel="Extra player counters"
+      label="game.playerSummaryPanel.extras"
+      ariaLabel="game.playerSummaryPanel.openExtraPlayerCounters"
+      menuLabel="game.playerSummaryPanel.extraPlayerCounters"
       icon="chevron-down"
       align="right"
       variant="gold"
       [viewportSafe]="true"
       (openedChange)="syncOtherCountersExpansion($event)"
     >
-      <section class="player-counter-menu" aria-label="Player counters" [class.read-only]="!canEditCounters()">
+      <section class="player-counter-menu" [attr.aria-label]="'game.playerSummaryPanel.playerCounters' | runtimeTranslate" [class.read-only]="!canEditCounters()">
         @if (commanderDamageRows().length > 0) {
           <div class="counter-menu-section commander-damage-section">
             <div class="counter-menu-heading">
-              <span>Commander damage</span>
+              <span>{{ 'game.playerSummaryPanel.commanderDamage' | runtimeTranslate }}</span>
             </div>
             @for (row of commanderDamageRows(); track row.sourcePlayerId) {
               <article class="counter-row commander-damage-row">
@@ -154,7 +154,7 @@
               aria-controls="player-other-counters"
               (click)="toggleOtherCounters($event)"
             >
-              <span>Other counters</span>
+              <span>{{ 'game.playerSummaryPanel.otherCounters' | runtimeTranslate }}</span>
               <lucide-icon name="chevron-down" size="14" aria-hidden="true" />
             </button>
           </div>
@@ -166,15 +166,15 @@
                     <span class="counter-tracker-icon" aria-hidden="true">
                       <lucide-icon [name]="tracker.icon" size="14" />
                     </span>
-                    <strong>{{ tracker.label }}</strong>
+                    <strong>{{ tracker.label | runtimeTranslate }}</strong>
                   </span>
                   @if (canEditCounters()) {
-                    <span class="counter-stepper" aria-label="{{ tracker.label }} counters">
+                    <span class="counter-stepper" aria-label="{{ tracker.label | runtimeTranslate }} counters">
                       <span class="counter-value">{{ counterValue(tracker.key) }}</span>
                       <button
                         type="button"
                         class="counter-step-button"
-                        aria-label="Remove {{ tracker.label }} counter"
+                        aria-label="Remove {{ tracker.label | runtimeTranslate }} counter"
                         (click)="changePlayerCounter($event, tracker.key, -1)"
                       >
                         <span aria-hidden="true">-</span>
@@ -182,14 +182,14 @@
                       <button
                         type="button"
                         class="counter-step-button"
-                        aria-label="Add {{ tracker.label }} counter"
+                        aria-label="Add {{ tracker.label | runtimeTranslate }} counter"
                         (click)="changePlayerCounter($event, tracker.key, 1)"
                       >
                         <span aria-hidden="true">+</span>
                       </button>
                     </span>
                   } @else {
-                    <span class="counter-readonly-value" aria-label="{{ tracker.label }} counters">
+                    <span class="counter-readonly-value" aria-label="{{ tracker.label | runtimeTranslate }} counters">
                       {{ counterValue(tracker.key) }}
                     </span>
                   }

@@ -19,11 +19,11 @@
 >
   <section class="rematch-body" [class.winner-copy]="winner()">
     @if (currentVote(); as vote) {
-      <p class="current-vote">Tu voto actual: <strong>{{ voteLabel(vote) }}</strong></p>
+      <p class="current-vote">{{ 'game.gameRematchModal.tuVotoActual' | runtimeTranslate }} <strong>{{ voteLabel(vote) }}</strong></p>
     }
 
     @if (playAgainDisabled()) {
-      <p class="current-vote">El resto de jugadores ya ha votado abandonar la room.</p>
+      <p class="current-vote">{{ 'game.gameRematchModal.elRestoDeJugadoresYaHaVotado' | runtimeTranslate }}</p>
     }
 
     @if (countdownSeconds() !== null) {
@@ -34,7 +34,7 @@
       </aside>
     }
 
-    <div class="votes-box" aria-label="Votaciones de la room">
+    <div class="votes-box" [attr.aria-label]="'game.gameRematchModal.votacionesDeLaRoom' | runtimeTranslate">
       @for (player of players(); track player.playerId) {
         <article class="vote-row" [class.defeated]="player.defeated">
           <span class="player-name">{{ player.displayName }}</span>

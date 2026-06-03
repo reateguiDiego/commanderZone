@@ -20,7 +20,7 @@
     }
 
     @if (hasProductionParts()) {
-      <section class="mana-production-panel" aria-label="Mana production parts">
+      <section class="mana-production-panel" [attr.aria-label]="'game.manaActionDialog.manaProductionParts' | runtimeTranslate">
         @for (part of productionParts(); track part.id) {
           <article class="mana-production-part" [class.mana-production-part--fixed]="part.kind === 'fixed'">
             <header class="mana-production-part-header">
@@ -39,7 +39,7 @@
 
             @switch (part.kind) {
               @case ('fixed') {
-                <div class="mana-production-fixed" aria-label="Fixed mana">
+                <div class="mana-production-fixed" [attr.aria-label]="'game.manaActionDialog.fixedMana' | runtimeTranslate">
                   @for (addition of part.additions; track addition.color) {
                     <span class="mana-production-fixed-item">
                       <app-mana-symbols [symbols]="[addition.color]" size="small" />
@@ -71,7 +71,7 @@
     @if (showSelectionPanel()) {
       <section class="mana-selection-panel">
         @if (showFixedPreview()) {
-          <div class="mana-choice-grid" aria-label="Mana to add">
+          <div class="mana-choice-grid" [attr.aria-label]="'game.manaActionDialog.manaToAdd' | runtimeTranslate">
             @for (addition of suggestion().additions; track addition.color) {
               <span class="mana-choice mana-choice--fixed selected">
                 <app-mana-symbols [symbols]="[addition.color]" size="small" />
@@ -82,7 +82,7 @@
         }
 
         @if (showAmountSelector()) {
-          <div class="mana-amount-control" aria-label="Mana amount">
+          <div class="mana-amount-control" [attr.aria-label]="'game.manaActionDialog.manaAmount' | runtimeTranslate">
             <app-game-x-quantity-stepper
               [value]="amount()"
               [min]="1"
@@ -122,7 +122,7 @@
       <ng-container [ngTemplateOutlet]="manaActionContent" />
 
       <footer class="mana-popover-actions">
-        <button type="button" class="secondary-button" (click)="cancelled.emit()">Cancel</button>
+        <button type="button" class="secondary-button" (click)="cancelled.emit()">{{ 'game.manaActionDialog.cancel' | runtimeTranslate }}</button>
         <button type="button" class="primary-button" [disabled]="primaryDisabled()" (click)="confirm()">
           {{ confirmLabel() }}
         </button>

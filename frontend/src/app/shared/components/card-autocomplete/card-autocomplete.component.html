@@ -11,7 +11,7 @@
 
   @if (!disabled && loading()) {
     <section class="panel card-autocomplete-panel">
-      <p class="notice compact-notice">Searching cards...</p>
+      <p class="notice compact-notice">{{ 'deckBuilder.cards.autocomplete.cardAutocomplete.searchingCards' | runtimeTranslate }}</p>
     </section>
   } @else if (!disabled && results().length > 0) {
     <section class="panel card-autocomplete-panel">

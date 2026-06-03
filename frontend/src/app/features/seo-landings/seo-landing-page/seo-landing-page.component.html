@@ -1,0 +1,19 @@
+<app-seo-landing-layout [content]="content()">
+  @switch (templateName()) {
+    @case ('ProductLandingTemplate') {
+      <app-product-landing-template [content]="content()" />
+    }
+
+    @case ('GuideLandingTemplate') {
+      <app-guide-landing-template [content]="content()" />
+    }
+
+    @case ('ComparisonLandingTemplate') {
+      <app-comparison-landing-template [content]="content()" />
+    }
+
+    @case ('FaqLandingTemplate') {
+      <app-faq-landing-template [content]="content()" />
+    }
+  }
+</app-seo-landing-layout>

@@ -11,10 +11,10 @@
         <span class="visibility-choice__main">
           @if (option === 'public') {
             <lucide-icon name="globe" size="14" />
-            <span>Public</span>
+            <span>{{ 'common.visibility.visibilityChoice.public' | runtimeTranslate }}</span>
           } @else {
             <lucide-icon name="lock" size="14" />
-            <span>Private</span>
+            <span>{{ 'common.visibility.visibilityChoice.private' | runtimeTranslate }}</span>
           }
         </span>
         <small class="visibility-choice__subtitle">{{ subtitle(option) }}</small>

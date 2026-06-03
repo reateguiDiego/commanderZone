@@ -2,7 +2,7 @@
   <div class="page-header-context" aria-hidden="true"></div>
 
   <div class="user-strip">
-    <div class="player-identity" aria-label="Current player">
+    <div class="player-identity" [attr.aria-label]="'game.gameTableHeader.currentPlayer' | runtimeTranslate">
       <app-player-avatar class="player-identity-avatar" [displayName]="userLabel()" [avatar]="userAvatar()" size="sm" />
       <app-player-name
         [displayName]="userLabel()"

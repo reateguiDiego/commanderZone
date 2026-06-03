@@ -9,12 +9,12 @@
     [value]="value()"
     (input)="updateFromInput($event)"
   />
-  <div class="number-stepper" aria-label="Adjust value">
+  <div class="number-stepper" [attr.aria-label]="'game.gameXQuantityStepper.adjustValue' | runtimeTranslate">
     <button
       class="number-stepper-button"
       type="button"
       [attr.data-testid]="testIdPrefix() ? testIdPrefix() + '-increase' : null"
-      aria-label="Increase value"
+      [attr.aria-label]="'game.gameXQuantityStepper.increaseValue' | runtimeTranslate"
       [disabled]="!canStepUp()"
       (click)="adjust(1)"
     >
@@ -24,7 +24,7 @@
       class="number-stepper-button"
       type="button"
       [attr.data-testid]="testIdPrefix() ? testIdPrefix() + '-decrease' : null"
-      aria-label="Decrease value"
+      [attr.aria-label]="'game.gameXQuantityStepper.decreaseValue' | runtimeTranslate"
       [disabled]="!canStepDown()"
       (click)="adjust(-1)"
     >

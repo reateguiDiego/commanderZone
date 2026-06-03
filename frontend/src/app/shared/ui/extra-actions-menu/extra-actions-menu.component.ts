@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, ElementRef, HostListener, computed, inject, input, output, signal } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
+import { RuntimeTranslatePipe } from '../../../core/localization/runtime-translate.pipe';
 
 type ExtraActionsMenuAlign = 'left' | 'center' | 'right';
 type ExtraActionsMenuVariant = 'compact' | 'gold';
@@ -16,7 +17,7 @@ const VIEWPORT_PANEL_WIDTH = 336;
 
 @Component({
   selector: 'app-extra-actions-menu',
-  imports: [LucideAngularModule],
+  imports: [RuntimeTranslatePipe, LucideAngularModule],
   templateUrl: './extra-actions-menu.component.html',
   styleUrl: './extra-actions-menu.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -24,10 +25,10 @@ const VIEWPORT_PANEL_WIDTH = 336;
 export class ExtraActionsMenuComponent {
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
-  readonly label = input('Extras');
-  readonly ariaLabel = input('Open extra actions');
+  readonly label = input('common.extraActions.label');
+  readonly ariaLabel = input('common.extraActions.open');
   readonly icon = input('plus');
-  readonly menuLabel = input('Extra actions');
+  readonly menuLabel = input('common.extraActions.menu');
   readonly align = input<ExtraActionsMenuAlign>('right');
   readonly variant = input<ExtraActionsMenuVariant>('gold');
   readonly showText = input(false);

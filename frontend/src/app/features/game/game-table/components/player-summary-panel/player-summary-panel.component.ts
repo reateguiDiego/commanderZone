@@ -1,3 +1,4 @@
+import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, OnDestroy, WritableSignal, computed, input, output, signal } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
 import { ManaSymbolsComponent } from '../../../../../shared/mana/mana-symbols/mana-symbols.component';
@@ -53,16 +54,16 @@ export const PLAYER_SUMMARY_LIFE_FEEDBACK_EXIT_MS = 1180;
 const CONTEXT_PANEL_LONG_NAME_THRESHOLD = 18;
 
 const PLAYER_COUNTER_TRACKERS: readonly PlayerCounterTracker[] = [
-  { key: 'poison', label: 'Poison', icon: 'biohazard' },
-  { key: 'energy', label: 'Energy', icon: 'zap' },
-  { key: 'experience', label: 'Experience', icon: 'sparkles' },
-  { key: 'rad', label: 'Rad', icon: 'radiation' },
-  { key: 'tickets', label: 'Tickets', icon: 'tickets' },
+  { key: 'poison', label: 'game.playerCounters.poison', icon: 'biohazard' },
+  { key: 'energy', label: 'game.playerCounters.energy', icon: 'zap' },
+  { key: 'experience', label: 'game.playerCounters.experience', icon: 'sparkles' },
+  { key: 'rad', label: 'game.playerCounters.rad', icon: 'radiation' },
+  { key: 'tickets', label: 'game.playerCounters.tickets', icon: 'tickets' },
 ];
 
 @Component({
   selector: 'app-player-summary-panel',
-  imports: [ExtraActionsMenuComponent, LucideAngularModule, ManaSymbolsComponent, PlayerAvatarComponent, PlayerNameComponent],
+  imports: [RuntimeTranslatePipe, ExtraActionsMenuComponent, LucideAngularModule, ManaSymbolsComponent, PlayerAvatarComponent, PlayerNameComponent],
   templateUrl: './player-summary-panel.component.html',
   styleUrl: './player-summary-panel.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

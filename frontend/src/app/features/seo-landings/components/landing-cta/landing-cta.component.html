@@ -1,0 +1,18 @@
+<section class="landing-cta" [attr.id]="content().id || null">
+  <div>
+    <h2>{{ content().title }}</h2>
+    <p>{{ content().description }}</p>
+  </div>
+
+  <nav class="landing-cta__actions" aria-label="Landing call to action">
+    <a class="landing-cta__primary" [href]="content().primaryLink.href" [attr.aria-label]="content().primaryLink.ariaLabel">
+      {{ content().primaryLink.label }}
+    </a>
+
+    @if (content().secondaryLink; as secondaryLink) {
+      <a class="landing-cta__secondary" [href]="secondaryLink.href" [attr.aria-label]="secondaryLink.ariaLabel">
+        {{ secondaryLink.label }}
+      </a>
+    }
+  </nav>
+</section>

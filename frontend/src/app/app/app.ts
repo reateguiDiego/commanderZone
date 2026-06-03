@@ -1,3 +1,4 @@
+import { RuntimeTranslatePipe } from '../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -9,7 +10,7 @@ import { FooterDisclaimerComponent } from '../shared/components/footer-disclaime
 
 @Component({
   selector: 'app-root',
-  imports: [FooterDisclaimerComponent, RouterOutlet],
+  imports: [RuntimeTranslatePipe, FooterDisclaimerComponent, RouterOutlet],
   templateUrl: './app.html',
   styleUrl: './app.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

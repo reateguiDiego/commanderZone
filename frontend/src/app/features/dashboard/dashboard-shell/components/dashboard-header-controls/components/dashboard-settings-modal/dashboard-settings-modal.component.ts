@@ -1,3 +1,4 @@
+import { RuntimeTranslatePipe } from '../../../../../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, DestroyRef, computed, effect, inject, input, output, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -35,7 +36,7 @@ const DEFAULT_INITIAL_TEXT_COLOR = '#16120a';
 
 @Component({
   selector: 'app-dashboard-settings-modal',
-  imports: [
+  imports: [RuntimeTranslatePipe, 
     AppModalComponent,
     ReactiveFormsModule,
     LucideAngularModule,

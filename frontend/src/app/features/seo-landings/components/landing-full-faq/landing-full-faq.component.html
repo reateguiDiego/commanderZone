@@ -1,0 +1,21 @@
+<section class="landing-full-faq" [attr.id]="content().id || null">
+  <div class="landing-full-faq__header">
+    <h2>{{ content().title }}</h2>
+    @if (content().intro) {
+      <p>{{ content().intro }}</p>
+    }
+  </div>
+
+  <div class="landing-full-faq__items">
+    @for (item of content().items; track item.question; let first = $first) {
+      <details [attr.open]="first ? '' : null">
+        <summary>
+          <h3>{{ item.question }}</h3>
+        </summary>
+        @for (paragraph of item.answer; track paragraph) {
+          <p>{{ paragraph }}</p>
+        }
+      </details>
+    }
+  </div>
+</section>

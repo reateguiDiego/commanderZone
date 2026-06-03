@@ -1,6 +1,6 @@
 <section class="page-stack">
   @if (store.loading()) {
-    <p class="notice">Loading deck...</p>
+    <p class="notice">{{ 'deckBuilder.deckEditor.loadingDeck' | runtimeTranslate }}</p>
   } @else if (store.error()) {
     <p class="notice error">{{ store.error() }}</p>
   } @else if (store.deck(); as deck) {
@@ -13,7 +13,7 @@
         <div class="deck-summary-controls">
           <div class="deck-search-stack">
             <app-card-autocomplete
-              placeholder="Add cards by name"
+              [placeholder]="'deckBuilder.deckEditor.addCardsByName' | runtimeTranslate"
               actionLabel="Add"
               [showQuantity]="true"
               [clearOnSelect]="true"
@@ -24,10 +24,10 @@
             />
           </div>
           <label class="view-mode-select">
-            <span class="sr-only">View</span>
+            <span class="sr-only">{{ 'deckBuilder.deckEditor.view' | runtimeTranslate }}</span>
             <select name="deckViewMode" [ngModel]="store.viewMode()" (ngModelChange)="store.viewMode.set($event)">
-              <option value="text">Text</option>
-              <option value="spoiler">Spoiler</option>
+              <option value="text">{{ 'deckBuilder.deckEditor.text' | runtimeTranslate }}</option>
+              <option value="spoiler">{{ 'deckBuilder.deckEditor.spoiler' | runtimeTranslate }}</option>
             </select>
           </label>
         </div>
@@ -41,28 +41,28 @@
     </section>
 
     <section class="panel">
-      <div class="deck-tabs" role="tablist" aria-label="Deck editor sections">
+      <div class="deck-tabs" role="tablist" [attr.aria-label]="'deckBuilder.deckEditor.deckEditorSections' | runtimeTranslate">
         <button type="button" [class.active]="store.visibleActiveTab() === 'analysis'" (click)="store.activeTab.set('analysis')">
           <lucide-icon name="bar-chart-3" size="16" />
-          Analysis
+          {{ 'deckBuilder.deckEditor.analysis' | runtimeTranslate }}
         </button>
         <button type="button" [class.active]="store.visibleActiveTab() === 'considering'" (click)="store.activeTab.set('considering')">
           <lucide-icon name="layers-3" size="16" />
-          Considering
+          {{ 'deckBuilder.deckEditor.considering' | runtimeTranslate }}
         </button>
         <button type="button" [class.active]="store.visibleActiveTab() === 'validation'" (click)="store.activeTab.set('validation')">
           <lucide-icon name="shield-check" size="16" />
-          Validation
+          {{ 'deckBuilder.deckEditor.validation' | runtimeTranslate }}
         </button>
         @if (store.hasMissingContent()) {
           <button type="button" [class.active]="store.visibleActiveTab() === 'missing'" (click)="store.activeTab.set('missing')">
             <lucide-icon name="search-x" size="16" />
-            Missing
+            {{ 'deckBuilder.deckEditor.missing' | runtimeTranslate }}
           </button>
         }
         <button type="button" [class.active]="store.visibleActiveTab() === 'history'" (click)="store.activeTab.set('history')">
           <lucide-icon name="history" size="16" />
-          History
+          {{ 'deckBuilder.deckEditor.history' | runtimeTranslate }}
         </button>
       </div>
 
@@ -73,8 +73,8 @@
           <section class="analysis-panel">
             <div class="analysis-panel-header">
               <div>
-                <h3>Considering cards</h3>
-                <p>Cards parked outside the playable deck.</p>
+                <h3>{{ 'deckBuilder.deckEditor.consideringCards' | runtimeTranslate }}</h3>
+                <p>{{ 'deckBuilder.deckEditor.cardsParkedOutsideThePlayableDeck' | runtimeTranslate }}</p>
               </div>
               <strong class="analysis-list-count">{{ store.consideringCards().length }}</strong>
             </div>
@@ -114,7 +114,7 @@
                   <app-deck-card-menu [entry]="entry" />
                 }
               } @empty {
-                <p class="notice compact-notice">No considering cards.</p>
+                <p class="notice compact-notice">{{ 'deckBuilder.deckEditor.noConsideringCards' | runtimeTranslate }}</p>
               }
             </div>
           </section>
@@ -123,8 +123,8 @@
             <section class="analysis-panel">
               <div class="analysis-panel-header">
                 <div>
-                  <h3>Derived tokens</h3>
-                  <p>Resolved from cards currently in the deck.</p>
+                  <h3>{{ 'deckBuilder.deckEditor.derivedTokens' | runtimeTranslate }}</h3>
+                  <p>{{ 'deckBuilder.deckEditor.resolvedFromCardsCurrentlyInTheDeck' | runtimeTranslate }}</p>
                 </div>
                 <strong class="analysis-list-count">{{ store.tokens().length }}</strong>
               </div>
@@ -150,13 +150,13 @@
                     </span>
                   </div>
                 } @empty {
-                  <p class="notice compact-notice">No resolved tokens for this deck.</p>
+                  <p class="notice compact-notice">{{ 'deckBuilder.deckEditor.noResolvedTokensForThisDeck' | runtimeTranslate }}</p>
                 }
               </div>
 
               @if (store.unresolvedTokens().length > 0) {
                 <div class="notice warning compact-notice">
-                  <strong>Unresolved tokens</strong>
+                  <strong>{{ 'deckBuilder.deckEditor.unresolvedTokens' | runtimeTranslate }}</strong>
                   <span>{{ store.unresolvedTokens().map((item) => item.token.name).join(', ') }}</span>
                 </div>
               }
@@ -167,7 +167,7 @@
         <div class="button-row wrap-row">
           <button class="primary-button" type="button" (click)="store.validate(deck.id)">
             <lucide-icon name="check-circle-2" size="17" />
-            Validate with backend
+            {{ 'deckBuilder.deckEditor.validateWithBackend' | runtimeTranslate }}
           </button>
         </div>
 
@@ -192,7 +192,7 @@
 
           @if (result.errors.length > 0) {
             <div class="notice error">
-              <strong>Errors</strong>
+              <strong>{{ 'deckBuilder.deckEditor.errors' | runtimeTranslate }}</strong>
               <ul>
                 @for (issue of result.errors; track issue.code + issue.title + issue.detail) {
                   <li>
@@ -210,7 +210,7 @@
 
           @if (result.warnings.length > 0) {
             <div class="notice warning">
-              <strong>Warnings</strong>
+              <strong>{{ 'deckBuilder.deckEditor.warnings' | runtimeTranslate }}</strong>
               <ul>
                 @for (issue of result.warnings; track issue.code + issue.title + issue.detail) {
                   <li>
@@ -237,7 +237,7 @@
               <span class="metric">{{ issue.severity }}</span>
             </div>
           } @empty {
-            <p class="notice ok-notice">No frontend diagnostics for the current deck.</p>
+            <p class="notice ok-notice">{{ 'deckBuilder.deckEditor.noFrontendDiagnosticsForTheCurrentDeck' | runtimeTranslate }}</p>
           }
         </div>
       } @else if (store.visibleActiveTab() === 'missing') {
@@ -250,16 +250,16 @@
                   <small>{{ item.section }}{{ item.watched ? ' - saved' : '' }}</small>
                 </span>
                 <div class="button-row">
-                  <button class="icon-button" type="button" title="Copy card name" (click)="store.copyMissing(item.name)">
+                  <button class="icon-button" type="button" [title]="'deckBuilder.deckEditor.copyCardName' | runtimeTranslate" (click)="store.copyMissing(item.name)">
                     <lucide-icon name="copy" size="15" />
                   </button>
-                  <button class="icon-button" type="button" title="Search card" (click)="store.searchMissing(item.name)">
+                  <button class="icon-button" type="button" [title]="'deckBuilder.deckEditor.searchCard' | runtimeTranslate" (click)="store.searchMissing(item.name)">
                     <lucide-icon name="search" size="15" />
                   </button>
-                  <button class="icon-button" type="button" title="Save missing card" (click)="store.saveMissing(item.name, deck.id)">
+                  <button class="icon-button" type="button" [title]="'deckBuilder.deckEditor.saveMissingCard' | runtimeTranslate" (click)="store.saveMissing(item.name, deck.id)">
                     <lucide-icon name="bookmark-plus" size="15" />
                   </button>
-                  <button class="icon-button" type="button" title="Ignore this session" (click)="store.ignoreMissing(item.name)">
+                  <button class="icon-button" type="button" [title]="'deckBuilder.deckEditor.ignoreThisSession' | runtimeTranslate" (click)="store.ignoreMissing(item.name)">
                     <lucide-icon name="eye-off" size="15" />
                   </button>
                 </div>
@@ -272,8 +272,8 @@
           <h3>Search results for {{ search.name }}</h3>
           <div class="search-bar compact-search">
             <lucide-icon name="search" size="18" />
-            <input name="missingSearchQuery" placeholder="Search another card name" [(ngModel)]="store.missingSearchQuery" />
-            <button class="primary-button compact" type="button" (click)="store.searchMissingQuery()">Search</button>
+            <input name="missingSearchQuery" [placeholder]="'deckBuilder.deckEditor.searchAnotherCardName' | runtimeTranslate" [(ngModel)]="store.missingSearchQuery" />
+            <button class="primary-button compact" type="button" (click)="store.searchMissingQuery()">{{ 'deckBuilder.deckEditor.search' | runtimeTranslate }}</button>
           </div>
           <div class="dense-list">
             @for (card of search.cards; track card.scryfallId) {
@@ -289,21 +289,21 @@
                   <small>{{ card.typeLine || 'Unknown type' }}</small>
                 </span>
                 <div class="button-row">
-                  <a class="text-button compact" [routerLink]="['/cards', card.scryfallId]">View</a>
+                  <a class="text-button compact" [routerLink]="['/cards', card.scryfallId]">{{ 'deckBuilder.deckEditor.view' | runtimeTranslate }}</a>
                   <button class="primary-button compact" type="button" (click)="store.addMissingCard(search.name, card)">
                     <lucide-icon name="plus" size="15" />
-                    Add
+                    {{ 'deckBuilder.deckEditor.add' | runtimeTranslate }}
                   </button>
                 </div>
               </div>
             } @empty {
-              <p class="notice warning">No card search results.</p>
+              <p class="notice warning">{{ 'deckBuilder.deckEditor.noCardSearchResults' | runtimeTranslate }}</p>
             }
           </div>
         }
 
         @if (store.missingStore.watchlist().length > 0) {
-          <h3>Future collection</h3>
+          <h3>{{ 'deckBuilder.deckEditor.futureCollection' | runtimeTranslate }}</h3>
           <div class="dense-list">
             @for (item of store.missingStore.watchlist(); track item.name) {
               <div class="list-row">
@@ -311,7 +311,7 @@
                   <strong>{{ item.name }}</strong>
                   <small>{{ store.formatDate(item.addedAt) }}</small>
                 </span>
-                <button class="icon-button" type="button" title="Remove" (click)="store.missingStore.remove(item.name)">
+                <button class="icon-button" type="button" [title]="'deckBuilder.deckEditor.remove' | runtimeTranslate" (click)="store.missingStore.remove(item.name)">
                   <lucide-icon name="x" size="15" />
                 </button>
               </div>
@@ -322,9 +322,9 @@
         <div class="button-row wrap-row">
           <button class="secondary-button" type="button" (click)="store.recordHistory(deck, 'Manual snapshot')">
             <lucide-icon name="camera" size="17" />
-            Snapshot
+            {{ 'deckBuilder.deckEditor.snapshot' | runtimeTranslate }}
           </button>
-          <button class="icon-button danger" type="button" title="Clear local history" (click)="store.clearHistoryModalOpen.set(true)">
+          <button class="icon-button danger" type="button" [title]="'deckBuilder.deckEditor.clearLocalHistory' | runtimeTranslate" (click)="store.clearHistoryModalOpen.set(true)">
             <lucide-icon name="trash" size="16" />
           </button>
         </div>
@@ -339,11 +339,11 @@
               </span>
               <button class="secondary-button compact" type="button" (click)="store.restoreHistory(entry)">
                 <lucide-icon name="rotate-ccw" size="15" />
-                Restore
+                {{ 'deckBuilder.deckEditor.restore' | runtimeTranslate }}
               </button>
             </div>
           } @empty {
-            <p class="notice">No local history for this deck yet.</p>
+            <p class="notice">{{ 'deckBuilder.deckEditor.noLocalHistoryForThisDeckYet' | runtimeTranslate }}</p>
           }
         </div>
       }
@@ -373,7 +373,7 @@
                   }
                 </ul>
               } @else {
-                <span>No cards</span>
+                <span>{{ 'deckBuilder.deckEditor.noCards' | runtimeTranslate }}</span>
               }
             </section>
           }
@@ -384,14 +384,14 @@
             }
           </ul>
         } @else {
-          <span>No cards</span>
+          <span>{{ 'deckBuilder.deckEditor.noCards' | runtimeTranslate }}</span>
         }
       </div>
     }
 
     <app-modal
       [open]="store.importModalOpen()"
-      title="Import decklist"
+      [title]="'deckBuilder.deckEditor.importDecklist' | runtimeTranslate"
       primaryLabel="Import"
       secondaryLabel="Cancel"
       (primary)="store.importDeck(deck.id)"
@@ -399,33 +399,33 @@
     >
       <div class="form-stack">
         <label>
-          Deck name
+          {{ 'deckBuilder.deckEditor.deckName' | runtimeTranslate }}
           <input name="deckName" [(ngModel)]="store.deckName" />
         </label>
         <button class="secondary-button compact" type="button" (click)="store.rename(deck.id)">
           <lucide-icon name="save" size="16" />
-          Save name
+          {{ 'deckBuilder.deckEditor.saveName' | runtimeTranslate }}
         </button>
         <label>
-          Plain text decklist
-          <textarea name="decklist" rows="14" placeholder="1 Sol Ring (VOC) 168&#10;1 Fable of the Mirror-Breaker / Reflection of Kiki-Jiki (NEO) 141" [(ngModel)]="store.decklist"></textarea>
+          {{ 'deckBuilder.deckEditor.plainTextDecklist' | runtimeTranslate }}
+          <textarea name="decklist" rows="14" [placeholder]="'deckBuilder.deckEditor.text1SolRingVoc168101' | runtimeTranslate" [(ngModel)]="store.decklist"></textarea>
         </label>
         <button class="secondary-button compact" type="button" (click)="fileInput.click()">
           <lucide-icon name="file-up" size="16" />
-          Load file
+          {{ 'deckBuilder.deckEditor.loadFile' | runtimeTranslate }}
         </button>
         <input #fileInput class="hidden-input" type="file" accept=".txt,.csv,.dek" (change)="store.loadDeckFile($event)" />
 
         @if (store.lastImportStats(); as stats) {
           <div class="notice" [class.warning]="stats.missingCards > 0" [class.ok-notice]="stats.missingCards === 0">
-            <strong>Last import</strong>
+            <strong>{{ 'deckBuilder.deckEditor.lastImport' | runtimeTranslate }}</strong>
             <span>{{ stats.parsedCards }} parsed cards, {{ stats.importedCards }} imported, {{ stats.missingCards }} missing.</span>
           </div>
         }
 
         @if (store.missingItems().length > 0) {
           <div class="notice warning">
-            <strong>Missing cards from latest import</strong>
+            <strong>{{ 'deckBuilder.deckEditor.missingCardsFromLatestImport' | runtimeTranslate }}</strong>
             <span>{{ store.missingPreview() }}</span>
           </div>
         }
@@ -434,7 +434,7 @@
 
     <app-modal
       [open]="store.printVersionModalOpen()"
-      title="Select print version"
+      [title]="'deckBuilder.deckEditor.selectPrintVersion' | runtimeTranslate"
       secondaryLabel="Close"
       [showPrimary]="false"
       (secondary)="store.closePrintVersionModal()"
@@ -442,18 +442,18 @@
       @if (store.printVersionEntry(); as entry) {
         <div class="print-version-modal">
           <p class="print-version-intro">
-            Choose the exact printing for <strong>{{ entry.card.name }}</strong>. Quantity and section will stay unchanged.
+            {{ 'deckBuilder.deckEditor.chooseTheExactPrintingFor' | runtimeTranslate }} <strong>{{ entry.card.name }}</strong>{{ 'deckBuilder.deckEditor.quantityAndSectionWillStayUnchanged' | runtimeTranslate }}
           </p>
 
           @if (store.loadingPrintVersions()) {
-            <p class="notice">Loading print versions...</p>
+            <p class="notice">{{ 'deckBuilder.deckEditor.loadingPrintVersions' | runtimeTranslate }}</p>
           } @else if (store.printVersionOptions().length === 1) {
             <div class="notice compact-notice ok-notice">
-              <strong>Only one print version</strong>
-              <span>This card only has one print version available in the database.</span>
+              <strong>{{ 'deckBuilder.deckEditor.onlyOnePrintVersion' | runtimeTranslate }}</strong>
+              <span>{{ 'deckBuilder.deckEditor.thisCardOnlyHasOnePrintVersion' | runtimeTranslate }}</span>
             </div>
           } @else if (store.printVersionGroups().length === 0) {
-            <p class="notice warning">No print versions found for this card.</p>
+            <p class="notice warning">{{ 'deckBuilder.deckEditor.noPrintVersionsFoundForThisCard' | runtimeTranslate }}</p>
           } @else {
             <div class="print-version-sections">
               @for (group of store.printVersionGroups(); track group.title) {
@@ -477,7 +477,7 @@
                           <strong>{{ card.name }}</strong>
                           <small>{{ store.printVersionMeta(card) }}</small>
                           @if (store.isCurrentPrintVersion(card)) {
-                            <em>Current</em>
+                            <em>{{ 'deckBuilder.deckEditor.current' | runtimeTranslate }}</em>
                           }
                         </span>
                       </button>
@@ -493,7 +493,7 @@
 
     <app-modal
       [open]="store.restoreModalOpen()"
-      title="Restore history"
+      [title]="'deckBuilder.deckEditor.restoreHistory' | runtimeTranslate"
       [message]="store.restoreTarget() ? 'Restore this snapshot?' : ''"
       primaryLabel="Restore"
       secondaryLabel="Cancel"
@@ -503,7 +503,7 @@
 
     <app-modal
       [open]="store.clearHistoryModalOpen()"
-      title="Clear local history"
+      [title]="'deckBuilder.deckEditor.clearLocalHistory' | runtimeTranslate"
       message="Clear local history for this deck?"
       primaryLabel="Clear"
       secondaryLabel="Cancel"

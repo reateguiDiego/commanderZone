@@ -1,0 +1,16 @@
+<nav class="landing-internal-links" [attr.id]="content().id || null" aria-label="Related CommanderZone pages">
+  <div>
+    <h2>{{ content().title }}</h2>
+    @if (content().intro) {
+      <p>{{ content().intro }}</p>
+    }
+  </div>
+
+  <ul>
+    @for (link of content().links; track link.href) {
+      <li>
+        <a [href]="link.href" [attr.aria-label]="link.ariaLabel">{{ link.label }}</a>
+      </li>
+    }
+  </ul>
+</nav>

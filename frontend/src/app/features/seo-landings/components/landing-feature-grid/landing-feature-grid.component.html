@@ -1,0 +1,17 @@
+<section class="landing-feature-grid" [attr.id]="content().id || null">
+  <div class="landing-feature-grid__header">
+    <h2>{{ content().title }}</h2>
+    @if (content().intro) {
+      <p>{{ content().intro }}</p>
+    }
+  </div>
+
+  <div class="landing-feature-grid__items">
+    @for (feature of content().features; track feature.title) {
+      <article class="landing-feature">
+        <h3>{{ feature.title }}</h3>
+        <p>{{ feature.description }}</p>
+      </article>
+    }
+  </div>
+</section>

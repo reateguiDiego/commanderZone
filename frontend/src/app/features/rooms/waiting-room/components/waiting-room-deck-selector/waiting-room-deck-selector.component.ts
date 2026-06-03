@@ -1,3 +1,4 @@
+import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, ElementRef, HostListener, computed, inject, input, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
@@ -15,7 +16,7 @@ export interface WaitingDeckOption {
 
 @Component({
   selector: 'app-waiting-room-deck-selector',
-  imports: [FormsModule, LucideAngularModule, ManaSymbolsComponent, PrettyScrollDirective],
+  imports: [RuntimeTranslatePipe, FormsModule, LucideAngularModule, ManaSymbolsComponent, PrettyScrollDirective],
   templateUrl: './waiting-room-deck-selector.component.html',
   styleUrl: './waiting-room-deck-selector.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

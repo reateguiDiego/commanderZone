@@ -1,3 +1,4 @@
+import { RuntimeTranslatePipe } from '../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
@@ -19,7 +20,7 @@ interface CommanderHoverPreview {
 
 @Component({
   selector: 'app-deck-list',
-  imports: [FormsModule, LucideAngularModule, AppModalComponent, CardAutocompleteComponent, ManaSymbolsComponent, PrettyScrollDirective, VisibilityChoiceComponent, FormatSelectComponent],
+  imports: [RuntimeTranslatePipe, FormsModule, LucideAngularModule, AppModalComponent, CardAutocompleteComponent, ManaSymbolsComponent, PrettyScrollDirective, VisibilityChoiceComponent, FormatSelectComponent],
   templateUrl: './deck-list.component.html',
   styleUrl: './deck-list.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -35,18 +36,18 @@ export class DeckListComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.pageHeader.set({
-      title: 'Decks',
+      title: 'deckBuilder.deckList.header.title',
       actions: [
         {
           id: 'create-deck',
-          label: 'Create deck',
+          label: 'deckBuilder.deckList.header.createDeck',
           icon: 'plus',
           variant: 'primary',
           execute: () => this.store.openCreateModal(),
         },
         {
           id: 'create-folder',
-          label: 'Create folder',
+          label: 'deckBuilder.deckList.header.createFolder',
           icon: 'folder-plus',
           variant: 'secondary',
           execute: () => this.store.openFolderCreateModal(),

@@ -1,0 +1,27 @@
+<div class="seo-landing-layout" [attr.data-route-key]="content().routeKey" [attr.lang]="content().locale">
+  <header class="seo-landing-layout__header">
+    <a class="seo-landing-layout__brand" [href]="content().homeLink?.href ?? '/'" [attr.aria-label]="content().homeLink?.ariaLabel">
+      {{ content().siteName ?? content().homeLink?.label ?? 'CommanderZone' }}
+    </a>
+
+    @if (content().localeLinks?.length) {
+      <nav class="seo-landing-layout__locales" aria-label="Language versions">
+        @for (link of content().localeLinks; track link.locale) {
+          <a [href]="link.href" [attr.hreflang]="link.locale" [attr.aria-label]="link.ariaLabel">{{ link.label }}</a>
+        }
+      </nav>
+    }
+  </header>
+
+  @if (content().breadcrumb; as breadcrumb) {
+    <app-landing-breadcrumb [content]="breadcrumb" />
+  }
+
+  <main class="seo-landing-layout__main">
+    <ng-content />
+  </main>
+
+  @if (content().internalLinks; as internalLinks) {
+    <app-landing-internal-links [content]="internalLinks" />
+  }
+</div>

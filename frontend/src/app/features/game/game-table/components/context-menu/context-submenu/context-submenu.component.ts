@@ -1,3 +1,4 @@
+import { RuntimeTranslatePipe } from '../../../../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, input, output, signal } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
 import { contextMenuDisplayLabel } from '../context-menu-label';
@@ -19,7 +20,7 @@ export interface ContextSubmenuItem {
 
 @Component({
   selector: 'app-context-submenu',
-  imports: [LucideAngularModule],
+  imports: [RuntimeTranslatePipe, LucideAngularModule],
   templateUrl: './context-submenu.component.html',
   styleUrl: './context-submenu.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

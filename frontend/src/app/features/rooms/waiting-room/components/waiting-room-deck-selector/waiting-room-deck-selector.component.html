@@ -1,4 +1,4 @@
-<label class="deck-picker" aria-label="Deck selection" (click)="$event.stopPropagation()">
+<label class="deck-picker" [attr.aria-label]="'rooms.waitingRoomDeckSelector.deckSelection' | runtimeTranslate" (click)="$event.stopPropagation()">
   <select
     class="native-deck-select"
     name="waitingDeckId"
@@ -7,9 +7,9 @@
     tabindex="-1"
     (ngModelChange)="selectNativeDeck($event)"
   >
-    <option value="" disabled>Select a deck</option>
+    <option value="" disabled>{{ 'rooms.waitingRoomDeckSelector.selectADeck' | runtimeTranslate }}</option>
     @if (showRandomDeckOption()) {
-      <option [value]="randomDeckOptionValue">Random deck</option>
+      <option [value]="randomDeckOptionValue">{{ 'rooms.waitingRoomDeckSelector.randomDeck' | runtimeTranslate }}</option>
     }
     @for (deck of deckOptions(); track deck.id) {
       <option [value]="deck.id">{{ deck.name }}</option>
@@ -25,20 +25,20 @@
           </span>
           <span class="deck-option-status">
             @if (deck.invalid) {
-              <lucide-icon class="deck-warning" name="triangle-alert" size="15" aria-label="Invalid deck" />
+              <lucide-icon class="deck-warning" name="triangle-alert" size="15" [attr.aria-label]="'rooms.waitingRoomDeckSelector.invalidDeck' | runtimeTranslate" />
             } @else {
               <app-mana-symbols class="deck-colors" [symbols]="deck.colorIdentity" [fallback]="deck.fallback" />
             }
           </span>
         } @else {
           <span class="deck-option-main">
-            <span class="deck-option-name">Select a deck</span>
+            <span class="deck-option-name">{{ 'rooms.waitingRoomDeckSelector.selectADeck' | runtimeTranslate }}</span>
           </span>
         }
       </button>
 
       @if (selectorOpen()) {
-        <div appPrettyScroll class="deck-select-menu" [class.open-up]="menuDirection() === 'up'" role="listbox" aria-label="Deck selection">
+        <div appPrettyScroll class="deck-select-menu" [class.open-up]="menuDirection() === 'up'" role="listbox" [attr.aria-label]="'rooms.waitingRoomDeckSelector.deckSelection' | runtimeTranslate">
           @if (showRandomDeckOption()) {
             <button
               class="deck-select-option random-deck-option"
@@ -49,9 +49,9 @@
             >
               <span class="deck-option-main">
                 <img src="/assets/icons/chance/dice_20.png" alt="" />
-                <span class="deck-option-name">Random deck</span>
+                <span class="deck-option-name">{{ 'rooms.waitingRoomDeckSelector.randomDeck' | runtimeTranslate }}</span>
               </span>
-              <span class="deck-option-status">Choose one</span>
+              <span class="deck-option-status">{{ 'rooms.waitingRoomDeckSelector.chooseOne' | runtimeTranslate }}</span>
             </button>
           }
           @for (deck of deckOptions(); track deck.id) {
@@ -68,9 +68,9 @@
               </span>
               <span class="deck-option-status">
                 @if (deck.invalid) {
-                  <lucide-icon class="deck-warning" name="triangle-alert" size="15" aria-label="Invalid deck" />
+                  <lucide-icon class="deck-warning" name="triangle-alert" size="15" [attr.aria-label]="'rooms.waitingRoomDeckSelector.invalidDeck' | runtimeTranslate" />
                 } @else if (deck.validating) {
-                  <span class="deck-validating">Checking</span>
+                  <span class="deck-validating">{{ 'rooms.waitingRoomDeckSelector.checking' | runtimeTranslate }}</span>
                 } @else {
                   <app-mana-symbols class="deck-colors" [symbols]="deck.colorIdentity" [fallback]="deck.fallback" />
                 }
@@ -81,7 +81,7 @@
       }
     </div>
 
-    <button class="random-deck-button" type="button" title="Roll dice" aria-label="Roll dice" [disabled]="updatingDeck() || rolling() || !canRoll()" (click)="rollRequested.emit()">
+    <button class="random-deck-button" type="button" [title]="'rooms.waitingRoomDeckSelector.rollDice' | runtimeTranslate" [attr.aria-label]="'rooms.waitingRoomDeckSelector.rollDice' | runtimeTranslate" [disabled]="updatingDeck() || rolling() || !canRoll()" (click)="rollRequested.emit()">
       <img src="/assets/icons/chance/dice_20.png" alt="" />
     </button>
   </div>

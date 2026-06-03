@@ -40,8 +40,8 @@
         class="double-face-toggle"
         role="button"
         tabindex="-1"
-        aria-label="Look at other face"
-        title="Look at other face"
+        [attr.aria-label]="'game.gameCardView.lookAtOtherFace' | runtimeTranslate"
+        [title]="'game.gameCardView.lookAtOtherFace' | runtimeTranslate"
         draggable="false"
         (pointerdown)="stopFaceTogglePointer($event)"
         (click)="lookAtOtherFace($event)"
@@ -139,10 +139,10 @@
       <span class="land-stack-preview-badge">
         @if (landStackDropKind() === 'attachment') {
           <lucide-icon class="land-stack-preview-link-icon" name="link" size="18" aria-hidden="true" />
-          <span>Attach</span>
+          <span>{{ 'game.gameCardView.attach' | runtimeTranslate }}</span>
         } @else {
           <lucide-icon class="land-stack-preview-stack-icon" name="layers-3" size="18" aria-hidden="true" />
-          <span>Stack</span>
+          <span>{{ 'game.gameCardView.stack' | runtimeTranslate }}</span>
         }
       </span>
     }
@@ -165,8 +165,8 @@
           class="double-face-toggle"
           role="button"
           tabindex="-1"
-          aria-label="Look at other face"
-          title="Look at other face"
+          [attr.aria-label]="'game.gameCardView.lookAtOtherFace' | runtimeTranslate"
+          [title]="'game.gameCardView.lookAtOtherFace' | runtimeTranslate"
           draggable="false"
           (pointerdown)="stopFaceTogglePointer($event)"
           (click)="lookAtOtherFace($event)"
@@ -179,14 +179,14 @@
       @if (statsVisible()) {
         <span
           class="power-toughness-overlay"
-          aria-label="Power and toughness"
+          [attr.aria-label]="'game.gameCardView.powerAndToughness' | runtimeTranslate"
           [class.stat-pair-pulse-increase]="powerPulse() === 'increase' && toughnessPulse() === 'increase'"
           [class.stat-pair-pulse-decrease]="powerPulse() === 'decrease' && toughnessPulse() === 'decrease'"
         >
           <span
             role="button"
             tabindex="0"
-            title="Power. Left click adds, right click removes."
+            [title]="'game.gameCardView.powerLeftClickAddsRightClickRemoves' | runtimeTranslate"
             [class.stat-pulse-increase]="powerPulse() === 'increase'"
             [class.stat-pulse-decrease]="powerPulse() === 'decrease'"
             (pointerdown)="stopStatPointer($event)"
@@ -199,7 +199,7 @@
           <span
             role="button"
             tabindex="0"
-            title="Toughness. Left click adds, right click removes."
+            [title]="'game.gameCardView.toughnessLeftClickAddsRightClickRemoves' | runtimeTranslate"
             [class.stat-pulse-increase]="toughnessPulse() === 'increase'"
             [class.stat-pulse-decrease]="toughnessPulse() === 'decrease'"
             (pointerdown)="stopStatPointer($event)"

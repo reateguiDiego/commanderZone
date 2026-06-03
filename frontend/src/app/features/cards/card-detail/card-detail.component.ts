@@ -1,3 +1,4 @@
+import { RuntimeTranslatePipe } from '../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { LucideAngularModule } from 'lucide-angular';
@@ -10,7 +11,7 @@ import { bestCardImage } from '../../../shared/utils/card-image';
 
 @Component({
   selector: 'app-card-detail',
-  imports: [RouterLink, LucideAngularModule, ManaSymbolsComponent, ManaTextComponent],
+  imports: [RuntimeTranslatePipe, RouterLink, LucideAngularModule, ManaSymbolsComponent, ManaTextComponent],
   templateUrl: './card-detail.component.html',
   styleUrl: './card-detail.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

@@ -1,3 +1,4 @@
+import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 ﻿import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { LucideAngularModule } from 'lucide-angular';
@@ -7,7 +8,7 @@ import { PlayerNameComponent } from '../../../../../shared/ui/player-name/player
 
 @Component({
   selector: 'app-room-row',
-  imports: [RouterLink, LucideAngularModule, PlayerNameComponent],
+  imports: [RuntimeTranslatePipe, RouterLink, LucideAngularModule, PlayerNameComponent],
   templateUrl: './room-row.component.html',
   styleUrl: './room-row.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

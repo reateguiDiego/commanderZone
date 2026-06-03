@@ -1,0 +1,10 @@
+<section class="landing-trust-bar" [attr.aria-label]="content().label">
+  @for (item of content().items; track item.label) {
+    <div class="landing-trust-bar__item">
+      @if (item.value) {
+        <strong>{{ item.value }}</strong>
+      }
+      <span>{{ item.label }}</span>
+    </div>
+  }
+</section>

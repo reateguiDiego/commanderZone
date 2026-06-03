@@ -53,7 +53,7 @@
 
   <app-modal
     [open]="roomPendingDelete() !== null"
-    title="Borrar sala"
+    [title]="'rooms.rooms.borrarSala' | runtimeTranslate"
     message="Esta accion no se puede deshacer."
     primaryLabel="Borrar"
     secondaryLabel="Cancelar"
@@ -68,7 +68,7 @@
 
   <app-modal
     [open]="createDeckRequiredModalOpen()"
-    title="Mazo requerido"
+    [title]="'rooms.rooms.mazoRequerido' | runtimeTranslate"
     message="Necesitas un mazo valido para crear una sala."
     primaryLabel="Entendido"
     secondaryLabel="Cerrar"

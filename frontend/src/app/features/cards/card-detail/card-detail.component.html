@@ -1,11 +1,11 @@
 <section class="page-stack">
   <a class="text-button" routerLink="/cards">
     <lucide-icon name="arrow-left" size="16" />
-    Back to search
+    {{ 'deckBuilder.cards.cardDetail.backToSearch' | runtimeTranslate }}
   </a>
 
   @if (loading()) {
-    <p class="notice">Loading card...</p>
+    <p class="notice">{{ 'deckBuilder.cards.cardDetail.loadingCard' | runtimeTranslate }}</p>
   } @else if (error()) {
     <p class="notice error">{{ error() }}</p>
   } @else if (card(); as card) {
@@ -28,11 +28,11 @@
           <app-mana-text [text]="card.oracleText || 'No oracle text available.'" />
         </p>
         <p>
-          Color identity:
+          {{ 'deckBuilder.cards.cardDetail.colorIdentity' | runtimeTranslate }}
           <app-mana-symbols [symbols]="card.colorIdentity" fallback="Colorless" />
         </p>
         <p>
-          Commander:
+          {{ 'deckBuilder.cards.cardDetail.commander' | runtimeTranslate }}
           <strong [class.ok]="card.commanderLegal" [class.bad]="!card.commanderLegal">
             {{ card.commanderLegal ? 'Legal' : 'Not legal' }}
           </strong>

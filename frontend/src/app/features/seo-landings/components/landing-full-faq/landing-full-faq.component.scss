@@ -1,0 +1,63 @@
+.landing-full-faq {
+  display: grid;
+  gap: 1.25rem;
+  padding: clamp(1.5rem, 3vw, 3rem) 0;
+}
+
+.landing-full-faq__header,
+.landing-full-faq__items {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.landing-full-faq__header {
+  max-width: 46rem;
+}
+
+.landing-full-faq h2,
+.landing-full-faq h3,
+.landing-full-faq p {
+  margin: 0;
+}
+
+.landing-full-faq h2 {
+  color: var(--text);
+  font-size: clamp(1.55rem, 3vw, 2.5rem);
+}
+
+.landing-full-faq__header p,
+.landing-full-faq details p {
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.landing-full-faq details {
+  min-width: 0;
+  border: 1px solid rgb(255 255 255 / 12%);
+  border-radius: 0.5rem;
+  padding: 0.85rem 1rem;
+  background: rgb(255 255 255 / 4%);
+}
+
+.landing-full-faq summary {
+  display: flex;
+  min-height: 2.75rem;
+  align-items: center;
+  cursor: pointer;
+  color: var(--text);
+  touch-action: manipulation;
+}
+
+.landing-full-faq h3,
+.landing-full-faq p {
+  overflow-wrap: anywhere;
+}
+
+.landing-full-faq h3 {
+  display: inline;
+  font-size: 1rem;
+}
+
+.landing-full-faq details p {
+  padding: 0.45rem 0 0;
+}

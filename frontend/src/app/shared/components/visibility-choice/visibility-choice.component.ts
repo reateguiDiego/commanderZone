@@ -1,10 +1,11 @@
+import { RuntimeTranslatePipe } from '../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
 import { DeckVisibility } from '../../../core/models/deck.model';
 
 @Component({
   selector: 'app-visibility-choice',
-  imports: [LucideAngularModule],
+  imports: [RuntimeTranslatePipe, LucideAngularModule],
   templateUrl: './visibility-choice.component.html',
   styleUrl: './visibility-choice.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

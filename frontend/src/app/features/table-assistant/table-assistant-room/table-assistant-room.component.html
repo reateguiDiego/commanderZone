@@ -1,22 +1,22 @@
 <main class="table-room-page">
-  <section class="orientation-lock" aria-label="Gira el dispositivo">
-    <strong>Gira el dispositivo</strong>
-    <span>La sala esta optimizada para movil en horizontal.</span>
+  <section class="orientation-lock" [attr.aria-label]="'tableAssistant.tableAssistantRoom.giraElDispositivo' | runtimeTranslate">
+    <strong>{{ 'tableAssistant.tableAssistantRoom.giraElDispositivo' | runtimeTranslate }}</strong>
+    <span>{{ 'tableAssistant.tableAssistantRoom.laSalaEstaOptimizadaParaMovilEn' | runtimeTranslate }}</span>
   </section>
 
   <section class="table-room-content">
     @if (loading()) {
-      <p class="notice">Cargando sala...</p>
+      <p class="notice">{{ 'tableAssistant.tableAssistantRoom.cargandoSala' | runtimeTranslate }}</p>
     } @else if (error()) {
       <p class="notice error">{{ error() }}</p>
     } @else if (room(); as tableRoom) {
       @if (shouldShowRoomSharing()) {
-        <section class="room-meta-strip" aria-label="Informacion de sala">
+        <section class="room-meta-strip" [attr.aria-label]="'tableAssistant.tableAssistantRoom.informacionDeSala' | runtimeTranslate">
           <div>
-            <span class="eyebrow">Codigo de sala</span>
+            <span class="eyebrow">{{ 'tableAssistant.tableAssistantRoom.codigoDeSala' | runtimeTranslate }}</span>
             <strong>{{ tableRoom.state.sharing.code }}</strong>
           </div>
-          <button type="button" aria-label="Copiar enlace de sala" (click)="copyInviteLink()">
+          <button type="button" [attr.aria-label]="'tableAssistant.tableAssistantRoom.copiarEnlaceDeSala' | runtimeTranslate" (click)="copyInviteLink()">
             {{ copied() ? 'Copiado' : 'Copiar enlace' }}
           </button>
           <div
@@ -30,7 +30,7 @@
       }
 
       @if (globalTrackerIds().length > 0) {
-        <section class="global-trackers" aria-label="Trackers globales">
+        <section class="global-trackers" [attr.aria-label]="'tableAssistant.tableAssistantRoom.trackersGlobales' | runtimeTranslate">
           @for (trackerId of globalTrackerIds(); track trackerId) {
             <article>
               <span>{{ trackerLabel(trackerId) }}</span>
@@ -59,7 +59,7 @@
       <section
         class="players-grid"
         [style.--seat-column-count]="seatColumnCount()"
-        aria-label="Jugadores"
+        [attr.aria-label]="'tableAssistant.tableAssistantRoom.jugadores' | runtimeTranslate"
       >
         @for (player of seatedPlayers(); track player.id) {
           <article
@@ -78,18 +78,18 @@
             <div class="player-content">
               @if (isPlayerOut(player)) {
                 <div class="elimination-overlay" aria-hidden="true">
-                  <img class="skull-image" src="/assets/icons/gameplay/skull.png" alt="skull-ko" />
+                  <img class="skull-image" src="/assets/icons/gameplay/skull.png" [alt]="'tableAssistant.tableAssistantRoom.skullKo' | runtimeTranslate" />
                 </div>
               }
 
               @if (isCommanderDamageOpen(player)) {
-                <section class="commander-damage-board" aria-label="Daño de comandante">
+                <section class="commander-damage-board" [attr.aria-label]="'tableAssistant.tableAssistantRoom.danoDeComandante' | runtimeTranslate">
                   <header>
-                    <strong>Daño de comandante</strong>
+                    <strong>{{ 'tableAssistant.tableAssistantRoom.danoDeComandante' | runtimeTranslate }}</strong>
                     <button
                       class="symbol-button compact-symbol"
                       type="button"
-                      aria-label="Cerrar daño de comandante"
+                      [attr.aria-label]="'tableAssistant.tableAssistantRoom.cerrarDanoDeComandante' | runtimeTranslate"
                       (click)="closeCommanderDamage()"
                     >
                       &#10005;
@@ -101,7 +101,7 @@
                         <span [title]="source.name">{{ displayPlayerName(source) }}</span>
                         <strong>{{ commanderDamage(player.id, source.id) }}</strong>
                         @if (isCommanderDamageLethal(player.id, source.id)) {
-                          <small>Letal</small>
+                          <small>{{ 'tableAssistant.tableAssistantRoom.letal' | runtimeTranslate }}</small>
                         }
                         <button
                           type="button"
@@ -172,14 +172,14 @@
                       [showText]="true"
                     >
                       <button type="button" role="menuitem" (click)="openCommanderDamage(player)">
-                        <span>Dano de comandante</span>
-                        <small>Ver y editar</small>
+                        <span>{{ 'tableAssistant.tableAssistantRoom.danoDeComandante1' | runtimeTranslate }}</span>
+                        <small>{{ 'tableAssistant.tableAssistantRoom.verYEditar' | runtimeTranslate }}</small>
                       </button>
                     </app-extra-actions-menu>
                   }
                 </header>
 
-                <div class="life-row" aria-label="Vida de jugador">
+                <div class="life-row" [attr.aria-label]="'tableAssistant.tableAssistantRoom.vidaDeJugador' | runtimeTranslate">
                   <button
                     type="button"
                     [disabled]="!canEdit(player)"
@@ -200,11 +200,11 @@
                 </div>
 
                 @if (player.assignedUserId) {
-                  <p class="assignment">Asignado a jugador conectado</p>
+                  <p class="assignment">{{ 'tableAssistant.tableAssistantRoom.asignadoAJugadorConectado' | runtimeTranslate }}</p>
                 }
 
                 @if (playerTrackerIds().length > 0) {
-                  <section class="player-trackers" aria-label="Trackers de jugador">
+                  <section class="player-trackers" [attr.aria-label]="'tableAssistant.tableAssistantRoom.trackersDeJugador' | runtimeTranslate">
                     @for (trackerId of playerTrackerIds(); track trackerId) {
                       <div>
                         <span>{{ trackerLabel(trackerId) }}</span>

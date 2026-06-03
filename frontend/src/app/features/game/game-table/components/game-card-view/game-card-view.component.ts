@@ -1,3 +1,4 @@
+import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, ElementRef, OnChanges, OnDestroy, computed, inject, input, output, signal, type WritableSignal } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
 import { GameCardInstance, GameZoneName } from '../../../../../core/models/game.model';
@@ -62,7 +63,7 @@ interface CardCounterDeleteRequestEvent {
 
 @Component({
   selector: 'app-game-card-view',
-  imports: [
+  imports: [RuntimeTranslatePipe, 
     CardMarkerRailComponent,
     LoyaltyCounterComponent,
     LucideAngularModule,
