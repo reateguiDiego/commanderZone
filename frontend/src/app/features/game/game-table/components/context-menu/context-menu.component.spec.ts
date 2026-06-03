@@ -266,6 +266,32 @@ describe('ContextMenuComponent', () => {
     }
   });
 
+  it('hides add mana for manual-only token sources such as Caesar', () => {
+    const fixture = createContextMenuFixture({
+      kind: 'card',
+      zone: 'battlefield',
+      card: {
+        ...card('caesar-1'),
+        name: "Caesar, Legion's Emperor",
+        typeLine: 'Legendary Creature - Human Soldier',
+        oracleText: 'Whenever you attack, you may sacrifice another creature. When you do, choose two - Create two Treasure tokens.',
+      },
+    }, {
+      manaSourceSuggestion: () => ({
+        kind: 'tokenSource',
+        cardName: "Caesar, Legion's Emperor",
+        summary: 'This card creates mana-producing tokens. Use the pool manually after resolving it.',
+        additions: [],
+        colors: [],
+        amount: 0,
+        restriction: null,
+        manualOnly: true,
+      }),
+    });
+
+    expect(buttonLabels(fixture)).not.toContain('Add mana');
+  });
+
   it('hides add mana for battlefield cards when the mana pool is hidden', () => {
     const fixture = createContextMenuFixture({
       kind: 'card',

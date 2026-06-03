@@ -59,4 +59,14 @@ describe('GameTableManaPoolState', () => {
     expect(state.pool('player-2').B).toBe(0);
     expect(state.pool('player-2').W).toBe(1);
   });
+
+  it('resets every local player pool at once', () => {
+    state.add('player-1', [{ color: 'B', amount: 2 }]);
+    state.add('player-2', [{ color: 'W', amount: 1 }]);
+
+    state.resetAll();
+
+    expect(state.pool('player-1')).toEqual({ W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 });
+    expect(state.pool('player-2')).toEqual({ W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 });
+  });
 });

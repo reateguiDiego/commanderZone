@@ -737,6 +737,42 @@ describe('GameTableComponent', () => {
     }
   });
 
+  it('does not open the mana dialog for manual-only token sources', () => {
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const fixture = TestBed.createComponent(GameTableComponent);
+    const snapshot = snapshotWithStatus('active');
+    const caesar = {
+      ...snapshot.players['user-1']!.zones.battlefield[0]!,
+      name: "Caesar, Legion's Emperor",
+      typeLine: 'Legendary Creature - Human Soldier',
+      oracleText: 'Whenever you attack, you may sacrifice another creature. When you do, choose two - Create two Treasure tokens.',
+      tapped: false,
+    };
+    snapshot.players['user-1']!.zones.battlefield = [caesar];
+    fixture.componentInstance.store.snapshot.set(snapshot);
+    vi.spyOn(fixture.componentInstance.store, 'manaSourceSuggestion').mockReturnValue({
+      kind: 'tokenSource',
+      cardName: "Caesar, Legion's Emperor",
+      summary: 'This card creates mana-producing tokens. Use the pool manually after resolving it.',
+      additions: [],
+      colors: [],
+      amount: 0,
+      restriction: null,
+      manualOnly: true,
+    });
+
+    fixture.componentInstance.handleContextMenuAction({ type: 'addManaFromCard' }, {
+      x: 120,
+      y: 160,
+      kind: 'card',
+      playerId: 'user-1',
+      zone: 'battlefield',
+      card: caesar,
+    });
+
+    expect(fixture.componentInstance.manaActionDialog()).toBeNull();
+  });
+
   it('waits for the mana comet before adding confirmed card mana to the pool', () => {
     vi.useFakeTimers();
     authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
@@ -3308,12 +3344,16 @@ describe('GameTableComponent', () => {
     await fixture.whenStable();
 
     fixture.componentInstance.updateFollowActiveTurnPlayer(true);
+    fixture.componentInstance.store.incrementMana('user-1', 'G');
+    fixture.componentInstance.store.incrementMana('user-2', 'U');
     await fixture.componentInstance.store.passTurn();
     fixture.detectChanges();
 
     await vi.waitFor(() => expect(gameplayWebsocketCommand).toHaveBeenCalledWith(expect.objectContaining({
       type: 'turn.changed',
     }), 'game-1'));
+    expect(fixture.componentInstance.store.manaPool('user-1').G).toBe(0);
+    expect(fixture.componentInstance.store.manaPool('user-2').U).toBe(0);
     expect(gamesApi.snapshot).toHaveBeenCalledTimes(1);
   });
 
@@ -5042,7 +5082,7 @@ describe('GameTableComponent', () => {
     }), 'game-1');
   });
 
-  it('explains why opponent battlefield cards cannot be selected', async () => {
+  it('keeps opponent battlefield card clicks silent outside targeting', async () => {
     routeParams['id'] = 'game-1';
     authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
     const snapshot = snapshotWithStatus('active');
@@ -5074,7 +5114,7 @@ describe('GameTableComponent', () => {
     } as unknown as MouseEvent, 'user-2', snapshot.players['user-2'].zones.battlefield[0]!);
 
     expect(fixture.componentInstance.store.selectedCards()).toEqual([]);
-    expect(fixture.componentInstance.store.error()).toBe('You can only select cards on your own battlefield.');
+    expect(fixture.componentInstance.store.error()).toBeNull();
   });
 
   it('focuses the opponent battlefield when a mini battlefield card is clicked', async () => {
@@ -5113,7 +5153,7 @@ describe('GameTableComponent', () => {
     expect(fixture.componentInstance.store.error()).toBeNull();
   });
 
-  it('explains why opponent battlefield card menus cannot be opened', async () => {
+  it('keeps opponent battlefield card menus silent', async () => {
     routeParams['id'] = 'game-1';
     authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
     const snapshot = snapshotWithStatus('active');
@@ -5142,7 +5182,7 @@ describe('GameTableComponent', () => {
     } as unknown as MouseEvent, 'user-2', 'battlefield', snapshot.players['user-2'].zones.battlefield[0]!);
 
     expect(fixture.componentInstance.store.contextMenu()).toBeNull();
-    expect(fixture.componentInstance.store.error()).toBe('You can only open card actions for your own battlefield.');
+    expect(fixture.componentInstance.store.error()).toBeNull();
   });
 
   it('does not pin a card preview when opening a card context menu', async () => {

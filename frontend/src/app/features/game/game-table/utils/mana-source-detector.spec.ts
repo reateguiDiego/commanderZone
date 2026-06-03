@@ -48,6 +48,19 @@ describe('detectManaSource', () => {
     expect(suggestion.amount).toBe(1);
   });
 
+  it('detects three-color lands with comma and or text as color choices', () => {
+    const suggestion = detectManaSource(card(
+      'Arcane Sanctum',
+      'Land',
+      'Arcane Sanctum enters the battlefield tapped. {T}: Add {W}, {U}, or {B}.',
+    ));
+
+    expect(suggestion.kind).toBe('variable');
+    expect(suggestion.additions).toEqual([]);
+    expect(suggestion.colors).toEqual(['W', 'U', 'B']);
+    expect(suggestion.amount).toBe(1);
+  });
+
   it('detects lands with multiple basic land types as color choices', () => {
     const suggestion = detectManaSource(card(
       'Breeding Pool',

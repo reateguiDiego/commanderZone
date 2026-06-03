@@ -211,9 +211,13 @@ describe('ManaActionDialogComponent', () => {
     });
     fixture.componentInstance.valueChanged.subscribe((change) => changes.push(change));
 
-    expect((fixture.nativeElement as HTMLElement).querySelectorAll('.mana-ability-choice').length).toBe(2);
+    const element = fixture.nativeElement as HTMLElement;
 
-    const secondAbility = (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>('.mana-ability-choice')[1];
+    expect(element.querySelectorAll('.mana-ability-choice').length).toBe(2);
+    expect(element.querySelectorAll('.mana-ability-choice app-mana-symbols').length).toBe(6);
+    expect(abilityChoiceText(element)).not.toMatch(/\{[WUBRGC]\}/);
+
+    const secondAbility = element.querySelectorAll<HTMLButtonElement>('.mana-ability-choice')[1];
     secondAbility?.click();
     fixture.componentRef.setInput('selectedColor', 'G');
     fixture.detectChanges();
@@ -410,4 +414,11 @@ function popoverElement(fixture: ComponentFixture<ManaActionDialogComponent>): H
 function setViewportSize(width: number, height: number): void {
   Object.defineProperty(window, 'innerWidth', { configurable: true, value: width });
   Object.defineProperty(window, 'innerHeight', { configurable: true, value: height });
+}
+
+function abilityChoiceText(element: HTMLElement): string {
+  return Array
+    .from(element.querySelectorAll('.mana-ability-choice'))
+    .map((choice) => choice.textContent ?? '')
+    .join(' ');
 }

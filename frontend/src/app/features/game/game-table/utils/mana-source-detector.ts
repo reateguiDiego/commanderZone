@@ -67,7 +67,7 @@ const COLOR_ORDER: readonly ManaPoolColor[] = ['W', 'U', 'B', 'R', 'G', 'C'];
 const COLORED_MANA: readonly ManaPoolColor[] = ['W', 'U', 'B', 'R', 'G'];
 const MANA_SYMBOL_PATTERN = /\{([WUBRGC])\}/gi;
 const DIRECT_ADD_PATTERN = /\badd\s+((?:\{[WUBRGC]\})+)/gi;
-const CHOICE_ADD_PATTERN = /\badd\s+((?:\{[WUBRGC]\}(?:\s*,\s*|\s*,?\s+or\s+)?)+)/gi;
+const ADD_CLAUSE_PATTERN = /\badd\b([^.\n]*)/gi;
 
 const DEFAULT_NONE: Omit<ManaSourceSuggestion, 'cardName'> = {
   kind: 'none',
@@ -569,9 +569,9 @@ function directSymbols(oracleText: string): readonly ManaPoolColor[] {
 function explicitChoiceColors(oracleText: string): readonly ManaPoolColor[] {
   const colors: ManaPoolColor[] = [];
 
-  for (const match of oracleText.matchAll(CHOICE_ADD_PATTERN)) {
+  for (const match of oracleText.matchAll(ADD_CLAUSE_PATTERN)) {
     const addClause = match[1] ?? '';
-    if (!/(?:,|\bor\b)/i.test(addClause)) {
+    if (!hasManaChoiceSeparator(addClause)) {
       continue;
     }
 
@@ -584,6 +584,10 @@ function explicitChoiceColors(oracleText: string): readonly ManaPoolColor[] {
   }
 
   return orderedUniqueColors(colors);
+}
+
+function hasManaChoiceSeparator(addClause: string): boolean {
+  return /(?:\{[WUBRGC]\}\s*,|\bor\s+\{[WUBRGC]\})/i.test(addClause);
 }
 
 function restrictionText(oracleText: string): string | null {

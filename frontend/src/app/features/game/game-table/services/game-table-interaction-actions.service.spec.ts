@@ -94,6 +94,38 @@ describe('GameTableInteractionActionsService', () => {
     );
   });
 
+  it('keeps opponent battlefield card clicks silent outside targeting flows', () => {
+    const setError = vi.fn();
+    const event = clickEvent(false);
+
+    service.handleBattlefieldCardClick({
+      ...interactionContext(),
+      setError,
+    }, event, 'player-2', handCard({ instanceId: 'opponent-card', zone: 'battlefield' }));
+
+    expect(setError).not.toHaveBeenCalled();
+  });
+
+  it('keeps opponent battlefield context menus silent', () => {
+    const setError = vi.fn();
+    const event = contextMenuEvent();
+
+    service.openCardMenu({
+      ...interactionContext(),
+      setError,
+    }, event, 'player-2', 'battlefield', handCard({ instanceId: 'opponent-card', zone: 'battlefield' }));
+
+    service.openZoneMenu({
+      ...interactionContext(),
+      setError,
+      zoneCardCount: () => 1,
+    }, event, 'player-2', 'battlefield');
+
+    expect(uiState.openContextMenu).not.toHaveBeenCalled();
+    expect(uiState.openContextMenuAt).not.toHaveBeenCalled();
+    expect(setError).not.toHaveBeenCalled();
+  });
+
   it('opens card context menus at an explicit anchor when provided', () => {
     const event = contextMenuEvent();
     const card = handCard({ instanceId: 'card-1', zone: 'library' });
@@ -156,6 +188,7 @@ function clickEvent(shiftKey: boolean): MouseEvent {
   return {
     currentTarget: target,
     shiftKey,
+    stopPropagation: vi.fn(),
   } as unknown as MouseEvent;
 }
 

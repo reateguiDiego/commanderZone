@@ -3254,7 +3254,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     }
 
     const suggestion = this.store.manaSourceSuggestion(menu.playerId, menu.card);
-    if (suggestion.kind === 'none') {
+    if (suggestion.kind === 'none' || suggestion.manualOnly) {
       this.store.closeContextMenu();
       return;
     }

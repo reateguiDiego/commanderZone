@@ -88,7 +88,6 @@ export class GameTableInteractionActionsService {
   handleBattlefieldCardClick(context: GameTableInteractionContext, event: MouseEvent, playerId: string, card: GameCardInstance): void {
     event.stopPropagation();
     if (!this.isCurrentPlayer(context, playerId)) {
-      context.setError('You can only select cards on your own battlefield.');
       return;
     }
     if (this.drag.consumeSuppressedClick(card.instanceId)) {
@@ -137,7 +136,6 @@ export class GameTableInteractionActionsService {
       return;
     }
     if (zone === 'battlefield' && !this.isCurrentPlayer(context, playerId)) {
-      context.setError('You can only open card actions for your own battlefield.');
       return;
     }
 
@@ -170,7 +168,6 @@ export class GameTableInteractionActionsService {
       return;
     }
     if (zone === 'battlefield' && !this.isCurrentPlayer(context, playerId)) {
-      context.setError('You can only open battlefield actions for your own board.');
       return;
     }
 
