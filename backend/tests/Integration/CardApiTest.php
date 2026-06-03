@@ -164,6 +164,31 @@ class CardApiTest extends ApiTestCase
         self::assertContains($contained->scryfallId(), $resultIds);
     }
 
+    public function testSearchShortQueriesUsePrefixMatchingOnly(): void
+    {
+        $prefix = $this->seedCard('00000000-0000-0000-0000-000000000017', 'Ingot Chewer');
+        $contained = $this->seedCard('00000000-0000-0000-0000-000000000018', 'Sol Ring');
+
+        $this->jsonRequest('GET', '/cards/search?q=ing&limit=10');
+
+        self::assertResponseIsSuccessful();
+        $resultIds = array_column($this->jsonResponse()['data'], 'scryfallId');
+        self::assertContains($prefix->scryfallId(), $resultIds);
+        self::assertNotContains($contained->scryfallId(), $resultIds);
+    }
+
+    public function testSearchPrefersExactMatchesWhenResultsAreLimited(): void
+    {
+        $exact = $this->seedCard('00000000-0000-0000-0000-000000000014', 'Sol Ring');
+        $this->seedCard('00000000-0000-0000-0000-000000000015', 'Sol Ring Replica');
+        $this->seedCard('00000000-0000-0000-0000-000000000016', 'Replica of Sol Ring');
+
+        $this->jsonRequest('GET', '/cards/search?q=sol%20ring&limit=1');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame([$exact->scryfallId()], array_column($this->jsonResponse()['data'], 'scryfallId'));
+    }
+
     public function testSearchCanFilterTokensOnly(): void
     {
         $token = $this->seedCard('00000000-0000-0000-0000-000000000021', 'Goblin Token', [
@@ -214,7 +239,7 @@ class CardApiTest extends ApiTestCase
             'type_line' => 'Legendary Creature - Phyrexian Praetor',
         ]);
 
-        $this->jsonRequest('GET', '/cards/search?q=one&limit=999');
+        $this->jsonRequest('GET', '/cards/search?q=erin&limit=999');
 
         self::assertResponseIsSuccessful();
         self::assertSame(500, $this->jsonResponse()['limit']);
