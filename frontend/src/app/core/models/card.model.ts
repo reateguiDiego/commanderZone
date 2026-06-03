@@ -34,6 +34,7 @@ export interface Card {
   legalities: Record<string, string>;
   imageUris: CardImageUris;
   cardFaces?: CardFace[];
+  hasRulings?: boolean;
   allParts?: Record<string, unknown>[];
   manaValue?: number | null;
   producedMana?: string[];

@@ -130,6 +130,7 @@ class GameSnapshotFactory
             'name' => $card->name(),
             'imageUris' => $card->imageUris(),
             'cardFaces' => $card->cardFaces(),
+            'hasRulings' => $card->hasRulings(),
             'typeLine' => $card->typeLine(),
             'manaCost' => $card->manaCost(),
             'oracleText' => $card->oracleText(),

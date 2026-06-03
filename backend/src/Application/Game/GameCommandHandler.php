@@ -261,6 +261,7 @@ class GameCommandHandler
             'name' => (string) ($card['name'] ?? 'Unknown card'),
             'imageUris' => is_array($card['imageUris'] ?? null) ? $card['imageUris'] : [],
             'cardFaces' => is_array($card['cardFaces'] ?? null) ? $card['cardFaces'] : [],
+            'hasRulings' => (bool) ($card['hasRulings'] ?? false),
             'typeLine' => $card['typeLine'] ?? null,
             'manaCost' => $card['manaCost'] ?? null,
             'oracleText' => $card['oracleText'] ?? null,

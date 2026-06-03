@@ -97,6 +97,9 @@ class Card
     #[ORM\Column(type: 'string', length: 32, nullable: true)]
     private ?string $imageStatus = null;
 
+    #[ORM\Column(type: 'boolean')]
+    private bool $hasRulings = false;
+
     #[ORM\Column(type: 'datetime_immutable')]
     private \DateTimeImmutable $updatedAt;
 
@@ -145,6 +148,9 @@ class Card
         $this->imageStatus = isset($data['image_status']) && is_scalar($data['image_status']) && (string) $data['image_status'] !== ''
             ? (string) $data['image_status']
             : null;
+        if (array_key_exists('has_rulings', $data)) {
+            $this->hasRulings = (bool) $data['has_rulings'];
+        }
         $this->touch();
     }
 
@@ -282,6 +288,11 @@ class Card
         return $this->lang;
     }
 
+    public function hasRulings(): bool
+    {
+        return $this->hasRulings;
+    }
+
     public function printedName(): ?string
     {
         return $this->printedName;
@@ -320,6 +331,7 @@ class Card
             'legalities' => $this->legalities,
             'imageUris' => $this->imageUris,
             'cardFaces' => $this->cardFaces(),
+            'hasRulings' => $this->hasRulings,
             'allParts' => $this->allParts,
             'manaValue' => $this->manaValue,
             'producedMana' => $this->producedMana,

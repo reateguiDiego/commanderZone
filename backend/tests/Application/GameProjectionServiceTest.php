@@ -4,6 +4,7 @@ namespace App\Tests\Application;
 
 use App\Application\Card\CardLocalizationService;
 use App\Application\Game\GameCommandHandler;
+use App\Application\Game\GameCardRulingsLookup;
 use App\Application\Game\GameProjectionService;
 use App\Domain\User\User;
 use PHPUnit\Framework\TestCase;
@@ -364,6 +365,32 @@ class GameProjectionServiceTest extends TestCase
             'https://cards.example/sol-ring-es.jpg',
             $projection['players'][$owner->id()]['zones']['battlefield'][0]['imageUris']['normal'],
         );
+    }
+
+    public function testProjectionHydratesPersistedRulingsMetadataForLegacySnapshots(): void
+    {
+        $owner = new User('owner@example.test', 'Owner');
+        $viewer = new User('viewer@example.test', 'Viewer');
+        $snapshot = $this->snapshot($owner->id(), $viewer->id());
+        $snapshot['players'][$owner->id()]['zones']['battlefield'] = [[
+            ...$this->card('public-card', 'Rules Lawyer'),
+            'ownerId' => $owner->id(),
+            'controllerId' => $owner->id(),
+            'zone' => 'battlefield',
+            'scryfallId' => 'rules-lawyer-print',
+        ]];
+
+        $rulingsLookup = $this->createMock(GameCardRulingsLookup::class);
+        $rulingsLookup
+            ->expects(self::once())
+            ->method('hasRulingsByScryfallIds')
+            ->with(['rules-lawyer-print'])
+            ->willReturn(['rules-lawyer-print' => true]);
+
+        $projection = (new GameProjectionService(new GameCommandHandler(), null, $rulingsLookup))
+            ->projectSnapshot($snapshot, $viewer);
+
+        self::assertTrue($projection['players'][$owner->id()]['zones']['battlefield'][0]['hasRulings']);
     }
 
     public function testProjectionLocalizesRevealedOpponentHandImagesWithoutChangingMetadata(): void
