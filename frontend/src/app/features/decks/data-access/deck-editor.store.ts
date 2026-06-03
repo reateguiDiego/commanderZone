@@ -1283,7 +1283,7 @@ export class DeckEditorStore {
   private buildManaSourceDonutBackground(): string {
     const profiles = this.manaSourceProfiles();
     if (profiles.length === 0) {
-      return 'conic-gradient(rgb(255 255 255 / 8%) 0deg 360deg)';
+      return 'conic-gradient(rgb(var(--cz-text-rgb) / 8%) 0deg 360deg)';
     }
 
     const palette: Record<'W' | 'U' | 'B' | 'R' | 'G' | 'C', string> = {

@@ -296,7 +296,7 @@ button:disabled {
 .player-panel h2 {
   max-width: 15ch;
   overflow: hidden;
-  color: white;
+  color: var(--cz-text);
   font-size: clamp(0.78rem, 1.6vw, 0.98rem);
   line-height: 1.25;
   text-overflow: clip;
