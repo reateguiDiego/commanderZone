@@ -198,6 +198,43 @@ class GameWebsocketCardLocalizationResolverTest extends TestCase
         self::assertArrayNotHasKey('source-1', $lookup['es']);
     }
 
+    public function testVisibilityChangesStillProduceLocalizedLookupForAffectedCards(): void
+    {
+        $sourceResult = $this->resultWithRows([$this->sourceRow()]);
+        $candidateResult = $this->resultWithRows([
+            $this->candidateRow(sourceScryfallId: 'source-1', candidateScryfallId: 'es-cmm-1', lang: 'es', imageStatus: null),
+        ]);
+        $fallbackResult = $this->optionalResultWithRows([]);
+        $payloadResult = $this->resultWithRows([
+            $this->payloadRow(scryfallId: 'es-cmm-1', lang: 'es', printedName: 'Anillo solar'),
+        ]);
+
+        $connection = $this->createMock(Connection::class);
+        $connection->method('fetchOne')->willThrowException(new \RuntimeException('not supported in test'));
+        $connection->expects(self::exactly(4))
+            ->method('executeQuery')
+            ->willReturnOnConsecutiveCalls(
+                $sourceResult,
+                $candidateResult,
+                $fallbackResult,
+                $payloadResult,
+            );
+
+        $resolver = new GameWebsocketCardLocalizationResolver($connection);
+
+        $lookup = $resolver->buildLocalizedLookup(
+            $this->snapshotWithCards([
+                [...$this->snapshotCard(instanceId: 'card-1', scryfallId: 'source-1'), 'revealedTo' => []],
+            ]),
+            $this->snapshotWithCards([
+                [...$this->snapshotCard(instanceId: 'card-1', scryfallId: 'source-1'), 'revealedTo' => ['viewer-1']],
+            ]),
+            ['es'],
+        );
+
+        self::assertSame('https://img/es.jpg', $lookup['es']['source-1']['imageUris']['normal']);
+    }
+
     public function testDoesNotQueryLegacyExactCandidatesWhenPrintTablesCoverRequestedSourceIds(): void
     {
         $sourceResult = $this->resultWithRows([

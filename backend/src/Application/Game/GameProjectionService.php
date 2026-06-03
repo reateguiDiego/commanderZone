@@ -26,7 +26,7 @@ class GameProjectionService
         return $this->projectSnapshot($this->withCurrentPlayerUsers($game, $snapshot), $viewer, $game->room()->hasPlayer($viewer));
     }
 
-    public function projectSnapshot(array $snapshot, User $viewer, bool $viewerCanUseOwnHiddenZones = true, array $localizedCardsByLanguage = []): array
+    public function projectSnapshot(array $snapshot, User $viewer, bool $viewerCanUseOwnHiddenZones = true, ?array $localizedCardsByLanguage = null): array
     {
         $viewerId = $viewer->id();
         $requestedLanguage = $viewer->cardLanguage();
@@ -35,7 +35,7 @@ class GameProjectionService
             return $snapshot;
         }
 
-        if ($localizedCardsByLanguage === [] && $this->cardLocalization instanceof CardLocalizationService) {
+        if ($localizedCardsByLanguage === null && $this->cardLocalization instanceof CardLocalizationService) {
             $localizedCardsByLanguage = $this->cardLocalization->localizedImagePayloadLookupForScryfallIds(
                 $this->snapshotScryfallIds($snapshot),
                 $this->requestedLanguages($requestedLanguage),
@@ -87,11 +87,11 @@ class GameProjectionService
         return $snapshot;
     }
 
-    public function projectZone(array $cards, string $ownerId, string $zone, User $viewer, bool $playTopLibraryRevealed = false, array $localizedCardsByLanguage = []): array
+    public function projectZone(array $cards, string $ownerId, string $zone, User $viewer, bool $playTopLibraryRevealed = false, ?array $localizedCardsByLanguage = null): array
     {
         $viewerId = $viewer->id();
         $requestedLanguage = $viewer->cardLanguage();
-        if ($localizedCardsByLanguage === [] && $this->cardLocalization instanceof CardLocalizationService) {
+        if ($localizedCardsByLanguage === null && $this->cardLocalization instanceof CardLocalizationService) {
             $localizedCardsByLanguage = $this->cardLocalization->localizedImagePayloadLookupForScryfallIds(
                 $this->cardsScryfallIds($cards),
                 $this->requestedLanguages($requestedLanguage),
@@ -145,7 +145,7 @@ class GameProjectionService
      *
      * @return list<array<string,mixed>>
      */
-    private function projectOpponentHand(array $cards, string $viewerId, string $ownerId, ?string $requestedLanguage = null, array $localizedCardsByLanguage = []): array
+    private function projectOpponentHand(array $cards, string $viewerId, string $ownerId, ?string $requestedLanguage = null, ?array $localizedCardsByLanguage = null): array
     {
         $cards = array_values($cards);
         $handSize = count($cards);
@@ -196,7 +196,7 @@ class GameProjectionService
      *
      * @return list<array<string,mixed>>
      */
-    private function projectOpponentLibrary(array $cards, string $viewerId, string $ownerId, bool $playTopRevealed = false, ?string $requestedLanguage = null, array $localizedCardsByLanguage = []): array
+    private function projectOpponentLibrary(array $cards, string $viewerId, string $ownerId, bool $playTopRevealed = false, ?string $requestedLanguage = null, ?array $localizedCardsByLanguage = null): array
     {
         $cards = array_values($cards);
         if ($cards === []) {
@@ -226,7 +226,7 @@ class GameProjectionService
      *
      * @return list<array<string,mixed>>
      */
-    private function projectOpponentLibraryZone(array $cards, string $viewerId, string $ownerId, bool $playTopRevealed = false, ?string $requestedLanguage = null, array $localizedCardsByLanguage = []): array
+    private function projectOpponentLibraryZone(array $cards, string $viewerId, string $ownerId, bool $playTopRevealed = false, ?string $requestedLanguage = null, ?array $localizedCardsByLanguage = null): array
     {
         $visibleCards = array_values(array_filter(
             $cards,
@@ -270,7 +270,7 @@ class GameProjectionService
         ];
     }
 
-    private function projectCard(array $card, string $viewerId, bool $ownerView, ?string $requestedLanguage = null, array $localizedCardsByLanguage = []): array
+    private function projectCard(array $card, string $viewerId, bool $ownerView, ?string $requestedLanguage = null, ?array $localizedCardsByLanguage = null): array
     {
         $zone = (string) ($card['zone'] ?? '');
         if ($zone !== 'battlefield') {
@@ -294,7 +294,7 @@ class GameProjectionService
             ];
         }
 
-        if ($localizedCardsByLanguage !== []) {
+        if (is_array($localizedCardsByLanguage)) {
             $card = $this->localizeCardImagesFromLookup($card, $requestedLanguage, $localizedCardsByLanguage);
         } elseif ($this->cardLocalization instanceof CardLocalizationService) {
             $card = $this->localizeCardImagesFromService($card, $requestedLanguage);

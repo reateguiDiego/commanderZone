@@ -537,55 +537,37 @@ describe('GameCardViewComponent', () => {
 
   it('shows the rulings marker for visible non-token battlefield cards with scryfall id', async () => {
     const { fixture } = await renderHandCard();
-    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
-      ok: true,
-      json: async () => ({ data: [{ object: 'ruling' }] }),
-    } as Response);
 
     fixture.componentRef.setInput('mode', 'battlefield');
     fixture.componentRef.setInput('zone', 'battlefield');
     fixture.componentRef.setInput('card', { ...gameCard(), scryfallId: 'e71c8c39-3fbb-4a42-9cf6-b3224f5a56fc' });
     fixture.detectChanges();
 
-    await vi.waitFor(() => {
-      expect(fixture.nativeElement.querySelector('.oracle-rulings-marker')).not.toBeNull();
-    });
-    fetchSpy.mockRestore();
+    expect(fixture.nativeElement.querySelector('.oracle-rulings-marker')).not.toBeNull();
   });
 
-  it('does not show the rulings marker when the card has no rulings', async () => {
+  it('shows the rulings marker without depending on a remote rulings prefetch', async () => {
     const { fixture } = await renderHandCard();
-    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
-      ok: true,
-      json: async () => ({ data: [] }),
-    } as Response);
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
 
     fixture.componentRef.setInput('mode', 'battlefield');
     fixture.componentRef.setInput('zone', 'battlefield');
     fixture.componentRef.setInput('card', { ...gameCard(), scryfallId: '33333333-3fbb-4a42-9cf6-b3224f5a56fc' });
     fixture.detectChanges();
 
-    await vi.waitFor(() => {
-      expect(fetchSpy).toHaveBeenCalledWith('https://api.scryfall.com/cards/33333333-3fbb-4a42-9cf6-b3224f5a56fc/rulings');
-    });
-    expect(fixture.nativeElement.querySelector('.oracle-rulings-marker')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.oracle-rulings-marker')).not.toBeNull();
+    expect(fetchSpy).not.toHaveBeenCalled();
     fetchSpy.mockRestore();
   });
 
   it('hides the rulings marker for hidden or face-down cards', async () => {
     const { fixture } = await renderHandCard();
-    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
-      ok: true,
-      json: async () => ({ data: [{ object: 'ruling' }] }),
-    } as Response);
 
     fixture.componentRef.setInput('mode', 'battlefield');
     fixture.componentRef.setInput('zone', 'battlefield');
     fixture.componentRef.setInput('card', { ...gameCard(), scryfallId: 'e71c8c39-3fbb-4a42-9cf6-b3224f5a56fc' });
     fixture.detectChanges();
-    await vi.waitFor(() => {
-      expect(fixture.nativeElement.querySelector('.oracle-rulings-marker')).not.toBeNull();
-    });
+    expect(fixture.nativeElement.querySelector('.oracle-rulings-marker')).not.toBeNull();
 
     fixture.componentRef.setInput('hidden', true);
     fixture.detectChanges();
@@ -595,7 +577,6 @@ describe('GameCardViewComponent', () => {
     fixture.componentRef.setInput('faceDown', true);
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('.oracle-rulings-marker')).toBeNull();
-    fetchSpy.mockRestore();
   });
 
   it('hides the rulings marker for tokens and token copies', async () => {
@@ -630,10 +611,6 @@ describe('GameCardViewComponent', () => {
     const { fixture } = await renderHandCard();
     const clicked = vi.fn();
     const open = vi.spyOn(window, 'open').mockImplementation(() => null);
-    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
-      ok: true,
-      json: async () => ({ data: [{ object: 'ruling' }] }),
-    } as Response);
     fixture.componentInstance.cardClicked.subscribe(clicked);
 
     fixture.componentRef.setInput('mode', 'battlefield');
@@ -641,46 +618,32 @@ describe('GameCardViewComponent', () => {
     fixture.componentRef.setInput('card', { ...gameCard(), scryfallId: '11111111-3fbb-4a42-9cf6-b3224f5a56fc' });
     fixture.detectChanges();
 
-    await vi.waitFor(() => {
-      expect(fixture.nativeElement.querySelector('.oracle-rulings-marker')).not.toBeNull();
-    });
+    expect(fixture.nativeElement.querySelector('.oracle-rulings-marker')).not.toBeNull();
 
     const marker = fixture.nativeElement.querySelector('.oracle-rulings-marker') as HTMLElement;
     marker?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
 
-    await vi.waitFor(() => {
-      expect(open).toHaveBeenCalledWith(
-        'https://scryfall.com/card/11111111-3fbb-4a42-9cf6-b3224f5a56fc#rulings',
-        '_blank',
-        'noopener',
-      );
-    });
-    expect(fetchSpy).toHaveBeenCalledWith('https://api.scryfall.com/cards/11111111-3fbb-4a42-9cf6-b3224f5a56fc/rulings');
+    expect(open).toHaveBeenCalledWith(
+      'https://scryfall.com/card/11111111-3fbb-4a42-9cf6-b3224f5a56fc#rulings',
+      '_blank',
+      'noopener',
+    );
     expect(clicked).not.toHaveBeenCalled();
-    fetchSpy.mockRestore();
     open.mockRestore();
   });
 
-  it('does not open scryfall when the card has no rulings', async () => {
+  it('does not open scryfall when the card is not eligible for the rulings marker', async () => {
     const { fixture } = await renderHandCard();
     const open = vi.spyOn(window, 'open').mockImplementation(() => null);
-    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
-      ok: true,
-      json: async () => ({ data: [] }),
-    } as Response);
 
     fixture.componentRef.setInput('mode', 'battlefield');
     fixture.componentRef.setInput('zone', 'battlefield');
-    fixture.componentRef.setInput('card', { ...gameCard(), scryfallId: '22222222-3fbb-4a42-9cf6-b3224f5a56fc' });
+    fixture.componentRef.setInput('card', { ...gameCard(), scryfallId: '22222222-3fbb-4a42-9cf6-b3224f5a56fc', isToken: true });
     fixture.detectChanges();
 
-    await vi.waitFor(() => {
-      expect(fetchSpy).toHaveBeenCalledWith('https://api.scryfall.com/cards/22222222-3fbb-4a42-9cf6-b3224f5a56fc/rulings');
-    });
-
     expect(fixture.nativeElement.querySelector('.oracle-rulings-marker')).toBeNull();
+    fixture.componentInstance.openRulings(new MouseEvent('click'));
     expect(open).not.toHaveBeenCalled();
-    fetchSpy.mockRestore();
     open.mockRestore();
   });
 
