@@ -12,6 +12,7 @@ type AppShellTextKey =
   | 'fullscreen'
   | 'language'
   | 'languageOptions'
+  | 'publicFaq'
   | 'logOff'
   | 'flagAltPrefix'
   | 'settingsTitle'
@@ -35,6 +36,7 @@ const APP_SHELL_TEXTS: Record<AppShellLocale, Record<AppShellTextKey, string>> =
     fullscreen: 'Fullscreen',
     language: 'Language',
     languageOptions: 'Language options',
+    publicFaq: 'FAQ',
     logOff: 'Log off',
     flagAltPrefix: 'Flag of ',
     settingsTitle: 'Settings',
@@ -57,6 +59,7 @@ const APP_SHELL_TEXTS: Record<AppShellLocale, Record<AppShellTextKey, string>> =
     fullscreen: 'Pantalla completa',
     language: 'Idioma',
     languageOptions: 'Opciones de idioma',
+    publicFaq: 'FAQ',
     logOff: 'Cerrar sesion',
     flagAltPrefix: 'Bandera de ',
     settingsTitle: 'Configuracion',

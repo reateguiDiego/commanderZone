@@ -23,7 +23,7 @@ describe('SeoLandingRouteComponent', () => {
     }).compileComponents();
 
     document = TestBed.inject(DOCUMENT);
-    document.head.querySelectorAll('[data-seo-landing="true"]').forEach((element) => element.remove());
+    document.head.querySelectorAll('[data-cz-seo="true"], [data-seo-landing="true"]').forEach((element) => element.remove());
 
     fixture = TestBed.createComponent(SeoLandingRouteComponent);
     fixture.detectChanges();
@@ -31,7 +31,7 @@ describe('SeoLandingRouteComponent', () => {
 
   afterEach(() => {
     fixture.destroy();
-    document.head.querySelectorAll('[data-seo-landing="true"]').forEach((element) => element.remove());
+    document.head.querySelectorAll('[data-cz-seo="true"], [data-seo-landing="true"]').forEach((element) => element.remove());
   });
 
   it('renders the localized static SEO landing through the shared landing page', () => {
@@ -45,15 +45,28 @@ describe('SeoLandingRouteComponent', () => {
 
   it('applies localized SEO metadata, canonical, hreflang and JSON-LD', () => {
     const title = TestBed.inject(Title);
-    const canonical = document.head.querySelector('link[data-seo-landing="true"][rel="canonical"]');
-    const alternates = document.head.querySelectorAll('link[data-seo-landing="true"][rel="alternate"]');
-    const jsonLd = document.head.querySelector('script[data-seo-landing="true"][type="application/ld+json"]');
+    const canonical = document.head.querySelector('link[data-cz-seo="true"][rel="canonical"]');
+    const alternates = document.head.querySelectorAll('link[data-cz-seo="true"][rel="alternate"]');
+    const xDefault = document.head.querySelector('link[data-cz-seo="true"][rel="alternate"][hreflang="x-default"]');
+    const jsonLd = document.head.querySelector('script[data-cz-seo="true"][type="application/ld+json"]');
 
     expect(title.getTitle()).toContain('Asistente de mesa');
-    expect(document.head.querySelector('meta[name="description"]')?.getAttribute('content')).toContain('Asistente de mesa');
-    expect(document.head.querySelector('meta[property="og:title"]')?.getAttribute('content')).toContain('Asistente de mesa');
-    expect(canonical?.getAttribute('href')).toBe('/es/asistente-de-mesa-magic/');
-    expect(alternates.length).toBe(13);
+    expect(document.head.querySelector('meta[data-cz-seo="true"][name="description"]')?.getAttribute('content')).toContain('Asistente de mesa');
+    expect(document.head.querySelector('meta[data-cz-seo="true"][name="robots"]')?.getAttribute('content')).toBe('index, follow');
+    expect(document.head.querySelector('meta[data-cz-seo="true"][property="og:title"]')?.getAttribute('content')).toContain('Asistente de mesa');
+    expect(document.head.querySelector('meta[data-cz-seo="true"][name="twitter:title"]')?.getAttribute('content')).toContain('Asistente de mesa');
+    expect(canonical?.getAttribute('href')).toBe(`${document.location.origin}/es/asistente-de-mesa-magic/`);
+    expect(alternates.length).toBe(14);
+    expect(xDefault?.getAttribute('href')).toBe(`${document.location.origin}/es/asistente-de-mesa-magic/`);
     expect(jsonLd?.textContent).toContain('"@type":"WebPage"');
+  });
+
+  it('renders public header and footer FAQ anchors', () => {
+    const element: HTMLElement = fixture.nativeElement;
+    const headerFaqLink = element.querySelector('.seo-landing-layout__nav a[href="/es/faq/"]');
+    const footerFaqLink = element.querySelector('.seo-landing-layout__footer a[href="/es/faq/"]');
+
+    expect(headerFaqLink).toBeTruthy();
+    expect(footerFaqLink).toBeTruthy();
   });
 });

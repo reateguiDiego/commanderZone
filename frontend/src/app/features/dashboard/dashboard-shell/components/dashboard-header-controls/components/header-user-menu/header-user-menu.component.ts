@@ -29,6 +29,8 @@ export class HeaderUserMenuComponent {
   readonly fullscreenLabel = computed(() => this.i18n.text('fullscreen'));
   readonly languageLabel = computed(() => this.i18n.text('language'));
   readonly languageOptionsLabel = computed(() => this.i18n.text('languageOptions'));
+  readonly publicFaqLabel = computed(() => this.i18n.text('publicFaq'));
+  readonly publicFaqHref = computed(() => this.selectedLanguage() === 'es' ? '/es/faq/' : '/en/faq/');
   readonly logOffLabel = computed(() => this.i18n.text('logOff'));
   readonly flagAltPrefix = computed(() => this.i18n.text('flagAltPrefix'));
   readonly localizedLanguages = computed(() =>

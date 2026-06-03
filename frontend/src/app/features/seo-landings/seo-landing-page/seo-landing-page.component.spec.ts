@@ -14,6 +14,7 @@ describe('SeoLandingPageComponent', () => {
       description: 'Run a manual Commander table with friends from any browser.',
       ogTitle: 'Play Commander online | CommanderZone',
       ogDescription: 'Run a manual Commander table with friends from any browser.',
+      ogImage: '/assets/og/play-commander-og.png',
     },
     jsonLd: {
       '@context': 'https://schema.org',

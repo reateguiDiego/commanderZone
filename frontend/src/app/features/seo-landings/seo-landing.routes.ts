@@ -12,7 +12,6 @@ export const SEO_LANDING_ROUTES: readonly Route[] = SEO_ROUTE_KEYS.flatMap((rout
       routeKey,
       locale,
     },
-    title: SEO_ROUTES[routeKey].routeKey,
   })),
 );
 

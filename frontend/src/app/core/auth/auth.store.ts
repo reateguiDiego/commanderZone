@@ -185,8 +185,9 @@ export class AuthStore {
     this.tokenState.set(null);
     this.userState.set(null);
     this.resolvedDisplayNameState.set(null);
-    localStorage.removeItem(LEGACY_TOKEN_KEY);
-    localStorage.removeItem(USER_KEY);
+    const storage = browserLocalStorage();
+    storage?.removeItem(LEGACY_TOKEN_KEY);
+    storage?.removeItem(USER_KEY);
   }
 
   clearError(): void {
@@ -201,7 +202,7 @@ export class AuthStore {
     const normalizedUser = this.normalizeUser(user);
     this.userState.set(normalizedUser);
     this.resolvedDisplayNameState.set(normalizedUser.displayName);
-    localStorage.setItem(USER_KEY, JSON.stringify(normalizedUser));
+    browserLocalStorage()?.setItem(USER_KEY, JSON.stringify(normalizedUser));
   }
 
   private async establishSession(token: string): Promise<void> {
@@ -262,7 +263,7 @@ export class AuthStore {
   }
 
   private clearLegacyToken(): void {
-    localStorage.removeItem(LEGACY_TOKEN_KEY);
+    browserLocalStorage()?.removeItem(LEGACY_TOKEN_KEY);
   }
 
   private normalizeUser(user: User): User {
@@ -308,7 +309,8 @@ export class AuthStore {
 }
 
 function readStoredUser(): User | null {
-  const rawUser = localStorage.getItem(USER_KEY);
+  const storage = browserLocalStorage();
+  const rawUser = storage?.getItem(USER_KEY);
   if (!rawUser) {
     return null;
   }
@@ -316,7 +318,7 @@ function readStoredUser(): User | null {
   try {
     return JSON.parse(rawUser) as User;
   } catch {
-    localStorage.removeItem(USER_KEY);
+    storage?.removeItem(USER_KEY);
     return null;
   }
 }
@@ -335,6 +337,14 @@ function displayNameFromEmail(email: string | null): string | null {
 
   const localPart = normalizedEmail.split('@')[0]?.trim();
   return localPart ? localPart : null;
+}
+
+function browserLocalStorage(): Storage | null {
+  try {
+    return globalThis.localStorage ?? null;
+  } catch {
+    return null;
+  }
 }
 
 function errorMessageFromResponse(error: unknown, fallback: string): string {

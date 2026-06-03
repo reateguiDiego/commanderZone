@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { PLATFORM_ID } from '@angular/core';
 import { AppBackgroundService } from './app-background.service';
 
 describe('AppBackgroundService', () => {
@@ -41,5 +42,23 @@ describe('AppBackgroundService', () => {
     expect(sessionStorage.getItem(sessionKey)).toBe(service.imageUrl);
     expect(sessionStorage.getItem('commanderzone.previousBackgroundImage')).toBe('/assets/images/backgrounds/back_4.png');
     expect(document.documentElement.style.getPropertyValue('--app-session-background')).toBe(`url("${service.imageUrl}")`);
+  });
+
+  it('does not access browser storage or mutate the document in server rendering', () => {
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: PLATFORM_ID, useValue: 'server' },
+      ],
+    });
+
+    const service = TestBed.inject(AppBackgroundService);
+
+    service.setDashboardMode(true);
+    service.useNewSessionBackground();
+
+    expect(service.imageUrl).toBe('/assets/images/backgrounds/back_0.png');
+    expect(document.body.classList.contains('dashboard-background')).toBe(false);
+    expect(document.documentElement.style.getPropertyValue('--app-session-background')).toBe('');
   });
 });

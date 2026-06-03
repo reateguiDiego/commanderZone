@@ -942,21 +942,9 @@ function createSeoLandingContent(routeKey: SeoRouteKey, locale: LocaleCode): Seo
   const title = ROUTE_LABELS[routeKey][locale];
   const path = getSeoPath(routeKey, locale);
   const description = `${copy.descriptionPrefix} ${title} ${copy.descriptionSuffix}`;
-  const faq = {
-    id: 'faq',
-    title: copy.faqTitle,
-    intro: copy.faqIntro,
-    items: [
-      {
-        question: `${copy.faqQuestionPrefix} ${title}${copy.faqQuestionSuffix}`,
-        answer: [`${copy.faqAnswerPrefix} ${title} ${copy.faqAnswerSuffix}`],
-      },
-      {
-        question: `${copy.comparisonTitle}: ${title}`,
-        answer: [`${copy.comparisonIntro} ${copy.comparisonFirstValue}.`],
-      },
-    ],
-  };
+  const faq = routeKey === 'faq'
+    ? createPublicFaqContent(locale, copy)
+    : createLandingFaqContent(title, copy);
 
   return {
     routeKey,
@@ -966,6 +954,7 @@ function createSeoLandingContent(routeKey: SeoRouteKey, locale: LocaleCode): Seo
       description,
       ogTitle: `${title} | CommanderZone`,
       ogDescription: description,
+      ogImage: getOpenGraphImagePath(routeKey),
     },
     jsonLd: {
       '@context': 'https://schema.org',
@@ -985,6 +974,15 @@ function createSeoLandingContent(routeKey: SeoRouteKey, locale: LocaleCode): Seo
     },
     siteName: 'CommanderZone',
     homeLink: { label: copy.homeLabel, href: getSeoPath('home', locale) },
+    publicNavigationLinks: [
+      { label: ROUTE_LABELS.playCommanderOnline[locale], href: getSeoPath('playCommanderOnline', locale) },
+      { label: ROUTE_LABELS.faq[locale], href: getSeoPath('faq', locale) },
+    ],
+    footerLinks: [
+      { label: ROUTE_LABELS.faq[locale], href: getSeoPath('faq', locale) },
+      { label: ROUTE_LABELS.tableAssistant[locale], href: getSeoPath('tableAssistant', locale) },
+      { label: ROUTE_LABELS.importCommanderDeck[locale], href: getSeoPath('importCommanderDeck', locale) },
+    ],
     localeLinks: SUPPORTED_LOCALES.map((supportedLocale) => ({
       locale: supportedLocale.code,
       label: supportedLocale.nativeLabel,
@@ -1092,7 +1090,134 @@ function createSeoLandingContent(routeKey: SeoRouteKey, locale: LocaleCode): Seo
   };
 }
 
+function createLandingFaqContent(title: string, copy: LocaleLandingCopy): SeoLandingContent['faq'] {
+  return {
+    id: 'faq',
+    title: copy.faqTitle,
+    intro: copy.faqIntro,
+    items: [
+      {
+        question: `${copy.faqQuestionPrefix} ${title}${copy.faqQuestionSuffix}`,
+        answer: [`${copy.faqAnswerPrefix} ${title} ${copy.faqAnswerSuffix}`],
+      },
+      {
+        question: `${copy.comparisonTitle}: ${title}`,
+        answer: [`${copy.comparisonIntro} ${copy.comparisonFirstValue}.`],
+      },
+    ],
+  };
+}
+
+function createPublicFaqContent(locale: LocaleCode, copy: LocaleLandingCopy): SeoLandingContent['faq'] {
+  const questions = PUBLIC_FAQ_QUESTIONS[locale];
+  const localizedQuestions = questions.length > 0 ? questions : createLocalizedPublicFaqQuestions(locale, copy);
+
+  return {
+    id: 'faq',
+    title: copy.faqTitle,
+    intro: copy.faqIntro,
+    items: localizedQuestions.map((question, index) => ({
+      question,
+      answer: [createPublicFaqAnswer(question, index, copy)],
+    })),
+  };
+}
+
+function createPublicFaqAnswer(question: string, index: number, copy: LocaleLandingCopy): string {
+  const answerGroups = [
+    `${copy.faqAnswerPrefix} CommanderZone ${copy.faqAnswerSuffix}`,
+    `${copy.comparisonIntro} ${copy.comparisonFirstValue}.`,
+    `${copy.useCaseRemoteDescription} ${copy.useCasePhysicalDescription}`,
+    `${copy.featureTwoDescription} ${copy.featureThreeDescription}`,
+  ];
+
+  return `${answerGroups[index % answerGroups.length]} ${question}`;
+}
+
+function createLocalizedPublicFaqQuestions(locale: LocaleCode, copy: LocaleLandingCopy): readonly string[] {
+  const commanderOnline = ROUTE_LABELS.playCommanderOnline[locale];
+  const magicWithFriends = ROUTE_LABELS.playMagicOnlineWithFriends[locale];
+  const createRoom = ROUTE_LABELS.createCommanderRoom[locale];
+  const importDeck = ROUTE_LABELS.importCommanderDeck[locale];
+  const deckBuilder = ROUTE_LABELS.commanderDeckBuilder[locale];
+  const tableAssistant = ROUTE_LABELS.tableAssistant[locale];
+  const waysToPlay = ROUTE_LABELS.waysToPlayCommanderOnline[locale];
+
+  return [
+    `${copy.faqQuestionPrefix} CommanderZone${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} ${commanderOnline}${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} ${magicWithFriends}${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} ${copy.browserValue}${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} ${copy.browserLabel}${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} ${createRoom}${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} invitations and room links${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} free Commander games${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} accounts and room creation${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} multiplayer Commander${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} ${importDeck}${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} pasted decklists${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} ${deckBuilder}${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} creating Commander decks from scratch${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} editing decks before playing${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} Moxfield, Archidekt and other deck sources${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} decklist formats${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} existing Commander decks online${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} ${tableAssistant}${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} physical Magic games${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} phone life counter use${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} tablet table assistant use${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} in-person games${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} commander damage tracking${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} several player life totals${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} poison or infect tracking${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} table assistant without online room${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} SpellTable comparison${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} Cockatrice comparison${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} MTGO comparison${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} MTG Arena comparison${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} Untap.in comparison${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} EDHPlay comparison${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} ${waysToPlay}${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} mobile devices${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} tablets${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} Mac, Windows and Linux${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} camera or webcam requirements${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} playing without webcam${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} physical cards${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} private games${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} room links${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} starting requirements${copy.faqQuestionSuffix}`,
+  ];
+}
+
 function getRouteSpecificSections(routeKey: SeoRouteKey, locale: LocaleCode): readonly LandingSectionContent[] {
+  if (routeKey === 'home') {
+    return [
+      {
+        id: 'public-faq',
+        title: ROUTE_LABELS.faq[locale],
+        body: [
+          `${LOCALE_COPY[locale].faqIntro} ${LOCALE_COPY[locale].internalLinksIntro}`,
+        ],
+        links: [
+          { label: ROUTE_LABELS.faq[locale], href: getSeoPath('faq', locale) },
+        ],
+      },
+    ];
+  }
+
+  if (routeKey === 'faq') {
+    return [
+      {
+        id: 'faq-categories',
+        title: LOCALE_COPY[locale].useCasesTitle,
+        body: [
+          'CommanderZone, Commander online, deck import, deck builder, Asistente de mesa, platform comparisons, devices and privacy.',
+        ],
+      },
+    ];
+  }
+
   if (routeKey === 'tableAssistant' && locale === 'es') {
     return [
       {
@@ -1122,6 +1247,110 @@ function getRouteSpecificSections(routeKey: SeoRouteKey, locale: LocaleCode): re
   return [];
 }
 
+const PUBLIC_FAQ_QUESTIONS: Readonly<Record<LocaleCode, readonly string[]>> = {
+  es: [
+    '¿Qué es CommanderZone?',
+    '¿Cómo puedo jugar Commander online con amigos?',
+    '¿Puedo jugar Magic: The Gathering online en CommanderZone?',
+    '¿Necesito descargar algo para jugar?',
+    '¿CommanderZone funciona desde navegador?',
+    '¿Puedo crear una sala privada para jugar Commander?',
+    '¿Cómo invito a mis amigos a una partida?',
+    '¿Puedo jugar Commander online gratis?',
+    '¿Necesito registrarme para crear una sala?',
+    '¿CommanderZone está pensado para Commander multijugador?',
+    '¿Puedo importar mi mazo de Commander?',
+    '¿Puedo pegar una decklist para jugar online?',
+    '¿CommanderZone tiene deck builder?',
+    '¿Puedo crear un mazo de Commander desde cero?',
+    '¿Puedo editar mi mazo antes de jugar?',
+    '¿Puedo importar mazos desde Moxfield, Archidekt u otras plataformas?',
+    '¿Qué formatos de decklist acepta CommanderZone?',
+    '¿Puedo jugar online con un mazo que ya tengo creado?',
+    '¿Qué es el Asistente de mesa?',
+    '¿Puedo usar CommanderZone como asistente de mesa en una partida física?',
+    '¿Puedo usar el móvil como contador de vidas de Magic?',
+    '¿Puedo usar una tablet como asistente de mesa para Commander?',
+    '¿El Asistente de mesa funciona para partidas presenciales?',
+    '¿Puedo controlar el daño de comandante?',
+    '¿Puedo contar vidas de varios jugadores?',
+    '¿Puedo controlar veneno o infect?',
+    '¿Necesito crear una sala online para usar el Asistente de mesa?',
+    '¿CommanderZone es una alternativa a SpellTable?',
+    '¿CommanderZone es una alternativa a Cockatrice?',
+    '¿CommanderZone es una alternativa a MTGO?',
+    '¿CommanderZone es una alternativa a MTG Arena?',
+    '¿CommanderZone es una alternativa a Untap.in?',
+    '¿CommanderZone es una alternativa a EDHPlay?',
+    '¿Qué diferencia a CommanderZone de otras plataformas para jugar Commander online?',
+    '¿CommanderZone funciona en móvil?',
+    '¿CommanderZone funciona en tablet?',
+    '¿CommanderZone funciona en Mac, Windows y Linux?',
+    '¿Necesito cámara o webcam?',
+    '¿Puedo jugar sin webcam?',
+    '¿Puedo jugar con cartas físicas?',
+    '¿Mis partidas son privadas?',
+    '¿Puedo compartir una sala con un enlace?',
+    '¿Qué necesito para empezar a jugar?',
+  ],
+  en: [
+    'What is CommanderZone?',
+    'How can I play Commander online with friends?',
+    'Can I play Magic: The Gathering online on CommanderZone?',
+    'Do I need to download anything to play?',
+    'Does CommanderZone work in the browser?',
+    'Can I create a private room to play Commander?',
+    'How do I invite friends to a game?',
+    'Can I play Commander online for free?',
+    'Do I need an account to create a room?',
+    'Is CommanderZone built for multiplayer Commander?',
+    'Can I import my Commander deck?',
+    'Can I paste a decklist to play online?',
+    'Does CommanderZone include a deck builder?',
+    'Can I create a Commander deck from scratch?',
+    'Can I edit my deck before playing?',
+    'Can I import decks from Moxfield, Archidekt or other platforms?',
+    'Which decklist formats does CommanderZone accept?',
+    'Can I play online with a deck I already created?',
+    'What is the table assistant?',
+    'Can I use CommanderZone as a table assistant in a physical game?',
+    'Can I use my phone as a Magic life counter?',
+    'Can I use a tablet as a Commander table assistant?',
+    'Does the table assistant work for in-person games?',
+    'Can I track commander damage?',
+    'Can I track life totals for several players?',
+    'Can I track poison or infect?',
+    'Do I need to create an online room to use the table assistant?',
+    'Is CommanderZone an alternative to SpellTable?',
+    'Is CommanderZone an alternative to Cockatrice?',
+    'Is CommanderZone an alternative to MTGO?',
+    'Is CommanderZone an alternative to MTG Arena?',
+    'Is CommanderZone an alternative to Untap.in?',
+    'Is CommanderZone an alternative to EDHPlay?',
+    'What makes CommanderZone different from other ways to play Commander online?',
+    'Does CommanderZone work on mobile?',
+    'Does CommanderZone work on tablets?',
+    'Does CommanderZone work on Mac, Windows and Linux?',
+    'Do I need a camera or webcam?',
+    'Can I play without a webcam?',
+    'Can I play with physical cards?',
+    'Are my games private?',
+    'Can I share a room with a link?',
+    'What do I need to start playing?',
+  ],
+  de: [],
+  fr: [],
+  it: [],
+  pt: [],
+  ja: [],
+  ko: [],
+  'zh-hans': [],
+  'zh-hant': [],
+  nl: [],
+  ca: [],
+  ru: [],
+};
+
 function getRelatedRouteKeys(routeKey: SeoRouteKey): readonly SeoRouteKey[] {
   const routes: readonly SeoRouteKey[] = [
     'playCommanderOnline',
@@ -1135,4 +1364,14 @@ function getRelatedRouteKeys(routeKey: SeoRouteKey): readonly SeoRouteKey[] {
   ];
 
   return routes.filter((relatedRouteKey) => relatedRouteKey !== routeKey).slice(0, 4);
+}
+
+function getOpenGraphImagePath(routeKey: SeoRouteKey): string {
+  const images: Partial<Record<SeoRouteKey, string>> = {
+    home: '/assets/og/home-og.png',
+    playCommanderOnline: '/assets/og/play-commander-og.png',
+    tableAssistant: '/assets/og/table-assistant-og.png',
+  };
+
+  return images[routeKey] ?? '/assets/og/default-og.png';
 }

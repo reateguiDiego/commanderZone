@@ -1,7 +1,7 @@
 import { importProvidersFrom } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
-import { Check, ChevronRight, LogOut, LucideAngularModule, Maximize2, Menu, Settings } from 'lucide-angular';
+import { Check, ChevronRight, CircleQuestionMark, LogOut, LucideAngularModule, Maximize2, Menu, Settings } from 'lucide-angular';
 import { LanguagePreferencesService } from '../../../../../../../core/localization/language-preferences.service';
 import { HeaderUserMenuComponent } from './header-user-menu.component';
 
@@ -38,7 +38,7 @@ describe('HeaderUserMenuComponent', () => {
     await TestBed.configureTestingModule({
       imports: [HeaderUserMenuComponent],
       providers: [
-        importProvidersFrom(LucideAngularModule.pick({ Check, ChevronRight, LogOut, Maximize2, Menu, Settings })),
+        importProvidersFrom(LucideAngularModule.pick({ Check, ChevronRight, CircleQuestionMark, LogOut, Maximize2, Menu, Settings })),
         {
           provide: LanguagePreferencesService,
           useValue: {
@@ -176,6 +176,20 @@ describe('HeaderUserMenuComponent', () => {
 
     expect(labels.some((text) => text.includes('Dutch'))).toBe(true);
     expect(labels.some((text) => text.includes('Catalan'))).toBe(true);
+  });
+
+  it('links to the public FAQ from the internal app menu', () => {
+    const fixture = TestBed.createComponent(HeaderUserMenuComponent);
+    fixture.detectChanges();
+
+    const trigger = fixture.nativeElement.querySelector('.icon-button') as HTMLButtonElement;
+    trigger.click();
+    fixture.detectChanges();
+
+    const faqLink = fixture.nativeElement.querySelector('a.menu-item[href="/en/faq/"]') as HTMLAnchorElement | null;
+
+    expect(faqLink).toBeTruthy();
+    expect(faqLink?.textContent).toContain('FAQ');
   });
 
   it('emits logoff when selecting log off option', () => {

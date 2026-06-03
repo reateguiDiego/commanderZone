@@ -14,6 +14,7 @@ export interface SeoMetadataContent {
   readonly description: string;
   readonly ogTitle: string;
   readonly ogDescription: string;
+  readonly ogImage: string;
 }
 
 export interface LandingLink {
@@ -143,6 +144,8 @@ export interface SeoLandingContent {
   readonly jsonLd: SeoJsonLdValue;
   readonly siteName?: string;
   readonly homeLink?: LandingLink;
+  readonly publicNavigationLinks?: readonly LandingLink[];
+  readonly footerLinks?: readonly LandingLink[];
   readonly localeLinks?: readonly LandingLocaleLink[];
   readonly breadcrumb: LandingBreadcrumbContent;
   readonly hero: LandingHeroContent;

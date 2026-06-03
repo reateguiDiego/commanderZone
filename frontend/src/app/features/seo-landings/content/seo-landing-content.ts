@@ -79,6 +79,7 @@ export function validateSeoLandingContentCoverage(): readonly string[] {
       validateRequiredText(errors, routeKey, locale, 'seo.description', content.seo.description);
       validateRequiredText(errors, routeKey, locale, 'seo.ogTitle', content.seo.ogTitle);
       validateRequiredText(errors, routeKey, locale, 'seo.ogDescription', content.seo.ogDescription);
+      validateRequiredText(errors, routeKey, locale, 'seo.ogImage', content.seo.ogImage);
       validateRequiredText(errors, routeKey, locale, 'hero.eyebrow', content.hero.eyebrow);
       validateRequiredText(errors, routeKey, locale, 'hero.title', content.hero.title);
       validateRequiredText(errors, routeKey, locale, 'hero.subtitle', content.hero.subtitle);

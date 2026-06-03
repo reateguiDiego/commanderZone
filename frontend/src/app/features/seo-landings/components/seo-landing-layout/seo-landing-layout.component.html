@@ -4,13 +4,23 @@
       {{ content().siteName ?? content().homeLink?.label ?? 'CommanderZone' }}
     </a>
 
-    @if (content().localeLinks?.length) {
-      <nav class="seo-landing-layout__locales" aria-label="Language versions">
-        @for (link of content().localeLinks; track link.locale) {
-          <a [href]="link.href" [attr.hreflang]="link.locale" [attr.aria-label]="link.ariaLabel">{{ link.label }}</a>
-        }
-      </nav>
-    }
+    <div class="seo-landing-layout__header-links">
+      @if (content().publicNavigationLinks?.length) {
+        <nav class="seo-landing-layout__nav" aria-label="Public navigation">
+          @for (link of content().publicNavigationLinks; track link.href) {
+            <a [href]="link.href" [attr.aria-label]="link.ariaLabel">{{ link.label }}</a>
+          }
+        </nav>
+      }
+
+      @if (content().localeLinks?.length) {
+        <nav class="seo-landing-layout__locales" aria-label="Language versions">
+          @for (link of content().localeLinks; track link.locale) {
+            <a [href]="link.href" [attr.hreflang]="link.locale" [attr.aria-label]="link.ariaLabel">{{ link.label }}</a>
+          }
+        </nav>
+      }
+    </div>
   </header>
 
   @if (content().breadcrumb; as breadcrumb) {
@@ -23,5 +33,15 @@
 
   @if (content().internalLinks; as internalLinks) {
     <app-landing-internal-links [content]="internalLinks" />
+  }
+
+  @if (content().footerLinks?.length) {
+    <footer class="seo-landing-layout__footer">
+      <nav aria-label="Public footer">
+        @for (link of content().footerLinks; track link.href) {
+          <a [href]="link.href" [attr.aria-label]="link.ariaLabel">{{ link.label }}</a>
+        }
+      </nav>
+    </footer>
   }
 </div>
