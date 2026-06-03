@@ -9,6 +9,7 @@ export const SEO_LANDING_ROUTES: readonly Route[] = SEO_ROUTE_KEYS.flatMap((rout
     loadComponent: () => import('./seo-landing-route/seo-landing-route.component')
       .then((component) => component.SeoLandingRouteComponent),
     data: {
+      pageKey: routeKey,
       routeKey,
       locale,
     },

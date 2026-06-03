@@ -73,4 +73,18 @@ describe('TranslationService', () => {
     expect(instant).toHaveBeenCalledWith('common.title', params);
     expect(stream).toHaveBeenCalledWith('common.title', params);
   });
+
+  it('uses safe fallbacks when ngx-translate is not provided', () => {
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [TranslationService],
+    });
+    const service = TestBed.inject(TranslationService);
+
+    service.useLocale('de').subscribe((locale) => expect(locale).toBe('de'));
+
+    expect(service.currentLocale()).toBe('es');
+    expect(service.instant('common.title')).toBe('common.title');
+    service.stream('common.title').subscribe((value) => expect(value).toBe('common.title'));
+  });
 });

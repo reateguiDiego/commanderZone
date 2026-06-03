@@ -13,11 +13,18 @@ const requiredFiles = [
   'public/assets/og/home-og.png',
   'public/assets/og/play-commander-og.png',
   'public/assets/og/table-assistant-og.png',
+  'public/assets/og/faq-og.png',
+  'public/assets/og/ways-to-play-og.png',
   'public/assets/seo/README.md',
 ];
 
 for (const file of requiredFiles) {
   await assertFileExists(file);
+}
+
+for (const file of requiredFiles.filter((requiredFile) => requiredFile.startsWith('public/assets/og/'))) {
+  await assertPngDimensions(file, 1200, 630);
+  await assertMaxFileSize(file, 150_000);
 }
 
 const robots = await readPublicFile('robots.txt');
@@ -35,16 +42,11 @@ if (manifest.name !== 'CommanderZone' || manifest.icons?.length < 2) {
   throw new Error('manifest.webmanifest must define CommanderZone icons.');
 }
 
-for (const fileName of await readdir(path.join(workspaceRoot, 'public', 'assets', 'seo'))) {
-  if (!fileName.endsWith('.html')) {
-    continue;
-  }
-
-  const verificationFile = await readPublicFile(`assets/seo/${fileName}`);
-  if (/fake|placeholder|todo/i.test(verificationFile)) {
-    throw new Error(`Search Console verification file must contain a real token: ${fileName}`);
-  }
-}
+await assertSearchConsoleVerificationFiles('public', await readdir(path.join(workspaceRoot, 'public')));
+await assertSearchConsoleVerificationFiles(
+  'public/assets/seo',
+  await readdir(path.join(workspaceRoot, 'public', 'assets', 'seo')),
+);
 
 console.log('Public SEO asset validation passed.');
 
@@ -54,4 +56,40 @@ async function assertFileExists(relativePath) {
 
 async function readPublicFile(relativePath) {
   return readFile(path.join(workspaceRoot, 'public', relativePath), 'utf8');
+}
+
+async function assertPngDimensions(relativePath, expectedWidth, expectedHeight) {
+  const bytes = await readFile(path.join(workspaceRoot, relativePath));
+  const width = bytes.readUInt32BE(16);
+  const height = bytes.readUInt32BE(20);
+
+  if (width !== expectedWidth || height !== expectedHeight) {
+    throw new Error(`${relativePath} must be ${expectedWidth}x${expectedHeight}, got ${width}x${height}.`);
+  }
+}
+
+async function assertMaxFileSize(relativePath, maxBytes) {
+  const bytes = await readFile(path.join(workspaceRoot, relativePath));
+
+  if (bytes.length > maxBytes) {
+    throw new Error(`${relativePath} must be optimized below ${maxBytes} bytes, got ${bytes.length}.`);
+  }
+}
+
+async function assertSearchConsoleVerificationFiles(publicDirectory, fileNames) {
+  for (const fileName of fileNames) {
+    if (!isSearchConsoleVerificationFile(fileName)) {
+      continue;
+    }
+
+    const publicRelativePath = path.posix.join(publicDirectory.replace(/^public\/?/, ''), fileName);
+    const verificationFile = await readPublicFile(publicRelativePath);
+    if (/fake|placeholder|todo|replace|google-site-verification:\s*$/i.test(verificationFile)) {
+      throw new Error(`Search Console verification file must contain a real token: ${path.posix.join(publicDirectory, fileName)}`);
+    }
+  }
+}
+
+function isSearchConsoleVerificationFile(fileName) {
+  return /^google[a-z0-9_-]+\.html$/i.test(fileName);
 }

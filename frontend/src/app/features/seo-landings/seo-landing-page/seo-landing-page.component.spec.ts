@@ -39,6 +39,14 @@ describe('SeoLandingPageComponent', () => {
       eyebrow: 'CommanderZone',
       title: 'Play Commander online',
       subtitle: 'Run a manual Commander table with friends from any browser.',
+      image: {
+        src: '/assets/og/play-commander-og.png',
+        alt: 'Play Commander online - CommanderZone',
+        width: 1200,
+        height: 630,
+        loading: 'eager',
+        fetchPriority: 'high',
+      },
       primaryLink: { label: 'Create a room', href: '/rooms' },
       secondaryLink: { label: 'Import a deck', href: '/decks' },
       highlights: ['No rules engine', 'Shared table', 'Browser based'],
@@ -165,14 +173,29 @@ describe('SeoLandingPageComponent', () => {
 
   it('renders real links with href attributes and visible FAQ answers', () => {
     const element: HTMLElement = fixture.nativeElement;
-    const links = Array.from(element.querySelectorAll('a')).map((link) => link.getAttribute('href'));
+    const anchors = Array.from(element.querySelectorAll('a'));
+    const links = anchors.map((link) => link.getAttribute('href'));
 
     expect(links).toContain('/rooms');
     expect(links).toContain('/decks');
     expect(links).toContain('/de/commander-online-spielen/');
     expect(links).toContain('/en/import-commander-deck/');
+    expect(anchors.every((link) => Boolean(link.getAttribute('href')))).toBe(true);
+    expect(element.querySelector('button')).toBeNull();
     expect(element.querySelector('details')?.hasAttribute('open')).toBe(true);
     expect(element.textContent).toContain('No. It is a manual Commander table.');
+  });
+
+  it('renders a stable SEO hero image without layout shift or lazy loading', () => {
+    const element: HTMLElement = fixture.nativeElement;
+    const image = element.querySelector('.landing-hero__media img');
+
+    expect(image?.getAttribute('src')).toBe('/assets/og/play-commander-og.png');
+    expect(image?.getAttribute('alt')).toBe('Play Commander online - CommanderZone');
+    expect(image?.getAttribute('width')).toBe('1200');
+    expect(image?.getAttribute('height')).toBe('630');
+    expect(image?.getAttribute('loading')).toBe('eager');
+    expect(image?.getAttribute('fetchpriority')).toBe('high');
   });
 
   it('renders reusable responsive system sections', () => {
@@ -181,6 +204,7 @@ describe('SeoLandingPageComponent', () => {
     expect(element.querySelector('app-product-landing-template')).toBeTruthy();
     expect(element.querySelector('app-seo-landing-template-renderer')).toBeTruthy();
     expect(element.querySelector('app-landing-breadcrumb')).toBeTruthy();
+    expect(element.querySelector('app-seo-language-selector')).toBeTruthy();
     expect(element.querySelector('app-landing-trust-bar')).toBeTruthy();
     expect(element.querySelector('app-landing-use-cases')).toBeTruthy();
     expect(element.querySelector('app-landing-faq-preview')).toBeTruthy();

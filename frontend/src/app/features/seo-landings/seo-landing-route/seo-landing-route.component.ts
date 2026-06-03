@@ -51,6 +51,7 @@ export class SeoLandingRouteComponent {
       openGraphTitle: content.seo.ogTitle,
       openGraphDescription: content.seo.ogDescription,
       openGraphImage: content.seo.ogImage,
+      preloadImage: content.hero.image?.src,
       jsonLd: [content.jsonLd],
     });
   }

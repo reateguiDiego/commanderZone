@@ -1,16 +1,20 @@
 import { RuntimeTranslatePipe } from '../core/localization/runtime-translate.pipe';
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
+import { ChangeDetectionStrategy, Component, PLATFORM_ID, computed, inject, signal } from '@angular/core';
 import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { filter } from 'rxjs';
 import { AuthStore } from '../core/auth/auth.store';
 import { LoadingStore } from '../core/loading/loading.store';
+import { CookieConsentBannerComponent } from '../core/privacy/cookie-consent-banner/cookie-consent-banner.component';
+import { RouteRobotsMetaService } from '../core/seo/route-robots-meta.service';
 import { AppBackgroundService } from '../core/ui/app-background.service';
 import { FooterDisclaimerComponent } from '../shared/components/footer-disclaimer/footer-disclaimer.component';
+import { RuntimeLanguageSelectorService } from '../core/localization/runtime-language-selector.service';
 
 @Component({
   selector: 'app-root',
-  imports: [RuntimeTranslatePipe, FooterDisclaimerComponent, RouterOutlet],
+  imports: [RuntimeTranslatePipe, CookieConsentBannerComponent, FooterDisclaimerComponent, RouterOutlet],
   templateUrl: './app.html',
   styleUrl: './app.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -18,13 +22,20 @@ import { FooterDisclaimerComponent } from '../shared/components/footer-disclaime
 export class App {
   private readonly auth = inject(AuthStore);
   private readonly background = inject(AppBackgroundService);
+  private readonly runtimeLanguageSelector = inject(RuntimeLanguageSelectorService);
+  private readonly routeRobots = inject(RouteRobotsMetaService);
   private readonly router = inject(Router);
+  private readonly platformId = inject(PLATFORM_ID);
   readonly loading = inject(LoadingStore);
   private readonly currentPath = signal(this.normalizedPath(this.router.url));
   readonly showDisclaimer = computed(() => !this.isDisclaimerHiddenPath(this.currentPath()));
 
   constructor() {
-    void this.auth.initialize().catch(() => undefined);
+    if (isPlatformBrowser(this.platformId)) {
+      void this.auth.initialize().catch(() => undefined);
+    }
+
+    this.routeRobots.initialize();
     this.syncRouteState(this.router.url);
     this.router.events
       .pipe(

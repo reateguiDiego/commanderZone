@@ -25,4 +25,13 @@ describe('SEO landing routes', () => {
     expect(SEO_LANDING_ROUTES.some((route) => route.path === 'table-assistant')).toBe(false);
     expect(SEO_LANDING_ROUTES.some((route) => route.path === 'rooms')).toBe(false);
   });
+
+  it('does not create mixed locale and slug routes', () => {
+    const routePaths = SEO_LANDING_ROUTES.map((route) => route.path);
+
+    expect(routePaths).not.toContain('en/jugar-commander-online');
+    expect(routePaths).not.toContain('es/play-commander-online');
+    expect(routePaths).not.toContain('en/asistente-de-mesa-magic');
+    expect(routePaths).not.toContain('es/commander-life-counter');
+  });
 });

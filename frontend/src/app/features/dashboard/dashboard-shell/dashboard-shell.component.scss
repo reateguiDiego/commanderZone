@@ -175,7 +175,7 @@ app-dashboard-header {
   .nav-list a {
     justify-content: center;
     gap: 0.35rem;
-    min-height: 2.25rem;
+    min-height: 2.75rem;
     padding: 0.45rem 0.5rem;
     font-size: clamp(0.72rem, 1.8vw, 0.86rem);
     white-space: nowrap;
@@ -225,7 +225,7 @@ app-dashboard-header {
 
   .nav-list a {
     flex-direction: column;
-    min-height: 2.35rem;
+    min-height: 2.75rem;
     padding: 0.35rem 0.3rem;
     font-size: 0.66rem;
     text-align: center;

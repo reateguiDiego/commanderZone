@@ -22,6 +22,6 @@ describe('server routes', () => {
   });
 
   it('uses client rendering as the fallback server route', () => {
-    expect(serverRoutes.at(-1)).toEqual({ path: '**', renderMode: RenderMode.Client });
+    expect(serverRoutes.at(-1)).toEqual({ path: '**', renderMode: RenderMode.Client, status: 404 });
   });
 });

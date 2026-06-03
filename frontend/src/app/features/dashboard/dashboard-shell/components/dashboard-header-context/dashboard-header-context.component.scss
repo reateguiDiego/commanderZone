@@ -90,6 +90,10 @@
   gap: 0.45rem;
 }
 
+.page-header-detail-row button {
+  min-height: 2.75rem;
+}
+
 button[data-action-id="invite-friends"] {
   max-width: 175px;
 }
@@ -117,10 +121,10 @@ button[data-action-id="invite-friends"] {
 .icon-only {
   display: inline-grid;
   place-items: center;
-  width: 2.15rem;
-  min-width: 2.15rem;
-  min-height: 2.15rem;
-  height: 2.15rem;
+  width: 2.75rem;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  height: 2.75rem;
   padding-inline: 0;
 }
 
@@ -212,6 +216,7 @@ button:disabled {
   }
 
   .page-header-detail-row.has-actions:not(.has-stats) button:not(.icon-only) {
+    min-height: 2.75rem;
     width: 100%;
   }
 

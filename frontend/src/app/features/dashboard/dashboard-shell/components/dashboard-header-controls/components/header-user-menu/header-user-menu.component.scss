@@ -9,6 +9,8 @@
 .icon-button {
   display: inline-grid;
   place-items: center;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
   line-height: 0;
 }
 

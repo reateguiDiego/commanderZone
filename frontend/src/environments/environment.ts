@@ -8,4 +8,7 @@ export const environment = {
   production: false,
   apiBaseUrl: `http://${localApiHost}:8000`,
   mercureUrl: `http://${localApiHost}:3000/.well-known/mercure`,
+  // Optional Google Search Console HTML meta verification token.
+  // Prefer DNS TXT verification. If meta verification is required, paste only the real token from Search Console.
+  googleSearchConsoleVerification: '',
 } as const;

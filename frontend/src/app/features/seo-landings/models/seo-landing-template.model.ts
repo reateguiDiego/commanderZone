@@ -69,6 +69,7 @@ export const COMPARISON_LANDING_TEMPLATE_BLOCKS = [
   'trustBar',
   'sections',
   'comparison',
+  'steps',
   'featureGrid',
   'useCases',
   'faqPreview',

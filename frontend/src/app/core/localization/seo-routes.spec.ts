@@ -107,6 +107,13 @@ describe('SEO routes', () => {
     expect(findSeoRouteByPath('/mx/play-commander-online/')).toBeUndefined();
   });
 
+  it('does not match mixed locale and slug SEO paths', () => {
+    expect(findSeoRouteByPath('/en/jugar-commander-online/')).toBeUndefined();
+    expect(findSeoRouteByPath('/es/play-commander-online/')).toBeUndefined();
+    expect(findSeoRouteByPath('/en/asistente-de-mesa-magic/')).toBeUndefined();
+    expect(findSeoRouteByPath('/es/commander-life-counter/')).toBeUndefined();
+  });
+
   it('keeps all generated paths unique across route and locale pairs', () => {
     const paths = SEO_ROUTE_KEYS.flatMap((routeKey) =>
       SUPPORTED_LOCALE_CODES.map((locale: LocaleCode) => getSeoPath(routeKey, locale)),

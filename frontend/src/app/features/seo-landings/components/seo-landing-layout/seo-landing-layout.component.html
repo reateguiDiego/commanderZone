@@ -14,11 +14,7 @@
       }
 
       @if (content().localeLinks?.length) {
-        <nav class="seo-landing-layout__locales" aria-label="Language versions">
-          @for (link of content().localeLinks; track link.locale) {
-            <a [href]="link.href" [attr.hreflang]="link.locale" [attr.aria-label]="link.ariaLabel">{{ link.label }}</a>
-          }
-        </nav>
+        <app-seo-language-selector [currentLocale]="content().locale" [links]="content().localeLinks ?? []" />
       }
     </div>
   </header>

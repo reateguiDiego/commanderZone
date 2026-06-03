@@ -20,6 +20,19 @@
     </nav>
   </div>
 
+  @if (content().image; as image) {
+    <figure class="landing-hero__media">
+      <img
+        [src]="image.src"
+        [alt]="image.alt"
+        [attr.width]="image.width"
+        [attr.height]="image.height"
+        [attr.loading]="image.loading"
+        [attr.fetchpriority]="image.fetchPriority"
+      />
+    </figure>
+  }
+
   @if (content().highlights?.length) {
     <ul class="landing-hero__highlights" aria-label="Landing highlights">
       @for (highlight of content().highlights; track highlight) {

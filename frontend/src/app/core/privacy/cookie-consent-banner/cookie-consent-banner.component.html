@@ -1,0 +1,47 @@
+@if (isVisible()) {
+  <section class="cookie-banner" aria-label="Cookie preferences">
+    <div class="cookie-banner__content">
+      <p class="cookie-banner__title">Cookie preferences</p>
+      <p class="cookie-banner__copy">
+        CommanderZone uses essential cookies for the app. Optional analytics will stay disabled unless you allow it.
+        Read the
+        <a href="/privacy-policy/">privacy policy</a>
+        and
+        <a href="/cookie-policy/">cookie policy</a>.
+      </p>
+
+      @if (showSettings()) {
+        <div class="cookie-banner__settings">
+          <button
+            type="button"
+            class="cookie-banner__toggle"
+            [class.cookie-banner__toggle--enabled]="analyticsEnabled()"
+            [attr.aria-pressed]="analyticsEnabled()"
+            (click)="toggleAnalytics()"
+          >
+            Analytics cookies
+          </button>
+        </div>
+      }
+    </div>
+
+    <div class="cookie-banner__actions">
+      @if (showSettings()) {
+        <button type="button" class="cookie-banner__button cookie-banner__button--primary" (click)="saveSettings()">
+          Save
+        </button>
+      } @else {
+        <button type="button" class="cookie-banner__button cookie-banner__button--ghost" (click)="openSettings()">
+          Configure
+        </button>
+      }
+
+      <button type="button" class="cookie-banner__button cookie-banner__button--ghost" (click)="rejectAll()">
+        Reject
+      </button>
+      <button type="button" class="cookie-banner__button cookie-banner__button--primary" (click)="acceptAll()">
+        Accept
+      </button>
+    </div>
+  </section>
+}

@@ -23,6 +23,18 @@ export interface LandingLink {
   readonly ariaLabel?: string;
 }
 
+export type LandingImageLoading = 'eager' | 'lazy';
+export type LandingImageFetchPriority = 'high' | 'low' | 'auto';
+
+export interface LandingImageContent {
+  readonly src: string;
+  readonly alt: string;
+  readonly width: number;
+  readonly height: number;
+  readonly loading?: LandingImageLoading;
+  readonly fetchPriority?: LandingImageFetchPriority;
+}
+
 export interface LandingLocaleLink extends LandingLink {
   readonly locale: LocaleCode;
 }
@@ -45,6 +57,7 @@ export interface LandingHeroContent {
   readonly eyebrow?: string;
   readonly title: string;
   readonly subtitle: string;
+  readonly image?: LandingImageContent;
   readonly primaryLink: LandingLink;
   readonly secondaryLink?: LandingLink;
   readonly highlights?: readonly string[];

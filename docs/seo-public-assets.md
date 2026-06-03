@@ -15,6 +15,8 @@ Phase 17 adds the public SEO asset package used by crawlers, social previews, an
 - `frontend/public/assets/og/home-og.png`
 - `frontend/public/assets/og/play-commander-og.png`
 - `frontend/public/assets/og/table-assistant-og.png`
+- `frontend/public/assets/og/faq-og.png`
+- `frontend/public/assets/og/ways-to-play-og.png`
 
 ## Production values to confirm before deployment
 
@@ -30,6 +32,7 @@ Run from `frontend`:
 ```bash
 npm run generate:sitemap
 npm run validate:sitemap
+npm run validate:canonical
 ```
 
 The generator reads `SEO_ROUTES` and `SUPPORTED_LOCALES`, writes `sitemap-index.xml` and `sitemaps/sitemap-seo.xml`, and includes every localized SEO URL with self-referencing `hreflang`, all locale alternates, and `x-default`.

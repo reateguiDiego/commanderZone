@@ -700,12 +700,12 @@
   "tableAssistant": {
     "tableAssistantPage": {
       "asistenteDeMesa": "Asistente de Mesa",
-      "resumenRapido": "Resumen rapido",
+      "resumenRapido": "Resumen rápido",
       "beneficios": "Beneficios",
       "mesaManualDeCommander": "Mesa manual de Commander",
       "todoLoNecesarioParaSeguirUnaPartida": "Todo lo necesario para seguir una partida física.",
       "configuraJugadoresVidaInicialYTemporizadorCommanderzone": "Configura jugadores, vida inicial y temporizador. CommanderZone se encarga de vidas, turnos y daño de comandante sin automatizar reglas de Magic.",
-      "setupRapido": "Setup rapido",
+      "setupRapido": "Setup rápido",
       "text4JugadoresPorDefecto": "4 jugadores por defecto",
       "text40VidasIniciales": "40 vidas iniciales",
       "danoDeComandanteActivo": "Daño de comandante activo"
@@ -735,7 +735,7 @@
       "cargandoSala": "Cargando sala...",
       "codigoDeSala": "Codigo de sala",
       "letal": "Letal",
-      "danoDeComandante1": "Dano de comandante",
+      "danoDeComandante1": "Daño de comandante",
       "verYEditar": "Ver y editar",
       "asignadoAJugadorConectado": "Asignado a jugador conectado"
     },
@@ -780,15 +780,15 @@
       "benefits": {
         "lifeAndCommander": {
           "title": "Vidas y comandante",
-          "description": "Controla vidas y da?o de comandante sin convertir la partida en una hoja de c?lculo."
+          "description": "Controla vidas y daño de comandante sin convertir la partida en una hoja de cálculo."
         },
         "simpleTurns": {
           "title": "Turnos simples",
-          "description": "Marca jugador activo y temporizador si la mesa quiere ritmo, sin reglas autom?ticas."
+          "description": "Marca jugador activo y temporizador si la mesa quiere ritmo, sin reglas automáticas."
         },
         "sharedTable": {
           "title": "Mesa compartida",
-          "description": "Pensado para un ?nico m?vil o tablet en el centro de la mesa."
+          "description": "Pensado para un único móvil o tablet en el centro de la mesa."
         }
       },
       "header": {

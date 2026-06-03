@@ -1,8 +1,27 @@
-import { LocaleCode, SUPPORTED_LOCALES, SUPPORTED_LOCALE_CODES } from '../../../core/localization/locale-config';
+import {
+  LocaleCode,
+  SUPPORTED_LOCALES,
+  SUPPORTED_LOCALE_CODES,
+  getLocaleHreflang,
+} from '../../../core/localization/locale-config';
 import { getSeoPath, SeoRouteKey } from '../../../core/localization/seo-routes';
-import { LandingSectionContent, SeoLandingContent } from '../models/seo-landing-content.model';
+import { SEO_CANONICAL_ORIGIN, toSeoAbsoluteUrl } from '../../../core/seo/seo.service';
+import {
+  LandingBreadcrumbContent,
+  LandingFaqContent,
+  LandingSectionContent,
+  SeoJsonLdValue,
+  SeoLandingContent,
+  SeoMetadataContent,
+} from '../models/seo-landing-content.model';
+import {
+  COMPARISON_LANDING_ROUTE_KEYS,
+  GUIDE_LANDING_ROUTE_KEYS,
+  PRODUCT_LANDING_ROUTE_KEYS,
+} from '../models/seo-landing-template.model';
 
 type LocalizedTextByRoute = Readonly<Record<SeoRouteKey, Readonly<Record<LocaleCode, string>>>>;
+type SeoJsonLdObject = Readonly<Record<string, SeoJsonLdValue>>;
 
 interface LocaleLandingCopy {
   readonly homeLabel: string;
@@ -58,6 +77,42 @@ interface LocaleLandingCopy {
   readonly ctaDescriptionSuffix: string;
   readonly internalLinksTitle: string;
   readonly internalLinksIntro: string;
+}
+
+interface PublicFaqTopicCopy {
+  readonly invitationsAndRoomLinks: string;
+  readonly freeCommanderGames: string;
+  readonly accountsAndRoomCreation: string;
+  readonly multiplayerCommander: string;
+  readonly pastedDecklists: string;
+  readonly creatingCommanderDecks: string;
+  readonly editingDecks: string;
+  readonly externalDeckSources: string;
+  readonly decklistFormats: string;
+  readonly existingDecks: string;
+  readonly physicalMagicGames: string;
+  readonly phoneLifeCounter: string;
+  readonly tabletTableAssistant: string;
+  readonly inPersonGames: string;
+  readonly commanderDamage: string;
+  readonly severalLifeTotals: string;
+  readonly poisonTracking: string;
+  readonly tableAssistantWithoutRoom: string;
+  readonly spellTableComparison: string;
+  readonly cockatriceComparison: string;
+  readonly mtgoComparison: string;
+  readonly mtgArenaComparison: string;
+  readonly untapComparison: string;
+  readonly edhPlayComparison: string;
+  readonly mobileDevices: string;
+  readonly tablets: string;
+  readonly desktopSystems: string;
+  readonly cameraRequirements: string;
+  readonly noWebcam: string;
+  readonly physicalCards: string;
+  readonly privateGames: string;
+  readonly roomLinks: string;
+  readonly startingRequirements: string;
 }
 
 const ROUTE_LABELS: LocalizedTextByRoute = {
@@ -931,6 +986,464 @@ const LOCALE_COPY: Readonly<Record<LocaleCode, LocaleLandingCopy>> = {
   },
 };
 
+const PUBLIC_FAQ_TOPIC_COPY: Readonly<Record<LocaleCode, PublicFaqTopicCopy>> = {
+  es: {
+    invitationsAndRoomLinks: 'invitaciones y enlaces de sala',
+    freeCommanderGames: 'partidas gratuitas de Commander',
+    accountsAndRoomCreation: 'cuentas y creacion de salas',
+    multiplayerCommander: 'Commander multijugador',
+    pastedDecklists: 'decklists pegadas',
+    creatingCommanderDecks: 'crear mazos Commander desde cero',
+    editingDecks: 'editar mazos antes de jugar',
+    externalDeckSources: 'Moxfield, Archidekt y otras fuentes de mazos',
+    decklistFormats: 'formatos de decklist',
+    existingDecks: 'mazos Commander ya creados',
+    physicalMagicGames: 'partidas fisicas de Magic',
+    phoneLifeCounter: 'uso del movil como contador de vidas',
+    tabletTableAssistant: 'uso de tablet como asistente de mesa',
+    inPersonGames: 'partidas presenciales',
+    commanderDamage: 'seguimiento de dano de comandante',
+    severalLifeTotals: 'vidas de varios jugadores',
+    poisonTracking: 'seguimiento de veneno o infect',
+    tableAssistantWithoutRoom: 'asistente de mesa sin sala online',
+    spellTableComparison: 'comparacion con SpellTable',
+    cockatriceComparison: 'comparacion con Cockatrice',
+    mtgoComparison: 'comparacion con MTGO',
+    mtgArenaComparison: 'comparacion con MTG Arena',
+    untapComparison: 'comparacion con Untap.in',
+    edhPlayComparison: 'comparacion con EDHPlay',
+    mobileDevices: 'dispositivos moviles',
+    tablets: 'tablets',
+    desktopSystems: 'Mac, Windows y Linux',
+    cameraRequirements: 'requisitos de camara o webcam',
+    noWebcam: 'jugar sin webcam',
+    physicalCards: 'cartas fisicas',
+    privateGames: 'partidas privadas',
+    roomLinks: 'enlaces de sala',
+    startingRequirements: 'requisitos para empezar',
+  },
+  en: {
+    invitationsAndRoomLinks: 'invitations and room links',
+    freeCommanderGames: 'free Commander games',
+    accountsAndRoomCreation: 'accounts and room creation',
+    multiplayerCommander: 'multiplayer Commander',
+    pastedDecklists: 'pasted decklists',
+    creatingCommanderDecks: 'creating Commander decks from scratch',
+    editingDecks: 'editing decks before playing',
+    externalDeckSources: 'Moxfield, Archidekt and other deck sources',
+    decklistFormats: 'decklist formats',
+    existingDecks: 'existing Commander decks online',
+    physicalMagicGames: 'physical Magic games',
+    phoneLifeCounter: 'phone life counter use',
+    tabletTableAssistant: 'tablet table assistant use',
+    inPersonGames: 'in-person games',
+    commanderDamage: 'commander damage tracking',
+    severalLifeTotals: 'several player life totals',
+    poisonTracking: 'poison or infect tracking',
+    tableAssistantWithoutRoom: 'table assistant without online room',
+    spellTableComparison: 'SpellTable comparison',
+    cockatriceComparison: 'Cockatrice comparison',
+    mtgoComparison: 'MTGO comparison',
+    mtgArenaComparison: 'MTG Arena comparison',
+    untapComparison: 'Untap.in comparison',
+    edhPlayComparison: 'EDHPlay comparison',
+    mobileDevices: 'mobile devices',
+    tablets: 'tablets',
+    desktopSystems: 'Mac, Windows and Linux',
+    cameraRequirements: 'camera or webcam requirements',
+    noWebcam: 'playing without webcam',
+    physicalCards: 'physical cards',
+    privateGames: 'private games',
+    roomLinks: 'room links',
+    startingRequirements: 'starting requirements',
+  },
+  de: {
+    invitationsAndRoomLinks: 'Einladungen und Raumlinks',
+    freeCommanderGames: 'kostenlose Commander-Partien',
+    accountsAndRoomCreation: 'Konten und Raumerstellung',
+    multiplayerCommander: 'Commander im Mehrspieler-Modus',
+    pastedDecklists: 'eingefugte Decklisten',
+    creatingCommanderDecks: 'Commander-Decks von Grund auf erstellen',
+    editingDecks: 'Decks vor dem Spielen bearbeiten',
+    externalDeckSources: 'Moxfield, Archidekt und andere Deckquellen',
+    decklistFormats: 'Decklistenformate',
+    existingDecks: 'bereits erstellte Commander-Decks online',
+    physicalMagicGames: 'physische Magic-Partien',
+    phoneLifeCounter: 'Handy als Life Counter',
+    tabletTableAssistant: 'Tablet als Tischassistent',
+    inPersonGames: 'Partien vor Ort',
+    commanderDamage: 'Commander-Schaden verfolgen',
+    severalLifeTotals: 'Lebenspunkte mehrerer Spieler',
+    poisonTracking: 'Gift- oder Infect-Marker verfolgen',
+    tableAssistantWithoutRoom: 'Tischassistent ohne Online-Raum',
+    spellTableComparison: 'Vergleich mit SpellTable',
+    cockatriceComparison: 'Vergleich mit Cockatrice',
+    mtgoComparison: 'Vergleich mit MTGO',
+    mtgArenaComparison: 'Vergleich mit MTG Arena',
+    untapComparison: 'Vergleich mit Untap.in',
+    edhPlayComparison: 'Vergleich mit EDHPlay',
+    mobileDevices: 'mobile Gerate',
+    tablets: 'Tablets',
+    desktopSystems: 'Mac, Windows und Linux',
+    cameraRequirements: 'Kamera- oder Webcam-Anforderungen',
+    noWebcam: 'Spielen ohne Webcam',
+    physicalCards: 'physische Karten',
+    privateGames: 'private Partien',
+    roomLinks: 'Raumlinks',
+    startingRequirements: 'Voraussetzungen zum Start',
+  },
+  fr: {
+    invitationsAndRoomLinks: 'invitations et liens de salle',
+    freeCommanderGames: 'parties Commander gratuites',
+    accountsAndRoomCreation: 'comptes et creation de salles',
+    multiplayerCommander: 'Commander multijoueur',
+    pastedDecklists: 'decklists collees',
+    creatingCommanderDecks: 'creer des decks Commander depuis zero',
+    editingDecks: 'modifier les decks avant de jouer',
+    externalDeckSources: 'Moxfield, Archidekt et autres sources de decks',
+    decklistFormats: 'formats de decklist',
+    existingDecks: 'decks Commander deja crees en ligne',
+    physicalMagicGames: 'parties physiques de Magic',
+    phoneLifeCounter: 'telephone comme compteur de points de vie',
+    tabletTableAssistant: 'tablette comme assistant de table',
+    inPersonGames: 'parties en presentiel',
+    commanderDamage: 'suivi des blessures de commander',
+    severalLifeTotals: 'points de vie de plusieurs joueurs',
+    poisonTracking: 'suivi poison ou infection',
+    tableAssistantWithoutRoom: 'assistant de table sans salle en ligne',
+    spellTableComparison: 'comparaison avec SpellTable',
+    cockatriceComparison: 'comparaison avec Cockatrice',
+    mtgoComparison: 'comparaison avec MTGO',
+    mtgArenaComparison: 'comparaison avec MTG Arena',
+    untapComparison: 'comparaison avec Untap.in',
+    edhPlayComparison: 'comparaison avec EDHPlay',
+    mobileDevices: 'appareils mobiles',
+    tablets: 'tablettes',
+    desktopSystems: 'Mac, Windows et Linux',
+    cameraRequirements: 'besoin de camera ou webcam',
+    noWebcam: 'jouer sans webcam',
+    physicalCards: 'cartes physiques',
+    privateGames: 'parties privees',
+    roomLinks: 'liens de salle',
+    startingRequirements: 'conditions pour commencer',
+  },
+  it: {
+    invitationsAndRoomLinks: 'inviti e link della stanza',
+    freeCommanderGames: 'partite Commander gratuite',
+    accountsAndRoomCreation: 'account e creazione stanze',
+    multiplayerCommander: 'Commander multiplayer',
+    pastedDecklists: 'decklist incollate',
+    creatingCommanderDecks: 'creare mazzi Commander da zero',
+    editingDecks: 'modificare mazzi prima di giocare',
+    externalDeckSources: 'Moxfield, Archidekt e altre fonti di mazzi',
+    decklistFormats: 'formati decklist',
+    existingDecks: 'mazzi Commander gia creati online',
+    physicalMagicGames: 'partite fisiche di Magic',
+    phoneLifeCounter: 'telefono come contatore vite',
+    tabletTableAssistant: 'tablet come assistente da tavolo',
+    inPersonGames: 'partite in presenza',
+    commanderDamage: 'tracciamento danni da comandante',
+    severalLifeTotals: 'vite di piu giocatori',
+    poisonTracking: 'tracciamento veleno o infect',
+    tableAssistantWithoutRoom: 'assistente da tavolo senza stanza online',
+    spellTableComparison: 'confronto con SpellTable',
+    cockatriceComparison: 'confronto con Cockatrice',
+    mtgoComparison: 'confronto con MTGO',
+    mtgArenaComparison: 'confronto con MTG Arena',
+    untapComparison: 'confronto con Untap.in',
+    edhPlayComparison: 'confronto con EDHPlay',
+    mobileDevices: 'dispositivi mobili',
+    tablets: 'tablet',
+    desktopSystems: 'Mac, Windows e Linux',
+    cameraRequirements: 'requisiti di camera o webcam',
+    noWebcam: 'giocare senza webcam',
+    physicalCards: 'carte fisiche',
+    privateGames: 'partite private',
+    roomLinks: 'link della stanza',
+    startingRequirements: 'requisiti per iniziare',
+  },
+  pt: {
+    invitationsAndRoomLinks: 'convites e links de sala',
+    freeCommanderGames: 'partidas gratuitas de Commander',
+    accountsAndRoomCreation: 'contas e criacao de salas',
+    multiplayerCommander: 'Commander multijogador',
+    pastedDecklists: 'decklists coladas',
+    creatingCommanderDecks: 'criar decks Commander do zero',
+    editingDecks: 'editar decks antes de jogar',
+    externalDeckSources: 'Moxfield, Archidekt e outras fontes de decks',
+    decklistFormats: 'formatos de decklist',
+    existingDecks: 'decks Commander ja criados online',
+    physicalMagicGames: 'partidas fisicas de Magic',
+    phoneLifeCounter: 'celular como contador de vida',
+    tabletTableAssistant: 'tablet como assistente de mesa',
+    inPersonGames: 'partidas presenciais',
+    commanderDamage: 'rastreamento de dano de comandante',
+    severalLifeTotals: 'vidas de varios jogadores',
+    poisonTracking: 'rastreamento de veneno ou infect',
+    tableAssistantWithoutRoom: 'assistente de mesa sem sala online',
+    spellTableComparison: 'comparacao com SpellTable',
+    cockatriceComparison: 'comparacao com Cockatrice',
+    mtgoComparison: 'comparacao com MTGO',
+    mtgArenaComparison: 'comparacao com MTG Arena',
+    untapComparison: 'comparacao com Untap.in',
+    edhPlayComparison: 'comparacao com EDHPlay',
+    mobileDevices: 'dispositivos moveis',
+    tablets: 'tablets',
+    desktopSystems: 'Mac, Windows e Linux',
+    cameraRequirements: 'requisitos de camera ou webcam',
+    noWebcam: 'jogar sem webcam',
+    physicalCards: 'cartas fisicas',
+    privateGames: 'partidas privadas',
+    roomLinks: 'links de sala',
+    startingRequirements: 'requisitos para comecar',
+  },
+  ja: {
+    invitationsAndRoomLinks: '招待とルームリンク',
+    freeCommanderGames: '無料のCommanderゲーム',
+    accountsAndRoomCreation: 'アカウントとルーム作成',
+    multiplayerCommander: 'マルチプレイヤーCommander',
+    pastedDecklists: '貼り付けたデッキリスト',
+    creatingCommanderDecks: 'Commanderデッキをゼロから作ること',
+    editingDecks: 'プレイ前のデッキ編集',
+    externalDeckSources: 'Moxfield、Archidekt、その他のデッキ元',
+    decklistFormats: 'デッキリスト形式',
+    existingDecks: '作成済みCommanderデッキでのオンラインプレイ',
+    physicalMagicGames: '紙のMagicゲーム',
+    phoneLifeCounter: 'スマートフォンのライフカウンター利用',
+    tabletTableAssistant: 'タブレットのテーブルアシスタント利用',
+    inPersonGames: '対面ゲーム',
+    commanderDamage: 'Commanderダメージの記録',
+    severalLifeTotals: '複数プレイヤーのライフ管理',
+    poisonTracking: '毒や感染の記録',
+    tableAssistantWithoutRoom: 'オンラインルームなしのテーブルアシスタント',
+    spellTableComparison: 'SpellTableとの比較',
+    cockatriceComparison: 'Cockatriceとの比較',
+    mtgoComparison: 'MTGOとの比較',
+    mtgArenaComparison: 'MTG Arenaとの比較',
+    untapComparison: 'Untap.inとの比較',
+    edhPlayComparison: 'EDHPlayとの比較',
+    mobileDevices: 'モバイル端末',
+    tablets: 'タブレット',
+    desktopSystems: 'Mac、Windows、Linux',
+    cameraRequirements: 'カメラまたはWebcamの要件',
+    noWebcam: 'Webcamなしで遊ぶこと',
+    physicalCards: '実物のカード',
+    privateGames: 'プライベートゲーム',
+    roomLinks: 'ルームリンク',
+    startingRequirements: '始めるために必要なもの',
+  },
+  ko: {
+    invitationsAndRoomLinks: '초대와 방 링크',
+    freeCommanderGames: '무료 Commander 게임',
+    accountsAndRoomCreation: '계정과 방 만들기',
+    multiplayerCommander: '멀티플레이어 Commander',
+    pastedDecklists: '붙여 넣은 덱리스트',
+    creatingCommanderDecks: 'Commander 덱을 처음부터 만들기',
+    editingDecks: '플레이 전 덱 편집',
+    externalDeckSources: 'Moxfield, Archidekt 및 다른 덱 출처',
+    decklistFormats: '덱리스트 형식',
+    existingDecks: '이미 만든 Commander 덱으로 온라인 플레이',
+    physicalMagicGames: '실물 Magic 게임',
+    phoneLifeCounter: '휴대폰 생명점 카운터 사용',
+    tabletTableAssistant: '태블릿 테이블 도우미 사용',
+    inPersonGames: '오프라인 게임',
+    commanderDamage: 'Commander 피해 추적',
+    severalLifeTotals: '여러 플레이어 생명점 관리',
+    poisonTracking: '독 또는 감염 추적',
+    tableAssistantWithoutRoom: '온라인 방 없는 테이블 도우미',
+    spellTableComparison: 'SpellTable 비교',
+    cockatriceComparison: 'Cockatrice 비교',
+    mtgoComparison: 'MTGO 비교',
+    mtgArenaComparison: 'MTG Arena 비교',
+    untapComparison: 'Untap.in 비교',
+    edhPlayComparison: 'EDHPlay 비교',
+    mobileDevices: '모바일 기기',
+    tablets: '태블릿',
+    desktopSystems: 'Mac, Windows, Linux',
+    cameraRequirements: '카메라 또는 웹캠 요구 사항',
+    noWebcam: '웹캠 없이 플레이',
+    physicalCards: '실물 카드',
+    privateGames: '비공개 게임',
+    roomLinks: '방 링크',
+    startingRequirements: '시작에 필요한 것',
+  },
+  'zh-hans': {
+    invitationsAndRoomLinks: '邀请和房间链接',
+    freeCommanderGames: '免费的 Commander 对局',
+    accountsAndRoomCreation: '账号和房间创建',
+    multiplayerCommander: '多人 Commander',
+    pastedDecklists: '粘贴的套牌列表',
+    creatingCommanderDecks: '从零创建 Commander 套牌',
+    editingDecks: '游戏前编辑套牌',
+    externalDeckSources: 'Moxfield、Archidekt 和其他套牌来源',
+    decklistFormats: '套牌列表格式',
+    existingDecks: '使用已有 Commander 套牌在线游戏',
+    physicalMagicGames: '实体 Magic 游戏',
+    phoneLifeCounter: '手机生命计数器使用',
+    tabletTableAssistant: '平板桌面助手使用',
+    inPersonGames: '线下游戏',
+    commanderDamage: 'Commander 伤害记录',
+    severalLifeTotals: '多个玩家的生命记录',
+    poisonTracking: '中毒或侵染记录',
+    tableAssistantWithoutRoom: '没有在线房间的桌面助手',
+    spellTableComparison: '与 SpellTable 比较',
+    cockatriceComparison: '与 Cockatrice 比较',
+    mtgoComparison: '与 MTGO 比较',
+    mtgArenaComparison: '与 MTG Arena 比较',
+    untapComparison: '与 Untap.in 比较',
+    edhPlayComparison: '与 EDHPlay 比较',
+    mobileDevices: '移动设备',
+    tablets: '平板',
+    desktopSystems: 'Mac、Windows 和 Linux',
+    cameraRequirements: '摄像头或 webcam 要求',
+    noWebcam: '无 webcam 游戏',
+    physicalCards: '实体卡牌',
+    privateGames: '私人游戏',
+    roomLinks: '房间链接',
+    startingRequirements: '开始所需条件',
+  },
+  'zh-hant': {
+    invitationsAndRoomLinks: '邀請和房間連結',
+    freeCommanderGames: '免費的 Commander 對局',
+    accountsAndRoomCreation: '帳號和房間建立',
+    multiplayerCommander: '多人 Commander',
+    pastedDecklists: '貼上的套牌列表',
+    creatingCommanderDecks: '從零建立 Commander 套牌',
+    editingDecks: '遊戲前編輯套牌',
+    externalDeckSources: 'Moxfield、Archidekt 和其他套牌來源',
+    decklistFormats: '套牌列表格式',
+    existingDecks: '使用已有 Commander 套牌線上遊戲',
+    physicalMagicGames: '實體 Magic 遊戲',
+    phoneLifeCounter: '手機生命計數器使用',
+    tabletTableAssistant: '平板桌面助手使用',
+    inPersonGames: '面對面遊戲',
+    commanderDamage: 'Commander 傷害記錄',
+    severalLifeTotals: '多位玩家的生命記錄',
+    poisonTracking: '中毒或侵染記錄',
+    tableAssistantWithoutRoom: '沒有線上房間的桌面助手',
+    spellTableComparison: '與 SpellTable 比較',
+    cockatriceComparison: '與 Cockatrice 比較',
+    mtgoComparison: '與 MTGO 比較',
+    mtgArenaComparison: '與 MTG Arena 比較',
+    untapComparison: '與 Untap.in 比較',
+    edhPlayComparison: '與 EDHPlay 比較',
+    mobileDevices: '行動裝置',
+    tablets: '平板',
+    desktopSystems: 'Mac、Windows 和 Linux',
+    cameraRequirements: '攝影機或 webcam 要求',
+    noWebcam: '無 webcam 遊戲',
+    physicalCards: '實體卡牌',
+    privateGames: '私人遊戲',
+    roomLinks: '房間連結',
+    startingRequirements: '開始所需條件',
+  },
+  nl: {
+    invitationsAndRoomLinks: 'uitnodigingen en kamerlinks',
+    freeCommanderGames: 'gratis Commander-partijen',
+    accountsAndRoomCreation: 'accounts en kamers maken',
+    multiplayerCommander: 'Commander met meerdere spelers',
+    pastedDecklists: 'geplakte decklijsten',
+    creatingCommanderDecks: 'Commander-decks vanaf nul maken',
+    editingDecks: 'decks bewerken voor het spelen',
+    externalDeckSources: 'Moxfield, Archidekt en andere deckbronnen',
+    decklistFormats: 'decklijstformaten',
+    existingDecks: 'bestaande Commander-decks online',
+    physicalMagicGames: 'fysieke Magic-partijen',
+    phoneLifeCounter: 'telefoon als levens teller',
+    tabletTableAssistant: 'tablet als tafelassistent',
+    inPersonGames: 'partijen aan tafel',
+    commanderDamage: 'commander damage bijhouden',
+    severalLifeTotals: 'levens van meerdere spelers',
+    poisonTracking: 'poison of infect bijhouden',
+    tableAssistantWithoutRoom: 'tafelassistent zonder online kamer',
+    spellTableComparison: 'vergelijking met SpellTable',
+    cockatriceComparison: 'vergelijking met Cockatrice',
+    mtgoComparison: 'vergelijking met MTGO',
+    mtgArenaComparison: 'vergelijking met MTG Arena',
+    untapComparison: 'vergelijking met Untap.in',
+    edhPlayComparison: 'vergelijking met EDHPlay',
+    mobileDevices: 'mobiele apparaten',
+    tablets: 'tablets',
+    desktopSystems: 'Mac, Windows en Linux',
+    cameraRequirements: 'camera- of webcamvereisten',
+    noWebcam: 'spelen zonder webcam',
+    physicalCards: 'fysieke kaarten',
+    privateGames: 'privepartijen',
+    roomLinks: 'kamerlinks',
+    startingRequirements: 'benodigdheden om te starten',
+  },
+  ca: {
+    invitationsAndRoomLinks: 'invitacions i enllacos de sala',
+    freeCommanderGames: 'partides gratuites de Commander',
+    accountsAndRoomCreation: 'comptes i creacio de sales',
+    multiplayerCommander: 'Commander multijugador',
+    pastedDecklists: 'decklists enganxades',
+    creatingCommanderDecks: 'crear baralles Commander des de zero',
+    editingDecks: 'editar baralles abans de jugar',
+    externalDeckSources: 'Moxfield, Archidekt i altres fonts de baralles',
+    decklistFormats: 'formats de decklist',
+    existingDecks: 'baralles Commander ja creades online',
+    physicalMagicGames: 'partides fisiques de Magic',
+    phoneLifeCounter: 'mobil com a comptador de vides',
+    tabletTableAssistant: 'tauleta com a assistent de taula',
+    inPersonGames: 'partides presencials',
+    commanderDamage: 'seguiment de dany de comandant',
+    severalLifeTotals: 'vides de diversos jugadors',
+    poisonTracking: 'seguiment de veri o infect',
+    tableAssistantWithoutRoom: 'assistent de taula sense sala online',
+    spellTableComparison: 'comparacio amb SpellTable',
+    cockatriceComparison: 'comparacio amb Cockatrice',
+    mtgoComparison: 'comparacio amb MTGO',
+    mtgArenaComparison: 'comparacio amb MTG Arena',
+    untapComparison: 'comparacio amb Untap.in',
+    edhPlayComparison: 'comparacio amb EDHPlay',
+    mobileDevices: 'dispositius mobils',
+    tablets: 'tauletes',
+    desktopSystems: 'Mac, Windows i Linux',
+    cameraRequirements: 'requisits de camera o webcam',
+    noWebcam: 'jugar sense webcam',
+    physicalCards: 'cartes fisiques',
+    privateGames: 'partides privades',
+    roomLinks: 'enllacos de sala',
+    startingRequirements: 'requisits per comencar',
+  },
+  ru: {
+    invitationsAndRoomLinks: 'приглашения и ссылки на комнату',
+    freeCommanderGames: 'бесплатные партии Commander',
+    accountsAndRoomCreation: 'аккаунты и создание комнат',
+    multiplayerCommander: 'многопользовательский Commander',
+    pastedDecklists: 'вставленные списки колод',
+    creatingCommanderDecks: 'создание колод Commander с нуля',
+    editingDecks: 'редактирование колод перед игрой',
+    externalDeckSources: 'Moxfield, Archidekt и другие источники колод',
+    decklistFormats: 'форматы списков колод',
+    existingDecks: 'готовые колоды Commander онлайн',
+    physicalMagicGames: 'игры Magic физическими картами',
+    phoneLifeCounter: 'телефон как счетчик жизней',
+    tabletTableAssistant: 'планшет как помощник стола',
+    inPersonGames: 'очные игры',
+    commanderDamage: 'учет урона командира',
+    severalLifeTotals: 'жизни нескольких игроков',
+    poisonTracking: 'учет яда или infect',
+    tableAssistantWithoutRoom: 'помощник стола без онлайн-комнаты',
+    spellTableComparison: 'сравнение со SpellTable',
+    cockatriceComparison: 'сравнение с Cockatrice',
+    mtgoComparison: 'сравнение с MTGO',
+    mtgArenaComparison: 'сравнение с MTG Arena',
+    untapComparison: 'сравнение с Untap.in',
+    edhPlayComparison: 'сравнение с EDHPlay',
+    mobileDevices: 'мобильные устройства',
+    tablets: 'планшеты',
+    desktopSystems: 'Mac, Windows и Linux',
+    cameraRequirements: 'требования к камере или webcam',
+    noWebcam: 'игра без webcam',
+    physicalCards: 'физические карты',
+    privateGames: 'частные игры',
+    roomLinks: 'ссылки на комнату',
+    startingRequirements: 'что нужно для начала',
+  },
+};
+
 export function createSeoLandingContentByLocale(routeKey: SeoRouteKey): Readonly<Record<LocaleCode, SeoLandingContent>> {
   return Object.fromEntries(
     SUPPORTED_LOCALE_CODES.map((locale) => [locale, createSeoLandingContent(routeKey, locale)]),
@@ -945,33 +1458,25 @@ function createSeoLandingContent(routeKey: SeoRouteKey, locale: LocaleCode): Seo
   const faq = routeKey === 'faq'
     ? createPublicFaqContent(locale, copy)
     : createLandingFaqContent(title, copy);
+  const seo: SeoMetadataContent = {
+    title: `${title} | CommanderZone`,
+    description,
+    ogTitle: `${title} | CommanderZone`,
+    ogDescription: description,
+    ogImage: getOpenGraphImagePath(routeKey),
+  };
+  const breadcrumb: LandingBreadcrumbContent = {
+    items: [
+      { label: copy.homeLabel, href: getSeoPath('home', locale) },
+      { label: title, href: path },
+    ],
+  };
 
   return {
     routeKey,
     locale,
-    seo: {
-      title: `${title} | CommanderZone`,
-      description,
-      ogTitle: `${title} | CommanderZone`,
-      ogDescription: description,
-      ogImage: getOpenGraphImagePath(routeKey),
-    },
-    jsonLd: {
-      '@context': 'https://schema.org',
-      '@type': routeKey === 'faq' ? 'FAQPage' : 'WebPage',
-      name: title,
-      description,
-      inLanguage: locale,
-      url: path,
-      mainEntity: faq.items.map((item) => ({
-        '@type': 'Question',
-        name: item.question,
-        acceptedAnswer: {
-          '@type': 'Answer',
-          text: item.answer.join(' '),
-        },
-      })),
-    },
+    seo,
+    jsonLd: createLandingJsonLd(routeKey, locale, title, description, path, seo, breadcrumb, faq),
     siteName: 'CommanderZone',
     homeLink: { label: copy.homeLabel, href: getSeoPath('home', locale) },
     publicNavigationLinks: [
@@ -989,16 +1494,19 @@ function createSeoLandingContent(routeKey: SeoRouteKey, locale: LocaleCode): Seo
       href: getSeoPath(routeKey, supportedLocale.code),
       ariaLabel: supportedLocale.label,
     })),
-    breadcrumb: {
-      items: [
-        { label: copy.homeLabel, href: getSeoPath('home', locale) },
-        { label: title, href: path },
-      ],
-    },
+    breadcrumb,
     hero: {
       eyebrow: copy.eyebrow,
       title,
       subtitle: description,
+      image: {
+        src: seo.ogImage,
+        alt: `${title} - CommanderZone`,
+        width: 1200,
+        height: 630,
+        loading: 'eager',
+        fetchPriority: 'high',
+      },
       primaryLink: { label: copy.primaryCta, href: '/rooms' },
       secondaryLink: { label: copy.secondaryCta, href: '/decks' },
       highlights: [copy.manualLabel, copy.browserLabel],
@@ -1108,6 +1616,160 @@ function createLandingFaqContent(title: string, copy: LocaleLandingCopy): SeoLan
   };
 }
 
+function createLandingJsonLd(
+  routeKey: SeoRouteKey,
+  locale: LocaleCode,
+  title: string,
+  description: string,
+  path: string,
+  seo: SeoMetadataContent,
+  breadcrumb: LandingBreadcrumbContent,
+  faq: LandingFaqContent,
+): SeoJsonLdObject {
+  const canonicalUrl = toSeoAbsoluteUrl(path);
+  const graph: SeoJsonLdObject[] = [
+    createOrganizationJsonLd(),
+    createBreadcrumbJsonLd(canonicalUrl, breadcrumb),
+  ];
+
+  if (routeKey === 'home') {
+    graph.push(createWebSiteJsonLd(locale, description, canonicalUrl));
+  }
+
+  if (isProductLandingRoute(routeKey)) {
+    graph.push(createSoftwareApplicationJsonLd(locale, title, description, canonicalUrl, seo.ogImage));
+  }
+
+  if (isArticleLandingRoute(routeKey)) {
+    graph.push(createArticleJsonLd(locale, title, description, canonicalUrl, seo.ogImage));
+  }
+
+  if (faq.items.length > 0) {
+    graph.push(createFaqPageJsonLd(locale, title, description, canonicalUrl, faq));
+  }
+
+  return {
+    '@context': 'https://schema.org',
+    '@graph': graph,
+  };
+}
+
+function createOrganizationJsonLd(): SeoJsonLdObject {
+  return {
+    '@type': 'Organization',
+    '@id': `${SEO_CANONICAL_ORIGIN}/#organization`,
+    name: 'CommanderZone',
+    url: SEO_CANONICAL_ORIGIN,
+  };
+}
+
+function createWebSiteJsonLd(
+  locale: LocaleCode,
+  description: string,
+  canonicalUrl: string,
+): SeoJsonLdObject {
+  return {
+    '@type': 'WebSite',
+    '@id': `${canonicalUrl}#website`,
+    name: 'CommanderZone',
+    description,
+    url: canonicalUrl,
+    inLanguage: getLocaleHreflang(locale),
+    publisher: { '@id': `${SEO_CANONICAL_ORIGIN}/#organization` },
+  };
+}
+
+function createSoftwareApplicationJsonLd(
+  locale: LocaleCode,
+  title: string,
+  description: string,
+  canonicalUrl: string,
+  imagePath: string,
+): SeoJsonLdObject {
+  return {
+    '@type': 'SoftwareApplication',
+    '@id': `${canonicalUrl}#software-application`,
+    name: title,
+    description,
+    url: canonicalUrl,
+    image: toSeoAbsoluteUrl(imagePath),
+    inLanguage: getLocaleHreflang(locale),
+    applicationCategory: 'GameApplication',
+    operatingSystem: 'Web browser',
+    publisher: { '@id': `${SEO_CANONICAL_ORIGIN}/#organization` },
+  };
+}
+
+function createArticleJsonLd(
+  locale: LocaleCode,
+  title: string,
+  description: string,
+  canonicalUrl: string,
+  imagePath: string,
+): SeoJsonLdObject {
+  return {
+    '@type': 'Article',
+    '@id': `${canonicalUrl}#article`,
+    headline: title,
+    description,
+    url: canonicalUrl,
+    image: toSeoAbsoluteUrl(imagePath),
+    inLanguage: getLocaleHreflang(locale),
+    mainEntityOfPage: canonicalUrl,
+    author: { '@id': `${SEO_CANONICAL_ORIGIN}/#organization` },
+    publisher: { '@id': `${SEO_CANONICAL_ORIGIN}/#organization` },
+  };
+}
+
+function createBreadcrumbJsonLd(canonicalUrl: string, breadcrumb: LandingBreadcrumbContent): SeoJsonLdObject {
+  return {
+    '@type': 'BreadcrumbList',
+    '@id': `${canonicalUrl}#breadcrumb`,
+    itemListElement: breadcrumb.items.map((item, index) => ({
+      '@type': 'ListItem',
+      position: index + 1,
+      name: item.label,
+      item: toSeoAbsoluteUrl(item.href),
+    })),
+  };
+}
+
+function createFaqPageJsonLd(
+  locale: LocaleCode,
+  title: string,
+  description: string,
+  canonicalUrl: string,
+  faq: LandingFaqContent,
+): SeoJsonLdObject {
+  return {
+    '@type': 'FAQPage',
+    '@id': `${canonicalUrl}#faq`,
+    name: faq.title || title,
+    description,
+    inLanguage: getLocaleHreflang(locale),
+    mainEntity: faq.items.map((item) => ({
+      '@type': 'Question',
+      name: item.question,
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: item.answer.join(' '),
+      },
+    })),
+  };
+}
+
+function isProductLandingRoute(routeKey: SeoRouteKey): boolean {
+  return isRouteInGroup(routeKey, PRODUCT_LANDING_ROUTE_KEYS);
+}
+
+function isArticleLandingRoute(routeKey: SeoRouteKey): boolean {
+  return isRouteInGroup(routeKey, GUIDE_LANDING_ROUTE_KEYS) || isRouteInGroup(routeKey, COMPARISON_LANDING_ROUTE_KEYS);
+}
+
+function isRouteInGroup(routeKey: SeoRouteKey, routes: readonly SeoRouteKey[]): boolean {
+  return routes.includes(routeKey);
+}
+
 function createPublicFaqContent(locale: LocaleCode, copy: LocaleLandingCopy): SeoLandingContent['faq'] {
   const questions = PUBLIC_FAQ_QUESTIONS[locale];
   const localizedQuestions = questions.length > 0 ? questions : createLocalizedPublicFaqQuestions(locale, copy);
@@ -1142,6 +1804,7 @@ function createLocalizedPublicFaqQuestions(locale: LocaleCode, copy: LocaleLandi
   const deckBuilder = ROUTE_LABELS.commanderDeckBuilder[locale];
   const tableAssistant = ROUTE_LABELS.tableAssistant[locale];
   const waysToPlay = ROUTE_LABELS.waysToPlayCommanderOnline[locale];
+  const topics = PUBLIC_FAQ_TOPIC_COPY[locale];
 
   return [
     `${copy.faqQuestionPrefix} CommanderZone${copy.faqQuestionSuffix}`,
@@ -1150,43 +1813,43 @@ function createLocalizedPublicFaqQuestions(locale: LocaleCode, copy: LocaleLandi
     `${copy.faqQuestionPrefix} ${copy.browserValue}${copy.faqQuestionSuffix}`,
     `${copy.faqQuestionPrefix} ${copy.browserLabel}${copy.faqQuestionSuffix}`,
     `${copy.faqQuestionPrefix} ${createRoom}${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} invitations and room links${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} free Commander games${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} accounts and room creation${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} multiplayer Commander${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} ${topics.invitationsAndRoomLinks}${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} ${topics.freeCommanderGames}${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} ${topics.accountsAndRoomCreation}${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} ${topics.multiplayerCommander}${copy.faqQuestionSuffix}`,
     `${copy.faqQuestionPrefix} ${importDeck}${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} pasted decklists${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} ${topics.pastedDecklists}${copy.faqQuestionSuffix}`,
     `${copy.faqQuestionPrefix} ${deckBuilder}${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} creating Commander decks from scratch${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} editing decks before playing${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} Moxfield, Archidekt and other deck sources${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} decklist formats${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} existing Commander decks online${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} ${topics.creatingCommanderDecks}${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} ${topics.editingDecks}${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} ${topics.externalDeckSources}${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} ${topics.decklistFormats}${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} ${topics.existingDecks}${copy.faqQuestionSuffix}`,
     `${copy.faqQuestionPrefix} ${tableAssistant}${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} physical Magic games${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} phone life counter use${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} tablet table assistant use${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} in-person games${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} commander damage tracking${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} several player life totals${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} poison or infect tracking${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} table assistant without online room${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} SpellTable comparison${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} Cockatrice comparison${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} MTGO comparison${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} MTG Arena comparison${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} Untap.in comparison${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} EDHPlay comparison${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} ${topics.physicalMagicGames}${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} ${topics.phoneLifeCounter}${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} ${topics.tabletTableAssistant}${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} ${topics.inPersonGames}${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} ${topics.commanderDamage}${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} ${topics.severalLifeTotals}${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} ${topics.poisonTracking}${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} ${topics.tableAssistantWithoutRoom}${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} ${topics.spellTableComparison}${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} ${topics.cockatriceComparison}${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} ${topics.mtgoComparison}${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} ${topics.mtgArenaComparison}${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} ${topics.untapComparison}${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} ${topics.edhPlayComparison}${copy.faqQuestionSuffix}`,
     `${copy.faqQuestionPrefix} ${waysToPlay}${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} mobile devices${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} tablets${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} Mac, Windows and Linux${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} camera or webcam requirements${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} playing without webcam${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} physical cards${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} private games${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} room links${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} starting requirements${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} ${topics.mobileDevices}${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} ${topics.tablets}${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} ${topics.desktopSystems}${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} ${topics.cameraRequirements}${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} ${topics.noWebcam}${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} ${topics.physicalCards}${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} ${topics.privateGames}${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} ${topics.roomLinks}${copy.faqQuestionSuffix}`,
+    `${copy.faqQuestionPrefix} ${topics.startingRequirements}${copy.faqQuestionSuffix}`,
   ];
 }
 
@@ -1207,12 +1870,20 @@ function getRouteSpecificSections(routeKey: SeoRouteKey, locale: LocaleCode): re
   }
 
   if (routeKey === 'faq') {
+    const categoryLabels = [
+      ROUTE_LABELS.playCommanderOnline[locale],
+      ROUTE_LABELS.importCommanderDeck[locale],
+      ROUTE_LABELS.commanderDeckBuilder[locale],
+      ROUTE_LABELS.tableAssistant[locale],
+      ROUTE_LABELS.waysToPlayCommanderOnline[locale],
+    ].join(', ');
+
     return [
       {
         id: 'faq-categories',
         title: LOCALE_COPY[locale].useCasesTitle,
         body: [
-          'CommanderZone, Commander online, deck import, deck builder, Asistente de mesa, platform comparisons, devices and privacy.',
+          `CommanderZone: ${categoryLabels}. ${LOCALE_COPY[locale].comparisonTitle}. ${LOCALE_COPY[locale].browserLabel}`,
         ],
       },
     ];
@@ -1232,13 +1903,15 @@ function getRouteSpecificSections(routeKey: SeoRouteKey, locale: LocaleCode): re
   }
 
   if (routeKey === 'waysToPlayCommanderOnline') {
+    const copy = LOCALE_COPY[locale];
+
     return [
       {
         id: 'comparison-options',
-        title: 'Commander online options',
+        title: copy.comparisonTitle,
         body: [
-          'SpellTable, Cockatrice, MTGO, MTG Arena, Untap.in and EDHPlay solve different ways to play Magic online.',
-          'CommanderZone is positioned as a manual Commander table for groups that want shared state, links and flexible play without full rules enforcement.',
+          `${ROUTE_LABELS.waysToPlayCommanderOnline[locale]}: SpellTable, Cockatrice, MTGO, MTG Arena, Untap.in, EDHPlay.`,
+          `${copy.comparisonIntro} ${copy.comparisonFirstValue}.`,
         ],
       },
     ];
@@ -1352,8 +2025,9 @@ const PUBLIC_FAQ_QUESTIONS: Readonly<Record<LocaleCode, readonly string[]>> = {
 };
 
 function getRelatedRouteKeys(routeKey: SeoRouteKey): readonly SeoRouteKey[] {
-  const routes: readonly SeoRouteKey[] = [
+  const mainSeoRoutes: readonly SeoRouteKey[] = [
     'playCommanderOnline',
+    'playMagicOnlineWithFriends',
     'createCommanderRoom',
     'importCommanderDeck',
     'commanderDeckBuilder',
@@ -1363,7 +2037,15 @@ function getRelatedRouteKeys(routeKey: SeoRouteKey): readonly SeoRouteKey[] {
     'faq',
   ];
 
-  return routes.filter((relatedRouteKey) => relatedRouteKey !== routeKey).slice(0, 4);
+  if (routeKey === 'home') {
+    return mainSeoRoutes;
+  }
+
+  if (routeKey === 'faq') {
+    return ['home', ...mainSeoRoutes.filter((relatedRouteKey) => relatedRouteKey !== 'faq')];
+  }
+
+  return mainSeoRoutes.filter((relatedRouteKey) => relatedRouteKey !== routeKey).slice(0, 4);
 }
 
 function getOpenGraphImagePath(routeKey: SeoRouteKey): string {
@@ -1371,6 +2053,8 @@ function getOpenGraphImagePath(routeKey: SeoRouteKey): string {
     home: '/assets/og/home-og.png',
     playCommanderOnline: '/assets/og/play-commander-og.png',
     tableAssistant: '/assets/og/table-assistant-og.png',
+    faq: '/assets/og/faq-og.png',
+    waysToPlayCommanderOnline: '/assets/og/ways-to-play-og.png',
   };
 
   return images[routeKey] ?? '/assets/og/default-og.png';

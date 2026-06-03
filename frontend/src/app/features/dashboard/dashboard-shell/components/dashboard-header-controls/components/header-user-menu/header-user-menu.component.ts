@@ -1,8 +1,8 @@
 import { ChangeDetectionStrategy, Component, ElementRef, HostListener, computed, inject, output, signal } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
-import { LANGUAGE_OPTIONS, SupportedLanguageCode } from '../../../../../../../core/localization/language-preferences';
+import { SupportedLanguageCode } from '../../../../../../../core/localization/language-preferences';
 import { AppShellI18nService } from '../../../../../../../core/localization/app-shell-i18n.service';
-import { LanguagePreferencesService } from '../../../../../../../core/localization/language-preferences.service';
+import { RuntimeLanguageSelectorService } from '../../../../../../../core/localization/runtime-language-selector.service';
 
 @Component({
   selector: 'app-header-user-menu',
@@ -13,15 +13,15 @@ import { LanguagePreferencesService } from '../../../../../../../core/localizati
 })
 export class HeaderUserMenuComponent {
   private readonly elementRef = inject<ElementRef<HTMLElement>>(ElementRef);
-  private readonly languagePreferences = inject(LanguagePreferencesService);
+  private readonly runtimeLanguageSelector = inject(RuntimeLanguageSelectorService);
   private readonly i18n = inject(AppShellI18nService);
   readonly settingsSelected = output<void>();
   readonly fullscreenSelected = output<void>();
   readonly logoffSelected = output<void>();
   readonly menuOpen = signal(false);
   readonly languagePickerOpen = signal(false);
-  readonly selectedLanguage = this.languagePreferences.appLanguage;
-  readonly languages = LANGUAGE_OPTIONS;
+  readonly selectedLanguage = this.runtimeLanguageSelector.selectedLanguage;
+  readonly languages = this.runtimeLanguageSelector.languageOptions;
   readonly menuLabel = computed(() => this.i18n.text('menu'));
   readonly headerMenuLabel = computed(() => this.i18n.text('headerMenu'));
   readonly userMenuLabel = computed(() => this.i18n.text('userMenu'));
@@ -33,19 +33,13 @@ export class HeaderUserMenuComponent {
   readonly publicFaqHref = computed(() => this.selectedLanguage() === 'es' ? '/es/faq/' : '/en/faq/');
   readonly logOffLabel = computed(() => this.i18n.text('logOff'));
   readonly flagAltPrefix = computed(() => this.i18n.text('flagAltPrefix'));
-  readonly localizedLanguages = computed(() =>
-    this.languages.map((language) => ({
-      ...language,
-      label: this.i18n.languageName(language.code),
-    })),
-  );
   readonly sortedLanguages = computed(() =>
-    [...this.localizedLanguages()].sort((left, right) =>
+    [...this.languages].sort((left, right) =>
       left.label.localeCompare(right.label, this.selectedLanguage(), { sensitivity: 'base' }),
     ),
   );
   readonly selectedLanguageOption = computed(
-    () => this.localizedLanguages().find((language) => language.code === this.selectedLanguage()) ?? this.localizedLanguages()[0],
+    () => this.languages.find((language) => language.code === this.selectedLanguage()) ?? this.languages[0],
   );
   readonly selectedLanguageLabel = computed(
     () => this.selectedLanguageOption().label,
@@ -80,8 +74,7 @@ export class HeaderUserMenuComponent {
       return;
     }
 
-    await this.languagePreferences.updatePreferences({ cardLanguage: code, appLanguage: code });
-    this.reloadPage();
+    await this.runtimeLanguageSelector.selectLanguage(code);
     this.languagePickerOpen.set(false);
   }
 
@@ -103,10 +96,6 @@ export class HeaderUserMenuComponent {
   closeMenu(): void {
     this.menuOpen.set(false);
     this.languagePickerOpen.set(false);
-  }
-
-  private reloadPage(): void {
-    window.location.reload();
   }
 }
 

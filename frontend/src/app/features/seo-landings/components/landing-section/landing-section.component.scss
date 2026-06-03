@@ -45,6 +45,9 @@
 }
 
 .landing-section__links a {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
   color: var(--accent);
   font-weight: 800;
 }
