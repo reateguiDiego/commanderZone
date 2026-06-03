@@ -186,6 +186,14 @@
   } @else if (isZoneOnlyMenu()) {
     @if (activeMenu.zone === 'battlefield') {
       @if (canControlActivePlayer()) {
+        @if (canSelectAllActiveZoneCards()) {
+          <button type="button" (click)="actionSelected.emit({ type: 'selectAllZoneCards' })">
+            <span class="menu-item-label">
+              <lucide-icon name="check" size="17" aria-hidden="true" />
+              <span>{{ displayLabel(selectAllActiveZoneLabel()) }}</span>
+            </span>
+          </button>
+        }
         <button type="button" (click)="actionSelected.emit({ type: 'createToken' })">
           <span class="menu-item-label">
             <lucide-icon name="ghost" size="17" aria-hidden="true" />
@@ -226,6 +234,14 @@
           (itemSelected)="selectMoveAllTo($event)"
         />
       }
+      @if (canSelectAllActiveZoneCards()) {
+        <button type="button" (click)="actionSelected.emit({ type: 'selectAllZoneCards' })">
+          <span class="menu-item-label">
+            <lucide-icon name="check" size="17" aria-hidden="true" />
+            <span>{{ displayLabel(selectAllActiveZoneLabel()) }}</span>
+          </span>
+        </button>
+      }
       @if (canSelectRandomFromActiveZone()) {
         <button type="button" (click)="actionSelected.emit({ type: 'selectRandomCard' })">
           <span class="menu-item-label">
@@ -244,6 +260,14 @@
   } @else {
     @if (canControlPlayer()(activeMenu.playerId)) {
       @if (showsBattlefieldCardActions()) {
+        @if (canSelectAllActiveZoneCards()) {
+          <button type="button" (click)="actionSelected.emit({ type: 'selectAllZoneCards' })">
+            <span class="menu-item-label">
+              <lucide-icon name="check" size="17" aria-hidden="true" />
+              <span>{{ displayLabel(selectAllActiveZoneLabel()) }}</span>
+            </span>
+          </button>
+        }
         <app-context-submenu
           label="game.contextMenu.labels.counters"
           icon="counter-pill"
@@ -403,6 +427,14 @@
           </button>
         }
         @if (isHandCardMenu()) {
+          @if (canSelectAllActiveZoneCards()) {
+            <button type="button" (click)="actionSelected.emit({ type: 'selectAllZoneCards' })">
+              <span class="menu-item-label">
+                <lucide-icon name="check" size="17" aria-hidden="true" />
+                <span>{{ displayLabel(selectAllActiveZoneLabel()) }}</span>
+              </span>
+            </button>
+          }
           <button type="button" (click)="actionSelected.emit({ type: 'playFaceDown' })">
             <span class="menu-item-label">
               <lucide-icon name="eye-off" size="17" aria-hidden="true" />

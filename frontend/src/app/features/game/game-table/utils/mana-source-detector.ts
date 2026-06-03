@@ -30,6 +30,16 @@ export type ManaProductionPart =
     readonly colors: readonly ManaPoolColor[];
   };
 
+export interface ManaAbilityOption {
+  readonly id: string;
+  readonly label: string;
+  readonly summary: string;
+  readonly additions: readonly ManaAddition[];
+  readonly colors: readonly ManaPoolColor[];
+  readonly amount: number;
+  readonly restriction: string | null;
+}
+
 export interface ManaSourceSuggestion {
   readonly kind: ManaSourceSuggestionKind;
   readonly cardName: string;
@@ -39,6 +49,7 @@ export interface ManaSourceSuggestion {
   readonly amount: number;
   readonly restriction: string | null;
   readonly manualOnly: boolean;
+  readonly abilityOptions?: readonly ManaAbilityOption[];
   readonly productionParts?: readonly ManaProductionPart[];
 }
 
@@ -53,6 +64,7 @@ interface ManaSourceCardText {
 }
 
 const COLOR_ORDER: readonly ManaPoolColor[] = ['W', 'U', 'B', 'R', 'G', 'C'];
+const COLORED_MANA: readonly ManaPoolColor[] = ['W', 'U', 'B', 'R', 'G'];
 const MANA_SYMBOL_PATTERN = /\{([WUBRGC])\}/gi;
 const DIRECT_ADD_PATTERN = /\badd\s+((?:\{[WUBRGC]\})+)/gi;
 const CHOICE_ADD_PATTERN = /\badd\s+((?:\{[WUBRGC]\}(?:\s*,\s*|\s*,?\s+or\s+)?)+)/gi;
@@ -92,6 +104,11 @@ export function detectManaSource(
     return manualOnly(cardName, 'tokenSource', 'This card creates mana-producing tokens. Use the pool manually after resolving it.', restriction);
   }
 
+  const tapAbilityChoices = tapManaAbilityChoices(cardName, oracleText, typeLine, context);
+  if (tapAbilityChoices.length > 1) {
+    return abilityChoiceSuggestion(cardName, tapAbilityChoices);
+  }
+
   const variable = variableSuggestion(cardName, oracleText, text, restriction);
   if (variable) {
     return variable;
@@ -99,19 +116,7 @@ export function detectManaSource(
 
   const choiceColors = explicitChoiceColors(oracleText);
   if (choiceColors.length > 0) {
-    return none(cardName);
-  }
-
-  if (text.includes('any color in your commander')) {
-    return none(cardName);
-  }
-
-  if (text.includes('any color') || text.includes('any one color')) {
-    return none(cardName);
-  }
-
-  if (text.includes('any type that a land you control could produce')) {
-    return none(cardName);
+    return colorChoice(cardName, choiceColors, 1, restriction);
   }
 
   if (text.includes('any combination') || text.includes('choose a color')) {
@@ -132,9 +137,22 @@ export function detectManaSource(
     };
   }
 
+  const amount = wordAmount(text);
+  if (text.includes('any color in your commander')) {
+    return colorChoice(cardName, commanderColors(context), amount, restriction);
+  }
+
+  if (text.includes('any color') || text.includes('any one color')) {
+    return colorChoice(cardName, COLORED_MANA, amount, restriction);
+  }
+
+  if (text.includes('any type that a land you control could produce')) {
+    return colorChoice(cardName, COLOR_ORDER, amount, restriction);
+  }
+
   const landTypeColors = landColors(typeLine);
   if (landTypeColors.length > 1) {
-    return none(cardName);
+    return colorChoice(cardName, landTypeColors, 1, null);
   }
 
   if (landTypeColors.length === 1) {
@@ -238,14 +256,217 @@ function manualOnly(
   };
 }
 
+function abilityChoiceSuggestion(cardName: string, options: readonly ManaAbilityOption[]): ManaSourceSuggestion {
+  return {
+    kind: 'variable',
+    cardName,
+    summary: 'Choose a mana ability.',
+    additions: [],
+    colors: [],
+    amount: 1,
+    restriction: null,
+    manualOnly: false,
+    abilityOptions: options,
+  };
+}
+
+function tapManaAbilityChoices(
+  cardName: string,
+  oracleText: string,
+  typeLine: string,
+  context: ManaSourceDetectionContext,
+): readonly ManaAbilityOption[] {
+  const abilityTexts = tapActivatedAbilityTexts(oracleText);
+  if (abilityTexts.length <= 1) {
+    return [];
+  }
+
+  return abilityTexts
+    .map((abilityText, index) => manaAbilityOption(cardName, abilityText, typeLine, context, index))
+    .filter((option): option is ManaAbilityOption => option !== null);
+}
+
+function manaAbilityOption(
+  cardName: string,
+  abilityText: string,
+  typeLine: string,
+  context: ManaSourceDetectionContext,
+  index: number,
+): ManaAbilityOption | null {
+  const suggestion = detectSingleManaText(cardName, abilityText, typeLine, context);
+  if (suggestion.kind === 'none' || suggestion.manualOnly) {
+    return null;
+  }
+
+  return {
+    id: `tap-${index}`,
+    label: optionLabel(suggestion),
+    summary: suggestion.summary,
+    additions: suggestion.additions,
+    colors: suggestion.colors,
+    amount: Math.max(1, suggestion.amount || 1),
+    restriction: suggestion.restriction,
+  };
+}
+
+function detectSingleManaText(
+  cardName: string,
+  oracleText: string,
+  typeLine: string,
+  context: ManaSourceDetectionContext,
+): ManaSourceSuggestion {
+  const text = normalizeOracle(oracleText);
+  const restriction = restrictionText(oracleText);
+
+  const variable = variableSuggestion(cardName, oracleText, text, restriction, { allowChooseColor: true });
+  if (variable) {
+    return variable;
+  }
+
+  const choiceColors = explicitChoiceColors(oracleText);
+  if (choiceColors.length > 0) {
+    return colorChoice(cardName, choiceColors, 1, restriction);
+  }
+
+  if (text.includes('any color in your commander')) {
+    return colorChoice(cardName, commanderColors(context), wordAmount(text), restriction);
+  }
+
+  if (text.includes('any color') || text.includes('any one color')) {
+    return colorChoice(cardName, COLORED_MANA, wordAmount(text), restriction);
+  }
+
+  if (text.includes('any type that a land you control could produce')) {
+    return colorChoice(cardName, COLOR_ORDER, wordAmount(text), restriction);
+  }
+
+  if (text.includes('any combination') || text.includes('choose a color')) {
+    return none(cardName);
+  }
+
+  const directAdditions = directSymbolAdditions(oracleText);
+  if (directAdditions.length > 0) {
+    return {
+      kind: restriction ? 'restricted' : 'fixed',
+      cardName,
+      summary: restriction ? `Add ${formatAdditions(directAdditions)} with a restriction.` : `Add ${formatAdditions(directAdditions)}.`,
+      additions: directAdditions,
+      colors: directAdditions.map((addition) => addition.color),
+      amount: 0,
+      restriction,
+      manualOnly: false,
+    };
+  }
+
+  const landTypeColors = landColors(typeLine);
+  if (landTypeColors.length > 1) {
+    return colorChoice(cardName, landTypeColors, 1, null);
+  }
+
+  if (landTypeColors.length === 1) {
+    const landColor = landTypeColors[0] as ManaPoolColor;
+
+    return {
+      kind: 'fixed',
+      cardName,
+      summary: `Add {${landColor}}.`,
+      additions: [{ color: landColor, amount: 1 }],
+      colors: [landColor],
+      amount: 0,
+      restriction: null,
+      manualOnly: false,
+    };
+  }
+
+  return none(cardName);
+}
+
+function tapActivatedAbilityTexts(oracleText: string): readonly string[] {
+  const tapAbilityPattern = /(?:\{[^}]+\}\s*,\s*)*\{[^}]*T[^}]*\}\s*:/gi;
+  const starts = Array.from(oracleText.matchAll(tapAbilityPattern), (match) => match.index ?? 0);
+  if (starts.length <= 1) {
+    return [];
+  }
+
+  return starts.map((start, index) => {
+    const end = starts[index + 1] ?? oracleText.length;
+    return oracleText
+      .slice(start, end)
+      .replace(/(?:\s*\/\s*)+$/g, '')
+      .trim();
+  }).filter((text) => text.length > 0);
+}
+
+function optionLabel(suggestion: ManaSourceSuggestion): string {
+  if (suggestion.additions.length > 0) {
+    return `Add ${formatAdditions(suggestion.additions)}`;
+  }
+
+  if (suggestion.colors.length > 0) {
+    return suggestion.amount > 1
+      ? `Add ${suggestion.amount} mana from ${suggestion.colors.map((color) => `{${color}}`).join(', ')}`
+      : `Add one mana from ${suggestion.colors.map((color) => `{${color}}`).join(', ')}`;
+  }
+
+  return suggestion.summary;
+}
+
+function colorChoice(
+  cardName: string,
+  colors: readonly ManaPoolColor[],
+  amount: number,
+  restriction: string | null,
+): ManaSourceSuggestion {
+  const cleanColors = orderedUniqueColors(colors);
+  if (cleanColors.length === 1 && cleanColors[0]) {
+    const additions = [{ color: cleanColors[0], amount }];
+
+    return {
+      kind: restriction ? 'restricted' : 'fixed',
+      cardName,
+      summary: restriction ? `Add ${formatAdditions(additions)} with a restriction.` : `Add ${formatAdditions(additions)}.`,
+      additions,
+      colors: cleanColors,
+      amount: 0,
+      restriction,
+      manualOnly: false,
+    };
+  }
+
+  return {
+    kind: restriction ? 'restricted' : 'variable',
+    cardName,
+    summary: `Choose ${amount === 1 ? 'one mana' : `${amount} mana`} from ${cleanColors.map((color) => `{${color}}`).join(', ')}.`,
+    additions: [],
+    colors: cleanColors,
+    amount,
+    restriction,
+    manualOnly: false,
+  };
+}
+
 function variableSuggestion(
   cardName: string,
   oracleText: string,
   text: string,
   restriction: string | null,
+  options: { readonly allowChooseColor?: boolean } = {},
 ): ManaSourceSuggestion | null {
   if (!hasVariableAmount(text)) {
     return null;
+  }
+
+  if (options.allowChooseColor && text.includes('choose a color')) {
+    return {
+      kind: restriction ? 'restricted' : 'variable',
+      cardName,
+      summary: 'Choose a color and mana amount after checking the board state.',
+      additions: [],
+      colors: COLORED_MANA,
+      amount: 1,
+      restriction,
+      manualOnly: false,
+    };
   }
 
   if (
@@ -370,6 +591,17 @@ function restrictionText(oracleText: string): string | null {
   return match?.[1]?.trim() || null;
 }
 
+function wordAmount(text: string): number {
+  if (/\bthree mana\b/.test(text)) {
+    return 3;
+  }
+  if (/\btwo mana\b/.test(text)) {
+    return 2;
+  }
+
+  return 1;
+}
+
 function isSingleTapOnlyManaAbility(oracleText: string): boolean {
   const normalized = stripWrappingParentheses(oracleText.trim().replace(/\s+/g, ' '));
   const tapActivationCount = normalized.match(/\{[^}]*T[^}]*\}\s*:/gi)?.length ?? 0;
@@ -421,6 +653,11 @@ function landColors(typeLine: string): readonly ManaPoolColor[] {
   }
 
   return orderedUniqueColors(colors);
+}
+
+function commanderColors(context: ManaSourceDetectionContext): readonly ManaPoolColor[] {
+  const colors = orderedUniqueColors((context.colorIdentity ?? []).map((color) => color.toUpperCase() as ManaPoolColor));
+  return colors.length > 0 ? colors : COLORED_MANA;
 }
 
 function orderedUniqueColors(colors: readonly ManaPoolColor[]): readonly ManaPoolColor[] {

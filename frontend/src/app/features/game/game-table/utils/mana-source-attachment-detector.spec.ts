@@ -32,16 +32,16 @@ describe('mana source attachment detector', () => {
     ]);
   });
 
-  it('does not merge multicolor land choices with any-color attached mana', () => {
+  it('keeps multicolor land choices when any-color attached mana is too ambiguous to merge', () => {
     const suggestion = detectManaSourceWithAttachments(
       card('Command Tower', 'Land', "{T}: Add one mana of any color in your commander's color identity."),
       [card('Fertile Ground', 'Enchantment - Aura', 'Enchant land / Whenever enchanted land is tapped for mana, its controller adds one mana of any color.')],
       { colorIdentity: ['U', 'G'] },
     );
 
-    expect(suggestion.kind).toBe('none');
+    expect(suggestion.kind).toBe('variable');
     expect(suggestion.additions).toEqual([]);
-    expect(suggestion.colors).toEqual([]);
+    expect(suggestion.colors).toEqual(['U', 'G']);
     expect(suggestion.productionParts).toBeUndefined();
   });
 
@@ -52,14 +52,23 @@ describe('mana source attachment detector', () => {
     );
 
     expect(suggestion.kind).toBe('variable');
-    expect(suggestion.colors).toEqual(['G']);
+    expect(suggestion.colors).toEqual(['U', 'G']);
     expect(suggestion.additions).toEqual([]);
-    expect(suggestion.productionParts).toEqual([{
-      id: 'attachment-Overgrowth',
-      kind: 'fixed',
-      label: 'Overgrowth',
-      additions: [{ color: 'G', amount: 2 }],
-    }]);
+    expect(suggestion.productionParts).toEqual([
+      {
+        id: 'attachment-Overgrowth',
+        kind: 'fixed',
+        label: 'Overgrowth',
+        additions: [{ color: 'G', amount: 2 }],
+      },
+      {
+        id: 'base',
+        kind: 'variable',
+        label: 'Hinterland Harbor',
+        amount: 1,
+        colors: ['U', 'G'],
+      },
+    ]);
   });
 
   it('ignores unknown chosen-color attached effects', () => {

@@ -515,6 +515,37 @@ describe('PlayerHandPanelComponent', () => {
     expect(fixture.componentInstance.pointerDrag()).toBeNull();
   });
 
+  it('opens the hand zone menu from the hand surface context menu', async () => {
+    const { fixture, handArea } = await renderHandPanel();
+    const handMenuOpened = vi.fn();
+    fixture.componentInstance.handMenuOpened.subscribe(handMenuOpened);
+
+    handArea.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+    fixture.detectChanges();
+
+    expect(handMenuOpened).toHaveBeenCalledWith(expect.objectContaining({
+      playerId: 'player-1',
+    }));
+  });
+
+  it('keeps card context menus separate from the hand zone menu', async () => {
+    const { fixture } = await renderHandPanel();
+    const handMenuOpened = vi.fn();
+    const cardMenuOpened = vi.fn();
+    fixture.componentInstance.handMenuOpened.subscribe(handMenuOpened);
+    fixture.componentInstance.cardMenuOpened.subscribe(cardMenuOpened);
+    const cardElement = fixture.nativeElement.querySelector('[data-card-instance-id="card-1"]') as HTMLElement;
+
+    cardElement.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+    fixture.detectChanges();
+
+    expect(handMenuOpened).not.toHaveBeenCalled();
+    expect(cardMenuOpened).toHaveBeenCalledWith(expect.objectContaining({
+      playerId: 'player-1',
+      card: expect.objectContaining({ instanceId: 'card-1' }),
+    }));
+  });
+
   it('does not open menus, emit clicks, or start pointer drags from hidden hand placeholders', async () => {
     const { fixture } = await renderHandPanel({
       hand: [

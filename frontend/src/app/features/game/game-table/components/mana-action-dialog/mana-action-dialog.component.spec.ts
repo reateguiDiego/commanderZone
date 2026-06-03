@@ -133,7 +133,7 @@ describe('ManaActionDialogComponent', () => {
     expect(primaryButton(fixture).disabled).toBe(false);
   });
 
-  it('does not render a multi-color selector even if a suggestion carries multiple colors', () => {
+  it('renders a color selector when a suggestion carries multiple colors', () => {
     const fixture = createFixture({
       kind: 'variable',
       cardName: 'Manual Source',
@@ -146,8 +146,9 @@ describe('ManaActionDialogComponent', () => {
     }, 'U', 1);
     const element = fixture.nativeElement as HTMLElement;
 
-    expect(element.querySelector('.mana-choice-grid')).toBeNull();
-    expect(element.querySelectorAll('.mana-choice app-mana-symbols').length).toBe(0);
+    expect(element.querySelector('.mana-choice-grid')).not.toBeNull();
+    expect(element.querySelectorAll('.mana-choice app-mana-symbols').length).toBe(2);
+    expect(element.querySelector('.mana-choice.selected app-mana-symbols .ms-u')).not.toBeNull();
     expect(element.querySelector('app-game-x-quantity-stepper')).not.toBeNull();
   });
 
@@ -172,24 +173,79 @@ describe('ManaActionDialogComponent', () => {
     expect(additions).toEqual([{ color: 'U', amount: 3 }]);
   });
 
-  it('emits selected color and amount for variable mana', () => {
+  it('lets the user choose between multiple tap mana abilities before confirming', () => {
     const fixture = createFixture({
       kind: 'variable',
-      cardName: "Gaea's Cradle",
-      summary: 'Variable mana amount.',
+      cardName: 'Delighted Halfling',
+      summary: 'Choose a mana ability.',
       additions: [],
-      colors: ['G'],
+      colors: [],
       amount: 1,
       restriction: null,
       manualOnly: false,
-    }, 'G', 1);
+      abilityOptions: [
+        {
+          id: 'tap-0',
+          label: 'Add {C}',
+          summary: 'Add {C}.',
+          additions: [{ color: 'C', amount: 1 }],
+          colors: ['C'],
+          amount: 1,
+          restriction: null,
+        },
+        {
+          id: 'tap-1',
+          label: 'Add one mana from {W}, {U}, {B}, {R}, {G}',
+          summary: 'Choose one mana from {W}, {U}, {B}, {R}, {G}.',
+          additions: [],
+          colors: ['W', 'U', 'B', 'R', 'G'],
+          amount: 1,
+          restriction: 'Spend this mana only to cast a legendary spell.',
+        },
+      ],
+    });
+    let additions: readonly { color: string; amount: number }[] = [];
+    const changes: Array<{ color?: string; amount?: number }> = [];
+    fixture.componentInstance.confirmed.subscribe((value) => {
+      additions = value;
+    });
+    fixture.componentInstance.valueChanged.subscribe((change) => changes.push(change));
+
+    expect((fixture.nativeElement as HTMLElement).querySelectorAll('.mana-ability-choice').length).toBe(2);
+
+    const secondAbility = (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>('.mana-ability-choice')[1];
+    secondAbility?.click();
+    fixture.componentRef.setInput('selectedColor', 'G');
+    fixture.detectChanges();
+
+    primaryButton(fixture).click();
+
+    expect(changes).toContainEqual({ color: 'W', amount: 1 });
+    expect(additions).toEqual([{ color: 'G', amount: 1 }]);
+  });
+
+  it('emits selected color and amount for variable mana', () => {
+    const fixture = createFixture({
+      kind: 'variable',
+      cardName: 'Command Tower',
+      summary: 'Variable mana amount.',
+      additions: [],
+      colors: ['U', 'G'],
+      amount: 1,
+      restriction: null,
+      manualOnly: false,
+    }, 'U', 1);
     const changes: Array<{ color?: string; amount?: number }> = [];
     fixture.componentInstance.valueChanged.subscribe((change) => changes.push(change));
+
+    const greenChoice = (fixture.nativeElement as HTMLElement).querySelector('.mana-choice app-mana-symbols .ms-g')?.closest('button') as HTMLButtonElement;
+    greenChoice.click();
 
     const amountInput = (fixture.nativeElement as HTMLElement).querySelector('[data-testid="mana-action-quantity-input"]') as HTMLInputElement;
     amountInput.value = '4';
     amountInput.dispatchEvent(new Event('input'));
 
+    expect(changes).toContainEqual({ color: 'G' });
     expect(changes).toContainEqual({ amount: 4 });
   });
 

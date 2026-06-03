@@ -12,6 +12,11 @@ interface HandZoneDropEvent {
   playerId: string;
 }
 
+interface HandZoneMouseEvent {
+  event: MouseEvent;
+  playerId: string;
+}
+
 interface HandCardMouseEvent {
   event: MouseEvent;
   playerId: string;
@@ -123,6 +128,7 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
 
   readonly handDragOver = output<HandZoneDropEvent>();
   readonly handDropped = output<HandZoneDropEvent>();
+  readonly handMenuOpened = output<HandZoneMouseEvent>();
   readonly handCardClicked = output<HandCardMouseEvent>();
   readonly cardMenuOpened = output<HandCardMouseEvent>();
   readonly cardPreviewShown = output<CardPreviewEvent>();
@@ -874,6 +880,23 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
     this.clearHandHoverTimers();
     this.handHovered.set(true);
     this.cardMenuOpened.emit({ event, playerId, card });
+  }
+
+  openHandMenu(event: MouseEvent, playerId: string): void {
+    const target = event.target instanceof Element ? event.target : null;
+    if (target?.closest('[data-card-instance-id]')) {
+      return;
+    }
+
+    if (this.readOnly()) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+
+    this.clearHandHoverTimers();
+    this.handHovered.set(true);
+    this.handMenuOpened.emit({ event, playerId });
   }
 
   stopDoubleClick(event: MouseEvent): void {

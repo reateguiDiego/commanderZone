@@ -307,6 +307,8 @@
         "drawXCards": "Draw X Cards",
         "shuffle": "Shuffle",
         "selectRandomCard": "Select Random Card",
+        "selectAllBattlefieldCards": "Select All Battlefield Cards",
+        "selectAllHandCards": "Select All Hand Cards",
         "createToken": "Create Token",
         "tirarDado": "Tirar dado",
         "showManaPool": "Show Mana Pool",

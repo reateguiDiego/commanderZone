@@ -4,14 +4,17 @@ import { ChangeDetectionStrategy, Component, ElementRef, HostListener, computed,
 import { LucideAngularModule } from 'lucide-angular';
 import { AppModalComponent } from '../../../../../shared/ui/app-modal/app-modal.component';
 import { ManaSymbolsComponent } from '../../../../../shared/mana/mana-symbols/mana-symbols.component';
-import { ManaAddition, ManaPoolColor, ManaProductionPart, ManaSourceSuggestion } from '../../utils/mana-source-detector';
+import { ManaAbilityOption, ManaAddition, ManaPoolColor, ManaProductionPart, ManaSourceSuggestion } from '../../utils/mana-source-detector';
 import { GameXQuantityStepperComponent } from '../game-x-quantity-stepper/game-x-quantity-stepper.component';
+
+type ManaActionChoice = Pick<ManaSourceSuggestion, 'additions' | 'colors' | 'amount' | 'summary' | 'restriction'>;
 
 type ManaActionSummaryPart =
   | { readonly kind: 'text'; readonly value: string }
   | { readonly kind: 'mana'; readonly value: string };
 
 export interface ManaActionDialogValueChange {
+  readonly color?: ManaPoolColor;
   readonly amount?: number;
 }
 
@@ -64,27 +67,48 @@ export class ManaActionDialogComponent {
 
   private readonly productionColorSelections = signal<Readonly<Record<string, ManaPoolColor>>>({});
   private readonly productionAmounts = signal<Readonly<Record<string, number>>>({});
+  private readonly selectedAbilityId = signal<string | null>(null);
 
   readonly canAddMana = computed(() => !this.suggestion().manualOnly);
   readonly confirmLabel = computed(() => this.canAddMana() ? 'Add mana' : 'Close');
-  readonly summaryParts = computed(() => this.renderSummaryParts(this.suggestion()));
+  readonly abilityOptions = computed(() => this.suggestion().abilityOptions ?? []);
+  readonly hasAbilityOptions = computed(() => this.abilityOptions().length > 0);
+  readonly selectedAbility = computed(() => {
+    const options = this.abilityOptions();
+    return options.find((option) => option.id === this.selectedAbilityId()) ?? options[0] ?? null;
+  });
+  readonly selectedAbilityIdForView = computed(() => this.selectedAbility()?.id ?? null);
+  readonly activeChoice = computed<ManaActionChoice>(() => this.selectedAbility() ?? this.suggestion());
+  readonly activeRestriction = computed(() => this.activeChoice().restriction);
+  readonly selectedColorForActiveChoice = computed(() => this.selectedColorForChoice(this.activeChoice()));
+  readonly summaryParts = computed(() => this.renderSummaryParts(this.activeChoice()));
   readonly showSummary = computed(() => this.summaryParts().length > 0);
-  readonly productionParts = computed(() => this.suggestion().productionParts ?? []);
+  readonly productionParts = computed(() => this.hasAbilityOptions() ? [] : this.suggestion().productionParts ?? []);
   readonly hasProductionParts = computed(() => this.productionParts().length > 0);
-  readonly hasFixedAdditions = computed(() => this.suggestion().additions.length > 0);
+  readonly hasFixedAdditions = computed(() => this.activeChoice().additions.length > 0);
   readonly isSingleFixedMana = computed(() => {
-    const additions = this.suggestion().additions;
+    const additions = this.activeChoice().additions;
 
     return additions.length === 1 && additions[0]?.amount === 1;
   });
   readonly showFixedPreview = computed(() => this.hasFixedAdditions() && !this.isSingleFixedMana());
+  readonly showColorSelector = computed(() => (
+    this.canAddMana()
+    && !this.hasProductionParts()
+    && !this.hasFixedAdditions()
+    && this.activeChoice().colors.length > 1
+  ));
   readonly showAmountSelector = computed(() => (
     this.canAddMana()
     && !this.hasProductionParts()
     && !this.hasFixedAdditions()
-    && (this.suggestion().kind === 'variable' || this.suggestion().amount > 1)
+    && (this.suggestion().kind === 'variable' || this.activeChoice().amount > 1)
   ));
-  readonly showSelectionPanel = computed(() => this.canAddMana() && !this.hasProductionParts() && (this.showFixedPreview() || this.showAmountSelector()));
+  readonly showSelectionPanel = computed(() => (
+    this.canAddMana()
+    && !this.hasProductionParts()
+    && (this.showFixedPreview() || this.showColorSelector() || this.showAmountSelector())
+  ));
   readonly confirmationAdditions = computed(() => this.hasProductionParts() ? this.productionAdditions() : this.standardAdditions());
   readonly primaryDisabled = computed(() => this.canAddMana() && this.confirmationAdditions().length === 0);
   readonly popoverLayout = computed(() => {
@@ -95,6 +119,18 @@ export class ManaActionDialogComponent {
 
   updateAmount(amount: number): void {
     this.valueChanged.emit({ amount });
+  }
+
+  updateColor(color: ManaPoolColor): void {
+    this.valueChanged.emit({ color });
+  }
+
+  selectAbility(option: ManaAbilityOption): void {
+    this.selectedAbilityId.set(option.id);
+    this.valueChanged.emit({
+      color: this.selectedColorForChoice(option) ?? undefined,
+      amount: Math.max(1, option.amount || 1),
+    });
   }
 
   updateProductionColor(part: ManaProductionPart, color: ManaPoolColor): void {
@@ -162,7 +198,7 @@ export class ManaActionDialogComponent {
     this.viewportSize.set(this.currentViewportSize());
   }
 
-  private renderSummaryParts(suggestion: ManaSourceSuggestion): readonly ManaActionSummaryPart[] {
+  private renderSummaryParts(suggestion: ManaActionChoice): readonly ManaActionSummaryPart[] {
     const visibleSummary = this.normalizeSummary(suggestion);
     const parts: ManaActionSummaryPart[] = [];
     if (!visibleSummary.trim()) {
@@ -189,14 +225,13 @@ export class ManaActionDialogComponent {
     return parts.length > 0 ? parts : [{ kind: 'text', value: visibleSummary }];
   }
 
-  private normalizeSummary(suggestion: ManaSourceSuggestion): string {
-    if ((suggestion.productionParts?.length ?? 0) > 0) {
+  private normalizeSummary(suggestion: ManaActionChoice): string {
+    if (!this.hasAbilityOptions() && ((this.suggestion().productionParts?.length ?? 0) > 0)) {
       return '';
     }
 
     if (
-      suggestion.kind === 'variable'
-      && suggestion.additions.length === 0
+      suggestion.additions.length === 0
       && suggestion.colors.length === 1
       && suggestion.colors[0]
     ) {
@@ -212,13 +247,24 @@ export class ManaActionDialogComponent {
       return [];
     }
 
-    if (this.suggestion().additions.length > 0) {
-      return this.suggestion().additions;
+    const choice = this.activeChoice();
+    if (choice.additions.length > 0) {
+      return choice.additions;
     }
 
-    return this.selectedColor()
-      ? [{ color: this.selectedColor() as ManaPoolColor, amount: this.amount() }]
+    const selectedColor = this.selectedColorForChoice(choice);
+    return selectedColor
+      ? [{ color: selectedColor, amount: this.amount() }]
       : [];
+  }
+
+  private selectedColorForChoice(choice: ManaActionChoice): ManaPoolColor | null {
+    const selectedColor = this.selectedColor();
+    if (selectedColor && choice.colors.includes(selectedColor)) {
+      return selectedColor;
+    }
+
+    return choice.colors[0] ?? null;
   }
 
   private productionAdditions(): readonly ManaAddition[] {

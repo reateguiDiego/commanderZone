@@ -568,6 +568,17 @@ export class GameTableStore implements OnDestroy {
     this.interactionActions.clearSelection();
   }
 
+  selectAllZoneCards(playerId: string, zone: GameZoneName): void {
+    const cards = this.snapshot()?.players[playerId]?.zones[zone] ?? [];
+    if (cards.length <= 1 || !this.canControlPlayer(playerId) || (zone !== 'hand' && zone !== 'battlefield')) {
+      this.closeContextMenu();
+      return;
+    }
+
+    this.selection.selectMany(playerId, zone, cards);
+    this.closeContextMenu();
+  }
+
   isDraggingCard(card: GameCardInstance): boolean {
     const draggingInstanceId = this.draggingCardInstanceId();
     if (!draggingInstanceId) {
