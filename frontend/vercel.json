@@ -42,6 +42,11 @@
       "permanent": true
     },
     {
+      "source": "/en/",
+      "destination": "https://www.commanderzone.com/",
+      "permanent": true
+    },
+    {
       "source": "/es/jugar-magic-online-con-amigos/",
       "destination": "https://www.commanderzone.com/es/jugar-magic-online-amigos/",
       "permanent": true

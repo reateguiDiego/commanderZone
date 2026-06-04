@@ -174,8 +174,8 @@ function assertNoInvalidLocalizedSeoPathAppearsInSitemap(locs, config) {
         }
 
         const otherSlug = route.slugs[otherLocale.code];
-        const expectedPath = toSeoPath(locale.code, route.slugs[locale.code]);
-        const mixedPath = toSeoPath(locale.code, otherSlug);
+        const expectedPath = toSeoPath(locale.code, route.slugs[locale.code], route.routeKey);
+        const mixedPath = toSeoPath(locale.code, otherSlug, route.routeKey);
 
         if (mixedPath !== expectedPath) {
           invalidLocalizedPaths.push(mixedPath);

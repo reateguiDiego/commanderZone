@@ -137,6 +137,10 @@ assertValidSeoRoutes();
 
 export function getSeoPath(routeKey: SeoRouteKey, locale: SeoLocaleCode): string {
   const slug = SEO_ROUTES[routeKey].slugs[locale];
+  if (routeKey === 'home' && locale === 'en') {
+    return '/';
+  }
+
   return slug ? `/${locale}/${slug}/` : `/${locale}/`;
 }
 

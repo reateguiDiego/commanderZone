@@ -63,6 +63,14 @@ function assertSeoSitemap(xml, config) {
     }
   }
 
+  if (!actualLocs.includes('https://www.commanderzone.com/')) {
+    throw new Error('sitemap-seo.xml must include the root English home URL.');
+  }
+
+  if (actualLocs.includes('https://www.commanderzone.com/en/')) {
+    throw new Error('sitemap-seo.xml must not include /en/ as an indexable home URL.');
+  }
+
   assertNoPrivateRoutes(actualLocs);
   assertNoNonSeoLocales(xml);
   assertEveryExpectedUrlExists(expectedEntries, actualLocs);
@@ -149,7 +157,14 @@ function assertHreflangAlternates(xml, expectedEntries, config) {
 function assertNoMixedLocaleSlug(config) {
   for (const route of config.routes) {
     for (const locale of config.locales) {
-      const expectedPath = toSeoPath(locale.code, route.slugs[locale.code]);
+      const expectedPath = toSeoPath(locale.code, route.slugs[locale.code], route.routeKey);
+
+      if (route.routeKey === 'home' && locale.code === 'en') {
+        if (expectedPath !== '/') {
+          throw new Error(`English home must be the root path, got ${expectedPath}.`);
+        }
+        continue;
+      }
 
       if (!expectedPath.startsWith(`/${locale.code}/`)) {
         throw new Error(`Mixed localized slug detected for ${route.routeKey}: ${expectedPath}`);

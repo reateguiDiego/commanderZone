@@ -12,6 +12,8 @@ describe('server routes', () => {
 
     expect(prerenderPaths).toHaveLength(60);
     expect(prerenderPaths).toEqual(SEO_PRERENDER_ROUTES.map((path) => toAngularServerRoutePath(path)));
+    expect(prerenderPaths).toContain('');
+    expect(prerenderPaths).not.toContain('en');
 
     for (const locale of nonSeoLocaleCodes) {
       expect(prerenderPaths.some((path) => path === locale || path.startsWith(`${locale}/`))).toBe(false);
@@ -19,7 +21,7 @@ describe('server routes', () => {
   });
 
   it('keeps private and dynamic runtime routes out of prerender mode', () => {
-    const clientOnlyPaths = ['games/:id', 'profile', 'settings', 'app', 'dashboard', 'table-assistant'];
+    const clientOnlyPaths = ['games/:id', 'profile', 'settings', 'app', 'dashboard', 'table-assistant', 'welcome'];
 
     for (const path of clientOnlyPaths) {
       const route = serverRoutes.find((candidate) => candidate.path === path);

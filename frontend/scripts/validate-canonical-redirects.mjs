@@ -77,6 +77,7 @@ function assertVercelRedirects(config) {
   }
 
   const redirects = config.redirects ?? [];
+  assertEnglishHomeRedirect(redirects);
   assertLegacySeoSlugRedirects(redirects);
 
   const alternateRootToCanonical = redirects.find((redirect) => {
@@ -115,6 +116,19 @@ function assertVercelRedirects(config) {
   const redirectsToAlternate = redirects.find((redirect) => redirect.destination?.startsWith(alternateOrigin));
   if (redirectsToAlternate) {
     throw new Error(`vercel.json must not redirect production traffic to the non-canonical host ${alternateHost}.`);
+  }
+}
+
+function assertEnglishHomeRedirect(redirects) {
+  const redirect = redirects.find((candidate) =>
+    candidate.source === '/en/'
+    && candidate.destination === `${canonicalOrigin}/`
+    && candidate.permanent === true
+    && candidate.has === undefined
+  );
+
+  if (!redirect) {
+    throw new Error(`vercel.json must permanently redirect ${canonicalOrigin}/en/ to ${canonicalOrigin}/.`);
   }
 }
 

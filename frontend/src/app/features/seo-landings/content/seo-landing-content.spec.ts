@@ -53,8 +53,8 @@ describe('SEO landing static content', () => {
   });
 
   it('uses MTG Commander SEO wording in priority landing metadata', () => {
-    expect(getSeoLandingContent('home', 'es').seo.description).toBe('Prepara tu mazo, crea una sala y juega Commander online con tu grupo. CommanderZone es una mesa manual para partidas de Commander MTG, pensada para pods reales.');
-    expect(getSeoLandingContent('home', 'en').seo.description).toBe('Prepare your deck, create a room and play Commander online with your pod. CommanderZone is a manual table for MTG Commander games built for real pods.');
+    expect(getSeoLandingContent('home', 'es').seo.description).toBe('Prepara tu mazo, entra en CommanderZone y juega Commander online con tu grupo. Una mesa manual para Commander MTG, pensada para pods reales.');
+    expect(getSeoLandingContent('home', 'en').seo.description).toBe('Prepare your deck, sign in and play Commander online with your pod. CommanderZone is a manual table for MTG Commander games, built for real multiplayer pods.');
     expect(getSeoLandingContent('playCommanderOnline', 'es').seo.description).toBe('Juega Commander online con amigos desde el navegador. Prepara tu mazo de Commander MTG, crea una sala, comparte el enlace y controla vidas y daño de comandante.');
     expect(getSeoLandingContent('importCommanderDeck', 'es').seo.title).toBe('Importar mazo Commander MTG | CommanderZone');
     expect(getSeoLandingContent('importCommanderDeck', 'en').seo.title).toBe('Import MTG Commander Deck | CommanderZone');
@@ -184,6 +184,33 @@ describe('SEO landing static content', () => {
     expect(JSON.stringify(content.jsonLd)).toContain('FAQPage');
   });
 
+  it('uses the final English home copy and deck registration CTA', () => {
+    const content = getSeoLandingContent('home', 'en');
+
+    expect(content.seo.title).toBe('CommanderZone | Play MTG Commander Online with Your Pod');
+    expect(content.hero.title).toBe('Play Commander online with your pod');
+    expect(content.hero.subtitle).toBe('Prepare your MTG Commander deck, enter CommanderZone and play online with a clear, manual table built for real multiplayer games.');
+    expect(content.hero.highlights).toEqual([
+      'Manual Commander table',
+      'Decks connected to games',
+      'Built for real pods',
+      'Browser-based',
+    ]);
+    expect(content.sections).toHaveLength(4);
+    expect(content.featureGrid?.features).toHaveLength(6);
+    expect(content.faq.items).toHaveLength(4);
+    expect(content.faq.items.map((item) => item.question)).toEqual([
+      'Is CommanderZone built for MTG Commander?',
+      'Do I need a deck to start?',
+      'Does CommanderZone enforce Magic rules automatically?',
+      'Can I use it for paper games?',
+    ]);
+    expect(content.hero.primaryLink.href).toBe('/auth/register?redirect=/decks');
+    expect(content.hero.secondaryLink?.href).toBe('/auth/register?redirect=/decks');
+    expect(content.cta?.primaryLink.href).toBe('/auth/register?redirect=/decks');
+    expect(content.cta?.secondaryLink?.href).toBe('/auth/register?redirect=/decks');
+  });
+
   it('uses a single self breadcrumb item for localized home pages', () => {
     for (const locale of SEO_LOCALE_CODES) {
       const content = getSeoLandingContent('home', locale);
@@ -191,18 +218,32 @@ describe('SEO landing static content', () => {
       const itemListElement = breadcrumbList?.['itemListElement'];
       const breadcrumbEntries = Array.isArray(itemListElement) ? itemListElement : [];
 
+      const expectedHomePath = locale === 'en' ? '/' : `/${locale}/`;
+
       expect(content.breadcrumb.items).toEqual([
-        { label: 'CommanderZone', href: `/${locale}/` },
+        { label: 'CommanderZone', href: expectedHomePath },
       ]);
       expect(breadcrumbEntries).toEqual([
         expect.objectContaining({
           '@type': 'ListItem',
           position: 1,
           name: 'CommanderZone',
-          item: `https://www.commanderzone.com/${locale}/`,
+          item: `https://www.commanderzone.com${expectedHomePath}`,
         }),
       ]);
     }
+  });
+
+  it('uses the root URL for English home links and alternates', () => {
+    const content = getSeoLandingContent('home', 'en');
+    const localeLinks = new Map((content.localeLinks ?? []).map((link) => [link.locale, link.href]));
+
+    expect(content.homeLink?.href).toBe('/');
+    expect(localeLinks.get('en')).toBe('/');
+    expect(localeLinks.get('es')).toBe('/es/');
+    expect(getAllLandingHrefs(content)).not.toContain('/en/');
+    expect(JSON.stringify(content.jsonLd)).toContain('https://www.commanderzone.com/');
+    expect(JSON.stringify(content.jsonLd)).not.toContain('https://www.commanderzone.com/en/');
   });
 
   it('generates complete localized JSON-LD graphs for the SEO landing intents', () => {
@@ -329,12 +370,17 @@ describe('SEO landing static content', () => {
   });
 
   it('routes conversion CTAs through the real auth entry funnel', () => {
-    const decksEntryPath = '/auth/login?redirect=/decks';
-    const tableAssistantEntryPath = '/auth/login?redirect=/table-assistant';
+    const decksLoginEntryPath = '/auth/login?redirect=/decks';
+    const decksRegisterEntryPath = '/auth/register?redirect=/decks';
+    const tableAssistantEntryPath = '/auth/register?redirect=/table-assistant';
     const forbiddenDirectCtaHrefs = new Set(['/rooms', '/decks/import', '/decks/new', '/rooms/create']);
 
     for (const { routeKey, content } of getAllSeoLandingContentEntries()) {
-      const expectedHref = routeKey === 'tableAssistant' ? tableAssistantEntryPath : decksEntryPath;
+      const expectedHref = routeKey === 'home'
+        ? decksRegisterEntryPath
+        : routeKey === 'tableAssistant'
+          ? tableAssistantEntryPath
+          : decksLoginEntryPath;
       const ctaHrefs = [
         content.hero.primaryLink.href,
         content.hero.secondaryLink?.href,

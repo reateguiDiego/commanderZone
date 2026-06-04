@@ -81,6 +81,21 @@ describe('SeoLanguageSelectorComponent', () => {
     }
   });
 
+  it('keeps the root English home URL crawlable in the language menu', () => {
+    fixture.componentRef.setInput('links', [
+      { locale: 'en', label: 'English', href: '/', ariaLabel: 'English' },
+      { locale: 'es', label: 'EspaÃ±ol', href: '/es/', ariaLabel: 'Spanish' },
+      { locale: 'it', label: 'Italiano', href: '/it/', ariaLabel: 'Italian' },
+    ]);
+    fixture.detectChanges();
+
+    const links = Array.from(fixture.nativeElement.querySelectorAll('a') as NodeListOf<HTMLAnchorElement>);
+
+    expect(links.map((link) => link.getAttribute('href'))).toEqual(['/', '/es/', '/it/']);
+    expect(links.map((link) => link.getAttribute('hreflang'))).toEqual(['en', 'es', 'it']);
+    expect(fixture.nativeElement.querySelector('a[aria-current="page"]')?.getAttribute('href')).toBe('/');
+  });
+
   it('does not generate mixed locale and slug URLs', () => {
     const hrefs = Array.from(fixture.nativeElement.querySelectorAll('a') as NodeListOf<HTMLAnchorElement>)
       .map((link) => link.getAttribute('href'));

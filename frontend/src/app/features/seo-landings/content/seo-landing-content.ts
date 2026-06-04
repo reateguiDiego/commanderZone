@@ -30,6 +30,8 @@ export interface SeoLandingContentEntry {
 const SEO_APP_ENTRY_PATHS = new Set([
   '/auth/login?redirect=/decks',
   '/auth/login?redirect=/table-assistant',
+  '/auth/register?redirect=/decks',
+  '/auth/register?redirect=/table-assistant',
 ]);
 const SEO_CONVERSION_LINK_FIELDS = new Set([
   'hero.primaryLink.href',

@@ -10,7 +10,7 @@ const outputPath = path.join(workspaceRoot, 'src/seo-prerender-routes.txt');
 const localeCodes = extractSupportedLocaleCodes(await readSourceFile(localeConfigPath));
 const seoRoutes = extractSeoRoutes(await readSourceFile(seoRoutesPath));
 const routes = Object.values(seoRoutes).flatMap((route) =>
-  localeCodes.map((locale) => toSeoPath(locale, route.slugs[locale])),
+  localeCodes.map((locale) => toSeoPath(locale, route.slugs[locale], route.routeKey)),
 );
 
 validateRoutes(routes, localeCodes.length, Object.keys(seoRoutes).length);
@@ -59,7 +59,7 @@ function extractSeoRoutes(sourceFile) {
     }
 
     const slugsObject = unwrapSatisfiesObject(slugsProperty.initializer);
-    routes[routeKey] = { slugs: extractSlugRecord(slugsObject, routeKey) };
+    routes[routeKey] = { routeKey, slugs: extractSlugRecord(slugsObject, routeKey) };
   }
 
   return routes;
@@ -156,7 +156,11 @@ function propertyNameToString(name) {
   throw new Error('Only identifier and string literal property names are supported.');
 }
 
-function toSeoPath(locale, slug) {
+function toSeoPath(locale, slug, routeKey) {
+  if (routeKey === 'home' && locale === 'en') {
+    return '/';
+  }
+
   return slug ? `/${locale}/${slug}/` : `/${locale}/`;
 }
 

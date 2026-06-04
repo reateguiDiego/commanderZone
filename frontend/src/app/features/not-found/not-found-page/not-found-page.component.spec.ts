@@ -42,7 +42,7 @@ describe('NotFoundPageComponent', () => {
     const links = Array.from(element.querySelectorAll('a'));
 
     expect(element.querySelector('h1')?.textContent?.trim()).toBe('Page not found');
-    expect(links.map((link) => link.getAttribute('href'))).toEqual(['/en/', '/en/faq/']);
+    expect(links.map((link) => link.getAttribute('href'))).toEqual(['/', '/en/faq/']);
     expect(links[0]?.classList.contains('primary-button')).toBe(true);
     expect(links[1]?.classList.contains('secondary-button')).toBe(true);
     expect(TestBed.inject(Title).getTitle()).toBe('Page not found | CommanderZone');

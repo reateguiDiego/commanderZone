@@ -1,25 +1,32 @@
 import { Route } from '@angular/router';
+import { guestGuard } from '../../core/auth/auth.guard';
 import { SEO_LOCALE_CODES } from '../../core/localization/locale-config';
-import { SEO_ROUTE_KEYS, SEO_ROUTES } from '../../core/localization/seo-routes';
+import { SEO_ROUTE_KEYS, getSeoPath } from '../../core/localization/seo-routes';
 
 export const SEO_INDEXABLE_LANDING_ROUTES: readonly Route[] = SEO_ROUTE_KEYS.flatMap((routeKey) =>
-  SEO_LOCALE_CODES.map((locale) => ({
-    path: createAngularSeoRoutePath(locale, SEO_ROUTES[routeKey].slugs[locale]),
-    pathMatch: 'full',
-    loadComponent: () => import('./seo-landing-route/seo-landing-route.component')
-      .then((component) => component.SeoLandingRouteComponent),
-    data: {
-      pageKey: routeKey,
-      routeKey,
-      locale,
-    },
-  })),
+  SEO_LOCALE_CODES.map((locale) => {
+    const isRootEnglishHome = routeKey === 'home' && locale === 'en';
+
+    return {
+      path: createAngularSeoRoutePath(getSeoPath(routeKey, locale)),
+      pathMatch: 'full',
+      ...(isRootEnglishHome ? { canActivate: [guestGuard] } : {}),
+      loadComponent: () => import('./seo-landing-route/seo-landing-route.component')
+        .then((component) => component.SeoLandingRouteComponent),
+      data: {
+        pageKey: routeKey,
+        routeKey,
+        locale,
+        ...(isRootEnglishHome ? { authenticatedRedirect: '/decks' } : {}),
+      },
+    };
+  }),
 );
 
 export const SEO_LANDING_ROUTES: readonly Route[] = [
   ...SEO_INDEXABLE_LANDING_ROUTES,
 ];
 
-function createAngularSeoRoutePath(locale: string, slug: string): string {
-  return slug ? `${locale}/${slug}` : locale;
+function createAngularSeoRoutePath(path: string): string {
+  return path.replace(/^\/+|\/+$/g, '');
 }

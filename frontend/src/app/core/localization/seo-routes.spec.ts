@@ -26,7 +26,7 @@ describe('SEO routes', () => {
   const expectedCanonicalPaths = {
     home: {
       es: '/es/',
-      en: '/en/',
+      en: '/',
       de: '/de/',
       fr: '/fr/',
       pt: '/pt/',
@@ -130,6 +130,7 @@ describe('SEO routes', () => {
   });
 
   it('builds normalized localized SEO paths', () => {
+    expect(getSeoPath('home', 'en')).toBe('/');
     expect(getSeoPath('home', 'es')).toBe('/es/');
     expect(getSeoPath('playCommanderOnline', 'en')).toBe('/en/play-commander-online/');
     expect(getSeoPath('commanderDeckBuilder', 'es')).toBe('/es/deck-builder-commander-mtg/');
@@ -164,7 +165,21 @@ describe('SEO routes', () => {
     }
   });
 
+  it('uses the root URL as the English home alternate', () => {
+    const alternates = getLocalizedRouteAlternates('home');
+
+    expect(alternates.en).toBe('/');
+    expect(alternates.es).toBe('/es/');
+    expect(alternates.it).toBe('/it/');
+  });
+
   it('finds SEO routes by localized path', () => {
+    expect(findSeoRouteByPath('/')).toEqual({
+      routeKey: 'home',
+      locale: 'en',
+      path: '/',
+    });
+
     expect(findSeoRouteByPath('/es/jugar-commander-online/')).toEqual({
       routeKey: 'playCommanderOnline',
       locale: 'es',
@@ -207,6 +222,7 @@ describe('SEO routes', () => {
     expect(findSeoRouteByPath('/nl/commander-online-spelen/')).toBeUndefined();
     expect(findSeoRouteByPath('/ca/jugar-commander-online/')).toBeUndefined();
     expect(findSeoRouteByPath('/ru/faq/')).toBeUndefined();
+    expect(findSeoRouteByPath('/en/')).toBeUndefined();
   });
 
   it('does not match mixed locale and slug SEO paths', () => {

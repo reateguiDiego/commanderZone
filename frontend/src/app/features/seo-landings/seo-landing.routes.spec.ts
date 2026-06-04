@@ -14,8 +14,9 @@ describe('SEO landing routes', () => {
   });
 
   it('uses localized SEO paths from SEO_ROUTES', () => {
-    const routePaths = SEO_INDEXABLE_LANDING_ROUTES.map((route) => `/${route.path}/`);
+    const routePaths = SEO_INDEXABLE_LANDING_ROUTES.map((route) => route.path ? `/${route.path}/` : '/');
 
+    expect(routePaths).toContain(getSeoPath('home', 'en'));
     expect(routePaths).toContain(getSeoPath('home', 'es'));
     expect(routePaths).toContain(getSeoPath('playCommanderOnline', 'en'));
     expect(routePaths).toContain(getSeoPath('tableAssistant', 'es'));
@@ -31,6 +32,8 @@ describe('SEO landing routes', () => {
     }
 
     expect(SEO_LANDING_ROUTES.some((route) => 'redirectTo' in route)).toBe(false);
+    expect(routePaths).toContain('');
+    expect(routePaths).not.toContain('en');
   });
 
   it('keeps SEO landings public and separate from internal app routes', () => {

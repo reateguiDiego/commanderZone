@@ -77,7 +77,7 @@ export function getSeoSitemapEntries(config) {
   return config.routes.flatMap((route) => {
     const alternates = config.locales.map((locale) => ({
       hreflang: locale.hreflang,
-      href: toAbsoluteUrl(toSeoPath(locale.code, route.slugs[locale.code])),
+      href: toAbsoluteUrl(toSeoPath(locale.code, route.slugs[locale.code], route.routeKey)),
     }));
     const xDefaultLocale = config.locales.find((locale) => locale.code === 'en');
 
@@ -88,14 +88,18 @@ export function getSeoSitemapEntries(config) {
     return config.locales.map((locale) => ({
       routeKey: route.routeKey,
       locale: locale.code,
-      loc: toAbsoluteUrl(toSeoPath(locale.code, route.slugs[locale.code])),
+      loc: toAbsoluteUrl(toSeoPath(locale.code, route.slugs[locale.code], route.routeKey)),
       alternates,
-      xDefault: toAbsoluteUrl(toSeoPath(xDefaultLocale.code, route.slugs[xDefaultLocale.code])),
+      xDefault: toAbsoluteUrl(toSeoPath(xDefaultLocale.code, route.slugs[xDefaultLocale.code], route.routeKey)),
     }));
   });
 }
 
-export function toSeoPath(locale, slug) {
+export function toSeoPath(locale, slug, routeKey) {
+  if (routeKey === 'home' && locale === 'en') {
+    return '/';
+  }
+
   return slug ? `/${locale}/${slug}/` : `/${locale}/`;
 }
 
@@ -210,8 +214,15 @@ function assertValidConfig(config) {
         throw new Error(`SEO route ${route.routeKey} must define a slug for SEO locale ${locale}.`);
       }
 
-      const path = toSeoPath(locale, route.slugs[locale]);
+      const path = toSeoPath(locale, route.slugs[locale], route.routeKey);
       urlPaths.push(path);
+
+      if (route.routeKey === 'home' && locale === 'en') {
+        if (path !== '/') {
+          throw new Error(`English home must be the root path, got ${path}.`);
+        }
+        continue;
+      }
 
       if (!path.startsWith(`/${locale}/`)) {
         throw new Error(`SEO route ${route.routeKey} mixes locale and slug in ${path}.`);

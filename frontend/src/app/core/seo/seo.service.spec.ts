@@ -20,6 +20,7 @@ import { SEARCH_CONSOLE_VERIFICATION_TOKEN, normalizeSearchConsoleVerificationTo
 describe('SeoService helpers', () => {
   it('uses the production canonical origin by default', () => {
     expect(SEO_CANONICAL_ORIGIN).toBe('https://www.commanderzone.com');
+    expect(buildSeoCanonicalUrl('home', 'en')).toBe('https://www.commanderzone.com/');
     expect(buildSeoCanonicalUrl('tableAssistant', 'es')).toBe(
       'https://www.commanderzone.com/es/asistente-mesa-commander/',
     );
@@ -53,6 +54,27 @@ describe('SeoService helpers', () => {
       }),
     ]));
     expect(links.some((link) => link.hreflang === 'zh-Hans')).toBe(false);
+  });
+
+  it('uses root URLs for the English home canonical alternates', () => {
+    const links = buildSeoAlternateLinks('home', 'https://commanderzone.test');
+
+    expect(links).toHaveLength(7);
+    expect(links).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        hreflang: 'en',
+        href: 'https://commanderzone.test/',
+      }),
+      expect.objectContaining({
+        hreflang: 'x-default',
+        href: 'https://commanderzone.test/',
+      }),
+      expect.objectContaining({
+        hreflang: 'es',
+        href: 'https://commanderzone.test/es/',
+      }),
+    ]));
+    expect(links.some((link) => link.href === 'https://commanderzone.test/en/')).toBe(false);
   });
 
   it('builds indexable Open Graph and Twitter meta tags', () => {

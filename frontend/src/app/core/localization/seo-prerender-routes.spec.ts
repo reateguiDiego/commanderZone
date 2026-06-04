@@ -7,6 +7,8 @@ describe('SEO prerender routes', () => {
 
   it('contains every localized SEO landing URL', () => {
     expect(SEO_PRERENDER_ROUTES).toHaveLength(SEO_ROUTE_KEYS.length * SEO_LOCALE_CODES.length);
+    expect(SEO_PRERENDER_ROUTES).toContain('/');
+    expect(SEO_PRERENDER_ROUTES).not.toContain('/en/');
 
     for (const routeKey of SEO_ROUTE_KEYS) {
       for (const locale of SEO_LOCALE_CODES) {
@@ -23,7 +25,7 @@ describe('SEO prerender routes', () => {
     expect(new Set(SEO_PRERENDER_ROUTES).size).toBe(SEO_PRERENDER_ROUTES.length);
 
     for (const route of SEO_PRERENDER_ROUTES) {
-      expect(route).toMatch(/^\/[a-z]/);
+      expect(route).toMatch(/^\/(?:$|[a-z])/);
       expect(route).not.toContain('/games/');
       expect(route).not.toBe('/profile/');
       expect(route).not.toBe('/settings/');
@@ -33,6 +35,7 @@ describe('SEO prerender routes', () => {
   });
 
   it('converts URL paths to Angular server route paths', () => {
+    expect(toAngularServerRoutePath('/')).toBe('');
     expect(toAngularServerRoutePath('/es/jugar-commander-online/')).toBe('es/jugar-commander-online');
     expect(toAngularServerRoutePath('/es/')).toBe('es');
   });
