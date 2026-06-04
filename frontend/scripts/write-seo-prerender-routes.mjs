@@ -5,20 +5,32 @@ import ts from 'typescript';
 const workspaceRoot = process.cwd();
 const localeConfigPath = path.join(workspaceRoot, 'src/app/core/localization/locale-config.ts');
 const seoRoutesPath = path.join(workspaceRoot, 'src/app/core/localization/seo-routes.ts');
+const legalRoutesPath = path.join(workspaceRoot, 'src/app/core/legal/legal-routes.ts');
 const outputPath = path.join(workspaceRoot, 'src/seo-prerender-routes.txt');
+const combinedOutputPath = path.join(workspaceRoot, 'src/prerender-routes.txt');
 
 const localeCodes = extractSupportedLocaleCodes(await readSourceFile(localeConfigPath));
 const seoRoutes = extractSeoRoutes(await readSourceFile(seoRoutesPath));
+const legalRoutes = extractLegalRoutes(await readSourceFile(legalRoutesPath));
 const routes = Object.values(seoRoutes).flatMap((route) =>
   localeCodes.map((locale) => toSeoPath(locale, route.slugs[locale], route.routeKey)),
 );
+const combinedRoutes = [
+  ...routes,
+  ...Object.values(legalRoutes).flatMap((route) =>
+    localeCodes.map((locale) => toLegalPath(locale, route.slugs[locale])),
+  ),
+];
 
 validateRoutes(routes, localeCodes.length, Object.keys(seoRoutes).length);
+validateCombinedRoutes(combinedRoutes, routes.length + Object.keys(legalRoutes).length * localeCodes.length);
 
 await mkdir(path.dirname(outputPath), { recursive: true });
 await writeFile(outputPath, `${routes.join('\n')}\n`, 'utf8');
+await writeFile(combinedOutputPath, `${combinedRoutes.join('\n')}\n`, 'utf8');
 
 console.log(`Wrote ${routes.length} SEO prerender routes to ${path.relative(workspaceRoot, outputPath)}.`);
+console.log(`Wrote ${combinedRoutes.length} total prerender routes to ${path.relative(workspaceRoot, combinedOutputPath)}.`);
 
 async function readSourceFile(filePath) {
   const sourceText = await readFile(filePath, 'utf8');
@@ -59,6 +71,24 @@ function extractSeoRoutes(sourceFile) {
     }
 
     const slugsObject = unwrapSatisfiesObject(slugsProperty.initializer);
+    routes[routeKey] = { routeKey, slugs: extractSlugRecord(slugsObject, routeKey) };
+  }
+
+  return routes;
+}
+
+function extractLegalRoutes(sourceFile) {
+  const declaration = findVariableDeclaration(sourceFile, 'LEGAL_ROUTE_SLUGS');
+  const objectLiteral = unwrapSatisfiesObject(declaration.initializer);
+  const routes = {};
+
+  for (const routeProperty of objectLiteral.properties) {
+    if (!ts.isPropertyAssignment(routeProperty)) {
+      continue;
+    }
+
+    const routeKey = propertyNameToString(routeProperty.name);
+    const slugsObject = unwrapSatisfiesObject(routeProperty.initializer);
     routes[routeKey] = { routeKey, slugs: extractSlugRecord(slugsObject, routeKey) };
   }
 
@@ -164,9 +194,29 @@ function toSeoPath(locale, slug, routeKey) {
   return slug ? `/${locale}/${slug}/` : `/${locale}/`;
 }
 
+function toLegalPath(locale, slug) {
+  return locale === 'en' ? `/${slug}/` : `/${locale}/${slug}/`;
+}
+
 function validateRoutes(routes, localeCount, routeCount) {
   const expectedCount = localeCount * routeCount;
-  const forbiddenRoutes = ['/games/', '/profile/', '/settings/', '/app/', '/table-assistant/'];
+  const forbiddenExactRoutes = ['/en/'];
+  const forbiddenFragments = [
+    '/auth',
+    '/dashboard',
+    '/decks',
+    '/games',
+    '/rooms',
+    '/room/',
+    '/privacy-policy',
+    '/cookie-policy',
+    '/terms',
+    '/contact',
+    '/profile',
+    '/settings',
+    '/app',
+    '/table-assistant/',
+  ];
 
   if (routes.length !== expectedCount) {
     throw new Error(`Expected ${expectedCount} prerender routes, got ${routes.length}.`);
@@ -181,8 +231,28 @@ function validateRoutes(routes, localeCount, routeCount) {
       throw new Error(`SEO prerender route must be normalized: ${route}`);
     }
 
-    if (forbiddenRoutes.some((forbiddenRoute) => route.includes(forbiddenRoute))) {
+    if (forbiddenExactRoutes.includes(route)) {
+      throw new Error(`Redirect-only route must not be prerendered as SEO: ${route}`);
+    }
+
+    if (forbiddenFragments.some((forbiddenRoute) => route.includes(forbiddenRoute))) {
       throw new Error(`Internal route must not be prerendered as SEO: ${route}`);
+    }
+  }
+}
+
+function validateCombinedRoutes(routes, expectedCount) {
+  if (routes.length !== expectedCount) {
+    throw new Error(`Expected ${expectedCount} total prerender routes, got ${routes.length}.`);
+  }
+
+  if (new Set(routes).size !== routes.length) {
+    throw new Error('Combined prerender routes must be unique.');
+  }
+
+  for (const route of routes) {
+    if (!route.startsWith('/') || !route.endsWith('/')) {
+      throw new Error(`Combined prerender route must be normalized: ${route}`);
     }
   }
 }

@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { LegalLinksService } from '../../legal/legal-links.service';
 import { ANALYTICS_SERVICE } from '../analytics.service';
 import { CookieConsentService } from '../cookie-consent.service';
 
@@ -11,11 +12,15 @@ import { CookieConsentService } from '../cookie-consent.service';
 })
 export class CookieConsentBannerComponent {
   private readonly analytics = inject(ANALYTICS_SERVICE);
+  private readonly legalLinks = inject(LegalLinksService);
   readonly consent = inject(CookieConsentService);
 
   readonly showSettings = signal(false);
   readonly analyticsEnabled = signal(false);
   readonly isVisible = computed(() => !this.consent.hasDecision());
+  readonly copy = this.legalLinks.chromeCopy;
+  readonly privacyLink = computed(() => this.legalLinks.links().find((link) => link.pageKey === 'privacy'));
+  readonly cookieLink = computed(() => this.legalLinks.links().find((link) => link.pageKey === 'cookies'));
 
   acceptAll(): void {
     this.consent.acceptAll();

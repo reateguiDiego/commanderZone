@@ -66,3 +66,14 @@
   color: var(--cz-text);
   text-decoration-color: currentColor;
 }
+
+.app-disclaimer-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .75rem;
+}
+
+.app-disclaimer-links a {
+  min-height: 2.75rem;
+  align-items: center;
+}

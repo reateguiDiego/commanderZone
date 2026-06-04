@@ -60,6 +60,17 @@ describe('SeoLanguageSelectorComponent', () => {
     ]);
   });
 
+  it('localizes the trigger label and aria label from the current SEO locale', () => {
+    fixture.componentRef.setInput('currentLocale', 'de');
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+
+    expect(element.querySelector('.seo-language-selector__label')?.textContent?.trim()).toBe('Sprache');
+    expect(element.querySelector('summary')?.getAttribute('aria-label')).toBe('Sprache auswählen');
+    expect(element.querySelector('nav')?.getAttribute('aria-label')).toBe('Sprache auswählen');
+  });
+
   it('renders a flag asset for every SEO locale', () => {
     fixture.componentRef.setInput('links', SEO_LOCALES.map((locale) => ({
       locale: locale.code,
@@ -84,7 +95,7 @@ describe('SeoLanguageSelectorComponent', () => {
   it('keeps the root English home URL crawlable in the language menu', () => {
     fixture.componentRef.setInput('links', [
       { locale: 'en', label: 'English', href: '/', ariaLabel: 'English' },
-      { locale: 'es', label: 'EspaÃ±ol', href: '/es/', ariaLabel: 'Spanish' },
+      { locale: 'es', label: 'Español', href: '/es/', ariaLabel: 'Spanish' },
       { locale: 'it', label: 'Italiano', href: '/it/', ariaLabel: 'Italian' },
     ]);
     fixture.detectChanges();

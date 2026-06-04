@@ -159,6 +159,7 @@ export interface SeoLandingContent {
   readonly homeLink?: LandingLink;
   readonly publicNavigationLinks?: readonly LandingLink[];
   readonly footerLinks?: readonly LandingLink[];
+  readonly legalFooterLinks?: readonly LandingLink[];
   readonly localeLinks?: readonly LandingLocaleLink[];
   readonly breadcrumb: LandingBreadcrumbContent;
   readonly hero: LandingHeroContent;

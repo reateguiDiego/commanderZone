@@ -335,6 +335,26 @@ describe('SEO landing static content', () => {
     expect(allHrefs).toContain('/en/faq/');
   });
 
+  it('uses localized public footer labels on non-English landings', () => {
+    const content = getSeoLandingContent('home', 'de');
+    const footerLabels = [
+      ...(content.footerLinks?.map((link) => link.label) ?? []),
+      ...(content.legalFooterLinks?.map((link) => link.label) ?? []),
+    ];
+
+    expect(footerLabels).toEqual([
+      'Häufige Fragen',
+      'Tischassistent',
+      'Commander-Deck importieren',
+      'Datenschutz',
+      'Cookies',
+      'Bedingungen',
+      'Kontakt',
+    ]);
+    expect(footerLabels).not.toContain('Frequently asked questions');
+    expect(footerLabels).not.toContain('Privacy Policy');
+  });
+
   it('links from home to every main SEO landing with crawlable hrefs', () => {
     const content = getSeoLandingContent('home', 'en');
     const hrefs = getAllLandingHrefs(content);
@@ -564,6 +584,7 @@ function getAllLandingHrefs(content: ReturnType<typeof getSeoLandingContent>): r
     content.cta?.secondaryLink?.href,
     ...(content.publicNavigationLinks?.map((link) => link.href) ?? []),
     ...(content.footerLinks?.map((link) => link.href) ?? []),
+    ...(content.legalFooterLinks?.map((link) => link.href) ?? []),
     ...content.breadcrumb.items.map((link) => link.href),
     ...content.internalLinks.links.map((link) => link.href),
     ...(content.sections?.flatMap((section) => section.links?.map((link) => link.href) ?? []) ?? []),
@@ -588,6 +609,7 @@ function getVisibleSeoTexts(content: ReturnType<typeof getSeoLandingContent>): r
     ...(content.trustBar?.items.flatMap((item) => [item.value, item.label]) ?? []),
     ...(content.publicNavigationLinks?.map((link) => link.label) ?? []),
     ...(content.footerLinks?.map((link) => link.label) ?? []),
+    ...(content.legalFooterLinks?.map((link) => link.label) ?? []),
     ...content.breadcrumb.items.map((item) => item.label),
     ...(content.sections?.flatMap((section) => [
       section.title,

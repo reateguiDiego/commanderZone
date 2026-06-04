@@ -9,6 +9,7 @@ const appRoot = join(frontendRoot, 'src', 'app');
 const seoLandingRoot = join(appRoot, 'features', 'seo-landings');
 const distBrowserRoot = join(frontendRoot, 'dist', 'frontend', 'browser');
 const sitemapPath = join(frontendRoot, 'public', 'sitemaps', 'sitemap-seo.xml');
+const prerenderRoutesPath = join(frontendRoot, 'src', 'seo-prerender-routes.txt');
 
 const allowedTemplateComponentNames = new Set([
   'ComparisonLandingTemplateComponent',
@@ -70,12 +71,14 @@ const routeKeys = config.routes.map((route) => route.routeKey);
 const localeCodes = config.locales.map((locale) => locale.code);
 
 validateSeoStaticBoundary();
+validateSeoServiceLocaleContract();
 validateSeoRoutesUseSharedRouteComponent();
 validateSharedLandingArchitecture();
 validateStaticContentCoverage();
 validateNoPerLocaleLandingComponents();
 validateNoDuplicatedLayoutMarkup();
 validateNoDuplicateSlugsWithinLocale();
+validatePrerenderRouteManifest();
 validateSitemapCompleteness();
 validatePrerenderedHtmlWhenAvailable();
 
@@ -104,6 +107,23 @@ function validateSeoStaticBoundary() {
     if (forbiddenMatches.length > 0) {
       fail(`${formatPath(file)} must not mix SEO-static landings with runtime i18n: ${forbiddenMatches.join(', ')}.`);
     }
+  }
+}
+
+function validateSeoServiceLocaleContract() {
+  const seoServicePath = join(appRoot, 'core', 'seo', 'seo.service.ts');
+  const seoServiceText = readText(seoServicePath);
+
+  if (!seoServiceText.includes("pt: 'pt_BR'")) {
+    fail(`${formatPath(seoServicePath)} must map Portuguese Open Graph locale to pt_BR.`);
+  }
+
+  if (!seoServiceText.includes('document.documentElement.lang = metadata.locale')) {
+    fail(`${formatPath(seoServicePath)} must set html lang from SEO route locale.`);
+  }
+
+  if (!seoServiceText.includes("document.documentElement.dir = 'ltr'")) {
+    fail(`${formatPath(seoServicePath)} must keep SEO pages explicitly ltr.`);
   }
 }
 
@@ -241,6 +261,52 @@ function validateNoDuplicateSlugsWithinLocale() {
   }
 }
 
+function validatePrerenderRouteManifest() {
+  if (!existsSync(prerenderRoutesPath)) {
+    fail(`Missing SEO prerender route manifest: ${formatPath(prerenderRoutesPath)}.`);
+    return;
+  }
+
+  const expectedPaths = sitemapEntries.map((entry) => new URL(entry.loc).pathname);
+  const routes = readText(prerenderRoutesPath)
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const forbiddenFragments = [
+    '/auth',
+    '/dashboard',
+    '/decks',
+    '/games',
+    '/rooms',
+    '/room/',
+    '/privacy-policy',
+    '/cookie-policy',
+    '/terms',
+    '/contact',
+    '/profile',
+    '/settings',
+    '/app',
+    '/table-assistant/',
+  ];
+
+  if (routes.join('\n') !== expectedPaths.join('\n')) {
+    fail(`${formatPath(prerenderRoutesPath)} is stale or not derived from SEO_ROUTES. Run "npm run write:seo-prerender-routes".`);
+  }
+
+  if (routes.includes('/en/')) {
+    fail(`${formatPath(prerenderRoutesPath)} must not include redirect-only /en/.`);
+  }
+
+  if (new Set(routes).size !== routes.length) {
+    fail(`${formatPath(prerenderRoutesPath)} must not contain duplicated routes.`);
+  }
+
+  const forbiddenRoute = routes.find((route) => forbiddenFragments.some((fragment) => route.includes(fragment)));
+  if (forbiddenRoute) {
+    fail(`${formatPath(prerenderRoutesPath)} must not contain private/noindex route ${forbiddenRoute}.`);
+  }
+}
+
 function validateSitemapCompleteness() {
   if (!existsSync(sitemapPath)) {
     fail(`Missing SEO sitemap: ${formatPath(sitemapPath)}.`);
@@ -286,10 +352,29 @@ function validatePrerenderedHtmlWhenAvailable() {
 
 function validateRenderedSeoHtml(entry, htmlPath) {
   const html = readText(htmlPath);
+  const htmlTag = html.match(/<html\b[^>]*>/i)?.[0];
   const titleTags = html.match(/<title\b[^>]*>[\s\S]*?<\/title>/gi) ?? [];
   const descriptionTags = html.match(/<meta\b(?=[^>]*\bname=["']description["'])[^>]*>/gi) ?? [];
+  const robotsTags = html.match(/<meta\b(?=[^>]*\bname=["']robots["'])[^>]*>/gi) ?? [];
   const canonicalTags = html.match(/<link\b(?=[^>]*\brel=["']canonical["'])[^>]*>/gi) ?? [];
   const alternateTags = html.match(/<link\b(?=[^>]*\brel=["']alternate["'])[^>]*>/gi) ?? [];
+  const jsonLdTags = html.match(/<script\b(?=[^>]*\btype=["']application\/ld\+json["'])[^>]*>[\s\S]*?<\/script>/gi) ?? [];
+  const h1Tags = html.match(/<h1\b[^>]*>[\s\S]*?<\/h1>/gi) ?? [];
+
+  if (!htmlTag) {
+    fail(`${entry.loc} must render an <html> tag.`);
+  } else {
+    const lang = getAttribute(htmlTag, 'lang');
+    const dir = getAttribute(htmlTag, 'dir');
+
+    if (lang !== entry.locale) {
+      fail(`${entry.loc} html lang must be ${entry.locale}, got ${lang ?? '(missing)'}.`);
+    }
+
+    if (dir !== 'ltr') {
+      fail(`${entry.loc} html dir must be ltr, got ${dir ?? '(missing)'}.`);
+    }
+  }
 
   if (titleTags.length !== 1) {
     fail(`${entry.loc} must render exactly one <title>, got ${titleTags.length}.`);
@@ -299,17 +384,38 @@ function validateRenderedSeoHtml(entry, htmlPath) {
     fail(`${entry.loc} must render exactly one meta description, got ${descriptionTags.length}.`);
   }
 
+  if (robotsTags.length !== 1) {
+    fail(`${entry.loc} must render exactly one robots meta tag, got ${robotsTags.length}.`);
+  } else if (getAttribute(robotsTags[0], 'content') !== 'index, follow') {
+    fail(`${entry.loc} robots meta must be index, follow, got ${getAttribute(robotsTags[0], 'content') ?? '(missing)'}.`);
+  }
+
   if (canonicalTags.length !== 1) {
     fail(`${entry.loc} must render exactly one canonical link, got ${canonicalTags.length}.`);
   } else if (getAttribute(canonicalTags[0], 'href') !== entry.loc) {
     fail(`${entry.loc} canonical must point to itself, got ${getAttribute(canonicalTags[0], 'href') ?? '(missing)'}.`);
   }
 
-  if (alternateTags.length < localeCodes.length + 1) {
-    fail(`${entry.loc} must render hreflang alternates for every locale plus x-default.`);
+  if (alternateTags.length !== localeCodes.length + 1) {
+    fail(`${entry.loc} must render exactly ${localeCodes.length + 1} hreflang alternates, got ${alternateTags.length}.`);
   }
 
-  for (const alternate of [...entry.alternates, { hreflang: 'x-default', href: entry.xDefault }]) {
+  const expectedAlternates = [...entry.alternates, { hreflang: 'x-default', href: entry.xDefault }];
+  const expectedHreflangs = new Set(expectedAlternates.map((alternate) => alternate.hreflang));
+  const actualHreflangs = alternateTags.map((tag) => getAttribute(tag, 'hreflang') ?? '');
+
+  if (new Set(actualHreflangs).size !== actualHreflangs.length) {
+    fail(`${entry.loc} contains duplicated rendered hreflang alternates.`);
+  }
+
+  for (const tag of alternateTags) {
+    const hreflang = getAttribute(tag, 'hreflang');
+    if (!hreflang || !expectedHreflangs.has(hreflang)) {
+      fail(`${entry.loc} contains unexpected rendered hreflang ${hreflang ?? '(missing)'}.`);
+    }
+  }
+
+  for (const alternate of expectedAlternates) {
     const hasAlternate = alternateTags.some((tag) =>
       getAttribute(tag, 'hreflang') === alternate.hreflang && getAttribute(tag, 'href') === alternate.href
     );
@@ -323,8 +429,21 @@ function validateRenderedSeoHtml(entry, htmlPath) {
     fail(`${entry.loc} must render a main landmark.`);
   }
 
-  if (!/<h1\b[^>]*>[\s\S]*?\S[\s\S]*?<\/h1>/i.test(html)) {
+  if (h1Tags.length !== 1) {
+    fail(`${entry.loc} must render exactly one H1, got ${h1Tags.length}.`);
+  } else if (getVisibleHtmlText(h1Tags[0]) === '') {
     fail(`${entry.loc} must render a visible H1.`);
+  }
+
+  if (jsonLdTags.length === 0) {
+    fail(`${entry.loc} must render JSON-LD structured data.`);
+  }
+
+  for (const jsonLdTag of jsonLdTags) {
+    const jsonLd = getScriptText(jsonLdTag);
+    if (containsForbiddenStructuredData(jsonLd, entry.loc)) {
+      fail(`${entry.loc} must not render review, rating or aggregateRating structured data.`);
+    }
   }
 
   if (!/\bseo-landing-layout\b/.test(html) || !/\blanding-hero\b/.test(html)) {
@@ -349,6 +468,55 @@ function getVisibleHtmlText(html) {
     .replace(/<[^>]+>/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+function getScriptText(scriptTag) {
+  return scriptTag
+    .replace(/<script\b[^>]*>/i, '')
+    .replace(/<\/script>/i, '')
+    .trim();
+}
+
+function containsForbiddenStructuredData(serializedJsonLd, loc) {
+  let jsonLd;
+
+  try {
+    jsonLd = JSON.parse(serializedJsonLd);
+  } catch (error) {
+    fail(`${loc} renders invalid JSON-LD: ${error instanceof Error ? error.message : String(error)}.`);
+    return true;
+  }
+
+  return hasForbiddenStructuredDataNode(jsonLd);
+}
+
+function hasForbiddenStructuredDataNode(value) {
+  if (Array.isArray(value)) {
+    return value.some((item) => hasForbiddenStructuredDataNode(item));
+  }
+
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  for (const [key, child] of Object.entries(value)) {
+    if (['aggregateRating', 'ratingValue', 'reviewRating'].includes(key)) {
+      return true;
+    }
+
+    if (key === '@type') {
+      const types = Array.isArray(child) ? child : [child];
+      if (types.some((type) => type === 'Review' || type === 'AggregateRating')) {
+        return true;
+      }
+    }
+
+    if (hasForbiddenStructuredDataNode(child)) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 function findPrerenderHtmlForEntry(entry) {

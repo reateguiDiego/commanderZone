@@ -1,4 +1,5 @@
 import { RenderMode } from '@angular/ssr';
+import { LEGAL_PRERENDER_ROUTES } from './core/legal/legal-routes';
 import { SEO_PRERENDER_ROUTES, toAngularServerRoutePath } from './core/localization/seo-prerender-routes';
 import { serverRoutes } from './app.routes.server';
 
@@ -10,14 +11,27 @@ describe('server routes', () => {
       .filter((route) => route.renderMode === RenderMode.Prerender)
       .map((route) => route.path);
 
-    expect(prerenderPaths).toHaveLength(60);
-    expect(prerenderPaths).toEqual(SEO_PRERENDER_ROUTES.map((path) => toAngularServerRoutePath(path)));
+    const seoPrerenderPaths = SEO_PRERENDER_ROUTES.map((path) => toAngularServerRoutePath(path));
+
+    expect(prerenderPaths).toEqual(expect.arrayContaining(seoPrerenderPaths));
     expect(prerenderPaths).toContain('');
     expect(prerenderPaths).not.toContain('en');
 
     for (const locale of nonSeoLocaleCodes) {
       expect(prerenderPaths.some((path) => path === locale || path.startsWith(`${locale}/`))).toBe(false);
     }
+  });
+
+  it('prerenders localized legal noindex pages outside the SEO route manifest', () => {
+    const prerenderPaths = serverRoutes
+      .filter((route) => route.renderMode === RenderMode.Prerender)
+      .map((route) => route.path);
+    const legalPrerenderPaths = LEGAL_PRERENDER_ROUTES.map((path) => toAngularServerRoutePath(path));
+
+    expect(prerenderPaths).toHaveLength(SEO_PRERENDER_ROUTES.length + LEGAL_PRERENDER_ROUTES.length);
+    expect(prerenderPaths).toEqual(expect.arrayContaining(legalPrerenderPaths));
+    expect(SEO_PRERENDER_ROUTES).not.toContain('/privacy-policy/');
+    expect(SEO_PRERENDER_ROUTES).not.toContain('/cookie-policy/');
   });
 
   it('keeps private and dynamic runtime routes out of prerender mode', () => {

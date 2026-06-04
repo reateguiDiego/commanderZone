@@ -1,0 +1,40 @@
+<article class="legal-page" [attr.lang]="content().locale">
+  <header class="legal-page__header">
+    <a class="legal-page__brand" [href]="homeHref()">
+      <img src="/assets/icons/CZ/CZ_logo_zone_header.png" alt="CommanderZone" width="184" height="62" />
+    </a>
+
+    <nav class="legal-page__nav" [attr.aria-label]="content().footerLabel">
+      <a [href]="homeHref()">{{ content().homeLabel }}</a>
+      @for (link of legalLinks(); track link.href) {
+        <a [href]="link.href" [class.is-current]="link.pageKey === content().pageKey">{{ link.label }}</a>
+      }
+    </nav>
+  </header>
+
+  <main class="legal-page__main">
+    <p class="legal-page__eyebrow">CommanderZone</p>
+    <h1>{{ content().h1 }}</h1>
+    <p class="legal-page__description">{{ content().description }}</p>
+
+    <div class="legal-page__sections">
+      @for (section of content().sections; track section.heading) {
+        <section class="legal-page__section">
+          <h2>{{ section.heading }}</h2>
+          @for (paragraph of section.body; track paragraph) {
+            <p>{{ paragraph }}</p>
+          }
+        </section>
+      }
+    </div>
+  </main>
+
+  <footer class="legal-page__footer">
+    <p>{{ content().disclaimer }}</p>
+    <nav [attr.aria-label]="publicChrome().footer.ariaLabel">
+      @for (link of publicChrome().footer.links; track link.href) {
+        <a [href]="link.href">{{ link.label }}</a>
+      }
+    </nav>
+  </footer>
+</article>

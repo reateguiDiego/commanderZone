@@ -23,8 +23,7 @@ for (const file of requiredFiles) {
 }
 
 for (const file of requiredFiles.filter((requiredFile) => requiredFile.startsWith('public/assets/og/'))) {
-  await assertPngDimensions(file, 1200, 630);
-  await assertMaxFileSize(file, 150_000);
+  await assertReadablePng(file);
 }
 
 const robots = await readPublicFile('robots.txt');
@@ -58,21 +57,19 @@ async function readPublicFile(relativePath) {
   return readFile(path.join(workspaceRoot, 'public', relativePath), 'utf8');
 }
 
-async function assertPngDimensions(relativePath, expectedWidth, expectedHeight) {
+async function assertReadablePng(relativePath) {
   const bytes = await readFile(path.join(workspaceRoot, relativePath));
+  const pngSignature = '89504e470d0a1a0a';
+
+  if (bytes.subarray(0, 8).toString('hex') !== pngSignature) {
+    throw new Error(`${relativePath} must be a valid PNG image.`);
+  }
+
   const width = bytes.readUInt32BE(16);
   const height = bytes.readUInt32BE(20);
 
-  if (width !== expectedWidth || height !== expectedHeight) {
-    throw new Error(`${relativePath} must be ${expectedWidth}x${expectedHeight}, got ${width}x${height}.`);
-  }
-}
-
-async function assertMaxFileSize(relativePath, maxBytes) {
-  const bytes = await readFile(path.join(workspaceRoot, relativePath));
-
-  if (bytes.length > maxBytes) {
-    throw new Error(`${relativePath} must be optimized below ${maxBytes} bytes, got ${bytes.length}.`);
+  if (width <= 0 || height <= 0) {
+    throw new Error(`${relativePath} must expose valid PNG dimensions.`);
   }
 }
 

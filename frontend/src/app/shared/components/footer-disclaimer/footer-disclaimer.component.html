@@ -1,35 +1,14 @@
 <footer class="app-disclaimer">
   <div class="app-disclaimer-content">
-    <h2>{{ 'common.footerDisclaimer.footerDisclaimer.disclaimer' | runtimeTranslate }}</h2>
+    <h2>{{ copy().disclaimer.heading }}</h2>
 
-    <p>
-      {{ 'common.footerDisclaimer.footerDisclaimer.commanderzoneIsUnofficialFanContentPermittedUnder' | runtimeTranslate }}
-      <strong class="legal-mark">{{ 'common.footerDisclaimer.footerDisclaimer.wizards' | runtimeTranslate }}</strong>{{ 'common.footerDisclaimer.footerDisclaimer.portionsOfTheMaterialsUsedAreProperty' | runtimeTranslate }}
-      <strong class="legal-mark">{{ 'common.footerDisclaimer.footerDisclaimer.wizardsOfTheCoast' | runtimeTranslate }}</strong>.
-      <strong class="legal-mark">{{ 'common.footerDisclaimer.footerDisclaimer.wizardsOfTheCoastLlc' | runtimeTranslate }}</strong>.
-    </p>
+    <p>{{ copy().disclaimer.text }}</p>
+    <p>{{ copy().disclaimer.copyright }}</p>
 
-    <p>
-      <strong class="legal-mark">{{ 'common.footerDisclaimer.footerDisclaimer.magicTheGathering' | runtimeTranslate }}</strong>, <strong class="legal-mark">{{ 'common.footerDisclaimer.footerDisclaimer.mtg' | runtimeTranslate }}</strong>{{ 'common.footerDisclaimer.footerDisclaimer.andAllAssociatedLogosCardImagesAnd' | runtimeTranslate }}
-      <strong class="legal-mark">{{ 'common.footerDisclaimer.footerDisclaimer.wizardsOfTheCoast' | runtimeTranslate }}</strong> {{ 'common.footerDisclaimer.footerDisclaimer.llcASubsidiaryOf' | runtimeTranslate }}
-      <strong class="legal-mark">{{ 'common.footerDisclaimer.footerDisclaimer.hasbroInc' | runtimeTranslate }}</strong>{{ 'common.footerDisclaimer.footerDisclaimer.inTheUnitedStatesAndOtherCountries' | runtimeTranslate }}
-      <strong class="legal-mark">{{ 'common.footerDisclaimer.footerDisclaimer.text19932025WizardsOfTheCoastLlc' | runtimeTranslate }}</strong>{{ 'common.footerDisclaimer.footerDisclaimer.allRightsReserved' | runtimeTranslate }}
-    </p>
-
-    <p>
-      {{ 'common.footerDisclaimer.footerDisclaimer.commanderzoneMayDisplayOrReferenceCertain' | runtimeTranslate }} <strong class="legal-mark">{{ 'common.footerDisclaimer.footerDisclaimer.wizardsOfTheCoast' | runtimeTranslate }}</strong>
-      {{ 'common.footerDisclaimer.footerDisclaimer.intellectualPropertyUnderTheGuidelinesSetForth' | runtimeTranslate }}
-      <strong class="legal-mark">{{ 'common.footerDisclaimer.footerDisclaimer.wizardsFanContentPolicy' | runtimeTranslate }}</strong>{{ 'common.footerDisclaimer.footerDisclaimer.thisSiteDoesNotSellProductsHost' | runtimeTranslate }}
-      <strong class="legal-mark">{{ 'common.footerDisclaimer.footerDisclaimer.magicTheGathering1' | runtimeTranslate }}</strong> {{ 'common.footerDisclaimer.footerDisclaimer.community' | runtimeTranslate }}
-    </p>
-
-    <p>
-      {{ 'common.footerDisclaimer.footerDisclaimer.forMoreInformationOn' | runtimeTranslate }} <strong class="legal-mark">{{ 'common.footerDisclaimer.footerDisclaimer.wizardsOfTheCoast' | runtimeTranslate }}</strong> {{ 'common.footerDisclaimer.footerDisclaimer.andTheirIntellectualPropertyPoliciesPleaseVisit' | runtimeTranslate }}
-      <a href="https://company.wizards.com" target="_blank" rel="noopener noreferrer">https://company.wizards.com</a>
-    </p>
-
-    <p>
-      {{ 'common.footerDisclaimer.footerDisclaimer.ifYouAreTheRightsHolderAnd' | runtimeTranslate }}
-    </p>
+    <nav class="app-disclaimer-links" [attr.aria-label]="copy().footer.ariaLabel">
+      @for (link of links(); track link.href) {
+        <a [href]="link.href">{{ link.label }}</a>
+      }
+    </nav>
   </div>
 </footer>

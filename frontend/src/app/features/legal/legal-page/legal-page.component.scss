@@ -1,0 +1,131 @@
+.legal-page {
+  display: grid;
+  gap: 1.5rem;
+  width: min(100% - 1rem, 72rem);
+  margin: 0 auto;
+  padding: .75rem 0 2rem;
+  color: var(--text);
+}
+
+.legal-page__header,
+.legal-page__footer {
+  display: grid;
+  gap: .85rem;
+  border: 1px solid rgb(var(--cz-text-rgb) / 10%);
+  border-radius: 8px;
+  padding: .85rem;
+  background: rgb(var(--cz-bg-rgb) / 84%);
+}
+
+.legal-page__brand {
+  display: inline-flex;
+  width: fit-content;
+  min-height: 2.75rem;
+  align-items: center;
+}
+
+.legal-page__brand img {
+  display: block;
+  width: 7.5rem;
+  height: auto;
+}
+
+.legal-page__nav,
+.legal-page__footer nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .45rem;
+}
+
+.legal-page__nav a,
+.legal-page__footer a {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  border-radius: 7px;
+  padding: 0 .75rem;
+  color: var(--text);
+  font-size: .9rem;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.legal-page__nav a {
+  background: rgb(var(--cz-primary-rgb) / 10%);
+}
+
+.legal-page__nav a:hover,
+.legal-page__nav a.is-current,
+.legal-page__footer a:hover {
+  color: var(--gold);
+}
+
+.legal-page__main {
+  display: grid;
+  gap: 1.35rem;
+  min-width: 0;
+  border: 1px solid rgb(var(--cz-text-rgb) / 10%);
+  border-radius: 8px;
+  padding: clamp(1rem, 3vw, 2rem);
+  background: rgb(var(--cz-bg-rgb) / 76%);
+}
+
+.legal-page__eyebrow,
+.legal-page h1,
+.legal-page__description,
+.legal-page__section h2,
+.legal-page__section p,
+.legal-page__footer p {
+  margin: 0;
+}
+
+.legal-page__eyebrow {
+  color: var(--gold);
+  font-size: .8rem;
+  font-weight: 900;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.legal-page h1 {
+  max-width: 16ch;
+  font-size: clamp(2rem, 7vw, 4.5rem);
+  line-height: 1;
+}
+
+.legal-page__description,
+.legal-page__section p,
+.legal-page__footer p {
+  color: var(--muted);
+  line-height: 1.65;
+}
+
+.legal-page__sections {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.legal-page__section {
+  display: grid;
+  gap: .5rem;
+}
+
+.legal-page__section h2 {
+  color: var(--text);
+  font-size: clamp(1.2rem, 3vw, 1.65rem);
+}
+
+@media (width >= 48rem) {
+  .legal-page {
+    width: min(100% - 2rem, 72rem);
+  }
+
+  .legal-page__header {
+    grid-template-columns: auto 1fr;
+    align-items: center;
+  }
+
+  .legal-page__nav {
+    justify-content: flex-end;
+  }
+}

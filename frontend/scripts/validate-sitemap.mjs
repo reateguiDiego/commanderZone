@@ -18,13 +18,15 @@ const expectedIndexXml = generateSitemapIndexXml();
 const expectedSeoXml = generateSeoSitemapXml(config);
 const sitemapIndexPath = path.join(workspaceRoot, 'public', SITEMAP_INDEX_PUBLIC_PATH);
 const seoSitemapPath = path.join(workspaceRoot, 'public', SEO_SITEMAP_PUBLIC_PATH);
+const vercelConfigPath = path.join(workspaceRoot, 'vercel.json');
 const actualIndexXml = await readFile(sitemapIndexPath, 'utf8');
 const actualSeoXml = await readFile(seoSitemapPath, 'utf8');
+const vercelConfig = JSON.parse(await readFile(vercelConfigPath, 'utf8'));
 
 assertEqualXml(actualIndexXml, expectedIndexXml, SITEMAP_INDEX_PUBLIC_PATH);
 assertEqualXml(actualSeoXml, expectedSeoXml, SEO_SITEMAP_PUBLIC_PATH);
 assertSitemapIndex(actualIndexXml);
-assertSeoSitemap(actualSeoXml, config);
+assertSeoSitemap(actualSeoXml, config, vercelConfig);
 
 console.log('Sitemap validation passed.');
 
@@ -44,7 +46,7 @@ function assertSitemapIndex(xml) {
   }
 }
 
-function assertSeoSitemap(xml, config) {
+function assertSeoSitemap(xml, config, vercelConfig) {
   if (!xml.includes('xmlns:xhtml="http://www.w3.org/1999/xhtml"')) {
     throw new Error('sitemap-seo.xml must include the xhtml namespace for hreflang alternates.');
   }
@@ -71,6 +73,7 @@ function assertSeoSitemap(xml, config) {
     throw new Error('sitemap-seo.xml must not include /en/ as an indexable home URL.');
   }
 
+  assertNoRedirectedUrls(actualLocs, vercelConfig);
   assertNoPrivateRoutes(actualLocs);
   assertNoNonSeoLocales(xml);
   assertEveryExpectedUrlExists(expectedEntries, actualLocs);
@@ -95,6 +98,20 @@ function assertNoPrivateRoutes(urls) {
 
   if (privateUrl) {
     throw new Error(`Private/runtime route must not appear in sitemap: ${privateUrl}`);
+  }
+}
+
+function assertNoRedirectedUrls(urls, vercelConfig) {
+  const redirectedPaths = new Set(
+    (vercelConfig.redirects ?? [])
+      .filter((redirect) => redirect.permanent === true && redirect.has === undefined)
+      .map((redirect) => redirect.source)
+      .filter((source) => typeof source === 'string' && !source.includes(':') && !source.includes('*')),
+  );
+  const redirectedUrl = urls.find((url) => redirectedPaths.has(new URL(url).pathname));
+
+  if (redirectedUrl) {
+    throw new Error(`Redirected URL must not appear in sitemap: ${redirectedUrl}`);
   }
 }
 
@@ -123,6 +140,7 @@ function assertEveryExpectedUrlExists(expectedEntries, actualLocs) {
 
 function assertHreflangAlternates(xml, expectedEntries, config) {
   const expectedByLoc = new Map(expectedEntries.map((entry) => [entry.loc, entry]));
+  const expectedLocs = new Set(expectedEntries.map((entry) => entry.loc));
 
   for (const urlBlock of extractUrlBlocks(xml)) {
     const loc = extractTagValues(urlBlock, 'loc')[0];
@@ -134,6 +152,26 @@ function assertHreflangAlternates(xml, expectedEntries, config) {
 
     const alternates = extractAlternateLinks(urlBlock);
     const expectedAlternates = new Map(expectedEntry.alternates.map((alternate) => [alternate.hreflang, alternate.href]));
+    const expectedHreflangs = [...config.locales.map((locale) => locale.hreflang), 'x-default'];
+    const actualHreflangs = alternates.map((alternate) => alternate.hreflang);
+
+    if (alternates.length !== expectedHreflangs.length) {
+      throw new Error(`${loc} must contain exactly ${expectedHreflangs.length} hreflang alternates, got ${alternates.length}.`);
+    }
+
+    if (new Set(actualHreflangs).size !== actualHreflangs.length) {
+      throw new Error(`${loc} contains duplicated hreflang alternates.`);
+    }
+
+    for (const alternate of alternates) {
+      if (!expectedHreflangs.includes(alternate.hreflang)) {
+        throw new Error(`${loc} contains unexpected hreflang ${alternate.hreflang}.`);
+      }
+
+      if (!expectedLocs.has(alternate.href)) {
+        throw new Error(`${loc} hreflang ${alternate.hreflang} points to a URL outside the sitemap: ${alternate.href}.`);
+      }
+    }
 
     for (const locale of config.locales) {
       const href = expectedAlternates.get(locale.hreflang);
@@ -148,6 +186,13 @@ function assertHreflangAlternates(xml, expectedEntries, config) {
 
     if (!alternates.some((alternate) => alternate.hreflang === 'x-default' && alternate.href === expectedEntry.xDefault)) {
       throw new Error(`Missing x-default hreflang for ${loc}.`);
+    }
+
+    for (const alternate of alternates.filter((candidate) => candidate.hreflang !== 'x-default')) {
+      const reciprocalEntry = expectedByLoc.get(alternate.href);
+      if (!reciprocalEntry?.alternates.some((candidate) => candidate.href === loc)) {
+        throw new Error(`${loc} hreflang ${alternate.hreflang} is not reciprocal from ${alternate.href}.`);
+      }
     }
   }
 

@@ -218,6 +218,7 @@ function getLandingLinks(content: SeoLandingContent): readonly [string, string][
     ['cta.secondaryLink.href', content.cta?.secondaryLink?.href ?? ''],
     ...getNamedLinks('publicNavigationLinks', content.publicNavigationLinks ?? []),
     ...getNamedLinks('footerLinks', content.footerLinks ?? []),
+    ...getNamedLinks('legalFooterLinks', content.legalFooterLinks ?? []),
     ...getNamedLinks('breadcrumb.items', content.breadcrumb.items),
     ...getNamedLinks('internalLinks.links', content.internalLinks.links),
     ...getNamedLinks('localeLinks', content.localeLinks ?? []),

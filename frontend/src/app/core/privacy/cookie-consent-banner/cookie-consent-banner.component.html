@@ -1,13 +1,12 @@
 @if (isVisible()) {
-  <section class="cookie-banner" aria-label="Cookie preferences">
+  <section class="cookie-banner" [attr.aria-label]="copy().cookieBanner.title">
     <div class="cookie-banner__content">
-      <p class="cookie-banner__title">Cookie preferences</p>
+      <p class="cookie-banner__title">{{ copy().cookieBanner.title }}</p>
       <p class="cookie-banner__copy">
-        CommanderZone uses essential cookies for the app. Optional analytics will stay disabled unless you allow it.
-        Read the
-        <a href="/privacy-policy/">privacy policy</a>
-        and
-        <a href="/cookie-policy/">cookie policy</a>.
+        {{ copy().cookieBanner.copyStart }}
+        <a [href]="privacyLink()?.href">{{ copy().cookieBanner.privacyPolicyLabel }}</a>
+        {{ copy().cookieBanner.privacyJoin }}
+        <a [href]="cookieLink()?.href">{{ copy().cookieBanner.cookiePolicyLabel }}</a>{{ copy().cookieBanner.cookiesJoin }}.
       </p>
 
       @if (showSettings()) {
@@ -19,7 +18,7 @@
             [attr.aria-pressed]="analyticsEnabled()"
             (click)="toggleAnalytics()"
           >
-            Analytics cookies
+            {{ copy().cookieBanner.analyticsCookies }}
           </button>
         </div>
       }
@@ -28,19 +27,19 @@
     <div class="cookie-banner__actions">
       @if (showSettings()) {
         <button type="button" class="primary-button compact" (click)="saveSettings()">
-          Save
+          {{ copy().cookieBanner.save }}
         </button>
       } @else {
         <button type="button" class="secondary-button compact" (click)="openSettings()">
-          Configure
+          {{ copy().cookieBanner.configure }}
         </button>
       }
 
       <button type="button" class="secondary-button compact" (click)="rejectAll()">
-        Reject
+        {{ copy().cookieBanner.reject }}
       </button>
       <button type="button" class="primary-button compact" (click)="acceptAll()">
-        Accept
+        {{ copy().cookieBanner.accept }}
       </button>
     </div>
   </section>

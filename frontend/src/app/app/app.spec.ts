@@ -1,4 +1,4 @@
-import { Component, PLATFORM_ID } from '@angular/core';
+import { Component, PLATFORM_ID, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideRouter, Router } from '@angular/router';
@@ -36,7 +36,7 @@ describe('App', () => {
         ]),
         {
           provide: RuntimeLanguageSelectorService,
-          useValue: {},
+          useValue: { selectedLanguage: signal('en') },
         },
       ],
     }).compileComponents();
@@ -66,7 +66,7 @@ describe('App', () => {
         provideRouter([]),
         {
           provide: RuntimeLanguageSelectorService,
-          useValue: {},
+          useValue: { selectedLanguage: signal('en') },
         },
       ],
     }).compileComponents();

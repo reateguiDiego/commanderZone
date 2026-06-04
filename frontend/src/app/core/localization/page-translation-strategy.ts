@@ -29,6 +29,7 @@ export const PAGE_TRANSLATION_STRATEGIES = {
   decks: 'runtime-i18n',
   deckEditor: 'runtime-i18n',
   tableAssistantApp: 'runtime-i18n',
+  legal: 'runtime-i18n',
 
   demoRoom: 'out-of-scope',
   gameDebug: 'out-of-scope',

@@ -5,6 +5,11 @@ import {
   getLocaleHreflang,
 } from '../../../core/localization/locale-config';
 import { getSeoPath, SeoRouteKey } from '../../../core/localization/seo-routes';
+import {
+  getPublicChromeCopy,
+  getPublicFooterLegalLinks,
+  getPublicFooterUtilityLinks,
+} from '../../../core/localization/public-chrome-copy';
 import { SEO_CANONICAL_ORIGIN, toSeoAbsoluteUrl } from '../../../core/seo/seo.service';
 import {
   LandingBreadcrumbContent,
@@ -955,6 +960,7 @@ function createSeoLandingContent(routeKey: SeoRouteKey, locale: SeoLocaleCode): 
   const copy = getLandingCopy(routeKey, copyLocale);
   const ctaCopy = getLandingCtaCopy(routeKey, copyLocale);
   const uiCopy = getUiCopy(copyLocale);
+  const publicChrome = getPublicChromeCopy(locale);
   const path = getSeoPath(routeKey, locale);
   const seo: SeoMetadataContent = {
     title: copy.metaTitle,
@@ -982,14 +988,11 @@ function createSeoLandingContent(routeKey: SeoRouteKey, locale: SeoLocaleCode): 
     siteName: 'CommanderZone',
     homeLink: { label: uiCopy.homeLabel, href: getSeoPath('home', locale), ariaLabel: uiCopy.homeLabel },
     publicNavigationLinks: [
-      { label: uiCopy.navPlay, href: getSeoPath('playCommanderOnline', locale) },
-      { label: uiCopy.navFaq, href: getSeoPath('faq', locale) },
+      { label: publicChrome.navigation.playOnline, href: getSeoPath('playCommanderOnline', locale) },
+      { label: publicChrome.navigation.faq, href: getSeoPath('faq', locale) },
     ],
-    footerLinks: [
-      { label: uiCopy.footerFaq, href: getSeoPath('faq', locale) },
-      { label: getRouteLabel('tableAssistant', locale), href: getSeoPath('tableAssistant', locale) },
-      { label: getRouteLabel('importCommanderDeck', locale), href: getSeoPath('importCommanderDeck', locale) },
-    ],
+    footerLinks: getPublicFooterUtilityLinks(locale),
+    legalFooterLinks: getPublicFooterLegalLinks(locale),
     localeLinks: SEO_LOCALES.map((supportedLocale) => ({
       locale: supportedLocale.code,
       label: supportedLocale.nativeLabel,

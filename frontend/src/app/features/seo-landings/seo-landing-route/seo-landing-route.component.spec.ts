@@ -53,6 +53,8 @@ describe('SeoLandingRouteComponent', () => {
 
     expect(title.getTitle()).toContain('Asistente de mesa');
     expect(document.head.querySelector('meta[data-cz-seo="true"][name="description"]')?.getAttribute('content')?.toLowerCase()).toContain('asistente de mesa');
+    expect(document.documentElement.lang).toBe('es');
+    expect(document.documentElement.dir).toBe('ltr');
     expect(document.head.querySelector('meta[data-cz-seo="true"][name="robots"]')?.getAttribute('content')).toBe('index, follow');
     expect(document.head.querySelector('meta[data-cz-seo="true"][property="og:title"]')?.getAttribute('content')).toContain('Asistente de mesa');
     expect(document.head.querySelector('meta[data-cz-seo="true"][property="og:description"]')?.getAttribute('content')?.toLowerCase()).toContain('asistente de mesa');

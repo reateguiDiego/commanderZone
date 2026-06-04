@@ -7,7 +7,7 @@
 
     <div class="seo-landing-layout__header-links">
       @if (publicNavigationLinks().length) {
-        <nav class="seo-landing-layout__nav" aria-label="Public navigation">
+        <nav class="seo-landing-layout__nav" [attr.aria-label]="publicChrome().navigation.ariaLabel">
           @for (link of publicNavigationLinks(); track link.href) {
             <a class="primary-button compact" [href]="link.href" [attr.aria-label]="link.ariaLabel">{{ link.label }}</a>
           }
@@ -32,10 +32,10 @@
     <app-landing-internal-links [content]="internalLinks" />
   }
 
-  @if (content().footerLinks?.length) {
+  @if (publicFooterLinks().length) {
     <footer class="seo-landing-layout__footer">
-      <nav aria-label="Public footer">
-        @for (link of content().footerLinks; track link.href) {
+      <nav [attr.aria-label]="publicChrome().footer.ariaLabel">
+        @for (link of publicFooterLinks(); track link.href) {
           <a [href]="link.href" [attr.aria-label]="link.ariaLabel">{{ link.label }}</a>
         }
       </nav>

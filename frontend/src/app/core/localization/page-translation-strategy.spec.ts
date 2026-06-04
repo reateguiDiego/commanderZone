@@ -38,6 +38,7 @@ describe('page translation strategy manifest', () => {
     'decks',
     'deckEditor',
     'tableAssistantApp',
+    'legal',
   ] as const satisfies readonly PageKey[];
 
   const outOfScopePages = [
