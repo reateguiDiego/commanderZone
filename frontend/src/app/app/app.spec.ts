@@ -30,6 +30,7 @@ describe('App', () => {
           { path: '', pathMatch: 'full', component: EmptyRouteComponent },
           { path: 'en/faq', component: EmptyRouteComponent },
           { path: 'en/play-commander-online', component: EmptyRouteComponent },
+          { path: 'auth/login', component: EmptyRouteComponent },
           { path: 'table-assistant', component: EmptyRouteComponent },
           { path: 'table-assistant/:id', component: EmptyRouteComponent },
           { path: 'games/:id', component: EmptyRouteComponent },
@@ -97,31 +98,25 @@ describe('App', () => {
     expect(routerOutlet?.compareDocumentPosition(cookieBanner as Node)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   });
 
-  it('keeps the global disclaimer on the table assistant setup page', async () => {
+  it('hides the global disclaimer on auth and app noindex routes', async () => {
     const router = TestBed.inject(Router);
     const fixture = TestBed.createComponent(App);
+
+    await router.navigateByUrl('/auth/login');
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('app-footer-disclaimer')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.app-disclaimer')).toBeNull();
 
     await router.navigateByUrl('/table-assistant');
     fixture.detectChanges();
-
-    expect(fixture.nativeElement.querySelector('app-footer-disclaimer')).not.toBeNull();
-    expect(fixture.nativeElement.querySelector('.app-disclaimer')).not.toBeNull();
-  });
-
-  it('hides the global disclaimer inside a table assistant room', async () => {
-    const router = TestBed.inject(Router);
-    const fixture = TestBed.createComponent(App);
+    expect(fixture.nativeElement.querySelector('app-footer-disclaimer')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.app-disclaimer')).toBeNull();
 
     await router.navigateByUrl('/table-assistant/room-1');
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelector('app-footer-disclaimer')).toBeNull();
     expect(fixture.nativeElement.querySelector('.app-disclaimer')).toBeNull();
-  });
-
-  it('hides the global disclaimer inside a game table', async () => {
-    const router = TestBed.inject(Router);
-    const fixture = TestBed.createComponent(App);
 
     await router.navigateByUrl('/games/game-1');
     fixture.detectChanges();

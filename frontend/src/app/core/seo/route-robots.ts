@@ -7,8 +7,12 @@ import {
 export type RobotsMetaContent = 'index, follow' | 'noindex, follow' | 'noindex, nofollow';
 
 export function getPageRobotsMeta(pageKey: PageKey): RobotsMetaContent {
-  if (pageKey === 'legal' || pageKey === 'wildcardRedirect') {
+  if (pageKey === 'legal') {
     return 'noindex, follow';
+  }
+
+  if (pageKey === 'wildcardRedirect') {
+    return 'noindex, nofollow';
   }
 
   return getStrategyRobotsMeta(PAGE_TRANSLATION_STRATEGIES[pageKey]);

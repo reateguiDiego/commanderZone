@@ -56,12 +56,12 @@ describe('RouteRobotsMetaService', () => {
     expect(routeRobotsMeta()?.getAttribute('content')).toBe('noindex, nofollow');
   });
 
-  it('sets noindex, follow for the wildcard 404 route', () => {
+  it('sets noindex, nofollow for the wildcard 404 route', () => {
     setCurrentPageKey('wildcardRedirect');
 
     service.initialize();
 
-    expect(routeRobotsMeta()?.getAttribute('content')).toBe('noindex, follow');
+    expect(routeRobotsMeta()?.getAttribute('content')).toBe('noindex, nofollow');
   });
 
   it('sets noindex, follow for legal routes', () => {

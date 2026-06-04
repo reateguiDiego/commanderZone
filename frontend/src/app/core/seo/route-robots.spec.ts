@@ -32,8 +32,8 @@ describe('route robots rules', () => {
     }
   });
 
-  it('uses noindex, follow for the wildcard 404 route', () => {
-    expect(getPageRobotsMeta('wildcardRedirect')).toBe('noindex, follow');
+  it('uses noindex, nofollow for the wildcard 404 route', () => {
+    expect(getPageRobotsMeta('wildcardRedirect')).toBe('noindex, nofollow');
     expect(isSeoIndexablePage('wildcardRedirect')).toBe(false);
   });
 

@@ -36,24 +36,24 @@ describe('server routes', () => {
     expect(SEO_PRERENDER_ROUTES).not.toContain('/cookie-policy/');
   });
 
-  it('keeps the prerender list limited to SEO and legal routes', () => {
+  it('keeps the prerender list limited to SEO, legal and public auth routes', () => {
     const prerenderPaths = serverRoutes
       .filter((route) => route.renderMode === RenderMode.Prerender)
       .map((route) => route.path);
 
-    expect(prerenderPaths).toHaveLength(SEO_PRERENDER_ROUTES.length + LEGAL_PRERENDER_ROUTES.length);
+    expect(prerenderPaths).toHaveLength(SEO_PRERENDER_ROUTES.length + LEGAL_PRERENDER_ROUTES.length + 2);
     expect(prerenderPaths).not.toContain('en');
-    expect(prerenderPaths).not.toContain('auth/login');
-    expect(prerenderPaths).not.toContain('auth/register');
+    expect(prerenderPaths).toContain('auth/login');
+    expect(prerenderPaths).toContain('auth/register');
   });
 
-  it('does not prerender auth entry pages', () => {
-    expect(serverRoutes.find((route) => route.path === 'auth/login')?.renderMode).not.toBe(RenderMode.Prerender);
-    expect(serverRoutes.find((route) => route.path === 'auth/register')?.renderMode).not.toBe(RenderMode.Prerender);
+  it('prerenders public auth entry pages as noindex runtime pages', () => {
+    expect(serverRoutes.find((route) => route.path === 'auth/login')?.renderMode).toBe(RenderMode.Prerender);
+    expect(serverRoutes.find((route) => route.path === 'auth/register')?.renderMode).toBe(RenderMode.Prerender);
   });
 
   it('keeps private and dynamic runtime routes out of prerender mode', () => {
-    const clientOnlyPaths = ['auth/login', 'auth/register', 'games/:id', 'profile', 'settings', 'app', 'dashboard', 'table-assistant', 'welcome'];
+    const clientOnlyPaths = ['games/:id', 'profile', 'settings', 'app', 'dashboard', 'table-assistant', 'welcome'];
 
     for (const path of clientOnlyPaths) {
       const route = serverRoutes.find((candidate) => candidate.path === path);
@@ -61,7 +61,7 @@ describe('server routes', () => {
     }
   });
 
-  it('uses client rendering as the fallback server route', () => {
-    expect(serverRoutes.at(-1)).toEqual({ path: '**', renderMode: RenderMode.Client, status: 404 });
+  it('uses server rendering with 404 status as the fallback server route', () => {
+    expect(serverRoutes.at(-1)).toEqual({ path: '**', renderMode: RenderMode.Server, status: 404 });
   });
 });

@@ -27,6 +27,7 @@ export const routes: Routes = [
       .then((component) => component.AuthPageComponent),
     canActivate: [guestGuard],
     data: { pageKey: 'login' },
+    title: 'Login | CommanderZone',
   },
   {
     path: 'auth/register',
@@ -34,6 +35,7 @@ export const routes: Routes = [
       .then((component) => component.AuthPageComponent),
     canActivate: [guestGuard],
     data: { pageKey: 'register' },
+    title: 'Sign up | CommanderZone',
   },
   {
     path: 'auth/password-reset',

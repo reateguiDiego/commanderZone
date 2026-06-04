@@ -12,9 +12,13 @@
       <p class="not-found-page__subtitle">{{ page.subtitle }}</p>
       <p class="not-found-page__copy">{{ page.description }}</p>
 
-      <a class="primary-button not-found-page__cta" [href]="ctaHref()">
-        {{ page.cta }}
-      </a>
+      <nav class="not-found-page__links" aria-label="Helpful links">
+        @for (link of links; track link.href) {
+          <a class="primary-button not-found-page__cta" [href]="link.href">
+            {{ link.label }}
+          </a>
+        }
+      </nav>
     </div>
   </section>
 </main>

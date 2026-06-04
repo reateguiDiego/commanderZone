@@ -61,21 +61,33 @@ export class App {
     return url.split(/[?#]/)[0];
   }
 
-  private isTableAssistantRoomPath(path: string): boolean {
-    const segments = path.split('/').filter(Boolean);
-    return segments[0] === 'table-assistant' && segments.length > 1;
-  }
-
-  private isGameTablePath(path: string): boolean {
-    const segments = path.split('/').filter(Boolean);
-    return segments[0] === 'games' && segments.length > 1;
-  }
-
   private isDisclaimerHiddenPath(path: string): boolean {
-    return this.isTableAssistantRoomPath(path) || this.isGameTablePath(path);
+    return this.isNoindexAppPath(path);
   }
 
   private isSeoLandingPath(path: string): boolean {
     return findSeoRouteByPath(path) !== undefined;
+  }
+
+  private isNoindexAppPath(path: string): boolean {
+    const segments = path.split('/').filter(Boolean);
+    const firstSegment = segments[0];
+
+    if (!firstSegment) {
+      return false;
+    }
+
+    return [
+      'auth',
+      'cards',
+      'dashboard',
+      'decks',
+      'email-verification',
+      'games',
+      'room',
+      'rooms',
+      'table-assistant',
+      'welcome',
+    ].includes(firstSegment);
   }
 }
