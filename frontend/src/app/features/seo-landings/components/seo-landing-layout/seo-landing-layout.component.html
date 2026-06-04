@@ -6,9 +6,9 @@
     </a>
 
     <div class="seo-landing-layout__header-links">
-      @if (content().publicNavigationLinks?.length) {
+      @if (publicNavigationLinks().length) {
         <nav class="seo-landing-layout__nav" aria-label="Public navigation">
-          @for (link of content().publicNavigationLinks; track link.href) {
+          @for (link of publicNavigationLinks(); track link.href) {
             <a class="primary-button compact" [href]="link.href" [attr.aria-label]="link.ariaLabel">{{ link.label }}</a>
           }
         </nav>

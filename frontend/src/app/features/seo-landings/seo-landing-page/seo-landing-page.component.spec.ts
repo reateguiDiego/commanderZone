@@ -230,10 +230,26 @@ describe('SeoLandingPageComponent', () => {
     expect(element.querySelector('.seo-landing-layout__brand')?.getAttribute('href')).toBe('/en/');
     expect(element.querySelector('.seo-landing-layout__menu')).toBeNull();
     expect(publicMenuLinks.map((link) => link.getAttribute('href'))).toEqual([
-      '/en/play-commander-online/',
       '/en/faq/',
     ]);
     expect(publicMenuLinks.every((link) => link.classList.contains('primary-button'))).toBe(true);
+  });
+
+  it('hides the FAQ header button while rendering the FAQ landing', () => {
+    fixture.componentRef.setInput('content', {
+      ...content,
+      routeKey: 'faq',
+      publicNavigationLinks: [
+        { label: 'Play online', href: '/en/play-commander-online/' },
+        { label: 'FAQ', href: '/en/faq/' },
+      ],
+    });
+    fixture.detectChanges();
+
+    const element: HTMLElement = fixture.nativeElement;
+    const publicMenuLinks = Array.from(element.querySelectorAll('.seo-landing-layout__nav a') as NodeListOf<HTMLAnchorElement>);
+
+    expect(publicMenuLinks.map((link) => link.getAttribute('href'))).toEqual(['/en/play-commander-online/']);
   });
 
   it('uses the app button classes for hero and final CTA links', () => {

@@ -3,6 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideRouter, Router } from '@angular/router';
 import { AuthStore } from '../core/auth/auth.store';
+import { LoadingStore } from '../core/loading/loading.store';
 import { RuntimeLanguageSelectorService } from '../core/localization/runtime-language-selector.service';
 import { App } from './app';
 
@@ -26,6 +27,9 @@ describe('App', () => {
         provideHttpClient(),
         { provide: AuthStore, useValue: authStore },
         provideRouter([
+          { path: '', pathMatch: 'full', component: EmptyRouteComponent },
+          { path: 'en/faq', component: EmptyRouteComponent },
+          { path: 'en/play-commander-online', component: EmptyRouteComponent },
           { path: 'table-assistant', component: EmptyRouteComponent },
           { path: 'table-assistant/:id', component: EmptyRouteComponent },
           { path: 'games/:id', component: EmptyRouteComponent },
@@ -124,5 +128,41 @@ describe('App', () => {
 
     expect(fixture.nativeElement.querySelector('app-footer-disclaimer')).toBeNull();
     expect(fixture.nativeElement.querySelector('.app-disclaimer')).toBeNull();
+  });
+
+  it('does not show the global loading overlay on SEO landing routes', async () => {
+    const router = TestBed.inject(Router);
+    const loading = TestBed.inject(LoadingStore);
+    const fixture = TestBed.createComponent(App);
+
+    loading.start();
+
+    await router.navigateByUrl('/');
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.global-loader')).toBeNull();
+
+    await router.navigateByUrl('/en/faq');
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.global-loader')).toBeNull();
+
+    await router.navigateByUrl('/en/play-commander-online');
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.global-loader')).toBeNull();
+
+    loading.stop();
+  });
+
+  it('keeps the global loading overlay on non-SEO app routes', async () => {
+    const router = TestBed.inject(Router);
+    const loading = TestBed.inject(LoadingStore);
+    const fixture = TestBed.createComponent(App);
+
+    loading.start();
+    await router.navigateByUrl('/table-assistant');
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.global-loader')).not.toBeNull();
+
+    loading.stop();
   });
 });

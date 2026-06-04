@@ -6,7 +6,7 @@
 
 <app-cookie-consent-banner />
 
-@if (loading.active()) {
+@if (showGlobalLoading()) {
   <div class="global-loader" role="status" aria-live="polite" [attr.aria-label]="'common.app.app.loading' | runtimeTranslate">
     <div class="spinner"></div>
   </div>
