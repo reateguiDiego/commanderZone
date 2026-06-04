@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import ts from 'typescript';
@@ -10,7 +10,10 @@ import {
 
 const workspaceRoot = process.cwd();
 const distBrowserRoot = path.join(workspaceRoot, 'dist', 'frontend', 'browser');
-const authPaths = ['/auth/login/', '/auth/register/'];
+const authPages = [
+  { path: '/auth/login/', title: 'Login | CommanderZone', expectedText: 'Login' },
+  { path: '/auth/register/', title: 'Sign up | CommanderZone', expectedText: 'Create account' },
+];
 
 const [
   strategiesSource,
@@ -18,7 +21,8 @@ const [
   serverRoutesSource,
   robots,
   sitemap,
-  allPrerenderRoutes,
+  seoPrerenderRoutes,
+  combinedPrerenderRoutes,
   sitemapConfig,
 ] = await Promise.all([
   readWorkspaceFile('src/app/core/localization/page-translation-strategy.ts'),
@@ -26,6 +30,7 @@ const [
   readWorkspaceFile('src/app/app.routes.server.ts'),
   readWorkspaceFile('public/robots.txt'),
   readWorkspaceFile('public/sitemaps/sitemap-seo.xml'),
+  readWorkspaceFile('src/seo-prerender-routes.txt'),
   readWorkspaceFile('src/prerender-routes.txt'),
   loadSeoSitemapConfig(workspaceRoot),
 ]);
@@ -46,10 +51,10 @@ assertNoNoindexRouteAppearsInSitemap(sitemapLocs, appRoutes, pageStrategies);
 assertNoInvalidLocalizedSeoPathAppearsInSitemap(sitemapLocs, sitemapConfig);
 assertRobotsDoesNotBlockNoindexPages(robots, appRoutes, pageStrategies);
 assertWildcardNotFoundRoute(appRoutes);
-assertAuthServerRoutesClient(serverRoutesSource);
-assertNoAuthRoutesInPrerenderManifest(allPrerenderRoutes);
+assertAuthServerRoutesPrerender(serverRoutesSource);
+assertAuthRoutesInPrerenderManifest(combinedPrerenderRoutes, seoPrerenderRoutes, sitemap);
 assertServerFallbackIs404(serverRoutesSource);
-assertNoPrerenderedAuthHtmlWhenAvailable();
+assertRenderedAuthHtmlWhenAvailable();
 
 console.log('Indexation control validation passed.');
 
@@ -247,40 +252,92 @@ function assertServerFallbackIs404(sourceText) {
   }
 }
 
-function assertAuthServerRoutesClient(sourceText) {
+function assertAuthServerRoutesPrerender(sourceText) {
   for (const routePath of ['auth/login', 'auth/register']) {
-    if (!sourceText.includes(`{ path: '${routePath}', renderMode: RenderMode.Client }`)) {
-      throw new Error(`/${routePath}/ must use RenderMode.Client and stay out of prerender manifests.`);
+    if (!sourceText.includes(`{ path: '${routePath}', renderMode: RenderMode.Prerender }`)) {
+      throw new Error(`/${routePath}/ must use RenderMode.Prerender to avoid serving SEO fallback HTML.`);
     }
   }
 }
 
-function assertNoAuthRoutesInPrerenderManifest(routesText) {
-  const prerenderRoutes = routesText.split(/\r?\n/).filter(Boolean);
+function assertAuthRoutesInPrerenderManifest(combinedRoutesText, seoRoutesText, sitemapText) {
+  const combinedPrerenderRoutes = combinedRoutesText.split(/\r?\n/).filter(Boolean);
+  const seoPrerenderRoutes = seoRoutesText.split(/\r?\n/).filter(Boolean);
+  const sitemapLocs = extractTagValues(sitemapText, 'loc');
 
-  for (const authPath of authPaths) {
-    if (prerenderRoutes.includes(authPath)) {
-      throw new Error(`Auth route must not appear in the combined prerender manifest: ${authPath}`);
+  for (const authPage of authPages) {
+    if (!combinedPrerenderRoutes.includes(authPage.path)) {
+      throw new Error(`Public auth route must appear in the combined prerender manifest: ${authPage.path}`);
     }
-  }
 
-  const unexpectedAuthPath = prerenderRoutes.find((routePath) => routePath.startsWith('/auth/'));
-  if (unexpectedAuthPath) {
-    throw new Error(`Auth route must not appear in any prerender manifest: ${unexpectedAuthPath}`);
+    if (seoPrerenderRoutes.includes(authPage.path)) {
+      throw new Error(`Public auth route must not appear in the SEO prerender manifest: ${authPage.path}`);
+    }
+
+    if (sitemapLocs.includes(`https://www.commanderzone.com${authPage.path}`)) {
+      throw new Error(`Public auth route must not appear in the SEO sitemap: ${authPage.path}`);
+    }
   }
 }
 
-function assertNoPrerenderedAuthHtmlWhenAvailable() {
+function assertRenderedAuthHtmlWhenAvailable() {
   if (!existsSync(distBrowserRoot)) {
     return;
   }
 
-  for (const authPath of authPaths) {
-    const htmlPath = path.join(distBrowserRoot, authPath.replace(/^\/+/, ''), 'index.html');
+  for (const authPage of authPages) {
+    const htmlPath = path.join(distBrowserRoot, authPage.path.replace(/^\/+/, ''), 'index.html');
 
-    if (existsSync(htmlPath)) {
-      throw new Error(`${authPath} must not leave prerendered auth HTML in dist.`);
+    if (!existsSync(htmlPath)) {
+      throw new Error(`Missing prerendered auth HTML for ${authPage.path}.`);
     }
+
+    assertRenderedAuthHtml(authPage, readFileSync(htmlPath, 'utf8'));
+  }
+}
+
+function assertRenderedAuthHtml(authPage, html) {
+  const title = visibleHtmlText(html.match(/<title\b[^>]*>[\s\S]*?<\/title>/i)?.[0] ?? '');
+  const h1Tags = html.match(/<h1\b[^>]*>[\s\S]*?<\/h1>/gi) ?? [];
+  const robotsTags = html.match(/<meta\b(?=[^>]*\bname=["']robots["'])[^>]*>/gi) ?? [];
+  const canonicalTags = html.match(/<link\b(?=[^>]*\brel=["']canonical["'])[^>]*>/gi) ?? [];
+  const alternateTags = html.match(/<link\b(?=[^>]*\brel=["']alternate["'])[^>]*>/gi) ?? [];
+  const jsonLdTags = html.match(/<script\b(?=[^>]*\btype=["']application\/ld\+json["'])[^>]*>[\s\S]*?<\/script>/gi) ?? [];
+  const visibleText = visibleHtmlText(html);
+
+  if (title !== authPage.title) {
+    throw new Error(`${authPage.path} must render title "${authPage.title}", got "${title}".`);
+  }
+
+  if (robotsTags.length !== 1 || getAttribute(robotsTags[0], 'content') !== 'noindex, nofollow') {
+    throw new Error(`${authPage.path} must render exactly one noindex, nofollow robots meta tag.`);
+  }
+
+  if (!visibleText.includes(authPage.expectedText)) {
+    throw new Error(`${authPage.path} must render its auth UI, not an empty shell.`);
+  }
+
+  if (visibleText.includes('Play Commander online with your pod') || visibleText.includes('Commander online FAQ')) {
+    throw new Error(`${authPage.path} must not render SEO landing content.`);
+  }
+
+  for (const h1Tag of h1Tags) {
+    const h1Text = visibleHtmlText(h1Tag);
+    if (h1Text.includes('Play Commander online') || h1Text.includes('Commander life counter')) {
+      throw new Error(`${authPage.path} must not render an SEO landing H1.`);
+    }
+  }
+
+  if (canonicalTags.some((tag) => getAttribute(tag, 'href') === 'https://www.commanderzone.com/')) {
+    throw new Error(`${authPage.path} must not render the home canonical URL.`);
+  }
+
+  if (alternateTags.length > 0) {
+    throw new Error(`${authPage.path} must not render SEO hreflang alternates.`);
+  }
+
+  if (jsonLdTags.length > 0) {
+    throw new Error(`${authPage.path} must not render SEO JSON-LD.`);
   }
 }
 
@@ -456,6 +513,19 @@ function normalizeRoutePath(segments) {
     .filter((segment) => segment !== '')
     .join('/')
     .replace(/\/+/g, '/');
+}
+
+function visibleHtmlText(html) {
+  return html
+    .replace(/<script\b[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style\b[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function getAttribute(tag, attribute) {
+  return tag.match(new RegExp(`\\b${attribute}=["']([^"']+)["']`, 'i'))?.[1];
 }
 
 function extractTagValues(xml, tagName) {
