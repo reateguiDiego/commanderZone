@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises';
+import { access, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import ts from 'typescript';
 import {
@@ -8,9 +8,85 @@ import {
 } from './seo-sitemap-generator.mjs';
 
 const workspaceRoot = process.cwd();
-const authPages = [
-  { routePath: 'auth/login', normalizedPath: '/auth/login/' },
-  { routePath: 'auth/register', normalizedPath: '/auth/register/' },
+const noindexNoFollowHeaderValue = 'noindex, nofollow';
+const authRoutePaths = ['auth/login', 'auth/register'];
+const clientServerRoutePaths = [
+  ...authRoutePaths,
+  'auth/password-reset',
+  'email-verification',
+  'games/:id/debug',
+  'games/:id',
+  'dashboard',
+  'profile',
+  'settings',
+  'account',
+  'cards',
+  'cards/:scryfallId',
+  'decks',
+  'decks/:id',
+  'rooms',
+  'rooms/:id/waiting',
+  'room/:id',
+  'table-assistant',
+  'table-assistant/:id',
+  'welcome',
+];
+const requiredPrivateHeaderSources = [
+  '/auth/:path*',
+  '/dashboard/:path*',
+  '/decks/:path*',
+  '/rooms/:path*',
+  '/room/:path*',
+  '/games/:path*',
+  '/cards/:path*',
+  '/profile/:path*',
+  '/settings/:path*',
+  '/account/:path*',
+  '/table-assistant/:path*',
+];
+const privateHeaderSamplePaths = [
+  '/auth/login/',
+  '/auth/register/',
+  '/auth/password-reset/',
+  '/email-verification/',
+  '/dashboard/',
+  '/cards/',
+  '/cards/fake-scryfall-id/',
+  '/decks/',
+  '/decks/fake-id/',
+  '/rooms/',
+  '/rooms/fake-id/waiting/',
+  '/room/fake-id/',
+  '/games/fake-id/',
+  '/games/fake-id/debug/',
+  '/profile/',
+  '/settings/',
+  '/account/',
+  '/table-assistant/',
+  '/table-assistant/fake-id/',
+];
+const forbiddenIndexablePathPrefixes = [
+  '/auth/',
+  '/email-verification/',
+  '/dashboard/',
+  '/cards/',
+  '/decks/',
+  '/rooms/',
+  '/room/',
+  '/games/',
+  '/profile/',
+  '/settings/',
+  '/account/',
+  '/table-assistant/',
+  '/welcome/',
+];
+const requiredSeoHeaderNegativePaths = [
+  '/',
+  '/es/',
+  '/en/play-commander-online/',
+  '/es/jugar-commander-online/',
+  '/en/commander-life-counter/',
+  '/es/contador-vidas-commander/',
 ];
 
 const [
@@ -54,10 +130,14 @@ assertNoNoindexRouteAppearsInSitemap(sitemapLocs, appRoutes, pageStrategies);
 assertNoInvalidLocalizedSeoPathAppearsInSitemap(sitemapLocs, sitemapConfig);
 assertRobotsDoesNotBlockNoindexPages(robots, appRoutes, pageStrategies);
 assertSeoRoutesInSeoPrerenderManifest(seoPrerenderRoutes, sitemapConfig, sitemapLocs);
-assertLegalRoutesInCombinedManifestOnly(combinedPrerenderRoutes, sitemapLocs, legalPrerenderRoutes);
-assertAuthServerRoutesClient(serverRoutesSource);
-assertAuthRoutesOutOfPrerenderAndSitemap(combinedPrerenderRoutes, seoPrerenderRoutes, sitemapLocs);
+assertLegalRoutesInCombinedManifestOnly(combinedPrerenderRoutes, seoPrerenderRoutes, sitemapLocs, legalPrerenderRoutes);
+assertClientServerRoutes(serverRoutesSource);
+assertPrivateRoutesOutOfPrerenderAndSitemap(combinedPrerenderRoutes, seoPrerenderRoutes, sitemapLocs);
 assertVercelNoindexHeaders(vercelConfigSource);
+assertPrivateRoutesReceiveNoindexHeader(vercelConfigSource);
+assertSeoRoutesDoNotReceivePrivateNoindexHeader(vercelConfigSource, sitemapConfig);
+assertLegalRoutesDoNotReceivePrivateNoindexHeader(vercelConfigSource, legalPrerenderRoutes);
+await assertLegalPrerenderedHtmlRobots(legalPrerenderRoutes);
 
 console.log('Indexation control validation passed.');
 
@@ -267,13 +347,18 @@ function assertSeoRoutesInSeoPrerenderManifest(seoRoutesText, config, locs) {
   }
 }
 
-function assertLegalRoutesInCombinedManifestOnly(combinedRoutesText, locs, legalRoutes) {
+function assertLegalRoutesInCombinedManifestOnly(combinedRoutesText, seoRoutesText, locs, legalRoutes) {
   const combinedPrerenderRoutes = combinedRoutesText.split(/\r?\n/).filter(Boolean);
+  const seoPrerenderRoutes = seoRoutesText.split(/\r?\n/).filter(Boolean);
   const sitemapPathSet = new Set(locs.map((loc) => new URL(loc).pathname));
 
   for (const legalRoute of legalRoutes) {
     if (!combinedPrerenderRoutes.includes(legalRoute)) {
       throw new Error(`Legal route must appear in the combined prerender manifest: ${legalRoute}`);
+    }
+
+    if (seoPrerenderRoutes.includes(legalRoute)) {
+      throw new Error(`Legal route must not appear in the SEO prerender manifest: ${legalRoute}`);
     }
 
     if (sitemapPathSet.has(legalRoute)) {
@@ -284,54 +369,154 @@ function assertLegalRoutesInCombinedManifestOnly(combinedRoutesText, locs, legal
 
 function assertVercelNoindexHeaders(configSource) {
   const config = JSON.parse(configSource);
-  const requiredSources = [
-    '/auth/:path*',
-    '/email-verification/',
-    '/dashboard/:path*',
-    '/cards/:path*',
-    '/decks/:path*',
-    '/rooms/:path*',
-    '/room/:path*',
-    '/games/:path*',
-    '/table-assistant/:path*',
-    '/welcome/',
-  ];
 
-  for (const source of requiredSources) {
+  for (const source of requiredPrivateHeaderSources) {
     const entry = config.headers?.find((candidate) => candidate.source === source);
     const xRobots = entry?.headers?.find((header) => header.key === 'X-Robots-Tag');
 
-    if (xRobots?.value !== 'noindex, nofollow') {
-      throw new Error(`vercel.json must set X-Robots-Tag noindex, nofollow for ${source}.`);
+    if (xRobots?.value !== noindexNoFollowHeaderValue) {
+      throw new Error(`vercel.json must set X-Robots-Tag ${noindexNoFollowHeaderValue} for ${source}.`);
     }
   }
 }
 
-function assertAuthServerRoutesClient(sourceText) {
-  for (const authPage of authPages) {
-    if (!sourceText.includes(`{ path: '${authPage.routePath}', renderMode: RenderMode.Client }`)) {
-      throw new Error(`/${authPage.routePath}/ must use RenderMode.Client because auth pages are not SEO prerender routes.`);
+function assertClientServerRoutes(sourceText) {
+  for (const routePath of clientServerRoutePaths) {
+    if (!sourceText.includes(`{ path: '${routePath}', renderMode: RenderMode.Client }`)) {
+      throw new Error(`/${routePath}/ must use RenderMode.Client because app/private pages are not SEO prerender routes.`);
     }
   }
 }
 
-function assertAuthRoutesOutOfPrerenderAndSitemap(combinedRoutesText, seoRoutesText, sitemapLocs) {
+function assertPrivateRoutesOutOfPrerenderAndSitemap(combinedRoutesText, seoRoutesText, sitemapLocs) {
   const combinedPrerenderRoutes = combinedRoutesText.split(/\r?\n/).filter(Boolean);
   const seoPrerenderRoutes = seoRoutesText.split(/\r?\n/).filter(Boolean);
+  const sitemapPaths = sitemapLocs.map((loc) => new URL(loc).pathname);
 
-  for (const authPage of authPages) {
-    if (combinedPrerenderRoutes.includes(authPage.normalizedPath)) {
-      throw new Error(`Auth route must not appear in the combined prerender manifest: ${authPage.normalizedPath}`);
-    }
-
-    if (seoPrerenderRoutes.includes(authPage.normalizedPath)) {
-      throw new Error(`Auth route must not appear in the SEO prerender manifest: ${authPage.normalizedPath}`);
-    }
-
-    if (sitemapLocs.includes(`https://www.commanderzone.com${authPage.normalizedPath}`)) {
-      throw new Error(`Auth route must not appear in the SEO sitemap: ${authPage.normalizedPath}`);
+  for (const routePath of combinedPrerenderRoutes) {
+    if (isPrivateAppPath(routePath)) {
+      throw new Error(`App/private route must not appear in the combined prerender manifest: ${routePath}`);
     }
   }
+
+  for (const routePath of seoPrerenderRoutes) {
+    if (isPrivateAppPath(routePath)) {
+      throw new Error(`App/private route must not appear in the SEO prerender manifest: ${routePath}`);
+    }
+  }
+
+  for (const routePath of sitemapPaths) {
+    if (isPrivateAppPath(routePath)) {
+      throw new Error(`App/private route must not appear in the SEO sitemap: ${routePath}`);
+    }
+  }
+}
+
+function assertPrivateRoutesReceiveNoindexHeader(configSource) {
+  const headers = parseVercelHeaders(configSource);
+
+  for (const routePath of privateHeaderSamplePaths) {
+    if (!hasPrivateNoindexHeader(headers, routePath)) {
+      throw new Error(`App/private route ${routePath} must receive X-Robots-Tag ${noindexNoFollowHeaderValue}.`);
+    }
+  }
+}
+
+function assertSeoRoutesDoNotReceivePrivateNoindexHeader(configSource, config) {
+  const headers = parseVercelHeaders(configSource);
+  const seoPaths = getSeoSitemapEntries(config).map((entry) => new URL(entry.loc).pathname);
+  const pathsToCheck = new Set([...seoPaths, ...requiredSeoHeaderNegativePaths]);
+
+  for (const routePath of pathsToCheck) {
+    if (hasPrivateNoindexHeader(headers, routePath)) {
+      throw new Error(`SEO route ${routePath} must not receive X-Robots-Tag ${noindexNoFollowHeaderValue}.`);
+    }
+  }
+}
+
+function assertLegalRoutesDoNotReceivePrivateNoindexHeader(configSource, legalRoutes) {
+  const headers = parseVercelHeaders(configSource);
+
+  for (const legalRoute of legalRoutes) {
+    if (hasPrivateNoindexHeader(headers, legalRoute)) {
+      throw new Error(`Legal route ${legalRoute} must stay noindex, follow and must not receive X-Robots-Tag ${noindexNoFollowHeaderValue}.`);
+    }
+  }
+}
+
+async function assertLegalPrerenderedHtmlRobots(legalRoutes) {
+  const browserDistPath = path.join(workspaceRoot, 'dist/frontend/browser');
+  if (!(await fileExists(path.join(browserDistPath, 'index.html')))) {
+    return;
+  }
+
+  for (const legalRoute of legalRoutes) {
+    const htmlPath = path.join(browserDistPath, ...legalRoute.split('/').filter(Boolean), 'index.html');
+    if (!(await fileExists(htmlPath))) {
+      throw new Error(`Legal route ${legalRoute} must be prerendered to ${path.relative(workspaceRoot, htmlPath)}.`);
+    }
+
+    const html = await readFile(htmlPath, 'utf8');
+    const robotsTags = html.match(/<meta\b(?=[^>]*\bname=["']robots["'])[^>]*>/gi) ?? [];
+    const robotsContents = robotsTags.map((tag) => getAttribute(tag, 'content'));
+
+    if (robotsContents.length !== 1 || robotsContents[0] !== 'noindex, follow') {
+      throw new Error(`Legal route ${legalRoute} must render exactly one robots meta tag with noindex, follow.`);
+    }
+
+    if (robotsContents.includes(noindexNoFollowHeaderValue)) {
+      throw new Error(`Legal route ${legalRoute} must not render robots ${noindexNoFollowHeaderValue}.`);
+    }
+  }
+}
+
+function parseVercelHeaders(configSource) {
+  const config = JSON.parse(configSource);
+  return config.headers ?? [];
+}
+
+function hasPrivateNoindexHeader(headers, routePath) {
+  return headers
+    .filter((entry) => matchesVercelSource(entry.source, routePath))
+    .flatMap((entry) => entry.headers ?? [])
+    .some((header) => header.key === 'X-Robots-Tag' && header.value === noindexNoFollowHeaderValue);
+}
+
+function matchesVercelSource(source, routePath) {
+  const normalizedPath = normalizePathname(routePath);
+
+  if (source === '/(.*)') {
+    return true;
+  }
+
+  if (source.endsWith('/:path*')) {
+    const prefix = normalizePathname(source.slice(0, -'/:path*'.length));
+    return normalizedPath === prefix || normalizedPath.startsWith(`${prefix}/`);
+  }
+
+  return normalizePathname(source) === normalizedPath;
+}
+
+function isPrivateAppPath(routePath) {
+  const normalizedPath = normalizePathname(routePath);
+  return forbiddenIndexablePathPrefixes.some((prefix) => {
+    const normalizedPrefix = normalizePathname(prefix);
+    return normalizedPath === normalizedPrefix || normalizedPath.startsWith(`${normalizedPrefix}/`);
+  });
+}
+
+async function fileExists(filePath) {
+  try {
+    await access(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function getAttribute(tag, attributeName) {
+  const match = tag.match(new RegExp(`\\b${attributeName}=["']([^"']*)["']`, 'i'));
+  return match?.[1];
 }
 
 function assertRobotsMeta(pageKey, strategy, expectedRobots) {
@@ -500,6 +685,14 @@ function normalizeRoutePath(segments) {
     .filter((segment) => segment !== '')
     .join('/')
     .replace(/\/+/g, '/');
+}
+
+function normalizePathname(routePath) {
+  const [pathWithoutHash] = routePath.split('#');
+  const [pathWithoutQuery] = (pathWithoutHash ?? '').split('?');
+  const pathOnly = pathWithoutQuery ?? '';
+  const withLeadingSlash = pathOnly.startsWith('/') ? pathOnly : `/${pathOnly}`;
+  return withLeadingSlash.replace(/\/+$/, '') || '/';
 }
 
 function extractTagValues(xml, tagName) {

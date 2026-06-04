@@ -56,11 +56,32 @@ describe('server routes', () => {
   });
 
   it('keeps private and dynamic runtime routes out of prerender mode', () => {
-    const clientOnlyPaths = ['games/:id', 'profile', 'settings', 'app', 'dashboard', 'table-assistant', 'welcome'];
+    const clientOnlyPaths = [
+      'auth/login',
+      'auth/register',
+      'auth/password-reset',
+      'email-verification',
+      'games/:id/debug',
+      'games/:id',
+      'dashboard',
+      'profile',
+      'settings',
+      'account',
+      'cards',
+      'cards/:scryfallId',
+      'decks',
+      'decks/:id',
+      'rooms',
+      'rooms/:id/waiting',
+      'room/:id',
+      'table-assistant',
+      'table-assistant/:id',
+      'welcome',
+    ];
 
     for (const path of clientOnlyPaths) {
       const route = serverRoutes.find((candidate) => candidate.path === path);
-      expect(route?.renderMode).not.toBe(RenderMode.Prerender);
+      expect(route?.renderMode).toBe(RenderMode.Client);
     }
   });
 
