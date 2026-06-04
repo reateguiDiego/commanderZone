@@ -2,17 +2,19 @@
 
 <main class="not-found-page" [attr.lang]="locale()">
   <section class="not-found-page__panel" aria-labelledby="not-found-title">
-    <p class="not-found-page__eyebrow">{{ page.eyebrow }}</p>
-    <h1 id="not-found-title">{{ page.title }}</h1>
-    <p class="not-found-page__copy">{{ page.description }}</p>
+    <figure class="not-found-page__media">
+      <img [src]="imageSrc" [alt]="page.imageAlt" width="1200" height="630" />
+    </figure>
 
-    <nav class="not-found-page__actions" [attr.aria-label]="page.navLabel">
-      <a class="primary-button" [href]="homePath()">
-        {{ page.homeLabel }}
+    <div class="not-found-page__content">
+      <p class="not-found-page__eyebrow">CommanderZone</p>
+      <h1 id="not-found-title">{{ page.title }}</h1>
+      <p class="not-found-page__subtitle">{{ page.subtitle }}</p>
+      <p class="not-found-page__copy">{{ page.description }}</p>
+
+      <a class="primary-button not-found-page__cta" [href]="ctaHref()">
+        {{ page.cta }}
       </a>
-      <a class="secondary-button" [href]="faqPath()">
-        {{ page.faqLabel }}
-      </a>
-    </nav>
+    </div>
   </section>
 </main>

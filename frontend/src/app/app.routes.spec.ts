@@ -37,6 +37,7 @@ describe('app routes', () => {
 
     expect(wildcardRoute?.redirectTo).toBeUndefined();
     expect(wildcardRoute?.data?.['pageKey']).toBe('wildcardRedirect');
+    expect(wildcardRoute?.title).toBeUndefined();
     expect(component?.name).toMatch(/NotFoundPageComponent$/);
   });
 
@@ -66,6 +67,10 @@ function isPageKey(value: unknown): value is PageKey {
 }
 
 function expectedRobotsFor(pageKey: PageKey): 'index, follow' | 'noindex, follow' | 'noindex, nofollow' {
+  if (pageKey === 'wildcardRedirect') {
+    return 'noindex, follow';
+  }
+
   const strategy = PAGE_TRANSLATION_STRATEGIES[pageKey];
 
   if (strategy === 'seo-static') {

@@ -107,7 +107,9 @@ function assertEverySeoStaticPageIsIndexable(pageKeys, strategies) {
 
 function assertEveryNoindexPageIsNoindex(pageKeys, strategies) {
   for (const pageKey of pageKeys) {
-    const expectedRobots = strategies[pageKey] === 'runtime-i18n' ? 'noindex, follow' : 'noindex, nofollow';
+    const expectedRobots = pageKey === 'wildcardRedirect' || strategies[pageKey] === 'runtime-i18n'
+      ? 'noindex, follow'
+      : 'noindex, nofollow';
     assertRobotsMeta(pageKey, strategies[pageKey], expectedRobots);
   }
 }
@@ -238,10 +240,18 @@ function assertServerFallbackIs404(sourceText) {
 }
 
 function assertRobotsMeta(pageKey, strategy, expectedRobots) {
-  const actualRobots = robotsForStrategy(strategy);
+  const actualRobots = robotsForPageKey(pageKey, strategy);
   if (actualRobots !== expectedRobots) {
     throw new Error(`Page ${pageKey} must use ${expectedRobots}, got ${actualRobots}.`);
   }
+}
+
+function robotsForPageKey(pageKey, strategy) {
+  if (pageKey === 'wildcardRedirect') {
+    return 'noindex, follow';
+  }
+
+  return robotsForStrategy(strategy);
 }
 
 function robotsForStrategy(strategy) {

@@ -131,6 +131,5 @@ export const routes: Routes = [
     loadComponent: () => import('./features/not-found/not-found-page/not-found-page.component')
       .then((component) => component.NotFoundPageComponent),
     data: { pageKey: 'wildcardRedirect' },
-    title: 'Page not found | CommanderZone',
   },
 ];
