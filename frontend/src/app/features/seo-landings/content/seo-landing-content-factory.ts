@@ -68,6 +68,11 @@ interface LandingCopy {
   readonly ctaDescription?: string;
 }
 
+interface LandingCtaCopy {
+  readonly primaryCta: string;
+  readonly secondaryCta: string;
+}
+
 interface LocaleUiCopy {
   readonly homeLabel: string;
   readonly eyebrow: string;
@@ -91,6 +96,91 @@ interface LocaleUiCopy {
 }
 
 const PRIORITY_LOCALES = ['es', 'en', 'de', 'fr', 'pt', 'it'] as const satisfies readonly PriorityLocaleCode[];
+const APP_DECKS_ENTRY_PATH = '/auth/login?redirect=/decks';
+const APP_TABLE_ASSISTANT_ENTRY_PATH = '/auth/login?redirect=/table-assistant';
+
+const LANDING_CTA_COPY = {
+  home: {
+    es: cta('Entrar y preparar mazo', 'Acceder a CommanderZone'),
+    en: cta('Sign in and prepare deck', 'Open CommanderZone'),
+    de: cta('Einloggen und Deck vorbereiten', 'CommanderZone öffnen'),
+    fr: cta('Se connecter et préparer un deck', 'Ouvrir CommanderZone'),
+    pt: cta('Entrar e preparar deck', 'Abrir CommanderZone'),
+    it: cta('Accedi e prepara il mazzo', 'Apri CommanderZone'),
+  },
+  playCommanderOnline: {
+    es: cta('Entrar para jugar Commander', 'Entrar y preparar mazo'),
+    en: cta('Sign in to play Commander', 'Sign in and prepare deck'),
+    de: cta('Einloggen und Commander spielen', 'Einloggen und Deck vorbereiten'),
+    fr: cta('Se connecter pour jouer à Commander', 'Se connecter et préparer un deck'),
+    pt: cta('Entrar para jogar Commander', 'Entrar e preparar deck'),
+    it: cta('Accedi per giocare a Commander', 'Accedi e prepara il mazzo'),
+  },
+  playMagicOnlineWithFriends: {
+    es: cta('Entrar y preparar mazo', 'Acceder a CommanderZone'),
+    en: cta('Sign in and prepare deck', 'Open CommanderZone'),
+    de: cta('Einloggen und Deck vorbereiten', 'CommanderZone öffnen'),
+    fr: cta('Se connecter et préparer un deck', 'Ouvrir CommanderZone'),
+    pt: cta('Entrar e preparar deck', 'Abrir CommanderZone'),
+    it: cta('Accedi e prepara il mazzo', 'Apri CommanderZone'),
+  },
+  createCommanderRoom: {
+    es: cta('Entrar y preparar partida', 'Acceder a mis mazos'),
+    en: cta('Sign in and prepare game', 'Go to my decks'),
+    de: cta('Einloggen und Partie vorbereiten', 'Zu meinen Decks'),
+    fr: cta('Se connecter et préparer une partie', 'Accéder à mes decks'),
+    pt: cta('Entrar e preparar partida', 'Acessar meus decks'),
+    it: cta('Accedi e prepara la partita', 'Vai ai miei mazzi'),
+  },
+  importCommanderDeck: {
+    es: cta('Entrar e importar mazo', 'Acceder a mis mazos'),
+    en: cta('Sign in and import deck', 'Go to my decks'),
+    de: cta('Einloggen und Deck importieren', 'Zu meinen Decks'),
+    fr: cta('Se connecter et importer un deck', 'Accéder à mes decks'),
+    pt: cta('Entrar e importar deck', 'Acessar meus decks'),
+    it: cta('Accedi e importa il mazzo', 'Vai ai miei mazzi'),
+  },
+  commanderDeckBuilder: {
+    es: cta('Entrar y preparar mazo', 'Acceder a mis mazos'),
+    en: cta('Sign in and prepare deck', 'Go to my decks'),
+    de: cta('Einloggen und Deck vorbereiten', 'Zu meinen Decks'),
+    fr: cta('Se connecter et préparer un deck', 'Accéder à mes decks'),
+    pt: cta('Entrar e preparar deck', 'Acessar meus decks'),
+    it: cta('Accedi e prepara il mazzo', 'Vai ai miei mazzi'),
+  },
+  tableAssistant: {
+    es: cta('Abrir Asistente de mesa', 'Entrar en CommanderZone'),
+    en: cta('Open Table Assistant', 'Open CommanderZone'),
+    de: cta('Tischassistent öffnen', 'CommanderZone öffnen'),
+    fr: cta('Ouvrir l’assistant de table', 'Ouvrir CommanderZone'),
+    pt: cta('Abrir Assistente de mesa', 'Abrir CommanderZone'),
+    it: cta('Aprire Assistente da tavolo', 'Apri CommanderZone'),
+  },
+  waysToPlayCommanderOnline: {
+    es: cta('Entrar y preparar partida', 'Acceder a CommanderZone'),
+    en: cta('Sign in and prepare game', 'Open CommanderZone'),
+    de: cta('Einloggen und Partie vorbereiten', 'CommanderZone öffnen'),
+    fr: cta('Se connecter et préparer une partie', 'Ouvrir CommanderZone'),
+    pt: cta('Entrar e preparar partida', 'Abrir CommanderZone'),
+    it: cta('Accedi e prepara la partita', 'Apri CommanderZone'),
+  },
+  howToPlayCommanderOnline: {
+    es: cta('Entrar y empezar', 'Acceder a CommanderZone'),
+    en: cta('Sign in and start', 'Open CommanderZone'),
+    de: cta('Einloggen und starten', 'CommanderZone öffnen'),
+    fr: cta('Se connecter et commencer', 'Ouvrir CommanderZone'),
+    pt: cta('Entrar e começar', 'Abrir CommanderZone'),
+    it: cta('Accedi e inizia', 'Apri CommanderZone'),
+  },
+  faq: {
+    es: cta('Entrar y preparar mazo', 'Acceder a CommanderZone'),
+    en: cta('Sign in and prepare deck', 'Open CommanderZone'),
+    de: cta('Einloggen und Deck vorbereiten', 'CommanderZone öffnen'),
+    fr: cta('Se connecter et préparer un deck', 'Ouvrir CommanderZone'),
+    pt: cta('Entrar e preparar deck', 'Abrir CommanderZone'),
+    it: cta('Accedi e prepara il mazzo', 'Apri CommanderZone'),
+  },
+} as const satisfies Record<SeoRouteKey, Record<PriorityLocaleCode, LandingCtaCopy>>;
 
 const LOCALE_COPY = {
   es: {
@@ -104,7 +194,7 @@ const LOCALE_COPY = {
     faqTitle: 'Preguntas frecuentes',
     faqIntro: 'Respuestas directas para jugadores de Commander.',
     relatedTitle: 'Más sobre CommanderZone',
-    relatedIntro: 'Sigue explorando las landings públicas de CommanderZone.',
+    relatedIntro: 'Descubre más formas de jugar, preparar mazos y usar CommanderZone.',
     trustLabel: 'CommanderZone está pensado para pods reales',
     manualValue: 'Manual',
     manualLabel: 'Sin motor automático de reglas',
@@ -134,14 +224,14 @@ const LOCALE_COPY = {
     faqTitle: 'Frequently asked questions',
     faqIntro: 'Direct answers for Commander players.',
     relatedTitle: 'More from CommanderZone',
-    relatedIntro: 'Keep exploring CommanderZone public pages.',
+    relatedIntro: 'Explore more ways to play, prepare decks and use CommanderZone.',
     trustLabel: 'CommanderZone is built for real pods',
     manualValue: 'Manual',
     manualLabel: 'No automatic rules engine',
     browserValue: 'Browser',
     browserLabel: 'Online, phone and tablet',
     defaultCtaTitle: 'Start your next Commander game',
-    defaultCtaDescription: 'Create a room, share the link and start playing with your group.',
+    defaultCtaDescription: 'Sign in, prepare your deck and open the room when your group is ready.',
     defaultFaq: [
       {
         question: 'Does CommanderZone enforce Magic rules automatically?',
@@ -164,7 +254,7 @@ const LOCALE_COPY = {
     faqTitle: 'Häufige Fragen',
     faqIntro: 'Direkte Antworten für Commander-Spieler.',
     relatedTitle: 'Mehr zu CommanderZone',
-    relatedIntro: 'Entdecke weitere öffentliche CommanderZone-Seiten.',
+    relatedIntro: 'Entdecke weitere Möglichkeiten, CommanderZone zu nutzen.',
     trustLabel: 'CommanderZone ist für echte Commander-Runden gedacht',
     manualValue: 'Manuell',
     manualLabel: 'Kein automatischer Regelmotor',
@@ -194,7 +284,7 @@ const LOCALE_COPY = {
     faqTitle: 'Questions fréquentes',
     faqIntro: 'Des réponses directes pour les joueurs de Commander.',
     relatedTitle: 'Plus sur CommanderZone',
-    relatedIntro: 'Continuez à explorer les pages publiques de CommanderZone.',
+    relatedIntro: 'Découvrez d’autres façons d’utiliser CommanderZone.',
     trustLabel: 'CommanderZone est pensé pour de vrais groupes',
     manualValue: 'Manuel',
     manualLabel: 'Pas de moteur de règles automatique',
@@ -224,7 +314,7 @@ const LOCALE_COPY = {
     faqTitle: 'Perguntas frequentes',
     faqIntro: 'Respostas diretas para jogadores de Commander.',
     relatedTitle: 'Mais sobre CommanderZone',
-    relatedIntro: 'Continue explorando as páginas públicas do CommanderZone.',
+    relatedIntro: 'Explore outras formas de usar o CommanderZone.',
     trustLabel: 'CommanderZone foi feito para grupos reais',
     manualValue: 'Manual',
     manualLabel: 'Sem motor automático de regras',
@@ -254,7 +344,7 @@ const LOCALE_COPY = {
     faqTitle: 'Domande frequenti',
     faqIntro: 'Risposte dirette per giocatori di Commander.',
     relatedTitle: 'Scopri altro su CommanderZone',
-    relatedIntro: 'Esplora altri modi per giocare, preparare mazzi e usare CommanderZone.',
+    relatedIntro: 'Scopri altri modi per giocare, preparare mazzi e usare CommanderZone.',
     trustLabel: 'CommanderZone è pensato per pod reali',
     manualValue: 'Manuale',
     manualLabel: 'Senza motore automatico di regole',
@@ -273,7 +363,7 @@ const LANDING_COPY = {
   home: {
     es: {
       metaTitle: 'CommanderZone | Juega Commander online con tu grupo',
-      metaDescription: 'Prepara tu mazo, crea una sala y juega Commander online con tu pod en una mesa clara, rápida y pensada para partidas reales.',
+      metaDescription: 'Prepara tu mazo, crea una sala y juega Commander online con tu grupo. CommanderZone es una mesa manual para partidas de Commander MTG, pensada para pods reales.',
       h1: 'Juega Commander online con tu grupo en segundos',
       heroSubtitle: 'Importa o crea tu mazo, crea una sala, comparte el enlace y juega Commander online con una mesa clara, rápida y pensada para partidas reales.',
       primaryCta: 'Preparar mazo y jugar',
@@ -296,7 +386,7 @@ const LANDING_COPY = {
     },
     en: {
       metaTitle: 'CommanderZone | Play Commander Online with Your Pod',
-      metaDescription: 'Prepare your deck, create a room and play Commander online with your pod on a clear, fast table built for real games.',
+      metaDescription: 'Prepare your deck, create a room and play Commander online with your pod. CommanderZone is a manual table for MTG Commander games built for real pods.',
       h1: 'Play Commander online with your pod in seconds',
       heroSubtitle: 'Import or build your deck, create a room, share the link and play Commander online with a clear, fast table built for real games.',
       primaryCta: 'Prepare deck and play',
@@ -317,10 +407,10 @@ const LANDING_COPY = {
       ctaTitle: 'Prepare your deck, create a room and play Commander online',
       ctaDescription: 'Start with the deck, open a room when it is ready and share the link with your pod.',
     },
-    de: localizedHome('CommanderZone | Commander online mit deiner Gruppe spielen', 'Bereite dein Deck vor, erstelle einen Raum und spiele Commander online mit deiner Gruppe an einem klaren Tisch für echte Partien.', 'Commander online mit deiner Gruppe spielen', 'Bereite dein Deck vor, erstelle einen Raum und spiele Commander online mit deiner Gruppe.', 'Deck vorbereiten und spielen', 'So funktioniert es', 'de'),
-    fr: localizedHome('CommanderZone | Jouer à Commander en ligne avec votre groupe', 'Préparez votre deck, créez une salle et jouez à Commander en ligne avec votre groupe sur une table claire.', 'Jouer à Commander en ligne avec votre groupe', 'Préparez votre deck, créez une salle et jouez à Commander en ligne avec votre groupe.', 'Préparer un deck et jouer', 'Voir comment ça marche', 'fr'),
-    pt: localizedHome('CommanderZone | Jogue Commander online com seu grupo', 'Prepare seu deck, crie uma sala e jogue Commander online com seu grupo em uma mesa clara para partidas reais.', 'Jogue Commander online com seu grupo em segundos', 'Prepare seu deck, crie uma sala e jogue Commander online com seu grupo.', 'Preparar deck e jogar', 'Ver como funciona', 'pt'),
-    it: simpleCopy('CommanderZone | Gioca a Commander online con il tuo gruppo', 'Prepara il tuo mazzo, crea una stanza Commander, condividi il link con il tuo gruppo e gioca online con un tavolo pensato per pod reali.', 'Gioca a Commander online con il tuo gruppo', 'Importa o crea il tuo mazzo, crea una stanza, condividi il link e gioca a Commander online con un tavolo chiaro, rapido e pensato per partite reali.', 'Preparare mazzo e giocare', 'Vedi come funziona', [
+    de: localizedHome('CommanderZone | Commander online mit deiner Gruppe spielen', 'Bereite dein Deck vor, erstelle einen Raum und spiele Commander online mit deiner Gruppe. CommanderZone ist ein manueller Tisch für MTG-Commander-Partien, gebaut für echte Pods.', 'Commander online mit deiner Gruppe spielen', 'Bereite dein Deck vor, erstelle einen Raum und spiele Commander online mit deiner Gruppe.', 'Deck vorbereiten und spielen', 'So funktioniert es', 'de'),
+    fr: localizedHome('CommanderZone | Jouer à Commander en ligne avec votre groupe', 'Préparez votre deck, créez une salle et jouez à Commander en ligne avec votre groupe. CommanderZone est une table manuelle pour parties Commander MTG, pensée pour de vrais pods.', 'Jouer à Commander en ligne avec votre groupe', 'Préparez votre deck, créez une salle et jouez à Commander en ligne avec votre groupe.', 'Préparer un deck et jouer', 'Voir comment ça marche', 'fr'),
+    pt: localizedHome('CommanderZone | Jogue Commander online com seu grupo', 'Prepare seu deck, crie uma sala e jogue Commander online com seu grupo. CommanderZone é uma mesa manual para partidas de Commander MTG, feita para pods reais.', 'Jogue Commander online com seu grupo em segundos', 'Prepare seu deck, crie uma sala e jogue Commander online com seu grupo.', 'Preparar deck e jogar', 'Ver como funciona', 'pt'),
+    it: simpleCopy('CommanderZone | Gioca a Commander online con il tuo gruppo', 'Prepara il tuo mazzo, crea una stanza e gioca a Commander online con il tuo pod. CommanderZone è un tavolo manuale per partite MTG Commander, pensato per pod reali.', 'Gioca a Commander online con il tuo gruppo', 'Importa o crea il tuo mazzo, crea una stanza, condividi il link e gioca a Commander online con un tavolo chiaro, rapido e pensato per partite reali.', 'Preparare mazzo e giocare', 'Vedi come funziona', [
       section('commander-table', 'Un tavolo pensato per Commander', 'CommanderZone non prova ad automatizzare ogni regola di Magic. È pensato per gruppi che sanno già giocare e vogliono un tavolo online comodo, rapido e flessibile.'),
       section('deck-to-game', 'Dal mazzo alla partita', 'Importa le tue liste, organizza i tuoi mazzi e portali direttamente al tavolo. Meno configurazione, più tempo per giocare.'),
       section('online-or-paper', 'Online o al tavolo fisico', 'Gioca online con gli amici oppure usa l’Assistente da tavolo da smartphone o tablet durante le partite dal vivo.'),
@@ -336,7 +426,7 @@ const LANDING_COPY = {
   playCommanderOnline: {
     es: {
       metaTitle: 'Jugar Commander online | Crea una sala gratis en CommanderZone',
-      metaDescription: 'Juega Commander online con amigos desde el navegador: importa o crea tu mazo, abre una sala, comparte el enlace y controla la partida.',
+      metaDescription: 'Juega Commander online con amigos desde el navegador. Prepara tu mazo de Commander MTG, crea una sala, comparte el enlace y controla vidas y daño de comandante.',
       h1: 'Jugar Commander online sin complicaciones',
       heroSubtitle: 'Importa o crea tu mazo, invita a tus amigos y juega desde el navegador con una mesa pensada para partidas multijugador reales.',
       primaryCta: 'Preparar mazo para jugar',
@@ -361,7 +451,7 @@ const LANDING_COPY = {
     },
     en: {
       metaTitle: 'Play Commander Online | Create a Free Room on CommanderZone',
-      metaDescription: 'Play Commander online with friends from your browser: import or build your deck, open a room, share the link and track the game.',
+      metaDescription: 'Play Commander online with friends from your browser. Prepare your MTG Commander deck, create a room, share the link and track life totals and commander damage.',
       h1: 'Play Commander online without the setup headache',
       heroSubtitle: 'Import or build your deck, invite your friends and play from your browser with a table built for real multiplayer games.',
       primaryCta: 'Prepare deck to play',
@@ -384,10 +474,10 @@ const LANDING_COPY = {
         faq('Can I use my own decks?', 'Yes. CommanderZone is designed to import decks and use them in your games.'),
       ],
     },
-    de: localizedPlayCommander('Commander online spielen | Deck vorbereiten und Raum erstellen', 'Spiele Commander online mit Freunden: bereite dein Deck vor, erstelle einen Raum, teile den Link und behalte die Partie im Blick.', 'Commander online spielen ohne unnötige Einrichtung', 'Importiere oder erstelle dein Deck, lade deine Freunde ein und spiele direkt im Browser an einem Tisch für echte Mehrspieler-Partien.', 'Deck zum Spielen vorbereiten', 'So funktioniert es', 'de'),
-    fr: localizedPlayCommander('Jouer à Commander en ligne | Préparer un deck et créer une salle', 'Jouez à Commander en ligne avec vos amis : préparez votre deck, créez une salle, partagez le lien et suivez la partie.', 'Jouer à Commander en ligne sans configuration compliquée', 'Importez ou créez votre deck, invitez vos amis et jouez depuis le navigateur sur une table pensée pour les parties multijoueurs.', 'Préparer un deck pour jouer', 'Comment ça marche', 'fr'),
-    pt: localizedPlayCommander('Jogar Commander online | Prepare deck e crie uma sala', 'Jogue Commander online com amigos: prepare seu deck, crie uma sala, compartilhe o link e acompanhe a partida.', 'Jogar Commander online sem complicação', 'Importe ou crie seu deck, convide seus amigos e jogue pelo navegador em uma mesa feita para partidas multiplayer reais.', 'Preparar deck para jogar', 'Como funciona', 'pt'),
-    it: simpleCopy('Giocare a Commander online | Prepara un mazzo e crea una stanza', 'Gioca a Commander online con gli amici dal browser. Importa o crea il tuo mazzo, crea una stanza, condividi il link e tieni traccia di vite e danno da comandante.', 'Giocare a Commander online senza complicazioni', 'Importa o crea il tuo mazzo, invita i tuoi amici e gioca dal browser con un tavolo pensato per vere partite multiplayer.', 'Preparare mazzo per giocare', 'Come funziona', [
+    de: localizedPlayCommander('Commander online spielen | Deck vorbereiten und Raum erstellen', 'Spiele Commander online mit Freunden im Browser. Bereite dein MTG-Commander-Deck vor, erstelle einen Raum, teile den Link und zähle Lebenspunkte und Commander-Schaden.', 'Commander online spielen ohne unnötige Einrichtung', 'Importiere oder erstelle dein Deck, lade deine Freunde ein und spiele direkt im Browser an einem Tisch für echte Mehrspieler-Partien.', 'Deck zum Spielen vorbereiten', 'So funktioniert es', 'de'),
+    fr: localizedPlayCommander('Jouer à Commander en ligne | Préparer un deck et créer une salle', 'Jouez à Commander en ligne avec vos amis depuis le navigateur. Préparez votre deck Commander MTG, créez une salle, partagez le lien et suivez les points de vie et blessures de commandant.', 'Jouer à Commander en ligne sans configuration compliquée', 'Importez ou créez votre deck, invitez vos amis et jouez depuis le navigateur sur une table pensée pour les parties multijoueurs.', 'Préparer un deck pour jouer', 'Comment ça marche', 'fr'),
+    pt: localizedPlayCommander('Jogar Commander online | Prepare deck e crie uma sala', 'Jogue Commander online com amigos pelo navegador. Prepare seu deck de Commander MTG, crie uma sala, compartilhe o link e controle vida e dano de comandante.', 'Jogar Commander online sem complicação', 'Importe ou crie seu deck, convide seus amigos e jogue pelo navegador em uma mesa feita para partidas multiplayer reais.', 'Preparar deck para jogar', 'Como funciona', 'pt'),
+    it: simpleCopy('Giocare a Commander online | Prepara un mazzo e crea una stanza', 'Gioca a Commander online con gli amici dal browser. Prepara il tuo mazzo MTG Commander, crea una stanza, condividi il link e tieni traccia di vite e danno da comandante.', 'Giocare a Commander online senza complicazioni', 'Importa o crea il tuo mazzo, invita i tuoi amici e gioca dal browser con un tavolo pensato per vere partite multiplayer.', 'Preparare mazzo per giocare', 'Come funziona', [
       section('fast-start', 'Un modo rapido per iniziare la partita', 'Non serve configurare una piattaforma complicata. Il flusso è semplice: prepara il mazzo, crea la stanza, condividi il link e gioca.'),
       section('manual-control', 'Tavolo manuale, controllo reale', 'Commander è un formato sociale. CommanderZone ti dà gli strumenti per organizzare la partita, ma le decisioni restano nelle mani dei giocatori.'),
       section('long-games', 'Pensato per partite lunghe', 'Una partita Commander può durare ore. L’interfaccia deve restare chiara, stabile e comoda per tutta la sessione.'),
@@ -404,7 +494,7 @@ const LANDING_COPY = {
     ]),
   },
   createCommanderRoom: {
-    es: simpleCopy('Crear sala Commander online | CommanderZone', 'Prepara tu mazo, crea una sala privada de Commander online, comparte el enlace con tu grupo y empieza desde el navegador.', 'Crea una sala de Commander online en segundos', 'Prepara tu mazo, abre una sala, invita a tu pod y juega Commander online sin configuraciones innecesarias.', 'Importar mazo y crear sala', 'Crear mazo desde cero', [
+    es: simpleCopy('Crear sala Commander online | CommanderZone', 'Prepara tu mazo, crea una sala privada de Commander online, comparte el enlace con tu grupo y empieza desde el navegador.', 'Crea una sala de Commander online en segundos', 'Prepara tu mazo, abre una sala, invita a tu pod y juega Commander online sin configuraciones innecesarias.', 'Entrar y preparar partida', 'Acceder a mis mazos', [
       section('deck-first', 'Primero el mazo, luego la sala', 'Para empezar una partida necesitas tener un mazo preparado. Puedes importar una decklist, crear un mazo desde cero o seleccionar uno de tus mazos guardados antes de crear la sala.'),
       section('link-invite', 'El enlace es la invitación', 'Invitar a otros jugadores debe ser tan simple como compartir un enlace.'),
       section('lobby', 'Lobby antes de jugar', 'Organiza quién entra, qué mazos se usan y cuándo empieza la partida.'),
@@ -415,7 +505,7 @@ const LANDING_COPY = {
       feature('Mazo listo', 'Selecciona o importa el mazo que vas a usar.'),
       feature('Inicio rápido', 'Menos pasos antes de la partida.'),
     ]),
-    en: simpleCopy('Create a Commander Room Online | CommanderZone', 'Prepare your deck, create a private Commander room online, share the link with your group and start from your browser.', 'Create a Commander room online in seconds', 'Prepare your deck, open a room, invite your pod and play Commander online without unnecessary setup.', 'Import deck and create room', 'Build deck from scratch', [
+    en: simpleCopy('Create a Commander Room Online | CommanderZone', 'Prepare your deck, create a private Commander room online, share the link with your group and start from your browser.', 'Create a Commander room online in seconds', 'Prepare your deck, open a room, invite your pod and play Commander online without unnecessary setup.', 'Sign in and prepare game', 'Go to my decks', [
       section('deck-first', 'Deck first, room next', 'To start a game, you need a deck ready. Import a decklist, build a deck from scratch or choose one of your saved decks before creating the room.'),
       section('link-invite', 'The link is the invite', 'Inviting other players should be as simple as sharing a link.'),
       section('lobby', 'Lobby before the game', 'Organize who joins, which decks are used and when the game starts.'),
@@ -442,7 +532,7 @@ const LANDING_COPY = {
     ]),
   },
   importCommanderDeck: {
-    es: simpleCopy('Importar mazo Commander | CommanderZone', 'Importa tu mazo Commander desde una lista de texto, guárdalo y úsalo para crear una sala online con tu grupo.', 'Importa tu mazo Commander y llévalo a la mesa', 'Pega tu decklist, guarda el mazo y úsalo para crear una sala.', 'Importar mazo', 'Crear mazo desde cero', [
+    es: simpleCopy('Importar mazo Commander MTG | CommanderZone', 'Importa tu mazo de Commander MTG desde una decklist y prepáralo para jugar online, analizarlo y usarlo en tus partidas.', 'Importa tu mazo Commander y llévalo a la mesa', 'Pega tu decklist, guarda el mazo y úsalo para crear una sala.', 'Entrar e importar mazo', 'Acceder a mis mazos', [
       section('existing-lists', 'No empieces desde cero', 'Si ya tienes tus listas en texto u otras plataformas, impórtalas sin rehacer el trabajo completo.'),
       section('ready-to-play', 'Preparado para jugar', 'Importar un mazo no es solo guardarlo: es tenerlo listo para usarlo en una sala.'),
       section('analysis', 'Análisis después de importar', 'Revisa tierras, curva, colores, tipos de carta, ramp, robo e interacción antes de la partida.'),
@@ -452,7 +542,7 @@ const LANDING_COPY = {
       feature('Revisa composición', 'Consulta curva, colores y tipos de carta.'),
       feature('Úsalo en sala', 'Lleva el mazo directamente a la partida.'),
     ]),
-    en: simpleCopy('Import Commander Deck | CommanderZone', 'Import your Commander deck from a text list, save it and use it to create an online room with your group.', 'Import your Commander deck and bring it to the table', 'Paste your decklist, save the deck and use it to create a room.', 'Import deck', 'Build deck from scratch', [
+    en: simpleCopy('Import MTG Commander Deck | CommanderZone', 'Import your MTG Commander deck from a decklist and get it ready to play online, analyze and use in your games.', 'Import your Commander deck and bring it to the table', 'Paste your decklist, save the deck and use it to create a room.', 'Sign in and import deck', 'Go to my decks', [
       section('existing-lists', 'Do not start from scratch', 'If you already have your lists in text or other tools, import them without rebuilding everything.'),
       section('ready-to-play', 'Ready to play', 'Importing a deck is not just saving it. It means having it ready to use in a room.'),
       section('analysis', 'Analyze after importing', 'Review lands, curve, colors, card types, ramp, draw and interaction before the game.'),
@@ -462,10 +552,10 @@ const LANDING_COPY = {
       feature('Review composition', 'Check curve, colors and card types.'),
       feature('Use it in a room', 'Bring the deck straight to the game.'),
     ]),
-    de: localizedImportDeck('Commander-Deck importieren | CommanderZone', 'Importiere dein Commander-Deck aus einer Textliste, speichere es und nutze es zum Erstellen eines Online-Raums.', 'Importiere dein Commander-Deck und bring es an den Tisch', 'Füge deine Deckliste ein, speichere das Deck und nutze es, um einen Raum zu erstellen.', 'Deck importieren', 'Deck neu erstellen', 'de'),
-    fr: localizedImportDeck('Importer un deck Commander | CommanderZone', 'Importez votre deck Commander depuis une liste de texte, sauvegardez-le et utilisez-le pour créer une salle en ligne.', 'Importez votre deck Commander et amenez-le à la table', 'Collez votre decklist, sauvegardez le deck et utilisez-le pour créer une salle.', 'Importer un deck', 'Créer un deck', 'fr'),
-    pt: localizedImportDeck('Importar deck Commander | CommanderZone', 'Importe seu deck Commander a partir de uma lista de texto, salve-o e use-o para criar uma sala online.', 'Importe seu deck Commander e leve-o para a mesa', 'Cole sua decklist, salve o deck e use-o para criar uma sala.', 'Importar deck', 'Criar deck do zero', 'pt'),
-    it: simpleCopy('Importare mazzo Commander | CommanderZone', 'Importa il tuo mazzo Commander da una lista di testo e preparalo per giocare online, analizzarlo e usarlo nelle tue partite.', 'Importa il tuo mazzo Commander e portalo al tavolo', 'Incolla la tua decklist, salva il mazzo e usalo in CommanderZone per giocare online, controllare la curva e preparare le tue partite.', 'Importare mazzo', 'Creare mazzo da zero', [
+    de: localizedImportDeck('MTG Commander Deck importieren | CommanderZone', 'Importiere dein MTG-Commander-Deck aus einer Decklist und bereite es vor, um online zu spielen, es zu analysieren und in deinen Partien zu nutzen.', 'Importiere dein Commander-Deck und bring es an den Tisch', 'Füge deine Deckliste ein, speichere das Deck und nutze es, um einen Raum zu erstellen.', 'Deck importieren', 'Deck neu erstellen', 'de'),
+    fr: localizedImportDeck('Importer un deck Commander MTG | CommanderZone', 'Importez votre deck Commander MTG depuis une decklist et préparez-le pour jouer en ligne, l’analyser et l’utiliser dans vos parties.', 'Importez votre deck Commander et amenez-le à la table', 'Collez votre decklist, sauvegardez le deck et utilisez-le pour créer une salle.', 'Importer un deck', 'Créer un deck', 'fr'),
+    pt: localizedImportDeck('Importar deck Commander MTG | CommanderZone', 'Importe seu deck de Commander MTG a partir de uma decklist e prepare-o para jogar online, analisar e usar nas suas partidas.', 'Importe seu deck Commander e leve-o para a mesa', 'Cole sua decklist, salve o deck e use-o para criar uma sala.', 'Importar deck', 'Criar deck do zero', 'pt'),
+    it: simpleCopy('Importare mazzo Commander MTG | CommanderZone', 'Importa il tuo mazzo MTG Commander da una decklist e preparalo per giocare online, analizzarlo e usarlo nelle tue partite.', 'Importa il tuo mazzo Commander e portalo al tavolo', 'Incolla la tua decklist, salva il mazzo e usalo in CommanderZone per giocare online, controllare la curva e preparare le tue partite.', 'Importare mazzo', 'Creare mazzo da zero', [
       section('existing-lists', 'Non ripartire da zero', 'Se hai già le tue liste in formato testo o su altre piattaforme, importale senza ricostruire tutto da capo.'),
       section('ready-to-play', 'Pronto per giocare', 'Importare un mazzo non significa solo salvarlo: significa averlo pronto per creare una stanza e iniziare la partita.'),
       section('analysis', 'Analisi dopo l’importazione', 'Controlla terre, curva, colori, tipi di carta, ramp, pescate e interazione prima della partita.'),
@@ -477,7 +567,7 @@ const LANDING_COPY = {
     ]),
   },
   commanderDeckBuilder: {
-    es: simpleCopy('Deck builder Commander | Crea e importa mazos en CommanderZone', 'Crea, importa y analiza mazos Commander en CommanderZone. Organiza tus listas y prepáralas para jugar online con tu grupo.', 'Un deck builder Commander conectado a tus partidas', 'Crea, importa y organiza tus mazos para usarlos directamente en tus salas de CommanderZone.', 'Crear mazo', 'Importar decklist', [
+    es: simpleCopy('Deck builder Commander MTG | Crea e importa mazos', 'Crea, importa y analiza mazos de Commander MTG en CommanderZone. Organiza tus listas y prepáralas para jugar online con tu grupo.', 'Un deck builder Commander conectado a tus partidas', 'Crea, importa y organiza tus mazos para usarlos directamente en tus salas de CommanderZone.', 'Crear mazo', 'Importar decklist', [
         section('build-to-play', 'Construir para jugar', 'CommanderZone no quiere ser solo una colección de listas. El objetivo es que tus mazos estén preparados para entrar en partida.'),
         section('room-ready', 'Listo para llevarlo a una sala', 'Cuando tu mazo esté listo, podrás llevarlo directamente a una sala de CommanderZone.'),
         section('deck-review', 'Revisión clara del mazo', 'Consulta curva, colores, tierras, tipos de carta y estructura general para entender si tu lista está equilibrada.'),
@@ -488,7 +578,7 @@ const LANDING_COPY = {
       feature('Analizar estructura', 'Revisa curva, colores y composición.'),
       feature('Preparar para sala', 'Usa el mazo al crear o entrar en partidas.'),
     ]),
-    en: simpleCopy('Commander Deck Builder | Build, Import and Play Your Decks', 'Build, import and analyze Commander decks in CommanderZone. Organize your lists and bring them straight to your online games.', 'A Commander deck builder connected to your games', 'Build, import and organize your decks so you can use them directly in your CommanderZone rooms.', 'Build deck', 'Import decklist', [
+    en: simpleCopy('MTG Commander Deck Builder | Build, Import and Play', 'Build, import and analyze MTG Commander decks in CommanderZone. Organize your lists and bring them straight to your online games.', 'A Commander deck builder connected to your games', 'Build, import and organize your decks so you can use them directly in your CommanderZone rooms.', 'Sign in and prepare deck', 'Go to my decks', [
         section('build-to-play', 'Build to play', 'CommanderZone is not just a place to store lists. The goal is to make your decks ready for the table.'),
         section('room-ready', 'Ready for a room', 'Once your deck is ready, you can bring it straight into a CommanderZone room.'),
         section('deck-review', 'Clear deck review', 'Check curve, colors, lands, card types and overall structure to understand whether your list is balanced.'),
@@ -499,10 +589,10 @@ const LANDING_COPY = {
       feature('Analyze structure', 'Review curve, colors and composition.'),
       feature('Prepare for rooms', 'Use the deck when creating or joining games.'),
     ]),
-    de: localizedDeckBuilder('Commander Deck Builder | Decks erstellen, importieren und spielen', 'Erstelle, importiere und analysiere Commander-Decks in CommanderZone und nutze sie direkt in deinen Online-Partien.', 'Ein Commander Deck Builder, der mit deinen Partien verbunden ist', 'Erstelle, importiere und organisiere deine Decks, damit du sie direkt in deinen CommanderZone-Räumen nutzen kannst.', 'Deck erstellen', 'Deckliste importieren', 'de'),
-    fr: localizedDeckBuilder('Deck builder Commander | Créer, importer et analyser vos decks', 'Créez, importez et analysez vos decks Commander dans CommanderZone, puis utilisez-les directement dans vos parties en ligne.', 'Un deck builder Commander connecté à vos parties', 'Créez, importez et organisez vos decks pour les utiliser directement dans vos salles CommanderZone.', 'Créer un deck', 'Importer une decklist', 'fr'),
-    pt: localizedDeckBuilder('Deck builder Commander | Crie, importe e analise decks', 'Crie, importe e analise decks Commander no CommanderZone. Organize suas listas e use seus decks diretamente nas partidas online.', 'Um deck builder Commander conectado às suas partidas', 'Crie, importe e organize seus decks para usá-los diretamente nas salas do CommanderZone.', 'Criar deck', 'Importar decklist', 'pt'),
-    it: simpleCopy('Deck builder Commander | Crea, importa e gioca i tuoi mazzi', 'Crea, importa e analizza mazzi Commander in CommanderZone. Organizza le tue liste e preparale per giocare online con il tuo gruppo.', 'Un deck builder Commander collegato alle tue partite', 'Crea, importa e organizza i tuoi mazzi per usarli direttamente nelle stanze CommanderZone.', 'Creare mazzo', 'Importare decklist', [
+    de: localizedDeckBuilder('MTG Commander Deck Builder | Bauen, importieren und spielen', 'Erstelle, importiere und analysiere MTG-Commander-Decks in CommanderZone. Organisiere deine Listen und nutze sie direkt in deinen Online-Partien.', 'Ein Commander Deck Builder, der mit deinen Partien verbunden ist', 'Erstelle, importiere und organisiere deine Decks, damit du sie direkt in deinen CommanderZone-Räumen nutzen kannst.', 'Deck erstellen', 'Deckliste importieren', 'de'),
+    fr: localizedDeckBuilder('Deck builder Commander MTG | Créer et importer des decks', 'Créez, importez et analysez des decks Commander MTG dans CommanderZone. Organisez vos listes et préparez-les pour jouer en ligne avec votre groupe.', 'Un deck builder Commander connecté à vos parties', 'Créez, importez et organisez vos decks pour les utiliser directement dans vos salles CommanderZone.', 'Créer un deck', 'Importer une decklist', 'fr'),
+    pt: localizedDeckBuilder('Deck builder Commander MTG | Crie e importe decks', 'Crie, importe e analise decks de Commander MTG no CommanderZone. Organize suas listas e prepare-as para jogar online com seu grupo.', 'Um deck builder Commander conectado às suas partidas', 'Crie, importe e organize seus decks para usá-los diretamente nas salas do CommanderZone.', 'Criar deck', 'Importar decklist', 'pt'),
+    it: simpleCopy('Deck builder Commander MTG | Crea e importa mazzi', 'Crea, importa e analizza mazzi MTG Commander in CommanderZone. Organizza le tue liste e preparale per giocare online con il tuo gruppo.', 'Un deck builder Commander collegato alle tue partite', 'Crea, importa e organizza i tuoi mazzi per usarli direttamente nelle stanze CommanderZone.', 'Creare mazzo', 'Importare decklist', [
       section('build-to-play', 'Costruire per giocare', 'CommanderZone non vuole essere solo un archivio di liste. L’obiettivo è rendere i tuoi mazzi pronti per entrare in partita.'),
       section('deck-review', 'Revisione chiara del mazzo', 'Controlla curva, colori, terre, tipi di carta e struttura generale per capire se la tua lista è equilibrata.'),
       section('improve', 'Migliora tra una partita e l’altra', 'Salva versioni, prova cambiamenti e capisci cosa serve davvero al tuo mazzo dopo averlo giocato.'),
@@ -515,7 +605,7 @@ const LANDING_COPY = {
     ]),
   },
   tableAssistant: {
-    es: simpleCopy('Asistente de mesa Commander | Contador de vidas y daño de comandante', 'Usa CommanderZone como asistente de mesa para partidas físicas de Commander. Controla vidas, daño de comandante y estado de la partida desde móvil o tablet.', 'Convierte tu móvil o tablet en un asistente de mesa para Commander', 'Controla vidas, daño de comandante y estado de la partida física con una interfaz pensada para pods reales.', 'Abrir Asistente de mesa', 'Ver cómo funciona', [
+    es: simpleCopy('Asistente de mesa Commander | Contador de vidas y daño de comandante', 'Usa CommanderZone como asistente de mesa para partidas físicas de Commander MTG. Controla vidas, daño de comandante y estado de la partida desde móvil o tablet.', 'Convierte tu móvil o tablet en un asistente de mesa para Commander', 'Controla vidas, daño de comandante y estado de la partida física con una interfaz pensada para pods reales.', 'Abrir Asistente de mesa', 'Ver cómo funciona', [
       section('paper-games', 'Para partidas físicas de Commander', 'No todas las partidas ocurren online. El Asistente de mesa está pensado para grupos que juegan en persona y quieren una forma cómoda de controlar la partida.'),
       section('visible-totals', 'Vidas y daño de comandante visibles', 'Mantén la información importante clara para todos los jugadores, sin depender de notas sueltas o dados repartidos por la mesa.'),
       section('mobile-tablet', 'Ideal para móvil o tablet', 'Coloca el dispositivo en el centro de la mesa y úsalo como panel compartido durante la partida.'),
@@ -529,7 +619,7 @@ const LANDING_COPY = {
       faq('¿Funciona en móvil?', 'Sí. Está pensado especialmente para móvil y tablet.'),
       faq('¿Puede controlar daño de comandante?', 'Sí. El daño de comandante es una parte esencial del Asistente de mesa.'),
     ]),
-    en: simpleCopy('Commander Table Assistant | Life Counter and Commander Damage Tracker', 'Use CommanderZone as a table assistant for paper Commander games. Track life totals, commander damage and game state from your phone or tablet.', 'Turn your phone or tablet into a Commander table assistant', 'Track life totals, commander damage and table state during paper games with an interface built for real pods.', 'Open Table Assistant', 'See how it works', [
+    en: simpleCopy('Commander Table Assistant | Life Counter and Commander Damage Tracker', 'Use CommanderZone as a table assistant for paper MTG Commander games. Track life totals, commander damage and game state from your phone or tablet.', 'Turn your phone or tablet into a Commander table assistant', 'Track life totals, commander damage and table state during paper games with an interface built for real pods.', 'Open Table Assistant', 'See how it works', [
       section('paper-games', 'For paper Commander games', 'Not every game happens online. The Table Assistant is built for groups playing in person who want a clearer way to manage the game.'),
       section('visible-totals', 'Life totals and commander damage', 'Keep the important information visible to every player without scattered notes or dice all over the table.'),
       section('mobile-tablet', 'Made for phone or tablet', 'Place the device at the center of the table and use it as a shared panel during the game.'),
@@ -543,10 +633,10 @@ const LANDING_COPY = {
       faq('Does it work on mobile?', 'Yes. It is designed especially for phones and tablets.'),
       faq('Can it track commander damage?', 'Yes. Commander damage is a core part of the Table Assistant.'),
     ]),
-    de: localizedTableAssistant('Commander-Tischassistent | Lebenspunkte und Commander-Schaden zählen', 'Nutze CommanderZone als Tischassistent für physische Commander-Partien. Zähle Lebenspunkte, Commander-Schaden und Spielstatus auf Smartphone oder Tablet.', 'Mach dein Smartphone oder Tablet zum Commander-Tischassistenten', 'Behalte Lebenspunkte, Commander-Schaden und Spielstatus bei physischen Partien mit einer Oberfläche für echte Commander-Runden im Blick.', 'Tischassistent öffnen', 'So funktioniert es', 'de'),
-    fr: localizedTableAssistant('Assistant de table Commander | Compteur de vie et blessures de commandant', 'Utilisez CommanderZone comme assistant de table pour vos parties physiques de Commander. Suivez les points de vie et les blessures de commandant sur mobile ou tablette.', 'Transformez votre mobile ou tablette en assistant de table Commander', 'Suivez les points de vie, les blessures de commandant et l’état de la partie physique avec une interface pensée pour les groupes Commander.', 'Ouvrir l’assistant de table', 'Voir comment ça marche', 'fr'),
-    pt: localizedTableAssistant('Assistente de mesa Commander | Contador de vida e dano de comandante', 'Use CommanderZone como assistente de mesa para partidas físicas de Commander. Controle vida, dano de comandante e estado da partida pelo celular ou tablet.', 'Transforme seu celular ou tablet em um assistente de mesa Commander', 'Controle vida, dano de comandante e estado da partida física com uma interface feita para grupos reais.', 'Abrir Assistente de mesa', 'Ver como funciona', 'pt'),
-    it: simpleCopy('Assistente da tavolo Commander | Segnapunti e danno da comandante', 'Usa CommanderZone come assistente da tavolo per partite fisiche di Commander. Tieni traccia di punti vita, danno da comandante e stato della partita da smartphone o tablet.', 'Trasforma smartphone o tablet in un assistente da tavolo Commander', 'Tieni traccia di punti vita, danno da comandante e stato della partita fisica con un’interfaccia pensata per pod reali.', 'Aprire Assistente da tavolo', 'Vedi come funziona', [
+    de: localizedTableAssistant('Commander-Tischassistent | Lebenspunkte und Commander-Schaden zählen', 'Nutze CommanderZone als Tischassistent für physische MTG-Commander-Partien. Zähle Lebenspunkte, Commander-Schaden und Spielstatus auf Smartphone oder Tablet.', 'Mach dein Smartphone oder Tablet zum Commander-Tischassistenten', 'Behalte Lebenspunkte, Commander-Schaden und Spielstatus bei physischen Partien mit einer Oberfläche für echte Commander-Runden im Blick.', 'Tischassistent öffnen', 'So funktioniert es', 'de'),
+    fr: localizedTableAssistant('Assistant de table Commander | Compteur de vie et blessures de commandant', 'Utilisez CommanderZone comme assistant de table pour vos parties physiques Commander MTG. Suivez les points de vie, les blessures de commandant et l’état de la partie sur mobile ou tablette.', 'Transformez votre mobile ou tablette en assistant de table Commander', 'Suivez les points de vie, les blessures de commandant et l’état de la partie physique avec une interface pensée pour les groupes Commander.', 'Ouvrir l’assistant de table', 'Voir comment ça marche', 'fr'),
+    pt: localizedTableAssistant('Assistente de mesa Commander | Contador de vida e dano de comandante', 'Use CommanderZone como assistente de mesa para partidas físicas de Commander MTG. Controle vida, dano de comandante e estado da partida pelo celular ou tablet.', 'Transforme seu celular ou tablet em um assistente de mesa Commander', 'Controle vida, dano de comandante e estado da partida física com uma interface feita para grupos reais.', 'Abrir Assistente de mesa', 'Ver como funciona', 'pt'),
+    it: simpleCopy('Assistente da tavolo Commander | Segnapunti e danno da comandante', 'Usa CommanderZone come assistente da tavolo per partite fisiche MTG Commander. Tieni traccia di punti vita, danno da comandante e stato della partita da smartphone o tablet.', 'Trasforma smartphone o tablet in un assistente da tavolo Commander', 'Tieni traccia di punti vita, danno da comandante e stato della partita fisica con un’interfaccia pensata per pod reali.', 'Aprire Assistente da tavolo', 'Vedi come funziona', [
       section('paper-games', 'Per partite fisiche di Commander', 'Non tutte le partite si giocano online. L’Assistente da tavolo è pensato per gruppi che giocano dal vivo e vogliono un modo più chiaro per gestire la partita.'),
       section('visible-totals', 'Punti vita e danno da comandante visibili', 'Mantieni le informazioni importanti chiare per tutti i giocatori, senza appunti sparsi o dadi ovunque sul tavolo.'),
       section('mobile-tablet', 'Ideale per smartphone o tablet', 'Metti il dispositivo al centro del tavolo e usalo come pannello condiviso durante la partita.'),
@@ -651,13 +741,15 @@ const LANDING_COPY = {
   faq: {
     es: faqCopy('FAQ CommanderZone | Preguntas frecuentes', 'Resuelve dudas sobre CommanderZone: preparar mazos, jugar Commander online, crear salas, importar mazos y usar el Asistente de mesa.', 'Preguntas frecuentes sobre CommanderZone', 'Respuestas claras sobre cómo preparar tu mazo, crear una sala y jugar Commander online o usar CommanderZone en partidas físicas.', 'Preparar mazo y jugar', 'Jugar Commander online', [
       faq('¿Qué es CommanderZone?', 'CommanderZone es una plataforma no oficial pensada para jugar Commander online, crear o importar mazos, analizarlos y usar herramientas de mesa para partidas online o físicas.'),
+      faq('¿CommanderZone sirve para Commander MTG?', 'Sí. CommanderZone está pensada específicamente para partidas de Commander MTG, tanto online como en mesa física.'),
       faq('¿CommanderZone es oficial de Wizards of the Coast?', 'No. CommanderZone es un proyecto no oficial y no está afiliado, aprobado ni patrocinado por Wizards of the Coast.'),
       faq('¿CommanderZone es gratis?', 'CommanderZone tendrá una versión gratuita para jugar y probar las funciones principales. Algunas funciones avanzadas podrán formar parte de planes premium.'),
       faq('¿Necesito instalar algo?', 'No. CommanderZone está pensada para funcionar desde el navegador.'),
       faq('¿Tengo que registrarme para jugar?', 'La experiencia ideal debe permitir probar con poca fricción. Para guardar mazos, historial, estadísticas o personalización, sí tendrá sentido tener cuenta.'),
       faq('¿Cómo creo una partida?', 'Prepara o selecciona un mazo, crea una sala, comparte el enlace con tu grupo y prepara la mesa antes de empezar.'),
-      faq('¿Necesito un mazo para crear una partida?', 'Sí. Para jugar en CommanderZone necesitas importar, crear o seleccionar un mazo antes de empezar la sala.'),
+      faq('¿Necesito un mazo para crear una partida?', 'Sí. Para jugar en CommanderZone necesitas importar, crear o seleccionar un mazo antes de empezar.'),
       faq('¿Puedo crear una sala sin mazo?', 'La experiencia principal está pensada para preparar primero el mazo y después crear la sala, para que la partida empiece sin pasos pendientes.'),
+      faq('¿CommanderZone sirve para otros formatos de Magic?', 'CommanderZone está enfocada principalmente en Commander. Algunas herramientas pueden servir para otros formatos, pero el producto está diseñado alrededor de partidas multijugador de Commander.'),
       faq('¿Las salas son privadas?', 'Las salas se comparten mediante enlace. La privacidad dependerá de cómo compartas ese enlace y de las opciones disponibles en la sala.'),
       faq('¿CommanderZone aplica reglas automáticamente?', 'No. La mesa es manual. CommanderZone ayuda a organizar la partida, pero las decisiones y reglas siguen siendo responsabilidad del grupo.'),
       faq('¿Puedo importar mis mazos?', 'Sí. Puedes importar listas para guardarlas, revisarlas y usarlas en tus partidas.'),
@@ -669,13 +761,15 @@ const LANDING_COPY = {
     ]),
     en: faqCopy('CommanderZone FAQ | Frequently Asked Questions', 'Find answers about CommanderZone: preparing decks, playing Commander online, creating rooms, importing decks and using the Table Assistant.', 'Frequently asked questions about CommanderZone', 'Clear answers about preparing your deck, creating a room and playing Commander online or using CommanderZone for paper games.', 'Prepare deck and play', 'Play Commander online', [
       faq('What is CommanderZone?', 'CommanderZone is an unofficial platform built to play Commander online, create or import decks, analyze lists and use table tools for online or paper games.'),
+      faq('Is CommanderZone built for MTG Commander?', 'Yes. CommanderZone is built specifically for MTG Commander games, both online and around a physical table.'),
       faq('Is CommanderZone official?', 'No. CommanderZone is an unofficial project and is not affiliated with, endorsed by, sponsored by, or specifically approved by Wizards of the Coast.'),
       faq('Is CommanderZone free?', 'CommanderZone will have a free version to play and try the main features. Some advanced features may be part of premium plans.'),
       faq('Do I need to install anything?', 'No. CommanderZone is designed to work from the browser.'),
       faq('Do I need an account to play?', 'The ideal experience should let users try it with low friction. To save decks, history, stats or customization, an account makes sense.'),
       faq('How do I create a game?', 'Prepare or choose a deck, create a room, share the link with your group and prepare the table before starting.'),
-      faq('Do I need a deck to create a game?', 'Yes. To play in CommanderZone, you need to import, build or select a deck before starting the room.'),
+      faq('Do I need a deck to create a game?', 'Yes. To play in CommanderZone, you need to import, build or select a deck before starting.'),
       faq('Can I create a room without a deck?', 'The main experience is designed to prepare the deck first and then create the room, so the game starts without missing steps.'),
+      faq('Can I use CommanderZone for other Magic formats?', 'CommanderZone is mainly focused on Commander. Some tools may work for other formats, but the product is designed around multiplayer Commander games.'),
       faq('Are rooms private?', 'Rooms are shared through a link. Privacy depends on how you share that link and which room options are available.'),
       faq('Does CommanderZone enforce Magic rules automatically?', 'No. The table is manual. CommanderZone helps organize the game, but decisions and rules remain the responsibility of the group.'),
       faq('Can I import my decks?', 'Yes. You can import lists to save, review and use them in your games.'),
@@ -690,12 +784,14 @@ const LANDING_COPY = {
     pt: localizedPublicFaq('FAQ CommanderZone | Perguntas frequentes', 'Tire dúvidas sobre CommanderZone: preparar decks, jogar Commander online, criar salas, importar decks e usar o Assistente de mesa.', 'Perguntas frequentes sobre CommanderZone', 'Respostas claras sobre preparar seu deck, criar uma sala e jogar Commander online ou em partidas físicas.', 'Preparar deck e jogar', 'Jogar Commander online', 'pt'),
     it: faqCopy('FAQ CommanderZone | Domande frequenti', 'Trova risposte su CommanderZone: giocare a Commander online, creare stanze, importare mazzi, usare l’Assistente da tavolo, account, privacy e funzioni premium.', 'Domande frequenti su CommanderZone', 'Risposte chiare su come giocare a Commander online, creare stanze, importare mazzi e usare CommanderZone online o al tavolo fisico.', 'Preparare mazzo e giocare', 'Giocare a Commander online', [
       faq('Cos’è CommanderZone?', 'CommanderZone è una piattaforma non ufficiale pensata per giocare a Commander online, creare o importare mazzi, analizzarli e usare strumenti da tavolo per partite online o fisiche.'),
+      faq('CommanderZone è pensato per Commander MTG?', 'Sì. CommanderZone è pensato specificamente per partite di Commander MTG, online o al tavolo fisico.'),
       faq('CommanderZone è ufficiale?', 'No. CommanderZone è un progetto non ufficiale e non è affiliato, approvato, sponsorizzato o autorizzato da Wizards of the Coast.'),
       faq('CommanderZone è gratis?', 'CommanderZone è pensato per avere una versione gratuita con le funzioni principali per giocare e provare la piattaforma. Alcune funzioni avanzate potranno far parte di piani premium.'),
       faq('Devo installare qualcosa?', 'No. CommanderZone funziona dal browser.'),
       faq('Serve un account per giocare?', 'Vogliamo mantenere l’esperienza il più semplice possibile. Per salvare mazzi, storico, statistiche o personalizzazioni, avere un account ha senso.'),
-      faq('Mi serve un mazzo per creare una partita?', 'Sì. Per giocare in CommanderZone devi importare, creare o selezionare un mazzo prima di iniziare la stanza.'),
+      faq('Mi serve un mazzo per creare una partita?', 'Sì. Per giocare in CommanderZone devi importare, creare o selezionare un mazzo prima di iniziare.'),
       faq('Posso creare una stanza senza mazzo?', 'L’esperienza principale è pensata per preparare prima il mazzo e poi creare la stanza, così la partita parte senza passaggi mancanti.'),
+      faq('Posso usare CommanderZone per altri formati di Magic?', 'CommanderZone è focalizzato principalmente su Commander. Alcuni strumenti possono essere utili anche per altri formati, ma il prodotto è progettato intorno alle partite multiplayer di Commander.'),
       faq('Come creo una partita?', 'Prepara il mazzo, crea una stanza, condividi il link con il tuo gruppo e organizza il tavolo prima di iniziare.'),
       faq('Le stanze sono private?', 'Le stanze si condividono tramite link. La privacy dipende da come condividi quel link e dalle opzioni disponibili nella stanza.'),
       faq('Posso invitare amici con un link?', 'Sì. Il flusso principale di CommanderZone è pensato per creare una stanza e condividere il link con il tuo pod.'),
@@ -729,6 +825,7 @@ export function createSeoLandingContentByLocale(routeKey: SeoRouteKey): Readonly
 function createSeoLandingContent(routeKey: SeoRouteKey, locale: SeoLocaleCode): SeoLandingContent {
   const copyLocale = getPriorityLocale(locale);
   const copy = getLandingCopy(routeKey, copyLocale);
+  const ctaCopy = getLandingCtaCopy(routeKey, copyLocale);
   const uiCopy = getUiCopy(copyLocale);
   const path = getSeoPath(routeKey, locale);
   const seo: SeoMetadataContent = {
@@ -738,11 +835,14 @@ function createSeoLandingContent(routeKey: SeoRouteKey, locale: SeoLocaleCode): 
     ogDescription: copy.metaDescription,
     ogImage: getOpenGraphImagePath(routeKey),
   };
+  const breadcrumbItems = routeKey === 'home'
+    ? [{ label: uiCopy.homeLabel, href: getSeoPath('home', locale) }]
+    : [
+        { label: uiCopy.homeLabel, href: getSeoPath('home', locale) },
+        { label: copy.h1, href: path },
+      ];
   const breadcrumb: LandingBreadcrumbContent = {
-    items: [
-      { label: uiCopy.homeLabel, href: getSeoPath('home', locale) },
-      { label: copy.h1, href: path },
-    ],
+    items: breadcrumbItems,
   };
   const faqContent = createFaqContent(copy, uiCopy);
 
@@ -781,8 +881,8 @@ function createSeoLandingContent(routeKey: SeoRouteKey, locale: SeoLocaleCode): 
         loading: 'eager',
         fetchPriority: 'high',
       },
-      primaryLink: { label: copy.primaryCta, href: getPrimaryCtaHref(routeKey) },
-      secondaryLink: { label: copy.secondaryCta, href: getSecondaryCtaHref(routeKey, locale) },
+      primaryLink: { label: ctaCopy.primaryCta, href: getPrimaryCtaHref(routeKey) },
+      secondaryLink: { label: ctaCopy.secondaryCta, href: getSecondaryCtaHref(routeKey) },
       highlights: [uiCopy.manualLabel, uiCopy.browserLabel],
     },
     trustBar: {
@@ -821,8 +921,8 @@ function createSeoLandingContent(routeKey: SeoRouteKey, locale: SeoLocaleCode): 
       id: 'cta',
       title: copy.ctaTitle ?? uiCopy.defaultCtaTitle,
       description: copy.ctaDescription ?? uiCopy.defaultCtaDescription,
-      primaryLink: { label: copy.primaryCta, href: getPrimaryCtaHref(routeKey) },
-      secondaryLink: { label: copy.secondaryCta, href: getSecondaryCtaHref(routeKey, locale) },
+      primaryLink: { label: ctaCopy.primaryCta, href: getPrimaryCtaHref(routeKey) },
+      secondaryLink: { label: ctaCopy.secondaryCta, href: getSecondaryCtaHref(routeKey) },
     },
     internalLinks: createInternalLinks(routeKey, locale, uiCopy),
   };
@@ -1014,6 +1114,10 @@ function getLandingCopy(routeKey: SeoRouteKey, locale: PriorityLocaleCode): Land
   return LANDING_COPY[routeKey][locale];
 }
 
+function getLandingCtaCopy(routeKey: SeoRouteKey, locale: PriorityLocaleCode): LandingCtaCopy {
+  return LANDING_CTA_COPY[routeKey][locale];
+}
+
 function getUiCopy(locale: PriorityLocaleCode): LocaleUiCopy {
   return LOCALE_COPY[locale];
 }
@@ -1089,30 +1193,22 @@ function getOpenGraphImagePath(routeKey: SeoRouteKey): string {
 
 function getPrimaryCtaHref(routeKey: SeoRouteKey): string {
   if (routeKey === 'tableAssistant') {
-    return '/table-assistant';
+    return APP_TABLE_ASSISTANT_ENTRY_PATH;
   }
 
-  if (routeKey === 'commanderDeckBuilder') {
-    return '/decks?intent=new&next=/rooms';
-  }
-
-  return '/decks?intent=import&next=/rooms';
+  return APP_DECKS_ENTRY_PATH;
 }
 
-function getSecondaryCtaHref(routeKey: SeoRouteKey, locale: SeoLocaleCode): string {
-  if (routeKey === 'createCommanderRoom' || routeKey === 'importCommanderDeck') {
-    return '/decks?intent=new&next=/rooms';
-  }
-
-  if (routeKey === 'commanderDeckBuilder') {
-    return '/decks?intent=import&next=/rooms';
-  }
-
+function getSecondaryCtaHref(routeKey: SeoRouteKey): string {
   if (routeKey === 'tableAssistant') {
-    return getSeoPath('howToPlayCommanderOnline', locale);
+    return APP_TABLE_ASSISTANT_ENTRY_PATH;
   }
 
-  return getSeoPath('howToPlayCommanderOnline', locale);
+  return APP_DECKS_ENTRY_PATH;
+}
+
+function cta(primaryCta: string, secondaryCta: string): LandingCtaCopy {
+  return { primaryCta, secondaryCta };
 }
 
 function section(id: string, title: string, text: string): SectionCopy {
@@ -1590,13 +1686,15 @@ function localizedFaq(locale: PriorityLocaleCode): readonly FaqItemCopy[] {
   if (locale === 'de') {
     return [
       faq('Was ist CommanderZone?', 'CommanderZone ist eine inoffizielle Plattform, um Commander online zu spielen, Decks zu erstellen oder zu importieren, Listen zu analysieren und Tischwerkzeuge für Online- oder Papierpartien zu nutzen.'),
+      faq('Ist CommanderZone für MTG Commander gedacht?', 'Ja. CommanderZone ist speziell für MTG Commander-Partien gedacht, online und am physischen Tisch.'),
       faq('Ist CommanderZone offiziell?', 'Nein. CommanderZone ist ein inoffizielles Projekt und nicht mit Wizards of the Coast verbunden, unterstützt, gesponsert oder speziell genehmigt.'),
       faq('Ist CommanderZone kostenlos?', 'CommanderZone wird eine kostenlose Version zum Spielen und Testen der Hauptfunktionen haben. Einige fortgeschrittene Funktionen können Teil von Premium-Plänen sein.'),
       faq('Muss ich etwas installieren?', 'Nein. CommanderZone ist für den Browser gedacht.'),
       faq('Brauche ich ein Konto zum Spielen?', 'Die ideale Erfahrung soll einen Einstieg mit wenig Reibung erlauben. Für gespeicherte Decks, Verlauf, Statistiken oder Anpassung ist ein Konto sinnvoll.'),
       faq('Wie erstelle ich eine Partie?', 'Bereite ein Deck vor oder wähle eines aus, erstelle einen Raum, teile den Link mit deiner Gruppe und bereite den Tisch vor dem Start vor.'),
-      faq('Brauche ich ein Deck, um eine Partie zu erstellen?', 'Ja. Um in CommanderZone zu spielen, musst du vor dem Start des Raums ein Deck importieren, erstellen oder auswählen.'),
-      faq('Kann ich einen Raum ohne Deck erstellen?', 'Die Haupterfahrung ist darauf ausgelegt, zuerst das Deck vorzubereiten und danach den Raum zu erstellen, damit die Partie ohne fehlende Schritte startet.'),
+      faq('Brauche ich ein Deck, um eine Partie zu erstellen?', 'Ja. Um in CommanderZone zu spielen, musst du zuerst ein Deck importieren, erstellen oder auswählen.'),
+      faq('Kann ich einen Raum ohne Deck erstellen?', 'Die Hauptnutzung ist darauf ausgelegt, zuerst das Deck vorzubereiten und danach den Raum zu erstellen, damit die Partie ohne fehlende Schritte beginnt.'),
+      faq('Kann ich CommanderZone für andere Magic-Formate nutzen?', 'CommanderZone ist hauptsächlich auf Commander ausgelegt. Einige Werkzeuge können auch für andere Formate nützlich sein, aber das Produkt ist für Multiplayer-Commander-Partien entwickelt.'),
       faq('Sind Räume privat?', 'Räume werden über einen Link geteilt. Die Privatsphäre hängt davon ab, wie du den Link teilst und welche Raumoptionen verfügbar sind.'),
       faq('Automatisiert CommanderZone Magic-Regeln?', 'Nein. Der Tisch ist manuell. CommanderZone hilft beim Organisieren der Partie, aber Entscheidungen und Regeln bleiben Sache der Gruppe.'),
       faq('Kann ich meine Decks importieren?', 'Ja. Du kannst Listen importieren, speichern, prüfen und in deinen Partien nutzen.'),
@@ -1611,13 +1709,15 @@ function localizedFaq(locale: PriorityLocaleCode): readonly FaqItemCopy[] {
   if (locale === 'fr') {
     return [
       faq('Qu’est-ce que CommanderZone ?', 'CommanderZone est une plateforme non officielle pensée pour jouer à Commander en ligne, créer ou importer des decks, analyser des listes et utiliser des outils de table pour les parties en ligne ou physiques.'),
+      faq('CommanderZone est-il pensé pour Commander MTG ?', 'Oui. CommanderZone est pensé spécifiquement pour les parties de Commander MTG, en ligne comme autour d’une table physique.'),
       faq('CommanderZone est-il officiel ?', 'Non. CommanderZone est un projet non officiel et n’est pas affilié, approuvé, sponsorisé ni spécifiquement validé par Wizards of the Coast.'),
       faq('CommanderZone est-il gratuit ?', 'CommanderZone aura une version gratuite pour jouer et tester les fonctions principales. Certaines fonctions avancées pourront faire partie de plans premium.'),
       faq('Dois-je installer quelque chose ?', 'Non. CommanderZone est conçu pour fonctionner depuis le navigateur.'),
       faq('Faut-il un compte pour jouer ?', 'L’expérience idéale doit permettre d’essayer avec peu de friction. Pour sauvegarder des decks, l’historique, les statistiques ou la personnalisation, un compte a du sens.'),
       faq('Comment créer une partie ?', 'Préparez ou choisissez un deck, créez une salle, partagez le lien avec votre groupe et préparez la table avant de commencer.'),
-      faq('Ai-je besoin d’un deck pour créer une partie ?', 'Oui. Pour jouer dans CommanderZone, vous devez importer, créer ou sélectionner un deck avant de lancer la salle.'),
-      faq('Puis-je créer une salle sans deck ?', 'L’expérience principale est pensée pour préparer le deck d’abord puis créer la salle, afin que la partie commence sans étape manquante.'),
+      faq('Ai-je besoin d’un deck pour créer une partie ?', 'Oui. Pour jouer dans CommanderZone, vous devez importer, créer ou sélectionner un deck avant de commencer.'),
+      faq('Puis-je créer une salle sans deck ?', 'L’expérience principale est conçue pour préparer d’abord le deck, puis créer la salle, afin que la partie commence sans étape manquante.'),
+      faq('Puis-je utiliser CommanderZone pour d’autres formats de Magic ?', 'CommanderZone est principalement centré sur Commander. Certains outils peuvent servir à d’autres formats, mais le produit est conçu autour des parties multijoueurs de Commander.'),
       faq('Les salles sont-elles privées ?', 'Les salles sont partagées par lien. La confidentialité dépend de la façon dont vous partagez ce lien et des options disponibles.'),
       faq('CommanderZone applique-t-il automatiquement les règles ?', 'Non. La table est manuelle. CommanderZone aide à organiser la partie, mais les décisions et règles restent sous la responsabilité du groupe.'),
       faq('Puis-je importer mes decks ?', 'Oui. Vous pouvez importer des listes pour les sauvegarder, les vérifier et les utiliser dans vos parties.'),
@@ -1632,13 +1732,15 @@ function localizedFaq(locale: PriorityLocaleCode): readonly FaqItemCopy[] {
   if (locale === 'pt') {
     return [
       faq('O que é CommanderZone?', 'CommanderZone é uma plataforma não oficial feita para jogar Commander online, criar ou importar decks, analisar listas e usar ferramentas de mesa em partidas online ou físicas.'),
+      faq('CommanderZone é feito para Commander MTG?', 'Sim. CommanderZone foi feito especificamente para partidas de Commander MTG, online ou em mesa física.'),
       faq('CommanderZone é oficial?', 'Não. CommanderZone é um projeto não oficial e não é afiliado, aprovado, patrocinado ou especificamente autorizado pela Wizards of the Coast.'),
       faq('CommanderZone é grátis?', 'CommanderZone terá uma versão gratuita para jogar e testar as funções principais. Algumas funções avançadas podem fazer parte de planos premium.'),
       faq('Preciso instalar algo?', 'Não. CommanderZone foi pensado para funcionar pelo navegador.'),
       faq('Preciso de conta para jogar?', 'A experiência ideal deve permitir testar com pouca fricção. Para salvar decks, histórico, estatísticas ou personalização, uma conta faz sentido.'),
       faq('Como crio uma partida?', 'Prepare ou escolha um deck, crie uma sala, compartilhe o link com seu grupo e prepare a mesa antes de começar.'),
-      faq('Preciso de um deck para criar uma partida?', 'Sim. Para jogar no CommanderZone, você precisa importar, criar ou selecionar um deck antes de iniciar a sala.'),
+      faq('Preciso de um deck para criar uma partida?', 'Sim. Para jogar no CommanderZone, você precisa importar, criar ou selecionar um deck antes de começar.'),
       faq('Posso criar uma sala sem deck?', 'A experiência principal foi pensada para preparar primeiro o deck e depois criar a sala, para que a partida comece sem etapas pendentes.'),
+      faq('Posso usar CommanderZone para outros formatos de Magic?', 'CommanderZone é focado principalmente em Commander. Algumas ferramentas podem servir para outros formatos, mas o produto foi desenhado para partidas multiplayer de Commander.'),
       faq('As salas são privadas?', 'As salas são compartilhadas por link. A privacidade depende de como você compartilha esse link e das opções disponíveis na sala.'),
       faq('CommanderZone aplica regras automaticamente?', 'Não. A mesa é manual. CommanderZone ajuda a organizar a partida, mas decisões e regras continuam responsabilidade do grupo.'),
       faq('Posso importar meus decks?', 'Sim. Você pode importar listas para salvar, revisar e usar nas partidas.'),

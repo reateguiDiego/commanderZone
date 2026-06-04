@@ -79,7 +79,11 @@ export function getSeoSitemapEntries(config) {
       hreflang: locale.hreflang,
       href: toAbsoluteUrl(toSeoPath(locale.code, route.slugs[locale.code])),
     }));
-    const xDefaultLocale = config.locales[0];
+    const xDefaultLocale = config.locales.find((locale) => locale.code === 'en');
+
+    if (!xDefaultLocale) {
+      throw new Error('SEO sitemap requires en locale as x-default.');
+    }
 
     return config.locales.map((locale) => ({
       routeKey: route.routeKey,

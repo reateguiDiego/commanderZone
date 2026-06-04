@@ -3,6 +3,8 @@ import { SEO_PRERENDER_ROUTES, toAngularServerRoutePath } from './seo-prerender-
 import { SEO_ROUTE_KEYS, getSeoPath } from './seo-routes';
 
 describe('SEO prerender routes', () => {
+  const nonSeoLocaleCodes = ['ja', 'ko', 'zh-hans', 'zh-hant', 'nl', 'ca', 'ru'] as const;
+
   it('contains every localized SEO landing URL', () => {
     expect(SEO_PRERENDER_ROUTES).toHaveLength(SEO_ROUTE_KEYS.length * SEO_LOCALE_CODES.length);
 
@@ -12,8 +14,9 @@ describe('SEO prerender routes', () => {
       }
     }
 
-    expect(SEO_PRERENDER_ROUTES).not.toContain('/ru/faq/');
-    expect(SEO_PRERENDER_ROUTES).not.toContain('/ja/commander-online-play/');
+    for (const locale of nonSeoLocaleCodes) {
+      expect(SEO_PRERENDER_ROUTES.some((route) => route === `/${locale}/` || route.startsWith(`/${locale}/`))).toBe(false);
+    }
   });
 
   it('keeps prerender routes unique and public', () => {

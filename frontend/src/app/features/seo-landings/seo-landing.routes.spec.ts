@@ -6,6 +6,8 @@ import {
 } from './seo-landing.routes';
 
 describe('SEO landing routes', () => {
+  const nonSeoLocaleCodes = ['ja', 'ko', 'zh-hans', 'zh-hant', 'nl', 'ca', 'ru'] as const;
+
   it('creates one indexable public route for every SEO landing and SEO locale', () => {
     expect(SEO_INDEXABLE_LANDING_ROUTES).toHaveLength(SEO_ROUTE_KEYS.length * SEO_LOCALE_CODES.length);
     expect(SEO_LANDING_ROUTES).toHaveLength(SEO_ROUTE_KEYS.length * SEO_LOCALE_CODES.length);
@@ -24,14 +26,15 @@ describe('SEO landing routes', () => {
   it('does not create SEO landing routes or redirects for removed locales', () => {
     const routePaths = SEO_LANDING_ROUTES.map((route) => route.path ?? '');
 
-    expect(routePaths.some((path) => /^ru\//.test(path) || path === 'ru')).toBe(false);
-    expect(routePaths.some((path) => /^ja\//.test(path) || path === 'ja')).toBe(false);
-    expect(routePaths.some((path) => /^zh-hans\//.test(path) || path === 'zh-hans')).toBe(false);
+    for (const locale of nonSeoLocaleCodes) {
+      expect(routePaths.some((path) => path === locale || path.startsWith(`${locale}/`))).toBe(false);
+    }
+
     expect(SEO_LANDING_ROUTES.some((route) => 'redirectTo' in route)).toBe(false);
   });
 
   it('keeps SEO landings public and separate from internal app routes', () => {
-    const tableAssistantRoute = SEO_LANDING_ROUTES.find((route) => route.path === 'es/asistente-de-mesa-magic');
+    const tableAssistantRoute = SEO_LANDING_ROUTES.find((route) => route.path === 'es/asistente-mesa-commander');
 
     expect(tableAssistantRoute).toBeDefined();
     expect(tableAssistantRoute?.canActivate).toBeUndefined();
@@ -44,7 +47,7 @@ describe('SEO landing routes', () => {
 
     expect(routePaths).not.toContain('en/jugar-commander-online');
     expect(routePaths).not.toContain('es/play-commander-online');
-    expect(routePaths).not.toContain('en/asistente-de-mesa-magic');
-    expect(routePaths).not.toContain('es/commander-life-counter');
+    expect(routePaths).not.toContain('en/asistente-mesa-commander');
+    expect(routePaths).not.toContain('es/commander-table-assistant');
   });
 });

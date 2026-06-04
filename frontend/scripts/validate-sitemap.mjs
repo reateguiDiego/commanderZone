@@ -12,6 +12,8 @@ import {
 
 const workspaceRoot = process.cwd();
 const config = await loadSeoSitemapConfig(workspaceRoot);
+const nonSeoLocaleCodes = ['ja', 'ko', 'zh-hans', 'zh-hant', 'nl', 'ca', 'ru'];
+const nonSeoHreflangs = ['ja', 'ko', 'zh-Hans', 'zh-Hant', 'nl', 'ca', 'ru'];
 const expectedIndexXml = generateSitemapIndexXml();
 const expectedSeoXml = generateSeoSitemapXml(config);
 const sitemapIndexPath = path.join(workspaceRoot, 'public', SITEMAP_INDEX_PUBLIC_PATH);
@@ -62,6 +64,7 @@ function assertSeoSitemap(xml, config) {
   }
 
   assertNoPrivateRoutes(actualLocs);
+  assertNoNonSeoLocales(xml);
   assertEveryExpectedUrlExists(expectedEntries, actualLocs);
   assertHreflangAlternates(xml, expectedEntries, config);
 }
@@ -84,6 +87,20 @@ function assertNoPrivateRoutes(urls) {
 
   if (privateUrl) {
     throw new Error(`Private/runtime route must not appear in sitemap: ${privateUrl}`);
+  }
+}
+
+function assertNoNonSeoLocales(xml) {
+  for (const locale of nonSeoLocaleCodes) {
+    if (xml.includes(`/${locale}/`)) {
+      throw new Error(`sitemap-seo.xml must not include non-SEO locale URLs for ${locale}.`);
+    }
+  }
+
+  for (const hreflang of nonSeoHreflangs) {
+    if (xml.includes(`hreflang="${hreflang}"`)) {
+      throw new Error(`sitemap-seo.xml must not include non-SEO hreflang ${hreflang}.`);
+    }
   }
 }
 

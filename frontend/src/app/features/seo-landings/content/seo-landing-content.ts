@@ -27,6 +27,17 @@ export interface SeoLandingContentEntry {
   readonly content: SeoLandingContent;
 }
 
+const SEO_APP_ENTRY_PATHS = new Set([
+  '/auth/login?redirect=/decks',
+  '/auth/login?redirect=/table-assistant',
+]);
+const SEO_CONVERSION_LINK_FIELDS = new Set([
+  'hero.primaryLink.href',
+  'hero.secondaryLink.href',
+  'cta.primaryLink.href',
+  'cta.secondaryLink.href',
+]);
+
 export const SEO_LANDING_CONTENT = {
   home: HOME_SEO_LANDING_CONTENT,
   playCommanderOnline: PLAY_COMMANDER_ONLINE_SEO_LANDING_CONTENT,
@@ -165,6 +176,14 @@ function validateCrawlableSeoLinks(
   for (const [field, href] of links) {
     if (!href.trim()) {
       errors.push(`Missing crawlable href for ${routeKey}/${locale} ${field}.`);
+      continue;
+    }
+
+    if (SEO_CONVERSION_LINK_FIELDS.has(field)) {
+      if (!SEO_APP_ENTRY_PATHS.has(href)) {
+        errors.push(`SEO conversion CTA for ${routeKey}/${locale} must use an approved app entry path in ${field}: ${href}.`);
+      }
+
       continue;
     }
 

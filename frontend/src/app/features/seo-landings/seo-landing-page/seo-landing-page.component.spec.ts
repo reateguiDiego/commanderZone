@@ -51,8 +51,8 @@ describe('SeoLandingPageComponent', () => {
         loading: 'eager',
         fetchPriority: 'high',
       },
-      primaryLink: { label: 'Create a room', href: '/rooms' },
-      secondaryLink: { label: 'Import a deck', href: '/decks' },
+      primaryLink: { label: 'Sign in and prepare deck', href: '/auth/login?redirect=/decks' },
+      secondaryLink: { label: 'Open CommanderZone', href: '/auth/login?redirect=/decks' },
       highlights: ['No rules engine', 'Shared table', 'Browser based'],
     },
     trustBar: {
@@ -67,7 +67,7 @@ describe('SeoLandingPageComponent', () => {
         id: 'overview',
         title: 'A manual online table',
         body: ['CommanderZone keeps the table state clear while players make their own game decisions.'],
-        links: [{ label: 'See rooms', href: '/rooms' }],
+        links: [{ label: 'See Commander rooms', href: '/en/create-commander-room/' }],
       },
     ],
     featureGrid: {
@@ -92,7 +92,7 @@ describe('SeoLandingPageComponent', () => {
         {
           title: 'Remote games',
           description: 'Run a Commander night when the pod cannot meet in person.',
-          link: { label: 'Create a remote room', href: '/rooms' },
+          link: { label: 'Prepare a remote room', href: '/en/create-commander-room/' },
         },
       ],
     },
@@ -133,14 +133,14 @@ describe('SeoLandingPageComponent', () => {
     },
     cta: {
       title: 'Start a Commander table',
-      description: 'Create a room and invite your pod.',
-      primaryLink: { label: 'Create room', href: '/rooms' },
+      description: 'Sign in, prepare a deck and open the room when your pod is ready.',
+      primaryLink: { label: 'Sign in and prepare deck', href: '/auth/login?redirect=/decks' },
     },
     internalLinks: {
       title: 'Related CommanderZone pages',
       links: [
-        { label: 'Import Commander deck', href: '/en/import-commander-deck/' },
-        { label: 'Commander deck builder', href: '/en/commander-deck-builder/' },
+        { label: 'Import Commander deck', href: '/en/import-mtg-commander-deck/' },
+        { label: 'Commander deck builder', href: '/en/mtg-commander-deck-builder/' },
       ],
     },
   };
@@ -210,11 +210,10 @@ describe('SeoLandingPageComponent', () => {
     const anchors = Array.from(element.querySelectorAll('a'));
     const links = anchors.map((link) => link.getAttribute('href'));
 
-    expect(links).toContain('/rooms');
-    expect(links).toContain('/decks');
+    expect(links).toContain('/auth/login?redirect=/decks');
     expect(links).toContain('/en/faq/');
     expect(links).toContain('/de/commander-online-spielen/');
-    expect(links).toContain('/en/import-commander-deck/');
+    expect(links).toContain('/en/import-mtg-commander-deck/');
     expect(anchors.every((link) => Boolean(link.getAttribute('href')))).toBe(true);
     expect(element.querySelector('button')).toBeNull();
     expect(element.querySelector('summary')).not.toBeNull();
@@ -239,9 +238,9 @@ describe('SeoLandingPageComponent', () => {
 
   it('uses the app button classes for hero and final CTA links', () => {
     const element: HTMLElement = fixture.nativeElement;
-    const heroPrimary = element.querySelector('.landing-hero__actions a[href="/rooms"]');
-    const heroSecondary = element.querySelector('.landing-hero__actions a[href="/decks"]');
-    const ctaPrimary = element.querySelector('.landing-cta__actions a[href="/rooms"]');
+    const heroPrimary = element.querySelector('.landing-hero__actions a[href="/auth/login?redirect=/decks"]');
+    const heroSecondary = element.querySelector('.landing-hero__actions a.secondary-button[href="/auth/login?redirect=/decks"]');
+    const ctaPrimary = element.querySelector('.landing-cta__actions a[href="/auth/login?redirect=/decks"]');
 
     expect(heroPrimary?.classList.contains('primary-button')).toBe(true);
     expect(heroSecondary?.classList.contains('secondary-button')).toBe(true);

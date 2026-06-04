@@ -3,6 +3,8 @@ import { SEO_PRERENDER_ROUTES, toAngularServerRoutePath } from './core/localizat
 import { serverRoutes } from './app.routes.server';
 
 describe('server routes', () => {
+  const nonSeoLocaleCodes = ['ja', 'ko', 'zh-hans', 'zh-hant', 'nl', 'ca', 'ru'] as const;
+
   it('prerenders every localized SEO URL', () => {
     const prerenderPaths = serverRoutes
       .filter((route) => route.renderMode === RenderMode.Prerender)
@@ -10,7 +12,10 @@ describe('server routes', () => {
 
     expect(prerenderPaths).toHaveLength(60);
     expect(prerenderPaths).toEqual(SEO_PRERENDER_ROUTES.map((path) => toAngularServerRoutePath(path)));
-    expect(prerenderPaths).not.toContain('ru/faq');
+
+    for (const locale of nonSeoLocaleCodes) {
+      expect(prerenderPaths.some((path) => path === locale || path.startsWith(`${locale}/`))).toBe(false);
+    }
   });
 
   it('keeps private and dynamic runtime routes out of prerender mode', () => {

@@ -27,6 +27,7 @@ describe('locale config', () => {
     'ca',
     'ru',
   ] as const satisfies readonly LocaleCode[];
+  const nonSeoLocaleCodes = ['ja', 'ko', 'zh-hans', 'zh-hant', 'nl', 'ca', 'ru'] as const;
 
   it('defines the supported locales in the approved order', () => {
     expect(SUPPORTED_LOCALE_CODES).toEqual(expectedLocaleCodes);
@@ -36,6 +37,11 @@ describe('locale config', () => {
     expect(SEO_LOCALE_CODES).toEqual(['en', 'es', 'de', 'fr', 'pt', 'it']);
     expect(SEO_LOCALES.map((locale) => locale.code)).toEqual([...SEO_LOCALE_CODES]);
     expect(SEO_DEFAULT_LOCALE.code).toBe('en');
+
+    for (const locale of nonSeoLocaleCodes) {
+      expect(SEO_LOCALE_CODES).not.toContain(locale);
+      expect(SEO_LOCALES.map((seoLocale) => seoLocale.code)).not.toContain(locale);
+    }
   });
 
   it('stores code, hreflang, label, and native label for every locale', () => {

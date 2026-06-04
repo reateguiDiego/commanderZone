@@ -3,6 +3,7 @@ import { SEO_LOCALES } from '../../../../core/localization/locale-config';
 import { SeoLanguageSelectorComponent } from './seo-language-selector.component';
 
 describe('SeoLanguageSelectorComponent', () => {
+  const nonSeoLocaleCodes = ['ja', 'ko', 'zh-hans', 'zh-hant', 'nl', 'ca', 'ru'] as const;
   let fixture: ComponentFixture<SeoLanguageSelectorComponent>;
 
   beforeEach(async () => {
@@ -75,8 +76,9 @@ describe('SeoLanguageSelectorComponent', () => {
     expect(menuFlags.every((flag) => flag.getAttribute('src')?.startsWith('/assets/icons/flags/'))).toBe(true);
     expect(element.querySelector('a[hreflang="it"] img')?.getAttribute('src')).toBe('/assets/icons/flags/italy.png');
     expect(element.querySelector('a[hreflang="pt"] img')?.getAttribute('src')).toBe('/assets/icons/flags/portugal.png');
-    expect(element.querySelector('a[hreflang="ru"] img')).toBeNull();
-    expect(element.querySelector('a[hreflang="ja"] img')).toBeNull();
+    for (const locale of nonSeoLocaleCodes) {
+      expect(element.querySelector(`a[hreflang="${locale}"] img`)).toBeNull();
+    }
   });
 
   it('does not generate mixed locale and slug URLs', () => {
