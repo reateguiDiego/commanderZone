@@ -29,10 +29,10 @@ describe('NotFoundPageComponent', () => {
     router.events.complete();
   });
 
-  it('detects the locale from supported localized invalid paths', () => {
+  it('detects only SEO locales from localized invalid paths', () => {
     expect(localeFromNotFoundUrl('/es/ruta-rota')).toBe('es');
     expect(localeFromNotFoundUrl('/en/missing?from=test')).toBe('en');
-    expect(localeFromNotFoundUrl('/zh-hans/missing#section')).toBe('zh-hans');
+    expect(localeFromNotFoundUrl('/zh-hans/missing#section')).toBe('es');
     expect(localeFromNotFoundUrl('/en/jugar-commander-online/')).toBe('en');
     expect(localeFromNotFoundUrl('/unknown/path')).toBe('es');
   });

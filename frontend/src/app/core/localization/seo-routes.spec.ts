@@ -1,4 +1,4 @@
-import { LocaleCode, SUPPORTED_LOCALE_CODES } from './locale-config';
+import { SEO_LOCALE_CODES } from './locale-config';
 import { PAGE_TRANSLATION_STRATEGIES } from './page-translation-strategy';
 import {
   findSeoRouteByPath,
@@ -33,14 +33,14 @@ describe('SEO routes', () => {
     }
   });
 
-  it('defines one localized slug for every route and supported locale', () => {
+  it('defines SEO slugs only for the primary SEO locales', () => {
     for (const routeKey of SEO_ROUTE_KEYS) {
-      expect(Object.keys(SEO_ROUTES[routeKey].slugs).sort()).toEqual([...SUPPORTED_LOCALE_CODES].sort());
+      expect(Object.keys(SEO_ROUTES[routeKey].slugs).sort()).toEqual([...SEO_LOCALE_CODES].sort());
     }
   });
 
-  it('does not duplicate slugs within the same locale', () => {
-    for (const locale of SUPPORTED_LOCALE_CODES) {
+  it('does not duplicate slugs within the same SEO-indexable locale', () => {
+    for (const locale of SEO_LOCALE_CODES) {
       const slugs = SEO_ROUTE_KEYS.map((routeKey) => SEO_ROUTES[routeKey].slugs[locale]);
       expect(new Set(slugs).size).toBe(slugs.length);
     }
@@ -60,13 +60,14 @@ describe('SEO routes', () => {
     expect(getSeoPath('tableAssistant', 'en')).not.toBe('/table-assistant/');
   });
 
-  it('returns alternates for every supported locale', () => {
+  it('returns alternates only for SEO-indexable locales', () => {
     const alternates = getLocalizedRouteAlternates('playMagicOnlineWithFriends');
 
-    expect(Object.keys(alternates).sort()).toEqual([...SUPPORTED_LOCALE_CODES].sort());
+    expect(Object.keys(alternates).sort()).toEqual([...SEO_LOCALE_CODES].sort());
     expect(alternates.es).toBe('/es/jugar-magic-online-con-amigos/');
     expect(alternates.en).toBe('/en/play-magic-online-with-friends/');
     expect(alternates.fr).toBe('/fr/jouer-magic-en-ligne-avec-des-amis/');
+    expect('ru' in alternates).toBe(false);
   });
 
   it('finds SEO routes by localized path', () => {
@@ -105,6 +106,8 @@ describe('SEO routes', () => {
     }
 
     expect(findSeoRouteByPath('/mx/play-commander-online/')).toBeUndefined();
+    expect(findSeoRouteByPath('/ru/faq/')).toBeUndefined();
+    expect(findSeoRouteByPath('/ja/commander-online-play/')).toBeUndefined();
   });
 
   it('does not match mixed locale and slug SEO paths', () => {
@@ -114,12 +117,12 @@ describe('SEO routes', () => {
     expect(findSeoRouteByPath('/es/commander-life-counter/')).toBeUndefined();
   });
 
-  it('keeps all generated paths unique across route and locale pairs', () => {
+  it('keeps all generated SEO-indexable paths unique across route and locale pairs', () => {
     const paths = SEO_ROUTE_KEYS.flatMap((routeKey) =>
-      SUPPORTED_LOCALE_CODES.map((locale: LocaleCode) => getSeoPath(routeKey, locale)),
+      SEO_LOCALE_CODES.map((locale) => getSeoPath(routeKey, locale)),
     );
 
-    expect(paths).toHaveLength(130);
+    expect(paths).toHaveLength(60);
     expect(new Set(paths).size).toBe(paths.length);
   });
 });

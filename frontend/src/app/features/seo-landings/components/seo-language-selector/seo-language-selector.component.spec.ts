@@ -1,5 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { SUPPORTED_LOCALES } from '../../../../core/localization/locale-config';
+import { SEO_LOCALES } from '../../../../core/localization/locale-config';
 import { SeoLanguageSelectorComponent } from './seo-language-selector.component';
 
 describe('SeoLanguageSelectorComponent', () => {
@@ -59,8 +59,8 @@ describe('SeoLanguageSelectorComponent', () => {
     ]);
   });
 
-  it('renders a flag asset for every supported locale', () => {
-    fixture.componentRef.setInput('links', SUPPORTED_LOCALES.map((locale) => ({
+  it('renders a flag asset for every SEO locale', () => {
+    fixture.componentRef.setInput('links', SEO_LOCALES.map((locale) => ({
       locale: locale.code,
       label: locale.label,
       href: `/${locale.code}/play-commander-online/`,
@@ -71,11 +71,12 @@ describe('SeoLanguageSelectorComponent', () => {
     const element = fixture.nativeElement as HTMLElement;
     const menuFlags = Array.from(element.querySelectorAll('.seo-language-selector__menu img') as NodeListOf<HTMLImageElement>);
 
-    expect(menuFlags).toHaveLength(SUPPORTED_LOCALES.length);
+    expect(menuFlags).toHaveLength(SEO_LOCALES.length);
     expect(menuFlags.every((flag) => flag.getAttribute('src')?.startsWith('/assets/icons/flags/'))).toBe(true);
-    expect(element.querySelector('a[hreflang="ko"] img')?.getAttribute('src')).toBe('/assets/icons/flags/south-korea.svg');
-    expect(element.querySelector('a[hreflang="zh-hant"] img')?.getAttribute('src')).toBe('/assets/icons/flags/taiwan.svg');
-    expect(element.querySelector('a[hreflang="ru"] img')?.getAttribute('src')).toBe('/assets/icons/flags/russia.svg');
+    expect(element.querySelector('a[hreflang="it"] img')?.getAttribute('src')).toBe('/assets/icons/flags/italy.png');
+    expect(element.querySelector('a[hreflang="pt"] img')?.getAttribute('src')).toBe('/assets/icons/flags/portugal.png');
+    expect(element.querySelector('a[hreflang="ru"] img')).toBeNull();
+    expect(element.querySelector('a[hreflang="ja"] img')).toBeNull();
   });
 
   it('does not generate mixed locale and slug URLs', () => {

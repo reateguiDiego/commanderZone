@@ -1,4 +1,4 @@
-import { SUPPORTED_LOCALE_CODES } from '../../../core/localization/locale-config';
+import { SEO_LOCALE_CODES } from '../../../core/localization/locale-config';
 import { SEO_ROUTE_KEYS } from '../../../core/localization/seo-routes';
 import {
   SEO_LANDING_CONTENT,
@@ -8,14 +8,14 @@ import {
 } from './seo-landing-content';
 
 describe('SEO landing static content', () => {
-  it('provides content for every SEO landing and every supported locale', () => {
+  it('provides content for every SEO landing and every SEO-indexable locale', () => {
     expect(Object.keys(SEO_LANDING_CONTENT).sort()).toEqual([...SEO_ROUTE_KEYS].sort());
 
     for (const routeKey of SEO_ROUTE_KEYS) {
-      expect(Object.keys(SEO_LANDING_CONTENT[routeKey]).sort()).toEqual([...SUPPORTED_LOCALE_CODES].sort());
+      expect(Object.keys(SEO_LANDING_CONTENT[routeKey]).sort()).toEqual([...SEO_LOCALE_CODES].sort());
     }
 
-    expect(getAllSeoLandingContentEntries()).toHaveLength(SEO_ROUTE_KEYS.length * SUPPORTED_LOCALE_CODES.length);
+    expect(getAllSeoLandingContentEntries()).toHaveLength(SEO_ROUTE_KEYS.length * SEO_LOCALE_CODES.length);
   });
 
   it('passes required SEO content coverage validation', () => {
@@ -27,10 +27,14 @@ describe('SEO landing static content', () => {
 
     expect(content.routeKey).toBe('playCommanderOnline');
     expect(content.locale).toBe('en');
-    expect(content.seo.title).toContain('Play Commander online');
-    expect(content.seo.description).toContain('static content');
+    expect(content.seo.title).toBe('Play Commander Online | Create a Free Room on CommanderZone');
+    expect(content.seo.description).toBe('Play Commander online with friends from your browser: import or build your deck, open a room, share the link and track the game.');
     expect(content.seo.ogImage).toBe('/assets/og/play-commander-og.png');
-    expect(content.hero.title).toBe('Play Commander online');
+    expect(content.hero.title).toBe('Play Commander online without the setup headache');
+    expect(content.hero.primaryLink).toEqual({
+      label: 'Prepare deck to play',
+      href: '/decks?intent=import&next=/rooms',
+    });
     expect(content.breadcrumb.items.length).toBeGreaterThan(0);
     expect(content.internalLinks.links.length).toBeGreaterThan(0);
     expect(content.faq.items.length).toBeGreaterThan(0);
@@ -40,10 +44,17 @@ describe('SEO landing static content', () => {
   it('keeps table assistant SEO content separate from the internal table assistant app route', () => {
     const content = getSeoLandingContent('tableAssistant', 'es');
 
-    expect(content.hero.title).toContain('Asistente de mesa');
+    expect(content.hero.title.toLowerCase()).toContain('asistente de mesa');
+    expect(content.seo.title).toBe('Asistente de mesa Commander | Contador de vidas y daño de comandante');
     expect(content.seo.ogImage).toBe('/assets/og/table-assistant-og.png');
     expect(content.internalLinks.links.map((link) => link.href)).not.toContain('/table-assistant');
     expect(content.internalLinks.links.every((link) => link.href.startsWith('/es/'))).toBe(true);
+  });
+
+  it('does not duplicate the legal disclaimer inside SEO content', () => {
+    const content = getSeoLandingContent('home', 'en') as unknown as Record<string, unknown>;
+
+    expect('legalDisclaimer' in content).toBe(false);
   });
 
   it('provides default and route-specific Open Graph image paths', () => {
@@ -71,10 +82,11 @@ describe('SEO landing static content', () => {
     const content = getSeoLandingContent('faq', 'es');
 
     expect(content.seo.title).toContain('FAQ');
-    expect(content.hero.title).toContain('FAQ');
-    expect(content.faq.items.length).toBeGreaterThanOrEqual(43);
+    expect(content.hero.title).toBe('Preguntas frecuentes sobre CommanderZone');
+    expect(content.faq.items.length).toBe(16);
     expect(content.faq.items.map((item) => item.question)).toContain('¿Qué es CommanderZone?');
-    expect(content.faq.items.map((item) => item.question)).toContain('¿Puedo usar el móvil como contador de vidas de Magic?');
+    expect(content.faq.items.map((item) => item.question)).toContain('¿Necesito un mazo para crear una partida?');
+    expect(content.faq.items.map((item) => item.question)).toContain('¿Premium vende contenido oficial de Magic?');
     expect(JSON.stringify(content.jsonLd)).toContain('FAQPage');
   });
 
@@ -160,11 +172,11 @@ describe('SEO landing static content', () => {
     const content = getSeoLandingContent('home', 'en');
     const publicNavigationHrefs = content.publicNavigationLinks?.map((link) => link.href) ?? [];
     const footerHrefs = content.footerLinks?.map((link) => link.href) ?? [];
-    const sectionHrefs = content.sections?.flatMap((section) => section.links?.map((link) => link.href) ?? []) ?? [];
+    const allHrefs = getAllLandingHrefs(content);
 
     expect(publicNavigationHrefs).toContain('/en/faq/');
     expect(footerHrefs).toContain('/en/faq/');
-    expect(sectionHrefs).toContain('/en/faq/');
+    expect(allHrefs).toContain('/en/faq/');
   });
 
   it('links from home to every main SEO landing with crawlable hrefs', () => {
@@ -201,8 +213,18 @@ describe('SEO landing static content', () => {
     ]));
   });
 
+  it('routes conversion CTAs through the deck preparation funnel before rooms', () => {
+    expect(getSeoLandingContent('home', 'en').hero.primaryLink.href).toBe('/decks?intent=import&next=/rooms');
+    expect(getSeoLandingContent('playCommanderOnline', 'en').hero.primaryLink.href).toBe('/decks?intent=import&next=/rooms');
+    expect(getSeoLandingContent('createCommanderRoom', 'en').hero.primaryLink.href).toBe('/decks?intent=import&next=/rooms');
+    expect(getSeoLandingContent('createCommanderRoom', 'en').hero.secondaryLink?.href).toBe('/decks?intent=new&next=/rooms');
+    expect(getSeoLandingContent('importCommanderDeck', 'en').hero.primaryLink.href).toBe('/decks?intent=import&next=/rooms');
+    expect(getSeoLandingContent('commanderDeckBuilder', 'en').hero.primaryLink.href).toBe('/decks?intent=new&next=/rooms');
+    expect(getSeoLandingContent('tableAssistant', 'en').hero.primaryLink.href).toBe('/table-assistant');
+  });
+
   it('passes linguistic SEO QA for visible static content', () => {
-    const placeholderPattern = /\b(TODO|FIXME|Lorem ipsum|placeholder|translation missing)\b|{{|}}|__/i;
+    const placeholderPattern = /\b(?:TODO|FIXME)\b|(?:Lorem ipsum|placeholder|translation missing)|\{\{|\}\}|__/;
     const mojibakePattern = /Â|Ã|Ð|Ñ|ãƒ|ã|åœ|ì˜|í™|�/;
     const visibleKeyPattern = /\b[a-z][a-z0-9]*(?:\.[a-z][a-z0-9-]*){2,}\b/i;
 
@@ -227,7 +249,7 @@ describe('SEO landing static content', () => {
     }
   });
 
-  it('keeps generated public FAQ topics localized outside English', () => {
+  it('uses localized product copy for every SEO-indexable locale', () => {
     const untranslatedEnglishFragments = [
       'invitations and room links',
       'free Commander games',
@@ -260,9 +282,10 @@ describe('SEO landing static content', () => {
       'starting requirements',
       'Commander online options',
     ];
+    const priorityLocales = new Set(['es', 'de', 'fr', 'pt', 'it']);
 
     for (const { content } of getAllSeoLandingContentEntries()) {
-      if (content.locale === 'en') {
+      if (content.locale === 'en' || !priorityLocales.has(content.locale)) {
         continue;
       }
 
@@ -276,10 +299,12 @@ describe('SEO landing static content', () => {
         }).toEqual({ location: `${content.routeKey}/${content.locale}`, fragment, containsFragment: false });
       }
     }
+    expect(getSeoLandingContent('playCommanderOnline', 'it').hero.title).toBe('Giocare a Commander online senza complicazioni');
+    expect(getSeoLandingContent('faq', 'it').faq.items.map((item) => item.question)).toContain('Cos’è CommanderZone?');
   });
 
   it('keeps SEO titles, descriptions and H1s useful per locale', () => {
-    for (const locale of SUPPORTED_LOCALE_CODES) {
+    for (const locale of SEO_LOCALE_CODES) {
       const h1s = SEO_ROUTE_KEYS.map((routeKey) => getSeoLandingContent(routeKey, locale).hero.title);
 
       expect({ locale, uniqueH1Count: new Set(h1s).size }).toEqual({

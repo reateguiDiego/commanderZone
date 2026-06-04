@@ -8,8 +8,9 @@ describe('server routes', () => {
       .filter((route) => route.renderMode === RenderMode.Prerender)
       .map((route) => route.path);
 
-    expect(prerenderPaths).toHaveLength(130);
+    expect(prerenderPaths).toHaveLength(60);
     expect(prerenderPaths).toEqual(SEO_PRERENDER_ROUTES.map((path) => toAngularServerRoutePath(path)));
+    expect(prerenderPaths).not.toContain('ru/faq');
   });
 
   it('keeps private and dynamic runtime routes out of prerender mode', () => {

@@ -1,15 +1,19 @@
 import {
-  LocaleCode,
-  SUPPORTED_LOCALES,
-  SUPPORTED_LOCALE_CODES,
+  SEO_LOCALES,
+  SEO_LOCALE_CODES,
+  SeoLocaleCode,
   getLocaleHreflang,
 } from '../../../core/localization/locale-config';
 import { getSeoPath, SeoRouteKey } from '../../../core/localization/seo-routes';
 import { SEO_CANONICAL_ORIGIN, toSeoAbsoluteUrl } from '../../../core/seo/seo.service';
 import {
   LandingBreadcrumbContent,
+  LandingComparisonContent,
   LandingFaqContent,
+  LandingFeature,
+  LandingInternalLinksContent,
   LandingSectionContent,
+  LandingStep,
   SeoJsonLdValue,
   SeoLandingContent,
   SeoMetadataContent,
@@ -20,1475 +24,745 @@ import {
   PRODUCT_LANDING_ROUTE_KEYS,
 } from '../models/seo-landing-template.model';
 
-type LocalizedTextByRoute = Readonly<Record<SeoRouteKey, Readonly<Record<LocaleCode, string>>>>;
+type PriorityLocaleCode = 'es' | 'en' | 'de' | 'fr' | 'pt' | 'it';
 type SeoJsonLdObject = Readonly<Record<string, SeoJsonLdValue>>;
 
-interface LocaleLandingCopy {
-  readonly homeLabel: string;
-  readonly eyebrow: string;
-  readonly descriptionPrefix: string;
-  readonly descriptionSuffix: string;
+interface SectionCopy {
+  readonly id: string;
+  readonly title: string;
+  readonly text: string;
+}
+
+interface ComparisonRowCopy {
+  readonly label: string;
+  readonly firstValue: string;
+  readonly secondValue: string;
+}
+
+interface ComparisonCopy {
+  readonly title: string;
+  readonly intro: string;
+  readonly firstColumnLabel: string;
+  readonly secondColumnLabel: string;
+  readonly rows: readonly ComparisonRowCopy[];
+}
+
+interface FaqItemCopy {
+  readonly question: string;
+  readonly answer: string;
+}
+
+interface LandingCopy {
+  readonly metaTitle: string;
+  readonly metaDescription: string;
+  readonly h1: string;
+  readonly heroSubtitle: string;
   readonly primaryCta: string;
   readonly secondaryCta: string;
+  readonly sections: readonly SectionCopy[];
+  readonly features?: readonly LandingFeature[];
+  readonly steps?: readonly LandingStep[];
+  readonly comparison?: ComparisonCopy;
+  readonly faq?: readonly FaqItemCopy[];
+  readonly ctaTitle?: string;
+  readonly ctaDescription?: string;
+}
+
+interface LocaleUiCopy {
+  readonly homeLabel: string;
+  readonly eyebrow: string;
+  readonly navPlay: string;
+  readonly navFaq: string;
+  readonly footerFaq: string;
+  readonly featureGridTitle: string;
+  readonly featureGridIntro: string;
+  readonly faqTitle: string;
+  readonly faqIntro: string;
+  readonly relatedTitle: string;
+  readonly relatedIntro: string;
   readonly trustLabel: string;
   readonly manualValue: string;
   readonly manualLabel: string;
   readonly browserValue: string;
   readonly browserLabel: string;
-  readonly overviewTitle: string;
-  readonly overviewBodyPrefix: string;
-  readonly overviewBodySuffix: string;
-  readonly featureTitle: string;
-  readonly featureIntro: string;
-  readonly featureOneTitle: string;
-  readonly featureOneDescription: string;
-  readonly featureTwoTitle: string;
-  readonly featureTwoDescription: string;
-  readonly featureThreeTitle: string;
-  readonly featureThreeDescription: string;
-  readonly stepsTitle: string;
-  readonly stepOneTitle: string;
-  readonly stepOneDescription: string;
-  readonly stepTwoTitle: string;
-  readonly stepTwoDescription: string;
-  readonly stepThreeTitle: string;
-  readonly stepThreeDescription: string;
-  readonly useCasesTitle: string;
-  readonly useCasesIntro: string;
-  readonly useCaseRemoteTitle: string;
-  readonly useCaseRemoteDescription: string;
-  readonly useCasePhysicalTitle: string;
-  readonly useCasePhysicalDescription: string;
-  readonly comparisonTitle: string;
-  readonly comparisonIntro: string;
-  readonly firstColumnLabel: string;
-  readonly secondColumnLabel: string;
-  readonly comparisonRowLabel: string;
-  readonly comparisonFirstValue: string;
-  readonly comparisonSecondValue: string;
-  readonly faqTitle: string;
-  readonly faqIntro: string;
-  readonly faqQuestionPrefix: string;
-  readonly faqQuestionSuffix: string;
-  readonly faqAnswerPrefix: string;
-  readonly faqAnswerSuffix: string;
-  readonly ctaTitlePrefix: string;
-  readonly ctaDescriptionPrefix: string;
-  readonly ctaDescriptionSuffix: string;
-  readonly internalLinksTitle: string;
-  readonly internalLinksIntro: string;
+  readonly defaultCtaTitle: string;
+  readonly defaultCtaDescription: string;
+  readonly defaultFaq: readonly FaqItemCopy[];
 }
 
-interface PublicFaqTopicCopy {
-  readonly invitationsAndRoomLinks: string;
-  readonly freeCommanderGames: string;
-  readonly accountsAndRoomCreation: string;
-  readonly multiplayerCommander: string;
-  readonly pastedDecklists: string;
-  readonly creatingCommanderDecks: string;
-  readonly editingDecks: string;
-  readonly externalDeckSources: string;
-  readonly decklistFormats: string;
-  readonly existingDecks: string;
-  readonly physicalMagicGames: string;
-  readonly phoneLifeCounter: string;
-  readonly tabletTableAssistant: string;
-  readonly inPersonGames: string;
-  readonly commanderDamage: string;
-  readonly severalLifeTotals: string;
-  readonly poisonTracking: string;
-  readonly tableAssistantWithoutRoom: string;
-  readonly spellTableComparison: string;
-  readonly cockatriceComparison: string;
-  readonly mtgoComparison: string;
-  readonly mtgArenaComparison: string;
-  readonly untapComparison: string;
-  readonly edhPlayComparison: string;
-  readonly mobileDevices: string;
-  readonly tablets: string;
-  readonly desktopSystems: string;
-  readonly cameraRequirements: string;
-  readonly noWebcam: string;
-  readonly physicalCards: string;
-  readonly privateGames: string;
-  readonly roomLinks: string;
-  readonly startingRequirements: string;
-}
+const PRIORITY_LOCALES = ['es', 'en', 'de', 'fr', 'pt', 'it'] as const satisfies readonly PriorityLocaleCode[];
 
-const ROUTE_LABELS: LocalizedTextByRoute = {
+const LOCALE_COPY = {
+  es: {
+    homeLabel: 'CommanderZone',
+    eyebrow: 'Mesa manual de Commander',
+    navPlay: 'Jugar online',
+    navFaq: 'FAQ',
+    footerFaq: 'Preguntas frecuentes',
+    featureGridTitle: 'Qué puedes hacer en CommanderZone',
+    featureGridIntro: 'Herramientas pensadas para preparar la partida y mantener clara la mesa.',
+    faqTitle: 'Preguntas frecuentes',
+    faqIntro: 'Respuestas directas para jugadores de Commander.',
+    relatedTitle: 'Más sobre CommanderZone',
+    relatedIntro: 'Sigue explorando las landings públicas de CommanderZone.',
+    trustLabel: 'CommanderZone está pensado para pods reales',
+    manualValue: 'Manual',
+    manualLabel: 'Sin motor automático de reglas',
+    browserValue: 'Navegador',
+    browserLabel: 'Online, móvil y tablet',
+    defaultCtaTitle: 'Empieza tu próxima partida de Commander',
+    defaultCtaDescription: 'Crea una sala, comparte el enlace y empieza a jugar con tu grupo.',
+    defaultFaq: [
+      {
+        question: '¿CommanderZone aplica reglas automáticamente?',
+        answer: 'No. La mesa es manual y flexible. Los jugadores mantienen el control de la partida.',
+      },
+      {
+        question: '¿Necesito instalar algo?',
+        answer: 'No. CommanderZone funciona desde el navegador.',
+      },
+    ],
+  },
+  en: {
+    homeLabel: 'CommanderZone',
+    eyebrow: 'Manual Commander table',
+    navPlay: 'Play online',
+    navFaq: 'FAQ',
+    footerFaq: 'Frequently asked questions',
+    featureGridTitle: 'What you can do in CommanderZone',
+    featureGridIntro: 'Tools built to prepare the game and keep the table clear.',
+    faqTitle: 'Frequently asked questions',
+    faqIntro: 'Direct answers for Commander players.',
+    relatedTitle: 'More from CommanderZone',
+    relatedIntro: 'Keep exploring CommanderZone public pages.',
+    trustLabel: 'CommanderZone is built for real pods',
+    manualValue: 'Manual',
+    manualLabel: 'No automatic rules engine',
+    browserValue: 'Browser',
+    browserLabel: 'Online, phone and tablet',
+    defaultCtaTitle: 'Start your next Commander game',
+    defaultCtaDescription: 'Create a room, share the link and start playing with your group.',
+    defaultFaq: [
+      {
+        question: 'Does CommanderZone enforce Magic rules automatically?',
+        answer: 'No. The table is manual and flexible. Players stay in control of the game.',
+      },
+      {
+        question: 'Do I need to install anything?',
+        answer: 'No. CommanderZone runs in the browser.',
+      },
+    ],
+  },
+  de: {
+    homeLabel: 'CommanderZone',
+    eyebrow: 'Manueller Commander-Tisch',
+    navPlay: 'Online spielen',
+    navFaq: 'FAQ',
+    footerFaq: 'Häufige Fragen',
+    featureGridTitle: 'Was du mit CommanderZone tun kannst',
+    featureGridIntro: 'Werkzeuge, um Partien vorzubereiten und den Tisch übersichtlich zu halten.',
+    faqTitle: 'Häufige Fragen',
+    faqIntro: 'Direkte Antworten für Commander-Spieler.',
+    relatedTitle: 'Mehr zu CommanderZone',
+    relatedIntro: 'Entdecke weitere öffentliche CommanderZone-Seiten.',
+    trustLabel: 'CommanderZone ist für echte Commander-Runden gedacht',
+    manualValue: 'Manuell',
+    manualLabel: 'Kein automatischer Regelmotor',
+    browserValue: 'Browser',
+    browserLabel: 'Online, Smartphone und Tablet',
+    defaultCtaTitle: 'Starte deine nächste Commander-Partie',
+    defaultCtaDescription: 'Erstelle einen Raum, teile den Link und spiele mit deiner Gruppe.',
+    defaultFaq: [
+      {
+        question: 'Automatisiert CommanderZone Magic-Regeln?',
+        answer: 'Nein. Der Tisch ist manuell und flexibel. Die Spieler behalten die Kontrolle über die Partie.',
+      },
+      {
+        question: 'Muss ich etwas installieren?',
+        answer: 'Nein. CommanderZone funktioniert im Browser.',
+      },
+    ],
+  },
+  fr: {
+    homeLabel: 'CommanderZone',
+    eyebrow: 'Table Commander manuelle',
+    navPlay: 'Jouer en ligne',
+    navFaq: 'FAQ',
+    footerFaq: 'Questions fréquentes',
+    featureGridTitle: 'Ce que vous pouvez faire dans CommanderZone',
+    featureGridIntro: 'Des outils pour préparer la partie et garder la table lisible.',
+    faqTitle: 'Questions fréquentes',
+    faqIntro: 'Des réponses directes pour les joueurs de Commander.',
+    relatedTitle: 'Plus sur CommanderZone',
+    relatedIntro: 'Continuez à explorer les pages publiques de CommanderZone.',
+    trustLabel: 'CommanderZone est pensé pour de vrais groupes',
+    manualValue: 'Manuel',
+    manualLabel: 'Pas de moteur de règles automatique',
+    browserValue: 'Navigateur',
+    browserLabel: 'En ligne, mobile et tablette',
+    defaultCtaTitle: 'Lancez votre prochaine partie de Commander',
+    defaultCtaDescription: 'Créez une salle, partagez le lien et commencez à jouer avec votre groupe.',
+    defaultFaq: [
+      {
+        question: 'CommanderZone applique-t-il automatiquement les règles de Magic ?',
+        answer: 'Non. La table est manuelle et flexible. Les joueurs gardent le contrôle de la partie.',
+      },
+      {
+        question: 'Dois-je installer quelque chose ?',
+        answer: 'Non. CommanderZone fonctionne depuis le navigateur.',
+      },
+    ],
+  },
+  pt: {
+    homeLabel: 'CommanderZone',
+    eyebrow: 'Mesa manual de Commander',
+    navPlay: 'Jogar online',
+    navFaq: 'FAQ',
+    footerFaq: 'Perguntas frequentes',
+    featureGridTitle: 'O que você pode fazer no CommanderZone',
+    featureGridIntro: 'Ferramentas para preparar a partida e manter a mesa clara.',
+    faqTitle: 'Perguntas frequentes',
+    faqIntro: 'Respostas diretas para jogadores de Commander.',
+    relatedTitle: 'Mais sobre CommanderZone',
+    relatedIntro: 'Continue explorando as páginas públicas do CommanderZone.',
+    trustLabel: 'CommanderZone foi feito para grupos reais',
+    manualValue: 'Manual',
+    manualLabel: 'Sem motor automático de regras',
+    browserValue: 'Navegador',
+    browserLabel: 'Online, celular e tablet',
+    defaultCtaTitle: 'Comece sua próxima partida de Commander',
+    defaultCtaDescription: 'Crie uma sala, compartilhe o link e comece a jogar com seu grupo.',
+    defaultFaq: [
+      {
+        question: 'O CommanderZone aplica regras automaticamente?',
+        answer: 'Não. A mesa é manual e flexível. Os jogadores mantêm o controle da partida.',
+      },
+      {
+        question: 'Preciso instalar algo?',
+        answer: 'Não. CommanderZone funciona pelo navegador.',
+      },
+    ],
+  },
+  it: {
+    homeLabel: 'CommanderZone',
+    eyebrow: 'Tavolo Commander manuale',
+    navPlay: 'Gioca online',
+    navFaq: 'FAQ',
+    footerFaq: 'Domande frequenti',
+    featureGridTitle: 'Cosa puoi fare con CommanderZone',
+    featureGridIntro: 'Strumenti pensati per preparare la partita, usare i tuoi mazzi e mantenere il tavolo chiaro.',
+    faqTitle: 'Domande frequenti',
+    faqIntro: 'Risposte dirette per giocatori di Commander.',
+    relatedTitle: 'Scopri altro su CommanderZone',
+    relatedIntro: 'Esplora altri modi per giocare, preparare mazzi e usare CommanderZone.',
+    trustLabel: 'CommanderZone è pensato per pod reali',
+    manualValue: 'Manuale',
+    manualLabel: 'Senza motore automatico di regole',
+    browserValue: 'Browser',
+    browserLabel: 'Online, smartphone e tablet',
+    defaultCtaTitle: 'Inizia la tua prossima partita Commander',
+    defaultCtaDescription: 'Prepara il tuo mazzo, crea una stanza e inizia a giocare con il tuo gruppo.',
+    defaultFaq: [
+      faq('CommanderZone applica automaticamente le regole di Magic?', 'No. Il tavolo è manuale e flessibile. I giocatori mantengono il controllo della partita.'),
+      faq('Devo installare qualcosa?', 'No. CommanderZone funziona dal browser.'),
+    ],
+  },
+} as const satisfies Record<PriorityLocaleCode, LocaleUiCopy>;
+
+const LANDING_COPY = {
   home: {
-    es: 'CommanderZone',
-    en: 'CommanderZone',
-    de: 'CommanderZone',
-    fr: 'CommanderZone',
-    it: 'CommanderZone',
-    pt: 'CommanderZone',
-    ja: 'CommanderZone',
-    ko: 'CommanderZone',
-    'zh-hans': 'CommanderZone',
-    'zh-hant': 'CommanderZone',
-    nl: 'CommanderZone',
-    ca: 'CommanderZone',
-    ru: 'CommanderZone',
+    es: {
+      metaTitle: 'CommanderZone | Juega Commander online con tu grupo',
+      metaDescription: 'Prepara tu mazo, crea una sala y juega Commander online con tu pod en una mesa clara, rápida y pensada para partidas reales.',
+      h1: 'Juega Commander online con tu grupo en segundos',
+      heroSubtitle: 'Importa o crea tu mazo, crea una sala, comparte el enlace y juega Commander online con una mesa clara, rápida y pensada para partidas reales.',
+      primaryCta: 'Preparar mazo y jugar',
+      secondaryCta: 'Ver cómo funciona',
+      sections: [
+        section('commander-table', 'Una mesa pensada para Commander', 'CommanderZone no intenta automatizar cada regla de Magic. Está pensada para grupos que ya saben jugar y quieren una mesa online cómoda, rápida y flexible.'),
+        section('deck-to-game', 'Del mazo a la partida', 'Importa tus listas, organízalas y llévalas directamente a la mesa. Menos tiempo configurando, más tiempo jugando.'),
+        section('online-or-paper', 'Online o en mesa física', 'Juega online con amigos o usa el Asistente de mesa desde móvil o tablet durante tus partidas presenciales.'),
+      ],
+      features: [
+        feature('Crea salas rápidas', 'Genera una sala y comparte el enlace con tu pod.'),
+        feature('Usa tus mazos', 'Importa tus listas y tenlas listas para jugar.'),
+        feature('Controla la partida', 'Gestiona vidas, daño de comandante y estado de mesa.'),
+        feature('Mejora tus listas', 'Analiza tus mazos y detecta puntos débiles.'),
+        feature('Asistente de mesa', 'Usa el móvil o la tablet en partidas físicas.'),
+        feature('Pensado para pods reales', 'Manual, flexible y sin automatizaciones innecesarias.'),
+      ],
+      ctaTitle: 'Prepara tu mazo, crea una sala y juega Commander online',
+      ctaDescription: 'Empieza por el mazo, abre una sala cuando esté listo y comparte el enlace con tu pod.',
+    },
+    en: {
+      metaTitle: 'CommanderZone | Play Commander Online with Your Pod',
+      metaDescription: 'Prepare your deck, create a room and play Commander online with your pod on a clear, fast table built for real games.',
+      h1: 'Play Commander online with your pod in seconds',
+      heroSubtitle: 'Import or build your deck, create a room, share the link and play Commander online with a clear, fast table built for real games.',
+      primaryCta: 'Prepare deck and play',
+      secondaryCta: 'See how it works',
+      sections: [
+        section('commander-table', 'A table built for Commander', 'CommanderZone does not try to automate every Magic rule. It is built for groups that already know how to play and want a fast, flexible online table.'),
+        section('deck-to-game', 'From decklist to game', 'Import your lists, organize your decks and bring them straight to the table. Less setup, more playing.'),
+        section('online-or-paper', 'Online or at the physical table', 'Play online with friends or use the Table Assistant from your phone or tablet during paper games.'),
+      ],
+      features: [
+        feature('Create rooms fast', 'Generate a room and share the link with your pod.'),
+        feature('Use your decks', 'Import your lists and get ready to play.'),
+        feature('Track the game', 'Manage life totals, commander damage and table state.'),
+        feature('Improve your lists', 'Analyze your decks and spot weak points.'),
+        feature('Table Assistant', 'Use your phone or tablet for paper games.'),
+        feature('Built for real pods', 'Manual, flexible and free from unnecessary automation.'),
+      ],
+      ctaTitle: 'Prepare your deck, create a room and play Commander online',
+      ctaDescription: 'Start with the deck, open a room when it is ready and share the link with your pod.',
+    },
+    de: localizedHome('CommanderZone | Commander online mit deiner Gruppe spielen', 'Bereite dein Deck vor, erstelle einen Raum und spiele Commander online mit deiner Gruppe an einem klaren Tisch für echte Partien.', 'Commander online mit deiner Gruppe spielen', 'Bereite dein Deck vor, erstelle einen Raum und spiele Commander online mit deiner Gruppe.', 'Deck vorbereiten und spielen', 'So funktioniert es', 'de'),
+    fr: localizedHome('CommanderZone | Jouer à Commander en ligne avec votre groupe', 'Préparez votre deck, créez une salle et jouez à Commander en ligne avec votre groupe sur une table claire.', 'Jouer à Commander en ligne avec votre groupe', 'Préparez votre deck, créez une salle et jouez à Commander en ligne avec votre groupe.', 'Préparer un deck et jouer', 'Voir comment ça marche', 'fr'),
+    pt: localizedHome('CommanderZone | Jogue Commander online com seu grupo', 'Prepare seu deck, crie uma sala e jogue Commander online com seu grupo em uma mesa clara para partidas reais.', 'Jogue Commander online com seu grupo em segundos', 'Prepare seu deck, crie uma sala e jogue Commander online com seu grupo.', 'Preparar deck e jogar', 'Ver como funciona', 'pt'),
+    it: simpleCopy('CommanderZone | Gioca a Commander online con il tuo gruppo', 'Prepara il tuo mazzo, crea una stanza Commander, condividi il link con il tuo gruppo e gioca online con un tavolo pensato per pod reali.', 'Gioca a Commander online con il tuo gruppo', 'Importa o crea il tuo mazzo, crea una stanza, condividi il link e gioca a Commander online con un tavolo chiaro, rapido e pensato per partite reali.', 'Preparare mazzo e giocare', 'Vedi come funziona', [
+      section('commander-table', 'Un tavolo pensato per Commander', 'CommanderZone non prova ad automatizzare ogni regola di Magic. È pensato per gruppi che sanno già giocare e vogliono un tavolo online comodo, rapido e flessibile.'),
+      section('deck-to-game', 'Dal mazzo alla partita', 'Importa le tue liste, organizza i tuoi mazzi e portali direttamente al tavolo. Meno configurazione, più tempo per giocare.'),
+      section('online-or-paper', 'Online o al tavolo fisico', 'Gioca online con gli amici oppure usa l’Assistente da tavolo da smartphone o tablet durante le partite dal vivo.'),
+    ], [
+      feature('Crea stanze rapidamente', 'Prepara una stanza e condividi il link con il tuo pod.'),
+      feature('Usa i tuoi mazzi', 'Importa le tue liste e rendile pronte per giocare.'),
+      feature('Controlla la partita', 'Gestisci punti vita, danno da comandante e stato del tavolo.'),
+      feature('Migliora le tue liste', 'Analizza i tuoi mazzi e individua i punti deboli.'),
+      feature('Assistente da tavolo', 'Usa smartphone o tablet durante le partite fisiche.'),
+      feature('Pensato per pod reali', 'Manuale, flessibile e senza automatismi inutili.'),
+    ]),
   },
   playCommanderOnline: {
-    es: 'Jugar Commander online',
-    en: 'Play Commander online',
-    de: 'Commander online spielen',
-    fr: 'Jouer a Commander en ligne',
-    it: 'Giocare a Commander online',
-    pt: 'Jogar Commander online',
-    ja: 'Commanderをオンラインで遊ぶ',
-    ko: 'Commander 온라인 플레이',
-    'zh-hans': '在线玩 Commander',
-    'zh-hant': '線上玩 Commander',
-    nl: 'Commander online spelen',
-    ca: 'Jugar Commander online',
-    ru: 'Играть в Commander онлайн',
-  },
-  playMagicOnlineWithFriends: {
-    es: 'Jugar Magic online con amigos',
-    en: 'Play Magic online with friends',
-    de: 'Magic online mit Freunden spielen',
-    fr: 'Jouer a Magic en ligne avec des amis',
-    it: 'Giocare a Magic online con amici',
-    pt: 'Jogar Magic online com amigos',
-    ja: '友達とMagicをオンラインで遊ぶ',
-    ko: '친구와 Magic 온라인 플레이',
-    'zh-hans': '和朋友在线玩 Magic',
-    'zh-hant': '和朋友線上玩 Magic',
-    nl: 'Magic online spelen met vrienden',
-    ca: 'Jugar Magic online amb amics',
-    ru: 'Играть в Magic онлайн с друзьями',
+    es: {
+      metaTitle: 'Jugar Commander online | Crea una sala gratis en CommanderZone',
+      metaDescription: 'Juega Commander online con amigos desde el navegador: importa o crea tu mazo, abre una sala, comparte el enlace y controla la partida.',
+      h1: 'Jugar Commander online sin complicaciones',
+      heroSubtitle: 'Importa o crea tu mazo, invita a tus amigos y juega desde el navegador con una mesa pensada para partidas multijugador reales.',
+      primaryCta: 'Preparar mazo para jugar',
+      secondaryCta: 'Cómo funciona',
+      sections: [
+        section('fast-start', 'Una forma rápida de montar la partida', 'No necesitas configurar una plataforma compleja para empezar. El flujo es directo: preparar mazo, crear sala, compartir enlace y jugar.'),
+        section('manual-control', 'Mesa manual, control real', 'Commander es un formato social. CommanderZone te da herramientas para organizar la partida, pero las decisiones siguen siendo de los jugadores.'),
+        section('long-games', 'Preparada para partidas largas', 'Una partida de Commander puede durar horas. La interfaz debe ser clara, estable y cómoda durante toda la sesión.'),
+      ],
+      features: [
+        feature('Salas privadas', 'Comparte la partida solo con tu grupo.'),
+        feature('Vidas y daño de comandante', 'Controla la información clave de la partida.'),
+        feature('Mazos disponibles', 'Lleva tus listas a la mesa.'),
+        feature('Desde el navegador', 'Juega sin instalar una aplicación pesada.'),
+      ],
+      faq: [
+        faq('¿Puedo jugar Commander online con 4 jugadores?', 'Sí. CommanderZone está pensada para pods de Commander y partidas multijugador.'),
+        faq('¿Necesito instalar algo?', 'No. CommanderZone funciona desde el navegador.'),
+        faq('¿La mesa aplica reglas automáticamente?', 'No. La mesa es manual y flexible. Los jugadores mantienen el control de la partida.'),
+        faq('¿Puedo usar mis propios mazos?', 'Sí. CommanderZone está pensada para importar mazos y usarlos en tus partidas.'),
+      ],
+    },
+    en: {
+      metaTitle: 'Play Commander Online | Create a Free Room on CommanderZone',
+      metaDescription: 'Play Commander online with friends from your browser: import or build your deck, open a room, share the link and track the game.',
+      h1: 'Play Commander online without the setup headache',
+      heroSubtitle: 'Import or build your deck, invite your friends and play from your browser with a table built for real multiplayer games.',
+      primaryCta: 'Prepare deck to play',
+      secondaryCta: 'How it works',
+      sections: [
+        section('fast-start', 'A faster way to start the game', 'You do not need a complex setup to play. Prepare a deck, create a room, share the link and start playing.'),
+        section('manual-control', 'Manual table, real control', 'Commander is a social format. CommanderZone gives your group the tools, but the players stay in control of the game.'),
+        section('long-games', 'Built for long games', 'Commander games can last for hours. The table should stay clear, stable and comfortable for the whole session.'),
+      ],
+      features: [
+        feature('Private rooms', 'Share the game only with your group.'),
+        feature('Life and commander damage', 'Track the key information of a Commander game.'),
+        feature('Decks ready to use', 'Bring your lists to the table.'),
+        feature('Browser-based', 'Play without installing a heavy app.'),
+      ],
+      faq: [
+        faq('Can I play Commander online with four players?', 'Yes. CommanderZone is built for Commander pods and multiplayer games.'),
+        faq('Do I need to install anything?', 'No. CommanderZone runs in the browser.'),
+        faq('Does the table enforce Magic rules automatically?', 'No. The table is manual and flexible. Players stay in control of the game.'),
+        faq('Can I use my own decks?', 'Yes. CommanderZone is designed to import decks and use them in your games.'),
+      ],
+    },
+    de: localizedPlayCommander('Commander online spielen | Deck vorbereiten und Raum erstellen', 'Spiele Commander online mit Freunden: bereite dein Deck vor, erstelle einen Raum, teile den Link und behalte die Partie im Blick.', 'Commander online spielen ohne unnötige Einrichtung', 'Importiere oder erstelle dein Deck, lade deine Freunde ein und spiele direkt im Browser an einem Tisch für echte Mehrspieler-Partien.', 'Deck zum Spielen vorbereiten', 'So funktioniert es', 'de'),
+    fr: localizedPlayCommander('Jouer à Commander en ligne | Préparer un deck et créer une salle', 'Jouez à Commander en ligne avec vos amis : préparez votre deck, créez une salle, partagez le lien et suivez la partie.', 'Jouer à Commander en ligne sans configuration compliquée', 'Importez ou créez votre deck, invitez vos amis et jouez depuis le navigateur sur une table pensée pour les parties multijoueurs.', 'Préparer un deck pour jouer', 'Comment ça marche', 'fr'),
+    pt: localizedPlayCommander('Jogar Commander online | Prepare deck e crie uma sala', 'Jogue Commander online com amigos: prepare seu deck, crie uma sala, compartilhe o link e acompanhe a partida.', 'Jogar Commander online sem complicação', 'Importe ou crie seu deck, convide seus amigos e jogue pelo navegador em uma mesa feita para partidas multiplayer reais.', 'Preparar deck para jogar', 'Como funciona', 'pt'),
+    it: simpleCopy('Giocare a Commander online | Prepara un mazzo e crea una stanza', 'Gioca a Commander online con gli amici dal browser. Importa o crea il tuo mazzo, crea una stanza, condividi il link e tieni traccia di vite e danno da comandante.', 'Giocare a Commander online senza complicazioni', 'Importa o crea il tuo mazzo, invita i tuoi amici e gioca dal browser con un tavolo pensato per vere partite multiplayer.', 'Preparare mazzo per giocare', 'Come funziona', [
+      section('fast-start', 'Un modo rapido per iniziare la partita', 'Non serve configurare una piattaforma complicata. Il flusso è semplice: prepara il mazzo, crea la stanza, condividi il link e gioca.'),
+      section('manual-control', 'Tavolo manuale, controllo reale', 'Commander è un formato sociale. CommanderZone ti dà gli strumenti per organizzare la partita, ma le decisioni restano nelle mani dei giocatori.'),
+      section('long-games', 'Pensato per partite lunghe', 'Una partita Commander può durare ore. L’interfaccia deve restare chiara, stabile e comoda per tutta la sessione.'),
+    ], [
+      feature('Stanze private', 'Condividi la partita solo con il tuo gruppo.'),
+      feature('Vite e danno da comandante', 'Tieni sotto controllo le informazioni chiave della partita.'),
+      feature('Mazzi pronti', 'Porta le tue liste direttamente al tavolo.'),
+      feature('Dal browser', 'Gioca senza installare applicazioni pesanti.'),
+    ], [
+      faq('Posso giocare a Commander online con quattro giocatori?', 'Sì. CommanderZone è pensato per pod Commander e partite multiplayer.'),
+      faq('Devo installare qualcosa?', 'No. CommanderZone funziona dal browser.'),
+      faq('Il tavolo applica automaticamente le regole di Magic?', 'No. Il tavolo è manuale e flessibile. I giocatori mantengono il controllo della partita.'),
+      faq('Posso usare i miei mazzi?', 'Sì. CommanderZone è pensato per importare, creare o selezionare mazzi e usarli nelle tue partite.'),
+    ]),
   },
   createCommanderRoom: {
-    es: 'Crear sala Commander online',
-    en: 'Create a Commander room',
-    de: 'Commander-Raum erstellen',
-    fr: 'Creer une salle Commander',
-    it: 'Creare una stanza Commander',
-    pt: 'Criar sala Commander',
-    ja: 'Commanderルームを作成',
-    ko: 'Commander 방 만들기',
-    'zh-hans': '创建 Commander 房间',
-    'zh-hant': '建立 Commander 房間',
-    nl: 'Commander-kamer maken',
-    ca: 'Crear sala Commander',
-    ru: 'Создать комнату Commander',
+    es: simpleCopy('Crear sala Commander online | CommanderZone', 'Prepara tu mazo, crea una sala privada de Commander online, comparte el enlace con tu grupo y empieza desde el navegador.', 'Crea una sala de Commander online en segundos', 'Prepara tu mazo, abre una sala, invita a tu pod y juega Commander online sin configuraciones innecesarias.', 'Importar mazo y crear sala', 'Crear mazo desde cero', [
+      section('deck-first', 'Primero el mazo, luego la sala', 'Para empezar una partida necesitas tener un mazo preparado. Puedes importar una decklist, crear un mazo desde cero o seleccionar uno de tus mazos guardados antes de crear la sala.'),
+      section('link-invite', 'El enlace es la invitación', 'Invitar a otros jugadores debe ser tan simple como compartir un enlace.'),
+      section('lobby', 'Lobby antes de jugar', 'Organiza quién entra, qué mazos se usan y cuándo empieza la partida.'),
+      section('room-to-game', 'De sala a partida', 'Cuando el grupo está listo, la sala se convierte en una mesa clara y centrada en Commander.'),
+    ], [
+      feature('Sala privada', 'Comparte el enlace solo con quien quieras.'),
+      feature('Preparación del pod', 'Organiza jugadores antes de empezar.'),
+      feature('Mazo listo', 'Selecciona o importa el mazo que vas a usar.'),
+      feature('Inicio rápido', 'Menos pasos antes de la partida.'),
+    ]),
+    en: simpleCopy('Create a Commander Room Online | CommanderZone', 'Prepare your deck, create a private Commander room online, share the link with your group and start from your browser.', 'Create a Commander room online in seconds', 'Prepare your deck, open a room, invite your pod and play Commander online without unnecessary setup.', 'Import deck and create room', 'Build deck from scratch', [
+      section('deck-first', 'Deck first, room next', 'To start a game, you need a deck ready. Import a decklist, build a deck from scratch or choose one of your saved decks before creating the room.'),
+      section('link-invite', 'The link is the invite', 'Inviting other players should be as simple as sharing a link.'),
+      section('lobby', 'Lobby before the game', 'Organize who joins, which decks are used and when the game starts.'),
+      section('room-to-game', 'From room to table', 'When your group is ready, the room becomes a clear table focused on Commander.'),
+    ], [
+      feature('Private room', 'Share the link only with the people you choose.'),
+      feature('Pod setup', 'Organize players before the game starts.'),
+      feature('Deck ready', 'Select or import the deck you want to play.'),
+      feature('Fast start', 'Fewer steps before the game.'),
+    ]),
+    de: localizedCreateRoom('Commander-Raum online erstellen | CommanderZone', 'Bereite dein Deck vor, erstelle einen privaten Commander-Raum online, teile den Link und starte die Partie im Browser.', 'Erstelle einen Commander-Raum in Sekunden', 'Bereite dein Deck vor, öffne einen Raum, lade deine Gruppe ein und spiele Commander online ohne unnötige Einrichtung.', 'Deck importieren und Raum erstellen', 'Deck neu erstellen', 'de'),
+    fr: localizedCreateRoom('Créer une salle Commander en ligne | CommanderZone', 'Préparez votre deck, créez une salle privée de Commander en ligne, partagez le lien et lancez la partie depuis le navigateur.', 'Créer une salle Commander en ligne en quelques secondes', 'Préparez votre deck, ouvrez une salle, invitez votre groupe et jouez à Commander en ligne sans configuration inutile.', 'Importer un deck et créer une salle', 'Créer un deck', 'fr'),
+    pt: localizedCreateRoom('Criar sala Commander online | CommanderZone', 'Prepare seu deck, crie uma sala privada de Commander online, compartilhe o link e comece a partida pelo navegador.', 'Crie uma sala de Commander online em segundos', 'Prepare seu deck, abra uma sala, convide seu grupo e jogue Commander online sem configuração desnecessária.', 'Importar deck e criar sala', 'Criar deck do zero', 'pt'),
+    it: simpleCopy('Creare una stanza Commander online | CommanderZone', 'Prepara il tuo mazzo, crea una stanza Commander online, condividi il link con il tuo gruppo e inizia la partita dal browser.', 'Crea una stanza Commander online in pochi secondi', 'Prepara il tuo mazzo, apri una stanza, invita il tuo pod e gioca a Commander online senza configurazioni inutili.', 'Importare mazzo e creare stanza', 'Creare mazzo da zero', [
+      section('deck-first', 'Prima il mazzo, poi la stanza', 'Per iniziare una partita serve un mazzo pronto. Puoi importare una decklist, creare un mazzo da zero o scegliere uno dei tuoi mazzi salvati prima di creare la stanza.'),
+      section('link-invite', 'Il link è l’invito', 'Invitare altri giocatori dovrebbe essere semplice come condividere un link.'),
+      section('lobby', 'Lobby prima della partita', 'Organizza chi entra, quali mazzi vengono usati e quando inizia la partita.'),
+      section('room-to-game', 'Dalla stanza al tavolo', 'Quando il gruppo è pronto, la stanza diventa un tavolo chiaro e centrato su Commander.'),
+    ], [
+      feature('Stanza privata', 'Condividi il link solo con chi vuoi.'),
+      feature('Preparazione del pod', 'Organizza i giocatori prima di iniziare.'),
+      feature('Mazzo pronto', 'Importa, crea o seleziona il mazzo da usare.'),
+      feature('Avvio rapido', 'Meno passaggi prima della partita.'),
+    ]),
   },
   importCommanderDeck: {
-    es: 'Importar mazo Commander',
-    en: 'Import a Commander deck',
-    de: 'Commander-Deck importieren',
-    fr: 'Importer un deck Commander',
-    it: 'Importare un mazzo Commander',
-    pt: 'Importar deck Commander',
-    ja: 'Commanderデッキをインポート',
-    ko: 'Commander 덱 가져오기',
-    'zh-hans': '导入 Commander 套牌',
-    'zh-hant': '匯入 Commander 套牌',
-    nl: 'Commander-deck importeren',
-    ca: 'Importar baralla Commander',
-    ru: 'Импортировать колоду Commander',
+    es: simpleCopy('Importar mazo Commander | CommanderZone', 'Importa tu mazo Commander desde una lista de texto, guárdalo y úsalo para crear una sala online con tu grupo.', 'Importa tu mazo Commander y llévalo a la mesa', 'Pega tu decklist, guarda el mazo y úsalo para crear una sala.', 'Importar mazo', 'Crear mazo desde cero', [
+      section('existing-lists', 'No empieces desde cero', 'Si ya tienes tus listas en texto u otras plataformas, impórtalas sin rehacer el trabajo completo.'),
+      section('ready-to-play', 'Preparado para jugar', 'Importar un mazo no es solo guardarlo: es tenerlo listo para usarlo en una sala.'),
+      section('analysis', 'Análisis después de importar', 'Revisa tierras, curva, colores, tipos de carta, ramp, robo e interacción antes de la partida.'),
+    ], [
+      feature('Pega tu lista', 'Importa desde texto de forma rápida.'),
+      feature('Organiza mazos', 'Guarda y clasifica tus listas.'),
+      feature('Revisa composición', 'Consulta curva, colores y tipos de carta.'),
+      feature('Úsalo en sala', 'Lleva el mazo directamente a la partida.'),
+    ]),
+    en: simpleCopy('Import Commander Deck | CommanderZone', 'Import your Commander deck from a text list, save it and use it to create an online room with your group.', 'Import your Commander deck and bring it to the table', 'Paste your decklist, save the deck and use it to create a room.', 'Import deck', 'Build deck from scratch', [
+      section('existing-lists', 'Do not start from scratch', 'If you already have your lists in text or other tools, import them without rebuilding everything.'),
+      section('ready-to-play', 'Ready to play', 'Importing a deck is not just saving it. It means having it ready to use in a room.'),
+      section('analysis', 'Analyze after importing', 'Review lands, curve, colors, card types, ramp, draw and interaction before the game.'),
+    ], [
+      feature('Paste your list', 'Import from text quickly.'),
+      feature('Organize decks', 'Save and classify your lists.'),
+      feature('Review composition', 'Check curve, colors and card types.'),
+      feature('Use it in a room', 'Bring the deck straight to the game.'),
+    ]),
+    de: localizedImportDeck('Commander-Deck importieren | CommanderZone', 'Importiere dein Commander-Deck aus einer Textliste, speichere es und nutze es zum Erstellen eines Online-Raums.', 'Importiere dein Commander-Deck und bring es an den Tisch', 'Füge deine Deckliste ein, speichere das Deck und nutze es, um einen Raum zu erstellen.', 'Deck importieren', 'Deck neu erstellen', 'de'),
+    fr: localizedImportDeck('Importer un deck Commander | CommanderZone', 'Importez votre deck Commander depuis une liste de texte, sauvegardez-le et utilisez-le pour créer une salle en ligne.', 'Importez votre deck Commander et amenez-le à la table', 'Collez votre decklist, sauvegardez le deck et utilisez-le pour créer une salle.', 'Importer un deck', 'Créer un deck', 'fr'),
+    pt: localizedImportDeck('Importar deck Commander | CommanderZone', 'Importe seu deck Commander a partir de uma lista de texto, salve-o e use-o para criar uma sala online.', 'Importe seu deck Commander e leve-o para a mesa', 'Cole sua decklist, salve o deck e use-o para criar uma sala.', 'Importar deck', 'Criar deck do zero', 'pt'),
+    it: simpleCopy('Importare mazzo Commander | CommanderZone', 'Importa il tuo mazzo Commander da una lista di testo e preparalo per giocare online, analizzarlo e usarlo nelle tue partite.', 'Importa il tuo mazzo Commander e portalo al tavolo', 'Incolla la tua decklist, salva il mazzo e usalo in CommanderZone per giocare online, controllare la curva e preparare le tue partite.', 'Importare mazzo', 'Creare mazzo da zero', [
+      section('existing-lists', 'Non ripartire da zero', 'Se hai già le tue liste in formato testo o su altre piattaforme, importale senza ricostruire tutto da capo.'),
+      section('ready-to-play', 'Pronto per giocare', 'Importare un mazzo non significa solo salvarlo: significa averlo pronto per creare una stanza e iniziare la partita.'),
+      section('analysis', 'Analisi dopo l’importazione', 'Controlla terre, curva, colori, tipi di carta, ramp, pescate e interazione prima della partita.'),
+    ], [
+      feature('Incolla la lista', 'Importa rapidamente da testo.'),
+      feature('Organizza mazzi', 'Salva e classifica le tue liste.'),
+      feature('Controlla la composizione', 'Verifica curva, colori e tipi di carta.'),
+      feature('Usalo in stanza', 'Porta il mazzo direttamente in partita.'),
+    ]),
   },
   commanderDeckBuilder: {
-    es: 'Deck builder Commander',
-    en: 'Commander deck builder',
-    de: 'Commander Deck Builder',
-    fr: 'Constructeur de deck Commander',
-    it: 'Deck builder Commander',
-    pt: 'Construtor de deck Commander',
-    ja: 'Commanderデッキビルダー',
-    ko: 'Commander 덱 빌더',
-    'zh-hans': 'Commander 套牌构筑器',
-    'zh-hant': 'Commander 套牌構築器',
-    nl: 'Commander deckbuilder',
-    ca: 'Constructor de baralles Commander',
-    ru: 'Конструктор колод Commander',
+    es: simpleCopy('Deck builder Commander | Crea e importa mazos en CommanderZone', 'Crea, importa y analiza mazos Commander en CommanderZone. Organiza tus listas y prepáralas para jugar online con tu grupo.', 'Un deck builder Commander conectado a tus partidas', 'Crea, importa y organiza tus mazos para usarlos directamente en tus salas de CommanderZone.', 'Crear mazo', 'Importar decklist', [
+        section('build-to-play', 'Construir para jugar', 'CommanderZone no quiere ser solo una colección de listas. El objetivo es que tus mazos estén preparados para entrar en partida.'),
+        section('room-ready', 'Listo para llevarlo a una sala', 'Cuando tu mazo esté listo, podrás llevarlo directamente a una sala de CommanderZone.'),
+        section('deck-review', 'Revisión clara del mazo', 'Consulta curva, colores, tierras, tipos de carta y estructura general para entender si tu lista está equilibrada.'),
+      section('improve', 'Mejora entre partidas', 'Guarda versiones, prueba cambios y aprende qué necesita tu mazo después de jugarlo.'),
+    ], [
+      feature('Crear mazo', 'Empieza una lista desde cero.'),
+      feature('Importar decklist', 'Trae tus listas existentes.'),
+      feature('Analizar estructura', 'Revisa curva, colores y composición.'),
+      feature('Preparar para sala', 'Usa el mazo al crear o entrar en partidas.'),
+    ]),
+    en: simpleCopy('Commander Deck Builder | Build, Import and Play Your Decks', 'Build, import and analyze Commander decks in CommanderZone. Organize your lists and bring them straight to your online games.', 'A Commander deck builder connected to your games', 'Build, import and organize your decks so you can use them directly in your CommanderZone rooms.', 'Build deck', 'Import decklist', [
+        section('build-to-play', 'Build to play', 'CommanderZone is not just a place to store lists. The goal is to make your decks ready for the table.'),
+        section('room-ready', 'Ready for a room', 'Once your deck is ready, you can bring it straight into a CommanderZone room.'),
+        section('deck-review', 'Clear deck review', 'Check curve, colors, lands, card types and overall structure to understand whether your list is balanced.'),
+      section('improve', 'Improve between games', 'Save versions, test changes and learn what your deck needs after you play it.'),
+    ], [
+      feature('Build a deck', 'Start a list from scratch.'),
+      feature('Import decklist', 'Bring your existing lists.'),
+      feature('Analyze structure', 'Review curve, colors and composition.'),
+      feature('Prepare for rooms', 'Use the deck when creating or joining games.'),
+    ]),
+    de: localizedDeckBuilder('Commander Deck Builder | Decks erstellen, importieren und spielen', 'Erstelle, importiere und analysiere Commander-Decks in CommanderZone und nutze sie direkt in deinen Online-Partien.', 'Ein Commander Deck Builder, der mit deinen Partien verbunden ist', 'Erstelle, importiere und organisiere deine Decks, damit du sie direkt in deinen CommanderZone-Räumen nutzen kannst.', 'Deck erstellen', 'Deckliste importieren', 'de'),
+    fr: localizedDeckBuilder('Deck builder Commander | Créer, importer et analyser vos decks', 'Créez, importez et analysez vos decks Commander dans CommanderZone, puis utilisez-les directement dans vos parties en ligne.', 'Un deck builder Commander connecté à vos parties', 'Créez, importez et organisez vos decks pour les utiliser directement dans vos salles CommanderZone.', 'Créer un deck', 'Importer une decklist', 'fr'),
+    pt: localizedDeckBuilder('Deck builder Commander | Crie, importe e analise decks', 'Crie, importe e analise decks Commander no CommanderZone. Organize suas listas e use seus decks diretamente nas partidas online.', 'Um deck builder Commander conectado às suas partidas', 'Crie, importe e organize seus decks para usá-los diretamente nas salas do CommanderZone.', 'Criar deck', 'Importar decklist', 'pt'),
+    it: simpleCopy('Deck builder Commander | Crea, importa e gioca i tuoi mazzi', 'Crea, importa e analizza mazzi Commander in CommanderZone. Organizza le tue liste e preparale per giocare online con il tuo gruppo.', 'Un deck builder Commander collegato alle tue partite', 'Crea, importa e organizza i tuoi mazzi per usarli direttamente nelle stanze CommanderZone.', 'Creare mazzo', 'Importare decklist', [
+      section('build-to-play', 'Costruire per giocare', 'CommanderZone non vuole essere solo un archivio di liste. L’obiettivo è rendere i tuoi mazzi pronti per entrare in partita.'),
+      section('deck-review', 'Revisione chiara del mazzo', 'Controlla curva, colori, terre, tipi di carta e struttura generale per capire se la tua lista è equilibrata.'),
+      section('improve', 'Migliora tra una partita e l’altra', 'Salva versioni, prova cambiamenti e capisci cosa serve davvero al tuo mazzo dopo averlo giocato.'),
+      section('room-ready', 'Dal deck builder alla stanza', 'Quando il mazzo è pronto, puoi portarlo direttamente in una stanza CommanderZone e iniziare la partita con il tuo gruppo.'),
+    ], [
+      feature('Creare mazzo', 'Inizia una lista da zero.'),
+      feature('Importare decklist', 'Porta dentro le tue liste esistenti.'),
+      feature('Analizzare struttura', 'Rivedi curva, colori e composizione.'),
+      feature('Preparare per la stanza', 'Usa il mazzo quando crei o entri in partita.'),
+    ]),
   },
   tableAssistant: {
-    es: 'Asistente de mesa para Magic y Commander',
-    en: 'Commander life counter and table assistant',
-    de: 'MTG Life Counter und Tischassistent',
-    fr: 'Compteur de vie MTG et assistant de table',
-    it: 'Contatore vite MTG e assistente da tavolo',
-    pt: 'Contador de vida MTG e assistente de mesa',
-    ja: 'MTGライフカウンターとテーブルアシスタント',
-    ko: 'MTG 생명점 카운터와 테이블 도우미',
-    'zh-hans': 'MTG 生命计数器和桌面助手',
-    'zh-hant': 'MTG 生命計數器和桌面助手',
-    nl: 'MTG levens teller en tafelassistent',
-    ca: 'Assistent de taula per a Magic i Commander',
-    ru: 'Счетчик жизней MTG и помощник стола',
-  },
-  waysToPlayCommanderOnline: {
-    es: 'Formas de jugar Commander online',
-    en: 'Ways to play Commander online',
-    de: 'Moglichkeiten, Commander online zu spielen',
-    fr: 'Facons de jouer a Commander en ligne',
-    it: 'Modi per giocare Commander online',
-    pt: 'Formas de jogar Commander online',
-    ja: 'Commanderをオンラインで遊ぶ方法',
-    ko: 'Commander 온라인 플레이 방법',
-    'zh-hans': '在线玩 Commander 的方式',
-    'zh-hant': '線上玩 Commander 的方式',
-    nl: 'Manieren om Commander online te spelen',
-    ca: 'Formes de jugar Commander online',
-    ru: 'Способы играть в Commander онлайн',
+    es: simpleCopy('Asistente de mesa Commander | Contador de vidas y daño de comandante', 'Usa CommanderZone como asistente de mesa para partidas físicas de Commander. Controla vidas, daño de comandante y estado de la partida desde móvil o tablet.', 'Convierte tu móvil o tablet en un asistente de mesa para Commander', 'Controla vidas, daño de comandante y estado de la partida física con una interfaz pensada para pods reales.', 'Abrir Asistente de mesa', 'Ver cómo funciona', [
+      section('paper-games', 'Para partidas físicas de Commander', 'No todas las partidas ocurren online. El Asistente de mesa está pensado para grupos que juegan en persona y quieren una forma cómoda de controlar la partida.'),
+      section('visible-totals', 'Vidas y daño de comandante visibles', 'Mantén la información importante clara para todos los jugadores, sin depender de notas sueltas o dados repartidos por la mesa.'),
+      section('mobile-tablet', 'Ideal para móvil o tablet', 'Coloca el dispositivo en el centro de la mesa y úsalo como panel compartido durante la partida.'),
+    ], [
+      feature('Contador de vidas', 'Actualiza vidas de forma rápida.'),
+      feature('Daño de comandante', 'Controla daño entre jugadores.'),
+      feature('Pods presenciales', 'Pensado para mesas físicas.'),
+      feature('Interfaz clara', 'Diseñada para verse durante partidas largas.'),
+    ], [
+      faq('¿El Asistente de mesa es para partidas online o físicas?', 'Principalmente para partidas físicas, aunque también puede complementar partidas online.'),
+      faq('¿Funciona en móvil?', 'Sí. Está pensado especialmente para móvil y tablet.'),
+      faq('¿Puede controlar daño de comandante?', 'Sí. El daño de comandante es una parte esencial del Asistente de mesa.'),
+    ]),
+    en: simpleCopy('Commander Table Assistant | Life Counter and Commander Damage Tracker', 'Use CommanderZone as a table assistant for paper Commander games. Track life totals, commander damage and game state from your phone or tablet.', 'Turn your phone or tablet into a Commander table assistant', 'Track life totals, commander damage and table state during paper games with an interface built for real pods.', 'Open Table Assistant', 'See how it works', [
+      section('paper-games', 'For paper Commander games', 'Not every game happens online. The Table Assistant is built for groups playing in person who want a clearer way to manage the game.'),
+      section('visible-totals', 'Life totals and commander damage', 'Keep the important information visible to every player without scattered notes or dice all over the table.'),
+      section('mobile-tablet', 'Made for phone or tablet', 'Place the device at the center of the table and use it as a shared panel during the game.'),
+    ], [
+      feature('Life counter', 'Update life totals quickly.'),
+      feature('Commander damage', 'Track damage between players.'),
+      feature('Paper pods', 'Designed for physical tables.'),
+      feature('Clear interface', 'Readable during long games.'),
+    ], [
+      faq('Is the Table Assistant for online or paper games?', 'It is mainly built for paper Commander games, but it can also complement online games.'),
+      faq('Does it work on mobile?', 'Yes. It is designed especially for phones and tablets.'),
+      faq('Can it track commander damage?', 'Yes. Commander damage is a core part of the Table Assistant.'),
+    ]),
+    de: localizedTableAssistant('Commander-Tischassistent | Lebenspunkte und Commander-Schaden zählen', 'Nutze CommanderZone als Tischassistent für physische Commander-Partien. Zähle Lebenspunkte, Commander-Schaden und Spielstatus auf Smartphone oder Tablet.', 'Mach dein Smartphone oder Tablet zum Commander-Tischassistenten', 'Behalte Lebenspunkte, Commander-Schaden und Spielstatus bei physischen Partien mit einer Oberfläche für echte Commander-Runden im Blick.', 'Tischassistent öffnen', 'So funktioniert es', 'de'),
+    fr: localizedTableAssistant('Assistant de table Commander | Compteur de vie et blessures de commandant', 'Utilisez CommanderZone comme assistant de table pour vos parties physiques de Commander. Suivez les points de vie et les blessures de commandant sur mobile ou tablette.', 'Transformez votre mobile ou tablette en assistant de table Commander', 'Suivez les points de vie, les blessures de commandant et l’état de la partie physique avec une interface pensée pour les groupes Commander.', 'Ouvrir l’assistant de table', 'Voir comment ça marche', 'fr'),
+    pt: localizedTableAssistant('Assistente de mesa Commander | Contador de vida e dano de comandante', 'Use CommanderZone como assistente de mesa para partidas físicas de Commander. Controle vida, dano de comandante e estado da partida pelo celular ou tablet.', 'Transforme seu celular ou tablet em um assistente de mesa Commander', 'Controle vida, dano de comandante e estado da partida física com uma interface feita para grupos reais.', 'Abrir Assistente de mesa', 'Ver como funciona', 'pt'),
+    it: simpleCopy('Assistente da tavolo Commander | Segnapunti e danno da comandante', 'Usa CommanderZone come assistente da tavolo per partite fisiche di Commander. Tieni traccia di punti vita, danno da comandante e stato della partita da smartphone o tablet.', 'Trasforma smartphone o tablet in un assistente da tavolo Commander', 'Tieni traccia di punti vita, danno da comandante e stato della partita fisica con un’interfaccia pensata per pod reali.', 'Aprire Assistente da tavolo', 'Vedi come funziona', [
+      section('paper-games', 'Per partite fisiche di Commander', 'Non tutte le partite si giocano online. L’Assistente da tavolo è pensato per gruppi che giocano dal vivo e vogliono un modo più chiaro per gestire la partita.'),
+      section('visible-totals', 'Punti vita e danno da comandante visibili', 'Mantieni le informazioni importanti chiare per tutti i giocatori, senza appunti sparsi o dadi ovunque sul tavolo.'),
+      section('mobile-tablet', 'Ideale per smartphone o tablet', 'Metti il dispositivo al centro del tavolo e usalo come pannello condiviso durante la partita.'),
+    ], [
+      feature('Segnapunti vita', 'Aggiorna rapidamente i punti vita.'),
+      feature('Danno da comandante', 'Tieni traccia del danno tra giocatori.'),
+      feature('Pod dal vivo', 'Pensato per tavoli fisici.'),
+      feature('Interfaccia chiara', 'Leggibile anche durante partite lunghe.'),
+    ], [
+      faq('L’Assistente da tavolo serve per partite online o fisiche?', 'È pensato soprattutto per partite fisiche di Commander, ma può anche completare una partita online.'),
+      faq('Funziona su smartphone?', 'Sì. È pensato in particolare per smartphone e tablet.'),
+      faq('Può tenere traccia del danno da comandante?', 'Sì. Il danno da comandante è una parte essenziale dell’Assistente da tavolo.'),
+    ]),
   },
   howToPlayCommanderOnline: {
-    es: 'Como jugar Commander online',
-    en: 'How to play Commander online',
-    de: 'Wie man Commander online spielt',
-    fr: 'Comment jouer a Commander en ligne',
-    it: 'Come giocare Commander online',
-    pt: 'Como jogar Commander online',
-    ja: 'Commanderオンラインの遊び方',
-    ko: 'Commander 온라인 하는 법',
-    'zh-hans': '如何在线玩 Commander',
-    'zh-hant': '如何線上玩 Commander',
-    nl: 'Hoe speel je Commander online',
-    ca: 'Com jugar Commander online',
-    ru: 'Как играть в Commander онлайн',
+    es: guideCopy('Cómo jugar Commander online | Guía rápida para empezar', 'Aprende cómo jugar Commander online con amigos: prepara tu mazo, crea una sala, comparte el enlace y empieza la partida.', 'Cómo jugar Commander online paso a paso', 'Jugar Commander online puede ser sencillo si separas lo importante: preparar mazos, crear una sala, compartir el enlace y mantener clara la información de la partida.', 'Preparar mazo y empezar', 'Ver formas de jugar', [
+      step('Prepara tu mazo', 'Importa una decklist, crea un mazo desde cero o selecciona uno de tus mazos guardados.'),
+      step('Crea una sala', 'Cuando tengas el mazo listo, abre una sala online para tu pod.'),
+      step('Comparte el enlace', 'Envía el enlace a tus amigos para que puedan unirse.'),
+      step('Empieza la partida', 'Controla vidas, daño de comandante y estado de la mesa mientras jugáis.'),
+    ], [
+      section('group-needs', 'Qué necesita tu grupo', 'Necesitáis un canal para hablar, una forma de ver la información importante y una mesa que todos puedan entender.'),
+      section('manual-table', 'Por qué una mesa manual puede funcionar mejor', 'Commander tiene muchas situaciones sociales y acuerdos de mesa. Una herramienta demasiado rígida puede estorbar más que ayudar.'),
+    ]),
+    en: guideCopy('How to Play Commander Online | Quick Guide to Start', 'Learn how to play Commander online with friends: prepare your deck, create a room, share the link and start the game.', 'How to play Commander online step by step', 'Playing Commander online becomes simple when you focus on what matters: prepare decks, create a room, share the link and keep game information clear.', 'Prepare deck and start', 'See ways to play', [
+      step('Prepare your deck', 'Import a decklist, build a deck from scratch or choose one of your saved decks.'),
+      step('Create a room', 'Once your deck is ready, open an online room for your pod.'),
+      step('Share the link', 'Send the link to your friends so they can join.'),
+      step('Start the game', 'Track life totals, commander damage and table state while you play.'),
+    ], [
+      section('group-needs', 'What your group needs', 'You need a way to talk, a way to see the important game information and a table everyone understands.'),
+      section('manual-table', 'Why a manual table can work better', 'Commander has many social situations and table agreements. A tool that is too rigid can get in the way.'),
+    ]),
+    de: localizedHowTo('Wie man Commander online spielt | Kurzanleitung', 'Lerne, wie du Commander online mit Freunden spielst: Deck vorbereiten, Raum erstellen, Link teilen und Partie starten.', 'Commander online spielen: Schritt für Schritt', 'Commander online zu spielen wird einfacher, wenn der Ablauf klar ist: Decks vorbereiten, Raum erstellen, Link teilen und Spielinformationen sichtbar halten.', 'Deck vorbereiten und starten', 'Möglichkeiten ansehen', 'de'),
+    fr: localizedHowTo('Comment jouer à Commander en ligne | Guide rapide', 'Apprenez comment jouer à Commander en ligne avec des amis : préparez votre deck, créez une salle, partagez le lien et lancez la partie.', 'Comment jouer à Commander en ligne étape par étape', 'Jouer à Commander en ligne devient simple quand l’essentiel est clair : préparer les decks, créer une salle, partager le lien et suivre la partie.', 'Préparer un deck et commencer', 'Voir les façons de jouer', 'fr'),
+    pt: localizedHowTo('Como jogar Commander online | Guia rápido', 'Aprenda como jogar Commander online com amigos: prepare seu deck, crie uma sala, compartilhe o link e comece a partida.', 'Como jogar Commander online passo a passo', 'Jogar Commander online fica simples quando o fluxo é claro: preparar os decks, criar uma sala, compartilhar o link e manter as informações da partida visíveis.', 'Preparar deck e começar', 'Ver formas de jogar', 'pt'),
+    it: guideCopy('Come giocare a Commander online | Guida rapida', 'Scopri come giocare a Commander online con gli amici: prepara il mazzo, crea una stanza, condividi il link e inizia la partita.', 'Come giocare a Commander online passo dopo passo', 'Giocare a Commander online diventa semplice quando il flusso è chiaro: prepara il mazzo, riunisci il gruppo, crea una stanza e mantieni visibili le informazioni della partita.', 'Preparare mazzo e iniziare', 'Vedere modi per giocare', [
+      step('Prepara il tuo mazzo', 'Importa una decklist, crea un mazzo da zero o scegli uno dei tuoi mazzi salvati.'),
+      step('Crea una stanza', 'Quando il mazzo è pronto, apri una stanza online per il tuo pod.'),
+      step('Condividi il link', 'Invia il link ai tuoi amici così possono entrare.'),
+      step('Inizia la partita', 'Tieni traccia di punti vita, danno da comandante e stato del tavolo mentre giocate.'),
+    ], [
+      section('group-needs', 'Cosa serve al tuo gruppo', 'Vi serve un modo per parlare, una forma chiara per vedere le informazioni importanti e un tavolo che tutti possano capire.'),
+      section('manual-table', 'Perché un tavolo manuale può funzionare meglio', 'Commander ha molte situazioni sociali e accordi di tavolo. Uno strumento troppo rigido può intralciare più che aiutare.'),
+    ]),
+  },
+  waysToPlayCommanderOnline: {
+    es: comparisonCopy('Formas de jugar Commander online | Guía y comparación', 'Descubre formas de jugar Commander online con amigos: webcam, mesa manual, herramientas digitales y salas privadas. Compara opciones y elige la mejor para tu grupo.', 'Formas de jugar Commander online con tu grupo', 'Hay varias maneras de jugar Commander a distancia. CommanderZone encaja cuando tu grupo quiere conectar mazos, sala y mesa manual sin configuraciones pesadas.', 'Preparar partida en CommanderZone', 'Ver guía paso a paso', [
+      section('webcam', 'Jugar por webcam', 'Es la opción más parecida a jugar en físico: cada jugador usa sus cartas reales y una cámara para mostrar la mesa.'),
+      section('manual-table', 'Mesa online manual', 'Una mesa manual reduce configuración y permite que el grupo mantenga el control sin depender de un motor completo de reglas.'),
+      section('platforms', 'Simuladores y plataformas completas', 'Algunas herramientas recrean el juego de forma más completa, pero pueden requerir más aprendizaje, instalación o configuración.'),
+    ], [
+      row('Webcam', 'Usa cartas físicas', 'Requiere cámara y buen setup.'),
+      row('Mesa manual', 'Flexible y rápida', 'No valida reglas automáticamente.'),
+      row('Simulador completo', 'Más automatización', 'Más curva de aprendizaje.'),
+      row('Asistente de mesa', 'Muy cómodo en físico', 'No sustituye toda la mesa online.'),
+    ], 'Opción', 'Encaja cuando', 'Ten en cuenta'),
+    en: comparisonCopy('Ways to Play Commander Online | Guide and Comparison', 'Discover ways to play Commander online with friends: webcam, manual tables, digital tools and private rooms. Compare options and choose what fits your group.', 'Ways to play Commander online with your group', 'There are several ways to play Commander remotely. CommanderZone fits when your group wants to connect decks, a room and a manual table without heavy setup.', 'Prepare game in CommanderZone', 'Read step-by-step guide', [
+      section('webcam', 'Play with webcam', 'This is the closest option to paper play: each player uses real cards and a camera to show the table.'),
+      section('manual-table', 'Manual online table', 'A manual table reduces setup and lets the group stay in control without relying on a full rules engine.'),
+      section('platforms', 'Simulators and full platforms', 'Some tools recreate the game more completely, but they may require more learning, installation or configuration.'),
+    ], [
+      row('Webcam', 'Uses physical cards', 'Requires camera and a good setup.'),
+      row('Manual table', 'Flexible and fast', 'Does not enforce rules automatically.'),
+      row('Full simulator', 'More automation', 'Higher learning curve.'),
+      row('Table assistant', 'Great for paper games', 'Does not replace the full online table.'),
+    ], 'Option', 'Fits when', 'Keep in mind'),
+    de: localizedWays('Möglichkeiten, Commander online zu spielen | Vergleich', 'Entdecke Möglichkeiten, Commander online mit Freunden zu spielen: Webcam, manueller Tisch, digitale Tools und private Räume.', 'Möglichkeiten, Commander online mit deiner Gruppe zu spielen', 'CommanderZone passt, wenn deine Gruppe Decks, Raum und manuellen Tisch ohne schwere Einrichtung verbinden möchte.', 'Partie in CommanderZone vorbereiten', 'Schritt-für-Schritt-Anleitung lesen', 'de'),
+    fr: localizedWays('Façons de jouer à Commander en ligne | Guide et comparaison', 'Découvrez plusieurs façons de jouer à Commander en ligne avec des amis : webcam, table manuelle, outils numériques et salles privées.', 'Façons de jouer à Commander en ligne avec votre groupe', 'CommanderZone convient quand votre groupe veut relier decks, salle et table manuelle sans configuration lourde.', 'Préparer une partie dans CommanderZone', 'Lire le guide étape par étape', 'fr'),
+    pt: localizedWays('Formas de jogar Commander online | Guia e comparação', 'Descubra formas de jogar Commander online com amigos: webcam, mesa manual, ferramentas digitais e salas privadas.', 'Formas de jogar Commander online com seu grupo', 'CommanderZone funciona quando seu grupo quer conectar decks, sala e mesa manual sem configuração pesada.', 'Preparar partida no CommanderZone', 'Ler guia passo a passo', 'pt'),
+    it: comparisonCopy('Modi per giocare a Commander online | Guida e confronto', 'Scopri modi per giocare a Commander online con gli amici: webcam, tavolo manuale, strumenti digitali e stanze private. Confronta le opzioni e scegli quella giusta per il tuo gruppo.', 'Modi per giocare a Commander online con il tuo gruppo', 'Ci sono diversi modi per giocare a Commander a distanza. La scelta migliore dipende da come gioca il tuo pod, da quanta automazione volete e dagli strumenti che vi servono.', 'Preparare partita in CommanderZone', 'Leggere guida passo passo', [
+      section('webcam', 'Giocare con webcam', 'È l’opzione più vicina al gioco fisico: ogni giocatore usa le proprie carte reali e una camera per mostrare il tavolo.'),
+      section('manual-table', 'Tavolo online manuale', 'Un tavolo manuale riduce la configurazione e permette al gruppo di mantenere il controllo senza dipendere da un motore completo di regole.'),
+      section('platforms', 'Simulatori e piattaforme complete', 'Alcuni strumenti ricreano il gioco in modo più completo, ma possono richiedere più apprendimento, installazione o configurazione.'),
+    ], [
+      row('Webcam', 'Usa carte fisiche', 'Richiede camera e buon setup.'),
+      row('Tavolo manuale', 'Flessibile e rapido', 'Non applica le regole automaticamente.'),
+      row('Simulatore completo', 'Più automazione', 'Curva di apprendimento più alta.'),
+      row('Assistente da tavolo', 'Molto comodo dal vivo', 'Non sostituisce tutto il tavolo online.'),
+    ], 'Opzione', 'Quando funziona', 'Da considerare'),
+  },
+  playMagicOnlineWithFriends: {
+    es: simpleCopy('Jugar Magic online con amigos | CommanderZone', 'Juega Magic online con tu grupo usando una mesa manual pensada para Commander. Prepara tu mazo, crea una sala y comparte el enlace.', 'Juega Magic online con amigos desde el navegador', 'CommanderZone está enfocada en Commander: prepara tu mazo, crea una sala y da a tu grupo una mesa online clara para jugar sin perder tiempo en configuraciones.', 'Preparar mazo y jugar', 'Ver formas de jugar online', [
+      section('play-not-configure', 'Para grupos que quieren jugar, no configurar', 'Cuando tu grupo queda para jugar Magic online, lo importante es entrar rápido, organizar la mesa y empezar la partida.'),
+      section('commander-focused', 'Especialmente pensada para Commander', 'CommanderZone está diseñada alrededor de las necesidades de Commander: varios jugadores, daño de comandante, partidas largas y pods estables.'),
+      section('complementary', 'Una herramienta complementaria', 'Puedes combinar CommanderZone con las herramientas que ya usas para hablar, enseñar cartas o gestionar tu comunidad.'),
+    ]),
+    en: simpleCopy('Play Magic Online with Friends | CommanderZone', 'Play Magic online with your group using a manual table built for Commander. Prepare your deck, create a room and share the link.', 'Play Magic online with friends from your browser', 'CommanderZone is focused on Commander: prepare your deck, create a room and give your group a clear online table without wasting time on setup.', 'Prepare deck and play', 'See ways to play online', [
+      section('play-not-configure', 'For groups that want to play, not configure', 'When your group meets to play Magic online, the important thing is to get in, organize the table and start the game.'),
+      section('commander-focused', 'Designed especially for Commander', 'CommanderZone is built around Commander needs: multiple players, commander damage, long games and recurring pods.'),
+      section('complementary', 'A complementary tool', 'You can combine CommanderZone with the tools you already use for voice, video, cards or community.'),
+    ]),
+    de: localizedMagicFriends('Magic online mit Freunden spielen | CommanderZone', 'Spiele Magic online mit deiner Gruppe über einen manuellen Tisch für Commander. Bereite dein Deck vor, erstelle einen Raum und teile den Link.', 'Magic online mit Freunden im Browser spielen', 'CommanderZone ist auf Commander ausgerichtet: Bereite dein Deck vor, erstelle einen Raum und gib deiner Gruppe einen klaren Online-Tisch.', 'Deck vorbereiten und spielen', 'Möglichkeiten ansehen', 'de'),
+    fr: localizedMagicFriends('Jouer à Magic en ligne avec des amis | CommanderZone', 'Jouez à Magic en ligne avec votre groupe grâce à une table manuelle pensée pour Commander. Préparez votre deck, créez une salle et partagez le lien.', 'Jouer à Magic en ligne avec des amis depuis le navigateur', 'CommanderZone est centrée sur Commander : préparez votre deck, créez une salle et donnez à votre groupe une table en ligne claire.', 'Préparer un deck et jouer', 'Voir les façons de jouer', 'fr'),
+    pt: localizedMagicFriends('Jogar Magic online com amigos | CommanderZone', 'Jogue Magic online com seu grupo usando uma mesa manual feita para Commander. Prepare seu deck, crie uma sala e compartilhe o link.', 'Jogue Magic online com amigos pelo navegador', 'CommanderZone é focada em Commander: prepare seu deck, crie uma sala e ofereça ao grupo uma mesa online clara.', 'Preparar deck e jogar', 'Ver formas de jogar online', 'pt'),
+    it: simpleCopy('Giocare a Magic online con amici | CommanderZone', 'Gioca a Magic online con il tuo gruppo usando un tavolo manuale pensato per Commander. Prepara il mazzo, crea una stanza privata e condividi il link.', 'Gioca a Magic online con amici dal browser', 'CommanderZone è focalizzato su Commander: prepara il tuo mazzo, crea una stanza e dai al tuo gruppo un tavolo online chiaro senza perdere tempo in configurazioni.', 'Preparare mazzo e giocare', 'Vedere modi per giocare online', [
+      section('play-not-configure', 'Per gruppi che vogliono giocare, non configurare', 'Quando il tuo gruppo si ritrova per giocare a Magic online, la cosa importante è entrare rapidamente, organizzare il tavolo e iniziare la partita.'),
+      section('commander-focused', 'Pensato soprattutto per Commander', 'CommanderZone è progettato intorno alle esigenze di Commander: più giocatori, danno da comandante, partite lunghe e pod ricorrenti.'),
+      section('complementary', 'Uno strumento complementare', 'Puoi combinare CommanderZone con gli strumenti che usi già per voce, video, carte o community.'),
+    ]),
   },
   faq: {
-    es: 'FAQ de CommanderZone',
-    en: 'CommanderZone FAQ',
-    de: 'CommanderZone FAQ',
-    fr: 'FAQ CommanderZone',
-    it: 'FAQ CommanderZone',
-    pt: 'FAQ do CommanderZone',
-    ja: 'CommanderZone FAQ',
-    ko: 'CommanderZone FAQ',
-    'zh-hans': 'CommanderZone 常见问题',
-    'zh-hant': 'CommanderZone 常見問題',
-    nl: 'CommanderZone FAQ',
-    ca: 'FAQ de CommanderZone',
-    ru: 'FAQ CommanderZone',
+    es: faqCopy('FAQ CommanderZone | Preguntas frecuentes', 'Resuelve dudas sobre CommanderZone: preparar mazos, jugar Commander online, crear salas, importar mazos y usar el Asistente de mesa.', 'Preguntas frecuentes sobre CommanderZone', 'Respuestas claras sobre cómo preparar tu mazo, crear una sala y jugar Commander online o usar CommanderZone en partidas físicas.', 'Preparar mazo y jugar', 'Jugar Commander online', [
+      faq('¿Qué es CommanderZone?', 'CommanderZone es una plataforma no oficial pensada para jugar Commander online, crear o importar mazos, analizarlos y usar herramientas de mesa para partidas online o físicas.'),
+      faq('¿CommanderZone es oficial de Wizards of the Coast?', 'No. CommanderZone es un proyecto no oficial y no está afiliado, aprobado ni patrocinado por Wizards of the Coast.'),
+      faq('¿CommanderZone es gratis?', 'CommanderZone tendrá una versión gratuita para jugar y probar las funciones principales. Algunas funciones avanzadas podrán formar parte de planes premium.'),
+      faq('¿Necesito instalar algo?', 'No. CommanderZone está pensada para funcionar desde el navegador.'),
+      faq('¿Tengo que registrarme para jugar?', 'La experiencia ideal debe permitir probar con poca fricción. Para guardar mazos, historial, estadísticas o personalización, sí tendrá sentido tener cuenta.'),
+      faq('¿Cómo creo una partida?', 'Prepara o selecciona un mazo, crea una sala, comparte el enlace con tu grupo y prepara la mesa antes de empezar.'),
+      faq('¿Necesito un mazo para crear una partida?', 'Sí. Para jugar en CommanderZone necesitas importar, crear o seleccionar un mazo antes de empezar la sala.'),
+      faq('¿Puedo crear una sala sin mazo?', 'La experiencia principal está pensada para preparar primero el mazo y después crear la sala, para que la partida empiece sin pasos pendientes.'),
+      faq('¿Las salas son privadas?', 'Las salas se comparten mediante enlace. La privacidad dependerá de cómo compartas ese enlace y de las opciones disponibles en la sala.'),
+      faq('¿CommanderZone aplica reglas automáticamente?', 'No. La mesa es manual. CommanderZone ayuda a organizar la partida, pero las decisiones y reglas siguen siendo responsabilidad del grupo.'),
+      faq('¿Puedo importar mis mazos?', 'Sí. Puedes importar listas para guardarlas, revisarlas y usarlas en tus partidas.'),
+      faq('¿Puedo analizar mi mazo?', 'Sí. El análisis puede mostrar estructura general, curva, colores, tierras, tipos de carta y otros aspectos útiles.'),
+      faq('¿Qué es el Asistente de mesa?', 'Es una herramienta para usar móvil o tablet durante partidas físicas de Commander.'),
+      faq('¿Funciona en móvil o tablet?', 'Sí. El Asistente de mesa está pensado especialmente para móvil y tablet.'),
+      faq('¿Qué ventajas tendría Premium?', 'Premium puede incluir funciones como más mazos, análisis avanzado, estadísticas, historial, personalización, salas persistentes, grupos guardados y experiencia sin anuncios o sponsors visuales.'),
+      faq('¿Premium vende contenido oficial de Magic?', 'No debería. Premium debe vender herramientas propias, comodidad, análisis, almacenamiento, estadísticas y personalización, no contenido oficial de Magic.'),
+    ]),
+    en: faqCopy('CommanderZone FAQ | Frequently Asked Questions', 'Find answers about CommanderZone: preparing decks, playing Commander online, creating rooms, importing decks and using the Table Assistant.', 'Frequently asked questions about CommanderZone', 'Clear answers about preparing your deck, creating a room and playing Commander online or using CommanderZone for paper games.', 'Prepare deck and play', 'Play Commander online', [
+      faq('What is CommanderZone?', 'CommanderZone is an unofficial platform built to play Commander online, create or import decks, analyze lists and use table tools for online or paper games.'),
+      faq('Is CommanderZone official?', 'No. CommanderZone is an unofficial project and is not affiliated with, endorsed by, sponsored by, or specifically approved by Wizards of the Coast.'),
+      faq('Is CommanderZone free?', 'CommanderZone will have a free version to play and try the main features. Some advanced features may be part of premium plans.'),
+      faq('Do I need to install anything?', 'No. CommanderZone is designed to work from the browser.'),
+      faq('Do I need an account to play?', 'The ideal experience should let users try it with low friction. To save decks, history, stats or customization, an account makes sense.'),
+      faq('How do I create a game?', 'Prepare or choose a deck, create a room, share the link with your group and prepare the table before starting.'),
+      faq('Do I need a deck to create a game?', 'Yes. To play in CommanderZone, you need to import, build or select a deck before starting the room.'),
+      faq('Can I create a room without a deck?', 'The main experience is designed to prepare the deck first and then create the room, so the game starts without missing steps.'),
+      faq('Are rooms private?', 'Rooms are shared through a link. Privacy depends on how you share that link and which room options are available.'),
+      faq('Does CommanderZone enforce Magic rules automatically?', 'No. The table is manual. CommanderZone helps organize the game, but decisions and rules remain the responsibility of the group.'),
+      faq('Can I import my decks?', 'Yes. You can import lists to save, review and use them in your games.'),
+      faq('Can I analyze my deck?', 'Yes. Analysis can show structure, curve, colors, lands, card types and other useful details.'),
+      faq('What is the Table Assistant?', 'It is a tool for using a phone or tablet during paper Commander games.'),
+      faq('Does it work on mobile or tablet?', 'Yes. The Table Assistant is designed especially for phones and tablets.'),
+      faq('What would Premium include?', 'Premium may include more decks, advanced analysis, stats, history, customization, persistent rooms, saved groups and an experience without ads or visual sponsors.'),
+      faq('Does Premium sell official Magic content?', 'No. Premium should sell CommanderZone’s own tools, convenience, analysis, storage, stats and customization, not official Magic content.'),
+    ]),
+    de: localizedPublicFaq('CommanderZone FAQ | Häufige Fragen', 'Antworten zu CommanderZone: Decks vorbereiten, Commander online spielen, Räume erstellen, Decks importieren und den Tischassistenten nutzen.', 'Häufige Fragen zu CommanderZone', 'Klare Antworten zum Vorbereiten von Decks, Erstellen von Räumen und Spielen von Commander online oder am Tisch.', 'Deck vorbereiten und spielen', 'Commander online spielen', 'de'),
+    fr: localizedPublicFaq('FAQ CommanderZone | Questions fréquentes', 'Trouvez des réponses sur CommanderZone : préparer des decks, jouer à Commander en ligne, créer des salles, importer des decks et utiliser l’assistant de table.', 'Questions fréquentes sur CommanderZone', 'Des réponses claires pour préparer votre deck, créer une salle et jouer à Commander en ligne ou autour d’une table.', 'Préparer un deck et jouer', 'Jouer à Commander en ligne', 'fr'),
+    pt: localizedPublicFaq('FAQ CommanderZone | Perguntas frequentes', 'Tire dúvidas sobre CommanderZone: preparar decks, jogar Commander online, criar salas, importar decks e usar o Assistente de mesa.', 'Perguntas frequentes sobre CommanderZone', 'Respostas claras sobre preparar seu deck, criar uma sala e jogar Commander online ou em partidas físicas.', 'Preparar deck e jogar', 'Jogar Commander online', 'pt'),
+    it: faqCopy('FAQ CommanderZone | Domande frequenti', 'Trova risposte su CommanderZone: giocare a Commander online, creare stanze, importare mazzi, usare l’Assistente da tavolo, account, privacy e funzioni premium.', 'Domande frequenti su CommanderZone', 'Risposte chiare su come giocare a Commander online, creare stanze, importare mazzi e usare CommanderZone online o al tavolo fisico.', 'Preparare mazzo e giocare', 'Giocare a Commander online', [
+      faq('Cos’è CommanderZone?', 'CommanderZone è una piattaforma non ufficiale pensata per giocare a Commander online, creare o importare mazzi, analizzarli e usare strumenti da tavolo per partite online o fisiche.'),
+      faq('CommanderZone è ufficiale?', 'No. CommanderZone è un progetto non ufficiale e non è affiliato, approvato, sponsorizzato o autorizzato da Wizards of the Coast.'),
+      faq('CommanderZone è gratis?', 'CommanderZone è pensato per avere una versione gratuita con le funzioni principali per giocare e provare la piattaforma. Alcune funzioni avanzate potranno far parte di piani premium.'),
+      faq('Devo installare qualcosa?', 'No. CommanderZone funziona dal browser.'),
+      faq('Serve un account per giocare?', 'Vogliamo mantenere l’esperienza il più semplice possibile. Per salvare mazzi, storico, statistiche o personalizzazioni, avere un account ha senso.'),
+      faq('Mi serve un mazzo per creare una partita?', 'Sì. Per giocare in CommanderZone devi importare, creare o selezionare un mazzo prima di iniziare la stanza.'),
+      faq('Posso creare una stanza senza mazzo?', 'L’esperienza principale è pensata per preparare prima il mazzo e poi creare la stanza, così la partita parte senza passaggi mancanti.'),
+      faq('Come creo una partita?', 'Prepara il mazzo, crea una stanza, condividi il link con il tuo gruppo e organizza il tavolo prima di iniziare.'),
+      faq('Le stanze sono private?', 'Le stanze si condividono tramite link. La privacy dipende da come condividi quel link e dalle opzioni disponibili nella stanza.'),
+      faq('Posso invitare amici con un link?', 'Sì. Il flusso principale di CommanderZone è pensato per creare una stanza e condividere il link con il tuo pod.'),
+      faq('Posso giocare a Commander online con più giocatori?', 'Sì. CommanderZone è pensato per partite multiplayer di Commander.'),
+      faq('CommanderZone applica automaticamente le regole?', 'No. Il tavolo è manuale. CommanderZone aiuta a organizzare la partita, ma decisioni e regole restano responsabilità del gruppo.'),
+      faq('Posso importare i miei mazzi?', 'Sì. Puoi importare liste per salvarle, rivederle e usarle nelle tue partite.'),
+      faq('Posso incollare una decklist?', 'Sì. CommanderZone deve permettere di importare mazzi da testo per non dover creare la lista da zero.'),
+      faq('Posso creare e modificare mazzi?', 'Sì. CommanderZone include strumenti per creare, importare, modificare e organizzare mazzi Commander.'),
+      faq('Posso analizzare il mio mazzo?', 'Sì. L’analisi può mostrare struttura generale, curva, colori, terre, tipi di carta e altri aspetti utili.'),
+      faq('Cos’è l’Assistente da tavolo?', 'È uno strumento per usare smartphone o tablet durante partite fisiche di Commander.'),
+      faq('Funziona su smartphone o tablet?', 'Sì. L’Assistente da tavolo è pensato soprattutto per smartphone e tablet.'),
+      faq('Può tenere traccia del danno da comandante?', 'Sì. Il danno da comandante è una parte essenziale dell’Assistente da tavolo.'),
+      faq('Posso usare l’Assistente da tavolo senza creare una stanza online?', 'L’esperienza ideale dovrebbe permettere di usarlo con la minore frizione possibile durante partite dal vivo.'),
+      faq('Mi serve una webcam per giocare?', 'Dipende da come vuole giocare il tuo gruppo. CommanderZone può completare una partita con webcam, ma non obbliga a usare una camera.'),
+      faq('Posso usare carte fisiche?', 'Sì. CommanderZone può completare partite in cui ogni giocatore usa le proprie carte fisiche e il gruppo ha bisogno di un tavolo o assistente digitale.'),
+      faq('CommanderZone è un’alternativa a SpellTable?', 'CommanderZone può essere un’alternativa o un complemento, soprattutto se cerchi un tavolo manuale collegato a mazzi e strumenti specifici per Commander.'),
+      faq('Cosa includerebbe Premium?', 'Premium sarà orientato a funzioni come più mazzi, analisi avanzata, statistiche, storico, personalizzazione, stanze persistenti, gruppi salvati ed esperienza senza annunci o sponsor visivi.'),
+      faq('Premium vende contenuto ufficiale di Magic?', 'No. Premium deve vendere strumenti propri di CommanderZone: comodità, analisi, archiviazione, statistiche e personalizzazione.'),
+    ]),
   },
-};
+} as const satisfies Record<SeoRouteKey, Record<PriorityLocaleCode, LandingCopy>>;
 
-const LOCALE_COPY: Readonly<Record<LocaleCode, LocaleLandingCopy>> = {
-  es: {
-    homeLabel: 'Inicio',
-    eyebrow: 'CommanderZone SEO',
-    descriptionPrefix: 'Pagina publica de CommanderZone para',
-    descriptionSuffix: 'con contenido estatico, enlaces rastreables y enfoque en mesas manuales de Commander.',
-    primaryCta: 'Crear sala',
-    secondaryCta: 'Ver mazos',
-    trustLabel: 'Senales clave',
-    manualValue: 'Manual',
-    manualLabel: 'Los jugadores mantienen el control de la partida.',
-    browserValue: 'Navegador',
-    browserLabel: 'Pensado para ordenador, tablet y movil.',
-    overviewTitle: 'Una experiencia Commander clara',
-    overviewBodyPrefix: 'Esta landing explica',
-    overviewBodySuffix: 'sin convertir CommanderZone en un motor completo de reglas.',
-    featureTitle: 'Funciones relevantes',
-    featureIntro: 'Contenido preparado para explicar la intencion SEO de la pagina.',
-    featureOneTitle: 'Mesa compartida',
-    featureOneDescription: 'Organiza la partida con estado visible y enlaces reales.',
-    featureTwoTitle: 'Contenido estatico',
-    featureTwoDescription: 'El texto esta disponible para SSR y prerender.',
-    featureThreeTitle: 'Separacion limpia',
-    featureThreeDescription: 'La landing publica no reutiliza pantallas internas.',
-    stepsTitle: 'Como empezar',
-    stepOneTitle: 'Elige la pagina',
-    stepOneDescription: 'Cada intencion SEO tiene su propio contenido.',
-    stepTwoTitle: 'Revisa la informacion',
-    stepTwoDescription: 'Las secciones resuelven dudas antes de entrar en la app.',
-    stepThreeTitle: 'Entra en CommanderZone',
-    stepThreeDescription: 'Los CTA llevan a rutas reales del producto.',
-    useCasesTitle: 'Casos de uso',
-    useCasesIntro: 'Pensado para grupos que juegan Commander de forma manual.',
-    useCaseRemoteTitle: 'Partidas remotas',
-    useCaseRemoteDescription: 'Ideal para pods que quieren una mesa online sencilla.',
-    useCasePhysicalTitle: 'Partidas fisicas',
-    useCasePhysicalDescription: 'El Asistente de mesa ayuda con vidas y dano de comandante.',
-    comparisonTitle: 'Comparacion honesta',
-    comparisonIntro: 'CommanderZone prioriza mesa manual frente a automatizacion completa.',
-    firstColumnLabel: 'CommanderZone',
-    secondColumnLabel: 'Motor completo',
-    comparisonRowLabel: 'Control de reglas',
-    comparisonFirstValue: 'Decisiones manuales del grupo',
-    comparisonSecondValue: 'Validacion automatica de jugadas',
-    faqTitle: 'Preguntas frecuentes',
-    faqIntro: 'Respuestas visibles e indexables para usuarios y buscadores.',
-    faqQuestionPrefix: 'Sirve CommanderZone para',
-    faqQuestionSuffix: '?',
-    faqAnswerPrefix: 'Si. Esta pagina cubre',
-    faqAnswerSuffix: 'con contenido publico, estatico y sin traduccion runtime.',
-    ctaTitlePrefix: 'Empieza con',
-    ctaDescriptionPrefix: 'Usa CommanderZone para',
-    ctaDescriptionSuffix: 'y continua en la app cuando quieras jugar.',
-    internalLinksTitle: 'Paginas relacionadas',
-    internalLinksIntro: 'Enlaces internos SEO hacia otras intenciones aprobadas.',
-  },
-  en: {
-    homeLabel: 'Home',
-    eyebrow: 'CommanderZone SEO',
-    descriptionPrefix: 'A public CommanderZone page for',
-    descriptionSuffix: 'with static content, crawlable links and a manual Commander table focus.',
-    primaryCta: 'Create room',
-    secondaryCta: 'View decks',
-    trustLabel: 'Key signals',
-    manualValue: 'Manual',
-    manualLabel: 'Players keep control of the game.',
-    browserValue: 'Browser',
-    browserLabel: 'Designed for desktop, tablet and mobile.',
-    overviewTitle: 'A clear Commander experience',
-    overviewBodyPrefix: 'This landing explains',
-    overviewBodySuffix: 'without turning CommanderZone into a full rules engine.',
-    featureTitle: 'Relevant features',
-    featureIntro: 'Content prepared for the search intent of this page.',
-    featureOneTitle: 'Shared table',
-    featureOneDescription: 'Run the game with visible state and real links.',
-    featureTwoTitle: 'Static content',
-    featureTwoDescription: 'The copy is available for SSR and prerender.',
-    featureThreeTitle: 'Clean separation',
-    featureThreeDescription: 'The public landing does not reuse internal screens.',
-    stepsTitle: 'How to start',
-    stepOneTitle: 'Choose the page',
-    stepOneDescription: 'Each SEO intent has its own content.',
-    stepTwoTitle: 'Read the guide',
-    stepTwoDescription: 'Sections answer questions before entering the app.',
-    stepThreeTitle: 'Open CommanderZone',
-    stepThreeDescription: 'CTAs point to real product routes.',
-    useCasesTitle: 'Use cases',
-    useCasesIntro: 'Built for groups that play Commander manually.',
-    useCaseRemoteTitle: 'Remote games',
-    useCaseRemoteDescription: 'Useful for pods that want a simple online table.',
-    useCasePhysicalTitle: 'Physical games',
-    useCasePhysicalDescription: 'The table assistant helps with life totals and commander damage.',
-    comparisonTitle: 'Honest comparison',
-    comparisonIntro: 'CommanderZone prioritizes a manual table over complete automation.',
-    firstColumnLabel: 'CommanderZone',
-    secondColumnLabel: 'Full rules engine',
-    comparisonRowLabel: 'Rules control',
-    comparisonFirstValue: 'Manual group decisions',
-    comparisonSecondValue: 'Automated play validation',
-    faqTitle: 'Frequently asked questions',
-    faqIntro: 'Visible, indexable answers for users and search engines.',
-    faqQuestionPrefix: 'Can CommanderZone help with',
-    faqQuestionSuffix: '?',
-    faqAnswerPrefix: 'Yes. This page covers',
-    faqAnswerSuffix: 'with public static content and no runtime translation.',
-    ctaTitlePrefix: 'Start with',
-    ctaDescriptionPrefix: 'Use CommanderZone for',
-    ctaDescriptionSuffix: 'and continue into the app when you are ready to play.',
-    internalLinksTitle: 'Related pages',
-    internalLinksIntro: 'SEO internal links to other approved search intents.',
-  },
-  de: {
-    homeLabel: 'Startseite',
-    eyebrow: 'CommanderZone SEO',
-    descriptionPrefix: 'Eine offentliche CommanderZone-Seite fur',
-    descriptionSuffix: 'mit statischem Inhalt, crawlbaren Links und Fokus auf manuelle Commander-Tische.',
-    primaryCta: 'Raum erstellen',
-    secondaryCta: 'Decks ansehen',
-    trustLabel: 'Wichtige Signale',
-    manualValue: 'Manuell',
-    manualLabel: 'Die Spieler behalten die Kontrolle uber die Partie.',
-    browserValue: 'Browser',
-    browserLabel: 'Fur Desktop, Tablet und Mobilgerate gedacht.',
-    overviewTitle: 'Eine klare Commander-Erfahrung',
-    overviewBodyPrefix: 'Diese Landing erklaert',
-    overviewBodySuffix: 'ohne CommanderZone zu einer kompletten Regel-Engine zu machen.',
-    featureTitle: 'Relevante Funktionen',
-    featureIntro: 'Inhalt fur die Suchintention dieser Seite vorbereitet.',
-    featureOneTitle: 'Gemeinsamer Tisch',
-    featureOneDescription: 'Spiele mit sichtbarem Zustand und echten Links.',
-    featureTwoTitle: 'Statischer Inhalt',
-    featureTwoDescription: 'Der Text ist fur SSR und Prerender verfugbar.',
-    featureThreeTitle: 'Saubere Trennung',
-    featureThreeDescription: 'Die offentliche Landing nutzt keine internen Screens wieder.',
-    stepsTitle: 'So startest du',
-    stepOneTitle: 'Seite wahlen',
-    stepOneDescription: 'Jede SEO-Intention hat eigenen Inhalt.',
-    stepTwoTitle: 'Information lesen',
-    stepTwoDescription: 'Abschnitte beantworten Fragen vor dem Einstieg in die App.',
-    stepThreeTitle: 'CommanderZone offnen',
-    stepThreeDescription: 'CTAs verweisen auf echte Produktrouten.',
-    useCasesTitle: 'Anwendungsfalle',
-    useCasesIntro: 'Fur Gruppen, die Commander manuell spielen.',
-    useCaseRemoteTitle: 'Remote-Partien',
-    useCaseRemoteDescription: 'Gut fur Pods, die einen einfachen Online-Tisch wollen.',
-    useCasePhysicalTitle: 'Physische Partien',
-    useCasePhysicalDescription: 'Der Tischassistent hilft mit Lebenspunkten und Commander-Schaden.',
-    comparisonTitle: 'Ehrlicher Vergleich',
-    comparisonIntro: 'CommanderZone priorisiert den manuellen Tisch statt kompletter Automatisierung.',
-    firstColumnLabel: 'CommanderZone',
-    secondColumnLabel: 'Vollstandige Regel-Engine',
-    comparisonRowLabel: 'Regelkontrolle',
-    comparisonFirstValue: 'Manuelle Gruppenentscheidungen',
-    comparisonSecondValue: 'Automatische Spielvalidierung',
-    faqTitle: 'Haufige Fragen',
-    faqIntro: 'Sichtbare und indexierbare Antworten fur Nutzer und Suchmaschinen.',
-    faqQuestionPrefix: 'Hilft CommanderZone bei',
-    faqQuestionSuffix: '?',
-    faqAnswerPrefix: 'Ja. Diese Seite behandelt',
-    faqAnswerSuffix: 'mit offentlichem statischem Inhalt und ohne Runtime-Ubersetzung.',
-    ctaTitlePrefix: 'Starte mit',
-    ctaDescriptionPrefix: 'Nutze CommanderZone fur',
-    ctaDescriptionSuffix: 'und gehe in die App, wenn du spielen willst.',
-    internalLinksTitle: 'Verwandte Seiten',
-    internalLinksIntro: 'SEO-Links zu anderen freigegebenen Suchintentionen.',
-  },
-  fr: {
-    homeLabel: 'Accueil',
-    eyebrow: 'CommanderZone SEO',
-    descriptionPrefix: 'Page publique CommanderZone pour',
-    descriptionSuffix: 'avec contenu statique, liens explorables et table Commander manuelle.',
-    primaryCta: 'Creer une salle',
-    secondaryCta: 'Voir les decks',
-    trustLabel: 'Signaux cles',
-    manualValue: 'Manuel',
-    manualLabel: 'Les joueurs gardent le controle de la partie.',
-    browserValue: 'Navigateur',
-    browserLabel: 'Pense pour ordinateur, tablette et mobile.',
-    overviewTitle: 'Une experience Commander claire',
-    overviewBodyPrefix: 'Cette landing explique',
-    overviewBodySuffix: 'sans transformer CommanderZone en moteur complet de regles.',
-    featureTitle: 'Fonctions utiles',
-    featureIntro: 'Contenu prepare pour lintention de recherche de cette page.',
-    featureOneTitle: 'Table partagee',
-    featureOneDescription: 'Jouez avec un etat visible et des liens reels.',
-    featureTwoTitle: 'Contenu statique',
-    featureTwoDescription: 'Le texte est disponible pour SSR et prerender.',
-    featureThreeTitle: 'Separation claire',
-    featureThreeDescription: 'La landing publique ne reutilise pas les ecrans internes.',
-    stepsTitle: 'Comment commencer',
-    stepOneTitle: 'Choisir la page',
-    stepOneDescription: 'Chaque intention SEO a son contenu.',
-    stepTwoTitle: 'Lire les infos',
-    stepTwoDescription: 'Les sections repondent avant dentrer dans lapp.',
-    stepThreeTitle: 'Ouvrir CommanderZone',
-    stepThreeDescription: 'Les CTA pointent vers de vraies routes produit.',
-    useCasesTitle: 'Cas dusage',
-    useCasesIntro: 'Pour les groupes qui jouent Commander manuellement.',
-    useCaseRemoteTitle: 'Parties a distance',
-    useCaseRemoteDescription: 'Utile pour les pods qui veulent une table online simple.',
-    useCasePhysicalTitle: 'Parties physiques',
-    useCasePhysicalDescription: 'Lassistant de table aide avec les points de vie et degats de commandant.',
-    comparisonTitle: 'Comparaison honnete',
-    comparisonIntro: 'CommanderZone privilegie la table manuelle plutot que lautomatisation complete.',
-    firstColumnLabel: 'CommanderZone',
-    secondColumnLabel: 'Moteur de regles complet',
-    comparisonRowLabel: 'Controle des regles',
-    comparisonFirstValue: 'Decisions manuelles du groupe',
-    comparisonSecondValue: 'Validation automatique des actions',
-    faqTitle: 'Questions frequentes',
-    faqIntro: 'Reponses visibles et indexables pour utilisateurs et moteurs.',
-    faqQuestionPrefix: 'CommanderZone aide-t-il pour',
-    faqQuestionSuffix: ' ?',
-    faqAnswerPrefix: 'Oui. Cette page couvre',
-    faqAnswerSuffix: 'avec un contenu public statique et sans traduction runtime.',
-    ctaTitlePrefix: 'Commencer avec',
-    ctaDescriptionPrefix: 'Utilisez CommanderZone pour',
-    ctaDescriptionSuffix: 'puis entrez dans lapp quand vous voulez jouer.',
-    internalLinksTitle: 'Pages liees',
-    internalLinksIntro: 'Liens internes SEO vers les autres intentions approuvees.',
-  },
-  it: {
-    homeLabel: 'Home',
-    eyebrow: 'CommanderZone SEO',
-    descriptionPrefix: 'Pagina pubblica CommanderZone per',
-    descriptionSuffix: 'con contenuto statico, link scansionabili e focus su tavoli Commander manuali.',
-    primaryCta: 'Crea stanza',
-    secondaryCta: 'Vedi mazzi',
-    trustLabel: 'Segnali chiave',
-    manualValue: 'Manuale',
-    manualLabel: 'I giocatori mantengono il controllo della partita.',
-    browserValue: 'Browser',
-    browserLabel: 'Pensato per desktop, tablet e mobile.',
-    overviewTitle: 'Unesperienza Commander chiara',
-    overviewBodyPrefix: 'Questa landing spiega',
-    overviewBodySuffix: 'senza trasformare CommanderZone in un motore completo di regole.',
-    featureTitle: 'Funzioni rilevanti',
-    featureIntro: 'Contenuto preparato per lintento SEO della pagina.',
-    featureOneTitle: 'Tavolo condiviso',
-    featureOneDescription: 'Gestisci la partita con stato visibile e link reali.',
-    featureTwoTitle: 'Contenuto statico',
-    featureTwoDescription: 'Il testo e disponibile per SSR e prerender.',
-    featureThreeTitle: 'Separazione pulita',
-    featureThreeDescription: 'La landing pubblica non riusa schermate interne.',
-    stepsTitle: 'Come iniziare',
-    stepOneTitle: 'Scegli la pagina',
-    stepOneDescription: 'Ogni intento SEO ha contenuto proprio.',
-    stepTwoTitle: 'Leggi le informazioni',
-    stepTwoDescription: 'Le sezioni rispondono prima di entrare nellapp.',
-    stepThreeTitle: 'Apri CommanderZone',
-    stepThreeDescription: 'Le CTA puntano a route reali del prodotto.',
-    useCasesTitle: 'Casi duso',
-    useCasesIntro: 'Per gruppi che giocano Commander in modo manuale.',
-    useCaseRemoteTitle: 'Partite remote',
-    useCaseRemoteDescription: 'Utile per pod che vogliono un tavolo online semplice.',
-    useCasePhysicalTitle: 'Partite fisiche',
-    useCasePhysicalDescription: 'Lassistente da tavolo aiuta con vite e danni da comandante.',
-    comparisonTitle: 'Confronto onesto',
-    comparisonIntro: 'CommanderZone privilegia il tavolo manuale rispetto allautomazione completa.',
-    firstColumnLabel: 'CommanderZone',
-    secondColumnLabel: 'Motore regole completo',
-    comparisonRowLabel: 'Controllo regole',
-    comparisonFirstValue: 'Decisioni manuali del gruppo',
-    comparisonSecondValue: 'Validazione automatica delle giocate',
-    faqTitle: 'Domande frequenti',
-    faqIntro: 'Risposte visibili e indicizzabili per utenti e motori.',
-    faqQuestionPrefix: 'CommanderZone aiuta con',
-    faqQuestionSuffix: '?',
-    faqAnswerPrefix: 'Si. Questa pagina copre',
-    faqAnswerSuffix: 'con contenuto pubblico statico e senza traduzione runtime.',
-    ctaTitlePrefix: 'Inizia con',
-    ctaDescriptionPrefix: 'Usa CommanderZone per',
-    ctaDescriptionSuffix: 'e continua nellapp quando vuoi giocare.',
-    internalLinksTitle: 'Pagine correlate',
-    internalLinksIntro: 'Link interni SEO verso altre intenzioni approvate.',
-  },
-  pt: {
-    homeLabel: 'Inicio',
-    eyebrow: 'CommanderZone SEO',
-    descriptionPrefix: 'Pagina publica do CommanderZone para',
-    descriptionSuffix: 'com conteudo estatico, links rastreaveis e foco em mesas manuais de Commander.',
-    primaryCta: 'Criar sala',
-    secondaryCta: 'Ver decks',
-    trustLabel: 'Sinais principais',
-    manualValue: 'Manual',
-    manualLabel: 'Os jogadores mantem controle da partida.',
-    browserValue: 'Navegador',
-    browserLabel: 'Pensado para desktop, tablet e celular.',
-    overviewTitle: 'Uma experiencia Commander clara',
-    overviewBodyPrefix: 'Esta landing explica',
-    overviewBodySuffix: 'sem transformar CommanderZone em um motor completo de regras.',
-    featureTitle: 'Recursos relevantes',
-    featureIntro: 'Conteudo preparado para a intencao SEO desta pagina.',
-    featureOneTitle: 'Mesa compartilhada',
-    featureOneDescription: 'Jogue com estado visivel e links reais.',
-    featureTwoTitle: 'Conteudo estatico',
-    featureTwoDescription: 'O texto esta disponivel para SSR e prerender.',
-    featureThreeTitle: 'Separacao limpa',
-    featureThreeDescription: 'A landing publica nao reutiliza telas internas.',
-    stepsTitle: 'Como comecar',
-    stepOneTitle: 'Escolha a pagina',
-    stepOneDescription: 'Cada intencao SEO tem conteudo proprio.',
-    stepTwoTitle: 'Leia as informacoes',
-    stepTwoDescription: 'As secoes respondem antes de entrar no app.',
-    stepThreeTitle: 'Abra CommanderZone',
-    stepThreeDescription: 'As CTAs apontam para rotas reais do produto.',
-    useCasesTitle: 'Casos de uso',
-    useCasesIntro: 'Para grupos que jogam Commander manualmente.',
-    useCaseRemoteTitle: 'Partidas remotas',
-    useCaseRemoteDescription: 'Util para pods que querem uma mesa online simples.',
-    useCasePhysicalTitle: 'Partidas fisicas',
-    useCasePhysicalDescription: 'O assistente de mesa ajuda com vidas e dano de comandante.',
-    comparisonTitle: 'Comparacao honesta',
-    comparisonIntro: 'CommanderZone prioriza mesa manual em vez de automacao completa.',
-    firstColumnLabel: 'CommanderZone',
-    secondColumnLabel: 'Motor completo',
-    comparisonRowLabel: 'Controle de regras',
-    comparisonFirstValue: 'Decisoes manuais do grupo',
-    comparisonSecondValue: 'Validacao automatica de jogadas',
-    faqTitle: 'Perguntas frequentes',
-    faqIntro: 'Respostas visiveis e indexaveis para usuarios e buscadores.',
-    faqQuestionPrefix: 'CommanderZone ajuda com',
-    faqQuestionSuffix: '?',
-    faqAnswerPrefix: 'Sim. Esta pagina cobre',
-    faqAnswerSuffix: 'com conteudo publico estatico e sem traducao runtime.',
-    ctaTitlePrefix: 'Comece com',
-    ctaDescriptionPrefix: 'Use CommanderZone para',
-    ctaDescriptionSuffix: 'e continue no app quando quiser jogar.',
-    internalLinksTitle: 'Paginas relacionadas',
-    internalLinksIntro: 'Links internos SEO para outras intencoes aprovadas.',
-  },
-  ja: {
-    homeLabel: 'ホーム',
-    eyebrow: 'CommanderZone SEO',
-    descriptionPrefix: 'CommanderZoneの公開ページ:',
-    descriptionSuffix: '静的コンテンツ、クロール可能なリンク、手動Commanderテーブル向けです。',
-    primaryCta: 'ルーム作成',
-    secondaryCta: 'デッキを見る',
-    trustLabel: '主要ポイント',
-    manualValue: '手動',
-    manualLabel: 'プレイヤーがゲームを管理します。',
-    browserValue: 'ブラウザ',
-    browserLabel: 'PC、タブレット、モバイル向けです。',
-    overviewTitle: 'わかりやすいCommander体験',
-    overviewBodyPrefix: 'このランディングは',
-    overviewBodySuffix: 'を説明し、完全なルールエンジンにはしません。',
-    featureTitle: '関連機能',
-    featureIntro: 'この検索意図に合わせた静的コンテンツです。',
-    featureOneTitle: '共有テーブル',
-    featureOneDescription: '状態を見ながら実リンクで進めます。',
-    featureTwoTitle: '静的コンテンツ',
-    featureTwoDescription: 'SSRとprerenderで利用できます。',
-    featureThreeTitle: '明確な分離',
-    featureThreeDescription: '公開ランディングは内部画面を再利用しません。',
-    stepsTitle: '始め方',
-    stepOneTitle: 'ページを選ぶ',
-    stepOneDescription: 'SEO意図ごとに内容があります。',
-    stepTwoTitle: '情報を読む',
-    stepTwoDescription: 'アプリに入る前に疑問を解決します。',
-    stepThreeTitle: 'CommanderZoneを開く',
-    stepThreeDescription: 'CTAは実際の製品ルートに進みます。',
-    useCasesTitle: '利用シーン',
-    useCasesIntro: '手動でCommanderを遊ぶグループ向けです。',
-    useCaseRemoteTitle: 'リモートゲーム',
-    useCaseRemoteDescription: 'シンプルなオンライン卓が必要なpodに向いています。',
-    useCasePhysicalTitle: '紙のゲーム',
-    useCasePhysicalDescription: 'テーブルアシスタントがライフとCommanderダメージを助けます。',
-    comparisonTitle: '正直な比較',
-    comparisonIntro: 'CommanderZoneは完全自動化より手動テーブルを重視します。',
-    firstColumnLabel: 'CommanderZone',
-    secondColumnLabel: '完全ルールエンジン',
-    comparisonRowLabel: 'ルール管理',
-    comparisonFirstValue: 'グループの手動判断',
-    comparisonSecondValue: '自動プレイ検証',
-    faqTitle: 'よくある質問',
-    faqIntro: 'ユーザーと検索エンジン向けの可視FAQです。',
-    faqQuestionPrefix: 'CommanderZoneは',
-    faqQuestionSuffix: 'に使えますか?',
-    faqAnswerPrefix: 'はい。このページは',
-    faqAnswerSuffix: 'を公開静的コンテンツで扱い、runtime翻訳を使いません。',
-    ctaTitlePrefix: '始める:',
-    ctaDescriptionPrefix: 'CommanderZoneで',
-    ctaDescriptionSuffix: 'を使い、準備できたらアプリへ進めます。',
-    internalLinksTitle: '関連ページ',
-    internalLinksIntro: '承認済みSEO意図への内部リンクです。',
-  },
-  ko: {
-    homeLabel: '홈',
-    eyebrow: 'CommanderZone SEO',
-    descriptionPrefix: 'CommanderZone 공개 페이지:',
-    descriptionSuffix: '정적 콘텐츠, 크롤 가능한 링크, 수동 Commander 테이블에 맞춥니다.',
-    primaryCta: '방 만들기',
-    secondaryCta: '덱 보기',
-    trustLabel: '핵심 신호',
-    manualValue: '수동',
-    manualLabel: '플레이어가 게임을 직접 관리합니다.',
-    browserValue: '브라우저',
-    browserLabel: '데스크톱, 태블릿, 모바일용입니다.',
-    overviewTitle: '명확한 Commander 경험',
-    overviewBodyPrefix: '이 랜딩은',
-    overviewBodySuffix: '을 설명하며 완전한 규칙 엔진으로 바꾸지 않습니다.',
-    featureTitle: '관련 기능',
-    featureIntro: '이 검색 의도에 맞춘 정적 콘텐츠입니다.',
-    featureOneTitle: '공유 테이블',
-    featureOneDescription: '보이는 상태와 실제 링크로 진행합니다.',
-    featureTwoTitle: '정적 콘텐츠',
-    featureTwoDescription: 'SSR과 prerender에서 사용할 수 있습니다.',
-    featureThreeTitle: '명확한 분리',
-    featureThreeDescription: '공개 랜딩은 내부 화면을 재사용하지 않습니다.',
-    stepsTitle: '시작 방법',
-    stepOneTitle: '페이지 선택',
-    stepOneDescription: '각 SEO 의도는 자체 콘텐츠가 있습니다.',
-    stepTwoTitle: '정보 확인',
-    stepTwoDescription: '앱에 들어가기 전에 질문을 해결합니다.',
-    stepThreeTitle: 'CommanderZone 열기',
-    stepThreeDescription: 'CTA는 실제 제품 경로로 연결됩니다.',
-    useCasesTitle: '사용 사례',
-    useCasesIntro: 'Commander를 수동으로 플레이하는 그룹을 위한 구성입니다.',
-    useCaseRemoteTitle: '원격 게임',
-    useCaseRemoteDescription: '간단한 온라인 테이블이 필요한 pod에 적합합니다.',
-    useCasePhysicalTitle: '오프라인 게임',
-    useCasePhysicalDescription: '테이블 도우미는 생명점과 commander 피해를 돕습니다.',
-    comparisonTitle: '정직한 비교',
-    comparisonIntro: 'CommanderZone은 완전 자동화보다 수동 테이블을 우선합니다.',
-    firstColumnLabel: 'CommanderZone',
-    secondColumnLabel: '전체 규칙 엔진',
-    comparisonRowLabel: '규칙 제어',
-    comparisonFirstValue: '그룹의 수동 결정',
-    comparisonSecondValue: '자동 플레이 검증',
-    faqTitle: '자주 묻는 질문',
-    faqIntro: '사용자와 검색 엔진을 위한 보이는 답변입니다.',
-    faqQuestionPrefix: 'CommanderZone은',
-    faqQuestionSuffix: '에 도움이 되나요?',
-    faqAnswerPrefix: '예. 이 페이지는',
-    faqAnswerSuffix: '을 공개 정적 콘텐츠로 다루며 runtime 번역을 쓰지 않습니다.',
-    ctaTitlePrefix: '시작:',
-    ctaDescriptionPrefix: 'CommanderZone으로',
-    ctaDescriptionSuffix: '을 사용하고 준비되면 앱으로 이동하세요.',
-    internalLinksTitle: '관련 페이지',
-    internalLinksIntro: '승인된 다른 SEO 의도에 대한 내부 링크입니다.',
-  },
-  'zh-hans': {
-    homeLabel: '首页',
-    eyebrow: 'CommanderZone SEO',
-    descriptionPrefix: 'CommanderZone 公开页面:',
-    descriptionSuffix: '包含静态内容、可抓取链接，并面向手动 Commander 桌面。',
-    primaryCta: '创建房间',
-    secondaryCta: '查看套牌',
-    trustLabel: '关键信号',
-    manualValue: '手动',
-    manualLabel: '玩家保留对游戏的控制。',
-    browserValue: '浏览器',
-    browserLabel: '适合桌面、平板和手机。',
-    overviewTitle: '清晰的 Commander 体验',
-    overviewBodyPrefix: '此落地页说明',
-    overviewBodySuffix: '，不会把 CommanderZone 变成完整规则引擎。',
-    featureTitle: '相关功能',
-    featureIntro: '为此搜索意图准备的静态内容。',
-    featureOneTitle: '共享桌面',
-    featureOneDescription: '通过可见状态和真实链接进行游戏。',
-    featureTwoTitle: '静态内容',
-    featureTwoDescription: '文本可用于 SSR 和 prerender。',
-    featureThreeTitle: '清晰分离',
-    featureThreeDescription: '公开落地页不复用内部界面。',
-    stepsTitle: '如何开始',
-    stepOneTitle: '选择页面',
-    stepOneDescription: '每个 SEO 意图都有自己的内容。',
-    stepTwoTitle: '阅读信息',
-    stepTwoDescription: '进入应用前先解决问题。',
-    stepThreeTitle: '打开 CommanderZone',
-    stepThreeDescription: 'CTA 指向真实产品路由。',
-    useCasesTitle: '使用场景',
-    useCasesIntro: '适合手动玩 Commander 的小组。',
-    useCaseRemoteTitle: '远程游戏',
-    useCaseRemoteDescription: '适合需要简单在线桌面的 pod。',
-    useCasePhysicalTitle: '实体游戏',
-    useCasePhysicalDescription: '桌面助手帮助记录生命和指挥官伤害。',
-    comparisonTitle: '诚实比较',
-    comparisonIntro: 'CommanderZone 优先手动桌面，而不是完全自动化。',
-    firstColumnLabel: 'CommanderZone',
-    secondColumnLabel: '完整规则引擎',
-    comparisonRowLabel: '规则控制',
-    comparisonFirstValue: '小组手动决定',
-    comparisonSecondValue: '自动验证操作',
-    faqTitle: '常见问题',
-    faqIntro: '面向用户和搜索引擎的可见答案。',
-    faqQuestionPrefix: 'CommanderZone 能帮助',
-    faqQuestionSuffix: '吗?',
-    faqAnswerPrefix: '可以。此页面用公开静态内容介绍',
-    faqAnswerSuffix: '，不使用 runtime 翻译。',
-    ctaTitlePrefix: '开始:',
-    ctaDescriptionPrefix: '使用 CommanderZone 进行',
-    ctaDescriptionSuffix: '，准备好后进入应用。',
-    internalLinksTitle: '相关页面',
-    internalLinksIntro: '指向其他已批准 SEO 意图的内部链接。',
-  },
-  'zh-hant': {
-    homeLabel: '首頁',
-    eyebrow: 'CommanderZone SEO',
-    descriptionPrefix: 'CommanderZone 公開頁面:',
-    descriptionSuffix: '包含靜態內容、可抓取連結，並面向手動 Commander 桌面。',
-    primaryCta: '建立房間',
-    secondaryCta: '查看套牌',
-    trustLabel: '關鍵訊號',
-    manualValue: '手動',
-    manualLabel: '玩家保留對遊戲的控制。',
-    browserValue: '瀏覽器',
-    browserLabel: '適合桌面、平板和手機。',
-    overviewTitle: '清晰的 Commander 體驗',
-    overviewBodyPrefix: '此落地頁說明',
-    overviewBodySuffix: '，不會把 CommanderZone 變成完整規則引擎。',
-    featureTitle: '相關功能',
-    featureIntro: '為此搜尋意圖準備的靜態內容。',
-    featureOneTitle: '共享桌面',
-    featureOneDescription: '透過可見狀態和真實連結進行遊戲。',
-    featureTwoTitle: '靜態內容',
-    featureTwoDescription: '文字可用於 SSR 和 prerender。',
-    featureThreeTitle: '清晰分離',
-    featureThreeDescription: '公開落地頁不複用內部介面。',
-    stepsTitle: '如何開始',
-    stepOneTitle: '選擇頁面',
-    stepOneDescription: '每個 SEO 意圖都有自己的內容。',
-    stepTwoTitle: '閱讀資訊',
-    stepTwoDescription: '進入應用前先解決問題。',
-    stepThreeTitle: '開啟 CommanderZone',
-    stepThreeDescription: 'CTA 指向真實產品路由。',
-    useCasesTitle: '使用場景',
-    useCasesIntro: '適合手動玩 Commander 的小組。',
-    useCaseRemoteTitle: '遠端遊戲',
-    useCaseRemoteDescription: '適合需要簡單線上桌面的 pod。',
-    useCasePhysicalTitle: '實體遊戲',
-    useCasePhysicalDescription: '桌面助手幫助記錄生命和指揮官傷害。',
-    comparisonTitle: '誠實比較',
-    comparisonIntro: 'CommanderZone 優先手動桌面，而不是完全自動化。',
-    firstColumnLabel: 'CommanderZone',
-    secondColumnLabel: '完整規則引擎',
-    comparisonRowLabel: '規則控制',
-    comparisonFirstValue: '小組手動決定',
-    comparisonSecondValue: '自動驗證操作',
-    faqTitle: '常見問題',
-    faqIntro: '面向使用者和搜尋引擎的可見答案。',
-    faqQuestionPrefix: 'CommanderZone 能幫助',
-    faqQuestionSuffix: '嗎?',
-    faqAnswerPrefix: '可以。此頁面用公開靜態內容介紹',
-    faqAnswerSuffix: '，不使用 runtime 翻譯。',
-    ctaTitlePrefix: '開始:',
-    ctaDescriptionPrefix: '使用 CommanderZone 進行',
-    ctaDescriptionSuffix: '，準備好後進入應用。',
-    internalLinksTitle: '相關頁面',
-    internalLinksIntro: '指向其他已批准 SEO 意圖的內部連結。',
-  },
-  nl: {
-    homeLabel: 'Home',
-    eyebrow: 'CommanderZone SEO',
-    descriptionPrefix: 'Openbare CommanderZone-pagina voor',
-    descriptionSuffix: 'met statische content, crawlbare links en focus op handmatige Commander-tafels.',
-    primaryCta: 'Kamer maken',
-    secondaryCta: 'Decks bekijken',
-    trustLabel: 'Belangrijke signalen',
-    manualValue: 'Handmatig',
-    manualLabel: 'Spelers houden controle over de partij.',
-    browserValue: 'Browser',
-    browserLabel: 'Ontworpen voor desktop, tablet en mobiel.',
-    overviewTitle: 'Een duidelijke Commander-ervaring',
-    overviewBodyPrefix: 'Deze landing legt uit',
-    overviewBodySuffix: 'zonder CommanderZone een volledige regels-engine te maken.',
-    featureTitle: 'Relevante functies',
-    featureIntro: 'Content voor de zoekintentie van deze pagina.',
-    featureOneTitle: 'Gedeelde tafel',
-    featureOneDescription: 'Speel met zichtbare status en echte links.',
-    featureTwoTitle: 'Statische content',
-    featureTwoDescription: 'De tekst is beschikbaar voor SSR en prerender.',
-    featureThreeTitle: 'Heldere scheiding',
-    featureThreeDescription: 'De openbare landing hergebruikt geen interne schermen.',
-    stepsTitle: 'Hoe te starten',
-    stepOneTitle: 'Kies de pagina',
-    stepOneDescription: 'Elke SEO-intentie heeft eigen content.',
-    stepTwoTitle: 'Lees de info',
-    stepTwoDescription: 'Secties beantwoorden vragen voor je de app opent.',
-    stepThreeTitle: 'Open CommanderZone',
-    stepThreeDescription: 'CTAs wijzen naar echte productroutes.',
-    useCasesTitle: 'Gebruikssituaties',
-    useCasesIntro: 'Voor groepen die Commander handmatig spelen.',
-    useCaseRemoteTitle: 'Remote games',
-    useCaseRemoteDescription: 'Handig voor pods die een simpele online tafel willen.',
-    useCasePhysicalTitle: 'Fysieke games',
-    useCasePhysicalDescription: 'De tafelassistent helpt met levens en commander damage.',
-    comparisonTitle: 'Eerlijke vergelijking',
-    comparisonIntro: 'CommanderZone kiest voor een handmatige tafel boven volledige automatisering.',
-    firstColumnLabel: 'CommanderZone',
-    secondColumnLabel: 'Volledige regels-engine',
-    comparisonRowLabel: 'Regelcontrole',
-    comparisonFirstValue: 'Handmatige groepsbeslissingen',
-    comparisonSecondValue: 'Automatische validatie',
-    faqTitle: 'Veelgestelde vragen',
-    faqIntro: 'Zichtbare en indexeerbare antwoorden voor gebruikers en zoekmachines.',
-    faqQuestionPrefix: 'Helpt CommanderZone met',
-    faqQuestionSuffix: '?',
-    faqAnswerPrefix: 'Ja. Deze pagina behandelt',
-    faqAnswerSuffix: 'met openbare statische content en zonder runtime vertaling.',
-    ctaTitlePrefix: 'Start met',
-    ctaDescriptionPrefix: 'Gebruik CommanderZone voor',
-    ctaDescriptionSuffix: 'en ga verder in de app wanneer je wilt spelen.',
-    internalLinksTitle: 'Gerelateerde paginas',
-    internalLinksIntro: 'SEO interne links naar andere goedgekeurde zoekintenties.',
-  },
-  ca: {
-    homeLabel: 'Inici',
-    eyebrow: 'CommanderZone SEO',
-    descriptionPrefix: 'Pagina publica de CommanderZone per a',
-    descriptionSuffix: 'amb contingut estatic, enllacos rastrejables i enfoc en taules manuals de Commander.',
-    primaryCta: 'Crear sala',
-    secondaryCta: 'Veure baralles',
-    trustLabel: 'Senyals clau',
-    manualValue: 'Manual',
-    manualLabel: 'Els jugadors mantenen el control de la partida.',
-    browserValue: 'Navegador',
-    browserLabel: 'Pensat per ordinador, tauleta i mobil.',
-    overviewTitle: 'Una experiencia Commander clara',
-    overviewBodyPrefix: 'Aquesta landing explica',
-    overviewBodySuffix: 'sense convertir CommanderZone en un motor complet de regles.',
-    featureTitle: 'Funcions rellevants',
-    featureIntro: 'Contingut preparat per a la intencio SEO daquesta pagina.',
-    featureOneTitle: 'Taula compartida',
-    featureOneDescription: 'Juga amb estat visible i enllacos reals.',
-    featureTwoTitle: 'Contingut estatic',
-    featureTwoDescription: 'El text esta disponible per SSR i prerender.',
-    featureThreeTitle: 'Separacio neta',
-    featureThreeDescription: 'La landing publica no reutilitza pantalles internes.',
-    stepsTitle: 'Com comencar',
-    stepOneTitle: 'Tria la pagina',
-    stepOneDescription: 'Cada intencio SEO te contingut propi.',
-    stepTwoTitle: 'Llegeix la informacio',
-    stepTwoDescription: 'Les seccions resolen dubtes abans dentrar a lapp.',
-    stepThreeTitle: 'Obre CommanderZone',
-    stepThreeDescription: 'Els CTA porten a rutes reals del producte.',
-    useCasesTitle: 'Casos dus',
-    useCasesIntro: 'Per a grups que juguen Commander manualment.',
-    useCaseRemoteTitle: 'Partides remotes',
-    useCaseRemoteDescription: 'Util per a pods que volen una taula online senzilla.',
-    useCasePhysicalTitle: 'Partides fisiques',
-    useCasePhysicalDescription: 'Lassistent de taula ajuda amb vides i dany de comandant.',
-    comparisonTitle: 'Comparacio honesta',
-    comparisonIntro: 'CommanderZone prioritza la taula manual davant lautomatitzacio completa.',
-    firstColumnLabel: 'CommanderZone',
-    secondColumnLabel: 'Motor complet',
-    comparisonRowLabel: 'Control de regles',
-    comparisonFirstValue: 'Decisions manuals del grup',
-    comparisonSecondValue: 'Validacio automatica de jugades',
-    faqTitle: 'Preguntes frequents',
-    faqIntro: 'Respostes visibles i indexables per a usuaris i cercadors.',
-    faqQuestionPrefix: 'Serveix CommanderZone per a',
-    faqQuestionSuffix: '?',
-    faqAnswerPrefix: 'Si. Aquesta pagina cobreix',
-    faqAnswerSuffix: 'amb contingut public estatic i sense traduccio runtime.',
-    ctaTitlePrefix: 'Comenca amb',
-    ctaDescriptionPrefix: 'Utilitza CommanderZone per a',
-    ctaDescriptionSuffix: 'i continua a lapp quan vulguis jugar.',
-    internalLinksTitle: 'Pagines relacionades',
-    internalLinksIntro: 'Enllacos interns SEO cap a altres intencions aprovades.',
-  },
-  ru: {
-    homeLabel: 'Главная',
-    eyebrow: 'CommanderZone SEO',
-    descriptionPrefix: 'Публичная страница CommanderZone для',
-    descriptionSuffix: 'со статическим контентом, индексируемыми ссылками и фокусом на ручных столах Commander.',
-    primaryCta: 'Создать комнату',
-    secondaryCta: 'Смотреть колоды',
-    trustLabel: 'Ключевые сигналы',
-    manualValue: 'Ручной режим',
-    manualLabel: 'Игроки сохраняют контроль над партией.',
-    browserValue: 'Браузер',
-    browserLabel: 'Подходит для компьютера, планшета и телефона.',
-    overviewTitle: 'Понятный опыт Commander',
-    overviewBodyPrefix: 'Эта landing-страница объясняет',
-    overviewBodySuffix: 'не превращая CommanderZone в полноценный движок правил.',
-    featureTitle: 'Полезные функции',
-    featureIntro: 'Контент подготовлен под поисковое намерение этой страницы.',
-    featureOneTitle: 'Общий стол',
-    featureOneDescription: 'Играйте с видимым состоянием и настоящими ссылками.',
-    featureTwoTitle: 'Статический контент',
-    featureTwoDescription: 'Текст доступен для SSR и prerender.',
-    featureThreeTitle: 'Чистое разделение',
-    featureThreeDescription: 'Публичная landing-страница не использует внутренние экраны.',
-    stepsTitle: 'Как начать',
-    stepOneTitle: 'Выберите страницу',
-    stepOneDescription: 'У каждого SEO-намерения есть свой контент.',
-    stepTwoTitle: 'Прочитайте информацию',
-    stepTwoDescription: 'Разделы отвечают на вопросы до входа в приложение.',
-    stepThreeTitle: 'Откройте CommanderZone',
-    stepThreeDescription: 'CTA ведут на реальные маршруты продукта.',
-    useCasesTitle: 'Сценарии использования',
-    useCasesIntro: 'Для групп, которые играют Commander вручную.',
-    useCaseRemoteTitle: 'Удаленные партии',
-    useCaseRemoteDescription: 'Подходит pods, которым нужен простой онлайн-стол.',
-    useCasePhysicalTitle: 'Физические партии',
-    useCasePhysicalDescription: 'Помощник стола помогает с жизнями и уроном командира.',
-    comparisonTitle: 'Честное сравнение',
-    comparisonIntro: 'CommanderZone выбирает ручной стол вместо полной автоматизации.',
-    firstColumnLabel: 'CommanderZone',
-    secondColumnLabel: 'Полный движок правил',
-    comparisonRowLabel: 'Контроль правил',
-    comparisonFirstValue: 'Ручные решения группы',
-    comparisonSecondValue: 'Автоматическая проверка ходов',
-    faqTitle: 'Частые вопросы',
-    faqIntro: 'Видимые и индексируемые ответы для пользователей и поисковых систем.',
-    faqQuestionPrefix: 'Помогает ли CommanderZone с',
-    faqQuestionSuffix: '?',
-    faqAnswerPrefix: 'Да. Эта страница описывает',
-    faqAnswerSuffix: 'через публичный статический контент без runtime-перевода.',
-    ctaTitlePrefix: 'Начните с',
-    ctaDescriptionPrefix: 'Используйте CommanderZone для',
-    ctaDescriptionSuffix: 'и переходите в приложение, когда будете готовы играть.',
-    internalLinksTitle: 'Связанные страницы',
-    internalLinksIntro: 'SEO-ссылки на другие утвержденные поисковые намерения.',
-  },
-};
+const ROUTE_LABELS = LANDING_COPY;
 
-const PUBLIC_FAQ_TOPIC_COPY: Readonly<Record<LocaleCode, PublicFaqTopicCopy>> = {
-  es: {
-    invitationsAndRoomLinks: 'invitaciones y enlaces de sala',
-    freeCommanderGames: 'partidas gratuitas de Commander',
-    accountsAndRoomCreation: 'cuentas y creacion de salas',
-    multiplayerCommander: 'Commander multijugador',
-    pastedDecklists: 'decklists pegadas',
-    creatingCommanderDecks: 'crear mazos Commander desde cero',
-    editingDecks: 'editar mazos antes de jugar',
-    externalDeckSources: 'Moxfield, Archidekt y otras fuentes de mazos',
-    decklistFormats: 'formatos de decklist',
-    existingDecks: 'mazos Commander ya creados',
-    physicalMagicGames: 'partidas fisicas de Magic',
-    phoneLifeCounter: 'uso del movil como contador de vidas',
-    tabletTableAssistant: 'uso de tablet como asistente de mesa',
-    inPersonGames: 'partidas presenciales',
-    commanderDamage: 'seguimiento de dano de comandante',
-    severalLifeTotals: 'vidas de varios jugadores',
-    poisonTracking: 'seguimiento de veneno o infect',
-    tableAssistantWithoutRoom: 'asistente de mesa sin sala online',
-    spellTableComparison: 'comparacion con SpellTable',
-    cockatriceComparison: 'comparacion con Cockatrice',
-    mtgoComparison: 'comparacion con MTGO',
-    mtgArenaComparison: 'comparacion con MTG Arena',
-    untapComparison: 'comparacion con Untap.in',
-    edhPlayComparison: 'comparacion con EDHPlay',
-    mobileDevices: 'dispositivos moviles',
-    tablets: 'tablets',
-    desktopSystems: 'Mac, Windows y Linux',
-    cameraRequirements: 'requisitos de camara o webcam',
-    noWebcam: 'jugar sin webcam',
-    physicalCards: 'cartas fisicas',
-    privateGames: 'partidas privadas',
-    roomLinks: 'enlaces de sala',
-    startingRequirements: 'requisitos para empezar',
-  },
-  en: {
-    invitationsAndRoomLinks: 'invitations and room links',
-    freeCommanderGames: 'free Commander games',
-    accountsAndRoomCreation: 'accounts and room creation',
-    multiplayerCommander: 'multiplayer Commander',
-    pastedDecklists: 'pasted decklists',
-    creatingCommanderDecks: 'creating Commander decks from scratch',
-    editingDecks: 'editing decks before playing',
-    externalDeckSources: 'Moxfield, Archidekt and other deck sources',
-    decklistFormats: 'decklist formats',
-    existingDecks: 'existing Commander decks online',
-    physicalMagicGames: 'physical Magic games',
-    phoneLifeCounter: 'phone life counter use',
-    tabletTableAssistant: 'tablet table assistant use',
-    inPersonGames: 'in-person games',
-    commanderDamage: 'commander damage tracking',
-    severalLifeTotals: 'several player life totals',
-    poisonTracking: 'poison or infect tracking',
-    tableAssistantWithoutRoom: 'table assistant without online room',
-    spellTableComparison: 'SpellTable comparison',
-    cockatriceComparison: 'Cockatrice comparison',
-    mtgoComparison: 'MTGO comparison',
-    mtgArenaComparison: 'MTG Arena comparison',
-    untapComparison: 'Untap.in comparison',
-    edhPlayComparison: 'EDHPlay comparison',
-    mobileDevices: 'mobile devices',
-    tablets: 'tablets',
-    desktopSystems: 'Mac, Windows and Linux',
-    cameraRequirements: 'camera or webcam requirements',
-    noWebcam: 'playing without webcam',
-    physicalCards: 'physical cards',
-    privateGames: 'private games',
-    roomLinks: 'room links',
-    startingRequirements: 'starting requirements',
-  },
-  de: {
-    invitationsAndRoomLinks: 'Einladungen und Raumlinks',
-    freeCommanderGames: 'kostenlose Commander-Partien',
-    accountsAndRoomCreation: 'Konten und Raumerstellung',
-    multiplayerCommander: 'Commander im Mehrspieler-Modus',
-    pastedDecklists: 'eingefugte Decklisten',
-    creatingCommanderDecks: 'Commander-Decks von Grund auf erstellen',
-    editingDecks: 'Decks vor dem Spielen bearbeiten',
-    externalDeckSources: 'Moxfield, Archidekt und andere Deckquellen',
-    decklistFormats: 'Decklistenformate',
-    existingDecks: 'bereits erstellte Commander-Decks online',
-    physicalMagicGames: 'physische Magic-Partien',
-    phoneLifeCounter: 'Handy als Life Counter',
-    tabletTableAssistant: 'Tablet als Tischassistent',
-    inPersonGames: 'Partien vor Ort',
-    commanderDamage: 'Commander-Schaden verfolgen',
-    severalLifeTotals: 'Lebenspunkte mehrerer Spieler',
-    poisonTracking: 'Gift- oder Infect-Marker verfolgen',
-    tableAssistantWithoutRoom: 'Tischassistent ohne Online-Raum',
-    spellTableComparison: 'Vergleich mit SpellTable',
-    cockatriceComparison: 'Vergleich mit Cockatrice',
-    mtgoComparison: 'Vergleich mit MTGO',
-    mtgArenaComparison: 'Vergleich mit MTG Arena',
-    untapComparison: 'Vergleich mit Untap.in',
-    edhPlayComparison: 'Vergleich mit EDHPlay',
-    mobileDevices: 'mobile Gerate',
-    tablets: 'Tablets',
-    desktopSystems: 'Mac, Windows und Linux',
-    cameraRequirements: 'Kamera- oder Webcam-Anforderungen',
-    noWebcam: 'Spielen ohne Webcam',
-    physicalCards: 'physische Karten',
-    privateGames: 'private Partien',
-    roomLinks: 'Raumlinks',
-    startingRequirements: 'Voraussetzungen zum Start',
-  },
-  fr: {
-    invitationsAndRoomLinks: 'invitations et liens de salle',
-    freeCommanderGames: 'parties Commander gratuites',
-    accountsAndRoomCreation: 'comptes et creation de salles',
-    multiplayerCommander: 'Commander multijoueur',
-    pastedDecklists: 'decklists collees',
-    creatingCommanderDecks: 'creer des decks Commander depuis zero',
-    editingDecks: 'modifier les decks avant de jouer',
-    externalDeckSources: 'Moxfield, Archidekt et autres sources de decks',
-    decklistFormats: 'formats de decklist',
-    existingDecks: 'decks Commander deja crees en ligne',
-    physicalMagicGames: 'parties physiques de Magic',
-    phoneLifeCounter: 'telephone comme compteur de points de vie',
-    tabletTableAssistant: 'tablette comme assistant de table',
-    inPersonGames: 'parties en presentiel',
-    commanderDamage: 'suivi des blessures de commander',
-    severalLifeTotals: 'points de vie de plusieurs joueurs',
-    poisonTracking: 'suivi poison ou infection',
-    tableAssistantWithoutRoom: 'assistant de table sans salle en ligne',
-    spellTableComparison: 'comparaison avec SpellTable',
-    cockatriceComparison: 'comparaison avec Cockatrice',
-    mtgoComparison: 'comparaison avec MTGO',
-    mtgArenaComparison: 'comparaison avec MTG Arena',
-    untapComparison: 'comparaison avec Untap.in',
-    edhPlayComparison: 'comparaison avec EDHPlay',
-    mobileDevices: 'appareils mobiles',
-    tablets: 'tablettes',
-    desktopSystems: 'Mac, Windows et Linux',
-    cameraRequirements: 'besoin de camera ou webcam',
-    noWebcam: 'jouer sans webcam',
-    physicalCards: 'cartes physiques',
-    privateGames: 'parties privees',
-    roomLinks: 'liens de salle',
-    startingRequirements: 'conditions pour commencer',
-  },
-  it: {
-    invitationsAndRoomLinks: 'inviti e link della stanza',
-    freeCommanderGames: 'partite Commander gratuite',
-    accountsAndRoomCreation: 'account e creazione stanze',
-    multiplayerCommander: 'Commander multiplayer',
-    pastedDecklists: 'decklist incollate',
-    creatingCommanderDecks: 'creare mazzi Commander da zero',
-    editingDecks: 'modificare mazzi prima di giocare',
-    externalDeckSources: 'Moxfield, Archidekt e altre fonti di mazzi',
-    decklistFormats: 'formati decklist',
-    existingDecks: 'mazzi Commander gia creati online',
-    physicalMagicGames: 'partite fisiche di Magic',
-    phoneLifeCounter: 'telefono come contatore vite',
-    tabletTableAssistant: 'tablet come assistente da tavolo',
-    inPersonGames: 'partite in presenza',
-    commanderDamage: 'tracciamento danni da comandante',
-    severalLifeTotals: 'vite di piu giocatori',
-    poisonTracking: 'tracciamento veleno o infect',
-    tableAssistantWithoutRoom: 'assistente da tavolo senza stanza online',
-    spellTableComparison: 'confronto con SpellTable',
-    cockatriceComparison: 'confronto con Cockatrice',
-    mtgoComparison: 'confronto con MTGO',
-    mtgArenaComparison: 'confronto con MTG Arena',
-    untapComparison: 'confronto con Untap.in',
-    edhPlayComparison: 'confronto con EDHPlay',
-    mobileDevices: 'dispositivi mobili',
-    tablets: 'tablet',
-    desktopSystems: 'Mac, Windows e Linux',
-    cameraRequirements: 'requisiti di camera o webcam',
-    noWebcam: 'giocare senza webcam',
-    physicalCards: 'carte fisiche',
-    privateGames: 'partite private',
-    roomLinks: 'link della stanza',
-    startingRequirements: 'requisiti per iniziare',
-  },
-  pt: {
-    invitationsAndRoomLinks: 'convites e links de sala',
-    freeCommanderGames: 'partidas gratuitas de Commander',
-    accountsAndRoomCreation: 'contas e criacao de salas',
-    multiplayerCommander: 'Commander multijogador',
-    pastedDecklists: 'decklists coladas',
-    creatingCommanderDecks: 'criar decks Commander do zero',
-    editingDecks: 'editar decks antes de jogar',
-    externalDeckSources: 'Moxfield, Archidekt e outras fontes de decks',
-    decklistFormats: 'formatos de decklist',
-    existingDecks: 'decks Commander ja criados online',
-    physicalMagicGames: 'partidas fisicas de Magic',
-    phoneLifeCounter: 'celular como contador de vida',
-    tabletTableAssistant: 'tablet como assistente de mesa',
-    inPersonGames: 'partidas presenciais',
-    commanderDamage: 'rastreamento de dano de comandante',
-    severalLifeTotals: 'vidas de varios jogadores',
-    poisonTracking: 'rastreamento de veneno ou infect',
-    tableAssistantWithoutRoom: 'assistente de mesa sem sala online',
-    spellTableComparison: 'comparacao com SpellTable',
-    cockatriceComparison: 'comparacao com Cockatrice',
-    mtgoComparison: 'comparacao com MTGO',
-    mtgArenaComparison: 'comparacao com MTG Arena',
-    untapComparison: 'comparacao com Untap.in',
-    edhPlayComparison: 'comparacao com EDHPlay',
-    mobileDevices: 'dispositivos moveis',
-    tablets: 'tablets',
-    desktopSystems: 'Mac, Windows e Linux',
-    cameraRequirements: 'requisitos de camera ou webcam',
-    noWebcam: 'jogar sem webcam',
-    physicalCards: 'cartas fisicas',
-    privateGames: 'partidas privadas',
-    roomLinks: 'links de sala',
-    startingRequirements: 'requisitos para comecar',
-  },
-  ja: {
-    invitationsAndRoomLinks: '招待とルームリンク',
-    freeCommanderGames: '無料のCommanderゲーム',
-    accountsAndRoomCreation: 'アカウントとルーム作成',
-    multiplayerCommander: 'マルチプレイヤーCommander',
-    pastedDecklists: '貼り付けたデッキリスト',
-    creatingCommanderDecks: 'Commanderデッキをゼロから作ること',
-    editingDecks: 'プレイ前のデッキ編集',
-    externalDeckSources: 'Moxfield、Archidekt、その他のデッキ元',
-    decklistFormats: 'デッキリスト形式',
-    existingDecks: '作成済みCommanderデッキでのオンラインプレイ',
-    physicalMagicGames: '紙のMagicゲーム',
-    phoneLifeCounter: 'スマートフォンのライフカウンター利用',
-    tabletTableAssistant: 'タブレットのテーブルアシスタント利用',
-    inPersonGames: '対面ゲーム',
-    commanderDamage: 'Commanderダメージの記録',
-    severalLifeTotals: '複数プレイヤーのライフ管理',
-    poisonTracking: '毒や感染の記録',
-    tableAssistantWithoutRoom: 'オンラインルームなしのテーブルアシスタント',
-    spellTableComparison: 'SpellTableとの比較',
-    cockatriceComparison: 'Cockatriceとの比較',
-    mtgoComparison: 'MTGOとの比較',
-    mtgArenaComparison: 'MTG Arenaとの比較',
-    untapComparison: 'Untap.inとの比較',
-    edhPlayComparison: 'EDHPlayとの比較',
-    mobileDevices: 'モバイル端末',
-    tablets: 'タブレット',
-    desktopSystems: 'Mac、Windows、Linux',
-    cameraRequirements: 'カメラまたはWebcamの要件',
-    noWebcam: 'Webcamなしで遊ぶこと',
-    physicalCards: '実物のカード',
-    privateGames: 'プライベートゲーム',
-    roomLinks: 'ルームリンク',
-    startingRequirements: '始めるために必要なもの',
-  },
-  ko: {
-    invitationsAndRoomLinks: '초대와 방 링크',
-    freeCommanderGames: '무료 Commander 게임',
-    accountsAndRoomCreation: '계정과 방 만들기',
-    multiplayerCommander: '멀티플레이어 Commander',
-    pastedDecklists: '붙여 넣은 덱리스트',
-    creatingCommanderDecks: 'Commander 덱을 처음부터 만들기',
-    editingDecks: '플레이 전 덱 편집',
-    externalDeckSources: 'Moxfield, Archidekt 및 다른 덱 출처',
-    decklistFormats: '덱리스트 형식',
-    existingDecks: '이미 만든 Commander 덱으로 온라인 플레이',
-    physicalMagicGames: '실물 Magic 게임',
-    phoneLifeCounter: '휴대폰 생명점 카운터 사용',
-    tabletTableAssistant: '태블릿 테이블 도우미 사용',
-    inPersonGames: '오프라인 게임',
-    commanderDamage: 'Commander 피해 추적',
-    severalLifeTotals: '여러 플레이어 생명점 관리',
-    poisonTracking: '독 또는 감염 추적',
-    tableAssistantWithoutRoom: '온라인 방 없는 테이블 도우미',
-    spellTableComparison: 'SpellTable 비교',
-    cockatriceComparison: 'Cockatrice 비교',
-    mtgoComparison: 'MTGO 비교',
-    mtgArenaComparison: 'MTG Arena 비교',
-    untapComparison: 'Untap.in 비교',
-    edhPlayComparison: 'EDHPlay 비교',
-    mobileDevices: '모바일 기기',
-    tablets: '태블릿',
-    desktopSystems: 'Mac, Windows, Linux',
-    cameraRequirements: '카메라 또는 웹캠 요구 사항',
-    noWebcam: '웹캠 없이 플레이',
-    physicalCards: '실물 카드',
-    privateGames: '비공개 게임',
-    roomLinks: '방 링크',
-    startingRequirements: '시작에 필요한 것',
-  },
-  'zh-hans': {
-    invitationsAndRoomLinks: '邀请和房间链接',
-    freeCommanderGames: '免费的 Commander 对局',
-    accountsAndRoomCreation: '账号和房间创建',
-    multiplayerCommander: '多人 Commander',
-    pastedDecklists: '粘贴的套牌列表',
-    creatingCommanderDecks: '从零创建 Commander 套牌',
-    editingDecks: '游戏前编辑套牌',
-    externalDeckSources: 'Moxfield、Archidekt 和其他套牌来源',
-    decklistFormats: '套牌列表格式',
-    existingDecks: '使用已有 Commander 套牌在线游戏',
-    physicalMagicGames: '实体 Magic 游戏',
-    phoneLifeCounter: '手机生命计数器使用',
-    tabletTableAssistant: '平板桌面助手使用',
-    inPersonGames: '线下游戏',
-    commanderDamage: 'Commander 伤害记录',
-    severalLifeTotals: '多个玩家的生命记录',
-    poisonTracking: '中毒或侵染记录',
-    tableAssistantWithoutRoom: '没有在线房间的桌面助手',
-    spellTableComparison: '与 SpellTable 比较',
-    cockatriceComparison: '与 Cockatrice 比较',
-    mtgoComparison: '与 MTGO 比较',
-    mtgArenaComparison: '与 MTG Arena 比较',
-    untapComparison: '与 Untap.in 比较',
-    edhPlayComparison: '与 EDHPlay 比较',
-    mobileDevices: '移动设备',
-    tablets: '平板',
-    desktopSystems: 'Mac、Windows 和 Linux',
-    cameraRequirements: '摄像头或 webcam 要求',
-    noWebcam: '无 webcam 游戏',
-    physicalCards: '实体卡牌',
-    privateGames: '私人游戏',
-    roomLinks: '房间链接',
-    startingRequirements: '开始所需条件',
-  },
-  'zh-hant': {
-    invitationsAndRoomLinks: '邀請和房間連結',
-    freeCommanderGames: '免費的 Commander 對局',
-    accountsAndRoomCreation: '帳號和房間建立',
-    multiplayerCommander: '多人 Commander',
-    pastedDecklists: '貼上的套牌列表',
-    creatingCommanderDecks: '從零建立 Commander 套牌',
-    editingDecks: '遊戲前編輯套牌',
-    externalDeckSources: 'Moxfield、Archidekt 和其他套牌來源',
-    decklistFormats: '套牌列表格式',
-    existingDecks: '使用已有 Commander 套牌線上遊戲',
-    physicalMagicGames: '實體 Magic 遊戲',
-    phoneLifeCounter: '手機生命計數器使用',
-    tabletTableAssistant: '平板桌面助手使用',
-    inPersonGames: '面對面遊戲',
-    commanderDamage: 'Commander 傷害記錄',
-    severalLifeTotals: '多位玩家的生命記錄',
-    poisonTracking: '中毒或侵染記錄',
-    tableAssistantWithoutRoom: '沒有線上房間的桌面助手',
-    spellTableComparison: '與 SpellTable 比較',
-    cockatriceComparison: '與 Cockatrice 比較',
-    mtgoComparison: '與 MTGO 比較',
-    mtgArenaComparison: '與 MTG Arena 比較',
-    untapComparison: '與 Untap.in 比較',
-    edhPlayComparison: '與 EDHPlay 比較',
-    mobileDevices: '行動裝置',
-    tablets: '平板',
-    desktopSystems: 'Mac、Windows 和 Linux',
-    cameraRequirements: '攝影機或 webcam 要求',
-    noWebcam: '無 webcam 遊戲',
-    physicalCards: '實體卡牌',
-    privateGames: '私人遊戲',
-    roomLinks: '房間連結',
-    startingRequirements: '開始所需條件',
-  },
-  nl: {
-    invitationsAndRoomLinks: 'uitnodigingen en kamerlinks',
-    freeCommanderGames: 'gratis Commander-partijen',
-    accountsAndRoomCreation: 'accounts en kamers maken',
-    multiplayerCommander: 'Commander met meerdere spelers',
-    pastedDecklists: 'geplakte decklijsten',
-    creatingCommanderDecks: 'Commander-decks vanaf nul maken',
-    editingDecks: 'decks bewerken voor het spelen',
-    externalDeckSources: 'Moxfield, Archidekt en andere deckbronnen',
-    decklistFormats: 'decklijstformaten',
-    existingDecks: 'bestaande Commander-decks online',
-    physicalMagicGames: 'fysieke Magic-partijen',
-    phoneLifeCounter: 'telefoon als levens teller',
-    tabletTableAssistant: 'tablet als tafelassistent',
-    inPersonGames: 'partijen aan tafel',
-    commanderDamage: 'commander damage bijhouden',
-    severalLifeTotals: 'levens van meerdere spelers',
-    poisonTracking: 'poison of infect bijhouden',
-    tableAssistantWithoutRoom: 'tafelassistent zonder online kamer',
-    spellTableComparison: 'vergelijking met SpellTable',
-    cockatriceComparison: 'vergelijking met Cockatrice',
-    mtgoComparison: 'vergelijking met MTGO',
-    mtgArenaComparison: 'vergelijking met MTG Arena',
-    untapComparison: 'vergelijking met Untap.in',
-    edhPlayComparison: 'vergelijking met EDHPlay',
-    mobileDevices: 'mobiele apparaten',
-    tablets: 'tablets',
-    desktopSystems: 'Mac, Windows en Linux',
-    cameraRequirements: 'camera- of webcamvereisten',
-    noWebcam: 'spelen zonder webcam',
-    physicalCards: 'fysieke kaarten',
-    privateGames: 'privepartijen',
-    roomLinks: 'kamerlinks',
-    startingRequirements: 'benodigdheden om te starten',
-  },
-  ca: {
-    invitationsAndRoomLinks: 'invitacions i enllacos de sala',
-    freeCommanderGames: 'partides gratuites de Commander',
-    accountsAndRoomCreation: 'comptes i creacio de sales',
-    multiplayerCommander: 'Commander multijugador',
-    pastedDecklists: 'decklists enganxades',
-    creatingCommanderDecks: 'crear baralles Commander des de zero',
-    editingDecks: 'editar baralles abans de jugar',
-    externalDeckSources: 'Moxfield, Archidekt i altres fonts de baralles',
-    decklistFormats: 'formats de decklist',
-    existingDecks: 'baralles Commander ja creades online',
-    physicalMagicGames: 'partides fisiques de Magic',
-    phoneLifeCounter: 'mobil com a comptador de vides',
-    tabletTableAssistant: 'tauleta com a assistent de taula',
-    inPersonGames: 'partides presencials',
-    commanderDamage: 'seguiment de dany de comandant',
-    severalLifeTotals: 'vides de diversos jugadors',
-    poisonTracking: 'seguiment de veri o infect',
-    tableAssistantWithoutRoom: 'assistent de taula sense sala online',
-    spellTableComparison: 'comparacio amb SpellTable',
-    cockatriceComparison: 'comparacio amb Cockatrice',
-    mtgoComparison: 'comparacio amb MTGO',
-    mtgArenaComparison: 'comparacio amb MTG Arena',
-    untapComparison: 'comparacio amb Untap.in',
-    edhPlayComparison: 'comparacio amb EDHPlay',
-    mobileDevices: 'dispositius mobils',
-    tablets: 'tauletes',
-    desktopSystems: 'Mac, Windows i Linux',
-    cameraRequirements: 'requisits de camera o webcam',
-    noWebcam: 'jugar sense webcam',
-    physicalCards: 'cartes fisiques',
-    privateGames: 'partides privades',
-    roomLinks: 'enllacos de sala',
-    startingRequirements: 'requisits per comencar',
-  },
-  ru: {
-    invitationsAndRoomLinks: 'приглашения и ссылки на комнату',
-    freeCommanderGames: 'бесплатные партии Commander',
-    accountsAndRoomCreation: 'аккаунты и создание комнат',
-    multiplayerCommander: 'многопользовательский Commander',
-    pastedDecklists: 'вставленные списки колод',
-    creatingCommanderDecks: 'создание колод Commander с нуля',
-    editingDecks: 'редактирование колод перед игрой',
-    externalDeckSources: 'Moxfield, Archidekt и другие источники колод',
-    decklistFormats: 'форматы списков колод',
-    existingDecks: 'готовые колоды Commander онлайн',
-    physicalMagicGames: 'игры Magic физическими картами',
-    phoneLifeCounter: 'телефон как счетчик жизней',
-    tabletTableAssistant: 'планшет как помощник стола',
-    inPersonGames: 'очные игры',
-    commanderDamage: 'учет урона командира',
-    severalLifeTotals: 'жизни нескольких игроков',
-    poisonTracking: 'учет яда или infect',
-    tableAssistantWithoutRoom: 'помощник стола без онлайн-комнаты',
-    spellTableComparison: 'сравнение со SpellTable',
-    cockatriceComparison: 'сравнение с Cockatrice',
-    mtgoComparison: 'сравнение с MTGO',
-    mtgArenaComparison: 'сравнение с MTG Arena',
-    untapComparison: 'сравнение с Untap.in',
-    edhPlayComparison: 'сравнение с EDHPlay',
-    mobileDevices: 'мобильные устройства',
-    tablets: 'планшеты',
-    desktopSystems: 'Mac, Windows и Linux',
-    cameraRequirements: 'требования к камере или webcam',
-    noWebcam: 'игра без webcam',
-    physicalCards: 'физические карты',
-    privateGames: 'частные игры',
-    roomLinks: 'ссылки на комнату',
-    startingRequirements: 'что нужно для начала',
-  },
-};
-
-export function createSeoLandingContentByLocale(routeKey: SeoRouteKey): Readonly<Record<LocaleCode, SeoLandingContent>> {
+export function createSeoLandingContentByLocale(routeKey: SeoRouteKey): Readonly<Record<SeoLocaleCode, SeoLandingContent>> {
   return Object.fromEntries(
-    SUPPORTED_LOCALE_CODES.map((locale) => [locale, createSeoLandingContent(routeKey, locale)]),
-  ) as Record<LocaleCode, SeoLandingContent>;
+    SEO_LOCALE_CODES.map((locale) => [locale, createSeoLandingContent(routeKey, locale)]),
+  ) as Record<SeoLocaleCode, SeoLandingContent>;
 }
 
-function createSeoLandingContent(routeKey: SeoRouteKey, locale: LocaleCode): SeoLandingContent {
-  const copy = LOCALE_COPY[locale];
-  const title = ROUTE_LABELS[routeKey][locale];
+function createSeoLandingContent(routeKey: SeoRouteKey, locale: SeoLocaleCode): SeoLandingContent {
+  const copyLocale = getPriorityLocale(locale);
+  const copy = getLandingCopy(routeKey, copyLocale);
+  const uiCopy = getUiCopy(copyLocale);
   const path = getSeoPath(routeKey, locale);
-  const description = `${copy.descriptionPrefix} ${title} ${copy.descriptionSuffix}`;
-  const faq = routeKey === 'faq'
-    ? createPublicFaqContent(locale, copy)
-    : createLandingFaqContent(title, copy);
   const seo: SeoMetadataContent = {
-    title: `${title} | CommanderZone`,
-    description,
-    ogTitle: `${title} | CommanderZone`,
-    ogDescription: description,
+    title: copy.metaTitle,
+    description: copy.metaDescription,
+    ogTitle: copy.metaTitle,
+    ogDescription: copy.metaDescription,
     ogImage: getOpenGraphImagePath(routeKey),
   };
   const breadcrumb: LandingBreadcrumbContent = {
     items: [
-      { label: copy.homeLabel, href: getSeoPath('home', locale) },
-      { label: title, href: path },
+      { label: uiCopy.homeLabel, href: getSeoPath('home', locale) },
+      { label: copy.h1, href: path },
     ],
   };
+  const faqContent = createFaqContent(copy, uiCopy);
 
   return {
     routeKey,
     locale,
     seo,
-    jsonLd: createLandingJsonLd(routeKey, locale, title, description, path, seo, breadcrumb, faq),
+    jsonLd: createLandingJsonLd(routeKey, locale, copy.h1, copy.metaDescription, path, seo, breadcrumb, faqContent),
     siteName: 'CommanderZone',
-    homeLink: { label: copy.homeLabel, href: getSeoPath('home', locale) },
+    homeLink: { label: uiCopy.homeLabel, href: getSeoPath('home', locale), ariaLabel: uiCopy.homeLabel },
     publicNavigationLinks: [
-      { label: ROUTE_LABELS.playCommanderOnline[locale], href: getSeoPath('playCommanderOnline', locale) },
-      { label: ROUTE_LABELS.faq[locale], href: getSeoPath('faq', locale) },
+      { label: uiCopy.navPlay, href: getSeoPath('playCommanderOnline', locale) },
+      { label: uiCopy.navFaq, href: getSeoPath('faq', locale) },
     ],
     footerLinks: [
-      { label: ROUTE_LABELS.faq[locale], href: getSeoPath('faq', locale) },
-      { label: ROUTE_LABELS.tableAssistant[locale], href: getSeoPath('tableAssistant', locale) },
-      { label: ROUTE_LABELS.importCommanderDeck[locale], href: getSeoPath('importCommanderDeck', locale) },
+      { label: uiCopy.footerFaq, href: getSeoPath('faq', locale) },
+      { label: getRouteLabel('tableAssistant', locale), href: getSeoPath('tableAssistant', locale) },
+      { label: getRouteLabel('importCommanderDeck', locale), href: getSeoPath('importCommanderDeck', locale) },
     ],
-    localeLinks: SUPPORTED_LOCALES.map((supportedLocale) => ({
+    localeLinks: SEO_LOCALES.map((supportedLocale) => ({
       locale: supportedLocale.code,
       label: supportedLocale.nativeLabel,
       href: getSeoPath(routeKey, supportedLocale.code),
@@ -1496,129 +770,104 @@ function createSeoLandingContent(routeKey: SeoRouteKey, locale: LocaleCode): Seo
     })),
     breadcrumb,
     hero: {
-      eyebrow: copy.eyebrow,
-      title,
-      subtitle: description,
+      eyebrow: uiCopy.eyebrow,
+      title: copy.h1,
+      subtitle: copy.heroSubtitle,
       image: {
         src: seo.ogImage,
-        alt: `${title} - CommanderZone`,
+        alt: `${copy.h1} - CommanderZone`,
         width: 1200,
         height: 630,
         loading: 'eager',
         fetchPriority: 'high',
       },
-      primaryLink: { label: copy.primaryCta, href: '/rooms' },
-      secondaryLink: { label: copy.secondaryCta, href: '/decks' },
-      highlights: [copy.manualLabel, copy.browserLabel],
+      primaryLink: { label: copy.primaryCta, href: getPrimaryCtaHref(routeKey) },
+      secondaryLink: { label: copy.secondaryCta, href: getSecondaryCtaHref(routeKey, locale) },
+      highlights: [uiCopy.manualLabel, uiCopy.browserLabel],
     },
     trustBar: {
-      label: copy.trustLabel,
+      label: uiCopy.trustLabel,
       items: [
-        { value: copy.manualValue, label: copy.manualLabel },
-        { value: copy.browserValue, label: copy.browserLabel },
+        { value: uiCopy.manualValue, label: uiCopy.manualLabel },
+        { value: uiCopy.browserValue, label: uiCopy.browserLabel },
       ],
     },
-    sections: [
-      {
-        id: 'overview',
-        title: copy.overviewTitle,
-        body: [
-          `${copy.overviewBodyPrefix} ${title} ${copy.overviewBodySuffix}`,
-          description,
-        ],
-      },
-      ...getRouteSpecificSections(routeKey, locale),
-    ],
-    featureGrid: {
+    sections: copy.sections.map((item): LandingSectionContent => ({
+      id: item.id,
+      title: item.title,
+      body: [item.text],
+    })),
+    featureGrid: copy.features ? {
       id: 'features',
-      title: copy.featureTitle,
-      intro: copy.featureIntro,
-      features: [
-        { title: copy.featureOneTitle, description: copy.featureOneDescription },
-        { title: copy.featureTwoTitle, description: copy.featureTwoDescription },
-        { title: copy.featureThreeTitle, description: copy.featureThreeDescription },
-      ],
-    },
-    steps: {
-      id: 'start',
-      title: copy.stepsTitle,
-      steps: [
-        { title: copy.stepOneTitle, description: copy.stepOneDescription },
-        { title: copy.stepTwoTitle, description: copy.stepTwoDescription },
-        { title: copy.stepThreeTitle, description: copy.stepThreeDescription },
-      ],
-    },
-    useCases: {
-      id: 'use-cases',
-      title: copy.useCasesTitle,
-      intro: copy.useCasesIntro,
-      useCases: [
-        { title: copy.useCaseRemoteTitle, description: copy.useCaseRemoteDescription },
-        { title: copy.useCasePhysicalTitle, description: copy.useCasePhysicalDescription },
-      ],
-    },
-    comparison: {
-      id: 'comparison',
-      title: copy.comparisonTitle,
-      intro: copy.comparisonIntro,
-      firstColumnLabel: copy.firstColumnLabel,
-      secondColumnLabel: copy.secondColumnLabel,
-      rows: [
-        {
-          label: copy.comparisonRowLabel,
-          firstValue: copy.comparisonFirstValue,
-          secondValue: copy.comparisonSecondValue,
-        },
-      ],
-    },
+      title: uiCopy.featureGridTitle,
+      intro: uiCopy.featureGridIntro,
+      features: copy.features,
+    } : undefined,
+    steps: copy.steps ? {
+      id: 'steps',
+      title: copy.h1,
+      steps: copy.steps,
+    } : undefined,
+    comparison: copy.comparison ? createComparisonContent(copy.comparison) : undefined,
     faqPreview: {
       id: 'quick-faq',
-      title: copy.faqTitle,
-      intro: copy.faqIntro,
-      items: faq.items.slice(0, 1),
+      title: uiCopy.faqTitle,
+      intro: uiCopy.faqIntro,
+      items: faqContent.items.slice(0, 2),
     },
-    fullFaq: faq,
-    faq,
+    fullFaq: faqContent,
+    faq: faqContent,
     cta: {
       id: 'cta',
-      title: `${copy.ctaTitlePrefix} ${title}`,
-      description: `${copy.ctaDescriptionPrefix} ${title} ${copy.ctaDescriptionSuffix}`,
-      primaryLink: { label: copy.primaryCta, href: '/rooms' },
-      secondaryLink: { label: copy.secondaryCta, href: '/decks' },
+      title: copy.ctaTitle ?? uiCopy.defaultCtaTitle,
+      description: copy.ctaDescription ?? uiCopy.defaultCtaDescription,
+      primaryLink: { label: copy.primaryCta, href: getPrimaryCtaHref(routeKey) },
+      secondaryLink: { label: copy.secondaryCta, href: getSecondaryCtaHref(routeKey, locale) },
     },
-    internalLinks: {
-      id: 'related',
-      title: copy.internalLinksTitle,
-      intro: copy.internalLinksIntro,
-      links: getRelatedRouteKeys(routeKey).map((relatedRouteKey) => ({
-        label: ROUTE_LABELS[relatedRouteKey][locale],
-        href: getSeoPath(relatedRouteKey, locale),
-      })),
-    },
+    internalLinks: createInternalLinks(routeKey, locale, uiCopy),
   };
 }
 
-function createLandingFaqContent(title: string, copy: LocaleLandingCopy): SeoLandingContent['faq'] {
+function createFaqContent(copy: LandingCopy, uiCopy: LocaleUiCopy): LandingFaqContent {
+  const items = copy.faq ?? uiCopy.defaultFaq;
+
   return {
     id: 'faq',
-    title: copy.faqTitle,
-    intro: copy.faqIntro,
-    items: [
-      {
-        question: `${copy.faqQuestionPrefix} ${title}${copy.faqQuestionSuffix}`,
-        answer: [`${copy.faqAnswerPrefix} ${title} ${copy.faqAnswerSuffix}`],
-      },
-      {
-        question: `${copy.comparisonTitle}: ${title}`,
-        answer: [`${copy.comparisonIntro} ${copy.comparisonFirstValue}.`],
-      },
-    ],
+    title: uiCopy.faqTitle,
+    intro: uiCopy.faqIntro,
+    items: items.map((item) => ({
+      question: item.question,
+      answer: [item.answer],
+    })),
+  };
+}
+
+function createComparisonContent(copy: ComparisonCopy): LandingComparisonContent {
+  return {
+    id: 'comparison',
+    title: copy.title,
+    intro: copy.intro,
+    firstColumnLabel: copy.firstColumnLabel,
+    secondColumnLabel: copy.secondColumnLabel,
+    rows: copy.rows,
+  };
+}
+
+function createInternalLinks(routeKey: SeoRouteKey, locale: SeoLocaleCode, uiCopy: LocaleUiCopy): LandingInternalLinksContent {
+  return {
+    id: 'related',
+    title: uiCopy.relatedTitle,
+    intro: uiCopy.relatedIntro,
+    links: getRelatedRouteKeys(routeKey).map((relatedRouteKey) => ({
+      label: getRouteLabel(relatedRouteKey, locale),
+      href: getSeoPath(relatedRouteKey, locale),
+    })),
   };
 }
 
 function createLandingJsonLd(
   routeKey: SeoRouteKey,
-  locale: LocaleCode,
+  locale: SeoLocaleCode,
   title: string,
   description: string,
   path: string,
@@ -1644,9 +893,7 @@ function createLandingJsonLd(
     graph.push(createArticleJsonLd(locale, title, description, canonicalUrl, seo.ogImage));
   }
 
-  if (faq.items.length > 0) {
-    graph.push(createFaqPageJsonLd(locale, title, description, canonicalUrl, faq));
-  }
+  graph.push(createFaqPageJsonLd(locale, title, description, canonicalUrl, faq));
 
   return {
     '@context': 'https://schema.org',
@@ -1663,11 +910,7 @@ function createOrganizationJsonLd(): SeoJsonLdObject {
   };
 }
 
-function createWebSiteJsonLd(
-  locale: LocaleCode,
-  description: string,
-  canonicalUrl: string,
-): SeoJsonLdObject {
+function createWebSiteJsonLd(locale: SeoLocaleCode, description: string, canonicalUrl: string): SeoJsonLdObject {
   return {
     '@type': 'WebSite',
     '@id': `${canonicalUrl}#website`,
@@ -1680,7 +923,7 @@ function createWebSiteJsonLd(
 }
 
 function createSoftwareApplicationJsonLd(
-  locale: LocaleCode,
+  locale: SeoLocaleCode,
   title: string,
   description: string,
   canonicalUrl: string,
@@ -1701,7 +944,7 @@ function createSoftwareApplicationJsonLd(
 }
 
 function createArticleJsonLd(
-  locale: LocaleCode,
+  locale: SeoLocaleCode,
   title: string,
   description: string,
   canonicalUrl: string,
@@ -1735,7 +978,7 @@ function createBreadcrumbJsonLd(canonicalUrl: string, breadcrumb: LandingBreadcr
 }
 
 function createFaqPageJsonLd(
-  locale: LocaleCode,
+  locale: SeoLocaleCode,
   title: string,
   description: string,
   canonicalUrl: string,
@@ -1759,275 +1002,66 @@ function createFaqPageJsonLd(
 }
 
 function isProductLandingRoute(routeKey: SeoRouteKey): boolean {
-  return isRouteInGroup(routeKey, PRODUCT_LANDING_ROUTE_KEYS);
+  return (PRODUCT_LANDING_ROUTE_KEYS as readonly SeoRouteKey[]).includes(routeKey);
 }
 
 function isArticleLandingRoute(routeKey: SeoRouteKey): boolean {
-  return isRouteInGroup(routeKey, GUIDE_LANDING_ROUTE_KEYS) || isRouteInGroup(routeKey, COMPARISON_LANDING_ROUTE_KEYS);
+  return (GUIDE_LANDING_ROUTE_KEYS as readonly SeoRouteKey[]).includes(routeKey)
+    || (COMPARISON_LANDING_ROUTE_KEYS as readonly SeoRouteKey[]).includes(routeKey);
 }
 
-function isRouteInGroup(routeKey: SeoRouteKey, routes: readonly SeoRouteKey[]): boolean {
-  return routes.includes(routeKey);
+function getLandingCopy(routeKey: SeoRouteKey, locale: PriorityLocaleCode): LandingCopy {
+  return LANDING_COPY[routeKey][locale];
 }
 
-function createPublicFaqContent(locale: LocaleCode, copy: LocaleLandingCopy): SeoLandingContent['faq'] {
-  const questions = PUBLIC_FAQ_QUESTIONS[locale];
-  const localizedQuestions = questions.length > 0 ? questions : createLocalizedPublicFaqQuestions(locale, copy);
-
-  return {
-    id: 'faq',
-    title: copy.faqTitle,
-    intro: copy.faqIntro,
-    items: localizedQuestions.map((question, index) => ({
-      question,
-      answer: [createPublicFaqAnswer(question, index, copy)],
-    })),
-  };
+function getUiCopy(locale: PriorityLocaleCode): LocaleUiCopy {
+  return LOCALE_COPY[locale];
 }
 
-function createPublicFaqAnswer(question: string, index: number, copy: LocaleLandingCopy): string {
-  const answerGroups = [
-    `${copy.faqAnswerPrefix} CommanderZone ${copy.faqAnswerSuffix}`,
-    `${copy.comparisonIntro} ${copy.comparisonFirstValue}.`,
-    `${copy.useCaseRemoteDescription} ${copy.useCasePhysicalDescription}`,
-    `${copy.featureTwoDescription} ${copy.featureThreeDescription}`,
-  ];
-
-  return `${answerGroups[index % answerGroups.length]} ${question}`;
+function getPriorityLocale(locale: SeoLocaleCode): PriorityLocaleCode {
+  return PRIORITY_LOCALES.includes(locale as PriorityLocaleCode) ? locale as PriorityLocaleCode : 'en';
 }
 
-function createLocalizedPublicFaqQuestions(locale: LocaleCode, copy: LocaleLandingCopy): readonly string[] {
-  const commanderOnline = ROUTE_LABELS.playCommanderOnline[locale];
-  const magicWithFriends = ROUTE_LABELS.playMagicOnlineWithFriends[locale];
-  const createRoom = ROUTE_LABELS.createCommanderRoom[locale];
-  const importDeck = ROUTE_LABELS.importCommanderDeck[locale];
-  const deckBuilder = ROUTE_LABELS.commanderDeckBuilder[locale];
-  const tableAssistant = ROUTE_LABELS.tableAssistant[locale];
-  const waysToPlay = ROUTE_LABELS.waysToPlayCommanderOnline[locale];
-  const topics = PUBLIC_FAQ_TOPIC_COPY[locale];
-
-  return [
-    `${copy.faqQuestionPrefix} CommanderZone${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} ${commanderOnline}${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} ${magicWithFriends}${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} ${copy.browserValue}${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} ${copy.browserLabel}${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} ${createRoom}${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} ${topics.invitationsAndRoomLinks}${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} ${topics.freeCommanderGames}${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} ${topics.accountsAndRoomCreation}${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} ${topics.multiplayerCommander}${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} ${importDeck}${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} ${topics.pastedDecklists}${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} ${deckBuilder}${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} ${topics.creatingCommanderDecks}${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} ${topics.editingDecks}${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} ${topics.externalDeckSources}${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} ${topics.decklistFormats}${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} ${topics.existingDecks}${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} ${tableAssistant}${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} ${topics.physicalMagicGames}${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} ${topics.phoneLifeCounter}${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} ${topics.tabletTableAssistant}${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} ${topics.inPersonGames}${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} ${topics.commanderDamage}${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} ${topics.severalLifeTotals}${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} ${topics.poisonTracking}${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} ${topics.tableAssistantWithoutRoom}${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} ${topics.spellTableComparison}${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} ${topics.cockatriceComparison}${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} ${topics.mtgoComparison}${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} ${topics.mtgArenaComparison}${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} ${topics.untapComparison}${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} ${topics.edhPlayComparison}${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} ${waysToPlay}${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} ${topics.mobileDevices}${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} ${topics.tablets}${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} ${topics.desktopSystems}${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} ${topics.cameraRequirements}${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} ${topics.noWebcam}${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} ${topics.physicalCards}${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} ${topics.privateGames}${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} ${topics.roomLinks}${copy.faqQuestionSuffix}`,
-    `${copy.faqQuestionPrefix} ${topics.startingRequirements}${copy.faqQuestionSuffix}`,
-  ];
+function getRouteLabel(routeKey: SeoRouteKey, locale: SeoLocaleCode): string {
+  return getPriorityRouteLabel(routeKey, getPriorityLocale(locale));
 }
 
-function getRouteSpecificSections(routeKey: SeoRouteKey, locale: LocaleCode): readonly LandingSectionContent[] {
+function getPriorityRouteLabel(routeKey: SeoRouteKey, locale: PriorityLocaleCode): string {
+  return ROUTE_LABELS[routeKey][locale].h1;
+}
+
+function getRelatedRouteKeys(routeKey: SeoRouteKey): readonly SeoRouteKey[] {
   if (routeKey === 'home') {
     return [
-      {
-        id: 'public-faq',
-        title: ROUTE_LABELS.faq[locale],
-        body: [
-          `${LOCALE_COPY[locale].faqIntro} ${LOCALE_COPY[locale].internalLinksIntro}`,
-        ],
-        links: [
-          { label: ROUTE_LABELS.faq[locale], href: getSeoPath('faq', locale) },
-        ],
-      },
+      'playCommanderOnline',
+      'playMagicOnlineWithFriends',
+      'createCommanderRoom',
+      'importCommanderDeck',
+      'commanderDeckBuilder',
+      'tableAssistant',
+      'waysToPlayCommanderOnline',
+      'howToPlayCommanderOnline',
+      'faq',
     ];
   }
 
   if (routeKey === 'faq') {
-    const categoryLabels = [
-      ROUTE_LABELS.playCommanderOnline[locale],
-      ROUTE_LABELS.importCommanderDeck[locale],
-      ROUTE_LABELS.commanderDeckBuilder[locale],
-      ROUTE_LABELS.tableAssistant[locale],
-      ROUTE_LABELS.waysToPlayCommanderOnline[locale],
-    ].join(', ');
-
     return [
-      {
-        id: 'faq-categories',
-        title: LOCALE_COPY[locale].useCasesTitle,
-        body: [
-          `CommanderZone: ${categoryLabels}. ${LOCALE_COPY[locale].comparisonTitle}. ${LOCALE_COPY[locale].browserLabel}`,
-        ],
-      },
+      'home',
+      'playCommanderOnline',
+      'playMagicOnlineWithFriends',
+      'createCommanderRoom',
+      'importCommanderDeck',
+      'commanderDeckBuilder',
+      'tableAssistant',
+      'waysToPlayCommanderOnline',
+      'howToPlayCommanderOnline',
     ];
   }
 
-  if (routeKey === 'tableAssistant' && locale === 'es') {
-    return [
-      {
-        id: 'asistente-de-mesa',
-        title: 'Asistente de mesa para partidas fisicas de Magic',
-        body: [
-          'El Asistente de mesa funciona como contador de vidas Magic, contador de vidas Commander y marcador de vidas para grupos que juegan en mesa fisica.',
-          'Puedes usar el móvil como contador o una tablet como marcador visible, incluyendo seguimiento de daño de comandante sin automatizar reglas completas.',
-        ],
-      },
-    ];
-  }
-
-  if (routeKey === 'waysToPlayCommanderOnline') {
-    const copy = LOCALE_COPY[locale];
-
-    return [
-      {
-        id: 'comparison-options',
-        title: copy.comparisonTitle,
-        body: [
-          `${ROUTE_LABELS.waysToPlayCommanderOnline[locale]}: SpellTable, Cockatrice, MTGO, MTG Arena, Untap.in, EDHPlay.`,
-          `${copy.comparisonIntro} ${copy.comparisonFirstValue}.`,
-        ],
-      },
-    ];
-  }
-
-  return [];
-}
-
-const PUBLIC_FAQ_QUESTIONS: Readonly<Record<LocaleCode, readonly string[]>> = {
-  es: [
-    '¿Qué es CommanderZone?',
-    '¿Cómo puedo jugar Commander online con amigos?',
-    '¿Puedo jugar Magic: The Gathering online en CommanderZone?',
-    '¿Necesito descargar algo para jugar?',
-    '¿CommanderZone funciona desde navegador?',
-    '¿Puedo crear una sala privada para jugar Commander?',
-    '¿Cómo invito a mis amigos a una partida?',
-    '¿Puedo jugar Commander online gratis?',
-    '¿Necesito registrarme para crear una sala?',
-    '¿CommanderZone está pensado para Commander multijugador?',
-    '¿Puedo importar mi mazo de Commander?',
-    '¿Puedo pegar una decklist para jugar online?',
-    '¿CommanderZone tiene deck builder?',
-    '¿Puedo crear un mazo de Commander desde cero?',
-    '¿Puedo editar mi mazo antes de jugar?',
-    '¿Puedo importar mazos desde Moxfield, Archidekt u otras plataformas?',
-    '¿Qué formatos de decklist acepta CommanderZone?',
-    '¿Puedo jugar online con un mazo que ya tengo creado?',
-    '¿Qué es el Asistente de mesa?',
-    '¿Puedo usar CommanderZone como asistente de mesa en una partida física?',
-    '¿Puedo usar el móvil como contador de vidas de Magic?',
-    '¿Puedo usar una tablet como asistente de mesa para Commander?',
-    '¿El Asistente de mesa funciona para partidas presenciales?',
-    '¿Puedo controlar el daño de comandante?',
-    '¿Puedo contar vidas de varios jugadores?',
-    '¿Puedo controlar veneno o infect?',
-    '¿Necesito crear una sala online para usar el Asistente de mesa?',
-    '¿CommanderZone es una alternativa a SpellTable?',
-    '¿CommanderZone es una alternativa a Cockatrice?',
-    '¿CommanderZone es una alternativa a MTGO?',
-    '¿CommanderZone es una alternativa a MTG Arena?',
-    '¿CommanderZone es una alternativa a Untap.in?',
-    '¿CommanderZone es una alternativa a EDHPlay?',
-    '¿Qué diferencia a CommanderZone de otras plataformas para jugar Commander online?',
-    '¿CommanderZone funciona en móvil?',
-    '¿CommanderZone funciona en tablet?',
-    '¿CommanderZone funciona en Mac, Windows y Linux?',
-    '¿Necesito cámara o webcam?',
-    '¿Puedo jugar sin webcam?',
-    '¿Puedo jugar con cartas físicas?',
-    '¿Mis partidas son privadas?',
-    '¿Puedo compartir una sala con un enlace?',
-    '¿Qué necesito para empezar a jugar?',
-  ],
-  en: [
-    'What is CommanderZone?',
-    'How can I play Commander online with friends?',
-    'Can I play Magic: The Gathering online on CommanderZone?',
-    'Do I need to download anything to play?',
-    'Does CommanderZone work in the browser?',
-    'Can I create a private room to play Commander?',
-    'How do I invite friends to a game?',
-    'Can I play Commander online for free?',
-    'Do I need an account to create a room?',
-    'Is CommanderZone built for multiplayer Commander?',
-    'Can I import my Commander deck?',
-    'Can I paste a decklist to play online?',
-    'Does CommanderZone include a deck builder?',
-    'Can I create a Commander deck from scratch?',
-    'Can I edit my deck before playing?',
-    'Can I import decks from Moxfield, Archidekt or other platforms?',
-    'Which decklist formats does CommanderZone accept?',
-    'Can I play online with a deck I already created?',
-    'What is the table assistant?',
-    'Can I use CommanderZone as a table assistant in a physical game?',
-    'Can I use my phone as a Magic life counter?',
-    'Can I use a tablet as a Commander table assistant?',
-    'Does the table assistant work for in-person games?',
-    'Can I track commander damage?',
-    'Can I track life totals for several players?',
-    'Can I track poison or infect?',
-    'Do I need to create an online room to use the table assistant?',
-    'Is CommanderZone an alternative to SpellTable?',
-    'Is CommanderZone an alternative to Cockatrice?',
-    'Is CommanderZone an alternative to MTGO?',
-    'Is CommanderZone an alternative to MTG Arena?',
-    'Is CommanderZone an alternative to Untap.in?',
-    'Is CommanderZone an alternative to EDHPlay?',
-    'What makes CommanderZone different from other ways to play Commander online?',
-    'Does CommanderZone work on mobile?',
-    'Does CommanderZone work on tablets?',
-    'Does CommanderZone work on Mac, Windows and Linux?',
-    'Do I need a camera or webcam?',
-    'Can I play without a webcam?',
-    'Can I play with physical cards?',
-    'Are my games private?',
-    'Can I share a room with a link?',
-    'What do I need to start playing?',
-  ],
-  de: [],
-  fr: [],
-  it: [],
-  pt: [],
-  ja: [],
-  ko: [],
-  'zh-hans': [],
-  'zh-hant': [],
-  nl: [],
-  ca: [],
-  ru: [],
-};
-
-function getRelatedRouteKeys(routeKey: SeoRouteKey): readonly SeoRouteKey[] {
-  const mainSeoRoutes: readonly SeoRouteKey[] = [
+  return [
+    'home',
     'playCommanderOnline',
-    'playMagicOnlineWithFriends',
     'createCommanderRoom',
     'importCommanderDeck',
     'commanderDeckBuilder',
@@ -2035,27 +1069,586 @@ function getRelatedRouteKeys(routeKey: SeoRouteKey): readonly SeoRouteKey[] {
     'waysToPlayCommanderOnline',
     'howToPlayCommanderOnline',
     'faq',
-  ];
-
-  if (routeKey === 'home') {
-    return mainSeoRoutes;
-  }
-
-  if (routeKey === 'faq') {
-    return ['home', ...mainSeoRoutes.filter((relatedRouteKey) => relatedRouteKey !== 'faq')];
-  }
-
-  return mainSeoRoutes.filter((relatedRouteKey) => relatedRouteKey !== routeKey).slice(0, 4);
+  ].filter((relatedRouteKey) => relatedRouteKey !== routeKey) as readonly SeoRouteKey[];
 }
 
 function getOpenGraphImagePath(routeKey: SeoRouteKey): string {
   const images: Partial<Record<SeoRouteKey, string>> = {
     home: '/assets/og/home-og.png',
     playCommanderOnline: '/assets/og/play-commander-og.png',
+    createCommanderRoom: '/assets/og/create-room-og.png',
+    importCommanderDeck: '/assets/og/import-deck-og.png',
+    commanderDeckBuilder: '/assets/og/deck-builder-og.png',
     tableAssistant: '/assets/og/table-assistant-og.png',
-    faq: '/assets/og/faq-og.png',
     waysToPlayCommanderOnline: '/assets/og/ways-to-play-og.png',
+    faq: '/assets/og/faq-og.png',
   };
 
   return images[routeKey] ?? '/assets/og/default-og.png';
+}
+
+function getPrimaryCtaHref(routeKey: SeoRouteKey): string {
+  if (routeKey === 'tableAssistant') {
+    return '/table-assistant';
+  }
+
+  if (routeKey === 'commanderDeckBuilder') {
+    return '/decks?intent=new&next=/rooms';
+  }
+
+  return '/decks?intent=import&next=/rooms';
+}
+
+function getSecondaryCtaHref(routeKey: SeoRouteKey, locale: SeoLocaleCode): string {
+  if (routeKey === 'createCommanderRoom' || routeKey === 'importCommanderDeck') {
+    return '/decks?intent=new&next=/rooms';
+  }
+
+  if (routeKey === 'commanderDeckBuilder') {
+    return '/decks?intent=import&next=/rooms';
+  }
+
+  if (routeKey === 'tableAssistant') {
+    return getSeoPath('howToPlayCommanderOnline', locale);
+  }
+
+  return getSeoPath('howToPlayCommanderOnline', locale);
+}
+
+function section(id: string, title: string, text: string): SectionCopy {
+  return { id, title, text };
+}
+
+function feature(title: string, description: string): LandingFeature {
+  return { title, description };
+}
+
+function step(title: string, description: string): LandingStep {
+  return { title, description };
+}
+
+function faq(question: string, answer: string): FaqItemCopy {
+  return { question, answer };
+}
+
+function row(label: string, firstValue: string, secondValue: string): ComparisonRowCopy {
+  return { label, firstValue, secondValue };
+}
+
+function simpleCopy(
+  metaTitle: string,
+  metaDescription: string,
+  h1: string,
+  heroSubtitle: string,
+  primaryCta: string,
+  secondaryCta: string,
+  sections: readonly SectionCopy[],
+  features?: readonly LandingFeature[],
+  faqItems?: readonly FaqItemCopy[],
+): LandingCopy {
+  return { metaTitle, metaDescription, h1, heroSubtitle, primaryCta, secondaryCta, sections, features, faq: faqItems };
+}
+
+function guideCopy(
+  metaTitle: string,
+  metaDescription: string,
+  h1: string,
+  heroSubtitle: string,
+  primaryCta: string,
+  secondaryCta: string,
+  steps: readonly LandingStep[],
+  sections: readonly SectionCopy[],
+): LandingCopy {
+  return { metaTitle, metaDescription, h1, heroSubtitle, primaryCta, secondaryCta, sections, steps };
+}
+
+function comparisonCopy(
+  metaTitle: string,
+  metaDescription: string,
+  h1: string,
+  heroSubtitle: string,
+  primaryCta: string,
+  secondaryCta: string,
+  sections: readonly SectionCopy[],
+  rows: readonly ComparisonRowCopy[],
+  firstColumnLabel: string,
+  secondColumnLabel: string,
+  thirdColumnLabel: string,
+): LandingCopy {
+  return {
+    metaTitle,
+    metaDescription,
+    h1,
+    heroSubtitle,
+    primaryCta,
+    secondaryCta,
+    sections,
+    comparison: {
+      title: h1,
+      intro: heroSubtitle,
+      firstColumnLabel,
+      secondColumnLabel,
+      rows: rows.map((item) => ({
+        label: item.label,
+        firstValue: item.firstValue,
+        secondValue: `${thirdColumnLabel}: ${item.secondValue}`,
+      })),
+    },
+  };
+}
+
+function faqCopy(
+  metaTitle: string,
+  metaDescription: string,
+  h1: string,
+  heroSubtitle: string,
+  primaryCta: string,
+  secondaryCta: string,
+  faqItems: readonly FaqItemCopy[],
+): LandingCopy {
+  return {
+    metaTitle,
+    metaDescription,
+    h1,
+    heroSubtitle,
+    primaryCta,
+    secondaryCta,
+    sections: [
+      section('commanderzone-help', h1, heroSubtitle),
+    ],
+    faq: faqItems,
+  };
+}
+
+function localizedHome(metaTitle: string, metaDescription: string, h1: string, heroSubtitle: string, primaryCta: string, secondaryCta: string, locale: PriorityLocaleCode): LandingCopy {
+  const localized = {
+    de: simpleCopy(metaTitle, metaDescription, h1, heroSubtitle, primaryCta, secondaryCta, [
+      section('commander-table', 'Ein Tisch für Commander', 'CommanderZone versucht nicht, jede Magic-Regel zu automatisieren. Es ist für Gruppen gedacht, die spielen können und einen schnellen, flexiblen Online-Tisch wollen.'),
+      section('deck-to-game', 'Von der Deckliste zur Partie', 'Importiere deine Listen, organisiere deine Decks und bring sie direkt an den Tisch. Weniger Einrichtung, mehr Spielzeit.'),
+      section('online-or-paper', 'Online oder am physischen Tisch', 'Spiele online mit Freunden oder nutze den Tischassistenten auf Smartphone oder Tablet bei Papierpartien.'),
+    ], [
+      feature('Räume schnell erstellen', 'Erstelle einen Raum und teile den Link mit deiner Gruppe.'),
+      feature('Deine Decks nutzen', 'Importiere deine Listen und mach sie spielbereit.'),
+      feature('Partie verfolgen', 'Verwalte Lebenspunkte, Commander-Schaden und Tischstatus.'),
+      feature('Listen verbessern', 'Analysiere deine Decks und erkenne Schwachstellen.'),
+    ]),
+    fr: simpleCopy(metaTitle, metaDescription, h1, heroSubtitle, primaryCta, secondaryCta, [
+      section('commander-table', 'Une table pensée pour Commander', 'CommanderZone ne cherche pas à automatiser chaque règle de Magic. L’outil s’adresse aux groupes qui savent jouer et veulent une table en ligne rapide et flexible.'),
+      section('deck-to-game', 'De la decklist à la partie', 'Importez vos listes, organisez vos decks et amenez-les directement à la table. Moins de configuration, plus de jeu.'),
+      section('online-or-paper', 'En ligne ou autour d’une table', 'Jouez en ligne avec vos amis ou utilisez l’assistant de table sur mobile ou tablette pendant vos parties physiques.'),
+    ], [
+      feature('Créer des salles vite', 'Générez une salle et partagez le lien avec votre groupe.'),
+      feature('Utiliser vos decks', 'Importez vos listes et préparez-les pour jouer.'),
+      feature('Suivre la partie', 'Gérez les points de vie, les blessures de commandant et l’état de table.'),
+      feature('Améliorer vos listes', 'Analysez vos decks et repérez les points faibles.'),
+    ]),
+    pt: simpleCopy(metaTitle, metaDescription, h1, heroSubtitle, primaryCta, secondaryCta, [
+      section('commander-table', 'Uma mesa feita para Commander', 'CommanderZone não tenta automatizar cada regra de Magic. Ele foi feito para grupos que já sabem jogar e querem uma mesa online rápida e flexível.'),
+      section('deck-to-game', 'Da decklist à partida', 'Importe suas listas, organize seus decks e leve tudo direto para a mesa. Menos configuração, mais jogo.'),
+      section('online-or-paper', 'Online ou na mesa física', 'Jogue online com amigos ou use o Assistente de mesa no celular ou tablet durante partidas presenciais.'),
+    ], [
+      feature('Crie salas rápido', 'Gere uma sala e compartilhe o link com seu grupo.'),
+      feature('Use seus decks', 'Importe suas listas e deixe-as prontas para jogar.'),
+      feature('Acompanhe a partida', 'Gerencie vida, dano de comandante e estado da mesa.'),
+      feature('Melhore suas listas', 'Analise seus decks e encontre pontos fracos.'),
+    ]),
+  };
+
+  if (locale !== 'de' && locale !== 'fr' && locale !== 'pt') {
+    return LANDING_COPY.home.en;
+  }
+
+  return localized[locale];
+}
+
+function localizedPlayCommander(metaTitle: string, metaDescription: string, h1: string, heroSubtitle: string, primaryCta: string, secondaryCta: string, locale: PriorityLocaleCode): LandingCopy {
+  return simpleCopy(metaTitle, metaDescription, h1, heroSubtitle, primaryCta, secondaryCta, localizedSections(locale, 'playCommanderOnline'), localizedFeatures(locale, 'playCommanderOnline'));
+}
+
+function localizedCreateRoom(metaTitle: string, metaDescription: string, h1: string, heroSubtitle: string, primaryCta: string, secondaryCta: string, locale: PriorityLocaleCode): LandingCopy {
+  return simpleCopy(metaTitle, metaDescription, h1, heroSubtitle, primaryCta, secondaryCta, localizedSections(locale, 'createCommanderRoom'), localizedFeatures(locale, 'createCommanderRoom'));
+}
+
+function localizedImportDeck(metaTitle: string, metaDescription: string, h1: string, heroSubtitle: string, primaryCta: string, secondaryCta: string, locale: PriorityLocaleCode): LandingCopy {
+  return simpleCopy(metaTitle, metaDescription, h1, heroSubtitle, primaryCta, secondaryCta, localizedSections(locale, 'importCommanderDeck'), localizedFeatures(locale, 'importCommanderDeck'));
+}
+
+function localizedDeckBuilder(metaTitle: string, metaDescription: string, h1: string, heroSubtitle: string, primaryCta: string, secondaryCta: string, locale: PriorityLocaleCode): LandingCopy {
+  return simpleCopy(metaTitle, metaDescription, h1, heroSubtitle, primaryCta, secondaryCta, localizedSections(locale, 'commanderDeckBuilder'), localizedFeatures(locale, 'commanderDeckBuilder'));
+}
+
+function localizedTableAssistant(metaTitle: string, metaDescription: string, h1: string, heroSubtitle: string, primaryCta: string, secondaryCta: string, locale: PriorityLocaleCode): LandingCopy {
+  return simpleCopy(metaTitle, metaDescription, h1, heroSubtitle, primaryCta, secondaryCta, localizedSections(locale, 'tableAssistant'), localizedFeatures(locale, 'tableAssistant'), localizedTableAssistantFaq(locale));
+}
+
+function localizedHowTo(metaTitle: string, metaDescription: string, h1: string, heroSubtitle: string, primaryCta: string, secondaryCta: string, locale: PriorityLocaleCode): LandingCopy {
+  return guideCopy(metaTitle, metaDescription, h1, heroSubtitle, primaryCta, secondaryCta, localizedSteps(locale), localizedSections(locale, 'howToPlayCommanderOnline'));
+}
+
+function localizedWays(metaTitle: string, metaDescription: string, h1: string, heroSubtitle: string, primaryCta: string, secondaryCta: string, locale: PriorityLocaleCode): LandingCopy {
+  const comparison = localizedComparison(locale);
+  return comparisonCopy(metaTitle, metaDescription, h1, heroSubtitle, primaryCta, secondaryCta, localizedSections(locale, 'waysToPlayCommanderOnline'), comparison.rows, comparison.firstColumnLabel, comparison.secondColumnLabel, comparison.thirdColumnLabel);
+}
+
+function localizedMagicFriends(metaTitle: string, metaDescription: string, h1: string, heroSubtitle: string, primaryCta: string, secondaryCta: string, locale: PriorityLocaleCode): LandingCopy {
+  return simpleCopy(metaTitle, metaDescription, h1, heroSubtitle, primaryCta, secondaryCta, localizedSections(locale, 'playMagicOnlineWithFriends'));
+}
+
+function localizedPublicFaq(metaTitle: string, metaDescription: string, h1: string, heroSubtitle: string, primaryCta: string, secondaryCta: string, locale: PriorityLocaleCode): LandingCopy {
+  return faqCopy(metaTitle, metaDescription, h1, heroSubtitle, primaryCta, secondaryCta, localizedFaq(locale));
+}
+
+function localizedSections(locale: PriorityLocaleCode, routeKey: SeoRouteKey): readonly SectionCopy[] {
+  if (locale !== 'de' && locale !== 'fr' && locale !== 'pt') {
+    return [];
+  }
+
+  const sections = {
+    de: {
+      playCommanderOnline: [
+        section('fast-start', 'Schneller in die Partie', 'Du brauchst keine komplexe Plattform, um loszulegen. Der Ablauf ist direkt: Deck vorbereiten, Raum erstellen, Link teilen und spielen.'),
+        section('manual-control', 'Manueller Tisch, echte Kontrolle', 'Commander ist ein soziales Format. CommanderZone gibt deiner Gruppe Werkzeuge, aber die Spieler behalten die Kontrolle.'),
+        section('long-games', 'Für lange Partien gebaut', 'Commander-Partien können lange dauern. Die Oberfläche soll klar, stabil und bequem bleiben.'),
+      ],
+      createCommanderRoom: [
+        section('deck-first', 'Erst das Deck, dann der Raum', 'Um eine Partie zu starten, brauchst du ein vorbereitetes Deck. Importiere eine Deckliste, erstelle ein Deck neu oder wähle ein gespeichertes Deck vor dem Erstellen des Raums.'),
+        section('link-invite', 'Der Link ist die Einladung', 'Andere Spieler einzuladen sollte so einfach sein wie einen Link zu teilen.'),
+        section('lobby', 'Lobby vor dem Spiel', 'Organisiere, wer beitritt, welche Decks genutzt werden und wann die Partie startet.'),
+        section('room-to-game', 'Vom Raum zum Tisch', 'Wenn die Gruppe bereit ist, wird der Raum zu einem klaren Commander-Tisch.'),
+      ],
+      importCommanderDeck: [
+        section('existing-lists', 'Nicht bei null anfangen', 'Wenn du deine Listen bereits als Text oder in anderen Tools hast, importiere sie ohne alles neu zu bauen.'),
+        section('ready-to-play', 'Spielbereit', 'Ein Deck zu importieren bedeutet nicht nur speichern, sondern es für einen Raum bereit zu haben.'),
+        section('analysis', 'Analyse nach dem Import', 'Prüfe Länder, Kurve, Farben, Kartentypen, Ramp, Kartenziehen und Interaktion vor der Partie.'),
+      ],
+      commanderDeckBuilder: [
+        section('build-to-play', 'Bauen, um zu spielen', 'CommanderZone soll nicht nur Listen speichern. Deine Decks sollen bereit für den Tisch sein.'),
+        section('room-ready', 'Bereit für den Raum', 'Sobald dein Deck bereit ist, kannst du es direkt in einen CommanderZone-Raum mitnehmen.'),
+        section('deck-review', 'Klare Deckprüfung', 'Prüfe Kurve, Farben, Länder, Kartentypen und Struktur, um dein Deck besser zu verstehen.'),
+        section('improve', 'Zwischen Partien verbessern', 'Speichere Versionen, teste Änderungen und lerne, was dein Deck nach Partien braucht.'),
+      ],
+      tableAssistant: [
+        section('paper-games', 'Für physische Commander-Partien', 'Nicht jede Partie findet online statt. Der Tischassistent ist für Gruppen gedacht, die persönlich spielen und die Partie klarer verwalten möchten.'),
+        section('visible-totals', 'Lebenspunkte und Commander-Schaden sichtbar', 'Halte wichtige Informationen für alle Spieler sichtbar, ohne lose Notizen oder Würfel überall auf dem Tisch.'),
+        section('mobile-tablet', 'Ideal für Smartphone oder Tablet', 'Lege das Gerät in die Mitte des Tisches und nutze es während der Partie als gemeinsames Panel.'),
+      ],
+      howToPlayCommanderOnline: [
+        section('group-needs', 'Was deine Gruppe braucht', 'Ihr braucht einen Sprachkanal, sichtbare Spielinformationen und einen Tisch, den alle verstehen.'),
+        section('manual-table', 'Warum ein manueller Tisch gut funktionieren kann', 'Commander hat viele soziale Situationen und Absprachen am Tisch. Ein zu starres Tool kann stören.'),
+      ],
+      waysToPlayCommanderOnline: [
+        section('webcam', 'Mit Webcam spielen', 'Das ist am nächsten an Papierpartien: Jeder nutzt echte Karten und zeigt den Tisch mit einer Kamera.'),
+        section('manual-table', 'Manueller Online-Tisch', 'Ein manueller Tisch reduziert Einrichtung und lässt die Gruppe ohne vollständigen Regelmotor kontrolliert spielen.'),
+        section('platforms', 'Simulatoren und komplette Plattformen', 'Einige Tools bilden das Spiel vollständiger ab, benötigen aber oft mehr Lernen, Installation oder Einrichtung.'),
+      ],
+      playMagicOnlineWithFriends: [
+        section('play-not-configure', 'Für Gruppen, die spielen wollen', 'Wenn deine Gruppe online Magic spielt, zählt schnelles Reinkommen, Tisch organisieren und loslegen.'),
+        section('commander-focused', 'Besonders für Commander gedacht', 'CommanderZone orientiert sich an Commander: mehrere Spieler, Commander-Schaden, lange Partien und feste Gruppen.'),
+        section('complementary', 'Ein ergänzendes Werkzeug', 'Du kannst CommanderZone mit den Tools kombinieren, die du bereits für Sprache, Video, Karten oder Community nutzt.'),
+      ],
+      faq: [],
+      home: [],
+    },
+    fr: {
+      playCommanderOnline: [
+        section('fast-start', 'Une façon rapide de lancer la partie', 'Vous n’avez pas besoin d’une configuration complexe pour commencer. Préparez un deck, créez une salle, partagez le lien et jouez.'),
+        section('manual-control', 'Table manuelle, vrai contrôle', 'Commander est un format social. CommanderZone donne des outils au groupe, mais les joueurs gardent le contrôle.'),
+        section('long-games', 'Pensée pour les longues parties', 'Une partie de Commander peut durer longtemps. L’interface doit rester claire, stable et confortable.'),
+      ],
+      createCommanderRoom: [
+        section('deck-first', 'Le deck d’abord, la salle ensuite', 'Pour lancer une partie, vous devez avoir un deck prêt. Importez une decklist, créez un deck ou choisissez un deck sauvegardé avant de créer la salle.'),
+        section('link-invite', 'Le lien est l’invitation', 'Inviter d’autres joueurs devrait être aussi simple que partager un lien.'),
+        section('lobby', 'Lobby avant la partie', 'Organisez les joueurs, les decks utilisés et le moment où la partie commence.'),
+        section('room-to-game', 'De la salle à la table', 'Quand le groupe est prêt, la salle devient une table claire centrée sur Commander.'),
+      ],
+      importCommanderDeck: [
+        section('existing-lists', 'Ne repartez pas de zéro', 'Si vos listes existent déjà en texte ou dans d’autres outils, importez-les sans tout reconstruire.'),
+        section('ready-to-play', 'Prêt à jouer', 'Importer un deck ne sert pas seulement à le sauvegarder : il devient prêt pour une salle.'),
+        section('analysis', 'Analyse après import', 'Vérifiez terrains, courbe, couleurs, types de carte, ramp, pioche et interaction avant la partie.'),
+      ],
+      commanderDeckBuilder: [
+        section('build-to-play', 'Construire pour jouer', 'CommanderZone n’est pas seulement un endroit où stocker des listes. Le but est de préparer vos decks pour la table.'),
+        section('room-ready', 'Prêt pour une salle', 'Une fois votre deck prêt, vous pouvez l’amener directement dans une salle CommanderZone.'),
+        section('deck-review', 'Revue claire du deck', 'Consultez courbe, couleurs, terrains, types de carte et structure pour comprendre votre liste.'),
+        section('improve', 'S’améliorer entre les parties', 'Sauvegardez des versions, testez des changements et apprenez ce dont votre deck a besoin.'),
+      ],
+      tableAssistant: [
+        section('paper-games', 'Pour les parties physiques de Commander', 'Toutes les parties ne se jouent pas en ligne. L’assistant de table aide les groupes qui jouent en personne à mieux gérer la partie.'),
+        section('visible-totals', 'Points de vie et blessures de commandant visibles', 'Gardez les informations importantes visibles pour tous, sans notes éparpillées ni dés partout.'),
+        section('mobile-tablet', 'Idéal sur mobile ou tablette', 'Placez l’appareil au centre de la table et utilisez-le comme panneau partagé.'),
+      ],
+      howToPlayCommanderOnline: [
+        section('group-needs', 'Ce dont votre groupe a besoin', 'Il vous faut un canal pour parler, des informations de partie visibles et une table que tout le monde comprend.'),
+        section('manual-table', 'Pourquoi une table manuelle peut mieux fonctionner', 'Commander comporte beaucoup de situations sociales et d’accords de table. Un outil trop rigide peut gêner.'),
+      ],
+      waysToPlayCommanderOnline: [
+        section('webcam', 'Jouer avec webcam', 'C’est l’option la plus proche du jeu papier : chaque joueur utilise ses cartes réelles et montre la table avec une caméra.'),
+        section('manual-table', 'Table en ligne manuelle', 'Une table manuelle réduit la configuration et laisse le groupe garder le contrôle sans moteur de règles complet.'),
+        section('platforms', 'Simulateurs et plateformes complètes', 'Certains outils recréent le jeu plus complètement, mais demandent plus d’apprentissage, d’installation ou de configuration.'),
+      ],
+      playMagicOnlineWithFriends: [
+        section('play-not-configure', 'Pour les groupes qui veulent jouer', 'Quand votre groupe se retrouve pour jouer à Magic en ligne, l’important est d’entrer vite, organiser la table et commencer.'),
+        section('commander-focused', 'Pensé surtout pour Commander', 'CommanderZone est conçu autour des besoins de Commander : plusieurs joueurs, blessures de commandant, longues parties et groupes réguliers.'),
+        section('complementary', 'Un outil complémentaire', 'Vous pouvez combiner CommanderZone avec les outils que vous utilisez déjà pour la voix, la vidéo, les cartes ou la communauté.'),
+      ],
+      faq: [],
+      home: [],
+    },
+    pt: {
+      playCommanderOnline: [
+        section('fast-start', 'Uma forma rápida de começar', 'Você não precisa de uma configuração complexa para jogar. Prepare um deck, crie uma sala, compartilhe o link e comece.'),
+        section('manual-control', 'Mesa manual, controle real', 'Commander é um formato social. CommanderZone dá ferramentas ao grupo, mas os jogadores continuam no controle.'),
+        section('long-games', 'Feito para partidas longas', 'Partidas de Commander podem durar horas. A interface deve continuar clara, estável e confortável.'),
+      ],
+      createCommanderRoom: [
+        section('deck-first', 'Primeiro o deck, depois a sala', 'Para começar uma partida, você precisa ter um deck pronto. Importe uma decklist, crie um deck do zero ou escolha um deck salvo antes de criar a sala.'),
+        section('link-invite', 'O link é o convite', 'Convidar outros jogadores deve ser tão simples quanto compartilhar um link.'),
+        section('lobby', 'Lobby antes da partida', 'Organize quem entra, quais decks serão usados e quando a partida começa.'),
+        section('room-to-game', 'Da sala para a mesa', 'Quando o grupo está pronto, a sala vira uma mesa clara focada em Commander.'),
+      ],
+      importCommanderDeck: [
+        section('existing-lists', 'Não comece do zero', 'Se suas listas já estão em texto ou em outras ferramentas, importe sem refazer tudo.'),
+        section('ready-to-play', 'Pronto para jogar', 'Importar um deck não é só salvar: é deixá-lo pronto para usar em uma sala.'),
+        section('analysis', 'Análise depois de importar', 'Revise terrenos, curva, cores, tipos de carta, ramp, compra e interação antes da partida.'),
+      ],
+      commanderDeckBuilder: [
+        section('build-to-play', 'Construir para jogar', 'CommanderZone não quer ser só um lugar para guardar listas. O objetivo é deixar seus decks prontos para a mesa.'),
+        section('room-ready', 'Pronto para uma sala', 'Quando seu deck estiver pronto, você pode levá-lo diretamente para uma sala do CommanderZone.'),
+        section('deck-review', 'Revisão clara do deck', 'Confira curva, cores, terrenos, tipos de carta e estrutura geral para entender sua lista.'),
+        section('improve', 'Melhore entre partidas', 'Salve versões, teste mudanças e aprenda o que seu deck precisa depois de jogar.'),
+      ],
+      tableAssistant: [
+        section('paper-games', 'Para partidas físicas de Commander', 'Nem toda partida acontece online. O Assistente de mesa foi feito para grupos que jogam presencialmente e querem controlar melhor a partida.'),
+        section('visible-totals', 'Vida e dano de comandante visíveis', 'Mantenha as informações importantes claras para todos, sem notas soltas ou dados espalhados pela mesa.'),
+        section('mobile-tablet', 'Ideal para celular ou tablet', 'Coloque o dispositivo no centro da mesa e use como painel compartilhado durante a partida.'),
+      ],
+      howToPlayCommanderOnline: [
+        section('group-needs', 'O que seu grupo precisa', 'Vocês precisam de um canal para conversar, uma forma de ver as informações importantes e uma mesa que todos entendam.'),
+        section('manual-table', 'Por que uma mesa manual pode funcionar melhor', 'Commander tem muitas situações sociais e acordos de mesa. Uma ferramenta rígida demais pode atrapalhar.'),
+      ],
+      waysToPlayCommanderOnline: [
+        section('webcam', 'Jogar por webcam', 'É a opção mais parecida com jogar presencialmente: cada jogador usa cartas reais e uma câmera para mostrar a mesa.'),
+        section('manual-table', 'Mesa online manual', 'Uma mesa manual reduz configuração e deixa o grupo no controle sem depender de um motor completo de regras.'),
+        section('platforms', 'Simuladores e plataformas completas', 'Algumas ferramentas recriam o jogo de forma mais completa, mas podem exigir mais aprendizado, instalação ou configuração.'),
+      ],
+      playMagicOnlineWithFriends: [
+        section('play-not-configure', 'Para grupos que querem jogar', 'Quando seu grupo marca para jogar Magic online, o importante é entrar rápido, organizar a mesa e começar.'),
+        section('commander-focused', 'Especialmente pensado para Commander', 'CommanderZone foi desenhado em torno das necessidades de Commander: vários jogadores, dano de comandante, partidas longas e grupos estáveis.'),
+        section('complementary', 'Uma ferramenta complementar', 'Você pode combinar CommanderZone com as ferramentas que já usa para voz, vídeo, cartas ou comunidade.'),
+      ],
+      faq: [],
+      home: [],
+    },
+  };
+
+  return sections[locale][routeKey];
+}
+
+function localizedFeatures(locale: PriorityLocaleCode, routeKey: SeoRouteKey): readonly LandingFeature[] {
+  const translations: Partial<Record<PriorityLocaleCode, Partial<Record<SeoRouteKey, readonly LandingFeature[]>>>> = {
+    de: {
+      playCommanderOnline: [
+        feature('Private Räume', 'Teile die Partie nur mit deiner Gruppe.'),
+        feature('Leben und Commander-Schaden', 'Behalte die wichtigsten Informationen im Blick.'),
+        feature('Decks bereit', 'Bring deine Listen an den Tisch.'),
+        feature('Im Browser', 'Spiele ohne schwere App-Installation.'),
+      ],
+    },
+    fr: {
+      playCommanderOnline: [
+        feature('Salles privées', 'Partagez la partie seulement avec votre groupe.'),
+        feature('Vie et blessures de commandant', 'Suivez les informations clés de la partie.'),
+        feature('Decks prêts', 'Amenez vos listes à la table.'),
+        feature('Depuis le navigateur', 'Jouez sans installer une application lourde.'),
+      ],
+    },
+    pt: {
+      playCommanderOnline: [
+        feature('Salas privadas', 'Compartilhe a partida só com seu grupo.'),
+        feature('Vida e dano de comandante', 'Acompanhe as informações principais da partida.'),
+        feature('Decks prontos', 'Leve suas listas para a mesa.'),
+        feature('Pelo navegador', 'Jogue sem instalar um aplicativo pesado.'),
+      ],
+    },
+  };
+
+  return translations[locale]?.[routeKey] ?? [
+    feature('Flujo claro', 'Prepara el grupo y mantén visible la información importante de la partida.'),
+    feature('Control manual', 'Los jugadores mantienen el control de decisiones y acuerdos de mesa.'),
+  ];
+}
+
+function localizedSteps(locale: PriorityLocaleCode): readonly LandingStep[] {
+  if (locale === 'de') {
+    return [
+      step('Deck vorbereiten', 'Halte deine Deckliste bereit, um sie zu importieren oder während der Partie zu prüfen.'),
+      step('Raum erstellen', 'Öffne einen Online-Raum und bereite den Tisch für deine Gruppe vor.'),
+      step('Link teilen', 'Sende den Link an deine Freunde, damit sie beitreten können.'),
+      step('Partie starten', 'Verfolge Lebenspunkte, Commander-Schaden und Tischstatus während des Spiels.'),
+    ];
+  }
+
+  if (locale === 'fr') {
+    return [
+      step('Préparer votre deck', 'Gardez votre decklist prête à importer ou consulter pendant la partie.'),
+      step('Créer une salle', 'Ouvrez une salle en ligne et préparez la table pour votre groupe.'),
+      step('Partager le lien', 'Envoyez le lien à vos amis pour qu’ils puissent rejoindre.'),
+      step('Commencer la partie', 'Suivez les points de vie, les blessures de commandant et l’état de table pendant le jeu.'),
+    ];
+  }
+
+  if (locale === 'pt') {
+    return [
+      step('Prepare seu deck', 'Tenha sua decklist pronta para importar ou consultar durante a partida.'),
+      step('Crie uma sala', 'Abra uma sala online e prepare a mesa para seu grupo.'),
+      step('Compartilhe o link', 'Envie o link para seus amigos entrarem.'),
+      step('Comece a partida', 'Acompanhe vida, dano de comandante e estado da mesa enquanto joga.'),
+    ];
+  }
+
+  return [];
+}
+
+function localizedComparison(locale: PriorityLocaleCode): { readonly rows: readonly ComparisonRowCopy[]; readonly firstColumnLabel: string; readonly secondColumnLabel: string; readonly thirdColumnLabel: string } {
+  if (locale !== 'de' && locale !== 'fr' && locale !== 'pt') {
+    return {
+      firstColumnLabel: 'Option',
+      secondColumnLabel: 'Fits when',
+      thirdColumnLabel: 'Keep in mind',
+      rows: [],
+    };
+  }
+
+  const comparisons = {
+    de: {
+      firstColumnLabel: 'Option',
+      secondColumnLabel: 'Passt wenn',
+      thirdColumnLabel: 'Beachten',
+      rows: [
+        row('Webcam', 'Nutzt physische Karten', 'Braucht Kamera und gutes Setup.'),
+        row('Manueller Tisch', 'Flexibel und schnell', 'Validiert Regeln nicht automatisch.'),
+        row('Kompletter Simulator', 'Mehr Automatisierung', 'Höhere Lernkurve.'),
+        row('Tischassistent', 'Sehr gut für Papierpartien', 'Ersetzt nicht den ganzen Online-Tisch.'),
+      ],
+    },
+    fr: {
+      firstColumnLabel: 'Option',
+      secondColumnLabel: 'Adapté quand',
+      thirdColumnLabel: 'À retenir',
+      rows: [
+        row('Webcam', 'Utilise des cartes physiques', 'Demande une caméra et un bon setup.'),
+        row('Table manuelle', 'Flexible et rapide', 'N’applique pas les règles automatiquement.'),
+        row('Simulateur complet', 'Plus d’automatisation', 'Courbe d’apprentissage plus élevée.'),
+        row('Assistant de table', 'Très pratique en physique', 'Ne remplace pas toute la table en ligne.'),
+      ],
+    },
+    pt: {
+      firstColumnLabel: 'Opção',
+      secondColumnLabel: 'Funciona quando',
+      thirdColumnLabel: 'Atenção',
+      rows: [
+        row('Webcam', 'Usa cartas físicas', 'Exige câmera e bom setup.'),
+        row('Mesa manual', 'Flexível e rápida', 'Não valida regras automaticamente.'),
+        row('Simulador completo', 'Mais automação', 'Curva de aprendizado maior.'),
+        row('Assistente de mesa', 'Ótimo em partidas físicas', 'Não substitui toda a mesa online.'),
+      ],
+    },
+  };
+
+  return comparisons[locale];
+}
+
+function localizedTableAssistantFaq(locale: PriorityLocaleCode): readonly FaqItemCopy[] {
+  if (locale === 'de') {
+    return [
+      faq('Ist der Tischassistent für Online- oder Papierpartien?', 'Er ist hauptsächlich für physische Commander-Partien gedacht, kann aber auch Online-Partien ergänzen.'),
+      faq('Funktioniert er auf dem Smartphone?', 'Ja. Er ist besonders für Smartphones und Tablets gedacht.'),
+      faq('Kann er Commander-Schaden verfolgen?', 'Ja. Commander-Schaden ist ein Kernteil des Tischassistenten.'),
+    ];
+  }
+
+  if (locale === 'fr') {
+    return [
+      faq('L’assistant de table sert-il aux parties en ligne ou physiques ?', 'Il est surtout conçu pour les parties physiques de Commander, mais peut aussi compléter des parties en ligne.'),
+      faq('Fonctionne-t-il sur mobile ?', 'Oui. Il est pensé spécialement pour mobile et tablette.'),
+      faq('Peut-il suivre les blessures de commandant ?', 'Oui. Les blessures de commandant sont une partie essentielle de l’assistant de table.'),
+    ];
+  }
+
+  if (locale === 'pt') {
+    return [
+      faq('O Assistente de mesa é para partidas online ou físicas?', 'Ele foi feito principalmente para partidas físicas de Commander, mas também pode complementar partidas online.'),
+      faq('Funciona no celular?', 'Sim. Ele foi pensado especialmente para celular e tablet.'),
+      faq('Pode controlar dano de comandante?', 'Sim. Dano de comandante é uma parte essencial do Assistente de mesa.'),
+    ];
+  }
+
+  return [];
+}
+
+function localizedFaq(locale: PriorityLocaleCode): readonly FaqItemCopy[] {
+  if (locale === 'de') {
+    return [
+      faq('Was ist CommanderZone?', 'CommanderZone ist eine inoffizielle Plattform, um Commander online zu spielen, Decks zu erstellen oder zu importieren, Listen zu analysieren und Tischwerkzeuge für Online- oder Papierpartien zu nutzen.'),
+      faq('Ist CommanderZone offiziell?', 'Nein. CommanderZone ist ein inoffizielles Projekt und nicht mit Wizards of the Coast verbunden, unterstützt, gesponsert oder speziell genehmigt.'),
+      faq('Ist CommanderZone kostenlos?', 'CommanderZone wird eine kostenlose Version zum Spielen und Testen der Hauptfunktionen haben. Einige fortgeschrittene Funktionen können Teil von Premium-Plänen sein.'),
+      faq('Muss ich etwas installieren?', 'Nein. CommanderZone ist für den Browser gedacht.'),
+      faq('Brauche ich ein Konto zum Spielen?', 'Die ideale Erfahrung soll einen Einstieg mit wenig Reibung erlauben. Für gespeicherte Decks, Verlauf, Statistiken oder Anpassung ist ein Konto sinnvoll.'),
+      faq('Wie erstelle ich eine Partie?', 'Bereite ein Deck vor oder wähle eines aus, erstelle einen Raum, teile den Link mit deiner Gruppe und bereite den Tisch vor dem Start vor.'),
+      faq('Brauche ich ein Deck, um eine Partie zu erstellen?', 'Ja. Um in CommanderZone zu spielen, musst du vor dem Start des Raums ein Deck importieren, erstellen oder auswählen.'),
+      faq('Kann ich einen Raum ohne Deck erstellen?', 'Die Haupterfahrung ist darauf ausgelegt, zuerst das Deck vorzubereiten und danach den Raum zu erstellen, damit die Partie ohne fehlende Schritte startet.'),
+      faq('Sind Räume privat?', 'Räume werden über einen Link geteilt. Die Privatsphäre hängt davon ab, wie du den Link teilst und welche Raumoptionen verfügbar sind.'),
+      faq('Automatisiert CommanderZone Magic-Regeln?', 'Nein. Der Tisch ist manuell. CommanderZone hilft beim Organisieren der Partie, aber Entscheidungen und Regeln bleiben Sache der Gruppe.'),
+      faq('Kann ich meine Decks importieren?', 'Ja. Du kannst Listen importieren, speichern, prüfen und in deinen Partien nutzen.'),
+      faq('Kann ich mein Deck analysieren?', 'Ja. Die Analyse kann Struktur, Kurve, Farben, Länder, Kartentypen und weitere nützliche Details zeigen.'),
+      faq('Was ist der Tischassistent?', 'Ein Werkzeug, um Smartphone oder Tablet bei physischen Commander-Partien zu nutzen.'),
+      faq('Funktioniert er auf Smartphone oder Tablet?', 'Ja. Der Tischassistent ist besonders für Smartphone und Tablet gedacht.'),
+      faq('Was könnte Premium enthalten?', 'Premium kann mehr Decks, erweiterte Analyse, Statistiken, Verlauf, Anpassung, persistente Räume, gespeicherte Gruppen und eine Erfahrung ohne Anzeigen oder visuelle Sponsoren enthalten.'),
+      faq('Verkauft Premium offizielle Magic-Inhalte?', 'Nein. Premium sollte CommanderZones eigene Werkzeuge, Komfort, Analyse, Speicher, Statistiken und Anpassung verkaufen, nicht offizielle Magic-Inhalte.'),
+    ];
+  }
+
+  if (locale === 'fr') {
+    return [
+      faq('Qu’est-ce que CommanderZone ?', 'CommanderZone est une plateforme non officielle pensée pour jouer à Commander en ligne, créer ou importer des decks, analyser des listes et utiliser des outils de table pour les parties en ligne ou physiques.'),
+      faq('CommanderZone est-il officiel ?', 'Non. CommanderZone est un projet non officiel et n’est pas affilié, approuvé, sponsorisé ni spécifiquement validé par Wizards of the Coast.'),
+      faq('CommanderZone est-il gratuit ?', 'CommanderZone aura une version gratuite pour jouer et tester les fonctions principales. Certaines fonctions avancées pourront faire partie de plans premium.'),
+      faq('Dois-je installer quelque chose ?', 'Non. CommanderZone est conçu pour fonctionner depuis le navigateur.'),
+      faq('Faut-il un compte pour jouer ?', 'L’expérience idéale doit permettre d’essayer avec peu de friction. Pour sauvegarder des decks, l’historique, les statistiques ou la personnalisation, un compte a du sens.'),
+      faq('Comment créer une partie ?', 'Préparez ou choisissez un deck, créez une salle, partagez le lien avec votre groupe et préparez la table avant de commencer.'),
+      faq('Ai-je besoin d’un deck pour créer une partie ?', 'Oui. Pour jouer dans CommanderZone, vous devez importer, créer ou sélectionner un deck avant de lancer la salle.'),
+      faq('Puis-je créer une salle sans deck ?', 'L’expérience principale est pensée pour préparer le deck d’abord puis créer la salle, afin que la partie commence sans étape manquante.'),
+      faq('Les salles sont-elles privées ?', 'Les salles sont partagées par lien. La confidentialité dépend de la façon dont vous partagez ce lien et des options disponibles.'),
+      faq('CommanderZone applique-t-il automatiquement les règles ?', 'Non. La table est manuelle. CommanderZone aide à organiser la partie, mais les décisions et règles restent sous la responsabilité du groupe.'),
+      faq('Puis-je importer mes decks ?', 'Oui. Vous pouvez importer des listes pour les sauvegarder, les vérifier et les utiliser dans vos parties.'),
+      faq('Puis-je analyser mon deck ?', 'Oui. L’analyse peut montrer la structure, la courbe, les couleurs, les terrains, les types de carte et d’autres détails utiles.'),
+      faq('Qu’est-ce que l’assistant de table ?', 'C’est un outil pour utiliser un mobile ou une tablette pendant les parties physiques de Commander.'),
+      faq('Fonctionne-t-il sur mobile ou tablette ?', 'Oui. L’assistant de table est pensé spécialement pour mobile et tablette.'),
+      faq('Que pourrait inclure Premium ?', 'Premium peut inclure plus de decks, une analyse avancée, des statistiques, l’historique, la personnalisation, des salles persistantes, des groupes sauvegardés et une expérience sans annonces ni sponsors visuels.'),
+      faq('Premium vend-il du contenu officiel Magic ?', 'Non. Premium doit vendre les outils propres à CommanderZone, le confort, l’analyse, le stockage, les statistiques et la personnalisation, pas du contenu officiel Magic.'),
+    ];
+  }
+
+  if (locale === 'pt') {
+    return [
+      faq('O que é CommanderZone?', 'CommanderZone é uma plataforma não oficial feita para jogar Commander online, criar ou importar decks, analisar listas e usar ferramentas de mesa em partidas online ou físicas.'),
+      faq('CommanderZone é oficial?', 'Não. CommanderZone é um projeto não oficial e não é afiliado, aprovado, patrocinado ou especificamente autorizado pela Wizards of the Coast.'),
+      faq('CommanderZone é grátis?', 'CommanderZone terá uma versão gratuita para jogar e testar as funções principais. Algumas funções avançadas podem fazer parte de planos premium.'),
+      faq('Preciso instalar algo?', 'Não. CommanderZone foi pensado para funcionar pelo navegador.'),
+      faq('Preciso de conta para jogar?', 'A experiência ideal deve permitir testar com pouca fricção. Para salvar decks, histórico, estatísticas ou personalização, uma conta faz sentido.'),
+      faq('Como crio uma partida?', 'Prepare ou escolha um deck, crie uma sala, compartilhe o link com seu grupo e prepare a mesa antes de começar.'),
+      faq('Preciso de um deck para criar uma partida?', 'Sim. Para jogar no CommanderZone, você precisa importar, criar ou selecionar um deck antes de iniciar a sala.'),
+      faq('Posso criar uma sala sem deck?', 'A experiência principal foi pensada para preparar primeiro o deck e depois criar a sala, para que a partida comece sem etapas pendentes.'),
+      faq('As salas são privadas?', 'As salas são compartilhadas por link. A privacidade depende de como você compartilha esse link e das opções disponíveis na sala.'),
+      faq('CommanderZone aplica regras automaticamente?', 'Não. A mesa é manual. CommanderZone ajuda a organizar a partida, mas decisões e regras continuam responsabilidade do grupo.'),
+      faq('Posso importar meus decks?', 'Sim. Você pode importar listas para salvar, revisar e usar nas partidas.'),
+      faq('Posso analisar meu deck?', 'Sim. A análise pode mostrar estrutura, curva, cores, terrenos, tipos de carta e outros detalhes úteis.'),
+      faq('O que é o Assistente de mesa?', 'É uma ferramenta para usar celular ou tablet durante partidas físicas de Commander.'),
+      faq('Funciona em celular ou tablet?', 'Sim. O Assistente de mesa foi pensado especialmente para celular e tablet.'),
+      faq('O que Premium poderia incluir?', 'Premium pode incluir mais decks, análise avançada, estatísticas, histórico, personalização, salas persistentes, grupos salvos e uma experiência sem anúncios ou sponsors visuais.'),
+      faq('Premium vende conteúdo oficial de Magic?', 'Não. Premium deve vender ferramentas próprias do CommanderZone, conveniência, análise, armazenamento, estatísticas e personalização, não conteúdo oficial de Magic.'),
+    ];
+  }
+
+  return [];
 }

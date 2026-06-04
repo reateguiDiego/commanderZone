@@ -2,9 +2,9 @@ import { DOCUMENT } from '@angular/common';
 import { Injectable, inject } from '@angular/core';
 import { Title } from '@angular/platform-browser';
 import {
-  DEFAULT_LOCALE,
-  LocaleCode,
-  SUPPORTED_LOCALE_CODES,
+  SEO_DEFAULT_LOCALE,
+  SEO_LOCALE_CODES,
+  SeoLocaleCode,
   getLocaleHreflang,
 } from '../localization/locale-config';
 import { SeoRouteKey, getLocalizedRouteAlternates, getSeoPath } from '../localization/seo-routes';
@@ -20,7 +20,7 @@ export type SeoJsonLdValue =
 
 export interface SeoRouteMetadata {
   readonly routeKey: SeoRouteKey;
-  readonly locale: LocaleCode;
+  readonly locale: SeoLocaleCode;
   readonly title: string;
   readonly description: string;
   readonly robots?: string;
@@ -50,20 +50,13 @@ export type SeoMetaTag = Readonly<Record<string, string>>;
 const SEO_MANAGED_ATTRIBUTE = 'data-cz-seo';
 export const SEO_CANONICAL_ORIGIN = 'https://www.commanderzone.com';
 export const SEO_DEFAULT_OPEN_GRAPH_IMAGE = '/assets/og/default-og.png';
-const OPEN_GRAPH_LOCALES: Readonly<Record<LocaleCode, string>> = {
+const OPEN_GRAPH_LOCALES: Readonly<Record<SeoLocaleCode, string>> = {
   es: 'es_ES',
   en: 'en_US',
   de: 'de_DE',
   fr: 'fr_FR',
   it: 'it_IT',
   pt: 'pt_PT',
-  ja: 'ja_JP',
-  ko: 'ko_KR',
-  'zh-hans': 'zh_CN',
-  'zh-hant': 'zh_TW',
-  nl: 'nl_NL',
-  ca: 'ca_ES',
-  ru: 'ru_RU',
 };
 const MANAGED_HEAD_SELECTOR = [
   `meta[${SEO_MANAGED_ATTRIBUTE}="true"]`,
@@ -160,14 +153,14 @@ export class SeoService {
   }
 }
 
-export function buildSeoCanonicalUrl(routeKey: SeoRouteKey, locale: LocaleCode, origin?: string): string {
+export function buildSeoCanonicalUrl(routeKey: SeoRouteKey, locale: SeoLocaleCode, origin?: string): string {
   return toSeoAbsoluteUrl(getSeoPath(routeKey, locale), origin);
 }
 
 export function buildSeoAlternateLinks(routeKey: SeoRouteKey, origin?: string): readonly SeoAlternateLink[] {
   const localizedAlternates = getLocalizedRouteAlternates(routeKey);
   const alternates = Object.entries(localizedAlternates).map(([locale, href]) => ({
-    hreflang: getLocaleHreflang(locale as LocaleCode),
+    hreflang: getLocaleHreflang(locale as SeoLocaleCode),
     href: toSeoAbsoluteUrl(href, origin),
   }));
 
@@ -175,7 +168,7 @@ export function buildSeoAlternateLinks(routeKey: SeoRouteKey, origin?: string): 
     ...alternates,
     {
       hreflang: 'x-default',
-      href: toSeoAbsoluteUrl(getSeoPath(routeKey, DEFAULT_LOCALE.code), origin),
+      href: toSeoAbsoluteUrl(getSeoPath(routeKey, SEO_DEFAULT_LOCALE.code), origin),
     },
   ];
 }
@@ -216,12 +209,12 @@ export function buildSearchConsoleVerificationMetaTags(token: string | null | un
   return normalizedToken ? [{ name: 'google-site-verification', content: normalizedToken }] : [];
 }
 
-export function getOpenGraphLocale(locale: LocaleCode): string {
+export function getOpenGraphLocale(locale: SeoLocaleCode): string {
   return OPEN_GRAPH_LOCALES[locale];
 }
 
-export function buildOpenGraphLocaleAlternates(locale: LocaleCode): readonly SeoMetaTag[] {
-  return SUPPORTED_LOCALE_CODES
+export function buildOpenGraphLocaleAlternates(locale: SeoLocaleCode): readonly SeoMetaTag[] {
+  return SEO_LOCALE_CODES
     .filter((supportedLocale) => supportedLocale !== locale)
     .map((supportedLocale) => ({
       property: 'og:locale:alternate',

@@ -4,6 +4,9 @@ import {
   getLocaleHreflang,
   isSupportedLocale,
   LocaleCode,
+  SEO_DEFAULT_LOCALE,
+  SEO_LOCALE_CODES,
+  SEO_LOCALES,
   SUPPORTED_LOCALE_CODES,
   SUPPORTED_LOCALES,
 } from './locale-config';
@@ -27,6 +30,12 @@ describe('locale config', () => {
 
   it('defines the supported locales in the approved order', () => {
     expect(SUPPORTED_LOCALE_CODES).toEqual(expectedLocaleCodes);
+  });
+
+  it('defines the SEO-indexable locales separately from runtime locales', () => {
+    expect(SEO_LOCALE_CODES).toEqual(['en', 'es', 'de', 'fr', 'pt', 'it']);
+    expect(SEO_LOCALES.map((locale) => locale.code)).toEqual([...SEO_LOCALE_CODES]);
+    expect(SEO_DEFAULT_LOCALE.code).toBe('en');
   });
 
   it('stores code, hreflang, label, and native label for every locale', () => {

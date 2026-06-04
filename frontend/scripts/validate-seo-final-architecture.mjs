@@ -112,8 +112,8 @@ function validateSeoRoutesUseSharedRouteComponent() {
   const routesText = readText(routesPath);
   const loadComponentMatches = [...routesText.matchAll(/\bloadComponent\b/g)];
 
-  if (!routesText.includes('SEO_ROUTE_KEYS.flatMap') || !routesText.includes('SUPPORTED_LOCALE_CODES.map')) {
-    fail(`${formatPath(routesPath)} must generate localized SEO routes from route keys and supported locales.`);
+  if (!routesText.includes('SEO_ROUTE_KEYS.flatMap') || !routesText.includes('SEO_LOCALE_CODES.map')) {
+    fail(`${formatPath(routesPath)} must generate localized SEO routes from route keys and SEO locales.`);
   }
 
   if (loadComponentMatches.length !== 1 || !routesText.includes('SeoLandingRouteComponent')) {
@@ -164,7 +164,7 @@ function validateStaticContentCoverage() {
   const registryText = readText(registryPath);
   const factoryText = readText(factoryPath);
 
-  assertIncludes(factoryPath, 'SUPPORTED_LOCALE_CODES.map', 'Static SEO content must be generated for every supported locale.');
+  assertIncludes(factoryPath, 'SEO_LOCALE_CODES.map', 'Static SEO content must be generated for every SEO locale.');
   assertIncludes(factoryPath, 'LOCALE_COPY[locale]', 'Static SEO content must take locale differences from typed localized copy.');
   assertIncludes(factoryPath, 'ROUTE_LABELS[routeKey][locale]', 'Static SEO content must be keyed by routeKey and locale.');
   assertIncludes(factoryPath, 'seo: SeoMetadataContent', 'Static SEO content must define SEO metadata for each localized landing.');

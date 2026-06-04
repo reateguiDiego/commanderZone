@@ -106,10 +106,19 @@ async function readSourceFile(filePath) {
 }
 
 function extractSupportedLocales(sourceFile) {
-  const declaration = findVariableDeclaration(sourceFile, 'SUPPORTED_LOCALES');
-  const arrayLiteral = unwrapAsConstArray(declaration.initializer);
+  const supportedLocalesDeclaration = findVariableDeclaration(sourceFile, 'SUPPORTED_LOCALES');
+  const seoLocaleCodesDeclaration = findVariableDeclaration(sourceFile, 'SEO_LOCALE_CODES');
+  const supportedLocalesArray = unwrapAsConstArray(supportedLocalesDeclaration.initializer);
+  const seoLocaleCodes = unwrapAsConstArray(seoLocaleCodesDeclaration.initializer).elements.map((element) => {
+    if (!ts.isStringLiteralLike(element)) {
+      throw new Error('SEO_LOCALE_CODES must contain string literals.');
+    }
 
-  return arrayLiteral.elements.map((element) => {
+    return element.text;
+  });
+  const supportedLocales = new Map();
+
+  for (const element of supportedLocalesArray.elements) {
     if (!ts.isObjectLiteralExpression(element)) {
       throw new Error('SUPPORTED_LOCALES must contain object literals.');
     }
@@ -121,7 +130,17 @@ function extractSupportedLocales(sourceFile) {
       throw new Error('Every supported locale must define code and hreflang.');
     }
 
-    return { code, hreflang };
+    supportedLocales.set(code, { code, hreflang });
+  }
+
+  return seoLocaleCodes.map((code) => {
+    const locale = supportedLocales.get(code);
+
+    if (!locale) {
+      throw new Error(`SEO locale ${code} is not defined in SUPPORTED_LOCALES.`);
+    }
+
+    return locale;
   });
 }
 
@@ -178,18 +197,15 @@ function extractSlugRecord(objectLiteral, routeKey) {
 
 function assertValidConfig(config) {
   const localeCodes = config.locales.map((locale) => locale.code);
-  const expectedSlugKeys = [...localeCodes].sort();
   const expectedUrlCount = config.locales.length * config.routes.length;
   const urlPaths = [];
 
   for (const route of config.routes) {
-    const actualSlugKeys = Object.keys(route.slugs).sort();
-
-    if (actualSlugKeys.join('|') !== expectedSlugKeys.join('|')) {
-      throw new Error(`SEO route ${route.routeKey} must define exactly one slug for every supported locale.`);
-    }
-
     for (const locale of localeCodes) {
+      if (route.slugs[locale] === undefined) {
+        throw new Error(`SEO route ${route.routeKey} must define a slug for SEO locale ${locale}.`);
+      }
+
       const path = toSeoPath(locale, route.slugs[locale]);
       urlPaths.push(path);
 
@@ -225,6 +241,10 @@ function findVariableDeclaration(sourceFile, variableName) {
 }
 
 function unwrapAsConstArray(expression) {
+  if (ts.isSatisfiesExpression(expression)) {
+    return unwrapAsConstArray(expression.expression);
+  }
+
   if (ts.isAsExpression(expression) && ts.isArrayLiteralExpression(expression.expression)) {
     return expression.expression;
   }

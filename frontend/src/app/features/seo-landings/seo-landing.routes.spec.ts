@@ -1,20 +1,33 @@
-import { SUPPORTED_LOCALE_CODES } from '../../core/localization/locale-config';
+import { SEO_LOCALE_CODES } from '../../core/localization/locale-config';
 import { getSeoPath, SEO_ROUTE_KEYS } from '../../core/localization/seo-routes';
-import { SEO_LANDING_ROUTES } from './seo-landing.routes';
+import {
+  SEO_INDEXABLE_LANDING_ROUTES,
+  SEO_LANDING_ROUTES,
+} from './seo-landing.routes';
 
 describe('SEO landing routes', () => {
-  it('creates one public route for every SEO landing and locale', () => {
-    expect(SEO_LANDING_ROUTES).toHaveLength(SEO_ROUTE_KEYS.length * SUPPORTED_LOCALE_CODES.length);
+  it('creates one indexable public route for every SEO landing and SEO locale', () => {
+    expect(SEO_INDEXABLE_LANDING_ROUTES).toHaveLength(SEO_ROUTE_KEYS.length * SEO_LOCALE_CODES.length);
+    expect(SEO_LANDING_ROUTES).toHaveLength(SEO_ROUTE_KEYS.length * SEO_LOCALE_CODES.length);
   });
 
   it('uses localized SEO paths from SEO_ROUTES', () => {
-    const routePaths = SEO_LANDING_ROUTES.map((route) => `/${route.path}/`);
+    const routePaths = SEO_INDEXABLE_LANDING_ROUTES.map((route) => `/${route.path}/`);
 
     expect(routePaths).toContain(getSeoPath('home', 'es'));
     expect(routePaths).toContain(getSeoPath('playCommanderOnline', 'en'));
     expect(routePaths).toContain(getSeoPath('tableAssistant', 'es'));
     expect(routePaths).toContain(getSeoPath('waysToPlayCommanderOnline', 'de'));
-    expect(routePaths).toContain(getSeoPath('faq', 'ru'));
+    expect(routePaths).toContain(getSeoPath('faq', 'it'));
+  });
+
+  it('does not create SEO landing routes or redirects for removed locales', () => {
+    const routePaths = SEO_LANDING_ROUTES.map((route) => route.path ?? '');
+
+    expect(routePaths.some((path) => /^ru\//.test(path) || path === 'ru')).toBe(false);
+    expect(routePaths.some((path) => /^ja\//.test(path) || path === 'ja')).toBe(false);
+    expect(routePaths.some((path) => /^zh-hans\//.test(path) || path === 'zh-hans')).toBe(false);
+    expect(SEO_LANDING_ROUTES.some((route) => 'redirectTo' in route)).toBe(false);
   });
 
   it('keeps SEO landings public and separate from internal app routes', () => {

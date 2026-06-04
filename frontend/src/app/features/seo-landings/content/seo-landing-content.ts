@@ -1,4 +1,4 @@
-import { LocaleCode, SUPPORTED_LOCALE_CODES, getLocaleHreflang } from '../../../core/localization/locale-config';
+import { SEO_LOCALE_CODES, SeoLocaleCode, getLocaleHreflang } from '../../../core/localization/locale-config';
 import { SEO_ROUTE_KEYS, SeoRouteKey, getSeoPath } from '../../../core/localization/seo-routes';
 import { toSeoAbsoluteUrl } from '../../../core/seo/seo.service';
 import { SeoJsonLdValue, SeoLandingContent } from '../models/seo-landing-content.model';
@@ -18,12 +18,12 @@ import { PLAY_MAGIC_ONLINE_WITH_FRIENDS_SEO_LANDING_CONTENT } from './play-magic
 import { TABLE_ASSISTANT_SEO_LANDING_CONTENT } from './table-assistant.content';
 import { WAYS_TO_PLAY_COMMANDER_ONLINE_SEO_LANDING_CONTENT } from './ways-to-play-commander-online.content';
 
-export type SeoLandingContentByLocale = Readonly<Record<LocaleCode, SeoLandingContent>>;
+export type SeoLandingContentByLocale = Readonly<Record<SeoLocaleCode, SeoLandingContent>>;
 export type SeoLandingContentRegistry = Readonly<Record<SeoRouteKey, SeoLandingContentByLocale>>;
 
 export interface SeoLandingContentEntry {
   readonly routeKey: SeoRouteKey;
-  readonly locale: LocaleCode;
+  readonly locale: SeoLocaleCode;
   readonly content: SeoLandingContent;
 }
 
@@ -40,13 +40,13 @@ export const SEO_LANDING_CONTENT = {
   faq: FAQ_SEO_LANDING_CONTENT,
 } as const satisfies SeoLandingContentRegistry;
 
-export function getSeoLandingContent(routeKey: SeoRouteKey, locale: LocaleCode): SeoLandingContent {
+export function getSeoLandingContent(routeKey: SeoRouteKey, locale: SeoLocaleCode): SeoLandingContent {
   return SEO_LANDING_CONTENT[routeKey][locale];
 }
 
 export function getAllSeoLandingContentEntries(): readonly SeoLandingContentEntry[] {
   return SEO_ROUTE_KEYS.flatMap((routeKey) =>
-    SUPPORTED_LOCALE_CODES.map((locale) => ({
+    SEO_LOCALE_CODES.map((locale) => ({
       routeKey,
       locale,
       content: getSeoLandingContent(routeKey, locale),
@@ -65,7 +65,7 @@ export function validateSeoLandingContentCoverage(): readonly string[] {
       continue;
     }
 
-    for (const locale of SUPPORTED_LOCALE_CODES) {
+    for (const locale of SEO_LOCALE_CODES) {
       const content = contentByLocale[locale];
 
       if (!content) {
@@ -123,7 +123,7 @@ export function validateSeoLandingContentCoverage(): readonly string[] {
 function validateSeoLandingImage(
   errors: string[],
   routeKey: SeoRouteKey,
-  locale: LocaleCode,
+  locale: SeoLocaleCode,
   content: SeoLandingContent,
 ): void {
   const image = content.hero.image;
@@ -156,7 +156,7 @@ function validateSeoLandingImage(
 function validateCrawlableSeoLinks(
   errors: string[],
   routeKey: SeoRouteKey,
-  locale: LocaleCode,
+  locale: SeoLocaleCode,
   content: SeoLandingContent,
 ): void {
   const seoPaths = new Set(SEO_ROUTE_KEYS.map((seoRouteKey) => getSeoPath(seoRouteKey, locale)));
@@ -222,7 +222,7 @@ function getSectionLinks(content: SeoLandingContent): readonly [string, string][
 function assertLinksIncludeSeoRoutes(
   errors: string[],
   routeKey: SeoRouteKey,
-  locale: LocaleCode,
+  locale: SeoLocaleCode,
   content: SeoLandingContent,
   expectedRouteKeys: readonly SeoRouteKey[],
 ): void {
@@ -242,7 +242,7 @@ type JsonLdObject = Readonly<Record<string, SeoJsonLdValue>>;
 function validateJsonLd(
   errors: string[],
   routeKey: SeoRouteKey,
-  locale: LocaleCode,
+  locale: SeoLocaleCode,
   content: SeoLandingContent,
 ): void {
   const jsonLd = asJsonLdObject(content.jsonLd);
@@ -309,7 +309,7 @@ function isRouteInGroup(routeKey: SeoRouteKey, routes: readonly SeoRouteKey[]): 
 function validateFaqJsonLd(
   errors: string[],
   routeKey: SeoRouteKey,
-  locale: LocaleCode,
+  locale: SeoLocaleCode,
   content: SeoLandingContent,
   graph: readonly JsonLdObject[],
 ): void {
@@ -340,7 +340,7 @@ function validateFaqJsonLd(
 function validateNoFakeReviewJsonLd(
   errors: string[],
   routeKey: SeoRouteKey,
-  locale: LocaleCode,
+  locale: SeoLocaleCode,
   serializedJsonLd: string,
 ): void {
   const forbiddenFragments = ['"Review"', '"AggregateRating"', '"ratingValue"', '"reviewRating"', '"review"'];
@@ -368,7 +368,7 @@ function asJsonLdObject(value: SeoJsonLdValue | undefined): JsonLdObject | undef
 function validateRequiredText(
   errors: string[],
   routeKey: SeoRouteKey,
-  locale: LocaleCode,
+  locale: SeoLocaleCode,
   field: string,
   value: string | undefined,
 ): void {

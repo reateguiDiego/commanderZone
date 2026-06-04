@@ -1973,15 +1973,16 @@ describe('GameTableComponent', () => {
     authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
     const snapshot = snapshotWithStatus('active');
     const commandSnapshot = structuredClone(snapshot);
-    commandSnapshot.eventLog = [gameLogEntry('event-dice', 'dice.rolled', 'ha tirado un d20, ha salido un 17.')];
+    commandSnapshot.eventLog = [gameLogEntry('event-dice', 'dice.rolled', 'ha tirado un d20, ha salido un 1.')];
     gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
     gameplayWebsocketCommand.mockReturnValue(of({
       event: { id: 'event-dice', type: 'dice.rolled', payload: {}, createdBy: 'user-1', createdAt: '' },
       snapshot: commandSnapshot,
     }));
-    const random = vi.spyOn(Math, 'random')
-      .mockReturnValueOnce(0)
-      .mockReturnValueOnce(0.8);
+    const getRandomValues = vi.spyOn(globalThis.crypto, 'getRandomValues').mockImplementation((array) => {
+      (array as Uint32Array)[0] = 0;
+      return array;
+    });
 
     try {
       const fixture = TestBed.createComponent(GameTableComponent);
@@ -2000,16 +2001,16 @@ describe('GameTableComponent', () => {
         payload: {
           kind: 'd20',
           label: 'Dado de 20 caras',
-          finalResult: '17',
+          finalResult: '1',
         },
       }), 'game-1'));
       await vi.waitFor(() => expect(fixture.componentInstance.store.eventLog()[0]?.messagePrefix)
-        .toBe('ha tirado un d20, ha salido un 17.'));
+        .toBe('ha tirado un d20, ha salido un 1.'));
       fixture.detectChanges();
       expect((fixture.nativeElement as HTMLElement).querySelector('[data-testid="game-log"]')?.textContent)
-        .toContain('ha tirado un d20, ha salido un 17.');
+        .toContain('ha tirado un d20, ha salido un 1.');
     } finally {
-      random.mockRestore();
+      getRandomValues.mockRestore();
     }
   });
 

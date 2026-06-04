@@ -3,7 +3,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Title } from '@angular/platform-browser';
 import { NavigationEnd, Router } from '@angular/router';
 import { filter } from 'rxjs';
-import { DEFAULT_LOCALE, LocaleCode, isSupportedLocale } from '../../../core/localization/locale-config';
+import { SeoLocaleCode, isSeoLocale } from '../../../core/localization/locale-config';
 import { getSeoPath } from '../../../core/localization/seo-routes';
 
 interface NotFoundContent {
@@ -14,6 +14,8 @@ interface NotFoundContent {
   readonly faqLabel: string;
   readonly navLabel: string;
 }
+
+const DEFAULT_NOT_FOUND_LOCALE = 'es' as const satisfies SeoLocaleCode;
 
 const NOT_FOUND_CONTENT = {
   es: {
@@ -64,63 +66,7 @@ const NOT_FOUND_CONTENT = {
     faqLabel: 'Ler FAQ',
     navLabel: 'Navegacao da pagina nao encontrada',
   },
-  ja: {
-    eyebrow: '404',
-    title: 'Page not found',
-    description: 'This URL does not exist or is no longer available. Return to the public home page or read the FAQ.',
-    homeLabel: 'Home',
-    faqLabel: 'FAQ',
-    navLabel: 'Not found navigation',
-  },
-  ko: {
-    eyebrow: '404',
-    title: 'Page not found',
-    description: 'This URL does not exist or is no longer available. Return to the public home page or read the FAQ.',
-    homeLabel: 'Home',
-    faqLabel: 'FAQ',
-    navLabel: 'Not found navigation',
-  },
-  'zh-hans': {
-    eyebrow: '404',
-    title: 'Page not found',
-    description: 'This URL does not exist or is no longer available. Return to the public home page or read the FAQ.',
-    homeLabel: 'Home',
-    faqLabel: 'FAQ',
-    navLabel: 'Not found navigation',
-  },
-  'zh-hant': {
-    eyebrow: '404',
-    title: 'Page not found',
-    description: 'This URL does not exist or is no longer available. Return to the public home page or read the FAQ.',
-    homeLabel: 'Home',
-    faqLabel: 'FAQ',
-    navLabel: 'Not found navigation',
-  },
-  nl: {
-    eyebrow: '404',
-    title: 'Pagina niet gevonden',
-    description: 'Deze URL bestaat niet of is niet meer beschikbaar. Ga terug naar de startpagina of lees de FAQ.',
-    homeLabel: 'Naar home',
-    faqLabel: 'FAQ lezen',
-    navLabel: 'Navigatie voor niet gevonden pagina',
-  },
-  ca: {
-    eyebrow: '404',
-    title: 'Pagina no trobada',
-    description: 'Aquest URL no existeix o ja no esta disponible. Torna a l inici public o consulta les FAQ.',
-    homeLabel: 'Anar a l inici',
-    faqLabel: 'Veure FAQ',
-    navLabel: 'Navegacio de pagina no trobada',
-  },
-  ru: {
-    eyebrow: '404',
-    title: 'Page not found',
-    description: 'This URL does not exist or is no longer available. Return to the public home page or read the FAQ.',
-    homeLabel: 'Home',
-    faqLabel: 'FAQ',
-    navLabel: 'Not found navigation',
-  },
-} as const satisfies Record<LocaleCode, NotFoundContent>;
+} as const satisfies Record<SeoLocaleCode, NotFoundContent>;
 
 @Component({
   selector: 'app-not-found-page',
@@ -134,7 +80,7 @@ export class NotFoundPageComponent {
   private readonly title = inject(Title);
   private readonly destroyRef = inject(DestroyRef);
 
-  readonly locale = signal<LocaleCode>(localeFromNotFoundUrl(this.router.url));
+  readonly locale = signal<SeoLocaleCode>(localeFromNotFoundUrl(this.router.url));
 
   constructor() {
     this.applyUrl(this.router.url);
@@ -165,8 +111,8 @@ export class NotFoundPageComponent {
   }
 }
 
-export function localeFromNotFoundUrl(url: string): LocaleCode {
+export function localeFromNotFoundUrl(url: string): SeoLocaleCode {
   const path = url.split(/[?#]/)[0] ?? '';
   const firstSegment = path.split('/').filter(Boolean)[0]?.toLowerCase();
-  return isSupportedLocale(firstSegment) ? firstSegment : DEFAULT_LOCALE.code;
+  return isSeoLocale(firstSegment) ? firstSegment : DEFAULT_NOT_FOUND_LOCALE;
 }

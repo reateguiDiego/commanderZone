@@ -1,28 +1,39 @@
-import { rollOption } from './roll';
+import { randomRollIterationCount, rollOption } from './roll';
 
 describe('roll', () => {
+  it('uses a random 1 to 20 value as the internal roll count', () => {
+    expect(randomRollIterationCount(vi.fn(() => 0))).toBe(1);
+    expect(randomRollIterationCount(vi.fn(() => 0.999999))).toBe(20);
+  });
+
+  it('uses crypto random values for roll counts by default', () => {
+    const getRandomValues = vi.spyOn(globalThis.crypto, 'getRandomValues').mockImplementation((array) => {
+      (array as Uint32Array)[0] = 19;
+      return array;
+    });
+
+    try {
+      expect(randomRollIterationCount()).toBe(20);
+      expect(getRandomValues).toHaveBeenCalled();
+    } finally {
+      getRandomValues.mockRestore();
+    }
+  });
+
   it('rolls internally several times and exposes only the final die result', () => {
-    const randomValues = [
-      0.65,
-      0.00,
-      0.05,
-      0.10,
-      0.15,
-      0.20,
-      0.25,
-      0.99,
-    ];
-    const random = vi.fn(() => randomValues.shift() ?? 0);
+    const random = vi.fn()
+      .mockReturnValueOnce(0.65)
+      .mockReturnValue(0.99);
 
     const result = rollOption('d20', random);
 
     expect(result).toEqual({
       kind: 'd20',
       label: 'Dado de 20 caras',
-      iterationCount: 7,
+      iterationCount: 14,
       finalResult: '20',
     });
-    expect(random).toHaveBeenCalledTimes(8);
+    expect(random).toHaveBeenCalledTimes(15);
   });
 
   it('supports coin results', () => {

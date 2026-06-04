@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
-import { LocaleCode } from '../../../core/localization/locale-config';
+import { SeoLocaleCode } from '../../../core/localization/locale-config';
 import { SeoRouteKey } from '../../../core/localization/seo-routes';
 import { SeoService } from '../../../core/seo/seo.service';
 import { getSeoLandingContent } from '../content/seo-landing-content';
@@ -10,7 +10,7 @@ import { SeoLandingPageComponent } from '../seo-landing-page/seo-landing-page.co
 
 interface SeoLandingRouteData {
   readonly routeKey: SeoRouteKey;
-  readonly locale: LocaleCode;
+  readonly locale: SeoLocaleCode;
 }
 
 @Component({

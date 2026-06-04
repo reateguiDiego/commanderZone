@@ -22,12 +22,18 @@ export const ROLL_OPTIONS: readonly RollOption[] = [
 
 export type RandomSource = () => number;
 
+const RANDOM_UINT32_RANGE = 0x100000000;
+
+export function randomRollIterationCount(random?: RandomSource): number {
+  return randomInteger(1, 20, random);
+}
+
 export function rollOption(
   kind: RollKind,
-  random: RandomSource = Math.random,
+  random?: RandomSource,
 ): RollResult {
   const option = ROLL_OPTIONS.find((candidate) => candidate.kind === kind) ?? ROLL_OPTIONS[0];
-  const iterationCount = randomInteger(1, 10, random);
+  const iterationCount = randomRollIterationCount(random);
   let finalResult = '';
 
   for (let index = 0; index < iterationCount; index++) {
@@ -42,7 +48,7 @@ export function rollOption(
   };
 }
 
-function rollOnce(kind: RollKind, random: RandomSource): string {
+function rollOnce(kind: RollKind, random?: RandomSource): string {
   if (kind === 'coin') {
     return runtimeTranslationFallback(randomInteger(1, 2, random) === 1 ? 'modals.roll.results.heads' : 'modals.roll.results.tails');
   }
@@ -61,8 +67,26 @@ function sidesFor(kind: Exclude<RollKind, 'coin'>): number {
   return sides[kind];
 }
 
-function randomInteger(minimum: number, maximum: number, random: RandomSource): number {
+function randomInteger(minimum: number, maximum: number, random?: RandomSource): number {
+  if (!random) {
+    return cryptoRandomInteger(minimum, maximum);
+  }
+
   const normalized = Math.min(Math.max(random(), 0), 0.999999999);
   return Math.floor(normalized * (maximum - minimum + 1)) + minimum;
+}
+
+function cryptoRandomInteger(minimum: number, maximum: number): number {
+  const range = maximum - minimum + 1;
+  const rejectionLimit = Math.floor(RANDOM_UINT32_RANGE / range) * range;
+  const values = new Uint32Array(1);
+  let value = 0;
+
+  do {
+    globalThis.crypto.getRandomValues(values);
+    value = values[0] ?? 0;
+  } while (value >= rejectionLimit);
+
+  return minimum + (value % range);
 }
 import { runtimeTranslationFallback } from '../../localization/runtime-translate.pipe';

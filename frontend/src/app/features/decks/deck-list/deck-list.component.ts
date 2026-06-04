@@ -1,5 +1,6 @@
 import { RuntimeTranslatePipe } from '../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
 import { type DeckVisibility } from '../../../core/models/deck.model';
@@ -28,6 +29,7 @@ interface CommanderHoverPreview {
 })
 export class DeckListComponent implements OnInit, OnDestroy {
   readonly store = inject(DeckListStore);
+  private readonly route = inject(ActivatedRoute);
   private readonly pageHeader = inject(PageHeaderStore);
   readonly commanderHoverPreview = signal<CommanderHoverPreview | null>(null);
 
@@ -54,6 +56,7 @@ export class DeckListComponent implements OnInit, OnDestroy {
         },
       ],
     });
+    this.openRequestedCreateIntent();
   }
 
   ngOnDestroy(): void {
@@ -122,5 +125,18 @@ export class DeckListComponent implements OnInit, OnDestroy {
       clearTimeout(this.commanderHoverTimer);
       this.commanderHoverTimer = null;
     }
+  }
+
+  private openRequestedCreateIntent(): void {
+    const intent = this.route.snapshot.queryParamMap.get('intent');
+
+    if (intent === 'import' || intent === 'new') {
+      this.store.configureCreateSuccessRedirect(this.safeNextPath(this.route.snapshot.queryParamMap.get('next')));
+      this.store.openCreateModal();
+    }
+  }
+
+  private safeNextPath(nextPath: string | null): string | null {
+    return nextPath === '/rooms' ? nextPath : null;
   }
 }

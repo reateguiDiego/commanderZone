@@ -26,20 +26,15 @@ async function readSourceFile(filePath) {
 }
 
 function extractSupportedLocaleCodes(sourceFile) {
-  const declaration = findVariableDeclaration(sourceFile, 'SUPPORTED_LOCALES');
+  const declaration = findVariableDeclaration(sourceFile, 'SEO_LOCALE_CODES');
   const arrayLiteral = unwrapAsConstArray(declaration.initializer);
 
   return arrayLiteral.elements.map((element) => {
-    if (!ts.isObjectLiteralExpression(element)) {
-      throw new Error('SUPPORTED_LOCALES must contain object literals.');
+    if (!ts.isStringLiteralLike(element)) {
+      throw new Error('SEO_LOCALE_CODES must contain string literals.');
     }
 
-    const code = getStringProperty(element, 'code');
-    if (!code) {
-      throw new Error('Every supported locale must define a code.');
-    }
-
-    return code;
+    return element.text;
   });
 }
 
@@ -106,6 +101,10 @@ function findVariableDeclaration(sourceFile, variableName) {
 }
 
 function unwrapAsConstArray(expression) {
+  if (ts.isSatisfiesExpression(expression)) {
+    return unwrapAsConstArray(expression.expression);
+  }
+
   if (ts.isAsExpression(expression) && ts.isArrayLiteralExpression(expression.expression)) {
     return expression.expression;
   }

@@ -30,8 +30,8 @@ describe('SeoLandingPageComponent', () => {
     localeLinks: [
       { locale: 'en', label: 'English', href: '/en/play-commander-online/' },
       { locale: 'de', label: 'Deutsch mit extra langem lokalisierten Text', href: '/de/commander-online-spielen/' },
-      { locale: 'ru', label: 'Russkiy', href: '/ru/igrat-commander-onlain/' },
-      { locale: 'ja', label: '日本語', href: '/ja/commander-online-play/' },
+      { locale: 'pt', label: 'Portuguese', href: '/pt/jogar-commander-online/' },
+      { locale: 'it', label: 'Italiano', href: '/it/giocare-commander-online/' },
     ],
     breadcrumb: {
       items: [
