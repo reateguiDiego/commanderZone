@@ -293,15 +293,22 @@ describe('SeoLandingPageComponent', () => {
     const element: HTMLElement = fixture.nativeElement;
     const logo = element.querySelector('.seo-landing-layout__brand img') as HTMLImageElement;
     const publicMenuLinks = Array.from(element.querySelectorAll('.seo-landing-layout__nav a') as NodeListOf<HTMLAnchorElement>);
+    const authLinks = Array.from(element.querySelectorAll('.seo-landing-layout__auth a') as NodeListOf<HTMLAnchorElement>);
 
-    expect(logo.getAttribute('src')).toBe('/assets/icons/CZ/CZ_logo_zone_header.png');
+    expect(logo.getAttribute('src')).toBe('/assets/icons/CZ/CZ_logo.png');
+    expect(logo.getAttribute('width')).toBe('256');
+    expect(logo.getAttribute('height')).toBe('124');
     expect(logo.getAttribute('decoding')).toBe('async');
     expect(element.querySelector('.seo-landing-layout__brand')?.getAttribute('href')).toBe('/en/');
     expect(element.querySelector('.seo-landing-layout__menu')).toBeNull();
     expect(publicMenuLinks.map((link) => link.getAttribute('href'))).toEqual([
       '/en/faq/',
     ]);
-    expect(publicMenuLinks.every((link) => link.classList.contains('primary-button'))).toBe(true);
+    expect(publicMenuLinks.every((link) => link.classList.contains('secondary-button'))).toBe(true);
+    expect(authLinks.map((link) => link.getAttribute('href'))).toEqual(['/auth/login/', '/auth/register/']);
+    expect(authLinks.map((link) => link.textContent?.trim())).toEqual(['Login', 'Register']);
+    expect(authLinks[0].classList.contains('primary-button')).toBe(true);
+    expect(authLinks[1].classList.contains('primary-button')).toBe(true);
   });
 
   it('hides the FAQ header button while rendering the FAQ landing', () => {

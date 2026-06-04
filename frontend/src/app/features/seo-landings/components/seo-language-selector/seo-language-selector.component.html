@@ -1,8 +1,15 @@
-<details class="seo-language-selector">
+<details class="seo-language-selector" [open]="menuOpen()" (toggle)="syncMenuState($event)">
   <summary class="seo-language-selector__trigger" [attr.aria-label]="copy().ariaLabel">
     <span class="seo-language-selector__label">{{ copy().label }}</span>
-    <span class="seo-language-selector__badge" aria-hidden="true">{{ localeBadge(currentLink().locale) }}</span>
-    <span class="seo-language-selector__current">{{ currentLink().label }}</span>
+    <img
+      class="seo-language-selector__flag"
+      [src]="flagIcon(currentLink().locale)"
+      alt=""
+      aria-hidden="true"
+      width="24"
+      height="24"
+      decoding="async"
+    />
   </summary>
 
   <nav class="seo-language-selector__menu app-pretty-scroll" [attr.aria-label]="copy().ariaLabel">
@@ -16,7 +23,15 @@
         [attr.aria-current]="isCurrentLocale(link.locale) ? 'page' : null"
       >
         <span class="seo-language-selector__option">
-          <span class="seo-language-selector__badge" aria-hidden="true">{{ localeBadge(link.locale) }}</span>
+          <img
+            class="seo-language-selector__flag"
+            [src]="flagIcon(link.locale)"
+            alt=""
+            aria-hidden="true"
+            width="24"
+            height="24"
+            decoding="async"
+          />
           <span>{{ link.label }}</span>
         </span>
         @if (isCurrentLocale(link.locale)) {

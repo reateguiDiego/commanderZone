@@ -10,12 +10,11 @@
   position: sticky;
   top: 0.75rem;
   z-index: 20;
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   min-width: 0;
-  flex-wrap: wrap;
   gap: 0.75rem;
   align-items: center;
-  justify-content: space-between;
   margin: 0.75rem 0 0.5rem;
   border: 1px solid rgb(var(--cz-text-rgb) / 10%);
   border-radius: 10px;
@@ -28,6 +27,7 @@
 }
 
 .seo-landing-layout__brand {
+  grid-column: 1;
   display: inline-flex;
   min-width: 0;
   min-height: 3rem;
@@ -43,9 +43,9 @@
 
 .seo-landing-layout__brand img {
   display: block;
-  width: 5.75rem;
+  width: 6.9rem;
   height: auto;
-  max-height: 2.8rem;
+  max-height: 3.35rem;
   object-fit: contain;
   filter: drop-shadow(0 0.45rem 0.7rem rgb(var(--cz-bg-rgb) / 42%));
 }
@@ -59,12 +59,14 @@
   white-space: nowrap;
 }
 
-.seo-landing-layout__header-links,
-.seo-landing-layout__nav {
+.seo-landing-layout__nav,
+.seo-landing-layout__header-actions,
+.seo-landing-layout__auth {
   min-width: 0;
 }
 
-.seo-landing-layout__header-links {
+.seo-landing-layout__header-actions {
+  grid-column: 3;
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
@@ -72,15 +74,25 @@
   justify-content: flex-end;
 }
 
-.seo-landing-layout__nav {
+.seo-landing-layout__nav,
+.seo-landing-layout__auth {
   display: flex;
   flex-wrap: wrap;
   gap: 0.45rem;
   align-items: center;
+}
+
+.seo-landing-layout__nav {
+  grid-column: 2;
+  justify-content: flex-start;
+}
+
+.seo-landing-layout__auth {
   justify-content: flex-end;
 }
 
-.seo-landing-layout__nav a {
+.seo-landing-layout__nav a,
+.seo-landing-layout__auth a {
   flex: 0 1 auto;
   min-width: 0;
   max-width: 13rem;
@@ -123,17 +135,30 @@
 }
 
 @media (max-width: 42rem) {
-  .seo-landing-layout__header-links {
+  .seo-landing-layout__header {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .seo-landing-layout__brand,
+  .seo-landing-layout__nav,
+  .seo-landing-layout__header-actions {
+    grid-column: 1;
+  }
+
+  .seo-landing-layout__header-actions {
     width: 100%;
     justify-content: space-between;
   }
 
   .seo-landing-layout__nav,
+  .seo-landing-layout__auth,
   app-seo-language-selector {
     flex: 1 1 11rem;
   }
 
-  .seo-landing-layout__nav a {
+  .seo-landing-layout__nav a,
+  .seo-landing-layout__auth a {
     flex: 1 1 9rem;
     max-width: none;
   }

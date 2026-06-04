@@ -18,6 +18,11 @@ export interface PublicChromeCopy {
     readonly playOnline: string;
     readonly faq: string;
   };
+  readonly authActions: {
+    readonly ariaLabel: string;
+    readonly login: string;
+    readonly register: string;
+  };
   readonly cookieBanner: {
     readonly title: string;
     readonly copyStart: string;
@@ -54,6 +59,11 @@ const PUBLIC_CHROME_COPY = {
       ariaLabel: 'Public navigation',
       playOnline: 'Play online',
       faq: 'FAQ',
+    },
+    authActions: {
+      ariaLabel: 'Account actions',
+      login: 'Login',
+      register: 'Register',
     },
     cookieBanner: {
       title: 'Cookie preferences',
@@ -93,6 +103,11 @@ const PUBLIC_CHROME_COPY = {
       playOnline: 'Jugar online',
       faq: 'FAQ',
     },
+    authActions: {
+      ariaLabel: 'Acciones de cuenta',
+      login: 'Login',
+      register: 'Registrarse',
+    },
     cookieBanner: {
       title: 'Preferencias de cookies',
       copyStart: 'CommanderZone usa cookies esenciales para la app. La analítica opcional permanece desactivada salvo que la permitas. Lee la',
@@ -130,6 +145,11 @@ const PUBLIC_CHROME_COPY = {
       ariaLabel: 'Öffentliche Navigation',
       playOnline: 'Online spielen',
       faq: 'FAQ',
+    },
+    authActions: {
+      ariaLabel: 'Kontoaktionen',
+      login: 'Login',
+      register: 'Registrieren',
     },
     cookieBanner: {
       title: 'Cookie-Einstellungen',
@@ -169,6 +189,11 @@ const PUBLIC_CHROME_COPY = {
       playOnline: 'Jouer en ligne',
       faq: 'FAQ',
     },
+    authActions: {
+      ariaLabel: 'Actions de compte',
+      login: 'Login',
+      register: 'Inscription',
+    },
     cookieBanner: {
       title: 'Préférences de cookies',
       copyStart: 'CommanderZone utilise des cookies essentiels pour l’application. L’analyse optionnelle reste désactivée sauf si vous l’autorisez. Consultez la',
@@ -207,6 +232,11 @@ const PUBLIC_CHROME_COPY = {
       playOnline: 'Jogar online',
       faq: 'FAQ',
     },
+    authActions: {
+      ariaLabel: 'Acoes de conta',
+      login: 'Login',
+      register: 'Registrar',
+    },
     cookieBanner: {
       title: 'Preferências de cookies',
       copyStart: 'CommanderZone usa cookies essenciais para a app. A análise opcional fica desativada a menos que você permita. Leia a',
@@ -244,6 +274,11 @@ const PUBLIC_CHROME_COPY = {
       ariaLabel: 'Navigazione pubblica',
       playOnline: 'Gioca online',
       faq: 'FAQ',
+    },
+    authActions: {
+      ariaLabel: 'Azioni account',
+      login: 'Login',
+      register: 'Registrati',
     },
     cookieBanner: {
       title: 'Preferenze cookie',

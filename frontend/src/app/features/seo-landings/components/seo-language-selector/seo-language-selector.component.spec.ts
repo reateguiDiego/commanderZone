@@ -48,14 +48,20 @@ describe('SeoLanguageSelectorComponent', () => {
     const element = fixture.nativeElement as HTMLElement;
     const trigger = element.querySelector('.seo-language-selector__trigger');
     const links = Array.from(element.querySelectorAll('.seo-language-selector__menu a') as NodeListOf<HTMLAnchorElement>);
-    const badges = Array.from(element.querySelectorAll('.seo-language-selector__badge') as NodeListOf<HTMLElement>);
+    const flags = Array.from(element.querySelectorAll('.seo-language-selector__flag') as NodeListOf<HTMLImageElement>);
 
-    expect(trigger?.textContent).toContain('English');
+    expect(trigger?.querySelector('.seo-language-selector__flag')?.getAttribute('src')).toBe('/assets/icons/flags/uk.png');
+    expect(trigger?.textContent).not.toContain('English');
     expect(element.querySelector('details.seo-language-selector')).not.toBeNull();
     expect(element.querySelector('.seo-language-selector__menu')?.classList.contains('app-pretty-scroll')).toBe(true);
     expect(links).toHaveLength(3);
     expect(links.every((link) => Boolean(link.getAttribute('href')))).toBe(true);
-    expect(badges.map((badge) => badge.textContent?.trim())).toEqual(['EN', 'EN', 'ES', 'DE']);
+    expect(flags.map((flag) => flag.getAttribute('src'))).toEqual([
+      '/assets/icons/flags/uk.png',
+      '/assets/icons/flags/uk.png',
+      '/assets/icons/flags/spain.png',
+      '/assets/icons/flags/germany.png',
+    ]);
   });
 
   it('localizes the trigger label and aria label from the current SEO locale', () => {
@@ -69,7 +75,7 @@ describe('SeoLanguageSelectorComponent', () => {
     expect(element.querySelector('nav')?.getAttribute('aria-label')).toBe('Sprache auswählen');
   });
 
-  it('renders a text badge for every SEO locale without loading flag images', () => {
+  it('renders flag icons for every SEO locale without exposing non-SEO locales', () => {
     fixture.componentRef.setInput('links', SEO_LOCALES.map((locale) => ({
       locale: locale.code,
       label: locale.label,
@@ -79,15 +85,37 @@ describe('SeoLanguageSelectorComponent', () => {
     fixture.detectChanges();
 
     const element = fixture.nativeElement as HTMLElement;
-    const menuBadges = Array.from(element.querySelectorAll('.seo-language-selector__menu .seo-language-selector__badge') as NodeListOf<HTMLElement>);
+    const menuFlags = Array.from(element.querySelectorAll('.seo-language-selector__menu .seo-language-selector__flag') as NodeListOf<HTMLImageElement>);
 
-    expect(menuBadges.map((badge) => badge.textContent?.trim())).toEqual(SEO_LOCALES.map((locale) => locale.code.toUpperCase()));
-    expect(element.querySelector('.seo-language-selector img')).toBeNull();
-    expect(element.querySelector('a[hreflang="it"] .seo-language-selector__badge')?.textContent?.trim()).toBe('IT');
-    expect(element.querySelector('a[hreflang="pt"] .seo-language-selector__badge')?.textContent?.trim()).toBe('PT');
+    expect(menuFlags.map((flag) => flag.getAttribute('src'))).toEqual([
+      '/assets/icons/flags/uk.png',
+      '/assets/icons/flags/spain.png',
+      '/assets/icons/flags/germany.png',
+      '/assets/icons/flags/france.png',
+      '/assets/icons/flags/portugal.png',
+      '/assets/icons/flags/italy.png',
+    ]);
+    expect(element.querySelector('a[hreflang="it"] .seo-language-selector__flag')?.getAttribute('src')).toBe('/assets/icons/flags/italy.png');
+    expect(element.querySelector('a[hreflang="pt"] .seo-language-selector__flag')?.getAttribute('src')).toBe('/assets/icons/flags/portugal.png');
     for (const locale of nonSeoLocaleCodes) {
-      expect(element.querySelector(`a[hreflang="${locale}"] .seo-language-selector__badge`)).toBeNull();
+      expect(element.querySelector(`a[hreflang="${locale}"] .seo-language-selector__flag`)).toBeNull();
     }
+  });
+
+  it('closes the language menu when clicking outside it', () => {
+    const element = fixture.nativeElement as HTMLElement;
+    const details = element.querySelector('details.seo-language-selector') as HTMLDetailsElement;
+
+    fixture.componentInstance.menuOpen.set(true);
+    fixture.detectChanges();
+
+    expect(details.open).toBe(true);
+
+    document.body.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.menuOpen()).toBe(false);
+    expect(details.open).toBe(false);
   });
 
   it('keeps the root English home URL crawlable in the language menu', () => {
