@@ -186,7 +186,7 @@ function validateStaticContentCoverage() {
 
   assertIncludes(factoryPath, 'SEO_LOCALE_CODES.map', 'Static SEO content must be generated for every SEO locale.');
   assertIncludes(factoryPath, 'LOCALE_COPY[locale]', 'Static SEO content must take locale differences from typed localized copy.');
-  assertIncludes(factoryPath, 'ROUTE_LABELS[routeKey][locale]', 'Static SEO content must be keyed by routeKey and locale.');
+  assertIncludes(factoryPath, 'getLandingCopy(routeKey, copyLocale)', 'Static SEO content must be keyed by routeKey and locale.');
   assertIncludes(factoryPath, 'seo: SeoMetadataContent', 'Static SEO content must define SEO metadata for each localized landing.');
 
   for (const routeKey of routeKeys) {

@@ -169,7 +169,6 @@ export interface SeoLandingContent {
   readonly steps?: LandingStepsContent;
   readonly useCases?: LandingUseCasesContent;
   readonly comparison?: LandingComparisonContent;
-  readonly faqPreview?: LandingFaqContent;
   readonly fullFaq?: LandingFaqContent;
   readonly faq: LandingFaqContent;
   readonly cta?: LandingCtaContent;

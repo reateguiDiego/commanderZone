@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { SEO_LOCALE_CODES } from '../../../core/localization/locale-config';
-import { SeoRouteKey } from '../../../core/localization/seo-routes';
+import { SEO_ROUTE_KEYS, SeoRouteKey } from '../../../core/localization/seo-routes';
 import { getSeoLandingContent } from '../content/seo-landing-content';
 import { SeoLandingContent } from '../models/seo-landing-content.model';
 import { SeoLandingPageComponent } from './seo-landing-page.component';
@@ -106,15 +106,6 @@ describe('SeoLandingPageComponent', () => {
         { label: 'Player control', firstValue: 'Manual choices', secondValue: 'Automated validation' },
       ],
     },
-    faqPreview: {
-      title: 'Quick answers',
-      items: [
-        {
-          question: 'Can my group use long localized text safely?',
-          answer: ['Yes, layout content wraps instead of overflowing.'],
-        },
-      ],
-    },
     fullFaq: {
       title: 'Commander online FAQ',
       items: [
@@ -141,8 +132,8 @@ describe('SeoLandingPageComponent', () => {
     internalLinks: {
       title: 'Related CommanderZone pages',
       links: [
-        { label: 'Import Commander deck', href: '/en/import-mtg-commander-deck/' },
-        { label: 'Commander deck builder', href: '/en/mtg-commander-deck-builder/' },
+        { label: 'Import Commander deck', href: '/en/import-commander-deck/' },
+        { label: 'Commander deck builder', href: '/en/commander-deck-builder/' },
       ],
     },
   };
@@ -215,7 +206,7 @@ describe('SeoLandingPageComponent', () => {
     expect(links).toContain('/auth/login?redirect=/decks');
     expect(links).toContain('/en/faq/');
     expect(links).toContain('/de/commander-online-spielen/');
-    expect(links).toContain('/en/import-mtg-commander-deck/');
+    expect(links).toContain('/en/import-commander-deck/');
     expect(anchors.every((link) => Boolean(link.getAttribute('href')))).toBe(true);
     expect(element.querySelector('button')).toBeNull();
     expect(element.querySelector('.landing-faq')).not.toBeNull();
@@ -232,7 +223,6 @@ describe('SeoLandingPageComponent', () => {
       .map((heading) => heading.textContent?.trim())
       .filter((text): text is string => Boolean(text));
 
-    expect(element.querySelector('app-landing-faq-preview')).toBeNull();
     expect(element.querySelectorAll('app-landing-faq, app-landing-full-faq')).toHaveLength(1);
     expect(faqHeadings).toHaveLength(1);
     expect(faqQuestions).toEqual([...new Set(faqQuestions)]);
@@ -261,10 +251,27 @@ describe('SeoLandingPageComponent', () => {
         .map((heading) => heading.textContent?.trim())
         .filter((text): text is string => Boolean(text));
 
-      expect(element.querySelector('app-landing-faq-preview')).toBeNull();
       expect(element.querySelectorAll('app-landing-faq, app-landing-full-faq')).toHaveLength(1);
       expect(matchingFaqHeadings).toHaveLength(1);
       expect(faqQuestions).toEqual([...new Set(faqQuestions)]);
+    }
+  });
+
+  it('renders at most one FAQ block for every SEO landing', () => {
+    for (const routeKey of SEO_ROUTE_KEYS) {
+      for (const locale of SEO_LOCALE_CODES) {
+        fixture.componentRef.setInput('content', getSeoLandingContent(routeKey, locale));
+        fixture.detectChanges();
+
+        const element: HTMLElement = fixture.nativeElement;
+        const faqBlocks = element.querySelectorAll('app-landing-faq, app-landing-full-faq');
+        const faqQuestions = Array.from(element.querySelectorAll('.landing-faq h3, .landing-full-faq h3'))
+          .map((heading) => heading.textContent?.trim())
+          .filter((text): text is string => Boolean(text));
+
+        expect(faqBlocks.length).toBeLessThanOrEqual(1);
+        expect(faqQuestions).toEqual([...new Set(faqQuestions)]);
+      }
     }
   });
 
@@ -278,7 +285,6 @@ describe('SeoLandingPageComponent', () => {
     const element: HTMLElement = fixture.nativeElement;
 
     expect(element.querySelector('app-landing-faq')).toBeNull();
-    expect(element.querySelector('app-landing-faq-preview')).toBeNull();
     expect(element.querySelector('app-landing-full-faq')).not.toBeNull();
     expect(element.querySelector('.landing-full-faq details')?.hasAttribute('open')).toBe(true);
   });

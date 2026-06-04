@@ -54,7 +54,7 @@ function validateSourceContracts() {
   const featureLegalRoutes = readText('src/app/features/legal/legal.routes.ts');
 
   if (!pageStrategies.includes("legal: 'runtime-i18n'")) {
-    fail('Legal routes must use runtime-i18n so route robots resolves to noindex, follow.');
+    fail('Legal routes must use runtime-i18n with explicit legal robots handling for noindex, follow.');
   }
 
   if (!serverRoutes.includes('LEGAL_PRERENDER_ROUTES')) {
@@ -92,6 +92,13 @@ function validateLegalPagesAreNotIndexableAssets() {
   const sitemap = readText('public/sitemaps/sitemap-seo.xml');
   const prerenderRoutes = readText('src/seo-prerender-routes.txt');
   const combinedPrerenderRoutes = readText('src/prerender-routes.txt');
+  const combinedPrerenderRouteList = combinedPrerenderRoutes.split(/\r?\n/).filter(Boolean);
+
+  for (const authRoute of ['/auth/login/', '/auth/register/']) {
+    if (combinedPrerenderRouteList.includes(authRoute)) {
+      fail(`Auth route must not appear in any prerender manifest: ${authRoute}`);
+    }
+  }
 
   for (const page of legalPages) {
     const absoluteUrl = `${canonicalOrigin}${page.path}`;
@@ -104,7 +111,7 @@ function validateLegalPagesAreNotIndexableAssets() {
       fail(`Legal noindex page must not appear in SEO prerender manifest: ${page.path}`);
     }
 
-    if (!combinedPrerenderRoutes.split(/\r?\n/).includes(page.path)) {
+    if (!combinedPrerenderRouteList.includes(page.path)) {
       fail(`Legal noindex page must appear in combined prerender manifest: ${page.path}`);
     }
   }

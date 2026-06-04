@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
+import { loadSeoSitemapConfig, toSeoPath } from './seo-sitemap-generator.mjs';
 
 const workspaceRoot = process.cwd();
 const canonicalOrigin = 'https://www.commanderzone.com';
@@ -7,46 +8,56 @@ const canonicalHost = new URL(canonicalOrigin).host;
 const alternateHost = 'commanderzone.com';
 const alternateOrigin = `https://${alternateHost}`;
 const legacySeoSlugRedirects = [
-  ['/es/jugar-magic-online-con-amigos/', '/es/jugar-magic-online-amigos/'],
+  ['/es/jugar-magic-online-amigos/', '/es/jugar-magic-online-con-amigos/'],
   ['/es/crear-sala-commander-online/', '/es/crear-sala-commander/'],
-  ['/es/importar-mazo-commander/', '/es/importar-mazo-commander-mtg/'],
-  ['/es/deck-builder-commander/', '/es/deck-builder-commander-mtg/'],
-  ['/es/asistente-de-mesa-magic/', '/es/asistente-mesa-commander/'],
+  ['/es/importar-mazo-commander-mtg/', '/es/importar-mazo-commander/'],
+  ['/es/deck-builder-commander-mtg/', '/es/deck-builder-commander/'],
+  ['/es/asistente-de-mesa-magic/', '/es/contador-vidas-commander/'],
+  ['/es/asistente-mesa-commander/', '/es/contador-vidas-commander/'],
   ['/es/formas-de-jugar-commander-online/', '/es/formas-jugar-commander-online/'],
-  ['/en/import-commander-deck/', '/en/import-mtg-commander-deck/'],
-  ['/en/commander-deck-builder/', '/en/mtg-commander-deck-builder/'],
-  ['/en/commander-life-counter/', '/en/commander-table-assistant/'],
-  ['/de/commander-deck-importieren/', '/de/mtg-commander-deck-importieren/'],
-  ['/de/commander-deck-builder/', '/de/mtg-commander-deck-builder/'],
-  ['/de/mtg-life-counter/', '/de/commander-tischassistent/'],
+  ['/en/import-mtg-commander-deck/', '/en/import-commander-deck/'],
+  ['/en/mtg-commander-deck-builder/', '/en/commander-deck-builder/'],
+  ['/en/commander-table-assistant/', '/en/commander-life-counter/'],
+  ['/de/mtg-commander-deck-importieren/', '/de/commander-deck-importieren/'],
+  ['/de/mtg-commander-deck-builder/', '/de/commander-deck-builder/'],
+  ['/de/commander-tischassistent/', '/de/commander-life-counter/'],
+  ['/de/mtg-life-counter/', '/de/commander-life-counter/'],
   ['/de/commander-online-spielarten/', '/de/commander-online-spielen-moeglichkeiten/'],
   ['/de/commander-online-anleitung/', '/de/commander-online-spielen-anleitung/'],
-  ['/fr/jouer-magic-en-ligne-avec-des-amis/', '/fr/jouer-magic-en-ligne-amis/'],
+  ['/fr/jouer-magic-en-ligne-amis/', '/fr/jouer-magic-en-ligne-avec-des-amis/'],
   ['/fr/creer-salon-commander/', '/fr/creer-salle-commander/'],
-  ['/fr/importer-deck-commander/', '/fr/importer-deck-commander-mtg/'],
-  ['/fr/constructeur-deck-commander/', '/fr/deck-builder-commander-mtg/'],
-  ['/fr/compteur-vie-mtg/', '/fr/assistant-table-commander/'],
+  ['/fr/importer-deck-commander-mtg/', '/fr/importer-deck-commander/'],
+  ['/fr/constructeur-deck-commander/', '/fr/deck-builder-commander/'],
+  ['/fr/deck-builder-commander-mtg/', '/fr/deck-builder-commander/'],
+  ['/fr/assistant-table-commander/', '/fr/compteur-vie-commander/'],
+  ['/fr/compteur-vie-mtg/', '/fr/compteur-vie-commander/'],
   ['/fr/facons-de-jouer-commander-en-ligne/', '/fr/facons-jouer-commander-en-ligne/'],
-  ['/pt/jogar-magic-online-com-amigos/', '/pt/jogar-magic-online-amigos/'],
-  ['/pt/importar-deck-commander/', '/pt/importar-deck-commander-mtg/'],
-  ['/pt/construtor-deck-commander/', '/pt/deck-builder-commander-mtg/'],
-  ['/pt/contador-vida-mtg/', '/pt/assistente-mesa-commander/'],
+  ['/pt/jogar-magic-online-amigos/', '/pt/jogar-magic-online-com-amigos/'],
+  ['/pt/importar-deck-commander-mtg/', '/pt/importar-deck-commander/'],
+  ['/pt/construtor-deck-commander/', '/pt/deck-builder-commander/'],
+  ['/pt/deck-builder-commander-mtg/', '/pt/deck-builder-commander/'],
+  ['/pt/assistente-mesa-commander/', '/pt/contador-vida-commander/'],
+  ['/pt/contador-vida-mtg/', '/pt/contador-vida-commander/'],
   ['/pt/formas-de-jogar-commander-online/', '/pt/formas-jogar-commander-online/'],
-  ['/it/giocare-magic-online-con-amici/', '/it/giocare-magic-online-amici/'],
-  ['/it/importare-mazzo-commander/', '/it/importare-mazzo-commander-mtg/'],
-  ['/it/deck-builder-commander/', '/it/deck-builder-commander-mtg/'],
-  ['/it/contatore-vite-mtg/', '/it/assistente-tavolo-commander/'],
+  ['/it/giocare-magic-online-amici/', '/it/giocare-magic-online-con-amici/'],
+  ['/it/importare-mazzo-commander-mtg/', '/it/importare-mazzo-commander/'],
+  ['/it/deck-builder-commander-mtg/', '/it/deck-builder-commander/'],
+  ['/it/assistente-tavolo-commander/', '/it/contatore-vite-commander/'],
+  ['/it/contatore-vite-mtg/', '/it/contatore-vite-commander/'],
   ['/it/modi-per-giocare-commander-online/', '/it/modi-giocare-commander-online/'],
 ];
+const legacySeoSlugSources = new Set(legacySeoSlugRedirects.map(([source]) => source));
+const finalSeoSlugDestinations = new Set(legacySeoSlugRedirects.map(([, destination]) => destination));
 
 const vercelConfig = JSON.parse(await readWorkspaceFile('vercel.json'));
 const seoService = await readWorkspaceFile('src/app/core/seo/seo.service.ts');
 const robots = await readWorkspaceFile('public/robots.txt');
 const sitemapIndex = await readWorkspaceFile('public/sitemap-index.xml');
 const seoSitemap = await readWorkspaceFile('public/sitemaps/sitemap-seo.xml');
+const sitemapConfig = await loadSeoSitemapConfig(workspaceRoot);
 
 assertSeoServiceCanonicalOrigin(seoService);
-assertVercelRedirects(vercelConfig);
+assertVercelRedirects(vercelConfig, sitemapConfig);
 assertPublicSeoAssetsUseCanonicalOrigin(robots, sitemapIndex, seoSitemap);
 assertSitemapUrlsUseTrailingSlash(seoSitemap);
 
@@ -66,7 +77,7 @@ function assertSeoServiceCanonicalOrigin(source) {
   }
 }
 
-function assertVercelRedirects(config) {
+function assertVercelRedirects(config, seoConfig) {
   if (config.trailingSlash !== true) {
     throw new Error('vercel.json must enforce trailingSlash: true for SEO URLs.');
   }
@@ -77,8 +88,12 @@ function assertVercelRedirects(config) {
   }
 
   const redirects = config.redirects ?? [];
-  assertEnglishHomeRedirect(redirects);
-  assertLegacySeoSlugRedirects(redirects);
+  const finalSeoPaths = getFinalSeoPaths(seoConfig);
+
+  assertEnglishHomeRedirect(redirects, finalSeoPaths);
+  assertLegacySeoSlugRedirects(redirects, finalSeoPaths);
+  assertNoFinalSeoSlugRedirectsBackToLegacy(redirects);
+  assertNoSeoRedirectDestinationOutsideSeoRoutes(redirects, finalSeoPaths);
 
   const alternateRootToCanonical = redirects.find((redirect) => {
     const hostRule = redirect.has?.find((rule) => rule.type === 'host');
@@ -119,7 +134,25 @@ function assertVercelRedirects(config) {
   }
 }
 
-function assertEnglishHomeRedirect(redirects) {
+function assertNoFinalSeoSlugRedirectsBackToLegacy(redirects) {
+  for (const redirect of redirects) {
+    if (!redirect.permanent || typeof redirect.source !== 'string' || typeof redirect.destination !== 'string') {
+      continue;
+    }
+
+    const destinationPath = new URL(redirect.destination, canonicalOrigin).pathname;
+
+    if (finalSeoSlugDestinations.has(redirect.source) && legacySeoSlugSources.has(destinationPath)) {
+      throw new Error(`Final SEO slug ${redirect.source} must not redirect back to legacy slug ${destinationPath}.`);
+    }
+
+    if (legacySeoSlugSources.has(destinationPath)) {
+      throw new Error(`Redirect ${redirect.source} must not target legacy SEO slug ${destinationPath}.`);
+    }
+  }
+}
+
+function assertEnglishHomeRedirect(redirects, finalSeoPaths) {
   const redirect = redirects.find((candidate) =>
     candidate.source === '/en/'
     && candidate.destination === `${canonicalOrigin}/`
@@ -130,9 +163,13 @@ function assertEnglishHomeRedirect(redirects) {
   if (!redirect) {
     throw new Error(`vercel.json must permanently redirect ${canonicalOrigin}/en/ to ${canonicalOrigin}/.`);
   }
+
+  if (!finalSeoPaths.has('/')) {
+    throw new Error('SEO_ROUTES must keep English home canonicalized as /.');
+  }
 }
 
-function assertLegacySeoSlugRedirects(redirects) {
+function assertLegacySeoSlugRedirects(redirects, finalSeoPaths) {
   const alternateHostWildcardIndex = redirects.findIndex((redirect) => {
     const hostRule = redirect.has?.find((rule) => rule.type === 'host');
     return hostRule?.value === alternateHost && redirect.source === '/:path*';
@@ -150,10 +187,35 @@ function assertLegacySeoSlugRedirects(redirects) {
       throw new Error(`vercel.json must permanently redirect ${source} to ${canonicalOrigin}${destinationPath}.`);
     }
 
+    if (!finalSeoPaths.has(destinationPath)) {
+      throw new Error(`Legacy SEO redirect ${source} targets ${destinationPath}, which is not in SEO_ROUTES.`);
+    }
+
     if (alternateHostWildcardIndex !== -1 && redirectIndex > alternateHostWildcardIndex) {
       throw new Error(`Legacy SEO redirect ${source} must run before the alternate-host wildcard redirect.`);
     }
   }
+}
+
+function assertNoSeoRedirectDestinationOutsideSeoRoutes(redirects, finalSeoPaths) {
+  const seoRedirectSources = new Set(['/en/', ...legacySeoSlugSources]);
+
+  for (const redirect of redirects) {
+    if (!seoRedirectSources.has(redirect.source) || typeof redirect.destination !== 'string') {
+      continue;
+    }
+
+    const destinationPath = new URL(redirect.destination, canonicalOrigin).pathname;
+    if (!finalSeoPaths.has(destinationPath)) {
+      throw new Error(`SEO redirect ${redirect.source} targets ${destinationPath}, which is not in SEO_ROUTES.`);
+    }
+  }
+}
+
+function getFinalSeoPaths(config) {
+  return new Set(config.routes.flatMap((route) =>
+    config.locales.map((locale) => toSeoPath(locale.code, route.slugs[locale.code], route.routeKey)),
+  ));
 }
 
 function assertPublicSeoAssetsUseCanonicalOrigin(robots, sitemapIndex, seoSitemap) {

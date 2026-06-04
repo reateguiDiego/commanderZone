@@ -47,8 +47,8 @@
       "permanent": true
     },
     {
-      "source": "/es/jugar-magic-online-con-amigos/",
-      "destination": "https://www.commanderzone.com/es/jugar-magic-online-amigos/",
+      "source": "/es/jugar-magic-online-amigos/",
+      "destination": "https://www.commanderzone.com/es/jugar-magic-online-con-amigos/",
       "permanent": true
     },
     {
@@ -57,18 +57,23 @@
       "permanent": true
     },
     {
-      "source": "/es/importar-mazo-commander/",
-      "destination": "https://www.commanderzone.com/es/importar-mazo-commander-mtg/",
+      "source": "/es/importar-mazo-commander-mtg/",
+      "destination": "https://www.commanderzone.com/es/importar-mazo-commander/",
       "permanent": true
     },
     {
-      "source": "/es/deck-builder-commander/",
-      "destination": "https://www.commanderzone.com/es/deck-builder-commander-mtg/",
+      "source": "/es/deck-builder-commander-mtg/",
+      "destination": "https://www.commanderzone.com/es/deck-builder-commander/",
       "permanent": true
     },
     {
       "source": "/es/asistente-de-mesa-magic/",
-      "destination": "https://www.commanderzone.com/es/asistente-mesa-commander/",
+      "destination": "https://www.commanderzone.com/es/contador-vidas-commander/",
+      "permanent": true
+    },
+    {
+      "source": "/es/asistente-mesa-commander/",
+      "destination": "https://www.commanderzone.com/es/contador-vidas-commander/",
       "permanent": true
     },
     {
@@ -77,33 +82,38 @@
       "permanent": true
     },
     {
-      "source": "/en/import-commander-deck/",
-      "destination": "https://www.commanderzone.com/en/import-mtg-commander-deck/",
+      "source": "/en/import-mtg-commander-deck/",
+      "destination": "https://www.commanderzone.com/en/import-commander-deck/",
       "permanent": true
     },
     {
-      "source": "/en/commander-deck-builder/",
-      "destination": "https://www.commanderzone.com/en/mtg-commander-deck-builder/",
+      "source": "/en/mtg-commander-deck-builder/",
+      "destination": "https://www.commanderzone.com/en/commander-deck-builder/",
       "permanent": true
     },
     {
-      "source": "/en/commander-life-counter/",
-      "destination": "https://www.commanderzone.com/en/commander-table-assistant/",
+      "source": "/en/commander-table-assistant/",
+      "destination": "https://www.commanderzone.com/en/commander-life-counter/",
       "permanent": true
     },
     {
-      "source": "/de/commander-deck-importieren/",
-      "destination": "https://www.commanderzone.com/de/mtg-commander-deck-importieren/",
+      "source": "/de/mtg-commander-deck-importieren/",
+      "destination": "https://www.commanderzone.com/de/commander-deck-importieren/",
       "permanent": true
     },
     {
-      "source": "/de/commander-deck-builder/",
-      "destination": "https://www.commanderzone.com/de/mtg-commander-deck-builder/",
+      "source": "/de/mtg-commander-deck-builder/",
+      "destination": "https://www.commanderzone.com/de/commander-deck-builder/",
+      "permanent": true
+    },
+    {
+      "source": "/de/commander-tischassistent/",
+      "destination": "https://www.commanderzone.com/de/commander-life-counter/",
       "permanent": true
     },
     {
       "source": "/de/mtg-life-counter/",
-      "destination": "https://www.commanderzone.com/de/commander-tischassistent/",
+      "destination": "https://www.commanderzone.com/de/commander-life-counter/",
       "permanent": true
     },
     {
@@ -117,8 +127,8 @@
       "permanent": true
     },
     {
-      "source": "/fr/jouer-magic-en-ligne-avec-des-amis/",
-      "destination": "https://www.commanderzone.com/fr/jouer-magic-en-ligne-amis/",
+      "source": "/fr/jouer-magic-en-ligne-amis/",
+      "destination": "https://www.commanderzone.com/fr/jouer-magic-en-ligne-avec-des-amis/",
       "permanent": true
     },
     {
@@ -127,18 +137,28 @@
       "permanent": true
     },
     {
-      "source": "/fr/importer-deck-commander/",
-      "destination": "https://www.commanderzone.com/fr/importer-deck-commander-mtg/",
+      "source": "/fr/importer-deck-commander-mtg/",
+      "destination": "https://www.commanderzone.com/fr/importer-deck-commander/",
       "permanent": true
     },
     {
       "source": "/fr/constructeur-deck-commander/",
-      "destination": "https://www.commanderzone.com/fr/deck-builder-commander-mtg/",
+      "destination": "https://www.commanderzone.com/fr/deck-builder-commander/",
+      "permanent": true
+    },
+    {
+      "source": "/fr/deck-builder-commander-mtg/",
+      "destination": "https://www.commanderzone.com/fr/deck-builder-commander/",
+      "permanent": true
+    },
+    {
+      "source": "/fr/assistant-table-commander/",
+      "destination": "https://www.commanderzone.com/fr/compteur-vie-commander/",
       "permanent": true
     },
     {
       "source": "/fr/compteur-vie-mtg/",
-      "destination": "https://www.commanderzone.com/fr/assistant-table-commander/",
+      "destination": "https://www.commanderzone.com/fr/compteur-vie-commander/",
       "permanent": true
     },
     {
@@ -147,23 +167,33 @@
       "permanent": true
     },
     {
-      "source": "/pt/jogar-magic-online-com-amigos/",
-      "destination": "https://www.commanderzone.com/pt/jogar-magic-online-amigos/",
+      "source": "/pt/jogar-magic-online-amigos/",
+      "destination": "https://www.commanderzone.com/pt/jogar-magic-online-com-amigos/",
       "permanent": true
     },
     {
-      "source": "/pt/importar-deck-commander/",
-      "destination": "https://www.commanderzone.com/pt/importar-deck-commander-mtg/",
+      "source": "/pt/importar-deck-commander-mtg/",
+      "destination": "https://www.commanderzone.com/pt/importar-deck-commander/",
       "permanent": true
     },
     {
       "source": "/pt/construtor-deck-commander/",
-      "destination": "https://www.commanderzone.com/pt/deck-builder-commander-mtg/",
+      "destination": "https://www.commanderzone.com/pt/deck-builder-commander/",
+      "permanent": true
+    },
+    {
+      "source": "/pt/deck-builder-commander-mtg/",
+      "destination": "https://www.commanderzone.com/pt/deck-builder-commander/",
+      "permanent": true
+    },
+    {
+      "source": "/pt/assistente-mesa-commander/",
+      "destination": "https://www.commanderzone.com/pt/contador-vida-commander/",
       "permanent": true
     },
     {
       "source": "/pt/contador-vida-mtg/",
-      "destination": "https://www.commanderzone.com/pt/assistente-mesa-commander/",
+      "destination": "https://www.commanderzone.com/pt/contador-vida-commander/",
       "permanent": true
     },
     {
@@ -172,23 +202,28 @@
       "permanent": true
     },
     {
-      "source": "/it/giocare-magic-online-con-amici/",
-      "destination": "https://www.commanderzone.com/it/giocare-magic-online-amici/",
+      "source": "/it/giocare-magic-online-amici/",
+      "destination": "https://www.commanderzone.com/it/giocare-magic-online-con-amici/",
       "permanent": true
     },
     {
-      "source": "/it/importare-mazzo-commander/",
-      "destination": "https://www.commanderzone.com/it/importare-mazzo-commander-mtg/",
+      "source": "/it/importare-mazzo-commander-mtg/",
+      "destination": "https://www.commanderzone.com/it/importare-mazzo-commander/",
       "permanent": true
     },
     {
-      "source": "/it/deck-builder-commander/",
-      "destination": "https://www.commanderzone.com/it/deck-builder-commander-mtg/",
+      "source": "/it/deck-builder-commander-mtg/",
+      "destination": "https://www.commanderzone.com/it/deck-builder-commander/",
+      "permanent": true
+    },
+    {
+      "source": "/it/assistente-tavolo-commander/",
+      "destination": "https://www.commanderzone.com/it/contatore-vite-commander/",
       "permanent": true
     },
     {
       "source": "/it/contatore-vite-mtg/",
-      "destination": "https://www.commanderzone.com/it/assistente-tavolo-commander/",
+      "destination": "https://www.commanderzone.com/it/contatore-vite-commander/",
       "permanent": true
     },
     {

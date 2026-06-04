@@ -38,7 +38,7 @@ describe('SeoLandingRouteComponent', () => {
     const element: HTMLElement = fixture.nativeElement;
 
     expect(element.querySelector('app-seo-landing-page')).toBeTruthy();
-    expect(element.querySelector('h1')?.textContent?.toLowerCase()).toContain('asistente de mesa');
+    expect(element.querySelector('h1')?.textContent?.toLowerCase()).toContain('contador de vidas');
     expect(element.textContent).toContain('Contador de vidas');
     expect(element.textContent).toContain('daño de comandante');
   });
@@ -51,27 +51,27 @@ describe('SeoLandingRouteComponent', () => {
     const xDefault = document.head.querySelector('link[data-cz-seo="true"][rel="alternate"][hreflang="x-default"]');
     const jsonLd = document.head.querySelector('script[data-cz-seo="true"][type="application/ld+json"]');
 
-    expect(title.getTitle()).toContain('Asistente de mesa');
-    expect(document.head.querySelector('meta[data-cz-seo="true"][name="description"]')?.getAttribute('content')?.toLowerCase()).toContain('asistente de mesa');
+    expect(title.getTitle()).toContain('Contador de vidas');
+    expect(document.head.querySelector('meta[data-cz-seo="true"][name="description"]')?.getAttribute('content')?.toLowerCase()).toContain('contador de vidas');
     expect(document.documentElement.lang).toBe('es');
     expect(document.documentElement.dir).toBe('ltr');
     expect(document.head.querySelector('meta[data-cz-seo="true"][name="robots"]')?.getAttribute('content')).toBe('index, follow');
-    expect(document.head.querySelector('meta[data-cz-seo="true"][property="og:title"]')?.getAttribute('content')).toContain('Asistente de mesa');
-    expect(document.head.querySelector('meta[data-cz-seo="true"][property="og:description"]')?.getAttribute('content')?.toLowerCase()).toContain('asistente de mesa');
+    expect(document.head.querySelector('meta[data-cz-seo="true"][property="og:title"]')?.getAttribute('content')).toContain('Contador de vidas');
+    expect(document.head.querySelector('meta[data-cz-seo="true"][property="og:description"]')?.getAttribute('content')?.toLowerCase()).toContain('contador de vidas');
     expect(document.head.querySelector('meta[data-cz-seo="true"][property="og:type"]')?.getAttribute('content')).toBe('website');
-    expect(document.head.querySelector('meta[data-cz-seo="true"][property="og:url"]')?.getAttribute('content')).toBe('https://www.commanderzone.com/es/asistente-mesa-commander/');
+    expect(document.head.querySelector('meta[data-cz-seo="true"][property="og:url"]')?.getAttribute('content')).toBe('https://www.commanderzone.com/es/contador-vidas-commander/');
     expect(document.head.querySelector('meta[data-cz-seo="true"][property="og:image"]')?.getAttribute('content')).toBe('https://www.commanderzone.com/assets/og/table-assistant-og.png');
     expect(document.head.querySelector('meta[data-cz-seo="true"][property="og:locale"]')?.getAttribute('content')).toBe('es_ES');
     expect(document.head.querySelectorAll('meta[data-cz-seo="true"][property="og:locale:alternate"]').length).toBe(5);
     expect(document.head.querySelector('meta[data-cz-seo="true"][name="twitter:card"]')?.getAttribute('content')).toBe('summary_large_image');
-    expect(document.head.querySelector('meta[data-cz-seo="true"][name="twitter:title"]')?.getAttribute('content')).toContain('Asistente de mesa');
-    expect(document.head.querySelector('meta[data-cz-seo="true"][name="twitter:description"]')?.getAttribute('content')?.toLowerCase()).toContain('asistente de mesa');
+    expect(document.head.querySelector('meta[data-cz-seo="true"][name="twitter:title"]')?.getAttribute('content')).toContain('Contador de vidas');
+    expect(document.head.querySelector('meta[data-cz-seo="true"][name="twitter:description"]')?.getAttribute('content')?.toLowerCase()).toContain('contador de vidas');
     expect(document.head.querySelector('meta[data-cz-seo="true"][name="twitter:image"]')?.getAttribute('content')).toBe('https://www.commanderzone.com/assets/og/table-assistant-og.png');
-    expect(canonical?.getAttribute('href')).toBe('https://www.commanderzone.com/es/asistente-mesa-commander/');
+    expect(canonical?.getAttribute('href')).toBe('https://www.commanderzone.com/es/contador-vidas-commander/');
     expect(preload?.getAttribute('href')).toBe('https://www.commanderzone.com/assets/og/table-assistant-og.png');
     expect(preload?.getAttribute('fetchpriority')).toBe('high');
     expect(alternates.length).toBe(7);
-    expect(xDefault?.getAttribute('href')).toBe('https://www.commanderzone.com/en/commander-table-assistant/');
+    expect(xDefault?.getAttribute('href')).toBe('https://www.commanderzone.com/en/commander-life-counter/');
     const jsonLdGraph = jsonLd?.textContent ? getJsonLdGraph(jsonLd.textContent) : [];
     expect(jsonLdGraph.map((node) => node['@type'])).toEqual(expect.arrayContaining([
       'Organization',
@@ -80,7 +80,7 @@ describe('SeoLandingRouteComponent', () => {
       'FAQPage',
     ]));
     expect(jsonLdGraph.find((node) => node['@type'] === 'SoftwareApplication')?.['url']).toBe(
-      'https://www.commanderzone.com/es/asistente-mesa-commander/',
+      'https://www.commanderzone.com/es/contador-vidas-commander/',
     );
     expect(jsonLdGraph.find((node) => node['@type'] === 'FAQPage')?.['mainEntity']).toEqual(expect.arrayContaining([
       expect.objectContaining({

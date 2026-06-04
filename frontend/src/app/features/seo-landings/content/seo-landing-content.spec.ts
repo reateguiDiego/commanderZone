@@ -44,9 +44,9 @@ describe('SEO landing static content', () => {
   it('keeps table assistant SEO content separate from the internal table assistant app route', () => {
     const content = getSeoLandingContent('tableAssistant', 'es');
 
-    expect(content.hero.title.toLowerCase()).toContain('asistente de mesa');
-    expect(content.seo.title).toBe('Asistente de mesa Commander | Contador de vidas y daño de comandante');
-    expect(content.seo.description).toBe('Usa CommanderZone como asistente de mesa para partidas físicas de Commander MTG. Controla vidas, daño de comandante y estado de la partida desde móvil o tablet.');
+    expect(content.hero.title.toLowerCase()).toContain('contador de vidas');
+    expect(content.seo.title).toBe('Contador de vidas Commander MTG | CommanderZone');
+    expect(content.seo.description).toBe('Usa CommanderZone como contador de vidas para partidas físicas de Commander MTG. Controla vidas, daño de comandante y estado de la partida desde móvil o tablet.');
     expect(content.seo.ogImage).toBe('/assets/og/table-assistant-og.png');
     expect(content.internalLinks.links.map((link) => link.href)).not.toContain('/table-assistant');
     expect(content.internalLinks.links.every((link) => link.href.startsWith('/es/'))).toBe(true);
@@ -60,7 +60,7 @@ describe('SEO landing static content', () => {
     expect(getSeoLandingContent('importCommanderDeck', 'en').seo.title).toBe('Import MTG Commander Deck | CommanderZone');
     expect(getSeoLandingContent('commanderDeckBuilder', 'es').seo.title).toBe('Deck builder Commander MTG | Crea e importa mazos');
     expect(getSeoLandingContent('commanderDeckBuilder', 'en').seo.title).toBe('MTG Commander Deck Builder | Build, Import and Play');
-    expect(getSeoLandingContent('tableAssistant', 'en').seo.description).toBe('Use CommanderZone as a table assistant for paper MTG Commander games. Track life totals, commander damage and game state from your phone or tablet.');
+    expect(getSeoLandingContent('tableAssistant', 'en').seo.description).toBe('Use CommanderZone as a Commander life counter for paper MTG Commander games. Track life totals, commander damage and game state from your phone or tablet.');
 
     for (const locale of ['de', 'fr', 'pt', 'it'] as const) {
       const searchableMetadata = [
@@ -303,7 +303,7 @@ describe('SEO landing static content', () => {
     const mainEntity = faqPage?.['mainEntity'];
     const faqQuestions = Array.isArray(mainEntity) ? mainEntity : [];
 
-    expect(JSON.stringify(content.jsonLd)).toContain('https://www.commanderzone.com/es/asistente-mesa-commander/');
+    expect(JSON.stringify(content.jsonLd)).toContain('https://www.commanderzone.com/es/contador-vidas-commander/');
     expect(JSON.stringify(content.jsonLd)).toContain('"inLanguage":"es"');
     expect(softwareApplication?.['name']).toBe(content.hero.title);
     expect(softwareApplication?.['description']).toBe(content.seo.description);
@@ -312,7 +312,7 @@ describe('SEO landing static content', () => {
         '@type': 'ListItem',
         position: 2,
         name: content.hero.title,
-        item: 'https://www.commanderzone.com/es/asistente-mesa-commander/',
+        item: 'https://www.commanderzone.com/es/contador-vidas-commander/',
       }),
     ]));
     expect(faqQuestions.length).toBe(content.faq.items.length);
@@ -380,9 +380,9 @@ describe('SEO landing static content', () => {
       '/en/play-commander-online/',
       '/en/play-magic-online-with-friends/',
       '/en/create-commander-room/',
-      '/en/import-mtg-commander-deck/',
-      '/en/mtg-commander-deck-builder/',
-      '/en/commander-table-assistant/',
+      '/en/import-commander-deck/',
+      '/en/commander-deck-builder/',
+      '/en/commander-life-counter/',
       '/en/ways-to-play-commander-online/',
       '/en/how-to-play-commander-online/',
       '/en/faq/',
@@ -396,11 +396,11 @@ describe('SEO landing static content', () => {
     expect(hrefs).toEqual(expect.arrayContaining([
       '/es/',
       '/es/jugar-commander-online/',
-      '/es/jugar-magic-online-amigos/',
+      '/es/jugar-magic-online-con-amigos/',
       '/es/crear-sala-commander/',
-      '/es/importar-mazo-commander-mtg/',
-      '/es/deck-builder-commander-mtg/',
-      '/es/asistente-mesa-commander/',
+      '/es/importar-mazo-commander/',
+      '/es/deck-builder-commander/',
+      '/es/contador-vidas-commander/',
       '/es/formas-jugar-commander-online/',
       '/es/como-jugar-commander-online/',
     ]));

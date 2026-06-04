@@ -7,7 +7,7 @@ import {
 export type RobotsMetaContent = 'index, follow' | 'noindex, follow' | 'noindex, nofollow';
 
 export function getPageRobotsMeta(pageKey: PageKey): RobotsMetaContent {
-  if (pageKey === 'wildcardRedirect') {
+  if (pageKey === 'legal' || pageKey === 'wildcardRedirect') {
     return 'noindex, follow';
   }
 
@@ -19,7 +19,7 @@ export function getStrategyRobotsMeta(strategy: PageTranslationStrategy): Robots
     case 'seo-static':
       return 'index, follow';
     case 'runtime-i18n':
-      return 'noindex, follow';
+      return 'noindex, nofollow';
     case 'out-of-scope':
       return 'noindex, nofollow';
   }

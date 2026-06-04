@@ -13,6 +13,7 @@ describe('server routes', () => {
 
     const seoPrerenderPaths = SEO_PRERENDER_ROUTES.map((path) => toAngularServerRoutePath(path));
 
+    expect(SEO_PRERENDER_ROUTES).toHaveLength(60);
     expect(prerenderPaths).toEqual(expect.arrayContaining(seoPrerenderPaths));
     expect(prerenderPaths).toContain('');
     expect(prerenderPaths).not.toContain('en');
@@ -28,19 +29,31 @@ describe('server routes', () => {
       .map((route) => route.path);
     const legalPrerenderPaths = LEGAL_PRERENDER_ROUTES.map((path) => toAngularServerRoutePath(path));
 
+    expect(LEGAL_PRERENDER_ROUTES).toHaveLength(24);
     expect(prerenderPaths).toEqual(expect.arrayContaining(legalPrerenderPaths));
     expect(prerenderPaths.filter((path) => legalPrerenderPaths.includes(path)).length).toBe(LEGAL_PRERENDER_ROUTES.length);
     expect(SEO_PRERENDER_ROUTES).not.toContain('/privacy-policy/');
     expect(SEO_PRERENDER_ROUTES).not.toContain('/cookie-policy/');
   });
 
-  it('prerenders public auth entry pages so rewrites cannot serve home SEO HTML', () => {
-    expect(serverRoutes.find((route) => route.path === 'auth/login')?.renderMode).toBe(RenderMode.Prerender);
-    expect(serverRoutes.find((route) => route.path === 'auth/register')?.renderMode).toBe(RenderMode.Prerender);
+  it('keeps the prerender list limited to SEO and legal routes', () => {
+    const prerenderPaths = serverRoutes
+      .filter((route) => route.renderMode === RenderMode.Prerender)
+      .map((route) => route.path);
+
+    expect(prerenderPaths).toHaveLength(SEO_PRERENDER_ROUTES.length + LEGAL_PRERENDER_ROUTES.length);
+    expect(prerenderPaths).not.toContain('en');
+    expect(prerenderPaths).not.toContain('auth/login');
+    expect(prerenderPaths).not.toContain('auth/register');
+  });
+
+  it('does not prerender auth entry pages', () => {
+    expect(serverRoutes.find((route) => route.path === 'auth/login')?.renderMode).not.toBe(RenderMode.Prerender);
+    expect(serverRoutes.find((route) => route.path === 'auth/register')?.renderMode).not.toBe(RenderMode.Prerender);
   });
 
   it('keeps private and dynamic runtime routes out of prerender mode', () => {
-    const clientOnlyPaths = ['games/:id', 'profile', 'settings', 'app', 'dashboard', 'table-assistant', 'welcome'];
+    const clientOnlyPaths = ['auth/login', 'auth/register', 'games/:id', 'profile', 'settings', 'app', 'dashboard', 'table-assistant', 'welcome'];
 
     for (const path of clientOnlyPaths) {
       const route = serverRoutes.find((candidate) => candidate.path === path);

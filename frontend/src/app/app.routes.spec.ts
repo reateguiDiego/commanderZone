@@ -67,7 +67,7 @@ function isPageKey(value: unknown): value is PageKey {
 }
 
 function expectedRobotsFor(pageKey: PageKey): 'index, follow' | 'noindex, follow' | 'noindex, nofollow' {
-  if (pageKey === 'wildcardRedirect') {
+  if (pageKey === 'legal' || pageKey === 'wildcardRedirect') {
     return 'noindex, follow';
   }
 
@@ -78,7 +78,7 @@ function expectedRobotsFor(pageKey: PageKey): 'index, follow' | 'noindex, follow
   }
 
   if (strategy === 'runtime-i18n') {
-    return 'noindex, follow';
+    return 'noindex, nofollow';
   }
 
   return 'noindex, nofollow';

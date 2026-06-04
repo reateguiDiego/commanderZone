@@ -31,8 +31,8 @@ describe('FooterDisclaimerComponent', () => {
     expect(compiled.textContent).toContain(`© 1993–${new Date().getFullYear()} Wizards of the Coast LLC. All rights reserved.`);
     expect(Array.from(compiled.querySelectorAll('.app-disclaimer-links a')).map((link) => link.getAttribute('href'))).toEqual([
       '/pt/faq/',
-      '/pt/assistente-mesa-commander/',
-      '/pt/importar-deck-commander-mtg/',
+      '/pt/contador-vida-commander/',
+      '/pt/importar-deck-commander/',
       '/pt/politica-privacidade/',
       '/pt/politica-cookies/',
       '/pt/termos/',

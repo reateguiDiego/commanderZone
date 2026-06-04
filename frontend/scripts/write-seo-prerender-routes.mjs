@@ -8,7 +8,6 @@ const seoRoutesPath = path.join(workspaceRoot, 'src/app/core/localization/seo-ro
 const legalRoutesPath = path.join(workspaceRoot, 'src/app/core/legal/legal-routes.ts');
 const outputPath = path.join(workspaceRoot, 'src/seo-prerender-routes.txt');
 const combinedOutputPath = path.join(workspaceRoot, 'src/prerender-routes.txt');
-const AUTH_PRERENDER_ROUTES = ['/auth/login/', '/auth/register/'];
 
 const localeCodes = extractSupportedLocaleCodes(await readSourceFile(localeConfigPath));
 const seoRoutes = extractSeoRoutes(await readSourceFile(seoRoutesPath));
@@ -21,11 +20,10 @@ const combinedRoutes = [
   ...Object.values(legalRoutes).flatMap((route) =>
     localeCodes.map((locale) => toLegalPath(locale, route.slugs[locale])),
   ),
-  ...AUTH_PRERENDER_ROUTES,
 ];
 
 validateRoutes(routes, localeCodes.length, Object.keys(seoRoutes).length);
-validateCombinedRoutes(combinedRoutes, routes.length + Object.keys(legalRoutes).length * localeCodes.length + AUTH_PRERENDER_ROUTES.length);
+validateCombinedRoutes(combinedRoutes, routes.length + Object.keys(legalRoutes).length * localeCodes.length);
 
 await mkdir(path.dirname(outputPath), { recursive: true });
 await writeFile(outputPath, `${routes.join('\n')}\n`, 'utf8');
@@ -244,6 +242,19 @@ function validateRoutes(routes, localeCount, routeCount) {
 }
 
 function validateCombinedRoutes(routes, expectedCount) {
+  const forbiddenFragments = [
+    '/auth',
+    '/dashboard',
+    '/decks',
+    '/games',
+    '/rooms',
+    '/room/',
+    '/profile',
+    '/settings',
+    '/app',
+    '/table-assistant/',
+  ];
+
   if (routes.length !== expectedCount) {
     throw new Error(`Expected ${expectedCount} total prerender routes, got ${routes.length}.`);
   }
@@ -255,6 +266,10 @@ function validateCombinedRoutes(routes, expectedCount) {
   for (const route of routes) {
     if (!route.startsWith('/') || !route.endsWith('/')) {
       throw new Error(`Combined prerender route must be normalized: ${route}`);
+    }
+
+    if (forbiddenFragments.some((forbiddenRoute) => route.includes(forbiddenRoute))) {
+      throw new Error(`Internal route must not be prerendered: ${route}`);
     }
   }
 }
