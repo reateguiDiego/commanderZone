@@ -11,6 +11,8 @@
   display: grid;
   gap: 0.875rem;
   max-width: 58rem;
+  max-height: min(34rem, calc(100dvh - 2rem));
+  overflow: auto;
   padding: 0.9rem;
   color: var(--text);
   background:
@@ -21,6 +23,7 @@
   box-shadow: 0 1rem 2.5rem rgb(var(--cz-bg-rgb) / 34%);
   backdrop-filter: blur(14px);
   pointer-events: auto;
+  overscroll-behavior: contain;
 }
 
 .cookie-banner__content {
@@ -72,6 +75,17 @@
 .cookie-banner__toggle--enabled {
   border-color: rgb(var(--cz-primary-rgb) / 62%);
   background: rgb(var(--cz-primary-rgb) / 12%);
+}
+
+.cookie-banner :focus-visible {
+  outline: 3px solid rgb(var(--cz-secondary-rgb) / 92%);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cookie-banner {
+    scroll-behavior: auto;
+  }
 }
 
 @media (min-width: 48rem) {

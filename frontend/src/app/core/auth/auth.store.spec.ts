@@ -22,6 +22,9 @@ describe('AuthStore backend auth', () => {
 
   beforeEach(() => {
     localStorage.clear();
+    sessionStorage.clear();
+    document.body.classList.remove('dashboard-background');
+    document.documentElement.style.removeProperty('--app-session-background');
     authApi = {
       login: vi.fn().mockReturnValue(of({ token: 'jwt-token' })),
       register: vi.fn().mockReturnValue(of({ user })),
@@ -33,6 +36,12 @@ describe('AuthStore backend auth', () => {
     TestBed.configureTestingModule({
       providers: [{ provide: AuthApi, useValue: authApi }],
     });
+  });
+
+  it('does not initialize the visual session background until an auth transition needs it', () => {
+    TestBed.inject(AuthStore);
+
+    expect(document.documentElement.style.getPropertyValue('--app-session-background')).toBe('');
   });
 
   it('stores backend token in memory and user in local storage on login', async () => {

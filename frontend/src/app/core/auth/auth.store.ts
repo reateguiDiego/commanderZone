@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Injectable, computed, inject, signal } from '@angular/core';
+import { Injectable, Injector, computed, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { API_BASE_URL } from '../api/api.config';
 import { AuthApi } from '../api/auth.api';
@@ -12,7 +12,7 @@ const USER_KEY = 'commanderzone.user';
 @Injectable({ providedIn: 'root' })
 export class AuthStore {
   private readonly authApi = inject(AuthApi);
-  private readonly appBackground = inject(AppBackgroundService);
+  private readonly injector = inject(Injector);
   private readonly tokenState = signal<string | null>(null);
   private readonly userState = signal<User | null>(readStoredUser());
   private readonly loadingState = signal(false);
@@ -109,7 +109,7 @@ export class AuthStore {
     try {
       this.setToken(token);
       this.setUser(user);
-      this.appBackground.useNewSessionBackground();
+      this.rotateSessionBackground();
     } catch (error) {
       this.clearSession();
       this.errorState.set(errorMessageFromResponse(error, 'Could not complete login.'));
@@ -147,7 +147,7 @@ export class AuthStore {
       // Local logout must continue even if cookie revocation fails.
     }
     this.clearSession();
-    this.appBackground.useNewSessionBackground();
+    this.rotateSessionBackground();
   }
 
   async markOffline(): Promise<void> {
@@ -210,7 +210,7 @@ export class AuthStore {
     this.userState.set(null);
     this.resolvedDisplayNameState.set(null);
     await this.loadMe();
-    this.appBackground.useNewSessionBackground();
+    this.rotateSessionBackground();
   }
 
   async refreshSession(): Promise<string | null> {
@@ -243,6 +243,10 @@ export class AuthStore {
     } catch {
       this.clearSession();
     }
+  }
+
+  private rotateSessionBackground(): void {
+    this.injector.get(AppBackgroundService).useNewSessionBackground();
   }
 
   private async refreshSessionInternal(): Promise<string | null> {

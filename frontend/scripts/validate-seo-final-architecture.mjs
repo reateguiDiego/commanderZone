@@ -61,6 +61,23 @@ const privateRouteFragments = [
   '/decks',
   '/table-assistant',
 ];
+const webApplicationRouteKeys = new Set([
+  'home',
+  'playCommanderOnline',
+  'playCommanderOnlineFree',
+  'playEdhOnline',
+  'commanderSimulator',
+  'createCommanderRoom',
+  'importCommanderDeck',
+  'commanderDeckBuilder',
+  'tableAssistant',
+]);
+const articleRouteKeys = new Set([
+  'howToPlayCommanderOnline',
+  'waysToPlayCommanderOnline',
+  'spellTableAlternative',
+  'playCommanderWithoutWebcam',
+]);
 
 const errors = [];
 const warnings = [];
@@ -435,15 +452,10 @@ function validateRenderedSeoHtml(entry, htmlPath) {
     fail(`${entry.loc} must render a visible H1.`);
   }
 
-  if (jsonLdTags.length === 0) {
-    fail(`${entry.loc} must render JSON-LD structured data.`);
-  }
-
-  for (const jsonLdTag of jsonLdTags) {
-    const jsonLd = getScriptText(jsonLdTag);
-    if (containsForbiddenStructuredData(jsonLd, entry.loc)) {
-      fail(`${entry.loc} must not render review, rating or aggregateRating structured data.`);
-    }
+  if (jsonLdTags.length !== 1) {
+    fail(`${entry.loc} must render exactly one JSON-LD structured data script, got ${jsonLdTags.length}.`);
+  } else {
+    validateRenderedJsonLd(entry, getScriptText(jsonLdTags[0]), h1Tags[0] ? getVisibleHtmlText(h1Tags[0]) : '');
   }
 
   if (!/\bseo-landing-layout\b/.test(html) || !/\blanding-hero\b/.test(html)) {
@@ -477,17 +489,145 @@ function getScriptText(scriptTag) {
     .trim();
 }
 
-function containsForbiddenStructuredData(serializedJsonLd, loc) {
+function validateRenderedJsonLd(entry, serializedJsonLd, h1Text) {
   let jsonLd;
 
   try {
     jsonLd = JSON.parse(serializedJsonLd);
   } catch (error) {
-    fail(`${loc} renders invalid JSON-LD: ${error instanceof Error ? error.message : String(error)}.`);
-    return true;
+    fail(`${entry.loc} renders invalid JSON-LD: ${error instanceof Error ? error.message : String(error)}.`);
+    return;
   }
 
-  return hasForbiddenStructuredDataNode(jsonLd);
+  if (!jsonLd || typeof jsonLd !== 'object' || Array.isArray(jsonLd)) {
+    fail(`${entry.loc} JSON-LD must be an object.`);
+    return;
+  }
+
+  if (jsonLd['@context'] !== 'https://schema.org') {
+    fail(`${entry.loc} JSON-LD @context must be https://schema.org.`);
+  }
+
+  const graph = Array.isArray(jsonLd['@graph']) ? jsonLd['@graph'] : [];
+  if (graph.length === 0) {
+    fail(`${entry.loc} JSON-LD @graph must be a non-empty array.`);
+    return;
+  }
+
+  if (hasForbiddenStructuredDataNode(jsonLd)) {
+    fail(`${entry.loc} must not render review, rating, aggregateRating or offers structured data.`);
+  }
+
+  const types = new Set(graph.map((node) => node?.['@type']).filter((type) => typeof type === 'string'));
+  const requiredTypes = new Set(['Organization', 'BreadcrumbList', 'FAQPage']);
+
+  if (entry.routeKey === 'home') {
+    requiredTypes.add('WebSite');
+  }
+
+  if (webApplicationRouteKeys.has(entry.routeKey)) {
+    requiredTypes.add('WebApplication');
+  }
+
+  if (articleRouteKeys.has(entry.routeKey)) {
+    requiredTypes.add('Article');
+  }
+
+  for (const type of requiredTypes) {
+    if (!types.has(type)) {
+      fail(`${entry.loc} JSON-LD is missing required ${type} node.`);
+    }
+  }
+
+  if (!webApplicationRouteKeys.has(entry.routeKey) && types.has('WebApplication')) {
+    fail(`${entry.loc} JSON-LD must not include WebApplication for non-product route ${entry.routeKey}.`);
+  }
+
+  if (!articleRouteKeys.has(entry.routeKey) && types.has('Article')) {
+    fail(`${entry.loc} JSON-LD must not include Article for route ${entry.routeKey}.`);
+  }
+
+  const serialized = JSON.stringify(jsonLd);
+  if (!serialized.includes(entry.loc)) {
+    fail(`${entry.loc} JSON-LD must include canonical URL.`);
+  }
+
+  if (!serialized.includes(`"inLanguage":"${entry.locale}"`)) {
+    fail(`${entry.loc} JSON-LD must include localized inLanguage ${entry.locale}.`);
+  }
+
+  if (h1Text && !serialized.includes(h1Text)) {
+    fail(`${entry.loc} JSON-LD must include localized H1 text.`);
+  }
+
+  validateRenderedJsonLdNodeIds(entry, graph);
+  validateRenderedWebApplication(entry, graph);
+  validateRenderedArticle(entry, graph);
+}
+
+function validateRenderedJsonLdNodeIds(entry, graph) {
+  const expectedIdsByType = new Map([
+    ['Organization', 'https://www.commanderzone.com/#organization'],
+    ['BreadcrumbList', `${entry.loc}#breadcrumb`],
+    ['FAQPage', `${entry.loc}#faq`],
+  ]);
+
+  if (entry.routeKey === 'home') {
+    expectedIdsByType.set('WebSite', 'https://www.commanderzone.com/#website');
+  }
+
+  if (webApplicationRouteKeys.has(entry.routeKey)) {
+    expectedIdsByType.set('WebApplication', `${entry.loc}#software`);
+  }
+
+  if (articleRouteKeys.has(entry.routeKey)) {
+    expectedIdsByType.set('Article', `${entry.loc}#article`);
+  }
+
+  for (const [type, expectedId] of expectedIdsByType) {
+    const node = graph.find((item) => item?.['@type'] === type);
+    if (node?.['@id'] !== expectedId) {
+      fail(`${entry.loc} JSON-LD ${type} @id must be ${expectedId}, got ${node?.['@id'] ?? '(missing)'}.`);
+    }
+  }
+}
+
+function validateRenderedWebApplication(entry, graph) {
+  const node = graph.find((item) => item?.['@type'] === 'WebApplication');
+  if (!node) {
+    return;
+  }
+
+  if (node.name !== 'CommanderZone') {
+    fail(`${entry.loc} WebApplication name must be CommanderZone.`);
+  }
+
+  if (node.applicationCategory !== 'GameApplication') {
+    fail(`${entry.loc} WebApplication applicationCategory must be GameApplication.`);
+  }
+
+  if (node.operatingSystem !== 'Web') {
+    fail(`${entry.loc} WebApplication operatingSystem must be Web.`);
+  }
+
+  if (node.isAccessibleForFree !== true) {
+    fail(`${entry.loc} WebApplication isAccessibleForFree must be true.`);
+  }
+}
+
+function validateRenderedArticle(entry, graph) {
+  const node = graph.find((item) => item?.['@type'] === 'Article');
+  if (!node) {
+    return;
+  }
+
+  if (node.mainEntityOfPage !== entry.loc) {
+    fail(`${entry.loc} Article mainEntityOfPage must match canonical URL.`);
+  }
+
+  if (!node.dateModified) {
+    fail(`${entry.loc} Article must include dateModified.`);
+  }
 }
 
 function hasForbiddenStructuredDataNode(value) {
@@ -500,7 +640,7 @@ function hasForbiddenStructuredDataNode(value) {
   }
 
   for (const [key, child] of Object.entries(value)) {
-    if (['aggregateRating', 'ratingValue', 'reviewRating'].includes(key)) {
+    if (['aggregateRating', 'ratingValue', 'reviewRating', 'offers'].includes(key)) {
       return true;
     }
 

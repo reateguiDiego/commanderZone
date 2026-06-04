@@ -19,6 +19,8 @@ describe('App', () => {
 
   beforeEach(async () => {
     localStorage.clear();
+    document.body.classList.remove('dashboard-background');
+    document.documentElement.style.removeProperty('--app-session-background');
     authStore.initialize.mockClear();
 
     await TestBed.configureTestingModule({
@@ -31,6 +33,7 @@ describe('App', () => {
           { path: 'en/faq', component: EmptyRouteComponent },
           { path: 'en/play-commander-online', component: EmptyRouteComponent },
           { path: 'auth/login', component: EmptyRouteComponent },
+          { path: 'dashboard', component: EmptyRouteComponent },
           { path: 'table-assistant', component: EmptyRouteComponent },
           { path: 'table-assistant/:id', component: EmptyRouteComponent },
           { path: 'games/:id', component: EmptyRouteComponent },
@@ -159,5 +162,21 @@ describe('App', () => {
     expect(fixture.nativeElement.querySelector('.global-loader')).not.toBeNull();
 
     loading.stop();
+  });
+
+  it('toggles dashboard background mode without initializing a session background on public routes', async () => {
+    const router = TestBed.inject(Router);
+    TestBed.createComponent(App);
+
+    await router.navigateByUrl('/');
+    expect(document.body.classList.contains('dashboard-background')).toBe(false);
+    expect(document.documentElement.style.getPropertyValue('--app-session-background')).toBe('');
+
+    await router.navigateByUrl('/dashboard');
+    expect(document.body.classList.contains('dashboard-background')).toBe(true);
+
+    await router.navigateByUrl('/en/play-commander-online');
+    expect(document.body.classList.contains('dashboard-background')).toBe(false);
+    expect(document.documentElement.style.getPropertyValue('--app-session-background')).toBe('');
   });
 });

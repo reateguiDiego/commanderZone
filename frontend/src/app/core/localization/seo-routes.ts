@@ -118,6 +118,61 @@ export const SEO_ROUTES = {
       pt: 'como-jogar-commander-online',
     },
   },
+  spellTableAlternative: {
+    routeKey: 'spellTableAlternative',
+    slugs: {
+      es: 'alternativa-spelltable',
+      en: 'spelltable-alternative',
+      de: 'spelltable-alternative',
+      fr: 'alternative-spelltable',
+      it: 'alternativa-spelltable',
+      pt: 'alternativa-spelltable',
+    },
+  },
+  playCommanderOnlineFree: {
+    routeKey: 'playCommanderOnlineFree',
+    slugs: {
+      es: 'jugar-commander-online-gratis',
+      en: 'play-commander-online-free',
+      de: 'commander-kostenlos-online-spielen',
+      fr: 'jouer-commander-en-ligne-gratuit',
+      it: 'giocare-commander-online-gratis',
+      pt: 'jogar-commander-online-gratis',
+    },
+  },
+  playCommanderWithoutWebcam: {
+    routeKey: 'playCommanderWithoutWebcam',
+    slugs: {
+      es: 'jugar-commander-online-sin-webcam',
+      en: 'play-commander-online-without-webcam',
+      de: 'commander-online-ohne-webcam-spielen',
+      fr: 'jouer-commander-en-ligne-sans-webcam',
+      it: 'giocare-commander-online-senza-webcam',
+      pt: 'jogar-commander-online-sem-webcam',
+    },
+  },
+  playEdhOnline: {
+    routeKey: 'playEdhOnline',
+    slugs: {
+      es: 'jugar-edh-online',
+      en: 'play-edh-online',
+      de: 'edh-online-spielen',
+      fr: 'jouer-edh-en-ligne',
+      it: 'giocare-edh-online',
+      pt: 'jogar-edh-online',
+    },
+  },
+  commanderSimulator: {
+    routeKey: 'commanderSimulator',
+    slugs: {
+      es: 'simulador-commander-mtg',
+      en: 'mtg-commander-simulator',
+      de: 'mtg-commander-simulator',
+      fr: 'simulateur-commander-mtg',
+      it: 'simulatore-commander-mtg',
+      pt: 'simulador-commander-mtg',
+    },
+  },
   faq: {
     routeKey: 'faq',
     slugs: {

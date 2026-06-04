@@ -62,6 +62,7 @@ describe('CookieConsentBannerComponent', () => {
     const links = Array.from(element.querySelectorAll('a')).map((link) => link.getAttribute('href'));
 
     expect(element.querySelector('.cookie-banner')).not.toBeNull();
+    expect(element.querySelector('.cookie-banner')?.getAttribute('role')).toBe('region');
     expect(element.querySelector('.cookie-banner__title')?.textContent?.trim()).toBe('Preferencias de cookies');
     expect(buttons).toEqual(['Configurar', 'Rechazar', 'Aceptar']);
     expect(links).toEqual(['/es/politica-privacidad/', '/es/politica-cookies/']);

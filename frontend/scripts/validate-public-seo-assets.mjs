@@ -10,11 +10,29 @@ const requiredFiles = [
   'public/apple-touch-icon.png',
   'public/manifest.webmanifest',
   'public/assets/og/default-og.png',
+  'public/assets/og/create-room-og.png',
+  'public/assets/og/deck-builder-og.png',
   'public/assets/og/home-og.png',
+  'public/assets/og/import-deck-og.png',
   'public/assets/og/play-commander-og.png',
   'public/assets/og/table-assistant-og.png',
   'public/assets/og/faq-og.png',
   'public/assets/og/ways-to-play-og.png',
+  'public/assets/seo/commander-deck-builder-hero.webp',
+  'public/assets/seo/commander-life-counter-hero.webp',
+  'public/assets/seo/commander-simulator-hero.webp',
+  'public/assets/seo/create-commander-room-hero.webp',
+  'public/assets/seo/faq-hero.webp',
+  'public/assets/seo/home-hero.webp',
+  'public/assets/seo/how-to-play-commander-online-hero.webp',
+  'public/assets/seo/import-commander-deck-hero.webp',
+  'public/assets/seo/play-commander-online-free-hero.webp',
+  'public/assets/seo/play-commander-online-hero.webp',
+  'public/assets/seo/play-commander-without-webcam-hero.webp',
+  'public/assets/seo/play-edh-online-hero.webp',
+  'public/assets/seo/play-magic-online-with-friends-hero.webp',
+  'public/assets/seo/spelltable-alternative-hero.webp',
+  'public/assets/seo/ways-to-play-commander-online-hero.webp',
   'public/assets/seo/README.md',
 ];
 
@@ -24,6 +42,10 @@ for (const file of requiredFiles) {
 
 for (const file of requiredFiles.filter((requiredFile) => requiredFile.startsWith('public/assets/og/'))) {
   await assertReadablePng(file);
+}
+
+for (const file of requiredFiles.filter((requiredFile) => requiredFile.endsWith('.webp'))) {
+  await assertReadableWebp(file);
 }
 
 const robots = await readPublicFile('robots.txt');
@@ -70,6 +92,14 @@ async function assertReadablePng(relativePath) {
 
   if (width <= 0 || height <= 0) {
     throw new Error(`${relativePath} must expose valid PNG dimensions.`);
+  }
+}
+
+async function assertReadableWebp(relativePath) {
+  const bytes = await readFile(path.join(workspaceRoot, relativePath));
+
+  if (bytes.subarray(0, 4).toString('ascii') !== 'RIFF' || bytes.subarray(8, 12).toString('ascii') !== 'WEBP') {
+    throw new Error(`${relativePath} must be a valid WebP image.`);
   }
 }
 

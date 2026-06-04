@@ -48,8 +48,8 @@ describe('SeoLandingPageComponent', () => {
       image: {
         src: '/assets/og/play-commander-og.png',
         alt: 'Play Commander online - CommanderZone',
-        width: 1200,
-        height: 630,
+        width: 960,
+        height: 504,
         loading: 'eager',
         fetchPriority: 'high',
       },
@@ -294,7 +294,8 @@ describe('SeoLandingPageComponent', () => {
     const logo = element.querySelector('.seo-landing-layout__brand img') as HTMLImageElement;
     const publicMenuLinks = Array.from(element.querySelectorAll('.seo-landing-layout__nav a') as NodeListOf<HTMLAnchorElement>);
 
-    expect(logo.getAttribute('src')).toBe('/assets/icons/CZ/CZ_logo.png');
+    expect(logo.getAttribute('src')).toBe('/assets/icons/CZ/CZ_logo_zone_header.png');
+    expect(logo.getAttribute('decoding')).toBe('async');
     expect(element.querySelector('.seo-landing-layout__brand')?.getAttribute('href')).toBe('/en/');
     expect(element.querySelector('.seo-landing-layout__menu')).toBeNull();
     expect(publicMenuLinks.map((link) => link.getAttribute('href'))).toEqual([
@@ -337,8 +338,9 @@ describe('SeoLandingPageComponent', () => {
 
     expect(image?.getAttribute('src')).toBe('/assets/og/play-commander-og.png');
     expect(image?.getAttribute('alt')).toBe('Play Commander online - CommanderZone');
-    expect(image?.getAttribute('width')).toBe('1200');
-    expect(image?.getAttribute('height')).toBe('630');
+    expect(image?.getAttribute('width')).toBe('960');
+    expect(image?.getAttribute('height')).toBe('504');
+    expect(image?.getAttribute('decoding')).toBe('async');
     expect(image?.getAttribute('loading')).toBe('eager');
     expect(image?.getAttribute('fetchpriority')).toBe('high');
   });

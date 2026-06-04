@@ -1,5 +1,5 @@
 @if (isVisible()) {
-  <section class="cookie-banner" [attr.aria-label]="copy().cookieBanner.title">
+  <section class="cookie-banner" role="region" [attr.aria-label]="copy().cookieBanner.title">
     <div class="cookie-banner__content">
       <p class="cookie-banner__title">{{ copy().cookieBanner.title }}</p>
       <p class="cookie-banner__copy">
@@ -16,6 +16,7 @@
             class="secondary-button compact cookie-banner__toggle"
             [class.cookie-banner__toggle--enabled]="analyticsEnabled()"
             [attr.aria-pressed]="analyticsEnabled()"
+            [attr.aria-label]="copy().cookieBanner.analyticsCookies"
             (click)="toggleAnalytics()"
           >
             {{ copy().cookieBanner.analyticsCookies }}
@@ -26,19 +27,19 @@
 
     <div class="cookie-banner__actions">
       @if (showSettings()) {
-        <button type="button" class="primary-button compact" (click)="saveSettings()">
+        <button type="button" class="primary-button compact" [attr.aria-label]="copy().cookieBanner.save" (click)="saveSettings()">
           {{ copy().cookieBanner.save }}
         </button>
       } @else {
-        <button type="button" class="secondary-button compact" (click)="openSettings()">
+        <button type="button" class="secondary-button compact" [attr.aria-label]="copy().cookieBanner.configure" (click)="openSettings()">
           {{ copy().cookieBanner.configure }}
         </button>
       }
 
-      <button type="button" class="secondary-button compact" (click)="rejectAll()">
+      <button type="button" class="secondary-button compact" [attr.aria-label]="copy().cookieBanner.reject" (click)="rejectAll()">
         {{ copy().cookieBanner.reject }}
       </button>
-      <button type="button" class="primary-button compact" (click)="acceptAll()">
+      <button type="button" class="primary-button compact" [attr.aria-label]="copy().cookieBanner.accept" (click)="acceptAll()">
         {{ copy().cookieBanner.accept }}
       </button>
     </div>

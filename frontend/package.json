@@ -20,6 +20,7 @@
     "validate:robots": "node scripts/validate-robots.mjs",
     "validate:seo-assets": "npm run validate:sitemap && npm run validate:canonical && npm run validate:seo-final && npm run validate:seo-i18n && npm run validate:legal-pages && npm run validate:public-chrome && node scripts/validate-public-seo-assets.mjs && npm run validate:seo-links && npm run validate:seo-images && npm run validate:seo-performance && npm run validate:robots && npm run validate:indexation",
     "validate:seo-images": "node scripts/validate-seo-images.mjs",
+    "validate:seo-lighthouse": "npx @lhci/cli@0.15.1 autorun --config=./lighthouserc.cjs",
     "validate:seo-links": "node scripts/validate-seo-crawlable-links.mjs",
     "validate:seo-performance": "node scripts/validate-seo-performance.mjs",
     "validate:sitemap": "node scripts/validate-sitemap.mjs",

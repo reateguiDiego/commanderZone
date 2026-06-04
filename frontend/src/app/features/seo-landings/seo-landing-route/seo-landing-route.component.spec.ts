@@ -49,6 +49,7 @@ describe('SeoLandingRouteComponent', () => {
     const preload = document.head.querySelector('link[data-cz-seo="true"][rel="preload"][as="image"]');
     const alternates = document.head.querySelectorAll('link[data-cz-seo="true"][rel="alternate"]');
     const xDefault = document.head.querySelector('link[data-cz-seo="true"][rel="alternate"][hreflang="x-default"]');
+    const jsonLdScripts = document.head.querySelectorAll('script[data-cz-seo="true"][type="application/ld+json"]');
     const jsonLd = document.head.querySelector('script[data-cz-seo="true"][type="application/ld+json"]');
 
     expect(title.getTitle()).toContain('Contador de vidas');
@@ -68,19 +69,23 @@ describe('SeoLandingRouteComponent', () => {
     expect(document.head.querySelector('meta[data-cz-seo="true"][name="twitter:description"]')?.getAttribute('content')?.toLowerCase()).toContain('contador de vidas');
     expect(document.head.querySelector('meta[data-cz-seo="true"][name="twitter:image"]')?.getAttribute('content')).toBe('https://www.commanderzone.com/assets/og/table-assistant-og.png');
     expect(canonical?.getAttribute('href')).toBe('https://www.commanderzone.com/es/contador-vidas-commander/');
-    expect(preload?.getAttribute('href')).toBe('https://www.commanderzone.com/assets/og/table-assistant-og.png');
+    expect(preload?.getAttribute('href')).toBe('https://www.commanderzone.com/assets/seo/commander-life-counter-hero.webp');
     expect(preload?.getAttribute('fetchpriority')).toBe('high');
     expect(alternates.length).toBe(7);
     expect(xDefault?.getAttribute('href')).toBe('https://www.commanderzone.com/en/commander-life-counter/');
+    expect(jsonLdScripts.length).toBe(1);
     const jsonLdGraph = jsonLd?.textContent ? getJsonLdGraph(jsonLd.textContent) : [];
     expect(jsonLdGraph.map((node) => node['@type'])).toEqual(expect.arrayContaining([
       'Organization',
       'BreadcrumbList',
-      'SoftwareApplication',
+      'WebApplication',
       'FAQPage',
     ]));
-    expect(jsonLdGraph.find((node) => node['@type'] === 'SoftwareApplication')?.['url']).toBe(
+    expect(jsonLdGraph.find((node) => node['@type'] === 'WebApplication')?.['url']).toBe(
       'https://www.commanderzone.com/es/contador-vidas-commander/',
+    );
+    expect(jsonLdGraph.find((node) => node['@type'] === 'WebApplication')?.['@id']).toBe(
+      'https://www.commanderzone.com/es/contador-vidas-commander/#software',
     );
     expect(jsonLdGraph.find((node) => node['@type'] === 'FAQPage')?.['mainEntity']).toEqual(expect.arrayContaining([
       expect.objectContaining({

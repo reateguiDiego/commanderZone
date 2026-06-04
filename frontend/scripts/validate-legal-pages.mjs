@@ -180,8 +180,8 @@ function validateLegalHtml(page, html) {
 
   for (const jsonLdTag of jsonLdTags) {
     const jsonLd = jsonLdTag.replace(/<script\b[^>]*>/i, '').replace(/<\/script>/i, '').trim();
-    if (/"@type"\s*:\s*"(?:FAQPage|SoftwareApplication)"/.test(jsonLd)) {
-      fail(`${page.path} must not render FAQPage or SoftwareApplication structured data.`);
+    if (/"@type"\s*:\s*"(?:FAQPage|SoftwareApplication|WebApplication)"/.test(jsonLd)) {
+      fail(`${page.path} must not render FAQPage, SoftwareApplication or WebApplication structured data.`);
     }
   }
 }

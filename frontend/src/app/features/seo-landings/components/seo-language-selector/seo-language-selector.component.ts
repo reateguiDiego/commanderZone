@@ -3,15 +3,6 @@ import { SeoLocaleCode } from '../../../../core/localization/locale-config';
 import { getPublicChromeCopy } from '../../../../core/localization/public-chrome-copy';
 import { LandingLocaleLink } from '../../models/seo-landing-content.model';
 
-const FLAG_ASSET_BY_LOCALE = {
-  es: '/assets/icons/flags/spain.png',
-  en: '/assets/icons/flags/uk.png',
-  de: '/assets/icons/flags/germany.png',
-  fr: '/assets/icons/flags/france.png',
-  it: '/assets/icons/flags/italy.png',
-  pt: '/assets/icons/flags/portugal.png',
-} as const satisfies Record<SeoLocaleCode, string>;
-
 @Component({
   selector: 'app-seo-language-selector',
   templateUrl: './seo-language-selector.component.html',
@@ -28,7 +19,7 @@ export class SeoLanguageSelectorComponent {
     return locale === this.currentLocale();
   }
 
-  flagAsset(locale: SeoLocaleCode): string {
-    return FLAG_ASSET_BY_LOCALE[locale];
+  localeBadge(locale: SeoLocaleCode): string {
+    return locale.toUpperCase();
   }
 }

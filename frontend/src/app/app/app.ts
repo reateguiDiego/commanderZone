@@ -1,5 +1,5 @@
 import { RuntimeTranslatePipe } from '../core/localization/runtime-translate.pipe';
-import { isPlatformBrowser } from '@angular/common';
+import { DOCUMENT, isPlatformBrowser } from '@angular/common';
 import { ChangeDetectionStrategy, Component, PLATFORM_ID, computed, inject, signal } from '@angular/core';
 import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -9,7 +9,6 @@ import { LoadingStore } from '../core/loading/loading.store';
 import { findSeoRouteByPath } from '../core/localization/seo-routes';
 import { CookieConsentBannerComponent } from '../core/privacy/cookie-consent-banner/cookie-consent-banner.component';
 import { RouteRobotsMetaService } from '../core/seo/route-robots-meta.service';
-import { AppBackgroundService } from '../core/ui/app-background.service';
 import { FooterDisclaimerComponent } from '../shared/components/footer-disclaimer/footer-disclaimer.component';
 import { RuntimeLanguageSelectorService } from '../core/localization/runtime-language-selector.service';
 import { AppThemeService } from '../core/theme/app-theme.service';
@@ -23,7 +22,7 @@ import { AppThemeService } from '../core/theme/app-theme.service';
 })
 export class App {
   private readonly auth = inject(AuthStore);
-  private readonly background = inject(AppBackgroundService);
+  private readonly document = inject(DOCUMENT);
   private readonly runtimeLanguageSelector = inject(RuntimeLanguageSelectorService);
   private readonly routeRobots = inject(RouteRobotsMetaService);
   private readonly router = inject(Router);
@@ -54,7 +53,10 @@ export class App {
   private syncRouteState(url: string): void {
     const path = this.normalizedPath(url);
     this.currentPath.set(path);
-    this.background.setDashboardMode(path === '/dashboard');
+
+    if (isPlatformBrowser(this.platformId)) {
+      this.document.body.classList.toggle('dashboard-background', path === '/dashboard');
+    }
   }
 
   private normalizedPath(url: string): string {

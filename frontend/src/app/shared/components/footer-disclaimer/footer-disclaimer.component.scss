@@ -26,6 +26,10 @@
   transform: scale(1.08);
 }
 
+:host-context(.seo-scroll-context) .app-disclaimer::before {
+  background: linear-gradient(rgb(var(--cz-bg-rgb) / 78%), rgb(var(--cz-bg-rgb) / 88%));
+}
+
 .app-disclaimer-content {
   display: grid;
   gap: 0.65rem;

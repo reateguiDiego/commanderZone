@@ -1,14 +1,7 @@
 <details class="seo-language-selector">
   <summary class="seo-language-selector__trigger" [attr.aria-label]="copy().ariaLabel">
     <span class="seo-language-selector__label">{{ copy().label }}</span>
-    <img
-      class="seo-language-selector__flag"
-      [src]="flagAsset(currentLink().locale)"
-      alt=""
-      width="24"
-      height="24"
-      aria-hidden="true"
-    />
+    <span class="seo-language-selector__badge" aria-hidden="true">{{ localeBadge(currentLink().locale) }}</span>
     <span class="seo-language-selector__current">{{ currentLink().label }}</span>
   </summary>
 
@@ -23,14 +16,7 @@
         [attr.aria-current]="isCurrentLocale(link.locale) ? 'page' : null"
       >
         <span class="seo-language-selector__option">
-          <img
-            class="seo-language-selector__flag"
-            [src]="flagAsset(link.locale)"
-            alt=""
-            width="24"
-            height="24"
-            aria-hidden="true"
-          />
+          <span class="seo-language-selector__badge" aria-hidden="true">{{ localeBadge(link.locale) }}</span>
           <span>{{ link.label }}</span>
         </span>
         @if (isCurrentLocale(link.locale)) {

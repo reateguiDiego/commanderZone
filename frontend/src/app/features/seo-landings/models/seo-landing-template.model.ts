@@ -25,6 +25,9 @@ export const PRODUCT_LANDING_ROUTE_KEYS = [
   'importCommanderDeck',
   'commanderDeckBuilder',
   'tableAssistant',
+  'playCommanderOnlineFree',
+  'playEdhOnline',
+  'commanderSimulator',
 ] as const satisfies readonly SeoRouteKey[];
 
 export const GUIDE_LANDING_ROUTE_KEYS = [
@@ -34,6 +37,8 @@ export const GUIDE_LANDING_ROUTE_KEYS = [
 
 export const COMPARISON_LANDING_ROUTE_KEYS = [
   'waysToPlayCommanderOnline',
+  'spellTableAlternative',
+  'playCommanderWithoutWebcam',
 ] as const satisfies readonly SeoRouteKey[];
 
 export const FAQ_LANDING_ROUTE_KEYS = [
@@ -92,6 +97,11 @@ export const SEO_LANDING_TEMPLATE_BY_ROUTE = {
   tableAssistant: 'ProductLandingTemplate',
   waysToPlayCommanderOnline: 'ComparisonLandingTemplate',
   howToPlayCommanderOnline: 'GuideLandingTemplate',
+  spellTableAlternative: 'ComparisonLandingTemplate',
+  playCommanderOnlineFree: 'ProductLandingTemplate',
+  playCommanderWithoutWebcam: 'ComparisonLandingTemplate',
+  playEdhOnline: 'ProductLandingTemplate',
+  commanderSimulator: 'ProductLandingTemplate',
   faq: 'FaqLandingTemplate',
 } as const satisfies Record<SeoRouteKey, SeoLandingTemplateName>;
 

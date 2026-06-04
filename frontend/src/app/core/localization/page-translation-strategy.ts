@@ -10,6 +10,11 @@ export const PAGE_TRANSLATION_STRATEGIES = {
   tableAssistant: 'seo-static',
   waysToPlayCommanderOnline: 'seo-static',
   howToPlayCommanderOnline: 'seo-static',
+  spellTableAlternative: 'seo-static',
+  playCommanderOnlineFree: 'seo-static',
+  playCommanderWithoutWebcam: 'seo-static',
+  playEdhOnline: 'seo-static',
+  commanderSimulator: 'seo-static',
   faq: 'seo-static',
 
   login: 'runtime-i18n',
