@@ -8,13 +8,18 @@ import {
   PRODUCT_LANDING_ROUTE_KEYS,
 } from '../models/seo-landing-template.model';
 import { COMMANDER_DECK_BUILDER_SEO_LANDING_CONTENT } from './commander-deck-builder.content';
+import { COMMANDER_SIMULATOR_SEO_LANDING_CONTENT } from './commander-simulator.content';
 import { CREATE_COMMANDER_ROOM_SEO_LANDING_CONTENT } from './create-commander-room.content';
 import { FAQ_SEO_LANDING_CONTENT } from './faq.content';
 import { HOME_SEO_LANDING_CONTENT } from './home.content';
 import { HOW_TO_PLAY_COMMANDER_ONLINE_SEO_LANDING_CONTENT } from './how-to-play-commander-online.content';
 import { IMPORT_COMMANDER_DECK_SEO_LANDING_CONTENT } from './import-commander-deck.content';
 import { PLAY_COMMANDER_ONLINE_SEO_LANDING_CONTENT } from './play-commander-online.content';
+import { PLAY_COMMANDER_ONLINE_FREE_SEO_LANDING_CONTENT } from './play-commander-online-free.content';
+import { PLAY_COMMANDER_WITHOUT_WEBCAM_SEO_LANDING_CONTENT } from './play-commander-without-webcam.content';
+import { PLAY_EDH_ONLINE_SEO_LANDING_CONTENT } from './play-edh-online.content';
 import { PLAY_MAGIC_ONLINE_WITH_FRIENDS_SEO_LANDING_CONTENT } from './play-magic-online-with-friends.content';
+import { SPELLTABLE_ALTERNATIVE_SEO_LANDING_CONTENT } from './spell-table-alternative.content';
 import { TABLE_ASSISTANT_SEO_LANDING_CONTENT } from './table-assistant.content';
 import { WAYS_TO_PLAY_COMMANDER_ONLINE_SEO_LANDING_CONTENT } from './ways-to-play-commander-online.content';
 
@@ -33,10 +38,12 @@ const SEO_APP_ENTRY_PATHS = new Set([
   '/auth/register?redirect=/decks',
   '/auth/register?redirect=/table-assistant',
 ]);
-const SEO_CONVERSION_LINK_FIELDS = new Set([
+const SEO_PRIMARY_CONVERSION_LINK_FIELDS = new Set([
   'hero.primaryLink.href',
-  'hero.secondaryLink.href',
   'cta.primaryLink.href',
+]);
+const SEO_SECONDARY_CTA_LINK_FIELDS = new Set([
+  'hero.secondaryLink.href',
   'cta.secondaryLink.href',
 ]);
 
@@ -50,6 +57,11 @@ export const SEO_LANDING_CONTENT = {
   tableAssistant: TABLE_ASSISTANT_SEO_LANDING_CONTENT,
   waysToPlayCommanderOnline: WAYS_TO_PLAY_COMMANDER_ONLINE_SEO_LANDING_CONTENT,
   howToPlayCommanderOnline: HOW_TO_PLAY_COMMANDER_ONLINE_SEO_LANDING_CONTENT,
+  spellTableAlternative: SPELLTABLE_ALTERNATIVE_SEO_LANDING_CONTENT,
+  playCommanderOnlineFree: PLAY_COMMANDER_ONLINE_FREE_SEO_LANDING_CONTENT,
+  playCommanderWithoutWebcam: PLAY_COMMANDER_WITHOUT_WEBCAM_SEO_LANDING_CONTENT,
+  playEdhOnline: PLAY_EDH_ONLINE_SEO_LANDING_CONTENT,
+  commanderSimulator: COMMANDER_SIMULATOR_SEO_LANDING_CONTENT,
   faq: FAQ_SEO_LANDING_CONTENT,
 } as const satisfies SeoLandingContentRegistry;
 
@@ -181,9 +193,17 @@ function validateCrawlableSeoLinks(
       continue;
     }
 
-    if (SEO_CONVERSION_LINK_FIELDS.has(field)) {
+    if (SEO_PRIMARY_CONVERSION_LINK_FIELDS.has(field)) {
       if (!SEO_APP_ENTRY_PATHS.has(href)) {
         errors.push(`SEO conversion CTA for ${routeKey}/${locale} must use an approved app entry path in ${field}: ${href}.`);
+      }
+
+      continue;
+    }
+
+    if (SEO_SECONDARY_CTA_LINK_FIELDS.has(field)) {
+      if (!seoPaths.has(href)) {
+        errors.push(`SEO secondary CTA for ${routeKey}/${locale} must point to a localized SEO URL in ${field}: ${href}.`);
       }
 
       continue;

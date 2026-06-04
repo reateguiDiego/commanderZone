@@ -17,6 +17,11 @@ describe('page translation strategy manifest', () => {
     'tableAssistant',
     'waysToPlayCommanderOnline',
     'howToPlayCommanderOnline',
+    'spellTableAlternative',
+    'playCommanderOnlineFree',
+    'playCommanderWithoutWebcam',
+    'playEdhOnline',
+    'commanderSimulator',
     'faq',
   ] as const satisfies readonly PageKey[];
 

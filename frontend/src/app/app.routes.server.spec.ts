@@ -13,7 +13,7 @@ describe('server routes', () => {
 
     const seoPrerenderPaths = SEO_PRERENDER_ROUTES.map((path) => toAngularServerRoutePath(path));
 
-    expect(SEO_PRERENDER_ROUTES).toHaveLength(60);
+    expect(SEO_PRERENDER_ROUTES).toHaveLength(90);
     expect(prerenderPaths).toEqual(expect.arrayContaining(seoPrerenderPaths));
     expect(prerenderPaths).toContain('');
     expect(prerenderPaths).not.toContain('en');
@@ -41,10 +41,10 @@ describe('server routes', () => {
       .filter((route) => route.renderMode === RenderMode.Prerender)
       .map((route) => route.path);
 
-    expect(SEO_PRERENDER_ROUTES).toHaveLength(60);
+    expect(SEO_PRERENDER_ROUTES).toHaveLength(90);
     expect(LEGAL_PRERENDER_ROUTES).toHaveLength(24);
     expect(prerenderPaths).toHaveLength(SEO_PRERENDER_ROUTES.length + LEGAL_PRERENDER_ROUTES.length);
-    expect(prerenderPaths).toHaveLength(84);
+    expect(prerenderPaths).toHaveLength(114);
     expect(prerenderPaths).not.toContain('en');
     expect(prerenderPaths).not.toContain('auth/login');
     expect(prerenderPaths).not.toContain('auth/register');

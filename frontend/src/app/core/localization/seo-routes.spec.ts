@@ -21,6 +21,11 @@ describe('SEO routes', () => {
     'tableAssistant',
     'waysToPlayCommanderOnline',
     'howToPlayCommanderOnline',
+    'spellTableAlternative',
+    'playCommanderOnlineFree',
+    'playCommanderWithoutWebcam',
+    'playEdhOnline',
+    'commanderSimulator',
     'faq',
   ] as const satisfies readonly SeoRouteKey[];
   const expectedCanonicalPaths = {
@@ -96,6 +101,46 @@ describe('SEO routes', () => {
       pt: '/pt/como-jogar-commander-online/',
       it: '/it/come-giocare-commander-online/',
     },
+    spellTableAlternative: {
+      es: '/es/alternativa-spelltable/',
+      en: '/en/spelltable-alternative/',
+      de: '/de/spelltable-alternative/',
+      fr: '/fr/alternative-spelltable/',
+      pt: '/pt/alternativa-spelltable/',
+      it: '/it/alternativa-spelltable/',
+    },
+    playCommanderOnlineFree: {
+      es: '/es/jugar-commander-online-gratis/',
+      en: '/en/play-commander-online-free/',
+      de: '/de/commander-kostenlos-online-spielen/',
+      fr: '/fr/jouer-commander-en-ligne-gratuit/',
+      pt: '/pt/jogar-commander-online-gratis/',
+      it: '/it/giocare-commander-online-gratis/',
+    },
+    playCommanderWithoutWebcam: {
+      es: '/es/jugar-commander-online-sin-webcam/',
+      en: '/en/play-commander-online-without-webcam/',
+      de: '/de/commander-online-ohne-webcam-spielen/',
+      fr: '/fr/jouer-commander-en-ligne-sans-webcam/',
+      pt: '/pt/jogar-commander-online-sem-webcam/',
+      it: '/it/giocare-commander-online-senza-webcam/',
+    },
+    playEdhOnline: {
+      es: '/es/jugar-edh-online/',
+      en: '/en/play-edh-online/',
+      de: '/de/edh-online-spielen/',
+      fr: '/fr/jouer-edh-en-ligne/',
+      pt: '/pt/jogar-edh-online/',
+      it: '/it/giocare-edh-online/',
+    },
+    commanderSimulator: {
+      es: '/es/simulador-commander-mtg/',
+      en: '/en/mtg-commander-simulator/',
+      de: '/de/mtg-commander-simulator/',
+      fr: '/fr/simulateur-commander-mtg/',
+      pt: '/pt/simulador-commander-mtg/',
+      it: '/it/simulatore-commander-mtg/',
+    },
     faq: {
       es: '/es/faq/',
       en: '/en/faq/',
@@ -135,6 +180,8 @@ describe('SEO routes', () => {
     expect(getSeoPath('playCommanderOnline', 'en')).toBe('/en/play-commander-online/');
     expect(getSeoPath('commanderDeckBuilder', 'es')).toBe('/es/deck-builder-commander/');
     expect(getSeoPath('tableAssistant', 'es')).toBe('/es/contador-vidas-commander/');
+    expect(getSeoPath('spellTableAlternative', 'fr')).toBe('/fr/alternative-spelltable/');
+    expect(getSeoPath('commanderSimulator', 'en')).toBe('/en/mtg-commander-simulator/');
   });
 
   it('uses the final canonical slug matrix for every SEO landing and locale', () => {
@@ -237,7 +284,7 @@ describe('SEO routes', () => {
       SEO_LOCALE_CODES.map((locale) => getSeoPath(routeKey, locale)),
     );
 
-    expect(paths).toHaveLength(60);
+    expect(paths).toHaveLength(90);
     expect(new Set(paths).size).toBe(paths.length);
   });
 });

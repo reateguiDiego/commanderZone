@@ -4,7 +4,7 @@ import {
   SeoLocaleCode,
   getLocaleHreflang,
 } from '../../../core/localization/locale-config';
-import { getSeoPath, SeoRouteKey } from '../../../core/localization/seo-routes';
+import { getSeoPath, SEO_ROUTE_KEYS, SeoRouteKey } from '../../../core/localization/seo-routes';
 import {
   getPublicChromeCopy,
   getPublicFooterLegalLinks,
@@ -28,8 +28,8 @@ import {
   GUIDE_LANDING_ROUTE_KEYS,
   PRODUCT_LANDING_ROUTE_KEYS,
 } from '../models/seo-landing-template.model';
+import { SEO_LANDING_METADATA_COPY, type PriorityLocaleCode } from './seo-landing-metadata-copy';
 
-type PriorityLocaleCode = 'es' | 'en' | 'de' | 'fr' | 'pt' | 'it';
 type SeoJsonLdObject = Readonly<Record<string, SeoJsonLdValue>>;
 
 interface SectionCopy {
@@ -104,91 +104,140 @@ interface LocaleUiCopy {
 const PRIORITY_LOCALES = ['es', 'en', 'de', 'fr', 'pt', 'it'] as const satisfies readonly PriorityLocaleCode[];
 const APP_DECKS_ENTRY_PATH = '/auth/login?redirect=/decks';
 const APP_TABLE_ASSISTANT_ENTRY_PATH = '/auth/login?redirect=/table-assistant';
-const APP_DECKS_REGISTER_ENTRY_PATH = '/auth/register?redirect=/decks';
-const APP_TABLE_ASSISTANT_REGISTER_ENTRY_PATH = '/auth/register?redirect=/table-assistant';
 
 const LANDING_CTA_COPY = {
   home: {
-    es: cta('Entrar y preparar mazo', 'Acceder a CommanderZone'),
-    en: cta('Sign in and prepare deck', 'Open CommanderZone'),
-    de: cta('Einloggen und Deck vorbereiten', 'CommanderZone öffnen'),
-    fr: cta('Se connecter et préparer un deck', 'Ouvrir CommanderZone'),
-    pt: cta('Entrar e preparar deck', 'Abrir CommanderZone'),
-    it: cta('Accedi e prepara il mazzo', 'Apri CommanderZone'),
+    es: cta('Entrar y preparar mazo', 'C?mo jugar Commander'),
+    en: cta('Sign in and prepare deck', 'How to play Commander'),
+    de: cta('Einloggen und Deck vorbereiten', 'Commander-Anleitung'),
+    fr: cta('Se connecter et pr?parer un deck', 'Comment jouer ? Commander'),
+    pt: cta('Entrar e preparar deck', 'Como jogar Commander'),
+    it: cta('Accedi e prepara il mazzo', 'Come giocare Commander'),
   },
   playCommanderOnline: {
-    es: cta('Entrar para jugar Commander', 'Entrar y preparar mazo'),
-    en: cta('Sign in to play Commander', 'Sign in and prepare deck'),
-    de: cta('Einloggen und Commander spielen', 'Einloggen und Deck vorbereiten'),
-    fr: cta('Se connecter pour jouer à Commander', 'Se connecter et préparer un deck'),
-    pt: cta('Entrar para jogar Commander', 'Entrar e preparar deck'),
-    it: cta('Accedi per giocare a Commander', 'Accedi e prepara il mazzo'),
+    es: cta('Entrar para jugar Commander', 'C?mo jugar Commander'),
+    en: cta('Sign in to play Commander', 'How to play Commander'),
+    de: cta('Einloggen und Commander spielen', 'Commander-Anleitung'),
+    fr: cta('Se connecter pour jouer ? Commander', 'Comment jouer ? Commander'),
+    pt: cta('Entrar para jogar Commander', 'Como jogar Commander'),
+    it: cta('Accedi per giocare Commander', 'Come giocare Commander'),
   },
   playMagicOnlineWithFriends: {
-    es: cta('Entrar y preparar mazo', 'Acceder a CommanderZone'),
-    en: cta('Sign in and prepare deck', 'Open CommanderZone'),
-    de: cta('Einloggen und Deck vorbereiten', 'CommanderZone öffnen'),
-    fr: cta('Se connecter et préparer un deck', 'Ouvrir CommanderZone'),
-    pt: cta('Entrar e preparar deck', 'Abrir CommanderZone'),
-    it: cta('Accedi e prepara il mazzo', 'Apri CommanderZone'),
+    es: cta('Entrar y preparar mazo', 'Formas de jugar Commander'),
+    en: cta('Sign in and prepare deck', 'Ways to play Commander'),
+    de: cta('Einloggen und Deck vorbereiten', 'Commander online spielen'),
+    fr: cta('Se connecter et pr?parer un deck', 'Fa?ons de jouer Commander'),
+    pt: cta('Entrar e preparar deck', 'Formas de jogar Commander'),
+    it: cta('Accedi e prepara il mazzo', 'Modi per giocare Commander'),
   },
   createCommanderRoom: {
-    es: cta('Entrar y preparar partida', 'Acceder a mis mazos'),
-    en: cta('Sign in and prepare game', 'Go to my decks'),
-    de: cta('Einloggen und Partie vorbereiten', 'Zu meinen Decks'),
-    fr: cta('Se connecter et préparer une partie', 'Accéder à mes decks'),
-    pt: cta('Entrar e preparar partida', 'Acessar meus decks'),
-    it: cta('Accedi e prepara la partita', 'Vai ai miei mazzi'),
+    es: cta('Entrar y preparar partida', 'C?mo jugar Commander'),
+    en: cta('Sign in and prepare game', 'How to play Commander'),
+    de: cta('Einloggen und Partie vorbereiten', 'Commander-Anleitung'),
+    fr: cta('Se connecter et pr?parer une partie', 'Comment jouer ? Commander'),
+    pt: cta('Entrar e preparar partida', 'Como jogar Commander'),
+    it: cta('Accedi e prepara la partita', 'Come giocare Commander'),
   },
   importCommanderDeck: {
-    es: cta('Entrar e importar mazo', 'Acceder a mis mazos'),
-    en: cta('Sign in and import deck', 'Go to my decks'),
-    de: cta('Einloggen und Deck importieren', 'Zu meinen Decks'),
-    fr: cta('Se connecter et importer un deck', 'Accéder à mes decks'),
-    pt: cta('Entrar e importar deck', 'Acessar meus decks'),
-    it: cta('Accedi e importa il mazzo', 'Vai ai miei mazzi'),
+    es: cta('Entrar e importar mazo', 'Leer FAQ'),
+    en: cta('Sign in and import deck', 'Read FAQ'),
+    de: cta('Einloggen und Deck importieren', 'FAQ lesen'),
+    fr: cta('Se connecter et importer un deck', 'Lire la FAQ'),
+    pt: cta('Entrar e importar deck', 'Ler FAQ'),
+    it: cta('Accedi e importa il mazzo', 'Leggi FAQ'),
   },
   commanderDeckBuilder: {
-    es: cta('Entrar y preparar mazo', 'Acceder a mis mazos'),
-    en: cta('Sign in and prepare deck', 'Go to my decks'),
-    de: cta('Einloggen und Deck vorbereiten', 'Zu meinen Decks'),
-    fr: cta('Se connecter et préparer un deck', 'Accéder à mes decks'),
-    pt: cta('Entrar e preparar deck', 'Acessar meus decks'),
-    it: cta('Accedi e prepara il mazzo', 'Vai ai miei mazzi'),
+    es: cta('Entrar y preparar mazo', 'Leer FAQ'),
+    en: cta('Sign in and prepare deck', 'Read FAQ'),
+    de: cta('Einloggen und Deck vorbereiten', 'FAQ lesen'),
+    fr: cta('Se connecter et pr?parer un deck', 'Lire la FAQ'),
+    pt: cta('Entrar e preparar deck', 'Ler FAQ'),
+    it: cta('Accedi e prepara il mazzo', 'Leggi FAQ'),
   },
   tableAssistant: {
-    es: cta('Abrir Asistente de mesa', 'Entrar en CommanderZone'),
-    en: cta('Open Table Assistant', 'Open CommanderZone'),
-    de: cta('Tischassistent öffnen', 'CommanderZone öffnen'),
-    fr: cta('Ouvrir l’assistant de table', 'Ouvrir CommanderZone'),
-    pt: cta('Abrir Assistente de mesa', 'Abrir CommanderZone'),
-    it: cta('Aprire Assistente da tavolo', 'Apri CommanderZone'),
+    es: cta('Abrir contador Commander', 'Leer FAQ'),
+    en: cta('Open Commander life counter', 'Read FAQ'),
+    de: cta('Commander Life Counter ?ffnen', 'FAQ lesen'),
+    fr: cta('Ouvrir le compteur Commander', 'Lire la FAQ'),
+    pt: cta('Abrir contador Commander', 'Ler FAQ'),
+    it: cta('Apri contatore Commander', 'Leggi FAQ'),
   },
   waysToPlayCommanderOnline: {
-    es: cta('Entrar y preparar partida', 'Acceder a CommanderZone'),
-    en: cta('Sign in and prepare game', 'Open CommanderZone'),
-    de: cta('Einloggen und Partie vorbereiten', 'CommanderZone öffnen'),
-    fr: cta('Se connecter et préparer une partie', 'Ouvrir CommanderZone'),
-    pt: cta('Entrar e preparar partida', 'Abrir CommanderZone'),
-    it: cta('Accedi e prepara la partita', 'Apri CommanderZone'),
+    es: cta('Entrar y preparar partida', 'Gu?a paso a paso'),
+    en: cta('Sign in and prepare game', 'Step-by-step guide'),
+    de: cta('Einloggen und Partie vorbereiten', 'Schritt-f?r-Schritt-Anleitung'),
+    fr: cta('Se connecter et pr?parer une partie', 'Guide ?tape par ?tape'),
+    pt: cta('Entrar e preparar partida', 'Guia passo a passo'),
+    it: cta('Accedi e prepara la partita', 'Guida passo passo'),
   },
   howToPlayCommanderOnline: {
-    es: cta('Entrar y empezar', 'Acceder a CommanderZone'),
-    en: cta('Sign in and start', 'Open CommanderZone'),
-    de: cta('Einloggen und starten', 'CommanderZone öffnen'),
-    fr: cta('Se connecter et commencer', 'Ouvrir CommanderZone'),
-    pt: cta('Entrar e começar', 'Abrir CommanderZone'),
-    it: cta('Accedi e inizia', 'Apri CommanderZone'),
+    es: cta('Entrar y empezar', 'Ver formas de jugar'),
+    en: cta('Sign in and start', 'See ways to play'),
+    de: cta('Einloggen und starten', 'M?glichkeiten ansehen'),
+    fr: cta('Se connecter et commencer', 'Voir les fa?ons de jouer'),
+    pt: cta('Entrar e come?ar', 'Ver formas de jogar'),
+    it: cta('Accedi e inizia', 'Vedere modi per giocare'),
+  },
+  spellTableAlternative: {
+    es: cta('Entrar y preparar partida', 'Jugar sin webcam'),
+    en: cta('Sign in and prepare game', 'Play without webcam'),
+    de: cta('Einloggen und Partie vorbereiten', 'Ohne Webcam spielen'),
+    fr: cta('Se connecter et pr?parer une partie', 'Jouer sans webcam'),
+    pt: cta('Entrar e preparar partida', 'Jogar sem webcam'),
+    it: cta('Accedi e prepara la partita', 'Giocare senza webcam'),
+  },
+  playCommanderOnlineFree: {
+    es: cta('Entrar y jugar Commander', 'Leer FAQ'),
+    en: cta('Sign in to play Commander', 'Read FAQ'),
+    de: cta('Einloggen und Commander spielen', 'FAQ lesen'),
+    fr: cta('Se connecter pour jouer ? Commander', 'Lire la FAQ'),
+    pt: cta('Entrar para jogar Commander', 'Ler FAQ'),
+    it: cta('Accedi per giocare Commander', 'Leggi FAQ'),
+  },
+  playCommanderWithoutWebcam: {
+    es: cta('Entrar y preparar partida', 'Ver alternativa a SpellTable'),
+    en: cta('Sign in and prepare game', 'See SpellTable alternative'),
+    de: cta('Einloggen und Partie vorbereiten', 'SpellTable Alternative ansehen'),
+    fr: cta('Se connecter et pr?parer une partie', 'Voir l?alternative ? SpellTable'),
+    pt: cta('Entrar e preparar partida', 'Ver alternativa ao SpellTable'),
+    it: cta('Accedi e prepara la partita', 'Vedi alternativa a SpellTable'),
+  },
+  playEdhOnline: {
+    es: cta('Entrar y jugar EDH', 'Jugar Commander online'),
+    en: cta('Sign in to play EDH', 'Play Commander online'),
+    de: cta('Einloggen und EDH spielen', 'Commander online spielen'),
+    fr: cta('Se connecter pour jouer ? EDH', 'Jouer ? Commander en ligne'),
+    pt: cta('Entrar para jogar EDH', 'Jogar Commander online'),
+    it: cta('Accedi per giocare EDH', 'Giocare Commander online'),
+  },
+  commanderSimulator: {
+    es: cta('Abrir mesa Commander manual', 'Ver Commander gratis'),
+    en: cta('Open manual Commander table', 'See free Commander play'),
+    de: cta('Manuellen Commander-Tisch ?ffnen', 'Commander kostenlos ansehen'),
+    fr: cta('Ouvrir la table Commander manuelle', 'Voir Commander gratuit'),
+    pt: cta('Abrir mesa Commander manual', 'Ver Commander gr?tis'),
+    it: cta('Apri tavolo Commander manuale', 'Vedi Commander gratis'),
   },
   faq: {
-    es: cta('Entrar y preparar mazo', 'Acceder a CommanderZone'),
-    en: cta('Sign in and prepare deck', 'Open CommanderZone'),
-    de: cta('Einloggen und Deck vorbereiten', 'CommanderZone öffnen'),
-    fr: cta('Se connecter et préparer un deck', 'Ouvrir CommanderZone'),
-    pt: cta('Entrar e preparar deck', 'Abrir CommanderZone'),
-    it: cta('Accedi e prepara il mazzo', 'Apri CommanderZone'),
+    es: cta('Entrar y preparar mazo', 'Jugar Commander online'),
+    en: cta('Sign in and prepare deck', 'Play Commander online'),
+    de: cta('Einloggen und Deck vorbereiten', 'Commander online spielen'),
+    fr: cta('Se connecter et pr?parer un deck', 'Jouer ? Commander en ligne'),
+    pt: cta('Entrar e preparar deck', 'Jogar Commander online'),
+    it: cta('Accedi e prepara il mazzo', 'Giocare Commander online'),
   },
 } as const satisfies Record<SeoRouteKey, Record<PriorityLocaleCode, LandingCtaCopy>>;
+
+const INTERNAL_ROUTE_LABEL_COPY: Partial<Record<SeoRouteKey, Record<PriorityLocaleCode, string>>> = {
+  playEdhOnline: {
+    es: 'Jugar Commander online con una mesa manual',
+    en: 'Play Commander online with a manual table',
+    de: 'Commander online an einem manuellen Tisch spielen',
+    fr: 'Jouer à Commander en ligne sur une table manuelle',
+    pt: 'Jogar Commander online em uma mesa manual',
+    it: 'Giocare Commander online con un tavolo manuale',
+  },
+};
 
 const LOCALE_COPY = {
   es: {
@@ -958,6 +1007,532 @@ const LANDING_COPY = {
       section('complementary', 'Uno strumento complementare', 'Puoi combinare CommanderZone con gli strumenti che usi già per voce, video, carte o community.'),
     ]),
   },
+  spellTableAlternative: {
+    en: {
+      metaTitle: 'SpellTable Alternative for Commander Online | CommanderZone',
+      metaDescription: 'Looking for a SpellTable alternative for Commander? CommanderZone gives your pod a manual digital table in the browser, without webcam setup or paper table overhead.',
+      h1: 'A SpellTable alternative for digital Commander pods',
+      heroSubtitle: 'SpellTable is great for webcam paper Magic. CommanderZone is different: your pod plays on a manual digital table connected to decks, rooms, life totals and commander damage.',
+      primaryCta: 'Sign in and prepare game',
+      secondaryCta: 'Play without webcam',
+      sections: [
+        section('different-from-webcam', 'Different from webcam Magic', 'CommanderZone does not try to scan physical cards through a camera. The table lives in the browser, so your group can focus on the Commander game instead of camera angles and paper setup.'),
+        section('manual-not-automatic', 'Manual, not automatic', 'CommanderZone is not a rules engine. Players stay responsible for triggers, stack, priority and legal decisions.'),
+        section('when-spelltable-fits', 'When SpellTable fits', 'Use SpellTable if you want to play with physical cards on camera.'),
+        section('when-commanderzone-fits', 'When CommanderZone is better', 'Use CommanderZone if you want a digital manual table, browser-based rooms and deck-connected gameplay.'),
+      ],
+      comparison: comparison('Webcam paper Magic or digital table', 'Compare the setup your group actually wants before choosing a Commander tool.', 'Need', 'Good fit', [
+        row('Physical cards on camera', 'SpellTable', 'CommanderZone is built for a browser table instead.'),
+        row('No webcam setup', 'CommanderZone', 'Players use a manual digital table in the browser.'),
+        row('Automatic card scanning', 'SpellTable', 'CommanderZone does not scan cards.'),
+        row('Manual Commander decisions', 'CommanderZone', 'Players keep responsibility for rules and table choices.'),
+      ]),
+      faq: [
+        faq('Is CommanderZone a replacement for SpellTable?', 'It depends on how your group plays. SpellTable fits webcam paper Magic. CommanderZone fits groups that want a manual digital table in the browser.'),
+        faq('Do I need a webcam?', 'No. CommanderZone does not require a webcam for the digital table.'),
+        faq('Does CommanderZone scan cards?', 'No. CommanderZone is not a webcam card scanner.'),
+      ],
+    },
+    es: {
+      metaTitle: 'Alternativa a SpellTable para jugar Commander online | CommanderZone',
+      metaDescription: '¿Buscas una alternativa a SpellTable para Commander? CommanderZone ofrece una mesa digital manual en el navegador, sin depender de webcam ni setup físico.',
+      h1: 'Una alternativa a SpellTable para pods digitales de Commander',
+      heroSubtitle: 'SpellTable es muy útil para jugar Magic físico por webcam. CommanderZone es distinto: tu grupo juega en una mesa digital manual conectada a mazos, salas, vidas y daño de comandante.',
+      primaryCta: 'Entrar y preparar partida',
+      secondaryCta: 'Jugar sin webcam',
+      sections: [
+        section('different-from-webcam', 'Diferente al Magic por webcam', 'CommanderZone no intenta escanear cartas físicas con una cámara. La mesa vive en el navegador para que el grupo se centre en la partida de Commander.'),
+        section('manual-not-automatic', 'Manual, no automático', 'CommanderZone no es un motor de reglas. Los jugadores siguen siendo responsables de triggers, pila, prioridad y decisiones legales.'),
+        section('when-spelltable-fits', 'Cuándo SpellTable encaja mejor', 'Usa SpellTable si quieres jugar con cartas físicas delante de una cámara.'),
+        section('when-commanderzone-fits', 'Cuándo CommanderZone encaja mejor', 'Usa CommanderZone si quieres una mesa digital manual, salas en navegador y partidas conectadas a tus mazos.'),
+      ],
+      comparison: comparison('Magic por webcam o mesa digital', 'Compara qué setup quiere tu grupo antes de elegir una herramienta para Commander.', 'Necesidad', 'Encaja mejor', [
+        row('Cartas físicas en cámara', 'SpellTable', 'CommanderZone usa una mesa digital en navegador.'),
+        row('Sin configurar webcam', 'CommanderZone', 'Los jugadores usan una mesa manual digital.'),
+        row('Escaneo de cartas', 'SpellTable', 'CommanderZone no escanea cartas.'),
+        row('Decisiones manuales de Commander', 'CommanderZone', 'Los jugadores mantienen la responsabilidad de reglas y acuerdos.'),
+      ]),
+      faq: [
+        faq('¿CommanderZone es mejor que SpellTable?', 'Depende. SpellTable encaja mejor para Magic físico por webcam. CommanderZone encaja mejor si tu grupo quiere una mesa digital manual en el navegador.'),
+        faq('¿Necesito webcam?', 'No. CommanderZone no requiere webcam para la mesa digital.'),
+        faq('¿CommanderZone escanea cartas?', 'No. CommanderZone no es un escáner de cartas por webcam.'),
+      ],
+    },
+    de: {
+      metaTitle: 'SpellTable Alternative für Commander online | CommanderZone',
+      metaDescription: 'Suchst du eine SpellTable Alternative für Commander? CommanderZone bietet deiner Runde einen manuellen digitalen Tisch im Browser, ohne Webcam-Setup.',
+      h1: 'Eine SpellTable Alternative für digitale Commander-Runden',
+      heroSubtitle: 'SpellTable ist stark für Paper Magic per Webcam. CommanderZone ist anders: Deine Runde spielt an einem manuellen digitalen Tisch mit Decks, Räumen, Lebenspunkten und Commander-Schaden.',
+      primaryCta: 'Einloggen und Partie vorbereiten',
+      secondaryCta: 'Ohne Webcam spielen',
+      sections: [
+        section('different-from-webcam', 'Anders als Webcam-Magic', 'CommanderZone versucht nicht, physische Karten per Kamera zu scannen. Der Tisch läuft im Browser, damit sich die Gruppe auf die Commander-Partie konzentrieren kann.'),
+        section('manual-not-automatic', 'Manuell, nicht automatisch', 'CommanderZone ist kein Regelmotor. Spieler bleiben für Trigger, Stack, Priorität und legale Entscheidungen verantwortlich.'),
+        section('when-spelltable-fits', 'Wann SpellTable besser passt', 'Nutze SpellTable, wenn du mit physischen Karten vor einer Kamera spielen möchtest.'),
+        section('when-commanderzone-fits', 'Wann CommanderZone besser passt', 'Nutze CommanderZone, wenn du einen manuellen digitalen Tisch, Browser-Räume und Deck-bezogene Partien möchtest.'),
+      ],
+      comparison: comparison('Webcam-Paper oder digitaler Tisch', 'Vergleiche, welches Setup deine Runde wirklich möchte.', 'Bedarf', 'Passt besser', [
+        row('Physische Karten vor Kamera', 'SpellTable', 'CommanderZone nutzt stattdessen einen Browser-Tisch.'),
+        row('Ohne Webcam-Setup', 'CommanderZone', 'Die Runde spielt an einem manuellen digitalen Tisch.'),
+        row('Kartenscan per Kamera', 'SpellTable', 'CommanderZone scannt keine Karten.'),
+        row('Manuelle Commander-Entscheidungen', 'CommanderZone', 'Spieler bleiben für Regeln und Absprachen verantwortlich.'),
+      ]),
+      faq: [
+        faq('Ist CommanderZone besser als SpellTable?', 'Es kommt darauf an. SpellTable passt besser für Paper Magic per Webcam. CommanderZone passt besser, wenn deine Gruppe einen manuellen digitalen Tisch im Browser möchte.'),
+        faq('Brauche ich eine Webcam?', 'Nein. CommanderZone benötigt keine Webcam für den digitalen Tisch.'),
+        faq('Scannt CommanderZone Karten?', 'Nein. CommanderZone ist kein Webcam-Kartenscanner.'),
+      ],
+    },
+    fr: {
+      metaTitle: 'Alternative à SpellTable pour Commander en ligne | CommanderZone',
+      metaDescription: 'Vous cherchez une alternative à SpellTable pour Commander ? CommanderZone propose une table numérique manuelle dans le navigateur, sans configuration webcam.',
+      h1: 'Une alternative à SpellTable pour les groupes Commander numériques',
+      heroSubtitle: 'SpellTable est excellent pour Magic papier par webcam. CommanderZone est différent : votre groupe joue sur une table numérique manuelle reliée aux decks, salles, points de vie et blessures de commandant.',
+      primaryCta: 'Se connecter et préparer une partie',
+      secondaryCta: 'Jouer sans webcam',
+      sections: [
+        section('different-from-webcam', 'Différent du Magic par webcam', 'CommanderZone ne cherche pas à scanner des cartes physiques avec une caméra. La table vit dans le navigateur pour laisser le groupe se concentrer sur la partie.'),
+        section('manual-not-automatic', 'Manuel, pas automatique', 'CommanderZone n’est pas un moteur de règles. Les joueurs restent responsables des triggers, de la pile, de la priorité et des décisions légales.'),
+        section('when-spelltable-fits', 'Quand SpellTable est plus adapté', 'Utilisez SpellTable si vous voulez jouer avec des cartes physiques devant une caméra.'),
+        section('when-commanderzone-fits', 'Quand CommanderZone est plus adapté', 'Utilisez CommanderZone si vous voulez une table numérique manuelle, des salles dans le navigateur et des parties liées aux decks.'),
+      ],
+      comparison: comparison('Magic par webcam ou table numérique', 'Comparez le type de configuration que votre groupe veut vraiment.', 'Besoin', 'Plus adapté', [
+        row('Cartes physiques à la caméra', 'SpellTable', 'CommanderZone utilise une table dans le navigateur.'),
+        row('Sans configuration webcam', 'CommanderZone', 'Le groupe utilise une table numérique manuelle.'),
+        row('Scan de cartes', 'SpellTable', 'CommanderZone ne scanne pas les cartes.'),
+        row('Décisions Commander manuelles', 'CommanderZone', 'Les joueurs restent responsables des règles et accords.'),
+      ]),
+      faq: [
+        faq('CommanderZone est-il meilleur que SpellTable ?', 'Cela dépend. SpellTable est plus adapté à Magic papier par webcam. CommanderZone convient mieux si votre groupe veut une table numérique manuelle dans le navigateur.'),
+        faq('Ai-je besoin d’une webcam ?', 'Non. CommanderZone ne nécessite pas de webcam pour la table numérique.'),
+        faq('CommanderZone scanne-t-il les cartes ?', 'Non. CommanderZone n’est pas un scanner de cartes par webcam.'),
+      ],
+    },
+    pt: {
+      metaTitle: 'Alternativa ao SpellTable para Commander online | CommanderZone',
+      metaDescription: 'Procurando uma alternativa ao SpellTable para Commander? CommanderZone oferece uma mesa digital manual no navegador, sem depender de webcam.',
+      h1: 'Uma alternativa ao SpellTable para grupos digitais de Commander',
+      heroSubtitle: 'SpellTable é ótimo para Magic físico por webcam. CommanderZone é diferente: seu grupo joga em uma mesa digital manual conectada a decks, salas, vida e dano de comandante.',
+      primaryCta: 'Entrar e preparar partida',
+      secondaryCta: 'Jogar sem webcam',
+      sections: [
+        section('different-from-webcam', 'Diferente do Magic por webcam', 'CommanderZone não tenta escanear cartas físicas pela câmera. A mesa fica no navegador para o grupo focar na partida de Commander.'),
+        section('manual-not-automatic', 'Manual, não automático', 'CommanderZone não é um motor de regras. Os jogadores continuam responsáveis por triggers, pilha, prioridade e decisões legais.'),
+        section('when-spelltable-fits', 'Quando SpellTable é melhor', 'Use SpellTable se você quer jogar com cartas físicas diante de uma câmera.'),
+        section('when-commanderzone-fits', 'Quando CommanderZone é melhor', 'Use CommanderZone se você quer uma mesa digital manual, salas no navegador e partidas conectadas aos decks.'),
+      ],
+      comparison: comparison('Magic por webcam ou mesa digital', 'Compare o tipo de setup que seu grupo realmente quer.', 'Necessidade', 'Melhor opção', [
+        row('Cartas físicas na câmera', 'SpellTable', 'CommanderZone usa uma mesa no navegador.'),
+        row('Sem configurar webcam', 'CommanderZone', 'O grupo joga em uma mesa digital manual.'),
+        row('Escaneamento de cartas', 'SpellTable', 'CommanderZone não escaneia cartas.'),
+        row('Decisões manuais de Commander', 'CommanderZone', 'Os jogadores continuam responsáveis por regras e acordos.'),
+      ]),
+      faq: [
+        faq('CommanderZone é melhor que SpellTable?', 'Depende. SpellTable é melhor para Magic físico por webcam. CommanderZone é melhor se seu grupo quer uma mesa digital manual no navegador.'),
+        faq('Preciso de webcam?', 'Não. CommanderZone não exige webcam para a mesa digital.'),
+        faq('CommanderZone escaneia cartas?', 'Não. CommanderZone não é um scanner de cartas por webcam.'),
+      ],
+    },
+    it: {
+      metaTitle: 'Alternativa a SpellTable per Commander online | CommanderZone',
+      metaDescription: 'Cerchi un’alternativa a SpellTable per Commander? CommanderZone offre un tavolo digitale manuale nel browser, senza configurazione webcam.',
+      h1: 'Un’alternativa a SpellTable per pod Commander digitali',
+      heroSubtitle: 'SpellTable è ottimo per Magic cartaceo via webcam. CommanderZone è diverso: il tuo gruppo gioca su un tavolo digitale manuale collegato a mazzi, stanze, punti vita e danno da comandante.',
+      primaryCta: 'Accedi e prepara la partita',
+      secondaryCta: 'Giocare senza webcam',
+      sections: [
+        section('different-from-webcam', 'Diverso da Magic via webcam', 'CommanderZone non prova a scansionare carte fisiche con una camera. Il tavolo vive nel browser, così il gruppo può concentrarsi sulla partita Commander.'),
+        section('manual-not-automatic', 'Manuale, non automatico', 'CommanderZone non è un motore di regole. I giocatori restano responsabili di trigger, pila, priorità e decisioni legali.'),
+        section('when-spelltable-fits', 'Quando SpellTable è più adatto', 'Usa SpellTable se vuoi giocare con carte fisiche davanti a una webcam.'),
+        section('when-commanderzone-fits', 'Quando CommanderZone è più adatto', 'Usa CommanderZone se vuoi un tavolo digitale manuale, stanze nel browser e partite collegate ai mazzi.'),
+      ],
+      comparison: comparison('Magic via webcam o tavolo digitale', 'Confronta il setup che il tuo gruppo vuole davvero.', 'Necessità', 'Più adatto', [
+        row('Carte fisiche in camera', 'SpellTable', 'CommanderZone usa un tavolo nel browser.'),
+        row('Senza configurare webcam', 'CommanderZone', 'Il gruppo usa un tavolo digitale manuale.'),
+        row('Scansione carte', 'SpellTable', 'CommanderZone non scansiona carte.'),
+        row('Decisioni Commander manuali', 'CommanderZone', 'I giocatori restano responsabili di regole e accordi.'),
+      ]),
+      faq: [
+        faq('CommanderZone è meglio di SpellTable?', 'Dipende. SpellTable è più adatto a Magic cartaceo via webcam. CommanderZone è più adatto se il tuo gruppo vuole un tavolo digitale manuale nel browser.'),
+        faq('Mi serve una webcam?', 'No. CommanderZone non richiede webcam per il tavolo digitale.'),
+        faq('CommanderZone scansiona carte?', 'No. CommanderZone non è uno scanner di carte via webcam.'),
+      ],
+    },
+  },
+  playCommanderOnlineFree: {
+    en: simpleCopy('Play Commander Online Free in Your Browser | CommanderZone', 'Play Commander online free with current CommanderZone features in your browser. Create rooms, use a manual table and keep limits clear.', 'Play Commander online free from your browser', 'CommanderZone is free to use for the features currently available. Play from the browser with no heavy download, while account-based app features may require signing in.', 'Sign in to play Commander', 'Open CommanderZone', [
+      section('no-heavy-install', 'Start without a heavy install', 'CommanderZone runs in the browser, so your pod can start from a link instead of installing a large desktop client.'),
+      section('room-and-pod', 'Create a room and invite your pod', 'Prepare a deck, create a Commander room and share the link with your group when everyone is ready.'),
+      section('manual-decisions', 'Manual table, real Commander decisions', 'The table helps track life totals, commander damage and table state, but players remain responsible for rules and choices.'),
+      section('honest-limits', 'Free features, honest limits', 'Current CommanderZone features are free to use. CommanderZone does not sell official Magic content, and persistent app features may require an account.'),
+    ], [
+      feature('Browser-based', 'Play from a modern browser without a heavy download.'),
+      feature('Free current features', 'Available CommanderZone features are currently free to use.'),
+      feature('No official card sales', 'CommanderZone does not sell official digital Magic cards.'),
+      feature('Manual gameplay', 'Players keep control of Commander decisions.'),
+    ], [
+      faq('Is CommanderZone free?', 'CommanderZone is currently free to use for its available features.'),
+      faq('Do I need to install anything?', 'No. CommanderZone runs in the browser.'),
+      faq('Do I need to buy official digital cards?', 'No. CommanderZone does not sell official Magic content.'),
+      faq('Does it enforce rules?', 'No. CommanderZone is a manual table, not an automatic rules engine.'),
+    ]),
+    es: simpleCopy('Jugar Commander online gratis en el navegador | CommanderZone', 'Juega Commander online gratis con las funciones actuales de CommanderZone. Crea salas, usa una mesa manual y mantén claros los límites.', 'Jugar Commander online gratis desde el navegador', 'CommanderZone es gratuito para las funciones disponibles actualmente. Juega desde el navegador sin descargas pesadas; algunas funciones persistentes pueden requerir cuenta.', 'Entrar y jugar Commander', 'Acceder a CommanderZone', [
+      section('no-heavy-install', 'Empieza sin instalación pesada', 'CommanderZone funciona en el navegador para que tu pod pueda entrar desde un enlace sin instalar un cliente grande.'),
+      section('room-and-pod', 'Crea una sala e invita a tu pod', 'Prepara un mazo, crea una sala Commander y comparte el enlace cuando el grupo esté listo.'),
+      section('manual-decisions', 'Mesa manual, decisiones reales de Commander', 'La mesa ayuda con vidas, daño de comandante y estado de mesa, pero las reglas y decisiones siguen en manos de los jugadores.'),
+      section('honest-limits', 'Funciones gratis, límites claros', 'Las funciones actuales de CommanderZone son gratuitas. CommanderZone no vende contenido oficial de Magic y algunas funciones persistentes pueden requerir cuenta.'),
+    ], [
+      feature('En navegador', 'Juega desde un navegador moderno sin descarga pesada.'),
+      feature('Funciones actuales gratis', 'Las funciones disponibles actualmente son gratuitas.'),
+      feature('Sin venta de cartas oficiales', 'CommanderZone no vende cartas digitales oficiales de Magic.'),
+      feature('Juego manual', 'Los jugadores mantienen el control de las decisiones de Commander.'),
+    ], [
+      faq('¿CommanderZone es gratis?', 'CommanderZone es actualmente gratuito para las funciones disponibles.'),
+      faq('¿Necesito instalar algo?', 'No. CommanderZone funciona desde el navegador.'),
+      faq('¿Necesito comprar cartas digitales oficiales?', 'No. CommanderZone no vende contenido oficial de Magic.'),
+      faq('¿Aplica reglas automáticamente?', 'No. CommanderZone es una mesa manual, no un motor automático de reglas.'),
+    ]),
+    de: simpleCopy('Commander kostenlos online im Browser spielen | CommanderZone', 'Spiele Commander mit aktuellen CommanderZone-Funktionen kostenlos online. Erstelle Räume, nutze einen manuellen Tisch und klare Grenzen.', 'Commander kostenlos online im Browser spielen', 'CommanderZone ist für die aktuell verfügbaren Funktionen kostenlos nutzbar. Spiele im Browser ohne große Installation; dauerhafte App-Funktionen können ein Konto erfordern.', 'Einloggen und Commander spielen', 'CommanderZone öffnen', [
+      section('no-heavy-install', 'Ohne große Installation starten', 'CommanderZone läuft im Browser, damit deine Runde über einen Link starten kann, ohne einen großen Client zu installieren.'),
+      section('room-and-pod', 'Raum erstellen und Runde einladen', 'Bereite ein Deck vor, erstelle einen Commander-Raum und teile den Link, wenn alle bereit sind.'),
+      section('manual-decisions', 'Manueller Tisch, echte Commander-Entscheidungen', 'Der Tisch hilft bei Lebenspunkten, Commander-Schaden und Tischstatus, aber Spieler bleiben für Regeln und Entscheidungen verantwortlich.'),
+      section('honest-limits', 'Kostenlose Funktionen, ehrliche Grenzen', 'Aktuelle CommanderZone-Funktionen sind kostenlos nutzbar. CommanderZone verkauft keine offiziellen Magic-Inhalte und dauerhafte Funktionen können ein Konto erfordern.'),
+    ], [
+      feature('Im Browser', 'Spiele ohne große App-Installation.'),
+      feature('Aktuelle Funktionen kostenlos', 'Verfügbare CommanderZone-Funktionen sind derzeit kostenlos nutzbar.'),
+      feature('Keine offiziellen Kartenverkäufe', 'CommanderZone verkauft keine offiziellen digitalen Magic-Karten.'),
+      feature('Manuelles Spiel', 'Spieler behalten die Kontrolle über Commander-Entscheidungen.'),
+    ], [
+      faq('Ist CommanderZone kostenlos?', 'CommanderZone ist derzeit für die verfügbaren Funktionen kostenlos nutzbar.'),
+      faq('Muss ich etwas installieren?', 'Nein. CommanderZone läuft im Browser.'),
+      faq('Muss ich offizielle digitale Karten kaufen?', 'Nein. CommanderZone verkauft keine offiziellen Magic-Inhalte.'),
+      faq('Wendet es Regeln automatisch an?', 'Nein. CommanderZone ist ein manueller Tisch, kein automatischer Regelmotor.'),
+    ]),
+    fr: simpleCopy('Jouer à Commander en ligne gratuitement | CommanderZone', 'Jouez à Commander en ligne gratuitement avec les fonctions actuelles de CommanderZone. Créez des salles et utilisez une table manuelle.', 'Jouer à Commander en ligne gratuitement depuis le navigateur', 'CommanderZone est gratuit pour les fonctions actuellement disponibles. Jouez depuis le navigateur sans téléchargement lourd; certaines fonctions persistantes peuvent demander un compte.', 'Se connecter pour jouer à Commander', 'Ouvrir CommanderZone', [
+      section('no-heavy-install', 'Commencer sans installation lourde', 'CommanderZone fonctionne dans le navigateur, pour que votre groupe démarre depuis un lien sans installer un gros client.'),
+      section('room-and-pod', 'Créer une salle et inviter votre groupe', 'Préparez un deck, créez une salle Commander et partagez le lien quand tout le monde est prêt.'),
+      section('manual-decisions', 'Table manuelle, vraies décisions Commander', 'La table aide à suivre les points de vie, blessures de commandant et état de table, mais les joueurs restent responsables des règles.'),
+      section('honest-limits', 'Fonctions gratuites, limites claires', 'Les fonctions actuelles de CommanderZone sont gratuites. CommanderZone ne vend pas de contenu Magic officiel et certaines fonctions persistantes peuvent demander un compte.'),
+    ], [
+      feature('Dans le navigateur', 'Jouez depuis un navigateur moderne sans téléchargement lourd.'),
+      feature('Fonctions actuelles gratuites', 'Les fonctions disponibles sont actuellement gratuites.'),
+      feature('Pas de vente de cartes officielles', 'CommanderZone ne vend pas de cartes Magic numériques officielles.'),
+      feature('Jeu manuel', 'Les joueurs gardent le contrôle des décisions Commander.'),
+    ], [
+      faq('CommanderZone est-il gratuit ?', 'CommanderZone est actuellement gratuit pour ses fonctions disponibles.'),
+      faq('Dois-je installer quelque chose ?', 'Non. CommanderZone fonctionne dans le navigateur.'),
+      faq('Dois-je acheter des cartes numériques officielles ?', 'Non. CommanderZone ne vend pas de contenu Magic officiel.'),
+      faq('Applique-t-il les règles ?', 'Non. CommanderZone est une table manuelle, pas un moteur de règles automatique.'),
+    ]),
+    pt: simpleCopy('Jogar Commander online grátis no navegador | CommanderZone', 'Jogue Commander online grátis com os recursos atuais do CommanderZone. Crie salas, use uma mesa manual e mantenha limites claros.', 'Jogar Commander online grátis pelo navegador', 'CommanderZone é gratuito para os recursos disponíveis atualmente. Jogue pelo navegador sem download pesado; recursos persistentes podem exigir conta.', 'Entrar para jogar Commander', 'Abrir CommanderZone', [
+      section('no-heavy-install', 'Comece sem instalação pesada', 'CommanderZone funciona no navegador para que seu grupo comece por um link, sem instalar um cliente grande.'),
+      section('room-and-pod', 'Crie uma sala e convide seu pod', 'Prepare um deck, crie uma sala Commander e compartilhe o link quando todos estiverem prontos.'),
+      section('manual-decisions', 'Mesa manual, decisões reais de Commander', 'A mesa ajuda com vida, dano de comandante e estado da mesa, mas os jogadores continuam responsáveis por regras e escolhas.'),
+      section('honest-limits', 'Recursos grátis, limites honestos', 'Os recursos atuais do CommanderZone são gratuitos. CommanderZone não vende conteúdo oficial de Magic e recursos persistentes podem exigir conta.'),
+    ], [
+      feature('No navegador', 'Jogue em um navegador moderno sem download pesado.'),
+      feature('Recursos atuais grátis', 'Os recursos disponíveis atualmente são gratuitos.'),
+      feature('Sem venda de cartas oficiais', 'CommanderZone não vende cartas digitais oficiais de Magic.'),
+      feature('Jogo manual', 'Os jogadores mantêm controle das decisões de Commander.'),
+    ], [
+      faq('CommanderZone é grátis?', 'CommanderZone é atualmente gratuito para os recursos disponíveis.'),
+      faq('Preciso instalar algo?', 'Não. CommanderZone funciona no navegador.'),
+      faq('Preciso comprar cartas digitais oficiais?', 'Não. CommanderZone não vende conteúdo oficial de Magic.'),
+      faq('Ele aplica regras?', 'Não. CommanderZone é uma mesa manual, não um motor automático de regras.'),
+    ]),
+    it: simpleCopy('Giocare Commander online gratis nel browser | CommanderZone', 'Gioca Commander online gratis con le funzioni attuali di CommanderZone. Crea stanze, usa un tavolo manuale e mantieni chiari i limiti.', 'Giocare Commander online gratis dal browser', 'CommanderZone è gratuito per le funzioni attualmente disponibili. Gioca dal browser senza download pesanti; alcune funzioni persistenti possono richiedere un account.', 'Accedi per giocare a Commander', 'Apri CommanderZone', [
+      section('no-heavy-install', 'Inizia senza installazione pesante', 'CommanderZone funziona nel browser, così il tuo pod può partire da un link senza installare un client grande.'),
+      section('room-and-pod', 'Crea una stanza e invita il pod', 'Prepara un mazzo, crea una stanza Commander e condividi il link quando il gruppo è pronto.'),
+      section('manual-decisions', 'Tavolo manuale, vere decisioni Commander', 'Il tavolo aiuta con punti vita, danno da comandante e stato del tavolo, ma regole e scelte restano ai giocatori.'),
+      section('honest-limits', 'Funzioni gratis, limiti chiari', 'Le funzioni attuali di CommanderZone sono gratuite. CommanderZone non vende contenuti Magic ufficiali e alcune funzioni persistenti possono richiedere un account.'),
+    ], [
+      feature('Nel browser', 'Gioca da un browser moderno senza download pesanti.'),
+      feature('Funzioni attuali gratis', 'Le funzioni disponibili sono attualmente gratuite.'),
+      feature('Nessuna vendita di carte ufficiali', 'CommanderZone non vende carte digitali ufficiali di Magic.'),
+      feature('Gioco manuale', 'I giocatori mantengono il controllo delle decisioni Commander.'),
+    ], [
+      faq('CommanderZone è gratis?', 'CommanderZone è attualmente gratuito per le funzioni disponibili.'),
+      faq('Devo installare qualcosa?', 'No. CommanderZone funziona dal browser.'),
+      faq('Devo comprare carte digitali ufficiali?', 'No. CommanderZone non vende contenuti Magic ufficiali.'),
+      faq('Applica le regole?', 'No. CommanderZone è un tavolo manuale, non un motore automatico di regole.'),
+    ]),
+  },
+  playCommanderWithoutWebcam: {
+    en: simpleCopy('Play Commander Online Without Webcam | CommanderZone', 'Play Commander online without a webcam setup. CommanderZone gives your pod a manual browser table for decks, rooms and Commander tracking.', 'Play Commander online without a webcam setup', 'Use a manual digital table in the browser instead of pointing cameras at paper cards. Your pod keeps Commander decisions manual and visible.', 'Sign in and prepare game', 'See SpellTable alternative', [
+      section('no-camera', 'No camera angles, no paper table setup', 'You do not need to position a webcam, adjust lighting or keep a paper battlefield visible to everyone.'),
+      section('browser-table', 'The table lives in the browser', 'CommanderZone gives each player access to a shared digital table connected to rooms, decks, life totals and commander damage.'),
+      section('still-manual', 'Still manual like real Commander', 'CommanderZone does not automate the stack, priority or legal play. Your group keeps control of the game.'),
+      section('remote-pods', 'Good for remote pods', 'It works well for groups that want to play Commander together online without camera hardware or paper table overhead.'),
+    ], [
+      feature('No webcam required', 'Play on a browser table instead of camera video.'),
+      feature('Room-based flow', 'Create a room and invite your pod.'),
+      feature('Commander tracking', 'Keep life totals and commander damage visible.'),
+      feature('Manual control', 'Players make the real game decisions.'),
+    ], [
+      faq('Can I play Commander online without a webcam?', 'Yes. CommanderZone uses a manual digital table in the browser.'),
+      faq('Does CommanderZone replace paper cards on camera?', 'It is a different approach: a browser table instead of webcam paper Magic.'),
+      faq('Does CommanderZone automate rules?', 'No. Players remain responsible for rules, stack, priority and legal choices.'),
+    ]),
+    es: simpleCopy('Jugar Commander online sin webcam | CommanderZone', 'Juega Commander online sin configurar webcam. CommanderZone ofrece una mesa manual en navegador para mazos, salas y seguimiento Commander.', 'Jugar Commander online sin configurar webcam', 'Usa una mesa digital manual en el navegador en lugar de apuntar cámaras a cartas físicas. Tu pod mantiene las decisiones de Commander visibles y manuales.', 'Entrar y preparar partida', 'Ver alternativa a SpellTable', [
+      section('no-camera', 'Sin ángulos de cámara ni setup físico', 'No necesitas colocar una webcam, ajustar luces ni mantener visible una mesa de papel para todos.'),
+      section('browser-table', 'La mesa vive en el navegador', 'CommanderZone da a cada jugador una mesa digital compartida conectada a salas, mazos, vidas y daño de comandante.'),
+      section('still-manual', 'Sigue siendo manual como Commander real', 'CommanderZone no automatiza pila, prioridad ni jugadas legales. El grupo mantiene el control de la partida.'),
+      section('remote-pods', 'Útil para pods remotos', 'Funciona bien para grupos que quieren jugar Commander online sin hardware de cámara ni setup físico.'),
+    ], [
+      feature('Sin webcam', 'Juega en una mesa de navegador en lugar de vídeo de cámara.'),
+      feature('Flujo por salas', 'Crea una sala e invita a tu pod.'),
+      feature('Seguimiento Commander', 'Mantén visibles vidas y daño de comandante.'),
+      feature('Control manual', 'Los jugadores toman las decisiones reales de partida.'),
+    ], [
+      faq('¿Puedo jugar Commander online sin webcam?', 'Sí. CommanderZone usa una mesa digital manual en el navegador.'),
+      faq('¿CommanderZone sustituye a cartas físicas por cámara?', 'Es un enfoque diferente: mesa en navegador en lugar de Magic físico por webcam.'),
+      faq('¿CommanderZone automatiza reglas?', 'No. Los jugadores siguen siendo responsables de reglas, pila, prioridad y decisiones legales.'),
+    ]),
+    de: simpleCopy('Commander online ohne Webcam spielen | CommanderZone', 'Spiele Commander online ohne Webcam-Setup. CommanderZone bietet deiner Runde einen manuellen Browser-Tisch für Decks, Räume und Commander-Tracking.', 'Commander online ohne Webcam-Setup spielen', 'Nutze einen manuellen digitalen Tisch im Browser, statt Kameras auf Papierkarten zu richten. Deine Runde behält Commander-Entscheidungen selbst in der Hand.', 'Einloggen und Partie vorbereiten', 'SpellTable Alternative ansehen', [
+      section('no-camera', 'Keine Kamerawinkel, kein Paper-Setup', 'Du musst keine Webcam ausrichten, Licht anpassen oder ein Papier-Spielfeld sichtbar halten.'),
+      section('browser-table', 'Der Tisch läuft im Browser', 'CommanderZone gibt jedem Spieler Zugang zu einem gemeinsamen digitalen Tisch mit Räumen, Decks, Lebenspunkten und Commander-Schaden.'),
+      section('still-manual', 'Weiterhin manuell wie echtes Commander', 'CommanderZone automatisiert weder Stack noch Priorität oder legale Spielzüge. Die Gruppe behält die Kontrolle.'),
+      section('remote-pods', 'Gut für entfernte Runden', 'Es passt für Gruppen, die online Commander spielen wollen, ohne Kamera-Hardware oder Papier-Setup.'),
+    ], [
+      feature('Keine Webcam nötig', 'Spiele an einem Browser-Tisch statt per Kameravideo.'),
+      feature('Räume und Einladungen', 'Erstelle einen Raum und lade deine Runde ein.'),
+      feature('Commander-Tracking', 'Halte Lebenspunkte und Commander-Schaden sichtbar.'),
+      feature('Manuelle Kontrolle', 'Spieler treffen die echten Spielentscheidungen.'),
+    ], [
+      faq('Kann ich Commander online ohne Webcam spielen?', 'Ja. CommanderZone nutzt einen manuellen digitalen Tisch im Browser.'),
+      faq('Ersetzt CommanderZone Papierkarten vor der Kamera?', 'Es ist ein anderer Ansatz: Browser-Tisch statt Paper Magic per Webcam.'),
+      faq('Automatisiert CommanderZone Regeln?', 'Nein. Spieler bleiben für Regeln, Stack, Priorität und legale Entscheidungen verantwortlich.'),
+    ]),
+    fr: simpleCopy('Jouer à Commander en ligne sans webcam | CommanderZone', 'Jouez à Commander en ligne sans configuration webcam. CommanderZone propose une table manuelle dans le navigateur pour decks et salles.', 'Jouer à Commander en ligne sans configuration webcam', 'Utilisez une table numérique manuelle dans le navigateur au lieu de pointer des caméras vers des cartes papier. Votre groupe garde les décisions Commander en main.', 'Se connecter et préparer une partie', 'Voir l’alternative à SpellTable', [
+      section('no-camera', 'Pas d’angles caméra ni de table papier à installer', 'Vous n’avez pas besoin de placer une webcam, régler la lumière ou garder un champ de bataille papier visible.'),
+      section('browser-table', 'La table vit dans le navigateur', 'CommanderZone donne à chaque joueur une table numérique partagée reliée aux salles, decks, points de vie et blessures de commandant.'),
+      section('still-manual', 'Toujours manuel comme Commander réel', 'CommanderZone n’automatise pas la pile, la priorité ni les actions légales. Le groupe garde le contrôle.'),
+      section('remote-pods', 'Adapté aux groupes à distance', 'Cela convient aux groupes qui veulent jouer à Commander en ligne sans caméra ni installation de table papier.'),
+    ], [
+      feature('Pas de webcam requise', 'Jouez sur une table de navigateur plutôt qu’en vidéo caméra.'),
+      feature('Salles et invitations', 'Créez une salle et invitez votre groupe.'),
+      feature('Suivi Commander', 'Gardez points de vie et blessures de commandant visibles.'),
+      feature('Contrôle manuel', 'Les joueurs prennent les vraies décisions de partie.'),
+    ], [
+      faq('Puis-je jouer à Commander en ligne sans webcam ?', 'Oui. CommanderZone utilise une table numérique manuelle dans le navigateur.'),
+      faq('CommanderZone remplace-t-il les cartes papier à la caméra ?', 'C’est une approche différente : une table dans le navigateur plutôt que Magic papier par webcam.'),
+      faq('CommanderZone automatise-t-il les règles ?', 'Non. Les joueurs restent responsables des règles, de la pile, de la priorité et des décisions légales.'),
+    ]),
+    pt: simpleCopy('Jogar Commander online sem webcam | CommanderZone', 'Jogue Commander online sem configurar webcam. CommanderZone oferece uma mesa manual no navegador para decks, salas e acompanhamento Commander.', 'Jogar Commander online sem configurar webcam', 'Use uma mesa digital manual no navegador em vez de apontar câmeras para cartas físicas. Seu grupo mantém as decisões de Commander manuais e visíveis.', 'Entrar e preparar partida', 'Ver alternativa ao SpellTable', [
+      section('no-camera', 'Sem ângulos de câmera nem setup físico', 'Você não precisa posicionar webcam, ajustar luz ou manter uma mesa de papel visível para todos.'),
+      section('browser-table', 'A mesa fica no navegador', 'CommanderZone dá a cada jogador acesso a uma mesa digital compartilhada com salas, decks, vida e dano de comandante.'),
+      section('still-manual', 'Continua manual como Commander real', 'CommanderZone não automatiza pilha, prioridade nem jogadas legais. O grupo mantém controle da partida.'),
+      section('remote-pods', 'Bom para pods remotos', 'Funciona bem para grupos que querem jogar Commander online sem hardware de câmera ou setup físico.'),
+    ], [
+      feature('Sem webcam', 'Jogue em uma mesa de navegador em vez de vídeo por câmera.'),
+      feature('Fluxo por salas', 'Crie uma sala e convide seu pod.'),
+      feature('Acompanhamento Commander', 'Mantenha vida e dano de comandante visíveis.'),
+      feature('Controle manual', 'Os jogadores tomam as decisões reais da partida.'),
+    ], [
+      faq('Posso jogar Commander online sem webcam?', 'Sim. CommanderZone usa uma mesa digital manual no navegador.'),
+      faq('CommanderZone substitui cartas físicas na câmera?', 'É uma abordagem diferente: mesa no navegador em vez de Magic físico por webcam.'),
+      faq('CommanderZone automatiza regras?', 'Não. Os jogadores continuam responsáveis por regras, pilha, prioridade e decisões legais.'),
+    ]),
+    it: simpleCopy('Giocare Commander online senza webcam | CommanderZone', 'Gioca Commander online senza configurare webcam. CommanderZone offre un tavolo manuale nel browser per mazzi, stanze e monitoraggio Commander.', 'Giocare Commander online senza configurare una webcam', 'Usa un tavolo digitale manuale nel browser invece di puntare camere sulle carte fisiche. Il tuo pod mantiene manuali e visibili le decisioni Commander.', 'Accedi e prepara la partita', 'Vedi alternativa a SpellTable', [
+      section('no-camera', 'Niente angoli camera, niente setup fisico', 'Non devi posizionare una webcam, regolare luci o tenere visibile un campo di battaglia cartaceo.'),
+      section('browser-table', 'Il tavolo vive nel browser', 'CommanderZone dà a ogni giocatore accesso a un tavolo digitale condiviso con stanze, mazzi, punti vita e danno da comandante.'),
+      section('still-manual', 'Sempre manuale come Commander reale', 'CommanderZone non automatizza pila, priorità o giocate legali. Il gruppo mantiene il controllo.'),
+      section('remote-pods', 'Utile per pod remoti', 'Funziona bene per gruppi che vogliono giocare Commander online senza hardware camera o setup fisico.'),
+    ], [
+      feature('Senza webcam', 'Gioca su un tavolo nel browser invece che via video camera.'),
+      feature('Flusso con stanze', 'Crea una stanza e invita il tuo pod.'),
+      feature('Monitoraggio Commander', 'Mantieni visibili punti vita e danno da comandante.'),
+      feature('Controllo manuale', 'I giocatori prendono le vere decisioni di partita.'),
+    ], [
+      faq('Posso giocare Commander online senza webcam?', 'Sì. CommanderZone usa un tavolo digitale manuale nel browser.'),
+      faq('CommanderZone sostituisce le carte fisiche in camera?', 'È un approccio diverso: tavolo nel browser invece di Magic cartaceo via webcam.'),
+      faq('CommanderZone automatizza le regole?', 'No. I giocatori restano responsabili di regole, pila, priorità e decisioni legali.'),
+    ]),
+  },
+  playEdhOnline: {
+    en: simpleCopy('Play EDH Online with Your Commander Pod | CommanderZone', 'Play EDH online with your Commander pod using a manual browser table for rooms, decks, life totals and commander damage.', 'Play EDH online with a manual Commander table', 'EDH is the community name many players still use for Commander. CommanderZone gives your group a manual digital table for playing together online.', 'Sign in to play EDH', 'Play Commander online', [
+      section('edh-name', 'EDH and Commander mean the same table need', 'EDH is the community name many players still use for Commander. The game still needs clear life totals, commander damage and table state.'),
+      section('browser-room', 'Create a room for your pod', 'Prepare your deck, open a room and invite the players who are joining the game.'),
+      section('manual-table', 'Manual table for social games', 'CommanderZone does not automate the game. Players handle triggers, stack, priority and legal decisions.'),
+      section('long-games', 'Built for multiplayer sessions', 'EDH games can be long and political, so the table keeps key information visible while the pod plays.'),
+    ], [
+      feature('EDH-friendly flow', 'Prepare decks, rooms and multiplayer tables.'),
+      feature('Commander damage', 'Track the format-specific damage that matters.'),
+      feature('Browser table', 'Play online without a heavy app install.'),
+      feature('Manual decisions', 'Players keep control of the game.'),
+    ], [
+      faq('Is EDH the same as Commander?', 'EDH is the community name many players still use for Commander.'),
+      faq('Can I play EDH online in CommanderZone?', 'Yes. CommanderZone is built for manual Commander pods online.'),
+      faq('Does CommanderZone enforce EDH rules?', 'No. It is a manual table, so players remain responsible for rules and choices.'),
+    ]),
+    es: simpleCopy('Jugar EDH online con tu grupo de Commander | CommanderZone', 'Juega EDH online con tu grupo usando una mesa manual en navegador para salas, mazos, vidas y daño de comandante.', 'Jugar EDH online con una mesa manual de Commander', 'EDH es el nombre comunitario que muchos jugadores siguen usando para Commander. CommanderZone da a tu grupo una mesa digital manual para jugar online.', 'Entrar y jugar EDH', 'Jugar Commander online', [
+      section('edh-name', 'EDH y Commander necesitan una mesa clara', 'EDH es el nombre comunitario que muchos jugadores siguen usando para Commander. La partida sigue necesitando vidas, daño de comandante y estado de mesa claros.'),
+      section('browser-room', 'Crea una sala para tu pod', 'Prepara tu mazo, abre una sala e invita a los jugadores que van a entrar en partida.'),
+      section('manual-table', 'Mesa manual para partidas sociales', 'CommanderZone no automatiza la partida. Los jugadores gestionan triggers, pila, prioridad y decisiones legales.'),
+      section('long-games', 'Pensado para sesiones multijugador', 'Las partidas EDH pueden ser largas y políticas, así que la mesa mantiene visible la información importante.'),
+    ], [
+      feature('Flujo para EDH', 'Prepara mazos, salas y mesas multijugador.'),
+      feature('Daño de comandante', 'Controla el daño específico del formato.'),
+      feature('Mesa en navegador', 'Juega online sin instalación pesada.'),
+      feature('Decisiones manuales', 'Los jugadores mantienen el control de la partida.'),
+    ], [
+      faq('¿EDH es lo mismo que Commander?', 'EDH es el nombre comunitario que muchos jugadores siguen usando para Commander.'),
+      faq('¿Puedo jugar EDH online en CommanderZone?', 'Sí. CommanderZone está pensado para pods manuales de Commander online.'),
+      faq('¿CommanderZone aplica reglas de EDH?', 'No. Es una mesa manual, así que los jugadores siguen siendo responsables de reglas y decisiones.'),
+    ]),
+    de: simpleCopy('EDH online mit deiner Commander-Runde spielen | CommanderZone', 'Spiele EDH online mit deiner Commander-Runde an einem manuellen Browser-Tisch für Räume, Decks, Lebenspunkte und Commander-Schaden.', 'EDH online an einem manuellen Commander-Tisch spielen', 'EDH ist der Community-Name, den viele Spieler weiterhin für Commander verwenden. CommanderZone gibt deiner Runde einen manuellen digitalen Tisch für Online-Partien.', 'Einloggen und EDH spielen', 'Commander online spielen', [
+      section('edh-name', 'EDH und Commander brauchen denselben klaren Tisch', 'EDH ist der Community-Name, den viele Spieler weiterhin für Commander verwenden. Die Partie braucht weiterhin Lebenspunkte, Commander-Schaden und Tischstatus.'),
+      section('browser-room', 'Erstelle einen Raum für deine Runde', 'Bereite dein Deck vor, öffne einen Raum und lade die Spieler ein, die mitspielen.'),
+      section('manual-table', 'Manueller Tisch für soziale Partien', 'CommanderZone automatisiert die Partie nicht. Spieler verwalten Trigger, Stack, Priorität und legale Entscheidungen.'),
+      section('long-games', 'Für Multiplayer-Sessions gedacht', 'EDH-Partien können lang und politisch sein, deshalb hält der Tisch wichtige Informationen sichtbar.'),
+    ], [
+      feature('EDH-tauglicher Ablauf', 'Bereite Decks, Räume und Multiplayer-Tische vor.'),
+      feature('Commander-Schaden', 'Verfolge den formatspezifischen Schaden.'),
+      feature('Browser-Tisch', 'Spiele online ohne große Installation.'),
+      feature('Manuelle Entscheidungen', 'Spieler behalten die Kontrolle.'),
+    ], [
+      faq('Ist EDH dasselbe wie Commander?', 'EDH ist der Community-Name, den viele Spieler weiterhin für Commander verwenden.'),
+      faq('Kann ich EDH online in CommanderZone spielen?', 'Ja. CommanderZone ist für manuelle Commander-Runden online gedacht.'),
+      faq('Wendet CommanderZone EDH-Regeln an?', 'Nein. Es ist ein manueller Tisch, daher bleiben Spieler für Regeln und Entscheidungen verantwortlich.'),
+    ]),
+    fr: simpleCopy('Jouer à EDH en ligne avec votre groupe Commander | CommanderZone', 'Jouez à EDH en ligne avec votre groupe sur une table manuelle dans le navigateur pour salles, decks, vie et blessures de commandant.', 'Jouer à EDH en ligne sur une table Commander manuelle', 'EDH est le nom communautaire que de nombreux joueurs utilisent encore pour Commander. CommanderZone donne à votre groupe une table numérique manuelle pour jouer en ligne.', 'Se connecter pour jouer à EDH', 'Jouer à Commander en ligne', [
+      section('edh-name', 'EDH et Commander demandent une table claire', 'EDH est le nom communautaire que de nombreux joueurs utilisent encore pour Commander. La partie a toujours besoin de points de vie, blessures de commandant et état de table clairs.'),
+      section('browser-room', 'Créer une salle pour votre groupe', 'Préparez votre deck, ouvrez une salle et invitez les joueurs qui participent.'),
+      section('manual-table', 'Table manuelle pour parties sociales', 'CommanderZone n’automatise pas la partie. Les joueurs gèrent triggers, pile, priorité et décisions légales.'),
+      section('long-games', 'Pensé pour les sessions multijoueurs', 'Les parties EDH peuvent être longues et politiques, donc la table garde les informations importantes visibles.'),
+    ], [
+      feature('Flux adapté à EDH', 'Préparez decks, salles et tables multijoueurs.'),
+      feature('Blessures de commandant', 'Suivez les dégâts spécifiques au format.'),
+      feature('Table dans le navigateur', 'Jouez en ligne sans installation lourde.'),
+      feature('Décisions manuelles', 'Les joueurs gardent le contrôle.'),
+    ], [
+      faq('EDH est-il la même chose que Commander ?', 'EDH est le nom communautaire que de nombreux joueurs utilisent encore pour Commander.'),
+      faq('Puis-je jouer à EDH en ligne dans CommanderZone ?', 'Oui. CommanderZone est conçu pour des groupes Commander manuels en ligne.'),
+      faq('CommanderZone applique-t-il les règles EDH ?', 'Non. C’est une table manuelle, donc les joueurs restent responsables des règles et décisions.'),
+    ]),
+    pt: simpleCopy('Jogar EDH online com seu grupo de Commander | CommanderZone', 'Jogue EDH online com seu grupo em uma mesa manual no navegador para salas, decks, vida e dano de comandante.', 'Jogar EDH online em uma mesa manual de Commander', 'EDH é o nome comunitário que muitos jogadores ainda usam para Commander. CommanderZone dá ao seu grupo uma mesa digital manual para jogar online.', 'Entrar para jogar EDH', 'Jogar Commander online', [
+      section('edh-name', 'EDH e Commander precisam da mesma mesa clara', 'EDH é o nome comunitário que muitos jogadores ainda usam para Commander. A partida ainda precisa de vida, dano de comandante e estado da mesa claros.'),
+      section('browser-room', 'Crie uma sala para seu pod', 'Prepare seu deck, abra uma sala e convide os jogadores que vão participar.'),
+      section('manual-table', 'Mesa manual para partidas sociais', 'CommanderZone não automatiza a partida. Os jogadores gerenciam triggers, pilha, prioridade e decisões legais.'),
+      section('long-games', 'Feito para sessões multiplayer', 'Partidas EDH podem ser longas e políticas, então a mesa mantém informações importantes visíveis.'),
+    ], [
+      feature('Fluxo para EDH', 'Prepare decks, salas e mesas multiplayer.'),
+      feature('Dano de comandante', 'Acompanhe o dano específico do formato.'),
+      feature('Mesa no navegador', 'Jogue online sem instalação pesada.'),
+      feature('Decisões manuais', 'Os jogadores mantêm o controle.'),
+    ], [
+      faq('EDH é o mesmo que Commander?', 'EDH é o nome comunitário que muitos jogadores ainda usam para Commander.'),
+      faq('Posso jogar EDH online no CommanderZone?', 'Sim. CommanderZone foi feito para pods manuais de Commander online.'),
+      faq('CommanderZone aplica regras de EDH?', 'Não. É uma mesa manual, então os jogadores continuam responsáveis por regras e decisões.'),
+    ]),
+    it: simpleCopy('Giocare EDH online con il tuo gruppo Commander | CommanderZone', 'Gioca EDH online con il tuo gruppo su un tavolo manuale nel browser per stanze, mazzi, punti vita e danno da comandante.', 'Giocare EDH online con un tavolo Commander manuale', 'EDH è il nome usato dalla community che molti giocatori usano ancora per Commander. CommanderZone offre al gruppo un tavolo digitale manuale per giocare online.', 'Accedi per giocare a EDH', 'Giocare Commander online', [
+      section('edh-name', 'EDH e Commander hanno bisogno dello stesso tavolo chiaro', 'EDH è il nome usato dalla community che molti giocatori usano ancora per Commander. La partita ha comunque bisogno di punti vita, danno da comandante e stato del tavolo chiari.'),
+      section('browser-room', 'Crea una stanza per il pod', 'Prepara il mazzo, apri una stanza e invita i giocatori che partecipano.'),
+      section('manual-table', 'Tavolo manuale per partite sociali', 'CommanderZone non automatizza la partita. I giocatori gestiscono trigger, pila, priorità e decisioni legali.'),
+      section('long-games', 'Pensato per sessioni multiplayer', 'Le partite EDH possono essere lunghe e politiche, quindi il tavolo mantiene visibili le informazioni importanti.'),
+    ], [
+      feature('Flusso per EDH', 'Prepara mazzi, stanze e tavoli multiplayer.'),
+      feature('Danno da comandante', 'Segui il danno specifico del formato.'),
+      feature('Tavolo nel browser', 'Gioca online senza installazione pesante.'),
+      feature('Decisioni manuali', 'I giocatori mantengono il controllo.'),
+    ], [
+      faq('EDH è lo stesso di Commander?', 'EDH è il nome usato dalla community che molti giocatori usano ancora per Commander.'),
+      faq('Posso giocare EDH online in CommanderZone?', 'Sì. CommanderZone è pensato per pod Commander manuali online.'),
+      faq('CommanderZone applica le regole EDH?', 'No. È un tavolo manuale, quindi i giocatori restano responsabili di regole e decisioni.'),
+    ]),
+  },
+  commanderSimulator: {
+    en: simpleCopy('MTG Commander Simulator for Manual Online Pods | CommanderZone', 'Use CommanderZone as a manual MTG Commander simulator for online pods. Track table state, life totals and commander damage in the browser.', 'A manual MTG Commander simulator for online pods', 'CommanderZone is a manual simulator and digital table for Commander pods. It helps track table state, life totals and commander damage without becoming a full rules simulator.', 'Open the manual simulator', 'See free Commander play', [
+      section('manual-simulator', 'Manual simulator, not a full rules simulator', 'CommanderZone does not resolve the stack, priority or legal play for you. Players stay responsible for Commander decisions.'),
+      section('digital-table', 'Digital table state in the browser', 'Your pod can keep battlefield information, life totals and commander damage visible in one shared place.'),
+      section('rooms-and-decks', 'Rooms connected to decks', 'Prepare decks, create rooms and move into a manual Commander table when the group is ready.'),
+      section('paper-support', 'Useful online or around a physical table', 'The same focus on table state also helps when your group wants a life counter and commander damage tracker for paper games.'),
+    ], [
+      feature('Manual simulator', 'Models table state without automating rules.'),
+      feature('Life totals', 'Keep player life totals visible.'),
+      feature('Commander damage', 'Track damage between commanders and players.'),
+      feature('Browser-based', 'Use the table from a modern browser.'),
+    ], [
+      faq('Is CommanderZone a full MTG rules simulator?', 'No. CommanderZone is a manual simulator and digital table, not a full rules simulator.'),
+      faq('What does the simulator track?', 'It helps track table state, life totals, commander damage and multiplayer information.'),
+      faq('Does CommanderZone automate gameplay?', 'No. Players handle rules, triggers, priority, stack and legal decisions.'),
+    ]),
+    es: simpleCopy('Simulador Commander MTG para partidas online manuales | CommanderZone', 'Usa CommanderZone como simulador Commander MTG manual para pods online. Controla estado de mesa, vidas y daño de comandante en navegador.', 'Un simulador Commander MTG manual para pods online', 'CommanderZone es un simulador manual y mesa digital para pods Commander. Ayuda a controlar estado de mesa, vidas y daño de comandante sin convertirse en motor completo de reglas.', 'Entrar al simulador manual', 'Ver Commander gratis', [
+      section('manual-simulator', 'Simulador manual, no simulador completo de reglas', 'CommanderZone no resuelve pila, prioridad ni jugadas legales por ti. Los jugadores siguen siendo responsables de las decisiones de Commander.'),
+      section('digital-table', 'Estado de mesa digital en el navegador', 'Tu pod puede mantener visibles battlefield, vidas y daño de comandante en un lugar compartido.'),
+      section('rooms-and-decks', 'Salas conectadas a mazos', 'Prepara mazos, crea salas y pasa a una mesa manual de Commander cuando el grupo esté listo.'),
+      section('paper-support', 'Útil online o en mesa física', 'El mismo foco en estado de mesa ayuda cuando el grupo quiere contador de vidas y daño de comandante para partidas físicas.'),
+    ], [
+      feature('Simulador manual', 'Modela estado de mesa sin automatizar reglas.'),
+      feature('Vidas', 'Mantén visibles los totales de vida.'),
+      feature('Daño de comandante', 'Controla daño entre comandantes y jugadores.'),
+      feature('En navegador', 'Usa la mesa desde un navegador moderno.'),
+    ], [
+      faq('¿CommanderZone es un simulador completo de reglas MTG?', 'No. CommanderZone es un simulador manual y mesa digital, no un simulador completo de reglas.'),
+      faq('¿Qué controla el simulador?', 'Ayuda a controlar estado de mesa, vidas, daño de comandante e información multijugador.'),
+      faq('¿CommanderZone automatiza la partida?', 'No. Los jugadores gestionan reglas, triggers, prioridad, pila y decisiones legales.'),
+    ]),
+    de: simpleCopy('MTG Commander Simulator für manuelle Online-Runden | CommanderZone', 'Nutze CommanderZone als manuellen MTG Commander Simulator für Online-Runden. Verfolge Tischstatus, Lebenspunkte und Commander-Schaden im Browser.', 'Ein manueller MTG Commander Simulator für Online-Runden', 'CommanderZone ist ein manueller Simulator und digitaler Tisch für Commander-Runden. Er hilft bei Tischstatus, Lebenspunkten und Commander-Schaden, ohne ein vollständiger Regel-Simulator zu sein.', 'Manuellen Simulator öffnen', 'Commander kostenlos ansehen', [
+      section('manual-simulator', 'Manueller Simulator, kein vollständiger Regel-Simulator', 'CommanderZone löst Stack, Priorität oder legale Spielzüge nicht für dich. Spieler bleiben für Commander-Entscheidungen verantwortlich.'),
+      section('digital-table', 'Digitaler Tischstatus im Browser', 'Deine Runde kann Battlefield-Informationen, Lebenspunkte und Commander-Schaden an einem gemeinsamen Ort sichtbar halten.'),
+      section('rooms-and-decks', 'Räume mit Decks verbunden', 'Bereite Decks vor, erstelle Räume und wechsle an einen manuellen Commander-Tisch, wenn die Gruppe bereit ist.'),
+      section('paper-support', 'Online oder am physischen Tisch nützlich', 'Der Fokus auf Tischstatus hilft auch, wenn deine Gruppe Lebenspunkte und Commander-Schaden bei Papierpartien verfolgen möchte.'),
+    ], [
+      feature('Manueller Simulator', 'Bildet Tischstatus ab, ohne Regeln zu automatisieren.'),
+      feature('Lebenspunkte', 'Halte Lebenspunkte sichtbar.'),
+      feature('Commander-Schaden', 'Verfolge Schaden zwischen Commandern und Spielern.'),
+      feature('Im Browser', 'Nutze den Tisch in einem modernen Browser.'),
+    ], [
+      faq('Ist CommanderZone ein vollständiger MTG-Regel-Simulator?', 'Nein. CommanderZone ist ein manueller Simulator und digitaler Tisch, kein vollständiger Regel-Simulator.'),
+      faq('Was verfolgt der Simulator?', 'Er hilft bei Tischstatus, Lebenspunkten, Commander-Schaden und Multiplayer-Informationen.'),
+      faq('Automatisiert CommanderZone die Partie?', 'Nein. Spieler verwalten Regeln, Trigger, Priorität, Stack und legale Entscheidungen.'),
+    ]),
+    fr: simpleCopy('Simulateur Commander MTG pour parties en ligne manuelles | CommanderZone', 'Utilisez CommanderZone comme simulateur Commander MTG manuel pour groupes en ligne. Suivez état de table, points de vie et blessures de commandant.', 'Un simulateur Commander MTG manuel pour groupes en ligne', 'CommanderZone est un simulateur manuel et une table numérique pour groupes Commander. Il aide à suivre état de table, points de vie et blessures de commandant sans devenir un moteur complet de règles.', 'Ouvrir le simulateur manuel', 'Voir Commander gratuit', [
+      section('manual-simulator', 'Simulateur manuel, pas simulateur complet de règles', 'CommanderZone ne résout pas la pile, la priorité ni les actions légales pour vous. Les joueurs restent responsables des décisions Commander.'),
+      section('digital-table', 'État de table numérique dans le navigateur', 'Votre groupe peut garder les informations de champ de bataille, points de vie et blessures de commandant visibles au même endroit.'),
+      section('rooms-and-decks', 'Salles reliées aux decks', 'Préparez des decks, créez des salles et passez sur une table Commander manuelle quand le groupe est prêt.'),
+      section('paper-support', 'Utile en ligne ou autour d’une table physique', 'Le même suivi de table aide aussi quand le groupe veut un compteur de vie et blessures de commandant pour le papier.'),
+    ], [
+      feature('Simulateur manuel', 'Modélise l’état de table sans automatiser les règles.'),
+      feature('Points de vie', 'Gardez les totaux de vie visibles.'),
+      feature('Blessures de commandant', 'Suivez les blessures entre commandants et joueurs.'),
+      feature('Dans le navigateur', 'Utilisez la table depuis un navigateur moderne.'),
+    ], [
+      faq('CommanderZone est-il un simulateur complet de règles MTG ?', 'Non. CommanderZone est un simulateur manuel et une table numérique, pas un simulateur complet de règles.'),
+      faq('Que suit le simulateur ?', 'Il aide à suivre l’état de table, les points de vie, les blessures de commandant et les informations multijoueurs.'),
+      faq('CommanderZone automatise-t-il la partie ?', 'Non. Les joueurs gèrent règles, triggers, priorité, pile et décisions légales.'),
+    ]),
+    pt: simpleCopy('Simulador Commander MTG para partidas online manuais | CommanderZone', 'Use CommanderZone como simulador Commander MTG manual para grupos online. Acompanhe estado da mesa, vida e dano de comandante no navegador.', 'Um simulador Commander MTG manual para grupos online', 'CommanderZone é um simulador manual e mesa digital para grupos Commander. Ele ajuda a acompanhar estado da mesa, vida e dano de comandante sem virar motor completo de regras.', 'Abrir o simulador manual', 'Ver Commander grátis', [
+      section('manual-simulator', 'Simulador manual, não simulador completo de regras', 'CommanderZone não resolve pilha, prioridade nem jogadas legais por você. Os jogadores continuam responsáveis pelas decisões de Commander.'),
+      section('digital-table', 'Estado da mesa digital no navegador', 'Seu grupo pode manter informações de campo, vida e dano de comandante visíveis em um lugar compartilhado.'),
+      section('rooms-and-decks', 'Salas conectadas aos decks', 'Prepare decks, crie salas e entre em uma mesa manual de Commander quando o grupo estiver pronto.'),
+      section('paper-support', 'Útil online ou na mesa física', 'O mesmo foco em estado da mesa ajuda quando o grupo quer contador de vida e dano de comandante para partidas presenciais.'),
+    ], [
+      feature('Simulador manual', 'Modela estado da mesa sem automatizar regras.'),
+      feature('Vida', 'Mantenha totais de vida visíveis.'),
+      feature('Dano de comandante', 'Acompanhe dano entre comandantes e jogadores.'),
+      feature('No navegador', 'Use a mesa em um navegador moderno.'),
+    ], [
+      faq('CommanderZone é um simulador completo de regras MTG?', 'Não. CommanderZone é um simulador manual e mesa digital, não um simulador completo de regras.'),
+      faq('O que o simulador acompanha?', 'Ele ajuda a acompanhar estado da mesa, vida, dano de comandante e informações multiplayer.'),
+      faq('CommanderZone automatiza a partida?', 'Não. Os jogadores gerenciam regras, triggers, prioridade, pilha e decisões legais.'),
+    ]),
+    it: simpleCopy('Simulatore Commander MTG per partite online manuali | CommanderZone', 'Usa CommanderZone come simulatore Commander MTG manuale per pod online. Segui stato del tavolo, punti vita e danno da comandante nel browser.', 'Un simulatore Commander MTG manuale per pod online', 'CommanderZone è un simulatore manuale e tavolo digitale per pod Commander. Aiuta a seguire stato del tavolo, punti vita e danno da comandante senza diventare un motore completo di regole.', 'Apri il simulatore manuale', 'Vedi Commander gratis', [
+      section('manual-simulator', 'Simulatore manuale, non simulatore completo di regole', 'CommanderZone non risolve pila, priorità o giocate legali per te. I giocatori restano responsabili delle decisioni Commander.'),
+      section('digital-table', 'Stato del tavolo digitale nel browser', 'Il tuo pod può tenere visibili informazioni del campo, punti vita e danno da comandante in un posto condiviso.'),
+      section('rooms-and-decks', 'Stanze collegate ai mazzi', 'Prepara mazzi, crea stanze e passa a un tavolo Commander manuale quando il gruppo è pronto.'),
+      section('paper-support', 'Utile online o al tavolo fisico', 'Lo stesso focus sullo stato del tavolo aiuta quando il gruppo vuole segnapunti e danno da comandante per partite dal vivo.'),
+    ], [
+      feature('Simulatore manuale', 'Modella lo stato del tavolo senza automatizzare regole.'),
+      feature('Punti vita', 'Mantieni visibili i punti vita.'),
+      feature('Danno da comandante', 'Segui il danno tra comandanti e giocatori.'),
+      feature('Nel browser', 'Usa il tavolo da un browser moderno.'),
+    ], [
+      faq('CommanderZone è un simulatore completo di regole MTG?', 'No. CommanderZone è un simulatore manuale e tavolo digitale, non un simulatore completo di regole.'),
+      faq('Cosa segue il simulatore?', 'Aiuta a seguire stato del tavolo, punti vita, danno da comandante e informazioni multiplayer.'),
+      faq('CommanderZone automatizza la partita?', 'No. I giocatori gestiscono regole, trigger, priorità, pila e decisioni legali.'),
+    ]),
+  },
   faq: {
     es: faqCopy('FAQ CommanderZone | Preguntas frecuentes', 'Resuelve dudas sobre CommanderZone: preparar mazos, jugar Commander online, crear salas, importar mazos y usar el Asistente de mesa.', 'Preguntas frecuentes sobre CommanderZone', 'Respuestas claras sobre cómo preparar tu mazo, crear una sala y jugar Commander online o usar CommanderZone en partidas físicas.', 'Preparar mazo y jugar', 'Jugar Commander online', [
       ...MAIN_FAQ_ITEMS.es,
@@ -973,39 +1548,6 @@ const LANDING_COPY = {
     ]),
   },
 } as const satisfies Record<SeoRouteKey, Record<PriorityLocaleCode, LandingCopy>>;
-
-const TABLE_ASSISTANT_SEO_COPY = {
-  en: {
-    metaTitle: 'Commander Life Counter for MTG Pods | CommanderZone',
-    metaDescription: 'Use CommanderZone as a Commander life counter for paper MTG Commander games. Track life totals, commander damage and game state from your phone or tablet.',
-    h1: 'Commander life counter for long multiplayer games',
-  },
-  es: {
-    metaTitle: 'Contador de vidas Commander MTG | CommanderZone',
-    metaDescription: 'Usa CommanderZone como contador de vidas para partidas físicas de Commander MTG. Controla vidas, daño de comandante y estado de la partida desde móvil o tablet.',
-    h1: 'Contador de vidas para partidas largas de Commander',
-  },
-  de: {
-    metaTitle: 'Commander Life Counter für MTG-Runden | CommanderZone',
-    metaDescription: 'Nutze CommanderZone als Life Counter für physische MTG-Commander-Partien. Zähle Lebenspunkte, Commander-Schaden und Spielstatus auf Smartphone oder Tablet.',
-    h1: 'Commander Life Counter für lange Multiplayer-Partien',
-  },
-  fr: {
-    metaTitle: 'Compteur de vie Commander MTG | CommanderZone',
-    metaDescription: 'Utilisez CommanderZone comme compteur de vie pour vos parties physiques Commander MTG. Suivez les points de vie, les blessures de commandant et l’état de la partie sur mobile ou tablette.',
-    h1: 'Compteur de vie Commander pour longues parties multijoueurs',
-  },
-  pt: {
-    metaTitle: 'Contador de vida Commander MTG | CommanderZone',
-    metaDescription: 'Use CommanderZone como contador de vida para partidas físicas de Commander MTG. Controle vida, dano de comandante e estado da partida pelo celular ou tablet.',
-    h1: 'Contador de vida Commander para partidas multiplayer longas',
-  },
-  it: {
-    metaTitle: 'Contatore vite Commander MTG | CommanderZone',
-    metaDescription: 'Usa CommanderZone come contatore vite per partite fisiche MTG Commander. Tieni traccia di punti vita, danno da comandante e stato della partita da smartphone o tablet.',
-    h1: 'Contatore vite Commander per lunghe partite multiplayer',
-  },
-} as const satisfies Record<PriorityLocaleCode, Pick<LandingCopy, 'metaTitle' | 'metaDescription' | 'h1'>>;
 
 export function createSeoLandingContentByLocale(routeKey: SeoRouteKey): Readonly<Record<SeoLocaleCode, SeoLandingContent>> {
   return Object.fromEntries(
@@ -1071,7 +1613,7 @@ function createSeoLandingContent(routeKey: SeoRouteKey, locale: SeoLocaleCode): 
         fetchPriority: 'high',
       },
       primaryLink: { label: ctaCopy.primaryCta, href: getPrimaryCtaHref(routeKey) },
-      secondaryLink: { label: ctaCopy.secondaryCta, href: getSecondaryCtaHref(routeKey) },
+      secondaryLink: { label: ctaCopy.secondaryCta, href: getSecondaryCtaHref(routeKey, locale) },
       highlights: copy.heroHighlights ?? [uiCopy.manualLabel, uiCopy.browserLabel],
     },
     trustBar: {
@@ -1104,7 +1646,7 @@ function createSeoLandingContent(routeKey: SeoRouteKey, locale: SeoLocaleCode): 
       title: copy.ctaTitle ?? uiCopy.defaultCtaTitle,
       description: copy.ctaDescription ?? uiCopy.defaultCtaDescription,
       primaryLink: { label: ctaCopy.primaryCta, href: getPrimaryCtaHref(routeKey) },
-      secondaryLink: { label: ctaCopy.secondaryCta, href: getSecondaryCtaHref(routeKey) },
+      secondaryLink: { label: ctaCopy.secondaryCta, href: getSecondaryCtaHref(routeKey, locale) },
     },
     internalLinks: createInternalLinks(routeKey, locale, uiCopy),
   };
@@ -1294,13 +1836,10 @@ function isArticleLandingRoute(routeKey: SeoRouteKey): boolean {
 
 function getLandingCopy(routeKey: SeoRouteKey, locale: PriorityLocaleCode): LandingCopy {
   const copy = LANDING_COPY[routeKey][locale];
-  if (routeKey !== 'tableAssistant') {
-    return copy;
-  }
 
   return {
     ...copy,
-    ...TABLE_ASSISTANT_SEO_COPY[locale],
+    ...SEO_LANDING_METADATA_COPY[routeKey][locale],
   };
 }
 
@@ -1321,49 +1860,43 @@ function getRouteLabel(routeKey: SeoRouteKey, locale: SeoLocaleCode): string {
 }
 
 function getPriorityRouteLabel(routeKey: SeoRouteKey, locale: PriorityLocaleCode): string {
+  const internalLabel = INTERNAL_ROUTE_LABEL_COPY[routeKey]?.[locale];
+
+  if (internalLabel) {
+    return internalLabel;
+  }
+
   return getLandingCopy(routeKey, locale).h1;
 }
 
 function getRelatedRouteKeys(routeKey: SeoRouteKey): readonly SeoRouteKey[] {
   if (routeKey === 'home') {
-    return [
-      'playCommanderOnline',
-      'playMagicOnlineWithFriends',
-      'createCommanderRoom',
-      'importCommanderDeck',
-      'commanderDeckBuilder',
-      'tableAssistant',
-      'waysToPlayCommanderOnline',
-      'howToPlayCommanderOnline',
-      'faq',
-    ];
+    return SEO_ROUTE_KEYS.filter((seoRouteKey) => seoRouteKey !== 'home');
   }
 
   if (routeKey === 'faq') {
-    return [
-      'home',
-      'playCommanderOnline',
-      'playMagicOnlineWithFriends',
-      'createCommanderRoom',
-      'importCommanderDeck',
-      'commanderDeckBuilder',
-      'tableAssistant',
-      'waysToPlayCommanderOnline',
-      'howToPlayCommanderOnline',
-    ];
+    return SEO_ROUTE_KEYS.filter((seoRouteKey) => seoRouteKey !== 'faq');
   }
 
-  return [
+  const requiredRoutes = [
     'home',
     'playCommanderOnline',
     'createCommanderRoom',
     'importCommanderDeck',
-    'commanderDeckBuilder',
     'tableAssistant',
-    'waysToPlayCommanderOnline',
-    'howToPlayCommanderOnline',
     'faq',
-  ].filter((relatedRouteKey) => relatedRouteKey !== routeKey) as readonly SeoRouteKey[];
+  ] as const satisfies readonly SeoRouteKey[];
+  const routeSpecificLinks: Partial<Record<SeoRouteKey, readonly SeoRouteKey[]>> = {
+    spellTableAlternative: ['playCommanderWithoutWebcam'],
+    playCommanderWithoutWebcam: ['spellTableAlternative'],
+    commanderSimulator: ['playCommanderOnlineFree'],
+    playEdhOnline: ['playCommanderOnline'],
+  };
+
+  return uniqueRouteKeys([
+    ...requiredRoutes,
+    ...(routeSpecificLinks[routeKey] ?? []),
+  ]).filter((relatedRouteKey) => relatedRouteKey !== routeKey);
 }
 
 function getOpenGraphImagePath(routeKey: SeoRouteKey): string {
@@ -1382,27 +1915,33 @@ function getOpenGraphImagePath(routeKey: SeoRouteKey): string {
 }
 
 function getPrimaryCtaHref(routeKey: SeoRouteKey): string {
-  if (routeKey === 'home') {
-    return APP_DECKS_REGISTER_ENTRY_PATH;
-  }
-
   if (routeKey === 'tableAssistant') {
-    return APP_TABLE_ASSISTANT_REGISTER_ENTRY_PATH;
+    return APP_TABLE_ASSISTANT_ENTRY_PATH;
   }
 
   return APP_DECKS_ENTRY_PATH;
 }
 
-function getSecondaryCtaHref(routeKey: SeoRouteKey): string {
-  if (routeKey === 'home') {
-    return APP_DECKS_REGISTER_ENTRY_PATH;
-  }
+function getSecondaryCtaHref(routeKey: SeoRouteKey, locale: SeoLocaleCode): string {
+  const routeTargets: Partial<Record<SeoRouteKey, SeoRouteKey>> = {
+    home: 'howToPlayCommanderOnline',
+    playCommanderOnline: 'howToPlayCommanderOnline',
+    playMagicOnlineWithFriends: 'waysToPlayCommanderOnline',
+    createCommanderRoom: 'howToPlayCommanderOnline',
+    importCommanderDeck: 'faq',
+    commanderDeckBuilder: 'faq',
+    tableAssistant: 'faq',
+    waysToPlayCommanderOnline: 'howToPlayCommanderOnline',
+    howToPlayCommanderOnline: 'waysToPlayCommanderOnline',
+    spellTableAlternative: 'playCommanderWithoutWebcam',
+    playCommanderOnlineFree: 'faq',
+    playCommanderWithoutWebcam: 'spellTableAlternative',
+    playEdhOnline: 'playCommanderOnline',
+    commanderSimulator: 'playCommanderOnlineFree',
+    faq: 'playCommanderOnline',
+  };
 
-  if (routeKey === 'tableAssistant') {
-    return APP_TABLE_ASSISTANT_REGISTER_ENTRY_PATH;
-  }
-
-  return APP_DECKS_ENTRY_PATH;
+  return getSeoPath(routeTargets[routeKey] ?? 'faq', locale);
 }
 
 function cta(primaryCta: string, secondaryCta: string): LandingCtaCopy {
@@ -1427,6 +1966,20 @@ function faq(question: string, answer: string): FaqItemCopy {
 
 function row(label: string, firstValue: string, secondValue: string): ComparisonRowCopy {
   return { label, firstValue, secondValue };
+}
+
+function comparison(
+  title: string,
+  intro: string,
+  firstColumnLabel: string,
+  secondColumnLabel: string,
+  rows: readonly ComparisonRowCopy[],
+): ComparisonCopy {
+  return { title, intro, firstColumnLabel, secondColumnLabel, rows };
+}
+
+function uniqueRouteKeys(routeKeys: readonly SeoRouteKey[]): readonly SeoRouteKey[] {
+  return [...new Set(routeKeys)];
 }
 
 function simpleCopy(
@@ -1627,7 +2180,7 @@ function localizedSections(locale: PriorityLocaleCode, routeKey: SeoRouteKey): r
     return [];
   }
 
-  const sections = {
+  const sections: Partial<Record<PriorityLocaleCode, Partial<Record<SeoRouteKey, readonly SectionCopy[]>>>> = {
     de: {
       playCommanderOnline: [
         section('fast-start', 'Schneller in die Partie', 'Du brauchst keine komplexe Plattform, um loszulegen. Der Ablauf ist direkt: Deck vorbereiten, Raum erstellen, Link teilen und spielen.'),
@@ -1765,7 +2318,7 @@ function localizedSections(locale: PriorityLocaleCode, routeKey: SeoRouteKey): r
     },
   };
 
-  return sections[locale][routeKey];
+  return sections[locale]?.[routeKey] ?? [];
 }
 
 function localizedFeatures(locale: PriorityLocaleCode, routeKey: SeoRouteKey): readonly LandingFeature[] {

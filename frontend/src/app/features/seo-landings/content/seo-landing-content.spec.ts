@@ -1,5 +1,5 @@
 import { SEO_LOCALE_CODES } from '../../../core/localization/locale-config';
-import { SEO_ROUTE_KEYS } from '../../../core/localization/seo-routes';
+import { getSeoPath, SEO_ROUTE_KEYS } from '../../../core/localization/seo-routes';
 import {
   SEO_LANDING_CONTENT,
   getAllSeoLandingContentEntries,
@@ -27,13 +27,17 @@ describe('SEO landing static content', () => {
 
     expect(content.routeKey).toBe('playCommanderOnline');
     expect(content.locale).toBe('en');
-    expect(content.seo.title).toBe('Play Commander Online | Create a Free Room on CommanderZone');
-    expect(content.seo.description).toBe('Play Commander online with friends from your browser. Prepare your MTG Commander deck, create a room, share the link and track life totals and commander damage.');
+    expect(content.seo.title).toBe('Play Commander Online in Your Browser | CommanderZone');
+    expect(content.seo.description).toBe('Play Commander online with your pod from the browser. Prepare decks, create rooms, track life totals and use a manual MTG Commander table.');
     expect(content.seo.ogImage).toBe('/assets/og/play-commander-og.png');
-    expect(content.hero.title).toBe('Play Commander online without the setup headache');
+    expect(content.hero.title).toBe('Play Commander online in your browser');
     expect(content.hero.primaryLink).toEqual({
       label: 'Sign in to play Commander',
       href: '/auth/login?redirect=/decks',
+    });
+    expect(content.hero.secondaryLink).toEqual({
+      label: 'How to play Commander',
+      href: '/en/how-to-play-commander-online/',
     });
     expect(content.breadcrumb.items.length).toBeGreaterThan(0);
     expect(content.internalLinks.links.length).toBeGreaterThan(0);
@@ -41,40 +45,203 @@ describe('SEO landing static content', () => {
     expect(content.jsonLd).toBeTruthy();
   });
 
+  it('provides the five high-intent prompt 7 landings with mandatory metadata', () => {
+    const promptSevenRoutes = [
+      'spellTableAlternative',
+      'playCommanderOnlineFree',
+      'playCommanderWithoutWebcam',
+      'playEdhOnline',
+      'commanderSimulator',
+    ] as const;
+
+    expect(SEO_ROUTE_KEYS).toEqual(expect.arrayContaining([...promptSevenRoutes]));
+    expect(getSeoLandingContent('spellTableAlternative', 'en').seo.title).toBe('SpellTable Alternative for Commander Online | CommanderZone');
+    expect(getSeoLandingContent('spellTableAlternative', 'en').hero.title).toBe('A SpellTable alternative for digital Commander pods');
+    expect(getSeoLandingContent('playCommanderOnlineFree', 'en').seo.title).toBe('Play Commander Online Free in Your Browser | CommanderZone');
+    expect(getSeoLandingContent('playCommanderOnlineFree', 'es').hero.title).toBe('Jugar Commander online gratis desde el navegador');
+    expect(getSeoLandingContent('playCommanderWithoutWebcam', 'en').hero.title).toBe('Play Commander online without a webcam setup');
+    expect(getSeoLandingContent('playEdhOnline', 'en').sections?.map((section) => section.body.join(' ')).join(' ')).toContain('EDH is the community name many players still use for Commander.');
+    expect(getSeoLandingContent('commanderSimulator', 'en').seo.title).toBe('MTG Commander Simulator for Manual Online Pods | CommanderZone');
+    expect(getSeoLandingContent('commanderSimulator', 'en').hero.title).toBe('A manual MTG Commander simulator for online pods');
+
+    for (const routeKey of promptSevenRoutes) {
+      for (const locale of SEO_LOCALE_CODES) {
+        const content = getSeoLandingContent(routeKey, locale);
+
+        expect(content.routeKey).toBe(routeKey);
+        expect(content.locale).toBe(locale);
+        expect(content.seo.title).toContain('CommanderZone');
+        expect(content.seo.description.length).toBeGreaterThanOrEqual(50);
+        expect(content.hero.title.length).toBeGreaterThan(0);
+        expect(content.faq.items.length).toBeGreaterThanOrEqual(3);
+        expect(content.jsonLd).toBeTruthy();
+      }
+    }
+  });
+
+  it('links every prompt 7 landing to the required localized SEO pages', () => {
+    const promptSevenRoutes = [
+      'spellTableAlternative',
+      'playCommanderOnlineFree',
+      'playCommanderWithoutWebcam',
+      'playEdhOnline',
+      'commanderSimulator',
+    ] as const;
+    const requiredLinks = [
+      'home',
+      'playCommanderOnline',
+      'createCommanderRoom',
+      'importCommanderDeck',
+      'tableAssistant',
+      'faq',
+    ] as const;
+
+    for (const routeKey of promptSevenRoutes) {
+      for (const locale of SEO_LOCALE_CODES) {
+        const hrefs = getAllLandingHrefs(getSeoLandingContent(routeKey, locale));
+
+        for (const linkedRouteKey of requiredLinks) {
+          expect({ routeKey, locale, linkedRouteKey, hasLink: hrefs.includes(getSeoPath(linkedRouteKey, locale)) }).toEqual({
+            routeKey,
+            locale,
+            linkedRouteKey,
+            hasLink: true,
+          });
+        }
+      }
+    }
+
+    expect(getAllLandingHrefs(getSeoLandingContent('spellTableAlternative', 'en'))).toContain('/en/play-commander-online-without-webcam/');
+    expect(getAllLandingHrefs(getSeoLandingContent('playCommanderWithoutWebcam', 'es'))).toContain('/es/alternativa-spelltable/');
+    expect(getAllLandingHrefs(getSeoLandingContent('commanderSimulator', 'en'))).toContain('/en/play-commander-online-free/');
+    expect(getAllLandingHrefs(getSeoLandingContent('playEdhOnline', 'en'))).toContain('/en/play-commander-online/');
+  });
+
+  it('keeps prompt 7 claims honest and manual', () => {
+    const promptSevenText = [
+      'spellTableAlternative',
+      'playCommanderOnlineFree',
+      'playCommanderWithoutWebcam',
+      'playEdhOnline',
+      'commanderSimulator',
+    ] as const satisfies readonly (typeof SEO_ROUTE_KEYS)[number][];
+
+    for (const routeKey of promptSevenText) {
+      for (const locale of SEO_LOCALE_CODES) {
+        const visibleContent = getVisibleSeoTexts(getSeoLandingContent(routeKey, locale)).join(' ');
+
+        expect({ routeKey, locale, automaticGameplaySimulator: visibleContent.includes('automatic gameplay simulator') }).toEqual({
+          routeKey,
+          locale,
+          automaticGameplaySimulator: false,
+        });
+        expect({ routeKey, locale, promisesRuleEngine: /rules engine that enforces|motor de reglas que aplica|automatischer Regelmotor der/i.test(visibleContent) }).toEqual({
+          routeKey,
+          locale,
+          promisesRuleEngine: false,
+        });
+      }
+    }
+
+    expect(getVisibleSeoTexts(getSeoLandingContent('commanderSimulator', 'en')).join(' ')).toContain('manual simulator');
+    expect(getVisibleSeoTexts(getSeoLandingContent('spellTableAlternative', 'en')).join(' ')).toContain('not a rules engine');
+  });
+
   it('keeps table assistant SEO content separate from the internal table assistant app route', () => {
     const content = getSeoLandingContent('tableAssistant', 'es');
 
     expect(content.hero.title.toLowerCase()).toContain('contador de vidas');
     expect(content.seo.title).toBe('Contador de vidas Commander MTG | CommanderZone');
-    expect(content.seo.description).toBe('Usa CommanderZone como contador de vidas para partidas físicas de Commander MTG. Controla vidas, daño de comandante y estado de la partida desde móvil o tablet.');
+    expect(content.seo.description).toBe('Usa CommanderZone como contador de vidas para Commander MTG físico. Controla vidas, daño de comandante y estado de mesa desde móvil o tablet.');
     expect(content.seo.ogImage).toBe('/assets/og/table-assistant-og.png');
     expect(content.internalLinks.links.map((link) => link.href)).not.toContain('/table-assistant');
     expect(content.internalLinks.links.every((link) => link.href.startsWith('/es/'))).toBe(true);
   });
 
-  it('uses MTG Commander SEO wording in priority landing metadata', () => {
-    expect(getSeoLandingContent('home', 'es').seo.description).toBe('Prepara tu mazo, entra en CommanderZone y juega Commander online con tu grupo. Una mesa manual para Commander MTG, pensada para pods reales.');
-    expect(getSeoLandingContent('home', 'en').seo.description).toBe('Prepare your deck, sign in and play Commander online with your pod. CommanderZone is a manual table for MTG Commander games, built for real multiplayer pods.');
-    expect(getSeoLandingContent('playCommanderOnline', 'es').seo.description).toBe('Juega Commander online con amigos desde el navegador. Prepara tu mazo de Commander MTG, crea una sala, comparte el enlace y controla vidas y daño de comandante.');
-    expect(getSeoLandingContent('importCommanderDeck', 'es').seo.title).toBe('Importar mazo Commander MTG | CommanderZone');
-    expect(getSeoLandingContent('importCommanderDeck', 'en').seo.title).toBe('Import MTG Commander Deck | CommanderZone');
-    expect(getSeoLandingContent('commanderDeckBuilder', 'es').seo.title).toBe('Deck builder Commander MTG | Crea e importa mazos');
-    expect(getSeoLandingContent('commanderDeckBuilder', 'en').seo.title).toBe('MTG Commander Deck Builder | Build, Import and Play');
-    expect(getSeoLandingContent('tableAssistant', 'en').seo.description).toBe('Use CommanderZone as a Commander life counter for paper MTG Commander games. Track life totals, commander damage and game state from your phone or tablet.');
+  it('uses the prompt 8 SEO titles for existing landings', () => {
+    const expectedTitles = {
+      home: {
+        en: 'CommanderZone | Play MTG Commander Online with Your Pod',
+        es: 'CommanderZone | Jugar Commander MTG online con tu grupo',
+        de: 'CommanderZone | MTG Commander online mit deiner Gruppe spielen',
+        fr: 'CommanderZone | Jouer à Commander MTG en ligne avec votre groupe',
+        pt: 'CommanderZone | Jogar Commander MTG online com seu grupo',
+        it: 'CommanderZone | Giocare Commander MTG online con il tuo gruppo',
+      },
+      playCommanderOnline: {
+        en: 'Play Commander Online in Your Browser | CommanderZone',
+        es: 'Jugar Commander online en el navegador | CommanderZone',
+        de: 'Commander online im Browser spielen | CommanderZone',
+        fr: 'Jouer à Commander en ligne dans le navigateur | CommanderZone',
+        pt: 'Jogar Commander online no navegador | CommanderZone',
+        it: 'Giocare Commander online nel browser | CommanderZone',
+      },
+      playMagicOnlineWithFriends: {
+        en: 'Play Magic Online with Friends for Commander | CommanderZone',
+        es: 'Jugar Magic online con amigos en Commander | CommanderZone',
+        de: 'Magic online mit Freunden für Commander spielen | CommanderZone',
+        fr: 'Jouer à Magic en ligne avec des amis | CommanderZone',
+        pt: 'Jogar Magic online com amigos no Commander | CommanderZone',
+        it: 'Giocare Magic online con amici in Commander | CommanderZone',
+      },
+      createCommanderRoom: {
+        en: 'Create a Private Commander Room Online | CommanderZone',
+        es: 'Crear una sala privada de Commander online | CommanderZone',
+        de: 'Privaten Commander-Raum online erstellen | CommanderZone',
+        fr: 'Créer une salle Commander privée en ligne | CommanderZone',
+        pt: 'Criar uma sala privada de Commander online | CommanderZone',
+        it: 'Creare una stanza Commander privata online | CommanderZone',
+      },
+      importCommanderDeck: {
+        en: 'Import a Commander Deck and Play Online | CommanderZone',
+        es: 'Importar un mazo Commander para jugar online | CommanderZone',
+        de: 'Commander-Deck importieren und online spielen | CommanderZone',
+        fr: 'Importer un deck Commander pour jouer en ligne | CommanderZone',
+        pt: 'Importar um deck Commander para jogar online | CommanderZone',
+        it: 'Importare un mazzo Commander per giocare online | CommanderZone',
+      },
+      commanderDeckBuilder: {
+        en: 'Commander Deck Builder for Online MTG Pods | CommanderZone',
+        es: 'Deck builder Commander para MTG online | CommanderZone',
+        de: 'Commander Deck Builder für Online-MTG | CommanderZone',
+        fr: 'Deck builder Commander pour MTG en ligne | CommanderZone',
+        pt: 'Deck builder Commander para MTG online | CommanderZone',
+        it: 'Deck builder Commander per MTG online | CommanderZone',
+      },
+      waysToPlayCommanderOnline: {
+        en: 'Ways to Play Commander Online with Your Pod | CommanderZone',
+        es: 'Formas de jugar Commander online con tu grupo | CommanderZone',
+        de: 'Möglichkeiten, Commander online zu spielen | CommanderZone',
+        fr: 'Façons de jouer à Commander en ligne | CommanderZone',
+        pt: 'Formas de jogar Commander online com seu grupo | CommanderZone',
+        it: 'Modi per giocare Commander online con il tuo gruppo | CommanderZone',
+      },
+      howToPlayCommanderOnline: {
+        en: 'How to Play Commander Online Step by Step | CommanderZone',
+        es: 'Cómo jugar Commander online paso a paso | CommanderZone',
+        de: 'Commander online spielen: Anleitung | CommanderZone',
+        fr: 'Comment jouer à Commander en ligne | CommanderZone',
+        pt: 'Como jogar Commander online passo a passo | CommanderZone',
+        it: 'Come giocare Commander online passo dopo passo | CommanderZone',
+      },
+      faq: {
+        en: 'CommanderZone FAQ | Commander Online Questions',
+        es: 'FAQ de CommanderZone | Preguntas sobre Commander online',
+        de: 'CommanderZone FAQ | Fragen zu Commander online',
+        fr: 'FAQ CommanderZone | Questions sur Commander en ligne',
+        pt: 'FAQ CommanderZone | Perguntas sobre Commander online',
+        it: 'FAQ CommanderZone | Domande su Commander online',
+      },
+    } as const;
 
-    for (const locale of ['de', 'fr', 'pt', 'it'] as const) {
-      const searchableMetadata = [
-        getSeoLandingContent('home', locale).seo.description,
-        getSeoLandingContent('playCommanderOnline', locale).seo.description,
-        getSeoLandingContent('importCommanderDeck', locale).seo.title,
-        getSeoLandingContent('importCommanderDeck', locale).seo.description,
-        getSeoLandingContent('commanderDeckBuilder', locale).seo.title,
-        getSeoLandingContent('commanderDeckBuilder', locale).seo.description,
-        getSeoLandingContent('tableAssistant', locale).seo.description,
-      ].join(' ');
-
-      expect(searchableMetadata).toMatch(/MTG|Commander MTG|MTG-Commander/);
+    for (const [routeKey, titlesByLocale] of Object.entries(expectedTitles)) {
+      for (const [locale, title] of Object.entries(titlesByLocale)) {
+        expect(getSeoLandingContent(routeKey as Parameters<typeof getSeoLandingContent>[0], locale as Parameters<typeof getSeoLandingContent>[1]).seo.title).toBe(title);
+      }
     }
+
+    expect(getSeoLandingContent('playCommanderOnline', 'es').seo.description).toBe('Juega Commander online con tu grupo desde el navegador. Prepara mazos, crea salas, controla vidas y usa una mesa manual para MTG Commander.');
+    expect(getSeoLandingContent('tableAssistant', 'en').seo.description).toBe('Use CommanderZone as a Commander life counter for paper MTG games. Track life totals, commander damage and table state on phone or tablet.');
   });
 
   it('uses user-facing related-link copy without internal landing terminology', () => {
@@ -168,7 +335,7 @@ describe('SEO landing static content', () => {
     const content = getSeoLandingContent('faq', 'es');
 
     expect(content.seo.title).toContain('FAQ');
-    expect(content.hero.title).toBe('Preguntas frecuentes sobre CommanderZone');
+    expect(content.hero.title).toBe('FAQ de CommanderZone sobre Commander online');
     expect(content.faq.items.length).toBe(12);
     expect(content.faq.items.map((item) => item.question)).toContain('¿Qué es CommanderZone?');
     expect(content.faq.items.map((item) => item.question)).toContain('¿CommanderZone es oficial?');
@@ -202,7 +369,7 @@ describe('SEO landing static content', () => {
 
     expect(content.seo.title).toBe('CommanderZone | Play MTG Commander Online with Your Pod');
     expect(content.hero.title).toBe('Play Commander online with your pod');
-    expect(content.hero.subtitle).toBe('Prepare your MTG Commander deck, enter CommanderZone and play online with a clear, manual table built for real multiplayer games.');
+    expect(content.hero.subtitle).toBe('Prepare your Commander deck, open CommanderZone in the browser and play with a clear manual table for rooms, life totals and commander damage.');
     expect(content.hero.highlights).toEqual([
       'Manual Commander table',
       'Decks connected to games',
@@ -218,10 +385,10 @@ describe('SEO landing static content', () => {
       'Does CommanderZone enforce Magic rules automatically?',
       'Can I use it for paper games?',
     ]);
-    expect(content.hero.primaryLink.href).toBe('/auth/register?redirect=/decks');
-    expect(content.hero.secondaryLink?.href).toBe('/auth/register?redirect=/decks');
-    expect(content.cta?.primaryLink.href).toBe('/auth/register?redirect=/decks');
-    expect(content.cta?.secondaryLink?.href).toBe('/auth/register?redirect=/decks');
+    expect(content.hero.primaryLink.href).toBe('/auth/login?redirect=/decks');
+    expect(content.hero.secondaryLink?.href).toBe('/en/how-to-play-commander-online/');
+    expect(content.cta?.primaryLink.href).toBe('/auth/login?redirect=/decks');
+    expect(content.cta?.secondaryLink?.href).toBe('/en/how-to-play-commander-online/');
   });
 
   it('uses a single self breadcrumb item for localized home pages', () => {
@@ -406,46 +573,56 @@ describe('SEO landing static content', () => {
     ]));
   });
 
-  it('routes conversion CTAs through the real auth entry funnel', () => {
+  it('routes primary CTAs through the real app entry funnel and secondary CTAs through SEO pages', () => {
     const decksLoginEntryPath = '/auth/login?redirect=/decks';
-    const decksRegisterEntryPath = '/auth/register?redirect=/decks';
-    const tableAssistantEntryPath = '/auth/register?redirect=/table-assistant';
+    const tableAssistantEntryPath = '/auth/login?redirect=/table-assistant';
     const forbiddenDirectCtaHrefs = new Set(['/rooms', '/decks/import', '/decks/new', '/rooms/create']);
+    const expectedSecondaryRoute = {
+      home: 'howToPlayCommanderOnline',
+      playCommanderOnline: 'howToPlayCommanderOnline',
+      playMagicOnlineWithFriends: 'waysToPlayCommanderOnline',
+      createCommanderRoom: 'howToPlayCommanderOnline',
+      importCommanderDeck: 'faq',
+      commanderDeckBuilder: 'faq',
+      tableAssistant: 'faq',
+      waysToPlayCommanderOnline: 'howToPlayCommanderOnline',
+      howToPlayCommanderOnline: 'waysToPlayCommanderOnline',
+      spellTableAlternative: 'playCommanderWithoutWebcam',
+      playCommanderOnlineFree: 'faq',
+      playCommanderWithoutWebcam: 'spellTableAlternative',
+      playEdhOnline: 'playCommanderOnline',
+      commanderSimulator: 'playCommanderOnlineFree',
+      faq: 'playCommanderOnline',
+    } as const satisfies Record<(typeof SEO_ROUTE_KEYS)[number], (typeof SEO_ROUTE_KEYS)[number]>;
 
     for (const { routeKey, content } of getAllSeoLandingContentEntries()) {
-      const expectedHref = routeKey === 'home'
-        ? decksRegisterEntryPath
-        : routeKey === 'tableAssistant'
-          ? tableAssistantEntryPath
-          : decksLoginEntryPath;
-      const ctaHrefs = [
-        content.hero.primaryLink.href,
-        content.hero.secondaryLink?.href,
-        content.cta?.primaryLink.href,
-        content.cta?.secondaryLink?.href,
-      ].filter((href): href is string => href !== undefined);
+      const expectedPrimaryHref = routeKey === 'tableAssistant' ? tableAssistantEntryPath : decksLoginEntryPath;
+      const expectedSecondaryHref = getSeoPath(expectedSecondaryRoute[routeKey], content.locale);
+      const primaryHrefs = [content.hero.primaryLink.href, content.cta?.primaryLink.href].filter((href): href is string => href !== undefined);
+      const secondaryHrefs = [content.hero.secondaryLink?.href, content.cta?.secondaryLink?.href].filter((href): href is string => href !== undefined);
 
-      expect({
+      expect({ routeKey, locale: content.locale, primaryHrefs }).toEqual({
         routeKey,
         locale: content.locale,
-        ctaHrefs,
-      }).toEqual({
+        primaryHrefs: [expectedPrimaryHref, expectedPrimaryHref],
+      });
+      expect({ routeKey, locale: content.locale, secondaryHrefs }).toEqual({
         routeKey,
         locale: content.locale,
-        ctaHrefs: [expectedHref, expectedHref, expectedHref, expectedHref],
+        secondaryHrefs: [expectedSecondaryHref, expectedSecondaryHref],
       });
 
-      for (const href of ctaHrefs) {
+      for (const href of [...primaryHrefs, ...secondaryHrefs]) {
         expect(forbiddenDirectCtaHrefs.has(href)).toBe(false);
         expect(href.startsWith('/decks?intent=')).toBe(false);
       }
     }
 
     expect(getSeoLandingContent('home', 'es').hero.primaryLink.label).toBe('Entrar y preparar mazo');
-    expect(getSeoLandingContent('playCommanderOnline', 'en').hero.primaryLink.label).toBe('Sign in to play Commander');
-    expect(getSeoLandingContent('createCommanderRoom', 'en').hero.secondaryLink?.label).toBe('Go to my decks');
-    expect(getSeoLandingContent('tableAssistant', 'fr').hero.primaryLink.label).toBe('Ouvrir l’assistant de table');
-    expect(getSeoLandingContent('tableAssistant', 'it').hero.secondaryLink?.label).toBe('Apri CommanderZone');
+    expect(getSeoLandingContent('playCommanderOnline', 'en').hero.secondaryLink?.label).toBe('How to play Commander');
+    expect(getSeoLandingContent('createCommanderRoom', 'en').hero.secondaryLink?.href).toBe('/en/how-to-play-commander-online/');
+    expect(getSeoLandingContent('tableAssistant', 'fr').hero.primaryLink.label).toBe('Ouvrir le compteur Commander');
+    expect(getSeoLandingContent('tableAssistant', 'it').hero.secondaryLink?.label).toBe('Leggi FAQ');
   });
 
   it('passes linguistic SEO QA for visible static content', () => {
@@ -524,14 +701,24 @@ describe('SEO landing static content', () => {
         }).toEqual({ location: `${content.routeKey}/${content.locale}`, fragment, containsFragment: false });
       }
     }
-    expect(getSeoLandingContent('playCommanderOnline', 'it').hero.title).toBe('Giocare a Commander online senza complicazioni');
+    expect(getSeoLandingContent('playCommanderOnline', 'it').hero.title).toBe('Giocare Commander online nel browser');
     expect(getSeoLandingContent('faq', 'it').faq.items.map((item) => item.question)).toContain('Che cos’è CommanderZone?');
   });
 
   it('keeps SEO titles, descriptions and H1s useful per locale', () => {
     for (const locale of SEO_LOCALE_CODES) {
+      const titles = SEO_ROUTE_KEYS.map((routeKey) => getSeoLandingContent(routeKey, locale).seo.title);
+      const descriptions = SEO_ROUTE_KEYS.map((routeKey) => getSeoLandingContent(routeKey, locale).seo.description);
       const h1s = SEO_ROUTE_KEYS.map((routeKey) => getSeoLandingContent(routeKey, locale).hero.title);
 
+      expect({ locale, duplicateTitles: findDuplicates(titles) }).toEqual({
+        locale,
+        duplicateTitles: [],
+      });
+      expect({ locale, duplicateDescriptions: findDuplicates(descriptions) }).toEqual({
+        locale,
+        duplicateDescriptions: [],
+      });
       expect({ locale, uniqueH1Count: new Set(h1s).size }).toEqual({
         locale,
         uniqueH1Count: SEO_ROUTE_KEYS.length,
@@ -542,6 +729,19 @@ describe('SEO landing static content', () => {
       expect(content.seo.title.length).toBeLessThanOrEqual(75);
       expect(content.seo.description.length).toBeGreaterThanOrEqual(50);
       expect(content.seo.description.length).toBeLessThanOrEqual(220);
+    }
+  });
+
+  it('keeps EDH wording scoped to the dedicated EDH landing', () => {
+    for (const { routeKey, content } of getAllSeoLandingContentEntries()) {
+      const visibleContent = getVisibleSeoTexts(content).join(' ');
+      const containsEdh = /\bEDH\b/.test(visibleContent);
+
+      expect({ routeKey, locale: content.locale, containsEdh }).toEqual({
+        routeKey,
+        locale: content.locale,
+        containsEdh: routeKey === 'playEdhOnline',
+      });
     }
   });
 
