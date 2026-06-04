@@ -1,4 +1,4 @@
-import { LocaleCode } from '../../../core/localization/locale-config';
+import { SeoLocaleCode } from '../../../core/localization/locale-config';
 import { SeoRouteKey } from '../../../core/localization/seo-routes';
 
 export type SeoJsonLdValue =
@@ -36,7 +36,7 @@ export interface LandingImageContent {
 }
 
 export interface LandingLocaleLink extends LandingLink {
-  readonly locale: LocaleCode;
+  readonly locale: SeoLocaleCode;
 }
 
 export interface LandingBreadcrumbContent {
@@ -152,7 +152,7 @@ export interface LandingInternalLinksContent {
 
 export interface SeoLandingContent {
   readonly routeKey: SeoRouteKey;
-  readonly locale: LocaleCode;
+  readonly locale: SeoLocaleCode;
   readonly seo: SeoMetadataContent;
   readonly jsonLd: SeoJsonLdValue;
   readonly siteName?: string;

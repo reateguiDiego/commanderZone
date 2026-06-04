@@ -48,6 +48,10 @@ export class GameTableManaPoolState {
     this.pools.update((current) => ({ ...current, [playerId]: EMPTY_POOL }));
   }
 
+  resetAll(): void {
+    this.pools.set({});
+  }
+
   private change(playerId: string, color: ManaPoolColor, delta: number): void {
     this.updatePool(playerId, (pool) => ({ ...pool, [color]: this.clampAmount(pool[color] + delta) }));
   }

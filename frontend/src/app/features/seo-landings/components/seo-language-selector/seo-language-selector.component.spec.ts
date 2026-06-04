@@ -1,8 +1,9 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { SUPPORTED_LOCALES } from '../../../../core/localization/locale-config';
+import { SEO_LOCALES } from '../../../../core/localization/locale-config';
 import { SeoLanguageSelectorComponent } from './seo-language-selector.component';
 
 describe('SeoLanguageSelectorComponent', () => {
+  const nonSeoLocaleCodes = ['ja', 'ko', 'zh-hans', 'zh-hant', 'nl', 'ca', 'ru'] as const;
   let fixture: ComponentFixture<SeoLanguageSelectorComponent>;
 
   beforeEach(async () => {
@@ -59,8 +60,8 @@ describe('SeoLanguageSelectorComponent', () => {
     ]);
   });
 
-  it('renders a flag asset for every supported locale', () => {
-    fixture.componentRef.setInput('links', SUPPORTED_LOCALES.map((locale) => ({
+  it('renders a flag asset for every SEO locale', () => {
+    fixture.componentRef.setInput('links', SEO_LOCALES.map((locale) => ({
       locale: locale.code,
       label: locale.label,
       href: `/${locale.code}/play-commander-online/`,
@@ -71,11 +72,28 @@ describe('SeoLanguageSelectorComponent', () => {
     const element = fixture.nativeElement as HTMLElement;
     const menuFlags = Array.from(element.querySelectorAll('.seo-language-selector__menu img') as NodeListOf<HTMLImageElement>);
 
-    expect(menuFlags).toHaveLength(SUPPORTED_LOCALES.length);
+    expect(menuFlags).toHaveLength(SEO_LOCALES.length);
     expect(menuFlags.every((flag) => flag.getAttribute('src')?.startsWith('/assets/icons/flags/'))).toBe(true);
-    expect(element.querySelector('a[hreflang="ko"] img')?.getAttribute('src')).toBe('/assets/icons/flags/south-korea.svg');
-    expect(element.querySelector('a[hreflang="zh-hant"] img')?.getAttribute('src')).toBe('/assets/icons/flags/taiwan.svg');
-    expect(element.querySelector('a[hreflang="ru"] img')?.getAttribute('src')).toBe('/assets/icons/flags/russia.svg');
+    expect(element.querySelector('a[hreflang="it"] img')?.getAttribute('src')).toBe('/assets/icons/flags/italy.png');
+    expect(element.querySelector('a[hreflang="pt"] img')?.getAttribute('src')).toBe('/assets/icons/flags/portugal.png');
+    for (const locale of nonSeoLocaleCodes) {
+      expect(element.querySelector(`a[hreflang="${locale}"] img`)).toBeNull();
+    }
+  });
+
+  it('keeps the root English home URL crawlable in the language menu', () => {
+    fixture.componentRef.setInput('links', [
+      { locale: 'en', label: 'English', href: '/', ariaLabel: 'English' },
+      { locale: 'es', label: 'EspaÃ±ol', href: '/es/', ariaLabel: 'Spanish' },
+      { locale: 'it', label: 'Italiano', href: '/it/', ariaLabel: 'Italian' },
+    ]);
+    fixture.detectChanges();
+
+    const links = Array.from(fixture.nativeElement.querySelectorAll('a') as NodeListOf<HTMLAnchorElement>);
+
+    expect(links.map((link) => link.getAttribute('href'))).toEqual(['/', '/es/', '/it/']);
+    expect(links.map((link) => link.getAttribute('hreflang'))).toEqual(['en', 'es', 'it']);
+    expect(fixture.nativeElement.querySelector('a[aria-current="page"]')?.getAttribute('href')).toBe('/');
   });
 
   it('does not generate mixed locale and slug URLs', () => {

@@ -13,6 +13,11 @@ type ManaActionSummaryPart =
   | { readonly kind: 'text'; readonly value: string }
   | { readonly kind: 'mana'; readonly value: string };
 
+interface ManaAbilityOptionView {
+  readonly option: ManaAbilityOption;
+  readonly labelParts: readonly ManaActionSummaryPart[];
+}
+
 export interface ManaActionDialogValueChange {
   readonly color?: ManaPoolColor;
   readonly amount?: number;
@@ -72,6 +77,12 @@ export class ManaActionDialogComponent {
   readonly canAddMana = computed(() => !this.suggestion().manualOnly);
   readonly confirmLabel = computed(() => this.canAddMana() ? 'Add mana' : 'Close');
   readonly abilityOptions = computed(() => this.suggestion().abilityOptions ?? []);
+  readonly abilityOptionViews = computed<readonly ManaAbilityOptionView[]>(() =>
+    this.abilityOptions().map((option) => ({
+      option,
+      labelParts: this.renderManaTextParts(option.label),
+    })),
+  );
   readonly hasAbilityOptions = computed(() => this.abilityOptions().length > 0);
   readonly selectedAbility = computed(() => {
     const options = this.abilityOptions();
@@ -200,8 +211,12 @@ export class ManaActionDialogComponent {
 
   private renderSummaryParts(suggestion: ManaActionChoice): readonly ManaActionSummaryPart[] {
     const visibleSummary = this.normalizeSummary(suggestion);
+    return this.renderManaTextParts(visibleSummary);
+  }
+
+  private renderManaTextParts(value: string): readonly ManaActionSummaryPart[] {
     const parts: ManaActionSummaryPart[] = [];
-    if (!visibleSummary.trim()) {
+    if (!value.trim()) {
       return [];
     }
 
@@ -209,20 +224,20 @@ export class ManaActionDialogComponent {
     let lastIndex = 0;
     let match: RegExpExecArray | null;
 
-    while ((match = manaTokenPattern.exec(visibleSummary)) !== null) {
+    while ((match = manaTokenPattern.exec(value)) !== null) {
       if (match.index > lastIndex) {
-        parts.push({ kind: 'text', value: visibleSummary.slice(lastIndex, match.index) });
+        parts.push({ kind: 'text', value: value.slice(lastIndex, match.index) });
       }
 
       parts.push({ kind: 'mana', value: match[1] ?? '' });
       lastIndex = match.index + match[0].length;
     }
 
-    if (lastIndex < visibleSummary.length) {
-      parts.push({ kind: 'text', value: visibleSummary.slice(lastIndex) });
+    if (lastIndex < value.length) {
+      parts.push({ kind: 'text', value: value.slice(lastIndex) });
     }
 
-    return parts.length > 0 ? parts : [{ kind: 'text', value: visibleSummary }];
+    return parts.length > 0 ? parts : [{ kind: 'text', value }];
   }
 
   private normalizeSummary(suggestion: ManaActionChoice): string {

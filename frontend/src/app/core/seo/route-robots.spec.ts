@@ -26,10 +26,15 @@ describe('route robots rules', () => {
   it('maps out-of-scope pages to noindex, nofollow', () => {
     expect(getStrategyRobotsMeta('out-of-scope')).toBe('noindex, nofollow');
 
-    for (const pageKey of pageKeysForStrategy('out-of-scope')) {
+    for (const pageKey of pageKeysForStrategy('out-of-scope').filter((pageKey) => pageKey !== 'wildcardRedirect')) {
       expect(getPageRobotsMeta(pageKey)).toBe('noindex, nofollow');
       expect(isSeoIndexablePage(pageKey)).toBe(false);
     }
+  });
+
+  it('uses noindex, follow for the wildcard 404 route', () => {
+    expect(getPageRobotsMeta('wildcardRedirect')).toBe('noindex, follow');
+    expect(isSeoIndexablePage('wildcardRedirect')).toBe(false);
   });
 });
 

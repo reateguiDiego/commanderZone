@@ -6,6 +6,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { filter } from 'rxjs';
 import { AuthStore } from '../core/auth/auth.store';
 import { LoadingStore } from '../core/loading/loading.store';
+import { findSeoRouteByPath } from '../core/localization/seo-routes';
 import { CookieConsentBannerComponent } from '../core/privacy/cookie-consent-banner/cookie-consent-banner.component';
 import { RouteRobotsMetaService } from '../core/seo/route-robots-meta.service';
 import { AppBackgroundService } from '../core/ui/app-background.service';
@@ -31,6 +32,7 @@ export class App {
   readonly loading = inject(LoadingStore);
   private readonly currentPath = signal(this.normalizedPath(this.router.url));
   readonly showDisclaimer = computed(() => !this.isDisclaimerHiddenPath(this.currentPath()));
+  readonly showGlobalLoading = computed(() => this.loading.active() && !this.isSeoLandingPath(this.currentPath()));
 
   constructor() {
     this.theme.initialize();
@@ -71,5 +73,9 @@ export class App {
 
   private isDisclaimerHiddenPath(path: string): boolean {
     return this.isTableAssistantRoomPath(path) || this.isGameTablePath(path);
+  }
+
+  private isSeoLandingPath(path: string): boolean {
+    return findSeoRouteByPath(path) !== undefined;
   }
 }

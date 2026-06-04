@@ -313,7 +313,7 @@ export class ContextMenuComponent {
     }
 
     const suggestion = this.manaSourceSuggestion()(currentMenu.playerId, currentMenu.card);
-    return suggestion !== null && suggestion.kind !== 'none';
+    return suggestion !== null && suggestion.kind !== 'none' && !suggestion.manualOnly;
   }
 
   canShowManaPool(): boolean {

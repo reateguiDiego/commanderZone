@@ -1,126 +1,80 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { Title } from '@angular/platform-browser';
+import { Meta, Title } from '@angular/platform-browser';
 import { NavigationEnd, Router } from '@angular/router';
 import { filter } from 'rxjs';
-import { DEFAULT_LOCALE, LocaleCode, isSupportedLocale } from '../../../core/localization/locale-config';
-import { getSeoPath } from '../../../core/localization/seo-routes';
+import { AuthStore } from '../../../core/auth/auth.store';
+import { SeoLocaleCode, isSeoLocale } from '../../../core/localization/locale-config';
 
 interface NotFoundContent {
-  readonly eyebrow: string;
   readonly title: string;
+  readonly subtitle: string;
   readonly description: string;
-  readonly homeLabel: string;
-  readonly faqLabel: string;
-  readonly navLabel: string;
+  readonly cta: string;
+  readonly imageAlt: string;
+  readonly metaTitle: string;
+  readonly metaDescription: string;
 }
+
+const DEFAULT_NOT_FOUND_LOCALE = 'en' as const satisfies SeoLocaleCode;
+const NOT_FOUND_IMAGE_SRC = '/assets/og/404-og.png';
 
 const NOT_FOUND_CONTENT = {
   es: {
-    eyebrow: '404',
-    title: 'Pagina no encontrada',
-    description: 'La URL no existe o ya no esta disponible. Puedes volver al inicio publico o consultar la ayuda.',
-    homeLabel: 'Ir al inicio',
-    faqLabel: 'Ver FAQ',
-    navLabel: 'Navegacion de pagina no encontrada',
+    title: 'Esta carta se ha exiliado',
+    subtitle: 'La página que buscabas ha desaparecido del campo de batalla.',
+    description: 'Puede que el enlace esté roto, que la sala ya no exista o que un goblin haya tocado algo que no debía.',
+    cta: 'Volver al dashboard',
+    imageAlt: 'Ilustración 404 de CommanderZone con una carta desapareciendo en un portal.',
+    metaTitle: '404 — Página no encontrada | CommanderZone',
+    metaDescription: 'La página que buscabas no existe o ha desaparecido del campo de batalla.',
   },
   en: {
-    eyebrow: '404',
-    title: 'Page not found',
-    description: 'This URL does not exist or is no longer available. You can return to the public home page or read the FAQ.',
-    homeLabel: 'Go home',
-    faqLabel: 'Read FAQ',
-    navLabel: 'Not found navigation',
+    title: 'This card got exiled',
+    subtitle: 'The page you were looking for has vanished from the battlefield.',
+    description: 'The link may be broken, the room may be gone, or a goblin may have clicked the wrong thing.',
+    cta: 'Back to dashboard',
+    imageAlt: 'CommanderZone 404 illustration with a card disappearing into a portal.',
+    metaTitle: '404 — Page not found | CommanderZone',
+    metaDescription: 'The page you were looking for does not exist or has vanished from the battlefield.',
   },
   de: {
-    eyebrow: '404',
-    title: 'Seite nicht gefunden',
-    description: 'Diese URL existiert nicht oder ist nicht mehr verfugbar. Zur Startseite oder zur FAQ.',
-    homeLabel: 'Zur Startseite',
-    faqLabel: 'FAQ lesen',
-    navLabel: 'Navigation fur nicht gefundene Seite',
+    title: 'Diese Karte wurde ins Exil geschickt',
+    subtitle: 'Die Seite, die du gesucht hast, ist vom Spielfeld verschwunden.',
+    description: 'Vielleicht ist der Link kaputt, der Raum existiert nicht mehr oder ein Goblin hat den falschen Knopf gedrückt.',
+    cta: 'Zurück zum Dashboard',
+    imageAlt: 'CommanderZone-404-Illustration mit einer Karte, die in einem Portal verschwindet.',
+    metaTitle: '404 — Seite nicht gefunden | CommanderZone',
+    metaDescription: 'Die gesuchte Seite existiert nicht oder ist vom Spielfeld verschwunden.',
   },
   fr: {
-    eyebrow: '404',
-    title: 'Page introuvable',
-    description: 'Cette URL n existe pas ou n est plus disponible. Revenez a l accueil public ou consultez la FAQ.',
-    homeLabel: 'Accueil',
-    faqLabel: 'Lire la FAQ',
-    navLabel: 'Navigation page introuvable',
-  },
-  it: {
-    eyebrow: '404',
-    title: 'Pagina non trovata',
-    description: 'Questo URL non esiste o non e piu disponibile. Torna alla home pubblica o leggi le FAQ.',
-    homeLabel: 'Vai alla home',
-    faqLabel: 'Leggi FAQ',
-    navLabel: 'Navigazione pagina non trovata',
+    title: 'Cette carte a été exilée',
+    subtitle: 'La page que vous cherchiez a disparu du champ de bataille.',
+    description: 'Le lien est peut-être cassé, la salle n’existe plus, ou un gobelin a appuyé sur le mauvais bouton.',
+    cta: 'Retour au dashboard',
+    imageAlt: 'Illustration 404 de CommanderZone avec une carte qui disparaît dans un portail.',
+    metaTitle: '404 — Page introuvable | CommanderZone',
+    metaDescription: 'La page que vous cherchiez n’existe pas ou a disparu du champ de bataille.',
   },
   pt: {
-    eyebrow: '404',
-    title: 'Pagina nao encontrada',
-    description: 'Este URL nao existe ou ja nao esta disponivel. Volte ao inicio publico ou leia a FAQ.',
-    homeLabel: 'Ir ao inicio',
-    faqLabel: 'Ler FAQ',
-    navLabel: 'Navegacao da pagina nao encontrada',
+    title: 'Esta carta foi exilada',
+    subtitle: 'A página que você procurava desapareceu do campo de batalha.',
+    description: 'O link pode estar quebrado, a sala pode não existir mais ou um goblin pode ter apertado o botão errado.',
+    cta: 'Voltar ao dashboard',
+    imageAlt: 'Ilustração 404 do CommanderZone com uma carta desaparecendo em um portal.',
+    metaTitle: '404 — Página não encontrada | CommanderZone',
+    metaDescription: 'A página que você procurava não existe ou desapareceu do campo de batalha.',
   },
-  ja: {
-    eyebrow: '404',
-    title: 'Page not found',
-    description: 'This URL does not exist or is no longer available. Return to the public home page or read the FAQ.',
-    homeLabel: 'Home',
-    faqLabel: 'FAQ',
-    navLabel: 'Not found navigation',
+  it: {
+    title: 'Questa carta è stata esiliata',
+    subtitle: 'La pagina che cercavi è scomparsa dal campo di battaglia.',
+    description: 'Il link potrebbe essere rotto, la stanza potrebbe non esistere più o un goblin potrebbe aver premuto il tasto sbagliato.',
+    cta: 'Torna alla dashboard',
+    imageAlt: 'Illustrazione 404 di CommanderZone con una carta che scompare in un portale.',
+    metaTitle: '404 — Pagina non trovata | CommanderZone',
+    metaDescription: 'La pagina che cercavi non esiste o è scomparsa dal campo di battaglia.',
   },
-  ko: {
-    eyebrow: '404',
-    title: 'Page not found',
-    description: 'This URL does not exist or is no longer available. Return to the public home page or read the FAQ.',
-    homeLabel: 'Home',
-    faqLabel: 'FAQ',
-    navLabel: 'Not found navigation',
-  },
-  'zh-hans': {
-    eyebrow: '404',
-    title: 'Page not found',
-    description: 'This URL does not exist or is no longer available. Return to the public home page or read the FAQ.',
-    homeLabel: 'Home',
-    faqLabel: 'FAQ',
-    navLabel: 'Not found navigation',
-  },
-  'zh-hant': {
-    eyebrow: '404',
-    title: 'Page not found',
-    description: 'This URL does not exist or is no longer available. Return to the public home page or read the FAQ.',
-    homeLabel: 'Home',
-    faqLabel: 'FAQ',
-    navLabel: 'Not found navigation',
-  },
-  nl: {
-    eyebrow: '404',
-    title: 'Pagina niet gevonden',
-    description: 'Deze URL bestaat niet of is niet meer beschikbaar. Ga terug naar de startpagina of lees de FAQ.',
-    homeLabel: 'Naar home',
-    faqLabel: 'FAQ lezen',
-    navLabel: 'Navigatie voor niet gevonden pagina',
-  },
-  ca: {
-    eyebrow: '404',
-    title: 'Pagina no trobada',
-    description: 'Aquest URL no existeix o ja no esta disponible. Torna a l inici public o consulta les FAQ.',
-    homeLabel: 'Anar a l inici',
-    faqLabel: 'Veure FAQ',
-    navLabel: 'Navegacio de pagina no trobada',
-  },
-  ru: {
-    eyebrow: '404',
-    title: 'Page not found',
-    description: 'This URL does not exist or is no longer available. Return to the public home page or read the FAQ.',
-    homeLabel: 'Home',
-    faqLabel: 'FAQ',
-    navLabel: 'Not found navigation',
-  },
-} as const satisfies Record<LocaleCode, NotFoundContent>;
+} as const satisfies Record<SeoLocaleCode, NotFoundContent>;
 
 @Component({
   selector: 'app-not-found-page',
@@ -130,11 +84,15 @@ const NOT_FOUND_CONTENT = {
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class NotFoundPageComponent {
+  private readonly auth = inject(AuthStore);
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly meta = inject(Meta);
   private readonly router = inject(Router);
   private readonly title = inject(Title);
-  private readonly destroyRef = inject(DestroyRef);
 
-  readonly locale = signal<LocaleCode>(localeFromNotFoundUrl(this.router.url));
+  readonly locale = signal<SeoLocaleCode>(localeFromNotFoundUrl(this.router.url));
+  readonly imageSrc = NOT_FOUND_IMAGE_SRC;
+  readonly ctaHref = computed(() => this.auth.isAuthenticated() ? '/dashboard' : '/');
 
   constructor() {
     this.applyUrl(this.router.url);
@@ -150,23 +108,17 @@ export class NotFoundPageComponent {
     return NOT_FOUND_CONTENT[this.locale()];
   }
 
-  homePath(): string {
-    return getSeoPath('home', this.locale());
-  }
-
-  faqPath(): string {
-    return getSeoPath('faq', this.locale());
-  }
-
   private applyUrl(url: string): void {
     const locale = localeFromNotFoundUrl(url);
+    const content = NOT_FOUND_CONTENT[locale];
     this.locale.set(locale);
-    this.title.setTitle(`${NOT_FOUND_CONTENT[locale].title} | CommanderZone`);
+    this.title.setTitle(content.metaTitle);
+    this.meta.updateTag({ name: 'description', content: content.metaDescription });
   }
 }
 
-export function localeFromNotFoundUrl(url: string): LocaleCode {
+export function localeFromNotFoundUrl(url: string): SeoLocaleCode {
   const path = url.split(/[?#]/)[0] ?? '';
   const firstSegment = path.split('/').filter(Boolean)[0]?.toLowerCase();
-  return isSupportedLocale(firstSegment) ? firstSegment : DEFAULT_LOCALE.code;
+  return isSeoLocale(firstSegment) ? firstSegment : DEFAULT_NOT_FOUND_LOCALE;
 }

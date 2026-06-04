@@ -21,15 +21,21 @@
 
     @if (hasAbilityOptions()) {
       <section class="mana-ability-panel" [attr.aria-label]="'game.manaActionDialog.manaToAdd' | runtimeTranslate">
-        @for (option of abilityOptions(); track option.id) {
+        @for (view of abilityOptionViews(); track view.option.id) {
           <button
             type="button"
             class="mana-ability-choice"
-            [class.selected]="selectedAbilityIdForView() === option.id"
-            [attr.aria-pressed]="selectedAbilityIdForView() === option.id"
-            (click)="selectAbility(option)"
+            [class.selected]="selectedAbilityIdForView() === view.option.id"
+            [attr.aria-pressed]="selectedAbilityIdForView() === view.option.id"
+            (click)="selectAbility(view.option)"
           >
-            {{ option.label }}
+            @for (part of view.labelParts; track $index) {
+              @if (part.kind === 'mana') {
+                <app-mana-symbols [symbols]="[part.value]" size="small" />
+              } @else {
+                <span>{{ part.value }}</span>
+              }
+            }
           </button>
         }
       </section>

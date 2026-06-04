@@ -5,12 +5,11 @@ import { SEO_LANDING_ROUTES } from './features/seo-landings/seo-landing.routes';
 export const routes: Routes = [
   ...SEO_LANDING_ROUTES,
   {
-    path: '',
+    path: 'welcome',
     loadComponent: () => import('./features/onboarding/onboarding-page/onboarding-page.component')
       .then((component) => component.OnboardingPageComponent),
     canActivate: [guestGuard],
     data: { pageKey: 'app' },
-    pathMatch: 'full',
     title: 'CommanderZone',
   },
   {
@@ -132,6 +131,5 @@ export const routes: Routes = [
     loadComponent: () => import('./features/not-found/not-found-page/not-found-page.component')
       .then((component) => component.NotFoundPageComponent),
     data: { pageKey: 'wildcardRedirect' },
-    title: 'Page not found | CommanderZone',
   },
 ];

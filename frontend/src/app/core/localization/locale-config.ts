@@ -19,9 +19,26 @@ export type SupportedLocale = typeof SUPPORTED_LOCALES[number];
 
 export const DEFAULT_LOCALE = SUPPORTED_LOCALES[0];
 export const SUPPORTED_LOCALE_CODES = SUPPORTED_LOCALES.map((locale) => locale.code);
+export const SEO_LOCALE_CODES = ['en', 'es', 'de', 'fr', 'pt', 'it'] as const satisfies readonly LocaleCode[];
+export type SeoLocaleCode = typeof SEO_LOCALE_CODES[number];
+export type SeoLocale = Extract<SupportedLocale, { readonly code: SeoLocaleCode }>;
+export const SEO_LOCALES = SEO_LOCALE_CODES.map((code) => {
+  const locale = SUPPORTED_LOCALES.find((supportedLocale): supportedLocale is SeoLocale => supportedLocale.code === code);
+
+  if (!locale) {
+    throw new Error(`Missing SEO locale config for ${code}.`);
+  }
+
+  return locale;
+});
+export const SEO_DEFAULT_LOCALE = SEO_LOCALES[0];
 
 export function isSupportedLocale(locale: string | null | undefined): locale is LocaleCode {
   return typeof locale === 'string' && SUPPORTED_LOCALE_CODES.includes(locale as LocaleCode);
+}
+
+export function isSeoLocale(locale: string | null | undefined): locale is SeoLocaleCode {
+  return typeof locale === 'string' && SEO_LOCALE_CODES.includes(locale as SeoLocaleCode);
 }
 
 export function getLocaleByCode(locale: string | null | undefined): SupportedLocale | undefined {

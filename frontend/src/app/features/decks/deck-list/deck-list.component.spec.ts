@@ -1,7 +1,7 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { importProvidersFrom } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
 import {
   ArrowLeft,
   Folder,
@@ -91,6 +91,42 @@ describe('DeckListComponent', () => {
 
     expect(TestBed.inject(PageHeaderStore).state()?.title).toBe('Decks');
     expect(fixture.componentInstance.store.createModalTitle()).toBe('Create deck');
+  });
+
+  it('opens the create deck flow when the route requests an import intent', () => {
+    TestBed.overrideProvider(ActivatedRoute, {
+      useValue: {
+        snapshot: {
+          queryParamMap: convertToParamMap({ intent: 'import', next: '/rooms' }),
+        },
+      },
+    });
+
+    const fixture = TestBed.createComponent(DeckListComponent);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.store.createModalOpen()).toBe(true);
+    expect(fixture.componentInstance.store.createSuccessPrimaryLabel()).toBe('Continue to rooms');
+  });
+
+  it('continues to rooms after a deck flow started from a SEO CTA', () => {
+    TestBed.overrideProvider(ActivatedRoute, {
+      useValue: {
+        snapshot: {
+          queryParamMap: convertToParamMap({ intent: 'import', next: '/rooms' }),
+        },
+      },
+    });
+    const router = TestBed.inject(Router);
+    const navigateByUrl = vi.spyOn(router, 'navigateByUrl').mockResolvedValue(true);
+    const fixture = TestBed.createComponent(DeckListComponent);
+    fixture.detectChanges();
+
+    fixture.componentInstance.store.createSuccessDeck.set(savedDeck());
+    fixture.componentInstance.store.createSuccessModalOpen.set(true);
+    fixture.componentInstance.store.openCreatedDeckFromSuccess();
+
+    expect(navigateByUrl).toHaveBeenCalledWith('/rooms');
   });
 
   it('turns the delete deck modal into an info message when the deck is in use', async () => {

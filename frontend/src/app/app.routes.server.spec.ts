@@ -3,17 +3,25 @@ import { SEO_PRERENDER_ROUTES, toAngularServerRoutePath } from './core/localizat
 import { serverRoutes } from './app.routes.server';
 
 describe('server routes', () => {
+  const nonSeoLocaleCodes = ['ja', 'ko', 'zh-hans', 'zh-hant', 'nl', 'ca', 'ru'] as const;
+
   it('prerenders every localized SEO URL', () => {
     const prerenderPaths = serverRoutes
       .filter((route) => route.renderMode === RenderMode.Prerender)
       .map((route) => route.path);
 
-    expect(prerenderPaths).toHaveLength(130);
+    expect(prerenderPaths).toHaveLength(60);
     expect(prerenderPaths).toEqual(SEO_PRERENDER_ROUTES.map((path) => toAngularServerRoutePath(path)));
+    expect(prerenderPaths).toContain('');
+    expect(prerenderPaths).not.toContain('en');
+
+    for (const locale of nonSeoLocaleCodes) {
+      expect(prerenderPaths.some((path) => path === locale || path.startsWith(`${locale}/`))).toBe(false);
+    }
   });
 
   it('keeps private and dynamic runtime routes out of prerender mode', () => {
-    const clientOnlyPaths = ['games/:id', 'profile', 'settings', 'app', 'dashboard', 'table-assistant'];
+    const clientOnlyPaths = ['games/:id', 'profile', 'settings', 'app', 'dashboard', 'table-assistant', 'welcome'];
 
     for (const path of clientOnlyPaths) {
       const route = serverRoutes.find((candidate) => candidate.path === path);

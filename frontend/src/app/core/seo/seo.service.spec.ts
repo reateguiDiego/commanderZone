@@ -20,8 +20,9 @@ import { SEARCH_CONSOLE_VERIFICATION_TOKEN, normalizeSearchConsoleVerificationTo
 describe('SeoService helpers', () => {
   it('uses the production canonical origin by default', () => {
     expect(SEO_CANONICAL_ORIGIN).toBe('https://www.commanderzone.com');
+    expect(buildSeoCanonicalUrl('home', 'en')).toBe('https://www.commanderzone.com/');
     expect(buildSeoCanonicalUrl('tableAssistant', 'es')).toBe(
-      'https://www.commanderzone.com/es/asistente-de-mesa-magic/',
+      'https://www.commanderzone.com/es/asistente-mesa-commander/',
     );
     expect(toSeoAbsoluteUrl('/assets/og/play-commander-og.png')).toBe(
       'https://www.commanderzone.com/assets/og/play-commander-og.png',
@@ -30,28 +31,50 @@ describe('SeoService helpers', () => {
 
   it('builds an absolute canonical URL for the localized route', () => {
     expect(buildSeoCanonicalUrl('tableAssistant', 'es', 'https://commanderzone.test/')).toBe(
-      'https://commanderzone.test/es/asistente-de-mesa-magic/',
+      'https://commanderzone.test/es/asistente-mesa-commander/',
     );
   });
 
-  it('builds hreflang alternates for every locale plus x-default', () => {
+  it('builds hreflang alternates for every SEO-indexable locale plus x-default', () => {
     const links = buildSeoAlternateLinks('playCommanderOnline', 'https://commanderzone.test');
 
-    expect(links).toHaveLength(14);
+    expect(links).toHaveLength(7);
     expect(links).toEqual(expect.arrayContaining([
       expect.objectContaining({
         hreflang: 'es',
         href: 'https://commanderzone.test/es/jugar-commander-online/',
       }),
       expect.objectContaining({
-        hreflang: 'zh-Hans',
-        href: 'https://commanderzone.test/zh-hans/zaixian-commander/',
+        hreflang: 'it',
+        href: 'https://commanderzone.test/it/giocare-commander-online/',
       }),
       expect.objectContaining({
         hreflang: 'x-default',
-        href: 'https://commanderzone.test/es/jugar-commander-online/',
+        href: 'https://commanderzone.test/en/play-commander-online/',
       }),
     ]));
+    expect(links.some((link) => link.hreflang === 'zh-Hans')).toBe(false);
+  });
+
+  it('uses root URLs for the English home canonical alternates', () => {
+    const links = buildSeoAlternateLinks('home', 'https://commanderzone.test');
+
+    expect(links).toHaveLength(7);
+    expect(links).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        hreflang: 'en',
+        href: 'https://commanderzone.test/',
+      }),
+      expect.objectContaining({
+        hreflang: 'x-default',
+        href: 'https://commanderzone.test/',
+      }),
+      expect.objectContaining({
+        hreflang: 'es',
+        href: 'https://commanderzone.test/es/',
+      }),
+    ]));
+    expect(links.some((link) => link.href === 'https://commanderzone.test/en/')).toBe(false);
   });
 
   it('builds indexable Open Graph and Twitter meta tags', () => {
@@ -68,7 +91,7 @@ describe('SeoService helpers', () => {
       expect.objectContaining({ property: 'og:image:height', content: '630' }),
       expect.objectContaining({ property: 'og:locale', content: 'en_US' }),
       expect.objectContaining({ property: 'og:locale:alternate', content: 'es_ES' }),
-      expect.objectContaining({ property: 'og:locale:alternate', content: 'zh_CN' }),
+      expect.objectContaining({ property: 'og:locale:alternate', content: 'it_IT' }),
       expect.objectContaining({ name: 'twitter:card', content: 'summary_large_image' }),
       expect.objectContaining({ name: 'twitter:image', content: 'https://commanderzone.test/assets/og/play-commander-og.png' }),
     ]));
@@ -77,20 +100,23 @@ describe('SeoService helpers', () => {
   it('uses the default Open Graph image fallback and localized OG locale mapping', () => {
     const metadata: SeoRouteMetadata = {
       ...createMetadata(),
-      locale: 'zh-hans',
+      locale: 'it',
       openGraphImage: undefined,
     };
-    const tags = buildSeoMetaTags(metadata, 'https://commanderzone.test/zh-hans/zaixian-commander/');
+    const tags = buildSeoMetaTags(metadata, 'https://commanderzone.test/it/giocare-commander-online/');
 
     expect(SEO_DEFAULT_OPEN_GRAPH_IMAGE).toBe('/assets/og/default-og.png');
-    expect(getOpenGraphLocale('zh-hans')).toBe('zh_CN');
-    expect(getOpenGraphLocale('zh-hant')).toBe('zh_TW');
-    expect(buildOpenGraphLocaleAlternates('zh-hans')).toHaveLength(12);
+    expect(getOpenGraphLocale('it')).toBe('it_IT');
+    expect(getOpenGraphLocale('pt')).toBe('pt_PT');
+    expect(buildOpenGraphLocaleAlternates('it')).toHaveLength(5);
     expect(tags).toEqual(expect.arrayContaining([
       expect.objectContaining({ property: 'og:image', content: 'https://commanderzone.test/assets/og/default-og.png' }),
       expect.objectContaining({ name: 'twitter:image', content: 'https://commanderzone.test/assets/og/default-og.png' }),
-      expect.objectContaining({ property: 'og:locale', content: 'zh_CN' }),
-      expect.objectContaining({ property: 'og:locale:alternate', content: 'zh_TW' }),
+      expect.objectContaining({ property: 'og:locale', content: 'it_IT' }),
+      expect.objectContaining({ property: 'og:locale:alternate', content: 'pt_PT' }),
+    ]));
+    expect(tags).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ property: 'og:locale:alternate', content: 'zh_CN' }),
     ]));
   });
 
@@ -143,7 +169,7 @@ describe('SeoService', () => {
     expect(document.head.querySelector('link[data-cz-seo="true"][rel="preload"][as="image"]')?.getAttribute('fetchpriority')).toBe(
       'high',
     );
-    expect(document.head.querySelectorAll('link[data-cz-seo="true"][rel="alternate"]').length).toBe(14);
+    expect(document.head.querySelectorAll('link[data-cz-seo="true"][rel="alternate"]').length).toBe(7);
     expect(document.head.querySelector('link[data-cz-seo="true"][rel="alternate"][hreflang="x-default"]')).toBeTruthy();
     expect(document.head.querySelector('meta[data-cz-seo="true"][property="og:title"]')?.getAttribute('content')).toBe(
       'Play Commander online | CommanderZone',
@@ -154,7 +180,7 @@ describe('SeoService', () => {
     expect(document.head.querySelector('meta[data-cz-seo="true"][property="og:locale"]')?.getAttribute('content')).toBe(
       'en_US',
     );
-    expect(document.head.querySelectorAll('meta[data-cz-seo="true"][property="og:locale:alternate"]').length).toBe(12);
+    expect(document.head.querySelectorAll('meta[data-cz-seo="true"][property="og:locale:alternate"]').length).toBe(5);
     expect(document.head.querySelector('meta[data-cz-seo="true"][name="twitter:card"]')?.getAttribute('content')).toBe(
       'summary_large_image',
     );

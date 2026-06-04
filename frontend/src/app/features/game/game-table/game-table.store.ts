@@ -64,6 +64,7 @@ interface AutomaticTapManaTarget extends SelectedCard {
 export class GameTableStore implements OnDestroy {
   private openingRevealedLibraryPlayerId: string | null = null;
   private locallyConcededPlayerId: string | null = null;
+  private lastSeenActiveTurnPlayerId: string | null = null;
 
   private readonly debouncedValueCommands = inject(GameTableDebouncedValueCommandsService);
   private readonly cardActions = inject(GameTableCardActionsService);
@@ -848,6 +849,7 @@ export class GameTableStore implements OnDestroy {
     }
 
     await this.turnActions.passTurn(this.contexts.turnAction());
+    this.manaPoolState.resetAll();
   }
 
   async changeCommanderCastCount(playerId: string, delta: number): Promise<void> {
@@ -1658,12 +1660,23 @@ export class GameTableStore implements OnDestroy {
   private setSnapshot(snapshot: GameSnapshot | null): void {
     if (snapshot === null) {
       this.locallyConcededPlayerId = null;
+      this.lastSeenActiveTurnPlayerId = null;
     } else if (this.locallyConcededPlayerId !== null) {
       const localPlayerStatus = snapshot.players[this.locallyConcededPlayerId]?.status ?? null;
       if (localPlayerStatus !== 'conceded') {
         this.locallyConcededPlayerId = null;
       }
     }
+
+    const nextActiveTurnPlayerId = snapshot?.turn.activePlayerId ?? null;
+    if (
+      this.lastSeenActiveTurnPlayerId !== null
+      && nextActiveTurnPlayerId !== null
+      && this.lastSeenActiveTurnPlayerId !== nextActiveTurnPlayerId
+    ) {
+      this.manaPoolState.resetAll();
+    }
+    this.lastSeenActiveTurnPlayerId = nextActiveTurnPlayerId;
 
     this.snapshotCoordinatorState.setSnapshot({
       openRevealedLibraryFromSnapshot: (nextSnapshot) => this.openRevealedLibraryFromSnapshot(nextSnapshot),

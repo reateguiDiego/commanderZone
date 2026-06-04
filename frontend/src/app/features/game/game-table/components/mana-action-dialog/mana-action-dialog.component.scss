@@ -162,6 +162,11 @@
 }
 
 .mana-ability-choice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.18rem;
   min-height: 2.15rem;
   padding: 0.42rem 0.58rem;
   border: 1px solid rgb(215 180 106 / 26%);
@@ -178,6 +183,10 @@
     border-color 140ms ease,
     background 140ms ease,
     box-shadow 140ms ease;
+}
+
+.mana-ability-choice app-mana-symbols {
+  display: inline-flex;
 }
 
 .mana-ability-choice:hover,

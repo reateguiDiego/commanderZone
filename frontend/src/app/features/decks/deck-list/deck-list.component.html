@@ -337,7 +337,7 @@
     [open]="store.createSuccessModalOpen()"
     [title]="'deckBuilder.deckList.deckSaved' | runtimeTranslate"
     [message]="store.createSuccessMessage()"
-    primaryLabel="Open deck"
+    [primaryLabel]="store.createSuccessPrimaryLabel()"
     secondaryLabel="Back to decks"
     (primary)="store.openCreatedDeckFromSuccess()"
     (secondary)="store.closeCreateSuccessModal()"

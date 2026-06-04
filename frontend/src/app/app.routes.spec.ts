@@ -5,18 +5,28 @@ import { routes } from './app.routes';
 import { Route } from '@angular/router';
 
 describe('app routes', () => {
-  it('protects the root landing route with guestGuard', () => {
-    const rootRoute = routes.find((route) => route.path === '' && route.pathMatch === 'full');
-
-    expect(rootRoute).toBeDefined();
-    expect(rootRoute?.canActivate).toEqual([guestGuard]);
-  });
-
-  it('keeps onboarding as the root landing component', async () => {
+  it('serves the root path as the public English SEO home with guest redirect for authenticated users', async () => {
     const rootRoute = routes.find((route) => route.path === '' && route.pathMatch === 'full');
     const componentLoader = rootRoute?.loadComponent as (() => Promise<{ name: string }>) | undefined;
     const component = componentLoader ? await componentLoader() : undefined;
 
+    expect(rootRoute).toBeDefined();
+    expect(rootRoute?.canActivate).toEqual([guestGuard]);
+    expect(rootRoute?.data?.['pageKey']).toBe('home');
+    expect(rootRoute?.data?.['routeKey']).toBe('home');
+    expect(rootRoute?.data?.['locale']).toBe('en');
+    expect(rootRoute?.data?.['authenticatedRedirect']).toBe('/decks');
+    expect(component?.name).toMatch(/SeoLandingRouteComponent$/);
+  });
+
+  it('keeps onboarding on /welcome behind guestGuard', async () => {
+    const welcomeRoute = routes.find((route) => route.path === 'welcome');
+    const componentLoader = welcomeRoute?.loadComponent as (() => Promise<{ name: string }>) | undefined;
+    const component = componentLoader ? await componentLoader() : undefined;
+
+    expect(welcomeRoute).toBeDefined();
+    expect(welcomeRoute?.canActivate).toEqual([guestGuard]);
+    expect(welcomeRoute?.data?.['pageKey']).toBe('app');
     expect(component?.name).toMatch(/OnboardingPageComponent$/);
   });
 
@@ -27,6 +37,7 @@ describe('app routes', () => {
 
     expect(wildcardRoute?.redirectTo).toBeUndefined();
     expect(wildcardRoute?.data?.['pageKey']).toBe('wildcardRedirect');
+    expect(wildcardRoute?.title).toBeUndefined();
     expect(component?.name).toMatch(/NotFoundPageComponent$/);
   });
 
@@ -56,6 +67,10 @@ function isPageKey(value: unknown): value is PageKey {
 }
 
 function expectedRobotsFor(pageKey: PageKey): 'index, follow' | 'noindex, follow' | 'noindex, nofollow' {
+  if (pageKey === 'wildcardRedirect') {
+    return 'noindex, follow';
+  }
+
   const strategy = PAGE_TRANSLATION_STRATEGIES[pageKey];
 
   if (strategy === 'seo-static') {

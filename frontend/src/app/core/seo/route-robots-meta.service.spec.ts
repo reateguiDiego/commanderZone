@@ -56,6 +56,14 @@ describe('RouteRobotsMetaService', () => {
     expect(routeRobotsMeta()?.getAttribute('content')).toBe('noindex, nofollow');
   });
 
+  it('sets noindex, follow for the wildcard 404 route', () => {
+    setCurrentPageKey('wildcardRedirect');
+
+    service.initialize();
+
+    expect(routeRobotsMeta()?.getAttribute('content')).toBe('noindex, follow');
+  });
+
   it('clears route-level robots meta for SEO-static routes', () => {
     service.initialize();
     expect(routeRobotsMeta()).toBeTruthy();

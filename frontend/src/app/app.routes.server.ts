@@ -24,6 +24,6 @@ export const serverRoutes: ServerRoute[] = [
   { path: 'table-assistant', renderMode: RenderMode.Client },
   { path: 'table-assistant/:id', renderMode: RenderMode.Client },
   { path: 'room/:id', renderMode: RenderMode.Client },
-  { path: '', renderMode: RenderMode.Client },
+  { path: 'welcome', renderMode: RenderMode.Client },
   { path: '**', renderMode: RenderMode.Client, status: 404 },
 ];

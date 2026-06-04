@@ -1,4 +1,5 @@
-import { inject } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
+import { inject, PLATFORM_ID } from '@angular/core';
 import { ActivatedRouteSnapshot, CanActivateFn, Router, RouterStateSnapshot } from '@angular/router';
 import { AuthStore } from './auth.store';
 
@@ -16,12 +17,25 @@ export const authGuard: CanActivateFn = (_route: ActivatedRouteSnapshot, state: 
 };
 
 export const guestGuard: CanActivateFn = (route: ActivatedRouteSnapshot) => {
+  const platformId = inject(PLATFORM_ID);
+
+  if (!isPlatformBrowser(platformId)) {
+    return true;
+  }
+
   const auth = inject(AuthStore);
   const router = inject(Router);
-  const redirect = safeRedirectUrl(route.queryParamMap.get('redirect'));
+  const queryRedirect = safeRedirectUrl(route.queryParamMap.get('redirect'));
+  const dataRedirect = safeRedirectUrl(routeDataRedirect(route));
+  const authenticatedRedirect = queryRedirect ?? dataRedirect ?? '/dashboard';
 
-  return auth.initialize().then(() => auth.isAuthenticated() ? router.parseUrl(redirect ?? '/dashboard') : true);
+  return auth.initialize().then(() => auth.isAuthenticated() ? router.parseUrl(authenticatedRedirect) : true);
 };
+
+function routeDataRedirect(route: ActivatedRouteSnapshot): string | null {
+  const redirect = route.data?.['authenticatedRedirect'];
+  return typeof redirect === 'string' ? redirect : null;
+}
 
 function safeRedirectUrl(url: string | null): string | null {
   if (!url || !url.startsWith('/') || url.startsWith('//') || url.includes('://')) {

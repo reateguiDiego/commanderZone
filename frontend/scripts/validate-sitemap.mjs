@@ -12,6 +12,8 @@ import {
 
 const workspaceRoot = process.cwd();
 const config = await loadSeoSitemapConfig(workspaceRoot);
+const nonSeoLocaleCodes = ['ja', 'ko', 'zh-hans', 'zh-hant', 'nl', 'ca', 'ru'];
+const nonSeoHreflangs = ['ja', 'ko', 'zh-Hans', 'zh-Hant', 'nl', 'ca', 'ru'];
 const expectedIndexXml = generateSitemapIndexXml();
 const expectedSeoXml = generateSeoSitemapXml(config);
 const sitemapIndexPath = path.join(workspaceRoot, 'public', SITEMAP_INDEX_PUBLIC_PATH);
@@ -61,7 +63,16 @@ function assertSeoSitemap(xml, config) {
     }
   }
 
+  if (!actualLocs.includes('https://www.commanderzone.com/')) {
+    throw new Error('sitemap-seo.xml must include the root English home URL.');
+  }
+
+  if (actualLocs.includes('https://www.commanderzone.com/en/')) {
+    throw new Error('sitemap-seo.xml must not include /en/ as an indexable home URL.');
+  }
+
   assertNoPrivateRoutes(actualLocs);
+  assertNoNonSeoLocales(xml);
   assertEveryExpectedUrlExists(expectedEntries, actualLocs);
   assertHreflangAlternates(xml, expectedEntries, config);
 }
@@ -84,6 +95,20 @@ function assertNoPrivateRoutes(urls) {
 
   if (privateUrl) {
     throw new Error(`Private/runtime route must not appear in sitemap: ${privateUrl}`);
+  }
+}
+
+function assertNoNonSeoLocales(xml) {
+  for (const locale of nonSeoLocaleCodes) {
+    if (xml.includes(`/${locale}/`)) {
+      throw new Error(`sitemap-seo.xml must not include non-SEO locale URLs for ${locale}.`);
+    }
+  }
+
+  for (const hreflang of nonSeoHreflangs) {
+    if (xml.includes(`hreflang="${hreflang}"`)) {
+      throw new Error(`sitemap-seo.xml must not include non-SEO hreflang ${hreflang}.`);
+    }
   }
 }
 
@@ -132,7 +157,14 @@ function assertHreflangAlternates(xml, expectedEntries, config) {
 function assertNoMixedLocaleSlug(config) {
   for (const route of config.routes) {
     for (const locale of config.locales) {
-      const expectedPath = toSeoPath(locale.code, route.slugs[locale.code]);
+      const expectedPath = toSeoPath(locale.code, route.slugs[locale.code], route.routeKey);
+
+      if (route.routeKey === 'home' && locale.code === 'en') {
+        if (expectedPath !== '/') {
+          throw new Error(`English home must be the root path, got ${expectedPath}.`);
+        }
+        continue;
+      }
 
       if (!expectedPath.startsWith(`/${locale.code}/`)) {
         throw new Error(`Mixed localized slug detected for ${route.routeKey}: ${expectedPath}`);

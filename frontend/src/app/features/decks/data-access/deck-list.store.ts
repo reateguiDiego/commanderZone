@@ -38,6 +38,7 @@ export class DeckListStore {
   readonly deleteBlockedMessage = signal<string | null>(null);
   readonly createSuccessModalOpen = signal(false);
   readonly createSuccessDeck = signal<Deck | null>(null);
+  readonly createSuccessPrimaryLabel = signal('Open deck');
   readonly deckEditTarget = signal<Deck | null>(null);
   readonly folderTarget = signal<DeckFolder | null>(null);
   readonly createdDeck = signal<Deck | null>(null);
@@ -112,6 +113,7 @@ export class DeckListStore {
   private deckPointerStart: { x: number; y: number; deckId: string } | null = null;
   private activePointerDragDeckId: string | null = null;
   private suppressNextDeckOpen = false;
+  private createSuccessRedirectUrl: string | null = null;
 
   constructor() {
     void this.reloadAll();
@@ -179,10 +181,21 @@ export class DeckListStore {
 
   openCreatedDeckFromSuccess(): void {
     const deck = this.createSuccessDeck();
+    const redirectUrl = this.createSuccessRedirectUrl;
     this.closeCreateSuccessModal();
+    if (redirectUrl) {
+      void this.router.navigateByUrl(redirectUrl);
+      return;
+    }
+
     if (deck) {
       void this.router.navigate(['/decks', deck.id]);
     }
+  }
+
+  configureCreateSuccessRedirect(redirectUrl: string | null): void {
+    this.createSuccessRedirectUrl = redirectUrl;
+    this.createSuccessPrimaryLabel.set(redirectUrl ? 'Continue to rooms' : 'Open deck');
   }
 
   async cancelCreateFlow(): Promise<void> {

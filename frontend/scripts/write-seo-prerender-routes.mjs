@@ -10,7 +10,7 @@ const outputPath = path.join(workspaceRoot, 'src/seo-prerender-routes.txt');
 const localeCodes = extractSupportedLocaleCodes(await readSourceFile(localeConfigPath));
 const seoRoutes = extractSeoRoutes(await readSourceFile(seoRoutesPath));
 const routes = Object.values(seoRoutes).flatMap((route) =>
-  localeCodes.map((locale) => toSeoPath(locale, route.slugs[locale])),
+  localeCodes.map((locale) => toSeoPath(locale, route.slugs[locale], route.routeKey)),
 );
 
 validateRoutes(routes, localeCodes.length, Object.keys(seoRoutes).length);
@@ -26,20 +26,15 @@ async function readSourceFile(filePath) {
 }
 
 function extractSupportedLocaleCodes(sourceFile) {
-  const declaration = findVariableDeclaration(sourceFile, 'SUPPORTED_LOCALES');
+  const declaration = findVariableDeclaration(sourceFile, 'SEO_LOCALE_CODES');
   const arrayLiteral = unwrapAsConstArray(declaration.initializer);
 
   return arrayLiteral.elements.map((element) => {
-    if (!ts.isObjectLiteralExpression(element)) {
-      throw new Error('SUPPORTED_LOCALES must contain object literals.');
+    if (!ts.isStringLiteralLike(element)) {
+      throw new Error('SEO_LOCALE_CODES must contain string literals.');
     }
 
-    const code = getStringProperty(element, 'code');
-    if (!code) {
-      throw new Error('Every supported locale must define a code.');
-    }
-
-    return code;
+    return element.text;
   });
 }
 
@@ -64,7 +59,7 @@ function extractSeoRoutes(sourceFile) {
     }
 
     const slugsObject = unwrapSatisfiesObject(slugsProperty.initializer);
-    routes[routeKey] = { slugs: extractSlugRecord(slugsObject, routeKey) };
+    routes[routeKey] = { routeKey, slugs: extractSlugRecord(slugsObject, routeKey) };
   }
 
   return routes;
@@ -106,6 +101,10 @@ function findVariableDeclaration(sourceFile, variableName) {
 }
 
 function unwrapAsConstArray(expression) {
+  if (ts.isSatisfiesExpression(expression)) {
+    return unwrapAsConstArray(expression.expression);
+  }
+
   if (ts.isAsExpression(expression) && ts.isArrayLiteralExpression(expression.expression)) {
     return expression.expression;
   }
@@ -157,7 +156,11 @@ function propertyNameToString(name) {
   throw new Error('Only identifier and string literal property names are supported.');
 }
 
-function toSeoPath(locale, slug) {
+function toSeoPath(locale, slug, routeKey) {
+  if (routeKey === 'home' && locale === 'en') {
+    return '/';
+  }
+
   return slug ? `/${locale}/${slug}/` : `/${locale}/`;
 }
 
