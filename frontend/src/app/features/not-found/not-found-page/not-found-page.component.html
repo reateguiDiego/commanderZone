@@ -9,16 +9,11 @@
     <div class="not-found-page__content">
       <p class="not-found-page__eyebrow">CommanderZone</p>
       <h1 id="not-found-title">{{ page.title }}</h1>
-      <p class="not-found-page__subtitle">{{ page.subtitle }}</p>
       <p class="not-found-page__copy">{{ page.description }}</p>
 
-      <nav class="not-found-page__links" aria-label="Helpful links">
-        @for (link of links; track link.href) {
-          <a class="primary-button not-found-page__cta" [href]="link.href">
-            {{ link.label }}
-          </a>
-        }
-      </nav>
+      <a class="primary-button not-found-page__cta" [href]="ctaHref()">
+        {{ ctaLabel() }}
+      </a>
     </div>
   </section>
 </main>

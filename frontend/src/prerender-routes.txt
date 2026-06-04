@@ -82,5 +82,3 @@
 /fr/contact/
 /pt/contato/
 /it/contatto/
-/auth/login/
-/auth/register/

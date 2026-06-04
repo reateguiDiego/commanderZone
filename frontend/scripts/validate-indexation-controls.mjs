@@ -1,4 +1,3 @@
-import { existsSync, readFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import ts from 'typescript';
@@ -9,18 +8,16 @@ import {
 } from './seo-sitemap-generator.mjs';
 
 const workspaceRoot = process.cwd();
-const distBrowserRoot = path.join(workspaceRoot, 'dist', 'frontend', 'browser');
 const authPages = [
-  { path: '/auth/login/', title: 'Login | CommanderZone', expectedText: 'Login' },
-  { path: '/auth/register/', title: 'Sign up | CommanderZone', expectedText: 'Create account' },
+  { routePath: 'auth/login', normalizedPath: '/auth/login/' },
+  { routePath: 'auth/register', normalizedPath: '/auth/register/' },
 ];
 
 const [
   strategiesSource,
   appRoutesSource,
   serverRoutesSource,
-  notFoundSource,
-  notFoundTemplate,
+  legalRoutesSource,
   vercelConfigSource,
   robots,
   sitemap,
@@ -31,8 +28,7 @@ const [
   readWorkspaceFile('src/app/core/localization/page-translation-strategy.ts'),
   readWorkspaceFile('src/app/app.routes.ts'),
   readWorkspaceFile('src/app/app.routes.server.ts'),
-  readWorkspaceFile('src/app/features/not-found/not-found-page/not-found-page.component.ts'),
-  readWorkspaceFile('src/app/features/not-found/not-found-page/not-found-page.component.html'),
+  readWorkspaceFile('src/app/core/legal/legal-routes.ts'),
   readWorkspaceFile('vercel.json'),
   readWorkspaceFile('public/robots.txt'),
   readWorkspaceFile('public/sitemaps/sitemap-seo.xml'),
@@ -45,8 +41,9 @@ const pageStrategies = extractPageStrategies(strategiesSource);
 const appRoutes = extractAppRouteRecords(appRoutesSource);
 const seoRouteKeys = sitemapConfig.routes.map((route) => route.routeKey);
 const seoStaticPageKeys = pageKeysForStrategy(pageStrategies, 'seo-static');
-const noindexPageKeys = pageKeysForStrategies(pageStrategies, ['runtime-i18n', 'out-of-scope']);
+const noindexPageKeys = pageKeysForStrategy(pageStrategies, 'runtime-i18n');
 const sitemapLocs = extractTagValues(sitemap, 'loc');
+const legalPrerenderRoutes = extractLegalPrerenderRoutes(legalRoutesSource, sitemapConfig.locales.map((locale) => locale.code));
 
 assertSameSet(seoStaticPageKeys, seoRouteKeys, 'seo-static page keys must match SEO_ROUTES keys');
 assertEverySeoStaticPageIsIndexable(seoStaticPageKeys, pageStrategies);
@@ -56,13 +53,11 @@ assertSitemapContainsOnlySeoStaticPages(sitemapLocs, sitemapConfig);
 assertNoNoindexRouteAppearsInSitemap(sitemapLocs, appRoutes, pageStrategies);
 assertNoInvalidLocalizedSeoPathAppearsInSitemap(sitemapLocs, sitemapConfig);
 assertRobotsDoesNotBlockNoindexPages(robots, appRoutes, pageStrategies);
-assertWildcardNotFoundRoute(appRoutes);
-assertAuthServerRoutesPrerender(serverRoutesSource);
-assertAuthRoutesInPrerenderManifest(combinedPrerenderRoutes, seoPrerenderRoutes, sitemap);
-assertServerFallbackIs404(serverRoutesSource);
-assertNotFoundPageSource(notFoundSource, notFoundTemplate);
+assertSeoRoutesInSeoPrerenderManifest(seoPrerenderRoutes, sitemapConfig, sitemapLocs);
+assertLegalRoutesInCombinedManifestOnly(combinedPrerenderRoutes, sitemapLocs, legalPrerenderRoutes);
+assertAuthServerRoutesClient(serverRoutesSource);
+assertAuthRoutesOutOfPrerenderAndSitemap(combinedPrerenderRoutes, seoPrerenderRoutes, sitemapLocs);
 assertVercelNoindexHeaders(vercelConfigSource);
-assertRenderedAuthHtmlWhenAvailable();
 
 console.log('Indexation control validation passed.');
 
@@ -92,6 +87,32 @@ function extractAppRouteRecords(sourceText) {
   const declaration = findVariableDeclaration(sourceFile, 'routes');
   const arrayLiteral = unwrapArrayExpression(declaration.initializer);
   return extractRouteRecordsFromArray(arrayLiteral, []);
+}
+
+function extractLegalPrerenderRoutes(sourceText, localeCodes) {
+  const sourceFile = createSourceFile('legal-routes.ts', sourceText);
+  const declaration = findVariableDeclaration(sourceFile, 'LEGAL_ROUTE_SLUGS');
+  const objectLiteral = unwrapObjectExpression(declaration.initializer);
+  const routes = [];
+
+  for (const routeProperty of objectLiteral.properties) {
+    if (!ts.isPropertyAssignment(routeProperty)) {
+      continue;
+    }
+
+    const slugsObject = unwrapObjectExpression(routeProperty.initializer);
+
+    for (const locale of localeCodes) {
+      const slug = getStringProperty(slugsObject, locale);
+      if (!slug) {
+        throw new Error(`Legal route ${propertyNameToString(routeProperty.name)} is missing slug for ${locale}.`);
+      }
+
+      routes.push(locale === 'en' ? `/${slug}/` : `/${locale}/${slug}/`);
+    }
+  }
+
+  return routes;
 }
 
 function extractRouteRecordsFromArray(arrayLiteral, parentSegments) {
@@ -232,60 +253,32 @@ function assertRobotsDoesNotBlockNoindexPages(robotsContent, appRoutes, strategi
   }
 }
 
-function assertWildcardNotFoundRoute(routes) {
-  const wildcardRoute = routes.find((route) => route.path === '**');
+function assertSeoRoutesInSeoPrerenderManifest(seoRoutesText, config, locs) {
+  const expectedSeoPaths = getSeoSitemapEntries(config).map((entry) => new URL(entry.loc).pathname);
+  const seoPrerenderRoutes = seoRoutesText.split(/\r?\n/).filter(Boolean);
+  const sitemapPathSet = new Set(locs.map((loc) => new URL(loc).pathname));
 
-  if (!wildcardRoute) {
-    throw new Error('App routes must include a wildcard not-found route.');
-  }
+  assertSameSet(seoPrerenderRoutes, expectedSeoPaths, 'SEO prerender manifest must contain exactly the indexable SEO routes');
 
-  if (wildcardRoute.pageKey !== 'wildcardRedirect') {
-    throw new Error('Wildcard route must use wildcardRedirect pageKey for noindex control.');
-  }
-
-  if (wildcardRoute.redirectTo !== undefined) {
-    throw new Error('Wildcard route must render not-found instead of redirecting invalid URLs.');
-  }
-
-  if (!wildcardRoute.source.includes('NotFoundPageComponent')) {
-    throw new Error('Wildcard route must render NotFoundPageComponent.');
+  for (const routePath of expectedSeoPaths) {
+    if (!sitemapPathSet.has(routePath)) {
+      throw new Error(`SEO route ${routePath} must appear in the SEO sitemap.`);
+    }
   }
 }
 
-function assertServerFallbackIs404(sourceText) {
-  if (!sourceText.includes("{ path: '**', renderMode: RenderMode.Server, status: 404 }")) {
-    throw new Error('Server wildcard fallback must render the not-found page with status 404.');
-  }
-}
+function assertLegalRoutesInCombinedManifestOnly(combinedRoutesText, locs, legalRoutes) {
+  const combinedPrerenderRoutes = combinedRoutesText.split(/\r?\n/).filter(Boolean);
+  const sitemapPathSet = new Set(locs.map((loc) => new URL(loc).pathname));
 
-function assertNotFoundPageSource(componentSource, templateSource) {
-  const requiredComponentFragments = [
-    "NOT_FOUND_META_TITLE = 'Page not found | CommanderZone'",
-    "NOT_FOUND_META_DESCRIPTION = 'The page you were looking for does not exist.'",
-    "title: 'Page not found'",
-    "href: '/'",
-    "href: '/en/play-commander-online/'",
-    "href: '/en/faq/'",
-  ];
-  const requiredTemplateFragments = [
-    '<h1 id="not-found-title">{{ page.title }}</h1>',
-    '[href]="link.href"',
-  ];
-
-  for (const fragment of requiredComponentFragments) {
-    if (!componentSource.includes(fragment)) {
-      throw new Error(`Not-found component must include required fragment: ${fragment}`);
+  for (const legalRoute of legalRoutes) {
+    if (!combinedPrerenderRoutes.includes(legalRoute)) {
+      throw new Error(`Legal route must appear in the combined prerender manifest: ${legalRoute}`);
     }
-  }
 
-  for (const fragment of requiredTemplateFragments) {
-    if (!templateSource.includes(fragment)) {
-      throw new Error(`Not-found template must include required fragment: ${fragment}`);
+    if (sitemapPathSet.has(legalRoute)) {
+      throw new Error(`Legal route must not appear in the SEO sitemap: ${legalRoute}`);
     }
-  }
-
-  if (robotsForPageKey('wildcardRedirect', 'out-of-scope') !== 'noindex, nofollow') {
-    throw new Error('Wildcard 404 route must use noindex, nofollow robots meta.');
   }
 }
 
@@ -314,106 +307,30 @@ function assertVercelNoindexHeaders(configSource) {
   }
 }
 
-function assertAuthServerRoutesPrerender(sourceText) {
-  for (const routePath of ['auth/login', 'auth/register']) {
-    if (!sourceText.includes(`{ path: '${routePath}', renderMode: RenderMode.Prerender }`)) {
-      throw new Error(`/${routePath}/ must use RenderMode.Prerender to avoid serving SEO fallback HTML.`);
+function assertAuthServerRoutesClient(sourceText) {
+  for (const authPage of authPages) {
+    if (!sourceText.includes(`{ path: '${authPage.routePath}', renderMode: RenderMode.Client }`)) {
+      throw new Error(`/${authPage.routePath}/ must use RenderMode.Client because auth pages are not SEO prerender routes.`);
     }
   }
 }
 
-function assertAuthRoutesInPrerenderManifest(combinedRoutesText, seoRoutesText, sitemapText) {
+function assertAuthRoutesOutOfPrerenderAndSitemap(combinedRoutesText, seoRoutesText, sitemapLocs) {
   const combinedPrerenderRoutes = combinedRoutesText.split(/\r?\n/).filter(Boolean);
   const seoPrerenderRoutes = seoRoutesText.split(/\r?\n/).filter(Boolean);
-  const sitemapLocs = extractTagValues(sitemapText, 'loc');
 
   for (const authPage of authPages) {
-    if (!combinedPrerenderRoutes.includes(authPage.path)) {
-      throw new Error(`Public auth route must appear in the combined prerender manifest: ${authPage.path}`);
+    if (combinedPrerenderRoutes.includes(authPage.normalizedPath)) {
+      throw new Error(`Auth route must not appear in the combined prerender manifest: ${authPage.normalizedPath}`);
     }
 
-    if (seoPrerenderRoutes.includes(authPage.path)) {
-      throw new Error(`Public auth route must not appear in the SEO prerender manifest: ${authPage.path}`);
+    if (seoPrerenderRoutes.includes(authPage.normalizedPath)) {
+      throw new Error(`Auth route must not appear in the SEO prerender manifest: ${authPage.normalizedPath}`);
     }
 
-    if (sitemapLocs.includes(`https://www.commanderzone.com${authPage.path}`)) {
-      throw new Error(`Public auth route must not appear in the SEO sitemap: ${authPage.path}`);
+    if (sitemapLocs.includes(`https://www.commanderzone.com${authPage.normalizedPath}`)) {
+      throw new Error(`Auth route must not appear in the SEO sitemap: ${authPage.normalizedPath}`);
     }
-  }
-}
-
-function assertRenderedAuthHtmlWhenAvailable() {
-  if (!existsSync(distBrowserRoot)) {
-    return;
-  }
-
-  for (const authPage of authPages) {
-    const htmlPath = path.join(distBrowserRoot, authPage.path.replace(/^\/+/, ''), 'index.html');
-
-    if (!existsSync(htmlPath)) {
-      throw new Error(`Missing prerendered auth HTML for ${authPage.path}.`);
-    }
-
-    assertRenderedAuthHtml(authPage, readFileSync(htmlPath, 'utf8'));
-  }
-}
-
-function assertRenderedAuthHtml(authPage, html) {
-  const title = visibleHtmlText(html.match(/<title\b[^>]*>[\s\S]*?<\/title>/i)?.[0] ?? '');
-  const h1Tags = html.match(/<h1\b[^>]*>[\s\S]*?<\/h1>/gi) ?? [];
-  const robotsTags = html.match(/<meta\b(?=[^>]*\bname=["']robots["'])[^>]*>/gi) ?? [];
-  const canonicalTags = html.match(/<link\b(?=[^>]*\brel=["']canonical["'])[^>]*>/gi) ?? [];
-  const alternateTags = html.match(/<link\b(?=[^>]*\brel=["']alternate["'])[^>]*>/gi) ?? [];
-  const jsonLdTags = html.match(/<script\b(?=[^>]*\btype=["']application\/ld\+json["'])[^>]*>[\s\S]*?<\/script>/gi) ?? [];
-  const visibleText = visibleHtmlText(html);
-
-  if (title !== authPage.title) {
-    throw new Error(`${authPage.path} must render title "${authPage.title}", got "${title}".`);
-  }
-
-  if (robotsTags.length !== 1 || getAttribute(robotsTags[0], 'content') !== 'noindex, nofollow') {
-    throw new Error(`${authPage.path} must render exactly one noindex, nofollow robots meta tag.`);
-  }
-
-  if (!visibleText.includes(authPage.expectedText)) {
-    throw new Error(`${authPage.path} must render its auth UI, not an empty shell.`);
-  }
-
-  const forbiddenVisibleText = [
-    'Play Commander online with your pod',
-    'Juega Commander online con tu grupo',
-    'Frequently asked questions',
-    'Commander online FAQ',
-    'More from CommanderZone',
-  ];
-
-  for (const forbiddenText of forbiddenVisibleText) {
-    if (visibleText.includes(forbiddenText)) {
-      throw new Error(`${authPage.path} must not render SEO landing content: ${forbiddenText}`);
-    }
-  }
-
-  for (const h1Tag of h1Tags) {
-    const h1Text = visibleHtmlText(h1Tag);
-    if (
-      h1Text.includes('Play Commander online')
-      || h1Text.includes('Juega Commander online')
-      || h1Text.includes('Commander life counter')
-    ) {
-      throw new Error(`${authPage.path} must not render an SEO landing H1.`);
-    }
-  }
-
-  if (canonicalTags.some((tag) => getAttribute(tag, 'href') === 'https://www.commanderzone.com/')) {
-    throw new Error(`${authPage.path} must not render the home canonical URL.`);
-  }
-
-  if (alternateTags.length > 0) {
-    throw new Error(`${authPage.path} must not render SEO hreflang alternates.`);
-  }
-
-  if (jsonLdTags.length > 0) {
-    throw new Error(`${authPage.path} must not render SEO JSON-LD.`);
   }
 }
 
@@ -427,10 +344,6 @@ function assertRobotsMeta(pageKey, strategy, expectedRobots) {
 function robotsForPageKey(pageKey, strategy) {
   if (pageKey === 'legal') {
     return 'noindex, follow';
-  }
-
-  if (pageKey === 'wildcardRedirect') {
-    return 'noindex, nofollow';
   }
 
   return robotsForStrategy(strategy);
@@ -455,12 +368,6 @@ function robotsForStrategy(strategy) {
 function pageKeysForStrategy(strategies, strategy) {
   return Object.entries(strategies)
     .filter(([, pageStrategy]) => pageStrategy === strategy)
-    .map(([pageKey]) => pageKey);
-}
-
-function pageKeysForStrategies(strategies, expectedStrategies) {
-  return Object.entries(strategies)
-    .filter(([, pageStrategy]) => expectedStrategies.includes(pageStrategy))
     .map(([pageKey]) => pageKey);
 }
 
@@ -593,19 +500,6 @@ function normalizeRoutePath(segments) {
     .filter((segment) => segment !== '')
     .join('/')
     .replace(/\/+/g, '/');
-}
-
-function visibleHtmlText(html) {
-  return html
-    .replace(/<script\b[\s\S]*?<\/script>/gi, ' ')
-    .replace(/<style\b[\s\S]*?<\/style>/gi, ' ')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function getAttribute(tag, attribute) {
-  return tag.match(new RegExp(`\\b${attribute}=["']([^"']+)["']`, 'i'))?.[1];
 }
 
 function extractTagValues(xml, tagName) {

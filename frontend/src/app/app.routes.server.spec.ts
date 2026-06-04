@@ -36,20 +36,23 @@ describe('server routes', () => {
     expect(SEO_PRERENDER_ROUTES).not.toContain('/cookie-policy/');
   });
 
-  it('keeps the prerender list limited to SEO, legal and public auth routes', () => {
+  it('keeps the prerender list limited to SEO and legal routes', () => {
     const prerenderPaths = serverRoutes
       .filter((route) => route.renderMode === RenderMode.Prerender)
       .map((route) => route.path);
 
-    expect(prerenderPaths).toHaveLength(SEO_PRERENDER_ROUTES.length + LEGAL_PRERENDER_ROUTES.length + 2);
+    expect(SEO_PRERENDER_ROUTES).toHaveLength(60);
+    expect(LEGAL_PRERENDER_ROUTES).toHaveLength(24);
+    expect(prerenderPaths).toHaveLength(SEO_PRERENDER_ROUTES.length + LEGAL_PRERENDER_ROUTES.length);
+    expect(prerenderPaths).toHaveLength(84);
     expect(prerenderPaths).not.toContain('en');
-    expect(prerenderPaths).toContain('auth/login');
-    expect(prerenderPaths).toContain('auth/register');
+    expect(prerenderPaths).not.toContain('auth/login');
+    expect(prerenderPaths).not.toContain('auth/register');
   });
 
-  it('prerenders public auth entry pages as noindex runtime pages', () => {
-    expect(serverRoutes.find((route) => route.path === 'auth/login')?.renderMode).toBe(RenderMode.Prerender);
-    expect(serverRoutes.find((route) => route.path === 'auth/register')?.renderMode).toBe(RenderMode.Prerender);
+  it('keeps public auth entry pages in client render mode', () => {
+    expect(serverRoutes.find((route) => route.path === 'auth/login')?.renderMode).toBe(RenderMode.Client);
+    expect(serverRoutes.find((route) => route.path === 'auth/register')?.renderMode).toBe(RenderMode.Client);
   });
 
   it('keeps private and dynamic runtime routes out of prerender mode', () => {

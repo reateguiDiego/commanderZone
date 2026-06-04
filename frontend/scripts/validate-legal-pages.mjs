@@ -95,16 +95,16 @@ function validateLegalPagesAreNotIndexableAssets() {
   const combinedPrerenderRouteList = combinedPrerenderRoutes.split(/\r?\n/).filter(Boolean);
 
   for (const authRoute of ['/auth/login/', '/auth/register/']) {
-    if (!combinedPrerenderRouteList.includes(authRoute)) {
-      fail(`Public auth noindex page must appear in combined prerender manifest: ${authRoute}`);
+    if (combinedPrerenderRouteList.includes(authRoute)) {
+      fail(`Auth route must not appear in combined prerender manifest: ${authRoute}`);
     }
 
     if (prerenderRoutes.split(/\r?\n/).includes(authRoute)) {
-      fail(`Public auth noindex page must not appear in SEO prerender manifest: ${authRoute}`);
+      fail(`Auth route must not appear in SEO prerender manifest: ${authRoute}`);
     }
 
     if (sitemap.includes(`${canonicalOrigin}${authRoute}`)) {
-      fail(`Public auth noindex page must not appear in sitemap: ${authRoute}`);
+      fail(`Auth route must not appear in sitemap: ${authRoute}`);
     }
   }
 
