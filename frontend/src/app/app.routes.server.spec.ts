@@ -28,10 +28,15 @@ describe('server routes', () => {
       .map((route) => route.path);
     const legalPrerenderPaths = LEGAL_PRERENDER_ROUTES.map((path) => toAngularServerRoutePath(path));
 
-    expect(prerenderPaths).toHaveLength(SEO_PRERENDER_ROUTES.length + LEGAL_PRERENDER_ROUTES.length);
     expect(prerenderPaths).toEqual(expect.arrayContaining(legalPrerenderPaths));
+    expect(prerenderPaths.filter((path) => legalPrerenderPaths.includes(path)).length).toBe(LEGAL_PRERENDER_ROUTES.length);
     expect(SEO_PRERENDER_ROUTES).not.toContain('/privacy-policy/');
     expect(SEO_PRERENDER_ROUTES).not.toContain('/cookie-policy/');
+  });
+
+  it('prerenders public auth entry pages so rewrites cannot serve home SEO HTML', () => {
+    expect(serverRoutes.find((route) => route.path === 'auth/login')?.renderMode).toBe(RenderMode.Prerender);
+    expect(serverRoutes.find((route) => route.path === 'auth/register')?.renderMode).toBe(RenderMode.Prerender);
   });
 
   it('keeps private and dynamic runtime routes out of prerender mode', () => {

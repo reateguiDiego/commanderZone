@@ -51,6 +51,7 @@ function validateSourceContracts() {
   const serverRoutes = readText('src/app/app.routes.server.ts');
   const appRoutes = readText('src/app/app.routes.ts');
   const legalRoutes = readText('src/app/core/legal/legal-routes.ts');
+  const featureLegalRoutes = readText('src/app/features/legal/legal.routes.ts');
 
   if (!pageStrategies.includes("legal: 'runtime-i18n'")) {
     fail('Legal routes must use runtime-i18n so route robots resolves to noindex, follow.');
@@ -60,8 +61,22 @@ function validateSourceContracts() {
     fail('Server routes must prerender LEGAL_PRERENDER_ROUTES.');
   }
 
-  if (!appRoutes.includes('...LEGAL_ROUTES')) {
-    fail('App routes must include LEGAL_ROUTES before the wildcard route.');
+  if (!appRoutes.includes("import { LEGAL_ROUTES } from './features/legal/legal.routes';")) {
+    fail('App routes must import LEGAL_ROUTES from the legal feature routes.');
+  }
+
+  const seoRoutesIndex = appRoutes.indexOf('...SEO_LANDING_ROUTES');
+  const legalRoutesIndex = appRoutes.indexOf('...LEGAL_ROUTES');
+  const firstAuthRouteIndex = appRoutes.indexOf("path: 'auth/login'");
+
+  if (seoRoutesIndex === -1 || legalRoutesIndex === -1 || firstAuthRouteIndex === -1) {
+    fail('App routes must include SEO_LANDING_ROUTES, LEGAL_ROUTES, and auth routes explicitly.');
+  } else if (legalRoutesIndex < seoRoutesIndex || legalRoutesIndex > firstAuthRouteIndex) {
+    fail('App routes must register LEGAL_ROUTES after SEO_LANDING_ROUTES and before auth/app routes.');
+  }
+
+  if (!featureLegalRoutes.includes('LegalPageComponent')) {
+    fail('Legal feature routes must render LegalPageComponent.');
   }
 
   if (!legalRoutes.includes("LEGAL_CONTACT_EMAIL = 'support@commanderzone.com'")) {

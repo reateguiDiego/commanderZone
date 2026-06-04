@@ -93,40 +93,34 @@ describe('SEO landing static content', () => {
   it('includes the mandatory Commander MTG FAQ questions in every SEO locale', () => {
     const mandatoryFaqsByLocale = {
       es: [
-        ['¿CommanderZone sirve para Commander MTG?', 'Sí. CommanderZone está pensada específicamente para partidas de Commander MTG, tanto online como en mesa física.'],
-        ['¿Necesito un mazo para crear una partida?', 'Sí. Para jugar en CommanderZone necesitas importar, crear o seleccionar un mazo antes de empezar.'],
-        ['¿Puedo crear una sala sin mazo?', 'La experiencia principal está pensada para preparar primero el mazo y después crear la sala, para que la partida empiece sin pasos pendientes.'],
-        ['¿CommanderZone sirve para otros formatos de Magic?', 'CommanderZone está enfocada principalmente en Commander. Algunas herramientas pueden servir para otros formatos, pero el producto está diseñado alrededor de partidas multijugador de Commander.'],
+        ['¿Qué es CommanderZone?', 'CommanderZone es una mesa digital manual para Magic: The Gathering Commander. Ayuda a tu grupo a preparar mazos, crear salas, controlar vidas y daño de comandante, y jugar online desde el navegador.'],
+        ['¿CommanderZone es oficial?', 'No. CommanderZone es contenido de fans no oficial. No está aprobado, respaldado, patrocinado ni afiliado a Wizards of the Coast, Hasbro ni Magic: The Gathering.'],
+        ['¿CommanderZone aplica reglas de Magic automáticamente?', 'No. CommanderZone es manual a propósito. Los jugadores siguen siendo responsables de acciones, triggers, prioridad, pila y decisiones legales, como en una mesa real de Commander.'],
       ],
       en: [
-        ['Is CommanderZone built for MTG Commander?', 'Yes. CommanderZone is built specifically for MTG Commander games, both online and around a physical table.'],
-        ['Do I need a deck to create a game?', 'Yes. To play in CommanderZone, you need to import, build or select a deck before starting.'],
-        ['Can I create a room without a deck?', 'The main experience is designed to prepare the deck first and then create the room, so the game starts without missing steps.'],
-        ['Can I use CommanderZone for other Magic formats?', 'CommanderZone is mainly focused on Commander. Some tools may work for other formats, but the product is designed around multiplayer Commander games.'],
+        ['What is CommanderZone?', 'CommanderZone is a manual digital table for Magic: The Gathering Commander. It helps your group prepare decks, create rooms, track life totals and commander damage, and play online from the browser.'],
+        ['Is CommanderZone official?', 'No. CommanderZone is unofficial fan content. It is not approved, endorsed, sponsored or affiliated with Wizards of the Coast, Hasbro or Magic: The Gathering.'],
+        ['Does CommanderZone enforce Magic rules automatically?', 'No. CommanderZone is intentionally manual. Players remain responsible for game actions, triggers, priority, the stack and legal decisions, just like at a real Commander table.'],
       ],
       de: [
-        ['Ist CommanderZone für MTG Commander gedacht?', 'Ja. CommanderZone ist speziell für MTG Commander-Partien gedacht, online und am physischen Tisch.'],
-        ['Brauche ich ein Deck, um eine Partie zu erstellen?', 'Ja. Um in CommanderZone zu spielen, musst du zuerst ein Deck importieren, erstellen oder auswählen.'],
-        ['Kann ich einen Raum ohne Deck erstellen?', 'Die Hauptnutzung ist darauf ausgelegt, zuerst das Deck vorzubereiten und danach den Raum zu erstellen, damit die Partie ohne fehlende Schritte beginnt.'],
-        ['Kann ich CommanderZone für andere Magic-Formate nutzen?', 'CommanderZone ist hauptsächlich auf Commander ausgelegt. Einige Werkzeuge können auch für andere Formate nützlich sein, aber das Produkt ist für Multiplayer-Commander-Partien entwickelt.'],
+        ['Was ist CommanderZone?', 'CommanderZone ist ein manueller digitaler Tisch für Magic: The Gathering Commander. Er hilft deiner Gruppe, Decks vorzubereiten, Räume zu erstellen, Lebenspunkte und Commander-Schaden zu verfolgen und online im Browser zu spielen.'],
+        ['Ist CommanderZone offiziell?', 'Nein. CommanderZone ist inoffizieller Fan Content. Es ist nicht von Wizards of the Coast, Hasbro oder Magic: The Gathering genehmigt, unterstützt, gesponsert oder mit ihnen verbunden.'],
+        ['Wendet CommanderZone Magic-Regeln automatisch an?', 'Nein. CommanderZone ist bewusst manuell. Die Spieler bleiben für Aktionen, Trigger, Priorität, den Stack und legale Entscheidungen verantwortlich, wie an einem echten Commander-Tisch.'],
       ],
       fr: [
-        ['CommanderZone est-il pensé pour Commander MTG ?', 'Oui. CommanderZone est pensé spécifiquement pour les parties de Commander MTG, en ligne comme autour d’une table physique.'],
-        ['Ai-je besoin d’un deck pour créer une partie ?', 'Oui. Pour jouer dans CommanderZone, vous devez importer, créer ou sélectionner un deck avant de commencer.'],
-        ['Puis-je créer une salle sans deck ?', 'L’expérience principale est conçue pour préparer d’abord le deck, puis créer la salle, afin que la partie commence sans étape manquante.'],
-        ['Puis-je utiliser CommanderZone pour d’autres formats de Magic ?', 'CommanderZone est principalement centré sur Commander. Certains outils peuvent servir à d’autres formats, mais le produit est conçu autour des parties multijoueurs de Commander.'],
+        ['Qu’est-ce que CommanderZone ?', 'CommanderZone est une table numérique manuelle pour Magic: The Gathering Commander. Elle aide votre groupe à préparer des decks, créer des salles, suivre les points de vie et les blessures de commandant, et jouer en ligne depuis le navigateur.'],
+        ['CommanderZone est-il officiel ?', 'Non. CommanderZone est un contenu de fan non officiel. Il n’est pas approuvé, soutenu, sponsorisé ni affilié à Wizards of the Coast, Hasbro ou Magic: The Gathering.'],
+        ['CommanderZone applique-t-il automatiquement les règles de Magic ?', 'Non. CommanderZone est volontairement manuel. Les joueurs restent responsables des actions, triggers, priorités, de la pile et des décisions légales, comme autour d’une vraie table Commander.'],
       ],
       pt: [
-        ['CommanderZone é feito para Commander MTG?', 'Sim. CommanderZone foi feito especificamente para partidas de Commander MTG, online ou em mesa física.'],
-        ['Preciso de um deck para criar uma partida?', 'Sim. Para jogar no CommanderZone, você precisa importar, criar ou selecionar um deck antes de começar.'],
-        ['Posso criar uma sala sem deck?', 'A experiência principal foi pensada para preparar primeiro o deck e depois criar a sala, para que a partida comece sem etapas pendentes.'],
-        ['Posso usar CommanderZone para outros formatos de Magic?', 'CommanderZone é focado principalmente em Commander. Algumas ferramentas podem servir para outros formatos, mas o produto foi desenhado para partidas multiplayer de Commander.'],
+        ['O que é o CommanderZone?', 'CommanderZone é uma mesa digital manual para Magic: The Gathering Commander. Ele ajuda seu grupo a preparar decks, criar salas, acompanhar vida e dano de comandante, e jogar online pelo navegador.'],
+        ['CommanderZone é oficial?', 'Não. CommanderZone é conteúdo de fã não oficial. Não é aprovado, endossado, patrocinado nem afiliado à Wizards of the Coast, Hasbro ou Magic: The Gathering.'],
+        ['CommanderZone aplica regras de Magic automaticamente?', 'Não. CommanderZone é manual de propósito. Os jogadores continuam responsáveis por ações, triggers, prioridade, pilha e decisões legais, como em uma mesa real de Commander.'],
       ],
       it: [
-        ['CommanderZone è pensato per Commander MTG?', 'Sì. CommanderZone è pensato specificamente per partite di Commander MTG, online o al tavolo fisico.'],
-        ['Mi serve un mazzo per creare una partita?', 'Sì. Per giocare in CommanderZone devi importare, creare o selezionare un mazzo prima di iniziare.'],
-        ['Posso creare una stanza senza mazzo?', 'L’esperienza principale è pensata per preparare prima il mazzo e poi creare la stanza, così la partita parte senza passaggi mancanti.'],
-        ['Posso usare CommanderZone per altri formati di Magic?', 'CommanderZone è focalizzato principalmente su Commander. Alcuni strumenti possono essere utili anche per altri formati, ma il prodotto è progettato intorno alle partite multiplayer di Commander.'],
+        ['Che cos’è CommanderZone?', 'CommanderZone è un tavolo digitale manuale per Magic: The Gathering Commander. Aiuta il tuo gruppo a preparare mazzi, creare stanze, seguire punti vita e danno da comandante, e giocare online dal browser.'],
+        ['CommanderZone è ufficiale?', 'No. CommanderZone è contenuto fan non ufficiale. Non è approvato, supportato, sponsorizzato né affiliato a Wizards of the Coast, Hasbro o Magic: The Gathering.'],
+        ['CommanderZone applica automaticamente le regole di Magic?', 'No. CommanderZone è volutamente manuale. I giocatori restano responsabili di azioni, trigger, priorità, pila e decisioni legali, come a un vero tavolo Commander.'],
       ],
     } as const satisfies Record<(typeof SEO_LOCALE_CODES)[number], readonly (readonly [string, string])[]>;
 
@@ -175,13 +169,32 @@ describe('SEO landing static content', () => {
 
     expect(content.seo.title).toContain('FAQ');
     expect(content.hero.title).toBe('Preguntas frecuentes sobre CommanderZone');
-    expect(content.faq.items.length).toBe(18);
+    expect(content.faq.items.length).toBe(12);
     expect(content.faq.items.map((item) => item.question)).toContain('¿Qué es CommanderZone?');
-    expect(content.faq.items.map((item) => item.question)).toContain('¿Necesito un mazo para crear una partida?');
-    expect(content.faq.items.map((item) => item.question)).toContain('¿CommanderZone sirve para Commander MTG?');
-    expect(content.faq.items.map((item) => item.question)).toContain('¿CommanderZone sirve para otros formatos de Magic?');
-    expect(content.faq.items.map((item) => item.question)).toContain('¿Premium vende contenido oficial de Magic?');
+    expect(content.faq.items.map((item) => item.question)).toContain('¿CommanderZone es oficial?');
+    expect(content.faq.items.map((item) => item.question)).toContain('¿CommanderZone sustituye a MTG Arena o Magic Online?');
+    expect(content.faq.items.map((item) => item.question)).toContain('¿Dónde puedo reportar bugs o problemas de derechos?');
     expect(JSON.stringify(content.jsonLd)).toContain('FAQPage');
+  });
+
+  it('keeps FAQ questions unique and final-copy oriented', () => {
+    const forbiddenFaqCopy = /ideal|should|may include|puede incluir|experiencia ideal|tendrá sentido|podrá formar parte|podrán formar parte/i;
+
+    for (const { routeKey, locale, content } of getAllSeoLandingContentEntries()) {
+      const questions = content.faq.items.map((item) => item.question);
+      const faqText = content.faq.items.flatMap((item) => [item.question, ...item.answer]).join(' ');
+
+      expect({ routeKey, locale, duplicateQuestions: findDuplicates(questions) }).toEqual({
+        routeKey,
+        locale,
+        duplicateQuestions: [],
+      });
+      expect({ routeKey, locale, hasSpeculativeCopy: forbiddenFaqCopy.test(faqText) }).toEqual({
+        routeKey,
+        locale,
+        hasSpeculativeCopy: false,
+      });
+    }
   });
 
   it('uses the final English home copy and deck registration CTA', () => {
@@ -303,14 +316,18 @@ describe('SEO landing static content', () => {
       }),
     ]));
     expect(faqQuestions.length).toBe(content.faq.items.length);
-    expect(faqQuestions[0]).toEqual(expect.objectContaining({
-      '@type': 'Question',
-      name: content.faq.items[0].question,
-      acceptedAnswer: expect.objectContaining({
-        '@type': 'Answer',
-        text: content.faq.items[0].answer.join(' '),
-      }),
-    }));
+    expect(faqQuestions.map((item) => {
+      const question = asJsonLdObject(item);
+      const answer = asJsonLdObject(question?.['acceptedAnswer']);
+
+      return {
+        question: question?.['name'],
+        answer: answer?.['text'],
+      };
+    })).toEqual(content.faq.items.map((item) => ({
+      question: item.question,
+      answer: item.answer.join(' '),
+    })));
   });
 
   it('does not add unsupported review or rating JSON-LD', () => {
@@ -508,7 +525,7 @@ describe('SEO landing static content', () => {
       }
     }
     expect(getSeoLandingContent('playCommanderOnline', 'it').hero.title).toBe('Giocare a Commander online senza complicazioni');
-    expect(getSeoLandingContent('faq', 'it').faq.items.map((item) => item.question)).toContain('Cos’è CommanderZone?');
+    expect(getSeoLandingContent('faq', 'it').faq.items.map((item) => item.question)).toContain('Che cos’è CommanderZone?');
   });
 
   it('keeps SEO titles, descriptions and H1s useful per locale', () => {
@@ -567,6 +584,10 @@ function jsonLdGraph(jsonLd: unknown): readonly JsonLdObject[] {
 
 function findJsonLdNode(graph: readonly JsonLdObject[], type: string): JsonLdObject | undefined {
   return graph.find((node) => node['@type'] === type);
+}
+
+function findDuplicates(values: readonly string[]): readonly string[] {
+  return values.filter((value, index) => values.indexOf(value) !== index);
 }
 
 function asJsonLdObject(value: unknown): JsonLdObject | undefined {

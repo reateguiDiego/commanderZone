@@ -14,7 +14,7 @@ export type SeoLandingTemplateBlock =
   | 'steps'
   | 'useCases'
   | 'comparison'
-  | 'faqPreview'
+  | 'faq'
   | 'fullFaq'
   | 'cta';
 
@@ -47,8 +47,7 @@ export const PRODUCT_LANDING_TEMPLATE_BLOCKS = [
   'featureGrid',
   'steps',
   'useCases',
-  'faqPreview',
-  'fullFaq',
+  'faq',
   'cta',
 ] as const satisfies readonly SeoLandingTemplateBlock[];
 
@@ -59,8 +58,7 @@ export const GUIDE_LANDING_TEMPLATE_BLOCKS = [
   'steps',
   'featureGrid',
   'useCases',
-  'faqPreview',
-  'fullFaq',
+  'faq',
   'cta',
 ] as const satisfies readonly SeoLandingTemplateBlock[];
 
@@ -72,8 +70,7 @@ export const COMPARISON_LANDING_TEMPLATE_BLOCKS = [
   'steps',
   'featureGrid',
   'useCases',
-  'faqPreview',
-  'fullFaq',
+  'faq',
   'cta',
 ] as const satisfies readonly SeoLandingTemplateBlock[];
 

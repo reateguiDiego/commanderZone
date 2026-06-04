@@ -1,5 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { SEO_LOCALE_CODES } from '../../../core/localization/locale-config';
 import { SeoRouteKey } from '../../../core/localization/seo-routes';
+import { getSeoLandingContent } from '../content/seo-landing-content';
 import { SeoLandingContent } from '../models/seo-landing-content.model';
 import { SeoLandingPageComponent } from './seo-landing-page.component';
 
@@ -192,7 +194,7 @@ describe('SeoLandingPageComponent', () => {
     const element: HTMLElement = fixture.nativeElement;
 
     expect(element.querySelector('.seo-language-selector__menu')?.classList.contains('app-pretty-scroll')).toBe(true);
-    expect(element.querySelector('.landing-faq-preview__grid')?.classList.contains('app-pretty-scroll')).toBe(true);
+    expect(element.querySelector('.landing-faq__items')?.classList.contains('app-pretty-scroll')).toBe(true);
     expect(element.querySelector('.landing-internal-links ul')?.classList.contains('app-pretty-scroll')).toBe(true);
   });
 
@@ -216,9 +218,69 @@ describe('SeoLandingPageComponent', () => {
     expect(links).toContain('/en/import-mtg-commander-deck/');
     expect(anchors.every((link) => Boolean(link.getAttribute('href')))).toBe(true);
     expect(element.querySelector('button')).toBeNull();
-    expect(element.querySelector('summary')).not.toBeNull();
-    expect(element.querySelector('.landing-full-faq details')?.hasAttribute('open')).toBe(true);
+    expect(element.querySelector('.landing-faq')).not.toBeNull();
+    expect(element.querySelector('.landing-full-faq')).toBeNull();
     expect(element.textContent).toContain('No. It is a manual Commander table.');
+  });
+
+  it('renders only one visible FAQ section and does not duplicate questions', () => {
+    const element: HTMLElement = fixture.nativeElement;
+    const faqHeadings = Array.from(element.querySelectorAll('h2'))
+      .map((heading) => heading.textContent?.trim())
+      .filter((text) => text === 'Commander online FAQ');
+    const faqQuestions = Array.from(element.querySelectorAll('.landing-faq h3, .landing-full-faq h3'))
+      .map((heading) => heading.textContent?.trim())
+      .filter((text): text is string => Boolean(text));
+
+    expect(element.querySelector('app-landing-faq-preview')).toBeNull();
+    expect(element.querySelectorAll('app-landing-faq, app-landing-full-faq')).toHaveLength(1);
+    expect(faqHeadings).toHaveLength(1);
+    expect(faqQuestions).toEqual([...new Set(faqQuestions)]);
+  });
+
+  it('renders a single localized FAQ heading on every home landing', () => {
+    const expectedFaqHeadingByLocale = {
+      en: 'Frequently asked questions',
+      es: 'Preguntas frecuentes',
+      de: 'Häufige Fragen',
+      fr: 'Questions fréquentes',
+      pt: 'Perguntas frequentes',
+      it: 'Domande frequenti',
+    } as const;
+
+    for (const locale of SEO_LOCALE_CODES) {
+      fixture.componentRef.setInput('content', getSeoLandingContent('home', locale));
+      fixture.detectChanges();
+
+      const element: HTMLElement = fixture.nativeElement;
+      const expectedHeading = expectedFaqHeadingByLocale[locale];
+      const matchingFaqHeadings = Array.from(element.querySelectorAll('h2'))
+        .map((heading) => heading.textContent?.trim())
+        .filter((text) => text === expectedHeading);
+      const faqQuestions = Array.from(element.querySelectorAll('.landing-faq h3, .landing-full-faq h3'))
+        .map((heading) => heading.textContent?.trim())
+        .filter((text): text is string => Boolean(text));
+
+      expect(element.querySelector('app-landing-faq-preview')).toBeNull();
+      expect(element.querySelectorAll('app-landing-faq, app-landing-full-faq')).toHaveLength(1);
+      expect(matchingFaqHeadings).toHaveLength(1);
+      expect(faqQuestions).toEqual([...new Set(faqQuestions)]);
+    }
+  });
+
+  it('renders the FAQ route with the full FAQ component only', () => {
+    fixture.componentRef.setInput('content', {
+      ...content,
+      routeKey: 'faq',
+    });
+    fixture.detectChanges();
+
+    const element: HTMLElement = fixture.nativeElement;
+
+    expect(element.querySelector('app-landing-faq')).toBeNull();
+    expect(element.querySelector('app-landing-faq-preview')).toBeNull();
+    expect(element.querySelector('app-landing-full-faq')).not.toBeNull();
+    expect(element.querySelector('.landing-full-faq details')?.hasAttribute('open')).toBe(true);
   });
 
   it('renders the CommanderZone public header with crawlable menu and logo', () => {
@@ -284,7 +346,7 @@ describe('SeoLandingPageComponent', () => {
     expect(element.querySelector('app-seo-language-selector')).toBeTruthy();
     expect(element.querySelector('app-landing-trust-bar')).toBeTruthy();
     expect(element.querySelector('app-landing-use-cases')).toBeTruthy();
-    expect(element.querySelector('app-landing-faq-preview')).toBeTruthy();
+    expect(element.querySelector('app-landing-faq')).toBeTruthy();
     expect(element.querySelector('app-landing-internal-links')).toBeTruthy();
   });
 

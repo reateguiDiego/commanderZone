@@ -1,5 +1,6 @@
 import { RuntimeTranslatePipe } from '../../../core/localization/runtime-translate.pipe';
-import { AfterViewInit, ChangeDetectionStrategy, Component, DestroyRef, WritableSignal, computed, inject, signal } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
+import { AfterViewInit, ChangeDetectionStrategy, Component, DestroyRef, PLATFORM_ID, WritableSignal, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -29,6 +30,7 @@ export class AuthPageComponent implements AfterViewInit {
   private readonly authApi = inject(AuthApi);
   private readonly destroyRef = inject(DestroyRef);
   private readonly formBuilder = inject(NonNullableFormBuilder);
+  private readonly platformId = inject(PLATFORM_ID);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
 
@@ -78,6 +80,10 @@ export class AuthPageComponent implements AfterViewInit {
   }
 
   ngAfterViewInit(): void {
+    if (!isPlatformBrowser(this.platformId)) {
+      return;
+    }
+
     window.setTimeout(() => this.clearInitialLoginAutofill());
   }
 

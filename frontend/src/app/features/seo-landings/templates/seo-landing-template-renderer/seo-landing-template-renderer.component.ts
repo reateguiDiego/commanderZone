@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import { LandingComparisonComponent } from '../../components/landing-comparison/landing-comparison.component';
 import { LandingCtaComponent } from '../../components/landing-cta/landing-cta.component';
-import { LandingFaqPreviewComponent } from '../../components/landing-faq-preview/landing-faq-preview.component';
+import { LandingFaqComponent } from '../../components/landing-faq/landing-faq.component';
 import { LandingFeatureGridComponent } from '../../components/landing-feature-grid/landing-feature-grid.component';
 import { LandingFullFaqComponent } from '../../components/landing-full-faq/landing-full-faq.component';
 import { LandingHeroComponent } from '../../components/landing-hero/landing-hero.component';
@@ -17,7 +17,7 @@ import { SeoLandingTemplateBlock } from '../../models/seo-landing-template.model
   imports: [
     LandingComparisonComponent,
     LandingCtaComponent,
-    LandingFaqPreviewComponent,
+    LandingFaqComponent,
     LandingFeatureGridComponent,
     LandingFullFaqComponent,
     LandingHeroComponent,

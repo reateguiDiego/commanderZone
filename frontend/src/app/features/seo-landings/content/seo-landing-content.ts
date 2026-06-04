@@ -348,14 +348,22 @@ function validateFaqJsonLd(
     return;
   }
 
-  const firstQuestion = asJsonLdObject(mainEntity[0]);
-  const firstAnswer = asJsonLdObject(firstQuestion?.['acceptedAnswer']);
+  const visibleFaq = content.faq.items.map((item) => ({
+    question: item.question,
+    answer: item.answer.join(' '),
+  }));
+  const jsonLdFaq = mainEntity.map((item) => {
+    const question = asJsonLdObject(item);
+    const answer = asJsonLdObject(question?.['acceptedAnswer']);
 
-  if (
-    firstQuestion?.['name'] !== content.faq.items[0]?.question
-    || firstAnswer?.['text'] !== content.faq.items[0]?.answer.join(' ')
-  ) {
-    errors.push(`FAQPage JSON-LD first question mismatch for ${routeKey}/${locale}.`);
+    return {
+      question: question?.['name'],
+      answer: answer?.['text'],
+    };
+  });
+
+  if (JSON.stringify(jsonLdFaq) !== JSON.stringify(visibleFaq)) {
+    errors.push(`FAQPage JSON-LD must match visible FAQ exactly for ${routeKey}/${locale}.`);
   }
 }
 

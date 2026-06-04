@@ -1,3 +1,4 @@
+import { existsSync, readFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import ts from 'typescript';
@@ -8,6 +9,11 @@ import {
 } from './seo-sitemap-generator.mjs';
 
 const workspaceRoot = process.cwd();
+const distBrowserRoot = path.join(workspaceRoot, 'dist', 'frontend', 'browser');
+const authPages = [
+  { path: '/auth/login/', expectedText: 'Login' },
+  { path: '/auth/register/', expectedText: 'Create account' },
+];
 
 const [
   strategiesSource,
@@ -41,7 +47,9 @@ assertNoNoindexRouteAppearsInSitemap(sitemapLocs, appRoutes, pageStrategies);
 assertNoInvalidLocalizedSeoPathAppearsInSitemap(sitemapLocs, sitemapConfig);
 assertRobotsDoesNotBlockNoindexPages(robots, appRoutes, pageStrategies);
 assertWildcardNotFoundRoute(appRoutes);
+assertAuthServerRoutesPrerender(serverRoutesSource);
 assertServerFallbackIs404(serverRoutesSource);
+assertRenderedAuthHtmlWhenAvailable();
 
 console.log('Indexation control validation passed.');
 
@@ -239,6 +247,52 @@ function assertServerFallbackIs404(sourceText) {
   }
 }
 
+function assertAuthServerRoutesPrerender(sourceText) {
+  for (const routePath of ['auth/login', 'auth/register']) {
+    if (!sourceText.includes(`{ path: '${routePath}', renderMode: RenderMode.Prerender }`)) {
+      throw new Error(`/${routePath}/ must be prerendered so rewrites cannot serve SEO home HTML.`);
+    }
+  }
+}
+
+function assertRenderedAuthHtmlWhenAvailable() {
+  if (!existsSync(distBrowserRoot)) {
+    return;
+  }
+
+  for (const authPage of authPages) {
+    const htmlPath = path.join(distBrowserRoot, authPage.path.replace(/^\/+/, ''), 'index.html');
+
+    if (!existsSync(htmlPath)) {
+      throw new Error(`Missing prerendered auth HTML for ${authPage.path}.`);
+    }
+
+    assertRenderedAuthHtml(authPage, readFileSync(htmlPath, 'utf8'));
+  }
+}
+
+function assertRenderedAuthHtml(authPage, html) {
+  const robotsTags = html.match(/<meta\b(?=[^>]*\bname=["']robots["'])[^>]*>/gi) ?? [];
+  const jsonLdTags = html.match(/<script\b(?=[^>]*\btype=["']application\/ld\+json["'])[^>]*>[\s\S]*?<\/script>/gi) ?? [];
+  const visibleText = visibleHtmlText(html);
+
+  if (robotsTags.length !== 1 || getAttribute(robotsTags[0], 'content') !== 'noindex, follow') {
+    throw new Error(`${authPage.path} must render exactly one noindex, follow robots meta tag.`);
+  }
+
+  if (!visibleText.includes(authPage.expectedText)) {
+    throw new Error(`${authPage.path} must render its auth UI, not an empty client-only shell.`);
+  }
+
+  if (visibleText.includes('Play Commander online with your pod')) {
+    throw new Error(`${authPage.path} must not render SEO home content.`);
+  }
+
+  if (jsonLdTags.length > 0) {
+    throw new Error(`${authPage.path} must not render SEO structured data.`);
+  }
+}
+
 function assertRobotsMeta(pageKey, strategy, expectedRobots) {
   const actualRobots = robotsForPageKey(pageKey, strategy);
   if (actualRobots !== expectedRobots) {
@@ -411,6 +465,19 @@ function normalizeRoutePath(segments) {
     .filter((segment) => segment !== '')
     .join('/')
     .replace(/\/+/g, '/');
+}
+
+function visibleHtmlText(html) {
+  return html
+    .replace(/<script\b[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style\b[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function getAttribute(tag, attribute) {
+  return tag.match(new RegExp(`\\b${attribute}=["']([^"']+)["']`, 'i'))?.[1];
 }
 
 function extractTagValues(xml, tagName) {
