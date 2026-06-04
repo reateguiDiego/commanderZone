@@ -22,7 +22,7 @@ describe('SeoService helpers', () => {
     expect(SEO_CANONICAL_ORIGIN).toBe('https://www.commanderzone.com');
     expect(buildSeoCanonicalUrl('home', 'en')).toBe('https://www.commanderzone.com/');
     expect(buildSeoCanonicalUrl('tableAssistant', 'es')).toBe(
-      'https://www.commanderzone.com/es/asistente-mesa-commander/',
+      'https://www.commanderzone.com/es/contador-vidas-commander/',
     );
     expect(toSeoAbsoluteUrl('/assets/og/play-commander-og.png')).toBe(
       'https://www.commanderzone.com/assets/og/play-commander-og.png',
@@ -31,7 +31,7 @@ describe('SeoService helpers', () => {
 
   it('builds an absolute canonical URL for the localized route', () => {
     expect(buildSeoCanonicalUrl('tableAssistant', 'es', 'https://commanderzone.test/')).toBe(
-      'https://commanderzone.test/es/asistente-mesa-commander/',
+      'https://commanderzone.test/es/contador-vidas-commander/',
     );
   });
 

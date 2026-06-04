@@ -37,7 +37,7 @@ describe('SEO landing routes', () => {
   });
 
   it('keeps SEO landings public and separate from internal app routes', () => {
-    const tableAssistantRoute = SEO_LANDING_ROUTES.find((route) => route.path === 'es/asistente-mesa-commander');
+    const tableAssistantRoute = SEO_LANDING_ROUTES.find((route) => route.path === 'es/contador-vidas-commander');
 
     expect(tableAssistantRoute).toBeDefined();
     expect(tableAssistantRoute?.canActivate).toBeUndefined();
@@ -50,7 +50,7 @@ describe('SEO landing routes', () => {
 
     expect(routePaths).not.toContain('en/jugar-commander-online');
     expect(routePaths).not.toContain('es/play-commander-online');
-    expect(routePaths).not.toContain('en/asistente-mesa-commander');
-    expect(routePaths).not.toContain('es/commander-table-assistant');
+    expect(routePaths).not.toContain('en/contador-vidas-commander');
+    expect(routePaths).not.toContain('es/commander-life-counter');
   });
 });

@@ -7,37 +7,46 @@ const canonicalHost = new URL(canonicalOrigin).host;
 const alternateHost = 'commanderzone.com';
 const alternateOrigin = `https://${alternateHost}`;
 const legacySeoSlugRedirects = [
-  ['/es/jugar-magic-online-con-amigos/', '/es/jugar-magic-online-amigos/'],
+  ['/es/jugar-magic-online-amigos/', '/es/jugar-magic-online-con-amigos/'],
   ['/es/crear-sala-commander-online/', '/es/crear-sala-commander/'],
-  ['/es/importar-mazo-commander/', '/es/importar-mazo-commander-mtg/'],
-  ['/es/deck-builder-commander/', '/es/deck-builder-commander-mtg/'],
-  ['/es/asistente-de-mesa-magic/', '/es/asistente-mesa-commander/'],
+  ['/es/importar-mazo-commander-mtg/', '/es/importar-mazo-commander/'],
+  ['/es/deck-builder-commander-mtg/', '/es/deck-builder-commander/'],
+  ['/es/asistente-de-mesa-magic/', '/es/contador-vidas-commander/'],
+  ['/es/asistente-mesa-commander/', '/es/contador-vidas-commander/'],
   ['/es/formas-de-jugar-commander-online/', '/es/formas-jugar-commander-online/'],
-  ['/en/import-commander-deck/', '/en/import-mtg-commander-deck/'],
-  ['/en/commander-deck-builder/', '/en/mtg-commander-deck-builder/'],
-  ['/en/commander-life-counter/', '/en/commander-table-assistant/'],
-  ['/de/commander-deck-importieren/', '/de/mtg-commander-deck-importieren/'],
-  ['/de/commander-deck-builder/', '/de/mtg-commander-deck-builder/'],
-  ['/de/mtg-life-counter/', '/de/commander-tischassistent/'],
+  ['/en/import-mtg-commander-deck/', '/en/import-commander-deck/'],
+  ['/en/mtg-commander-deck-builder/', '/en/commander-deck-builder/'],
+  ['/en/commander-table-assistant/', '/en/commander-life-counter/'],
+  ['/de/mtg-commander-deck-importieren/', '/de/commander-deck-importieren/'],
+  ['/de/mtg-commander-deck-builder/', '/de/commander-deck-builder/'],
+  ['/de/commander-tischassistent/', '/de/commander-life-counter/'],
+  ['/de/mtg-life-counter/', '/de/commander-life-counter/'],
   ['/de/commander-online-spielarten/', '/de/commander-online-spielen-moeglichkeiten/'],
   ['/de/commander-online-anleitung/', '/de/commander-online-spielen-anleitung/'],
-  ['/fr/jouer-magic-en-ligne-avec-des-amis/', '/fr/jouer-magic-en-ligne-amis/'],
+  ['/fr/jouer-magic-en-ligne-amis/', '/fr/jouer-magic-en-ligne-avec-des-amis/'],
   ['/fr/creer-salon-commander/', '/fr/creer-salle-commander/'],
-  ['/fr/importer-deck-commander/', '/fr/importer-deck-commander-mtg/'],
-  ['/fr/constructeur-deck-commander/', '/fr/deck-builder-commander-mtg/'],
-  ['/fr/compteur-vie-mtg/', '/fr/assistant-table-commander/'],
+  ['/fr/importer-deck-commander-mtg/', '/fr/importer-deck-commander/'],
+  ['/fr/constructeur-deck-commander/', '/fr/deck-builder-commander/'],
+  ['/fr/deck-builder-commander-mtg/', '/fr/deck-builder-commander/'],
+  ['/fr/assistant-table-commander/', '/fr/compteur-vie-commander/'],
+  ['/fr/compteur-vie-mtg/', '/fr/compteur-vie-commander/'],
   ['/fr/facons-de-jouer-commander-en-ligne/', '/fr/facons-jouer-commander-en-ligne/'],
-  ['/pt/jogar-magic-online-com-amigos/', '/pt/jogar-magic-online-amigos/'],
-  ['/pt/importar-deck-commander/', '/pt/importar-deck-commander-mtg/'],
-  ['/pt/construtor-deck-commander/', '/pt/deck-builder-commander-mtg/'],
-  ['/pt/contador-vida-mtg/', '/pt/assistente-mesa-commander/'],
+  ['/pt/jogar-magic-online-amigos/', '/pt/jogar-magic-online-com-amigos/'],
+  ['/pt/importar-deck-commander-mtg/', '/pt/importar-deck-commander/'],
+  ['/pt/construtor-deck-commander/', '/pt/deck-builder-commander/'],
+  ['/pt/deck-builder-commander-mtg/', '/pt/deck-builder-commander/'],
+  ['/pt/assistente-mesa-commander/', '/pt/contador-vida-commander/'],
+  ['/pt/contador-vida-mtg/', '/pt/contador-vida-commander/'],
   ['/pt/formas-de-jogar-commander-online/', '/pt/formas-jogar-commander-online/'],
-  ['/it/giocare-magic-online-con-amici/', '/it/giocare-magic-online-amici/'],
-  ['/it/importare-mazzo-commander/', '/it/importare-mazzo-commander-mtg/'],
-  ['/it/deck-builder-commander/', '/it/deck-builder-commander-mtg/'],
-  ['/it/contatore-vite-mtg/', '/it/assistente-tavolo-commander/'],
+  ['/it/giocare-magic-online-amici/', '/it/giocare-magic-online-con-amici/'],
+  ['/it/importare-mazzo-commander-mtg/', '/it/importare-mazzo-commander/'],
+  ['/it/deck-builder-commander-mtg/', '/it/deck-builder-commander/'],
+  ['/it/assistente-tavolo-commander/', '/it/contatore-vite-commander/'],
+  ['/it/contatore-vite-mtg/', '/it/contatore-vite-commander/'],
   ['/it/modi-per-giocare-commander-online/', '/it/modi-giocare-commander-online/'],
 ];
+const legacySeoSlugSources = new Set(legacySeoSlugRedirects.map(([source]) => source));
+const finalSeoSlugDestinations = new Set(legacySeoSlugRedirects.map(([, destination]) => destination));
 
 const vercelConfig = JSON.parse(await readWorkspaceFile('vercel.json'));
 const seoService = await readWorkspaceFile('src/app/core/seo/seo.service.ts');
@@ -79,6 +88,7 @@ function assertVercelRedirects(config) {
   const redirects = config.redirects ?? [];
   assertEnglishHomeRedirect(redirects);
   assertLegacySeoSlugRedirects(redirects);
+  assertNoFinalSeoSlugRedirectsBackToLegacy(redirects);
 
   const alternateRootToCanonical = redirects.find((redirect) => {
     const hostRule = redirect.has?.find((rule) => rule.type === 'host');
@@ -116,6 +126,24 @@ function assertVercelRedirects(config) {
   const redirectsToAlternate = redirects.find((redirect) => redirect.destination?.startsWith(alternateOrigin));
   if (redirectsToAlternate) {
     throw new Error(`vercel.json must not redirect production traffic to the non-canonical host ${alternateHost}.`);
+  }
+}
+
+function assertNoFinalSeoSlugRedirectsBackToLegacy(redirects) {
+  for (const redirect of redirects) {
+    if (!redirect.permanent || typeof redirect.source !== 'string' || typeof redirect.destination !== 'string') {
+      continue;
+    }
+
+    const destinationPath = new URL(redirect.destination, canonicalOrigin).pathname;
+
+    if (finalSeoSlugDestinations.has(redirect.source) && legacySeoSlugSources.has(destinationPath)) {
+      throw new Error(`Final SEO slug ${redirect.source} must not redirect back to legacy slug ${destinationPath}.`);
+    }
+
+    if (legacySeoSlugSources.has(destinationPath)) {
+      throw new Error(`Redirect ${redirect.source} must not target legacy SEO slug ${destinationPath}.`);
+    }
   }
 }
 

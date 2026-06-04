@@ -974,7 +974,38 @@ const LANDING_COPY = {
   },
 } as const satisfies Record<SeoRouteKey, Record<PriorityLocaleCode, LandingCopy>>;
 
-const ROUTE_LABELS = LANDING_COPY;
+const TABLE_ASSISTANT_SEO_COPY = {
+  en: {
+    metaTitle: 'Commander Life Counter for MTG Pods | CommanderZone',
+    metaDescription: 'Use CommanderZone as a Commander life counter for paper MTG Commander games. Track life totals, commander damage and game state from your phone or tablet.',
+    h1: 'Commander life counter for long multiplayer games',
+  },
+  es: {
+    metaTitle: 'Contador de vidas Commander MTG | CommanderZone',
+    metaDescription: 'Usa CommanderZone como contador de vidas para partidas físicas de Commander MTG. Controla vidas, daño de comandante y estado de la partida desde móvil o tablet.',
+    h1: 'Contador de vidas para partidas largas de Commander',
+  },
+  de: {
+    metaTitle: 'Commander Life Counter für MTG-Runden | CommanderZone',
+    metaDescription: 'Nutze CommanderZone als Life Counter für physische MTG-Commander-Partien. Zähle Lebenspunkte, Commander-Schaden und Spielstatus auf Smartphone oder Tablet.',
+    h1: 'Commander Life Counter für lange Multiplayer-Partien',
+  },
+  fr: {
+    metaTitle: 'Compteur de vie Commander MTG | CommanderZone',
+    metaDescription: 'Utilisez CommanderZone comme compteur de vie pour vos parties physiques Commander MTG. Suivez les points de vie, les blessures de commandant et l’état de la partie sur mobile ou tablette.',
+    h1: 'Compteur de vie Commander pour longues parties multijoueurs',
+  },
+  pt: {
+    metaTitle: 'Contador de vida Commander MTG | CommanderZone',
+    metaDescription: 'Use CommanderZone como contador de vida para partidas físicas de Commander MTG. Controle vida, dano de comandante e estado da partida pelo celular ou tablet.',
+    h1: 'Contador de vida Commander para partidas multiplayer longas',
+  },
+  it: {
+    metaTitle: 'Contatore vite Commander MTG | CommanderZone',
+    metaDescription: 'Usa CommanderZone come contatore vite per partite fisiche MTG Commander. Tieni traccia di punti vita, danno da comandante e stato della partita da smartphone o tablet.',
+    h1: 'Contatore vite Commander per lunghe partite multiplayer',
+  },
+} as const satisfies Record<PriorityLocaleCode, Pick<LandingCopy, 'metaTitle' | 'metaDescription' | 'h1'>>;
 
 export function createSeoLandingContentByLocale(routeKey: SeoRouteKey): Readonly<Record<SeoLocaleCode, SeoLandingContent>> {
   return Object.fromEntries(
@@ -1262,7 +1293,15 @@ function isArticleLandingRoute(routeKey: SeoRouteKey): boolean {
 }
 
 function getLandingCopy(routeKey: SeoRouteKey, locale: PriorityLocaleCode): LandingCopy {
-  return LANDING_COPY[routeKey][locale];
+  const copy = LANDING_COPY[routeKey][locale];
+  if (routeKey !== 'tableAssistant') {
+    return copy;
+  }
+
+  return {
+    ...copy,
+    ...TABLE_ASSISTANT_SEO_COPY[locale],
+  };
 }
 
 function getLandingCtaCopy(routeKey: SeoRouteKey, locale: PriorityLocaleCode): LandingCtaCopy {
@@ -1282,7 +1321,7 @@ function getRouteLabel(routeKey: SeoRouteKey, locale: SeoLocaleCode): string {
 }
 
 function getPriorityRouteLabel(routeKey: SeoRouteKey, locale: PriorityLocaleCode): string {
-  return ROUTE_LABELS[routeKey][locale].h1;
+  return getLandingCopy(routeKey, locale).h1;
 }
 
 function getRelatedRouteKeys(routeKey: SeoRouteKey): readonly SeoRouteKey[] {

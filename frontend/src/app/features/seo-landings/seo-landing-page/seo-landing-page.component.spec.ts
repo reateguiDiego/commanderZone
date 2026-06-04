@@ -141,8 +141,8 @@ describe('SeoLandingPageComponent', () => {
     internalLinks: {
       title: 'Related CommanderZone pages',
       links: [
-        { label: 'Import Commander deck', href: '/en/import-mtg-commander-deck/' },
-        { label: 'Commander deck builder', href: '/en/mtg-commander-deck-builder/' },
+        { label: 'Import Commander deck', href: '/en/import-commander-deck/' },
+        { label: 'Commander deck builder', href: '/en/commander-deck-builder/' },
       ],
     },
   };
@@ -215,7 +215,7 @@ describe('SeoLandingPageComponent', () => {
     expect(links).toContain('/auth/login?redirect=/decks');
     expect(links).toContain('/en/faq/');
     expect(links).toContain('/de/commander-online-spielen/');
-    expect(links).toContain('/en/import-mtg-commander-deck/');
+    expect(links).toContain('/en/import-commander-deck/');
     expect(anchors.every((link) => Boolean(link.getAttribute('href')))).toBe(true);
     expect(element.querySelector('button')).toBeNull();
     expect(element.querySelector('.landing-faq')).not.toBeNull();
