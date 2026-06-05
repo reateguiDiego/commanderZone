@@ -11,7 +11,7 @@
   top: 0.75rem;
   z-index: 20;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr);
   min-width: 0;
   gap: 0.75rem;
   align-items: center;
@@ -59,14 +59,13 @@
   white-space: nowrap;
 }
 
-.seo-landing-layout__nav,
 .seo-landing-layout__header-actions,
 .seo-landing-layout__auth {
   min-width: 0;
 }
 
 .seo-landing-layout__header-actions {
-  grid-column: 3;
+  grid-column: 2;
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
@@ -74,7 +73,6 @@
   justify-content: flex-end;
 }
 
-.seo-landing-layout__nav,
 .seo-landing-layout__auth {
   display: flex;
   flex-wrap: wrap;
@@ -82,16 +80,10 @@
   align-items: center;
 }
 
-.seo-landing-layout__nav {
-  grid-column: 2;
-  justify-content: flex-start;
-}
-
 .seo-landing-layout__auth {
   justify-content: flex-end;
 }
 
-.seo-landing-layout__nav a,
 .seo-landing-layout__auth a {
   flex: 0 1 auto;
   min-width: 0;
@@ -141,7 +133,6 @@
   }
 
   .seo-landing-layout__brand,
-  .seo-landing-layout__nav,
   .seo-landing-layout__header-actions {
     grid-column: 1;
   }
@@ -151,13 +142,11 @@
     justify-content: space-between;
   }
 
-  .seo-landing-layout__nav,
   .seo-landing-layout__auth,
   app-seo-language-selector {
     flex: 1 1 11rem;
   }
 
-  .seo-landing-layout__nav a,
   .seo-landing-layout__auth a {
     flex: 1 1 9rem;
     max-width: none;

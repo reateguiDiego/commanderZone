@@ -12,7 +12,7 @@
         <h3>{{ useCase.title }}</h3>
         <p>{{ useCase.description }}</p>
         @if (useCase.link; as link) {
-          <a [href]="link.href" [attr.aria-label]="link.ariaLabel">{{ link.label }}</a>
+          <a appSeoInternalLink [href]="link.href" [attr.aria-label]="link.ariaLabel">{{ link.label }}</a>
         }
       </article>
     }

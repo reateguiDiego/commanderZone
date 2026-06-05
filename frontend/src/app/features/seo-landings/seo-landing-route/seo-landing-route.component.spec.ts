@@ -95,12 +95,11 @@ describe('SeoLandingRouteComponent', () => {
     ]));
   });
 
-  it('renders public header and footer FAQ anchors', () => {
+  it('keeps FAQ crawlable in the public footer without header CTA navigation', () => {
     const element: HTMLElement = fixture.nativeElement;
-    const headerFaqLink = element.querySelector('.seo-landing-layout__nav a[href="/es/faq/"]');
     const footerFaqLink = element.querySelector('.seo-landing-layout__footer a[href="/es/faq/"]');
 
-    expect(headerFaqLink).toBeTruthy();
+    expect(element.querySelector('.seo-landing-layout__nav')).toBeNull();
     expect(footerFaqLink).toBeTruthy();
   });
 });

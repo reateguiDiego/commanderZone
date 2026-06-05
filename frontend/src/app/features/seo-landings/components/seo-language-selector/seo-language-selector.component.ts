@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, ElementRef, HostListener, computed,
 import { SeoLocaleCode } from '../../../../core/localization/locale-config';
 import { getPublicChromeCopy } from '../../../../core/localization/public-chrome-copy';
 import { LandingLocaleLink } from '../../models/seo-landing-content.model';
+import { SeoInternalLinkDirective } from '../../directives/seo-internal-link.directive';
 
 const FLAG_ICON_BY_LOCALE: Record<SeoLocaleCode, string> = {
   en: '/assets/icons/flags/uk.png',
@@ -14,6 +15,7 @@ const FLAG_ICON_BY_LOCALE: Record<SeoLocaleCode, string> = {
 
 @Component({
   selector: 'app-seo-language-selector',
+  imports: [SeoInternalLinkDirective],
   templateUrl: './seo-language-selector.component.html',
   styleUrl: './seo-language-selector.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

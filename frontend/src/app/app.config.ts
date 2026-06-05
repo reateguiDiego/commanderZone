@@ -1,6 +1,6 @@
 import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/http';
 import { ApplicationConfig, importProvidersFrom, provideBrowserGlobalErrorListeners } from '@angular/core';
-import { provideRouter } from '@angular/router';
+import { provideRouter, withInMemoryScrolling } from '@angular/router';
 import { provideTranslateLoader, provideTranslateService } from '@ngx-translate/core';
 import {
   ArrowLeft,
@@ -86,7 +86,10 @@ import { RuntimeTranslationLoader } from './core/localization/runtime-translatio
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
-    provideRouter(routes),
+    provideRouter(routes, withInMemoryScrolling({
+      anchorScrolling: 'enabled',
+      scrollPositionRestoration: 'top',
+    })),
     provideHttpClient(withFetch(), withInterceptors([loadingInterceptor, authInterceptor])),
     provideTranslateService({
       fallbackLang: DEFAULT_LOCALE.code,

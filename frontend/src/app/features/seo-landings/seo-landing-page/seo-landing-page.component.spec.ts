@@ -204,7 +204,6 @@ describe('SeoLandingPageComponent', () => {
     const links = anchors.map((link) => link.getAttribute('href'));
 
     expect(links).toContain('/auth/login?redirect=/decks');
-    expect(links).toContain('/en/faq/');
     expect(links).toContain('/de/commander-online-spielen/');
     expect(links).toContain('/en/import-commander-deck/');
     expect(anchors.every((link) => Boolean(link.getAttribute('href')))).toBe(true);
@@ -289,10 +288,9 @@ describe('SeoLandingPageComponent', () => {
     expect(element.querySelector('.landing-full-faq details')?.hasAttribute('open')).toBe(true);
   });
 
-  it('renders the CommanderZone public header with crawlable menu and logo', () => {
+  it('renders the CommanderZone public header with logo and account actions only', () => {
     const element: HTMLElement = fixture.nativeElement;
     const logo = element.querySelector('.seo-landing-layout__brand img') as HTMLImageElement;
-    const publicMenuLinks = Array.from(element.querySelectorAll('.seo-landing-layout__nav a') as NodeListOf<HTMLAnchorElement>);
     const authLinks = Array.from(element.querySelectorAll('.seo-landing-layout__auth a') as NodeListOf<HTMLAnchorElement>);
 
     expect(logo.getAttribute('src')).toBe('/assets/icons/CZ/CZ_logo.png');
@@ -301,17 +299,15 @@ describe('SeoLandingPageComponent', () => {
     expect(logo.getAttribute('decoding')).toBe('async');
     expect(element.querySelector('.seo-landing-layout__brand')?.getAttribute('href')).toBe('/en/');
     expect(element.querySelector('.seo-landing-layout__menu')).toBeNull();
-    expect(publicMenuLinks.map((link) => link.getAttribute('href'))).toEqual([
-      '/en/faq/',
-    ]);
-    expect(publicMenuLinks.every((link) => link.classList.contains('secondary-button'))).toBe(true);
+    expect(element.querySelector('.seo-landing-layout__nav')).toBeNull();
+    expect(element.querySelector('app-seo-language-selector')).not.toBeNull();
     expect(authLinks.map((link) => link.getAttribute('href'))).toEqual(['/auth/login/', '/auth/register/']);
     expect(authLinks.map((link) => link.textContent?.trim())).toEqual(['Login', 'Register']);
     expect(authLinks[0].classList.contains('primary-button')).toBe(true);
     expect(authLinks[1].classList.contains('primary-button')).toBe(true);
   });
 
-  it('hides the FAQ header button while rendering the FAQ landing', () => {
+  it('does not render SEO CTA navigation in the header on FAQ landing', () => {
     fixture.componentRef.setInput('content', {
       ...content,
       routeKey: 'faq',
@@ -323,9 +319,10 @@ describe('SeoLandingPageComponent', () => {
     fixture.detectChanges();
 
     const element: HTMLElement = fixture.nativeElement;
-    const publicMenuLinks = Array.from(element.querySelectorAll('.seo-landing-layout__nav a') as NodeListOf<HTMLAnchorElement>);
 
-    expect(publicMenuLinks.map((link) => link.getAttribute('href'))).toEqual(['/en/play-commander-online/']);
+    expect(element.querySelector('.seo-landing-layout__nav')).toBeNull();
+    expect(element.querySelector('.seo-landing-layout__auth a[href="/auth/login/"]')).not.toBeNull();
+    expect(element.querySelector('.seo-landing-layout__auth a[href="/auth/register/"]')).not.toBeNull();
   });
 
   it('uses the app button classes for hero and final CTA links', () => {

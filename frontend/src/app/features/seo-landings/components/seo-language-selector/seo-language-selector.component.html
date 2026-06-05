@@ -15,6 +15,7 @@
   <nav class="seo-language-selector__menu app-pretty-scroll" [attr.aria-label]="copy().ariaLabel">
     @for (link of links(); track link.locale) {
       <a
+        appSeoInternalLink
         class="seo-language-selector__link"
         [class.is-current]="isCurrentLocale(link.locale)"
         [href]="link.href"
