@@ -16,7 +16,7 @@ class DecklistPreviewer
      * @param array<int, array{quantity:int,name:string,section:string,setCode:?string,collectorNumber:?string,rawLine:string}> $entries
      * @return array<string,mixed>
      */
-    public function preview(array $entries, string $format): array
+    public function preview(array $entries, string $format, ?string $preferredLanguage = null): array
     {
         $resolvedEntries = [];
         $missingCards = [];
@@ -33,7 +33,7 @@ class DecklistPreviewer
             $totalCards += $entry['quantity'];
             $counts[$entry['section']] = ($counts[$entry['section']] ?? 0) + $entry['quantity'];
 
-            $card = $this->cardResolver->resolveForDecklistEntry($entry);
+            $card = $this->cardResolver->resolveForDecklistEntry($entry, $preferredLanguage);
             if ($card instanceof Card) {
                 $resolvedCards += $entry['quantity'];
             } else {

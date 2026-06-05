@@ -8,6 +8,14 @@ use Doctrine\ORM\EntityManagerInterface;
 
 class CardResolver
 {
+    private ?bool $printLocaleTablesAvailableCache = null;
+
+    /** @var array<string, list<Card>> */
+    private array $cardsBySetAndCollectorNumberCache = [];
+
+    /** @var array<string, list<Card>> */
+    private array $decklistNameCandidatesCache = [];
+
     public function __construct(private readonly EntityManagerInterface $entityManager)
     {
     }
@@ -115,20 +123,29 @@ class CardResolver
         return ['card' => $matches[0], 'error' => null, 'matches' => $matches];
     }
 
-    public function resolveForDecklistEntry(array $entry): ?Card
+    public function resolveForDecklistEntry(array $entry, ?string $preferredLanguage = null): ?Card
     {
-        if (($entry['setCode'] ?? null) !== null && ($entry['collectorNumber'] ?? null) !== null) {
-            $card = $this->resolveOne([
-                'setCode' => $entry['setCode'],
-                'collectorNumber' => $entry['collectorNumber'],
-                'flavorName' => $entry['name'] ?? null,
-            ]);
+        $preferredLanguage = LanguageCatalog::normalize($preferredLanguage);
+        if (!LanguageCatalog::isSupported($preferredLanguage)) {
+            return $this->resolveForDecklistEntryLegacy($entry);
+        }
+
+        $setCode = mb_strtolower(trim((string) ($entry['setCode'] ?? '')));
+        $collectorNumber = trim((string) ($entry['collectorNumber'] ?? ''));
+        if ($setCode !== '' && $collectorNumber !== '') {
+            $card = $this->pickRandomDecklistImportPrint(
+                $this->findCardsBySetAndCollectorNumber($setCode, $collectorNumber),
+                $preferredLanguage,
+            );
             if ($card instanceof Card) {
                 return $card;
             }
         }
 
-        return $this->resolveDecklistName((string) ($entry['name'] ?? ''));
+        return $this->pickRandomDecklistImportPrint(
+            $this->resolveDecklistNameCandidates((string) ($entry['name'] ?? ''), $preferredLanguage),
+            $preferredLanguage,
+        );
     }
 
     /**
@@ -159,6 +176,307 @@ class CardResolver
         }
 
         return $matches[0] ?? null;
+    }
+
+    private function resolveForDecklistEntryLegacy(array $entry): ?Card
+    {
+        if (($entry['setCode'] ?? null) !== null && ($entry['collectorNumber'] ?? null) !== null) {
+            $card = $this->resolveOne([
+                'setCode' => $entry['setCode'],
+                'collectorNumber' => $entry['collectorNumber'],
+                'flavorName' => $entry['name'] ?? null,
+            ]);
+            if ($card instanceof Card) {
+                return $card;
+            }
+        }
+
+        return $this->resolveDecklistName((string) ($entry['name'] ?? ''));
+    }
+
+    /**
+     * @return list<Card>
+     */
+    private function findCardsBySetAndCollectorNumber(string $setCode, string $collectorNumber): array
+    {
+        $cacheKey = $setCode.'|'.$collectorNumber;
+        if (array_key_exists($cacheKey, $this->cardsBySetAndCollectorNumberCache)) {
+            return $this->cardsBySetAndCollectorNumberCache[$cacheKey];
+        }
+
+        $matches = $this->entityManager->getRepository(Card::class)->findBy([
+            'setCode' => $setCode,
+            'collectorNumber' => $collectorNumber,
+        ]);
+
+        return $this->cardsBySetAndCollectorNumberCache[$cacheKey] = array_values(array_filter(
+            $matches,
+            static fn (mixed $card) => $card instanceof Card,
+        ));
+    }
+
+    /**
+     * @return list<Card>
+     */
+    private function resolveDecklistNameCandidates(string $name, ?string $preferredLanguage = null): array
+    {
+        $normalizedName = Card::normalizeName($name);
+        if ($normalizedName === '') {
+            return [];
+        }
+
+        $cacheKey = ($preferredLanguage ?? '-').'|'.$normalizedName;
+        if (array_key_exists($cacheKey, $this->decklistNameCandidatesCache)) {
+            return $this->decklistNameCandidatesCache[$cacheKey];
+        }
+
+        $repository = $this->entityManager->getRepository(Card::class);
+        $exactMatches = array_values(array_filter(
+            $repository->findBy(['normalizedName' => $normalizedName]),
+            static fn (mixed $card) => $card instanceof Card,
+        ));
+        if ($exactMatches !== []) {
+            return $this->decklistNameCandidatesCache[$cacheKey] = $exactMatches;
+        }
+
+        if (LanguageCatalog::isSupported($preferredLanguage)) {
+            $localizedPrintTableMatches = $this->resolveLocalizedPrintTableDecklistCandidates($normalizedName, $preferredLanguage);
+            if ($localizedPrintTableMatches !== []) {
+                return $this->decklistNameCandidatesCache[$cacheKey] = $localizedPrintTableMatches;
+            }
+        }
+
+        $localizedMatches = array_values(array_filter(
+            $repository->createQueryBuilder('card')
+                ->andWhere('LOWER(card.printedName) = :printedName')
+                ->setParameter('printedName', $normalizedName)
+                ->orderBy('card.commanderLegal', 'DESC')
+                ->addOrderBy('card.normalizedName', 'ASC')
+                ->addOrderBy('card.setCode', 'ASC')
+                ->addOrderBy('card.collectorNumber', 'ASC')
+                ->getQuery()
+                ->getResult(),
+            static fn (mixed $card) => $card instanceof Card,
+        ));
+        if ($localizedMatches !== []) {
+            return $this->decklistNameCandidatesCache[$cacheKey] = $this->siblingCardsForMatches($localizedMatches);
+        }
+
+        if (!LanguageCatalog::isSupported($preferredLanguage)) {
+            $localizedPrintTableMatches = $this->resolveLocalizedPrintTableDecklistCandidates($normalizedName, $preferredLanguage);
+            if ($localizedPrintTableMatches !== []) {
+                return $this->decklistNameCandidatesCache[$cacheKey] = $localizedPrintTableMatches;
+            }
+        }
+
+        $doubleFacedMatches = array_values(array_filter(
+            $repository->createQueryBuilder('card')
+                ->andWhere('card.normalizedName LIKE :frontFace OR card.normalizedName LIKE :backFace')
+                ->setParameter('frontFace', $normalizedName.' // %')
+                ->setParameter('backFace', '% // '.$normalizedName)
+                ->orderBy('card.commanderLegal', 'DESC')
+                ->addOrderBy('card.normalizedName', 'ASC')
+                ->addOrderBy('card.setCode', 'ASC')
+                ->addOrderBy('card.collectorNumber', 'ASC')
+                ->getQuery()
+                ->getResult(),
+            static fn (mixed $card) => $card instanceof Card,
+        ));
+        $flavorMatches = array_values(array_filter(
+            $repository->createQueryBuilder('card')
+                ->andWhere('LOWER(card.flavorName) = :flavorName')
+                ->setParameter('flavorName', $normalizedName)
+                ->orderBy('card.commanderLegal', 'DESC')
+                ->addOrderBy('card.normalizedName', 'ASC')
+                ->addOrderBy('card.setCode', 'ASC')
+                ->addOrderBy('card.collectorNumber', 'ASC')
+                ->getQuery()
+                ->getResult(),
+            static fn (mixed $card) => $card instanceof Card,
+        ));
+
+        return $this->decklistNameCandidatesCache[$cacheKey] = $this->uniqueCardsByScryfallId([
+            ...$doubleFacedMatches,
+            ...$flavorMatches,
+        ]);
+    }
+
+    /**
+     * @return list<Card>
+     */
+    private function resolveLocalizedPrintTableDecklistCandidates(string $normalizedName, ?string $preferredLanguage = null): array
+    {
+        if (!$this->printLocaleTablesAvailable()) {
+            return [];
+        }
+
+        $params = ['query' => $normalizedName];
+        $sql = <<<'SQL'
+SELECT DISTINCT c.scryfall_id
+FROM card c
+INNER JOIN card_print_locale locale ON locale.print_scryfall_id = c.scryfall_id
+WHERE LOWER(COALESCE(locale.name, '')) = :query
+   OR LOWER(COALESCE(locale.printed_name, '')) = :query
+SQL;
+        if (LanguageCatalog::isSupported($preferredLanguage)) {
+            $sql = <<<'SQL'
+SELECT DISTINCT c.scryfall_id
+FROM card c
+INNER JOIN card_print_locale locale ON locale.print_scryfall_id = c.scryfall_id
+WHERE locale.lang = :preferredLanguage
+  AND (
+      LOWER(COALESCE(locale.name, '')) = :query
+      OR LOWER(COALESCE(locale.printed_name, '')) = :query
+  )
+SQL;
+            $params['preferredLanguage'] = $preferredLanguage;
+        }
+
+        $ids = $this->entityManager->getConnection()->fetchFirstColumn($sql, $params);
+
+        if ($ids === []) {
+            return [];
+        }
+
+        $matches = $this->entityManager->getRepository(Card::class)
+            ->createQueryBuilder('card')
+            ->andWhere('card.scryfallId IN (:ids)')
+            ->setParameter('ids', $ids)
+            ->orderBy('card.commanderLegal', 'DESC')
+            ->addOrderBy('card.normalizedName', 'ASC')
+            ->addOrderBy('card.setCode', 'ASC')
+            ->addOrderBy('card.collectorNumber', 'ASC')
+            ->getQuery()
+            ->getResult();
+
+        return $this->siblingCardsForMatches(array_values(array_filter(
+            $matches,
+            static fn (mixed $card) => $card instanceof Card,
+        )));
+    }
+
+    /**
+     * @param list<Card> $matches
+     */
+    private function pickRandomDecklistImportPrint(array $matches, string $preferredLanguage): ?Card
+    {
+        $preferredMatches = $this->cardsInLanguage($matches, $preferredLanguage);
+        if ($preferredMatches !== []) {
+            return $this->randomCard($preferredMatches);
+        }
+
+        $englishMatches = $this->cardsInLanguage($matches, LanguageCatalog::DEFAULT_LANGUAGE);
+        if ($englishMatches !== []) {
+            return $this->randomCard($englishMatches);
+        }
+
+        return null;
+    }
+
+    /**
+     * @param list<Card> $matches
+     * @return list<Card>
+     */
+    private function cardsInLanguage(array $matches, string $language): array
+    {
+        return array_values(array_filter(
+            $matches,
+            static function (Card $card) use ($language): bool {
+                if (self::isImageStatusUnavailable($card->imageStatus())) {
+                    return false;
+                }
+
+                $cardLanguage = LanguageCatalog::normalize($card->lang()) ?? LanguageCatalog::DEFAULT_LANGUAGE;
+
+                return $cardLanguage === $language;
+            },
+        ));
+    }
+
+    /**
+     * @param list<Card> $matches
+     */
+    private function randomCard(array $matches): ?Card
+    {
+        if ($matches === []) {
+            return null;
+        }
+
+        return $matches[array_rand($matches)] ?? null;
+    }
+
+    /**
+     * @param list<Card> $matches
+     * @return list<Card>
+     */
+    private function uniqueCardsByScryfallId(array $matches): array
+    {
+        $unique = [];
+        foreach ($matches as $match) {
+            $unique[$match->scryfallId()] = $match;
+        }
+
+        return array_values($unique);
+    }
+
+    /**
+     * @param list<Card> $matches
+     * @return list<Card>
+     */
+    private function siblingCardsForMatches(array $matches): array
+    {
+        $normalizedNames = array_values(array_unique(array_map(
+            static fn (Card $card): string => $card->normalizedName(),
+            $matches,
+        )));
+        if ($normalizedNames === []) {
+            return [];
+        }
+
+        $candidates = $this->entityManager->getRepository(Card::class)
+            ->createQueryBuilder('card')
+            ->andWhere('card.normalizedName IN (:names)')
+            ->setParameter('names', $normalizedNames)
+            ->orderBy('card.commanderLegal', 'DESC')
+            ->addOrderBy('card.normalizedName', 'ASC')
+            ->addOrderBy('card.setCode', 'ASC')
+            ->addOrderBy('card.collectorNumber', 'ASC')
+            ->getQuery()
+            ->getResult();
+
+        return $this->uniqueCardsByScryfallId(array_values(array_filter(
+            $candidates,
+            static fn (mixed $card) => $card instanceof Card,
+        )));
+    }
+
+    private static function isImageStatusUnavailable(?string $imageStatus): bool
+    {
+        if ($imageStatus === null) {
+            return false;
+        }
+
+        return in_array(strtolower(trim($imageStatus)), ['missing', 'placeholder'], true);
+    }
+
+    private function printLocaleTablesAvailable(): bool
+    {
+        if ($this->printLocaleTablesAvailableCache !== null) {
+            return $this->printLocaleTablesAvailableCache;
+        }
+
+        try {
+            $connection = $this->entityManager->getConnection();
+            $cardPrint = $connection->fetchOne("SELECT to_regclass('public.card_print')");
+            $cardPrintLocale = $connection->fetchOne("SELECT to_regclass('public.card_print_locale')");
+
+            return $this->printLocaleTablesAvailableCache = is_string($cardPrint)
+                && $cardPrint !== ''
+                && is_string($cardPrintLocale)
+                && $cardPrintLocale !== '';
+        } catch (\Throwable) {
+            return $this->printLocaleTablesAvailableCache = false;
+        }
     }
 
     private function resolveDecklistName(string $name): ?Card

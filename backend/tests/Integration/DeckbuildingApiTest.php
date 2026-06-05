@@ -2,6 +2,9 @@
 
 namespace App\Tests\Integration;
 
+use App\Domain\Deck\Deck;
+use App\Domain\Deck\DeckCard;
+
 class DeckbuildingApiTest extends ApiTestCase
 {
     public function testDeckSelectedInRoomCannotBeDeleted(): void
@@ -622,6 +625,188 @@ TXT,
         self::assertResponseStatusCodeSame(422);
     }
 
+    public function testDecklistImportSelectsPersistedPrintsByUserLanguage(): void
+    {
+        $token = $this->registerAndLogin('language-import@example.test', 'Language Import');
+        $this->jsonRequest('PATCH', '/me', ['cardLanguage' => 'es'], $token);
+        self::assertResponseIsSuccessful();
+
+        $solRingSpanishA = $this->seedCard('10000000-0000-0000-0000-000000000001', 'Sol Ring', [
+            'set' => 'esa',
+            'collector_number' => '1',
+            'lang' => 'es',
+            'printed_name' => 'Anillo solar',
+        ]);
+        $solRingSpanishB = $this->seedCard('10000000-0000-0000-0000-000000000002', 'Sol Ring', [
+            'set' => 'esb',
+            'collector_number' => '2',
+            'lang' => 'es',
+            'printed_name' => 'Anillo solar',
+        ]);
+        $this->seedCard('10000000-0000-0000-0000-000000000003', 'Sol Ring', [
+            'set' => 'eng',
+            'collector_number' => '3',
+            'lang' => 'en',
+        ]);
+        $darkRitualEnglish = $this->seedCard('10000000-0000-0000-0000-000000000004', 'Dark Ritual', [
+            'set' => 'eng',
+            'collector_number' => '4',
+            'lang' => 'en',
+        ]);
+        $this->seedCard('10000000-0000-0000-0000-000000000005', 'Dark Ritual', [
+            'set' => 'ptg',
+            'collector_number' => '5',
+            'lang' => 'pt',
+            'printed_name' => 'Ritual Sombrio',
+        ]);
+        $arcaneSignetSpanish = $this->seedCard('10000000-0000-0000-0000-000000000006', 'Arcane Signet', [
+            'set' => 'esp',
+            'collector_number' => '6',
+            'lang' => 'es',
+            'printed_name' => 'Sello arcano',
+        ]);
+        $this->seedCard('10000000-0000-0000-0000-000000000007', 'Arcane Signet', [
+            'set' => 'frc',
+            'collector_number' => '9',
+            'lang' => 'fr',
+            'printed_name' => 'Cachet arcanique',
+        ]);
+        $this->seedCard('10000000-0000-0000-0000-000000000008', 'Mana Vault', [
+            'set' => 'frv',
+            'collector_number' => '10',
+            'lang' => 'fr',
+            'printed_name' => 'Coffre de mana',
+        ]);
+        $this->seedCard('10000000-0000-0000-0000-000000000009', 'Mana Vault', [
+            'set' => 'ptv',
+            'collector_number' => '11',
+            'lang' => 'pt',
+            'printed_name' => 'Cofre de mana',
+        ]);
+
+        $this->jsonRequest('POST', '/decks', ['name' => 'Language Import'], $token);
+        self::assertResponseStatusCodeSame(201);
+        $deckId = (string) $this->jsonResponse()['deck']['id'];
+
+        $this->jsonRequest('POST', '/decks/'.$deckId.'/import', [
+            'decklist' => <<<TXT
+Deck
+1x Sol Ring
+1x Dark Ritual
+1x Arcane Signet (FRC) 9
+1x Mana Vault
+TXT,
+        ], $token);
+        self::assertResponseIsSuccessful();
+        $response = $this->jsonResponse();
+        self::assertSame(['Mana Vault'], $response['missing']);
+        self::assertCount(1, $response['missingCards']);
+        self::assertSame(4, $response['summary']['totalCards']);
+        self::assertSame(3, $response['summary']['resolvedCards']);
+        self::assertSame(3, $response['summary']['importedCards']);
+        self::assertSame(1, $response['summary']['missingCards']);
+
+        $storedDeck = $this->storedDeck($deckId);
+        self::assertCount(3, $storedDeck->cards());
+        self::assertContains(
+            $this->storedDeckCardScryfallId($storedDeck, 'Sol Ring'),
+            [$solRingSpanishA->scryfallId(), $solRingSpanishB->scryfallId()],
+        );
+        self::assertSame($darkRitualEnglish->scryfallId(), $this->storedDeckCardScryfallId($storedDeck, 'Dark Ritual'));
+        self::assertSame($arcaneSignetSpanish->scryfallId(), $this->storedDeckCardScryfallId($storedDeck, 'Arcane Signet'));
+    }
+
+    public function testDecklistImportResolvesSpanishNamesFromLocalizedPrintTables(): void
+    {
+        $token = $this->registerAndLogin('localized-import@example.test', 'Localized Import');
+        $this->jsonRequest('PATCH', '/me', ['cardLanguage' => 'es'], $token);
+        self::assertResponseIsSuccessful();
+
+        $solRing = $this->seedCard('20000000-0000-0000-0000-000000000001', 'Sol Ring', [
+            'set' => 'eng',
+            'collector_number' => '1',
+            'lang' => 'en',
+        ]);
+        $darkRitual = $this->seedCard('20000000-0000-0000-0000-000000000002', 'Dark Ritual', [
+            'set' => 'eng',
+            'collector_number' => '2',
+            'lang' => 'en',
+        ]);
+        $island = $this->seedCard('20000000-0000-0000-0000-000000000003', 'Island', [
+            'set' => 'eng',
+            'collector_number' => '3',
+            'lang' => 'en',
+        ]);
+
+        $this->seedLocalizedPrintLocale($solRing->scryfallId(), 'Sol Ring', 'es', 'Anillo solar');
+        $this->seedLocalizedPrintLocale($darkRitual->scryfallId(), 'Dark Ritual', 'es', 'Ritual oscuro');
+        $this->seedLocalizedPrintLocale($island->scryfallId(), 'Island', 'es', 'Isla');
+
+        $this->jsonRequest('POST', '/decks', ['name' => 'Localized Names'], $token);
+        self::assertResponseStatusCodeSame(201);
+        $deckId = (string) $this->jsonResponse()['deck']['id'];
+
+        $this->jsonRequest('POST', '/decks/'.$deckId.'/import', [
+            'decklist' => <<<TXT
+Deck
+\u{FEFF}1x Anillo solar
+1x Ritual oscuro
+2x Isla
+TXT,
+        ], $token);
+        self::assertResponseIsSuccessful();
+        $response = $this->jsonResponse();
+        self::assertSame([], $response['missing']);
+        self::assertSame(4, $response['summary']['totalCards']);
+        self::assertSame(4, $response['summary']['resolvedCards']);
+        self::assertSame(4, $response['summary']['importedCards']);
+        self::assertSame(0, $response['summary']['missingCards']);
+
+        $storedDeck = $this->storedDeck($deckId);
+        self::assertSame($solRing->scryfallId(), $this->storedDeckCardScryfallId($storedDeck, 'Sol Ring'));
+        self::assertSame($darkRitual->scryfallId(), $this->storedDeckCardScryfallId($storedDeck, 'Dark Ritual'));
+        self::assertSame($island->scryfallId(), $this->storedDeckCardScryfallId($storedDeck, 'Island'));
+    }
+
+    public function testDecklistImportSkipsPlaceholderPreferredPrintsAndFallsBackToEnglish(): void
+    {
+        $token = $this->registerAndLogin('placeholder-import@example.test', 'Placeholder Import');
+        $this->jsonRequest('PATCH', '/me', ['cardLanguage' => 'es'], $token);
+        self::assertResponseIsSuccessful();
+
+        $arcaneSignetEnglish = $this->seedCard('30000000-0000-0000-0000-000000000001', 'Arcane Signet', [
+            'set' => 'eng',
+            'collector_number' => '1',
+            'lang' => 'en',
+            'image_status' => 'highres_scan',
+        ]);
+        $this->seedCard('30000000-0000-0000-0000-000000000002', 'Arcane Signet', [
+            'set' => 'esp',
+            'collector_number' => '2',
+            'lang' => 'es',
+            'printed_name' => 'Sello arcano',
+            'image_status' => 'placeholder',
+        ]);
+
+        $this->jsonRequest('POST', '/decks', ['name' => 'Placeholder Import'], $token);
+        self::assertResponseStatusCodeSame(201);
+        $deckId = (string) $this->jsonResponse()['deck']['id'];
+
+        $this->jsonRequest('POST', '/decks/'.$deckId.'/import', [
+            'decklist' => <<<TXT
+Deck
+1x Sello arcano
+TXT,
+        ], $token);
+        self::assertResponseIsSuccessful();
+        $response = $this->jsonResponse();
+        self::assertSame([], $response['missing']);
+        self::assertSame(1, $response['summary']['importedCards']);
+
+        $storedDeck = $this->storedDeck($deckId);
+        self::assertSame($arcaneSignetEnglish->scryfallId(), $this->storedDeckCardScryfallId($storedDeck, 'Arcane Signet'));
+    }
+
     private function lineByScryfallId(array $cards, string $scryfallId, string $section): array
     {
         $line = $this->lineByScryfallIdOrNull($cards, $scryfallId, $section);
@@ -650,5 +835,78 @@ TXT,
         }
 
         return null;
+    }
+
+    private function storedDeck(string $deckId): Deck
+    {
+        $this->entityManager->clear();
+        $deck = $this->entityManager->getRepository(Deck::class)->find($deckId);
+        self::assertInstanceOf(Deck::class, $deck);
+
+        return $deck;
+    }
+
+    private function storedDeckCardScryfallId(Deck $deck, string $name, string $section = DeckCard::SECTION_MAIN): string
+    {
+        foreach ($deck->cards() as $deckCard) {
+            if (!$deckCard instanceof DeckCard) {
+                continue;
+            }
+
+            if ($deckCard->section() === $section && $deckCard->card()->name() === $name) {
+                return $deckCard->card()->scryfallId();
+            }
+        }
+
+        self::fail('Expected stored deck card was not found.');
+    }
+
+    private function seedLocalizedPrintLocale(string $scryfallId, string $defaultName, string $lang, string $printedName): void
+    {
+        $this->entityManager->getConnection()->executeStatement(
+            <<<'SQL'
+INSERT INTO card_print_locale (
+    print_scryfall_id,
+    lang,
+    name,
+    printed_name,
+    mana_cost,
+    type_line,
+    oracle_text,
+    image_uris,
+    card_faces,
+    image_status,
+    updated_at
+) VALUES (
+    :scryfallId,
+    :lang,
+    :defaultName,
+    :printedName,
+    '{1}',
+    'Artifact',
+    '',
+    '{}',
+    '[]',
+    'highres_scan',
+    NOW()
+)
+ON CONFLICT (print_scryfall_id, lang) DO UPDATE SET
+    name = EXCLUDED.name,
+    printed_name = EXCLUDED.printed_name,
+    mana_cost = EXCLUDED.mana_cost,
+    type_line = EXCLUDED.type_line,
+    oracle_text = EXCLUDED.oracle_text,
+    image_uris = EXCLUDED.image_uris,
+    card_faces = EXCLUDED.card_faces,
+    image_status = EXCLUDED.image_status,
+    updated_at = NOW()
+SQL,
+            [
+                'scryfallId' => $scryfallId,
+                'lang' => $lang,
+                'defaultName' => $defaultName,
+                'printedName' => $printedName,
+            ],
+        );
     }
 }

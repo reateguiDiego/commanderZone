@@ -39,6 +39,7 @@ final class CardPrintBackfillCommand extends Command
         $maxRows = $limit !== null ? max(1, (int) $limit) : null;
         $cursor = is_string($input->getOption('from-scryfall-id')) ? trim((string) $input->getOption('from-scryfall-id')) : '';
         $processed = 0;
+        $skippedUnavailable = 0;
 
         while (true) {
             if ($maxRows !== null && $processed >= $maxRows) {
@@ -85,16 +86,31 @@ SQL,
             }
 
             foreach ($rows as $row) {
-                $this->upsertCardPrint($row);
-                $this->upsertCardPrintLocale($row);
                 $cursor = (string) $row['scryfall_id'];
                 ++$processed;
+
+                if ($this->isImageStatusUnavailable($row['image_status'] ?? null)) {
+                    ++$skippedUnavailable;
+                    continue;
+                }
+
+                $this->upsertCardPrint($row);
+                $this->upsertCardPrintLocale($row);
             }
 
-            $output->writeln(sprintf('Backfilled %d rows (cursor=%s)', $processed, $cursor));
+            $output->writeln(sprintf(
+                'Backfilled %d rows (cursor=%s, skipped_unavailable=%d)',
+                $processed - $skippedUnavailable,
+                $cursor,
+                $skippedUnavailable,
+            ));
         }
 
-        $output->writeln(sprintf('Done. Processed %d rows.', $processed));
+        $output->writeln(sprintf(
+            'Done. Processed %d rows. Skipped %d unavailable prints.',
+            $processed,
+            $skippedUnavailable,
+        ));
 
         return Command::SUCCESS;
     }
@@ -290,6 +306,15 @@ SQL,
         }
 
         return '[]';
+    }
+
+    private function isImageStatusUnavailable(mixed $value): bool
+    {
+        if (!is_scalar($value)) {
+            return false;
+        }
+
+        return in_array(strtolower(trim((string) $value)), ['missing', 'placeholder'], true);
     }
 }
 
