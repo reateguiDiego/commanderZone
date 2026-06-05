@@ -6,6 +6,7 @@ import { LucideAngularModule } from 'lucide-angular';
 import { Subscription, filter } from 'rxjs';
 import { AuthStore } from '../../../core/auth/auth.store';
 import { MercureService } from '../../../core/realtime/mercure.service';
+import { AppThemeAssetsService } from '../../../core/theme/app-theme-assets.service';
 import { PageHeaderStore } from '../../../core/ui/page-header.store';
 import { FriendsStore } from '../../friends/data-access/friends.store';
 import { DashboardHeaderComponent } from './components/dashboard-header/dashboard-header.component';
@@ -28,6 +29,7 @@ export class DashboardShellComponent implements OnDestroy {
   readonly auth = inject(AuthStore);
   readonly friends = inject(FriendsStore);
   readonly pageHeader = inject(PageHeaderStore);
+  readonly themeAssets = inject(AppThemeAssetsService);
   private readonly mercure = inject(MercureService);
   private readonly router = inject(Router);
   readonly friendsOpen = signal(false);

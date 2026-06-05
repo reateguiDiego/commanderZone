@@ -1,7 +1,7 @@
 <div class="seo-landing-layout" [attr.data-route-key]="content().routeKey" [attr.lang]="content().locale">
   <header class="seo-landing-layout__header">
     <a appSeoInternalLink class="seo-landing-layout__brand" [href]="content().homeLink?.href ?? '/'" [attr.aria-label]="content().homeLink?.ariaLabel">
-      <img src="/assets/icons/CZ/CZ_logo.png" alt="" aria-hidden="true" width="256" height="124" decoding="async" />
+      <img [src]="themeAssets.czLogoUrl()" alt="" aria-hidden="true" width="256" height="124" decoding="async" />
       <span>{{ content().siteName ?? content().homeLink?.label ?? 'CommanderZone' }}</span>
     </a>
 

@@ -15,7 +15,7 @@ describe('app routes', () => {
     expect(rootRoute?.data?.['pageKey']).toBe('home');
     expect(rootRoute?.data?.['routeKey']).toBe('home');
     expect(rootRoute?.data?.['locale']).toBe('en');
-    expect(rootRoute?.data?.['authenticatedRedirect']).toBe('/decks');
+    expect(rootRoute?.data?.['authenticatedRedirect']).toBe('/dashboard');
     expect(component?.name).toMatch(/SeoLandingRouteComponent$/);
   });
 

@@ -1,6 +1,6 @@
 import { RuntimeTranslatePipe } from '../core/localization/runtime-translate.pipe';
 import { DOCUMENT, isPlatformBrowser } from '@angular/common';
-import { ChangeDetectionStrategy, Component, PLATFORM_ID, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Injector, PLATFORM_ID, computed, inject, signal } from '@angular/core';
 import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { filter } from 'rxjs';
@@ -12,6 +12,7 @@ import { RouteRobotsMetaService } from '../core/seo/route-robots-meta.service';
 import { FooterDisclaimerComponent } from '../shared/components/footer-disclaimer/footer-disclaimer.component';
 import { RuntimeLanguageSelectorService } from '../core/localization/runtime-language-selector.service';
 import { AppThemeService } from '../core/theme/app-theme.service';
+import { AppBackgroundService } from '../core/ui/app-background.service';
 
 @Component({
   selector: 'app-root',
@@ -26,6 +27,7 @@ export class App {
   private readonly runtimeLanguageSelector = inject(RuntimeLanguageSelectorService);
   private readonly routeRobots = inject(RouteRobotsMetaService);
   private readonly router = inject(Router);
+  private readonly injector = inject(Injector);
   private readonly platformId = inject(PLATFORM_ID);
   private readonly theme = inject(AppThemeService);
   readonly loading = inject(LoadingStore);
@@ -55,7 +57,14 @@ export class App {
     this.currentPath.set(path);
 
     if (isPlatformBrowser(this.platformId)) {
-      this.document.body.classList.toggle('dashboard-background', path === '/dashboard');
+      const isDashboardShellPath = this.isDashboardShellPath(path);
+
+      if (isDashboardShellPath) {
+        this.injector.get(AppBackgroundService).setDashboardMode(path === '/dashboard');
+      } else {
+        this.document.body.classList.remove('dashboard-background');
+        this.document.documentElement.style.removeProperty('--app-session-background');
+      }
     }
   }
 
@@ -69,6 +78,19 @@ export class App {
 
   private isSeoLandingPath(path: string): boolean {
     return findSeoRouteByPath(path) !== undefined;
+  }
+
+  private isDashboardShellPath(path: string): boolean {
+    const segments = path.split('/').filter(Boolean);
+    const firstSegment = segments[0];
+
+    return [
+      'cards',
+      'dashboard',
+      'decks',
+      'rooms',
+      'table-assistant',
+    ].includes(firstSegment);
   }
 
   private isNoindexAppPath(path: string): boolean {

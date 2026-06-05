@@ -1,7 +1,7 @@
 <article class="legal-page" [attr.lang]="content().locale">
   <header class="legal-page__header">
     <a class="legal-page__brand" [href]="homeHref()">
-      <img src="/assets/icons/CZ/CZ_logo_zone_header.png" alt="CommanderZone" width="184" height="62" />
+      <img [src]="themeAssets.czZoneHeaderLogoUrl()" alt="CommanderZone" width="184" height="62" />
     </a>
 
     <nav class="legal-page__nav" [attr.aria-label]="content().footerLabel">

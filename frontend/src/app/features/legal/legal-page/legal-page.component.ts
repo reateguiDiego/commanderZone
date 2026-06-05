@@ -4,6 +4,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { Title } from '@angular/platform-browser';
 import { ActivatedRoute } from '@angular/router';
 import { SEO_CANONICAL_ORIGIN, SeoService, toSeoAbsoluteUrl } from '../../../core/seo/seo.service';
+import { AppThemeAssetsService } from '../../../core/theme/app-theme-assets.service';
 import { getLegalLinks, getLegalPath, LegalPageKey } from '../../../core/legal/legal-routes';
 import { SeoLocaleCode } from '../../../core/localization/locale-config';
 import { getPublicChromeCopy } from '../../../core/localization/public-chrome-copy';
@@ -23,6 +24,7 @@ export class LegalPageComponent {
   private readonly route = inject(ActivatedRoute);
   private readonly seo = inject(SeoService);
   private readonly title = inject(Title);
+  readonly themeAssets = inject(AppThemeAssetsService);
   private readonly routeData = toSignal(this.route.data, { initialValue: this.route.snapshot.data });
 
   readonly pageKey = computed(() => this.routeData()['legalPageKey'] as LegalPageKey);

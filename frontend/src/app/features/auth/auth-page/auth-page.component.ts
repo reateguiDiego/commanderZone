@@ -8,6 +8,7 @@ import { LucideAngularModule } from 'lucide-angular';
 import { catchError, debounceTime, distinctUntilChanged, map, of, startWith, switchMap, tap } from 'rxjs';
 import { AuthApi } from '../../../core/api/auth.api';
 import { AuthStore } from '../../../core/auth/auth.store';
+import { AppThemeAssetsService } from '../../../core/theme/app-theme-assets.service';
 import { AUTH_PASSWORD_REGEX } from '../auth-password-policy';
 
 type AuthMode = 'login' | 'register';
@@ -33,6 +34,7 @@ export class AuthPageComponent implements AfterViewInit {
   private readonly platformId = inject(PLATFORM_ID);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  readonly themeAssets = inject(AppThemeAssetsService);
 
   readonly mode = signal<AuthMode>(this.route.snapshot.routeConfig?.path === 'auth/register' ? 'register' : 'login');
   readonly emailAvailability = signal<EmailAvailability>('idle');

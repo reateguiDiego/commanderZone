@@ -86,6 +86,12 @@ describe('DashboardSettingsModalComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('Sunrise');
     expect(fixture.nativeElement.textContent).toContain('Arcade Neon Clash');
     expect(selectedTheme?.textContent).toContain('Sunrise');
+    const themeButtons = Array.from(fixture.nativeElement.querySelectorAll('.theme-option') as NodeListOf<HTMLButtonElement>);
+    expect(themeButtons).toHaveLength(6);
+    for (const themeButton of themeButtons) {
+      expect(themeButton.querySelectorAll('.theme-swatches span')).toHaveLength(6);
+      expect(themeButton.querySelectorAll('.theme-swatches + *')).toHaveLength(0);
+    }
     expect(TestBed.inject(AppThemeService).themeId()).toBe('sunrise');
   });
 

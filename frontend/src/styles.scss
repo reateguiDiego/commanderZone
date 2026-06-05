@@ -244,7 +244,7 @@ label {
 .primary-button {
   background: linear-gradient(180deg, var(--cz-accent), var(--cz-primary));
   border-color: var(--cz-accent);
-  color: var(--cz-bg);
+  color: var(--cz-on-accent);
 }
 
 .secondary-button,
@@ -401,7 +401,7 @@ label {
   box-shadow:
     0 0 0 3px rgb(var(--cz-warning-rgb) / 14%),
     0 8px 18px rgb(var(--cz-bg-rgb) / 28%);
-  color: var(--cz-bg);
+  color: var(--cz-on-accent);
   font-size: 1rem;
   font-weight: 950;
   line-height: 1;

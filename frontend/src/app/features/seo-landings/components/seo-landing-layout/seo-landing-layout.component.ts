@@ -1,6 +1,7 @@
 import { DOCUMENT, isPlatformBrowser } from '@angular/common';
 import { ChangeDetectionStrategy, Component, OnDestroy, PLATFORM_ID, computed, inject, input } from '@angular/core';
 import { getPublicChromeCopy } from '../../../../core/localization/public-chrome-copy';
+import { AppThemeAssetsService } from '../../../../core/theme/app-theme-assets.service';
 import { LandingBreadcrumbComponent } from '../landing-breadcrumb/landing-breadcrumb.component';
 import { LandingInternalLinksComponent } from '../landing-internal-links/landing-internal-links.component';
 import { SeoLanguageSelectorComponent } from '../seo-language-selector/seo-language-selector.component';
@@ -19,6 +20,7 @@ const SEO_SCROLL_CLASSES = ['app-pretty-scroll', 'seo-scroll-context'] as const;
 export class SeoLandingLayoutComponent implements OnDestroy {
   private readonly document = inject(DOCUMENT);
   private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
+  readonly themeAssets = inject(AppThemeAssetsService);
 
   readonly content = input.required<SeoLandingContent>();
   readonly publicChrome = computed(() => getPublicChromeCopy(this.content().locale));

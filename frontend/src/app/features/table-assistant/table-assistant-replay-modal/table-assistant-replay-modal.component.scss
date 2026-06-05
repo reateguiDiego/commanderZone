@@ -194,7 +194,7 @@ button {
 .primary-action {
   border-color: rgb(var(--cz-primary-rgb) / 76%);
   background: linear-gradient(135deg, var(--cz-secondary), var(--gold));
-  color: var(--cz-bg);
+  color: var(--cz-on-accent);
 }
 
 .primary-action:disabled {

@@ -180,12 +180,9 @@
                       <small>{{ theme.description }}</small>
                     </span>
                     <span class="theme-swatches" aria-hidden="true">
-                      <span [style.background]="theme.palette.bg"></span>
-                      <span [style.background]="theme.palette.surface"></span>
-                      <span [style.background]="theme.palette.surfaceElevated"></span>
-                      <span [style.background]="theme.palette.primary"></span>
-                      <span [style.background]="theme.palette.secondary"></span>
-                      <span [style.background]="theme.palette.text"></span>
+                      @for (color of theme.paletteColors; track $index) {
+                        <span [style.background]="color"></span>
+                      }
                     </span>
                   </button>
                 }

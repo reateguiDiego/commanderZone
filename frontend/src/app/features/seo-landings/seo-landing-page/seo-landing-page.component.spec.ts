@@ -139,6 +139,9 @@ describe('SeoLandingPageComponent', () => {
   };
 
   beforeEach(async () => {
+    localStorage.clear();
+    document.documentElement.removeAttribute('data-theme');
+
     await TestBed.configureTestingModule({
       imports: [SeoLandingPageComponent],
     }).compileComponents();
@@ -153,7 +156,9 @@ describe('SeoLandingPageComponent', () => {
       fixture.destroy();
     }
     document.documentElement.classList.remove('app-pretty-scroll', 'seo-scroll-context');
+    document.documentElement.removeAttribute('data-theme');
     document.body.classList.remove('app-pretty-scroll', 'seo-scroll-context');
+    localStorage.clear();
   });
 
   it('renders a complete SEO landing from typed static content', () => {

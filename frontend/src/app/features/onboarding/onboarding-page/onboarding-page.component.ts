@@ -5,6 +5,7 @@ import { Router, RouterLink } from '@angular/router';
 import { LucideAngularModule } from 'lucide-angular';
 import { firstValueFrom } from 'rxjs';
 import { LandingApi } from '../../../core/api/landing.api';
+import { AppThemeAssetsService } from '../../../core/theme/app-theme-assets.service';
 import { AppBackgroundService } from '../../../core/ui/app-background.service';
 import { DemoRoom, DemoRoomService } from '../services/demo-room.service';
 import { OnboardingStep } from '../models/onboarding-step.model';
@@ -23,6 +24,7 @@ export class OnboardingPageComponent {
   private readonly meta = inject(Meta);
   private readonly landingApi = inject(LandingApi);
   private readonly appBackground = inject(AppBackgroundService);
+  readonly themeAssets = inject(AppThemeAssetsService);
 
   readonly decklist = signal('');
   readonly roomName = signal('');

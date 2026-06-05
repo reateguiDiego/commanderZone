@@ -1,19 +1,21 @@
 import { DOCUMENT, isPlatformBrowser } from '@angular/common';
-import { Injectable, PLATFORM_ID, inject } from '@angular/core';
+import { Injectable, PLATFORM_ID, effect, inject } from '@angular/core';
 import { publicAssetUrl } from '../assets/app-image-url';
+import { AppThemeId } from '../theme/app-theme';
+import { AppThemeService } from '../theme/app-theme.service';
 
 const BACKGROUND_SESSION_KEY = 'commanderzone.backgroundImage';
+const BACKGROUND_THEME_SESSION_KEY = 'commanderzone.backgroundTheme';
 const PREVIOUS_BACKGROUND_SESSION_KEY = 'commanderzone.previousBackgroundImage';
-const BACKGROUND_IMAGES = Array.from(
-  { length: 10 },
-  (_, index) => publicAssetUrl(`assets/images/backgrounds/back_${index}.png`),
-);
+const BACKGROUND_IMAGE_COUNT = 10;
 
 @Injectable({ providedIn: 'root' })
 export class AppBackgroundService {
   private readonly document = inject(DOCUMENT);
+  private readonly appTheme = inject(AppThemeService);
   private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
-  private currentImageUrl = this.resolveSessionBackground();
+  private currentThemeId = this.appTheme.themeId();
+  private currentImageUrl = this.resolveSessionBackground(this.currentThemeId);
 
   get imageUrl(): string {
     return this.currentImageUrl;
@@ -21,6 +23,10 @@ export class AppBackgroundService {
 
   constructor() {
     this.applyBackground();
+
+    effect(() => {
+      this.syncThemeBackground(this.appTheme.themeId());
+    });
   }
 
   setDashboardMode(enabled: boolean): void {
@@ -38,32 +44,56 @@ export class AppBackgroundService {
     }
 
     const previousImage = storage.getItem(PREVIOUS_BACKGROUND_SESSION_KEY);
-    const nextImage = this.pickRandomBackground([this.currentImageUrl, previousImage]);
+    const nextImage = this.pickRandomBackground(this.currentThemeId, [this.currentImageUrl, previousImage]);
     storage.setItem(PREVIOUS_BACKGROUND_SESSION_KEY, this.currentImageUrl);
     this.currentImageUrl = nextImage;
     storage.setItem(BACKGROUND_SESSION_KEY, this.currentImageUrl);
+    storage.setItem(BACKGROUND_THEME_SESSION_KEY, this.currentThemeId);
     this.applyBackground();
   }
 
-  private resolveSessionBackground(): string {
+  private resolveSessionBackground(themeId: AppThemeId): string {
+    const themeImages = backgroundImagesForTheme(themeId);
     const storage = this.sessionStorage();
     if (!storage) {
-      return BACKGROUND_IMAGES[0];
+      return themeImages[0];
     }
 
     const storedImage = storage.getItem(BACKGROUND_SESSION_KEY);
-    if (storedImage) {
+    const storedThemeId = storage.getItem(BACKGROUND_THEME_SESSION_KEY);
+    if (storedThemeId === themeId && storedImage) {
       const normalizedStoredImage = publicAssetUrl(storedImage);
-      if (BACKGROUND_IMAGES.includes(normalizedStoredImage)) {
+      if (themeImages.includes(normalizedStoredImage)) {
         storage.setItem(BACKGROUND_SESSION_KEY, normalizedStoredImage);
         return normalizedStoredImage;
       }
     }
 
-    const image = this.pickRandomBackground();
+    const image = this.pickRandomBackground(themeId);
     storage.setItem(BACKGROUND_SESSION_KEY, image);
+    storage.setItem(BACKGROUND_THEME_SESSION_KEY, themeId);
 
     return image;
+  }
+
+  private syncThemeBackground(themeId: AppThemeId): void {
+    if (themeId === this.currentThemeId && backgroundImagesForTheme(themeId).includes(this.currentImageUrl)) {
+      this.applyBackground();
+      return;
+    }
+
+    const storage = this.sessionStorage();
+    const previousImage = this.currentImageUrl;
+    this.currentThemeId = themeId;
+    this.currentImageUrl = this.pickRandomBackground(themeId, [previousImage]);
+
+    if (storage) {
+      storage.setItem(PREVIOUS_BACKGROUND_SESSION_KEY, previousImage);
+      storage.setItem(BACKGROUND_SESSION_KEY, this.currentImageUrl);
+      storage.setItem(BACKGROUND_THEME_SESSION_KEY, themeId);
+    }
+
+    this.applyBackground();
   }
 
   private applyBackground(): void {
@@ -74,10 +104,11 @@ export class AppBackgroundService {
     this.document.documentElement.style.setProperty('--app-session-background', `url("${this.currentImageUrl}")`);
   }
 
-  private pickRandomBackground(excludedImages: readonly (string | null | undefined)[] = []): string {
+  private pickRandomBackground(themeId: AppThemeId, excludedImages: readonly (string | null | undefined)[] = []): string {
+    const themeImages = backgroundImagesForTheme(themeId);
     const excluded = new Set(excludedImages.filter((image): image is string => typeof image === 'string'));
-    const candidates = BACKGROUND_IMAGES.filter((image) => !excluded.has(image));
-    const images = candidates.length > 0 ? candidates : BACKGROUND_IMAGES;
+    const candidates = themeImages.filter((image) => !excluded.has(image));
+    const images = candidates.length > 0 ? candidates : themeImages;
 
     return images[this.randomIndex(images.length)];
   }
@@ -104,4 +135,11 @@ export class AppBackgroundService {
       return null;
     }
   }
+}
+
+function backgroundImagesForTheme(themeId: AppThemeId): readonly string[] {
+  return Array.from(
+    { length: BACKGROUND_IMAGE_COUNT },
+    (_, index) => publicAssetUrl(`assets/images/backgrounds/${themeId}/bg-${index + 1}.webp`),
+  );
 }

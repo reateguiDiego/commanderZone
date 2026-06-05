@@ -164,7 +164,7 @@ describe('App', () => {
     loading.stop();
   });
 
-  it('toggles dashboard background mode without initializing a session background on public routes', async () => {
+  it('toggles dashboard background mode and only applies a session background on private shell routes', async () => {
     const router = TestBed.inject(Router);
     TestBed.createComponent(App);
 
@@ -174,6 +174,8 @@ describe('App', () => {
 
     await router.navigateByUrl('/dashboard');
     expect(document.body.classList.contains('dashboard-background')).toBe(true);
+    expect(document.documentElement.style.getPropertyValue('--app-session-background'))
+      .toMatch(/^url\("\/assets\/images\/backgrounds\/sunrise\/bg-\d+\.webp"\)$/);
 
     await router.navigateByUrl('/en/play-commander-online');
     expect(document.body.classList.contains('dashboard-background')).toBe(false);
