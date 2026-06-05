@@ -768,6 +768,45 @@ TXT,
         self::assertSame($island->scryfallId(), $this->storedDeckCardScryfallId($storedDeck, 'Island'));
     }
 
+    public function testDecklistImportSkipsPlaceholderPreferredPrintsAndFallsBackToEnglish(): void
+    {
+        $token = $this->registerAndLogin('placeholder-import@example.test', 'Placeholder Import');
+        $this->jsonRequest('PATCH', '/me', ['cardLanguage' => 'es'], $token);
+        self::assertResponseIsSuccessful();
+
+        $arcaneSignetEnglish = $this->seedCard('30000000-0000-0000-0000-000000000001', 'Arcane Signet', [
+            'set' => 'eng',
+            'collector_number' => '1',
+            'lang' => 'en',
+            'image_status' => 'highres_scan',
+        ]);
+        $this->seedCard('30000000-0000-0000-0000-000000000002', 'Arcane Signet', [
+            'set' => 'esp',
+            'collector_number' => '2',
+            'lang' => 'es',
+            'printed_name' => 'Sello arcano',
+            'image_status' => 'placeholder',
+        ]);
+
+        $this->jsonRequest('POST', '/decks', ['name' => 'Placeholder Import'], $token);
+        self::assertResponseStatusCodeSame(201);
+        $deckId = (string) $this->jsonResponse()['deck']['id'];
+
+        $this->jsonRequest('POST', '/decks/'.$deckId.'/import', [
+            'decklist' => <<<TXT
+Deck
+1x Sello arcano
+TXT,
+        ], $token);
+        self::assertResponseIsSuccessful();
+        $response = $this->jsonResponse();
+        self::assertSame([], $response['missing']);
+        self::assertSame(1, $response['summary']['importedCards']);
+
+        $storedDeck = $this->storedDeck($deckId);
+        self::assertSame($arcaneSignetEnglish->scryfallId(), $this->storedDeckCardScryfallId($storedDeck, 'Arcane Signet'));
+    }
+
     private function lineByScryfallId(array $cards, string $scryfallId, string $section): array
     {
         $line = $this->lineByScryfallIdOrNull($cards, $scryfallId, $section);

@@ -259,7 +259,7 @@ class CardResolver
             static fn (mixed $card) => $card instanceof Card,
         ));
         if ($localizedMatches !== []) {
-            return $this->decklistNameCandidatesCache[$cacheKey] = $localizedMatches;
+            return $this->decklistNameCandidatesCache[$cacheKey] = $this->siblingCardsForMatches($localizedMatches);
         }
 
         if (!LanguageCatalog::isSupported($preferredLanguage)) {
@@ -349,7 +349,10 @@ SQL;
             ->getQuery()
             ->getResult();
 
-        return array_values(array_filter($matches, static fn (mixed $card) => $card instanceof Card));
+        return $this->siblingCardsForMatches(array_values(array_filter(
+            $matches,
+            static fn (mixed $card) => $card instanceof Card,
+        )));
     }
 
     /**
@@ -379,6 +382,10 @@ SQL;
         return array_values(array_filter(
             $matches,
             static function (Card $card) use ($language): bool {
+                if (self::isImageStatusUnavailable($card->imageStatus())) {
+                    return false;
+                }
+
                 $cardLanguage = LanguageCatalog::normalize($card->lang()) ?? LanguageCatalog::DEFAULT_LANGUAGE;
 
                 return $cardLanguage === $language;
@@ -410,6 +417,46 @@ SQL;
         }
 
         return array_values($unique);
+    }
+
+    /**
+     * @param list<Card> $matches
+     * @return list<Card>
+     */
+    private function siblingCardsForMatches(array $matches): array
+    {
+        $normalizedNames = array_values(array_unique(array_map(
+            static fn (Card $card): string => $card->normalizedName(),
+            $matches,
+        )));
+        if ($normalizedNames === []) {
+            return [];
+        }
+
+        $candidates = $this->entityManager->getRepository(Card::class)
+            ->createQueryBuilder('card')
+            ->andWhere('card.normalizedName IN (:names)')
+            ->setParameter('names', $normalizedNames)
+            ->orderBy('card.commanderLegal', 'DESC')
+            ->addOrderBy('card.normalizedName', 'ASC')
+            ->addOrderBy('card.setCode', 'ASC')
+            ->addOrderBy('card.collectorNumber', 'ASC')
+            ->getQuery()
+            ->getResult();
+
+        return $this->uniqueCardsByScryfallId(array_values(array_filter(
+            $candidates,
+            static fn (mixed $card) => $card instanceof Card,
+        )));
+    }
+
+    private static function isImageStatusUnavailable(?string $imageStatus): bool
+    {
+        if ($imageStatus === null) {
+            return false;
+        }
+
+        return in_array(strtolower(trim($imageStatus)), ['missing', 'placeholder'], true);
     }
 
     private function printLocaleTablesAvailable(): bool
