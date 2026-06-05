@@ -291,7 +291,7 @@ class DecksController extends ApiController
             return $this->fail('Decklist is empty or invalid.');
         }
 
-        $preview = $previewer->preview($entries, $format);
+        $preview = $previewer->preview($entries, $format, $user->cardLanguage());
         $selectedCommander = $this->commanderFromPayload($payload, $cardResolver);
         if ($selectedCommander === false) {
             return $this->fail('Commander card not found.', 404);

@@ -29,7 +29,8 @@ class DecklistParser
         $entries = [];
 
         foreach (preg_split('/\R/', $decklist) ?: [] as $rawLine) {
-            $line = trim($rawLine);
+            $line = preg_replace('/^\x{FEFF}/u', '', $rawLine) ?? $rawLine;
+            $line = trim($line);
             if ($line === '' || str_starts_with($line, '//')) {
                 continue;
             }
