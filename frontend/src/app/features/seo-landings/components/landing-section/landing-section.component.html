@@ -15,7 +15,7 @@
   @if (content().links?.length) {
     <nav class="landing-section__links" aria-label="Section links">
       @for (link of content().links; track link.href) {
-        <a [href]="link.href" [attr.aria-label]="link.ariaLabel">{{ link.label }}</a>
+        <a appSeoInternalLink [href]="link.href" [attr.aria-label]="link.ariaLabel">{{ link.label }}</a>
       }
     </nav>
   }

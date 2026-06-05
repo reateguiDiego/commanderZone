@@ -56,7 +56,7 @@ const OPEN_GRAPH_LOCALES: Readonly<Record<SeoLocaleCode, string>> = {
   de: 'de_DE',
   fr: 'fr_FR',
   it: 'it_IT',
-  pt: 'pt_PT',
+  pt: 'pt_BR',
 };
 const MANAGED_HEAD_SELECTOR = [
   `meta[${SEO_MANAGED_ATTRIBUTE}="true"]`,
@@ -78,6 +78,8 @@ export class SeoService {
 
     const canonicalUrl = buildSeoCanonicalUrl(metadata.routeKey, metadata.locale);
 
+    this.document.documentElement.lang = metadata.locale;
+    this.document.documentElement.dir = 'ltr';
     this.title.setTitle(metadata.title);
     this.appendMetaTags([
       ...buildSeoMetaTags(metadata, canonicalUrl),

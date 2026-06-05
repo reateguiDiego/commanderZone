@@ -1,8 +1,10 @@
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import { LandingInternalLinksContent } from '../../models/seo-landing-content.model';
+import { SeoInternalLinkDirective } from '../../directives/seo-internal-link.directive';
 
 @Component({
   selector: 'app-landing-internal-links',
+  imports: [SeoInternalLinkDirective],
   templateUrl: './landing-internal-links.component.html',
   styleUrl: './landing-internal-links.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

@@ -49,6 +49,7 @@
 
 .landing-hero__media {
   width: min(100%, 54rem);
+  contain: layout paint;
   margin: 0;
   overflow: hidden;
   border: 1px solid rgb(var(--cz-primary-rgb) / 22%);
@@ -57,13 +58,14 @@
     linear-gradient(135deg, rgb(var(--cz-primary-rgb) / 12%), transparent 46%),
     rgb(var(--cz-bg-rgb) / 72%);
   box-shadow: 0 1.4rem 3rem rgb(var(--cz-bg-rgb) / 34%);
-  aspect-ratio: 1200 / 630;
+  aspect-ratio: 960 / 504;
 }
 
 .landing-hero__media img {
   display: block;
   width: 100%;
   height: 100%;
+  aspect-ratio: 960 / 504;
   object-fit: cover;
 }
 

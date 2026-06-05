@@ -17,6 +17,11 @@ describe('page translation strategy manifest', () => {
     'tableAssistant',
     'waysToPlayCommanderOnline',
     'howToPlayCommanderOnline',
+    'spellTableAlternative',
+    'playCommanderOnlineFree',
+    'playCommanderWithoutWebcam',
+    'playEdhOnline',
+    'commanderSimulator',
     'faq',
   ] as const satisfies readonly PageKey[];
 
@@ -38,6 +43,7 @@ describe('page translation strategy manifest', () => {
     'decks',
     'deckEditor',
     'tableAssistantApp',
+    'legal',
   ] as const satisfies readonly PageKey[];
 
   const outOfScopePages = [

@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Data } from '@angular/router';
 import { SeoLocaleCode } from '../../../core/localization/locale-config';
 import { SeoRouteKey } from '../../../core/localization/seo-routes';
 import { SeoService } from '../../../core/seo/seo.service';
@@ -25,12 +25,16 @@ export class SeoLandingRouteComponent {
   private readonly seo = inject(SeoService);
   private readonly destroyRef = inject(DestroyRef);
 
-  readonly content = signal<SeoLandingContent>(getSeoLandingContent('home', 'es'));
+  readonly content = signal<SeoLandingContent>(this.resolveContent(this.route.snapshot?.data ?? {
+    routeKey: 'home',
+    locale: 'en',
+  }));
 
   constructor() {
+    this.updateHead(this.content());
+
     this.route.data.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((data) => {
-      const routeData = data as SeoLandingRouteData;
-      const content = getSeoLandingContent(routeData.routeKey, routeData.locale);
+      const content = this.resolveContent(data);
       this.content.set(content);
       this.updateHead(content);
     });
@@ -38,6 +42,11 @@ export class SeoLandingRouteComponent {
     this.destroyRef.onDestroy(() => {
       this.seo.clearSeoRouteMetadata();
     });
+  }
+
+  private resolveContent(data: Data): SeoLandingContent {
+    const routeData = data as SeoLandingRouteData;
+    return getSeoLandingContent(routeData.routeKey, routeData.locale);
   }
 
   private updateHead(content: SeoLandingContent): void {

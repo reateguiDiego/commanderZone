@@ -10,6 +10,11 @@ export const PAGE_TRANSLATION_STRATEGIES = {
   tableAssistant: 'seo-static',
   waysToPlayCommanderOnline: 'seo-static',
   howToPlayCommanderOnline: 'seo-static',
+  spellTableAlternative: 'seo-static',
+  playCommanderOnlineFree: 'seo-static',
+  playCommanderWithoutWebcam: 'seo-static',
+  playEdhOnline: 'seo-static',
+  commanderSimulator: 'seo-static',
   faq: 'seo-static',
 
   login: 'runtime-i18n',
@@ -29,6 +34,7 @@ export const PAGE_TRANSLATION_STRATEGIES = {
   decks: 'runtime-i18n',
   deckEditor: 'runtime-i18n',
   tableAssistantApp: 'runtime-i18n',
+  legal: 'runtime-i18n',
 
   demoRoom: 'out-of-scope',
   gameDebug: 'out-of-scope',

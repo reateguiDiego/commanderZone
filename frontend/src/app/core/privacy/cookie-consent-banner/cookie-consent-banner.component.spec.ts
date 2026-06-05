@@ -1,4 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { signal } from '@angular/core';
+import { LegalLinksService } from '../../legal/legal-links.service';
+import { getPublicChromeCopy } from '../../localization/public-chrome-copy';
 import { ANALYTICS_SERVICE, AnalyticsService } from '../analytics.service';
 import { CookieConsentBannerComponent } from './cookie-consent-banner.component';
 
@@ -28,7 +31,21 @@ describe('CookieConsentBannerComponent', () => {
 
     await TestBed.configureTestingModule({
       imports: [CookieConsentBannerComponent],
-      providers: [{ provide: ANALYTICS_SERVICE, useValue: analytics }],
+      providers: [
+        { provide: ANALYTICS_SERVICE, useValue: analytics },
+        {
+          provide: LegalLinksService,
+          useValue: {
+            chromeCopy: signal(getPublicChromeCopy('es')),
+            links: signal([
+              { pageKey: 'privacy', label: 'Privacidad', href: '/es/politica-privacidad/' },
+              { pageKey: 'cookies', label: 'Cookies', href: '/es/politica-cookies/' },
+              { pageKey: 'terms', label: 'Términos', href: '/es/terminos/' },
+              { pageKey: 'contact', label: 'Contacto', href: '/es/contacto/' },
+            ]),
+          },
+        },
+      ],
     }).compileComponents();
 
     fixture = TestBed.createComponent(CookieConsentBannerComponent);
@@ -45,16 +62,21 @@ describe('CookieConsentBannerComponent', () => {
     const links = Array.from(element.querySelectorAll('a')).map((link) => link.getAttribute('href'));
 
     expect(element.querySelector('.cookie-banner')).not.toBeNull();
-    expect(buttons).toEqual(['Configure', 'Reject', 'Accept']);
-    expect(links).toEqual(['/privacy-policy/', '/cookie-policy/']);
-    expect(element.querySelector('button.primary-button')?.textContent?.trim()).toBe('Accept');
+    expect(element.querySelector('.cookie-banner')?.getAttribute('role')).toBe('region');
+    expect(element.querySelector('.cookie-banner__title')?.textContent?.trim()).toBe('Preferencias de cookies');
+    expect(buttons).toEqual(['Configurar', 'Rechazar', 'Aceptar']);
+    expect(links).toEqual(['/es/politica-privacidad/', '/es/politica-cookies/']);
+    expect(Array.from(element.querySelectorAll('a')).map((link) => link.textContent?.trim())).toEqual(['política de privacidad', 'política de cookies']);
+    expect(element.textContent).not.toContain('Cookie preferences');
+    expect(element.textContent).not.toContain('privacy policy');
+    expect(element.querySelector('button.primary-button')?.textContent?.trim()).toBe('Aceptar');
     expect(element.querySelectorAll('button.secondary-button')).toHaveLength(2);
   });
 
   it('can reject cookies without enabling analytics', () => {
     const element = fixture.nativeElement as HTMLElement;
     const rejectButton = Array.from(element.querySelectorAll('button'))
-      .find((button) => button.textContent?.trim() === 'Reject');
+      .find((button) => button.textContent?.trim() === 'Rechazar');
 
     rejectButton?.click();
     fixture.detectChanges();
@@ -66,7 +88,7 @@ describe('CookieConsentBannerComponent', () => {
   it('can accept cookies and prepare analytics consent for a future provider', () => {
     const element = fixture.nativeElement as HTMLElement;
     const acceptButton = Array.from(element.querySelectorAll('button'))
-      .find((button) => button.textContent?.trim() === 'Accept');
+      .find((button) => button.textContent?.trim() === 'Aceptar');
 
     acceptButton?.click();
     fixture.detectChanges();
@@ -78,14 +100,14 @@ describe('CookieConsentBannerComponent', () => {
   it('shows configurable analytics preferences without saving until requested', () => {
     const element = fixture.nativeElement as HTMLElement;
     const configureButton = Array.from(element.querySelectorAll('button'))
-      .find((button) => button.textContent?.trim() === 'Configure');
+      .find((button) => button.textContent?.trim() === 'Configurar');
 
     configureButton?.click();
     fixture.detectChanges();
 
-    expect(element.querySelector('[aria-pressed="false"]')?.textContent?.trim()).toBe('Analytics cookies');
+    expect(element.querySelector('[aria-pressed="false"]')?.textContent?.trim()).toBe('Cookies de analítica');
     expect(Array.from(element.querySelectorAll('.cookie-banner__actions button')).map((button) => button.textContent?.trim()))
-      .toEqual(['Save', 'Reject', 'Accept']);
+      .toEqual(['Guardar', 'Rechazar', 'Aceptar']);
     expect(analytics.consentUpdates).toEqual([]);
   });
 });

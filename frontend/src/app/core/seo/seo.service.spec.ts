@@ -22,7 +22,7 @@ describe('SeoService helpers', () => {
     expect(SEO_CANONICAL_ORIGIN).toBe('https://www.commanderzone.com');
     expect(buildSeoCanonicalUrl('home', 'en')).toBe('https://www.commanderzone.com/');
     expect(buildSeoCanonicalUrl('tableAssistant', 'es')).toBe(
-      'https://www.commanderzone.com/es/asistente-mesa-commander/',
+      'https://www.commanderzone.com/es/contador-vidas-commander/',
     );
     expect(toSeoAbsoluteUrl('/assets/og/play-commander-og.png')).toBe(
       'https://www.commanderzone.com/assets/og/play-commander-og.png',
@@ -31,7 +31,7 @@ describe('SeoService helpers', () => {
 
   it('builds an absolute canonical URL for the localized route', () => {
     expect(buildSeoCanonicalUrl('tableAssistant', 'es', 'https://commanderzone.test/')).toBe(
-      'https://commanderzone.test/es/asistente-mesa-commander/',
+      'https://commanderzone.test/es/contador-vidas-commander/',
     );
   });
 
@@ -107,13 +107,13 @@ describe('SeoService helpers', () => {
 
     expect(SEO_DEFAULT_OPEN_GRAPH_IMAGE).toBe('/assets/og/default-og.png');
     expect(getOpenGraphLocale('it')).toBe('it_IT');
-    expect(getOpenGraphLocale('pt')).toBe('pt_PT');
+    expect(getOpenGraphLocale('pt')).toBe('pt_BR');
     expect(buildOpenGraphLocaleAlternates('it')).toHaveLength(5);
     expect(tags).toEqual(expect.arrayContaining([
       expect.objectContaining({ property: 'og:image', content: 'https://commanderzone.test/assets/og/default-og.png' }),
       expect.objectContaining({ name: 'twitter:image', content: 'https://commanderzone.test/assets/og/default-og.png' }),
       expect.objectContaining({ property: 'og:locale', content: 'it_IT' }),
-      expect.objectContaining({ property: 'og:locale:alternate', content: 'pt_PT' }),
+      expect.objectContaining({ property: 'og:locale:alternate', content: 'pt_BR' }),
     ]));
     expect(tags).not.toEqual(expect.arrayContaining([
       expect.objectContaining({ property: 'og:locale:alternate', content: 'zh_CN' }),
@@ -163,6 +163,8 @@ describe('SeoService', () => {
     expect(document.head.querySelector('link[data-cz-seo="true"][rel="canonical"]')?.getAttribute('href')).toBe(
       'https://www.commanderzone.com/en/play-commander-online/',
     );
+    expect(document.documentElement.lang).toBe('en');
+    expect(document.documentElement.dir).toBe('ltr');
     expect(document.head.querySelector('link[data-cz-seo="true"][rel="preload"][as="image"]')?.getAttribute('href')).toBe(
       'https://www.commanderzone.com/assets/og/play-commander-og.png',
     );
@@ -207,6 +209,8 @@ describe('SeoService', () => {
     expect(document.head.querySelector('link[data-cz-seo="true"][rel="canonical"]')?.getAttribute('href')).toBe(
       'https://www.commanderzone.com/es/faq/',
     );
+    expect(document.documentElement.lang).toBe('es');
+    expect(document.documentElement.dir).toBe('ltr');
   });
 });
 

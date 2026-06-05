@@ -27,7 +27,7 @@
             "tsConfig": "tsconfig.app.json",
             "inlineStyleLanguage": "scss",
             "prerender": {
-              "routesFile": "src/seo-prerender-routes.txt",
+              "routesFile": "src/prerender-routes.txt",
               "discoverRoutes": false
             },
             "assets": [
@@ -58,7 +58,7 @@
                 "scripts": true,
                 "styles": {
                   "minify": true,
-                  "inlineCritical": false
+                  "inlineCritical": true
                 },
                 "fonts": true
               },

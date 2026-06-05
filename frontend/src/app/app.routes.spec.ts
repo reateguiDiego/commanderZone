@@ -15,7 +15,7 @@ describe('app routes', () => {
     expect(rootRoute?.data?.['pageKey']).toBe('home');
     expect(rootRoute?.data?.['routeKey']).toBe('home');
     expect(rootRoute?.data?.['locale']).toBe('en');
-    expect(rootRoute?.data?.['authenticatedRedirect']).toBe('/decks');
+    expect(rootRoute?.data?.['authenticatedRedirect']).toBe('/dashboard');
     expect(component?.name).toMatch(/SeoLandingRouteComponent$/);
   });
 
@@ -67,8 +67,12 @@ function isPageKey(value: unknown): value is PageKey {
 }
 
 function expectedRobotsFor(pageKey: PageKey): 'index, follow' | 'noindex, follow' | 'noindex, nofollow' {
-  if (pageKey === 'wildcardRedirect') {
+  if (pageKey === 'legal') {
     return 'noindex, follow';
+  }
+
+  if (pageKey === 'wildcardRedirect') {
+    return 'noindex, nofollow';
   }
 
   const strategy = PAGE_TRANSLATION_STRATEGIES[pageKey];
@@ -78,7 +82,7 @@ function expectedRobotsFor(pageKey: PageKey): 'index, follow' | 'noindex, follow
   }
 
   if (strategy === 'runtime-i18n') {
-    return 'noindex, follow';
+    return 'noindex, nofollow';
   }
 
   return 'noindex, nofollow';

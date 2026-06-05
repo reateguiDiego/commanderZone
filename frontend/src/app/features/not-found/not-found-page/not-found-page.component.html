@@ -9,11 +9,10 @@
     <div class="not-found-page__content">
       <p class="not-found-page__eyebrow">CommanderZone</p>
       <h1 id="not-found-title">{{ page.title }}</h1>
-      <p class="not-found-page__subtitle">{{ page.subtitle }}</p>
       <p class="not-found-page__copy">{{ page.description }}</p>
 
       <a class="primary-button not-found-page__cta" [href]="ctaHref()">
-        {{ page.cta }}
+        {{ ctaLabel() }}
       </a>
     </div>
   </section>

@@ -5,7 +5,7 @@
         @if (last) {
           <span aria-current="page">{{ item.label }}</span>
         } @else {
-          <a [href]="item.href" [attr.aria-label]="item.ariaLabel">{{ item.label }}</a>
+          <a appSeoInternalLink [href]="item.href" [attr.aria-label]="item.ariaLabel">{{ item.label }}</a>
         }
       </li>
     }

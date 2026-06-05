@@ -1,13 +1,19 @@
 import { RenderMode, ServerRoute } from '@angular/ssr';
+import { LEGAL_PRERENDER_ROUTES } from './core/legal/legal-routes';
 import { SEO_PRERENDER_ROUTES, toAngularServerRoutePath } from './core/localization/seo-prerender-routes';
 
 const seoServerRoutes: ServerRoute[] = SEO_PRERENDER_ROUTES.map((path): ServerRoute => ({
   path: toAngularServerRoutePath(path),
   renderMode: RenderMode.Prerender,
 }));
+const legalServerRoutes: ServerRoute[] = LEGAL_PRERENDER_ROUTES.map((path): ServerRoute => ({
+  path: toAngularServerRoutePath(path),
+  renderMode: RenderMode.Prerender,
+}));
 
 export const serverRoutes: ServerRoute[] = [
   ...seoServerRoutes,
+  ...legalServerRoutes,
   { path: 'auth/login', renderMode: RenderMode.Client },
   { path: 'auth/register', renderMode: RenderMode.Client },
   { path: 'auth/password-reset', renderMode: RenderMode.Client },
@@ -25,5 +31,5 @@ export const serverRoutes: ServerRoute[] = [
   { path: 'table-assistant/:id', renderMode: RenderMode.Client },
   { path: 'room/:id', renderMode: RenderMode.Client },
   { path: 'welcome', renderMode: RenderMode.Client },
-  { path: '**', renderMode: RenderMode.Client, status: 404 },
+  { path: '**', renderMode: RenderMode.Server, status: 404 },
 ];

@@ -1,5 +1,6 @@
 import { RuntimeTranslatePipe } from '../../../core/localization/runtime-translate.pipe';
-import { AfterViewInit, ChangeDetectionStrategy, Component, DestroyRef, WritableSignal, computed, inject, signal } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
+import { AfterViewInit, ChangeDetectionStrategy, Component, DestroyRef, PLATFORM_ID, WritableSignal, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -7,6 +8,7 @@ import { LucideAngularModule } from 'lucide-angular';
 import { catchError, debounceTime, distinctUntilChanged, map, of, startWith, switchMap, tap } from 'rxjs';
 import { AuthApi } from '../../../core/api/auth.api';
 import { AuthStore } from '../../../core/auth/auth.store';
+import { AppThemeAssetsService } from '../../../core/theme/app-theme-assets.service';
 import { AUTH_PASSWORD_REGEX } from '../auth-password-policy';
 
 type AuthMode = 'login' | 'register';
@@ -29,8 +31,10 @@ export class AuthPageComponent implements AfterViewInit {
   private readonly authApi = inject(AuthApi);
   private readonly destroyRef = inject(DestroyRef);
   private readonly formBuilder = inject(NonNullableFormBuilder);
+  private readonly platformId = inject(PLATFORM_ID);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  readonly themeAssets = inject(AppThemeAssetsService);
 
   readonly mode = signal<AuthMode>(this.route.snapshot.routeConfig?.path === 'auth/register' ? 'register' : 'login');
   readonly emailAvailability = signal<EmailAvailability>('idle');
@@ -78,6 +82,10 @@ export class AuthPageComponent implements AfterViewInit {
   }
 
   ngAfterViewInit(): void {
+    if (!isPlatformBrowser(this.platformId)) {
+      return;
+    }
+
     window.setTimeout(() => this.clearInitialLoginAutofill());
   }
 

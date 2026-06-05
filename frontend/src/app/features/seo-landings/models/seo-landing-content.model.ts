@@ -159,6 +159,7 @@ export interface SeoLandingContent {
   readonly homeLink?: LandingLink;
   readonly publicNavigationLinks?: readonly LandingLink[];
   readonly footerLinks?: readonly LandingLink[];
+  readonly legalFooterLinks?: readonly LandingLink[];
   readonly localeLinks?: readonly LandingLocaleLink[];
   readonly breadcrumb: LandingBreadcrumbContent;
   readonly hero: LandingHeroContent;
@@ -168,7 +169,6 @@ export interface SeoLandingContent {
   readonly steps?: LandingStepsContent;
   readonly useCases?: LandingUseCasesContent;
   readonly comparison?: LandingComparisonContent;
-  readonly faqPreview?: LandingFaqContent;
   readonly fullFaq?: LandingFaqContent;
   readonly faq: LandingFaqContent;
   readonly cta?: LandingCtaContent;

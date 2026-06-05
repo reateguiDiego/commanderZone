@@ -17,7 +17,7 @@ export const SEO_INDEXABLE_LANDING_ROUTES: readonly Route[] = SEO_ROUTE_KEYS.fla
         pageKey: routeKey,
         routeKey,
         locale,
-        ...(isRootEnglishHome ? { authenticatedRedirect: '/decks' } : {}),
+        ...(isRootEnglishHome ? { authenticatedRedirect: '/dashboard' } : {}),
       },
     };
   }),

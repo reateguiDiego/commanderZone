@@ -14,11 +14,11 @@ describe('route robots rules', () => {
     }
   });
 
-  it('maps runtime-i18n pages to noindex, follow', () => {
-    expect(getStrategyRobotsMeta('runtime-i18n')).toBe('noindex, follow');
+  it('maps private runtime-i18n pages to noindex, nofollow', () => {
+    expect(getStrategyRobotsMeta('runtime-i18n')).toBe('noindex, nofollow');
 
-    for (const pageKey of pageKeysForStrategy('runtime-i18n')) {
-      expect(getPageRobotsMeta(pageKey)).toBe('noindex, follow');
+    for (const pageKey of pageKeysForStrategy('runtime-i18n').filter((pageKey) => pageKey !== 'legal')) {
+      expect(getPageRobotsMeta(pageKey)).toBe('noindex, nofollow');
       expect(isSeoIndexablePage(pageKey)).toBe(false);
     }
   });
@@ -32,9 +32,14 @@ describe('route robots rules', () => {
     }
   });
 
-  it('uses noindex, follow for the wildcard 404 route', () => {
-    expect(getPageRobotsMeta('wildcardRedirect')).toBe('noindex, follow');
+  it('uses noindex, nofollow for the wildcard 404 route', () => {
+    expect(getPageRobotsMeta('wildcardRedirect')).toBe('noindex, nofollow');
     expect(isSeoIndexablePage('wildcardRedirect')).toBe(false);
+  });
+
+  it('uses noindex, follow for public legal pages', () => {
+    expect(getPageRobotsMeta('legal')).toBe('noindex, follow');
+    expect(isSeoIndexablePage('legal')).toBe(false);
   });
 });
 

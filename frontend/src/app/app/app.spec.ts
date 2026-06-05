@@ -1,4 +1,4 @@
-import { Component, PLATFORM_ID } from '@angular/core';
+import { Component, PLATFORM_ID, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideRouter, Router } from '@angular/router';
@@ -19,6 +19,8 @@ describe('App', () => {
 
   beforeEach(async () => {
     localStorage.clear();
+    document.body.classList.remove('dashboard-background');
+    document.documentElement.style.removeProperty('--app-session-background');
     authStore.initialize.mockClear();
 
     await TestBed.configureTestingModule({
@@ -30,13 +32,16 @@ describe('App', () => {
           { path: '', pathMatch: 'full', component: EmptyRouteComponent },
           { path: 'en/faq', component: EmptyRouteComponent },
           { path: 'en/play-commander-online', component: EmptyRouteComponent },
+          { path: 'auth/login', component: EmptyRouteComponent },
+          { path: 'dashboard', component: EmptyRouteComponent },
+          { path: 'decks', component: EmptyRouteComponent },
           { path: 'table-assistant', component: EmptyRouteComponent },
           { path: 'table-assistant/:id', component: EmptyRouteComponent },
           { path: 'games/:id', component: EmptyRouteComponent },
         ]),
         {
           provide: RuntimeLanguageSelectorService,
-          useValue: {},
+          useValue: { selectedLanguage: signal('en') },
         },
       ],
     }).compileComponents();
@@ -66,7 +71,7 @@ describe('App', () => {
         provideRouter([]),
         {
           provide: RuntimeLanguageSelectorService,
-          useValue: {},
+          useValue: { selectedLanguage: signal('en') },
         },
       ],
     }).compileComponents();
@@ -97,37 +102,46 @@ describe('App', () => {
     expect(routerOutlet?.compareDocumentPosition(cookieBanner as Node)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   });
 
-  it('keeps the global disclaimer on the table assistant setup page', async () => {
+  it('replaces the public footer disclaimer with the long noindex disclaimer on app noindex routes', async () => {
     const router = TestBed.inject(Router);
     const fixture = TestBed.createComponent(App);
+
+    await router.navigateByUrl('/auth/login');
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('app-footer-disclaimer')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.app-disclaimer')).toBeNull();
+    expect(fixture.nativeElement.querySelector('app-noindex-footer-disclaimer')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('.app-noindex-disclaimer')?.textContent).toContain('CommanderZone is unofficial Fan Content');
+
+    await router.navigateByUrl('/dashboard');
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('app-footer-disclaimer')).toBeNull();
+    expect(fixture.nativeElement.querySelector('app-noindex-footer-disclaimer')).not.toBeNull();
+
+    await router.navigateByUrl('/decks');
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('app-footer-disclaimer')).toBeNull();
+    expect(fixture.nativeElement.querySelector('app-noindex-footer-disclaimer')).not.toBeNull();
 
     await router.navigateByUrl('/table-assistant');
     fixture.detectChanges();
-
-    expect(fixture.nativeElement.querySelector('app-footer-disclaimer')).not.toBeNull();
-    expect(fixture.nativeElement.querySelector('.app-disclaimer')).not.toBeNull();
-  });
-
-  it('hides the global disclaimer inside a table assistant room', async () => {
-    const router = TestBed.inject(Router);
-    const fixture = TestBed.createComponent(App);
+    expect(fixture.nativeElement.querySelector('app-footer-disclaimer')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.app-disclaimer')).toBeNull();
+    expect(fixture.nativeElement.querySelector('app-noindex-footer-disclaimer')).not.toBeNull();
 
     await router.navigateByUrl('/table-assistant/room-1');
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelector('app-footer-disclaimer')).toBeNull();
     expect(fixture.nativeElement.querySelector('.app-disclaimer')).toBeNull();
-  });
-
-  it('hides the global disclaimer inside a game table', async () => {
-    const router = TestBed.inject(Router);
-    const fixture = TestBed.createComponent(App);
+    expect(fixture.nativeElement.querySelector('app-noindex-footer-disclaimer')).toBeNull();
 
     await router.navigateByUrl('/games/game-1');
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelector('app-footer-disclaimer')).toBeNull();
     expect(fixture.nativeElement.querySelector('.app-disclaimer')).toBeNull();
+    expect(fixture.nativeElement.querySelector('app-noindex-footer-disclaimer')).toBeNull();
   });
 
   it('does not show the global loading overlay on SEO landing routes', async () => {
@@ -164,5 +178,23 @@ describe('App', () => {
     expect(fixture.nativeElement.querySelector('.global-loader')).not.toBeNull();
 
     loading.stop();
+  });
+
+  it('toggles dashboard background mode and only applies a session background on private shell routes', async () => {
+    const router = TestBed.inject(Router);
+    TestBed.createComponent(App);
+
+    await router.navigateByUrl('/');
+    expect(document.body.classList.contains('dashboard-background')).toBe(false);
+    expect(document.documentElement.style.getPropertyValue('--app-session-background')).toBe('');
+
+    await router.navigateByUrl('/dashboard');
+    expect(document.body.classList.contains('dashboard-background')).toBe(true);
+    expect(document.documentElement.style.getPropertyValue('--app-session-background'))
+      .toMatch(/^url\("\/assets\/images\/backgrounds\/sunrise\/bg-\d+\.webp"\)$/);
+
+    await router.navigateByUrl('/en/play-commander-online');
+    expect(document.body.classList.contains('dashboard-background')).toBe(false);
+    expect(document.documentElement.style.getPropertyValue('--app-session-background')).toBe('');
   });
 });

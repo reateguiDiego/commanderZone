@@ -1,9 +1,11 @@
 ﻿import { Routes } from '@angular/router';
 import { authGuard, guestGuard } from './core/auth/auth.guard';
 import { SEO_LANDING_ROUTES } from './features/seo-landings/seo-landing.routes';
+import { LEGAL_ROUTES } from './features/legal/legal.routes';
 
 export const routes: Routes = [
   ...SEO_LANDING_ROUTES,
+  ...LEGAL_ROUTES,
   {
     path: 'welcome',
     loadComponent: () => import('./features/onboarding/onboarding-page/onboarding-page.component')
@@ -25,6 +27,7 @@ export const routes: Routes = [
       .then((component) => component.AuthPageComponent),
     canActivate: [guestGuard],
     data: { pageKey: 'login' },
+    title: 'Login | CommanderZone',
   },
   {
     path: 'auth/register',
@@ -32,6 +35,7 @@ export const routes: Routes = [
       .then((component) => component.AuthPageComponent),
     canActivate: [guestGuard],
     data: { pageKey: 'register' },
+    title: 'Sign up | CommanderZone',
   },
   {
     path: 'auth/password-reset',

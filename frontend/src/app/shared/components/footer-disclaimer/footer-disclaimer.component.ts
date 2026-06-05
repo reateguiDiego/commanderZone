@@ -1,11 +1,15 @@
-import { RuntimeTranslatePipe } from '../../../core/localization/runtime-translate.pipe';
-import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { LegalLinksService } from '../../../core/legal/legal-links.service';
 
 @Component({
   selector: 'app-footer-disclaimer',
-  imports: [RuntimeTranslatePipe],
   templateUrl: './footer-disclaimer.component.html',
   styleUrl: './footer-disclaimer.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class FooterDisclaimerComponent {}
+export class FooterDisclaimerComponent {
+  private readonly legalLinks = inject(LegalLinksService);
+
+  readonly copy = this.legalLinks.chromeCopy;
+  readonly links = computed(() => this.copy().footer.links);
+}

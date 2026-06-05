@@ -31,8 +31,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build frontend
-        run: npm run build
+      - name: Build frontend production
+        run: npm run build:prod
+
+      - name: Skip SEO asset validation
+        run: echo "SEO asset validation is temporarily disabled until final SEO images are ready."
 
       - name: Run frontend tests
         run: npm test -- --watch=false

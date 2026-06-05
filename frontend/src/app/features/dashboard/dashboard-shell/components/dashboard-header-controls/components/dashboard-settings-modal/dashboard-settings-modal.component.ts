@@ -11,7 +11,7 @@ import { AppShellI18nService } from '../../../../../../../core/localization/app-
 import { isSupportedLanguageCode, LANGUAGE_OPTIONS, normalizeLanguageCode, SupportedLanguageCode } from '../../../../../../../core/localization/language-preferences';
 import { LanguagePreferencesService } from '../../../../../../../core/localization/language-preferences.service';
 import { UserAvatar, UserDisplayNameStyle } from '../../../../../../../core/models/user.model';
-import { APP_THEMES, AppThemeId } from '../../../../../../../core/theme/app-theme';
+import { APP_THEMES, AppTheme, AppThemeId } from '../../../../../../../core/theme/app-theme';
 import { AppThemeService } from '../../../../../../../core/theme/app-theme.service';
 import { AppModalComponent } from '../../../../../../../shared/ui/app-modal/app-modal.component';
 import { PlayerNameComponent } from '../../../../../../../shared/ui/player-name/player-name.component';
@@ -28,6 +28,10 @@ interface ProfileSnapshot {
   readonly displayName: string;
   readonly cardLanguage: SupportedLanguageCode;
   readonly appLanguage: SupportedLanguageCode;
+}
+
+interface ThemeOptionViewModel extends AppTheme {
+  readonly paletteColors: readonly string[];
 }
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -105,7 +109,17 @@ export class DashboardSettingsModalComponent {
   readonly appLanguageLabel = computed(() => this.i18n.text('appLanguage'));
   readonly visualThemeLabel = computed(() => this.i18n.text('visualTheme'));
   readonly visualThemeHelp = computed(() => this.i18n.text('visualThemeHelp'));
-  readonly themeOptions = APP_THEMES;
+  readonly themeOptions: readonly ThemeOptionViewModel[] = APP_THEMES.map((theme) => ({
+    ...theme,
+    paletteColors: [
+      theme.palette.bg,
+      theme.palette.surface,
+      theme.palette.primary,
+      theme.palette.secondary,
+      theme.palette.accent,
+      theme.palette.text,
+    ],
+  }));
   readonly selectedThemeId = this.appTheme.themeId;
   readonly selectedCardLanguage = signal<SupportedLanguageCode>('en');
   readonly selectedAppLanguage = signal<SupportedLanguageCode>('en');

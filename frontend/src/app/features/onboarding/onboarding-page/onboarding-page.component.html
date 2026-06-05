@@ -1,7 +1,7 @@
 <section class="landing-page">
   <nav class="landing-nav" aria-label="Account actions">
     <a class="brand-mark" routerLink="/">
-      <img src="/assets/icons/CZ/CZ_logo.png" alt="CommanderZone" />
+      <img [src]="themeAssets.czLogoUrl()" alt="CommanderZone" />
     </a>
     <div class="landing-auth-actions">
       <a class="secondary-button compact" routerLink="/auth/login">Login</a>

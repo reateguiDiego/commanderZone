@@ -14,7 +14,7 @@ export type SeoLandingTemplateBlock =
   | 'steps'
   | 'useCases'
   | 'comparison'
-  | 'faqPreview'
+  | 'faq'
   | 'fullFaq'
   | 'cta';
 
@@ -25,6 +25,9 @@ export const PRODUCT_LANDING_ROUTE_KEYS = [
   'importCommanderDeck',
   'commanderDeckBuilder',
   'tableAssistant',
+  'playCommanderOnlineFree',
+  'playEdhOnline',
+  'commanderSimulator',
 ] as const satisfies readonly SeoRouteKey[];
 
 export const GUIDE_LANDING_ROUTE_KEYS = [
@@ -34,6 +37,8 @@ export const GUIDE_LANDING_ROUTE_KEYS = [
 
 export const COMPARISON_LANDING_ROUTE_KEYS = [
   'waysToPlayCommanderOnline',
+  'spellTableAlternative',
+  'playCommanderWithoutWebcam',
 ] as const satisfies readonly SeoRouteKey[];
 
 export const FAQ_LANDING_ROUTE_KEYS = [
@@ -47,8 +52,7 @@ export const PRODUCT_LANDING_TEMPLATE_BLOCKS = [
   'featureGrid',
   'steps',
   'useCases',
-  'faqPreview',
-  'fullFaq',
+  'faq',
   'cta',
 ] as const satisfies readonly SeoLandingTemplateBlock[];
 
@@ -59,8 +63,7 @@ export const GUIDE_LANDING_TEMPLATE_BLOCKS = [
   'steps',
   'featureGrid',
   'useCases',
-  'faqPreview',
-  'fullFaq',
+  'faq',
   'cta',
 ] as const satisfies readonly SeoLandingTemplateBlock[];
 
@@ -72,8 +75,7 @@ export const COMPARISON_LANDING_TEMPLATE_BLOCKS = [
   'steps',
   'featureGrid',
   'useCases',
-  'faqPreview',
-  'fullFaq',
+  'faq',
   'cta',
 ] as const satisfies readonly SeoLandingTemplateBlock[];
 
@@ -95,6 +97,11 @@ export const SEO_LANDING_TEMPLATE_BY_ROUTE = {
   tableAssistant: 'ProductLandingTemplate',
   waysToPlayCommanderOnline: 'ComparisonLandingTemplate',
   howToPlayCommanderOnline: 'GuideLandingTemplate',
+  spellTableAlternative: 'ComparisonLandingTemplate',
+  playCommanderOnlineFree: 'ProductLandingTemplate',
+  playCommanderWithoutWebcam: 'ComparisonLandingTemplate',
+  playEdhOnline: 'ProductLandingTemplate',
+  commanderSimulator: 'ProductLandingTemplate',
   faq: 'FaqLandingTemplate',
 } as const satisfies Record<SeoRouteKey, SeoLandingTemplateName>;
 

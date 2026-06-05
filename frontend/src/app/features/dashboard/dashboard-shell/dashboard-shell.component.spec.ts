@@ -22,10 +22,14 @@ import { FriendsApi } from '../../../core/api/friends.api';
 import { RoomsApi } from '../../../core/api/rooms.api';
 import { AuthStore } from '../../../core/auth/auth.store';
 import { MercureService } from '../../../core/realtime/mercure.service';
+import { AppThemeService } from '../../../core/theme/app-theme.service';
 import { DashboardShellComponent } from './dashboard-shell.component';
 
 describe('DashboardShellComponent', () => {
   beforeEach(async () => {
+    localStorage.clear();
+    document.documentElement.removeAttribute('data-theme');
+
     await TestBed.configureTestingModule({
       imports: [DashboardShellComponent],
       providers: [
@@ -98,5 +102,14 @@ describe('DashboardShellComponent', () => {
     expect(fixture.nativeElement.textContent).not.toContain('Decks');
     expect(fixture.nativeElement.textContent).not.toContain('Rooms');
     expect(fixture.nativeElement.textContent).not.toContain('Player');
+  });
+
+  it('uses the black CZ logo in Candy Summoners', () => {
+    TestBed.inject(AppThemeService).selectTheme('candy-summoners');
+    const fixture = TestBed.createComponent(DashboardShellComponent);
+    fixture.detectChanges();
+
+    const brandLogo = fixture.nativeElement.querySelector('.brand-mark img') as HTMLImageElement | null;
+    expect(brandLogo?.getAttribute('src')).toBe('/assets/icons/CZ/CZ_logo_black.png');
   });
 });

@@ -1,5 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { SeoRouteKey } from '../../../core/localization/seo-routes';
+import { SEO_LOCALE_CODES } from '../../../core/localization/locale-config';
+import { SEO_ROUTE_KEYS, SeoRouteKey } from '../../../core/localization/seo-routes';
+import { getSeoLandingContent } from '../content/seo-landing-content';
 import { SeoLandingContent } from '../models/seo-landing-content.model';
 import { SeoLandingPageComponent } from './seo-landing-page.component';
 
@@ -46,8 +48,8 @@ describe('SeoLandingPageComponent', () => {
       image: {
         src: '/assets/og/play-commander-og.png',
         alt: 'Play Commander online - CommanderZone',
-        width: 1200,
-        height: 630,
+        width: 960,
+        height: 504,
         loading: 'eager',
         fetchPriority: 'high',
       },
@@ -104,15 +106,6 @@ describe('SeoLandingPageComponent', () => {
         { label: 'Player control', firstValue: 'Manual choices', secondValue: 'Automated validation' },
       ],
     },
-    faqPreview: {
-      title: 'Quick answers',
-      items: [
-        {
-          question: 'Can my group use long localized text safely?',
-          answer: ['Yes, layout content wraps instead of overflowing.'],
-        },
-      ],
-    },
     fullFaq: {
       title: 'Commander online FAQ',
       items: [
@@ -139,13 +132,16 @@ describe('SeoLandingPageComponent', () => {
     internalLinks: {
       title: 'Related CommanderZone pages',
       links: [
-        { label: 'Import Commander deck', href: '/en/import-mtg-commander-deck/' },
-        { label: 'Commander deck builder', href: '/en/mtg-commander-deck-builder/' },
+        { label: 'Import Commander deck', href: '/en/import-commander-deck/' },
+        { label: 'Commander deck builder', href: '/en/commander-deck-builder/' },
       ],
     },
   };
 
   beforeEach(async () => {
+    localStorage.clear();
+    document.documentElement.removeAttribute('data-theme');
+
     await TestBed.configureTestingModule({
       imports: [SeoLandingPageComponent],
     }).compileComponents();
@@ -160,7 +156,9 @@ describe('SeoLandingPageComponent', () => {
       fixture.destroy();
     }
     document.documentElement.classList.remove('app-pretty-scroll', 'seo-scroll-context');
+    document.documentElement.removeAttribute('data-theme');
     document.body.classList.remove('app-pretty-scroll', 'seo-scroll-context');
+    localStorage.clear();
   });
 
   it('renders a complete SEO landing from typed static content', () => {
@@ -192,7 +190,7 @@ describe('SeoLandingPageComponent', () => {
     const element: HTMLElement = fixture.nativeElement;
 
     expect(element.querySelector('.seo-language-selector__menu')?.classList.contains('app-pretty-scroll')).toBe(true);
-    expect(element.querySelector('.landing-faq-preview__grid')?.classList.contains('app-pretty-scroll')).toBe(true);
+    expect(element.querySelector('.landing-faq__items')?.classList.contains('app-pretty-scroll')).toBe(true);
     expect(element.querySelector('.landing-internal-links ul')?.classList.contains('app-pretty-scroll')).toBe(true);
   });
 
@@ -211,31 +209,110 @@ describe('SeoLandingPageComponent', () => {
     const links = anchors.map((link) => link.getAttribute('href'));
 
     expect(links).toContain('/auth/login?redirect=/decks');
-    expect(links).toContain('/en/faq/');
     expect(links).toContain('/de/commander-online-spielen/');
-    expect(links).toContain('/en/import-mtg-commander-deck/');
+    expect(links).toContain('/en/import-commander-deck/');
     expect(anchors.every((link) => Boolean(link.getAttribute('href')))).toBe(true);
     expect(element.querySelector('button')).toBeNull();
-    expect(element.querySelector('summary')).not.toBeNull();
-    expect(element.querySelector('.landing-full-faq details')?.hasAttribute('open')).toBe(true);
+    expect(element.querySelector('.landing-faq')).not.toBeNull();
+    expect(element.querySelector('.landing-full-faq')).toBeNull();
     expect(element.textContent).toContain('No. It is a manual Commander table.');
   });
 
-  it('renders the CommanderZone public header with crawlable menu and logo', () => {
+  it('renders only one visible FAQ section and does not duplicate questions', () => {
     const element: HTMLElement = fixture.nativeElement;
-    const logo = element.querySelector('.seo-landing-layout__brand img') as HTMLImageElement;
-    const publicMenuLinks = Array.from(element.querySelectorAll('.seo-landing-layout__nav a') as NodeListOf<HTMLAnchorElement>);
+    const faqHeadings = Array.from(element.querySelectorAll('h2'))
+      .map((heading) => heading.textContent?.trim())
+      .filter((text) => text === 'Commander online FAQ');
+    const faqQuestions = Array.from(element.querySelectorAll('.landing-faq h3, .landing-full-faq h3'))
+      .map((heading) => heading.textContent?.trim())
+      .filter((text): text is string => Boolean(text));
 
-    expect(logo.getAttribute('src')).toBe('/assets/icons/CZ/CZ_logo.png');
-    expect(element.querySelector('.seo-landing-layout__brand')?.getAttribute('href')).toBe('/en/');
-    expect(element.querySelector('.seo-landing-layout__menu')).toBeNull();
-    expect(publicMenuLinks.map((link) => link.getAttribute('href'))).toEqual([
-      '/en/faq/',
-    ]);
-    expect(publicMenuLinks.every((link) => link.classList.contains('primary-button'))).toBe(true);
+    expect(element.querySelectorAll('app-landing-faq, app-landing-full-faq')).toHaveLength(1);
+    expect(faqHeadings).toHaveLength(1);
+    expect(faqQuestions).toEqual([...new Set(faqQuestions)]);
   });
 
-  it('hides the FAQ header button while rendering the FAQ landing', () => {
+  it('renders a single localized FAQ heading on every home landing', () => {
+    const expectedFaqHeadingByLocale = {
+      en: 'Frequently asked questions',
+      es: 'Preguntas frecuentes',
+      de: 'Häufige Fragen',
+      fr: 'Questions fréquentes',
+      pt: 'Perguntas frequentes',
+      it: 'Domande frequenti',
+    } as const;
+
+    for (const locale of SEO_LOCALE_CODES) {
+      fixture.componentRef.setInput('content', getSeoLandingContent('home', locale));
+      fixture.detectChanges();
+
+      const element: HTMLElement = fixture.nativeElement;
+      const expectedHeading = expectedFaqHeadingByLocale[locale];
+      const matchingFaqHeadings = Array.from(element.querySelectorAll('h2'))
+        .map((heading) => heading.textContent?.trim())
+        .filter((text) => text === expectedHeading);
+      const faqQuestions = Array.from(element.querySelectorAll('.landing-faq h3, .landing-full-faq h3'))
+        .map((heading) => heading.textContent?.trim())
+        .filter((text): text is string => Boolean(text));
+
+      expect(element.querySelectorAll('app-landing-faq, app-landing-full-faq')).toHaveLength(1);
+      expect(matchingFaqHeadings).toHaveLength(1);
+      expect(faqQuestions).toEqual([...new Set(faqQuestions)]);
+    }
+  });
+
+  it('renders at most one FAQ block for every SEO landing', () => {
+    for (const routeKey of SEO_ROUTE_KEYS) {
+      for (const locale of SEO_LOCALE_CODES) {
+        fixture.componentRef.setInput('content', getSeoLandingContent(routeKey, locale));
+        fixture.detectChanges();
+
+        const element: HTMLElement = fixture.nativeElement;
+        const faqBlocks = element.querySelectorAll('app-landing-faq, app-landing-full-faq');
+        const faqQuestions = Array.from(element.querySelectorAll('.landing-faq h3, .landing-full-faq h3'))
+          .map((heading) => heading.textContent?.trim())
+          .filter((text): text is string => Boolean(text));
+
+        expect(faqBlocks.length).toBeLessThanOrEqual(1);
+        expect(faqQuestions).toEqual([...new Set(faqQuestions)]);
+      }
+    }
+  });
+
+  it('renders the FAQ route with the full FAQ component only', () => {
+    fixture.componentRef.setInput('content', {
+      ...content,
+      routeKey: 'faq',
+    });
+    fixture.detectChanges();
+
+    const element: HTMLElement = fixture.nativeElement;
+
+    expect(element.querySelector('app-landing-faq')).toBeNull();
+    expect(element.querySelector('app-landing-full-faq')).not.toBeNull();
+    expect(element.querySelector('.landing-full-faq details')?.hasAttribute('open')).toBe(true);
+  });
+
+  it('renders the CommanderZone public header with logo and account actions only', () => {
+    const element: HTMLElement = fixture.nativeElement;
+    const logo = element.querySelector('.seo-landing-layout__brand img') as HTMLImageElement;
+    const authLinks = Array.from(element.querySelectorAll('.seo-landing-layout__auth a') as NodeListOf<HTMLAnchorElement>);
+
+    expect(logo.getAttribute('src')).toBe('/assets/icons/CZ/CZ_logo.png');
+    expect(logo.getAttribute('width')).toBe('256');
+    expect(logo.getAttribute('height')).toBe('124');
+    expect(logo.getAttribute('decoding')).toBe('async');
+    expect(element.querySelector('.seo-landing-layout__brand')?.getAttribute('href')).toBe('/en/');
+    expect(element.querySelector('.seo-landing-layout__menu')).toBeNull();
+    expect(element.querySelector('.seo-landing-layout__nav')).toBeNull();
+    expect(element.querySelector('app-seo-language-selector')).not.toBeNull();
+    expect(authLinks.map((link) => link.getAttribute('href'))).toEqual(['/auth/login/', '/auth/register/']);
+    expect(authLinks.map((link) => link.textContent?.trim())).toEqual(['Login', 'Register']);
+    expect(authLinks[0].classList.contains('primary-button')).toBe(true);
+    expect(authLinks[1].classList.contains('primary-button')).toBe(true);
+  });
+
+  it('does not render SEO CTA navigation in the header on FAQ landing', () => {
     fixture.componentRef.setInput('content', {
       ...content,
       routeKey: 'faq',
@@ -247,9 +324,10 @@ describe('SeoLandingPageComponent', () => {
     fixture.detectChanges();
 
     const element: HTMLElement = fixture.nativeElement;
-    const publicMenuLinks = Array.from(element.querySelectorAll('.seo-landing-layout__nav a') as NodeListOf<HTMLAnchorElement>);
 
-    expect(publicMenuLinks.map((link) => link.getAttribute('href'))).toEqual(['/en/play-commander-online/']);
+    expect(element.querySelector('.seo-landing-layout__nav')).toBeNull();
+    expect(element.querySelector('.seo-landing-layout__auth a[href="/auth/login/"]')).not.toBeNull();
+    expect(element.querySelector('.seo-landing-layout__auth a[href="/auth/register/"]')).not.toBeNull();
   });
 
   it('uses the app button classes for hero and final CTA links', () => {
@@ -269,8 +347,9 @@ describe('SeoLandingPageComponent', () => {
 
     expect(image?.getAttribute('src')).toBe('/assets/og/play-commander-og.png');
     expect(image?.getAttribute('alt')).toBe('Play Commander online - CommanderZone');
-    expect(image?.getAttribute('width')).toBe('1200');
-    expect(image?.getAttribute('height')).toBe('630');
+    expect(image?.getAttribute('width')).toBe('960');
+    expect(image?.getAttribute('height')).toBe('504');
+    expect(image?.getAttribute('decoding')).toBe('async');
     expect(image?.getAttribute('loading')).toBe('eager');
     expect(image?.getAttribute('fetchpriority')).toBe('high');
   });
@@ -284,7 +363,7 @@ describe('SeoLandingPageComponent', () => {
     expect(element.querySelector('app-seo-language-selector')).toBeTruthy();
     expect(element.querySelector('app-landing-trust-bar')).toBeTruthy();
     expect(element.querySelector('app-landing-use-cases')).toBeTruthy();
-    expect(element.querySelector('app-landing-faq-preview')).toBeTruthy();
+    expect(element.querySelector('app-landing-faq')).toBeTruthy();
     expect(element.querySelector('app-landing-internal-links')).toBeTruthy();
   });
 

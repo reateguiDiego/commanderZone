@@ -21,6 +21,11 @@ describe('SEO routes', () => {
     'tableAssistant',
     'waysToPlayCommanderOnline',
     'howToPlayCommanderOnline',
+    'spellTableAlternative',
+    'playCommanderOnlineFree',
+    'playCommanderWithoutWebcam',
+    'playEdhOnline',
+    'commanderSimulator',
     'faq',
   ] as const satisfies readonly SeoRouteKey[];
   const expectedCanonicalPaths = {
@@ -41,12 +46,12 @@ describe('SEO routes', () => {
       it: '/it/giocare-commander-online/',
     },
     playMagicOnlineWithFriends: {
-      es: '/es/jugar-magic-online-amigos/',
+      es: '/es/jugar-magic-online-con-amigos/',
       en: '/en/play-magic-online-with-friends/',
       de: '/de/magic-online-mit-freunden-spielen/',
-      fr: '/fr/jouer-magic-en-ligne-amis/',
-      pt: '/pt/jogar-magic-online-amigos/',
-      it: '/it/giocare-magic-online-amici/',
+      fr: '/fr/jouer-magic-en-ligne-avec-des-amis/',
+      pt: '/pt/jogar-magic-online-com-amigos/',
+      it: '/it/giocare-magic-online-con-amici/',
     },
     createCommanderRoom: {
       es: '/es/crear-sala-commander/',
@@ -57,28 +62,28 @@ describe('SEO routes', () => {
       it: '/it/creare-stanza-commander/',
     },
     importCommanderDeck: {
-      es: '/es/importar-mazo-commander-mtg/',
-      en: '/en/import-mtg-commander-deck/',
-      de: '/de/mtg-commander-deck-importieren/',
-      fr: '/fr/importer-deck-commander-mtg/',
-      pt: '/pt/importar-deck-commander-mtg/',
-      it: '/it/importare-mazzo-commander-mtg/',
+      es: '/es/importar-mazo-commander/',
+      en: '/en/import-commander-deck/',
+      de: '/de/commander-deck-importieren/',
+      fr: '/fr/importer-deck-commander/',
+      pt: '/pt/importar-deck-commander/',
+      it: '/it/importare-mazzo-commander/',
     },
     commanderDeckBuilder: {
-      es: '/es/deck-builder-commander-mtg/',
-      en: '/en/mtg-commander-deck-builder/',
-      de: '/de/mtg-commander-deck-builder/',
-      fr: '/fr/deck-builder-commander-mtg/',
-      pt: '/pt/deck-builder-commander-mtg/',
-      it: '/it/deck-builder-commander-mtg/',
+      es: '/es/deck-builder-commander/',
+      en: '/en/commander-deck-builder/',
+      de: '/de/commander-deck-builder/',
+      fr: '/fr/deck-builder-commander/',
+      pt: '/pt/deck-builder-commander/',
+      it: '/it/deck-builder-commander/',
     },
     tableAssistant: {
-      es: '/es/asistente-mesa-commander/',
-      en: '/en/commander-table-assistant/',
-      de: '/de/commander-tischassistent/',
-      fr: '/fr/assistant-table-commander/',
-      pt: '/pt/assistente-mesa-commander/',
-      it: '/it/assistente-tavolo-commander/',
+      es: '/es/contador-vidas-commander/',
+      en: '/en/commander-life-counter/',
+      de: '/de/commander-life-counter/',
+      fr: '/fr/compteur-vie-commander/',
+      pt: '/pt/contador-vida-commander/',
+      it: '/it/contatore-vite-commander/',
     },
     waysToPlayCommanderOnline: {
       es: '/es/formas-jugar-commander-online/',
@@ -95,6 +100,46 @@ describe('SEO routes', () => {
       fr: '/fr/comment-jouer-commander-en-ligne/',
       pt: '/pt/como-jogar-commander-online/',
       it: '/it/come-giocare-commander-online/',
+    },
+    spellTableAlternative: {
+      es: '/es/alternativa-spelltable/',
+      en: '/en/spelltable-alternative/',
+      de: '/de/spelltable-alternative/',
+      fr: '/fr/alternative-spelltable/',
+      pt: '/pt/alternativa-spelltable/',
+      it: '/it/alternativa-spelltable/',
+    },
+    playCommanderOnlineFree: {
+      es: '/es/jugar-commander-online-gratis/',
+      en: '/en/play-commander-online-free/',
+      de: '/de/commander-kostenlos-online-spielen/',
+      fr: '/fr/jouer-commander-en-ligne-gratuit/',
+      pt: '/pt/jogar-commander-online-gratis/',
+      it: '/it/giocare-commander-online-gratis/',
+    },
+    playCommanderWithoutWebcam: {
+      es: '/es/jugar-commander-online-sin-webcam/',
+      en: '/en/play-commander-online-without-webcam/',
+      de: '/de/commander-online-ohne-webcam-spielen/',
+      fr: '/fr/jouer-commander-en-ligne-sans-webcam/',
+      pt: '/pt/jogar-commander-online-sem-webcam/',
+      it: '/it/giocare-commander-online-senza-webcam/',
+    },
+    playEdhOnline: {
+      es: '/es/jugar-edh-online/',
+      en: '/en/play-edh-online/',
+      de: '/de/edh-online-spielen/',
+      fr: '/fr/jouer-edh-en-ligne/',
+      pt: '/pt/jogar-edh-online/',
+      it: '/it/giocare-edh-online/',
+    },
+    commanderSimulator: {
+      es: '/es/simulador-commander-mtg/',
+      en: '/en/mtg-commander-simulator/',
+      de: '/de/mtg-commander-simulator/',
+      fr: '/fr/simulateur-commander-mtg/',
+      pt: '/pt/simulador-commander-mtg/',
+      it: '/it/simulatore-commander-mtg/',
     },
     faq: {
       es: '/es/faq/',
@@ -133,8 +178,10 @@ describe('SEO routes', () => {
     expect(getSeoPath('home', 'en')).toBe('/');
     expect(getSeoPath('home', 'es')).toBe('/es/');
     expect(getSeoPath('playCommanderOnline', 'en')).toBe('/en/play-commander-online/');
-    expect(getSeoPath('commanderDeckBuilder', 'es')).toBe('/es/deck-builder-commander-mtg/');
-    expect(getSeoPath('tableAssistant', 'es')).toBe('/es/asistente-mesa-commander/');
+    expect(getSeoPath('commanderDeckBuilder', 'es')).toBe('/es/deck-builder-commander/');
+    expect(getSeoPath('tableAssistant', 'es')).toBe('/es/contador-vidas-commander/');
+    expect(getSeoPath('spellTableAlternative', 'fr')).toBe('/fr/alternative-spelltable/');
+    expect(getSeoPath('commanderSimulator', 'en')).toBe('/en/mtg-commander-simulator/');
   });
 
   it('uses the final canonical slug matrix for every SEO landing and locale', () => {
@@ -146,8 +193,8 @@ describe('SEO routes', () => {
   });
 
   it('uses localized SEO terms for the table assistant route without reusing the internal app path', () => {
-    expect(SEO_ROUTES.tableAssistant.slugs.es).toBe('asistente-mesa-commander');
-    expect(SEO_ROUTES.tableAssistant.slugs.en).toBe('commander-table-assistant');
+    expect(SEO_ROUTES.tableAssistant.slugs.es).toBe('contador-vidas-commander');
+    expect(SEO_ROUTES.tableAssistant.slugs.en).toBe('commander-life-counter');
     expect(getSeoPath('tableAssistant', 'es')).not.toBe('/table-assistant/');
     expect(getSeoPath('tableAssistant', 'en')).not.toBe('/table-assistant/');
   });
@@ -156,9 +203,9 @@ describe('SEO routes', () => {
     const alternates = getLocalizedRouteAlternates('playMagicOnlineWithFriends');
 
     expect(Object.keys(alternates).sort()).toEqual([...SEO_LOCALE_CODES].sort());
-    expect(alternates.es).toBe('/es/jugar-magic-online-amigos/');
+    expect(alternates.es).toBe('/es/jugar-magic-online-con-amigos/');
     expect(alternates.en).toBe('/en/play-magic-online-with-friends/');
-    expect(alternates.fr).toBe('/fr/jouer-magic-en-ligne-amis/');
+    expect(alternates.fr).toBe('/fr/jouer-magic-en-ligne-avec-des-amis/');
 
     for (const locale of nonSeoLocaleCodes) {
       expect(locale in alternates).toBe(false);
@@ -228,8 +275,8 @@ describe('SEO routes', () => {
   it('does not match mixed locale and slug SEO paths', () => {
     expect(findSeoRouteByPath('/en/jugar-commander-online/')).toBeUndefined();
     expect(findSeoRouteByPath('/es/play-commander-online/')).toBeUndefined();
-    expect(findSeoRouteByPath('/en/asistente-mesa-commander/')).toBeUndefined();
-    expect(findSeoRouteByPath('/es/commander-table-assistant/')).toBeUndefined();
+    expect(findSeoRouteByPath('/en/contador-vidas-commander/')).toBeUndefined();
+    expect(findSeoRouteByPath('/es/commander-life-counter/')).toBeUndefined();
   });
 
   it('keeps all generated SEO-indexable paths unique across route and locale pairs', () => {
@@ -237,7 +284,7 @@ describe('SEO routes', () => {
       SEO_LOCALE_CODES.map((locale) => getSeoPath(routeKey, locale)),
     );
 
-    expect(paths).toHaveLength(60);
+    expect(paths).toHaveLength(90);
     expect(new Set(paths).size).toBe(paths.length);
   });
 });

@@ -164,7 +164,7 @@ label {
 .primary-button {
   border-color: rgb(var(--cz-primary-rgb) / 76%);
   background: linear-gradient(135deg, var(--cz-secondary), var(--cz-primary));
-  color: var(--cz-bg);
+  color: var(--cz-on-accent);
   cursor: pointer;
 }
 

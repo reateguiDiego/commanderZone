@@ -21,6 +21,9 @@ describe('SEO landing templates', () => {
       'importCommanderDeck',
       'commanderDeckBuilder',
       'tableAssistant',
+      'playCommanderOnlineFree',
+      'playEdhOnline',
+      'commanderSimulator',
     ]);
 
     for (const routeKey of PRODUCT_LANDING_ROUTE_KEYS) {
@@ -33,7 +36,11 @@ describe('SEO landing templates', () => {
       'playMagicOnlineWithFriends',
       'howToPlayCommanderOnline',
     ]);
-    expect(COMPARISON_LANDING_ROUTE_KEYS).toEqual(['waysToPlayCommanderOnline']);
+    expect(COMPARISON_LANDING_ROUTE_KEYS).toEqual([
+      'waysToPlayCommanderOnline',
+      'spellTableAlternative',
+      'playCommanderWithoutWebcam',
+    ]);
     expect(FAQ_LANDING_ROUTE_KEYS).toEqual(['faq']);
 
     for (const routeKey of GUIDE_LANDING_ROUTE_KEYS) {
