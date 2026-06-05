@@ -69,6 +69,7 @@ class ScryfallSyncCommand extends Command
 
         $count = 0;
         $skipped = 0;
+        $skippedUnavailable = 0;
         foreach ($cards as $cardData) {
             if (!is_array($cardData) || !isset($cardData['id'], $cardData['name'])) {
                 continue;
@@ -80,6 +81,11 @@ class ScryfallSyncCommand extends Command
                 if ($skipped % 5000 === 0) {
                     $output->writeln(sprintf('Skipped %d existing cards...', $skipped));
                 }
+                continue;
+            }
+
+            if ($this->isImageStatusUnavailable($cardData['image_status'] ?? null)) {
+                ++$skippedUnavailable;
                 continue;
             }
 
@@ -100,7 +106,12 @@ class ScryfallSyncCommand extends Command
             }
         }
 
-        $output->writeln(sprintf('Imported %d cards. Skipped %d existing cards.', $count, $skipped));
+        $output->writeln(sprintf(
+            'Imported %d cards. Skipped %d existing cards. Skipped %d unavailable prints.',
+            $count,
+            $skipped,
+            $skippedUnavailable,
+        ));
 
         return Command::SUCCESS;
     }
@@ -587,5 +598,14 @@ SQL,
             && $cardPrintLocale !== '';
 
         return $this->printTablesAvailable;
+    }
+
+    private function isImageStatusUnavailable(mixed $value): bool
+    {
+        if (!is_scalar($value)) {
+            return false;
+        }
+
+        return in_array(strtolower(trim((string) $value)), ['missing', 'placeholder'], true);
     }
 }
