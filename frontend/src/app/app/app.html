@@ -4,6 +4,10 @@
   <app-footer-disclaimer />
 }
 
+@if (showNoindexDisclaimer()) {
+  <app-noindex-footer-disclaimer />
+}
+
 <app-cookie-consent-banner />
 
 @if (showGlobalLoading()) {

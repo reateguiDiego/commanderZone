@@ -8,19 +8,23 @@ import { LegalPageComponent } from './legal-page.component';
 describe('LegalPageComponent', () => {
   let document: Document;
 
-  beforeEach(async () => {
+  async function configureLegalPageTest(routeData = { legalPageKey: 'privacy', locale: 'es' }): Promise<void> {
     await TestBed.configureTestingModule({
       imports: [LegalPageComponent],
       providers: [
         {
           provide: ActivatedRoute,
           useValue: {
-            data: of({ legalPageKey: 'privacy', locale: 'es' }),
-            snapshot: { data: { legalPageKey: 'privacy', locale: 'es' } },
+            data: of(routeData),
+            snapshot: { data: routeData },
           },
         },
       ],
     }).compileComponents();
+  }
+
+  beforeEach(async () => {
+    await configureLegalPageTest();
 
     document = TestBed.inject(DOCUMENT);
     document.head.querySelectorAll('[data-cz-seo="true"], [data-cz-legal="true"]').forEach((element) => element.remove());
@@ -38,11 +42,8 @@ describe('LegalPageComponent', () => {
 
     expect(element.querySelector('h1')?.textContent?.trim()).toBe('Política de privacidad');
     expect(element.textContent).toContain('Qué datos tratamos');
-    expect(element.textContent).toContain('CommanderZone es contenido de fans no oficial');
-    expect(Array.from(element.querySelectorAll('.legal-page__footer a')).map((link) => link.textContent?.trim())).toEqual([
-      'Preguntas frecuentes',
-      'Asistente de mesa',
-      'Importar mazo Commander',
+    expect(Array.from(element.querySelectorAll('.legal-page__nav a')).map((link) => link.textContent?.trim())).toEqual([
+      'Inicio de CommanderZone',
       'Privacidad',
       'Cookies',
       'Términos',
@@ -67,5 +68,18 @@ describe('LegalPageComponent', () => {
     );
     expect(document.head.querySelector('link[rel="alternate"]')).toBeNull();
     expect(document.head.querySelector('script[type="application/ld+json"]')).toBeNull();
+  });
+
+  it('uses the centered layout variant for the contact page only', async () => {
+    TestBed.resetTestingModule();
+    await configureLegalPageTest({ legalPageKey: 'contact', locale: 'en' });
+
+    const fixture = TestBed.createComponent(LegalPageComponent);
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+
+    expect(element.querySelector('.legal-page')?.classList.contains('legal-page--contact')).toBe(true);
+    expect(element.querySelector('h1')?.textContent?.trim()).toBe('Contact');
   });
 });

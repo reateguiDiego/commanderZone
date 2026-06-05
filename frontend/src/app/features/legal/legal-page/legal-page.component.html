@@ -1,4 +1,4 @@
-<article class="legal-page" [attr.lang]="content().locale">
+<article class="legal-page" [class.legal-page--contact]="isContactPage()" [attr.lang]="content().locale">
   <header class="legal-page__header">
     <a class="legal-page__brand" [href]="homeHref()">
       <img [src]="themeAssets.czZoneHeaderLogoUrl()" alt="CommanderZone" width="184" height="62" />
@@ -28,13 +28,4 @@
       }
     </div>
   </main>
-
-  <footer class="legal-page__footer">
-    <p>{{ content().disclaimer }}</p>
-    <nav [attr.aria-label]="publicChrome().footer.ariaLabel">
-      @for (link of publicChrome().footer.links; track link.href) {
-        <a [href]="link.href">{{ link.label }}</a>
-      }
-    </nav>
-  </footer>
 </article>

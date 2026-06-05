@@ -34,6 +34,7 @@ describe('App', () => {
           { path: 'en/play-commander-online', component: EmptyRouteComponent },
           { path: 'auth/login', component: EmptyRouteComponent },
           { path: 'dashboard', component: EmptyRouteComponent },
+          { path: 'decks', component: EmptyRouteComponent },
           { path: 'table-assistant', component: EmptyRouteComponent },
           { path: 'table-assistant/:id', component: EmptyRouteComponent },
           { path: 'games/:id', component: EmptyRouteComponent },
@@ -101,7 +102,7 @@ describe('App', () => {
     expect(routerOutlet?.compareDocumentPosition(cookieBanner as Node)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   });
 
-  it('hides the global disclaimer on auth and app noindex routes', async () => {
+  it('replaces the public footer disclaimer with the long noindex disclaimer on app noindex routes', async () => {
     const router = TestBed.inject(Router);
     const fixture = TestBed.createComponent(App);
 
@@ -109,23 +110,38 @@ describe('App', () => {
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('app-footer-disclaimer')).toBeNull();
     expect(fixture.nativeElement.querySelector('.app-disclaimer')).toBeNull();
+    expect(fixture.nativeElement.querySelector('app-noindex-footer-disclaimer')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('.app-noindex-disclaimer')?.textContent).toContain('CommanderZone is unofficial Fan Content');
+
+    await router.navigateByUrl('/dashboard');
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('app-footer-disclaimer')).toBeNull();
+    expect(fixture.nativeElement.querySelector('app-noindex-footer-disclaimer')).not.toBeNull();
+
+    await router.navigateByUrl('/decks');
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('app-footer-disclaimer')).toBeNull();
+    expect(fixture.nativeElement.querySelector('app-noindex-footer-disclaimer')).not.toBeNull();
 
     await router.navigateByUrl('/table-assistant');
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('app-footer-disclaimer')).toBeNull();
     expect(fixture.nativeElement.querySelector('.app-disclaimer')).toBeNull();
+    expect(fixture.nativeElement.querySelector('app-noindex-footer-disclaimer')).not.toBeNull();
 
     await router.navigateByUrl('/table-assistant/room-1');
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelector('app-footer-disclaimer')).toBeNull();
     expect(fixture.nativeElement.querySelector('.app-disclaimer')).toBeNull();
+    expect(fixture.nativeElement.querySelector('app-noindex-footer-disclaimer')).toBeNull();
 
     await router.navigateByUrl('/games/game-1');
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelector('app-footer-disclaimer')).toBeNull();
     expect(fixture.nativeElement.querySelector('.app-disclaimer')).toBeNull();
+    expect(fixture.nativeElement.querySelector('app-noindex-footer-disclaimer')).toBeNull();
   });
 
   it('does not show the global loading overlay on SEO landing routes', async () => {
