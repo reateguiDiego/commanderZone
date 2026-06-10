@@ -433,6 +433,7 @@ export class GameTableContextStore {
       isPending: () => this.core.pending(),
       setLoading: (loading) => this.core.loading.set(loading),
       setError: (message) => this.core.error.set(message),
+      refreshViewerControlAccess: () => this.gameActionsStore.refreshViewerControlAccess(),
       navigateToRoomsWithLoadError: () => {
         void this.gameActionsStore.navigateToRoomsWithLoadError();
       },

@@ -1806,8 +1806,8 @@ describe('GameTableComponent', () => {
     const fixture = TestBed.createComponent(GameTableComponent);
     fixture.detectChanges();
     await fixture.whenStable();
+    await vi.waitFor(() => expect(fixture.componentInstance.store.viewerCanControlTable()).toBe(false));
 
-    expect(fixture.componentInstance.store.viewerCanControlTable()).toBe(false);
     expect(fixture.componentInstance.store.currentPlayer()).toBeNull();
     expect(fixture.componentInstance.store.canControlPlayer('user-1')).toBe(false);
   });
