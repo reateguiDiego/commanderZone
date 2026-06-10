@@ -16,6 +16,7 @@ export interface GameTableSessionContext {
   isPending(): boolean;
   setLoading(loading: boolean): void;
   setError(message: string | null): void;
+  refreshViewerControlAccess?(): Promise<void>;
   navigateToRoomsWithLoadError(): void;
   navigateToWaitingRoom(roomId: string): void;
 }
@@ -34,6 +35,7 @@ export class GameTableSessionService {
 
   async load(context: GameTableSessionContext): Promise<void> {
     const gameId = context.gameId();
+    let shouldRefreshViewerControlAccess = false;
     if (!gameId) {
       context.setError('Missing game id.');
       context.setLoading(false);
@@ -42,6 +44,7 @@ export class GameTableSessionService {
 
     try {
       await this.refetch(context, true);
+      shouldRefreshViewerControlAccess = true;
       this.websocket.start({
         gameId: () => context.gameId(),
         snapshot: () => context.snapshot(),
@@ -54,6 +57,9 @@ export class GameTableSessionService {
       context.navigateToRoomsWithLoadError();
     } finally {
       context.setLoading(false);
+      if (shouldRefreshViewerControlAccess) {
+        await context.refreshViewerControlAccess?.();
+      }
     }
   }
 

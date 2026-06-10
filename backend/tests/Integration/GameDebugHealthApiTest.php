@@ -57,6 +57,12 @@ class GameDebugHealthApiTest extends ApiTestCase
         self::assertTrue($response['enabled']);
         self::assertIsArray($response['context']);
         self::assertIsArray($response['context']['players']);
+        self::assertIsInt($response['context']['viewerCount']);
+        self::assertIsInt($response['context']['languageCount']);
+        self::assertIsInt($response['context']['uniqueCardCount']);
+        self::assertIsInt($response['context']['uniqueScryfallIdCount']);
+        self::assertIsBool($response['context']['debugObserved']);
+        self::assertArrayHasKey('usingLegacyLocalizationFallback', $response['context']);
         self::assertArrayNotHasKey('snapshot', $response);
         self::assertIsArray($response['health']);
         self::assertIsString($response['generatedAt']);
@@ -70,10 +76,12 @@ class GameDebugHealthApiTest extends ApiTestCase
         self::assertArrayHasKey('replay', $response['health']);
         self::assertArrayHasKey('sync', $response['health']);
         self::assertArrayHasKey('errors', $response['health']);
+        self::assertArrayHasKey('bootstrap', $response['health']);
         self::assertArrayHasKey('recent', $response['health']);
         self::assertArrayHasKey('events', $response['health']);
         self::assertSame(0, $response['health']['actions']['total']);
         self::assertSame(0, $response['health']['traffic']['incoming']['messages']);
+        self::assertSame(0, $response['health']['bootstrap']['stages']['initial_snapshot']['count']);
         self::assertNotEmpty($response['context']['players']);
         $displayNames = array_column($response['context']['players'], 'displayName');
         self::assertContains('Ws Owner', $displayNames);

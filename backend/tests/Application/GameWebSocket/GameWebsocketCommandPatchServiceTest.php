@@ -303,6 +303,64 @@ class GameWebsocketCommandPatchServiceTest extends TestCase
         self::assertNotNull($result->debugProfile());
     }
 
+    public function testNonCardCommandReusesPreparedRulingsLookupsAcrossViewerProjections(): void
+    {
+        [$game, $actor] = $this->game();
+        $capturedRulingsLookups = [];
+        $projection = $this->getMockBuilder(GameProjectionService::class)
+            ->setConstructorArgs([new GameCommandHandler()])
+            ->onlyMethods(['projectSnapshot', 'rulingsLookupForViewers'])
+            ->getMock();
+        $projection
+            ->expects(self::exactly(2))
+            ->method('rulingsLookupForViewers')
+            ->willReturnOnConsecutiveCalls(
+                ['before-print' => true],
+                ['after-print' => true],
+            );
+        $projection
+            ->expects(self::exactly(2))
+            ->method('projectSnapshot')
+            ->willReturnCallback(function (
+                array $snapshot,
+                User $viewer,
+                bool $viewerCanUseOwnHiddenZones,
+                ?array $localizedLookup = null,
+                ?array $rulingsLookup = null,
+            ) use (&$capturedRulingsLookups): array {
+                self::assertTrue($viewerCanUseOwnHiddenZones);
+                $capturedRulingsLookups[] = $rulingsLookup;
+
+                return $snapshot;
+            });
+
+        $service = $this->service(
+            $game,
+            existingEvent: null,
+            expectPersist: true,
+            expectFlush: true,
+            expectClear: true,
+            projection: $projection,
+        );
+
+        $result = $service->apply(
+            $game->id(),
+            $actor->id(),
+            'life.changed',
+            ['playerId' => $actor->id(), 'delta' => -2],
+            'action-rulings-lookup',
+            1,
+            'message-rulings-lookup',
+        );
+        $message = $result->messageForUserId($actor->id());
+
+        self::assertSame('game_patch', $message['kind']);
+        self::assertSame([
+            ['before-print' => true],
+            ['after-print' => true],
+        ], $capturedRulingsLookups);
+    }
+
     /**
      * @return array{Game, User}
      */

@@ -7,6 +7,16 @@ final class GameDebugHealthAggregator
     private const MAX_RECENT_ITEMS = 120;
     private const MAX_EVENT_ITEMS = 240;
     private const MAX_ACTION_ITEMS = 120;
+    private const MAX_BOOTSTRAP_ITEMS = 60;
+    private const BOOTSTRAP_STAGES = [
+        'initial_snapshot',
+        'websocket_ticket',
+        'socket_connect',
+        'first_connection_state',
+        'first_mercure_event',
+        'viewer_control_access',
+        'first_render_ready',
+    ];
 
     /**
      * @param array<string,mixed>|null $state
@@ -81,6 +91,10 @@ final class GameDebugHealthAggregator
                 'total' => (int) ($state['errors']['total'] ?? 0),
                 'byCode' => is_array($state['errors']['byCode'] ?? null) ? $state['errors']['byCode'] : [],
                 'recent' => is_array($state['errors']['recent'] ?? null) ? array_values($state['errors']['recent']) : [],
+            ],
+            'bootstrap' => [
+                'stages' => $this->normalizeBootstrapStages($state['bootstrap']['stages'] ?? []),
+                'recent' => is_array($state['bootstrap']['recent'] ?? null) ? array_values($state['bootstrap']['recent']) : [],
             ],
             'recent' => is_array($state['recent'] ?? null) ? array_values($state['recent']) : [],
             'events' => is_array($state['events'] ?? null) ? array_values($state['events']) : [],
@@ -276,6 +290,48 @@ final class GameDebugHealthAggregator
     }
 
     /**
+     * @param array<string,mixed>|null $context
+     *
+     * @return array<string,mixed>
+     */
+    public function recordBootstrapStage(array $state, string $stage, float $durationMs, ?array $context = null, ?string $timestamp = null): array
+    {
+        $state = $this->normalize($state);
+        $stage = in_array($stage, self::BOOTSTRAP_STAGES, true) ? $stage : 'first_render_ready';
+        $durationMs = round(max(0, $durationMs), 2);
+        $timestamp = $timestamp ?? $this->now();
+
+        $stageState = $state['bootstrap']['stages'][$stage] ?? $this->emptyBootstrapStage();
+        $stageState['count']++;
+        $stageState['totalMs'] = round((float) $stageState['totalMs'] + $durationMs, 2);
+        $stageState['avgMs'] = $stageState['count'] > 0
+            ? round($stageState['totalMs'] / $stageState['count'], 2)
+            : 0.0;
+        $stageState['maxMs'] = round(max((float) $stageState['maxMs'], $durationMs), 2);
+        $stageState['lastMs'] = $durationMs;
+        $stageState['lastAt'] = $timestamp;
+        $stageState['lastContext'] = is_array($context) && $context !== [] ? $context : null;
+        $state['bootstrap']['stages'][$stage] = $stageState;
+
+        $item = [
+            'kind' => 'bootstrap',
+            'stage' => $stage,
+            'durationMs' => $durationMs,
+            'at' => $timestamp,
+        ];
+        if (is_array($context) && $context !== []) {
+            $item['context'] = $context;
+        }
+
+        $state['bootstrap']['recent'][] = $item;
+        if (count($state['bootstrap']['recent']) > self::MAX_BOOTSTRAP_ITEMS) {
+            $state['bootstrap']['recent'] = array_slice($state['bootstrap']['recent'], -self::MAX_BOOTSTRAP_ITEMS);
+        }
+
+        return $this->appendEvent($state, $item);
+    }
+
+    /**
      * @param array<string,mixed>|null $phases
      *
      * @return array<string,float>|null
@@ -421,6 +477,58 @@ final class GameDebugHealthAggregator
             'byKind' => is_array($bucket['byKind'] ?? null) ? $bucket['byKind'] : [],
             'byAction' => is_array($bucket['byAction'] ?? null) ? $bucket['byAction'] : [],
             'byChannel' => is_array($bucket['byChannel'] ?? null) ? $bucket['byChannel'] : [],
+        ];
+    }
+
+    /**
+     * @return array<string,array<string,mixed>>
+     */
+    private function normalizeBootstrapStages(mixed $stages): array
+    {
+        $stages = is_array($stages) ? $stages : [];
+        $normalized = [];
+        foreach (self::BOOTSTRAP_STAGES as $stage) {
+            $normalized[$stage] = $this->normalizeBootstrapStage($stages[$stage] ?? []);
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * @return array{count: int, totalMs: float, avgMs: float, maxMs: float, lastMs: float, lastAt: ?string, lastContext: ?array}
+     */
+    private function normalizeBootstrapStage(mixed $stage): array
+    {
+        $stage = is_array($stage) ? $stage : [];
+        $count = max(0, (int) ($stage['count'] ?? 0));
+        $totalMs = round(max(0, (float) ($stage['totalMs'] ?? 0)), 2);
+
+        return [
+            'count' => $count,
+            'totalMs' => $totalMs,
+            'avgMs' => $count > 0
+                ? round((float) ($stage['avgMs'] ?? ($totalMs / $count)), 2)
+                : 0.0,
+            'maxMs' => round(max(0, (float) ($stage['maxMs'] ?? 0)), 2),
+            'lastMs' => round(max(0, (float) ($stage['lastMs'] ?? 0)), 2),
+            'lastAt' => is_string($stage['lastAt'] ?? null) ? $stage['lastAt'] : null,
+            'lastContext' => is_array($stage['lastContext'] ?? null) ? $stage['lastContext'] : null,
+        ];
+    }
+
+    /**
+     * @return array{count: int, totalMs: float, avgMs: float, maxMs: float, lastMs: float, lastAt: null, lastContext: null}
+     */
+    private function emptyBootstrapStage(): array
+    {
+        return [
+            'count' => 0,
+            'totalMs' => 0.0,
+            'avgMs' => 0.0,
+            'maxMs' => 0.0,
+            'lastMs' => 0.0,
+            'lastAt' => null,
+            'lastContext' => null,
         ];
     }
 

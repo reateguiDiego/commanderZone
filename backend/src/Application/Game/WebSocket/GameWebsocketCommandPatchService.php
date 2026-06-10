@@ -318,18 +318,26 @@ final readonly class GameWebsocketCommandPatchService
     ): GameWebsocketCommandResult
     {
         $viewers = $this->viewers($game);
+        $viewerCanUseOwnHiddenZonesByUserId = [];
+        foreach ($viewers as $viewer) {
+            $viewerCanUseOwnHiddenZonesByUserId[$viewer->id()] = $game->room()->hasPlayer($viewer);
+        }
+
         $localizationStartedAt = microtime(true);
         $localizedLookup = $this->localizedLookup($previousSnapshot, $nextSnapshot, $viewers);
         $phaseTimings['localization'] = $this->elapsedMs($localizationStartedAt);
+        $projectionStartedAt = microtime(true);
+        $previousRulingsLookup = $this->projection->rulingsLookupForViewers($previousSnapshot, $viewers, $viewerCanUseOwnHiddenZonesByUserId);
+        $nextRulingsLookup = $this->projection->rulingsLookupForViewers($nextSnapshot, $viewers, $viewerCanUseOwnHiddenZonesByUserId);
         $messagesByUserId = [];
-        $projectionMs = 0.0;
+        $projectionMs = $this->elapsedMs($projectionStartedAt);
         $patchMs = 0.0;
         foreach ($viewers as $viewer) {
-            $viewerCanUseOwnHiddenZones = $game->room()->hasPlayer($viewer);
-            $projectionStartedAt = microtime(true);
-            $previousProjection = $this->projection->projectSnapshot($previousSnapshot, $viewer, $viewerCanUseOwnHiddenZones, $localizedLookup);
-            $nextProjection = $this->projection->projectSnapshot($nextSnapshot, $viewer, $viewerCanUseOwnHiddenZones, $localizedLookup);
-            $projectionMs += $this->elapsedMs($projectionStartedAt);
+            $viewerProjectionStartedAt = microtime(true);
+            $viewerCanUseOwnHiddenZones = $viewerCanUseOwnHiddenZonesByUserId[$viewer->id()] ?? true;
+            $previousProjection = $this->projection->projectSnapshot($previousSnapshot, $viewer, $viewerCanUseOwnHiddenZones, $localizedLookup, $previousRulingsLookup);
+            $nextProjection = $this->projection->projectSnapshot($nextSnapshot, $viewer, $viewerCanUseOwnHiddenZones, $localizedLookup, $nextRulingsLookup);
+            $projectionMs += $this->elapsedMs($viewerProjectionStartedAt);
             $patchStartedAt = microtime(true);
             $messagesByUserId[$viewer->id()] = $this->patches->build($game->id(), $previousProjection, $nextProjection, $event, $eventPayload, $viewer->id());
             $patchMs += $this->elapsedMs($patchStartedAt);

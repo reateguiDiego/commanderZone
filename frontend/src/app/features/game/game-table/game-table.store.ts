@@ -214,10 +214,7 @@ export class GameTableStore implements OnDestroy {
   }
 
   async load(): Promise<void> {
-    await Promise.all([
-      this.gameActionsStore.refreshViewerControlAccess(),
-      this.session.load(this.contexts.session()),
-    ]);
+    await this.session.load(this.contexts.session());
   }
 
   async refetch(force = false): Promise<void> {

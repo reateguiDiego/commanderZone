@@ -84,6 +84,23 @@ describe('GameTableSessionService', () => {
     }));
   });
 
+  it('refreshes viewer control access after the session loading state is lifted', async () => {
+    const current = snapshot();
+    const order: string[] = [];
+    const refreshViewerControlAccess = vi.fn(async () => {
+      order.push('refresh');
+    });
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot: current } }));
+
+    await service.load(context(current, vi.fn(), vi.fn(), vi.fn(), vi.fn(), {
+      setLoading: (loading) => order.push(loading ? 'loading-on' : 'loading-off'),
+      refreshViewerControlAccess,
+    }));
+
+    expect(order).toEqual(['loading-off', 'refresh']);
+    expect(refreshViewerControlAccess).toHaveBeenCalledTimes(1);
+  });
+
   it('refetches the snapshot when a non-rematch game event arrives from Mercure', async () => {
     const current = snapshot();
     const next = snapshot({ status: 'conceded', concededAt: '2026-01-01T00:00:10.000Z' });
@@ -160,6 +177,7 @@ function context(
   navigateToWaitingRoom = vi.fn(),
   navigateToRoomsWithLoadError = vi.fn(),
   setError = vi.fn(),
+  overrides: Partial<Pick<GameTableSessionContext, 'setLoading' | 'refreshViewerControlAccess'>> = {},
 ): GameTableSessionContext {
   return {
     gameId: () => 'game-1',
@@ -170,8 +188,9 @@ function context(
     ownPlayerId: () => 'player-1',
     hasActivePointerDrag: () => false,
     isPending: () => false,
-    setLoading: vi.fn(),
+    setLoading: overrides.setLoading ?? vi.fn(),
     setError,
+    refreshViewerControlAccess: overrides.refreshViewerControlAccess,
     navigateToRoomsWithLoadError,
     navigateToWaitingRoom,
   };

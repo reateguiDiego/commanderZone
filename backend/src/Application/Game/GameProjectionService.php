@@ -27,7 +27,13 @@ class GameProjectionService
         return $this->projectSnapshot($this->withCurrentPlayerUsers($game, $snapshot), $viewer, $game->room()->hasPlayer($viewer));
     }
 
-    public function projectSnapshot(array $snapshot, User $viewer, bool $viewerCanUseOwnHiddenZones = true, ?array $localizedCardsByLanguage = null): array
+    public function projectSnapshot(
+        array $snapshot,
+        User $viewer,
+        bool $viewerCanUseOwnHiddenZones = true,
+        ?array $localizedCardsByLanguage = null,
+        ?array $rulingsLookup = null,
+    ): array
     {
         $viewerId = $viewer->id();
         $requestedLanguage = $viewer->cardLanguage();
@@ -36,11 +42,15 @@ class GameProjectionService
             return $snapshot;
         }
 
-        $snapshot = $this->hydrateSnapshotRulingsMetadata($snapshot);
+        $visibleScryfallIds = $this->visibleSnapshotScryfallIds($snapshot, $viewerId, $viewerCanUseOwnHiddenZones);
+
+        if ($rulingsLookup === null && $this->cardRulingsLookup instanceof GameCardRulingsLookup) {
+            $rulingsLookup = $this->cardRulingsLookup->hasRulingsByScryfallIds($visibleScryfallIds);
+        }
 
         if ($localizedCardsByLanguage === null && $this->cardLocalization instanceof CardLocalizationService) {
             $localizedCardsByLanguage = $this->cardLocalization->localizedImagePayloadLookupForScryfallIds(
-                $this->snapshotScryfallIds($snapshot),
+                $visibleScryfallIds,
                 $this->requestedLanguages($requestedLanguage),
             );
         }
@@ -60,7 +70,7 @@ class GameProjectionService
                 $zoneCounts[$zone] = count($cards);
                 $isOwnHiddenZone = $viewerCanUseOwnHiddenZones && $playerId === $viewerId;
                 if ((string) $zone === 'hand' && !$isOwnHiddenZone) {
-                    $cards = $this->projectOpponentHand($cards, $viewerId, (string) $playerId, $requestedLanguage, $localizedCardsByLanguage);
+                    $cards = $this->projectOpponentHand($cards, $viewerId, (string) $playerId, $requestedLanguage, $localizedCardsByLanguage, $rulingsLookup);
                 } elseif ((string) $zone === 'library' && !$isOwnHiddenZone) {
                     $cards = $this->projectOpponentLibrary(
                         $cards,
@@ -69,6 +79,7 @@ class GameProjectionService
                         ($player['playTopLibraryRevealed'] ?? false) === true,
                         $requestedLanguage,
                         $localizedCardsByLanguage,
+                        $rulingsLookup,
                     );
                 } elseif ($this->zoneIsHidden((string) $zone) && !$isOwnHiddenZone) {
                     $cards = array_values(array_filter(
@@ -77,7 +88,7 @@ class GameProjectionService
                     ));
                 } else {
                     $cards = array_values(array_map(
-                        fn (array $card): array => $this->projectCard($card, $viewerId, $playerId === $viewerId, $requestedLanguage, $localizedCardsByLanguage),
+                        fn (array $card): array => $this->projectCard($card, $viewerId, $playerId === $viewerId, $requestedLanguage, $localizedCardsByLanguage, $rulingsLookup),
                         $cards,
                     ));
                 }
@@ -94,29 +105,63 @@ class GameProjectionService
     {
         $viewerId = $viewer->id();
         $requestedLanguage = $viewer->cardLanguage();
-        $cards = $this->hydrateCardsRulingsMetadata($cards);
+        $visibleScryfallIds = $this->visibleZoneScryfallIds($cards, $ownerId, $zone, $viewerId, $playTopLibraryRevealed);
+        $rulingsLookup = $this->cardRulingsLookup instanceof GameCardRulingsLookup
+            ? $this->cardRulingsLookup->hasRulingsByScryfallIds($visibleScryfallIds)
+            : [];
+
         if ($localizedCardsByLanguage === null && $this->cardLocalization instanceof CardLocalizationService) {
             $localizedCardsByLanguage = $this->cardLocalization->localizedImagePayloadLookupForScryfallIds(
-                $this->cardsScryfallIds($cards),
+                $visibleScryfallIds,
                 $this->requestedLanguages($requestedLanguage),
             );
         }
 
         if ($ownerId !== $viewerId && $this->zoneIsHidden($zone)) {
             if ($zone === 'hand') {
-                return $this->projectOpponentHand($cards, $viewerId, $ownerId, $requestedLanguage, $localizedCardsByLanguage);
+                return $this->projectOpponentHand($cards, $viewerId, $ownerId, $requestedLanguage, $localizedCardsByLanguage, $rulingsLookup);
             }
             if ($zone === 'library') {
-                return $this->projectOpponentLibraryZone($cards, $viewerId, $ownerId, $playTopLibraryRevealed, $requestedLanguage, $localizedCardsByLanguage);
+                return $this->projectOpponentLibraryZone($cards, $viewerId, $ownerId, $playTopLibraryRevealed, $requestedLanguage, $localizedCardsByLanguage, $rulingsLookup);
             }
 
             $cards = array_values(array_filter($cards, fn (array $card): bool => $this->isVisibleCard($card, $viewerId)));
         }
 
         return array_values(array_map(
-            fn (array $card): array => $this->projectCard($card, $viewerId, $ownerId === $viewerId, $requestedLanguage, $localizedCardsByLanguage),
+            fn (array $card): array => $this->projectCard($card, $viewerId, $ownerId === $viewerId, $requestedLanguage, $localizedCardsByLanguage, $rulingsLookup),
             $cards,
         ));
+    }
+
+    /**
+     * @param list<User> $viewers
+     * @param array<string,bool> $viewerCanUseOwnHiddenZonesByUserId
+     *
+     * @return array<string,bool>
+     */
+    public function rulingsLookupForViewers(array $snapshot, array $viewers, array $viewerCanUseOwnHiddenZonesByUserId): array
+    {
+        if (!$this->cardRulingsLookup instanceof GameCardRulingsLookup) {
+            return [];
+        }
+
+        $scryfallIds = [];
+        foreach ($viewers as $viewer) {
+            if (!$viewer instanceof User) {
+                continue;
+            }
+
+            foreach ($this->visibleSnapshotScryfallIds(
+                $snapshot,
+                $viewer->id(),
+                $viewerCanUseOwnHiddenZonesByUserId[$viewer->id()] ?? true,
+            ) as $scryfallId) {
+                $scryfallIds[$scryfallId] = true;
+            }
+        }
+
+        return $this->cardRulingsLookup->hasRulingsByScryfallIds(array_keys($scryfallIds));
     }
 
     private function zoneIsHidden(string $zone): bool
@@ -149,7 +194,14 @@ class GameProjectionService
      *
      * @return list<array<string,mixed>>
      */
-    private function projectOpponentHand(array $cards, string $viewerId, string $ownerId, ?string $requestedLanguage = null, ?array $localizedCardsByLanguage = null): array
+    private function projectOpponentHand(
+        array $cards,
+        string $viewerId,
+        string $ownerId,
+        ?string $requestedLanguage = null,
+        ?array $localizedCardsByLanguage = null,
+        ?array $rulingsLookup = null,
+    ): array
     {
         $cards = array_values($cards);
         $handSize = count($cards);
@@ -172,7 +224,7 @@ class GameProjectionService
 
         $startIndex = max(0, (int) floor(($handSize - count($visibleCards)) / 2));
         foreach ($visibleCards as $offset => $card) {
-            $projected[$startIndex + $offset] = $this->projectCard($card, $viewerId, false, $requestedLanguage, $localizedCardsByLanguage);
+            $projected[$startIndex + $offset] = $this->projectCard($card, $viewerId, false, $requestedLanguage, $localizedCardsByLanguage, $rulingsLookup);
         }
 
         return array_values($projected);
@@ -200,7 +252,15 @@ class GameProjectionService
      *
      * @return list<array<string,mixed>>
      */
-    private function projectOpponentLibrary(array $cards, string $viewerId, string $ownerId, bool $playTopRevealed = false, ?string $requestedLanguage = null, ?array $localizedCardsByLanguage = null): array
+    private function projectOpponentLibrary(
+        array $cards,
+        string $viewerId,
+        string $ownerId,
+        bool $playTopRevealed = false,
+        ?string $requestedLanguage = null,
+        ?array $localizedCardsByLanguage = null,
+        ?array $rulingsLookup = null,
+    ): array
     {
         $cards = array_values($cards);
         if ($cards === []) {
@@ -214,7 +274,7 @@ class GameProjectionService
                 $topCard['revealedTo'] = ['all'];
             }
 
-            return [$this->projectCard($topCard, $viewerId, false, $requestedLanguage, $localizedCardsByLanguage)];
+            return [$this->projectCard($topCard, $viewerId, false, $requestedLanguage, $localizedCardsByLanguage, $rulingsLookup)];
         }
 
         $topRevealedTo = $topCard['revealedTo'] ?? [];
@@ -230,7 +290,15 @@ class GameProjectionService
      *
      * @return list<array<string,mixed>>
      */
-    private function projectOpponentLibraryZone(array $cards, string $viewerId, string $ownerId, bool $playTopRevealed = false, ?string $requestedLanguage = null, ?array $localizedCardsByLanguage = null): array
+    private function projectOpponentLibraryZone(
+        array $cards,
+        string $viewerId,
+        string $ownerId,
+        bool $playTopRevealed = false,
+        ?string $requestedLanguage = null,
+        ?array $localizedCardsByLanguage = null,
+        ?array $rulingsLookup = null,
+    ): array
     {
         $visibleCards = array_values(array_filter(
             $cards,
@@ -239,12 +307,12 @@ class GameProjectionService
 
         if (count($visibleCards) > 1) {
             return array_values(array_map(
-                fn (array $card): array => $this->projectCard($this->faceUpLibraryCard($card), $viewerId, false, $requestedLanguage, $localizedCardsByLanguage),
+                fn (array $card): array => $this->projectCard($this->faceUpLibraryCard($card), $viewerId, false, $requestedLanguage, $localizedCardsByLanguage, $rulingsLookup),
                 $visibleCards,
             ));
         }
 
-        return $this->projectOpponentLibrary($cards, $viewerId, $ownerId, $playTopRevealed, $requestedLanguage, $localizedCardsByLanguage);
+        return $this->projectOpponentLibrary($cards, $viewerId, $ownerId, $playTopRevealed, $requestedLanguage, $localizedCardsByLanguage, $rulingsLookup);
     }
 
     /**
@@ -274,7 +342,14 @@ class GameProjectionService
         ];
     }
 
-    private function projectCard(array $card, string $viewerId, bool $ownerView, ?string $requestedLanguage = null, ?array $localizedCardsByLanguage = null): array
+    private function projectCard(
+        array $card,
+        string $viewerId,
+        bool $ownerView,
+        ?string $requestedLanguage = null,
+        ?array $localizedCardsByLanguage = null,
+        ?array $rulingsLookup = null,
+    ): array
     {
         $zone = (string) ($card['zone'] ?? '');
         if ($zone !== 'battlefield') {
@@ -296,6 +371,10 @@ class GameProjectionService
                 'counters' => $card['counters'] ?? [],
                 'zone' => $card['zone'] ?? null,
             ];
+        }
+
+        if (is_array($rulingsLookup)) {
+            $card = $this->applyRulingsLookupToCard($card, $rulingsLookup);
         }
 
         if (is_array($localizedCardsByLanguage)) {
@@ -406,91 +485,28 @@ class GameProjectionService
         return $snapshot;
     }
 
-    private function hydrateSnapshotRulingsMetadata(array $snapshot): array
+    private function applyRulingsLookupToCard(array $card, array $lookup): array
     {
-        if (!$this->cardRulingsLookup instanceof GameCardRulingsLookup) {
-            return $snapshot;
+        $scryfallId = trim((string) ($card['scryfallId'] ?? ''));
+        if ($scryfallId === '' || !isset($lookup[$scryfallId])) {
+            return $card;
         }
 
-        $lookup = $this->cardRulingsLookup->hasRulingsByScryfallIds($this->snapshotScryfallIds($snapshot));
-        if ($lookup === []) {
-            return $snapshot;
+        if ($lookup[$scryfallId]) {
+            $card['hasRulings'] = true;
+        } elseif (!array_key_exists('hasRulings', $card)) {
+            $card['hasRulings'] = false;
         }
 
-        foreach ($snapshot['players'] as &$player) {
-            if (!is_array($player) || !is_array($player['zones'] ?? null)) {
-                continue;
-            }
-
-            foreach ($player['zones'] as &$cards) {
-                if (!is_array($cards)) {
-                    continue;
-                }
-
-                $cards = $this->applyRulingsLookupToCards($cards, $lookup);
-            }
-            unset($cards);
-        }
-        unset($player);
-
-        return $snapshot;
+        return $card;
     }
 
     /**
      * @param array<int,array<string,mixed>> $cards
-     *
-     * @return array<int,array<string,mixed>>
-     */
-    private function hydrateCardsRulingsMetadata(array $cards): array
-    {
-        if (!$this->cardRulingsLookup instanceof GameCardRulingsLookup) {
-            return $cards;
-        }
-
-        $lookup = $this->cardRulingsLookup->hasRulingsByScryfallIds($this->cardsScryfallIds($cards));
-        if ($lookup === []) {
-            return $cards;
-        }
-
-        return $this->applyRulingsLookupToCards($cards, $lookup);
-    }
-
-    /**
-     * @param array<int,array<string,mixed>> $cards
-     * @param array<string,bool> $lookup
-     *
-     * @return array<int,array<string,mixed>>
-     */
-    private function applyRulingsLookupToCards(array $cards, array $lookup): array
-    {
-        foreach ($cards as $index => $card) {
-            if (!is_array($card)) {
-                continue;
-            }
-
-            $scryfallId = trim((string) ($card['scryfallId'] ?? ''));
-            if ($scryfallId === '' || !isset($lookup[$scryfallId])) {
-                continue;
-            }
-
-            if ($lookup[$scryfallId]) {
-                $card['hasRulings'] = true;
-            } elseif (!array_key_exists('hasRulings', $card)) {
-                $card['hasRulings'] = false;
-            }
-
-            $cards[$index] = $card;
-        }
-
-        return $cards;
-    }
-
-    /**
-     * @param array<string,mixed> $snapshot
      *
      * @return list<string>
      */
-    private function snapshotScryfallIds(array $snapshot): array
+    private function visibleSnapshotScryfallIds(array $snapshot, string $viewerId, bool $viewerCanUseOwnHiddenZones): array
     {
         $scryfallIds = [];
         $players = $snapshot['players'] ?? null;
@@ -498,21 +514,26 @@ class GameProjectionService
             return [];
         }
 
-        foreach ($players as $player) {
-            if (!is_array($player) || !is_array($player['zones'] ?? null)) {
+        foreach ($players as $playerId => $player) {
+            if (!is_string($playerId) || !is_array($player) || !is_array($player['zones'] ?? null)) {
                 continue;
             }
 
-            foreach ($player['zones'] as $cards) {
+            $playTopLibraryRevealed = ($player['playTopLibraryRevealed'] ?? false) === true;
+            foreach ($player['zones'] as $zone => $cards) {
                 if (!is_array($cards)) {
                     continue;
                 }
 
-                foreach ($cards as $card) {
-                    if (!is_array($card)) {
-                        continue;
-                    }
-
+                $isOwnHiddenZone = $viewerCanUseOwnHiddenZones && $playerId === $viewerId;
+                foreach ($this->visibleCardsForSnapshotZone(
+                    $cards,
+                    (string) $zone,
+                    $viewerId,
+                    $playerId,
+                    $isOwnHiddenZone,
+                    $playTopLibraryRevealed,
+                ) as $card) {
                     $scryfallId = trim((string) ($card['scryfallId'] ?? ''));
                     if ($scryfallId !== '') {
                         $scryfallIds[$scryfallId] = true;
@@ -522,6 +543,141 @@ class GameProjectionService
         }
 
         return array_keys($scryfallIds);
+    }
+
+    /**
+     * @param array<int,array<string,mixed>> $cards
+     *
+     * @return list<string>
+     */
+    private function visibleZoneScryfallIds(array $cards, string $ownerId, string $zone, string $viewerId, bool $playTopLibraryRevealed): array
+    {
+        return $this->cardsScryfallIds(
+            $this->visibleCardsForZoneProjection($cards, $ownerId, $zone, $viewerId, $playTopLibraryRevealed),
+        );
+    }
+
+    /**
+     * @param array<int,array<string,mixed>> $cards
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function visibleCardsForSnapshotZone(
+        array $cards,
+        string $zone,
+        string $viewerId,
+        string $ownerId,
+        bool $isOwnHiddenZone,
+        bool $playTopLibraryRevealed,
+    ): array
+    {
+        if ($zone === 'hand' && !$isOwnHiddenZone) {
+            return $this->visibleCards($cards, $viewerId);
+        }
+
+        if ($zone === 'library' && !$isOwnHiddenZone) {
+            $normalizedCards = $this->cardArrays($cards);
+            if ($normalizedCards === []) {
+                return [];
+            }
+
+            $topCard = $normalizedCards[0];
+            if ($playTopLibraryRevealed || $this->isVisibleCard($topCard, $viewerId)) {
+                return [$topCard];
+            }
+
+            return [];
+        }
+
+        if ($this->zoneIsHidden($zone) && !$isOwnHiddenZone) {
+            return $this->visibleCards($cards, $viewerId);
+        }
+
+        return $this->cardsVisibleAfterProjection($cards, $viewerId, $ownerId === $viewerId);
+    }
+
+    /**
+     * @param array<int,array<string,mixed>> $cards
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function visibleCardsForZoneProjection(
+        array $cards,
+        string $ownerId,
+        string $zone,
+        string $viewerId,
+        bool $playTopLibraryRevealed,
+    ): array
+    {
+        if ($ownerId !== $viewerId && $this->zoneIsHidden($zone)) {
+            if ($zone === 'hand') {
+                return $this->visibleCards($cards, $viewerId);
+            }
+
+            if ($zone === 'library') {
+                $visibleCards = $this->visibleCards($cards, $viewerId);
+                if (count($visibleCards) > 1) {
+                    return $visibleCards;
+                }
+
+                $normalizedCards = $this->cardArrays($cards);
+                if ($normalizedCards === []) {
+                    return [];
+                }
+
+                $topCard = $normalizedCards[0];
+                if ($playTopLibraryRevealed || $this->isVisibleCard($topCard, $viewerId)) {
+                    return [$topCard];
+                }
+
+                return [];
+            }
+
+            return $this->visibleCards($cards, $viewerId);
+        }
+
+        return $this->cardsVisibleAfterProjection($cards, $viewerId, $ownerId === $viewerId);
+    }
+
+    /**
+     * @param array<int,array<string,mixed>> $cards
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function visibleCards(array $cards, string $viewerId): array
+    {
+        return array_values(array_filter(
+            $this->cardArrays($cards),
+            fn (array $card): bool => $this->isVisibleCard($card, $viewerId),
+        ));
+    }
+
+    /**
+     * @param array<int,array<string,mixed>> $cards
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function cardsVisibleAfterProjection(array $cards, string $viewerId, bool $ownerView): array
+    {
+        return array_values(array_filter(
+            $this->cardArrays($cards),
+            fn (array $card): bool => $this->cardRetainsIdentityForViewer($card, $viewerId, $ownerView),
+        ));
+    }
+
+    private function cardRetainsIdentityForViewer(array $card, string $viewerId, bool $ownerView): bool
+    {
+        return !(($card['faceDown'] ?? false) === true && !$ownerView && !$this->isVisibleCard($card, $viewerId));
+    }
+
+    /**
+     * @param array<int,mixed> $cards
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function cardArrays(array $cards): array
+    {
+        return array_values(array_filter($cards, static fn (mixed $card): bool => is_array($card)));
     }
 
     /**

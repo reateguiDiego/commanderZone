@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { Router } from '@angular/router';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, tap } from 'rxjs';
 import { GamesApi } from '../../../../../core/api/games.api';
 import { RoomsApi } from '../../../../../core/api/rooms.api';
 import { GameTableCoreState } from '../core/game-table-core.state';
@@ -16,21 +16,27 @@ export class GameTableGameActionsStore {
     private readonly uiState: GameTableUiState,
   ) {}
 
+  resetViewerControlAccess(): void {
+    this.core.viewerCanControlTable.set(false);
+    this.core.currentDeckId.set(null);
+  }
+
   async refreshViewerControlAccess(): Promise<void> {
     const gameId = this.core.gameId();
     if (!gameId) {
-      this.core.viewerCanControlTable.set(false);
-      this.core.currentDeckId.set(null);
+      this.resetViewerControlAccess();
       return;
     }
 
     try {
-      const response = await firstValueFrom(this.roomsApi.current(true));
-      this.core.viewerCanControlTable.set(response.room?.gameId === gameId && response.viewerRole !== null);
-      this.core.currentDeckId.set(response.room?.gameId === gameId ? response.player?.deckId ?? null : null);
+      await firstValueFrom(this.roomsApi.current(true).pipe(
+        tap((response) => {
+          this.core.viewerCanControlTable.set(response.room?.gameId === gameId && response.viewerRole !== null);
+          this.core.currentDeckId.set(response.room?.gameId === gameId ? response.player?.deckId ?? null : null);
+        }),
+      ));
     } catch {
-      this.core.viewerCanControlTable.set(false);
-      this.core.currentDeckId.set(null);
+      this.resetViewerControlAccess();
     }
   }
 
