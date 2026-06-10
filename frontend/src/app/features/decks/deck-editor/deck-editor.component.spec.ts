@@ -1,6 +1,7 @@
 import { computed, importProvidersFrom, signal } from '@angular/core';
 import { convertToParamMap } from '@angular/router';
 import { TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 import { ActivatedRoute, provideRouter } from '@angular/router';
 import {
   BarChart3,
@@ -40,6 +41,7 @@ import { Card } from '../../../core/models/card.model';
 import { Deck, DeckCard, DeckSection } from '../../../core/models/deck.model';
 import { PageHeaderStore } from '../../../core/ui/page-header.store';
 import { DeckEditorComponent } from './deck-editor.component';
+import { CardAutocompleteComponent } from '../../../shared/components/card-autocomplete/card-autocomplete.component';
 
 describe('DeckEditorComponent', () => {
   async function setup(
@@ -442,6 +444,45 @@ describe('DeckEditorComponent', () => {
 
     expect(cardsApi.search).toHaveBeenCalledWith('Sol Ring', 1, 60);
   });
+
+  it('passes commander color identity to the deckbuilder autocomplete search filters', async () => {
+    await setup({ id: 'deck-1' }, {
+      id: 'deck-1',
+      name: 'Talrand',
+      format: 'commander',
+      folderId: null,
+      cards: [
+        deckCard('commander-card', 'commander', card('Talrand, Sky Summoner', 'Legendary Creature', 'normal', ['U'])),
+        deckCard('main-card', 'main', card('Sol Ring', 'Artifact')),
+      ],
+    });
+    const fixture = TestBed.createComponent(DeckEditorComponent);
+
+    await fixture.componentInstance.store.load();
+    fixture.detectChanges();
+
+    const autocomplete = fixture.debugElement.query(By.directive(CardAutocompleteComponent)).componentInstance as CardAutocompleteComponent;
+
+    expect(autocomplete.filters).toEqual({ colorIdentity: ['U'] });
+  });
+
+  it('leaves deckbuilder autocomplete search unfiltered when there is no commander color identity', async () => {
+    await setup({ id: 'deck-1' }, {
+      id: 'deck-1',
+      name: 'No commander yet',
+      format: 'commander',
+      folderId: null,
+      cards: [deckCard('main-card', 'main', card('Sol Ring', 'Artifact'))],
+    });
+    const fixture = TestBed.createComponent(DeckEditorComponent);
+
+    await fixture.componentInstance.store.load();
+    fixture.detectChanges();
+
+    const autocomplete = fixture.debugElement.query(By.directive(CardAutocompleteComponent)).componentInstance as CardAutocompleteComponent;
+
+    expect(autocomplete.filters).toEqual({});
+  });
 });
 
 function deckCard(id: string, section: DeckSection, card: Card): DeckCard {
@@ -481,7 +522,7 @@ function validCommanderValidation() {
   };
 }
 
-function card(name: string, typeLine: string, layout = 'normal'): Card {
+function card(name: string, typeLine: string, layout = 'normal', colorIdentity: Array<'W' | 'U' | 'B' | 'R' | 'G'> = []): Card {
   return {
     id: `${name}-id`,
     scryfallId: `${name}-scryfall-id`,
@@ -490,7 +531,7 @@ function card(name: string, typeLine: string, layout = 'normal'): Card {
     typeLine,
     oracleText: null,
     colors: [],
-    colorIdentity: [],
+    colorIdentity,
     legalities: {},
     imageUris: {},
     layout,

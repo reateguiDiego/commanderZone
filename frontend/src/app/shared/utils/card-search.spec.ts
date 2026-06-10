@@ -35,6 +35,14 @@ describe('card-search utilities', () => {
     expect(results.map((result) => result.name)).toContain('Liliana of the Veil');
   });
 
+  it('keeps backend-approved localized results even when the visible name does not contain the raw query', () => {
+    const results = filterDistinctCardsByQuery([
+      card('Anillo solar', 'tst', '1', 'Artifact', '{1}', 'Anillo solar'),
+    ], 'sol ring');
+
+    expect(results.map((result) => result.name)).toEqual(['Anillo solar']);
+  });
+
   it('filters generic card type results from autocomplete', () => {
     const results = filterDistinctCardsByQuery([
       card('Checklist Card', 'tst', '1', 'Card'),
@@ -45,7 +53,7 @@ describe('card-search utilities', () => {
   });
 });
 
-function card(name: string, set: string, collectorNumber: string, typeLine = 'Artifact', manaCost: string | null = null): Card {
+function card(name: string, set: string, collectorNumber: string, typeLine = 'Artifact', manaCost: string | null = null, printedName: string | null = null): Card {
   return {
     id: `${name}-${set}`,
     scryfallId: `${name}-${set}-scryfall-id`,
@@ -61,5 +69,6 @@ function card(name: string, set: string, collectorNumber: string, typeLine = 'Ar
     commanderLegal: true,
     set,
     collectorNumber,
+    printedName,
   };
 }
