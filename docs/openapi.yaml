@@ -2229,7 +2229,7 @@ components:
           description: Whether live debug instrumentation is enabled for gameplay websocket traffic.
         context:
           type: object
-          required: [players]
+          required: [players, viewerCount, languageCount, uniqueCardCount, uniqueScryfallIdCount, debugObserved, usingLegacyLocalizationFallback]
           properties:
             players:
               type: array
@@ -2248,6 +2248,21 @@ components:
                     nullable: true
                   status:
                     type: string
+            viewerCount:
+              type: integer
+            languageCount:
+              type: integer
+            uniqueCardCount:
+              type: integer
+            uniqueScryfallIdCount:
+              type: integer
+            debugObserved:
+              type: boolean
+            usingLegacyLocalizationFallback:
+              nullable: true
+              oneOf:
+                - type: boolean
+                - type: 'null'
         health:
           $ref: '#/components/schemas/GameDebugHealth'
         generatedAt:
@@ -2258,7 +2273,7 @@ components:
           format: date-time
     GameDebugHealth:
       type: object
-      required: [websocket, traffic, actions, pipeline, performance, replay, sync, errors, recent, events]
+      required: [websocket, traffic, actions, pipeline, performance, replay, sync, errors, bootstrap, recent, events]
       properties:
         websocket:
           type: object
@@ -2480,6 +2495,8 @@ components:
                     type: string
                   conflict:
                     $ref: '#/components/schemas/GameWebsocketVersionConflict'
+        bootstrap:
+          $ref: '#/components/schemas/GameDebugBootstrap'
         recent:
           type: array
           items:
@@ -2490,6 +2507,55 @@ components:
           items:
             type: object
             additionalProperties: true
+    GameDebugBootstrap:
+      type: object
+      required: [stages, recent]
+      properties:
+        stages:
+          type: object
+          required: [initial_snapshot, websocket_ticket, socket_connect, first_connection_state, first_mercure_event, viewer_control_access, first_render_ready]
+          properties:
+            initial_snapshot:
+              $ref: '#/components/schemas/GameDebugBootstrapStage'
+            websocket_ticket:
+              $ref: '#/components/schemas/GameDebugBootstrapStage'
+            socket_connect:
+              $ref: '#/components/schemas/GameDebugBootstrapStage'
+            first_connection_state:
+              $ref: '#/components/schemas/GameDebugBootstrapStage'
+            first_mercure_event:
+              $ref: '#/components/schemas/GameDebugBootstrapStage'
+            viewer_control_access:
+              $ref: '#/components/schemas/GameDebugBootstrapStage'
+            first_render_ready:
+              $ref: '#/components/schemas/GameDebugBootstrapStage'
+        recent:
+          type: array
+          description: Dedicated bootstrap milestones retained separately from the rolling action window.
+          items:
+            type: object
+            additionalProperties: true
+    GameDebugBootstrapStage:
+      type: object
+      required: [count, totalMs, avgMs, maxMs, lastMs, lastAt, lastContext]
+      properties:
+        count:
+          type: integer
+        totalMs:
+          type: number
+        avgMs:
+          type: number
+        maxMs:
+          type: number
+        lastMs:
+          type: number
+        lastAt:
+          type: string
+          nullable: true
+        lastContext:
+          type: object
+          nullable: true
+          additionalProperties: true
     GameDebugTrafficBucket:
       type: object
       required: [messages, characters, byKind, byAction, byChannel]

@@ -6,7 +6,7 @@ use App\Application\Game\GameCommandHandler;
 use App\Application\Game\GameDisconnectVoteService;
 use App\Application\Game\GameProjectionService;
 use App\Application\Game\GameRematchService;
-use App\Application\Game\Debug\GameDebugHealthAggregator;
+use App\Application\Game\Debug\GameDebugHealthLiveStore;
 use App\Application\Game\WebSocket\GameWebsocketRoomRegistry;
 use App\Application\Game\WebSocket\GameWebsocketTicketManager;
 use App\Domain\Game\Game;
@@ -30,7 +30,13 @@ class GamesController extends ApiController
 {
     #[Route('/games/{id}/snapshot', methods: ['GET'])]
     #[Route('/games/{id}/bootstrap', methods: ['GET'])]
-    public function snapshot(string $id, #[CurrentUser] User $user, EntityManagerInterface $entityManager, GameProjectionService $projection): JsonResponse
+    public function snapshot(
+        string $id,
+        #[CurrentUser] User $user,
+        EntityManagerInterface $entityManager,
+        GameProjectionService $projection,
+        GameDebugHealthLiveStore $debugHealth,
+    ): JsonResponse
     {
         $game = $entityManager->getRepository(Game::class)->find($id);
         if (!$game instanceof Game) {
@@ -40,10 +46,22 @@ class GamesController extends ApiController
             return $this->fail('Game access denied.', 403);
         }
 
+        $startedAt = microtime(true);
+        $projectedSnapshot = $projection->project($game, $user);
+        $debugObserved = $debugHealth->isObserved($game->id());
+        if ($debugObserved) {
+            $debugHealth->recordBootstrapStage(
+                $game->id(),
+                'initial_snapshot',
+                $this->elapsedMs($startedAt),
+                $this->bootstrapStageContext($game, $debugObserved),
+            );
+        }
+
         return $this->json([
             'game' => [
                 ...$game->toArray(),
-                'snapshot' => $projection->project($game, $user),
+                'snapshot' => $projectedSnapshot,
             ],
         ]);
     }
@@ -54,6 +72,7 @@ class GamesController extends ApiController
         #[CurrentUser] User $user,
         EntityManagerInterface $entityManager,
         GameWebsocketTicketManager $tickets,
+        GameDebugHealthLiveStore $debugHealth,
         #[Autowire('%game_websocket_public_url%')]
         string $websocketPublicUrl,
     ): JsonResponse {
@@ -65,7 +84,17 @@ class GamesController extends ApiController
             return $this->fail('Game access denied.', 403);
         }
 
+        $startedAt = microtime(true);
         $ticket = $tickets->issue($game->id(), $user->id());
+        $debugObserved = $debugHealth->isObserved($game->id());
+        if ($debugObserved) {
+            $debugHealth->recordBootstrapStage(
+                $game->id(),
+                'websocket_ticket',
+                $this->elapsedMs($startedAt),
+                $this->bootstrapStageContext($game, $debugObserved),
+            );
+        }
 
         return $this->json([
             'ticket' => $ticket->ticket,
@@ -79,7 +108,7 @@ class GamesController extends ApiController
         string $id,
         #[CurrentUser] User $user,
         EntityManagerInterface $entityManager,
-        GameDebugHealthAggregator $debugHealth,
+        GameDebugHealthLiveStore $debugHealth,
     ): JsonResponse {
         $game = $entityManager->getRepository(Game::class)->find($id);
         if (!$game instanceof Game) {
@@ -89,29 +118,46 @@ class GamesController extends ApiController
             return $this->fail('Game access denied.', 403);
         }
 
-        $generatedAt = (new \DateTimeImmutable())->format(DATE_ATOM);
+        $report = $debugHealth->reportForGame($game->id());
 
         return $this->json([
             'gameId' => $game->id(),
             'enabled' => true,
-            'context' => $this->debugHealthContext($game),
-            'health' => $debugHealth->normalize([]),
-            'generatedAt' => $generatedAt,
-            'updatedAt' => $generatedAt,
+            'context' => $this->debugHealthContext($game, (bool) ($report['enabled'] ?? false)),
+            'health' => $report['health'] ?? [],
+            'generatedAt' => $report['generatedAt'] ?? (new \DateTimeImmutable())->format(DATE_ATOM),
+            'updatedAt' => $report['updatedAt'] ?? (new \DateTimeImmutable())->format(DATE_ATOM),
         ]);
     }
 
     /**
-     * @return array{players: list<array{playerId: string, displayName: string, deckName: ?string, status: string}>}
+     * @return array{
+     *     players: list<array{playerId: string, displayName: string, deckName: ?string, status: string}>,
+     *     viewerCount: int,
+     *     languageCount: int,
+     *     uniqueCardCount: int,
+     *     uniqueScryfallIdCount: int,
+     *     debugObserved: bool,
+     *     usingLegacyLocalizationFallback: null
+     * }
      */
-    private function debugHealthContext(Game $game): array
+    private function debugHealthContext(Game $game, bool $debugObserved): array
     {
         $players = [];
         $snapshotPlayers = $game->snapshot()['players'] ?? [];
         if (!is_array($snapshotPlayers)) {
-            return ['players' => []];
+            return [
+                'players' => [],
+                'viewerCount' => 0,
+                'languageCount' => 0,
+                'uniqueCardCount' => 0,
+                'uniqueScryfallIdCount' => 0,
+                'debugObserved' => $debugObserved,
+                'usingLegacyLocalizationFallback' => null,
+            ];
         }
 
+        $languages = [];
         foreach ($snapshotPlayers as $playerId => $player) {
             if (!is_string($playerId) || !is_array($player)) {
                 continue;
@@ -130,7 +176,130 @@ class GamesController extends ApiController
             ];
         }
 
-        return ['players' => $players];
+        $ownerLanguage = $this->normalizedCardLanguage($game->room()->owner());
+        if ($ownerLanguage !== null) {
+            $languages[$ownerLanguage] = true;
+        }
+        foreach ($game->room()->orderedPlayers() as $roomPlayer) {
+            $language = $this->normalizedCardLanguage($roomPlayer->user());
+            if ($language !== null) {
+                $languages[$language] = true;
+            }
+        }
+
+        return [
+            'players' => $players,
+            'viewerCount' => count($players),
+            'languageCount' => count($languages),
+            'uniqueCardCount' => $this->uniqueSnapshotCardCount($game->snapshot()),
+            'uniqueScryfallIdCount' => $this->uniqueSnapshotScryfallIdCount($game->snapshot()),
+            'debugObserved' => $debugObserved,
+            'usingLegacyLocalizationFallback' => null,
+        ];
+    }
+
+    /**
+     * @return array{
+     *     viewerCount: int,
+     *     languageCount: int,
+     *     uniqueCardCount: int,
+     *     uniqueScryfallIdCount: int,
+     *     debugObserved: bool,
+     *     usingLegacyLocalizationFallback: null
+     * }
+     */
+    private function bootstrapStageContext(Game $game, bool $debugObserved): array
+    {
+        $context = $this->debugHealthContext($game, $debugObserved);
+
+        return [
+            'viewerCount' => $context['viewerCount'],
+            'languageCount' => $context['languageCount'],
+            'uniqueCardCount' => $context['uniqueCardCount'],
+            'uniqueScryfallIdCount' => $context['uniqueScryfallIdCount'],
+            'debugObserved' => $context['debugObserved'],
+            'usingLegacyLocalizationFallback' => $context['usingLegacyLocalizationFallback'],
+        ];
+    }
+
+    private function normalizedCardLanguage(User $user): ?string
+    {
+        $language = trim((string) $user->cardLanguage());
+
+        return $language !== '' ? strtolower($language) : null;
+    }
+
+    private function uniqueSnapshotCardCount(array $snapshot): int
+    {
+        $cards = [];
+        $players = $snapshot['players'] ?? null;
+        if (!is_array($players)) {
+            return 0;
+        }
+
+        foreach ($players as $player) {
+            if (!is_array($player) || !is_array($player['zones'] ?? null)) {
+                continue;
+            }
+
+            foreach ($player['zones'] as $zoneCards) {
+                if (!is_array($zoneCards)) {
+                    continue;
+                }
+
+                foreach ($zoneCards as $card) {
+                    if (!is_array($card)) {
+                        continue;
+                    }
+
+                    $instanceId = trim((string) ($card['instanceId'] ?? ''));
+                    if ($instanceId !== '') {
+                        $cards[$instanceId] = true;
+                    }
+                }
+            }
+        }
+
+        return count($cards);
+    }
+
+    private function uniqueSnapshotScryfallIdCount(array $snapshot): int
+    {
+        $scryfallIds = [];
+        $players = $snapshot['players'] ?? null;
+        if (!is_array($players)) {
+            return 0;
+        }
+
+        foreach ($players as $player) {
+            if (!is_array($player) || !is_array($player['zones'] ?? null)) {
+                continue;
+            }
+
+            foreach ($player['zones'] as $zoneCards) {
+                if (!is_array($zoneCards)) {
+                    continue;
+                }
+
+                foreach ($zoneCards as $card) {
+                    if (!is_array($card)) {
+                        continue;
+                    }
+
+                    $scryfallId = trim((string) ($card['scryfallId'] ?? ''));
+                    if ($scryfallId !== '') {
+                        $scryfallIds[$scryfallId] = true;
+                    }
+                }
+            }
+        }
+
+        return count($scryfallIds);
+    }
+
+    private function elapsedMs(float $startedAt): float
+    {
+        return round(max(0, (microtime(true) - $startedAt) * 1000), 2);
     }
 
     #[Route('/games/{id}/commands', methods: ['POST'])]

@@ -243,6 +243,26 @@ class GameDebugHealthAggregatorTest extends TestCase
         self::assertSame('user-1', $state['replay']['lastWindow']['userId']);
     }
 
+    public function testBootstrapStagesKeepDedicatedRecentBufferAndStageMetrics(): void
+    {
+        $aggregator = new GameDebugHealthAggregator();
+        $state = $aggregator->normalize([]);
+
+        $state = $aggregator->recordBootstrapStage($state, 'initial_snapshot', 145.678, [
+            'viewerCount' => 4,
+            'languageCount' => 3,
+        ], '2026-05-24T10:02:00+00:00');
+
+        self::assertSame(1, $state['bootstrap']['stages']['initial_snapshot']['count']);
+        self::assertSame(145.68, $state['bootstrap']['stages']['initial_snapshot']['lastMs']);
+        self::assertSame(145.68, $state['bootstrap']['stages']['initial_snapshot']['avgMs']);
+        self::assertSame('2026-05-24T10:02:00+00:00', $state['bootstrap']['stages']['initial_snapshot']['lastAt']);
+        self::assertSame(4, $state['bootstrap']['stages']['initial_snapshot']['lastContext']['viewerCount']);
+        self::assertSame('initial_snapshot', $state['bootstrap']['recent'][0]['stage']);
+        self::assertSame('bootstrap', $state['events'][0]['kind']);
+        self::assertSame(0, $state['actions']['total']);
+    }
+
     public function testRecentAndEventsBuffersAreBounded(): void
     {
         $aggregator = new GameDebugHealthAggregator();

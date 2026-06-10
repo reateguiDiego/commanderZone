@@ -219,6 +219,7 @@ class GameProjectionServiceTest extends TestCase
             ->expects(self::exactly(2))
             ->method('localizedImagePayloadLookupForScryfallIds')
             ->willReturnCallback(static function (array $scryfallIds, array $languages): array {
+                self::assertSame(['sol-ring-print'], $scryfallIds);
                 $language = $languages[0] ?? null;
                 if (!is_string($language)) {
                     return [];
@@ -252,6 +253,40 @@ class GameProjectionServiceTest extends TestCase
         self::assertSame('Hidden card', $frenchProjection['players'][$owner->id()]['zones']['hand'][0]['name']);
         self::assertArrayNotHasKey('imageUris', $spanishProjection['players'][$owner->id()]['zones']['hand'][0]);
         self::assertArrayNotHasKey('imageUris', $frenchProjection['players'][$owner->id()]['zones']['hand'][0]);
+    }
+
+    public function testProjectionHydratesRulingsOnlyForCardsThatStayVisibleToTheViewer(): void
+    {
+        $owner = new User('owner@example.test', 'Owner');
+        $viewer = new User('viewer@example.test', 'Viewer');
+        $snapshot = $this->snapshot($owner->id(), $viewer->id());
+        $snapshot['players'][$owner->id()]['zones']['battlefield'] = [[
+            ...$this->card('public-card', 'Rules Lawyer'),
+            'ownerId' => $owner->id(),
+            'controllerId' => $owner->id(),
+            'zone' => 'battlefield',
+            'scryfallId' => 'rules-lawyer-print',
+        ]];
+        $snapshot['players'][$owner->id()]['zones']['hand'] = [[
+            ...$this->card('hidden-card', 'Private Tutor'),
+            'ownerId' => $owner->id(),
+            'controllerId' => $owner->id(),
+            'zone' => 'hand',
+            'scryfallId' => 'private-print',
+        ]];
+
+        $rulingsLookup = $this->createMock(GameCardRulingsLookup::class);
+        $rulingsLookup
+            ->expects(self::once())
+            ->method('hasRulingsByScryfallIds')
+            ->with(['rules-lawyer-print'])
+            ->willReturn(['rules-lawyer-print' => true]);
+
+        $projection = (new GameProjectionService(new GameCommandHandler(), null, $rulingsLookup))
+            ->projectSnapshot($snapshot, $viewer);
+
+        self::assertTrue($projection['players'][$owner->id()]['zones']['battlefield'][0]['hasRulings']);
+        self::assertSame('Hidden card', $projection['players'][$owner->id()]['zones']['hand'][0]['name']);
     }
 
     public function testProjectionCanUsePrecomputedLocalizationLookupForImagesWithoutMetadataHydration(): void

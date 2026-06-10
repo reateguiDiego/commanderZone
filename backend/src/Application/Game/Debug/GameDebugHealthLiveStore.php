@@ -117,6 +117,14 @@ final class GameDebugHealthLiveStore
     }
 
     /**
+     * @param array<string,mixed>|null $context
+     */
+    public function recordBootstrapStage(string $gameId, string $stage, float $durationMs, ?array $context = null, ?string $timestamp = null): void
+    {
+        $this->mutate($gameId, fn (array $state): array => $this->aggregator->recordBootstrapStage($state, $stage, $durationMs, $context, $timestamp));
+    }
+
+    /**
      * @param array<string,mixed>|null $meta
      */
     public function recordIncomingValidationError(string $gameId, string $code, string $message, ?array $meta = null): void

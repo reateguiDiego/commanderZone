@@ -120,6 +120,41 @@ WHERE LOWER(COALESCE(c.image_status, '')) IN ('missing', 'placeholder')
       WHERE dc.card_id = c.id
   );
 
+-- Audit remaining non-English gaps where card_print_locale is still missing
+-- and the resolver would be tempted to fall back to legacy card rows.
+SELECT
+    requested.lang,
+    COUNT(*) AS missing_print_locale_rows,
+    COUNT(legacy.id) AS legacy_fallback_rows
+FROM (
+    SELECT DISTINCT
+        print.scryfall_id AS print_scryfall_id,
+        print.normalized_name,
+        lang.lang
+    FROM card_print print
+    CROSS JOIN (
+        SELECT DISTINCT lang
+        FROM card_print_locale
+        WHERE TRIM(COALESCE(lang, '')) <> ''
+        UNION
+        SELECT DISTINCT lang
+        FROM card
+        WHERE TRIM(COALESCE(lang, '')) <> ''
+    ) lang
+    WHERE LOWER(lang.lang) <> 'en'
+) requested
+LEFT JOIN card_print_locale locale
+    ON locale.print_scryfall_id = requested.print_scryfall_id
+   AND LOWER(COALESCE(locale.lang, '')) = LOWER(requested.lang)
+   AND LOWER(COALESCE(locale.image_status, '')) NOT IN ('missing', 'placeholder')
+LEFT JOIN card legacy
+    ON legacy.normalized_name = requested.normalized_name
+   AND LOWER(COALESCE(legacy.lang, '')) = LOWER(requested.lang)
+   AND LOWER(COALESCE(legacy.image_status, '')) NOT IN ('missing', 'placeholder')
+WHERE locale.print_scryfall_id IS NULL
+GROUP BY requested.lang
+ORDER BY requested.lang;
+
 -- Optional audit of what remains after cleanup.
 SELECT
     'card_print_locale' AS table_name,

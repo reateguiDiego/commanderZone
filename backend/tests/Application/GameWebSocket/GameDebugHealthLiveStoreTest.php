@@ -96,4 +96,21 @@ class GameDebugHealthLiveStoreTest extends TestCase
         self::assertNotSame($afterMutation['generatedAt'], $afterMutationRead['generatedAt']);
         self::assertSame($afterMutation['updatedAt'], $afterMutationRead['updatedAt']);
     }
+
+    public function testBootstrapStageMutationIsStoredAndPublishedWhileObserved(): void
+    {
+        $store = new GameDebugHealthLiveStore(new GameDebugHealthAggregator());
+        $reports = [];
+
+        $store->subscribe('game-1', static function (array $report) use (&$reports): void {
+            $reports[] = $report;
+        });
+
+        $store->recordBootstrapStage('game-1', 'websocket_ticket', 32.5, ['viewerCount' => 4]);
+
+        self::assertCount(2, $reports);
+        self::assertSame(1, $reports[1]['health']['bootstrap']['stages']['websocket_ticket']['count']);
+        self::assertSame(32.5, $reports[1]['health']['bootstrap']['stages']['websocket_ticket']['lastMs']);
+        self::assertSame(4, $reports[1]['health']['bootstrap']['stages']['websocket_ticket']['lastContext']['viewerCount']);
+    }
 }

@@ -38,6 +38,7 @@ final readonly class GameWebsocketClientHandler implements WebsocketClientHandle
 
     public function handleClient(WebsocketClient $client, Request $request, Response $response): void
     {
+        $socketConnectStartedAt = microtime(true);
         $gameId = $this->gameIdFromPath($request->getUri()->getPath());
         $ticket = $this->ticketFromQuery($request->getUri()->getQuery());
         $lastSeenVersion = $this->lastSeenVersionFromQuery($request->getUri()->getQuery());
@@ -74,6 +75,12 @@ final readonly class GameWebsocketClientHandler implements WebsocketClientHandle
         $totalConnections = $this->rooms->countForGame($peer->gameId);
         $wasOffline = $userConnections === 1;
         $this->safeRecordConnectionSnapshot($peer->gameId, $peer->userId, $peer->displayName, 'online', $totalConnections, $userConnections);
+        $this->safeRecordBootstrapStage($peer->gameId, 'socket_connect', $this->elapsedMs($socketConnectStartedAt), [
+            'debugObserved' => true,
+            'lastSeenVersionProvided' => is_int($lastSeenVersion),
+            'totalConnections' => $totalConnections,
+            'userConnections' => $userConnections,
+        ]);
 
         $connectionState = [
             'kind' => 'connection_state',
@@ -82,8 +89,14 @@ final readonly class GameWebsocketClientHandler implements WebsocketClientHandle
             'status' => 'connected',
             'serverTime' => (new \DateTimeImmutable())->format(DATE_ATOM),
         ];
+        $connectionStateStartedAt = microtime(true);
         $peer->send($connectionState);
         $this->safeRecordOutboundMessage($peer->gameId, $connectionState, 'direct');
+        $this->safeRecordBootstrapStage($peer->gameId, 'first_connection_state', $this->elapsedMs($connectionStateStartedAt), [
+            'debugObserved' => true,
+            'status' => 'connected',
+            'channel' => 'direct',
+        ]);
         if (is_int($lastSeenVersion)) {
             $replay = $this->replayBuffer->replay($peer->gameId, $peer->userId, $lastSeenVersion, $context->currentVersion);
             if ($replay === null) {
@@ -413,6 +426,22 @@ final readonly class GameWebsocketClientHandler implements WebsocketClientHandle
             $this->debugHealth->recordReplayResult($gameId, $userId, $lastSeenVersion, $currentVersion, $replayedCount, $result);
         } catch (\Throwable $exception) {
             $this->logger->warning('Could not record gameplay debug health replay result.', ['exception' => $exception]);
+        }
+    }
+
+    /**
+     * @param array<string,mixed>|null $context
+     */
+    private function safeRecordBootstrapStage(string $gameId, string $stage, float $durationMs, ?array $context = null): void
+    {
+        if (!$this->debugHealth->isObserved($gameId)) {
+            return;
+        }
+
+        try {
+            $this->debugHealth->recordBootstrapStage($gameId, $stage, $durationMs, $context);
+        } catch (\Throwable $exception) {
+            $this->logger->warning('Could not record gameplay debug health bootstrap stage.', ['exception' => $exception]);
         }
     }
 
