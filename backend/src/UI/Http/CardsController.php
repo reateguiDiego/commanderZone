@@ -32,123 +32,22 @@ class CardsController extends ApiController
         $page = max(1, (int) $request->query->get('page', 1));
         $limit = min(500, max(1, (int) $request->query->get('limit', 25)));
 
-        $where = [];
-        $params = [];
-        $searchRankSql = '0';
-        $languageRankSql = $this->searchLanguageRankSql($requestedLanguage, $params);
-        $languageScope = $this->searchLanguageScopeSql($requestedLanguage, $params);
-        if ($languageScope !== null) {
-            $where[] = $languageScope;
-        }
-
-        if ($query !== '') {
-            $foldedQuery = $this->foldLatinAccents($query);
-            $useContainsSearch = mb_strlen($query) >= 4;
-            $params['queryExact'] = $query;
-            $params['queryPrefix'] = $query.'%';
-            if ($useContainsSearch) {
-                $params['query'] = '%'.$query.'%';
-            }
-
-            if ($foldedQuery === $query) {
-                $where[] = $this->indexedSearchCandidateSql($requestedLanguage, $useContainsSearch, $params);
-                $searchRankSql = $this->indexedSearchRankSql($requestedLanguage, $params);
-            } else {
-                $accentFoldedName = $this->accentFoldSql('c.normalized_name');
-                $accentFoldedPrintedName = $this->accentFoldSql("LOWER(COALESCE(c.printed_name, ''))");
-                $accentFoldedFlavorName = $this->accentFoldSql("LOWER(COALESCE(c.flavor_name, ''))");
-                $exactSearchConditions = [
-                    "(c.normalized_name = :queryExact OR {$accentFoldedName} = :foldedQueryExact)",
-                    "(LOWER(COALESCE(c.printed_name, '')) = :queryExact OR {$accentFoldedPrintedName} = :foldedQueryExact)",
-                    "(LOWER(COALESCE(c.flavor_name, '')) = :queryExact OR {$accentFoldedFlavorName} = :foldedQueryExact)",
-                ];
-                $prefixSearchConditions = [
-                    "(c.normalized_name LIKE :queryPrefix OR {$accentFoldedName} LIKE :foldedQueryPrefix)",
-                    "(LOWER(COALESCE(c.printed_name, '')) LIKE :queryPrefix OR {$accentFoldedPrintedName} LIKE :foldedQueryPrefix)",
-                    "(LOWER(COALESCE(c.flavor_name, '')) LIKE :queryPrefix OR {$accentFoldedFlavorName} LIKE :foldedQueryPrefix)",
-                ];
-                $containsSearchConditions = $useContainsSearch ? [
-                    "(c.normalized_name LIKE :query OR {$accentFoldedName} LIKE :foldedQuery)",
-                    "(LOWER(COALESCE(c.printed_name, '')) LIKE :query OR {$accentFoldedPrintedName} LIKE :foldedQuery)",
-                    "(LOWER(COALESCE(c.flavor_name, '')) LIKE :query OR {$accentFoldedFlavorName} LIKE :foldedQuery)",
-                ] : [];
-                if ($this->shouldSearchLocalizedPrintTables($entityManager, $requestedLanguage)) {
-                    $accentFoldedLocaleName = $this->accentFoldSql("LOWER(COALESCE(locale.name, ''))");
-                    $accentFoldedLocalePrintedName = $this->accentFoldSql("LOWER(COALESCE(locale.printed_name, ''))");
-                    $exactSearchConditions[] = <<<SQL
-EXISTS (
-    SELECT 1
-    FROM card_print_locale locale
-    WHERE locale.print_scryfall_id = c.scryfall_id
-      AND locale.lang = :queryLang
-      AND (
-          LOWER(COALESCE(locale.name, '')) = :queryExact
-          OR {$accentFoldedLocaleName} = :foldedQueryExact
-          OR LOWER(COALESCE(locale.printed_name, '')) = :queryExact
-          OR {$accentFoldedLocalePrintedName} = :foldedQueryExact
-      )
-)
-SQL;
-                    $prefixSearchConditions[] = <<<SQL
-EXISTS (
-    SELECT 1
-    FROM card_print_locale locale
-    WHERE locale.print_scryfall_id = c.scryfall_id
-      AND locale.lang = :queryLang
-      AND (
-          LOWER(COALESCE(locale.name, '')) LIKE :queryPrefix
-          OR {$accentFoldedLocaleName} LIKE :foldedQueryPrefix
-          OR LOWER(COALESCE(locale.printed_name, '')) LIKE :queryPrefix
-          OR {$accentFoldedLocalePrintedName} LIKE :foldedQueryPrefix
-      )
-)
-SQL;
-                    if ($useContainsSearch) {
-                        $containsSearchConditions[] = <<<SQL
-EXISTS (
-    SELECT 1
-    FROM card_print_locale locale
-    WHERE locale.print_scryfall_id = c.scryfall_id
-      AND locale.lang = :queryLang
-      AND (
-          LOWER(COALESCE(locale.name, '')) LIKE :query
-          OR {$accentFoldedLocaleName} LIKE :foldedQuery
-          OR LOWER(COALESCE(locale.printed_name, '')) LIKE :query
-          OR {$accentFoldedLocalePrintedName} LIKE :foldedQuery
-      )
-)
-SQL;
-                    }
-                    $params['queryLang'] = $requestedLanguage;
-                }
-
-                $activeSearchConditions = $useContainsSearch ? $containsSearchConditions : $prefixSearchConditions;
-                $where[] = '('.implode(' OR ', $activeSearchConditions).')';
-                $searchRankSql = sprintf(
-                    'CASE WHEN %s THEN 0 WHEN %s THEN 1 ELSE 2 END',
-                    implode(' OR ', $exactSearchConditions),
-                    implode(' OR ', $prefixSearchConditions),
-                );
-                $params['foldedQueryExact'] = $foldedQuery;
-                $params['foldedQueryPrefix'] = $foldedQuery.'%';
-                if ($useContainsSearch) {
-                    $params['foldedQuery'] = '%'.$foldedQuery.'%';
-                }
-            }
-        }
+        $filters = [];
+        $filterParams = [];
+        $filterTypes = [];
 
         $commanderLegal = $request->query->get('commanderLegal');
         if ($commanderLegal !== null && $commanderLegal !== '') {
-            $where[] = 'c.commander_legal = :commanderLegal';
-            $params['commanderLegal'] = filter_var($commanderLegal, FILTER_VALIDATE_BOOLEAN);
+            $filters[] = 'c.commander_legal = :commanderLegal';
+            $filterParams['commanderLegal'] = filter_var($commanderLegal, FILTER_VALIDATE_BOOLEAN);
         }
 
         $tokenOnly = $request->query->get('tokenOnly');
         if ($tokenOnly !== null && $tokenOnly !== '' && filter_var($tokenOnly, FILTER_VALIDATE_BOOLEAN)) {
-            $where[] = '(c.layout IN (:tokenLayout, :doubleFacedTokenLayout) OR LOWER(c.type_line) LIKE :tokenTypeLine)';
-            $params['tokenLayout'] = 'token';
-            $params['doubleFacedTokenLayout'] = 'double_faced_token';
-            $params['tokenTypeLine'] = '%token%';
+            $filters[] = '(c.layout IN (:tokenLayout, :doubleFacedTokenLayout) OR LOWER(c.type_line) LIKE :tokenTypeLine)';
+            $filterParams['tokenLayout'] = 'token';
+            $filterParams['doubleFacedTokenLayout'] = 'double_faced_token';
+            $filterParams['tokenTypeLine'] = '%token%';
         }
 
         $type = mb_strtolower(trim((string) $request->query->get('type', '')));
@@ -158,23 +57,65 @@ SQL;
                 return $this->fail('type filter is invalid.');
             }
 
-            $where[] = 'LOWER(c.type_line) LIKE :type';
-            $params['type'] = '%'.$type.'%';
+            $filters[] = 'LOWER(c.type_line) LIKE :type';
+            $filterParams['type'] = '%'.$type.'%';
         }
 
         $colorIdentity = trim((string) $request->query->get('colorIdentity', ''));
         if ($colorIdentity !== '') {
-            foreach (array_filter(array_map('trim', explode(',', strtoupper($colorIdentity)))) as $index => $color) {
+            $allowedColors = [];
+            foreach (array_filter(array_map('trim', explode(',', strtoupper($colorIdentity)))) as $color) {
                 if (!in_array($color, ['W', 'U', 'B', 'R', 'G'], true)) {
                     return $this->fail('colorIdentity filter is invalid.');
                 }
 
-                $where[] = sprintf('c.color_identity::text LIKE :colorIdentity%d', $index);
-                $params[sprintf('colorIdentity%d', $index)] = '%"'.$color.'"%';
+                $allowedColors[$color] = $color;
             }
+
+            $filters[] = <<<'SQL'
+NOT EXISTS (
+    SELECT 1
+    FROM jsonb_array_elements_text(c.color_identity::jsonb) AS card_color(color)
+    WHERE card_color.color NOT IN (:allowedColorIdentity)
+)
+SQL;
+            $filterParams['allowedColorIdentity'] = array_values($allowedColors);
+            $filterTypes['allowedColorIdentity'] = ArrayParameterType::STRING;
         }
 
-        $sql = <<<'SQL'
+        if ($query !== '') {
+            $searchPatterns = $this->searchPatterns($query);
+            $buckets = $requestedLanguage === null ? ['all'] : $this->searchBuckets($requestedLanguage);
+            $ids = [];
+
+            foreach ($buckets as $bucket) {
+                [$sql, $params, $types] = $this->buildBucketedSearchSql(
+                    $entityManager,
+                    $bucket,
+                    $requestedLanguage,
+                    $filters,
+                    $filterParams,
+                    $filterTypes,
+                    $searchPatterns,
+                    $limit,
+                    $page,
+                );
+                $ids = $entityManager->getConnection()->fetchFirstColumn($sql, $params, $types);
+                if ($ids !== []) {
+                    break;
+                }
+            }
+        } else {
+            $where = $filters;
+            $params = $filterParams;
+            $searchRankSql = '0';
+            $languageRankSql = $this->searchLanguageRankSql($requestedLanguage, $params);
+            $languageScope = $this->searchLanguageScopeSql($requestedLanguage, $params);
+            if ($languageScope !== null) {
+                $where[] = $languageScope;
+            }
+
+            $sql = <<<'SQL'
 SELECT id
 FROM (
     SELECT DISTINCT ON (
@@ -199,9 +140,9 @@ SQL;
 ) AS distinct_cards
 ORDER BY search_rank ASC, language_rank ASC, name ASC
 SQL;
-        $sql .= sprintf(' LIMIT %d OFFSET %d', $limit, ($page - 1) * $limit);
-
-        $ids = $entityManager->getConnection()->fetchFirstColumn($sql, $params);
+            $sql .= sprintf(' LIMIT %d OFFSET %d', $limit, ($page - 1) * $limit);
+            $ids = $entityManager->getConnection()->fetchFirstColumn($sql, $params);
+        }
         if ($ids === []) {
             return $this->json(['data' => [], 'page' => $page, 'limit' => $limit]);
         }
@@ -350,11 +291,307 @@ SQL;
         }
     }
 
-    private function shouldSearchLocalizedPrintTables(EntityManagerInterface $entityManager, ?string $requestedLanguage): bool
+    /**
+     * @return array{exact:string,prefix:string,contains:?string,useContains:bool}
+     */
+    private function searchPatterns(string $query): array
     {
-        return $requestedLanguage !== null
-            && $requestedLanguage !== LanguageCatalog::DEFAULT_LANGUAGE
-            && $this->printLocaleTablesAvailable($entityManager);
+        $folded = $this->normalizeSearchQuery($query);
+        $useContains = mb_strlen($query) >= 4;
+
+        return [
+            'exact' => $folded,
+            'prefix' => $folded.'%',
+            'contains' => $useContains ? '%'.$folded.'%' : null,
+            'useContains' => $useContains,
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function searchBuckets(string $requestedLanguage): array
+    {
+        if ($requestedLanguage === LanguageCatalog::DEFAULT_LANGUAGE) {
+            return ['english', 'common'];
+        }
+
+        return ['requested', 'english', 'common'];
+    }
+
+    /**
+     * @param list<string> $filters
+     * @param array<string,mixed> $baseParams
+     * @param array<string,mixed> $baseTypes
+     * @param array{exact:string,prefix:string,contains:?string,useContains:bool} $patterns
+     *
+     * @return array{0:string,1:array<string,mixed>,2:array<string,mixed>}
+     */
+    private function buildBucketedSearchSql(
+        EntityManagerInterface $entityManager,
+        string $bucket,
+        ?string $requestedLanguage,
+        array $filters,
+        array $baseParams,
+        array $baseTypes,
+        array $patterns,
+        int $limit,
+        int $page,
+    ): array {
+        $params = $baseParams;
+        $types = $baseTypes;
+        $where = $filters;
+
+        $params['queryExactFolded'] = $patterns['exact'];
+        $params['queryPrefixFolded'] = $patterns['prefix'];
+        if (is_string($patterns['contains'])) {
+            $params['queryContainsFolded'] = $patterns['contains'];
+        }
+
+        $languageScope = $this->searchBucketScopeSql($bucket, $requestedLanguage, $params, $types);
+        if ($languageScope !== null) {
+            $where[] = $languageScope;
+        }
+
+        $where[] = $this->indexedSearchCandidateSql($entityManager, $bucket, $requestedLanguage, (bool) $patterns['useContains'], $params, $types);
+        $searchRankSql = $this->indexedSearchRankSql($entityManager, $bucket, $requestedLanguage, $params, $types);
+        $languageRankSql = $this->searchBucketRankSql($bucket, $requestedLanguage, $params, $types);
+
+        $sql = <<<'SQL'
+SELECT id
+FROM (
+    SELECT DISTINCT ON (
+        c.normalized_name,
+        COALESCE(LOWER(c.type_line), ''),
+        COALESCE(LOWER(c.mana_cost), '')
+    ) c.id, c.name,
+SQL;
+        $sql .= " {$searchRankSql} AS search_rank, {$languageRankSql} AS language_rank FROM card c";
+        if ($where !== []) {
+            $sql .= ' WHERE '.implode(' AND ', $where);
+        }
+        $sql .= <<<'SQL'
+    ORDER BY
+        c.normalized_name ASC,
+        COALESCE(LOWER(c.type_line), '') ASC,
+        COALESCE(LOWER(c.mana_cost), '') ASC,
+        search_rank ASC,
+        language_rank ASC,
+        c.scryfall_id ASC,
+        c.name ASC
+) AS distinct_cards
+ORDER BY search_rank ASC, language_rank ASC, name ASC
+SQL;
+        $sql .= sprintf(' LIMIT %d OFFSET %d', $limit, ($page - 1) * $limit);
+
+        return [$sql, $params, $types];
+    }
+
+    private function searchBucketScopeSql(string $bucket, ?string $requestedLanguage, array &$params, array &$types, string $alias = 'c'): ?string
+    {
+        $this->primeBucketParams($bucket, $requestedLanguage, $params, $types);
+
+        return match ($bucket) {
+            'all' => null,
+            'requested' => sprintf('%s.lang = :bucketRequestedLang', $alias),
+            'english' => sprintf('(%1$s.lang = :bucketEnglishLang OR %1$s.lang IS NULL)', $alias),
+            'common' => sprintf('%s.lang IN (:bucketCommonLangs)', $alias),
+            default => null,
+        };
+    }
+
+    private function searchBucketRankSql(string $bucket, ?string $requestedLanguage, array &$params, array &$types, string $alias = 'c'): string
+    {
+        $this->primeBucketParams($bucket, $requestedLanguage, $params, $types);
+
+        return match ($bucket) {
+            'all', 'requested' => '0',
+            'english' => sprintf(<<<'SQL'
+CASE
+    WHEN %1$s.lang = :bucketEnglishLang THEN 0
+    WHEN %1$s.lang IS NULL THEN 1
+    ELSE 2
+END
+SQL, $alias),
+            'common' => $this->commonLanguageRankSql($alias),
+            default => '0',
+        };
+    }
+
+    private function commonLanguageRankSql(string $alias): string
+    {
+        $cases = [];
+        foreach (LanguageCatalog::commonPrintLanguages() as $index => $language) {
+            $cases[] = sprintf("WHEN %s.lang = '%s' THEN %d", $alias, $language, $index);
+        }
+
+        return "CASE\n    ".implode("\n    ", $cases)."\n    ELSE ".count(LanguageCatalog::commonPrintLanguages())."\nEND";
+    }
+
+    private function indexedSearchCandidateSql(
+        EntityManagerInterface $entityManager,
+        string $bucket,
+        ?string $requestedLanguage,
+        bool $useContainsSearch,
+        array &$params,
+        array &$types,
+    ): string {
+        $patternParam = $useContainsSearch ? ':queryContainsFolded' : ':queryPrefixFolded';
+        $candidateQueries = [];
+        $scopeSql = $this->searchBucketScopeSql($bucket, $requestedLanguage, $params, $types, 'c_search');
+        $scopePrefix = $scopeSql !== null ? $scopeSql.' AND ' : '';
+
+        $candidateQueries[] = sprintf(
+            'SELECT c_search.id FROM card c_search WHERE %s%s LIKE %s',
+            $scopePrefix,
+            $this->foldedSearchSql('c_search.normalized_name'),
+            $patternParam,
+        );
+        $candidateQueries[] = sprintf(
+            'SELECT c_search.id FROM card c_search WHERE %s%s LIKE %s',
+            $scopePrefix,
+            $this->foldedSearchSql("COALESCE(c_search.printed_name, '')"),
+            $patternParam,
+        );
+        $candidateQueries[] = sprintf(
+            'SELECT c_search.id FROM card c_search WHERE %s%s LIKE %s',
+            $scopePrefix,
+            $this->foldedSearchSql("COALESCE(c_search.flavor_name, '')"),
+            $patternParam,
+        );
+
+        $localeScope = $this->localizedBucketScopeSql($entityManager, $bucket, $requestedLanguage, $params, $types, 'locale');
+        if ($localeScope !== null) {
+            $candidateQueries[] = sprintf(
+                'SELECT c_search.id FROM card c_search INNER JOIN card_print_locale locale ON locale.print_scryfall_id = c_search.scryfall_id WHERE %s%s AND (%s LIKE %s OR %s LIKE %s)',
+                $scopePrefix,
+                $localeScope,
+                $this->foldedSearchSql("COALESCE(locale.name, '')"),
+                $patternParam,
+                $this->foldedSearchSql("COALESCE(locale.printed_name, '')"),
+                $patternParam,
+            );
+        }
+
+        return 'c.id IN (SELECT matched.id FROM ('.implode(' UNION ', $candidateQueries).') AS matched)';
+    }
+
+    private function indexedSearchRankSql(
+        EntityManagerInterface $entityManager,
+        string $bucket,
+        ?string $requestedLanguage,
+        array &$params,
+        array &$types,
+    ): string {
+        $exactSearchConditions = [
+            $this->foldedSearchSql('c.normalized_name').' = :queryExactFolded',
+            $this->foldedSearchSql("COALESCE(c.printed_name, '')").' = :queryExactFolded',
+            $this->foldedSearchSql("COALESCE(c.flavor_name, '')").' = :queryExactFolded',
+        ];
+        $prefixSearchConditions = [
+            $this->foldedSearchSql('c.normalized_name').' LIKE :queryPrefixFolded',
+            $this->foldedSearchSql("COALESCE(c.printed_name, '')").' LIKE :queryPrefixFolded',
+            $this->foldedSearchSql("COALESCE(c.flavor_name, '')").' LIKE :queryPrefixFolded',
+        ];
+
+        $exactLocaleScope = $this->localizedBucketScopeSql($entityManager, $bucket, $requestedLanguage, $params, $types, 'locale_exact');
+        if ($exactLocaleScope !== null) {
+            $exactSearchConditions[] = sprintf(
+                'c.scryfall_id IN (SELECT locale_exact.print_scryfall_id FROM card_print_locale locale_exact WHERE %s AND (%s = :queryExactFolded OR %s = :queryExactFolded))',
+                $exactLocaleScope,
+                $this->foldedSearchSql("COALESCE(locale_exact.name, '')"),
+                $this->foldedSearchSql("COALESCE(locale_exact.printed_name, '')"),
+            );
+            $prefixSearchConditions[] = sprintf(
+                'c.scryfall_id IN (SELECT locale_prefix.print_scryfall_id FROM card_print_locale locale_prefix WHERE %s AND (%s LIKE :queryPrefixFolded OR %s LIKE :queryPrefixFolded))',
+                $this->localizedBucketScopeSql($entityManager, $bucket, $requestedLanguage, $params, $types, 'locale_prefix'),
+                $this->foldedSearchSql("COALESCE(locale_prefix.name, '')"),
+                $this->foldedSearchSql("COALESCE(locale_prefix.printed_name, '')"),
+            );
+        }
+
+        return sprintf(
+            'CASE WHEN %s THEN 0 WHEN %s THEN 1 ELSE 2 END',
+            implode(' OR ', $exactSearchConditions),
+            implode(' OR ', $prefixSearchConditions),
+        );
+    }
+
+    private function localizedBucketScopeSql(
+        EntityManagerInterface $entityManager,
+        string $bucket,
+        ?string $requestedLanguage,
+        array &$params,
+        array &$types,
+        string $alias = 'locale',
+    ): ?string {
+        if (!$this->printLocaleTablesAvailable($entityManager) || $bucket === 'all') {
+            return null;
+        }
+
+        $this->primeBucketParams($bucket, $requestedLanguage, $params, $types);
+
+        return match ($bucket) {
+            'requested' => sprintf('%s.lang = :bucketRequestedLocaleLang', $alias),
+            'english' => sprintf('%s.lang = :bucketEnglishLocaleLang', $alias),
+            'common' => sprintf('%s.lang IN (:bucketCommonLocaleLangs)', $alias),
+            default => null,
+        };
+    }
+
+    private function primeBucketParams(string $bucket, ?string $requestedLanguage, array &$params, array &$types): void
+    {
+        if ($bucket === 'requested' && $requestedLanguage !== null) {
+            $params['bucketRequestedLang'] = $requestedLanguage;
+            $params['bucketRequestedLocaleLang'] = $requestedLanguage;
+
+            return;
+        }
+
+        if ($bucket === 'english') {
+            $params['bucketEnglishLang'] = LanguageCatalog::DEFAULT_LANGUAGE;
+            $params['bucketEnglishLocaleLang'] = LanguageCatalog::DEFAULT_LANGUAGE;
+
+            return;
+        }
+
+        if ($bucket === 'common') {
+            $params['bucketCommonLangs'] = LanguageCatalog::commonPrintLanguages();
+            $types['bucketCommonLangs'] = ArrayParameterType::STRING;
+            $params['bucketCommonLocaleLangs'] = LanguageCatalog::commonPrintLanguages();
+            $types['bucketCommonLocaleLangs'] = ArrayParameterType::STRING;
+        }
+    }
+
+    private function foldedSearchSql(string $expression): string
+    {
+        return sprintf('LOWER(immutable_unaccent(%s))', $expression);
+    }
+
+    private function normalizeSearchQuery(string $query): string
+    {
+        $normalized = Card::normalizeName($query);
+
+        if (class_exists(\Transliterator::class)) {
+            $transliterator = \Transliterator::create('NFD; [:Nonspacing Mark:] Remove; NFC');
+            if ($transliterator instanceof \Transliterator) {
+                return Card::normalizeName($transliterator->transliterate($normalized));
+            }
+        }
+
+        if (class_exists(\Normalizer::class)) {
+            $decomposed = \Normalizer::normalize($normalized, \Normalizer::FORM_D);
+            if (is_string($decomposed)) {
+                $withoutMarks = preg_replace('/\p{Mn}+/u', '', $decomposed);
+                if (is_string($withoutMarks)) {
+                    return Card::normalizeName($withoutMarks);
+                }
+            }
+        }
+
+        $converted = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $normalized);
+
+        return is_string($converted) && $converted !== '' ? Card::normalizeName($converted) : $normalized;
     }
 
     private function searchLanguageScopeSql(?string $requestedLanguage, array &$params, string $alias = 'c'): ?string
@@ -400,68 +637,6 @@ CASE
     ELSE 3
 END
 SQL, $alias);
-    }
-
-    private function indexedSearchCandidateSql(?string $requestedLanguage, bool $useContainsSearch, array &$params): string
-    {
-        $patternParam = $useContainsSearch ? ':query' : ':queryPrefix';
-        $candidateQueries = [];
-        $scopeSql = $this->searchLanguageScopeSql($requestedLanguage, $params, 'c_search');
-        $scopePrefix = $scopeSql !== null ? $scopeSql.' AND ' : '';
-
-        $candidateQueries[] = sprintf(
-            "SELECT c_search.id FROM card c_search WHERE %sc_search.normalized_name LIKE %s",
-            $scopePrefix,
-            $patternParam,
-        );
-        $candidateQueries[] = sprintf(
-            "SELECT c_search.id FROM card c_search WHERE %sLOWER(COALESCE(c_search.printed_name, '')) LIKE %s",
-            $scopePrefix,
-            $patternParam,
-        );
-        $candidateQueries[] = sprintf(
-            "SELECT c_search.id FROM card c_search WHERE %sLOWER(COALESCE(c_search.flavor_name, '')) LIKE %s",
-            $scopePrefix,
-            $patternParam,
-        );
-
-        if ($requestedLanguage !== null && $requestedLanguage !== LanguageCatalog::DEFAULT_LANGUAGE) {
-            $params['queryLang'] = $requestedLanguage;
-            $candidateQueries[] = sprintf(
-                "SELECT c_search.id FROM card c_search INNER JOIN card_print_locale locale ON locale.print_scryfall_id = c_search.scryfall_id WHERE %slocale.lang = :queryLang AND (LOWER(COALESCE(locale.name, '')) LIKE %s OR LOWER(COALESCE(locale.printed_name, '')) LIKE %s)",
-                $scopePrefix,
-                $patternParam,
-                $patternParam,
-            );
-        }
-
-        return 'c.id IN (SELECT matched.id FROM ('.implode(' UNION ', $candidateQueries).') AS matched)';
-    }
-
-    private function indexedSearchRankSql(?string $requestedLanguage, array &$params): string
-    {
-        $exactSearchConditions = [
-            "c.normalized_name = :queryExact",
-            "LOWER(COALESCE(c.printed_name, '')) = :queryExact",
-            "LOWER(COALESCE(c.flavor_name, '')) = :queryExact",
-        ];
-        $prefixSearchConditions = [
-            "c.normalized_name LIKE :queryPrefix",
-            "LOWER(COALESCE(c.printed_name, '')) LIKE :queryPrefix",
-            "LOWER(COALESCE(c.flavor_name, '')) LIKE :queryPrefix",
-        ];
-
-        if ($requestedLanguage !== null && $requestedLanguage !== LanguageCatalog::DEFAULT_LANGUAGE) {
-            $params['queryLang'] = $requestedLanguage;
-            $exactSearchConditions[] = "c.scryfall_id IN (SELECT locale_exact.print_scryfall_id FROM card_print_locale locale_exact WHERE locale_exact.lang = :queryLang AND (LOWER(COALESCE(locale_exact.name, '')) = :queryExact OR LOWER(COALESCE(locale_exact.printed_name, '')) = :queryExact))";
-            $prefixSearchConditions[] = "c.scryfall_id IN (SELECT locale_prefix.print_scryfall_id FROM card_print_locale locale_prefix WHERE locale_prefix.lang = :queryLang AND (LOWER(COALESCE(locale_prefix.name, '')) LIKE :queryPrefix OR LOWER(COALESCE(locale_prefix.printed_name, '')) LIKE :queryPrefix))";
-        }
-
-        return sprintf(
-            'CASE WHEN %s THEN 0 WHEN %s THEN 1 ELSE 2 END',
-            implode(' OR ', $exactSearchConditions),
-            implode(' OR ', $prefixSearchConditions),
-        );
     }
 
     /**

@@ -81,12 +81,17 @@ describe('CardAutocompleteComponent', () => {
 
   it('filters out emblem cards when excludeEmblems is enabled', async () => {
     const cardsApi = TestBed.inject(CardsApi) as unknown as { search: ReturnType<typeof vi.fn> };
-    cardsApi.search.mockReturnValue(of({
-      data: [
-        card('Chandra Emblem', 'Emblem - Chandra', null, 'emblem'),
-        card('Lightning Bolt', 'Instant', null),
-      ],
-    }));
+    cardsApi.search
+      .mockReturnValueOnce(of({
+        data: [
+          card('Chandra Emblem', 'Emblem - Chandra', null, 'emblem'),
+        ],
+      }))
+      .mockReturnValueOnce(of({
+        data: [
+          card('Lightning Bolt', 'Instant', null),
+        ],
+      }));
 
     vi.useFakeTimers();
     try {
@@ -112,12 +117,17 @@ describe('CardAutocompleteComponent', () => {
 
   it('filters out scheme cards when excludeSchemes is enabled', async () => {
     const cardsApi = TestBed.inject(CardsApi) as unknown as { search: ReturnType<typeof vi.fn> };
-    cardsApi.search.mockReturnValue(of({
-      data: [
-        card('My Scheme', 'Scheme', null, 'scheme'),
-        card('Lightning Bolt', 'Instant', null),
-      ],
-    }));
+    cardsApi.search
+      .mockReturnValueOnce(of({
+        data: [
+          card('My Scheme', 'Scheme', null, 'scheme'),
+        ],
+      }))
+      .mockReturnValueOnce(of({
+        data: [
+          card('Lightning Bolt', 'Instant', null),
+        ],
+      }));
 
     vi.useFakeTimers();
     try {
@@ -169,6 +179,47 @@ describe('CardAutocompleteComponent', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('shows a no-results notice after a completed empty search', async () => {
+    const cardsApi = TestBed.inject(CardsApi) as unknown as { search: ReturnType<typeof vi.fn> };
+    cardsApi.search.mockReturnValue(of({ data: [] }));
+
+    vi.useFakeTimers();
+    try {
+      const fixture = TestBed.createComponent(CardAutocompleteComponent);
+      fixture.detectChanges();
+
+      fixture.componentInstance.onQueryInput('sol');
+      await vi.advanceTimersByTimeAsync(350);
+      fixture.detectChanges();
+
+      expect(fixture.componentInstance.searched()).toBe(true);
+      expect(fixture.nativeElement.textContent).toContain('No cards found');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('does not show a no-results notice before reaching the minimum query length', () => {
+    const fixture = TestBed.createComponent(CardAutocompleteComponent);
+    fixture.detectChanges();
+
+    fixture.componentInstance.onQueryInput('s');
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.searched()).toBe(false);
+    expect(fixture.nativeElement.textContent).not.toContain('No cards found');
+  });
+
+  it('does not show a no-results notice while loading', () => {
+    const fixture = TestBed.createComponent(CardAutocompleteComponent);
+    fixture.componentInstance.loading.set(true);
+    fixture.componentInstance.searched.set(true);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).not.toContain('No cards found');
+    expect(fixture.nativeElement.textContent).toContain('Searching cards');
   });
 });
 

@@ -31,6 +31,7 @@ export class CardAutocompleteComponent implements OnDestroy {
 
   readonly results = signal<Card[]>([]);
   readonly loading = signal(false);
+  readonly searched = signal(false);
   readonly quantities = signal<Record<string, number>>({});
 
   @Input() placeholder = 'Search cards';
@@ -93,6 +94,7 @@ export class CardAutocompleteComponent implements OnDestroy {
       return;
     }
 
+    this.searched.set(false);
     this.loading.set(true);
     const version = ++this.searchVersion;
     this.searchTimeout = setTimeout(() => {
@@ -119,6 +121,7 @@ export class CardAutocompleteComponent implements OnDestroy {
     const quantity = this.showQuantity ? this.quantityFor(card.scryfallId) : 1;
     this.cardSelected.emit({ card, quantity });
     this.results.set([]);
+    this.searched.set(false);
     this.lastQuery = '';
     this.lastSignature = '';
     this.quantities.set({});
@@ -175,6 +178,7 @@ export class CardAutocompleteComponent implements OnDestroy {
     } finally {
       if (version === this.searchVersion) {
         this.loading.set(false);
+        this.searched.set(true);
       }
     }
   }
@@ -187,6 +191,7 @@ export class CardAutocompleteComponent implements OnDestroy {
   private resetResults(): void {
     this.results.set([]);
     this.loading.set(false);
+    this.searched.set(false);
     this.lastQuery = '';
     this.lastSignature = '';
     this.quantities.set({});
@@ -201,5 +206,6 @@ export class CardAutocompleteComponent implements OnDestroy {
     this.searchVersion += 1;
     this.loading.set(false);
     this.results.set([]);
+    this.searched.set(false);
   }
 }

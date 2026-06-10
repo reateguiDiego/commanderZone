@@ -206,6 +206,34 @@ class CardApiTest extends ApiTestCase
         self::assertSame([$token->scryfallId()], array_column($this->jsonResponse()['data'], 'scryfallId'));
     }
 
+    public function testSearchColorIdentityFilterUsesSubsetSemanticsAndKeepsColorlessCards(): void
+    {
+        $blueCard = $this->seedCard('00000000-0000-0000-0000-000000000023', 'Arcane Denial', [
+            'type_line' => 'Instant',
+            'color_identity' => ['U'],
+        ]);
+        $colorlessCard = $this->seedCard('00000000-0000-0000-0000-000000000024', 'Arcane Signet', [
+            'type_line' => 'Artifact',
+            'color_identity' => [],
+        ]);
+        $this->seedCard('00000000-0000-0000-0000-000000000025', 'Arcane Growth', [
+            'type_line' => 'Sorcery',
+            'color_identity' => ['U', 'G'],
+        ]);
+        $this->seedCard('00000000-0000-0000-0000-000000000026', 'Arcane Verdict', [
+            'type_line' => 'Instant',
+            'color_identity' => ['U', 'W'],
+        ]);
+
+        $this->jsonRequest('GET', '/cards/search?q=arcane&colorIdentity=U&limit=10');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(
+            [$blueCard->scryfallId(), $colorlessCard->scryfallId()],
+            array_column($this->jsonResponse()['data'], 'scryfallId'),
+        );
+    }
+
     public function testSearchDeduplicatesPrintingsByNameTypeAndManaCost(): void
     {
         $this->seedCard('00000000-0000-0000-0000-000000000031', 'Sol Ring', [
@@ -310,6 +338,72 @@ class CardApiTest extends ApiTestCase
 
         self::assertResponseIsSuccessful();
         self::assertSame($card->scryfallId(), $this->jsonResponse()['data'][0]['scryfallId']);
+    }
+
+    public function testSearchIsAccentInsensitiveWithoutChangingRepresentativeResults(): void
+    {
+        $spanishPrint = $this->seedCard('00000000-0000-0000-0000-000000000072', 'Delivery Truck', [
+            'lang' => 'es',
+            'printed_name' => 'Camión',
+        ]);
+
+        $this->jsonRequest('GET', '/cards/search?q=camion&lang=es&limit=5');
+        self::assertResponseIsSuccessful();
+        $unaccentedIds = array_column($this->jsonResponse()['data'], 'scryfallId');
+
+        $this->jsonRequest('GET', '/cards/search?q=cami%C3%B3n&lang=es&limit=5');
+        self::assertResponseIsSuccessful();
+        $accentedIds = array_column($this->jsonResponse()['data'], 'scryfallId');
+
+        self::assertSame([$spanishPrint->scryfallId()], $unaccentedIds);
+        self::assertSame($unaccentedIds, $accentedIds);
+    }
+
+    public function testSearchFallsBackToEnglishOnlyWhenRequestedLanguageHasNoMatches(): void
+    {
+        $englishPrint = $this->seedCard('00000000-0000-0000-0000-000000000073', 'Dark Ritual', [
+            'lang' => 'en',
+            'printed_name' => null,
+        ]);
+        $this->seedCard('00000000-0000-0000-0000-000000000074', 'Dark Ritual', [
+            'lang' => 'pt',
+            'printed_name' => 'Ritual Sombrio',
+        ]);
+
+        $this->jsonRequest('GET', '/cards/search?q=dark%20ritual&lang=es&limit=5');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame([$englishPrint->scryfallId()], array_column($this->jsonResponse()['data'], 'scryfallId'));
+    }
+
+    public function testSearchFallsBackToCommonPrintLanguagesOnlyWhenLocalAndEnglishMiss(): void
+    {
+        $commonPrint = $this->seedCard('00000000-0000-0000-0000-000000000075', 'Sol Ring', [
+            'lang' => 'ph',
+            'printed_name' => 'Sol Ring PH',
+        ]);
+        $this->seedCard('00000000-0000-0000-0000-000000000076', 'Sol Ring', [
+            'lang' => 'pt',
+            'printed_name' => 'Anel Solar',
+        ]);
+
+        $this->jsonRequest('GET', '/cards/search?q=sol%20ring&lang=es&limit=5');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame([$commonPrint->scryfallId()], array_column($this->jsonResponse()['data'], 'scryfallId'));
+    }
+
+    public function testSearchReturnsNoResultsWhenNoSupportedFallbackBucketMatches(): void
+    {
+        $this->seedCard('00000000-0000-0000-0000-000000000077', 'Arcane Signet', [
+            'lang' => 'pt',
+            'printed_name' => 'Sinete Arcano',
+        ]);
+
+        $this->jsonRequest('GET', '/cards/search?q=arcane%20signet&lang=es&limit=5');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame([], $this->jsonResponse()['data']);
     }
 
     public function testCardEndpointsRejectInvalidLanguageFilters(): void

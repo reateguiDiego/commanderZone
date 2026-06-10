@@ -2,7 +2,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
-import { CardsApi } from '../../../core/api/cards.api';
+import { CardsApi, CardSearchFilters } from '../../../core/api/cards.api';
 import { DecksApi } from '../../../core/api/decks.api';
 import { AppShellI18nService } from '../../../core/localization/app-shell-i18n.service';
 import { SupportedLanguageCode } from '../../../core/localization/language-preferences';
@@ -153,6 +153,10 @@ export class DeckEditorStore {
   readonly manaSourceTotal = computed(() => this.manaSourceProfiles().reduce((sum, profile) => sum + profile.sourceCount, 0));
   readonly manaSourceDonutBackground = computed(() => this.buildManaSourceDonutBackground());
   readonly deckColorIdentitySymbols = computed(() => this.deckColorIdentity());
+  readonly deckbuilderSearchFilters = computed<CardSearchFilters>(() => {
+    const commanderIdentity = this.commanderColorIdentity();
+    return commanderIdentity.length > 0 ? { colorIdentity: commanderIdentity } : {};
+  });
   readonly missingItems = computed(() => this.buildMissingItems());
   readonly cardGroups = computed(() => this.buildCardGroups());
   readonly cardColumns = computed(() => this.buildCardColumns());
@@ -1334,6 +1338,17 @@ export class DeckEditorStore {
   }
 
   private deckColorIdentity(): Array<'W' | 'U' | 'B' | 'R' | 'G'> {
+    const commanderColors = this.commanderColorIdentity();
+    if (commanderColors.length > 0) {
+      return commanderColors;
+    }
+
+    return ['W', 'U', 'B', 'R', 'G'].filter((color) => (
+      this.analysis().colorProfiles.some((profile) => profile.color === color && profile.count > 0)
+    )) as Array<'W' | 'U' | 'B' | 'R' | 'G'>;
+  }
+
+  private commanderColorIdentity(): Array<'W' | 'U' | 'B' | 'R' | 'G'> {
     const colors = new Set<'W' | 'U' | 'B' | 'R' | 'G'>();
     for (const entry of this.commanderCards()) {
       for (const color of entry.card.colorIdentity ?? []) {
@@ -1343,13 +1358,7 @@ export class DeckEditorStore {
       }
     }
 
-    if (colors.size > 0) {
-      return Array.from(colors);
-    }
-
-    return ['W', 'U', 'B', 'R', 'G'].filter((color) => (
-      this.analysis().colorProfiles.some((profile) => profile.color === color && profile.count > 0)
-    )) as Array<'W' | 'U' | 'B' | 'R' | 'G'>;
+    return Array.from(colors);
   }
 
   private isManaSourceCard(entry: DeckCard): boolean {

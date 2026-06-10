@@ -19,21 +19,11 @@ export function normalizeCardSearch(value: string): string {
 }
 
 export function filterDistinctCardsByQuery(cards: Card[], query: string): Card[] {
-  const normalizedQuery = normalizeCardSearch(query);
   const seen = new Set<string>();
 
   return cards
     .filter((card) => {
       if (!isSearchableCardResult(card)) {
-        return false;
-      }
-
-      const haystack = normalizeCardSearch([
-        card.name,
-        card.printedName ?? '',
-        card.flavorName ?? '',
-      ].join(' '));
-      if (!haystack.includes(normalizedQuery)) {
         return false;
       }
 

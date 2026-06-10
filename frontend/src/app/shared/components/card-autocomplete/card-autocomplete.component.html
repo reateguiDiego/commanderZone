@@ -13,6 +13,10 @@
     <section class="panel card-autocomplete-panel">
       <p class="notice compact-notice">{{ 'deckBuilder.cards.autocomplete.cardAutocomplete.searchingCards' | runtimeTranslate }}</p>
     </section>
+  } @else if (!disabled && searched() && results().length === 0) {
+    <section class="panel card-autocomplete-panel">
+      <p class="notice compact-notice">{{ 'deckBuilder.cards.cardSearch.noCardsFound' | runtimeTranslate }}</p>
+    </section>
   } @else if (!disabled && results().length > 0) {
     <section class="panel card-autocomplete-panel">
       <div appPrettyScroll class="dense-list compact-list autocomplete-list">
