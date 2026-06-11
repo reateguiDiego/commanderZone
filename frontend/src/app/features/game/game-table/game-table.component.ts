@@ -2934,10 +2934,9 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   }
 
   async recordRollResult(result: RollResult): Promise<void> {
+    this.closeRollModal();
     await this.store.recordDiceRoll({
       kind: result.kind,
-      label: result.label,
-      finalResult: result.finalResult,
     });
   }
 

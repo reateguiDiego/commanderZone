@@ -940,14 +940,22 @@ export class GameTableStore implements OnDestroy {
       return;
     }
 
-    const card = this.randomCardFromZone(playerId, zone);
-    if (!card) {
+    if (this.visibleCardsFromZone(playerId, zone).length === 0) {
       this.error.set(`No cards in ${this.zoneTitle(zone).toLowerCase()}.`);
       return;
     }
 
-    await this.command('zone.random_card.selected', { playerId, zone, instanceId: card.instanceId });
-    const selectedCard = this.cardFromCurrentSnapshot(playerId, zone, card.instanceId) ?? card;
+    await this.command('zone.random_card.selected', { playerId, zone });
+    const selectedCardId = this.lastRandomZoneSelectionInstanceId(playerId, zone);
+    if (!selectedCardId) {
+      return;
+    }
+
+    const selectedCard = this.cardFromCurrentSnapshot(playerId, zone, selectedCardId);
+    if (!selectedCard) {
+      return;
+    }
+
     this.openFixedZone(
       playerId,
       zone,
@@ -1405,16 +1413,12 @@ export class GameTableStore implements OnDestroy {
 
   async recordDiceRoll(result: DiceRollCommand): Promise<void> {
     const kind = result.kind.trim();
-    const label = result.label.trim();
-    const finalResult = result.finalResult.trim();
-    if (!kind || !finalResult) {
+    if (!kind) {
       return;
     }
 
     await this.command('dice.rolled', {
       kind,
-      label,
-      finalResult,
     });
   }
 
@@ -1700,21 +1704,30 @@ export class GameTableStore implements OnDestroy {
     return new Set(this.battlefieldCards(playerId).map((card) => card.instanceId));
   }
 
-  private randomCardFromZone(playerId: string, zone: GameZoneName): GameCardInstance | null {
-    const cards = this.visibleCardsFromZone(playerId, zone);
-    if (cards.length === 0) {
-      return null;
-    }
-
-    return cards[Math.floor(Math.random() * cards.length)] ?? null;
-  }
-
   private visibleCardsFromZone(playerId: string, zone: GameZoneName): GameCardInstance[] {
     return this.snapshot()?.players[playerId]?.zones[zone]?.filter((card) => !card.hidden) ?? [];
   }
 
   private cardFromCurrentSnapshot(playerId: string, zone: GameZoneName, instanceId: string): GameCardInstance | null {
     return this.snapshot()?.players[playerId]?.zones[zone]?.find((card) => card.instanceId === instanceId) ?? null;
+  }
+
+  private lastRandomZoneSelectionInstanceId(playerId: string, zone: GameZoneName): string | null {
+    const entries = this.snapshot()?.eventLog ?? [];
+    for (let index = entries.length - 1; index >= 0; index -= 1) {
+      const entry = entries[index];
+      if (
+        entry?.type === 'zone.random_card.selected'
+        && entry.cardPlayerId === playerId
+        && entry.cardZone === zone
+        && typeof entry.cardInstanceId === 'string'
+        && entry.cardInstanceId.trim() !== ''
+      ) {
+        return entry.cardInstanceId;
+      }
+    }
+
+    return null;
   }
 
   private battlefieldCards(playerId: string): readonly GameCardInstance[] {

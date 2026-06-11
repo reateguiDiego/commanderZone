@@ -4,6 +4,7 @@ namespace App\Tests\Application;
 
 use App\Application\Game\GameCardBaseStatsResolver;
 use App\Application\Game\GameCommandHandler;
+use App\Application\Game\GameRandomizer;
 use App\Domain\Game\Game;
 use App\Domain\Room\Room;
 use App\Domain\User\User;
@@ -635,13 +636,24 @@ class GameCommandHandlerTest extends TestCase
     {
         $actor = new User('owner@example.test', 'Owner');
         $game = new Game(new Room($actor), $this->snapshot($actor->id(), []));
+        $handler = new GameCommandHandler(null, new class() extends GameRandomizer {
+            public function roll(string $kind): string|int
+            {
+                TestCase::assertSame('d20', $kind);
 
-        (new GameCommandHandler())->apply($game, 'dice.rolled', [
+                return 17;
+            }
+        });
+
+        $event = $handler->apply($game, 'dice.rolled', [
             'kind' => 'd20',
-            'finalResult' => '17',
         ], $actor);
 
         self::assertSame('ha tirado un d20, ha salido un 17.', $game->snapshot()['eventLog'][0]['message']);
+        self::assertSame([
+            'kind' => 'd20',
+            'finalResult' => '17',
+        ], $event->toArray()['payload']);
     }
 
     public function testUntapAllBattlefieldCardsUntapsOnlyActorBattlefield(): void
@@ -1699,11 +1711,16 @@ class GameCommandHandlerTest extends TestCase
                 $this->card('second-card', 'Wrong Tutor', 'library', 1, 1, 1, 1),
             ],
         ]));
+        $handler = new GameCommandHandler(null, new class() extends GameRandomizer {
+            public function pickOne(array $items): mixed
+            {
+                return $items[0];
+            }
+        });
 
-        (new GameCommandHandler())->apply($game, 'zone.random_card.selected', [
+        $event = $handler->apply($game, 'zone.random_card.selected', [
             'playerId' => $actor->id(),
             'zone' => 'library',
-            'instanceId' => 'top-card',
         ], $actor);
 
         $snapshot = $game->snapshot();
@@ -1715,6 +1732,11 @@ class GameCommandHandlerTest extends TestCase
         self::assertSame('top-card', $snapshot['eventLog'][0]['cardInstanceId']);
         self::assertSame($actor->id(), $snapshot['eventLog'][0]['cardPlayerId']);
         self::assertSame('library', $snapshot['eventLog'][0]['cardZone']);
+        self::assertSame([
+            'playerId' => $actor->id(),
+            'zone' => 'library',
+            'instanceId' => 'top-card',
+        ], $event->toArray()['payload']);
     }
 
     public function testReorderTopLibraryCardsOnlyChangesViewedPrefix(): void
