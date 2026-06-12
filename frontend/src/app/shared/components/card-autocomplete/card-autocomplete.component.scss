@@ -18,11 +18,28 @@
   background: var(--cz-bg);
 }
 
+.card-autocomplete.is-disabled .card-autocomplete-input {
+  border-color: rgb(var(--cz-primary-rgb) / 16%);
+  background: rgb(var(--cz-surface-rgb) / 52%);
+  box-shadow: inset 0 1px 0 rgb(var(--cz-text-rgb) / 4%);
+}
+
+.card-autocomplete.is-disabled .card-autocomplete-input lucide-icon {
+  color: var(--muted);
+  opacity: 0.72;
+}
+
 .card-autocomplete-input input {
   border: 0;
   background: transparent;
   box-shadow: none;
   padding-inline: 0;
+}
+
+.card-autocomplete.is-disabled .card-autocomplete-input input {
+  color: var(--muted);
+  opacity: 0.78;
+  cursor: not-allowed;
 }
 
 .card-autocomplete-panel {

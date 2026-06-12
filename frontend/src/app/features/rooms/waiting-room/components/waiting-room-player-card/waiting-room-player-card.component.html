@@ -1,4 +1,11 @@
 @if (player(); as player) {
+  @if (hasDualDeckArt()) {
+    <div class="player-dual-deck-art" aria-hidden="true">
+      <div class="player-dual-deck-art-pane player-dual-deck-art-pane-primary"></div>
+      <div class="player-dual-deck-art-pane player-dual-deck-art-pane-secondary"></div>
+    </div>
+  }
+
   @if (host()) {
     <span class="host-ribbon">{{ 'rooms.waitingRoomPlayerCard.host' | runtimeTranslate }}</span>
   }

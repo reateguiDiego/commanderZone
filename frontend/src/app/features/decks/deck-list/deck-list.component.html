@@ -48,7 +48,9 @@
           <div
             class="deck-list-row deck-row-clickable"
             [class.has-commander-art]="store.deckCommanderImage(deck)"
+            [class.has-dual-commander-art]="store.hasDualCommanderArt(deck)"
             [style.--deck-commander-art]="store.deckCommanderBackground(deck)"
+            [style.--deck-secondary-commander-art]="store.deckSecondaryCommanderBackground(deck)"
             draggable="true"
             role="link"
             tabindex="0"
@@ -61,6 +63,12 @@
             (pointerup)="store.finishDeckPointerDrag($event)"
             (pointercancel)="store.finishDeckPointerDrag($event)"
           >
+            @if (store.hasDualCommanderArt(deck)) {
+              <div class="deck-dual-commander-art" aria-hidden="true">
+                <div class="deck-dual-commander-art-pane deck-dual-commander-art-pane-primary"></div>
+                <div class="deck-dual-commander-art-pane deck-dual-commander-art-pane-secondary"></div>
+              </div>
+            }
             <span class="deck-link deck-table-name">
               @if (store.editingDeckId() === deck.id) {
                 <input
@@ -143,7 +151,9 @@
             <div
               class="deck-list-row deck-row-clickable"
               [class.has-commander-art]="store.deckCommanderImage(deck)"
+              [class.has-dual-commander-art]="store.hasDualCommanderArt(deck)"
               [style.--deck-commander-art]="store.deckCommanderBackground(deck)"
+              [style.--deck-secondary-commander-art]="store.deckSecondaryCommanderBackground(deck)"
               draggable="true"
               role="link"
               tabindex="0"
@@ -156,6 +166,12 @@
               (pointerup)="store.finishDeckPointerDrag($event)"
               (pointercancel)="store.finishDeckPointerDrag($event)"
             >
+              @if (store.hasDualCommanderArt(deck)) {
+                <div class="deck-dual-commander-art" aria-hidden="true">
+                  <div class="deck-dual-commander-art-pane deck-dual-commander-art-pane-primary"></div>
+                  <div class="deck-dual-commander-art-pane deck-dual-commander-art-pane-secondary"></div>
+                </div>
+              }
               <span class="deck-link deck-table-name">
                 @if (store.editingDeckId() === deck.id) {
                   <input
@@ -279,37 +295,57 @@
           @if (store.selectedFormat()?.hasCommander) {
             <div class="form-stack">
               <label for="commanderSearch">{{ 'deckBuilder.deckList.commander' | runtimeTranslate }}</label>
-              <input type="hidden" name="commanderScryfallId" required [ngModel]="store.selectedCommander()?.scryfallId ?? ''" />
-              <app-card-autocomplete
-                [placeholder]="'deckBuilder.deckList.searchCommanderByName' | runtimeTranslate"
-                actionLabel="Select"
-                [disabled]="store.isCreateFormDisabled()"
-                [filters]="{ commanderLegal: true }"
-                [commanderCandidateOnly]="true"
-                [query]="store.commanderQuery"
-                (queryChange)="store.setCommanderQuery($event)"
-                (cardSelected)="store.selectCommander($event.card)"
-              />
+              <div
+                class="commander-autocomplete-shell"
+                [class.commander-autocomplete-shell-disabled]="!store.isCreateFormDisabled() && !store.canSelectAnotherCommander()"
+                [attr.title]="!store.isCreateFormDisabled() && !store.canSelectAnotherCommander() ? ('deckBuilder.deckList.commanderSelectionLimitReached' | runtimeTranslate) : null"
+              >
+                <app-card-autocomplete
+                  [placeholder]="'deckBuilder.deckList.searchCommanderByName' | runtimeTranslate"
+                  actionLabel="Select"
+                  [disabled]="store.isCreateFormDisabled() || !store.canSelectAnotherCommander()"
+                  [filters]="{ commanderLegal: true }"
+                  [commanderCandidateOnly]="true"
+                  [clearOnSelect]="true"
+                  [query]="store.commanderQuery"
+                  (queryChange)="store.setCommanderQuery($event)"
+                  (cardSelected)="store.selectCommander($event.card)"
+                />
+              </div>
 
-              @if (store.selectedCommander(); as commander) {
-                <article class="commander-preview-card">
-                  @if (store.selectedCommanderImage(); as imageUrl) {
-                    <span
-                      class="commander-preview-image"
-                      tabindex="0"
-                      (mouseenter)="scheduleCommanderPreview($event, imageUrl)"
-                      (mousemove)="moveCommanderPreview($event)"
-                      (mouseleave)="hideCommanderPreview()"
-                      (blur)="hideCommanderPreview()"
-                    >
-                      <img class="commander-preview-thumb" [src]="imageUrl" [alt]="commander.name" />
-                    </span>
+              @if (store.selectedCommanders().length > 0) {
+                <div class="selected-commanders-row">
+                  @for (commander of store.selectedCommanders(); track commander.scryfallId) {
+                    <article class="commander-preview-card">
+                      @if (store.selectedCommanderImage(commander); as imageUrl) {
+                        <div
+                          class="commander-preview-body"
+                          (mouseenter)="scheduleCommanderCardPreview($event, commander)"
+                          (mousemove)="moveCommanderPreview($event)"
+                          (mouseleave)="hideCommanderPreview()"
+                        >
+                          <span
+                            class="commander-preview-image"
+                            (mouseenter)="scheduleCommanderPreview($event, imageUrl)"
+                            (mousemove)="moveCommanderPreview($event)"
+                            (mouseleave)="hideCommanderPreview()"
+                          >
+                            <img class="commander-preview-thumb" [src]="imageUrl" [alt]="commander.name" />
+                          </span>
+                          <button
+                            class="icon-button commander-preview-remove"
+                            type="button"
+                            title="Remove commander"
+                            [disabled]="store.isCreateFormDisabled()"
+                            (click)="removeCommander(commander.scryfallId)"
+                          >
+                            <lucide-icon name="x" size="10" />
+                          </button>
+                        </div>
+                      }
+                    </article>
                   }
-                  <div>
-                    <strong>{{ commander.name }}</strong>
-                    <span>{{ commander.typeLine || 'Unknown type' }}</span>
-                  </div>
-                </article>
+                </div>
               }
             </div>
           }
@@ -325,7 +361,7 @@
               [(ngModel)]="store.createdDecklist"
             ></textarea>
             <p class="app-disclaimer-callout">
-              {{ 'deckBuilder.deckList.ifYouIncludeYourCommanderInThe' | runtimeTranslate }}
+              {{ importDecklistDisclaimerKey() | runtimeTranslate }}
             </p>
           </label>
         </fieldset>

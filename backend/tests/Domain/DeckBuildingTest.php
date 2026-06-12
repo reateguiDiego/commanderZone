@@ -101,6 +101,23 @@ class DeckBuildingTest extends TestCase
         self::assertFalse($maybeboard->isPlayable());
     }
 
+    public function testDeckArrayExposesCommandersList(): void
+    {
+        $deck = new Deck(new User('player@example.test', 'Player'), 'Partners');
+        $firstCommander = $this->card('00000000-0000-0000-0000-000000000008', 'Commander One');
+        $secondCommander = $this->card('00000000-0000-0000-0000-000000000009', 'Commander Two');
+
+        $deck->addCard(new DeckCard($deck, $firstCommander, 1, DeckCard::SECTION_COMMANDER));
+        $deck->addCard(new DeckCard($deck, $secondCommander, 1, DeckCard::SECTION_COMMANDER));
+
+        $payload = $deck->toArray();
+
+        self::assertCount(2, $payload['commanders']);
+        self::assertSame($firstCommander->scryfallId(), $payload['commanders'][0]['scryfallId']);
+        self::assertSame($secondCommander->scryfallId(), $payload['commanders'][1]['scryfallId']);
+        self::assertArrayNotHasKey('commander', $payload);
+    }
+
     private function card(string $scryfallId, string $name): Card
     {
         $card = new Card($scryfallId);

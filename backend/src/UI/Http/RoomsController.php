@@ -776,12 +776,26 @@ class RoomsController extends ApiController
             }
 
             foreach ($room['players'] as $playerIndex => $player) {
-                if (!is_array($player) || !is_array($player['deck']['commander'] ?? null)) {
+                if (!is_array($player) || !is_array($player['deck'] ?? null)) {
                     continue;
                 }
 
-                $targets[] = ['roomIndex' => $roomIndex, 'playerIndex' => $playerIndex];
-                $payloads[] = $player['deck']['commander'];
+                $deck = $player['deck'];
+                if (is_array($deck['commanders'] ?? null)) {
+                    foreach ($deck['commanders'] as $commanderIndex => $commanderPayload) {
+                        if (!is_array($commanderPayload)) {
+                            continue;
+                        }
+
+                        $targets[] = [
+                            'kind' => 'commander',
+                            'roomIndex' => $roomIndex,
+                            'playerIndex' => $playerIndex,
+                            'commanderIndex' => $commanderIndex,
+                        ];
+                        $payloads[] = $commanderPayload;
+                    }
+                }
             }
         }
 
@@ -797,7 +811,34 @@ class RoomsController extends ApiController
                 is_array($localizedPayloads[$offset] ?? null)
                 && is_array($rooms[$roomIndex]['players'][$playerIndex]['deck'] ?? null)
             ) {
-                $rooms[$roomIndex]['players'][$playerIndex]['deck']['commander'] = $localizedPayloads[$offset];
+                if (($target['kind'] ?? null) === 'commander') {
+                    $commanderIndex = $target['commanderIndex'] ?? null;
+                    if (is_int($commanderIndex)) {
+                        $rooms[$roomIndex]['players'][$playerIndex]['deck']['commanders'][$commanderIndex] = $localizedPayloads[$offset];
+                    }
+                }
+            }
+        }
+
+        foreach ($rooms as $roomIndex => $room) {
+            if (!is_array($room['players'] ?? null)) {
+                continue;
+            }
+
+            foreach ($room['players'] as $playerIndex => $player) {
+                $deck = $rooms[$roomIndex]['players'][$playerIndex]['deck'] ?? null;
+                if (!is_array($deck)) {
+                    continue;
+                }
+
+                if (is_array($deck['commanders'] ?? null)) {
+                    $rooms[$roomIndex]['players'][$playerIndex]['deck']['commanders'] = array_values(array_filter(
+                        $deck['commanders'],
+                        static fn (mixed $payload): bool => is_array($payload),
+                    ));
+                } else {
+                    $rooms[$roomIndex]['players'][$playerIndex]['deck']['commanders'] = [];
+                }
             }
         }
 

@@ -9,6 +9,7 @@ import { ApiError } from '../../../core/models/api-responses.model';
 import { Card } from '../../../core/models/card.model';
 import { CommanderValidation, Deck, DeckFolder, DeckFolderVisibility, DeckFormat, DeckVisibility } from '../../../core/models/deck.model';
 import { bestCardArtImage, bestCardImage } from '../../../shared/utils/card-image';
+import { commanderColorIdentityUnion, primaryCommander, secondaryCommander } from '../../../shared/utils/deck-commander';
 import { DeckImportExportService, DecklistEntry } from '../services/deck-import-export.service';
 import { DeckFolderSection } from '../models/deck-list.models';
 
@@ -46,7 +47,7 @@ export class DeckListStore {
   readonly createdImportMessage = signal<string | null>(null);
   readonly createSubmitting = signal(false);
   readonly createFormLocked = signal(false);
-  readonly selectedCommander = signal<Card | null>(null);
+  readonly selectedCommanders = signal<Card[]>([]);
   readonly currentFolderId = signal<string | null>(null);
   readonly draggedDeckId = signal<string | null>(null);
   readonly dragTargetId = signal<string | null>(null);
@@ -79,7 +80,6 @@ export class DeckListStore {
     ?? { id: null, name: 'No folder', decks: [], isUnfiled: true }
   ));
   readonly selectedFormat = computed(() => this.formats().find((format) => format.id === this.newDeckFormatId) ?? null);
-  readonly selectedCommanderImage = computed(() => bestCardImage(this.selectedCommander()));
   readonly hasDeckListContent = computed(() => this.decks().length > 0 || this.folders().length > 0);
   readonly deleteModalTitle = computed(() => this.deleteBlockedMessage() ? 'Deck in use' : 'Delete deck');
   readonly deleteModalMessage = computed(() => {
@@ -161,7 +161,7 @@ export class DeckListStore {
     this.createdImportMessage.set(null);
     this.createSubmitting.set(false);
     this.createFormLocked.set(false);
-    this.selectedCommander.set(null);
+    this.selectedCommanders.set([]);
     this.createModalOpen.set(false);
   }
 
@@ -263,20 +263,41 @@ export class DeckListStore {
   onFormatChange(): void {
     if (!this.selectedFormat()?.hasCommander) {
       this.commanderQuery = '';
-      this.selectedCommander.set(null);
+      this.selectedCommanders.set([]);
     }
   }
 
   setCommanderQuery(query: string): void {
     this.commanderQuery = query;
-    if (this.selectedCommander()?.name !== query.trim()) {
-      this.selectedCommander.set(null);
-    }
   }
 
   selectCommander(card: Card): void {
-    this.selectedCommander.set(card);
-    this.commanderQuery = card.name;
+    if (this.selectedCommanders().some((selected) => selected.scryfallId === card.scryfallId)) {
+      this.commanderQuery = '';
+      return;
+    }
+    if (this.selectedCommanders().length >= 2) {
+      return;
+    }
+
+    this.selectedCommanders.set([...this.selectedCommanders(), card]);
+    this.commanderQuery = '';
+  }
+
+  removeCommander(scryfallId: string): void {
+    this.selectedCommanders.set(this.selectedCommanders().filter((card) => card.scryfallId !== scryfallId));
+  }
+
+  selectedCommanderImage(card: Card): string | null {
+    return bestCardImage(card);
+  }
+
+  hasSelectedCommanderSlots(): boolean {
+    return this.selectedCommanders().length > 0;
+  }
+
+  canSelectAnotherCommander(): boolean {
+    return this.selectedCommanders().length < 2;
   }
 
   openFolderCreateModal(): void {
@@ -369,7 +390,7 @@ export class DeckListStore {
 
   async create(): Promise<void> {
     const name = this.newDeckName.trim();
-    const commander = this.selectedCommander();
+    const commanderScryfallIds = this.selectedCommanders().map((card) => card.scryfallId);
     if (!this.isCreateFormReady()) {
       return;
     }
@@ -380,19 +401,19 @@ export class DeckListStore {
     this.createFormLocked.set(false);
 
     try {
-      const response = await firstValueFrom(this.decksApi.quickBuild({
+      const response = await firstValueFrom(this.decksApi.create(
         name,
-        folderId: this.newDeckFolderId || null,
-        visibility: this.newDeckVisibility,
-      }));
+        this.newDeckFolderId || null,
+        this.newDeckVisibility,
+        this.newDeckFormatId,
+      ));
       const deck = response.deck;
       this.createdDeck.set(deck);
-      this.createdMissing.set(response.missing);
-      this.createdImportMessage.set(response.missing.length > 0 ? `${response.missing.length} missing during creation.` : null);
+      this.createdMissing.set([]);
+      this.createdImportMessage.set(null);
       this.decks.set([deck, ...this.decks()]);
-      this.refreshDeckValidation(deck.id);
 
-      const imported = await this.importCreatedDeck(commander?.scryfallId);
+      const imported = await this.importCreatedDeck(commanderScryfallIds);
       if (!imported) {
         return;
       }
@@ -409,7 +430,7 @@ export class DeckListStore {
     }
   }
 
-  async importCreatedDeck(commanderScryfallId?: string): Promise<boolean> {
+  async importCreatedDeck(commanderScryfallIds: string[] = []): Promise<boolean> {
     const deck = this.createdDeck();
     if (!deck || !this.createdDecklist.trim()) {
       return true;
@@ -418,7 +439,11 @@ export class DeckListStore {
     const entries: DecklistEntry[] = this.importExport.parse(this.createdDecklist, 'plain');
 
     try {
-      const response = await firstValueFrom(this.decksApi.importDecklist(deck.id, this.importExport.toBackendDecklist(entries), commanderScryfallId));
+      const response = await firstValueFrom(this.decksApi.importDecklist(
+        deck.id,
+        this.importExport.toBackendDecklist(entries),
+        commanderScryfallIds.length > 0 ? { commanderScryfallIds } : {},
+      ));
       const importedCards = response.summary?.importedCards
         ?? (response.deck.cards ?? []).reduce((total, entry) => total + entry.quantity, 0);
       const parsedCards = response.summary?.parsedCards
@@ -486,22 +511,33 @@ export class DeckListStore {
   }
 
   deckCommanderImage(deck: Deck): string | null {
-    return bestCardArtImage(deck.commander ?? null);
+    return bestCardArtImage(primaryCommander(deck));
   }
 
   deckCommanderBackground(deck: Deck): string | null {
     const imageUrl = this.deckCommanderImage(deck);
-
     return imageUrl ? `url("${imageUrl}")` : null;
   }
 
+  deckSecondaryCommanderImage(deck: Deck): string | null {
+    return bestCardArtImage(secondaryCommander(deck));
+  }
+
+  deckSecondaryCommanderBackground(deck: Deck): string | null {
+    const imageUrl = this.deckSecondaryCommanderImage(deck);
+    return imageUrl ? `url("${imageUrl}")` : null;
+  }
+
+  hasDualCommanderArt(deck: Deck): boolean {
+    return this.deckCommanderImage(deck) !== null && this.deckSecondaryCommanderImage(deck) !== null;
+  }
+
   commanderColorIdentity(deck: Deck): string[] | null {
-    if (!deck.commander) {
+    if (!primaryCommander(deck)) {
       return null;
     }
 
-    const colorOrder = ['W', 'U', 'B', 'R', 'G'];
-    const colors = colorOrder.filter((color) => deck.commander?.colorIdentity.includes(color));
+    const colors = commanderColorIdentityUnion(deck);
 
     return colors.length > 0 ? colors : ['C'];
   }
@@ -776,12 +812,22 @@ export class DeckListStore {
   private isCreateFormReady(): boolean {
     const hasCommanderRequirement = this.selectedFormat()?.hasCommander === true;
     const deckName = this.newDeckName.trim();
+    const hasCommanderSelection = this.selectedCommanders().length > 0;
+    const hasCommanderDecklistSection = this.createdDecklistEntries().some((entry) => entry.section === 'commander');
 
     return deckName !== ''
       && deckName.length <= this.maxDeckNameLength
       && this.newDeckFormatId.trim() !== ''
       && this.createdDecklist.trim() !== ''
-      && (!hasCommanderRequirement || this.selectedCommander() !== null);
+      && (!hasCommanderRequirement || hasCommanderSelection || hasCommanderDecklistSection);
+  }
+
+  private createdDecklistEntries(): DecklistEntry[] {
+    try {
+      return this.importExport.parse(this.createdDecklist, 'plain');
+    } catch {
+      return [];
+    }
   }
 
   private refreshDeckValidations(decks: readonly Deck[]): void {

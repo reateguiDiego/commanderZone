@@ -19,7 +19,7 @@ export interface Deck {
   backgroundName?: string;
   sleevesName?: string;
   folderId: string | null;
-  commander?: Card | null;
+  commanders?: Card[];
   cards?: DeckCard[];
 }
 

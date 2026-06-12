@@ -76,6 +76,63 @@ class RoomsGamesApiTest extends ApiTestCase
         self::assertSame('https://cards.scryfall.io/art_crop/front/spanish-commander.jpg', $current['player']['deckImageUrl']);
     }
 
+    public function testRoomPayloadLocalizesEveryCommanderInDeckSummary(): void
+    {
+        $ownerToken = $this->registerAndLogin('room-commanders-localized-owner@example.test', 'Room Commanders');
+        $this->jsonRequest('PATCH', '/me', ['cardLanguage' => 'es'], $ownerToken);
+        self::assertResponseIsSuccessful();
+
+        $firstCommanderId = '11111111-3333-7333-8444-555555555555';
+        $secondCommanderId = '11111111-4444-7444-8444-555555555555';
+        $landId = '66666666-3333-7333-8444-555555555555';
+        $this->seedCard($firstCommanderId, 'First Room Commander', [
+            'type_line' => 'Legendary Creature - Human Soldier',
+            'image_uris' => ['art_crop' => 'https://cards.scryfall.io/art_crop/front/room-first-original.jpg'],
+        ]);
+        $this->seedCard($secondCommanderId, 'Second Room Commander', [
+            'type_line' => 'Legendary Creature - Human Soldier',
+            'image_uris' => ['art_crop' => 'https://cards.scryfall.io/art_crop/front/room-second-original.jpg'],
+        ]);
+        $this->seedCard($landId, 'Localized Island', [
+            'type_line' => 'Basic Land - Island',
+        ]);
+        $this->seedLocalizedPrintLocale(
+            $firstCommanderId,
+            'First Room Commander',
+            'es',
+            'Primer comandante de sala',
+            'https://cards.scryfall.io/art_crop/front/room-first-es.jpg',
+        );
+        $this->seedLocalizedPrintLocale(
+            $secondCommanderId,
+            'Second Room Commander',
+            'es',
+            'Segundo comandante de sala',
+            'https://cards.scryfall.io/art_crop/front/room-second-es.jpg',
+        );
+
+        $deckId = $this->quickBuildDeck($ownerToken, 'Localized Room Deck', [
+            ['scryfallId' => $firstCommanderId, 'quantity' => 1, 'section' => 'commander'],
+            ['scryfallId' => $secondCommanderId, 'quantity' => 1, 'section' => 'commander'],
+            ['scryfallId' => $landId, 'quantity' => 98, 'section' => 'main'],
+        ]);
+
+        $this->jsonRequest('POST', '/rooms', [
+            'visibility' => 'public',
+            'maxPlayers' => 2,
+            'deckId' => $deckId,
+        ], $ownerToken);
+        self::assertResponseStatusCodeSame(201);
+
+        $deck = $this->jsonResponse()['room']['players'][0]['deck'];
+        self::assertCount(2, $deck['commanders']);
+        self::assertSame('Primer comandante de sala', $deck['commanders'][0]['printedName']);
+        self::assertSame('Segundo comandante de sala', $deck['commanders'][1]['printedName']);
+        self::assertSame('https://cards.scryfall.io/art_crop/front/room-first-es.jpg', $deck['commanders'][0]['imageUris']['art_crop'] ?? null);
+        self::assertSame('https://cards.scryfall.io/art_crop/front/room-second-es.jpg', $deck['commanders'][1]['imageUris']['art_crop'] ?? null);
+        self::assertArrayNotHasKey('commander', $deck);
+    }
+
     public function testCurrentRoomEndpointIgnoresRoomsWithoutPlayers(): void
     {
         $ownerToken = $this->registerAndLogin('current-room-owner-only@example.test', 'Current Owner Only');
@@ -1529,7 +1586,7 @@ class RoomsGamesApiTest extends ApiTestCase
         self::assertArrayHasKey('Waiting RT Guest', $playersByDeckName);
         self::assertSame(
             'https://cards.scryfall.io/art_crop/front/waiting-realtime.jpg',
-            $playersByDeckName['Waiting RT Guest']['deck']['commander']['imageUris']['art_crop'] ?? null,
+            $playersByDeckName['Waiting RT Guest']['deck']['commanders'][0]['imageUris']['art_crop'] ?? null,
         );
     }
 

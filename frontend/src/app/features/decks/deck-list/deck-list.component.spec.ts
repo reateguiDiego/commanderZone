@@ -14,12 +14,14 @@ import {
   Search,
   Trash2,
   TriangleAlert,
+  X,
 } from 'lucide-angular';
 import { of, throwError } from 'rxjs';
 import { CardsApi } from '../../../core/api/cards.api';
 import { DeckFoldersApi } from '../../../core/api/deck-folders.api';
 import { DeckFormatsApi } from '../../../core/api/deck-formats.api';
 import { DecksApi } from '../../../core/api/decks.api';
+import { Card } from '../../../core/models/card.model';
 import { Deck } from '../../../core/models/deck.model';
 import { PageHeaderStore } from '../../../core/ui/page-header.store';
 import { DeckListComponent } from './deck-list.component';
@@ -39,6 +41,7 @@ describe('DeckListComponent', () => {
           Search,
           Trash2,
           TriangleAlert,
+          X,
           Globe,
           Lock,
         })),
@@ -47,6 +50,7 @@ describe('DeckListComponent', () => {
           provide: DecksApi,
           useValue: {
             list: vi.fn().mockReturnValue(of({ data: [] })),
+            create: vi.fn().mockReturnValue(of({ deck: savedDeck() })),
             quickBuild: vi.fn().mockReturnValue(of({ deck: savedDeck(), missing: [] })),
             importDecklist: vi.fn().mockReturnValue(of({
               deck: savedDeck(),
@@ -177,6 +181,58 @@ describe('DeckListComponent', () => {
     );
   });
 
+  it('normalizes the create-deck decklist and keeps both explicit selected commanders', async () => {
+    const decksApi = TestBed.inject(DecksApi);
+    const fixture = TestBed.createComponent(DeckListComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.store.newDeckName = 'Partners';
+    fixture.componentInstance.store.selectedCommanders.set([commanderCard(), secondCommanderCard()]);
+    fixture.componentInstance.store.createdDecklist = `Commanders (2)
+1 Birgi, God of Storytelling // Harnfel, Horn of Bounty
+1 Krark, the Thumbless
+
+Creatures (1)
+1 Ragavan, Nimble Pilferer`;
+
+    await fixture.componentInstance.store.create();
+
+    expect(decksApi.importDecklist).toHaveBeenCalledWith(
+      'saved-deck',
+      `Commander
+1 Birgi, God of Storytelling // Harnfel, Horn of Bounty
+1 Krark, the Thumbless
+
+Deck
+1 Ragavan, Nimble Pilferer`,
+      { commanderScryfallIds: ['card-atraxa', 'card-silas'] },
+    );
+  });
+
+  it('sends a single explicit selected commander when the create-deck decklist includes it', async () => {
+    const decksApi = TestBed.inject(DecksApi);
+    const fixture = TestBed.createComponent(DeckListComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.store.newDeckName = 'Single Commander';
+    fixture.componentInstance.store.selectedCommanders.set([commanderCard()]);
+    fixture.componentInstance.store.createdDecklist = `Deck
+1 Atraxa, Praetors' Voice
+99 Island`;
+
+    await fixture.componentInstance.store.create();
+
+    expect(decksApi.importDecklist).toHaveBeenCalledWith(
+      'saved-deck',
+      `Deck
+1 Atraxa, Praetors' Voice
+99 Island`,
+      { commanderScryfallIds: ['card-atraxa'] },
+    );
+  });
+
   it('shows the saved deck confirmation when closing a completed create flow with missing cards', async () => {
     const fixture = TestBed.createComponent(DeckListComponent);
     fixture.detectChanges();
@@ -192,7 +248,7 @@ describe('DeckListComponent', () => {
     expect(fixture.componentInstance.store.createSuccessModalOpen()).toBe(true);
   });
 
-  it('explains that imported commander entries are removed automatically', async () => {
+  it('shows the singular import disclaimer when there are zero selected commanders', async () => {
     const fixture = TestBed.createComponent(DeckListComponent);
     fixture.detectChanges();
     await fixture.whenStable();
@@ -205,6 +261,159 @@ describe('DeckListComponent', () => {
     expect(disclaimer.textContent).toContain(
       'If you include your commander in the import decklist, do not worry; we will remove it for you.',
     );
+  });
+
+  it('shows the plural import disclaimer when there are two selected commanders', async () => {
+    const fixture = TestBed.createComponent(DeckListComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.store.openCreateModal();
+    fixture.componentInstance.store.selectedCommanders.set([commanderCard(), secondCommanderCard()]);
+    fixture.detectChanges();
+
+    const disclaimer = fixture.nativeElement.querySelector('.app-disclaimer-callout');
+    expect(disclaimer).not.toBeNull();
+    expect(disclaimer.textContent).toContain(
+      'If you include your commanders in the import decklist, do not worry; we will remove them for you.',
+    );
+  });
+
+  it('shows the commander preview when hovering the commander card body in the create modal', async () => {
+    vi.useFakeTimers();
+    try {
+      const fixture = TestBed.createComponent(DeckListComponent);
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      fixture.componentInstance.store.formats.set([
+        { id: 'commander', name: 'Commander', minCards: 100, maxCards: 100, hasCommander: true },
+      ]);
+      fixture.componentInstance.store.newDeckFormatId = 'commander';
+      fixture.componentInstance.store.openCreateModal();
+      fixture.componentInstance.store.selectedCommanders.set([commanderCard()]);
+      fixture.detectChanges();
+
+      const hoverTarget = fixture.nativeElement.querySelector('.commander-preview-body') as HTMLElement | null;
+      expect(hoverTarget).not.toBeNull();
+
+      hoverTarget!.dispatchEvent(new MouseEvent('mouseenter', {
+        bubbles: true,
+        clientX: 160,
+        clientY: 220,
+      }));
+      vi.advanceTimersByTime(300);
+
+      expect(fixture.componentInstance.commanderHoverPreview()?.imageUrl).toBe('https://cards.test/atraxa.jpg');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('keeps the commander preview anchored to the card image center instead of the mouse position', () => {
+    vi.useFakeTimers();
+    try {
+      const fixture = TestBed.createComponent(DeckListComponent);
+      const component = fixture.componentInstance;
+      const anchor = document.createElement('span');
+      anchor.className = 'commander-preview-image';
+      vi.spyOn(anchor, 'getBoundingClientRect').mockReturnValue({
+        x: 100,
+        y: 140,
+        width: 88,
+        height: 124,
+        top: 140,
+        right: 188,
+        bottom: 264,
+        left: 100,
+        toJSON: () => ({}),
+      });
+
+      component.scheduleCommanderPreview({
+        currentTarget: anchor,
+        clientX: 110,
+        clientY: 150,
+      } as unknown as MouseEvent, 'https://cards.test/atraxa.jpg');
+      vi.advanceTimersByTime(300);
+      const initialPreview = component.commanderHoverPreview();
+
+      component.moveCommanderPreview({
+        currentTarget: anchor,
+        clientX: 1000,
+        clientY: 20,
+      } as unknown as MouseEvent);
+      const movedPreview = component.commanderHoverPreview();
+
+      expect(initialPreview).not.toBeNull();
+      expect(movedPreview).not.toBeNull();
+      expect(movedPreview?.x).toBe(initialPreview?.x);
+      expect(movedPreview?.y).toBe(initialPreview?.y);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('shows a tooltip when commander search is disabled because two commanders are already selected', async () => {
+    const fixture = TestBed.createComponent(DeckListComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.store.formats.set([
+      { id: 'commander', name: 'Commander', minCards: 100, maxCards: 100, hasCommander: true },
+    ]);
+    fixture.componentInstance.store.newDeckFormatId = 'commander';
+    fixture.componentInstance.store.openCreateModal();
+    fixture.componentInstance.store.selectedCommanders.set([commanderCard(), secondCommanderCard()]);
+    fixture.detectChanges();
+
+    const shell = fixture.nativeElement.querySelector('.commander-autocomplete-shell') as HTMLElement | null;
+    expect(shell).not.toBeNull();
+    expect(shell?.title).toBe("You already have 2 commanders. You can't add more.");
+    expect(shell?.classList.contains('commander-autocomplete-shell-disabled')).toBe(true);
+  });
+
+  it('renders both diagonal commander art panes for decks with two commanders', async () => {
+    const fixture = TestBed.createComponent(DeckListComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.store.decks.set([
+      savedDeck({
+        commanders: [commanderCard(), secondCommanderCard()],
+      }),
+    ]);
+    fixture.detectChanges();
+
+    const deckRow = fixture.nativeElement.querySelector('.deck-list-row.has-dual-commander-art') as HTMLElement | null;
+    const panes = fixture.nativeElement.querySelectorAll('.deck-dual-commander-art-pane');
+
+    expect(deckRow).not.toBeNull();
+    expect(deckRow?.style.getPropertyValue('--deck-commander-art')).toContain('atraxa-art.jpg');
+    expect(deckRow?.style.getPropertyValue('--deck-secondary-commander-art')).toContain('silas-art.jpg');
+    expect(panes.length).toBe(2);
+  });
+
+  it('hides the commander preview when clicking outside the commander card', () => {
+    const fixture = TestBed.createComponent(DeckListComponent);
+    const component = fixture.componentInstance;
+    component.commanderHoverPreview.set({ imageUrl: 'https://cards.test/atraxa.jpg', x: 100, y: 100 });
+
+    const outsideTarget = document.createElement('button');
+    component.onDocumentPointerDown({ target: outsideTarget } as unknown as PointerEvent);
+
+    expect(component.commanderHoverPreview()).toBeNull();
+  });
+
+  it('hides the commander preview when removing a commander', () => {
+    const fixture = TestBed.createComponent(DeckListComponent);
+    const component = fixture.componentInstance;
+    component.store.selectedCommanders.set([commanderCard()]);
+    component.commanderHoverPreview.set({ imageUrl: 'https://cards.test/atraxa.jpg', x: 100, y: 100 });
+
+    component.removeCommander('card-atraxa');
+
+    expect(component.commanderHoverPreview()).toBeNull();
+    expect(component.store.selectedCommanders()).toEqual([]);
   });
 
   it('replaces the create form with a single import warning when cards are missing', async () => {
@@ -233,11 +442,51 @@ describe('DeckListComponent', () => {
   });
 });
 
-function savedDeck(): Deck {
+function savedDeck(overrides: Partial<Deck> = {}): Deck {
   return {
     id: 'saved-deck',
     name: 'Saved Deck',
     format: 'commander',
     folderId: null,
+    commanders: [],
+    ...overrides,
+  };
+}
+
+function commanderCard(): Card {
+  return {
+    id: 'card-atraxa',
+    scryfallId: 'card-atraxa',
+    name: "Atraxa, Praetors' Voice",
+    manaCost: '{1}{G}{W}{U}{B}',
+    typeLine: 'Legendary Creature',
+    oracleText: 'Flying, vigilance, deathtouch, lifelink',
+    colors: ['G', 'W', 'U', 'B'],
+    colorIdentity: ['G', 'W', 'U', 'B'],
+    legalities: { commander: 'legal' },
+    imageUris: { normal: 'https://cards.test/atraxa.jpg', art_crop: 'https://cards.test/atraxa-art.jpg' },
+    layout: 'normal',
+    commanderLegal: true,
+    set: 'cmm',
+    collectorNumber: '1',
+  };
+}
+
+function secondCommanderCard(): Card {
+  return {
+    id: 'card-silas',
+    scryfallId: 'card-silas',
+    name: 'Silas Renn, Seeker Adept',
+    manaCost: '{1}{U}{B}',
+    typeLine: 'Legendary Creature',
+    oracleText: 'Deathtouch',
+    colors: ['U', 'B'],
+    colorIdentity: ['U', 'B'],
+    legalities: { commander: 'legal' },
+    imageUris: { normal: 'https://cards.test/silas.jpg', art_crop: 'https://cards.test/silas-art.jpg' },
+    layout: 'normal',
+    commanderLegal: true,
+    set: 'c16',
+    collectorNumber: '1',
   };
 }

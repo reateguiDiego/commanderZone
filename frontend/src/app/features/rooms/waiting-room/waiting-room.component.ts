@@ -20,6 +20,7 @@ import { AppModalComponent } from '../../../shared/ui/app-modal/app-modal.compon
 import { PlayerNameComponent } from '../../../shared/ui/player-name/player-name.component';
 import { PrettyScrollDirective } from '../../../shared/ui/pretty-scroll/pretty-scroll.directive';
 import { bestCardArtImage } from '../../../shared/utils/card-image';
+import { commanderColorIdentityUnion, primaryCommander, secondaryCommander } from '../../../shared/utils/deck-commander';
 import { RoomSetupModalComponent } from '../shared/room-setup-modal/room-setup-modal.component';
 import { WaitingDeckOption } from './components/waiting-room-deck-selector/waiting-room-deck-selector.component';
 import { WaitingRoomLogPanelComponent } from './components/waiting-room-log-panel/waiting-room-log-panel.component';
@@ -643,11 +644,19 @@ export class WaitingRoomComponent implements OnDestroy {
   }
 
   playerDeckArt(player: RoomPlayer): string | null {
-    return bestCardArtImage(this.playerDeck(player)?.commander ?? null);
+    return bestCardArtImage(primaryCommander(this.playerDeck(player)));
+  }
+
+  playerSecondaryDeckArt(player: RoomPlayer): string | null {
+    return bestCardArtImage(secondaryCommander(this.playerDeck(player)));
   }
 
   shouldShowPlayerDeckArt(player: RoomPlayer): boolean {
     return !!this.playerDeckArt(player);
+  }
+
+  hasDualPlayerDeckArt(player: RoomPlayer): boolean {
+    return !!this.playerDeckArt(player) && !!this.playerSecondaryDeckArt(player);
   }
 
   playerDeckBackground(player: RoomPlayer): string | null {
@@ -656,8 +665,14 @@ export class WaitingRoomComponent implements OnDestroy {
     return imageUrl ? `url("${imageUrl}")` : null;
   }
 
+  playerSecondaryDeckBackground(player: RoomPlayer): string | null {
+    const imageUrl = this.playerSecondaryDeckArt(player);
+
+    return imageUrl ? `url("${imageUrl}")` : null;
+  }
+
   playerDeckColorIdentity(player: RoomPlayer): readonly string[] {
-    return this.playerDeck(player)?.commander?.colorIdentity ?? [];
+    return commanderColorIdentityUnion(this.playerDeck(player));
   }
 
   selectedDeckName(): string {

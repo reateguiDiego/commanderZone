@@ -1039,6 +1039,8 @@ paths:
                 name:
                   type: string
                   maxLength: 20
+                format:
+                  $ref: '#/components/schemas/DeckFormatId'
                 folderId:
                   type: [string, 'null']
                   format: uuid
@@ -1156,7 +1158,7 @@ paths:
     post:
       tags: [Decks]
       summary: Replace deck cards from a text decklist.
-      description: If format is omitted, the backend auto-detects plain, Moxfield, or Archidekt text.
+      description: If format is omitted, the backend auto-detects the decklist text format (plain, Moxfield, or Archidekt).
       parameters:
         - $ref: '#/components/parameters/Id'
       requestBody:
@@ -3168,7 +3170,7 @@ components:
       enum: [private, public]
     DeckSummary:
       type: object
-      required: [id, name, format, visibility, backgroundName, sleevesName, folderId, commander]
+      required: [id, name, format, visibility, backgroundName, sleevesName, folderId, commanders]
       properties:
         id:
           type: string
@@ -3189,10 +3191,11 @@ components:
         folderId:
           type: [string, 'null']
           format: uuid
-        commander:
-          anyOf:
-            - $ref: '#/components/schemas/Card'
-            - type: 'null'
+        commanders:
+          type: array
+          description: Fully localized commander cards for this deck, in display order.
+          items:
+            $ref: '#/components/schemas/Card'
     Deck:
       allOf:
         - $ref: '#/components/schemas/DeckSummary'
@@ -3724,8 +3727,7 @@ components:
       required: [id, name, minCards, maxCards, hasCommander]
       properties:
         id:
-          type: string
-          enum: [commander]
+          $ref: '#/components/schemas/DeckFormatId'
         name:
           type: string
         minCards:
@@ -3734,6 +3736,9 @@ components:
           type: integer
         hasCommander:
           type: boolean
+    DeckFormatId:
+      type: string
+      enum: [commander]
     DecklistFormat:
       type: string
       enum: [plain, moxfield, archidekt]
@@ -3862,6 +3867,8 @@ components:
         name:
           type: string
           maxLength: 20
+        format:
+          $ref: '#/components/schemas/DeckFormatId'
         folderId:
           type: [string, 'null']
           format: uuid

@@ -149,7 +149,19 @@ export class DeckImportExportService {
       return 'maybeboard';
     }
 
-    if (['deck', 'main', 'maindeck', 'mainboard'].includes(header)) {
+    if ([
+      'deck',
+      'main',
+      'maindeck',
+      'mainboard',
+      'creatures',
+      'artifacts',
+      'instants',
+      'sorceries',
+      'enchantments',
+      'planeswalkers',
+      'lands',
+    ].includes(header)) {
       return 'main';
     }
 
@@ -157,7 +169,7 @@ export class DeckImportExportService {
   }
 
   private parseInlineSectionPrefix(line: string): { section: DeckSection; line: string } | null {
-    const match = line.match(/^(sb|sideboard|side|mb|maybeboard|maybe|considering|cmdr|commander|commanders|command zone|deck|main|maindeck|mainboard)\s*:\s*(.+)$/i);
+    const match = line.match(/^(sb|sideboard|side|mb|maybeboard|maybe|considering|cmdr|commander|commanders|command zone|deck|main|maindeck|mainboard|creatures|artifacts|instants|sorceries|enchantments|planeswalkers|lands)\s*:\s*(.+)$/i);
     if (!match) {
       return null;
     }

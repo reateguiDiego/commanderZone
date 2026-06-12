@@ -44,6 +44,17 @@
   pointer-events: none;
 }
 
+:host(.has-dual-deck-art)::before {
+  background: none;
+  filter: none;
+  opacity: 0;
+  transform: none;
+}
+
+:host(.has-dual-deck-art)::after {
+  background: linear-gradient(180deg, rgb(var(--cz-bg-rgb) / 20%), rgb(var(--cz-bg-rgb) / 74%));
+}
+
 :host(.empty-slot) {
   grid-template-rows: 1fr;
   place-items: center;
@@ -53,7 +64,124 @@
     rgb(var(--cz-bg-rgb) / 42%);
 }
 
-:host > * { position: relative; z-index: 1; }
+.player-dual-deck-art {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.player-dual-deck-art::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(
+      90deg,
+      transparent 0%,
+      rgb(var(--cz-primary-rgb) / 10%) 43%,
+      rgb(var(--cz-primary-rgb) / 34%) 49%,
+      rgb(var(--cz-primary-rgb) / 18%) 52%,
+      rgb(var(--cz-primary-rgb) / 8%) 57%,
+      transparent 100%
+    );
+  clip-path: polygon(
+    53% 0%,
+    56% 0%,
+    58% 10%,
+    55% 18%,
+    59% 30%,
+    54% 41%,
+    58% 55%,
+    53% 68%,
+    56% 81%,
+    50% 92%,
+    43% 100%,
+    40% 100%,
+    47% 90%,
+    52% 79%,
+    49% 67%,
+    54% 54%,
+    50% 40%,
+    55% 29%,
+    51% 17%,
+    54% 9%
+  );
+  opacity: 0.85;
+}
+
+.player-dual-deck-art-pane {
+  position: absolute;
+  inset: 0;
+}
+
+.player-dual-deck-art-pane::before,
+.player-dual-deck-art-pane::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-position: center;
+  background-repeat: no-repeat;
+  pointer-events: none;
+}
+
+.player-dual-deck-art-pane::before {
+  background-image:
+    linear-gradient(180deg, rgb(var(--cz-bg-rgb) / 18%), rgb(var(--cz-bg-rgb) / 52%)),
+    var(--player-deck-pane-art);
+  background-size: auto, cover;
+  filter: blur(18px) saturate(1.05);
+  opacity: 0.52;
+  transform: scale(1.06);
+}
+
+.player-dual-deck-art-pane::after {
+  background-image:
+    linear-gradient(180deg, rgb(var(--cz-bg-rgb) / 14%), rgb(var(--cz-bg-rgb) / 44%)),
+    var(--player-deck-pane-art);
+  background-size: auto, 100% auto;
+  opacity: 0.98;
+}
+
+.player-dual-deck-art-pane-primary {
+  --player-deck-pane-art: var(--player-deck-art);
+  clip-path: polygon(
+    0% 0%,
+    53% 0%,
+    56% 8%,
+    53% 17%,
+    57% 29%,
+    52% 40%,
+    56% 54%,
+    51% 67%,
+    54% 79%,
+    49% 90%,
+    42% 100%,
+    0% 100%
+  );
+}
+
+.player-dual-deck-art-pane-secondary {
+  --player-deck-pane-art: var(--player-deck-secondary-art);
+  clip-path: polygon(
+    53% 0%,
+    100% 0%,
+    100% 100%,
+    42% 100%,
+    49% 90%,
+    54% 79%,
+    51% 67%,
+    56% 54%,
+    52% 40%,
+    57% 29%,
+    53% 17%,
+    56% 8%
+  );
+}
+
+:host > :not(.player-dual-deck-art) { position: relative; z-index: 1; }
 
 .player-summary {
   display: grid;

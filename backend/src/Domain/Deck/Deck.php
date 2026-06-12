@@ -2,6 +2,7 @@
 
 namespace App\Domain\Deck;
 
+use App\Application\Deck\DeckFormatCatalog;
 use App\Domain\Card\Card;
 use App\Domain\User\User;
 use Doctrine\Common\Collections\ArrayCollection;
@@ -30,7 +31,7 @@ class Deck
     private string $name;
 
     #[ORM\Column(type: 'string', length: 40)]
-    private string $format = 'commander';
+    private string $format = DeckFormatCatalog::COMMANDER;
 
     #[ORM\Column(type: 'string', length: 20)]
     private string $visibility = self::VISIBILITY_PRIVATE;
@@ -95,6 +96,11 @@ class Deck
         return $this->visibility;
     }
 
+    public function format(): string
+    {
+        return $this->format;
+    }
+
     public function backgroundName(): string
     {
         return $this->backgroundName;
@@ -110,6 +116,12 @@ class Deck
         $this->visibility = in_array($visibility, [self::VISIBILITY_PRIVATE, self::VISIBILITY_PUBLIC], true)
             ? $visibility
             : self::VISIBILITY_PRIVATE;
+        $this->touch();
+    }
+
+    public function setFormat(string $format): void
+    {
+        $this->format = DeckFormatCatalog::normalize($format) ?? DeckFormatCatalog::defaultId();
         $this->touch();
     }
 
@@ -200,13 +212,21 @@ class Deck
 
     public function toArray(bool $withCards = false): array
     {
-        $commander = null;
+        $commanderEntries = [];
         foreach ($this->cards as $deckCard) {
             if ($deckCard instanceof DeckCard && $deckCard->section() === DeckCard::SECTION_COMMANDER) {
-                $commander = $deckCard->card()->toArray();
-                break;
+                $commanderEntries[] = $deckCard;
             }
         }
+
+        usort(
+            $commanderEntries,
+            static fn (DeckCard $left, DeckCard $right): int => $left->id() <=> $right->id(),
+        );
+        $commanders = array_map(
+            static fn (DeckCard $deckCard): array => $deckCard->card()->toArray(),
+            $commanderEntries,
+        );
 
         $data = [
             'id' => $this->id,
@@ -216,7 +236,7 @@ class Deck
             'backgroundName' => $this->backgroundName,
             'sleevesName' => $this->sleevesName,
             'folderId' => $this->folder?->id(),
-            'commander' => $commander,
+            'commanders' => $commanders,
         ];
 
         if ($withCards) {

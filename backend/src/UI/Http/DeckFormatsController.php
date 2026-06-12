@@ -2,6 +2,7 @@
 
 namespace App\UI\Http;
 
+use App\Application\Deck\DeckFormatCatalog;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Routing\Attribute\Route;
 
@@ -11,15 +12,7 @@ class DeckFormatsController extends ApiController
     public function list(): JsonResponse
     {
         return $this->json([
-            'data' => [
-                [
-                    'id' => 'commander',
-                    'name' => 'Commander',
-                    'minCards' => 100,
-                    'maxCards' => 100,
-                    'hasCommander' => true,
-                ],
-            ],
+            'data' => DeckFormatCatalog::all(),
         ]);
     }
 }
