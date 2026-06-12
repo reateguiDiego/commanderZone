@@ -61,8 +61,47 @@ export class GameTableSnapshotSelectors {
     return player.state.zoneCounts?.[zone] ?? player.state.zones[zone]?.length ?? 0;
   }
 
-  commanderCastCount(snapshot: GameSnapshot | null, player: PlayerView): number {
-    return Math.max(0, Number(snapshot?.counters?.[`commander:${player.id}`]?.['casts'] ?? 0));
+  commandZoneCards(player: PlayerView): readonly GameCardInstance[] {
+    return player.state.zones.command ?? [];
+  }
+
+  commanderCards(player: PlayerView): readonly GameCardInstance[] {
+    const commanders = Object.values(player.state.zones)
+      .flat()
+      .filter((card) => card.isCommander === true);
+    const seen = new Set<string>();
+
+    return commanders.filter((card) => {
+      if (seen.has(card.instanceId)) {
+        return false;
+      }
+
+      seen.add(card.instanceId);
+      return true;
+    });
+  }
+
+  primaryCommander(player: PlayerView): GameCardInstance | null {
+    return this.commandZoneCards(player)[0] ?? this.commanderCards(player)[0] ?? null;
+  }
+
+  commanderCastCount(snapshot: GameSnapshot | null, player: PlayerView, commander?: GameCardInstance | null): number {
+    const resolvedCommander = commander ?? this.primaryCommander(player);
+    if (!resolvedCommander) {
+      return 0;
+    }
+
+    const scopedValue = snapshot?.counters?.[`commander:${resolvedCommander.instanceId}`]?.['casts'];
+    if (scopedValue !== undefined) {
+      return Math.max(0, Number(scopedValue));
+    }
+
+    const legacyPrimaryCommander = this.primaryCommander(player);
+    if (legacyPrimaryCommander?.instanceId === resolvedCommander.instanceId) {
+      return Math.max(0, Number(snapshot?.counters?.[`commander:${player.id}`]?.['casts'] ?? 0));
+    }
+
+    return 0;
   }
 
   countItems(count: number): number[] {

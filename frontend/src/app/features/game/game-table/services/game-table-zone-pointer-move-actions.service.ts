@@ -48,7 +48,7 @@ export class GameTableZonePointerMoveActionsService {
     }
 
     await context.command('card.moved', payload);
-    await context.recordCommanderCastIfNeeded(request.playerId, request.fromZone, request.toZone, request.targetPlayerId);
+    await context.recordCommanderCastIfNeeded(request.playerId, request.fromZone, request.toZone, request.targetPlayerId, [request.instanceId]);
     this.endCompletedMove(context);
   }
 

@@ -4379,6 +4379,10 @@ components:
                 $ref: '#/components/schemas/GameCard'
         commanderDamage:
           type: object
+          description: >
+            Commander damage received by this player, keyed by the attacking
+            commander's GameCard.instanceId. Damage from two commanders owned by
+            the same player is tracked independently.
           additionalProperties:
             type: integer
         counters:
@@ -4806,7 +4810,11 @@ components:
           type: object
           description: >
             Command payload. For commander.damage.changed, the actor must be the
-            target player and reaching 21 commander damage defeats that player.
+            target player and must send targetPlayerId, sourcePlayerId, and
+            commanderInstanceId; reaching 21 damage from one commander defeats
+            that player. For counter.changed with a commander:<instanceId> scope
+            and key=casts, the instanceId must identify one of the actor's
+            commander cards.
             For counter.changed with a player:<playerId> scope, the actor must
             be that player and may send either value or delta. For
             card.counter.changed, send key plus either value, delta, or

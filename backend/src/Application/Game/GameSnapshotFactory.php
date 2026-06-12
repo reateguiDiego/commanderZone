@@ -89,9 +89,16 @@ class GameSnapshotFactory
         }
 
         foreach ($players as $targetPlayerId => &$player) {
-            foreach (array_keys($players) as $sourcePlayerId) {
-                if ($targetPlayerId !== $sourcePlayerId) {
-                    $player['commanderDamage'][$sourcePlayerId] = 0;
+            foreach ($players as $sourcePlayerId => $sourcePlayer) {
+                if ($targetPlayerId === $sourcePlayerId) {
+                    continue;
+                }
+
+                foreach ($sourcePlayer['zones']['command'] ?? [] as $commander) {
+                    $commanderInstanceId = (string) ($commander['instanceId'] ?? '');
+                    if ($commanderInstanceId !== '') {
+                        $player['commanderDamage'][$commanderInstanceId] = 0;
+                    }
                 }
             }
         }

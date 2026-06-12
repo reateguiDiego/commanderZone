@@ -1786,27 +1786,31 @@ class GameCommandHandlerTest extends TestCase
     public function testCommanderCastCounterLogIncludesPreviousAndNextValue(): void
     {
         $actor = new User('owner@example.test', 'Owner');
-        $snapshot = $this->snapshot($actor->id(), []);
+        $snapshot = $this->snapshot($actor->id(), [
+            'command' => [
+                $this->card('commander-1', 'Atraxa', 'command', 4, 4, 4, 4),
+            ],
+        ]);
         $snapshot['counters'] = [
-            'commander:'.$actor->id() => ['casts' => 2],
+            'commander:commander-1' => ['casts' => 2],
         ];
         $game = new Game(new Room($actor), $snapshot);
         $handler = new GameCommandHandler();
 
         $handler->apply($game, 'counter.changed', [
-            'scope' => 'commander:'.$actor->id(),
+            'scope' => 'commander:commander-1',
             'key' => 'casts',
             'value' => 3,
         ], $actor);
         $handler->apply($game, 'counter.changed', [
-            'scope' => 'commander:'.$actor->id(),
+            'scope' => 'commander:commander-1',
             'key' => 'casts',
             'value' => 2,
         ], $actor);
 
         self::assertSame([
-            'Commander cast count increased from 2 to 3.',
-            'Commander cast count decreased from 3 to 2.',
+            'Atraxa cast count increased from 2 to 3.',
+            'Atraxa cast count decreased from 3 to 2.',
         ], array_map(
             static fn (array $entry): string => $entry['message'],
             $game->snapshot()['eventLog'],
@@ -1816,20 +1820,80 @@ class GameCommandHandlerTest extends TestCase
     public function testCommanderCastCounterCannotGoBelowZeroOrCreateNoopLog(): void
     {
         $actor = new User('owner@example.test', 'Owner');
-        $snapshot = $this->snapshot($actor->id(), []);
+        $snapshot = $this->snapshot($actor->id(), [
+            'command' => [
+                $this->card('commander-1', 'Atraxa', 'command', 4, 4, 4, 4),
+            ],
+        ]);
         $snapshot['counters'] = [
-            'commander:'.$actor->id() => ['casts' => 0],
+            'commander:commander-1' => ['casts' => 0],
         ];
         $game = new Game(new Room($actor), $snapshot);
 
         (new GameCommandHandler())->apply($game, 'counter.changed', [
-            'scope' => 'commander:'.$actor->id(),
+            'scope' => 'commander:commander-1',
             'key' => 'casts',
             'value' => -1,
         ], $actor);
 
-        self::assertSame(0, $game->snapshot()['counters']['commander:'.$actor->id()]['casts']);
+        self::assertSame(0, $game->snapshot()['counters']['commander:commander-1']['casts']);
         self::assertSame([], $game->snapshot()['eventLog']);
+    }
+
+    public function testCommanderDamageIsTrackedByCommanderCard(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $opponent = new User('opponent@example.test', 'Opponent');
+        $snapshot = $this->snapshot($actor->id(), [], $opponent->id());
+        $snapshot['players'][$opponent->id()]['zones']['command'] = [
+            $this->card('commander-1', 'Rograkh', 'command', 0, 1, 0, 1),
+            $this->card('commander-2', 'Silas Renn', 'command', 2, 2, 2, 2),
+        ];
+        $game = new Game(new Room($actor), $snapshot);
+        $handler = new GameCommandHandler();
+
+        $handler->apply($game, 'commander.damage.changed', [
+            'targetPlayerId' => $actor->id(),
+            'sourcePlayerId' => $opponent->id(),
+            'commanderInstanceId' => 'commander-1',
+            'damage' => 11,
+        ], $actor);
+        $handler->apply($game, 'commander.damage.changed', [
+            'targetPlayerId' => $actor->id(),
+            'sourcePlayerId' => $opponent->id(),
+            'commanderInstanceId' => 'commander-2',
+            'damage' => 10,
+        ], $actor);
+
+        $damage = $game->snapshot()['players'][$actor->id()]['commanderDamage'];
+        self::assertSame(11, $damage['commander-1']);
+        self::assertSame(10, $damage['commander-2']);
+        self::assertFalse($this->eventLogContains($game->snapshot(), 'ha muerto.'));
+
+        $handler->apply($game, 'commander.damage.changed', [
+            'targetPlayerId' => $actor->id(),
+            'sourcePlayerId' => $opponent->id(),
+            'commanderInstanceId' => 'commander-2',
+            'damage' => 21,
+        ], $actor);
+
+        self::assertTrue($this->eventLogContains($game->snapshot(), 'ha muerto.'));
+    }
+
+    public function testCommanderDamageRequiresCommanderInstanceId(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $opponent = new User('opponent@example.test', 'Opponent');
+        $game = new Game(new Room($actor), $this->snapshot($actor->id(), [], $opponent->id()));
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('commanderInstanceId is required.');
+
+        (new GameCommandHandler())->apply($game, 'commander.damage.changed', [
+            'targetPlayerId' => $actor->id(),
+            'sourcePlayerId' => $opponent->id(),
+            'damage' => 1,
+        ], $actor);
     }
 
     public function testLifeAtZeroCreatesFinalDefeatedLogAndSuppressesFutureActorLogs(): void
@@ -2775,6 +2839,17 @@ class GameCommandHandlerTest extends TestCase
             'eventLog' => [],
             'createdAt' => '2026-01-01T00:00:00+00:00',
         ];
+    }
+
+    private function eventLogContains(array $snapshot, string $message): bool
+    {
+        foreach ($snapshot['eventLog'] ?? [] as $entry) {
+            if (($entry['message'] ?? null) === $message) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

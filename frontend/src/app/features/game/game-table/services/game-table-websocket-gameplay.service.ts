@@ -840,8 +840,8 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
       return typeof payload['playerId'] === 'string' ? `${type}:${payload['playerId']}` : null;
     }
     if (type === 'commander.damage.changed') {
-      return typeof payload['targetPlayerId'] === 'string' && typeof payload['sourcePlayerId'] === 'string'
-        ? `${type}:${payload['targetPlayerId']}:${payload['sourcePlayerId']}`
+      return typeof payload['targetPlayerId'] === 'string' && typeof payload['commanderInstanceId'] === 'string'
+        ? `${type}:${payload['targetPlayerId']}:${payload['commanderInstanceId']}`
         : null;
     }
     if (type === 'counter.changed') {

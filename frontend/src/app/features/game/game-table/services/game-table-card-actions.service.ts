@@ -30,7 +30,13 @@ export interface GameTableCardActionContext {
   setPendingBattlefieldMove(move: PendingBattlefieldMove | null): void;
   setPendingLibraryMove(move: PendingLibraryMove | null): void;
   syncOpenZoneModalAfterMove(playerId: string, fromZone: GameZoneName, instanceIds: readonly string[]): Promise<void>;
-  recordCommanderCastIfNeeded(playerId: string, fromZone: GameZoneName, toZone?: GameZoneName): Promise<void>;
+  recordCommanderCastIfNeeded(
+    playerId: string,
+    fromZone: GameZoneName,
+    toZone?: GameZoneName,
+    targetPlayerId?: string,
+    instanceIds?: readonly string[],
+  ): Promise<void>;
   command(type: GameCommandType, payload: Record<string, unknown>): Promise<void>;
 }
 
@@ -53,7 +59,7 @@ export class GameTableCardActionsService {
       toZone: 'battlefield',
       instanceId: card.instanceId,
     });
-    await context.recordCommanderCastIfNeeded(playerId, zone);
+    await context.recordCommanderCastIfNeeded(playerId, zone, 'battlefield', playerId, [card.instanceId]);
     context.clearSelectedCards();
   }
 
@@ -143,7 +149,7 @@ export class GameTableCardActionsService {
     }
 
     await context.command('card.moved', payload);
-    await context.recordCommanderCastIfNeeded(target.playerId, target.zone, toZone);
+    await context.recordCommanderCastIfNeeded(target.playerId, target.zone, toZone, target.playerId, [target.card.instanceId]);
     await context.syncOpenZoneModalAfterMove(target.playerId, target.zone, [target.card.instanceId]);
     context.clearSelectedCards();
     context.closeContextMenu();
@@ -249,7 +255,7 @@ export class GameTableCardActionsService {
     }
 
     await context.command(isMultiMove ? 'cards.moved' : 'card.moved', payload);
-    await context.recordCommanderCastIfNeeded(firstTarget.playerId, firstTarget.zone, toZone);
+    await context.recordCommanderCastIfNeeded(firstTarget.playerId, firstTarget.zone, toZone, targetPlayerId, instanceIds);
     await context.syncOpenZoneModalAfterMove(firstTarget.playerId, firstTarget.zone, instanceIds);
     context.clearSelectedCards();
     context.closeContextMenu();
@@ -375,7 +381,7 @@ export class GameTableCardActionsService {
       toZone,
       instanceId: item.card.instanceId,
     });
-    await context.recordCommanderCastIfNeeded(item.playerId, item.zone, toZone);
+    await context.recordCommanderCastIfNeeded(item.playerId, item.zone, toZone, item.playerId, [item.card.instanceId]);
     context.clearSelectedCards();
   }
 
@@ -671,7 +677,7 @@ export class GameTableCardActionsService {
       instanceId: card.instanceId,
       ...this.viewedLibrarySourcePayload(context, modal.playerId, card),
     });
-    await context.recordCommanderCastIfNeeded(modal.playerId, modal.zone, toZone);
+    await context.recordCommanderCastIfNeeded(modal.playerId, modal.zone, toZone, modal.playerId, [card.instanceId]);
     await context.syncOpenZoneModalAfterMove(modal.playerId, modal.zone, [card.instanceId]);
   }
 

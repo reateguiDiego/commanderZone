@@ -82,11 +82,20 @@ export class GameTablePlayersStore {
     return this.core.snapshot()?.players[playerId]?.zones[zone]?.map((card) => card.instanceId) ?? [];
   }
 
-  commanderCastCount(player: PlayerView): number {
+  commandZoneCards(player: PlayerView): readonly GameCardInstance[] {
+    return this.selectors.commandZoneCards(player);
+  }
+
+  commanderCastCount(player: PlayerView, commander?: GameCardInstance | null): number {
+    const resolvedCommander = commander ?? this.selectors.primaryCommander(player);
+    if (!resolvedCommander) {
+      return 0;
+    }
+
     return this.debouncedValueCommands.counterValue(
-      `commander:${player.id}`,
+      `commander:${resolvedCommander.instanceId}`,
       'casts',
-      this.selectors.commanderCastCount(this.core.snapshot(), player),
+      this.selectors.commanderCastCount(this.core.snapshot(), player, resolvedCommander),
     );
   }
 

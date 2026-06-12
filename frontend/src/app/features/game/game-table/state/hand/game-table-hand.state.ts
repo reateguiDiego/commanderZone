@@ -44,6 +44,7 @@ export interface GameTableHandContext {
     fromZone: GameZoneName,
     toZone?: GameZoneName,
     targetPlayerId?: string,
+    instanceIds?: readonly string[],
   ) => Promise<void>;
 }
 

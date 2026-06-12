@@ -251,9 +251,140 @@ class GameCommandHandler
         }
         unset($player);
 
+        $this->normalizeCommanderDamage($snapshot);
+        $this->normalizeCommanderCastCounters($snapshot);
         $this->pruneBattlefieldRelations($snapshot);
 
         return $snapshot;
+    }
+
+    private function normalizeCommanderDamage(array &$snapshot): void
+    {
+        $commandersByPlayer = $this->commanderCardsByPlayer($snapshot);
+        $commanderOwners = $this->commanderOwnersByInstanceId($commandersByPlayer);
+
+        foreach ($snapshot['players'] as $targetPlayerId => &$player) {
+            $previousDamage = is_array($player['commanderDamage'] ?? null) ? $player['commanderDamage'] : [];
+            $nextDamage = [];
+
+            foreach ($commandersByPlayer as $sourcePlayerId => $commanders) {
+                if ((string) $sourcePlayerId === (string) $targetPlayerId) {
+                    continue;
+                }
+
+                foreach ($commanders as $commander) {
+                    $commanderInstanceId = (string) ($commander['instanceId'] ?? '');
+                    if ($commanderInstanceId !== '') {
+                        $nextDamage[$commanderInstanceId] = 0;
+                    }
+                }
+            }
+
+            foreach ($previousDamage as $key => $damage) {
+                $damage = max(0, (int) $damage);
+                $resolvedCommanderId = null;
+                if (isset($commanderOwners[(string) $key]) && $commanderOwners[(string) $key] !== (string) $targetPlayerId) {
+                    $resolvedCommanderId = (string) $key;
+                } elseif (isset($commandersByPlayer[(string) $key][0]) && (string) $key !== (string) $targetPlayerId) {
+                    $resolvedCommanderId = (string) $commandersByPlayer[(string) $key][0]['instanceId'];
+                }
+
+                if ($resolvedCommanderId !== null) {
+                    $nextDamage[$resolvedCommanderId] = max((int) ($nextDamage[$resolvedCommanderId] ?? 0), $damage);
+                }
+            }
+
+            $player['commanderDamage'] = $nextDamage;
+        }
+        unset($player);
+    }
+
+    private function normalizeCommanderCastCounters(array &$snapshot): void
+    {
+        $counters = is_array($snapshot['counters'] ?? null) ? $snapshot['counters'] : [];
+        $commandersByPlayer = $this->commanderCardsByPlayer($snapshot);
+        $commanderOwners = $this->commanderOwnersByInstanceId($commandersByPlayer);
+        $normalized = [];
+
+        foreach ($counters as $scope => $scopeCounters) {
+            $scope = (string) $scope;
+            $scopeCounters = is_array($scopeCounters) ? $scopeCounters : [];
+            if (!str_starts_with($scope, 'commander:')) {
+                $normalized[$scope] = $scopeCounters;
+                continue;
+            }
+
+            $id = substr($scope, strlen('commander:'));
+            if (isset($commandersByPlayer[$id][0])) {
+                $scope = 'commander:'.(string) $commandersByPlayer[$id][0]['instanceId'];
+            } elseif (!isset($commanderOwners[$id])) {
+                continue;
+            }
+
+            $normalized[$scope] = [
+                ...($normalized[$scope] ?? []),
+                ...$scopeCounters,
+            ];
+        }
+
+        $snapshot['counters'] = $normalized;
+    }
+
+    /**
+     * @return array<string,list<array<string,mixed>>>
+     */
+    private function commanderCardsByPlayer(array $snapshot): array
+    {
+        $commandersByPlayer = [];
+        $seenInstanceIds = [];
+        foreach ($snapshot['players'] ?? [] as $playerId => $player) {
+            $commandersByPlayer[(string) $playerId] = [];
+        }
+
+        foreach ($snapshot['players'] ?? [] as $playerId => $player) {
+            foreach (self::ZONES as $zone) {
+                foreach (($player['zones'][$zone] ?? []) as $card) {
+                    if (!is_array($card) || ($card['isCommander'] ?? false) !== true) {
+                        continue;
+                    }
+
+                    $ownerId = (string) ($card['ownerId'] ?? $playerId);
+                    if (!isset($commandersByPlayer[$ownerId])) {
+                        continue;
+                    }
+
+                    $instanceId = (string) ($card['instanceId'] ?? '');
+                    if ($instanceId === '' || isset($seenInstanceIds[$instanceId])) {
+                        continue;
+                    }
+
+                    $seenInstanceIds[$instanceId] = true;
+                    $commandersByPlayer[$ownerId][] = $card;
+                }
+            }
+        }
+
+        return $commandersByPlayer;
+    }
+
+    /**
+     * @param array<string,list<array<string,mixed>>> $commandersByPlayer
+     *
+     * @return array<string,string>
+     */
+    private function commanderOwnersByInstanceId(array $commandersByPlayer): array
+    {
+        $owners = [];
+        foreach ($commandersByPlayer as $playerId => $commanders) {
+            foreach ($commanders as $commander) {
+                $instanceId = (string) ($commander['instanceId'] ?? '');
+                if ($instanceId !== '') {
+                    $owners[$instanceId] = (string) $playerId;
+                }
+            }
+        }
+
+        return $owners;
     }
 
     private function normalizeCard(array $card, string $ownerId, string $zone): array
@@ -635,16 +766,28 @@ class GameCommandHandler
     {
         $targetPlayerId = $this->requiredPlayerId($snapshot, $payload, 'targetPlayerId');
         $sourcePlayerId = $this->requiredPlayerId($snapshot, $payload, 'sourcePlayerId');
+        $commanderInstanceId = trim((string) ($payload['commanderInstanceId'] ?? ''));
         if ($targetPlayerId === $sourcePlayerId) {
             throw new \InvalidArgumentException('Commander damage source and target must differ.');
         }
+        if ($commanderInstanceId === '') {
+            throw new \InvalidArgumentException('commanderInstanceId is required.');
+        }
 
-        $current = (int) ($snapshot['players'][$targetPlayerId]['commanderDamage'][$sourcePlayerId] ?? 0);
+        $commander = $this->requiredCommanderCard($snapshot, $sourcePlayerId, $commanderInstanceId);
+        $current = (int) ($snapshot['players'][$targetPlayerId]['commanderDamage'][$commanderInstanceId] ?? 0);
         $damage = array_key_exists('damage', $payload)
             ? (int) $payload['damage']
             : $current + (int) ($payload['delta'] ?? 0);
         $nextDamage = max(0, $damage);
-        $snapshot['players'][$targetPlayerId]['commanderDamage'][$sourcePlayerId] = $nextDamage;
+        $snapshot['players'][$targetPlayerId]['commanderDamage'][$commanderInstanceId] = $nextDamage;
+        $this->pendingEventPayload = [
+            ...$payload,
+            'targetPlayerId' => $targetPlayerId,
+            'sourcePlayerId' => $sourcePlayerId,
+            'commanderInstanceId' => $commanderInstanceId,
+            'damage' => $nextDamage,
+        ];
         if ($current >= self::COMMANDER_DAMAGE_DEFEAT_THRESHOLD && !$this->hasPlayerDefeatedLog($snapshot, $targetPlayerId)) {
             $this->pendingDefeatedPlayerId = $targetPlayerId;
             $this->pendingDefeatPreexisted = true;
@@ -656,7 +799,7 @@ class GameCommandHandler
         }
 
         return $this->commanderDamageLog(
-            $this->playerName($snapshot, $sourcePlayerId),
+            sprintf('%s (%s)', $this->cardLogName($commander), $this->playerName($snapshot, $sourcePlayerId)),
             $this->playerName($snapshot, $targetPlayerId),
             $current,
             $nextDamage,
@@ -698,6 +841,16 @@ class GameCommandHandler
             throw new \InvalidArgumentException('Counter value must be numeric.');
         }
 
+        $commander = null;
+        if (str_starts_with($scope, 'commander:') && $key === 'casts') {
+            [$scope, $commander] = $this->resolvedCommanderCounterScope($snapshot, $scope);
+            $this->pendingEventPayload = [
+                ...$payload,
+                'scope' => $scope,
+                'key' => $key,
+            ];
+        }
+
         $previousValue = (int) ($snapshot['counters'][$scope][$key] ?? 0);
         $value = str_starts_with($scope, 'commander:') && $key === 'casts'
             ? max(0, (int) $payload['value'])
@@ -705,7 +858,7 @@ class GameCommandHandler
         $snapshot['counters'][$scope][$key] = $value;
 
         if (str_starts_with($scope, 'commander:') && $key === 'casts') {
-            return $this->commanderCastCounterLog($previousValue, $value);
+            return $this->commanderCastCounterLog($previousValue, $value, $commander ? $this->cardLogName($commander) : null);
         }
 
         return sprintf('Set %s counter %s to %d.', $scope, $key, $value);
@@ -752,14 +905,15 @@ class GameCommandHandler
         );
     }
 
-    private function commanderCastCounterLog(int $previousValue, int $value): string
+    private function commanderCastCounterLog(int $previousValue, int $value, ?string $commanderName = null): string
     {
+        $subject = $commanderName === null ? 'Commander cast count' : sprintf('%s cast count', $commanderName);
         if ($value > $previousValue) {
-            return sprintf('Commander cast count increased from %d to %d.', $previousValue, $value);
+            return sprintf('%s increased from %d to %d.', $subject, $previousValue, $value);
         }
 
         if ($value < $previousValue) {
-            return sprintf('Commander cast count decreased from %d to %d.', $previousValue, $value);
+            return sprintf('%s decreased from %d to %d.', $subject, $previousValue, $value);
         }
 
         return '';
@@ -2220,6 +2374,57 @@ class GameCommandHandler
         throw new \InvalidArgumentException('Random selected card not found.');
     }
 
+    /**
+     * @return array<string,mixed>
+     */
+    private function requiredCommanderCard(array $snapshot, string $sourcePlayerId, string $commanderInstanceId): array
+    {
+        foreach ($snapshot['players'] ?? [] as $playerId => $player) {
+            foreach (self::ZONES as $zone) {
+                foreach (($player['zones'][$zone] ?? []) as $card) {
+                    if (!is_array($card) || (string) ($card['instanceId'] ?? '') !== $commanderInstanceId) {
+                        continue;
+                    }
+                    if (($card['isCommander'] ?? false) !== true || (string) ($card['ownerId'] ?? $playerId) !== $sourcePlayerId) {
+                        throw new \InvalidArgumentException('Commander damage source card is invalid.');
+                    }
+
+                    return $card;
+                }
+            }
+        }
+
+        throw new \InvalidArgumentException('Commander damage source card was not found.');
+    }
+
+    /**
+     * @return array{0:string,1:array<string,mixed>}
+     */
+    private function resolvedCommanderCounterScope(array $snapshot, string $scope): array
+    {
+        $id = substr($scope, strlen('commander:'));
+        if ($id === '') {
+            throw new \InvalidArgumentException('Commander counter scope is invalid.');
+        }
+
+        $commandersByPlayer = $this->commanderCardsByPlayer($snapshot);
+        if (isset($commandersByPlayer[$id][0])) {
+            $commander = $commandersByPlayer[$id][0];
+
+            return ['commander:'.(string) $commander['instanceId'], $commander];
+        }
+
+        foreach ($commandersByPlayer as $commanders) {
+            foreach ($commanders as $commander) {
+                if ((string) ($commander['instanceId'] ?? '') === $id) {
+                    return [$scope, $commander];
+                }
+            }
+        }
+
+        throw new \InvalidArgumentException('Commander counter scope is invalid.');
+    }
+
     private function possessivePlayerName(array $snapshot, string $playerId): string
     {
         $name = $this->playerName($snapshot, $playerId);
@@ -2637,6 +2842,14 @@ class GameCommandHandler
 
             return;
         }
+        $commanderCounterOwnerId = $type === 'counter.changed' ? $this->commanderCounterOwnerId($snapshot, $payload) : null;
+        if ($commanderCounterOwnerId !== null) {
+            if ($commanderCounterOwnerId !== $actorId) {
+                throw new \InvalidArgumentException('You can only change your own commander cast count.');
+            }
+
+            return;
+        }
 
         if ($type === 'library.shuffle' && $this->canActorCloseRevealedLibrary($snapshot, $payload, $actor)) {
             return;
@@ -2702,6 +2915,20 @@ class GameCommandHandler
         $playerId = substr($scope, strlen('player:'));
 
         return $playerId === '' ? null : $playerId;
+    }
+
+    private function commanderCounterOwnerId(array $snapshot, array $payload): ?string
+    {
+        $scope = trim((string) ($payload['scope'] ?? 'global'));
+        $key = trim((string) ($payload['key'] ?? ''));
+        if ($key !== 'casts' || !str_starts_with($scope, 'commander:')) {
+            return null;
+        }
+
+        [$resolvedScope, $commander] = $this->resolvedCommanderCounterScope($snapshot, $scope);
+        unset($resolvedScope);
+
+        return (string) ($commander['ownerId'] ?? '');
     }
 
     /**

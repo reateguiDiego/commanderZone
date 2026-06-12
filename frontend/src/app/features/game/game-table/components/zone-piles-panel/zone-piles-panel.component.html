@@ -16,17 +16,17 @@
       [attr.data-zone]="zone"
       [attr.data-game-drop-zone]="zone"
       [attr.data-motion-zone]="currentPlayer.id + ':' + zone"
-      [attr.data-motion-origin-card-id]="topZoneCard?.instanceId ?? null"
-      [attr.draggable]="topZoneCard ? 'true' : null"
-      [class.draggable-zone]="topZoneCard"
+      [attr.data-motion-origin-card-id]="zone !== 'command' ? topZoneCard?.instanceId ?? null : null"
+      [attr.draggable]="zone !== 'command' && topZoneCard ? 'true' : null"
+      [class.draggable-zone]="zone !== 'command' && topZoneCard"
       [class.drop-target-active]="isDropZoneHighlighted()(currentPlayer.id, zone)"
       [class.drop-settling]="isZoneDropSettling()(currentPlayer.id, zone)"
       [class.transfer-pending]="isZoneTransferPending()(currentPlayer.id, zone)"
       [class.dragging-zone-card]="isDraggingZone(zone, topZoneCard)"
       appGameTableLongPress
       (appGameTableLongPressed)="zoneMenuOpened.emit({ event: $event, playerId: currentPlayer.id, zone })"
-      (pointerdown)="startZonePointerDrag($event, zone, topZoneCard)"
-      (dragstart)="startZoneDrag($event, currentPlayer, zone, topZoneCard)"
+      (pointerdown)="zone !== 'command' ? startZonePointerDrag($event, zone, topZoneCard) : undefined"
+      (dragstart)="zone !== 'command' ? startZoneDrag($event, currentPlayer, zone, topZoneCard) : undefined"
       (dragend)="clearZoneDrag($event); zoneDragEnd.emit()"
       (dragover)="zoneDragOver.emit($event)"
       (drop)="zoneDropped.emit({ event: $event, playerId: currentPlayer.id, zone })"
@@ -55,8 +55,10 @@
           [attr.data-zone]="zone"
           [class.empty]="zoneCount()(currentPlayer, zone) === 0"
           [class.card-stack]="zone !== 'command' && zoneCount()(currentPlayer, zone) > 0"
-          (mouseenter)="previewZoneCard($event, zone)"
-          (mouseleave)="hideZoneCardPreview(zone)"
+          [class.command-zone-art]="zone === 'command'"
+          [class.dual-command-zone-art]="isDualCommandZone(currentPlayer, zone)"
+          (mouseenter)="zone !== 'command' ? previewZoneCard($event, zone) : undefined"
+          (mouseleave)="zone !== 'command' ? hideZoneCardPreview(zone) : undefined"
         >
           @if (image) {
             @if (zone !== 'command') {
@@ -67,26 +69,63 @@
                 [label]="zoneTitle()(zone)"
                 [count]="zoneCount()(currentPlayer, zone)"
               />
-            } @else {
-              <img
-                class="zone-card-image"
-                [src]="image"
-                [alt]="zoneTitle()(zone)"
-                draggable="false"
-              />
             }
           }
           @if (zone === 'command') {
-            <strong
-              class="commander-cast-count"
-              [class.active]="commanderCastCount()(currentPlayer) > 0"
-              data-testid="commander-cast-count"
-              [attr.data-player-id]="currentPlayer.id"
-              (click)="changeCommanderCastCount($event, 1)"
-              (contextmenu)="changeCommanderCastCount($event, -1)"
-            >
-              {{ commanderCastCount()(currentPlayer) }}
-            </strong>
+            @let commanders = commandZoneCards()(currentPlayer);
+            @if (commanders.length === 2) {
+              <app-commanders-stack
+                [playerId]="currentPlayer.id"
+                [cards]="commanderStackCards(currentPlayer, commanders)"
+                (pointerDragStarted)="startZonePointerDrag($event.event, zone, $event.card)"
+                (nativeDragStarted)="startZoneDrag($event.event, currentPlayer, zone, $event.card)"
+                (nativeDragEnded)="clearZoneDrag($event); zoneDragEnd.emit()"
+                (cardPreviewShown)="previewCommandZoneCard($event.event, $event.card)"
+                (cardPreviewHidden)="hideZoneCardPreview(zone)"
+                (castCountChanged)="changeCommanderCastCount($event.event, $event.card, $event.delta)"
+              />
+            } @else {
+              @for (commander of commanders; track commander.instanceId) {
+                @let commanderImage = cardImage()(commander);
+                <span
+                  class="command-zone-card"
+                  data-testid="command-zone-card"
+                  [attr.data-player-id]="currentPlayer.id"
+                  [attr.data-card-id]="commander.instanceId"
+                  [attr.data-motion-origin-card-id]="commander.instanceId"
+                  [attr.draggable]="commander ? 'true' : null"
+                  [class.single-command-zone-card]="commanders.length === 1"
+                  [class.dragging-command-zone-card]="isDraggingCommandZoneCard(commander)"
+                  (pointerdown)="startZonePointerDrag($event, zone, commander)"
+                  (dragstart)="startZoneDrag($event, currentPlayer, zone, commander)"
+                  (dragend)="$event.stopPropagation(); clearZoneDrag($event); zoneDragEnd.emit()"
+                  (mouseenter)="previewCommandZoneCard($event, commander)"
+                  (mouseleave)="hideZoneCardPreview(zone)"
+                >
+                  @if (commanderImage) {
+                    <img
+                      class="zone-card-image"
+                      [src]="commanderImage"
+                      [alt]="commander.name"
+                      draggable="false"
+                    />
+                  } @else {
+                    <span class="command-zone-card-name">{{ commander.name }}</span>
+                  }
+                  <strong
+                    class="commander-cast-count"
+                    [class.active]="commanderCastCount()(currentPlayer, commander) > 0"
+                    data-testid="commander-cast-count"
+                    [attr.data-player-id]="currentPlayer.id"
+                    [attr.data-card-id]="commander.instanceId"
+                    (click)="changeCommanderCastCount($event, commander, 1)"
+                    (contextmenu)="changeCommanderCastCount($event, commander, -1)"
+                  >
+                    {{ commanderCastCount()(currentPlayer, commander) }}
+                  </strong>
+                </span>
+              }
+            }
             <span class="sr-only" data-testid="zone-count" [attr.data-player-id]="currentPlayer.id" [attr.data-zone]="zone">{{ zoneCount()(currentPlayer, zone) }}</span>
           } @else {
             <strong class="zone-count-badge" data-testid="zone-count" [attr.data-player-id]="currentPlayer.id" [attr.data-zone]="zone">{{ zoneCount()(currentPlayer, zone) }}</strong>

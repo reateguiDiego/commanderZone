@@ -286,8 +286,12 @@ export class GameTableStore implements OnDestroy {
     return this.playersStore.zoneCardInstanceIds(playerId, zone);
   }
 
-  commanderCastCount(player: PlayerView): number {
-    return this.playersStore.commanderCastCount(player);
+  commandZoneCards(player: PlayerView): readonly GameCardInstance[] {
+    return this.playersStore.commandZoneCards(player);
+  }
+
+  commanderCastCount(player: PlayerView, commander?: GameCardInstance | null): number {
+    return this.playersStore.commanderCastCount(player, commander);
   }
 
   countItems(count: number): number[] {
@@ -785,13 +789,13 @@ export class GameTableStore implements OnDestroy {
     });
   }
 
-  async setCommanderDamage(targetPlayerId: string, sourcePlayerId: string, delta: number): Promise<void> {
+  async setCommanderDamage(targetPlayerId: string, sourcePlayerId: string, commanderInstanceId: string, delta: number): Promise<void> {
     if (!this.canControlPlayer(targetPlayerId)) {
       this.error.set('You can only change your own commander damage.');
       return;
     }
 
-    const currentDamage = this.debouncedValueCommands.commanderDamageValue(this.snapshot(), targetPlayerId, sourcePlayerId);
+    const currentDamage = this.debouncedValueCommands.commanderDamageValue(this.snapshot(), targetPlayerId, commanderInstanceId);
     const nextDamage = Math.max(0, currentDamage + delta);
     if (nextDamage === currentDamage) {
       return;
@@ -800,6 +804,7 @@ export class GameTableStore implements OnDestroy {
     this.debouncedValueCommands.queueCommanderDamage(this.contexts.debouncedValueCommand(), {
       targetPlayerId,
       sourcePlayerId,
+      commanderInstanceId,
       damage: nextDamage,
     });
   }
@@ -849,8 +854,8 @@ export class GameTableStore implements OnDestroy {
     this.manaPoolState.resetAll();
   }
 
-  async changeCommanderCastCount(playerId: string, delta: number): Promise<void> {
-    await this.countersState.changeCommanderCastCount(playerId, delta);
+  async changeCommanderCastCount(playerId: string, commanderInstanceId: string, delta: number): Promise<void> {
+    await this.countersState.changeCommanderCastCount(playerId, commanderInstanceId, delta);
   }
 
   async draw(playerId: string, count = 1): Promise<void> {
@@ -1037,8 +1042,8 @@ export class GameTableStore implements OnDestroy {
     this.dragDropStore.dragEnd(this.contexts.dragDrop());
   }
 
-  dragTopZoneCard(event: DragEvent, player: PlayerView, zone: GameZoneName): void {
-    const card = this.topDraggableCard(player, zone);
+  dragTopZoneCard(event: DragEvent, player: PlayerView, zone: GameZoneName, draggedCard: GameCardInstance | null = null): void {
+    const card = draggedCard ?? this.topDraggableCard(player, zone);
     if (!card) {
       event.preventDefault();
       return;

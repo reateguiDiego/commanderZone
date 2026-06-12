@@ -199,6 +199,69 @@ describe('GameTableDragService', () => {
     }
   });
 
+  it('uses the dragged commander card image for native command stack previews', () => {
+    const battlefieldCard = document.createElement('button');
+    battlefieldCard.className = 'game-card';
+    battlefieldCard.dataset['testid'] = 'game-card';
+    battlefieldCard.dataset['zone'] = 'battlefield';
+    battlefieldCard.getBoundingClientRect = () => ({
+      ...rect(0, 116),
+      height: 162,
+      bottom: 162,
+      right: 116,
+    });
+    const zoneArt = document.createElement('span');
+    zoneArt.className = 'zone-art command-zone-art dual-command-zone-art';
+    const firstCommander = document.createElement('span');
+    firstCommander.className = 'command-zone-card commanders-stack-card';
+    const firstImage = document.createElement('img');
+    firstImage.className = 'zone-card-image';
+    firstImage.src = '/assets/commander-1.jpg';
+    const secondCommander = document.createElement('span');
+    secondCommander.className = 'command-zone-card commanders-stack-card';
+    const secondImage = document.createElement('img');
+    secondImage.className = 'zone-card-image';
+    secondImage.src = '/assets/commander-2.jpg';
+    secondImage.getBoundingClientRect = () => ({
+      ...rect(0, 80),
+      height: 112,
+      bottom: 112,
+      right: 80,
+    });
+    firstCommander.appendChild(firstImage);
+    secondCommander.appendChild(secondImage);
+    zoneArt.append(firstCommander, secondCommander);
+    document.body.append(battlefieldCard, zoneArt);
+    const dataTransfer = {
+      effectAllowed: '',
+      setData: vi.fn(),
+      setDragImage: vi.fn(),
+    };
+
+    try {
+      service.dragStart({
+        target: secondCommander,
+        currentTarget: secondCommander,
+        dataTransfer,
+        clientX: 40,
+        clientY: 56,
+      } as unknown as DragEvent, 'player-1', 'command', {
+        instanceId: 'commander-2',
+        name: 'Silas Renn',
+        tapped: false,
+      });
+
+      const [dragImage] = dataTransfer.setDragImage.mock.calls[0]!;
+      const image = (dragImage as HTMLElement).querySelector('img');
+
+      expect(image?.src).toContain('/assets/commander-2.jpg');
+      expect(image?.src).not.toContain('/assets/commander-1.jpg');
+    } finally {
+      battlefieldCard.remove();
+      zoneArt.remove();
+    }
+  });
+
   it('keeps zone pile drag payloads when the native preview cannot be applied', () => {
     const zoneStack = document.createElement('button');
     zoneStack.className = 'zone-stack';

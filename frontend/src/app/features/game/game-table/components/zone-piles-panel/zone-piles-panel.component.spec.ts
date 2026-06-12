@@ -53,7 +53,7 @@ describe('ZonePilesPanelComponent', () => {
     const commander = card('commander-1', 'Smeagol, Helpful Guide', 'command');
     const fixture = await renderZonePilesPanel({
       command: [commander],
-      zonePreviewImage: (_player, zone) => zone === 'command' ? '/assets/commander.jpg' : null,
+      cardImage: (inputCard) => inputCard.instanceId === commander.instanceId ? '/assets/commander.jpg' : null,
       zonePreviewCard: (_player, zone) => zone === 'command' ? commander : null,
     });
     const previewSpy = vi.fn();
@@ -61,12 +61,97 @@ describe('ZonePilesPanelComponent', () => {
     fixture.componentInstance.cardPreviewShown.subscribe(previewSpy);
     fixture.componentInstance.cardPreviewHidden.subscribe(hiddenSpy);
 
-    const zoneArt = zoneElement(fixture, 'command').querySelector('[data-testid="zone"]')!;
-    zoneArt.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
-    zoneArt.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true }));
+    const commandCard = zoneElement(fixture, 'command').querySelector('[data-testid="command-zone-card"]')!;
+    expect(zoneElement(fixture, 'command').querySelector('[data-testid="commanders-stack"]')).toBeNull();
+    expect(commandCard.classList).toContain('single-command-zone-card');
+    commandCard.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+    commandCard.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true }));
 
     expect(previewSpy).toHaveBeenCalledWith({ card: commander, playerId: 'player-1', zone: 'command', sourceRect: null });
     expect(hiddenSpy).toHaveBeenCalled();
+  });
+
+  it('renders both command zone commanders with independent cast counters', async () => {
+    const firstCommander = card('commander-1', 'Rograkh', 'command');
+    const secondCommander = card('commander-2', 'Silas Renn', 'command');
+    const fixture = await renderZonePilesPanel({
+      command: [firstCommander, secondCommander],
+      cardImage: (inputCard) => `/assets/${inputCard.instanceId}.jpg`,
+      commanderCastCount: (_player, inputCommander) => inputCommander.instanceId === secondCommander.instanceId ? 2 : 0,
+    });
+    const castSpy = vi.fn();
+    fixture.componentInstance.commanderCastChanged.subscribe(castSpy);
+
+    const commandCards = Array.from(zoneElement(fixture, 'command').querySelectorAll<HTMLElement>('[data-testid="command-zone-card"]'));
+    const castCounters = Array.from(zoneElement(fixture, 'command').querySelectorAll<HTMLElement>('[data-testid="commander-cast-count"]'));
+    castCounters[1]!.click();
+
+    expect(zoneElement(fixture, 'command').querySelector('[data-testid="commanders-stack"]')).not.toBeNull();
+    expect(zoneElement(fixture, 'command').querySelector('[data-testid="zone"]')?.classList).toContain('dual-command-zone-art');
+    expect(commandCards.map((element) => element.dataset['cardId'])).toEqual(['commander-1', 'commander-2']);
+    expect(commandCards.map((element) => element.querySelector('img')?.getAttribute('src'))).toEqual(['/assets/commander-1.jpg', '/assets/commander-2.jpg']);
+    expect(castCounters.map((element) => element.textContent?.trim())).toEqual(['0', '2']);
+    expect(castCounters.map((element) => element.classList.contains('active'))).toEqual([true, true]);
+    expect(castCounters.map((element) => element.getAttribute('title'))).toEqual(['Rograkh', 'Silas Renn']);
+    expect(castSpy).toHaveBeenCalledWith({ playerId: 'player-1', commanderInstanceId: 'commander-2', delta: 1 });
+  });
+
+  it('hides only the command zone commander that is pending transfer', async () => {
+    const firstCommander = card('commander-1', 'Rograkh', 'command');
+    const secondCommander = card('commander-2', 'Silas Renn', 'command');
+    const fixture = await renderZonePilesPanel({
+      command: [firstCommander, secondCommander],
+      cardImage: (inputCard) => `/assets/${inputCard.instanceId}.jpg`,
+      isCardTransferPending: (_playerId, zone, inputCard) => zone === 'command' && inputCard.instanceId === secondCommander.instanceId,
+    });
+
+    const commandCards = Array.from(zoneElement(fixture, 'command').querySelectorAll<HTMLElement>('[data-testid="command-zone-card"]'));
+    const castCounters = Array.from(zoneElement(fixture, 'command').querySelectorAll<HTMLElement>('[data-testid="commander-cast-count"]'));
+
+    expect(commandCards[0]!.classList).not.toContain('transfer-pending-command-zone-card');
+    expect(commandCards[1]!.classList).toContain('transfer-pending-command-zone-card');
+    expect(castCounters[0]!.classList).not.toContain('hidden-commander-cast-count');
+    expect(castCounters[1]!.classList).toContain('hidden-commander-cast-count');
+  });
+
+  it('starts pointer drags from the selected command zone commander', async () => {
+    const firstCommander = card('commander-1', 'Rograkh', 'command');
+    const secondCommander = card('commander-2', 'Silas Renn', 'command');
+    const fixture = await renderZonePilesPanel({
+      command: [firstCommander, secondCommander],
+      cardImage: (inputCard) => `/assets/${inputCard.instanceId}.jpg`,
+    });
+    const started = vi.fn();
+    fixture.componentInstance.zonePointerDragStarted.subscribe(started);
+    const commandCards = Array.from(zoneElement(fixture, 'command').querySelectorAll<HTMLElement>('[data-testid="command-zone-card"]'));
+    stubElementRect(commandCards[1]!);
+    const battlefield = document.createElement('div');
+    battlefield.dataset['gameDropZone'] = 'battlefield';
+    battlefield.dataset['zone'] = 'battlefield';
+    battlefield.dataset['playerId'] = 'player-1';
+    const restore = mockElementsFromPoint([battlefield]);
+
+    fixture.componentInstance.startZonePointerDrag(pointerEvent({
+      currentTarget: commandCards[1]!,
+      pointerType: 'touch',
+      pointerId: 17,
+      clientX: 20,
+      clientY: 20,
+    }), 'command', secondCommander);
+    fixture.componentInstance.moveZonePointerDrag(pointerEvent({
+      pointerType: 'touch',
+      pointerId: 17,
+      clientX: 80,
+      clientY: 20,
+    }));
+    fixture.detectChanges();
+
+    expect(started).toHaveBeenCalledWith({ playerId: 'player-1', zone: 'command', card: secondCommander });
+    expect(fixture.nativeElement.querySelector('.zone-floating-card img')?.getAttribute('src')).toBe('/assets/commander-2.jpg');
+    expect(commandCards[0]!.classList).not.toContain('dragging-command-zone-card');
+    expect(commandCards[1]!.classList).toContain('dragging-command-zone-card');
+
+    restore();
   });
 
   it('emits a large-card preview when hovering a revealed library top card', async () => {
@@ -436,6 +521,7 @@ describe('ZonePilesPanelComponent', () => {
 interface RenderZonePilesPanelOptions {
   isZoneDropSettling?: (playerId: string, zone: GameZoneName) => boolean;
   isZoneTransferPending?: (playerId: string, zone: GameZoneName) => boolean;
+  isCardTransferPending?: (playerId: string, zone: GameZoneName, card: GameCardInstance) => boolean;
   library?: GameCardInstance[];
   command?: GameCardInstance[];
   graveyard?: GameCardInstance[];
@@ -445,6 +531,9 @@ interface RenderZonePilesPanelOptions {
   zonePreviewCard?: (player: unknown, zone: GameZoneName) => GameCardInstance | null;
   zonePreviewImage?: (player: unknown, zone: GameZoneName) => string | null;
   zoneStackLayerImage?: (player: unknown, zone: GameZoneName) => string | null;
+  commandZoneCards?: (player: unknown) => readonly GameCardInstance[];
+  cardImage?: (card: GameCardInstance) => string | null;
+  commanderCastCount?: (player: unknown, commander: GameCardInstance) => number;
 }
 
 async function renderZonePilesPanel(options: RenderZonePilesPanelOptions = {}): Promise<ComponentFixture<ZonePilesPanelComponent>> {
@@ -493,9 +582,12 @@ async function renderZonePilesPanel(options: RenderZonePilesPanelOptions = {}): 
   fixture.componentRef.setInput('zoneTitle', (zone: GameZoneName) => zone);
   fixture.componentRef.setInput('zonePreviewImage', options.zonePreviewImage ?? (() => null));
   fixture.componentRef.setInput('zoneStackLayerImage', options.zoneStackLayerImage ?? (() => null));
-  fixture.componentRef.setInput('commanderCastCount', () => 0);
+  fixture.componentRef.setInput('commandZoneCards', options.commandZoneCards ?? ((inputPlayer: unknown) => (inputPlayer as typeof player).state.zones.command));
+  fixture.componentRef.setInput('cardImage', options.cardImage ?? ((inputCard: GameCardInstance) => inputCard.imageUris?.['normal'] ?? null));
+  fixture.componentRef.setInput('commanderCastCount', options.commanderCastCount ?? (() => 0));
   fixture.componentRef.setInput('isZoneDropSettling', options.isZoneDropSettling ?? (() => false));
   fixture.componentRef.setInput('isZoneTransferPending', options.isZoneTransferPending ?? (() => false));
+  fixture.componentRef.setInput('isCardTransferPending', options.isCardTransferPending ?? (() => false));
   fixture.componentRef.setInput('currentDraggingCardInstanceId', options.currentDraggingCardInstanceId ?? null);
   fixture.detectChanges();
 
@@ -517,7 +609,11 @@ function card(instanceId: string, name: string, zone: GameZoneName): GameCardIns
 
 function stubZoneArtRect(zone: HTMLElement): void {
   const zoneArt = zone.querySelector<HTMLElement>('.zone-art')!;
-  zoneArt.getBoundingClientRect = () => ({
+  stubElementRect(zoneArt);
+}
+
+function stubElementRect(element: HTMLElement): void {
+  element.getBoundingClientRect = () => ({
     x: 0,
     y: 0,
     width: 100,

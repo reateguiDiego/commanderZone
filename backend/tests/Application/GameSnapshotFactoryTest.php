@@ -100,6 +100,36 @@ class GameSnapshotFactoryTest extends TestCase
         self::assertCount(2, array_unique($backgroundNames));
     }
 
+    public function testInitialCommanderDamageIsKeyedByEachCommanderInstance(): void
+    {
+        $owner = new User('owner@example.test', 'Owner');
+        $opponent = new User('opponent@example.test', 'Opponent');
+        $this->setPrivateProperty($owner, 'id', 'owner-id');
+        $this->setPrivateProperty($opponent, 'id', 'opponent-id');
+        $room = new Room($owner);
+
+        $ownerDeck = new Deck($owner, 'Owner Deck');
+        $ownerDeck->addCard(new DeckCard($ownerDeck, $this->cardWithColorIdentity(['R']), 1, DeckCard::SECTION_COMMANDER));
+        $ownerDeck->addCard(new DeckCard($ownerDeck, $this->cardWithColorIdentity(['B']), 1, DeckCard::SECTION_COMMANDER));
+        $opponentDeck = new Deck($opponent, 'Opponent Deck');
+        $opponentDeck->addCard(new DeckCard($opponentDeck, $this->cardWithColorIdentity(['G']), 1, DeckCard::SECTION_COMMANDER));
+
+        $room->addPlayer(new RoomPlayer($room, $owner, $ownerDeck));
+        $room->addPlayer(new RoomPlayer($room, $opponent, $opponentDeck));
+
+        $snapshot = (new GameSnapshotFactory())->fromRoom($room);
+        $ownerCommanderIds = array_map(
+            static fn (array $commander): string => $commander['instanceId'],
+            $snapshot['players']['owner-id']['zones']['command'],
+        );
+
+        self::assertCount(2, $ownerCommanderIds);
+        self::assertSame([
+            $ownerCommanderIds[0] => 0,
+            $ownerCommanderIds[1] => 0,
+        ], $snapshot['players']['opponent-id']['commanderDamage']);
+    }
+
     public function testBuildsOpeningHandFromShuffledLibraryWithSevenCards(): void
     {
         $owner = new User('owner@example.test', 'Owner');

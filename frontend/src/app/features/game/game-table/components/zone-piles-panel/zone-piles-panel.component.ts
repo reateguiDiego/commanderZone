@@ -7,11 +7,13 @@ import { GameTableZonePointerDragService } from '../../services/game-table-zone-
 import { GameTablePointerDragService, PointerDropTarget } from '../../services/game-table-pointer-drag.service';
 import { ZonePointerDropRequest } from '../../models/game-table-zone-pointer-drag.model';
 import { GameTableLongPressDirective } from '../../directives/game-table-long-press.directive';
+import { CommandersStackCard, CommandersStackComponent } from '../commanders-stack/commanders-stack.component';
 
 interface ZoneDragStartEvent {
   event: DragEvent;
   player: PlayerView;
   zone: GameZoneName;
+  card: GameCardInstance | null;
 }
 
 interface ZoneDropEvent {
@@ -42,12 +44,22 @@ interface ZoneMenuEvent extends ZoneActionEvent {
 
 interface CommanderCastChangeEvent {
   playerId: string;
+  commanderInstanceId: string;
   delta: number;
 }
 
+const COMMANDER_COLOR_ACCENTS: Record<string, string> = {
+  W: '#f0e6c8',
+  U: '#8fc8ff',
+  B: '#bdb7c8',
+  R: '#ff8b62',
+  G: '#8fd47f',
+  C: '#d7b46a',
+};
+
 @Component({
   selector: 'app-zone-piles-panel',
-  imports: [ZoneCardStackComponent, GameTableLongPressDirective],
+  imports: [ZoneCardStackComponent, CommandersStackComponent, GameTableLongPressDirective],
   templateUrl: './zone-piles-panel.component.html',
   styleUrl: './zone-piles-panel.component.scss',
   providers: [GameTablePointerDragService, GameTableZonePointerDragService],
@@ -68,9 +80,12 @@ export class ZonePilesPanelComponent {
   readonly zoneTitle = input.required<(zone: GameZoneName) => string>();
   readonly zonePreviewImage = input.required<(player: PlayerView, zone: GameZoneName) => string | null>();
   readonly zoneStackLayerImage = input.required<(player: PlayerView, zone: GameZoneName) => string | null>();
-  readonly commanderCastCount = input.required<(player: PlayerView) => number>();
+  readonly commandZoneCards = input.required<(player: PlayerView) => readonly GameCardInstance[]>();
+  readonly cardImage = input.required<(card: GameCardInstance) => string | null>();
+  readonly commanderCastCount = input.required<(player: PlayerView, commander: GameCardInstance) => number>();
   readonly isZoneDropSettling = input<(playerId: string, zone: GameZoneName) => boolean>(() => false);
   readonly isZoneTransferPending = input<(playerId: string, zone: GameZoneName) => boolean>(() => false);
+  readonly isCardTransferPending = input<(playerId: string, zone: GameZoneName, card: GameCardInstance) => boolean>(() => false);
   readonly currentDraggingCardInstanceId = input<string | null>(null);
   readonly draggingVisualZone = signal<GameZoneName | null>(null);
 
@@ -94,10 +109,13 @@ export class ZonePilesPanelComponent {
       this.draggingVisualZone.set(zone);
       if (event.currentTarget instanceof HTMLElement) {
         event.currentTarget.classList.add('dragging-zone-card');
+        if (zone === 'command') {
+          event.currentTarget.classList.add('dragging-command-zone-card');
+        }
       }
     }
 
-    this.zoneDragStart.emit({ event, player, zone });
+    this.zoneDragStart.emit({ event, player, zone, card: topZoneCard });
 
     if (event.defaultPrevented) {
       this.clearZoneDrag(event);
@@ -108,6 +126,7 @@ export class ZonePilesPanelComponent {
     this.draggingVisualZone.set(null);
     if (event?.currentTarget instanceof HTMLElement) {
       event.currentTarget.classList.remove('dragging-zone-card');
+      event.currentTarget.classList.remove('dragging-command-zone-card');
     }
   }
 
@@ -131,10 +150,10 @@ export class ZonePilesPanelComponent {
     this.zoneOpened.emit({ playerId: this.player().id, zone });
   }
 
-  changeCommanderCastCount(event: MouseEvent, delta: number): void {
+  changeCommanderCastCount(event: MouseEvent, commander: GameCardInstance, delta: number): void {
     event.preventDefault();
     event.stopPropagation();
-    this.commanderCastChanged.emit({ playerId: this.player().id, delta });
+    this.commanderCastChanged.emit({ playerId: this.player().id, commanderInstanceId: commander.instanceId, delta });
   }
 
   doubleClickZone(event: MouseEvent, zone: GameZoneName): void {
@@ -155,6 +174,17 @@ export class ZonePilesPanelComponent {
         card,
         playerId: player.id,
         zone,
+        sourceRect: previewRectFromElement(event.currentTarget instanceof Element ? event.currentTarget : null),
+      });
+    }
+  }
+
+  previewCommandZoneCard(event: MouseEvent, card: GameCardInstance): void {
+    if (!card.hidden) {
+      this.cardPreviewShown.emit({
+        card,
+        playerId: this.player().id,
+        zone: 'command',
         sourceRect: previewRectFromElement(event.currentTarget instanceof Element ? event.currentTarget : null),
       });
     }
@@ -223,7 +253,42 @@ export class ZonePilesPanelComponent {
   floatingCardImage(): string | null {
     const drag = this.zonePointerDrag.dragMove();
 
-    return drag ? this.zonePreviewImage()(this.player(), drag.source.fromZone) : null;
+    if (!drag) {
+      return null;
+    }
+
+    return drag.source.fromZone === 'command'
+      ? this.cardImage()(drag.source.card)
+      : this.zonePreviewImage()(this.player(), drag.source.fromZone);
+  }
+
+  isDraggingCommandZoneCard(card: GameCardInstance): boolean {
+    const pointerDrag = this.zonePointerDrag.dragMove();
+
+    return pointerDrag?.source.card.instanceId === card.instanceId && pointerDrag.dragging
+      || card.instanceId === this.currentDraggingCardInstanceId();
+  }
+
+  commanderStackCards(player: PlayerView, commanders: readonly GameCardInstance[]): readonly CommandersStackCard[] {
+    return commanders.map((commander) => ({
+      card: commander,
+      image: this.cardImage()(commander),
+      castCount: this.commanderCastCount()(player, commander),
+      accent: this.commanderAccent(commander),
+      dragging: this.isDraggingCommandZoneCard(commander),
+      pendingTransfer: this.isCardTransferPending()(player.id, 'command', commander),
+    }));
+  }
+
+  isDualCommandZone(player: PlayerView, zone: GameZoneName): boolean {
+    return zone === 'command' && this.commandZoneCards()(player).length === 2;
+  }
+
+  private commanderAccent(commander: GameCardInstance): string {
+    const colorIdentity = Array.isArray(commander.colorIdentity) ? commander.colorIdentity : [];
+    const firstColor = colorIdentity.find((color): color is keyof typeof COMMANDER_COLOR_ACCENTS => color in COMMANDER_COLOR_ACCENTS);
+
+    return firstColor ? COMMANDER_COLOR_ACCENTS[firstColor] : COMMANDER_COLOR_ACCENTS['C'];
   }
 
   private canPreviewZoneCard(zone: GameZoneName): boolean {

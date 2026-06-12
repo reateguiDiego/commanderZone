@@ -174,8 +174,8 @@ describe('PlayerSummaryPanelComponent', () => {
     extraToggle(fixture).click();
     fixture.detectChanges();
 
-    const addCommanderDamage = fixture.nativeElement.querySelector('[aria-label="Add commander damage from Opponent"]') as HTMLButtonElement;
-    const removeCommanderDamage = fixture.nativeElement.querySelector('[aria-label="Remove commander damage from Opponent"]') as HTMLButtonElement;
+    const addCommanderDamage = fixture.nativeElement.querySelector('[aria-label^="Add commander damage from Opponent"]') as HTMLButtonElement;
+    const removeCommanderDamage = fixture.nativeElement.querySelector('[aria-label^="Remove commander damage from Opponent"]') as HTMLButtonElement;
     const addPoison = fixture.nativeElement.querySelector('[aria-label="Add Poison counter"]') as HTMLButtonElement;
     const removePoison = fixture.nativeElement.querySelector('[aria-label="Remove Poison counter"]') as HTMLButtonElement;
 
@@ -192,8 +192,41 @@ describe('PlayerSummaryPanelComponent', () => {
 
     expect(commanderDamageChanged).toHaveBeenCalledOnce();
     expect(playerCounterChanged).toHaveBeenCalledOnce();
-    expect(commanderDamageChanged).toHaveBeenCalledWith({ targetPlayerId: 'player-1', sourcePlayerId: 'player-2', delta: 1 });
+    expect(commanderDamageChanged).toHaveBeenCalledWith({
+      targetPlayerId: 'player-1',
+      sourcePlayerId: 'player-2',
+      commanderInstanceId: 'commander-1',
+      delta: 1,
+    });
     expect(playerCounterChanged).toHaveBeenCalledWith({ playerId: 'player-1', key: 'poison', delta: -1 });
+  });
+
+  it('groups commander damage from the same opponent in one row', () => {
+    const fixture = createFixture({
+      commanderDamage: {
+        'commander-1': 11,
+        'commander-2': 10,
+      },
+      opponentCommanders: [
+        card('commander-1', 'Rograkh'),
+        card('commander-2', 'Silas Renn'),
+      ],
+    });
+
+    extraToggle(fixture).click();
+    fixture.detectChanges();
+
+    const rows = Array.from(fixture.nativeElement.querySelectorAll('.commander-damage-row')) as HTMLElement[];
+
+    expect(rows.length).toBe(1);
+    expect(rows[0]!.textContent).toContain('Opponent');
+    expect(rows[0]!.textContent).toContain('Rograkh');
+    expect(rows[0]!.textContent).toContain('Silas Renn');
+    expect(Array.from(rows[0]!.querySelectorAll('.counter-value')).map((value) => value.textContent?.trim())).toEqual(['11', '10']);
+    expect(Array.from(rows[0]!.querySelectorAll('.commander-damage-line')).map((line) => line.textContent?.replace(/\s+/g, '').trim())).toEqual([
+      expect.stringContaining('Rograkh11-+'),
+      expect.stringContaining('SilasRenn10-+'),
+    ]);
   });
 
   it('keeps other counters collapsed by default when every other counter is zero', () => {
@@ -227,7 +260,7 @@ describe('PlayerSummaryPanelComponent', () => {
     extraToggle(fixture).click();
     fixture.detectChanges();
 
-    const addCommanderDamage = fixture.nativeElement.querySelector('[aria-label="Add commander damage from Opponent"]');
+    const addCommanderDamage = fixture.nativeElement.querySelector('[aria-label^="Add commander damage from Opponent"]');
     const removePoison = fixture.nativeElement.querySelector('[aria-label="Remove Poison counter"]');
     const readonlyValues = fixture.nativeElement.querySelectorAll('.counter-readonly-value');
     const lifeDecrease = fixture.nativeElement.querySelector('[data-testid="life-decrease"]');
@@ -241,7 +274,7 @@ describe('PlayerSummaryPanelComponent', () => {
     expect(lifeDecrease).toBeNull();
     expect(lifeIncrease).toBeNull();
 
-    fixture.componentInstance.changeCommanderDamage(new MouseEvent('click'), 'player-2', 1);
+    fixture.componentInstance.changeCommanderDamage(new MouseEvent('click'), 'player-2', 'commander-1', 1);
     fixture.componentInstance.changePlayerCounter(new MouseEvent('click'), 'poison', -1);
     lifeValue.click();
     vi.advanceTimersByTime(PLAYER_SUMMARY_ACTION_DEBOUNCE_MS);
@@ -282,12 +315,17 @@ function createFixture(
     displayName?: string;
     life?: number;
     returnActionLabel?: string;
+    commanderDamage?: Record<string, number>;
+    opponentCommanders?: GameCardInstance[];
   } = {},
 ): ComponentFixture<PlayerSummaryPanelComponent> {
   const fixture = TestBed.createComponent(PlayerSummaryPanelComponent);
-  const currentPlayer = player('player-1', options.displayName ?? 'Player', { commanderDamage: { 'player-2': 7 }, life: options.life });
+  const currentPlayer = player('player-1', options.displayName ?? 'Player', {
+    commanderDamage: options.commanderDamage ?? { 'commander-1': 7 },
+    life: options.life,
+  });
   const opponent = player('player-2', 'Opponent', {
-    command: [card('commander-1', 'Raggadragga, Goreguts Boss')],
+    command: options.opponentCommanders ?? [card('commander-1', 'Raggadragga, Goreguts Boss')],
   });
   fixture.componentRef.setInput('player', currentPlayer);
   fixture.componentRef.setInput('players', [currentPlayer, opponent]);

@@ -126,7 +126,8 @@ export class GameTableContextStore {
       setPendingLibraryMove: (move) => source.setPendingLibraryMove(move),
       syncOpenZoneModalAfterMove: (playerId, fromZone, instanceIds) =>
         this.syncOpenZoneModalAfterMove(playerId, fromZone, instanceIds),
-      recordCommanderCastIfNeeded: (playerId, fromZone, toZone) => this.recordCommanderCastIfNeeded(playerId, fromZone, toZone),
+      recordCommanderCastIfNeeded: (playerId, fromZone, toZone, targetPlayerId, instanceIds) =>
+        this.recordCommanderCastIfNeeded(playerId, fromZone, toZone, targetPlayerId, instanceIds),
       command: (type, payload) => source.command(type, payload),
     };
   }
@@ -276,8 +277,8 @@ export class GameTableContextStore {
       syncOpenZoneModalAfterMove: (playerId, fromZone, instanceIds) =>
         this.syncOpenZoneModalAfterMove(playerId, fromZone, instanceIds),
       command: (type, payload) => source.command(type, payload),
-      recordCommanderCastIfNeeded: (playerId, fromZone, toZone, targetPlayerId) =>
-        this.recordCommanderCastIfNeeded(playerId, fromZone, toZone, targetPlayerId),
+      recordCommanderCastIfNeeded: (playerId, fromZone, toZone, targetPlayerId, instanceIds) =>
+        this.recordCommanderCastIfNeeded(playerId, fromZone, toZone, targetPlayerId, instanceIds),
     };
   }
 
@@ -351,8 +352,8 @@ export class GameTableContextStore {
       clearSelectedCards: () => this.selection.selectedCards.set([]),
       setError: (message) => this.core.error.set(message),
       command: (type, payload) => source.command(type, payload),
-      recordCommanderCastIfNeeded: (playerId, fromZone, toZone, targetPlayerId) =>
-        this.recordCommanderCastIfNeeded(playerId, fromZone, toZone, targetPlayerId),
+      recordCommanderCastIfNeeded: (playerId, fromZone, toZone, targetPlayerId, instanceIds) =>
+        this.recordCommanderCastIfNeeded(playerId, fromZone, toZone, targetPlayerId, instanceIds),
     };
   }
 
@@ -485,17 +486,31 @@ export class GameTableContextStore {
     fromZone: GameZoneName,
     toZone: GameZoneName = 'battlefield',
     targetPlayerId: string = playerId,
+    instanceIds: readonly string[] = [],
   ): Promise<void> {
     const player = this.playersStore.players().find((candidate) => candidate.id === playerId);
     if (!player || fromZone !== 'command' || toZone !== 'battlefield' || targetPlayerId !== playerId) {
       return;
     }
 
-    await this.boundSource().command('counter.changed', {
-      scope: `commander:${playerId}`,
-      key: 'casts',
-      value: this.playersStore.commanderCastCount(player) + 1,
-    });
+    const commanderIds = instanceIds.length > 0
+      ? instanceIds
+      : this.playersStore.commandZoneCards(player).map((card) => card.instanceId).slice(0, 1);
+
+    for (const commanderInstanceId of commanderIds) {
+      const commander = Object.values(player.state.zones)
+        .flat()
+        .find((card) => card.instanceId === commanderInstanceId && card.isCommander === true);
+      if (!commander) {
+        continue;
+      }
+
+      await this.boundSource().command('counter.changed', {
+        scope: `commander:${commander.instanceId}`,
+        key: 'casts',
+        value: this.playersStore.commanderCastCount(player, commander) + 1,
+      });
+    }
   }
 
   private ownPlayerId(snapshot: GameSnapshot): string | null {

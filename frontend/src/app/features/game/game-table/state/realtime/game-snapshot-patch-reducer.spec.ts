@@ -9,14 +9,14 @@ describe('game snapshot patch reducer', () => {
     const result = applyGameSnapshotPatch(snapshot, patch([
       { op: 'player.life.set', playerId: 'player-1', value: 37 },
       { op: 'player.counters.set', playerId: 'player-1', counters: { poison: 2 } },
-      { op: 'player.commanderDamage.set', playerId: 'player-1', commanderDamage: { 'player-2': 5 } },
+      { op: 'player.commanderDamage.set', playerId: 'player-1', commanderDamage: { 'commander-1': 5 } },
     ]));
 
     expect(result.status).toBe('applied');
     expect(result.snapshot.version).toBe(2);
     expect(result.snapshot.players['player-1'].life).toBe(37);
     expect(result.snapshot.players['player-1'].counters).toEqual({ poison: 2 });
-    expect(result.snapshot.players['player-1'].commanderDamage).toEqual({ 'player-2': 5 });
+    expect(result.snapshot.players['player-1'].commanderDamage).toEqual({ 'commander-1': 5 });
   });
 
   it('applies shared game counters by scope', () => {

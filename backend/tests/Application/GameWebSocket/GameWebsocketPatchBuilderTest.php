@@ -42,17 +42,26 @@ class GameWebsocketPatchBuilderTest extends TestCase
     public function testBuildsCommanderDamageAndPlayerCounterPatches(): void
     {
         [$game, $actor, $opponent] = $this->game();
+        $snapshot = $game->snapshot();
+        $snapshot['players'][$opponent->id()]['zones']['command'] = [
+            [
+                ...$this->card('commander-1', $opponent->id(), ['x' => 0, 'y' => 0]),
+                'name' => 'Opponent Commander',
+            ],
+        ];
+        $game->replaceSnapshot($snapshot);
 
         $commanderDamage = $this->applyAndBuild($game, $actor, 'commander.damage.changed', [
             'targetPlayerId' => $actor->id(),
             'sourcePlayerId' => $opponent->id(),
+            'commanderInstanceId' => 'commander-1',
             'damage' => 7,
         ], 'action-damage');
         self::assertSame([
             [
             'op' => 'player.commanderDamage.set',
             'playerId' => $actor->id(),
-            'commanderDamage' => [$opponent->id() => 7],
+            'commanderDamage' => ['commander-1' => 7],
             ],
             [
                 'op' => 'eventLog.append',

@@ -197,6 +197,40 @@ describe('GameTableSnapshotSelectors', () => {
 
     expect(selectors.zoneStackLayerImage(player, 'graveyard')).toBeNull();
   });
+
+  it('resolves commander cards and cast counts by commander instance', () => {
+    const firstCommander = { instanceId: 'commander-1', name: 'First Commander', tapped: false, isCommander: true };
+    const secondCommander = { instanceId: 'commander-2', name: 'Second Commander', tapped: false, isCommander: true };
+    const player = playerView({
+      zones: {
+        library: [],
+        hand: [],
+        battlefield: [],
+        graveyard: [],
+        exile: [],
+        command: [firstCommander, secondCommander],
+      },
+    });
+    const snapshot = {
+      version: 1,
+      players: { 'player-1': player.state },
+      turn: { activePlayerId: 'player-1', phase: 'main-1', number: 1 },
+      counters: {
+        'commander:commander-1': { casts: 1 },
+        'commander:commander-2': { casts: 3 },
+      },
+      stack: [],
+      arrows: [],
+      chat: [],
+      eventLog: [],
+      createdAt: '',
+      updatedAt: '',
+    };
+
+    expect(selectors.commandZoneCards(player)).toEqual([firstCommander, secondCommander]);
+    expect(selectors.commanderCastCount(snapshot, player, firstCommander)).toBe(1);
+    expect(selectors.commanderCastCount(snapshot, player, secondCommander)).toBe(3);
+  });
 });
 
 function playerView(overrides: Partial<GamePlayerState> = {}): PlayerView {

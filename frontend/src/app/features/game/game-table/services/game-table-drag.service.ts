@@ -538,12 +538,18 @@ export class GameTableDragService {
   }
 
   private trySetCardDragImage(event: DragEvent): void {
-    const target = event.target instanceof Element
-      ? event.target.closest<HTMLElement>('.game-card, .hand-card, .zone-stack, .zone-art img, .zone-art .card-back, .zone-art')
+    const eventElement = event.target instanceof Element
+      ? event.target
+      : event.currentTarget instanceof Element
+        ? event.currentTarget
+        : null;
+    const target = eventElement
+      ? eventElement.closest<HTMLElement>('.game-card, .hand-card, .command-zone-card, .zone-stack, .zone-art img, .zone-art .card-back, .zone-art')
       : null;
-    const zoneArt = (event.target instanceof Element ? event.target : null)?.closest<HTMLElement>('.zone-art')
+    const commandZoneCard = eventElement?.closest<HTMLElement>('.command-zone-card') ?? null;
+    const zoneArt = eventElement?.closest<HTMLElement>('.zone-art')
       ?? (target?.classList.contains('zone-stack') ? target.querySelector<HTMLElement>('.zone-art') : null);
-    const source = this.dragImageSource(zoneArt) ?? target;
+    const source = this.commandZoneDragImageSource(commandZoneCard) ?? this.dragImageSource(zoneArt) ?? target;
     if (!source || !event.dataTransfer) {
       return;
     }
@@ -573,6 +579,12 @@ export class GameTableDragService {
       ?? zoneArt?.querySelector<HTMLElement>('.zone-card-image')
       ?? zoneArt?.querySelector<HTMLElement>('img')
       ?? zoneArt?.querySelector<HTMLElement>('.card-back')
+      ?? null;
+  }
+
+  private commandZoneDragImageSource(commandZoneCard: HTMLElement | null): HTMLElement | null {
+    return commandZoneCard?.querySelector<HTMLElement>('.zone-card-image')
+      ?? commandZoneCard?.querySelector<HTMLElement>('.command-zone-card-name')
       ?? null;
   }
 

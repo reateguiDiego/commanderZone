@@ -4981,8 +4981,18 @@ describe('GameTableComponent', () => {
     authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
     const snapshot = snapshotWithStatus('active');
     addOpponent(snapshot);
+    snapshot.players['user-2']!.zones.command = [{
+      instanceId: 'commander-2',
+      ownerId: 'user-2',
+      controllerId: 'user-2',
+      name: 'Opponent Commander',
+      typeLine: 'Legendary Creature',
+      tapped: false,
+      counters: {},
+      isCommander: true,
+    }];
     const responseSnapshot = structuredClone(snapshot);
-    responseSnapshot.players['user-1']!.commanderDamage = { 'user-2': 17 };
+    responseSnapshot.players['user-1']!.commanderDamage = { 'commander-2': 17 };
     gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
     gameplayWebsocketCommand.mockReturnValue(of({
       event: { id: 'event-damage', type: 'commander.damage.changed', payload: {}, createdBy: 'user-1', createdAt: '' },
@@ -4995,10 +5005,10 @@ describe('GameTableComponent', () => {
 
     vi.useFakeTimers();
     for (let index = 0; index < 17; index += 1) {
-      await fixture.componentInstance.store.setCommanderDamage('user-1', 'user-2', 1);
+      await fixture.componentInstance.store.setCommanderDamage('user-1', 'user-2', 'commander-2', 1);
     }
 
-    expect(fixture.componentInstance.store.snapshot()?.players['user-1']?.commanderDamage?.['user-2']).toBe(17);
+    expect(fixture.componentInstance.store.snapshot()?.players['user-1']?.commanderDamage?.['commander-2']).toBe(17);
     expect(gameplayWebsocketCommand).not.toHaveBeenCalled();
 
     await vi.runOnlyPendingTimersAsync();
@@ -5007,7 +5017,7 @@ describe('GameTableComponent', () => {
     expect(gameplayWebsocketCommand).toHaveBeenCalledOnce();
     expect(gameplayWebsocketCommand).toHaveBeenCalledWith(expect.objectContaining({
       type: 'commander.damage.changed',
-      payload: { targetPlayerId: 'user-1', sourcePlayerId: 'user-2', damage: 17 },
+      payload: { targetPlayerId: 'user-1', sourcePlayerId: 'user-2', commanderInstanceId: 'commander-2', damage: 17 },
     }), 'game-1');
   });
 
@@ -5049,8 +5059,18 @@ describe('GameTableComponent', () => {
     routeParams['id'] = 'game-1';
     authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
     const snapshot = snapshotWithStatus('active');
+    snapshot.players['user-1']!.zones.command = [{
+      instanceId: 'commander-1',
+      ownerId: 'user-1',
+      controllerId: 'user-1',
+      name: 'User Commander',
+      typeLine: 'Legendary Creature',
+      tapped: false,
+      counters: {},
+      isCommander: true,
+    }];
     const responseSnapshot = structuredClone(snapshot);
-    responseSnapshot.counters = { 'commander:user-1': { casts: 17 } };
+    responseSnapshot.counters = { 'commander:commander-1': { casts: 17 } };
     gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
     gameplayWebsocketCommand.mockReturnValue(of({
       event: { id: 'event-commander-casts', type: 'counter.changed', payload: {}, createdBy: 'user-1', createdAt: '' },
@@ -5062,12 +5082,13 @@ describe('GameTableComponent', () => {
     await fixture.whenStable();
 
     const player = fixture.componentInstance.store.players()[0]!;
+    const commander = player.state.zones.command[0]!;
     vi.useFakeTimers();
     for (let index = 0; index < 17; index += 1) {
-      await fixture.componentInstance.store.changeCommanderCastCount('user-1', 1);
+      await fixture.componentInstance.store.changeCommanderCastCount('user-1', 'commander-1', 1);
     }
 
-    expect(fixture.componentInstance.store.commanderCastCount(player)).toBe(17);
+    expect(fixture.componentInstance.store.commanderCastCount(player, commander)).toBe(17);
     expect(gameplayWebsocketCommand).not.toHaveBeenCalled();
 
     await vi.runOnlyPendingTimersAsync();
@@ -5076,7 +5097,7 @@ describe('GameTableComponent', () => {
     expect(gameplayWebsocketCommand).toHaveBeenCalledOnce();
     expect(gameplayWebsocketCommand).toHaveBeenCalledWith(expect.objectContaining({
       type: 'counter.changed',
-      payload: { scope: 'commander:user-1', key: 'casts', value: 17 },
+      payload: { scope: 'commander:commander-1', key: 'casts', value: 17 },
     }), 'game-1');
   });
 
@@ -5492,8 +5513,18 @@ describe('GameTableComponent', () => {
     routeParams['id'] = 'game-1';
     authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
     const snapshot = snapshotWithStatus('active');
+    snapshot.players['user-1']!.zones.command = [{
+      instanceId: 'commander-1',
+      ownerId: 'user-1',
+      controllerId: 'user-1',
+      name: 'User Commander',
+      typeLine: 'Legendary Creature',
+      tapped: false,
+      counters: {},
+      isCommander: true,
+    }];
     snapshot.counters = {
-      'commander:user-1': { casts: 0 },
+      'commander:commander-1': { casts: 0 },
     };
     gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
 
@@ -5501,7 +5532,7 @@ describe('GameTableComponent', () => {
     fixture.detectChanges();
     await fixture.whenStable();
 
-    await fixture.componentInstance.store.changeCommanderCastCount('user-1', -1);
+    await fixture.componentInstance.store.changeCommanderCastCount('user-1', 'commander-1', -1);
 
     expect(gameplayWebsocketCommand).not.toHaveBeenCalled();
   });

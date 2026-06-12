@@ -126,10 +126,14 @@ class RoomsGamesApiTest extends ApiTestCase
 
         $deck = $this->jsonResponse()['room']['players'][0]['deck'];
         self::assertCount(2, $deck['commanders']);
-        self::assertSame('Primer comandante de sala', $deck['commanders'][0]['printedName']);
-        self::assertSame('Segundo comandante de sala', $deck['commanders'][1]['printedName']);
-        self::assertSame('https://cards.scryfall.io/art_crop/front/room-first-es.jpg', $deck['commanders'][0]['imageUris']['art_crop'] ?? null);
-        self::assertSame('https://cards.scryfall.io/art_crop/front/room-second-es.jpg', $deck['commanders'][1]['imageUris']['art_crop'] ?? null);
+        $commandersByPrintedName = [];
+        foreach ($deck['commanders'] as $commander) {
+            $commandersByPrintedName[(string) ($commander['printedName'] ?? '')] = $commander;
+        }
+        self::assertArrayHasKey('Primer comandante de sala', $commandersByPrintedName);
+        self::assertArrayHasKey('Segundo comandante de sala', $commandersByPrintedName);
+        self::assertSame('https://cards.scryfall.io/art_crop/front/room-first-es.jpg', $commandersByPrintedName['Primer comandante de sala']['imageUris']['art_crop'] ?? null);
+        self::assertSame('https://cards.scryfall.io/art_crop/front/room-second-es.jpg', $commandersByPrintedName['Segundo comandante de sala']['imageUris']['art_crop'] ?? null);
         self::assertArrayNotHasKey('commander', $deck);
     }
 
@@ -1849,6 +1853,7 @@ class RoomsGamesApiTest extends ApiTestCase
         $ownerPlayerId = $this->playerIdByName($snapshot, 'Counters Owner');
         $playerPlayerId = $this->playerIdByName($snapshot, 'Counters Player');
         $commanderInstanceId = (string) $snapshot['players'][$ownerPlayerId]['zones']['command'][0]['instanceId'];
+        $sourceCommanderInstanceId = (string) $snapshot['players'][$playerPlayerId]['zones']['command'][0]['instanceId'];
 
         $this->jsonRequest('POST', '/games/'.$gameId.'/commands', [
             'type' => 'life.changed',
@@ -1865,6 +1870,7 @@ class RoomsGamesApiTest extends ApiTestCase
             'payload' => [
                 'targetPlayerId' => $ownerPlayerId,
                 'sourcePlayerId' => $playerPlayerId,
+                'commanderInstanceId' => $sourceCommanderInstanceId,
                 'delta' => 1,
             ],
         ], $playerToken);
@@ -1876,11 +1882,12 @@ class RoomsGamesApiTest extends ApiTestCase
             'payload' => [
                 'targetPlayerId' => $ownerPlayerId,
                 'sourcePlayerId' => $playerPlayerId,
+                'commanderInstanceId' => $sourceCommanderInstanceId,
                 'damage' => 5,
             ],
         ], $ownerToken);
         self::assertResponseStatusCodeSame(201);
-        self::assertSame(5, $this->jsonResponse()['snapshot']['players'][$ownerPlayerId]['commanderDamage'][$playerPlayerId]);
+        self::assertSame(5, $this->jsonResponse()['snapshot']['players'][$ownerPlayerId]['commanderDamage'][$sourceCommanderInstanceId]);
 
         $this->jsonRequest('POST', '/games/'.$gameId.'/commands', [
             'type' => 'counter.changed',
@@ -1935,12 +1942,13 @@ class RoomsGamesApiTest extends ApiTestCase
             'payload' => [
                 'targetPlayerId' => $ownerPlayerId,
                 'sourcePlayerId' => $playerPlayerId,
+                'commanderInstanceId' => $sourceCommanderInstanceId,
                 'damage' => 21,
             ],
         ], $ownerToken);
         self::assertResponseStatusCodeSame(201);
         $lethalSnapshot = $this->jsonResponse()['snapshot'];
-        self::assertSame(21, $lethalSnapshot['players'][$ownerPlayerId]['commanderDamage'][$playerPlayerId]);
+        self::assertSame(21, $lethalSnapshot['players'][$ownerPlayerId]['commanderDamage'][$sourceCommanderInstanceId]);
         self::assertSame('player.defeated', $lethalSnapshot['eventLog'][array_key_last($lethalSnapshot['eventLog'])]['type']);
         self::assertSame('ha muerto.', $lethalSnapshot['eventLog'][array_key_last($lethalSnapshot['eventLog'])]['message']);
     }

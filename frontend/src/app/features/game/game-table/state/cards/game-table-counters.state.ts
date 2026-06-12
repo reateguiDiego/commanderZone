@@ -51,21 +51,28 @@ export class GameTableCountersState {
     });
   }
 
-  async changeCommanderCastCount(playerId: string, delta: number): Promise<void> {
+  async changeCommanderCastCount(playerId: string, commanderInstanceId: string, delta: number): Promise<void> {
     const player = this.playersStore.players().find((candidate) => candidate.id === playerId);
     if (!player || !this.canControlPlayer(playerId)) {
       this.core.error.set('You can only change your own commander cast count.');
       return;
     }
 
-    const currentCount = this.playersStore.commanderCastCount(player);
+    const commander = this.playersStore.commandZoneCards(player).find((card) => card.instanceId === commanderInstanceId)
+      ?? Object.values(player.state.zones).flat().find((card) => card.instanceId === commanderInstanceId && card.isCommander === true);
+    if (!commander) {
+      this.core.error.set('Commander card was not found.');
+      return;
+    }
+
+    const currentCount = this.playersStore.commanderCastCount(player, commander);
     const nextCount = Math.max(0, currentCount + delta);
     if (nextCount === currentCount) {
       return;
     }
 
     this.debouncedValueCommands.queueCounter(this.contextStore.debouncedValueCommand(), {
-      scope: `commander:${playerId}`,
+      scope: `commander:${commander.instanceId}`,
       key: 'casts',
       value: nextCount,
     });

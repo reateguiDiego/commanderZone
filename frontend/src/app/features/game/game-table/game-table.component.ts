@@ -453,7 +453,8 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   readonly zonePreviewCard = (player: PlayerView, zone: GameZoneName): GameCardInstance | null => this.store.zonePreviewCard(player, zone);
   readonly zonePreviewImage = (player: PlayerView, zone: GameZoneName): string | null => this.store.zonePreviewImage(player, zone);
   readonly zoneStackLayerImage = (player: PlayerView, zone: GameZoneName): string | null => this.store.zoneStackLayerImage(player, zone);
-  readonly commanderCastCount = (player: PlayerView): number => this.store.commanderCastCount(player);
+  readonly commandZoneCards = (player: PlayerView): readonly GameCardInstance[] => this.store.commandZoneCards(player);
+  readonly commanderCastCount = (player: PlayerView, commander: GameCardInstance): number => this.store.commanderCastCount(player, commander);
   readonly playerCounterValue = (player: PlayerView, key: string): number => this.store.playerCounterValue(player.id, key);
   readonly deckLabel = (player: PlayerView | null): string => this.store.deckLabel(player);
   readonly gameBackgroundImage = (player: PlayerView | null): string => this.store.gameBackgroundImage(player);

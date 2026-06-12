@@ -182,6 +182,60 @@
   background: rgb(7 8 7 / 52%);
 }
 
+.zone-art.command-zone-art {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.18rem;
+  padding: 0.12rem;
+}
+
+.zone-art.dual-command-zone-art {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+
+.zone-stack.transfer-pending .zone-art.dual-command-zone-art {
+  background: transparent;
+  box-shadow: none;
+}
+
+.command-zone-card {
+  position: relative;
+  display: grid;
+  width: calc((100% - 0.18rem) / 2);
+  max-width: 100%;
+  overflow: visible;
+  aspect-ratio: 0.716;
+  place-items: center;
+  border-radius: 6px;
+  touch-action: none;
+}
+
+.command-zone-card.single-command-zone-card {
+  width: 100%;
+}
+
+.command-zone-card.dragging-command-zone-card .zone-card-image {
+  opacity: 0;
+}
+
+.command-zone-card-name {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+  padding: 0.28rem;
+  border-radius: 6px;
+  background: rgb(7 8 7 / 52%);
+  color: var(--game-text, #f3f0e8);
+  font-size: 0.58rem;
+  font-weight: 800;
+  line-height: 1.1;
+  text-align: center;
+}
+
 .zone-card-image {
   position: relative;
   z-index: 2;

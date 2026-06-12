@@ -17,6 +17,7 @@ interface LifeChangeEvent {
 interface CommanderDamageChangeEvent {
   targetPlayerId: string;
   sourcePlayerId: string;
+  commanderInstanceId: string;
   delta: number;
 }
 
@@ -35,11 +36,16 @@ interface PlayerCounterTracker {
   icon: PlayerCounterIconName;
 }
 
+interface CommanderDamageCommanderRow {
+  commanderInstanceId: string;
+  name: string;
+  damage: number;
+}
+
 interface CommanderDamageRow {
   sourcePlayerId: string;
   username: string;
-  commanderNames: string;
-  damage: number;
+  commanders: readonly CommanderDamageCommanderRow[];
 }
 
 interface LifeFeedback {
@@ -104,9 +110,13 @@ export class PlayerSummaryPanelComponent implements OnDestroy {
       .map((sourcePlayer) => ({
         sourcePlayerId: sourcePlayer.id,
         username: sourcePlayer.state.user.displayName,
-        commanderNames: this.commanderNames(sourcePlayer),
-        damage: this.commanderDamageValue(targetPlayer, sourcePlayer.id),
-      }));
+        commanders: this.commanderCards(sourcePlayer).map((commander) => ({
+          commanderInstanceId: commander.instanceId,
+          name: commander.name.trim() || 'Commander',
+          damage: this.commanderDamageValue(targetPlayer, commander.instanceId),
+        })),
+      }))
+      .filter((row) => row.commanders.length > 0);
   });
   readonly hasActiveOtherCounter = computed(() =>
     this.playerCounterTrackers.some((tracker) => this.counterValue(tracker.key) > 0),
@@ -155,23 +165,23 @@ export class PlayerSummaryPanelComponent implements OnDestroy {
     this.scheduleOrCancelFlush(`life:${playerId}`, pendingDelta, () => this.flushLifeChange(playerId));
   }
 
-  changeCommanderDamage(event: MouseEvent, sourcePlayerId: string, delta: number): void {
+  changeCommanderDamage(event: MouseEvent, sourcePlayerId: string, commanderInstanceId: string, delta: number): void {
     this.stopCounterEvent(event);
     if (!this.canEditCounters()) {
       return;
     }
 
     const targetPlayer = this.player();
-    const currentDamage = this.commanderDamageValue(targetPlayer, sourcePlayerId);
+    const currentDamage = this.commanderDamageValue(targetPlayer, commanderInstanceId);
     const nextDamage = Math.max(0, currentDamage + delta);
     if (nextDamage === currentDamage) {
       return;
     }
 
-    const key = this.commanderDamageKey(targetPlayer.id, sourcePlayerId);
+    const key = this.commanderDamageKey(targetPlayer.id, commanderInstanceId);
     const pendingDelta = this.updatePendingDelta(this.pendingCommanderDamageDeltas, key, nextDamage - currentDamage);
     this.scheduleOrCancelFlush(`commander-damage:${key}`, pendingDelta, () =>
-      this.flushCommanderDamageChange(targetPlayer.id, sourcePlayerId),
+      this.flushCommanderDamageChange(targetPlayer.id, sourcePlayerId, commanderInstanceId),
     );
   }
 
@@ -230,14 +240,14 @@ export class PlayerSummaryPanelComponent implements OnDestroy {
     this.clearPendingDelta(this.pendingLifeDeltas, playerId);
   }
 
-  private flushCommanderDamageChange(targetPlayerId: string, sourcePlayerId: string): void {
-    const key = this.commanderDamageKey(targetPlayerId, sourcePlayerId);
+  private flushCommanderDamageChange(targetPlayerId: string, sourcePlayerId: string, commanderInstanceId: string): void {
+    const key = this.commanderDamageKey(targetPlayerId, commanderInstanceId);
     const delta = this.pendingCommanderDamageDeltas()[key] ?? 0;
     if (delta === 0) {
       return;
     }
 
-    this.commanderDamageChanged.emit({ targetPlayerId, sourcePlayerId, delta });
+    this.commanderDamageChanged.emit({ targetPlayerId, sourcePlayerId, commanderInstanceId, delta });
     this.clearPendingDelta(this.pendingCommanderDamageDeltas, key);
   }
 
@@ -337,9 +347,9 @@ export class PlayerSummaryPanelComponent implements OnDestroy {
     return this.pendingLifeDeltas()[playerId] ?? 0;
   }
 
-  private commanderDamageValue(targetPlayer: PlayerView, sourcePlayerId: string): number {
-    const baseDamage = Math.max(0, Number(targetPlayer.state.commanderDamage[sourcePlayerId] ?? 0));
-    const pendingDelta = this.pendingCommanderDamageDeltas()[this.commanderDamageKey(targetPlayer.id, sourcePlayerId)] ?? 0;
+  private commanderDamageValue(targetPlayer: PlayerView, commanderInstanceId: string): number {
+    const baseDamage = Math.max(0, Number(targetPlayer.state.commanderDamage[commanderInstanceId] ?? 0));
+    const pendingDelta = this.pendingCommanderDamageDeltas()[this.commanderDamageKey(targetPlayer.id, commanderInstanceId)] ?? 0;
     return Math.max(0, baseDamage + pendingDelta);
   }
 
@@ -347,26 +357,30 @@ export class PlayerSummaryPanelComponent implements OnDestroy {
     return this.pendingPlayerCounterDeltas()[this.playerCounterKey(playerId, key)] ?? 0;
   }
 
-  private commanderDamageKey(targetPlayerId: string, sourcePlayerId: string): string {
-    return `${targetPlayerId}:${sourcePlayerId}`;
+  private commanderDamageKey(targetPlayerId: string, commanderInstanceId: string): string {
+    return `${targetPlayerId}:${commanderInstanceId}`;
   }
 
   private playerCounterKey(playerId: string, key: PlayerCounterKey): string {
     return `${playerId}:${key}`;
   }
 
-  private commanderNames(player: PlayerView): string {
+  private commanderCards(player: PlayerView): readonly { instanceId: string; name: string }[] {
     const commanderCards = Object.values(player.state.zones)
       .flat()
       .filter((card) => card.isCommander === true);
     const commandZoneCards = player.state.zones.command ?? [];
-    const names = this.uniqueCardNames(commanderCards.length > 0 ? commanderCards : commandZoneCards);
+    const cards = commanderCards.length > 0 ? commanderCards : commandZoneCards;
+    const seen = new Set<string>();
 
-    return names.length > 0 ? names.join(', ') : 'Commander';
-  }
+    return cards.filter((card) => {
+      if (seen.has(card.instanceId)) {
+        return false;
+      }
 
-  private uniqueCardNames(cards: readonly { name: string }[]): string[] {
-    return [...new Set(cards.map((card) => card.name.trim()).filter(Boolean))];
+      seen.add(card.instanceId);
+      return true;
+    });
   }
 
   private stopCounterEvent(event: MouseEvent): void {
