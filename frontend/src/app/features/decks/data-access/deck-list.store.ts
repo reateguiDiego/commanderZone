@@ -7,7 +7,7 @@ import { DeckFormatsApi } from '../../../core/api/deck-formats.api';
 import { DecksApi } from '../../../core/api/decks.api';
 import { ApiError } from '../../../core/models/api-responses.model';
 import { Card } from '../../../core/models/card.model';
-import { CommanderValidation, Deck, DeckFolder, DeckFolderVisibility, DeckFormat, DeckVisibility } from '../../../core/models/deck.model';
+import { Deck, DeckFolder, DeckFolderVisibility, DeckFormat, DeckVisibility } from '../../../core/models/deck.model';
 import { bestCardArtImage, bestCardImage } from '../../../shared/utils/card-image';
 import { commanderColorIdentityUnion, primaryCommander, secondaryCommander } from '../../../shared/utils/deck-commander';
 import { DeckImportExportService, DecklistEntry } from '../services/deck-import-export.service';
@@ -52,7 +52,6 @@ export class DeckListStore {
   readonly draggedDeckId = signal<string | null>(null);
   readonly dragTargetId = signal<string | null>(null);
   readonly editingDeckId = signal<string | null>(null);
-  readonly deckValidations = signal<Record<string, CommanderValidation | null>>({});
   readonly folderSections = computed<DeckFolderSection[]>(() => {
     const sections: DeckFolderSection[] = this.folders().map((folder) => ({
       id: folder.id,
@@ -137,7 +136,6 @@ export class DeckListStore {
       if (!this.formats().some((format) => format.id === this.newDeckFormatId) && this.formats().length > 0) {
         this.newDeckFormatId = this.formats()[0].id;
       }
-      this.refreshDeckValidations(decksResponse.data);
     } catch {
       this.error.set('Could not load decks.');
     } finally {
@@ -452,7 +450,6 @@ export class DeckListStore {
       this.createdMissing.set(response.missing);
       this.createdImportMessage.set(`${parsedCards} parsed cards, ${importedCards} imported, ${response.missing.length} missing.`);
       this.decks.set(this.decks().map((candidate) => candidate.id === response.deck.id ? response.deck : candidate));
-      this.refreshDeckValidation(response.deck.id);
       return true;
     } catch (error) {
       this.createdImportMessage.set(this.apiErrorMessage(error, 'Could not import deck.'));
@@ -491,19 +488,11 @@ export class DeckListStore {
   }
 
   deckHasIssues(deck: Deck): boolean {
-    const validation = this.deckValidations()[deck.id];
-
-    return validation ? !validation.valid || validation.errors.length > 0 : false;
+    return deck.valid === false;
   }
 
   deckIssueTooltip(deck: Deck): string {
-    const validation = this.deckValidations()[deck.id];
-    if (!validation) {
-      return 'Deck validation pending.';
-    }
-
-    const errors = validation.errors.map((entry) => `${entry.title}: ${entry.detail}`);
-    return errors.length > 0 ? errors.join('\n') : 'Deck is not valid.';
+    return deck.valid === false ? 'Deck is not valid for its current format.' : '';
   }
 
   folderDeckCount(folderId: string): number {
@@ -602,7 +591,6 @@ export class DeckListStore {
     try {
       const response = await firstValueFrom(this.decksApi.update(deck.id, { name, visibility: this.editDeckVisibility }));
       this.decks.set(this.decks().map((candidate) => candidate.id === deck.id ? response.deck : candidate));
-      this.refreshDeckValidation(response.deck.id);
       this.closeDeckEditModal();
     } catch (error) {
       this.error.set(this.apiErrorMessage(error, 'Could not update deck.'));
@@ -745,7 +733,6 @@ export class DeckListStore {
     try {
       const response = await firstValueFrom(this.decksApi.moveToFolder(deck.id, nextFolderId));
       this.decks.set(this.decks().map((candidate) => candidate.id === deck.id ? response.deck : candidate));
-      this.refreshDeckValidation(response.deck.id);
     } catch {
       this.error.set('Could not move deck.');
     }
@@ -765,11 +752,6 @@ export class DeckListStore {
     try {
       await firstValueFrom(this.decksApi.delete(deck.id));
       this.decks.set(this.decks().filter((candidate) => candidate.id !== deck.id));
-      this.deckValidations.update((current) => {
-        const next = { ...current };
-        delete next[deck.id];
-        return next;
-      });
       this.closeDeleteModal();
     } catch (error) {
       if (this.apiErrorCode(error) === 'deck.in_use') {
@@ -828,27 +810,6 @@ export class DeckListStore {
     } catch {
       return [];
     }
-  }
-
-  private refreshDeckValidations(decks: readonly Deck[]): void {
-    const nextIds = new Set(decks.map((deck) => deck.id));
-    this.deckValidations.update((current) => Object.fromEntries(
-      Object.entries(current).filter(([deckId]) => nextIds.has(deckId)),
-    ));
-
-    for (const deck of decks) {
-      this.refreshDeckValidation(deck.id);
-    }
-  }
-
-  private refreshDeckValidation(deckId: string): void {
-    firstValueFrom(this.decksApi.validateCommander(deckId))
-      .then((validation) => {
-        this.deckValidations.update((current) => ({ ...current, [deckId]: validation }));
-      })
-      .catch(() => {
-        this.deckValidations.update((current) => ({ ...current, [deckId]: null }));
-      });
   }
 
   private cancelDeckPointerDragTimer(): void {

@@ -3,7 +3,7 @@
 namespace App\UI\Http;
 
 use App\Application\Card\CardLocalizationService;
-use App\Application\Deck\CommanderDeckValidator;
+use App\Application\Deck\DeckValidator;
 use App\Application\Game\GameCommandHandler;
 use App\Application\Game\GameProjectionService;
 use App\Application\Game\GameRematchService;
@@ -214,7 +214,7 @@ class RoomsController extends ApiController
         Request $request,
         #[CurrentUser] User $user,
         EntityManagerInterface $entityManager,
-        CommanderDeckValidator $deckValidator,
+        DeckValidator $deckValidator,
         RoomEventPublisher $roomEventPublisher,
         ActiveRoomMembershipService $activeRoomMembership,
         CardLocalizationService $localization,
@@ -234,7 +234,7 @@ class RoomsController extends ApiController
         Request $request,
         #[CurrentUser] User $user,
         EntityManagerInterface $entityManager,
-        CommanderDeckValidator $deckValidator,
+        DeckValidator $deckValidator,
         RoomEventPublisher $roomEventPublisher,
         ActiveRoomMembershipService $activeRoomMembership,
         CardLocalizationService $localization,
@@ -253,7 +253,7 @@ class RoomsController extends ApiController
         Request $request,
         User $user,
         EntityManagerInterface $entityManager,
-        CommanderDeckValidator $deckValidator,
+        DeckValidator $deckValidator,
         RoomEventPublisher $roomEventPublisher,
         ActiveRoomMembershipService $activeRoomMembership,
         CardLocalizationService $localization,
@@ -274,7 +274,10 @@ class RoomsController extends ApiController
         }
         if ($deck instanceof Deck) {
             $validation = $deckValidator->validate($deck);
+            $deck->markValidationResult(($validation['valid'] ?? false) === true);
             if (($validation['valid'] ?? false) !== true) {
+                $entityManager->flush();
+
                 return $this->fail('A Commander-valid deck is required to join a room.', 400, [
                     'validation' => $validation,
                 ]);
@@ -496,7 +499,7 @@ class RoomsController extends ApiController
         EntityManagerInterface $entityManager,
         GameSnapshotFactory $snapshotFactory,
         GameProjectionService $projection,
-        CommanderDeckValidator $deckValidator,
+        DeckValidator $deckValidator,
         RoomEventPublisher $roomEventPublisher,
         CardLocalizationService $localization,
     ): JsonResponse
@@ -555,6 +558,7 @@ class RoomsController extends ApiController
             }
 
             $validation = $deckValidator->validate($deck);
+            $deck->markValidationResult(($validation['valid'] ?? false) === true);
             if (($validation['valid'] ?? false) !== true) {
                 $invalidDecks[] = [
                     ...$playerData,
@@ -563,6 +567,8 @@ class RoomsController extends ApiController
             }
         }
         if ($invalidDecks !== []) {
+            $entityManager->flush();
+
             return $this->fail(
                 'Every player must have a Commander-valid deck before starting the game.',
                 400,

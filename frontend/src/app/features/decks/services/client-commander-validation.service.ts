@@ -22,7 +22,6 @@ export class ClientCommanderValidationService {
       ...this.legalityIssues(deck),
       ...this.singletonIssues(deck),
       ...this.colorIdentityIssues(deck),
-      ...this.layoutWarnings(deck),
     ];
   }
 
@@ -106,18 +105,6 @@ export class ClientCommanderValidationService {
         severity: 'error' as const,
         title: 'Color identity issue',
         detail: `${entry.card.name} includes colors outside the command zone identity.`,
-        cards: [entry.card.name],
-      }));
-  }
-
-  private layoutWarnings(deck: Deck): ClientCommanderIssue[] {
-    return (deck.cards ?? [])
-      .filter((entry) => this.isPlayable(entry))
-      .filter((entry) => /modal_dfc|transform|meld/i.test(entry.card.layout) || entry.card.name.includes('//'))
-      .map((entry) => ({
-        severity: 'warning' as const,
-        title: 'MDFC/layout review',
-        detail: `${entry.card.name} uses ${entry.card.layout}; verify the face and color identity behavior.`,
         cards: [entry.card.name],
       }));
   }

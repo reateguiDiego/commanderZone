@@ -10,7 +10,7 @@ import { DecksApi } from '../../../core/api/decks.api';
 import { FriendsApi } from '../../../core/api/friends.api';
 import { RoomsApi } from '../../../core/api/rooms.api';
 import { AuthStore } from '../../../core/auth/auth.store';
-import { CommanderValidation, Deck } from '../../../core/models/deck.model';
+import { Deck } from '../../../core/models/deck.model';
 import { FriendUser } from '../../../core/models/friendship.model';
 import { RoomInvite } from '../../../core/models/room-invite.model';
 import { Room, RoomPlayer, RoomTimerMode, WaitingRoomEvent } from '../../../core/models/room.model';
@@ -70,7 +70,6 @@ export class WaitingRoomComponent implements OnDestroy {
   private roomSyncInFlight = false;
   private inviteRealtimeSubscription?: Subscription;
   private roomRealtimeSubscription?: Subscription;
-  private readonly deckCommanderValidityCache = new Map<string, CommanderValidation>();
   private navigatingToGame = false;
   private deletingOnDestroy = false;
   private seatOrderIds: string[] = [];
@@ -99,8 +98,6 @@ export class WaitingRoomComponent implements OnDestroy {
     validating: this.isDeckValidationPending(deck.id),
   })));
   readonly friends = signal<FriendUser[]>([]);
-  readonly deckValidations = signal<Record<string, CommanderValidation>>({});
-  readonly validatingDeckIds = signal<string[]>([]);
   readonly currentRoom = signal<Room | null>(null);
   readonly sentInvites = signal<RoomInvite[]>([]);
   readonly invitingUserIds = signal<string[]>([]);
@@ -230,7 +227,7 @@ export class WaitingRoomComponent implements OnDestroy {
     this.error.set(null);
     this.updatingDeck.set(true);
     try {
-      if (!(await this.isCommanderValidDeck(this.selectedDeckId))) {
+      if (!this.isCommanderValidDeck(this.selectedDeckId)) {
         this.invalidDeckSelection.set(this.selectedDeckOption());
         return;
       }
@@ -688,17 +685,15 @@ export class WaitingRoomComponent implements OnDestroy {
   }
 
   legalDeckOptions(): readonly WaitingDeckOption[] {
-    return this.deckOptions().filter((deck) => this.deckValidations()[deck.id]?.valid === true);
+    return this.deckOptions().filter((deck) => this.deckById(deck.id)?.valid === true);
   }
 
   isDeckInvalid(deckId: string): boolean {
-    const validation = this.deckValidations()[deckId];
-
-    return validation ? !validation.valid : false;
+    return this.deckById(deckId)?.valid === false;
   }
 
   isDeckValidationPending(deckId: string): boolean {
-    return this.validatingDeckIds().includes(deckId);
+    return false;
   }
 
   deckColorIdentity(deckId: string): readonly string[] {
@@ -706,7 +701,7 @@ export class WaitingRoomComponent implements OnDestroy {
       return [];
     }
 
-    return this.deckValidations()[deckId]?.commander?.colorIdentity ?? [];
+    return commanderColorIdentityUnion(this.deckById(deckId));
   }
 
   deckColorFallback(deckId: string): string {
@@ -810,10 +805,7 @@ export class WaitingRoomComponent implements OnDestroy {
   private async loadDecks(): Promise<void> {
     try {
       const response = await firstValueFrom(this.decksApi.list(undefined, true));
-      this.deckCommanderValidityCache.clear();
-      this.deckValidations.set({});
       this.decks.set(response.data);
-      void this.loadDeckValidations(response.data);
     } catch {
       this.error.set('Could not load decks.');
     }
@@ -1270,35 +1262,8 @@ export class WaitingRoomComponent implements OnDestroy {
     }
   }
 
-  private async isCommanderValidDeck(deckId: string): Promise<boolean> {
-    if (this.deckCommanderValidityCache.has(deckId)) {
-      return this.deckCommanderValidityCache.get(deckId)?.valid === true;
-    }
-
-    try {
-      const validation = await firstValueFrom(this.decksApi.validateCommander(deckId, true));
-      this.deckCommanderValidityCache.set(deckId, validation);
-      this.deckValidations.update((validations) => ({ ...validations, [deckId]: validation }));
-
-      return validation.valid === true;
-    } catch {
-      return false;
-    }
-  }
-
-  private async loadDeckValidations(decks: Deck[]): Promise<void> {
-    this.validatingDeckIds.set(decks.map((deck) => deck.id));
-    await Promise.all(decks.map(async (deck) => {
-      try {
-        const validation = await firstValueFrom(this.decksApi.validateCommander(deck.id, true));
-        this.deckCommanderValidityCache.set(deck.id, validation);
-        this.deckValidations.update((validations) => ({ ...validations, [deck.id]: validation }));
-      } catch {
-        // Validation failures are surfaced when the user tries to confirm the deck.
-      } finally {
-        this.validatingDeckIds.update((ids) => ids.filter((id) => id !== deck.id));
-      }
-    }));
+  private isCommanderValidDeck(deckId: string): boolean {
+    return this.deckById(deckId)?.valid === true;
   }
 
   private errorMessage(error: unknown, fallback: string): string {

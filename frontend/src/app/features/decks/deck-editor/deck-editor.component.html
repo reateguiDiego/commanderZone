@@ -7,8 +7,8 @@
     <section class="panel deck-catalog-panel">
       <div class="deck-summary">
         <div class="deck-summary-counts">
-          <strong>{{ store.totalCards() }} cards</strong>
-          <span>{{ store.cardGroups().length }} sections</span>
+          <strong>{{ store.playableCardCount() }} cards</strong>
+          <span>{{ store.playableSectionCount() }} sections</span>
         </div>
         <div class="deck-summary-controls">
           <div class="deck-search-stack">
@@ -25,13 +25,39 @@
               (cardSelected)="store.addSearchedCard($event.card, $event.quantity)"
             />
           </div>
-          <label class="view-mode-select">
-            <span class="sr-only">{{ 'deckBuilder.deckEditor.view' | runtimeTranslate }}</span>
-            <select name="deckViewMode" [ngModel]="store.viewMode()" (ngModelChange)="store.viewMode.set($event)">
-              <option value="text">{{ 'deckBuilder.deckEditor.text' | runtimeTranslate }}</option>
-              <option value="spoiler">{{ 'deckBuilder.deckEditor.spoiler' | runtimeTranslate }}</option>
-            </select>
-          </label>
+          <div class="view-mode-select" [class.is-open]="viewModeMenuOpen()" (click)="$event.stopPropagation()">
+            <span id="deck-view-mode-label" class="sr-only">{{ 'deckBuilder.deckEditor.view' | runtimeTranslate }}</span>
+            <button
+              class="view-mode-trigger"
+              type="button"
+              aria-haspopup="listbox"
+              aria-labelledby="deck-view-mode-label deck-view-mode-value"
+              [attr.aria-expanded]="viewModeMenuOpen()"
+              (click)="toggleViewModeMenu($event)"
+            >
+              <span id="deck-view-mode-value">{{ selectedViewModeLabelKey() | runtimeTranslate }}</span>
+              <lucide-icon name="chevron-down" size="16" aria-hidden="true" />
+            </button>
+            @if (viewModeMenuOpen()) {
+              <div class="view-mode-menu" role="listbox" aria-labelledby="deck-view-mode-label">
+                @for (option of viewModeOptions; track option.value) {
+                  <button
+                    class="view-mode-option"
+                    type="button"
+                    role="option"
+                    [class.is-selected]="store.viewMode() === option.value"
+                    [attr.aria-selected]="store.viewMode() === option.value"
+                    (click)="selectViewMode(option.value, $event)"
+                  >
+                    <span>{{ option.labelKey | runtimeTranslate }}</span>
+                    @if (store.viewMode() === option.value) {
+                      <span class="view-mode-selected-mark" aria-hidden="true"></span>
+                    }
+                  </button>
+                }
+              </div>
+            }
+          </div>
         </div>
       </div>
 
@@ -85,9 +111,10 @@
               @for (entry of store.consideringCards(); track entry.id) {
                 <div
                   class="deck-card-row"
-                  (mouseenter)="store.showCardPreview($event, entry.card)"
+                  (mouseenter)="showCardPreview($event, entry.card)"
                   (mousemove)="store.moveCardPreview($event)"
-                  (mouseleave)="store.hideCardPreview()"
+                  (mouseleave)="hideCardPreview(entry.card)"
+                  (pointerleave)="hideCardPreview(entry.card)"
                   (click)="store.toggleCardMenu($event, entry)"
                   >
                     <span class="deck-card-primary">
@@ -96,7 +123,7 @@
                         {{ entry.quantity }} - {{ store.displayCardListName(entry.card) }}
                       </span>
                       @if (store.hasAlternateFace(entry.card)) {
-                        <button class="face-toggle-button" type="button" (click)="store.toggleCardFace($event, entry.card)">
+                        <button class="face-toggle-button" type="button" (click)="toggleCardFace($event, entry.card)">
                           <lucide-icon name="rotate-cw" size="13" />
                         </button>
                       }
@@ -436,20 +463,24 @@
 
     <app-modal
       [open]="store.printVersionModalOpen()"
-      [title]="'deckBuilder.deckEditor.selectPrintVersion' | runtimeTranslate"
+      [title]="store.hasSinglePrintVersionOption() ? '' : ('deckBuilder.deckEditor.selectPrintVersion' | runtimeTranslate)"
+      [ariaLabel]="'deckBuilder.deckEditor.selectPrintVersion' | runtimeTranslate"
       secondaryLabel="Close"
       [showPrimary]="false"
+      size="wide"
       (secondary)="store.closePrintVersionModal()"
     >
       @if (store.printVersionEntry(); as entry) {
         <div class="print-version-modal">
-          <p class="print-version-intro">
-            {{ 'deckBuilder.deckEditor.chooseTheExactPrintingFor' | runtimeTranslate }} <strong>{{ entry.card.name }}</strong>{{ 'deckBuilder.deckEditor.quantityAndSectionWillStayUnchanged' | runtimeTranslate }}
-          </p>
+          @if (!store.hasSinglePrintVersionOption()) {
+            <p class="print-version-intro">
+              {{ 'deckBuilder.deckEditor.chooseTheExactPrintingFor' | runtimeTranslate }} <strong>{{ entry.card.name }}</strong>{{ 'deckBuilder.deckEditor.quantityAndSectionWillStayUnchanged' | runtimeTranslate }}
+            </p>
+          }
 
           @if (store.loadingPrintVersions()) {
             <p class="notice">{{ 'deckBuilder.deckEditor.loadingPrintVersions' | runtimeTranslate }}</p>
-          } @else if (store.printVersionOptions().length === 1) {
+          } @else if (store.hasSinglePrintVersionOption()) {
             <div class="notice compact-notice ok-notice">
               <strong>{{ 'deckBuilder.deckEditor.onlyOnePrintVersion' | runtimeTranslate }}</strong>
               <span>{{ 'deckBuilder.deckEditor.thisCardOnlyHasOnePrintVersion' | runtimeTranslate }}</span>
@@ -476,7 +507,6 @@
                           <span class="card-fallback tall">{{ card.name }}</span>
                         }
                         <span class="print-version-copy">
-                          <strong>{{ card.name }}</strong>
                           <small>{{ store.printVersionMeta(card) }}</small>
                           @if (store.isCurrentPrintVersion(card)) {
                             <em>{{ 'deckBuilder.deckEditor.current' | runtimeTranslate }}</em>

@@ -2,9 +2,9 @@
 
 namespace App\UI\Http;
 
-use App\Application\Deck\CommanderDeckValidator;
 use App\Application\Deck\DeckAnalysisService;
 use App\Application\Deck\DeckFormatCatalog;
+use App\Application\Deck\DeckValidator;
 use App\Application\Deck\DecklistExporter;
 use App\Application\Deck\DecklistParser;
 use App\Application\Deck\DecklistPreviewer;
@@ -466,7 +466,7 @@ class DecksController extends ApiController
             }
         }
 
-        $deck->touch();
+        $deck->markDecklistChanged();
         $entityManager->flush();
 
         return $this->json(['deck' => $this->localizeDeckPayload($deck->toArray(true), $user, $localization)]);
@@ -548,7 +548,7 @@ class DecksController extends ApiController
             $deck->addOrIncrementCard($card, 1, DeckCard::SECTION_COMMANDER);
         }
 
-        $deck->touch();
+        $deck->markDecklistChanged();
         $entityManager->flush();
 
         return $this->json(['deck' => $this->localizeDeckPayload($deck->toArray(true), $user, $localization)]);
@@ -581,7 +581,7 @@ class DecksController extends ApiController
                 $entityManager->remove($deckCard);
             }
         }
-        $deck->touch();
+        $deck->markDecklistChanged();
         $entityManager->flush();
 
         return $this->json(['deck' => $this->localizeDeckPayload($deck->toArray(true), $user, $localization)]);
@@ -636,14 +636,9 @@ class DecksController extends ApiController
             return $this->fail('Selected print version does not match this card.', 422);
         }
 
-        $existing = $deck->findCardEntry($targetCard, $deckCard->section());
-        if ($existing instanceof DeckCard && $existing->id() !== $deckCard->id()) {
-            $existing->changeQuantity($existing->quantity() + $deckCard->quantity());
-            $deck->removeCard($deckCard);
+        $selectedEntry = $deck->replaceEquivalentCardPrint($deckCard, $targetCard);
+        if ($selectedEntry !== $deckCard) {
             $entityManager->remove($deckCard);
-        } else {
-            $deckCard->changeCard($targetCard);
-            $deck->touch();
         }
 
         $entityManager->flush();
@@ -672,14 +667,18 @@ class DecksController extends ApiController
     }
 
     #[Route('/decks/{id}/validate-commander', methods: ['POST'])]
-    public function validateCommander(string $id, #[CurrentUser] User $user, EntityManagerInterface $entityManager, CommanderDeckValidator $validator): JsonResponse
+    public function validateCommander(string $id, #[CurrentUser] User $user, EntityManagerInterface $entityManager, DeckValidator $validator): JsonResponse
     {
         $deck = $this->ownedDeck($id, $user, $entityManager);
         if (!$deck) {
             return $this->fail('Deck not found.', 404);
         }
 
-        return $this->json($validator->validate($deck));
+        $validation = $validator->validate($deck);
+        $deck->markValidationResult(($validation['valid'] ?? false) === true);
+        $entityManager->flush();
+
+        return $this->json($validation);
     }
 
     private function ownedDeck(string $id, User $user, EntityManagerInterface $entityManager): ?Deck
@@ -878,14 +877,9 @@ class DecksController extends ApiController
             $candidates,
             fn (Card $candidate): bool => $this->isEquivalentPrintVersion($card, $candidate),
         ));
+        $cards = $this->cardsInPrintVersionLanguage($cards, $preferredLanguage ?? LanguageCatalog::DEFAULT_LANGUAGE);
 
-        usort($cards, static function (Card $left, Card $right) use ($card, $preferredLanguage): int {
-            $leftPriority = self::printingLanguagePriority($left, $card, $preferredLanguage);
-            $rightPriority = self::printingLanguagePriority($right, $card, $preferredLanguage);
-            if ($leftPriority !== $rightPriority) {
-                return $leftPriority <=> $rightPriority;
-            }
-
+        usort($cards, static function (Card $left, Card $right): int {
             return [$left->name(), $left->setCode() ?? '', $left->collectorNumber() ?? '']
                 <=> [$right->name(), $right->setCode() ?? '', $right->collectorNumber() ?? ''];
         });
@@ -893,26 +887,47 @@ class DecksController extends ApiController
         return $cards;
     }
 
-    private static function printingLanguagePriority(Card $candidate, Card $current, ?string $preferredLanguage): int
+    /**
+     * @param list<Card> $cards
+     *
+     * @return list<Card>
+     */
+    private function cardsInPrintVersionLanguage(array $cards, string $preferredLanguage): array
     {
-        if ($candidate->scryfallId() === $current->scryfallId()) {
-            return 0;
+        $preferredCards = $this->filterCardsByPrintLanguage($cards, $preferredLanguage);
+        if ($preferredCards !== []) {
+            return $preferredCards;
         }
 
-        $candidateLanguage = LanguageCatalog::normalize($candidate->lang());
-        if ($preferredLanguage !== null && $candidateLanguage === $preferredLanguage) {
-            return 1;
+        if ($preferredLanguage === LanguageCatalog::DEFAULT_LANGUAGE) {
+            return [];
         }
 
-        if ($candidateLanguage === LanguageCatalog::DEFAULT_LANGUAGE) {
-            return 2;
+        return $this->filterCardsByPrintLanguage($cards, LanguageCatalog::DEFAULT_LANGUAGE);
+    }
+
+    /**
+     * @param list<Card> $cards
+     *
+     * @return list<Card>
+     */
+    private function filterCardsByPrintLanguage(array $cards, string $language): array
+    {
+        return array_values(array_filter(
+            $cards,
+            fn (Card $card): bool => (LanguageCatalog::normalize($card->lang()) ?? LanguageCatalog::DEFAULT_LANGUAGE) === $language
+                && $this->isPrintVersionImageAvailable($card),
+        ));
+    }
+
+    private function isPrintVersionImageAvailable(Card $card): bool
+    {
+        $imageStatus = $card->imageStatus();
+        if ($imageStatus === null) {
+            return true;
         }
 
-        if (LanguageCatalog::isCommonPrintLanguage($candidateLanguage)) {
-            return 3;
-        }
-
-        return 4;
+        return !in_array(strtolower(trim($imageStatus)), ['missing', 'placeholder'], true);
     }
 
     private function isEquivalentPrintVersion(Card $source, Card $candidate): bool

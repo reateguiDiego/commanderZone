@@ -1378,9 +1378,11 @@ paths:
       tags: [Decks]
       summary: List available print versions for a deck card.
       description: >
-        Returns all equivalent print versions for manual selection. Sorting priority is:
-        current print, preferred language, English, common print-language bucket
-        (`ph`, `qya`, `grc`, `he`, `sa`, `ar`), then remaining prints.
+        Returns equivalent print versions filtered to the current user's preferred
+        card language. If the preferred card language is not English and no print
+        exists in that language, English print versions are returned as fallback.
+        English preferences do not fall back to other languages. Prints with
+        unavailable images are excluded before language fallback.
       parameters:
         - $ref: '#/components/parameters/Id'
         - name: deckCardId
@@ -3170,7 +3172,7 @@ components:
       enum: [private, public]
     DeckSummary:
       type: object
-      required: [id, name, format, visibility, backgroundName, sleevesName, folderId, commanders]
+      required: [id, name, format, valid, visibility, backgroundName, sleevesName, folderId, commanders]
       properties:
         id:
           type: string
@@ -3180,6 +3182,9 @@ components:
         format:
           type: string
           enum: [commander]
+        valid:
+          type: boolean
+          description: Latest persisted validation result for the deck's current format.
         visibility:
           $ref: '#/components/schemas/DeckVisibility'
         backgroundName:

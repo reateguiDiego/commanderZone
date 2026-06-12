@@ -118,6 +118,38 @@ class DeckBuildingTest extends TestCase
         self::assertArrayNotHasKey('commander', $payload);
     }
 
+    public function testDeckValidationStatusIsPersistedInPayload(): void
+    {
+        $deck = new Deck(new User('player@example.test', 'Player'), 'Atraxa');
+
+        self::assertFalse($deck->isValid());
+        self::assertFalse($deck->toArray()['valid']);
+
+        $deck->markValidationResult(true);
+
+        self::assertTrue($deck->isValid());
+        self::assertTrue($deck->toArray()['valid']);
+
+        $deck->addOrIncrementCard($this->card('00000000-0000-0000-0000-000000000010', 'Sol Ring'), 1, DeckCard::SECTION_MAIN);
+
+        self::assertFalse($deck->isValid());
+        self::assertFalse($deck->toArray()['valid']);
+    }
+
+    public function testEquivalentPrintReplacementPreservesValidationStatus(): void
+    {
+        $deck = new Deck(new User('player@example.test', 'Player'), 'Atraxa');
+        $entry = $deck->addOrIncrementCard($this->card('00000000-0000-0000-0000-000000000011', 'Sol Ring'), 1, DeckCard::SECTION_MAIN);
+        $deck->markValidationResult(true);
+
+        $selectedEntry = $deck->replaceEquivalentCardPrint($entry, $this->card('00000000-0000-0000-0000-000000000012', 'Sol Ring'));
+
+        self::assertSame($entry, $selectedEntry);
+        self::assertSame('00000000-0000-0000-0000-000000000012', $entry->card()->scryfallId());
+        self::assertTrue($deck->isValid());
+        self::assertTrue($deck->toArray()['valid']);
+    }
+
     private function card(string $scryfallId, string $name): Card
     {
         $card = new Card($scryfallId);

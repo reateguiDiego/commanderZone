@@ -5,7 +5,7 @@
       appPrettyScroll
       role="dialog"
       aria-modal="true"
-      [attr.aria-label]="title"
+      [attr.aria-label]="ariaLabel || title || null"
       [class.modal-panel-compact]="size === 'compact'"
       [class.modal-panel-wide]="size === 'wide'"
     >
@@ -15,10 +15,12 @@
         </button>
       }
 
+      @if (headerImageSrc || title || showBackButton || showHeaderAction || message) {
       <header>
         @if (headerImageSrc) {
           <img class="modal-header-image" [src]="headerImageSrc" [alt]="headerImageAlt" />
         }
+        @if (title || showBackButton || showHeaderAction) {
         <div class="modal-title-row">
           @if (showBackButton) {
             <button class="modal-back-button" type="button" [attr.aria-label]="backLabel" (click)="back.emit()">
@@ -32,10 +34,12 @@
             </button>
           }
         </div>
+        }
         @if (message) {
           <p>{{ message }}</p>
         }
       </header>
+      }
 
       <div class="modal-body">
         <ng-content />

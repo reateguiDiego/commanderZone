@@ -2,7 +2,7 @@
 
 namespace App\UI\Http;
 
-use App\Application\Deck\CommanderDeckValidator;
+use App\Application\Deck\DeckValidator;
 use App\Application\Room\ActiveRoomMembershipService;
 use App\Domain\Deck\Deck;
 use App\Domain\Friendship\Friendship;
@@ -112,7 +112,7 @@ class RoomInvitesController extends ApiController
         TableAssistantEventPublisher $publisher,
         RoomInviteEventPublisher $roomInvitePublisher,
         RoomEventPublisher $roomEventPublisher,
-        CommanderDeckValidator $deckValidator,
+        DeckValidator $deckValidator,
         ActiveRoomMembershipService $activeRoomMembership,
     ): JsonResponse
     {
@@ -135,7 +135,10 @@ class RoomInvitesController extends ApiController
         }
         if ($deck instanceof Deck) {
             $validation = $deckValidator->validate($deck);
+            $deck->markValidationResult(($validation['valid'] ?? false) === true);
             if (($validation['valid'] ?? false) !== true) {
+                $entityManager->flush();
+
                 return $this->fail('A Commander-valid deck is required to accept a room invite.', 400, [
                     'validation' => $validation,
                 ]);

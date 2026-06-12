@@ -31,7 +31,7 @@ describe('ClientCommanderValidationService', () => {
 
     expect(issues.some((issue) => issue.title === 'Singleton violation' && issue.cards.includes('Sol Ring'))).toBe(true);
     expect(issues.some((issue) => issue.title === 'Commander legality issue' && issue.cards.includes('Banned Card'))).toBe(true);
-    expect(issues.some((issue) => issue.title === 'MDFC/layout review' && issue.cards.includes('MDFC Card // Land'))).toBe(true);
+    expect(issues.some((issue) => issue.cards.includes('MDFC Card // Land'))).toBe(false);
     expect(issues.some((issue) => issue.title === 'Color identity issue' && issue.cards.includes('Counterspell'))).toBe(false);
   });
 });

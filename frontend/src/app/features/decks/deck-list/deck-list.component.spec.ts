@@ -67,14 +67,6 @@ describe('DeckListComponent', () => {
               },
             })),
             delete: vi.fn().mockReturnValue(of(undefined)),
-            validateCommander: vi.fn().mockReturnValue(of({
-              valid: true,
-              format: 'commander',
-              counts: { total: 100, commander: 1, main: 99, sideboard: 0, maybeboard: 0 },
-              commander: { mode: 'single', names: [], colorIdentity: [] },
-              errors: [],
-              warnings: [],
-            })),
           },
         },
         {

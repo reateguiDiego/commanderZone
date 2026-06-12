@@ -1,8 +1,8 @@
 <div class="spoiler-sections">
   @for (group of store.cardGroups(); track group.id) {
     <section class="spoiler-section">
-      <header class="spoiler-section-header">
-        <h3>
+      <button class="spoiler-section-toggle" type="button" [attr.aria-expanded]="!store.isGroupCollapsed(group.id)" (click)="store.toggleGroup(group.id)">
+        <span class="spoiler-section-title">
           {{ group.title }} <span class="group-count">({{ group.quantity }})</span>
           @if (group.id === 'commander') {
             <app-mana-symbols class="commander-colors" [symbols]="store.deckColorIdentitySymbols()" fallback="Colorless" />
@@ -10,53 +10,67 @@
           @if (group.detail) {
             <span class="group-detail">· {{ group.detail }}</span>
           }
-        </h3>
-      </header>
+        </span>
+        <lucide-icon [name]="store.isGroupCollapsed(group.id) ? 'chevron-right' : 'chevron-down'" size="16" />
+      </button>
 
-      @if (group.id === 'commander' && group.cards.length === 0) {
-        <p class="notice warning compact-notice">{{ 'deckBuilder.deckCardSpoilerView.noCommanderAssignedYet' | runtimeTranslate }}</p>
-      } @else {
-        <div class="spoiler-card-grid">
-          @for (entry of group.cards; track entry.id) {
-            <article
-              class="spoiler-card"
-              (click)="store.toggleCardMenu($event, entry)"
-            >
-              <div class="spoiler-image-frame">
-                @if (store.displayCardImageUrl(entry.card); as imageUrl) {
-                  <img [src]="imageUrl" [alt]="store.displayCardName(entry.card)" loading="lazy" />
-                } @else {
-                  <div class="spoiler-card-fallback">
-                    <strong>{{ store.displayCardName(entry.card) }}</strong>
-                    @if (store.shouldShowManaCost(entry.card)) {
-                      <app-mana-symbols [value]="store.displayCardManaCost(entry.card)" fallback="-" />
+      <div class="spoiler-section-body" [class.collapsed]="store.isGroupCollapsed(group.id)">
+        <div class="spoiler-section-body-inner">
+          @if (group.id === 'commander' && group.cards.length === 0) {
+            <p class="notice warning compact-notice">{{ 'deckBuilder.deckCardSpoilerView.noCommanderAssignedYet' | runtimeTranslate }}</p>
+          } @else {
+            <div class="spoiler-card-grid">
+              @for (entry of group.cards; track entry.id) {
+                <article
+                  class="spoiler-card"
+                  (mouseenter)="ensureFrontFace(entry.card)"
+                  (mouseleave)="resetCardFaceAfterHover($event, entry.card)"
+                  (pointerleave)="resetCardFaceAfterHover($event, entry.card)"
+                  (click)="store.toggleCardMenu($event, entry)"
+                >
+                  <div class="spoiler-image-frame">
+                    @if (store.displayCardImageUrl(entry.card); as imageUrl) {
+                      <img [src]="imageUrl" [alt]="store.displayCardName(entry.card)" loading="lazy" />
+                    } @else {
+                      <div class="spoiler-card-fallback">
+                        <strong>{{ store.displayCardName(entry.card) }}</strong>
+                        @if (store.shouldShowManaCost(entry.card)) {
+                          <app-mana-symbols [value]="store.displayCardManaCost(entry.card)" fallback="-" />
+                        }
+                      </div>
+                    }
+
+                    @if (entry.quantity > 1) {
+                      <span class="quantity-badge">x{{ entry.quantity }}</span>
+                    }
+                    @if (store.hasAlternateFace(entry.card)) {
+                      <button
+                        class="face-toggle-button"
+                        type="button"
+                        [title]="'deckBuilder.deckCardSpoilerView.flipFace' | runtimeTranslate"
+                        (pointerdown)="stopFaceTogglePointer($event)"
+                        (click)="toggleCardFace($event, entry.card)"
+                      >
+                        <lucide-icon name="rotate-cw" size="15" />
+                      </button>
+                    }
+                    @if (store.isCardInvalidForDeck(entry.card)) {
+                      <span class="invalid-badge" [attr.title]="store.invalidCardMessage(entry.card)">
+                        <lucide-icon name="triangle-alert" size="15" />
+                      </span>
                     }
                   </div>
-                }
+                  <strong class="spoiler-card-name">{{ store.displayCardListName(entry.card) }}</strong>
+                </article>
 
-                @if (entry.quantity > 1) {
-                  <span class="quantity-badge">x{{ entry.quantity }}</span>
+                @if (store.cardMenu()?.entryId === entry.id) {
+                  <app-deck-card-menu [entry]="entry" />
                 }
-                @if (store.hasAlternateFace(entry.card)) {
-                  <button class="face-toggle-button" type="button" [title]="'deckBuilder.deckCardSpoilerView.flipFace' | runtimeTranslate" (click)="store.toggleCardFace($event, entry.card)">
-                    <lucide-icon name="rotate-cw" size="15" />
-                  </button>
-                }
-                @if (store.isCardInvalidForDeck(entry.card)) {
-                  <span class="invalid-badge" [attr.title]="store.invalidCardMessage(entry.card)">
-                    <lucide-icon name="triangle-alert" size="15" />
-                  </span>
-                }
-              </div>
-              <strong class="spoiler-card-name">{{ store.displayCardListName(entry.card) }}</strong>
-            </article>
-
-            @if (store.cardMenu()?.entryId === entry.id) {
-              <app-deck-card-menu [entry]="entry" />
-            }
+              }
+            </div>
           }
         </div>
-      }
+      </div>
     </section>
   }
 </div>

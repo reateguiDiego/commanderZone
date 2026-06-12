@@ -1,8 +1,9 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { computed, importProvidersFrom, signal } from '@angular/core';
 import { convertToParamMap } from '@angular/router';
 import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
-import { ActivatedRoute, provideRouter } from '@angular/router';
+import { ActivatedRoute, Router, provideRouter } from '@angular/router';
 import {
   BarChart3,
   BookmarkPlus,
@@ -31,30 +32,42 @@ import {
   Upload,
   X,
 } from 'lucide-angular';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { CardsApi } from '../../../core/api/cards.api';
 import { DecksApi } from '../../../core/api/decks.api';
 import { AppShellI18nService } from '../../../core/localization/app-shell-i18n.service';
 import { SupportedLanguageCode } from '../../../core/localization/language-preferences';
 import { LanguagePreferencesService } from '../../../core/localization/language-preferences.service';
-import { Card } from '../../../core/models/card.model';
+import { Card, CardFace } from '../../../core/models/card.model';
 import { Deck, DeckCard, DeckSection } from '../../../core/models/deck.model';
 import { PageHeaderStore } from '../../../core/ui/page-header.store';
 import { DeckEditorComponent } from './deck-editor.component';
 import { CardAutocompleteComponent } from '../../../shared/components/card-autocomplete/card-autocomplete.component';
+
+type DecksApiMock = {
+  get: ReturnType<typeof vi.fn>;
+  tokens: ReturnType<typeof vi.fn>;
+  validateCommander: ReturnType<typeof vi.fn>;
+  updateCard: ReturnType<typeof vi.fn>;
+  selectPrinting: ReturnType<typeof vi.fn>;
+};
 
 describe('DeckEditorComponent', () => {
   async function setup(
     routeParams: Record<string, string> = {},
     deck?: Deck,
     languageConfig: { cardLanguage?: SupportedLanguageCode; appLanguage?: SupportedLanguageCode } = {},
+    decksApiOverrides: Partial<DecksApiMock> = {},
   ) {
     const cardLanguage = signal<SupportedLanguageCode>(languageConfig.cardLanguage ?? 'en');
     const appLanguage = signal<SupportedLanguageCode>(languageConfig.appLanguage ?? 'en');
-    const decksApi = {
+    const decksApi: DecksApiMock = {
       get: vi.fn().mockReturnValue(of({ deck })),
       tokens: vi.fn().mockReturnValue(of({ data: [], unresolved: [] })),
       validateCommander: vi.fn().mockReturnValue(of(validCommanderValidation())),
+      updateCard: vi.fn(),
+      selectPrinting: vi.fn(),
+      ...decksApiOverrides,
     };
     const languagePreferencesMock = {
       cardLanguage,
@@ -106,6 +119,8 @@ describe('DeckEditorComponent', () => {
         },
       ],
     }).compileComponents();
+
+    return { decksApi, router: TestBed.inject(Router) };
   }
 
   it('shows a missing deck id error without a route id', async () => {
@@ -113,6 +128,75 @@ describe('DeckEditorComponent', () => {
     const fixture = TestBed.createComponent(DeckEditorComponent);
 
     expect(fixture.componentInstance.store.error()).toBe('Missing deck id.');
+  });
+
+  it('navigates to the not found page when the deck API returns 404', async () => {
+    const { router } = await setup(
+      { id: 'missing-deck' },
+      undefined,
+      {},
+      {
+        get: vi.fn().mockReturnValue(throwError(() => new HttpErrorResponse({ status: 404 }))),
+      },
+    );
+    const navigateSpy = vi.spyOn(router, 'navigateByUrl').mockResolvedValue(true);
+    const fixture = TestBed.createComponent(DeckEditorComponent);
+
+    await fixture.componentInstance.store.load();
+
+    expect(navigateSpy).toHaveBeenCalledWith('/404', { replaceUrl: true });
+  });
+
+  it('does not request deck tokens during the initial deck load', async () => {
+    const { decksApi } = await setup({ id: 'deck-1' }, buildDeckWithSingleCard());
+    const fixture = TestBed.createComponent(DeckEditorComponent);
+
+    await fixture.componentInstance.store.load();
+
+    expect(decksApi.tokens).not.toHaveBeenCalled();
+  });
+
+  it('refreshes deck tokens only after playable card changes', async () => {
+    const deck: Deck = {
+      id: 'deck-1',
+      name: 'Token refresh deck',
+      format: 'commander',
+      folderId: null,
+      cards: [
+        deckCard('main-card', 'main', card('Sol Ring', 'Artifact'), 1),
+        deckCard('side-card', 'sideboard', card('Swan Song', 'Instant'), 1),
+      ],
+    };
+    const sideboardUpdatedDeck: Deck = {
+      ...deck,
+      cards: [
+        deckCard('main-card', 'main', card('Sol Ring', 'Artifact'), 1),
+        deckCard('side-card', 'sideboard', card('Swan Song', 'Instant'), 2),
+      ],
+    };
+    const mainUpdatedDeck: Deck = {
+      ...deck,
+      cards: [
+        deckCard('main-card', 'main', card('Sol Ring', 'Artifact'), 2),
+        deckCard('side-card', 'sideboard', card('Swan Song', 'Instant'), 2),
+      ],
+    };
+    const { decksApi } = await setup({ id: 'deck-1' }, deck);
+    decksApi.updateCard
+      .mockReturnValueOnce(of({ deck: sideboardUpdatedDeck }))
+      .mockReturnValueOnce(of({ deck: mainUpdatedDeck }));
+    const fixture = TestBed.createComponent(DeckEditorComponent);
+
+    await fixture.componentInstance.store.load();
+    decksApi.tokens.mockClear();
+
+    const sideboardEntry = fixture.componentInstance.store.deck()?.cards?.find((entry) => entry.id === 'side-card');
+    await fixture.componentInstance.store.addCardCopy(new MouseEvent('click'), sideboardEntry!);
+    expect(decksApi.tokens).not.toHaveBeenCalled();
+
+    const mainEntry = fixture.componentInstance.store.deck()?.cards?.find((entry) => entry.id === 'main-card');
+    await fixture.componentInstance.store.addCardCopy(new MouseEvent('click'), mainEntry!);
+    expect(decksApi.tokens).toHaveBeenCalledWith('deck-1');
   });
 
   it('keeps sideboard cards grouped after lands', async () => {
@@ -133,6 +217,203 @@ describe('DeckEditorComponent', () => {
     const groups = fixture.componentInstance.store.cardGroups();
     expect(groups.map((group) => group.id)).toEqual(['commander', 'land', 'sideboard']);
     expect(groups.find((group) => group.id === 'sideboard')?.cards[0].card.name).toBe('Wastes');
+  });
+
+  it('sorts sideboard cards by the same type order as deck sections', async () => {
+    await setup({ id: 'deck-1' }, {
+      id: 'deck-1',
+      name: 'Sorted sideboard deck',
+      format: 'commander',
+      folderId: null,
+      cards: [
+        deckCard('side-land', 'sideboard', card('Temple Garden', 'Land')),
+        deckCard('side-unknown', 'sideboard', card('Mystery Booster Card', 'Conspiracy')),
+        deckCard('side-artifact', 'sideboard', card('Sol Ring', 'Artifact')),
+        deckCard('side-creature', 'sideboard', card('Birds of Paradise', 'Creature')),
+        deckCard('side-enchantment', 'sideboard', card('Rhystic Study', 'Enchantment')),
+        deckCard('side-instant', 'sideboard', card('Swan Song', 'Instant')),
+        deckCard('side-planeswalker', 'sideboard', card('Jace, the Mind Sculptor', 'Planeswalker')),
+        deckCard('side-battle', 'sideboard', card('Invasion of Zendikar', 'Battle')),
+        deckCard('side-sorcery', 'sideboard', card('Cultivate', 'Sorcery')),
+      ],
+    });
+    const fixture = TestBed.createComponent(DeckEditorComponent);
+
+    await fixture.componentInstance.store.load();
+
+    const sideboardCards = fixture.componentInstance.store.cardGroups()
+      .find((group) => group.id === 'sideboard')
+      ?.cards
+      .map((entry) => entry.card.name);
+    const sideboardListCards = fixture.componentInstance.store.sideboardCards().map((entry) => entry.card.name);
+
+    expect(sideboardCards).toEqual([
+      'Jace, the Mind Sculptor',
+      'Birds of Paradise',
+      'Swan Song',
+      'Cultivate',
+      'Rhystic Study',
+      'Sol Ring',
+      'Invasion of Zendikar',
+      'Temple Garden',
+      'Mystery Booster Card',
+    ]);
+    expect(sideboardListCards).toEqual(sideboardCards);
+  });
+
+  it('sorts cards inside a section by name, subtype, and primary type', async () => {
+    await setup({ id: 'deck-1' }, {
+      id: 'deck-1',
+      name: 'Sorted creature deck',
+      format: 'commander',
+      folderId: null,
+      cards: [
+        deckCard('same-zombie', 'main', card('Shared Name', 'Creature — Zombie')),
+        deckCard('same-creature-angel', 'main', card('Shared Name', 'Creature — Angel')),
+        deckCard('alpha-wizard', 'main', card('Alpha Name', 'Creature — Wizard')),
+        deckCard('same-artifact-angel', 'main', card('Shared Name', 'Artifact Creature — Angel')),
+      ],
+    });
+    const fixture = TestBed.createComponent(DeckEditorComponent);
+
+    await fixture.componentInstance.store.load();
+
+    const creatureCards = fixture.componentInstance.store.cardGroups()
+      .find((group) => group.id === 'creature')
+      ?.cards
+      .map((entry) => entry.id);
+
+    expect(creatureCards).toEqual([
+      'alpha-wizard',
+      'same-artifact-angel',
+      'same-creature-angel',
+      'same-zombie',
+    ]);
+  });
+
+  it('counts only commander and main cards in the deck summary', async () => {
+    await setup({ id: 'deck-1' }, {
+      id: 'deck-1',
+      name: 'Summary deck',
+      format: 'commander',
+      folderId: null,
+      cards: [
+        deckCard('commander-card', 'commander', card('Talrand, Sky Summoner', 'Legendary Creature'), 1),
+        deckCard('main-card', 'main', card('Persistent Petitioners', 'Creature'), 99),
+        deckCard('side-card', 'sideboard', card('Swan Song', 'Instant'), 10),
+        deckCard('maybe-card', 'maybeboard', card('Cyclonic Rift', 'Instant'), 5),
+      ],
+    });
+    const fixture = TestBed.createComponent(DeckEditorComponent);
+
+    await fixture.componentInstance.store.load();
+    fixture.detectChanges();
+
+    const summaryText = (fixture.nativeElement.querySelector('.deck-summary-counts') as HTMLElement).textContent ?? '';
+
+    expect(fixture.componentInstance.store.playableCardCount()).toBe(100);
+    expect(fixture.componentInstance.store.playableSectionCount()).toBe(2);
+    expect(summaryText).toContain('100 cards');
+    expect(summaryText).toContain('2 sections');
+  });
+
+  it('uses a styled dropdown for the deck editor view mode', async () => {
+    await setup({ id: 'deck-1' }, {
+      id: 'deck-1',
+      name: 'View mode deck',
+      format: 'commander',
+      folderId: null,
+      cards: [deckCard('main-card', 'main', card('Sol Ring', 'Artifact'))],
+    });
+    const fixture = TestBed.createComponent(DeckEditorComponent);
+
+    await fixture.componentInstance.store.load();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.view-mode-select select')).toBeNull();
+
+    const trigger = fixture.nativeElement.querySelector('.view-mode-trigger') as HTMLButtonElement;
+    trigger.click();
+    fixture.detectChanges();
+
+    const options = Array.from(
+      fixture.nativeElement.querySelectorAll('.view-mode-option'),
+    ) as HTMLButtonElement[];
+    const spoilerOption = options.find((option) => option.textContent?.includes('Spoiler'));
+
+    expect(options.length).toBe(2);
+    expect(spoilerOption).toBeDefined();
+
+    spoilerOption?.click();
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.store.viewMode()).toBe('spoiler');
+    expect(fixture.nativeElement.querySelector('.view-mode-menu')).toBeNull();
+  });
+
+  it('detects alternate faces from second face image data instead of split names', async () => {
+    await setup({ id: 'deck-1' }, {
+      id: 'deck-1',
+      name: 'Faces deck',
+      format: 'commander',
+      folderId: null,
+      cards: [
+        deckCard('split-name-card', 'main', card('Wear // Tear', 'Instant')),
+        deckCard('faced-card', 'main', {
+          ...card('Birgi, God of Storytelling // Harnfel, Horn of Bounty', 'Legendary Creature // Legendary Artifact'),
+          cardFaces: [
+            cardFace('Birgi, God of Storytelling'),
+            cardFace('Harnfel, Horn of Bounty'),
+          ],
+        }),
+        deckCard('empty-faced-card', 'main', {
+          ...card('Front // Empty Back', 'Creature // Creature'),
+          cardFaces: [
+            cardFace('Front'),
+            cardFace('Empty Back', null),
+          ],
+        }),
+      ],
+    });
+    const fixture = TestBed.createComponent(DeckEditorComponent);
+
+    await fixture.componentInstance.store.load();
+
+    const deckCards = fixture.componentInstance.store.deck()?.cards ?? [];
+
+    expect(deckCards).toHaveLength(3);
+    expect(fixture.componentInstance.store.hasAlternateFace(deckCards[0]!.card)).toBe(false);
+    expect(fixture.componentInstance.store.hasAlternateFace(deckCards[1]!.card)).toBe(true);
+    expect(fixture.componentInstance.store.hasAlternateFace(deckCards[2]!.card)).toBe(false);
+  });
+
+  it('shows only the front type line for cards with split type lines', async () => {
+    await setup({ id: 'deck-1' }, {
+      id: 'deck-1',
+      name: 'Type line deck',
+      format: 'commander',
+      folderId: null,
+      cards: [
+        deckCard('main-mdfc', 'main', {
+          ...card('Bala Ged Recovery // Bala Ged Sanctuary', 'Sorcery // Land', 'modal_dfc'),
+          cardFaces: [
+            cardFace('Bala Ged Recovery'),
+            cardFace('Bala Ged Sanctuary'),
+          ],
+        }),
+      ],
+    });
+    const fixture = TestBed.createComponent(DeckEditorComponent);
+
+    await fixture.componentInstance.store.load();
+
+    const deckCards = fixture.componentInstance.store.deck()?.cards ?? [];
+    const deckCardEntry = deckCards[0];
+
+    expect(deckCardEntry).toBeDefined();
+    expect(fixture.componentInstance.store.displayCardTypeLine(deckCardEntry!.card)).toBe('Sorcery');
+    fixture.componentInstance.store.toggleCardFace(new MouseEvent('click'), deckCardEntry!.card, { updatePreview: false });
+    expect(fixture.componentInstance.store.displayCardTypeLine(deckCardEntry!.card)).toBe('Sorcery');
   });
 
   it('shows land quantity including modal double-faced lands assigned to other groups', async () => {
@@ -208,7 +489,7 @@ describe('DeckEditorComponent', () => {
         cards: ['Black Lotus'],
       }],
       warnings: [{
-        code: 'card.layout_review',
+        code: 'deck.warning',
         title: 'Review',
         detail: 'Only warning.',
         cards: ['Black Lotus'],
@@ -221,7 +502,7 @@ describe('DeckEditorComponent', () => {
     fixture.componentInstance.store.validation.set({
       ...validCommanderValidation(),
       warnings: [{
-        code: 'card.layout_review',
+        code: 'deck.warning',
         title: 'Review',
         detail: 'Only warning.',
         cards: ['Black Lotus'],
@@ -369,7 +650,7 @@ describe('DeckEditorComponent', () => {
     expect(header?.titleWarning?.tooltip).toContain('Banned card');
   });
 
-  it('groups print versions by preferred language, alternatives, and English for Spanish card preference', async () => {
+  it('shows only preferred-language print versions when they exist', async () => {
     const deck = buildDeckWithSingleCard();
     await setup({ id: 'deck-1' }, deck, { cardLanguage: 'es', appLanguage: 'es' });
     const fixture = TestBed.createComponent(DeckEditorComponent);
@@ -388,19 +669,21 @@ describe('DeckEditorComponent', () => {
 
     const groups = store.printVersionGroups();
 
-    expect(groups.map((group) => group.title)).toEqual(['Espanol', 'Alternativos', 'Ingles']);
+    expect(store.visiblePrintVersionOptions().map((card) => card.scryfallId)).toEqual(['sol-ring-es-1', 'sol-ring-es-2']);
+    expect(groups.map((group) => group.title)).toEqual(['Espanol']);
     expect(groups[0]?.cards.map((card) => card.scryfallId)).toEqual(['sol-ring-es-1', 'sol-ring-es-2']);
-    expect(groups[1]?.cards.map((card) => card.scryfallId)).toEqual(['sol-ring-ph-1']);
-    expect(groups[2]?.cards.map((card) => card.scryfallId)).toEqual(['sol-ring-en-1', 'sol-ring-en-2']);
     expect(groups.flatMap((group) => group.cards.map((card) => card.scryfallId))).not.toContain('sol-ring-pt-1');
+    expect(groups.flatMap((group) => group.cards.map((card) => card.scryfallId))).not.toContain('sol-ring-en-1');
+    expect(groups.flatMap((group) => group.cards.map((card) => card.scryfallId))).not.toContain('sol-ring-ph-1');
   });
 
-  it('groups print versions as English then alternatives when preferred language is English', async () => {
+  it('shows only English print versions when preferred language is English', async () => {
     const deck = buildDeckWithSingleCard();
     await setup({ id: 'deck-1' }, deck, { cardLanguage: 'en', appLanguage: 'en' });
     const fixture = TestBed.createComponent(DeckEditorComponent);
     const { store } = fixture.componentInstance;
 
+    await store.load();
     store.printVersionEntry.set(deck.cards?.[0] ?? null);
     store.printVersionModalOpen.set(true);
     store.printVersionOptions.set([
@@ -412,10 +695,45 @@ describe('DeckEditorComponent', () => {
 
     const groups = store.printVersionGroups();
 
-    expect(groups.map((group) => group.title)).toEqual(['English', 'Alternatives']);
+    expect(store.visiblePrintVersionOptions().map((card) => card.scryfallId)).toEqual(['sol-ring-en-1', 'sol-ring-en-2']);
+    expect(groups.map((group) => group.title)).toEqual(['English']);
     expect(groups[0]?.cards.map((card) => card.scryfallId)).toEqual(['sol-ring-en-1', 'sol-ring-en-2']);
-    expect(groups[1]?.cards.map((card) => card.scryfallId)).toEqual(['sol-ring-ph-1']);
     expect(groups.flatMap((group) => group.cards.map((card) => card.scryfallId))).not.toContain('sol-ring-fr-1');
+    expect(groups.flatMap((group) => group.cards.map((card) => card.scryfallId))).not.toContain('sol-ring-ph-1');
+
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.print-version-name')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.modal-panel')?.classList.contains('modal-panel-wide')).toBe(true);
+    expect(fixture.nativeElement.querySelectorAll('.print-version-card small').length).toBe(2);
+  });
+
+  it('does not revalidate when selecting an equivalent print version', async () => {
+    const deck = buildDeckWithSingleCard();
+    const nextPrint = {
+      ...card('Sol Ring', 'Artifact'),
+      id: 'sol-ring-alt-id',
+      scryfallId: 'sol-ring-alt-scryfall-id',
+      set: 'alt',
+      collectorNumber: '2',
+    };
+    const updatedDeck: Deck = {
+      ...deck,
+      cards: [deckCard('main-card', 'main', nextPrint)],
+    };
+    const { decksApi } = await setup({ id: 'deck-1' }, deck);
+    decksApi.selectPrinting.mockReturnValue(of({ deck: updatedDeck }));
+    const fixture = TestBed.createComponent(DeckEditorComponent);
+    fixture.detectChanges();
+    await fixture.componentInstance.store.load();
+    await fixture.whenStable();
+
+    decksApi.validateCommander.mockClear();
+    fixture.componentInstance.store.printVersionEntry.set(deck.cards?.[0] ?? null);
+
+    await fixture.componentInstance.store.selectPrintVersion(nextPrint);
+
+    expect(decksApi.selectPrinting).toHaveBeenCalledWith('deck-1', 'main-card', 'sol-ring-alt-scryfall-id');
+    expect(decksApi.validateCommander).not.toHaveBeenCalled();
   });
 
   it('returns only non-empty print version sections', async () => {
@@ -432,6 +750,30 @@ describe('DeckEditorComponent', () => {
     ]);
 
     expect(store.printVersionGroups().map((group) => group.title)).toEqual(['Ingles']);
+  });
+
+  it('does not render selectable print-version cards when the effective language has one version', async () => {
+    const deck = buildDeckWithSingleCard();
+    await setup({ id: 'deck-1' }, deck, { cardLanguage: 'es', appLanguage: 'es' });
+    const fixture = TestBed.createComponent(DeckEditorComponent);
+    const { store } = fixture.componentInstance;
+
+    await store.load();
+    store.printVersionEntry.set(deck.cards?.[0] ?? null);
+    store.printVersionModalOpen.set(true);
+    store.printVersionOptions.set([
+      printCard('sol-ring-es-1', 'es', 'one', '1'),
+      printCard('sol-ring-en-1', 'en', 'two', '2'),
+      printCard('sol-ring-en-2', 'en', 'three', '3'),
+    ]);
+    fixture.detectChanges();
+
+    expect(store.visiblePrintVersionOptions().map((card) => card.scryfallId)).toEqual(['sol-ring-es-1']);
+    expect(fixture.nativeElement.querySelector('.print-version-intro')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.modal-title-row')).toBeNull();
+    expect(fixture.nativeElement.querySelector('[role="dialog"]')?.getAttribute('aria-label')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('.print-version-card')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.print-version-modal .ok-notice')).not.toBeNull();
   });
 
   it('uses a reduced limit when searching missing cards in the deck editor', async () => {
@@ -485,8 +827,8 @@ describe('DeckEditorComponent', () => {
   });
 });
 
-function deckCard(id: string, section: DeckSection, card: Card): DeckCard {
-  return { id, section, card, quantity: 1 };
+function deckCard(id: string, section: DeckSection, card: Card, quantity = 1): DeckCard {
+  return { id, section, card, quantity };
 }
 
 function manyDeckCards(prefix: string, count: number, typeLine: string): DeckCard[] {
@@ -538,6 +880,20 @@ function card(name: string, typeLine: string, layout = 'normal', colorIdentity: 
     commanderLegal: true,
     set: null,
     collectorNumber: null,
+  };
+}
+
+function cardFace(name: string, imageUri: string | null = `/cards/${name}.jpg`): CardFace {
+  return {
+    name,
+    manaCost: null,
+    typeLine: null,
+    oracleText: null,
+    power: null,
+    toughness: null,
+    loyalty: null,
+    colors: [],
+    imageUris: imageUri ? { normal: imageUri } : {},
   };
 }
 

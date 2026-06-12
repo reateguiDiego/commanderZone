@@ -27,6 +27,57 @@ class DeckbuildingApiTest extends ApiTestCase
         self::assertResponseIsSuccessful();
     }
 
+    public function testCommanderValidationPersistsDeckValidity(): void
+    {
+        $token = $this->registerAndLogin('deck-validity@example.test', 'Deck Validity');
+        $commander = $this->seedCard('00000000-0000-0000-0000-000000000801', 'Persisted Commander', [
+            'type_line' => 'Legendary Creature',
+        ]);
+        $alternateCommanderPrint = $this->seedCard('00000000-0000-0000-0000-000000000803', 'Persisted Commander', [
+            'type_line' => 'Legendary Creature',
+            'set' => 'alt',
+            'collector_number' => '2',
+        ]);
+        $island = $this->seedCard('00000000-0000-0000-0000-000000000802', 'Island', [
+            'type_line' => 'Basic Land - Island',
+        ]);
+
+        $this->jsonRequest('POST', '/decks', ['name' => 'Persisted Validity'], $token);
+        self::assertResponseStatusCodeSame(201);
+        $deckId = (string) $this->jsonResponse()['deck']['id'];
+
+        $this->jsonRequest('POST', '/decks/'.$deckId.'/validate-commander', token: $token);
+        self::assertResponseIsSuccessful();
+        self::assertFalse($this->jsonResponse()['valid']);
+        $this->assertDeckValidity($deckId, false);
+
+        $this->jsonRequest('POST', '/decks/'.$deckId.'/cards', [
+            'scryfallId' => $commander->scryfallId(),
+            'quantity' => 1,
+            'section' => DeckCard::SECTION_COMMANDER,
+        ], $token);
+        self::assertResponseIsSuccessful();
+        $this->jsonRequest('POST', '/decks/'.$deckId.'/cards', [
+            'scryfallId' => $island->scryfallId(),
+            'quantity' => 99,
+            'section' => DeckCard::SECTION_MAIN,
+        ], $token);
+        self::assertResponseIsSuccessful();
+
+        $this->jsonRequest('POST', '/decks/'.$deckId.'/validate-commander', token: $token);
+        self::assertResponseIsSuccessful();
+        self::assertTrue($this->jsonResponse()['valid']);
+        $this->assertDeckValidity($deckId, true);
+
+        $commanderDeckCardId = $this->storedDeckCardId($deckId, 'Persisted Commander', DeckCard::SECTION_COMMANDER);
+        $this->jsonRequest('PATCH', '/decks/'.$deckId.'/cards/'.$commanderDeckCardId.'/printing', [
+            'scryfallId' => $alternateCommanderPrint->scryfallId(),
+        ], $token);
+        self::assertResponseIsSuccessful();
+        self::assertTrue($this->jsonResponse()['deck']['valid']);
+        $this->assertDeckValidity($deckId, true);
+    }
+
     public function testFoldersDecksCardsImportAndOwnership(): void
     {
         $token = $this->registerAndLogin('owner@example.test', 'Owner');
@@ -126,6 +177,7 @@ class DeckbuildingApiTest extends ApiTestCase
         $createdDeck = $this->jsonResponse()['deck'];
         $deckId = (string) $createdDeck['id'];
         self::assertSame('commander', $createdDeck['format']);
+        self::assertFalse($createdDeck['valid']);
         self::assertSame('public', $createdDeck['visibility']);
         self::assertSame('back_5', $createdDeck['backgroundName']);
         self::assertSame('facedown_card', $createdDeck['sleevesName']);
@@ -573,6 +625,13 @@ TXT,
             'lang' => 'es',
             'printed_name' => 'Anillo solar',
         ]);
+        $placeholderPreferredPrint = $this->seedCard('00000000-0000-0000-0000-000000000206', 'Sol Ring', [
+            'set' => 'five',
+            'collector_number' => '5',
+            'lang' => 'es',
+            'printed_name' => 'Anillo solar',
+            'image_status' => 'placeholder',
+        ]);
         $thirdPrint = $this->seedCard('00000000-0000-0000-0000-000000000204', 'Sol Ring', [
             'set' => 'three',
             'collector_number' => '3',
@@ -605,30 +664,110 @@ TXT,
         $this->jsonRequest('GET', '/decks/'.$deckId.'/cards/'.$deckCardId.'/printings', token: $token);
         self::assertResponseIsSuccessful();
         $printings = $this->jsonResponse()['data'];
-        self::assertSame($firstPrint->scryfallId(), $printings[0]['scryfallId']);
-        self::assertContains($secondPrint->scryfallId(), array_column($printings, 'scryfallId'));
-        self::assertContains($thirdPrint->scryfallId(), array_column($printings, 'scryfallId'));
-        self::assertContains($commonLanguagePrint->scryfallId(), array_column($printings, 'scryfallId'));
-        self::assertSame($secondPrint->scryfallId(), $printings[1]['scryfallId']);
-        self::assertLessThan(
-            array_search($thirdPrint->scryfallId(), array_column($printings, 'scryfallId'), true),
-            array_search($commonLanguagePrint->scryfallId(), array_column($printings, 'scryfallId'), true),
-        );
+        self::assertSame([$secondPrint->scryfallId()], array_column($printings, 'scryfallId'));
+        self::assertNotContains($placeholderPreferredPrint->scryfallId(), array_column($printings, 'scryfallId'));
+
+        $this->jsonRequest('PATCH', '/me', ['cardLanguage' => 'de'], $token);
+        self::assertResponseIsSuccessful();
+
+        $this->jsonRequest('GET', '/decks/'.$deckId.'/cards/'.$deckCardId.'/printings', token: $token);
+        self::assertResponseIsSuccessful();
+        $printings = $this->jsonResponse()['data'];
+        self::assertSame([$firstPrint->scryfallId()], array_column($printings, 'scryfallId'));
+        self::assertNotContains($thirdPrint->scryfallId(), array_column($printings, 'scryfallId'));
+        self::assertNotContains($commonLanguagePrint->scryfallId(), array_column($printings, 'scryfallId'));
         self::assertNotContains($differentCard->scryfallId(), array_column($printings, 'scryfallId'));
 
         $this->jsonRequest('PATCH', '/decks/'.$deckId.'/cards/'.$deckCardId.'/printing', [
-            'scryfallId' => $commonLanguagePrint->scryfallId(),
+            'scryfallId' => $secondPrint->scryfallId(),
         ], $token);
         self::assertResponseIsSuccessful();
         $updatedLine = $this->jsonResponse()['deck']['cards'][0];
         self::assertSame($deckCardId, $updatedLine['id']);
         self::assertSame(2, $updatedLine['quantity']);
-        self::assertSame($commonLanguagePrint->scryfallId(), $updatedLine['card']['scryfallId']);
+        self::assertSame($secondPrint->scryfallId(), $updatedLine['card']['scryfallId']);
 
         $this->jsonRequest('PATCH', '/decks/'.$deckId.'/cards/'.$deckCardId.'/printing', [
             'scryfallId' => $differentCard->scryfallId(),
         ], $token);
         self::assertResponseStatusCodeSame(422);
+    }
+
+    public function testDeckCardPrintVersionsFallbackToEnglishWhenPreferredImagesAreUnavailable(): void
+    {
+        $token = $this->registerAndLogin('placeholder-prints@example.test', 'Placeholder Prints');
+        $englishPrint = $this->seedCard('00000000-0000-0000-0000-000000000207', 'Placeholder Ring', [
+            'set' => 'one',
+            'collector_number' => '1',
+            'lang' => 'en',
+            'image_status' => 'highres_scan',
+        ]);
+        $placeholderPrint = $this->seedCard('00000000-0000-0000-0000-000000000208', 'Placeholder Ring', [
+            'set' => 'two',
+            'collector_number' => '2',
+            'lang' => 'es',
+            'printed_name' => 'Anillo placeholder',
+            'image_status' => 'placeholder',
+        ]);
+
+        $this->jsonRequest('POST', '/decks/quick-build', [
+            'name' => 'Placeholder Prints',
+            'cards' => [
+                ['scryfallId' => $englishPrint->scryfallId(), 'quantity' => 1],
+            ],
+        ], $token);
+        self::assertResponseStatusCodeSame(201);
+        $deck = $this->jsonResponse()['deck'];
+        $deckId = (string) $deck['id'];
+        $deckCardId = (string) $deck['cards'][0]['id'];
+
+        $this->jsonRequest('PATCH', '/me', ['cardLanguage' => 'es'], $token);
+        self::assertResponseIsSuccessful();
+
+        $this->jsonRequest('GET', '/decks/'.$deckId.'/cards/'.$deckCardId.'/printings', token: $token);
+        self::assertResponseIsSuccessful();
+        $printings = $this->jsonResponse()['data'];
+
+        self::assertSame([$englishPrint->scryfallId()], array_column($printings, 'scryfallId'));
+        self::assertNotContains($placeholderPrint->scryfallId(), array_column($printings, 'scryfallId'));
+    }
+
+    public function testDeckCardPrintVersionsDoNotFallbackWhenPreferredLanguageIsEnglish(): void
+    {
+        $token = $this->registerAndLogin('english-prints@example.test', 'English Prints');
+        $firstPrint = $this->seedCard('00000000-0000-0000-0000-000000000211', 'Language Locked', [
+            'set' => 'one',
+            'collector_number' => '1',
+            'lang' => 'es',
+            'printed_name' => 'Bloqueado por idioma',
+        ]);
+        $secondPrint = $this->seedCard('00000000-0000-0000-0000-000000000212', 'Language Locked', [
+            'set' => 'two',
+            'collector_number' => '2',
+            'lang' => 'pt',
+        ]);
+
+        $this->jsonRequest('POST', '/decks/quick-build', [
+            'name' => 'English Prints',
+            'cards' => [
+                ['scryfallId' => $firstPrint->scryfallId(), 'quantity' => 1],
+            ],
+        ], $token);
+        self::assertResponseStatusCodeSame(201);
+        $deck = $this->jsonResponse()['deck'];
+        $deckId = (string) $deck['id'];
+        $deckCardId = (string) $deck['cards'][0]['id'];
+
+        $this->jsonRequest('PATCH', '/me', ['cardLanguage' => 'en'], $token);
+        self::assertResponseIsSuccessful();
+
+        $this->jsonRequest('GET', '/decks/'.$deckId.'/cards/'.$deckCardId.'/printings', token: $token);
+        self::assertResponseIsSuccessful();
+        $printings = $this->jsonResponse()['data'];
+
+        self::assertSame([], array_column($printings, 'scryfallId'));
+        self::assertNotContains($firstPrint->scryfallId(), array_column($printings, 'scryfallId'));
+        self::assertNotContains($secondPrint->scryfallId(), array_column($printings, 'scryfallId'));
     }
 
     public function testDeckCreateRejectsUnknownFormat(): void
@@ -1135,6 +1274,35 @@ TXT,
         self::assertInstanceOf(Deck::class, $deck);
 
         return $deck;
+    }
+
+    private function assertDeckValidity(string $deckId, bool $expected): void
+    {
+        $deck = $this->storedDeck($deckId);
+
+        self::assertSame($expected, $deck->isValid());
+        self::assertSame($expected, $deck->toArray()['valid']);
+    }
+
+    private function storedDeckCardId(string $deckId, string $name, string $section = DeckCard::SECTION_MAIN): string
+    {
+        return $this->storedDeckCard($deckId, $name, $section)->id();
+    }
+
+    private function storedDeckCard(string $deckId, string $name, string $section = DeckCard::SECTION_MAIN): DeckCard
+    {
+        $deck = $this->storedDeck($deckId);
+        foreach ($deck->cards() as $deckCard) {
+            if (!$deckCard instanceof DeckCard) {
+                continue;
+            }
+
+            if ($deckCard->section() === $section && $deckCard->card()->name() === $name) {
+                return $deckCard;
+            }
+        }
+
+        self::fail('Expected stored deck card was not found.');
     }
 
     private function storedDeckCardScryfallId(Deck $deck, string $name, string $section = DeckCard::SECTION_MAIN): string
