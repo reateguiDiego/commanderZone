@@ -26,9 +26,11 @@
   @if (player.turnRoll !== null || (player.turnRolls?.length ?? 0) > 0) {
     <div class="roll-badge" [attr.aria-label]="'rooms.waitingRoomPlayerCard.d20RollResult' | runtimeTranslate">
       @if (turnPosition() !== null) {
-        <span class="roll-badge-label">{{ 'rooms.waitingRoomPlayerCard.turnOrder' | runtimeTranslate }}</span>
-        <strong>#{{ turnPosition() }}</strong>
-        <small>D20 {{ rollLabel(player) }}</small>
+        <span class="roll-badge-label">{{ 'rooms.waitingRoomPlayerCard.turnOrder' | runtimeTranslate }} #{{ turnPosition() }}</span>
+        <span class="roll-value">
+          <span class="roll-value-prefix">D20</span>
+          <strong>{{ rollLabel(player) }}</strong>
+        </span>
       } @else {
         <span class="roll-badge-label">{{ 'rooms.waitingRoomPlayerCard.d20Roll' | runtimeTranslate }}</span>
         <strong>{{ rollLabel(player) }}</strong>

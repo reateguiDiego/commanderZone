@@ -17,6 +17,7 @@
   background: radial-gradient(circle at 50% -10%, rgb(var(--cz-accent-rgb) / 14%), transparent 42%), rgb(var(--cz-bg-rgb) / 78%);
   text-align: center;
   box-shadow: 0 1rem 2.2rem rgb(var(--cz-bg-rgb) / 22%);
+  transition: border-color 160ms ease, box-shadow 160ms ease;
 }
 
 :host(.current) { border-color: rgb(var(--cz-primary-rgb) / 72%); box-shadow: 0 1.4rem 3.2rem rgb(var(--cz-bg-rgb) / 30%), inset 0 0 0 1px rgb(var(--cz-primary-rgb) / 24%); }
@@ -32,6 +33,7 @@
   background-image: var(--player-deck-art);
   background-position: center 18%;
   background-size: cover;
+  transition: transform 180ms ease;
 }
 
 :host(.has-deck-art)::after {
@@ -41,7 +43,9 @@
   z-index: -1;
   border-radius: inherit;
   background: linear-gradient(180deg, rgb(var(--cz-bg-rgb) / 20%), rgb(var(--cz-bg-rgb) / 74%));
+  opacity: 1;
   pointer-events: none;
+  transition: opacity 160ms ease;
 }
 
 :host(.has-dual-deck-art)::before {
@@ -62,6 +66,20 @@
   background:
     radial-gradient(circle at 50% 34%, rgb(var(--cz-primary-rgb) / 16%), transparent 36%),
     rgb(var(--cz-bg-rgb) / 42%);
+}
+
+:host(.has-deck-art:not(.current):hover) {
+  overflow: hidden;
+  border-color: rgb(var(--cz-warning-rgb) / 54%);
+  box-shadow: 0 1.25rem 2.6rem rgb(var(--cz-bg-rgb) / 30%);
+}
+
+:host(.has-deck-art:not(.current):hover)::before {
+  transform: scale(1.035);
+}
+
+:host(.has-deck-art:not(.current):hover)::after {
+  opacity: 0;
 }
 
 .player-dual-deck-art {
@@ -110,6 +128,7 @@
     54% 9%
   );
   opacity: 0.85;
+  transition: opacity 160ms ease;
 }
 
 .player-dual-deck-art-pane {
@@ -135,6 +154,7 @@
   filter: blur(18px) saturate(1.05);
   opacity: 0.52;
   transform: scale(1.06);
+  transition: opacity 160ms ease;
 }
 
 .player-dual-deck-art-pane::after {
@@ -143,6 +163,17 @@
     var(--player-deck-pane-art);
   background-size: auto, 100% auto;
   opacity: 0.98;
+  transition: transform 180ms ease;
+}
+
+:host(.has-deck-art:not(.current):hover) .player-dual-deck-art::after,
+:host(.has-deck-art:not(.current):hover) .player-dual-deck-art-pane::before {
+  opacity: 0;
+}
+
+:host(.has-deck-art:not(.current):hover) .player-dual-deck-art-pane::after {
+  background-image: var(--player-deck-pane-art);
+  transform: scale(1.025);
 }
 
 .player-dual-deck-art-pane-primary {
@@ -181,7 +212,28 @@
   );
 }
 
-:host > :not(.player-dual-deck-art) { position: relative; z-index: 1; }
+.player-summary,
+.player-deck-area,
+.empty-slot-content {
+  position: relative;
+  z-index: 1;
+}
+
+.player-summary,
+.player-deck-area,
+.host-ribbon,
+.roll-badge {
+  transition: opacity 140ms ease, transform 140ms ease;
+}
+
+:host(.has-deck-art:not(.current):hover) .player-summary,
+:host(.has-deck-art:not(.current):hover) .player-deck-area,
+:host(.has-deck-art:not(.current):hover) .host-ribbon,
+:host(.has-deck-art:not(.current):hover) .roll-badge {
+  opacity: 0;
+  transform: translateY(0.25rem);
+  pointer-events: none;
+}
 
 .player-summary {
   display: grid;
@@ -214,30 +266,41 @@
 
 .host-ribbon {
   position: absolute;
-  top: 0;
+  top: 0.45rem;
   left: 50%;
+  z-index: 3;
   transform: translateX(-50%);
-  border-radius: 0 0 10px 10px;
-  padding: 0.24rem 0.7rem;
-  background: linear-gradient(180deg, var(--cz-primary), var(--cz-surface));
-  color: var(--cz-on-accent);
-  font-size: 0.68rem;
-  font-weight: 850;
+  max-width: calc(100% - 6.5rem);
+  overflow: hidden;
+  border: 1px solid rgb(var(--cz-primary-rgb) / 46%);
+  border-radius: 999px;
+  padding: 0.14rem 0.42rem;
+  background: rgb(var(--cz-bg-rgb) / 72%);
+  color: var(--cz-secondary);
+  box-shadow: 0 0.45rem 1rem rgb(var(--cz-bg-rgb) / 24%);
+  font-size: 0.56rem;
+  font-weight: 900;
+  line-height: 1;
+  text-overflow: ellipsis;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .player-kick-button {
   position: absolute;
-  top: 0.75rem;
-  right: 0.75rem;
+  top: 0.45rem;
+  right: 0.45rem;
+  z-index: 4;
   display: grid;
   place-items: center;
-  width: 2.35rem;
-  height: 2.35rem;
+  width: 2.15rem;
+  height: 2.15rem;
+  padding: 0;
   border: 1px solid rgb(var(--cz-danger-rgb) / 72%);
-  border-radius: 12px;
+  border-radius: 999px;
   background: linear-gradient(145deg, rgb(var(--cz-surface-rgb) / 78%), rgb(var(--cz-bg-rgb) / 82%));
   color: var(--cz-text);
+  line-height: 0;
   box-shadow: 0 0.8rem 1.7rem rgb(var(--cz-bg-rgb) / 34%), 0 0 1rem rgb(var(--cz-danger-rgb) / 18%);
 }
 
@@ -280,8 +343,32 @@
   box-shadow: 0 0.8rem 1.6rem rgb(var(--cz-bg-rgb) / 34%);
 }
 
-.roll-badge strong { color: var(--blue); font-size: 1.55rem; }
-.roll-badge small { color: var(--muted); font-size: 0.7rem; font-weight: 800; }
+.roll-badge-label {
+  color: var(--muted);
+  font-size: 0.66rem;
+  font-weight: 850;
+  line-height: 1;
+}
+
+.roll-badge strong {
+  color: var(--cz-warning);
+  font-size: 1.82rem;
+  line-height: 0.95;
+  text-shadow: 0 0 0.9rem rgb(var(--cz-warning-rgb) / 24%);
+}
+
+.roll-value {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.25rem;
+}
+
+.roll-value-prefix {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 900;
+  line-height: 1;
+}
 .deck-name {
   display: block;
   max-width: min(16rem, 100%);

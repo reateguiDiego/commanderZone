@@ -61,6 +61,7 @@
                       [class.seat-five]="seatIndex === 4"
                       [class.seat-six]="seatIndex === 5"
                       [class.seat-odd-last]="isOddLastSeat(room, seatIndex)"
+                      [class.current]="isCurrentUser(player.user.id)"
                       [class.selector-open]="isCurrentUser(player.user.id) && deckSelectorOpen()"
                       [class.has-deck-art]="shouldShowPlayerDeckArt(player)"
                       [class.has-dual-deck-art]="hasDualPlayerDeckArt(player)"

@@ -10,6 +10,10 @@
   min-height: 0;
 }
 
+.app-route-frame-with-noindex-disclaimer {
+  min-height: 100dvh;
+}
+
 .app-route-frame > router-outlet {
   display: none;
 }

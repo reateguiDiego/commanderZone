@@ -144,6 +144,21 @@ describe('App', () => {
     expect(fixture.nativeElement.querySelector('app-noindex-footer-disclaimer')).toBeNull();
   });
 
+  it('pushes the noindex disclaimer below the first viewport only on noindex footer routes', async () => {
+    const router = TestBed.inject(Router);
+    const fixture = TestBed.createComponent(App);
+
+    await router.navigateByUrl('/dashboard');
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.app-route-frame-with-noindex-disclaimer')).not.toBeNull();
+
+    await router.navigateByUrl('/');
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.app-route-frame-with-noindex-disclaimer')).toBeNull();
+  });
+
   it('does not show the global loading overlay on SEO landing routes', async () => {
     const router = TestBed.inject(Router);
     const loading = TestBed.inject(LoadingStore);
