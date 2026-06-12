@@ -1,5 +1,6 @@
 :host {
   display: block;
+  min-height: 100%;
 }
 
 .app-frame {
@@ -8,7 +9,7 @@
   display: grid;
   grid-template-columns: 16rem minmax(0, 1fr);
   grid-template-rows: auto minmax(0, 1fr);
-  min-height: 100dvh;
+  min-height: 100%;
 }
 
 .app-frame.room-focus {
@@ -23,7 +24,7 @@
   display: flex;
   flex-direction: column;
   gap: 2rem;
-  height: 100dvh;
+  min-height: 100%;
   padding: 1rem;
   border-right: 1px solid var(--line);
   background: rgb(var(--cz-bg-rgb) / 84%);
@@ -152,6 +153,7 @@ app-dashboard-header {
     gap: 0.55rem;
     align-items: center;
     height: 100px;
+    min-height: 0;
     padding: 0.55rem;
     border-right: 0;
     border-bottom: 0;
@@ -211,6 +213,7 @@ app-dashboard-header {
 
   .sidebar {
     height: 86px;
+    min-height: 0;
     padding: 0.45rem 0.55rem;
   }
 
