@@ -1748,6 +1748,10 @@ paths:
     post:
       tags: [Rooms]
       summary: Roll a d20 for waiting-room turn order or an unresolved tie-break.
+      description: >
+        Rolls a real d20 for the current room player. Ties are allowed on the
+        initial roll; only players in an unresolved tie group may roll again
+        until turn order is fully resolved.
       parameters:
         - $ref: '#/components/parameters/Id'
       responses:
@@ -4813,9 +4817,10 @@ components:
             cards.moved into library, randomOrder=true randomizes only the moved
             cards before placing them at the requested top/bottom position.
             zone.random_card.selected logs one random card name from library,
-            hand, graveyard, or exile without moving it. Optional instanceId can
-            pin the selected card when the client opens the same random card in a
-            fixed one-card zone view. library.move_top may send targetPlayerId to
+            hand, graveyard, or exile without moving it. instanceId is optional
+            in the request; when omitted, the backend resolves the selected card
+            and returns the authoritative instanceId in the resulting event
+            payload. library.move_top may send targetPlayerId to
             move top cards into another player's hand or battlefield, and
             position=bottom when moving top cards to the bottom of the library.
             library.view logs that the actor looked at their library order, with
@@ -4829,7 +4834,9 @@ components:
             but cannot be the attachment source, and permanents with attached
             cards cannot be attachment sources. attachment.removed detaches by
             id or equipmentInstanceId.
-            dice.rolled logs a manual roll result, and battlefield.untap_all
+            dice.rolled only requires kind in the request; the backend generates
+            the authoritative finalResult and returns it in the resulting event
+            payload. battlefield.untap_all
             untaps all tapped cards in the actor's own battlefield.
             library.play_top_revealed toggles a persistent public top-library
             reveal flag and does not move cards.

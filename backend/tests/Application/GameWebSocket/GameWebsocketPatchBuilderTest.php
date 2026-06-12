@@ -4,6 +4,7 @@ namespace App\Tests\Application\GameWebSocket;
 
 use App\Application\Game\GameCommandHandler;
 use App\Application\Game\GameProjectionService;
+use App\Application\Game\GameRandomizer;
 use App\Application\Game\WebSocket\GameWebsocketMessageFactory;
 use App\Application\Game\WebSocket\GameWebsocketPatchBuilder;
 use App\Domain\Game\Game;
@@ -97,7 +98,21 @@ class GameWebsocketPatchBuilderTest extends TestCase
         self::assertSame($messageId, $reaction['operations'][0]['message']['id']);
         self::assertSame($opponent->id(), $reaction['operations'][0]['message']['reactions']['like'][0]['userId'] ?? null);
 
-        $dice = $this->applyAndBuild($game, $actor, 'dice.rolled', ['kind' => 'd6', 'finalResult' => '4'], 'action-dice');
+        $dice = $this->applyAndBuild(
+            $game,
+            $actor,
+            'dice.rolled',
+            ['kind' => 'd6'],
+            'action-dice',
+            new GameCommandHandler(null, new class() extends GameRandomizer {
+                public function roll(string $kind): string|int
+                {
+                    TestCase::assertSame('d6', $kind);
+
+                    return 4;
+                }
+            }),
+        );
         self::assertSame('eventLog.append', $dice['operations'][0]['op']);
         self::assertSame('dice.rolled', $dice['operations'][0]['entries'][0]['type']);
 
@@ -695,11 +710,23 @@ class GameWebsocketPatchBuilderTest extends TestCase
     {
         [$game, $actor, $opponent] = $this->gameWithLibraryCards();
 
-        $message = $this->applyAndBuildProjected($game, $actor, 'zone.random_card.selected', [
-            'playerId' => $actor->id(),
-            'zone' => 'library',
-            'instanceId' => 'library-1',
-        ], 'action-random', $opponent);
+        $message = $this->applyAndBuildProjected(
+            $game,
+            $actor,
+            'zone.random_card.selected',
+            [
+                'playerId' => $actor->id(),
+                'zone' => 'library',
+            ],
+            'action-random',
+            $opponent,
+            new GameCommandHandler(null, new class() extends GameRandomizer {
+                public function pickOne(array $items): mixed
+                {
+                    return $items[0];
+                }
+            }),
+        );
         $encoded = json_encode($message, JSON_THROW_ON_ERROR);
 
         self::assertSame('eventLog.append', $message['operations'][0]['op']);
@@ -1462,10 +1489,18 @@ class GameWebsocketPatchBuilderTest extends TestCase
      *
      * @return array<string,mixed>
      */
-    private function applyAndBuild(Game $game, User $actor, string $type, array $payload, string $clientActionId): array
+    private function applyAndBuild(
+        Game $game,
+        User $actor,
+        string $type,
+        array $payload,
+        string $clientActionId,
+        ?GameCommandHandler $handler = null,
+    ): array
     {
         $previous = $game->snapshot();
-        $event = (new GameCommandHandler())->apply($game, $type, $payload, $actor, $clientActionId);
+        $handler ??= new GameCommandHandler();
+        $event = $handler->apply($game, $type, $payload, $actor, $clientActionId);
 
         return (new GameWebsocketPatchBuilder(new GameWebsocketMessageFactory()))->build($game->id(), $previous, $game->snapshot(), $event);
     }
@@ -1475,11 +1510,20 @@ class GameWebsocketPatchBuilderTest extends TestCase
      *
      * @return array<string,mixed>
      */
-    private function applyAndBuildProjected(Game $game, User $actor, string $type, array $payload, string $clientActionId, User $viewer): array
+    private function applyAndBuildProjected(
+        Game $game,
+        User $actor,
+        string $type,
+        array $payload,
+        string $clientActionId,
+        User $viewer,
+        ?GameCommandHandler $handler = null,
+    ): array
     {
         $previous = $game->snapshot();
-        $event = (new GameCommandHandler())->apply($game, $type, $payload, $actor, $clientActionId);
-        $projection = new GameProjectionService(new GameCommandHandler());
+        $handler ??= new GameCommandHandler();
+        $event = $handler->apply($game, $type, $payload, $actor, $clientActionId);
+        $projection = new GameProjectionService($handler);
 
         return (new GameWebsocketPatchBuilder(new GameWebsocketMessageFactory()))->build(
             $game->id(),
@@ -1505,10 +1549,12 @@ class GameWebsocketPatchBuilderTest extends TestCase
         array $eventPayload,
         string $clientActionId,
         User $viewer,
+        ?GameCommandHandler $handler = null,
     ): array {
         $previous = $game->snapshot();
-        $event = (new GameCommandHandler())->apply($game, $type, $handlerPayload, $actor, $clientActionId);
-        $projection = new GameProjectionService(new GameCommandHandler());
+        $handler ??= new GameCommandHandler();
+        $event = $handler->apply($game, $type, $handlerPayload, $actor, $clientActionId);
+        $projection = new GameProjectionService($handler);
 
         return (new GameWebsocketPatchBuilder(new GameWebsocketMessageFactory()))->build(
             $game->id(),

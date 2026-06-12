@@ -205,13 +205,9 @@ describe('GameTableComponent', () => {
           : [];
 
       case 'zone.random_card.selected': {
-        const playerId = typeof command.payload['playerId'] === 'string' ? command.payload['playerId'] : null;
-        const zone = typeof command.payload['zone'] === 'string' ? command.payload['zone'] : null;
-        const cards = playerId && zone
-          ? responseSnapshot?.players[playerId]?.zones[zone as keyof GameSnapshot['players'][string]['zones']]
-          : null;
-
-        return playerId && zone && cards ? [{ op: 'zone.visible.set', playerId, zone, cards }] : [];
+        return responseSnapshot?.eventLog.length
+          ? [{ op: 'eventLog.append', entries: responseSnapshot.eventLog }]
+          : [];
       }
 
       default:
@@ -1961,8 +1957,6 @@ describe('GameTableComponent', () => {
       type: 'dice.rolled',
       payload: {
         kind: 'd20',
-        label: 'Dado de 20 caras',
-        finalResult: '17',
       },
     }), 'game-1');
     expect(gamesApi.snapshot).toHaveBeenCalledTimes(1);
@@ -2000,8 +1994,6 @@ describe('GameTableComponent', () => {
         type: 'dice.rolled',
         payload: {
           kind: 'd20',
-          label: 'Dado de 20 caras',
-          finalResult: '1',
         },
       }), 'game-1'));
       await vi.waitFor(() => expect(fixture.componentInstance.store.eventLog()[0]?.messagePrefix)
@@ -4641,6 +4633,12 @@ describe('GameTableComponent', () => {
       zone: 'graveyard',
     }];
     snapshot.players['user-1']!.zoneCounts!.graveyard = 1;
+    snapshot.eventLog = [{
+      ...gameLogEntry('event-random', 'zone.random_card.selected', 'Selected Random Grave Card.'),
+      cardInstanceId: 'grave-card',
+      cardPlayerId: 'user-1',
+      cardZone: 'graveyard',
+    }];
     const commandSnapshot = structuredClone(snapshot);
     commandSnapshot.players['user-1']!.zones.graveyard[0]!.name = 'Random Grave Card From Command Snapshot';
     gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
@@ -4674,7 +4672,6 @@ describe('GameTableComponent', () => {
       payload: {
         playerId: 'user-1',
         zone: 'graveyard',
-        instanceId: 'grave-card',
       },
     }), 'game-1');
     expect(gamesApi.zone).not.toHaveBeenCalled();

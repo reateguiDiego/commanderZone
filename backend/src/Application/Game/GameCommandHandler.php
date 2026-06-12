@@ -98,12 +98,22 @@ class GameCommandHandler
      * @var array<string,mixed>
      */
     private array $pendingLogContext = [];
+    /**
+     * @var array<string,mixed>|null
+     */
+    private ?array $pendingEventPayload = null;
     private ?string $pendingDefeatedPlayerId = null;
     private bool $pendingDefeatPreexisted = false;
 
-    public function __construct(private readonly ?GameCardBaseStatsResolver $baseStatsResolver = null)
+    public function __construct(
+        private readonly ?GameCardBaseStatsResolver $baseStatsResolver = null,
+        ?GameRandomizer $randomizer = null,
+    )
     {
+        $this->randomizer = $randomizer ?? new GameRandomizer();
     }
+
+    private readonly GameRandomizer $randomizer;
 
     /**
      * @return list<string>
@@ -132,6 +142,7 @@ class GameCommandHandler
         $snapshot = $this->normalizeSnapshot($game->snapshot());
         $log = null;
         $this->pendingLogContext = [];
+        $this->pendingEventPayload = null;
         $this->pendingDefeatedPlayerId = null;
         $this->pendingDefeatPreexisted = false;
         $this->assertActorCanApply($snapshot, $type, $payload, $actor);
@@ -182,7 +193,9 @@ class GameCommandHandler
         };
 
         $this->pruneBattlefieldRelations($snapshot);
-        $eventPayload = $type === 'chat.message' ? $this->chatEventPayload($payload) : $payload;
+        $eventPayload = $type === 'chat.message'
+            ? $this->chatEventPayload($payload)
+            : ($this->pendingEventPayload ?? $payload);
         $this->commit($snapshot, $type, $log, $actor);
         $game->replaceSnapshot($snapshot);
         $event = new GameEvent($game, $type, $eventPayload, $actor, $clientActionId);
@@ -542,13 +555,14 @@ class GameCommandHandler
             throw new \InvalidArgumentException('dice.rolled requires a supported kind.');
         }
 
-        $finalResult = trim((string) ($payload['finalResult'] ?? ''));
-        if ($finalResult === '') {
-            throw new \InvalidArgumentException('dice.rolled requires finalResult.');
-        }
+        $finalResult = $this->randomizer->roll($kind);
+        $this->pendingEventPayload = [
+            'kind' => $kind,
+            'finalResult' => (string) $finalResult,
+        ];
 
         if ($kind === 'coin') {
-            $result = match (strtolower($finalResult)) {
+            $result = match (strtolower((string) $finalResult)) {
                 'cara' => 'Cara',
                 'cruz' => 'Cruz',
                 default => throw new \InvalidArgumentException('Invalid coin result.'),
@@ -557,12 +571,12 @@ class GameCommandHandler
             return sprintf('ha tirado una %s, ha salido %s.', self::DICE_ROLL_LABELS[$kind], $result);
         }
 
-        if (!ctype_digit($finalResult)) {
+        if (!is_int($finalResult)) {
             throw new \InvalidArgumentException('Invalid dice result.');
         }
 
         $sides = (int) substr($kind, 1);
-        $result = (int) $finalResult;
+        $result = $finalResult;
         if ($result < 1 || $result > $sides) {
             throw new \InvalidArgumentException('Invalid dice result.');
         }
@@ -988,7 +1002,7 @@ class GameCommandHandler
 
         $randomOrder = ($payload['randomOrder'] ?? false) === true && $toZone === 'library' && count($moves) > 1;
         if ($randomOrder) {
-            shuffle($moves);
+            $moves = $this->randomizer->shuffle($moves);
         }
 
         $moved = 0;
@@ -1384,7 +1398,12 @@ class GameCommandHandler
         $requestedInstanceId = trim((string) ($payload['instanceId'] ?? ''));
         $card = $requestedInstanceId !== ''
             ? $this->cardByInstanceId($cards, $requestedInstanceId)
-            : $cards[random_int(0, count($cards) - 1)];
+            : $this->randomizer->pickOne($cards);
+        $this->pendingEventPayload = [
+            'playerId' => $playerId,
+            'zone' => $zone,
+            'instanceId' => (string) ($card['instanceId'] ?? ''),
+        ];
         $this->pendingLogContext = [
             'cardInstanceId' => (string) ($card['instanceId'] ?? ''),
             'cardPlayerId' => $playerId,
@@ -1417,7 +1436,7 @@ class GameCommandHandler
     private function applyLibraryShuffle(array &$snapshot, array $payload): string
     {
         $playerId = $this->requiredPlayerId($snapshot, $payload);
-        shuffle($snapshot['players'][$playerId]['zones']['library']);
+        $snapshot['players'][$playerId]['zones']['library'] = $this->randomizer->shuffle($snapshot['players'][$playerId]['zones']['library']);
         foreach ($snapshot['players'][$playerId]['zones']['library'] as &$card) {
             $card['revealedTo'] = [];
         }
@@ -1843,6 +1862,7 @@ class GameCommandHandler
         $deathPending = $this->pendingDefeatedPlayerId === $actorId && !$deathAlreadyLogged;
         if ($deathAlreadyLogged) {
             $this->pendingLogContext = [];
+            $this->pendingEventPayload = null;
             $this->pendingDefeatedPlayerId = null;
             $this->pendingDefeatPreexisted = false;
             return;
@@ -1851,6 +1871,7 @@ class GameCommandHandler
         if ($this->pendingDefeatPreexisted && $deathPending) {
             $this->appendLogEntry($snapshot, 'player.defeated', $this->playerDefeatedMessage($snapshot, $actorId), $actor);
             $this->pendingLogContext = [];
+            $this->pendingEventPayload = null;
             $this->pendingDefeatedPlayerId = null;
             $this->pendingDefeatPreexisted = false;
             return;
@@ -1859,6 +1880,7 @@ class GameCommandHandler
         if ($actorIsDefeated && !$deathPending) {
             $this->appendLogEntry($snapshot, 'player.defeated', $this->playerDefeatedMessage($snapshot, $actorId), $actor);
             $this->pendingLogContext = [];
+            $this->pendingEventPayload = null;
             $this->pendingDefeatedPlayerId = null;
             $this->pendingDefeatPreexisted = false;
             return;
@@ -1871,6 +1893,7 @@ class GameCommandHandler
             $this->appendLogEntry($snapshot, 'player.defeated', $this->playerDefeatedMessage($snapshot, $actorId), $actor);
         }
         $this->pendingLogContext = [];
+        $this->pendingEventPayload = null;
         $this->pendingDefeatedPlayerId = null;
         $this->pendingDefeatPreexisted = false;
     }

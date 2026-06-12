@@ -6,6 +6,7 @@ use App\Application\Card\CardLocalizationService;
 use App\Application\Deck\DeckValidator;
 use App\Application\Game\GameCommandHandler;
 use App\Application\Game\GameProjectionService;
+use App\Application\Game\GameRandomizer;
 use App\Application\Game\GameRematchService;
 use App\Application\Game\GameSnapshotFactory;
 use App\Application\Room\ActiveRoomMembershipService;
@@ -312,7 +313,7 @@ class RoomsController extends ApiController
     }
 
     #[Route('/rooms/{id}/roll-turn', methods: ['POST'])]
-    public function rollTurn(string $id, #[CurrentUser] User $user, EntityManagerInterface $entityManager, RoomEventPublisher $roomEventPublisher, CardLocalizationService $localization): JsonResponse
+    public function rollTurn(string $id, #[CurrentUser] User $user, EntityManagerInterface $entityManager, RoomEventPublisher $roomEventPublisher, CardLocalizationService $localization, GameRandomizer $randomizer): JsonResponse
     {
         $room = $entityManager->getRepository(Room::class)->find($id);
         if (!$room instanceof Room) {
@@ -333,7 +334,7 @@ class RoomsController extends ApiController
             return $this->fail('Turn order has already been rolled.', 409);
         }
 
-        $player->rollTurnOrder($this->uniqueTurnOrderRoll($room, $player));
+        $player->rollTurnOrder($randomizer->intBetween(1, 20));
         $room->appendWaitingLog(sprintf('%s rolled %s.', $this->userDisplayName($user), implode(' - ', $player->turnRolls())));
         $entityManager->flush();
         $roomEventPublisher->publish($room, 'room.player.rolled');
@@ -983,25 +984,6 @@ class RoomsController extends ApiController
         }
 
         return Room::DEFAULT_TIMER_DURATION_SECONDS;
-    }
-
-    private function uniqueTurnOrderRoll(Room $room, RoomPlayer $rollingPlayer): int
-    {
-        $usedRolls = [];
-        foreach ($room->players() as $player) {
-            if (!$player instanceof RoomPlayer || $player->id() === $rollingPlayer->id() || $player->turnRoll() === null) {
-                continue;
-            }
-
-            $usedRolls[(int) $player->turnRoll()] = true;
-        }
-
-        $availableRolls = array_values(array_filter(
-            range(1, 20),
-            static fn (int $roll): bool => !isset($usedRolls[$roll]),
-        ));
-
-        return $availableRolls[random_int(0, count($availableRolls) - 1)];
     }
 
     private function hasDeckIdInPayload(array $payload): bool

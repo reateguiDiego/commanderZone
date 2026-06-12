@@ -188,8 +188,7 @@ class RoomsGamesApiTest extends ApiTestCase
         $this->jsonRequest('POST', '/rooms/'.$roomId.'/join', ['deckId' => $guestDeckId], $guestToken);
         self::assertResponseIsSuccessful();
 
-        $this->rollTurnOrder($roomId, $ownerToken);
-        $this->rollTurnOrder($roomId, $guestToken);
+        $this->resolveTurnOrder($roomId, [$ownerToken, $guestToken]);
 
         $this->jsonRequest('POST', '/rooms/'.$roomId.'/start', token: $ownerToken);
         self::assertResponseStatusCodeSame(201);
@@ -373,8 +372,7 @@ class RoomsGamesApiTest extends ApiTestCase
         $this->jsonRequest('POST', '/rooms/'.$firstRoomId.'/join', ['deckId' => $guestDeckId], $guestToken);
         self::assertResponseIsSuccessful();
 
-        $this->rollTurnOrder($firstRoomId, $ownerToken);
-        $this->rollTurnOrder($firstRoomId, $guestToken);
+        $this->resolveTurnOrder($firstRoomId, [$ownerToken, $guestToken]);
 
         $this->jsonRequest('POST', '/rooms/'.$firstRoomId.'/start', token: $ownerToken);
         self::assertResponseStatusCodeSame(201);
@@ -548,8 +546,7 @@ class RoomsGamesApiTest extends ApiTestCase
 
         $this->jsonRequest('POST', '/rooms/'.$startedRoomId.'/join', ['deckId' => $playerDeckId], $playerToken);
         self::assertResponseIsSuccessful();
-        $this->rollTurnOrder($startedRoomId, $ownerToken);
-        $this->rollTurnOrder($startedRoomId, $playerToken);
+        $this->resolveTurnOrder($startedRoomId, [$ownerToken, $playerToken]);
 
         $this->jsonRequest('POST', '/rooms/'.$startedRoomId.'/start', token: $ownerToken);
         self::assertResponseStatusCodeSame(201);
@@ -601,8 +598,7 @@ class RoomsGamesApiTest extends ApiTestCase
 
         $this->jsonRequest('POST', '/rooms/'.$roomId.'/join', ['deckId' => $playerDeckId], $playerToken);
         self::assertResponseIsSuccessful();
-        $this->rollTurnOrder($roomId, $ownerToken);
-        $this->rollTurnOrder($roomId, $playerToken);
+        $this->resolveTurnOrder($roomId, [$ownerToken, $playerToken]);
 
         $this->jsonRequest('POST', '/rooms/'.$roomId.'/start', token: $ownerToken);
         self::assertResponseStatusCodeSame(201);
@@ -656,8 +652,7 @@ class RoomsGamesApiTest extends ApiTestCase
 
         $this->jsonRequest('POST', '/rooms/'.$roomId.'/join', ['deckId' => $playerDeckId], $playerToken);
         self::assertResponseIsSuccessful();
-        $this->rollTurnOrder($roomId, $ownerToken);
-        $this->rollTurnOrder($roomId, $playerToken);
+        $this->resolveTurnOrder($roomId, [$ownerToken, $playerToken]);
 
         $this->jsonRequest('POST', '/rooms/'.$roomId.'/start', token: $ownerToken);
         self::assertResponseStatusCodeSame(201);
@@ -1082,8 +1077,7 @@ class RoomsGamesApiTest extends ApiTestCase
         self::assertResponseIsSuccessful();
         self::assertSame($roomId, $this->jsonResponse()['room']['id']);
 
-        $this->rollTurnOrder($roomId, $ownerToken);
-        $this->rollTurnOrder($roomId, $participantToken);
+        $this->resolveTurnOrder($roomId, [$ownerToken, $participantToken]);
 
         $this->jsonRequest('POST', '/rooms/'.$roomId.'/start', token: $ownerToken);
         self::assertResponseStatusCodeSame(201);
@@ -1181,8 +1175,7 @@ class RoomsGamesApiTest extends ApiTestCase
         self::assertResponseIsSuccessful();
         self::assertCount(2, $this->jsonResponse()['room']['players']);
 
-        $this->rollTurnOrder($roomId, $ownerToken);
-        $this->rollTurnOrder($roomId, $playerToken);
+        $this->resolveTurnOrder($roomId, [$ownerToken, $playerToken]);
 
         $this->jsonRequest('POST', '/rooms/'.$roomId.'/start', token: $ownerToken);
         self::assertResponseStatusCodeSame(400);
@@ -1341,8 +1334,7 @@ class RoomsGamesApiTest extends ApiTestCase
 
         $this->jsonRequest('POST', '/rooms/'.$roomId.'/join', ['deckId' => $playerDeckId], $playerToken);
         self::assertResponseIsSuccessful();
-        $this->rollTurnOrder($roomId, $ownerToken);
-        $this->rollTurnOrder($roomId, $playerToken);
+        $this->resolveTurnOrder($roomId, [$ownerToken, $playerToken]);
 
         $this->jsonRequest('POST', '/rooms/'.$roomId.'/start', token: $ownerToken);
         self::assertResponseStatusCodeSame(400);
@@ -1660,8 +1652,7 @@ class RoomsGamesApiTest extends ApiTestCase
         $this->jsonRequest('POST', '/rooms/'.$roomId.'/join', ['deckId' => $playerDeckId], $playerToken);
         self::assertResponseIsSuccessful();
 
-        $this->rollTurnOrder($roomId, $ownerToken);
-        $this->rollTurnOrder($roomId, $playerToken);
+        $this->resolveTurnOrder($roomId, [$ownerToken, $playerToken]);
 
         $this->jsonRequest('POST', '/rooms/'.$roomId.'/start', token: $ownerToken);
         self::assertResponseStatusCodeSame(201);
@@ -1752,8 +1743,7 @@ class RoomsGamesApiTest extends ApiTestCase
         $this->jsonRequest('POST', '/rooms/'.$roomId.'/join', ['deckId' => $playerDeckId], $playerToken);
         self::assertResponseIsSuccessful();
 
-        $this->rollTurnOrder($roomId, $ownerToken);
-        $this->rollTurnOrder($roomId, $playerToken);
+        $this->resolveTurnOrder($roomId, [$ownerToken, $playerToken]);
 
         $this->jsonRequest('POST', '/rooms/'.$roomId.'/start', token: $ownerToken);
         self::assertResponseStatusCodeSame(201);
@@ -1847,8 +1837,7 @@ class RoomsGamesApiTest extends ApiTestCase
         $this->jsonRequest('POST', '/rooms/'.$roomId.'/join', ['deckId' => $playerDeckId], $playerToken);
         self::assertResponseIsSuccessful();
 
-        $this->rollTurnOrder($roomId, $ownerToken);
-        $this->rollTurnOrder($roomId, $playerToken);
+        $this->resolveTurnOrder($roomId, [$ownerToken, $playerToken]);
 
         $this->jsonRequest('POST', '/rooms/'.$roomId.'/start', token: $ownerToken);
         self::assertResponseStatusCodeSame(201);
@@ -1990,8 +1979,7 @@ class RoomsGamesApiTest extends ApiTestCase
         $this->jsonRequest('POST', '/rooms/'.$roomId.'/join', ['deckId' => $playerDeckId], $playerToken);
         self::assertResponseIsSuccessful();
 
-        $this->rollTurnOrder($roomId, $ownerToken);
-        $this->rollTurnOrder($roomId, $playerToken);
+        $this->resolveTurnOrder($roomId, [$ownerToken, $playerToken]);
 
         $this->jsonRequest('POST', '/rooms/'.$roomId.'/start', token: $ownerToken);
         self::assertResponseStatusCodeSame(201);
@@ -2135,8 +2123,7 @@ class RoomsGamesApiTest extends ApiTestCase
         self::assertResponseIsSuccessful();
         self::assertCount(2, $this->jsonResponse()['room']['players']);
 
-        $this->rollTurnOrder($roomId, $ownerToken);
-        $this->rollTurnOrder($roomId, $playerToken);
+        $this->resolveTurnOrder($roomId, [$ownerToken, $playerToken]);
 
         $this->jsonRequest('POST', '/rooms/'.$roomId.'/start', token: $ownerToken);
         self::assertResponseStatusCodeSame(201);
@@ -2497,9 +2484,7 @@ class RoomsGamesApiTest extends ApiTestCase
         $this->jsonRequest('POST', '/rooms/'.$roomId.'/join', ['deckId' => $spectatorDeckId], $spectatorToken);
         self::assertResponseIsSuccessful();
 
-        $this->rollTurnOrder($roomId, $ownerToken);
-        $this->rollTurnOrder($roomId, $recipientToken);
-        $this->rollTurnOrder($roomId, $spectatorToken);
+        $this->resolveTurnOrder($roomId, [$ownerToken, $recipientToken, $spectatorToken]);
 
         $this->jsonRequest('POST', '/rooms/'.$roomId.'/start', token: $ownerToken);
         self::assertResponseStatusCodeSame(201);
@@ -2673,6 +2658,67 @@ SQL,
     }
 
     /**
+     * @param list<string> $tokens
+     */
+    private function resolveTurnOrder(string $roomId, array $tokens): void
+    {
+        for ($attempt = 0; $attempt < 20; ++$attempt) {
+            $this->jsonRequest('GET', '/rooms/'.$roomId, token: $tokens[0]);
+            self::assertResponseIsSuccessful();
+            $players = $this->jsonResponse()['room']['players'] ?? [];
+            if ($this->turnOrderResolved($players)) {
+                return;
+            }
+
+            $progress = false;
+            foreach ($tokens as $token) {
+                $this->jsonRequest('POST', '/rooms/'.$roomId.'/roll-turn', token: $token);
+                $statusCode = $this->getClient()->getResponse()->getStatusCode();
+                if ($statusCode === 200) {
+                    $progress = true;
+                    continue;
+                }
+
+                $response = $this->jsonResponse();
+                if ($statusCode === 409 && ($response['error'] ?? '') === 'Turn order has already been rolled.') {
+                    continue;
+                }
+
+                self::fail(sprintf('Unexpected turn-order response %d: %s', $statusCode, json_encode($response, JSON_THROW_ON_ERROR)));
+            }
+
+            if (!$progress) {
+                break;
+            }
+        }
+
+        self::fail('Unable to resolve turn order after repeated rerolls.');
+    }
+
+    /**
+     * @param list<array<string,mixed>> $players
+     */
+    private function turnOrderResolved(array $players): bool
+    {
+        $sequences = [];
+        foreach ($players as $player) {
+            $turnRolls = $player['turnRolls'] ?? [];
+            if (!is_array($turnRolls) || $turnRolls === []) {
+                return false;
+            }
+
+            $sequence = implode('-', array_map(static fn (mixed $roll): string => (string) $roll, $turnRolls));
+            if (isset($sequences[$sequence])) {
+                return false;
+            }
+
+            $sequences[$sequence] = true;
+        }
+
+        return $players !== [];
+    }
+
+    /**
      * @param list<array{0: string, 1: string}> $players
      *
      * @return array{roomId: string, gameId: string, snapshot: array<string,mixed>, tokens: array<string,string>}
@@ -2720,9 +2766,7 @@ SQL,
             self::assertResponseIsSuccessful();
         }
 
-        foreach ($players as [, $displayName]) {
-            $this->rollTurnOrder($roomId, $tokens[$displayName]);
-        }
+        $this->resolveTurnOrder($roomId, array_values($tokens));
 
         $this->jsonRequest('POST', '/rooms/'.$roomId.'/start', token: $tokens[$ownerName]);
         self::assertResponseStatusCodeSame(201);
