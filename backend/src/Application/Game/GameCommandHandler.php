@@ -68,6 +68,9 @@ class GameCommandHandler
         'arrow.removed',
         'attachment.created',
         'attachment.removed',
+        'helper.created',
+        'helper.updated',
+        'helper.removed',
     ];
     private const COMMANDS_ALLOWED_WHEN_FINISHED = [
         'chat.message',
@@ -92,6 +95,9 @@ class GameCommandHandler
         'card.counter.changed',
         'battlefield.untap_all',
         'stack.card_added',
+        'helper.created',
+        'helper.updated',
+        'helper.removed',
     ];
 
     /**
@@ -108,12 +114,15 @@ class GameCommandHandler
     public function __construct(
         private readonly ?GameCardBaseStatsResolver $baseStatsResolver = null,
         ?GameRandomizer $randomizer = null,
+        ?GameSpecialEntityCommandHandler $specialEntityCommandHandler = null,
     )
     {
         $this->randomizer = $randomizer ?? new GameRandomizer();
+        $this->specialEntityCommandHandler = $specialEntityCommandHandler ?? new GameSpecialEntityCommandHandler();
     }
 
     private readonly GameRandomizer $randomizer;
+    private readonly GameSpecialEntityCommandHandler $specialEntityCommandHandler;
 
     /**
      * @return list<string>
@@ -147,52 +156,59 @@ class GameCommandHandler
         $this->pendingDefeatPreexisted = false;
         $this->assertActorCanApply($snapshot, $type, $payload, $actor);
 
-        match ($type) {
-            'game.concede' => $log = $this->applyGameConcede($snapshot, $actor),
-            'game.close' => $log = $this->applyGameClose($snapshot, $game, $actor),
-            'chat.message' => $log = $this->applyChatMessage($snapshot, $payload, $actor),
-            'chat.reaction.toggled' => $log = $this->applyChatReactionToggled($snapshot, $payload, $actor),
-            'dice.rolled' => $log = $this->applyDiceRolled($payload),
-            'life.changed' => $log = $this->applyLifeChanged($snapshot, $payload),
-            'commander.damage.changed' => $log = $this->applyCommanderDamageChanged($snapshot, $payload),
-            'counter.changed' => $log = $this->applyLegacyCounterChanged($snapshot, $payload),
-            'card.counter.changed' => $log = $this->applyCardCounterChanged($snapshot, $payload),
-            'card.power_toughness.changed' => $log = $this->applyPowerToughnessChanged($snapshot, $payload),
-            'card.moved' => $log = $this->applyCardMoved($snapshot, $payload),
-            'cards.moved' => $log = $this->applyCardsMoved($snapshot, $payload),
-            'card.tapped' => $log = $this->applyCardTapped($snapshot, $payload),
-            'card.position.changed' => $log = $this->applyCardPositionChanged($snapshot, $payload),
-            'cards.position.changed' => $log = $this->applyCardsPositionChanged($snapshot, $payload),
-            'card.face_down.changed' => $log = $this->applyCardFaceDown($snapshot, $payload),
-            'card.face.changed' => $log = $this->applyCardFaceChanged($snapshot, $payload),
-            'card.revealed' => $log = $this->applyCardRevealed($snapshot, $payload),
-            'card.token.created' => $log = $this->applyTokenCreated($snapshot, $payload),
-            'card.token_copy.created' => $log = $this->applyTokenCopyCreated($snapshot, $payload, $actor),
-            'card.controller.changed' => $log = $this->applyControllerChanged($snapshot, $payload),
-            'turn.changed' => $log = $this->applyTurnChanged($snapshot, $payload),
-            'battlefield.untap_all' => $log = $this->applyBattlefieldUntapAll($snapshot, $payload),
-            'zone.changed' => $log = $this->applyZoneChanged($snapshot, $payload),
-            'zone.move_all' => $log = $this->applyZoneMoveAll($snapshot, $payload),
-            'zone.random_card.selected' => $log = $this->applyZoneRandomCardSelected($snapshot, $payload),
-            'library.draw' => $log = $this->applyLibraryDraw($snapshot, $payload, 1),
-            'library.draw_many' => $log = $this->applyLibraryDraw($snapshot, $payload, $this->positiveInt($payload['count'] ?? 1, 1, 99)),
-            'library.shuffle' => $log = $this->applyLibraryShuffle($snapshot, $payload),
-            'library.move_top' => $log = $this->applyLibraryMoveTop($snapshot, $payload),
-            'library.reveal_top' => $log = $this->applyLibraryRevealTop($snapshot, $payload),
-            'library.reveal' => $log = $this->applyLibraryReveal($snapshot, $payload),
-            'library.view' => $log = $this->applyLibraryView($snapshot, $payload),
-            'library.play_top_revealed' => $log = $this->applyLibraryPlayTopRevealed($snapshot, $payload),
-            'library.reorder_top' => $log = $this->applyLibraryReorderTop($snapshot, $payload),
-            'stack.card_added' => $log = $this->applyStackCardAdded($snapshot, $payload),
-            'stack.item_removed' => $log = $this->applyStackItemRemoved($snapshot, $payload),
-            'arrow.created' => $log = $this->applyArrowCreated($snapshot, $payload, $actor),
-            'arrow.removed' => $log = $this->applyArrowRemoved($snapshot, $payload, $actor),
-            'attachment.created' => $log = $this->applyAttachmentCreated($snapshot, $payload, $actor),
-            'attachment.removed' => $log = $this->applyAttachmentRemoved($snapshot, $payload, $actor),
-            default => throw new \InvalidArgumentException(sprintf('Unknown game command: %s', $type)),
-        };
+        if ($this->specialEntityCommandHandler->supports($type)) {
+            $helperResult = $this->specialEntityCommandHandler->apply($snapshot, $type, $payload, $actor);
+            $log = is_string($helperResult['log'] ?? null) ? $helperResult['log'] : null;
+            $this->pendingEventPayload = is_array($helperResult['eventPayload'] ?? null) ? $helperResult['eventPayload'] : null;
+        } else {
+            match ($type) {
+                'game.concede' => $log = $this->applyGameConcede($snapshot, $actor),
+                'game.close' => $log = $this->applyGameClose($snapshot, $game, $actor),
+                'chat.message' => $log = $this->applyChatMessage($snapshot, $payload, $actor),
+                'chat.reaction.toggled' => $log = $this->applyChatReactionToggled($snapshot, $payload, $actor),
+                'dice.rolled' => $log = $this->applyDiceRolled($payload),
+                'life.changed' => $log = $this->applyLifeChanged($snapshot, $payload),
+                'commander.damage.changed' => $log = $this->applyCommanderDamageChanged($snapshot, $payload),
+                'counter.changed' => $log = $this->applyLegacyCounterChanged($snapshot, $payload),
+                'card.counter.changed' => $log = $this->applyCardCounterChanged($snapshot, $payload),
+                'card.power_toughness.changed' => $log = $this->applyPowerToughnessChanged($snapshot, $payload),
+                'card.moved' => $log = $this->applyCardMoved($snapshot, $payload),
+                'cards.moved' => $log = $this->applyCardsMoved($snapshot, $payload),
+                'card.tapped' => $log = $this->applyCardTapped($snapshot, $payload),
+                'card.position.changed' => $log = $this->applyCardPositionChanged($snapshot, $payload),
+                'cards.position.changed' => $log = $this->applyCardsPositionChanged($snapshot, $payload),
+                'card.face_down.changed' => $log = $this->applyCardFaceDown($snapshot, $payload),
+                'card.face.changed' => $log = $this->applyCardFaceChanged($snapshot, $payload),
+                'card.revealed' => $log = $this->applyCardRevealed($snapshot, $payload),
+                'card.token.created' => $log = $this->applyTokenCreated($snapshot, $payload),
+                'card.token_copy.created' => $log = $this->applyTokenCopyCreated($snapshot, $payload, $actor),
+                'card.controller.changed' => $log = $this->applyControllerChanged($snapshot, $payload),
+                'turn.changed' => $log = $this->applyTurnChanged($snapshot, $payload),
+                'battlefield.untap_all' => $log = $this->applyBattlefieldUntapAll($snapshot, $payload),
+                'zone.changed' => $log = $this->applyZoneChanged($snapshot, $payload),
+                'zone.move_all' => $log = $this->applyZoneMoveAll($snapshot, $payload),
+                'zone.random_card.selected' => $log = $this->applyZoneRandomCardSelected($snapshot, $payload),
+                'library.draw' => $log = $this->applyLibraryDraw($snapshot, $payload, 1),
+                'library.draw_many' => $log = $this->applyLibraryDraw($snapshot, $payload, $this->positiveInt($payload['count'] ?? 1, 1, 99)),
+                'library.shuffle' => $log = $this->applyLibraryShuffle($snapshot, $payload),
+                'library.move_top' => $log = $this->applyLibraryMoveTop($snapshot, $payload),
+                'library.reveal_top' => $log = $this->applyLibraryRevealTop($snapshot, $payload),
+                'library.reveal' => $log = $this->applyLibraryReveal($snapshot, $payload),
+                'library.view' => $log = $this->applyLibraryView($snapshot, $payload),
+                'library.play_top_revealed' => $log = $this->applyLibraryPlayTopRevealed($snapshot, $payload),
+                'library.reorder_top' => $log = $this->applyLibraryReorderTop($snapshot, $payload),
+                'stack.card_added' => $log = $this->applyStackCardAdded($snapshot, $payload),
+                'stack.item_removed' => $log = $this->applyStackItemRemoved($snapshot, $payload),
+                'arrow.created' => $log = $this->applyArrowCreated($snapshot, $payload, $actor),
+                'arrow.removed' => $log = $this->applyArrowRemoved($snapshot, $payload, $actor),
+                'attachment.created' => $log = $this->applyAttachmentCreated($snapshot, $payload, $actor),
+                'attachment.removed' => $log = $this->applyAttachmentRemoved($snapshot, $payload, $actor),
+                default => throw new \InvalidArgumentException(sprintf('Unknown game command: %s', $type)),
+            };
+        }
 
         $this->pruneBattlefieldRelations($snapshot);
+        $snapshot = $this->specialEntityCommandHandler->normalizeSnapshot($snapshot);
         $eventPayload = $type === 'chat.message'
             ? $this->chatEventPayload($payload)
             : ($this->pendingEventPayload ?? $payload);
@@ -254,6 +270,7 @@ class GameCommandHandler
         $this->normalizeCommanderDamage($snapshot);
         $this->normalizeCommanderCastCounters($snapshot);
         $this->pruneBattlefieldRelations($snapshot);
+        $snapshot = $this->specialEntityCommandHandler->normalizeSnapshot($snapshot);
 
         return $snapshot;
     }
@@ -2760,8 +2777,8 @@ class GameCommandHandler
 
     private function requiredPlayerId(array $snapshot, array $payload, string $key = 'playerId'): string
     {
-        $playerId = trim((string) ($payload[$key] ?? ''));
-        if ($playerId === '' || !isset($snapshot['players'][$playerId])) {
+        $playerId = $this->resolveSnapshotPlayerId($snapshot, $payload[$key] ?? null);
+        if ($playerId === null) {
             throw new \InvalidArgumentException(sprintf('%s is invalid.', $key));
         }
 
@@ -2814,14 +2831,21 @@ class GameCommandHandler
     private function assertActorCanApply(array $snapshot, string $type, array $payload, User $actor): void
     {
         $actorId = $actor->id();
-        if (!isset($snapshot['players'][$actorId])) {
+        $actorPlayerId = $this->resolveSnapshotPlayerId($snapshot, $actorId);
+        if ($actorPlayerId === null) {
             throw new \InvalidArgumentException('Actor is not a game player.');
         }
         if ($type === 'game.concede' || $type === 'game.close') {
             return;
         }
-        if (($snapshot['players'][$actorId]['status'] ?? 'active') === 'conceded' && !in_array($type, ['chat.message', 'chat.reaction.toggled', 'game.close'], true)) {
+        if (($snapshot['players'][$actorPlayerId]['status'] ?? 'active') === 'conceded' && !in_array($type, ['chat.message', 'chat.reaction.toggled', 'game.close'], true)) {
             throw new \InvalidArgumentException('Conceded players cannot perform game actions.');
+        }
+
+        if ($this->specialEntityCommandHandler->supports($type)) {
+            $this->specialEntityCommandHandler->assertActorCanApply($snapshot, $type, $payload, $actor);
+
+            return;
         }
 
         if ($type === 'life.changed') {
@@ -2834,17 +2858,21 @@ class GameCommandHandler
             return;
         }
 
-        $counterScopePlayerId = $type === 'counter.changed' ? $this->counterScopePlayerId($payload) : null;
+        $counterScopePlayerId = $type === 'counter.changed'
+            ? $this->resolveSnapshotPlayerId($snapshot, $this->counterScopePlayerId($payload))
+            : null;
         if ($counterScopePlayerId !== null) {
-            if ($counterScopePlayerId !== $actorId) {
+            if ($counterScopePlayerId !== $actorPlayerId) {
                 throw new \InvalidArgumentException('You can only change your own player counters.');
             }
 
             return;
         }
-        $commanderCounterOwnerId = $type === 'counter.changed' ? $this->commanderCounterOwnerId($snapshot, $payload) : null;
+        $commanderCounterOwnerId = $type === 'counter.changed'
+            ? $this->resolveSnapshotPlayerId($snapshot, $this->commanderCounterOwnerId($snapshot, $payload))
+            : null;
         if ($commanderCounterOwnerId !== null) {
-            if ($commanderCounterOwnerId !== $actorId) {
+            if ($commanderCounterOwnerId !== $actorPlayerId) {
                 throw new \InvalidArgumentException('You can only change your own commander cast count.');
             }
 
@@ -2861,7 +2889,7 @@ class GameCommandHandler
         }
         if ($type === 'turn.changed') {
             $activePlayerId = (string) ($snapshot['turn']['activePlayerId'] ?? '');
-            if ($activePlayerId === '' || $activePlayerId !== $actorId) {
+            if ($activePlayerId === '' || $activePlayerId !== $actorPlayerId) {
                 throw new \InvalidArgumentException('Only the active turn player can advance the turn.');
             }
         }
@@ -2870,7 +2898,8 @@ class GameCommandHandler
     private function assertActorPlayer(array $snapshot, array $payload, User $actor, string $key, string $message = 'You can only perform this action on your own hidden zones.'): void
     {
         $playerId = $this->requiredPlayerId($snapshot, $payload, $key);
-        if ($playerId !== $actor->id()) {
+        $actorPlayerId = $this->resolveSnapshotPlayerId($snapshot, $actor->id());
+        if ($actorPlayerId === null || $playerId !== $actorPlayerId) {
             throw new \InvalidArgumentException($message);
         }
     }
@@ -2881,8 +2910,9 @@ class GameCommandHandler
             return false;
         }
 
-        $playerId = trim((string) ($payload['playerId'] ?? ''));
-        if ($playerId === '' || $playerId === $actor->id() || !isset($snapshot['players'][$playerId])) {
+        $actorPlayerId = $this->resolveSnapshotPlayerId($snapshot, $actor->id());
+        $playerId = $this->resolveSnapshotPlayerId($snapshot, $payload['playerId'] ?? null);
+        if ($playerId === null || $actorPlayerId === null || $playerId === $actorPlayerId) {
             return false;
         }
 
@@ -2929,6 +2959,37 @@ class GameCommandHandler
         unset($resolvedScope);
 
         return (string) ($commander['ownerId'] ?? '');
+    }
+
+    private function resolveSnapshotPlayerId(array $snapshot, mixed $candidate): ?string
+    {
+        $value = is_scalar($candidate) ? trim((string) $candidate) : '';
+        if ($value === '') {
+            return null;
+        }
+
+        $players = $snapshot['players'] ?? null;
+        if (!is_array($players)) {
+            return null;
+        }
+
+        if (isset($players[$value])) {
+            return $value;
+        }
+
+        foreach ($players as $playerId => $player) {
+            if (!is_string($playerId) || !is_array($player)) {
+                continue;
+            }
+
+            $user = is_array($player['user'] ?? null) ? $player['user'] : null;
+            $userId = is_scalar($user['id'] ?? null) ? trim((string) $user['id']) : '';
+            if ($userId !== '' && $userId === $value) {
+                return $playerId;
+            }
+        }
+
+        return null;
     }
 
     /**

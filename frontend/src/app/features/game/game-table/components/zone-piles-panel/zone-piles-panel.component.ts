@@ -1,4 +1,6 @@
 import { ChangeDetectionStrategy, Component, HostListener, inject, input, output, signal } from '@angular/core';
+import { LucideAngularModule } from 'lucide-angular';
+import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { GameCardInstance, GameZoneName } from '../../../../../core/models/game.model';
 import { PlayerView } from '../../game-table.store';
 import { ZoneCardStackComponent } from '../zone-card-stack/zone-card-stack.component';
@@ -8,6 +10,7 @@ import { GameTablePointerDragService, PointerDropTarget } from '../../services/g
 import { ZonePointerDropRequest } from '../../models/game-table-zone-pointer-drag.model';
 import { GameTableLongPressDirective } from '../../directives/game-table-long-press.directive';
 import { CommandersStackCard, CommandersStackComponent } from '../commanders-stack/commanders-stack.component';
+import { GameTableSpecialEntitiesState } from '../../state/helpers/game-table-special-entities.state';
 
 interface ZoneDragStartEvent {
   event: DragEvent;
@@ -59,7 +62,7 @@ const COMMANDER_COLOR_ACCENTS: Record<string, string> = {
 
 @Component({
   selector: 'app-zone-piles-panel',
-  imports: [ZoneCardStackComponent, CommandersStackComponent, GameTableLongPressDirective],
+  imports: [RuntimeTranslatePipe, LucideAngularModule, ZoneCardStackComponent, CommandersStackComponent, GameTableLongPressDirective],
   templateUrl: './zone-piles-panel.component.html',
   styleUrl: './zone-piles-panel.component.scss',
   providers: [GameTablePointerDragService, GameTableZonePointerDragService],
@@ -67,6 +70,7 @@ const COMMANDER_COLOR_ACCENTS: Record<string, string> = {
 })
 export class ZonePilesPanelComponent {
   readonly zonePointerDrag = inject(GameTableZonePointerDragService);
+  readonly specialEntities = inject(GameTableSpecialEntitiesState);
   private pointerDragStartedInstanceId: string | null = null;
   private suppressedClickZone: GameZoneName | null = null;
 
@@ -103,6 +107,10 @@ export class ZonePilesPanelComponent {
   readonly commanderCastChanged = output<CommanderCastChangeEvent>();
   readonly cardPreviewShown = output<CardPreviewEvent>();
   readonly cardPreviewHidden = output<void>();
+
+  isMonarchOwner(playerId: string): boolean {
+    return this.specialEntities.globalEntity('monarch')?.ownerPlayerId === playerId;
+  }
 
   startZoneDrag(event: DragEvent, player: PlayerView, zone: GameZoneName, topZoneCard: GameCardInstance | null): void {
     if (topZoneCard) {

@@ -343,7 +343,10 @@
         "xToExile": "X to exile",
         "xToHandPlayer": "X to hand player",
         "xToBattlefieldPlayer": "X to battlefield player",
-        "removeAllCounters": "Remove All Counters"
+        "removeAllCounters": "Remove All Counters",
+        "createHelper": "Meccaniche",
+        "setRingBearer": "Imposta come Portatore dell'Anello",
+        "mechanics": "Meccaniche"
       }
     },
     "contextSubmenu": {
@@ -533,6 +536,52 @@
     },
     "chat": {
       "allPlayers": "Todos"
+    },
+    "specialHelpers": {
+      "modal": {
+        "title": "Meccaniche",
+        "quickActions": "Azioni rapide",
+        "cardBacked": "Entità con carta",
+        "searchPlaceholder": "Cerca emblemi o dungeon",
+        "searching": "Ricerca delle entità...",
+        "noResults": "Nessun risultato trovato.",
+        "searchHint": "Digita almeno 2 caratteri per cercare.",
+        "searchError": "Impossibile caricare le entità speciali.",
+        "playerTarget": "Giocatore: {{playerName}}",
+        "currentState": "Stato attuale",
+        "readonly": "Sola lettura. Puoi consultare queste meccaniche qui, ma solo il giocatore che controlla quella posizione può modificarle.",
+        "ringLevel": "Livello dell'Anello",
+        "noRingBearer": "Nessun Portatore dell'Anello assegnato",
+        "removeHelper": "Rimuovi",
+        "clearRingBearer": "Rimuovi il Portatore dell'Anello",
+        "ringLevelUp": "Livello +1",
+        "ringLevelDown": "Livello -1",
+        "noActiveMechanics": "Nessuna meccanica attiva.",
+        "notSet": "Non impostato"
+      },
+      "quick": {
+        "monarch": "Diventa monarca",
+        "initiative": "Prendi l'iniziativa",
+        "citysBlessing": "Ottieni la benedizione della città",
+        "theRing": "Crea l'Anello",
+        "setDay": "Imposta giorno",
+        "setNight": "Imposta notte"
+      },
+      "labels": {
+        "monarch": "Monarca",
+        "initiative": "Iniziativa",
+        "citys_blessing": "Benedizione della città",
+        "day_night": "Giorno/Notte",
+        "the_ring": "L'Anello",
+        "emblem": "Emblema",
+        "dungeon": "Dungeon",
+        "day": "Giorno",
+        "night": "Notte"
+      },
+      "rail": {
+        "title": "Entità speciali",
+        "ringLevel": "Livello dell'Anello"
+      }
     }
   },
   "deckBuilder": {

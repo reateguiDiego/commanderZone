@@ -7,7 +7,7 @@ import { firstValueFrom, Subscription } from 'rxjs';
 import { BodyScrollLockService } from '../../../shared/services/body-scroll-lock.service';
 import { AppModalComponent } from '../../../shared/ui/app-modal/app-modal.component';
 import { PrettyScrollDirective } from '../../../shared/ui/pretty-scroll/pretty-scroll.directive';
-import { ChatMessage, ChatReactionType, GameCardInstance, GameRematchVote, GameSnapshot, GameZoneName } from '../../../core/models/game.model';
+import { ChatMessage, ChatReactionType, GameCardInstance, GameRematchVote, GameSnapshot, GameSpecialEntity, GameZoneName } from '../../../core/models/game.model';
 import { GameSnapshotPatchOperation } from '../../../core/models/game-realtime.model';
 import { GamesApi } from '../../../core/api/games.api';
 import { GameTableCardActionsService } from './services/game-table-card-actions.service';
@@ -92,13 +92,16 @@ import { ArrowTargetDialogComponent, ArrowTargetDialogValue } from './components
 import { GameRematchModalComponent, RematchPlayerVoteView } from './components/game-rematch-modal/game-rematch-modal.component';
 import { GameDisconnectVoteModalComponent } from './components/game-disconnect-vote-modal/game-disconnect-vote-modal.component';
 import { TokenSearchModalComponent, TokenSearchSelection } from './components/token-search-modal/token-search-modal.component';
+import { HelperCardSelection, HelperQuickAction, SpecialHelperModalComponent } from './components/special-helper-modal/special-helper-modal.component';
 import { ChatRecipientSelectComponent } from './components/chat-recipient-select/chat-recipient-select.component';
 import { RollModalComponent } from '../../../core/ui/roll-modal/roll-modal.component';
 import { type RollResult } from '../../../core/ui/roll-modal/roll';
 import { GameTablePermanentRelationService } from './services/game-table-permanent-relation.service';
+import { GameTableSpecialEntityActionsService } from './services/game-table-special-entity-actions.service';
 import { ZonePointerDropRequest } from './models/game-table-zone-pointer-drag.model';
 import { buildCardPreviewAttachmentInfo, buildCardPreviewCardStateInfo, resolveCardPreviewCard } from './utils/card-preview-attachment-info';
 import { ManaAddition, ManaPoolColor, ManaSourceSuggestion } from './utils/mana-source-detector';
+import { GameTablePlayerSpecialEntitiesSummary, GameTableSpecialEntitiesState } from './state/helpers/game-table-special-entities.state';
 
 const MANA_POOL_TARGET_COLORS: readonly ManaPoolColor[] = ['W', 'U', 'B', 'R', 'G', 'C'];
 
@@ -353,6 +356,7 @@ interface MotionSourceRect {
     GameRematchModalComponent,
     GameDisconnectVoteModalComponent,
     TokenSearchModalComponent,
+    SpecialHelperModalComponent,
     ChatRecipientSelectComponent,
     RollModalComponent,
   ],
@@ -405,6 +409,7 @@ interface MotionSourceRect {
     GameTableManaCometService,
     GameTableRealtimeAnimationBusService,
     GameTablePermanentRelationService,
+    GameTableSpecialEntityActionsService,
     GameTableSnapshotSelectors,
     GameTableUiState,
     GameTableBattlefieldDragState,
@@ -412,6 +417,7 @@ interface MotionSourceRect {
     GameTablePendingTransferState,
     GameTableZoneModalState,
     GameTableChatLogState,
+    GameTableSpecialEntitiesState,
   ],
   templateUrl: './game-table.component.html',
   styleUrls: ['./game-table.component.scss', './game-table-chat-panel.scss', './game-table-responsive.scss'],
@@ -422,6 +428,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   private readonly aggressiveCompactQuery = '(max-width: 1180px) and (max-height: 768px)';
   readonly store = inject(GameTableStore);
   readonly disconnectVote = inject(GameTableDisconnectVoteService);
+  readonly specialEntityState = inject(GameTableSpecialEntitiesState);
   private readonly gamesApi = inject(GamesApi);
   private readonly router = inject(Router);
   private readonly motion = inject(GameTableMotionService);
@@ -543,6 +550,22 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   readonly tableExitAction = signal<TableExitAction | null>(null);
   readonly tokenSearchPlayerId = signal<string | null>(null);
   readonly tokenSearchPending = signal(false);
+  readonly specialHelperPlayerId = signal<string | null>(null);
+  readonly specialHelperPending = signal(false);
+  readonly ringBearerName = (entity: GameSpecialEntity): string | null => this.specialEntityState.ringBearerCardName(entity);
+  readonly helperImageFor = (entity: GameSpecialEntity): string | null => this.helperImage(entity);
+  readonly specialHelperInteractionMode = computed<'readonly' | 'editable'>(() => {
+    const playerId = this.specialHelperPlayerId();
+    return playerId && this.store.canControlPlayer(playerId) ? 'editable' : 'readonly';
+  });
+  readonly specialHelperPlayerName = computed(() => {
+    const playerId = this.specialHelperPlayerId();
+    return playerId ? this.playerName(playerId) : '';
+  });
+  readonly specialHelperPlayerSummary = computed<GameTablePlayerSpecialEntitiesSummary | null>(() => {
+    const playerId = this.specialHelperPlayerId();
+    return playerId ? this.specialEntityState.summaryForPlayer(playerId) : null;
+  });
   readonly rollModalOpen = signal(false);
   readonly tableExitTitle = computed(() => this.tableExitAction() === 'leave' ? 'Leave table?' : 'Concede game?');
   readonly tableExitMessage = computed(() => this.tableExitAction() === 'leave'
@@ -681,6 +704,10 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
 
     return this.sortOpponentSidebarPlayers(opponents);
   });
+  readonly playerSpecialEntitiesSummary = (playerId: string): GameTablePlayerSpecialEntitiesSummary =>
+    this.specialEntityState.summaryForPlayer(playerId);
+  readonly playerSpecialEntities = (playerId: string): readonly GameSpecialEntity[] =>
+    this.specialEntityState.displayEntitiesForPlayer(playerId);
   readonly opponentsDrawerOpen = signal(false);
   readonly arrowTargetPlayers = computed(() => {
     const currentPlayerId = this.store.currentPlayer()?.id;
@@ -2222,6 +2249,9 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       case 'createToken':
         this.openTokenSearchModal(menu.playerId);
         return;
+      case 'createHelper':
+        this.openSpecialHelperModal(menu.playerId);
+        return;
       case 'rollDice':
         this.openRollModal();
         return;
@@ -2235,6 +2265,11 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
         return;
       case 'tokenCopy':
         void this.store.tokenCopy(menu);
+        return;
+      case 'setRingBearer':
+        if (menu.card) {
+          void this.store.setRingBearer(menu.playerId, menu.card);
+        }
         return;
       case 'drawArrow':
         this.openArrowTargetDialog(menu);
@@ -2925,6 +2960,100 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     this.tokenSearchPlayerId.set(null);
   }
 
+  async createQuickHelper(action: HelperQuickAction): Promise<void> {
+    const playerId = this.specialHelperPlayerId();
+    if (!playerId || this.specialHelperPending() || !this.store.canControlPlayer(playerId)) {
+      this.specialHelperPlayerId.set(null);
+      return;
+    }
+
+    this.specialHelperPending.set(true);
+    try {
+      switch (action) {
+        case 'monarch':
+          await this.store.createHelper('monarch', playerId);
+          break;
+        case 'initiative':
+          await this.store.createHelper('initiative', playerId);
+          break;
+        case 'citys_blessing':
+          if (!this.store.specialEntities().some((entity) => entity.template === 'citys_blessing' && entity.ownerPlayerId === playerId)) {
+            await this.store.createHelper('citys_blessing', playerId);
+          }
+          break;
+        case 'the_ring':
+          if (!this.store.specialEntities().some((entity) => entity.template === 'the_ring' && entity.ownerPlayerId === playerId)) {
+            await this.store.createHelper('the_ring', playerId, { state: { level: 1, ringBearerInstanceId: null } });
+          }
+          break;
+        case 'set_day':
+          await this.store.createHelper('day_night', null, { state: { mode: 'day' } });
+          break;
+        case 'set_night':
+          await this.store.createHelper('day_night', null, { state: { mode: 'night' } });
+          break;
+      }
+      this.specialHelperPlayerId.set(null);
+    } finally {
+      this.specialHelperPending.set(false);
+    }
+  }
+
+  async createSelectedHelper(selection: HelperCardSelection): Promise<void> {
+    const playerId = this.specialHelperPlayerId();
+    if (!playerId || this.specialHelperPending() || !this.store.canControlPlayer(playerId)) {
+      this.specialHelperPlayerId.set(null);
+      return;
+    }
+
+    this.specialHelperPending.set(true);
+    try {
+      await this.store.createHelper(selection.template, playerId, {
+        card: this.specialHelperCardRef(selection.card),
+        state: selection.template === 'dungeon'
+          ? { roomIndex: null, roomName: null }
+          : {},
+      });
+      this.specialHelperPlayerId.set(null);
+    } finally {
+      this.specialHelperPending.set(false);
+    }
+  }
+
+  closeSpecialHelperModal(): void {
+    if (this.specialHelperPending()) {
+      return;
+    }
+
+    this.specialHelperPlayerId.set(null);
+  }
+
+  async applyHelperEntityUpdate(update: { entityId: string; state: Record<string, unknown> }): Promise<void> {
+    if (this.specialHelperPending() || this.specialHelperInteractionMode() !== 'editable') {
+      return;
+    }
+
+    this.specialHelperPending.set(true);
+    try {
+      await this.store.updateHelper(update.entityId, update.state);
+    } finally {
+      this.specialHelperPending.set(false);
+    }
+  }
+
+  async removeHelperEntity(entityId: string): Promise<void> {
+    if (this.specialHelperPending() || this.specialHelperInteractionMode() !== 'editable') {
+      return;
+    }
+
+    this.specialHelperPending.set(true);
+    try {
+      await this.store.removeHelper(entityId);
+    } finally {
+      this.specialHelperPending.set(false);
+    }
+  }
+
   openRollModal(): void {
     this.store.closeContextMenu();
     this.rollModalOpen.set(true);
@@ -3112,6 +3241,42 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   private openTokenSearchModal(playerId: string): void {
     this.store.closeContextMenu();
     this.tokenSearchPlayerId.set(playerId);
+  }
+
+  openSpecialHelperModal(playerId: string): void {
+    this.store.closeContextMenu();
+    this.specialHelperPlayerId.set(playerId);
+  }
+
+  showHelperPreview(entity: GameSpecialEntity): void {
+    const previewCard = this.specialEntityState.helperPreviewCard(entity);
+    if (!previewCard) {
+      return;
+    }
+
+    this.store.showCardPreview(previewCard, entity.ownerPlayerId ?? undefined, 'command');
+  }
+
+  private helperImage(entity: GameSpecialEntity): string | null {
+    return entity.card?.imageUris?.['normal']
+      ?? entity.card?.imageUris?.['large']
+      ?? entity.card?.imageUris?.['small']
+      ?? entity.card?.cardFaces?.[0]?.imageUris?.['normal']
+      ?? entity.card?.cardFaces?.[0]?.imageUris?.['large']
+      ?? entity.card?.cardFaces?.[0]?.imageUris?.['small']
+      ?? null;
+  }
+
+  private specialHelperCardRef(card: HelperCardSelection['card']) {
+    return {
+      scryfallId: card.scryfallId,
+      name: card.name,
+      imageUris: card.imageUris,
+      cardFaces: card.cardFaces,
+      typeLine: card.typeLine,
+      oracleText: card.oracleText,
+      layout: card.layout,
+    };
   }
 
   private async leaveTableFromContextMenu(): Promise<void> {

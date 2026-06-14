@@ -2,6 +2,8 @@ import type {
   GameCardInstance,
   GameCardPosition,
   GameCommand,
+  GameSpecialEntity,
+  GameSpecialEntityCardRef,
   GameEvent,
   GameSnapshot,
   GameZoneName,
@@ -321,6 +323,23 @@ export type GameSnapshotPatchOperation =
   | {
       op: 'attachments.set';
       attachments: NonNullable<GameSnapshot['attachments']>;
+    }
+  | {
+      op: 'specialEntity.add';
+      entity: GameSpecialEntity;
+    }
+  | {
+      op: 'specialEntity.update';
+      entityId: string;
+      state: Record<string, unknown>;
+    }
+  | {
+      op: 'specialEntity.remove';
+      entityId: string;
+    }
+  | {
+      op: 'specialEntities.set';
+      specialEntities: GameSpecialEntity[];
     }
   | {
       op: 'chat.append';

@@ -1,0 +1,145 @@
+<app-modal
+  [open]="open"
+  [title]="'game.specialHelpers.modal.title' | runtimeTranslate"
+  [message]="'game.specialHelpers.modal.playerTarget' | runtimeTranslate : { playerName: playerName }"
+  [showPrimary]="false"
+  [closeOnBackdrop]="true"
+  [size]="'wide'"
+  (close)="close()"
+  (secondary)="close()"
+>
+  <section class="special-helper-modal" [attr.data-mode]="interactionMode">
+    <header class="special-helper-summary">
+      <div>
+        <span class="special-helper-eyebrow">{{ 'game.specialHelpers.modal.currentState' | runtimeTranslate }}</span>
+        <strong>{{ playerName }}</strong>
+      </div>
+      @if (interactionMode === 'readonly') {
+        <p class="special-helper-readonly">{{ 'game.specialHelpers.modal.readonly' | runtimeTranslate }}</p>
+      }
+    </header>
+
+    <section class="special-helper-section">
+      <span class="special-helper-eyebrow">{{ 'game.specialHelpers.modal.currentState' | runtimeTranslate }}</span>
+      @if (activePlayerEntities().length > 0) {
+        <div class="special-helper-state-list">
+          @for (entity of activePlayerEntities(); track entity.id) {
+            <article class="special-helper-state-card">
+              <div class="special-helper-state-copy">
+                <strong>{{ entityLabel(entity) | runtimeTranslate }}</strong>
+                @if (entity.template === 'the_ring') {
+                  <span>
+                    {{ 'game.specialHelpers.modal.ringLevel' | runtimeTranslate }} {{ ringLevel() ?? 1 }}
+                  </span>
+                  <small>
+                    {{ ringBearer() ?? ('game.specialHelpers.modal.noRingBearer' | runtimeTranslate) }}
+                  </small>
+                } @else if (entity.template === 'dungeon' && dungeonRoom(entity); as roomName) {
+                  <small>{{ roomName }}</small>
+                } @else if (entity.card?.typeLine; as typeLine) {
+                  <small>{{ typeLine }}</small>
+                }
+              </div>
+              @if (entity.card && entityImage(entity); as image) {
+                <img [src]="image" [alt]="entity.card.name" draggable="false" />
+              }
+              @if (interactionMode === 'editable') {
+                <div class="special-helper-inline-actions">
+                  @if (entity.template === 'the_ring') {
+                    <button type="button" [disabled]="pending || (ringLevel() ?? 1) <= 1" (click)="decreaseRingLevel()">
+                      {{ 'game.specialHelpers.modal.ringLevelDown' | runtimeTranslate }}
+                    </button>
+                    <button type="button" [disabled]="pending || (ringLevel() ?? 1) >= 4" (click)="increaseRingLevel()">
+                      {{ 'game.specialHelpers.modal.ringLevelUp' | runtimeTranslate }}
+                    </button>
+                    <button type="button" [disabled]="pending || !ringBearer()" (click)="clearRingBearer()">
+                      {{ 'game.specialHelpers.modal.clearRingBearer' | runtimeTranslate }}
+                    </button>
+                  }
+                  <button type="button" class="danger" [disabled]="pending" (click)="removeEntity(entity)">
+                    {{ 'game.specialHelpers.modal.removeHelper' | runtimeTranslate }}
+                  </button>
+                </div>
+              }
+            </article>
+          }
+        </div>
+      } @else {
+        <p class="notice compact-notice">{{ 'game.specialHelpers.modal.noActiveMechanics' | runtimeTranslate }}</p>
+      }
+    </section>
+
+    <section class="special-helper-section">
+      <span class="special-helper-eyebrow">{{ 'game.specialHelpers.labels.day_night' | runtimeTranslate }}</span>
+      <div class="special-helper-global-row">
+        <strong>
+          @if (dayNightMode(); as mode) {
+            {{ ('game.specialHelpers.labels.' + mode) | runtimeTranslate }}
+          } @else {
+            {{ 'game.specialHelpers.modal.notSet' | runtimeTranslate }}
+          }
+        </strong>
+        @if (interactionMode === 'editable') {
+          <div class="special-helper-inline-actions">
+            <button type="button" [disabled]="pending" (click)="setQuickAction('set_day')">{{ 'game.specialHelpers.quick.setDay' | runtimeTranslate }}</button>
+            <button type="button" [disabled]="pending" (click)="setQuickAction('set_night')">{{ 'game.specialHelpers.quick.setNight' | runtimeTranslate }}</button>
+          </div>
+        }
+      </div>
+    </section>
+
+    @if (interactionMode === 'editable') {
+      <section class="special-helper-section">
+        <span class="special-helper-eyebrow">{{ 'game.specialHelpers.modal.quickActions' | runtimeTranslate }}</span>
+        <div class="special-helper-actions">
+          <button type="button" [disabled]="pending" (click)="setQuickAction('monarch')">{{ 'game.specialHelpers.quick.monarch' | runtimeTranslate }}</button>
+          <button type="button" [disabled]="pending" (click)="setQuickAction('initiative')">{{ 'game.specialHelpers.quick.initiative' | runtimeTranslate }}</button>
+          <button type="button" [disabled]="pending" (click)="setQuickAction('citys_blessing')">{{ 'game.specialHelpers.quick.citysBlessing' | runtimeTranslate }}</button>
+          <button type="button" [disabled]="pending" (click)="setQuickAction('the_ring')">{{ 'game.specialHelpers.quick.theRing' | runtimeTranslate }}</button>
+        </div>
+      </section>
+
+      <section class="special-helper-section">
+        <span class="special-helper-eyebrow">{{ 'game.specialHelpers.modal.cardBacked' | runtimeTranslate }}</span>
+        <div class="special-helper-kind-toggle" role="tablist" [attr.aria-label]="'game.specialHelpers.modal.cardBacked' | runtimeTranslate">
+          <button type="button" [class.active]="searchKind() === 'emblem'" [disabled]="pending" (click)="setSearchKind('emblem')">
+            {{ 'game.specialHelpers.labels.emblem' | runtimeTranslate }}
+          </button>
+          <button type="button" [class.active]="searchKind() === 'dungeon'" [disabled]="pending" (click)="setSearchKind('dungeon')">
+            {{ 'game.specialHelpers.labels.dungeon' | runtimeTranslate }}
+          </button>
+        </div>
+        <input
+          type="text"
+          [disabled]="pending"
+          [placeholder]="'game.specialHelpers.modal.searchPlaceholder' | runtimeTranslate"
+          [ngModel]="query()"
+          (ngModelChange)="onQueryInput($event)"
+        />
+        <div appPrettyScroll class="special-helper-results">
+          @if (searching()) {
+            <p class="notice compact-notice">{{ 'game.specialHelpers.modal.searching' | runtimeTranslate }}</p>
+          } @else if (errorKey(); as errorKey) {
+            <p class="notice compact-notice error">{{ errorKey | runtimeTranslate }}</p>
+          } @else if (hasQuery() && searchResults().length === 0) {
+            <p class="notice compact-notice">{{ 'game.specialHelpers.modal.noResults' | runtimeTranslate }}</p>
+          } @else if (!hasQuery()) {
+            <p class="notice compact-notice">{{ 'game.specialHelpers.modal.searchHint' | runtimeTranslate }}</p>
+          } @else {
+            <div class="special-helper-grid">
+              @for (card of searchResults(); track card.scryfallId) {
+                <button type="button" class="special-helper-card" [disabled]="pending" (click)="selectCard(card)">
+                  @if (imageFor(card); as image) {
+                    <img [src]="image" [alt]="card.name" draggable="false" />
+                  }
+                  <strong>{{ card.name }}</strong>
+                  <span>{{ card.typeLine }}</span>
+                </button>
+              }
+            </div>
+          }
+        </div>
+      </section>
+    }
+  </section>
+</app-modal>

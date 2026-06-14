@@ -1,9 +1,10 @@
 @let opponent = player();
 
-<button
-  type="button"
+<section
   class="player-thumb"
   data-testid="opponent-mini-board"
+  role="button"
+  tabindex="0"
   [style.--player-accent]="colorAccent()(opponent)"
   [style.--player-identity-gradient]="identityGradient(opponent)"
   [style.--player-identity-primary]="identityPrimaryColor(opponent)"
@@ -18,6 +19,7 @@
   appGameTableLongPress
   (appGameTableLongPressed)="playerMenuOpened.emit({ event: $event, playerId: opponent.id })"
   (click)="focusPlayer.emit(opponent.id)"
+  (keydown)="focusFromKeyboard($event)"
   (dragover)="dropAllowed.emit($event)"
   (drop)="playerDropped.emit({ event: $event, playerId: opponent.id })"
   (contextmenu)="playerMenuOpened.emit({ event: $event, playerId: opponent.id })"
@@ -45,6 +47,33 @@
       }
       <span class="opponent-life" data-testid="opponent-life">{{ opponent.state.life }}</span>
     </span>
+  </span>
+  <span class="opponent-mechanics-row">
+    <button
+      type="button"
+      class="opponent-mechanics-button"
+      data-testid="opponent-mechanics-button"
+      [attr.data-mode]="helperInteractionMode()"
+      (click)="openMechanics($event)"
+    >
+      <lucide-icon name="sparkles" size="14" aria-hidden="true" />
+      <span>{{ 'game.contextMenu.labels.mechanics' | runtimeTranslate }}</span>
+    </button>
+    @if (mechanicsBadges().length > 0) {
+      <span class="opponent-mechanics-badges" data-testid="opponent-mechanics-badges">
+        @for (badge of mechanicsBadges(); track badge.translationKey + (badge.detail ?? '')) {
+          <span class="opponent-mechanics-badge">
+            <lucide-icon [name]="badge.icon" size="12" aria-hidden="true" />
+            <span>
+              {{ badge.translationKey | runtimeTranslate }}
+              @if (badge.detail; as detail) {
+                <small>{{ detail }}</small>
+              }
+            </span>
+          </span>
+        }
+      </span>
+    }
   </span>
   <span class="opponent-board-stage" [class.showing-cards-target]="!isDefeated(opponent) && cardsTargetCards().length > 0">
     @if (isDefeated(opponent)) {
@@ -131,4 +160,4 @@
       </span>
     }
   </span>
-</button>
+</section>

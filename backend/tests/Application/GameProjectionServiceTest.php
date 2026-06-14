@@ -558,6 +558,63 @@ class GameProjectionServiceTest extends TestCase
         }
     }
 
+    public function testProjectionLocalizesCardBackedSpecialEntitiesWithoutChangingHelperMetadata(): void
+    {
+        $owner = new User('owner@example.test', 'Owner');
+        $viewer = new User('viewer@example.test', 'Viewer');
+        $viewer->updateCardLanguage('es');
+        $snapshot = $this->snapshot($owner->id(), $viewer->id());
+        $snapshot['specialEntities'] = [[
+            'id' => 'emblem-1',
+            'template' => 'emblem',
+            'scope' => 'player',
+            'ownerPlayerId' => $owner->id(),
+            'card' => [
+                'scryfallId' => 'emblem-print',
+                'name' => 'Gideon Emblem',
+                'typeLine' => 'Emblem',
+                'oracleText' => 'You get an emblem.',
+                'layout' => 'emblem',
+                'imageUris' => ['normal' => 'https://cards.example/emblem-en.jpg'],
+                'cardFaces' => [[
+                    'name' => 'Gideon Emblem',
+                    'typeLine' => 'Emblem',
+                    'oracleText' => 'You get an emblem.',
+                    'imageUris' => ['normal' => 'https://cards.example/emblem-face-en.jpg'],
+                ]],
+            ],
+            'state' => [],
+            'createdAt' => '2026-01-01T00:00:00+00:00',
+        ]];
+        $lookup = [
+            'es' => [
+                'emblem-print' => [
+                    'name' => 'Emblema de Gideon',
+                    'typeLine' => 'Emblema',
+                    'oracleText' => 'Obtienes un emblema.',
+                    'imageUris' => ['normal' => 'https://cards.example/emblem-es.jpg'],
+                    'cardFaces' => [[
+                        'name' => 'Emblema de Gideon',
+                        'typeLine' => 'Emblema',
+                        'oracleText' => 'Obtienes un emblema.',
+                        'imageUris' => ['normal' => 'https://cards.example/emblem-face-es.jpg'],
+                    ]],
+                ],
+            ],
+        ];
+
+        $projected = (new GameProjectionService(new GameCommandHandler()))
+            ->projectSnapshot($snapshot, $viewer, true, $lookup);
+
+        self::assertSame('Gideon Emblem', $projected['specialEntities'][0]['card']['name']);
+        self::assertSame('Emblem', $projected['specialEntities'][0]['card']['typeLine']);
+        self::assertSame('https://cards.example/emblem-es.jpg', $projected['specialEntities'][0]['card']['imageUris']['normal']);
+        self::assertSame(
+            'https://cards.example/emblem-face-es.jpg',
+            $projected['specialEntities'][0]['card']['cardFaces'][0]['imageUris']['normal'],
+        );
+    }
+
     public function testProjectedSnapshotPreservesGameplayContractFieldsForUiBootstrap(): void
     {
         $owner = new User('owner@example.test', 'Owner');

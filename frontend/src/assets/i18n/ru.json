@@ -343,7 +343,10 @@
         "xToExile": "X to exile",
         "xToHandPlayer": "X to hand player",
         "xToBattlefieldPlayer": "X to battlefield player",
-        "removeAllCounters": "Remove All Counters"
+        "removeAllCounters": "Remove All Counters",
+        "createHelper": "Механики",
+        "setRingBearer": "Назначить носителем Кольца",
+        "mechanics": "Механики"
       }
     },
     "contextSubmenu": {
@@ -533,6 +536,52 @@
     },
     "chat": {
       "allPlayers": "Todos"
+    },
+    "specialHelpers": {
+      "modal": {
+        "title": "Механики",
+        "quickActions": "Быстрые действия",
+        "cardBacked": "Сущности-карты",
+        "searchPlaceholder": "Искать эмблемы или подземелья",
+        "searching": "Поиск сущностей...",
+        "noResults": "Ничего не найдено.",
+        "searchHint": "Введите минимум 2 символа для поиска.",
+        "searchError": "Не удалось загрузить специальные сущности.",
+        "playerTarget": "Игрок: {{playerName}}",
+        "currentState": "Текущее состояние",
+        "readonly": "Только чтение. Здесь можно просматривать эти механики, но изменять их может только управляющий игрок.",
+        "ringLevel": "Уровень Кольца",
+        "noRingBearer": "Носитель Кольца не назначен",
+        "removeHelper": "Удалить",
+        "clearRingBearer": "Убрать Носителя Кольца",
+        "ringLevelUp": "Уровень +1",
+        "ringLevelDown": "Уровень -1",
+        "noActiveMechanics": "Нет активных механик.",
+        "notSet": "Не задано"
+      },
+      "quick": {
+        "monarch": "Стать монархом",
+        "initiative": "Получить инициативу",
+        "citysBlessing": "Получить благословение города",
+        "theRing": "Создать Кольцо",
+        "setDay": "Установить день",
+        "setNight": "Установить ночь"
+      },
+      "labels": {
+        "monarch": "Монарх",
+        "initiative": "Инициатива",
+        "citys_blessing": "Благословение города",
+        "day_night": "День/Ночь",
+        "the_ring": "Кольцо",
+        "emblem": "Эмблема",
+        "dungeon": "Подземелье",
+        "day": "День",
+        "night": "Ночь"
+      },
+      "rail": {
+        "title": "Специальные сущности",
+        "ringLevel": "Уровень Кольца"
+      }
     }
   },
   "deckBuilder": {

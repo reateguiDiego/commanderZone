@@ -1,5 +1,5 @@
 @if (open) {
-  <div class="modal-backdrop" role="presentation">
+  <div class="modal-backdrop" role="presentation" (click)="closeOnBackdrop ? close.emit() : null">
     <section
       class="modal-panel"
       appPrettyScroll
@@ -8,6 +8,7 @@
       [attr.aria-label]="ariaLabel || title || null"
       [class.modal-panel-compact]="size === 'compact'"
       [class.modal-panel-wide]="size === 'wide'"
+      (click)="$event.stopPropagation()"
     >
       @if (showCloseButton) {
         <button class="modal-close-button" type="button" [attr.aria-label]="closeLabel" (click)="close.emit()">

@@ -6,7 +6,9 @@ import {
   Biohazard,
   Bug,
   Check,
+  Circle,
   Copy,
+  Crown,
   Dices,
   Eye,
   EyeOff,
@@ -55,7 +57,9 @@ describe('ContextMenuComponent', () => {
           Biohazard,
           Bug,
           Check,
+          Circle,
           Copy,
+          Crown,
           Dices,
           Eye,
           EyeOff,
@@ -415,7 +419,7 @@ describe('ContextMenuComponent', () => {
     const selected = vi.fn();
     fixture.componentInstance.actionSelected.subscribe(selected);
 
-    expect(buttonLabels(fixture)).toEqual(['Create token', 'Tirar dado']);
+    expect(buttonLabels(fixture)).toEqual(['Create token', 'Mechanics', 'Tirar dado']);
     expect(menuText(fixture)).not.toContain('View');
     expect(menuText(fixture)).not.toContain('Move all');
 
@@ -429,6 +433,25 @@ describe('ContextMenuComponent', () => {
     rollButton?.click();
 
     expect(selected).toHaveBeenCalledWith({ type: 'rollDice' });
+  });
+
+  it('offers create helper from the command zone menu for the controllable player', () => {
+    const fixture = createContextMenuFixture({
+      kind: 'zone',
+      playerId: 'user-1',
+      zone: 'command',
+    });
+    const selected = vi.fn();
+    fixture.componentInstance.actionSelected.subscribe(selected);
+
+    const button = menuButtons(fixture)
+      .find((candidate) => candidate.textContent?.includes('Mechanics'));
+
+    expect(button).toBeDefined();
+
+    button?.click();
+
+    expect(selected).toHaveBeenCalledWith({ type: 'createHelper' });
   });
 
   it('shows the mana pool opener from the own battlefield menu only when the panel is hidden', () => {
@@ -459,7 +482,7 @@ describe('ContextMenuComponent', () => {
 
     try {
       expect(menuText(visible)).not.toContain('Show mana pool');
-      expect(buttonLabels(hidden)).toEqual(['Create token', 'Tirar dado', 'Show mana pool']);
+      expect(buttonLabels(hidden)).toEqual(['Create token', 'Mechanics', 'Tirar dado', 'Show mana pool']);
       expect((hidden.nativeElement as HTMLElement).querySelector('.menu-item-mana-icon .ms-r')).not.toBeNull();
       expect((hidden.nativeElement as HTMLElement).querySelector('lucide-icon[name="sparkles"]')).toBeNull();
 
@@ -471,6 +494,28 @@ describe('ContextMenuComponent', () => {
     } finally {
       random.mockRestore();
     }
+  });
+
+  it('offers setting a controlled battlefield creature as Ring-bearer', () => {
+    const fixture = createContextMenuFixture({
+      kind: 'card',
+      playerId: 'user-1',
+      zone: 'battlefield',
+      card: { ...card('creature-1'), typeLine: 'Creature - Halfling Rogue' },
+    }, {
+      canControlPlayer: () => true,
+    });
+    const selected = vi.fn();
+    fixture.componentInstance.actionSelected.subscribe(selected);
+
+    const button = menuButtons(fixture)
+      .find((candidate) => candidate.textContent?.includes('Set as ring-bearer'));
+
+    expect(button).toBeDefined();
+
+    button?.click();
+
+    expect(selected).toHaveBeenCalledWith({ type: 'setRingBearer' });
   });
 
   it('uses distinct card options for library cards and shared options for graveyard and exile cards', () => {

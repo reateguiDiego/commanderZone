@@ -1,9 +1,10 @@
 import { importProvidersFrom } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { Ban, Library, LucideAngularModule } from 'lucide-angular';
-import { GameCardInstance } from '../../../../../core/models/game.model';
+import { Ban, Circle, Crown, Flag, Library, LucideAngularModule, Sparkles } from 'lucide-angular';
+import { GameCardInstance, GameSpecialEntity } from '../../../../../core/models/game.model';
 import { OpponentMiniBoardComponent } from './opponent-mini-board.component';
 import { PlayerView } from '../../game-table.store';
+import { GameTablePlayerSpecialEntitiesSummary } from '../../state/helpers/game-table-special-entities.state';
 
 describe('OpponentMiniBoardComponent', () => {
   let fixture: ComponentFixture<OpponentMiniBoardComponent>;
@@ -12,7 +13,7 @@ describe('OpponentMiniBoardComponent', () => {
     await TestBed.configureTestingModule({
       imports: [OpponentMiniBoardComponent],
       providers: [
-        importProvidersFrom(LucideAngularModule.pick({ Ban, Library })),
+        importProvidersFrom(LucideAngularModule.pick({ Ban, Circle, Crown, Flag, Library, Sparkles })),
       ],
     }).compileComponents();
 
@@ -26,6 +27,37 @@ describe('OpponentMiniBoardComponent', () => {
     fixture.componentRef.setInput('cardPosition', () => ({ x: 0, y: 0 }));
     fixture.componentRef.setInput('cardImage', () => null);
     fixture.componentRef.setInput('isPlayerDropHighlighted', () => false);
+  });
+
+  it('emits mechanicsRequested and shows active mechanics badges', () => {
+    const mechanicsRequested = vi.fn();
+    fixture.componentRef.setInput('specialEntitiesSummary', {
+      playerId: 'user-2',
+      monarch: helperEntity('monarch', 'user-2'),
+      initiative: null,
+      citysBlessing: null,
+      ring: helperEntity('the_ring', 'user-2', { level: 2 }),
+      dungeon: null,
+      emblems: [helperEntity('emblem', 'user-2')],
+      displayEntities: [],
+      hasAny: true,
+    } satisfies GameTablePlayerSpecialEntitiesSummary);
+    fixture.componentRef.setInput('helperInteractionMode', 'readonly');
+    fixture.componentInstance.mechanicsRequested.subscribe(mechanicsRequested);
+    fixture.detectChanges();
+
+    const button = fixture.nativeElement.querySelector('[data-testid="opponent-mechanics-button"]') as HTMLButtonElement;
+    const badges = fixture.nativeElement.querySelector('[data-testid="opponent-mechanics-badges"]') as HTMLElement;
+
+    expect(button.textContent).toContain('Mechanics');
+    expect(button.dataset['mode']).toBe('readonly');
+    expect(badges.textContent).toContain('Monarch');
+    expect(badges.textContent).toContain('The Ring');
+    expect(badges.textContent).toContain('Emblem');
+
+    button.click();
+
+    expect(mechanicsRequested).toHaveBeenCalledWith('user-2');
   });
 
   it('renders the targeting pill between player label and life', () => {
@@ -186,5 +218,21 @@ function cardInstance(instanceId: string, name: string): GameCardInstance {
     zone: 'battlefield',
     isToken: false,
     isCommander: false,
+  };
+}
+
+function helperEntity(
+  template: GameSpecialEntity['template'],
+  ownerPlayerId: string | null,
+  state: Record<string, unknown> = {},
+): GameSpecialEntity {
+  return {
+    id: `${template}-${ownerPlayerId ?? 'global'}`,
+    template,
+    scope: ownerPlayerId ? 'player' : 'global',
+    ownerPlayerId,
+    card: null,
+    state,
+    createdAt: '2026-01-01T00:00:00.000Z',
   };
 }

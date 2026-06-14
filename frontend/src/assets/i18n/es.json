@@ -343,7 +343,10 @@
         "xToExile": "X to exile",
         "xToHandPlayer": "X to hand player",
         "xToBattlefieldPlayer": "X to battlefield player",
-        "removeAllCounters": "Remove All Counters"
+        "removeAllCounters": "Remove All Counters",
+        "createHelper": "Mecánicas",
+        "setRingBearer": "Convertir en Portador del Anillo",
+        "mechanics": "Mecánicas"
       }
     },
     "contextSubmenu": {
@@ -533,6 +536,52 @@
     },
     "chat": {
       "allPlayers": "Todos"
+    },
+    "specialHelpers": {
+      "modal": {
+        "title": "Mecánicas",
+        "quickActions": "Acciones rápidas",
+        "cardBacked": "Entidades con carta",
+        "searchPlaceholder": "Buscar emblemas o mazmorras",
+        "searching": "Buscando ayudas...",
+        "noResults": "No se encontraron resultados.",
+        "searchHint": "Escribe al menos 2 caracteres para buscar.",
+        "searchError": "No se pudieron cargar las entidades especiales.",
+        "playerTarget": "Jugador: {{playerName}}",
+        "currentState": "Estado actual",
+        "readonly": "Solo lectura. Puedes consultar estas mecánicas aquí, pero solo el jugador que controla esa posición puede cambiarlas.",
+        "ringLevel": "Nivel del Anillo",
+        "noRingBearer": "Sin Portador del Anillo",
+        "removeHelper": "Quitar",
+        "clearRingBearer": "Quitar Portador del Anillo",
+        "ringLevelUp": "Subir nivel",
+        "ringLevelDown": "Bajar nivel",
+        "noActiveMechanics": "No hay mecánicas activas.",
+        "notSet": "Sin definir"
+      },
+      "quick": {
+        "monarch": "Convertirse en monarca",
+        "initiative": "Tomar la iniciativa",
+        "citysBlessing": "Obtener la bendición de la ciudad",
+        "theRing": "Crear El Anillo",
+        "setDay": "Poner de día",
+        "setNight": "Poner de noche"
+      },
+      "labels": {
+        "monarch": "Monarca",
+        "initiative": "Iniciativa",
+        "citys_blessing": "Bendición de la ciudad",
+        "day_night": "Día/Noche",
+        "the_ring": "El Anillo",
+        "emblem": "Emblema",
+        "dungeon": "Mazmorra",
+        "day": "Día",
+        "night": "Noche"
+      },
+      "rail": {
+        "title": "Entidades especiales",
+        "ringLevel": "Nivel del Anillo"
+      }
     }
   },
   "deckBuilder": {

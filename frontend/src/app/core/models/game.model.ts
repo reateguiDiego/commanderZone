@@ -1,7 +1,9 @@
 import { User } from './user.model';
-import { CardFace } from './card.model';
+import { CardFace, CardImageUris } from './card.model';
 
 export type GameZoneName = 'library' | 'hand' | 'battlefield' | 'graveyard' | 'exile' | 'command';
+export type GameSpecialEntityTemplate = 'monarch' | 'initiative' | 'citys_blessing' | 'day_night' | 'the_ring' | 'emblem' | 'dungeon';
+export type GameSpecialEntityScope = 'global' | 'player';
 export interface GameCardPixelPosition {
   x: number;
   y: number;
@@ -58,6 +60,9 @@ export type GameCommandType =
   | 'arrow.removed'
   | 'attachment.created'
   | 'attachment.removed'
+  | 'helper.created'
+  | 'helper.updated'
+  | 'helper.removed'
   | 'disconnect.vote';
 
 export interface GameCardInstance {
@@ -177,6 +182,26 @@ export interface GameAttachment {
   createdAt: string;
 }
 
+export interface GameSpecialEntityCardRef {
+  scryfallId: string;
+  name: string;
+  imageUris?: CardImageUris;
+  cardFaces?: CardFace[];
+  typeLine?: string | null;
+  oracleText?: string | null;
+  layout?: string | null;
+}
+
+export interface GameSpecialEntity {
+  id: string;
+  template: GameSpecialEntityTemplate;
+  scope: GameSpecialEntityScope;
+  ownerPlayerId: string | null;
+  card: GameSpecialEntityCardRef | null;
+  state: Record<string, unknown>;
+  createdAt: string;
+}
+
 export type GameRematchVote = 'play_again' | 'leave';
 
 export interface GameRematchVoteState {
@@ -223,6 +248,7 @@ export interface GameSnapshot {
   stack: GameStackItem[];
   arrows: GameArrow[];
   attachments?: GameAttachment[];
+  specialEntities?: GameSpecialEntity[];
   chat: ChatMessage[];
   eventLog: GameLogEntry[];
   rematch?: GameRematchState;

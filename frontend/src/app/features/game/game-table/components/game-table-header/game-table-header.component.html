@@ -1,5 +1,12 @@
 <header class="topbar">
-  <div class="page-header-context" aria-hidden="true"></div>
+  <div class="page-header-context">
+    @if (specialEntities.dayNight(); as dayNight) {
+      <div class="day-night-indicator" [attr.data-mode]="dayNight.state['mode'] ?? 'day'">
+        <lucide-icon [name]="dayNight.state['mode'] === 'night' ? 'moon-star' : 'sun'" size="14" aria-hidden="true" />
+        <span>{{ dayNight.state['mode'] === 'night' ? ('game.specialHelpers.labels.night' | runtimeTranslate) : ('game.specialHelpers.labels.day' | runtimeTranslate) }}</span>
+      </div>
+    }
+  </div>
 
   <div class="user-strip">
     <div class="player-identity" [attr.aria-label]="'game.gameTableHeader.currentPlayer' | runtimeTranslate">

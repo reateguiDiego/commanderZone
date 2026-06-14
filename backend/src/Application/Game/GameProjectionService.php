@@ -98,6 +98,12 @@ class GameProjectionService
         }
         unset($player);
 
+        $snapshot['specialEntities'] = $this->projectSpecialEntities(
+            is_array($snapshot['specialEntities'] ?? null) ? $snapshot['specialEntities'] : [],
+            $requestedLanguage,
+            $localizedCardsByLanguage,
+        );
+
         return $snapshot;
     }
 
@@ -542,7 +548,52 @@ class GameProjectionService
             }
         }
 
+        foreach ($this->specialEntityCards($snapshot) as $card) {
+            $scryfallId = trim((string) ($card['scryfallId'] ?? ''));
+            if ($scryfallId !== '') {
+                $scryfallIds[$scryfallId] = true;
+            }
+        }
+
         return array_keys($scryfallIds);
+    }
+
+    /**
+     * @param list<array<string,mixed>> $specialEntities
+     * @param array<string,array<string,array<string,mixed>>>|null $localizedCardsByLanguage
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function projectSpecialEntities(array $specialEntities, ?string $requestedLanguage, ?array $localizedCardsByLanguage): array
+    {
+        return array_values(array_map(function (array $entity) use ($requestedLanguage, $localizedCardsByLanguage): array {
+            if (!is_array($entity['card'] ?? null)) {
+                return $entity;
+            }
+
+            $entity['card'] = is_array($localizedCardsByLanguage)
+                ? $this->localizeCardImagesFromLookup($entity['card'], $requestedLanguage, $localizedCardsByLanguage)
+                : $this->localizeCardImagesFromService($entity['card'], $requestedLanguage);
+
+            unset($entity['card']['lang'], $entity['card']['printedName']);
+
+            return $entity;
+        }, $specialEntities));
+    }
+
+    /**
+     * @return list<array<string,mixed>>
+     */
+    private function specialEntityCards(array $snapshot): array
+    {
+        $cards = [];
+        foreach (($snapshot['specialEntities'] ?? []) as $entity) {
+            if (is_array($entity) && is_array($entity['card'] ?? null)) {
+                $cards[] = $entity['card'];
+            }
+        }
+
+        return $cards;
     }
 
     /**

@@ -343,7 +343,10 @@
         "xToExile": "X to exile",
         "xToHandPlayer": "X to hand player",
         "xToBattlefieldPlayer": "X to battlefield player",
-        "removeAllCounters": "Remove All Counters"
+        "removeAllCounters": "Remove All Counters",
+        "createHelper": "Mechanieken",
+        "setRingBearer": "Instellen als Ringdrager",
+        "mechanics": "Mechanieken"
       }
     },
     "contextSubmenu": {
@@ -533,6 +536,52 @@
     },
     "chat": {
       "allPlayers": "Todos"
+    },
+    "specialHelpers": {
+      "modal": {
+        "title": "Mechanieken",
+        "quickActions": "Snelle acties",
+        "cardBacked": "Kaartgebonden entiteiten",
+        "searchPlaceholder": "Zoek emblemen of kerkers",
+        "searching": "Hulpen zoeken...",
+        "noResults": "Geen resultaten gevonden.",
+        "searchHint": "Voer minstens 2 tekens in om te zoeken.",
+        "searchError": "Speciale hulpen konden niet worden geladen.",
+        "playerTarget": "Speler: {{playerName}}",
+        "currentState": "Huidige status",
+        "readonly": "Alleen-lezen. Je kunt deze mechanieken hier bekijken, maar alleen de speler die deze plek bestuurt kan ze wijzigen.",
+        "ringLevel": "Ringniveau",
+        "noRingBearer": "Geen Ringdrager toegewezen",
+        "removeHelper": "Verwijderen",
+        "clearRingBearer": "Ringdrager wissen",
+        "ringLevelUp": "Niveau +1",
+        "ringLevelDown": "Niveau -1",
+        "noActiveMechanics": "Geen actieve mechanieken.",
+        "notSet": "Niet ingesteld"
+      },
+      "quick": {
+        "monarch": "Word monarch",
+        "initiative": "Neem het initiatief",
+        "citysBlessing": "Verkrijg de zegen van de stad",
+        "theRing": "Maak De Ring",
+        "setDay": "Zet op dag",
+        "setNight": "Zet op nacht"
+      },
+      "labels": {
+        "monarch": "Monarch",
+        "initiative": "Initiatief",
+        "citys_blessing": "Zegen van de stad",
+        "day_night": "Dag/Nacht",
+        "the_ring": "De Ring",
+        "emblem": "Embleem",
+        "dungeon": "Kerker",
+        "day": "Dag",
+        "night": "Nacht"
+      },
+      "rail": {
+        "title": "Speciale entiteiten",
+        "ringLevel": "Ringniveau"
+      }
     }
   },
   "deckBuilder": {

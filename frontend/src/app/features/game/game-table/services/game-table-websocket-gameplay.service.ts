@@ -108,6 +108,9 @@ const WEBSOCKET_COMMANDS = new Set<GameWebsocketCommandType>([
   'arrow.removed',
   'attachment.created',
   'attachment.removed',
+  'helper.created',
+  'helper.updated',
+  'helper.removed',
   'game.concede',
   'game.close',
   'disconnect.vote',
@@ -164,6 +167,9 @@ const RETRYABLE_COMMANDS = new Set<GameWebsocketCommandType>([
   'arrow.removed',
   'attachment.created',
   'attachment.removed',
+  'helper.created',
+  'helper.updated',
+  'helper.removed',
   'disconnect.vote',
 ]);
 const MAX_RETRY_COUNT = 1;

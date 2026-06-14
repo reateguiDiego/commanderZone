@@ -17,8 +17,10 @@ import {
   ChevronRight,
   Check,
   CheckCircle2,
+  Circle,
   CircleUserRound,
   Copy,
+  Crown,
   Dices,
   DoorOpen,
   Eye,
@@ -27,6 +29,7 @@ import {
   FileUp,
   Folder,
   FolderPlus,
+  Flag,
   Globe,
   Ghost,
   History,
@@ -42,6 +45,7 @@ import {
   Menu,
   MessageSquare,
   Minus,
+  MoonStar,
   MoreVertical,
   Pencil,
   Play,
@@ -59,6 +63,7 @@ import {
   Skull,
   Sparkles,
   Swords,
+  Sun,
   TabletSmartphone,
   Tickets,
   Trash,
@@ -299,8 +304,10 @@ describe('GameTableComponent', () => {
           ChevronRight,
           Check,
           CheckCircle2,
+          Circle,
           CircleUserRound,
           Copy,
+          Crown,
           Dices,
           DoorOpen,
           Eye,
@@ -309,6 +316,7 @@ describe('GameTableComponent', () => {
           FileUp,
           Folder,
           FolderPlus,
+          Flag,
           Globe,
           Ghost,
           History,
@@ -323,6 +331,7 @@ describe('GameTableComponent', () => {
           Menu,
           MessageSquare,
           Minus,
+          MoonStar,
           MoreVertical,
           Pencil,
           Play,
@@ -340,6 +349,7 @@ describe('GameTableComponent', () => {
           Skull,
           Sparkles,
           Swords,
+          Sun,
           TabletSmartphone,
           Tickets,
           Trash,
@@ -370,12 +380,12 @@ describe('GameTableComponent', () => {
   });
 
   it('dismisses table errors after showing the toast', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot: snapshotWithStatus('active') } }));
     const fixture = TestBed.createComponent(GameTableComponent);
     fixture.detectChanges();
     await fixture.whenStable();
-    fixture.componentInstance.store.loading.set(false);
-    fixture.componentInstance.store.snapshot.set(snapshotWithStatus('active'));
-    fixture.componentInstance.store.error.set(null);
     fixture.detectChanges();
 
     vi.useFakeTimers();
@@ -383,7 +393,7 @@ describe('GameTableComponent', () => {
       fixture.componentInstance.store.error.set('Could not apply game action.');
       fixture.detectChanges();
 
-      expect(fixture.nativeElement.querySelector('.table-error')?.textContent).toContain('Could not apply game action.');
+      expect(fixture.componentInstance.tableToast()).toBe('Could not apply game action.');
 
       vi.advanceTimersByTime(2999);
       fixture.detectChanges();
@@ -393,6 +403,7 @@ describe('GameTableComponent', () => {
       fixture.detectChanges();
 
       expect(fixture.componentInstance.store.error()).toBeNull();
+      expect(fixture.componentInstance.tableToast()).toBeNull();
       expect(fixture.nativeElement.querySelector('.table-error')).toBeNull();
     } finally {
       vi.useRealTimers();
@@ -510,6 +521,7 @@ describe('GameTableComponent', () => {
     expect(headerLife.dataset['playerId']).toBe('user-1');
     expect(ownerSummary.textContent).toContain('Estas viendo a:');
     expect(ownerSummary.textContent).toContain('Opponent');
+    expect((ownerSummary.querySelector('[data-testid="player-helper-create"]') as HTMLElement)?.dataset['mode']).toBe('readonly');
     expect(ownerLife.dataset['playerId']).toBe('user-2');
     expect(ownerSummary.querySelector('[data-testid="life-decrease"]')).toBeNull();
     expect(ownerSummary.querySelector('[data-testid="life-increase"]')).toBeNull();
@@ -520,6 +532,40 @@ describe('GameTableComponent', () => {
 
     expect(fixture.componentInstance.store.focusedPlayer()?.id).toBe('user-1');
     expect(fixture.nativeElement.querySelector('[data-testid="battlefield-owner-summary"]')).toBeNull();
+  });
+
+  it('opens the mechanics modal in readonly mode from an opponent mini board', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    addOpponent(snapshot);
+    snapshot.specialEntities = [{
+      id: 'ring-1',
+      template: 'the_ring',
+      scope: 'player',
+      ownerPlayerId: 'user-2',
+      card: null,
+      state: { level: 2, ringBearerInstanceId: null },
+      createdAt: '2026-04-30T20:00:00+00:00',
+    }];
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const button = fixture.nativeElement.querySelector(
+      '[data-testid="opponent-mini-board"][data-player-id="user-2"] [data-testid="opponent-mechanics-button"]',
+    ) as HTMLButtonElement | null;
+    expect(button).not.toBeNull();
+    button!.click();
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.specialHelperPlayerId()).toBe('user-2');
+    expect(fixture.componentInstance.specialHelperInteractionMode()).toBe('readonly');
   });
 
   it('keeps battlefield double click tap logic and animates the rotation after the state update', async () => {
@@ -5507,6 +5553,68 @@ describe('GameTableComponent', () => {
     await fixture.whenStable();
 
     expect(fixture.componentInstance.store.eventLog()[0]?.appearance).toBe('phase');
+  });
+
+  it('renders the global day-night helper indicator from the snapshot', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    snapshot.specialEntities = [{
+      id: 'day-night-1',
+      template: 'day_night',
+      scope: 'global',
+      ownerPlayerId: null,
+      card: null,
+      state: { mode: 'night' },
+      createdAt: '2026-04-30T20:00:00+00:00',
+    }];
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const indicator = fixture.nativeElement.querySelector('.day-night-indicator') as HTMLElement | null;
+
+    expect(indicator).not.toBeNull();
+    expect(indicator?.dataset['mode']).toBe('night');
+    expect(indicator?.textContent).toContain('Night');
+  });
+
+  it('opens the helper modal from the battlefield context action and sends helper creation commands', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+    gameplayWebsocketCommand.mockReturnValue(of({
+      event: { id: 'event-helper', type: 'helper.created', payload: {}, createdBy: 'user-1', createdAt: '' },
+      snapshot,
+    }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.handleContextMenuAction({ type: 'createHelper' }, {
+      x: 0,
+      y: 0,
+      kind: 'zone',
+      playerId: 'user-1',
+      zone: 'battlefield',
+    });
+
+    expect(fixture.componentInstance.specialHelperPlayerId()).toBe('user-1');
+
+    await fixture.componentInstance.createQuickHelper('monarch');
+
+    expect(gameplayWebsocketCommand).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'helper.created',
+      payload: {
+        template: 'monarch',
+        ownerPlayerId: 'user-1',
+      },
+    }), 'game-1');
   });
 
   it('does not send commander cast count commands that keep the value at zero', async () => {

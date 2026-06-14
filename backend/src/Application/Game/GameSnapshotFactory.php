@@ -124,6 +124,7 @@ class GameSnapshotFactory
             'stack' => [],
             'arrows' => [],
             'attachments' => [],
+            'specialEntities' => [],
             'chat' => [],
             'eventLog' => [],
             'createdAt' => $createdAt,

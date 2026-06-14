@@ -343,7 +343,10 @@
         "xToExile": "X to exile",
         "xToHandPlayer": "X to hand player",
         "xToBattlefieldPlayer": "X to battlefield player",
-        "removeAllCounters": "Remove All Counters"
+        "removeAllCounters": "Remove All Counters",
+        "createHelper": "メカニクス",
+        "setRingBearer": "指輪所持者に設定",
+        "mechanics": "メカニクス"
       }
     },
     "contextSubmenu": {
@@ -533,6 +536,52 @@
     },
     "chat": {
       "allPlayers": "Todos"
+    },
+    "specialHelpers": {
+      "modal": {
+        "title": "メカニクス",
+        "quickActions": "クイック操作",
+        "cardBacked": "カード付きエンティティ",
+        "searchPlaceholder": "紋章またはダンジョンを検索",
+        "searching": "補助を検索中...",
+        "noResults": "結果が見つかりません。",
+        "searchHint": "検索するには2文字以上入力してください。",
+        "searchError": "特殊補助を読み込めませんでした。",
+        "playerTarget": "プレイヤー: {{playerName}}",
+        "currentState": "現在の状態",
+        "readonly": "読み取り専用です。ここでメカニクスを確認できますが、変更できるのはそのプレイヤーだけです。",
+        "ringLevel": "指輪レベル",
+        "noRingBearer": "指輪所持者は未設定です",
+        "removeHelper": "削除",
+        "clearRingBearer": "指輪所持者を解除",
+        "ringLevelUp": "レベル +1",
+        "ringLevelDown": "レベル -1",
+        "noActiveMechanics": "有効なメカニクスはありません。",
+        "notSet": "未設定"
+      },
+      "quick": {
+        "monarch": "君主になる",
+        "initiative": "イニシアチブを得る",
+        "citysBlessing": "都市の承認を得る",
+        "theRing": "指輪を作成",
+        "setDay": "昼に設定",
+        "setNight": "夜に設定"
+      },
+      "labels": {
+        "monarch": "君主",
+        "initiative": "イニシアチブ",
+        "citys_blessing": "都市の承認",
+        "day_night": "昼/夜",
+        "the_ring": "指輪",
+        "emblem": "紋章",
+        "dungeon": "ダンジョン",
+        "day": "昼",
+        "night": "夜"
+      },
+      "rail": {
+        "title": "特殊エンティティ",
+        "ringLevel": "指輪レベル"
+      }
     }
   },
   "deckBuilder": {

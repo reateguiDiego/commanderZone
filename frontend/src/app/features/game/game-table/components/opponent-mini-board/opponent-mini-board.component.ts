@@ -11,6 +11,7 @@ import { OpponentTargetingPill } from '../../models/opponent-targeting-pill.mode
 import { PLAYER_DEFEATED_SKULL_IMAGE } from '../../utils/game-table-visual-assets';
 import { playerIsDefeated } from '../../utils/game-player-defeat';
 import { GameTableLongPressDirective } from '../../directives/game-table-long-press.directive';
+import { GameTablePlayerSpecialEntitiesSummary } from '../../state/helpers/game-table-special-entities.state';
 
 interface PlayerDropEvent {
   event: DragEvent;
@@ -30,6 +31,12 @@ interface OpponentZoneSummary {
   zone: OpponentCountZone;
   icon: OpponentZoneIcon;
   title: string;
+}
+
+interface OpponentMechanicsBadge {
+  readonly icon: 'crown' | 'flag' | 'sparkles' | 'circle' | 'library';
+  readonly translationKey: string;
+  readonly detail: string | null;
 }
 
 interface BattlefieldLayoutSize {
@@ -90,11 +97,14 @@ export class OpponentMiniBoardComponent {
   readonly isActiveTurnPlayer = input(false);
   readonly targetingPill = input<OpponentTargetingPill | null>(null);
   readonly cardsTargetCards = input<readonly OpponentCardsTargetCard[]>([]);
+  readonly specialEntitiesSummary = input<GameTablePlayerSpecialEntitiesSummary | null>(null);
+  readonly helperInteractionMode = input<'readonly' | 'editable'>('readonly');
 
   readonly focusPlayer = output<string>();
   readonly dropAllowed = output<DragEvent>();
   readonly playerDropped = output<PlayerDropEvent>();
   readonly playerMenuOpened = output<PlayerMenuEvent>();
+  readonly mechanicsRequested = output<string>();
   readonly cardPreviewShown = output<CardPreviewEvent>();
   readonly cardPreviewHidden = output<void>();
   readonly battlefieldCardClicked = output<{ event: MouseEvent; playerId: string; card: GameCardInstance }>();
@@ -149,6 +159,60 @@ export class OpponentMiniBoardComponent {
     const variant = PLAYER_BORDER_VARIANTS[this.stableIndex(variantSeed, PLAYER_BORDER_VARIANTS.length)];
 
     return this.mixHexColors(base, variant, 0.28);
+  }
+
+  mechanicsBadges(): readonly OpponentMechanicsBadge[] {
+    const summary = this.specialEntitiesSummary();
+    if (!summary) {
+      return [];
+    }
+
+    const badges: OpponentMechanicsBadge[] = [];
+    if (summary.monarch) {
+      badges.push({ icon: 'crown', translationKey: 'game.specialHelpers.labels.monarch', detail: null });
+    }
+    if (summary.initiative) {
+      badges.push({ icon: 'flag', translationKey: 'game.specialHelpers.labels.initiative', detail: null });
+    }
+    if (summary.citysBlessing) {
+      badges.push({ icon: 'sparkles', translationKey: 'game.specialHelpers.labels.citys_blessing', detail: null });
+    }
+    if (summary.ring) {
+      const level = typeof summary.ring.state['level'] === 'number' ? summary.ring.state['level'] : null;
+      badges.push({
+        icon: 'circle',
+        translationKey: 'game.specialHelpers.labels.the_ring',
+        detail: level === null ? null : String(level),
+      });
+    }
+    if (summary.dungeon) {
+      badges.push({ icon: 'library', translationKey: 'game.specialHelpers.labels.dungeon', detail: null });
+    }
+    if (summary.emblems.length > 0) {
+      badges.push({
+        icon: 'sparkles',
+        translationKey: 'game.specialHelpers.labels.emblem',
+        detail: `× ${summary.emblems.length}`,
+      });
+    }
+
+    return badges;
+  }
+
+  openMechanics(event: MouseEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.mechanicsRequested.emit(this.player().id);
+  }
+
+  focusFromKeyboard(event: KeyboardEvent): void {
+    if (event.key !== 'Enter' && event.key !== ' ') {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    this.focusPlayer.emit(this.player().id);
   }
 
   private identityColors(player: PlayerView): ManaColor[] {

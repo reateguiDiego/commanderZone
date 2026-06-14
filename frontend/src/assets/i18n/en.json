@@ -343,7 +343,10 @@
         "xToExile": "X to exile",
         "xToHandPlayer": "X to hand player",
         "xToBattlefieldPlayer": "X to battlefield player",
-        "removeAllCounters": "Remove All Counters"
+        "removeAllCounters": "Remove All Counters",
+        "createHelper": "Mechanics",
+        "setRingBearer": "Set as Ring-bearer",
+        "mechanics": "Mechanics"
       }
     },
     "contextSubmenu": {
@@ -533,6 +536,52 @@
     },
     "chat": {
       "allPlayers": "Todos"
+    },
+    "specialHelpers": {
+      "modal": {
+        "title": "Mechanics",
+        "quickActions": "Quick actions",
+        "cardBacked": "Card-backed helpers",
+        "searchPlaceholder": "Search emblems or dungeons",
+        "searching": "Searching helpers...",
+        "noResults": "No results found.",
+        "searchHint": "Type at least 2 characters to search.",
+        "searchError": "Could not load special helpers.",
+        "playerTarget": "Player: {{playerName}}",
+        "currentState": "Current state",
+        "readonly": "Read-only. You can inspect mechanics here, but only the controlling player can change them.",
+        "ringLevel": "Ring level",
+        "noRingBearer": "No Ring-bearer assigned",
+        "removeHelper": "Remove",
+        "clearRingBearer": "Clear Ring-bearer",
+        "ringLevelUp": "Level +1",
+        "ringLevelDown": "Level -1",
+        "noActiveMechanics": "No active mechanics.",
+        "notSet": "Not set"
+      },
+      "quick": {
+        "monarch": "Become monarch",
+        "initiative": "Take initiative",
+        "citysBlessing": "Get city's blessing",
+        "theRing": "Create The Ring",
+        "setDay": "Set day",
+        "setNight": "Set night"
+      },
+      "labels": {
+        "monarch": "Monarch",
+        "initiative": "Initiative",
+        "citys_blessing": "City's blessing",
+        "day_night": "Day/Night",
+        "the_ring": "The Ring",
+        "emblem": "Emblem",
+        "dungeon": "Dungeon",
+        "day": "Day",
+        "night": "Night"
+      },
+      "rail": {
+        "title": "Special entities",
+        "ringLevel": "Ring level"
+      }
     }
   },
   "deckBuilder": {

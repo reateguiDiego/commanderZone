@@ -134,6 +134,22 @@ final class GameWebsocketCardLocalizationResolver
             }
         }
 
+        foreach (($snapshot['specialEntities'] ?? []) as $entity) {
+            if (!is_array($entity) || !is_array($entity['card'] ?? null)) {
+                continue;
+            }
+
+            $entityId = trim((string) ($entity['id'] ?? ''));
+            if ($entityId === '') {
+                continue;
+            }
+
+            $cardsByStableId['special-entity:'.$entityId] = [
+                'card' => $entity['card'],
+                'slot' => 'special-entity:'.$entityId,
+            ];
+        }
+
         return $cardsByStableId;
     }
 

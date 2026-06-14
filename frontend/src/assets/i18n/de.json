@@ -343,7 +343,10 @@
         "xToExile": "X to exile",
         "xToHandPlayer": "X to hand player",
         "xToBattlefieldPlayer": "X to battlefield player",
-        "removeAllCounters": "Remove All Counters"
+        "removeAllCounters": "Remove All Counters",
+        "createHelper": "Mechaniken",
+        "setRingBearer": "Als Ringträger festlegen",
+        "mechanics": "Mechaniken"
       }
     },
     "contextSubmenu": {
@@ -533,6 +536,52 @@
     },
     "chat": {
       "allPlayers": "Todos"
+    },
+    "specialHelpers": {
+      "modal": {
+        "title": "Mechaniken",
+        "quickActions": "Schnellaktionen",
+        "cardBacked": "Kartenbasierte Hilfen",
+        "searchPlaceholder": "Embleme oder Verliese suchen",
+        "searching": "Hilfen werden gesucht...",
+        "noResults": "Keine Ergebnisse gefunden.",
+        "searchHint": "Gib mindestens 2 Zeichen ein, um zu suchen.",
+        "searchError": "Spezialhilfen konnten nicht geladen werden.",
+        "playerTarget": "Spieler: {{playerName}}",
+        "currentState": "Aktueller Status",
+        "readonly": "Nur lesen. Du kannst diese Mechaniken hier ansehen, aber nur der kontrollierende Spieler kann sie ändern.",
+        "ringLevel": "Ringstufe",
+        "noRingBearer": "Kein Ringträger zugewiesen",
+        "removeHelper": "Entfernen",
+        "clearRingBearer": "Ringträger entfernen",
+        "ringLevelUp": "Stufe +1",
+        "ringLevelDown": "Stufe -1",
+        "noActiveMechanics": "Keine aktiven Mechaniken.",
+        "notSet": "Nicht gesetzt"
+      },
+      "quick": {
+        "monarch": "Monarch werden",
+        "initiative": "Die Initiative übernehmen",
+        "citysBlessing": "Den Segen der Stadt erhalten",
+        "theRing": "Den Ring erstellen",
+        "setDay": "Auf Tag setzen",
+        "setNight": "Auf Nacht setzen"
+      },
+      "labels": {
+        "monarch": "Monarch",
+        "initiative": "Initiative",
+        "citys_blessing": "Segen der Stadt",
+        "day_night": "Tag/Nacht",
+        "the_ring": "Der Ring",
+        "emblem": "Emblem",
+        "dungeon": "Verlies",
+        "day": "Tag",
+        "night": "Nacht"
+      },
+      "rail": {
+        "title": "Spezialobjekte",
+        "ringLevel": "Ringstufe"
+      }
     }
   },
   "deckBuilder": {

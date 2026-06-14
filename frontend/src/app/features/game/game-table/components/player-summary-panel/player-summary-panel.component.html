@@ -207,6 +207,26 @@
       </section>
     </app-extra-actions-menu>
   </div>
+  <div class="player-helper-strip-shell" data-testid="player-helper-strip">
+    <button
+      type="button"
+      class="player-helper-create-button"
+      data-testid="player-helper-create"
+      [attr.aria-label]="'game.contextMenu.labels.mechanics' | runtimeTranslate"
+      [attr.data-mode]="helperInteractionMode()"
+      (click)="requestCreateHelper($event)"
+    >
+      <lucide-icon name="sparkles" size="14" aria-hidden="true" />
+      <span>{{ 'game.contextMenu.labels.mechanics' | runtimeTranslate }}</span>
+    </button>
+    <app-special-entity-rail
+      [entities]="visibleSpecialEntities()"
+      [ringBearerName]="ringBearerName()"
+      [imageFor]="helperImageFor()"
+      (previewRequested)="helperPreviewRequested.emit($event)"
+      (previewHidden)="helperPreviewHidden.emit()"
+    />
+  </div>
   @if (returnActionLabel(); as label) {
     <button
       type="button"

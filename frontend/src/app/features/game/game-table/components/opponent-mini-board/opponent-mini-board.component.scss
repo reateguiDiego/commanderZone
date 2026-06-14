@@ -233,6 +233,72 @@
   text-shadow: 0 1px 0 rgb(0 0 0 / 82%);
 }
 
+.opponent-mechanics-row {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.opponent-mechanics-button {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.28rem;
+  min-height: 1.55rem;
+  padding: 0.22rem 0.52rem;
+  border: 1px solid rgb(255 255 255 / 12%);
+  border-radius: 999px;
+  background: rgb(9 10 9 / 84%);
+  color: rgb(242 238 225 / 88%);
+  font-size: 0.62rem;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.opponent-mechanics-button[data-mode="editable"] {
+  border-color: color-mix(in srgb, var(--gold, #d7b46a) 42%, rgb(255 255 255 / 10%));
+  color: rgb(255 232 170 / 92%);
+}
+
+.opponent-mechanics-badges {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.22rem;
+  min-width: 0;
+}
+
+.opponent-mechanics-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.22rem;
+  min-width: 0;
+  padding: 0.16rem 0.4rem;
+  border: 1px solid rgb(255 255 255 / 10%);
+  border-radius: 999px;
+  background: rgb(6 7 6 / 72%);
+  color: rgb(232 225 208 / 82%);
+  font-size: 0.58rem;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.opponent-mechanics-badge span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.18rem;
+}
+
+.opponent-mechanics-badge small {
+  font-size: 0.58rem;
+  opacity: 0.76;
+}
+
 .active-turn-player .opponent-life {
   border-color: color-mix(in srgb, var(--gold, #d7b46a) 70%, rgb(255 255 255 / 10%));
   color: rgb(255 239 191);

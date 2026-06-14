@@ -1,6 +1,6 @@
 import { Injectable, OnDestroy, WritableSignal, computed, effect, inject, signal } from '@angular/core';
 import { Card } from '../../../core/models/card.model';
-import { ChatReactionType, GameCardInstance, GameCommandType, GameSnapshot, GameZoneName } from '../../../core/models/game.model';
+import { ChatReactionType, GameCardInstance, GameCommandType, GameSnapshot, GameSpecialEntity, GameZoneName } from '../../../core/models/game.model';
 import { GameTableDebouncedValueCommandsService } from './services/game-table-debounced-value-commands.service';
 import { GameTableDragService } from './services/game-table-drag.service';
 import { GameTableLibraryActionsService } from './services/game-table-library-actions.service';
@@ -42,6 +42,7 @@ import { GameTableLibraryTopState } from './state/zones/game-table-library-top.s
 import { GameTableOpponentTargetsState } from './state/arrows/game-table-opponent-targets.state';
 import { GameTablePlayersStore } from './state/players/game-table-players.store';
 import { GameTablePermanentRelationService } from './services/game-table-permanent-relation.service';
+import { GameTableSpecialEntityActionsService } from './services/game-table-special-entity-actions.service';
 import { GameTableSnapshotCoordinatorState } from './state/core/game-table-snapshot-coordinator.state';
 import { GameTableToastState } from './state/core/game-table-toast.state';
 import { GameTableZonePilesState } from './state/zones/game-table-zone-piles.state';
@@ -50,6 +51,7 @@ import { GameTableWebsocketGameplayService } from './services/game-table-websock
 import { GameTableManaPoolState, ManaPool } from './state/mana/game-table-mana-pool.state';
 import { ManaAddition, ManaPoolColor, ManaSourceSuggestion } from './utils/mana-source-detector';
 import { automaticTapOnlyManaSourceSuggestionWithAttachments, detectManaSourceWithAttachments } from './utils/mana-source-attachment-detector';
+import { GameTableSpecialEntitiesState } from './state/helpers/game-table-special-entities.state';
 
 export type { PlayerView } from './state/core/game-table-snapshot-selectors';
 export type { SelectedCard } from './models/game-table-card.model';
@@ -78,6 +80,8 @@ export class GameTableStore implements OnDestroy {
   private readonly session = inject(GameTableSessionService);
   private readonly websocketGameplay = inject(GameTableWebsocketGameplayService);
   private readonly selection = inject(GameTableSelectionService);
+  private readonly specialEntityActions = inject(GameTableSpecialEntityActionsService);
+  private readonly specialEntitiesState = inject(GameTableSpecialEntitiesState);
   private readonly coreState = inject(GameTableCoreState);
   private readonly arrowsState = inject(GameTableArrowsState);
   private readonly attachmentsState = inject(GameTableAttachmentsState);
@@ -179,6 +183,7 @@ export class GameTableStore implements OnDestroy {
   private readonly hiddenManaPoolPlayerIds = signal<ReadonlySet<string>>(new Set());
   readonly manaPool = (playerId: string): ManaPool => this.manaPoolState.pool(playerId);
   readonly isManaPoolHidden = (playerId: string): boolean => this.hiddenManaPoolPlayerIds().has(playerId);
+  readonly specialEntities = this.specialEntitiesState.all;
 
   constructor() {
     this.contexts.bind({
@@ -1328,6 +1333,26 @@ export class GameTableStore implements OnDestroy {
     this.markNewPowerToughnessTokensSettling(playerId, previousBattlefieldIds);
   }
 
+  async createHelper(
+    template: 'monarch' | 'initiative' | 'citys_blessing' | 'day_night' | 'the_ring' | 'emblem' | 'dungeon',
+    ownerPlayerId: string | null,
+    options: { card?: GameSpecialEntity['card']; state?: Record<string, unknown> } = {},
+  ): Promise<void> {
+    await this.specialEntityActions.createHelper(this.specialEntityActionContext(), template, ownerPlayerId, options);
+  }
+
+  async updateHelper(entityId: string, state: Record<string, unknown>): Promise<void> {
+    await this.specialEntityActions.updateHelper(this.specialEntityActionContext(), entityId, state);
+  }
+
+  async removeHelper(entityId: string): Promise<void> {
+    await this.specialEntityActions.removeHelper(this.specialEntityActionContext(), entityId);
+  }
+
+  async setRingBearer(playerId: string, card: GameCardInstance): Promise<void> {
+    await this.specialEntityActions.setRingBearer(this.specialEntityActionContext(), playerId, card);
+  }
+
   async setPowerToughness(menu: GameContextMenu, power: number, toughness: number): Promise<void> {
     await this.cardActions.setPowerToughness(this.contexts.cardAction(), menu, power, toughness);
   }
@@ -1755,6 +1780,15 @@ export class GameTableStore implements OnDestroy {
 
   private playerName(playerId: string): string {
     return this.playersStore.playerName(playerId);
+  }
+
+  private specialEntityActionContext() {
+    return {
+      snapshot: () => this.snapshot(),
+      setError: (message: string) => this.error.set(message),
+      closeContextMenu: () => this.closeContextMenu(),
+      command: (type: GameCommandType, payload: Record<string, unknown>) => this.command(type, payload),
+    };
   }
 
   private handlePendingTransferExpired(_expiration: PendingTransferExpiration): void {

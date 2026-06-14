@@ -62,9 +62,16 @@
               [manaSymbols]="manaSymbols"
               [playerCounterValue]="playerCounterValue"
               [canEditCounters]="canControlPlayer(summaryPlayer.id)"
+              [helperInteractionMode]="canControlPlayer(summaryPlayer.id) ? 'editable' : 'readonly'"
+              [specialEntities]="playerSpecialEntities(summaryPlayer.id)"
+              [ringBearerName]="ringBearerName"
+              [helperImageFor]="helperImageFor"
+              (helperPreviewRequested)="showHelperPreview($event)"
+              (helperPreviewHidden)="store.hideCardPreview()"
               (lifeChanged)="store.changeLife($event.playerId, $event.delta)"
               (commanderDamageChanged)="store.setCommanderDamage($event.targetPlayerId, $event.sourcePlayerId, $event.commanderInstanceId, $event.delta)"
               (playerCounterChanged)="store.changePlayerCounter($event.playerId, $event.key, $event.delta)"
+              (createHelperRequested)="openSpecialHelperModal($event)"
             />
           }
 
@@ -296,11 +303,18 @@
                 [player]="battlefieldOwner"
                 [players]="store.players()"
                 [colorAccent]="colorAccent"
-                [deckLabel]="deckLabel"
-                [manaSymbols]="manaSymbols"
-                [playerCounterValue]="playerCounterValue"
-                [canEditCounters]="false"
-                (returnRequested)="returnToCurrentPlayerBattlefield()"
+              [deckLabel]="deckLabel"
+              [manaSymbols]="manaSymbols"
+              [playerCounterValue]="playerCounterValue"
+              [canEditCounters]="false"
+              [helperInteractionMode]="canControlPlayer(battlefieldOwner.id) ? 'editable' : 'readonly'"
+              [specialEntities]="playerSpecialEntities(battlefieldOwner.id)"
+              [ringBearerName]="ringBearerName"
+              [helperImageFor]="helperImageFor"
+              (helperPreviewRequested)="showHelperPreview($event)"
+              (helperPreviewHidden)="store.hideCardPreview()"
+              (createHelperRequested)="openSpecialHelperModal($event)"
+              (returnRequested)="returnToCurrentPlayerBattlefield()"
               />
             </div>
           }
@@ -466,8 +480,11 @@
               [isActiveTurnPlayer]="snapshot.turn.activePlayerId === player.id"
               [targetingPill]="opponentTargetingPills().get(player.id) ?? null"
               [cardsTargetCards]="opponentCardsTargetCards().get(player.id) ?? []"
+              [specialEntitiesSummary]="playerSpecialEntitiesSummary(player.id)"
+              [helperInteractionMode]="canControlPlayer(player.id) ? 'editable' : 'readonly'"
               [battlefieldSize]="battlefieldLayoutSize()"
               (focusPlayer)="focusOpponentFromSidebar($event)"
+              (mechanicsRequested)="openSpecialHelperModal($event)"
               (dropAllowed)="store.allowDrop($event)"
               (playerDropped)="handlePlayerDrop($event)"
               (playerMenuOpened)="store.openPlayerMenu($event.event, $event.playerId)"
@@ -575,6 +592,21 @@
         [pending]="tokenSearchPending()"
         (tokenSelected)="createSelectedToken($event)"
         (closed)="closeTokenSearchModal()"
+      />
+
+      <app-special-helper-modal
+        [open]="specialHelperPlayerId() !== null"
+        [pending]="specialHelperPending()"
+        [interactionMode]="specialHelperInteractionMode()"
+        [playerName]="specialHelperPlayerName()"
+        [playerSummary]="specialHelperPlayerSummary()"
+        [dayNightEntity]="specialEntityState.dayNight()"
+        [ringBearerName]="ringBearerName"
+        (quickActionSelected)="createQuickHelper($event)"
+        (cardSelected)="createSelectedHelper($event)"
+        (entityUpdated)="applyHelperEntityUpdate($event)"
+        (entityRemoved)="removeHelperEntity($event)"
+        (closed)="closeSpecialHelperModal()"
       />
 
       @if (rollModalOpen()) {

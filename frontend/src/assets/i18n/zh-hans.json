@@ -343,7 +343,10 @@
         "xToExile": "X to exile",
         "xToHandPlayer": "X to hand player",
         "xToBattlefieldPlayer": "X to battlefield player",
-        "removeAllCounters": "Remove All Counters"
+        "removeAllCounters": "Remove All Counters",
+        "createHelper": "机制",
+        "setRingBearer": "设为魔戒持有者",
+        "mechanics": "机制"
       }
     },
     "contextSubmenu": {
@@ -533,6 +536,52 @@
     },
     "chat": {
       "allPlayers": "Todos"
+    },
+    "specialHelpers": {
+      "modal": {
+        "title": "机制",
+        "quickActions": "快捷操作",
+        "cardBacked": "卡牌实体",
+        "searchPlaceholder": "搜索徽记或地下城",
+        "searching": "正在搜索实体...",
+        "noResults": "未找到结果。",
+        "searchHint": "请至少输入 2 个字符进行搜索。",
+        "searchError": "无法加载特殊实体。",
+        "playerTarget": "玩家：{{playerName}}",
+        "currentState": "当前状态",
+        "readonly": "只读。你可以在这里查看这些机制，但只有控制该位置的玩家才能更改它们。",
+        "ringLevel": "魔戒等级",
+        "noRingBearer": "未指定魔戒持有者",
+        "removeHelper": "移除",
+        "clearRingBearer": "清除魔戒持有者",
+        "ringLevelUp": "等级 +1",
+        "ringLevelDown": "等级 -1",
+        "noActiveMechanics": "当前没有启用的机制。",
+        "notSet": "未设置"
+      },
+      "quick": {
+        "monarch": "成为君主",
+        "initiative": "获得先导权",
+        "citysBlessing": "获得城市祝福",
+        "theRing": "创建魔戒",
+        "setDay": "设为昼",
+        "setNight": "设为夜"
+      },
+      "labels": {
+        "monarch": "君主",
+        "initiative": "先导权",
+        "citys_blessing": "城市祝福",
+        "day_night": "昼/夜",
+        "the_ring": "魔戒",
+        "emblem": "徽记",
+        "dungeon": "地下城",
+        "day": "昼",
+        "night": "夜"
+      },
+      "rail": {
+        "title": "特殊实体",
+        "ringLevel": "魔戒等级"
+      }
     }
   },
   "deckBuilder": {

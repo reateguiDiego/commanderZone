@@ -343,7 +343,10 @@
         "xToExile": "X to exile",
         "xToHandPlayer": "X to hand player",
         "xToBattlefieldPlayer": "X to battlefield player",
-        "removeAllCounters": "Remove All Counters"
+        "removeAllCounters": "Remove All Counters",
+        "createHelper": "Mécaniques",
+        "setRingBearer": "Définir comme Porteur de l'Anneau",
+        "mechanics": "Mécaniques"
       }
     },
     "contextSubmenu": {
@@ -533,6 +536,52 @@
     },
     "chat": {
       "allPlayers": "Todos"
+    },
+    "specialHelpers": {
+      "modal": {
+        "title": "Mécaniques",
+        "quickActions": "Actions rapides",
+        "cardBacked": "Entités avec carte",
+        "searchPlaceholder": "Rechercher des emblèmes ou des donjons",
+        "searching": "Recherche des aides...",
+        "noResults": "Aucun résultat.",
+        "searchHint": "Saisissez au moins 2 caractères pour rechercher.",
+        "searchError": "Impossible de charger les aides spéciales.",
+        "playerTarget": "Joueur : {{playerName}}",
+        "currentState": "État actuel",
+        "readonly": "Lecture seule. Vous pouvez consulter ces mécaniques ici, mais seul le joueur qui contrôle cette position peut les modifier.",
+        "ringLevel": "Niveau de l'Anneau",
+        "noRingBearer": "Aucun Porteur de l'Anneau assigné",
+        "removeHelper": "Retirer",
+        "clearRingBearer": "Retirer le Porteur de l'Anneau",
+        "ringLevelUp": "Niveau +1",
+        "ringLevelDown": "Niveau -1",
+        "noActiveMechanics": "Aucune mécanique active.",
+        "notSet": "Non défini"
+      },
+      "quick": {
+        "monarch": "Devenir le monarque",
+        "initiative": "Prendre l'initiative",
+        "citysBlessing": "Obtenir la bénédiction de la cité",
+        "theRing": "Créer l'Anneau",
+        "setDay": "Passer au jour",
+        "setNight": "Passer à la nuit"
+      },
+      "labels": {
+        "monarch": "Monarque",
+        "initiative": "Initiative",
+        "citys_blessing": "Bénédiction de la cité",
+        "day_night": "Jour/Nuit",
+        "the_ring": "L'Anneau",
+        "emblem": "Emblème",
+        "dungeon": "Donjon",
+        "day": "Jour",
+        "night": "Nuit"
+      },
+      "rail": {
+        "title": "Entités spéciales",
+        "ringLevel": "Niveau de l'Anneau"
+      }
     }
   },
   "deckBuilder": {

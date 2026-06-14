@@ -539,6 +539,63 @@ describe('game snapshot patch reducer', () => {
     }));
   });
 
+  it('applies granular helper add, update and remove operations', () => {
+    const snapshot = snapshotFixture();
+
+    const result = applyGameSnapshotPatch(snapshot, patch([
+      {
+        op: 'specialEntity.add',
+        entity: {
+          id: 'ring-1',
+          template: 'the_ring',
+          scope: 'player',
+          ownerPlayerId: 'player-1',
+          card: null,
+          state: { level: 1, ringBearerInstanceId: null },
+          createdAt: '2026-01-01T00:00:02.000Z',
+        },
+      },
+      {
+        op: 'specialEntity.update',
+        entityId: 'ring-1',
+        state: { level: 2, ringBearerInstanceId: 'battlefield-1' },
+      },
+      {
+        op: 'specialEntity.remove',
+        entityId: 'ring-1',
+      },
+    ]));
+
+    expect(result.status).toBe('applied');
+    expect(result.snapshot.specialEntities).toEqual([]);
+  });
+
+  it('replaces helpers through specialEntities.set when a resync patch needs the full collection', () => {
+    const snapshot = snapshotFixture();
+
+    const result = applyGameSnapshotPatch(snapshot, patch([
+      {
+        op: 'specialEntities.set',
+        specialEntities: [{
+          id: 'day-night-1',
+          template: 'day_night',
+          scope: 'global',
+          ownerPlayerId: null,
+          card: null,
+          state: { mode: 'night' },
+          createdAt: '2026-01-01T00:00:02.000Z',
+        }],
+      },
+    ]));
+
+    expect(result.status).toBe('applied');
+    expect(result.snapshot.specialEntities).toEqual([expect.objectContaining({
+      id: 'day-night-1',
+      template: 'day_night',
+      state: { mode: 'night' },
+    })]);
+  });
+
   it('removes an evaporated card without inserting it into another zone', () => {
     const snapshot = snapshotFixture();
 
@@ -720,6 +777,7 @@ function snapshotFixture(): GameSnapshot {
     stack: [],
     arrows: [],
     attachments: [],
+    specialEntities: [],
     chat: [],
     eventLog: [{ id: 'log-1', type: 'game.started', message: 'Started', actorId: null, displayName: null, createdAt: '2026-01-01T00:00:00.000Z' }],
     createdAt: '2026-01-01T00:00:00.000Z',

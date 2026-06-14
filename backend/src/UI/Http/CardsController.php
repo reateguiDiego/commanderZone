@@ -50,6 +50,28 @@ class CardsController extends ApiController
             $filterParams['tokenTypeLine'] = '%token%';
         }
 
+        $gameplayKind = mb_strtolower(trim((string) $request->query->get('gameplayKind', '')));
+        if ($gameplayKind !== '') {
+            if (!in_array($gameplayKind, ['token', 'emblem', 'dungeon'], true)) {
+                return $this->fail('gameplayKind filter is invalid.');
+            }
+
+            if ($gameplayKind === 'token') {
+                $filters[] = '(c.layout IN (:gameplayTokenLayout, :gameplayDoubleFacedTokenLayout) OR LOWER(c.type_line) LIKE :gameplayTokenTypeLine)';
+                $filterParams['gameplayTokenLayout'] = 'token';
+                $filterParams['gameplayDoubleFacedTokenLayout'] = 'double_faced_token';
+                $filterParams['gameplayTokenTypeLine'] = '%token%';
+            } elseif ($gameplayKind === 'emblem') {
+                $filters[] = '(c.layout = :gameplayEmblemLayout OR LOWER(c.type_line) LIKE :gameplayEmblemTypeLine)';
+                $filterParams['gameplayEmblemLayout'] = 'emblem';
+                $filterParams['gameplayEmblemTypeLine'] = '%emblem%';
+            } else {
+                $filters[] = '(c.layout = :gameplayDungeonLayout OR LOWER(c.type_line) LIKE :gameplayDungeonTypeLine)';
+                $filterParams['gameplayDungeonLayout'] = 'dungeon';
+                $filterParams['gameplayDungeonTypeLine'] = '%dungeon%';
+            }
+        }
+
         $type = mb_strtolower(trim((string) $request->query->get('type', '')));
         if ($type !== '') {
             $allowedTypes = ['creature', 'instant', 'sorcery', 'artifact', 'enchantment', 'planeswalker', 'land'];

@@ -641,6 +641,12 @@ paths:
           description: When true, restricts results to token cards in the local catalog.
           schema:
             type: boolean
+        - name: gameplayKind
+          in: query
+          description: Additive gameplay helper search filter for token, emblem, or dungeon cards.
+          schema:
+            type: string
+            enum: [token, emblem, dungeon]
         - name: lang
           in: query
           description: Preferred card language. Falls back to English, then to the original printing.
@@ -4261,7 +4267,7 @@ components:
           format: date-time
     GameSnapshot:
       type: object
-      required: [version, players, turn, stack, arrows, attachments, chat, eventLog, createdAt]
+      required: [version, players, turn, stack, arrows, attachments, specialEntities, chat, eventLog, createdAt]
       properties:
         version:
           type: integer
@@ -4288,6 +4294,10 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/GameAttachment'
+        specialEntities:
+          type: array
+          items:
+            $ref: '#/components/schemas/GameSpecialEntity'
         chat:
           type: array
           items:
@@ -4759,6 +4769,55 @@ components:
         createdAt:
           type: string
           format: date-time
+    GameSpecialEntity:
+      type: object
+      required: [id, template, scope, ownerPlayerId, card, state, createdAt]
+      properties:
+        id:
+          type: string
+        template:
+          type: string
+          enum: [monarch, initiative, citys_blessing, day_night, the_ring, emblem, dungeon]
+        scope:
+          type: string
+          enum: [global, player]
+        ownerPlayerId:
+          type: [string, 'null']
+          format: uuid
+        card:
+          oneOf:
+            - $ref: '#/components/schemas/GameSpecialEntityCardRef'
+            - type: 'null'
+        state:
+          type: object
+          description: Template-specific manual helper state persisted for realtime synchronization.
+          additionalProperties: true
+        createdAt:
+          type: string
+          format: date-time
+    GameSpecialEntityCardRef:
+      type: object
+      required: [scryfallId, name]
+      properties:
+        scryfallId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        imageUris:
+          type: object
+          additionalProperties:
+            type: string
+        cardFaces:
+          type: array
+          items:
+            $ref: '#/components/schemas/CardFace'
+        typeLine:
+          type: [string, 'null']
+        oracleText:
+          type: [string, 'null']
+        layout:
+          type: [string, 'null']
     GameCommand:
       type: object
       required: [type, payload]
@@ -4806,6 +4865,9 @@ components:
             - arrow.removed
             - attachment.created
             - attachment.removed
+            - helper.created
+            - helper.updated
+            - helper.removed
         payload:
           type: object
           description: >
@@ -4853,7 +4915,9 @@ components:
             provided. It may include quantity from 1 to 20 to create multiple
             token instances atomically in one command. cards.position.changed
             persists multiple battlefield card positions atomically with payload shape { playerId, zone:
-            battlefield, positions: [{ instanceId, position }] }.
+            battlefield, positions: [{ instanceId, position }] }. helper.created
+            accepts { template, ownerPlayerId?, card?, state? }; helper.updated
+            accepts { entityId, state }; helper.removed accepts { entityId }.
           additionalProperties: true
         clientActionId:
           type: string

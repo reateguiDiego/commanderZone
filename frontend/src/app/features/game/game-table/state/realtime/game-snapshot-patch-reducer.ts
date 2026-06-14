@@ -1,6 +1,7 @@
 import {
   GameCardInstance,
   GamePlayerState,
+  GameSpecialEntity,
   GameSnapshot,
   GameZoneCounts,
   GameZoneName,
@@ -235,9 +236,40 @@ function applyOperation(snapshot: GameSnapshot, operation: GameSnapshotPatchOper
     case 'attachments.set':
       return { status: 'applied', snapshot: { ...snapshot, attachments: [...operation.attachments] } };
 
+    case 'specialEntity.add':
+      return {
+        status: 'applied',
+        snapshot: {
+          ...snapshot,
+          specialEntities: [...specialEntities(snapshot), operation.entity],
+        },
+      };
+
+    case 'specialEntity.update':
+      return updateSpecialEntity(snapshot, operation.entityId, (entity) => ({
+        ...entity,
+        state: { ...operation.state },
+      }));
+
+    case 'specialEntity.remove':
+      return removeSpecialEntity(snapshot, operation.entityId);
+
+    case 'specialEntities.set':
+      return {
+        status: 'applied',
+        snapshot: {
+          ...snapshot,
+          specialEntities: [...operation.specialEntities],
+        },
+      };
+
     default:
       return { status: 'failed', reason: 'invalid_operation' };
   }
+}
+
+function specialEntities(snapshot: GameSnapshot): GameSpecialEntity[] {
+  return [...(snapshot.specialEntities ?? [])];
 }
 
 function updatePlayer(snapshot: GameSnapshot, playerId: string, update: (player: GamePlayerState) => GamePlayerState | null): OperationResult {
@@ -271,6 +303,45 @@ function mergeZoneCounts(player: GamePlayerState, counts: Partial<Record<GameZon
   return {
     ...player.zoneCounts,
     ...counts,
+  };
+}
+
+function updateSpecialEntity(
+  snapshot: GameSnapshot,
+  entityId: string,
+  update: (entity: GameSpecialEntity) => GameSpecialEntity,
+): OperationResult {
+  const entities = snapshot.specialEntities ?? [];
+  const entityIndex = entities.findIndex((entity) => entity.id === entityId);
+  if (entityIndex < 0) {
+    return { status: 'failed', reason: 'target_not_found' };
+  }
+
+  const nextEntities = [...entities];
+  nextEntities[entityIndex] = update(nextEntities[entityIndex]!);
+
+  return {
+    status: 'applied',
+    snapshot: {
+      ...snapshot,
+      specialEntities: nextEntities,
+    },
+  };
+}
+
+function removeSpecialEntity(snapshot: GameSnapshot, entityId: string): OperationResult {
+  const entities = snapshot.specialEntities ?? [];
+  const entityIndex = entities.findIndex((entity) => entity.id === entityId);
+  if (entityIndex < 0) {
+    return { status: 'failed', reason: 'target_not_found' };
+  }
+
+  return {
+    status: 'applied',
+    snapshot: {
+      ...snapshot,
+      specialEntities: entities.filter((entity) => entity.id !== entityId),
+    },
   };
 }
 

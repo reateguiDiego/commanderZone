@@ -1,0 +1,140 @@
+.special-helper-modal {
+  display: grid;
+  gap: 1rem;
+}
+
+.special-helper-summary,
+.special-helper-section {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.special-helper-summary strong {
+  font-size: 1rem;
+}
+
+.special-helper-readonly {
+  margin: 0;
+  color: rgb(232 225 208 / 72%);
+  font-size: 0.84rem;
+}
+
+.special-helper-eyebrow {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.72;
+}
+
+.special-helper-state-list {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.special-helper-state-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.8rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 1rem;
+  background: rgba(15, 20, 24, 0.86);
+}
+
+.special-helper-state-copy {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.special-helper-state-copy strong,
+.special-helper-state-copy span,
+.special-helper-state-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.special-helper-state-copy small {
+  opacity: 0.74;
+}
+
+.special-helper-state-card img {
+  width: 3rem;
+  height: 4.2rem;
+  object-fit: cover;
+  border-radius: 0.55rem;
+}
+
+.special-helper-global-row,
+.special-helper-actions,
+.special-helper-kind-toggle,
+.special-helper-inline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.special-helper-actions button,
+.special-helper-kind-toggle button,
+.special-helper-inline-actions button,
+.special-helper-card {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(15, 20, 24, 0.86);
+  color: #f4efe7;
+  border-radius: 0.9rem;
+}
+
+.special-helper-actions button,
+.special-helper-kind-toggle button,
+.special-helper-inline-actions button {
+  padding: 0.65rem 0.9rem;
+}
+
+.special-helper-inline-actions .danger {
+  border-color: rgba(255, 125, 125, 0.35);
+  color: rgb(255 205 205);
+}
+
+.special-helper-kind-toggle button.active {
+  border-color: rgba(255, 210, 112, 0.45);
+  background: rgba(69, 49, 14, 0.9);
+}
+
+.special-helper-results {
+  max-height: 24rem;
+}
+
+.special-helper-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+  gap: 0.75rem;
+}
+
+.special-helper-card {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.6rem;
+  text-align: left;
+}
+
+.special-helper-card img {
+  width: 100%;
+  aspect-ratio: 0.72;
+  object-fit: cover;
+  border-radius: 0.6rem;
+}
+
+.special-helper-card strong,
+.special-helper-card span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.special-helper-card span {
+  font-size: 0.82rem;
+  opacity: 0.72;
+}

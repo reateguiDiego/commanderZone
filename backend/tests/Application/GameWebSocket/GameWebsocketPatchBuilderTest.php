@@ -1283,6 +1283,41 @@ class GameWebsocketPatchBuilderTest extends TestCase
         self::assertSame('counter.changed', $globalCounter['operations'][1]['entries'][0]['type'] ?? null);
     }
 
+    public function testBuildsGranularHelperCreateUpdateAndRemovePatches(): void
+    {
+        [$game, $actor] = $this->game();
+        $handler = new GameCommandHandler();
+
+        $created = $this->applyAndBuild($game, $actor, 'helper.created', [
+            'template' => 'the_ring',
+            'ownerPlayerId' => $actor->id(),
+            'state' => ['level' => 1, 'ringBearerInstanceId' => null],
+        ], 'action-helper-create', $handler);
+        self::assertSame('specialEntity.add', $created['operations'][0]['op'] ?? null);
+        self::assertSame('the_ring', $created['operations'][0]['entity']['template'] ?? null);
+
+        $entityId = $game->snapshot()['specialEntities'][0]['id'] ?? null;
+        self::assertIsString($entityId);
+
+        $updated = $this->applyAndBuild($game, $actor, 'helper.updated', [
+            'entityId' => $entityId,
+            'state' => ['level' => 2, 'ringBearerInstanceId' => null],
+        ], 'action-helper-update', $handler);
+        self::assertSame([
+            'op' => 'specialEntity.update',
+            'entityId' => $entityId,
+            'state' => ['level' => 2, 'ringBearerInstanceId' => null],
+        ], $updated['operations'][0]);
+
+        $removed = $this->applyAndBuild($game, $actor, 'helper.removed', [
+            'entityId' => $entityId,
+        ], 'action-helper-remove', $handler);
+        self::assertSame([
+            'op' => 'specialEntity.remove',
+            'entityId' => $entityId,
+        ], $removed['operations'][0]);
+    }
+
     public function testDoesNotEmitFullSnapshotPlayersOrZonesInGamePatchPayload(): void
     {
         [$game, $actor] = $this->game();

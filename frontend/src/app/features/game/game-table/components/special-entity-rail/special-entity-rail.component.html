@@ -1,0 +1,45 @@
+@if (entities().length > 0) {
+  <section class="special-entity-rail" [attr.aria-label]="'game.specialHelpers.rail.title' | runtimeTranslate">
+    @for (entity of nonCardEntities(); track entity.id) {
+      <article class="special-entity-pill">
+        <span class="special-entity-icon" aria-hidden="true">
+          <lucide-icon [name]="iconFor(entity)" size="13" />
+        </span>
+        <div class="special-entity-pill-copy">
+          <span>{{ labelFor(entity) | runtimeTranslate }}</span>
+        @if (entity.template === 'the_ring') {
+          @if (ringLevel(entity); as level) {
+            <div class="special-entity-ring-row">
+              <strong>{{ 'game.specialHelpers.rail.ringLevel' | runtimeTranslate }} {{ level }}</strong>
+            </div>
+          }
+          @if (ringBearerLabel(entity); as ringBearerName) {
+            <small>{{ ringBearerName }}</small>
+          }
+        }
+        </div>
+      </article>
+    }
+
+    @for (entity of cardEntities(); track entity.id) {
+      @if (entity.card; as card) {
+        <article
+          class="special-entity-pill special-entity-pill-card-backed"
+          (mouseenter)="previewRequested.emit(entity)"
+          (mouseleave)="previewHidden.emit()"
+        >
+          <span class="special-entity-icon" aria-hidden="true">
+            <lucide-icon [name]="iconFor(entity)" size="13" />
+          </span>
+          <div class="special-entity-pill-copy">
+            <strong>{{ card.name }}</strong>
+            <span>{{ labelFor(entity) | runtimeTranslate }}</span>
+            @if (entity.template === 'dungeon' && dungeonRoom(entity); as roomName) {
+              <small>{{ roomName }}</small>
+            }
+          </div>
+        </article>
+      }
+    }
+  </section>
+}

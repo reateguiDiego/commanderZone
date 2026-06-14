@@ -181,6 +181,14 @@ describe('API services', () => {
     request.flush({ data: [], page: 1, limit: 8 });
   });
 
+  it('adds gameplayKind to card search requests without changing tokenOnly behavior', () => {
+    TestBed.inject(CardsApi).search('ring', 1, 12, { gameplayKind: 'emblem' }).subscribe();
+
+    const request = http.expectOne(`${API_BASE_URL}/cards/search?q=ring&page=1&limit=12&lang=en&gameplayKind=emblem`);
+    expect(request.request.method).toBe('GET');
+    request.flush({ data: [], page: 1, limit: 12 });
+  });
+
   it('requests card image URIs from the backend image endpoint', () => {
     TestBed.inject(CardsApi).image('card-1', 'normal').subscribe();
 

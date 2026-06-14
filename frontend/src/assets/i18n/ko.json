@@ -343,7 +343,10 @@
         "xToExile": "X to exile",
         "xToHandPlayer": "X to hand player",
         "xToBattlefieldPlayer": "X to battlefield player",
-        "removeAllCounters": "Remove All Counters"
+        "removeAllCounters": "Remove All Counters",
+        "createHelper": "메커니즘",
+        "setRingBearer": "반지 운반자로 지정",
+        "mechanics": "메커니즘"
       }
     },
     "contextSubmenu": {
@@ -533,6 +536,52 @@
     },
     "chat": {
       "allPlayers": "Todos"
+    },
+    "specialHelpers": {
+      "modal": {
+        "title": "메커니즘",
+        "quickActions": "빠른 작업",
+        "cardBacked": "카드 기반 엔티티",
+        "searchPlaceholder": "휘장 또는 던전 검색",
+        "searching": "도우미 검색 중...",
+        "noResults": "결과가 없습니다.",
+        "searchHint": "검색하려면 두 글자 이상 입력하세요.",
+        "searchError": "특수 도우미를 불러오지 못했습니다.",
+        "playerTarget": "플레이어: {{playerName}}",
+        "currentState": "현재 상태",
+        "readonly": "읽기 전용입니다. 여기에서 메커니즘을 확인할 수 있지만 변경은 해당 플레이어만 할 수 있습니다.",
+        "ringLevel": "반지 레벨",
+        "noRingBearer": "지정된 반지 운반자 없음",
+        "removeHelper": "제거",
+        "clearRingBearer": "반지 운반자 해제",
+        "ringLevelUp": "레벨 +1",
+        "ringLevelDown": "레벨 -1",
+        "noActiveMechanics": "활성 메커니즘이 없습니다.",
+        "notSet": "설정되지 않음"
+      },
+      "quick": {
+        "monarch": "군주 되기",
+        "initiative": "주도권 얻기",
+        "citysBlessing": "도시의 축복 얻기",
+        "theRing": "반지 만들기",
+        "setDay": "낮으로 설정",
+        "setNight": "밤으로 설정"
+      },
+      "labels": {
+        "monarch": "군주",
+        "initiative": "주도권",
+        "citys_blessing": "도시의 축복",
+        "day_night": "낮/밤",
+        "the_ring": "반지",
+        "emblem": "휘장",
+        "dungeon": "던전",
+        "day": "낮",
+        "night": "밤"
+      },
+      "rail": {
+        "title": "특수 엔티티",
+        "ringLevel": "반지 단계"
+      }
     }
   },
   "deckBuilder": {

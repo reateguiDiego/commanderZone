@@ -206,6 +206,34 @@ class CardApiTest extends ApiTestCase
         self::assertSame([$token->scryfallId()], array_column($this->jsonResponse()['data'], 'scryfallId'));
     }
 
+    public function testSearchCanFilterGameplayHelpersByKind(): void
+    {
+        $token = $this->seedCard('00000000-0000-0000-0000-0000000000c1', 'Goblin Token', [
+            'layout' => 'token',
+            'type_line' => 'Token Creature - Goblin',
+        ]);
+        $emblem = $this->seedCard('00000000-0000-0000-0000-0000000000c2', 'Chandra Emblem', [
+            'layout' => 'emblem',
+            'type_line' => 'Emblem',
+        ]);
+        $dungeon = $this->seedCard('00000000-0000-0000-0000-0000000000c3', 'Lost Mine of Phandelver', [
+            'layout' => 'dungeon',
+            'type_line' => 'Dungeon',
+        ]);
+
+        $this->jsonRequest('GET', '/cards/search?q=token&gameplayKind=token');
+        self::assertResponseIsSuccessful();
+        self::assertSame([$token->scryfallId()], array_column($this->jsonResponse()['data'], 'scryfallId'));
+
+        $this->jsonRequest('GET', '/cards/search?q=emblem&gameplayKind=emblem');
+        self::assertResponseIsSuccessful();
+        self::assertSame([$emblem->scryfallId()], array_column($this->jsonResponse()['data'], 'scryfallId'));
+
+        $this->jsonRequest('GET', '/cards/search?q=phandelver&gameplayKind=dungeon');
+        self::assertResponseIsSuccessful();
+        self::assertSame([$dungeon->scryfallId()], array_column($this->jsonResponse()['data'], 'scryfallId'));
+    }
+
     public function testSearchColorIdentityFilterUsesSubsetSemanticsAndKeepsColorlessCards(): void
     {
         $blueCard = $this->seedCard('00000000-0000-0000-0000-000000000023', 'Arcane Denial', [

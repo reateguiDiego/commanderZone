@@ -97,6 +97,32 @@ describe('AppModalComponent', () => {
     expect(emitted).toHaveBeenCalledOnce();
   });
 
+  it('can close from the backdrop when enabled', () => {
+    const fixture = TestBed.createComponent(AppModalComponent);
+    const emitted = vi.fn();
+    fixture.componentRef.setInput('open', true);
+    fixture.componentRef.setInput('closeOnBackdrop', true);
+    fixture.componentInstance.close.subscribe(emitted);
+    fixture.detectChanges();
+
+    fixture.nativeElement.querySelector('.modal-backdrop').click();
+
+    expect(emitted).toHaveBeenCalledOnce();
+  });
+
+  it('does not close from the panel click when backdrop closing is enabled', () => {
+    const fixture = TestBed.createComponent(AppModalComponent);
+    const emitted = vi.fn();
+    fixture.componentRef.setInput('open', true);
+    fixture.componentRef.setInput('closeOnBackdrop', true);
+    fixture.componentInstance.close.subscribe(emitted);
+    fixture.detectChanges();
+
+    fixture.nativeElement.querySelector('.modal-panel').click();
+
+    expect(emitted).not.toHaveBeenCalled();
+  });
+
   it('supports a split footer with tertiary cancel and primary secondary action', () => {
     const fixture = TestBed.createComponent(AppModalComponent);
     const tertiary = vi.fn();

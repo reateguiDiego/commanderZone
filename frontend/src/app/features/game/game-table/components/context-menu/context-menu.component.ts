@@ -45,10 +45,12 @@ export type ContextMenuAction =
   | { type: 'flipCardFace' }
   | { type: 'revealCard'; target: string }
   | { type: 'createToken' }
+  | { type: 'createHelper' }
   | { type: 'rollDice' }
   | { type: 'showManaPool' }
   | { type: 'resetManaPool' }
   | { type: 'tokenCopy' }
+  | { type: 'setRingBearer' }
   | { type: 'drawArrow' }
   | { type: 'equipCard' }
   | { type: 'unequipCard' }
@@ -263,6 +265,14 @@ export class ContextMenuComponent {
     return this.showsBattlefieldCardActions()
       && !!currentMenu.card
       && this.isAttachmentTarget()(currentMenu.playerId, currentMenu.card);
+  }
+
+  canSetRingBearer(): boolean {
+    const currentMenu = this.menu();
+    return currentMenu.zone === 'battlefield'
+      && !!currentMenu.card
+      && this.canControlPlayer()(currentMenu.playerId)
+      && (currentMenu.card.typeLine ?? '').toLowerCase().includes('creature');
   }
 
   canEquipCard(): boolean {

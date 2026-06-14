@@ -60,6 +60,11 @@
           (mouseenter)="zone !== 'command' ? previewZoneCard($event, zone) : undefined"
           (mouseleave)="zone !== 'command' ? hideZoneCardPreview(zone) : undefined"
         >
+          @if (zone === 'library' && isMonarchOwner(currentPlayer.id)) {
+            <span class="zone-monarch-badge" [attr.aria-label]="'game.specialHelpers.labels.monarch' | runtimeTranslate">
+              <lucide-icon name="crown" size="15" aria-hidden="true" />
+            </span>
+          }
           @if (image) {
             @if (zone !== 'command') {
               @let layerImage = zoneStackLayerImage()(currentPlayer, zone);

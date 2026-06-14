@@ -1,6 +1,7 @@
 import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, OnDestroy, WritableSignal, computed, input, output, signal } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
+import { GameSpecialEntity } from '../../../../../core/models/game.model';
 import { ManaSymbolsComponent } from '../../../../../shared/mana/mana-symbols/mana-symbols.component';
 import { ExtraActionsMenuComponent } from '../../../../../shared/ui/extra-actions-menu/extra-actions-menu.component';
 import { PlayerAvatarComponent } from '../../../../../shared/ui/player-avatar/player-avatar.component';
@@ -8,6 +9,7 @@ import { PlayerNameComponent } from '../../../../../shared/ui/player-name/player
 import { PlayerView } from '../../game-table.store';
 import { GAME_TABLE_VALUE_COMMAND_DEBOUNCE_MS } from '../../services/game-table-debounced-value-commands.service';
 import { clampPlayerLife } from '../../utils/player-life-bounds';
+import { SpecialEntityRailComponent } from '../special-entity-rail/special-entity-rail.component';
 
 interface LifeChangeEvent {
   playerId: string;
@@ -69,7 +71,7 @@ const PLAYER_COUNTER_TRACKERS: readonly PlayerCounterTracker[] = [
 
 @Component({
   selector: 'app-player-summary-panel',
-  imports: [RuntimeTranslatePipe, ExtraActionsMenuComponent, LucideAngularModule, ManaSymbolsComponent, PlayerAvatarComponent, PlayerNameComponent],
+  imports: [RuntimeTranslatePipe, ExtraActionsMenuComponent, LucideAngularModule, ManaSymbolsComponent, PlayerAvatarComponent, PlayerNameComponent, SpecialEntityRailComponent],
   templateUrl: './player-summary-panel.component.html',
   styleUrl: './player-summary-panel.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -91,14 +93,22 @@ export class PlayerSummaryPanelComponent implements OnDestroy {
   readonly manaSymbols = input.required<(player: PlayerView | null) => string[]>();
   readonly playerCounterValue = input.required<(player: PlayerView, key: PlayerCounterKey) => number>();
   readonly canEditCounters = input.required<boolean>();
+  readonly helperInteractionMode = input<'readonly' | 'editable'>('editable');
+  readonly specialEntities = input<readonly GameSpecialEntity[]>([]);
+  readonly ringBearerName = input<(entity: GameSpecialEntity) => string | null>(() => null);
+  readonly helperImageFor = input<(entity: GameSpecialEntity) => string | null>(() => null);
   readonly contextLabel = input<string | null>(null);
   readonly returnActionLabel = input<string | null>(null);
   readonly lifeChanged = output<LifeChangeEvent>();
   readonly commanderDamageChanged = output<CommanderDamageChangeEvent>();
   readonly playerCounterChanged = output<PlayerCounterChangeEvent>();
+  readonly createHelperRequested = output<string>();
+  readonly helperPreviewRequested = output<GameSpecialEntity>();
+  readonly helperPreviewHidden = output<void>();
   readonly returnRequested = output<void>();
   readonly lifeFeedback = signal<LifeFeedback | null>(null);
   readonly otherCountersExpanded = signal(false);
+  readonly visibleSpecialEntities = computed(() => this.specialEntities());
   readonly hasLongDisplayName = computed(
     () => this.player().state.user.displayName.trim().length > CONTEXT_PANEL_LONG_NAME_THRESHOLD,
   );
@@ -223,6 +233,12 @@ export class PlayerSummaryPanelComponent implements OnDestroy {
     event.preventDefault();
     event.stopPropagation();
     this.returnRequested.emit();
+  }
+
+  requestCreateHelper(event: MouseEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.createHelperRequested.emit(this.player().id);
   }
 
   counterValue(key: PlayerCounterKey): number {

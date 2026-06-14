@@ -200,6 +200,12 @@
             <span>{{ displayLabel('game.contextMenu.labels.createToken') }}</span>
           </span>
         </button>
+        <button type="button" (click)="actionSelected.emit({ type: 'createHelper' })">
+          <span class="menu-item-label">
+            <lucide-icon name="crown" size="17" aria-hidden="true" />
+            <span>{{ displayLabel('game.contextMenu.labels.mechanics') }}</span>
+          </span>
+        </button>
         <button type="button" (click)="actionSelected.emit({ type: 'rollDice' })">
           <span class="menu-item-label">
             <lucide-icon name="dices" size="17" aria-hidden="true" />
@@ -221,6 +227,14 @@
         }
       }
     } @else {
+      @if (activeMenu.zone === 'command' && canControlActivePlayer()) {
+        <button type="button" (click)="actionSelected.emit({ type: 'createHelper' })">
+          <span class="menu-item-label">
+            <lucide-icon name="crown" size="17" aria-hidden="true" />
+            <span>{{ displayLabel('game.contextMenu.labels.mechanics') }}</span>
+          </span>
+        </button>
+      }
       @if (canMoveActiveZoneCards()) {
         <app-context-submenu
           label="game.contextMenu.labels.moveAllTo"
@@ -283,6 +297,14 @@
             <span>{{ displayLabel('game.contextMenu.labels.drawArrow') }}</span>
           </span>
         </button>
+        @if (canSetRingBearer()) {
+          <button type="button" (click)="actionSelected.emit({ type: 'setRingBearer' })">
+            <span class="menu-item-label">
+              <lucide-icon name="circle" size="17" aria-hidden="true" />
+              <span>{{ displayLabel('game.contextMenu.labels.setRingBearer') }}</span>
+            </span>
+          </button>
+        }
         @if (canUseManaAssistant()) {
           <button type="button" (click)="actionSelected.emit({ type: 'addManaFromCard' })">
             <span class="menu-item-label">

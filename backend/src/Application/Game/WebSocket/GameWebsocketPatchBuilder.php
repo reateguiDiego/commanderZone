@@ -106,6 +106,9 @@ final readonly class GameWebsocketPatchBuilder
             'arrow.removed' => $this->sharedCollectionChanged($previousSnapshot, $nextSnapshot, 'arrows', 'arrow.add', 'arrow.remove', 'arrows.set', 'arrow', 'arrows'),
             'attachment.created' => $this->sharedCollectionChanged($previousSnapshot, $nextSnapshot, 'attachments', 'attachment.add', 'attachment.remove', 'attachments.set', 'attachment', 'attachments'),
             'attachment.removed' => $this->sharedCollectionChanged($previousSnapshot, $nextSnapshot, 'attachments', 'attachment.add', 'attachment.remove', 'attachments.set', 'attachment', 'attachments'),
+            'helper.created' => $this->specialEntitiesChanged($previousSnapshot, $nextSnapshot),
+            'helper.updated' => $this->specialEntitiesChanged($previousSnapshot, $nextSnapshot),
+            'helper.removed' => $this->specialEntitiesChanged($previousSnapshot, $nextSnapshot),
             'game.concede' => $this->gameConcede($previousSnapshot, $nextSnapshot, $eventData),
             'game.close' => $this->eventLogOnly($previousSnapshot, $nextSnapshot),
             'disconnect.vote.updated' => $this->disconnectVoteUpdated($previousSnapshot, $nextSnapshot),
@@ -1124,6 +1127,22 @@ final readonly class GameWebsocketPatchBuilder
     /**
      * @return list<array<string,mixed>>|null
      */
+    private function specialEntitiesChanged(array $previousSnapshot, array $nextSnapshot): ?array
+    {
+        $operations = $this->specialEntityDiffOperations($previousSnapshot, $nextSnapshot);
+        if ($operations === null) {
+            return null;
+        }
+
+        return [
+            ...$operations,
+            ...$this->eventLogAppendOperation($previousSnapshot, $nextSnapshot),
+        ];
+    }
+
+    /**
+     * @return list<array<string,mixed>>|null
+     */
     private function collectionDiffOperations(
         array $previousSnapshot,
         array $nextSnapshot,
@@ -1203,6 +1222,62 @@ final readonly class GameWebsocketPatchBuilder
         }
 
         return $indexed;
+    }
+
+    /**
+     * @return list<array<string,mixed>>|null
+     */
+    private function specialEntityDiffOperations(array $previousSnapshot, array $nextSnapshot): ?array
+    {
+        $previousItems = $this->indexedSnapshotItems($previousSnapshot, 'specialEntities');
+        $nextItems = $this->indexedSnapshotItems($nextSnapshot, 'specialEntities');
+        if ($previousItems === null || $nextItems === null) {
+            return null;
+        }
+
+        $removedIds = array_values(array_diff(array_keys($previousItems), array_keys($nextItems)));
+        $addedIds = array_values(array_diff(array_keys($nextItems), array_keys($previousItems)));
+        $updatedIds = [];
+        foreach (array_intersect(array_keys($previousItems), array_keys($nextItems)) as $id) {
+            if ($previousItems[$id] !== $nextItems[$id]) {
+                $updatedIds[] = $id;
+            }
+        }
+
+        if ($removedIds === [] && $addedIds === [] && $updatedIds === []) {
+            return [];
+        }
+
+        if (count($removedIds) + count($addedIds) + count($updatedIds) > self::MAX_SHARED_COLLECTION_ITEMS) {
+            return [[
+                'op' => 'specialEntities.set',
+                'specialEntities' => array_values($nextItems),
+            ]];
+        }
+
+        $operations = [];
+        foreach ($removedIds as $id) {
+            $operations[] = [
+                'op' => 'specialEntity.remove',
+                'entityId' => $id,
+            ];
+        }
+        foreach ($addedIds as $id) {
+            $operations[] = [
+                'op' => 'specialEntity.add',
+                'entity' => $nextItems[$id],
+            ];
+        }
+        foreach ($updatedIds as $id) {
+            $entity = $nextItems[$id];
+            $operations[] = [
+                'op' => 'specialEntity.update',
+                'entityId' => $id,
+                'state' => $entity['state'] ?? [],
+            ];
+        }
+
+        return $operations;
     }
 
     /**

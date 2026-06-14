@@ -343,7 +343,10 @@
         "xToExile": "X to exile",
         "xToHandPlayer": "X to hand player",
         "xToBattlefieldPlayer": "X to battlefield player",
-        "removeAllCounters": "Remove All Counters"
+        "removeAllCounters": "Remove All Counters",
+        "createHelper": "Mecàniques",
+        "setRingBearer": "Assignar com a Portador de l'Anell",
+        "mechanics": "Mecàniques"
       }
     },
     "contextSubmenu": {
@@ -533,6 +536,52 @@
     },
     "chat": {
       "allPlayers": "Todos"
+    },
+    "specialHelpers": {
+      "modal": {
+        "title": "Mecàniques",
+        "quickActions": "Accions ràpides",
+        "cardBacked": "Entitats amb carta",
+        "searchPlaceholder": "Cerca emblemes o masmorres",
+        "searching": "Cercant ajudes...",
+        "noResults": "No s'han trobat resultats.",
+        "searchHint": "Escriu almenys 2 caràcters per cercar.",
+        "searchError": "No s'han pogut carregar les entitats especials.",
+        "playerTarget": "Jugador: {{playerName}}",
+        "currentState": "Estat actual",
+        "readonly": "Només lectura. Pots consultar aquestes mecàniques aquí, però només el jugador que controla aquesta posició les pot canviar.",
+        "ringLevel": "Nivell de l'Anell",
+        "noRingBearer": "Sense Portador de l'Anell",
+        "removeHelper": "Eliminar",
+        "clearRingBearer": "Treure Portador de l'Anell",
+        "ringLevelUp": "Pujar nivell",
+        "ringLevelDown": "Baixar nivell",
+        "noActiveMechanics": "No hi ha mecàniques actives.",
+        "notSet": "Sense definir"
+      },
+      "quick": {
+        "monarch": "Convertir-se en monarca",
+        "initiative": "Prendre la iniciativa",
+        "citysBlessing": "Obtenir la benedicció de la ciutat",
+        "theRing": "Crear l'Anell",
+        "setDay": "Posar de dia",
+        "setNight": "Posar de nit"
+      },
+      "labels": {
+        "monarch": "Monarca",
+        "initiative": "Iniciativa",
+        "citys_blessing": "Benedicció de la ciutat",
+        "day_night": "Dia/Nit",
+        "the_ring": "L'Anell",
+        "emblem": "Emblema",
+        "dungeon": "Masmorra",
+        "day": "Dia",
+        "night": "Nit"
+      },
+      "rail": {
+        "title": "Entitats especials",
+        "ringLevel": "Nivell de l'Anell"
+      }
     }
   },
   "deckBuilder": {
