@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Injectable, computed, inject, signal } from '@angular/core';
+import { Injectable, NgZone, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { DeckFoldersApi } from '../../../core/api/deck-folders.api';
@@ -10,7 +10,6 @@ import { Card } from '../../../core/models/card.model';
 import { Deck, DeckFolder, DeckFolderVisibility, DeckFormat, DeckVisibility } from '../../../core/models/deck.model';
 import { bestCardArtImage, bestCardImage } from '../../../shared/utils/card-image';
 import { commanderColorIdentityUnion, primaryCommander, secondaryCommander } from '../../../shared/utils/deck-commander';
-import { DeckImportExportService, DecklistEntry } from '../services/deck-import-export.service';
 import { DeckFolderSection } from '../models/deck-list.models';
 
 @Injectable()
@@ -21,7 +20,7 @@ export class DeckListStore {
   private readonly deckFoldersApi = inject(DeckFoldersApi);
   private readonly deckFormatsApi = inject(DeckFormatsApi);
   private readonly router = inject(Router);
-  private readonly importExport = inject(DeckImportExportService);
+  private readonly zone = inject(NgZone);
 
   readonly decks = signal<Deck[]>([]);
   readonly folders = signal<DeckFolder[]>([]);
@@ -265,6 +264,12 @@ export class DeckListStore {
     }
   }
 
+  loadCreatedDeckFile(event: Event): void {
+    this.readDecklistFile(event, (content) => {
+      this.createdDecklist = content;
+    });
+  }
+
   setCommanderQuery(query: string): void {
     this.commanderQuery = query;
   }
@@ -434,18 +439,15 @@ export class DeckListStore {
       return true;
     }
 
-    const entries: DecklistEntry[] = this.importExport.parse(this.createdDecklist, 'plain');
-
     try {
       const response = await firstValueFrom(this.decksApi.importDecklist(
         deck.id,
-        this.importExport.toBackendDecklist(entries),
+        this.createdDecklist,
         commanderScryfallIds.length > 0 ? { commanderScryfallIds } : {},
       ));
       const importedCards = response.summary?.importedCards
         ?? (response.deck.cards ?? []).reduce((total, entry) => total + entry.quantity, 0);
-      const parsedCards = response.summary?.parsedCards
-        ?? entries.reduce((total, entry) => total + entry.quantity, 0);
+      const parsedCards = response.summary?.parsedCards ?? 0;
       this.createdDeck.set(response.deck);
       this.createdMissing.set(response.missing);
       this.createdImportMessage.set(`${parsedCards} parsed cards, ${importedCards} imported, ${response.missing.length} missing.`);
@@ -792,24 +794,12 @@ export class DeckListStore {
   }
 
   private isCreateFormReady(): boolean {
-    const hasCommanderRequirement = this.selectedFormat()?.hasCommander === true;
     const deckName = this.newDeckName.trim();
-    const hasCommanderSelection = this.selectedCommanders().length > 0;
-    const hasCommanderDecklistSection = this.createdDecklistEntries().some((entry) => entry.section === 'commander');
 
     return deckName !== ''
       && deckName.length <= this.maxDeckNameLength
       && this.newDeckFormatId.trim() !== ''
-      && this.createdDecklist.trim() !== ''
-      && (!hasCommanderRequirement || hasCommanderSelection || hasCommanderDecklistSection);
-  }
-
-  private createdDecklistEntries(): DecklistEntry[] {
-    try {
-      return this.importExport.parse(this.createdDecklist, 'plain');
-    } catch {
-      return [];
-    }
+      && this.createdDecklist.trim() !== '';
   }
 
   private cancelDeckPointerDragTimer(): void {
@@ -832,5 +822,22 @@ export class DeckListStore {
     }
 
     return this.folders().some((folder) => folder.id === folderId && (folder.visibility ?? 'private') === 'private');
+  }
+
+  private readDecklistFile(event: Event, onLoaded: (content: string) => void): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      this.zone.run(() => {
+        onLoaded(String(reader.result ?? ''));
+        input.value = '';
+      });
+    };
+    reader.readAsText(file);
   }
 }

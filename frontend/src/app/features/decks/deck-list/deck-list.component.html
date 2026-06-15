@@ -364,6 +364,11 @@
               {{ importDecklistDisclaimerKey() | runtimeTranslate }}
             </p>
           </label>
+          <button class="secondary-button compact" type="button" (click)="createdDeckFileInput.click()">
+            <lucide-icon name="file-up" size="16" />
+            {{ 'deckBuilder.deckEditor.loadFile' | runtimeTranslate }}
+          </button>
+          <input #createdDeckFileInput class="hidden-input" type="file" accept=".txt,.csv,.dek,.dec" (change)="store.loadCreatedDeckFile($event)" />
         </fieldset>
       }
     </form>

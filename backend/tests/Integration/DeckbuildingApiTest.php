@@ -920,6 +920,217 @@ TXT,
         self::assertSame($arcaneSignetSpanish->scryfallId(), $this->storedDeckCardScryfallId($storedDeck, 'Arcane Signet'));
     }
 
+    public function testDecklistParseIgnoresKnownMetadataAndRecognizesDeckstatsCommanderMarker(): void
+    {
+        $token = $this->registerAndLogin('parse-deckstats@example.test', 'Parse Deckstats');
+        $this->seedCard('90000000-0000-0000-0000-000000000001', 'Sliver Gravemother', [
+            'type_line' => 'Legendary Creature - Sliver',
+            'set' => 'tst',
+            'collector_number' => '1',
+            'legalities' => ['commander' => 'legal'],
+        ]);
+        $this->seedCard('90000000-0000-0000-0000-000000000002', 'Arcane Signet', [
+            'type_line' => 'Artifact',
+            'set' => 'tst',
+            'collector_number' => '2',
+        ]);
+
+        $this->jsonRequest('POST', '/decklists/parse', [
+            'decklist' => <<<TXT
+About
+Name Slivers from deckstats.net
+
+1 Sliver Gravemother # !Commander
+1 Arcane Signet
+TXT,
+        ], $token);
+        self::assertResponseIsSuccessful();
+
+        $preview = $this->jsonResponse();
+        self::assertSame('plain', $preview['format']);
+        self::assertSame([], $preview['missingCards']);
+        self::assertSame(2, $preview['summary']['totalCards']);
+        self::assertSame(1, $preview['summary']['commanderCount']);
+        self::assertSame(1, $preview['summary']['mainCount']);
+        self::assertSame('Sliver Gravemother', $preview['entries'][0]['name']);
+        self::assertSame('commander', $preview['entries'][0]['section']);
+    }
+
+    public function testDecklistParseRecognizesArchidektInlineCommanderTags(): void
+    {
+        $token = $this->registerAndLogin('parse-archidekt@example.test', 'Parse Archidekt');
+        $this->seedCard('91000000-0000-0000-0000-000000000001', 'Ghyrson Starn, Kelermorph', [
+            'type_line' => 'Legendary Creature - Human Tyranid',
+            'set' => '40k',
+            'collector_number' => '124',
+            'legalities' => ['commander' => 'legal'],
+        ]);
+        $this->seedCard('91000000-0000-0000-0000-000000000002', 'Island', [
+            'type_line' => 'Basic Land - Island',
+            'set' => 'tst',
+            'collector_number' => '2',
+        ]);
+
+        $this->jsonRequest('POST', '/decklists/parse', [
+            'decklist' => <<<TXT
+1x Ghyrson Starn, Kelermorph (40k) 124 [Commander{top}]
+14x Island (TST) 2 [Land]
+TXT,
+        ], $token);
+        self::assertResponseIsSuccessful();
+
+        $preview = $this->jsonResponse();
+        self::assertSame('archidekt', $preview['format']);
+        self::assertSame([], $preview['missingCards']);
+        self::assertSame(15, $preview['summary']['totalCards']);
+        self::assertSame(1, $preview['summary']['commanderCount']);
+        self::assertSame(14, $preview['summary']['mainCount']);
+        self::assertSame('Ghyrson Starn, Kelermorph', $preview['entries'][0]['name']);
+        self::assertSame('commander', $preview['entries'][0]['section']);
+    }
+
+    public function testDecklistImportInfersCommanderFromFirstBoundaryEntryInMoxfieldExports(): void
+    {
+        $token = $this->registerAndLogin('import-moxfield-first@example.test', 'Import Moxfield First');
+        $commander = $this->seedCard('92000000-0000-0000-0000-000000000001', 'Muldrotha, the Gravetide', [
+            'type_line' => 'Legendary Creature - Elemental Avatar',
+            'set' => 'fdn',
+            'collector_number' => '243',
+            'legalities' => ['commander' => 'legal'],
+        ]);
+        $signet = $this->seedCard('92000000-0000-0000-0000-000000000002', 'Arcane Signet', [
+            'type_line' => 'Artifact',
+            'set' => 'mkc',
+            'collector_number' => '223',
+        ]);
+        $island = $this->seedCard('92000000-0000-0000-0000-000000000003', 'Island', [
+            'type_line' => 'Basic Land - Island',
+            'set' => 'tst',
+            'collector_number' => '2',
+        ]);
+
+        $this->jsonRequest('POST', '/decks', ['name' => 'Moxfield First'], $token);
+        self::assertResponseStatusCodeSame(201);
+        $deckId = (string) $this->jsonResponse()['deck']['id'];
+
+        $this->jsonRequest('POST', '/decks/'.$deckId.'/import', [
+            'decklist' => <<<TXT
+1 Muldrotha, the Gravetide (FDN) 243
+1 Arcane Signet (MKC) 223
+98 Island (TST) 2
+TXT,
+        ], $token);
+        self::assertResponseIsSuccessful();
+
+        $response = $this->jsonResponse();
+        self::assertSame('moxfield', $response['format']);
+        self::assertSame([], $response['missing']);
+        self::assertSame(100, $response['summary']['totalCards']);
+        self::assertSame(1, $response['summary']['commanderCount']);
+        self::assertSame(99, $response['summary']['mainCount']);
+        self::assertSame(1, $this->lineByScryfallId($response['deck']['cards'], $commander->scryfallId(), 'commander')['quantity']);
+        self::assertNull($this->lineByScryfallIdOrNull($response['deck']['cards'], $commander->scryfallId(), 'main'));
+        self::assertSame(1, $this->lineByScryfallId($response['deck']['cards'], $signet->scryfallId(), 'main')['quantity']);
+        self::assertSame(98, $this->lineByScryfallId($response['deck']['cards'], $island->scryfallId(), 'main')['quantity']);
+    }
+
+    public function testDecklistImportInfersCommanderFromLastBoundaryEntryInMtgoExports(): void
+    {
+        $token = $this->registerAndLogin('import-mtgo-last@example.test', 'Import MTGO Last');
+        $commander = $this->seedCard('93000000-0000-0000-0000-000000000001', 'Muldrotha, the Gravetide', [
+            'type_line' => 'Legendary Creature - Elemental Avatar',
+            'set' => 'tst',
+            'collector_number' => '1',
+            'legalities' => ['commander' => 'legal'],
+        ]);
+        $signet = $this->seedCard('93000000-0000-0000-0000-000000000002', 'Arcane Signet', [
+            'type_line' => 'Artifact',
+            'set' => 'tst',
+            'collector_number' => '2',
+        ]);
+        $island = $this->seedCard('93000000-0000-0000-0000-000000000003', 'Island', [
+            'type_line' => 'Basic Land - Island',
+            'set' => 'tst',
+            'collector_number' => '3',
+        ]);
+
+        $this->jsonRequest('POST', '/decks', ['name' => 'MTGO Last'], $token);
+        self::assertResponseStatusCodeSame(201);
+        $deckId = (string) $this->jsonResponse()['deck']['id'];
+
+        $this->jsonRequest('POST', '/decks/'.$deckId.'/import', [
+            'decklist' => <<<TXT
+1 Arcane Signet
+98 Island
+1 Muldrotha, the Gravetide
+TXT,
+        ], $token);
+        self::assertResponseIsSuccessful();
+
+        $response = $this->jsonResponse();
+        self::assertSame('plain', $response['format']);
+        self::assertSame([], $response['missing']);
+        self::assertSame(100, $response['summary']['totalCards']);
+        self::assertSame(1, $response['summary']['commanderCount']);
+        self::assertSame(99, $response['summary']['mainCount']);
+        self::assertSame(1, $this->lineByScryfallId($response['deck']['cards'], $commander->scryfallId(), 'commander')['quantity']);
+        self::assertNull($this->lineByScryfallIdOrNull($response['deck']['cards'], $commander->scryfallId(), 'main'));
+        self::assertSame(1, $this->lineByScryfallId($response['deck']['cards'], $signet->scryfallId(), 'main')['quantity']);
+        self::assertSame(98, $this->lineByScryfallId($response['deck']['cards'], $island->scryfallId(), 'main')['quantity']);
+    }
+
+    public function testDecklistImportSupportsCommanderZoneExportsInUserLanguageOrEnglish(): void
+    {
+        $token = $this->registerAndLogin('import-cz-export@example.test', 'Import CZ Export');
+        $this->jsonRequest('PATCH', '/me', ['cardLanguage' => 'es'], $token);
+        self::assertResponseIsSuccessful();
+
+        $talrand = $this->seedCard('94000000-0000-0000-0000-000000000001', 'Talrand, Sky Summoner', [
+            'type_line' => 'Legendary Creature - Merfolk Wizard',
+            'set' => 'tst',
+            'collector_number' => '1',
+            'legalities' => ['commander' => 'legal'],
+        ]);
+        $solRing = $this->seedCard('94000000-0000-0000-0000-000000000002', 'Sol Ring', [
+            'type_line' => 'Artifact',
+            'set' => 'tst',
+            'collector_number' => '2',
+        ]);
+        $counterspell = $this->seedCard('94000000-0000-0000-0000-000000000003', 'Counterspell', [
+            'type_line' => 'Instant',
+            'set' => 'tst',
+            'collector_number' => '3',
+        ]);
+
+        $this->seedLocalizedPrintLocale($talrand->scryfallId(), 'Talrand, Sky Summoner', 'es', 'Talrand, invocador celeste');
+        $this->seedLocalizedPrintLocale($solRing->scryfallId(), 'Sol Ring', 'es', 'Anillo solar');
+
+        $this->jsonRequest('POST', '/decks', ['name' => 'CZ Export'], $token);
+        self::assertResponseStatusCodeSame(201);
+        $deckId = (string) $this->jsonResponse()['deck']['id'];
+
+        $this->jsonRequest('POST', '/decks/'.$deckId.'/import', [
+            'decklist' => <<<TXT
+Commander
+1 Talrand, invocador celeste
+
+Deck
+1 Anillo solar
+1 Counterspell
+TXT,
+        ], $token);
+        self::assertResponseIsSuccessful();
+
+        $response = $this->jsonResponse();
+        self::assertSame([], $response['missing']);
+        self::assertSame(3, $response['summary']['totalCards']);
+        self::assertSame(1, $response['summary']['commanderCount']);
+        self::assertSame(2, $response['summary']['mainCount']);
+        self::assertSame(1, $this->lineByScryfallId($response['deck']['cards'], $talrand->scryfallId(), 'commander')['quantity']);
+        self::assertSame(1, $this->lineByScryfallId($response['deck']['cards'], $solRing->scryfallId(), 'main')['quantity']);
+        self::assertSame(1, $this->lineByScryfallId($response['deck']['cards'], $counterspell->scryfallId(), 'main')['quantity']);
+    }
+
     public function testDecklistImportResolvesSpanishNamesFromLocalizedPrintTables(): void
     {
         $token = $this->registerAndLogin('localized-import@example.test', 'Localized Import');

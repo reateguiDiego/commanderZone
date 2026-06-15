@@ -4,6 +4,7 @@ import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
 import {
   ArrowLeft,
+  FileUp,
   Folder,
   FolderPlus,
   Globe,
@@ -34,6 +35,7 @@ describe('DeckListComponent', () => {
         provideRouter([]),
         importProvidersFrom(LucideAngularModule.pick({
           ArrowLeft,
+          FileUp,
           Folder,
           FolderPlus,
           Pencil,
@@ -79,6 +81,10 @@ describe('DeckListComponent', () => {
         { provide: DeckFormatsApi, useValue: { list: vi.fn().mockReturnValue(of({ data: [] })) } },
       ],
     }).compileComponents();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it('renders the deck list page', () => {
@@ -173,7 +179,7 @@ describe('DeckListComponent', () => {
     );
   });
 
-  it('normalizes the create-deck decklist and keeps both explicit selected commanders', async () => {
+  it('sends the raw create-deck decklist and keeps both explicit selected commanders', async () => {
     const decksApi = TestBed.inject(DecksApi);
     const fixture = TestBed.createComponent(DeckListComponent);
     fixture.detectChanges();
@@ -192,11 +198,11 @@ Creatures (1)
 
     expect(decksApi.importDecklist).toHaveBeenCalledWith(
       'saved-deck',
-      `Commander
+      `Commanders (2)
 1 Birgi, God of Storytelling // Harnfel, Horn of Bounty
 1 Krark, the Thumbless
 
-Deck
+Creatures (1)
 1 Ragavan, Nimble Pilferer`,
       { commanderScryfallIds: ['card-atraxa', 'card-silas'] },
     );
@@ -269,6 +275,59 @@ Deck
     expect(disclaimer.textContent).toContain(
       'If you include your commanders in the import decklist, do not worry; we will remove them for you.',
     );
+  });
+
+  it('allows creating a commander deck without a local commander section when the decklist is present', async () => {
+    const fixture = TestBed.createComponent(DeckListComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.store.openCreateModal();
+    fixture.componentInstance.store.newDeckName = 'Inference Deck';
+    fixture.componentInstance.store.createdDecklist = `1 Muldrotha, the Gravetide
+99 Island`;
+
+    expect(fixture.componentInstance.store.isCreatePrimaryDisabled()).toBe(false);
+  });
+
+  it('loads raw decklist files into the create flow', async () => {
+    const fixture = TestBed.createComponent(DeckListComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    class MockFileReader {
+      result: string | ArrayBuffer | null = null;
+      onload: ((this: FileReader, ev: ProgressEvent<FileReader>) => unknown) | null = null;
+
+      readAsText(): void {
+        this.result = 'About\nName Imported\n1 Arcane Signet';
+        this.onload?.call(this as unknown as FileReader, {} as ProgressEvent<FileReader>);
+      }
+    }
+
+    vi.stubGlobal('FileReader', MockFileReader);
+    const input = document.createElement('input');
+    Object.defineProperty(input, 'files', {
+      value: [new File(['deck'], 'deck.dec', { type: 'text/plain' })],
+    });
+
+    fixture.componentInstance.store.loadCreatedDeckFile({ target: input } as unknown as Event);
+
+    expect(fixture.componentInstance.store.createdDecklist).toBe('About\nName Imported\n1 Arcane Signet');
+    expect(input.value).toBe('');
+  });
+
+  it('accepts .dec files in the create-flow import input', async () => {
+    const fixture = TestBed.createComponent(DeckListComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.componentInstance.store.openCreateModal();
+    fixture.detectChanges();
+
+    const input = fixture.nativeElement.querySelector('input[type="file"]');
+
+    expect(input).not.toBeNull();
+    expect(input.getAttribute('accept')).toContain('.dec');
   });
 
   it('shows the commander preview when hovering the commander card body in the create modal', async () => {
