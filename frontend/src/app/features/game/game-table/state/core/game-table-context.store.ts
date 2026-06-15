@@ -107,6 +107,7 @@ export class GameTableContextStore {
     const source = this.boundSource();
 
     return {
+      snapshot: () => this.core.snapshot(),
       canControlPlayer: (playerId) => this.playersStore.canControlPlayer(playerId, this.interaction()),
       activeKeyboardCard: () => this.interactionActions.activeKeyboardCard() as SelectedCard | null,
       selectedCards: () => this.selectedCards(),

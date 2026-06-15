@@ -181,6 +181,76 @@ describe('GameTableSnapshotSelectors', () => {
     expect(selectors.zoneStackLayerImage(player, 'exile')).toBe('/exile-second.jpg');
   });
 
+  it('uses a first-position graveyard or exile commander as the visible draggable pile card', () => {
+    const graveyardCommander = {
+      instanceId: 'graveyard-commander',
+      name: 'Graveyard Commander',
+      tapped: false,
+      isCommander: true,
+      imageUris: { normal: '/graveyard-commander.jpg' },
+    };
+    const exileCommander = {
+      instanceId: 'exile-commander',
+      name: 'Exile Commander',
+      tapped: false,
+      isCommander: true,
+      imageUris: { normal: '/exile-commander.jpg' },
+    };
+    const player = playerView({
+      zones: {
+        library: [],
+        hand: [],
+        battlefield: [],
+        graveyard: [
+          graveyardCommander,
+          { instanceId: 'graveyard-later', name: 'Later Graveyard', tapped: false, imageUris: { normal: '/graveyard-later.jpg' } },
+        ],
+        exile: [
+          exileCommander,
+          { instanceId: 'exile-later', name: 'Later Exile', tapped: false, imageUris: { normal: '/exile-later.jpg' } },
+        ],
+        command: [],
+      },
+    });
+
+    expect(selectors.zonePreviewCard(player, 'graveyard')).toBe(graveyardCommander);
+    expect(selectors.zonePreviewImage(player, 'graveyard')).toBe('/graveyard-commander.jpg');
+    expect(selectors.zoneStackLayerImage(player, 'graveyard')).toBe('/graveyard-later.jpg');
+    expect(selectors.topDraggableCard(player, 'graveyard', true)).toBe(graveyardCommander);
+    expect(selectors.zonePreviewCard(player, 'exile')).toBe(exileCommander);
+    expect(selectors.zonePreviewImage(player, 'exile')).toBe('/exile-commander.jpg');
+    expect(selectors.zoneStackLayerImage(player, 'exile')).toBe('/exile-later.jpg');
+    expect(selectors.topDraggableCard(player, 'exile', true)).toBe(exileCommander);
+  });
+
+  it('keeps a public pile commander draggable when only player counters still identify it', () => {
+    const commander = {
+      instanceId: 'graveyard-commander',
+      name: 'Graveyard Commander',
+      tapped: false,
+      imageUris: { normal: '/graveyard-commander.jpg' },
+    };
+    const player = playerView({
+      zones: {
+        library: [],
+        hand: [],
+        battlefield: [],
+        graveyard: [
+          commander,
+          { instanceId: 'graveyard-later', name: 'Later Graveyard', tapped: false, imageUris: { normal: '/graveyard-later.jpg' } },
+        ],
+        exile: [],
+        command: [],
+      },
+      counters: {
+        'commander:graveyard-commander': 1,
+      },
+    });
+
+    expect(selectors.zonePreviewCard(player, 'graveyard')).toBe(commander);
+    expect(selectors.topDraggableCard(player, 'graveyard', true)).toBe(commander);
+  });
+
   it('does not provide a stack layer image for a single-card pile', () => {
     const player = playerView({
       zones: {

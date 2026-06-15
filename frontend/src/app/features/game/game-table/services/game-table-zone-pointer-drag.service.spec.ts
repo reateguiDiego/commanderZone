@@ -26,6 +26,47 @@ describe('GameTableZonePointerDragService', () => {
     expect(started).toBe(false);
   });
 
+  it('starts drags for mouse pointers when explicitly allowed', () => {
+    const zone = zoneElement();
+    const exile = document.createElement('button');
+    exile.dataset['gameDropZone'] = 'exile';
+    exile.dataset['zone'] = 'exile';
+    exile.dataset['playerId'] = 'player-1';
+    const restore = mockElementsFromPoint([exile]);
+
+    const started = service.start(pointerEvent({
+      currentTarget: zone,
+      pointerType: 'mouse',
+      pointerId: 11,
+      clientX: 20,
+      clientY: 20,
+    }), 'player-1', 'command', { ...card(), instanceId: 'commander-2', zone: 'command' }, { allowMouse: true });
+    service.move(pointerEvent({
+      pointerType: 'mouse',
+      pointerId: 11,
+      clientX: 80,
+      clientY: 20,
+    }));
+    const result = service.end(pointerEvent({
+      pointerType: 'mouse',
+      pointerId: 11,
+      clientX: 80,
+      clientY: 20,
+    }));
+
+    expect(started).toBe(true);
+    expect(result?.request).toEqual({
+      playerId: 'player-1',
+      targetPlayerId: 'player-1',
+      fromZone: 'command',
+      toZone: 'exile',
+      instanceId: 'commander-2',
+      rawZone: 'exile',
+    });
+
+    restore();
+  });
+
   it('does not start without a top zone card', () => {
     const zone = zoneElement();
 
@@ -206,6 +247,44 @@ describe('GameTableZonePointerDragService', () => {
     service.move(pointerEvent({ pointerId: 5, clientX: 60, clientY: 20 }));
     expect(service.end(pointerEvent({ pointerId: 5, clientX: 60, clientY: 20 }))?.request?.toZone).toBe('exile');
     restoreExile();
+  });
+
+  it('resolves command drops only for commander zone cards', () => {
+    const zone = zoneElement();
+    const command = document.createElement('button');
+    command.dataset['gameDropZone'] = 'command';
+    command.dataset['zone'] = 'command';
+    command.dataset['playerId'] = 'player-1';
+    const restore = mockElementsFromPoint([command]);
+
+    service.start(pointerEvent({
+      currentTarget: zone,
+      pointerType: 'touch',
+      pointerId: 8,
+      clientX: 20,
+      clientY: 20,
+    }), 'player-1', 'graveyard', card());
+    service.move(pointerEvent({ pointerId: 8, clientX: 60, clientY: 20 }));
+    expect(service.end(pointerEvent({ pointerId: 8, clientX: 60, clientY: 20 }))?.request).toBeNull();
+
+    service.start(pointerEvent({
+      currentTarget: zone,
+      pointerType: 'touch',
+      pointerId: 9,
+      clientX: 20,
+      clientY: 20,
+    }), 'player-1', 'graveyard', card(), { knownCommanderInstanceIds: new Set(['graveyard-1']) });
+    service.move(pointerEvent({ pointerId: 9, clientX: 60, clientY: 20 }));
+    expect(service.end(pointerEvent({ pointerId: 9, clientX: 60, clientY: 20 }))?.request).toEqual({
+      playerId: 'player-1',
+      targetPlayerId: 'player-1',
+      fromZone: 'graveyard',
+      toZone: 'command',
+      instanceId: 'graveyard-1',
+      rawZone: 'command',
+    });
+
+    restore();
   });
 
   it('resolves player drop targets', () => {

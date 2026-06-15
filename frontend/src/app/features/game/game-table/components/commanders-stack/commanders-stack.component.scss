@@ -44,20 +44,26 @@
 
 .commanders-stack-card.dragging-command-zone-card,
 .commanders-stack-card.transfer-pending-command-zone-card {
-  opacity: 0;
   pointer-events: none;
+}
+
+.commanders-stack-card.dragging-command-zone-card .zone-card-image,
+.commanders-stack-card.dragging-command-zone-card .command-zone-card-name,
+.commanders-stack-card.transfer-pending-command-zone-card .zone-card-image,
+.commanders-stack-card.transfer-pending-command-zone-card .command-zone-card-name {
+  opacity: 0;
 }
 
 .commanders-stack-card-primary:hover {
   z-index: 30;
   filter: brightness(1.12) saturate(1.08);
-  transform: translateY(-0.34rem) rotate(-3deg) scale(1.04);
+  transform: translateY(-0.34rem) rotate(0deg) scale(1.04);
 }
 
 .commanders-stack-card-secondary:hover {
   z-index: 30;
   filter: brightness(1.12) saturate(1.08);
-  transform: translateY(-0.34rem) rotate(3deg) scale(1.04);
+  transform: translateY(-0.34rem) rotate(0deg) scale(1.04);
 }
 
 .commanders-stack-card:hover .zone-card-image,
@@ -101,64 +107,9 @@
   text-align: center;
 }
 
-.commanders-stack-cast-counts {
-  position: absolute;
-  right: -0.22rem;
-  bottom: -0.22rem;
-  z-index: 40;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 0.2rem;
-  pointer-events: auto;
-}
-
-.commander-cast-count {
-  display: grid;
-  min-width: 1.16rem;
-  height: 1.16rem;
-  place-items: center;
-  padding: 0 0.22rem;
-  border: 1px solid color-mix(in srgb, var(--commander-accent, var(--game-accent, #d7b46a)) 68%, #fff2c9);
-  border-radius: 999px;
-  background:
-    radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--commander-accent, #d7b46a) 34%, transparent), transparent 78%),
-    color-mix(in srgb, var(--commander-accent, #d7b46a) 20%, rgb(7 8 7 / 96%));
-  color: color-mix(in srgb, var(--commander-accent, var(--game-accent, #d7b46a)) 78%, #fff7d8);
-  box-shadow:
-    0 0 0 2px rgb(7 8 7 / 84%),
-    0 0.3rem 0.75rem rgb(0 0 0 / 38%),
-    0 0 0.52rem color-mix(in srgb, var(--commander-accent, #d7b46a) 24%, transparent);
-  cursor: pointer;
-  font-size: 0.66rem;
-  font-weight: 900;
-  line-height: 1;
-  transition:
-    filter 140ms ease,
-    opacity 120ms ease,
-    transform 140ms ease;
-}
-
-.commander-cast-count:hover,
-.commander-cast-count:focus-visible {
-  filter: brightness(1.12);
-  transform: translateY(-1px);
-}
-
-.commander-cast-count:focus-visible {
-  outline: 1px solid color-mix(in srgb, var(--commander-accent, #d7b46a) 78%, #fff7da);
-  outline-offset: 2px;
-}
-
-.hidden-commander-cast-count {
-  opacity: 0;
-  pointer-events: none;
-}
-
 @media (prefers-reduced-motion: reduce) {
   .commanders-stack-card,
-  .zone-card-image,
-  .commander-cast-count {
+  .zone-card-image {
     transition: none;
   }
 }

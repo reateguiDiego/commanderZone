@@ -290,6 +290,10 @@ export class GameTableStore implements OnDestroy {
     return this.playersStore.commandZoneCards(player);
   }
 
+  commanderCards(player: PlayerView): readonly GameCardInstance[] {
+    return this.playersStore.commanderCards(player);
+  }
+
   commanderCastCount(player: PlayerView, commander?: GameCardInstance | null): number {
     return this.playersStore.commanderCastCount(player, commander);
   }
@@ -1026,8 +1030,8 @@ export class GameTableStore implements OnDestroy {
     this.interactionActions.handleHandCardClick(this.contexts.interaction(), event, playerId, card);
   }
 
-  dragStart(event: DragEvent, playerId: string, zone: GameZoneName, card: GameCardInstance): void {
-    this.dragDropStore.dragStart(this.contexts.dragDrop(), event, playerId, zone, card);
+  dragStart(event: DragEvent, playerId: string, zone: GameZoneName, card: GameCardInstance, instanceIds?: readonly string[]): void {
+    this.dragDropStore.dragStart(this.contexts.dragDrop(), event, playerId, zone, card, instanceIds);
   }
 
   dragEnd(): void {
@@ -1049,7 +1053,7 @@ export class GameTableStore implements OnDestroy {
       return;
     }
 
-    this.dragStart(event, player.id, zone, card);
+    this.dragStart(event, player.id, zone, card, [card.instanceId]);
   }
 
   allowDrop(event: DragEvent): void {

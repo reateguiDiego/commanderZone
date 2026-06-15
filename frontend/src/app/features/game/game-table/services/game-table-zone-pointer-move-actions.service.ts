@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { GameCardInstance } from '../../../../core/models/game.model';
 import { ZonePointerDropRequest } from '../models/game-table-zone-pointer-drag.model';
+import { canDropCardOnZone, COMMAND_ZONE_DROP_ERROR, knownCommanderInstanceIds } from '../utils/command-zone-drop';
 import { GameTableDropActionContext } from './game-table-drop-actions.service';
 
 @Injectable()
@@ -9,6 +10,10 @@ export class GameTableZonePointerMoveActionsService {
     const sourceCard = context.findCard(request.playerId, request.fromZone, request.instanceId);
     if (!sourceCard || !context.canControlPlayer(request.playerId) || !context.canControlOwnedCard(request.playerId, sourceCard)) {
       this.endBlockedMove(context, 'You can only move your own cards.');
+      return;
+    }
+    if (!canDropCardOnZone(request.toZone, sourceCard, knownCommanderInstanceIds(context.snapshot()))) {
+      this.endBlockedMove(context, COMMAND_ZONE_DROP_ERROR);
       return;
     }
 

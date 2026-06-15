@@ -369,6 +369,39 @@ describe('GameTablePointerDragService', () => {
       value: originalElementsFromPoint,
     });
   });
+
+  it('resolves command drop targets only for commanders', () => {
+    const command = document.createElement('button');
+    command.dataset['gameDropZone'] = 'command';
+    command.dataset['zone'] = 'command';
+    command.dataset['playerId'] = 'player-1';
+    const originalElementsFromPoint = document.elementsFromPoint;
+    Object.defineProperty(document, 'elementsFromPoint', {
+      configurable: true,
+      value: vi.fn(() => [command]),
+    });
+
+    const normalCardTarget = service.zoneTargetAt(pointerEvent(20, 20), { width: 100, height: 140 }, {
+      draggedCard: { instanceId: 'card-1', name: 'Sol Ring', tapped: false },
+    });
+    const commanderTarget = service.zoneTargetAt(pointerEvent(20, 20), { width: 100, height: 140 }, {
+      draggedCard: { instanceId: 'commander-1', name: 'Rograkh', tapped: false },
+      knownCommanderInstanceIds: new Set(['commander-1']),
+    });
+
+    expect(normalCardTarget).toBeNull();
+    expect(commanderTarget).toEqual({
+      targetPlayerId: 'player-1',
+      toZone: 'command',
+      kind: 'zone',
+      rawZone: 'command',
+    });
+
+    Object.defineProperty(document, 'elementsFromPoint', {
+      configurable: true,
+      value: originalElementsFromPoint,
+    });
+  });
 });
 
 function handCards(): GameCardInstance[] {

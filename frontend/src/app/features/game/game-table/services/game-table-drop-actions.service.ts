@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { GameCardInstance, GameCardPosition, GameCommandType, GameSnapshot, GameZoneName } from '../../../../core/models/game.model';
 import { HandDropPreview } from '../state/drag-drop/game-table-battlefield-drag.state';
 import { attachmentDropTarget, attachmentRelationInstanceIds, createAttachmentStackMoves } from '../utils/attachment-stack';
+import { canDropCardsOnZone, COMMAND_ZONE_DROP_ERROR, knownCommanderInstanceIds } from '../utils/command-zone-drop';
 import { createLandStackMoves, landStackDropTarget } from '../utils/land-stack';
 import { GameTableDragService } from './game-table-drag.service';
 
@@ -77,6 +78,10 @@ export class GameTableDropActionsService {
     const movedCards = this.sourceCards(context, dragged.playerId, dragged.zone, dragged.instanceIds);
     if (!movedCards || movedCards.some((card) => !context.canControlOwnedCard(dragged.playerId, card))) {
       this.endBlockedDrag(context, 'You can only move your own cards.');
+      return;
+    }
+    if (!canDropCardsOnZone(toZone, movedCards, knownCommanderInstanceIds(context.snapshot()))) {
+      this.endBlockedDrag(context, COMMAND_ZONE_DROP_ERROR);
       return;
     }
 

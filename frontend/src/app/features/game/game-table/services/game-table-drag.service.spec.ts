@@ -262,6 +262,62 @@ describe('GameTableDragService', () => {
     }
   });
 
+  it('resolves native command stack previews by dragged instance id when the event target is the stack art', () => {
+    const zoneArt = document.createElement('span');
+    zoneArt.className = 'zone-art command-zone-art dual-command-zone-art';
+    const firstCommander = document.createElement('span');
+    firstCommander.className = 'command-zone-card commanders-stack-card';
+    firstCommander.dataset['cardId'] = 'commander-1';
+    firstCommander.dataset['motionOriginCardId'] = 'commander-1';
+    const firstImage = document.createElement('img');
+    firstImage.className = 'zone-card-image';
+    firstImage.src = '/assets/commander-1.jpg';
+    const secondCommander = document.createElement('span');
+    secondCommander.className = 'command-zone-card commanders-stack-card';
+    secondCommander.dataset['cardId'] = 'commander-2';
+    secondCommander.dataset['motionOriginCardId'] = 'commander-2';
+    const secondImage = document.createElement('img');
+    secondImage.className = 'zone-card-image';
+    secondImage.src = '/assets/commander-2.jpg';
+    secondImage.getBoundingClientRect = () => ({
+      ...rect(0, 80),
+      height: 112,
+      bottom: 112,
+      right: 80,
+    });
+    firstCommander.appendChild(firstImage);
+    secondCommander.appendChild(secondImage);
+    zoneArt.append(firstCommander, secondCommander);
+    document.body.appendChild(zoneArt);
+    const dataTransfer = {
+      effectAllowed: '',
+      setData: vi.fn(),
+      setDragImage: vi.fn(),
+    };
+
+    try {
+      service.dragStart({
+        target: zoneArt,
+        currentTarget: zoneArt,
+        dataTransfer,
+        clientX: 40,
+        clientY: 56,
+      } as unknown as DragEvent, 'player-1', 'command', {
+        instanceId: 'commander-2',
+        name: 'Silas Renn',
+        tapped: false,
+      });
+
+      const [dragImage] = dataTransfer.setDragImage.mock.calls[0]!;
+      const image = (dragImage as HTMLElement).querySelector('img');
+
+      expect(image?.src).toContain('/assets/commander-2.jpg');
+      expect(image?.src).not.toContain('/assets/commander-1.jpg');
+    } finally {
+      zoneArt.remove();
+    }
+  });
+
   it('keeps zone pile drag payloads when the native preview cannot be applied', () => {
     const zoneStack = document.createElement('button');
     zoneStack.className = 'zone-stack';
@@ -522,6 +578,116 @@ describe('GameTableDragService', () => {
     expect(service.allowDrop(supportedEvent)).toBe(true);
     expect(supportedPreventDefault).toHaveBeenCalled();
     expect(supportedEvent.dataTransfer!.dropEffect).toBe('move');
+  });
+
+  it('keeps the current native drag payload when the browser hides custom data during dragover', () => {
+    const source = document.createElement('button');
+    source.className = 'game-card';
+    source.getBoundingClientRect = () => ({
+      ...rect(0, 100),
+      height: 140,
+      bottom: 140,
+      right: 100,
+    });
+    const dataTransfer = {
+      effectAllowed: '',
+      setData: vi.fn(),
+      setDragImage: vi.fn(),
+    };
+
+    service.dragStart({
+      target: source,
+      dataTransfer,
+      clientX: 20,
+      clientY: 30,
+    } as unknown as DragEvent, 'player-1', 'graveyard', {
+      instanceId: 'commander-1',
+      name: 'Rograkh',
+      tapped: false,
+      isCommander: true,
+    });
+
+    const protectedEvent = {
+      dataTransfer: {
+        types: ['text/plain'],
+        getData: vi.fn(() => ''),
+      },
+    } as unknown as DragEvent;
+
+    expect(service.dragPayload(protectedEvent, ['graveyard', 'command'])).toEqual({
+      playerId: 'player-1',
+      zone: 'graveyard',
+      instanceId: 'commander-1',
+      instanceIds: ['commander-1'],
+    });
+  });
+
+  it('clears the active native drag payload when the drag cycle ends', () => {
+    const source = document.createElement('button');
+    source.className = 'game-card';
+    source.getBoundingClientRect = () => ({
+      ...rect(0, 100),
+      height: 140,
+      bottom: 140,
+      right: 100,
+    });
+    const dataTransfer = {
+      effectAllowed: '',
+      setData: vi.fn(),
+      setDragImage: vi.fn(),
+    };
+
+    service.dragStart({
+      target: source,
+      dataTransfer,
+      clientX: 20,
+      clientY: 30,
+    } as unknown as DragEvent, 'player-1', 'graveyard', {
+      instanceId: 'commander-1',
+      name: 'Rograkh',
+      tapped: false,
+      isCommander: true,
+    });
+    service.clearNativeDragPayload();
+
+    const protectedEvent = {
+      dataTransfer: {
+        types: ['text/plain'],
+        getData: vi.fn(() => ''),
+      },
+    } as unknown as DragEvent;
+
+    expect(service.dragPayload(protectedEvent, ['graveyard', 'command'])).toBeNull();
+  });
+
+  it('resolves command pointer drop zones only for commanders', () => {
+    const command = document.createElement('button');
+    command.dataset['gameDropZone'] = 'command';
+    command.dataset['zone'] = 'command';
+    command.dataset['playerId'] = 'player-1';
+    const originalElementsFromPoint = document.elementsFromPoint;
+    Object.defineProperty(document, 'elementsFromPoint', {
+      configurable: true,
+      value: vi.fn(() => [command]),
+    });
+    const event = { clientX: 20, clientY: 20 } as PointerEvent;
+
+    expect(service.pointerDropZone(event, 'player-1', ['command'], {
+      instanceId: 'card-1',
+      name: 'Sol Ring',
+      tapped: false,
+    })).toBeNull();
+    expect(service.pointerDropZone(event, 'player-1', ['command'], {
+      instanceId: 'commander-1',
+      name: 'Rograkh',
+      tapped: false,
+      isCommander: true,
+    })).toBe('command');
+
+    Object.defineProperty(document, 'elementsFromPoint', {
+      configurable: true,
+      value: originalElementsFromPoint,
+    });
   });
 
   it('reads drag payload from fallback custom mime type', () => {

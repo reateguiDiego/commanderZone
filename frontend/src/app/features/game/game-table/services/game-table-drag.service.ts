@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { GameCardInstance, GameZoneName } from '../../../../core/models/game.model';
+import { canDropCardOnZone } from '../utils/command-zone-drop';
 
 interface PointerCardDrag {
   playerId: string;
@@ -64,6 +65,7 @@ export class GameTableDragService {
   private pointerCardDrag: PointerCardDrag | null = null;
   private suppressCardClickInstanceId: string | null = null;
   private dragImageGeometry: DragImageGeometry | null = null;
+  private nativeDragPayload: DragPayload | null = null;
 
   hasActivePointerDrag(): boolean {
     return this.pointerCardDrag !== null;
@@ -251,21 +253,27 @@ export class GameTableDragService {
 
   dragStart(event: DragEvent, playerId: string, zone: GameZoneName, card: GameCardInstance, instanceIds: readonly string[] = [card.instanceId]): void {
     const uniqueInstanceIds = [...new Set(instanceIds.length > 0 ? instanceIds : [card.instanceId])];
-    const payload = JSON.stringify({
+    const payload: DragPayload = {
       playerId,
       zone,
       instanceId: card.instanceId,
       instanceIds: uniqueInstanceIds,
-    });
+    };
+    const serializedPayload = JSON.stringify(payload);
+    this.nativeDragPayload = payload;
     this.dragImageGeometry = null;
-    event.dataTransfer?.setData('application/json', payload);
-    event.dataTransfer?.setData(this.payloadMimeType, payload);
+    event.dataTransfer?.setData('application/json', serializedPayload);
+    event.dataTransfer?.setData(this.payloadMimeType, serializedPayload);
     event.dataTransfer?.setData(this.dragMarkerMimeType, '1');
     event.dataTransfer?.setData('text/plain', card.instanceId);
     if (event.dataTransfer) {
       event.dataTransfer.effectAllowed = 'move';
-      this.setCardDragImage(event);
+      this.setCardDragImage(event, card.instanceId);
     }
+  }
+
+  clearNativeDragPayload(): void {
+    this.nativeDragPayload = null;
   }
 
   allowDrop(event: DragEvent, zones?: readonly GameZoneName[]): boolean {
@@ -284,35 +292,33 @@ export class GameTableDragService {
     const raw = event.dataTransfer?.getData('application/json')
       || event.dataTransfer?.getData(this.payloadMimeType);
     if (!raw) {
-      return null;
+      return this.activeNativeDragPayload(event, zones);
     }
 
     try {
       const payload = JSON.parse(raw) as { playerId?: string; zone?: string; instanceId?: string; instanceIds?: unknown };
-      if (!payload.playerId || !payload.instanceId || !zones.includes(payload.zone as GameZoneName)) {
-        return null;
-      }
-
-      const instanceIds = Array.isArray(payload.instanceIds)
-        ? payload.instanceIds.filter((instanceId): instanceId is string => typeof instanceId === 'string' && instanceId !== '')
-        : [];
-
-      return {
-        playerId: payload.playerId,
-        zone: payload.zone as GameZoneName,
-        instanceId: payload.instanceId,
-        instanceIds: instanceIds.length > 0 ? [...new Set(instanceIds)] : [payload.instanceId],
-      };
+      return this.normalizeDragPayload(payload, zones);
     } catch {
-      return null;
+      return this.activeNativeDragPayload(event, zones);
     }
   }
 
-  pointerDropZone(event: PointerEvent, playerId: string, zones: GameZoneName[]): GameZoneName | null {
+  pointerDropZone(
+    event: PointerEvent,
+    playerId: string,
+    zones: GameZoneName[],
+    draggedCard: GameCardInstance | null = null,
+    knownCommanderInstanceIds?: ReadonlySet<string>,
+  ): GameZoneName | null {
     for (const element of document.elementsFromPoint(event.clientX, event.clientY)) {
       const target = element.closest<HTMLElement>('[data-game-drop-zone]');
       const zone = target?.dataset['zone'] as GameZoneName | undefined;
-      if (target?.dataset['playerId'] === playerId && zone && zones.includes(zone)) {
+      if (
+        target?.dataset['playerId'] === playerId
+        && zone
+        && zones.includes(zone)
+        && canDropCardOnZone(zone, draggedCard, knownCommanderInstanceIds)
+      ) {
         return zone;
       }
     }
@@ -377,7 +383,48 @@ export class GameTableDragService {
     const types = Array.from(dataTransfer.types ?? []);
     return types.includes(this.dragMarkerMimeType)
       || types.includes('application/json')
-      || types.includes(this.payloadMimeType);
+      || types.includes(this.payloadMimeType)
+      || (this.nativeDragPayload !== null && types.includes('text/plain'));
+  }
+
+  private activeNativeDragPayload(event: DragEvent, zones: readonly GameZoneName[]): DragPayload | null {
+    const payload = this.nativeDragPayload;
+    const dataTransfer = event.dataTransfer;
+    if (!payload || !dataTransfer || !zones.includes(payload.zone)) {
+      return null;
+    }
+
+    const textPayload = dataTransfer.getData('text/plain');
+    if (textPayload && !payload.instanceIds.includes(textPayload)) {
+      return null;
+    }
+
+    const types = Array.from(dataTransfer.types ?? []);
+    const hasAppDragType = types.includes(this.dragMarkerMimeType)
+      || types.includes('application/json')
+      || types.includes(this.payloadMimeType)
+      || types.includes('text/plain');
+    return hasAppDragType ? payload : null;
+  }
+
+  private normalizeDragPayload(
+    payload: { playerId?: string; zone?: string; instanceId?: string; instanceIds?: unknown },
+    zones: readonly GameZoneName[],
+  ): DragPayload | null {
+    if (!payload.playerId || !payload.instanceId || !zones.includes(payload.zone as GameZoneName)) {
+      return null;
+    }
+
+    const instanceIds = Array.isArray(payload.instanceIds)
+      ? payload.instanceIds.filter((instanceId): instanceId is string => typeof instanceId === 'string' && instanceId !== '')
+      : [];
+
+    return {
+      playerId: payload.playerId,
+      zone: payload.zone as GameZoneName,
+      instanceId: payload.instanceId,
+      instanceIds: instanceIds.length > 0 ? [...new Set(instanceIds)] : [payload.instanceId],
+    };
   }
 
   private manaLaneForCardTop(
@@ -529,15 +576,15 @@ export class GameTableDragService {
     };
   }
 
-  private setCardDragImage(event: DragEvent): void {
+  private setCardDragImage(event: DragEvent, draggedInstanceId: string): void {
     try {
-      this.trySetCardDragImage(event);
+      this.trySetCardDragImage(event, draggedInstanceId);
     } catch {
       this.dragImageGeometry = null;
     }
   }
 
-  private trySetCardDragImage(event: DragEvent): void {
+  private trySetCardDragImage(event: DragEvent, draggedInstanceId: string): void {
     const eventElement = event.target instanceof Element
       ? event.target
       : event.currentTarget instanceof Element
@@ -546,7 +593,7 @@ export class GameTableDragService {
     const target = eventElement
       ? eventElement.closest<HTMLElement>('.game-card, .hand-card, .command-zone-card, .zone-stack, .zone-art img, .zone-art .card-back, .zone-art')
       : null;
-    const commandZoneCard = eventElement?.closest<HTMLElement>('.command-zone-card') ?? null;
+    const commandZoneCard = this.commandZoneCardSource(eventElement, draggedInstanceId);
     const zoneArt = eventElement?.closest<HTMLElement>('.zone-art')
       ?? (target?.classList.contains('zone-stack') ? target.querySelector<HTMLElement>('.zone-art') : null);
     const source = this.commandZoneDragImageSource(commandZoneCard) ?? this.dragImageSource(zoneArt) ?? target;
@@ -586,6 +633,36 @@ export class GameTableDragService {
     return commandZoneCard?.querySelector<HTMLElement>('.zone-card-image')
       ?? commandZoneCard?.querySelector<HTMLElement>('.command-zone-card-name')
       ?? null;
+  }
+
+  private commandZoneCardSource(eventElement: Element | null, draggedInstanceId: string): HTMLElement | null {
+    const eventCard = eventElement?.closest<HTMLElement>('.command-zone-card') ?? null;
+    if (eventCard && (!this.elementHasCardIdentity(eventCard) || this.elementMatchesCard(eventCard, draggedInstanceId))) {
+      return eventCard;
+    }
+
+    const escapedInstanceId = this.cssEscape(draggedInstanceId);
+
+    return document.querySelector<HTMLElement>(
+      `.command-zone-card[data-card-id="${escapedInstanceId}"], .command-zone-card[data-motion-origin-card-id="${escapedInstanceId}"]`,
+    );
+  }
+
+  private elementMatchesCard(element: HTMLElement, instanceId: string): boolean {
+    return element.dataset['cardId'] === instanceId
+      || element.dataset['motionOriginCardId'] === instanceId;
+  }
+
+  private elementHasCardIdentity(element: HTMLElement): boolean {
+    return Boolean(element.dataset['cardId'] || element.dataset['motionOriginCardId']);
+  }
+
+  private cssEscape(value: string): string {
+    if (typeof CSS !== 'undefined' && typeof CSS.escape === 'function') {
+      return CSS.escape(value);
+    }
+
+    return value.replace(/["\\]/g, '\\$&');
   }
 
   private createNativeCardDragPreview(source: HTMLElement, forcedSize: DragPreviewSize | null = null): { element: HTMLElement; width: number; height: number } {
