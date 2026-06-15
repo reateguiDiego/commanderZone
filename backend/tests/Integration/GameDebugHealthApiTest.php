@@ -129,8 +129,7 @@ class GameDebugHealthApiTest extends ApiTestCase
         $this->jsonRequest('POST', '/rooms/'.$roomId.'/join', ['deckId' => $playerDeckId], $playerToken);
         self::assertResponseIsSuccessful();
 
-        $this->rollTurnOrder($roomId, $ownerToken);
-        $this->rollTurnOrder($roomId, $playerToken);
+        $this->resolveTurnOrder($roomId, [$ownerToken, $playerToken]);
 
         $this->jsonRequest('POST', '/rooms/'.$roomId.'/start', token: $ownerToken);
         self::assertResponseStatusCodeSame(201);
@@ -157,9 +156,59 @@ class GameDebugHealthApiTest extends ApiTestCase
         return (string) $this->jsonResponse()['deck']['id'];
     }
 
-    private function rollTurnOrder(string $roomId, string $token): void
+    /**
+     * @param list<string> $tokens
+     */
+    private function resolveTurnOrder(string $roomId, array $tokens): void
     {
-        $this->jsonRequest('POST', '/rooms/'.$roomId.'/roll-turn', token: $token);
-        self::assertResponseIsSuccessful();
+        for ($attempt = 0; $attempt < 20; ++$attempt) {
+            $this->jsonRequest('GET', '/rooms/'.$roomId, token: $tokens[0]);
+            self::assertResponseIsSuccessful();
+            $players = $this->jsonResponse()['room']['players'] ?? [];
+            if ($this->turnOrderResolved($players)) {
+                return;
+            }
+
+            $progress = false;
+            foreach ($tokens as $token) {
+                $this->jsonRequest('POST', '/rooms/'.$roomId.'/roll-turn', token: $token);
+                $statusCode = $this->getClient()->getResponse()->getStatusCode();
+                if ($statusCode === 200) {
+                    $progress = true;
+                    continue;
+                }
+
+                $response = $this->jsonResponse();
+                if ($statusCode === 409 && ($response['error'] ?? '') === 'Turn order has already been rolled.') {
+                    continue;
+                }
+
+                self::fail(sprintf('Unexpected turn-order response %d: %s', $statusCode, json_encode($response, JSON_THROW_ON_ERROR)));
+            }
+
+            if (!$progress) {
+                break;
+            }
+        }
+
+        self::fail('Unable to resolve turn order after repeated rerolls.');
+    }
+
+    /**
+     * @param list<array<string,mixed>> $players
+     */
+    private function turnOrderResolved(array $players): bool
+    {
+        $rolls = [];
+        foreach ($players as $player) {
+            $roll = $player['turnRoll'] ?? null;
+            if (!is_int($roll)) {
+                return false;
+            }
+
+            $rolls[] = $roll;
+        }
+
+        return count($rolls) >= 2 && count($rolls) === count(array_unique($rolls));
     }
 }

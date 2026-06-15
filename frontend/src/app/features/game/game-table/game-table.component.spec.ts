@@ -1622,11 +1622,9 @@ describe('GameTableComponent', () => {
     const motion = fixture.debugElement.injector.get(GameTableMotionService);
     const calls: string[] = [];
     const playFlip = vi.fn(() => calls.push('playFlip'));
-    const prepareCardFlip = vi.spyOn(motion, 'prepareCardFlip').mockImplementation((selector?: string, options?: { readonly freezeHand?: boolean }) => {
-      calls.push(`prepare:${selector ?? ''}`);
-      if (options) {
-        calls.push(`freeze:${String(options.freezeHand)}`);
-      }
+    const prepareHandLayoutFlip = vi.spyOn(motion, 'prepareHandLayoutFlip').mockImplementation((root: HTMLElement, selector = '[data-zone="hand"][data-card-instance-id]') => {
+      void root;
+      calls.push(`prepare:${selector}`);
       return playFlip;
     });
     const reorderHandCard = vi.spyOn(fixture.componentInstance.store, 'reorderHandCard').mockImplementation(async () => {
@@ -1640,10 +1638,13 @@ describe('GameTableComponent', () => {
       placement: 'before',
     });
 
-    expect(prepareCardFlip).toHaveBeenCalledWith('[data-zone="hand"][data-card-instance-id]', { freezeHand: false });
+    expect(prepareHandLayoutFlip).toHaveBeenCalledWith(
+      expect.any(HTMLElement),
+      '[data-zone="hand"][data-card-instance-id]',
+    );
     expect(reorderHandCard).toHaveBeenCalledWith('user-1', 'hand-2', 'hand-1', 'before');
     expect(playFlip).toHaveBeenCalledOnce();
-    expect(calls).toEqual(['prepare:[data-zone="hand"][data-card-instance-id]', 'freeze:false', 'reorder', 'playFlip']);
+    expect(calls).toEqual(['prepare:[data-zone="hand"][data-card-instance-id]', 'reorder', 'playFlip']);
   });
 
   it('concedes through a dedicated game command even if another action is pending', async () => {
