@@ -1,11 +1,11 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Injectable, computed, inject, signal } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
+import { Injectable, NgZone, computed, inject, signal } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { CardsApi, CardSearchFilters } from '../../../core/api/cards.api';
 import { DecksApi } from '../../../core/api/decks.api';
 import { AppShellI18nService } from '../../../core/localization/app-shell-i18n.service';
-import { SupportedLanguageCode } from '../../../core/localization/language-preferences';
+import { SUPPORTED_LANGUAGE_CODES, SupportedLanguageCode } from '../../../core/localization/language-preferences';
 import { LanguagePreferencesService } from '../../../core/localization/language-preferences.service';
 import { MissingDeckCard } from '../../../core/models/api-responses.model';
 import { Card, CardFace } from '../../../core/models/card.model';
@@ -33,32 +33,46 @@ import {
   PointerPosition,
 } from '../models/deck-editor.models';
 
+const CARD_TYPE_GROUPS = [
+  { id: 'planeswalker', title: 'Planeswalkers', type: 'planeswalker' },
+  { id: 'creature', title: 'Criaturas', type: 'creature' },
+  { id: 'instant', title: 'Instantaneos', type: 'instant' },
+  { id: 'sorcery', title: 'Conjuros', type: 'sorcery' },
+  { id: 'enchantment', title: 'Encantamientos', type: 'enchantment' },
+  { id: 'artifact', title: 'Artefactos', type: 'artifact' },
+  { id: 'battle', title: 'Battles', type: 'battle' },
+  { id: 'land', title: 'Tierras', type: 'land' },
+] as const;
+
 const GROUPS: Array<{ id: string; title: string; matcher: (entry: DeckCard) => boolean }> = [
   { id: 'commander', title: 'Comandante', matcher: (entry) => entry.section === 'commander' },
-  { id: 'planeswalker', title: 'Planeswalkers', matcher: (entry) => hasMaindeckType(entry, 'planeswalker') },
-  { id: 'creature', title: 'Criaturas', matcher: (entry) => hasMaindeckType(entry, 'creature') },
-  { id: 'instant', title: 'Instantaneos', matcher: (entry) => hasMaindeckType(entry, 'instant') },
-  { id: 'sorcery', title: 'Conjuros', matcher: (entry) => hasMaindeckType(entry, 'sorcery') },
-  { id: 'enchantment', title: 'Encantamientos', matcher: (entry) => hasMaindeckType(entry, 'enchantment') },
-  { id: 'artifact', title: 'Artefactos', matcher: (entry) => hasMaindeckType(entry, 'artifact') },
-  { id: 'battle', title: 'Battles', matcher: (entry) => hasMaindeckType(entry, 'battle') },
-  { id: 'land', title: 'Tierras', matcher: (entry) => hasMaindeckType(entry, 'land') },
+  ...CARD_TYPE_GROUPS.map((group) => ({
+    id: group.id,
+    title: group.title,
+    matcher: (entry: DeckCard) => hasMaindeckType(entry, group.type),
+  })),
   { id: 'sideboard', title: 'Banquillo', matcher: (entry) => entry.section === 'sideboard' },
 ];
+const NON_PLAYABLE_CARD_GROUP_IDS = new Set(['sideboard', 'maybeboard', 'considering']);
 const DECK_TEXT_VIEW_TARGET_COLUMN_WEIGHT = 42;
 const DECK_TEXT_VIEW_MAX_COLUMNS = 2;
 const CARD_MENU_WIDTH = 300;
 const CARD_MENU_HEIGHT = 390;
 const CARD_MENU_IMAGE_PREVIEW_WIDTH = 224;
 const CARD_MENU_POPOVER_GAP = 12;
-const COMMON_PRINT_LANGUAGE_CODES = ['ph', 'qya', 'grc', 'he', 'sa', 'ar'] as const;
 const MISSING_CARD_SEARCH_LIMIT = 60;
+
+interface ToggleCardFaceOptions {
+  readonly updatePreview?: boolean;
+}
 
 @Injectable()
 export class DeckEditorStore {
   private readonly decksApi = inject(DecksApi);
   private readonly cardsApi = inject(CardsApi);
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+  private readonly zone = inject(NgZone);
   private readonly languagePreferences = inject(LanguagePreferencesService);
   private readonly i18n = inject(AppShellI18nService);
   private readonly importExport = inject(DeckImportExportService);
@@ -98,11 +112,13 @@ export class DeckEditorStore {
   readonly openingHand = signal<OpeningHandCard[]>([]);
   readonly mainCards = computed(() => this.cardsBySection('main'));
   readonly commanderCards = computed(() => this.cardsBySection('commander'));
-  readonly sideboardCards = computed(() => this.cardsBySection('sideboard'));
+  readonly sideboardCards = computed(() => sortSideboardCards(this.cardsBySection('sideboard')));
   readonly consideringCards = computed(() => this.cardsBySection('maybeboard'));
-  readonly totalCards = computed(() => (this.deck()?.cards ?? [])
-    .filter((entry) => entry.section !== 'maybeboard')
+  readonly playableCardCount = computed(() => (this.deck()?.cards ?? [])
+    .filter((entry) => isPlayableDeckEntry(entry))
     .reduce((total, entry) => total + entry.quantity, 0));
+  /** @deprecated Use playableCardCount for the deck editor summary. */
+  readonly totalCards = this.playableCardCount;
   readonly analysis = computed(() => this.analysisService.analyze(this.deck()));
   readonly clientIssues = computed(() => this.clientValidation.validate(this.deck()));
   readonly backendErrorMessages = computed(() => {
@@ -159,7 +175,14 @@ export class DeckEditorStore {
   });
   readonly missingItems = computed(() => this.buildMissingItems());
   readonly cardGroups = computed(() => this.buildCardGroups());
+  readonly playableSectionCount = computed(() => this.cardGroups()
+    .filter((group) => !NON_PLAYABLE_CARD_GROUP_IDS.has(group.id))
+    .length);
   readonly cardColumns = computed(() => this.buildCardColumns());
+  readonly visiblePrintVersionOptions = computed(() => this.printVersionCardsForSelectedLanguage());
+  readonly hasSinglePrintVersionOption = computed(() => (
+    !this.loadingPrintVersions() && this.visiblePrintVersionOptions().length === 1
+  ));
   readonly printVersionGroups = computed(() => this.buildPrintVersionGroups());
 
   deckName = '';
@@ -205,20 +228,22 @@ export class DeckEditorStore {
     }
 
     try {
-      const [response, tokensResponse] = await Promise.all([
-        firstValueFrom(this.decksApi.get(id)),
-        firstValueFrom(this.decksApi.tokens(id)),
-      ]);
+      const response = await firstValueFrom(this.decksApi.get(id));
       this.deck.set(response.deck);
       this.deckName = response.deck.name;
-      this.tokens.set(tokensResponse.data);
-      this.unresolvedTokens.set(tokensResponse.unresolved);
+      this.tokens.set([]);
+      this.unresolvedTokens.set([]);
       this.missing.set([]);
       this.missingSourceEntries.set([]);
       this.drawOpeningHand(response.deck);
       this.refreshHistory(response.deck.id);
       void this.refreshBackendValidation(response.deck.id);
     } catch (error) {
+      if (error instanceof HttpErrorResponse && error.status === 404) {
+        await this.router.navigateByUrl('/404', { replaceUrl: true });
+        return;
+      }
+
       this.error.set(this.apiErrorMessage(error, 'Could not load deck.'));
     } finally {
       this.loading.set(false);
@@ -238,21 +263,21 @@ export class DeckEditorStore {
 
   async importDeck(id: string): Promise<void> {
     try {
-      const entries = this.importExport.parse(this.decklist, 'plain');
-      const response = await firstValueFrom(this.decksApi.importDecklist(id, this.importExport.toBackendDecklist(entries)));
+      const previousDeck = this.deck();
+      const response = await firstValueFrom(this.decksApi.importDecklist(id, this.decklist));
       this.deck.set(response.deck);
       this.missing.set(response.missing);
       this.missingSourceEntries.set(response.missingCards ?? []);
       this.drawOpeningHand(response.deck);
       this.lastImportStats.set({
-        parsedCards: response.summary?.parsedCards ?? entries.reduce((total, entry) => total + entry.quantity, 0),
+        parsedCards: response.summary?.parsedCards ?? 0,
         importedCards: response.summary?.importedCards ?? (response.deck.cards ?? []).reduce((total, entry) => total + entry.quantity, 0),
         missingCards: response.missing.length,
       });
       this.validation.set(null);
       this.missingSearch.set(null);
-      this.recordHistory(response.deck, 'Import plain text');
-      void this.refreshTokens(response.deck.id);
+      this.recordHistory(response.deck, 'Import decklist');
+      this.refreshTokensIfPlayableCardsChanged(previousDeck, response.deck);
       void this.refreshBackendValidation(response.deck.id);
       if (response.missing.length > 0) {
         this.activeTab.set('missing');
@@ -277,8 +302,10 @@ export class DeckEditorStore {
 
     const reader = new FileReader();
     reader.onload = () => {
-      this.decklist = String(reader.result ?? '');
-      input.value = '';
+      this.zone.run(() => {
+        this.decklist = String(reader.result ?? '');
+        input.value = '';
+      });
     };
     reader.readAsText(file);
   }
@@ -450,6 +477,7 @@ export class DeckEditorStore {
       this.missingSourceEntries.set(this.missingSourceEntries().filter((entry) => entry.name.toLowerCase() !== targetName.toLowerCase()));
       this.validation.set(null);
       this.recordHistory(response.deck, `Manual add ${card.name}`);
+      this.refreshTokensIfPlayableCardsChanged(currentDeck, response.deck);
       void this.refreshBackendValidation(response.deck.id);
     } catch (error) {
       this.error.set(this.apiErrorMessage(error, 'Could not add selected card.'));
@@ -498,7 +526,7 @@ export class DeckEditorStore {
       this.missingSearch.set(null);
       this.validation.set(null);
       this.refreshHistory(deckId);
-      void this.refreshTokens(deckId);
+      this.refreshTokensIfPlayableCardsChanged(current, response.deck);
       void this.refreshBackendValidation(deckId);
       this.restoreModalOpen.set(false);
       this.restoreTarget.set(null);
@@ -654,7 +682,10 @@ export class DeckEditorStore {
 
     try {
       const response = await firstValueFrom(this.decksApi.selectPrinting(currentDeck.id, entry.id, card.scryfallId));
-      this.applyDeckUpdate(response.deck, `Change print version ${entry.card.name}`);
+      this.applyDeckUpdate(response.deck, `Change print version ${entry.card.name}`, {
+        clearValidation: false,
+        refreshValidation: false,
+      });
       this.closePrintVersionModal();
     } catch (error) {
       this.error.set(this.apiErrorMessage(error, 'Could not select print version.'));
@@ -676,49 +707,16 @@ export class DeckEditorStore {
   }
 
   private buildPrintVersionGroups(): PrintVersionGroup[] {
-    const cards = this.printVersionOptions();
+    const cards = this.visiblePrintVersionOptions();
     if (cards.length === 0) {
       return [];
     }
 
-    const preferredLanguage = this.languagePreferences.cardLanguage();
-    const preferredCards = cards.filter((card) => this.printVersionLanguage(card) === preferredLanguage);
-    const alternativeCards = cards.filter((card) => this.isCommonPrintLanguage(this.printVersionLanguage(card)));
-    const englishCards = preferredLanguage === 'en'
-      ? []
-      : cards.filter((card) => this.printVersionLanguage(card) === 'en');
-
-    const groups: PrintVersionGroup[] = [];
-    if (preferredCards.length > 0) {
-      groups.push({
-        title: this.localizedLanguageName(preferredLanguage),
-        cards: preferredCards,
-      });
-    }
-    if (preferredLanguage === 'en') {
-      if (alternativeCards.length > 0) {
-        groups.push({
-          title: this.localizedAlternativesTitle(),
-          cards: alternativeCards,
-        });
-      }
-      return groups;
-    }
-
-    if (alternativeCards.length > 0) {
-      groups.push({
-        title: this.localizedAlternativesTitle(),
-        cards: alternativeCards,
-      });
-    }
-    if (englishCards.length > 0) {
-      groups.push({
-        title: this.localizedLanguageName('en'),
-        cards: englishCards,
-      });
-    }
-
-    return groups;
+    const language = this.printVersionLanguage(cards[0]!) ?? 'en';
+    return [{
+      title: this.localizedLanguageName(language),
+      cards,
+    }];
   }
 
   showHoverList(event: MouseEvent, title: string, items: string[]): void {
@@ -820,7 +818,10 @@ export class DeckEditorStore {
   }
 
   hasAlternateFace(card: Card): boolean {
-    return card.name.includes('//') || (card.cardFaces?.length ?? 0) > 1;
+    const faces = card.cardFaces ?? [];
+    const secondFaceImage = bestCardFaceImage(faces[1]);
+
+    return faces.length > 1 && secondFaceImage !== null && secondFaceImage.trim().length > 0;
   }
 
   displayCardName(card: Card): string {
@@ -836,25 +837,9 @@ export class DeckEditorStore {
   }
 
   displayCardTypeLine(card: Card): string | null {
-    const face = this.displayCardFace(card);
-    if (face?.typeLine) {
-      return face.typeLine;
-    }
+    const typeLine = card.typeLine ?? card.cardFaces?.[0]?.typeLine ?? this.displayCardFace(card)?.typeLine ?? null;
 
-    if (!card.typeLine) {
-      return null;
-    }
-
-    if (!this.hasAlternateFace(card)) {
-      return card.typeLine;
-    }
-
-    const [front, back] = card.typeLine.split('//').map((part) => part.trim());
-    if (!front || !back) {
-      return card.typeLine;
-    }
-
-    return this.isFaceFlipped(card) ? `${back} // ${front}` : `${front} // ${back}`;
+    return typeLine ? primaryTypeLinePart(typeLine) : null;
   }
 
   displayCardManaCost(card: Card): string | null {
@@ -863,8 +848,10 @@ export class DeckEditorStore {
     return face?.manaCost ?? card.manaCost;
   }
 
-  toggleCardFace(event: MouseEvent, card: Card): void {
+  toggleCardFace(event: MouseEvent, card: Card, options: ToggleCardFaceOptions = {}): void {
+    event.preventDefault();
     event.stopPropagation();
+    event.stopImmediatePropagation();
     if (this.previewEnterTimeout) {
       clearTimeout(this.previewEnterTimeout);
       this.previewEnterTimeout = null;
@@ -874,9 +861,23 @@ export class DeckEditorStore {
     next[card.scryfallId] = !next[card.scryfallId];
     this.flippedFaces.set(next);
 
-    this.lastPreviewPointer = { x: event.clientX, y: event.clientY };
-    this.updatePreviewPosition(this.lastPreviewPointer, card, this.displayCardImageUrl(card));
-    void this.resolvePreviewImage(card);
+    if (options.updatePreview ?? true) {
+      this.lastPreviewPointer = { x: event.clientX, y: event.clientY };
+      this.updatePreviewPosition(this.lastPreviewPointer, card, this.displayCardImageUrl(card));
+      void this.resolvePreviewImage(card);
+    }
+  }
+
+  resetCardFace(card: Card): boolean {
+    if (!this.isFaceFlipped(card)) {
+      return false;
+    }
+
+    const next = { ...this.flippedFaces() };
+    delete next[card.scryfallId];
+    this.flippedFaces.set(next);
+
+    return true;
   }
 
   private async addSearchedCardInternal(card: Card, amount: number): Promise<void> {
@@ -938,8 +939,7 @@ export class DeckEditorStore {
 
   private buildCardGroups(): DeckCardGroup[] {
     const cards = [...(this.deck()?.cards ?? [])]
-      .filter((entry) => entry.section !== 'maybeboard')
-      .sort((left, right) => left.card.name.localeCompare(right.card.name));
+      .filter((entry) => entry.section !== 'maybeboard');
     const groups: DeckCardGroup[] = [];
     const assigned = new Set<string>();
     const assignedMdfcLandQuantity = () => cards
@@ -948,18 +948,19 @@ export class DeckEditorStore {
 
     for (const group of GROUPS) {
       const items = cards.filter((entry) => !assigned.has(entry.id) && group.matcher(entry));
+      const groupCards = group.id === 'sideboard' ? sortSideboardCards(items) : sortCardsWithinSection(items);
       if (items.length === 0 && group.id !== 'commander') {
         continue;
       }
 
       const mdfcLandQuantity = group.id === 'land' ? assignedMdfcLandQuantity() : 0;
       items.forEach((entry) => assigned.add(entry.id));
-      groups.push(this.toCardGroup(group.id, group.title, items, mdfcLandQuantity));
+      groups.push(this.toCardGroup(group.id, group.title, groupCards, mdfcLandQuantity));
     }
 
     const remaining = cards.filter((entry) => !assigned.has(entry.id));
     if (remaining.length > 0) {
-      groups.push(this.toCardGroup('other', 'Otros', remaining));
+      groups.push(this.toCardGroup('other', 'Otros', sortCardsWithinSection(remaining)));
     }
 
     return groups;
@@ -1068,7 +1069,12 @@ export class DeckEditorStore {
     }, 0);
   }
 
-  private applyDeckUpdate(deck: Deck, historySource: string): void {
+  private applyDeckUpdate(
+    deck: Deck,
+    historySource: string,
+    options: { clearValidation?: boolean; refreshValidation?: boolean } = {},
+  ): void {
+    const previousDeck = this.deck();
     const responseIncludesCards = Array.isArray(deck.cards);
     const normalizedDeck = {
       ...deck,
@@ -1076,10 +1082,14 @@ export class DeckEditorStore {
     };
     this.deck.set(normalizedDeck);
     this.drawOpeningHand(normalizedDeck);
-    this.validation.set(null);
+    if (options.clearValidation ?? true) {
+      this.validation.set(null);
+    }
     this.cardMenu.set(null);
-    void this.refreshTokens(deck.id);
-    void this.refreshBackendValidation(deck.id);
+    this.refreshTokensIfPlayableCardsChanged(previousDeck, normalizedDeck);
+    if (options.refreshValidation ?? true) {
+      void this.refreshBackendValidation(deck.id);
+    }
     if (responseIncludesCards) {
       this.recordHistory(normalizedDeck, historySource);
     } else {
@@ -1174,6 +1184,22 @@ export class DeckEditorStore {
       this.tokens.set([]);
       this.unresolvedTokens.set([]);
     }
+  }
+
+  private refreshTokensIfPlayableCardsChanged(previousDeck: Deck | null | undefined, nextDeck: Deck): void {
+    if (this.playableTokenSourceSignature(previousDeck) === this.playableTokenSourceSignature(nextDeck)) {
+      return;
+    }
+
+    void this.refreshTokens(nextDeck.id);
+  }
+
+  private playableTokenSourceSignature(deck: Deck | null | undefined): string {
+    return this.deckCardsOf(deck)
+      .filter((entry) => isPlayableDeckEntry(entry))
+      .map((entry) => `${entry.section}:${entry.card.scryfallId}:${entry.quantity}`)
+      .sort((left, right) => left.localeCompare(right))
+      .join('|');
   }
 
   private async loadPrintVersions(entry: DeckCard): Promise<void> {
@@ -1424,21 +1450,29 @@ export class DeckEditorStore {
     return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
   }
 
-  private localizedAlternativesTitle(): string {
-    return this.i18n.locale() === 'es' ? 'Alternativos' : 'Alternatives';
-  }
-
   private localizedLanguageName(code: SupportedLanguageCode): string {
     return this.i18n.languageName(code);
   }
 
-  private printVersionLanguage(card: Card): string | null {
-    const language = card.lang?.trim().toLowerCase();
-    return language ? language : null;
+  private printVersionCardsForSelectedLanguage(): Card[] {
+    const cards = this.printVersionOptions();
+    const preferredLanguage = this.languagePreferences.cardLanguage();
+    const preferredCards = cards.filter((card) => this.printVersionLanguage(card) === preferredLanguage);
+
+    if (preferredCards.length > 0) {
+      return preferredCards;
+    }
+
+    return cards.filter((card) => this.printVersionLanguage(card) === 'en');
   }
 
-  private isCommonPrintLanguage(language: string | null): boolean {
-    return language !== null && (COMMON_PRINT_LANGUAGE_CODES as readonly string[]).includes(language);
+  private printVersionLanguage(card: Card): SupportedLanguageCode | null {
+    const language = card.lang?.trim().toLowerCase();
+    return language && this.isSupportedPrintLanguage(language) ? language : null;
+  }
+
+  private isSupportedPrintLanguage(language: string): language is SupportedLanguageCode {
+    return (SUPPORTED_LANGUAGE_CODES as readonly string[]).includes(language);
   }
 
   private updatePreviewPosition(pointer: PointerPosition, card: Card, imageUrl: string | null): void {
@@ -1566,4 +1600,70 @@ function hasType(entry: DeckCard, type: string): boolean {
 
 function hasMaindeckType(entry: DeckCard, type: string): boolean {
   return entry.section !== 'sideboard' && hasType(entry, type);
+}
+
+function sortCardsWithinSection(cards: DeckCard[]): DeckCard[] {
+  return [...cards].sort(compareCardsWithinSection);
+}
+
+function compareCardsWithinSection(left: DeckCard, right: DeckCard): number {
+  const nameOrder = left.card.name.localeCompare(right.card.name);
+  if (nameOrder !== 0) {
+    return nameOrder;
+  }
+
+  const leftTypes = cardTypeSortParts(left);
+  const rightTypes = cardTypeSortParts(right);
+  const subtypeOrder = leftTypes.subtype.localeCompare(rightTypes.subtype);
+  if (subtypeOrder !== 0) {
+    return subtypeOrder;
+  }
+
+  const primaryTypeOrder = leftTypes.primaryType.localeCompare(rightTypes.primaryType);
+  if (primaryTypeOrder !== 0) {
+    return primaryTypeOrder;
+  }
+
+  return left.id.localeCompare(right.id);
+}
+
+function sortSideboardCards(cards: DeckCard[]): DeckCard[] {
+  return [...cards].sort((left, right) => {
+    const typeOrder = cardTypeGroupIndex(left) - cardTypeGroupIndex(right);
+    if (typeOrder !== 0) {
+      return typeOrder;
+    }
+
+    return compareCardsWithinSection(left, right);
+  });
+}
+
+function cardTypeGroupIndex(entry: DeckCard): number {
+  const index = CARD_TYPE_GROUPS.findIndex((group) => hasType(entry, group.type));
+
+  return index === -1 ? CARD_TYPE_GROUPS.length : index;
+}
+
+function cardTypeSortParts(entry: DeckCard): { primaryType: string; subtype: string } {
+  const typeLine = primaryTypeLinePart(entry.card.typeLine ?? '');
+  const [primaryType = '', ...subtypeParts] = typeLine.split(/\s+[—–-]\s+/);
+
+  return {
+    primaryType: normalizeSortText(primaryType),
+    subtype: normalizeSortText(subtypeParts.join(' ')),
+  };
+}
+
+function normalizeSortText(value: string): string {
+  return value.trim().replace(/\s+/g, ' ');
+}
+
+function isPlayableDeckEntry(entry: DeckCard): boolean {
+  return entry.section === 'commander' || entry.section === 'main';
+}
+
+function primaryTypeLinePart(typeLine: string): string {
+  const [front] = typeLine.split('//').map((part) => part.trim());
+
+  return front || typeLine.trim();
 }

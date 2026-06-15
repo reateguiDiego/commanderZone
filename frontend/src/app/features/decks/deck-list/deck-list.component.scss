@@ -52,16 +52,158 @@
 .deck-list-row.has-commander-art {
   grid-template-columns: minmax(0, 1fr);
   align-content: space-between;
-  min-height: 16rem;
+  width: min(100%, 416px);
+  max-width: 416px;
+  min-height: 300px;
+  max-height: 300px;
   padding: 0;
   overflow: hidden;
   isolation: isolate;
-  background: rgb(var(--cz-bg-rgb) / 92%);
+  background:
+    linear-gradient(180deg, rgb(var(--cz-bg-rgb) / 10%), rgb(var(--cz-bg-rgb) / 42%)),
+    rgb(var(--cz-bg-rgb) / 92%);
 }
 
-.deck-list-row > * {
-  position: relative;
+.deck-list-row.has-commander-art::before,
+.deck-list-row.has-commander-art::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+}
+
+.deck-list-row.has-commander-art::before {
+  z-index: 0;
+  inset: 0;
+  background-image:
+    linear-gradient(180deg, rgb(var(--cz-bg-rgb) / 14%), rgb(var(--cz-bg-rgb) / 48%)),
+    var(--deck-commander-art);
+}
+
+.deck-list-row.has-dual-commander-art::before {
+  background-image: linear-gradient(180deg, rgb(var(--cz-bg-rgb) / 14%), rgb(var(--cz-bg-rgb) / 48%));
+}
+
+.deck-dual-commander-art {
+  position: absolute;
+  inset: 0;
   z-index: 1;
+  pointer-events: none;
+}
+
+.deck-dual-commander-art::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(
+      90deg,
+      transparent 0%,
+      rgb(var(--cz-primary-rgb) / 10%) 43%,
+      rgb(var(--cz-primary-rgb) / 34%) 49%,
+      rgb(var(--cz-primary-rgb) / 18%) 52%,
+      rgb(var(--cz-primary-rgb) / 8%) 57%,
+      transparent 100%
+    );
+  clip-path: polygon(
+    53% 0%,
+    56% 0%,
+    58% 10%,
+    55% 18%,
+    59% 30%,
+    54% 41%,
+    58% 55%,
+    53% 68%,
+    56% 81%,
+    50% 92%,
+    43% 100%,
+    40% 100%,
+    47% 90%,
+    52% 79%,
+    49% 67%,
+    54% 54%,
+    50% 40%,
+    55% 29%,
+    51% 17%,
+    54% 9%
+  );
+  opacity: 0.85;
+}
+
+.deck-dual-commander-art-pane {
+  position: absolute;
+  inset: 0;
+}
+
+.deck-dual-commander-art-pane::before,
+.deck-dual-commander-art-pane::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-position: center;
+  background-repeat: no-repeat;
+  pointer-events: none;
+}
+
+.deck-dual-commander-art-pane::before {
+  background-image:
+    linear-gradient(180deg, rgb(var(--cz-bg-rgb) / 18%), rgb(var(--cz-bg-rgb) / 52%)),
+    var(--deck-pane-art);
+  background-size: auto, cover;
+  filter: blur(18px) saturate(1.05);
+  opacity: 0.52;
+  transform: scale(1.06);
+}
+
+.deck-dual-commander-art-pane::after {
+  background-image:
+    linear-gradient(180deg, rgb(var(--cz-bg-rgb) / 14%), rgb(var(--cz-bg-rgb) / 44%)),
+    var(--deck-pane-art);
+  background-size: auto, 100% auto;
+  opacity: 0.98;
+}
+
+.deck-dual-commander-art-pane-primary {
+  --deck-pane-art: var(--deck-commander-art);
+  clip-path: polygon(
+    0% 0%,
+    53% 0%,
+    56% 8%,
+    53% 17%,
+    57% 29%,
+    52% 40%,
+    56% 54%,
+    51% 67%,
+    54% 79%,
+    49% 90%,
+    42% 100%,
+    0% 100%
+  );
+}
+
+.deck-dual-commander-art-pane-secondary {
+  --deck-pane-art: var(--deck-secondary-commander-art);
+  clip-path: polygon(
+    53% 0%,
+    100% 0%,
+    100% 100%,
+    42% 100%,
+    49% 90%,
+    54% 79%,
+    51% 67%,
+    56% 54%,
+    52% 40%,
+    57% 29%,
+    53% 17%,
+    56% 8%
+  );
+}
+
+.deck-list-row > :not(.deck-dual-commander-art) {
+  position: relative;
+  z-index: 2;
 }
 
 .deck-row-clickable {
@@ -336,6 +478,18 @@
   color: var(--cz-secondary);
 }
 
+.hidden-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 @media (max-width: 1180px) {
   .deck-table-list {
     grid-template-columns: repeat(2, minmax(12rem, 1fr));
@@ -383,6 +537,7 @@
   .deck-list-row.has-commander-art {
     grid-template-columns: minmax(0, 1fr);
     min-height: 16rem;
+    justify-self: center;
   }
 
   .deck-row-actions,

@@ -220,7 +220,7 @@ describe('CardSpoilerGridComponent', () => {
     expect(fixture.nativeElement.querySelector('.double-face-toggle')).toBeNull();
   });
 
-  it('does not show the face toggle affordance when the alternate face has no content', async () => {
+  it('does not show the face toggle affordance when the second face has no image uri', async () => {
     await TestBed.configureTestingModule({
       imports: [CardSpoilerGridComponent],
       providers: [importProvidersFrom(LucideAngularModule.pick({ RotateCw }))],
@@ -279,7 +279,7 @@ function cardFace(name: string) {
     toughness: null,
     loyalty: null,
     colors: [],
-    imageUris: {},
+    imageUris: { normal: `/cards/${name}.jpg` },
   };
 }
 

@@ -9,14 +9,14 @@ describe('game snapshot patch reducer', () => {
     const result = applyGameSnapshotPatch(snapshot, patch([
       { op: 'player.life.set', playerId: 'player-1', value: 37 },
       { op: 'player.counters.set', playerId: 'player-1', counters: { poison: 2 } },
-      { op: 'player.commanderDamage.set', playerId: 'player-1', commanderDamage: { 'player-2': 5 } },
+      { op: 'player.commanderDamage.set', playerId: 'player-1', commanderDamage: { 'commander-1': 5 } },
     ]));
 
     expect(result.status).toBe('applied');
     expect(result.snapshot.version).toBe(2);
     expect(result.snapshot.players['player-1'].life).toBe(37);
     expect(result.snapshot.players['player-1'].counters).toEqual({ poison: 2 });
-    expect(result.snapshot.players['player-1'].commanderDamage).toEqual({ 'player-2': 5 });
+    expect(result.snapshot.players['player-1'].commanderDamage).toEqual({ 'commander-1': 5 });
   });
 
   it('applies shared game counters by scope', () => {
@@ -146,6 +146,50 @@ describe('game snapshot patch reducer', () => {
       name: 'Hidden card',
       hidden: true,
       faceDown: true,
+    }));
+  });
+
+  it('preserves commander identity when a moved card payload omits isCommander', () => {
+    const snapshot = snapshotFixture();
+
+    const result = applyGameSnapshotPatch(snapshot, patch([
+      {
+        op: 'card.move',
+        instanceId: 'commander-1',
+        from: { playerId: 'player-1', zone: 'command' },
+        to: { playerId: 'player-1', zone: 'graveyard' },
+        card: card('commander-1', { zone: 'graveyard' }),
+      },
+    ]));
+
+    expect(result.status).toBe('applied');
+    expect(result.snapshot.players['player-1'].zones.graveyard.at(-1)).toEqual(expect.objectContaining({
+      instanceId: 'commander-1',
+      isCommander: true,
+      zone: 'graveyard',
+    }));
+  });
+
+  it('preserves commander identity when replacing a visible zone omits isCommander', () => {
+    const snapshot = snapshotFixture();
+    snapshot.players['player-1'].zones.graveyard = [
+      card('commander-1', { zone: 'graveyard', isCommander: true }),
+    ];
+
+    const result = applyGameSnapshotPatch(snapshot, patch([
+      {
+        op: 'zone.visible.set',
+        playerId: 'player-1',
+        zone: 'graveyard',
+        cards: [card('commander-1', { zone: 'graveyard' })],
+      },
+    ]));
+
+    expect(result.status).toBe('applied');
+    expect(result.snapshot.players['player-1'].zones.graveyard[0]).toEqual(expect.objectContaining({
+      instanceId: 'commander-1',
+      isCommander: true,
+      zone: 'graveyard',
     }));
   });
 

@@ -123,29 +123,32 @@ class CardResolver
         return ['card' => $matches[0], 'error' => null, 'matches' => $matches];
     }
 
-    public function resolveForDecklistEntry(array $entry, ?string $preferredLanguage = null): ?Card
+    public function resolveForDecklistEntry(array $entry, ?string $preferredLanguage = null, ?string $deckFormat = null): ?Card
     {
         $preferredLanguage = LanguageCatalog::normalize($preferredLanguage);
         if (!LanguageCatalog::isSupported($preferredLanguage)) {
-            return $this->resolveForDecklistEntryLegacy($entry);
+            return $this->resolveForDecklistEntryLegacy($entry, $deckFormat);
         }
 
         $setCode = mb_strtolower(trim((string) ($entry['setCode'] ?? '')));
         $collectorNumber = trim((string) ($entry['collectorNumber'] ?? ''));
         if ($setCode !== '' && $collectorNumber !== '') {
-            $card = $this->pickRandomDecklistImportPrint(
+            $matches = $this->deckImportCandidates(
                 $this->findCardsBySetAndCollectorNumber($setCode, $collectorNumber),
-                $preferredLanguage,
+                $deckFormat,
             );
+            $card = $this->pickRandomDecklistImportPrint($matches, $preferredLanguage);
             if ($card instanceof Card) {
                 return $card;
             }
         }
 
-        return $this->pickRandomDecklistImportPrint(
+        $matches = $this->deckImportCandidates(
             $this->resolveDecklistNameCandidates((string) ($entry['name'] ?? ''), $preferredLanguage),
-            $preferredLanguage,
+            $deckFormat,
         );
+
+        return $this->pickRandomDecklistImportPrint($matches, $preferredLanguage);
     }
 
     /**
@@ -178,20 +181,19 @@ class CardResolver
         return $matches[0] ?? null;
     }
 
-    private function resolveForDecklistEntryLegacy(array $entry): ?Card
+    private function resolveForDecklistEntryLegacy(array $entry, ?string $deckFormat = null): ?Card
     {
         if (($entry['setCode'] ?? null) !== null && ($entry['collectorNumber'] ?? null) !== null) {
-            $card = $this->resolveOne([
-                'setCode' => $entry['setCode'],
-                'collectorNumber' => $entry['collectorNumber'],
-                'flavorName' => $entry['name'] ?? null,
-            ]);
-            if ($card instanceof Card) {
-                return $card;
+            $matches = $this->deckImportCandidates($this->findCardsBySetAndCollectorNumber(
+                mb_strtolower(trim((string) $entry['setCode'])),
+                trim((string) $entry['collectorNumber']),
+            ), $deckFormat);
+            if ($matches !== []) {
+                return $matches[0] ?? null;
             }
         }
 
-        return $this->resolveDecklistName((string) ($entry['name'] ?? ''));
+        return $this->deckImportCandidates($this->resolveDecklistNameCandidates((string) ($entry['name'] ?? ''), null), $deckFormat)[0] ?? null;
     }
 
     /**
@@ -448,6 +450,25 @@ SQL;
             $candidates,
             static fn (mixed $card) => $card instanceof Card,
         )));
+    }
+
+    /**
+     * @param list<Card> $matches
+     * @return list<Card>
+     */
+    private function deckImportCandidates(array $matches, ?string $deckFormat = null): array
+    {
+        $deckFormat = is_string($deckFormat) ? strtolower(trim($deckFormat)) : '';
+        if ($deckFormat === '') {
+            return $matches;
+        }
+
+        $legalMatches = array_values(array_filter(
+            $matches,
+            static fn (Card $card): bool => $card->isLegalInFormat($deckFormat),
+        ));
+
+        return $legalMatches !== [] ? $legalMatches : [];
     }
 
     private static function isImageStatusUnavailable(?string $imageStatus): bool

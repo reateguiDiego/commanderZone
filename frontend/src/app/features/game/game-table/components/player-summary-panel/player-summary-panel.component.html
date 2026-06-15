@@ -111,35 +111,41 @@
             </div>
             @for (row of commanderDamageRows(); track row.sourcePlayerId) {
               <article class="counter-row commander-damage-row">
-                <span class="counter-row-copy">
+                <span class="counter-row-copy commander-damage-player">
                   <strong>{{ row.username }}</strong>
-                  <small>{{ row.commanderNames }}</small>
                 </span>
-                @if (canEditCounters()) {
-                  <span class="counter-stepper" aria-label="Commander damage from {{ row.username }}">
-                    <span class="counter-value">{{ row.damage }}</span>
-                    <button
-                      type="button"
-                      class="counter-step-button"
-                      aria-label="Remove commander damage from {{ row.username }}"
-                      (click)="changeCommanderDamage($event, row.sourcePlayerId, -1)"
-                    >
-                      <span aria-hidden="true">-</span>
-                    </button>
-                    <button
-                      type="button"
-                      class="counter-step-button"
-                      aria-label="Add commander damage from {{ row.username }}"
-                      (click)="changeCommanderDamage($event, row.sourcePlayerId, 1)"
-                    >
-                      <span aria-hidden="true">+</span>
-                    </button>
-                  </span>
-                } @else {
-                  <span class="counter-readonly-value" aria-label="Commander damage from {{ row.username }}">
-                    {{ row.damage }}
-                  </span>
-                }
+                <span class="commander-damage-lines">
+                  @for (commander of row.commanders; track commander.commanderInstanceId) {
+                    <span class="commander-damage-line">
+                      <small class="commander-damage-name">{{ commander.name }}</small>
+                      @if (canEditCounters()) {
+                        <span class="counter-stepper commander-damage-stepper" aria-label="Commander damage from {{ row.username }} - {{ commander.name }}">
+                          <span class="counter-value">{{ commander.damage }}</span>
+                          <button
+                            type="button"
+                            class="counter-step-button"
+                            aria-label="Remove commander damage from {{ row.username }} - {{ commander.name }}"
+                            (click)="changeCommanderDamage($event, row.sourcePlayerId, commander.commanderInstanceId, -1)"
+                          >
+                            <span aria-hidden="true">-</span>
+                          </button>
+                          <button
+                            type="button"
+                            class="counter-step-button"
+                            aria-label="Add commander damage from {{ row.username }} - {{ commander.name }}"
+                            (click)="changeCommanderDamage($event, row.sourcePlayerId, commander.commanderInstanceId, 1)"
+                          >
+                            <span aria-hidden="true">+</span>
+                          </button>
+                        </span>
+                      } @else {
+                        <span class="counter-readonly-value" aria-label="Commander damage from {{ row.username }} - {{ commander.name }}">
+                          {{ commander.damage }}
+                        </span>
+                      }
+                    </span>
+                  }
+                </span>
               </article>
             }
           </div>

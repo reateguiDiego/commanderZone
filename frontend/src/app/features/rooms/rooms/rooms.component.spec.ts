@@ -500,7 +500,7 @@ function currentRoomPlayerSummaryFixture(room: Room): CurrentRoomPlayerSummary {
     playerId: player?.id ?? 'player-user-1',
     deckId: player?.deckId ?? null,
     deckName: player?.deck?.name ?? null,
-    deckImageUrl: player?.deck?.commander?.imageUris?.art_crop ?? null,
+    deckImageUrl: player?.deck?.commanders?.[0]?.imageUris?.art_crop ?? null,
   };
 }
 
@@ -541,7 +541,7 @@ function deckFixture(): Deck {
     name: 'Smeagol test deck',
     format: 'commander',
     folderId: null,
-    commander: cardFixture(),
+    commanders: [cardFixture()],
   };
 }
 

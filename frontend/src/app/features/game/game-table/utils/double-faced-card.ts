@@ -1,10 +1,11 @@
-import { CardFace } from '../../../../core/models/card.model';
 import { GameCardInstance } from '../../../../core/models/game.model';
+import { bestCardFaceImage } from '../../../../shared/utils/card-image';
 
-export function hasAlternateFaceContent(card: GameCardInstance, activeFaceIndex = activeCardFaceIndex(card)): boolean {
-  const nextFaceIndex = nextCardFaceIndex(card, activeFaceIndex);
+export function hasAlternateFace(card: GameCardInstance): boolean {
+  const faces = card.cardFaces ?? [];
+  const secondFaceImage = bestCardFaceImage(faces[1]);
 
-  return nextFaceIndex !== null && cardFaceHasContent(card.cardFaces?.[nextFaceIndex]);
+  return faces.length > 1 && secondFaceImage !== null && secondFaceImage.trim().length > 0;
 }
 
 export function nextCardFaceIndex(card: GameCardInstance, activeFaceIndex = activeCardFaceIndex(card)): number | null {
@@ -18,21 +19,4 @@ export function nextCardFaceIndex(card: GameCardInstance, activeFaceIndex = acti
 
 export function activeCardFaceIndex(card: GameCardInstance): number {
   return Number.isInteger(card.activeFaceIndex) ? Number(card.activeFaceIndex) : 0;
-}
-
-function cardFaceHasContent(face: CardFace | null | undefined): boolean {
-  if (!face) {
-    return false;
-  }
-
-  return Boolean(
-    face.name?.trim()
-    || face.typeLine?.trim()
-    || face.oracleText?.trim()
-    || face.manaCost?.trim()
-    || face.power?.trim()
-    || face.toughness?.trim()
-    || face.loyalty?.trim()
-    || Object.values(face.imageUris ?? {}).some((value) => value?.trim()),
-  );
 }

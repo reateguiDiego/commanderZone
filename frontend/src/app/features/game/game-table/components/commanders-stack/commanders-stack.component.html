@@ -1,0 +1,33 @@
+<div class="commanders-stack" data-testid="commanders-stack">
+  @for (item of cards(); track item.card.instanceId; let index = $index) {
+    <span
+      class="command-zone-card commanders-stack-card"
+      data-testid="command-zone-card"
+      [class.commanders-stack-card-primary]="index === 0"
+      [class.commanders-stack-card-secondary]="index === 1"
+      [class.dragging-command-zone-card]="item.dragging"
+      [class.transfer-pending-command-zone-card]="item.pendingTransfer"
+      [style.--commander-accent]="item.accent"
+      [attr.data-player-id]="playerId()"
+      [attr.data-card-id]="item.card.instanceId"
+      [attr.data-motion-origin-card-id]="item.card.instanceId"
+      [attr.draggable]="canDrag() ? 'false' : null"
+      (pointerdown)="startPointerDrag($event, item.card)"
+      (dragstart)="startNativeDrag($event, item.card)"
+      (dragend)="finishNativeDrag($event)"
+      (mouseenter)="cardPreviewShown.emit({ event: $event, card: item.card })"
+      (mouseleave)="cardPreviewHidden.emit()"
+    >
+      @if (item.image) {
+        <img
+          class="zone-card-image"
+          [src]="item.image"
+          [alt]="item.card.name"
+          draggable="false"
+        />
+      } @else {
+        <span class="command-zone-card-name">{{ item.card.name }}</span>
+      }
+    </span>
+  }
+</div>

@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { GameCardInstance, GameZoneName } from '../../../../../core/models/game.model';
+import { GameCardInstance, GameSnapshot, GameZoneName } from '../../../../../core/models/game.model';
 import { SelectedCard } from '../../models/game-table-card.model';
 import { GameTableBattlefieldDragCoordinatorService } from '../../services/game-table-battlefield-drag-coordinator.service';
 import { GameTableDragService } from '../../services/game-table-drag.service';
@@ -28,11 +28,13 @@ describe('GameTableDragDropStore', () => {
   let endCardPointerDrag: ReturnType<typeof vi.fn>;
   let dragService: {
     allowDrop: ReturnType<typeof vi.fn>;
+    dragStart: ReturnType<typeof vi.fn>;
     dragPayload: ReturnType<typeof vi.fn>;
     dropPosition: ReturnType<typeof vi.fn>;
     moveCardPointerDrag: ReturnType<typeof vi.fn>;
     hasActivePointerDrag: ReturnType<typeof vi.fn>;
     cancelCardPointerDrag: ReturnType<typeof vi.fn>;
+    clearNativeDragPayload: ReturnType<typeof vi.fn>;
     pointerDragPreview: ReturnType<typeof vi.fn>;
   };
 
@@ -45,11 +47,13 @@ describe('GameTableDragDropStore', () => {
     endCardPointerDrag = vi.fn();
     dragService = {
       allowDrop: vi.fn().mockReturnValue(true),
+      dragStart: vi.fn(),
       dragPayload: vi.fn().mockReturnValue(null),
       dropPosition: vi.fn().mockReturnValue(null),
       moveCardPointerDrag: vi.fn(),
       hasActivePointerDrag: vi.fn().mockReturnValue(false),
       cancelCardPointerDrag: vi.fn(),
+      clearNativeDragPayload: vi.fn(),
       pointerDragPreview: vi.fn(),
     };
 
@@ -73,12 +77,13 @@ describe('GameTableDragDropStore', () => {
           provide: GameTableDragService,
           useValue: {
             allowDrop: dragService.allowDrop,
-            dragStart: vi.fn(),
+            dragStart: dragService.dragStart,
             dragPayload: dragService.dragPayload,
             dropPosition: dragService.dropPosition,
             moveCardPointerDrag: dragService.moveCardPointerDrag,
             hasActivePointerDrag: dragService.hasActivePointerDrag,
             cancelCardPointerDrag: dragService.cancelCardPointerDrag,
+            clearNativeDragPayload: dragService.clearNativeDragPayload,
             pointerDragPreview: dragService.pointerDragPreview,
             startBattlefieldPointerDrag: vi.fn(),
           },
@@ -127,6 +132,20 @@ describe('GameTableDragDropStore', () => {
     ];
 
     expect(store.selectedDragInstanceIds(context(), 'player-1', 'battlefield', 'card-2')).toEqual(['card-2']);
+  });
+
+  it('uses explicit instance ids when starting a native drag', () => {
+    selectedCards = [
+      selected('player-1', 'graveyard', 'commander-1'),
+      selected('player-1', 'graveyard', 'normal-1'),
+    ];
+    const commander = { ...card('commander-1'), isCommander: true };
+    const event = { preventDefault: vi.fn() } as unknown as DragEvent;
+
+    store.dragStart(context(), event, 'player-1', 'graveyard', commander, ['commander-1']);
+
+    expect(dragService.dragStart).toHaveBeenCalledWith(event, 'player-1', 'graveyard', commander, ['commander-1']);
+    expect(dragState.draggingCardInstanceId()).toBe('commander-1');
   });
 
   it('marks mana lane drop targets without leaving stale zone targets', () => {
@@ -765,6 +784,60 @@ describe('GameTableDragDropStore', () => {
     expect(dragState.landStackDropPreview()).toBeNull();
   });
 
+  it('does not allow native dragover on command for non-commanders', () => {
+    const command = document.createElement('button');
+    command.dataset['gameDropZone'] = 'command';
+    command.dataset['zone'] = 'command';
+    command.dataset['playerId'] = 'player-1';
+    const normalCard = card('card-1');
+    dragService.dragPayload.mockReturnValue({
+      playerId: 'player-1',
+      zone: 'battlefield',
+      instanceId: 'card-1',
+      instanceIds: ['card-1'],
+    });
+
+    store.allowDrop(context([playerView([normalCard])]), { currentTarget: command } as unknown as DragEvent);
+
+    expect(dragService.allowDrop).not.toHaveBeenCalled();
+    expect(updateActiveDropTarget).not.toHaveBeenCalled();
+  });
+
+  it('allows native dragover on command for commanders', () => {
+    const command = document.createElement('button');
+    command.dataset['gameDropZone'] = 'command';
+    command.dataset['zone'] = 'command';
+    command.dataset['playerId'] = 'player-1';
+    const commander = { ...card('commander-1'), isCommander: true };
+    dragService.dragPayload.mockReturnValue({
+      playerId: 'player-1',
+      zone: 'battlefield',
+      instanceId: 'commander-1',
+      instanceIds: ['commander-1'],
+    });
+
+    store.allowDrop(context([playerView([commander])]), { currentTarget: command } as unknown as DragEvent);
+
+    expect(dragService.allowDrop).toHaveBeenCalled();
+    expect(updateActiveDropTarget).toHaveBeenCalled();
+  });
+
+  it('does not allow native dragover on command for an active non-commander when the native payload is unavailable', () => {
+    const command = document.createElement('button');
+    command.dataset['gameDropZone'] = 'command';
+    command.dataset['zone'] = 'command';
+    command.dataset['playerId'] = 'player-1';
+    const normalCard = card('card-1');
+    const ctx = context([playerView([], [], { graveyard: [normalCard] })]);
+    dragService.dragPayload.mockReturnValue(null);
+    store.beginCardDrag(ctx, 'card-1');
+
+    store.allowDrop(ctx, { currentTarget: command } as unknown as DragEvent);
+
+    expect(dragService.allowDrop).not.toHaveBeenCalled();
+    expect(updateActiveDropTarget).not.toHaveBeenCalled();
+  });
+
   it('keeps internal dragover flow alive when there is an active internal drag without native payload types', () => {
     const battlefield = document.createElement('div');
     battlefield.dataset['gameDropZone'] = 'battlefield';
@@ -831,10 +904,10 @@ describe('GameTableDragDropStore', () => {
     expect(setPendingBattlefieldMove).toHaveBeenCalledWith(null);
   });
 
-  function context(players: PlayerView[] = []): GameTableDragDropContext {
+  function context(players: PlayerView[] = [], snapshot: GameSnapshot | null = null): GameTableDragDropContext {
     return {
       zones: ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command'],
-      snapshot: () => null,
+      snapshot: () => snapshot,
       players: () => players,
       selectedCards: () => selectedCards,
       setSelectedCards: (cards) => {

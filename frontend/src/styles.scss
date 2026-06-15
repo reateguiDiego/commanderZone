@@ -500,33 +500,81 @@ app-deck-list .deck-list-page {
 }
 
 app-deck-list .commander-preview-card {
-  display: grid;
-  grid-template-columns: 5.5rem minmax(0, 1fr);
-  gap: 0.85rem;
+  display: flex;
   align-items: center;
-  padding: 0.75rem;
-  border: 1px solid rgb(var(--cz-primary-rgb) / 28%);
-  border-radius: 9px;
-  background: linear-gradient(135deg, rgb(var(--cz-primary-rgb) / 13%), transparent 52%), rgb(var(--cz-bg-rgb) / 78%);
+  justify-content: center;
+}
+
+app-deck-list .selected-commanders-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+app-deck-list .commander-autocomplete-shell {
+  display: block;
+}
+
+app-deck-list .commander-autocomplete-shell.commander-autocomplete-shell-disabled {
+  cursor: not-allowed;
+}
+
+app-deck-list .commander-preview-body {
+  position: relative;
+  display: inline-block;
+  cursor: zoom-in;
+  overflow: visible;
 }
 
 app-deck-list .commander-preview-image {
   position: relative;
   display: block;
-  width: 5.5rem;
-  cursor: zoom-in;
+  width: 7.5rem;
   outline: none;
 }
 
+app-deck-list .commander-preview-remove {
+  position: absolute;
+  top: -0.35rem;
+  right: -0.35rem;
+  z-index: 2;
+  width: 1.15rem;
+  height: 1.15rem;
+  min-width: 1.15rem;
+  min-height: 1.15rem;
+  padding: 0;
+  border: 1px solid rgb(var(--cz-bg-rgb) / 92%);
+  border-radius: 999px;
+  background: rgb(var(--cz-danger-rgb) / 96%);
+  color: white;
+  box-shadow: 0 0.35rem 0.8rem rgb(var(--cz-bg-rgb) / 42%);
+  display: inline-grid;
+  place-items: center;
+  line-height: 0;
+}
+
+app-deck-list .commander-preview-remove:hover:not(:disabled) {
+  border-color: rgb(var(--cz-bg-rgb) / 96%);
+  background: rgb(var(--cz-danger-rgb) / 100%);
+}
+
+app-deck-list .commander-preview-remove lucide-icon {
+  width: 0.6rem;
+  height: 0.6rem;
+  margin: 0;
+}
+
 app-deck-list .commander-preview-thumb {
-  width: 5.5rem;
+  width: 7.5rem;
   border-radius: 6px;
   box-shadow: 0 12px 26px rgb(var(--cz-bg-rgb) / 34%);
 }
 
 app-deck-list .commander-floating-preview {
   position: fixed;
-  z-index: 80;
+  z-index: 12100;
   width: min(18rem, 70vw);
   max-height: 80dvh;
   border: 1px solid rgb(var(--cz-primary-rgb) / 46%);
@@ -535,18 +583,6 @@ app-deck-list .commander-floating-preview {
   object-fit: contain;
   pointer-events: none;
   animation: commander-preview-in 90ms ease-out;
-}
-
-app-deck-list .commander-preview-card strong,
-app-deck-list .commander-preview-card span {
-  display: block;
-}
-
-app-deck-list .commander-preview-card span {
-  margin-top: 0.2rem;
-  color: var(--muted);
-  font-size: 0.86rem;
-  line-height: 1.35;
 }
 
 app-deck-list .deck-list-row.has-commander-art::before {
@@ -569,8 +605,21 @@ app-deck-list .deck-list-row.has-commander-art::after {
   background:
     linear-gradient(90deg, rgb(var(--cz-bg-rgb) / 96%) 0%, rgb(var(--cz-bg-rgb) / 72%) 34%, transparent 70%),
     linear-gradient(0deg, rgb(var(--cz-bg-rgb) / 76%) 0%, transparent 42%),
-    var(--deck-commander-art) center / contain no-repeat;
+    var(--deck-commander-art) center / 100% auto no-repeat;
   pointer-events: none;
+}
+
+app-deck-list .deck-list-row.has-dual-commander-art::before {
+  background: none;
+  filter: none;
+  opacity: 0;
+  transform: none;
+}
+
+app-deck-list .deck-list-row.has-dual-commander-art::after {
+  background:
+    linear-gradient(90deg, rgb(var(--cz-bg-rgb) / 96%) 0%, rgb(var(--cz-bg-rgb) / 72%) 34%, transparent 70%),
+    linear-gradient(0deg, rgb(var(--cz-bg-rgb) / 76%) 0%, transparent 42%);
 }
 
 app-deck-list .has-commander-art .deck-table-name:not(.folder-row-name) {
@@ -801,16 +850,33 @@ app-waiting-room .selected-player-colors {
   app-deck-list .deck-list-row.has-commander-art::after {
     background:
       linear-gradient(0deg, rgb(var(--cz-bg-rgb) / 88%) 0%, rgb(var(--cz-bg-rgb) / 52%) 48%, transparent 100%),
-      var(--deck-commander-art) center / contain no-repeat;
+      var(--deck-commander-art) center / 100% auto no-repeat;
+  }
+
+  app-deck-list .deck-list-row.has-dual-commander-art::after {
+    background: linear-gradient(0deg, rgb(var(--cz-bg-rgb) / 88%) 0%, rgb(var(--cz-bg-rgb) / 52%) 48%, transparent 100%);
   }
 
   app-deck-list .commander-preview-card {
-    grid-template-columns: 4.5rem minmax(0, 1fr);
+    display: block;
+  }
+
+  app-deck-list .selected-commanders-row {
+    gap: 0.75rem;
   }
 
   app-deck-list .commander-preview-image,
   app-deck-list .commander-preview-thumb {
-    width: 4.5rem;
+    width: 5.5rem;
+  }
+
+  app-deck-list .commander-preview-remove {
+    top: -0.28rem;
+    right: -0.28rem;
+    width: 1.05rem;
+    height: 1.05rem;
+    min-width: 1.05rem;
+    min-height: 1.05rem;
   }
 }
 

@@ -1039,6 +1039,8 @@ paths:
                 name:
                   type: string
                   maxLength: 20
+                format:
+                  $ref: '#/components/schemas/DeckFormatId'
                 folderId:
                   type: [string, 'null']
                   format: uuid
@@ -1156,7 +1158,7 @@ paths:
     post:
       tags: [Decks]
       summary: Replace deck cards from a text decklist.
-      description: If format is omitted, the backend auto-detects plain, Moxfield, or Archidekt text.
+      description: If format is omitted, the backend auto-detects the decklist text format (plain, Moxfield, or Archidekt).
       parameters:
         - $ref: '#/components/parameters/Id'
       requestBody:
@@ -1376,9 +1378,11 @@ paths:
       tags: [Decks]
       summary: List available print versions for a deck card.
       description: >
-        Returns all equivalent print versions for manual selection. Sorting priority is:
-        current print, preferred language, English, common print-language bucket
-        (`ph`, `qya`, `grc`, `he`, `sa`, `ar`), then remaining prints.
+        Returns equivalent print versions filtered to the current user's preferred
+        card language. If the preferred card language is not English and no print
+        exists in that language, English print versions are returned as fallback.
+        English preferences do not fall back to other languages. Prints with
+        unavailable images are excluded before language fallback.
       parameters:
         - $ref: '#/components/parameters/Id'
         - name: deckCardId
@@ -1744,6 +1748,10 @@ paths:
     post:
       tags: [Rooms]
       summary: Roll a d20 for waiting-room turn order or an unresolved tie-break.
+      description: >
+        Rolls a real d20 for the current room player. Ties are allowed on the
+        initial roll; only players in an unresolved tie group may roll again
+        until turn order is fully resolved.
       parameters:
         - $ref: '#/components/parameters/Id'
       responses:
@@ -3168,7 +3176,7 @@ components:
       enum: [private, public]
     DeckSummary:
       type: object
-      required: [id, name, format, visibility, backgroundName, sleevesName, folderId, commander]
+      required: [id, name, format, valid, visibility, backgroundName, sleevesName, folderId, commanders]
       properties:
         id:
           type: string
@@ -3178,6 +3186,9 @@ components:
         format:
           type: string
           enum: [commander]
+        valid:
+          type: boolean
+          description: Latest persisted validation result for the deck's current format.
         visibility:
           $ref: '#/components/schemas/DeckVisibility'
         backgroundName:
@@ -3189,10 +3200,11 @@ components:
         folderId:
           type: [string, 'null']
           format: uuid
-        commander:
-          anyOf:
-            - $ref: '#/components/schemas/Card'
-            - type: 'null'
+        commanders:
+          type: array
+          description: Fully localized commander cards for this deck, in display order.
+          items:
+            $ref: '#/components/schemas/Card'
     Deck:
       allOf:
         - $ref: '#/components/schemas/DeckSummary'
@@ -3724,8 +3736,7 @@ components:
       required: [id, name, minCards, maxCards, hasCommander]
       properties:
         id:
-          type: string
-          enum: [commander]
+          $ref: '#/components/schemas/DeckFormatId'
         name:
           type: string
         minCards:
@@ -3734,6 +3745,9 @@ components:
           type: integer
         hasCommander:
           type: boolean
+    DeckFormatId:
+      type: string
+      enum: [commander]
     DecklistFormat:
       type: string
       enum: [plain, moxfield, archidekt]
@@ -3862,6 +3876,8 @@ components:
         name:
           type: string
           maxLength: 20
+        format:
+          $ref: '#/components/schemas/DeckFormatId'
         folderId:
           type: [string, 'null']
           format: uuid
@@ -4363,6 +4379,10 @@ components:
                 $ref: '#/components/schemas/GameCard'
         commanderDamage:
           type: object
+          description: >
+            Commander damage received by this player, keyed by the attacking
+            commander's GameCard.instanceId. Damage from two commanders owned by
+            the same player is tracked independently.
           additionalProperties:
             type: integer
         counters:
@@ -4790,7 +4810,11 @@ components:
           type: object
           description: >
             Command payload. For commander.damage.changed, the actor must be the
-            target player and reaching 21 commander damage defeats that player.
+            target player and must send targetPlayerId, sourcePlayerId, and
+            commanderInstanceId; reaching 21 damage from one commander defeats
+            that player. For counter.changed with a commander:<instanceId> scope
+            and key=casts, the instanceId must identify one of the actor's
+            commander cards.
             For counter.changed with a player:<playerId> scope, the actor must
             be that player and may send either value or delta. For
             card.counter.changed, send key plus either value, delta, or
@@ -4801,9 +4825,10 @@ components:
             cards.moved into library, randomOrder=true randomizes only the moved
             cards before placing them at the requested top/bottom position.
             zone.random_card.selected logs one random card name from library,
-            hand, graveyard, or exile without moving it. Optional instanceId can
-            pin the selected card when the client opens the same random card in a
-            fixed one-card zone view. library.move_top may send targetPlayerId to
+            hand, graveyard, or exile without moving it. instanceId is optional
+            in the request; when omitted, the backend resolves the selected card
+            and returns the authoritative instanceId in the resulting event
+            payload. library.move_top may send targetPlayerId to
             move top cards into another player's hand or battlefield, and
             position=bottom when moving top cards to the bottom of the library.
             library.view logs that the actor looked at their library order, with
@@ -4817,7 +4842,9 @@ components:
             but cannot be the attachment source, and permanents with attached
             cards cannot be attachment sources. attachment.removed detaches by
             id or equipmentInstanceId.
-            dice.rolled logs a manual roll result, and battlefield.untap_all
+            dice.rolled only requires kind in the request; the backend generates
+            the authoritative finalResult and returns it in the resulting event
+            payload. battlefield.untap_all
             untaps all tapped cards in the actor's own battlefield.
             library.play_top_revealed toggles a persistent public top-library
             reveal flag and does not move cards.

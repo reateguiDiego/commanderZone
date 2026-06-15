@@ -207,12 +207,26 @@ describe('API services', () => {
     request.flush({ deck: { id: 'deck-1', name: 'Deck', format: 'commander', folderId: null, cards: [] }, missing: [] });
   });
 
+  it('posts deck imports with explicit selected commander ids when provided', () => {
+    TestBed.inject(DecksApi).importDecklist('deck-1', 'Deck\n1 Derevi, Empyrial Tactician\n99 Island', {
+      commanderScryfallIds: ['7b1817d5-11f6-486a-a937-f15e5d8dd2a6'],
+    }).subscribe();
+
+    const request = http.expectOne(`${API_BASE_URL}/decks/deck-1/import`);
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({
+      decklist: 'Deck\n1 Derevi, Empyrial Tactician\n99 Island',
+      commanderScryfallIds: ['7b1817d5-11f6-486a-a937-f15e5d8dd2a6'],
+    });
+    request.flush({ deck: { id: 'deck-1', name: 'Deck', format: 'commander', folderId: null, cards: [] }, missing: [] });
+  });
+
   it('creates decks with the backend folder payload shape', () => {
-    TestBed.inject(DecksApi).create('Deck', 'folder-1').subscribe();
+    TestBed.inject(DecksApi).create('Deck', 'folder-1', 'private', 'commander').subscribe();
 
     const request = http.expectOne(`${API_BASE_URL}/decks`);
     expect(request.request.method).toBe('POST');
-    expect(request.request.body).toEqual({ name: 'Deck', folderId: 'folder-1', visibility: 'private' });
+    expect(request.request.body).toEqual({ name: 'Deck', folderId: 'folder-1', visibility: 'private', format: 'commander' });
     request.flush({ deck: { id: 'deck-1', name: 'Deck', format: 'commander', folderId: 'folder-1', cards: [] } });
   });
 

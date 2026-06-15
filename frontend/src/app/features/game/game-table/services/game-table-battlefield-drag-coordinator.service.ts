@@ -3,6 +3,7 @@ import { GameCardInstance, GameSnapshot, GameZoneName } from '../../../../core/m
 import { GameTableBattlefieldDragState } from '../state/drag-drop/game-table-battlefield-drag.state';
 import { DEFAULT_BATTLEFIELD_CARD_SIZE } from '../utils/battlefield-position';
 import { buildAttachmentStackGroups } from '../utils/attachment-stack';
+import { canDropCardsOnZone, knownCommanderInstanceIds } from '../utils/command-zone-drop';
 import { buildLandStackGroups } from '../utils/land-stack';
 import { GameTableDragService } from './game-table-drag.service';
 import { GameTablePointerDragService } from './game-table-pointer-drag.service';
@@ -178,7 +179,13 @@ export class GameTableBattlefieldDragCoordinatorService {
     }
 
     this.state.setActivePlayerDropTarget(null);
-    const pointerZone = this.drag.pointerDropZone(event, selected.playerId, [...context.zones]);
+    const pointerZone = this.drag.pointerDropZone(
+      event,
+      selected.playerId,
+      [...context.zones],
+      selected.card,
+      knownCommanderInstanceIds(context.snapshot()),
+    );
     const zone = this.pointerDropZoneWithHandActivation(pointerZone, selected.playerId);
     if (pointerZone === 'hand' && zone !== 'hand') {
       this.state.setHandExternalRevealAllowed(false);
@@ -198,7 +205,14 @@ export class GameTableBattlefieldDragCoordinatorService {
   }
 
   pointerDropZone(event: PointerEvent, playerId: string, context: GameTableBattlefieldDragContext): GameZoneName | null {
-    const pointerZone = this.drag.pointerDropZone(event, playerId, [...context.zones]);
+    const selected = context.selectedCards().find((item) => item.playerId === playerId) ?? null;
+    const pointerZone = this.drag.pointerDropZone(
+      event,
+      playerId,
+      [...context.zones],
+      selected?.card ?? null,
+      knownCommanderInstanceIds(context.snapshot()),
+    );
 
     return this.pointerDropZoneWithHandActivation(pointerZone, playerId);
   }
@@ -238,7 +252,7 @@ export class GameTableBattlefieldDragCoordinatorService {
       } else {
         this.state.setManaLaneDropPlayer(null);
       }
-      if (playerId && this.isGameZone(zone, context.zones)) {
+      if (playerId && this.isGameZone(zone, context.zones) && this.canDropDraggedPayloadOnZone(context, dragged, zone)) {
         this.state.setActiveDropTarget({ playerId, zone });
         if (zone === 'hand') {
           this.state.clearManaLaneAndAlignment();
@@ -632,5 +646,25 @@ export class GameTableBattlefieldDragCoordinatorService {
 
   private isGameZone(zone: string | undefined, zones: readonly GameZoneName[]): zone is GameZoneName {
     return zone !== undefined && zones.includes(zone as GameZoneName);
+  }
+
+  private canDropDraggedPayloadOnZone(
+    context: GameTableBattlefieldDragContext,
+    dragged: ReturnType<GameTableDragService['dragPayload']>,
+    zone: GameZoneName,
+  ): boolean {
+    if (zone !== 'command') {
+      return true;
+    }
+
+    if (!dragged) {
+      return false;
+    }
+
+    const cards = dragged.instanceIds
+      .map((instanceId) => context.findCard(dragged.playerId, dragged.zone, instanceId))
+      .filter((card): card is GameCardInstance => card !== null);
+
+    return cards.length === dragged.instanceIds.length && canDropCardsOnZone(zone, cards, knownCommanderInstanceIds(context.snapshot()));
   }
 }

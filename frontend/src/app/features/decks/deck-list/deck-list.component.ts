@@ -1,5 +1,5 @@
 import { RuntimeTranslatePipe } from '../../../core/localization/runtime-translate.pipe';
-import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, HostListener, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
@@ -11,6 +11,7 @@ import { VisibilityChoiceComponent } from '../../../shared/components/visibility
 import { FormatSelectComponent } from '../../../shared/components/format-select/format-select.component';
 import { AppModalComponent } from '../../../shared/ui/app-modal/app-modal.component';
 import { PrettyScrollDirective } from '../../../shared/ui/pretty-scroll/pretty-scroll.directive';
+import { Card } from '../../../core/models/card.model';
 import { DeckListStore } from '../data-access/deck-list.store';
 
 interface CommanderHoverPreview {
@@ -32,6 +33,11 @@ export class DeckListComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly pageHeader = inject(PageHeaderStore);
   readonly commanderHoverPreview = signal<CommanderHoverPreview | null>(null);
+  readonly importDecklistDisclaimerKey = computed(() => (
+    this.store.selectedCommanders().length === 2
+      ? 'deckBuilder.deckList.ifYouIncludeYourCommandersInThe'
+      : 'deckBuilder.deckList.ifYouIncludeYourCommanderInThe'
+  ));
 
   private commanderHoverTimer: ReturnType<typeof setTimeout> | null = null;
   private pendingCommanderPreview: CommanderHoverPreview | null = null;
@@ -64,12 +70,26 @@ export class DeckListComponent implements OnInit, OnDestroy {
     this.pageHeader.clear();
   }
 
+  @HostListener('document:pointerdown', ['$event'])
+  onDocumentPointerDown(event: PointerEvent): void {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) {
+      return;
+    }
+
+    if (target.closest('.commander-preview-body')) {
+      return;
+    }
+
+    this.hideCommanderPreview();
+  }
+
   visibilityIcon(visibility: DeckVisibility | undefined): 'globe' | 'lock' {
     return visibility === 'public' ? 'globe' : 'lock';
   }
 
   scheduleCommanderPreview(event: MouseEvent, imageUrl: string): void {
-    this.pendingCommanderPreview = { imageUrl, ...this.previewPosition(event) };
+    this.pendingCommanderPreview = { imageUrl, ...this.previewPosition(event.currentTarget) };
     this.clearCommanderHoverTimer();
     this.commanderHoverTimer = setTimeout(() => {
       if (this.pendingCommanderPreview) {
@@ -79,17 +99,27 @@ export class DeckListComponent implements OnInit, OnDestroy {
     }, 260);
   }
 
+  scheduleCommanderCardPreview(event: MouseEvent, commander: Card): void {
+    const imageUrl = this.store.selectedCommanderImage(commander);
+    if (!imageUrl) {
+      return;
+    }
+
+    this.scheduleCommanderPreview(event, imageUrl);
+  }
+
   moveCommanderPreview(event: MouseEvent): void {
+    const anchorPosition = this.previewPosition(event.currentTarget);
     const current = this.commanderHoverPreview();
     if (current) {
-      this.commanderHoverPreview.set({ ...current, ...this.previewPosition(event) });
+      this.commanderHoverPreview.set({ ...current, ...anchorPosition });
       return;
     }
 
     if (this.pendingCommanderPreview) {
       this.pendingCommanderPreview = {
         imageUrl: this.pendingCommanderPreview.imageUrl,
-        ...this.previewPosition(event),
+        ...anchorPosition,
       };
     }
   }
@@ -100,24 +130,46 @@ export class DeckListComponent implements OnInit, OnDestroy {
     this.commanderHoverPreview.set(null);
   }
 
-  private previewPosition(event: MouseEvent): { x: number; y: number } {
+  removeCommander(commanderScryfallId: string): void {
+    this.hideCommanderPreview();
+    this.store.removeCommander(commanderScryfallId);
+  }
+
+  private previewPosition(target: EventTarget | null): { x: number; y: number } {
     const margin = 12;
     const previewWidth = 288;
     const previewHeight = 402;
-    let x = event.clientX + 18;
-    let y = event.clientY - 18;
-
-    if (x + previewWidth > window.innerWidth - margin) {
-      x = event.clientX - previewWidth - 18;
+    const anchor = this.previewAnchorElement(target);
+    if (!anchor) {
+      return { x: margin, y: margin };
     }
-    if (y + previewHeight > window.innerHeight - margin) {
-      y = window.innerHeight - previewHeight - margin;
+
+    const rect = anchor.getBoundingClientRect();
+    const anchorCenterX = rect.left + (rect.width / 2);
+    const anchorCenterY = rect.top + (rect.height / 2);
+    let x = anchorCenterX - previewWidth - 24;
+    let y = anchorCenterY - (previewHeight / 2);
+
+    if (x < margin) {
+      x = anchorCenterX + 24;
     }
 
     return {
       x: Math.max(margin, Math.min(x, window.innerWidth - previewWidth - margin)),
-      y: Math.max(margin, y),
+      y: Math.max(margin, Math.min(y, window.innerHeight - previewHeight - margin)),
     };
+  }
+
+  private previewAnchorElement(target: EventTarget | null): HTMLElement | null {
+    if (!(target instanceof HTMLElement)) {
+      return null;
+    }
+
+    if (target.classList.contains('commander-preview-image')) {
+      return target;
+    }
+
+    return target.querySelector<HTMLElement>('.commander-preview-image');
   }
 
   private clearCommanderHoverTimer(): void {

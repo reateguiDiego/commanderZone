@@ -667,6 +667,7 @@
     "deckList": {
       "newDeckName": "New deck name",
       "searchCommanderByName": "Search commander by name",
+      "commanderSelectionLimitReached": "You already have 2 commanders. You can't add more.",
       "example1SolRingVoc168": "Example: 1 Sol Ring (VOC) 168",
       "jeskaiBrewsTesting": "Jeskai, Brews, Testing...",
       "deckWarnings": "Deck warnings",
@@ -690,6 +691,7 @@
       "commander": "Commander",
       "importDecklist": "Import decklist",
       "ifYouIncludeYourCommanderInThe": "If you include your commander in the import decklist, do not worry; we will remove it for you.",
+      "ifYouIncludeYourCommandersInThe": "If you include your commanders in the import decklist, do not worry; we will remove them for you.",
       "afterCreatingAFolderDragDecksOnto": "After creating a folder, drag decks onto it to organize them. You can also drag decks out of a folder to remove them without deleting anything.",
       "folderName": "Folder name",
       "header": {

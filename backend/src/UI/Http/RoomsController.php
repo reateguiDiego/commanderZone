@@ -3,9 +3,10 @@
 namespace App\UI\Http;
 
 use App\Application\Card\CardLocalizationService;
-use App\Application\Deck\CommanderDeckValidator;
+use App\Application\Deck\DeckValidator;
 use App\Application\Game\GameCommandHandler;
 use App\Application\Game\GameProjectionService;
+use App\Application\Game\GameRandomizer;
 use App\Application\Game\GameRematchService;
 use App\Application\Game\GameSnapshotFactory;
 use App\Application\Room\ActiveRoomMembershipService;
@@ -214,7 +215,7 @@ class RoomsController extends ApiController
         Request $request,
         #[CurrentUser] User $user,
         EntityManagerInterface $entityManager,
-        CommanderDeckValidator $deckValidator,
+        DeckValidator $deckValidator,
         RoomEventPublisher $roomEventPublisher,
         ActiveRoomMembershipService $activeRoomMembership,
         CardLocalizationService $localization,
@@ -234,7 +235,7 @@ class RoomsController extends ApiController
         Request $request,
         #[CurrentUser] User $user,
         EntityManagerInterface $entityManager,
-        CommanderDeckValidator $deckValidator,
+        DeckValidator $deckValidator,
         RoomEventPublisher $roomEventPublisher,
         ActiveRoomMembershipService $activeRoomMembership,
         CardLocalizationService $localization,
@@ -253,7 +254,7 @@ class RoomsController extends ApiController
         Request $request,
         User $user,
         EntityManagerInterface $entityManager,
-        CommanderDeckValidator $deckValidator,
+        DeckValidator $deckValidator,
         RoomEventPublisher $roomEventPublisher,
         ActiveRoomMembershipService $activeRoomMembership,
         CardLocalizationService $localization,
@@ -274,7 +275,10 @@ class RoomsController extends ApiController
         }
         if ($deck instanceof Deck) {
             $validation = $deckValidator->validate($deck);
+            $deck->markValidationResult(($validation['valid'] ?? false) === true);
             if (($validation['valid'] ?? false) !== true) {
+                $entityManager->flush();
+
                 return $this->fail('A Commander-valid deck is required to join a room.', 400, [
                     'validation' => $validation,
                 ]);
@@ -309,7 +313,7 @@ class RoomsController extends ApiController
     }
 
     #[Route('/rooms/{id}/roll-turn', methods: ['POST'])]
-    public function rollTurn(string $id, #[CurrentUser] User $user, EntityManagerInterface $entityManager, RoomEventPublisher $roomEventPublisher, CardLocalizationService $localization): JsonResponse
+    public function rollTurn(string $id, #[CurrentUser] User $user, EntityManagerInterface $entityManager, RoomEventPublisher $roomEventPublisher, CardLocalizationService $localization, GameRandomizer $randomizer): JsonResponse
     {
         $room = $entityManager->getRepository(Room::class)->find($id);
         if (!$room instanceof Room) {
@@ -330,7 +334,7 @@ class RoomsController extends ApiController
             return $this->fail('Turn order has already been rolled.', 409);
         }
 
-        $player->rollTurnOrder($this->uniqueTurnOrderRoll($room, $player));
+        $player->rollTurnOrder($randomizer->intBetween(1, 20));
         $room->appendWaitingLog(sprintf('%s rolled %s.', $this->userDisplayName($user), implode(' - ', $player->turnRolls())));
         $entityManager->flush();
         $roomEventPublisher->publish($room, 'room.player.rolled');
@@ -496,7 +500,7 @@ class RoomsController extends ApiController
         EntityManagerInterface $entityManager,
         GameSnapshotFactory $snapshotFactory,
         GameProjectionService $projection,
-        CommanderDeckValidator $deckValidator,
+        DeckValidator $deckValidator,
         RoomEventPublisher $roomEventPublisher,
         CardLocalizationService $localization,
     ): JsonResponse
@@ -555,6 +559,7 @@ class RoomsController extends ApiController
             }
 
             $validation = $deckValidator->validate($deck);
+            $deck->markValidationResult(($validation['valid'] ?? false) === true);
             if (($validation['valid'] ?? false) !== true) {
                 $invalidDecks[] = [
                     ...$playerData,
@@ -563,6 +568,8 @@ class RoomsController extends ApiController
             }
         }
         if ($invalidDecks !== []) {
+            $entityManager->flush();
+
             return $this->fail(
                 'Every player must have a Commander-valid deck before starting the game.',
                 400,
@@ -776,12 +783,26 @@ class RoomsController extends ApiController
             }
 
             foreach ($room['players'] as $playerIndex => $player) {
-                if (!is_array($player) || !is_array($player['deck']['commander'] ?? null)) {
+                if (!is_array($player) || !is_array($player['deck'] ?? null)) {
                     continue;
                 }
 
-                $targets[] = ['roomIndex' => $roomIndex, 'playerIndex' => $playerIndex];
-                $payloads[] = $player['deck']['commander'];
+                $deck = $player['deck'];
+                if (is_array($deck['commanders'] ?? null)) {
+                    foreach ($deck['commanders'] as $commanderIndex => $commanderPayload) {
+                        if (!is_array($commanderPayload)) {
+                            continue;
+                        }
+
+                        $targets[] = [
+                            'kind' => 'commander',
+                            'roomIndex' => $roomIndex,
+                            'playerIndex' => $playerIndex,
+                            'commanderIndex' => $commanderIndex,
+                        ];
+                        $payloads[] = $commanderPayload;
+                    }
+                }
             }
         }
 
@@ -789,15 +810,44 @@ class RoomsController extends ApiController
             return $rooms;
         }
 
-        $localizedPayloads = $localization->localizeCardPayloads($payloads, $viewer->cardLanguage(), true);
         foreach ($targets as $offset => $target) {
             $roomIndex = $target['roomIndex'];
             $playerIndex = $target['playerIndex'];
+            $localizedPayload = is_array($payloads[$offset] ?? null)
+                ? $localization->localizeCardPayload($payloads[$offset], $viewer->cardLanguage(), true)
+                : null;
             if (
-                is_array($localizedPayloads[$offset] ?? null)
+                is_array($localizedPayload)
                 && is_array($rooms[$roomIndex]['players'][$playerIndex]['deck'] ?? null)
             ) {
-                $rooms[$roomIndex]['players'][$playerIndex]['deck']['commander'] = $localizedPayloads[$offset];
+                if (($target['kind'] ?? null) === 'commander') {
+                    $commanderIndex = $target['commanderIndex'] ?? null;
+                    if (is_int($commanderIndex)) {
+                        $rooms[$roomIndex]['players'][$playerIndex]['deck']['commanders'][$commanderIndex] = $localizedPayload;
+                    }
+                }
+            }
+        }
+
+        foreach ($rooms as $roomIndex => $room) {
+            if (!is_array($room['players'] ?? null)) {
+                continue;
+            }
+
+            foreach ($room['players'] as $playerIndex => $player) {
+                $deck = $rooms[$roomIndex]['players'][$playerIndex]['deck'] ?? null;
+                if (!is_array($deck)) {
+                    continue;
+                }
+
+                if (is_array($deck['commanders'] ?? null)) {
+                    $rooms[$roomIndex]['players'][$playerIndex]['deck']['commanders'] = array_values(array_filter(
+                        $deck['commanders'],
+                        static fn (mixed $payload): bool => is_array($payload),
+                    ));
+                } else {
+                    $rooms[$roomIndex]['players'][$playerIndex]['deck']['commanders'] = [];
+                }
             }
         }
 
@@ -936,25 +986,6 @@ class RoomsController extends ApiController
         }
 
         return Room::DEFAULT_TIMER_DURATION_SECONDS;
-    }
-
-    private function uniqueTurnOrderRoll(Room $room, RoomPlayer $rollingPlayer): int
-    {
-        $usedRolls = [];
-        foreach ($room->players() as $player) {
-            if (!$player instanceof RoomPlayer || $player->id() === $rollingPlayer->id() || $player->turnRoll() === null) {
-                continue;
-            }
-
-            $usedRolls[(int) $player->turnRoll()] = true;
-        }
-
-        $availableRolls = array_values(array_filter(
-            range(1, 20),
-            static fn (int $roll): bool => !isset($usedRolls[$roll]),
-        ));
-
-        return $availableRolls[random_int(0, count($availableRolls) - 1)];
     }
 
     private function hasDeckIdInPayload(array $payload): bool

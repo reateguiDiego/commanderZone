@@ -654,6 +654,38 @@
   white-space: nowrap;
 }
 
+.commander-damage-row {
+  align-items: start;
+  grid-template-columns: minmax(5.8rem, 0.55fr) minmax(0, 1fr);
+  gap: 0.52rem;
+}
+
+.commander-damage-player {
+  align-self: center;
+}
+
+.commander-damage-lines {
+  display: grid;
+  gap: 0.28rem;
+  min-width: 0;
+}
+
+.commander-damage-line {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.46rem;
+  min-width: 0;
+}
+
+.commander-damage-name {
+  align-self: center;
+}
+
+.commander-damage-stepper {
+  justify-content: end;
+}
+
 .counter-stepper {
   display: grid;
   grid-template-columns: 2rem 1.8rem 1.8rem;

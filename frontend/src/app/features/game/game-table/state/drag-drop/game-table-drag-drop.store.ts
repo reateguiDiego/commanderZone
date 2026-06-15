@@ -32,6 +32,9 @@ import {
   attachmentStackGroupContaining,
   buildAttachmentStackGroups,
 } from '../../utils/attachment-stack';
+import { canDropCardsOnZone, isKnownCommanderCard, knownCommanderInstanceIds } from '../../utils/command-zone-drop';
+
+type NativeDragPayload = NonNullable<ReturnType<GameTableDragService['dragPayload']>>;
 
 export const LAND_STACK_DROP_PREVIEW_DELAY_MS = 140;
 
@@ -263,14 +266,22 @@ export class GameTableDragDropStore {
     context.applyDeferredRemoteSnapshot();
   }
 
-  dragStart(context: GameTableDragDropContext, event: DragEvent, playerId: string, zone: GameZoneName, card: GameCardInstance): void {
+  dragStart(
+    context: GameTableDragDropContext,
+    event: DragEvent,
+    playerId: string,
+    zone: GameZoneName,
+    card: GameCardInstance,
+    instanceIds?: readonly string[],
+  ): void {
     if (!context.canControlOwnedCard(playerId, card)) {
       event.preventDefault();
       context.setError('You can only move your own cards.');
       return;
     }
 
-    this.drag.dragStart(event, playerId, zone, card, this.selectedDragInstanceIds(context, playerId, zone, card.instanceId));
+    const draggedInstanceIds = instanceIds ?? this.selectedDragInstanceIds(context, playerId, zone, card.instanceId);
+    this.drag.dragStart(event, playerId, zone, card, draggedInstanceIds);
     this.beginCardDrag(context, card.instanceId);
   }
 
@@ -282,6 +293,12 @@ export class GameTableDragDropStore {
   }
 
   allowDrop(context: GameTableDragDropContext, event: DragEvent): void {
+    if (!this.canDropOnNativeEventTarget(context, event)) {
+      this.clearLandStackDropPreview();
+      this.battlefieldDragState.clearDropTargets();
+      return;
+    }
+
     const allowDrop = this.drag.allowDrop(event, context.zones);
     if (!allowDrop && !this.forceAllowActiveInternalDrag(event)) {
       this.clearLandStackDropPreview();
@@ -374,6 +391,7 @@ export class GameTableDragDropStore {
 
   endCardDrag(context: Pick<GameTableDragDropContext, 'clearCardPreview'>): void {
     context.clearCardPreview();
+    this.drag.clearNativeDragPayload();
     this.clearLandStackDropPreview();
     this.pendingTopLandStackSelection = null;
     this.pendingTopAttachmentStackSelection = null;
@@ -898,4 +916,102 @@ export class GameTableDragDropStore {
 
     return null;
   }
+
+  private canDropOnNativeEventTarget(context: GameTableDragDropContext, event: DragEvent): boolean {
+    const zone = this.nativeDropTargetZone(event);
+    if (zone !== 'command') {
+      return true;
+    }
+
+    const snapshot = context.snapshot();
+    const commanderIds = knownCommanderInstanceIds(snapshot);
+    const dragged = this.drag.dragPayload(event, [...context.zones]);
+    const cards = dragged ? this.payloadCards(context, dragged) : [];
+    if (canDropCardsOnZone(zone, cards, commanderIds)) {
+      return true;
+    }
+
+    const snapshotCards = dragged ? this.payloadSnapshotCards(snapshot, dragged) : [];
+    if (canDropCardsOnZone(zone, snapshotCards, commanderIds)) {
+      return true;
+    }
+
+    const activeCards = this.activeNativeDragCards(context);
+    if (canDropCardsOnZone(zone, activeCards, commanderIds)) {
+      return true;
+    }
+
+    const activeSource = this.activeNativeDragSource(context);
+    if (activeSource && isKnownCommanderCard(activeSource.card, commanderIds)) {
+      return true;
+    }
+
+    return false;
+  }
+
+  private activeNativeDragCards(context: Pick<GameTableDragDropContext, 'players'>): readonly GameCardInstance[] {
+    const source = this.activeNativeDragSource(context);
+
+    return source ? [source.card] : [];
+  }
+
+  private activeNativeDragSource(
+    context: Pick<GameTableDragDropContext, 'players'>,
+  ): { readonly playerId: string; readonly zone: GameZoneName; readonly card: GameCardInstance } | null {
+    const instanceId = this.draggingCardInstanceId();
+    if (!instanceId) {
+      return null;
+    }
+
+    const battlefieldSelection = this.battlefieldSelectionByInstanceId(context, instanceId);
+    if (battlefieldSelection) {
+      return battlefieldSelection;
+    }
+
+    for (const player of context.players()) {
+      const source = this.nonBattlefieldSourceCard(player, instanceId);
+      if (source) {
+        return { playerId: player.id, zone: source.zone, card: source.card };
+      }
+    }
+
+    return null;
+  }
+
+  private payloadCards(context: Pick<GameTableDragDropContext, 'players'>, dragged: NativeDragPayload): readonly GameCardInstance[] {
+    const player = context.players().find((candidate) => candidate.id === dragged.playerId);
+    if (!player) {
+      return [];
+    }
+
+    const cards = dragged.instanceIds
+      .map((instanceId) => player.state.zones[dragged.zone].find((card) => card.instanceId === instanceId) ?? null)
+      .filter((card): card is GameCardInstance => card !== null);
+
+    return cards.length === dragged.instanceIds.length ? cards : [];
+  }
+
+  private payloadSnapshotCards(snapshot: GameSnapshot | null, dragged: NativeDragPayload): readonly GameCardInstance[] {
+    const player = snapshot?.players[dragged.playerId];
+    const zoneCards = player?.zones[dragged.zone] ?? [];
+    const cards = dragged.instanceIds
+      .map((instanceId) => zoneCards.find((card) => card.instanceId === instanceId) ?? null)
+      .filter((card): card is GameCardInstance => card !== null);
+
+    return cards.length === dragged.instanceIds.length ? cards : [];
+  }
+
+  private nativeDropTargetZone(event: DragEvent): GameZoneName | null {
+    const target = event.target instanceof Element ? event.target : null;
+    const currentTarget = event.currentTarget instanceof Element ? event.currentTarget : null;
+    const zone = target?.closest<HTMLElement>('[data-game-drop-zone]')?.dataset['zone']
+      ?? currentTarget?.closest<HTMLElement>('[data-game-drop-zone]')?.dataset['zone'];
+
+    return this.isGameZone(zone) ? zone : null;
+  }
+
+  private isGameZone(zone: string | undefined): zone is GameZoneName {
+    return zone !== undefined && ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command'].includes(zone);
+  }
+
 }

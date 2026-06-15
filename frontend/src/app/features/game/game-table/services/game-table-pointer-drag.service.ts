@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { GameCardInstance, GameZoneName } from '../../../../core/models/game.model';
+import { canDropCardOnZone } from '../utils/command-zone-drop';
 
 export interface PointerDropTarget {
   targetPlayerId: string;
@@ -20,6 +21,8 @@ export interface PointerCardSize {
 
 export interface PointerDropTargetOptions {
   includeHand?: boolean;
+  draggedCard?: GameCardInstance | null;
+  knownCommanderInstanceIds?: ReadonlySet<string>;
 }
 
 export interface HandPointerDropPreview {
@@ -82,7 +85,7 @@ export class GameTablePointerDragService {
       const manaLane = this.manaLaneForCardTop(battlefield, event.clientX, event.clientY, cardSize);
       const effectiveRawZone = manaLane ? 'mana' : rawZone;
       const toZone = effectiveRawZone === 'mana' ? 'battlefield' : effectiveRawZone;
-      if (!this.isGameZone(toZone)) {
+      if (!this.isGameZone(toZone) || !canDropCardOnZone(toZone, options.draggedCard ?? null, options.knownCommanderInstanceIds)) {
         continue;
       }
 
@@ -198,4 +201,5 @@ export class GameTablePointerDragService {
   private isGameZone(zone: string): zone is GameZoneName {
     return ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command'].includes(zone);
   }
+
 }

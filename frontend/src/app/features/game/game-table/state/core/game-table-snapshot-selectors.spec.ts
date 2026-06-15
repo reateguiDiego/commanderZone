@@ -181,6 +181,76 @@ describe('GameTableSnapshotSelectors', () => {
     expect(selectors.zoneStackLayerImage(player, 'exile')).toBe('/exile-second.jpg');
   });
 
+  it('uses a first-position graveyard or exile commander as the visible draggable pile card', () => {
+    const graveyardCommander = {
+      instanceId: 'graveyard-commander',
+      name: 'Graveyard Commander',
+      tapped: false,
+      isCommander: true,
+      imageUris: { normal: '/graveyard-commander.jpg' },
+    };
+    const exileCommander = {
+      instanceId: 'exile-commander',
+      name: 'Exile Commander',
+      tapped: false,
+      isCommander: true,
+      imageUris: { normal: '/exile-commander.jpg' },
+    };
+    const player = playerView({
+      zones: {
+        library: [],
+        hand: [],
+        battlefield: [],
+        graveyard: [
+          graveyardCommander,
+          { instanceId: 'graveyard-later', name: 'Later Graveyard', tapped: false, imageUris: { normal: '/graveyard-later.jpg' } },
+        ],
+        exile: [
+          exileCommander,
+          { instanceId: 'exile-later', name: 'Later Exile', tapped: false, imageUris: { normal: '/exile-later.jpg' } },
+        ],
+        command: [],
+      },
+    });
+
+    expect(selectors.zonePreviewCard(player, 'graveyard')).toBe(graveyardCommander);
+    expect(selectors.zonePreviewImage(player, 'graveyard')).toBe('/graveyard-commander.jpg');
+    expect(selectors.zoneStackLayerImage(player, 'graveyard')).toBe('/graveyard-later.jpg');
+    expect(selectors.topDraggableCard(player, 'graveyard', true)).toBe(graveyardCommander);
+    expect(selectors.zonePreviewCard(player, 'exile')).toBe(exileCommander);
+    expect(selectors.zonePreviewImage(player, 'exile')).toBe('/exile-commander.jpg');
+    expect(selectors.zoneStackLayerImage(player, 'exile')).toBe('/exile-later.jpg');
+    expect(selectors.topDraggableCard(player, 'exile', true)).toBe(exileCommander);
+  });
+
+  it('keeps a public pile commander draggable when only player counters still identify it', () => {
+    const commander = {
+      instanceId: 'graveyard-commander',
+      name: 'Graveyard Commander',
+      tapped: false,
+      imageUris: { normal: '/graveyard-commander.jpg' },
+    };
+    const player = playerView({
+      zones: {
+        library: [],
+        hand: [],
+        battlefield: [],
+        graveyard: [
+          commander,
+          { instanceId: 'graveyard-later', name: 'Later Graveyard', tapped: false, imageUris: { normal: '/graveyard-later.jpg' } },
+        ],
+        exile: [],
+        command: [],
+      },
+      counters: {
+        'commander:graveyard-commander': 1,
+      },
+    });
+
+    expect(selectors.zonePreviewCard(player, 'graveyard')).toBe(commander);
+    expect(selectors.topDraggableCard(player, 'graveyard', true)).toBe(commander);
+  });
+
   it('does not provide a stack layer image for a single-card pile', () => {
     const player = playerView({
       zones: {
@@ -196,6 +266,40 @@ describe('GameTableSnapshotSelectors', () => {
     });
 
     expect(selectors.zoneStackLayerImage(player, 'graveyard')).toBeNull();
+  });
+
+  it('resolves commander cards and cast counts by commander instance', () => {
+    const firstCommander = { instanceId: 'commander-1', name: 'First Commander', tapped: false, isCommander: true };
+    const secondCommander = { instanceId: 'commander-2', name: 'Second Commander', tapped: false, isCommander: true };
+    const player = playerView({
+      zones: {
+        library: [],
+        hand: [],
+        battlefield: [],
+        graveyard: [],
+        exile: [],
+        command: [firstCommander, secondCommander],
+      },
+    });
+    const snapshot = {
+      version: 1,
+      players: { 'player-1': player.state },
+      turn: { activePlayerId: 'player-1', phase: 'main-1', number: 1 },
+      counters: {
+        'commander:commander-1': { casts: 1 },
+        'commander:commander-2': { casts: 3 },
+      },
+      stack: [],
+      arrows: [],
+      chat: [],
+      eventLog: [],
+      createdAt: '',
+      updatedAt: '',
+    };
+
+    expect(selectors.commandZoneCards(player)).toEqual([firstCommander, secondCommander]);
+    expect(selectors.commanderCastCount(snapshot, player, firstCommander)).toBe(1);
+    expect(selectors.commanderCastCount(snapshot, player, secondCommander)).toBe(3);
   });
 });
 

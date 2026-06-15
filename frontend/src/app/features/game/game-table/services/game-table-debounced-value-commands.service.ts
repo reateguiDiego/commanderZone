@@ -11,6 +11,7 @@ interface PendingLifeCommand {
 interface PendingCommanderDamageCommand {
   targetPlayerId: string;
   sourcePlayerId: string;
+  commanderInstanceId: string;
   damage: number;
 }
 
@@ -45,14 +46,14 @@ export class GameTableDebouncedValueCommandsService {
     return Number(this.optimisticLifeCommands.get(playerId)?.life ?? snapshot?.players[playerId]?.life ?? 0);
   }
 
-  commanderDamageValue(snapshot: GameSnapshot | null, targetPlayerId: string, sourcePlayerId: string): number {
-    const key = this.commanderDamageCommandKey(targetPlayerId, sourcePlayerId);
+  commanderDamageValue(snapshot: GameSnapshot | null, targetPlayerId: string, commanderInstanceId: string): number {
+    const key = this.commanderDamageCommandKey(targetPlayerId, commanderInstanceId);
     const command = this.optimisticCommanderDamageCommands.get(key);
     if (command) {
       return command.damage;
     }
 
-    return Math.max(0, Number(snapshot?.players[targetPlayerId]?.commanderDamage?.[sourcePlayerId] ?? 0));
+    return Math.max(0, Number(snapshot?.players[targetPlayerId]?.commanderDamage?.[commanderInstanceId] ?? 0));
   }
 
   counterValue(scope: string, key: string, fallbackValue: number): number {
@@ -71,7 +72,7 @@ export class GameTableDebouncedValueCommandsService {
   }
 
   queueCommanderDamage(context: GameTableDebouncedValueCommandContext, command: PendingCommanderDamageCommand): void {
-    const key = this.commanderDamageCommandKey(command.targetPlayerId, command.sourcePlayerId);
+    const key = this.commanderDamageCommandKey(command.targetPlayerId, command.commanderInstanceId);
     this.optimisticCommanderDamageCommands.set(key, command);
     this.updateLocalCommanderDamage(context, command);
     this.scheduleFlush(this.commanderDamageTimerKey(key), this.flushDelayMs, () => this.flushCommanderDamage(context, key));
@@ -154,6 +155,7 @@ export class GameTableDebouncedValueCommandsService {
       if (!await context.send('commander.damage.changed', {
         targetPlayerId: command.targetPlayerId,
         sourcePlayerId: command.sourcePlayerId,
+        commanderInstanceId: command.commanderInstanceId,
         damage: command.damage,
       })) {
         throw new Error('WebSocket gameplay connection is not available.');
@@ -232,7 +234,7 @@ export class GameTableDebouncedValueCommandsService {
 
     const next = structuredClone(snapshot);
     const player = next.players[command.targetPlayerId]!;
-    player.commanderDamage = { ...player.commanderDamage, [command.sourcePlayerId]: command.damage };
+    player.commanderDamage = { ...player.commanderDamage, [command.commanderInstanceId]: command.damage };
     context.setSnapshot(next);
   }
 
@@ -281,7 +283,7 @@ export class GameTableDebouncedValueCommandsService {
         continue;
       }
 
-      player.commanderDamage = { ...player.commanderDamage, [command.sourcePlayerId]: command.damage };
+      player.commanderDamage = { ...player.commanderDamage, [command.commanderInstanceId]: command.damage };
       applied = true;
     }
 
@@ -340,8 +342,8 @@ export class GameTableDebouncedValueCommandsService {
     return `life:${playerId}`;
   }
 
-  private commanderDamageCommandKey(targetPlayerId: string, sourcePlayerId: string): string {
-    return `${targetPlayerId}:${sourcePlayerId}`;
+  private commanderDamageCommandKey(targetPlayerId: string, commanderInstanceId: string): string {
+    return `${targetPlayerId}:${commanderInstanceId}`;
   }
 
   private commanderDamageTimerKey(key: string): string {

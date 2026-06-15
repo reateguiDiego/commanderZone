@@ -237,7 +237,7 @@ function cardFace(name: string) {
     toughness: null,
     loyalty: null,
     colors: [],
-    imageUris: {},
+    imageUris: { normal: `/cards/${name}.jpg` },
   };
 }
 

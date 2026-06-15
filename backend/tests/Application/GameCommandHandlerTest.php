@@ -4,6 +4,7 @@ namespace App\Tests\Application;
 
 use App\Application\Game\GameCardBaseStatsResolver;
 use App\Application\Game\GameCommandHandler;
+use App\Application\Game\GameRandomizer;
 use App\Domain\Game\Game;
 use App\Domain\Room\Room;
 use App\Domain\User\User;
@@ -635,13 +636,24 @@ class GameCommandHandlerTest extends TestCase
     {
         $actor = new User('owner@example.test', 'Owner');
         $game = new Game(new Room($actor), $this->snapshot($actor->id(), []));
+        $handler = new GameCommandHandler(null, new class() extends GameRandomizer {
+            public function roll(string $kind): string|int
+            {
+                TestCase::assertSame('d20', $kind);
 
-        (new GameCommandHandler())->apply($game, 'dice.rolled', [
+                return 17;
+            }
+        });
+
+        $event = $handler->apply($game, 'dice.rolled', [
             'kind' => 'd20',
-            'finalResult' => '17',
         ], $actor);
 
         self::assertSame('ha tirado un d20, ha salido un 17.', $game->snapshot()['eventLog'][0]['message']);
+        self::assertSame([
+            'kind' => 'd20',
+            'finalResult' => '17',
+        ], $event->toArray()['payload']);
     }
 
     public function testUntapAllBattlefieldCardsUntapsOnlyActorBattlefield(): void
@@ -1699,11 +1711,16 @@ class GameCommandHandlerTest extends TestCase
                 $this->card('second-card', 'Wrong Tutor', 'library', 1, 1, 1, 1),
             ],
         ]));
+        $handler = new GameCommandHandler(null, new class() extends GameRandomizer {
+            public function pickOne(array $items): mixed
+            {
+                return $items[0];
+            }
+        });
 
-        (new GameCommandHandler())->apply($game, 'zone.random_card.selected', [
+        $event = $handler->apply($game, 'zone.random_card.selected', [
             'playerId' => $actor->id(),
             'zone' => 'library',
-            'instanceId' => 'top-card',
         ], $actor);
 
         $snapshot = $game->snapshot();
@@ -1715,6 +1732,11 @@ class GameCommandHandlerTest extends TestCase
         self::assertSame('top-card', $snapshot['eventLog'][0]['cardInstanceId']);
         self::assertSame($actor->id(), $snapshot['eventLog'][0]['cardPlayerId']);
         self::assertSame('library', $snapshot['eventLog'][0]['cardZone']);
+        self::assertSame([
+            'playerId' => $actor->id(),
+            'zone' => 'library',
+            'instanceId' => 'top-card',
+        ], $event->toArray()['payload']);
     }
 
     public function testReorderTopLibraryCardsOnlyChangesViewedPrefix(): void
@@ -1764,27 +1786,31 @@ class GameCommandHandlerTest extends TestCase
     public function testCommanderCastCounterLogIncludesPreviousAndNextValue(): void
     {
         $actor = new User('owner@example.test', 'Owner');
-        $snapshot = $this->snapshot($actor->id(), []);
+        $snapshot = $this->snapshot($actor->id(), [
+            'command' => [
+                $this->card('commander-1', 'Atraxa', 'command', 4, 4, 4, 4),
+            ],
+        ]);
         $snapshot['counters'] = [
-            'commander:'.$actor->id() => ['casts' => 2],
+            'commander:commander-1' => ['casts' => 2],
         ];
         $game = new Game(new Room($actor), $snapshot);
         $handler = new GameCommandHandler();
 
         $handler->apply($game, 'counter.changed', [
-            'scope' => 'commander:'.$actor->id(),
+            'scope' => 'commander:commander-1',
             'key' => 'casts',
             'value' => 3,
         ], $actor);
         $handler->apply($game, 'counter.changed', [
-            'scope' => 'commander:'.$actor->id(),
+            'scope' => 'commander:commander-1',
             'key' => 'casts',
             'value' => 2,
         ], $actor);
 
         self::assertSame([
-            'Commander cast count increased from 2 to 3.',
-            'Commander cast count decreased from 3 to 2.',
+            'Atraxa cast count increased from 2 to 3.',
+            'Atraxa cast count decreased from 3 to 2.',
         ], array_map(
             static fn (array $entry): string => $entry['message'],
             $game->snapshot()['eventLog'],
@@ -1794,20 +1820,80 @@ class GameCommandHandlerTest extends TestCase
     public function testCommanderCastCounterCannotGoBelowZeroOrCreateNoopLog(): void
     {
         $actor = new User('owner@example.test', 'Owner');
-        $snapshot = $this->snapshot($actor->id(), []);
+        $snapshot = $this->snapshot($actor->id(), [
+            'command' => [
+                $this->card('commander-1', 'Atraxa', 'command', 4, 4, 4, 4),
+            ],
+        ]);
         $snapshot['counters'] = [
-            'commander:'.$actor->id() => ['casts' => 0],
+            'commander:commander-1' => ['casts' => 0],
         ];
         $game = new Game(new Room($actor), $snapshot);
 
         (new GameCommandHandler())->apply($game, 'counter.changed', [
-            'scope' => 'commander:'.$actor->id(),
+            'scope' => 'commander:commander-1',
             'key' => 'casts',
             'value' => -1,
         ], $actor);
 
-        self::assertSame(0, $game->snapshot()['counters']['commander:'.$actor->id()]['casts']);
+        self::assertSame(0, $game->snapshot()['counters']['commander:commander-1']['casts']);
         self::assertSame([], $game->snapshot()['eventLog']);
+    }
+
+    public function testCommanderDamageIsTrackedByCommanderCard(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $opponent = new User('opponent@example.test', 'Opponent');
+        $snapshot = $this->snapshot($actor->id(), [], $opponent->id());
+        $snapshot['players'][$opponent->id()]['zones']['command'] = [
+            $this->card('commander-1', 'Rograkh', 'command', 0, 1, 0, 1),
+            $this->card('commander-2', 'Silas Renn', 'command', 2, 2, 2, 2),
+        ];
+        $game = new Game(new Room($actor), $snapshot);
+        $handler = new GameCommandHandler();
+
+        $handler->apply($game, 'commander.damage.changed', [
+            'targetPlayerId' => $actor->id(),
+            'sourcePlayerId' => $opponent->id(),
+            'commanderInstanceId' => 'commander-1',
+            'damage' => 11,
+        ], $actor);
+        $handler->apply($game, 'commander.damage.changed', [
+            'targetPlayerId' => $actor->id(),
+            'sourcePlayerId' => $opponent->id(),
+            'commanderInstanceId' => 'commander-2',
+            'damage' => 10,
+        ], $actor);
+
+        $damage = $game->snapshot()['players'][$actor->id()]['commanderDamage'];
+        self::assertSame(11, $damage['commander-1']);
+        self::assertSame(10, $damage['commander-2']);
+        self::assertFalse($this->eventLogContains($game->snapshot(), 'ha muerto.'));
+
+        $handler->apply($game, 'commander.damage.changed', [
+            'targetPlayerId' => $actor->id(),
+            'sourcePlayerId' => $opponent->id(),
+            'commanderInstanceId' => 'commander-2',
+            'damage' => 21,
+        ], $actor);
+
+        self::assertTrue($this->eventLogContains($game->snapshot(), 'ha muerto.'));
+    }
+
+    public function testCommanderDamageRequiresCommanderInstanceId(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $opponent = new User('opponent@example.test', 'Opponent');
+        $game = new Game(new Room($actor), $this->snapshot($actor->id(), [], $opponent->id()));
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('commanderInstanceId is required.');
+
+        (new GameCommandHandler())->apply($game, 'commander.damage.changed', [
+            'targetPlayerId' => $actor->id(),
+            'sourcePlayerId' => $opponent->id(),
+            'damage' => 1,
+        ], $actor);
     }
 
     public function testLifeAtZeroCreatesFinalDefeatedLogAndSuppressesFutureActorLogs(): void
@@ -2753,6 +2839,17 @@ class GameCommandHandlerTest extends TestCase
             'eventLog' => [],
             'createdAt' => '2026-01-01T00:00:00+00:00',
         ];
+    }
+
+    private function eventLogContains(array $snapshot, string $message): bool
+    {
+        foreach ($snapshot['eventLog'] ?? [] as $entry) {
+            if (($entry['message'] ?? null) === $message) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

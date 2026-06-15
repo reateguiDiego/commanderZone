@@ -16,24 +16,17 @@ class DecklistPreviewer
      * @param array<int, array{quantity:int,name:string,section:string,setCode:?string,collectorNumber:?string,rawLine:string}> $entries
      * @return array<string,mixed>
      */
-    public function preview(array $entries, string $format, ?string $preferredLanguage = null): array
+    public function preview(array $entries, string $format, ?string $preferredLanguage = null, ?string $deckFormat = null): array
     {
         $resolvedEntries = [];
         $missingCards = [];
         $totalCards = 0;
         $resolvedCards = 0;
-        $counts = [
-            DeckCard::SECTION_COMMANDER => 0,
-            DeckCard::SECTION_MAIN => 0,
-            DeckCard::SECTION_SIDEBOARD => 0,
-            DeckCard::SECTION_MAYBEBOARD => 0,
-        ];
 
         foreach ($entries as $index => $entry) {
             $totalCards += $entry['quantity'];
-            $counts[$entry['section']] = ($counts[$entry['section']] ?? 0) + $entry['quantity'];
 
-            $card = $this->cardResolver->resolveForDecklistEntry($entry, $preferredLanguage);
+            $card = $this->cardResolver->resolveForDecklistEntry($entry, $preferredLanguage, $deckFormat);
             if ($card instanceof Card) {
                 $resolvedCards += $entry['quantity'];
             } else {
@@ -56,6 +49,9 @@ class DecklistPreviewer
                 'card' => $card,
             ];
         }
+
+        $resolvedEntries = $this->inferCommanderSection($resolvedEntries, $format, $deckFormat);
+        $counts = $this->sectionCounts($resolvedEntries);
 
         return [
             'format' => $format,
@@ -124,5 +120,119 @@ class DecklistPreviewer
         }
 
         return $warnings;
+    }
+
+    /**
+     * @param array<int, array{quantity:int,name:string,section:string,setCode:?string,collectorNumber:?string,rawLine:string,line:int,resolved:bool,card:?Card}> $entries
+     * @return array<int, array{quantity:int,name:string,section:string,setCode:?string,collectorNumber:?string,rawLine:string,line:int,resolved:bool,card:?Card}>
+     */
+    private function inferCommanderSection(array $entries, string $format, ?string $deckFormat): array
+    {
+        if ($entries === [] || !$this->shouldInferCommander($deckFormat)) {
+            return $entries;
+        }
+
+        foreach ($entries as $entry) {
+            if (($entry['section'] ?? DeckCard::SECTION_MAIN) === DeckCard::SECTION_COMMANDER) {
+                return $entries;
+            }
+        }
+
+        $candidateIndexes = [];
+        $boundaryIndexes = $this->commanderBoundaryIndexes($entries, $format);
+        foreach ($boundaryIndexes as $index) {
+            $entry = $entries[$index] ?? null;
+            $card = $entry['card'] ?? null;
+            if (!is_array($entry) || !$card instanceof Card) {
+                continue;
+            }
+
+            if (($entry['section'] ?? null) !== DeckCard::SECTION_MAIN) {
+                continue;
+            }
+
+            if (($entry['quantity'] ?? 0) !== 1 || !$this->isCommanderCandidateCard($card)) {
+                continue;
+            }
+
+            if (!$this->entrySupportsCommanderInference($entry, $format)) {
+                continue;
+            }
+
+            $candidateIndexes[] = $index;
+        }
+
+        if (count($candidateIndexes) !== 1) {
+            return $entries;
+        }
+
+        $entries[$candidateIndexes[0]]['section'] = DeckCard::SECTION_COMMANDER;
+
+        return $entries;
+    }
+
+    /**
+     * @param array<int, array{section:string,quantity:int}> $entries
+     * @return array<string, int>
+     */
+    private function sectionCounts(array $entries): array
+    {
+        $counts = [
+            DeckCard::SECTION_COMMANDER => 0,
+            DeckCard::SECTION_MAIN => 0,
+            DeckCard::SECTION_SIDEBOARD => 0,
+            DeckCard::SECTION_MAYBEBOARD => 0,
+        ];
+
+        foreach ($entries as $entry) {
+            $section = $entry['section'] ?? DeckCard::SECTION_MAIN;
+            $counts[$section] = ($counts[$section] ?? 0) + (int) ($entry['quantity'] ?? 0);
+        }
+
+        return $counts;
+    }
+
+    private function shouldInferCommander(?string $deckFormat): bool
+    {
+        return $deckFormat === null || trim(mb_strtolower($deckFormat)) === 'commander';
+    }
+
+    /**
+     * @param array<int, array{quantity:int,name:string,section:string,setCode:?string,collectorNumber:?string,rawLine:string,line:int,resolved:bool,card:?Card}> $entries
+     * @return list<int>
+     */
+    private function commanderBoundaryIndexes(array $entries, string $format): array
+    {
+        $lastIndex = count($entries) - 1;
+
+        return match (trim(mb_strtolower($format))) {
+            DecklistParser::FORMAT_MOXFIELD => array_values(array_unique([0, $lastIndex])),
+            DecklistParser::FORMAT_PLAIN => [$lastIndex],
+            default => [],
+        };
+    }
+
+    private function isCommanderCandidateCard(Card $card): bool
+    {
+        $typeLine = mb_strtolower($card->typeLine() ?? '');
+        if (str_contains($typeLine, 'legendary') && str_contains($typeLine, 'creature')) {
+            return true;
+        }
+
+        $oracleText = mb_strtolower($card->oracleText() ?? '');
+
+        return str_contains($oracleText, 'can be your commander');
+    }
+
+    /**
+     * @param array{quantity:int,name:string,section:string,setCode:?string,collectorNumber:?string,rawLine:string,line:int,resolved:bool,card:?Card} $entry
+     */
+    private function entrySupportsCommanderInference(array $entry, string $format): bool
+    {
+        if (trim(mb_strtolower($format)) !== DecklistParser::FORMAT_MOXFIELD) {
+            return true;
+        }
+
+        return ($entry['setCode'] ?? null) !== null && ($entry['collectorNumber'] ?? null) !== null;
     }
 }

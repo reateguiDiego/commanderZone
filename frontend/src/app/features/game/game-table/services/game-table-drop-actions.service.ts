@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { GameCardInstance, GameCardPosition, GameCommandType, GameSnapshot, GameZoneName } from '../../../../core/models/game.model';
 import { HandDropPreview } from '../state/drag-drop/game-table-battlefield-drag.state';
 import { attachmentDropTarget, attachmentRelationInstanceIds, createAttachmentStackMoves } from '../utils/attachment-stack';
+import { canDropCardsOnZone, COMMAND_ZONE_DROP_ERROR, knownCommanderInstanceIds } from '../utils/command-zone-drop';
 import { createLandStackMoves, landStackDropTarget } from '../utils/land-stack';
 import { GameTableDragService } from './game-table-drag.service';
 
@@ -43,7 +44,13 @@ export interface GameTableDropActionContext {
   markPendingTransfer(playerId: string, fromZone: GameZoneName, instanceIds: readonly string[], options?: MarkPendingTransferOptions): void;
   syncOpenZoneModalAfterMove(playerId: string, fromZone: GameZoneName, instanceIds: readonly string[]): Promise<void>;
   command(type: GameCommandType, payload: Record<string, unknown>): Promise<void>;
-  recordCommanderCastIfNeeded(playerId: string, fromZone: GameZoneName, toZone?: GameZoneName, targetPlayerId?: string): Promise<void>;
+  recordCommanderCastIfNeeded(
+    playerId: string,
+    fromZone: GameZoneName,
+    toZone?: GameZoneName,
+    targetPlayerId?: string,
+    instanceIds?: readonly string[],
+  ): Promise<void>;
 }
 
 @Injectable()
@@ -71,6 +78,10 @@ export class GameTableDropActionsService {
     const movedCards = this.sourceCards(context, dragged.playerId, dragged.zone, dragged.instanceIds);
     if (!movedCards || movedCards.some((card) => !context.canControlOwnedCard(dragged.playerId, card))) {
       this.endBlockedDrag(context, 'You can only move your own cards.');
+      return;
+    }
+    if (!canDropCardsOnZone(toZone, movedCards, knownCommanderInstanceIds(context.snapshot()))) {
+      this.endBlockedDrag(context, COMMAND_ZONE_DROP_ERROR);
       return;
     }
 
@@ -127,7 +138,7 @@ export class GameTableDropActionsService {
         instanceIds,
         position: payloadPosition,
       });
-      await context.recordCommanderCastIfNeeded(dragged.playerId, dragged.zone, toZone, targetPlayerId);
+      await context.recordCommanderCastIfNeeded(dragged.playerId, dragged.zone, toZone, targetPlayerId, dragged.instanceIds);
       this.endCompletedDrag(context);
       return;
     }
@@ -176,7 +187,7 @@ export class GameTableDropActionsService {
         attachedToInstanceId: battlefieldRelationMove.targetInstanceId,
       });
     }
-    await context.recordCommanderCastIfNeeded(dragged.playerId, dragged.zone, toZone, targetPlayerId);
+    await context.recordCommanderCastIfNeeded(dragged.playerId, dragged.zone, toZone, targetPlayerId, dragged.instanceIds);
     this.endCompletedDrag(context);
   }
 
@@ -251,7 +262,7 @@ export class GameTableDropActionsService {
         await this.placeCardsInHand(context, targetPlayerId, movedInHand, preview.targetInstanceId, preview.placement);
       }
     }
-    await context.recordCommanderCastIfNeeded(dragged.playerId, dragged.zone, 'hand', targetPlayerId);
+    await context.recordCommanderCastIfNeeded(dragged.playerId, dragged.zone, 'hand', targetPlayerId, dragged.instanceIds);
     context.endCardDrag();
     context.clearHandDropPreview();
     context.clearSelectedCards();
@@ -334,7 +345,7 @@ export class GameTableDropActionsService {
     const playerId = pendingMove.payload['playerId'];
     const instanceIds = this.payloadInstanceIds(pendingMove.payload);
     if (pendingMove.commandType !== 'card.controller.changed' && typeof playerId === 'string' && this.isGameZone(fromZone) && typeof targetPlayerId === 'string') {
-      await context.recordCommanderCastIfNeeded(playerId, fromZone, 'battlefield', targetPlayerId);
+      await context.recordCommanderCastIfNeeded(playerId, fromZone, 'battlefield', targetPlayerId, instanceIds);
     }
     if (typeof playerId === 'string' && this.isGameZone(fromZone) && instanceIds.length > 0) {
       await context.syncOpenZoneModalAfterMove(playerId, fromZone, instanceIds);
@@ -357,10 +368,10 @@ export class GameTableDropActionsService {
     });
     const fromZone = pendingMove.payload['fromZone'];
     const playerId = pendingMove.payload['playerId'];
-    if (typeof playerId === 'string' && this.isGameZone(fromZone)) {
-      await context.recordCommanderCastIfNeeded(playerId, fromZone, 'library');
-    }
     const instanceIds = this.payloadInstanceIds(pendingMove.payload);
+    if (typeof playerId === 'string' && this.isGameZone(fromZone)) {
+      await context.recordCommanderCastIfNeeded(playerId, fromZone, 'library', playerId, instanceIds);
+    }
     if (typeof playerId === 'string' && this.isGameZone(fromZone) && instanceIds.length > 0) {
       await context.syncOpenZoneModalAfterMove(playerId, fromZone, instanceIds);
     }

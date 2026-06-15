@@ -15,6 +15,7 @@ describe('GameTableHandState', () => {
   let pendingLibraryMove: PendingLibraryMove | null;
   let pendingBattlefieldMove: PendingBattlefieldMove | null;
   let clearedSelection: boolean;
+  let lastError: string | null;
   let visualPositions: Record<string, { x: number; y: number }>;
   let localBattlefieldMove:
     | { playerId: string; targetPlayerId: string; movedInstanceIds: readonly string[]; position?: unknown }
@@ -43,6 +44,7 @@ describe('GameTableHandState', () => {
     pendingLibraryMove = null;
     pendingBattlefieldMove = null;
     clearedSelection = false;
+    lastError = null;
     visualPositions = {};
     localBattlefieldMove = null;
   });
@@ -74,6 +76,13 @@ describe('GameTableHandState', () => {
       },
     });
     expect(clearedSelection).toBe(true);
+  });
+
+  it('blocks pointer moves from hand to command zone for non-commanders', async () => {
+    await state.moveHandCardByPointer(context(), 'player-1', 'player-1', 'a', 'command');
+
+    expect(commandCalls).toEqual([]);
+    expect(lastError).toBe('Only commanders can be moved to the command zone.');
   });
 
   it('moves multiple selected hand cards to battlefield with one aggregate command', async () => {
@@ -247,7 +256,9 @@ describe('GameTableHandState', () => {
       clearSelectedCards: () => {
         clearedSelection = true;
       },
-      setError: () => undefined,
+      setError: (message) => {
+        lastError = message;
+      },
       command: async (type, payload) => {
         commandCalls.push({ type, payload });
       },

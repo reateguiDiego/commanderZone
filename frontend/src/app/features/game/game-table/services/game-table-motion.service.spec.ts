@@ -156,6 +156,26 @@ describe('GameTableMotionService', () => {
     expect(document.body.querySelector('.cz-motion-ghost')).toBeNull();
   });
 
+  it('does not copy transient drag-hiding classes into motion ghosts', () => {
+    gsapToSpy.mockImplementationOnce(() => null as unknown as gsap.core.Tween);
+    const source = addHandCard(host, 'card-1', { left: 10, top: 20, width: 72, height: 100 });
+    source.classList.add('dragging-zone-card', 'dragging-command-zone-card');
+    const child = document.createElement('span');
+    child.classList.add('transfer-pending-command-zone-card');
+    source.appendChild(child);
+    const target = addMotionTarget(host, { left: 300, top: 240, width: 72, height: 100 });
+
+    service.throwElementGhost(source, target);
+
+    const ghost = document.body.querySelector<HTMLElement>('.cz-motion-ghost');
+    expect(ghost).toBeTruthy();
+    expect(ghost!.classList).not.toContain('dragging-zone-card');
+    expect(ghost!.classList).not.toContain('dragging-command-zone-card');
+    expect(ghost!.querySelector('.transfer-pending-command-zone-card')).toBeNull();
+
+    ghost?.remove();
+  });
+
   it('runs hand handoff motion below 1200px viewport height', () => {
     reinitWithMatchMedia((query) => query === '(max-height: 1199px)');
     addHandCard(host, 'card-before', { left: 10, top: 20, width: 72, height: 100 });

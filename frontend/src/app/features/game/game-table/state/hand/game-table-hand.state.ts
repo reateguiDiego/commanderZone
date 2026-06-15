@@ -8,6 +8,7 @@ import { GameTableDragService } from '../../services/game-table-drag.service';
 import { PendingBattlefieldMove, PendingLibraryMove } from '../../services/game-table-drop-actions.service';
 import { GameTableMotionService } from '../../services/game-table-motion.service';
 import { attachmentDropTarget, attachmentRelationInstanceIds, createAttachmentStackMoves } from '../../utils/attachment-stack';
+import { canDropCardsOnZone, COMMAND_ZONE_DROP_ERROR, knownCommanderInstanceIds } from '../../utils/command-zone-drop';
 import { createLandStackMoves, LandStackDropTarget, landStackDropTarget } from '../../utils/land-stack';
 import { GameTableBattlefieldDragState } from '../drag-drop/game-table-battlefield-drag.state';
 
@@ -44,6 +45,7 @@ export interface GameTableHandContext {
     fromZone: GameZoneName,
     toZone?: GameZoneName,
     targetPlayerId?: string,
+    instanceIds?: readonly string[],
   ) => Promise<void>;
 }
 
@@ -145,6 +147,17 @@ export class GameTableHandState {
     const movedInstanceIds = context.selectedDragInstanceIds(playerId, 'hand', movedInstanceId);
     if (toZone === 'battlefield' && rawZone === 'mana') {
       context.markPendingManaDrop(targetPlayerId, movedInstanceIds);
+    }
+    const movedCards = movedInstanceIds
+      .map((instanceId) => context.findCard(playerId, 'hand', instanceId))
+      .filter((card): card is GameCardInstance => Boolean(card));
+    if (movedCards.length !== movedInstanceIds.length) {
+      context.setError('You can only move your own cards.');
+      return;
+    }
+    if (!canDropCardsOnZone(toZone, movedCards, knownCommanderInstanceIds(context.snapshot()))) {
+      context.setError(COMMAND_ZONE_DROP_ERROR);
+      return;
     }
     if (toZone === 'library') {
       context.setPendingLibraryMove({

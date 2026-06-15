@@ -20,6 +20,18 @@ describe('AppModalComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('Confirm');
   });
 
+  it('can provide an accessible label without rendering a visible title row', () => {
+    const fixture = TestBed.createComponent(AppModalComponent);
+    fixture.componentRef.setInput('open', true);
+    fixture.componentRef.setInput('ariaLabel', 'Select print version');
+    fixture.detectChanges();
+
+    const dialog = fixture.nativeElement.querySelector('[role="dialog"]') as HTMLElement;
+
+    expect(dialog.getAttribute('aria-label')).toBe('Select print version');
+    expect(fixture.nativeElement.querySelector('.modal-title-row')).toBeNull();
+  });
+
   it('locks body scroll while open and restores it when closed', () => {
     const fixture = TestBed.createComponent(AppModalComponent);
     const scrollToSpy = vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);

@@ -517,7 +517,7 @@ SQL,
     {
         return $this->connection->executeQuery(
             <<<'SQL'
-SELECT
+SELECT DISTINCT ON (source.scryfall_id, l.lang)
     source.scryfall_id AS source_scryfall_id,
     target.scryfall_id AS candidate_scryfall_id,
     l.lang,
@@ -529,7 +529,18 @@ INNER JOIN card_print target
 INNER JOIN card_print_locale l ON l.print_scryfall_id = target.scryfall_id
 WHERE source.scryfall_id IN (:sourceIds)
   AND l.lang IN (:languages)
-ORDER BY source.scryfall_id ASC
+ORDER BY
+    source.scryfall_id ASC,
+    l.lang ASC,
+    CASE
+        WHEN target.scryfall_id = source.scryfall_id THEN 0
+        ELSE 1
+    END ASC,
+    CASE
+        WHEN LOWER(COALESCE(l.image_status, '')) IN ('missing', 'placeholder') THEN 1
+        ELSE 0
+    END ASC,
+    target.scryfall_id ASC
 SQL,
             [
                 'sourceIds' => $sourceIds,
@@ -552,7 +563,7 @@ SQL,
     {
         return $this->connection->executeQuery(
             <<<'SQL'
-SELECT
+SELECT DISTINCT ON (source.scryfall_id, candidate.lang)
     source.scryfall_id AS source_scryfall_id,
     candidate.scryfall_id AS candidate_scryfall_id,
     candidate.lang,
@@ -563,7 +574,18 @@ INNER JOIN card candidate
    AND candidate.collector_number = source.collector_number
 WHERE source.scryfall_id IN (:sourceIds)
   AND candidate.lang IN (:languages)
-ORDER BY source.scryfall_id ASC
+ORDER BY
+    source.scryfall_id ASC,
+    candidate.lang ASC,
+    CASE
+        WHEN candidate.scryfall_id = source.scryfall_id THEN 0
+        ELSE 1
+    END ASC,
+    CASE
+        WHEN LOWER(COALESCE(candidate.image_status, '')) IN ('missing', 'placeholder') THEN 1
+        ELSE 0
+    END ASC,
+    candidate.scryfall_id ASC
 SQL,
             [
                 'sourceIds' => $sourceIds,

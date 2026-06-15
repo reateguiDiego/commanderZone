@@ -20,6 +20,7 @@ export class WaitingRoomPlayerCardComponent {
   readonly ready = input(false);
   readonly selectorOpen = input(false);
   readonly hasDeckArt = input(false);
+  readonly hasDualDeckArt = input(false);
   readonly deckName = input('Deck pending');
   readonly deckOptions = input<readonly WaitingDeckOption[]>([]);
   readonly selectedDeck = input<WaitingDeckOption | null>(null);

@@ -71,8 +71,9 @@ describe('GameTableCountersState', () => {
           useValue: {
             players: playerViewsSignal,
             canControlPlayer,
+            commandZoneCards: (player: PlayerView) => player.state.zones.command,
             commanderCastCount: () => 1,
-          } satisfies Pick<GameTablePlayersStore, 'players' | 'canControlPlayer' | 'commanderCastCount'>,
+          } satisfies Pick<GameTablePlayersStore, 'players' | 'canControlPlayer' | 'commandZoneCards' | 'commanderCastCount'>,
         },
         {
           provide: GameTableUiState,

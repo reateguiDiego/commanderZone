@@ -15,6 +15,7 @@ export class AppModalComponent implements OnChanges, OnDestroy {
 
   @Input() open = false;
   @Input() title = '';
+  @Input() ariaLabel = '';
   @Input() message = '';
   @Input() headerImageSrc: string | null = null;
   @Input() headerImageAlt = '';

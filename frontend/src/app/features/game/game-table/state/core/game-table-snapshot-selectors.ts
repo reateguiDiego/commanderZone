@@ -3,18 +3,21 @@ import { GameCardInstance, GameSnapshot, GameZoneName } from '../../../../../cor
 import type { CardImageUris } from '../../../../../core/models/card.model';
 import { gameBackgroundImageUrl, gameSleevesImageUrl } from '../../utils/game-table-visual-assets';
 import { BattlefieldCardSize, BattlefieldSize, renderedBattlefieldPosition } from '../../utils/battlefield-position';
+import { isKnownCommanderCard, knownCommanderInstanceIds, knownCommanderInstanceIdsFromPlayerState } from '../../utils/command-zone-drop';
 
 export interface PlayerView {
   id: string;
   state: GameSnapshot['players'][string];
+  knownCommanderInstanceIds?: ReadonlySet<string>;
 }
 
 @Injectable()
 export class GameTableSnapshotSelectors {
   players(snapshot: GameSnapshot | null): PlayerView[] {
     const players = snapshot?.players ?? {};
+    const commanderIds = knownCommanderInstanceIds(snapshot);
 
-    return Object.entries(players).map(([id, state]) => ({ id, state }));
+    return Object.entries(players).map(([id, state]) => ({ id, state, knownCommanderInstanceIds: commanderIds }));
   }
 
   focusedPlayer(snapshot: GameSnapshot | null, players: PlayerView[], focusedPlayerId: string | null): PlayerView | null {
@@ -61,8 +64,48 @@ export class GameTableSnapshotSelectors {
     return player.state.zoneCounts?.[zone] ?? player.state.zones[zone]?.length ?? 0;
   }
 
-  commanderCastCount(snapshot: GameSnapshot | null, player: PlayerView): number {
-    return Math.max(0, Number(snapshot?.counters?.[`commander:${player.id}`]?.['casts'] ?? 0));
+  commandZoneCards(player: PlayerView): readonly GameCardInstance[] {
+    return player.state.zones.command ?? [];
+  }
+
+  commanderCards(player: PlayerView): readonly GameCardInstance[] {
+    const knownCommanderIds = this.knownCommanderIds(player);
+    const commanders = Object.values(player.state.zones)
+      .flat()
+      .filter((card) => isKnownCommanderCard(card, knownCommanderIds));
+    const seen = new Set<string>();
+
+    return commanders.filter((card) => {
+      if (seen.has(card.instanceId)) {
+        return false;
+      }
+
+      seen.add(card.instanceId);
+      return true;
+    });
+  }
+
+  primaryCommander(player: PlayerView): GameCardInstance | null {
+    return this.commandZoneCards(player)[0] ?? this.commanderCards(player)[0] ?? null;
+  }
+
+  commanderCastCount(snapshot: GameSnapshot | null, player: PlayerView, commander?: GameCardInstance | null): number {
+    const resolvedCommander = commander ?? this.primaryCommander(player);
+    if (!resolvedCommander) {
+      return 0;
+    }
+
+    const scopedValue = snapshot?.counters?.[`commander:${resolvedCommander.instanceId}`]?.['casts'];
+    if (scopedValue !== undefined) {
+      return Math.max(0, Number(scopedValue));
+    }
+
+    const legacyPrimaryCommander = this.primaryCommander(player);
+    if (legacyPrimaryCommander?.instanceId === resolvedCommander.instanceId) {
+      return Math.max(0, Number(snapshot?.counters?.[`commander:${player.id}`]?.['casts'] ?? 0));
+    }
+
+    return 0;
   }
 
   countItems(count: number): number[] {
@@ -141,7 +184,7 @@ export class GameTableSnapshotSelectors {
       return topCard && this.isLibraryTopCardVisible(player, topCard) ? topCard : null;
     }
 
-    return cards.at(-1) ?? null;
+    return this.publicPilePrimaryCard(cards, zone, this.knownCommanderIds(player));
   }
 
   zonePreviewCard(player: PlayerView, zone: GameZoneName): GameCardInstance | null {
@@ -169,7 +212,8 @@ export class GameTableSnapshotSelectors {
     }
 
     const cards = player.state.zones[zone] ?? [];
-    const secondCard = zone === 'library' ? cards[1] ?? null : cards.at(-2) ?? null;
+    const knownCommanderIds = this.knownCommanderIds(player);
+    const secondCard = zone === 'library' ? cards[1] ?? null : this.publicPileLayerCard(cards, zone, knownCommanderIds);
     if (!secondCard) {
       return null;
     }
@@ -192,7 +236,35 @@ export class GameTableSnapshotSelectors {
       return player.state.zones.library?.[0] ?? null;
     }
 
-    return player.state.zones[zone]?.at(-1) ?? null;
+    return this.publicPilePrimaryCard(player.state.zones[zone] ?? [], zone, this.knownCommanderIds(player));
+  }
+
+  private knownCommanderIds(player: PlayerView): ReadonlySet<string> {
+    return player.knownCommanderInstanceIds ?? knownCommanderInstanceIdsFromPlayerState(player.state);
+  }
+
+  private publicPilePrimaryCard(
+    cards: readonly GameCardInstance[],
+    zone: GameZoneName,
+    knownCommanderIds: ReadonlySet<string>,
+  ): GameCardInstance | null {
+    if ((zone === 'graveyard' || zone === 'exile') && isKnownCommanderCard(cards[0] ?? null, knownCommanderIds)) {
+      return cards[0];
+    }
+
+    return cards.at(-1) ?? null;
+  }
+
+  private publicPileLayerCard(
+    cards: readonly GameCardInstance[],
+    zone: GameZoneName,
+    knownCommanderIds: ReadonlySet<string>,
+  ): GameCardInstance | null {
+    if ((zone === 'graveyard' || zone === 'exile') && isKnownCommanderCard(cards[0] ?? null, knownCommanderIds)) {
+      return cards[1] ?? null;
+    }
+
+    return cards.at(-2) ?? null;
   }
 
   private cardOwnerSleevesName(card: GameCardInstance, snapshot: GameSnapshot | null): string | null {

@@ -19,6 +19,13 @@ class GameSnapshotFactory
         'C' => 7,
     ];
 
+    public function __construct(?GameRandomizer $randomizer = null)
+    {
+        $this->randomizer = $randomizer ?? new GameRandomizer();
+    }
+
+    private readonly GameRandomizer $randomizer;
+
     public function fromRoom(Room $room): array
     {
         $players = [];
@@ -40,7 +47,7 @@ class GameSnapshotFactory
                     $library[] = $this->cardInstance($deckCard, $roomPlayer->user()->id(), 'library');
                 }
             }
-            shuffle($library);
+            $library = $this->randomizer->shuffle($library);
             $openingHand = array_splice($library, 0, min(7, count($library)));
             $openingHand = array_values(array_map(
                 static fn (array $card): array => [...$card, 'zone' => 'hand'],
@@ -82,9 +89,16 @@ class GameSnapshotFactory
         }
 
         foreach ($players as $targetPlayerId => &$player) {
-            foreach (array_keys($players) as $sourcePlayerId) {
-                if ($targetPlayerId !== $sourcePlayerId) {
-                    $player['commanderDamage'][$sourcePlayerId] = 0;
+            foreach ($players as $sourcePlayerId => $sourcePlayer) {
+                if ($targetPlayerId === $sourcePlayerId) {
+                    continue;
+                }
+
+                foreach ($sourcePlayer['zones']['command'] ?? [] as $commander) {
+                    $commanderInstanceId = (string) ($commander['instanceId'] ?? '');
+                    if ($commanderInstanceId !== '') {
+                        $player['commanderDamage'][$commanderInstanceId] = 0;
+                    }
                 }
             }
         }
@@ -196,7 +210,7 @@ class GameSnapshotFactory
     private function temporaryPlayMatName(array $colorIdentity, array $usedBackgroundNames): string
     {
         $preferredColors = $colorIdentity === [] ? ['C'] : $colorIdentity;
-        $selectedColor = $preferredColors[random_int(0, count($preferredColors) - 1)] ?? 'C';
+        $selectedColor = $preferredColors === [] ? 'C' : $this->randomizer->pickOne($preferredColors);
         $candidates = $this->availablePlayMatNames([$selectedColor], $usedBackgroundNames);
 
         if ($candidates === []) {
@@ -211,7 +225,7 @@ class GameSnapshotFactory
             return Deck::DEFAULT_BACKGROUND_NAME;
         }
 
-        return $candidates[random_int(0, count($candidates) - 1)];
+        return $this->randomizer->pickOne($candidates);
     }
 
     /**

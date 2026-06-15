@@ -1,18 +1,21 @@
 import { RuntimeTranslatePipe } from '../../../core/localization/runtime-translate.pipe';
-import { ChangeDetectionStrategy, Component, HostListener, NgZone, OnDestroy, effect, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, HostListener, NgZone, OnDestroy, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { LucideAngularModule } from 'lucide-angular';
 import { PageHeaderStore } from '../../../core/ui/page-header.store';
+import { Card } from '../../../core/models/card.model';
 import { CardAutocompleteComponent } from '../../../shared/components/card-autocomplete/card-autocomplete.component';
 import { ManaSymbolsComponent } from '../../../shared/mana/mana-symbols/mana-symbols.component';
 import { AppModalComponent } from '../../../shared/ui/app-modal/app-modal.component';
 import { DeckCardImageCache } from '../data-access/deck-card-image-cache.service';
 import { DeckEditorStore } from '../data-access/deck-editor.store';
+import { DeckEditorViewMode } from '../models/deck-editor.models';
 import { DeckAnalysisPanelComponent } from './deck-analysis-panel/deck-analysis-panel.component';
 import { DeckCardMenuComponent } from './deck-card-menu/deck-card-menu.component';
 import { DeckCardSpoilerViewComponent } from './deck-card-spoiler-view/deck-card-spoiler-view.component';
 import { DeckCardTextViewComponent } from './deck-card-text-view/deck-card-text-view.component';
+import { runDeckFaceToggleAnimation } from './deck-face-toggle-animation';
 
 @Component({
   selector: 'app-deck-editor',
@@ -35,24 +38,33 @@ import { DeckCardTextViewComponent } from './deck-card-text-view/deck-card-text-
 })
 export class DeckEditorComponent implements OnDestroy {
   readonly store = inject(DeckEditorStore);
+  readonly viewModeMenuOpen = signal(false);
+  readonly viewModeOptions: ReadonlyArray<{ value: DeckEditorViewMode; labelKey: string }> = [
+    { value: 'text', labelKey: 'deckBuilder.deckEditor.text' },
+    { value: 'spoiler', labelKey: 'deckBuilder.deckEditor.spoiler' },
+  ];
+  readonly selectedViewModeLabelKey = computed(() => (
+    this.viewModeOptions.find((option) => option.value === this.store.viewMode())?.labelKey
+    ?? 'deckBuilder.deckEditor.text'
+  ));
   private readonly pageHeader = inject(PageHeaderStore);
   private readonly router = inject(Router);
   private readonly ngZone = inject(NgZone);
   private readonly visualViewport = window.visualViewport ?? null;
-  private readonly closeOverlaysOnViewportChange = () => this.closeTransientOverlays();
+  private readonly closeOverlaysOnViewportChange = () => this.closeTransientUi();
   private readonly closeOverlaysOnDocumentWheel = (event: WheelEvent) => {
     if (event.ctrlKey) {
-      this.closeTransientOverlays();
+      this.closeTransientUi();
     }
   };
   private readonly closeOverlaysOnDocumentKeydown = (event: KeyboardEvent) => {
     if ((event.ctrlKey || event.metaKey) && this.isZoomShortcut(event)) {
-      this.closeTransientOverlays();
+      this.closeTransientUi();
     }
   };
   private readonly closeOverlaysOnDocumentScroll = (event: Event) => {
     if (!this.isScrollInsideOverlay(event)) {
-      this.closeTransientOverlays();
+      this.closeTransientUi();
     }
   };
   private readonly zoomMonitorId: ReturnType<typeof setInterval>;
@@ -112,32 +124,71 @@ export class DeckEditorComponent implements OnDestroy {
 
   @HostListener('document:click')
   handleDocumentClick(): void {
+    this.closeViewModeMenu();
     this.closeTransientOverlays();
   }
 
   @HostListener('window:scroll')
   handleWindowScroll(): void {
+    this.closeViewModeMenu();
     this.closeTransientOverlays();
   }
 
   @HostListener('window:resize')
   handleWindowResize(): void {
     this.zoomSignature = this.currentZoomSignature();
+    this.closeViewModeMenu();
     this.closeTransientOverlays();
   }
 
   @HostListener('window:wheel', ['$event'])
   handleWindowWheel(event: WheelEvent): void {
     if (event.ctrlKey) {
+      this.closeViewModeMenu();
       this.closeTransientOverlays();
     }
   }
 
   @HostListener('document:keydown', ['$event'])
   handleDocumentKeydown(event: KeyboardEvent): void {
+    if (event.key === 'Escape' && this.viewModeMenuOpen()) {
+      this.closeViewModeMenu();
+    }
+
     if ((event.ctrlKey || event.metaKey) && this.isZoomShortcut(event)) {
+      this.closeViewModeMenu();
       this.closeTransientOverlays();
     }
+  }
+
+  toggleViewModeMenu(event: MouseEvent): void {
+    event.stopPropagation();
+    this.store.closeTransientOverlays();
+    this.viewModeMenuOpen.update((open) => !open);
+  }
+
+  selectViewMode(value: DeckEditorViewMode, event: MouseEvent): void {
+    event.stopPropagation();
+    this.store.viewMode.set(value);
+    this.closeViewModeMenu();
+    this.store.closeTransientOverlays();
+  }
+
+  showCardPreview(event: MouseEvent, card: Card): void {
+    this.store.resetCardFace(card);
+    this.store.showCardPreview(event, card);
+  }
+
+  hideCardPreview(card: Card): void {
+    this.store.hideCardPreview();
+    this.store.resetCardFace(card);
+  }
+
+  toggleCardFace(event: MouseEvent, card: Card): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.store.toggleCardFace(event, card);
+    runDeckFaceToggleAnimation(event.currentTarget, 'text-preview');
   }
 
   ngOnDestroy(): void {
@@ -153,6 +204,15 @@ export class DeckEditorComponent implements OnDestroy {
 
   private closeTransientOverlays(): void {
     this.ngZone.run(() => this.store.closeTransientOverlays());
+  }
+
+  private closeTransientUi(): void {
+    this.closeViewModeMenu();
+    this.closeTransientOverlays();
+  }
+
+  private closeViewModeMenu(): void {
+    this.viewModeMenuOpen.set(false);
   }
 
   private closeOverlaysAfterZoomChange(): void {

@@ -308,6 +308,22 @@ class Card
         return $this->commanderLegal;
     }
 
+    public function legalityInFormat(string $format): ?string
+    {
+        $value = $this->legalities[$format] ?? null;
+
+        return is_string($value) && trim($value) !== '' ? trim($value) : null;
+    }
+
+    public function isLegalInFormat(string $format): bool
+    {
+        if ($format === 'commander') {
+            return $this->commanderLegal;
+        }
+
+        return $this->legalityInFormat($format) === 'legal';
+    }
+
     public function isBasicLand(): bool
     {
         return str_contains($this->typeLine ?? '', 'Basic');

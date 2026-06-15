@@ -35,7 +35,6 @@ class CommanderDeckValidatorTest extends TestCase
 
         $result = (new CommanderDeckValidator())->validate($deck);
         $errorCodes = array_column($result['errors'], 'code');
-        $warningCodes = array_column($result['warnings'], 'code');
 
         self::assertFalse($result['valid']);
         self::assertSame('commander', $result['format']);
@@ -46,7 +45,7 @@ class CommanderDeckValidatorTest extends TestCase
         self::assertContains('card.commander_banned', $errorCodes);
         self::assertContains('card.singleton_violation', $errorCodes);
         self::assertContains('card.color_identity_violation', $errorCodes);
-        self::assertContains('card.layout_review', $warningCodes);
+        self::assertSame([], $result['warnings']);
     }
 
     public function testAcceptsObviousPartnerCommanderPair(): void
@@ -101,6 +100,240 @@ class CommanderDeckValidatorTest extends TestCase
         self::assertSame(15, $result['counts']['sideboard']);
         self::assertSame(4, $result['counts']['maybeboard']);
         self::assertSame([], $result['errors']);
+    }
+
+    public function testLegendaryNonCreatureWithoutCommanderPermissionIsRejected(): void
+    {
+        $deck = $this->baseMonoWhiteDeck(99, [
+            'type_line' => 'Legendary Artifact',
+            'name' => 'Legendary Rock',
+        ]);
+
+        $result = (new CommanderDeckValidator())->validate($deck);
+
+        self::assertContains('commander.invalid', array_column($result['errors'], 'code'));
+    }
+
+    public function testPlaneswalkerWithCommanderPermissionIsAccepted(): void
+    {
+        $deck = $this->baseMonoWhiteDeck(99, [
+            'type_line' => 'Legendary Planeswalker - Test',
+            'oracle_text' => 'This planeswalker can be your commander.',
+            'name' => 'Allowed Planeswalker',
+        ]);
+
+        $result = (new CommanderDeckValidator())->validate($deck);
+
+        self::assertTrue($result['valid']);
+        self::assertSame('single', $result['commander']['mode']);
+    }
+
+    public function testLegendaryPlaneswalkerWithoutCommanderPermissionIsRejected(): void
+    {
+        $deck = $this->baseMonoWhiteDeck(99, [
+            'type_line' => 'Legendary Planeswalker - Test',
+            'oracle_text' => '+1: Draw a card.',
+            'name' => 'Regular Planeswalker',
+        ]);
+
+        $result = (new CommanderDeckValidator())->validate($deck);
+
+        self::assertContains('commander.invalid', array_column($result['errors'], 'code'));
+    }
+
+    public function testBackgroundAloneIsRejectedAsCommander(): void
+    {
+        $deck = $this->baseMonoWhiteDeck(99, [
+            'type_line' => 'Legendary Enchantment - Background',
+            'oracle_text' => 'Commander creatures you own get +1/+1.',
+            'name' => 'Lonely Background',
+        ]);
+
+        $result = (new CommanderDeckValidator())->validate($deck);
+
+        self::assertContains('commander.invalid', array_column($result['errors'], 'code'));
+    }
+
+    public function testChooseBackgroundPairRequiresBackgroundType(): void
+    {
+        $validDeck = new Deck(new User('background-valid@example.test', 'Background Valid'), 'Background Deck');
+        $validDeck->addCard(new DeckCard($validDeck, $this->card('00000000-0000-0000-0000-000000000341', 'Background Chooser', [
+            'type_line' => 'Legendary Creature - Human',
+            'oracle_text' => 'Choose a Background',
+            'color_identity' => ['W'],
+        ]), 1, DeckCard::SECTION_COMMANDER));
+        $validDeck->addCard(new DeckCard($validDeck, $this->card('00000000-0000-0000-0000-000000000342', 'Real Background', [
+            'type_line' => 'Legendary Enchantment - Background',
+            'oracle_text' => 'Commander creatures you own get +1/+1.',
+            'color_identity' => ['W'],
+        ]), 1, DeckCard::SECTION_COMMANDER));
+        $validDeck->addCard(new DeckCard($validDeck, $this->card('00000000-0000-0000-0000-000000000343', 'Plains', [
+            'type_line' => 'Basic Land - Plains',
+            'color_identity' => ['W'],
+            'mana_cost' => '',
+        ]), 98));
+
+        $validResult = (new CommanderDeckValidator())->validate($validDeck);
+        self::assertTrue($validResult['valid']);
+        self::assertSame('pair', $validResult['commander']['mode']);
+
+        $invalidDeck = new Deck(new User('background-invalid@example.test', 'Background Invalid'), 'Invalid Background Deck');
+        $invalidDeck->addCard(new DeckCard($invalidDeck, $this->card('00000000-0000-0000-0000-000000000344', 'Background Chooser Invalid', [
+            'type_line' => 'Legendary Creature - Human',
+            'oracle_text' => 'Choose a Background',
+            'color_identity' => ['W'],
+        ]), 1, DeckCard::SECTION_COMMANDER));
+        $invalidDeck->addCard(new DeckCard($invalidDeck, $this->card('00000000-0000-0000-0000-000000000345', 'Not A Background', [
+            'type_line' => 'Legendary Enchantment',
+            'oracle_text' => 'The word background appears here but not in the type line.',
+            'color_identity' => ['W'],
+        ]), 1, DeckCard::SECTION_COMMANDER));
+        $invalidDeck->addCard(new DeckCard($invalidDeck, $this->card('00000000-0000-0000-0000-000000000346', 'Plains Invalid Background', [
+            'type_line' => 'Basic Land - Plains',
+            'color_identity' => ['W'],
+            'mana_cost' => '',
+        ]), 98));
+
+        $invalidResult = (new CommanderDeckValidator())->validate($invalidDeck);
+        self::assertContains('commander.pair_unsupported', array_column($invalidResult['errors'], 'code'));
+    }
+
+    public function testPartnerWithRequiresReciprocalNamedPair(): void
+    {
+        $validDeck = new Deck(new User('partner-with-valid@example.test', 'Partner With Valid'), 'Partner With Deck');
+        $validDeck->addCard(new DeckCard($validDeck, $this->card('00000000-0000-0000-0000-000000000351', 'Alpha Partner', [
+            'type_line' => 'Legendary Creature - Human',
+            'oracle_text' => 'Partner with Beta Partner',
+            'color_identity' => ['W'],
+        ]), 1, DeckCard::SECTION_COMMANDER));
+        $validDeck->addCard(new DeckCard($validDeck, $this->card('00000000-0000-0000-0000-000000000352', 'Beta Partner', [
+            'type_line' => 'Legendary Creature - Wizard',
+            'oracle_text' => 'Partner with Alpha Partner',
+            'color_identity' => ['W'],
+        ]), 1, DeckCard::SECTION_COMMANDER));
+        $validDeck->addCard(new DeckCard($validDeck, $this->card('00000000-0000-0000-0000-000000000353', 'Plains Partner', [
+            'type_line' => 'Basic Land - Plains',
+            'color_identity' => ['W'],
+            'mana_cost' => '',
+        ]), 98));
+
+        $validResult = (new CommanderDeckValidator())->validate($validDeck);
+        self::assertTrue($validResult['valid']);
+
+        $invalidDeck = new Deck(new User('partner-with-invalid@example.test', 'Partner With Invalid'), 'Invalid Partner With Deck');
+        $invalidDeck->addCard(new DeckCard($invalidDeck, $this->card('00000000-0000-0000-0000-000000000354', 'Gamma Partner', [
+            'type_line' => 'Legendary Creature - Human',
+            'oracle_text' => 'Partner with Missing Partner',
+            'color_identity' => ['W'],
+        ]), 1, DeckCard::SECTION_COMMANDER));
+        $invalidDeck->addCard(new DeckCard($invalidDeck, $this->card('00000000-0000-0000-0000-000000000355', 'Delta Partner', [
+            'type_line' => 'Legendary Creature - Wizard',
+            'oracle_text' => 'Partner with Gamma Partner',
+            'color_identity' => ['W'],
+        ]), 1, DeckCard::SECTION_COMMANDER));
+        $invalidDeck->addCard(new DeckCard($invalidDeck, $this->card('00000000-0000-0000-0000-000000000356', 'Plains Invalid Partner', [
+            'type_line' => 'Basic Land - Plains',
+            'color_identity' => ['W'],
+            'mana_cost' => '',
+        ]), 98));
+
+        $invalidResult = (new CommanderDeckValidator())->validate($invalidDeck);
+        self::assertContains('commander.pair_unsupported', array_column($invalidResult['errors'], 'code'));
+    }
+
+    public function testFriendsForeverPairIsAccepted(): void
+    {
+        $deck = new Deck(new User('friends@example.test', 'Friends'), 'Friends Deck');
+        $deck->addCard(new DeckCard($deck, $this->card('00000000-0000-0000-0000-000000000361', 'Friend One', [
+            'type_line' => 'Legendary Creature - Human',
+            'oracle_text' => 'Friends forever',
+            'color_identity' => ['W'],
+        ]), 1, DeckCard::SECTION_COMMANDER));
+        $deck->addCard(new DeckCard($deck, $this->card('00000000-0000-0000-0000-000000000362', 'Friend Two', [
+            'type_line' => 'Legendary Creature - Human',
+            'oracle_text' => 'Friends forever',
+            'color_identity' => ['W'],
+        ]), 1, DeckCard::SECTION_COMMANDER));
+        $deck->addCard(new DeckCard($deck, $this->card('00000000-0000-0000-0000-000000000363', 'Plains Friends', [
+            'type_line' => 'Basic Land - Plains',
+            'color_identity' => ['W'],
+            'mana_cost' => '',
+        ]), 98));
+
+        $result = (new CommanderDeckValidator())->validate($deck);
+
+        self::assertTrue($result['valid']);
+        self::assertSame('pair', $result['commander']['mode']);
+    }
+
+    public function testDoctorsCompanionPairIsAcceptedWithTimeLordDoctor(): void
+    {
+        $deck = new Deck(new User('doctor@example.test', 'Doctor'), 'Doctor Deck');
+        $deck->addCard(new DeckCard($deck, $this->card('00000000-0000-0000-0000-000000000371', 'The Test Doctor', [
+            'type_line' => 'Legendary Creature - Time Lord Doctor',
+            'color_identity' => ['W'],
+        ]), 1, DeckCard::SECTION_COMMANDER));
+        $deck->addCard(new DeckCard($deck, $this->card('00000000-0000-0000-0000-000000000372', 'Doctor Companion', [
+            'type_line' => 'Legendary Creature - Human',
+            'oracle_text' => "Doctor's companion",
+            'color_identity' => ['W'],
+        ]), 1, DeckCard::SECTION_COMMANDER));
+        $deck->addCard(new DeckCard($deck, $this->card('00000000-0000-0000-0000-000000000373', 'Plains Doctor', [
+            'type_line' => 'Basic Land - Plains',
+            'color_identity' => ['W'],
+            'mana_cost' => '',
+        ]), 98));
+
+        $result = (new CommanderDeckValidator())->validate($deck);
+
+        self::assertTrue($result['valid']);
+        self::assertSame('pair', $result['commander']['mode']);
+    }
+
+    public function testAnyNumberSingletonExceptionIsAccepted(): void
+    {
+        $deck = $this->baseMonoWhiteDeck(97);
+        $deck->addCard(new DeckCard($deck, $this->card('00000000-0000-0000-0000-000000000381', 'Persistent Testers', [
+            'oracle_text' => 'A deck can have any number of cards named Persistent Testers.',
+        ]), 2));
+
+        $result = (new CommanderDeckValidator())->validate($deck);
+
+        self::assertNotContains('card.singleton_violation', array_column($result['errors'], 'code'));
+        self::assertTrue($result['valid']);
+    }
+
+    public function testUpToCopyLimitSingletonExceptionIsEnforced(): void
+    {
+        $validDeck = $this->baseMonoWhiteDeck(90);
+        $validDeck->addCard(new DeckCard($validDeck, $this->card('00000000-0000-0000-0000-000000000382', 'Nine Testers', [
+            'oracle_text' => 'A deck can have up to nine cards named Nine Testers.',
+        ]), 9));
+
+        $validResult = (new CommanderDeckValidator())->validate($validDeck);
+        self::assertNotContains('card.singleton_violation', array_column($validResult['errors'], 'code'));
+        self::assertTrue($validResult['valid']);
+
+        $invalidDeck = $this->baseMonoWhiteDeck(89);
+        $invalidDeck->addCard(new DeckCard($invalidDeck, $this->card('00000000-0000-0000-0000-000000000383', 'Nine Testers Invalid', [
+            'oracle_text' => 'A deck can have up to nine cards named Nine Testers Invalid.',
+        ]), 10));
+
+        $invalidResult = (new CommanderDeckValidator())->validate($invalidDeck);
+        self::assertContains('card.singleton_violation', array_column($invalidResult['errors'], 'code'));
+    }
+
+    public function testCommanderBanlistOverrideRejectsConspiracyCard(): void
+    {
+        $deck = $this->baseMonoWhiteDeck(98);
+        $deck->addCard(new DeckCard($deck, $this->card('00000000-0000-0000-0000-000000000384', 'Legal Looking Conspiracy', [
+            'type_line' => 'Conspiracy',
+            'legalities' => ['commander' => 'legal'],
+        ]), 1));
+
+        $result = (new CommanderDeckValidator())->validate($deck);
+
+        self::assertContains('card.commander_banned', array_column($result['errors'], 'code'));
     }
 
     public function testFlagsDataInsufficientAsError(): void

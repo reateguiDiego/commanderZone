@@ -10,7 +10,7 @@ import {
   DeckResponse,
 } from '../models/api-responses.model';
 import { DeckAnalysis, DeckAnalysisOptions } from '../models/deck-analysis.model';
-import { Deck, DeckCardPrintingsResponse, DeckSection, DeckSectionsResponse, DeckTokensResponse, DeckVisibility } from '../models/deck.model';
+import { Deck, DeckCardPrintingsResponse, DeckFormat, DeckSection, DeckSectionsResponse, DeckTokensResponse, DeckVisibility } from '../models/deck.model';
 
 export interface DeckCardMutationPayload {
   scryfallId?: string;
@@ -35,6 +35,13 @@ export interface CommanderReplacementPayload {
   collectorNumber?: string;
 }
 
+export interface DeckImportCommanderSelectionPayload {
+  commanderScryfallId?: string;
+  commanderScryfallIds?: string[];
+  commander?: CommanderReplacementPayload;
+  commanders?: CommanderReplacementPayload[];
+}
+
 @Injectable({ providedIn: 'root' })
 export class DecksApi {
   private readonly http = inject(HttpClient);
@@ -47,11 +54,11 @@ export class DecksApi {
       : this.http.get<DataResponse<Deck>>(`${API_BASE_URL}/decks`, { context, params: { folderId: folderId ?? 'null' } });
   }
 
-  create(name: string, folderId: string | null = null, visibility: DeckVisibility = 'private'): Observable<DeckResponse> {
-    return this.http.post<DeckResponse>(`${API_BASE_URL}/decks`, { name, folderId, visibility });
+  create(name: string, folderId: string | null = null, visibility: DeckVisibility = 'private', format: DeckFormat['id'] = 'commander'): Observable<DeckResponse> {
+    return this.http.post<DeckResponse>(`${API_BASE_URL}/decks`, { name, folderId, visibility, format });
   }
 
-  quickBuild(payload: { name: string; folderId?: string | null; visibility?: DeckVisibility; cards?: DeckCardMutationPayload[] }): Observable<DeckImportResponse> {
+  quickBuild(payload: { name: string; folderId?: string | null; visibility?: DeckVisibility; format?: DeckFormat['id']; cards?: DeckCardMutationPayload[] }): Observable<DeckImportResponse> {
     return this.http.post<DeckImportResponse>(`${API_BASE_URL}/decks/quick-build`, payload);
   }
 
@@ -94,10 +101,19 @@ export class DecksApi {
     return this.http.delete<void>(`${API_BASE_URL}/decks/${id}`);
   }
 
-  importDecklist(id: string, decklist: string, commanderScryfallId?: string): Observable<DeckImportResponse> {
-    const payload: { decklist: string; commanderScryfallId?: string } = { decklist };
-    if (commanderScryfallId) {
-      payload.commanderScryfallId = commanderScryfallId;
+  importDecklist(id: string, decklist: string, commanderSelection: DeckImportCommanderSelectionPayload = {}): Observable<DeckImportResponse> {
+    const payload: { decklist: string } & DeckImportCommanderSelectionPayload = { decklist };
+    if (commanderSelection.commanderScryfallId) {
+      payload.commanderScryfallId = commanderSelection.commanderScryfallId;
+    }
+    if (Array.isArray(commanderSelection.commanderScryfallIds) && commanderSelection.commanderScryfallIds.length > 0) {
+      payload.commanderScryfallIds = commanderSelection.commanderScryfallIds;
+    }
+    if (commanderSelection.commander) {
+      payload.commander = commanderSelection.commander;
+    }
+    if (Array.isArray(commanderSelection.commanders) && commanderSelection.commanders.length > 0) {
+      payload.commanders = commanderSelection.commanders;
     }
 
     return this.http.post<DeckImportResponse>(`${API_BASE_URL}/decks/${id}/import`, payload);

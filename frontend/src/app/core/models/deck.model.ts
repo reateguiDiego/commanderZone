@@ -15,11 +15,12 @@ export interface Deck {
   id: string;
   name: string;
   format: 'commander' | string;
+  valid?: boolean;
   visibility?: DeckVisibility;
   backgroundName?: string;
   sleevesName?: string;
   folderId: string | null;
-  commander?: Card | null;
+  commanders?: Card[];
   cards?: DeckCard[];
 }
 

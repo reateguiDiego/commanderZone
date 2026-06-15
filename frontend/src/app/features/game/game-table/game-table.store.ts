@@ -286,8 +286,16 @@ export class GameTableStore implements OnDestroy {
     return this.playersStore.zoneCardInstanceIds(playerId, zone);
   }
 
-  commanderCastCount(player: PlayerView): number {
-    return this.playersStore.commanderCastCount(player);
+  commandZoneCards(player: PlayerView): readonly GameCardInstance[] {
+    return this.playersStore.commandZoneCards(player);
+  }
+
+  commanderCards(player: PlayerView): readonly GameCardInstance[] {
+    return this.playersStore.commanderCards(player);
+  }
+
+  commanderCastCount(player: PlayerView, commander?: GameCardInstance | null): number {
+    return this.playersStore.commanderCastCount(player, commander);
   }
 
   countItems(count: number): number[] {
@@ -785,13 +793,13 @@ export class GameTableStore implements OnDestroy {
     });
   }
 
-  async setCommanderDamage(targetPlayerId: string, sourcePlayerId: string, delta: number): Promise<void> {
+  async setCommanderDamage(targetPlayerId: string, sourcePlayerId: string, commanderInstanceId: string, delta: number): Promise<void> {
     if (!this.canControlPlayer(targetPlayerId)) {
       this.error.set('You can only change your own commander damage.');
       return;
     }
 
-    const currentDamage = this.debouncedValueCommands.commanderDamageValue(this.snapshot(), targetPlayerId, sourcePlayerId);
+    const currentDamage = this.debouncedValueCommands.commanderDamageValue(this.snapshot(), targetPlayerId, commanderInstanceId);
     const nextDamage = Math.max(0, currentDamage + delta);
     if (nextDamage === currentDamage) {
       return;
@@ -800,6 +808,7 @@ export class GameTableStore implements OnDestroy {
     this.debouncedValueCommands.queueCommanderDamage(this.contexts.debouncedValueCommand(), {
       targetPlayerId,
       sourcePlayerId,
+      commanderInstanceId,
       damage: nextDamage,
     });
   }
@@ -849,8 +858,8 @@ export class GameTableStore implements OnDestroy {
     this.manaPoolState.resetAll();
   }
 
-  async changeCommanderCastCount(playerId: string, delta: number): Promise<void> {
-    await this.countersState.changeCommanderCastCount(playerId, delta);
+  async changeCommanderCastCount(playerId: string, commanderInstanceId: string, delta: number): Promise<void> {
+    await this.countersState.changeCommanderCastCount(playerId, commanderInstanceId, delta);
   }
 
   async draw(playerId: string, count = 1): Promise<void> {
@@ -940,14 +949,22 @@ export class GameTableStore implements OnDestroy {
       return;
     }
 
-    const card = this.randomCardFromZone(playerId, zone);
-    if (!card) {
+    if (this.visibleCardsFromZone(playerId, zone).length === 0) {
       this.error.set(`No cards in ${this.zoneTitle(zone).toLowerCase()}.`);
       return;
     }
 
-    await this.command('zone.random_card.selected', { playerId, zone, instanceId: card.instanceId });
-    const selectedCard = this.cardFromCurrentSnapshot(playerId, zone, card.instanceId) ?? card;
+    await this.command('zone.random_card.selected', { playerId, zone });
+    const selectedCardId = this.lastRandomZoneSelectionInstanceId(playerId, zone);
+    if (!selectedCardId) {
+      return;
+    }
+
+    const selectedCard = this.cardFromCurrentSnapshot(playerId, zone, selectedCardId);
+    if (!selectedCard) {
+      return;
+    }
+
     this.openFixedZone(
       playerId,
       zone,
@@ -1013,8 +1030,8 @@ export class GameTableStore implements OnDestroy {
     this.interactionActions.handleHandCardClick(this.contexts.interaction(), event, playerId, card);
   }
 
-  dragStart(event: DragEvent, playerId: string, zone: GameZoneName, card: GameCardInstance): void {
-    this.dragDropStore.dragStart(this.contexts.dragDrop(), event, playerId, zone, card);
+  dragStart(event: DragEvent, playerId: string, zone: GameZoneName, card: GameCardInstance, instanceIds?: readonly string[]): void {
+    this.dragDropStore.dragStart(this.contexts.dragDrop(), event, playerId, zone, card, instanceIds);
   }
 
   dragEnd(): void {
@@ -1029,14 +1046,14 @@ export class GameTableStore implements OnDestroy {
     this.dragDropStore.dragEnd(this.contexts.dragDrop());
   }
 
-  dragTopZoneCard(event: DragEvent, player: PlayerView, zone: GameZoneName): void {
-    const card = this.topDraggableCard(player, zone);
+  dragTopZoneCard(event: DragEvent, player: PlayerView, zone: GameZoneName, draggedCard: GameCardInstance | null = null): void {
+    const card = draggedCard ?? this.topDraggableCard(player, zone);
     if (!card) {
       event.preventDefault();
       return;
     }
 
-    this.dragStart(event, player.id, zone, card);
+    this.dragStart(event, player.id, zone, card, [card.instanceId]);
   }
 
   allowDrop(event: DragEvent): void {
@@ -1405,16 +1422,12 @@ export class GameTableStore implements OnDestroy {
 
   async recordDiceRoll(result: DiceRollCommand): Promise<void> {
     const kind = result.kind.trim();
-    const label = result.label.trim();
-    const finalResult = result.finalResult.trim();
-    if (!kind || !finalResult) {
+    if (!kind) {
       return;
     }
 
     await this.command('dice.rolled', {
       kind,
-      label,
-      finalResult,
     });
   }
 
@@ -1700,21 +1713,30 @@ export class GameTableStore implements OnDestroy {
     return new Set(this.battlefieldCards(playerId).map((card) => card.instanceId));
   }
 
-  private randomCardFromZone(playerId: string, zone: GameZoneName): GameCardInstance | null {
-    const cards = this.visibleCardsFromZone(playerId, zone);
-    if (cards.length === 0) {
-      return null;
-    }
-
-    return cards[Math.floor(Math.random() * cards.length)] ?? null;
-  }
-
   private visibleCardsFromZone(playerId: string, zone: GameZoneName): GameCardInstance[] {
     return this.snapshot()?.players[playerId]?.zones[zone]?.filter((card) => !card.hidden) ?? [];
   }
 
   private cardFromCurrentSnapshot(playerId: string, zone: GameZoneName, instanceId: string): GameCardInstance | null {
     return this.snapshot()?.players[playerId]?.zones[zone]?.find((card) => card.instanceId === instanceId) ?? null;
+  }
+
+  private lastRandomZoneSelectionInstanceId(playerId: string, zone: GameZoneName): string | null {
+    const entries = this.snapshot()?.eventLog ?? [];
+    for (let index = entries.length - 1; index >= 0; index -= 1) {
+      const entry = entries[index];
+      if (
+        entry?.type === 'zone.random_card.selected'
+        && entry.cardPlayerId === playerId
+        && entry.cardZone === zone
+        && typeof entry.cardInstanceId === 'string'
+        && entry.cardInstanceId.trim() !== ''
+      ) {
+        return entry.cardInstanceId;
+      }
+    }
+
+    return null;
   }
 
   private battlefieldCards(playerId: string): readonly GameCardInstance[] {

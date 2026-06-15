@@ -2,8 +2,9 @@
 
 namespace App\UI\Http;
 
-use App\Application\Deck\CommanderDeckValidator;
 use App\Application\Deck\DeckAnalysisService;
+use App\Application\Deck\DeckFormatCatalog;
+use App\Application\Deck\DeckValidator;
 use App\Application\Deck\DecklistExporter;
 use App\Application\Deck\DecklistParser;
 use App\Application\Deck\DecklistPreviewer;
@@ -62,6 +63,11 @@ class DecksController extends ApiController
         }
 
         $deck = new Deck($user, $name);
+        $deckFormat = $this->deckFormatFromPayload($payload);
+        if ($deckFormat === false) {
+            return $this->fail('Deck format is invalid.');
+        }
+        $deck->setFormat($deckFormat);
         $deck->setVisibility($this->visibilityFromPayload($payload));
         $folder = $this->folderFromPayload($payload, $user, $entityManager);
         if ($folder === false) {
@@ -85,6 +91,11 @@ class DecksController extends ApiController
         }
 
         $deck = new Deck($user, $name);
+        $deckFormat = $this->deckFormatFromPayload($payload);
+        if ($deckFormat === false) {
+            return $this->fail('Deck format is invalid.');
+        }
+        $deck->setFormat($deckFormat);
         $deck->setVisibility($this->visibilityFromPayload($payload));
         $folder = $this->folderFromPayload($payload, $user, $entityManager);
         if ($folder === false) {
@@ -234,6 +245,13 @@ class DecksController extends ApiController
             }
             $deck->rename($name);
         }
+        if (array_key_exists('format', $payload)) {
+            $deckFormat = $this->deckFormatFromPayload($payload);
+            if ($deckFormat === false) {
+                return $this->fail('Deck format is invalid.');
+            }
+            $deck->setFormat($deckFormat);
+        }
         if (array_key_exists('folderId', $payload)) {
             $folder = $this->folderFromPayload($payload, $user, $entityManager);
             if ($folder === false) {
@@ -281,24 +299,28 @@ class DecksController extends ApiController
 
         $payload = $this->payload($request);
         $decklist = (string) ($payload['decklist'] ?? '');
-        $format = $parser->resolveFormat($payload['format'] ?? null, $decklist);
-        if ($format === null) {
+        $decklistFormat = $parser->resolveFormat($payload['format'] ?? null, $decklist);
+        if ($decklistFormat === null) {
             return $this->fail('Decklist format is invalid.');
         }
 
-        $entries = $parser->parse($decklist, $format);
+        $entries = $parser->parse($decklist, $decklistFormat);
         if ($entries === []) {
             return $this->fail('Decklist is empty or invalid.');
         }
 
-        $preview = $previewer->preview($entries, $format, $user->cardLanguage());
-        $selectedCommander = $this->commanderFromPayload($payload, $cardResolver);
-        if ($selectedCommander === false) {
+        $preview = $previewer->preview($entries, $decklistFormat, $user->cardLanguage(), $deck->format());
+        $selectedCommanders = $this->commandersFromPayload($payload, $cardResolver);
+        if ($selectedCommanders === false) {
             return $this->fail('Commander card not found.', 404);
+        }
+        if (count($selectedCommanders) > 2) {
+            return $this->fail('Commander decks can use at most two commanders.');
         }
 
         $deck->clearCards();
-        $selectedCommanderImported = false;
+        $selectedCommanderImported = [];
+        $hasExplicitCommanders = $selectedCommanders !== [];
 
         foreach ($preview['entries'] as $entry) {
             $card = $entry['card'];
@@ -307,24 +329,30 @@ class DecksController extends ApiController
             }
 
             $quantity = (int) $entry['quantity'];
-            if ($selectedCommander instanceof Card && $this->isSameCommanderCard($card, $selectedCommander)) {
-                if (!$selectedCommanderImported) {
-                    $deck->addOrIncrementCard($selectedCommander, 1, DeckCard::SECTION_COMMANDER);
-                    $selectedCommanderImported = true;
-                }
+            $section = (string) $entry['section'];
+            $matchedCommander = $this->matchingSelectedCommander($card, $selectedCommanders);
+            if ($matchedCommander instanceof Card && !isset($selectedCommanderImported[$matchedCommander->scryfallId()])) {
+                $deck->addOrIncrementCard($matchedCommander, 1, DeckCard::SECTION_COMMANDER);
+                $selectedCommanderImported[$matchedCommander->scryfallId()] = true;
 
                 $remainingQuantity = max(0, $quantity - 1);
-                if ($remainingQuantity > 0) {
-                    $deck->addOrIncrementCard($card, $remainingQuantity, (string) $entry['section']);
+                if ($remainingQuantity > 0 && $section !== DeckCard::SECTION_COMMANDER) {
+                    $deck->addOrIncrementCard($card, $remainingQuantity, $section);
                 }
                 continue;
             }
 
-            $deck->addOrIncrementCard($card, $quantity, (string) $entry['section']);
+            if ($hasExplicitCommanders && $section === DeckCard::SECTION_COMMANDER) {
+                continue;
+            }
+
+            $deck->addOrIncrementCard($card, $quantity, $section);
         }
 
-        if ($selectedCommander instanceof Card && !$selectedCommanderImported) {
-            $deck->addOrIncrementCard($selectedCommander, 1, DeckCard::SECTION_COMMANDER);
+        foreach ($selectedCommanders as $selectedCommander) {
+            if (!isset($selectedCommanderImported[$selectedCommander->scryfallId()])) {
+                $deck->addOrIncrementCard($selectedCommander, 1, DeckCard::SECTION_COMMANDER);
+            }
         }
 
         $entityManager->flush();
@@ -333,10 +361,10 @@ class DecksController extends ApiController
             static fn (int $total, array $missingCard): int => $total + max(1, (int) ($missingCard['quantity'] ?? 1)),
             0,
         );
-        $summary = $this->importSummary($deck, $format, count($entries), $missingQuantity);
+        $summary = $this->importSummary($deck, $decklistFormat, count($entries), $missingQuantity);
 
         return $this->json([
-            'format' => $format,
+            'format' => $decklistFormat,
             'deck' => $this->localizeDeckPayload($deck->toArray(true), $user, $localization),
             'missing' => $this->missingNames($preview['missingCards']),
             'summary' => $summary,
@@ -438,7 +466,7 @@ class DecksController extends ApiController
             }
         }
 
-        $deck->touch();
+        $deck->markDecklistChanged();
         $entityManager->flush();
 
         return $this->json(['deck' => $this->localizeDeckPayload($deck->toArray(true), $user, $localization)]);
@@ -520,7 +548,7 @@ class DecksController extends ApiController
             $deck->addOrIncrementCard($card, 1, DeckCard::SECTION_COMMANDER);
         }
 
-        $deck->touch();
+        $deck->markDecklistChanged();
         $entityManager->flush();
 
         return $this->json(['deck' => $this->localizeDeckPayload($deck->toArray(true), $user, $localization)]);
@@ -553,7 +581,7 @@ class DecksController extends ApiController
                 $entityManager->remove($deckCard);
             }
         }
-        $deck->touch();
+        $deck->markDecklistChanged();
         $entityManager->flush();
 
         return $this->json(['deck' => $this->localizeDeckPayload($deck->toArray(true), $user, $localization)]);
@@ -608,14 +636,9 @@ class DecksController extends ApiController
             return $this->fail('Selected print version does not match this card.', 422);
         }
 
-        $existing = $deck->findCardEntry($targetCard, $deckCard->section());
-        if ($existing instanceof DeckCard && $existing->id() !== $deckCard->id()) {
-            $existing->changeQuantity($existing->quantity() + $deckCard->quantity());
-            $deck->removeCard($deckCard);
+        $selectedEntry = $deck->replaceEquivalentCardPrint($deckCard, $targetCard);
+        if ($selectedEntry !== $deckCard) {
             $entityManager->remove($deckCard);
-        } else {
-            $deckCard->changeCard($targetCard);
-            $deck->touch();
         }
 
         $entityManager->flush();
@@ -644,14 +667,18 @@ class DecksController extends ApiController
     }
 
     #[Route('/decks/{id}/validate-commander', methods: ['POST'])]
-    public function validateCommander(string $id, #[CurrentUser] User $user, EntityManagerInterface $entityManager, CommanderDeckValidator $validator): JsonResponse
+    public function validateCommander(string $id, #[CurrentUser] User $user, EntityManagerInterface $entityManager, DeckValidator $validator): JsonResponse
     {
         $deck = $this->ownedDeck($id, $user, $entityManager);
         if (!$deck) {
             return $this->fail('Deck not found.', 404);
         }
 
-        return $this->json($validator->validate($deck));
+        $validation = $validator->validate($deck);
+        $deck->markValidationResult(($validation['valid'] ?? false) === true);
+        $entityManager->flush();
+
+        return $this->json($validation);
     }
 
     private function ownedDeck(string $id, User $user, EntityManagerInterface $entityManager): ?Deck
@@ -718,20 +745,47 @@ class DecksController extends ApiController
     /**
      * @return Card|false|null
      */
-    private function commanderFromPayload(array $payload, CardResolver $cardResolver): Card|false|null
+    private function commandersFromPayload(array $payload, CardResolver $cardResolver): array|false
     {
-        $commanderPayload = $payload['commander'] ?? null;
-        if ($commanderPayload === null) {
-            $scryfallId = trim((string) ($payload['commanderScryfallId'] ?? ''));
-            $commanderPayload = $scryfallId !== '' ? ['scryfallId' => $scryfallId] : null;
+        $commanderPayloads = $payload['commanders'] ?? null;
+        if (!is_array($commanderPayloads)) {
+            $commanderScryfallIds = $payload['commanderScryfallIds'] ?? null;
+            if (is_array($commanderScryfallIds)) {
+                $commanderPayloads = array_values(array_filter(
+                    array_map(
+                        static fn (mixed $scryfallId): ?array => is_string($scryfallId) && trim($scryfallId) !== ''
+                            ? ['scryfallId' => trim($scryfallId)]
+                            : null,
+                        $commanderScryfallIds,
+                    ),
+                    static fn (mixed $commanderPayload): bool => is_array($commanderPayload),
+                ));
+            }
         }
-        if (!is_array($commanderPayload)) {
-            return null;
+        if (!is_array($commanderPayloads)) {
+            $commanderPayload = $payload['commander'] ?? null;
+            if ($commanderPayload === null) {
+                $scryfallId = trim((string) ($payload['commanderScryfallId'] ?? ''));
+                $commanderPayload = $scryfallId !== '' ? ['scryfallId' => $scryfallId] : null;
+            }
+            $commanderPayloads = is_array($commanderPayload) ? [$commanderPayload] : [];
         }
 
-        $resolved = $cardResolver->resolveUnique($commanderPayload);
+        $resolvedCommanders = [];
+        foreach ($commanderPayloads as $commanderPayload) {
+            if (!is_array($commanderPayload)) {
+                continue;
+            }
 
-        return $resolved['card'] instanceof Card ? $resolved['card'] : false;
+            $resolved = $cardResolver->resolveUnique($commanderPayload);
+            if (!$resolved['card'] instanceof Card) {
+                return false;
+            }
+
+            $resolvedCommanders[$resolved['card']->scryfallId()] = $resolved['card'];
+        }
+
+        return array_values($resolvedCommanders);
     }
 
     /**
@@ -775,7 +829,33 @@ class DecksController extends ApiController
     private function isSameCommanderCard(Card $importedCard, Card $selectedCommander): bool
     {
         return $importedCard->scryfallId() === $selectedCommander->scryfallId()
+            || $this->isEquivalentPrintVersion($importedCard, $selectedCommander)
             || count(array_intersect($this->cardNameIdentities($importedCard), $this->cardNameIdentities($selectedCommander))) > 0;
+    }
+
+    private function deckFormatFromPayload(array $payload): string|false
+    {
+        if (!array_key_exists('format', $payload)) {
+            return DeckFormatCatalog::defaultId();
+        }
+
+        $format = DeckFormatCatalog::normalize($payload['format']);
+
+        return $format ?? false;
+    }
+
+    /**
+     * @param list<Card> $selectedCommanders
+     */
+    private function matchingSelectedCommander(Card $importedCard, array $selectedCommanders): ?Card
+    {
+        foreach ($selectedCommanders as $selectedCommander) {
+            if ($this->isSameCommanderCard($importedCard, $selectedCommander)) {
+                return $selectedCommander;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -797,14 +877,9 @@ class DecksController extends ApiController
             $candidates,
             fn (Card $candidate): bool => $this->isEquivalentPrintVersion($card, $candidate),
         ));
+        $cards = $this->cardsInPrintVersionLanguage($cards, $preferredLanguage ?? LanguageCatalog::DEFAULT_LANGUAGE);
 
-        usort($cards, static function (Card $left, Card $right) use ($card, $preferredLanguage): int {
-            $leftPriority = self::printingLanguagePriority($left, $card, $preferredLanguage);
-            $rightPriority = self::printingLanguagePriority($right, $card, $preferredLanguage);
-            if ($leftPriority !== $rightPriority) {
-                return $leftPriority <=> $rightPriority;
-            }
-
+        usort($cards, static function (Card $left, Card $right): int {
             return [$left->name(), $left->setCode() ?? '', $left->collectorNumber() ?? '']
                 <=> [$right->name(), $right->setCode() ?? '', $right->collectorNumber() ?? ''];
         });
@@ -812,26 +887,47 @@ class DecksController extends ApiController
         return $cards;
     }
 
-    private static function printingLanguagePriority(Card $candidate, Card $current, ?string $preferredLanguage): int
+    /**
+     * @param list<Card> $cards
+     *
+     * @return list<Card>
+     */
+    private function cardsInPrintVersionLanguage(array $cards, string $preferredLanguage): array
     {
-        if ($candidate->scryfallId() === $current->scryfallId()) {
-            return 0;
+        $preferredCards = $this->filterCardsByPrintLanguage($cards, $preferredLanguage);
+        if ($preferredCards !== []) {
+            return $preferredCards;
         }
 
-        $candidateLanguage = LanguageCatalog::normalize($candidate->lang());
-        if ($preferredLanguage !== null && $candidateLanguage === $preferredLanguage) {
-            return 1;
+        if ($preferredLanguage === LanguageCatalog::DEFAULT_LANGUAGE) {
+            return [];
         }
 
-        if ($candidateLanguage === LanguageCatalog::DEFAULT_LANGUAGE) {
-            return 2;
+        return $this->filterCardsByPrintLanguage($cards, LanguageCatalog::DEFAULT_LANGUAGE);
+    }
+
+    /**
+     * @param list<Card> $cards
+     *
+     * @return list<Card>
+     */
+    private function filterCardsByPrintLanguage(array $cards, string $language): array
+    {
+        return array_values(array_filter(
+            $cards,
+            fn (Card $card): bool => (LanguageCatalog::normalize($card->lang()) ?? LanguageCatalog::DEFAULT_LANGUAGE) === $language
+                && $this->isPrintVersionImageAvailable($card),
+        ));
+    }
+
+    private function isPrintVersionImageAvailable(Card $card): bool
+    {
+        $imageStatus = $card->imageStatus();
+        if ($imageStatus === null) {
+            return true;
         }
 
-        if (LanguageCatalog::isCommonPrintLanguage($candidateLanguage)) {
-            return 3;
-        }
-
-        return 4;
+        return !in_array(strtolower(trim($imageStatus)), ['missing', 'placeholder'], true);
     }
 
     private function isEquivalentPrintVersion(Card $source, Card $candidate): bool
@@ -844,15 +940,30 @@ class DecksController extends ApiController
      */
     private function cardNameIdentities(Card $card): array
     {
-        $names = [Card::normalizeName($card->name())];
-        foreach (explode('//', $card->name()) as $namePart) {
-            $names[] = Card::normalizeName($namePart);
-        }
+        $names = $this->normalizedCardNames($card->name());
+        $names = [...$names, ...$this->normalizedCardNames($card->printedName())];
+        $names = [...$names, ...$this->normalizedCardNames($card->flavorName())];
         foreach ($card->cardFaces() as $face) {
-            $faceName = $face['name'] ?? null;
-            if (is_string($faceName)) {
-                $names[] = Card::normalizeName($faceName);
-            }
+            $names = [...$names, ...$this->normalizedCardNames($face['name'] ?? null)];
+            $names = [...$names, ...$this->normalizedCardNames($face['printed_name'] ?? null)];
+            $names = [...$names, ...$this->normalizedCardNames($face['printedName'] ?? null)];
+        }
+
+        return array_values(array_filter(array_unique($names)));
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function normalizedCardNames(?string $name): array
+    {
+        if (!is_string($name) || trim($name) === '') {
+            return [];
+        }
+
+        $names = [Card::normalizeName($name)];
+        foreach (explode('//', $name) as $namePart) {
+            $names[] = Card::normalizeName($namePart);
         }
 
         return array_values(array_filter(array_unique($names)));
@@ -972,9 +1083,15 @@ class DecksController extends ApiController
     {
         $payloads = [];
         $targets = [];
-        if (is_array($deckPayload['commander'] ?? null)) {
-            $targets[] = ['kind' => 'commander'];
-            $payloads[] = $deckPayload['commander'];
+        if (is_array($deckPayload['commanders'] ?? null)) {
+            foreach ($deckPayload['commanders'] as $index => $commanderPayload) {
+                if (!is_array($commanderPayload)) {
+                    continue;
+                }
+
+                $targets[] = ['kind' => 'commander', 'index' => $index];
+                $payloads[] = $commanderPayload;
+            }
         }
 
         if (is_array($deckPayload['cards'] ?? null)) {
@@ -997,7 +1114,10 @@ class DecksController extends ApiController
                 }
 
                 if ($target['kind'] === 'commander') {
-                    $deckPayload['commander'] = $localizedPayload;
+                    $index = $target['index'] ?? null;
+                    if (is_int($index)) {
+                        $deckPayload['commanders'][$index] = $localizedPayload;
+                    }
                     continue;
                 }
 
@@ -1007,6 +1127,13 @@ class DecksController extends ApiController
                 }
             }
         }
+
+        $deckPayload['commanders'] = is_array($deckPayload['commanders'] ?? null)
+            ? array_values(array_filter(
+                $deckPayload['commanders'],
+                static fn (mixed $payload): bool => is_array($payload),
+            ))
+            : [];
 
         if (is_array($deckPayload['cards'] ?? null)) {
             $deckPayload['cards'] = array_values($deckPayload['cards']);

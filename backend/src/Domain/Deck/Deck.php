@@ -2,6 +2,7 @@
 
 namespace App\Domain\Deck;
 
+use App\Application\Deck\DeckFormatCatalog;
 use App\Domain\Card\Card;
 use App\Domain\User\User;
 use Doctrine\Common\Collections\ArrayCollection;
@@ -30,10 +31,13 @@ class Deck
     private string $name;
 
     #[ORM\Column(type: 'string', length: 40)]
-    private string $format = 'commander';
+    private string $format = DeckFormatCatalog::COMMANDER;
 
     #[ORM\Column(type: 'string', length: 20)]
     private string $visibility = self::VISIBILITY_PRIVATE;
+
+    #[ORM\Column(name: 'is_valid', type: 'boolean', options: ['default' => false])]
+    private bool $valid = false;
 
     #[ORM\Column(type: 'string', length: 80)]
     private string $backgroundName = self::DEFAULT_BACKGROUND_NAME;
@@ -95,6 +99,32 @@ class Deck
         return $this->visibility;
     }
 
+    public function format(): string
+    {
+        return $this->format;
+    }
+
+    public function isValid(): bool
+    {
+        return $this->valid;
+    }
+
+    public function markValidationResult(bool $valid): void
+    {
+        if ($this->valid === $valid) {
+            return;
+        }
+
+        $this->valid = $valid;
+        $this->touch();
+    }
+
+    public function markDecklistChanged(): void
+    {
+        $this->valid = false;
+        $this->touch();
+    }
+
     public function backgroundName(): string
     {
         return $this->backgroundName;
@@ -113,6 +143,12 @@ class Deck
         $this->touch();
     }
 
+    public function setFormat(string $format): void
+    {
+        $this->format = DeckFormatCatalog::normalize($format) ?? DeckFormatCatalog::defaultId();
+        $this->markDecklistChanged();
+    }
+
     public function moveToFolder(?DeckFolder $folder): void
     {
         $this->folder = $folder;
@@ -122,13 +158,13 @@ class Deck
     public function clearCards(): void
     {
         $this->cards->clear();
-        $this->touch();
+        $this->markDecklistChanged();
     }
 
     public function addCard(DeckCard $card): void
     {
         $this->cards->add($card);
-        $this->touch();
+        $this->markDecklistChanged();
     }
 
     public function addOrIncrementCard(Card $card, int $quantity, string $section): DeckCard
@@ -136,7 +172,7 @@ class Deck
         $existing = $this->findCardEntry($card, $section);
         if ($existing instanceof DeckCard) {
             $existing->changeQuantity($existing->quantity() + $quantity);
-            $this->touch();
+            $this->markDecklistChanged();
 
             return $existing;
         }
@@ -172,11 +208,29 @@ class Deck
         if ($existing instanceof DeckCard) {
             $existing->changeQuantity($existing->quantity() + $deckCard->quantity());
             $this->removeCard($deckCard);
+            $this->markDecklistChanged();
 
             return $existing;
         }
 
         $deckCard->moveToSection($section);
+        $this->markDecklistChanged();
+
+        return $deckCard;
+    }
+
+    public function replaceEquivalentCardPrint(DeckCard $deckCard, Card $targetCard): DeckCard
+    {
+        $existing = $this->findCardEntry($targetCard, $deckCard->section());
+        if ($existing instanceof DeckCard && $existing->id() !== $deckCard->id()) {
+            $existing->changeQuantity($existing->quantity() + $deckCard->quantity());
+            $this->cards->removeElement($deckCard);
+            $this->touch();
+
+            return $existing;
+        }
+
+        $deckCard->changeCard($targetCard);
         $this->touch();
 
         return $deckCard;
@@ -185,7 +239,7 @@ class Deck
     public function removeCard(DeckCard $card): void
     {
         $this->cards->removeElement($card);
-        $this->touch();
+        $this->markDecklistChanged();
     }
 
     public function cards(): Collection
@@ -200,23 +254,32 @@ class Deck
 
     public function toArray(bool $withCards = false): array
     {
-        $commander = null;
+        $commanderEntries = [];
         foreach ($this->cards as $deckCard) {
             if ($deckCard instanceof DeckCard && $deckCard->section() === DeckCard::SECTION_COMMANDER) {
-                $commander = $deckCard->card()->toArray();
-                break;
+                $commanderEntries[] = $deckCard;
             }
         }
+
+        usort(
+            $commanderEntries,
+            static fn (DeckCard $left, DeckCard $right): int => $left->id() <=> $right->id(),
+        );
+        $commanders = array_map(
+            static fn (DeckCard $deckCard): array => $deckCard->card()->toArray(),
+            $commanderEntries,
+        );
 
         $data = [
             'id' => $this->id,
             'name' => $this->name,
             'format' => $this->format,
+            'valid' => $this->valid,
             'visibility' => $this->visibility,
             'backgroundName' => $this->backgroundName,
             'sleevesName' => $this->sleevesName,
             'folderId' => $this->folder?->id(),
-            'commander' => $commander,
+            'commanders' => $commanders,
         ];
 
         if ($withCards) {

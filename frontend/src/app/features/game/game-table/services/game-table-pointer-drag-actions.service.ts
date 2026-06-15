@@ -25,6 +25,7 @@ import {
   createAttachmentStackMoves,
   detachAttachmentStackMoves,
 } from '../utils/attachment-stack';
+import { canDropCardsOnZone, COMMAND_ZONE_DROP_ERROR, knownCommanderInstanceIds } from '../utils/command-zone-drop';
 
 type BattlefieldSelection = { playerId: string; zone: GameZoneName; card: GameCardInstance };
 type BattlefieldSelectionMove = { item: BattlefieldSelection; position: { x: number; y: number } };
@@ -110,6 +111,17 @@ export class GameTablePointerDragActionsService {
     if (drag.dropZone && drag.dropZone !== 'battlefield') {
       if (!context.canControlPlayer(drag.playerId)) {
         context.endCardDrag();
+        context.applyDeferredRemoteSnapshot();
+        return;
+      }
+      if (!canDropCardsOnZone(
+        drag.dropZone,
+        this.battlefieldCardsByInstanceId(context, drag.playerId, instanceIds),
+        knownCommanderInstanceIds(context.snapshot()),
+      )) {
+        context.endCardDrag();
+        context.clearSelectedCards();
+        context.setError(COMMAND_ZONE_DROP_ERROR);
         context.applyDeferredRemoteSnapshot();
         return;
       }
@@ -794,6 +806,18 @@ export class GameTablePointerDragActionsService {
     const ownerLabel = ownerIds.length === 1 ? context.playerName(ownerIds[0]!) : 'their deck owners';
     const cardLabel = cards.length === 1 ? 'This borrowed card' : 'Borrowed cards';
     context.setError(`${cardLabel} will return to ${ownerLabel}'s ${toZone}.`);
+  }
+
+  private battlefieldCardsByInstanceId(
+    context: Pick<GameTablePointerDragActionContext, 'findCard'>,
+    playerId: string,
+    instanceIds: readonly string[],
+  ): readonly GameCardInstance[] {
+    const cards = instanceIds
+      .map((instanceId) => context.findCard(playerId, 'battlefield', instanceId))
+      .filter((card): card is GameCardInstance => card !== null);
+
+    return cards.length === instanceIds.length ? cards : [];
   }
 
   private async applyHandDropPreview(

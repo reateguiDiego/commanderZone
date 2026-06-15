@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { GameCardInstance, GameCardPosition, GameCommandType, GameZoneName } from '../../../../core/models/game.model';
+import { GameCardInstance, GameCardPosition, GameCommandType, GameSnapshot, GameZoneName } from '../../../../core/models/game.model';
 import { GameContextMenu } from '../state/core/game-table-ui.state';
 import { GameTableCardActionContext, GameTableCardActionsService } from './game-table-card-actions.service';
 
@@ -82,6 +82,35 @@ describe('GameTableCardActionsService', () => {
     }]);
     expect(clearSelectedCards).toHaveBeenCalledOnce();
     expect(closeContextMenu).toHaveBeenCalledOnce();
+  });
+
+  it('blocks context-menu moves to command for non-commanders', async () => {
+    const battlefield = [card('card-1', 'Creature', 100, 100)];
+    const command = vi.fn(async () => undefined);
+    const setError = vi.fn();
+    const closeContextMenu = vi.fn();
+    const ctx = context(battlefield, { command, setError, closeContextMenu });
+
+    await service.moveCard(ctx, menu(battlefield[0]!), 'command');
+
+    expect(command).not.toHaveBeenCalled();
+    expect(setError).toHaveBeenCalledWith('Only commanders can be moved to the command zone.');
+    expect(closeContextMenu).toHaveBeenCalledOnce();
+  });
+
+  it('allows context-menu moves to command for commanders', async () => {
+    const commander = { ...card('commander-1', 'Legendary Creature', 100, 100), isCommander: true };
+    const command = vi.fn(async () => undefined);
+    const ctx = context([commander], { command });
+
+    await service.moveCard(ctx, menu(commander), 'command');
+
+    expect(command).toHaveBeenCalledWith('card.moved', {
+      playerId: 'player-1',
+      fromZone: 'battlefield',
+      toZone: 'command',
+      instanceId: 'commander-1',
+    });
   });
 
   it('removes a moved card from a fixed top-library modal while preserving fixed slots', async () => {
@@ -283,13 +312,14 @@ describe('GameTableCardActionsService', () => {
 
 function context(
   battlefield: readonly GameCardInstance[],
-  overrides: Partial<Pick<GameTableCardActionContext, 'clearSelectedCards' | 'closeContextMenu' | 'command' | 'loadZone' | 'replaceZoneModalCards' | 'selectedCards' | 'syncOpenZoneModalAfterMove' | 'updateLocalCardPosition' | 'zoneModal'>> = {},
+  overrides: Partial<Pick<GameTableCardActionContext, 'clearSelectedCards' | 'closeContextMenu' | 'command' | 'loadZone' | 'replaceZoneModalCards' | 'selectedCards' | 'setError' | 'syncOpenZoneModalAfterMove' | 'updateLocalCardPosition' | 'zoneModal'>> = {},
 ): GameTableCardActionContext {
   const zoneModal = overrides.zoneModal ?? (() => null);
   const loadZone = overrides.loadZone ?? vi.fn(async () => undefined);
   const replaceZoneModalCards = overrides.replaceZoneModalCards ?? vi.fn();
 
   return {
+    snapshot: () => snapshot(battlefield),
     canControlPlayer: () => true,
     activeKeyboardCard: () => null,
     selectedCards: overrides.selectedCards ?? (() => []),
@@ -302,7 +332,7 @@ function context(
     battlefieldPosition: (_playerId, _instanceId, position): GameCardPosition => ({ ...position, unit: 'ratio' }),
     updateLocalCardPosition: overrides.updateLocalCardPosition ?? vi.fn(),
     playerName: (playerId) => playerId,
-    setError: vi.fn(),
+    setError: overrides.setError ?? vi.fn(),
     closeContextMenu: overrides.closeContextMenu ?? vi.fn(),
     setPendingBattlefieldMove: vi.fn(),
     setPendingLibraryMove: vi.fn(),
@@ -317,6 +347,36 @@ function context(
     }),
     recordCommanderCastIfNeeded: vi.fn(async () => undefined),
     command: overrides.command ?? vi.fn(async () => undefined),
+  };
+}
+
+function snapshot(battlefield: readonly GameCardInstance[]): GameSnapshot {
+  return {
+    version: 1,
+    ownerId: 'player-1',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    players: {
+      'player-1': {
+        user: { id: 'player-1', email: 'player@test', displayName: 'Player 1', roles: [] },
+        life: 40,
+        commanderDamage: {},
+        counters: {},
+        zones: {
+          library: [],
+          hand: [],
+          battlefield: [...battlefield],
+          graveyard: [],
+          exile: [],
+          command: [],
+        },
+      },
+    },
+    turn: { activePlayerId: 'player-1', phase: 'main-1', number: 1 },
+    stack: [],
+    arrows: [],
+    chat: [],
+    eventLog: [],
+    counters: {},
   };
 }
 

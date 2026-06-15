@@ -3,6 +3,7 @@
 namespace App\Tests\Application;
 
 use App\Application\Game\GameSnapshotFactory;
+use App\Application\Game\GameRandomizer;
 use App\Domain\Card\Card;
 use App\Domain\Deck\Deck;
 use App\Domain\Deck\DeckCard;
@@ -97,6 +98,75 @@ class GameSnapshotFactoryTest extends TestCase
         );
 
         self::assertCount(2, array_unique($backgroundNames));
+    }
+
+    public function testInitialCommanderDamageIsKeyedByEachCommanderInstance(): void
+    {
+        $owner = new User('owner@example.test', 'Owner');
+        $opponent = new User('opponent@example.test', 'Opponent');
+        $this->setPrivateProperty($owner, 'id', 'owner-id');
+        $this->setPrivateProperty($opponent, 'id', 'opponent-id');
+        $room = new Room($owner);
+
+        $ownerDeck = new Deck($owner, 'Owner Deck');
+        $ownerDeck->addCard(new DeckCard($ownerDeck, $this->cardWithColorIdentity(['R']), 1, DeckCard::SECTION_COMMANDER));
+        $ownerDeck->addCard(new DeckCard($ownerDeck, $this->cardWithColorIdentity(['B']), 1, DeckCard::SECTION_COMMANDER));
+        $opponentDeck = new Deck($opponent, 'Opponent Deck');
+        $opponentDeck->addCard(new DeckCard($opponentDeck, $this->cardWithColorIdentity(['G']), 1, DeckCard::SECTION_COMMANDER));
+
+        $room->addPlayer(new RoomPlayer($room, $owner, $ownerDeck));
+        $room->addPlayer(new RoomPlayer($room, $opponent, $opponentDeck));
+
+        $snapshot = (new GameSnapshotFactory())->fromRoom($room);
+        $ownerCommanderIds = array_map(
+            static fn (array $commander): string => $commander['instanceId'],
+            $snapshot['players']['owner-id']['zones']['command'],
+        );
+
+        self::assertCount(2, $ownerCommanderIds);
+        self::assertSame([
+            $ownerCommanderIds[0] => 0,
+            $ownerCommanderIds[1] => 0,
+        ], $snapshot['players']['opponent-id']['commanderDamage']);
+    }
+
+    public function testBuildsOpeningHandFromShuffledLibraryWithSevenCards(): void
+    {
+        $owner = new User('owner@example.test', 'Owner');
+        $this->setPrivateProperty($owner, 'id', 'owner-id');
+
+        $room = new Room($owner);
+        $deck = new Deck($owner, 'Deck');
+        $commander = $this->cardWithColorIdentity(['G']);
+        $deck->addCard(new DeckCard($deck, $commander, 1, DeckCard::SECTION_COMMANDER));
+        for ($index = 1; $index <= 9; ++$index) {
+            $card = new Card(sprintf('11111111-1111-4111-8111-%012d', $index));
+            $card->updateFromScryfall([
+                'id' => sprintf('11111111-1111-4111-8111-%012d', $index),
+                'name' => sprintf('Library Card %d', $index),
+                'type_line' => 'Artifact',
+                'oracle_text' => 'Test text',
+                'legalities' => ['commander' => 'legal'],
+                'image_uris' => ['normal' => sprintf('https://cards.scryfall.io/normal/front/library-%d.jpg', $index)],
+            ]);
+            $deck->addCard(new DeckCard($deck, $card, 1, DeckCard::SECTION_MAIN));
+        }
+
+        $room->addPlayer(new RoomPlayer($room, $owner, $deck));
+
+        $snapshot = (new GameSnapshotFactory(new class() extends GameRandomizer {
+            public function shuffle(array $items): array
+            {
+                return array_reverse($items);
+            }
+        }))->fromRoom($room);
+
+        self::assertCount(7, $snapshot['players']['owner-id']['zones']['hand']);
+        self::assertCount(2, $snapshot['players']['owner-id']['zones']['library']);
+        self::assertSame(
+            ['Library Card 9', 'Library Card 8', 'Library Card 7', 'Library Card 6', 'Library Card 5', 'Library Card 4', 'Library Card 3'],
+            array_map(static fn (array $card): string => $card['name'], $snapshot['players']['owner-id']['zones']['hand']),
+        );
     }
 
     public function testIncludesPersistedRulingsMetadataInGameCardSnapshots(): void

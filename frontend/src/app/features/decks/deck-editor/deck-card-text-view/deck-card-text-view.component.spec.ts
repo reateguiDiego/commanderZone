@@ -7,26 +7,58 @@ import { DeckEditorStore } from '../../data-access/deck-editor.store';
 import { DeckCardTextViewComponent } from './deck-card-text-view.component';
 
 describe('DeckCardTextViewComponent', () => {
-  beforeEach(async () => {
+  async function setup(store = storeStub()) {
     await TestBed.configureTestingModule({
       imports: [DeckCardTextViewComponent],
       providers: [
         importProvidersFrom(LucideAngularModule.pick({ ChevronDown, ChevronRight, RotateCw, TriangleAlert })),
-        { provide: DeckEditorStore, useValue: storeStub() },
+        { provide: DeckEditorStore, useValue: store },
       ],
     }).compileComponents();
-  });
 
-  it('renders grouped card rows', () => {
-    const fixture = TestBed.createComponent(DeckCardTextViewComponent);
+    return TestBed.createComponent(DeckCardTextViewComponent);
+  }
+
+  it('renders grouped card rows', async () => {
+    const fixture = await setup();
     fixture.detectChanges();
 
     expect(fixture.nativeElement.textContent).toContain('Tierras');
     expect(fixture.nativeElement.textContent).toContain('Command Tower');
   });
+
+  it('flips card faces from text rows without opening the card menu', async () => {
+    const store = storeStub({ hasAlternateFace: true });
+    const fixture = await setup(store);
+    fixture.detectChanges();
+
+    const button = fixture.nativeElement.querySelector('.face-toggle-button') as HTMLButtonElement;
+    const cardEntry = store.cardColumns()[0]?.groups[0]?.cards[0];
+
+    button.click();
+
+    expect(cardEntry).toBeDefined();
+    expect(store.toggleCardFace).toHaveBeenCalledWith(expect.any(MouseEvent), cardEntry?.card);
+    expect(store.toggleCardMenu).not.toHaveBeenCalled();
+  });
+
+  it('hides the preview and resets double-faced cards after hover', async () => {
+    const store = storeStub({ hasAlternateFace: true });
+    const fixture = await setup(store);
+    fixture.detectChanges();
+
+    const row = fixture.nativeElement.querySelector('.deck-card-row') as HTMLElement;
+    const cardEntry = store.cardColumns()[0]?.groups[0]?.cards[0];
+
+    row.dispatchEvent(new Event('pointerleave'));
+
+    expect(cardEntry).toBeDefined();
+    expect(store.hideCardPreview).toHaveBeenCalledOnce();
+    expect(store.resetCardFace).toHaveBeenCalledWith(cardEntry?.card);
+  });
 });
 
-function storeStub() {
+function storeStub(options: { hasAlternateFace?: boolean } = {}) {
   const entry: DeckCard = { id: 'deck-card-1', quantity: 1, section: 'main', card: card() };
 
   return {
@@ -41,8 +73,9 @@ function storeStub() {
     displayCardName: (value: Card) => value.name,
     displayCardListName: (value: Card) => value.name,
     displayCardManaCost: (value: Card) => value.manaCost,
-    hasAlternateFace: () => false,
+    hasAlternateFace: () => options.hasAlternateFace ?? false,
     toggleCardFace: vi.fn(),
+    resetCardFace: vi.fn(),
     isCardInvalidForDeck: () => false,
     invalidCardMessage: () => '',
     displayCardTypeLine: (value: Card) => value.typeLine,

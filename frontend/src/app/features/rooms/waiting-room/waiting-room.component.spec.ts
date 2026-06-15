@@ -9,7 +9,8 @@ import { DecksApi } from '../../../core/api/decks.api';
 import { FriendsApi } from '../../../core/api/friends.api';
 import { RoomsApi } from '../../../core/api/rooms.api';
 import { AuthStore } from '../../../core/auth/auth.store';
-import { CommanderValidation, Deck } from '../../../core/models/deck.model';
+import { Card } from '../../../core/models/card.model';
+import { Deck } from '../../../core/models/deck.model';
 import { Room } from '../../../core/models/room.model';
 import { MercureService } from '../../../core/realtime/mercure.service';
 import { PageHeaderStore } from '../../../core/ui/page-header.store';
@@ -61,7 +62,7 @@ describe('WaitingRoomComponent', () => {
       providers: [
         provideRouter([{ path: 'rooms', component: DummyRoomsPageComponent }]),
         importProvidersFrom(LucideAngularModule.pick({ Copy, DoorOpen, Globe, Lock, LogOut, Play, Plus, Send, Settings, ShieldCheck, Swords, Trash2, TriangleAlert, UserPlus, Users, X })),
-        { provide: DecksApi, useValue: { list: vi.fn().mockReturnValue(of({ data: [{ id: 'deck-1', name: 'Verdant Bloom', format: 'commander', folderId: null }] })), validateCommander: vi.fn().mockReturnValue(of({ valid: true })) } },
+        { provide: DecksApi, useValue: { list: vi.fn().mockReturnValue(of({ data: [deck('deck-1', 'Verdant Bloom', { valid: true })] })) } },
         { provide: FriendsApi, useValue: { list: vi.fn().mockReturnValue(of({ data: [] })) } },
         { provide: RoomsApi, useValue: roomsApi },
         { provide: AuthStore, useValue: { user: () => ({ id: 'user-1', email: 'owner@test', displayName: 'Owner' }) } },
@@ -155,17 +156,11 @@ describe('WaitingRoomComponent', () => {
 
     const component = fixture.componentInstance;
     component.decks.set([
-      deck('invalid-1', 'Deck 1'),
-      deck('valid-10', 'Deck 10'),
-      deck('valid-2', 'Deck 2'),
-      deck('invalid-2', 'Deck 2 invalid'),
+      deck('invalid-1', 'Deck 1', { valid: false }),
+      deck('valid-10', 'Deck 10', { valid: true }),
+      deck('valid-2', 'Deck 2', { valid: true }),
+      deck('invalid-2', 'Deck 2 invalid', { valid: false }),
     ]);
-    component.deckValidations.set({
-      'invalid-1': validation(false),
-      'invalid-2': validation(false),
-      'valid-10': validation(true),
-      'valid-2': validation(true),
-    });
 
     expect(component.sortedDecks().map((deckOption) => deckOption.name)).toEqual([
       'Deck 2',
@@ -175,14 +170,45 @@ describe('WaitingRoomComponent', () => {
     ]);
   });
 
+  it('renders dual commander art for waiting-room player cards when a deck has two commanders', async () => {
+    const fixture = TestBed.createComponent(WaitingRoomComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const component = fixture.componentInstance;
+    component.decks.set([
+      deck('deck-user-1', 'Partners', {
+        commanders: [commanderCard(), secondCommanderCard()],
+      }),
+    ]);
+    component.currentRoom.set(room({
+      players: [
+        {
+          id: 'player-1',
+          user: { id: 'user-1', email: 'owner@test', displayName: 'Owner', roles: [] },
+          deckId: 'deck-user-1',
+          turnRoll: null,
+        },
+      ],
+    }));
+    fixture.detectChanges();
+
+    const playerCard = renderedPlayerCards(fixture)[0] ?? null;
+
+    expect(playerCard).not.toBeNull();
+    expect(playerCard?.classList.contains('has-dual-deck-art')).toBe(true);
+    expect(playerCard?.style.getPropertyValue('--player-deck-art')).toContain('atraxa-art.jpg');
+    expect(playerCard?.style.getPropertyValue('--player-deck-secondary-art')).toContain('silas-art.jpg');
+    expect(playerCard?.querySelectorAll('.player-dual-deck-art-pane')).toHaveLength(2);
+  });
+
   it('shows a single-action modal instead of selecting an invalid deck', async () => {
     const fixture = TestBed.createComponent(WaitingRoomComponent);
     fixture.detectChanges();
     await fixture.whenStable();
 
     const component = fixture.componentInstance;
-    component.decks.set([deck('invalid-1', 'Broken Deck')]);
-    component.deckValidations.set({ 'invalid-1': validation(false) });
+    component.decks.set([deck('invalid-1', 'Broken Deck', { valid: false })]);
     roomsApi.join.mockClear();
 
     await component.selectDeck('invalid-1');
@@ -549,11 +575,7 @@ describe('WaitingRoomComponent', () => {
     await fixture.whenStable();
 
     const component = fixture.componentInstance;
-    component.decks.set([deck('invalid-1', 'Invalid'), deck('valid-1', 'Legal')]);
-    component.deckValidations.set({
-      'invalid-1': validation(false),
-      'valid-1': validation(true),
-    });
+    component.decks.set([deck('invalid-1', 'Invalid', { valid: false }), deck('valid-1', 'Legal', { valid: true })]);
 
     component.toggleDeckSelector();
     fixture.detectChanges();
@@ -594,11 +616,7 @@ describe('WaitingRoomComponent', () => {
     await fixture.whenStable();
 
     const component = fixture.componentInstance;
-    component.decks.set([deck('deck-1', 'Locked Deck'), deck('deck-2', 'Other Legal')]);
-    component.deckValidations.set({
-      'deck-1': validation(true),
-      'deck-2': validation(true),
-    });
+    component.decks.set([deck('deck-1', 'Locked Deck', { valid: true }), deck('deck-2', 'Other Legal', { valid: true })]);
     component.selectedDeckId = 'deck-1';
     component.currentRoom.set(room({
       players: [
@@ -681,32 +699,52 @@ function readyPlayer(id: string, userId: string, displayName: string, turnRoll =
   };
 }
 
-function deck(id: string, name: string): Deck {
+function deck(id: string, name: string, overrides: Partial<Deck> = {}): Deck {
   return {
     id,
     name,
     format: 'commander',
     folderId: null,
+    commanders: [],
+    ...overrides,
   };
 }
 
-function validation(valid: boolean): CommanderValidation {
+function commanderCard(): Card {
   return {
-    valid,
-    format: 'commander',
-    counts: {
-      total: 100,
-      commander: 1,
-      main: 99,
-      sideboard: 0,
-      maybeboard: 0,
-    },
-    commander: {
-      mode: valid ? 'single' : 'invalid',
-      names: valid ? ['Commander'] : [],
-      colorIdentity: valid ? ['G'] : [],
-    },
-    errors: valid ? [] : [{ code: 'invalid', title: 'Invalid', detail: 'Invalid deck', cards: [] }],
-    warnings: [],
+    id: 'card-atraxa',
+    scryfallId: 'card-atraxa',
+    name: "Atraxa, Praetors' Voice",
+    manaCost: '{1}{G}{W}{U}{B}',
+    typeLine: 'Legendary Creature',
+    oracleText: 'Flying, vigilance, deathtouch, lifelink',
+    colors: ['G', 'W', 'U', 'B'],
+    colorIdentity: ['G', 'W', 'U', 'B'],
+    legalities: { commander: 'legal' },
+    imageUris: { normal: 'https://cards.test/atraxa.jpg', art_crop: 'https://cards.test/atraxa-art.jpg' },
+    layout: 'normal',
+    commanderLegal: true,
+    set: 'cmm',
+    collectorNumber: '1',
   };
 }
+
+function secondCommanderCard(): Card {
+  return {
+    id: 'card-silas',
+    scryfallId: 'card-silas',
+    name: 'Silas Renn, Seeker Adept',
+    manaCost: '{1}{U}{B}',
+    typeLine: 'Legendary Creature',
+    oracleText: 'Deathtouch',
+    colors: ['U', 'B'],
+    colorIdentity: ['U', 'B'],
+    legalities: { commander: 'legal' },
+    imageUris: { normal: 'https://cards.test/silas.jpg', art_crop: 'https://cards.test/silas-art.jpg' },
+    layout: 'normal',
+    commanderLegal: true,
+    set: 'c16',
+    collectorNumber: '1',
+  };
+}
+

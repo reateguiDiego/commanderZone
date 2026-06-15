@@ -11,7 +11,7 @@ import {
 import { LoyaltyCounterComponent } from './loyalty-counter/loyalty-counter.component';
 import { GameTableDoubleTapDirective } from '../../directives/game-table-double-tap.directive';
 import { GameTableLongPressDirective } from '../../directives/game-table-long-press.directive';
-import { activeCardFaceIndex, hasAlternateFaceContent, nextCardFaceIndex } from '../../utils/double-faced-card';
+import { activeCardFaceIndex, hasAlternateFace, nextCardFaceIndex } from '../../utils/double-faced-card';
 
 type GameCardViewMode = 'battlefield' | 'hand' | 'mini';
 
@@ -223,7 +223,7 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
 
     return !this.faceDown()
       && currentCard.hidden !== true
-      && hasAlternateFaceContent(currentCard, this.previewFaceIndexOverride ?? activeCardFaceIndex(currentCard));
+      && hasAlternateFace(currentCard);
   });
   readonly statsVisible = computed(() => !this.faceDown() && this.showPowerToughness());
   readonly loyaltyVisible = computed(() => !this.faceDown() && this.loyaltyValue() !== null && !this.showPowerToughness());

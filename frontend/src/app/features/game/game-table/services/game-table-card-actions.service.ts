@@ -1,10 +1,11 @@
 import { Injectable } from '@angular/core';
 import { Card } from '../../../../core/models/card.model';
-import { GameCardInstance, GameCardPosition, GameCommandType, GameZoneName } from '../../../../core/models/game.model';
+import { GameCardInstance, GameCardPosition, GameCommandType, GameSnapshot, GameZoneName } from '../../../../core/models/game.model';
 import { GameContextMenu } from '../state/core/game-table-ui.state';
 import { ZoneModalState } from '../state/zones/game-table-zone-modal.state';
 import type { PendingBattlefieldMove, PendingLibraryMove } from './game-table-drop-actions.service';
 import { buildLandStackGroups, landStackGroupContaining, removeLandStackMoves } from '../utils/land-stack';
+import { canDropCardsOnZone, COMMAND_ZONE_DROP_ERROR, knownCommanderInstanceIds } from '../utils/command-zone-drop';
 
 export interface GameTableCardSelection {
   playerId: string;
@@ -13,6 +14,7 @@ export interface GameTableCardSelection {
 }
 
 export interface GameTableCardActionContext {
+  snapshot(): GameSnapshot | null;
   canControlPlayer(playerId: string): boolean;
   activeKeyboardCard(): GameTableCardSelection | null;
   selectedCards(): GameTableCardSelection[];
@@ -30,7 +32,13 @@ export interface GameTableCardActionContext {
   setPendingBattlefieldMove(move: PendingBattlefieldMove | null): void;
   setPendingLibraryMove(move: PendingLibraryMove | null): void;
   syncOpenZoneModalAfterMove(playerId: string, fromZone: GameZoneName, instanceIds: readonly string[]): Promise<void>;
-  recordCommanderCastIfNeeded(playerId: string, fromZone: GameZoneName, toZone?: GameZoneName): Promise<void>;
+  recordCommanderCastIfNeeded(
+    playerId: string,
+    fromZone: GameZoneName,
+    toZone?: GameZoneName,
+    targetPlayerId?: string,
+    instanceIds?: readonly string[],
+  ): Promise<void>;
   command(type: GameCommandType, payload: Record<string, unknown>): Promise<void>;
 }
 
@@ -53,7 +61,7 @@ export class GameTableCardActionsService {
       toZone: 'battlefield',
       instanceId: card.instanceId,
     });
-    await context.recordCommanderCastIfNeeded(playerId, zone);
+    await context.recordCommanderCastIfNeeded(playerId, zone, 'battlefield', playerId, [card.instanceId]);
     context.clearSelectedCards();
   }
 
@@ -95,6 +103,10 @@ export class GameTableCardActionsService {
       return;
     }
     const targets = this.actionTargets(context, menu);
+    if (!this.canMoveCardsToZone(context, toZone, targets.map((item) => item.card))) {
+      this.endBlockedMove(context);
+      return;
+    }
     if (targets.length > 1) {
       const first = targets[0]!;
       const payload: Record<string, unknown> = {
@@ -143,7 +155,7 @@ export class GameTableCardActionsService {
     }
 
     await context.command('card.moved', payload);
-    await context.recordCommanderCastIfNeeded(target.playerId, target.zone, toZone);
+    await context.recordCommanderCastIfNeeded(target.playerId, target.zone, toZone, target.playerId, [target.card.instanceId]);
     await context.syncOpenZoneModalAfterMove(target.playerId, target.zone, [target.card.instanceId]);
     context.clearSelectedCards();
     context.closeContextMenu();
@@ -249,7 +261,7 @@ export class GameTableCardActionsService {
     }
 
     await context.command(isMultiMove ? 'cards.moved' : 'card.moved', payload);
-    await context.recordCommanderCastIfNeeded(firstTarget.playerId, firstTarget.zone, toZone);
+    await context.recordCommanderCastIfNeeded(firstTarget.playerId, firstTarget.zone, toZone, targetPlayerId, instanceIds);
     await context.syncOpenZoneModalAfterMove(firstTarget.playerId, firstTarget.zone, instanceIds);
     context.clearSelectedCards();
     context.closeContextMenu();
@@ -271,6 +283,10 @@ export class GameTableCardActionsService {
     }
 
     const instanceIds = selected.map((item) => item.card.instanceId);
+    if (!this.canMoveCardsToZone(context, toZone, selected.map((item) => item.card))) {
+      context.setError(COMMAND_ZONE_DROP_ERROR);
+      return;
+    }
     if (toZone === 'library') {
       context.setPendingLibraryMove({
         cardName: `${selected.length} cards`,
@@ -354,6 +370,10 @@ export class GameTableCardActionsService {
     if (!item || !context.canControlPlayer(item.playerId)) {
       return;
     }
+    if (!this.canMoveCardsToZone(context, toZone, [item.card])) {
+      context.setError(COMMAND_ZONE_DROP_ERROR);
+      return;
+    }
 
     if (toZone === 'library') {
       context.setPendingLibraryMove({
@@ -375,7 +395,7 @@ export class GameTableCardActionsService {
       toZone,
       instanceId: item.card.instanceId,
     });
-    await context.recordCommanderCastIfNeeded(item.playerId, item.zone, toZone);
+    await context.recordCommanderCastIfNeeded(item.playerId, item.zone, toZone, item.playerId, [item.card.instanceId]);
     context.clearSelectedCards();
   }
 
@@ -663,6 +683,10 @@ export class GameTableCardActionsService {
       context.setError('You can only move your own cards.');
       return;
     }
+    if (!this.canMoveCardsToZone(context, toZone, [card])) {
+      context.setError(COMMAND_ZONE_DROP_ERROR);
+      return;
+    }
 
     await context.command('card.moved', {
       playerId: modal.playerId,
@@ -671,7 +695,7 @@ export class GameTableCardActionsService {
       instanceId: card.instanceId,
       ...this.viewedLibrarySourcePayload(context, modal.playerId, card),
     });
-    await context.recordCommanderCastIfNeeded(modal.playerId, modal.zone, toZone);
+    await context.recordCommanderCastIfNeeded(modal.playerId, modal.zone, toZone, modal.playerId, [card.instanceId]);
     await context.syncOpenZoneModalAfterMove(modal.playerId, modal.zone, [card.instanceId]);
   }
 
@@ -689,5 +713,18 @@ export class GameTableCardActionsService {
       to: 'all',
     });
     await context.loadZone();
+  }
+
+  private canMoveCardsToZone(
+    context: Pick<GameTableCardActionContext, 'snapshot'>,
+    toZone: GameZoneName,
+    cards: readonly GameCardInstance[],
+  ): boolean {
+    return canDropCardsOnZone(toZone, cards, knownCommanderInstanceIds(context.snapshot()));
+  }
+
+  private endBlockedMove(context: Pick<GameTableCardActionContext, 'setError' | 'closeContextMenu'>): void {
+    context.setError(COMMAND_ZONE_DROP_ERROR);
+    context.closeContextMenu();
   }
 }

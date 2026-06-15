@@ -105,6 +105,7 @@ abstract class ApiTestCase extends WebTestCase
         $this->ensureCardHasRulingsColumn($connection);
         $this->ensureCardPrintTables($connection);
         $this->ensureRoomWaitingLogEntryTable($connection);
+        $this->ensureDeckValidityColumn($connection);
 
         $tables = [
             'game_debug_health',
@@ -200,6 +201,25 @@ SQL,
         $connection->executeStatement(
             'ALTER TABLE room_waiting_log_entry ADD CONSTRAINT FK_ROOM_WAITING_LOG_ROOM FOREIGN KEY (room_id) REFERENCES room (id) ON DELETE CASCADE',
         );
+    }
+
+    private function ensureDeckValidityColumn(Connection $connection): void
+    {
+        $schemaManager = $connection->createSchemaManager();
+        if (!$schemaManager->tablesExist(['deck'])) {
+            return;
+        }
+
+        $columns = array_map(
+            static fn (\Doctrine\DBAL\Schema\Column $column): string => $column->getName(),
+            $schemaManager->listTableColumns('deck'),
+        );
+        if (in_array('is_valid', $columns, true)) {
+            return;
+        }
+
+        $connection->executeStatement('ALTER TABLE deck ADD COLUMN is_valid BOOLEAN NOT NULL DEFAULT false');
+        $connection->executeStatement('ALTER TABLE deck ALTER COLUMN is_valid DROP DEFAULT');
     }
 
     private function ensureCardPrintTables(Connection $connection): void

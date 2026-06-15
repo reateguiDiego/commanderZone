@@ -32,6 +32,29 @@ describe('GameTableZonePointerMoveActionsService', () => {
     });
   });
 
+  it('moves a public pile commander to command zone through the pointer move path', async () => {
+    const commander = { ...card('commander-1', 'Commander', 'graveyard'), isCommander: true };
+    const ctx = context({ sourceCard: commander });
+
+    await service.moveZoneCardByPointer(ctx, {
+      playerId: 'player-1',
+      targetPlayerId: 'player-1',
+      fromZone: 'graveyard',
+      toZone: 'command',
+      instanceId: 'commander-1',
+      rawZone: 'command',
+    });
+
+    expect(ctx.markPendingTransfer).toHaveBeenCalledWith('player-1', 'graveyard', ['commander-1']);
+    expect(ctx.command).toHaveBeenCalledWith('card.moved', {
+      playerId: 'player-1',
+      fromZone: 'graveyard',
+      toZone: 'command',
+      targetPlayerId: 'player-1',
+      instanceId: 'commander-1',
+    });
+  });
+
   it('draws from library when a library pointer drag drops on own hand', async () => {
     const ctx = context({ sourceZone: 'library', sourceCard: card('library-1', 'Top Library Card', 'library') });
 
@@ -100,6 +123,7 @@ describe('GameTableZonePointerMoveActionsService', () => {
     } satisfies PendingBattlefieldMove);
     expect(ctx.command).not.toHaveBeenCalled();
   });
+
 });
 
 interface ContextOptions {

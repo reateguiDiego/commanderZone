@@ -1,5 +1,5 @@
-import { Card } from '../../core/models/card.model';
-import { bestCardArtImage, bestCardImage } from './card-image';
+import { Card, CardFace } from '../../core/models/card.model';
+import { bestCardArtImage, bestCardFaceImage, bestCardImage } from './card-image';
 
 describe('card-image utilities', () => {
   it('uses the first face image when the card has no root image', () => {
@@ -34,6 +34,25 @@ describe('card-image utilities', () => {
     } satisfies Card);
 
     expect(imageUrl).toBe('https://cards.scryfall.io/bala-ged-front.jpg');
+  });
+
+  it('reads face image URLs from localized snake_case payloads', () => {
+    const imageUrl = bestCardFaceImage({
+      name: 'Ajani, Nacatl Avenger',
+      manaCost: null,
+      typeLine: null,
+      oracleText: null,
+      power: null,
+      toughness: null,
+      loyalty: null,
+      colors: [],
+      imageUris: {},
+      image_uris: {
+        normal: 'https://cards.scryfall.io/normal/back/ajani.jpg',
+      },
+    } as CardFace & { image_uris: { normal: string } });
+
+    expect(imageUrl).toBe('https://cards.scryfall.io/normal/back/ajani.jpg');
   });
 
   it('prefers art crop for background artwork', () => {

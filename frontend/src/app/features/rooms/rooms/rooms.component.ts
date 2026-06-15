@@ -10,6 +10,7 @@ import { DeckFormat } from '../../../core/models/deck.model';
 import { RoomInvite } from '../../../core/models/room-invite.model';
 import { CurrentRoomPlayerSummary, CurrentRoomSummary, CurrentRoomTurn, CurrentRoomViewerRole, Room } from '../../../core/models/room.model';
 import { bestCardArtImage } from '../../../shared/utils/card-image';
+import { primaryCommander } from '../../../shared/utils/deck-commander';
 import { MercureService } from '../../../core/realtime/mercure.service';
 import { PageHeaderStore } from '../../../core/ui/page-header.store';
 import { AppModalComponent } from '../../../shared/ui/app-modal/app-modal.component';
@@ -509,7 +510,7 @@ export class RoomsComponent implements OnInit, OnDestroy {
       playerId: player.id,
       deckId: player.deckId,
       deckName: player.deck?.name ?? null,
-      deckImageUrl: bestCardArtImage(player.deck?.commander),
+      deckImageUrl: bestCardArtImage(primaryCommander(player.deck)),
     };
   }
 

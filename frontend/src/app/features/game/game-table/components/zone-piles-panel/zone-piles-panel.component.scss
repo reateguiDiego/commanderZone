@@ -182,6 +182,60 @@
   background: rgb(7 8 7 / 52%);
 }
 
+.zone-art.command-zone-art {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.18rem;
+  padding: 0.12rem;
+}
+
+.zone-art.dual-command-zone-art {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+
+.zone-stack.transfer-pending .zone-art.dual-command-zone-art {
+  background: transparent;
+  box-shadow: none;
+}
+
+.command-zone-card {
+  position: relative;
+  display: grid;
+  width: calc((100% - 0.18rem) / 2);
+  max-width: 100%;
+  overflow: visible;
+  aspect-ratio: 0.716;
+  place-items: center;
+  border-radius: 6px;
+  touch-action: none;
+}
+
+.command-zone-card.single-command-zone-card {
+  width: 100%;
+}
+
+.command-zone-card.dragging-command-zone-card .zone-card-image {
+  opacity: 0;
+}
+
+.command-zone-card-name {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+  padding: 0.28rem;
+  border-radius: 6px;
+  background: rgb(7 8 7 / 52%);
+  color: var(--game-text, #f3f0e8);
+  font-size: 0.58rem;
+  font-weight: 800;
+  line-height: 1.1;
+  text-align: center;
+}
+
 .zone-card-image {
   position: relative;
   z-index: 2;
@@ -236,8 +290,8 @@
   padding: 0.4rem;
 }
 
-.zone-stack.dragging-zone-card .zone-card-image,
-.zone-stack.transfer-pending .zone-card-image {
+.zone-stack.dragging-zone-card:not([data-zone='command']) .zone-card-image,
+.zone-stack.transfer-pending:not([data-zone='command']) .zone-card-image {
   opacity: 0;
 }
 
@@ -271,9 +325,43 @@
 }
 
 .commander-cast-count {
-  border-color: var(--game-accent-strong, rgb(215 180 106 / 58%));
-  background: rgb(67 50 24 / 95%);
-  color: var(--game-accent, #d7b46a);
+  border-color: color-mix(in srgb, var(--commander-accent, var(--game-accent, #d7b46a)) 68%, #fff2c9);
+  background:
+    radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--commander-accent, #d7b46a) 34%, transparent), transparent 78%),
+    color-mix(in srgb, var(--commander-accent, #d7b46a) 20%, rgb(7 8 7 / 96%));
+  color: color-mix(in srgb, var(--commander-accent, var(--game-accent, #d7b46a)) 78%, #fff7d8);
+}
+
+.command-zone-cast-counts {
+  position: absolute;
+  right: 0.15rem;
+  bottom: 0.15rem;
+  z-index: 3300;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.2rem;
+  pointer-events: auto;
+}
+
+.command-zone-cast-counts .commander-cast-count {
+  position: static;
+  cursor: pointer;
+  user-select: none;
+  transition:
+    filter 140ms ease,
+    transform 140ms ease;
+}
+
+.command-zone-cast-counts .commander-cast-count:hover,
+.command-zone-cast-counts .commander-cast-count:focus-visible {
+  filter: brightness(1.12);
+  transform: translateY(-1px);
+}
+
+.command-zone-cast-counts .commander-cast-count:focus-visible {
+  outline: 1px solid color-mix(in srgb, var(--commander-accent, #d7b46a) 78%, #fff7da);
+  outline-offset: 2px;
 }
 
 .sr-only {
@@ -281,6 +369,7 @@
   width: 1px;
   height: 1px;
   overflow: hidden;
+  pointer-events: none;
 }
 
 @keyframes zone-drop-settle-shell {
@@ -447,6 +536,12 @@
     height: 1.1rem;
     font-size: 0.64rem;
   }
+
+  .command-zone-cast-counts {
+    right: -0.28rem;
+    bottom: -0.28rem;
+    gap: 0.14rem;
+  }
 }
 
 @media (max-width: 430px) and (min-height: 769px) {
@@ -490,6 +585,12 @@
 
   .zone-count-badge,
   .commander-cast-count {
+    top: -0.24rem;
+    right: -0.24rem;
+    bottom: auto;
+  }
+
+  .command-zone-cast-counts {
     top: -0.24rem;
     right: -0.24rem;
     bottom: auto;
