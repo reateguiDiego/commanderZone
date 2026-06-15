@@ -4,7 +4,6 @@ import { GameCardInstance } from '../../../../../core/models/game.model';
 export interface CommandersStackCard {
   card: GameCardInstance;
   image: string | null;
-  castCount: number;
   accent: string;
   dragging: boolean;
   pendingTransfer: boolean;
@@ -25,12 +24,6 @@ interface CommandersStackCardMouseEvent {
   card: GameCardInstance;
 }
 
-interface CommandersStackCastChangeEvent {
-  event: MouseEvent;
-  card: GameCardInstance;
-  delta: number;
-}
-
 @Component({
   selector: 'app-commanders-stack',
   templateUrl: './commanders-stack.component.html',
@@ -40,13 +33,31 @@ interface CommandersStackCastChangeEvent {
 export class CommandersStackComponent {
   readonly playerId = input.required<string>();
   readonly cards = input.required<readonly CommandersStackCard[]>();
+  readonly canDrag = input(true);
 
   readonly pointerDragStarted = output<CommandersStackCardPointerEvent>();
   readonly nativeDragStarted = output<CommandersStackCardDragEvent>();
   readonly nativeDragEnded = output<DragEvent>();
   readonly cardPreviewShown = output<CommandersStackCardMouseEvent>();
   readonly cardPreviewHidden = output<void>();
-  readonly castCountChanged = output<CommandersStackCastChangeEvent>();
+
+  startPointerDrag(event: PointerEvent, card: GameCardInstance): void {
+    if (!this.canDrag()) {
+      return;
+    }
+
+    this.pointerDragStarted.emit({ event, card });
+  }
+
+  startNativeDrag(event: DragEvent, card: GameCardInstance): void {
+    if (!this.canDrag()) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+
+    this.nativeDragStarted.emit({ event, card });
+  }
 
   finishNativeDrag(event: DragEvent): void {
     event.stopPropagation();

@@ -308,6 +308,7 @@ interface ZoneGhostOptions {
   readonly sourceRect?: MotionSourceRect | null;
   readonly targetPlayerId: string;
   readonly targetZone: DropZoneTarget;
+  readonly battlefieldPosition?: { readonly x: number; readonly y: number };
   readonly dropEvent?: DragEvent;
 }
 
@@ -461,6 +462,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   readonly zonePreviewImage = (player: PlayerView, zone: GameZoneName): string | null => this.store.zonePreviewImage(player, zone);
   readonly zoneStackLayerImage = (player: PlayerView, zone: GameZoneName): string | null => this.store.zoneStackLayerImage(player, zone);
   readonly commandZoneCards = (player: PlayerView): readonly GameCardInstance[] => this.store.commandZoneCards(player);
+  readonly commanderCards = (player: PlayerView): readonly GameCardInstance[] => this.store.commanderCards(player);
   readonly commanderCastCount = (player: PlayerView, commander: GameCardInstance): number => this.store.commanderCastCount(player, commander);
   readonly playerCounterValue = (player: PlayerView, key: string): number => this.store.playerCounterValue(player.id, key);
   readonly deckLabel = (player: PlayerView | null): string => this.store.deckLabel(player);
@@ -1650,6 +1652,24 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     playFlip();
   }
 
+  private async animateHandReorderAfterAction(action: () => Promise<void>): Promise<void> {
+    const handCardSelector = '[data-zone="hand"][data-card-instance-id]';
+    const handRoot = this.gameScreen?.nativeElement ?? null;
+    const playFlip = handRoot
+      ? this.motion.prepareHandLayoutFlip(handRoot, handCardSelector)
+      : this.motion.prepareCardFlip(handCardSelector, { freezeHand: false });
+
+    try {
+      await action();
+    } catch (error) {
+      playFlip();
+      throw error;
+    }
+
+    this.changeDetectorRef.detectChanges();
+    playFlip();
+  }
+
   private handDragPayload(event: DragEvent): HandDragPayload | null {
     const raw = event.dataTransfer?.getData('application/json');
     if (!raw) {
@@ -1827,12 +1847,16 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       return;
     }
 
-    const ghostTarget = targetZone === 'battlefield'
-      ? this.createBattlefieldDropGhostTarget(target, options.dropEvent)
+    const battlefieldTarget = options.battlefieldPosition
+      ? this.dropZoneTargetElement(options.targetPlayerId, 'battlefield') ?? target
+      : target;
+    const usesBattlefieldPointTarget = targetZone === 'battlefield' || options.battlefieldPosition;
+    const ghostTarget = usesBattlefieldPointTarget
+      ? this.createBattlefieldDropGhostTarget(battlefieldTarget, options.dropEvent, options.battlefieldPosition)
       : { element: target };
 
     const ghostOptions = {
-      scaleToTarget: targetZone !== 'battlefield',
+      scaleToTarget: !usesBattlefieldPointTarget,
       rotate: -6,
       sourceRect: options.sourceRect,
       onComplete: ghostTarget.cleanup,
@@ -1889,23 +1913,27 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   private createBattlefieldDropGhostTarget(
     battlefieldTarget: HTMLElement,
     dropEvent?: DragEvent,
+    battlefieldPosition?: { readonly x: number; readonly y: number },
   ): { element: HTMLElement; cleanup?: () => void } {
-    if (!dropEvent) {
-      return { element: battlefieldTarget };
-    }
-
-    const { clientX, clientY } = dropEvent;
-    if (!Number.isFinite(clientX) || !Number.isFinite(clientY)) {
-      return { element: battlefieldTarget };
-    }
-
     const rect = battlefieldTarget.getBoundingClientRect();
     if (rect.width <= 0 || rect.height <= 0) {
       return { element: battlefieldTarget };
     }
 
-    const clampedX = Math.min(Math.max(clientX, rect.left), rect.right);
-    const clampedY = Math.min(Math.max(clientY, rect.top), rect.bottom);
+    const targetPoint = battlefieldPosition
+      ? {
+          x: rect.left + battlefieldPosition.x,
+          y: rect.top + battlefieldPosition.y,
+        }
+      : dropEvent
+        ? { x: dropEvent.clientX, y: dropEvent.clientY }
+        : null;
+    if (!targetPoint || !Number.isFinite(targetPoint.x) || !Number.isFinite(targetPoint.y)) {
+      return { element: battlefieldTarget };
+    }
+
+    const clampedX = Math.min(Math.max(targetPoint.x, rect.left), rect.right);
+    const clampedY = Math.min(Math.max(targetPoint.y, rect.top), rect.bottom);
     const element = document.createElement('span');
 
     element.style.position = 'fixed';
@@ -2031,6 +2059,14 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
 
   private dragPreviewElement(): HTMLElement | null {
     return this.gameScreen?.nativeElement.querySelector<HTMLElement>('.drag-card-preview') ?? null;
+  }
+
+  private zonePointerDragPreviewElement(): HTMLElement | null {
+    return this.gameScreen?.nativeElement.querySelector<HTMLElement>('.zone-floating-card') ?? null;
+  }
+
+  private handPointerDragPreviewElement(): HTMLElement | null {
+    return this.gameScreen?.nativeElement.querySelector<HTMLElement>('.hand-floating-card') ?? null;
   }
 
   private pointerHandDropTargetPlayerId(event: PointerEvent): string | null {
@@ -2680,10 +2716,19 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   }
 
   async handleHandCardPointerMoved(event: HandCardPointerMovedEvent): Promise<void> {
+    const sourceElement = this.handPointerDragPreviewElement();
     if (event.toZone === 'hand') {
       this.animateGhostToHand({
+        sourceElement,
         sourceInstanceId: event.movedInstanceId,
         targetPlayerId: event.targetPlayerId,
+      });
+    } else {
+      this.animateGhostToDropZone({
+        sourceElement,
+        sourceInstanceId: event.movedInstanceId,
+        targetPlayerId: event.targetPlayerId,
+        targetZone: event.rawZone === 'mana' ? 'mana' : event.toZone,
       });
     }
 
@@ -2718,16 +2763,20 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       return;
     }
 
+    const sourceElement = this.zonePointerDragPreviewElement();
     if (event.request.toZone === 'hand') {
       this.animateGhostToHand({
+        sourceElement,
         sourceInstanceId: event.request.instanceId,
         targetPlayerId: event.request.targetPlayerId,
       });
     } else {
       this.animateGhostToDropZone({
+        sourceElement,
         sourceInstanceId: event.request.instanceId,
         targetPlayerId: event.request.targetPlayerId,
         targetZone: event.request.rawZone === 'mana' ? 'mana' : event.request.toZone,
+        battlefieldPosition: event.request.toZone === 'battlefield' ? event.request.position : undefined,
       });
     }
 
@@ -2791,12 +2840,12 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   }
 
   async handleHandCardPointerReordered(event: HandCardPointerReorderedEvent): Promise<void> {
-    await this.animateHandLayoutAfterAction(() => this.store.reorderHandCard(
+    await this.animateHandReorderAfterAction(() => this.store.reorderHandCard(
       event.playerId,
       event.movedInstanceId,
       event.targetInstanceId,
       event.placement,
-    ), { freezeHand: false });
+    ));
   }
 
   cancelNumberAction(): void {

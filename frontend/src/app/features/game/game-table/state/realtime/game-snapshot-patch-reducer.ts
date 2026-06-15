@@ -149,10 +149,12 @@ function applyOperation(snapshot: GameSnapshot, operation: GameSnapshotPatchOper
       }));
 
     case 'card.projection.set':
-      return updateCard(snapshot, operation.playerId, operation.zone, operation.instanceId, () => ({
-        ...operation.card,
-        zone: operation.zone,
-      }));
+      return updateCard(snapshot, operation.playerId, operation.zone, operation.instanceId, (card) =>
+        preserveCommanderIdentity({
+          ...operation.card,
+          zone: operation.zone,
+        }, card),
+      );
 
     case 'card.counters.set':
       return updateCard(snapshot, operation.playerId, operation.zone, operation.instanceId, (card) => ({
@@ -527,7 +529,9 @@ function moveCard(snapshot: GameSnapshot, operation: Extract<GameSnapshotPatchOp
   const fromIndex = fromCards.findIndex((card) => card.instanceId === operation.instanceId);
   const hiddenPlaceholderIndex = fromIndex >= 0 ? -1 : fromCards.findIndex(isHiddenPlaceholder);
   const sourceCard = fromIndex >= 0 ? fromCards[fromIndex] : undefined;
-  const movingCard = operation.card ?? sourceCard;
+  const movingCard = operation.card
+    ? preserveCommanderIdentity(operation.card, operation.card.instanceId === sourceCard?.instanceId ? sourceCard : undefined)
+    : sourceCard;
   if (!movingCard && hiddenPlaceholderIndex < 0) {
     return { status: 'failed', reason: 'target_not_found' };
   }
@@ -552,7 +556,7 @@ function moveCard(snapshot: GameSnapshot, operation: Extract<GameSnapshotPatchOp
     : Math.min(operation.to.index, targetCardsAfterRemoval.length);
   const nextToCards = [
     ...targetCardsAfterRemoval.slice(0, insertIndex),
-    { ...movingCard, zone: operation.to.zone },
+    preserveCommanderIdentity({ ...movingCard, zone: operation.to.zone }, sourceCard),
     ...targetCardsAfterRemoval.slice(insertIndex),
   ];
 
@@ -620,7 +624,9 @@ function replaceVisibleZone(snapshot: GameSnapshot, playerId: string, zone: Game
     return { status: 'failed', reason: 'target_not_found' };
   }
 
-  return replaceZone(snapshot, playerId, zone, cards.map((card) => ({ ...card })));
+  return replaceZone(snapshot, playerId, zone, cards.map((card) =>
+    preserveCommanderIdentity({ ...card }, cardByInstanceId(player, card.instanceId)),
+  ));
 }
 
 function replaceZoneSnapshotOnly(snapshot: GameSnapshot, playerId: string, zone: GameZoneName, cards: GameCardInstance[]): GameSnapshot {
@@ -640,6 +646,27 @@ function replaceZoneSnapshotOnly(snapshot: GameSnapshot, playerId: string, zone:
       },
     },
   };
+}
+
+function preserveCommanderIdentity(card: GameCardInstance, previousCard?: GameCardInstance): GameCardInstance {
+  if (card.isCommander !== undefined) {
+    return card;
+  }
+
+  return previousCard?.isCommander === true || card.zone === 'command'
+    ? { ...card, isCommander: true }
+    : card;
+}
+
+function cardByInstanceId(player: GamePlayerState, instanceId: string): GameCardInstance | undefined {
+  for (const zone of ZONE_NAMES) {
+    const card = player.zones[zone].find((candidate) => candidate.instanceId === instanceId);
+    if (card) {
+      return card;
+    }
+  }
+
+  return undefined;
 }
 
 function updateChatMessage(snapshot: GameSnapshot, message: GameSnapshot['chat'][number]): OperationResult {

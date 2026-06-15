@@ -86,6 +86,10 @@ export class GameTablePlayersStore {
     return this.selectors.commandZoneCards(player);
   }
 
+  commanderCards(player: PlayerView): readonly GameCardInstance[] {
+    return this.selectors.commanderCards(player);
+  }
+
   commanderCastCount(player: PlayerView, commander?: GameCardInstance | null): number {
     const resolvedCommander = commander ?? this.selectors.primaryCommander(player);
     if (!resolvedCommander) {

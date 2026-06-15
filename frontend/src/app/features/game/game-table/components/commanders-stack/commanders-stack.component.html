@@ -11,9 +11,9 @@
       [attr.data-player-id]="playerId()"
       [attr.data-card-id]="item.card.instanceId"
       [attr.data-motion-origin-card-id]="item.card.instanceId"
-      [attr.draggable]="true"
-      (pointerdown)="pointerDragStarted.emit({ event: $event, card: item.card })"
-      (dragstart)="nativeDragStarted.emit({ event: $event, card: item.card })"
+      [attr.draggable]="canDrag() ? 'false' : null"
+      (pointerdown)="startPointerDrag($event, item.card)"
+      (dragstart)="startNativeDrag($event, item.card)"
       (dragend)="finishNativeDrag($event)"
       (mouseenter)="cardPreviewShown.emit({ event: $event, card: item.card })"
       (mouseleave)="cardPreviewHidden.emit()"
@@ -30,23 +30,4 @@
       }
     </span>
   }
-  <span class="commanders-stack-cast-counts">
-    @for (item of cards(); track item.card.instanceId) {
-      <button
-        type="button"
-        class="commander-cast-count active"
-        [class.hidden-commander-cast-count]="item.dragging || item.pendingTransfer"
-        data-testid="commander-cast-count"
-        [style.--commander-accent]="item.accent"
-        [attr.data-player-id]="playerId()"
-        [attr.data-card-id]="item.card.instanceId"
-        [attr.title]="item.card.name"
-        [attr.aria-label]="'Commander casts for ' + item.card.name"
-        (click)="castCountChanged.emit({ event: $event, card: item.card, delta: 1 })"
-        (contextmenu)="castCountChanged.emit({ event: $event, card: item.card, delta: -1 })"
-      >
-        {{ item.castCount }}
-      </button>
-    }
-  </span>
 </div>

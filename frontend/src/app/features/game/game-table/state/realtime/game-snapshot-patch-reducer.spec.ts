@@ -149,6 +149,50 @@ describe('game snapshot patch reducer', () => {
     }));
   });
 
+  it('preserves commander identity when a moved card payload omits isCommander', () => {
+    const snapshot = snapshotFixture();
+
+    const result = applyGameSnapshotPatch(snapshot, patch([
+      {
+        op: 'card.move',
+        instanceId: 'commander-1',
+        from: { playerId: 'player-1', zone: 'command' },
+        to: { playerId: 'player-1', zone: 'graveyard' },
+        card: card('commander-1', { zone: 'graveyard' }),
+      },
+    ]));
+
+    expect(result.status).toBe('applied');
+    expect(result.snapshot.players['player-1'].zones.graveyard.at(-1)).toEqual(expect.objectContaining({
+      instanceId: 'commander-1',
+      isCommander: true,
+      zone: 'graveyard',
+    }));
+  });
+
+  it('preserves commander identity when replacing a visible zone omits isCommander', () => {
+    const snapshot = snapshotFixture();
+    snapshot.players['player-1'].zones.graveyard = [
+      card('commander-1', { zone: 'graveyard', isCommander: true }),
+    ];
+
+    const result = applyGameSnapshotPatch(snapshot, patch([
+      {
+        op: 'zone.visible.set',
+        playerId: 'player-1',
+        zone: 'graveyard',
+        cards: [card('commander-1', { zone: 'graveyard' })],
+      },
+    ]));
+
+    expect(result.status).toBe('applied');
+    expect(result.snapshot.players['player-1'].zones.graveyard[0]).toEqual(expect.objectContaining({
+      instanceId: 'commander-1',
+      isCommander: true,
+      zone: 'graveyard',
+    }));
+  });
+
   it('removes a hidden placeholder when a private source card becomes visible', () => {
     const snapshot = snapshotFixture();
     snapshot.players['player-2'].zones.hand = [

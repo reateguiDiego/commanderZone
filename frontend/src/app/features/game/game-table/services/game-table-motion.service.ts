@@ -872,6 +872,7 @@ export class GameTableMotionService {
     }
 
     const ghost = source.cloneNode(true) as HTMLElement;
+    this.prepareGhostClone(ghost);
     ghost.setAttribute('aria-hidden', 'true');
     ghost.classList.add('cz-motion-ghost');
     ghost.style.position = 'fixed';
@@ -887,6 +888,19 @@ export class GameTableMotionService {
     document.body.appendChild(ghost);
 
     return ghost;
+  }
+
+  private prepareGhostClone(ghost: HTMLElement): void {
+    const transientClasses = [
+      'dragging-zone-card',
+      'dragging-command-zone-card',
+      'transfer-pending',
+      'transfer-pending-command-zone-card',
+    ];
+    ghost.classList.remove(...transientClasses);
+    ghost.querySelectorAll<HTMLElement>(`.${transientClasses.join(',.')}`).forEach((element) => {
+      element.classList.remove(...transientClasses);
+    });
   }
 
   private bestVisibleElement(elements: readonly HTMLElement[]): HTMLElement | null {

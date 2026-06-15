@@ -1,4 +1,4 @@
-import { AfterViewChecked, ChangeDetectionStrategy, Component, ElementRef, HostListener, OnChanges, OnDestroy, computed, inject, input, output, signal } from '@angular/core';
+import { AfterViewChecked, ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, HostListener, OnChanges, OnDestroy, computed, inject, input, output, signal } from '@angular/core';
 import { GameCardInstance, GameZoneName } from '../../../../../core/models/game.model';
 import { PrettyScrollDirective } from '../../../../../shared/ui/pretty-scroll/pretty-scroll.directive';
 import { PlayerView } from '../../game-table.store';
@@ -6,6 +6,7 @@ import { GameCardViewComponent } from '../game-card-view/game-card-view.componen
 import { GameTablePointerDragService, HandPointerDropPreview, PointerDropTarget } from '../../services/game-table-pointer-drag.service';
 import { CardPreviewEvent, previewRectFromElement } from '../../models/card-preview.model';
 import { GameTableMotionService } from '../../services/game-table-motion.service';
+import { knownCommanderInstanceIdsFromPlayerState } from '../../utils/command-zone-drop';
 
 interface HandZoneDropEvent {
   event: DragEvent;
@@ -79,6 +80,7 @@ interface ResolvedHandPointerDrag {
 })
 export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, OnDestroy {
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly changeDetectorRef = inject(ChangeDetectorRef);
   private readonly pointerDragService = inject(GameTablePointerDragService);
   private readonly motion = inject(GameTableMotionService, { optional: true });
   private readonly revealDelayMs = 200;
@@ -350,14 +352,15 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
         ? drag.preview
         : null;
     if (reorderPreview) {
+      this.keepHandOpenAfterReorder(event, drag.playerId);
+      this.pointerDrag.set(null);
+      this.changeDetectorRef.detectChanges();
       this.handCardPointerReordered.emit({
         playerId: drag.playerId,
         movedInstanceId: drag.card.instanceId,
         targetInstanceId: reorderPreview.targetInstanceId,
         placement: reorderPreview.placement,
       });
-      this.keepHandOpenAfterReorder(event, drag.playerId);
-      this.clearPointerDragAfterReorder(drag.pointerId);
       return;
     }
 
@@ -1332,21 +1335,6 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
     this.reorderPreviewTimer = null;
   }
 
-  private clearPointerDragAfterReorder(pointerId: number): void {
-    const activeDrag = this.pointerDrag();
-    if (activeDrag?.pointerId === pointerId) {
-      this.pointerDrag.set(null);
-      return;
-    }
-
-    window.setTimeout(() => {
-      const pendingDrag = this.pointerDrag();
-      if (pendingDrag?.pointerId === pointerId) {
-        this.pointerDrag.set(null);
-      }
-    }, 120);
-  }
-
   private scrollHandRowToPointerAnchor(): void {
     if (this.motionActive()) {
       return;
@@ -1468,6 +1456,9 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
       height: drag.cardHeight,
       offsetX: drag.offsetX,
       offsetY: drag.offsetY,
+    }, {
+      draggedCard: drag.card,
+      knownCommanderInstanceIds: this.knownCommanderIds(),
     });
     if (target && !insideOwnHand) {
       return {
@@ -1494,6 +1485,12 @@ export class PlayerHandPanelComponent implements AfterViewChecked, OnChanges, On
     }
 
     return { mode: 'transfer', target: null, preview: null, overOwnHand: false };
+  }
+
+  private knownCommanderIds(): ReadonlySet<string> {
+    const player = this.player();
+
+    return player.knownCommanderInstanceIds ?? knownCommanderInstanceIdsFromPlayerState(player.state);
   }
 
   private isPointerDragInsideRevealedHand(event: PointerEvent, drag: HandPointerDrag): boolean {

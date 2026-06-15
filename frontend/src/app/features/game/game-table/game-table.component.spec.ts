@@ -1149,12 +1149,16 @@ describe('GameTableComponent', () => {
     })));
   });
 
-  it('delegates hand pointer moves without drag-drop motion effects', async () => {
+  it('animates hand pointer moves from the floating hand card into zone targets', async () => {
     const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
     const motion = fixture.debugElement.injector.get(GameTableMotionService);
-    const throwGhost = vi.spyOn(motion, 'throwGhost').mockImplementation(() => undefined);
-    const impactZone = vi.spyOn(motion, 'impactZone').mockImplementation(() => undefined);
+    const throwElementGhost = vi.spyOn(motion, 'throwElementGhost').mockImplementation(() => undefined);
     const moveHandCardByPointer = vi.spyOn(fixture.componentInstance.store, 'moveHandCardByPointer').mockResolvedValue(undefined);
+    const target = appendDropZone(fixture.nativeElement, 'user-2', 'battlefield');
+    const floatingCard = document.createElement('div');
+    floatingCard.className = 'hand-floating-card';
+    fixture.nativeElement.querySelector('[data-testid="game-screen"]')?.appendChild(floatingCard);
 
     await fixture.componentInstance.handleHandCardPointerMoved({
       playerId: 'user-1',
@@ -1164,8 +1168,10 @@ describe('GameTableComponent', () => {
       position: { x: 12, y: 34 },
     });
 
-    expect(throwGhost).not.toHaveBeenCalled();
-    expect(impactZone).not.toHaveBeenCalled();
+    expect(throwElementGhost).toHaveBeenCalledWith(floatingCard, target, expect.objectContaining({
+      scaleToTarget: false,
+      rotate: -6,
+    }));
     expect(moveHandCardByPointer).toHaveBeenCalledWith('user-1', 'user-2', 'hand-1', 'battlefield', { x: 12, y: 34 }, undefined);
   });
 
@@ -1662,7 +1668,7 @@ describe('GameTableComponent', () => {
     const motion = fixture.debugElement.injector.get(GameTableMotionService);
     const calls: string[] = [];
     const playFlip = vi.fn(() => calls.push('playFlip'));
-    const prepareHandDropHandoff = vi.spyOn(motion, 'prepareHandDropHandoff').mockImplementation((selector?: string, options?: { readonly freezeHand?: boolean }) => {
+    const prepareCardFlip = vi.spyOn(motion, 'prepareCardFlip').mockImplementation((selector?: string, options?: { readonly freezeHand?: boolean }) => {
       calls.push(`prepare:${selector ?? ''}`);
       if (options) {
         calls.push(`freeze:${String(options.freezeHand)}`);
@@ -1680,7 +1686,7 @@ describe('GameTableComponent', () => {
       placement: 'before',
     });
 
-    expect(prepareHandDropHandoff).toHaveBeenCalledWith('[data-zone="hand"][data-card-instance-id]', { freezeHand: false });
+    expect(prepareCardFlip).toHaveBeenCalledWith('[data-zone="hand"][data-card-instance-id]', { freezeHand: false });
     expect(reorderHandCard).toHaveBeenCalledWith('user-1', 'hand-2', 'hand-1', 'before');
     expect(playFlip).toHaveBeenCalledOnce();
     expect(calls).toEqual(['prepare:[data-zone="hand"][data-card-instance-id]', 'freeze:false', 'reorder', 'playFlip']);
@@ -3047,6 +3053,173 @@ describe('GameTableComponent', () => {
         toZone: 'battlefield',
         targetPlayerId: 'user-1',
         instanceId: topLibraryCard.instanceId,
+      }),
+    }), 'game-1');
+  });
+
+  it.each(['graveyard', 'exile'] as const)('moves a first-position %s commander onto command through the zone pointer path', async (zone) => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    const playerState = snapshot.players['user-1']!;
+    const commander: GameCardInstance = {
+      ...playerState.zones.battlefield[0]!,
+      instanceId: 'commander-1',
+      ownerId: 'user-1',
+      controllerId: 'user-1',
+      name: 'Rograkh, Son of Rohgahh',
+      zone,
+      isCommander: true,
+    };
+    const normalCard: GameCardInstance = {
+      ...playerState.zones.battlefield[0]!,
+      instanceId: `${zone}-card-2`,
+      ownerId: 'user-1',
+      controllerId: 'user-1',
+      name: 'Sol Ring',
+      zone,
+      isCommander: false,
+    };
+    playerState.zones[zone] = [commander, normalCard];
+    playerState.zoneCounts![zone] = 2;
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+    gameplayWebsocketCommand.mockReturnValue(of({
+      event: { id: 'event-move', type: 'card.moved', payload: {}, createdBy: 'user-1', createdAt: '' },
+      snapshot,
+    }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await vi.waitFor(() => expect(fixture.componentInstance.store.loading()).toBe(false));
+    fixture.detectChanges();
+
+    const sourceButton = Array.from<HTMLElement>(fixture.nativeElement.querySelectorAll('.zone-stack'))
+      .find((element) => element.getAttribute('data-zone') === zone);
+    expect(sourceButton).toBeTruthy();
+    expect(sourceButton!.getAttribute('draggable')).toBeNull();
+    const commandTarget = Array.from<HTMLElement>(fixture.nativeElement.querySelectorAll('.zone-stack'))
+      .find((element) => element.getAttribute('data-zone') === 'command');
+    expect(commandTarget).toBeTruthy();
+    commandTarget!.getBoundingClientRect = () => ({
+      x: 320,
+      y: 40,
+      width: 92,
+      height: 128,
+      top: 40,
+      left: 320,
+      bottom: 168,
+      right: 412,
+      toJSON: () => ({}),
+    }) as DOMRect;
+    const motion = fixture.debugElement.injector.get(GameTableMotionService);
+    const throwElementGhost = vi.spyOn(motion, 'throwElementGhost').mockImplementation(() => undefined);
+    vi.spyOn(motion, 'impactZone').mockImplementation(() => undefined);
+    const floatingCard = document.createElement('div');
+    floatingCard.className = 'zone-floating-card';
+    fixture.nativeElement.querySelector('[data-testid="game-screen"]')?.appendChild(floatingCard);
+
+    fixture.componentInstance.handleZonePointerDragStarted({
+      playerId: 'user-1',
+      zone,
+      card: commander,
+    });
+    await fixture.componentInstance.handleZonePointerDropped({
+      moved: true,
+      request: {
+        playerId: 'user-1',
+        targetPlayerId: 'user-1',
+        fromZone: zone,
+        toZone: 'command',
+        instanceId: 'commander-1',
+        rawZone: 'command',
+      },
+    });
+    await fixture.whenStable();
+
+    expect(throwElementGhost).toHaveBeenCalledWith(floatingCard, expect.any(HTMLElement), expect.objectContaining({
+      scaleToTarget: true,
+      rotate: -6,
+    }));
+    expect(gameplayWebsocketCommand).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'card.moved',
+      payload: expect.objectContaining({
+        playerId: 'user-1',
+        fromZone: zone,
+        toZone: 'command',
+        targetPlayerId: 'user-1',
+        instanceId: 'commander-1',
+      }),
+    }), 'game-1');
+  });
+
+  it('drops the selected command stack commander onto the battlefield through the pointer drag path', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    const playerState = snapshot.players['user-1']!;
+    const firstCommander: GameCardInstance = {
+      ...playerState.zones.battlefield[0]!,
+      instanceId: 'commander-1',
+      ownerId: 'user-1',
+      controllerId: 'user-1',
+      name: 'Rograkh, Son of Rohgahh',
+      zone: 'command',
+      isCommander: true,
+    };
+    const secondCommander: GameCardInstance = {
+      ...playerState.zones.battlefield[0]!,
+      instanceId: 'commander-2',
+      ownerId: 'user-1',
+      controllerId: 'user-1',
+      name: 'Silas Renn, Seeker Adept',
+      zone: 'command',
+      isCommander: true,
+    };
+    playerState.zones.command = [firstCommander, secondCommander];
+    playerState.zoneCounts = { ...playerState.zoneCounts!, command: 2 };
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+    gameplayWebsocketCommand.mockReturnValue(of({
+      event: { id: 'event-move', type: 'card.moved', payload: {}, createdBy: 'user-1', createdAt: '' },
+      snapshot,
+    }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await vi.waitFor(() => expect(fixture.componentInstance.store.loading()).toBe(false));
+    fixture.detectChanges();
+
+    const commandCards = Array.from<HTMLElement>(fixture.nativeElement.querySelectorAll('[data-testid="command-zone-card"]'));
+    expect(commandCards.map((element) => element.dataset['cardId'])).toContain('commander-2');
+
+    fixture.componentInstance.handleZonePointerDragStarted({
+      playerId: 'user-1',
+      zone: 'command',
+      card: secondCommander,
+    });
+    await fixture.componentInstance.handleZonePointerDropped({
+      moved: true,
+      request: {
+        playerId: 'user-1',
+        targetPlayerId: 'user-1',
+        fromZone: 'command',
+        toZone: 'battlefield',
+        instanceId: 'commander-2',
+        rawZone: 'battlefield',
+        position: { x: 100, y: 120 },
+      },
+    });
+    await fixture.whenStable();
+
+    expect(gameplayWebsocketCommand).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'card.moved',
+      payload: expect.objectContaining({
+        playerId: 'user-1',
+        fromZone: 'command',
+        toZone: 'battlefield',
+        targetPlayerId: 'user-1',
+        instanceId: 'commander-2',
       }),
     }), 'game-1');
   });

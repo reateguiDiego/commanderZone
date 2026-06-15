@@ -1,10 +1,11 @@
 import { Injectable } from '@angular/core';
 import { Card } from '../../../../core/models/card.model';
-import { GameCardInstance, GameCardPosition, GameCommandType, GameZoneName } from '../../../../core/models/game.model';
+import { GameCardInstance, GameCardPosition, GameCommandType, GameSnapshot, GameZoneName } from '../../../../core/models/game.model';
 import { GameContextMenu } from '../state/core/game-table-ui.state';
 import { ZoneModalState } from '../state/zones/game-table-zone-modal.state';
 import type { PendingBattlefieldMove, PendingLibraryMove } from './game-table-drop-actions.service';
 import { buildLandStackGroups, landStackGroupContaining, removeLandStackMoves } from '../utils/land-stack';
+import { canDropCardsOnZone, COMMAND_ZONE_DROP_ERROR, knownCommanderInstanceIds } from '../utils/command-zone-drop';
 
 export interface GameTableCardSelection {
   playerId: string;
@@ -13,6 +14,7 @@ export interface GameTableCardSelection {
 }
 
 export interface GameTableCardActionContext {
+  snapshot(): GameSnapshot | null;
   canControlPlayer(playerId: string): boolean;
   activeKeyboardCard(): GameTableCardSelection | null;
   selectedCards(): GameTableCardSelection[];
@@ -101,6 +103,10 @@ export class GameTableCardActionsService {
       return;
     }
     const targets = this.actionTargets(context, menu);
+    if (!this.canMoveCardsToZone(context, toZone, targets.map((item) => item.card))) {
+      this.endBlockedMove(context);
+      return;
+    }
     if (targets.length > 1) {
       const first = targets[0]!;
       const payload: Record<string, unknown> = {
@@ -277,6 +283,10 @@ export class GameTableCardActionsService {
     }
 
     const instanceIds = selected.map((item) => item.card.instanceId);
+    if (!this.canMoveCardsToZone(context, toZone, selected.map((item) => item.card))) {
+      context.setError(COMMAND_ZONE_DROP_ERROR);
+      return;
+    }
     if (toZone === 'library') {
       context.setPendingLibraryMove({
         cardName: `${selected.length} cards`,
@@ -358,6 +368,10 @@ export class GameTableCardActionsService {
 
     const item = context.activeKeyboardCard();
     if (!item || !context.canControlPlayer(item.playerId)) {
+      return;
+    }
+    if (!this.canMoveCardsToZone(context, toZone, [item.card])) {
+      context.setError(COMMAND_ZONE_DROP_ERROR);
       return;
     }
 
@@ -669,6 +683,10 @@ export class GameTableCardActionsService {
       context.setError('You can only move your own cards.');
       return;
     }
+    if (!this.canMoveCardsToZone(context, toZone, [card])) {
+      context.setError(COMMAND_ZONE_DROP_ERROR);
+      return;
+    }
 
     await context.command('card.moved', {
       playerId: modal.playerId,
@@ -695,5 +713,18 @@ export class GameTableCardActionsService {
       to: 'all',
     });
     await context.loadZone();
+  }
+
+  private canMoveCardsToZone(
+    context: Pick<GameTableCardActionContext, 'snapshot'>,
+    toZone: GameZoneName,
+    cards: readonly GameCardInstance[],
+  ): boolean {
+    return canDropCardsOnZone(toZone, cards, knownCommanderInstanceIds(context.snapshot()));
+  }
+
+  private endBlockedMove(context: Pick<GameTableCardActionContext, 'setError' | 'closeContextMenu'>): void {
+    context.setError(COMMAND_ZONE_DROP_ERROR);
+    context.closeContextMenu();
   }
 }
