@@ -357,6 +357,7 @@ export class ZonePilesPanelComponent {
   private clearZonePointerDragVisuals(): void {
     this.pointerDragStartedInstanceId = null;
     this.draggingVisualZone.set(null);
+    this.zonePointerDrag.clearDropPreview();
   }
 
   private nativeDragSourceElement(event: DragEvent, zone?: GameZoneName): HTMLElement | null {

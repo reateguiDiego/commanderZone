@@ -305,6 +305,7 @@ interface ZoneGhostOptions {
   readonly sourceRect?: MotionSourceRect | null;
   readonly targetPlayerId: string;
   readonly targetZone: DropZoneTarget;
+  readonly battlefieldPosition?: { readonly x: number; readonly y: number };
   readonly dropEvent?: DragEvent;
 }
 
@@ -1819,12 +1820,16 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       return;
     }
 
-    const ghostTarget = targetZone === 'battlefield'
-      ? this.createBattlefieldDropGhostTarget(target, options.dropEvent)
+    const battlefieldTarget = options.battlefieldPosition
+      ? this.dropZoneTargetElement(options.targetPlayerId, 'battlefield') ?? target
+      : target;
+    const usesBattlefieldPointTarget = targetZone === 'battlefield' || options.battlefieldPosition;
+    const ghostTarget = usesBattlefieldPointTarget
+      ? this.createBattlefieldDropGhostTarget(battlefieldTarget, options.dropEvent, options.battlefieldPosition)
       : { element: target };
 
     const ghostOptions = {
-      scaleToTarget: targetZone !== 'battlefield',
+      scaleToTarget: !usesBattlefieldPointTarget,
       rotate: -6,
       sourceRect: options.sourceRect,
       onComplete: ghostTarget.cleanup,
@@ -1881,23 +1886,27 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   private createBattlefieldDropGhostTarget(
     battlefieldTarget: HTMLElement,
     dropEvent?: DragEvent,
+    battlefieldPosition?: { readonly x: number; readonly y: number },
   ): { element: HTMLElement; cleanup?: () => void } {
-    if (!dropEvent) {
-      return { element: battlefieldTarget };
-    }
-
-    const { clientX, clientY } = dropEvent;
-    if (!Number.isFinite(clientX) || !Number.isFinite(clientY)) {
-      return { element: battlefieldTarget };
-    }
-
     const rect = battlefieldTarget.getBoundingClientRect();
     if (rect.width <= 0 || rect.height <= 0) {
       return { element: battlefieldTarget };
     }
 
-    const clampedX = Math.min(Math.max(clientX, rect.left), rect.right);
-    const clampedY = Math.min(Math.max(clientY, rect.top), rect.bottom);
+    const targetPoint = battlefieldPosition
+      ? {
+          x: rect.left + battlefieldPosition.x,
+          y: rect.top + battlefieldPosition.y,
+        }
+      : dropEvent
+        ? { x: dropEvent.clientX, y: dropEvent.clientY }
+        : null;
+    if (!targetPoint || !Number.isFinite(targetPoint.x) || !Number.isFinite(targetPoint.y)) {
+      return { element: battlefieldTarget };
+    }
+
+    const clampedX = Math.min(Math.max(targetPoint.x, rect.left), rect.right);
+    const clampedY = Math.min(Math.max(targetPoint.y, rect.top), rect.bottom);
     const element = document.createElement('span');
 
     element.style.position = 'fixed';
@@ -2732,6 +2741,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
         sourceInstanceId: event.request.instanceId,
         targetPlayerId: event.request.targetPlayerId,
         targetZone: event.request.rawZone === 'mana' ? 'mana' : event.request.toZone,
+        battlefieldPosition: event.request.toZone === 'battlefield' ? event.request.position : undefined,
       });
     }
 

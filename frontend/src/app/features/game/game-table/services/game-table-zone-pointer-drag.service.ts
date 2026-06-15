@@ -128,7 +128,6 @@ export class GameTableZonePointerDragService {
     const moved = Boolean(this.activeDrag?.dragging || move?.dragging);
     this.releasePointer(active, event);
     this.activeDrag = null;
-    this.dragMove.set(null);
 
     if (!moved) {
       return { source: active.source, request: null, moved: false };
@@ -155,6 +154,10 @@ export class GameTableZonePointerDragService {
     this.dragMove.set(null);
 
     return { source: active.source, request: null, moved: active.dragging };
+  }
+
+  clearDropPreview(): void {
+    this.dragMove.set(null);
   }
 
   private dropTarget(
