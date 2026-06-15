@@ -70,6 +70,25 @@
   object-fit: contain;
 }
 
+.submenu-item-mana-icon {
+  --submenu-mechanic-icon-gold: var(--gold, var(--game-accent, #d7b46a));
+
+  display: inline-grid;
+  width: 1.06rem;
+  height: 1.06rem;
+  flex: 0 0 auto;
+  place-items: center;
+  color: var(--submenu-mechanic-icon-gold);
+  font-size: 1rem;
+  line-height: 1;
+  text-align: center;
+}
+
+.submenu-item-mana-icon {
+  font-size: 1.08rem;
+  filter: drop-shadow(0 0.05rem 0.12rem rgb(0 0 0 / 55%));
+}
+
 .submenu-item-graveyard-icon {
   width: 1.12rem;
   height: 1.12rem;

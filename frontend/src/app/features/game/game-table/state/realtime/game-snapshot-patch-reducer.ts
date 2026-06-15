@@ -146,6 +146,7 @@ function applyOperation(snapshot: GameSnapshot, operation: GameSnapshotPatchOper
         ...(operation.hidden !== undefined ? { hidden: operation.hidden } : {}),
         ...(operation.revealedTo !== undefined ? { revealedTo: [...operation.revealedTo] } : {}),
         ...(operation.counters !== undefined ? { counters: { ...operation.counters } } : {}),
+        ...(operation.dungeonMarker !== undefined ? { dungeonMarker: operation.dungeonMarker ? { ...operation.dungeonMarker } : null } : {}),
       }));
 
     case 'card.projection.set':

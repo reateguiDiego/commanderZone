@@ -162,6 +162,20 @@ describe('attachment stack layout', () => {
     )).toBeNull();
   });
 
+  it('rejects emblems and dungeons as attachment sources or targets', () => {
+    const sourceEmblem = { ...card('source-emblem', 90, 78, 'Emblem'), layout: 'emblem' };
+    const targetEmblem = { ...card('target-emblem', 100, 80, 'Emblem'), layout: 'emblem' };
+    const sourceDungeon = { ...card('source-dungeon', 90, 78, 'Dungeon'), layout: 'dungeon' };
+    const targetDungeon = { ...card('target-dungeon', 100, 80, 'Dungeon'), layout: 'dungeon' };
+    const equipment = card('equipment', 90, 78);
+    const target = card('target', 100, 80);
+
+    expect(attachmentDropTarget([sourceEmblem, target], [], sourceEmblem.instanceId, { x: 90, y: 78 }, positionFor)).toBeNull();
+    expect(attachmentDropTarget([equipment, targetEmblem], [], equipment.instanceId, { x: 100, y: 80 }, positionFor)).toBeNull();
+    expect(attachmentDropTarget([sourceDungeon, target], [], sourceDungeon.instanceId, { x: 90, y: 78 }, positionFor)).toBeNull();
+    expect(attachmentDropTarget([equipment, targetDungeon], [], equipment.instanceId, { x: 100, y: 80 }, positionFor)).toBeNull();
+  });
+
   it('rejects attachment drops when the target belongs to a land stack', () => {
     const targetStack = [
       card('equipment', 100, 80),

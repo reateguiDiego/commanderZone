@@ -189,7 +189,7 @@ final class GameSpecialEntityCommandHandler
         $snapshot['specialEntities'] = $this->normalizeEntities($snapshot, $specialEntities);
 
         return [
-            'log' => $this->createdMessage($entity),
+            'log' => $this->createdMessage($snapshot, $entity),
             'eventPayload' => [
                 'template' => $entity['template'],
                 'ownerPlayerId' => $entity['ownerPlayerId'],
@@ -504,7 +504,7 @@ final class GameSpecialEntityCommandHandler
         return null;
     }
 
-    private function createdMessage(array $entity): string
+    private function createdMessage(array $snapshot, array $entity): string
     {
         return match ($entity['template']) {
             'monarch' => 'Became the monarch.',
@@ -512,7 +512,7 @@ final class GameSpecialEntityCommandHandler
             'citys_blessing' => 'Got the city\'s blessing.',
             'day_night' => (($entity['state']['mode'] ?? 'day') === 'night') ? 'Set the game to night.' : 'Set the game to day.',
             'the_ring' => 'Created The Ring.',
-            'emblem' => sprintf('Created emblem %s.', (string) ($entity['card']['name'] ?? '')),
+            'emblem' => sprintf('%s gets emblem %s.', $this->playerName($snapshot, (string) ($entity['ownerPlayerId'] ?? '')), (string) ($entity['card']['name'] ?? '')),
             'dungeon' => sprintf('Entered dungeon %s.', (string) ($entity['card']['name'] ?? '')),
             default => 'Created a helper.',
         };
@@ -555,6 +555,19 @@ final class GameSpecialEntityCommandHandler
         }
 
         return sprintf('Set %s as Ring-bearer.', (string) ($card['name'] ?? ''));
+    }
+
+    private function playerName(array $snapshot, string $playerId): string
+    {
+        $player = $snapshot['players'][$playerId] ?? null;
+        if (!is_array($player)) {
+            return 'Player';
+        }
+
+        $user = is_array($player['user'] ?? null) ? $player['user'] : [];
+        $displayName = trim((string) ($user['displayName'] ?? ''));
+
+        return $displayName !== '' ? $displayName : $playerId;
     }
 
     private function normalizedDateTime(mixed $value): string

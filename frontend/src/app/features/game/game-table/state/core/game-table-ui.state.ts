@@ -1,5 +1,5 @@
 import { Injectable, signal } from '@angular/core';
-import { GameCardInstance, GameZoneName } from '../../../../../core/models/game.model';
+import { GameCardDungeonMarker, GameCardInstance, GameZoneName } from '../../../../../core/models/game.model';
 import { CARD_PREVIEW_HOVER_DELAY_MS, CardPreviewEvent, CardPreviewSourceRect } from '../../models/card-preview.model';
 
 const CONTEXT_MENU_WIDTH = 264;
@@ -32,6 +32,11 @@ export interface HoveredCardSelection {
   card: GameCardInstance;
 }
 
+export interface DungeonMarkerPreviewOverride {
+  readonly instanceId: string;
+  readonly marker: GameCardDungeonMarker;
+}
+
 type CardPreviewMode = 'hover' | 'pinned';
 
 @Injectable()
@@ -42,6 +47,7 @@ export class GameTableUiState {
   readonly focusedPlayerId = signal<string | null>(null);
   readonly hoveredCard = signal<GameCardInstance | null>(null);
   readonly hoveredPreview = signal<CardPreviewEvent | null>(null);
+  readonly dungeonMarkerPreviewOverride = signal<DungeonMarkerPreviewOverride | null>(null);
   readonly contextMenu = signal<GameContextMenu | null>(null);
   readonly activeFloatingTab = signal<'chat' | 'log'>('log');
   readonly floatingPanel = signal({ x: 24, y: 120 });
@@ -77,6 +83,7 @@ export class GameTableUiState {
         return;
       }
 
+      this.syncDungeonMarkerPreviewOverride(card);
       this.hoveredCard.set(card);
       this.hoveredPreview.set(preview);
       this.hoveredSelection = preview.playerId && preview.zone ? { playerId: preview.playerId, zone: preview.zone, card } : null;
@@ -108,16 +115,40 @@ export class GameTableUiState {
       return;
     }
 
+    this.syncDungeonMarkerPreviewOverride(card);
     this.hoveredCard.set(card);
     this.hoveredPreview.set(preview);
     this.hoveredSelection = preview.playerId && preview.zone ? { playerId: preview.playerId, zone: preview.zone, card } : null;
     this.cardPreviewMode = 'pinned';
   }
 
+  showImmediateCardPreview(preview: CardPreviewEvent, isDragging: () => boolean): void {
+    this.clearHoverPreviewTimer();
+    if (this.contextMenu()) {
+      return;
+    }
+
+    const card = preview.card;
+    if (card.hidden || isDragging()) {
+      return;
+    }
+
+    this.syncDungeonMarkerPreviewOverride(card);
+    this.hoveredCard.set(card);
+    this.hoveredPreview.set(preview);
+    this.hoveredSelection = preview.playerId && preview.zone ? { playerId: preview.playerId, zone: preview.zone, card } : null;
+    this.cardPreviewMode = 'hover';
+  }
+
+  setDungeonMarkerPreviewOverride(override: DungeonMarkerPreviewOverride | null): void {
+    this.dungeonMarkerPreviewOverride.set(override);
+  }
+
   clearCardPreview(): void {
     this.clearHoverPreviewTimer();
     this.hoveredCard.set(null);
     this.hoveredPreview.set(null);
+    this.dungeonMarkerPreviewOverride.set(null);
     this.hoveredSelection = null;
     this.cardPreviewMode = null;
   }
@@ -192,6 +223,13 @@ export class GameTableUiState {
     if (this.hoverPreviewHandle !== undefined) {
       window.clearTimeout(this.hoverPreviewHandle);
       this.hoverPreviewHandle = undefined;
+    }
+  }
+
+  private syncDungeonMarkerPreviewOverride(card: GameCardInstance): void {
+    const override = this.dungeonMarkerPreviewOverride();
+    if (override !== null && override.instanceId !== card.instanceId) {
+      this.dungeonMarkerPreviewOverride.set(null);
     }
   }
 

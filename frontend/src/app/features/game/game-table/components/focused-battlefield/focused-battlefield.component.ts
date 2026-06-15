@@ -12,7 +12,7 @@ import {
   output,
   signal,
 } from '@angular/core';
-import { GameAttachment, GameCardInstance, GameZoneName } from '../../../../../core/models/game.model';
+import { GameAttachment, GameCardDungeonMarker, GameCardInstance, GameZoneName } from '../../../../../core/models/game.model';
 import { PlayerView } from '../../game-table.store';
 import { GameCardViewComponent } from '../game-card-view/game-card-view.component';
 import { ManaPoolPanelComponent } from '../mana-pool-panel/mana-pool-panel.component';
@@ -85,6 +85,19 @@ interface BattlefieldCardCounterDeleteRequestEvent {
   zone: GameZoneName;
   card: GameCardInstance;
   key: string;
+}
+
+interface BattlefieldDungeonMarkerChangeEvent {
+  event: PointerEvent;
+  playerId: string;
+  card: GameCardInstance;
+  marker: GameCardDungeonMarker;
+}
+
+interface BattlefieldDungeonMarkerPreviewEvent {
+  playerId: string;
+  card: GameCardInstance;
+  marker: GameCardDungeonMarker | null;
 }
 
 interface BattlefieldSizeEvent {
@@ -163,12 +176,15 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
   readonly cardDoubleClicked = output<BattlefieldCardMouseEvent>();
   readonly cardMenuOpened = output<BattlefieldCardMouseEvent>();
   readonly cardPreviewShown = output<CardPreviewEvent>();
+  readonly cardPreviewRequested = output<CardPreviewEvent>();
   readonly cardPreviewHidden = output<void>();
   readonly cardPowerChanged = output<BattlefieldCardStatChangeEvent>();
   readonly cardToughnessChanged = output<BattlefieldCardStatChangeEvent>();
   readonly cardLoyaltyChanged = output<BattlefieldCardStatChangeEvent>();
   readonly cardCounterChanged = output<BattlefieldCardCounterChangeEvent>();
   readonly cardCounterDeleteRequested = output<BattlefieldCardCounterDeleteRequestEvent>();
+  readonly dungeonMarkerChanged = output<BattlefieldDungeonMarkerChangeEvent>();
+  readonly dungeonMarkerPreviewChanged = output<BattlefieldDungeonMarkerPreviewEvent>();
   readonly manaLaneDragOver = output<DragEvent>();
   readonly manaLaneDropped = output<{ event: DragEvent; playerId: string }>();
   readonly manaPoolColorAdded = output<{ playerId: string; color: ManaPoolColor }>();

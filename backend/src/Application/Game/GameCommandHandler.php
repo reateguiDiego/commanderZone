@@ -41,6 +41,7 @@ class GameCommandHandler
         'cards.moved',
         'card.tapped',
         'card.position.changed',
+        'card.dungeon_marker.changed',
         'cards.position.changed',
         'card.face_down.changed',
         'card.face.changed',
@@ -84,6 +85,7 @@ class GameCommandHandler
         'cards.moved',
         'card.tapped',
         'card.position.changed',
+        'card.dungeon_marker.changed',
         'cards.position.changed',
         'card.face_down.changed',
         'card.face.changed',
@@ -176,6 +178,7 @@ class GameCommandHandler
                 'cards.moved' => $log = $this->applyCardsMoved($snapshot, $payload),
                 'card.tapped' => $log = $this->applyCardTapped($snapshot, $payload),
                 'card.position.changed' => $log = $this->applyCardPositionChanged($snapshot, $payload),
+                'card.dungeon_marker.changed' => $log = $this->applyDungeonMarkerChanged($snapshot, $payload),
                 'cards.position.changed' => $log = $this->applyCardsPositionChanged($snapshot, $payload),
                 'card.face_down.changed' => $log = $this->applyCardFaceDown($snapshot, $payload),
                 'card.face.changed' => $log = $this->applyCardFaceChanged($snapshot, $payload),
@@ -414,7 +417,7 @@ class GameCommandHandler
         $loyalty ??= $defaultLoyalty;
         $tapped = $zone === 'battlefield' && (bool) ($card['tapped'] ?? false);
 
-        return [
+        $normalized = [
             'instanceId' => (string) ($card['instanceId'] ?? Uuid::v7()->toRfc4122()),
             'ownerId' => (string) ($card['ownerId'] ?? $ownerId),
             'controllerId' => (string) ($card['controllerId'] ?? $ownerId),
@@ -445,6 +448,17 @@ class GameCommandHandler
             'isTokenCopy' => (bool) ($card['isTokenCopy'] ?? false),
             'isCommander' => (bool) ($card['isCommander'] ?? $zone === 'command'),
         ];
+
+        if (array_key_exists('layout', $card)) {
+            $normalized['layout'] = $card['layout'];
+        }
+        if (array_key_exists('dungeonMarker', $card)) {
+            $normalized['dungeonMarker'] = $this->normalizedDungeonMarker($card['dungeonMarker']);
+        } elseif ($this->isDungeonCard($normalized)) {
+            $normalized['dungeonMarker'] = $this->defaultDungeonMarker();
+        }
+
+        return $normalized;
     }
 
     /**
@@ -1237,6 +1251,23 @@ class GameCommandHandler
         return sprintf('Moved %s on battlefield.', $this->cardLogName($card));
     }
 
+    private function applyDungeonMarkerChanged(array &$snapshot, array $payload): string
+    {
+        $location = $this->requiredCardLocation($snapshot, $payload);
+        if ($location['zone'] !== 'battlefield') {
+            throw new \InvalidArgumentException('Only battlefield dungeon cards can have a dungeon marker.');
+        }
+
+        $card =& $snapshot['players'][$location['playerId']]['zones'][$location['zone']][$location['index']];
+        if (!$this->isDungeonCard($card)) {
+            throw new \InvalidArgumentException('Only dungeon cards can have a dungeon marker.');
+        }
+
+        $card['dungeonMarker'] = $this->normalizedDungeonMarker($payload['position'] ?? null);
+
+        return sprintf('Moved dungeon marker on %s.', $this->cardLogName($card));
+    }
+
     private function applyCardsPositionChanged(array &$snapshot, array $payload): string
     {
         $playerId = $this->requiredPlayerId($snapshot, $payload);
@@ -1359,8 +1390,14 @@ class GameCommandHandler
         $card = is_array($payload['card'] ?? null) ? $payload['card'] : [];
         $hasCardPayload = $card !== [];
         $name = $this->visualName($card['name'] ?? $payload['name'] ?? null, 'Token');
-        $quantity = $this->positiveInt($payload['quantity'] ?? 1, 1, self::MAX_TOKEN_CREATE_QUANTITY);
+        $isDungeon = $this->isDungeonCard($card);
+        $isEmblem = $this->isEmblemCard($card);
+        $quantity = $isDungeon ? 1 : $this->positiveInt($payload['quantity'] ?? 1, 1, self::MAX_TOKEN_CREATE_QUANTITY);
         $tokens = [];
+        $position = $quantity === 1 && array_key_exists('position', $payload)
+            ? $this->normalizedPosition($payload['position'])
+            : null;
+
         for ($index = 0; $index < $quantity; $index++) {
             $tokens[] = $this->normalizeCard([
                 ...$card,
@@ -1374,7 +1411,7 @@ class GameCommandHandler
                 'defaultPower' => $card['power'] ?? ($hasCardPayload ? null : 1),
                 'defaultToughness' => $card['toughness'] ?? ($hasCardPayload ? null : 1),
                 'tapped' => false,
-                'position' => $this->tokenPosition($index, $quantity),
+                'position' => $position ?? $this->tokenPosition($index, $quantity),
                 'zone' => 'battlefield',
                 'isToken' => true,
                 'isTokenCopy' => false,
@@ -1382,7 +1419,17 @@ class GameCommandHandler
             ], $playerId, 'battlefield');
         }
 
+        if ($isDungeon) {
+            $this->removePlayerBattlefieldDungeons($snapshot, $playerId);
+        }
         array_push($snapshot['players'][$playerId]['zones']['battlefield'], ...$tokens);
+        if ($isDungeon) {
+            $this->pruneBattlefieldRelations($snapshot);
+        }
+
+        if ($quantity === 1 && $isEmblem) {
+            return sprintf('%s gets emblem %s.', $this->playerName($snapshot, $playerId), $this->cardBaseName($tokens[0]));
+        }
 
         return $quantity === 1
             ? sprintf('Created %s.', $this->cardBaseName($tokens[0]))
@@ -1897,6 +1944,12 @@ class GameCommandHandler
         if ($this->isLandCard($equipmentCard)) {
             throw new \InvalidArgumentException('Lands cannot be attached to another permanent.');
         }
+        if ($this->isGameplayCard($equipmentCard)) {
+            throw new \InvalidArgumentException(sprintf('%s cannot be attached to another permanent.', $this->gameplayCardLabel($equipmentCard)));
+        }
+        if ($this->isGameplayCard($attachedToCard)) {
+            throw new \InvalidArgumentException(sprintf('%s cannot be attachment targets.', $this->gameplayCardLabel($attachedToCard)));
+        }
         foreach ($snapshot['attachments'] ?? [] as $attachment) {
             if (($attachment['attachedToInstanceId'] ?? null) === $equipmentInstanceId) {
                 throw new \InvalidArgumentException('Cards with attached permanents cannot be attached to another permanent.');
@@ -1988,6 +2041,61 @@ class GameCommandHandler
         return preg_match('/\bland\b/i', (string) ($card['typeLine'] ?? '')) === 1;
     }
 
+    /**
+     * @param array<string,mixed> $card
+     */
+    private function isDungeonCard(array $card): bool
+    {
+        if (strtolower((string) ($card['layout'] ?? '')) === 'dungeon') {
+            return true;
+        }
+
+        return str_starts_with(strtolower(trim((string) ($card['typeLine'] ?? ''))), 'dungeon');
+    }
+
+    /**
+     * @param array<string,mixed> $card
+     */
+    private function isEmblemCard(array $card): bool
+    {
+        if (strtolower((string) ($card['layout'] ?? '')) === 'emblem') {
+            return true;
+        }
+
+        $typeLine = strtolower(trim((string) ($card['typeLine'] ?? '')));
+
+        return $typeLine === 'emblem' || str_starts_with($typeLine, 'emblem ');
+    }
+
+    /**
+     * @param array<string,mixed> $card
+     */
+    private function isGameplayCard(array $card): bool
+    {
+        return $this->isEmblemCard($card) || $this->isDungeonCard($card);
+    }
+
+    /**
+     * @param array<string,mixed> $card
+     */
+    private function gameplayCardLabel(array $card): string
+    {
+        return $this->isDungeonCard($card) ? 'Dungeons' : 'Emblems';
+    }
+
+    private function removePlayerBattlefieldDungeons(array &$snapshot, string $playerId): void
+    {
+        $battlefield = $snapshot['players'][$playerId]['zones']['battlefield'] ?? [];
+        if (!is_array($battlefield)) {
+            return;
+        }
+
+        $snapshot['players'][$playerId]['zones']['battlefield'] = array_values(array_filter(
+            $battlefield,
+            fn (mixed $card): bool => !is_array($card) || !$this->isDungeonCard($card),
+        ));
+    }
+
     private function pruneBattlefieldRelations(array &$snapshot): void
     {
         $battlefieldInstanceIds = $this->battlefieldInstanceIds($snapshot);
@@ -2074,7 +2182,9 @@ class GameCommandHandler
      */
     private function appendLogEntry(array &$snapshot, string $type, string $message, User $actor, array $context = []): void
     {
-        $message = $this->messageWithoutActorPrefix($message, $actor);
+        if (!$this->preservesActorPrefix($message)) {
+            $message = $this->messageWithoutActorPrefix($message, $actor);
+        }
         $entry = [
             'id' => Uuid::v7()->toRfc4122(),
             'type' => $type,
@@ -2089,6 +2199,11 @@ class GameCommandHandler
 
         $snapshot['eventLog'][] = $entry;
         $snapshot['eventLog'] = array_slice($snapshot['eventLog'], -250);
+    }
+
+    private function preservesActorPrefix(string $message): bool
+    {
+        return str_contains($message, ' gets emblem ');
     }
 
     private function messageWithoutActorPrefix(string $message, User $actor): string
@@ -2818,6 +2933,29 @@ class GameCommandHandler
         ];
     }
 
+    /**
+     * @return array{x:float,y:float}
+     */
+    private function normalizedDungeonMarker(mixed $position): array
+    {
+        if (!is_array($position)) {
+            return $this->defaultDungeonMarker();
+        }
+
+        return [
+            'x' => max(0.0, min(1.0, (float) ($position['x'] ?? 0.5))),
+            'y' => max(0.0, min(1.0, (float) ($position['y'] ?? 0.5))),
+        ];
+    }
+
+    /**
+     * @return array{x:float,y:float}
+     */
+    private function defaultDungeonMarker(): array
+    {
+        return ['x' => 0.5, 'y' => 0.5];
+    }
+
     private function activeFaceIndex(array $card): int
     {
         $faces = is_array($card['cardFaces'] ?? null) ? $card['cardFaces'] : [];
@@ -3040,7 +3178,9 @@ class GameCommandHandler
 
     private function playerName(array $snapshot, string $playerId): string
     {
-        return (string) ($snapshot['players'][$playerId]['user']['displayName'] ?? $playerId);
+        $displayName = trim((string) ($snapshot['players'][$playerId]['user']['displayName'] ?? ''));
+
+        return $displayName !== '' ? $displayName : $playerId;
     }
 
     private function positiveInt(mixed $value, int $min, int $max): int

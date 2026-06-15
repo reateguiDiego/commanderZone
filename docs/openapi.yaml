@@ -4839,6 +4839,7 @@ components:
             - cards.moved
             - card.tapped
             - card.position.changed
+            - card.dungeon_marker.changed
             - cards.position.changed
             - card.face_down.changed
             - card.face.changed

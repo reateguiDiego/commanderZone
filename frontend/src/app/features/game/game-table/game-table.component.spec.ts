@@ -84,6 +84,7 @@ import { GamesApi } from '../../../core/api/games.api';
 import { RoomsApi } from '../../../core/api/rooms.api';
 import { AuthStore } from '../../../core/auth/auth.store';
 import { CommandResponse } from '../../../core/models/api-responses.model';
+import { Card } from '../../../core/models/card.model';
 import { GameCardInstance, GameSnapshot } from '../../../core/models/game.model';
 import { MercureService } from '../../../core/realtime/mercure.service';
 import { GameTableComponent } from './game-table.component';
@@ -566,6 +567,33 @@ describe('GameTableComponent', () => {
 
     expect(fixture.componentInstance.specialHelperPlayerId()).toBe('user-2');
     expect(fixture.componentInstance.specialHelperInteractionMode()).toBe('readonly');
+  });
+
+  it('opens the mechanics modal from the current player helper button', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    addOpponent(snapshot);
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.componentInstance.focusOpponentFromSidebar('user-2');
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const button = fixture.nativeElement.querySelector(
+      '.player-strip [data-testid="player-helper-create"]',
+    ) as HTMLButtonElement | null;
+    expect(button).not.toBeNull();
+
+    button!.click();
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.specialHelperPlayerId()).toBe('user-1');
+    expect(fixture.nativeElement.querySelector('app-special-helper-modal .modal-backdrop')).not.toBeNull();
   });
 
   it('keeps battlefield double click tap logic and animates the rotation after the state update', async () => {
@@ -1897,9 +1925,10 @@ describe('GameTableComponent', () => {
     await fixture.whenStable();
 
     fixture.componentInstance.handleContextMenuAction({ type: 'createToken' }, { playerId: 'user-1' } as never);
-    expect(fixture.componentInstance.tokenSearchPlayerId()).toBe('user-1');
+    expect(fixture.componentInstance.gameplayCardSearchRequest()).toEqual({ playerId: 'user-1', kind: 'token' });
 
-    await fixture.componentInstance.createSelectedToken({
+    await fixture.componentInstance.createSelectedGameplayCard({
+      kind: 'token',
       card: {
         id: 'token-1',
         scryfallId: 'token-1',
@@ -1933,8 +1962,171 @@ describe('GameTableComponent', () => {
         }),
       }),
     }), 'game-1');
-    expect(fixture.componentInstance.tokenSearchPlayerId()).toBeNull();
+    expect(fixture.componentInstance.gameplayCardSearchRequest()).toBeNull();
     expect(gamesApi.snapshot).toHaveBeenCalledTimes(1);
+  });
+
+  it('opens gameplay card search from mechanics and creates emblem and dungeon battlefield tokens', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+    gameplayWebsocketCommand.mockReturnValue(of({
+      event: { id: 'event-token', type: 'card.token.created', payload: {}, createdBy: 'user-1', createdAt: '' },
+      snapshot,
+    }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.handleContextMenuAction({ type: 'openGameplayCardSearch', kind: 'emblem' }, { playerId: 'user-1' } as never);
+    expect(fixture.componentInstance.gameplayCardSearchRequest()).toEqual({ playerId: 'user-1', kind: 'emblem' });
+
+    await fixture.componentInstance.createSelectedGameplayCard({
+      kind: 'emblem',
+      card: gameplaySearchCard('emblem-1', 'Chandra Emblem', 'Emblem', 'emblem'),
+    });
+
+    fixture.componentInstance.handleContextMenuAction({ type: 'openGameplayCardSearch', kind: 'dungeon' }, { playerId: 'user-1' } as never);
+    expect(fixture.componentInstance.gameplayCardSearchRequest()).toEqual({ playerId: 'user-1', kind: 'dungeon' });
+
+    await fixture.componentInstance.createSelectedGameplayCard({
+      kind: 'dungeon',
+      card: gameplaySearchCard('dungeon-1', 'Lost Mine of Phandelver', 'Dungeon', 'dungeon'),
+    });
+
+    expect(gameplayWebsocketCommand).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'card.token.created',
+      payload: expect.objectContaining({
+        playerId: 'user-1',
+        quantity: 1,
+        position: { x: 0, y: 0, unit: 'ratio' },
+        card: expect.objectContaining({
+          scryfallId: 'emblem-1',
+          name: 'Chandra Emblem',
+          layout: 'emblem',
+        }),
+      }),
+    }), 'game-1');
+    expect(gameplayWebsocketCommand).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'card.token.created',
+      payload: expect.objectContaining({
+        playerId: 'user-1',
+        quantity: 1,
+        position: { x: 0, y: 0, unit: 'ratio' },
+        card: expect.objectContaining({
+          scryfallId: 'dungeon-1',
+          name: 'Lost Mine of Phandelver',
+          layout: 'dungeon',
+        }),
+      }),
+    }), 'game-1');
+    expect(fixture.componentInstance.gameplayCardSearchRequest()).toBeNull();
+  });
+
+  it('opens dungeon search from Add venture when the player has no active dungeon', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot: snapshotWithStatus('active') } }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.handleContextMenuAction({ type: 'addVenture', kind: 'venture' }, {
+      playerId: 'user-1',
+      zone: 'battlefield',
+      card: { ...gameCard('venture-source'), oracleText: 'When this enters, venture into the dungeon.' },
+    } as never);
+
+    expect(fixture.componentInstance.gameplayCardSearchRequest()).toEqual({ playerId: 'user-1', kind: 'dungeon' });
+    expect(gameplayWebsocketCommand).not.toHaveBeenCalled();
+  });
+
+  it('takes the initiative and creates Undercity when Add venture comes from an initiative card without active dungeon', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    const initiativeSnapshot = snapshotWithStatus('active');
+    initiativeSnapshot.specialEntities = [{
+      id: 'initiative-1',
+      template: 'initiative',
+      scope: 'global',
+      ownerPlayerId: 'user-1',
+      card: null,
+      state: {},
+      createdAt: '2026-06-15T00:00:00+00:00',
+    }];
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+    cardsApi.search.mockReturnValue(of({
+      data: [gameplaySearchCard('undercity-1', 'Undercity', 'Dungeon', 'dungeon')],
+      page: 1,
+      limit: 500,
+    }));
+    gameplayWebsocketCommand
+      .mockReturnValueOnce(of({
+        event: { id: 'event-initiative', type: 'helper.created', payload: {}, createdBy: 'user-1', createdAt: '' },
+        snapshot: initiativeSnapshot,
+      }))
+      .mockReturnValueOnce(of({
+        event: { id: 'event-undercity', type: 'card.token.created', payload: {}, createdBy: 'user-1', createdAt: '' },
+        snapshot: initiativeSnapshot,
+      }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.handleContextMenuAction({ type: 'addVenture', kind: 'initiative' }, {
+      playerId: 'user-1',
+      zone: 'battlefield',
+      card: { ...gameCard('initiative-source'), oracleText: 'When this enters, you take the initiative.' },
+    } as never);
+
+    await vi.waitFor(() => expect(gameplayWebsocketCommand).toHaveBeenCalledTimes(2));
+    expect(gameplayWebsocketCommand).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      type: 'helper.created',
+      payload: expect.objectContaining({
+        template: 'initiative',
+        ownerPlayerId: 'user-1',
+      }),
+    }), 'game-1');
+    expect(cardsApi.search).toHaveBeenCalledWith('Undercity', 1, 500, { gameplayKind: 'dungeon' });
+    expect(gameplayWebsocketCommand).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      type: 'card.token.created',
+      payload: expect.objectContaining({
+        playerId: 'user-1',
+        position: { x: 0, y: 0, unit: 'ratio' },
+        card: expect.objectContaining({
+          scryfallId: 'undercity-1',
+          name: 'Undercity',
+        }),
+      }),
+    }), 'game-1');
+  });
+
+  it('does not open dungeon search from Add venture when a dungeon is already active', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    snapshot.players['user-1']!.zones.battlefield = [
+      { ...gameCard('dungeon-1'), name: 'Undercity', typeLine: 'Dungeon', layout: 'dungeon' },
+    ];
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.handleContextMenuAction({ type: 'addVenture', kind: 'venture' }, {
+      playerId: 'user-1',
+      zone: 'battlefield',
+      card: { ...gameCard('venture-source'), oracleText: 'When this enters, venture into the dungeon.' },
+    } as never);
+
+    expect(fixture.componentInstance.gameplayCardSearchRequest()).toBeNull();
+    expect(gameplayWebsocketCommand).not.toHaveBeenCalled();
   });
 
   it('opens the shared roll modal from the own battlefield context menu action', async () => {
@@ -6118,6 +6310,38 @@ function gameLogEntry(id: string, type: string, message: string): GameSnapshot['
     actorId: 'user-1',
     displayName: 'User',
     createdAt: '2026-04-30T20:00:00+00:00',
+  };
+}
+
+function gameplaySearchCard(scryfallId: string, name: string, typeLine: string, layout: string): Card {
+  return {
+    id: scryfallId,
+    scryfallId,
+    name,
+    manaCost: null,
+    typeLine,
+    oracleText: null,
+    colors: [],
+    colorIdentity: [],
+    legalities: {},
+    imageUris: { normal: `https://cards.test/${scryfallId}.jpg` },
+    layout,
+    commanderLegal: false,
+    set: 'tst',
+    collectorNumber: '1',
+  };
+}
+
+function gameCard(instanceId: string): GameCardInstance {
+  return {
+    instanceId,
+    ownerId: 'user-1',
+    controllerId: 'user-1',
+    name: 'Dungeon Source',
+    typeLine: 'Creature',
+    oracleText: null,
+    tapped: false,
+    counters: {},
   };
 }
 

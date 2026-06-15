@@ -13,6 +13,7 @@ final readonly class GameWebsocketMessageHandler
         'dice.rolled',
         'turn.changed',
         'card.position.changed',
+        'card.dungeon_marker.changed',
         'cards.position.changed',
         'card.tapped',
         'card.moved',

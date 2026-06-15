@@ -75,6 +75,7 @@ final readonly class GameWebsocketPatchBuilder
             'dice.rolled' => $this->eventLogOnly($previousSnapshot, $nextSnapshot),
             'turn.changed' => $this->turnChanged($previousSnapshot, $nextSnapshot),
             'card.position.changed' => $this->cardPositionChanged($nextSnapshot, $payload),
+            'card.dungeon_marker.changed' => $this->cardDungeonMarkerChanged($nextSnapshot, $payload),
             'cards.position.changed' => $this->cardsPositionChanged($nextSnapshot, $payload),
             'card.tapped' => $this->cardTapped($previousSnapshot, $nextSnapshot, $payload),
             'card.moved' => $this->cardMoved($previousSnapshot, $nextSnapshot, $payload),
@@ -312,6 +313,32 @@ final readonly class GameWebsocketPatchBuilder
             'zone' => $zone,
             'instanceId' => $instanceId,
             'position' => $card['position'],
+        ]];
+    }
+
+    /**
+     * @return list<array<string,mixed>>|null
+     */
+    private function cardDungeonMarkerChanged(array $nextSnapshot, array $payload): ?array
+    {
+        $playerId = $this->payloadString($payload, 'playerId');
+        $zone = $this->payloadString($payload, 'zone');
+        $instanceId = $this->payloadString($payload, 'instanceId');
+        if ($playerId === null || $zone === null || $instanceId === null) {
+            return null;
+        }
+
+        $card = $this->card($nextSnapshot, $playerId, $zone, $instanceId);
+        if ($card === null || !is_array($card['dungeonMarker'] ?? null)) {
+            return null;
+        }
+
+        return [[
+            'op' => 'card.state.set',
+            'playerId' => $playerId,
+            'zone' => $zone,
+            'instanceId' => $instanceId,
+            'dungeonMarker' => $card['dungeonMarker'],
         ]];
     }
 
@@ -987,12 +1014,21 @@ final readonly class GameWebsocketPatchBuilder
     private function tokenCreated(array $previousSnapshot, array $nextSnapshot): ?array
     {
         $created = $this->createdBattlefieldCards($previousSnapshot, $nextSnapshot);
-        if ($created === []) {
+        $removed = $this->removedBattlefieldCards($previousSnapshot, $nextSnapshot);
+        if ($created === [] && $removed === []) {
             return null;
         }
 
         $operations = [];
         $hasSensitiveProjection = false;
+        foreach ($removed as $entry) {
+            $operations[] = [
+                'op' => 'card.remove',
+                'playerId' => $entry['playerId'],
+                'zone' => 'battlefield',
+                'instanceId' => $entry['instanceId'],
+            ];
+        }
         foreach ($created as $entry) {
             $operations[] = [
                 'op' => 'card.create',
@@ -1588,6 +1624,33 @@ final readonly class GameWebsocketPatchBuilder
         }
 
         return $created;
+    }
+
+    /**
+     * @return list<array{playerId:string,instanceId:string}>
+     */
+    private function removedBattlefieldCards(array $previousSnapshot, array $nextSnapshot): array
+    {
+        $knownIds = $this->allCardInstanceIds($nextSnapshot);
+        $removed = [];
+        foreach (($previousSnapshot['players'] ?? []) as $playerId => $player) {
+            if (!is_string($playerId) || !is_array($player) || !is_array($player['zones']['battlefield'] ?? null)) {
+                continue;
+            }
+
+            foreach ($player['zones']['battlefield'] as $card) {
+                if (!is_array($card)) {
+                    continue;
+                }
+
+                $instanceId = $this->cardInstanceId($card);
+                if ($instanceId !== null && !isset($knownIds[$instanceId])) {
+                    $removed[] = ['playerId' => $playerId, 'instanceId' => $instanceId];
+                }
+            }
+        }
+
+        return $removed;
     }
 
     /**

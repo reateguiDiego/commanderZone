@@ -155,6 +155,30 @@ class GameWebsocketPatchBuilderTest extends TestCase
         ]], $message['operations']);
     }
 
+    public function testBuildsDungeonMarkerStatePatch(): void
+    {
+        [$game, $actor] = $this->gameWithBattlefieldCards();
+        $snapshot = $game->snapshot();
+        $snapshot['players'][$actor->id()]['zones']['battlefield'][0]['typeLine'] = 'Dungeon';
+        $snapshot['players'][$actor->id()]['zones']['battlefield'][0]['layout'] = 'normal';
+        $game->replaceSnapshot($snapshot);
+
+        $message = $this->applyAndBuild($game, $actor, 'card.dungeon_marker.changed', [
+            'playerId' => $actor->id(),
+            'zone' => 'battlefield',
+            'instanceId' => 'battlefield-1',
+            'position' => ['x' => 0.42, 'y' => 0.64],
+        ], 'action-dungeon-marker');
+
+        self::assertSame([[
+            'op' => 'card.state.set',
+            'playerId' => $actor->id(),
+            'zone' => 'battlefield',
+            'instanceId' => 'battlefield-1',
+            'dungeonMarker' => ['x' => 0.42, 'y' => 0.64],
+        ]], $message['operations']);
+    }
+
     public function testBuildsSingleCardsPositionPatchForMultipleCards(): void
     {
         [$game, $actor] = $this->gameWithBattlefieldCards();
@@ -933,6 +957,32 @@ class GameWebsocketPatchBuilderTest extends TestCase
             static fn (array $operation): string => (string) $operation['card']['instanceId'],
             array_slice($message['operations'], 0, 3),
         )));
+        self::assertSame('eventLog.append', $message['operations'][count($message['operations']) - 1]['op']);
+    }
+
+    public function testDungeonTokenReplacementRemovesPreviousDungeonAndCreatesNewOneInPatch(): void
+    {
+        [$game, $actor] = $this->gameWithAdvancedBattlefieldCards();
+        $snapshot = $game->snapshot();
+        $snapshot['players'][$actor->id()]['zones']['battlefield'][0]['name'] = 'Lost Mine of Phandelver';
+        $snapshot['players'][$actor->id()]['zones']['battlefield'][0]['typeLine'] = 'Dungeon';
+        $snapshot['players'][$actor->id()]['zones']['battlefield'][0]['layout'] = 'dungeon';
+        $game->replaceSnapshot($snapshot);
+
+        $message = $this->applyAndBuildProjected($game, $actor, 'card.token.created', [
+            'playerId' => $actor->id(),
+            'card' => [
+                'scryfallId' => 'undercity-scryfall-id',
+                'name' => 'Undercity',
+                'typeLine' => 'Dungeon',
+                'layout' => 'dungeon',
+            ],
+        ], 'action-dungeon-replace', $actor);
+
+        self::assertSame('card.remove', $message['operations'][0]['op']);
+        self::assertSame('advanced-1', $message['operations'][0]['instanceId']);
+        self::assertSame('card.create', $message['operations'][1]['op']);
+        self::assertSame('Undercity', $message['operations'][1]['card']['name']);
         self::assertSame('eventLog.append', $message['operations'][count($message['operations']) - 1]['op']);
     }
 

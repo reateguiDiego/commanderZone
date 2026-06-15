@@ -1,5 +1,6 @@
 import { GameCardInstance } from '../../../../core/models/game.model';
 import { DEFAULT_BATTLEFIELD_CARD_SIZE } from './battlefield-position';
+import { isEmblemCard } from './gameplay-card-kind';
 
 export type LandStackRole = 'top' | 'under';
 
@@ -56,9 +57,12 @@ const STACK_Y_TOLERANCE = 8;
 const DROP_OVERLAP_RATIO = 0.32;
 const REMOVE_STACK_GAP = 14;
 
-interface PositionedLand {
+type StackableCardKind = 'land' | 'emblem';
+
+interface PositionedStackableCard {
   readonly card: GameCardInstance;
   readonly position: { x: number; y: number };
+  readonly stackKind: StackableCardKind;
 }
 
 interface StackLayerScore {
@@ -68,6 +72,14 @@ interface StackLayerScore {
 
 export function isLandCard(card: GameCardInstance | null | undefined): boolean {
   return /\bland\b/i.test(card?.typeLine ?? '');
+}
+
+function stackableCardKind(card: GameCardInstance | null | undefined): StackableCardKind | null {
+  if (isLandCard(card)) {
+    return 'land';
+  }
+
+  return isEmblemCard(card) ? 'emblem' : null;
 }
 
 export function landStackOffsetY(): number {
@@ -83,8 +95,8 @@ export function buildLandStackGroups(
   positionFor: (card: GameCardInstance) => { x: number; y: number } | null,
 ): LandStackGroup[] {
   const lands = cards
-    .map((card) => ({ card, position: positionFor(card) }))
-    .filter((entry): entry is PositionedLand => isLandCard(entry.card) && entry.position !== null)
+    .map((card) => ({ card, position: positionFor(card), stackKind: stackableCardKind(card) }))
+    .filter((entry): entry is PositionedStackableCard => entry.stackKind !== null && entry.position !== null)
     .sort((left, right) => right.position.y - left.position.y || left.position.x - right.position.x);
   const used = new Set<string>();
   const groups: LandStackGroup[] = [];
@@ -148,14 +160,15 @@ export function landStackDropTarget(
   blockedInstanceIds: ReadonlySet<string> = new Set<string>(),
 ): LandStackDropTarget | null {
   const dragged = cards.find((card) => card.instanceId === draggedInstanceId);
-  if (!isLandCard(dragged) || blockedInstanceIds.has(draggedInstanceId)) {
+  const draggedStackKind = stackableCardKind(dragged);
+  if (!dragged || !draggedStackKind || blockedInstanceIds.has(draggedInstanceId)) {
     return null;
   }
 
   const targetCards = cards.filter((card) => card.instanceId !== draggedInstanceId);
   const groups = buildLandStackGroups(targetCards, positionFor);
   const target = bestDropTarget(targetCards, draggedInstanceId, draggedPosition, positionFor);
-  if (!target || !isLandCard(target)) {
+  if (!target || stackableCardKind(target) !== draggedStackKind) {
     return null;
   }
 
@@ -196,7 +209,8 @@ export function fullLandStackDropTarget(
   positionFor: (card: GameCardInstance) => { x: number; y: number } | null,
 ): LandStackGroup | null {
   const dragged = cards.find((card) => card.instanceId === draggedInstanceId);
-  if (!isLandCard(dragged)) {
+  const draggedStackKind = stackableCardKind(dragged);
+  if (!draggedStackKind) {
     return null;
   }
 
@@ -204,7 +218,7 @@ export function fullLandStackDropTarget(
   const groups = buildLandStackGroups(targetCards, positionFor);
   const target = bestDropTarget(targetCards, draggedInstanceId, draggedPosition, positionFor);
   const targetStack = target ? landStackGroupContaining(groups, target.instanceId) : null;
-  if (!targetStack || targetStack.members.length < 3) {
+  if (!targetStack || stackableCardKind(targetStack.topCard) !== draggedStackKind || targetStack.members.length < 3) {
     return null;
   }
 
@@ -311,13 +325,16 @@ export function landStackDetachSource(playerId: string, group: LandStackGroup, d
 }
 
 function nearestStackLayer(
-  lands: readonly PositionedLand[],
-  top: PositionedLand,
+  lands: readonly PositionedStackableCard[],
+  top: PositionedStackableCard,
   layer: 1 | 2,
   used: ReadonlySet<string>,
-): PositionedLand | null {
+): PositionedStackableCard | null {
   return lands
-    .filter((candidate) => candidate.card.instanceId !== top.card.instanceId && !used.has(candidate.card.instanceId))
+    .filter((candidate) =>
+      candidate.stackKind === top.stackKind
+      && candidate.card.instanceId !== top.card.instanceId
+      && !used.has(candidate.card.instanceId))
     .map((candidate) => ({
       candidate,
       dx: nearestLayerXDistance(candidate.position.x, top.position.x, layer),

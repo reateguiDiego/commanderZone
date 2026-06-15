@@ -76,6 +76,196 @@ app-root {
   min-height: 100dvh;
 }
 
+app-dungeon-location-pin lucide-icon,
+app-dungeon-location-pin svg.lucide-map-pin {
+  display: none !important;
+}
+
+.game-card .card-visual > span.dungeon-location-pin,
+.game-card .card-visual app-dungeon-location-pin,
+.game-card .card-visual lucide-icon[name="map-pin"],
+.drag-card-preview-content > span.dungeon-location-pin,
+.drag-card-preview-content app-dungeon-location-pin,
+.drag-card-preview-content lucide-icon[name="map-pin"] {
+  --cz-legacy-dungeon-pin-size: 2.15rem;
+  --cz-dungeon-pin-visual-size: var(--cz-dungeon-pin-size, var(--cz-legacy-dungeon-pin-size));
+  --cz-dungeon-pin-target-x: 50%;
+  --cz-dungeon-pin-target-y: 38%;
+  --cz-dungeon-pin-ink: rgb(18 13 5 / 90%);
+
+  position: absolute !important;
+  z-index: 7 !important;
+  display: block !important;
+  width: var(--cz-dungeon-pin-visual-size) !important;
+  height: calc(var(--cz-dungeon-pin-visual-size) * 1.2) !important;
+  pointer-events: auto;
+  transform: translate(-50%, -100%) !important;
+  transform-origin: 50% 100% !important;
+  border: 0 !important;
+  border-radius: 999px 999px 999px 0 !important;
+  clip-path: polygon(50% 0%, 73% 7%, 91% 25%, 97% 45%, 88% 63%, 68% 78%, 57% 89%, 50% 100%, 43% 89%, 32% 78%, 12% 63%, 3% 45%, 9% 25%, 27% 7%) !important;
+  background:
+    radial-gradient(circle at 34% 18%, rgb(255 255 255 / 82%), rgb(255 248 218 / 34%) 27%, transparent 58%),
+    radial-gradient(circle at 58% 51%, rgb(255 232 162 / 28%), transparent 52%),
+    linear-gradient(135deg, rgb(255 249 221), rgb(245 216 146) 27%, rgb(196 149 58) 63%, rgb(105 67 15)) !important;
+  box-shadow:
+    0 0.2rem 0.5rem rgb(0 0 0 / 62%),
+    0 0 0 0.055rem rgb(255 248 219 / 78%) inset,
+    0 0 0 0.145rem rgb(42 27 7 / 82%) inset,
+    0 0 0.5rem rgb(241 201 109 / 34%) !important;
+  color: transparent !important;
+}
+
+.game-card .card-visual > span.dungeon-location-pin lucide-icon,
+.game-card .card-visual > span.dungeon-location-pin svg.lucide-map-pin,
+.game-card .card-visual app-dungeon-location-pin > svg.dungeon-location-pin__mark,
+.game-card .card-visual lucide-icon[name="map-pin"] svg.lucide-map-pin,
+.drag-card-preview-content > span.dungeon-location-pin lucide-icon,
+.drag-card-preview-content > span.dungeon-location-pin svg.lucide-map-pin,
+.drag-card-preview-content app-dungeon-location-pin > svg.dungeon-location-pin__mark,
+.drag-card-preview-content lucide-icon[name="map-pin"] svg.lucide-map-pin {
+  display: none !important;
+}
+
+.game-card .card-visual > span.dungeon-location-pin::before,
+.game-card .card-visual > span.dungeon-location-pin::after,
+.game-card .card-visual app-dungeon-location-pin::before,
+.game-card .card-visual app-dungeon-location-pin::after,
+.game-card .card-visual lucide-icon[name="map-pin"]::before,
+.game-card .card-visual lucide-icon[name="map-pin"]::after,
+.drag-card-preview-content > span.dungeon-location-pin::before,
+.drag-card-preview-content > span.dungeon-location-pin::after,
+.drag-card-preview-content app-dungeon-location-pin::before,
+.drag-card-preview-content app-dungeon-location-pin::after,
+.drag-card-preview-content lucide-icon[name="map-pin"]::before,
+.drag-card-preview-content lucide-icon[name="map-pin"]::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+}
+
+.game-card .card-visual > span.dungeon-location-pin::before,
+.game-card .card-visual app-dungeon-location-pin::before,
+.game-card .card-visual lucide-icon[name="map-pin"]::before,
+.drag-card-preview-content > span.dungeon-location-pin::before,
+.drag-card-preview-content app-dungeon-location-pin::before,
+.drag-card-preview-content lucide-icon[name="map-pin"]::before {
+  top: var(--cz-dungeon-pin-target-y);
+  left: var(--cz-dungeon-pin-target-x);
+  width: calc(var(--cz-dungeon-pin-visual-size) * 0.465);
+  height: calc(var(--cz-dungeon-pin-visual-size) * 0.465);
+  border: calc(var(--cz-dungeon-pin-visual-size) * 0.052) solid var(--cz-dungeon-pin-ink);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle, var(--cz-dungeon-pin-ink) 0 12%, transparent 13%),
+    radial-gradient(circle, rgb(255 244 203 / 24%) 42%, transparent 43%);
+  box-shadow:
+    0 0 0 0.035rem rgb(255 245 199 / 42%),
+    0 0.08rem 0 rgb(255 245 199 / 22%) inset;
+  transform: translate(-50%, -50%);
+}
+
+.game-card .card-visual > span.dungeon-location-pin::after,
+.game-card .card-visual app-dungeon-location-pin::after,
+.game-card .card-visual lucide-icon[name="map-pin"]::after,
+.drag-card-preview-content > span.dungeon-location-pin::after,
+.drag-card-preview-content app-dungeon-location-pin::after,
+.drag-card-preview-content lucide-icon[name="map-pin"]::after {
+  top: var(--cz-dungeon-pin-target-y);
+  left: var(--cz-dungeon-pin-target-x);
+  width: calc(var(--cz-dungeon-pin-visual-size) * 0.688);
+  height: calc(var(--cz-dungeon-pin-visual-size) * 0.688);
+  background:
+    linear-gradient(var(--cz-dungeon-pin-ink), var(--cz-dungeon-pin-ink)) 50% 0 / calc(var(--cz-dungeon-pin-visual-size) * 0.052) calc(var(--cz-dungeon-pin-visual-size) * 0.15) no-repeat,
+    linear-gradient(var(--cz-dungeon-pin-ink), var(--cz-dungeon-pin-ink)) 50% 100% / calc(var(--cz-dungeon-pin-visual-size) * 0.052) calc(var(--cz-dungeon-pin-visual-size) * 0.15) no-repeat,
+    linear-gradient(var(--cz-dungeon-pin-ink), var(--cz-dungeon-pin-ink)) 0 50% / calc(var(--cz-dungeon-pin-visual-size) * 0.15) calc(var(--cz-dungeon-pin-visual-size) * 0.052) no-repeat,
+    linear-gradient(var(--cz-dungeon-pin-ink), var(--cz-dungeon-pin-ink)) 100% 50% / calc(var(--cz-dungeon-pin-visual-size) * 0.15) calc(var(--cz-dungeon-pin-visual-size) * 0.052) no-repeat;
+  box-shadow: 0 0 0.14rem rgb(255 245 199 / 34%);
+  transform: translate(-50%, -50%);
+}
+
+app-card-preview-overlay .preview-dungeon-location-pin,
+app-card-preview-overlay app-dungeon-location-pin {
+  --cz-legacy-dungeon-pin-size: 2.9rem;
+  --cz-dungeon-pin-visual-size: var(--cz-dungeon-pin-size, var(--cz-legacy-dungeon-pin-size));
+  --cz-dungeon-pin-target-x: 50%;
+  --cz-dungeon-pin-target-y: 38%;
+  --cz-dungeon-pin-ink: rgb(18 13 5 / 90%);
+
+  position: absolute;
+  z-index: 7;
+  display: block;
+  width: var(--cz-dungeon-pin-visual-size) !important;
+  height: calc(var(--cz-dungeon-pin-visual-size) * 1.2) !important;
+  pointer-events: none;
+  transform: translate(-50%, -100%) !important;
+  transform-origin: 50% 100% !important;
+  border: 0 !important;
+  border-radius: 999px 999px 999px 0 !important;
+  clip-path: polygon(50% 0%, 73% 7%, 91% 25%, 97% 45%, 88% 63%, 68% 78%, 57% 89%, 50% 100%, 43% 89%, 32% 78%, 12% 63%, 3% 45%, 9% 25%, 27% 7%) !important;
+  background:
+    radial-gradient(circle at 34% 18%, rgb(255 255 255 / 82%), rgb(255 248 218 / 34%) 27%, transparent 58%),
+    radial-gradient(circle at 58% 51%, rgb(255 232 162 / 28%), transparent 52%),
+    linear-gradient(135deg, rgb(255 249 221), rgb(245 216 146) 27%, rgb(196 149 58) 63%, rgb(105 67 15)) !important;
+  box-shadow:
+    0 0.22rem 0.54rem rgb(0 0 0 / 62%),
+    0 0 0 0.065rem rgb(255 248 219 / 78%) inset,
+    0 0 0 0.17rem rgb(42 27 7 / 82%) inset,
+    0 0 0.56rem rgb(241 201 109 / 34%) !important;
+}
+
+app-card-preview-overlay .preview-dungeon-location-pin lucide-icon {
+  display: none !important;
+}
+
+app-card-preview-overlay .preview-dungeon-location-pin svg.lucide-map-pin,
+app-card-preview-overlay app-dungeon-location-pin > svg.dungeon-location-pin__mark {
+  display: none !important;
+}
+
+app-card-preview-overlay .preview-dungeon-location-pin::before,
+app-card-preview-overlay .preview-dungeon-location-pin::after,
+app-card-preview-overlay app-dungeon-location-pin::before,
+app-card-preview-overlay app-dungeon-location-pin::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+}
+
+app-card-preview-overlay .preview-dungeon-location-pin::before,
+app-card-preview-overlay app-dungeon-location-pin::before {
+  top: var(--cz-dungeon-pin-target-y);
+  left: var(--cz-dungeon-pin-target-x);
+  width: calc(var(--cz-dungeon-pin-visual-size) * 0.465);
+  height: calc(var(--cz-dungeon-pin-visual-size) * 0.465);
+  border: calc(var(--cz-dungeon-pin-visual-size) * 0.052) solid var(--cz-dungeon-pin-ink);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle, var(--cz-dungeon-pin-ink) 0 12%, transparent 13%),
+    radial-gradient(circle, rgb(255 244 203 / 24%) 42%, transparent 43%);
+  box-shadow:
+    0 0 0 0.045rem rgb(255 245 199 / 42%),
+    0 0.1rem 0 rgb(255 245 199 / 22%) inset;
+  transform: translate(-50%, -50%);
+}
+
+app-card-preview-overlay .preview-dungeon-location-pin::after,
+app-card-preview-overlay app-dungeon-location-pin::after {
+  top: var(--cz-dungeon-pin-target-y);
+  left: var(--cz-dungeon-pin-target-x);
+  width: calc(var(--cz-dungeon-pin-visual-size) * 0.672);
+  height: calc(var(--cz-dungeon-pin-visual-size) * 0.672);
+  background:
+    linear-gradient(var(--cz-dungeon-pin-ink), var(--cz-dungeon-pin-ink)) 50% 0 / calc(var(--cz-dungeon-pin-visual-size) * 0.052) calc(var(--cz-dungeon-pin-visual-size) * 0.15) no-repeat,
+    linear-gradient(var(--cz-dungeon-pin-ink), var(--cz-dungeon-pin-ink)) 50% 100% / calc(var(--cz-dungeon-pin-visual-size) * 0.052) calc(var(--cz-dungeon-pin-visual-size) * 0.15) no-repeat,
+    linear-gradient(var(--cz-dungeon-pin-ink), var(--cz-dungeon-pin-ink)) 0 50% / calc(var(--cz-dungeon-pin-visual-size) * 0.15) calc(var(--cz-dungeon-pin-visual-size) * 0.052) no-repeat,
+    linear-gradient(var(--cz-dungeon-pin-ink), var(--cz-dungeon-pin-ink)) 100% 50% / calc(var(--cz-dungeon-pin-visual-size) * 0.15) calc(var(--cz-dungeon-pin-visual-size) * 0.052) no-repeat;
+  box-shadow:
+    0 0 0 var(--cz-dungeon-pin-ink),
+    0 0 0.18rem rgb(255 245 199 / 34%);
+  transform: translate(-50%, -50%);
+}
+
 a {
   color: inherit;
   text-decoration: none;

@@ -1,10 +1,12 @@
 import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, OnChanges, OnDestroy, computed, input, signal } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
-import { GameCardInstance } from '../../../../../core/models/game.model';
+import { GameCardDungeonMarker, GameCardInstance } from '../../../../../core/models/game.model';
 import { CardPreviewAttachmentInfo, CardPreviewCardStateInfo, CardPreviewSourceRect } from '../../models/card-preview.model';
 import { CardMarkerRailComponent } from '../game-card-view/card-marker-rail/card-marker-rail.component';
+import { DungeonLocationPinComponent } from '../dungeon-location-pin/dungeon-location-pin.component';
 import { LoyaltyCounterComponent } from '../game-card-view/loyalty-counter/loyalty-counter.component';
+import { dungeonMarkerForCard } from '../../utils/dungeon-marker';
 
 interface BattlefieldRect {
   readonly left: number;
@@ -37,7 +39,7 @@ const DETAIL_INFO_ESTIMATED_HEIGHT = 104;
 
 @Component({
   selector: 'app-card-preview-overlay',
-  imports: [RuntimeTranslatePipe, LucideAngularModule, CardMarkerRailComponent, LoyaltyCounterComponent],
+  imports: [RuntimeTranslatePipe, LucideAngularModule, CardMarkerRailComponent, DungeonLocationPinComponent, LoyaltyCounterComponent],
   templateUrl: './card-preview-overlay.component.html',
   styleUrl: './card-preview-overlay.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -45,6 +47,7 @@ const DETAIL_INFO_ESTIMATED_HEIGHT = 104;
 export class CardPreviewOverlayComponent implements OnChanges, OnDestroy {
   readonly card = input.required<GameCardInstance>();
   readonly image = input.required<string | null>();
+  readonly dungeonMarkerOverride = input<GameCardDungeonMarker | null>(null);
   readonly sourceRect = input<CardPreviewSourceRect | null>(null);
   readonly avoidRect = input<CollisionRect | null>(null);
   readonly battlefieldRect = input.required<BattlefieldRect>();
@@ -56,9 +59,15 @@ export class CardPreviewOverlayComponent implements OnChanges, OnDestroy {
     return info !== null && (info.attachedTo !== null || info.attachedCards.length > 0);
   });
   readonly hasDetailInfo = computed(() => this.attachmentInfo() !== null || this.cardStateInfo() !== null);
+  readonly dungeonMarker = computed(() => this.dungeonMarkerOverride() ?? dungeonMarkerForCard(this.card()));
   readonly faceFlipAnimating = signal(false);
 
   readonly previewStyle = computed(() => this.computePreviewStyle());
+  readonly dungeonPinSize = computed(() => {
+    const width = this.previewStyle().width;
+
+    return `${Math.round(Math.max(34, Math.min(58, width * 0.19)))}px`;
+  });
 
   private previousFaceInstanceId: string | null = null;
   private previousActiveFaceIndex: number | null = null;

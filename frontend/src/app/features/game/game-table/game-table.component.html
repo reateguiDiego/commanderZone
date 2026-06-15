@@ -366,12 +366,15 @@
             (cardDoubleClicked)="handleBattlefieldCardDoubleClicked($event)"
             (cardMenuOpened)="store.openCardMenu($event.event, $event.playerId, 'battlefield', $event.card)"
             (cardPreviewShown)="store.showCardPreview($event)"
+            (cardPreviewRequested)="store.showImmediateCardPreview($event)"
             (cardPreviewHidden)="store.hideCardPreview()"
             (cardPowerChanged)="store.changeCardPower($event.playerId, $event.zone, $event.card, $event.delta)"
             (cardToughnessChanged)="store.changeCardToughness($event.playerId, $event.zone, $event.card, $event.delta)"
             (cardLoyaltyChanged)="store.changeCardLoyalty($event.playerId, $event.zone, $event.card, $event.delta)"
             (cardCounterChanged)="store.changeCardCounterForCard($event.playerId, $event.zone, $event.card, $event.key, $event.delta)"
             (cardCounterDeleteRequested)="store.openCounterDeleteMenu($event.event, $event.playerId, $event.zone, $event.card, $event.key)"
+            (dungeonMarkerChanged)="store.changeDungeonMarker($event.playerId, $event.card, $event.marker)"
+            (dungeonMarkerPreviewChanged)="store.updateDungeonMarkerPreview($event.card, $event.marker)"
             (manaLaneDragOver)="store.allowDrop($event)"
             (manaLaneDropped)="handleManaLaneDrop($event)"
             (manaPoolColorAdded)="store.incrementMana($event.playerId, $event.color)"
@@ -589,11 +592,12 @@
       />
 
       <app-token-search-modal
-        [open]="tokenSearchPlayerId() !== null"
+        [open]="gameplayCardSearchRequest() !== null"
+        [kind]="gameplayCardSearchRequest()?.kind ?? 'token'"
         [deckId]="store.currentDeckId()"
-        [pending]="tokenSearchPending()"
-        (tokenSelected)="createSelectedToken($event)"
-        (closed)="closeTokenSearchModal()"
+        [pending]="gameplayCardSearchPending()"
+        (cardSelected)="createSelectedGameplayCard($event)"
+        (closed)="closeGameplayCardSearchModal()"
       />
 
       <app-special-helper-modal
@@ -747,6 +751,9 @@
             } @else {
               <span>{{ preview.card.name }}</span>
             }
+            @if (dungeonMarkerForCard(preview.card); as marker) {
+              <app-dungeon-location-pin [marker]="marker" [size]="dungeonPinSizeForWidth(preview.width)" />
+            }
             <app-card-marker-rail [showTokenCopyMarker]="preview.card.isTokenCopy === true" [counters]="cardCounters(preview.card)" />
             @if (!preview.card.faceDown && shouldShowPowerToughness(preview.card)) {
               <span class="power-toughness-overlay" aria-hidden="true">
@@ -780,6 +787,7 @@
       <app-card-preview-overlay
         [card]="preview.card"
         [image]="store.cardImage(preview.card)"
+        [dungeonMarkerOverride]="hoveredPreviewDungeonMarkerOverride()"
         [sourceRect]="preview.sourceRect"
         [avoidRect]="contextMenuAvoidRect()"
         [battlefieldRect]="battlefieldLayoutSize()"

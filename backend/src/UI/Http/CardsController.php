@@ -68,7 +68,7 @@ class CardsController extends ApiController
             } else {
                 $filters[] = '(c.layout = :gameplayDungeonLayout OR LOWER(c.type_line) LIKE :gameplayDungeonTypeLine)';
                 $filterParams['gameplayDungeonLayout'] = 'dungeon';
-                $filterParams['gameplayDungeonTypeLine'] = '%dungeon%';
+                $filterParams['gameplayDungeonTypeLine'] = 'dungeon%';
             }
         }
 

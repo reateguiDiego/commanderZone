@@ -18,6 +18,11 @@ export interface GameCardRatioPosition {
 
 export type GameCardPosition = GameCardPixelPosition | GameCardRatioPosition;
 
+export interface GameCardDungeonMarker {
+  x: number;
+  y: number;
+}
+
 export type GameCommandType =
   | 'game.concede'
   | 'game.close'
@@ -33,6 +38,7 @@ export type GameCommandType =
   | 'cards.moved'
   | 'card.tapped'
   | 'card.position.changed'
+  | 'card.dungeon_marker.changed'
   | 'cards.position.changed'
   | 'card.face_down.changed'
   | 'card.face.changed'
@@ -75,6 +81,7 @@ export interface GameCardInstance {
   cardFaces?: CardFace[];
   hasRulings?: boolean;
   typeLine?: string | null;
+  layout?: string | null;
   manaCost?: string | null;
   oracleText?: string | null;
   colorIdentity?: string[];
@@ -90,6 +97,7 @@ export interface GameCardInstance {
   hidden?: boolean;
   revealedTo?: string[];
   position?: GameCardPosition;
+  dungeonMarker?: GameCardDungeonMarker | null;
   rotation?: number;
   counters?: Record<string, number>;
   zone?: GameZoneName;

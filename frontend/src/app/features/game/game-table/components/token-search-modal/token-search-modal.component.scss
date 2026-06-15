@@ -155,6 +155,14 @@
     border-color 140ms ease;
 }
 
+.token-add-controls-single {
+  grid-template-rows: 1fr;
+  place-items: center;
+  width: 3.15rem;
+  height: 3.15rem;
+  padding: 0;
+}
+
 .token-add-button {
   display: inline-grid;
   place-items: center;
@@ -174,6 +182,11 @@
   transition:
     transform 140ms ease,
     border-color 140ms ease;
+}
+
+.token-add-controls-single .token-add-button {
+  align-self: center;
+  justify-self: center;
 }
 
 .token-add-button lucide-icon {

@@ -160,6 +160,22 @@
       } @else {
         <span>{{ fallbackLabel() }}</span>
       }
+      @if (showDungeonMarker()) {
+        @if (dungeonMarkerPosition(); as marker) {
+          <app-dungeon-location-pin
+            [marker]="marker"
+            [interactive]="true"
+            (pointerdown)="onDungeonMarkerPointerDown($event)"
+            (pointermove)="onDungeonMarkerPointerMove($event)"
+            (pointerup)="onDungeonMarkerPointerUp($event)"
+            (pointercancel)="onDungeonMarkerPointerCancel($event)"
+            (click)="stopDungeonMarkerEvent($event)"
+            (dblclick)="stopDungeonMarkerEvent($event)"
+            (contextmenu)="stopDungeonMarkerEvent($event)"
+            (dragstart)="stopDungeonMarkerEvent($event)"
+          />
+        }
+      }
       @if (canShowFaceToggle()) {
         <span
           class="double-face-toggle"

@@ -220,6 +220,14 @@ class CardApiTest extends ApiTestCase
             'layout' => 'dungeon',
             'type_line' => 'Dungeon',
         ]);
+        $namedDungeon = $this->seedCard('00000000-0000-0000-0000-0000000000c5', 'Dungeon of the Mad Mage', [
+            'layout' => 'normal',
+            'type_line' => 'Dungeon',
+        ]);
+        $this->seedCard('00000000-0000-0000-0000-0000000000c4', 'Dungeon Master', [
+            'layout' => 'normal',
+            'type_line' => 'Legendary Creature - Human Gamer',
+        ]);
 
         $this->jsonRequest('GET', '/cards/search?q=token&gameplayKind=token');
         self::assertResponseIsSuccessful();
@@ -232,6 +240,12 @@ class CardApiTest extends ApiTestCase
         $this->jsonRequest('GET', '/cards/search?q=phandelver&gameplayKind=dungeon');
         self::assertResponseIsSuccessful();
         self::assertSame([$dungeon->scryfallId()], array_column($this->jsonResponse()['data'], 'scryfallId'));
+
+        $this->jsonRequest('GET', '/cards/search?q=dungeon&gameplayKind=dungeon');
+        self::assertResponseIsSuccessful();
+        $dungeonResultIds = array_column($this->jsonResponse()['data'], 'scryfallId');
+        self::assertContains($namedDungeon->scryfallId(), $dungeonResultIds);
+        self::assertNotContains('00000000-0000-0000-0000-0000000000c4', $dungeonResultIds);
     }
 
     public function testSearchColorIdentityFilterUsesSubsetSemanticsAndKeepsColorlessCards(): void

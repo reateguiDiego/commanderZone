@@ -386,6 +386,61 @@ class GameCommandHandlerTest extends TestCase
         );
     }
 
+    public function testDungeonMarkerCommandClampsMarkerAndPreservesItWhenCardMoves(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->snapshot($actor->id(), [
+            'battlefield' => [
+                [
+                    ...$this->card('dungeon-1', 'Lost Mine of Phandelver', 'battlefield', 0, 0, 0, 0),
+                    'typeLine' => 'Dungeon',
+                    'layout' => 'normal',
+                ],
+            ],
+        ]));
+
+        (new GameCommandHandler())->apply($game, 'card.dungeon_marker.changed', [
+            'playerId' => $actor->id(),
+            'zone' => 'battlefield',
+            'instanceId' => 'dungeon-1',
+            'position' => ['x' => 1.2, 'y' => -0.25],
+        ], $actor);
+
+        (new GameCommandHandler())->apply($game, 'card.position.changed', [
+            'playerId' => $actor->id(),
+            'zone' => 'battlefield',
+            'instanceId' => 'dungeon-1',
+            'position' => ['x' => 0.1, 'y' => 0.2, 'unit' => 'ratio'],
+        ], $actor);
+
+        $dungeon = $game->snapshot()['players'][$actor->id()]['zones']['battlefield'][0];
+        self::assertSame(['x' => 1.0, 'y' => 0.0], $dungeon['dungeonMarker']);
+        self::assertSame(['x' => 0.1, 'y' => 0.2, 'unit' => 'ratio'], $dungeon['position']);
+    }
+
+    public function testDungeonMarkerCommandRejectsNonDungeonCards(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->snapshot($actor->id(), [
+            'battlefield' => [
+                [
+                    ...$this->card('card-1', 'Dungeon Master', 'battlefield', 2, 2, 2, 2),
+                    'typeLine' => 'Creature - Human Wizard',
+                ],
+            ],
+        ]));
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Only dungeon cards can have a dungeon marker.');
+
+        (new GameCommandHandler())->apply($game, 'card.dungeon_marker.changed', [
+            'playerId' => $actor->id(),
+            'zone' => 'battlefield',
+            'instanceId' => 'card-1',
+            'position' => ['x' => 0.4, 'y' => 0.6],
+        ], $actor);
+    }
+
     public function testCardsPositionCommandPersistsMultipleBattlefieldPositionsAtomically(): void
     {
         $actor = new User('owner@example.test', 'Owner');
@@ -603,6 +658,90 @@ class GameCommandHandlerTest extends TestCase
         self::assertTrue($token['isToken']);
         self::assertFalse($token['isTokenCopy']);
         self::assertSame('Created Goblin Token.', $game->snapshot()['eventLog'][0]['message']);
+    }
+
+    public function testCreateTokenCommandUsesExplicitBattlefieldPosition(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->snapshot($actor->id(), []));
+
+        (new GameCommandHandler())->apply($game, 'card.token.created', [
+            'playerId' => $actor->id(),
+            'position' => ['x' => 0, 'y' => 0, 'unit' => 'ratio'],
+            'card' => [
+                'scryfallId' => 'emblem-scryfall-id',
+                'name' => 'Chandra Emblem',
+                'typeLine' => 'Emblem',
+                'layout' => 'emblem',
+                'imageUris' => ['normal' => 'https://cards.scryfall.io/emblem.jpg'],
+            ],
+        ], $actor);
+
+        $token = $game->snapshot()['players'][$actor->id()]['zones']['battlefield'][0];
+        self::assertSame('Chandra Emblem', $token['name']);
+        self::assertSame('emblem', $token['layout']);
+        self::assertTrue($token['isToken']);
+        self::assertSame(['x' => 0.0, 'y' => 0.0, 'unit' => 'ratio'], $token['position']);
+    }
+
+    public function testCreateEmblemTokenLogsThatPlayerGetsTheEmblem(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->snapshot($actor->id(), []));
+
+        (new GameCommandHandler())->apply($game, 'card.token.created', [
+            'playerId' => $actor->id(),
+            'card' => [
+                'scryfallId' => 'emblem-scryfall-id',
+                'name' => 'Chandra Emblem',
+                'typeLine' => 'Emblem',
+                'layout' => 'emblem',
+            ],
+        ], $actor);
+
+        self::assertSame(
+            sprintf('%s gets emblem Chandra Emblem.', $actor->id()),
+            $game->snapshot()['eventLog'][0]['message'],
+        );
+    }
+
+    public function testCreateDungeonTokenReplacesOnlyCurrentPlayersActiveDungeon(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $opponent = new User('opponent@example.test', 'Opponent');
+        $snapshot = $this->snapshot($actor->id(), [
+            'battlefield' => [[
+                ...$this->card('old-dungeon', 'Lost Mine of Phandelver', 'battlefield', 0, 0, 0, 0),
+                'typeLine' => 'Dungeon',
+                'layout' => 'dungeon',
+                'dungeonMarker' => ['x' => 0.8, 'y' => 0.2],
+            ]],
+        ], $opponent->id());
+        $snapshot['players'][$opponent->id()]['zones']['battlefield'] = [[
+            ...$this->card('opponent-dungeon', 'Tomb of Annihilation', 'battlefield', 0, 0, 0, 0),
+            'typeLine' => 'Dungeon',
+            'layout' => 'dungeon',
+        ]];
+        $game = new Game(new Room($actor), $snapshot);
+
+        (new GameCommandHandler())->apply($game, 'card.token.created', [
+            'playerId' => $actor->id(),
+            'card' => [
+                'scryfallId' => 'undercity-scryfall-id',
+                'name' => 'Undercity',
+                'typeLine' => 'Dungeon',
+                'layout' => 'dungeon',
+            ],
+        ], $actor);
+
+        $actorBattlefield = $game->snapshot()['players'][$actor->id()]['zones']['battlefield'];
+        $opponentBattlefield = $game->snapshot()['players'][$opponent->id()]['zones']['battlefield'];
+        self::assertCount(1, $actorBattlefield);
+        self::assertSame('Undercity', $actorBattlefield[0]['name']);
+        self::assertNotSame('old-dungeon', $actorBattlefield[0]['instanceId']);
+        self::assertSame(['x' => 0.5, 'y' => 0.5], $actorBattlefield[0]['dungeonMarker']);
+        self::assertCount(1, $opponentBattlefield);
+        self::assertSame('opponent-dungeon', $opponentBattlefield[0]['instanceId']);
     }
 
     public function testCreateTokenCommandCreatesRequestedQuantityInSingleCommand(): void
@@ -2553,6 +2692,76 @@ class GameCommandHandlerTest extends TestCase
             'equipmentInstanceId' => 'land-card',
             'attachedToInstanceId' => 'target-card',
         ], $actor);
+    }
+
+    public function testAttachmentCannotUseGameplayCardAsEquipmentSource(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $handler = new GameCommandHandler();
+
+        foreach ([
+            'emblem-card' => ['typeLine' => 'Emblem', 'layout' => 'emblem', 'message' => 'Emblems cannot be attached to another permanent.'],
+            'dungeon-card' => ['typeLine' => 'Dungeon', 'layout' => 'dungeon', 'message' => 'Dungeons cannot be attached to another permanent.'],
+        ] as $instanceId => $metadata) {
+            $game = new Game(new Room($actor), $this->snapshot($actor->id(), [
+                'battlefield' => [
+                    [
+                        ...$this->card($instanceId, $instanceId, 'battlefield', 0, 0, 0, 0),
+                        'typeLine' => $metadata['typeLine'],
+                        'layout' => $metadata['layout'],
+                    ],
+                    [
+                        ...$this->card('target-card', 'Bear', 'battlefield', 2, 2, 2, 2),
+                        'typeLine' => 'Creature - Bear',
+                    ],
+                ],
+            ]));
+
+            try {
+                $handler->apply($game, 'attachment.created', [
+                    'equipmentInstanceId' => $instanceId,
+                    'attachedToInstanceId' => 'target-card',
+                ], $actor);
+                self::fail('Expected gameplay attachment source to be rejected.');
+            } catch (\InvalidArgumentException $exception) {
+                self::assertSame($metadata['message'], $exception->getMessage());
+            }
+        }
+    }
+
+    public function testAttachmentCannotTargetGameplayCard(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $handler = new GameCommandHandler();
+
+        foreach ([
+            'emblem-card' => ['typeLine' => 'Emblem', 'layout' => 'emblem', 'message' => 'Emblems cannot be attachment targets.'],
+            'dungeon-card' => ['typeLine' => 'Dungeon', 'layout' => 'dungeon', 'message' => 'Dungeons cannot be attachment targets.'],
+        ] as $instanceId => $metadata) {
+            $game = new Game(new Room($actor), $this->snapshot($actor->id(), [
+                'battlefield' => [
+                    [
+                        ...$this->card('equipment-card', 'Sword', 'battlefield', 1, 1, 1, 1),
+                        'typeLine' => 'Artifact',
+                    ],
+                    [
+                        ...$this->card($instanceId, $instanceId, 'battlefield', 0, 0, 0, 0),
+                        'typeLine' => $metadata['typeLine'],
+                        'layout' => $metadata['layout'],
+                    ],
+                ],
+            ]));
+
+            try {
+                $handler->apply($game, 'attachment.created', [
+                    'equipmentInstanceId' => 'equipment-card',
+                    'attachedToInstanceId' => $instanceId,
+                ], $actor);
+                self::fail('Expected gameplay attachment target to be rejected.');
+            } catch (\InvalidArgumentException $exception) {
+                self::assertSame($metadata['message'], $exception->getMessage());
+            }
+        }
     }
 
     public function testAttachmentCanTargetLand(): void

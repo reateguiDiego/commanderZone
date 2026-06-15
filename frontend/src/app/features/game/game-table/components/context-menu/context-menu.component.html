@@ -200,12 +200,15 @@
             <span>{{ displayLabel('game.contextMenu.labels.createToken') }}</span>
           </span>
         </button>
-        <button type="button" (click)="actionSelected.emit({ type: 'createHelper' })">
-          <span class="menu-item-label">
-            <lucide-icon name="crown" size="17" aria-hidden="true" />
-            <span>{{ displayLabel('game.contextMenu.labels.mechanics') }}</span>
-          </span>
-        </button>
+        <app-context-submenu
+          label="Game mechanics"
+          icon="crown"
+          [items]="gameMechanicsMenuItems"
+          [expanded]="isSubmenuExpanded('gameMechanics')"
+          direction="up"
+          (toggled)="toggleSubmenu($event, 'gameMechanics')"
+          (itemSelected)="selectGameMechanic($event)"
+        />
         <button type="button" (click)="actionSelected.emit({ type: 'rollDice' })">
           <span class="menu-item-label">
             <lucide-icon name="dices" size="17" aria-hidden="true" />
@@ -273,12 +276,37 @@
     }
   } @else {
     @if (canControlPlayer()(activeMenu.playerId)) {
-      @if (showsBattlefieldCardActions()) {
+      @if (isGameplayCardMenu()) {
+        <button type="button" class="danger-menu-item" (click)="actionSelected.emit({ type: 'moveCard', zone: 'graveyard' })">
+          <span class="menu-item-label">
+            <lucide-icon name="trash-2" size="17" aria-hidden="true" />
+            <span>{{ displayLabel('Remove') }}</span>
+          </span>
+        </button>
+        @if (canRemoveGameplayCardStack()) {
+          <button type="button" (click)="actionSelected.emit({ type: 'removeStack' })">
+            <span class="menu-item-label">
+              <span class="menu-item-remove-stack-icon" aria-hidden="true">
+                <lucide-icon name="layers-3" size="17" aria-hidden="true" />
+              </span>
+              <span>{{ displayLabel('game.contextMenu.labels.removeStack') }}</span>
+            </span>
+          </button>
+        }
+      } @else if (showsBattlefieldCardActions()) {
         @if (canSelectAllActiveZoneCards()) {
           <button type="button" (click)="actionSelected.emit({ type: 'selectAllZoneCards' })">
             <span class="menu-item-label">
               <lucide-icon name="check" size="17" aria-hidden="true" />
               <span>{{ displayLabel(selectAllActiveZoneLabel()) }}</span>
+            </span>
+          </button>
+        }
+        @if (activeVentureKind(); as ventureKind) {
+          <button type="button" (click)="actionSelected.emit({ type: 'addVenture', kind: ventureKind })">
+            <span class="menu-item-label">
+              <lucide-icon name="dices" size="17" aria-hidden="true" />
+              <span>{{ displayLabel('Add venture') }}</span>
             </span>
           </button>
         }

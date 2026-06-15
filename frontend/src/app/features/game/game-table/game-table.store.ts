@@ -1,6 +1,6 @@
 import { Injectable, OnDestroy, WritableSignal, computed, effect, inject, signal } from '@angular/core';
 import { Card } from '../../../core/models/card.model';
-import { ChatReactionType, GameCardInstance, GameCommandType, GameSnapshot, GameSpecialEntity, GameZoneName } from '../../../core/models/game.model';
+import { ChatReactionType, GameCardDungeonMarker, GameCardInstance, GameCardPosition, GameCommandType, GameSnapshot, GameSpecialEntity, GameZoneName } from '../../../core/models/game.model';
 import { GameTableDebouncedValueCommandsService } from './services/game-table-debounced-value-commands.service';
 import { GameTableDragService } from './services/game-table-drag.service';
 import { GameTableLibraryActionsService } from './services/game-table-library-actions.service';
@@ -122,6 +122,7 @@ export class GameTableStore implements OnDestroy {
   readonly selectedCards: WritableSignal<SelectedCard[]> = this.selection.selectedCards as WritableSignal<SelectedCard[]>;
   readonly hoveredCard = this.uiState.hoveredCard;
   readonly hoveredPreview = this.uiState.hoveredPreview;
+  readonly dungeonMarkerPreviewOverride = this.uiState.dungeonMarkerPreviewOverride;
   readonly contextMenu = this.uiState.contextMenu;
   readonly zoneModal = this.zoneModalState.zoneModal;
   readonly activeFloatingTab = this.uiState.activeFloatingTab;
@@ -561,6 +562,14 @@ export class GameTableStore implements OnDestroy {
     }
 
     this.uiState.showCardPreview(cardOrPreview, () => Boolean(this.draggingCardInstanceId()), playerId, zone);
+  }
+
+  showImmediateCardPreview(preview: CardPreviewEvent): void {
+    this.uiState.showImmediateCardPreview(preview, () => Boolean(this.draggingCardInstanceId()));
+  }
+
+  updateDungeonMarkerPreview(card: GameCardInstance, marker: GameCardDungeonMarker | null): void {
+    this.uiState.setDungeonMarkerPreviewOverride(marker === null ? null : { instanceId: card.instanceId, marker });
   }
 
   hideCardPreview(): void {
@@ -1331,9 +1340,9 @@ export class GameTableStore implements OnDestroy {
     await this.cardActions.tokenCopy(this.contexts.cardAction(), menu);
   }
 
-  async createToken(playerId: string, card: Card | null = null, quantity = 1): Promise<void> {
+  async createToken(playerId: string, card: Card | null = null, quantity = 1, options: { position?: GameCardPosition } = {}): Promise<void> {
     const previousBattlefieldIds = this.battlefieldInstanceIds(playerId);
-    await this.cardActions.createToken(this.contexts.cardAction(), playerId, card, quantity);
+    await this.cardActions.createToken(this.contexts.cardAction(), playerId, card, quantity, options);
     this.markNewPowerToughnessTokensSettling(playerId, previousBattlefieldIds);
   }
 
@@ -1471,6 +1480,20 @@ export class GameTableStore implements OnDestroy {
       zone: 'battlefield',
       instanceId: card.instanceId,
       position,
+    });
+  }
+
+  async changeDungeonMarker(playerId: string, card: GameCardInstance, marker: GameCardDungeonMarker): Promise<void> {
+    if (!this.canControlPlayer(playerId)) {
+      this.error.set('You can only update your own dungeon marker.');
+      return;
+    }
+
+    await this.command('card.dungeon_marker.changed', {
+      playerId,
+      zone: 'battlefield',
+      instanceId: card.instanceId,
+      position: marker,
     });
   }
 

@@ -22,6 +22,7 @@ import {
   LucideAngularModule,
   Maximize2,
   Minus,
+  MoonStar,
   Pencil,
   Plus,
   Radiation,
@@ -72,6 +73,7 @@ describe('ContextMenuComponent', () => {
           LogOut,
           Maximize2,
           Minus,
+          MoonStar,
           Pencil,
           Plus,
           Radiation,
@@ -419,7 +421,7 @@ describe('ContextMenuComponent', () => {
     const selected = vi.fn();
     fixture.componentInstance.actionSelected.subscribe(selected);
 
-    expect(buttonLabels(fixture)).toEqual(['Create token', 'Mechanics', 'Tirar dado']);
+    expect(buttonLabels(fixture)).toEqual(['Create token', 'Game mechanics›', 'Tirar dado']);
     expect(menuText(fixture)).not.toContain('View');
     expect(menuText(fixture)).not.toContain('Move all');
 
@@ -433,6 +435,58 @@ describe('ContextMenuComponent', () => {
     rollButton?.click();
 
     expect(selected).toHaveBeenCalledWith({ type: 'rollDice' });
+  });
+
+  it('shows battlefield game mechanics and emits only card-backed helper searches', () => {
+    const fixture = createContextMenuFixture({
+      kind: 'zone',
+      playerId: 'user-1',
+      zone: 'battlefield',
+    });
+    const selected = vi.fn();
+    fixture.componentInstance.actionSelected.subscribe(selected);
+
+    fixture.componentInstance.toggleSubmenu(new MouseEvent('click'), 'gameMechanics');
+    fixture.detectChanges();
+
+    expect(menuText(fixture)).toContain('Add Monarch');
+    expect(menuText(fixture)).toContain('Add Initiative');
+    expect(menuText(fixture)).toContain('Add Day / Night');
+    expect(menuText(fixture)).toContain('Add The Ring');
+    expect(menuText(fixture)).toContain('Add Dungeon');
+    expect(menuText(fixture)).toContain("Add City's Blessing");
+    expect(menuText(fixture)).toContain('Add Emblem');
+    expect(fixture.componentInstance.gameMechanicsMenuItems.map((item) => item.icon)).toEqual([
+      'ms-ability-role-royal',
+      'ms-ability-d20',
+      'ms-ability-day-night',
+      'ms-ability-the-ring-tempts-you',
+      'ms-ability-dungeon',
+      'ms-ability-ascend',
+      'ms-planeswalker',
+    ]);
+    expect((fixture.nativeElement as HTMLElement).querySelectorAll('.submenu-panel lucide-icon')).toHaveLength(0);
+    expect((fixture.nativeElement as HTMLElement).querySelectorAll('.submenu-item-mana-icon')).toHaveLength(7);
+    expect((fixture.nativeElement as HTMLElement).querySelector('.submenu-item-mana-icon.ms-ability-the-ring-tempts-you')).not.toBeNull();
+    expect((fixture.nativeElement as HTMLElement).querySelector('.submenu-item-mana-icon.ms-planeswalker')).not.toBeNull();
+
+    const monarchButton = menuButtons(fixture)
+      .find((candidate) => candidate.textContent?.includes('Add Monarch'));
+    monarchButton?.click();
+
+    expect(selected).not.toHaveBeenCalled();
+
+    const dungeonButton = menuButtons(fixture)
+      .find((candidate) => candidate.textContent?.includes('Add Dungeon'));
+    dungeonButton?.click();
+
+    const emblemButton = menuButtons(fixture)
+      .find((candidate) => candidate.textContent?.includes('Add Emblem'));
+    emblemButton?.click();
+
+    expect(selected).toHaveBeenCalledWith({ type: 'openGameplayCardSearch', kind: 'dungeon' });
+    expect(selected).toHaveBeenCalledWith({ type: 'openGameplayCardSearch', kind: 'emblem' });
+    expect(selected).toHaveBeenCalledTimes(2);
   });
 
   it('offers create helper from the command zone menu for the controllable player', () => {
@@ -482,7 +536,7 @@ describe('ContextMenuComponent', () => {
 
     try {
       expect(menuText(visible)).not.toContain('Show mana pool');
-      expect(buttonLabels(hidden)).toEqual(['Create token', 'Mechanics', 'Tirar dado', 'Show mana pool']);
+      expect(buttonLabels(hidden)).toEqual(['Create token', 'Game mechanics›', 'Tirar dado', 'Show mana pool']);
       expect((hidden.nativeElement as HTMLElement).querySelector('.menu-item-mana-icon .ms-r')).not.toBeNull();
       expect((hidden.nativeElement as HTMLElement).querySelector('lucide-icon[name="sparkles"]')).toBeNull();
 
@@ -779,6 +833,117 @@ describe('ContextMenuComponent', () => {
 
     expect(menuText(stacked)).toContain('Remove stack');
     expect(menuText(loose)).not.toContain('Remove stack');
+  });
+
+  it('limits an emblem battlefield card menu to remove', () => {
+    const fixture = createContextMenuFixture({
+      kind: 'card',
+      playerId: 'user-1',
+      zone: 'battlefield',
+      card: emblemCard('emblem-1'),
+    });
+    const selected = vi.fn();
+    fixture.componentInstance.actionSelected.subscribe(selected);
+
+    expect(buttonLabels(fixture)).toEqual(['Remove']);
+    expect(menuText(fixture)).not.toContain('Attach to...');
+    expect(menuText(fixture)).not.toContain('Move to');
+    expect(menuText(fixture)).not.toContain('Counters');
+
+    menuButtons(fixture)[0]?.click();
+
+    expect(selected).toHaveBeenCalledWith({ type: 'moveCard', zone: 'graveyard' });
+  });
+
+  it('adds remove stack to a stacked emblem battlefield card menu', () => {
+    const fixture = createContextMenuFixture({
+      kind: 'card',
+      playerId: 'user-1',
+      zone: 'battlefield',
+      card: emblemCard('stacked-emblem'),
+    }, {
+      isLandStacked: (_playerId, target) => target.instanceId === 'stacked-emblem',
+    });
+    const selected = vi.fn();
+    fixture.componentInstance.actionSelected.subscribe(selected);
+
+    expect(buttonLabels(fixture)).toEqual(['Remove', 'Remove stack']);
+
+    const removeStack = menuButtons(fixture)
+      .find((button) => button.textContent?.includes('Remove stack'));
+    removeStack?.click();
+
+    expect(selected).toHaveBeenCalledWith({ type: 'removeStack' });
+  });
+
+  it('limits a dungeon battlefield card menu to remove without stack actions', () => {
+    const fixture = createContextMenuFixture({
+      kind: 'card',
+      playerId: 'user-1',
+      zone: 'battlefield',
+      card: dungeonCard('dungeon-1'),
+    }, {
+      isLandStacked: () => true,
+    });
+    const selected = vi.fn();
+    fixture.componentInstance.actionSelected.subscribe(selected);
+
+    expect(buttonLabels(fixture)).toEqual(['Remove']);
+    expect(menuText(fixture)).not.toContain('Remove stack');
+    expect(menuText(fixture)).not.toContain('Attach to...');
+    expect(menuText(fixture)).not.toContain('Move to');
+    expect(menuText(fixture)).not.toContain('Counters');
+
+    menuButtons(fixture)[0]?.click();
+
+    expect(selected).toHaveBeenCalledWith({ type: 'moveCard', zone: 'graveyard' });
+  });
+
+  it('shows Add venture for battlefield cards with venture text', () => {
+    const fixture = createContextMenuFixture({
+      kind: 'card',
+      playerId: 'user-1',
+      zone: 'battlefield',
+      card: card('venture-card', 'When this enters, venture into the dungeon.'),
+    });
+    const selected = vi.fn();
+    fixture.componentInstance.actionSelected.subscribe(selected);
+
+    expect(buttonLabels(fixture)).toContain('Add venture');
+
+    menuButtons(fixture)
+      .find((button) => button.textContent?.includes('Add venture'))
+      ?.click();
+
+    expect(selected).toHaveBeenCalledWith({ type: 'addVenture', kind: 'venture' });
+  });
+
+  it('uses initiative action for battlefield cards that take the initiative', () => {
+    const fixture = createContextMenuFixture({
+      kind: 'card',
+      playerId: 'user-1',
+      zone: 'battlefield',
+      card: card('initiative-card', 'When this enters, you take the initiative. Whenever you venture into the dungeon, draw a card.'),
+    });
+    const selected = vi.fn();
+    fixture.componentInstance.actionSelected.subscribe(selected);
+
+    menuButtons(fixture)
+      .find((button) => button.textContent?.includes('Add venture'))
+      ?.click();
+
+    expect(selected).toHaveBeenCalledWith({ type: 'addVenture', kind: 'initiative' });
+  });
+
+  it('does not show Add venture for unrelated battlefield cards', () => {
+    const fixture = createContextMenuFixture({
+      kind: 'card',
+      playerId: 'user-1',
+      zone: 'battlefield',
+      card: card('normal-card', 'Search your library for a Dungeon Master.'),
+    });
+
+    expect(buttonLabels(fixture)).not.toContain('Add venture');
   });
 
   it('shows attach only for valid battlefield source cards', () => {
@@ -1194,6 +1359,26 @@ function card(instanceId: string, oracleText = ''): GameCardInstance {
     oracleText,
     tapped: false,
     counters: {},
+  };
+}
+
+function emblemCard(instanceId: string): GameCardInstance {
+  return {
+    ...card(instanceId),
+    name: 'Emblem',
+    typeLine: 'Emblem',
+    layout: 'emblem',
+    isToken: true,
+  };
+}
+
+function dungeonCard(instanceId: string): GameCardInstance {
+  return {
+    ...card(instanceId),
+    name: 'Dungeon',
+    typeLine: 'Dungeon',
+    layout: 'dungeon',
+    isToken: true,
   };
 }
 

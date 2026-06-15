@@ -475,6 +475,7 @@ describe('game snapshot patch reducer', () => {
         hidden: true,
         revealedTo: ['player-2'],
         counters: { charge: 3 },
+        dungeonMarker: { x: 0.35, y: 0.65 },
       },
       { op: 'player.sleeves.set', playerId: 'player-1', sleevesName: 'new-sleeves' },
       { op: 'player.background.set', playerId: 'player-1', backgroundName: 'G_7' },
@@ -490,6 +491,7 @@ describe('game snapshot patch reducer', () => {
       hidden: true,
       revealedTo: ['player-2'],
       counters: { charge: 3 },
+      dungeonMarker: { x: 0.35, y: 0.65 },
     }));
   });
 

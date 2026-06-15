@@ -7,8 +7,10 @@ import { firstValueFrom, Subscription } from 'rxjs';
 import { BodyScrollLockService } from '../../../shared/services/body-scroll-lock.service';
 import { AppModalComponent } from '../../../shared/ui/app-modal/app-modal.component';
 import { PrettyScrollDirective } from '../../../shared/ui/pretty-scroll/pretty-scroll.directive';
-import { ChatMessage, ChatReactionType, GameCardInstance, GameRematchVote, GameSnapshot, GameSpecialEntity, GameZoneName } from '../../../core/models/game.model';
+import { ChatMessage, ChatReactionType, GameCardDungeonMarker, GameCardInstance, GameCardPosition, GameRematchVote, GameSnapshot, GameSpecialEntity, GameZoneName } from '../../../core/models/game.model';
 import { GameSnapshotPatchOperation } from '../../../core/models/game-realtime.model';
+import { Card } from '../../../core/models/card.model';
+import { CARD_SEARCH_LIMIT, CardsApi } from '../../../core/api/cards.api';
 import { GamesApi } from '../../../core/api/games.api';
 import { GameTableCardActionsService } from './services/game-table-card-actions.service';
 import { GameTableCardStatsService } from './services/game-table-card-stats.service';
@@ -84,6 +86,7 @@ import { ManaCometLayerComponent } from './components/mana-comet-layer/mana-come
 import { GameTableHeaderComponent } from './components/game-table-header/game-table-header.component';
 import { GameAdBannerComponent } from './components/game-ad-banner/game-ad-banner.component';
 import { CardPreviewOverlayComponent } from './components/card-preview-overlay/card-preview-overlay.component';
+import { DungeonLocationPinComponent } from './components/dungeon-location-pin/dungeon-location-pin.component';
 import { CardMarkerRailComponent } from './components/game-card-view/card-marker-rail/card-marker-rail.component';
 import { LoyaltyCounterComponent } from './components/game-card-view/loyalty-counter/loyalty-counter.component';
 import { PowerToughnessDialogComponent, PowerToughnessDialogValueChange } from './components/power-toughness-dialog/power-toughness-dialog.component';
@@ -91,7 +94,11 @@ import { GameArrowLayerComponent } from './components/game-arrow-layer/game-arro
 import { ArrowTargetDialogComponent, ArrowTargetDialogValue } from './components/arrow-target-dialog/arrow-target-dialog.component';
 import { GameRematchModalComponent, RematchPlayerVoteView } from './components/game-rematch-modal/game-rematch-modal.component';
 import { GameDisconnectVoteModalComponent } from './components/game-disconnect-vote-modal/game-disconnect-vote-modal.component';
-import { TokenSearchModalComponent, TokenSearchSelection } from './components/token-search-modal/token-search-modal.component';
+import {
+  GameplayCardSearchKind,
+  GameplayCardSearchSelection,
+  TokenSearchModalComponent,
+} from './components/token-search-modal/token-search-modal.component';
 import { HelperCardSelection, HelperQuickAction, SpecialHelperModalComponent } from './components/special-helper-modal/special-helper-modal.component';
 import { ChatRecipientSelectComponent } from './components/chat-recipient-select/chat-recipient-select.component';
 import { RollModalComponent } from '../../../core/ui/roll-modal/roll-modal.component';
@@ -100,8 +107,11 @@ import { GameTablePermanentRelationService } from './services/game-table-permane
 import { GameTableSpecialEntityActionsService } from './services/game-table-special-entity-actions.service';
 import { ZonePointerDropRequest } from './models/game-table-zone-pointer-drag.model';
 import { buildCardPreviewAttachmentInfo, buildCardPreviewCardStateInfo, resolveCardPreviewCard } from './utils/card-preview-attachment-info';
+import { dungeonMarkerForCard } from './utils/dungeon-marker';
+import { isDungeonCard, isGameplayCardTapLocked } from './utils/gameplay-card-kind';
 import { ManaAddition, ManaPoolColor, ManaSourceSuggestion } from './utils/mana-source-detector';
 import { GameTablePlayerSpecialEntitiesSummary, GameTableSpecialEntitiesState } from './state/helpers/game-table-special-entities.state';
+import { VentureCardKind } from './utils/venture-card-kind';
 
 const MANA_POOL_TARGET_COLORS: readonly ManaPoolColor[] = ['W', 'U', 'B', 'R', 'G', 'C'];
 
@@ -166,6 +176,14 @@ interface LibraryCardMoveToHandRequest {
   readonly menu: GameContextMenu;
   readonly cardName: string;
 }
+
+interface GameplayCardSearchRequest {
+  readonly playerId: string;
+  readonly kind: GameplayCardSearchKind;
+}
+
+const GAMEPLAY_CARD_SEARCH_BATTLEFIELD_POSITION: GameCardPosition = { x: 0, y: 0, unit: 'ratio' };
+const UNDERCITY_SEARCH_QUERY = 'Undercity';
 
 interface PowerToughnessActionRequest {
   readonly menu: GameContextMenu;
@@ -328,7 +346,8 @@ interface MotionSourceRect {
 
 @Component({
   selector: 'app-game-table',
-  imports: [RuntimeTranslatePipe, 
+  imports: [
+    RuntimeTranslatePipe,
     FormsModule,
     LucideAngularModule,
     AppModalComponent,
@@ -349,6 +368,7 @@ interface MotionSourceRect {
     GameTableHeaderComponent,
     GameAdBannerComponent,
     CardPreviewOverlayComponent,
+    DungeonLocationPinComponent,
     CardMarkerRailComponent,
     LoyaltyCounterComponent,
     PowerToughnessDialogComponent,
@@ -430,6 +450,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   readonly store = inject(GameTableStore);
   readonly disconnectVote = inject(GameTableDisconnectVoteService);
   readonly specialEntityState = inject(GameTableSpecialEntitiesState);
+  private readonly cardsApi = inject(CardsApi);
   private readonly gamesApi = inject(GamesApi);
   private readonly router = inject(Router);
   private readonly motion = inject(GameTableMotionService);
@@ -475,6 +496,8 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   };
   readonly cardPosition = (card: GameCardInstance): { x: number; y: number } | null => this.store.cardPosition(card);
   readonly cardImage = (card: GameCardInstance): string | null => this.store.cardImage(card);
+  readonly dungeonMarkerForCard = dungeonMarkerForCard;
+  readonly dungeonPinSizeForWidth = (width: number): string => `${Math.round(Math.max(28, Math.min(58, width * 0.25)))}px`;
   readonly handCardImage = (card: GameCardInstance): string | null => {
     const handPlayer = this.store.handPlayer();
     const currentPlayer = this.store.currentPlayer();
@@ -550,8 +573,8 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   readonly rematchCountdownSeconds = signal<number | null>(null);
   readonly rematchCountdownMode = signal<RematchCountdownMode | null>(null);
   readonly tableExitAction = signal<TableExitAction | null>(null);
-  readonly tokenSearchPlayerId = signal<string | null>(null);
-  readonly tokenSearchPending = signal(false);
+  readonly gameplayCardSearchRequest = signal<GameplayCardSearchRequest | null>(null);
+  readonly gameplayCardSearchPending = signal(false);
   readonly specialHelperPlayerId = signal<string | null>(null);
   readonly specialHelperPending = signal(false);
   readonly ringBearerName = (entity: GameSpecialEntity): string | null => this.specialEntityState.ringBearerCardName(entity);
@@ -617,6 +640,12 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     const snapshot = this.store.snapshot();
 
     return preview ? buildCardPreviewCardStateInfo(resolveCardPreviewCard(snapshot, preview)) : null;
+  });
+  readonly hoveredPreviewDungeonMarkerOverride = computed<GameCardDungeonMarker | null>(() => {
+    const preview = this.store.hoveredPreview();
+    const override = this.store.dungeonMarkerPreviewOverride();
+
+    return preview !== null && override?.instanceId === preview.card.instanceId ? override.marker : null;
   });
   readonly unreadChat = signal(false);
   readonly unreadLog = signal(false);
@@ -2283,7 +2312,13 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
         void this.store.revealCard(menu, action.target);
         return;
       case 'createToken':
-        this.openTokenSearchModal(menu.playerId);
+        this.openGameplayCardSearchModal(menu.playerId, 'token');
+        return;
+      case 'openGameplayCardSearch':
+        this.openGameplayCardSearchModal(menu.playerId, action.kind);
+        return;
+      case 'addVenture':
+        void this.addVentureFromMenu(menu, action.kind);
         return;
       case 'createHelper':
         this.openSpecialHelperModal(menu.playerId);
@@ -2432,6 +2467,10 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   }
 
   async handleBattlefieldCardDoubleClicked(event: BattlefieldCardDoubleClickEvent): Promise<void> {
+    if (isGameplayCardTapLocked(event.card)) {
+      return;
+    }
+
     this.store.clearCardPreview();
     this.lockTapAnimation(event.card.instanceId);
     const animateRotation = this.motion.prepareCardRotationFlip(event.card.instanceId, {
@@ -2986,27 +3025,32 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     this.tableExitAction.set(null);
   }
 
-  async createSelectedToken(selection: TokenSearchSelection): Promise<void> {
-    const playerId = this.tokenSearchPlayerId();
-    if (!playerId || this.tokenSearchPending()) {
+  async createSelectedGameplayCard(selection: GameplayCardSearchSelection): Promise<void> {
+    const request = this.gameplayCardSearchRequest();
+    if (!request || this.gameplayCardSearchPending() || request.kind !== selection.kind) {
       return;
     }
 
-    this.tokenSearchPending.set(true);
+    this.gameplayCardSearchPending.set(true);
     try {
-      await this.store.createToken(playerId, selection.card, selection.quantity);
-      this.tokenSearchPlayerId.set(null);
+      await this.store.createToken(
+        request.playerId,
+        selection.card,
+        selection.kind === 'token' ? selection.quantity : 1,
+        selection.kind === 'token' ? {} : { position: GAMEPLAY_CARD_SEARCH_BATTLEFIELD_POSITION },
+      );
+      this.gameplayCardSearchRequest.set(null);
     } finally {
-      this.tokenSearchPending.set(false);
+      this.gameplayCardSearchPending.set(false);
     }
   }
 
-  closeTokenSearchModal(): void {
-    if (this.tokenSearchPending()) {
+  closeGameplayCardSearchModal(): void {
+    if (this.gameplayCardSearchPending()) {
       return;
     }
 
-    this.tokenSearchPlayerId.set(null);
+    this.gameplayCardSearchRequest.set(null);
   }
 
   async createQuickHelper(action: HelperQuickAction): Promise<void> {
@@ -3287,9 +3331,63 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     this.tableExitAction.set(action);
   }
 
-  private openTokenSearchModal(playerId: string): void {
+  private openGameplayCardSearchModal(playerId: string, kind: GameplayCardSearchKind): void {
     this.store.closeContextMenu();
-    this.tokenSearchPlayerId.set(playerId);
+    this.gameplayCardSearchRequest.set({ playerId, kind });
+  }
+
+  private async addVentureFromMenu(menu: GameContextMenu, kind: VentureCardKind): Promise<void> {
+    if (!menu.card || menu.zone !== 'battlefield' || !this.store.canControlPlayer(menu.playerId)) {
+      this.store.closeContextMenu();
+      return;
+    }
+
+    if (kind === 'initiative') {
+      await this.store.createHelper('initiative', menu.playerId);
+      if (!this.hasActiveDungeon(menu.playerId)) {
+        await this.createUndercityDungeon(menu.playerId);
+      }
+      return;
+    }
+
+    if (!this.hasActiveDungeon(menu.playerId)) {
+      this.openGameplayCardSearchModal(menu.playerId, 'dungeon');
+      return;
+    }
+
+    this.store.closeContextMenu();
+  }
+
+  private hasActiveDungeon(playerId: string): boolean {
+    const player = this.store.players().find((candidate) => candidate.id === playerId);
+
+    return (player?.state.zones.battlefield ?? []).some((card) => isDungeonCard(card));
+  }
+
+  private async createUndercityDungeon(playerId: string): Promise<void> {
+    try {
+      const response = await firstValueFrom(this.cardsApi.search(UNDERCITY_SEARCH_QUERY, 1, CARD_SEARCH_LIMIT, { gameplayKind: 'dungeon' }));
+      const undercity = this.undercityCard(response.data);
+      if (!undercity) {
+        this.store.error.set('Could not find Undercity dungeon.');
+        this.store.closeContextMenu();
+        return;
+      }
+
+      await this.store.createToken(playerId, undercity, 1, { position: GAMEPLAY_CARD_SEARCH_BATTLEFIELD_POSITION });
+    } catch {
+      this.store.error.set('Could not create Undercity dungeon.');
+      this.store.closeContextMenu();
+    }
+  }
+
+  private undercityCard(cards: readonly Card[]): Card | null {
+    const normalizedName = UNDERCITY_SEARCH_QUERY.toLowerCase();
+
+    return cards.find((card) => card.name.toLowerCase() === normalizedName)
+      ?? cards.find((card) => card.name.toLowerCase().includes(normalizedName))
+      ?? cards[0]
+      ?? null;
   }
 
   openSpecialHelperModal(playerId: string): void {

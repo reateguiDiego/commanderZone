@@ -386,6 +386,232 @@ describe('GameCardViewComponent', () => {
     expect(pointerDown).toHaveBeenCalledOnce();
   });
 
+  it('renders a default location pin for battlefield dungeon cards', async () => {
+    const { fixture } = await renderHandCard();
+
+    fixture.componentRef.setInput('mode', 'battlefield');
+    fixture.componentRef.setInput('zone', 'battlefield');
+    fixture.componentRef.setInput('card', { ...gameCard(), typeLine: 'Dungeon', layout: 'normal' });
+    fixture.detectChanges();
+
+    const pin = fixture.nativeElement.querySelector('app-dungeon-location-pin') as HTMLElement | null;
+    expect(pin).not.toBeNull();
+    expect(pin?.style.left).toBe('50%');
+    expect(pin?.style.top).toBe('50%');
+  });
+
+  it('renders a default location pin for legacy official dungeon cards without layout metadata', async () => {
+    const { fixture } = await renderHandCard();
+
+    fixture.componentRef.setInput('mode', 'battlefield');
+    fixture.componentRef.setInput('zone', 'battlefield');
+    fixture.componentRef.setInput('card', {
+      ...gameCard(),
+      name: 'Dungeon of the Mad Mage',
+      typeLine: null,
+      layout: null,
+    });
+    fixture.detectChanges();
+
+    const pin = fixture.nativeElement.querySelector('app-dungeon-location-pin') as HTMLElement | null;
+    expect(pin).not.toBeNull();
+    expect(pin?.style.left).toBe('50%');
+    expect(pin?.style.top).toBe('50%');
+  });
+
+  it('emits a clamped dungeon marker position after dragging the pin inside the card', async () => {
+    const { fixture } = await renderHandCard();
+    const changed = vi.fn();
+    fixture.componentInstance.dungeonMarkerChanged.subscribe(changed);
+
+    fixture.componentRef.setInput('mode', 'battlefield');
+    fixture.componentRef.setInput('zone', 'battlefield');
+    fixture.componentRef.setInput('card', { ...gameCard(), typeLine: 'Dungeon', dungeonMarker: { x: 0.2, y: 0.3 } });
+    fixture.detectChanges();
+
+    const visual = fixture.nativeElement.querySelector('.card-visual') as HTMLElement;
+    const pin = fixture.nativeElement.querySelector('app-dungeon-location-pin') as HTMLElement;
+    vi.spyOn(visual, 'getBoundingClientRect').mockReturnValue({
+      left: 10,
+      top: 20,
+      right: 110,
+      bottom: 220,
+      width: 100,
+      height: 200,
+      x: 10,
+      y: 20,
+      toJSON: () => ({}),
+    } as DOMRect);
+    pin.setPointerCapture = vi.fn();
+    pin.hasPointerCapture = vi.fn(() => true);
+    pin.releasePointerCapture = vi.fn();
+
+    pin.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0, pointerId: 7, clientX: 40, clientY: 80 }));
+    pin.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, button: 0, pointerId: 7, clientX: 140, clientY: -10 }));
+    pin.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, button: 0, pointerId: 7, clientX: 140, clientY: -10 }));
+
+    fixture.detectChanges();
+
+    expect(changed).toHaveBeenCalledWith({
+      event: expect.any(PointerEvent),
+      card: fixture.componentInstance.card(),
+      marker: { x: 1, y: 0 },
+    });
+    expect(pin.style.left).toBe('100%');
+    expect(pin.style.top).toBe('0%');
+
+    fixture.componentRef.setInput('card', { ...gameCard(), typeLine: 'Dungeon', dungeonMarker: { x: 1, y: 0 } });
+    fixture.detectChanges();
+
+    expect(pin.style.left).toBe('100%');
+    expect(pin.style.top).toBe('0%');
+  });
+
+  it('keeps the grabbed pin point under the pointer while dragging the dungeon marker', async () => {
+    const { fixture } = await renderHandCard();
+    const changed = vi.fn();
+    fixture.componentInstance.dungeonMarkerChanged.subscribe(changed);
+
+    fixture.componentRef.setInput('mode', 'battlefield');
+    fixture.componentRef.setInput('zone', 'battlefield');
+    fixture.componentRef.setInput('card', { ...gameCard(), typeLine: 'Dungeon', dungeonMarker: { x: 0.5, y: 0.5 } });
+    fixture.detectChanges();
+
+    const visual = fixture.nativeElement.querySelector('.card-visual') as HTMLElement;
+    const pin = fixture.nativeElement.querySelector('app-dungeon-location-pin') as HTMLElement;
+    vi.spyOn(visual, 'getBoundingClientRect').mockReturnValue({
+      left: 10,
+      top: 20,
+      right: 110,
+      bottom: 220,
+      width: 100,
+      height: 200,
+      x: 10,
+      y: 20,
+      toJSON: () => ({}),
+    } as DOMRect);
+    pin.setPointerCapture = vi.fn();
+    pin.hasPointerCapture = vi.fn(() => true);
+    pin.releasePointerCapture = vi.fn();
+
+    pin.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0, pointerId: 7, clientX: 60, clientY: 90 }));
+    pin.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, button: 0, pointerId: 7, clientX: 70, clientY: 120 }));
+    pin.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, button: 0, pointerId: 7, clientX: 70, clientY: 120 }));
+
+    expect(changed).toHaveBeenCalledWith({
+      event: expect.any(PointerEvent),
+      card: fixture.componentInstance.card(),
+      marker: { x: 0.6, y: 0.65 },
+    });
+  });
+
+  it('keeps the dungeon marker inside the visible card bounds while dragging near the edges', async () => {
+    const { fixture } = await renderHandCard();
+    const changed = vi.fn();
+    fixture.componentInstance.dungeonMarkerChanged.subscribe(changed);
+
+    fixture.componentRef.setInput('mode', 'battlefield');
+    fixture.componentRef.setInput('zone', 'battlefield');
+    fixture.componentRef.setInput('card', { ...gameCard(), typeLine: 'Dungeon', dungeonMarker: { x: 0.5, y: 0.5 } });
+    fixture.detectChanges();
+
+    const visual = fixture.nativeElement.querySelector('.card-visual') as HTMLElement;
+    const pin = fixture.nativeElement.querySelector('app-dungeon-location-pin') as HTMLElement;
+    vi.spyOn(visual, 'getBoundingClientRect').mockReturnValue({
+      left: 10,
+      top: 20,
+      right: 110,
+      bottom: 220,
+      width: 100,
+      height: 200,
+      x: 10,
+      y: 20,
+      toJSON: () => ({}),
+    } as DOMRect);
+    vi.spyOn(pin, 'getBoundingClientRect').mockReturnValue({
+      left: 45,
+      top: 84,
+      right: 75,
+      bottom: 120,
+      width: 30,
+      height: 36,
+      x: 45,
+      y: 84,
+      toJSON: () => ({}),
+    } as DOMRect);
+    pin.setPointerCapture = vi.fn();
+    pin.hasPointerCapture = vi.fn(() => true);
+    pin.releasePointerCapture = vi.fn();
+
+    pin.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0, pointerId: 7, clientX: 60, clientY: 120 }));
+    pin.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, button: 0, pointerId: 7, clientX: -50, clientY: -50 }));
+    pin.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, button: 0, pointerId: 7, clientX: -50, clientY: -50 }));
+
+    const marker = changed.mock.calls.at(-1)?.[0].marker;
+    expect(marker.x).toBeCloseTo(0.126);
+    expect(marker.y).toBeCloseTo(0.1548);
+  });
+
+  it('updates the hover preview marker while dragging the dungeon marker', async () => {
+    const { fixture } = await renderHandCard();
+    const previewRequested = vi.fn();
+    const previewMarkerChanged = vi.fn();
+    const previewHidden = vi.fn();
+    fixture.componentInstance.cardPreviewRequested.subscribe(previewRequested);
+    fixture.componentInstance.dungeonMarkerPreviewChanged.subscribe(previewMarkerChanged);
+    fixture.componentInstance.cardMouseLeft.subscribe(previewHidden);
+
+    fixture.componentRef.setInput('mode', 'battlefield');
+    fixture.componentRef.setInput('zone', 'battlefield');
+    fixture.componentRef.setInput('card', { ...gameCard(), typeLine: 'Dungeon', dungeonMarker: { x: 0.5, y: 0.5 } });
+    fixture.detectChanges();
+
+    const visual = fixture.nativeElement.querySelector('.card-visual') as HTMLElement;
+    const cardElement = fixture.nativeElement.querySelector('[data-testid="game-card"]') as HTMLElement;
+    const pin = fixture.nativeElement.querySelector('app-dungeon-location-pin') as HTMLElement;
+    const rect = {
+      left: 10,
+      top: 20,
+      right: 110,
+      bottom: 220,
+      width: 100,
+      height: 200,
+      x: 10,
+      y: 20,
+      toJSON: () => ({}),
+    } as DOMRect;
+    vi.spyOn(visual, 'getBoundingClientRect').mockReturnValue(rect);
+    vi.spyOn(cardElement, 'getBoundingClientRect').mockReturnValue(rect);
+    pin.setPointerCapture = vi.fn();
+    pin.hasPointerCapture = vi.fn(() => true);
+    pin.releasePointerCapture = vi.fn();
+
+    pin.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0, pointerId: 7, clientX: 60, clientY: 90 }));
+    cardElement.dispatchEvent(new PointerEvent('pointerleave', { bubbles: true, pointerId: 7, clientX: 70, clientY: 120 }));
+    pin.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, button: 0, pointerId: 7, clientX: 70, clientY: 120 }));
+    await nextAnimationFrame();
+
+    const preview = previewRequested.mock.calls.at(-1)?.[0];
+    const markerPreview = previewMarkerChanged.mock.calls.at(-1)?.[0];
+    expect(previewHidden).not.toHaveBeenCalled();
+    expect(preview).toEqual(expect.objectContaining({
+      card: expect.objectContaining({
+        dungeonMarker: { x: 0.5, y: 0.5 },
+      }),
+      sourceRect: expect.objectContaining({
+        left: 10,
+        top: 20,
+        width: 100,
+        height: 200,
+      }),
+    }));
+    expect(previewRequested).toHaveBeenCalledOnce();
+    expect(markerPreview).toEqual(expect.objectContaining({
+      card: fixture.componentInstance.card(),
+      marker: { x: 0.6, y: 0.65 },
+    }));
+  });
+
   it('emits double click output from touch double tap', async () => {
     vi.useFakeTimers();
     const { fixture, cardElement } = await renderHandCard();
@@ -400,6 +626,26 @@ describe('GameCardViewComponent', () => {
       event: secondUp,
       card: fixture.componentInstance.card(),
     });
+  });
+
+  it('does not emit double click output for battlefield emblems or dungeons', async () => {
+    const { fixture, cardElement } = await renderHandCard();
+    const doubleClicked = vi.fn();
+    fixture.componentInstance.cardDoubleClicked.subscribe(doubleClicked);
+
+    fixture.componentRef.setInput('mode', 'battlefield');
+    fixture.componentRef.setInput('zone', 'battlefield');
+    fixture.componentRef.setInput('card', { ...gameCard(), typeLine: 'Emblem', layout: 'emblem' });
+    fixture.detectChanges();
+
+    cardElement.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true }));
+
+    fixture.componentRef.setInput('card', { ...gameCard(), typeLine: 'Dungeon', layout: 'dungeon' });
+    fixture.detectChanges();
+
+    cardElement.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true }));
+
+    expect(doubleClicked).not.toHaveBeenCalled();
   });
 
   it('does not emit touch double tap when the gesture moves like a drag', async () => {
@@ -1139,6 +1385,12 @@ function statElements(fixture: ComponentFixture<GameCardViewComponent>): [HTMLEl
   expect(elements.length).toBe(2);
 
   return [elements[0]!, elements[1]!];
+}
+
+function nextAnimationFrame(): Promise<void> {
+  return new Promise((resolve) => {
+    window.requestAnimationFrame(() => resolve());
+  });
 }
 
 function tap(target: EventTarget, init: PointerEventInit): PointerEvent {

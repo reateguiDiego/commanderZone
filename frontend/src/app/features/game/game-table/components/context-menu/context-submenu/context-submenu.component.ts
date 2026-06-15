@@ -10,6 +10,7 @@ export interface ContextSubmenuItem {
   readonly value: string;
   readonly label: string;
   readonly icon?: string;
+  readonly iconKind?: 'mana';
   readonly imageOnly?: boolean;
   readonly shortcut?: string;
   readonly danger?: boolean;
@@ -72,6 +73,10 @@ export class ContextSubmenuComponent {
 
   isCounterPillIcon(icon: string): boolean {
     return icon === 'counter-pill';
+  }
+
+  manaIconClass(icon: string): string {
+    return `submenu-item-mana-icon ms ms-mechanic ${icon}`;
   }
 
   isGraveyardAssetIcon(icon: string): boolean {

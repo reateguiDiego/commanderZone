@@ -191,6 +191,7 @@ export type GameSnapshotPatchOperation =
       hidden?: boolean;
       revealedTo?: string[];
       counters?: GameCardInstance['counters'];
+      dungeonMarker?: GameCardInstance['dungeonMarker'];
     }
   | {
       op: 'card.projection.set';

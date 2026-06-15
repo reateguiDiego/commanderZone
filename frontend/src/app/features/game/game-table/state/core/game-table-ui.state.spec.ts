@@ -36,6 +36,27 @@ describe('GameTableUiState', () => {
     expect(state.activeHoveredSelection()).toBeNull();
   });
 
+  it('shows an immediate hover preview and clears the live dungeon marker override with the preview', () => {
+    const state = new GameTableUiState();
+    const card = { ...gameCard(), typeLine: 'Dungeon' };
+
+    state.setDungeonMarkerPreviewOverride({ instanceId: card.instanceId, marker: { x: 0.6, y: 0.35 } });
+    state.showImmediateCardPreview({
+      card,
+      playerId: 'player-1',
+      zone: 'battlefield',
+      sourceRect: null,
+    }, () => false);
+
+    expect(state.hoveredPreview()?.card).toBe(card);
+    expect(state.dungeonMarkerPreviewOverride()).toEqual({ instanceId: card.instanceId, marker: { x: 0.6, y: 0.35 } });
+
+    state.hideCardPreview();
+
+    expect(state.hoveredPreview()).toBeNull();
+    expect(state.dungeonMarkerPreviewOverride()).toBeNull();
+  });
+
   it('does not show delayed hover previews while a context menu is open', () => {
     vi.useFakeTimers();
     const state = new GameTableUiState();

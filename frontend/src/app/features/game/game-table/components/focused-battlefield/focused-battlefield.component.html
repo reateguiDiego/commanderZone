@@ -70,12 +70,15 @@
       (cardDoubleClicked)="onCardDoubleClick($event.event, focusedPlayer.id, $event.card)"
       (cardMenuOpened)="onCardMenu($event.event, focusedPlayer.id, $event.card)"
       (cardMouseEntered)="cardPreviewShown.emit($event)"
+      (cardPreviewRequested)="cardPreviewRequested.emit($event)"
       (cardMouseLeft)="onCardPointerLeft()"
       (powerChanged)="changePower($event.event, focusedPlayer.id, $event.card, $event.delta)"
       (toughnessChanged)="changeToughness($event.event, focusedPlayer.id, $event.card, $event.delta)"
       (loyaltyChanged)="changeLoyalty($event.event, focusedPlayer.id, $event.card, $event.delta)"
       (counterChanged)="changeCounter($event.event, focusedPlayer.id, $event.card, $event.key, $event.delta)"
       (counterDeleteRequested)="requestCounterDelete($event.event, focusedPlayer.id, $event.card, $event.key)"
+      (dungeonMarkerChanged)="dungeonMarkerChanged.emit({ event: $event.event, playerId: focusedPlayer.id, card: $event.card, marker: $event.marker })"
+      (dungeonMarkerPreviewChanged)="dungeonMarkerPreviewChanged.emit({ playerId: focusedPlayer.id, card: $event.card, marker: $event.marker })"
     />
   }
   @if (activeAlignmentGuide; as guide) {

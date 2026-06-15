@@ -73,6 +73,40 @@ describe('GameTableAttachmentsState', () => {
     expect(context.closeContextMenu).toHaveBeenCalled();
   });
 
+  it('does not start attachment targeting from an emblem', () => {
+    const context = attachmentContext();
+
+    state.startAttachmentFrom(context, {
+      kind: 'card',
+      playerId: 'player-1',
+      zone: 'battlefield',
+      card: { ...card('emblem-card', 'Emblem'), layout: 'emblem' },
+      x: 0,
+      y: 0,
+    });
+
+    expect(state.pendingAttachmentSource()).toBeNull();
+    expect(context.setError).toHaveBeenCalledWith('Emblems cannot be attached to another permanent.');
+    expect(context.closeContextMenu).toHaveBeenCalled();
+  });
+
+  it('does not start attachment targeting from a dungeon', () => {
+    const context = attachmentContext();
+
+    state.startAttachmentFrom(context, {
+      kind: 'card',
+      playerId: 'player-1',
+      zone: 'battlefield',
+      card: { ...card('dungeon-card', 'Dungeon'), layout: 'dungeon' },
+      x: 0,
+      y: 0,
+    });
+
+    expect(state.pendingAttachmentSource()).toBeNull();
+    expect(context.setError).toHaveBeenCalledWith('Dungeons cannot be attached to another permanent.');
+    expect(context.closeContextMenu).toHaveBeenCalled();
+  });
+
   it('does not start attachment targeting from a permanent with attached cards', () => {
     const context = attachmentContext();
     snapshotSignal.set({
@@ -136,6 +170,42 @@ describe('GameTableAttachmentsState', () => {
       equipmentInstanceId: 'equipment-card',
       attachedToInstanceId: 'land-card',
     });
+  });
+
+  it('does not attach to an emblem target', async () => {
+    const context = attachmentContext();
+    state.pendingAttachmentSource.set({ instanceId: 'equipment-card', cardName: 'equipment-card' });
+    snapshotSignal.set({
+      ...snapshot(),
+      players: {
+        'player-1': player('player-1', [card('equipment-card'), { ...card('emblem-card', 'Emblem'), layout: 'emblem' }]),
+      },
+    });
+
+    const handled = state.handleBattlefieldCardClick(context, mouseEvent(), { ...card('emblem-card', 'Emblem'), layout: 'emblem' });
+    await Promise.resolve();
+
+    expect(handled).toBe(true);
+    expect(context.setError).toHaveBeenCalledWith('Emblems cannot be attachment targets.');
+    expect(context.command).not.toHaveBeenCalled();
+  });
+
+  it('does not attach to a dungeon target', async () => {
+    const context = attachmentContext();
+    state.pendingAttachmentSource.set({ instanceId: 'equipment-card', cardName: 'equipment-card' });
+    snapshotSignal.set({
+      ...snapshot(),
+      players: {
+        'player-1': player('player-1', [card('equipment-card'), { ...card('dungeon-card', 'Dungeon'), layout: 'dungeon' }]),
+      },
+    });
+
+    const handled = state.handleBattlefieldCardClick(context, mouseEvent(), { ...card('dungeon-card', 'Dungeon'), layout: 'dungeon' });
+    await Promise.resolve();
+
+    expect(handled).toBe(true);
+    expect(context.setError).toHaveBeenCalledWith('Dungeons cannot be attachment targets.');
+    expect(context.command).not.toHaveBeenCalled();
   });
 
   it('positions equipment under the target before creating the attachment', async () => {

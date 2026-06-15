@@ -9,6 +9,8 @@ import { playerIsDefeated } from '../../utils/game-player-defeat';
 import { contextMenuDisplayLabel } from './context-menu-label';
 import { ManaSourceSuggestion } from '../../utils/mana-source-detector';
 import { ManaSymbolsComponent } from '../../../../../shared/mana/mana-symbols/mana-symbols.component';
+import { gameplayCardKind } from '../../utils/gameplay-card-kind';
+import { ventureCardKind, VentureCardKind } from '../../utils/venture-card-kind';
 
 export type ContextMenuAction =
   | { type: 'drawMine' }
@@ -46,6 +48,8 @@ export type ContextMenuAction =
   | { type: 'revealCard'; target: string }
   | { type: 'createToken' }
   | { type: 'createHelper' }
+  | { type: 'openGameplayCardSearch'; kind: 'emblem' | 'dungeon' }
+  | { type: 'addVenture'; kind: VentureCardKind }
   | { type: 'rollDice' }
   | { type: 'showManaPool' }
   | { type: 'resetManaPool' }
@@ -78,7 +82,8 @@ type ContextSubmenu =
   | 'libraryMoveTop'
   | 'libraryRevealTop'
   | 'libraryReveal'
-  | 'libraryView';
+  | 'libraryView'
+  | 'gameMechanics';
 
 @Component({
   selector: 'app-context-menu',
@@ -148,7 +153,22 @@ export class ContextMenuComponent {
     { value: 'all', label: 'game.contextMenu.labels.viewAllLibrary', icon: 'library' },
     { value: 'top', label: 'game.contextMenu.labels.viewXTopCards', icon: 'layers-3' },
   ]);
+  readonly gameMechanicsMenuItems: readonly ContextSubmenuItem[] = [
+    { value: 'monarch', label: 'Add Monarch', icon: 'ms-ability-role-royal', iconKind: 'mana', preserveCase: true },
+    { value: 'initiative', label: 'Add Initiative', icon: 'ms-ability-d20', iconKind: 'mana', preserveCase: true },
+    { value: 'day-night', label: 'Add Day / Night', icon: 'ms-ability-day-night', iconKind: 'mana', preserveCase: true },
+    { value: 'the-ring', label: 'Add The Ring', icon: 'ms-ability-the-ring-tempts-you', iconKind: 'mana', preserveCase: true },
+    { value: 'dungeon', label: 'Add Dungeon', icon: 'ms-ability-dungeon', iconKind: 'mana', preserveCase: true },
+    { value: 'citys-blessing', label: "Add City's Blessing", icon: 'ms-ability-ascend', iconKind: 'mana', preserveCase: true },
+    { value: 'emblem', label: 'Add Emblem', icon: 'ms-planeswalker', iconKind: 'mana', preserveCase: true },
+  ];
   readonly manaAssistantIconSymbol = computed(() => this.randomManaIdentitySymbol());
+
+  selectGameMechanic(value: string): void {
+    if (value === 'emblem' || value === 'dungeon') {
+      this.actionSelected.emit({ type: 'openGameplayCardSearch', kind: value });
+    }
+  }
 
   isArrowMenu(): boolean {
     return this.menu().kind === 'arrow';
@@ -229,6 +249,19 @@ export class ContextMenuComponent {
     return this.menu().zone === 'battlefield';
   }
 
+  isGameplayCardMenu(): boolean {
+    const currentMenu = this.menu();
+
+    return currentMenu.kind === 'card'
+      && currentMenu.zone === 'battlefield'
+      && gameplayCardKind(currentMenu.card) !== null;
+  }
+
+  canRemoveGameplayCardStack(): boolean {
+    return gameplayCardKind(this.menu().card) === 'emblem'
+      && this.canRemoveLandStack();
+  }
+
   canAddPowerToughness(): boolean {
     const card = this.menu().card;
     return this.showsBattlefieldCardActions() && !!card && !card.faceDown && !this.shouldShowPowerToughness()(card);
@@ -273,6 +306,24 @@ export class ContextMenuComponent {
       && !!currentMenu.card
       && this.canControlPlayer()(currentMenu.playerId)
       && (currentMenu.card.typeLine ?? '').toLowerCase().includes('creature');
+  }
+
+  activeVentureKind(): VentureCardKind | null {
+    const currentMenu = this.menu();
+    if (
+      !this.showsBattlefieldCardActions()
+      || !this.canControlActivePlayer()
+      || !currentMenu.card
+      || currentMenu.card.faceDown
+    ) {
+      return null;
+    }
+
+    return ventureCardKind(currentMenu.card);
+  }
+
+  canAddVenture(): boolean {
+    return this.activeVentureKind() !== null;
   }
 
   canEquipCard(): boolean {

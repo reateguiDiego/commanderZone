@@ -1,0 +1,90 @@
+:host {
+  --cz-dungeon-pin-gold: var(--gold, #d7b46a);
+  --cz-dungeon-pin-ink: rgb(18 13 5 / 96%);
+  --cz-dungeon-pin-size: clamp(1.55rem, calc(var(--game-card-view-width, 7.2rem) * 0.25), 2.15rem);
+
+  position: absolute;
+  z-index: 6;
+  display: grid;
+  width: var(--cz-dungeon-pin-size);
+  height: calc(var(--cz-dungeon-pin-size) * 1.2);
+  place-items: center;
+  pointer-events: none;
+  transform: translate(-50%, -100%);
+  transform-origin: 50% 100%;
+  user-select: none;
+}
+
+:host(.dungeon-location-pin-interactive) {
+  cursor: grab;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+:host(.dungeon-location-pin-interactive:active) {
+  cursor: grabbing;
+}
+
+.dungeon-location-pin__mark {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  transform: translateZ(0);
+}
+
+.dungeon-location-pin__shadow {
+  fill: rgb(0 0 0 / 58%);
+}
+
+.dungeon-location-pin__drop-edge {
+  fill: url('#czDungeonPinGoldEdge');
+}
+
+.dungeon-location-pin__drop {
+  fill: url('#czDungeonPinGoldFace');
+  stroke: rgb(255 247 213 / 68%);
+  stroke-width: 0.9;
+}
+
+.dungeon-location-pin__highlight {
+  fill: url('#czDungeonPinFaceLight');
+  mix-blend-mode: screen;
+}
+
+.dungeon-location-pin__facet {
+  fill: rgb(255 252 235 / 32%);
+}
+
+.dungeon-location-pin__reticle {
+  color: var(--cz-dungeon-pin-ink);
+  filter:
+    drop-shadow(0 1px 0 rgb(255 245 199 / 34%))
+    drop-shadow(0 -1px 0 rgb(0 0 0 / 32%));
+}
+
+.dungeon-location-pin__reticle-ring {
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 3.4;
+}
+
+.dungeon-location-pin__reticle-ring-inner {
+  stroke-width: 2.6;
+}
+
+.dungeon-location-pin__reticle-line {
+  fill: none;
+  stroke: currentcolor;
+  stroke-linecap: round;
+  stroke-width: 3.2;
+}
+
+.dungeon-location-pin__aim-point {
+  fill: currentcolor;
+}
+
+.dungeon-location-pin__tip {
+  fill: var(--cz-dungeon-pin-ink);
+  opacity: 0.82;
+}

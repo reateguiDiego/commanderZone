@@ -165,9 +165,58 @@ describe('CardPreviewOverlayComponent', () => {
     expect(detailBox.textContent).not.toContain('Attached');
     expect(layout.classList.contains('attachment-preview-layout-with-attachments')).toBe(false);
   });
+
+  it('renders the dungeon marker over the preview image', async () => {
+    const fixture = await renderPreview({
+      card: {
+        ...gameCard(),
+        typeLine: 'Dungeon',
+        dungeonMarker: { x: 0.25, y: 0.75 },
+      },
+    });
+
+    const pin = fixture.nativeElement.querySelector('app-dungeon-location-pin') as HTMLElement | null;
+    expect(pin).not.toBeNull();
+    expect(pin?.style.left).toBe('25%');
+    expect(pin?.style.top).toBe('75%');
+    expect(pin?.style.getPropertyValue('--cz-dungeon-pin-size')).toBe('55px');
+  });
+
+  it('uses the live dungeon marker override over the card marker', async () => {
+    const fixture = await renderPreview({
+      card: {
+        ...gameCard(),
+        typeLine: 'Dungeon',
+        dungeonMarker: { x: 0.25, y: 0.75 },
+      },
+      dungeonMarkerOverride: { x: 0.6, y: 0.35 },
+    });
+
+    const pin = fixture.nativeElement.querySelector('app-dungeon-location-pin') as HTMLElement | null;
+    expect(pin?.style.left).toBe('60%');
+    expect(pin?.style.top).toBe('35%');
+  });
+
+  it('renders the dungeon marker for legacy official dungeon cards without layout metadata', async () => {
+    const fixture = await renderPreview({
+      card: {
+        ...gameCard(),
+        name: 'Dungeon of the Mad Mage',
+        typeLine: null,
+        layout: null,
+      },
+    });
+
+    const pin = fixture.nativeElement.querySelector('app-dungeon-location-pin') as HTMLElement | null;
+    expect(pin).not.toBeNull();
+    expect(pin?.style.left).toBe('50%');
+    expect(pin?.style.top).toBe('50%');
+  });
 });
 
 async function renderPreview(options: {
+  card?: GameCardInstance;
+  dungeonMarkerOverride?: { x: number; y: number } | null;
   sourceRect?: {
     left: number;
     top: number;
@@ -198,8 +247,9 @@ async function renderPreview(options: {
   }).compileComponents();
 
   const fixture = TestBed.createComponent(CardPreviewOverlayComponent);
-  fixture.componentRef.setInput('card', gameCard());
+  fixture.componentRef.setInput('card', options.card ?? gameCard());
   fixture.componentRef.setInput('image', '/assets/card.jpg');
+  fixture.componentRef.setInput('dungeonMarkerOverride', options.dungeonMarkerOverride ?? null);
   fixture.componentRef.setInput('battlefieldRect', {
     left: 0,
     top: 0,

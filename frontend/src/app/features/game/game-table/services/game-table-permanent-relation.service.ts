@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { GameAttachment, GameCardInstance, GameSnapshot } from '../../../../core/models/game.model';
+import { gameplayCardKind, isGameplayCard } from '../utils/gameplay-card-kind';
 
 export interface BattlefieldCardRef {
   readonly playerId: string;
@@ -54,7 +55,29 @@ export class GameTablePermanentRelationService {
   canAttachSource(snapshot: GameSnapshot | null, card: GameCardInstance | null | undefined): boolean {
     return !!card
       && !this.isLandPermanent(card)
+      && !isGameplayCard(card)
       && this.attachmentsForTarget(snapshot, card.instanceId).length === 0;
+  }
+
+  canAttachTarget(card: GameCardInstance | null | undefined): boolean {
+    return !!card && !isGameplayCard(card);
+  }
+
+  gameplayAttachmentError(card: GameCardInstance | null | undefined, role: 'source' | 'target'): string | null {
+    const kind = gameplayCardKind(card);
+    if (kind === 'emblem') {
+      return role === 'source'
+        ? 'Emblems cannot be attached to another permanent.'
+        : 'Emblems cannot be attachment targets.';
+    }
+
+    if (kind === 'dungeon') {
+      return role === 'source'
+        ? 'Dungeons cannot be attached to another permanent.'
+        : 'Dungeons cannot be attachment targets.';
+    }
+
+    return null;
   }
 
   canEquipSource(card: GameCardInstance | null | undefined): boolean {
