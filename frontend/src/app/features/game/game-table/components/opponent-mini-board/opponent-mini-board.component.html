@@ -48,33 +48,16 @@
       <span class="opponent-life" data-testid="opponent-life">{{ opponent.state.life }}</span>
     </span>
   </span>
-  <span class="opponent-mechanics-row">
-    <button
-      type="button"
-      class="opponent-mechanics-button"
-      data-testid="opponent-mechanics-button"
-      [attr.data-mode]="helperInteractionMode()"
-      (click)="openMechanics($event)"
-    >
-      <lucide-icon name="sparkles" size="14" aria-hidden="true" />
-      <span>{{ 'game.contextMenu.labels.mechanics' | runtimeTranslate }}</span>
-    </button>
-    @if (mechanicsBadges().length > 0) {
-      <span class="opponent-mechanics-badges" data-testid="opponent-mechanics-badges">
-        @for (badge of mechanicsBadges(); track badge.translationKey + (badge.detail ?? '')) {
-          <span class="opponent-mechanics-badge">
-            <lucide-icon [name]="badge.icon" size="12" aria-hidden="true" />
-            <span>
-              {{ badge.translationKey | runtimeTranslate }}
-              @if (badge.detail; as detail) {
-                <small>{{ detail }}</small>
-              }
-            </span>
-          </span>
-        }
-      </span>
-    }
-  </span>
+  @if (mechanicsEntities().length > 0) {
+    <app-special-entity-strip
+      [entities]="mechanicsEntities()"
+      variant="compact"
+      [ringBearerName]="ringBearerName()"
+      (previewRequested)="helperPreviewRequested.emit($event)"
+      (previewHidden)="helperPreviewHidden.emit()"
+      (entityContextRequested)="helperContextRequested.emit($event)"
+    />
+  }
   <span class="opponent-board-stage" [class.showing-cards-target]="!isDefeated(opponent) && cardsTargetCards().length > 0">
     @if (isDefeated(opponent)) {
       <div

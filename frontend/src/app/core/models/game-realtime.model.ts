@@ -333,6 +333,7 @@ export type GameSnapshotPatchOperation =
       op: 'specialEntity.update';
       entityId: string;
       state: Record<string, unknown>;
+      entity?: GameSpecialEntity;
     }
   | {
       op: 'specialEntity.remove';

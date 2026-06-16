@@ -62,16 +62,14 @@
               [manaSymbols]="manaSymbols"
               [playerCounterValue]="playerCounterValue"
               [canEditCounters]="canControlPlayer(summaryPlayer.id)"
-              [helperInteractionMode]="canControlPlayer(summaryPlayer.id) ? 'editable' : 'readonly'"
               [specialEntities]="playerSpecialEntities(summaryPlayer.id)"
               [ringBearerName]="ringBearerName"
-              [helperImageFor]="helperImageFor"
               (helperPreviewRequested)="showHelperPreview($event)"
               (helperPreviewHidden)="store.hideCardPreview()"
+              (helperContextRequested)="handleHelperContextRequest($event)"
               (lifeChanged)="store.changeLife($event.playerId, $event.delta)"
               (commanderDamageChanged)="store.setCommanderDamage($event.targetPlayerId, $event.sourcePlayerId, $event.commanderInstanceId, $event.delta)"
               (playerCounterChanged)="store.changePlayerCounter($event.playerId, $event.key, $event.delta)"
-              (createHelperRequested)="openSpecialHelperModal($event)"
             />
           }
 
@@ -307,13 +305,11 @@
               [manaSymbols]="manaSymbols"
               [playerCounterValue]="playerCounterValue"
               [canEditCounters]="false"
-              [helperInteractionMode]="canControlPlayer(battlefieldOwner.id) ? 'editable' : 'readonly'"
               [specialEntities]="playerSpecialEntities(battlefieldOwner.id)"
               [ringBearerName]="ringBearerName"
-              [helperImageFor]="helperImageFor"
               (helperPreviewRequested)="showHelperPreview($event)"
               (helperPreviewHidden)="store.hideCardPreview()"
-              (createHelperRequested)="openSpecialHelperModal($event)"
+              (helperContextRequested)="handleHelperContextRequest($event)"
               (returnRequested)="returnToCurrentPlayerBattlefield()"
               />
             </div>
@@ -331,6 +327,8 @@
             [isCurrentPlayer]="isCurrentPlayer"
             [allowArrowTargetSelection]="manualRelationTargetingActive()"
             [focusEffectsEnabled]="focusEffectsEnabled()"
+            [monarchCard]="monarchCardForPlayer(player.id)"
+            [dayNightCard]="null"
             [isDropZoneHighlighted]="isDropZoneHighlighted"
             [cardPosition]="cardPosition"
             [isSelected]="isSelected"
@@ -486,10 +484,12 @@
               [targetingPill]="opponentTargetingPills().get(player.id) ?? null"
               [cardsTargetCards]="opponentCardsTargetCards().get(player.id) ?? []"
               [specialEntitiesSummary]="playerSpecialEntitiesSummary(player.id)"
-              [helperInteractionMode]="canControlPlayer(player.id) ? 'editable' : 'readonly'"
+              [ringBearerName]="ringBearerName"
               [battlefieldSize]="battlefieldLayoutSize()"
               (focusPlayer)="focusOpponentFromSidebar($event)"
-              (mechanicsRequested)="openSpecialHelperModal($event)"
+              (helperPreviewRequested)="showHelperPreview($event)"
+              (helperPreviewHidden)="store.hideCardPreview()"
+              (helperContextRequested)="handleHelperContextRequest($event)"
               (dropAllowed)="store.allowDrop($event)"
               (playerDropped)="handlePlayerDrop($event)"
               (playerMenuOpened)="store.openPlayerMenu($event.event, $event.playerId)"
@@ -600,20 +600,34 @@
         (closed)="closeGameplayCardSearchModal()"
       />
 
-      <app-special-helper-modal
-        [open]="specialHelperPlayerId() !== null"
-        [pending]="specialHelperPending()"
-        [interactionMode]="specialHelperInteractionMode()"
-        [playerName]="specialHelperPlayerName()"
-        [playerSummary]="specialHelperPlayerSummary()"
-        [dayNightEntity]="specialEntityState.dayNight()"
-        [ringBearerName]="ringBearerName"
-        (quickActionSelected)="createQuickHelper($event)"
-        (cardSelected)="createSelectedHelper($event)"
-        (entityUpdated)="applyHelperEntityUpdate($event)"
-        (entityRemoved)="removeHelperEntity($event)"
-        (closed)="closeSpecialHelperModal()"
-      />
+      @if (pendingDungeonReplacement(); as replacement) {
+        <app-modal
+          [open]="true"
+          [title]="'game.specialHelpers.dungeonReplacement.title' | runtimeTranslate"
+          [message]="'game.specialHelpers.dungeonReplacement.message' | runtimeTranslate:{ currentDungeon: replacement.currentDungeonName, nextDungeon: replacement.card.name }"
+          [primaryLabel]="'game.specialHelpers.dungeonReplacement.confirm' | runtimeTranslate"
+          [secondaryLabel]="'game.specialHelpers.dungeonReplacement.cancel' | runtimeTranslate"
+          [primaryDisabled]="dungeonReplacementPending()"
+          [lockBodyScroll]="false"
+          size="compact"
+          (primary)="confirmDungeonReplacement()"
+          (secondary)="cancelDungeonReplacement()"
+        />
+      }
+
+      @if (pendingCitysBlessingRemoval()) {
+        <app-modal
+          [open]="true"
+          [title]="'game.specialHelpers.citysBlessingRemoval.title' | runtimeTranslate"
+          [message]="'game.specialHelpers.citysBlessingRemoval.message' | runtimeTranslate"
+          [primaryLabel]="'game.specialHelpers.citysBlessingRemoval.confirm' | runtimeTranslate"
+          [secondaryLabel]="'game.specialHelpers.citysBlessingRemoval.cancel' | runtimeTranslate"
+          [lockBodyScroll]="false"
+          size="compact"
+          (primary)="confirmCitysBlessingRemoval()"
+          (secondary)="cancelCitysBlessingRemoval()"
+        />
+      }
 
       @if (rollModalOpen()) {
         <app-roll-modal
@@ -829,6 +843,9 @@
         [isManaPoolHidden]="store.isManaPoolHidden"
         [zoneTitle]="zoneTitle"
         [ownedArrowCount]="ownedArrowCount(menu.playerId)"
+        [activeDayNight]="activeDayNight()"
+        [monarchOwnerPlayerId]="monarchOwnerPlayerId()"
+        [playerHasCitysBlessing]="playerHasCitysBlessing"
         (interacted)="store.clearCardPreview()"
         (actionSelected)="handleContextMenuAction($event, menu)"
         (close)="store.closeContextMenu()"

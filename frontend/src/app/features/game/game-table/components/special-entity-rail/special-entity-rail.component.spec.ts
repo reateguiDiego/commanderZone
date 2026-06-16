@@ -33,17 +33,26 @@ describe('SpecialEntityRailComponent', () => {
       },
     ] satisfies GameSpecialEntity[]);
     fixture.componentRef.setInput('ringBearerName', () => 'Frodo');
-    fixture.componentRef.setInput('imageFor', (entity: GameSpecialEntity) => entity.card?.imageUris?.['normal'] ?? null);
     fixture.detectChanges();
   });
 
-  it('renders non-card helpers and ring metadata', () => {
-    const text = fixture.nativeElement.textContent ?? '';
+  it('renders icon-first helpers with expandable copy metadata', () => {
+    const pills = Array.from(fixture.nativeElement.querySelectorAll('.special-entity-pill')) as HTMLElement[];
+    const labels = pills.map((pill) => pill.getAttribute('aria-label'));
+    const copy = Array.from(fixture.nativeElement.querySelectorAll('.special-entity-pill-copy')) as HTMLElement[];
 
-    expect(text).toContain('Monarch');
-    expect(text).toContain('The Ring');
-    expect(text).toContain('Ring level 3');
-    expect(text).toContain('Frodo');
+    expect(labels).toContain('Monarch');
+    expect(labels).toContain('The Ring - Level 3 - Frodo');
+    expect(labels).toContain('Lost Mine of Phandelver - Trap!');
+    expect(copy.map((element) => element.textContent?.trim())).toEqual([
+      'Monarch',
+      'The Ring - Level 3 - Frodo',
+      'Lost Mine of Phandelver - Trap!',
+    ]);
+    expect(pills.some((pill) => pill.hasAttribute('title'))).toBe(false);
+    expect(fixture.nativeElement.querySelector('.ms-ability-role-royal')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('.ms-ability-the-ring-tempts-you')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('.ms-ability-dungeon')).not.toBeNull();
   });
 
   it('emits preview events for card-backed helpers', () => {
@@ -62,10 +71,36 @@ describe('SpecialEntityRailComponent', () => {
     expect(hidden).toHaveBeenCalled();
   });
 
-  it('renders card-backed helpers as textual pills without inline mini-card art', () => {
+  it('renders card-backed helpers as expandable text pills without inline mini-card art or native tooltip', () => {
     expect(fixture.nativeElement.querySelector('.special-entity-ring-button')).toBeNull();
     expect(fixture.nativeElement.textContent).toContain('Lost Mine of Phandelver');
+    expect(fixture.nativeElement.querySelector('.special-entity-pill-card-backed')?.hasAttribute('title')).toBe(false);
     expect(fixture.nativeElement.querySelector('.special-entity-pill-card-backed img')).toBeNull();
+  });
+
+  it("emits a context request for City's Blessing on right click", () => {
+    fixture.componentRef.setInput('entities', [{
+      ...helperEntity('citys_blessing', 'player-1'),
+      card: {
+        scryfallId: 'citys-blessing-1',
+        name: "City's Blessing",
+        imageUris: { normal: 'https://cards.example/citys-blessing.jpg' },
+        cardFaces: [],
+        typeLine: 'Card',
+        oracleText: null,
+        layout: 'token',
+      },
+    } satisfies GameSpecialEntity]);
+    fixture.detectChanges();
+    const requested = vi.fn();
+    fixture.componentInstance.entityContextRequested.subscribe(requested);
+
+    const blessing = fixture.nativeElement.querySelector('.special-entity-pill-card-backed') as HTMLElement;
+    blessing.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
+
+    expect(requested).toHaveBeenCalledWith(expect.objectContaining({
+      entity: expect.objectContaining({ template: 'citys_blessing' }),
+    }));
   });
 });
 

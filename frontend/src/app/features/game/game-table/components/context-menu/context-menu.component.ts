@@ -9,7 +9,7 @@ import { playerIsDefeated } from '../../utils/game-player-defeat';
 import { contextMenuDisplayLabel } from './context-menu-label';
 import { ManaSourceSuggestion } from '../../utils/mana-source-detector';
 import { ManaSymbolsComponent } from '../../../../../shared/mana/mana-symbols/mana-symbols.component';
-import { gameplayCardKind } from '../../utils/gameplay-card-kind';
+import { gameplayCardKind, isDayNightCard, isMonarchCard } from '../../utils/gameplay-card-kind';
 import { ventureCardKind, VentureCardKind } from '../../utils/venture-card-kind';
 
 export type ContextMenuAction =
@@ -47,7 +47,14 @@ export type ContextMenuAction =
   | { type: 'flipCardFace' }
   | { type: 'revealCard'; target: string }
   | { type: 'createToken' }
-  | { type: 'createHelper' }
+  | { type: 'createMonarch' }
+  | { type: 'removeMonarch' }
+  | { type: 'giveMonarchToPlayer'; targetPlayerId: string }
+  | { type: 'createDayNight' }
+  | { type: 'setDayNightMode'; mode: 'day' | 'night' }
+  | { type: 'removeDayNight' }
+  | { type: 'createCitysBlessing' }
+  | { type: 'removeCitysBlessing' }
   | { type: 'openGameplayCardSearch'; kind: 'emblem' | 'dungeon' }
   | { type: 'addVenture'; kind: VentureCardKind }
   | { type: 'rollDice' }
@@ -76,6 +83,7 @@ export type ContextMenuAction =
 type ContextSubmenu =
   | 'counters'
   | 'giveToPlayer'
+  | 'giveMonarchToPlayer'
   | 'moveTo'
   | 'moveAllTo'
   | 'revealTo'
@@ -113,6 +121,9 @@ export class ContextMenuComponent {
   readonly isManaPoolHidden = input<(playerId: string) => boolean>(() => false);
   readonly zoneTitle = input.required<(zone: GameZoneName) => string>();
   readonly ownedArrowCount = input(0);
+  readonly activeDayNight = input(false);
+  readonly monarchOwnerPlayerId = input<string | null>(null);
+  readonly playerHasCitysBlessing = input<(playerId: string) => boolean>(() => false);
 
   readonly actionSelected = output<ContextMenuAction>();
   readonly interacted = output<void>();
@@ -128,6 +139,14 @@ export class ContextMenuComponent {
     }))),
   );
   readonly giveToDestinationMenuItems = computed<readonly ContextSubmenuItem[]>(() => this.buildGiveToDestinationMenuItems());
+  readonly giveMonarchToPlayerMenuItems = computed<readonly ContextSubmenuItem[]>(() =>
+    this.sortedItems(this.monarchGiveTargets().map((player) => ({
+      value: player.id,
+      label: this.playerLabel(player),
+      icon: 'gift',
+      preserveCase: true,
+    }))),
+  );
   readonly moveToMenuItems = computed<readonly ContextSubmenuItem[]>(() => this.buildMoveToMenuItems());
   readonly moveAllToMenuItems = computed<readonly ContextSubmenuItem[]>(() => this.buildMoveAllToMenuItems());
   readonly revealToMenuItems = computed<readonly ContextSubmenuItem[]>(() => [
@@ -153,21 +172,79 @@ export class ContextMenuComponent {
     { value: 'all', label: 'game.contextMenu.labels.viewAllLibrary', icon: 'library' },
     { value: 'top', label: 'game.contextMenu.labels.viewXTopCards', icon: 'layers-3' },
   ]);
-  readonly gameMechanicsMenuItems: readonly ContextSubmenuItem[] = [
-    { value: 'monarch', label: 'Add Monarch', icon: 'ms-ability-role-royal', iconKind: 'mana', preserveCase: true },
-    { value: 'initiative', label: 'Add Initiative', icon: 'ms-ability-d20', iconKind: 'mana', preserveCase: true },
-    { value: 'day-night', label: 'Add Day / Night', icon: 'ms-ability-day-night', iconKind: 'mana', preserveCase: true },
-    { value: 'the-ring', label: 'Add The Ring', icon: 'ms-ability-the-ring-tempts-you', iconKind: 'mana', preserveCase: true },
-    { value: 'dungeon', label: 'Add Dungeon', icon: 'ms-ability-dungeon', iconKind: 'mana', preserveCase: true },
-    { value: 'citys-blessing', label: "Add City's Blessing", icon: 'ms-ability-ascend', iconKind: 'mana', preserveCase: true },
-    { value: 'emblem', label: 'Add Emblem', icon: 'ms-planeswalker', iconKind: 'mana', preserveCase: true },
-  ];
+  readonly gameMechanicsMenuItems = computed<readonly ContextSubmenuItem[]>(() => this.buildGameMechanicsMenuItems());
   readonly manaAssistantIconSymbol = computed(() => this.randomManaIdentitySymbol());
 
   selectGameMechanic(value: string): void {
+    if (value === 'monarch') {
+      this.actionSelected.emit({ type: 'createMonarch' });
+      return;
+    }
+
+    if (value === 'day-night') {
+      this.actionSelected.emit({ type: 'createDayNight' });
+      return;
+    }
+
+    if (value === 'citys-blessing') {
+      this.actionSelected.emit(
+        this.playerHasCitysBlessing()(this.menu().playerId)
+          ? { type: 'removeCitysBlessing' }
+          : { type: 'createCitysBlessing' },
+      );
+      return;
+    }
+
     if (value === 'emblem' || value === 'dungeon') {
       this.actionSelected.emit({ type: 'openGameplayCardSearch', kind: value });
     }
+  }
+
+  private buildGameMechanicsMenuItems(): readonly ContextSubmenuItem[] {
+    const items: ContextSubmenuItem[] = [];
+    const monarchItem = this.monarchMenuItem();
+    if (monarchItem) {
+      items.push(monarchItem);
+    }
+
+    items.push({ value: 'initiative', label: 'game.contextMenu.labels.addInitiative', icon: 'ms-ability-d20', iconKind: 'mana', preserveCase: true });
+
+    if (!this.activeDayNight()) {
+      items.push({ value: 'day-night', label: 'game.contextMenu.labels.addDayNight', icon: 'ms-ability-day-night', iconKind: 'mana', preserveCase: true });
+    }
+
+    items.push(
+      { value: 'the-ring', label: 'game.contextMenu.labels.addTheRing', icon: 'ms-ability-the-ring-tempts-you', iconKind: 'mana', preserveCase: true },
+      { value: 'dungeon', label: 'game.contextMenu.labels.addDungeon', icon: 'ms-ability-dungeon', iconKind: 'mana', preserveCase: true },
+      {
+        value: 'citys-blessing',
+        label: this.playerHasCitysBlessing()(this.menu().playerId)
+          ? 'game.contextMenu.labels.removeCitysBlessing'
+          : 'game.contextMenu.labels.addCitysBlessing',
+        icon: 'ms-ability-ascend',
+        iconKind: 'mana',
+        preserveCase: true,
+      },
+      { value: 'emblem', label: 'game.contextMenu.labels.addEmblem', icon: 'ms-planeswalker', iconKind: 'mana', preserveCase: true },
+    );
+
+    return items;
+  }
+
+  private monarchMenuItem(): ContextSubmenuItem | null {
+    const currentPlayerId = this.currentPlayer()?.id ?? null;
+    const monarchOwnerPlayerId = this.monarchOwnerPlayerId();
+    if (currentPlayerId !== null && monarchOwnerPlayerId === currentPlayerId) {
+      return null;
+    }
+
+    return {
+      value: 'monarch',
+      label: monarchOwnerPlayerId ? 'game.contextMenu.labels.becomeMonarch' : 'game.contextMenu.labels.addMonarch',
+      icon: 'ms-ability-role-royal',
+      iconKind: 'mana',
+      preserveCase: true,
+    };
   }
 
   isArrowMenu(): boolean {
@@ -257,9 +334,56 @@ export class ContextMenuComponent {
       && gameplayCardKind(currentMenu.card) !== null;
   }
 
+  isDayNightCardMenu(): boolean {
+    const currentMenu = this.menu();
+
+    return currentMenu.kind === 'card'
+      && currentMenu.zone === 'battlefield'
+      && (currentMenu.card?.instanceId.startsWith('day-night:') === true || isDayNightCard(currentMenu.card));
+  }
+
+  isMonarchCardMenu(): boolean {
+    const currentMenu = this.menu();
+
+    return currentMenu.kind === 'card'
+      && currentMenu.zone === 'battlefield'
+      && isMonarchCard(currentMenu.card);
+  }
+
+  dayNightMode(): 'day' | 'night' {
+    return this.menu().card?.activeFaceIndex === 1 ? 'night' : 'day';
+  }
+
+  dayNightToggleAction(): ContextMenuAction {
+    return this.dayNightMode() === 'night'
+      ? { type: 'setDayNightMode', mode: 'day' }
+      : { type: 'setDayNightMode', mode: 'night' };
+  }
+
+  dayNightToggleLabel(): string {
+    return this.dayNightMode() === 'night' ? 'Make Day' : 'Make Night';
+  }
+
+  canRemoveDayNight(): boolean {
+    const card = this.menu().card;
+    const currentPlayer = this.currentPlayer();
+
+    return !!card?.ownerId && !!currentPlayer && card.ownerId === currentPlayer.id;
+  }
+
   canRemoveGameplayCardStack(): boolean {
     return gameplayCardKind(this.menu().card) === 'emblem'
       && this.canRemoveLandStack();
+  }
+
+  canGiveMonarchToPlayer(): boolean {
+    return this.monarchGiveTargets().length > 0;
+  }
+
+  canControlMonarchCard(): boolean {
+    const holderPlayerId = this.monarchHolderPlayerId();
+
+    return holderPlayerId !== null && this.canControlPlayer()(holderPlayerId);
   }
 
   canAddPowerToughness(): boolean {
@@ -408,6 +532,21 @@ export class ContextMenuComponent {
     return this.players().filter((player) => player.id !== activePlayerId && !playerIsDefeated(player));
   }
 
+  monarchGiveTargets(): readonly PlayerView[] {
+    const currentOwnerId = this.monarchHolderPlayerId() ?? this.menu().playerId;
+
+    return this.players().filter((player) => player.id !== currentOwnerId && !playerIsDefeated(player));
+  }
+
+  private monarchHolderPlayerId(): string | null {
+    const currentMenu = this.menu();
+    if (!this.isMonarchCardMenu()) {
+      return null;
+    }
+
+    return currentMenu.card?.controllerId ?? currentMenu.playerId;
+  }
+
   playerLabel(player: PlayerView): string {
     return player.state.user.displayName || player.id;
   }
@@ -449,6 +588,10 @@ export class ContextMenuComponent {
     if ((zone === 'battlefield' || zone === 'hand') && targetPlayerId) {
       this.actionSelected.emit({ type: 'giveToPlayer', zone, targetPlayerId });
     }
+  }
+
+  selectGiveMonarchToPlayer(targetPlayerId: string): void {
+    this.actionSelected.emit({ type: 'giveMonarchToPlayer', targetPlayerId });
   }
 
   selectMoveTo(zone: string): void {

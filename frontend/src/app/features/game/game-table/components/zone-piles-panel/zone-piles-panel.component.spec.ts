@@ -84,6 +84,7 @@ describe('ZonePilesPanelComponent', () => {
     const crown = zoneElement(fixture, 'library').querySelector('.zone-monarch-badge') as HTMLElement | null;
 
     expect(crown).not.toBeNull();
+    expect(crown?.getAttribute('title')).toBe('You are the monarch.');
     expect(zoneElement(fixture, 'graveyard').querySelector('.zone-monarch-badge')).toBeNull();
   });
 

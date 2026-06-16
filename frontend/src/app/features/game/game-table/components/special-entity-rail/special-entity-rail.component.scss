@@ -1,9 +1,29 @@
+:host {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
 .special-entity-rail {
   display: flex;
-  flex-wrap: wrap;
+  box-sizing: border-box;
+  flex-wrap: nowrap;
   gap: 0.32rem;
   align-items: center;
+  justify-content: center;
+  width: 100%;
   min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+.special-entity-rail::-webkit-scrollbar {
+  display: none;
 }
 
 .special-entity-pill {
@@ -18,26 +38,38 @@
 
 .special-entity-pill {
   display: flex;
+  flex: 0 0 auto;
   align-items: center;
-  gap: 0.42rem;
+  justify-content: center;
+  width: auto;
+  height: 2rem;
   min-width: 0;
-  min-height: 2rem;
-  padding: 0.22rem 0.5rem 0.22rem 0.28rem;
+  max-width: 2rem;
+  overflow: hidden;
+  padding: 0 0.25rem;
+  transition:
+    max-width 140ms ease,
+    padding 140ms ease,
+    border-color 140ms ease,
+    background-color 140ms ease;
 }
 
 .special-entity-pill-card-backed {
   cursor: pointer;
 }
 
-.special-entity-pill-card-backed:hover {
+.special-entity-pill:hover,
+.special-entity-pill:focus-within {
   border-color: rgb(255 255 255 / 18%);
   background: rgb(14 16 14 / 90%);
+  max-width: min(14rem, 88vw);
+  padding-right: 0.68rem;
 }
 
 .special-entity-icon {
   display: grid;
-  width: 1.35rem;
-  height: 1.35rem;
+  width: 1.48rem;
+  height: 1.48rem;
   flex: 0 0 auto;
   place-items: center;
   border-radius: 999px;
@@ -45,51 +77,78 @@
   color: rgb(255 231 167 / 90%);
 }
 
-.special-entity-pill-copy {
-  display: grid;
-  gap: 0.08rem;
-  min-width: 0;
-}
+.special-entity-mana-icon {
+  --special-entity-mechanic-icon-gold: var(--gold, var(--game-accent, #d7b46a));
 
-.special-entity-ring-row {
-  display: flex;
-  align-items: center;
-  gap: 0.32rem;
-}
-
-.special-entity-ring-controls {
-  display: inline-flex;
-  gap: 0.18rem;
-}
-
-.special-entity-ring-button {
-  width: 1.1rem;
-  height: 1.1rem;
-  border: 1px solid rgb(255 255 255 / 14%);
-  border-radius: 999px;
-  background: rgb(255 255 255 / 6%);
-  color: inherit;
-  font: inherit;
+  display: inline-grid;
+  width: 1.06rem;
+  height: 1.06rem;
+  place-items: center;
+  color: var(--special-entity-mechanic-icon-gold);
+  font-size: 1rem;
   line-height: 1;
-  cursor: pointer;
 }
 
-.special-entity-ring-button:disabled {
-  opacity: 0.38;
-  cursor: default;
-}
-
-.special-entity-pill span,
-.special-entity-pill strong,
-.special-entity-pill small {
+.special-entity-pill-copy {
+  display: block;
+  max-width: 0;
+  margin-left: 0;
   overflow: hidden;
+  opacity: 0;
+  color: rgb(245 241 234 / 92%);
   font-size: 0.72rem;
-  line-height: 1.1;
+  font-weight: 650;
+  line-height: 1.2;
   text-overflow: ellipsis;
   white-space: nowrap;
+  transition:
+    max-width 140ms ease,
+    margin-left 140ms ease,
+    opacity 100ms ease;
 }
 
-.special-entity-pill strong,
-.special-entity-pill small {
-  opacity: 0.76;
+.special-entity-pill:hover .special-entity-pill-copy,
+.special-entity-pill:focus-within .special-entity-pill-copy {
+  max-width: 11.5rem;
+  margin-left: 0.42rem;
+  opacity: 1;
+}
+
+.special-entity-rail[data-variant="compact"] {
+  gap: 0.22rem;
+}
+
+.special-entity-rail[data-variant="compact"] .special-entity-pill {
+  height: 1.42rem;
+  max-width: 1.42rem;
+  padding: 0 0.2rem;
+  background: rgb(6 7 6 / 72%);
+  color: rgb(232 225 208 / 82%);
+}
+
+.special-entity-rail[data-variant="compact"] .special-entity-pill:hover,
+.special-entity-rail[data-variant="compact"] .special-entity-pill:focus-within {
+  max-width: min(10.5rem, 82vw);
+  padding-right: 0.54rem;
+}
+
+.special-entity-rail[data-variant="compact"] .special-entity-icon {
+  width: 1rem;
+  height: 1rem;
+}
+
+.special-entity-rail[data-variant="compact"] .special-entity-mana-icon {
+  width: 0.78rem;
+  height: 0.78rem;
+  font-size: 0.74rem;
+}
+
+.special-entity-rail[data-variant="compact"] .special-entity-pill-copy {
+  font-size: 0.62rem;
+}
+
+.special-entity-rail[data-variant="compact"] .special-entity-pill:hover .special-entity-pill-copy,
+.special-entity-rail[data-variant="compact"] .special-entity-pill:focus-within .special-entity-pill-copy {
+  max-width: 8.6rem;
+  margin-left: 0.3rem;
 }

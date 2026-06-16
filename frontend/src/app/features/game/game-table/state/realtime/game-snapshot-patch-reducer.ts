@@ -208,7 +208,7 @@ function applyOperation(snapshot: GameSnapshot, operation: GameSnapshotPatchOper
         status: 'applied',
         snapshot: {
           ...snapshot,
-          eventLog: [...snapshot.eventLog, ...operation.entries].slice(-MAX_EVENT_LOG_ENTRIES),
+          eventLog: appendUniqueEventLogEntries(snapshot.eventLog, operation.entries),
         },
       };
 
@@ -249,10 +249,12 @@ function applyOperation(snapshot: GameSnapshot, operation: GameSnapshotPatchOper
       };
 
     case 'specialEntity.update':
-      return updateSpecialEntity(snapshot, operation.entityId, (entity) => ({
-        ...entity,
-        state: { ...operation.state },
-      }));
+      return updateSpecialEntity(snapshot, operation.entityId, (entity) => operation.entity
+        ? { ...operation.entity }
+        : {
+            ...entity,
+            state: { ...operation.state },
+          });
 
     case 'specialEntity.remove':
       return removeSpecialEntity(snapshot, operation.entityId);
@@ -273,6 +275,23 @@ function applyOperation(snapshot: GameSnapshot, operation: GameSnapshotPatchOper
 
 function specialEntities(snapshot: GameSnapshot): GameSpecialEntity[] {
   return [...(snapshot.specialEntities ?? [])];
+}
+
+function appendUniqueEventLogEntries(
+  existing: GameSnapshot['eventLog'],
+  incoming: GameSnapshot['eventLog'],
+): GameSnapshot['eventLog'] {
+  const seenIds = new Set<string>();
+  const entries = [...existing, ...incoming].filter((entry) => {
+    if (seenIds.has(entry.id)) {
+      return false;
+    }
+
+    seenIds.add(entry.id);
+    return true;
+  });
+
+  return entries.slice(-MAX_EVENT_LOG_ENTRIES);
 }
 
 function updatePlayer(snapshot: GameSnapshot, playerId: string, update: (player: GamePlayerState) => GamePlayerState | null): OperationResult {

@@ -752,7 +752,7 @@ SQL,
             'colorIdentity' => $this->decodeJsonArray($row['color_identity'] ?? []),
             'legalities' => $this->decodeJsonObject($row['legalities'] ?? []),
             'imageUris' => $this->decodeJsonObject($row['image_uris'] ?? []),
-            'cardFaces' => $this->decodeJsonArray($row['card_faces'] ?? []),
+            'cardFaces' => $this->normalizeCardFaces($this->decodeJsonArray($row['card_faces'] ?? [])),
             'hasRulings' => (bool) ($row['has_rulings'] ?? false),
             'allParts' => $this->decodeJsonArray($row['all_parts'] ?? []),
             'manaValue' => is_numeric($row['mana_value'] ?? null) ? (float) $row['mana_value'] : null,
@@ -797,6 +797,51 @@ SQL,
             'ñ' => 'n',
             'ç' => 'c',
         ]);
+    }
+
+    /**
+     * @param list<mixed> $faces
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function normalizeCardFaces(array $faces): array
+    {
+        $normalized = [];
+        foreach ($faces as $face) {
+            if (!is_array($face)) {
+                continue;
+            }
+
+            $normalized[] = [
+                'name' => $this->nullableString($face['name'] ?? null),
+                'manaCost' => $this->nullableString($face['manaCost'] ?? $face['mana_cost'] ?? null),
+                'typeLine' => $this->nullableString($face['typeLine'] ?? $face['type_line'] ?? null),
+                'oracleText' => $this->nullableString($face['oracleText'] ?? $face['oracle_text'] ?? null),
+                'power' => $this->nullableString($face['power'] ?? null),
+                'toughness' => $this->nullableString($face['toughness'] ?? null),
+                'loyalty' => $this->nullableString($face['loyalty'] ?? null),
+                'colors' => $this->arrayValues($face['colors'] ?? []),
+                'imageUris' => $this->arrayObject($face['imageUris'] ?? $face['image_uris'] ?? []),
+            ];
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * @return list<mixed>
+     */
+    private function arrayValues(mixed $value): array
+    {
+        return is_array($value) ? array_values($value) : [];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function arrayObject(mixed $value): array
+    {
+        return is_array($value) ? $value : [];
     }
 
     private function accentFoldSql(string $expression): string

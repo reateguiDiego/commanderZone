@@ -1354,8 +1354,12 @@ export class GameTableStore implements OnDestroy {
     await this.specialEntityActions.createHelper(this.specialEntityActionContext(), template, ownerPlayerId, options);
   }
 
-  async updateHelper(entityId: string, state: Record<string, unknown>): Promise<void> {
-    await this.specialEntityActions.updateHelper(this.specialEntityActionContext(), entityId, state);
+  async updateHelper(
+    entityId: string,
+    state: Record<string, unknown>,
+    options: { card?: GameSpecialEntity['card'] } = {},
+  ): Promise<void> {
+    await this.specialEntityActions.updateHelper(this.specialEntityActionContext(), entityId, state, options);
   }
 
   async removeHelper(entityId: string): Promise<void> {

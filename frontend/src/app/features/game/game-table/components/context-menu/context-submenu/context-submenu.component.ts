@@ -1,4 +1,4 @@
-import { RuntimeTranslatePipe } from '../../../../../../core/localization/runtime-translate.pipe';
+import { RuntimeTranslatePipe, runtimeTranslationFallback } from '../../../../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, input, output, signal } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
 import { contextMenuDisplayLabel } from '../context-menu-label';
@@ -61,7 +61,7 @@ export class ContextSubmenuComponent {
 
   displayLabel(itemOrLabel: ContextSubmenuItem | string): string {
     if (typeof itemOrLabel !== 'string' && itemOrLabel.preserveCase === true) {
-      return itemOrLabel.label;
+      return runtimeTranslationFallback(itemOrLabel.label);
     }
 
     return contextMenuDisplayLabel(typeof itemOrLabel === 'string' ? itemOrLabel : itemOrLabel.label);

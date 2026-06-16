@@ -7,6 +7,9 @@ use Symfony\Component\Uid\Uuid;
 
 final class GameSpecialEntityCommandHandler
 {
+    private const DAY_NIGHT_CARD_NAME = 'Day // Night';
+    private const DAY_NIGHT_CARD_LAYOUT = 'double_faced_token';
+    private const DAY_NIGHT_FIXED_POSITION = ['x' => 1, 'y' => 0, 'unit' => 'ratio'];
     private const COMMANDS = [
         'helper.created',
         'helper.updated',
@@ -23,6 +26,7 @@ final class GameSpecialEntityCommandHandler
     ];
     private const PLAYER_TEMPLATES = ['citys_blessing', 'the_ring', 'emblem', 'dungeon'];
     private const CARD_BACKED_TEMPLATES = ['emblem', 'dungeon'];
+    private const OPTIONAL_CARD_TEMPLATES = ['day_night', 'monarch', 'citys_blessing'];
 
     /**
      * @return list<string>
@@ -68,6 +72,12 @@ final class GameSpecialEntityCommandHandler
         if ($type === 'helper.created') {
             $template = $this->requiredTemplate($payload);
             $ownerPlayerId = $this->normalizedOwnerFromPayload($snapshot, $payload, $actorId, $template);
+            if ($template === 'day_night' && $actorPlayerId === null) {
+                throw new \InvalidArgumentException('Only players can change day/night.');
+            }
+            if ($template === 'monarch' && $this->canActorCreateMonarch($snapshot, $actorPlayerId, $ownerPlayerId)) {
+                return;
+            }
             if ($template !== 'day_night' && ($actorPlayerId === null || $ownerPlayerId !== $actorPlayerId)) {
                 throw new \InvalidArgumentException('You can only create helpers for your own player.');
             }
@@ -83,6 +93,17 @@ final class GameSpecialEntityCommandHandler
         $entity = $this->findEntity($snapshot, $entityId);
         if ($entity === null) {
             throw new \InvalidArgumentException('Helper entity was not found.');
+        }
+
+        if (($entity['template'] ?? null) === 'day_night') {
+            if ($actorPlayerId === null) {
+                throw new \InvalidArgumentException('Only players can change day/night.');
+            }
+            if ($type === 'helper.removed' && !$this->canActorRemoveDayNight($snapshot, $entity, $actorId)) {
+                throw new \InvalidArgumentException('Only the player who created day/night can remove it.');
+            }
+
+            return;
         }
 
         if (!$this->canActorControlEntity($snapshot, $entity, $actorId)) {
@@ -173,11 +194,21 @@ final class GameSpecialEntityCommandHandler
     private function applyCreated(array &$snapshot, array $payload, User $actor): array
     {
         $template = $this->requiredTemplate($payload);
+        $state = is_array($payload['state'] ?? null) ? $payload['state'] : [];
+        if ($template === 'day_night') {
+            $actorPlayerId = $this->actorPlayerId($snapshot, $actor->id());
+            if ($actorPlayerId === null) {
+                throw new \InvalidArgumentException('Only players can change day/night.');
+            }
+
+            $state['createdByPlayerId'] = $actorPlayerId;
+        }
+
         $entity = $this->normalizeEntity($snapshot, [
             'template' => $template,
             'ownerPlayerId' => $this->normalizedOwnerFromPayload($snapshot, $payload, $actor->id(), $template),
             'card' => $payload['card'] ?? null,
-            'state' => $payload['state'] ?? [],
+            'state' => $state,
             'createdAt' => (new \DateTimeImmutable())->format(DATE_ATOM),
         ]);
         if ($entity === null) {
@@ -187,14 +218,18 @@ final class GameSpecialEntityCommandHandler
         $specialEntities = $this->removeConflictingEntities($snapshot, $snapshot['specialEntities'] ?? [], $entity);
         $specialEntities[] = $entity;
         $snapshot['specialEntities'] = $this->normalizeEntities($snapshot, $specialEntities);
+        $createdEntity = $this->findEntity($snapshot, (string) $entity['id']) ?? $entity;
+        if (($createdEntity['template'] ?? null) === 'day_night') {
+            $this->syncDayNightBattlefieldCards($snapshot, $createdEntity);
+        }
 
         return [
-            'log' => $this->createdMessage($snapshot, $entity),
+            'log' => $this->createdMessage($snapshot, $createdEntity),
             'eventPayload' => [
-                'template' => $entity['template'],
-                'ownerPlayerId' => $entity['ownerPlayerId'],
-                'card' => $entity['card'],
-                'state' => $entity['state'],
+                'template' => $createdEntity['template'],
+                'ownerPlayerId' => $createdEntity['ownerPlayerId'],
+                'card' => $createdEntity['card'],
+                'state' => $createdEntity['state'],
             ],
         ];
     }
@@ -211,16 +246,35 @@ final class GameSpecialEntityCommandHandler
         }
 
         $entity = $snapshot['specialEntities'][$entityIndex];
-        if (!$this->canActorControlEntity($snapshot, $entity, $actor->id())) {
+        if (($entity['template'] ?? null) === 'day_night' && $this->actorPlayerId($snapshot, $actor->id()) === null) {
+            throw new \InvalidArgumentException('Only players can change day/night.');
+        }
+        if (($entity['template'] ?? null) !== 'day_night' && !$this->canActorControlEntity($snapshot, $entity, $actor->id())) {
             throw new \InvalidArgumentException('You can only change your own helpers.');
         }
 
-        $entity['state'] = $this->normalizeState((string) $entity['template'], $payload['state'] ?? []);
+        $state = $payload['state'] ?? [];
+        if (($entity['template'] ?? null) === 'day_night') {
+            $state = $this->mergedDayNightUpdateState($entity['state'] ?? [], $state);
+            if ($this->nonEmptyString($state['createdByPlayerId'] ?? null) === null) {
+                $state['createdByPlayerId'] = $this->actorPlayerId($snapshot, $actor->id());
+            }
+
+            $card = $this->normalizeCardRef('day_night', $payload['card'] ?? null);
+            if ($card !== null) {
+                $entity['card'] = $card;
+            }
+        }
+
+        $entity['state'] = $this->normalizeState((string) $entity['template'], $state);
         $snapshot['specialEntities'][$entityIndex] = $entity;
         $snapshot['specialEntities'] = $this->normalizeEntities($snapshot, $snapshot['specialEntities']);
         $updatedEntity = $this->findEntity($snapshot, $entityId);
         if ($updatedEntity === null) {
             throw new \InvalidArgumentException('Helper entity was not found.');
+        }
+        if (($updatedEntity['template'] ?? null) === 'day_night') {
+            $this->syncDayNightBattlefieldCards($snapshot, $updatedEntity);
         }
 
         return [
@@ -244,11 +298,18 @@ final class GameSpecialEntityCommandHandler
         }
 
         $entity = $snapshot['specialEntities'][$entityIndex];
-        if (!$this->canActorControlEntity($snapshot, $entity, $actor->id())) {
+        if (($entity['template'] ?? null) === 'day_night') {
+            if (!$this->canActorRemoveDayNight($snapshot, $entity, $actor->id())) {
+                throw new \InvalidArgumentException('Only the player who created day/night can remove it.');
+            }
+        } elseif (!$this->canActorControlEntity($snapshot, $entity, $actor->id())) {
             throw new \InvalidArgumentException('You can only change your own helpers.');
         }
 
         array_splice($snapshot['specialEntities'], $entityIndex, 1);
+        if (($entity['template'] ?? null) === 'day_night') {
+            $this->removeDayNightBattlefieldCards($snapshot);
+        }
         $snapshot['specialEntities'] = $this->normalizeEntities($snapshot, $snapshot['specialEntities']);
 
         return [
@@ -318,7 +379,7 @@ final class GameSpecialEntityCommandHandler
      */
     private function normalizeCardRef(string $template, mixed $card): ?array
     {
-        if (!in_array($template, self::CARD_BACKED_TEMPLATES, true)) {
+        if (!in_array($template, [...self::CARD_BACKED_TEMPLATES, ...self::OPTIONAL_CARD_TEMPLATES], true)) {
             return null;
         }
 
@@ -336,11 +397,167 @@ final class GameSpecialEntityCommandHandler
             'scryfallId' => $scryfallId,
             'name' => $name,
             'imageUris' => is_array($card['imageUris'] ?? null) ? $card['imageUris'] : [],
-            'cardFaces' => is_array($card['cardFaces'] ?? null) ? $card['cardFaces'] : [],
+            'cardFaces' => $this->normalizeCardFaces($card['cardFaces'] ?? []),
             'typeLine' => is_string($card['typeLine'] ?? null) ? $card['typeLine'] : null,
             'oracleText' => is_string($card['oracleText'] ?? null) ? $card['oracleText'] : null,
             'layout' => is_string($card['layout'] ?? null) ? $card['layout'] : null,
         ];
+    }
+
+    /**
+     * @return list<array<string,mixed>>
+     */
+    private function normalizeCardFaces(mixed $faces): array
+    {
+        if (!is_array($faces)) {
+            return [];
+        }
+
+        $normalized = [];
+        foreach ($faces as $face) {
+            if (!is_array($face)) {
+                continue;
+            }
+
+            $normalized[] = [
+                'name' => $this->nonEmptyString($face['name'] ?? null),
+                'manaCost' => is_string($face['manaCost'] ?? null) ? $face['manaCost'] : $this->nonEmptyString($face['mana_cost'] ?? null),
+                'typeLine' => is_string($face['typeLine'] ?? null) ? $face['typeLine'] : $this->nonEmptyString($face['type_line'] ?? null),
+                'oracleText' => is_string($face['oracleText'] ?? null) ? $face['oracleText'] : $this->nonEmptyString($face['oracle_text'] ?? null),
+                'power' => $this->nonEmptyString($face['power'] ?? null),
+                'toughness' => $this->nonEmptyString($face['toughness'] ?? null),
+                'loyalty' => $this->nonEmptyString($face['loyalty'] ?? null),
+                'colors' => is_array($face['colors'] ?? null) ? array_values($face['colors']) : [],
+                'imageUris' => is_array($face['imageUris'] ?? null)
+                    ? $face['imageUris']
+                    : (is_array($face['image_uris'] ?? null) ? $face['image_uris'] : []),
+            ];
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * @param array<string,mixed> $entity
+     */
+    private function syncDayNightBattlefieldCards(array &$snapshot, array $entity): void
+    {
+        $card = $this->normalizeCardRef('day_night', $entity['card'] ?? null);
+        if ($card === null || !$this->isDayNightCardRef($card)) {
+            return;
+        }
+
+        $state = is_array($entity['state'] ?? null) ? $entity['state'] : [];
+        $mode = ($state['mode'] ?? null) === 'night' ? 'night' : 'day';
+        $createdByPlayerId = $this->nonEmptyString($state['createdByPlayerId'] ?? null) ?? $this->firstSnapshotPlayerId($snapshot);
+
+        foreach ($this->snapshotPlayerIds($snapshot) as $playerId) {
+            $battlefield =& $snapshot['players'][$playerId]['zones']['battlefield'];
+            if (!is_array($battlefield)) {
+                $battlefield = [];
+            }
+
+            $existingIndex = $this->dayNightBattlefieldCardIndex($battlefield);
+            $position = $this->defaultRatioPosition();
+            if ($existingIndex === null) {
+                $battlefield[] = $this->dayNightBattlefieldCard($card, $createdByPlayerId ?? $playerId, $playerId, $mode, $position);
+                unset($battlefield);
+                continue;
+            }
+
+            $existing = is_array($battlefield[$existingIndex]) ? $battlefield[$existingIndex] : [];
+            $battlefield[$existingIndex] = [
+                ...$this->dayNightBattlefieldCard($card, $createdByPlayerId ?? $playerId, $playerId, $mode, $position),
+                'instanceId' => $this->nonEmptyString($existing['instanceId'] ?? null) ?? Uuid::v7()->toRfc4122(),
+                'counters' => is_array($existing['counters'] ?? null) ? $existing['counters'] : [],
+            ];
+            unset($battlefield);
+        }
+    }
+
+    private function removeDayNightBattlefieldCards(array &$snapshot): void
+    {
+        foreach ($this->snapshotPlayerIds($snapshot) as $playerId) {
+            $battlefield = $snapshot['players'][$playerId]['zones']['battlefield'] ?? [];
+            if (!is_array($battlefield)) {
+                continue;
+            }
+
+            $snapshot['players'][$playerId]['zones']['battlefield'] = array_values(array_filter(
+                $battlefield,
+                fn (mixed $card): bool => !$this->isDayNightBattlefieldCard($card),
+            ));
+        }
+    }
+
+    /**
+     * @param array<string,mixed> $card
+     * @param array{x: float|int, y: float|int, unit: string} $position
+     *
+     * @return array<string,mixed>
+     */
+    private function dayNightBattlefieldCard(array $card, string $ownerPlayerId, string $controllerPlayerId, string $mode, array $position): array
+    {
+        return [
+            'instanceId' => Uuid::v7()->toRfc4122(),
+            'ownerId' => $ownerPlayerId,
+            'controllerId' => $controllerPlayerId,
+            'scryfallId' => $card['scryfallId'],
+            'name' => $card['name'],
+            'imageUris' => $card['imageUris'] ?? [],
+            'cardFaces' => $card['cardFaces'] ?? [],
+            'typeLine' => $card['typeLine'] ?? 'Card // Card',
+            'manaCost' => null,
+            'oracleText' => $card['oracleText'] ?? null,
+            'colorIdentity' => [],
+            'power' => null,
+            'toughness' => null,
+            'loyalty' => null,
+            'defaultPower' => null,
+            'defaultToughness' => null,
+            'defaultLoyalty' => null,
+            'tapped' => false,
+            'faceDown' => false,
+            'activeFaceIndex' => $mode === 'night' ? 1 : 0,
+            'revealedTo' => [],
+            'position' => $position,
+            'rotation' => 0,
+            'counters' => [],
+            'zone' => 'battlefield',
+            'isToken' => true,
+            'isTokenCopy' => false,
+            'isCommander' => false,
+            'layout' => self::DAY_NIGHT_CARD_LAYOUT,
+        ];
+    }
+
+    /**
+     * @param list<mixed> $battlefield
+     */
+    private function dayNightBattlefieldCardIndex(array $battlefield): ?int
+    {
+        foreach ($battlefield as $index => $card) {
+            if ($this->isDayNightBattlefieldCard($card)) {
+                return (int) $index;
+            }
+        }
+
+        return null;
+    }
+
+    private function isDayNightBattlefieldCard(mixed $card): bool
+    {
+        return is_array($card)
+            && $this->isDayNightCardRef($card);
+    }
+
+    /**
+     * @param array<string,mixed> $card
+     */
+    private function isDayNightCardRef(array $card): bool
+    {
+        return trim((string) ($card['name'] ?? '')) === self::DAY_NIGHT_CARD_NAME
+            && trim((string) ($card['layout'] ?? '')) === self::DAY_NIGHT_CARD_LAYOUT;
     }
 
     /**
@@ -353,6 +570,8 @@ final class GameSpecialEntityCommandHandler
         return match ($template) {
             'day_night' => [
                 'mode' => ($state['mode'] ?? null) === 'night' ? 'night' : 'day',
+                'createdByPlayerId' => $this->nonEmptyString($state['createdByPlayerId'] ?? null),
+                'positions' => $this->normalizeDayNightPositions($state['positions'] ?? []),
             ],
             'the_ring' => [
                 'level' => max(1, min(4, (int) ($state['level'] ?? 1))),
@@ -373,6 +592,12 @@ final class GameSpecialEntityCommandHandler
      */
     private function sanitizeEntityState(array $snapshot, array $entity): array
     {
+        if (($entity['template'] ?? null) === 'day_night') {
+            $entity['state'] = $this->sanitizeDayNightState($snapshot, $entity);
+
+            return $entity;
+        }
+
         if (($entity['template'] ?? null) !== 'the_ring') {
             return $entity;
         }
@@ -391,6 +616,104 @@ final class GameSpecialEntityCommandHandler
         }
 
         return $entity;
+    }
+
+    /**
+     * @param array<string,mixed> $entity
+     *
+     * @return array<string,mixed>
+     */
+    private function sanitizeDayNightState(array $snapshot, array $entity): array
+    {
+        $state = is_array($entity['state'] ?? null) ? $entity['state'] : [];
+        $createdByPlayerId = $this->resolveSnapshotPlayerId(
+            $snapshot,
+            $this->nonEmptyString($state['createdByPlayerId'] ?? null),
+        ) ?? $this->firstSnapshotPlayerId($snapshot);
+        $positions = [];
+
+        foreach ($this->snapshotPlayerIds($snapshot) as $playerId) {
+            $positions[$playerId] = $this->defaultRatioPosition();
+        }
+
+        return [
+            'mode' => ($state['mode'] ?? null) === 'night' ? 'night' : 'day',
+            'createdByPlayerId' => $createdByPlayerId,
+            'positions' => $positions,
+        ];
+    }
+
+    /**
+     * @return array<string,array{x: float|int, y: float|int, unit: string}>
+     */
+    private function normalizeDayNightPositions(mixed $positions): array
+    {
+        if (!is_array($positions)) {
+            return [];
+        }
+
+        $normalized = [];
+        foreach ($positions as $playerId => $position) {
+            $normalizedPlayerId = $this->nonEmptyString($playerId);
+            if ($normalizedPlayerId === null || !is_array($position)) {
+                continue;
+            }
+
+            $normalized[$normalizedPlayerId] = $this->normalizeRatioPosition($position);
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * @param array<string,mixed> $position
+     *
+     * @return array{x: float|int, y: float|int, unit: string}
+     */
+    private function normalizeRatioPosition(array $position): array
+    {
+        return [
+            'x' => $this->clampRatio($position['x'] ?? 0),
+            'y' => $this->clampRatio($position['y'] ?? 0),
+            'unit' => 'ratio',
+        ];
+    }
+
+    /**
+     * @return array{x: int, y: int, unit: string}
+     */
+    private function defaultRatioPosition(): array
+    {
+        return self::DAY_NIGHT_FIXED_POSITION;
+    }
+
+    private function clampRatio(mixed $value): float|int
+    {
+        if (!is_numeric($value)) {
+            return 0;
+        }
+
+        return max(0, min(1, (float) $value));
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function snapshotPlayerIds(array $snapshot): array
+    {
+        $players = $snapshot['players'] ?? null;
+        if (!is_array($players)) {
+            return [];
+        }
+
+        return array_values(array_filter(
+            array_map(fn (mixed $playerId): ?string => $this->nonEmptyString($playerId), array_keys($players)),
+        ));
+    }
+
+    private function firstSnapshotPlayerId(array $snapshot): ?string
+    {
+        return $this->snapshotPlayerIds($snapshot)[0] ?? null;
     }
 
     /**
@@ -447,6 +770,20 @@ final class GameSpecialEntityCommandHandler
         return null;
     }
 
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function globalEntity(array $snapshot, string $template): ?array
+    {
+        foreach (($snapshot['specialEntities'] ?? []) as $entity) {
+            if (is_array($entity) && ($entity['template'] ?? null) === $template) {
+                return $entity;
+            }
+        }
+
+        return null;
+    }
+
     private function findEntityIndex(array $snapshot, string $entityId): ?int
     {
         foreach (($snapshot['specialEntities'] ?? []) as $index => $entity) {
@@ -456,6 +793,49 @@ final class GameSpecialEntityCommandHandler
         }
 
         return null;
+    }
+
+    private function canActorRemoveDayNight(array $snapshot, array $entity, string $actorId): bool
+    {
+        $actorPlayerId = $this->actorPlayerId($snapshot, $actorId);
+        $createdByPlayerId = $this->nonEmptyString($entity['state']['createdByPlayerId'] ?? null);
+
+        return $actorPlayerId !== null && $createdByPlayerId !== null && $actorPlayerId === $createdByPlayerId;
+    }
+
+    private function canActorCreateMonarch(array $snapshot, ?string $actorPlayerId, ?string $ownerPlayerId): bool
+    {
+        if ($actorPlayerId === null || $ownerPlayerId === null) {
+            return false;
+        }
+
+        if ($ownerPlayerId === $actorPlayerId) {
+            return true;
+        }
+
+        $currentMonarch = $this->globalEntity($snapshot, 'monarch');
+        $currentMonarchPlayerId = $this->nonEmptyString($currentMonarch['ownerPlayerId'] ?? null);
+
+        return $currentMonarchPlayerId !== null && $currentMonarchPlayerId === $actorPlayerId;
+    }
+
+    /**
+     * @param mixed $existingState
+     * @param mixed $incomingState
+     *
+     * @return array<string,mixed>
+     */
+    private function mergedDayNightUpdateState(mixed $existingState, mixed $incomingState): array
+    {
+        $existingState = is_array($existingState) ? $existingState : [];
+        $incomingState = is_array($incomingState) ? $incomingState : [];
+        $existingPositions = is_array($existingState['positions'] ?? null) ? $existingState['positions'] : [];
+        $incomingPositions = is_array($incomingState['positions'] ?? null) ? $incomingState['positions'] : [];
+
+        return array_merge($existingState, $incomingState, [
+            'createdByPlayerId' => $existingState['createdByPlayerId'] ?? $incomingState['createdByPlayerId'] ?? null,
+            'positions' => array_replace($existingPositions, $incomingPositions),
+        ]);
     }
 
     private function canActorControlEntity(array $snapshot, array $entity, string $actorId): bool

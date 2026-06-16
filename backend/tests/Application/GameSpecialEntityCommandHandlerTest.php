@@ -63,6 +63,29 @@ class GameSpecialEntityCommandHandlerTest extends TestCase
         self::assertSame('global', $game->snapshot()['specialEntities'][0]['scope']);
     }
 
+    public function testMonarchAndCitysBlessingCanStoreOptionalCardRefs(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->snapshot($actor->id()));
+        $handler = new GameCommandHandler();
+
+        $handler->apply($game, 'helper.created', [
+            'template' => 'monarch',
+            'ownerPlayerId' => $actor->id(),
+            'card' => $this->specialCardRef('The Monarch'),
+        ], $actor);
+        $handler->apply($game, 'helper.created', [
+            'template' => 'citys_blessing',
+            'ownerPlayerId' => $actor->id(),
+            'card' => $this->specialCardRef('City\'s Blessing'),
+        ], $actor);
+
+        $entities = $game->snapshot()['specialEntities'];
+        self::assertCount(2, $entities);
+        self::assertSame('The Monarch', $entities[0]['card']['name']);
+        self::assertSame('City\'s Blessing', $entities[1]['card']['name']);
+    }
+
     public function testMonarchTransfersToTheNewestOwnerAcrossPlayers(): void
     {
         $actor = new User('owner@example.test', 'Owner');
@@ -86,6 +109,83 @@ class GameSpecialEntityCommandHandlerTest extends TestCase
         self::assertSame($challenger->id(), $game->snapshot()['specialEntities'][0]['ownerPlayerId']);
     }
 
+    public function testMonarchCanBeGivenToAnotherPlayerByCurrentActor(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $opponent = new User('opponent@example.test', 'Opponent');
+        $snapshot = $this->snapshot($actor->id());
+        $snapshot['players'][$opponent->id()] = $this->player($opponent->id(), []);
+        $game = new Game(new Room($actor), $snapshot);
+        $handler = new GameCommandHandler();
+
+        $handler->apply($game, 'helper.created', [
+            'template' => 'monarch',
+            'ownerPlayerId' => $actor->id(),
+        ], $actor);
+        $handler->apply($game, 'helper.created', [
+            'template' => 'monarch',
+            'ownerPlayerId' => $opponent->id(),
+        ], $actor);
+
+        self::assertCount(1, $game->snapshot()['specialEntities']);
+        self::assertSame('monarch', $game->snapshot()['specialEntities'][0]['template']);
+        self::assertSame($opponent->id(), $game->snapshot()['specialEntities'][0]['ownerPlayerId']);
+    }
+
+    public function testMonarchCanBeGivenByCurrentHolderEvenWhenTheyDidNotCreateIt(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $opponent = new User('opponent@example.test', 'Opponent');
+        $third = new User('third@example.test', 'Third');
+        $snapshot = $this->snapshot($actor->id());
+        $snapshot['players'][$opponent->id()] = $this->player($opponent->id(), []);
+        $snapshot['players'][$third->id()] = $this->player($third->id(), []);
+        $game = new Game(new Room($actor), $snapshot);
+        $handler = new GameCommandHandler();
+
+        $handler->apply($game, 'helper.created', [
+            'template' => 'monarch',
+            'ownerPlayerId' => $actor->id(),
+        ], $actor);
+        $handler->apply($game, 'helper.created', [
+            'template' => 'monarch',
+            'ownerPlayerId' => $opponent->id(),
+        ], $actor);
+        $handler->apply($game, 'helper.created', [
+            'template' => 'monarch',
+            'ownerPlayerId' => $third->id(),
+        ], $opponent);
+
+        self::assertCount(1, $game->snapshot()['specialEntities']);
+        self::assertSame('monarch', $game->snapshot()['specialEntities'][0]['template']);
+        self::assertSame($third->id(), $game->snapshot()['specialEntities'][0]['ownerPlayerId']);
+    }
+
+    public function testMonarchCannotBeGivenByPlayerWhoIsNotCurrentHolder(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $opponent = new User('opponent@example.test', 'Opponent');
+        $third = new User('third@example.test', 'Third');
+        $snapshot = $this->snapshot($actor->id());
+        $snapshot['players'][$opponent->id()] = $this->player($opponent->id(), []);
+        $snapshot['players'][$third->id()] = $this->player($third->id(), []);
+        $game = new Game(new Room($actor), $snapshot);
+        $handler = new GameCommandHandler();
+
+        $handler->apply($game, 'helper.created', [
+            'template' => 'monarch',
+            'ownerPlayerId' => $actor->id(),
+        ], $actor);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('You can only create helpers for your own player.');
+        $handler->apply($game, 'helper.created', [
+            'template' => 'monarch',
+            'ownerPlayerId' => $third->id(),
+        ], $opponent);
+    }
+
+
     public function testGlobalHelpersResolveOwnerFromSnapshotPlayerKeys(): void
     {
         $actor = new User('owner@example.test', 'Owner');
@@ -99,6 +199,176 @@ class GameSpecialEntityCommandHandlerTest extends TestCase
 
         self::assertCount(1, $game->snapshot()['specialEntities']);
         self::assertSame('seat-1', $game->snapshot()['specialEntities'][0]['ownerPlayerId']);
+    }
+
+    public function testDayNightStoresCreatorSharedModeAndFixedPosition(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $opponent = new User('opponent@example.test', 'Opponent');
+        $snapshot = $this->snapshot($actor->id());
+        $snapshot['players'][$opponent->id()] = $this->player($opponent->id(), []);
+        $game = new Game(new Room($actor), $snapshot);
+        $handler = new GameCommandHandler();
+
+        $handler->apply($game, 'helper.created', [
+            'template' => 'day_night',
+            'state' => ['mode' => 'day'],
+        ], $actor);
+
+        $dayNight = $game->snapshot()['specialEntities'][0] ?? null;
+        self::assertIsArray($dayNight);
+        self::assertSame('day_night', $dayNight['template']);
+        self::assertSame('global', $dayNight['scope']);
+        self::assertNull($dayNight['ownerPlayerId']);
+        self::assertSame($actor->id(), $dayNight['state']['createdByPlayerId']);
+        self::assertSame('day', $dayNight['state']['mode']);
+        self::assertSame(['x' => 1, 'y' => 0, 'unit' => 'ratio'], $dayNight['state']['positions'][$actor->id()]);
+        self::assertSame(['x' => 1, 'y' => 0, 'unit' => 'ratio'], $dayNight['state']['positions'][$opponent->id()]);
+
+        $handler->apply($game, 'helper.updated', [
+            'entityId' => $dayNight['id'],
+            'state' => [
+                'mode' => 'night',
+                'positions' => [
+                    $opponent->id() => ['x' => 0.33, 'y' => 0.44, 'unit' => 'ratio'],
+                ],
+            ],
+        ], $opponent);
+
+        $updated = $game->snapshot()['specialEntities'][0];
+        self::assertSame('night', $updated['state']['mode']);
+        self::assertSame($actor->id(), $updated['state']['createdByPlayerId']);
+        self::assertSame(['x' => 1, 'y' => 0, 'unit' => 'ratio'], $updated['state']['positions'][$actor->id()]);
+        self::assertSame(['x' => 1, 'y' => 0, 'unit' => 'ratio'], $updated['state']['positions'][$opponent->id()]);
+    }
+
+    public function testOnlyDayNightCreatorCanRemoveIt(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $opponent = new User('opponent@example.test', 'Opponent');
+        $snapshot = $this->snapshot($actor->id());
+        $snapshot['players'][$opponent->id()] = $this->player($opponent->id(), []);
+        $game = new Game(new Room($actor), $snapshot);
+        $handler = new GameCommandHandler();
+
+        $handler->apply($game, 'helper.created', [
+            'template' => 'day_night',
+            'state' => ['mode' => 'day'],
+        ], $actor);
+        $entityId = $game->snapshot()['specialEntities'][0]['id'];
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Only the player who created day/night can remove it.');
+        $handler->apply($game, 'helper.removed', ['entityId' => $entityId], $opponent);
+    }
+
+    public function testUpdatingLegacyDayNightBackfillsCreatorAndPositions(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $opponent = new User('opponent@example.test', 'Opponent');
+        $snapshot = $this->snapshot($actor->id(), [
+            'specialEntities' => [[
+                'id' => 'day-night-legacy',
+                'template' => 'day_night',
+                'scope' => 'global',
+                'ownerPlayerId' => null,
+                'card' => null,
+                'state' => ['mode' => 'day'],
+                'createdAt' => '2026-01-01T00:00:00+00:00',
+            ]],
+        ]);
+        $snapshot['players'][$opponent->id()] = $this->player($opponent->id(), []);
+        $game = new Game(new Room($actor), $snapshot);
+        $handler = new GameCommandHandler();
+
+        $handler->apply($game, 'helper.updated', [
+            'entityId' => 'day-night-legacy',
+            'state' => ['mode' => 'day'],
+        ], $opponent);
+
+        $state = $game->snapshot()['specialEntities'][0]['state'];
+        self::assertSame($actor->id(), $state['createdByPlayerId']);
+        self::assertSame(['x' => 1, 'y' => 0, 'unit' => 'ratio'], $state['positions'][$actor->id()]);
+        self::assertSame(['x' => 1, 'y' => 0, 'unit' => 'ratio'], $state['positions'][$opponent->id()]);
+    }
+
+    public function testUpdatingDayNightCanAttachItsDatabaseCard(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->snapshot($actor->id(), [
+            'specialEntities' => [[
+                'id' => 'day-night-legacy',
+                'template' => 'day_night',
+                'scope' => 'global',
+                'ownerPlayerId' => null,
+                'card' => null,
+                'state' => ['mode' => 'day'],
+                'createdAt' => '2026-01-01T00:00:00+00:00',
+            ]],
+        ]));
+        $handler = new GameCommandHandler();
+
+        $handler->apply($game, 'helper.updated', [
+            'entityId' => 'day-night-legacy',
+            'card' => [
+                'scryfallId' => '9c0f7843-4cbb-4d0f-8887-ec823a9238da',
+                'name' => 'Day // Night',
+                'layout' => 'double_faced_token',
+                'typeLine' => 'Card // Card',
+                'imageUris' => ['normal' => 'https://img.example.test/day-night.jpg'],
+                'cardFaces' => [
+                    ['name' => 'Day', 'imageUris' => ['normal' => 'https://img.example.test/day.jpg']],
+                    ['name' => 'Night', 'imageUris' => ['normal' => 'https://img.example.test/night.jpg']],
+                ],
+            ],
+            'state' => ['mode' => 'night'],
+        ], $actor);
+
+        $dayNight = $game->snapshot()['specialEntities'][0];
+        self::assertSame('Day // Night', $dayNight['card']['name']);
+        self::assertSame('double_faced_token', $dayNight['card']['layout']);
+        self::assertSame('night', $dayNight['state']['mode']);
+    }
+
+    public function testDayNightCreatesUpdatesAndRemovesBattlefieldCardsForEveryPlayer(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $opponent = new User('opponent@example.test', 'Opponent');
+        $snapshot = $this->snapshot($actor->id());
+        $snapshot['players'][$opponent->id()] = $this->player($opponent->id(), []);
+        $game = new Game(new Room($actor), $snapshot);
+        $handler = new GameCommandHandler();
+
+        $handler->apply($game, 'helper.created', [
+            'template' => 'day_night',
+            'card' => $this->dayNightCardRef(),
+            'state' => ['mode' => 'day'],
+        ], $actor);
+
+        $snapshot = $game->snapshot();
+        self::assertSame('Day // Night', $snapshot['players'][$actor->id()]['zones']['battlefield'][0]['name']);
+        self::assertSame('Day // Night', $snapshot['players'][$opponent->id()]['zones']['battlefield'][0]['name']);
+        self::assertSame(['x' => 1, 'y' => 0, 'unit' => 'ratio'], $snapshot['players'][$actor->id()]['zones']['battlefield'][0]['position']);
+        self::assertSame(['x' => 1, 'y' => 0, 'unit' => 'ratio'], $snapshot['players'][$opponent->id()]['zones']['battlefield'][0]['position']);
+        self::assertSame(0, $snapshot['players'][$actor->id()]['zones']['battlefield'][0]['activeFaceIndex']);
+        self::assertSame($actor->id(), $snapshot['players'][$opponent->id()]['zones']['battlefield'][0]['ownerId']);
+        self::assertSame($opponent->id(), $snapshot['players'][$opponent->id()]['zones']['battlefield'][0]['controllerId']);
+
+        $handler->apply($game, 'helper.updated', [
+            'entityId' => $snapshot['specialEntities'][0]['id'],
+            'state' => ['mode' => 'night'],
+        ], $actor);
+
+        $snapshot = $game->snapshot();
+        self::assertSame(1, $snapshot['players'][$actor->id()]['zones']['battlefield'][0]['activeFaceIndex']);
+        self::assertSame(1, $snapshot['players'][$opponent->id()]['zones']['battlefield'][0]['activeFaceIndex']);
+
+        $handler->apply($game, 'helper.removed', [
+            'entityId' => $snapshot['specialEntities'][0]['id'],
+        ], $actor);
+
+        self::assertSame([], $game->snapshot()['players'][$actor->id()]['zones']['battlefield']);
+        self::assertSame([], $game->snapshot()['players'][$opponent->id()]['zones']['battlefield']);
     }
 
     public function testNormalizeSnapshotClearsRingBearerThatLeftTheBattlefield(): void
@@ -233,6 +503,39 @@ class GameSpecialEntityCommandHandlerTest extends TestCase
             'zone' => $zone,
             'tapped' => false,
             'counters' => [],
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function dayNightCardRef(): array
+    {
+        return [
+            'scryfallId' => '9c0f7843-4cbb-4d0f-8887-ec823a9238da',
+            'name' => 'Day // Night',
+            'layout' => 'double_faced_token',
+            'typeLine' => 'Card // Card',
+            'imageUris' => ['normal' => 'https://img.example.test/day-night.jpg'],
+            'cardFaces' => [
+                ['name' => 'Day', 'imageUris' => ['normal' => 'https://img.example.test/day.jpg']],
+                ['name' => 'Night', 'imageUris' => ['normal' => 'https://img.example.test/night.jpg']],
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function specialCardRef(string $name): array
+    {
+        return [
+            'scryfallId' => strtolower(str_replace([' ', '\'', '/'], '-', $name)),
+            'name' => $name,
+            'layout' => 'token',
+            'typeLine' => 'Card',
+            'imageUris' => ['normal' => sprintf('https://img.example.test/%s.jpg', strtolower(str_replace(' ', '-', $name)))],
+            'cardFaces' => [],
         ];
     }
 }

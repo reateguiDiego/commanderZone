@@ -1,5 +1,4 @@
 import { ChangeDetectionStrategy, Component, HostListener, inject, input, output, signal } from '@angular/core';
-import { LucideAngularModule } from 'lucide-angular';
 import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { GameCardInstance, GameZoneName } from '../../../../../core/models/game.model';
 import { PlayerView } from '../../game-table.store';
@@ -69,7 +68,7 @@ const COMMANDER_COLOR_ACCENTS: Record<string, string> = {
 
 @Component({
   selector: 'app-zone-piles-panel',
-  imports: [RuntimeTranslatePipe, LucideAngularModule, ZoneCardStackComponent, CommandersStackComponent, GameTableLongPressDirective],
+  imports: [RuntimeTranslatePipe, ZoneCardStackComponent, CommandersStackComponent, GameTableLongPressDirective],
   templateUrl: './zone-piles-panel.component.html',
   styleUrl: './zone-piles-panel.component.scss',
   providers: [GameTablePointerDragService, GameTableZonePointerDragService],

@@ -593,6 +593,7 @@ class GameCommandHandler
                 );
             }
         }
+        $this->reassignMonarchWhenPlayerLeaves($snapshot, $playerId, $previousActivePlayerId);
 
         return sprintf('%s conceded.', $this->playerName($snapshot, $playerId));
     }
@@ -1246,6 +1247,12 @@ class GameCommandHandler
         }
 
         $card =& $snapshot['players'][$location['playerId']]['zones'][$location['zone']][$location['index']];
+        if ($this->isDayNightCard($card)) {
+            $card['position'] = $this->dayNightFixedPosition();
+
+            return sprintf('Moved %s on battlefield.', $this->cardLogName($card));
+        }
+
         $card['position'] = $this->normalizedPosition($payload['position'] ?? null);
 
         return sprintf('Moved %s on battlefield.', $this->cardLogName($card));
@@ -1293,6 +1300,12 @@ class GameCommandHandler
                 'instanceId' => $positionPayload['instanceId'] ?? null,
             ]);
             $card =& $snapshot['players'][$location['playerId']]['zones'][$location['zone']][$location['index']];
+            if ($this->isDayNightCard($card)) {
+                $card['position'] = $this->dayNightFixedPosition();
+                unset($card);
+                continue;
+            }
+
             $card['position'] = $this->normalizedPosition($positionPayload['position'] ?? null);
             unset($card);
             ++$moved;
@@ -2065,6 +2078,23 @@ class GameCommandHandler
         $typeLine = strtolower(trim((string) ($card['typeLine'] ?? '')));
 
         return $typeLine === 'emblem' || str_starts_with($typeLine, 'emblem ');
+    }
+
+    /**
+     * @param array<string,mixed> $card
+     */
+    private function isDayNightCard(array $card): bool
+    {
+        return trim((string) ($card['name'] ?? '')) === 'Day // Night'
+            && strtolower(trim((string) ($card['layout'] ?? ''))) === 'double_faced_token';
+    }
+
+    /**
+     * @return array{x:int,y:int,unit:string}
+     */
+    private function dayNightFixedPosition(): array
+    {
+        return ['x' => 1, 'y' => 0, 'unit' => 'ratio'];
     }
 
     /**
@@ -2964,6 +2994,55 @@ class GameCommandHandler
         }
 
         return $this->positiveInt($card['activeFaceIndex'] ?? 0, 0, count($faces) - 1);
+    }
+
+    private function reassignMonarchWhenPlayerLeaves(array &$snapshot, string $leavingPlayerId, string $previousActivePlayerId): void
+    {
+        $specialEntities = $snapshot['specialEntities'] ?? null;
+        if (!is_array($specialEntities)) {
+            return;
+        }
+
+        foreach ($specialEntities as $index => $entity) {
+            if (!is_array($entity) || ($entity['template'] ?? null) !== 'monarch') {
+                continue;
+            }
+
+            $ownerPlayerId = is_scalar($entity['ownerPlayerId'] ?? null) ? trim((string) $entity['ownerPlayerId']) : '';
+            if ($ownerPlayerId !== $leavingPlayerId) {
+                return;
+            }
+
+            $successorPlayerId = $this->monarchSuccessorPlayerId($snapshot, $leavingPlayerId, $previousActivePlayerId);
+            if ($successorPlayerId === null) {
+                array_splice($snapshot['specialEntities'], $index, 1);
+                return;
+            }
+
+            $snapshot['specialEntities'][$index]['ownerPlayerId'] = $successorPlayerId;
+            return;
+        }
+    }
+
+    private function monarchSuccessorPlayerId(array $snapshot, string $leavingPlayerId, string $previousActivePlayerId): ?string
+    {
+        $currentActivePlayerId = is_scalar($snapshot['turn']['activePlayerId'] ?? null)
+            ? trim((string) $snapshot['turn']['activePlayerId'])
+            : '';
+        if ($currentActivePlayerId !== '' && $currentActivePlayerId !== $leavingPlayerId && $this->playerIsAliveForTurn($snapshot, $currentActivePlayerId)) {
+            return $currentActivePlayerId;
+        }
+
+        if ($previousActivePlayerId !== '' && $previousActivePlayerId !== $leavingPlayerId && $this->playerIsAliveForTurn($snapshot, $previousActivePlayerId)) {
+            return $previousActivePlayerId;
+        }
+
+        $nextEligiblePlayerId = $this->turnEligiblePlayerId($snapshot, $leavingPlayerId);
+        if ($nextEligiblePlayerId !== '' && $nextEligiblePlayerId !== $leavingPlayerId && $this->playerIsAliveForTurn($snapshot, $nextEligiblePlayerId)) {
+            return $nextEligiblePlayerId;
+        }
+
+        return null;
     }
 
     private function assertActorCanApply(array $snapshot, string $type, array $payload, User $actor): void

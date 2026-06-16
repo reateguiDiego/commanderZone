@@ -1,6 +1,6 @@
 import { GameCardInstance } from '../../../../core/models/game.model';
 
-export type GameplayCardKind = 'emblem' | 'dungeon';
+export type GameplayCardKind = 'monarch' | 'emblem' | 'dungeon';
 
 const OFFICIAL_DUNGEON_CARD_NAMES = new Set([
   'dungeon of the mad mage',
@@ -29,7 +29,21 @@ export function isDungeonCard(card: Pick<GameCardInstance, 'layout' | 'typeLine'
     || OFFICIAL_DUNGEON_CARD_NAMES.has(name);
 }
 
+export function isDayNightCard(card: Pick<GameCardInstance, 'layout' | 'name'> | null | undefined): boolean {
+  return card?.name?.trim() === 'Day // Night'
+    && card.layout?.trim().toLowerCase() === 'double_faced_token';
+}
+
+export function isMonarchCard(card: Pick<GameCardInstance, 'layout' | 'name'> | null | undefined): boolean {
+  return card?.name?.trim() === 'Monarch'
+    && card.layout?.trim().toLowerCase() === 'monarch';
+}
+
 export function gameplayCardKind(card: GameCardInstance | null | undefined): GameplayCardKind | null {
+  if (isMonarchCard(card)) {
+    return 'monarch';
+  }
+
   if (isEmblemCard(card)) {
     return 'emblem';
   }
@@ -42,5 +56,5 @@ export function isGameplayCard(card: GameCardInstance | null | undefined): boole
 }
 
 export function isGameplayCardTapLocked(card: GameCardInstance | null | undefined): boolean {
-  return isGameplayCard(card);
+  return isGameplayCard(card) || isDayNightCard(card);
 }

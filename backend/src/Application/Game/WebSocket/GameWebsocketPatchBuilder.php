@@ -107,9 +107,9 @@ final readonly class GameWebsocketPatchBuilder
             'arrow.removed' => $this->sharedCollectionChanged($previousSnapshot, $nextSnapshot, 'arrows', 'arrow.add', 'arrow.remove', 'arrows.set', 'arrow', 'arrows'),
             'attachment.created' => $this->sharedCollectionChanged($previousSnapshot, $nextSnapshot, 'attachments', 'attachment.add', 'attachment.remove', 'attachments.set', 'attachment', 'attachments'),
             'attachment.removed' => $this->sharedCollectionChanged($previousSnapshot, $nextSnapshot, 'attachments', 'attachment.add', 'attachment.remove', 'attachments.set', 'attachment', 'attachments'),
-            'helper.created' => $this->specialEntitiesChanged($previousSnapshot, $nextSnapshot),
-            'helper.updated' => $this->specialEntitiesChanged($previousSnapshot, $nextSnapshot),
-            'helper.removed' => $this->specialEntitiesChanged($previousSnapshot, $nextSnapshot),
+            'helper.created' => $this->helperChanged($previousSnapshot, $nextSnapshot),
+            'helper.updated' => $this->helperChanged($previousSnapshot, $nextSnapshot),
+            'helper.removed' => $this->helperChanged($previousSnapshot, $nextSnapshot),
             'game.concede' => $this->gameConcede($previousSnapshot, $nextSnapshot, $eventData),
             'game.close' => $this->eventLogOnly($previousSnapshot, $nextSnapshot),
             'disconnect.vote.updated' => $this->disconnectVoteUpdated($previousSnapshot, $nextSnapshot),
@@ -1310,6 +1310,7 @@ final readonly class GameWebsocketPatchBuilder
                 'op' => 'specialEntity.update',
                 'entityId' => $id,
                 'state' => $entity['state'] ?? [],
+                'entity' => $entity,
             ];
         }
 
@@ -1345,9 +1346,14 @@ final readonly class GameWebsocketPatchBuilder
                 'turn' => $nextTurn,
             ];
         }
+        $specialEntityOperations = $this->specialEntityDiffOperations($previousSnapshot, $nextSnapshot);
+        if ($specialEntityOperations === null) {
+            return null;
+        }
 
         return [
             ...$operations,
+            ...$specialEntityOperations,
             ...$this->eventLogAppendOperation($previousSnapshot, $nextSnapshot),
         ];
     }
@@ -1382,9 +1388,14 @@ final readonly class GameWebsocketPatchBuilder
                 }
             }
         }
+        $specialEntityOperations = $this->specialEntityDiffOperations($previousSnapshot, $nextSnapshot);
+        if ($specialEntityOperations === null) {
+            return null;
+        }
 
         return [
             ...$operations,
+            ...$specialEntityOperations,
             ...$this->eventLogAppendOperation($previousSnapshot, $nextSnapshot),
         ];
     }
@@ -1627,6 +1638,53 @@ final readonly class GameWebsocketPatchBuilder
     }
 
     /**
+     * @return list<array<string,mixed>>|null
+     */
+    private function helperChanged(array $previousSnapshot, array $nextSnapshot): ?array
+    {
+        $operations = $this->specialEntityDiffOperations($previousSnapshot, $nextSnapshot) ?? [];
+        $created = $this->createdBattlefieldCards($previousSnapshot, $nextSnapshot);
+        $removed = $this->removedBattlefieldCards($previousSnapshot, $nextSnapshot);
+
+        foreach ($removed as $entry) {
+            $operations[] = [
+                'op' => 'card.remove',
+                'playerId' => $entry['playerId'],
+                'zone' => 'battlefield',
+                'instanceId' => $entry['instanceId'],
+            ];
+        }
+        foreach ($created as $entry) {
+            $operations[] = [
+                'op' => 'card.create',
+                'playerId' => $entry['playerId'],
+                'zone' => 'battlefield',
+                'index' => $entry['index'],
+                'card' => $entry['card'],
+            ];
+        }
+        foreach ($this->updatedBattlefieldCards($previousSnapshot, $nextSnapshot) as $entry) {
+            $operations[] = [
+                'op' => 'card.projection.set',
+                'playerId' => $entry['playerId'],
+                'zone' => 'battlefield',
+                'instanceId' => $entry['instanceId'],
+                'card' => $entry['card'],
+            ];
+        }
+
+        if ($operations === []) {
+            return null;
+        }
+
+        return [
+            ...$operations,
+            ...$this->zoneCountOperations($previousSnapshot, $nextSnapshot),
+            ...$this->eventLogAppendOperation($previousSnapshot, $nextSnapshot),
+        ];
+    }
+
+    /**
      * @return list<array{playerId:string,instanceId:string}>
      */
     private function removedBattlefieldCards(array $previousSnapshot, array $nextSnapshot): array
@@ -1651,6 +1709,37 @@ final readonly class GameWebsocketPatchBuilder
         }
 
         return $removed;
+    }
+
+    /**
+     * @return list<array{playerId:string,instanceId:string,card:array<string,mixed>}>
+     */
+    private function updatedBattlefieldCards(array $previousSnapshot, array $nextSnapshot): array
+    {
+        $updated = [];
+        foreach (($nextSnapshot['players'] ?? []) as $playerId => $player) {
+            if (!is_string($playerId) || !is_array($player) || !is_array($player['zones']['battlefield'] ?? null)) {
+                continue;
+            }
+
+            foreach ($player['zones']['battlefield'] as $card) {
+                if (!is_array($card)) {
+                    continue;
+                }
+
+                $instanceId = $this->cardInstanceId($card);
+                if ($instanceId === null) {
+                    continue;
+                }
+
+                $previousCard = $this->card($previousSnapshot, $playerId, 'battlefield', $instanceId);
+                if ($previousCard !== null && $previousCard !== $card) {
+                    $updated[] = ['playerId' => $playerId, 'instanceId' => $instanceId, 'card' => $card];
+                }
+            }
+        }
+
+        return $updated;
     }
 
     /**

@@ -136,6 +136,8 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
   readonly isCurrentPlayer = input.required<(playerId: string) => boolean>();
   readonly allowArrowTargetSelection = input(false);
   readonly focusEffectsEnabled = input(true);
+  readonly monarchCard = input<GameCardInstance | null>(null);
+  readonly dayNightCard = input<GameCardInstance | null>(null);
   readonly isDropZoneHighlighted = input.required<(playerId: string, zone: GameZoneName) => boolean>();
   readonly cardPosition = input.required<(card: GameCardInstance) => { x: number; y: number } | null>();
   readonly isSelected = input.required<(instanceId: string) => boolean>();
@@ -171,6 +173,7 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
   readonly battlefieldDropped = output<BattlefieldDropEvent>();
   readonly battlefieldMenuOpened = output<BattlefieldZoneMenuEvent>();
   readonly manaPoolMenuOpened = output<BattlefieldManaPoolMenuEvent>();
+  readonly dayNightPointerDown = output<BattlefieldCardPointerEvent>();
   readonly cardPointerDown = output<BattlefieldCardPointerEvent>();
   readonly cardClicked = output<BattlefieldCardMouseEvent>();
   readonly cardDoubleClicked = output<BattlefieldCardMouseEvent>();

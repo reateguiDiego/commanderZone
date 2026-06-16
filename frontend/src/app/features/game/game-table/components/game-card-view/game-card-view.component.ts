@@ -14,7 +14,7 @@ import { GameTableDoubleTapDirective } from '../../directives/game-table-double-
 import { GameTableLongPressDirective } from '../../directives/game-table-long-press.directive';
 import { activeCardFaceIndex, hasAlternateFace, nextCardFaceIndex } from '../../utils/double-faced-card';
 import { dungeonMarkerForCard } from '../../utils/dungeon-marker';
-import { isGameplayCardTapLocked } from '../../utils/gameplay-card-kind';
+import { isDayNightCard, isGameplayCardTapLocked, isMonarchCard } from '../../utils/gameplay-card-kind';
 
 type GameCardViewMode = 'battlefield' | 'hand' | 'mini';
 
@@ -270,6 +270,7 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
     && !this.faceDown()
     && this.dungeonMarkerPosition() !== null
   ));
+  readonly monarchCard = computed(() => isMonarchCard(this.card()));
   readonly landStackZIndex = computed(() => {
     const role = this.landStackRole();
     if (!role) {
@@ -290,6 +291,10 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
       && this.hoverLifted()
     ) {
       return 96;
+    }
+
+    if (this.mode() === 'battlefield' && isDayNightCard(this.card())) {
+      return 74;
     }
 
     const landStackZIndex = this.landStackZIndex();

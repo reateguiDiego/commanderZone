@@ -344,6 +344,25 @@ describe('FocusedBattlefieldComponent', () => {
 
     expect(event.defaultPrevented).toBe(true);
   });
+
+  it('renders monarch using its physical card image when provided', async () => {
+    const monarch = {
+      instanceId: 'monarch:entity-1',
+      name: 'The Monarch',
+      imageUris: { normal: '/cards/the-monarch.jpg' },
+      typeLine: 'Card',
+      layout: 'monarch',
+      tapped: false,
+    } satisfies GameCardInstance;
+    const { fixture } = await renderFocusedBattlefield({
+      monarchCard: monarch,
+      cardImage: (card) => card.imageUris?.['normal'] ?? null,
+    });
+
+    const image = cardElement(fixture, 'monarch:entity-1').querySelector('img') as HTMLImageElement | null;
+
+    expect(image?.getAttribute('src')).toBe('/cards/the-monarch.jpg');
+  });
 });
 
 interface RenderFocusedBattlefieldOptions {
@@ -362,6 +381,8 @@ interface RenderFocusedBattlefieldOptions {
   isDraggingCard?: (card: GameCardInstance) => boolean;
   canEditManaPool?: (playerId: string) => boolean;
   isManaPoolHidden?: (playerId: string) => boolean;
+  monarchCard?: GameCardInstance | null;
+  cardImage?: (card: GameCardInstance) => string | null;
 }
 
 async function renderFocusedBattlefield(options: RenderFocusedBattlefieldOptions = {}): Promise<{ fixture: ComponentFixture<FocusedBattlefieldComponent> }> {
@@ -377,13 +398,15 @@ async function renderFocusedBattlefield(options: RenderFocusedBattlefieldOptions
   fixture.componentRef.setInput('isCurrentPlayer', options.isCurrentPlayer ?? ((_playerId: string) => true));
   fixture.componentRef.setInput('allowArrowTargetSelection', options.allowArrowTargetSelection ?? false);
   fixture.componentRef.setInput('focusEffectsEnabled', options.focusEffectsEnabled ?? true);
+  fixture.componentRef.setInput('monarchCard', options.monarchCard ?? null);
+  fixture.componentRef.setInput('dayNightCard', null);
   fixture.componentRef.setInput('isDropZoneHighlighted', (_playerId: string, _zone: GameZoneName) => false);
   fixture.componentRef.setInput('cardPosition', options.cardPosition ?? ((_card: GameCardInstance) => null));
   fixture.componentRef.setInput('isSelected', (_instanceId: string) => false);
   fixture.componentRef.setInput('isDraggingCard', options.isDraggingCard ?? ((_card: GameCardInstance) => false));
   fixture.componentRef.setInput('canDragBattlefieldCard', (_playerId: string, _card: GameCardInstance) => true);
   fixture.componentRef.setInput('isPendingBattlefieldTransfer', (_card: GameCardInstance) => false);
-  fixture.componentRef.setInput('cardImage', (_card: GameCardInstance) => null);
+  fixture.componentRef.setInput('cardImage', options.cardImage ?? ((_card: GameCardInstance) => null));
   fixture.componentRef.setInput('shouldShowPowerToughness', (_card: GameCardInstance) => false);
   fixture.componentRef.setInput('cardPowerValue', (_card: GameCardInstance) => 0);
   fixture.componentRef.setInput('cardToughnessValue', (_card: GameCardInstance) => 0);

@@ -1,0 +1,16 @@
+@if (hasEntities()) {
+  <section
+    class="special-entity-strip"
+    data-testid="special-entity-strip"
+    [attr.data-variant]="variant()"
+  >
+    <app-special-entity-rail
+      [entities]="entities()"
+      [variant]="variant()"
+      [ringBearerName]="ringBearerName()"
+      (previewRequested)="previewRequested.emit($event)"
+      (previewHidden)="previewHidden.emit()"
+      (entityContextRequested)="entityContextRequested.emit($event)"
+    />
+  </section>
+}

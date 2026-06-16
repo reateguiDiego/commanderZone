@@ -261,8 +261,12 @@ class GameDisconnectVoteService
             return;
         }
 
+        $previousActivePlayerId = is_scalar($snapshot['turn']['activePlayerId'] ?? null)
+            ? trim((string) $snapshot['turn']['activePlayerId'])
+            : '';
         $snapshot['players'][$targetPlayerId]['status'] = 'conceded';
         $snapshot['players'][$targetPlayerId]['concededAt'] = $now->format(DATE_ATOM);
+        $this->reassignMonarchWhenPlayerLeaves($snapshot, $targetPlayerId, $previousActivePlayerId);
 
         foreach ($game->room()->orderedPlayers() as $roomPlayer) {
             if (!$roomPlayer instanceof RoomPlayer || $roomPlayer->user()->id() !== $targetPlayerId) {
@@ -272,6 +276,64 @@ class GameDisconnectVoteService
             $game->room()->removeUser($roomPlayer->user());
             break;
         }
+    }
+
+    private function reassignMonarchWhenPlayerLeaves(array &$snapshot, string $leavingPlayerId, string $previousActivePlayerId): void
+    {
+        $specialEntities = $snapshot['specialEntities'] ?? null;
+        if (!is_array($specialEntities)) {
+            return;
+        }
+
+        foreach ($specialEntities as $index => $entity) {
+            if (!is_array($entity) || ($entity['template'] ?? null) !== 'monarch') {
+                continue;
+            }
+
+            $ownerPlayerId = is_scalar($entity['ownerPlayerId'] ?? null) ? trim((string) $entity['ownerPlayerId']) : '';
+            if ($ownerPlayerId !== $leavingPlayerId) {
+                return;
+            }
+
+            $successorPlayerId = $this->monarchSuccessorPlayerId($snapshot, $leavingPlayerId, $previousActivePlayerId);
+            if ($successorPlayerId === null) {
+                array_splice($snapshot['specialEntities'], $index, 1);
+                return;
+            }
+
+            $snapshot['specialEntities'][$index]['ownerPlayerId'] = $successorPlayerId;
+            return;
+        }
+    }
+
+    private function monarchSuccessorPlayerId(array $snapshot, string $leavingPlayerId, string $previousActivePlayerId): ?string
+    {
+        $currentActivePlayerId = is_scalar($snapshot['turn']['activePlayerId'] ?? null)
+            ? trim((string) $snapshot['turn']['activePlayerId'])
+            : '';
+        if ($currentActivePlayerId !== '' && $currentActivePlayerId !== $leavingPlayerId && $this->playerIsActive($snapshot, $currentActivePlayerId)) {
+            return $currentActivePlayerId;
+        }
+
+        if ($previousActivePlayerId !== '' && $previousActivePlayerId !== $leavingPlayerId && $this->playerIsActive($snapshot, $previousActivePlayerId)) {
+            return $previousActivePlayerId;
+        }
+
+        foreach (array_keys($snapshot['players'] ?? []) as $playerId) {
+            if (!is_string($playerId) || $playerId === $leavingPlayerId || !$this->playerIsActive($snapshot, $playerId)) {
+                continue;
+            }
+
+            return $playerId;
+        }
+
+        return null;
+    }
+
+    private function playerIsActive(array $snapshot, string $playerId): bool
+    {
+        return isset($snapshot['players'][$playerId])
+            && (($snapshot['players'][$playerId]['status'] ?? 'active') !== 'conceded');
     }
 
     /**

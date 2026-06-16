@@ -453,7 +453,7 @@ SQL,
         foreach ($fields as $field) {
             $payload[$field] = match ($field) {
                 'imageUris' => $this->decodeJsonArray($row['image_uris'] ?? []),
-                'cardFaces' => $this->decodeJsonArray($row['card_faces'] ?? []),
+                'cardFaces' => $this->normalizeCardFaces($this->decodeJsonArray($row['card_faces'] ?? [])),
                 default => $this->nullableString($row[$this->snakeCase($field)] ?? null),
             };
         }
@@ -464,6 +464,37 @@ SQL,
         }
 
         return $payload;
+    }
+
+    /**
+     * @param list<mixed> $faces
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function normalizeCardFaces(array $faces): array
+    {
+        $normalized = [];
+        foreach ($faces as $face) {
+            if (!is_array($face)) {
+                continue;
+            }
+
+            $normalized[] = [
+                'name' => $this->nullableString($face['name'] ?? null),
+                'manaCost' => $this->nullableString($face['manaCost'] ?? $face['mana_cost'] ?? null),
+                'typeLine' => $this->nullableString($face['typeLine'] ?? $face['type_line'] ?? null),
+                'oracleText' => $this->nullableString($face['oracleText'] ?? $face['oracle_text'] ?? null),
+                'power' => $this->nullableString($face['power'] ?? null),
+                'toughness' => $this->nullableString($face['toughness'] ?? null),
+                'loyalty' => $this->nullableString($face['loyalty'] ?? null),
+                'colors' => is_array($face['colors'] ?? null) ? array_values($face['colors']) : [],
+                'imageUris' => is_array($face['imageUris'] ?? null)
+                    ? $face['imageUris']
+                    : (is_array($face['image_uris'] ?? null) ? $face['image_uris'] : []),
+            ];
+        }
+
+        return $normalized;
     }
 
     /**

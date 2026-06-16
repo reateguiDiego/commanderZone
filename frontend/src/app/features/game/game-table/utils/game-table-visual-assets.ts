@@ -4,7 +4,7 @@ export const PLAYER_DEFEATED_SKULL_IMAGE = '/assets/icons/gameplay/skull.png';
 export const PLAYER_DEFEATED_DEATH_NAME_IMAGE = '/assets/images/death_name.png';
 
 const GAME_BACKGROUNDS: Record<string, string> = {
-  back_5: '/assets/images/backgrounds/back_5.png',
+  back_5: '/assets/images/backgrounds/sunrise/bg-5.webp',
 };
 
 const PLAY_MAT_COUNTS_BY_COLOR: Record<string, number> = {

@@ -286,7 +286,6 @@ describe('PlayerSummaryPanelComponent', () => {
 
   it('renders optional battlefield context copy and emits the return action', () => {
     const fixture = createFixture({
-      helperInteractionMode: 'editable',
       contextLabel: 'Estas viendo a:',
       displayName: 'Nombre de jugador extremadamente largo',
       returnActionLabel: 'Ir a tu battlefield',
@@ -307,27 +306,30 @@ describe('PlayerSummaryPanelComponent', () => {
     expect(returnRequested).toHaveBeenCalledOnce();
   });
 
-  it('renders mechanics controls outside the dropdown and opens the modal entrypoint', () => {
+  it('renders the mechanics strip only when there are helper entities', () => {
+    const emptyFixture = createFixture();
+
+    expect(emptyFixture.nativeElement.querySelector('[data-testid="special-entity-strip"]')).toBeNull();
+    expect(emptyFixture.nativeElement.querySelector('[data-testid="player-helper-create"]')).toBeNull();
+
     const fixture = createFixture({
-      helperInteractionMode: 'editable',
       specialEntities: [
         helperEntity('monarch', 'player-1'),
         helperEntity('the_ring', 'player-1', { level: 2, ringBearerInstanceId: 'ring-bearer-1' }),
       ],
     });
-    const createHelperRequested = vi.fn();
-    fixture.componentInstance.createHelperRequested.subscribe(createHelperRequested);
 
-    const strip = fixture.nativeElement.querySelector('[data-testid="player-helper-strip"]') as HTMLElement;
-    const createButton = fixture.nativeElement.querySelector('[data-testid="player-helper-create"]') as HTMLButtonElement;
+    const strip = fixture.nativeElement.querySelector('[data-testid="special-entity-strip"]') as HTMLElement;
 
-    expect(strip.textContent).toContain('The Ring');
+    expect(strip.dataset['variant']).toBe('summary');
     expect(strip.textContent).toContain('Monarch');
-    expect(createButton.textContent).toContain('Mechanics');
-
-    createButton.click();
-
-    expect(createHelperRequested).toHaveBeenCalledWith('player-1');
+    expect(strip.textContent).toContain('The Ring');
+    expect(strip.querySelector('[aria-label="Monarch"]')).not.toBeNull();
+    expect(strip.querySelector('.ms-ability-the-ring-tempts-you')).not.toBeNull();
+    expect(strip.querySelector('.ms-ability-the-ring-tempts-you')?.closest('.special-entity-pill')?.getAttribute('aria-label')).toContain('Level 2');
+    expect(strip.querySelector('.ms-ability-the-ring-tempts-you')?.closest('.special-entity-pill')?.getAttribute('aria-label')).toContain('Bilbo');
+    expect(strip.querySelector('.ms-ability-role-royal')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-testid="player-helper-create"]')).toBeNull();
   });
 
   it('forwards helper hover previews from the mechanics rail', () => {
@@ -362,34 +364,57 @@ describe('PlayerSummaryPanelComponent', () => {
     expect(previewHidden).toHaveBeenCalled();
   });
 
-  it('keeps the mechanics entry available while life controls are read-only', () => {
+  it("forwards City's Blessing context requests from the mechanics rail", () => {
+    const fixture = createFixture({
+      specialEntities: [
+        {
+          ...helperEntity('citys_blessing', 'player-1'),
+          card: {
+            scryfallId: 'citys-blessing-1',
+            name: "City's Blessing",
+            imageUris: { normal: 'https://cards.example/citys-blessing.jpg' },
+            cardFaces: [],
+            typeLine: 'Card',
+            oracleText: null,
+            layout: 'token',
+          },
+        },
+      ],
+    });
+    const requested = vi.fn();
+    fixture.componentInstance.helperContextRequested.subscribe(requested);
+
+    const helper = fixture.nativeElement.querySelector('.special-entity-pill-card-backed') as HTMLElement;
+    helper.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
+
+    expect(requested).toHaveBeenCalledWith(expect.objectContaining({
+      entity: expect.objectContaining({ template: 'citys_blessing' }),
+    }));
+  });
+
+  it('keeps the mechanics strip visible while life controls are read-only', () => {
     const fixture = createFixture({
       canEditCounters: false,
-      helperInteractionMode: 'readonly',
       specialEntities: [
         helperEntity('the_ring', 'player-1', { level: 2, ringBearerInstanceId: 'ring-bearer-1' }),
       ],
     });
-    const createHelperRequested = vi.fn();
-    fixture.componentInstance.createHelperRequested.subscribe(createHelperRequested);
 
-    const createButton = fixture.nativeElement.querySelector('[data-testid="player-helper-create"]') as HTMLButtonElement;
+    const strip = fixture.nativeElement.querySelector('[data-testid="special-entity-strip"]') as HTMLElement;
 
     expect(fixture.nativeElement.querySelector('[data-testid="life-decrease"]')).toBeNull();
     expect(fixture.nativeElement.querySelector('[data-testid="life-increase"]')).toBeNull();
-    expect(createButton).not.toBeNull();
-    expect(createButton.dataset['mode']).toBe('readonly');
-
-    createButton.click();
-
-    expect(createHelperRequested).toHaveBeenCalledWith('player-1');
+    expect(strip).not.toBeNull();
+    expect(strip.textContent).toContain('The Ring');
+    expect(strip.querySelector('.ms-ability-the-ring-tempts-you')?.closest('.special-entity-pill')?.getAttribute('aria-label')).toContain('Level 2');
+    expect(strip.querySelector('.ms-ability-the-ring-tempts-you')?.closest('.special-entity-pill')?.getAttribute('aria-label')).toContain('Bilbo');
+    expect(fixture.nativeElement.querySelector('[data-testid="player-helper-create"]')).toBeNull();
   });
 });
 
 function createFixture(
   options: {
     canEditCounters?: boolean;
-    helperInteractionMode?: 'readonly' | 'editable';
     counterValues?: Partial<Record<string, number>>;
     contextLabel?: string;
     displayName?: string;
@@ -417,7 +442,6 @@ function createFixture(
     options.counterValues ? options.counterValues[key] ?? 0 : key === 'poison' ? 3 : 0
   ));
   fixture.componentRef.setInput('canEditCounters', options.canEditCounters ?? true);
-  fixture.componentRef.setInput('helperInteractionMode', options.helperInteractionMode ?? 'editable');
   fixture.componentRef.setInput('specialEntities', options.specialEntities ?? []);
   fixture.componentRef.setInput('ringBearerName', (entity: GameSpecialEntity) => {
     const ringBearerInstanceId = typeof entity.state['ringBearerInstanceId'] === 'string'
@@ -425,7 +449,6 @@ function createFixture(
       : null;
     return ringBearerInstanceId ? 'Bilbo' : null;
   });
-  fixture.componentRef.setInput('helperImageFor', () => null);
   fixture.componentRef.setInput('contextLabel', options.contextLabel ?? null);
   fixture.componentRef.setInput('returnActionLabel', options.returnActionLabel ?? null);
   fixture.detectChanges();

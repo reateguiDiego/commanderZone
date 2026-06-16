@@ -310,6 +310,16 @@
         "selectAllBattlefieldCards": "Select All Battlefield Cards",
         "selectAllHandCards": "Select All Hand Cards",
         "createToken": "Create Token",
+        "gameMechanics": "Game mechanics",
+        "addMonarch": "Add Monarch",
+        "becomeMonarch": "Become Monarch",
+        "addInitiative": "Add Initiative",
+        "addDayNight": "Add Day / Night",
+        "addTheRing": "Add The Ring",
+        "addDungeon": "Add Dungeon",
+        "addCitysBlessing": "Add City's Blessing",
+        "removeCitysBlessing": "Remove City's Blessing",
+        "addEmblem": "Add Emblem",
         "tirarDado": "Tirar dado",
         "showManaPool": "Show Mana Pool",
         "view": "View",
@@ -575,13 +585,28 @@
         "the_ring": "El Anillo",
         "emblem": "Emblema",
         "dungeon": "Mazmorra",
-        "day": "Día",
+        "day": "DÃ­a",
         "night": "Noche"
+      },
+      "dungeonReplacement": {
+        "title": "Replace active dungeon?",
+        "message": "You can only have one active dungeon. Replace {{currentDungeon}} with {{nextDungeon}}?",
+        "confirm": "Replace dungeon",
+        "cancel": "Cancel"
+      },
+      "citysBlessingRemoval": {
+        "title": "Remove City's Blessing?",
+        "message": "This player will lose City's Blessing from the table. Continue?",
+        "confirm": "Remove",
+        "cancel": "Cancel"
       },
       "rail": {
         "title": "Entidades especiales",
         "ringLevel": "Nivel del Anillo"
       }
+    },
+    "zonePilesPanel": {
+      "monarchBadgeTooltip": "Eres el monarca."
     }
   },
   "deckBuilder": {

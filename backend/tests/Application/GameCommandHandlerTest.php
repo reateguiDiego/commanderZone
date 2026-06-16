@@ -386,6 +386,32 @@ class GameCommandHandlerTest extends TestCase
         );
     }
 
+    public function testDayNightCardPositionCommandKeepsItFixedTopRight(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->snapshot($actor->id(), [
+            'battlefield' => [
+                [
+                    ...$this->card('day-night-1', 'Day // Night', 'battlefield', 0, 0, 0, 0),
+                    'layout' => 'double_faced_token',
+                    'position' => ['x' => 1, 'y' => 0, 'unit' => 'ratio'],
+                ],
+            ],
+        ]));
+
+        (new GameCommandHandler())->apply($game, 'card.position.changed', [
+            'playerId' => $actor->id(),
+            'zone' => 'battlefield',
+            'instanceId' => 'day-night-1',
+            'position' => ['x' => 0.2, 'y' => 0.8, 'unit' => 'ratio'],
+        ], $actor);
+
+        self::assertSame(
+            ['x' => 1, 'y' => 0, 'unit' => 'ratio'],
+            $game->snapshot()['players'][$actor->id()]['zones']['battlefield'][0]['position'],
+        );
+    }
+
     public function testDungeonMarkerCommandClampsMarkerAndPreservesItWhenCardMoves(): void
     {
         $actor = new User('owner@example.test', 'Owner');
@@ -2200,6 +2226,58 @@ class GameCommandHandlerTest extends TestCase
         self::assertSame($next->id(), $game->snapshot()['turn']['activePlayerId']);
         self::assertSame('untap', $game->snapshot()['turn']['phase']);
         self::assertSame(3, $game->snapshot()['turn']['number']);
+    }
+
+    public function testConcedeReassignsMonarchToNextActivePlayerWhenCurrentMonarchLeaves(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $next = new User('next@example.test', 'Next');
+        $snapshot = $this->snapshot($actor->id(), [], $next->id());
+        $snapshot['turn'] = [
+            'activePlayerId' => $actor->id(),
+            'phase' => 'main-1',
+            'number' => 4,
+        ];
+        $snapshot['specialEntities'] = [[
+            'id' => 'monarch-1',
+            'template' => 'monarch',
+            'scope' => 'global',
+            'ownerPlayerId' => $actor->id(),
+            'card' => null,
+            'state' => [],
+            'createdAt' => '2026-06-16T00:00:00+00:00',
+        ]];
+        $game = new Game(new Room($actor), $snapshot);
+
+        (new GameCommandHandler())->apply($game, 'game.concede', [], $actor);
+
+        self::assertSame($next->id(), $game->snapshot()['specialEntities'][0]['ownerPlayerId']);
+    }
+
+    public function testConcedeReassignsMonarchToActivePlayerWhenCurrentMonarchLeavesDuringAnotherPlayersTurn(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $active = new User('active@example.test', 'Active');
+        $snapshot = $this->snapshot($actor->id(), [], $active->id());
+        $snapshot['turn'] = [
+            'activePlayerId' => $active->id(),
+            'phase' => 'combat',
+            'number' => 7,
+        ];
+        $snapshot['specialEntities'] = [[
+            'id' => 'monarch-1',
+            'template' => 'monarch',
+            'scope' => 'global',
+            'ownerPlayerId' => $actor->id(),
+            'card' => null,
+            'state' => [],
+            'createdAt' => '2026-06-16T00:00:00+00:00',
+        ]];
+        $game = new Game(new Room($actor), $snapshot);
+
+        (new GameCommandHandler())->apply($game, 'game.concede', [], $actor);
+
+        self::assertSame($active->id(), $game->snapshot()['specialEntities'][0]['ownerPlayerId']);
     }
 
     public function testMovingCardToSameZoneDoesNotCreateLogEntry(): void

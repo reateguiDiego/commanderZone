@@ -201,9 +201,9 @@
           </span>
         </button>
         <app-context-submenu
-          label="Game mechanics"
+          label="game.contextMenu.labels.gameMechanics"
           icon="crown"
-          [items]="gameMechanicsMenuItems"
+          [items]="gameMechanicsMenuItems()"
           [expanded]="isSubmenuExpanded('gameMechanics')"
           direction="up"
           (toggled)="toggleSubmenu($event, 'gameMechanics')"
@@ -230,14 +230,6 @@
         }
       }
     } @else {
-      @if (activeMenu.zone === 'command' && canControlActivePlayer()) {
-        <button type="button" (click)="actionSelected.emit({ type: 'createHelper' })">
-          <span class="menu-item-label">
-            <lucide-icon name="crown" size="17" aria-hidden="true" />
-            <span>{{ displayLabel('game.contextMenu.labels.mechanics') }}</span>
-          </span>
-        </button>
-      }
       @if (canMoveActiveZoneCards()) {
         <app-context-submenu
           label="game.contextMenu.labels.moveAllTo"
@@ -275,8 +267,50 @@
       </button>
     }
   } @else {
-    @if (canControlPlayer()(activeMenu.playerId)) {
-      @if (isGameplayCardMenu()) {
+    @if (isMonarchCardMenu()) {
+      @if (canControlMonarchCard()) {
+        <button type="button" class="danger-menu-item" (click)="actionSelected.emit({ type: 'removeMonarch' })">
+          <span class="menu-item-label">
+            <lucide-icon name="trash-2" size="17" aria-hidden="true" />
+            <span>{{ displayLabel('Remove') }}</span>
+          </span>
+        </button>
+        @if (canGiveMonarchToPlayer()) {
+          <app-context-submenu
+            label="Give to"
+            icon="gift"
+            [items]="giveMonarchToPlayerMenuItems()"
+            [expanded]="isSubmenuExpanded('giveMonarchToPlayer')"
+            direction="down"
+            (toggled)="toggleSubmenu($event, 'giveMonarchToPlayer')"
+            (itemSelected)="selectGiveMonarchToPlayer($event)"
+          />
+        }
+      } @else {
+        <button type="button" (click)="actionSelected.emit({ type: 'previewCard' })">
+          <span class="menu-item-label">
+            <lucide-icon name="search" size="17" aria-hidden="true" />
+            <span>{{ displayLabel('game.contextMenu.labels.previewCard') }}</span>
+          </span>
+        </button>
+      }
+    } @else if (canControlPlayer()(activeMenu.playerId)) {
+      @if (isDayNightCardMenu()) {
+        <button type="button" (click)="actionSelected.emit(dayNightToggleAction())">
+          <span class="menu-item-label">
+            <lucide-icon name="moon-star" size="17" aria-hidden="true" />
+            <span>{{ displayLabel(dayNightToggleLabel()) }}</span>
+          </span>
+        </button>
+        @if (canRemoveDayNight()) {
+          <button type="button" class="danger-menu-item" (click)="actionSelected.emit({ type: 'removeDayNight' })">
+            <span class="menu-item-label">
+              <lucide-icon name="trash-2" size="17" aria-hidden="true" />
+              <span>{{ displayLabel('Remove') }}</span>
+            </span>
+          </button>
+        }
+      } @else if (isGameplayCardMenu()) {
         <button type="button" class="danger-menu-item" (click)="actionSelected.emit({ type: 'moveCard', zone: 'graveyard' })">
           <span class="menu-item-label">
             <lucide-icon name="trash-2" size="17" aria-hidden="true" />

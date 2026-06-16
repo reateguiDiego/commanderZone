@@ -32,8 +32,17 @@ export class GameTableSpecialEntityActionsService {
     context.closeContextMenu();
   }
 
-  async updateHelper(context: GameTableSpecialEntityActionContext, entityId: string, state: Record<string, unknown>): Promise<void> {
-    await context.command('helper.updated', { entityId, state });
+  async updateHelper(
+    context: GameTableSpecialEntityActionContext,
+    entityId: string,
+    state: Record<string, unknown>,
+    options: { card?: GameSpecialEntityCardRef | null } = {},
+  ): Promise<void> {
+    await context.command('helper.updated', {
+      entityId,
+      state,
+      ...(options.card ? { card: options.card } : {}),
+    });
     context.closeContextMenu();
   }
 

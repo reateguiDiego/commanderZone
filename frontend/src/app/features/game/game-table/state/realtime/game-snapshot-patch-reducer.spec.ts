@@ -1,5 +1,6 @@
 import { GameCardInstance, GameSnapshot } from '../../../../../core/models/game.model';
 import { GameplayGamePatchMessage, GameSnapshotPatchOperation } from '../../../../../core/models/game-realtime.model';
+import { CardFace } from '../../../../../core/models/card.model';
 import { applyGameSnapshotPatch, applyGameSnapshotPatchOperations } from './game-snapshot-patch-reducer';
 
 describe('game snapshot patch reducer', () => {
@@ -413,6 +414,63 @@ describe('game snapshot patch reducer', () => {
     expect(result.snapshot.eventLog.at(-1)?.id).toBe('log-252');
   });
 
+  it('deduplicates event log append entries by id', () => {
+    const snapshot = snapshotFixture();
+    snapshot.eventLog = [
+      {
+        id: 'log-1',
+        type: 'helper.updated',
+        message: 'Set the game to day.',
+        actorId: 'player-1',
+        displayName: 'Player 1',
+        createdAt: '2026-01-01T00:00:01.000Z',
+      },
+      {
+        id: 'log-1',
+        type: 'helper.updated',
+        message: 'Set the game to day.',
+        actorId: 'player-1',
+        displayName: 'Player 1',
+        createdAt: '2026-01-01T00:00:01.000Z',
+      },
+    ];
+
+    const result = applyGameSnapshotPatch(snapshot, patch([
+      {
+        op: 'eventLog.append',
+        entries: [
+          {
+            id: 'log-1',
+            type: 'helper.updated',
+            message: 'Set the game to day.',
+            actorId: 'player-1',
+            displayName: 'Player 1',
+            createdAt: '2026-01-01T00:00:01.000Z',
+          },
+          {
+            id: 'log-2',
+            type: 'helper.updated',
+            message: 'Set the game to night.',
+            actorId: 'player-1',
+            displayName: 'Player 1',
+            createdAt: '2026-01-01T00:00:02.000Z',
+          },
+          {
+            id: 'log-2',
+            type: 'helper.updated',
+            message: 'Set the game to night.',
+            actorId: 'player-1',
+            displayName: 'Player 1',
+            createdAt: '2026-01-01T00:00:02.000Z',
+          },
+        ],
+      },
+    ]));
+
+    expect(result.status).toBe('applied');
+    expect(result.snapshot.eventLog.map((entry) => entry.id)).toEqual(['log-1', 'log-2']);
+  });
+
   it('applies small stack and relation add/remove operations', () => {
     const snapshot = {
       ...snapshotFixture(),
@@ -614,6 +672,51 @@ describe('game snapshot patch reducer', () => {
 
     expect(result.status).toBe('applied');
     expect(result.snapshot.specialEntities).toEqual([]);
+  });
+
+  it('applies full helper entity updates when the patch includes card data', () => {
+    const snapshot = snapshotFixture();
+    snapshot.specialEntities = [{
+      id: 'day-night-1',
+      template: 'day_night',
+      scope: 'global',
+      ownerPlayerId: null,
+      card: null,
+      state: { mode: 'day' },
+      createdAt: '2026-01-01T00:00:02.000Z',
+    }];
+
+    const result = applyGameSnapshotPatch(snapshot, patch([
+      {
+        op: 'specialEntity.update',
+        entityId: 'day-night-1',
+        state: { mode: 'night' },
+        entity: {
+          id: 'day-night-1',
+          template: 'day_night',
+          scope: 'global',
+          ownerPlayerId: null,
+          card: {
+            scryfallId: '9c0f7843-4cbb-4d0f-8887-ec823a9238da',
+            name: 'Day // Night',
+            imageUris: { normal: 'https://img.example.test/day-night.jpg' },
+            cardFaces: [
+              cardFace('Day', 'https://img.example.test/day.jpg'),
+              cardFace('Night', 'https://img.example.test/night.jpg'),
+            ],
+            typeLine: 'Card // Card',
+            oracleText: null,
+            layout: 'double_faced_token',
+          },
+          state: { mode: 'night' },
+          createdAt: '2026-01-01T00:00:02.000Z',
+        },
+      },
+    ]));
+
+    expect(result.status).toBe('applied');
+    expect(result.snapshot.specialEntities?.[0].card?.name).toBe('Day // Night');
+    expect(result.snapshot.specialEntities?.[0].state['mode']).toBe('night');
   });
 
   it('replaces helpers through specialEntities.set when a resync patch needs the full collection', () => {
@@ -839,5 +942,19 @@ function card(instanceId: string, overrides: Partial<GameCardInstance> = {}): Ga
     name: instanceId,
     tapped: false,
     ...overrides,
+  };
+}
+
+function cardFace(name: string, normalImage: string): CardFace {
+  return {
+    name,
+    manaCost: null,
+    typeLine: null,
+    oracleText: null,
+    power: null,
+    toughness: null,
+    loyalty: null,
+    colors: [],
+    imageUris: { normal: normalImage },
   };
 }

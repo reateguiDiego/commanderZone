@@ -21,7 +21,7 @@ describe('OpponentMiniBoardComponent', () => {
     fixture.componentRef.setInput('player', playerView());
     fixture.componentRef.setInput('colorAccent', () => '#d7b46a');
     fixture.componentRef.setInput('deckLabel', (player: PlayerView | null) => player?.state.user.displayName ?? '');
-    fixture.componentRef.setInput('backgroundImage', () => '/assets/images/backgrounds/back_5.png');
+    fixture.componentRef.setInput('backgroundImage', () => '/assets/images/backgrounds/sunrise/bg-5.webp');
     fixture.componentRef.setInput('battlefieldSize', { width: 900, height: 520 });
     fixture.componentRef.setInput('zoneCount', (player: PlayerView, zone: keyof PlayerView['state']['zones']) => player.state.zones[zone].length);
     fixture.componentRef.setInput('cardPosition', () => ({ x: 0, y: 0 }));
@@ -29,35 +29,43 @@ describe('OpponentMiniBoardComponent', () => {
     fixture.componentRef.setInput('isPlayerDropHighlighted', () => false);
   });
 
-  it('emits mechanicsRequested and shows active mechanics badges', () => {
-    const mechanicsRequested = vi.fn();
+  it('shows active mechanics pills without the legacy mechanics button', () => {
+    const monarch = helperEntity('monarch', 'user-2');
+    const ring = helperEntity('the_ring', 'user-2', { level: 2 });
+    const emblem = helperEntity('emblem', 'user-2');
     fixture.componentRef.setInput('specialEntitiesSummary', {
       playerId: 'user-2',
-      monarch: helperEntity('monarch', 'user-2'),
+      monarch,
       initiative: null,
       citysBlessing: null,
-      ring: helperEntity('the_ring', 'user-2', { level: 2 }),
+      ring,
       dungeon: null,
-      emblems: [helperEntity('emblem', 'user-2')],
-      displayEntities: [],
+      emblems: [emblem],
+      displayEntities: [monarch, ring, emblem],
       hasAny: true,
     } satisfies GameTablePlayerSpecialEntitiesSummary);
-    fixture.componentRef.setInput('helperInteractionMode', 'readonly');
-    fixture.componentInstance.mechanicsRequested.subscribe(mechanicsRequested);
     fixture.detectChanges();
 
-    const button = fixture.nativeElement.querySelector('[data-testid="opponent-mechanics-button"]') as HTMLButtonElement;
-    const badges = fixture.nativeElement.querySelector('[data-testid="opponent-mechanics-badges"]') as HTMLElement;
+    const strip = fixture.nativeElement.querySelector('[data-testid="special-entity-strip"]') as HTMLElement;
 
-    expect(button.textContent).toContain('Mechanics');
-    expect(button.dataset['mode']).toBe('readonly');
-    expect(badges.textContent).toContain('Monarch');
-    expect(badges.textContent).toContain('The Ring');
-    expect(badges.textContent).toContain('Emblem');
+    expect(fixture.nativeElement.querySelector('[data-testid="opponent-mechanics-button"]')).toBeNull();
+    expect(strip).not.toBeNull();
+    expect(strip.dataset['variant']).toBe('compact');
+    expect(strip.textContent).toContain('Monarch');
+    expect(strip.textContent).toContain('The Ring');
+    expect(strip.textContent).toContain('Emblem');
+    expect(strip.querySelector('[aria-label="Monarch"]')).not.toBeNull();
+    expect(strip.querySelector('[aria-label="The Ring - Level 2"]')).not.toBeNull();
+    expect(strip.querySelector('[aria-label="Emblem"]')).not.toBeNull();
+    expect(strip.querySelector('.ms-ability-role-royal')).not.toBeNull();
+    expect(strip.querySelector('.ms-ability-the-ring-tempts-you')).not.toBeNull();
+    expect(strip.querySelector('.ms-planeswalker')).not.toBeNull();
+  });
 
-    button.click();
+  it('does not render the mechanics strip when no mechanics are active', () => {
+    fixture.detectChanges();
 
-    expect(mechanicsRequested).toHaveBeenCalledWith('user-2');
+    expect(fixture.nativeElement.querySelector('[data-testid="special-entity-strip"]')).toBeNull();
   });
 
   it('renders the targeting pill between player label and life', () => {
@@ -134,7 +142,7 @@ describe('OpponentMiniBoardComponent', () => {
     const skull = fixture.nativeElement.querySelector('[data-testid="opponent-mini-battlefield-skull"]') as HTMLImageElement;
     expect(fixture.nativeElement.querySelector('app-opponent-mini-battlefield')).toBeNull();
     expect(board).not.toBeNull();
-    expect(board.style.getPropertyValue('--opponent-defeated-background')).toContain('/assets/images/backgrounds/back_5.png');
+    expect(board.style.getPropertyValue('--opponent-defeated-background')).toContain('/assets/images/backgrounds/sunrise/bg-5.webp');
     expect(skull).not.toBeNull();
     expect(skull.getAttribute('src')).toBe('/assets/icons/gameplay/skull.png');
   });

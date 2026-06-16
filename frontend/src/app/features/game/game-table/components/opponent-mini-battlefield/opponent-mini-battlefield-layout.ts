@@ -107,9 +107,7 @@ function logicalCardPlacement(
   total: number,
   options: MiniBattlefieldLayoutOptions,
 ): LogicalCardPlacement {
-  const position = card.position?.unit === 'ratio'
-    ? defaultPosition(card, options.boardSize)
-    : options.getPosition?.(card) ?? defaultPosition(card, options.boardSize);
+  const position = options.getPosition?.(card) ?? defaultPosition(card, options.boardSize);
   if (position) {
     return { card, x: position.x, y: position.y, hasBoardPosition: true };
   }
