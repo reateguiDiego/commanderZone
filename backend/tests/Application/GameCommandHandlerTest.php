@@ -2280,6 +2280,58 @@ class GameCommandHandlerTest extends TestCase
         self::assertSame($active->id(), $game->snapshot()['specialEntities'][0]['ownerPlayerId']);
     }
 
+    public function testConcedeReassignsInitiativeToNextActivePlayerWhenCurrentHolderLeaves(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $next = new User('next@example.test', 'Next');
+        $snapshot = $this->snapshot($actor->id(), [], $next->id());
+        $snapshot['turn'] = [
+            'activePlayerId' => $actor->id(),
+            'phase' => 'main-1',
+            'number' => 4,
+        ];
+        $snapshot['specialEntities'] = [[
+            'id' => 'initiative-1',
+            'template' => 'initiative',
+            'scope' => 'global',
+            'ownerPlayerId' => $actor->id(),
+            'card' => null,
+            'state' => [],
+            'createdAt' => '2026-06-16T00:00:00+00:00',
+        ]];
+        $game = new Game(new Room($actor), $snapshot);
+
+        (new GameCommandHandler())->apply($game, 'game.concede', [], $actor);
+
+        self::assertSame($next->id(), $game->snapshot()['specialEntities'][0]['ownerPlayerId']);
+    }
+
+    public function testConcedeReassignsInitiativeToActivePlayerWhenCurrentHolderLeavesDuringAnotherPlayersTurn(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $active = new User('active@example.test', 'Active');
+        $snapshot = $this->snapshot($actor->id(), [], $active->id());
+        $snapshot['turn'] = [
+            'activePlayerId' => $active->id(),
+            'phase' => 'combat',
+            'number' => 7,
+        ];
+        $snapshot['specialEntities'] = [[
+            'id' => 'initiative-1',
+            'template' => 'initiative',
+            'scope' => 'global',
+            'ownerPlayerId' => $actor->id(),
+            'card' => null,
+            'state' => [],
+            'createdAt' => '2026-06-16T00:00:00+00:00',
+        ]];
+        $game = new Game(new Room($actor), $snapshot);
+
+        (new GameCommandHandler())->apply($game, 'game.concede', [], $actor);
+
+        self::assertSame($active->id(), $game->snapshot()['specialEntities'][0]['ownerPlayerId']);
+    }
+
     public function testMovingCardToSameZoneDoesNotCreateLogEntry(): void
     {
         $actor = new User('owner@example.test', 'Owner');

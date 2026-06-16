@@ -1223,6 +1223,82 @@ class GameWebsocketPatchBuilderTest extends TestCase
         self::assertContains('specialEntities.set', array_column($message['operations'], 'op'));
     }
 
+    public function testConcedeEmitsSpecialEntitiesSetWhenInitiativeChanges(): void
+    {
+        [$game, $actor, $opponent] = $this->gameWithBattlefieldCards();
+        $previous = $game->snapshot();
+        $previous['specialEntities'] = [[
+            'id' => 'initiative-1',
+            'template' => 'initiative',
+            'scope' => 'global',
+            'ownerPlayerId' => $actor->id(),
+            'card' => null,
+            'state' => [],
+            'createdAt' => '2026-06-16T00:00:00+00:00',
+        ]];
+        $next = $previous;
+        $next['version'] = $previous['version'] + 1;
+        $next['players'][$actor->id()]['status'] = 'conceded';
+        $next['players'][$actor->id()]['concededAt'] = '2026-01-01T00:00:01+00:00';
+        $next['turn'] = ['activePlayerId' => $opponent->id(), 'phase' => 'untap', 'number' => 2];
+        $next['specialEntities'][0]['ownerPlayerId'] = $opponent->id();
+        $next['eventLog'][] = [
+            'id' => 'log-concede-turn-shift-initiative',
+            'type' => 'game.concede',
+            'message' => 'Actor conceded.',
+            'actorId' => $actor->id(),
+            'displayName' => $actor->displayName(),
+            'createdAt' => '2026-01-01T00:00:01+00:00',
+        ];
+        $event = new GameEvent($game, 'game.concede', [], $actor, 'action-concede-initiative-shift');
+
+        $message = (new GameWebsocketPatchBuilder(new GameWebsocketMessageFactory()))
+            ->build($game->id(), $previous, $next, $event);
+
+        self::assertContains('specialEntities.set', array_column($message['operations'], 'op'));
+    }
+
+    public function testDisconnectVoteExpelEmitsSpecialEntitiesSetWhenInitiativeChanges(): void
+    {
+        [$game, $actor, $opponent] = $this->gameWithBattlefieldCards();
+        $previous = $game->snapshot();
+        $previous['specialEntities'] = [[
+            'id' => 'initiative-1',
+            'template' => 'initiative',
+            'scope' => 'global',
+            'ownerPlayerId' => $opponent->id(),
+            'card' => null,
+            'state' => [],
+            'createdAt' => '2026-06-16T00:00:00+00:00',
+        ]];
+        $next = $previous;
+        $next['version'] = $previous['version'] + 1;
+        $next['players'][$opponent->id()]['status'] = 'conceded';
+        $next['players'][$opponent->id()]['concededAt'] = '2026-01-01T00:00:10+00:00';
+        $next['disconnectVote'] = [
+            'targetPlayerId' => $opponent->id(),
+            'status' => 'resolved_expel',
+            'openedAt' => null,
+            'deadlineAt' => null,
+            'cooldownUntil' => null,
+            'votes' => [],
+        ];
+        $next['specialEntities'][0]['ownerPlayerId'] = $actor->id();
+        $next['eventLog'][] = [
+            'id' => 'log-disconnect-expel-initiative',
+            'type' => 'disconnect.vote.updated',
+            'message' => 'Votacion resuelta en expulsion.',
+            'actorId' => $actor->id(),
+            'displayName' => 'Actor',
+            'createdAt' => '2026-01-01T00:00:10+00:00',
+        ];
+
+        $event = new GameEvent($game, 'disconnect.vote.updated', ['reason' => 'vote.resolved'], $actor, 'action-disconnect-expel-initiative');
+        $message = (new GameWebsocketPatchBuilder(new GameWebsocketMessageFactory()))->build($game->id(), $previous, $next, $event);
+
+        self::assertContains('specialEntities.set', array_column($message['operations'], 'op'));
+    }
+
     public function testBuildsEventLogAppendAcrossSlidingWindowRollover(): void
     {
         [$game, $actor] = $this->game();
@@ -1445,6 +1521,49 @@ class GameWebsocketPatchBuilderTest extends TestCase
             'op' => 'specialEntity.remove',
             'entityId' => $entityId,
         ], $removed['operations'][0]);
+    }
+
+    public function testInitiativeHelperCreatePatchAlsoCreatesUndercityOnBattlefield(): void
+    {
+        [$game, $actor] = $this->game();
+        $handler = new GameCommandHandler();
+
+        $created = $this->applyAndBuild($game, $actor, 'helper.created', [
+            'template' => 'initiative',
+            'ownerPlayerId' => $actor->id(),
+            'card' => [
+                'scryfallId' => 'initiative-card',
+                'name' => 'Undercity // The Initiative',
+                'layout' => 'double_faced_token',
+                'typeLine' => 'Dungeon - Undercity // Card',
+                'imageUris' => ['normal' => 'https://img.example.test/undercity.jpg'],
+                'cardFaces' => [
+                    [
+                        'name' => 'Undercity',
+                        'typeLine' => 'Dungeon - Undercity',
+                        'oracleText' => 'Venture into Undercity only.',
+                        'imageUris' => ['normal' => 'https://img.example.test/undercity.jpg'],
+                    ],
+                    [
+                        'name' => 'The Initiative',
+                        'typeLine' => 'Card',
+                        'oracleText' => 'You have the initiative.',
+                        'imageUris' => ['normal' => 'https://img.example.test/the-initiative.jpg'],
+                    ],
+                ],
+            ],
+        ], 'action-initiative-create', $handler);
+
+        self::assertContainsEqual('specialEntity.add', array_column($created['operations'], 'op'));
+        self::assertContainsEqual('card.create', array_column($created['operations'], 'op'));
+        $cardCreate = array_values(array_filter(
+            $created['operations'],
+            static fn (array $operation): bool => ($operation['op'] ?? null) === 'card.create',
+        ))[0] ?? null;
+        self::assertIsArray($cardCreate);
+        self::assertSame($actor->id(), $cardCreate['playerId'] ?? null);
+        self::assertSame('Undercity', $cardCreate['card']['name'] ?? null);
+        self::assertSame('dungeon', $cardCreate['card']['layout'] ?? null);
     }
 
     public function testDoesNotEmitFullSnapshotPlayersOrZonesInGamePatchPayload(): void

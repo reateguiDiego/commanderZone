@@ -10,7 +10,7 @@ import { PrettyScrollDirective } from '../../../shared/ui/pretty-scroll/pretty-s
 import { ChatMessage, ChatReactionType, GameCardDungeonMarker, GameCardInstance, GameCardPosition, GameRematchVote, GameSnapshot, GameSpecialEntity, GameZoneName } from '../../../core/models/game.model';
 import { GameSnapshotPatchOperation } from '../../../core/models/game-realtime.model';
 import { Card } from '../../../core/models/card.model';
-import { CARD_SEARCH_LIMIT, CardsApi } from '../../../core/api/cards.api';
+import { CardsApi } from '../../../core/api/cards.api';
 import { GamesApi } from '../../../core/api/games.api';
 import { GameTableCardActionsService } from './services/game-table-card-actions.service';
 import { GameTableCardStatsService } from './services/game-table-card-stats.service';
@@ -107,7 +107,7 @@ import { GameTableSpecialEntityActionsService } from './services/game-table-spec
 import { ZonePointerDropRequest } from './models/game-table-zone-pointer-drag.model';
 import { buildCardPreviewAttachmentInfo, buildCardPreviewCardStateInfo, resolveCardPreviewCard } from './utils/card-preview-attachment-info';
 import { dungeonMarkerForCard } from './utils/dungeon-marker';
-import { isDayNightCard, isDungeonCard, isGameplayCardTapLocked, isMonarchCard } from './utils/gameplay-card-kind';
+import { isDayNightCard, isDungeonCard, isGameplayCardTapLocked, isInitiativeCard, isMonarchCard } from './utils/gameplay-card-kind';
 import { ManaAddition, ManaPoolColor, ManaSourceSuggestion } from './utils/mana-source-detector';
 import { GameTablePlayerSpecialEntitiesSummary, GameTableSpecialEntitiesState } from './state/helpers/game-table-special-entities.state';
 import { VentureCardKind } from './utils/venture-card-kind';
@@ -194,9 +194,9 @@ interface PendingCitysBlessingRemovalRequest {
 
 const GAMEPLAY_CARD_SEARCH_BATTLEFIELD_POSITION: GameCardPosition = { x: 0, y: 0, unit: 'ratio' };
 const DAY_NIGHT_FIXED_BATTLEFIELD_POSITION: GameCardPosition = { x: 1, y: 0, unit: 'ratio' };
-const UNDERCITY_SEARCH_QUERY = 'Undercity';
 const DAY_NIGHT_SEARCH_QUERY = 'Day // Night';
 const MONARCH_SEARCH_QUERY = 'The Monarch';
+const INITIATIVE_SEARCH_QUERY = 'Undercity // The Initiative';
 const CITYS_BLESSING_SEARCH_QUERY = "City's Blessing";
 const SPECIAL_MECHANIC_CARD_SEARCH_LIMIT = 16;
 
@@ -513,6 +513,8 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     this.specialEntityState.dayNightCardForPlayer(playerId);
   readonly monarchCardForPlayer = (playerId: string): GameCardInstance | null =>
     this.specialEntityState.monarchCardForPlayer(playerId);
+  readonly initiativeCardForPlayer = (playerId: string): GameCardInstance | null =>
+    this.specialEntityState.initiativeCardForPlayer(playerId);
   readonly cardImage = (card: GameCardInstance): string | null => this.store.cardImage(card);
   readonly dungeonMarkerForCard = dungeonMarkerForCard;
   readonly dungeonPinSizeForWidth = (width: number): string => `${Math.round(Math.max(28, Math.min(58, width * 0.25)))}px`;
@@ -556,6 +558,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   readonly canDragBattlefieldCard = (playerId: string, card: GameCardInstance): boolean =>
     !isDayNightCard(card)
     && !isMonarchCard(card)
+    && !isInitiativeCard(card)
     && this.store.canDragBattlefieldCard(playerId, card)
     && !this.tapAnimationLockedCardIds().has(card.instanceId);
   readonly isPendingBattlefieldTransfer = (card: GameCardInstance): boolean => this.store.isPendingBattlefieldTransfer(card);
@@ -601,6 +604,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   readonly pendingCitysBlessingRemoval = signal<PendingCitysBlessingRemovalRequest | null>(null);
   readonly activeDayNight = computed(() => this.specialEntityState.dayNight() !== null);
   readonly monarchOwnerPlayerId = computed(() => this.specialEntityState.globalEntity('monarch')?.ownerPlayerId ?? null);
+  readonly initiativeOwnerPlayerId = computed(() => this.specialEntityState.globalEntity('initiative')?.ownerPlayerId ?? null);
   readonly playerHasCitysBlessing = (playerId: string): boolean =>
     this.specialEntityState.playerEntity(playerId, 'citys_blessing') !== null;
   readonly ringBearerName = (entity: GameSpecialEntity): string | null => this.specialEntityState.ringBearerCardName(entity);
@@ -2304,6 +2308,15 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       case 'giveMonarchToPlayer':
         void this.createMonarch(action.targetPlayerId);
         return;
+      case 'createInitiative':
+        void this.createInitiative(menu.playerId);
+        return;
+      case 'removeInitiative':
+        void this.removeInitiative();
+        return;
+      case 'giveInitiativeToPlayer':
+        void this.createInitiative(action.targetPlayerId);
+        return;
       case 'createDayNight':
         void this.createDayNightFromMenu();
         return;
@@ -3120,8 +3133,34 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     await this.store.createHelper('monarch', playerId, card ? { card } : {});
   }
 
+  private async createInitiative(playerId: string): Promise<void> {
+    if (!this.store.players().some((player) => player.id === playerId)) {
+      this.store.error.set('Could not find target player for initiative.');
+      this.store.closeContextMenu();
+      return;
+    }
+
+    if (this.initiativeOwnerPlayerId() === playerId) {
+      this.store.closeContextMenu();
+      return;
+    }
+
+    const card = await this.specialMechanicTokenCardRef(INITIATIVE_SEARCH_QUERY);
+    await this.store.createHelper('initiative', playerId, card ? { card } : {});
+  }
+
   private async removeMonarch(): Promise<void> {
     const entity = this.store.specialEntities().find((candidate) => candidate.template === 'monarch') ?? null;
+    if (!entity) {
+      this.store.closeContextMenu();
+      return;
+    }
+
+    await this.store.removeHelper(entity.id);
+  }
+
+  private async removeInitiative(): Promise<void> {
+    const entity = this.store.specialEntities().find((candidate) => candidate.template === 'initiative') ?? null;
     if (!entity) {
       this.store.closeContextMenu();
       return;
@@ -3438,10 +3477,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     }
 
     if (kind === 'initiative') {
-      await this.store.createHelper('initiative', menu.playerId);
-      if (!this.hasActiveDungeon(menu.playerId)) {
-        await this.createUndercityDungeon(menu.playerId);
-      }
+      await this.createInitiative(menu.playerId);
       return;
     }
 
@@ -3462,32 +3498,6 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     const dungeon = (player?.state.zones.battlefield ?? []).find((card) => isDungeonCard(card));
 
     return dungeon?.name ?? null;
-  }
-
-  private async createUndercityDungeon(playerId: string): Promise<void> {
-    try {
-      const response = await firstValueFrom(this.cardsApi.search(UNDERCITY_SEARCH_QUERY, 1, CARD_SEARCH_LIMIT, { gameplayKind: 'dungeon' }));
-      const undercity = this.undercityCard(response.data);
-      if (!undercity) {
-        this.store.error.set('Could not find Undercity dungeon.');
-        this.store.closeContextMenu();
-        return;
-      }
-
-      await this.store.createToken(playerId, undercity, 1, { position: GAMEPLAY_CARD_SEARCH_BATTLEFIELD_POSITION });
-    } catch {
-      this.store.error.set('Could not create Undercity dungeon.');
-      this.store.closeContextMenu();
-    }
-  }
-
-  private undercityCard(cards: readonly Card[]): Card | null {
-    const normalizedName = UNDERCITY_SEARCH_QUERY.toLowerCase();
-
-    return cards.find((card) => card.name.toLowerCase() === normalizedName)
-      ?? cards.find((card) => card.name.toLowerCase().includes(normalizedName))
-      ?? cards[0]
-      ?? null;
   }
 
   showHelperPreview(entity: GameSpecialEntity): void {

@@ -26,7 +26,7 @@ final class GameSpecialEntityCommandHandler
     ];
     private const PLAYER_TEMPLATES = ['citys_blessing', 'the_ring', 'emblem', 'dungeon'];
     private const CARD_BACKED_TEMPLATES = ['emblem', 'dungeon'];
-    private const OPTIONAL_CARD_TEMPLATES = ['day_night', 'monarch', 'citys_blessing'];
+    private const OPTIONAL_CARD_TEMPLATES = ['day_night', 'monarch', 'initiative', 'citys_blessing'];
 
     /**
      * @return list<string>
@@ -75,7 +75,10 @@ final class GameSpecialEntityCommandHandler
             if ($template === 'day_night' && $actorPlayerId === null) {
                 throw new \InvalidArgumentException('Only players can change day/night.');
             }
-            if ($template === 'monarch' && $this->canActorCreateMonarch($snapshot, $actorPlayerId, $ownerPlayerId)) {
+            if (
+                in_array($template, ['monarch', 'initiative'], true)
+                && $this->canActorCreateGlobalDesignation($snapshot, $template, $actorPlayerId, $ownerPlayerId)
+            ) {
                 return;
             }
             if ($template !== 'day_night' && ($actorPlayerId === null || $ownerPlayerId !== $actorPlayerId)) {
@@ -803,7 +806,12 @@ final class GameSpecialEntityCommandHandler
         return $actorPlayerId !== null && $createdByPlayerId !== null && $actorPlayerId === $createdByPlayerId;
     }
 
-    private function canActorCreateMonarch(array $snapshot, ?string $actorPlayerId, ?string $ownerPlayerId): bool
+    private function canActorCreateGlobalDesignation(
+        array $snapshot,
+        string $template,
+        ?string $actorPlayerId,
+        ?string $ownerPlayerId,
+    ): bool
     {
         if ($actorPlayerId === null || $ownerPlayerId === null) {
             return false;
@@ -813,10 +821,10 @@ final class GameSpecialEntityCommandHandler
             return true;
         }
 
-        $currentMonarch = $this->globalEntity($snapshot, 'monarch');
-        $currentMonarchPlayerId = $this->nonEmptyString($currentMonarch['ownerPlayerId'] ?? null);
+        $currentDesignation = $this->globalEntity($snapshot, $template);
+        $currentDesignationPlayerId = $this->nonEmptyString($currentDesignation['ownerPlayerId'] ?? null);
 
-        return $currentMonarchPlayerId !== null && $currentMonarchPlayerId === $actorPlayerId;
+        return $currentDesignationPlayerId !== null && $currentDesignationPlayerId === $actorPlayerId;
     }
 
     /**

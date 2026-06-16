@@ -4,7 +4,7 @@ import { LucideAngularModule } from 'lucide-angular';
 import { GameCardInstance } from '../../../../../core/models/game.model';
 import { PrettyScrollDirective } from '../../../../../shared/ui/pretty-scroll/pretty-scroll.directive';
 import { GameTableLongPressDirective } from '../../directives/game-table-long-press.directive';
-import { activeCardFaceIndex, hasAlternateFace, nextCardFaceIndex } from '../../utils/double-faced-card';
+import { activeCardFaceIndex, canShowAlternateFaceToggle, nextCardFaceIndex } from '../../utils/double-faced-card';
 
 type CardSpoilerSlot = {
   index: number;
@@ -106,7 +106,7 @@ export class CardSpoilerGridComponent implements OnDestroy {
   canShowFaceToggle(card: GameCardInstance): boolean {
     return card.hidden !== true
       && card.faceDown !== true
-      && hasAlternateFace(card);
+      && canShowAlternateFaceToggle(card);
   }
 
   stopFaceToggleEvent(event: Event): void {

@@ -294,6 +294,33 @@
           </span>
         </button>
       }
+    } @else if (isInitiativeCardMenu()) {
+      @if (canControlInitiativeCard()) {
+        <button type="button" class="danger-menu-item" (click)="actionSelected.emit({ type: 'removeInitiative' })">
+          <span class="menu-item-label">
+            <lucide-icon name="trash-2" size="17" aria-hidden="true" />
+            <span>{{ displayLabel('Remove') }}</span>
+          </span>
+        </button>
+        @if (canGiveInitiativeToPlayer()) {
+          <app-context-submenu
+            label="Give to"
+            icon="gift"
+            [items]="giveInitiativeToPlayerMenuItems()"
+            [expanded]="isSubmenuExpanded('giveInitiativeToPlayer')"
+            direction="down"
+            (toggled)="toggleSubmenu($event, 'giveInitiativeToPlayer')"
+            (itemSelected)="selectGiveInitiativeToPlayer($event)"
+          />
+        }
+      } @else {
+        <button type="button" (click)="actionSelected.emit({ type: 'previewCard' })">
+          <span class="menu-item-label">
+            <lucide-icon name="search" size="17" aria-hidden="true" />
+            <span>{{ displayLabel('game.contextMenu.labels.previewCard') }}</span>
+          </span>
+        </button>
+      }
     } @else if (canControlPlayer()(activeMenu.playerId)) {
       @if (isDayNightCardMenu()) {
         <button type="button" (click)="actionSelected.emit(dayNightToggleAction())">

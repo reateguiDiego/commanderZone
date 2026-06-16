@@ -8,6 +8,8 @@
       <article
         class="special-entity-pill"
         [attr.aria-label]="tooltipFor(entity, labelFor(entity) | runtimeTranslate)"
+        (mouseenter)="previewRequested.emit(entity)"
+        (mouseleave)="previewHidden.emit()"
         (contextmenu)="requestEntityContext($event, entity)"
       >
         <span class="special-entity-icon" aria-hidden="true">
@@ -23,7 +25,7 @@
       @if (entity.card; as card) {
         <article
           class="special-entity-pill special-entity-pill-card-backed"
-          [attr.aria-label]="tooltipFor(entity, card.name)"
+          [attr.aria-label]="tooltipFor(entity, cardLabel(entity))"
           (mouseenter)="previewRequested.emit(entity)"
           (mouseleave)="previewHidden.emit()"
           (contextmenu)="requestEntityContext($event, entity)"
@@ -32,7 +34,7 @@
             <i [class]="mechanicIconClass(entity)"></i>
           </span>
           <span class="special-entity-pill-copy" aria-hidden="true">
-            {{ tooltipFor(entity, card.name) }}
+            {{ tooltipFor(entity, cardLabel(entity)) }}
           </span>
         </article>
       }

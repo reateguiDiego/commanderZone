@@ -11,15 +11,17 @@ describe('gameplay-card-kind', () => {
     expect(gameplayCardKind(card({ name: 'Dungeon Master' }))).toBeNull();
   });
 
-  it('identifies monarch, emblems and dungeons as gameplay cards', () => {
+  it('identifies monarch, initiative, emblems and dungeons as gameplay cards', () => {
     expect(gameplayCardKind(card({ name: 'Monarch', layout: 'monarch' }))).toBe('monarch');
+    expect(gameplayCardKind(card({ name: 'The Initiative', layout: 'initiative' }))).toBe('initiative');
     expect(isGameplayCard(card({ layout: 'emblem', typeLine: 'Emblem' }))).toBe(true);
     expect(isGameplayCard(card({ layout: 'dungeon', typeLine: 'Dungeon' }))).toBe(true);
     expect(isGameplayCard(card({ name: 'Sol Ring', typeLine: 'Artifact' }))).toBe(false);
   });
 
-  it('tap-locks monarch like other gameplay helper cards', () => {
+  it('tap-locks monarch and initiative like other gameplay helper cards', () => {
     expect(isGameplayCardTapLocked(card({ name: 'Monarch', layout: 'monarch' }))).toBe(true);
+    expect(isGameplayCardTapLocked(card({ name: 'The Initiative', layout: 'initiative' }))).toBe(true);
     expect(isGameplayCardTapLocked(card({ name: 'Sol Ring', typeLine: 'Artifact' }))).toBe(false);
   });
 });

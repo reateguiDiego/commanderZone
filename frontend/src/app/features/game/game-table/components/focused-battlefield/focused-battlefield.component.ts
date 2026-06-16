@@ -137,6 +137,7 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
   readonly allowArrowTargetSelection = input(false);
   readonly focusEffectsEnabled = input(true);
   readonly monarchCard = input<GameCardInstance | null>(null);
+  readonly initiativeCard = input<GameCardInstance | null>(null);
   readonly dayNightCard = input<GameCardInstance | null>(null);
   readonly isDropZoneHighlighted = input.required<(playerId: string, zone: GameZoneName) => boolean>();
   readonly cardPosition = input.required<(card: GameCardInstance) => { x: number; y: number } | null>();

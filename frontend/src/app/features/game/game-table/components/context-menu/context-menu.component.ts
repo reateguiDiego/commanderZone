@@ -9,7 +9,7 @@ import { playerIsDefeated } from '../../utils/game-player-defeat';
 import { contextMenuDisplayLabel } from './context-menu-label';
 import { ManaSourceSuggestion } from '../../utils/mana-source-detector';
 import { ManaSymbolsComponent } from '../../../../../shared/mana/mana-symbols/mana-symbols.component';
-import { gameplayCardKind, isDayNightCard, isMonarchCard } from '../../utils/gameplay-card-kind';
+import { gameplayCardKind, isDayNightCard, isInitiativeCard, isMonarchCard } from '../../utils/gameplay-card-kind';
 import { ventureCardKind, VentureCardKind } from '../../utils/venture-card-kind';
 
 export type ContextMenuAction =
@@ -50,6 +50,9 @@ export type ContextMenuAction =
   | { type: 'createMonarch' }
   | { type: 'removeMonarch' }
   | { type: 'giveMonarchToPlayer'; targetPlayerId: string }
+  | { type: 'createInitiative' }
+  | { type: 'removeInitiative' }
+  | { type: 'giveInitiativeToPlayer'; targetPlayerId: string }
   | { type: 'createDayNight' }
   | { type: 'setDayNightMode'; mode: 'day' | 'night' }
   | { type: 'removeDayNight' }
@@ -84,6 +87,7 @@ type ContextSubmenu =
   | 'counters'
   | 'giveToPlayer'
   | 'giveMonarchToPlayer'
+  | 'giveInitiativeToPlayer'
   | 'moveTo'
   | 'moveAllTo'
   | 'revealTo'
@@ -123,6 +127,7 @@ export class ContextMenuComponent {
   readonly ownedArrowCount = input(0);
   readonly activeDayNight = input(false);
   readonly monarchOwnerPlayerId = input<string | null>(null);
+  readonly initiativeOwnerPlayerId = input<string | null>(null);
   readonly playerHasCitysBlessing = input<(playerId: string) => boolean>(() => false);
 
   readonly actionSelected = output<ContextMenuAction>();
@@ -141,6 +146,14 @@ export class ContextMenuComponent {
   readonly giveToDestinationMenuItems = computed<readonly ContextSubmenuItem[]>(() => this.buildGiveToDestinationMenuItems());
   readonly giveMonarchToPlayerMenuItems = computed<readonly ContextSubmenuItem[]>(() =>
     this.sortedItems(this.monarchGiveTargets().map((player) => ({
+      value: player.id,
+      label: this.playerLabel(player),
+      icon: 'gift',
+      preserveCase: true,
+    }))),
+  );
+  readonly giveInitiativeToPlayerMenuItems = computed<readonly ContextSubmenuItem[]>(() =>
+    this.sortedItems(this.initiativeGiveTargets().map((player) => ({
       value: player.id,
       label: this.playerLabel(player),
       icon: 'gift',
@@ -181,6 +194,11 @@ export class ContextMenuComponent {
       return;
     }
 
+    if (value === 'initiative') {
+      this.actionSelected.emit({ type: 'createInitiative' });
+      return;
+    }
+
     if (value === 'day-night') {
       this.actionSelected.emit({ type: 'createDayNight' });
       return;
@@ -207,7 +225,10 @@ export class ContextMenuComponent {
       items.push(monarchItem);
     }
 
-    items.push({ value: 'initiative', label: 'game.contextMenu.labels.addInitiative', icon: 'ms-ability-d20', iconKind: 'mana', preserveCase: true });
+    const initiativeItem = this.initiativeMenuItem();
+    if (initiativeItem) {
+      items.push(initiativeItem);
+    }
 
     if (!this.activeDayNight()) {
       items.push({ value: 'day-night', label: 'game.contextMenu.labels.addDayNight', icon: 'ms-ability-day-night', iconKind: 'mana', preserveCase: true });
@@ -242,6 +263,22 @@ export class ContextMenuComponent {
       value: 'monarch',
       label: monarchOwnerPlayerId ? 'game.contextMenu.labels.becomeMonarch' : 'game.contextMenu.labels.addMonarch',
       icon: 'ms-ability-role-royal',
+      iconKind: 'mana',
+      preserveCase: true,
+    };
+  }
+
+  private initiativeMenuItem(): ContextSubmenuItem | null {
+    const currentPlayerId = this.currentPlayer()?.id ?? null;
+    const initiativeOwnerPlayerId = this.initiativeOwnerPlayerId();
+    if (currentPlayerId !== null && initiativeOwnerPlayerId === currentPlayerId) {
+      return null;
+    }
+
+    return {
+      value: 'initiative',
+      label: initiativeOwnerPlayerId ? 'game.contextMenu.labels.takeInitiative' : 'game.contextMenu.labels.addInitiative',
+      icon: 'ms-ability-d20',
       iconKind: 'mana',
       preserveCase: true,
     };
@@ -350,6 +387,14 @@ export class ContextMenuComponent {
       && isMonarchCard(currentMenu.card);
   }
 
+  isInitiativeCardMenu(): boolean {
+    const currentMenu = this.menu();
+
+    return currentMenu.kind === 'card'
+      && currentMenu.zone === 'battlefield'
+      && isInitiativeCard(currentMenu.card);
+  }
+
   dayNightMode(): 'day' | 'night' {
     return this.menu().card?.activeFaceIndex === 1 ? 'night' : 'day';
   }
@@ -380,8 +425,18 @@ export class ContextMenuComponent {
     return this.monarchGiveTargets().length > 0;
   }
 
+  canGiveInitiativeToPlayer(): boolean {
+    return this.initiativeGiveTargets().length > 0;
+  }
+
   canControlMonarchCard(): boolean {
     const holderPlayerId = this.monarchHolderPlayerId();
+
+    return holderPlayerId !== null && this.canControlPlayer()(holderPlayerId);
+  }
+
+  canControlInitiativeCard(): boolean {
+    const holderPlayerId = this.initiativeHolderPlayerId();
 
     return holderPlayerId !== null && this.canControlPlayer()(holderPlayerId);
   }
@@ -538,9 +593,24 @@ export class ContextMenuComponent {
     return this.players().filter((player) => player.id !== currentOwnerId && !playerIsDefeated(player));
   }
 
+  initiativeGiveTargets(): readonly PlayerView[] {
+    const currentOwnerId = this.initiativeHolderPlayerId() ?? this.menu().playerId;
+
+    return this.players().filter((player) => player.id !== currentOwnerId && !playerIsDefeated(player));
+  }
+
   private monarchHolderPlayerId(): string | null {
     const currentMenu = this.menu();
     if (!this.isMonarchCardMenu()) {
+      return null;
+    }
+
+    return currentMenu.card?.controllerId ?? currentMenu.playerId;
+  }
+
+  private initiativeHolderPlayerId(): string | null {
+    const currentMenu = this.menu();
+    if (!this.isInitiativeCardMenu()) {
       return null;
     }
 
@@ -592,6 +662,10 @@ export class ContextMenuComponent {
 
   selectGiveMonarchToPlayer(targetPlayerId: string): void {
     this.actionSelected.emit({ type: 'giveMonarchToPlayer', targetPlayerId });
+  }
+
+  selectGiveInitiativeToPlayer(targetPlayerId: string): void {
+    this.actionSelected.emit({ type: 'giveInitiativeToPlayer', targetPlayerId });
   }
 
   selectMoveTo(zone: string): void {

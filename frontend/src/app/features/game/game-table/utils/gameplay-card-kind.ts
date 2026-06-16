@@ -1,6 +1,6 @@
 import { GameCardInstance } from '../../../../core/models/game.model';
 
-export type GameplayCardKind = 'monarch' | 'emblem' | 'dungeon';
+export type GameplayCardKind = 'monarch' | 'initiative' | 'emblem' | 'dungeon';
 
 const OFFICIAL_DUNGEON_CARD_NAMES = new Set([
   'dungeon of the mad mage',
@@ -39,9 +39,17 @@ export function isMonarchCard(card: Pick<GameCardInstance, 'layout' | 'name'> | 
     && card.layout?.trim().toLowerCase() === 'monarch';
 }
 
+export function isInitiativeCard(card: Pick<GameCardInstance, 'layout'> | null | undefined): boolean {
+  return card?.layout?.trim().toLowerCase() === 'initiative';
+}
+
 export function gameplayCardKind(card: GameCardInstance | null | undefined): GameplayCardKind | null {
   if (isMonarchCard(card)) {
     return 'monarch';
+  }
+
+  if (isInitiativeCard(card)) {
+    return 'initiative';
   }
 
   if (isEmblemCard(card)) {

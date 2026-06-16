@@ -174,6 +174,52 @@
       (cardMouseLeft)="onCardPointerLeft()"
     />
   }
+  @if (initiativeCard(); as initiative) {
+    @let displayPosition = displayedCardPosition(initiative);
+    <app-game-card-view
+      style="--game-card-view-width: var(--battlefield-card-width, 7.2rem)"
+      mode="battlefield"
+      [card]="initiative"
+      [playerId]="focusedPlayer.id"
+      zone="battlefield"
+      [image]="cardImage()(initiative)"
+      [freePosition]="!!displayPosition"
+      [position]="displayPosition"
+      [selected]="false"
+      [dragging]="false"
+      [locked]="true"
+      [pendingTransfer]="false"
+      [alignmentReference]="false"
+      [arrowTargetCandidate]="false"
+      [dropSettling]="false"
+      [manaDropSettling]="false"
+      [statDropSettling]="false"
+      [commanderEntrySettling]="false"
+      [faceDown]="false"
+      [hidden]="false"
+      [disabled]="false"
+      [visible]="true"
+      [battlefieldFocusEntry]="null"
+      [showPowerToughness]="false"
+      [powerValue]="null"
+      [toughnessValue]="null"
+      [loyaltyValue]="null"
+      [counter]="null"
+      [landStackRole]="null"
+      [landStackLayer]="null"
+      [landStackSize]="null"
+      [attachmentStackRole]="null"
+      [attachmentStackLayer]="null"
+      [attachmentStackHighlighted]="false"
+      [landStackDropTarget]="false"
+      [landStackDropSize]="0"
+      landStackDropKind="land"
+      (cardMenuOpened)="onCardMenu($event.event, focusedPlayer.id, $event.card)"
+      (cardMouseEntered)="cardPreviewShown.emit($event)"
+      (cardPreviewRequested)="cardPreviewRequested.emit($event)"
+      (cardMouseLeft)="onCardPointerLeft()"
+    />
+  }
   @if (activeAlignmentGuide; as guide) {
     <div class="alignment-guide" [style.top.px]="guide.y" aria-hidden="true"></div>
   }

@@ -12,7 +12,7 @@ import { DungeonLocationPinComponent } from '../dungeon-location-pin/dungeon-loc
 import { LoyaltyCounterComponent } from './loyalty-counter/loyalty-counter.component';
 import { GameTableDoubleTapDirective } from '../../directives/game-table-double-tap.directive';
 import { GameTableLongPressDirective } from '../../directives/game-table-long-press.directive';
-import { activeCardFaceIndex, hasAlternateFace, nextCardFaceIndex } from '../../utils/double-faced-card';
+import { activeCardFaceIndex, canShowAlternateFaceToggle, nextCardFaceIndex } from '../../utils/double-faced-card';
 import { dungeonMarkerForCard } from '../../utils/dungeon-marker';
 import { isDayNightCard, isGameplayCardTapLocked, isMonarchCard } from '../../utils/gameplay-card-kind';
 
@@ -258,7 +258,7 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
 
     return !this.faceDown()
       && currentCard.hidden !== true
-      && hasAlternateFace(currentCard);
+      && canShowAlternateFaceToggle(currentCard);
   });
   readonly statsVisible = computed(() => !this.faceDown() && this.showPowerToughness());
   readonly loyaltyVisible = computed(() => !this.faceDown() && this.loyaltyValue() !== null && !this.showPowerToughness());

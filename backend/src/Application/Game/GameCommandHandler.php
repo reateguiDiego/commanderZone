@@ -160,6 +160,12 @@ class GameCommandHandler
 
         if ($this->specialEntityCommandHandler->supports($type)) {
             $helperResult = $this->specialEntityCommandHandler->apply($snapshot, $type, $payload, $actor);
+            if ($type === 'helper.created') {
+                $this->syncInitiativeUndercityFromHelperCreate(
+                    $snapshot,
+                    is_array($helperResult['eventPayload'] ?? null) ? $helperResult['eventPayload'] : [],
+                );
+            }
             $log = is_string($helperResult['log'] ?? null) ? $helperResult['log'] : null;
             $this->pendingEventPayload = is_array($helperResult['eventPayload'] ?? null) ? $helperResult['eventPayload'] : null;
         } else {
@@ -1449,6 +1455,76 @@ class GameCommandHandler
             : sprintf('Created %d %s.', $quantity, $this->pluralCardName($this->cardBaseName($tokens[0])));
     }
 
+    private function syncInitiativeUndercityFromHelperCreate(array &$snapshot, array $eventPayload): void
+    {
+        if (($eventPayload['template'] ?? null) !== 'initiative') {
+            return;
+        }
+
+        $playerId = $this->resolveSnapshotPlayerId($snapshot, $eventPayload['ownerPlayerId'] ?? null);
+        if ($playerId === null || $this->playerHasActiveDungeon($snapshot, $playerId)) {
+            return;
+        }
+
+        $initiativeCard = is_array($eventPayload['card'] ?? null) ? $eventPayload['card'] : null;
+        $undercity = $this->undercityCardFromInitiativeRef($initiativeCard, $playerId);
+        if ($undercity === null) {
+            return;
+        }
+
+        $this->removePlayerBattlefieldDungeons($snapshot, $playerId);
+        $snapshot['players'][$playerId]['zones']['battlefield'][] = $undercity;
+        $this->pruneBattlefieldRelations($snapshot);
+    }
+
+    /**
+     * @param array<string,mixed>|null $initiativeCard
+     *
+     * @return array<string,mixed>|null
+     */
+    private function undercityCardFromInitiativeRef(?array $initiativeCard, string $playerId): ?array
+    {
+        if ($initiativeCard === null) {
+            return null;
+        }
+
+        $faces = is_array($initiativeCard['cardFaces'] ?? null) ? array_values($initiativeCard['cardFaces']) : [];
+        $undercityFace = is_array($faces[0] ?? null) ? $faces[0] : null;
+        $faceName = trim((string) ($undercityFace['name'] ?? ''));
+        if ($faceName === '') {
+            return null;
+        }
+
+        $imageUris = is_array($undercityFace['imageUris'] ?? null)
+            ? $undercityFace['imageUris']
+            : (is_array($initiativeCard['imageUris'] ?? null) ? $initiativeCard['imageUris'] : []);
+
+        return $this->normalizeCard([
+            'instanceId' => Uuid::v7()->toRfc4122(),
+            'ownerId' => $playerId,
+            'controllerId' => $playerId,
+            'scryfallId' => (string) ($initiativeCard['scryfallId'] ?? 'initiative-undercity'),
+            'name' => $faceName,
+            'imageUris' => $imageUris,
+            'cardFaces' => $faces,
+            'typeLine' => is_string($undercityFace['typeLine'] ?? null) ? $undercityFace['typeLine'] : 'Dungeon',
+            'manaCost' => null,
+            'oracleText' => is_string($undercityFace['oracleText'] ?? null) ? $undercityFace['oracleText'] : null,
+            'colorIdentity' => [],
+            'power' => null,
+            'toughness' => null,
+            'loyalty' => null,
+            'tapped' => false,
+            'activeFaceIndex' => 0,
+            'position' => ['x' => 0, 'y' => 0, 'unit' => 'ratio'],
+            'zone' => 'battlefield',
+            'isToken' => true,
+            'isTokenCopy' => false,
+            'isCommander' => false,
+            'layout' => 'dungeon',
+        ], $playerId, 'battlefield');
+    }
+
     private function applyControllerChanged(array &$snapshot, array $payload): string
     {
         $location = $this->requiredCardLocation($snapshot, $payload);
@@ -2064,6 +2140,22 @@ class GameCommandHandler
         }
 
         return str_starts_with(strtolower(trim((string) ($card['typeLine'] ?? ''))), 'dungeon');
+    }
+
+    private function playerHasActiveDungeon(array $snapshot, string $playerId): bool
+    {
+        $battlefield = $snapshot['players'][$playerId]['zones']['battlefield'] ?? [];
+        if (!is_array($battlefield)) {
+            return false;
+        }
+
+        foreach ($battlefield as $card) {
+            if (is_array($card) && $this->isDungeonCard($card)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -2998,51 +3090,13 @@ class GameCommandHandler
 
     private function reassignMonarchWhenPlayerLeaves(array &$snapshot, string $leavingPlayerId, string $previousActivePlayerId): void
     {
-        $specialEntities = $snapshot['specialEntities'] ?? null;
-        if (!is_array($specialEntities)) {
-            return;
-        }
-
-        foreach ($specialEntities as $index => $entity) {
-            if (!is_array($entity) || ($entity['template'] ?? null) !== 'monarch') {
-                continue;
-            }
-
-            $ownerPlayerId = is_scalar($entity['ownerPlayerId'] ?? null) ? trim((string) $entity['ownerPlayerId']) : '';
-            if ($ownerPlayerId !== $leavingPlayerId) {
-                return;
-            }
-
-            $successorPlayerId = $this->monarchSuccessorPlayerId($snapshot, $leavingPlayerId, $previousActivePlayerId);
-            if ($successorPlayerId === null) {
-                array_splice($snapshot['specialEntities'], $index, 1);
-                return;
-            }
-
-            $snapshot['specialEntities'][$index]['ownerPlayerId'] = $successorPlayerId;
-            return;
-        }
-    }
-
-    private function monarchSuccessorPlayerId(array $snapshot, string $leavingPlayerId, string $previousActivePlayerId): ?string
-    {
-        $currentActivePlayerId = is_scalar($snapshot['turn']['activePlayerId'] ?? null)
-            ? trim((string) $snapshot['turn']['activePlayerId'])
-            : '';
-        if ($currentActivePlayerId !== '' && $currentActivePlayerId !== $leavingPlayerId && $this->playerIsAliveForTurn($snapshot, $currentActivePlayerId)) {
-            return $currentActivePlayerId;
-        }
-
-        if ($previousActivePlayerId !== '' && $previousActivePlayerId !== $leavingPlayerId && $this->playerIsAliveForTurn($snapshot, $previousActivePlayerId)) {
-            return $previousActivePlayerId;
-        }
-
-        $nextEligiblePlayerId = $this->turnEligiblePlayerId($snapshot, $leavingPlayerId);
-        if ($nextEligiblePlayerId !== '' && $nextEligiblePlayerId !== $leavingPlayerId && $this->playerIsAliveForTurn($snapshot, $nextEligiblePlayerId)) {
-            return $nextEligiblePlayerId;
-        }
-
-        return null;
+        GameGlobalDesignationSuccession::reassignWhenPlayerLeaves(
+            $snapshot,
+            $leavingPlayerId,
+            $previousActivePlayerId,
+            ['monarch', 'initiative'],
+            fn (string $playerId): bool => $this->playerIsAliveForTurn($snapshot, $playerId),
+        );
     }
 
     private function assertActorCanApply(array $snapshot, string $type, array $payload, User $actor): void

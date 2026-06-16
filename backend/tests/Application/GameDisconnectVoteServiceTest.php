@@ -94,6 +94,44 @@ class GameDisconnectVoteServiceTest extends TestCase
         self::assertSame($owner->id(), $recorded['snapshot']['specialEntities'][0]['ownerPlayerId']);
     }
 
+    public function testRecordVoteExpelsTargetAndReassignsInitiativeWhenTargetHadIt(): void
+    {
+        [$game, $owner, $target, $voter] = $this->gameWithThreePlayers();
+        $snapshot = $game->snapshot();
+        $snapshot['specialEntities'] = [[
+            'id' => 'initiative-1',
+            'template' => 'initiative',
+            'scope' => 'global',
+            'ownerPlayerId' => $target->id(),
+            'card' => null,
+            'state' => [],
+            'createdAt' => '2026-06-16T00:00:00+00:00',
+        ]];
+        $game->replaceSnapshot($snapshot);
+        $service = new GameDisconnectVoteService(new GameCommandHandler());
+        $openAt = new \DateTimeImmutable('2026-01-01T00:00:00+00:00');
+        $service->openVoteIfEligible($game, $target->id(), [$owner->id(), $voter->id()], $openAt);
+
+        $service->recordVote(
+            $game,
+            $owner,
+            $target->id(),
+            GameDisconnectVoteService::VOTE_EXPEL,
+            [$owner->id(), $voter->id()],
+            new \DateTimeImmutable('2026-01-01T00:00:10+00:00'),
+        );
+        $recorded = $service->recordVote(
+            $game,
+            $voter,
+            $target->id(),
+            GameDisconnectVoteService::VOTE_EXPEL,
+            [$owner->id(), $voter->id()],
+            new \DateTimeImmutable('2026-01-01T00:00:11+00:00'),
+        );
+
+        self::assertSame($owner->id(), $recorded['snapshot']['specialEntities'][0]['ownerPlayerId']);
+    }
+
     public function testResolveOnTimeoutDefaultsToWaitAndStartsCooldown(): void
     {
         [$game, $owner, $target, $voter] = $this->gameWithThreePlayers();

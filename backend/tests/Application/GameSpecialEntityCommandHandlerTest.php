@@ -63,7 +63,7 @@ class GameSpecialEntityCommandHandlerTest extends TestCase
         self::assertSame('global', $game->snapshot()['specialEntities'][0]['scope']);
     }
 
-    public function testMonarchAndCitysBlessingCanStoreOptionalCardRefs(): void
+    public function testMonarchInitiativeAndCitysBlessingCanStoreOptionalCardRefs(): void
     {
         $actor = new User('owner@example.test', 'Owner');
         $game = new Game(new Room($actor), $this->snapshot($actor->id()));
@@ -75,15 +75,21 @@ class GameSpecialEntityCommandHandlerTest extends TestCase
             'card' => $this->specialCardRef('The Monarch'),
         ], $actor);
         $handler->apply($game, 'helper.created', [
+            'template' => 'initiative',
+            'ownerPlayerId' => $actor->id(),
+            'card' => $this->specialCardRef('The Initiative'),
+        ], $actor);
+        $handler->apply($game, 'helper.created', [
             'template' => 'citys_blessing',
             'ownerPlayerId' => $actor->id(),
             'card' => $this->specialCardRef('City\'s Blessing'),
         ], $actor);
 
         $entities = $game->snapshot()['specialEntities'];
-        self::assertCount(2, $entities);
+        self::assertCount(3, $entities);
         self::assertSame('The Monarch', $entities[0]['card']['name']);
-        self::assertSame('City\'s Blessing', $entities[1]['card']['name']);
+        self::assertSame('The Initiative', $entities[1]['card']['name']);
+        self::assertSame('City\'s Blessing', $entities[2]['card']['name']);
     }
 
     public function testMonarchTransfersToTheNewestOwnerAcrossPlayers(): void
@@ -181,6 +187,80 @@ class GameSpecialEntityCommandHandlerTest extends TestCase
         $this->expectExceptionMessage('You can only create helpers for your own player.');
         $handler->apply($game, 'helper.created', [
             'template' => 'monarch',
+            'ownerPlayerId' => $third->id(),
+        ], $opponent);
+    }
+
+    public function testInitiativeCanBeGivenByCurrentHolderEvenWhenTheyDidNotCreateIt(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $opponent = new User('opponent@example.test', 'Opponent');
+        $third = new User('third@example.test', 'Third');
+        $snapshot = $this->snapshot($actor->id());
+        $snapshot['players'][$opponent->id()] = $this->player($opponent->id(), []);
+        $snapshot['players'][$third->id()] = $this->player($third->id(), []);
+        $game = new Game(new Room($actor), $snapshot);
+        $handler = new GameCommandHandler();
+
+        $handler->apply($game, 'helper.created', [
+            'template' => 'initiative',
+            'ownerPlayerId' => $actor->id(),
+        ], $actor);
+        $handler->apply($game, 'helper.created', [
+            'template' => 'initiative',
+            'ownerPlayerId' => $opponent->id(),
+        ], $actor);
+        $handler->apply($game, 'helper.created', [
+            'template' => 'initiative',
+            'ownerPlayerId' => $third->id(),
+            'card' => $this->initiativeCardRef(),
+        ], $opponent);
+
+        self::assertCount(1, $game->snapshot()['specialEntities']);
+        self::assertSame('initiative', $game->snapshot()['specialEntities'][0]['template']);
+        self::assertSame($third->id(), $game->snapshot()['specialEntities'][0]['ownerPlayerId']);
+        self::assertSame('Undercity', $game->snapshot()['players'][$third->id()]['zones']['battlefield'][0]['name'] ?? null);
+    }
+
+    public function testInitiativeCreatesUndercityForItsOwnerWhenNoDungeonIsActive(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->snapshot($actor->id()));
+        $handler = new GameCommandHandler();
+
+        $handler->apply($game, 'helper.created', [
+            'template' => 'initiative',
+            'ownerPlayerId' => $actor->id(),
+            'card' => $this->initiativeCardRef(),
+        ], $actor);
+
+        $battlefield = $game->snapshot()['players'][$actor->id()]['zones']['battlefield'];
+        self::assertCount(1, $battlefield);
+        self::assertSame('Undercity', $battlefield[0]['name']);
+        self::assertSame('dungeon', $battlefield[0]['layout']);
+        self::assertSame(['x' => 0, 'y' => 0, 'unit' => 'ratio'], $battlefield[0]['position']);
+    }
+
+    public function testInitiativeCannotBeGivenByPlayerWhoIsNotCurrentHolder(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $opponent = new User('opponent@example.test', 'Opponent');
+        $third = new User('third@example.test', 'Third');
+        $snapshot = $this->snapshot($actor->id());
+        $snapshot['players'][$opponent->id()] = $this->player($opponent->id(), []);
+        $snapshot['players'][$third->id()] = $this->player($third->id(), []);
+        $game = new Game(new Room($actor), $snapshot);
+        $handler = new GameCommandHandler();
+
+        $handler->apply($game, 'helper.created', [
+            'template' => 'initiative',
+            'ownerPlayerId' => $actor->id(),
+        ], $actor);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('You can only create helpers for your own player.');
+        $handler->apply($game, 'helper.created', [
+            'template' => 'initiative',
             'ownerPlayerId' => $third->id(),
         ], $opponent);
     }
@@ -536,6 +616,34 @@ class GameSpecialEntityCommandHandlerTest extends TestCase
             'typeLine' => 'Card',
             'imageUris' => ['normal' => sprintf('https://img.example.test/%s.jpg', strtolower(str_replace(' ', '-', $name)))],
             'cardFaces' => [],
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function initiativeCardRef(): array
+    {
+        return [
+            'scryfallId' => 'initiative-card',
+            'name' => 'Undercity // The Initiative',
+            'layout' => 'double_faced_token',
+            'typeLine' => 'Dungeon - Undercity // Card',
+            'imageUris' => ['normal' => 'https://img.example.test/undercity.jpg'],
+            'cardFaces' => [
+                [
+                    'name' => 'Undercity',
+                    'typeLine' => 'Dungeon - Undercity',
+                    'oracleText' => 'Venture into Undercity only.',
+                    'imageUris' => ['normal' => 'https://img.example.test/undercity.jpg'],
+                ],
+                [
+                    'name' => 'The Initiative',
+                    'typeLine' => 'Card',
+                    'oracleText' => 'You have the initiative.',
+                    'imageUris' => ['normal' => 'https://img.example.test/the-initiative.jpg'],
+                ],
+            ],
         ];
     }
 }

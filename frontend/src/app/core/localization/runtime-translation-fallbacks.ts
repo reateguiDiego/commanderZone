@@ -234,6 +234,7 @@ export const RUNTIME_TRANSLATION_FALLBACKS: Readonly<Record<string, string>> = {
   "game.contextMenu.labels.addDungeon": "Add Dungeon",
   "game.contextMenu.labels.addEmblem": "Add Emblem",
   "game.contextMenu.labels.addInitiative": "Add Initiative",
+  "game.contextMenu.labels.takeInitiative": "Take Initiative",
   "game.contextMenu.labels.addMonarch": "Add Monarch",
   "game.contextMenu.labels.addTheRing": "Add The Ring",
   "game.contextMenu.labels.attachTo": "Attach to...",

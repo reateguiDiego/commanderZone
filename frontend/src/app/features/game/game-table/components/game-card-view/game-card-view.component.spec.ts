@@ -1107,6 +1107,15 @@ describe('GameCardViewComponent', () => {
     expect(fixture.nativeElement.querySelector('.double-face-toggle')).toBeNull();
   });
 
+  it('does not show the face toggle affordance for Undercity // The Initiative cards', async () => {
+    const { fixture } = await renderHandCard();
+
+    fixture.componentRef.setInput('card', undercityInitiativeCard());
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.double-face-toggle')).toBeNull();
+  });
+
   it('plays the face flip animation on stable battlefield cards', async () => {
     vi.useFakeTimers();
     const { fixture, cardElement } = await renderHandCard();
@@ -1349,6 +1358,17 @@ function gameCard(): GameCardInstance {
     instanceId: 'card-1',
     name: 'Arcane Signet',
     tapped: false,
+  };
+}
+
+function undercityInitiativeCard(): GameCardInstance {
+  return {
+    ...gameCard(),
+    name: 'Undercity // The Initiative',
+    cardFaces: [
+      cardFace('Undercity'),
+      cardFace('The Initiative'),
+    ],
   };
 }
 

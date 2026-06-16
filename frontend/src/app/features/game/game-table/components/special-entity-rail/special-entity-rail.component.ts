@@ -50,6 +50,14 @@ export class SpecialEntityRailComponent {
     return `game.specialHelpers.labels.${entity.template}`;
   }
 
+  cardLabel(entity: GameSpecialEntity): string {
+    if (entity.template === 'initiative') {
+      return 'The Initiative';
+    }
+
+    return entity.card?.name ?? '';
+  }
+
   ringLevel(entity: GameSpecialEntity): number | null {
     return typeof entity.state['level'] === 'number' ? entity.state['level'] : null;
   }

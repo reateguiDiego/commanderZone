@@ -437,7 +437,7 @@ describe('ContextMenuComponent', () => {
     expect(selected).toHaveBeenCalledWith({ type: 'rollDice' });
   });
 
-  it('shows battlefield game mechanics and emits monarch, day-night and card-backed helper searches', () => {
+  it('shows battlefield game mechanics and emits monarch, initiative, day-night and card-backed helper searches', () => {
     const fixture = createContextMenuFixture({
       kind: 'zone',
       playerId: 'user-1',
@@ -476,6 +476,10 @@ describe('ContextMenuComponent', () => {
 
     expect(selected).toHaveBeenCalledWith({ type: 'createMonarch' });
 
+    const initiativeButton = menuButtons(fixture)
+      .find((candidate) => candidate.textContent?.includes('Add Initiative'));
+    initiativeButton?.click();
+
     const dayNightButton = menuButtons(fixture)
       .find((candidate) => candidate.textContent?.includes('Add Day / Night'));
     dayNightButton?.click();
@@ -492,14 +496,15 @@ describe('ContextMenuComponent', () => {
       .find((candidate) => candidate.textContent?.includes('Add Emblem'));
     emblemButton?.click();
 
+    expect(selected).toHaveBeenCalledWith({ type: 'createInitiative' });
     expect(selected).toHaveBeenCalledWith({ type: 'createDayNight' });
     expect(selected).toHaveBeenCalledWith({ type: 'openGameplayCardSearch', kind: 'dungeon' });
     expect(selected).toHaveBeenCalledWith({ type: 'createCitysBlessing' });
     expect(selected).toHaveBeenCalledWith({ type: 'openGameplayCardSearch', kind: 'emblem' });
-    expect(selected).toHaveBeenCalledTimes(5);
+    expect(selected).toHaveBeenCalledTimes(6);
   });
 
-  it('hides day-night and adjusts monarch from battlefield game mechanics when those mechanics are active', () => {
+  it('hides day-night and adjusts monarch and initiative from battlefield game mechanics when those mechanics are active', () => {
     const fixture = createContextMenuFixture({
       kind: 'zone',
       playerId: 'user-1',
@@ -508,17 +513,20 @@ describe('ContextMenuComponent', () => {
       currentPlayer: player('user-1', 'User'),
       activeDayNight: true,
       monarchOwnerPlayerId: 'user-2',
+      initiativeOwnerPlayerId: 'user-2',
     });
 
     fixture.componentInstance.toggleSubmenu(new MouseEvent('click'), 'gameMechanics');
     fixture.detectChanges();
 
     expect(menuText(fixture)).toContain('Become Monarch');
+    expect(menuText(fixture)).toContain('Take Initiative');
     expect(menuText(fixture)).not.toContain('Add Monarch');
+    expect(menuText(fixture)).not.toContain('Add Initiative');
     expect(menuText(fixture)).not.toContain('Add Day / Night');
   });
 
-  it('hides monarch from battlefield game mechanics when the current player is already monarch', () => {
+  it('hides monarch and initiative from battlefield game mechanics when the current player already has them', () => {
     const fixture = createContextMenuFixture({
       kind: 'zone',
       playerId: 'user-1',
@@ -526,6 +534,7 @@ describe('ContextMenuComponent', () => {
     }, {
       currentPlayer: player('user-1', 'User'),
       monarchOwnerPlayerId: 'user-1',
+      initiativeOwnerPlayerId: 'user-1',
     });
 
     fixture.componentInstance.toggleSubmenu(new MouseEvent('click'), 'gameMechanics');
@@ -533,7 +542,8 @@ describe('ContextMenuComponent', () => {
 
     expect(menuText(fixture)).not.toContain('Add Monarch');
     expect(menuText(fixture)).not.toContain('Become Monarch');
-    expect(menuText(fixture)).toContain('Add Initiative');
+    expect(menuText(fixture)).not.toContain('Add Initiative');
+    expect(menuText(fixture)).not.toContain('Take Initiative');
   });
 
   it("switches City's Blessing game mechanics entry to remove when that player already has it", () => {
@@ -645,6 +655,95 @@ describe('ContextMenuComponent', () => {
       ?.click();
 
     expect(selected).toHaveBeenCalledWith({ type: 'giveMonarchToPlayer', targetPlayerId: 'user-3' });
+  });
+
+  it('shows only remove and give-to actions for initiative cards', () => {
+    const fixture = createContextMenuFixture({
+      kind: 'card',
+      playerId: 'user-1',
+      zone: 'battlefield',
+      card: {
+        instanceId: 'initiative:entity-1',
+        ownerId: 'user-1',
+        controllerId: 'user-1',
+        name: 'The Initiative',
+        layout: 'initiative',
+        typeLine: 'Game Mechanic - Initiative',
+        tapped: false,
+        zone: 'battlefield',
+      },
+    }, {
+      currentPlayer: player('user-1', 'User'),
+      players: [
+        player('user-1', 'User'),
+        player('user-2', 'Opponent'),
+      ],
+    });
+    const selected = vi.fn();
+    fixture.componentInstance.actionSelected.subscribe(selected);
+
+    expect(buttonLabels(fixture)[0]).toBe('Remove');
+    expect(buttonLabels(fixture)[1]).toContain('Give to');
+    expect(menuText(fixture)).not.toContain('Tap');
+    expect(menuText(fixture)).not.toContain('Attach');
+    expect(menuText(fixture)).not.toContain('Move to');
+
+    menuButtons(fixture)
+      .find((candidate) => candidate.textContent?.includes('Remove'))
+      ?.click();
+
+    fixture.componentInstance.toggleSubmenu(new MouseEvent('click'), 'giveInitiativeToPlayer');
+    fixture.detectChanges();
+    menuButtons(fixture)
+      .find((candidate) => candidate.textContent?.includes('Opponent'))
+      ?.click();
+
+    expect(selected).toHaveBeenCalledWith({ type: 'removeInitiative' });
+    expect(selected).toHaveBeenCalledWith({ type: 'giveInitiativeToPlayer', targetPlayerId: 'user-2' });
+  });
+
+  it('lets the current initiative holder give initiative even when they did not create it', () => {
+    const fixture = createContextMenuFixture({
+      kind: 'card',
+      playerId: 'user-1',
+      zone: 'battlefield',
+      card: {
+        instanceId: 'initiative:entity-1',
+        ownerId: 'user-1',
+        controllerId: 'user-2',
+        name: 'The Initiative',
+        layout: 'initiative',
+        typeLine: 'Game Mechanic - Initiative',
+        tapped: false,
+        zone: 'battlefield',
+      },
+    }, {
+      currentPlayer: player('user-2', 'Opponent'),
+      players: [
+        player('user-1', 'User'),
+        player('user-2', 'Opponent'),
+        player('user-3', 'Third'),
+      ],
+      canControlPlayer: (playerId) => playerId === 'user-2',
+    });
+    const selected = vi.fn();
+    fixture.componentInstance.actionSelected.subscribe(selected);
+
+    expect(buttonLabels(fixture)[0]).toBe('Remove');
+    expect(buttonLabels(fixture)[1]).toContain('Give to');
+
+    fixture.componentInstance.toggleSubmenu(new MouseEvent('click'), 'giveInitiativeToPlayer');
+    fixture.detectChanges();
+
+    expect(menuText(fixture)).toContain('User');
+    expect(menuText(fixture)).toContain('Third');
+    expect(menuText(fixture)).not.toContain('Opponent');
+
+    menuButtons(fixture)
+      .find((candidate) => candidate.textContent?.includes('Third'))
+      ?.click();
+
+    expect(selected).toHaveBeenCalledWith({ type: 'giveInitiativeToPlayer', targetPlayerId: 'user-3' });
   });
 
   it('shows only day-night toggle and creator remove actions for day-night cards', () => {
@@ -1465,6 +1564,7 @@ interface ContextMenuFixtureOptions {
   ownedArrowCount?: number;
   activeDayNight?: boolean;
   monarchOwnerPlayerId?: string | null;
+  initiativeOwnerPlayerId?: string | null;
   playerHasCitysBlessing?: (playerId: string) => boolean;
 }
 
@@ -1499,6 +1599,7 @@ function createContextMenuFixture(menu: Partial<GameContextMenu>, options: Conte
   fixture.componentRef.setInput('ownedArrowCount', options.ownedArrowCount ?? 0);
   fixture.componentRef.setInput('activeDayNight', options.activeDayNight ?? false);
   fixture.componentRef.setInput('monarchOwnerPlayerId', options.monarchOwnerPlayerId ?? null);
+  fixture.componentRef.setInput('initiativeOwnerPlayerId', options.initiativeOwnerPlayerId ?? null);
   fixture.componentRef.setInput('playerHasCitysBlessing', options.playerHasCitysBlessing ?? (() => false));
   fixture.detectChanges();
 

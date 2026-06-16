@@ -363,6 +363,25 @@ describe('FocusedBattlefieldComponent', () => {
 
     expect(image?.getAttribute('src')).toBe('/cards/the-monarch.jpg');
   });
+
+  it('renders initiative using its physical card image when provided', async () => {
+    const initiative = {
+      instanceId: 'initiative:entity-1',
+      name: 'The Initiative',
+      imageUris: { normal: '/cards/the-initiative.jpg' },
+      typeLine: 'Card',
+      layout: 'initiative',
+      tapped: false,
+    } satisfies GameCardInstance;
+    const { fixture } = await renderFocusedBattlefield({
+      initiativeCard: initiative,
+      cardImage: (card) => card.imageUris?.['normal'] ?? null,
+    });
+
+    const image = cardElement(fixture, 'initiative:entity-1').querySelector('img') as HTMLImageElement | null;
+
+    expect(image?.getAttribute('src')).toBe('/cards/the-initiative.jpg');
+  });
 });
 
 interface RenderFocusedBattlefieldOptions {
@@ -382,6 +401,7 @@ interface RenderFocusedBattlefieldOptions {
   canEditManaPool?: (playerId: string) => boolean;
   isManaPoolHidden?: (playerId: string) => boolean;
   monarchCard?: GameCardInstance | null;
+  initiativeCard?: GameCardInstance | null;
   cardImage?: (card: GameCardInstance) => string | null;
 }
 
@@ -399,6 +419,7 @@ async function renderFocusedBattlefield(options: RenderFocusedBattlefieldOptions
   fixture.componentRef.setInput('allowArrowTargetSelection', options.allowArrowTargetSelection ?? false);
   fixture.componentRef.setInput('focusEffectsEnabled', options.focusEffectsEnabled ?? true);
   fixture.componentRef.setInput('monarchCard', options.monarchCard ?? null);
+  fixture.componentRef.setInput('initiativeCard', options.initiativeCard ?? null);
   fixture.componentRef.setInput('dayNightCard', null);
   fixture.componentRef.setInput('isDropZoneHighlighted', (_playerId: string, _zone: GameZoneName) => false);
   fixture.componentRef.setInput('cardPosition', options.cardPosition ?? ((_card: GameCardInstance) => null));

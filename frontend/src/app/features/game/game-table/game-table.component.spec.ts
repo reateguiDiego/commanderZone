@@ -1103,6 +1103,19 @@ describe('GameTableComponent', () => {
     expect(fixture.componentInstance.canDragBattlefieldCard('user-1', card)).toBe(false);
   });
 
+  it('does not allow dragging the Initiative battlefield helper card', () => {
+    const fixture = TestBed.createComponent(GameTableComponent);
+    vi.spyOn(fixture.componentInstance.store, 'canDragBattlefieldCard').mockReturnValue(true);
+    const card = {
+      instanceId: 'initiative:entity-1',
+      name: 'The Initiative',
+      layout: 'initiative',
+      tapped: false,
+    } as GameCardInstance;
+
+    expect(fixture.componentInstance.canDragBattlefieldCard('user-1', card)).toBe(false);
+  });
+
   it('plays remote ghosts when the focused opponent moves a pile card to hand', async () => {
     routeParams['id'] = 'game-1';
     authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
@@ -2190,6 +2203,7 @@ describe('GameTableComponent', () => {
     routeParams['id'] = 'game-1';
     authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
     const snapshot = snapshotWithStatus('active');
+    addOpponent(snapshot);
     snapshot.specialEntities = [{
       id: 'citys-blessing-1',
       template: 'citys_blessing',
@@ -2278,20 +2292,18 @@ describe('GameTableComponent', () => {
       createdAt: '2026-06-15T00:00:00+00:00',
     }];
     gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
-    cardsApi.search.mockReturnValue(of({
-      data: [gameplaySearchCard('undercity-1', 'Undercity', 'Dungeon', 'dungeon')],
+    initiativeSnapshot.players['user-1']!.zones.battlefield = [
+      { ...gameCard('undercity-1'), name: 'Undercity', typeLine: 'Dungeon', layout: 'dungeon' },
+    ];
+    cardsApi.search.mockReturnValueOnce(of({
+      data: [initiativeSearchCard('initiative-card')],
       page: 1,
-      limit: 500,
+      limit: 16,
     }));
-    gameplayWebsocketCommand
-      .mockReturnValueOnce(of({
-        event: { id: 'event-initiative', type: 'helper.created', payload: {}, createdBy: 'user-1', createdAt: '' },
-        snapshot: initiativeSnapshot,
-      }))
-      .mockReturnValueOnce(of({
-        event: { id: 'event-undercity', type: 'card.token.created', payload: {}, createdBy: 'user-1', createdAt: '' },
-        snapshot: initiativeSnapshot,
-      }));
+    gameplayWebsocketCommand.mockReturnValueOnce(of({
+      event: { id: 'event-initiative', type: 'helper.created', payload: {}, createdBy: 'user-1', createdAt: '' },
+      snapshot: initiativeSnapshot,
+    }));
 
     const fixture = TestBed.createComponent(GameTableComponent);
     fixture.detectChanges();
@@ -2303,26 +2315,20 @@ describe('GameTableComponent', () => {
       card: { ...gameCard('initiative-source'), oracleText: 'When this enters, you take the initiative.' },
     } as never);
 
-    await vi.waitFor(() => expect(gameplayWebsocketCommand).toHaveBeenCalledTimes(2));
+    await vi.waitFor(() => expect(gameplayWebsocketCommand).toHaveBeenCalledTimes(1));
     expect(gameplayWebsocketCommand).toHaveBeenNthCalledWith(1, expect.objectContaining({
       type: 'helper.created',
       payload: expect.objectContaining({
         template: 'initiative',
         ownerPlayerId: 'user-1',
-      }),
-    }), 'game-1');
-    expect(cardsApi.search).toHaveBeenCalledWith('Undercity', 1, 500, { gameplayKind: 'dungeon' });
-    expect(gameplayWebsocketCommand).toHaveBeenNthCalledWith(2, expect.objectContaining({
-      type: 'card.token.created',
-      payload: expect.objectContaining({
-        playerId: 'user-1',
-        position: { x: 0, y: 0, unit: 'ratio' },
         card: expect.objectContaining({
-          scryfallId: 'undercity-1',
-          name: 'Undercity',
+          scryfallId: 'initiative-card',
+          name: 'Undercity // The Initiative',
         }),
       }),
     }), 'game-1');
+    expect(cardsApi.search).toHaveBeenNthCalledWith(1, 'Undercity // The Initiative', 1, 16, { gameplayKind: 'token' });
+    expect(cardsApi.search).toHaveBeenCalledTimes(1);
   });
 
   it('does not open dungeon search from Add venture when a dungeon is already active', async () => {
@@ -2346,6 +2352,90 @@ describe('GameTableComponent', () => {
 
     expect(fixture.componentInstance.gameplayCardSearchRequest()).toBeNull();
     expect(gameplayWebsocketCommand).not.toHaveBeenCalled();
+  });
+
+  it('creates initiative from the game mechanics menu and creates Undercity if the player has no active dungeon', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    const initiativeSnapshot = snapshotWithStatus('active');
+    initiativeSnapshot.specialEntities = [{
+      id: 'initiative-1',
+      template: 'initiative',
+      scope: 'global',
+      ownerPlayerId: 'user-1',
+      card: {
+        scryfallId: 'initiative-card',
+        name: 'Undercity // The Initiative',
+        imageUris: { normal: 'https://cards.test/undercity.jpg' },
+        cardFaces: [
+          {
+            name: 'Undercity',
+            manaCost: null,
+            typeLine: 'Dungeon - Undercity',
+            oracleText: 'Undercity front.',
+            power: null,
+            toughness: null,
+            loyalty: null,
+            colors: [],
+            imageUris: { normal: 'https://cards.test/undercity.jpg' },
+          },
+          {
+            name: 'The Initiative',
+            manaCost: null,
+            typeLine: 'Card',
+            oracleText: 'You have the initiative.',
+            power: null,
+            toughness: null,
+            loyalty: null,
+            colors: [],
+            imageUris: { normal: 'https://cards.test/the-initiative.jpg' },
+          },
+        ],
+        typeLine: 'Dungeon - Undercity // Card',
+        oracleText: 'Undercity // The Initiative',
+        layout: 'double_faced_token',
+      },
+      state: {},
+      createdAt: '2026-06-15T00:00:00+00:00',
+    }];
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+    initiativeSnapshot.players['user-1']!.zones.battlefield = [
+      { ...gameCard('undercity-1'), name: 'Undercity', typeLine: 'Dungeon', layout: 'dungeon' },
+    ];
+    cardsApi.search.mockReturnValueOnce(of({
+      data: [initiativeSearchCard('initiative-card')],
+      page: 1,
+      limit: 16,
+    }));
+    gameplayWebsocketCommand.mockReturnValueOnce(of({
+      event: { id: 'event-initiative', type: 'helper.created', payload: {}, createdBy: 'user-1', createdAt: '' },
+      snapshot: initiativeSnapshot,
+    }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.handleContextMenuAction({ type: 'createInitiative' }, {
+      x: 0,
+      y: 0,
+      kind: 'zone',
+      playerId: 'user-1',
+      zone: 'battlefield',
+    } as never);
+
+    await vi.waitFor(() => expect(gameplayWebsocketCommand).toHaveBeenCalledTimes(1));
+    expect(gameplayWebsocketCommand).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      type: 'helper.created',
+      payload: expect.objectContaining({
+        template: 'initiative',
+        ownerPlayerId: 'user-1',
+        card: expect.objectContaining({
+          name: 'Undercity // The Initiative',
+        }),
+      }),
+    }), 'game-1');
   });
 
   it('opens the shared roll modal from the own battlefield context menu action', async () => {
@@ -6545,6 +6635,36 @@ function gameplaySearchCard(scryfallId: string, name: string, typeLine: string, 
     commanderLegal: false,
     set: 'tst',
     collectorNumber: '1',
+  };
+}
+
+function initiativeSearchCard(scryfallId: string): Card {
+  return {
+    ...gameplaySearchCard(scryfallId, 'Undercity // The Initiative', 'Dungeon - Undercity // Card', 'double_faced_token'),
+    cardFaces: [
+      {
+        name: 'Undercity',
+        manaCost: null,
+        typeLine: 'Dungeon - Undercity',
+        oracleText: 'Undercity front.',
+        power: null,
+        toughness: null,
+        loyalty: null,
+        colors: [],
+        imageUris: { normal: `https://cards.test/${scryfallId}-undercity.jpg` },
+      },
+      {
+        name: 'The Initiative',
+        manaCost: null,
+        typeLine: 'Card',
+        oracleText: 'You have the initiative.',
+        power: null,
+        toughness: null,
+        loyalty: null,
+        colors: [],
+        imageUris: { normal: `https://cards.test/${scryfallId}-initiative.jpg` },
+      },
+    ],
   };
 }
 
