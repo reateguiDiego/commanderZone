@@ -104,12 +104,19 @@ export class GameTableCountersState {
     }
 
     for (const item of targets) {
+      const requestedValue = Math.max(0, value);
+      const nextValue = this.cardsState.nextCardCounterValue(item.card, key, value);
+      const currentValue = this.cardsState.cardCounterValue(item.playerId, item.zone, item.card, key);
+      if (nextValue === currentValue && nextValue !== requestedValue) {
+        continue;
+      }
+
       this.cardsState.queueCardCounter(this.contextStore.cardCounter(), {
         playerId: item.playerId,
         zone: item.zone,
         instanceId: item.card.instanceId,
         key,
-        value: Math.max(0, value),
+        value: nextValue,
       });
     }
     this.uiState.closeContextMenu();
@@ -133,6 +140,23 @@ export class GameTableCountersState {
     }
 
     for (const item of this.actionTargets(menu, selectedCards, 'battlefield')) {
+      const nextValue = this.cardsState.nextCardCounterValue(item.card, key, null);
+      const currentValue = this.cardsState.cardCounterValue(item.playerId, item.zone, item.card, key);
+      if (nextValue > 0) {
+        if (nextValue === currentValue) {
+          continue;
+        }
+
+        this.cardsState.queueCardCounter(this.contextStore.cardCounter(), {
+          playerId: item.playerId,
+          zone: item.zone,
+          instanceId: item.card.instanceId,
+          key,
+          value: nextValue,
+        });
+        continue;
+      }
+
       this.cardsState.queueCardCounter(this.contextStore.cardCounter(), {
         playerId: item.playerId,
         zone: item.zone,
@@ -185,7 +209,7 @@ export class GameTableCountersState {
     }
 
     const currentValue = this.cardsState.cardCounterValue(playerId, zone, card, key);
-    const nextValue = Math.max(0, currentValue + delta);
+    const nextValue = this.cardsState.nextCardCounterValue(card, key, currentValue + delta);
     if (nextValue === currentValue) {
       return;
     }

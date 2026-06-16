@@ -33,6 +33,7 @@ import {
   Send,
   Skull,
   Sparkles,
+  Sun,
   Swords,
   Tickets,
   Trash,
@@ -84,6 +85,7 @@ describe('ContextMenuComponent', () => {
           Send,
           Skull,
           Sparkles,
+          Sun,
           Swords,
           Tickets,
           Trash,
@@ -484,6 +486,10 @@ describe('ContextMenuComponent', () => {
       .find((candidate) => candidate.textContent?.includes('Add Day / Night'));
     dayNightButton?.click();
 
+    const theRingButton = menuButtons(fixture)
+      .find((candidate) => candidate.textContent?.includes('Add The Ring'));
+    theRingButton?.click();
+
     const dungeonButton = menuButtons(fixture)
       .find((candidate) => candidate.textContent?.includes('Add Dungeon'));
     dungeonButton?.click();
@@ -498,10 +504,34 @@ describe('ContextMenuComponent', () => {
 
     expect(selected).toHaveBeenCalledWith({ type: 'createInitiative' });
     expect(selected).toHaveBeenCalledWith({ type: 'createDayNight' });
+    expect(selected).toHaveBeenCalledWith({ type: 'createTheRing' });
     expect(selected).toHaveBeenCalledWith({ type: 'openGameplayCardSearch', kind: 'dungeon' });
     expect(selected).toHaveBeenCalledWith({ type: 'createCitysBlessing' });
     expect(selected).toHaveBeenCalledWith({ type: 'openGameplayCardSearch', kind: 'emblem' });
-    expect(selected).toHaveBeenCalledTimes(6);
+    expect(selected).toHaveBeenCalledTimes(7);
+  });
+
+  it('hides Add The Ring from game mechanics when the player already controls one', () => {
+    const fixture = createContextMenuFixture({
+      kind: 'zone',
+      playerId: 'user-1',
+      zone: 'battlefield',
+    }, {
+      playerHasTheRing: (playerId) => playerId === 'user-1',
+    });
+
+    fixture.componentInstance.toggleSubmenu(new MouseEvent('click'), 'gameMechanics');
+    fixture.detectChanges();
+
+    expect(menuText(fixture)).not.toContain('Add The Ring');
+    expect(fixture.componentInstance.gameMechanicsMenuItems().map((item) => item.value)).toEqual([
+      'monarch',
+      'initiative',
+      'day-night',
+      'dungeon',
+      'citys-blessing',
+      'emblem',
+    ]);
   });
 
   it('hides day-night and adjusts monarch and initiative from battlefield game mechanics when those mechanics are active', () => {
@@ -595,7 +625,7 @@ describe('ContextMenuComponent', () => {
     const selected = vi.fn();
     fixture.componentInstance.actionSelected.subscribe(selected);
 
-    expect(buttonLabels(fixture)).toEqual(['Remove', 'Give to›']);
+    expect(buttonLabels(fixture)).toEqual(['Give to›', 'Remove']);
     expect(menuText(fixture)).not.toContain('Tap');
     expect(menuText(fixture)).not.toContain('Attach');
     expect(menuText(fixture)).not.toContain('Move to');
@@ -641,7 +671,7 @@ describe('ContextMenuComponent', () => {
     const selected = vi.fn();
     fixture.componentInstance.actionSelected.subscribe(selected);
 
-    expect(buttonLabels(fixture)).toEqual(['Remove', 'Give to›']);
+    expect(buttonLabels(fixture)).toEqual(['Give to›', 'Remove']);
 
     fixture.componentInstance.toggleSubmenu(new MouseEvent('click'), 'giveMonarchToPlayer');
     fixture.detectChanges();
@@ -782,6 +812,30 @@ describe('ContextMenuComponent', () => {
 
     expect(selected).toHaveBeenCalledWith({ type: 'setDayNightMode', mode: 'night' });
     expect(selected).toHaveBeenCalledWith({ type: 'removeDayNight' });
+  });
+
+  it('uses the sun icon when the day-night action changes the marker to day', () => {
+    const fixture = createContextMenuFixture({
+      kind: 'card',
+      playerId: 'user-1',
+      zone: 'battlefield',
+      card: {
+        instanceId: 'battlefield-day-night-1',
+        ownerId: 'user-1',
+        controllerId: 'user-1',
+        name: 'Day // Night',
+        layout: 'double_faced_token',
+        typeLine: 'Card // Card',
+        activeFaceIndex: 1,
+        tapped: false,
+        zone: 'battlefield',
+      },
+    }, {
+      currentPlayer: player('user-1', 'User'),
+    });
+
+    expect(menuText(fixture)).toContain('Make day');
+    expect(fixture.componentInstance.dayNightToggleIcon()).toBe('sun');
   });
 
   it('does not offer the legacy mechanics modal from the command zone menu', () => {
@@ -1264,6 +1318,21 @@ describe('ContextMenuComponent', () => {
     expect(menuText(attachmentTarget)).not.toContain('Attach to...');
   });
 
+  it('lets The Ring start attachment targeting but hides face flipping and counters', () => {
+    const fixture = createContextMenuFixture({
+      kind: 'card',
+      playerId: 'user-1',
+      zone: 'battlefield',
+      card: theRingCard('the-ring'),
+    }, {
+      canAttachEquipment: (_playerId, target) => target.instanceId === 'the-ring',
+    });
+
+    expect(menuText(fixture)).toContain('Attach to...');
+    expect(menuText(fixture)).not.toContain('Counters');
+    expect(menuText(fixture)).not.toContain('Flip Card Face');
+  });
+
   it('shows detach all for a battlefield card with attached cards', () => {
     const fixture = createContextMenuFixture({
       kind: 'card',
@@ -1566,6 +1635,7 @@ interface ContextMenuFixtureOptions {
   monarchOwnerPlayerId?: string | null;
   initiativeOwnerPlayerId?: string | null;
   playerHasCitysBlessing?: (playerId: string) => boolean;
+  playerHasTheRing?: (playerId: string) => boolean;
 }
 
 function createContextMenuFixture(menu: Partial<GameContextMenu>, options: ContextMenuFixtureOptions = {}) {
@@ -1601,6 +1671,7 @@ function createContextMenuFixture(menu: Partial<GameContextMenu>, options: Conte
   fixture.componentRef.setInput('monarchOwnerPlayerId', options.monarchOwnerPlayerId ?? null);
   fixture.componentRef.setInput('initiativeOwnerPlayerId', options.initiativeOwnerPlayerId ?? null);
   fixture.componentRef.setInput('playerHasCitysBlessing', options.playerHasCitysBlessing ?? (() => false));
+  fixture.componentRef.setInput('playerHasTheRing', options.playerHasTheRing ?? (() => false));
   fixture.detectChanges();
 
   return fixture;
@@ -1676,6 +1747,39 @@ function dungeonCard(instanceId: string): GameCardInstance {
     typeLine: 'Dungeon',
     layout: 'dungeon',
     isToken: true,
+  };
+}
+
+function theRingCard(instanceId: string): GameCardInstance {
+  return {
+    ...card(instanceId),
+    name: 'The Ring // The Ring Tempts You',
+    typeLine: 'Emblem // Card',
+    layout: 'double_faced_token',
+    cardFaces: [
+      {
+        name: 'The Ring',
+        manaCost: null,
+        typeLine: 'Emblem',
+        oracleText: null,
+        power: null,
+        toughness: null,
+        loyalty: null,
+        colors: [],
+        imageUris: { normal: '/cards/the-ring.jpg' },
+      },
+      {
+        name: 'The Ring Tempts You',
+        manaCost: null,
+        typeLine: 'Card',
+        oracleText: null,
+        power: null,
+        toughness: null,
+        loyalty: null,
+        colors: [],
+        imageUris: { normal: '/cards/the-ring-tempts-you.jpg' },
+      },
+    ],
   };
 }
 

@@ -1,0 +1,85 @@
+@if (cards().length > 0) {
+  @if (variant() === 'mini') {
+    <div
+      class="battlefield-mechanics-overlay battlefield-mechanics-overlay--mini"
+      data-testid="battlefield-mechanics-overlay"
+      data-variant="mini"
+    >
+      @for (card of cards(); track card.instanceId; let cardIndex = $index) {
+        <button
+          class="battlefield-mechanics-overlay__mini-card"
+          type="button"
+          data-testid="battlefield-mechanics-mini-card"
+          [attr.data-card-instance-id]="card.instanceId"
+          [attr.data-card-name]="card.name"
+          [style.left.px]="miniCardLeftPx(cardIndex)"
+          [style.top.px]="0"
+          [style.width.px]="miniCardWidthPx()"
+          [style.height.px]="miniCardHeightPx()"
+          [style.z-index]="2000 + cardIndex"
+          (click)="openMiniCardMenu($event, card)"
+          (contextmenu)="openMiniCardMenu($event, card)"
+          (mouseenter)="showMiniCardPreview($event, card)"
+          (mouseleave)="cardPreviewHidden.emit()"
+        >
+          @if (image()(card); as cardImage) {
+            <img [src]="cardImage" [alt]="card.name" draggable="false" />
+          } @else {
+            <span class="battlefield-mechanics-overlay__mini-card-fallback">{{ card.name }}</span>
+          }
+        </button>
+      }
+    </div>
+  } @else {
+    <div
+      class="battlefield-mechanics-overlay"
+      data-testid="battlefield-mechanics-overlay"
+      data-variant="battlefield"
+    >
+      @for (card of cards(); track card.instanceId) {
+        <app-game-card-view
+          class="battlefield-mechanics-overlay__card"
+          style="--game-card-view-width: var(--battlefield-mechanics-card-width)"
+          mode="battlefield"
+          [card]="card"
+          [playerId]="playerId()"
+          zone="battlefield"
+          [image]="image()(card)"
+          [locked]="true"
+          [selected]="false"
+          [dragging]="false"
+          [pendingTransfer]="false"
+          [alignmentReference]="false"
+          [arrowTargetCandidate]="false"
+          [dropSettling]="false"
+          [manaDropSettling]="false"
+          [statDropSettling]="false"
+          [commanderEntrySettling]="false"
+          [faceDown]="false"
+          [hidden]="false"
+          [disabled]="false"
+          [visible]="true"
+          [battlefieldFocusEntry]="null"
+          [showPowerToughness]="false"
+          [powerValue]="null"
+          [toughnessValue]="null"
+          [loyaltyValue]="null"
+          [counter]="null"
+          [landStackRole]="null"
+          [landStackLayer]="null"
+          [landStackSize]="null"
+          [attachmentStackRole]="null"
+          [attachmentStackLayer]="null"
+          [attachmentStackHighlighted]="false"
+          [landStackDropTarget]="false"
+          [landStackDropSize]="0"
+          landStackDropKind="land"
+          (cardMenuOpened)="cardMenuOpened.emit({ event: $event.event, card: $event.card })"
+          (cardMouseEntered)="cardPreviewShown.emit($event)"
+          (cardPreviewRequested)="cardPreviewRequested.emit($event)"
+          (cardMouseLeft)="cardPreviewHidden.emit()"
+        />
+      }
+    </div>
+  }
+}

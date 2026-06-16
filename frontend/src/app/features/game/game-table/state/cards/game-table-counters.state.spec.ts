@@ -24,6 +24,7 @@ describe('GameTableCountersState', () => {
   const canControlPlayer = vi.fn();
   const canAddCardCounter = vi.fn();
   const cardCounterValue = vi.fn();
+  const nextCardCounterValue = vi.fn();
 
   beforeEach(() => {
     snapshotSignal.set(snapshot(card()));
@@ -35,6 +36,7 @@ describe('GameTableCountersState', () => {
     canControlPlayer.mockReturnValue(true);
     canAddCardCounter.mockReturnValue(true);
     cardCounterValue.mockReturnValue(1);
+    nextCardCounterValue.mockImplementation((_card: GameCardInstance, _key: string, value: number | null) => Math.max(0, Number(value ?? 0)));
 
     TestBed.configureTestingModule({
       providers: [
@@ -44,8 +46,9 @@ describe('GameTableCountersState', () => {
           useValue: {
             canAddCardCounter,
             cardCounterValue,
+            nextCardCounterValue,
             queueCardCounter,
-          } satisfies Pick<GameTableCardsState, 'canAddCardCounter' | 'cardCounterValue' | 'queueCardCounter'>,
+          } satisfies Pick<GameTableCardsState, 'canAddCardCounter' | 'cardCounterValue' | 'nextCardCounterValue' | 'queueCardCounter'>,
         },
         {
           provide: GameTableContextStore,
@@ -155,6 +158,17 @@ describe('GameTableCountersState', () => {
 
     await state.changeCardCounterForCard('player-1', 'battlefield', card(), '+1/+1', -1);
 
+    expect(queueCardCounter).not.toHaveBeenCalled();
+  });
+
+  it('normalizes card counter values before queuing commands', async () => {
+    const ring = card();
+    cardCounterValue.mockReturnValue(4);
+    nextCardCounterValue.mockReturnValue(4);
+
+    await state.changeCardCounterForCard('player-1', 'battlefield', ring, 'Level', 1);
+
+    expect(nextCardCounterValue).toHaveBeenCalledWith(ring, 'Level', 5);
     expect(queueCardCounter).not.toHaveBeenCalled();
   });
 });

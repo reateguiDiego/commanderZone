@@ -107,7 +107,7 @@ import { GameTableSpecialEntityActionsService } from './services/game-table-spec
 import { ZonePointerDropRequest } from './models/game-table-zone-pointer-drag.model';
 import { buildCardPreviewAttachmentInfo, buildCardPreviewCardStateInfo, resolveCardPreviewCard } from './utils/card-preview-attachment-info';
 import { dungeonMarkerForCard } from './utils/dungeon-marker';
-import { isDayNightCard, isDungeonCard, isGameplayCardTapLocked, isInitiativeCard, isMonarchCard } from './utils/gameplay-card-kind';
+import { isDayNightCard, isDungeonCard, isEmblemCard, isGameplayCardTapLocked, isInitiativeCard, isMonarchCard, isTheRingCard } from './utils/gameplay-card-kind';
 import { ManaAddition, ManaPoolColor, ManaSourceSuggestion } from './utils/mana-source-detector';
 import { GameTablePlayerSpecialEntitiesSummary, GameTableSpecialEntitiesState } from './state/helpers/game-table-special-entities.state';
 import { VentureCardKind } from './utils/venture-card-kind';
@@ -199,6 +199,67 @@ const MONARCH_SEARCH_QUERY = 'The Monarch';
 const INITIATIVE_SEARCH_QUERY = 'Undercity // The Initiative';
 const CITYS_BLESSING_SEARCH_QUERY = "City's Blessing";
 const SPECIAL_MECHANIC_CARD_SEARCH_LIMIT = 16;
+const THE_RING_FALLBACK_CARD: Card = {
+  id: 'the-ring',
+  scryfallId: '7215460e-8c06-47d0-94e5-d1832d0218af',
+  name: 'The Ring // The Ring Tempts You',
+  manaCost: null,
+  typeLine: 'Emblem // Card',
+  oracleText: 'Your Ring-bearer is legendary and can\'t be blocked by creatures with greater power.\nWhenever your Ring-bearer attacks, draw a card, then discard a card.\nWhenever your Ring-bearer becomes blocked by a creature, that creature\'s controller sacrifices it at end of combat.\nWhenever your Ring-bearer deals combat damage to a player, each opponent loses 3 life.\n//\nAs the Ring tempts you, you get an emblem named The Ring if you don\'t have one. Then your emblem gains its next ability and you choose a creature you control to become or remain your Ring-bearer.',
+  colors: [],
+  colorIdentity: [],
+  legalities: {},
+  imageUris: {
+    small: 'https://cards.scryfall.io/small/front/7/2/7215460e-8c06-47d0-94e5-d1832d0218af.jpg?1742651318',
+    normal: 'https://cards.scryfall.io/normal/front/7/2/7215460e-8c06-47d0-94e5-d1832d0218af.jpg?1742651318',
+    large: 'https://cards.scryfall.io/large/front/7/2/7215460e-8c06-47d0-94e5-d1832d0218af.jpg?1742651318',
+    png: 'https://cards.scryfall.io/png/front/7/2/7215460e-8c06-47d0-94e5-d1832d0218af.png?1742651318',
+    art_crop: 'https://cards.scryfall.io/art_crop/front/7/2/7215460e-8c06-47d0-94e5-d1832d0218af.jpg?1742651318',
+    border_crop: 'https://cards.scryfall.io/border_crop/front/7/2/7215460e-8c06-47d0-94e5-d1832d0218af.jpg?1742651318',
+  },
+  cardFaces: [
+    {
+      name: 'The Ring',
+      manaCost: null,
+      typeLine: 'Emblem',
+      oracleText: 'Your Ring-bearer is legendary and can\'t be blocked by creatures with greater power.\nWhenever your Ring-bearer attacks, draw a card, then discard a card.\nWhenever your Ring-bearer becomes blocked by a creature, that creature\'s controller sacrifices it at end of combat.\nWhenever your Ring-bearer deals combat damage to a player, each opponent loses 3 life.',
+      power: null,
+      toughness: null,
+      loyalty: null,
+      colors: [],
+      imageUris: {
+        small: 'https://cards.scryfall.io/small/front/7/2/7215460e-8c06-47d0-94e5-d1832d0218af.jpg?1742651318',
+        normal: 'https://cards.scryfall.io/normal/front/7/2/7215460e-8c06-47d0-94e5-d1832d0218af.jpg?1742651318',
+        large: 'https://cards.scryfall.io/large/front/7/2/7215460e-8c06-47d0-94e5-d1832d0218af.jpg?1742651318',
+        png: 'https://cards.scryfall.io/png/front/7/2/7215460e-8c06-47d0-94e5-d1832d0218af.png?1742651318',
+        art_crop: 'https://cards.scryfall.io/art_crop/front/7/2/7215460e-8c06-47d0-94e5-d1832d0218af.jpg?1742651318',
+        border_crop: 'https://cards.scryfall.io/border_crop/front/7/2/7215460e-8c06-47d0-94e5-d1832d0218af.jpg?1742651318',
+      },
+    },
+    {
+      name: 'The Ring Tempts You',
+      manaCost: null,
+      typeLine: 'Card',
+      oracleText: 'As the Ring tempts you, you get an emblem named The Ring if you don\'t have one. Then your emblem gains its next ability and you choose a creature you control to become or remain your Ring-bearer.',
+      power: null,
+      toughness: null,
+      loyalty: null,
+      colors: [],
+      imageUris: {
+        small: 'https://cards.scryfall.io/small/back/7/2/7215460e-8c06-47d0-94e5-d1832d0218af.jpg?1742651318',
+        normal: 'https://cards.scryfall.io/normal/back/7/2/7215460e-8c06-47d0-94e5-d1832d0218af.jpg?1742651318',
+        large: 'https://cards.scryfall.io/large/back/7/2/7215460e-8c06-47d0-94e5-d1832d0218af.jpg?1742651318',
+        png: 'https://cards.scryfall.io/png/back/7/2/7215460e-8c06-47d0-94e5-d1832d0218af.png?1742651318',
+        art_crop: 'https://cards.scryfall.io/art_crop/back/7/2/7215460e-8c06-47d0-94e5-d1832d0218af.jpg?1742651318',
+        border_crop: 'https://cards.scryfall.io/border_crop/back/7/2/7215460e-8c06-47d0-94e5-d1832d0218af.jpg?1742651318',
+      },
+    },
+  ],
+  layout: 'double_faced_token',
+  commanderLegal: false,
+  set: 'tltr',
+  collectorNumber: 'H13',
+};
 
 interface PowerToughnessActionRequest {
   readonly menu: GameContextMenu;
@@ -509,12 +570,11 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     return MANA_POOL_TARGET_COLORS.filter((color) => (counts[color] ?? 0) > 0);
   };
   readonly cardPosition = (card: GameCardInstance): { x: number; y: number } | null => this.store.cardPosition(card);
-  readonly dayNightCardForPlayer = (playerId: string): GameCardInstance | null =>
-    this.specialEntityState.dayNightCardForPlayer(playerId);
-  readonly monarchCardForPlayer = (playerId: string): GameCardInstance | null =>
-    this.specialEntityState.monarchCardForPlayer(playerId);
-  readonly initiativeCardForPlayer = (playerId: string): GameCardInstance | null =>
-    this.specialEntityState.initiativeCardForPlayer(playerId);
+  readonly battlefieldMechanicCardsForPlayer = (playerId: string): readonly GameCardInstance[] =>
+    [
+      ...this.specialEntityState.battlefieldMechanicCardsForPlayer(playerId),
+      ...this.battlefieldEmblemsForPlayer(playerId),
+    ];
   readonly cardImage = (card: GameCardInstance): string | null => this.store.cardImage(card);
   readonly dungeonMarkerForCard = dungeonMarkerForCard;
   readonly dungeonPinSizeForWidth = (width: number): string => `${Math.round(Math.max(28, Math.min(58, width * 0.25)))}px`;
@@ -607,6 +667,10 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   readonly initiativeOwnerPlayerId = computed(() => this.specialEntityState.globalEntity('initiative')?.ownerPlayerId ?? null);
   readonly playerHasCitysBlessing = (playerId: string): boolean =>
     this.specialEntityState.playerEntity(playerId, 'citys_blessing') !== null;
+  readonly playerHasTheRing = (playerId: string): boolean =>
+    this.store.players()
+      .find((player) => player.id === playerId)
+      ?.state.zones.battlefield.some((card) => isTheRingCard(card)) ?? false;
   readonly ringBearerName = (entity: GameSpecialEntity): string | null => this.specialEntityState.ringBearerCardName(entity);
   readonly rollModalOpen = signal(false);
   readonly tableExitTitle = computed(() => this.tableExitAction() === 'leave' ? 'Leave table?' : 'Concede game?');
@@ -658,6 +722,12 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
 
     return preview ? buildCardPreviewCardStateInfo(resolveCardPreviewCard(snapshot, preview)) : null;
   });
+
+  private battlefieldEmblemsForPlayer(playerId: string): readonly GameCardInstance[] {
+    const player = this.store.players().find((candidate) => candidate.id === playerId);
+
+    return player?.state.zones.battlefield.filter((card) => isEmblemCard(card)) ?? [];
+  }
   readonly hoveredPreviewDungeonMarkerOverride = computed<GameCardDungeonMarker | null>(() => {
     const preview = this.store.hoveredPreview();
     const override = this.store.dungeonMarkerPreviewOverride();
@@ -2320,6 +2390,9 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       case 'createDayNight':
         void this.createDayNightFromMenu();
         return;
+      case 'createTheRing':
+        void this.createTheRing(menu.playerId);
+        return;
       case 'createCitysBlessing':
         void this.createCitysBlessing(menu.playerId);
         return;
@@ -3149,6 +3222,16 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     await this.store.createHelper('initiative', playerId, card ? { card } : {});
   }
 
+  private async createTheRing(playerId: string): Promise<void> {
+    if (!this.store.players().some((player) => player.id === playerId)) {
+      this.store.error.set('Could not find target player for The Ring.');
+      this.store.closeContextMenu();
+      return;
+    }
+
+    await this.createGameplayCardOnBattlefield(playerId, THE_RING_FALLBACK_CARD, 1);
+  }
+
   private async removeMonarch(): Promise<void> {
     const entity = this.store.specialEntities().find((candidate) => candidate.template === 'monarch') ?? null;
     if (!entity) {
@@ -3456,15 +3539,25 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   }
 
   private async specialMechanicTokenCardRef(name: string): Promise<GameSpecialEntity['card'] | null> {
+    const card = await this.specialMechanicTokenCard(name);
+
+    return card ? this.gameplayCardRef(card) : null;
+  }
+
+  private async specialMechanicTokenCard(name: string, preferredLayout?: string): Promise<Card | null> {
     try {
       const response = await firstValueFrom(this.cardsApi.search(name, 1, SPECIAL_MECHANIC_CARD_SEARCH_LIMIT, { gameplayKind: 'token' }));
       const normalizedName = name.toLowerCase();
-      const card = response.data.find((candidate) => candidate.name.toLowerCase() === normalizedName && candidate.layout === 'token')
+      const normalizedPreferredLayout = preferredLayout?.toLowerCase() ?? null;
+      const card = response.data.find((candidate) =>
+        candidate.name.toLowerCase() === normalizedName
+        && (normalizedPreferredLayout ? candidate.layout === normalizedPreferredLayout : candidate.layout === 'token'),
+      )
         ?? response.data.find((candidate) => candidate.name.toLowerCase() === normalizedName)
         ?? response.data[0]
         ?? null;
 
-      return card ? this.gameplayCardRef(card) : null;
+      return card;
     } catch {
       return null;
     }

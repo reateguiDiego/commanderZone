@@ -2199,6 +2199,48 @@ describe('GameTableComponent', () => {
     }), 'game-1');
   });
 
+  it('creates The Ring directly on the battlefield without card search from context menu actions', async () => {
+    routeParams['id'] = 'game-1';
+    authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });
+    const snapshot = snapshotWithStatus('active');
+    gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
+    gameplayWebsocketCommand.mockReturnValue(of({
+      event: { id: 'event-the-ring', type: 'card.token.created', payload: {}, createdBy: 'user-1', createdAt: '' },
+      snapshot,
+    }));
+
+    const fixture = TestBed.createComponent(GameTableComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.handleContextMenuAction({ type: 'createTheRing' }, { playerId: 'user-1' } as never);
+
+    await vi.waitFor(() => expect(gameplayWebsocketCommand).toHaveBeenCalledOnce());
+    expect(cardsApi.search).not.toHaveBeenCalled();
+    expect(gameplayWebsocketCommand).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'card.token.created',
+      payload: expect.objectContaining({
+        playerId: 'user-1',
+        quantity: 1,
+        position: { x: 0, y: 0, unit: 'ratio' },
+        card: expect.objectContaining({
+          scryfallId: '7215460e-8c06-47d0-94e5-d1832d0218af',
+          name: 'The Ring // The Ring Tempts You',
+          imageUris: expect.objectContaining({
+            normal: 'https://cards.scryfall.io/normal/front/7/2/7215460e-8c06-47d0-94e5-d1832d0218af.jpg?1742651318',
+          }),
+          cardFaces: expect.arrayContaining([
+            expect.objectContaining({ name: 'The Ring' }),
+            expect.objectContaining({ name: 'The Ring Tempts You' }),
+          ]),
+          typeLine: 'Emblem // Card',
+          oracleText: expect.stringContaining('Your Ring-bearer is legendary'),
+          layout: 'double_faced_token',
+        }),
+      }),
+    }), 'game-1');
+  });
+
   it("asks for confirmation before removing city's blessing from context menu actions and helper pill context requests", async () => {
     routeParams['id'] = 'game-1';
     authStore.user.mockReturnValue({ id: 'user-1', email: 'user@test', displayName: 'User', roles: [] });

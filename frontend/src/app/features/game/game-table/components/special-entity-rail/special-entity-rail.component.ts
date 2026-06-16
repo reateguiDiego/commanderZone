@@ -59,7 +59,11 @@ export class SpecialEntityRailComponent {
   }
 
   ringLevel(entity: GameSpecialEntity): number | null {
-    return typeof entity.state['level'] === 'number' ? entity.state['level'] : null;
+    if (typeof entity.state['level'] !== 'number') {
+      return null;
+    }
+
+    return Math.max(1, Math.min(4, entity.state['level']));
   }
 
   dungeonRoom(entity: GameSpecialEntity): string | null {

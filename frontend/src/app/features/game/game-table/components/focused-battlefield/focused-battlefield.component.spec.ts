@@ -355,7 +355,7 @@ describe('FocusedBattlefieldComponent', () => {
       tapped: false,
     } satisfies GameCardInstance;
     const { fixture } = await renderFocusedBattlefield({
-      monarchCard: monarch,
+      mechanicCards: [monarch],
       cardImage: (card) => card.imageUris?.['normal'] ?? null,
     });
 
@@ -374,13 +374,48 @@ describe('FocusedBattlefieldComponent', () => {
       tapped: false,
     } satisfies GameCardInstance;
     const { fixture } = await renderFocusedBattlefield({
-      initiativeCard: initiative,
+      mechanicCards: [initiative],
       cardImage: (card) => card.imageUris?.['normal'] ?? null,
     });
 
     const image = cardElement(fixture, 'initiative:entity-1').querySelector('img') as HTMLImageElement | null;
 
     expect(image?.getAttribute('src')).toBe('/cards/the-initiative.jpg');
+  });
+
+  it('renders overlay mechanic cards only once when they also exist in the battlefield zone', async () => {
+    const dayNight = {
+      instanceId: 'day-night-card',
+      name: 'Day // Night',
+      typeLine: 'Card // Card',
+      layout: 'double_faced_token',
+      tapped: false,
+      zone: 'battlefield',
+    } satisfies GameCardInstance;
+    const emblem = {
+      instanceId: 'emblem-card',
+      name: 'Chandra Emblem',
+      typeLine: 'Emblem',
+      layout: 'emblem',
+      tapped: false,
+      zone: 'battlefield',
+    } satisfies GameCardInstance;
+    const normalCard = {
+      instanceId: 'normal-card',
+      name: 'Llanowar Elves',
+      typeLine: 'Creature - Elf Druid',
+      tapped: false,
+      zone: 'battlefield',
+    } satisfies GameCardInstance;
+    const { fixture } = await renderFocusedBattlefield({
+      battlefieldCards: [dayNight, emblem, normalCard],
+      mechanicCards: [dayNight, emblem],
+    });
+
+    expect(cardElements(fixture, 'day-night-card')).toHaveLength(1);
+    expect(cardElements(fixture, 'emblem-card')).toHaveLength(1);
+    expect(cardElements(fixture, 'normal-card')).toHaveLength(1);
+    expect(fixture.nativeElement.querySelector('[data-testid="battlefield-mechanics-overlay"]')).not.toBeNull();
   });
 });
 
@@ -400,8 +435,7 @@ interface RenderFocusedBattlefieldOptions {
   isDraggingCard?: (card: GameCardInstance) => boolean;
   canEditManaPool?: (playerId: string) => boolean;
   isManaPoolHidden?: (playerId: string) => boolean;
-  monarchCard?: GameCardInstance | null;
-  initiativeCard?: GameCardInstance | null;
+  mechanicCards?: readonly GameCardInstance[];
   cardImage?: (card: GameCardInstance) => string | null;
 }
 
@@ -418,9 +452,7 @@ async function renderFocusedBattlefield(options: RenderFocusedBattlefieldOptions
   fixture.componentRef.setInput('isCurrentPlayer', options.isCurrentPlayer ?? ((_playerId: string) => true));
   fixture.componentRef.setInput('allowArrowTargetSelection', options.allowArrowTargetSelection ?? false);
   fixture.componentRef.setInput('focusEffectsEnabled', options.focusEffectsEnabled ?? true);
-  fixture.componentRef.setInput('monarchCard', options.monarchCard ?? null);
-  fixture.componentRef.setInput('initiativeCard', options.initiativeCard ?? null);
-  fixture.componentRef.setInput('dayNightCard', null);
+  fixture.componentRef.setInput('mechanicCards', options.mechanicCards ?? []);
   fixture.componentRef.setInput('isDropZoneHighlighted', (_playerId: string, _zone: GameZoneName) => false);
   fixture.componentRef.setInput('cardPosition', options.cardPosition ?? ((_card: GameCardInstance) => null));
   fixture.componentRef.setInput('isSelected', (_instanceId: string) => false);
@@ -447,6 +479,10 @@ async function renderFocusedBattlefield(options: RenderFocusedBattlefieldOptions
 
 function cardElement(fixture: ComponentFixture<FocusedBattlefieldComponent>, instanceId: string): HTMLElement {
   return fixture.nativeElement.querySelector(`[data-card-instance-id="${instanceId}"]`);
+}
+
+function cardElements(fixture: ComponentFixture<FocusedBattlefieldComponent>, instanceId: string): HTMLElement[] {
+  return Array.from(fixture.nativeElement.querySelectorAll(`[data-card-instance-id="${instanceId}"]`));
 }
 
 function attachment(id: string, equipmentInstanceId: string, attachedToInstanceId: string): GameAttachment {

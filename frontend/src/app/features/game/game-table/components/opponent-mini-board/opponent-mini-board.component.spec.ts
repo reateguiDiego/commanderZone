@@ -134,6 +134,16 @@ describe('OpponentMiniBoardComponent', () => {
     expect(fixture.nativeElement.querySelector('app-opponent-cards-target')).toBeNull();
   });
 
+  it('passes mechanic cards to the mini battlefield overlay', () => {
+    fixture.componentRef.setInput('mechanicCards', [cardInstance('monarch-card', 'The Monarch')]);
+    fixture.detectChanges();
+
+    const miniBattlefield = fixture.nativeElement.querySelector('app-opponent-mini-battlefield') as HTMLElement;
+
+    expect(miniBattlefield.querySelector('[data-testid="battlefield-mechanics-overlay"]')).not.toBeNull();
+    expect(miniBattlefield.querySelector('[data-testid="battlefield-mechanics-mini-card"][data-card-instance-id="monarch-card"]')).not.toBeNull();
+  });
+
   it('replaces the mini battlefield with a defeated board when opponent life is zero or lower', () => {
     fixture.componentRef.setInput('player', playerView({ life: 0 }));
     fixture.detectChanges();

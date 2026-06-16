@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { GameAttachment, GameCardInstance, GameSnapshot } from '../../../../core/models/game.model';
-import { gameplayCardKind, isGameplayCard } from '../utils/gameplay-card-kind';
+import { gameplayCardKind, isDayNightCard, isGameplayCard, isTheRingCard } from '../utils/gameplay-card-kind';
 
 export interface BattlefieldCardRef {
   readonly playerId: string;
@@ -55,20 +55,45 @@ export class GameTablePermanentRelationService {
   canAttachSource(snapshot: GameSnapshot | null, card: GameCardInstance | null | undefined): boolean {
     return !!card
       && !this.isLandPermanent(card)
+      && !isDayNightCard(card)
       && !isGameplayCard(card)
       && this.attachmentsForTarget(snapshot, card.instanceId).length === 0;
   }
 
   canAttachTarget(card: GameCardInstance | null | undefined): boolean {
-    return !!card && !isGameplayCard(card);
+    return !!card && !isDayNightCard(card) && !isGameplayCard(card) && !isTheRingCard(card);
   }
 
   gameplayAttachmentError(card: GameCardInstance | null | undefined, role: 'source' | 'target'): string | null {
+    if (isDayNightCard(card)) {
+      return role === 'source'
+        ? 'Day/Night cannot be attached to another permanent.'
+        : 'Day/Night cannot be an attachment target.';
+    }
+
+    if (isTheRingCard(card)) {
+      return role === 'target'
+        ? 'The Ring cannot be an attachment target.'
+        : null;
+    }
+
     const kind = gameplayCardKind(card);
     if (kind === 'emblem') {
       return role === 'source'
         ? 'Emblems cannot be attached to another permanent.'
         : 'Emblems cannot be attachment targets.';
+    }
+
+    if (kind === 'monarch') {
+      return role === 'source'
+        ? 'Monarch cannot be attached to another permanent.'
+        : 'Monarch cannot be an attachment target.';
+    }
+
+    if (kind === 'initiative') {
+      return role === 'source'
+        ? 'Initiative cannot be attached to another permanent.'
+        : 'Initiative cannot be an attachment target.';
     }
 
     if (kind === 'dungeon') {

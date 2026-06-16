@@ -16,6 +16,7 @@ import { GameAttachment, GameCardDungeonMarker, GameCardInstance, GameZoneName }
 import { PlayerView } from '../../game-table.store';
 import { GameCardViewComponent } from '../game-card-view/game-card-view.component';
 import { ManaPoolPanelComponent } from '../mana-pool-panel/mana-pool-panel.component';
+import { BattlefieldMechanicsOverlayComponent } from '../battlefield-mechanics-overlay/battlefield-mechanics-overlay.component';
 import { CardPreviewEvent } from '../../models/card-preview.model';
 import { LandStackDropPreview } from '../../state/drag-drop/game-table-battlefield-drag.state';
 import { buildLandStackGroups, LandStackView, landStackOffsetX, landStackOffsetY } from '../../utils/land-stack';
@@ -28,6 +29,7 @@ import {
   MAX_BATTLEFIELD_ZOOM_PERCENT,
   MIN_BATTLEFIELD_ZOOM_PERCENT,
 } from '../../state/battlefield/game-table-battlefield-zoom.state';
+import { isBattlefieldMechanicOverlayCard } from '../../utils/gameplay-card-kind';
 
 interface CardCounterView {
   key: string;
@@ -117,7 +119,7 @@ const EMPTY_MANA_POOL: ManaPool = { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 };
 
 @Component({
   selector: 'app-focused-battlefield',
-  imports: [RuntimeTranslatePipe, GameCardViewComponent, GameTableLongPressDirective, ManaPoolPanelComponent],
+  imports: [RuntimeTranslatePipe, BattlefieldMechanicsOverlayComponent, GameCardViewComponent, GameTableLongPressDirective, ManaPoolPanelComponent],
   templateUrl: './focused-battlefield.component.html',
   styleUrl: './focused-battlefield.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -136,9 +138,10 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
   readonly isCurrentPlayer = input.required<(playerId: string) => boolean>();
   readonly allowArrowTargetSelection = input(false);
   readonly focusEffectsEnabled = input(true);
-  readonly monarchCard = input<GameCardInstance | null>(null);
-  readonly initiativeCard = input<GameCardInstance | null>(null);
-  readonly dayNightCard = input<GameCardInstance | null>(null);
+  readonly mechanicCards = input<readonly GameCardInstance[]>([]);
+  readonly battlefieldCards = computed(() =>
+    this.player().state.zones.battlefield.filter((card) => !isBattlefieldMechanicOverlayCard(card)),
+  );
   readonly isDropZoneHighlighted = input.required<(playerId: string, zone: GameZoneName) => boolean>();
   readonly cardPosition = input.required<(card: GameCardInstance) => { x: number; y: number } | null>();
   readonly isSelected = input.required<(instanceId: string) => boolean>();
@@ -167,14 +170,13 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
   readonly isCardTransferPending = input<(playerId: string, zone: GameZoneName, card: GameCardInstance) => boolean>(() => false);
 
   readonly landStackGroups = computed(() => buildLandStackGroups(
-    this.player().state.zones.battlefield.filter((card) => !this.isDraggingCard()(card)),
+    this.battlefieldCards().filter((card) => !this.isDraggingCard()(card)),
     (candidate) => this.cardPosition()(candidate),
   ));
   readonly battlefieldDragOver = output<DragEvent>();
   readonly battlefieldDropped = output<BattlefieldDropEvent>();
   readonly battlefieldMenuOpened = output<BattlefieldZoneMenuEvent>();
   readonly manaPoolMenuOpened = output<BattlefieldManaPoolMenuEvent>();
-  readonly dayNightPointerDown = output<BattlefieldCardPointerEvent>();
   readonly cardPointerDown = output<BattlefieldCardPointerEvent>();
   readonly cardClicked = output<BattlefieldCardMouseEvent>();
   readonly cardDoubleClicked = output<BattlefieldCardMouseEvent>();

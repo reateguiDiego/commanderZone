@@ -17,6 +17,7 @@ class GameCommandHandler
     private const MAX_TOKEN_CREATE_QUANTITY = 20;
     private const COMMANDER_DAMAGE_DEFEAT_THRESHOLD = 21;
     private const POSITION_UNIT_RATIO = 'ratio';
+    private const THE_RING_SCRYFALL_ID = '7215460e-8c06-47d0-94e5-d1832d0218af';
     private const TOKEN_COPY_LEGACY_OFFSET_X = 132;
     private const TOKEN_COPY_RATIO_OFFSET_X = 0.1683673469387755;
     private const DICE_ROLL_LABELS = [
@@ -971,6 +972,11 @@ class GameCommandHandler
                 return '';
             }
             $previousValue = (int) ($card['counters'][$key] ?? 0);
+            if ($this->isTheRingLevelCounter($card, $key)) {
+                $card['counters'][$key] = 1;
+
+                return sprintf('Set %s %s counters to 1.', $this->cardLogName($card), $key);
+            }
             unset($card['counters'][$key]);
             $this->applyStatCounterDelta($card, $key, -$previousValue);
 
@@ -985,11 +991,18 @@ class GameCommandHandler
             ? (int) $payload['value']
             : (int) ($card['counters'][$key] ?? 0) + (int) ($payload['delta'] ?? 0);
         $previousValue = (int) ($card['counters'][$key] ?? 0);
-        $nextValue = max(0, $value);
+        $nextValue = $this->isTheRingLevelCounter($card, $key)
+            ? max(1, min(4, $value))
+            : max(0, $value);
         $card['counters'][$key] = $nextValue;
         $this->applyStatCounterDelta($card, $key, $nextValue - $previousValue);
 
         return sprintf('Set %s %s counters to %d.', $this->cardLogName($card), $key, $nextValue);
+    }
+
+    private function isTheRingLevelCounter(array $card, string $key): bool
+    {
+        return strtolower(trim($key)) === 'level' && $this->isTheRingCard($card);
     }
 
     private function applyPowerToughnessChanged(array &$snapshot, array $payload): string
@@ -1409,6 +1422,7 @@ class GameCommandHandler
         $card = is_array($payload['card'] ?? null) ? $payload['card'] : [];
         $hasCardPayload = $card !== [];
         $name = $this->visualName($card['name'] ?? $payload['name'] ?? null, 'Token');
+        $isTheRing = $this->isTheRingCard($card);
         $isDungeon = $this->isDungeonCard($card);
         $isEmblem = $this->isEmblemCard($card);
         $quantity = $isDungeon ? 1 : $this->positiveInt($payload['quantity'] ?? 1, 1, self::MAX_TOKEN_CREATE_QUANTITY);
@@ -1436,18 +1450,28 @@ class GameCommandHandler
                 'isTokenCopy' => false,
                 'isCommander' => false,
             ], $playerId, 'battlefield');
+            if ($isTheRing) {
+                $tokens[$index]['counters'] = ['Level' => 1];
+            }
         }
 
         if ($isDungeon) {
             $this->removePlayerBattlefieldDungeons($snapshot, $playerId);
         }
+        if ($isTheRing) {
+            $this->removePlayerBattlefieldTheRingCards($snapshot, $playerId);
+        }
         array_push($snapshot['players'][$playerId]['zones']['battlefield'], ...$tokens);
-        if ($isDungeon) {
+        if ($isDungeon || $isTheRing) {
             $this->pruneBattlefieldRelations($snapshot);
         }
 
         if ($quantity === 1 && $isEmblem) {
             return sprintf('%s gets emblem %s.', $this->playerName($snapshot, $playerId), $this->cardBaseName($tokens[0]));
+        }
+
+        if ($quantity === 1 && $isTheRing) {
+            return sprintf('Created %s.', $this->cardBaseName($tokens[0]));
         }
 
         return $quantity === 1
@@ -2036,6 +2060,9 @@ class GameCommandHandler
         if ($this->isGameplayCard($equipmentCard)) {
             throw new \InvalidArgumentException(sprintf('%s cannot be attached to another permanent.', $this->gameplayCardLabel($equipmentCard)));
         }
+        if ($this->isTheRingCard($attachedToCard)) {
+            throw new \InvalidArgumentException('The Ring cannot be an attachment target.');
+        }
         if ($this->isGameplayCard($attachedToCard)) {
             throw new \InvalidArgumentException(sprintf('%s cannot be attachment targets.', $this->gameplayCardLabel($attachedToCard)));
         }
@@ -2163,6 +2190,10 @@ class GameCommandHandler
      */
     private function isEmblemCard(array $card): bool
     {
+        if ($this->isTheRingCard($card)) {
+            return false;
+        }
+
         if (strtolower((string) ($card['layout'] ?? '')) === 'emblem') {
             return true;
         }
@@ -2179,6 +2210,24 @@ class GameCommandHandler
     {
         return trim((string) ($card['name'] ?? '')) === 'Day // Night'
             && strtolower(trim((string) ($card['layout'] ?? ''))) === 'double_faced_token';
+    }
+
+    /**
+     * @param array<string,mixed> $card
+     */
+    private function isTheRingCard(array $card): bool
+    {
+        if (strtolower(trim((string) ($card['layout'] ?? ''))) !== 'double_faced_token') {
+            return false;
+        }
+
+        if (strtolower(trim((string) ($card['scryfallId'] ?? ''))) === self::THE_RING_SCRYFALL_ID) {
+            return true;
+        }
+
+        $name = strtolower(trim((string) ($card['name'] ?? '')));
+
+        return $name === 'the ring' || $name === 'the ring // the ring tempts you';
     }
 
     /**
@@ -2215,6 +2264,19 @@ class GameCommandHandler
         $snapshot['players'][$playerId]['zones']['battlefield'] = array_values(array_filter(
             $battlefield,
             fn (mixed $card): bool => !is_array($card) || !$this->isDungeonCard($card),
+        ));
+    }
+
+    private function removePlayerBattlefieldTheRingCards(array &$snapshot, string $playerId): void
+    {
+        $battlefield = $snapshot['players'][$playerId]['zones']['battlefield'] ?? [];
+        if (!is_array($battlefield)) {
+            return;
+        }
+
+        $snapshot['players'][$playerId]['zones']['battlefield'] = array_values(array_filter(
+            $battlefield,
+            fn (mixed $card): bool => !is_array($card) || !$this->isTheRingCard($card),
         ));
     }
 

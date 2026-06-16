@@ -9,7 +9,7 @@ import { playerIsDefeated } from '../../utils/game-player-defeat';
 import { contextMenuDisplayLabel } from './context-menu-label';
 import { ManaSourceSuggestion } from '../../utils/mana-source-detector';
 import { ManaSymbolsComponent } from '../../../../../shared/mana/mana-symbols/mana-symbols.component';
-import { gameplayCardKind, isDayNightCard, isInitiativeCard, isMonarchCard } from '../../utils/gameplay-card-kind';
+import { gameplayCardKind, isDayNightCard, isInitiativeCard, isMonarchCard, isTheRingCard } from '../../utils/gameplay-card-kind';
 import { ventureCardKind, VentureCardKind } from '../../utils/venture-card-kind';
 
 export type ContextMenuAction =
@@ -54,6 +54,7 @@ export type ContextMenuAction =
   | { type: 'removeInitiative' }
   | { type: 'giveInitiativeToPlayer'; targetPlayerId: string }
   | { type: 'createDayNight' }
+  | { type: 'createTheRing' }
   | { type: 'setDayNightMode'; mode: 'day' | 'night' }
   | { type: 'removeDayNight' }
   | { type: 'createCitysBlessing' }
@@ -129,6 +130,7 @@ export class ContextMenuComponent {
   readonly monarchOwnerPlayerId = input<string | null>(null);
   readonly initiativeOwnerPlayerId = input<string | null>(null);
   readonly playerHasCitysBlessing = input<(playerId: string) => boolean>(() => false);
+  readonly playerHasTheRing = input<(playerId: string) => boolean>(() => false);
 
   readonly actionSelected = output<ContextMenuAction>();
   readonly interacted = output<void>();
@@ -204,6 +206,11 @@ export class ContextMenuComponent {
       return;
     }
 
+    if (value === 'the-ring') {
+      this.actionSelected.emit({ type: 'createTheRing' });
+      return;
+    }
+
     if (value === 'citys-blessing') {
       this.actionSelected.emit(
         this.playerHasCitysBlessing()(this.menu().playerId)
@@ -234,8 +241,11 @@ export class ContextMenuComponent {
       items.push({ value: 'day-night', label: 'game.contextMenu.labels.addDayNight', icon: 'ms-ability-day-night', iconKind: 'mana', preserveCase: true });
     }
 
+    if (!this.playerHasTheRing()(this.menu().playerId)) {
+      items.push({ value: 'the-ring', label: 'game.contextMenu.labels.addTheRing', icon: 'ms-ability-the-ring-tempts-you', iconKind: 'mana', preserveCase: true });
+    }
+
     items.push(
-      { value: 'the-ring', label: 'game.contextMenu.labels.addTheRing', icon: 'ms-ability-the-ring-tempts-you', iconKind: 'mana', preserveCase: true },
       { value: 'dungeon', label: 'game.contextMenu.labels.addDungeon', icon: 'ms-ability-dungeon', iconKind: 'mana', preserveCase: true },
       {
         value: 'citys-blessing',
@@ -395,6 +405,14 @@ export class ContextMenuComponent {
       && isInitiativeCard(currentMenu.card);
   }
 
+  isTheRingCardMenu(): boolean {
+    const currentMenu = this.menu();
+
+    return currentMenu.kind === 'card'
+      && currentMenu.zone === 'battlefield'
+      && isTheRingCard(currentMenu.card);
+  }
+
   dayNightMode(): 'day' | 'night' {
     return this.menu().card?.activeFaceIndex === 1 ? 'night' : 'day';
   }
@@ -407,6 +425,10 @@ export class ContextMenuComponent {
 
   dayNightToggleLabel(): string {
     return this.dayNightMode() === 'night' ? 'Make Day' : 'Make Night';
+  }
+
+  dayNightToggleIcon(): string {
+    return this.dayNightMode() === 'night' ? 'sun' : 'moon-star';
   }
 
   canRemoveDayNight(): boolean {
@@ -570,7 +592,10 @@ export class ContextMenuComponent {
   }
 
   canFlipCardFace(): boolean {
-    return (this.menu().card?.cardFaces?.length ?? 0) > 1;
+    const card = this.menu().card;
+
+    return (card?.cardFaces?.length ?? 0) > 1
+      && !isTheRingCard(card);
   }
 
   canGiveFixedZoneCard(): boolean {

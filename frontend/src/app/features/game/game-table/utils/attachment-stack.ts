@@ -1,6 +1,6 @@
 import { GameAttachment, GameCardInstance } from '../../../../core/models/game.model';
 import { DEFAULT_BATTLEFIELD_CARD_SIZE } from './battlefield-position';
-import { isGameplayCard } from './gameplay-card-kind';
+import { isDayNightCard, isGameplayCard, isTheRingCard } from './gameplay-card-kind';
 import { buildLandStackGroups, landStackGroupContaining, landStackOffsetX, landStackOffsetY } from './land-stack';
 
 export interface AttachmentStackMove {
@@ -62,6 +62,7 @@ export function attachmentDropTarget(
   if (
     !equipment
     || isLandPermanent(equipment)
+    || isDayNightCard(equipment)
     || isGameplayCard(equipment)
     || landStackGroupContaining(landGroups, equipmentInstanceId)
     || attachments.some((attachment) => attachment.attachedToInstanceId === equipmentInstanceId)
@@ -72,7 +73,7 @@ export function attachmentDropTarget(
   const targetCards = cards.filter((card) => card.instanceId !== equipmentInstanceId);
   const groups = buildAttachmentStackGroups(targetCards, attachments, positionFor);
   const target = bestDropTarget(targetCards, equipmentInstanceId, equipmentPosition, positionFor);
-  if (!target || isGameplayCard(target) || target.instanceId === equipmentInstanceId || attachments.some((attachment) =>
+  if (!target || isDayNightCard(target) || isGameplayCard(target) || isTheRingCard(target) || target.instanceId === equipmentInstanceId || attachments.some((attachment) =>
     attachment.equipmentInstanceId === equipmentInstanceId && attachment.attachedToInstanceId === target.instanceId,
   )) {
     return null;

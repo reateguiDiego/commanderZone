@@ -143,6 +143,14 @@ export class GameTableSpecialEntitiesState {
     return this.summaryForPlayer(playerId).displayEntities;
   }
 
+  battlefieldMechanicCardsForPlayer(playerId: string): readonly GameCardInstance[] {
+    return [...this.all()]
+      .filter((entity) => this.isBattlefieldMechanicEntityForPlayer(entity, playerId))
+      .sort((left, right) => this.entityCreatedTime(left) - this.entityCreatedTime(right))
+      .map((entity) => this.battlefieldMechanicCard(entity, playerId))
+      .filter((card): card is GameCardInstance => card !== null);
+  }
+
   dayNightCardForPlayer(playerId: string): GameCardInstance | null {
     const entity = this.dayNight();
     if (!entity) {
@@ -370,6 +378,34 @@ export class GameTableSpecialEntitiesState {
     const normalizedName = name?.trim().toLowerCase() ?? '';
 
     return normalizedName === 'undercity' || normalizedName === 'the undercity';
+  }
+
+  private isBattlefieldMechanicEntityForPlayer(entity: GameSpecialEntity, playerId: string): boolean {
+    if (entity.template === 'day_night') {
+      return true;
+    }
+
+    return (entity.template === 'monarch' || entity.template === 'initiative')
+      && entity.ownerPlayerId === playerId;
+  }
+
+  private battlefieldMechanicCard(entity: GameSpecialEntity, playerId: string): GameCardInstance | null {
+    switch (entity.template) {
+      case 'day_night':
+        return this.dayNightCardForPlayer(playerId);
+      case 'monarch':
+        return this.monarchCardForPlayer(playerId);
+      case 'initiative':
+        return this.initiativeCardForPlayer(playerId);
+      default:
+        return null;
+    }
+  }
+
+  private entityCreatedTime(entity: GameSpecialEntity): number {
+    const createdTime = Date.parse(entity.createdAt);
+
+    return Number.isFinite(createdTime) ? createdTime : 0;
   }
 
   private cardFace(

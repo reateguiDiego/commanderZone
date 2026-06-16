@@ -1116,6 +1116,15 @@ describe('GameCardViewComponent', () => {
     expect(fixture.nativeElement.querySelector('.double-face-toggle')).toBeNull();
   });
 
+  it('does not show the face toggle affordance for The Ring cards', async () => {
+    const { fixture } = await renderHandCard();
+
+    fixture.componentRef.setInput('card', theRingCard());
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.double-face-toggle')).toBeNull();
+  });
+
   it('plays the face flip animation on stable battlefield cards', async () => {
     vi.useFakeTimers();
     const { fixture, cardElement } = await renderHandCard();
@@ -1368,6 +1377,18 @@ function undercityInitiativeCard(): GameCardInstance {
     cardFaces: [
       cardFace('Undercity'),
       cardFace('The Initiative'),
+    ],
+  };
+}
+
+function theRingCard(): GameCardInstance {
+  return {
+    ...gameCard(),
+    name: 'The Ring // The Ring Tempts You',
+    layout: 'double_faced_token',
+    cardFaces: [
+      cardFace('The Ring'),
+      cardFace('The Ring Tempts You'),
     ],
   };
 }

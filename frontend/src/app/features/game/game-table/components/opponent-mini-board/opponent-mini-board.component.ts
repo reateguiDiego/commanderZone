@@ -93,6 +93,7 @@ export class OpponentMiniBoardComponent {
   readonly targetingPill = input<OpponentTargetingPill | null>(null);
   readonly cardsTargetCards = input<readonly OpponentCardsTargetCard[]>([]);
   readonly specialEntitiesSummary = input<GameTablePlayerSpecialEntitiesSummary | null>(null);
+  readonly mechanicCards = input<readonly GameCardInstance[]>([]);
   readonly ringBearerName = input<(entity: GameSpecialEntity) => string | null>(() => null);
 
   readonly focusPlayer = output<string>();

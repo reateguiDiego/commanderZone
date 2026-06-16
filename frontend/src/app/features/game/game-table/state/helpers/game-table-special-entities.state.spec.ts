@@ -324,6 +324,50 @@ describe('GameTableSpecialEntitiesState', () => {
       ]),
     }));
   });
+
+  it('returns battlefield mechanic cards in creation order for the owning player', () => {
+    const core = TestBed.inject(GameTableCoreState);
+    const state = TestBed.inject(GameTableSpecialEntitiesState);
+
+    core.snapshot.set({
+      ...snapshotWithMonarchCard(),
+      specialEntities: [
+        {
+          id: 'initiative-1',
+          template: 'initiative',
+          scope: 'global',
+          ownerPlayerId: 'user-1',
+          card: null,
+          state: {},
+          createdAt: '2026-06-16T00:00:03+00:00',
+        },
+        {
+          id: 'day-night-1',
+          template: 'day_night',
+          scope: 'global',
+          ownerPlayerId: null,
+          card: null,
+          state: { mode: 'day', createdByPlayerId: 'user-1' },
+          createdAt: '2026-06-16T00:00:01+00:00',
+        },
+        {
+          id: 'monarch-1',
+          template: 'monarch',
+          scope: 'global',
+          ownerPlayerId: 'user-1',
+          card: null,
+          state: {},
+          createdAt: '2026-06-16T00:00:02+00:00',
+        },
+      ],
+    });
+
+    expect(state.battlefieldMechanicCardsForPlayer('user-1').map((card) => card.instanceId)).toEqual([
+      'day-night:day-night-1:user-1',
+      'monarch:monarch-1',
+      'initiative:initiative-1',
+    ]);
+  });
 });
 
 function snapshotWithMonarchCard(): GameSnapshot {

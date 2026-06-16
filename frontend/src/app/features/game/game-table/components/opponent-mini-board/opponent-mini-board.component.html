@@ -89,6 +89,7 @@
       <app-opponent-mini-battlefield
         [playerId]="opponent.id"
         [cards]="opponent.state.zones.battlefield"
+        [mechanicCards]="mechanicCards()"
         [attachments]="attachments()"
         [backgroundImage]="backgroundImage()(opponent)"
         [battlefieldSize]="battlefieldSize()"

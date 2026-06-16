@@ -8,8 +8,32 @@ const OFFICIAL_DUNGEON_CARD_NAMES = new Set([
   'the undercity',
   'tomb of annihilation',
 ]);
+const THE_RING_SCRYFALL_ID = '7215460e-8c06-47d0-94e5-d1832d0218af';
+const THE_RING_CARD_NAMES = new Set([
+  'the ring',
+  'the ring // the ring tempts you',
+]);
+
+export function isTheRingCard(card: Pick<GameCardInstance, 'layout' | 'name' | 'scryfallId'> | null | undefined): boolean {
+  const layout = card?.layout?.trim().toLowerCase() ?? '';
+  if (layout !== 'double_faced_token') {
+    return false;
+  }
+
+  const scryfallId = card?.scryfallId?.trim().toLowerCase() ?? '';
+  if (scryfallId === THE_RING_SCRYFALL_ID) {
+    return true;
+  }
+
+  const name = card?.name?.trim().toLowerCase() ?? '';
+  return THE_RING_CARD_NAMES.has(name);
+}
 
 export function isEmblemCard(card: GameCardInstance | null | undefined): boolean {
+  if (isTheRingCard(card)) {
+    return false;
+  }
+
   const layout = card?.layout?.trim().toLowerCase() ?? '';
   const typeLine = card?.typeLine?.trim().toLowerCase() ?? '';
 
@@ -34,9 +58,8 @@ export function isDayNightCard(card: Pick<GameCardInstance, 'layout' | 'name'> |
     && card.layout?.trim().toLowerCase() === 'double_faced_token';
 }
 
-export function isMonarchCard(card: Pick<GameCardInstance, 'layout' | 'name'> | null | undefined): boolean {
-  return card?.name?.trim() === 'Monarch'
-    && card.layout?.trim().toLowerCase() === 'monarch';
+export function isMonarchCard(card: Pick<GameCardInstance, 'layout'> | null | undefined): boolean {
+  return card?.layout?.trim().toLowerCase() === 'monarch';
 }
 
 export function isInitiativeCard(card: Pick<GameCardInstance, 'layout'> | null | undefined): boolean {
@@ -64,5 +87,12 @@ export function isGameplayCard(card: GameCardInstance | null | undefined): boole
 }
 
 export function isGameplayCardTapLocked(card: GameCardInstance | null | undefined): boolean {
-  return isGameplayCard(card) || isDayNightCard(card);
+  return isGameplayCard(card) || isDayNightCard(card) || isTheRingCard(card);
+}
+
+export function isBattlefieldMechanicOverlayCard(card: GameCardInstance | null | undefined): boolean {
+  return isDayNightCard(card)
+    || isMonarchCard(card)
+    || isInitiativeCard(card)
+    || isEmblemCard(card);
 }

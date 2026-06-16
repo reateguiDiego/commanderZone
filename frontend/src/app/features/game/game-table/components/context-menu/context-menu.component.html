@@ -269,12 +269,6 @@
   } @else {
     @if (isMonarchCardMenu()) {
       @if (canControlMonarchCard()) {
-        <button type="button" class="danger-menu-item" (click)="actionSelected.emit({ type: 'removeMonarch' })">
-          <span class="menu-item-label">
-            <lucide-icon name="trash-2" size="17" aria-hidden="true" />
-            <span>{{ displayLabel('Remove') }}</span>
-          </span>
-        </button>
         @if (canGiveMonarchToPlayer()) {
           <app-context-submenu
             label="Give to"
@@ -286,11 +280,10 @@
             (itemSelected)="selectGiveMonarchToPlayer($event)"
           />
         }
-      } @else {
-        <button type="button" (click)="actionSelected.emit({ type: 'previewCard' })">
+        <button type="button" class="danger-menu-item" (click)="actionSelected.emit({ type: 'removeMonarch' })">
           <span class="menu-item-label">
-            <lucide-icon name="search" size="17" aria-hidden="true" />
-            <span>{{ displayLabel('game.contextMenu.labels.previewCard') }}</span>
+            <lucide-icon name="trash-2" size="17" aria-hidden="true" />
+            <span>{{ displayLabel('Remove') }}</span>
           </span>
         </button>
       }
@@ -321,11 +314,51 @@
           </span>
         </button>
       }
+    } @else if (isTheRingCardMenu()) {
+      @if (canControlPlayer()(activeMenu.playerId)) {
+        @if (canEquipCard()) {
+          <button type="button" (click)="actionSelected.emit({ type: 'equipCard' })">
+            <span class="menu-item-label">
+              <lucide-icon name="link" size="17" aria-hidden="true" />
+              <span>{{ displayLabel('game.contextMenu.labels.attachTo') }}</span>
+            </span>
+          </button>
+        }
+        @if (canUnequipCard()) {
+          <button type="button" (click)="actionSelected.emit({ type: 'unequipCard' })">
+            <span class="menu-item-label">
+              <lucide-icon name="unlink-2" size="17" aria-hidden="true" />
+              <span>{{ displayLabel('game.contextMenu.labels.unequip') }}</span>
+            </span>
+          </button>
+        }
+        @if (canFlipCardFace()) {
+          <button type="button" (click)="actionSelected.emit({ type: 'flipCardFace' })">
+            <span class="menu-item-label">
+              <lucide-icon name="rotate-cw" size="17" aria-hidden="true" />
+              <span>{{ displayLabel('game.contextMenu.labels.flipCardFace') }}</span>
+            </span>
+          </button>
+        }
+        <button type="button" class="danger-menu-item" (click)="actionSelected.emit({ type: 'moveCard', zone: 'graveyard' })">
+          <span class="menu-item-label">
+            <lucide-icon name="trash-2" size="17" aria-hidden="true" />
+            <span>{{ displayLabel('Remove') }}</span>
+          </span>
+        </button>
+      } @else {
+        <button type="button" (click)="actionSelected.emit({ type: 'previewCard' })">
+          <span class="menu-item-label">
+            <lucide-icon name="search" size="17" aria-hidden="true" />
+            <span>{{ displayLabel('game.contextMenu.labels.previewCard') }}</span>
+          </span>
+        </button>
+      }
     } @else if (canControlPlayer()(activeMenu.playerId)) {
       @if (isDayNightCardMenu()) {
         <button type="button" (click)="actionSelected.emit(dayNightToggleAction())">
           <span class="menu-item-label">
-            <lucide-icon name="moon-star" size="17" aria-hidden="true" />
+            <lucide-icon [name]="dayNightToggleIcon()" size="17" aria-hidden="true" />
             <span>{{ displayLabel(dayNightToggleLabel()) }}</span>
           </span>
         </button>

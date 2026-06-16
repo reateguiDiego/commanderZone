@@ -770,6 +770,93 @@ class GameCommandHandlerTest extends TestCase
         self::assertSame('opponent-dungeon', $opponentBattlefield[0]['instanceId']);
     }
 
+    public function testCreateTheRingTokenStartsAtLevelOneAndReplacesPreviousCopyForThatPlayer(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $opponent = new User('opponent@example.test', 'Opponent');
+        $snapshot = $this->snapshot($actor->id(), [
+            'battlefield' => [[
+                ...$this->card('old-ring', 'The Ring', 'battlefield', 0, 0, 0, 0),
+                'scryfallId' => '7215460e-8c06-47d0-94e5-d1832d0218af',
+                'typeLine' => 'Emblem // Card',
+                'layout' => 'double_faced_token',
+                'counters' => ['Level' => 3],
+            ]],
+        ], $opponent->id());
+        $snapshot['players'][$opponent->id()]['zones']['battlefield'] = [[
+            ...$this->card('opponent-ring', 'The Ring // The Ring Tempts You', 'battlefield', 0, 0, 0, 0),
+            'typeLine' => 'Emblem // Card',
+            'layout' => 'double_faced_token',
+            'counters' => ['Level' => 2],
+        ]];
+        $game = new Game(new Room($actor), $snapshot);
+
+        (new GameCommandHandler())->apply($game, 'card.token.created', [
+            'playerId' => $actor->id(),
+            'card' => [
+                'scryfallId' => '7215460e-8c06-47d0-94e5-d1832d0218af',
+                'name' => 'The Ring // The Ring Tempts You',
+                'typeLine' => 'Emblem // Card',
+                'layout' => 'double_faced_token',
+            ],
+        ], $actor);
+
+        $actorBattlefield = $game->snapshot()['players'][$actor->id()]['zones']['battlefield'];
+        $opponentBattlefield = $game->snapshot()['players'][$opponent->id()]['zones']['battlefield'];
+        self::assertCount(1, $actorBattlefield);
+        self::assertSame('The Ring // The Ring Tempts You', $actorBattlefield[0]['name']);
+        self::assertSame(['Level' => 1], $actorBattlefield[0]['counters']);
+        self::assertNotSame('old-ring', $actorBattlefield[0]['instanceId']);
+        self::assertCount(1, $opponentBattlefield);
+        self::assertSame('opponent-ring', $opponentBattlefield[0]['instanceId']);
+    }
+
+    public function testTheRingLevelCounterIsClampedBetweenOneAndFour(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $snapshot = $this->snapshot($actor->id(), [
+            'battlefield' => [[
+                ...$this->card('the-ring', 'The Ring // The Ring Tempts You', 'battlefield', 0, 0, 0, 0),
+                'scryfallId' => '7215460e-8c06-47d0-94e5-d1832d0218af',
+                'typeLine' => 'Emblem // Card',
+                'layout' => 'double_faced_token',
+                'counters' => ['Level' => 2],
+            ]],
+        ]);
+        $game = new Game(new Room($actor), $snapshot);
+        $handler = new GameCommandHandler();
+
+        $handler->apply($game, 'card.counter.changed', [
+            'playerId' => $actor->id(),
+            'zone' => 'battlefield',
+            'instanceId' => 'the-ring',
+            'key' => 'Level',
+            'value' => 9,
+        ], $actor);
+
+        self::assertSame(4, $game->snapshot()['players'][$actor->id()]['zones']['battlefield'][0]['counters']['Level']);
+
+        $handler->apply($game, 'card.counter.changed', [
+            'playerId' => $actor->id(),
+            'zone' => 'battlefield',
+            'instanceId' => 'the-ring',
+            'key' => 'Level',
+            'value' => 0,
+        ], $actor);
+
+        self::assertSame(1, $game->snapshot()['players'][$actor->id()]['zones']['battlefield'][0]['counters']['Level']);
+
+        $handler->apply($game, 'card.counter.changed', [
+            'playerId' => $actor->id(),
+            'zone' => 'battlefield',
+            'instanceId' => 'the-ring',
+            'key' => 'Level',
+            'remove' => true,
+        ], $actor);
+
+        self::assertSame(['Level' => 1], $game->snapshot()['players'][$actor->id()]['zones']['battlefield'][0]['counters']);
+    }
+
     public function testCreateTokenCommandCreatesRequestedQuantityInSingleCommand(): void
     {
         $actor = new User('owner@example.test', 'Owner');
@@ -2859,6 +2946,32 @@ class GameCommandHandlerTest extends TestCase
         }
     }
 
+    public function testAttachmentCanUseTheRingAsEquipmentSource(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->snapshot($actor->id(), [
+            'battlefield' => [
+                [
+                    ...$this->card('the-ring-card', 'The Ring', 'battlefield', 0, 0, 0, 0),
+                    'scryfallId' => '7215460e-8c06-47d0-94e5-d1832d0218af',
+                    'typeLine' => 'Emblem // Card',
+                    'layout' => 'double_faced_token',
+                ],
+                [
+                    ...$this->card('target-card', 'Bear', 'battlefield', 2, 2, 2, 2),
+                    'typeLine' => 'Creature - Bear',
+                ],
+            ],
+        ]));
+
+        (new GameCommandHandler())->apply($game, 'attachment.created', [
+            'equipmentInstanceId' => 'the-ring-card',
+            'attachedToInstanceId' => 'target-card',
+        ], $actor);
+
+        self::assertSame('the-ring-card', $game->snapshot()['attachments'][0]['equipmentInstanceId']);
+    }
+
     public function testAttachmentCannotTargetGameplayCard(): void
     {
         $actor = new User('owner@example.test', 'Owner');
@@ -2892,6 +3005,32 @@ class GameCommandHandlerTest extends TestCase
                 self::assertSame($metadata['message'], $exception->getMessage());
             }
         }
+    }
+
+    public function testAttachmentCannotTargetTheRing(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->snapshot($actor->id(), [
+            'battlefield' => [
+                [
+                    ...$this->card('equipment-card', 'Sword', 'battlefield', 1, 1, 1, 1),
+                    'typeLine' => 'Artifact',
+                ],
+                [
+                    ...$this->card('the-ring-card', 'The Ring // The Ring Tempts You', 'battlefield', 0, 0, 0, 0),
+                    'typeLine' => 'Emblem // Card',
+                    'layout' => 'double_faced_token',
+                ],
+            ],
+        ]));
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('The Ring cannot be an attachment target.');
+
+        (new GameCommandHandler())->apply($game, 'attachment.created', [
+            'equipmentInstanceId' => 'equipment-card',
+            'attachedToInstanceId' => 'the-ring-card',
+        ], $actor);
     }
 
     public function testAttachmentCanTargetLand(): void

@@ -7,7 +7,22 @@
   (pointermove)="handlePointerMove($event)"
   (pointerleave)="handlePointerLeave()"
 >
-  @for (card of cards(); track card.instanceId; let cardIndex = $index) {
+  @if (mechanicCards().length > 0) {
+    <app-battlefield-mechanics-overlay
+      variant="mini"
+      [cards]="mechanicCards()"
+      [playerId]="playerId()"
+      [image]="cardImage()"
+      [miniViewportSize]="viewportSize()"
+      [miniCardBaseWidthPx]="mechanicMiniCardWidthPx()"
+      (cardMenuOpened)="battlefieldCardClicked.emit({ event: $event.event, playerId: playerId(), card: $event.card })"
+      (cardPreviewShown)="showCardPreview($event)"
+      (cardPreviewRequested)="showCardPreview($event)"
+      (cardPreviewHidden)="cardPreviewHidden.emit()"
+    />
+  }
+
+  @for (card of layoutCards(); track card.instanceId; let cardIndex = $index) {
     @if (cardLayout(card); as layout) {
       <app-game-card-view
         mode="mini"
