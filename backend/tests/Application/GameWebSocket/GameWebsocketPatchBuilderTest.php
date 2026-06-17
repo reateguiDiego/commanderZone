@@ -1179,7 +1179,7 @@ class GameWebsocketPatchBuilderTest extends TestCase
         $message = (new GameWebsocketPatchBuilder(new GameWebsocketMessageFactory()))
             ->build($game->id(), $previous, $next, $event);
 
-        self::assertContains('specialEntities.set', array_column($message['operations'], 'op'));
+        self::assertContains('specialEntity.update', array_column($message['operations'], 'op'));
     }
 
     public function testDisconnectVoteExpelEmitsSpecialEntitiesSetWhenMonarchChanges(): void
@@ -1220,7 +1220,7 @@ class GameWebsocketPatchBuilderTest extends TestCase
         $event = new GameEvent($game, 'disconnect.vote.updated', ['reason' => 'vote.resolved'], $actor, 'action-disconnect-expel-monarch');
         $message = (new GameWebsocketPatchBuilder(new GameWebsocketMessageFactory()))->build($game->id(), $previous, $next, $event);
 
-        self::assertContains('specialEntities.set', array_column($message['operations'], 'op'));
+        self::assertContains('specialEntity.update', array_column($message['operations'], 'op'));
     }
 
     public function testConcedeEmitsSpecialEntitiesSetWhenInitiativeChanges(): void
@@ -1255,7 +1255,7 @@ class GameWebsocketPatchBuilderTest extends TestCase
         $message = (new GameWebsocketPatchBuilder(new GameWebsocketMessageFactory()))
             ->build($game->id(), $previous, $next, $event);
 
-        self::assertContains('specialEntities.set', array_column($message['operations'], 'op'));
+        self::assertContains('specialEntity.update', array_column($message['operations'], 'op'));
     }
 
     public function testDisconnectVoteExpelEmitsSpecialEntitiesSetWhenInitiativeChanges(): void
@@ -1296,7 +1296,7 @@ class GameWebsocketPatchBuilderTest extends TestCase
         $event = new GameEvent($game, 'disconnect.vote.updated', ['reason' => 'vote.resolved'], $actor, 'action-disconnect-expel-initiative');
         $message = (new GameWebsocketPatchBuilder(new GameWebsocketMessageFactory()))->build($game->id(), $previous, $next, $event);
 
-        self::assertContains('specialEntities.set', array_column($message['operations'], 'op'));
+        self::assertContains('specialEntity.update', array_column($message['operations'], 'op'));
     }
 
     public function testBuildsEventLogAppendAcrossSlidingWindowRollover(): void
@@ -1553,8 +1553,8 @@ class GameWebsocketPatchBuilderTest extends TestCase
             ],
         ], 'action-initiative-create', $handler);
 
-        self::assertContainsEqual('specialEntity.add', array_column($created['operations'], 'op'));
-        self::assertContainsEqual('card.create', array_column($created['operations'], 'op'));
+        self::assertContains('specialEntity.add', array_column($created['operations'], 'op'));
+        self::assertContains('card.create', array_column($created['operations'], 'op'));
         $cardCreate = array_values(array_filter(
             $created['operations'],
             static fn (array $operation): bool => ($operation['op'] ?? null) === 'card.create',
