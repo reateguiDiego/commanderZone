@@ -94,7 +94,6 @@ export class PlayerSummaryPanelComponent implements OnDestroy {
   readonly playerCounterValue = input.required<(player: PlayerView, key: PlayerCounterKey) => number>();
   readonly canEditCounters = input.required<boolean>();
   readonly specialEntities = input<readonly GameSpecialEntity[]>([]);
-  readonly ringBearerName = input<(entity: GameSpecialEntity) => string | null>(() => null);
   readonly contextLabel = input<string | null>(null);
   readonly returnActionLabel = input<string | null>(null);
   readonly lifeChanged = output<LifeChangeEvent>();
@@ -106,7 +105,9 @@ export class PlayerSummaryPanelComponent implements OnDestroy {
   readonly returnRequested = output<void>();
   readonly lifeFeedback = signal<LifeFeedback | null>(null);
   readonly otherCountersExpanded = signal(false);
-  readonly visibleSpecialEntities = computed(() => this.specialEntities());
+  readonly visibleSpecialEntities = computed(() =>
+    this.specialEntities().filter((entity) => entity.template !== 'the_ring'),
+  );
   readonly hasLongDisplayName = computed(
     () => this.player().state.user.displayName.trim().length > CONTEXT_PANEL_LONG_NAME_THRESHOLD,
   );

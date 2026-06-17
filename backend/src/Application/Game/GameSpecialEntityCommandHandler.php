@@ -20,11 +20,10 @@ final class GameSpecialEntityCommandHandler
         'initiative',
         'citys_blessing',
         'day_night',
-        'the_ring',
         'emblem',
         'dungeon',
     ];
-    private const PLAYER_TEMPLATES = ['citys_blessing', 'the_ring', 'emblem', 'dungeon'];
+    private const PLAYER_TEMPLATES = ['citys_blessing', 'emblem', 'dungeon'];
     private const CARD_BACKED_TEMPLATES = ['emblem', 'dungeon'];
     private const OPTIONAL_CARD_TEMPLATES = ['day_night', 'monarch', 'initiative', 'citys_blessing'];
 
@@ -59,6 +58,7 @@ final class GameSpecialEntityCommandHandler
     public function normalizeSnapshot(array $snapshot): array
     {
         $snapshot['specialEntities'] = $this->normalizeEntities($snapshot, $snapshot['specialEntities'] ?? []);
+        $this->removeDayNightBattlefieldCards($snapshot);
 
         return $snapshot;
     }
@@ -223,7 +223,7 @@ final class GameSpecialEntityCommandHandler
         $snapshot['specialEntities'] = $this->normalizeEntities($snapshot, $specialEntities);
         $createdEntity = $this->findEntity($snapshot, (string) $entity['id']) ?? $entity;
         if (($createdEntity['template'] ?? null) === 'day_night') {
-            $this->syncDayNightBattlefieldCards($snapshot, $createdEntity);
+            $this->removeDayNightBattlefieldCards($snapshot);
         }
 
         return [
@@ -277,7 +277,7 @@ final class GameSpecialEntityCommandHandler
             throw new \InvalidArgumentException('Helper entity was not found.');
         }
         if (($updatedEntity['template'] ?? null) === 'day_night') {
-            $this->syncDayNightBattlefieldCards($snapshot, $updatedEntity);
+            $this->removeDayNightBattlefieldCards($snapshot);
         }
 
         return [
@@ -440,44 +440,6 @@ final class GameSpecialEntityCommandHandler
         return $normalized;
     }
 
-    /**
-     * @param array<string,mixed> $entity
-     */
-    private function syncDayNightBattlefieldCards(array &$snapshot, array $entity): void
-    {
-        $card = $this->normalizeCardRef('day_night', $entity['card'] ?? null);
-        if ($card === null || !$this->isDayNightCardRef($card)) {
-            return;
-        }
-
-        $state = is_array($entity['state'] ?? null) ? $entity['state'] : [];
-        $mode = ($state['mode'] ?? null) === 'night' ? 'night' : 'day';
-        $createdByPlayerId = $this->nonEmptyString($state['createdByPlayerId'] ?? null) ?? $this->firstSnapshotPlayerId($snapshot);
-
-        foreach ($this->snapshotPlayerIds($snapshot) as $playerId) {
-            $battlefield =& $snapshot['players'][$playerId]['zones']['battlefield'];
-            if (!is_array($battlefield)) {
-                $battlefield = [];
-            }
-
-            $existingIndex = $this->dayNightBattlefieldCardIndex($battlefield);
-            $position = $this->defaultRatioPosition();
-            if ($existingIndex === null) {
-                $battlefield[] = $this->dayNightBattlefieldCard($card, $createdByPlayerId ?? $playerId, $playerId, $mode, $position);
-                unset($battlefield);
-                continue;
-            }
-
-            $existing = is_array($battlefield[$existingIndex]) ? $battlefield[$existingIndex] : [];
-            $battlefield[$existingIndex] = [
-                ...$this->dayNightBattlefieldCard($card, $createdByPlayerId ?? $playerId, $playerId, $mode, $position),
-                'instanceId' => $this->nonEmptyString($existing['instanceId'] ?? null) ?? Uuid::v7()->toRfc4122(),
-                'counters' => is_array($existing['counters'] ?? null) ? $existing['counters'] : [],
-            ];
-            unset($battlefield);
-        }
-    }
-
     private function removeDayNightBattlefieldCards(array &$snapshot): void
     {
         foreach ($this->snapshotPlayerIds($snapshot) as $playerId) {
@@ -491,61 +453,6 @@ final class GameSpecialEntityCommandHandler
                 fn (mixed $card): bool => !$this->isDayNightBattlefieldCard($card),
             ));
         }
-    }
-
-    /**
-     * @param array<string,mixed> $card
-     * @param array{x: float|int, y: float|int, unit: string} $position
-     *
-     * @return array<string,mixed>
-     */
-    private function dayNightBattlefieldCard(array $card, string $ownerPlayerId, string $controllerPlayerId, string $mode, array $position): array
-    {
-        return [
-            'instanceId' => Uuid::v7()->toRfc4122(),
-            'ownerId' => $ownerPlayerId,
-            'controllerId' => $controllerPlayerId,
-            'scryfallId' => $card['scryfallId'],
-            'name' => $card['name'],
-            'imageUris' => $card['imageUris'] ?? [],
-            'cardFaces' => $card['cardFaces'] ?? [],
-            'typeLine' => $card['typeLine'] ?? 'Card // Card',
-            'manaCost' => null,
-            'oracleText' => $card['oracleText'] ?? null,
-            'colorIdentity' => [],
-            'power' => null,
-            'toughness' => null,
-            'loyalty' => null,
-            'defaultPower' => null,
-            'defaultToughness' => null,
-            'defaultLoyalty' => null,
-            'tapped' => false,
-            'faceDown' => false,
-            'activeFaceIndex' => $mode === 'night' ? 1 : 0,
-            'revealedTo' => [],
-            'position' => $position,
-            'rotation' => 0,
-            'counters' => [],
-            'zone' => 'battlefield',
-            'isToken' => true,
-            'isTokenCopy' => false,
-            'isCommander' => false,
-            'layout' => self::DAY_NIGHT_CARD_LAYOUT,
-        ];
-    }
-
-    /**
-     * @param list<mixed> $battlefield
-     */
-    private function dayNightBattlefieldCardIndex(array $battlefield): ?int
-    {
-        foreach ($battlefield as $index => $card) {
-            if ($this->isDayNightBattlefieldCard($card)) {
-                return (int) $index;
-            }
-        }
-
-        return null;
     }
 
     private function isDayNightBattlefieldCard(mixed $card): bool
@@ -576,10 +483,6 @@ final class GameSpecialEntityCommandHandler
                 'createdByPlayerId' => $this->nonEmptyString($state['createdByPlayerId'] ?? null),
                 'positions' => $this->normalizeDayNightPositions($state['positions'] ?? []),
             ],
-            'the_ring' => [
-                'level' => max(1, min(4, (int) ($state['level'] ?? 1))),
-                'ringBearerInstanceId' => $this->nonEmptyString($state['ringBearerInstanceId'] ?? null),
-            ],
             'dungeon' => [
                 'roomIndex' => isset($state['roomIndex']) && is_numeric($state['roomIndex']) ? max(0, (int) $state['roomIndex']) : null,
                 'roomName' => $this->nonEmptyString($state['roomName'] ?? null),
@@ -597,25 +500,6 @@ final class GameSpecialEntityCommandHandler
     {
         if (($entity['template'] ?? null) === 'day_night') {
             $entity['state'] = $this->sanitizeDayNightState($snapshot, $entity);
-
-            return $entity;
-        }
-
-        if (($entity['template'] ?? null) !== 'the_ring') {
-            return $entity;
-        }
-
-        $ownerPlayerId = $this->nonEmptyString($entity['ownerPlayerId'] ?? null);
-        $ringBearerInstanceId = $this->nonEmptyString($entity['state']['ringBearerInstanceId'] ?? null);
-        if ($ownerPlayerId === null || $ringBearerInstanceId === null) {
-            $entity['state']['ringBearerInstanceId'] = null;
-
-            return $entity;
-        }
-
-        $ringBearer = $this->findBattlefieldCard($snapshot, $ringBearerInstanceId);
-        if ($ringBearer === null || ($ringBearer['controllerId'] ?? null) !== $ownerPlayerId) {
-            $entity['state']['ringBearerInstanceId'] = null;
         }
 
         return $entity;
@@ -719,27 +603,6 @@ final class GameSpecialEntityCommandHandler
         return $this->snapshotPlayerIds($snapshot)[0] ?? null;
     }
 
-    /**
-     * @return array<string,mixed>|null
-     */
-    private function findBattlefieldCard(array $snapshot, string $instanceId): ?array
-    {
-        foreach (($snapshot['players'] ?? []) as $player) {
-            $battlefield = $player['zones']['battlefield'] ?? [];
-            if (!is_array($battlefield)) {
-                continue;
-            }
-
-            foreach ($battlefield as $card) {
-                if (is_array($card) && ($card['instanceId'] ?? null) === $instanceId) {
-                    return $card;
-                }
-            }
-        }
-
-        return null;
-    }
-
     private function singletonKey(array $entity): ?string
     {
         $template = (string) ($entity['template'] ?? '');
@@ -747,7 +610,7 @@ final class GameSpecialEntityCommandHandler
             return $template;
         }
 
-        if (in_array($template, ['citys_blessing', 'the_ring', 'dungeon'], true)) {
+        if (in_array($template, ['citys_blessing', 'dungeon'], true)) {
             $ownerPlayerId = $this->nonEmptyString($entity['ownerPlayerId'] ?? null);
             if ($ownerPlayerId === null) {
                 return $template.':missing-owner';
@@ -899,7 +762,6 @@ final class GameSpecialEntityCommandHandler
             'initiative' => 'Took the initiative.',
             'citys_blessing' => 'Got the city\'s blessing.',
             'day_night' => (($entity['state']['mode'] ?? 'day') === 'night') ? 'Set the game to night.' : 'Set the game to day.',
-            'the_ring' => 'Created The Ring.',
             'emblem' => sprintf('%s gets emblem %s.', $this->playerName($snapshot, (string) ($entity['ownerPlayerId'] ?? '')), (string) ($entity['card']['name'] ?? '')),
             'dungeon' => sprintf('Entered dungeon %s.', (string) ($entity['card']['name'] ?? '')),
             default => 'Created a helper.',
@@ -910,7 +772,6 @@ final class GameSpecialEntityCommandHandler
     {
         return match ($entity['template']) {
             'day_night' => (($entity['state']['mode'] ?? 'day') === 'night') ? 'Set the game to night.' : 'Set the game to day.',
-            'the_ring' => $this->ringBearerMessage($snapshot, $entity) ?? 'Updated The Ring.',
             'dungeon' => 'Updated dungeon progress.',
             default => 'Updated a helper.',
         };
@@ -923,26 +784,10 @@ final class GameSpecialEntityCommandHandler
             'initiative' => 'Removed the initiative designation.',
             'citys_blessing' => 'Removed the city\'s blessing.',
             'day_night' => 'Removed the day/night designation.',
-            'the_ring' => 'Removed The Ring.',
             'emblem' => sprintf('Removed emblem %s.', (string) ($entity['card']['name'] ?? '')),
             'dungeon' => sprintf('Removed dungeon %s.', (string) ($entity['card']['name'] ?? '')),
             default => 'Removed a helper.',
         };
-    }
-
-    private function ringBearerMessage(array $snapshot, array $entity): ?string
-    {
-        $ringBearerInstanceId = $this->nonEmptyString($entity['state']['ringBearerInstanceId'] ?? null);
-        if ($ringBearerInstanceId === null) {
-            return null;
-        }
-
-        $card = $this->findBattlefieldCard($snapshot, $ringBearerInstanceId);
-        if ($card === null) {
-            return null;
-        }
-
-        return sprintf('Set %s as Ring-bearer.', (string) ($card['name'] ?? ''));
     }
 
     private function playerName(array $snapshot, string $playerId): string

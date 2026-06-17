@@ -151,6 +151,7 @@
         [showTokenCopyMarker]="currentCard.isTokenCopy === true"
         [showRulingsMarker]="showRulingsMarker()"
         [counters]="visibleCounters()"
+        [countersInteractive]="countersEditable()"
         (rulingsRequested)="openRulings($event)"
         (counterChanged)="changeCounter($event)"
         (counterDeleteRequested)="requestCounterDelete($event)"

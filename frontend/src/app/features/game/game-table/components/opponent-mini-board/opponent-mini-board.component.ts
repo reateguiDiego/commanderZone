@@ -1,5 +1,5 @@
 import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
-import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
 import { GameAttachment, GameCardInstance, GameSpecialEntity, GameZoneName } from '../../../../../core/models/game.model';
 import { PlayerView } from '../../game-table.store';
@@ -94,7 +94,6 @@ export class OpponentMiniBoardComponent {
   readonly cardsTargetCards = input<readonly OpponentCardsTargetCard[]>([]);
   readonly specialEntitiesSummary = input<GameTablePlayerSpecialEntitiesSummary | null>(null);
   readonly mechanicCards = input<readonly GameCardInstance[]>([]);
-  readonly ringBearerName = input<(entity: GameSpecialEntity) => string | null>(() => null);
 
   readonly focusPlayer = output<string>();
   readonly dropAllowed = output<DragEvent>();
@@ -105,7 +104,15 @@ export class OpponentMiniBoardComponent {
   readonly helperContextRequested = output<{ event: MouseEvent; entity: GameSpecialEntity }>();
   readonly cardPreviewShown = output<CardPreviewEvent>();
   readonly cardPreviewHidden = output<void>();
-  readonly battlefieldCardClicked = output<{ event: MouseEvent; playerId: string; card: GameCardInstance }>();
+  readonly battlefieldCardClicked = output<{
+    event: MouseEvent;
+    playerId: string;
+    card: GameCardInstance;
+    forceOpenLeft?: boolean;
+  }>();
+  readonly mechanicsEntities = computed(() =>
+    this.specialEntitiesSummary()?.displayEntities.filter((entity) => entity.template !== 'the_ring') ?? [],
+  );
 
   zoneCountTooltip(player: PlayerView, summary: OpponentZoneSummary): string {
     return `${summary.title}: ${this.zoneCount()(player, summary.zone)}`;
@@ -157,10 +164,6 @@ export class OpponentMiniBoardComponent {
     const variant = PLAYER_BORDER_VARIANTS[this.stableIndex(variantSeed, PLAYER_BORDER_VARIANTS.length)];
 
     return this.mixHexColors(base, variant, 0.28);
-  }
-
-  mechanicsEntities(): readonly GameSpecialEntity[] {
-    return this.specialEntitiesSummary()?.displayEntities ?? [];
   }
 
   focusFromKeyboard(event: KeyboardEvent): void {

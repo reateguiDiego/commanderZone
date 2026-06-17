@@ -74,7 +74,7 @@
           [landStackDropTarget]="false"
           [landStackDropSize]="0"
           landStackDropKind="land"
-          (cardMenuOpened)="cardMenuOpened.emit({ event: $event.event, card: $event.card })"
+          (cardMenuOpened)="openBattlefieldCardMenu($event.event, $event.card)"
           (cardMouseEntered)="cardPreviewShown.emit($event)"
           (cardPreviewRequested)="cardPreviewRequested.emit($event)"
           (cardMouseLeft)="cardPreviewHidden.emit()"

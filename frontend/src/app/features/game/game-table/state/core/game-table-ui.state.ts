@@ -24,6 +24,7 @@ export interface GameContextMenu {
   fromFixedZoneModal?: boolean;
   kind?: 'zone' | 'card' | 'game' | 'player' | 'arrow' | 'counter' | 'manaPool';
   sourceRect?: CardPreviewSourceRect | null;
+  forceOpenLeft?: boolean;
 }
 
 export interface HoveredCardSelection {
@@ -253,7 +254,7 @@ export class GameTableUiState {
   private menuPosition(
     clientX: number,
     clientY: number,
-    target?: Pick<GameContextMenu, 'kind' | 'sourceRect'>,
+    target?: Pick<GameContextMenu, 'kind' | 'sourceRect' | 'forceOpenLeft'>,
   ): Pick<GameContextMenu, 'x' | 'y' | 'verticalOrigin'> {
     const width = target?.kind === 'counter' || target?.kind === 'arrow' ? CONTEXT_MENU_COMPACT_WIDTH : CONTEXT_MENU_WIDTH;
     const height = CONTEXT_MENU_ESTIMATED_HEIGHT;
@@ -266,7 +267,9 @@ export class GameTableUiState {
       ? Math.max(edgeGap, viewportHeight - clientY + clickGap)
       : Math.max(edgeGap, clientY + clickGap);
     const prefersLeftOfPointer = viewportWidth > 0 && viewportWidth < width * 2;
-    const preferredX = this.shouldOpenLeftOfCard(clientX, edgeOffset, width, height, openUp, target)
+    const shouldOpenLeft = target?.forceOpenLeft === true
+      || this.shouldOpenLeftOfCard(clientX, edgeOffset, width, height, openUp, target);
+    const preferredX = shouldOpenLeft
       ? (target?.sourceRect?.left ?? clientX) - width - clickGap
       : prefersLeftOfPointer
         ? clientX - width - clickGap

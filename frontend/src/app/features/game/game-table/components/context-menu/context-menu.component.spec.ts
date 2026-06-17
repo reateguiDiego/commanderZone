@@ -712,8 +712,8 @@ describe('ContextMenuComponent', () => {
     const selected = vi.fn();
     fixture.componentInstance.actionSelected.subscribe(selected);
 
-    expect(buttonLabels(fixture)[0]).toBe('Remove');
-    expect(buttonLabels(fixture)[1]).toContain('Give to');
+    expect(buttonLabels(fixture)[0]).toContain('Give to');
+    expect(buttonLabels(fixture)[1]).toBe('Remove');
     expect(menuText(fixture)).not.toContain('Tap');
     expect(menuText(fixture)).not.toContain('Attach');
     expect(menuText(fixture)).not.toContain('Move to');
@@ -759,8 +759,8 @@ describe('ContextMenuComponent', () => {
     const selected = vi.fn();
     fixture.componentInstance.actionSelected.subscribe(selected);
 
-    expect(buttonLabels(fixture)[0]).toBe('Remove');
-    expect(buttonLabels(fixture)[1]).toContain('Give to');
+    expect(buttonLabels(fixture)[0]).toContain('Give to');
+    expect(buttonLabels(fixture)[1]).toBe('Remove');
 
     fixture.componentInstance.toggleSubmenu(new MouseEvent('click'), 'giveInitiativeToPlayer');
     fixture.detectChanges();
@@ -774,6 +774,35 @@ describe('ContextMenuComponent', () => {
       ?.click();
 
     expect(selected).toHaveBeenCalledWith({ type: 'giveInitiativeToPlayer', targetPlayerId: 'user-3' });
+  });
+
+  it('opens forced-left mechanic card submenus to the left', () => {
+    const fixture = createContextMenuFixture({
+      kind: 'card',
+      playerId: 'user-1',
+      zone: 'battlefield',
+      forceOpenLeft: true,
+      card: {
+        instanceId: 'monarch:entity-1',
+        ownerId: 'user-1',
+        controllerId: 'user-1',
+        name: 'Monarch',
+        layout: 'monarch',
+        typeLine: 'Game Mechanic - Monarch',
+        tapped: false,
+        zone: 'battlefield',
+      },
+    }, {
+      currentPlayer: player('user-1', 'User'),
+      players: [
+        player('user-1', 'User'),
+        player('user-2', 'Opponent'),
+      ],
+    });
+
+    expect((fixture.nativeElement as HTMLElement).querySelector('.context-menu.side-left-menu')).not.toBeNull();
+    expect((fixture.nativeElement as HTMLElement).querySelector('.submenu.side-left')).not.toBeNull();
+    expect((fixture.nativeElement as HTMLElement).querySelector('.submenu.child-side-left')).not.toBeNull();
   });
 
   it('shows only day-night toggle and creator remove actions for day-night cards', () => {
@@ -893,7 +922,7 @@ describe('ContextMenuComponent', () => {
     }
   });
 
-  it('offers setting a controlled battlefield creature as Ring-bearer', () => {
+  it('does not offer the legacy Ring-bearer helper action for creatures', () => {
     const fixture = createContextMenuFixture({
       kind: 'card',
       playerId: 'user-1',
@@ -908,11 +937,8 @@ describe('ContextMenuComponent', () => {
     const button = menuButtons(fixture)
       .find((candidate) => candidate.textContent?.includes('Set as ring-bearer'));
 
-    expect(button).toBeDefined();
-
-    button?.click();
-
-    expect(selected).toHaveBeenCalledWith({ type: 'setRingBearer' });
+    expect(button).toBeUndefined();
+    expect(selected).not.toHaveBeenCalled();
   });
 
   it('uses distinct card options for library cards and shared options for graveyard and exile cards', () => {
@@ -1125,6 +1151,26 @@ describe('ContextMenuComponent', () => {
     expect(selected).toHaveBeenCalledWith({ type: 'openLibraryView', mode: 'all' });
   });
 
+  it('opens library submenus to the left in aggressive compact mode', () => {
+    const restoreMatchMedia = mockMatchMedia(true);
+    try {
+      const fixture = createContextMenuFixture({
+        kind: 'zone',
+        playerId: 'user-1',
+        zone: 'library',
+      });
+
+      fixture.componentInstance.toggleSubmenu(new MouseEvent('click'), 'libraryMoveTop');
+      fixture.detectChanges();
+
+      expect((fixture.nativeElement as HTMLElement).querySelector('.context-menu.side-left-menu')).not.toBeNull();
+      expect((fixture.nativeElement as HTMLElement).querySelector('.submenu.side-left')).not.toBeNull();
+      expect((fixture.nativeElement as HTMLElement).querySelector('.submenu.child-side-left')).not.toBeNull();
+    } finally {
+      restoreMatchMedia();
+    }
+  });
+
   it('keeps battlefield card actions and omits moving to the current zone', () => {
     const fixture = createContextMenuFixture({
       kind: 'card',
@@ -1198,7 +1244,7 @@ describe('ContextMenuComponent', () => {
     expect(selected).toHaveBeenCalledWith({ type: 'moveCard', zone: 'graveyard' });
   });
 
-  it('adds remove stack to a stacked emblem battlefield card menu', () => {
+  it('does not add remove stack to a stacked emblem battlefield card menu', () => {
     const fixture = createContextMenuFixture({
       kind: 'card',
       playerId: 'user-1',
@@ -1210,13 +1256,8 @@ describe('ContextMenuComponent', () => {
     const selected = vi.fn();
     fixture.componentInstance.actionSelected.subscribe(selected);
 
-    expect(buttonLabels(fixture)).toEqual(['Remove', 'Remove stack']);
-
-    const removeStack = menuButtons(fixture)
-      .find((button) => button.textContent?.includes('Remove stack'));
-    removeStack?.click();
-
-    expect(selected).toHaveBeenCalledWith({ type: 'removeStack' });
+    expect(buttonLabels(fixture)).toEqual(['Remove']);
+    expect(menuText(fixture)).not.toContain('Remove stack');
   });
 
   it('limits a dungeon battlefield card menu to remove without stack actions', () => {
@@ -1715,6 +1756,30 @@ function buttonLabels(fixture: ComponentFixture<ContextMenuComponent>): string[]
 
 function menuButtons(fixture: ComponentFixture<ContextMenuComponent>): HTMLButtonElement[] {
   return Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button'));
+}
+
+function mockMatchMedia(matches: boolean): () => void {
+  const original = window.matchMedia;
+  Object.defineProperty(window, 'matchMedia', {
+    configurable: true,
+    value: vi.fn().mockImplementation((query: string) => ({
+      matches,
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })),
+  });
+
+  return () => {
+    Object.defineProperty(window, 'matchMedia', {
+      configurable: true,
+      value: original,
+    });
+  };
 }
 
 function card(instanceId: string, oracleText = ''): GameCardInstance {

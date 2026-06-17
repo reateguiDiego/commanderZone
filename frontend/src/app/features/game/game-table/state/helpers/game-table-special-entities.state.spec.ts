@@ -117,7 +117,7 @@ describe('GameTableSpecialEntitiesState', () => {
     }));
   });
 
-  it('does not render the initiative helper card while the active dungeon is Undercity', () => {
+  it('renders the initiative helper card while the active dungeon is Undercity', () => {
     const core = TestBed.inject(GameTableCoreState);
     const state = TestBed.inject(GameTableSpecialEntitiesState);
 
@@ -160,7 +160,14 @@ describe('GameTableSpecialEntitiesState', () => {
       }],
     });
 
-    expect(state.initiativeCardForPlayer('user-1')).toBeNull();
+    expect(state.initiativeCardForPlayer('user-1')).toEqual(expect.objectContaining({
+      instanceId: 'initiative:initiative-1',
+      scryfallId: 'initiative-card',
+      name: 'The Initiative',
+      layout: 'initiative',
+      activeFaceIndex: 1,
+      zone: 'battlefield',
+    }));
   });
 
   it('renders the initiative helper card when the player has no active dungeon', () => {
@@ -276,7 +283,7 @@ describe('GameTableSpecialEntitiesState', () => {
     }));
   });
 
-  it('keeps the initiative preview available while Undercity is the active dungeon', () => {
+  it('keeps the initiative card and preview available while Undercity is the active dungeon', () => {
     const core = TestBed.inject(GameTableCoreState);
     const state = TestBed.inject(GameTableSpecialEntitiesState);
     const initiative = {
@@ -312,7 +319,13 @@ describe('GameTableSpecialEntitiesState', () => {
       specialEntities: [initiative],
     });
 
-    expect(state.initiativeCardForPlayer('user-1')).toBeNull();
+    expect(state.initiativeCardForPlayer('user-1')).toEqual(expect.objectContaining({
+      instanceId: 'initiative:initiative-1',
+      scryfallId: '2c65185b-6cf0-451d-985e-56aa45d9a57d',
+      name: 'The Initiative',
+      activeFaceIndex: 1,
+      zone: 'battlefield',
+    }));
     expect(state.helperPreviewCard(initiative)).toEqual(expect.objectContaining({
       instanceId: 'initiative:initiative-1',
       scryfallId: '2c65185b-6cf0-451d-985e-56aa45d9a57d',
@@ -323,6 +336,40 @@ describe('GameTableSpecialEntitiesState', () => {
         expect.objectContaining({ name: 'The Initiative' }),
       ]),
     }));
+  });
+
+  it('does not expose battlefield-backed legacy helpers as rail display entities', () => {
+    const core = TestBed.inject(GameTableCoreState);
+    const state = TestBed.inject(GameTableSpecialEntitiesState);
+    const snapshot = snapshotWithMonarchCard();
+    const monarch = snapshot.specialEntities?.[0];
+
+    core.snapshot.set({
+      ...snapshot,
+      specialEntities: [
+        monarch!,
+        {
+          id: 'dungeon-1',
+          template: 'dungeon',
+          scope: 'player',
+          ownerPlayerId: 'user-1',
+          card: null,
+          state: {},
+          createdAt: '2026-06-16T00:00:01+00:00',
+        },
+        {
+          id: 'emblem-1',
+          template: 'emblem',
+          scope: 'player',
+          ownerPlayerId: 'user-1',
+          card: null,
+          state: {},
+          createdAt: '2026-06-16T00:00:02+00:00',
+        },
+      ],
+    });
+
+    expect(state.summaryForPlayer('user-1').displayEntities.map((entity) => entity.template)).toEqual(['monarch']);
   });
 
   it('returns battlefield mechanic cards in creation order for the owning player', () => {

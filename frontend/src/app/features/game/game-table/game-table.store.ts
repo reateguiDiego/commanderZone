@@ -652,10 +652,19 @@ export class GameTableStore implements OnDestroy {
     return this.selection.isSelected(instanceId);
   }
 
-  openCardMenu(event: MouseEvent, playerId: string, zone: GameZoneName, card: GameCardInstance): void {
+  openCardMenu(
+    event: MouseEvent,
+    playerId: string,
+    zone: GameZoneName,
+    card: GameCardInstance,
+    options: { forceOpenLeft?: boolean } = {},
+  ): void {
     const sourceRect = this.previewSourceRect(event);
     this.clearCardPreview();
-    this.interactionActions.openCardMenu(this.contexts.interaction(), event, playerId, zone, card, { sourceRect });
+    this.interactionActions.openCardMenu(this.contexts.interaction(), event, playerId, zone, card, {
+      sourceRect,
+      forceOpenLeft: options.forceOpenLeft,
+    });
   }
 
   openZoneMenu(event: MouseEvent, playerId: string, zone: GameZoneName): void {
@@ -1347,7 +1356,7 @@ export class GameTableStore implements OnDestroy {
   }
 
   async createHelper(
-    template: 'monarch' | 'initiative' | 'citys_blessing' | 'day_night' | 'the_ring' | 'emblem' | 'dungeon',
+    template: 'monarch' | 'initiative' | 'citys_blessing' | 'day_night' | 'emblem' | 'dungeon',
     ownerPlayerId: string | null,
     options: { card?: GameSpecialEntity['card']; state?: Record<string, unknown> } = {},
   ): Promise<void> {
@@ -1364,10 +1373,6 @@ export class GameTableStore implements OnDestroy {
 
   async removeHelper(entityId: string): Promise<void> {
     await this.specialEntityActions.removeHelper(this.specialEntityActionContext(), entityId);
-  }
-
-  async setRingBearer(playerId: string, card: GameCardInstance): Promise<void> {
-    await this.specialEntityActions.setRingBearer(this.specialEntityActionContext(), playerId, card);
   }
 
   async setPowerToughness(menu: GameContextMenu, power: number, toughness: number): Promise<void> {

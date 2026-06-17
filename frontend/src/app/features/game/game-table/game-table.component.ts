@@ -671,7 +671,6 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     this.store.players()
       .find((player) => player.id === playerId)
       ?.state.zones.battlefield.some((card) => isTheRingCard(card)) ?? false;
-  readonly ringBearerName = (entity: GameSpecialEntity): string | null => this.specialEntityState.ringBearerCardName(entity);
   readonly rollModalOpen = signal(false);
   readonly tableExitTitle = computed(() => this.tableExitAction() === 'leave' ? 'Leave table?' : 'Concede game?');
   readonly tableExitMessage = computed(() => this.tableExitAction() === 'leave'
@@ -2425,11 +2424,6 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
       case 'tokenCopy':
         void this.store.tokenCopy(menu);
         return;
-      case 'setRingBearer':
-        if (menu.card) {
-          void this.store.setRingBearer(menu.playerId, menu.card);
-        }
-        return;
       case 'drawArrow':
         this.openArrowTargetDialog(menu);
         return;
@@ -3377,7 +3371,12 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
     this.closeOpponentsDrawer();
   }
 
-  handleOpponentMiniBattlefieldCardClick(event: { event: MouseEvent; playerId: string; card: GameCardInstance }): void {
+  handleOpponentMiniBattlefieldCardClick(event: {
+    event: MouseEvent;
+    playerId: string;
+    card: GameCardInstance;
+    forceOpenLeft?: boolean;
+  }): void {
     event.event.preventDefault();
     event.event.stopPropagation();
     this.focusOpponentFromSidebar(event.playerId);

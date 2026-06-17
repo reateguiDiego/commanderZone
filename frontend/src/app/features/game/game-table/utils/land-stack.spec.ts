@@ -25,7 +25,7 @@ describe('land stack utilities', () => {
     expect(three[0]?.members.map((member) => member.card.instanceId)).toEqual(['top', 'under', 'bottom']);
   });
 
-  it('detects compact emblem stacks separately from land stacks', () => {
+  it('ignores compact emblem positions while detecting land stacks', () => {
     const groups = buildLandStackGroups([
       emblem('emblem-top', 100, 200),
       emblem('emblem-under', 110, 182),
@@ -34,7 +34,6 @@ describe('land stack utilities', () => {
     ], positionFor);
 
     expect(groups.map((group) => group.members.map((member) => member.card.instanceId))).toEqual([
-      ['emblem-top', 'emblem-under'],
       ['land-top', 'land-under'],
     ]);
   });
@@ -207,16 +206,14 @@ describe('land stack utilities', () => {
     )).toBeNull();
   });
 
-  it('allows stack drops between emblems only', () => {
+  it('rejects stack drops involving emblems', () => {
     const battlefield = [
       emblem('target-emblem', 100, 200),
       emblem('dragged-emblem', 260, 200),
       land('target-land', 420, 200),
     ];
 
-    const emblemTarget = landStackDropTarget(battlefield, 'dragged-emblem', { x: 100, y: 200 }, positionFor);
-
-    expect(emblemTarget?.targetCard.instanceId).toBe('target-emblem');
+    expect(landStackDropTarget(battlefield, 'dragged-emblem', { x: 100, y: 200 }, positionFor)).toBeNull();
     expect(landStackDropTarget(battlefield, 'dragged-emblem', { x: 420, y: 200 }, positionFor)).toBeNull();
     expect(landStackDropTarget(battlefield, 'target-land', { x: 100, y: 200 }, positionFor)).toBeNull();
   });

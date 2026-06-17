@@ -15,7 +15,7 @@
       [image]="cardImage()"
       [miniViewportSize]="viewportSize()"
       [miniCardBaseWidthPx]="mechanicMiniCardWidthPx()"
-      (cardMenuOpened)="battlefieldCardClicked.emit({ event: $event.event, playerId: playerId(), card: $event.card })"
+      (cardMenuOpened)="battlefieldCardClicked.emit({ event: $event.event, playerId: playerId(), card: $event.card, forceOpenLeft: $event.forceOpenLeft })"
       (cardPreviewShown)="showCardPreview($event)"
       (cardPreviewRequested)="showCardPreview($event)"
       (cardPreviewHidden)="cardPreviewHidden.emit()"

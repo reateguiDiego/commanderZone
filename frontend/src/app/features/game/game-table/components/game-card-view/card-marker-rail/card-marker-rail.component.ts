@@ -47,6 +47,7 @@ export class CardMarkerRailComponent {
   readonly counters = input<readonly CardMarkerCounter[]>([]);
   readonly compact = input(false);
   readonly inline = input(false);
+  readonly countersInteractive = input(true);
   readonly hasMarkers = computed(() => this.showTokenCopyMarker() || this.showRulingsMarker() || this.counters().length > 0);
   readonly markerCounters = computed<readonly CardMarkerCounterView[]>(() =>
     this.counters().map((counter) => this.counterView(counter)),
@@ -63,6 +64,10 @@ export class CardMarkerRailComponent {
   changeCounter(event: MouseEvent, counter: CardMarkerCounterView, delta: number): void {
     event.preventDefault();
     event.stopPropagation();
+    if (!this.countersInteractive()) {
+      return;
+    }
+
     if (delta < 0 && counter.value <= 0) {
       this.counterDeleteRequested.emit({ event, key: counter.key });
       return;
@@ -79,6 +84,10 @@ export class CardMarkerRailComponent {
   onMarkerPointerUp(event: PointerEvent, key: string): void {
     event.preventDefault();
     event.stopPropagation();
+    if (!this.countersInteractive()) {
+      return;
+    }
+
     if (event.button === 0) {
       this.counterChanged.emit({ event, key, delta: 1 });
     }

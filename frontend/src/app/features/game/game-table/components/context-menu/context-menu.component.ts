@@ -4,7 +4,7 @@ import { LucideAngularModule } from 'lucide-angular';
 import { GameCardInstance, GameZoneName } from '../../../../../core/models/game.model';
 import { GameContextMenu } from '../../state/core/game-table-ui.state';
 import { PlayerView } from '../../game-table.store';
-import { ContextSubmenuComponent, ContextSubmenuItem } from './context-submenu/context-submenu.component';
+import { ContextSubmenuComponent, ContextSubmenuItem, type ContextSubmenuSide } from './context-submenu/context-submenu.component';
 import { playerIsDefeated } from '../../utils/game-player-defeat';
 import { contextMenuDisplayLabel } from './context-menu-label';
 import { ManaSourceSuggestion } from '../../utils/mana-source-detector';
@@ -65,7 +65,6 @@ export type ContextMenuAction =
   | { type: 'showManaPool' }
   | { type: 'resetManaPool' }
   | { type: 'tokenCopy' }
-  | { type: 'setRingBearer' }
   | { type: 'drawArrow' }
   | { type: 'equipCard' }
   | { type: 'unequipCard' }
@@ -97,6 +96,8 @@ type ContextSubmenu =
   | 'libraryReveal'
   | 'libraryView'
   | 'gameMechanics';
+
+const AGGRESSIVE_COMPACT_MEDIA_QUERY = '(max-width: 1180px) and (max-height: 768px)';
 
 @Component({
   selector: 'app-context-menu',
@@ -438,11 +439,6 @@ export class ContextMenuComponent {
     return !!card?.ownerId && !!currentPlayer && card.ownerId === currentPlayer.id;
   }
 
-  canRemoveGameplayCardStack(): boolean {
-    return gameplayCardKind(this.menu().card) === 'emblem'
-      && this.canRemoveLandStack();
-  }
-
   canGiveMonarchToPlayer(): boolean {
     return this.monarchGiveTargets().length > 0;
   }
@@ -501,14 +497,6 @@ export class ContextMenuComponent {
       && this.isAttachmentTarget()(currentMenu.playerId, currentMenu.card);
   }
 
-  canSetRingBearer(): boolean {
-    const currentMenu = this.menu();
-    return currentMenu.zone === 'battlefield'
-      && !!currentMenu.card
-      && this.canControlPlayer()(currentMenu.playerId)
-      && (currentMenu.card.typeLine ?? '').toLowerCase().includes('creature');
-  }
-
   activeVentureKind(): VentureCardKind | null {
     const currentMenu = this.menu();
     if (
@@ -549,7 +537,19 @@ export class ContextMenuComponent {
 
   usesLeftSubmenus(): boolean {
     const currentMenu = this.menu();
-    return !currentMenu.card && (currentMenu.zone === 'graveyard' || currentMenu.zone === 'exile');
+    if (currentMenu.forceOpenLeft === true) {
+      return true;
+    }
+
+    if (!currentMenu.card && (currentMenu.zone === 'graveyard' || currentMenu.zone === 'exile')) {
+      return true;
+    }
+
+    return !currentMenu.card && currentMenu.zone === 'library' && this.isAggressiveCompactViewport();
+  }
+
+  submenuSide(): ContextSubmenuSide {
+    return this.usesLeftSubmenus() ? 'left' : 'right';
   }
 
   isPlayTopLibraryRevealed(): boolean {
@@ -788,6 +788,12 @@ export class ContextMenuComponent {
 
   private sortedItems(items: readonly ContextSubmenuItem[]): readonly ContextSubmenuItem[] {
     return [...items].sort((left, right) => left.label.localeCompare(right.label));
+  }
+
+  private isAggressiveCompactViewport(): boolean {
+    return typeof window !== 'undefined'
+      && typeof window.matchMedia === 'function'
+      && window.matchMedia(AGGRESSIVE_COMPACT_MEDIA_QUERY).matches;
   }
 
   private buildMoveAllToMenuItems(): readonly ContextSubmenuItem[] {

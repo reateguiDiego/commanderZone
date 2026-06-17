@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, HostBinding, computed, input, output } from '@angular/core';
 import { GameSpecialEntity } from '../../../../../core/models/game.model';
 import { SpecialEntityRailComponent } from '../special-entity-rail/special-entity-rail.component';
+import { visibleSpecialEntityRailEntities } from '../../utils/special-entity-rail-visibility';
 
 export type SpecialEntityStripVariant = 'summary' | 'compact';
 
@@ -14,12 +15,12 @@ export type SpecialEntityStripVariant = 'summary' | 'compact';
 export class SpecialEntityStripComponent {
   readonly variant = input<SpecialEntityStripVariant>('summary');
   readonly entities = input.required<readonly GameSpecialEntity[]>();
-  readonly ringBearerName = input.required<(entity: GameSpecialEntity) => string | null>();
 
   readonly previewRequested = output<GameSpecialEntity>();
   readonly previewHidden = output<void>();
   readonly entityContextRequested = output<{ event: MouseEvent; entity: GameSpecialEntity }>();
-  readonly hasEntities = computed(() => this.entities().length > 0);
+  readonly visibleEntities = computed(() => visibleSpecialEntityRailEntities(this.entities()));
+  readonly hasEntities = computed(() => this.visibleEntities().length > 0);
 
   @HostBinding('attr.data-variant')
   get hostVariant(): SpecialEntityStripVariant {

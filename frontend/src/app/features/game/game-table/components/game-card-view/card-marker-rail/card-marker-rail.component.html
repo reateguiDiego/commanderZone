@@ -9,14 +9,15 @@
       @for (currentCounter of markerCounters(); track currentCounter.key) {
         <span
           class="card-marker counter-marker"
+          [class.readonly-counter-marker]="!countersInteractive()"
           [class.color-counter-marker]="currentCounter.kind === 'color'"
           [class.stat-counter-marker]="currentCounter.kind === 'stat'"
           [class.generic-counter-marker]="currentCounter.kind === 'generic'"
           [style.--counter-color]="currentCounter.color"
           [attr.aria-label]="currentCounter.key + ' counter ' + currentCounter.value"
-          [title]="currentCounter.key + ' counter. Left click adds, right click removes.'"
-          role="button"
-          tabindex="0"
+          [title]="countersInteractive() ? currentCounter.key + ' counter. Left click adds, right click removes.' : currentCounter.key + ' counter.'"
+          [attr.role]="countersInteractive() ? 'button' : null"
+          [attr.tabindex]="countersInteractive() ? '0' : null"
           (pointerdown)="stopMarkerPointer($event)"
           (pointerup)="onMarkerPointerUp($event, currentCounter.key)"
           (click)="swallowMouseEvent($event)"

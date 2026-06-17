@@ -541,12 +541,12 @@ describe('GameTableComponent', () => {
     const snapshot = snapshotWithStatus('active');
     addOpponent(snapshot);
     snapshot.specialEntities = [{
-      id: 'ring-1',
-      template: 'the_ring',
-      scope: 'player',
+      id: 'monarch-1',
+      template: 'monarch',
+      scope: 'global',
       ownerPlayerId: 'user-2',
       card: null,
-      state: { level: 2, ringBearerInstanceId: null },
+      state: {},
       createdAt: '2026-04-30T20:00:00+00:00',
     }];
     gamesApi.snapshot.mockReturnValue(of({ game: { id: 'game-1', status: 'active', snapshot } }));
@@ -561,7 +561,7 @@ describe('GameTableComponent', () => {
     const opponent = fixture.nativeElement.querySelector('[data-testid="opponent-mini-board"][data-player-id="user-2"]') as HTMLElement;
 
     expect(opponent.querySelector('[data-testid="opponent-mechanics-button"]')).toBeNull();
-    expect(opponent.querySelector('[data-testid="special-entity-strip"] [aria-label="The Ring - Level 2"]')).not.toBeNull();
+    expect(opponent.querySelector('[data-testid="special-entity-strip"] [aria-label="Monarch"]')).not.toBeNull();
     expect(fixture.nativeElement.querySelector('app-special-helper-modal')).toBeNull();
   });
 

@@ -66,6 +66,18 @@ describe('BattlefieldMechanicsOverlayComponent', () => {
     expect(cards[0]?.style.left).toBe('409px');
     expect(cards[1]?.style.left).toBe('455px');
   });
+
+  it('requests left-opening context menus for mechanic overlay cards', () => {
+    const card = mechanicCard('monarch:1', 'Monarch');
+    const opened = vi.fn();
+    fixture.componentInstance.cardMenuOpened.subscribe(opened);
+
+    fixture.componentInstance.openBattlefieldCardMenu(new MouseEvent('contextmenu'), card);
+    fixture.componentInstance.openMiniCardMenu(new MouseEvent('contextmenu'), card);
+
+    expect(opened).toHaveBeenCalledWith(expect.objectContaining({ card, forceOpenLeft: true }));
+    expect(opened).toHaveBeenCalledTimes(2);
+  });
 });
 
 function mechanicCard(instanceId: string, name: string): GameCardInstance {

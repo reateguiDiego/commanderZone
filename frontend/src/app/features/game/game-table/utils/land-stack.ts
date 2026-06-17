@@ -1,6 +1,5 @@
 import { GameCardInstance } from '../../../../core/models/game.model';
 import { DEFAULT_BATTLEFIELD_CARD_SIZE } from './battlefield-position';
-import { isEmblemCard } from './gameplay-card-kind';
 
 export type LandStackRole = 'top' | 'under';
 
@@ -57,7 +56,7 @@ const STACK_Y_TOLERANCE = 8;
 const DROP_OVERLAP_RATIO = 0.32;
 const REMOVE_STACK_GAP = 14;
 
-type StackableCardKind = 'land' | 'emblem';
+type StackableCardKind = 'land';
 
 interface PositionedStackableCard {
   readonly card: GameCardInstance;
@@ -75,11 +74,7 @@ export function isLandCard(card: GameCardInstance | null | undefined): boolean {
 }
 
 function stackableCardKind(card: GameCardInstance | null | undefined): StackableCardKind | null {
-  if (isLandCard(card)) {
-    return 'land';
-  }
-
-  return isEmblemCard(card) ? 'emblem' : null;
+  return isLandCard(card) ? 'land' : null;
 }
 
 export function landStackOffsetY(): number {

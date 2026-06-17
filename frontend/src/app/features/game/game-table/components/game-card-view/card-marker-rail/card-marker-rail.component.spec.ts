@@ -111,6 +111,28 @@ describe('CardMarkerRailComponent', () => {
     });
   });
 
+  it('renders counters as readonly markers when interactions are disabled', () => {
+    const fixture = createFixture();
+    const changed = vi.fn();
+    const deleteRequested = vi.fn();
+    fixture.componentInstance.counterChanged.subscribe(changed);
+    fixture.componentInstance.counterDeleteRequested.subscribe(deleteRequested);
+
+    fixture.componentRef.setInput('countersInteractive', false);
+    fixture.componentRef.setInput('counters', [{ key: 'green', value: 4 }]);
+    fixture.detectChanges();
+
+    const marker = fixture.nativeElement.querySelector('.counter-marker') as HTMLElement;
+    marker.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, button: 0 }));
+    marker.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+
+    expect(marker.classList).toContain('readonly-counter-marker');
+    expect(marker.getAttribute('role')).toBeNull();
+    expect(marker.getAttribute('tabindex')).toBeNull();
+    expect(changed).not.toHaveBeenCalled();
+    expect(deleteRequested).not.toHaveBeenCalled();
+  });
+
   it('requests a delete menu when a zero counter is right-clicked', () => {
     const fixture = createFixture();
     const changed = vi.fn();

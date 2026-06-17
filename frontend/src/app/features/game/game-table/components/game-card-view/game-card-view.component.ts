@@ -181,6 +181,7 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
   readonly toughnessValue = input<number | null>(null);
   readonly loyaltyValue = input<number | null>(null);
   readonly counter = input<CardCounterView | null>(null);
+  readonly countersEditable = input(true);
   readonly handDepth = computed(() => `${Math.min(Math.max(0, this.handIndex() ?? 0), Math.max(0, (this.handCount() ?? 1) - 1))}`);
   readonly handFanRotationDeg = computed(() => {
     const distance = this.handFanDistance();

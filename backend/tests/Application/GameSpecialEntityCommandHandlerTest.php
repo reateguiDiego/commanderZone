@@ -17,26 +17,25 @@ class GameSpecialEntityCommandHandlerTest extends TestCase
         $handler = new GameCommandHandler();
 
         $handler->apply($game, 'helper.created', [
-            'template' => 'the_ring',
+            'template' => 'citys_blessing',
             'ownerPlayerId' => $actor->id(),
-            'state' => ['level' => 1, 'ringBearerInstanceId' => null],
         ], $actor);
 
-        $ring = $game->snapshot()['specialEntities'][0] ?? null;
-        self::assertIsArray($ring);
-        self::assertSame('the_ring', $ring['template']);
-        self::assertSame($actor->id(), $ring['ownerPlayerId']);
-        self::assertSame(['level' => 1, 'ringBearerInstanceId' => null], $ring['state']);
+        $blessing = $game->snapshot()['specialEntities'][0] ?? null;
+        self::assertIsArray($blessing);
+        self::assertSame('citys_blessing', $blessing['template']);
+        self::assertSame($actor->id(), $blessing['ownerPlayerId']);
+        self::assertSame([], $blessing['state']);
 
         $handler->apply($game, 'helper.updated', [
-            'entityId' => $ring['id'],
-            'state' => ['level' => 3, 'ringBearerInstanceId' => null],
+            'entityId' => $blessing['id'],
+            'state' => ['ignored' => true],
         ], $actor);
 
-        self::assertSame(3, $game->snapshot()['specialEntities'][0]['state']['level']);
+        self::assertSame([], $game->snapshot()['specialEntities'][0]['state']);
 
         $handler->apply($game, 'helper.removed', [
-            'entityId' => $ring['id'],
+            'entityId' => $blessing['id'],
         ], $actor);
 
         self::assertSame([], $game->snapshot()['specialEntities']);
@@ -238,7 +237,7 @@ class GameSpecialEntityCommandHandlerTest extends TestCase
         self::assertCount(1, $battlefield);
         self::assertSame('Undercity', $battlefield[0]['name']);
         self::assertSame('dungeon', $battlefield[0]['layout']);
-        self::assertSame(['x' => 0, 'y' => 0, 'unit' => 'ratio'], $battlefield[0]['position']);
+        self::assertSame(['x' => 0.0, 'y' => 0.0, 'unit' => 'ratio'], $battlefield[0]['position']);
     }
 
     public function testInitiativeCannotBeGivenByPlayerWhoIsNotCurrentHolder(): void
@@ -410,12 +409,14 @@ class GameSpecialEntityCommandHandlerTest extends TestCase
         self::assertSame('night', $dayNight['state']['mode']);
     }
 
-    public function testDayNightCreatesUpdatesAndRemovesBattlefieldCardsForEveryPlayer(): void
+    public function testDayNightDoesNotCreateBattlefieldCardsAndCleansLegacyCopies(): void
     {
         $actor = new User('owner@example.test', 'Owner');
         $opponent = new User('opponent@example.test', 'Opponent');
-        $snapshot = $this->snapshot($actor->id());
-        $snapshot['players'][$opponent->id()] = $this->player($opponent->id(), []);
+        $snapshot = $this->snapshot($actor->id(), [
+            'battlefield' => [$this->dayNightBattlefieldCard('day-night-actor')],
+        ]);
+        $snapshot['players'][$opponent->id()] = $this->player($opponent->id(), [$this->dayNightBattlefieldCard('day-night-opponent')]);
         $game = new Game(new Room($actor), $snapshot);
         $handler = new GameCommandHandler();
 
@@ -426,13 +427,8 @@ class GameSpecialEntityCommandHandlerTest extends TestCase
         ], $actor);
 
         $snapshot = $game->snapshot();
-        self::assertSame('Day // Night', $snapshot['players'][$actor->id()]['zones']['battlefield'][0]['name']);
-        self::assertSame('Day // Night', $snapshot['players'][$opponent->id()]['zones']['battlefield'][0]['name']);
-        self::assertSame(['x' => 1, 'y' => 0, 'unit' => 'ratio'], $snapshot['players'][$actor->id()]['zones']['battlefield'][0]['position']);
-        self::assertSame(['x' => 1, 'y' => 0, 'unit' => 'ratio'], $snapshot['players'][$opponent->id()]['zones']['battlefield'][0]['position']);
-        self::assertSame(0, $snapshot['players'][$actor->id()]['zones']['battlefield'][0]['activeFaceIndex']);
-        self::assertSame($actor->id(), $snapshot['players'][$opponent->id()]['zones']['battlefield'][0]['ownerId']);
-        self::assertSame($opponent->id(), $snapshot['players'][$opponent->id()]['zones']['battlefield'][0]['controllerId']);
+        self::assertSame([], $snapshot['players'][$actor->id()]['zones']['battlefield']);
+        self::assertSame([], $snapshot['players'][$opponent->id()]['zones']['battlefield']);
 
         $handler->apply($game, 'helper.updated', [
             'entityId' => $snapshot['specialEntities'][0]['id'],
@@ -440,8 +436,9 @@ class GameSpecialEntityCommandHandlerTest extends TestCase
         ], $actor);
 
         $snapshot = $game->snapshot();
-        self::assertSame(1, $snapshot['players'][$actor->id()]['zones']['battlefield'][0]['activeFaceIndex']);
-        self::assertSame(1, $snapshot['players'][$opponent->id()]['zones']['battlefield'][0]['activeFaceIndex']);
+        self::assertSame('night', $snapshot['specialEntities'][0]['state']['mode']);
+        self::assertSame([], $snapshot['players'][$actor->id()]['zones']['battlefield']);
+        self::assertSame([], $snapshot['players'][$opponent->id()]['zones']['battlefield']);
 
         $handler->apply($game, 'helper.removed', [
             'entityId' => $snapshot['specialEntities'][0]['id'],
@@ -451,7 +448,7 @@ class GameSpecialEntityCommandHandlerTest extends TestCase
         self::assertSame([], $game->snapshot()['players'][$opponent->id()]['zones']['battlefield']);
     }
 
-    public function testNormalizeSnapshotClearsRingBearerThatLeftTheBattlefield(): void
+    public function testNormalizeSnapshotDropsLegacyRingHelper(): void
     {
         $actor = new User('owner@example.test', 'Owner');
         $handler = new GameCommandHandler();
@@ -483,10 +480,7 @@ class GameSpecialEntityCommandHandlerTest extends TestCase
             'instanceId' => 'bear-1',
         ], $actor);
 
-        self::assertSame(
-            ['level' => 2, 'ringBearerInstanceId' => null],
-            $game->snapshot()['specialEntities'][0]['state'],
-        );
+        self::assertSame([], $game->snapshot()['specialEntities']);
     }
 
     /**
@@ -601,6 +595,17 @@ class GameSpecialEntityCommandHandlerTest extends TestCase
                 ['name' => 'Day', 'imageUris' => ['normal' => 'https://img.example.test/day.jpg']],
                 ['name' => 'Night', 'imageUris' => ['normal' => 'https://img.example.test/night.jpg']],
             ],
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function dayNightBattlefieldCard(string $instanceId): array
+    {
+        return [
+            ...$this->card($instanceId, 'Day // Night', 'battlefield'),
+            'layout' => 'double_faced_token',
         ];
     }
 

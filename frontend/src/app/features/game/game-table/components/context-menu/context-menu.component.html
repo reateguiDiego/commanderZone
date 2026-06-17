@@ -128,6 +128,8 @@
         [items]="libraryMoveTopMenuItems()"
         [expanded]="isSubmenuExpanded('libraryMoveTop')"
         direction="up"
+        [side]="submenuSide()"
+        [childSide]="submenuSide()"
         (toggled)="toggleSubmenu($event, 'libraryMoveTop')"
         (itemSelected)="selectLibraryMoveTop($event)"
       />
@@ -137,6 +139,8 @@
         [items]="libraryRevealTopMenuItems()"
         [expanded]="isSubmenuExpanded('libraryRevealTop')"
         direction="up"
+        [side]="submenuSide()"
+        [childSide]="submenuSide()"
         (toggled)="toggleSubmenu($event, 'libraryRevealTop')"
         (itemSelected)="selectLibraryRevealTopTarget($event)"
       />
@@ -146,6 +150,8 @@
         [items]="libraryRevealMenuItems()"
         [expanded]="isSubmenuExpanded('libraryReveal')"
         direction="up"
+        [side]="submenuSide()"
+        [childSide]="submenuSide()"
         (toggled)="toggleSubmenu($event, 'libraryReveal')"
         (itemSelected)="selectLibraryRevealTarget($event)"
       />
@@ -179,6 +185,8 @@
         [items]="libraryViewMenuItems()"
         [expanded]="isSubmenuExpanded('libraryView')"
         direction="up"
+        [side]="submenuSide()"
+        [childSide]="submenuSide()"
         (toggled)="toggleSubmenu($event, 'libraryView')"
         (itemSelected)="selectLibraryView($event)"
       />
@@ -206,6 +214,8 @@
           [items]="gameMechanicsMenuItems()"
           [expanded]="isSubmenuExpanded('gameMechanics')"
           direction="up"
+          [side]="submenuSide()"
+          [childSide]="submenuSide()"
           (toggled)="toggleSubmenu($event, 'gameMechanics')"
           (itemSelected)="selectGameMechanic($event)"
         />
@@ -276,6 +286,8 @@
             [items]="giveMonarchToPlayerMenuItems()"
             [expanded]="isSubmenuExpanded('giveMonarchToPlayer')"
             direction="down"
+            [side]="submenuSide()"
+            [childSide]="submenuSide()"
             (toggled)="toggleSubmenu($event, 'giveMonarchToPlayer')"
             (itemSelected)="selectGiveMonarchToPlayer($event)"
           />
@@ -289,12 +301,6 @@
       }
     } @else if (isInitiativeCardMenu()) {
       @if (canControlInitiativeCard()) {
-        <button type="button" class="danger-menu-item" (click)="actionSelected.emit({ type: 'removeInitiative' })">
-          <span class="menu-item-label">
-            <lucide-icon name="trash-2" size="17" aria-hidden="true" />
-            <span>{{ displayLabel('Remove') }}</span>
-          </span>
-        </button>
         @if (canGiveInitiativeToPlayer()) {
           <app-context-submenu
             label="Give to"
@@ -302,10 +308,18 @@
             [items]="giveInitiativeToPlayerMenuItems()"
             [expanded]="isSubmenuExpanded('giveInitiativeToPlayer')"
             direction="down"
+            [side]="submenuSide()"
+            [childSide]="submenuSide()"
             (toggled)="toggleSubmenu($event, 'giveInitiativeToPlayer')"
             (itemSelected)="selectGiveInitiativeToPlayer($event)"
           />
         }
+        <button type="button" class="danger-menu-item" (click)="actionSelected.emit({ type: 'removeInitiative' })">
+          <span class="menu-item-label">
+            <lucide-icon name="trash-2" size="17" aria-hidden="true" />
+            <span>{{ displayLabel('Remove') }}</span>
+          </span>
+        </button>
       } @else {
         <button type="button" (click)="actionSelected.emit({ type: 'previewCard' })">
           <span class="menu-item-label">
@@ -377,16 +391,6 @@
             <span>{{ displayLabel('Remove') }}</span>
           </span>
         </button>
-        @if (canRemoveGameplayCardStack()) {
-          <button type="button" (click)="actionSelected.emit({ type: 'removeStack' })">
-            <span class="menu-item-label">
-              <span class="menu-item-remove-stack-icon" aria-hidden="true">
-                <lucide-icon name="layers-3" size="17" aria-hidden="true" />
-              </span>
-              <span>{{ displayLabel('game.contextMenu.labels.removeStack') }}</span>
-            </span>
-          </button>
-        }
       } @else if (showsBattlefieldCardActions()) {
         @if (canSelectAllActiveZoneCards()) {
           <button type="button" (click)="actionSelected.emit({ type: 'selectAllZoneCards' })">
@@ -419,14 +423,6 @@
             <span>{{ displayLabel('game.contextMenu.labels.drawArrow') }}</span>
           </span>
         </button>
-        @if (canSetRingBearer()) {
-          <button type="button" (click)="actionSelected.emit({ type: 'setRingBearer' })">
-            <span class="menu-item-label">
-              <lucide-icon name="circle" size="17" aria-hidden="true" />
-              <span>{{ displayLabel('game.contextMenu.labels.setRingBearer') }}</span>
-            </span>
-          </button>
-        }
         @if (canUseManaAssistant()) {
           <button type="button" (click)="actionSelected.emit({ type: 'addManaFromCard' })">
             <span class="menu-item-label">

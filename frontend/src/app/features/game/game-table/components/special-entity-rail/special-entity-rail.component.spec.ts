@@ -30,7 +30,6 @@ describe('SpecialEntityRailComponent', () => {
           layout: 'double_faced_token',
         },
       },
-      helperEntity('the_ring', 'player-1', { level: 3, ringBearerInstanceId: 'card-1' }),
       {
         ...helperEntity('dungeon', 'player-1', { roomIndex: 1, roomName: 'Trap!' }),
         card: {
@@ -44,7 +43,6 @@ describe('SpecialEntityRailComponent', () => {
         },
       },
     ] satisfies GameSpecialEntity[]);
-    fixture.componentRef.setInput('ringBearerName', () => 'Frodo');
     fixture.detectChanges();
   });
 
@@ -55,19 +53,16 @@ describe('SpecialEntityRailComponent', () => {
 
     expect(labels).toContain('Monarch');
     expect(labels).toContain('The Initiative');
-    expect(labels).toContain('The Ring - Level 3 - Frodo');
-    expect(labels).toContain('Lost Mine of Phandelver - Trap!');
+    expect(labels).not.toContain('Lost Mine of Phandelver - Trap!');
     expect(copy.map((element) => element.textContent?.trim())).toEqual(expect.arrayContaining([
       'Monarch',
       'The Initiative',
-      'The Ring - Level 3 - Frodo',
-      'Lost Mine of Phandelver - Trap!',
     ]));
+    expect(copy.map((element) => element.textContent?.trim())).not.toContain('Lost Mine of Phandelver - Trap!');
     expect(pills.some((pill) => pill.hasAttribute('title'))).toBe(false);
     expect(fixture.nativeElement.querySelector('.ms-ability-role-royal')).not.toBeNull();
     expect(fixture.nativeElement.querySelector('.ms-ability-d20')).not.toBeNull();
-    expect(fixture.nativeElement.querySelector('.ms-ability-the-ring-tempts-you')).not.toBeNull();
-    expect(fixture.nativeElement.querySelector('.ms-ability-dungeon')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('.ms-ability-dungeon')).toBeNull();
   });
 
   it('emits preview events for card-backed helpers', () => {
@@ -77,13 +72,13 @@ describe('SpecialEntityRailComponent', () => {
     fixture.componentInstance.previewHidden.subscribe(hidden);
 
     const card = Array.from(fixture.nativeElement.querySelectorAll('.special-entity-pill-card-backed') as NodeListOf<HTMLElement>)
-      .find((element) => element.getAttribute('aria-label')?.includes('Lost Mine of Phandelver')) as HTMLElement | undefined;
+      .find((element) => element.getAttribute('aria-label')?.includes('The Initiative')) as HTMLElement | undefined;
     expect(card).toBeTruthy();
     card?.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
     card?.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true }));
 
     expect(shown).toHaveBeenCalledWith(expect.objectContaining({
-      template: 'dungeon',
+      template: 'initiative',
     }));
     expect(hidden).toHaveBeenCalled();
   });
@@ -106,7 +101,8 @@ describe('SpecialEntityRailComponent', () => {
 
   it('renders card-backed helpers as expandable text pills without inline mini-card art or native tooltip', () => {
     expect(fixture.nativeElement.querySelector('.special-entity-ring-button')).toBeNull();
-    expect(fixture.nativeElement.textContent).toContain('Lost Mine of Phandelver');
+    expect(fixture.nativeElement.textContent).toContain('The Initiative');
+    expect(fixture.nativeElement.textContent).not.toContain('Lost Mine of Phandelver');
     expect(fixture.nativeElement.querySelector('.special-entity-pill-card-backed')?.hasAttribute('title')).toBe(false);
     expect(fixture.nativeElement.querySelector('.special-entity-pill-card-backed img')).toBeNull();
   });

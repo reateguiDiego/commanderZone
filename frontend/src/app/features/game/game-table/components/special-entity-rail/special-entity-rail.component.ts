@@ -1,26 +1,31 @@
+import { NgTemplateOutlet } from '@angular/common';
 import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import { GameSpecialEntity } from '../../../../../core/models/game.model';
+import { visibleSpecialEntityRailEntities } from '../../utils/special-entity-rail-visibility';
 
 export type SpecialEntityRailVariant = 'summary' | 'compact';
 
 @Component({
   selector: 'app-special-entity-rail',
-  imports: [RuntimeTranslatePipe],
+  imports: [NgTemplateOutlet, RuntimeTranslatePipe],
   templateUrl: './special-entity-rail.component.html',
   styleUrl: './special-entity-rail.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: {
+    '[attr.data-variant]': 'variant()',
+  },
 })
 export class SpecialEntityRailComponent {
   readonly entities = input.required<readonly GameSpecialEntity[]>();
   readonly variant = input<SpecialEntityRailVariant>('summary');
-  readonly ringBearerName = input.required<(entity: GameSpecialEntity) => string | null>();
 
   readonly previewRequested = output<GameSpecialEntity>();
   readonly previewHidden = output<void>();
   readonly entityContextRequested = output<{ event: MouseEvent; entity: GameSpecialEntity }>();
-  readonly nonCardEntities = computed(() => this.entities().filter((entity) => !entity.card));
-  readonly cardEntities = computed(() => this.entities().filter((entity) => !!entity.card));
+  readonly visibleEntities = computed(() => visibleSpecialEntityRailEntities(this.entities()));
+  readonly nonCardEntities = computed(() => this.visibleEntities().filter((entity) => !entity.card));
+  readonly cardEntities = computed(() => this.visibleEntities().filter((entity) => !!entity.card));
 
   mechanicIconClass(entity: GameSpecialEntity): string {
     return `special-entity-mana-icon ms ms-mechanic ${this.mechanicIcon(entity)}`;
@@ -34,8 +39,6 @@ export class SpecialEntityRailComponent {
         return 'ms-ability-d20';
       case 'citys_blessing':
         return 'ms-ability-ascend';
-      case 'the_ring':
-        return 'ms-ability-the-ring-tempts-you';
       case 'emblem':
         return 'ms-planeswalker';
       case 'day_night':
@@ -58,36 +61,12 @@ export class SpecialEntityRailComponent {
     return entity.card?.name ?? '';
   }
 
-  ringLevel(entity: GameSpecialEntity): number | null {
-    if (typeof entity.state['level'] !== 'number') {
-      return null;
-    }
-
-    return Math.max(1, Math.min(4, entity.state['level']));
-  }
-
   dungeonRoom(entity: GameSpecialEntity): string | null {
     return typeof entity.state['roomName'] === 'string' ? entity.state['roomName'] : null;
   }
 
-  ringBearerLabel(entity: GameSpecialEntity): string | null {
-    return this.ringBearerName()(entity);
-  }
-
   tooltipFor(entity: GameSpecialEntity, baseLabel: string): string {
     const details: string[] = [];
-
-    if (entity.template === 'the_ring') {
-      const level = this.ringLevel(entity);
-      if (level !== null) {
-        details.push(`Level ${level}`);
-      }
-
-      const bearer = this.ringBearerLabel(entity);
-      if (bearer) {
-        details.push(bearer);
-      }
-    }
 
     if (entity.template === 'dungeon') {
       const room = this.dungeonRoom(entity);

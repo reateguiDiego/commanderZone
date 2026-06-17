@@ -1,9 +1,40 @@
-@if (entities().length > 0) {
-  <section
-    class="special-entity-rail"
-    [attr.data-variant]="variant()"
-    [attr.aria-label]="'game.specialHelpers.rail.title' | runtimeTranslate"
-  >
+@if (visibleEntities().length > 0) {
+  <div class="special-entity-rail-shell">
+    <section
+      class="special-entity-rail special-entity-rail-inline"
+      [attr.data-variant]="variant()"
+      [attr.aria-label]="'game.specialHelpers.rail.title' | runtimeTranslate"
+    >
+      <ng-container [ngTemplateOutlet]="entityPills"></ng-container>
+    </section>
+
+    <div
+      class="special-entity-rail-overlay-host"
+      data-testid="special-entity-rail-overlay-host"
+    >
+      <button
+        type="button"
+        class="special-entity-rail-overlay-trigger"
+        [attr.aria-label]="'game.specialHelpers.rail.title' | runtimeTranslate"
+      >
+        <i [class]="mechanicIconClass(visibleEntities()[0])" aria-hidden="true"></i>
+        <span class="special-entity-rail-overlay-count" aria-hidden="true">
+          {{ visibleEntities().length }}
+        </span>
+      </button>
+
+      <section
+        class="special-entity-rail special-entity-rail-overlay"
+        [attr.data-variant]="variant()"
+        [attr.aria-label]="'game.specialHelpers.rail.title' | runtimeTranslate"
+      >
+        <ng-container [ngTemplateOutlet]="entityPills"></ng-container>
+      </section>
+    </div>
+  </div>
+}
+
+<ng-template #entityPills>
     @for (entity of nonCardEntities(); track entity.id) {
       <article
         class="special-entity-pill"
@@ -39,5 +70,4 @@
         </article>
       }
     }
-  </section>
-}
+</ng-template>

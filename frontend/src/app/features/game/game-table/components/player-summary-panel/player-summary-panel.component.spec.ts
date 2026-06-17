@@ -315,7 +315,7 @@ describe('PlayerSummaryPanelComponent', () => {
     const fixture = createFixture({
       specialEntities: [
         helperEntity('monarch', 'player-1'),
-        helperEntity('the_ring', 'player-1', { level: 2, ringBearerInstanceId: 'ring-bearer-1' }),
+        helperEntity('citys_blessing', 'player-1'),
       ],
     });
 
@@ -323,11 +323,9 @@ describe('PlayerSummaryPanelComponent', () => {
 
     expect(strip.dataset['variant']).toBe('summary');
     expect(strip.textContent).toContain('Monarch');
-    expect(strip.textContent).toContain('The Ring');
+    expect(strip.textContent).toContain("City's blessing");
     expect(strip.querySelector('[aria-label="Monarch"]')).not.toBeNull();
-    expect(strip.querySelector('.ms-ability-the-ring-tempts-you')).not.toBeNull();
-    expect(strip.querySelector('.ms-ability-the-ring-tempts-you')?.closest('.special-entity-pill')?.getAttribute('aria-label')).toContain('Level 2');
-    expect(strip.querySelector('.ms-ability-the-ring-tempts-you')?.closest('.special-entity-pill')?.getAttribute('aria-label')).toContain('Bilbo');
+    expect(strip.querySelector('.ms-ability-ascend')).not.toBeNull();
     expect(strip.querySelector('.ms-ability-role-royal')).not.toBeNull();
     expect(fixture.nativeElement.querySelector('[data-testid="player-helper-create"]')).toBeNull();
   });
@@ -336,15 +334,15 @@ describe('PlayerSummaryPanelComponent', () => {
     const fixture = createFixture({
       specialEntities: [
         {
-          ...helperEntity('emblem', 'player-1'),
+          ...helperEntity('citys_blessing', 'player-1'),
           card: {
-            scryfallId: 'emblem-1',
-            name: 'Gideon Emblem',
-            imageUris: { normal: 'https://cards.example/emblem.jpg' },
+            scryfallId: 'citys-blessing-1',
+            name: "City's Blessing",
+            imageUris: { normal: 'https://cards.example/citys-blessing.jpg' },
             cardFaces: [],
-            typeLine: 'Emblem',
+            typeLine: 'Card',
             oracleText: null,
-            layout: 'normal',
+            layout: 'token',
           },
         },
       ],
@@ -359,7 +357,7 @@ describe('PlayerSummaryPanelComponent', () => {
     helper.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true }));
 
     expect(previewRequested).toHaveBeenCalledWith(expect.objectContaining({
-      template: 'emblem',
+      template: 'citys_blessing',
     }));
     expect(previewHidden).toHaveBeenCalled();
   });
@@ -396,7 +394,7 @@ describe('PlayerSummaryPanelComponent', () => {
     const fixture = createFixture({
       canEditCounters: false,
       specialEntities: [
-        helperEntity('the_ring', 'player-1', { level: 2, ringBearerInstanceId: 'ring-bearer-1' }),
+        helperEntity('monarch', 'player-1'),
       ],
     });
 
@@ -405,9 +403,7 @@ describe('PlayerSummaryPanelComponent', () => {
     expect(fixture.nativeElement.querySelector('[data-testid="life-decrease"]')).toBeNull();
     expect(fixture.nativeElement.querySelector('[data-testid="life-increase"]')).toBeNull();
     expect(strip).not.toBeNull();
-    expect(strip.textContent).toContain('The Ring');
-    expect(strip.querySelector('.ms-ability-the-ring-tempts-you')?.closest('.special-entity-pill')?.getAttribute('aria-label')).toContain('Level 2');
-    expect(strip.querySelector('.ms-ability-the-ring-tempts-you')?.closest('.special-entity-pill')?.getAttribute('aria-label')).toContain('Bilbo');
+    expect(strip.textContent).toContain('Monarch');
     expect(fixture.nativeElement.querySelector('[data-testid="player-helper-create"]')).toBeNull();
   });
 });
@@ -443,12 +439,6 @@ function createFixture(
   ));
   fixture.componentRef.setInput('canEditCounters', options.canEditCounters ?? true);
   fixture.componentRef.setInput('specialEntities', options.specialEntities ?? []);
-  fixture.componentRef.setInput('ringBearerName', (entity: GameSpecialEntity) => {
-    const ringBearerInstanceId = typeof entity.state['ringBearerInstanceId'] === 'string'
-      ? entity.state['ringBearerInstanceId']
-      : null;
-    return ringBearerInstanceId ? 'Bilbo' : null;
-  });
   fixture.componentRef.setInput('contextLabel', options.contextLabel ?? null);
   fixture.componentRef.setInput('returnActionLabel', options.returnActionLabel ?? null);
   fixture.detectChanges();

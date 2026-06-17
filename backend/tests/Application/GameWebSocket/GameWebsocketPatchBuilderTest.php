@@ -1491,24 +1491,23 @@ class GameWebsocketPatchBuilderTest extends TestCase
         $handler = new GameCommandHandler();
 
         $created = $this->applyAndBuild($game, $actor, 'helper.created', [
-            'template' => 'the_ring',
-            'ownerPlayerId' => $actor->id(),
-            'state' => ['level' => 1, 'ringBearerInstanceId' => null],
+            'template' => 'day_night',
+            'state' => ['mode' => 'day'],
         ], 'action-helper-create', $handler);
         self::assertSame('specialEntity.add', $created['operations'][0]['op'] ?? null);
-        self::assertSame('the_ring', $created['operations'][0]['entity']['template'] ?? null);
+        self::assertSame('day_night', $created['operations'][0]['entity']['template'] ?? null);
 
         $entityId = $game->snapshot()['specialEntities'][0]['id'] ?? null;
         self::assertIsString($entityId);
 
         $updated = $this->applyAndBuild($game, $actor, 'helper.updated', [
             'entityId' => $entityId,
-            'state' => ['level' => 2, 'ringBearerInstanceId' => null],
+            'state' => ['mode' => 'night'],
         ], 'action-helper-update', $handler);
         self::assertSame('specialEntity.update', $updated['operations'][0]['op'] ?? null);
         self::assertSame($entityId, $updated['operations'][0]['entityId'] ?? null);
-        self::assertSame(['level' => 2, 'ringBearerInstanceId' => null], $updated['operations'][0]['state'] ?? null);
-        self::assertSame('the_ring', $updated['operations'][0]['entity']['template'] ?? null);
+        self::assertSame('night', $updated['operations'][0]['state']['mode'] ?? null);
+        self::assertSame('day_night', $updated['operations'][0]['entity']['template'] ?? null);
         self::assertCount(1, array_filter(
             $updated['operations'],
             static fn (array $operation): bool => ($operation['op'] ?? null) === 'eventLog.append',

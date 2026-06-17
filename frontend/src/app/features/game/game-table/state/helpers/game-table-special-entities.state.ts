@@ -8,7 +8,7 @@ import {
 } from '../../../../../core/models/game.model';
 import { CardFace, CardImageUris } from '../../../../../core/models/card.model';
 import { GameTableCoreState } from '../core/game-table-core.state';
-import { isDungeonCard } from '../../utils/gameplay-card-kind';
+import { visibleSpecialEntityRailEntities } from '../../utils/special-entity-rail-visibility';
 
 type DayNightMode = 'day' | 'night';
 const DAY_NIGHT_FIXED_POSITION: GameCardPosition = { x: 1, y: 0, unit: 'ratio' };
@@ -93,24 +93,22 @@ export class GameTableSpecialEntitiesState {
       const monarch = globalMonarch?.ownerPlayerId === playerId ? globalMonarch : null;
       const initiative = globalInitiative?.ownerPlayerId === playerId ? globalInitiative : null;
       const citysBlessing = playerEntities.find((entity) => entity.template === 'citys_blessing') ?? null;
-      const ring = playerEntities.find((entity) => entity.template === 'the_ring') ?? null;
       const dungeon = playerEntities.find((entity) => entity.template === 'dungeon') ?? null;
       const emblems = playerEntities.filter((entity) => entity.template === 'emblem');
-      const displayEntities = [
+      const displayEntities = visibleSpecialEntityRailEntities([
         ...(monarch ? [monarch] : []),
         ...(initiative ? [initiative] : []),
         ...(citysBlessing ? [citysBlessing] : []),
-        ...(ring ? [ring] : []),
         ...(dungeon ? [dungeon] : []),
         ...emblems,
-      ];
+      ]);
 
       summaries[playerId] = {
         playerId,
         monarch,
         initiative,
         citysBlessing,
-        ring,
+        ring: null,
         dungeon,
         emblems,
         displayEntities,
@@ -192,10 +190,6 @@ export class GameTableSpecialEntitiesState {
   }
 
   initiativeCardForPlayer(playerId: string): GameCardInstance | null {
-    if (!this.shouldRenderInitiativeFace(playerId)) {
-      return null;
-    }
-
     return this.globalDesignationCardForPlayer('initiative', playerId, {
       scryfallId: '2c65185b-6cf0-451d-985e-56aa45d9a57d',
       name: 'The Initiative',
@@ -249,29 +243,6 @@ export class GameTableSpecialEntitiesState {
       counters: {},
       zone: 'command',
     };
-  }
-
-  ringBearerCardName(entity: GameSpecialEntity): string | null {
-    const ringBearerInstanceId = typeof entity.state['ringBearerInstanceId'] === 'string'
-      ? entity.state['ringBearerInstanceId']
-      : null;
-    if (!ringBearerInstanceId) {
-      return null;
-    }
-
-    const snapshot = this.core.snapshot();
-    if (!snapshot) {
-      return null;
-    }
-
-    for (const player of Object.values(snapshot.players)) {
-      const card = player.zones.battlefield.find((entry) => entry.instanceId === ringBearerInstanceId);
-      if (card) {
-        return card.name;
-      }
-    }
-
-    return null;
   }
 
   private globalDesignationCardForPlayer(
@@ -360,24 +331,6 @@ export class GameTableSpecialEntitiesState {
       name: 'The Initiative',
       zone: 'command',
     });
-  }
-
-  private shouldRenderInitiativeFace(playerId: string): boolean {
-    const dungeon = this.activeDungeonForPlayer(playerId);
-
-    return dungeon === null || !this.isUndercityDungeon(dungeon.name);
-  }
-
-  private activeDungeonForPlayer(playerId: string): GameCardInstance | null {
-    const snapshot = this.core.snapshot();
-
-    return snapshot?.players[playerId]?.zones.battlefield.find((card) => isDungeonCard(card)) ?? null;
-  }
-
-  private isUndercityDungeon(name: string | null | undefined): boolean {
-    const normalizedName = name?.trim().toLowerCase() ?? '';
-
-    return normalizedName === 'undercity' || normalizedName === 'the undercity';
   }
 
   private isBattlefieldMechanicEntityForPlayer(entity: GameSpecialEntity, playerId: string): boolean {

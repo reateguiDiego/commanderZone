@@ -29,19 +29,18 @@ describe('OpponentMiniBoardComponent', () => {
     fixture.componentRef.setInput('isPlayerDropHighlighted', () => false);
   });
 
-  it('shows active mechanics pills without the legacy mechanics button', () => {
+  it('shows active designation pills without the legacy mechanics button', () => {
     const monarch = helperEntity('monarch', 'user-2');
-    const ring = helperEntity('the_ring', 'user-2', { level: 2 });
     const emblem = helperEntity('emblem', 'user-2');
     fixture.componentRef.setInput('specialEntitiesSummary', {
       playerId: 'user-2',
       monarch,
       initiative: null,
       citysBlessing: null,
-      ring,
+      ring: null,
       dungeon: null,
       emblems: [emblem],
-      displayEntities: [monarch, ring, emblem],
+      displayEntities: [monarch, emblem],
       hasAny: true,
     } satisfies GameTablePlayerSpecialEntitiesSummary);
     fixture.detectChanges();
@@ -52,14 +51,11 @@ describe('OpponentMiniBoardComponent', () => {
     expect(strip).not.toBeNull();
     expect(strip.dataset['variant']).toBe('compact');
     expect(strip.textContent).toContain('Monarch');
-    expect(strip.textContent).toContain('The Ring');
-    expect(strip.textContent).toContain('Emblem');
+    expect(strip.textContent).not.toContain('Emblem');
     expect(strip.querySelector('[aria-label="Monarch"]')).not.toBeNull();
-    expect(strip.querySelector('[aria-label="The Ring - Level 2"]')).not.toBeNull();
-    expect(strip.querySelector('[aria-label="Emblem"]')).not.toBeNull();
+    expect(strip.querySelector('[aria-label="Emblem"]')).toBeNull();
     expect(strip.querySelector('.ms-ability-role-royal')).not.toBeNull();
-    expect(strip.querySelector('.ms-ability-the-ring-tempts-you')).not.toBeNull();
-    expect(strip.querySelector('.ms-planeswalker')).not.toBeNull();
+    expect(strip.querySelector('.ms-planeswalker')).toBeNull();
   });
 
   it('does not render the mechanics strip when no mechanics are active', () => {

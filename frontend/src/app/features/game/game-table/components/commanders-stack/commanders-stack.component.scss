@@ -113,3 +113,40 @@
     transition: none;
   }
 }
+
+@media (max-height: 768px) and (max-width: 1180px) {
+  .commanders-stack-card {
+    top: 16%;
+    width: 68%;
+    height: 68%;
+    border-radius: 5px;
+  }
+
+  .commanders-stack-card-primary {
+    left: -2%;
+    transform: rotate(-4deg);
+  }
+
+  .commanders-stack-card-secondary {
+    right: -2%;
+    transform: rotate(4deg);
+  }
+
+  .commanders-stack-card-primary:hover,
+  .commanders-stack-card-secondary:hover {
+    transform: translateY(-0.18rem) rotate(0deg) scale(1.015);
+  }
+
+  .commanders-stack-card:hover .zone-card-image,
+  .commanders-stack-card:hover .command-zone-card-name {
+    box-shadow:
+      0 0 0 1px rgb(0 0 0 / 42%),
+      0 0.44rem 0.72rem rgb(0 0 0 / 34%),
+      0 0 0.42rem color-mix(in srgb, var(--commander-accent, var(--game-accent, #d7b46a)) 28%, transparent);
+  }
+
+  .command-zone-card-name {
+    padding: 0.2rem;
+    font-size: 0.46rem;
+  }
+}

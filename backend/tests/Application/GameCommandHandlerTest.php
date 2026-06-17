@@ -386,7 +386,7 @@ class GameCommandHandlerTest extends TestCase
         );
     }
 
-    public function testDayNightCardPositionCommandKeepsItFixedTopRight(): void
+    public function testDayNightLegacyBattlefieldCardCannotBeMoved(): void
     {
         $actor = new User('owner@example.test', 'Owner');
         $game = new Game(new Room($actor), $this->snapshot($actor->id(), [
@@ -399,17 +399,15 @@ class GameCommandHandlerTest extends TestCase
             ],
         ]));
 
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Card not found.');
+
         (new GameCommandHandler())->apply($game, 'card.position.changed', [
             'playerId' => $actor->id(),
             'zone' => 'battlefield',
             'instanceId' => 'day-night-1',
             'position' => ['x' => 0.2, 'y' => 0.8, 'unit' => 'ratio'],
         ], $actor);
-
-        self::assertSame(
-            ['x' => 1, 'y' => 0, 'unit' => 'ratio'],
-            $game->snapshot()['players'][$actor->id()]['zones']['battlefield'][0]['position'],
-        );
     }
 
     public function testDungeonMarkerCommandClampsMarkerAndPreservesItWhenCardMoves(): void

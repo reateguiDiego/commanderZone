@@ -95,7 +95,7 @@ describe('TokenSearchModalComponent', () => {
     expect(fixture.componentInstance.quantity()).toBe(1);
   });
 
-  it('loads emblem catalog and emits selected emblem without quantity controls', async () => {
+  it('searches emblems by gameplayKind and emits selected emblem without quantity controls', async () => {
     const selected = vi.fn();
     cardsApi.search.mockReturnValue(of({ data: [cardFixture('emblem-1', 'Chandra Emblem', 'Emblem', 'emblem')], page: 1, limit: 500 }));
     fixture.componentInstance.cardSelected.subscribe(selected);
@@ -107,7 +107,18 @@ describe('TokenSearchModalComponent', () => {
     fixture.detectChanges();
 
     expect(decksApi.tokens).not.toHaveBeenCalled();
-    expect(cardsApi.search).toHaveBeenCalledWith('', 1, 500, { gameplayKind: 'emblem' });
+    expect(cardsApi.search).not.toHaveBeenCalled();
+
+    vi.useFakeTimers();
+    try {
+      fixture.componentInstance.onQueryInput('ch');
+      await vi.advanceTimersByTimeAsync(320);
+      fixture.detectChanges();
+    } finally {
+      vi.useRealTimers();
+    }
+
+    expect(cardsApi.search).toHaveBeenCalledWith('ch', 1, 500, { gameplayKind: 'emblem' });
     expect(fixture.nativeElement.textContent).toContain('Chandra Emblem');
     expect(fixture.nativeElement.querySelector('app-game-x-quantity-stepper')).toBeNull();
 
@@ -119,19 +130,15 @@ describe('TokenSearchModalComponent', () => {
     });
   });
 
-  it('searches dungeons by gameplayKind and falls back to the catalog when there are no direct matches', async () => {
+  it('searches dungeons by gameplayKind after debounce without quantity controls', async () => {
     vi.useFakeTimers();
     try {
-      cardsApi.search.mockReturnValueOnce(of({ data: [cardFixture('dungeon-catalog', 'Lost Mine of Phandelver', 'Dungeon', 'dungeon')], page: 1, limit: 500 }));
-
       fixture.componentRef.setInput('open', true);
       fixture.componentRef.setInput('kind', 'dungeon');
       fixture.detectChanges();
       await fixture.whenStable();
-      cardsApi.search.mockClear();
-      cardsApi.search
-        .mockReturnValueOnce(of({ data: [], page: 1, limit: 500 }))
-        .mockReturnValueOnce(of({ data: [cardFixture('dungeon-1', 'Undercity', 'Dungeon', 'dungeon')], page: 1, limit: 500 }));
+      expect(cardsApi.search).not.toHaveBeenCalled();
+      cardsApi.search.mockReturnValueOnce(of({ data: [cardFixture('dungeon-1', 'Undercity', 'Dungeon', 'dungeon')], page: 1, limit: 500 }));
 
       fixture.componentInstance.onQueryInput('under');
       expect(cardsApi.search).not.toHaveBeenCalled();
@@ -139,7 +146,6 @@ describe('TokenSearchModalComponent', () => {
       fixture.detectChanges();
 
       expect(cardsApi.search).toHaveBeenNthCalledWith(1, 'under', 1, 500, { gameplayKind: 'dungeon' });
-      expect(cardsApi.search).toHaveBeenNthCalledWith(2, '', 1, 500, { gameplayKind: 'dungeon' });
       expect(fixture.nativeElement.textContent).toContain('Undercity');
       expect(fixture.nativeElement.querySelector('app-game-x-quantity-stepper')).toBeNull();
     } finally {
@@ -150,13 +156,10 @@ describe('TokenSearchModalComponent', () => {
   it('does not search emblem or dungeon cards until the query has more than one character', async () => {
     vi.useFakeTimers();
     try {
-      cardsApi.search.mockReturnValueOnce(of({ data: [cardFixture('dungeon-catalog', 'Lost Mine of Phandelver', 'Dungeon', 'dungeon')], page: 1, limit: 500 }));
-
       fixture.componentRef.setInput('open', true);
       fixture.componentRef.setInput('kind', 'dungeon');
       fixture.detectChanges();
       await fixture.whenStable();
-      cardsApi.search.mockClear();
       cardsApi.search.mockReturnValue(of({ data: [cardFixture('dungeon-search', 'Dungeon of the Mad Mage', 'Dungeon', 'dungeon')], page: 1, limit: 500 }));
 
       fixture.componentInstance.onQueryInput('u');
@@ -165,7 +168,7 @@ describe('TokenSearchModalComponent', () => {
       await vi.advanceTimersByTimeAsync(320);
       expect(cardsApi.search).not.toHaveBeenCalled();
       fixture.detectChanges();
-      expect(fixture.nativeElement.textContent).toContain('Lost Mine of Phandelver');
+      expect(fixture.nativeElement.textContent).toContain('No dungeons found.');
 
       fixture.componentInstance.onQueryInput('du');
       await vi.advanceTimersByTimeAsync(320);
@@ -175,6 +178,14 @@ describe('TokenSearchModalComponent', () => {
       expect(cardsApi.search).toHaveBeenCalledOnce();
       expect(cardsApi.search).toHaveBeenCalledWith('du', 1, 500, { gameplayKind: 'dungeon' });
       expect(fixture.nativeElement.textContent).toContain('Dungeon of the Mad Mage');
+
+      cardsApi.search.mockClear();
+      fixture.componentInstance.onQueryInput('');
+      await vi.advanceTimersByTimeAsync(320);
+      fixture.detectChanges();
+
+      expect(cardsApi.search).not.toHaveBeenCalled();
+      expect(fixture.nativeElement.textContent).toContain('No dungeons found.');
     } finally {
       vi.useRealTimers();
     }

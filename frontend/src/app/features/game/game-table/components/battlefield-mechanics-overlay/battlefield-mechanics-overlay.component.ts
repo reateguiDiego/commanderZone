@@ -6,6 +6,7 @@ import { GameCardViewComponent } from '../game-card-view/game-card-view.componen
 interface BattlefieldMechanicCardMenuEvent {
   readonly event: MouseEvent;
   readonly card: GameCardInstance;
+  readonly forceOpenLeft?: boolean;
 }
 
 @Component({
@@ -74,7 +75,15 @@ export class BattlefieldMechanicsOverlayComponent {
   openMiniCardMenu(event: MouseEvent, card: GameCardInstance): void {
     event.preventDefault();
     event.stopPropagation();
-    this.cardMenuOpened.emit({ event, card });
+    this.cardMenuOpened.emit({ event, card, forceOpenLeft: true });
+  }
+
+  openBattlefieldCardMenu(event: MouseEvent, card: GameCardInstance): void {
+    this.cardMenuOpened.emit({
+      event,
+      card,
+      forceOpenLeft: true,
+    });
   }
 }
 

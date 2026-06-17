@@ -1184,6 +1184,22 @@ describe('GameCardViewComponent', () => {
     });
   });
 
+  it('does not emit card counter changes when counters are readonly', async () => {
+    const { fixture } = await renderHandCard();
+    const counterChanged = vi.fn();
+    fixture.componentInstance.counterChanged.subscribe(counterChanged);
+
+    fixture.componentRef.setInput('countersEditable', false);
+    fixture.componentRef.setInput('card', { ...gameCard(), counters: { red: 2 } });
+    fixture.detectChanges();
+
+    const marker = fixture.nativeElement.querySelector('.counter-marker') as HTMLElement;
+    marker.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, button: 0 }));
+    marker.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+
+    expect(counterChanged).not.toHaveBeenCalled();
+  });
+
   it('keeps zero-value counters visible so they can be adjusted from the marker rail', async () => {
     const { fixture } = await renderHandCard();
 

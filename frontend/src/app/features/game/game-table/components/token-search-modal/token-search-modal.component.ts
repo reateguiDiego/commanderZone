@@ -73,10 +73,6 @@ export class TokenSearchModalComponent implements OnChanges, OnDestroy {
   private searchTimeout: ReturnType<typeof setTimeout> | null = null;
   private searchVersion = 0;
   private loadedDeckId: string | null = null;
-  private readonly gameplayCatalog: Record<'emblem' | 'dungeon', Card[]> = {
-    emblem: [],
-    dungeon: [],
-  };
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['open'] && !this.open) {
@@ -94,11 +90,6 @@ export class TokenSearchModalComponent implements OnChanges, OnDestroy {
 
     if (this.kind === 'token' && (changes['deckId'] || changes['open'] || changes['kind'])) {
       void this.loadDeckTokens();
-      return;
-    }
-
-    if (this.kind !== 'token' && (changes['open'] || changes['kind'])) {
-      void this.loadGameplayCatalog(this.kind);
     }
   }
 
@@ -125,18 +116,9 @@ export class TokenSearchModalComponent implements OnChanges, OnDestroy {
         return;
       }
 
-      const kind = this.kind;
       this.error.set(null);
-      if (trimmed.length === 1) {
-        this.searchResults.set(this.gameplayCatalog[kind]);
-        this.searching.set(false);
-        return;
-      }
-
-      this.searching.set(true);
-      this.searchTimeout = setTimeout(() => {
-        void this.searchGameplayCards('', version, kind, false);
-      }, SEARCH_DEBOUNCE_MS);
+      this.searchResults.set([]);
+      this.searching.set(false);
       return;
     }
 
@@ -148,7 +130,7 @@ export class TokenSearchModalComponent implements OnChanges, OnDestroy {
         return;
       }
 
-      void this.searchGameplayCards(trimmed, version, this.kind, true);
+      void this.searchGameplayCards(trimmed, version, this.kind);
     }, SEARCH_DEBOUNCE_MS);
   }
 
@@ -292,16 +274,10 @@ export class TokenSearchModalComponent implements OnChanges, OnDestroy {
     }
   }
 
-  private loadGameplayCatalog(kind: 'emblem' | 'dungeon'): void {
-    this.searching.set(true);
-    void this.searchGameplayCards('', ++this.searchVersion, kind, false);
-  }
-
   private async searchGameplayCards(
     query: string,
     version: number,
     kind: 'emblem' | 'dungeon',
-    fallbackToCatalog: boolean,
   ): Promise<void> {
     try {
       const response = await firstValueFrom(this.cardsApi.search(query, 1, CARD_SEARCH_LIMIT, { gameplayKind: kind }));
@@ -309,21 +285,7 @@ export class TokenSearchModalComponent implements OnChanges, OnDestroy {
         return;
       }
 
-      let results = filterDistinctCardsByQuery(response.data, query);
-      if (fallbackToCatalog && results.length === 0) {
-        const fallbackResponse = await firstValueFrom(this.cardsApi.search('', 1, CARD_SEARCH_LIMIT, { gameplayKind: kind }));
-        if (this.isStaleGameplaySearch(version, query, kind)) {
-          return;
-        }
-
-        results = filterDistinctCardsByQuery(fallbackResponse.data, '');
-        this.gameplayCatalog[kind] = results;
-      }
-
-      if (query === '') {
-        this.gameplayCatalog[kind] = results;
-      }
-      this.searchResults.set(results);
+      this.searchResults.set(filterDistinctCardsByQuery(response.data, query));
       this.error.set(null);
     } catch {
       if (version === this.searchVersion) {

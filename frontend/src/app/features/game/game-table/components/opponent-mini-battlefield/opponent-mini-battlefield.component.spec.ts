@@ -41,6 +41,25 @@ describe('OpponentMiniBattlefieldComponent', () => {
     expect(fixture.nativeElement.querySelector('[data-testid="battlefield-mechanics-mini-card"][data-card-instance-id="monarch-card"]')).not.toBeNull();
   });
 
+  it('preserves left-opening menu intent from mini overlay mechanic cards', () => {
+    const monarch = { ...card('monarch-card'), name: 'The Monarch', layout: 'monarch' };
+    const clicked = vi.fn();
+    fixture.componentRef.setInput('cards', [monarch]);
+    fixture.componentRef.setInput('mechanicCards', [monarch]);
+    fixture.componentInstance.battlefieldCardClicked.subscribe(clicked);
+    fixture.detectChanges();
+
+    const mechanicCard = fixture.nativeElement
+      .querySelector('[data-testid="battlefield-mechanics-mini-card"][data-card-instance-id="monarch-card"]') as HTMLElement;
+    mechanicCard.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+
+    expect(clicked).toHaveBeenCalledWith(expect.objectContaining({
+      playerId: 'player-2',
+      card: expect.objectContaining({ instanceId: 'monarch-card' }),
+      forceOpenLeft: true,
+    }));
+  });
+
   it('exposes the opponent battlefield as a motion zone', () => {
     fixture.detectChanges();
 

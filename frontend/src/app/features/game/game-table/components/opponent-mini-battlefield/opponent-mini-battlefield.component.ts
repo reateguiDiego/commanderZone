@@ -51,7 +51,12 @@ export class OpponentMiniBattlefieldComponent implements AfterViewInit, OnDestro
 
   readonly cardPreviewShown = output<CardPreviewEvent>();
   readonly cardPreviewHidden = output<void>();
-  readonly battlefieldCardClicked = output<{ event: MouseEvent; playerId: string; card: GameCardInstance }>();
+  readonly battlefieldCardClicked = output<{
+    event: MouseEvent;
+    playerId: string;
+    card: GameCardInstance;
+    forceOpenLeft?: boolean;
+  }>();
 
   readonly viewportSize = signal<MiniBattlefieldSize>({ width: 240, height: 172 });
   readonly activePreviewInstanceId = signal<string | null>(null);

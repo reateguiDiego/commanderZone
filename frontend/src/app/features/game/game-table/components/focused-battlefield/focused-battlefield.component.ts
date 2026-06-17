@@ -68,6 +68,7 @@ interface BattlefieldCardMouseEvent {
   event: MouseEvent;
   playerId: string;
   card: GameCardInstance;
+  forceOpenLeft?: boolean;
 }
 
 interface BattlefieldCardStatChangeEvent {
@@ -379,14 +380,14 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
     this.cardClicked.emit({ event, playerId, card });
   }
 
-  onCardMenu(event: MouseEvent, playerId: string, card: GameCardInstance): void {
+  onCardMenu(event: MouseEvent, playerId: string, card: GameCardInstance, forceOpenLeft = false): void {
     if (!this.isCurrentPlayer()(playerId)) {
       event.preventDefault();
       event.stopPropagation();
       return;
     }
 
-    this.cardMenuOpened.emit({ event, playerId, card });
+    this.cardMenuOpened.emit({ event, playerId, card, forceOpenLeft });
   }
 
   preventUnexpectedNativeDragStart(event: DragEvent): void {

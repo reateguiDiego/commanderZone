@@ -129,6 +129,7 @@ export class GameTableInteractionActionsService {
       suppressRandomSelect?: boolean;
       sourceRect?: GameContextMenu['sourceRect'];
       menuPosition?: { x: number; y: number };
+      forceOpenLeft?: boolean;
     } = {},
   ): void {
     this.prepareContextMenuEvent(event);
@@ -147,6 +148,7 @@ export class GameTableInteractionActionsService {
       fromFixedZoneModal: options.fromFixedZoneModal,
       suppressRandomSelect: options.suppressRandomSelect,
       sourceRect: options.sourceRect,
+      forceOpenLeft: options.forceOpenLeft,
     };
     if (options.menuPosition) {
       this.uiState.openContextMenuAt(options.menuPosition, target);
