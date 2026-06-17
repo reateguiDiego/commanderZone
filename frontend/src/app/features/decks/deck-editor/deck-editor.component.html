@@ -443,7 +443,7 @@
           <lucide-icon name="file-up" size="16" />
           {{ 'deckBuilder.deckEditor.loadFile' | runtimeTranslate }}
         </button>
-        <input #fileInput class="hidden-input" type="file" accept=".txt,.csv,.dek" (change)="store.loadDeckFile($event)" />
+        <input #fileInput class="hidden-input" type="file" accept=".txt,.csv,.dek,.dec" (change)="store.loadDeckFile($event)" />
 
         @if (store.lastImportStats(); as stats) {
           <div class="notice" [class.warning]="stats.missingCards > 0" [class.ok-notice]="stats.missingCards === 0">

@@ -25,6 +25,24 @@ TXT);
         self::assertSame(10, $entries[2]['quantity']);
     }
 
+    public function testIgnoresKnownDeckExportMetadataLines(): void
+    {
+        $entries = (new DecklistParser())->parse(<<<'TXT'
+About
+Name ZZZZZombies
+
+Commander
+1 Muldrotha, the Gravetide
+
+Deck
+1 Arcane Signet
+TXT);
+
+        self::assertCount(2, $entries);
+        self::assertSame('commander', $entries[0]['section']);
+        self::assertSame('main', $entries[1]['section']);
+    }
+
     public function testKeepsDoubleFacedCardNames(): void
     {
         $entries = (new DecklistParser())->parse(<<<'TXT'
@@ -85,6 +103,35 @@ TXT, DecklistParser::FORMAT_ARCHIDEKT);
         self::assertSame('main', $entries[3]['section']);
     }
 
+    public function testParsesInlineCommanderMarkersFromDeckstatsAndArchidekt(): void
+    {
+        $entries = (new DecklistParser())->parse(<<<'TXT'
+1 Sliver Gravemother # !Commander
+1x Ghyrson Starn, Kelermorph (40k) 124 [Commander{top}]
+1 Arcane Signet
+TXT, DecklistParser::FORMAT_ARCHIDEKT);
+
+        self::assertSame('commander', $entries[0]['section']);
+        self::assertSame('Sliver Gravemother', $entries[0]['name']);
+        self::assertSame('commander', $entries[1]['section']);
+        self::assertSame('Ghyrson Starn, Kelermorph', $entries[1]['name']);
+        self::assertSame('40k', $entries[1]['setCode']);
+        self::assertSame('main', $entries[2]['section']);
+    }
+
+    public function testRemovesArchidektCategoryAndStateNoise(): void
+    {
+        $entries = (new DecklistParser())->parse(<<<'TXT'
+1x Arcane Denial (soc) 187 [Removal] ^Getting,#2ccce4^
+1x Command Tower (msc) 233 [Land]
+TXT, DecklistParser::FORMAT_ARCHIDEKT);
+
+        self::assertSame('Arcane Denial', $entries[0]['name']);
+        self::assertSame('soc', $entries[0]['setCode']);
+        self::assertSame('187', $entries[0]['collectorNumber']);
+        self::assertSame('Command Tower', $entries[1]['name']);
+    }
+
     public function testParsesSideboardAndMaybeboardHeaders(): void
     {
         $entries = (new DecklistParser())->parse(<<<'TXT'
@@ -142,6 +189,28 @@ TXT);
         self::assertSame(DecklistParser::FORMAT_PLAIN, $format);
     }
 
+    public function testDetectsMoxfieldFormatWithoutSectionHeadersWhenPrintMetadataIsPresent(): void
+    {
+        $format = (new DecklistParser())->detectFormat(<<<'TXT'
+1 Muldrotha, the Gravetide (FDN) 243
+1 Arcane Signet (MKC) 223
+1 Assassin's Trophy (MKM) 187
+TXT);
+
+        self::assertSame(DecklistParser::FORMAT_MOXFIELD, $format);
+    }
+
+    public function testDetectsArchidektFormatFromInlineCategoryTags(): void
+    {
+        $format = (new DecklistParser())->detectFormat(<<<'TXT'
+1x Arcane Signet (eld) 331 [Ramp]
+1x Ghyrson Starn, Kelermorph (40k) 124 [Commander{top}]
+1x Command Tower (msc) 233 [Land]
+TXT);
+
+        self::assertSame(DecklistParser::FORMAT_ARCHIDEKT, $format);
+    }
+
     public function testExplicitFormatOverridesDetection(): void
     {
         $parser = new DecklistParser();
@@ -149,5 +218,16 @@ TXT);
 
         self::assertSame(DecklistParser::FORMAT_PLAIN, $parser->resolveFormat(DecklistParser::FORMAT_PLAIN, $decklist));
         self::assertSame(DecklistParser::FORMAT_MOXFIELD, $parser->resolveFormat(null, $decklist));
+    }
+
+    public function testParsesXPrefixedQuantities(): void
+    {
+        $entries = (new DecklistParser())->parse(<<<'TXT'
+Deck
+x2 Sol Ring
+TXT);
+
+        self::assertSame(2, $entries[0]['quantity']);
+        self::assertSame('Sol Ring', $entries[0]['name']);
     }
 }

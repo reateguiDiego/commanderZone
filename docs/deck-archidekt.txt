@@ -1,0 +1,86 @@
+1x Aether Sting (uds) 76 [Burn] ^Getting,#2ccce4^
+1x Arcane Denial (soc) 187 [Removal] ^Getting,#2ccce4^
+1x Arcane Signet (eld) 331 [Ramp]
+1x Archmage Emeritus (soc) 188 [Draw] ^Getting,#2ccce4^
+1x Basilisk Collar (mm3) 216 [Removal] ^Getting,#2ccce4^
+1x Blazing Volley (akh) 119 [Removal] ^Getting,#2ccce4^
+1x Caltrops (7ed) 288 [Protection] ^Getting,#2ccce4^
+1x Cast into the Fire (ltr) 118 [Removal]
+1x Chandra's Incinerator (pm21) 136s *F* [Removal] ^Getting,#2ccce4^
+1x Circle of Flame (m12) 127 *F* [Protection] ^Getting,#2ccce4^
+1x Command Tower (msc) 233 [Land]
+1x Coruscation Mage (blb) 131 [Burn] ^Getting,#2ccce4^
+1x Counterspell (7ed) 67 [Removal] ^Getting,#2ccce4^
+1x Curiosity (jmp) 147 [Draw] ^Getting,#2ccce4^
+1x Death Spark (cst) 70 [Burn] ^Getting,#2ccce4^
+1x Desert (afc) 233 [Land] ^Getting,#2ccce4^
+1x Desolate Lighthouse (lcc) 327 [Land]
+1x Desperate Ritual (dds) 14 [Ramp] ^Getting,#2ccce4^
+1x Dual Shot (plst) SOI-153 [Removal] ^Getting,#2ccce4^
+1x Electrickery (plst) GK1-29 [Removal] ^Getting,#2ccce4^
+1x Electrolyze (mma) 175 [Removal] ^Getting,#2ccce4^
+1x Electrostatic Field (plst) GRN-97 [Burn] ^Getting,#2ccce4^
+1x End the Festivities (vow) 155 [Removal] ^Getting,#2ccce4^
+1x Erebor Flamesmith (ltr) 122 [Burn]
+1x Eroded Canyon (otj) 256 [Land]
+1x Evolving Wilds (msc) 240 [Land]
+1x Exalted Flamer of Tzeentch (40k) 119 [Recursion] ^Getting,#2ccce4^
+1x Exotic Orchard (msc) 241 [Land]
+1x Fellwar Stone (plst) CMD-248 [Ramp] ^Getting,#2ccce4^
+1x Firebrand Archer (hou) 92 [Burn]
+1x Flame Fusillade (rav) 123 [Pingers] ^Getting,#2ccce4^
+1x Frostboil Snarl (msc) 246 [Land]
+1x Gelectrode (ddj) 5 [Pingers] ^Getting,#2ccce4^
+1x Ghyrson Starn, Kelermorph (40k) 124 [Commander{top}]
+1x Goblin Chainwhirler (plst) DOM-129 [Removal] ^Getting,#2ccce4^
+1x Goblin Electromancer (rvr) 186 [Ramp]
+1x Grapeshot (mma) 116 [Removal] ^Getting,#2ccce4^
+1x Gut Shot (mm2) 117 [Removal] ^Getting,#2ccce4^
+14x Island (dft) 280 [Land]
+1x Izzet Boilerworks (m3c) 350 [Land]
+1x Izzet Guildgate (fdn) 691 [Land]
+1x Izzet Signet (ncc) 369 [Ramp] ^Getting,#2ccce4^
+1x Kessig Flamebreather (dbl) 431 [Burn] ^Getting,#2ccce4^
+1x Lava Dart (plst) JUD-94 [Burn] ^Getting,#2ccce4^
+1x Lindblum, Industrial Regency // Mage Siege (fin) 285 [Land] ^Getting,#2ccce4^
+1x Mind Stone (c14) 250 [Ramp]
+21x Mountain (eoe) 274 [Land]
+1x Mystic Sanctuary (soc) 388 [Land] ^Getting,#2ccce4^
+1x Narset's Reversal (war) 62 *F* [Removal] ^Getting,#2ccce4^
+1x Needle Drop (lrw) 186 [Burn] ^Getting,#2ccce4^
+1x Negate (cn2) 117 [Removal]
+1x Niv-Mizzet, Parun (pgrn) 192p [Draw] ^Getting,#2ccce4^
+1x Niv-Mizzet, the Firemind (p30a) 14 *F* [Draw] ^Getting,#2ccce4^
+1x Niv-Mizzet, Visionary (pfdn) 123p [Draw] ^Getting,#2ccce4^
+1x Ophidian Eye (tsp) 70 [Draw] ^Getting,#2ccce4^
+1x Prismari Campus (soc) 394 [Land]
+1x Pyretic Ritual (m11) 153 [Ramp] ^Getting,#2ccce4^
+1x Razorkin Needlehead (dsk) 153 [Burn] ^Getting,#2ccce4^
+1x Repercussion (uds) 95 [Burn] ^Getting,#2ccce4^
+1x Scalding Viper // Steam Clean (pwoe) 235p [Removal] ^Getting,#2ccce4^
+1x Scouring Sands (bng) 110 [Removal]
+1x Seething Song (mrd) 104 [Ramp] ^Getting,#2ccce4^
+1x Shivan Gorge (dsc) 297 [Land] ^Getting,#2ccce4^
+1x Shivan Reef (soc) 404 [Land]
+1x Shower of Sparks (usg) 217 [Burn] ^Getting,#2ccce4^
+1x Sigil of Sleep (uds) 46 [Removal] ^Getting,#2ccce4^
+1x Smash to Dust (dmu) 144 [Removal] ^Getting,#2ccce4^
+1x Sol Ring (khc) 104 [Ramp]
+1x Spikefield Hazard // Spikefield Cave (znr) 166 [Removal] ^Getting,#2ccce4^
+1x Storm-Kiln Artist (plst) OTC-181 [Ramp] ^Getting,#2ccce4^
+1x Stormcarved Coast (sos) 263 [Land] ^Getting,#2ccce4^
+1x Stormcatch Mentor (blb) 234 [Ramp] ^Getting,#2ccce4^
+1x Sulfur Falls (msc) 269 [Land]
+1x Sunscorched Desert (akh) 249 [Land] ^Getting,#2ccce4^
+1x Swiftwater Cliffs (tdm) 268 [Land]
+1x Syr Carah, the Bold (eld) 145 [Draw] ^Getting,#2ccce4^
+1x Talisman of Creativity (pip) 244 [Ramp]
+1x Tandem Lookout (mm3) 53 [Draw] ^Getting,#2ccce4^
+1x Tectonic Hazard (lci) 169 [Removal]
+1x Temple of Epiphany (soc) 412 [Land] ^Getting,#2ccce4^
+1x Thermo-Alchemist (inr) 174 [Pingers] ^Getting,#2ccce4^
+1x Third Path Iconoclast (bro) 223 [Tokens] ^Getting,#2ccce4^
+1x Thought Vessel (cmr) 346 [Ramp] ^Getting,#2ccce4^
+1x Unruly Catapult (woe) 156 [Pingers] ^Getting,#2ccce4^
+1x Vivi Ornitier (fin) 248 [Ramp] ^Getting,#2ccce4^
+1x Young Pyromancer (2x2) 131 [Tokens] ^Getting,#2ccce4^

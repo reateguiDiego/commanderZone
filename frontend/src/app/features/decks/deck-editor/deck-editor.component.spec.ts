@@ -46,6 +46,7 @@ import { CardAutocompleteComponent } from '../../../shared/components/card-autoc
 
 type DecksApiMock = {
   get: ReturnType<typeof vi.fn>;
+  importDecklist: ReturnType<typeof vi.fn>;
   tokens: ReturnType<typeof vi.fn>;
   validateCommander: ReturnType<typeof vi.fn>;
   updateCard: ReturnType<typeof vi.fn>;
@@ -63,6 +64,7 @@ describe('DeckEditorComponent', () => {
     const appLanguage = signal<SupportedLanguageCode>(languageConfig.appLanguage ?? 'en');
     const decksApi: DecksApiMock = {
       get: vi.fn().mockReturnValue(of({ deck })),
+      importDecklist: vi.fn().mockReturnValue(of({ deck: deck ?? buildDeckWithSingleCard(), missing: [], summary: { parsedCards: 1, importedCards: 1 } })),
       tokens: vi.fn().mockReturnValue(of({ data: [], unresolved: [] })),
       validateCommander: vi.fn().mockReturnValue(of(validCommanderValidation())),
       updateCard: vi.fn(),
@@ -123,6 +125,10 @@ describe('DeckEditorComponent', () => {
     return { decksApi, router: TestBed.inject(Router) };
   }
 
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it('shows a missing deck id error without a route id', async () => {
     await setup();
     const fixture = TestBed.createComponent(DeckEditorComponent);
@@ -154,6 +160,49 @@ describe('DeckEditorComponent', () => {
     await fixture.componentInstance.store.load();
 
     expect(decksApi.tokens).not.toHaveBeenCalled();
+  });
+
+  it('sends the raw decklist text to the backend import endpoint', async () => {
+    const deck = buildDeckWithSingleCard();
+    const importedDeck = {
+      ...deck,
+      cards: [
+        deckCard('commander-card', 'commander', card('Muldrotha, the Gravetide', 'Legendary Creature')),
+        deckCard('main-card', 'main', card('Arcane Signet', 'Artifact')),
+      ],
+    };
+    const { decksApi } = await setup({ id: 'deck-1' }, deck, {}, {
+      importDecklist: vi.fn().mockReturnValue(of({
+        deck: importedDeck,
+        missing: [],
+        summary: {
+          parsedCards: 2,
+          importedCards: 2,
+          totalCards: 2,
+          resolvedCards: 2,
+          missingCards: 0,
+          commanderCount: 1,
+          mainCount: 1,
+          format: 'moxfield',
+        },
+      })),
+    });
+    const fixture = TestBed.createComponent(DeckEditorComponent);
+
+    await fixture.componentInstance.store.load();
+    fixture.componentInstance.store.decklist = `Commanders (1)
+1 Muldrotha, the Gravetide
+
+Deck
+1 Arcane Signet`;
+
+    await fixture.componentInstance.store.importDeck('deck-1');
+
+    expect(decksApi.importDecklist).toHaveBeenCalledWith('deck-1', `Commanders (1)
+1 Muldrotha, the Gravetide
+
+Deck
+1 Arcane Signet`);
   });
 
   it('refreshes deck tokens only after playable card changes', async () => {
@@ -197,6 +246,45 @@ describe('DeckEditorComponent', () => {
     const mainEntry = fixture.componentInstance.store.deck()?.cards?.find((entry) => entry.id === 'main-card');
     await fixture.componentInstance.store.addCardCopy(new MouseEvent('click'), mainEntry!);
     expect(decksApi.tokens).toHaveBeenCalledWith('deck-1');
+  });
+
+  it('loads raw decklist files into the editor import modal', async () => {
+    await setup({ id: 'deck-1' }, buildDeckWithSingleCard());
+    const fixture = TestBed.createComponent(DeckEditorComponent);
+
+    class MockFileReader {
+      result: string | ArrayBuffer | null = null;
+      onload: ((this: FileReader, ev: ProgressEvent<FileReader>) => unknown) | null = null;
+
+      readAsText(): void {
+        this.result = 'About\nName Imported\n1 Arcane Signet';
+        this.onload?.call(this as unknown as FileReader, {} as ProgressEvent<FileReader>);
+      }
+    }
+
+    vi.stubGlobal('FileReader', MockFileReader);
+    const input = document.createElement('input');
+    Object.defineProperty(input, 'files', {
+      value: [new File(['deck'], 'deck.dec', { type: 'text/plain' })],
+    });
+
+    fixture.componentInstance.store.loadDeckFile({ target: input } as unknown as Event);
+
+    expect(fixture.componentInstance.store.decklist).toBe('About\nName Imported\n1 Arcane Signet');
+    expect(input.value).toBe('');
+  });
+
+  it('accepts .dec files in the editor import input', async () => {
+    await setup({ id: 'deck-1' }, buildDeckWithSingleCard());
+    const fixture = TestBed.createComponent(DeckEditorComponent);
+    await fixture.componentInstance.store.load();
+    fixture.componentInstance.store.importModalOpen.set(true);
+    fixture.detectChanges();
+
+    const input = fixture.nativeElement.querySelector('input[type="file"]');
+
+    expect(input).not.toBeNull();
+    expect(input.getAttribute('accept')).toContain('.dec');
   });
 
   it('keeps sideboard cards grouped after lands', async () => {

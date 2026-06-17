@@ -10,6 +10,8 @@ class DecklistParser
     public const FORMAT_MOXFIELD = 'moxfield';
     public const FORMAT_ARCHIDEKT = 'archidekt';
 
+    private const COMMANDER_MARKER_PATTERN = '/(?:#\s*!commander\b|\[\s*commander(?:\{[^]]+\}|\([^]]+\)|:[^]]+)?\s*\])/iu';
+
     public const SUPPORTED_FORMATS = [
         self::FORMAT_PLAIN,
         self::FORMAT_MOXFIELD,
@@ -31,7 +33,7 @@ class DecklistParser
         foreach (preg_split('/\R/', $decklist) ?: [] as $rawLine) {
             $line = preg_replace('/^\x{FEFF}/u', '', $rawLine) ?? $rawLine;
             $line = trim($line);
-            if ($line === '' || str_starts_with($line, '//')) {
+            if ($line === '' || str_starts_with($line, '//') || $this->shouldIgnoreMetadataLine($line, $entries !== [])) {
                 continue;
             }
 
@@ -66,12 +68,24 @@ class DecklistParser
                 continue;
             }
 
-            if (!preg_match('/^(?:(\d+)x?\s+)?(.+)$/i', $line, $matches)) {
+            $matches = [];
+            $quantityToken = null;
+            $rawName = null;
+            if (preg_match('/^(?:(\d+)x?|x\s*(\d+))\s+(.+)$/i', $line, $matches) === 1) {
+                $quantityToken = ($matches[1] ?? '') !== ''
+                    ? $matches[1]
+                    : ((($matches[2] ?? '') !== '') ? $matches[2] : null);
+                $rawName = $matches[3] ?? null;
+            } elseif (preg_match('/^(.+)$/', $line, $matches) === 1) {
+                $rawName = $matches[1] ?? null;
+            }
+
+            if ($rawName === null) {
                 continue;
             }
 
-            $quantity = isset($matches[1]) && $matches[1] !== '' ? (int) $matches[1] : 1;
-            $rawName = $matches[2];
+            $quantity = $quantityToken !== null && $quantityToken !== '' ? (int) $quantityToken : 1;
+            $entrySection = $this->hasInlineCommanderMarker($rawName) ? DeckCard::SECTION_COMMANDER : $section;
             $printMetadata = $this->extractPrintMetadata($rawName);
             $name = $this->cleanName($rawName);
 
@@ -82,7 +96,7 @@ class DecklistParser
             $entries[] = [
                 'quantity' => $quantity,
                 'name' => $name,
-                'section' => $section,
+                'section' => $entrySection,
                 'setCode' => $printMetadata['setCode'],
                 'collectorNumber' => $printMetadata['collectorNumber'],
                 'rawLine' => $line,
@@ -111,12 +125,14 @@ class DecklistParser
     public function detectFormat(string $decklist): string
     {
         $archidektHeaders = 0;
+        $archidektTaggedLines = 0;
         $moxfieldPrintLines = 0;
         $moxfieldQuantityLines = 0;
 
         foreach (preg_split('/\R/', $decklist) ?: [] as $rawLine) {
-            $line = trim($rawLine);
-            if ($line === '' || str_starts_with($line, '//')) {
+            $line = preg_replace('/^\x{FEFF}/u', '', $rawLine) ?? $rawLine;
+            $line = trim($line);
+            if ($line === '' || str_starts_with($line, '//') || $this->shouldIgnoreMetadataLine($line, false)) {
                 continue;
             }
 
@@ -125,15 +141,24 @@ class DecklistParser
                 continue;
             }
 
-            if (preg_match('/^\d+x\s+.+/i', $line) === 1) {
+            if (preg_match('/^(?:\d+x|x\s*\d+)\s+.+/i', $line) === 1) {
                 ++$moxfieldQuantityLines;
+                if (preg_match('/\s\[[^\]]+\](?:\s+\^[^^]+\^)?\s*$/u', $line) === 1 || $this->hasInlineCommanderMarker($line)) {
+                    ++$archidektTaggedLines;
+                }
                 if (preg_match('/\([A-Z0-9]{2,8}\)\s+\S+/i', $line) === 1) {
                     ++$moxfieldPrintLines;
                 }
+                continue;
+            }
+
+            if (preg_match('/^\d+\s+.+\([A-Z0-9]{2,8}\)\s+\S+/i', $line) === 1) {
+                ++$moxfieldQuantityLines;
+                ++$moxfieldPrintLines;
             }
         }
 
-        if ($archidektHeaders > 0) {
+        if ($archidektHeaders > 0 || $archidektTaggedLines >= 2) {
             return self::FORMAT_ARCHIDEKT;
         }
 
@@ -146,15 +171,47 @@ class DecklistParser
 
     private function cleanName(string $name): string
     {
-        $name = preg_replace('/\s+\*[A-Z]\*\s*$/i', '', $name) ?? $name;
-        $name = preg_replace('/\s*[\x{2605}\x{2606}]\s*$/u', '', $name) ?? $name;
-        $name = preg_replace('/\s*[â˜…â˜†]\s*$/u', '', $name) ?? $name;
+        $name = $this->trimTrailingNoise($name);
         $name = preg_replace('/\s+\([A-Z0-9]{2,8}\)\s+.+$/i', '', $name) ?? $name;
         $name = preg_replace('/\s+\/\s+/', ' // ', $name) ?? $name;
-        $name = preg_replace('/\s*\[[^\]]+\]\s*$/', '', $name) ?? $name;
         $name = preg_replace('/\s+#\d+\s*$/', '', $name) ?? $name;
 
         return trim($name);
+    }
+
+    private function shouldIgnoreMetadataLine(string $line, bool $hasEntries): bool
+    {
+        if (!$hasEntries && preg_match('/^about$/i', $line) === 1) {
+            return true;
+        }
+
+        return !$hasEntries && preg_match('/^name\s+.+$/i', $line) === 1;
+    }
+
+    private function hasInlineCommanderMarker(string $line): bool
+    {
+        return preg_match(self::COMMANDER_MARKER_PATTERN, $line) === 1;
+    }
+
+    private function trimTrailingNoise(string $name): string
+    {
+        $patterns = [
+            '/\s+\^[^^]+\^\s*$/u',
+            '/\s+\*[A-Z]\*\s*$/i',
+            '/\s*[\x{2605}\x{2606}]\s*$/u',
+            '/\s*[Ã¢Ëœâ€¦Ã¢Ëœâ€ ]\s*$/u',
+            '/\s*\[[^\]]+\]\s*$/u',
+            '/\s*#\s*!commander\s*$/iu',
+        ];
+
+        do {
+            $previous = $name;
+            foreach ($patterns as $pattern) {
+                $name = preg_replace($pattern, '', $name) ?? $name;
+            }
+        } while ($name !== $previous);
+
+        return $name;
     }
 
     /**

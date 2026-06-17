@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Injectable, computed, inject, signal } from '@angular/core';
+import { Injectable, NgZone, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { CardsApi, CardSearchFilters } from '../../../core/api/cards.api';
@@ -72,6 +72,7 @@ export class DeckEditorStore {
   private readonly cardsApi = inject(CardsApi);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private readonly zone = inject(NgZone);
   private readonly languagePreferences = inject(LanguagePreferencesService);
   private readonly i18n = inject(AppShellI18nService);
   private readonly importExport = inject(DeckImportExportService);
@@ -262,21 +263,20 @@ export class DeckEditorStore {
 
   async importDeck(id: string): Promise<void> {
     try {
-      const entries = this.importExport.parse(this.decklist, 'plain');
       const previousDeck = this.deck();
-      const response = await firstValueFrom(this.decksApi.importDecklist(id, this.importExport.toBackendDecklist(entries)));
+      const response = await firstValueFrom(this.decksApi.importDecklist(id, this.decklist));
       this.deck.set(response.deck);
       this.missing.set(response.missing);
       this.missingSourceEntries.set(response.missingCards ?? []);
       this.drawOpeningHand(response.deck);
       this.lastImportStats.set({
-        parsedCards: response.summary?.parsedCards ?? entries.reduce((total, entry) => total + entry.quantity, 0),
+        parsedCards: response.summary?.parsedCards ?? 0,
         importedCards: response.summary?.importedCards ?? (response.deck.cards ?? []).reduce((total, entry) => total + entry.quantity, 0),
         missingCards: response.missing.length,
       });
       this.validation.set(null);
       this.missingSearch.set(null);
-      this.recordHistory(response.deck, 'Import plain text');
+      this.recordHistory(response.deck, 'Import decklist');
       this.refreshTokensIfPlayableCardsChanged(previousDeck, response.deck);
       void this.refreshBackendValidation(response.deck.id);
       if (response.missing.length > 0) {
@@ -302,8 +302,10 @@ export class DeckEditorStore {
 
     const reader = new FileReader();
     reader.onload = () => {
-      this.decklist = String(reader.result ?? '');
-      input.value = '';
+      this.zone.run(() => {
+        this.decklist = String(reader.result ?? '');
+        input.value = '';
+      });
     };
     reader.readAsText(file);
   }

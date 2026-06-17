@@ -1738,7 +1738,7 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   private async animateHandReorderAfterAction(action: () => Promise<void>): Promise<void> {
     const handCardSelector = '[data-zone="hand"][data-card-instance-id]';
     const handRoot = this.gameScreen?.nativeElement ?? null;
-    const playFlip = handRoot
+    const playFlip = handRoot?.isConnected
       ? this.motion.prepareHandLayoutFlip(handRoot, handCardSelector)
       : this.motion.prepareCardFlip(handCardSelector, { freezeHand: false });
 

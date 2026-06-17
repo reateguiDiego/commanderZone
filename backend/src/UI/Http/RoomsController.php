@@ -810,18 +810,20 @@ class RoomsController extends ApiController
             return $rooms;
         }
 
-        $localizedPayloads = $localization->localizeCardPayloads($payloads, $viewer->cardLanguage(), true);
         foreach ($targets as $offset => $target) {
             $roomIndex = $target['roomIndex'];
             $playerIndex = $target['playerIndex'];
+            $localizedPayload = is_array($payloads[$offset] ?? null)
+                ? $localization->localizeCardPayload($payloads[$offset], $viewer->cardLanguage(), true)
+                : null;
             if (
-                is_array($localizedPayloads[$offset] ?? null)
+                is_array($localizedPayload)
                 && is_array($rooms[$roomIndex]['players'][$playerIndex]['deck'] ?? null)
             ) {
                 if (($target['kind'] ?? null) === 'commander') {
                     $commanderIndex = $target['commanderIndex'] ?? null;
                     if (is_int($commanderIndex)) {
-                        $rooms[$roomIndex]['players'][$playerIndex]['deck']['commanders'][$commanderIndex] = $localizedPayloads[$offset];
+                        $rooms[$roomIndex]['players'][$playerIndex]['deck']['commanders'][$commanderIndex] = $localizedPayload;
                     }
                 }
             }
