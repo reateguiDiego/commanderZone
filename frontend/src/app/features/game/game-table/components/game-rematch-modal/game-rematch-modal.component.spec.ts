@@ -64,7 +64,7 @@ describe('GameRematchModalComponent', () => {
       .find((button): button is HTMLButtonElement => button.textContent?.trim() === 'Jugar otra partida');
 
     expect(playAgainButton?.disabled).toBe(true);
-    expect(fixture.nativeElement.textContent).toContain('El resto de jugadores ya ha votado abandonar la room.');
+    expect(fixture.nativeElement.textContent).toContain('El resto de jugadores ya ha votado salir de la sala.');
   });
 
   it('explains the initial auto-leave countdown', () => {

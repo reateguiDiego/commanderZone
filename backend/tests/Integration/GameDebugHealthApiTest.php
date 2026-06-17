@@ -156,6 +156,67 @@ class GameDebugHealthApiTest extends ApiTestCase
         return (string) $this->jsonResponse()['deck']['id'];
     }
 
+    /**
+     * @param list<string> $tokens
+     */
+    private function resolveTurnOrder(string $roomId, array $tokens): void
+    {
+        for ($attempt = 0; $attempt < 20; ++$attempt) {
+            $this->jsonRequest('GET', '/rooms/'.$roomId, token: $tokens[0]);
+            self::assertResponseIsSuccessful();
+            $players = $this->jsonResponse()['room']['players'] ?? [];
+            if ($this->turnOrderResolved($players)) {
+                return;
+            }
+
+            $progress = false;
+            foreach ($tokens as $token) {
+                $this->jsonRequest('POST', '/rooms/'.$roomId.'/roll-turn', token: $token);
+                $statusCode = $this->getClient()->getResponse()->getStatusCode();
+                if ($statusCode === 200) {
+                    $progress = true;
+                    continue;
+                }
+
+                $response = $this->jsonResponse();
+                if ($statusCode === 409 && ($response['error'] ?? '') === 'Turn order has already been rolled.') {
+                    continue;
+                }
+
+                self::fail(sprintf('Unexpected turn-order response %d: %s', $statusCode, json_encode($response, JSON_THROW_ON_ERROR)));
+            }
+
+            if (!$progress) {
+                break;
+            }
+        }
+
+        self::fail('Unable to resolve turn order after repeated rerolls.');
+    }
+
+    /**
+     * @param list<array<string,mixed>> $players
+     */
+    private function turnOrderResolved(array $players): bool
+    {
+        $sequences = [];
+        foreach ($players as $player) {
+            $turnRolls = $player['turnRolls'] ?? [];
+            if (!is_array($turnRolls) || $turnRolls === []) {
+                return false;
+            }
+
+            $sequence = implode('-', array_map(static fn (mixed $roll): string => (string) $roll, $turnRolls));
+            if (isset($sequences[$sequence])) {
+                return false;
+            }
+
+            $sequences[$sequence] = true;
+        }
+
+        return $players !== [];
+    }
+
     private function rollTurnOrder(string $roomId, string $token): void
     {
         $this->jsonRequest('POST', '/rooms/'.$roomId.'/roll-turn', token: $token);

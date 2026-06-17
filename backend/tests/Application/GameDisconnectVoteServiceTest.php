@@ -4,6 +4,7 @@ namespace App\Tests\Application;
 
 use App\Application\Game\GameCommandHandler;
 use App\Application\Game\GameDisconnectVoteService;
+use App\Application\Game\GameRematchService;
 use App\Domain\Game\Game;
 use App\Domain\Room\Room;
 use App\Domain\Room\RoomPlayer;
@@ -53,7 +54,44 @@ class GameDisconnectVoteServiceTest extends TestCase
 
         self::assertSame(GameDisconnectVoteService::STATUS_RESOLVED_EXPEL, $recorded['snapshot']['disconnectVote']['status']);
         self::assertSame('conceded', $recorded['snapshot']['players'][$target->id()]['status']);
+        self::assertSame(GameRematchService::VOTE_LEAVE, $recorded['snapshot']['rematch']['votes'][$target->id()]['vote']);
         self::assertFalse($game->room()->hasPlayer($target));
+    }
+
+    public function testRecordVoteExpelsTargetAndAdvancesTurnWhenTargetWasActivePlayer(): void
+    {
+        [$game, $owner, $target, $voter] = $this->gameWithThreePlayers();
+        $snapshot = $game->snapshot();
+        $snapshot['turn'] = [
+            'activePlayerId' => $target->id(),
+            'phase' => 'combat',
+            'number' => 4,
+        ];
+        $game->replaceSnapshot($snapshot);
+        $service = new GameDisconnectVoteService(new GameCommandHandler());
+        $openAt = new \DateTimeImmutable('2026-01-01T00:00:00+00:00');
+        $service->openVoteIfEligible($game, $target->id(), [$owner->id(), $voter->id()], $openAt);
+
+        $service->recordVote(
+            $game,
+            $owner,
+            $target->id(),
+            GameDisconnectVoteService::VOTE_EXPEL,
+            [$owner->id(), $voter->id()],
+            new \DateTimeImmutable('2026-01-01T00:00:10+00:00'),
+        );
+        $recorded = $service->recordVote(
+            $game,
+            $voter,
+            $target->id(),
+            GameDisconnectVoteService::VOTE_EXPEL,
+            [$owner->id(), $voter->id()],
+            new \DateTimeImmutable('2026-01-01T00:00:11+00:00'),
+        );
+
+        self::assertSame($voter->id(), $recorded['snapshot']['turn']['activePlayerId']);
+        self::assertSame('untap', $recorded['snapshot']['turn']['phase']);
+        self::assertSame(4, $recorded['snapshot']['turn']['number']);
     }
 
     public function testRecordVoteExpelsTargetAndReassignsMonarchWhenTargetWasMonarch(): void

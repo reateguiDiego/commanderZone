@@ -582,24 +582,10 @@ class GameCommandHandler
             throw new \InvalidArgumentException('Actor is not a game player.');
         }
         $previousActivePlayerId = (string) ($snapshot['turn']['activePlayerId'] ?? '');
-        $wasActiveTurnPlayer = $previousActivePlayerId !== '' && $previousActivePlayerId === $playerId;
-        $previousTurnNumber = max(1, (int) ($snapshot['turn']['number'] ?? 1));
 
         $snapshot['players'][$playerId]['status'] = 'conceded';
         $snapshot['players'][$playerId]['concededAt'] = (new \DateTimeImmutable())->format(DATE_ATOM);
-        if ($wasActiveTurnPlayer) {
-            $nextActivePlayerId = $this->turnEligiblePlayerId($snapshot, $playerId);
-            if ($nextActivePlayerId !== '' && $nextActivePlayerId !== $playerId) {
-                $snapshot['turn']['activePlayerId'] = $nextActivePlayerId;
-                $snapshot['turn']['phase'] = 'untap';
-                $snapshot['turn']['number'] = $this->nextTurnNumberAfterActivePlayerShift(
-                    $snapshot,
-                    $previousActivePlayerId,
-                    $nextActivePlayerId,
-                    $previousTurnNumber,
-                );
-            }
-        }
+        GameTurnSuccession::advanceWhenActivePlayerLeaves($snapshot, $playerId, $previousActivePlayerId);
         $this->reassignMonarchWhenPlayerLeaves($snapshot, $playerId, $previousActivePlayerId);
 
         return sprintf('%s conceded.', $this->playerName($snapshot, $playerId));
@@ -1596,7 +1582,7 @@ class GameCommandHandler
         }
         $snapshot['turn'] = array_replace($snapshot['turn'] ?? [], $allowed);
         if (array_key_exists('activePlayerId', $allowed)) {
-            $snapshot['turn']['activePlayerId'] = $this->turnEligiblePlayerId(
+            $snapshot['turn']['activePlayerId'] = GameTurnSuccession::eligiblePlayerId(
                 $snapshot,
                 (string) $snapshot['turn']['activePlayerId'],
             );
@@ -2419,25 +2405,9 @@ class GameCommandHandler
         return false;
     }
 
-    private function playerLife(array $snapshot, string $playerId): int
-    {
-        return (int) ($snapshot['players'][$playerId]['life'] ?? 40);
-    }
-
     private function playerIsDefeated(array $snapshot, string $playerId): bool
     {
-        return $this->playerLife($snapshot, $playerId) <= 0 || $this->hasLethalCommanderDamage($snapshot, $playerId);
-    }
-
-    private function hasLethalCommanderDamage(array $snapshot, string $playerId): bool
-    {
-        foreach (($snapshot['players'][$playerId]['commanderDamage'] ?? []) as $damage) {
-            if ((int) $damage >= self::COMMANDER_DAMAGE_DEFEAT_THRESHOLD) {
-                return true;
-            }
-        }
-
-        return false;
+        return GameTurnSuccession::playerIsDefeated($snapshot, $playerId);
     }
 
     private function playerDefeatedMessage(array $snapshot, string $playerId): string
@@ -2445,52 +2415,9 @@ class GameCommandHandler
         return sprintf('%s ha muerto.', $this->playerName($snapshot, $playerId));
     }
 
-    private function turnEligiblePlayerId(array $snapshot, string $requestedPlayerId): string
-    {
-        $players = is_array($snapshot['players'] ?? null) ? $snapshot['players'] : [];
-        $alivePlayerIds = array_values(array_filter(
-            array_keys($players),
-            fn (string $playerId): bool => $this->playerIsAliveForTurn($snapshot, $playerId),
-        ));
-        if (count($alivePlayerIds) < 2 || $this->playerIsAliveForTurn($snapshot, $requestedPlayerId)) {
-            return $requestedPlayerId;
-        }
-
-        $playerIds = array_keys($players);
-        $requestedIndex = array_search($requestedPlayerId, $playerIds, true);
-        $startIndex = $requestedIndex === false ? -1 : $requestedIndex;
-        $playerCount = count($playerIds);
-        for ($offset = 1; $offset <= $playerCount; ++$offset) {
-            $candidateId = $playerIds[($startIndex + $offset) % $playerCount] ?? null;
-            if (is_string($candidateId) && $this->playerIsAliveForTurn($snapshot, $candidateId)) {
-                return $candidateId;
-            }
-        }
-
-        return $requestedPlayerId;
-    }
-
     private function playerIsAliveForTurn(array $snapshot, string $playerId): bool
     {
-        return ($snapshot['players'][$playerId]['status'] ?? 'active') === 'active'
-            && !$this->playerIsDefeated($snapshot, $playerId);
-    }
-
-    private function nextTurnNumberAfterActivePlayerShift(
-        array $snapshot,
-        string $previousActivePlayerId,
-        string $nextActivePlayerId,
-        int $currentTurnNumber,
-    ): int {
-        $players = is_array($snapshot['players'] ?? null) ? $snapshot['players'] : [];
-        $playerIds = array_keys($players);
-        $previousIndex = array_search($previousActivePlayerId, $playerIds, true);
-        $nextIndex = array_search($nextActivePlayerId, $playerIds, true);
-        if (!is_int($previousIndex) || !is_int($nextIndex)) {
-            return $currentTurnNumber;
-        }
-
-        return $nextIndex <= $previousIndex ? $currentTurnNumber + 1 : $currentTurnNumber;
+        return GameTurnSuccession::playerIsAliveForTurn($snapshot, $playerId);
     }
 
     private function takeCard(array &$snapshot, string $playerId, string $zone, string $instanceId): array

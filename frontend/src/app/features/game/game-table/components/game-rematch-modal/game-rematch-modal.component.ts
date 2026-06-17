@@ -42,7 +42,7 @@ export class GameRematchModalComponent {
       case 'play_again':
         return 'Jugar otra partida';
       case 'leave':
-        return 'Abandona room';
+        return 'Salir de la sala';
       default:
         return 'Sin votar';
     }

@@ -396,9 +396,9 @@
       "elJugadorObjetivoYaApareceOnline": "El jugador objetivo ya aparece online."
     },
     "gameRematchModal": {
-      "votacionesDeLaRoom": "Votaciones de la room",
+      "votacionesDeLaRoom": "Votaciones de la sala",
       "tuVotoActual": "Tu voto actual:",
-      "elRestoDeJugadoresYaHaVotado": "El resto de jugadores ya ha votado abandonar la room."
+      "elRestoDeJugadoresYaHaVotado": "El resto de jugadores ya ha votado salir de la sala."
     },
     "gameTableHeader": {
       "currentPlayer": "Current player"

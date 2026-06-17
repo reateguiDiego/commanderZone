@@ -197,6 +197,20 @@ function applyOperation(snapshot: GameSnapshot, operation: GameSnapshotPatchOper
         },
       };
 
+    case 'rematch.set':
+      return {
+        status: 'applied',
+        snapshot: {
+          ...snapshot,
+          rematch: operation.rematch
+            ? {
+                ...operation.rematch,
+                votes: { ...operation.rematch.votes },
+              }
+            : undefined,
+        },
+      };
+
     case 'chat.append':
       return { status: 'applied', snapshot: { ...snapshot, chat: [...snapshot.chat, ...operation.entries] } };
 
