@@ -2,6 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { importProvidersFrom } from '@angular/core';
 import { Link, LucideAngularModule } from 'lucide-angular';
 import { GameCardInstance } from '../../../../../core/models/game.model';
+import { DEFAULT_DUNGEON_MARKER } from '../../utils/dungeon-marker';
 import { CardPreviewOverlayComponent } from './card-preview-overlay.component';
 
 describe('CardPreviewOverlayComponent', () => {
@@ -209,10 +210,14 @@ describe('CardPreviewOverlayComponent', () => {
 
     const pin = fixture.nativeElement.querySelector('app-dungeon-location-pin') as HTMLElement | null;
     expect(pin).not.toBeNull();
-    expect(pin?.style.left).toBe('50%');
-    expect(pin?.style.top).toBe('50%');
+    expect(pin?.style.left).toBe(markerPercent(DEFAULT_DUNGEON_MARKER.x));
+    expect(pin?.style.top).toBe(markerPercent(DEFAULT_DUNGEON_MARKER.y));
   });
 });
+
+function markerPercent(value: number): string {
+  return `${value * 100}%`;
+}
 
 async function renderPreview(options: {
   card?: GameCardInstance;

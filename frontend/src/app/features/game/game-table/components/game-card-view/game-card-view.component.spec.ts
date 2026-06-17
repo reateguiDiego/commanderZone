@@ -3,6 +3,7 @@ import { importProvidersFrom } from '@angular/core';
 import { CircleQuestionMark, Layers3, Link, LucideAngularModule, RotateCw } from 'lucide-angular';
 import { GameCardInstance } from '../../../../../core/models/game.model';
 import { CARD_PREVIEW_HOVER_DELAY_MS } from '../../models/card-preview.model';
+import { DEFAULT_DUNGEON_MARKER } from '../../utils/dungeon-marker';
 import { GameCardViewComponent } from './game-card-view.component';
 
 describe('GameCardViewComponent', () => {
@@ -396,8 +397,8 @@ describe('GameCardViewComponent', () => {
 
     const pin = fixture.nativeElement.querySelector('app-dungeon-location-pin') as HTMLElement | null;
     expect(pin).not.toBeNull();
-    expect(pin?.style.left).toBe('50%');
-    expect(pin?.style.top).toBe('50%');
+    expect(pin?.style.left).toBe(markerPercent(DEFAULT_DUNGEON_MARKER.x));
+    expect(pin?.style.top).toBe(markerPercent(DEFAULT_DUNGEON_MARKER.y));
   });
 
   it('renders a default location pin for legacy official dungeon cards without layout metadata', async () => {
@@ -415,8 +416,8 @@ describe('GameCardViewComponent', () => {
 
     const pin = fixture.nativeElement.querySelector('app-dungeon-location-pin') as HTMLElement | null;
     expect(pin).not.toBeNull();
-    expect(pin?.style.left).toBe('50%');
-    expect(pin?.style.top).toBe('50%');
+    expect(pin?.style.left).toBe(markerPercent(DEFAULT_DUNGEON_MARKER.x));
+    expect(pin?.style.top).toBe(markerPercent(DEFAULT_DUNGEON_MARKER.y));
   });
 
   it('emits a clamped dungeon marker position after dragging the pin inside the card', async () => {
@@ -1384,6 +1385,10 @@ function gameCard(): GameCardInstance {
     name: 'Arcane Signet',
     tapped: false,
   };
+}
+
+function markerPercent(value: number): string {
+  return `${value * 100}%`;
 }
 
 function undercityInitiativeCard(): GameCardInstance {
