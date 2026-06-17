@@ -325,6 +325,29 @@ describe('game snapshot patch reducer', () => {
     expect(result.snapshot.disconnectVote?.votes['player-1']?.vote).toBe('expel');
   });
 
+  it('applies rematch snapshot updates', () => {
+    const snapshot = snapshotFixture();
+
+    const result = applyGameSnapshotPatch(snapshot, patch([
+      {
+        op: 'rematch.set',
+        rematch: {
+          votes: {
+            'player-2': {
+              playerId: 'player-2',
+              displayName: 'Player 2',
+              vote: 'leave',
+              votedAt: '2026-01-01T00:00:15.000Z',
+            },
+          },
+        },
+      },
+    ]));
+
+    expect(result.status).toBe('applied');
+    expect(result.snapshot.rematch?.votes['player-2']?.vote).toBe('leave');
+  });
+
   it('applies append and set operations for shared gameplay collections', () => {
     const snapshot = snapshotFixture();
 

@@ -326,6 +326,10 @@ export type GameSnapshotPatchOperation =
       attachments: NonNullable<GameSnapshot['attachments']>;
     }
   | {
+      op: 'rematch.set';
+      rematch: GameSnapshot['rematch'] | null;
+    }
+  | {
       op: 'specialEntity.add';
       entity: GameSpecialEntity;
     }

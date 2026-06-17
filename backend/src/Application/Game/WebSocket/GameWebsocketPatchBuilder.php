@@ -110,6 +110,7 @@ final readonly class GameWebsocketPatchBuilder
             'helper.created' => $this->helperChanged($previousSnapshot, $nextSnapshot),
             'helper.updated' => $this->helperChanged($previousSnapshot, $nextSnapshot),
             'helper.removed' => $this->helperChanged($previousSnapshot, $nextSnapshot),
+            'rematch.vote' => $this->rematchVote($previousSnapshot, $nextSnapshot),
             'game.concede' => $this->gameConcede($previousSnapshot, $nextSnapshot, $eventData),
             'game.close' => $this->eventLogOnly($previousSnapshot, $nextSnapshot),
             'disconnect.vote.updated' => $this->disconnectVoteUpdated($previousSnapshot, $nextSnapshot),
@@ -1179,6 +1180,39 @@ final readonly class GameWebsocketPatchBuilder
     /**
      * @return list<array<string,mixed>>|null
      */
+    private function rematchChanged(array $previousSnapshot, array $nextSnapshot): ?array
+    {
+        $previousRematch = is_array($previousSnapshot['rematch'] ?? null) ? $previousSnapshot['rematch'] : null;
+        $nextRematch = is_array($nextSnapshot['rematch'] ?? null) ? $nextSnapshot['rematch'] : null;
+        if ($previousRematch === $nextRematch) {
+            return [];
+        }
+
+        return [[
+            'op' => 'rematch.set',
+            'rematch' => $nextRematch,
+        ]];
+    }
+
+    /**
+     * @return list<array<string,mixed>>|null
+     */
+    private function rematchVote(array $previousSnapshot, array $nextSnapshot): ?array
+    {
+        $operations = $this->rematchChanged($previousSnapshot, $nextSnapshot);
+        if ($operations === null) {
+            return null;
+        }
+
+        return [
+            ...$operations,
+            ...$this->eventLogAppendOperation($previousSnapshot, $nextSnapshot),
+        ];
+    }
+
+    /**
+     * @return list<array<string,mixed>>|null
+     */
     private function collectionDiffOperations(
         array $previousSnapshot,
         array $nextSnapshot,
@@ -1367,6 +1401,14 @@ final readonly class GameWebsocketPatchBuilder
             'op' => 'disconnect.vote.set',
             'disconnectVote' => is_array($nextSnapshot['disconnectVote'] ?? null) ? $nextSnapshot['disconnectVote'] : null,
         ]];
+        $rematchOperations = $this->rematchChanged($previousSnapshot, $nextSnapshot);
+        if ($rematchOperations === null) {
+            return null;
+        }
+        if ($rematchOperations !== []) {
+            $operations = [...$operations, ...$rematchOperations];
+        }
+
         $targetPlayerId = is_string($nextSnapshot['disconnectVote']['targetPlayerId'] ?? null)
             ? $nextSnapshot['disconnectVote']['targetPlayerId']
             : null;
@@ -1388,14 +1430,24 @@ final readonly class GameWebsocketPatchBuilder
                 }
             }
         }
+        $previousTurn = $previousSnapshot['turn'] ?? null;
+        $nextTurn = $nextSnapshot['turn'] ?? null;
+        if (is_array($previousTurn) && is_array($nextTurn) && $previousTurn !== $nextTurn) {
+            $operations[] = [
+                'op' => 'turn.set',
+                'turn' => $nextTurn,
+            ];
+        }
         $specialEntityOperations = $this->specialEntityDiffOperations($previousSnapshot, $nextSnapshot);
         if ($specialEntityOperations === null) {
             return null;
         }
+        if ($specialEntityOperations !== []) {
+            $operations = [...$operations, ...$specialEntityOperations];
+        }
 
         return [
             ...$operations,
-            ...$specialEntityOperations,
             ...$this->eventLogAppendOperation($previousSnapshot, $nextSnapshot),
         ];
     }
