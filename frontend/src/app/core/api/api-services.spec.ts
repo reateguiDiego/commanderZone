@@ -460,6 +460,13 @@ describe('API services', () => {
     expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);
     request.flush({ room: roomFixture('room-1') });
 
+    rooms.update('room-1', { mulliganRule: 'GENEROUS', firstMulliganFree: false }, true).subscribe();
+    request = http.expectOne(`${API_BASE_URL}/rooms/room-1`);
+    expect(request.request.method).toBe('PATCH');
+    expect(request.request.body).toEqual({ mulliganRule: 'GENEROUS', firstMulliganFree: false });
+    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);
+    request.flush({ room: roomFixture('room-1') });
+
     rooms.list('active', true).subscribe();
     request = http.expectOne(`${API_BASE_URL}/rooms?status=active`);
     expect(request.request.method).toBe('GET');
@@ -612,6 +619,8 @@ function roomFixture(id: string) {
     startingLife: 40,
     timerMode: 'none',
     timerDurationSeconds: 300,
+    mulliganRule: 'LONDON',
+    firstMulliganFree: true,
     owner: { id: 'user-1', email: 'owner@example.test', displayName: 'Owner', roles: [] },
     players: [],
     gameId: null,

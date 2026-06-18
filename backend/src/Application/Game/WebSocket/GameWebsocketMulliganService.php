@@ -1,0 +1,429 @@
+<?php
+
+namespace App\Application\Game\WebSocket;
+
+use App\Application\Game\GameCommandHandler;
+use App\Domain\Game\Game;
+use App\Domain\Game\GameEvent;
+use App\Domain\Room\RoomPlayer;
+use App\Domain\User\User;
+use Doctrine\DBAL\Exception\DeadlockException;
+use Doctrine\DBAL\Exception\LockWaitTimeoutException;
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
+use Doctrine\DBAL\LockMode;
+use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\Persistence\ManagerRegistry;
+
+final readonly class GameWebsocketMulliganService
+{
+    private const CLIENT_EVENTS = [
+        'mulligan.take',
+        'mulligan.keep',
+        'mulligan.scry.confirm',
+    ];
+    private const GAME_PHASE_MULLIGAN = 'MULLIGAN';
+    private const GAME_PHASE_PLAYING = 'PLAYING';
+
+    public function __construct(
+        private GameCommandHandler $commands,
+        private ManagerRegistry $managerRegistry,
+    ) {
+    }
+
+    public function supports(string $kind): bool
+    {
+        return in_array($kind, self::CLIENT_EVENTS, true);
+    }
+
+    /**
+     * @return list<array<string,mixed>>
+     */
+    public function initialStateMessages(string $gameId, string $userId): array
+    {
+        $manager = $this->manager();
+        try {
+            $game = $manager->getRepository(Game::class)->find($gameId);
+            $viewer = $manager->getRepository(User::class)->find($userId);
+            if (!$game instanceof Game || !$viewer instanceof User || !$game->canBeViewedBy($viewer)) {
+                return [];
+            }
+
+            $snapshot = $this->commands->normalizeSnapshot($game->snapshot());
+            if (($snapshot['gamePhase'] ?? null) !== self::GAME_PHASE_MULLIGAN) {
+                return [];
+            }
+
+            $messages = [$this->publicState($game->id(), $snapshot, null)];
+            if ($game->canBeControlledBy($viewer)) {
+                $playerId = $this->playerId($snapshot, $viewer->id());
+                if ($playerId !== null) {
+                    $messages[] = $this->privateState($game->id(), $snapshot, $playerId, null);
+                }
+            }
+
+            return $messages;
+        } finally {
+            $manager->clear();
+        }
+    }
+
+    /**
+     * @param array<string,mixed> $payload
+     *
+     * @return array<string,mixed>|GameWebsocketCommandResult
+     */
+    public function handle(string $kind, array $payload, GameWebsocketPeer $peer, ?string $messageId = null): array|GameWebsocketCommandResult
+    {
+        $gameId = is_string($payload['gameId'] ?? null) ? trim($payload['gameId']) : '';
+        if ($gameId === '' || $gameId !== $peer->gameId) {
+            return $this->error($peer->gameId, 'NOT_IN_GAME', 'Game access denied.', $messageId);
+        }
+
+        $manager = $this->manager();
+        try {
+            $game = $manager->getRepository(Game::class)->find($gameId);
+            $actor = $manager->getRepository(User::class)->find($peer->userId);
+            if (!$game instanceof Game || !$actor instanceof User || !$game->canBeViewedBy($actor)) {
+                return $this->error($peer->gameId, 'NOT_IN_GAME', 'Game access denied.', $messageId);
+            }
+            if (!$game->canBeControlledBy($actor)) {
+                return $this->error($game->id(), 'SPECTATOR_NOT_ALLOWED', 'Spectators cannot perform mulligan actions.', $messageId);
+            }
+
+            $manager->beginTransaction();
+            $manager->lock($game, LockMode::PESSIMISTIC_WRITE);
+
+            $snapshot = $this->commands->normalizeSnapshot($game->snapshot());
+            $playerId = $this->playerId($snapshot, $actor->id());
+            if ($playerId === null) {
+                $manager->rollback();
+
+                return $this->error($game->id(), 'NOT_IN_GAME', 'Game access denied.', $messageId);
+            }
+            if (($snapshot['gamePhase'] ?? null) !== self::GAME_PHASE_MULLIGAN) {
+                $manager->rollback();
+
+                return $this->error($game->id(), 'GAME_NOT_IN_MULLIGAN_PHASE', 'Game is not in mulligan phase.', $messageId, $this->snapshotVersion($game));
+            }
+
+            $status = (string) ($snapshot['players'][$playerId]['mulligan']['status'] ?? 'DECIDING');
+            if ($status === 'READY' && in_array($kind, ['mulligan.take', 'mulligan.keep'], true)) {
+                $manager->rollback();
+
+                return $this->error($game->id(), 'ALREADY_READY', 'Player is already ready.', $messageId, $this->snapshotVersion($game));
+            }
+            if ($kind === 'mulligan.scry.confirm' && $status === 'READY') {
+                $manager->rollback();
+
+                return $this->error($game->id(), 'ALREADY_READY', 'Player is already ready.', $messageId, $this->snapshotVersion($game));
+            }
+
+            $previousVersion = $this->snapshotVersion($game);
+            $clientActionId = $this->clientActionId($kind, $actor, $messageId);
+            $existingEvent = $manager->getRepository(GameEvent::class)->findOneBy([
+                'game' => $game,
+                'clientActionId' => $clientActionId,
+            ]);
+            if ($existingEvent instanceof GameEvent) {
+                $manager->rollback();
+
+                return $this->error($game->id(), 'INVALID_MULLIGAN_STATE', 'Duplicate mulligan action ignored.', $messageId, $previousVersion);
+            }
+
+            $handlerType = $this->handlerType($kind);
+            $handlerPayload = $this->handlerPayload($kind, $payload);
+            try {
+                $event = $this->commands->apply($game, $handlerType, $handlerPayload, $actor, $clientActionId);
+            } catch (\InvalidArgumentException $exception) {
+                $manager->rollback();
+
+                return $this->error(
+                    $game->id(),
+                    $this->errorCode($exception->getMessage(), $kind),
+                    $exception->getMessage(),
+                    $messageId,
+                    $previousVersion,
+                );
+            }
+
+            $manager->persist($event);
+            $manager->flush();
+            $manager->commit();
+
+            return $this->result($game, $actor, $event, $messageId);
+        } catch (UniqueConstraintViolationException) {
+            if ($manager->getConnection()->isTransactionActive()) {
+                $manager->rollback();
+            }
+
+            return $this->error($gameId, 'INVALID_MULLIGAN_STATE', 'Duplicate mulligan action ignored.', $messageId);
+        } catch (DeadlockException|LockWaitTimeoutException) {
+            if ($manager->getConnection()->isTransactionActive()) {
+                $manager->rollback();
+            }
+
+            return $this->error($gameId, 'INVALID_MULLIGAN_STATE', 'Mulligan action conflicted. Please retry.', $messageId);
+        } catch (\Throwable $exception) {
+            if ($manager->getConnection()->isTransactionActive()) {
+                $manager->rollback();
+            }
+
+            throw $exception;
+        } finally {
+            $manager->clear();
+        }
+    }
+
+    private function manager(): EntityManagerInterface
+    {
+        $manager = $this->managerRegistry->getManagerForClass(Game::class)
+            ?? $this->managerRegistry->getManager();
+        if (!$manager instanceof EntityManagerInterface) {
+            throw new \RuntimeException('Game WebSocket mulligan requires Doctrine ORM entity manager.');
+        }
+
+        return $manager;
+    }
+
+    private function handlerType(string $kind): string
+    {
+        return match ($kind) {
+            'mulligan.take' => 'mulligan.take',
+            'mulligan.keep' => 'mulligan.keep',
+            'mulligan.scry.confirm' => 'mulligan.scry_confirm',
+            default => throw new \InvalidArgumentException(sprintf('Unsupported mulligan event: %s', $kind)),
+        };
+    }
+
+    /**
+     * @param array<string,mixed> $payload
+     *
+     * @return array<string,mixed>
+     */
+    private function handlerPayload(string $kind, array $payload): array
+    {
+        if ($kind === 'mulligan.keep') {
+            return ['bottomCardInstanceIds' => $payload['bottomCardInstanceIds'] ?? []];
+        }
+        if ($kind === 'mulligan.scry.confirm') {
+            return ['destination' => $payload['destination'] ?? null];
+        }
+
+        return [];
+    }
+
+    private function clientActionId(string $kind, User $actor, ?string $messageId): string
+    {
+        $dedupeKey = $messageId !== null && trim($messageId) !== ''
+            ? substr(hash('sha256', $messageId), 0, 24)
+            : bin2hex(random_bytes(12));
+
+        return sprintf('ws-%s-%s-%s', str_replace('.', '-', $kind), $actor->id(), $dedupeKey);
+    }
+
+    private function snapshotVersion(Game $game): int
+    {
+        return max(1, (int) ($game->snapshot()['version'] ?? 1));
+    }
+
+    /**
+     * @param array<string,mixed> $snapshot
+     */
+    private function playerId(array $snapshot, string $userId): ?string
+    {
+        foreach ($snapshot['players'] ?? [] as $playerId => $player) {
+            if ((string) $playerId === $userId) {
+                return (string) $playerId;
+            }
+            if (is_array($player) && ($player['user']['id'] ?? null) === $userId) {
+                return (string) $playerId;
+            }
+        }
+
+        return null;
+    }
+
+    private function errorCode(string $message, string $kind): string
+    {
+        return match (true) {
+            str_contains($message, 'already ready') => 'ALREADY_READY',
+            str_contains($message, 'Game is not in mulligan phase') => 'GAME_NOT_IN_MULLIGAN_PHASE',
+            str_contains($message, 'Incorrect number of bottom cards selected') => 'INVALID_BOTTOM_COUNT',
+            str_contains($message, 'Selected bottom card is not in hand') => 'CARD_NOT_IN_HAND',
+            str_contains($message, 'does not allow bottom card selections') => 'BOTTOM_NOT_ALLOWED',
+            str_contains($message, 'No bottom card selections are required') => 'BOTTOM_NOT_ALLOWED',
+            $kind === 'mulligan.scry.confirm' && (
+                str_contains($message, 'Only Vancouver')
+                || str_contains($message, 'No scry card')
+                || str_contains($message, 'Scry destination')
+            ) => 'SCRY_NOT_ALLOWED',
+            default => 'INVALID_MULLIGAN_STATE',
+        };
+    }
+
+    private function result(Game $game, User $actor, GameEvent $event, ?string $messageId): GameWebsocketCommandResult
+    {
+        $snapshot = $this->commands->normalizeSnapshot($game->snapshot());
+        $publicMessages = [$this->publicState($game->id(), $snapshot, $messageId)];
+        if (($snapshot['gamePhase'] ?? null) === self::GAME_PHASE_PLAYING) {
+            $publicMessages[] = $this->completed($game->id(), $snapshot, $event, $messageId);
+        }
+
+        $messagesByUserId = [];
+        foreach ($this->viewers($game) as $viewer) {
+            $messagesByUserId[$viewer->id()] = $publicMessages;
+        }
+        $actorMessages = $messagesByUserId[$actor->id()] ?? $publicMessages;
+        $messagesByUserId[$actor->id()] = [
+            ...$actorMessages,
+            $this->privateState($game->id(), $snapshot, $actor->id(), $messageId),
+        ];
+
+        return GameWebsocketCommandResult::forViewerMessageLists($messagesByUserId, $publicMessages);
+    }
+
+    /**
+     * @return list<User>
+     */
+    private function viewers(Game $game): array
+    {
+        $viewers = [$game->room()->owner()->id() => $game->room()->owner()];
+        foreach ($game->room()->orderedPlayers() as $roomPlayer) {
+            if ($roomPlayer instanceof RoomPlayer) {
+                $viewers[$roomPlayer->user()->id()] = $roomPlayer->user();
+            }
+        }
+
+        return array_values($viewers);
+    }
+
+    /**
+     * @param array<string,mixed> $snapshot
+     *
+     * @return array<string,mixed>
+     */
+    private function publicState(string $gameId, array $snapshot, ?string $messageId): array
+    {
+        $message = [
+            'kind' => 'mulligan.public_state',
+            'gameId' => $gameId,
+            'version' => max(1, (int) ($snapshot['version'] ?? 1)),
+            'gamePhase' => $snapshot['gamePhase'] ?? null,
+            'players' => [],
+        ];
+        if ($messageId !== null) {
+            $message['messageId'] = $messageId;
+        }
+
+        foreach ($snapshot['players'] ?? [] as $playerId => $player) {
+            if (!is_array($player)) {
+                continue;
+            }
+            $mulligan = is_array($player['mulligan'] ?? null) ? $player['mulligan'] : [];
+            $user = is_array($player['user'] ?? null) ? $player['user'] : [];
+            $message['players'][] = [
+                'playerId' => (string) $playerId,
+                'displayName' => $user['displayName'] ?? null,
+                'avatarType' => $user['avatarType'] ?? null,
+                'avatarPreset' => $user['avatarPreset'] ?? null,
+                'avatarImageData' => $user['avatarImageData'] ?? null,
+                'avatarInitialLetter' => $user['avatarInitialLetter'] ?? null,
+                'handCount' => count(is_array($player['zones']['hand'] ?? null) ? $player['zones']['hand'] : []),
+                'mulligansTaken' => max(0, (int) ($mulligan['mulligansTaken'] ?? 0)),
+                'effectiveMulligans' => max(0, (int) ($mulligan['effectiveMulligans'] ?? 0)),
+                'status' => is_string($mulligan['status'] ?? null) ? $mulligan['status'] : 'DECIDING',
+                'ready' => ($mulligan['ready'] ?? false) === true || ($mulligan['status'] ?? null) === 'READY',
+            ];
+        }
+
+        return $message;
+    }
+
+    /**
+     * @param array<string,mixed> $snapshot
+     *
+     * @return array<string,mixed>
+     */
+    private function privateState(string $gameId, array $snapshot, string $playerId, ?string $messageId): array
+    {
+        $player = is_array($snapshot['players'][$playerId] ?? null) ? $snapshot['players'][$playerId] : [];
+        $mulligan = is_array($player['mulligan'] ?? null) ? $player['mulligan'] : [];
+        $hand = is_array($player['zones']['hand'] ?? null) ? array_values($player['zones']['hand']) : [];
+        $message = [
+            'kind' => 'mulligan.private_state',
+            'gameId' => $gameId,
+            'version' => max(1, (int) ($snapshot['version'] ?? 1)),
+            'playerId' => $playerId,
+            'hand' => $hand,
+            'mulligan' => [
+                'rule' => $mulligan['rule'] ?? null,
+                'mulligansTaken' => max(0, (int) ($mulligan['mulligansTaken'] ?? 0)),
+                'effectiveMulligans' => max(0, (int) ($mulligan['effectiveMulligans'] ?? 0)),
+                'drawCount' => max(0, (int) ($mulligan['drawCount'] ?? 0)),
+                'bottomSelectionCount' => max(0, (int) ($mulligan['bottomSelectionCount'] ?? 0)),
+                'finalHandSize' => max(0, (int) ($mulligan['finalHandSize'] ?? 0)),
+                'needsBottomSelection' => ($mulligan['needsBottomSelection'] ?? false) === true,
+                'bottomOrderMode' => is_string($mulligan['bottomOrderMode'] ?? null) ? $mulligan['bottomOrderMode'] : 'NONE',
+                'needsScryAfterKeep' => ($mulligan['needsScryAfterKeep'] ?? false) === true,
+                'canTakeAnotherMulligan' => ($mulligan['canTakeAnotherMulligan'] ?? false) === true,
+                'status' => is_string($mulligan['status'] ?? null) ? $mulligan['status'] : 'DECIDING',
+                'ready' => ($mulligan['ready'] ?? false) === true || ($mulligan['status'] ?? null) === 'READY',
+            ],
+        ];
+        if ($messageId !== null) {
+            $message['messageId'] = $messageId;
+        }
+
+        $scryCardInstanceId = is_string($mulligan['scryCardInstanceId'] ?? null) ? $mulligan['scryCardInstanceId'] : '';
+        $topCard = $player['zones']['library'][0] ?? null;
+        if (($mulligan['status'] ?? null) === 'SCRYING' && $scryCardInstanceId !== '' && is_array($topCard) && ($topCard['instanceId'] ?? null) === $scryCardInstanceId) {
+            $message['scryCard'] = $topCard;
+        }
+
+        return $message;
+    }
+
+    /**
+     * @param array<string,mixed> $snapshot
+     *
+     * @return array<string,mixed>
+     */
+    private function completed(string $gameId, array $snapshot, GameEvent $event, ?string $messageId): array
+    {
+        $message = [
+            'kind' => 'mulligan.completed',
+            'gameId' => $gameId,
+            'version' => max(1, (int) ($snapshot['version'] ?? 1)),
+            'event' => $event->toArray(),
+        ];
+        if ($messageId !== null) {
+            $message['messageId'] = $messageId;
+        }
+
+        return $message;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function error(string $gameId, string $code, string $message, ?string $messageId = null, ?int $version = null): array
+    {
+        $payload = [
+            'kind' => 'mulligan.error',
+            'gameId' => $gameId,
+            'error' => [
+                'code' => $code,
+                'message' => $message,
+                'retryable' => false,
+            ],
+        ];
+        if ($messageId !== null) {
+            $payload['messageId'] = $messageId;
+        }
+        if ($version !== null) {
+            $payload['version'] = $version;
+        }
+
+        return $payload;
+    }
+}

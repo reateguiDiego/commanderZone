@@ -27,6 +27,8 @@ class RoomsGamesApiTest extends ApiTestCase
         $current = $this->jsonResponse();
         self::assertSame($roomId, $current['room']['id']);
         self::assertSame(1, $current['room']['playerCount']);
+        self::assertSame('LONDON', $current['room']['mulliganRule']);
+        self::assertTrue($current['room']['firstMulliganFree']);
         self::assertArrayNotHasKey('players', $current['room']);
         self::assertIsString($current['player']['playerId']);
         self::assertNull($current['player']['deckName']);
@@ -1300,6 +1302,131 @@ class RoomsGamesApiTest extends ApiTestCase
         self::assertStringContainsString('lower than current players', (string) $this->jsonResponse()['error']);
     }
 
+    public function testRoomCreationDefaultsCommanderMulliganSettings(): void
+    {
+        $ownerToken = $this->registerAndLogin('mulligan-default-owner@example.test', 'Mulligan Owner');
+
+        $this->jsonRequest('POST', '/rooms', ['visibility' => 'public', 'maxPlayers' => 2], $ownerToken);
+        self::assertResponseStatusCodeSame(201);
+
+        $room = $this->jsonResponse()['room'];
+        self::assertSame('commander', $room['format']);
+        self::assertSame('LONDON', $room['mulliganRule']);
+        self::assertTrue($room['firstMulliganFree']);
+    }
+
+    public function testOwnerCanUpdateMulliganSettings(): void
+    {
+        $ownerToken = $this->registerAndLogin('mulligan-owner@example.test', 'Mulligan Owner');
+
+        $this->jsonRequest('POST', '/rooms', ['visibility' => 'public', 'maxPlayers' => 2], $ownerToken);
+        self::assertResponseStatusCodeSame(201);
+        $roomId = (string) $this->jsonResponse()['room']['id'];
+
+        $this->jsonRequest('PATCH', '/rooms/'.$roomId, [
+            'mulliganRule' => 'GENEROUS',
+            'firstMulliganFree' => false,
+        ], $ownerToken);
+        self::assertResponseIsSuccessful();
+
+        $room = $this->jsonResponse()['room'];
+        self::assertSame('GENEROUS', $room['mulliganRule']);
+        self::assertFalse($room['firstMulliganFree']);
+    }
+
+    public function testNonOwnerCannotUpdateMulliganRule(): void
+    {
+        $ownerToken = $this->registerAndLogin('mulligan-owner-deny@example.test', 'Mulligan Owner');
+        $guestToken = $this->registerAndLogin('mulligan-guest-deny@example.test', 'Mulligan Guest');
+
+        $this->jsonRequest('POST', '/rooms', ['visibility' => 'public', 'maxPlayers' => 2], $ownerToken);
+        self::assertResponseStatusCodeSame(201);
+        $roomId = (string) $this->jsonResponse()['room']['id'];
+
+        $this->jsonRequest('PATCH', '/rooms/'.$roomId, ['mulliganRule' => 'VANCOUVER'], $guestToken);
+        self::assertResponseStatusCodeSame(403);
+        self::assertStringContainsString('Only the room owner', (string) $this->jsonResponse()['error']);
+    }
+
+    public function testRoomUpdateRejectsInvalidMulliganRule(): void
+    {
+        $ownerToken = $this->registerAndLogin('mulligan-invalid-owner@example.test', 'Mulligan Invalid');
+
+        $this->jsonRequest('POST', '/rooms', [
+            'visibility' => 'public',
+            'maxPlayers' => 2,
+            'mulliganRule' => 'BANANA',
+        ], $ownerToken);
+        self::assertResponseStatusCodeSame(400);
+        self::assertSame('Unsupported mulligan rule.', $this->jsonResponse()['error']);
+
+        $this->jsonRequest('POST', '/rooms', ['visibility' => 'public', 'maxPlayers' => 2], $ownerToken);
+        self::assertResponseStatusCodeSame(201);
+        $roomId = (string) $this->jsonResponse()['room']['id'];
+
+        $this->jsonRequest('PATCH', '/rooms/'.$roomId, ['mulliganRule' => 'BANANA'], $ownerToken);
+        self::assertResponseStatusCodeSame(400);
+        self::assertSame('Unsupported mulligan rule.', $this->jsonResponse()['error']);
+    }
+
+    public function testStartedRoomCannotUpdateMulliganSettings(): void
+    {
+        $this->seedCard('abacccdd-0000-7000-8000-000000000001', 'Commander Mulligan Lock', [
+            'type_line' => 'Legendary Creature - Human Soldier',
+            'color_identity' => [],
+            'set' => 'tst',
+            'collector_number' => '1',
+        ]);
+        $this->seedCard('abacccdd-1111-7111-8111-111111111111', 'Plains Mulligan Lock', [
+            'type_line' => 'Basic Land - Plains',
+            'set' => 'tst',
+            'collector_number' => '2',
+        ]);
+
+        $ownerToken = $this->registerAndLogin('mulligan-started-owner@example.test', 'Mulligan Started Owner');
+        $playerToken = $this->registerAndLogin('mulligan-started-player@example.test', 'Mulligan Started Player');
+        $ownerDeckId = $this->quickBuildDeck($ownerToken, 'Mulligan Owner Deck', [
+            ['scryfallId' => 'abacccdd-0000-7000-8000-000000000001', 'quantity' => 1, 'section' => 'commander'],
+            ['scryfallId' => 'abacccdd-1111-7111-8111-111111111111', 'quantity' => 99, 'section' => 'main'],
+        ]);
+        $playerDeckId = $this->quickBuildDeck($playerToken, 'Mulligan Player Deck', [
+            ['scryfallId' => 'abacccdd-0000-7000-8000-000000000001', 'quantity' => 1, 'section' => 'commander'],
+            ['scryfallId' => 'abacccdd-1111-7111-8111-111111111111', 'quantity' => 99, 'section' => 'main'],
+        ]);
+
+        $this->jsonRequest('POST', '/rooms', [
+            'visibility' => 'public',
+            'maxPlayers' => 2,
+            'deckId' => $ownerDeckId,
+        ], $ownerToken);
+        self::assertResponseStatusCodeSame(201);
+        $roomId = (string) $this->jsonResponse()['room']['id'];
+
+        $this->jsonRequest('POST', '/rooms/'.$roomId.'/join', ['deckId' => $playerDeckId], $playerToken);
+        self::assertResponseIsSuccessful();
+        $this->resolveTurnOrder($roomId, [$ownerToken, $playerToken]);
+
+        $this->jsonRequest('POST', '/rooms/'.$roomId.'/start', token: $ownerToken);
+        self::assertResponseStatusCodeSame(201);
+        $gameId = (string) $this->jsonResponse()['game']['id'];
+
+        RecordingMercureHub::reset();
+        $this->jsonRequest('POST', '/games/'.$gameId.'/commands', [
+            'type' => 'mulligan.keep',
+            'payload' => [],
+        ], $ownerToken);
+        self::assertResponseStatusCodeSame(201);
+        self::assertSame(['bottomCardCount' => 0], $this->jsonResponse()['event']['payload']);
+        self::assertSame([], array_values(array_filter(
+            RecordingMercureHub::updates(),
+            static fn (array $update): bool => $update['topics'] === ['games/'.$gameId],
+        )));
+
+        $this->jsonRequest('PATCH', '/rooms/'.$roomId, ['mulliganRule' => 'PARIS'], $ownerToken);
+        self::assertResponseStatusCodeSame(409);
+        self::assertStringContainsString('Started rooms cannot be updated', (string) $this->jsonResponse()['error']);
+    }
+
     public function testRoomStartRequiresAllConfiguredSeatsFilled(): void
     {
         $this->seedCard('ababbbcc-0000-7000-8000-000000000001', 'Commander Full Table', [
@@ -1661,6 +1788,7 @@ class RoomsGamesApiTest extends ApiTestCase
         $this->jsonRequest('POST', '/rooms/'.$roomId.'/start', token: $ownerToken);
         self::assertResponseStatusCodeSame(201);
         $gameId = (string) $this->jsonResponse()['game']['id'];
+        $this->completeMulliganPhase($gameId, [$ownerToken, $playerToken]);
 
         $this->jsonRequest('GET', '/games/'.$gameId.'/snapshot', token: $ownerToken);
         self::assertResponseIsSuccessful();
@@ -1752,6 +1880,7 @@ class RoomsGamesApiTest extends ApiTestCase
         $this->jsonRequest('POST', '/rooms/'.$roomId.'/start', token: $ownerToken);
         self::assertResponseStatusCodeSame(201);
         $gameId = (string) $this->jsonResponse()['game']['id'];
+        $this->completeMulliganPhase($gameId, [$ownerToken, $playerToken]);
 
         $this->jsonRequest('GET', '/games/'.$gameId.'/snapshot', token: $ownerToken);
         self::assertResponseIsSuccessful();
@@ -1846,6 +1975,7 @@ class RoomsGamesApiTest extends ApiTestCase
         $this->jsonRequest('POST', '/rooms/'.$roomId.'/start', token: $ownerToken);
         self::assertResponseStatusCodeSame(201);
         $gameId = (string) $this->jsonResponse()['game']['id'];
+        $this->completeMulliganPhase($gameId, [$ownerToken, $playerToken]);
 
         $this->jsonRequest('GET', '/games/'.$gameId.'/snapshot', token: $ownerToken);
         self::assertResponseIsSuccessful();
@@ -1992,6 +2122,7 @@ class RoomsGamesApiTest extends ApiTestCase
         $this->jsonRequest('POST', '/rooms/'.$roomId.'/start', token: $ownerToken);
         self::assertResponseStatusCodeSame(201);
         $gameId = (string) $this->jsonResponse()['game']['id'];
+        $this->completeMulliganPhase($gameId, [$ownerToken, $playerToken]);
 
         $this->jsonRequest('GET', '/games/'.$gameId.'/snapshot', token: $ownerToken);
         self::assertResponseIsSuccessful();
@@ -2136,6 +2267,7 @@ class RoomsGamesApiTest extends ApiTestCase
         $this->jsonRequest('POST', '/rooms/'.$roomId.'/start', token: $ownerToken);
         self::assertResponseStatusCodeSame(201);
         $gameId = (string) $this->jsonResponse()['game']['id'];
+        $this->completeMulliganPhase($gameId, [$ownerToken, $playerToken]);
 
         $this->jsonRequest('PATCH', '/me/avatar', [
             'type' => 'preset',
@@ -2200,7 +2332,8 @@ class RoomsGamesApiTest extends ApiTestCase
             'payload' => ['phase' => 'upkeep'],
         ], $activeToken);
         self::assertResponseStatusCodeSame(201);
-        self::assertSame('Fase upkeep.', $this->jsonResponse()['snapshot']['eventLog'][0]['message']);
+        $eventLog = $this->jsonResponse()['snapshot']['eventLog'];
+        self::assertSame('Fase upkeep.', $eventLog[array_key_last($eventLog)]['message']);
 
         $this->jsonRequest('POST', '/games/'.$gameId.'/commands', [
             'type' => 'unknown.command',
@@ -2717,13 +2850,37 @@ SQL,
 
         $this->jsonRequest('POST', '/rooms/'.$roomId.'/start', token: $tokens[$ownerName]);
         self::assertResponseStatusCodeSame(201);
+        $gameId = (string) $this->jsonResponse()['game']['id'];
+        $snapshot = $this->completeMulliganPhase($gameId, array_values($tokens));
 
         return [
             'roomId' => $roomId,
-            'gameId' => (string) $this->jsonResponse()['game']['id'],
-            'snapshot' => $this->jsonResponse()['game']['snapshot'],
+            'gameId' => $gameId,
+            'snapshot' => $snapshot,
             'tokens' => $tokens,
         ];
+    }
+
+    /**
+     * @param list<string> $tokens
+     *
+     * @return array<string,mixed>
+     */
+    private function completeMulliganPhase(string $gameId, array $tokens): array
+    {
+        $snapshot = [];
+        foreach ($tokens as $token) {
+            $this->jsonRequest('POST', '/games/'.$gameId.'/commands', [
+                'type' => 'mulligan.keep',
+                'payload' => [],
+            ], $token);
+            self::assertResponseStatusCodeSame(201);
+            $snapshot = $this->jsonResponse()['snapshot'];
+        }
+
+        self::assertSame('PLAYING', $snapshot['gamePhase'] ?? null);
+
+        return $snapshot;
     }
 
     private function roomCode(string $roomId): string

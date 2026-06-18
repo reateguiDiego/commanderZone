@@ -6,6 +6,10 @@ import {
   GameplayCommandAckMessage,
   GameplayErrorMessage,
   GameplayGamePatchMessage,
+  GameplayMulliganCompletedMessage,
+  GameplayMulliganErrorMessage,
+  GameplayMulliganPrivateStateMessage,
+  GameplayMulliganPublicStateMessage,
   GameplayResyncRequiredMessage,
   GameplayServerMessage,
   GameplayVersionConflict,
@@ -27,6 +31,10 @@ export interface GameTableWebsocketGameplayContext {
   setSnapshot(snapshot: GameSnapshot): void;
   refetch(force?: boolean): Promise<void>;
   setError(message: string | null): void;
+  onMulliganPublicState?(message: GameplayMulliganPublicStateMessage): void;
+  onMulliganPrivateState?(message: GameplayMulliganPrivateStateMessage): void;
+  onMulliganError?(message: GameplayMulliganErrorMessage): void;
+  onMulliganCompleted?(message: GameplayMulliganCompletedMessage): void;
   onCommandBlocked?(
     reason: Extract<GameDebugQueueDeadLetterReason, 'circuit_blocked' | 'queue_full'>,
     type: GameWebsocketCommandType,
@@ -316,6 +324,32 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
     this.markInFlightTurnChangedForConcedeSuppression();
   }
 
+  sendMulliganTake(gameId: string): boolean {
+    return this.sendMulliganMessage({
+      kind: 'mulligan.take',
+      gameId,
+      messageId: this.randomId('mulligan'),
+    });
+  }
+
+  sendMulliganKeep(gameId: string, bottomCardInstanceIds?: readonly string[]): boolean {
+    return this.sendMulliganMessage({
+      kind: 'mulligan.keep',
+      gameId,
+      messageId: this.randomId('mulligan'),
+      ...(bottomCardInstanceIds && bottomCardInstanceIds.length > 0 ? { bottomCardInstanceIds: [...bottomCardInstanceIds] } : {}),
+    });
+  }
+
+  sendMulliganScryConfirm(gameId: string, destination: 'TOP' | 'BOTTOM'): boolean {
+    return this.sendMulliganMessage({
+      kind: 'mulligan.scry.confirm',
+      gameId,
+      messageId: this.randomId('mulligan'),
+      destination,
+    });
+  }
+
   private async handleMessage(message: GameplayServerMessage): Promise<void> {
     const context = this.context;
     if (!context) {
@@ -351,7 +385,35 @@ export class GameTableWebsocketGameplayService implements OnDestroy {
       case 'pong':
       case 'player_presence_changed':
         return;
+
+      case 'mulligan.public_state':
+        context.onMulliganPublicState?.(message);
+        return;
+
+      case 'mulligan.private_state':
+        context.onMulliganPrivateState?.(message);
+        return;
+
+      case 'mulligan.error':
+        context.onMulliganError?.(message);
+        this.setErrorThrottled(
+          `${message.messageId ?? 'mulligan'}:${message.error.code}:${message.error.message}`,
+          message.error.message || 'Mulligan action failed.',
+        );
+        return;
+
+      case 'mulligan.completed':
+        context.onMulliganCompleted?.(message);
+        return;
     }
+  }
+
+  private sendMulliganMessage(message: GameplayClientMessage): boolean {
+    if (this.transport.status() !== 'connected') {
+      return false;
+    }
+
+    return this.transport.send(message);
   }
 
   private async handlePatch(context: GameTableWebsocketGameplayContext, patch: GameplayGamePatchMessage): Promise<void> {

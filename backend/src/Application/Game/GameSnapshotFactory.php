@@ -48,7 +48,8 @@ class GameSnapshotFactory
                 }
             }
             $library = $this->randomizer->shuffle($library);
-            $openingHand = array_splice($library, 0, min(7, count($library)));
+            $mulliganState = GameMulliganRules::calculateMulliganState($room->mulliganRule(), $room->firstMulliganFree(), 0);
+            $openingHand = array_splice($library, 0, min($mulliganState['drawCount'], count($library)));
             $openingHand = array_values(array_map(
                 static fn (array $card): array => [...$card, 'zone' => 'hand'],
                 $openingHand,
@@ -85,6 +86,12 @@ class GameSnapshotFactory
                 ],
                 'commanderDamage' => [],
                 'counters' => [],
+                'mulligan' => [
+                    ...$mulliganState,
+                    'status' => 'DECIDING',
+                    'ready' => false,
+                    'scryCardInstanceId' => null,
+                ],
             ];
         }
 
@@ -109,6 +116,11 @@ class GameSnapshotFactory
         return [
             'version' => 1,
             'ownerId' => $room->owner()->id(),
+            'gamePhase' => 'MULLIGAN',
+            'mulligan' => [
+                'rule' => $room->mulliganRule(),
+                'firstMulliganFree' => $room->firstMulliganFree(),
+            ],
             'players' => $players,
             'turn' => [
                 'activePlayerId' => array_key_first($players),

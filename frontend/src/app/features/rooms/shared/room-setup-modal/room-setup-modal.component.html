@@ -41,8 +41,8 @@
           name="roomFormat"
           [formats]="formats()"
           [required]="true"
-          [value]="createRoomForm.controls.format.value ?? 'commander'"
-          (valueChange)="createRoomForm.controls.format.setValue($event)"
+          [value]="createFormat()"
+          (valueChange)="changeCreateFormat($event)"
         />
         </div>
 
@@ -61,6 +61,33 @@
             (timerDurationSecondsChange)="createTimerDurationSeconds.set($event)"
           />
         </div>
+      </div>
+
+      <div class="setup-modal-row">
+        <label class="mulligan-select-field">
+          Mulligan
+          <select
+            #createMulliganRuleSelect
+            [value]="createMulliganRule()"
+            [disabled]="actionsLocked()"
+            (change)="changeCreateMulliganRule(createMulliganRuleSelect.value)"
+          >
+            @for (option of mulliganOptions; track option.value) {
+              <option [value]="option.value">{{ option.label }}</option>
+            }
+          </select>
+        </label>
+
+        <label class="mulligan-checkbox-field">
+          <input
+            #createFirstMulliganFreeInput
+            type="checkbox"
+            [checked]="createFirstMulliganFree()"
+            [disabled]="actionsLocked()"
+            (change)="changeCreateFirstMulliganFree(createFirstMulliganFreeInput.checked)"
+          />
+          <span>Primer mulligan es gratis</span>
+        </label>
       </div>
 
       <div class="setup-modal-row">
@@ -90,16 +117,21 @@
       [startingLife]="startingLife()"
       [timerMode]="timerMode()"
       [timerDurationSeconds]="timerDurationSeconds()"
+      [mulliganRule]="mulliganRule()"
+      [firstMulliganFree]="firstMulliganFree()"
       [maxPlayersOptions]="maxPlayersOptions()"
       [startingLifeStep]="startingLifeStep()"
       [disabled]="actionsLocked()"
       [updatingCapacity]="updatingCapacity()"
       [updatingStartingLife]="updatingStartingLife()"
       [updatingTimer]="updatingTimer()"
+      [updatingMulligan]="updatingMulligan()"
       (maxPlayersChange)="maxPlayersChange.emit($event)"
       (startingLifeChange)="startingLifeChange.emit($event)"
       (timerModeChange)="timerModeChange.emit($event)"
       (timerDurationSecondsChange)="timerDurationSecondsChange.emit($event)"
+      (mulliganRuleChange)="mulliganRuleChange.emit($event)"
+      (firstMulliganFreeChange)="firstMulliganFreeChange.emit($event)"
     />
   }
 </app-modal>

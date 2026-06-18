@@ -100,6 +100,52 @@ class GameProjectionServiceTest extends TestCase
         self::assertArrayNotHasKey('hidden', $library[0]);
     }
 
+    public function testMulliganProjectionDoesNotExposeOwnLibraryButIncludesPrivateScryCard(): void
+    {
+        $owner = new User('owner@example.test', 'Owner');
+        $opponent = new User('opponent@example.test', 'Opponent');
+        $snapshot = $this->snapshot($owner->id(), $opponent->id());
+        $snapshot['gamePhase'] = 'MULLIGAN';
+        $snapshot['mulligan'] = ['rule' => 'VANCOUVER', 'firstMulliganFree' => false];
+        $snapshot['players'][$owner->id()]['zones']['library'] = [
+            [
+                ...$this->card('scry-card', 'Private Scry'),
+                'ownerId' => $owner->id(),
+                'controllerId' => $owner->id(),
+                'zone' => 'library',
+            ],
+            [
+                ...$this->card('second-card', 'Private Second'),
+                'ownerId' => $owner->id(),
+                'controllerId' => $owner->id(),
+                'zone' => 'library',
+            ],
+        ];
+        $snapshot['players'][$owner->id()]['mulligan'] = [
+            'rule' => 'VANCOUVER',
+            'mulligansTaken' => 1,
+            'effectiveMulligans' => 1,
+            'drawCount' => 6,
+            'bottomSelectionCount' => 0,
+            'finalHandSize' => 6,
+            'needsBottomSelection' => false,
+            'bottomOrderMode' => 'NONE',
+            'needsScryAfterKeep' => true,
+            'canTakeAnotherMulligan' => true,
+            'status' => 'SCRYING',
+            'ready' => false,
+            'scryCardInstanceId' => 'scry-card',
+        ];
+
+        $projected = (new GameProjectionService(new GameCommandHandler()))->projectSnapshot($snapshot, $owner);
+        $ownerProjection = $projected['players'][$owner->id()];
+
+        self::assertSame([], $ownerProjection['zones']['library']);
+        self::assertSame(2, $ownerProjection['zoneCounts']['library']);
+        self::assertSame('SCRYING', $ownerProjection['mulligan']['status']);
+        self::assertSame('Private Scry', $ownerProjection['mulligan']['scryCard']['name']);
+    }
+
     public function testOpponentLibraryZoneProjectionShowsFullLibraryOnlyWhenCardsAreRevealedToViewer(): void
     {
         $owner = new User('owner@example.test', 'Owner');

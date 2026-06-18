@@ -21,6 +21,7 @@ import { GameTableBattlefieldContext, GameTableBattlefieldState } from '../battl
 import { GameTableCardCounterContext } from '../cards/game-table-cards.state';
 import { GameTableDragDropContext, GameTableDragDropStore, GameTablePendingMoveContext } from '../drag-drop/game-table-drag-drop.store';
 import { GameTableHandContext, GameTableHandState } from '../hand/game-table-hand.state';
+import { GameTableMulliganState } from '../mulligan/game-table-mulligan.state';
 import { GameTableDropFeedbackState } from '../drag-drop/game-table-drop-feedback.state';
 import { GameTableGameActionsStore } from '../game-actions/game-table-game-actions.store';
 import { GameTablePendingTransferState } from './game-table-pending-transfer.state';
@@ -55,6 +56,7 @@ export class GameTableContextStore {
   private readonly dropFeedbackState = inject(GameTableDropFeedbackState);
   private readonly gameActionsStore = inject(GameTableGameActionsStore);
   private readonly handState = inject(GameTableHandState);
+  private readonly mulliganState = inject(GameTableMulliganState);
   private readonly interactionActions = inject(GameTableInteractionActionsService);
   private readonly pendingTransferState = inject(GameTablePendingTransferState);
   private readonly playersStore = inject(GameTablePlayersStore);
@@ -439,6 +441,10 @@ export class GameTableContextStore {
       isPending: () => this.core.pending(),
       setLoading: (loading) => this.core.loading.set(loading),
       setError: (message) => this.core.error.set(message),
+      onMulliganPublicState: (message) => this.mulliganState.handlePublicState(message),
+      onMulliganPrivateState: (message) => this.mulliganState.handlePrivateState(message),
+      onMulliganError: (message) => this.mulliganState.handleError(message),
+      onMulliganCompleted: (message) => this.mulliganState.handleCompleted(message),
       refreshViewerControlAccess: () => this.gameActionsStore.refreshViewerControlAccess(),
       navigateToRoomsWithLoadError: () => {
         void this.gameActionsStore.navigateToRoomsWithLoadError();

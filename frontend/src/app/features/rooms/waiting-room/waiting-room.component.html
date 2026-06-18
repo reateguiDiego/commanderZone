@@ -134,9 +134,12 @@
       [startingLife]="roomStartingLife(room)"
       [timerMode]="roomTimerMode(room)"
       [timerDurationSeconds]="roomTimerDurationSeconds(room)"
+      [mulliganRule]="roomMulliganRule(room)"
+      [firstMulliganFree]="roomFirstMulliganFree(room)"
       [updatingCapacity]="updatingCapacity()"
       [updatingStartingLife]="updatingStartingLife()"
       [updatingTimer]="updatingTimer()"
+      [updatingMulligan]="updatingMulligan()"
       [actionsLocked]="!canEditRoom(room)"
       [readOnly]="!canEditRoom(room)"
       [maxPlayersOptions]="maxPlayersOptions"
@@ -146,6 +149,8 @@
       (startingLifeChange)="updateRoomStartingLife($event)"
       (timerModeChange)="updateRoomTimerMode($event)"
       (timerDurationSecondsChange)="updateRoomTimerDuration($event)"
+      (mulliganRuleChange)="updateRoomMulliganRule($event)"
+      (firstMulliganFreeChange)="updateRoomFirstMulliganFree($event)"
     />
 
     <app-modal

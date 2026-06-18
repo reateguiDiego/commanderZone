@@ -1,5 +1,4 @@
 import { ChangeDetectionStrategy, Component, ElementRef, HostListener, computed, inject, input, output, signal } from '@angular/core';
-import { DeckFormat } from '../../../core/models/deck.model';
 
 interface FormatSelectOption {
   id: string;
@@ -15,7 +14,7 @@ interface FormatSelectOption {
 export class FormatSelectComponent {
   private readonly elementRef = inject(ElementRef<HTMLElement>);
 
-  readonly formats = input<readonly DeckFormat[]>([]);
+  readonly formats = input<readonly FormatSelectOption[]>([]);
   readonly value = input<string>('commander');
   readonly disabled = input(false);
   readonly required = input(false);

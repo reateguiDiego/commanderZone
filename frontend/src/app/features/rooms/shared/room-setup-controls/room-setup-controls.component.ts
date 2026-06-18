@@ -1,6 +1,6 @@
 import { RuntimeTranslatePipe } from '../../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
-import { RoomTimerMode } from '../../../../core/models/room.model';
+import { RoomMulliganRule, RoomTimerMode } from '../../../../core/models/room.model';
 import { GameSetupLifeControlComponent } from '../../../../shared/components/game-setup-life-control/game-setup-life-control.component';
 import { GameSetupSeatsControlComponent } from '../../../../shared/components/game-setup-seats-control/game-setup-seats-control.component';
 import { TableAssistantTimerMode } from '../../../table-assistant/models/table-assistant.models';
@@ -23,12 +23,21 @@ export class RoomSetupControlsComponent {
   readonly startingLife = input(40);
   readonly timerMode = input<RoomTimerMode>('none');
   readonly timerDurationSeconds = input(300);
+  readonly mulliganRule = input<RoomMulliganRule>('LONDON');
+  readonly firstMulliganFree = input(true);
   readonly maxPlayersOptions = input<readonly number[]>([2, 3, 4, 5, 6]);
   readonly startingLifeStep = input(1);
   readonly disabled = input(false);
   readonly updatingCapacity = input(false);
   readonly updatingStartingLife = input(false);
   readonly updatingTimer = input(false);
+  readonly updatingMulligan = input(false);
+  readonly mulliganOptions: readonly { value: RoomMulliganRule; label: string }[] = [
+    { value: 'LONDON', label: 'Londres' },
+    { value: 'VANCOUVER', label: 'Vancouver' },
+    { value: 'PARIS', label: 'París' },
+    { value: 'GENEROUS', label: 'Generoso' },
+  ];
 
   readonly timerSummary = computed(() => {
     if (this.timerMode() === 'none') {
@@ -45,8 +54,20 @@ export class RoomSetupControlsComponent {
   readonly startingLifeChange = output<number>();
   readonly timerModeChange = output<RoomTimerMode>();
   readonly timerDurationSecondsChange = output<number>();
+  readonly mulliganRuleChange = output<RoomMulliganRule>();
+  readonly firstMulliganFreeChange = output<boolean>();
 
   changeTimerMode(timerMode: TableAssistantTimerMode): void {
     this.timerModeChange.emit(timerMode === 'turn' ? 'turn' : 'none');
+  }
+
+  changeMulliganRule(mulliganRule: string): void {
+    if (this.isRoomMulliganRule(mulliganRule)) {
+      this.mulliganRuleChange.emit(mulliganRule);
+    }
+  }
+
+  private isRoomMulliganRule(mulliganRule: string): mulliganRule is RoomMulliganRule {
+    return this.mulliganOptions.some((option) => option.value === mulliganRule);
   }
 }

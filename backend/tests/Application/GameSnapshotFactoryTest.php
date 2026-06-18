@@ -199,12 +199,51 @@ class GameSnapshotFactoryTest extends TestCase
             }
         }))->fromRoom($room);
 
+        self::assertSame('MULLIGAN', $snapshot['gamePhase']);
+        self::assertSame(Room::MULLIGAN_LONDON, $snapshot['mulligan']['rule']);
         self::assertCount(7, $snapshot['players']['owner-id']['zones']['hand']);
         self::assertCount(2, $snapshot['players']['owner-id']['zones']['library']);
         self::assertSame(
             ['Library Card 9', 'Library Card 8', 'Library Card 7', 'Library Card 6', 'Library Card 5', 'Library Card 4', 'Library Card 3'],
             array_map(static fn (array $card): string => $card['name'], $snapshot['players']['owner-id']['zones']['hand']),
         );
+    }
+
+    public function testBuildsGenerousOpeningHandWithTenCards(): void
+    {
+        $owner = new User('owner@example.test', 'Owner');
+        $this->setPrivateProperty($owner, 'id', 'owner-id');
+
+        $room = new Room($owner);
+        $room->setMulliganRule(Room::MULLIGAN_GENEROUS);
+        $deck = new Deck($owner, 'Deck');
+        $deck->addCard(new DeckCard($deck, $this->cardWithColorIdentity(['G']), 1, DeckCard::SECTION_COMMANDER));
+        for ($index = 1; $index <= 12; ++$index) {
+            $card = new Card(sprintf('22222222-2222-4222-8222-%012d', $index));
+            $card->updateFromScryfall([
+                'id' => sprintf('22222222-2222-4222-8222-%012d', $index),
+                'name' => sprintf('Generous Card %d', $index),
+                'type_line' => 'Artifact',
+                'oracle_text' => 'Test text',
+                'legalities' => ['commander' => 'legal'],
+            ]);
+            $deck->addCard(new DeckCard($deck, $card, 1, DeckCard::SECTION_MAIN));
+        }
+
+        $room->addPlayer(new RoomPlayer($room, $owner, $deck));
+
+        $snapshot = (new GameSnapshotFactory(new class() extends GameRandomizer {
+            public function shuffle(array $items): array
+            {
+                return $items;
+            }
+        }))->fromRoom($room);
+
+        self::assertSame('MULLIGAN', $snapshot['gamePhase']);
+        self::assertSame(Room::MULLIGAN_GENEROUS, $snapshot['mulligan']['rule']);
+        self::assertCount(10, $snapshot['players']['owner-id']['zones']['hand']);
+        self::assertSame(3, $snapshot['players']['owner-id']['mulligan']['bottomSelectionCount']);
+        self::assertSame(7, $snapshot['players']['owner-id']['mulligan']['finalHandSize']);
     }
 
     public function testIncludesPersistedRulingsMetadataInGameCardSnapshots(): void

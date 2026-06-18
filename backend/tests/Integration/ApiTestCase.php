@@ -167,6 +167,7 @@ abstract class ApiTestCase extends WebTestCase
         $this->ensureCardPrintTables($connection);
         $this->ensureRoomWaitingLogEntryTable($connection);
         $this->ensureDeckValidityColumn($connection);
+        $this->ensureRoomMulliganColumns($connection);
 
         $tables = [
             'game_debug_health',
@@ -281,6 +282,27 @@ SQL,
 
         $connection->executeStatement('ALTER TABLE deck ADD COLUMN is_valid BOOLEAN NOT NULL DEFAULT false');
         $connection->executeStatement('ALTER TABLE deck ALTER COLUMN is_valid DROP DEFAULT');
+    }
+
+    private function ensureRoomMulliganColumns(Connection $connection): void
+    {
+        $schemaManager = $connection->createSchemaManager();
+        if (!$schemaManager->tablesExist(['room'])) {
+            return;
+        }
+
+        $columns = array_map(
+            static fn (\Doctrine\DBAL\Schema\Column $column): string => $column->getName(),
+            $schemaManager->listTableColumns('room'),
+        );
+        if (!in_array('mulligan_rule', $columns, true)) {
+            $connection->executeStatement("ALTER TABLE room ADD COLUMN mulligan_rule VARCHAR(20) NOT NULL DEFAULT 'LONDON'");
+            $connection->executeStatement('ALTER TABLE room ALTER COLUMN mulligan_rule DROP DEFAULT');
+        }
+        if (!in_array('first_mulligan_free', $columns, true)) {
+            $connection->executeStatement('ALTER TABLE room ADD COLUMN first_mulligan_free BOOLEAN NOT NULL DEFAULT true');
+            $connection->executeStatement('ALTER TABLE room ALTER COLUMN first_mulligan_free DROP DEFAULT');
+        }
     }
 
     private function ensureCardPrintTables(Connection $connection): void

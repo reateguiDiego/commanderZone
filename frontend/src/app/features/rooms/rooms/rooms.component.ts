@@ -152,6 +152,8 @@ export class RoomsComponent implements OnInit, OnDestroy {
         timerMode: payload.timerMode,
         timerDurationSeconds: payload.timerDurationSeconds,
         format: payload.format,
+        mulliganRule: payload.mulliganRule,
+        firstMulliganFree: payload.firstMulliganFree,
       }));
       this.createRoomModalOpen.set(false);
       this.currentRoom.set(this.currentRoomSummaryFromRoom(response.room));
@@ -494,6 +496,8 @@ export class RoomsComponent implements OnInit, OnDestroy {
       visibility: room.visibility,
       format: room.format,
       maxPlayers: room.maxPlayers,
+      mulliganRule: room.mulliganRule,
+      firstMulliganFree: room.firstMulliganFree,
       playerCount: this.roomPlayerCount(room),
       gameId: room.gameId,
     };

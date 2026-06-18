@@ -4021,6 +4021,13 @@ components:
               minimum: 30
               maximum: 1800
               default: 300
+            mulliganRule:
+              type: string
+              enum: [LONDON, VANCOUVER, PARIS, GENEROUS]
+              default: LONDON
+            firstMulliganFree:
+              type: boolean
+              description: Defaults to true for Commander rooms and false for other formats.
     UpdateRoomRequest:
       type: object
       properties:
@@ -4039,6 +4046,11 @@ components:
           type: integer
           minimum: 30
           maximum: 1800
+        mulliganRule:
+          type: string
+          enum: [LONDON, VANCOUVER, PARIS, GENEROUS]
+        firstMulliganFree:
+          type: boolean
     CreateRoomInviteRequest:
       type: object
       required: [userId]
@@ -4048,7 +4060,7 @@ components:
           format: uuid
     Room:
       type: object
-      required: [id, name, owner, status, visibility, format, maxPlayers, startingLife, timerMode, timerDurationSeconds, players, waitingLog, createdAt, updatedAt]
+      required: [id, name, owner, status, visibility, format, maxPlayers, startingLife, timerMode, timerDurationSeconds, mulliganRule, firstMulliganFree, players, waitingLog, createdAt, updatedAt]
       properties:
         id:
           type: string
@@ -4083,6 +4095,11 @@ components:
           type: integer
           minimum: 30
           maximum: 1800
+        mulliganRule:
+          type: string
+          enum: [LONDON, VANCOUVER, PARIS, GENEROUS]
+        firstMulliganFree:
+          type: boolean
         players:
           type: array
           items:
@@ -4177,7 +4194,7 @@ components:
       enum: [owner, player, owner_player]
     CurrentRoomSummary:
       type: object
-      required: [id, name, status, visibility, format, maxPlayers, playerCount, gameId]
+      required: [id, name, status, visibility, format, maxPlayers, mulliganRule, firstMulliganFree, playerCount, gameId]
       properties:
         id:
           type: string
@@ -4197,6 +4214,11 @@ components:
           type: integer
           minimum: 2
           maximum: 6
+        mulliganRule:
+          type: string
+          enum: [LONDON, VANCOUVER, PARIS, GENEROUS]
+        firstMulliganFree:
+          type: boolean
         playerCount:
           type: integer
           minimum: 0

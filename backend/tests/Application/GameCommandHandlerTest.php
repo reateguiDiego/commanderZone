@@ -4,6 +4,7 @@ namespace App\Tests\Application;
 
 use App\Application\Game\GameCardBaseStatsResolver;
 use App\Application\Game\GameCommandHandler;
+use App\Application\Game\GameMulliganRules;
 use App\Application\Game\GameRandomizer;
 use App\Domain\Game\Game;
 use App\Domain\Room\Room;
@@ -3441,6 +3442,252 @@ class GameCommandHandlerTest extends TestCase
         ], $actor);
     }
 
+    public function testTakeMulliganReturnsHandToLibraryShufflesAndDrawsNewHand(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $snapshot = $this->mulliganSnapshot($actor->id(), [
+            'hand' => $this->cards('hand', 2, 'hand'),
+            'library' => $this->cards('library', 7, 'library'),
+        ]);
+        $game = new Game(new Room($actor), $snapshot);
+        $handler = new GameCommandHandler(null, new class() extends GameRandomizer {
+            public function shuffle(array $items): array
+            {
+                return array_reverse($items);
+            }
+        });
+
+        $handler->apply($game, 'mulligan.take', [], $actor);
+
+        $player = $game->snapshot()['players'][$actor->id()];
+        self::assertSame(1, $player['mulligan']['mulligansTaken']);
+        self::assertSame('DECIDING', $player['mulligan']['status']);
+        self::assertCount(7, $player['zones']['hand']);
+        self::assertCount(2, $player['zones']['library']);
+        self::assertSame('hand-2', $player['zones']['hand'][0]['instanceId']);
+    }
+
+    public function testNormalGameplayCommandsAreRejectedDuringMulligan(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->mulliganSnapshot($actor->id(), [
+            'hand' => [],
+            'library' => $this->cards('library', 3, 'library'),
+        ]));
+
+        try {
+            (new GameCommandHandler())->apply($game, 'library.draw', [
+                'playerId' => $actor->id(),
+            ], $actor);
+            self::fail('Normal draw was accepted during mulligan.');
+        } catch (\InvalidArgumentException $exception) {
+            self::assertSame('Game is in mulligan phase.', $exception->getMessage());
+        }
+
+        self::assertCount(0, $game->snapshot()['players'][$actor->id()]['zones']['hand']);
+        self::assertCount(3, $game->snapshot()['players'][$actor->id()]['zones']['library']);
+        self::assertSame('MULLIGAN', $game->snapshot()['gamePhase']);
+    }
+
+    public function testLondonSecondEffectiveMulliganRequiresOneBottomCard(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->mulliganSnapshot($actor->id(), [
+            'hand' => $this->cards('hand', 7, 'hand'),
+        ], Room::MULLIGAN_LONDON, true, 2));
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Incorrect number of bottom cards selected.');
+
+        (new GameCommandHandler())->apply($game, 'mulligan.keep', [], $actor);
+    }
+
+    public function testLondonBottomsCardsInClientOrder(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->mulliganSnapshot($actor->id(), [
+            'hand' => $this->cards('hand', 7, 'hand'),
+            'library' => $this->cards('library', 1, 'library'),
+        ], Room::MULLIGAN_LONDON, false, 2));
+
+        $event = (new GameCommandHandler())->apply($game, 'mulligan.keep', [
+            'bottomCardInstanceIds' => ['hand-2', 'hand-1'],
+        ], $actor);
+
+        $libraryIds = array_map(
+            static fn (array $card): string => $card['instanceId'],
+            $game->snapshot()['players'][$actor->id()]['zones']['library'],
+        );
+        self::assertSame(['library-1', 'hand-2', 'hand-1'], $libraryIds);
+        self::assertSame('READY', $game->snapshot()['players'][$actor->id()]['mulligan']['status']);
+        self::assertSame(['bottomCardCount' => 2], $event->toArray()['payload']);
+    }
+
+    public function testGenerousRequiresThreeBottomCardsAtStart(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->mulliganSnapshot($actor->id(), [
+            'hand' => $this->cards('hand', 10, 'hand'),
+        ], Room::MULLIGAN_GENEROUS));
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Incorrect number of bottom cards selected.');
+
+        (new GameCommandHandler())->apply($game, 'mulligan.keep', [], $actor);
+    }
+
+    public function testGenerousRandomizesBottomOrderServerSide(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->mulliganSnapshot($actor->id(), [
+            'hand' => $this->cards('hand', 10, 'hand'),
+        ], Room::MULLIGAN_GENEROUS));
+        $handler = new GameCommandHandler(null, new class() extends GameRandomizer {
+            public function shuffle(array $items): array
+            {
+                return array_reverse($items);
+            }
+        });
+
+        $handler->apply($game, 'mulligan.keep', [
+            'bottomCardInstanceIds' => ['hand-1', 'hand-2', 'hand-3'],
+        ], $actor);
+
+        $libraryIds = array_map(
+            static fn (array $card): string => $card['instanceId'],
+            $game->snapshot()['players'][$actor->id()]['zones']['library'],
+        );
+        self::assertSame(['hand-3', 'hand-2', 'hand-1'], $libraryIds);
+        self::assertNotSame(['hand-1', 'hand-2', 'hand-3'], $libraryIds);
+    }
+
+    public function testVancouverEntersScryingWhenEffectiveMulligansIsGreaterThanZero(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->mulliganSnapshot($actor->id(), [
+            'hand' => $this->cards('hand', 6, 'hand'),
+            'library' => $this->cards('library', 1, 'library'),
+        ], Room::MULLIGAN_VANCOUVER, false, 1));
+
+        $event = (new GameCommandHandler())->apply($game, 'mulligan.keep', [], $actor);
+
+        $mulligan = $game->snapshot()['players'][$actor->id()]['mulligan'];
+        self::assertSame('SCRYING', $mulligan['status']);
+        self::assertSame('library-1', $mulligan['scryCardInstanceId']);
+        self::assertSame('MULLIGAN', $game->snapshot()['gamePhase']);
+        self::assertSame(['bottomCardCount' => 0], $event->toArray()['payload']);
+    }
+
+    public function testVancouverScryConfirmEventDoesNotExposeScryChoice(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->mulliganSnapshot($actor->id(), [
+            'hand' => $this->cards('hand', 6, 'hand'),
+            'library' => $this->cards('library', 1, 'library'),
+        ], Room::MULLIGAN_VANCOUVER, false, 1, 'SCRYING'));
+        $snapshot = $game->snapshot();
+        $snapshot['players'][$actor->id()]['mulligan']['scryCardInstanceId'] = 'library-1';
+        $game->replaceSnapshot($snapshot);
+
+        $event = (new GameCommandHandler())->apply($game, 'mulligan.scry_confirm', [
+            'destination' => 'BOTTOM',
+        ], $actor);
+
+        self::assertSame([], $event->toArray()['payload']);
+    }
+
+    public function testVancouverDoesNotEnterScryingWhenEffectiveMulligansIsZero(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->mulliganSnapshot($actor->id(), [
+            'hand' => $this->cards('hand', 7, 'hand'),
+            'library' => $this->cards('library', 1, 'library'),
+        ], Room::MULLIGAN_VANCOUVER, true, 1));
+
+        (new GameCommandHandler())->apply($game, 'mulligan.keep', [], $actor);
+
+        self::assertSame('READY', $game->snapshot()['players'][$actor->id()]['mulligan']['status']);
+        self::assertSame('PLAYING', $game->snapshot()['gamePhase']);
+    }
+
+    public function testParisNeverEntersScrying(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->mulliganSnapshot($actor->id(), [
+            'hand' => $this->cards('hand', 6, 'hand'),
+            'library' => $this->cards('library', 1, 'library'),
+        ], Room::MULLIGAN_PARIS, false, 1));
+
+        (new GameCommandHandler())->apply($game, 'mulligan.keep', [], $actor);
+
+        self::assertSame('READY', $game->snapshot()['players'][$actor->id()]['mulligan']['status']);
+        self::assertSame('PLAYING', $game->snapshot()['gamePhase']);
+    }
+
+    public function testRejectsBottomCardThatIsNotInHand(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->mulliganSnapshot($actor->id(), [
+            'hand' => $this->cards('hand', 7, 'hand'),
+        ], Room::MULLIGAN_LONDON, false, 1));
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Selected bottom card is not in hand.');
+
+        (new GameCommandHandler())->apply($game, 'mulligan.keep', [
+            'bottomCardInstanceIds' => ['library-1'],
+        ], $actor);
+    }
+
+    public function testRejectsIncorrectBottomSelectionCount(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->mulliganSnapshot($actor->id(), [
+            'hand' => $this->cards('hand', 7, 'hand'),
+        ], Room::MULLIGAN_LONDON, false, 2));
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Incorrect number of bottom cards selected.');
+
+        (new GameCommandHandler())->apply($game, 'mulligan.keep', [
+            'bottomCardInstanceIds' => ['hand-1'],
+        ], $actor);
+    }
+
+    public function testRejectsBottomSelectionForVancouverAndParis(): void
+    {
+        foreach ([Room::MULLIGAN_VANCOUVER, Room::MULLIGAN_PARIS] as $rule) {
+            $actor = new User($rule.'@example.test', $rule);
+            $game = new Game(new Room($actor), $this->mulliganSnapshot($actor->id(), [
+                'hand' => $this->cards('hand', 7, 'hand'),
+            ], $rule));
+
+            try {
+                (new GameCommandHandler())->apply($game, 'mulligan.keep', [
+                    'bottomCardInstanceIds' => ['hand-1'],
+                ], $actor);
+                self::fail(sprintf('%s accepted bottom card selections.', $rule));
+            } catch (\InvalidArgumentException $exception) {
+                self::assertSame('This mulligan rule does not allow bottom card selections.', $exception->getMessage());
+            }
+        }
+    }
+
+    public function testAllReadyPlayersAdvanceGamePhaseToPlaying(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $opponent = new User('opponent@example.test', 'Opponent');
+        $snapshot = $this->mulliganSnapshot($actor->id(), [
+            'hand' => $this->cards('hand', 7, 'hand'),
+        ], Room::MULLIGAN_LONDON, true, 0, 'DECIDING', $opponent->id(), 'READY');
+        $game = new Game(new Room($actor), $snapshot);
+
+        (new GameCommandHandler())->apply($game, 'mulligan.keep', [], $actor);
+
+        self::assertSame('READY', $game->snapshot()['players'][$actor->id()]['mulligan']['status']);
+        self::assertSame('PLAYING', $game->snapshot()['gamePhase']);
+    }
+
     /**
      * @param array<string,list<array<string,mixed>>> $actorZones
      */
@@ -3464,6 +3711,46 @@ class GameCommandHandlerTest extends TestCase
             'chat' => [],
             'eventLog' => [],
             'createdAt' => '2026-01-01T00:00:00+00:00',
+        ];
+    }
+
+    /**
+     * @param array<string,list<array<string,mixed>>> $actorZones
+     */
+    private function mulliganSnapshot(
+        string $actorId,
+        array $actorZones,
+        string $rule = Room::MULLIGAN_LONDON,
+        bool $firstMulliganFree = true,
+        int $mulligansTaken = 0,
+        string $status = 'DECIDING',
+        ?string $opponentId = null,
+        string $opponentStatus = 'DECIDING',
+    ): array {
+        $snapshot = $this->snapshot($actorId, $actorZones, $opponentId);
+        $snapshot['gamePhase'] = 'MULLIGAN';
+        $snapshot['mulligan'] = [
+            'rule' => $rule,
+            'firstMulliganFree' => $firstMulliganFree,
+        ];
+        $snapshot['players'][$actorId]['mulligan'] = $this->mulliganPlayerState($rule, $firstMulliganFree, $mulligansTaken, $status);
+        if ($opponentId !== null) {
+            $snapshot['players'][$opponentId]['mulligan'] = $this->mulliganPlayerState($rule, $firstMulliganFree, 0, $opponentStatus);
+        }
+
+        return $snapshot;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function mulliganPlayerState(string $rule, bool $firstMulliganFree, int $mulligansTaken, string $status): array
+    {
+        return [
+            ...GameMulliganRules::calculateMulliganState($rule, $firstMulliganFree, $mulligansTaken),
+            'status' => $status,
+            'ready' => $status === 'READY',
+            'scryCardInstanceId' => null,
         ];
     }
 
@@ -3497,6 +3784,27 @@ class GameCommandHandlerTest extends TestCase
             'commanderDamage' => [],
             'counters' => [],
         ];
+    }
+
+    /**
+     * @return list<array<string,mixed>>
+     */
+    private function cards(string $prefix, int $count, string $zone): array
+    {
+        $cards = [];
+        for ($index = 1; $index <= $count; ++$index) {
+            $cards[] = $this->card(
+                sprintf('%s-%d', $prefix, $index),
+                sprintf('%s %d', $prefix, $index),
+                $zone,
+                2,
+                2,
+                2,
+                2,
+            );
+        }
+
+        return $cards;
     }
 
     private function card(

@@ -665,6 +665,8 @@ function roomResource(
       startingLife: 40,
       timerMode: 'none',
       timerDurationSeconds: 300,
+      mulliganRule: 'LONDON',
+      firstMulliganFree: true,
       players: [
         {
           id: 'room-player-1',

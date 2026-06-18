@@ -2,6 +2,12 @@ import { Injectable, computed, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { GamesApi } from '../../../../core/api/games.api';
 import { GameSnapshot, MercureGameEvent } from '../../../../core/models/game.model';
+import {
+  GameplayMulliganCompletedMessage,
+  GameplayMulliganErrorMessage,
+  GameplayMulliganPrivateStateMessage,
+  GameplayMulliganPublicStateMessage,
+} from '../../../../core/models/game-realtime.model';
 import { GameTableGameRealtimeService } from './game-table-game-realtime.service';
 import { GameTableWebsocketGameplayService } from './game-table-websocket-gameplay.service';
 
@@ -16,6 +22,10 @@ export interface GameTableSessionContext {
   isPending(): boolean;
   setLoading(loading: boolean): void;
   setError(message: string | null): void;
+  onMulliganPublicState?(message: GameplayMulliganPublicStateMessage): void;
+  onMulliganPrivateState?(message: GameplayMulliganPrivateStateMessage): void;
+  onMulliganError?(message: GameplayMulliganErrorMessage): void;
+  onMulliganCompleted?(message: GameplayMulliganCompletedMessage): void;
   refreshViewerControlAccess?(): Promise<void>;
   navigateToRoomsWithLoadError(): void;
   navigateToWaitingRoom(roomId: string): void;
@@ -51,6 +61,10 @@ export class GameTableSessionService {
         setSnapshot: (snapshot) => context.setSnapshot(snapshot),
         refetch: (force) => this.refetch(context, force),
         setError: (message) => context.setError(message),
+        onMulliganPublicState: (message) => context.onMulliganPublicState?.(message),
+        onMulliganPrivateState: (message) => context.onMulliganPrivateState?.(message),
+        onMulliganError: (message) => context.onMulliganError?.(message),
+        onMulliganCompleted: (message) => context.onMulliganCompleted?.(message),
       }, gameId);
       this.subscribeToGameRealtime(context, gameId);
     } catch {

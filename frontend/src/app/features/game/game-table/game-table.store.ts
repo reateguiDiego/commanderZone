@@ -1,6 +1,7 @@
 import { Injectable, OnDestroy, WritableSignal, computed, effect, inject, signal } from '@angular/core';
 import { Card } from '../../../core/models/card.model';
-import { ChatReactionType, GameCardDungeonMarker, GameCardInstance, GameCardPosition, GameCardStatValue, GameCommandType, GamePowerToughnessValue, GameSnapshot, GameSpecialEntity, GameZoneName } from '../../../core/models/game.model';
+import { ChatReactionType, GameCardDungeonMarker, GameCardInstance, GameCardPosition, GameCardStatValue, GameCommandType, GameMulliganConfig, GamePhase, GamePlayerMulliganState, GamePowerToughnessValue, GameSnapshot, GameSpecialEntity, GameZoneName } from '../../../core/models/game.model';
+import { GameplayMulliganPublicPlayerState } from '../../../core/models/game-realtime.model';
 import { GameTableDebouncedValueCommandsService } from './services/game-table-debounced-value-commands.service';
 import { GameTableDragService } from './services/game-table-drag.service';
 import { GameTableLibraryActionsService } from './services/game-table-library-actions.service';
@@ -39,6 +40,7 @@ import { GameTableDragDropStore } from './state/drag-drop/game-table-drag-drop.s
 import { GameTableGameActionsStore } from './state/game-actions/game-table-game-actions.store';
 import { GameTableHandState } from './state/hand/game-table-hand.state';
 import { GameTableLibraryTopState } from './state/zones/game-table-library-top.state';
+import { GameTableMulliganState } from './state/mulligan/game-table-mulligan.state';
 import { GameTableOpponentTargetsState } from './state/arrows/game-table-opponent-targets.state';
 import { GameTablePlayersStore } from './state/players/game-table-players.store';
 import { GameTablePermanentRelationService } from './services/game-table-permanent-relation.service';
@@ -95,6 +97,7 @@ export class GameTableStore implements OnDestroy {
   private readonly gameActionsStore = inject(GameTableGameActionsStore);
   private readonly handState = inject(GameTableHandState);
   private readonly libraryTopState = inject(GameTableLibraryTopState);
+  private readonly mulliganState = inject(GameTableMulliganState);
   private readonly opponentTargetsState = inject(GameTableOpponentTargetsState);
   private readonly playersStore = inject(GameTablePlayersStore);
   private readonly permanentRelations = inject(GameTablePermanentRelationService);
@@ -153,6 +156,40 @@ export class GameTableStore implements OnDestroy {
   readonly eventLog = this.chatStore.eventLog;
   readonly currentPlayer = this.playersStore.currentPlayer;
   readonly handPlayer = this.playersStore.handPlayer;
+  readonly mulliganPending = this.mulliganState.pendingAction;
+  readonly mulliganError = this.mulliganState.error;
+  readonly mulliganGamePhase = computed<GamePhase | null>(() => this.mulliganState.gamePhase() ?? this.snapshot()?.gamePhase ?? null);
+  readonly mulliganActive = computed(() => this.mulliganGamePhase() === 'MULLIGAN');
+  readonly mulliganConfig = computed<GameMulliganConfig | null>(() => this.snapshot()?.mulligan ?? null);
+  readonly mulliganPublicPlayers = computed<readonly GameplayMulliganPublicPlayerState[]>(() =>
+    this.mulliganState.publicState()?.players ?? this.mulliganPublicPlayersFromSnapshot(),
+  );
+  readonly currentMulligan = computed<GamePlayerMulliganState | null>(() => {
+    const currentPlayerId = this.currentPlayer()?.id ?? null;
+    if (!currentPlayerId) {
+      return null;
+    }
+
+    const privateState = this.mulliganState.privateState();
+    if (privateState?.playerId === currentPlayerId) {
+      return {
+        ...privateState.mulligan,
+        handCount: privateState.hand.length,
+        ...(privateState.scryCard ? { scryCard: privateState.scryCard } : {}),
+      };
+    }
+
+    return this.currentPlayer()?.state.mulligan ?? null;
+  });
+  readonly currentMulliganHand = computed<readonly GameCardInstance[]>(() => {
+    const currentPlayerId = this.currentPlayer()?.id ?? null;
+    const privateState = this.mulliganState.privateState();
+    if (privateState?.playerId === currentPlayerId) {
+      return privateState.hand;
+    }
+
+    return this.currentPlayer()?.state.zones.hand ?? [];
+  });
   readonly opponentTargetingPills = this.opponentTargetsState.opponentTargetingPills;
   readonly opponentCardsTargetCards = this.opponentTargetsState.opponentCardsTargetCards;
   readonly chatRecipients = this.chatStore.chatRecipients;
@@ -1482,6 +1519,39 @@ export class GameTableStore implements OnDestroy {
     });
   }
 
+  takeMulligan(): void {
+    const gameId = this.gameId();
+    if (!gameId || !this.mulliganState.beginAction()) {
+      return;
+    }
+
+    if (!this.websocketGameplay.sendMulliganTake(gameId)) {
+      this.mulliganState.failAction('WebSocket gameplay connection is not available.');
+    }
+  }
+
+  keepMulligan(bottomCardInstanceIds: readonly string[] = []): void {
+    const gameId = this.gameId();
+    if (!gameId || !this.mulliganState.beginAction()) {
+      return;
+    }
+
+    if (!this.websocketGameplay.sendMulliganKeep(gameId, bottomCardInstanceIds)) {
+      this.mulliganState.failAction('WebSocket gameplay connection is not available.');
+    }
+  }
+
+  confirmMulliganScry(destination: 'TOP' | 'BOTTOM'): void {
+    const gameId = this.gameId();
+    if (!gameId || !this.mulliganState.beginAction()) {
+      return;
+    }
+
+    if (!this.websocketGameplay.sendMulliganScryConfirm(gameId, destination)) {
+      this.mulliganState.failAction('WebSocket gameplay connection is not available.');
+    }
+  }
+
   async moveBattlefieldCard(playerId: string, card: GameCardInstance, event: DragEvent): Promise<void> {
     if (!this.canControlPlayer(playerId)) {
       this.error.set('You can only move your own cards.');
@@ -1741,6 +1811,7 @@ export class GameTableStore implements OnDestroy {
   }
 
   private setSnapshot(snapshot: GameSnapshot | null): void {
+    this.mulliganState.syncSnapshot(snapshot);
     if (snapshot === null) {
       this.locallyConcededPlayerId = null;
       this.lastSeenActiveTurnPlayerId = null;
@@ -1780,6 +1851,23 @@ export class GameTableStore implements OnDestroy {
     }
 
     void this.openRevealedLibraryModal(revealedEntry[0]);
+  }
+
+  private mulliganPublicPlayersFromSnapshot(): GameplayMulliganPublicPlayerState[] {
+    return this.players().map((player) => {
+      const mulligan = player.state.mulligan;
+      const handCount = mulligan?.handCount ?? this.zoneCount(player, 'hand');
+
+      return {
+        playerId: player.id,
+        displayName: player.state.user.displayName,
+        handCount,
+        mulligansTaken: mulligan?.mulligansTaken ?? 0,
+        effectiveMulligans: mulligan?.effectiveMulligans ?? 0,
+        status: mulligan?.status ?? 'DECIDING',
+        ready: mulligan?.ready ?? mulligan?.status === 'READY',
+      };
+    });
   }
 
   private battlefieldInstanceIds(playerId: string): ReadonlySet<string> {

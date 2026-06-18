@@ -4,7 +4,7 @@ import { Observable } from 'rxjs';
 import { API_BASE_URL } from './api.config';
 import { CurrentRoomResponse, DataResponse, LeaveRoomResponse, RoomInviteResponse, RoomResponse, StartGameResponse } from '../models/api-responses.model';
 import { RoomInvite } from '../models/room-invite.model';
-import { Room, RoomFormat, RoomTimerMode, RoomVisibility } from '../models/room.model';
+import { Room, RoomFormat, RoomMulliganRule, RoomTimerMode, RoomVisibility } from '../models/room.model';
 import { withoutGlobalLoading } from '../loading/loading-context';
 
 export interface JoinRoomOptions {
@@ -37,7 +37,16 @@ export class RoomsApi {
   create(
     deckId?: string,
     visibility: RoomVisibility = 'private',
-    options?: { name?: string; maxPlayers?: number; startingLife?: number; timerMode?: RoomTimerMode; timerDurationSeconds?: number; format?: RoomFormat },
+    options?: {
+      name?: string;
+      maxPlayers?: number;
+      startingLife?: number;
+      timerMode?: RoomTimerMode;
+      timerDurationSeconds?: number;
+      format?: RoomFormat;
+      mulliganRule?: RoomMulliganRule;
+      firstMulliganFree?: boolean;
+    },
   ): Observable<RoomResponse> {
     return this.http.post<RoomResponse>(`${API_BASE_URL}/rooms`, {
       ...this.deckPayload(deckId),
@@ -48,6 +57,8 @@ export class RoomsApi {
       ...(options?.timerMode ? { timerMode: options.timerMode } : {}),
       ...(typeof options?.timerDurationSeconds === 'number' ? { timerDurationSeconds: options.timerDurationSeconds } : {}),
       ...(options?.format ? { format: options.format } : {}),
+      ...(options?.mulliganRule ? { mulliganRule: options.mulliganRule } : {}),
+      ...(typeof options?.firstMulliganFree === 'boolean' ? { firstMulliganFree: options.firstMulliganFree } : {}),
     });
   }
 
@@ -63,7 +74,18 @@ export class RoomsApi {
     });
   }
 
-  update(roomId: string, options: { maxPlayers?: number; startingLife?: number; timerMode?: RoomTimerMode; timerDurationSeconds?: number }, skipGlobalLoading = false): Observable<RoomResponse> {
+  update(
+    roomId: string,
+    options: {
+      maxPlayers?: number;
+      startingLife?: number;
+      timerMode?: RoomTimerMode;
+      timerDurationSeconds?: number;
+      mulliganRule?: RoomMulliganRule;
+      firstMulliganFree?: boolean;
+    },
+    skipGlobalLoading = false,
+  ): Observable<RoomResponse> {
     return this.http.patch<RoomResponse>(`${API_BASE_URL}/rooms/${roomId}`, options, {
       context: skipGlobalLoading ? withoutGlobalLoading() : undefined,
     });

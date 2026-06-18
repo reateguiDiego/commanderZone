@@ -32,4 +32,31 @@
     [disabled]="disabled() || updatingCapacity()"
     (valueChange)="maxPlayersChange.emit($event)"
   />
+
+  <div class="setup-control mulligan-control">
+    <label class="mulligan-select-field">
+      <span class="eyebrow">Mulligan</span>
+      <select
+        #mulliganRuleSelect
+        [value]="mulliganRule()"
+        [disabled]="disabled() || updatingMulligan()"
+        (change)="changeMulliganRule(mulliganRuleSelect.value)"
+      >
+        @for (option of mulliganOptions; track option.value) {
+          <option [value]="option.value">{{ option.label }}</option>
+        }
+      </select>
+    </label>
+
+    <label class="mulligan-checkbox-field">
+      <input
+        #firstMulliganFreeInput
+        type="checkbox"
+        [checked]="firstMulliganFree()"
+        [disabled]="disabled() || updatingMulligan()"
+        (change)="firstMulliganFreeChange.emit(firstMulliganFreeInput.checked)"
+      />
+      <span>Primer mulligan es gratis</span>
+    </label>
+  </div>
 </div>

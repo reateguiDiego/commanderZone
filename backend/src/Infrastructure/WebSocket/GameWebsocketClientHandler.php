@@ -14,6 +14,7 @@ use App\Application\Game\WebSocket\GameWebsocketCommandResult;
 use App\Application\Game\WebSocket\GameWebsocketDisconnectVoteOrchestrator;
 use App\Application\Game\WebSocket\GameWebsocketMessageHandler;
 use App\Application\Game\WebSocket\GameWebsocketMessageFactory;
+use App\Application\Game\WebSocket\GameWebsocketMulliganService;
 use App\Application\Game\WebSocket\GameWebsocketPeer;
 use App\Application\Game\WebSocket\GameWebsocketPatchReplayBuffer;
 use App\Application\Game\WebSocket\GameWebsocketRoomRegistry;
@@ -30,6 +31,7 @@ final readonly class GameWebsocketClientHandler implements WebsocketClientHandle
         private GameWebsocketDisconnectVoteOrchestrator $disconnectVotes,
         private GameWebsocketMessageHandler $messages,
         private GameWebsocketMessageFactory $messageFactory,
+        private GameWebsocketMulliganService $mulligans,
         private GameWebsocketPatchReplayBuffer $replayBuffer,
         private GameDebugHealthLiveStore $debugHealth,
         private LoggerInterface $logger,
@@ -112,6 +114,10 @@ final readonly class GameWebsocketClientHandler implements WebsocketClientHandle
                 }
             }
         }
+        foreach ($this->mulligans->initialStateMessages($peer->gameId, $peer->userId) as $mulliganStateMessage) {
+            $peer->send($mulliganStateMessage);
+            $this->safeRecordOutboundMessage($peer->gameId, $mulliganStateMessage, 'direct');
+        }
         $joinedMessage = [
             'kind' => 'connection_joined',
             'gameId' => $peer->gameId,
@@ -182,12 +188,13 @@ final readonly class GameWebsocketClientHandler implements WebsocketClientHandle
                 if ($reply instanceof GameWebsocketCommandResult) {
                     $outgoingDebug = [];
                     foreach ($this->rooms->peersForGame($peer->gameId) as $roomPeer) {
-                        $messageForPeer = $reply->messageForPeer($roomPeer);
-                        $roomPeer->send($messageForPeer);
-                        if ($isCommand && $debugEnabled) {
-                            $outgoingDebug[] = $this->outgoingDebugSummary($messageForPeer, 'broadcast', $roomPeer->userId);
-                        } else {
-                            $this->safeRecordOutboundMessage($peer->gameId, $messageForPeer, 'broadcast');
+                        foreach ($reply->messagesForPeer($roomPeer) as $messageForPeer) {
+                            $roomPeer->send($messageForPeer);
+                            if ($isCommand && $debugEnabled) {
+                                $outgoingDebug[] = $this->outgoingDebugSummary($messageForPeer, 'broadcast', $roomPeer->userId);
+                            } else {
+                                $this->safeRecordOutboundMessage($peer->gameId, $messageForPeer, 'broadcast');
+                            }
                         }
                     }
                     if ($isCommand && $debugEnabled) {
@@ -331,9 +338,10 @@ final readonly class GameWebsocketClientHandler implements WebsocketClientHandle
         }
 
         foreach ($this->rooms->peersForGame($gameId) as $roomPeer) {
-            $message = $result->messageForPeer($roomPeer);
-            $roomPeer->send($message);
-            $this->safeRecordOutboundMessage($gameId, $message, 'broadcast');
+            foreach ($result->messagesForPeer($roomPeer) as $message) {
+                $roomPeer->send($message);
+                $this->safeRecordOutboundMessage($gameId, $message, 'broadcast');
+            }
         }
         $this->replayBuffer->rememberResult($gameId, $result);
     }

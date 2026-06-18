@@ -108,6 +108,11 @@ class RoomsController extends ApiController
         if ($format !== Room::FORMAT_COMMANDER) {
             return $this->fail('Only Commander format is currently supported.', 400);
         }
+        $mulliganRule = $this->mulliganRuleFromPayload($payload);
+        if ($mulliganRule === null) {
+            return $this->fail('Unsupported mulligan rule.', 400);
+        }
+        $firstMulliganFree = $this->firstMulliganFreeFromPayload($payload, $format);
 
         $deletedRoomIds = [];
         foreach ($activeRoomMembership->activeRoomsForUser($user) as $existingRoom) {
@@ -126,6 +131,8 @@ class RoomsController extends ApiController
         $room->setStartingLife($this->startingLifeFromPayload($payload));
         $room->setTimerMode($this->timerModeFromPayload($payload));
         $room->setTimerDurationSeconds($this->timerDurationFromPayload($payload));
+        $room->setMulliganRule($mulliganRule);
+        $room->setFirstMulliganFree($firstMulliganFree);
         $room->addPlayer(new RoomPlayer($room, $user, $deck));
         $room->appendWaitingLog(sprintf('%s joined the room.', $this->userDisplayName($user)), RoomWaitingLogEntry::TONE_SUCCESS);
 
@@ -185,6 +192,8 @@ class RoomsController extends ApiController
         $previousStartingLife = $room->startingLife();
         $previousTimerMode = $room->timerMode();
         $previousTimerDurationSeconds = $room->timerDurationSeconds();
+        $previousMulliganRule = $room->mulliganRule();
+        $previousFirstMulliganFree = $room->firstMulliganFree();
         if (array_key_exists('maxPlayers', $payload)) {
             $maxPlayers = $this->maxPlayersFromPayload($payload);
             if ($maxPlayers < $room->players()->count()) {
@@ -201,7 +210,25 @@ class RoomsController extends ApiController
         if (array_key_exists('timerDurationSeconds', $payload)) {
             $room->setTimerDurationSeconds($this->timerDurationFromPayload($payload));
         }
-        $this->appendRoomSettingsLog($room, $previousMaxPlayers, $previousStartingLife, $previousTimerMode, $previousTimerDurationSeconds);
+        if (array_key_exists('mulliganRule', $payload)) {
+            $mulliganRule = $this->mulliganRuleFromPayload($payload);
+            if ($mulliganRule === null) {
+                return $this->fail('Unsupported mulligan rule.', 400);
+            }
+            $room->setMulliganRule($mulliganRule);
+        }
+        if (array_key_exists('firstMulliganFree', $payload)) {
+            $room->setFirstMulliganFree($this->firstMulliganFreeFromPayload($payload, $room->format()));
+        }
+        $this->appendRoomSettingsLog(
+            $room,
+            $previousMaxPlayers,
+            $previousStartingLife,
+            $previousTimerMode,
+            $previousTimerDurationSeconds,
+            $previousMulliganRule,
+            $previousFirstMulliganFree,
+        );
 
         $entityManager->flush();
         $roomEventPublisher->publish($room, 'room.updated');
@@ -610,6 +637,8 @@ class RoomsController extends ApiController
         int $previousStartingLife,
         string $previousTimerMode,
         int $previousTimerDurationSeconds,
+        string $previousMulliganRule,
+        bool $previousFirstMulliganFree,
     ): void {
         if ($room->maxPlayers() !== $previousMaxPlayers) {
             $room->appendWaitingLog(sprintf('Room size changed from %d to %d players.', $previousMaxPlayers, $room->maxPlayers()));
@@ -633,6 +662,21 @@ class RoomsController extends ApiController
                 $this->timerLabel($room->timerMode(), $room->timerDurationSeconds()),
             ));
         }
+
+        if ($room->mulliganRule() !== $previousMulliganRule) {
+            $room->appendWaitingLog(sprintf(
+                'Mulligan rule changed from %s to %s.',
+                $this->mulliganRuleLabel($previousMulliganRule),
+                $this->mulliganRuleLabel($room->mulliganRule()),
+            ));
+        }
+
+        if ($room->firstMulliganFree() !== $previousFirstMulliganFree) {
+            $room->appendWaitingLog(sprintf(
+                'First mulligan free changed to %s.',
+                $room->firstMulliganFree() ? 'on' : 'off',
+            ));
+        }
     }
 
     private function timerLabel(string $mode, int $durationSeconds): string
@@ -646,6 +690,16 @@ class RoomsController extends ApiController
         $duration = $seconds === 0 ? sprintf('%d min', $minutes) : sprintf('%d:%02d', $minutes, $seconds);
 
         return sprintf('%s per turn', $duration);
+    }
+
+    private function mulliganRuleLabel(string $rule): string
+    {
+        return match ($rule) {
+            Room::MULLIGAN_VANCOUVER => 'Vancouver',
+            Room::MULLIGAN_PARIS => 'Paris',
+            Room::MULLIGAN_GENEROUS => 'Generous',
+            default => 'London',
+        };
     }
 
     private function userDisplayName(User $user): string
@@ -863,6 +917,8 @@ class RoomsController extends ApiController
             'visibility' => $room->visibility(),
             'format' => $room->format(),
             'maxPlayers' => $room->maxPlayers(),
+            'mulliganRule' => $room->mulliganRule(),
+            'firstMulliganFree' => $room->firstMulliganFree(),
             'playerCount' => $room->players()->count(),
             'gameId' => $room->game()?->id(),
         ];
@@ -986,6 +1042,25 @@ class RoomsController extends ApiController
         }
 
         return Room::DEFAULT_TIMER_DURATION_SECONDS;
+    }
+
+    private function mulliganRuleFromPayload(array $payload): ?string
+    {
+        $mulliganRule = $payload['mulliganRule'] ?? Room::DEFAULT_MULLIGAN_RULE;
+
+        return is_string($mulliganRule) && in_array($mulliganRule, Room::MULLIGAN_RULES, true)
+            ? $mulliganRule
+            : null;
+    }
+
+    private function firstMulliganFreeFromPayload(array $payload, string $format): bool
+    {
+        $firstMulliganFree = $payload['firstMulliganFree'] ?? null;
+        if (is_bool($firstMulliganFree)) {
+            return $firstMulliganFree;
+        }
+
+        return Room::defaultFirstMulliganFreeForFormat($format);
     }
 
     private function hasDeckIdInPayload(array $payload): bool

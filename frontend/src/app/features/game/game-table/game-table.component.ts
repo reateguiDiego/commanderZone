@@ -56,6 +56,7 @@ import { GameTableDropFeedbackState } from './state/drag-drop/game-table-drop-fe
 import { GameTableGameActionsStore } from './state/game-actions/game-table-game-actions.store';
 import { GameTableHandState } from './state/hand/game-table-hand.state';
 import { GameTableLibraryTopState } from './state/zones/game-table-library-top.state';
+import { GameTableMulliganState } from './state/mulligan/game-table-mulligan.state';
 import { GameTablePendingTransferState } from './state/core/game-table-pending-transfer.state';
 import { GameTableArrowsState } from './state/arrows/game-table-arrows.state';
 import { GameTableAttachmentsState } from './state/attachments/game-table-attachments.state';
@@ -95,6 +96,7 @@ import { GameArrowLayerComponent } from './components/game-arrow-layer/game-arro
 import { ArrowTargetDialogComponent, ArrowTargetDialogValue } from './components/arrow-target-dialog/arrow-target-dialog.component';
 import { GameRematchModalComponent, RematchPlayerVoteView } from './components/game-rematch-modal/game-rematch-modal.component';
 import { GameDisconnectVoteModalComponent } from './components/game-disconnect-vote-modal/game-disconnect-vote-modal.component';
+import { MulliganOverlayComponent } from './components/mulligan-overlay/mulligan-overlay.component';
 import {
   GameplayCardSearchKind,
   GameplayCardSearchSelection,
@@ -454,6 +456,7 @@ interface MotionSourceRect {
     ArrowTargetDialogComponent,
     GameRematchModalComponent,
     GameDisconnectVoteModalComponent,
+    MulliganOverlayComponent,
     TokenSearchModalComponent,
     ChatRecipientSelectComponent,
     RollModalComponent,
@@ -476,6 +479,7 @@ interface MotionSourceRect {
     GameTableGameActionsStore,
     GameTableHandState,
     GameTableLibraryTopState,
+    GameTableMulliganState,
     GameTablePlayersStore,
     GameTableSnapshotCoordinatorState,
     GameTableToastState,

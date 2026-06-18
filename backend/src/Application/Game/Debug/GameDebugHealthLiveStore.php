@@ -88,6 +88,7 @@ final class GameDebugHealthLiveStore
      */
     public function recordOutboundMessage(string $gameId, array $message, ?string $channel = null): void
     {
+        $message = $this->redactedGameplayMessage($message);
         $this->mutate(
             $gameId,
             fn (array $state): array => $this->aggregator->recordOutboundMessage($state, $message, $channel),
@@ -100,6 +101,7 @@ final class GameDebugHealthLiveStore
      */
     public function recordIncomingMessage(string $gameId, array $message, int $characters): void
     {
+        $message = $this->redactedGameplayMessage($message);
         $this->mutate(
             $gameId,
             fn (array $state): array => $this->aggregator->recordIncomingMessage($state, $message, $characters),
@@ -170,6 +172,39 @@ final class GameDebugHealthLiveStore
         $kind = $message['kind'] ?? null;
 
         return $kind === 'ping' || $kind === 'pong';
+    }
+
+    /**
+     * @param array<string,mixed> $message
+     *
+     * @return array<string,mixed>
+     */
+    private function redactedGameplayMessage(array $message): array
+    {
+        $kind = $message['kind'] ?? null;
+        if ($kind === 'mulligan.private_state') {
+            $hand = is_array($message['hand'] ?? null) ? $message['hand'] : [];
+            $hasScryCard = is_array($message['scryCard'] ?? null);
+            unset($message['hand'], $message['scryCard']);
+            $message['privatePayload'] = [
+                'handCount' => count($hand),
+                'hasScryCard' => $hasScryCard,
+            ];
+
+            return $message;
+        }
+
+        if ($kind === 'mulligan.keep') {
+            $bottomCardInstanceIds = is_array($message['bottomCardInstanceIds'] ?? null)
+                ? $message['bottomCardInstanceIds']
+                : [];
+            unset($message['bottomCardInstanceIds']);
+            $message['bottomCardCount'] = count($bottomCardInstanceIds);
+
+            return $message;
+        }
+
+        return $message;
     }
 
     private function publish(string $gameId): void

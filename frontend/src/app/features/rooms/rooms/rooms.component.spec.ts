@@ -205,6 +205,8 @@ describe('RoomsComponent', () => {
       startingLife: 45,
       timerMode: 'turn',
       timerDurationSeconds: 180,
+      mulliganRule: 'GENEROUS',
+      firstMulliganFree: false,
     });
     roomsApi.create.mockReturnValue(of({ room: createdRoom }));
     const router = TestBed.inject(Router);
@@ -225,6 +227,8 @@ describe('RoomsComponent', () => {
       startingLife: 45,
       timerMode: 'turn',
       timerDurationSeconds: 180,
+      mulliganRule: 'GENEROUS',
+      firstMulliganFree: false,
     });
 
     expect(roomsApi.create).toHaveBeenCalledWith(undefined, 'private', {
@@ -234,6 +238,8 @@ describe('RoomsComponent', () => {
       timerMode: 'turn',
       timerDurationSeconds: 180,
       format: 'commander',
+      mulliganRule: 'GENEROUS',
+      firstMulliganFree: false,
     });
     expect(fixture.componentInstance.createRoomModalOpen()).toBe(false);
     expect(router.navigateByUrl).toHaveBeenCalledWith('/rooms/room-created/waiting');
@@ -488,6 +494,8 @@ function currentRoomSummaryFixture(room: Room): CurrentRoomSummary {
     visibility: room.visibility,
     format: room.format,
     maxPlayers: room.maxPlayers,
+    mulliganRule: room.mulliganRule,
+    firstMulliganFree: room.firstMulliganFree,
     playerCount: room.players.length,
     gameId: room.gameId,
   };
@@ -516,6 +524,8 @@ function baseRoomFixture(): Room {
     startingLife: 40,
     timerMode: 'none' as const,
     timerDurationSeconds: 300,
+    mulliganRule: 'LONDON' as const,
+    firstMulliganFree: true,
     players: [],
     gameId: null,
   };

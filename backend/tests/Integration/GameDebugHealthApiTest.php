@@ -159,7 +159,7 @@ class GameDebugHealthApiTest extends ApiTestCase
     /**
      * @param list<string> $tokens
      */
-    private function resolveTurnOrder(string $roomId, array $tokens): void
+    protected function resolveTurnOrder(string $roomId, array $tokens): void
     {
         for ($attempt = 0; $attempt < 20; ++$attempt) {
             $this->jsonRequest('GET', '/rooms/'.$roomId, token: $tokens[0]);
@@ -197,7 +197,7 @@ class GameDebugHealthApiTest extends ApiTestCase
     /**
      * @param list<array<string,mixed>> $players
      */
-    private function turnOrderResolved(array $players): bool
+    protected function turnOrderResolved(array $players): bool
     {
         $sequences = [];
         foreach ($players as $player) {

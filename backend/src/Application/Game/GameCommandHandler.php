@@ -5,6 +5,7 @@ namespace App\Application\Game;
 use App\Domain\Deck\Deck;
 use App\Domain\Game\Game;
 use App\Domain\Game\GameEvent;
+use App\Domain\Room\Room;
 use App\Domain\User\User;
 use Symfony\Component\Uid\Uuid;
 
@@ -12,6 +13,11 @@ class GameCommandHandler
 {
     private const ZONES = ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'command'];
     private const HIDDEN_ZONES = ['library', 'hand'];
+    private const GAME_PHASE_MULLIGAN = 'MULLIGAN';
+    private const GAME_PHASE_PLAYING = 'PLAYING';
+    private const MULLIGAN_STATUS_DECIDING = 'DECIDING';
+    private const MULLIGAN_STATUS_SCRYING = 'SCRYING';
+    private const MULLIGAN_STATUS_READY = 'READY';
     private const CHAT_REACTIONS = ['like', 'dislike', 'love', 'laugh', 'angry', 'vomit', 'cry'];
     private const MAX_CARD_COUNTER_TYPES = 5;
     private const MAX_TOKEN_CREATE_QUANTITY = 20;
@@ -30,6 +36,9 @@ class GameCommandHandler
     private const SUPPORTED_COMMANDS = [
         'game.concede',
         'game.close',
+        'mulligan.take',
+        'mulligan.keep',
+        'mulligan.scry_confirm',
         'chat.message',
         'chat.reaction.toggled',
         'dice.rolled',
@@ -77,6 +86,11 @@ class GameCommandHandler
     private const COMMANDS_ALLOWED_WHEN_FINISHED = [
         'chat.message',
         'chat.reaction.toggled',
+    ];
+    private const MULLIGAN_COMMANDS = [
+        'mulligan.take',
+        'mulligan.keep',
+        'mulligan.scry_confirm',
     ];
     private const ACTOR_OWN_PLAYER_COMMANDS = [
         'zone.changed',
@@ -158,6 +172,7 @@ class GameCommandHandler
         $this->pendingDefeatedPlayerId = null;
         $this->pendingDefeatPreexisted = false;
         $this->assertActorCanApply($snapshot, $type, $payload, $actor);
+        $this->assertGamePhaseAllowsCommand($snapshot, $type);
 
         if ($this->specialEntityCommandHandler->supports($type)) {
             $helperResult = $this->specialEntityCommandHandler->apply($snapshot, $type, $payload, $actor);
@@ -173,6 +188,9 @@ class GameCommandHandler
             match ($type) {
                 'game.concede' => $log = $this->applyGameConcede($snapshot, $actor),
                 'game.close' => $log = $this->applyGameClose($snapshot, $game, $actor),
+                'mulligan.take' => $log = $this->applyMulliganTake($snapshot, $actor),
+                'mulligan.keep' => $log = $this->applyMulliganKeep($snapshot, $payload, $actor),
+                'mulligan.scry_confirm' => $log = $this->applyMulliganScryConfirm($snapshot, $payload, $actor),
                 'chat.message' => $log = $this->applyChatMessage($snapshot, $payload, $actor),
                 'chat.reaction.toggled' => $log = $this->applyChatReactionToggled($snapshot, $payload, $actor),
                 'dice.rolled' => $log = $this->applyDiceRolled($payload),
@@ -234,6 +252,16 @@ class GameCommandHandler
     {
         $snapshot['version'] = max(1, (int) ($snapshot['version'] ?? 1));
         $snapshot['ownerId'] = (string) ($snapshot['ownerId'] ?? '');
+        $gamePhase = $snapshot['gamePhase'] ?? self::GAME_PHASE_PLAYING;
+        $snapshot['gamePhase'] = in_array($gamePhase, [self::GAME_PHASE_MULLIGAN, self::GAME_PHASE_PLAYING], true)
+            ? $gamePhase
+            : self::GAME_PHASE_PLAYING;
+        $snapshot['mulligan'] = is_array($snapshot['mulligan'] ?? null) ? $snapshot['mulligan'] : [];
+        $mulliganRule = $snapshot['mulligan']['rule'] ?? Room::DEFAULT_MULLIGAN_RULE;
+        $snapshot['mulligan']['rule'] = in_array($mulliganRule, Room::MULLIGAN_RULES, true)
+            ? $mulliganRule
+            : Room::DEFAULT_MULLIGAN_RULE;
+        $snapshot['mulligan']['firstMulliganFree'] = (bool) ($snapshot['mulligan']['firstMulliganFree'] ?? false);
         $snapshot['stack'] ??= [];
         $snapshot['arrows'] ??= [];
         $snapshot['attachments'] ??= [];
@@ -259,6 +287,11 @@ class GameCommandHandler
             $player['revealedLibraryTo'] = is_array($player['revealedLibraryTo'] ?? null) ? array_values($player['revealedLibraryTo']) : [];
             $player['counters'] ??= [];
             $player['commanderDamage'] ??= [];
+            $player['mulligan'] = $this->normalizePlayerMulligan(
+                is_array($player['mulligan'] ?? null) ? $player['mulligan'] : [],
+                (string) $snapshot['mulligan']['rule'],
+                (bool) $snapshot['mulligan']['firstMulliganFree'],
+            );
             foreach (self::ZONES as $zone) {
                 $player['zones'][$zone] ??= [];
                 foreach ($player['zones'][$zone] as &$card) {
@@ -283,6 +316,31 @@ class GameCommandHandler
         $snapshot = $this->specialEntityCommandHandler->normalizeSnapshot($snapshot);
 
         return $snapshot;
+    }
+
+    /**
+     * @param array<string,mixed> $mulligan
+     *
+     * @return array<string,mixed>
+     */
+    private function normalizePlayerMulligan(array $mulligan, string $rule, bool $firstMulliganFree): array
+    {
+        $mulligansTaken = max(0, (int) ($mulligan['mulligansTaken'] ?? 0));
+        $state = GameMulliganRules::calculateMulliganState($rule, $firstMulliganFree, $mulligansTaken);
+        $status = $mulligan['status'] ?? self::MULLIGAN_STATUS_DECIDING;
+        $status = in_array($status, [self::MULLIGAN_STATUS_DECIDING, self::MULLIGAN_STATUS_SCRYING, self::MULLIGAN_STATUS_READY], true)
+            ? $status
+            : self::MULLIGAN_STATUS_DECIDING;
+        $scryCardInstanceId = is_string($mulligan['scryCardInstanceId'] ?? null) && trim($mulligan['scryCardInstanceId']) !== ''
+            ? trim($mulligan['scryCardInstanceId'])
+            : null;
+
+        return [
+            ...$state,
+            'status' => $status,
+            'ready' => $status === self::MULLIGAN_STATUS_READY,
+            'scryCardInstanceId' => $status === self::MULLIGAN_STATUS_SCRYING ? $scryCardInstanceId : null,
+        ];
     }
 
     private function normalizeCommanderDamage(array &$snapshot): void
@@ -1794,6 +1852,119 @@ class GameCommandHandler
         );
     }
 
+    private function applyMulliganTake(array &$snapshot, User $actor): string
+    {
+        $playerId = $this->mulliganActorPlayerId($snapshot, $actor);
+        $this->assertMulliganStatus($snapshot, $playerId, self::MULLIGAN_STATUS_DECIDING);
+        $currentState = $this->currentMulliganState($snapshot, $playerId);
+        if (($currentState['canTakeAnotherMulligan'] ?? false) !== true) {
+            throw new \InvalidArgumentException('Cannot take another mulligan.');
+        }
+
+        $this->returnHandToLibraryAndShuffle($snapshot, $playerId);
+        $mulligansTaken = ((int) ($currentState['mulligansTaken'] ?? 0)) + 1;
+        $this->refreshPlayerMulliganState($snapshot, $playerId, $mulligansTaken, self::MULLIGAN_STATUS_DECIDING);
+        $nextState = $this->currentMulliganState($snapshot, $playerId);
+        $this->drawMulliganHand($snapshot, $playerId, (int) $nextState['drawCount']);
+
+        return 'ha hecho mulligan.';
+    }
+
+    private function applyMulliganKeep(array &$snapshot, array $payload, User $actor): string
+    {
+        $playerId = $this->mulliganActorPlayerId($snapshot, $actor);
+        $this->assertMulliganStatus($snapshot, $playerId, self::MULLIGAN_STATUS_DECIDING);
+        $state = $this->currentMulliganState($snapshot, $playerId);
+        $rule = (string) $state['rule'];
+        $bottomSelectionCount = (int) $state['bottomSelectionCount'];
+        $bottomCardInstanceIds = $this->bottomCardInstanceIds($payload);
+
+        if (in_array($rule, [Room::MULLIGAN_VANCOUVER, Room::MULLIGAN_PARIS], true) && $bottomCardInstanceIds !== []) {
+            throw new \InvalidArgumentException('This mulligan rule does not allow bottom card selections.');
+        }
+        if ($bottomSelectionCount === 0 && $bottomCardInstanceIds !== []) {
+            throw new \InvalidArgumentException('No bottom card selections are required.');
+        }
+        if ($bottomSelectionCount > 0 && count($bottomCardInstanceIds) !== $bottomSelectionCount) {
+            throw new \InvalidArgumentException('Incorrect number of bottom cards selected.');
+        }
+        if ($bottomSelectionCount > 0) {
+            $this->assertCardsAreInHand($snapshot, $playerId, $bottomCardInstanceIds);
+            $selectedCards = [];
+            foreach ($bottomCardInstanceIds as $instanceId) {
+                $selectedCards[] = $this->takeCard($snapshot, $playerId, 'hand', $instanceId);
+            }
+            if ($rule === Room::MULLIGAN_GENEROUS) {
+                $selectedCards = $this->randomizer->shuffle($selectedCards);
+            }
+            foreach ($selectedCards as $card) {
+                $this->putCard($snapshot, $playerId, 'library', $card, 'bottom');
+            }
+        }
+        $this->pendingEventPayload = [
+            'bottomCardCount' => count($bottomCardInstanceIds),
+        ];
+
+        if (($state['needsScryAfterKeep'] ?? false) === true) {
+            $topCard = $snapshot['players'][$playerId]['zones']['library'][0] ?? null;
+            if (!is_array($topCard)) {
+                $this->refreshPlayerMulliganState($snapshot, $playerId, (int) $state['mulligansTaken'], self::MULLIGAN_STATUS_READY);
+
+                return $this->advanceGamePhaseIfMulliganReady($snapshot)
+                    ? 'Mulligan phase completed.'
+                    : 'ha hecho keep.';
+            }
+            $this->refreshPlayerMulliganState(
+                $snapshot,
+                $playerId,
+                (int) $state['mulligansTaken'],
+                self::MULLIGAN_STATUS_SCRYING,
+                (string) ($topCard['instanceId'] ?? ''),
+            );
+
+            return 'ha hecho keep y debe hacer scry 1.';
+        }
+
+        $this->refreshPlayerMulliganState($snapshot, $playerId, (int) $state['mulligansTaken'], self::MULLIGAN_STATUS_READY);
+
+        return $this->advanceGamePhaseIfMulliganReady($snapshot)
+            ? 'Mulligan phase completed.'
+            : 'ha hecho keep.';
+    }
+
+    private function applyMulliganScryConfirm(array &$snapshot, array $payload, User $actor): string
+    {
+        $playerId = $this->mulliganActorPlayerId($snapshot, $actor);
+        $this->assertMulliganStatus($snapshot, $playerId, self::MULLIGAN_STATUS_SCRYING);
+        $state = $this->currentMulliganState($snapshot, $playerId);
+        if (($state['rule'] ?? null) !== Room::MULLIGAN_VANCOUVER) {
+            throw new \InvalidArgumentException('Only Vancouver mulligan can confirm scry.');
+        }
+        $destination = $payload['destination'] ?? null;
+        if (!in_array($destination, ['TOP', 'BOTTOM'], true)) {
+            throw new \InvalidArgumentException('Scry destination is invalid.');
+        }
+        $this->pendingEventPayload = [];
+        $scryCardInstanceId = is_string($state['scryCardInstanceId'] ?? null) ? $state['scryCardInstanceId'] : '';
+        if ($scryCardInstanceId === '') {
+            throw new \InvalidArgumentException('No scry card is pending.');
+        }
+        $topCard = $snapshot['players'][$playerId]['zones']['library'][0] ?? null;
+        if (!is_array($topCard) || (string) ($topCard['instanceId'] ?? '') !== $scryCardInstanceId) {
+            throw new \InvalidArgumentException('Pending scry card is not on top of the library.');
+        }
+        if ($destination === 'BOTTOM') {
+            $card = $this->takeCard($snapshot, $playerId, 'library', $scryCardInstanceId);
+            $this->putCard($snapshot, $playerId, 'library', $card, 'bottom');
+        }
+
+        $this->refreshPlayerMulliganState($snapshot, $playerId, (int) $state['mulligansTaken'], self::MULLIGAN_STATUS_READY);
+
+        return $this->advanceGamePhaseIfMulliganReady($snapshot)
+            ? 'Mulligan phase completed.'
+            : 'ha confirmado scry 1.';
+    }
+
     private function applyLibraryDraw(array &$snapshot, array $payload, int $count): string
     {
         $playerId = $this->requiredPlayerId($snapshot, $payload);
@@ -2491,6 +2662,149 @@ class GameCommandHandler
         }
 
         throw new \InvalidArgumentException('Card not found.');
+    }
+
+    private function mulliganActorPlayerId(array $snapshot, User $actor): string
+    {
+        if (($snapshot['gamePhase'] ?? null) !== self::GAME_PHASE_MULLIGAN) {
+            throw new \InvalidArgumentException('Game is not in mulligan phase.');
+        }
+        $playerId = $this->resolveSnapshotPlayerId($snapshot, $actor->id());
+        if ($playerId === null) {
+            throw new \InvalidArgumentException('Actor is not a game player.');
+        }
+
+        return $playerId;
+    }
+
+    private function assertMulliganStatus(array $snapshot, string $playerId, string $expectedStatus): void
+    {
+        $status = $snapshot['players'][$playerId]['mulligan']['status'] ?? self::MULLIGAN_STATUS_DECIDING;
+        if ($status !== $expectedStatus) {
+            throw new \InvalidArgumentException(sprintf('Player is not %s for mulligan.', strtolower($expectedStatus)));
+        }
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function currentMulliganState(array $snapshot, string $playerId): array
+    {
+        $mulligan = $snapshot['players'][$playerId]['mulligan'] ?? [];
+
+        return is_array($mulligan) ? $mulligan : [];
+    }
+
+    private function refreshPlayerMulliganState(
+        array &$snapshot,
+        string $playerId,
+        int $mulligansTaken,
+        string $status,
+        ?string $scryCardInstanceId = null,
+    ): void {
+        $rule = (string) ($snapshot['mulligan']['rule'] ?? Room::DEFAULT_MULLIGAN_RULE);
+        $firstMulliganFree = (bool) ($snapshot['mulligan']['firstMulliganFree'] ?? false);
+        $state = GameMulliganRules::calculateMulliganState($rule, $firstMulliganFree, $mulligansTaken);
+        $snapshot['players'][$playerId]['mulligan'] = [
+            ...$state,
+            'status' => $status,
+            'ready' => $status === self::MULLIGAN_STATUS_READY,
+            'scryCardInstanceId' => $status === self::MULLIGAN_STATUS_SCRYING && $scryCardInstanceId !== ''
+                ? $scryCardInstanceId
+                : null,
+        ];
+    }
+
+    private function returnHandToLibraryAndShuffle(array &$snapshot, string $playerId): void
+    {
+        $hand = array_values($snapshot['players'][$playerId]['zones']['hand'] ?? []);
+        $snapshot['players'][$playerId]['zones']['hand'] = [];
+        foreach ($hand as $card) {
+            if (is_array($card)) {
+                $this->putCard($snapshot, $playerId, 'library', $card, 'bottom');
+            }
+        }
+        $snapshot['players'][$playerId]['zones']['library'] = $this->randomizer->shuffle($snapshot['players'][$playerId]['zones']['library']);
+        foreach ($snapshot['players'][$playerId]['zones']['library'] as &$card) {
+            if (is_array($card)) {
+                $card['revealedTo'] = [];
+            }
+        }
+        unset($card);
+        $snapshot['players'][$playerId]['revealedLibraryTo'] = [];
+    }
+
+    private function drawMulliganHand(array &$snapshot, string $playerId, int $drawCount): void
+    {
+        for ($index = 0; $index < $drawCount; ++$index) {
+            $card = $this->takeTopLibraryCard($snapshot, $playerId);
+            if (!is_array($card)) {
+                return;
+            }
+            $this->putCard($snapshot, $playerId, 'hand', $card);
+        }
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function bottomCardInstanceIds(array $payload): array
+    {
+        $ids = $payload['bottomCardInstanceIds'] ?? [];
+        if ($ids === null) {
+            return [];
+        }
+        if (!is_array($ids)) {
+            throw new \InvalidArgumentException('bottomCardInstanceIds must be an array.');
+        }
+
+        $normalized = [];
+        foreach ($ids as $id) {
+            if (!is_string($id) || trim($id) === '') {
+                throw new \InvalidArgumentException('bottomCardInstanceIds must contain only card ids.');
+            }
+            $normalized[] = trim($id);
+        }
+        if (count(array_unique($normalized)) !== count($normalized)) {
+            throw new \InvalidArgumentException('bottomCardInstanceIds must not contain duplicates.');
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * @param list<string> $instanceIds
+     */
+    private function assertCardsAreInHand(array $snapshot, string $playerId, array $instanceIds): void
+    {
+        $handCardsById = [];
+        foreach ($snapshot['players'][$playerId]['zones']['hand'] ?? [] as $card) {
+            if (is_array($card) && is_string($card['instanceId'] ?? null)) {
+                $handCardsById[$card['instanceId']] = true;
+            }
+        }
+
+        foreach ($instanceIds as $instanceId) {
+            if (!isset($handCardsById[$instanceId])) {
+                throw new \InvalidArgumentException('Selected bottom card is not in hand.');
+            }
+        }
+    }
+
+    private function advanceGamePhaseIfMulliganReady(array &$snapshot): bool
+    {
+        if (($snapshot['gamePhase'] ?? null) !== self::GAME_PHASE_MULLIGAN) {
+            return false;
+        }
+        foreach ($snapshot['players'] ?? [] as $player) {
+            if (!is_array($player) || ($player['mulligan']['status'] ?? null) !== self::MULLIGAN_STATUS_READY) {
+                return false;
+            }
+        }
+
+        $snapshot['gamePhase'] = self::GAME_PHASE_PLAYING;
+
+        return true;
     }
 
     /**
@@ -3304,6 +3618,23 @@ class GameCommandHandler
             if ($activePlayerId === '' || $activePlayerId !== $actorPlayerId) {
                 throw new \InvalidArgumentException('Only the active turn player can advance the turn.');
             }
+        }
+    }
+
+    private function assertGamePhaseAllowsCommand(array $snapshot, string $type): void
+    {
+        $gamePhase = $snapshot['gamePhase'] ?? self::GAME_PHASE_PLAYING;
+        $isMulliganCommand = in_array($type, self::MULLIGAN_COMMANDS, true);
+        if ($gamePhase === self::GAME_PHASE_MULLIGAN) {
+            if ($isMulliganCommand || in_array($type, ['game.concede', 'game.close', 'chat.message', 'chat.reaction.toggled'], true)) {
+                return;
+            }
+
+            throw new \InvalidArgumentException('Game is in mulligan phase.');
+        }
+
+        if ($isMulliganCommand) {
+            throw new \InvalidArgumentException('Mulligan phase has ended.');
         }
     }
 

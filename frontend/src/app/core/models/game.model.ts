@@ -6,6 +6,10 @@ export type GameSpecialEntityTemplate = 'monarch' | 'initiative' | 'citys_blessi
 export type GameSpecialEntityScope = 'global' | 'player';
 export type GameCardStatValue = number | string | null;
 export type GamePowerToughnessValue = GameCardStatValue;
+export type GamePhase = 'MULLIGAN' | 'PLAYING';
+export type MulliganRule = 'LONDON' | 'VANCOUVER' | 'PARIS' | 'GENEROUS';
+export type BottomOrderMode = 'NONE' | 'PLAYER_CHOSEN_ORDER' | 'RANDOM_SERVER_SIDE';
+export type MulliganPlayerStatus = 'DECIDING' | 'SCRYING' | 'READY';
 export interface GameCardPixelPosition {
   x: number;
   y: number;
@@ -114,6 +118,28 @@ export interface GameCardInstance {
 export type GameZones = Record<GameZoneName, GameCardInstance[]>;
 export type GameZoneCounts = Record<GameZoneName, number>;
 
+export interface GameMulliganConfig {
+  rule: MulliganRule;
+  firstMulliganFree: boolean;
+}
+
+export interface GamePlayerMulliganState {
+  rule?: MulliganRule;
+  mulligansTaken: number;
+  effectiveMulligans: number;
+  drawCount?: number;
+  bottomSelectionCount?: number;
+  finalHandSize?: number;
+  needsBottomSelection?: boolean;
+  bottomOrderMode?: BottomOrderMode;
+  needsScryAfterKeep?: boolean;
+  canTakeAnotherMulligan?: boolean;
+  status: MulliganPlayerStatus;
+  ready: boolean;
+  handCount?: number;
+  scryCard?: GameCardInstance;
+}
+
 export interface GamePlayerState {
   user: User;
   status?: 'active' | 'conceded';
@@ -127,6 +153,8 @@ export interface GamePlayerState {
   life: number;
   zones: GameZones;
   zoneCounts?: GameZoneCounts;
+  handCount?: number;
+  mulligan?: GamePlayerMulliganState;
   commanderDamage: Record<string, number>;
   counters: Record<string, number>;
 }
@@ -250,6 +278,8 @@ export interface GameDisconnectVoteState {
 export interface GameSnapshot {
   version: number;
   ownerId?: string;
+  gamePhase?: GamePhase;
+  mulligan?: GameMulliganConfig;
   players: Record<string, GamePlayerState>;
   turn: GameTurn;
   timer?: {

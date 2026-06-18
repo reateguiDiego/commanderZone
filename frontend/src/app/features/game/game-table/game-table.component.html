@@ -804,6 +804,23 @@
       }
     </main>
 
+    @if (store.mulliganActive()) {
+      <app-mulligan-overlay
+        [gamePhase]="store.mulliganGamePhase()"
+        [config]="store.mulliganConfig()"
+        [currentPlayerId]="store.currentPlayer()?.id ?? null"
+        [currentMulligan]="store.currentMulligan()"
+        [hand]="store.currentMulliganHand()"
+        [publicPlayers]="store.mulliganPublicPlayers()"
+        [pending]="store.mulliganPending()"
+        [error]="store.mulliganError()"
+        [cardImage]="cardImage"
+        (take)="store.takeMulligan()"
+        (keep)="store.keepMulligan($event)"
+        (scryConfirmed)="store.confirmMulliganScry($event)"
+      />
+    }
+
     @if (store.hoveredPreview(); as preview) {
       <app-card-preview-overlay
         [card]="preview.card"
