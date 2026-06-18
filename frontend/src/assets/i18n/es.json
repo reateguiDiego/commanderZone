@@ -182,7 +182,17 @@
       "mazoRequerido": "Mazo requerido"
     },
     "roomSetupControls": {
-      "timer": "Timer"
+      "timer": "Timer",
+      "mulligan": "Mulligan",
+      "firstMulliganFree": "Primer mulligan es gratis",
+      "mulliganDescriptions": {
+        "london": "Londres: robas 7 cartas siempre. Al quedarte, mandas al fondo una carta por cada mulligan efectivo.",
+        "vancouver": "Vancouver: cada mulligan efectivo roba una carta menos. Si te quedas con penalizacion, haces Scry 1.",
+        "paris": "Paris: cada mulligan efectivo roba una carta menos. No hay seleccion al fondo ni scry.",
+        "generous": "Generoso: pensado para Commander. Robas hasta 10, te quedas con 7 si puedes y el servidor pone el resto al fondo en orden aleatorio."
+      },
+      "firstMulliganFreeOn": "Gratis",
+      "firstMulliganFreeOff": "Cuenta"
     },
     "roomSetupModal": {
       "ejLaTaberna": "Ej. La taberna",

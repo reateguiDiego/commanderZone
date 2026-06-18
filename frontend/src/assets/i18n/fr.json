@@ -182,7 +182,17 @@
       "mazoRequerido": "Mazo requerido"
     },
     "roomSetupControls": {
-      "timer": "Timer"
+      "timer": "Timer",
+      "mulligan": "Mulligan",
+      "firstMulliganFree": "Le premier mulligan est gratuit",
+      "mulliganDescriptions": {
+        "london": "Londres : piochez toujours 7 cartes. Quand vous gardez, mettez une carte au-dessous pour chaque mulligan effectif.",
+        "vancouver": "Vancouver : chaque mulligan effectif pioche une carte de moins. Si vous gardez apres un mulligan effectif, vous faites Scry 1.",
+        "paris": "Paris : chaque mulligan effectif pioche une carte de moins. Pas de selection au-dessous et pas de scry.",
+        "generous": "Genereux : pense pour Commander. Piochez jusqu a 10 cartes, gardez-en 7 si possible, et le serveur place le reste au-dessous dans un ordre aleatoire."
+      },
+      "firstMulliganFreeOn": "Gratuit",
+      "firstMulliganFreeOff": "Compte"
     },
     "roomSetupModal": {
       "ejLaTaberna": "Ej. La taberna",

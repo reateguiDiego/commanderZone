@@ -182,7 +182,17 @@
       "mazoRequerido": "Mazo requerido"
     },
     "roomSetupControls": {
-      "timer": "Timer"
+      "timer": "Timer",
+      "mulligan": "Mulligan",
+      "firstMulliganFree": "Il primo mulligan e gratis",
+      "mulliganDescriptions": {
+        "london": "Londra: peschi sempre 7 carte. Quando tieni, metti in fondo una carta per ogni mulligan effettivo.",
+        "vancouver": "Vancouver: ogni mulligan effettivo pesca una carta in meno. Se tieni dopo un mulligan effettivo, fai Scry 1.",
+        "paris": "Parigi: ogni mulligan effettivo pesca una carta in meno. Non ci sono selezione per il fondo ne scry.",
+        "generous": "Generoso: pensato per Commander. Pesca fino a 10 carte, tienine 7 quando possibile e il server mette il resto in fondo in ordine casuale."
+      },
+      "firstMulliganFreeOn": "Gratis",
+      "firstMulliganFreeOff": "Conta"
     },
     "roomSetupModal": {
       "ejLaTaberna": "Ej. La taberna",

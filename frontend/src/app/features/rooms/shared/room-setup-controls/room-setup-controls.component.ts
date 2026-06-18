@@ -1,6 +1,7 @@
 import { RuntimeTranslatePipe } from '../../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import { RoomMulliganRule, RoomTimerMode } from '../../../../core/models/room.model';
+import { FormatSelectComponent } from '../../../../shared/components/format-select/format-select.component';
 import { GameSetupLifeControlComponent } from '../../../../shared/components/game-setup-life-control/game-setup-life-control.component';
 import { GameSetupSeatsControlComponent } from '../../../../shared/components/game-setup-seats-control/game-setup-seats-control.component';
 import { TableAssistantTimerMode } from '../../../table-assistant/models/table-assistant.models';
@@ -9,6 +10,7 @@ import { TableAssistantTimerSettingsComponent } from '../../../table-assistant/t
 @Component({
   selector: 'app-room-setup-controls',
   imports: [RuntimeTranslatePipe, 
+    FormatSelectComponent,
     GameSetupLifeControlComponent,
     GameSetupSeatsControlComponent,
     TableAssistantTimerSettingsComponent,
@@ -35,10 +37,15 @@ export class RoomSetupControlsComponent {
   readonly mulliganOptions: readonly { value: RoomMulliganRule; label: string }[] = [
     { value: 'LONDON', label: 'Londres' },
     { value: 'VANCOUVER', label: 'Vancouver' },
-    { value: 'PARIS', label: 'París' },
+    { value: 'PARIS', label: 'Par\u00eds' },
     { value: 'GENEROUS', label: 'Generoso' },
   ];
 
+  readonly mulliganSelectOptions = computed(() => this.mulliganOptions.map((option) => ({
+    id: option.value,
+    name: option.label,
+  })));
+  readonly mulliganDescriptionKey = computed(() => this.descriptionKeyForMulliganRule(this.mulliganRule()));
   readonly timerSummary = computed(() => {
     if (this.timerMode() === 'none') {
       return 'No timer';
@@ -69,5 +76,9 @@ export class RoomSetupControlsComponent {
 
   private isRoomMulliganRule(mulliganRule: string): mulliganRule is RoomMulliganRule {
     return this.mulliganOptions.some((option) => option.value === mulliganRule);
+  }
+
+  private descriptionKeyForMulliganRule(mulliganRule: RoomMulliganRule): string {
+    return `rooms.roomSetupControls.mulliganDescriptions.${mulliganRule.toLowerCase()}`;
   }
 }

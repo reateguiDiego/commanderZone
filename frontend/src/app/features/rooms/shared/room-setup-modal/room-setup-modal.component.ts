@@ -86,9 +86,13 @@ export class RoomSetupModalComponent {
   readonly mulliganOptions: readonly { value: RoomMulliganRule; label: string }[] = [
     { value: 'LONDON', label: 'Londres' },
     { value: 'VANCOUVER', label: 'Vancouver' },
-    { value: 'PARIS', label: 'París' },
+    { value: 'PARIS', label: 'Par\u00eds' },
     { value: 'GENEROUS', label: 'Generoso' },
   ];
+  readonly mulliganSelectOptions = computed(() => this.mulliganOptions.map((option) => ({
+    id: option.value,
+    name: option.label,
+  })));
   readonly createRoomForm = this.formBuilder.group({
     roomName: ['', [Validators.required, Validators.maxLength(30)]],
     format: ['commander' as RoomFormat, [Validators.required]],
@@ -116,6 +120,7 @@ export class RoomSetupModalComponent {
 
     return seconds === 0 ? `${minutes} min` : `${minutes}:${seconds.toString().padStart(2, '0')}`;
   });
+  readonly createMulliganDescriptionKey = computed(() => this.descriptionKeyForMulliganRule(this.createMulliganRule()));
 
   constructor() {
     effect(() => {
@@ -193,6 +198,10 @@ export class RoomSetupModalComponent {
 
   private isRoomMulliganRule(mulliganRule: string): mulliganRule is RoomMulliganRule {
     return this.mulliganOptions.some((option) => option.value === mulliganRule);
+  }
+
+  private descriptionKeyForMulliganRule(mulliganRule: RoomMulliganRule): string {
+    return `rooms.roomSetupControls.mulliganDescriptions.${mulliganRule.toLowerCase()}`;
   }
 
   private defaultFirstMulliganFreeForFormat(format: RoomFormat): boolean {

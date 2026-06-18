@@ -43,4 +43,16 @@ describe('RoomSetupModalComponent', () => {
 
     expect(fixture.componentInstance.createFirstMulliganFree()).toBe(true);
   });
+
+  it('toggles the free first mulligan from the setup button', () => {
+    const button = fixture.nativeElement.querySelector('.mulligan-toggle-button') as HTMLButtonElement;
+
+    expect(button.getAttribute('aria-pressed')).toBe('true');
+
+    button.click();
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.createFirstMulliganFree()).toBe(false);
+    expect(button.getAttribute('aria-pressed')).toBe('false');
+  });
 });

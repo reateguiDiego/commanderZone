@@ -182,7 +182,17 @@
       "mazoRequerido": "Mazo requerido"
     },
     "roomSetupControls": {
-      "timer": "Timer"
+      "timer": "Timer",
+      "mulligan": "Mulligan",
+      "firstMulliganFree": "Der erste Mulligan ist kostenlos",
+      "mulliganDescriptions": {
+        "london": "London: Ziehe immer 7 Karten. Beim Behalten legst du pro effektivem Mulligan eine Karte unter die Bibliothek.",
+        "vancouver": "Vancouver: Jeder effektive Mulligan zieht eine Karte weniger. Wenn du nach einem effektiven Mulligan behaeltst, machst du Scry 1.",
+        "paris": "Paris: Jeder effektive Mulligan zieht eine Karte weniger. Es gibt keine Bottom-Auswahl und kein Scry.",
+        "generous": "Generous: fuer Commander gedacht. Ziehe bis zu 10 Karten, behalte wenn moeglich 7, und der Server legt den Rest zufaellig unter die Bibliothek."
+      },
+      "firstMulliganFreeOn": "Frei",
+      "firstMulliganFreeOff": "Zahlt"
     },
     "roomSetupModal": {
       "ejLaTaberna": "Ej. La taberna",

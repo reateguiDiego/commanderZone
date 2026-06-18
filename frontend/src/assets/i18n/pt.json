@@ -182,7 +182,17 @@
       "mazoRequerido": "Mazo requerido"
     },
     "roomSetupControls": {
-      "timer": "Timer"
+      "timer": "Timer",
+      "mulligan": "Mulligan",
+      "firstMulliganFree": "O primeiro mulligan e gratis",
+      "mulliganDescriptions": {
+        "london": "Londres: compra sempre 7 cartas. Ao ficar, coloca no fundo uma carta por cada mulligan efetivo.",
+        "vancouver": "Vancouver: cada mulligan efetivo compra uma carta a menos. Se ficares apos um mulligan efetivo, fazes Scry 1.",
+        "paris": "Paris: cada mulligan efetivo compra uma carta a menos. Nao ha selecao para o fundo nem scry.",
+        "generous": "Generoso: pensado para Commander. Compra ate 10 cartas, fica com 7 quando possivel e o servidor coloca o resto no fundo em ordem aleatoria."
+      },
+      "firstMulliganFreeOn": "Gratis",
+      "firstMulliganFreeOff": "Conta"
     },
     "roomSetupModal": {
       "ejLaTaberna": "Ej. La taberna",

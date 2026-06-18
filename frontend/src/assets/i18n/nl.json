@@ -182,7 +182,17 @@
       "mazoRequerido": "Mazo requerido"
     },
     "roomSetupControls": {
-      "timer": "Timer"
+      "timer": "Timer",
+      "mulligan": "Mulligan",
+      "firstMulliganFree": "De eerste mulligan is gratis",
+      "mulliganDescriptions": {
+        "london": "London: trek altijd 7 kaarten. Als je houdt, leg je een kaart onderop voor elke effectieve mulligan.",
+        "vancouver": "Vancouver: elke effectieve mulligan trekt een kaart minder. Als je houdt na een effectieve mulligan, doe je Scry 1.",
+        "paris": "Paris: elke effectieve mulligan trekt een kaart minder. Geen bottom-selectie en geen scry.",
+        "generous": "Generous: bedoeld voor Commander. Trek tot 10 kaarten, houd er 7 als dat kan en de server legt de rest willekeurig onderop."
+      },
+      "firstMulliganFreeOn": "Gratis",
+      "firstMulliganFreeOff": "Telt"
     },
     "roomSetupModal": {
       "ejLaTaberna": "Ej. La taberna",

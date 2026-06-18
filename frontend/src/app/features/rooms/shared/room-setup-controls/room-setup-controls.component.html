@@ -34,29 +34,35 @@
   />
 
   <div class="setup-control mulligan-control">
-    <label class="mulligan-select-field">
-      <span class="eyebrow">Mulligan</span>
-      <select
-        #mulliganRuleSelect
+    <div class="mulligan-select-field">
+      <app-format-select
+        name="mulliganRule"
+        [label]="'rooms.roomSetupControls.mulligan' | runtimeTranslate"
+        [formats]="mulliganSelectOptions()"
         [value]="mulliganRule()"
         [disabled]="disabled() || updatingMulligan()"
-        (change)="changeMulliganRule(mulliganRuleSelect.value)"
-      >
-        @for (option of mulliganOptions; track option.value) {
-          <option [value]="option.value">{{ option.label }}</option>
-        }
-      </select>
-    </label>
-
-    <label class="mulligan-checkbox-field">
-      <input
-        #firstMulliganFreeInput
-        type="checkbox"
-        [checked]="firstMulliganFree()"
-        [disabled]="disabled() || updatingMulligan()"
-        (change)="firstMulliganFreeChange.emit(firstMulliganFreeInput.checked)"
+        (valueChange)="changeMulliganRule($event)"
       />
-      <span>Primer mulligan es gratis</span>
-    </label>
+      <p class="mulligan-description">{{ mulliganDescriptionKey() | runtimeTranslate }}</p>
+    </div>
+
+    <div class="mulligan-toggle-field">
+      <span class="mulligan-toggle-label">{{ 'rooms.roomSetupControls.firstMulliganFree' | runtimeTranslate }}</span>
+      <button
+        type="button"
+        class="mulligan-toggle-button"
+        [class.is-on]="firstMulliganFree()"
+        [attr.aria-pressed]="firstMulliganFree()"
+        [disabled]="disabled() || updatingMulligan()"
+        (click)="firstMulliganFreeChange.emit(!firstMulliganFree())"
+      >
+        <span class="mulligan-toggle-track" aria-hidden="true">
+          <span class="mulligan-toggle-thumb"></span>
+        </span>
+        <span class="mulligan-toggle-state">
+          {{ (firstMulliganFree() ? 'rooms.roomSetupControls.firstMulliganFreeOn' : 'rooms.roomSetupControls.firstMulliganFreeOff') | runtimeTranslate }}
+        </span>
+      </button>
+    </div>
   </div>
 </div>

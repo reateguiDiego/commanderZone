@@ -64,39 +64,45 @@
       </div>
 
       <div class="setup-modal-row">
-        <label class="mulligan-select-field">
-          Mulligan
-          <select
-            #createMulliganRuleSelect
+        <div class="mulligan-select-field">
+          <app-format-select
+            name="mulliganRule"
+            [label]="'rooms.roomSetupControls.mulligan' | runtimeTranslate"
+            [formats]="mulliganSelectOptions()"
             [value]="createMulliganRule()"
             [disabled]="actionsLocked()"
-            (change)="changeCreateMulliganRule(createMulliganRuleSelect.value)"
-          >
-            @for (option of mulliganOptions; track option.value) {
-              <option [value]="option.value">{{ option.label }}</option>
-            }
-          </select>
-        </label>
-
-        <label class="mulligan-checkbox-field">
-          <input
-            #createFirstMulliganFreeInput
-            type="checkbox"
-            [checked]="createFirstMulliganFree()"
-            [disabled]="actionsLocked()"
-            (change)="changeCreateFirstMulliganFree(createFirstMulliganFreeInput.checked)"
+            (valueChange)="changeCreateMulliganRule($event)"
           />
-          <span>Primer mulligan es gratis</span>
-        </label>
-      </div>
+          <p class="mulligan-description">{{ createMulliganDescriptionKey() | runtimeTranslate }}</p>
+        </div>
 
-      <div class="setup-modal-row">
         <div class="create-fields">
         <app-visibility-choice
           label="Privacy"
           [value]="createRoomForm.controls.privacy.value"
           (valueChange)="createRoomForm.controls.privacy.setValue($event)"
         />
+        </div>
+      </div>
+
+      <div class="setup-modal-row">
+        <div class="mulligan-toggle-field">
+          <span class="mulligan-toggle-label">{{ 'rooms.roomSetupControls.firstMulliganFree' | runtimeTranslate }}</span>
+          <button
+            type="button"
+            class="mulligan-toggle-button"
+            [class.is-on]="createFirstMulliganFree()"
+            [attr.aria-pressed]="createFirstMulliganFree()"
+            [disabled]="actionsLocked()"
+            (click)="changeCreateFirstMulliganFree(!createFirstMulliganFree())"
+          >
+            <span class="mulligan-toggle-track" aria-hidden="true">
+              <span class="mulligan-toggle-thumb"></span>
+            </span>
+            <span class="mulligan-toggle-state">
+              {{ (createFirstMulliganFree() ? 'rooms.roomSetupControls.firstMulliganFreeOn' : 'rooms.roomSetupControls.firstMulliganFreeOff') | runtimeTranslate }}
+            </span>
+          </button>
         </div>
 
         <app-game-setup-seats-control

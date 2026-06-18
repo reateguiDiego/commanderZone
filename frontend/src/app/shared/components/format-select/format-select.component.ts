@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, ElementRef, HostListener, computed, inject, input, output, signal } from '@angular/core';
+import { DOCUMENT } from '@angular/common';
+import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, computed, inject, input, output, signal } from '@angular/core';
 
 interface FormatSelectOption {
   id: string;
@@ -13,6 +14,8 @@ interface FormatSelectOption {
 })
 export class FormatSelectComponent {
   private readonly elementRef = inject(ElementRef<HTMLElement>);
+  private readonly document = inject(DOCUMENT);
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly formats = input<readonly FormatSelectOption[]>([]);
   readonly value = input<string>('commander');
@@ -39,8 +42,15 @@ export class FormatSelectComponent {
     return this.options().find((option) => option.id === selectedValue)?.name ?? 'Select format';
   });
 
-  @HostListener('document:click', ['$event'])
-  closeFromOutsideClick(event: MouseEvent): void {
+  constructor() {
+    const closeFromOutsidePointerDown = (event: Event): void => this.closeFromOutsidePointerDown(event);
+    this.document.addEventListener('pointerdown', closeFromOutsidePointerDown, true);
+    this.destroyRef.onDestroy(() => {
+      this.document.removeEventListener('pointerdown', closeFromOutsidePointerDown, true);
+    });
+  }
+
+  private closeFromOutsidePointerDown(event: Event): void {
     if (!this.dropdownOpen()) {
       return;
     }
