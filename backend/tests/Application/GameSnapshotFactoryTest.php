@@ -56,6 +56,44 @@ class GameSnapshotFactoryTest extends TestCase
         self::assertSame(3, $commander['defaultLoyalty']);
     }
 
+    public function testUsesFaceStatsRootDefenseWhenLegacyIsNull(): void
+    {
+        $snapshot = $this->snapshotWithCommander($this->cardWithDefenseSources(
+            faceStats: $this->faceStats(rootLoyalty: null, rootDefense: '7'),
+            cardFaces: [['name' => 'Front Face', 'defense' => '4']],
+        ));
+
+        $commander = $snapshot['players']['owner-id']['zones']['command'][0];
+        self::assertSame(7, $commander['defense']);
+        self::assertSame(7, $commander['defaultDefense']);
+    }
+
+    public function testKeepsPrintedLoyaltyAndDefenseInInitialSnapshot(): void
+    {
+        $snapshot = $this->snapshotWithCommander($this->cardWithLoyaltySources(
+            legacyLoyalty: 'X',
+            faceStats: $this->faceStats(rootLoyalty: null, rootDefense: 'X+1'),
+            cardFaces: [],
+        ));
+
+        $commander = $snapshot['players']['owner-id']['zones']['command'][0];
+        self::assertSame(0, $commander['loyalty']);
+        self::assertSame('X', $commander['defaultLoyalty']);
+        self::assertSame(0, $commander['defense']);
+        self::assertSame('X+1', $commander['defaultDefense']);
+    }
+
+    public function testKeepsPrintedPowerAndToughnessInInitialSnapshot(): void
+    {
+        $snapshot = $this->snapshotWithCommander($this->cardWithPrintedPowerToughness('X', '*+1'));
+
+        $commander = $snapshot['players']['owner-id']['zones']['command'][0];
+        self::assertSame(0, $commander['power']);
+        self::assertSame(0, $commander['toughness']);
+        self::assertSame('X', $commander['defaultPower']);
+        self::assertSame('*+1', $commander['defaultToughness']);
+    }
+
     public function testPicksTemporaryPlayMatFromCommanderColorIdentity(): void
     {
         $snapshot = $this->snapshotWithCommander($this->cardWithColorIdentity(['G']));
@@ -203,6 +241,28 @@ class GameSnapshotFactoryTest extends TestCase
     }
 
     /**
+     * @param array<string,mixed> $faceStats
+     * @param list<array<string,mixed>> $cardFaces
+     */
+    private function cardWithDefenseSources(array $faceStats, array $cardFaces): Card
+    {
+        $card = new Card('22222222-2222-4222-8222-222222222222');
+        $card->updateFromScryfall([
+            'id' => '22222222-2222-4222-8222-222222222222',
+            'name' => 'FaceStats Battle',
+            'type_line' => 'Battle - Siege',
+            'oracle_text' => 'Test text',
+            'legalities' => ['commander' => 'legal'],
+            'card_faces' => $cardFaces,
+            'layout' => 'transform',
+        ]);
+
+        $this->setPrivateProperty($card, 'faceStats', $faceStats);
+
+        return $card;
+    }
+
+    /**
      * @param list<string> $colorIdentity
      */
     private function cardWithColorIdentity(array $colorIdentity): Card
@@ -220,12 +280,29 @@ class GameSnapshotFactoryTest extends TestCase
         return $card;
     }
 
+    private function cardWithPrintedPowerToughness(string $power, string $toughness): Card
+    {
+        $card = new Card('44444444-4444-4444-8444-444444444444');
+        $card->updateFromScryfall([
+            'id' => '44444444-4444-4444-8444-444444444444',
+            'name' => 'Printed Stats Commander',
+            'type_line' => 'Legendary Creature - Test',
+            'oracle_text' => 'Test text',
+            'legalities' => ['commander' => 'legal'],
+            'power' => $power,
+            'toughness' => $toughness,
+            'color_identity' => ['G'],
+        ]);
+
+        return $card;
+    }
+
     /**
-     * @param list<array{name:?string,loyalty:?string}> $faces
+     * @param list<array{name:?string,loyalty:?string,defense:?string}> $faces
      *
      * @return array{root:array{power:?string,toughness:?string,loyalty:?string,defense:?string,handModifier:?string,lifeModifier:?string},faces:list<array{name:?string,power:?string,toughness:?string,loyalty:?string,defense:?string,handModifier:?string,lifeModifier:?string}>}
      */
-    private function faceStats(?string $rootLoyalty, array $faces = []): array
+    private function faceStats(?string $rootLoyalty, ?string $rootDefense = null, array $faces = []): array
     {
         $normalizedFaces = [];
         foreach ($faces as $face) {
@@ -234,7 +311,7 @@ class GameSnapshotFactoryTest extends TestCase
                 'power' => null,
                 'toughness' => null,
                 'loyalty' => $face['loyalty'] ?? null,
-                'defense' => null,
+                'defense' => $face['defense'] ?? null,
                 'handModifier' => null,
                 'lifeModifier' => null,
             ];
@@ -245,7 +322,7 @@ class GameSnapshotFactoryTest extends TestCase
                 'power' => null,
                 'toughness' => null,
                 'loyalty' => $rootLoyalty,
-                'defense' => null,
+                'defense' => $rootDefense,
                 'handModifier' => null,
                 'lifeModifier' => null,
             ],

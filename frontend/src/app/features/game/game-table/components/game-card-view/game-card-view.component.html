@@ -11,7 +11,7 @@
     [attr.data-arrow-card-instance-id]="currentCard.instanceId"
     data-arrow-card-surface="mini-battlefield"
     [class.free-position]="freePosition()"
-    [class.tapped]="currentCard.tapped"
+    [class.tapped]="currentCard.tapped || battleRotated()"
     [class.drop-settling]="dropSettling() && !commanderEntrySettling()"
     [class.mana-drop-settling]="manaDropSettling() && !commanderEntrySettling()"
     [class.commander-entry-settling]="commanderEntrySettling()"
@@ -67,7 +67,7 @@
     [attr.data-arrow-card-surface]="currentMode === 'battlefield' ? 'battlefield' : null"
     [attr.draggable]="draggable() ? 'true' : null"
     [class.free-position]="freePosition()"
-    [class.tapped]="currentCard.tapped"
+    [class.tapped]="currentCard.tapped || battleRotated()"
     [class.selected]="selected()"
     [class.dragging]="dragging()"
     [class.hover-lifted]="hoverLifted()"
@@ -232,6 +232,21 @@
             {{ toughnessValue() }}
           </span>
         </span>
+      } @else if (battleVisible()) {
+        <app-battle-counter
+          [value]="battleValue()!"
+          [pulse]="null"
+          [entrySettling]="statDropSettling()"
+          [rotatedPlacement]="battleRotated()"
+          (battleChanged)="changeBattle($event.event, $event.delta)"
+        />
+      } @else if (sagaVisible()) {
+        <app-saga-counter
+          [value]="sagaValue()"
+          [pulse]="null"
+          [entrySettling]="statDropSettling()"
+          (sagaChanged)="changeSaga($event.event, $event.delta)"
+        />
       } @else if (loyaltyVisible()) {
         <app-loyalty-counter
           [value]="loyaltyValue()!"

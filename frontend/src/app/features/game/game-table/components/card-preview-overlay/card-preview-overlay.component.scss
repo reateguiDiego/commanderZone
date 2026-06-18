@@ -19,6 +19,13 @@
     0 0 0 1px rgb(215 180 106 / 20%);
 }
 
+.card-preview-visual.preview-mode-horizontal {
+  border: 0;
+  clip-path: none;
+  box-shadow: none;
+  background: transparent;
+}
+
 .card-preview-visual img,
 .card-preview-fallback {
   position: relative;
@@ -29,6 +36,12 @@
 
 .card-preview-visual img {
   border-radius: inherit;
+}
+
+.card-preview-visual img.battle-preview-rotated,
+.card-preview-fallback.battle-preview-rotated {
+  transform: rotate(90deg) scale(0.715);
+  transform-origin: center;
 }
 
 .card-preview-fallback {
@@ -202,7 +215,9 @@
   font-weight: 900;
 }
 
+.preview-battle-counter,
 .preview-loyalty-counter,
+.preview-saga-counter,
 .preview-card-marker-rail {
   justify-self: center;
   pointer-events: none;

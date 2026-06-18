@@ -169,6 +169,8 @@ function applyOperation(snapshot: GameSnapshot, operation: GameSnapshotPatchOper
         ...(operation.power !== undefined ? { power: operation.power } : {}),
         ...(operation.toughness !== undefined ? { toughness: operation.toughness } : {}),
         ...(operation.loyalty !== undefined ? { loyalty: operation.loyalty } : {}),
+        ...(operation.defense !== undefined ? { defense: operation.defense } : {}),
+        ...(operation.saga !== undefined ? { saga: operation.saga } : {}),
       }));
 
     case 'cards.state.set':

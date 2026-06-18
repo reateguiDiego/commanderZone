@@ -1024,6 +1024,21 @@ describe('ContextMenuComponent', () => {
     expect(selected).toHaveBeenCalledWith({ type: 'revealCard', target: 'user-2' });
   });
 
+  it('shows tap actions for saga cards on the battlefield', () => {
+    const fixture = createContextMenuFixture({
+      kind: 'card',
+      playerId: 'user-1',
+      zone: 'battlefield',
+      card: {
+        ...card('saga-1'),
+        typeLine: 'Enchantment - Saga',
+      },
+    });
+
+    expect(menuText(fixture)).toContain('Tap');
+    expect(menuText(fixture)).not.toContain('Untap');
+  });
+
   it('emits hand give and play face down actions', () => {
     const fixture = createContextMenuFixture({
       kind: 'card',

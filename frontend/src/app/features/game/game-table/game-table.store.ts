@@ -1,6 +1,6 @@
 import { Injectable, OnDestroy, WritableSignal, computed, effect, inject, signal } from '@angular/core';
 import { Card } from '../../../core/models/card.model';
-import { ChatReactionType, GameCardDungeonMarker, GameCardInstance, GameCardPosition, GameCommandType, GameSnapshot, GameSpecialEntity, GameZoneName } from '../../../core/models/game.model';
+import { ChatReactionType, GameCardDungeonMarker, GameCardInstance, GameCardPosition, GameCardStatValue, GameCommandType, GamePowerToughnessValue, GameSnapshot, GameSpecialEntity, GameZoneName } from '../../../core/models/game.model';
 import { GameTableDebouncedValueCommandsService } from './services/game-table-debounced-value-commands.service';
 import { GameTableDragService } from './services/game-table-drag.service';
 import { GameTableLibraryActionsService } from './services/game-table-library-actions.service';
@@ -344,12 +344,20 @@ export class GameTableStore implements OnDestroy {
     return this.cardsState.shouldShowPowerToughness(card);
   }
 
-  cardPowerValue(card: GameCardInstance): number | null {
+  cardPowerValue(card: GameCardInstance): GamePowerToughnessValue {
     return this.cardsState.cardPowerValue(card);
   }
 
-  cardToughnessValue(card: GameCardInstance): number | null {
+  cardToughnessValue(card: GameCardInstance): GamePowerToughnessValue {
     return this.cardsState.cardToughnessValue(card);
+  }
+
+  cardLoyaltyValue(card: GameCardInstance): GameCardStatValue {
+    return this.cardsState.cardLoyaltyValue(card);
+  }
+
+  cardBattleValue(card: GameCardInstance): GameCardStatValue {
+    return this.cardsState.cardBattleValue(card);
   }
 
   isHandDropTarget(playerId: string, card: GameCardInstance, placement: 'before' | 'after'): boolean {
@@ -1688,6 +1696,14 @@ export class GameTableStore implements OnDestroy {
 
   async changeCardToughness(playerId: string, zone: GameZoneName, card: GameCardInstance, delta: number): Promise<void> {
     await this.cardStats.changeToughness(this.contexts.cardStats(), playerId, zone, card, delta);
+  }
+
+  async changeCardBattle(playerId: string, zone: GameZoneName, card: GameCardInstance, delta: number): Promise<void> {
+    await this.cardStats.changeBattle(this.contexts.cardStats(), playerId, zone, card, delta);
+  }
+
+  async changeCardSaga(playerId: string, zone: GameZoneName, card: GameCardInstance, delta: number): Promise<void> {
+    await this.cardStats.changeSaga(this.contexts.cardStats(), playerId, zone, card, delta);
   }
 
   async changeCardLoyalty(playerId: string, zone: GameZoneName, card: GameCardInstance, delta: number): Promise<void> {

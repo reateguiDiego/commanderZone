@@ -1,7 +1,7 @@
 import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, ElementRef, OnChanges, OnDestroy, computed, inject, input, output, signal, type WritableSignal } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
-import { GameCardDungeonMarker, GameCardInstance, GameZoneName } from '../../../../../core/models/game.model';
+import { GameCardDungeonMarker, GameCardInstance, GameCardStatValue, GamePowerToughnessValue, GameZoneName } from '../../../../../core/models/game.model';
 import { CARD_PREVIEW_HOVER_DELAY_MS, CardPreviewEvent, previewRectFromElement } from '../../models/card-preview.model';
 import {
   CardMarkerRailComponent,
@@ -9,12 +9,14 @@ import {
   type CardMarkerCounterDeleteRequest,
 } from './card-marker-rail/card-marker-rail.component';
 import { DungeonLocationPinComponent } from '../dungeon-location-pin/dungeon-location-pin.component';
+import { BattleCounterComponent } from './battle-counter/battle-counter.component';
 import { LoyaltyCounterComponent } from './loyalty-counter/loyalty-counter.component';
+import { SagaCounterComponent } from './saga-counter/saga-counter.component';
 import { GameTableDoubleTapDirective } from '../../directives/game-table-double-tap.directive';
 import { GameTableLongPressDirective } from '../../directives/game-table-long-press.directive';
 import { activeCardFaceIndex, canShowAlternateFaceToggle, nextCardFaceIndex } from '../../utils/double-faced-card';
 import { dungeonMarkerForCard } from '../../utils/dungeon-marker';
-import { isDayNightCard, isGameplayCardTapLocked, isMonarchCard } from '../../utils/gameplay-card-kind';
+import { isBattleCard, isDayNightCard, isGameplayCardTapLocked, isMonarchCard, isSagaCard } from '../../utils/gameplay-card-kind';
 
 type GameCardViewMode = 'battlefield' | 'hand' | 'mini';
 
@@ -49,7 +51,7 @@ interface CardDragEvent {
 }
 
 interface CardStatChangeEvent {
-  event: MouseEvent;
+  event: Event;
   card: GameCardInstance;
   delta: number;
 }
@@ -85,10 +87,12 @@ interface DungeonMarkerDragPoint {
 
 @Component({
   selector: 'app-game-card-view',
-  imports: [RuntimeTranslatePipe, 
+  imports: [RuntimeTranslatePipe,
     CardMarkerRailComponent,
     DungeonLocationPinComponent,
+    BattleCounterComponent,
     LoyaltyCounterComponent,
+    SagaCounterComponent,
     LucideAngularModule,
     GameTableDoubleTapDirective,
     GameTableLongPressDirective,
@@ -109,10 +113,11 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
   private hoveredCard: GameCardInstance | null = null;
   private activePreviewInstanceId: string | null = null;
   private activePreviewSourceRect: CardPreviewEvent['sourceRect'] = null;
-  private previousPowerValue: number | null | undefined;
-  private previousToughnessValue: number | null | undefined;
-  private previousLoyaltyValue: number | null | undefined;
+  private previousPowerValue: GameCardStatValue | undefined;
+  private previousToughnessValue: GameCardStatValue | undefined;
+  private previousLoyaltyValue: GameCardStatValue | undefined;
   private previousStatsVisible: boolean | undefined;
+  private previousSagaStateKey: string | null = null;
   private statOverlayArrivalTimer: number | null = null;
   private previousFaceInstanceId: string | null = null;
   private previousActiveFaceIndex: number | null = null;
@@ -177,9 +182,10 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
   readonly landStackDropSize = input<number | null>(null);
   readonly landStackDropKind = input<'land' | 'attachment'>('land');
   readonly showPowerToughness = input(false);
-  readonly powerValue = input<number | null>(null);
-  readonly toughnessValue = input<number | null>(null);
-  readonly loyaltyValue = input<number | null>(null);
+  readonly powerValue = input<GamePowerToughnessValue>(null);
+  readonly toughnessValue = input<GamePowerToughnessValue>(null);
+  readonly battleValue = input<GameCardStatValue>(null);
+  readonly loyaltyValue = input<GameCardStatValue>(null);
   readonly counter = input<CardCounterView | null>(null);
   readonly countersEditable = input(true);
   readonly handDepth = computed(() => `${Math.min(Math.max(0, this.handIndex() ?? 0), Math.max(0, (this.handCount() ?? 1) - 1))}`);
@@ -240,6 +246,8 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
   readonly cardPreviewRequested = output<CardPreviewEvent>();
   readonly powerChanged = output<CardStatChangeEvent>();
   readonly toughnessChanged = output<CardStatChangeEvent>();
+  readonly battleChanged = output<CardStatChangeEvent>();
+  readonly sagaChanged = output<CardStatChangeEvent>();
   readonly loyaltyChanged = output<CardStatChangeEvent>();
   readonly counterChanged = output<CardCounterChangeEvent>();
   readonly counterDeleteRequested = output<CardCounterDeleteRequestEvent>();
@@ -254,6 +262,7 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
   readonly loyaltyPulse = signal<StatPulse>(null);
   readonly statOverlayArriving = signal(false);
   readonly faceFlipAnimating = signal(false);
+  readonly sagaCounterValue = signal(1);
   readonly canShowFaceToggle = computed(() => {
     const currentCard = this.card();
 
@@ -262,7 +271,17 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
       && canShowAlternateFaceToggle(currentCard);
   });
   readonly statsVisible = computed(() => !this.faceDown() && this.showPowerToughness());
+  readonly battleVisible = computed(() => (
+    !this.faceDown()
+    && this.zone() === 'battlefield'
+    && isBattleCard(this.card())
+    && this.battleValue() !== null
+    && !this.showPowerToughness()
+  ));
+  readonly sagaVisible = computed(() => !this.faceDown() && this.zone() === 'battlefield' && isSagaCard(this.card()));
+  readonly sagaValue = computed(() => (this.sagaVisible() ? (this.card().saga ?? this.sagaCounterValue()) : 1));
   readonly loyaltyVisible = computed(() => !this.faceDown() && this.loyaltyValue() !== null && !this.showPowerToughness());
+  readonly battleRotated = computed(() => !this.faceDown() && isBattleCard(this.card()));
   readonly showRulingsMarker = computed(() => this.rulingsMarkerEligible() && this.card().hasRulings === true);
   readonly dungeonMarkerPosition = computed(() => this.draggingDungeonMarker() ?? this.optimisticDungeonMarkerForCurrentCard() ?? dungeonMarkerForCard(this.card()));
   readonly showDungeonMarker = computed(() => (
@@ -328,6 +347,7 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
     this.syncHoverInteractions();
     this.syncFaceFlipAnimation();
     this.syncStatPulses();
+    this.syncSagaCounterState();
     this.syncOptimisticDungeonMarker();
   }
 
@@ -414,19 +434,42 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
   changePower(event: MouseEvent, delta: number): void {
     event.preventDefault();
     event.stopPropagation();
+    this.dismissPreviewAfterCounterChange();
     this.powerChanged.emit({ event, card: this.card(), delta });
   }
 
   changeToughness(event: MouseEvent, delta: number): void {
     event.preventDefault();
     event.stopPropagation();
+    this.dismissPreviewAfterCounterChange();
     this.toughnessChanged.emit({ event, card: this.card(), delta });
+  }
+
+  changeBattle(event: Event, delta: number): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.dismissPreviewAfterCounterChange();
+    this.battleChanged.emit({ event, card: this.card(), delta });
   }
 
   changeLoyalty(event: MouseEvent, delta: number): void {
     event.preventDefault();
     event.stopPropagation();
+    this.dismissPreviewAfterCounterChange();
     this.loyaltyChanged.emit({ event, card: this.card(), delta });
+  }
+
+  changeSaga(event: MouseEvent, delta: number): void {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!this.sagaVisible()) {
+      return;
+    }
+
+    this.dismissPreviewAfterCounterChange();
+    const nextSaga = clampNumber(this.sagaValue() + delta, 1, 9);
+    this.sagaCounterValue.set(nextSaga);
+    this.sagaChanged.emit({ event, card: this.card(), delta });
   }
 
   changeCounter(change: CardMarkerCounterChange): void {
@@ -435,6 +478,15 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
 
   requestCounterDelete(request: CardMarkerCounterDeleteRequest): void {
     this.counterDeleteRequested.emit({ event: request.event, card: this.card(), key: request.key });
+  }
+
+  private dismissPreviewAfterCounterChange(): void {
+    if (!this.previewActive()) {
+      return;
+    }
+
+    this.previewSuppressedUntilPointerExit = true;
+    this.deactivateHover(true);
   }
 
   openRulings(event: MouseEvent): void {
@@ -919,12 +971,31 @@ export class GameCardViewComponent implements OnChanges, OnDestroy {
     this.loyaltyPulse.set(null);
   }
 
+  private syncSagaCounterState(): void {
+    const currentCard = this.card();
+    const currentStateKey = [
+      currentCard.instanceId,
+      this.zone(),
+      this.faceDown() ? 'face-down' : 'face-up',
+      currentCard.activeFaceIndex ?? 0,
+      currentCard.saga ?? 'unset',
+      currentCard.hidden === true ? 'hidden' : 'visible',
+    ].join('|');
+
+    if (this.previousSagaStateKey === currentStateKey) {
+      return;
+    }
+
+    this.previousSagaStateKey = currentStateKey;
+    this.sagaCounterValue.set(clampNumber(currentCard.saga ?? 1, 1, 9));
+  }
+
   private updateStatPulse(
-    previousValue: number | null | undefined,
-    currentValue: number | null,
+    previousValue: GameCardStatValue | undefined,
+    currentValue: GameCardStatValue,
     pulse: WritableSignal<StatPulse>,
     stat: 'power' | 'toughness' | 'loyalty',
-  ): number | null {
+  ): GameCardStatValue {
     if (previousValue === undefined) {
       return currentValue;
     }

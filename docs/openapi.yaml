@@ -4445,20 +4445,53 @@ components:
             type: string
             enum: [W, U, B, R, G]
         power:
-          type: [integer, 'null']
+          oneOf:
+            - type: integer
+            - type: string
+            - type: 'null'
+          description: Current power. Can be a printed non-numeric value such as X or *.
         toughness:
-          type: [integer, 'null']
+          oneOf:
+            - type: integer
+            - type: string
+            - type: 'null'
+          description: Current toughness. Can be a printed non-numeric value such as X or *.
         loyalty:
-          type: [integer, 'null']
+          oneOf:
+            - type: integer
+            - type: string
+            - type: 'null'
+          description: Current loyalty. Can be a printed non-numeric value.
+        defense:
+          oneOf:
+            - type: integer
+            - type: string
+            - type: 'null'
+          description: Current battle defense. Can be a printed non-numeric value.
         defaultPower:
-          type: [integer, 'null']
+          oneOf:
+            - type: integer
+            - type: string
+            - type: 'null'
           description: Printed/default power used to reset battlefield stat changes.
         defaultToughness:
-          type: [integer, 'null']
+          oneOf:
+            - type: integer
+            - type: string
+            - type: 'null'
           description: Printed/default toughness used to reset battlefield stat changes.
         defaultLoyalty:
-          type: [integer, 'null']
+          oneOf:
+            - type: integer
+            - type: string
+            - type: 'null'
           description: Printed/default loyalty used to reset battlefield loyalty changes.
+        defaultDefense:
+          oneOf:
+            - type: integer
+            - type: string
+            - type: 'null'
+          description: Printed/default battle defense used to reset battlefield defense changes.
         tapped:
           type: boolean
         faceDown:

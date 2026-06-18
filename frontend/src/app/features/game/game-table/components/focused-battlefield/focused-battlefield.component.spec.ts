@@ -64,6 +64,59 @@ describe('FocusedBattlefieldComponent', () => {
     }));
   });
 
+  it('renders the battle counter when the active face provides defense', async () => {
+    const { fixture } = await renderFocusedBattlefield({
+      battlefieldCards: [
+        { instanceId: 'battle-1', name: 'Invasion of Zendikar', typeLine: 'Battle - Siege', tapped: false },
+      ],
+      cardBattleValue: (card) => card.instanceId === 'battle-1' ? 4 : null,
+    });
+
+    expect(cardElement(fixture, 'battle-1').querySelector('app-battle-counter')).not.toBeNull();
+    expect(cardElement(fixture, 'battle-1').querySelector('app-loyalty-counter')).toBeNull();
+  });
+
+  it('forwards battle counter clicks with battlefield context', async () => {
+    const { fixture } = await renderFocusedBattlefield({
+      battlefieldCards: [
+        { instanceId: 'battle-1', name: 'Invasion of Zendikar', typeLine: 'Battle - Siege', tapped: false },
+      ],
+      cardBattleValue: (card) => card.instanceId === 'battle-1' ? 4 : null,
+    });
+    const changed = vi.fn();
+    fixture.componentInstance.cardBattleChanged.subscribe(changed);
+
+    const battleCounter = cardElement(fixture, 'battle-1').querySelector('.battle-counter') as HTMLElement;
+    battleCounter.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, button: 0 }));
+
+    expect(changed).toHaveBeenCalledWith(expect.objectContaining({
+      playerId: 'player-1',
+      zone: 'battlefield',
+      card: expect.objectContaining({ instanceId: 'battle-1' }),
+      delta: 1,
+    }));
+  });
+
+  it('forwards saga counter clicks with battlefield context', async () => {
+    const { fixture } = await renderFocusedBattlefield({
+      battlefieldCards: [
+        { instanceId: 'saga-1', name: 'Binding the Old Gods', typeLine: 'Enchantment - Saga', tapped: false },
+      ],
+    });
+    const changed = vi.fn();
+    fixture.componentInstance.cardSagaChanged.subscribe(changed);
+
+    const sagaCounter = cardElement(fixture, 'saga-1').querySelector('.saga-counter') as HTMLElement;
+    sagaCounter.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, button: 0 }));
+
+    expect(changed).toHaveBeenCalledWith(expect.objectContaining({
+      playerId: 'player-1',
+      zone: 'battlefield',
+      card: expect.objectContaining({ instanceId: 'saga-1' }),
+      delta: 1,
+    }));
+  });
+
   it('allows selecting an opponent card while choosing an arrow target', async () => {
     const { fixture } = await renderFocusedBattlefield({
       isCurrentPlayer: (_playerId) => false,
@@ -431,6 +484,7 @@ interface RenderFocusedBattlefieldOptions {
   allowArrowTargetSelection?: boolean;
   isCardTransferPending?: (playerId: string, zone: GameZoneName, card: GameCardInstance) => boolean;
   firstCounter?: (card: GameCardInstance) => { key: string; value: number } | null;
+  cardBattleValue?: (card: GameCardInstance) => number | null;
   focusEffectsEnabled?: boolean;
   isDraggingCard?: (card: GameCardInstance) => boolean;
   canEditManaPool?: (playerId: string) => boolean;
@@ -463,6 +517,8 @@ async function renderFocusedBattlefield(options: RenderFocusedBattlefieldOptions
   fixture.componentRef.setInput('shouldShowPowerToughness', (_card: GameCardInstance) => false);
   fixture.componentRef.setInput('cardPowerValue', (_card: GameCardInstance) => 0);
   fixture.componentRef.setInput('cardToughnessValue', (_card: GameCardInstance) => 0);
+  fixture.componentRef.setInput('cardBattleValue', options.cardBattleValue ?? ((_card: GameCardInstance) => null));
+  fixture.componentRef.setInput('cardLoyaltyValue', (_card: GameCardInstance) => null);
   fixture.componentRef.setInput('firstCounter', options.firstCounter ?? ((_card: GameCardInstance) => null));
   fixture.componentRef.setInput('alignmentGuideFor', options.alignmentGuideFor ?? ((_playerId: string) => null));
   fixture.componentRef.setInput('isManaLaneHighlighted', (_playerId: string) => false);

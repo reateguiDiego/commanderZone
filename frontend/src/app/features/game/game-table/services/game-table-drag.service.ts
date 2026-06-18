@@ -667,8 +667,9 @@ export class GameTableDragService {
 
   private createNativeCardDragPreview(source: HTMLElement, forcedSize: DragPreviewSize | null = null): { element: HTMLElement; width: number; height: number } {
     const sourceRect = source.getBoundingClientRect();
-    const width = Math.max(1, forcedSize?.width ?? sourceRect.width);
-    const height = Math.max(1, forcedSize?.height ?? sourceRect.height);
+    const previewSize = forcedSize ?? this.previewSizeForSource(source, sourceRect);
+    const width = Math.max(1, previewSize.width);
+    const height = Math.max(1, previewSize.height);
     const preview = document.createElement('div');
     preview.setAttribute('aria-hidden', 'true');
     preview.style.position = 'fixed';
@@ -691,6 +692,23 @@ export class GameTableDragService {
     document.body.appendChild(preview);
 
     return { element: preview, width, height };
+  }
+
+  private previewSizeForSource(source: HTMLElement, sourceRect: DOMRect): DragPreviewSize {
+    if (!source.classList.contains('tapped')) {
+      return {
+        width: sourceRect.width,
+        height: sourceRect.height,
+      };
+    }
+
+    const logicalWidth = source.offsetWidth;
+    const logicalHeight = source.offsetHeight;
+
+    return {
+      width: logicalWidth > 0 ? logicalWidth : sourceRect.width,
+      height: logicalHeight > 0 ? logicalHeight : sourceRect.height,
+    };
   }
 
   private createNativeCardDragPreviewContent(source: HTMLElement, size: DragPreviewSize): HTMLElement {

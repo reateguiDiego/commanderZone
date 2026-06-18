@@ -1,4 +1,6 @@
 import { GameCardInstance, GameSnapshot } from '../../../../core/models/game.model';
+import { CardFace } from '../../../../core/models/card.model';
+import { isBattleCard, isSagaCard } from './gameplay-card-kind';
 import {
   CardPreviewEvent,
   CardPreviewAttachmentInfo,
@@ -42,10 +44,14 @@ export function buildCardPreviewAttachmentInfo(
 
 export function buildCardPreviewCardStateInfo(card: GameCardInstance): CardPreviewCardStateInfo | null {
   const powerToughness = currentPowerToughness(card);
+  const battle = card.faceDown ? null : cardPreviewBattle(card);
+  const saga = card.faceDown ? null : cardPreviewSaga(card);
   const loyalty = card.faceDown ? null : cardPreviewLoyalty(card);
   const counters = cardPreviewCounters(card);
 
-  return powerToughness || loyalty !== null || counters.length > 0 ? { powerToughness, loyalty, counters } : null;
+  return powerToughness || battle !== null || saga !== null || loyalty !== null || counters.length > 0
+    ? { powerToughness, battle, saga, loyalty, counters }
+    : null;
 }
 
 function battlefieldCard(snapshot: GameSnapshot, instanceId: string): GameCardInstance | null {
@@ -82,16 +88,18 @@ function cardPreviewAttachmentItem(card: GameCardInstance): CardPreviewAttachmen
 
 function activeFaceDisplayName(card: GameCardInstance): string {
   const faces = card.cardFaces ?? [];
-  if (faces.length < 2) {
+  if (faces.length === 0) {
     return card.name;
   }
 
-  const faceIndex = Number.isInteger(card.activeFaceIndex) ? Number(card.activeFaceIndex) : 0;
-  const safeFaceIndex = Math.max(0, Math.min(faces.length - 1, faceIndex));
-  const faceName = faces[safeFaceIndex]?.name?.trim();
+  const activeFace = activeCardFace(card);
+  const faceName = activeFace?.name?.trim();
   if (faceName) {
     return faceName;
   }
+
+  const activeIndex = Number.isInteger(card.activeFaceIndex) ? Number(card.activeFaceIndex) : 0;
+  const safeFaceIndex = Math.max(0, Math.min(faces.length - 1, activeIndex));
 
   return card.name.split('//')[safeFaceIndex]?.trim() || card.name;
 }
@@ -101,48 +109,51 @@ function currentPowerToughness(card: GameCardInstance): CardPreviewCardStateInfo
     return null;
   }
 
-  if (
-    card.power === null
-    || card.power === undefined
-    || card.toughness === null
-    || card.toughness === undefined
-  ) {
-    return null;
-  }
-
-  const power = Number(card.power);
-  const toughness = Number(card.toughness);
-  if (![power, toughness].every(Number.isFinite)) {
-    return null;
-  }
-
-  if (
-    card.defaultPower === null
-    || card.defaultPower === undefined
-    || card.defaultToughness === null
-    || card.defaultToughness === undefined
-  ) {
+  const currentPower = currentCardNumericValue(card, 'power');
+  const currentToughness = currentCardNumericValue(card, 'toughness');
+  if (currentPower === null || currentToughness === null) {
     return null;
   }
 
   const defaultPower = Number(card.defaultPower);
   const defaultToughness = Number(card.defaultToughness);
-  if (![defaultPower, defaultToughness].every(Number.isFinite)) {
+  if (
+    !Number.isFinite(defaultPower)
+    || !Number.isFinite(defaultToughness)
+  ) {
     return null;
   }
 
-  return power !== defaultPower || toughness !== defaultToughness ? { power, toughness } : null;
+  return currentPower !== defaultPower || currentToughness !== defaultToughness
+    ? { power: currentPower, toughness: currentToughness }
+    : null;
 }
 
 function cardPreviewLoyalty(card: GameCardInstance): number | null {
-  if (card.loyalty === null || card.loyalty === undefined) {
+  const loyalty = currentCardNumericValue(card, 'loyalty');
+  if (loyalty === null) {
     return null;
   }
 
-  const loyalty = Number(card.loyalty);
   const defaultLoyalty = Number(card.defaultLoyalty);
 
   return Number.isFinite(loyalty) && Number.isFinite(defaultLoyalty) && loyalty !== defaultLoyalty ? loyalty : null;
+}
+
+function cardPreviewBattle(card: GameCardInstance): number | null {
+  if (!isBattleCard(card)) {
+    return null;
+  }
+
+  return toNumber(card.defense) ?? toNumber(card.defaultDefense);
+}
+
+function cardPreviewSaga(card: GameCardInstance): number | null {
+  if (!isSagaCard(card) || card.zone !== 'battlefield') {
+    return null;
+  }
+
+  return card.saga ?? 1;
 }
 
 function cardPreviewCounters(card: GameCardInstance): readonly CardPreviewCounterItem[] {
@@ -150,4 +161,38 @@ function cardPreviewCounters(card: GameCardInstance): readonly CardPreviewCounte
     .filter(([, value]) => Number.isFinite(Number(value)) && Number(value) >= 0)
     .map(([key, value]) => ({ key, value: Number(value) }))
     .sort((a, b) => a.key.localeCompare(b.key));
+}
+
+function currentCardNumericValue(card: GameCardInstance, key: 'power' | 'toughness' | 'loyalty' | 'defense'): number | null {
+  if (card.cardFaces && card.cardFaces.length > 0) {
+    const activeFace = activeCardFace(card);
+    if (!activeFace) {
+      return null;
+    }
+
+    return toNumber(activeFace[key]);
+  }
+
+  return toNumber(card[key]);
+}
+
+function activeCardFace(card: GameCardInstance): CardFace | null {
+  const faces = card.cardFaces ?? [];
+  if (faces.length === 0) {
+    return null;
+  }
+
+  const requestedIndex = Number.isInteger(card.activeFaceIndex) ? Number(card.activeFaceIndex) : 0;
+  const activeIndex = Math.max(0, Math.min(faces.length - 1, requestedIndex));
+
+  return faces[activeIndex] ?? null;
+}
+
+function toNumber(value: string | number | null | undefined): number | null {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+
+  const numericValue = Number(value);
+  return Number.isFinite(numericValue) ? numericValue : null;
 }

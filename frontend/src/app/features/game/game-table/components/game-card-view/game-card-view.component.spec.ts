@@ -1270,6 +1270,219 @@ describe('GameCardViewComponent', () => {
     expect(loyaltyChanged).not.toHaveBeenCalled();
   });
 
+  it('renders the battle counter for battle cards', async () => {
+    const { fixture } = await renderHandCard();
+
+    fixture.componentRef.setInput('mode', 'battlefield');
+    fixture.componentRef.setInput('zone', 'battlefield');
+    fixture.componentRef.setInput('card', {
+      ...gameCard(),
+      name: 'Invasion of Zendikar',
+      typeLine: 'Battle - Siege',
+    });
+    fixture.componentRef.setInput('battleValue', 4);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.battle-counter')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('.loyalty-counter')).toBeNull();
+  });
+
+  it('emits battle changes from the battle counter and closes the active preview', async () => {
+    const { fixture } = await renderHandCard();
+    const battleChanged = vi.fn();
+    const previewRequested = vi.fn();
+    fixture.componentInstance.battleChanged.subscribe(battleChanged);
+    fixture.componentInstance.cardPreviewRequested.subscribe(previewRequested);
+
+    fixture.componentRef.setInput('mode', 'battlefield');
+    fixture.componentRef.setInput('zone', 'battlefield');
+    fixture.componentRef.setInput('card', {
+      ...gameCard(),
+      name: 'Invasion of Zendikar',
+      typeLine: 'Battle - Siege',
+    });
+    fixture.componentRef.setInput('battleValue', 4);
+    fixture.detectChanges();
+    fixture.componentInstance.previewActive.set(true);
+
+    const battleCounter = fixture.nativeElement.querySelector('.battle-counter') as HTMLElement;
+    battleCounter.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, button: 0 }));
+    fixture.detectChanges();
+
+    expect(battleChanged).toHaveBeenCalledWith({
+      event: expect.any(Event),
+      card: fixture.componentInstance.card(),
+      delta: 1,
+    });
+    expect(previewRequested).not.toHaveBeenCalled();
+    expect(fixture.componentInstance.previewActive()).toBe(false);
+  });
+
+  it('renders the saga counter only when the active face is a saga', async () => {
+    const { fixture } = await renderHandCard();
+
+    fixture.componentRef.setInput('mode', 'battlefield');
+    fixture.componentRef.setInput('zone', 'battlefield');
+    fixture.componentRef.setInput('card', {
+      ...gameCard(),
+      name: 'Binding the Old Gods // Feral Spirit',
+      activeFaceIndex: 0,
+      cardFaces: [
+        {
+          ...cardFace('Binding the Old Gods'),
+          typeLine: 'Enchantment - Saga',
+        },
+        {
+          ...cardFace('Feral Spirit'),
+          typeLine: 'Creature - Spirit',
+        },
+      ],
+    });
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.saga-counter-value')?.textContent?.trim()).toBe('I');
+    expect(fixture.nativeElement.querySelector('.battle-counter')).toBeNull();
+
+    fixture.componentRef.setInput('card', {
+      ...gameCard(),
+      name: 'Binding the Old Gods // Feral Spirit',
+      activeFaceIndex: 1,
+      cardFaces: [
+        {
+          ...cardFace('Binding the Old Gods'),
+          typeLine: 'Enchantment - Saga',
+        },
+        {
+          ...cardFace('Feral Spirit'),
+          typeLine: 'Creature - Spirit',
+        },
+      ],
+    });
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.saga-counter')).toBeNull();
+  });
+
+  it('keeps saga cards on the saga counter even if a battle value is present', async () => {
+    const { fixture } = await renderHandCard();
+
+    fixture.componentRef.setInput('mode', 'battlefield');
+    fixture.componentRef.setInput('zone', 'battlefield');
+    fixture.componentRef.setInput('battleValue', 6);
+    fixture.componentRef.setInput('card', {
+      ...gameCard(),
+      name: 'Binding the Old Gods // Feral Spirit',
+      activeFaceIndex: 0,
+      cardFaces: [
+        {
+          ...cardFace('Binding the Old Gods'),
+          typeLine: 'Enchantment - Saga',
+        },
+        {
+          ...cardFace('Feral Spirit'),
+          typeLine: 'Creature - Spirit',
+        },
+      ],
+    });
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.saga-counter')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('.battle-counter')).toBeNull();
+  });
+
+  it('keeps saga chapter state local to battlefield and resets it when the card leaves', async () => {
+    const { fixture } = await renderHandCard();
+
+    fixture.componentRef.setInput('mode', 'battlefield');
+    fixture.componentRef.setInput('zone', 'battlefield');
+    fixture.componentRef.setInput('card', {
+      ...gameCard(),
+      name: 'Binding the Old Gods',
+      typeLine: 'Enchantment - Saga',
+    });
+    fixture.detectChanges();
+
+    const sagaCounter = fixture.nativeElement.querySelector('.saga-counter') as HTMLElement;
+    expect(sagaCounter?.textContent?.trim()).toBe('I');
+
+    sagaCounter.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, button: 0 }));
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.saga-counter')?.textContent?.trim()).toBe('II');
+
+    fixture.componentRef.setInput('zone', 'graveyard');
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.saga-counter')).toBeNull();
+
+    fixture.componentRef.setInput('zone', 'battlefield');
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.saga-counter')?.textContent?.trim()).toBe('I');
+  });
+
+  it('closes the active preview when a saga counter is clicked', async () => {
+    const { fixture } = await renderHandCard();
+    const previewRequested = vi.fn();
+    fixture.componentInstance.cardPreviewRequested.subscribe(previewRequested);
+
+    fixture.componentRef.setInput('mode', 'battlefield');
+    fixture.componentRef.setInput('zone', 'battlefield');
+    fixture.componentRef.setInput('card', {
+      ...gameCard(),
+      name: 'Binding the Old Gods',
+      typeLine: 'Enchantment - Saga',
+    });
+    fixture.detectChanges();
+    fixture.componentInstance.previewActive.set(true);
+
+    const sagaCounter = fixture.nativeElement.querySelector('.saga-counter') as HTMLElement;
+    sagaCounter.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, button: 0 }));
+    fixture.detectChanges();
+
+    expect(previewRequested).not.toHaveBeenCalled();
+    expect(fixture.componentInstance.previewActive()).toBe(false);
+  });
+
+  it('allows battlefield double click toggles for saga cards', async () => {
+    const { fixture, cardElement } = await renderHandCard();
+    const doubleClicked = vi.fn();
+    fixture.componentInstance.cardDoubleClicked.subscribe(doubleClicked);
+
+    fixture.componentRef.setInput('mode', 'battlefield');
+    fixture.componentRef.setInput('zone', 'battlefield');
+    fixture.componentRef.setInput('card', {
+      ...gameCard(),
+      name: 'Binding the Old Gods',
+      typeLine: 'Enchantment - Saga',
+    });
+    fixture.detectChanges();
+
+    expect(cardElement.classList.contains('tapped')).toBe(false);
+
+    cardElement.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+
+    expect(doubleClicked).toHaveBeenCalledWith({
+      event: expect.any(MouseEvent),
+      card: expect.objectContaining({
+        instanceId: 'card-1',
+        name: 'Binding the Old Gods',
+      }),
+    });
+  });
+
+  it('rotates battle cards in the battlefield view', async () => {
+    const { fixture, cardElement } = await renderHandCard();
+
+    fixture.componentRef.setInput('mode', 'battlefield');
+    fixture.componentRef.setInput('zone', 'battlefield');
+    fixture.componentRef.setInput('card', {
+      ...gameCard(),
+      name: 'Invasion of Zendikar',
+      typeLine: 'Battle - Siege',
+    });
+    fixture.detectChanges();
+
+    expect(cardElement.classList.contains('tapped')).toBe(true);
+  });
+
   it('marks a power increase with the gold stat pulse', async () => {
     vi.useFakeTimers();
     const { fixture } = await renderHandCard();

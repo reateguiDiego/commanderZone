@@ -240,6 +240,10 @@ export class GameTableContextStore {
       findCard: (playerId, zone, instanceId) => this.findCard(playerId, zone, instanceId),
       updateLocalCardPowerToughness: (playerId, zone, instanceId, power, toughness) =>
         this.updateLocalCardPowerToughness(playerId, zone, instanceId, power, toughness),
+      updateLocalCardBattleValue: (playerId, zone, instanceId, defense) =>
+        this.updateLocalCardBattleValue(playerId, zone, instanceId, defense),
+      updateLocalCardSagaValue: (playerId, zone, instanceId, saga) =>
+        this.updateLocalCardSagaValue(playerId, zone, instanceId, saga),
       updateLocalCardLoyalty: (playerId, zone, instanceId, loyalty) => this.updateLocalCardLoyalty(playerId, zone, instanceId, loyalty),
       setError: (message) => this.core.error.set(message),
       command: (type, payload, force) => source.command(type, payload, force),
@@ -464,6 +468,34 @@ export class GameTableContextStore {
     if (card) {
       card.power = power;
       card.toughness = toughness;
+      this.boundSource().setSnapshot(next);
+    }
+  }
+
+  private updateLocalCardBattleValue(playerId: string, zone: GameZoneName, instanceId: string, defense: number): void {
+    const snapshot = this.core.snapshot();
+    if (!snapshot) {
+      return;
+    }
+
+    const next = structuredClone(snapshot);
+    const card = next.players[playerId]?.zones[zone]?.find((candidate) => candidate.instanceId === instanceId);
+    if (card) {
+      card.defense = defense;
+      this.boundSource().setSnapshot(next);
+    }
+  }
+
+  private updateLocalCardSagaValue(playerId: string, zone: GameZoneName, instanceId: string, saga: number): void {
+    const snapshot = this.core.snapshot();
+    if (!snapshot) {
+      return;
+    }
+
+    const next = structuredClone(snapshot);
+    const card = next.players[playerId]?.zones[zone]?.find((candidate) => candidate.instanceId === instanceId);
+    if (card) {
+      card.saga = saga;
       this.boundSource().setSnapshot(next);
     }
   }

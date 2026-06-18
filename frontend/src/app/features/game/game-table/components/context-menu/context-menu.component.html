@@ -518,21 +518,25 @@
             </span>
             <kbd>{{ 'game.contextMenu.z' | runtimeTranslate }}</kbd>
           </button>
-          <button type="button" (click)="actionSelected.emit({ type: 'tapCard' })">
-            <span class="menu-item-label">
-              <lucide-icon name="rotate-ccw" size="17" aria-hidden="true" />
-              <span>{{ displayLabel(tapLabel()) }}</span>
-            </span>
-            <kbd>{{ 'game.contextMenu.t' | runtimeTranslate }}</kbd>
-          </button>
+          @if (canTapCardAction()) {
+            <button type="button" (click)="actionSelected.emit({ type: 'tapCard' })">
+              <span class="menu-item-label">
+                <lucide-icon name="rotate-ccw" size="17" aria-hidden="true" />
+                <span>{{ displayLabel(tapLabel()) }}</span>
+              </span>
+              <kbd>{{ 'game.contextMenu.t' | runtimeTranslate }}</kbd>
+            </button>
+          }
         } @else {
-          <button type="button" (click)="actionSelected.emit({ type: 'tapCard' })">
-            <span class="menu-item-label">
-              <lucide-icon name="rotate-ccw" size="17" aria-hidden="true" />
-              <span>{{ displayLabel(tapLabel()) }}</span>
-            </span>
-            <kbd>{{ 'game.contextMenu.t' | runtimeTranslate }}</kbd>
-          </button>
+          @if (canTapCardAction()) {
+            <button type="button" (click)="actionSelected.emit({ type: 'tapCard' })">
+              <span class="menu-item-label">
+                <lucide-icon name="rotate-ccw" size="17" aria-hidden="true" />
+                <span>{{ displayLabel(tapLabel()) }}</span>
+              </span>
+              <kbd>{{ 'game.contextMenu.t' | runtimeTranslate }}</kbd>
+            </button>
+          }
           @if (canFlipCardFace()) {
             <button type="button" (click)="actionSelected.emit({ type: 'flipCardFace' })">
               <span class="menu-item-label">

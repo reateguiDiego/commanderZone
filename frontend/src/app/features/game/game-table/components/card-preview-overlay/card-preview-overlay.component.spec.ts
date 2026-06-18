@@ -98,6 +98,27 @@ describe('CardPreviewOverlayComponent', () => {
     expect(element.querySelector('.attached-to-row .attachment-preview-label-with-icon lucide-icon')).not.toBeNull();
   });
 
+  it('rotates battle previews', async () => {
+    const fixture = await renderPreview({
+      card: {
+        ...gameCard(),
+        typeLine: 'Battle - Siege',
+      },
+    });
+
+    expect(fixture.nativeElement.querySelector('.card-preview-visual')?.classList.contains('preview-mode-horizontal')).toBe(true);
+    expect(fixture.nativeElement.querySelector('.card-preview-visual')?.classList.contains('preview-mode-vertical')).toBe(false);
+    expect(fixture.nativeElement.querySelector('.card-preview-visual img')?.classList.contains('battle-preview-rotated')).toBe(true);
+    expect(fixture.componentInstance.previewVisualStyle().width).toBeGreaterThan(fixture.componentInstance.previewVisualStyle().height);
+  });
+
+  it('keeps non-battle previews in vertical mode', async () => {
+    const fixture = await renderPreview();
+
+    expect(fixture.nativeElement.querySelector('.card-preview-visual')?.classList.contains('preview-mode-vertical')).toBe(true);
+    expect(fixture.nativeElement.querySelector('.card-preview-visual')?.classList.contains('preview-mode-horizontal')).toBe(false);
+  });
+
   it('plays the face flip animation when the hover preview changes card face', async () => {
     const fixture = await renderPreview();
 
@@ -129,7 +150,9 @@ describe('CardPreviewOverlayComponent', () => {
       },
       cardStateInfo: {
         powerToughness: { power: 4, toughness: 5 },
-        loyalty: 6,
+        battle: null,
+        saga: null,
+        loyalty: null,
         counters: [
           { key: '+1/+1', value: 2 },
           { key: 'charge', value: 3 },
@@ -144,17 +167,64 @@ describe('CardPreviewOverlayComponent', () => {
     expect(detailBox.textContent).not.toContain('Current P/T');
     expect(detailBox.textContent).not.toContain('Loyalty');
     expect(Array.from(detailBox.querySelectorAll('.preview-power-toughness span')).map((entry) => entry.textContent?.trim())).toEqual(['4', '5']);
-    expect(detailBox.textContent).toContain('6');
     expect(detailBox.textContent).toContain('+1/+1');
     expect(detailBox.textContent).toContain('charge');
-    expect(detailBox.querySelector('app-loyalty-counter')).not.toBeNull();
+    expect(detailBox.querySelector('app-loyalty-counter')).toBeNull();
     expect(detailBox.querySelector('app-card-marker-rail')).not.toBeNull();
+  });
+
+  it('renders battle defense in the same premium detail box', async () => {
+    const fixture = await renderPreview({
+      card: {
+        ...gameCard(),
+        typeLine: 'Battle - Siege',
+        defense: 5,
+      },
+      cardStateInfo: {
+        powerToughness: null,
+        battle: 5,
+        saga: null,
+        loyalty: null,
+        counters: [],
+      },
+    });
+    const detailBox = fixture.nativeElement.querySelector('.attachment-preview') as HTMLElement;
+
+    expect(detailBox.textContent).toContain('Current');
+    expect(detailBox.textContent).toContain('5');
+    expect(detailBox.querySelector('app-battle-counter')).not.toBeNull();
+    expect(detailBox.querySelector('app-loyalty-counter')).toBeNull();
+  });
+
+  it('renders saga chapters in the same premium detail box', async () => {
+    const fixture = await renderPreview({
+      card: {
+        ...gameCard(),
+        typeLine: 'Enchantment - Saga',
+        activeFaceIndex: 1,
+      },
+      cardStateInfo: {
+        powerToughness: null,
+        battle: null,
+        saga: 2,
+        loyalty: null,
+        counters: [],
+      },
+    });
+    const detailBox = fixture.nativeElement.querySelector('.attachment-preview') as HTMLElement;
+
+    expect(detailBox.textContent).toContain('Current');
+    expect(detailBox.textContent).toContain('II');
+    expect(detailBox.querySelector('app-saga-counter')).not.toBeNull();
+    expect(detailBox.querySelector('app-battle-counter')).toBeNull();
   });
 
   it('does not show the column separator when only card state details are shown', async () => {
     const fixture = await renderPreview({
       cardStateInfo: {
         powerToughness: { power: 4, toughness: 5 },
+        battle: null,
+        saga: null,
         loyalty: 6,
         counters: [],
       },
@@ -242,6 +312,8 @@ async function renderPreview(options: {
   } | null;
   cardStateInfo?: {
     powerToughness: { power: number; toughness: number } | null;
+    battle: number | null;
+    saga: number | null;
     loyalty: number | null;
     counters: readonly { key: string; value: number }[];
   } | null;

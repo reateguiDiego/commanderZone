@@ -7,7 +7,7 @@ import { firstValueFrom, Subscription } from 'rxjs';
 import { BodyScrollLockService } from '../../../shared/services/body-scroll-lock.service';
 import { AppModalComponent } from '../../../shared/ui/app-modal/app-modal.component';
 import { PrettyScrollDirective } from '../../../shared/ui/pretty-scroll/pretty-scroll.directive';
-import { ChatMessage, ChatReactionType, GameCardDungeonMarker, GameCardInstance, GameCardPosition, GameRematchVote, GameSnapshot, GameSpecialEntity, GameZoneName } from '../../../core/models/game.model';
+import { ChatMessage, ChatReactionType, GameCardDungeonMarker, GameCardInstance, GameCardPosition, GameCardStatValue, GamePowerToughnessValue, GameRematchVote, GameSnapshot, GameSpecialEntity, GameZoneName } from '../../../core/models/game.model';
 import { GameSnapshotPatchOperation } from '../../../core/models/game-realtime.model';
 import { Card } from '../../../core/models/card.model';
 import { CardsApi } from '../../../core/api/cards.api';
@@ -88,6 +88,7 @@ import { GameAdBannerComponent } from './components/game-ad-banner/game-ad-banne
 import { CardPreviewOverlayComponent } from './components/card-preview-overlay/card-preview-overlay.component';
 import { DungeonLocationPinComponent } from './components/dungeon-location-pin/dungeon-location-pin.component';
 import { CardMarkerRailComponent } from './components/game-card-view/card-marker-rail/card-marker-rail.component';
+import { BattleCounterComponent } from './components/game-card-view/battle-counter/battle-counter.component';
 import { LoyaltyCounterComponent } from './components/game-card-view/loyalty-counter/loyalty-counter.component';
 import { PowerToughnessDialogComponent, PowerToughnessDialogValueChange } from './components/power-toughness-dialog/power-toughness-dialog.component';
 import { GameArrowLayerComponent } from './components/game-arrow-layer/game-arrow-layer.component';
@@ -446,6 +447,7 @@ interface MotionSourceRect {
     CardPreviewOverlayComponent,
     DungeonLocationPinComponent,
     CardMarkerRailComponent,
+    BattleCounterComponent,
     LoyaltyCounterComponent,
     PowerToughnessDialogComponent,
     GameArrowLayerComponent,
@@ -627,8 +629,10 @@ export class GameTableComponent implements AfterViewInit, AfterViewChecked, OnDe
   readonly isAttachedEquipment = (playerId: string, card: GameCardInstance): boolean => this.store.isAttachedEquipment(playerId, card);
   readonly isAttachmentTarget = (playerId: string, card: GameCardInstance): boolean => this.store.isAttachmentTarget(playerId, card);
   readonly canAttachEquipment = (playerId: string, card: GameCardInstance): boolean => this.store.canAttachEquipment(playerId, card);
-  readonly cardPowerValue = (card: GameCardInstance): number | null => this.store.cardPowerValue(card);
-  readonly cardToughnessValue = (card: GameCardInstance): number | null => this.store.cardToughnessValue(card);
+  readonly cardPowerValue = (card: GameCardInstance): GamePowerToughnessValue => this.store.cardPowerValue(card);
+  readonly cardToughnessValue = (card: GameCardInstance): GamePowerToughnessValue => this.store.cardToughnessValue(card);
+  readonly cardBattleValue = (card: GameCardInstance): GameCardStatValue => this.store.cardBattleValue(card);
+  readonly cardLoyaltyValue = (card: GameCardInstance): GameCardStatValue => this.store.cardLoyaltyValue(card);
   readonly firstCounter = (card: GameCardInstance): { key: string; value: number } | null => this.store.firstCounter(card);
   readonly cardCounters = (card: GameCardInstance): readonly { key: string; value: number }[] =>
     Object.entries(card.counters ?? {})

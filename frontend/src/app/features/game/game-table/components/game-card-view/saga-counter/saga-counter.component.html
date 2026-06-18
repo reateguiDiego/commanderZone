@@ -1,0 +1,18 @@
+<span
+  class="saga-counter"
+  role="button"
+  tabindex="0"
+  [title]="'Saga. Left click adds, right click removes.' | runtimeTranslate"
+  [attr.aria-label]="'Saga' | runtimeTranslate"
+  [class.stat-pulse-increase]="pulse() === 'increase' || pressPulse() === 'increase'"
+  [class.stat-pulse-decrease]="pulse() === 'decrease' || pressPulse() === 'decrease'"
+  [class.entry-settling]="entrySettling()"
+  (pointerdown)="stopPointer($event)"
+  (pointerup)="onChanged($event)"
+  (dblclick)="stopDoubleClick($event)"
+  (click)="stopClick($event)"
+  (contextmenu)="stopContextMenu($event)"
+>
+  <span class="saga-counter-hexagon" aria-hidden="true"></span>
+  <span class="saga-counter-value">{{ romanValue() }}</span>
+</span>

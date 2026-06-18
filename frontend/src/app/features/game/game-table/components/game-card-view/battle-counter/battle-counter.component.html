@@ -1,0 +1,22 @@
+<span
+  class="battle-counter"
+  role="button"
+  tabindex="0"
+  [title]="'Battle. Left click adds, right click removes.' | runtimeTranslate"
+  [attr.aria-label]="'Battle' | runtimeTranslate"
+  [class.stat-pulse-increase]="pulse() === 'increase' || pressPulse() === 'increase'"
+  [class.stat-pulse-decrease]="pulse() === 'decrease' || pressPulse() === 'decrease'"
+  [class.entry-settling]="entrySettling()"
+  (pointerdown)="stopPointer($event)"
+  (pointerup)="onChanged($event)"
+  (dblclick)="stopDoubleClick($event)"
+  (click)="stopClick($event)"
+  (contextmenu)="stopContextMenu($event)"
+>
+  <span class="battle-counter-content">
+    <span class="battle-counter-shield" aria-hidden="true">
+      <span class="ms ms-defense battle-counter-icon" aria-hidden="true"></span>
+    </span>
+    <span class="battle-counter-value">{{ value() }}</span>
+  </span>
+</span>

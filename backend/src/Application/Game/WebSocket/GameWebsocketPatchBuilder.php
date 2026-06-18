@@ -1628,7 +1628,7 @@ final readonly class GameWebsocketPatchBuilder
             'zone' => $location['zone'],
             'instanceId' => $location['instanceId'],
         ];
-        foreach (['power', 'toughness', 'loyalty'] as $stat) {
+        foreach (['power', 'toughness', 'loyalty', 'defense', 'saga'] as $stat) {
             if (!$onlyChanged || ($previousCard[$stat] ?? null) !== ($nextCard[$stat] ?? null)) {
                 $operation[$stat] = $nextCard[$stat] ?? null;
             }

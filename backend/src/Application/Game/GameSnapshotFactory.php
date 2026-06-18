@@ -136,6 +136,9 @@ class GameSnapshotFactory
     {
         $card = $deckCard->card();
         $baseLoyalty = $this->initialLoyalty($card);
+        $baseDefense = $this->initialDefense($card);
+        $basePower = $this->powerToughnessStat($card->power());
+        $baseToughness = $this->powerToughnessStat($card->toughness());
 
         return [
             'instanceId' => Uuid::v7()->toRfc4122(),
@@ -150,12 +153,14 @@ class GameSnapshotFactory
             'manaCost' => $card->manaCost(),
             'oracleText' => $card->oracleText(),
             'colorIdentity' => $this->orderedColorIdentity($card->colorIdentity()),
-            'power' => $this->numericCardStat($card->power()),
-            'toughness' => $this->numericCardStat($card->toughness()),
-            'loyalty' => $baseLoyalty,
-            'defaultPower' => $this->numericCardStat($card->power()),
-            'defaultToughness' => $this->numericCardStat($card->toughness()),
+            'power' => $this->gameplayStat($basePower),
+            'toughness' => $this->gameplayStat($baseToughness),
+            'loyalty' => $this->gameplayStat($baseLoyalty),
+            'defense' => $this->gameplayStat($baseDefense),
+            'defaultPower' => $basePower,
+            'defaultToughness' => $baseToughness,
             'defaultLoyalty' => $baseLoyalty,
+            'defaultDefense' => $baseDefense,
             'tapped' => false,
             'faceDown' => false,
             'activeFaceIndex' => 0,
@@ -251,19 +256,38 @@ class GameSnapshotFactory
         return $names;
     }
 
-    private function numericCardStat(?string $value): ?int
+    private function printedCardStat(?string $value): int|string|null
     {
-        return is_numeric($value) ? (int) $value : null;
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return is_numeric($value) ? (int) $value : $value;
     }
 
-    private function initialLoyalty(\App\Domain\Card\Card $card): ?int
+    private function powerToughnessStat(?string $value): int|string|null
+    {
+        return $this->printedCardStat($value);
+    }
+
+    private function gameplayStat(mixed $value): int|string|null
+    {
+        $printed = $this->printedStat($value);
+        if (!is_string($printed)) {
+            return $printed;
+        }
+
+        return $this->isVariablePrintedStat($printed) ? 0 : $printed;
+    }
+
+    private function initialLoyalty(\App\Domain\Card\Card $card): int|string|null
     {
         $fromFaceStats = $this->loyaltyFromFaceStats($card->faceStats());
         if ($fromFaceStats !== null) {
             return $fromFaceStats;
         }
 
-        $legacy = $this->numericCardStat($card->loyalty());
+        $legacy = $this->printedCardStat($card->loyalty());
         if ($legacy !== null) {
             return $legacy;
         }
@@ -271,14 +295,24 @@ class GameSnapshotFactory
         return $this->loyaltyFromCardFaces($card->cardFaces());
     }
 
+    private function initialDefense(\App\Domain\Card\Card $card): int|string|null
+    {
+        $fromFaceStats = $this->defenseFromFaceStats($card->faceStats());
+        if ($fromFaceStats !== null) {
+            return $fromFaceStats;
+        }
+
+        return $this->defenseFromCardFaces($card->cardFaces());
+    }
+
     /**
      * @param array<string,mixed> $faceStats
      */
-    private function loyaltyFromFaceStats(array $faceStats): ?int
+    private function loyaltyFromFaceStats(array $faceStats): int|string|null
     {
         $root = $faceStats['root'] ?? null;
         if (is_array($root)) {
-            $rootLoyalty = $this->numericStat($root['loyalty'] ?? null);
+            $rootLoyalty = $this->printedStat($root['loyalty'] ?? null);
             if ($rootLoyalty !== null) {
                 return $rootLoyalty;
             }
@@ -294,7 +328,7 @@ class GameSnapshotFactory
                 continue;
             }
 
-            $loyalty = $this->numericStat($face['loyalty'] ?? null);
+            $loyalty = $this->printedStat($face['loyalty'] ?? null);
             if ($loyalty !== null) {
                 return $loyalty;
             }
@@ -306,10 +340,10 @@ class GameSnapshotFactory
     /**
      * @param list<array<string,mixed>> $faces
      */
-    private function loyaltyFromCardFaces(array $faces): ?int
+    private function loyaltyFromCardFaces(array $faces): int|string|null
     {
         foreach ($faces as $face) {
-            $loyalty = $this->numericStat($face['loyalty'] ?? null);
+            $loyalty = $this->printedStat($face['loyalty'] ?? null);
             if ($loyalty !== null) {
                 return $loyalty;
             }
@@ -318,8 +352,64 @@ class GameSnapshotFactory
         return null;
     }
 
-    private function numericStat(mixed $value): ?int
+    /**
+     * @param array<string,mixed> $faceStats
+     */
+    private function defenseFromFaceStats(array $faceStats): int|string|null
     {
-        return is_numeric($value) ? (int) $value : null;
+        $root = $faceStats['root'] ?? null;
+        if (is_array($root)) {
+            $rootDefense = $this->printedStat($root['defense'] ?? null);
+            if ($rootDefense !== null) {
+                return $rootDefense;
+            }
+        }
+
+        $faces = $faceStats['faces'] ?? null;
+        if (!is_array($faces)) {
+            return null;
+        }
+
+        foreach ($faces as $face) {
+            if (!is_array($face)) {
+                continue;
+            }
+
+            $defense = $this->printedStat($face['defense'] ?? null);
+            if ($defense !== null) {
+                return $defense;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param list<array<string,mixed>> $faces
+     */
+    private function defenseFromCardFaces(array $faces): int|string|null
+    {
+        foreach ($faces as $face) {
+            $defense = $this->printedStat($face['defense'] ?? null);
+            if ($defense !== null) {
+                return $defense;
+            }
+        }
+
+        return null;
+    }
+
+    private function printedStat(mixed $value): int|string|null
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return is_numeric($value) ? (int) $value : (string) $value;
+    }
+
+    private function isVariablePrintedStat(string $value): bool
+    {
+        return str_contains(strtolower($value), 'x') || str_contains($value, '*');
     }
 }

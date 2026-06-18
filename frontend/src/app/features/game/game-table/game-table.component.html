@@ -336,6 +336,8 @@
             [shouldShowPowerToughness]="shouldShowPowerToughness"
             [cardPowerValue]="cardPowerValue"
             [cardToughnessValue]="cardToughnessValue"
+            [cardBattleValue]="cardBattleValue"
+            [cardLoyaltyValue]="cardLoyaltyValue"
             [firstCounter]="firstCounter"
             [alignmentGuideFor]="alignmentGuideFor"
             [isManaLaneHighlighted]="isManaLaneHighlighted"
@@ -365,6 +367,8 @@
             (cardPreviewHidden)="store.hideCardPreview()"
             (cardPowerChanged)="store.changeCardPower($event.playerId, $event.zone, $event.card, $event.delta)"
             (cardToughnessChanged)="store.changeCardToughness($event.playerId, $event.zone, $event.card, $event.delta)"
+            (cardBattleChanged)="store.changeCardBattle($event.playerId, $event.zone, $event.card, $event.delta)"
+            (cardSagaChanged)="store.changeCardSaga($event.playerId, $event.zone, $event.card, $event.delta)"
             (cardLoyaltyChanged)="store.changeCardLoyalty($event.playerId, $event.zone, $event.card, $event.delta)"
             (cardCounterChanged)="store.changeCardCounterForCard($event.playerId, $event.zone, $event.card, $event.key, $event.delta)"
             (cardCounterDeleteRequested)="store.openCounterDeleteMenu($event.event, $event.playerId, $event.zone, $event.card, $event.key)"
@@ -762,6 +766,8 @@
             } @else {
               <span>{{ preview.card.name }}</span>
             }
+            @let battleValue = cardBattleValue(preview.card);
+            @let loyaltyValue = cardLoyaltyValue(preview.card);
             @if (dungeonMarkerForCard(preview.card); as marker) {
               <app-dungeon-location-pin [marker]="marker" [size]="dungeonPinSizeForWidth(preview.width)" />
             }
@@ -771,8 +777,12 @@
                 <span>{{ cardPowerValue(preview.card) }}</span>
                 <span>{{ cardToughnessValue(preview.card) }}</span>
               </span>
-            } @else if (!preview.card.faceDown && preview.card.loyalty !== null && preview.card.loyalty !== undefined) {
-              <app-loyalty-counter [value]="preview.card.loyalty" [pulse]="null" [entrySettling]="false" />
+            } @else if (!preview.card.faceDown) {
+              @if (battleValue !== null) {
+                <app-battle-counter [value]="battleValue" [pulse]="null" [entrySettling]="false" />
+              } @else if (loyaltyValue !== null) {
+                <app-loyalty-counter [value]="loyaltyValue" [pulse]="null" [entrySettling]="false" />
+              }
             }
           </div>
           @if (preview.count > 1) {

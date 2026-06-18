@@ -416,12 +416,19 @@ class GameCommandHandler
 
     private function normalizeCard(array $card, string $ownerId, string $zone): array
     {
-        $power = $this->numericStat($card['power'] ?? null);
-        $toughness = $this->numericStat($card['toughness'] ?? null);
-        $baseStats = $this->baseStats($card, $power, $toughness);
-        $loyalty = array_key_exists('loyalty', $card) ? $this->numericStat($card['loyalty']) : null;
-        $defaultLoyalty = $this->defaultLoyalty($card, $loyalty);
+        $rawPower = $card['power'] ?? null;
+        $rawToughness = $card['toughness'] ?? null;
+        $rawLoyalty = $card['loyalty'] ?? null;
+        $rawDefense = $card['defense'] ?? null;
+        $power = $this->gameplayStat($rawPower);
+        $toughness = $this->gameplayStat($rawToughness);
+        $baseStats = $this->baseStats($card, $rawPower, $rawToughness);
+        $loyalty = array_key_exists('loyalty', $card) ? $this->gameplayStat($rawLoyalty) : null;
+        $defaultLoyalty = $this->defaultLoyalty($card, $rawLoyalty);
+        $defense = array_key_exists('defense', $card) ? $this->gameplayStat($rawDefense) : null;
+        $defaultDefense = $this->defaultDefense($card, $rawDefense);
         $loyalty ??= $defaultLoyalty;
+        $defense ??= $defaultDefense;
         $tapped = $zone === 'battlefield' && (bool) ($card['tapped'] ?? false);
 
         $normalized = [
@@ -440,9 +447,11 @@ class GameCommandHandler
             'power' => $power,
             'toughness' => $toughness,
             'loyalty' => $loyalty,
+            'defense' => $defense,
             'defaultPower' => $baseStats['power'],
             'defaultToughness' => $baseStats['toughness'],
             'defaultLoyalty' => $defaultLoyalty,
+            'defaultDefense' => $defaultDefense,
             'tapped' => $tapped,
             'faceDown' => (bool) ($card['faceDown'] ?? false),
             'activeFaceIndex' => $this->activeFaceIndex($card),
@@ -998,6 +1007,8 @@ class GameCommandHandler
         $previousPower = $card['power'] ?? null;
         $previousToughness = $card['toughness'] ?? null;
         $previousLoyalty = $card['loyalty'] ?? null;
+        $previousDefense = $card['defense'] ?? null;
+        $previousSaga = $card['saga'] ?? null;
         if (array_key_exists('power', $payload)) {
             $card['power'] = $payload['power'] === null ? null : (int) $payload['power'];
         }
@@ -1006,6 +1017,12 @@ class GameCommandHandler
         }
         if (array_key_exists('loyalty', $payload)) {
             $card['loyalty'] = $payload['loyalty'] === null ? null : (int) $payload['loyalty'];
+        }
+        if (array_key_exists('defense', $payload)) {
+            $card['defense'] = $payload['defense'] === null ? null : max(-1, min(99, (int) $payload['defense']));
+        }
+        if (array_key_exists('saga', $payload)) {
+            $card['saga'] = $payload['saga'] === null ? null : max(1, min(9, (int) $payload['saga']));
         }
 
         if (array_key_exists('loyalty', $payload) && !array_key_exists('power', $payload) && !array_key_exists('toughness', $payload)) {
@@ -1021,6 +1038,49 @@ class GameCommandHandler
                 $direction,
                 $this->statLabel($previousLoyalty),
                 $this->statLabel($card['loyalty'] ?? null),
+                $signedDelta,
+            );
+        }
+
+        if (array_key_exists('defense', $payload) && !array_key_exists('power', $payload) && !array_key_exists('toughness', $payload) && !array_key_exists('loyalty', $payload)) {
+            $previous = $this->numericStat($previousDefense);
+            $current = $this->numericStat($card['defense'] ?? null);
+            $delta = $previous !== null && $current !== null ? $current - $previous : 0;
+            $direction = $delta >= 0 ? 'increased' : 'decreased';
+            $signedDelta = $delta > 0 ? sprintf('+%d', $delta) : (string) $delta;
+
+            return sprintf(
+                '%s defense %s from %s to %s (%s).',
+                $this->cardLogName($card),
+                $direction,
+                $this->statLabel($previousDefense),
+                $this->statLabel($card['defense'] ?? null),
+                $signedDelta,
+            );
+        }
+
+        if (array_key_exists('saga', $payload) && !array_key_exists('power', $payload) && !array_key_exists('toughness', $payload) && !array_key_exists('loyalty', $payload) && !array_key_exists('defense', $payload)) {
+            $previous = $this->numericStat($previousSaga);
+            $current = $this->numericStat($card['saga'] ?? null);
+            $delta = $previous !== null && $current !== null ? $current - $previous : 0;
+            $direction = $delta >= 0 ? 'increased' : 'decreased';
+            $signedDelta = $delta > 0 ? sprintf('+%d', $delta) : (string) $delta;
+
+            if ($delta === 0) {
+                return sprintf(
+                    '%s saga %s to %s.',
+                    $this->cardLogName($card),
+                    $direction,
+                    $this->romanStatLabel($card['saga'] ?? null),
+                );
+            }
+
+            return sprintf(
+                '%s saga %s from %s to %s (%s).',
+                $this->cardLogName($card),
+                $direction,
+                $this->romanStatLabel($previousSaga),
+                $this->romanStatLabel($card['saga'] ?? null),
                 $signedDelta,
             );
         }
@@ -2455,6 +2515,7 @@ class GameCommandHandler
         if ($zone !== 'battlefield' || !$preserveBattlefieldStats) {
             $this->resetMutableStats($card);
             $this->resetTappedState($card);
+            $card['saga'] = $zone === 'battlefield' && $this->isSagaCard($card) ? 1 : null;
         }
         if ($zone !== 'battlefield') {
             $card['counters'] = [];
@@ -2791,9 +2852,10 @@ class GameCommandHandler
 
     private function resetMutableStats(array &$card): void
     {
-        $card['power'] = $card['defaultPower'] ?? null;
-        $card['toughness'] = $card['defaultToughness'] ?? null;
-        $card['loyalty'] = $card['defaultLoyalty'] ?? null;
+        $card['power'] = $this->gameplayStat($card['defaultPower'] ?? null);
+        $card['toughness'] = $this->gameplayStat($card['defaultToughness'] ?? null);
+        $card['loyalty'] = $this->gameplayStat($card['defaultLoyalty'] ?? null);
+        $card['defense'] = $this->gameplayStat($card['defaultDefense'] ?? null);
     }
 
     private function resetTappedState(array &$card): void
@@ -2829,7 +2891,7 @@ class GameCommandHandler
     /**
      * @param array<string,mixed> $card
      *
-     * @return array{power:?int,toughness:?int}
+     * @return array{power:int|string|null,toughness:int|string|null}
      */
     private function baseStats(array $card, mixed $power, mixed $toughness): array
     {
@@ -2840,15 +2902,15 @@ class GameCommandHandler
 
         if (array_key_exists('defaultPower', $card) || array_key_exists('defaultToughness', $card)) {
             return [
-                'power' => $this->numericStat($card['defaultPower'] ?? null),
-                'toughness' => $this->numericStat($card['defaultToughness'] ?? null),
+                'power' => $this->powerToughnessStat($card['defaultPower'] ?? null),
+                'toughness' => $this->powerToughnessStat($card['defaultToughness'] ?? null),
             ];
         }
 
         if (array_key_exists('basePower', $card) || array_key_exists('baseToughness', $card)) {
             return [
-                'power' => $this->numericStat($card['basePower'] ?? null),
-                'toughness' => $this->numericStat($card['baseToughness'] ?? null),
+                'power' => $this->powerToughnessStat($card['basePower'] ?? null),
+                'toughness' => $this->powerToughnessStat($card['baseToughness'] ?? null),
             ];
         }
 
@@ -2858,15 +2920,15 @@ class GameCommandHandler
         }
 
         return [
-            'power' => $this->numericStat($power),
-            'toughness' => $this->numericStat($toughness),
+            'power' => $this->powerToughnessStat($power),
+            'toughness' => $this->powerToughnessStat($toughness),
         ];
     }
 
     /**
      * @param array<string,mixed> $card
      */
-    private function defaultLoyalty(array $card, mixed $loyalty): ?int
+    private function defaultLoyalty(array $card, mixed $loyalty): int|string|null
     {
         $resolved = $this->baseStatsResolver?->baseLoyalty($card);
         if ($resolved !== null) {
@@ -2874,28 +2936,57 @@ class GameCommandHandler
         }
 
         if (array_key_exists('defaultLoyalty', $card)) {
-            $defaultLoyalty = $this->numericStat($card['defaultLoyalty']);
+            $defaultLoyalty = $this->printedStat($card['defaultLoyalty']);
             if ($defaultLoyalty !== null) {
                 return $defaultLoyalty;
             }
         }
 
         if (array_key_exists('baseLoyalty', $card)) {
-            $baseLoyalty = $this->numericStat($card['baseLoyalty']);
+            $baseLoyalty = $this->printedStat($card['baseLoyalty']);
             if ($baseLoyalty !== null) {
                 return $baseLoyalty;
             }
         }
 
         return $this->loyaltyFromFaceStats($card)
-            ?? $this->numericStat($loyalty)
+            ?? $this->printedStat($loyalty)
             ?? $this->loyaltyFromFaces($card);
     }
 
     /**
      * @param array<string,mixed> $card
      */
-    private function loyaltyFromFaceStats(array $card): ?int
+    private function defaultDefense(array $card, mixed $defense): int|string|null
+    {
+        $resolved = $this->baseStatsResolver?->baseDefense($card);
+        if ($resolved !== null) {
+            return $resolved;
+        }
+
+        if (array_key_exists('defaultDefense', $card)) {
+            $defaultDefense = $this->printedStat($card['defaultDefense']);
+            if ($defaultDefense !== null) {
+                return $defaultDefense;
+            }
+        }
+
+        if (array_key_exists('baseDefense', $card)) {
+            $baseDefense = $this->printedStat($card['baseDefense']);
+            if ($baseDefense !== null) {
+                return $baseDefense;
+            }
+        }
+
+        return $this->defenseFromFaceStats($card)
+            ?? $this->printedStat($defense)
+            ?? $this->defenseFromFaces($card);
+    }
+
+    /**
+     * @param array<string,mixed> $card
+     */
+    private function loyaltyFromFaceStats(array $card): int|string|null
     {
         $faceStats = $card['faceStats'] ?? null;
         if (!is_array($faceStats)) {
@@ -2904,7 +2995,7 @@ class GameCommandHandler
 
         $root = $faceStats['root'] ?? null;
         if (is_array($root)) {
-            $rootLoyalty = $this->numericStat($root['loyalty'] ?? null);
+            $rootLoyalty = $this->printedStat($root['loyalty'] ?? null);
             if ($rootLoyalty !== null) {
                 return $rootLoyalty;
             }
@@ -2920,7 +3011,7 @@ class GameCommandHandler
                 continue;
             }
 
-            $loyalty = $this->numericStat($face['loyalty'] ?? null);
+            $loyalty = $this->printedStat($face['loyalty'] ?? null);
             if ($loyalty !== null) {
                 return $loyalty;
             }
@@ -2932,7 +3023,7 @@ class GameCommandHandler
     /**
      * @param array<string,mixed> $card
      */
-    private function loyaltyFromFaces(array $card): ?int
+    private function loyaltyFromFaces(array $card): int|string|null
     {
         $faces = $card['cardFaces'] ?? null;
         if (!is_array($faces)) {
@@ -2944,7 +3035,7 @@ class GameCommandHandler
                 continue;
             }
 
-            $loyalty = $this->numericStat($face['loyalty'] ?? null);
+            $loyalty = $this->printedStat($face['loyalty'] ?? null);
             if ($loyalty !== null) {
                 return $loyalty;
             }
@@ -2955,8 +3046,69 @@ class GameCommandHandler
 
     /**
      * @param array<string,mixed> $card
+     */
+    private function defenseFromFaceStats(array $card): int|string|null
+    {
+        $faceStats = $card['faceStats'] ?? null;
+        if (!is_array($faceStats)) {
+            return null;
+        }
+
+        $root = $faceStats['root'] ?? null;
+        if (is_array($root)) {
+            $rootDefense = $this->printedStat($root['defense'] ?? null);
+            if ($rootDefense !== null) {
+                return $rootDefense;
+            }
+        }
+
+        $faces = $faceStats['faces'] ?? null;
+        if (!is_array($faces)) {
+            return null;
+        }
+
+        foreach ($faces as $face) {
+            if (!is_array($face)) {
+                continue;
+            }
+
+            $defense = $this->printedStat($face['defense'] ?? null);
+            if ($defense !== null) {
+                return $defense;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param array<string,mixed> $card
+     */
+    private function defenseFromFaces(array $card): int|string|null
+    {
+        $faces = $card['cardFaces'] ?? null;
+        if (!is_array($faces)) {
+            return null;
+        }
+
+        foreach ($faces as $face) {
+            if (!is_array($face)) {
+                continue;
+            }
+
+            $defense = $this->printedStat($face['defense'] ?? null);
+            if ($defense !== null) {
+                return $defense;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param array<string,mixed> $card
      *
-     * @return array{power:?int,toughness:?int}|null
+     * @return array{power:int|string|null,toughness:int|string|null}|null
      */
     private function powerToughnessFromFaces(array $card): ?array
     {
@@ -2970,8 +3122,8 @@ class GameCommandHandler
                 continue;
             }
 
-            $power = $this->numericStat($face['power'] ?? null);
-            $toughness = $this->numericStat($face['toughness'] ?? null);
+            $power = $this->powerToughnessStat($face['power'] ?? null);
+            $toughness = $this->powerToughnessStat($face['toughness'] ?? null);
             if ($power !== null || $toughness !== null) {
                 return ['power' => $power, 'toughness' => $toughness];
             }
@@ -3314,11 +3466,66 @@ class GameCommandHandler
 
     private function statLabel(mixed $value): string
     {
-        return is_numeric($value) ? (string) (int) $value : '-';
+        if ($value === null || $value === '') {
+            return '-';
+        }
+
+        return is_numeric($value) ? (string) (int) $value : (string) $value;
+    }
+
+    private function romanStatLabel(mixed $value): string
+    {
+        $number = $this->numericStat($value);
+        if ($number === null) {
+            return '-';
+        }
+
+        if ($number <= 0) {
+            return (string) $number;
+        }
+
+        $ones = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX'];
+        $clamped = min(9, $number);
+
+        return $ones[$clamped];
+    }
+
+    private function isSagaCard(array $card): bool
+    {
+        return stripos((string) ($card['typeLine'] ?? ''), 'saga') !== false;
     }
 
     private function numericStat(mixed $value): ?int
     {
         return is_numeric($value) ? (int) $value : null;
+    }
+
+    private function printedStat(mixed $value): int|string|null
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return is_numeric($value) ? (int) $value : (string) $value;
+    }
+
+    private function gameplayStat(mixed $value): int|string|null
+    {
+        $printed = $this->printedStat($value);
+        if (!is_string($printed)) {
+            return $printed;
+        }
+
+        return $this->isVariablePrintedStat($printed) ? 0 : $printed;
+    }
+
+    private function powerToughnessStat(mixed $value): int|string|null
+    {
+        return $this->printedStat($value);
+    }
+
+    private function isVariablePrintedStat(string $value): bool
+    {
+        return str_contains(strtolower($value), 'x') || str_contains($value, '*');
     }
 }

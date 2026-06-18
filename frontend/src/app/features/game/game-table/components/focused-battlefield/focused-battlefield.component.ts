@@ -12,7 +12,7 @@ import {
   output,
   signal,
 } from '@angular/core';
-import { GameAttachment, GameCardDungeonMarker, GameCardInstance, GameZoneName } from '../../../../../core/models/game.model';
+import { GameAttachment, GameCardDungeonMarker, GameCardInstance, GameCardStatValue, GamePowerToughnessValue, GameZoneName } from '../../../../../core/models/game.model';
 import { PlayerView } from '../../game-table.store';
 import { GameCardViewComponent } from '../game-card-view/game-card-view.component';
 import { ManaPoolPanelComponent } from '../mana-pool-panel/mana-pool-panel.component';
@@ -151,8 +151,10 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
   readonly isPendingBattlefieldTransfer = input.required<(card: GameCardInstance) => boolean>();
   readonly cardImage = input.required<(card: GameCardInstance) => string | null>();
   readonly shouldShowPowerToughness = input.required<(card: GameCardInstance) => boolean>();
-  readonly cardPowerValue = input.required<(card: GameCardInstance) => number | null>();
-  readonly cardToughnessValue = input.required<(card: GameCardInstance) => number | null>();
+  readonly cardPowerValue = input.required<(card: GameCardInstance) => GamePowerToughnessValue>();
+  readonly cardToughnessValue = input.required<(card: GameCardInstance) => GamePowerToughnessValue>();
+  readonly cardBattleValue = input.required<(card: GameCardInstance) => GameCardStatValue>();
+  readonly cardLoyaltyValue = input.required<(card: GameCardInstance) => GameCardStatValue>();
   readonly firstCounter = input.required<(card: GameCardInstance) => CardCounterView | null>();
   readonly alignmentGuideFor = input.required<(playerId: string) => AlignmentGuideView | null>();
   readonly isManaLaneHighlighted = input.required<(playerId: string) => boolean>();
@@ -187,6 +189,8 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
   readonly cardPreviewHidden = output<void>();
   readonly cardPowerChanged = output<BattlefieldCardStatChangeEvent>();
   readonly cardToughnessChanged = output<BattlefieldCardStatChangeEvent>();
+  readonly cardBattleChanged = output<BattlefieldCardStatChangeEvent>();
+  readonly cardSagaChanged = output<BattlefieldCardStatChangeEvent>();
   readonly cardLoyaltyChanged = output<BattlefieldCardStatChangeEvent>();
   readonly cardCounterChanged = output<BattlefieldCardCounterChangeEvent>();
   readonly cardCounterDeleteRequested = output<BattlefieldCardCounterDeleteRequestEvent>();
@@ -409,19 +413,19 @@ export class FocusedBattlefieldComponent implements AfterViewInit, DoCheck, OnDe
     event.stopPropagation();
   }
 
-  changePower(event: MouseEvent, playerId: string, card: GameCardInstance, delta: number): void {
+  changePower(event: Event, playerId: string, card: GameCardInstance, delta: number): void {
     event.preventDefault();
     event.stopPropagation();
     this.cardPowerChanged.emit({ playerId, zone: 'battlefield', card, delta });
   }
 
-  changeToughness(event: MouseEvent, playerId: string, card: GameCardInstance, delta: number): void {
+  changeToughness(event: Event, playerId: string, card: GameCardInstance, delta: number): void {
     event.preventDefault();
     event.stopPropagation();
     this.cardToughnessChanged.emit({ playerId, zone: 'battlefield', card, delta });
   }
 
-  changeLoyalty(event: MouseEvent, playerId: string, card: GameCardInstance, delta: number): void {
+  changeLoyalty(event: Event, playerId: string, card: GameCardInstance, delta: number): void {
     event.preventDefault();
     event.stopPropagation();
     this.cardLoyaltyChanged.emit({ playerId, zone: 'battlefield', card, delta });

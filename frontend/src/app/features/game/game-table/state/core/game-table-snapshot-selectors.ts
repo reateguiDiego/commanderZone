@@ -1,9 +1,11 @@
 import { Injectable } from '@angular/core';
-import { GameCardInstance, GameSnapshot, GameZoneName } from '../../../../../core/models/game.model';
+import { CardFace } from '../../../../../core/models/card.model';
+import { GameCardInstance, GameCardStatValue, GamePowerToughnessValue, GameSnapshot, GameZoneName } from '../../../../../core/models/game.model';
 import type { CardImageUris } from '../../../../../core/models/card.model';
 import { gameBackgroundImageUrl, gameSleevesImageUrl } from '../../utils/game-table-visual-assets';
 import { BattlefieldCardSize, BattlefieldSize, renderedBattlefieldPosition } from '../../utils/battlefield-position';
 import { isKnownCommanderCard, knownCommanderInstanceIds, knownCommanderInstanceIdsFromPlayerState } from '../../utils/command-zone-drop';
+import { isBattleCard } from '../../utils/gameplay-card-kind';
 
 export interface PlayerView {
   id: string;
@@ -149,19 +151,38 @@ export class GameTableSnapshotSelectors {
   }
 
   hasPowerToughness(card: GameCardInstance): boolean {
-    return card.power !== null && card.power !== undefined && card.toughness !== null && card.toughness !== undefined;
+    return this.cardPowerValue(card) !== null && this.cardToughnessValue(card) !== null;
   }
 
   shouldShowPowerToughness(card: GameCardInstance): boolean {
     return this.hasPowerToughness(card);
   }
 
-  cardPowerValue(card: GameCardInstance): number | null {
-    return card.power ?? null;
+  cardPowerValue(card: GameCardInstance): GamePowerToughnessValue {
+    return this.activeCardPowerToughnessValue(card, 'power');
   }
 
-  cardToughnessValue(card: GameCardInstance): number | null {
-    return card.toughness ?? null;
+  cardToughnessValue(card: GameCardInstance): GamePowerToughnessValue {
+    return this.activeCardPowerToughnessValue(card, 'toughness');
+  }
+
+  cardLoyaltyValue(card: GameCardInstance): GameCardStatValue {
+    return this.activeCardStatValue(card, 'loyalty', 'defaultLoyalty');
+  }
+
+  cardBattleValue(card: GameCardInstance): GameCardStatValue {
+    if (!isBattleCard(card)) {
+      return null;
+    }
+
+    const faces = card.cardFaces ?? [];
+    const activeFace = faces.length > 0 ? this.activeCardFace(card) : null;
+    const printedValue = this.statValue(activeFace?.defense) ?? this.statValue(card.defaultDefense);
+    if (faces.length > 0 && this.statValue(activeFace?.defense) === null) {
+      return null;
+    }
+
+    return this.currentOrPrintedVariableStatValue(this.statValue(card.defense), printedValue);
   }
 
   cardPosition(
@@ -284,14 +305,80 @@ export class GameTableSnapshotSelectors {
   }
 
   private activeFaceImageUris(card: GameCardInstance): CardImageUris | null {
+    const activeFace = this.activeCardFace(card);
+    return activeFace?.imageUris ?? null;
+  }
+
+  private activeCardFace(card: GameCardInstance): CardFace | null {
     const faces = card.cardFaces ?? [];
-    if (faces.length < 2) {
+    if (faces.length === 0) {
       return null;
     }
 
     const index = Number.isInteger(card.activeFaceIndex) ? Number(card.activeFaceIndex) : 0;
+    const safeIndex = Math.max(0, Math.min(faces.length - 1, index));
 
-    return faces[Math.max(0, Math.min(faces.length - 1, index))]?.imageUris ?? null;
+    return faces[safeIndex] ?? null;
+  }
+
+  private activeCardPowerToughnessValue(card: GameCardInstance, key: 'power' | 'toughness'): GamePowerToughnessValue {
+    const defaultKey = key === 'power' ? 'defaultPower' : 'defaultToughness';
+
+    return this.activeCardStatValue(card, key, defaultKey);
+  }
+
+  private activeCardStatValue(
+    card: GameCardInstance,
+    key: 'power' | 'toughness' | 'loyalty' | 'defense',
+    defaultKey?: 'defaultPower' | 'defaultToughness' | 'defaultLoyalty' | 'defaultDefense',
+  ): GameCardStatValue {
+    const faces = card.cardFaces ?? [];
+    if (faces.length > 0) {
+      const activeFace = this.activeCardFace(card);
+      if (!activeFace) {
+        return null;
+      }
+
+      const printedValue = this.statValue(activeFace[key]);
+      if (printedValue === null) {
+        return null;
+      }
+
+      return this.activeFaceVisualStatValue(this.statValue(card[key]), printedValue);
+    }
+
+    const printedValue = defaultKey ? this.statValue(card[defaultKey]) : null;
+
+    return this.currentOrPrintedVariableStatValue(this.statValue(card[key]), printedValue);
+  }
+
+  private activeFaceVisualStatValue(currentValue: GameCardStatValue, printedValue: GameCardStatValue): GameCardStatValue {
+    if (typeof printedValue !== 'string' || !this.isVariablePrintedStat(printedValue)) {
+      return printedValue;
+    }
+
+    return this.currentOrPrintedVariableStatValue(currentValue, printedValue);
+  }
+
+  private currentOrPrintedVariableStatValue(currentValue: GameCardStatValue, printedValue: GameCardStatValue): GameCardStatValue {
+    if (typeof printedValue === 'string' && this.isVariablePrintedStat(printedValue) && currentValue === 0) {
+      return printedValue;
+    }
+
+    return currentValue ?? printedValue;
+  }
+
+  private statValue(value: string | number | null | undefined): GameCardStatValue {
+    if (value === null || value === undefined || value === '') {
+      return null;
+    }
+
+    const numericValue = Number(value);
+    return Number.isFinite(numericValue) ? numericValue : value;
+  }
+
+  private isVariablePrintedStat(value: string): boolean {
+    return value.toLowerCase().includes('x') || value.includes('*');
   }
 
   private bestImageUri(imageUris: CardImageUris | Record<string, string> | null | undefined): string | null {

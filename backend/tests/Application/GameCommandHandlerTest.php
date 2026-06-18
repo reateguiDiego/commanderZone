@@ -35,6 +35,38 @@ class GameCommandHandlerTest extends TestCase
         self::assertSame(2, $graveyardCard['defaultToughness']);
     }
 
+    public function testKeepsPrintedPowerToughnessWhenCardEntersBattlefield(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->snapshot($actor->id(), [
+            'hand' => [
+                [
+                    'instanceId' => 'card-1',
+                    'name' => 'Variable Creature',
+                    'zone' => 'hand',
+                    'power' => 'X',
+                    'toughness' => '*+1',
+                    'defaultPower' => 'X',
+                    'defaultToughness' => '*+1',
+                    'tapped' => false,
+                ],
+            ],
+        ]));
+
+        (new GameCommandHandler())->apply($game, 'card.moved', [
+            'playerId' => $actor->id(),
+            'fromZone' => 'hand',
+            'toZone' => 'battlefield',
+            'instanceId' => 'card-1',
+        ], $actor);
+
+        $battlefieldCard = $game->snapshot()['players'][$actor->id()]['zones']['battlefield'][0];
+        self::assertSame(0, $battlefieldCard['power']);
+        self::assertSame(0, $battlefieldCard['toughness']);
+        self::assertSame('X', $battlefieldCard['defaultPower']);
+        self::assertSame('*+1', $battlefieldCard['defaultToughness']);
+    }
+
     public function testUntapsCardWhenItLeavesBattlefield(): void
     {
         $actor = new User('owner@example.test', 'Owner');
@@ -1342,6 +1374,124 @@ class GameCommandHandlerTest extends TestCase
         self::assertSame(4, $snapshot['players'][$actor->id()]['zones']['battlefield'][0]['loyalty']);
         self::assertSame(3, $snapshot['players'][$actor->id()]['zones']['battlefield'][0]['defaultLoyalty']);
         self::assertSame('Adept loyalty increased from 3 to 4 (+1).', $snapshot['eventLog'][0]['message']);
+    }
+
+    public function testChangesBattleDefense(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->snapshot($actor->id(), [
+            'battlefield' => [
+                [
+                    ...$this->card('card-1', 'Invasion of Zendikar', 'battlefield', 0, 0, 0, 0),
+                    'defense' => 5,
+                ],
+            ],
+        ]));
+
+        (new GameCommandHandler())->apply($game, 'card.power_toughness.changed', [
+            'playerId' => $actor->id(),
+            'zone' => 'battlefield',
+            'instanceId' => 'card-1',
+            'defense' => 6,
+        ], $actor);
+
+        $snapshot = $game->snapshot();
+        self::assertSame(6, $snapshot['players'][$actor->id()]['zones']['battlefield'][0]['defense']);
+        self::assertSame('Invasion of Zendikar defense increased from 5 to 6 (+1).', $snapshot['eventLog'][0]['message']);
+    }
+
+    public function testChangesSagaChapter(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->snapshot($actor->id(), [
+            'battlefield' => [
+                [
+                    ...$this->card('card-1', 'Binding the Old Gods', 'battlefield', 0, 0, 0, 0),
+                    'typeLine' => 'Enchantment - Saga',
+                    'saga' => 1,
+                ],
+            ],
+        ]));
+
+        (new GameCommandHandler())->apply($game, 'card.power_toughness.changed', [
+            'playerId' => $actor->id(),
+            'zone' => 'battlefield',
+            'instanceId' => 'card-1',
+            'saga' => 2,
+        ], $actor);
+
+        $snapshot = $game->snapshot();
+        self::assertSame(2, $snapshot['players'][$actor->id()]['zones']['battlefield'][0]['saga']);
+        self::assertSame('Binding the Old Gods saga increased to II.', $snapshot['eventLog'][0]['message']);
+    }
+
+    public function testSagaZeroDeltaUsesShortMessage(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $game = new Game(new Room($actor), $this->snapshot($actor->id(), [
+            'battlefield' => [
+                [
+                    ...$this->card('card-1', 'Binding the Old Gods', 'battlefield', 0, 0, 0, 0),
+                    'typeLine' => 'Enchantment - Saga',
+                    'saga' => 2,
+                ],
+            ],
+        ]));
+
+        (new GameCommandHandler())->apply($game, 'card.power_toughness.changed', [
+            'playerId' => $actor->id(),
+            'zone' => 'battlefield',
+            'instanceId' => 'card-1',
+            'saga' => 2,
+        ], $actor);
+
+        $snapshot = $game->snapshot();
+        self::assertSame('Binding the Old Gods saga increased to II.', $snapshot['eventLog'][0]['message']);
+    }
+
+    public function testClampsBattleDefenseRange(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+
+        $highGame = new Game(new Room($actor), $this->snapshot($actor->id(), [
+            'battlefield' => [
+                [
+                    ...$this->card('card-1', 'Invasion of Zendikar', 'battlefield', 0, 0, 0, 0),
+                    'defense' => 5,
+                ],
+            ],
+        ]));
+
+        (new GameCommandHandler())->apply($highGame, 'card.power_toughness.changed', [
+            'playerId' => $actor->id(),
+            'zone' => 'battlefield',
+            'instanceId' => 'card-1',
+            'defense' => 120,
+        ], $actor);
+
+        $highSnapshot = $highGame->snapshot();
+        self::assertSame(99, $highSnapshot['players'][$actor->id()]['zones']['battlefield'][0]['defense']);
+        self::assertSame('Invasion of Zendikar defense increased from 5 to 99 (+94).', $highSnapshot['eventLog'][0]['message']);
+
+        $lowGame = new Game(new Room($actor), $this->snapshot($actor->id(), [
+            'battlefield' => [
+                [
+                    ...$this->card('card-1', 'Invasion of Zendikar', 'battlefield', 0, 0, 0, 0),
+                    'defense' => 5,
+                ],
+            ],
+        ]));
+
+        (new GameCommandHandler())->apply($lowGame, 'card.power_toughness.changed', [
+            'playerId' => $actor->id(),
+            'zone' => 'battlefield',
+            'instanceId' => 'card-1',
+            'defense' => -5,
+        ], $actor);
+
+        $lowSnapshot = $lowGame->snapshot();
+        self::assertSame(-1, $lowSnapshot['players'][$actor->id()]['zones']['battlefield'][0]['defense']);
+        self::assertSame('Invasion of Zendikar defense decreased from 5 to -1 (-6).', $lowSnapshot['eventLog'][0]['message']);
     }
 
     public function testClearsManualPowerToughness(): void
@@ -3357,6 +3507,7 @@ class GameCommandHandlerTest extends TestCase
         int $toughness,
         int $basePower,
         int $baseToughness,
+        ?int $baseDefense = null,
     ): array {
         return [
             'instanceId' => $instanceId,
@@ -3366,6 +3517,7 @@ class GameCommandHandlerTest extends TestCase
             'toughness' => $toughness,
             'defaultPower' => $basePower,
             'defaultToughness' => $baseToughness,
+            'defaultDefense' => $baseDefense,
             'tapped' => false,
         ];
     }

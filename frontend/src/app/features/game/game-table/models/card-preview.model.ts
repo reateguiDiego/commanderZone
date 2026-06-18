@@ -40,6 +40,8 @@ export interface CardPreviewPowerToughnessInfo {
 
 export interface CardPreviewCardStateInfo {
   readonly powerToughness: CardPreviewPowerToughnessInfo | null;
+  readonly battle: number | null;
+  readonly saga: number | null;
   readonly loyalty: number | null;
   readonly counters: readonly CardPreviewCounterItem[];
 }

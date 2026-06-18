@@ -372,6 +372,8 @@ describe('GameTableDragService', () => {
     const source = document.createElement('button');
     source.className = 'game-card tapped';
     source.textContent = 'Tapped Card';
+    Object.defineProperty(source, 'offsetWidth', { value: 116 });
+    Object.defineProperty(source, 'offsetHeight', { value: 162 });
     source.getBoundingClientRect = () => ({
       ...rect(20, 140),
       y: 30,
@@ -402,12 +404,12 @@ describe('GameTableDragService', () => {
       const [dragImage, offsetX, offsetY] = dataTransfer.setDragImage.mock.calls[0]!;
       const preview = dragImage as HTMLElement;
 
-      expect(preview.style.width).toBe('140px');
-      expect(preview.style.height).toBe('100px');
+      expect(preview.style.width).toBe('116px');
+      expect(preview.style.height).toBe('162px');
       expect(preview.style.transform).toBe('none');
       expect(preview.querySelector('.game-card.tapped')).not.toBeNull();
-      expect(offsetX).toBe(35);
-      expect(offsetY).toBe(35);
+      expect(offsetX).toBe(29);
+      expect(offsetY).toBeCloseTo(56.7, 1);
     } finally {
       source.remove();
     }

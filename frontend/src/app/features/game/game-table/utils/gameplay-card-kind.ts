@@ -58,6 +58,18 @@ export function isDayNightCard(card: Pick<GameCardInstance, 'layout' | 'name'> |
     && card.layout?.trim().toLowerCase() === 'double_faced_token';
 }
 
+export function isBattleCard(
+  card: Pick<GameCardInstance, 'typeLine' | 'cardFaces' | 'activeFaceIndex'> | null | undefined,
+): boolean {
+  return activeCardTypeLine(card).startsWith('battle');
+}
+
+export function isSagaCard(
+  card: Pick<GameCardInstance, 'typeLine' | 'cardFaces' | 'activeFaceIndex'> | null | undefined,
+): boolean {
+  return activeCardTypeLine(card).includes('saga');
+}
+
 export function isMonarchCard(card: Pick<GameCardInstance, 'layout'> | null | undefined): boolean {
   return card?.layout?.trim().toLowerCase() === 'monarch';
 }
@@ -95,4 +107,20 @@ export function isBattlefieldMechanicOverlayCard(card: GameCardInstance | null |
     || isMonarchCard(card)
     || isInitiativeCard(card)
     || isEmblemCard(card);
+}
+
+function activeCardTypeLine(card: Pick<GameCardInstance, 'typeLine' | 'cardFaces' | 'activeFaceIndex'> | null | undefined): string {
+  const faces = card?.cardFaces ?? [];
+  if (faces.length > 0) {
+    const requestedIndex = Number.isInteger(card?.activeFaceIndex) ? Number(card?.activeFaceIndex) : 0;
+    const activeIndex = Math.max(0, Math.min(faces.length - 1, requestedIndex));
+    const faceTypeLine = faces[activeIndex]?.typeLine?.trim().toLowerCase();
+    if (faceTypeLine) {
+      return faceTypeLine;
+    }
+
+    return '';
+  }
+
+  return card?.typeLine?.trim().toLowerCase() ?? '';
 }

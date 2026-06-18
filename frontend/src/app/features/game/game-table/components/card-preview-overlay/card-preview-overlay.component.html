@@ -1,17 +1,26 @@
 @let style = previewStyle();
+@let visualStyle = previewVisualStyle();
 
 <aside
   class="card-preview-overlay"
   [style.left.px]="style.left"
   [style.top.px]="style.top"
   [style.width.px]="style.width"
+  [style.height.px]="style.height"
   aria-live="polite"
 >
-  <div class="card-preview-visual" [class.face-flipping]="faceFlipAnimating()">
+  <div
+    class="card-preview-visual"
+    [style.width.px]="visualStyle.width"
+    [style.height.px]="visualStyle.height"
+    [class.face-flipping]="faceFlipAnimating()"
+    [class.preview-mode-horizontal]="previewMode() === 'horizontal'"
+    [class.preview-mode-vertical]="previewMode() === 'vertical'"
+  >
     @if (image(); as cardImage) {
-      <img [src]="cardImage" [alt]="card().name" />
+      <img [src]="cardImage" [alt]="card().name" [class.battle-preview-rotated]="battlePreviewRotated()" />
     } @else {
-      <span class="card-preview-fallback">{{ card().name }}</span>
+      <span class="card-preview-fallback" [class.battle-preview-rotated]="battlePreviewRotated()">{{ card().name }}</span>
     }
     @if (dungeonMarker(); as marker) {
       <app-dungeon-location-pin [marker]="marker" [size]="dungeonPinSize()" />
@@ -61,9 +70,29 @@
                   <span>{{ powerToughness.toughness }}</span>
                 </span>
               </div>
-            }
-
-            @if (stateInfo.loyalty !== null) {
+            } @else if (stateInfo.battle !== null) {
+              <div class="attachment-preview-row">
+                <span class="attachment-preview-label">{{ 'game.cardPreviewOverlay.current' | runtimeTranslate }}</span>
+                <app-battle-counter
+                  class="preview-battle-counter"
+                  [inline]="true"
+                  [value]="stateInfo.battle"
+                  [pulse]="null"
+                  [entrySettling]="false"
+                />
+              </div>
+            } @else if (stateInfo.saga !== null) {
+              <div class="attachment-preview-row">
+                <span class="attachment-preview-label">{{ 'game.cardPreviewOverlay.current' | runtimeTranslate }}</span>
+                <app-saga-counter
+                  class="preview-saga-counter"
+                  [inline]="true"
+                  [value]="stateInfo.saga"
+                  [pulse]="null"
+                  [entrySettling]="false"
+                />
+              </div>
+            } @else if (stateInfo.loyalty !== null) {
               <div class="attachment-preview-row">
                 <span class="attachment-preview-label">{{ 'game.cardPreviewOverlay.current' | runtimeTranslate }}</span>
                 <app-loyalty-counter

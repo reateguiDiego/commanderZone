@@ -827,6 +827,24 @@ class GameWebsocketPatchBuilderTest extends TestCase
         self::assertSame('card.stats.set', $stats['operations'][0]['op']);
         self::assertSame(6, $stats['operations'][0]['power']);
         self::assertSame(7, $stats['operations'][0]['toughness']);
+
+        $battle = $this->applyAndBuildProjected($game, $actor, 'card.power_toughness.changed', [
+            'playerId' => $actor->id(),
+            'zone' => 'battlefield',
+            'instanceId' => 'advanced-1',
+            'defense' => 8,
+        ], 'action-card-stats', $actor);
+        self::assertSame('card.stats.set', $battle['operations'][0]['op']);
+        self::assertSame(8, $battle['operations'][0]['defense']);
+
+        $saga = $this->applyAndBuildProjected($game, $actor, 'card.power_toughness.changed', [
+            'playerId' => $actor->id(),
+            'zone' => 'battlefield',
+            'instanceId' => 'advanced-1',
+            'saga' => 3,
+        ], 'action-card-stats', $actor);
+        self::assertSame('card.stats.set', $saga['operations'][0]['op']);
+        self::assertSame(3, $saga['operations'][0]['saga']);
     }
 
     public function testControllerChangeMovesCardWithoutChangingOwner(): void

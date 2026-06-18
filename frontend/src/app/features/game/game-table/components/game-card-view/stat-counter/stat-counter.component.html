@@ -1,0 +1,22 @@
+<span
+  [class]="containerClass()"
+  role="button"
+  tabindex="0"
+  [title]="titleTranslation() | runtimeTranslate"
+  [attr.aria-label]="ariaLabelTranslation() | runtimeTranslate"
+  [class.stat-pulse-increase]="pulse() === 'increase'"
+  [class.stat-pulse-decrease]="pulse() === 'decrease'"
+  [class.entry-settling]="entrySettling()"
+  (pointerdown)="stopPointer($event)"
+  (pointerup)="changeFromPointer($event)"
+  (dblclick)="stopDoubleClick($event)"
+  (click)="stopClick($event)"
+  (contextmenu)="stopContextMenu($event)"
+>
+  @if (iconClass()) {
+    <span [class]="shapeClass() + ' ' + iconClass()" aria-hidden="true"></span>
+  } @else {
+    <img [class]="shapeClass()" [src]="icon()" alt="" aria-hidden="true" />
+  }
+  <span [class]="valueClass()">{{ value() }}</span>
+</span>

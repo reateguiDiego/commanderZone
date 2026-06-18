@@ -207,15 +207,17 @@ export type GameSnapshotPatchOperation =
       instanceId: string;
       counters: GameCardInstance['counters'];
     }
-  | {
-      op: 'card.stats.set';
-      playerId: string;
-      zone: GameZoneName;
-      instanceId: string;
-      power?: GameCardInstance['power'];
-      toughness?: GameCardInstance['toughness'];
-      loyalty?: GameCardInstance['loyalty'];
-    }
+    | {
+        op: 'card.stats.set';
+        playerId: string;
+        zone: GameZoneName;
+        instanceId: string;
+        power?: GameCardInstance['power'];
+        toughness?: GameCardInstance['toughness'];
+        loyalty?: GameCardInstance['loyalty'];
+        defense?: GameCardInstance['defense'];
+        saga?: GameCardInstance['saga'];
+      }
   | {
       op: 'cards.state.set';
       playerId: string;

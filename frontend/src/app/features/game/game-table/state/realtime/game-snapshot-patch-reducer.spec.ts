@@ -280,6 +280,27 @@ describe('game snapshot patch reducer', () => {
     expect(player.sleevesName).toBe('custom-sleeves');
   });
 
+  it('applies defense and saga stat patches alongside existing stats', () => {
+    const snapshot = snapshotFixture();
+
+    const result = applyGameSnapshotPatch(snapshot, patch([
+      {
+        op: 'card.stats.set',
+        playerId: 'player-1',
+        zone: 'battlefield',
+        instanceId: 'battlefield-1',
+        defense: 7,
+        saga: 3,
+      },
+    ]));
+
+    expect(result.status).toBe('applied');
+    expect(result.snapshot.players['player-1'].zones.battlefield[0]).toEqual(expect.objectContaining({
+      defense: 7,
+      saga: 3,
+    }));
+  });
+
   it('updates turn and timer without requiring a full snapshot replacement', () => {
     const snapshot = snapshotFixture();
 

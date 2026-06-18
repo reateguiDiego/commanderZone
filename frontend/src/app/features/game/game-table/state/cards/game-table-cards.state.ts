@@ -1,5 +1,5 @@
 import { inject, Injectable } from '@angular/core';
-import { GameCardInstance, GameCommandType, GameSnapshot, GameZoneName } from '../../../../../core/models/game.model';
+import { GameCardInstance, GameCardStatValue, GameCommandType, GamePowerToughnessValue, GameSnapshot, GameZoneName } from '../../../../../core/models/game.model';
 import { PendingCardCounterCommand } from '../../models/game-table-card.model';
 import { GameTableCoreState } from '../core/game-table-core.state';
 import { GameTableSnapshotSelectors, PlayerView } from '../core/game-table-snapshot-selectors';
@@ -53,12 +53,20 @@ export class GameTableCardsState {
     return this.selectors.shouldShowPowerToughness(card);
   }
 
-  cardPowerValue(card: GameCardInstance): number | null {
+  cardPowerValue(card: GameCardInstance): GamePowerToughnessValue {
     return this.selectors.cardPowerValue(card);
   }
 
-  cardToughnessValue(card: GameCardInstance): number | null {
+  cardToughnessValue(card: GameCardInstance): GamePowerToughnessValue {
     return this.selectors.cardToughnessValue(card);
+  }
+
+  cardLoyaltyValue(card: GameCardInstance): GameCardStatValue {
+    return this.selectors.cardLoyaltyValue(card);
+  }
+
+  cardBattleValue(card: GameCardInstance): GameCardStatValue {
+    return this.selectors.cardBattleValue(card);
   }
 
   countItems(count: number): number[] {

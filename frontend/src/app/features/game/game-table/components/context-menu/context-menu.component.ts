@@ -9,7 +9,7 @@ import { playerIsDefeated } from '../../utils/game-player-defeat';
 import { contextMenuDisplayLabel } from './context-menu-label';
 import { ManaSourceSuggestion } from '../../utils/mana-source-detector';
 import { ManaSymbolsComponent } from '../../../../../shared/mana/mana-symbols/mana-symbols.component';
-import { gameplayCardKind, isDayNightCard, isInitiativeCard, isMonarchCard, isTheRingCard } from '../../utils/gameplay-card-kind';
+import { gameplayCardKind, isDayNightCard, isInitiativeCard, isMonarchCard, isSagaCard, isTheRingCard } from '../../utils/gameplay-card-kind';
 import { ventureCardKind, VentureCardKind } from '../../utils/venture-card-kind';
 
 export type ContextMenuAction =
@@ -412,6 +412,13 @@ export class ContextMenuComponent {
     return currentMenu.kind === 'card'
       && currentMenu.zone === 'battlefield'
       && isTheRingCard(currentMenu.card);
+  }
+
+  canTapCardAction(): boolean {
+    const currentMenu = this.menu();
+
+    return this.showsBattlefieldCardActions()
+      && !!currentMenu.card;
   }
 
   dayNightMode(): 'day' | 'night' {
