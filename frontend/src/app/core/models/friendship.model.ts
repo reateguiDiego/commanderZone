@@ -23,7 +23,6 @@ export interface Friendship {
 
 export interface FriendSearchResult {
   id: string;
-  email: string;
   displayName: string;
   displayNameStyle?: UserDisplayNameStyle;
   friendshipStatus: FriendshipStatus | null;

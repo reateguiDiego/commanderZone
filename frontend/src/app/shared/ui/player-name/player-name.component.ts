@@ -5,6 +5,7 @@ import { DEFAULT_PREMIUM_NAME_COLOR, displayNameStylePreset } from '../../../cor
 
 type PlayerNameSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
 type PlayerNamePlateSize = 'micro' | PlayerNameSize;
+type PlayerNameAlign = 'center' | 'left';
 type PlayerNameLengthClass =
   | 'name-length-tiny'
   | 'name-length-short'
@@ -156,6 +157,7 @@ export class PlayerNameComponent {
   readonly plateLabelWidth = input<string | null>(null);
   readonly platePadding = input<string | null>(null);
   readonly fill = input(false);
+  readonly align = input<PlayerNameAlign>('center');
 
   readonly preset = computed(() => displayNameStylePreset(this.nameStyle()));
   readonly label = computed(() => this.displayName().trim() || 'Player');
@@ -173,8 +175,9 @@ export class PlayerNameComponent {
   readonly platePaddingValue = computed(() => this.platePadding()?.trim() || this.plateMetrics().padding);
   readonly classValue = computed(() => {
     const fillClass = this.fill() ? ' fill' : '';
+    const alignClass = ` align-${this.align()}`;
 
-    return `player-name-shell size-${this.size()} plate-size-${this.resolvedPlateSize()} name-style-${this.preset().id} ${this.lengthClass()}${fillClass}`;
+    return `player-name-shell size-${this.size()} plate-size-${this.resolvedPlateSize()} name-style-${this.preset().id} ${this.lengthClass()}${fillClass}${alignClass}`;
   });
   readonly textColor = computed(() => this.nameStyle()?.textColor ?? DEFAULT_PREMIUM_NAME_COLOR);
   readonly nameplateUrl = computed(() => {

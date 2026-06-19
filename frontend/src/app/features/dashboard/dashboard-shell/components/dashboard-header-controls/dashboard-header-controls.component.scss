@@ -1,5 +1,10 @@
 :host {
+  --friends-notification-pulse-duration: 2.4s;
+
   display: block;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .user-strip {
@@ -8,182 +13,245 @@
   align-items: center;
   gap: 0.55rem;
   flex: 0 0 auto;
+  flex-wrap: nowrap;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
   color: var(--muted);
+}
+
+app-player-info {
+  flex: 0 1 16.2rem;
+  width: 16.2rem;
+  min-width: 0;
+  max-width: 16.2rem;
 }
 
 .friends-dropdown {
   position: relative;
+  flex: 0 0 auto;
 }
 
-.friends-trigger {
+.friends-action {
   position: relative;
-  display: flex;
-  align-items: center;
-  gap: 0.62rem;
-  min-width: 19.5rem;
-  min-height: 3.35rem;
-  padding: 0.32rem 0.78rem 0.32rem 0.38rem;
-  border: 0;
-  border-radius: 999px;
-  background: transparent;
-  color: inherit;
-  cursor: pointer;
-  box-shadow: none;
-}
-
-.friends-trigger.has-requests {
-  animation: friend-request-pulse 2.6s ease-in-out infinite;
-}
-
-.friends-trigger:hover,
-.friends-dropdown.open .friends-trigger {
-  background:
-    radial-gradient(circle at 16% 50%, rgb(var(--cz-text-rgb) / 16%), transparent 44%),
-    rgb(var(--cz-bg-rgb) / 42%);
-  color: var(--text);
-  box-shadow:
-    inset 0 1px 0 rgb(var(--cz-text-rgb) / 6%),
-    0 0.8rem 1.6rem rgb(var(--cz-bg-rgb) / 18%),
-    0 0 1rem rgb(var(--cz-primary-rgb) / 10%);
-}
-
-.friends-trigger-avatar {
-  filter: drop-shadow(0 0 0.55rem rgb(var(--cz-primary-rgb) / 18%));
-}
-
-.friends-trigger app-player-name {
-  flex: 1 1 auto;
-  min-width: 0;
-  max-width: none;
-}
-
-.online-badge {
   display: inline-grid;
   place-items: center;
-  min-width: 1.15rem;
-  height: 1.15rem;
-  padding: 0 0.25rem;
-  border-radius: 999px;
-  background: var(--cz-success);
-  color: var(--cz-on-accent);
-  font-size: 0.72rem;
-  font-weight: 850;
-  box-shadow: 0 0 12px rgb(var(--cz-success-rgb) / 58%);
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  line-height: 0;
+}
+
+.friends-action lucide-icon {
+  display: grid;
+  place-items: center;
+  color: var(--cz-success);
+}
+
+.friends-action.has-notifications {
+  animation: friends-action-notification var(--friends-notification-pulse-duration) ease-in-out infinite;
 }
 
 .request-badge {
   position: absolute;
-  top: -0.48rem;
-  left: -0.55rem;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.15rem;
-  min-width: 1.35rem;
+  top: -0.45rem;
+  right: -0.45rem;
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.15rem;
   height: 1.15rem;
-  padding: 0 0.28rem;
-  border: 1px solid rgb(var(--cz-accent-rgb) / 58%);
+  padding: 0 0.24rem;
   border-radius: 999px;
-  background: var(--cz-accent);
+  background: var(--cz-info);
   color: var(--cz-on-accent);
   font-size: 0.68rem;
   font-weight: 850;
-  box-shadow: 0 0 13px rgb(var(--cz-accent-rgb) / 52%);
+  line-height: 1;
+  box-shadow: 0 0 13px rgb(var(--cz-info-rgb) / 52%);
+  animation: notification-badge-pulse var(--friends-notification-pulse-duration) ease-in-out infinite;
+}
+
+.online-count-badge {
+  position: absolute;
+  right: -0.38rem;
+  bottom: -0.38rem;
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.15rem;
+  height: 1.15rem;
+  padding: 0 0.24rem;
+  border: 1px solid rgb(var(--cz-bg-rgb) / 86%);
+  border-radius: 999px;
+  background: var(--cz-success);
+  color: var(--cz-on-accent);
+  font-size: 0.66rem;
+  font-weight: 900;
+  line-height: 1;
+  box-shadow: 0 0 12px rgb(var(--cz-success-rgb) / 52%);
 }
 
 .friends-dropdown app-friends-dropdown {
   position: absolute;
   top: calc(100% + 0.55rem);
   right: 0;
-  z-index: 20;
+  z-index: 302;
 }
 
-@keyframes friend-request-pulse {
-  0%,
-  100% {
-    box-shadow: 0 0 0 rgb(var(--cz-accent-rgb) / 0%);
-  }
-
-  50% {
-    box-shadow: 0 0 0 4px rgb(var(--cz-accent-rgb) / 10%);
-  }
+.friends-dropdown.open::before,
+.friends-dropdown.open::after {
+  content: '';
+  position: absolute;
+  right: 0.78rem;
+  top: calc(100% - 0.18rem);
+  width: 1.24rem;
+  height: 0.78rem;
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+  pointer-events: none;
 }
 
-@media (max-width: 720px) {
+.friends-dropdown.open::before {
+  z-index: 399;
+  background: rgb(var(--cz-primary-rgb) / 48%);
+}
+
+.friends-dropdown.open::after {
+  z-index: 400;
+  width: 1.06rem;
+  height: 0.67rem;
+  right: 0.87rem;
+  top: calc(100% - 0.09rem);
+  background:
+    radial-gradient(circle at 50% 0%, rgb(var(--cz-primary-rgb) / 24%), transparent 58%),
+    linear-gradient(145deg, rgb(var(--cz-surface-rgb) / 96%), rgb(var(--cz-bg-rgb) / 98%));
+}
+
+@media (max-width: 980px) {
   :host {
     width: 100%;
+    max-width: 100%;
+    min-width: 0;
   }
 
   .user-strip {
-    justify-content: space-between;
-    align-self: stretch;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-self: center;
     gap: 0.42rem;
+    align-items: center;
+    justify-items: end;
     width: 100%;
+    max-width: 100%;
+    min-width: 0;
     border: 0;
-    background: transparent;
+    background: none;
     box-shadow: none;
+  }
+
+  app-player-info {
+    grid-column: 1;
+    grid-row: 1;
+    display: block;
+    justify-self: center;
+    align-self: center;
+    width: min(16rem, 100%);
+    min-width: 0;
+    max-width: min(16rem, 48vw);
   }
 
   .friends-dropdown {
-    flex: 1 1 auto;
-    min-width: 0;
+    grid-column: 2;
+    grid-row: 1;
+    align-self: center;
   }
 
-  .friends-trigger {
-    width: 100%;
-    gap: 0.42rem;
-    min-width: 0;
-    min-height: 2.8rem;
-    padding: 0.24rem 0.48rem 0.24rem 0.28rem;
+  app-header-user-menu {
+    grid-column: 3;
+    grid-row: 1;
+    align-self: center;
   }
 
-  .friends-trigger:hover,
-  .friends-dropdown.open .friends-trigger {
-    background: transparent;
-    box-shadow: none;
+  .friends-dropdown app-friends-dropdown {
+    top: calc(100% + 0.55rem);
+    right: calc(-2.75rem - 0.42rem);
+    left: auto;
   }
 
-  .friends-trigger app-player-name {
-    width: min(10.4rem, 100%);
-  }
-
-  .online-badge {
-    min-width: 1rem;
-    height: 1rem;
-    padding: 0 0.2rem;
-    font-size: 0.62rem;
+  .friends-action {
+    min-width: 2.65rem;
+    min-height: 2.65rem;
   }
 
   .request-badge {
-    top: -0.38rem;
-    left: -0.42rem;
-    min-width: 1.15rem;
+    top: -0.36rem;
+    right: -0.36rem;
+    min-width: 1rem;
     height: 1rem;
     font-size: 0.6rem;
   }
-}
 
-@media (max-width: 430px) {
-  .friends-trigger {
-    gap: 0.34rem;
-    padding-right: 0.38rem;
-  }
-
-  .friends-trigger app-player-name {
-    width: min(9.4rem, 100%);
+  .online-count-badge {
+    right: -0.3rem;
+    bottom: -0.3rem;
+    min-width: 1rem;
+    height: 1rem;
+    font-size: 0.58rem;
   }
 }
 
 @media (max-width: 1400px), (orientation: portrait) {
-  .user-strip,
   .friends-dropdown {
-    position: static;
+    position: relative;
   }
 
   .friends-dropdown app-friends-dropdown {
     position: absolute;
     top: calc(100% + 0.55rem);
-    right: 0.75rem;
-    left: 0.75rem;
-    z-index: 300;
+    right: 0;
+    left: auto;
+  }
+
+  .friends-dropdown.open::after {
+    display: block;
+  }
+
+  .friends-dropdown.open::before {
+    display: block;
+  }
+}
+
+@media (max-width: 980px) {
+  .friends-dropdown app-friends-dropdown {
+    right: calc(-2.75rem - 0.42rem);
+  }
+}
+
+@keyframes notification-badge-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 13px rgb(var(--cz-info-rgb) / 52%);
+  }
+
+  45% {
+    transform: scale(1.08);
+    box-shadow:
+      0 0 13px rgb(var(--cz-info-rgb) / 58%),
+      0 0 0 0.32rem rgb(var(--cz-info-rgb) / 14%);
+  }
+}
+
+@keyframes friends-action-notification {
+  0%,
+  100% {
+    border-color: rgb(var(--cz-text-rgb) / 14%);
+    box-shadow: none;
+    transform: translateY(0);
+  }
+
+  45% {
+    border-color: rgb(var(--cz-info-rgb) / 55%);
+    box-shadow:
+      0 0 0 0.24rem rgb(var(--cz-info-rgb) / 12%),
+      0 0.65rem 1.25rem rgb(var(--cz-info-rgb) / 12%);
+    transform: translateY(-1px);
   }
 }

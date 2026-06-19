@@ -31,7 +31,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(type: 'string', length: 180, nullable: true)]
     private ?string $pendingEmail = null;
 
-    #[ORM\Column(type: 'string', length: 25)]
+    #[ORM\Column(type: 'string', length: 20)]
     private string $displayName;
 
     #[ORM\Column(type: 'string', length: 48)]

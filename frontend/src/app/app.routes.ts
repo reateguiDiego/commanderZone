@@ -92,6 +92,12 @@ export const routes: Routes = [
         data: { pageKey: 'cardDetail' },
       },
       {
+        path: 'community',
+        loadComponent: () => import('./features/community/community-page/community-page.component')
+          .then((component) => component.CommunityPageComponent),
+        data: { pageKey: 'community' },
+      },
+      {
         path: 'decks',
         loadComponent: () => import('./features/decks/deck-list/deck-list.component')
           .then((component) => component.DeckListComponent),

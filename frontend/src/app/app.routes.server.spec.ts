@@ -66,6 +66,7 @@ describe('server routes', () => {
       'dashboard',
       'cards',
       'cards/:scryfallId',
+      'community',
       'decks',
       'decks/:id',
       'rooms',

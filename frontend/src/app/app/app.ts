@@ -94,6 +94,7 @@ export class App {
 
     return [
       'cards',
+      'community',
       'dashboard',
       'decks',
       'rooms',
@@ -112,6 +113,7 @@ export class App {
     return [
       'auth',
       'cards',
+      'community',
       'dashboard',
       'decks',
       'email-verification',

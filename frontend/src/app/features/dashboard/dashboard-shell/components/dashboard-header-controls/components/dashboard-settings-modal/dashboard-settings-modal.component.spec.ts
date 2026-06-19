@@ -213,6 +213,16 @@ describe('DashboardSettingsModalComponent', () => {
     expect(fixture.componentInstance.avatarEditorOpen()).toBe(false);
   });
 
+  it('opens directly in avatar editor from launch target', () => {
+    const fixture = TestBed.createComponent(DashboardSettingsModalComponent);
+    fixture.componentRef.setInput('launchTarget', 'avatar');
+    fixture.componentRef.setInput('open', true);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.avatarEditorOpen()).toBe(true);
+    expect(fixture.componentInstance.displayNameStyleEditorOpen()).toBe(false);
+  });
+
   it('opens name style editor and persists selected preset through the API', async () => {
     const fixture = TestBed.createComponent(DashboardSettingsModalComponent);
     fixture.componentRef.setInput('open', true);
@@ -226,6 +236,16 @@ describe('DashboardSettingsModalComponent', () => {
     expect(authApiMock.updateDisplayNameStyle).toHaveBeenCalledWith({ presetId: 'obsidian-crown', textColor: '#ffeeaa' });
     expect(authStoreMock.loadMe).toHaveBeenCalled();
     expect(fixture.componentInstance.displayNameStyleEditorOpen()).toBe(false);
+  });
+
+  it('opens directly in name style editor from launch target', () => {
+    const fixture = TestBed.createComponent(DashboardSettingsModalComponent);
+    fixture.componentRef.setInput('launchTarget', 'name-style');
+    fixture.componentRef.setInput('open', true);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.displayNameStyleEditorOpen()).toBe(true);
+    expect(fixture.componentInstance.avatarEditorOpen()).toBe(false);
   });
 
   it('asks for inline confirmation before deleting the account', () => {

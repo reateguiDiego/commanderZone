@@ -110,7 +110,7 @@
 
             <label>
               {{ 'settings.dashboardSettingsModal.userName' | runtimeTranslate }}
-              <input type="text" autocomplete="nickname" formControlName="displayName" maxlength="25" />
+              <input type="text" autocomplete="nickname" formControlName="displayName" maxlength="20" />
               <span class="field-feedback">
                 @if (displayNameInvalid()) {
                   <span class="field-error">{{ 'settings.dashboardSettingsModal.userNameEntre4Y25Caracteres' | runtimeTranslate }}</span>

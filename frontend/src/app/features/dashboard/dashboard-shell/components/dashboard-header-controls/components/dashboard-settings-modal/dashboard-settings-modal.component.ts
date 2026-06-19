@@ -22,6 +22,7 @@ import { SettingsAvatarUploadComponent } from '../../../../../settings/settings-
 type SettingsTab = 'general' | 'game';
 type FieldAvailability = 'idle' | 'checking' | 'available' | 'taken' | 'error';
 type AvatarTierTab = 'basic' | 'premium';
+export type SettingsLaunchTarget = 'general' | 'avatar' | 'name-style';
 
 interface ProfileSnapshot {
   readonly email: string;
@@ -35,8 +36,8 @@ interface ThemeOptionViewModel extends AppTheme {
 }
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-const USER_NAME_MIN_LENGTH = 4;
-const USER_NAME_MAX_LENGTH = 25;
+const USER_NAME_MIN_LENGTH = 2;
+const USER_NAME_MAX_LENGTH = 20;
 const DEFAULT_INITIAL_BACKGROUND_COLOR = '#edcd83';
 const DEFAULT_INITIAL_TEXT_COLOR = '#16120a';
 
@@ -66,6 +67,7 @@ export class DashboardSettingsModalComponent {
   private wasOpen = false;
 
   readonly open = input(false);
+  readonly launchTarget = input<SettingsLaunchTarget>('general');
   readonly closeRequested = output<void>();
   readonly accountDeleted = output<void>();
 
@@ -176,8 +178,12 @@ export class DashboardSettingsModalComponent {
     this.trackUserNameAvailability();
     effect(() => {
       const isOpen = this.open();
+      const launchTarget = this.launchTarget();
       if (isOpen && !this.wasOpen) {
         this.initializeForm();
+        this.openLaunchTarget(launchTarget);
+      } else if (isOpen && this.wasOpen && launchTarget !== 'general') {
+        this.openLaunchTarget(launchTarget);
       }
       if (!isOpen && this.wasOpen) {
         this.resetLocalState();
@@ -221,6 +227,17 @@ export class DashboardSettingsModalComponent {
     this.avatarEditorOpen.set(false);
     this.avatarUploadOpen.set(false);
     this.displayNameStyleEditorOpen.set(true);
+  }
+
+  private openLaunchTarget(target: SettingsLaunchTarget): void {
+    if (target === 'avatar') {
+      this.openAvatarEditor();
+      return;
+    }
+
+    if (target === 'name-style') {
+      this.openDisplayNameStyleEditor();
+    }
   }
 
   closeNestedEditor(): void {

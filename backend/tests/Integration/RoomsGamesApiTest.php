@@ -477,8 +477,9 @@ class RoomsGamesApiTest extends ApiTestCase
         $previousOwnerToken = $this->registerAndLogin('single-invite-previous-owner@example.test', 'Prev Invite Owner');
         $inviteOwnerToken = $this->registerAndLogin('single-invite-owner@example.test', 'Single Invite Owner');
         $playerToken = $this->registerAndLogin('single-invite-player@example.test', 'Single Invite Player');
+        $playerUserId = $this->currentUserId($playerToken);
 
-        $this->jsonRequest('POST', '/friends/requests', ['email' => 'single-invite-player@example.test'], $inviteOwnerToken);
+        $this->jsonRequest('POST', '/friends/requests', ['userId' => $playerUserId], $inviteOwnerToken);
         self::assertResponseStatusCodeSame(201);
         $friendshipId = (string) $this->jsonResponse()['friendship']['id'];
         $this->jsonRequest('POST', '/friends/requests/'.$friendshipId.'/accept', token: $playerToken);
@@ -1011,6 +1012,8 @@ class RoomsGamesApiTest extends ApiTestCase
         $invitedToken = $this->registerAndLogin('privacy-invited@example.test', 'Privacy Invited');
         $participantToken = $this->registerAndLogin('privacy-participant@example.test', 'Privacy Participant');
         $outsiderToken = $this->registerAndLogin('privacy-outsider@example.test', 'Privacy Outsider');
+        $invitedUserId = $this->currentUserId($invitedToken);
+        $participantUserId = $this->currentUserId($participantToken);
 
         $ownerDeckId = $this->quickBuildDeck($ownerToken, 'Privacy Owner Deck', [
             ['scryfallId' => 'cccccccc-0000-7000-8000-000000000001', 'quantity' => 1, 'section' => 'commander'],
@@ -1021,13 +1024,13 @@ class RoomsGamesApiTest extends ApiTestCase
             ['scryfallId' => 'cccccccc-1111-7111-8111-111111111111', 'quantity' => 99, 'section' => 'main'],
         ]);
 
-        $this->jsonRequest('POST', '/friends/requests', ['email' => 'privacy-invited@example.test'], $ownerToken);
+        $this->jsonRequest('POST', '/friends/requests', ['userId' => $invitedUserId], $ownerToken);
         self::assertResponseStatusCodeSame(201);
         $invitedFriendshipId = (string) $this->jsonResponse()['friendship']['id'];
         $this->jsonRequest('POST', '/friends/requests/'.$invitedFriendshipId.'/accept', token: $invitedToken);
         self::assertResponseIsSuccessful();
 
-        $this->jsonRequest('POST', '/friends/requests', ['email' => 'privacy-participant@example.test'], $ownerToken);
+        $this->jsonRequest('POST', '/friends/requests', ['userId' => $participantUserId], $ownerToken);
         self::assertResponseStatusCodeSame(201);
         $participantFriendshipId = (string) $this->jsonResponse()['friendship']['id'];
         $this->jsonRequest('POST', '/friends/requests/'.$participantFriendshipId.'/accept', token: $participantToken);
@@ -1527,6 +1530,7 @@ class RoomsGamesApiTest extends ApiTestCase
 
         $ownerToken = $this->registerAndLogin('invite-gate-owner@example.test', 'Invite Gate Owner');
         $invitedToken = $this->registerAndLogin('invite-gate-invited@example.test', 'Invite Gate Invited');
+        $invitedAccountId = $this->currentUserId($invitedToken);
 
         $ownerDeckId = $this->quickBuildDeck($ownerToken, 'Invite Owner Deck', [
             ['scryfallId' => 'fefefefe-0000-7000-8000-000000000001', 'quantity' => 1, 'section' => 'commander'],
@@ -1536,7 +1540,7 @@ class RoomsGamesApiTest extends ApiTestCase
             ['scryfallId' => 'fefefefe-1111-7111-8111-111111111111', 'quantity' => 1, 'section' => 'main'],
         ]);
 
-        $this->jsonRequest('POST', '/friends/requests', ['email' => 'invite-gate-invited@example.test'], $ownerToken);
+        $this->jsonRequest('POST', '/friends/requests', ['userId' => $invitedAccountId], $ownerToken);
         self::assertResponseStatusCodeSame(201);
         $friendshipId = (string) $this->jsonResponse()['friendship']['id'];
         $this->jsonRequest('POST', '/friends/requests/'.$friendshipId.'/accept', token: $invitedToken);
@@ -1582,6 +1586,7 @@ class RoomsGamesApiTest extends ApiTestCase
 
         $ownerToken = $this->registerAndLogin('invite-realtime-owner@example.test', 'Invite Realtime Owner');
         $recipientToken = $this->registerAndLogin('invite-realtime-recipient@example.test', 'Invite Realtime Recipient');
+        $recipientId = $this->currentUserId($recipientToken);
 
         $ownerDeckId = $this->quickBuildDeck($ownerToken, 'Invite RT Owner Deck', [
             ['scryfallId' => 'abababab-2222-7222-8222-222222222222', 'quantity' => 1, 'section' => 'commander'],
@@ -1592,7 +1597,7 @@ class RoomsGamesApiTest extends ApiTestCase
             ['scryfallId' => 'abababab-3333-7333-8333-333333333333', 'quantity' => 99, 'section' => 'main'],
         ]);
 
-        $this->jsonRequest('POST', '/friends/requests', ['email' => 'invite-realtime-recipient@example.test'], $ownerToken);
+        $this->jsonRequest('POST', '/friends/requests', ['userId' => $recipientId], $ownerToken);
         self::assertResponseStatusCodeSame(201);
         $friendshipId = (string) $this->jsonResponse()['friendship']['id'];
         $this->jsonRequest('POST', '/friends/requests/'.$friendshipId.'/accept', token: $recipientToken);
@@ -1602,9 +1607,6 @@ class RoomsGamesApiTest extends ApiTestCase
         self::assertResponseStatusCodeSame(201);
         $roomId = (string) $this->jsonResponse()['room']['id'];
 
-        $this->jsonRequest('GET', '/me', token: $recipientToken);
-        self::assertResponseIsSuccessful();
-        $recipientId = (string) $this->jsonResponse()['user']['id'];
         $this->jsonRequest('GET', '/me', token: $ownerToken);
         self::assertResponseIsSuccessful();
         $ownerId = (string) $this->jsonResponse()['user']['id'];

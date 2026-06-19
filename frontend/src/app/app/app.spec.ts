@@ -33,6 +33,8 @@ describe('App', () => {
           { path: 'en/faq', component: EmptyRouteComponent },
           { path: 'en/play-commander-online', component: EmptyRouteComponent },
           { path: 'auth/login', component: EmptyRouteComponent },
+          { path: 'cards', component: EmptyRouteComponent },
+          { path: 'community', component: EmptyRouteComponent },
           { path: 'dashboard', component: EmptyRouteComponent },
           { path: 'decks', component: EmptyRouteComponent },
           { path: 'table-assistant', component: EmptyRouteComponent },
@@ -119,6 +121,11 @@ describe('App', () => {
     expect(fixture.nativeElement.querySelector('app-noindex-footer-disclaimer')).not.toBeNull();
 
     await router.navigateByUrl('/decks');
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('app-footer-disclaimer')).toBeNull();
+    expect(fixture.nativeElement.querySelector('app-noindex-footer-disclaimer')).not.toBeNull();
+
+    await router.navigateByUrl('/community');
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('app-footer-disclaimer')).toBeNull();
     expect(fixture.nativeElement.querySelector('app-noindex-footer-disclaimer')).not.toBeNull();

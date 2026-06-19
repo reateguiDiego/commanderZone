@@ -4,12 +4,12 @@ import { LucideAngularModule } from 'lucide-angular';
 import { PageHeaderState } from '../../../../../core/ui/page-header.store';
 
 @Component({
-  selector: 'app-dashboard-header-context',
+  selector: 'app-dashboard-page-context',
   imports: [RuntimeTranslatePipe, LucideAngularModule],
-  templateUrl: './dashboard-header-context.component.html',
-  styleUrl: './dashboard-header-context.component.scss',
+  templateUrl: './dashboard-page-context.component.html',
+  styleUrl: './dashboard-page-context.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class DashboardHeaderContextComponent {
+export class DashboardPageContextComponent {
   readonly header = input<PageHeaderState | null>(null);
 }

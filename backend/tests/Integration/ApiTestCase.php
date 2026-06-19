@@ -70,6 +70,14 @@ abstract class ApiTestCase extends WebTestCase
         return $decoded;
     }
 
+    protected function currentUserId(string $token): string
+    {
+        $this->jsonRequest('GET', '/me', token: $token);
+        self::assertResponseIsSuccessful();
+
+        return (string) $this->jsonResponse()['user']['id'];
+    }
+
     /**
      * @param list<string> $tokens
      */

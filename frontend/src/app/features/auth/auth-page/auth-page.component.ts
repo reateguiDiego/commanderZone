@@ -16,8 +16,8 @@ type EmailAvailability = 'idle' | 'checking' | 'available' | 'taken' | 'error';
 type UserNameAvailability = 'idle' | 'checking' | 'available' | 'taken' | 'error';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-const USER_NAME_MIN_LENGTH = 4;
-const USER_NAME_MAX_LENGTH = 25;
+const USER_NAME_MIN_LENGTH = 2;
+const USER_NAME_MAX_LENGTH = 20;
 
 @Component({
   selector: 'app-auth-page',

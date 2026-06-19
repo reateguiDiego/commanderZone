@@ -1,25 +1,17 @@
-import { RuntimeTranslatePipe } from '../../../core/localization/runtime-translate.pipe';
 import { ChangeDetectionStrategy, Component, HostListener, OnDestroy, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
-import { LucideAngularModule } from 'lucide-angular';
+import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { Subscription, filter } from 'rxjs';
 import { AuthStore } from '../../../core/auth/auth.store';
 import { MercureService } from '../../../core/realtime/mercure.service';
-import { AppThemeAssetsService } from '../../../core/theme/app-theme-assets.service';
 import { PageHeaderStore } from '../../../core/ui/page-header.store';
 import { FriendsStore } from '../../friends/data-access/friends.store';
 import { DashboardHeaderComponent } from './components/dashboard-header/dashboard-header.component';
+import { DashboardPageContextComponent } from './components/dashboard-page-context/dashboard-page-context.component';
 
 @Component({
   selector: 'app-dashboard-shell',
-  imports: [RuntimeTranslatePipe, 
-    RouterOutlet,
-    RouterLink,
-    RouterLinkActive,
-    LucideAngularModule,
-    DashboardHeaderComponent,
-  ],
+  imports: [RouterOutlet, DashboardHeaderComponent, DashboardPageContextComponent],
   templateUrl: './dashboard-shell.component.html',
   styleUrl: './dashboard-shell.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -29,7 +21,6 @@ export class DashboardShellComponent implements OnDestroy {
   readonly auth = inject(AuthStore);
   readonly friends = inject(FriendsStore);
   readonly pageHeader = inject(PageHeaderStore);
-  readonly themeAssets = inject(AppThemeAssetsService);
   private readonly mercure = inject(MercureService);
   private readonly router = inject(Router);
   readonly friendsOpen = signal(false);

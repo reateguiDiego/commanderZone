@@ -333,12 +333,6 @@ describe('API services', () => {
     expect(request.request.method).toBe('GET');
     request.flush({ data: [] });
 
-    friends.request('bob@example.test').subscribe();
-    request = http.expectOne(`${API_BASE_URL}/friends/requests`);
-    expect(request.request.method).toBe('POST');
-    expect(request.request.body).toEqual({ email: 'bob@example.test' });
-    request.flush({ friendship: friendshipFixture('friendship-1') });
-
     friends.requestUser('user-2').subscribe();
     request = http.expectOne(`${API_BASE_URL}/friends/requests`);
     expect(request.request.method).toBe('POST');

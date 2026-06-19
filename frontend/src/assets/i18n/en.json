@@ -47,8 +47,16 @@
   "navigation": {
     "dashboard": {
       "dashboardHome": {
-        "tuComandanteHaLlegado": "Tu comandante ha llegado",
-        "laMesaTeEstabaEsperandoHoyTus": "La mesa te estaba esperando. Hoy tus mazos, tus salas y la siguiente partida empiezan desde aquí."
+        "tuComandanteHaLlegado": "Your commanders thirst for blood",
+        "laMesaTeEstabaEsperandoHoyTus": "La mesa te estaba esperando. Hoy tus mazos, tus salas y la siguiente partida empiezan desde aquí.",
+        "bienvenido": "Welcome"
+      },
+      "dashboardTopCommanders": {
+        "title": "Top commanders",
+        "subtitle": "Most played commanders in the format",
+        "viewAll": "View more",
+        "communityPopularity": "Based on community played games",
+        "viewMore": "View more"
       },
       "dashboardHeaderContext": {
         "pageSummary": "Page summary"
@@ -61,9 +69,11 @@
       "dashboardShell": {
         "commanderzoneDashboard": "CommanderZone dashboard",
         "primary": "Primary",
+        "cards": "Cards",
         "decks": "Decks",
         "rooms": "Rooms",
-        "asistenteDeMesa": "Asistente de Mesa"
+        "asistenteDeMesa": "Asistente de Mesa",
+        "community": "Community"
       }
     },
     "friends": {
@@ -99,7 +109,7 @@
       "emailYaRegistrado": "Email ya registrado",
       "noSePudoComprobarAhora": "No se pudo comprobar ahora",
       "userName": "User name",
-      "userNameEntre4Y25Caracteres": "User name entre 4 y 25 caracteres.",
+      "userNameEntre4Y25Caracteres": "User name entre 2 y 20 caracteres.",
       "comprobandoDisponibilidad": "Comprobando disponibilidad...",
       "userNameDisponible": "User name disponible",
       "userNameNoDisponible": "User name no disponible",
@@ -899,7 +909,7 @@
       "emailYaRegistrado": "Email ya registrado",
       "noSePudoComprobarAhora": "No se pudo comprobar ahora",
       "userName": "User name",
-      "userNameEntre4Y25Caracteres": "User name entre 4 y 25 caracteres.",
+      "userNameEntre4Y25Caracteres": "User name entre 2 y 20 caracteres.",
       "comprobandoDisponibilidad": "Comprobando disponibilidad...",
       "userNameDisponible": "User name disponible",
       "userNameNoDisponible": "User name no disponible",

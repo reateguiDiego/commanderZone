@@ -1,0 +1,27 @@
+<div
+  class="player-info"
+  [class.size-xs]="size() === 'xs'"
+  [class.size-sm]="size() === 'sm'"
+  [class.size-md]="size() === 'md'"
+  [class.size-lg]="size() === 'lg'"
+  [class.size-xl]="size() === 'xl'"
+>
+  <button class="player-info-action player-info-avatar-action" type="button" (click)="avatarSelected.emit($event)">
+    <app-player-avatar
+      class="player-info-avatar"
+      [displayName]="displayName()"
+      [avatar]="avatar()"
+      [size]="sizeConfig().avatarSize"
+    />
+  </button>
+  <button class="player-info-action player-info-name-action" type="button" (click)="nameSelected.emit($event)">
+    <app-player-name
+      [displayName]="displayName()"
+      [nameStyle]="nameStyle()"
+      [size]="sizeConfig().nameSize"
+      [plateSize]="sizeConfig().plateSize"
+      [fill]="true"
+      align="left"
+    />
+  </button>
+</div>

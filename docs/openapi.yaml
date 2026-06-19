@@ -95,8 +95,8 @@ paths:
           required: true
           schema:
             type: string
-            minLength: 4
-            maxLength: 25
+            minLength: 2
+            maxLength: 20
       responses:
         '200':
           description: User name availability.
@@ -264,8 +264,8 @@ paths:
               properties:
                 displayName:
                   type: string
-                  minLength: 4
-                  maxLength: 25
+                  minLength: 2
+                  maxLength: 20
                 email:
                   type: string
                   format: email
@@ -441,7 +441,7 @@ paths:
   /friends/search:
     get:
       tags: [Friends]
-      summary: Search users by email or display name.
+      summary: Search users by display name.
       parameters:
         - name: q
           in: query
@@ -485,7 +485,7 @@ paths:
   /friends/requests:
     post:
       tags: [Friends]
-      summary: Send a friend request by exact email or user id.
+      summary: Send a friend request by user id.
       requestBody:
         required: true
         content:
@@ -2658,8 +2658,8 @@ components:
           format: email
         displayName:
           type: string
-          minLength: 4
-          maxLength: 25
+          minLength: 2
+          maxLength: 20
         password:
           type: string
           minLength: 8
@@ -2916,7 +2916,7 @@ components:
           format: email
         displayName:
           type: string
-          maxLength: 25
+          maxLength: 20
         displayNameStyle:
           $ref: '#/components/schemas/UserDisplayNameStyle'
         preferences:
@@ -2963,14 +2963,11 @@ components:
       enum: [online, in_game, offline]
     FriendSearchResult:
       type: object
-      required: [id, email, displayName]
+      required: [id, displayName]
       properties:
         id:
           type: string
           format: uuid
-        email:
-          type: string
-          format: email
         displayName:
           type: string
         displayNameStyle:
@@ -3005,10 +3002,8 @@ components:
           format: date-time
     FriendRequestCreateRequest:
       type: object
+      required: [userId]
       properties:
-        email:
-          type: string
-          format: email
         userId:
           type: string
           format: uuid

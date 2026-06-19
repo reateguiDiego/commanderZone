@@ -42,9 +42,12 @@
 }
 
 h1 {
-  max-width: 12ch;
+  display: grid;
+  width: 100%;
+  max-width: min(92vw, 92rem);
   margin: 0 auto;
-  color: var(--cz-text);
+  justify-items: center;
+  text-align: center;
   font-size: clamp(3rem, 9vw, 7.6rem);
   font-weight: 1000;
   line-height: 0.88;
@@ -56,21 +59,35 @@ h1 {
     0 0 2.7rem rgb(var(--cz-accent-rgb) / 28%);
 }
 
-.dashboard-welcome > p:not(.welcome-kicker) {
-  max-width: 44rem;
-  margin: 0 auto;
-  color: rgb(var(--cz-text-rgb) / 86%);
-  font-size: clamp(1.05rem, 2.1vw, 1.45rem);
-  font-weight: 650;
-  line-height: 1.45;
-  text-wrap: balance;
-  text-shadow: 0 0.15rem 1.1rem rgb(var(--cz-bg-rgb) / 82%);
+.welcome-title-label,
+.welcome-title-user {
+  display: block;
+  width: 100%;
 }
 
-@media (max-width: 720px) {
+.welcome-title-label {
+  color: var(--cz-text);
+  text-align: center;
+}
+
+.welcome-title-user {
+  color: var(--cz-primary);
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+@media (max-height: 1024px) {
   .dashboard-welcome {
-    min-height: 30rem;
-    padding-block: 3rem;
+    min-height: auto;
+    padding-block: 50px 80px;
+  }
+}
+
+@media (max-height: 768px) {
+  .dashboard-welcome {
+    min-height: auto;
+    gap: 0.65rem;
+    padding: 15px clamp(0.75rem, 4vw, 1rem) 30px;
   }
 
   .dashboard-welcome::before {
@@ -78,6 +95,6 @@ h1 {
   }
 
   h1 {
-    max-width: 10ch;
+    max-width: min(100vw - 1.2rem, 42rem);
   }
 }

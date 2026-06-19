@@ -34,6 +34,7 @@ describe('page translation strategy manifest', () => {
     'dashboard',
     'cards',
     'cardDetail',
+    'community',
     'rooms',
     'waitingRoom',
     'game',

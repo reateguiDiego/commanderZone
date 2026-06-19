@@ -19,6 +19,9 @@ export interface FriendListRow {
   avatar?: UserAvatar;
   presence?: FriendPresence;
   roomId?: string;
+  roomName?: string;
+  roomPlayerCount?: number;
+  roomMaxPlayers?: number;
   parentFriendId?: string;
 }
 
@@ -116,10 +119,14 @@ export class FriendsStore {
         rows.push({
           id: invite.id,
           kind: 'room-invite',
-          displayName: roomLabel,
+          displayName: invite.sender.displayName,
+          displayNameStyle: invite.sender.displayNameStyle,
           detail: invite.room.visibility === 'private' ? 'Sala privada' : 'Sala publica',
           avatar: invite.sender.avatar,
           roomId: invite.room.id,
+          roomName: roomLabel,
+          roomPlayerCount: invite.room.players.length,
+          roomMaxPlayers: invite.room.maxPlayers,
           parentFriendId: friendId,
         });
       }
@@ -134,9 +141,12 @@ export class FriendsStore {
           kind: 'room-invite',
           displayName: invite.sender.displayName,
           displayNameStyle: invite.sender.displayNameStyle,
-          detail: `Invitacion a ${roomLabel}`,
+          detail: invite.room.visibility === 'private' ? 'Sala privada' : 'Sala publica',
           avatar: invite.sender.avatar,
           roomId: invite.room.id,
+          roomName: roomLabel,
+          roomPlayerCount: invite.room.players.length,
+          roomMaxPlayers: invite.room.maxPlayers,
         });
       }
     }

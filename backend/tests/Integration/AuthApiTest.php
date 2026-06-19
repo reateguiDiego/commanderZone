@@ -85,7 +85,7 @@ class AuthApiTest extends ApiTestCase
         self::assertResponseIsSuccessful();
         self::assertFalse($this->jsonResponse()['available']);
 
-        $this->jsonRequest('GET', '/auth/display-name-availability?displayName=abcdefghijklmnopqrstuvwxyz');
+        $this->jsonRequest('GET', '/auth/display-name-availability?displayName=abcdefghijklmnopqrstu');
         self::assertResponseIsSuccessful();
         self::assertFalse($this->jsonResponse()['available']);
 
@@ -794,18 +794,18 @@ class AuthApiTest extends ApiTestCase
         self::assertResponseStatusCodeSame(401);
     }
 
-    public function testDisplayNameLengthIsLimitedTo25Chars(): void
+    public function testDisplayNameLengthIsLimitedTo20Chars(): void
     {
         $this->jsonRequest('POST', '/auth/register', [
             'email' => 'too-long-name@example.test',
-            'displayName' => 'abcdefghijklmnopqrstuvwxyz',
+            'displayName' => 'abcdefghijklmnopqrstu',
             'password' => 'Password123',
         ]);
         self::assertResponseStatusCodeSame(400);
 
         $token = $this->registerAndLogin('valid-name@example.test', 'Valid Name');
         $this->jsonRequest('PATCH', '/me', [
-            'displayName' => 'abcdefghijklmnopqrstuvwxyz',
+            'displayName' => 'abcdefghijklmnopqrstu',
         ], $token);
         self::assertResponseStatusCodeSame(400);
     }

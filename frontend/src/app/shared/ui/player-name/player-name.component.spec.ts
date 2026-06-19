@@ -44,6 +44,15 @@ describe('PlayerNameComponent', () => {
     expect(name.classList.contains('has-nameplate')).toBe(false);
   });
 
+  it('can left-align the label inside the player name shell', () => {
+    fixture.componentRef.setInput('displayName', 'Finetti');
+    fixture.componentRef.setInput('align', 'left');
+    fixture.detectChanges();
+
+    const name = fixture.nativeElement.querySelector('.player-name-shell') as HTMLElement;
+    expect(name.classList.contains('align-left')).toBe(true);
+  });
+
   it('scales long display names by length bucket', () => {
     fixture.componentRef.setInput('displayName', 'CommanderZonePilotName25');
     fixture.detectChanges();

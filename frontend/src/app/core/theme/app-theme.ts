@@ -36,19 +36,19 @@ export const APP_THEMES: readonly AppTheme[] = [
   {
     id: 'sunrise',
     label: 'Sunrise',
-    description: 'Pure black, grayscale, and strong gold highlights.',
+    description: 'Pure black, grayscale, and bright gold highlights.',
     palette: {
       bg: '#000000',
       surface: '#101010',
-      primary: '#B88A1A',
+      primary: '#D2AC47',
       secondary: '#8A8A8A',
-      accent: '#D4AF37',
+      accent: '#E6C76B',
       text: '#F5F5F5',
     },
     functional: {
       success: '#4ADE80',
       danger: '#F43F5E',
-      warning: '#D4AF37',
+      warning: '#D2AC47',
       info: '#38BDF8',
     },
   },

@@ -1,116 +1,297 @@
 <section appPrettyScroll class="friends-menu" [attr.aria-label]="'navigation.friends.friendsDropdown.friends' | runtimeTranslate">
-  <header class="friends-header">
-    <span class="section-title">{{ 'navigation.friends.friendsDropdown.friendList' | runtimeTranslate }}</span>
-    <button class="icon-button compact-icon" type="button" [title]="'navigation.friends.friendsDropdown.searchUsers' | runtimeTranslate" (click)="store.toggleSearch()">
-      <lucide-icon name="search" size="15" />
+  <nav class="friends-tabs" role="tablist" [attr.aria-label]="'navigation.friends.friendsDropdown.friendList' | runtimeTranslate">
+    <button class="tab-button" type="button" role="tab" [class.active]="currentTab() === 'friends'" [attr.aria-selected]="currentTab() === 'friends'" (click)="selectTab('friends')">
+      {{ 'navigation.friends.friendsDropdown.friends' | runtimeTranslate }}
     </button>
-  </header>
+    @if (hasInvitations()) {
+      <button class="tab-button attention-tab has-alert" type="button" role="tab" [class.active]="currentTab() === 'invitations'" [attr.aria-selected]="currentTab() === 'invitations'" (click)="selectTab('invitations')">
+        {{ 'navigation.friends.friendsDropdown.invitations' | runtimeTranslate }}
+        <span class="tab-count has-alert">{{ invitationCount() }}</span>
+      </button>
+    }
+    @if (hasRequests()) {
+      <button class="tab-button attention-tab" type="button" role="tab" [class.has-alert]="hasIncomingRequests()" [class.active]="currentTab() === 'requests'" [attr.aria-selected]="currentTab() === 'requests'" (click)="selectTab('requests')">
+        {{ 'navigation.friends.friendsDropdown.requests' | runtimeTranslate }}
+        <span class="tab-count" [class.has-alert]="hasIncomingRequests()">{{ requestCount() }}</span>
+      </button>
+    }
+    <button class="tab-button search-tab-button" type="button" role="tab" [class.active]="currentTab() === 'search'" [attr.aria-selected]="currentTab() === 'search'" [attr.aria-label]="'navigation.friends.friendsDropdown.searchTab' | runtimeTranslate" [title]="'navigation.friends.friendsDropdown.searchTab' | runtimeTranslate" (click)="selectTab('search')">
+      <lucide-icon name="search" size="18" />
+    </button>
+  </nav>
 
   @if (store.error()) {
     <p class="dropdown-notice error">{{ store.error() }}</p>
   }
 
-  @if (store.searchOpen()) {
+  @if (currentTab() === 'requests') {
+    <div class="friends-list-panel" [attr.aria-label]="'navigation.friends.friendsDropdown.requests' | runtimeTranslate">
+      <div class="friend-section">
+        @if (hasIncomingRequests()) {
+          <button class="section-toggle" type="button" [attr.aria-expanded]="incomingRequestsOpen()" (click)="toggleIncomingRequests()">
+            <span class="section-label">
+              {{ 'navigation.friends.friendsDropdown.receivedRequests' | runtimeTranslate }} ({{ incomingRequestRows().length }})
+            </span>
+            <lucide-icon [name]="incomingRequestsOpen() ? 'chevron-up' : 'chevron-down'" size="16" />
+          </button>
+
+          @if (incomingRequestsOpen()) {
+            <div class="friend-table" [attr.aria-label]="'navigation.friends.friendsDropdown.receivedRequests' | runtimeTranslate">
+              @for (row of incomingRequestRows(); track row.id) {
+                <div class="friend-table-row request-row incoming-row interactive-row">
+                  <span class="row-avatar-wrap">
+                    <app-player-avatar [displayName]="row.displayName" [avatar]="row.avatar" size="xs" />
+                    <span class="row-marker incoming-marker"></span>
+                  </span>
+                  <span class="row-main">
+                    <app-player-name
+                      [displayName]="row.displayName"
+                      [nameStyle]="row.displayNameStyle"
+                      size="xs"
+                      plateSize="sm"
+                    />
+                    <small>{{ row.detail }}</small>
+                  </span>
+
+                  <span class="action-pair">
+                    <button class="icon-action accept-action" type="button" [disabled]="store.loading()" title="Accept request" (click)="runPrimaryAction(row)">
+                      <lucide-icon name="check" size="15" />
+                    </button>
+                    <button class="icon-action reject-action" type="button" [disabled]="store.loading()" title="Decline request" (click)="declineIncoming(row)">
+                      <lucide-icon name="x" size="15" />
+                    </button>
+                  </span>
+                </div>
+              }
+            </div>
+          }
+        } @else {
+          <div class="section-heading">
+            <span class="section-label">
+              {{ 'navigation.friends.friendsDropdown.receivedRequests' | runtimeTranslate }} (0)
+            </span>
+          </div>
+        }
+      </div>
+
+      <div class="friend-section">
+        @if (hasSentRequests()) {
+          <button class="section-toggle" type="button" [attr.aria-expanded]="sentRequestsOpen()" (click)="toggleSentRequests()">
+            <span class="section-label">
+              {{ 'navigation.friends.friendsDropdown.sentRequests' | runtimeTranslate }} ({{ sentRequestRows().length }})
+            </span>
+            <lucide-icon [name]="sentRequestsOpen() ? 'chevron-up' : 'chevron-down'" size="16" />
+          </button>
+
+          @if (sentRequestsOpen()) {
+            <div class="friend-table" [attr.aria-label]="'navigation.friends.friendsDropdown.sentRequests' | runtimeTranslate">
+              @for (row of sentRequestRows(); track row.id) {
+                <div class="friend-table-row request-row pending-row interactive-row">
+                  <span class="row-avatar-wrap">
+                    <app-player-avatar [displayName]="row.displayName" [avatar]="row.avatar" size="xs" />
+                    <span class="row-marker pending-marker"></span>
+                  </span>
+                  <span class="row-main">
+                    <app-player-name
+                      [displayName]="row.displayName"
+                      [nameStyle]="row.displayNameStyle"
+                      size="xs"
+                      plateSize="sm"
+                    />
+                    <small>{{ row.detail }}</small>
+                  </span>
+
+                  <span class="single-action">
+                    <button class="icon-action reject-action" type="button" [disabled]="store.loading()" [title]="'navigation.friends.friendsDropdown.cancelRequest' | runtimeTranslate" (click)="runPrimaryAction(row)">
+                      <lucide-icon name="x" size="15" />
+                    </button>
+                  </span>
+                </div>
+              }
+            </div>
+          }
+        } @else {
+          <div class="section-heading">
+            <span class="section-label">
+              {{ 'navigation.friends.friendsDropdown.sentRequests' | runtimeTranslate }} (0)
+            </span>
+          </div>
+        }
+      </div>
+    </div>
+  } @else if (currentTab() === 'invitations') {
+    <div class="friend-table invitations-table" [attr.aria-label]="'navigation.friends.friendsDropdown.invitations' | runtimeTranslate">
+      @for (row of invitationRows(); track row.id) {
+        <div class="invitation-card interactive-row" [class.child-row]="!!row.parentFriendId">
+          <div class="invitation-content">
+            <span class="row-avatar-wrap invitation-avatar-wrap">
+              <app-player-avatar [displayName]="row.displayName" [avatar]="row.avatar" size="xs" />
+              <span class="row-marker incoming-marker"></span>
+            </span>
+
+            <span class="invitation-main">
+              <span class="invitation-kicker">{{ 'navigation.friends.friendsDropdown.invitacionDeSala' | runtimeTranslate }}</span>
+              <app-player-name
+                [displayName]="row.displayName"
+                [nameStyle]="row.displayNameStyle"
+                size="xs"
+                plateSize="micro"
+                [fill]="true"
+                align="left"
+              />
+              <span class="invitation-room">
+                <span class="invitation-room-name">{{ row.roomName }}</span>
+                <span class="invitation-detail">{{ row.detail }}</span>
+                <span class="invitation-stat" aria-label="Room occupancy">
+                  <strong>{{ row.roomPlayerCount ?? 0 }}/{{ row.roomMaxPlayers ?? 0 }}</strong>
+                  {{ 'navigation.friends.friendsDropdown.seats' | runtimeTranslate }}
+                  <span aria-hidden="true">&middot;</span>
+                  <strong>{{ row.roomPlayerCount ?? 0 }}</strong>
+                  {{ 'navigation.friends.friendsDropdown.joinedPlayers' | runtimeTranslate }}
+                </span>
+              </span>
+            </span>
+          </div>
+
+          <span class="action-pair invitation-actions">
+            <button class="icon-action accept-action" type="button" [disabled]="store.loading()" title="Aceptar invitacion" (click)="runPrimaryAction(row)">
+              <lucide-icon name="check" size="15" />
+            </button>
+            <button class="icon-action reject-action" type="button" [disabled]="store.loading()" title="Rechazar invitacion" (click)="declineIncoming(row)">
+              <lucide-icon name="x" size="15" />
+            </button>
+          </span>
+        </div>
+      }
+    </div>
+  } @else if (currentTab() === 'search') {
     <div class="search-panel">
       <label class="search-field">
-        {{ 'navigation.friends.friendsDropdown.findUsers' | runtimeTranslate }}
+        <span class="visually-hidden">{{ 'navigation.friends.friendsDropdown.findUsers' | runtimeTranslate }}</span>
         <input
           name="friendSearch"
-          [placeholder]="'navigation.friends.friendsDropdown.emailOrUsername' | runtimeTranslate"
+          [placeholder]="'navigation.friends.friendsDropdown.searchPlayers' | runtimeTranslate"
           autocomplete="off"
           [ngModel]="store.searchQuery()"
           (ngModelChange)="store.updateSearch($event)"
         />
+        <lucide-icon name="search" size="20" />
       </label>
+    </div>
 
-      @if (store.searchQuery().trim().length >= 2) {
-        <div class="search-results" [attr.aria-label]="'navigation.friends.friendsDropdown.userSearchResults' | runtimeTranslate">
-          @for (result of store.searchResults(); track result.id) {
-            <div class="friend-table-row">
-              <span class="row-avatar-wrap">
-                <app-player-avatar [displayName]="result.displayName" size="xs" />
-                <span class="row-marker search-marker"></span>
-              </span>
-              <span class="row-main">
-                <app-player-name
-                  [displayName]="result.displayName"
-                  [nameStyle]="result.displayNameStyle"
-                  size="xs"
-                  plateSize="sm"
-                />
-                <small>{{ result.email }}</small>
-              </span>
+    <div class="friend-table" [attr.aria-label]="'navigation.friends.friendsDropdown.userSearchResults' | runtimeTranslate">
+      @if (searchReady()) {
+        @for (result of store.searchResults(); track result.id) {
+          <div class="friend-table-row search-row">
+            <span class="row-avatar-wrap">
+              <app-player-avatar [displayName]="result.displayName" size="xs" />
+              <span class="row-marker search-marker"></span>
+            </span>
+            <span class="row-main">
+              <app-player-name
+                [displayName]="result.displayName"
+                [nameStyle]="result.displayNameStyle"
+                size="xs"
+                plateSize="sm"
+              />
+            </span>
 
-              @if (result.friendshipStatus === null || result.friendshipStatus === 'declined') {
-                <button class="icon-action add-action single-icon-slot" type="button" [disabled]="store.loading()" [title]="'navigation.friends.friendsDropdown.sendFriendRequest' | runtimeTranslate" (click)="store.sendRequest(result.id)">
-                  <lucide-icon name="plus" size="15" />
-                </button>
-              } @else {
-                <span class="row-status action-slot">{{ result.friendshipStatus }}</span>
-              }
-            </div>
-          } @empty {
-            <p class="dropdown-notice">{{ 'navigation.friends.friendsDropdown.noUsersFound' | runtimeTranslate }}</p>
-          }
-        </div>
+            @if (result.friendshipStatus === null || result.friendshipStatus === 'declined') {
+              <button class="add-friend-action" type="button" [disabled]="store.loading()" [title]="'navigation.friends.friendsDropdown.sendFriendRequest' | runtimeTranslate" (click)="store.sendRequest(result.id)">
+                <lucide-icon name="user-plus" size="17" />
+              </button>
+            } @else {
+              <span class="row-status search-status">{{ friendshipStatusKey(result.friendshipStatus) | runtimeTranslate }}</span>
+            }
+          </div>
+        } @empty {
+          <p class="dropdown-notice">{{ 'navigation.friends.friendsDropdown.noUsersFound' | runtimeTranslate }}</p>
+        }
+      } @else {
+        <p class="dropdown-notice">{{ 'navigation.friends.friendsDropdown.searchHint' | runtimeTranslate }}</p>
       }
     </div>
-  }
+  } @else {
+    <div class="friends-list-panel">
+      <div class="friend-section">
+        @if (hasOnlineFriends()) {
+          <button class="section-toggle" type="button" [attr.aria-expanded]="onlineOpen()" (click)="toggleOnline()">
+            <span class="section-label">
+              {{ 'navigation.friends.friendsDropdown.online' | runtimeTranslate }} ({{ onlineFriendsRows().length }})
+            </span>
+            <lucide-icon [name]="onlineOpen() ? 'chevron-up' : 'chevron-down'" size="16" />
+          </button>
 
-  <div class="friend-table" [attr.aria-label]="'navigation.friends.friendsDropdown.friendList' | runtimeTranslate">
-    @for (row of store.rows(); track row.kind + row.id) {
-      <div class="friend-table-row" [class.incoming-row]="row.kind === 'incoming'" [class.room-invite-row]="row.kind === 'room-invite'" [class.pending-row]="row.kind === 'pending'" [class.child-row]="row.kind === 'room-invite' && !!row.parentFriendId">
-        <span class="row-avatar-wrap">
-          <app-player-avatar [displayName]="row.displayName" [avatar]="row.avatar" size="xs" />
-          <span
-            class="row-marker"
-            [class.online]="row.presence === 'online'"
-            [class.in-game]="row.presence === 'in_game'"
-            [class.incoming-marker]="row.kind === 'incoming' || row.kind === 'room-invite'"
-            [class.pending-marker]="row.kind === 'pending'"
-          ></span>
-        </span>
-        <span class="row-main">
-          <app-player-name
-            [displayName]="row.displayName"
-            [nameStyle]="row.displayNameStyle"
-            size="xs"
-            plateSize="sm"
-          />
-          <small>{{ row.detail }}</small>
-          @if (row.kind === 'room-invite') {
-            <em>{{ 'navigation.friends.friendsDropdown.invitacionDeSala' | runtimeTranslate }}</em>
+          @if (onlineOpen()) {
+            <div class="friend-table" [attr.aria-label]="'navigation.friends.friendsDropdown.online' | runtimeTranslate">
+              @for (row of onlineFriendsRows(); track row.id) {
+                <div class="friend-table-row friend-row interactive-row">
+                  <span class="row-avatar-wrap">
+                    <app-player-avatar [displayName]="row.displayName" [avatar]="row.avatar" size="xs" />
+                    <span class="row-marker" [class.online]="row.presence === 'online'" [class.in-game]="row.presence === 'in_game'"></span>
+                  </span>
+                  <span class="row-main">
+                    <app-player-name
+                      [displayName]="row.displayName"
+                      [nameStyle]="row.displayNameStyle"
+                      size="xs"
+                      plateSize="micro"
+                    />
+                    <small>{{ friendStatusKey(row) | runtimeTranslate }}</small>
+                  </span>
+                  <button class="row-delete-action" type="button" [disabled]="store.loading()" [title]="'navigation.friends.friendsDropdown.removeFriend' | runtimeTranslate" (click)="runPrimaryAction(row)">
+                    <lucide-icon name="trash-2" size="14" />
+                  </button>
+                </div>
+              }
+            </div>
           }
-        </span>
-
-        @if (row.kind === 'incoming' || row.kind === 'room-invite') {
-          <span class="action-pair">
-            <button class="icon-action accept-action" type="button" [disabled]="store.loading()" [title]="row.kind === 'incoming' ? 'Accept request' : 'Aceptar invitacion'" (click)="runPrimaryAction(row)">
-              <lucide-icon name="check" size="15" />
-            </button>
-            <button class="icon-action reject-action" type="button" [disabled]="store.loading()" [title]="row.kind === 'incoming' ? 'Decline request' : 'Rechazar invitacion'" (click)="declineIncoming(row)">
-              <lucide-icon name="x" size="15" />
-            </button>
-          </span>
-        } @else if (row.kind === 'pending') {
-          <span class="single-action">
-            <button class="icon-action reject-action" type="button" [disabled]="store.loading()" [title]="'navigation.friends.friendsDropdown.cancelRequest' | runtimeTranslate" (click)="runPrimaryAction(row)">
-              <lucide-icon name="x" size="15" />
-            </button>
-          </span>
         } @else {
-          <span class="single-action">
-            <button class="icon-action reject-action" type="button" [disabled]="store.loading()" [title]="'navigation.friends.friendsDropdown.removeFriend' | runtimeTranslate" (click)="runPrimaryAction(row)">
-              <lucide-icon name="x" size="15" />
-            </button>
-          </span>
+          <div class="section-heading">
+            <span class="section-label">
+              {{ 'navigation.friends.friendsDropdown.online' | runtimeTranslate }} (0)
+            </span>
+          </div>
         }
       </div>
 
-    } @empty {
-      @if (!store.searchOpen()) {
-        <p class="dropdown-notice">{{ 'navigation.friends.friendsDropdown.noFriendsOrPendingRequests' | runtimeTranslate }}</p>
-      }
-    }
-  </div>
+      <div class="friend-section disconnected-section">
+        @if (hasDisconnectedFriends()) {
+          <button class="section-toggle" type="button" [attr.aria-expanded]="disconnectedOpen()" (click)="toggleDisconnected()">
+            <span class="section-label">{{ 'navigation.friends.friendsDropdown.disconnected' | runtimeTranslate }} ({{ disconnectedFriendsRows().length }})</span>
+            <lucide-icon [name]="disconnectedOpen() ? 'chevron-up' : 'chevron-down'" size="16" />
+          </button>
+
+          @if (disconnectedOpen()) {
+            <div class="friend-table" [attr.aria-label]="'navigation.friends.friendsDropdown.disconnected' | runtimeTranslate">
+              @for (row of disconnectedFriendsRows(); track row.id) {
+                <div class="friend-table-row friend-row interactive-row">
+                  <span class="row-avatar-wrap">
+                    <app-player-avatar [displayName]="row.displayName" [avatar]="row.avatar" size="xs" />
+                    <span class="row-marker"></span>
+                  </span>
+                  <span class="row-main">
+                    <app-player-name
+                      [displayName]="row.displayName"
+                      [nameStyle]="row.displayNameStyle"
+                      size="xs"
+                      plateSize="micro"
+                    />
+                    <small>{{ friendStatusKey(row) | runtimeTranslate }}</small>
+                  </span>
+                  <button class="row-delete-action" type="button" [disabled]="store.loading()" [title]="'navigation.friends.friendsDropdown.removeFriend' | runtimeTranslate" (click)="runPrimaryAction(row)">
+                    <lucide-icon name="trash-2" size="14" />
+                  </button>
+                </div>
+              }
+            </div>
+          }
+        } @else {
+          <div class="section-heading">
+            <span class="section-label">{{ 'navigation.friends.friendsDropdown.disconnected' | runtimeTranslate }} (0)</span>
+          </div>
+        }
+      </div>
+    </div>
+  }
 </section>
