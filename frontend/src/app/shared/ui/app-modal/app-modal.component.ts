@@ -38,7 +38,7 @@ export class AppModalComponent implements OnChanges, OnDestroy {
   @Input() footerLayout: 'default' | 'split' = 'default';
   @Input() lockBodyScroll = true;
   @Input() closeOnBackdrop = false;
-  @Input() size: 'default' | 'compact' | 'wide' = 'default';
+  @Input() size: 'default' | 'compact' | 'narrow' | 'wide' = 'default';
 
   @Output() back = new EventEmitter<void>();
   @Output() headerAction = new EventEmitter<void>();

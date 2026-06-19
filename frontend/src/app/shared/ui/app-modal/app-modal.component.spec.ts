@@ -38,18 +38,20 @@ describe('AppModalComponent', () => {
     document.documentElement.style.overflow = '';
     document.body.style.overflow = '';
     document.body.style.position = '';
+    document.body.style.paddingRight = '';
 
     fixture.componentRef.setInput('open', true);
     fixture.detectChanges();
     expect(document.documentElement.style.overflow).toBe('hidden');
     expect(document.body.style.overflow).toBe('hidden');
-    expect(document.body.style.position).toBe('fixed');
+    expect(document.body.style.position).toBe('');
 
     fixture.componentRef.setInput('open', false);
     fixture.detectChanges();
     expect(document.documentElement.style.overflow).toBe('');
     expect(document.body.style.overflow).toBe('');
     expect(document.body.style.position).toBe('');
+    expect(document.body.style.paddingRight).toBe('');
     scrollToSpy.mockRestore();
   });
 

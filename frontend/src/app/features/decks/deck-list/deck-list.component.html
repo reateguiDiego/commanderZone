@@ -7,41 +7,74 @@
     </div>
 
     <div class="deck-stats" aria-label="Resumen de mazos">
-      <article class="deck-stat">
-        <lucide-icon name="layers-3" size="22" />
-        <strong>{{ store.totalDeckCount() }}</strong>
-        <span>Total de mazos</span>
+      <article class="deck-stat deck-stat--summary">
+        <div class="deck-stat-summary-item">
+          <div class="deck-stat-summary-metric">
+            <lucide-icon name="layers-3" size="18" />
+            <strong>{{ store.totalDeckCount() }}</strong>
+          </div>
+          <span>Total</span>
+        </div>
+        <div class="deck-stat-summary-item">
+          <div class="deck-stat-summary-metric">
+            <lucide-icon name="globe" size="18" />
+            <strong>{{ store.publicDeckCount() }}</strong>
+          </div>
+          <span>Públicos</span>
+        </div>
+        <div class="deck-stat-summary-item">
+          <div class="deck-stat-summary-metric">
+            <lucide-icon name="lock" size="18" />
+            <strong>{{ store.privateDeckCount() }}</strong>
+          </div>
+          <span>Privados</span>
+        </div>
       </article>
-      <article class="deck-stat">
-        <lucide-icon name="globe" size="22" />
-        <strong>{{ store.publicDeckCount() }}</strong>
-        <span>Públicos</span>
-      </article>
-      <article class="deck-stat">
-        <lucide-icon name="lock" size="22" />
-        <strong>{{ store.privateDeckCount() }}</strong>
-        <span>Privados</span>
-      </article>
+      @if (store.manaColorStats().length > 0) {
+        <article class="deck-stat deck-stat--mana" aria-label="Distribución de colores">
+          @for (stat of store.manaColorStats(); track stat.color) {
+            <div class="deck-stat-mana-item">
+              <app-mana-symbols [symbols]="[stat.color]" size="small" />
+              <strong>{{ stat.percentage }}%</strong>
+            </div>
+          }
+        </article>
+      }
     </div>
   </header>
 
   <section class="deck-workbench">
     <div class="deck-toolbar" aria-label="Acciones y filtros de mazos">
-      <div class="deck-primary-actions">
+      <div class="deck-primary-actions" [class.folder-context]="store.currentFolder() !== null">
         <button czButton="primary" czButtonSize="sm" class="primary-button compact deck-action-button" type="button" (click)="store.openCreateModal()">
           <lucide-icon name="plus" size="18" />
           Crear mazo
         </button>
-        <button czButton="secondary" czButtonSize="sm" class="secondary-button compact deck-action-button" type="button" (click)="store.openFolderCreateModal()">
-          <lucide-icon name="folder-plus" size="18" />
-          Crear carpeta
-        </button>
+        @if (!store.currentFolder()) {
+          <button czButton="secondary" czButtonSize="sm" class="secondary-button compact deck-action-button" type="button" (click)="store.openFolderCreateModal()">
+            <lucide-icon name="folder-plus" size="18" />
+            Crear carpeta
+          </button>
+        }
       </div>
 
-      <div class="deck-filters">
+      <div class="deck-filters" [class.search-open]="searchPanelOpen()">
+        <button
+          czButton="icon"
+          class="icon-button deck-search-toggle"
+          type="button"
+          title="Buscar mazos"
+          aria-label="Buscar mazos"
+          [attr.aria-expanded]="searchPanelOpen()"
+          (click)="toggleSearchPanel(deckSearchInput)"
+        >
+          <lucide-icon name="search" size="18" />
+        </button>
+
         <label class="deck-search">
           <lucide-icon name="search" size="18" />
           <input
+            #deckSearchInput
             name="deckSearch"
             type="search"
             placeholder="Buscar mazos..."
@@ -53,7 +86,7 @@
         <div class="deck-filter-field">
           <app-format-select
             name="deckColorFilter"
-            label="Filtrar por color"
+            labelKey="deckBuilder.deckList.colorFilter.label"
             [labelHidden]="true"
             [options]="colorFilterOptions()"
             [value]="store.colorFilter()"
@@ -64,7 +97,7 @@
         <div class="deck-filter-field">
           <app-format-select
             name="deckSortMode"
-            label="Ordenar mazos"
+            labelKey="deckBuilder.deckList.sortMode.label"
             [labelHidden]="true"
             [options]="sortModeOptions"
             [value]="store.sortMode()"
@@ -82,96 +115,55 @@
       <p class="notice">{{ 'deckBuilder.deckList.yourDeckListFeelsALittleEmpty' | runtimeTranslate }}</p>
     } @else if (!store.currentFolder()) {
       <section class="deck-collection-panel">
-        <div class="collection-header">
-          <div>
-            <h2>Mi colección de mazos</h2>
-            <span class="section-rule" aria-hidden="true"></span>
-          </div>
-          <div class="view-toggle" aria-label="Vista de colección">
-            <button
-              czButton="icon"
-              [czButtonActive]="store.viewMode() === 'grid'"
-              class="icon-button"
-              type="button"
-              [class.active]="store.viewMode() === 'grid'"
-              title="Vista de tarjetas"
-              aria-label="Vista de tarjetas"
-              (click)="setViewMode('grid')"
-            >
-              <lucide-icon name="layout-grid" size="18" />
-            </button>
-            <button
-              czButton="icon"
-              [czButtonActive]="store.viewMode() === 'list'"
-              class="icon-button"
-              type="button"
-              [class.active]="store.viewMode() === 'list'"
-              title="Vista de lista"
-              aria-label="Vista de lista"
-              (click)="setViewMode('list')"
-            >
-              <lucide-icon name="list" size="18" />
-            </button>
-          </div>
-        </div>
-
         @if (store.hasVisibleRootContent()) {
-          <div class="deck-table-list" [class.list-view]="store.viewMode() === 'list'">
-            @for (folder of store.visibleFolders(); track folder.id) {
-              <article
-                class="deck-list-row folder-list-row deck-row-clickable"
-                [class.drop-active]="store.dragTargetId() === folder.id"
-                [attr.data-folder-drop-id]="folder.id"
-                role="button"
-                tabindex="0"
-                (click)="store.enterFolder(folder.id)"
-                (keydown.enter)="store.enterFolder(folder.id)"
-                (dragover)="store.allowDeckDrop($event, folder.id)"
-                (dragleave)="store.clearDeckDrop(folder.id)"
-                (drop)="store.dropDeckOnFolder($event, folder.id)"
-              >
-                <div class="deck-card-topline">
-                  <strong>{{ folder.name }}</strong>
-                  <span class="folder-deck-count">{{ store.folderDeckCount(folder.id) }} mazos</span>
-                </div>
+          <div class="deck-table-list">
+            @for (item of store.visibleRootItems(); track item.id) {
+              @switch (item.kind) {
+                @case ('folder') {
+                  <article
+                    class="deck-list-row folder-list-row deck-row-clickable"
+                    role="button"
+                    tabindex="0"
+                    (click)="store.enterFolder(item.folder.id)"
+                    (keydown.enter)="store.enterFolder(item.folder.id)"
+                  >
+                    <div class="deck-card-topline">
+                      <strong>{{ item.folder.name }}</strong>
+                      <span class="folder-deck-count">{{ store.folderDeckCount(item.folder.id) }} mazos</span>
+                    </div>
 
-                <div class="deck-card-footer">
-                  <span class="visibility-pill" [class.public]="folder.visibility === 'public'">
-                    <lucide-icon [name]="visibilityIcon(folder.visibility)" size="13" />
-                    {{ folder.visibility || 'private' }}
-                  </span>
-                  <div class="deck-row-actions">
-                    <button czButton="icon" class="icon-button" type="button" [title]="'deckBuilder.deckList.renameFolder' | runtimeTranslate" (click)="store.openRenameFolderModal(folder); $event.stopPropagation()">
-                      <lucide-icon name="pencil" size="15" />
-                    </button>
-                    <button czButton="icon" czButtonTone="danger" class="icon-button danger" type="button" [title]="'deckBuilder.deckList.deleteFolder' | runtimeTranslate" (click)="store.deleteFolder(folder); $event.stopPropagation()">
-                      <lucide-icon name="trash-2" size="15" />
-                    </button>
-                  </div>
-                </div>
-              </article>
-            }
-
-            @for (deck of store.visibleUnfiledDecks(); track deck.id) {
-              <app-deck-list-card
-                [deck]="deck"
-                [commanderBackground]="store.deckCommanderBackground(deck)"
-                [secondaryCommanderBackground]="store.deckSecondaryCommanderBackground(deck)"
-                [colorIdentity]="store.commanderColorIdentity(deck)"
-                [hasCommanderArt]="store.deckCommanderImage(deck) !== null"
-                [hasDualCommanderArt]="store.hasDualCommanderArt(deck)"
-                [hasIssues]="store.deckHasIssues(deck)"
-                [issueTooltip]="store.deckIssueTooltip(deck)"
-                (openDeck)="store.openDeck(deck.id)"
-                (editDeck)="store.openDeckEditModal(deck)"
-                (deleteDeck)="store.deleteDeck(deck)"
-                (deckDragStart)="store.beginDeckDrag($event, deck)"
-                (deckDragEnd)="store.endDeckDrag()"
-                (deckPointerDown)="store.beginDeckPointerDrag($event, deck)"
-                (deckPointerMove)="store.moveDeckPointerDrag($event)"
-                (deckPointerUp)="store.finishDeckPointerDrag($event)"
-                (deckPointerCancel)="store.finishDeckPointerDrag($event)"
-              />
+                    <div class="deck-card-footer">
+                      <span class="visibility-pill" [class.public]="item.folder.visibility === 'public'">
+                        <lucide-icon [name]="visibilityIcon(item.folder.visibility)" size="13" />
+                        {{ item.folder.visibility || 'private' }}
+                      </span>
+                      <div class="deck-row-actions" (pointerdown)="suppressRowActionPointer($event)" (mousedown)="suppressRowActionMouseDown($event)" (pointerup)="$event.stopPropagation()" (click)="$event.stopPropagation()">
+                        <button czButton="icon" class="icon-button" type="button" [title]="'deckBuilder.deckList.renameFolder' | runtimeTranslate" (click)="suppressRowActionClick($event); store.openRenameFolderModal(item.folder)">
+                          <lucide-icon name="pencil" size="15" />
+                        </button>
+                        <button czButton="icon" czButtonTone="danger" class="icon-button danger" type="button" [title]="'deckBuilder.deckList.deleteFolder' | runtimeTranslate" (click)="suppressRowActionClick($event); store.deleteFolder(item.folder)">
+                          <lucide-icon name="trash-2" size="15" />
+                        </button>
+                      </div>
+                    </div>
+                  </article>
+                }
+                @case ('deck') {
+                  <app-deck-list-card
+                    [deck]="item.deck"
+                    [commanderBackground]="store.deckCommanderBackground(item.deck)"
+                    [secondaryCommanderBackground]="store.deckSecondaryCommanderBackground(item.deck)"
+                    [colorIdentity]="store.commanderColorIdentity(item.deck)"
+                    [hasCommanderArt]="store.deckCommanderImage(item.deck) !== null"
+                    [hasDualCommanderArt]="store.hasDualCommanderArt(item.deck)"
+                    [hasIssues]="store.deckHasIssues(item.deck)"
+                    [issueTooltip]="store.deckIssueTooltip(item.deck)"
+                    (openDeck)="store.openDeck(item.deck.id)"
+                    (editDeck)="store.openDeckEditModal(item.deck)"
+                    (deleteDeck)="store.deleteDeck(item.deck)"
+                  />
+                }
+              }
             }
           </div>
         } @else {
@@ -179,42 +171,33 @@
         }
       </section>
     } @else if (store.currentFolder(); as currentFolder) {
-      <div
-        class="folder-unfile-shell"
-        [class.drag-shell-active]="store.draggedDeckId() !== null"
-        [class.drop-active]="store.dragTargetId() === '__unfiled__'"
-        data-folder-drop-id="__unfiled__"
-        (dragover)="store.allowDeckDrop($event, '__unfiled__')"
-        (dragleave)="store.clearDeckDrop('__unfiled__')"
-        (drop)="store.dropDeckOnFolder($event, null)"
-      >
-        <section class="deck-collection-panel" (dragenter)="store.clearDeckDrop('__unfiled__')" (dragover)="$event.stopPropagation()" (drop)="$event.stopPropagation()">
-          <div class="collection-header">
+      <section class="deck-collection-panel">
+          <div class="folder-collection-header">
+            <button czButton="text" czButtonSize="sm" class="text-button compact" type="button" (click)="store.leaveFolder()">
+              <lucide-icon name="arrow-left" size="16" />
+              {{ 'deckBuilder.deckList.decks' | runtimeTranslate }}
+            </button>
             <div class="folder-heading">
-              <button czButton="text" czButtonSize="sm" class="text-button compact" type="button" (click)="store.leaveFolder()">
-                <lucide-icon name="arrow-left" size="16" />
-                {{ 'deckBuilder.deckList.decks' | runtimeTranslate }}
-              </button>
-              <span class="folder-icon-wrap">
+              <div class="folder-icon-wrap">
                 <lucide-icon name="folder" size="20" />
-              </span>
-              <div>
-                <h2>{{ currentFolder.name }}</h2>
-                <span class="section-rule" aria-hidden="true"></span>
+                <div class="folder-title-copy">
+                  <h2>{{ currentFolder.name }}</h2>
+                  <span class="section-rule" aria-hidden="true"></span>
+                </div>
               </div>
-            </div>
-            <div class="button-row">
-              <button czButton="icon" class="icon-button" type="button" [title]="'deckBuilder.deckList.renameFolder' | runtimeTranslate" (click)="store.openRenameFolderModal(currentFolder)">
-                <lucide-icon name="pencil" size="16" />
-              </button>
-              <button czButton="icon" czButtonTone="danger" class="icon-button danger" type="button" [title]="'deckBuilder.deckList.deleteFolder' | runtimeTranslate" (click)="store.deleteFolder(currentFolder)">
-                <lucide-icon name="trash-2" size="16" />
-              </button>
+              <div class="button-row">
+                <button czButton="icon" class="icon-button" type="button" [title]="'deckBuilder.deckList.renameFolder' | runtimeTranslate" (click)="store.openRenameFolderModal(currentFolder)">
+                  <lucide-icon name="pencil" size="16" />
+                </button>
+                <button czButton="icon" czButtonTone="danger" class="icon-button danger" type="button" [title]="'deckBuilder.deckList.deleteFolder' | runtimeTranslate" (click)="store.deleteFolder(currentFolder)">
+                  <lucide-icon name="trash-2" size="16" />
+                </button>
+              </div>
             </div>
           </div>
 
           @if (store.hasVisibleActiveDecks()) {
-            <div class="deck-table-list" [class.list-view]="store.viewMode() === 'list'">
+            <div class="deck-table-list">
               @for (deck of store.visibleCurrentFolderDecks(); track deck.id) {
                 <app-deck-list-card
                   [deck]="deck"
@@ -228,23 +211,13 @@
                   (openDeck)="store.openDeck(deck.id)"
                   (editDeck)="store.openDeckEditModal(deck)"
                   (deleteDeck)="store.deleteDeck(deck)"
-                  (deckDragStart)="store.beginDeckDrag($event, deck)"
-                  (deckDragEnd)="store.endDeckDrag()"
-                  (deckPointerDown)="store.beginDeckPointerDrag($event, deck)"
-                  (deckPointerMove)="store.moveDeckPointerDrag($event)"
-                  (deckPointerUp)="store.finishDeckPointerDrag($event)"
-                  (deckPointerCancel)="store.finishDeckPointerDrag($event)"
                 />
               }
             </div>
           } @else {
             <p class="notice">{{ 'deckBuilder.deckList.noDecksInThisFolderYet' | runtimeTranslate }}</p>
           }
-        </section>
-        @if (store.draggedDeckId()) {
-          <div class="folder-unfile-hint">{{ 'deckBuilder.deckList.dragOutsideThisFolderPanelToRemove' | runtimeTranslate }}</div>
-        }
-      </div>
+      </section>
     }
   </section>
 
@@ -295,7 +268,7 @@
             (valueChange)="store.newDeckFormatId = $event; store.onFormatChange()"
           />
 
-          @if (store.folderOptions().length > 0) {
+          @if (store.folders().length > 0) {
             <app-format-select
               name="folder"
               labelKey="deckBuilder.deckList.folder"
@@ -416,9 +389,6 @@
     (secondary)="store.closeFolderCreateModal()"
   >
     <div class="form-stack deck-modal-form">
-      <p class="folder-drag-help">
-        {{ 'deckBuilder.deckList.afterCreatingAFolderDragDecksOnto' | runtimeTranslate }}
-      </p>
       <label>
         {{ 'deckBuilder.deckList.folderName' | runtimeTranslate }}
         <input name="folderName" [placeholder]="'deckBuilder.deckList.jeskaiBrewsTesting' | runtimeTranslate" [(ngModel)]="store.newFolderName" />
@@ -444,6 +414,17 @@
         {{ 'deckBuilder.deckList.deckName' | runtimeTranslate }}
         <input name="editDeckName" [(ngModel)]="store.editDeckName" />
       </label>
+
+      @if (store.folders().length > 0) {
+        <app-format-select
+          name="editDeckFolder"
+          labelKey="deckBuilder.deckList.folder"
+          [options]="folderOptions()"
+          [value]="store.editDeckFolderId"
+          (valueChange)="store.editDeckFolderId = $event"
+        />
+      }
+
       <app-visibility-choice
         [(value)]="store.editDeckVisibility"
         publicSubtitle="Visible in public profile"
@@ -479,10 +460,10 @@
 
   <app-modal
     [open]="store.folderDeleteModalOpen()"
-    [title]="'deckBuilder.deckList.deleteFolder' | runtimeTranslate"
-    [message]="store.folderTarget() ? 'Delete ' + store.folderTarget()!.name + '? Decks will stay without folder.' : ''"
+    [title]="store.folderDeleteModalTitle()"
     primaryLabel="Delete"
     secondaryLabel="Cancel"
+    size="narrow"
     [danger]="true"
     (primary)="store.confirmDeleteFolder()"
     (secondary)="store.folderDeleteModalOpen.set(false)"
@@ -494,6 +475,7 @@
     [message]="store.deleteModalMessage()"
     [primaryLabel]="store.deleteModalPrimaryLabel()"
     secondaryLabel="Cancel"
+    size="narrow"
     [danger]="store.deleteModalIsDanger()"
     [showSecondary]="store.deleteModalShowsSecondary()"
     (primary)="store.confirmDeleteDeck()"

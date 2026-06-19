@@ -9,8 +9,7 @@
   display: grid;
   place-items: center;
   padding: 1rem;
-  background: rgb(var(--cz-bg-rgb) / 58%);
-  backdrop-filter: blur(4px);
+  background: rgb(var(--cz-bg-rgb) / 74%);
 }
 
 .modal-panel {
@@ -32,22 +31,11 @@
   top: 0.85rem;
   right: 0.85rem;
   z-index: 1;
-  display: inline-grid;
-  place-items: center;
-  width: 2.15rem;
-  height: 2.15rem;
-  padding: 0;
-  border: 1px solid rgb(var(--cz-primary-rgb) / 32%);
   border-radius: 999px;
-  color: var(--text);
-  background: rgb(var(--cz-bg-rgb) / 74%);
-  cursor: pointer;
-  line-height: 0;
 }
 
 .modal-close-button:hover {
   border-color: rgb(var(--cz-primary-rgb) / 68%);
-  background: rgb(var(--cz-bg-rgb) / 92%);
 }
 
 .modal-panel-compact {
@@ -62,6 +50,10 @@
   box-shadow:
     0 1.4rem 3rem rgb(var(--cz-bg-rgb) / 52%),
     0 0 0 1px rgb(var(--cz-text-rgb) / 4%) inset;
+}
+
+.modal-panel-narrow {
+  width: min(24rem, 100%);
 }
 
 .modal-panel-wide {
@@ -95,24 +87,7 @@
 }
 
 .modal-back-button {
-  width: 2.15rem;
-  height: 2.15rem;
-  display: inline-grid;
-  place-items: center;
-  padding: 0;
-  border: 1px solid rgb(var(--cz-primary-rgb) / 32%);
   border-radius: 10px;
-  color: var(--text);
-  background: rgb(var(--cz-bg-rgb) / 74%);
-  cursor: pointer;
-  line-height: 0;
-}
-
-.modal-back-button lucide-icon {
-  display: grid;
-  place-items: center;
-  width: 1.125rem;
-  height: 1.125rem;
 }
 
 .modal-back-button:hover {
@@ -122,14 +97,7 @@
 .modal-header-action {
   margin-left: auto;
   min-width: 8rem;
-  min-height: 2.25rem;
-  padding: 0 0.95rem;
-  border: 1px solid rgb(var(--cz-primary-rgb) / 72%);
   border-radius: 10px;
-  color: var(--cz-bg);
-  background: linear-gradient(180deg, var(--cz-text), var(--cz-secondary));
-  font-weight: 900;
-  cursor: pointer;
 }
 
 .modal-panel header p {
@@ -170,8 +138,3 @@
   padding-top: 0.25rem;
 }
 
-.modal-panel-compact footer .primary-button,
-.modal-panel-compact footer .secondary-button {
-  min-height: 2.35rem;
-  padding: 0.5rem 0.85rem;
-}

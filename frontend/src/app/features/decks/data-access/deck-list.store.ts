@@ -14,24 +14,34 @@ import { DeckFolderSection } from '../models/deck-list.models';
 
 export type DeckListColorFilter = 'all' | 'W' | 'U' | 'B' | 'R' | 'G' | 'C';
 export type DeckListSortMode = 'name-asc' | 'name-desc';
-export type DeckListViewMode = 'grid' | 'list';
 
 export interface DeckColorFilterOption {
   value: DeckListColorFilter;
-  label: string;
+  labelKey: string;
 }
+
+export interface DeckManaColorStat {
+  readonly color: 'W' | 'U' | 'B' | 'R' | 'G' | 'C';
+  readonly percentage: number;
+}
+
+export type DeckListRootItem =
+  | { readonly kind: 'folder'; readonly id: string; readonly name: string; readonly folder: DeckFolder }
+  | { readonly kind: 'deck'; readonly id: string; readonly name: string; readonly deck: Deck };
+
+const DECK_MANA_COLOR_ORDER: readonly DeckManaColorStat['color'][] = ['W', 'U', 'B', 'R', 'G', 'C'];
 
 @Injectable()
 export class DeckListStore {
   readonly maxDeckNameLength = 20;
   readonly colorFilterOptions: readonly DeckColorFilterOption[] = [
-    { value: 'all', label: 'Todos los colores' },
-    { value: 'W', label: 'Blanco' },
-    { value: 'U', label: 'Azul' },
-    { value: 'B', label: 'Negro' },
-    { value: 'R', label: 'Rojo' },
-    { value: 'G', label: 'Verde' },
-    { value: 'C', label: 'Incoloro' },
+    { value: 'all', labelKey: 'deckBuilder.deckList.colorFilter.any' },
+    { value: 'W', labelKey: 'deckBuilder.deckList.colorFilter.white' },
+    { value: 'U', labelKey: 'deckBuilder.deckList.colorFilter.blue' },
+    { value: 'B', labelKey: 'deckBuilder.deckList.colorFilter.black' },
+    { value: 'R', labelKey: 'deckBuilder.deckList.colorFilter.red' },
+    { value: 'G', labelKey: 'deckBuilder.deckList.colorFilter.green' },
+    { value: 'C', labelKey: 'deckBuilder.deckList.colorFilter.colorless' },
   ];
 
   private readonly decksApi = inject(DecksApi);
@@ -66,13 +76,10 @@ export class DeckListStore {
   readonly createFormLocked = signal(false);
   readonly selectedCommanders = signal<Card[]>([]);
   readonly currentFolderId = signal<string | null>(null);
-  readonly draggedDeckId = signal<string | null>(null);
-  readonly dragTargetId = signal<string | null>(null);
   readonly editingDeckId = signal<string | null>(null);
   readonly searchQuery = signal('');
   readonly colorFilter = signal<DeckListColorFilter>('all');
   readonly sortMode = signal<DeckListSortMode>('name-asc');
-  readonly viewMode = signal<DeckListViewMode>('grid');
   readonly folderSections = computed<DeckFolderSection[]>(() => {
     const sections: DeckFolderSection[] = this.folders().map((folder) => ({
       id: folder.id,
@@ -104,23 +111,52 @@ export class DeckListStore {
   readonly totalDeckCount = computed(() => this.decks().length);
   readonly publicDeckCount = computed(() => this.decks().filter((deck) => deck.visibility === 'public').length);
   readonly privateDeckCount = computed(() => this.decks().filter((deck) => (deck.visibility ?? 'private') === 'private').length);
+  readonly manaColorStats = computed<readonly DeckManaColorStat[]>(() => this.buildManaColorStats());
   readonly visibleFolders = computed(() => this.filteredFolders());
   readonly visibleUnfiledDecks = computed(() => this.filterAndSortDecks(this.unfiledSection().decks));
+  readonly visibleRootItems = computed<DeckListRootItem[]>(() => (
+    [
+      ...this.visibleFolders().map((folder): DeckListRootItem => ({
+        kind: 'folder',
+        id: `folder:${folder.id}`,
+        name: folder.name,
+        folder,
+      })),
+      ...this.visibleUnfiledDecks().map((deck): DeckListRootItem => ({
+        kind: 'deck',
+        id: `deck:${deck.id}`,
+        name: deck.name,
+        deck,
+      })),
+    ].sort((firstItem, secondItem) => this.compareRootItems(firstItem, secondItem))
+  ));
   readonly visibleCurrentFolderDecks = computed(() => this.filterAndSortDecks(this.currentFolderSection().decks));
   readonly visibleActiveDecks = computed(() => (
     this.currentFolder() ? this.visibleCurrentFolderDecks() : this.visibleUnfiledDecks()
   ));
-  readonly hasVisibleRootContent = computed(() => this.visibleFolders().length > 0 || this.visibleUnfiledDecks().length > 0);
+  readonly hasVisibleRootContent = computed(() => this.visibleRootItems().length > 0);
   readonly hasVisibleActiveDecks = computed(() => this.visibleActiveDecks().length > 0);
-  readonly deleteModalTitle = computed(() => this.deleteBlockedMessage() ? 'Deck in use' : 'Delete deck');
+  readonly folderDeleteModalTitle = computed(() => {
+    const folder = this.folderTarget();
+
+    return folder ? `Delete ${folder.name}?` : 'Delete folder';
+  });
+  readonly deleteModalTitle = computed(() => {
+    if (this.deleteBlockedMessage()) {
+      return 'Deck in use';
+    }
+
+    const deck = this.deleteTarget();
+
+    return deck ? `Delete ${deck.name}?` : 'Delete deck';
+  });
   readonly deleteModalMessage = computed(() => {
     const blockedMessage = this.deleteBlockedMessage();
     if (blockedMessage) {
       return blockedMessage;
     }
 
-    const deck = this.deleteTarget();
-    return deck ? `Delete ${deck.name}?` : '';
+    return '';
   });
   readonly deleteModalPrimaryLabel = computed(() => this.deleteBlockedMessage() ? 'OK' : 'Delete');
   readonly deleteModalShowsSecondary = computed(() => this.deleteBlockedMessage() === null);
@@ -138,12 +174,9 @@ export class DeckListStore {
   renameDeckName = '';
   editDeckName = '';
   editDeckVisibility: DeckVisibility = 'private';
+  editDeckFolderId = '';
   commanderQuery = '';
   createdDecklist = '';
-  private deckPointerDragTimer: ReturnType<typeof setTimeout> | null = null;
-  private deckPointerStart: { x: number; y: number; deckId: string } | null = null;
-  private activePointerDragDeckId: string | null = null;
-  private suppressNextDeckOpen = false;
   private createSuccessRedirectUrl: string | null = null;
 
   constructor() {
@@ -176,6 +209,7 @@ export class DeckListStore {
   }
 
   openCreateModal(): void {
+    this.newDeckFolderId = this.currentFolderId() ?? '';
     this.createModalOpen.set(true);
   }
 
@@ -338,10 +372,6 @@ export class DeckListStore {
 
   setSortMode(sortMode: DeckListSortMode): void {
     this.sortMode.set(sortMode);
-  }
-
-  setViewMode(viewMode: DeckListViewMode): void {
-    this.viewMode.set(viewMode);
   }
 
   hasSelectedCommanderSlots(): boolean {
@@ -530,11 +560,6 @@ export class DeckListStore {
   }
 
   openDeck(id: string): void {
-    if (this.suppressNextDeckOpen) {
-      this.suppressNextDeckOpen = false;
-      return;
-    }
-
     void this.router.navigate(['/decks', id]);
   }
 
@@ -587,15 +612,14 @@ export class DeckListStore {
   }
 
   shouldWarnEditDeckPublicInPrivateFolder(): boolean {
-    const deck = this.deckEditTarget();
-
-    return this.editDeckVisibility === 'public' && this.folderIsPrivate(deck?.folderId ?? '');
+    return this.editDeckVisibility === 'public' && this.folderIsPrivate(this.editDeckFolderId);
   }
 
   openDeckEditModal(deck: Deck): void {
     this.deckEditTarget.set(deck);
     this.editDeckName = deck.name;
     this.editDeckVisibility = deck.visibility ?? 'private';
+    this.editDeckFolderId = deck.folderId ?? '';
     this.deckEditModalOpen.set(true);
   }
 
@@ -604,6 +628,7 @@ export class DeckListStore {
     this.deckEditTarget.set(null);
     this.editDeckName = '';
     this.editDeckVisibility = 'private';
+    this.editDeckFolderId = '';
   }
 
   cancelDeckRename(): void {
@@ -640,152 +665,15 @@ export class DeckListStore {
     }
 
     try {
-      const response = await firstValueFrom(this.decksApi.update(deck.id, { name, visibility: this.editDeckVisibility }));
+      const response = await firstValueFrom(this.decksApi.update(deck.id, {
+        name,
+        visibility: this.editDeckVisibility,
+        folderId: this.editDeckFolderId || null,
+      }));
       this.decks.set(this.decks().map((candidate) => candidate.id === deck.id ? response.deck : candidate));
       this.closeDeckEditModal();
     } catch (error) {
       this.error.set(this.apiErrorMessage(error, 'Could not update deck.'));
-    }
-  }
-
-  beginDeckDrag(event: DragEvent, deck: Deck): void {
-    event.stopPropagation();
-    this.draggedDeckId.set(deck.id);
-    event.dataTransfer?.setData('text/plain', deck.id);
-    if (event.dataTransfer) {
-      event.dataTransfer.effectAllowed = 'move';
-    }
-  }
-
-  beginDeckPointerDrag(event: PointerEvent, deck: Deck): void {
-    if (event.pointerType === 'mouse') {
-      return;
-    }
-
-    const pointerTarget = event.currentTarget;
-    if (pointerTarget instanceof HTMLElement) {
-      pointerTarget.setPointerCapture(event.pointerId);
-    }
-
-    this.cancelDeckPointerDragTimer();
-    this.deckPointerStart = { x: event.clientX, y: event.clientY, deckId: deck.id };
-    this.deckPointerDragTimer = setTimeout(() => {
-      this.activePointerDragDeckId = deck.id;
-      this.draggedDeckId.set(deck.id);
-      this.dragTargetId.set(this.folderDropTargetFromPoint(event.clientX, event.clientY));
-      this.suppressNextDeckOpen = true;
-    }, 220);
-  }
-
-  moveDeckPointerDrag(event: PointerEvent): void {
-    if (event.pointerType === 'mouse') {
-      return;
-    }
-
-    const start = this.deckPointerStart;
-    if (!start) {
-      return;
-    }
-
-    const moved = Math.hypot(event.clientX - start.x, event.clientY - start.y);
-    if (!this.activePointerDragDeckId && moved > 10) {
-      this.cancelDeckPointerDragTimer();
-      this.deckPointerStart = null;
-      return;
-    }
-
-    if (!this.activePointerDragDeckId) {
-      return;
-    }
-
-    event.preventDefault();
-    this.dragTargetId.set(this.folderDropTargetFromPoint(event.clientX, event.clientY));
-  }
-
-  finishDeckPointerDrag(event: PointerEvent): void {
-    if (event.pointerType === 'mouse') {
-      return;
-    }
-
-    const pointerTarget = event.currentTarget;
-    if (pointerTarget instanceof HTMLElement && pointerTarget.hasPointerCapture(event.pointerId)) {
-      pointerTarget.releasePointerCapture(event.pointerId);
-    }
-
-    this.cancelDeckPointerDragTimer();
-    const deckId = this.activePointerDragDeckId;
-    const targetId = this.folderDropTargetFromPoint(event.clientX, event.clientY);
-    this.deckPointerStart = null;
-    this.activePointerDragDeckId = null;
-    this.dragTargetId.set(null);
-
-    if (!deckId || targetId === null) {
-      this.endDeckDrag();
-      return;
-    }
-
-    const deck = this.decks().find((candidate) => candidate.id === deckId);
-    if (deck) {
-      void this.moveDeck(deck, targetId === '__unfiled__' ? '' : targetId);
-    }
-    this.endDeckDrag();
-  }
-
-  endDeckDrag(): void {
-    this.draggedDeckId.set(null);
-    this.dragTargetId.set(null);
-  }
-
-  allowDeckDrop(event: DragEvent, targetId: string): void {
-    if (!this.draggedDeckId()) {
-      return;
-    }
-
-    event.preventDefault();
-    event.stopPropagation();
-    if (event.dataTransfer) {
-      event.dataTransfer.dropEffect = 'move';
-    }
-    this.dragTargetId.set(targetId);
-  }
-
-  clearDeckDrop(targetId: string): void {
-    if (this.dragTargetId() === targetId) {
-      this.dragTargetId.set(null);
-    }
-  }
-
-  async dropDeckOnFolder(event: DragEvent, folderId: string | null): Promise<void> {
-    event.preventDefault();
-    event.stopPropagation();
-    const deckId = this.draggedDeckId() ?? event.dataTransfer?.getData('text/plain') ?? null;
-    this.dragTargetId.set(null);
-
-    if (!deckId) {
-      return;
-    }
-
-    const deck = this.decks().find((candidate) => candidate.id === deckId);
-    if (!deck) {
-      this.endDeckDrag();
-      return;
-    }
-
-    await this.moveDeck(deck, folderId ?? '');
-    this.endDeckDrag();
-  }
-
-  async moveDeck(deck: Deck, folderId: string): Promise<void> {
-    const nextFolderId = folderId || null;
-    if (deck.folderId === nextFolderId) {
-      return;
-    }
-
-    try {
-      const response = await firstValueFrom(this.decksApi.moveToFolder(deck.id, nextFolderId));
-      this.decks.set(this.decks().map((candidate) => candidate.id === deck.id ? response.deck : candidate));
-    } catch {
-      this.error.set('Could not move deck.');
     }
   }
 
@@ -851,20 +739,6 @@ export class DeckListStore {
       && this.createdDecklist.trim() !== '';
   }
 
-  private cancelDeckPointerDragTimer(): void {
-    if (this.deckPointerDragTimer) {
-      clearTimeout(this.deckPointerDragTimer);
-      this.deckPointerDragTimer = null;
-    }
-  }
-
-  private folderDropTargetFromPoint(x: number, y: number): string | null {
-    const target = document.elementFromPoint(x, y);
-    const dropTarget = target?.closest<HTMLElement>('[data-folder-drop-id]');
-
-    return dropTarget?.dataset['folderDropId'] ?? null;
-  }
-
   private folderIsPrivate(folderId: string | null): boolean {
     if (!folderId) {
       return false;
@@ -897,13 +771,7 @@ export class DeckListStore {
       return true;
     }
 
-    const commanderNames = (deck.commanders ?? [])
-      .map((commander) => commander.name)
-      .join(' ')
-      .toLocaleLowerCase();
-
-    return deck.name.toLocaleLowerCase().includes(normalizedSearch)
-      || commanderNames.includes(normalizedSearch);
+    return deck.name.toLocaleLowerCase().includes(normalizedSearch);
   }
 
   private matchesDeckColor(deck: Deck): boolean {
@@ -923,6 +791,55 @@ export class DeckListStore {
     const direction = this.sortMode() === 'name-desc' ? -1 : 1;
 
     return firstName.localeCompare(secondName, undefined, { sensitivity: 'base' }) * direction;
+  }
+
+  private compareRootItems(firstItem: DeckListRootItem, secondItem: DeckListRootItem): number {
+    const nameComparison = this.compareByName(firstItem.name, secondItem.name);
+    if (nameComparison !== 0) {
+      return nameComparison;
+    }
+
+    return firstItem.kind.localeCompare(secondItem.kind);
+  }
+
+  private buildManaColorStats(): readonly DeckManaColorStat[] {
+    if (this.decks().length <= 1) {
+      return [];
+    }
+
+    const counts = new Map<DeckManaColorStat['color'], number>(DECK_MANA_COLOR_ORDER.map((color) => [color, 0]));
+    let totalSymbols = 0;
+
+    for (const deck of this.decks()) {
+      const colors = this.commanderColorIdentity(deck);
+      if (!colors) {
+        continue;
+      }
+
+      for (const color of colors) {
+        if (!this.isManaColor(color)) {
+          continue;
+        }
+
+        counts.set(color, (counts.get(color) ?? 0) + 1);
+        totalSymbols += 1;
+      }
+    }
+
+    if (totalSymbols === 0) {
+      return [];
+    }
+
+    return DECK_MANA_COLOR_ORDER
+      .map((color) => ({
+        color,
+        percentage: Math.round(((counts.get(color) ?? 0) / totalSymbols) * 100),
+      }))
+      .filter((stat) => stat.percentage > 0);
+  }
+
+  private isManaColor(value: string): value is DeckManaColorStat['color'] {
+    return DECK_MANA_COLOR_ORDER.includes(value as DeckManaColorStat['color']);
   }
 
   private normalizedSearch(): string {

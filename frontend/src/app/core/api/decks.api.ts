@@ -89,12 +89,8 @@ export class DecksApi {
     return this.http.patch<DeckResponse>(`${API_BASE_URL}/decks/${id}`, { name });
   }
 
-  update(id: string, payload: { name?: string; visibility?: DeckVisibility }): Observable<DeckResponse> {
+  update(id: string, payload: { name?: string; visibility?: DeckVisibility; folderId?: string | null }): Observable<DeckResponse> {
     return this.http.patch<DeckResponse>(`${API_BASE_URL}/decks/${id}`, payload);
-  }
-
-  moveToFolder(id: string, folderId: string | null): Observable<DeckResponse> {
-    return this.http.patch<DeckResponse>(`${API_BASE_URL}/decks/${id}`, { folderId }, { context: withoutGlobalLoading() });
   }
 
   delete(id: string): Observable<void> {

@@ -27,16 +27,24 @@
 .deck-row-clickable {
   cursor: pointer;
   touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.deck-row-clickable:hover,
-.deck-row-clickable:focus-visible {
-  border-color: rgb(var(--cz-primary-rgb) / 64%);
-  box-shadow:
-    inset 0 1px 0 rgb(var(--cz-text-rgb) / 10%),
-    0 18px 42px rgb(var(--cz-bg-rgb) / 28%),
-    0 0 0 1px rgb(var(--cz-primary-rgb) / 12%);
-  transform: translateY(-1px);
+.deck-row-clickable:focus,
+.deck-row-clickable:focus-visible,
+.deck-row-clickable:active {
+  outline: 0;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .deck-row-clickable:hover:not(:has(.deck-row-actions:hover)) {
+    border-color: rgb(var(--cz-primary-rgb) / 64%);
+    box-shadow:
+      inset 0 1px 0 rgb(var(--cz-text-rgb) / 10%),
+      0 18px 42px rgb(var(--cz-bg-rgb) / 28%),
+      0 0 0 1px rgb(var(--cz-primary-rgb) / 12%);
+    transform: translateY(-1px);
+  }
 }
 
 .deck-list-row.has-commander-art {
@@ -157,17 +165,19 @@
     filter 180ms ease;
 }
 
-.deck-list-row.has-commander-art:not(:focus-within):hover .deck-card-topline {
-  opacity: 0;
-  transform: translateY(-0.45rem) scale(0.98);
-  filter: blur(2px);
-  pointer-events: none;
-}
+@media (hover: hover) and (pointer: fine) {
+  .deck-list-row.has-commander-art:not(:focus-within):hover:not(:has(.deck-row-actions:hover)) .deck-card-topline {
+    opacity: 0;
+    transform: translateY(-0.45rem) scale(0.98);
+    filter: blur(2px);
+    pointer-events: none;
+  }
 
-.deck-list-row.has-commander-art:not(:focus-within):hover::after,
-.deck-list-row.has-commander-art:not(:focus-within):hover .deck-dual-commander-art-pane::after {
-  opacity: 0.96;
-  transform: scale(1.035);
+  .deck-list-row.has-commander-art:not(:focus-within):hover:not(:has(.deck-row-actions:hover))::after,
+  .deck-list-row.has-commander-art:not(:focus-within):hover:not(:has(.deck-row-actions:hover)) .deck-dual-commander-art-pane::after {
+    opacity: 0.96;
+    transform: scale(1.035);
+  }
 }
 
 .deck-card-topline strong {
@@ -190,16 +200,18 @@
 }
 
 .visibility-pill {
+  --pill-rgb: var(--cz-warning-rgb);
+
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
   width: fit-content;
   min-height: 2rem;
   padding: 0.35rem 0.65rem;
-  border: 1px solid rgb(var(--cz-text-rgb) / 13%);
+  border: 1px solid rgb(var(--pill-rgb) / 38%);
   border-radius: 6px;
-  background: rgb(var(--cz-bg-rgb) / 48%);
-  color: var(--cz-text);
+  background: rgb(var(--pill-rgb) / 12%);
+  color: var(--cz-warning);
   font-size: 0.78rem;
   font-weight: 740;
   text-transform: capitalize;
@@ -207,18 +219,29 @@
 }
 
 .visibility-pill.public {
-  border-color: rgb(var(--cz-success-rgb) / 35%);
-  color: var(--cz-secondary);
+  --pill-rgb: var(--cz-success-rgb);
+
+  color: var(--cz-success);
 }
 
-.deck-row-actions,
 .deck-card-status {
   display: flex;
   align-items: center;
   gap: 0.45rem;
 }
 
+.deck-card-status {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 2;
+  transform: translate(-50%, -50%);
+}
+
 .deck-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
   padding: 0.24rem;
   border: 1px solid rgb(var(--cz-text-rgb) / 9%);
   border-radius: 7px;
@@ -231,11 +254,16 @@
     opacity 160ms ease;
 }
 
-.deck-list-row:hover .deck-row-actions,
-.deck-list-row:focus-within .deck-row-actions {
-  border-color: rgb(var(--cz-primary-rgb) / 24%);
-  background: rgb(var(--cz-bg-rgb) / 62%);
-  opacity: 1;
+.deck-row-actions button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .deck-list-row:hover .deck-row-actions {
+    border-color: rgb(var(--cz-primary-rgb) / 24%);
+    background: rgb(var(--cz-bg-rgb) / 62%);
+    opacity: 1;
+  }
 }
 
 .deck-list-warning {
@@ -286,11 +314,15 @@
   }
 
   .deck-card-footer {
-    align-items: stretch;
-    flex-direction: column;
+    align-items: end;
+    flex-direction: row;
   }
 
   .deck-card-status {
-    justify-content: space-between;
+    justify-content: center;
+  }
+
+  .deck-row-actions {
+    margin-left: auto;
   }
 }

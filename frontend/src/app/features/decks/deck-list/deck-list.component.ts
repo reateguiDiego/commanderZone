@@ -9,8 +9,9 @@ import { VisibilityChoiceComponent } from '../../../shared/components/visibility
 import { FormatSelectComponent, type FormatSelectOption } from '../../../shared/components/format-select/format-select.component';
 import { AppModalComponent } from '../../../shared/ui/app-modal/app-modal.component';
 import { PrettyScrollDirective } from '../../../shared/ui/pretty-scroll/pretty-scroll.directive';
+import { ManaSymbolsComponent } from '../../../shared/mana/mana-symbols/mana-symbols.component';
 import { Card } from '../../../core/models/card.model';
-import { type DeckListColorFilter, type DeckListSortMode, DeckListStore, type DeckListViewMode } from '../data-access/deck-list.store';
+import { type DeckListColorFilter, type DeckListSortMode, DeckListStore } from '../data-access/deck-list.store';
 import { DeckListCardComponent } from './components/deck-list-card/deck-list-card.component';
 import { CzButtonDirective } from '../../../shared/ui/button/button.directive';
 
@@ -31,6 +32,7 @@ interface CommanderHoverPreview {
     PrettyScrollDirective,
     VisibilityChoiceComponent,
     FormatSelectComponent,
+    ManaSymbolsComponent,
     DeckListCardComponent,
     CzButtonDirective,
   ],
@@ -43,16 +45,17 @@ export class DeckListComponent implements OnInit, OnDestroy {
   readonly store = inject(DeckListStore);
   private readonly route = inject(ActivatedRoute);
   readonly commanderHoverPreview = signal<CommanderHoverPreview | null>(null);
+  readonly searchPanelOpen = signal(false);
   readonly colorFilterOptions = computed<readonly FormatSelectOption[]>(() =>
-    this.store.colorFilterOptions.map((option) => ({ id: option.value, name: option.label })),
+    this.store.colorFilterOptions.map((option) => ({ id: option.value, labelKey: option.labelKey })),
   );
   readonly sortModeOptions: readonly FormatSelectOption[] = [
-    { id: 'name-asc', name: 'Ordenar por: Nombre (A-Z)' },
-    { id: 'name-desc', name: 'Ordenar por: Nombre (Z-A)' },
+    { id: 'name-asc', labelKey: 'deckBuilder.deckList.sortMode.nameAsc' },
+    { id: 'name-desc', labelKey: 'deckBuilder.deckList.sortMode.nameDesc' },
   ];
   readonly folderOptions = computed<readonly FormatSelectOption[]>(() => [
     { id: '', labelKey: 'deckBuilder.deckList.noFolder' },
-    ...this.store.folderOptions().map((folder) => ({ id: folder.id, name: folder.name })),
+    ...this.store.folders().map((folder) => ({ id: folder.id, name: folder.name })),
   ]);
   readonly importDecklistDisclaimerKey = computed(() => (
     this.store.selectedCommanders().length === 2
@@ -105,8 +108,32 @@ export class DeckListComponent implements OnInit, OnDestroy {
     this.store.newDeckFolderId = value;
   }
 
-  setViewMode(value: DeckListViewMode): void {
-    this.store.setViewMode(value);
+  toggleSearchPanel(searchInput: HTMLInputElement): void {
+    const shouldOpen = !this.searchPanelOpen();
+    this.searchPanelOpen.set(shouldOpen);
+
+    if (shouldOpen) {
+      setTimeout(() => searchInput.focus(), 0);
+    }
+  }
+
+  suppressRowActionPointer(event: PointerEvent): void {
+    event.stopPropagation();
+  }
+
+  suppressRowActionMouseDown(event: MouseEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  suppressRowActionClick(event: MouseEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const target = event.currentTarget;
+    if (target instanceof HTMLElement) {
+      target.blur();
+    }
   }
 
   scheduleCommanderPreview(event: MouseEvent, imageUrl: string): void {

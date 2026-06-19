@@ -24,24 +24,54 @@ export class DeckListCardComponent {
   readonly openDeck = output<void>();
   readonly editDeck = output<void>();
   readonly deleteDeck = output<void>();
-  readonly deckDragStart = output<DragEvent>();
-  readonly deckDragEnd = output<void>();
-  readonly deckPointerDown = output<PointerEvent>();
-  readonly deckPointerMove = output<PointerEvent>();
-  readonly deckPointerUp = output<PointerEvent>();
-  readonly deckPointerCancel = output<PointerEvent>();
 
   visibilityIcon(visibility: DeckVisibility | undefined): 'globe' | 'lock' {
     return visibility === 'public' ? 'globe' : 'lock';
   }
 
-  edit(event: MouseEvent): void {
+  open(event: Event): void {
+    if (this.isDeckActionEvent(event)) {
+      event.stopPropagation();
+      return;
+    }
+
+    this.openDeck.emit();
+  }
+
+  handleDeckActionPointer(event: PointerEvent): void {
     event.stopPropagation();
+  }
+
+  handleDeckActionMouseDown(event: MouseEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  edit(event: MouseEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.blurActionTarget(event);
     this.editDeck.emit();
   }
 
   delete(event: MouseEvent): void {
+    event.preventDefault();
     event.stopPropagation();
+    this.blurActionTarget(event);
     this.deleteDeck.emit();
+  }
+
+  private blurActionTarget(event: Event): void {
+    const target = event.currentTarget;
+
+    if (target instanceof HTMLElement) {
+      target.blur();
+    }
+  }
+
+  private isDeckActionEvent(event: Event): boolean {
+    const target = event.target;
+
+    return target instanceof HTMLElement && target.closest('.deck-row-actions') !== null;
   }
 }

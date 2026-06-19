@@ -59,12 +59,18 @@
   gap: 0.55rem;
 }
 
-.format-select-trigger-label,
-.format-select-option-content span {
+.format-select-trigger-label {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.format-select-option-content span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: var(--format-select-option-white-space, nowrap);
 }
 
 .format-select-caret {
@@ -86,11 +92,13 @@
   position: absolute;
   z-index: 50;
   top: calc(100% + 0.45rem);
-  left: 0;
-  right: 0;
+  left: var(--format-select-menu-left, 0);
+  right: var(--format-select-menu-right, 0);
   display: grid;
   gap: 0.18rem;
+  width: var(--format-select-menu-width, auto);
   max-height: 14rem;
+  overflow-x: var(--format-select-menu-overflow-x, visible);
   overflow-y: auto;
   border: 1px solid rgb(var(--cz-primary-rgb) / 34%);
   border-radius: 12px;
@@ -100,10 +108,24 @@
     rgb(var(--cz-bg-rgb) / 98%);
   box-shadow:
     0 1.2rem 2.4rem rgb(var(--cz-bg-rgb) / 45%),
+    inset 0 0.9rem 0.8rem -1rem rgb(var(--cz-text-rgb) / 45%),
+    inset 0 -0.9rem 0.8rem -1rem rgb(var(--cz-text-rgb) / 45%),
     inset 0 1px 0 rgb(var(--cz-text-rgb) / 6%);
+  scrollbar-color: rgb(var(--cz-accent-rgb) / 62%) rgb(var(--cz-bg-rgb) / 42%);
   transform-origin: top center;
   will-change: opacity, transform, filter;
   animation: cz-format-select-menu-enter 190ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.format-select-menu::-webkit-scrollbar-track {
+  background:
+    linear-gradient(180deg, rgb(var(--cz-bg-rgb) / 68%), rgb(var(--cz-surface-rgb) / 72%));
+}
+
+.format-select-menu::-webkit-scrollbar-thumb {
+  background:
+    linear-gradient(180deg, rgb(var(--cz-accent-rgb) / 86%), rgb(var(--cz-primary-rgb) / 88%));
+  box-shadow: inset 0 1px 0 rgb(var(--cz-text-rgb) / 28%);
 }
 
 .format-select-menu.is-closing {

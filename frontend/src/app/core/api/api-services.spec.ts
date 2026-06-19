@@ -238,16 +238,6 @@ describe('API services', () => {
     request.flush({ deck: { id: 'deck-1', name: 'Deck', format: 'commander', folderId: 'folder-1', cards: [] } });
   });
 
-  it('moves decks between folders without triggering the global loading overlay', () => {
-    TestBed.inject(DecksApi).moveToFolder('deck-1', 'folder-1').subscribe();
-
-    const request = http.expectOne(`${API_BASE_URL}/decks/deck-1`);
-    expect(request.request.method).toBe('PATCH');
-    expect(request.request.body).toEqual({ folderId: 'folder-1' });
-    expect(request.request.context.get(SKIP_GLOBAL_LOADING)).toBe(true);
-    request.flush({ deck: { id: 'deck-1', name: 'Deck', format: 'commander', folderId: 'folder-1', cards: [] } });
-  });
-
   it('loads backend deck analysis through the analysis endpoint', () => {
     TestBed.inject(DecksApi).analysis('deck-1', { includeSideboard: true, curvePlayabilityMode: 'draw' }).subscribe();
 

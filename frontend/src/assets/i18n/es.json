@@ -797,7 +797,6 @@
       "yourDeckListFeelsALittleEmpty": "Your deck list feels a little empty. Jump in and start building!",
       "decks": "Decks",
       "noDecksInThisFolderYet": "No decks in this folder yet.",
-      "dragOutsideThisFolderPanelToRemove": "Drag outside this folder panel to remove the deck from the folder.",
       "missingCards": "Missing cards",
       "deckName": "Deck name",
       "folder": "Folder",
@@ -807,12 +806,26 @@
       "importDecklist": "Import decklist",
       "ifYouIncludeYourCommanderInThe": "If you include your commander in the import decklist, do not worry; we will remove it for you.",
       "ifYouIncludeYourCommandersInThe": "If you include your commanders in the import decklist, do not worry; we will remove them for you.",
-      "afterCreatingAFolderDragDecksOnto": "After creating a folder, drag decks onto it to organize them. You can also drag decks out of a folder to remove them without deleting anything.",
       "folderName": "Folder name",
       "header": {
         "title": "Decks",
         "createDeck": "Create deck",
         "createFolder": "Create folder"
+      },
+      "colorFilter": {
+        "label": "Color",
+        "any": "Cualquiera",
+        "white": "Blanco",
+        "blue": "Azul",
+        "black": "Negro",
+        "red": "Rojo",
+        "green": "Verde",
+        "colorless": "Incoloro"
+      },
+      "sortMode": {
+        "label": "Orden",
+        "nameAsc": "Nombre (A-Z)",
+        "nameDesc": "Nombre (Z-A)"
       }
     }
   },

@@ -25,7 +25,8 @@
 
     @if (menuVisible()) {
       <div
-        class="format-select-menu app-pretty-scroll"
+        class="format-select-menu"
+        appPrettyScroll
         role="listbox"
         [class.is-open]="dropdownOpen()"
         [class.is-closing]="menuClosing()"

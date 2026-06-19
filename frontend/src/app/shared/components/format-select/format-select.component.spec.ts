@@ -60,6 +60,15 @@ describe('FormatSelectComponent', () => {
     expect(selectedValues).toEqual(['public']);
   });
 
+  it('uses the shared visual scroll treatment for the dropdown menu', () => {
+    fixture.nativeElement.querySelector('.format-select-trigger').click();
+    fixture.detectChanges();
+
+    const menu = fixture.nativeElement.querySelector('.format-select-menu') as HTMLElement | null;
+
+    expect(menu?.classList.contains('app-pretty-scroll')).toBe(true);
+  });
+
   it('does not emit disabled options', () => {
     const selectedValues: string[] = [];
     fixture.componentRef.setInput('formats', []);

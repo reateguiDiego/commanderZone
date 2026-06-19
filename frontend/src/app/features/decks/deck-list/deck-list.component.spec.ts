@@ -27,7 +27,7 @@ import { DeckFoldersApi } from '../../../core/api/deck-folders.api';
 import { DeckFormatsApi } from '../../../core/api/deck-formats.api';
 import { DecksApi } from '../../../core/api/decks.api';
 import { Card } from '../../../core/models/card.model';
-import { Deck } from '../../../core/models/deck.model';
+import { Deck, DeckFolder } from '../../../core/models/deck.model';
 import { DeckListComponent } from './deck-list.component';
 
 describe('DeckListComponent', () => {
@@ -75,6 +75,7 @@ describe('DeckListComponent', () => {
                 mainCount: 1,
               },
             })),
+            update: vi.fn().mockReturnValue(of({ deck: savedDeck() })),
             delete: vi.fn().mockReturnValue(of(undefined)),
           },
         },
@@ -100,6 +101,210 @@ describe('DeckListComponent', () => {
 
     expect(fixture.nativeElement.querySelector('.deck-page-hero h1')?.textContent.trim()).toBe('Decks');
     expect(fixture.componentInstance.store.createModalTitle()).toBe('Create deck');
+  });
+
+  it('sorts root folders and unfiled decks together by name', async () => {
+    const fixture = TestBed.createComponent(DeckListComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.store.folders.set([
+      savedFolder({ id: 'folder-charlie', name: 'Charlie Folder' }),
+    ]);
+    fixture.componentInstance.store.decks.set([
+      savedDeck({ id: 'deck-delta', name: 'Delta Deck', folderId: null }),
+      savedDeck({ id: 'deck-alpha', name: 'Alpha Deck', folderId: null }),
+    ]);
+    fixture.componentInstance.store.loading.set(false);
+    fixture.detectChanges();
+
+    const names = Array.from(
+      fixture.nativeElement.querySelectorAll('.deck-card-topline strong') as NodeListOf<HTMLElement>,
+    ).map((element) => element.textContent?.trim());
+
+    expect(names).toEqual(['Alpha Deck', 'Charlie Folder', 'Delta Deck']);
+  });
+
+  it('saves the selected edit folder with the deck update payload', async () => {
+    const decksApi = TestBed.inject(DecksApi);
+    const updateDeck = vi.spyOn(decksApi, 'update').mockReturnValue(of({
+      deck: savedDeck({
+        id: 'deck-1',
+        name: 'Renamed Deck',
+        visibility: 'public',
+        folderId: null,
+      }),
+    }));
+    const fixture = TestBed.createComponent(DeckListComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const deck = savedDeck({ id: 'deck-1', name: 'Original Deck', folderId: 'folder-1' });
+
+    fixture.componentInstance.store.decks.set([deck]);
+    fixture.componentInstance.store.openDeckEditModal(deck);
+    fixture.componentInstance.store.editDeckName = 'Renamed Deck';
+    fixture.componentInstance.store.editDeckVisibility = 'public';
+    fixture.componentInstance.store.editDeckFolderId = '';
+    await fixture.componentInstance.store.saveDeckEdit();
+
+    expect(updateDeck).toHaveBeenCalledWith('deck-1', {
+      name: 'Renamed Deck',
+      visibility: 'public',
+      folderId: null,
+    });
+  });
+
+  it('renders the edit deck folder select from loaded folders', async () => {
+    const fixture = TestBed.createComponent(DeckListComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const deck = savedDeck({ id: 'deck-1', name: 'Original Deck', folderId: 'folder-1' });
+
+    fixture.componentInstance.store.folders.set([
+      savedFolder({ id: 'folder-1', name: 'Folder One' }),
+    ]);
+    fixture.componentInstance.store.folderOptions.set([]);
+    fixture.componentInstance.store.openDeckEditModal(deck);
+    fixture.detectChanges();
+
+    const folderInput = fixture.nativeElement.querySelector('input[name="editDeckFolder"]') as HTMLInputElement | null;
+
+    expect(folderInput).not.toBeNull();
+    expect(folderInput?.value).toBe('folder-1');
+    expect(fixture.nativeElement.textContent).toContain('Folder One');
+  });
+
+  it('hides the edit deck folder select when there are no folders', async () => {
+    const fixture = TestBed.createComponent(DeckListComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.store.folders.set([]);
+    fixture.componentInstance.store.openDeckEditModal(savedDeck({ id: 'deck-1', name: 'Original Deck' }));
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('input[name="editDeckFolder"]')).toBeNull();
+  });
+
+  it('uses the target name as the delete deck modal title', async () => {
+    const fixture = TestBed.createComponent(DeckListComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.store.deleteDeck(savedDeck({ id: 'deck-1', name: 'Deck To Delete' }));
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.store.deleteModalTitle()).toBe('Delete Deck To Delete?');
+    expect(fixture.nativeElement.querySelector('.modal-panel-narrow')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('.modal-title-row h2')?.textContent.trim()).toBe('Delete Deck To Delete?');
+  });
+
+  it('does not open the deck article when clicking a deck action', async () => {
+    const router = TestBed.inject(Router);
+    const navigate = vi.spyOn(router, 'navigate').mockResolvedValue(true);
+    const fixture = TestBed.createComponent(DeckListComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.store.decks.set([
+      savedDeck({ id: 'deck-1', name: 'Deck One', folderId: null }),
+    ]);
+    fixture.componentInstance.store.loading.set(false);
+    fixture.detectChanges();
+
+    const editButton = fixture.nativeElement.querySelector('app-deck-list-card .deck-row-actions button[title="Edit deck"]') as HTMLButtonElement | null;
+    const pointerDownAllowed = editButton?.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true }));
+    const mouseDownAllowed = editButton?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+    editButton?.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
+    editButton?.focus();
+    editButton?.click();
+
+    expect(pointerDownAllowed).toBe(true);
+    expect(mouseDownAllowed).toBe(false);
+    expect(document.activeElement).not.toBe(editButton);
+    expect(fixture.componentInstance.store.deckEditModalOpen()).toBe(true);
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
+  it('does not enter a folder when clicking a folder action', async () => {
+    const fixture = TestBed.createComponent(DeckListComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.store.folders.set([
+      savedFolder({ id: 'folder-1', name: 'Folder One' }),
+    ]);
+    fixture.componentInstance.store.loading.set(false);
+    fixture.detectChanges();
+
+    const renameButton = fixture.nativeElement.querySelector('.folder-list-row .deck-row-actions button') as HTMLButtonElement | null;
+    const pointerDownAllowed = renameButton?.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true }));
+    const mouseDownAllowed = renameButton?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+    renameButton?.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
+    renameButton?.focus();
+    renameButton?.click();
+
+    expect(pointerDownAllowed).toBe(true);
+    expect(mouseDownAllowed).toBe(false);
+    expect(document.activeElement).not.toBe(renameButton);
+    expect(fixture.componentInstance.store.folderRenameModalOpen()).toBe(true);
+    expect(fixture.componentInstance.store.currentFolderId()).toBeNull();
+  });
+
+  it('hides create folder inside a folder and defaults new decks to that folder', async () => {
+    const fixture = TestBed.createComponent(DeckListComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.store.folders.set([
+      savedFolder({ id: 'folder-1', name: 'Folder One' }),
+    ]);
+    fixture.componentInstance.store.currentFolderId.set('folder-1');
+    fixture.detectChanges();
+
+    const actionsText = (fixture.nativeElement.querySelector('.deck-primary-actions') as HTMLElement).textContent ?? '';
+    fixture.componentInstance.store.openCreateModal();
+
+    expect(actionsText).toContain('Crear mazo');
+    expect(actionsText).not.toContain('Crear carpeta');
+    expect(fixture.componentInstance.store.newDeckFolderId).toBe('folder-1');
+  });
+
+  it('builds mana color percentages from all deck color symbols', async () => {
+    const fixture = TestBed.createComponent(DeckListComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.store.decks.set([
+      savedDeck({ id: 'deck-1', commanders: [commanderCard()] }),
+    ]);
+    expect(fixture.componentInstance.store.manaColorStats()).toEqual([]);
+
+    fixture.componentInstance.store.decks.set([
+      savedDeck({ id: 'deck-1', commanders: [commanderCard()] }),
+      savedDeck({ id: 'deck-2', commanders: [secondCommanderCard()] }),
+    ]);
+
+    expect(fixture.componentInstance.store.manaColorStats()).toEqual([
+      { color: 'W', percentage: 17 },
+      { color: 'U', percentage: 33 },
+      { color: 'B', percentage: 33 },
+      { color: 'G', percentage: 17 },
+    ]);
+  });
+
+  it('filters decks by deck name and not commander name', async () => {
+    const fixture = TestBed.createComponent(DeckListComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.componentInstance.store.decks.set([
+      savedDeck({ id: 'deck-1', name: 'Zurgito', commanders: [commanderCard()] }),
+      savedDeck({ id: 'deck-2', name: 'dede', commanders: [secondCommanderCard()] }),
+    ]);
+    fixture.componentInstance.store.setSearchQuery('ie');
+
+    expect(fixture.componentInstance.store.visibleUnfiledDecks()).toEqual([]);
   });
 
   it('opens the create deck flow when the route requests an import intent', () => {
@@ -508,6 +713,15 @@ function savedDeck(overrides: Partial<Deck> = {}): Deck {
     format: 'commander',
     folderId: null,
     commanders: [],
+    ...overrides,
+  };
+}
+
+function savedFolder(overrides: Partial<DeckFolder> = {}): DeckFolder {
+  return {
+    id: 'saved-folder',
+    name: 'Saved Folder',
+    visibility: 'private',
     ...overrides,
   };
 }

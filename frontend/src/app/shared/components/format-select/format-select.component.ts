@@ -1,6 +1,7 @@
 import { DOCUMENT } from '@angular/common';
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, computed, inject, input, output, signal } from '@angular/core';
 import { RuntimeTranslatePipe } from '../../../core/localization/runtime-translate.pipe';
+import { PrettyScrollDirective } from '../../ui/pretty-scroll/pretty-scroll.directive';
 
 export interface FormatSelectOption {
   readonly id: string;
@@ -13,7 +14,7 @@ const FORMAT_SELECT_EXIT_ANIMATION_MS = 170;
 
 @Component({
   selector: 'app-format-select',
-  imports: [RuntimeTranslatePipe],
+  imports: [RuntimeTranslatePipe, PrettyScrollDirective],
   templateUrl: './format-select.component.html',
   styleUrl: './format-select.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

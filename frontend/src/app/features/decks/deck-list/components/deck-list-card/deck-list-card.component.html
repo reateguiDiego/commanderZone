@@ -4,17 +4,10 @@
   [class.has-dual-commander-art]="hasDualCommanderArt()"
   [style.--deck-commander-art]="commanderBackground()"
   [style.--deck-secondary-commander-art]="secondaryCommanderBackground()"
-  draggable="true"
   role="link"
   tabindex="0"
-  (click)="openDeck.emit()"
-  (keydown.enter)="openDeck.emit()"
-  (dragstart)="deckDragStart.emit($event)"
-  (dragend)="deckDragEnd.emit()"
-  (pointerdown)="deckPointerDown.emit($event)"
-  (pointermove)="deckPointerMove.emit($event)"
-  (pointerup)="deckPointerUp.emit($event)"
-  (pointercancel)="deckPointerCancel.emit($event)"
+  (click)="open($event)"
+  (keydown.enter)="open($event)"
 >
   @if (hasDualCommanderArt()) {
     <div class="deck-dual-commander-art" aria-hidden="true">
@@ -35,20 +28,20 @@
       <lucide-icon [name]="visibilityIcon(deck().visibility)" size="13" />
       {{ deck().visibility || 'private' }}
     </span>
-    <div class="deck-card-status">
-      @if (hasIssues()) {
+    @if (hasIssues()) {
+      <div class="deck-card-status">
         <span class="deck-list-warning" [attr.title]="issueTooltip()" aria-label="Deck warnings">
           <lucide-icon name="triangle-alert" size="16" />
         </span>
-      }
-      <div class="deck-row-actions">
-        <button czButton="icon" class="icon-button" type="button" title="Edit deck" (click)="edit($event)">
-          <lucide-icon name="pencil" size="16" />
-        </button>
-        <button czButton="icon" czButtonTone="danger" class="icon-button danger" type="button" title="Delete deck" (click)="delete($event)">
-          <lucide-icon name="trash-2" size="16" />
-        </button>
       </div>
+    }
+    <div class="deck-row-actions" (pointerdown)="handleDeckActionPointer($event)" (mousedown)="handleDeckActionMouseDown($event)" (pointerup)="$event.stopPropagation()" (click)="$event.stopPropagation()">
+      <button czButton="icon" class="icon-button" type="button" title="Edit deck" (click)="edit($event)">
+        <lucide-icon name="pencil" size="16" />
+      </button>
+      <button czButton="icon" czButtonTone="danger" class="icon-button danger" type="button" title="Delete deck" (click)="delete($event)">
+        <lucide-icon name="trash-2" size="16" />
+      </button>
     </div>
   </div>
 </article>

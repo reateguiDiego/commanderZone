@@ -75,7 +75,7 @@
   align-items: center;
   gap: 0.45rem;
   overflow: hidden;
-  min-height: 3.9rem;
+  min-height: 4.2rem;
   border: 1px solid transparent;
   border-radius: 0;
   padding: 0.5rem 0.9rem;
@@ -130,8 +130,8 @@
 
 .nav-icon {
   flex: 0 0 auto;
-  width: clamp(2.7rem, 3.25vw, 3.35rem);
-  height: clamp(2.7rem, 3.25vw, 3.35rem);
+  width: clamp(3rem, 3.65vw, 3.8rem);
+  height: clamp(3rem, 3.65vw, 3.8rem);
   object-fit: contain;
   opacity: 0.9;
   filter: drop-shadow(0 0 0.35rem rgb(var(--cz-bg-rgb) / 54%));
