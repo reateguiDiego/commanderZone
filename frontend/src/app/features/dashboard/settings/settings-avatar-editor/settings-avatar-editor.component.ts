@@ -5,6 +5,7 @@ import { appImageUrl } from '../../../../core/assets/app-image-url';
 import { UserAvatar } from '../../../../core/models/user.model';
 import { SettingsInitialAvatarOptionComponent } from './components/settings-initial-avatar-option/settings-initial-avatar-option.component';
 import { PRESET_AVATARS, type PresetAvatar } from './preset-avatars';
+import { CzButtonDirective } from '../../../../shared/ui/button/button.directive';
 
 type PendingAvatarType = 'current' | 'initial' | 'preset';
 type AvatarTierTab = 'basic' | 'premium';
@@ -15,7 +16,7 @@ const INITIAL_LETTER_MAX_LENGTH = 2;
 
 @Component({
   selector: 'app-settings-avatar-editor',
-  imports: [RuntimeTranslatePipe, SettingsInitialAvatarOptionComponent],
+  imports: [RuntimeTranslatePipe, SettingsInitialAvatarOptionComponent, CzButtonDirective],
   templateUrl: './settings-avatar-editor.component.html',
   styleUrl: './settings-avatar-editor.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

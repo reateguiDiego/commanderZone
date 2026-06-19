@@ -1,9 +1,10 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import { CzButtonDirective } from '../../../shared/ui/button/button.directive';
 
 @Component({
   selector: 'app-demo-room-page',
-  imports: [RouterLink],
+  imports: [RouterLink, CzButtonDirective],
   templateUrl: './demo-room-page.component.html',
   styleUrl: './demo-room-page.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

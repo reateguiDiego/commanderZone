@@ -6,6 +6,7 @@ import { filter } from 'rxjs';
 import { AuthStore } from '../../../core/auth/auth.store';
 import { SeoLocaleCode, isSeoLocale } from '../../../core/localization/locale-config';
 import { SeoService } from '../../../core/seo/seo.service';
+import { CzButtonDirective } from '../../../shared/ui/button/button.directive';
 
 interface NotFoundContent {
   readonly title: string;
@@ -72,7 +73,7 @@ const NOT_FOUND_CONTENT = {
 
 @Component({
   selector: 'app-not-found-page',
-  imports: [],
+  imports: [CzButtonDirective],
   templateUrl: './not-found-page.component.html',
   styleUrl: './not-found-page.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

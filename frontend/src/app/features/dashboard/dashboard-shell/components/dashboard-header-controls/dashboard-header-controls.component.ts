@@ -7,6 +7,7 @@ import { PlayerInfoComponent } from '../../../../../shared/ui/player-info/player
 import { FriendsDropdownComponent } from '../../../../friends/friends-dropdown/friends-dropdown.component';
 import { DashboardSettingsModalComponent, SettingsLaunchTarget } from './components/dashboard-settings-modal/dashboard-settings-modal.component';
 import { HeaderUserMenuComponent } from './components/header-user-menu/header-user-menu.component';
+import { CzButtonDirective } from '../../../../../shared/ui/button/button.directive';
 
 @Component({
   selector: 'app-dashboard-header-controls',
@@ -17,6 +18,7 @@ import { HeaderUserMenuComponent } from './components/header-user-menu/header-us
     FriendsDropdownComponent,
     HeaderUserMenuComponent,
     DashboardSettingsModalComponent,
+    CzButtonDirective,
   ],
   templateUrl: './dashboard-header-controls.component.html',
   styleUrl: './dashboard-header-controls.component.scss',

@@ -173,25 +173,5 @@
 .modal-panel-compact footer .primary-button,
 .modal-panel-compact footer .secondary-button {
   min-height: 2.35rem;
-  border-radius: 10px;
   padding: 0.5rem 0.85rem;
-  font-weight: 850;
-}
-
-.modal-panel-compact footer .primary-button {
-  color: var(--cz-bg);
-  background:
-    linear-gradient(180deg, var(--cz-text), var(--cz-secondary));
-  border-color: rgb(var(--cz-text-rgb) / 76%);
-  box-shadow: inset 0 1px 0 rgb(var(--cz-text-rgb) / 30%);
-}
-
-.modal-panel-compact footer .secondary-button {
-  background: rgb(var(--cz-bg-rgb) / 86%);
-  border-color: rgb(var(--cz-primary-rgb) / 28%);
-}
-
-.danger-action {
-  background: linear-gradient(180deg, var(--cz-surface), var(--cz-surface));
-  border-color: rgb(var(--cz-danger-rgb) / 72%);
 }

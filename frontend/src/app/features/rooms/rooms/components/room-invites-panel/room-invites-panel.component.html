@@ -18,8 +18,8 @@
           <small>{{ invite.room.visibility }} - {{ invite.room.players.length }} players</small>
         </span>
         <div class="invite-actions">
-          <button class="primary-button compact" type="button" (click)="accepted.emit(invite)">{{ 'rooms.roomInvitesPanel.accept' | runtimeTranslate }}</button>
-          <button class="secondary-button compact" type="button" (click)="declined.emit(invite)">{{ 'rooms.roomInvitesPanel.decline' | runtimeTranslate }}</button>
+          <button czButton="primary" czButtonSize="sm" class="primary-button compact" type="button" (click)="accepted.emit(invite)">{{ 'rooms.roomInvitesPanel.accept' | runtimeTranslate }}</button>
+          <button czButton="secondary" czButtonSize="sm" class="secondary-button compact" type="button" (click)="declined.emit(invite)">{{ 'rooms.roomInvitesPanel.decline' | runtimeTranslate }}</button>
         </div>
       </div>
     }

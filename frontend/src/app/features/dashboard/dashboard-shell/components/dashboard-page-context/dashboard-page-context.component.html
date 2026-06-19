@@ -48,6 +48,8 @@
           <div class="page-header-actions">
             @for (action of headerState.actions; track action.id) {
               <button
+                [czButton]="action.variant === 'primary' ? 'primary' : 'secondary'"
+                czButtonSize="sm"
                 class="compact"
                 type="button"
                 [class.icon-only]="action.iconOnly"

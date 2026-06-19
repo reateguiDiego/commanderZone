@@ -201,16 +201,6 @@
   color: rgb(var(--cz-text-rgb) / 44%);
 }
 
-.deck-filter-select {
-  min-height: 2.95rem;
-  cursor: pointer;
-}
-
-.deck-filter-select option {
-  background: rgb(var(--cz-bg-rgb) / 98%);
-  color: var(--cz-text);
-}
-
 .deck-collection-panel {
   display: grid;
   gap: 1rem;
@@ -249,12 +239,6 @@
   border: 1px solid rgb(var(--cz-text-rgb) / 10%);
   border-radius: 9px;
   background: rgb(var(--cz-bg-rgb) / 42%);
-}
-
-.view-toggle .icon-button.active {
-  border-color: rgb(var(--cz-primary-rgb) / 58%);
-  color: var(--cz-accent);
-  box-shadow: 0 0 0 1px rgb(var(--cz-primary-rgb) / 10%);
 }
 
 .deck-table-list {
@@ -515,7 +499,6 @@
 }
 
 .deck-modal-form input,
-.deck-modal-form select,
 .deck-modal-form textarea {
   border-color: rgb(var(--cz-primary-rgb) / 26%);
   background: rgb(var(--cz-bg-rgb) / 84%);
@@ -528,21 +511,9 @@
 }
 
 .deck-modal-form input:focus,
-.deck-modal-form select:focus,
 .deck-modal-form textarea:focus {
   border-color: rgb(var(--cz-accent-rgb) / 78%);
   box-shadow: 0 0 0 3px rgb(var(--cz-accent-rgb) / 16%);
-}
-
-.deck-modal-form select option {
-  background: rgb(var(--cz-bg-rgb) / 98%);
-  color: var(--cz-text);
-}
-
-.deck-modal-form .secondary-button {
-  border-color: rgb(var(--cz-primary-rgb) / 26%);
-  background: rgb(var(--cz-surface-rgb) / 76%);
-  color: var(--cz-text);
 }
 
 .hidden-input {

@@ -9,7 +9,7 @@
   />
 
   <div class="friends-dropdown" [class.open]="friendsOpen()" (click)="$event.stopPropagation()">
-    <button
+    <button czButton="icon"
       class="icon-button friends-action"
       [class.has-notifications]="!friendsOpen() && pendingNotificationsCount() > 0"
       type="button"

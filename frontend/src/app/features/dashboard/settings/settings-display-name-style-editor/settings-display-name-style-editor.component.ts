@@ -4,6 +4,7 @@ import { DisplayNameStyleUpdatePayload } from '../../../../core/api/auth.api';
 import { UserDisplayNameStyle } from '../../../../core/models/user.model';
 import { DEFAULT_PREMIUM_NAME_COLOR, DISPLAY_NAME_STYLE_PRESETS, DisplayNameStylePreset, displayNameStylePreset } from '../../../../core/profile/display-name-style-presets';
 import { PlayerNameComponent } from '../../../../shared/ui/player-name/player-name.component';
+import { CzButtonDirective } from '../../../../shared/ui/button/button.directive';
 
 type DisplayNameStyleTierTab = 'basic' | 'premium';
 
@@ -14,7 +15,7 @@ interface DisplayNameStyleOption {
 
 @Component({
   selector: 'app-settings-display-name-style-editor',
-  imports: [RuntimeTranslatePipe, PlayerNameComponent],
+  imports: [RuntimeTranslatePipe, PlayerNameComponent, CzButtonDirective],
   templateUrl: './settings-display-name-style-editor.component.html',
   styleUrl: './settings-display-name-style-editor.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

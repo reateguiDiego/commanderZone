@@ -6,12 +6,13 @@ import { LucideAngularModule } from 'lucide-angular';
 import { firstValueFrom } from 'rxjs';
 import { AuthApi } from '../../../core/api/auth.api';
 import { AuthStore } from '../../../core/auth/auth.store';
+import { CzButtonDirective } from '../../../shared/ui/button/button.directive';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 @Component({
   selector: 'app-email-verification-page',
-  imports: [RuntimeTranslatePipe, ReactiveFormsModule, RouterLink, LucideAngularModule],
+  imports: [RuntimeTranslatePipe, ReactiveFormsModule, RouterLink, LucideAngularModule, CzButtonDirective],
   templateUrl: './email-verification-page.component.html',
   styleUrl: './email-verification-page.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

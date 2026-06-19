@@ -4,10 +4,11 @@ import { LucideAngularModule } from 'lucide-angular';
 import { SupportedLanguageCode } from '../../../../../../../core/localization/language-preferences';
 import { AppShellI18nService } from '../../../../../../../core/localization/app-shell-i18n.service';
 import { RuntimeLanguageSelectorService } from '../../../../../../../core/localization/runtime-language-selector.service';
+import { CzButtonDirective } from '../../../../../../../shared/ui/button/button.directive';
 
 @Component({
   selector: 'app-header-user-menu',
-  imports: [LucideAngularModule],
+  imports: [LucideAngularModule, CzButtonDirective],
   templateUrl: './header-user-menu.component.html',
   styleUrl: './header-user-menu.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

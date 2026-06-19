@@ -28,11 +28,11 @@
   <section class="deck-workbench">
     <div class="deck-toolbar" aria-label="Acciones y filtros de mazos">
       <div class="deck-primary-actions">
-        <button class="primary-button compact deck-action-button" type="button" (click)="store.openCreateModal()">
+        <button czButton="primary" czButtonSize="sm" class="primary-button compact deck-action-button" type="button" (click)="store.openCreateModal()">
           <lucide-icon name="plus" size="18" />
           Crear mazo
         </button>
-        <button class="secondary-button compact deck-action-button" type="button" (click)="store.openFolderCreateModal()">
+        <button czButton="secondary" czButtonSize="sm" class="secondary-button compact deck-action-button" type="button" (click)="store.openFolderCreateModal()">
           <lucide-icon name="folder-plus" size="18" />
           Crear carpeta
         </button>
@@ -50,22 +50,27 @@
           />
         </label>
 
-        <label class="deck-filter-field">
-          <span class="sr-only">Filtrar por color</span>
-          <select class="deck-filter-select" name="deckColorFilter" [ngModel]="store.colorFilter()" (ngModelChange)="setColorFilter($event)">
-            @for (option of store.colorFilterOptions; track option.value) {
-              <option [value]="option.value">{{ option.label }}</option>
-            }
-          </select>
-        </label>
+        <div class="deck-filter-field">
+          <app-format-select
+            name="deckColorFilter"
+            label="Filtrar por color"
+            [labelHidden]="true"
+            [options]="colorFilterOptions()"
+            [value]="store.colorFilter()"
+            (valueChange)="setColorFilter($event)"
+          />
+        </div>
 
-        <label class="deck-filter-field">
-          <span class="sr-only">Ordenar mazos</span>
-          <select class="deck-filter-select" name="deckSortMode" [ngModel]="store.sortMode()" (ngModelChange)="setSortMode($event)">
-            <option value="name-asc">Ordenar por: Nombre (A-Z)</option>
-            <option value="name-desc">Ordenar por: Nombre (Z-A)</option>
-          </select>
-        </label>
+        <div class="deck-filter-field">
+          <app-format-select
+            name="deckSortMode"
+            label="Ordenar mazos"
+            [labelHidden]="true"
+            [options]="sortModeOptions"
+            [value]="store.sortMode()"
+            (valueChange)="setSortMode($event)"
+          />
+        </div>
       </div>
     </div>
 
@@ -84,6 +89,8 @@
           </div>
           <div class="view-toggle" aria-label="Vista de colección">
             <button
+              czButton="icon"
+              [czButtonActive]="store.viewMode() === 'grid'"
               class="icon-button"
               type="button"
               [class.active]="store.viewMode() === 'grid'"
@@ -94,6 +101,8 @@
               <lucide-icon name="layout-grid" size="18" />
             </button>
             <button
+              czButton="icon"
+              [czButtonActive]="store.viewMode() === 'list'"
               class="icon-button"
               type="button"
               [class.active]="store.viewMode() === 'list'"
@@ -132,10 +141,10 @@
                     {{ folder.visibility || 'private' }}
                   </span>
                   <div class="deck-row-actions">
-                    <button class="icon-button" type="button" [title]="'deckBuilder.deckList.renameFolder' | runtimeTranslate" (click)="store.openRenameFolderModal(folder); $event.stopPropagation()">
+                    <button czButton="icon" class="icon-button" type="button" [title]="'deckBuilder.deckList.renameFolder' | runtimeTranslate" (click)="store.openRenameFolderModal(folder); $event.stopPropagation()">
                       <lucide-icon name="pencil" size="15" />
                     </button>
-                    <button class="icon-button danger" type="button" [title]="'deckBuilder.deckList.deleteFolder' | runtimeTranslate" (click)="store.deleteFolder(folder); $event.stopPropagation()">
+                    <button czButton="icon" czButtonTone="danger" class="icon-button danger" type="button" [title]="'deckBuilder.deckList.deleteFolder' | runtimeTranslate" (click)="store.deleteFolder(folder); $event.stopPropagation()">
                       <lucide-icon name="trash-2" size="15" />
                     </button>
                   </div>
@@ -182,7 +191,7 @@
         <section class="deck-collection-panel" (dragenter)="store.clearDeckDrop('__unfiled__')" (dragover)="$event.stopPropagation()" (drop)="$event.stopPropagation()">
           <div class="collection-header">
             <div class="folder-heading">
-              <button class="text-button compact" type="button" (click)="store.leaveFolder()">
+              <button czButton="text" czButtonSize="sm" class="text-button compact" type="button" (click)="store.leaveFolder()">
                 <lucide-icon name="arrow-left" size="16" />
                 {{ 'deckBuilder.deckList.decks' | runtimeTranslate }}
               </button>
@@ -195,10 +204,10 @@
               </div>
             </div>
             <div class="button-row">
-              <button class="icon-button" type="button" [title]="'deckBuilder.deckList.renameFolder' | runtimeTranslate" (click)="store.openRenameFolderModal(currentFolder)">
+              <button czButton="icon" class="icon-button" type="button" [title]="'deckBuilder.deckList.renameFolder' | runtimeTranslate" (click)="store.openRenameFolderModal(currentFolder)">
                 <lucide-icon name="pencil" size="16" />
               </button>
-              <button class="icon-button danger" type="button" [title]="'deckBuilder.deckList.deleteFolder' | runtimeTranslate" (click)="store.deleteFolder(currentFolder)">
+              <button czButton="icon" czButtonTone="danger" class="icon-button danger" type="button" [title]="'deckBuilder.deckList.deleteFolder' | runtimeTranslate" (click)="store.deleteFolder(currentFolder)">
                 <lucide-icon name="trash-2" size="16" />
               </button>
             </div>
@@ -287,15 +296,13 @@
           />
 
           @if (store.folderOptions().length > 0) {
-            <label>
-              {{ 'deckBuilder.deckList.folder' | runtimeTranslate }}
-              <select name="folder" [(ngModel)]="store.newDeckFolderId">
-                <option value="">{{ 'deckBuilder.deckList.noFolder' | runtimeTranslate }}</option>
-                @for (folder of store.folderOptions(); track folder.id) {
-                  <option [value]="folder.id">{{ folder.name }}</option>
-                }
-              </select>
-            </label>
+            <app-format-select
+              name="folder"
+              labelKey="deckBuilder.deckList.folder"
+              [options]="folderOptions()"
+              [value]="store.newDeckFolderId"
+              (valueChange)="setNewDeckFolder($event)"
+            />
           }
 
           <app-visibility-choice
@@ -348,7 +355,7 @@
                           >
                             <img class="commander-preview-thumb" [src]="imageUrl" [alt]="commander.name" />
                           </span>
-                          <button
+                          <button czButton="icon"
                             class="icon-button commander-preview-remove"
                             type="button"
                             title="Remove commander"
@@ -380,7 +387,7 @@
               {{ importDecklistDisclaimerKey() | runtimeTranslate }}
             </p>
           </label>
-          <button class="secondary-button compact" type="button" (click)="createdDeckFileInput.click()">
+          <button czButton="secondary" czButtonSize="sm" class="secondary-button compact" type="button" (click)="createdDeckFileInput.click()">
             <lucide-icon name="file-up" size="16" />
             {{ 'deckBuilder.deckEditor.loadFile' | runtimeTranslate }}
           </button>

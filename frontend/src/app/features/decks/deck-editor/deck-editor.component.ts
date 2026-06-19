@@ -16,10 +16,12 @@ import { DeckCardMenuComponent } from './deck-card-menu/deck-card-menu.component
 import { DeckCardSpoilerViewComponent } from './deck-card-spoiler-view/deck-card-spoiler-view.component';
 import { DeckCardTextViewComponent } from './deck-card-text-view/deck-card-text-view.component';
 import { runDeckFaceToggleAnimation } from './deck-face-toggle-animation';
+import { CzButtonDirective } from '../../../shared/ui/button/button.directive';
 
 @Component({
   selector: 'app-deck-editor',
-  imports: [RuntimeTranslatePipe, 
+  imports: [
+    RuntimeTranslatePipe,
     FormsModule,
     RouterLink,
     LucideAngularModule,
@@ -30,6 +32,7 @@ import { runDeckFaceToggleAnimation } from './deck-face-toggle-animation';
     DeckCardMenuComponent,
     DeckCardSpoilerViewComponent,
     DeckCardTextViewComponent,
+    CzButtonDirective,
   ],
   templateUrl: './deck-editor.component.html',
   styleUrl: './deck-editor.component.scss',

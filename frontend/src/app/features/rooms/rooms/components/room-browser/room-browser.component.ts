@@ -3,7 +3,7 @@ import { ChangeDetectionStrategy, Component, computed, input, output, signal } f
 import { FormsModule } from '@angular/forms';
 import { DeckFormat } from '../../../../../core/models/deck.model';
 import { CurrentRoomPlayerSummary, CurrentRoomSummary, CurrentRoomTurn, CurrentRoomViewerRole, Room } from '../../../../../core/models/room.model';
-import { FormatSelectComponent } from '../../../../../shared/components/format-select/format-select.component';
+import { FormatSelectComponent, type FormatSelectOption } from '../../../../../shared/components/format-select/format-select.component';
 import { PrettyScrollDirective } from '../../../../../shared/ui/pretty-scroll/pretty-scroll.directive';
 import { RoomCurrentBannerComponent } from '../room-current-banner/room-current-banner.component';
 import { RoomRowComponent } from '../room-row/room-row.component';
@@ -37,6 +37,17 @@ export class RoomBrowserComponent {
   readonly visibilityFilter = signal<'all' | 'public' | 'private'>('all');
   readonly statusFilter = signal<'all' | 'open' | 'full' | 'started'>('all');
   readonly formatFilter = signal('all');
+  readonly visibilityFilterOptions: readonly FormatSelectOption[] = [
+    { id: 'all', labelKey: 'rooms.roomBrowser.publicAndPrivate' },
+    { id: 'public', labelKey: 'rooms.roomBrowser.publicOnly' },
+    { id: 'private', labelKey: 'rooms.roomBrowser.privateOnly' },
+  ];
+  readonly statusFilterOptions: readonly FormatSelectOption[] = [
+    { id: 'all', labelKey: 'rooms.roomBrowser.allStatus' },
+    { id: 'open', labelKey: 'rooms.roomBrowser.open' },
+    { id: 'full', labelKey: 'rooms.roomBrowser.full' },
+    { id: 'started', labelKey: 'rooms.roomBrowser.started' },
+  ];
 
   readonly filteredRooms = computed(() => {
     const nameFilter = this.normalizeFilter(this.roomNameFilter());

@@ -2,10 +2,11 @@ import { RuntimeTranslatePipe } from '../../../../../core/localization/runtime-t
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
 import { DeckEditorStore } from '../../../data-access/deck-editor.store';
+import { CzButtonDirective } from '../../../../../shared/ui/button/button.directive';
 
 @Component({
   selector: 'app-deck-mana-curve-panel',
-  imports: [RuntimeTranslatePipe, LucideAngularModule],
+  imports: [RuntimeTranslatePipe, LucideAngularModule, CzButtonDirective],
   templateUrl: './deck-mana-curve-panel.component.html',
   styleUrl: './deck-mana-curve-panel.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

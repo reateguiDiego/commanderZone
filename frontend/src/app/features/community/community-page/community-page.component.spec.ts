@@ -12,6 +12,6 @@ describe('CommunityPageComponent', () => {
     const fixture = TestBed.createComponent(CommunityPageComponent);
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.textContent).toContain('¡Hello world! community-page');
+    expect(fixture.nativeElement.textContent).toContain('¡Hello world! WIP: community-page');
   });
 });

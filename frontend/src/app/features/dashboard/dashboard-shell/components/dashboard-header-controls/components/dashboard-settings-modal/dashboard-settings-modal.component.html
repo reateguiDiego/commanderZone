@@ -79,8 +79,8 @@
                 />
               </div>
               <div class="settings-profile-actions">
-                <button class="secondary-button avatar-change-button" type="button" (click)="openAvatarEditor()">{{ 'settings.dashboardSettingsModal.avatar' | runtimeTranslate }}</button>
-                <button class="secondary-button name-style-change-button" type="button" (click)="openDisplayNameStyleEditor()">{{ 'settings.dashboardSettingsModal.name' | runtimeTranslate }}</button>
+                <button czButton="secondary" class="secondary-button avatar-change-button" type="button" (click)="openAvatarEditor()">{{ 'settings.dashboardSettingsModal.avatar' | runtimeTranslate }}</button>
+                <button czButton="secondary" class="secondary-button name-style-change-button" type="button" (click)="openDisplayNameStyleEditor()">{{ 'settings.dashboardSettingsModal.name' | runtimeTranslate }}</button>
               </div>
             </section>
 
@@ -138,7 +138,7 @@
                 <p>{{ 'settings.dashboardSettingsModal.permanentlyDeleteYourAccountAndAllAssociated' | runtimeTranslate }}</p>
               </div>
 
-              <button class="danger-button" type="button" [disabled]="deleteInProgress() || saveInProgress()" (click)="requestDeleteAccount()">
+              <button czButton="primary" czButtonTone="danger" class="danger-button" type="button" [disabled]="deleteInProgress() || saveInProgress()" (click)="requestDeleteAccount()">
                 <lucide-icon name="trash2" size="16" />
                 {{ 'settings.dashboardSettingsModal.deleteAccount' | runtimeTranslate }}
               </button>
@@ -147,10 +147,10 @@
                 <div class="delete-confirmation">
                   <span>{{ 'settings.dashboardSettingsModal.areYouSureYouWantToPermanently' | runtimeTranslate }}</span>
                   <div class="delete-actions">
-                    <button type="button" class="secondary-button keep-account-button" [disabled]="deleteInProgress()" (click)="cancelDeleteAccount()">
+                    <button czButton="secondary" type="button" class="secondary-button keep-account-button" [disabled]="deleteInProgress()" (click)="cancelDeleteAccount()">
                       {{ 'settings.dashboardSettingsModal.cancel' | runtimeTranslate }}
                     </button>
-                    <button type="button" class="danger-button compact muted-danger-button" [disabled]="deleteInProgress()" (click)="deleteAccount()">
+                    <button czButton="primary" czButtonTone="danger" czButtonSize="sm" type="button" class="danger-button compact" [disabled]="deleteInProgress()" (click)="deleteAccount()">
                       {{ deleteInProgress() ? 'Deleting...' : 'Delete account' }}
                     </button>
                   </div>
@@ -189,29 +189,21 @@
               </div>
             </section>
 
-            <label>
-              {{ cardLanguageLabel() }}
-              <select
-                [value]="selectedCardLanguage()"
-                (change)="setCardLanguage($any($event.target).value)"
-              >
-                @for (language of localizedLanguageOptions(); track language.code) {
-                  <option [value]="language.code" [selected]="selectedCardLanguage() === language.code">{{ language.label }}</option>
-                }
-              </select>
-            </label>
+            <app-format-select
+              name="cardLanguage"
+              [label]="cardLanguageLabel()"
+              [options]="languageSelectOptions()"
+              [value]="selectedCardLanguage()"
+              (valueChange)="setCardLanguage($event)"
+            />
 
-            <label>
-              {{ appLanguageLabel() }}
-              <select
-                [value]="selectedAppLanguage()"
-                (change)="setAppLanguage($any($event.target).value)"
-              >
-                @for (language of localizedLanguageOptions(); track language.code) {
-                  <option [value]="language.code" [selected]="selectedAppLanguage() === language.code">{{ language.label }}</option>
-                }
-              </select>
-            </label>
+            <app-format-select
+              name="appLanguage"
+              [label]="appLanguageLabel()"
+              [options]="languageSelectOptions()"
+              [value]="selectedAppLanguage()"
+              (valueChange)="setAppLanguage($event)"
+            />
           </section>
         }
       </section>

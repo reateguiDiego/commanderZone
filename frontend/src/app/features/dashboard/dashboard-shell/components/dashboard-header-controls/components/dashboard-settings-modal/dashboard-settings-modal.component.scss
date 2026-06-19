@@ -244,57 +244,16 @@ input:focus {
 
 .danger-button {
   justify-self: start;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.35rem;
   width: fit-content;
-  min-height: 2.2rem;
-  padding: 0 0.9rem;
-  border: 1px solid rgb(var(--cz-danger-rgb) / 72%);
-  border-radius: 10px;
-  color: var(--cz-text);
-  font-weight: 700;
-  background: linear-gradient(180deg, rgb(var(--cz-danger-rgb) / 88%), rgb(var(--cz-danger-rgb) / 52%));
-  cursor: pointer;
-}
-
-.muted-danger-button {
-  border-color: rgb(var(--cz-danger-rgb) / 36%);
-  color: var(--cz-text);
-  background: rgb(var(--cz-danger-rgb) / 28%);
-}
-
-.danger-button:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
 }
 
 .compact {
   justify-self: auto;
-  min-height: 2rem;
-  font-size: 0.78rem;
-}
-
-.secondary-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid rgb(var(--cz-primary-rgb) / 32%);
-  border-radius: 10px;
-  color: var(--text);
-  font-weight: 800;
-  background: rgb(var(--cz-bg-rgb) / 72%);
-  cursor: pointer;
 }
 
 .keep-account-button {
   min-height: 2.15rem;
   padding: 0 1rem;
-  border-color: rgb(var(--cz-primary-rgb) / 72%);
-  color: var(--cz-on-accent);
-  background: linear-gradient(180deg, var(--cz-accent), var(--cz-primary));
-  font-weight: 900;
 }
 
 .theme-settings-panel {

@@ -23,15 +23,18 @@ import {
 import { TableAssistantApi } from '../data-access/table-assistant.api';
 import { TableAssistantTimerMode } from '../models/table-assistant.models';
 import { TableAssistantTimerSettingsComponent } from '../table-assistant-timer-settings/table-assistant-timer-settings.component';
+import { CzButtonDirective } from '../../../shared/ui/button/button.directive';
 
 @Component({
   selector: 'app-table-assistant-setup',
-  imports: [RuntimeTranslatePipe, 
+  imports: [
+    RuntimeTranslatePipe,
     FormsModule,
     PrettyScrollDirective,
     GameSetupLifeControlComponent,
     GameSetupSeatsControlComponent,
     TableAssistantTimerSettingsComponent,
+    CzButtonDirective,
   ],
   templateUrl: './table-assistant-setup.component.html',
   styleUrl: './table-assistant-setup.component.scss',

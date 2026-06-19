@@ -2,10 +2,11 @@ import { ChangeDetectionStrategy, Component, EventEmitter, inject, Input, OnChan
 import { LucideAngularModule } from 'lucide-angular';
 import { BodyScrollLockService } from '../../services/body-scroll-lock.service';
 import { PrettyScrollDirective } from '../pretty-scroll/pretty-scroll.directive';
+import { CzButtonDirective } from '../button/button.directive';
 
 @Component({
   selector: 'app-modal',
-  imports: [LucideAngularModule, PrettyScrollDirective],
+  imports: [LucideAngularModule, CzButtonDirective, PrettyScrollDirective],
   templateUrl: './app-modal.component.html',
   styleUrl: './app-modal.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

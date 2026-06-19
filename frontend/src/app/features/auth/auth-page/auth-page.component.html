@@ -7,8 +7,8 @@
 
     <div class="auth-card">
       <div class="segmented" role="tablist" [attr.aria-label]="'auth.authPage.authMode' | runtimeTranslate">
-        <button type="button" [class.active]="mode() === 'login'" (click)="setMode('login')">{{ 'auth.authPage.login' | runtimeTranslate }}</button>
-        <button type="button" [class.active]="mode() === 'register'" (click)="setMode('register')">{{ 'auth.authPage.register' | runtimeTranslate }}</button>
+        <button czButton="ghost" czButtonSize="sm" type="button" [czButtonActive]="mode() === 'login'" [class.active]="mode() === 'login'" (click)="setMode('login')">{{ 'auth.authPage.login' | runtimeTranslate }}</button>
+        <button czButton="ghost" czButtonSize="sm" type="button" [czButtonActive]="mode() === 'register'" [class.active]="mode() === 'register'" (click)="setMode('register')">{{ 'auth.authPage.register' | runtimeTranslate }}</button>
       </div>
 
       @if (mode() === 'login') {
@@ -55,7 +55,7 @@
             <p class="notice error">{{ auth.error() }}</p>
           }
 
-          <button class="primary-button" type="submit" [disabled]="!canSubmitLogin()">
+          <button czButton="primary" czButtonSize="lg" class="primary-button" type="submit" [disabled]="!canSubmitLogin()">
             <lucide-icon name="log-in" size="18" />
             {{ auth.loading() ? 'Working...' : 'Login' }}
           </button>
@@ -147,7 +147,7 @@
             <p class="notice success">{{ registerSuccessMessage }}</p>
           }
 
-          <button class="primary-button" type="submit" [disabled]="!canSubmitRegister()">
+          <button czButton="primary" czButtonSize="lg" class="primary-button" type="submit" [disabled]="!canSubmitRegister()">
             <lucide-icon name="user-plus" size="18" />
             {{ auth.loading() ? 'Working...' : 'Create account' }}
           </button>

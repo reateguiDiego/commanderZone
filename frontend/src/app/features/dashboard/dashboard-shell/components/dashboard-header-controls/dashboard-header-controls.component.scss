@@ -109,7 +109,7 @@ app-player-info {
 }
 
 .friends-dropdown.open::before {
-  z-index: 399;
+  z-index: 10;
   background: rgb(var(--cz-primary-rgb) / 48%);
 }
 

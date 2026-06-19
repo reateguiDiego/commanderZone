@@ -1,14 +1,16 @@
 :host {
   display: block;
+  min-width: 0;
 }
 
 .format-select-field {
+  position: relative;
   display: grid;
   gap: 0.35rem;
-  position: relative;
+  min-width: 0;
 }
 
-.format-select-field > span {
+.format-select-label {
   color: var(--cz-text);
   font-size: 0.72rem;
   font-weight: 900;
@@ -18,6 +20,7 @@
 
 .format-select-control {
   position: relative;
+  min-width: 0;
 }
 
 .format-select-trigger {
@@ -31,7 +34,7 @@
   border-radius: 12px;
   padding: 0 0.85rem;
   background: rgb(var(--cz-bg-rgb) / 66%);
-  color: var(--text);
+  color: var(--cz-text);
   font: inherit;
   font-weight: 850;
   text-align: left;
@@ -48,7 +51,24 @@
   outline-offset: 2px;
 }
 
+.format-select-trigger-content,
+.format-select-option-content {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  gap: 0.55rem;
+}
+
+.format-select-trigger-label,
+.format-select-option-content span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .format-select-caret {
+  flex: 0 0 auto;
   width: 0.48rem;
   height: 0.48rem;
   border-right: 2px solid currentColor;
@@ -81,6 +101,14 @@
   box-shadow:
     0 1.2rem 2.4rem rgb(var(--cz-bg-rgb) / 45%),
     inset 0 1px 0 rgb(var(--cz-text-rgb) / 6%);
+  transform-origin: top center;
+  will-change: opacity, transform, filter;
+  animation: cz-format-select-menu-enter 190ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.format-select-menu.is-closing {
+  pointer-events: none;
+  animation: cz-format-select-menu-exit 160ms cubic-bezier(0.4, 0, 0.2, 1) both;
 }
 
 .format-select-option {
@@ -97,7 +125,28 @@
   font: inherit;
   font-weight: 800;
   text-align: left;
+  text-decoration: none;
   cursor: pointer;
+}
+
+.format-select-menu.is-open .format-select-option {
+  animation: cz-format-select-option-enter 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.format-select-menu.is-open .format-select-option:nth-child(2) {
+  animation-delay: 18ms;
+}
+
+.format-select-menu.is-open .format-select-option:nth-child(3) {
+  animation-delay: 36ms;
+}
+
+.format-select-menu.is-open .format-select-option:nth-child(4) {
+  animation-delay: 54ms;
+}
+
+.format-select-menu.is-open .format-select-option:nth-child(n + 5) {
+  animation-delay: 72ms;
 }
 
 .format-select-option:hover,
@@ -114,10 +163,76 @@
   color: var(--cz-secondary);
 }
 
+.format-select-option.is-disabled,
+.format-select-option:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
 .format-select-selected-mark {
+  flex: 0 0 auto;
   width: 0.42rem;
   height: 0.42rem;
   border-radius: 999px;
   background: var(--cz-secondary);
   box-shadow: 0 0 0.9rem rgb(var(--cz-secondary-rgb) / 55%);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+@keyframes cz-format-select-menu-enter {
+  from {
+    opacity: 0;
+    filter: blur(0.4rem);
+    transform: translateY(-0.35rem) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes cz-format-select-menu-exit {
+  from {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0) scale(1);
+  }
+
+  to {
+    opacity: 0;
+    filter: blur(0.32rem);
+    transform: translateY(-0.25rem) scale(0.985);
+  }
+}
+
+@keyframes cz-format-select-option-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-0.25rem);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .format-select-caret,
+  .format-select-menu,
+  .format-select-menu.is-closing,
+  .format-select-menu.is-open .format-select-option {
+    transition: none;
+    animation: none;
+  }
 }

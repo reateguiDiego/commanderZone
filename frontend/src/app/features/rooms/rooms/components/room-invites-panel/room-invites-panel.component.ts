@@ -4,10 +4,11 @@ import { LucideAngularModule } from 'lucide-angular';
 import { RoomInvite } from '../../../../../core/models/room-invite.model';
 import { PrettyScrollDirective } from '../../../../../shared/ui/pretty-scroll/pretty-scroll.directive';
 import { PlayerNameComponent } from '../../../../../shared/ui/player-name/player-name.component';
+import { CzButtonDirective } from '../../../../../shared/ui/button/button.directive';
 
 @Component({
   selector: 'app-room-invites-panel',
-  imports: [RuntimeTranslatePipe, LucideAngularModule, PrettyScrollDirective, PlayerNameComponent],
+  imports: [RuntimeTranslatePipe, LucideAngularModule, PrettyScrollDirective, PlayerNameComponent, CzButtonDirective],
   templateUrl: './room-invites-panel.component.html',
   styleUrl: './room-invites-panel.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

@@ -14,10 +14,12 @@ import { UserAvatar, UserDisplayNameStyle } from '../../../../../../../core/mode
 import { APP_THEMES, AppTheme, AppThemeId } from '../../../../../../../core/theme/app-theme';
 import { AppThemeService } from '../../../../../../../core/theme/app-theme.service';
 import { AppModalComponent } from '../../../../../../../shared/ui/app-modal/app-modal.component';
+import { FormatSelectComponent, type FormatSelectOption } from '../../../../../../../shared/components/format-select/format-select.component';
 import { PlayerNameComponent } from '../../../../../../../shared/ui/player-name/player-name.component';
 import { SettingsDisplayNameStyleEditorComponent } from '../../../../../settings/settings-display-name-style-editor/settings-display-name-style-editor.component';
 import { SettingsAvatarEditorComponent } from '../../../../../settings/settings-avatar-editor/settings-avatar-editor.component';
 import { SettingsAvatarUploadComponent } from '../../../../../settings/settings-avatar-upload/settings-avatar-upload.component';
+import { CzButtonDirective } from '../../../../../../../shared/ui/button/button.directive';
 
 type SettingsTab = 'general' | 'game';
 type FieldAvailability = 'idle' | 'checking' | 'available' | 'taken' | 'error';
@@ -43,14 +45,17 @@ const DEFAULT_INITIAL_TEXT_COLOR = '#16120a';
 
 @Component({
   selector: 'app-dashboard-settings-modal',
-  imports: [RuntimeTranslatePipe, 
+  imports: [
+    RuntimeTranslatePipe,
     AppModalComponent,
+    FormatSelectComponent,
     ReactiveFormsModule,
     LucideAngularModule,
     PlayerNameComponent,
     SettingsAvatarEditorComponent,
     SettingsAvatarUploadComponent,
     SettingsDisplayNameStyleEditorComponent,
+    CzButtonDirective,
   ],
   templateUrl: './dashboard-settings-modal.component.html',
   styleUrl: './dashboard-settings-modal.component.scss',
@@ -97,6 +102,9 @@ export class DashboardSettingsModalComponent {
       ...language,
       label: this.i18n.languageName(language.code),
     })),
+  );
+  readonly languageSelectOptions = computed<readonly FormatSelectOption[]>(() =>
+    this.localizedLanguageOptions().map((language) => ({ id: language.code, name: language.label })),
   );
   readonly settingsTitle = computed(() => this.i18n.text('settingsTitle'));
   readonly cancelLabel = computed(() => this.i18n.text('cancel'));

@@ -20,23 +20,28 @@
       <span>{{ 'rooms.roomBrowser.owner' | runtimeTranslate }}</span>
       <input name="roomOwnerFilter" [placeholder]="'rooms.roomBrowser.searchOwner' | runtimeTranslate" [ngModel]="roomOwnerFilter()" (ngModelChange)="roomOwnerFilter.set($event)" />
     </label>
-    <label class="filter-field">
+    <div class="filter-field">
       <span>{{ 'rooms.roomBrowser.visibility' | runtimeTranslate }}</span>
-      <select name="roomVisibilityFilter" [ngModel]="visibilityFilter()" (ngModelChange)="setVisibilityFilter($event)">
-        <option value="all">{{ 'rooms.roomBrowser.publicAndPrivate' | runtimeTranslate }}</option>
-        <option value="public">{{ 'rooms.roomBrowser.publicOnly' | runtimeTranslate }}</option>
-        <option value="private">{{ 'rooms.roomBrowser.privateOnly' | runtimeTranslate }}</option>
-      </select>
-    </label>
-    <label class="filter-field">
+      <app-format-select
+        name="roomVisibilityFilter"
+        [labelHidden]="true"
+        labelKey="rooms.roomBrowser.visibility"
+        [options]="visibilityFilterOptions"
+        [value]="visibilityFilter()"
+        (valueChange)="setVisibilityFilter($event)"
+      />
+    </div>
+    <div class="filter-field">
       <span>{{ 'rooms.roomBrowser.status' | runtimeTranslate }}</span>
-      <select name="roomStatusFilter" [ngModel]="statusFilter()" (ngModelChange)="setStatusFilter($event)">
-        <option value="all">{{ 'rooms.roomBrowser.allStatus' | runtimeTranslate }}</option>
-        <option value="open">{{ 'rooms.roomBrowser.open' | runtimeTranslate }}</option>
-        <option value="full">{{ 'rooms.roomBrowser.full' | runtimeTranslate }}</option>
-        <option value="started">{{ 'rooms.roomBrowser.started' | runtimeTranslate }}</option>
-      </select>
-    </label>
+      <app-format-select
+        name="roomStatusFilter"
+        [labelHidden]="true"
+        labelKey="rooms.roomBrowser.status"
+        [options]="statusFilterOptions"
+        [value]="statusFilter()"
+        (valueChange)="setStatusFilter($event)"
+      />
+    </div>
     <app-format-select
       name="roomFormatFilter"
       label="Format"

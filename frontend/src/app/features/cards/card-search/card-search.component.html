@@ -1,4 +1,6 @@
 <section class="page-stack">
+  <p>¡Hello world! WIP: cards-page</p>
+
   <div class="tool-header">
     <div>
       <span class="eyebrow">{{ 'deckBuilder.cards.cardSearch.cards' | runtimeTranslate }}</span>
@@ -7,7 +9,7 @@
     <form class="search-bar" (ngSubmit)="search()">
       <lucide-icon name="search" size="18" />
       <input name="query" [placeholder]="'deckBuilder.cards.cardSearch.solRingAtraxaLightningGreaves' | runtimeTranslate" [(ngModel)]="query" />
-      <button class="primary-button compact" type="submit">{{ 'deckBuilder.cards.cardSearch.search' | runtimeTranslate }}</button>
+      <button czButton="primary" czButtonSize="sm" class="primary-button compact" type="submit">{{ 'deckBuilder.cards.cardSearch.search' | runtimeTranslate }}</button>
     </form>
   </div>
 

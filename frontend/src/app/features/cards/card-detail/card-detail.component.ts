@@ -8,10 +8,18 @@ import { Card } from '../../../core/models/card.model';
 import { ManaSymbolsComponent } from '../../../shared/mana/mana-symbols/mana-symbols.component';
 import { ManaTextComponent } from '../../../shared/mana/mana-text/mana-text.component';
 import { bestCardImage } from '../../../shared/utils/card-image';
+import { CzButtonDirective } from '../../../shared/ui/button/button.directive';
 
 @Component({
   selector: 'app-card-detail',
-  imports: [RuntimeTranslatePipe, RouterLink, LucideAngularModule, ManaSymbolsComponent, ManaTextComponent],
+  imports: [
+    RuntimeTranslatePipe,
+    RouterLink,
+    LucideAngularModule,
+    ManaSymbolsComponent,
+    ManaTextComponent,
+    CzButtonDirective,
+  ],
   templateUrl: './card-detail.component.html',
   styleUrl: './card-detail.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

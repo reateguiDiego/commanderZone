@@ -190,9 +190,8 @@ describe('DashboardSettingsModalComponent', () => {
     fixture.componentInstance.switchTab('game');
     fixture.detectChanges();
 
-    const selects = fixture.nativeElement.querySelectorAll('.game-settings-form select') as NodeListOf<HTMLSelectElement>;
-    const cardLanguageSelect = selects.item(0);
-    const appLanguageSelect = selects.item(1);
+    const cardLanguageSelect = fixture.nativeElement.querySelector('input[name="cardLanguage"]') as HTMLInputElement;
+    const appLanguageSelect = fixture.nativeElement.querySelector('input[name="appLanguage"]') as HTMLInputElement;
 
     expect(cardLanguageSelect?.value).toBe('fr');
     expect(appLanguageSelect?.value).toBe('de');

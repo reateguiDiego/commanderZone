@@ -6,12 +6,13 @@ import { LucideAngularModule } from 'lucide-angular';
 import { type DeckVisibility } from '../../../core/models/deck.model';
 import { CardAutocompleteComponent } from '../../../shared/components/card-autocomplete/card-autocomplete.component';
 import { VisibilityChoiceComponent } from '../../../shared/components/visibility-choice/visibility-choice.component';
-import { FormatSelectComponent } from '../../../shared/components/format-select/format-select.component';
+import { FormatSelectComponent, type FormatSelectOption } from '../../../shared/components/format-select/format-select.component';
 import { AppModalComponent } from '../../../shared/ui/app-modal/app-modal.component';
 import { PrettyScrollDirective } from '../../../shared/ui/pretty-scroll/pretty-scroll.directive';
 import { Card } from '../../../core/models/card.model';
 import { type DeckListColorFilter, type DeckListSortMode, DeckListStore, type DeckListViewMode } from '../data-access/deck-list.store';
 import { DeckListCardComponent } from './components/deck-list-card/deck-list-card.component';
+import { CzButtonDirective } from '../../../shared/ui/button/button.directive';
 
 interface CommanderHoverPreview {
   imageUrl: string;
@@ -21,7 +22,18 @@ interface CommanderHoverPreview {
 
 @Component({
   selector: 'app-deck-list',
-  imports: [RuntimeTranslatePipe, FormsModule, LucideAngularModule, AppModalComponent, CardAutocompleteComponent, PrettyScrollDirective, VisibilityChoiceComponent, FormatSelectComponent, DeckListCardComponent],
+  imports: [
+    RuntimeTranslatePipe,
+    FormsModule,
+    LucideAngularModule,
+    AppModalComponent,
+    CardAutocompleteComponent,
+    PrettyScrollDirective,
+    VisibilityChoiceComponent,
+    FormatSelectComponent,
+    DeckListCardComponent,
+    CzButtonDirective,
+  ],
   templateUrl: './deck-list.component.html',
   styleUrl: './deck-list.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -31,6 +43,17 @@ export class DeckListComponent implements OnInit, OnDestroy {
   readonly store = inject(DeckListStore);
   private readonly route = inject(ActivatedRoute);
   readonly commanderHoverPreview = signal<CommanderHoverPreview | null>(null);
+  readonly colorFilterOptions = computed<readonly FormatSelectOption[]>(() =>
+    this.store.colorFilterOptions.map((option) => ({ id: option.value, name: option.label })),
+  );
+  readonly sortModeOptions: readonly FormatSelectOption[] = [
+    { id: 'name-asc', name: 'Ordenar por: Nombre (A-Z)' },
+    { id: 'name-desc', name: 'Ordenar por: Nombre (Z-A)' },
+  ];
+  readonly folderOptions = computed<readonly FormatSelectOption[]>(() => [
+    { id: '', labelKey: 'deckBuilder.deckList.noFolder' },
+    ...this.store.folderOptions().map((folder) => ({ id: folder.id, name: folder.name })),
+  ]);
   readonly importDecklistDisclaimerKey = computed(() => (
     this.store.selectedCommanders().length === 2
       ? 'deckBuilder.deckList.ifYouIncludeYourCommandersInThe'
@@ -76,6 +99,10 @@ export class DeckListComponent implements OnInit, OnDestroy {
     if (this.isDeckListSortMode(value)) {
       this.store.setSortMode(value);
     }
+  }
+
+  setNewDeckFolder(value: string): void {
+    this.store.newDeckFolderId = value;
   }
 
   setViewMode(value: DeckListViewMode): void {

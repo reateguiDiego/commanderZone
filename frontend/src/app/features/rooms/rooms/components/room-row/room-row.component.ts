@@ -5,10 +5,11 @@ import { LucideAngularModule } from 'lucide-angular';
 import { DeckFormat } from '../../../../../core/models/deck.model';
 import { Room } from '../../../../../core/models/room.model';
 import { PlayerNameComponent } from '../../../../../shared/ui/player-name/player-name.component';
+import { CzButtonDirective } from '../../../../../shared/ui/button/button.directive';
 
 @Component({
   selector: 'app-room-row',
-  imports: [RuntimeTranslatePipe, RouterLink, LucideAngularModule, PlayerNameComponent],
+  imports: [RuntimeTranslatePipe, RouterLink, LucideAngularModule, PlayerNameComponent, CzButtonDirective],
   templateUrl: './room-row.component.html',
   styleUrl: './room-row.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

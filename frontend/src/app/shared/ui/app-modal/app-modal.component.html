@@ -11,7 +11,7 @@
       (click)="$event.stopPropagation()"
     >
       @if (showCloseButton) {
-        <button class="modal-close-button" type="button" [attr.aria-label]="closeLabel" (click)="close.emit()">
+        <button czButton="icon" class="modal-close-button" type="button" [attr.aria-label]="closeLabel" (click)="close.emit()">
           <lucide-icon name="x" size="18" />
         </button>
       }
@@ -24,13 +24,13 @@
         @if (title || showBackButton || showHeaderAction) {
         <div class="modal-title-row">
           @if (showBackButton) {
-            <button class="modal-back-button" type="button" [attr.aria-label]="backLabel" (click)="back.emit()">
+            <button czButton="icon" class="modal-back-button" type="button" [attr.aria-label]="backLabel" (click)="back.emit()">
               <lucide-icon name="arrow-left" size="18" />
             </button>
           }
           <h2>{{ title }}</h2>
           @if (showHeaderAction) {
-            <button class="modal-header-action" type="button" (click)="headerAction.emit()">
+            <button czButton="primary" czButtonSize="sm" class="modal-header-action" type="button" (click)="headerAction.emit()">
               {{ headerActionLabel }}
             </button>
           }
@@ -49,10 +49,11 @@
       @if (showTertiary || showSecondary || showPrimary) {
         <footer [class.split-actions]="footerLayout === 'split'">
           @if (showTertiary) {
-            <button class="secondary-button" type="button" (click)="tertiary.emit()">{{ tertiaryLabel }}</button>
+            <button czButton="secondary" class="secondary-button" type="button" (click)="tertiary.emit()">{{ tertiaryLabel }}</button>
           }
           @if (showSecondary) {
             <button
+              [czButton]="secondaryVariant"
               [class.primary-button]="secondaryVariant === 'primary'"
               [class.secondary-button]="secondaryVariant === 'secondary'"
               type="button"
@@ -62,7 +63,14 @@
             </button>
           }
           @if (showPrimary) {
-            <button class="primary-button" [class.danger-action]="danger" type="button" [disabled]="primaryDisabled" (click)="primary.emit()">
+            <button
+              czButton="primary"
+              [czButtonTone]="danger ? 'danger' : 'default'"
+              class="primary-button"
+              type="button"
+              [disabled]="primaryDisabled"
+              (click)="primary.emit()"
+            >
               {{ primaryLabel }}
             </button>
           }

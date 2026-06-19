@@ -2,10 +2,11 @@ import { ChangeDetectionStrategy, Component, input, output } from '@angular/core
 import { LucideAngularModule } from 'lucide-angular';
 import { type Deck, type DeckVisibility } from '../../../../../core/models/deck.model';
 import { ManaSymbolsComponent } from '../../../../../shared/mana/mana-symbols/mana-symbols.component';
+import { CzButtonDirective } from '../../../../../shared/ui/button/button.directive';
 
 @Component({
   selector: 'app-deck-list-card',
-  imports: [LucideAngularModule, ManaSymbolsComponent],
+  imports: [LucideAngularModule, ManaSymbolsComponent, CzButtonDirective],
   templateUrl: './deck-list-card.component.html',
   styleUrl: './deck-list-card.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

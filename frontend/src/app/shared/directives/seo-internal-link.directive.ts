@@ -1,7 +1,7 @@
 import { DOCUMENT, Location, isPlatformBrowser } from '@angular/common';
 import { Directive, ElementRef, HostListener, PLATFORM_ID, inject } from '@angular/core';
 import { Router } from '@angular/router';
-import { findSeoRouteByPath } from '../../../core/localization/seo-routes';
+import { findSeoRouteByPath } from '../../core/localization/seo-routes';
 
 @Directive({
   selector: 'a[appSeoInternalLink]',

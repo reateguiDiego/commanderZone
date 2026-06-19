@@ -9,10 +9,11 @@ import { AppThemeAssetsService } from '../../../core/theme/app-theme-assets.serv
 import { AppBackgroundService } from '../../../core/ui/app-background.service';
 import { DemoRoom, DemoRoomService } from '../services/demo-room.service';
 import { OnboardingStep } from '../models/onboarding-step.model';
+import { CzButtonDirective } from '../../../shared/ui/button/button.directive';
 
 @Component({
   selector: 'app-onboarding-page',
-  imports: [FormsModule, RouterLink, LucideAngularModule],
+  imports: [FormsModule, RouterLink, LucideAngularModule, CzButtonDirective],
   templateUrl: './onboarding-page.component.html',
   styleUrl: './onboarding-page.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

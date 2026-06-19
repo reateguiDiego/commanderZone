@@ -194,7 +194,7 @@
         </div>
       } @else if (store.visibleActiveTab() === 'validation') {
         <div class="button-row wrap-row">
-          <button class="primary-button" type="button" (click)="store.validate(deck.id)">
+          <button czButton="primary" class="primary-button" type="button" (click)="store.validate(deck.id)">
             <lucide-icon name="check-circle-2" size="17" />
             {{ 'deckBuilder.deckEditor.validateWithBackend' | runtimeTranslate }}
           </button>
@@ -279,16 +279,16 @@
                   <small>{{ item.section }}{{ item.watched ? ' - saved' : '' }}</small>
                 </span>
                 <div class="button-row">
-                  <button class="icon-button" type="button" [title]="'deckBuilder.deckEditor.copyCardName' | runtimeTranslate" (click)="store.copyMissing(item.name)">
+                  <button czButton="icon" class="icon-button" type="button" [title]="'deckBuilder.deckEditor.copyCardName' | runtimeTranslate" (click)="store.copyMissing(item.name)">
                     <lucide-icon name="copy" size="15" />
                   </button>
-                  <button class="icon-button" type="button" [title]="'deckBuilder.deckEditor.searchCard' | runtimeTranslate" (click)="store.searchMissing(item.name)">
+                  <button czButton="icon" class="icon-button" type="button" [title]="'deckBuilder.deckEditor.searchCard' | runtimeTranslate" (click)="store.searchMissing(item.name)">
                     <lucide-icon name="search" size="15" />
                   </button>
-                  <button class="icon-button" type="button" [title]="'deckBuilder.deckEditor.saveMissingCard' | runtimeTranslate" (click)="store.saveMissing(item.name, deck.id)">
+                  <button czButton="icon" class="icon-button" type="button" [title]="'deckBuilder.deckEditor.saveMissingCard' | runtimeTranslate" (click)="store.saveMissing(item.name, deck.id)">
                     <lucide-icon name="bookmark-plus" size="15" />
                   </button>
-                  <button class="icon-button" type="button" [title]="'deckBuilder.deckEditor.ignoreThisSession' | runtimeTranslate" (click)="store.ignoreMissing(item.name)">
+                  <button czButton="icon" class="icon-button" type="button" [title]="'deckBuilder.deckEditor.ignoreThisSession' | runtimeTranslate" (click)="store.ignoreMissing(item.name)">
                     <lucide-icon name="eye-off" size="15" />
                   </button>
                 </div>
@@ -302,7 +302,7 @@
           <div class="search-bar compact-search">
             <lucide-icon name="search" size="18" />
             <input name="missingSearchQuery" [placeholder]="'deckBuilder.deckEditor.searchAnotherCardName' | runtimeTranslate" [(ngModel)]="store.missingSearchQuery" />
-            <button class="primary-button compact" type="button" (click)="store.searchMissingQuery()">{{ 'deckBuilder.deckEditor.search' | runtimeTranslate }}</button>
+            <button czButton="primary" czButtonSize="sm" class="primary-button compact" type="button" (click)="store.searchMissingQuery()">{{ 'deckBuilder.deckEditor.search' | runtimeTranslate }}</button>
           </div>
           <div class="dense-list">
             @for (card of search.cards; track card.scryfallId) {
@@ -318,8 +318,8 @@
                   <small>{{ card.typeLine || 'Unknown type' }}</small>
                 </span>
                 <div class="button-row">
-                  <a class="text-button compact" [routerLink]="['/cards', card.scryfallId]">{{ 'deckBuilder.deckEditor.view' | runtimeTranslate }}</a>
-                  <button class="primary-button compact" type="button" (click)="store.addMissingCard(search.name, card)">
+                  <a czButton="text" czButtonSize="sm" class="text-button compact" [routerLink]="['/cards', card.scryfallId]">{{ 'deckBuilder.deckEditor.view' | runtimeTranslate }}</a>
+                  <button czButton="primary" czButtonSize="sm" class="primary-button compact" type="button" (click)="store.addMissingCard(search.name, card)">
                     <lucide-icon name="plus" size="15" />
                     {{ 'deckBuilder.deckEditor.add' | runtimeTranslate }}
                   </button>
@@ -340,7 +340,7 @@
                   <strong>{{ item.name }}</strong>
                   <small>{{ store.formatDate(item.addedAt) }}</small>
                 </span>
-                <button class="icon-button" type="button" [title]="'deckBuilder.deckEditor.remove' | runtimeTranslate" (click)="store.missingStore.remove(item.name)">
+                <button czButton="icon" class="icon-button" type="button" [title]="'deckBuilder.deckEditor.remove' | runtimeTranslate" (click)="store.missingStore.remove(item.name)">
                   <lucide-icon name="x" size="15" />
                 </button>
               </div>
@@ -349,11 +349,11 @@
         }
       } @else {
         <div class="button-row wrap-row">
-          <button class="secondary-button" type="button" (click)="store.recordHistory(deck, 'Manual snapshot')">
+          <button czButton="secondary" class="secondary-button" type="button" (click)="store.recordHistory(deck, 'Manual snapshot')">
             <lucide-icon name="camera" size="17" />
             {{ 'deckBuilder.deckEditor.snapshot' | runtimeTranslate }}
           </button>
-          <button class="icon-button danger" type="button" [title]="'deckBuilder.deckEditor.clearLocalHistory' | runtimeTranslate" (click)="store.clearHistoryModalOpen.set(true)">
+          <button czButton="icon" czButtonTone="danger" class="icon-button danger" type="button" [title]="'deckBuilder.deckEditor.clearLocalHistory' | runtimeTranslate" (click)="store.clearHistoryModalOpen.set(true)">
             <lucide-icon name="trash" size="16" />
           </button>
         </div>
@@ -366,7 +366,7 @@
                 <small>{{ store.formatDate(entry.createdAt) }} - {{ entry.totalCards }} cards - {{ entry.commanders.join(', ') || 'No commander' }}</small>
                 <small>+{{ entry.diff.added.length }} / -{{ entry.diff.removed.length }} / +/-{{ entry.diff.changed.length }}</small>
               </span>
-              <button class="secondary-button compact" type="button" (click)="store.restoreHistory(entry)">
+              <button czButton="secondary" czButtonSize="sm" class="secondary-button compact" type="button" (click)="store.restoreHistory(entry)">
                 <lucide-icon name="rotate-ccw" size="15" />
                 {{ 'deckBuilder.deckEditor.restore' | runtimeTranslate }}
               </button>
@@ -431,7 +431,7 @@
           {{ 'deckBuilder.deckEditor.deckName' | runtimeTranslate }}
           <input name="deckName" [(ngModel)]="store.deckName" />
         </label>
-        <button class="secondary-button compact" type="button" (click)="store.rename(deck.id)">
+        <button czButton="secondary" czButtonSize="sm" class="secondary-button compact" type="button" (click)="store.rename(deck.id)">
           <lucide-icon name="save" size="16" />
           {{ 'deckBuilder.deckEditor.saveName' | runtimeTranslate }}
         </button>
@@ -439,7 +439,7 @@
           {{ 'deckBuilder.deckEditor.plainTextDecklist' | runtimeTranslate }}
           <textarea name="decklist" rows="14" [placeholder]="'deckBuilder.deckEditor.text1SolRingVoc168101' | runtimeTranslate" [(ngModel)]="store.decklist"></textarea>
         </label>
-        <button class="secondary-button compact" type="button" (click)="fileInput.click()">
+        <button czButton="secondary" czButtonSize="sm" class="secondary-button compact" type="button" (click)="fileInput.click()">
           <lucide-icon name="file-up" size="16" />
           {{ 'deckBuilder.deckEditor.loadFile' | runtimeTranslate }}
         </button>
