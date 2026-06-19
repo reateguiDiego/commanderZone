@@ -12,9 +12,27 @@ import { bestCardArtImage, bestCardImage } from '../../../shared/utils/card-imag
 import { commanderColorIdentityUnion, primaryCommander, secondaryCommander } from '../../../shared/utils/deck-commander';
 import { DeckFolderSection } from '../models/deck-list.models';
 
+export type DeckListColorFilter = 'all' | 'W' | 'U' | 'B' | 'R' | 'G' | 'C';
+export type DeckListSortMode = 'name-asc' | 'name-desc';
+export type DeckListViewMode = 'grid' | 'list';
+
+export interface DeckColorFilterOption {
+  value: DeckListColorFilter;
+  label: string;
+}
+
 @Injectable()
 export class DeckListStore {
   readonly maxDeckNameLength = 20;
+  readonly colorFilterOptions: readonly DeckColorFilterOption[] = [
+    { value: 'all', label: 'Todos los colores' },
+    { value: 'W', label: 'Blanco' },
+    { value: 'U', label: 'Azul' },
+    { value: 'B', label: 'Negro' },
+    { value: 'R', label: 'Rojo' },
+    { value: 'G', label: 'Verde' },
+    { value: 'C', label: 'Incoloro' },
+  ];
 
   private readonly decksApi = inject(DecksApi);
   private readonly deckFoldersApi = inject(DeckFoldersApi);
@@ -51,6 +69,10 @@ export class DeckListStore {
   readonly draggedDeckId = signal<string | null>(null);
   readonly dragTargetId = signal<string | null>(null);
   readonly editingDeckId = signal<string | null>(null);
+  readonly searchQuery = signal('');
+  readonly colorFilter = signal<DeckListColorFilter>('all');
+  readonly sortMode = signal<DeckListSortMode>('name-asc');
+  readonly viewMode = signal<DeckListViewMode>('grid');
   readonly folderSections = computed<DeckFolderSection[]>(() => {
     const sections: DeckFolderSection[] = this.folders().map((folder) => ({
       id: folder.id,
@@ -79,6 +101,17 @@ export class DeckListStore {
   ));
   readonly selectedFormat = computed(() => this.formats().find((format) => format.id === this.newDeckFormatId) ?? null);
   readonly hasDeckListContent = computed(() => this.decks().length > 0 || this.folders().length > 0);
+  readonly totalDeckCount = computed(() => this.decks().length);
+  readonly publicDeckCount = computed(() => this.decks().filter((deck) => deck.visibility === 'public').length);
+  readonly privateDeckCount = computed(() => this.decks().filter((deck) => (deck.visibility ?? 'private') === 'private').length);
+  readonly visibleFolders = computed(() => this.filteredFolders());
+  readonly visibleUnfiledDecks = computed(() => this.filterAndSortDecks(this.unfiledSection().decks));
+  readonly visibleCurrentFolderDecks = computed(() => this.filterAndSortDecks(this.currentFolderSection().decks));
+  readonly visibleActiveDecks = computed(() => (
+    this.currentFolder() ? this.visibleCurrentFolderDecks() : this.visibleUnfiledDecks()
+  ));
+  readonly hasVisibleRootContent = computed(() => this.visibleFolders().length > 0 || this.visibleUnfiledDecks().length > 0);
+  readonly hasVisibleActiveDecks = computed(() => this.visibleActiveDecks().length > 0);
   readonly deleteModalTitle = computed(() => this.deleteBlockedMessage() ? 'Deck in use' : 'Delete deck');
   readonly deleteModalMessage = computed(() => {
     const blockedMessage = this.deleteBlockedMessage();
@@ -293,6 +326,22 @@ export class DeckListStore {
 
   selectedCommanderImage(card: Card): string | null {
     return bestCardImage(card);
+  }
+
+  setSearchQuery(query: string): void {
+    this.searchQuery.set(query);
+  }
+
+  setColorFilter(filter: DeckListColorFilter): void {
+    this.colorFilter.set(filter);
+  }
+
+  setSortMode(sortMode: DeckListSortMode): void {
+    this.sortMode.set(sortMode);
+  }
+
+  setViewMode(viewMode: DeckListViewMode): void {
+    this.viewMode.set(viewMode);
   }
 
   hasSelectedCommanderSlots(): boolean {
@@ -822,6 +871,62 @@ export class DeckListStore {
     }
 
     return this.folders().some((folder) => folder.id === folderId && (folder.visibility ?? 'private') === 'private');
+  }
+
+  private filteredFolders(): DeckFolder[] {
+    if (this.colorFilter() !== 'all') {
+      return [];
+    }
+
+    const normalizedSearch = this.normalizedSearch();
+
+    return [...this.folders()]
+      .filter((folder) => normalizedSearch === '' || folder.name.toLocaleLowerCase().includes(normalizedSearch))
+      .sort((firstFolder, secondFolder) => this.compareByName(firstFolder.name, secondFolder.name));
+  }
+
+  private filterAndSortDecks(decks: Deck[]): Deck[] {
+    return decks
+      .filter((deck) => this.matchesDeckSearch(deck) && this.matchesDeckColor(deck))
+      .sort((firstDeck, secondDeck) => this.compareByName(firstDeck.name, secondDeck.name));
+  }
+
+  private matchesDeckSearch(deck: Deck): boolean {
+    const normalizedSearch = this.normalizedSearch();
+    if (normalizedSearch === '') {
+      return true;
+    }
+
+    const commanderNames = (deck.commanders ?? [])
+      .map((commander) => commander.name)
+      .join(' ')
+      .toLocaleLowerCase();
+
+    return deck.name.toLocaleLowerCase().includes(normalizedSearch)
+      || commanderNames.includes(normalizedSearch);
+  }
+
+  private matchesDeckColor(deck: Deck): boolean {
+    const colorFilter = this.colorFilter();
+    if (colorFilter === 'all') {
+      return true;
+    }
+
+    const colors = this.commanderColorIdentity(deck) ?? [];
+
+    return colorFilter === 'C'
+      ? colors.length === 0 || colors.includes('C')
+      : colors.includes(colorFilter);
+  }
+
+  private compareByName(firstName: string, secondName: string): number {
+    const direction = this.sortMode() === 'name-desc' ? -1 : 1;
+
+    return firstName.localeCompare(secondName, undefined, { sensitivity: 'base' }) * direction;
+  }
+
+  private normalizedSearch(): string {
+    return this.searchQuery().trim().toLocaleLowerCase();
   }
 
   private readDecklistFile(event: Event, onLoaded: (content: string) => void): void {

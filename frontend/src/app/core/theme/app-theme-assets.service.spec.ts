@@ -21,9 +21,9 @@ describe('AppThemeAssetsService', () => {
   it('uses the regular CZ assets outside Candy Summoners', () => {
     const assets = TestBed.inject(AppThemeAssetsService);
 
-    expect(assets.czLogoUrl()).toBe('/assets/icons/CZ/CZ_logo.png');
-    expect(assets.czZoneHeaderLogoUrl()).toBe('/assets/icons/CZ/CZ_logo_zone_header.png');
-    expect(assets.czCardsIconUrl()).toBe('/assets/icons/CZ/CZ_cards_icon.png');
+    expect(assets.czLogoUrl()).toBe('/assets/icons/CZ/CZ_logo.webp');
+    expect(assets.czZoneHeaderLogoUrl()).toBe('/assets/icons/CZ/CZ_logo_zone_header.webp');
+    expect(assets.czCardsIconUrl()).toBe('/assets/icons/CZ/CZ_cards_icon.webp');
   });
 
   it('uses black CZ assets only for Candy Summoners', () => {
@@ -32,14 +32,14 @@ describe('AppThemeAssetsService', () => {
 
     appTheme.selectTheme('candy-summoners');
 
-    expect(assets.czLogoUrl()).toBe('/assets/icons/CZ/CZ_logo_black.png');
-    expect(assets.czZoneHeaderLogoUrl()).toBe('/assets/icons/CZ/CZ_logo_zone_header_black.png');
-    expect(assets.czCardsIconUrl()).toBe('/assets/icons/CZ/CZ_cards_icon_black.png');
+    expect(assets.czLogoUrl()).toBe('/assets/icons/CZ/CZ_logo_black.webp');
+    expect(assets.czZoneHeaderLogoUrl()).toBe('/assets/icons/CZ/CZ_logo_zone_header_black.webp');
+    expect(assets.czCardsIconUrl()).toBe('/assets/icons/CZ/CZ_cards_icon_black.webp');
 
     appTheme.selectTheme('sunrise');
 
-    expect(assets.czLogoUrl()).toBe('/assets/icons/CZ/CZ_logo.png');
-    expect(assets.czZoneHeaderLogoUrl()).toBe('/assets/icons/CZ/CZ_logo_zone_header.png');
-    expect(assets.czCardsIconUrl()).toBe('/assets/icons/CZ/CZ_cards_icon.png');
+    expect(assets.czLogoUrl()).toBe('/assets/icons/CZ/CZ_logo.webp');
+    expect(assets.czZoneHeaderLogoUrl()).toBe('/assets/icons/CZ/CZ_logo_zone_header.webp');
+    expect(assets.czCardsIconUrl()).toBe('/assets/icons/CZ/CZ_cards_icon.webp');
   });
 });

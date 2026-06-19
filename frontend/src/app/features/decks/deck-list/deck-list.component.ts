@@ -4,15 +4,14 @@ import { ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
 import { type DeckVisibility } from '../../../core/models/deck.model';
-import { PageHeaderStore } from '../../../core/ui/page-header.store';
 import { CardAutocompleteComponent } from '../../../shared/components/card-autocomplete/card-autocomplete.component';
-import { ManaSymbolsComponent } from '../../../shared/mana/mana-symbols/mana-symbols.component';
 import { VisibilityChoiceComponent } from '../../../shared/components/visibility-choice/visibility-choice.component';
 import { FormatSelectComponent } from '../../../shared/components/format-select/format-select.component';
 import { AppModalComponent } from '../../../shared/ui/app-modal/app-modal.component';
 import { PrettyScrollDirective } from '../../../shared/ui/pretty-scroll/pretty-scroll.directive';
 import { Card } from '../../../core/models/card.model';
-import { DeckListStore } from '../data-access/deck-list.store';
+import { type DeckListColorFilter, type DeckListSortMode, DeckListStore, type DeckListViewMode } from '../data-access/deck-list.store';
+import { DeckListCardComponent } from './components/deck-list-card/deck-list-card.component';
 
 interface CommanderHoverPreview {
   imageUrl: string;
@@ -22,7 +21,7 @@ interface CommanderHoverPreview {
 
 @Component({
   selector: 'app-deck-list',
-  imports: [RuntimeTranslatePipe, FormsModule, LucideAngularModule, AppModalComponent, CardAutocompleteComponent, ManaSymbolsComponent, PrettyScrollDirective, VisibilityChoiceComponent, FormatSelectComponent],
+  imports: [RuntimeTranslatePipe, FormsModule, LucideAngularModule, AppModalComponent, CardAutocompleteComponent, PrettyScrollDirective, VisibilityChoiceComponent, FormatSelectComponent, DeckListCardComponent],
   templateUrl: './deck-list.component.html',
   styleUrl: './deck-list.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -31,7 +30,6 @@ interface CommanderHoverPreview {
 export class DeckListComponent implements OnInit, OnDestroy {
   readonly store = inject(DeckListStore);
   private readonly route = inject(ActivatedRoute);
-  private readonly pageHeader = inject(PageHeaderStore);
   readonly commanderHoverPreview = signal<CommanderHoverPreview | null>(null);
   readonly importDecklistDisclaimerKey = computed(() => (
     this.store.selectedCommanders().length === 2
@@ -43,31 +41,11 @@ export class DeckListComponent implements OnInit, OnDestroy {
   private pendingCommanderPreview: CommanderHoverPreview | null = null;
 
   ngOnInit(): void {
-    this.pageHeader.set({
-      title: 'deckBuilder.deckList.header.title',
-      actions: [
-        {
-          id: 'create-deck',
-          label: 'deckBuilder.deckList.header.createDeck',
-          icon: 'plus',
-          variant: 'primary',
-          execute: () => this.store.openCreateModal(),
-        },
-        {
-          id: 'create-folder',
-          label: 'deckBuilder.deckList.header.createFolder',
-          icon: 'folder-plus',
-          variant: 'secondary',
-          execute: () => this.store.openFolderCreateModal(),
-        },
-      ],
-    });
     this.openRequestedCreateIntent();
   }
 
   ngOnDestroy(): void {
     this.clearCommanderHoverTimer();
-    this.pageHeader.clear();
   }
 
   @HostListener('document:pointerdown', ['$event'])
@@ -86,6 +64,22 @@ export class DeckListComponent implements OnInit, OnDestroy {
 
   visibilityIcon(visibility: DeckVisibility | undefined): 'globe' | 'lock' {
     return visibility === 'public' ? 'globe' : 'lock';
+  }
+
+  setColorFilter(value: string): void {
+    if (this.isDeckListColorFilter(value)) {
+      this.store.setColorFilter(value);
+    }
+  }
+
+  setSortMode(value: string): void {
+    if (this.isDeckListSortMode(value)) {
+      this.store.setSortMode(value);
+    }
+  }
+
+  setViewMode(value: DeckListViewMode): void {
+    this.store.setViewMode(value);
   }
 
   scheduleCommanderPreview(event: MouseEvent, imageUrl: string): void {
@@ -190,5 +184,13 @@ export class DeckListComponent implements OnInit, OnDestroy {
 
   private safeNextPath(nextPath: string | null): string | null {
     return nextPath === '/rooms' ? nextPath : null;
+  }
+
+  private isDeckListColorFilter(value: string): value is DeckListColorFilter {
+    return ['all', 'W', 'U', 'B', 'R', 'G', 'C'].includes(value);
+  }
+
+  private isDeckListSortMode(value: string): value is DeckListSortMode {
+    return value === 'name-asc' || value === 'name-desc';
   }
 }

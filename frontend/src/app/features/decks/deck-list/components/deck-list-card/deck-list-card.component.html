@@ -1,0 +1,54 @@
+<article
+  class="deck-list-row deck-row-clickable"
+  [class.has-commander-art]="hasCommanderArt()"
+  [class.has-dual-commander-art]="hasDualCommanderArt()"
+  [style.--deck-commander-art]="commanderBackground()"
+  [style.--deck-secondary-commander-art]="secondaryCommanderBackground()"
+  draggable="true"
+  role="link"
+  tabindex="0"
+  (click)="openDeck.emit()"
+  (keydown.enter)="openDeck.emit()"
+  (dragstart)="deckDragStart.emit($event)"
+  (dragend)="deckDragEnd.emit()"
+  (pointerdown)="deckPointerDown.emit($event)"
+  (pointermove)="deckPointerMove.emit($event)"
+  (pointerup)="deckPointerUp.emit($event)"
+  (pointercancel)="deckPointerCancel.emit($event)"
+>
+  @if (hasDualCommanderArt()) {
+    <div class="deck-dual-commander-art" aria-hidden="true">
+      <div class="deck-dual-commander-art-pane deck-dual-commander-art-pane-primary"></div>
+      <div class="deck-dual-commander-art-pane deck-dual-commander-art-pane-secondary"></div>
+    </div>
+  }
+
+  <div class="deck-card-topline">
+    <strong>{{ deck().name }}</strong>
+    @if (colorIdentity(); as colors) {
+      <app-mana-symbols class="deck-commander-colors" [symbols]="colors" fallback="Colorless" size="small" />
+    }
+  </div>
+
+  <div class="deck-card-footer">
+    <span class="visibility-pill" [class.public]="deck().visibility === 'public'">
+      <lucide-icon [name]="visibilityIcon(deck().visibility)" size="13" />
+      {{ deck().visibility || 'private' }}
+    </span>
+    <div class="deck-card-status">
+      @if (hasIssues()) {
+        <span class="deck-list-warning" [attr.title]="issueTooltip()" aria-label="Deck warnings">
+          <lucide-icon name="triangle-alert" size="16" />
+        </span>
+      }
+      <div class="deck-row-actions">
+        <button class="icon-button" type="button" title="Edit deck" (click)="edit($event)">
+          <lucide-icon name="pencil" size="16" />
+        </button>
+        <button class="icon-button danger" type="button" title="Delete deck" (click)="delete($event)">
+          <lucide-icon name="trash-2" size="16" />
+        </button>
+      </div>
+    </div>
+  </div>
+</article>

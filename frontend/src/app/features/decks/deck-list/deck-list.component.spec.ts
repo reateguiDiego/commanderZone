@@ -8,11 +8,15 @@ import {
   Folder,
   FolderPlus,
   Globe,
+  Layers3,
+  LayoutGrid,
+  List,
   Lock,
   LucideAngularModule,
   Pencil,
   Plus,
   Search,
+  SlidersHorizontal,
   Trash2,
   TriangleAlert,
   X,
@@ -24,7 +28,6 @@ import { DeckFormatsApi } from '../../../core/api/deck-formats.api';
 import { DecksApi } from '../../../core/api/decks.api';
 import { Card } from '../../../core/models/card.model';
 import { Deck } from '../../../core/models/deck.model';
-import { PageHeaderStore } from '../../../core/ui/page-header.store';
 import { DeckListComponent } from './deck-list.component';
 
 describe('DeckListComponent', () => {
@@ -38,9 +41,13 @@ describe('DeckListComponent', () => {
           FileUp,
           Folder,
           FolderPlus,
+          Layers3,
+          LayoutGrid,
+          List,
           Pencil,
           Plus,
           Search,
+          SlidersHorizontal,
           Trash2,
           TriangleAlert,
           X,
@@ -91,7 +98,7 @@ describe('DeckListComponent', () => {
     const fixture = TestBed.createComponent(DeckListComponent);
     fixture.detectChanges();
 
-    expect(TestBed.inject(PageHeaderStore).state()?.title).toBe('Decks');
+    expect(fixture.nativeElement.querySelector('.deck-page-hero h1')?.textContent.trim()).toBe('Decks');
     expect(fixture.componentInstance.store.createModalTitle()).toBe('Create deck');
   });
 
@@ -433,6 +440,7 @@ Creatures (1)
         commanders: [commanderCard(), secondCommanderCard()],
       }),
     ]);
+    fixture.componentInstance.store.loading.set(false);
     fixture.detectChanges();
 
     const deckRow = fixture.nativeElement.querySelector('.deck-list-row.has-dual-commander-art') as HTMLElement | null;

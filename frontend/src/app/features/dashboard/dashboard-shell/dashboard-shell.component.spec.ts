@@ -93,15 +93,15 @@ describe('DashboardShellComponent', () => {
 
     expect(fixture.nativeElement.querySelector('aside')).toBeNull();
     const brandLogo = fixture.nativeElement.querySelector('.brand-mark img') as HTMLImageElement | null;
-    expect(brandLogo?.getAttribute('src')).toBe('/assets/icons/CZ/CZ_logo.png');
+    expect(brandLogo?.getAttribute('src')).toBe('/assets/icons/CZ/CZ_logo.webp');
     const navIcons = Array.from(fixture.nativeElement.querySelectorAll('.nav-icon'))
       .map((icon) => (icon as HTMLImageElement).getAttribute('src'));
     expect(navIcons).toEqual([
-      '/assets/icons/CZ/CZ_decks_menu.png',
-      '/assets/icons/CZ/CZ_rooms_menu.png',
-      '/assets/icons/CZ/CZ_cards_menu.png',
-      '/assets/icons/CZ/CZ_comunity_menu.png',
-      '/assets/icons/CZ/CZ_table_menu.png',
+      '/assets/icons/CZ/CZ_decks_menu.webp',
+      '/assets/icons/CZ/CZ_rooms_menu.webp',
+      '/assets/icons/CZ/CZ_cards_menu.webp',
+      '/assets/icons/CZ/CZ_comunity_menu.webp',
+      '/assets/icons/CZ/CZ_table_menu.webp',
     ]);
     expect(fixture.nativeElement.querySelector('app-dashboard-page-context')).not.toBeNull();
     expect(fixture.nativeElement.textContent).toContain('Cards');
@@ -128,6 +128,6 @@ describe('DashboardShellComponent', () => {
     fixture.detectChanges();
 
     const brandLogo = fixture.nativeElement.querySelector('.brand-mark img') as HTMLImageElement | null;
-    expect(brandLogo?.getAttribute('src')).toBe('/assets/icons/CZ/CZ_logo_black.png');
+    expect(brandLogo?.getAttribute('src')).toBe('/assets/icons/CZ/CZ_logo_black.webp');
   });
 });
