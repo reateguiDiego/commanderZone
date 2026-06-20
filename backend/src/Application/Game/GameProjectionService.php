@@ -118,6 +118,7 @@ class GameProjectionService
             $requestedLanguage,
             $localizedCardsByLanguage,
         );
+        unset($snapshot['loc']);
 
         return $snapshot;
     }

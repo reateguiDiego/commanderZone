@@ -130,6 +130,7 @@ class GameCommandHandler
     private ?array $pendingEventPayload = null;
     private ?string $pendingDefeatedPlayerId = null;
     private bool $pendingDefeatPreexisted = false;
+    private int $fullScanCount = 0;
     /**
      * @var array<string,mixed>|null
      */
@@ -182,6 +183,7 @@ class GameCommandHandler
         }
 
         $this->lastCommandMetrics = null;
+        $this->fullScanCount = 0;
         $snapshotBefore = $game->snapshot();
         $snapshotBytesBefore = $this->metricsInspector->jsonBytes($snapshotBefore);
         $normalizeStartedAt = microtime(true);
@@ -367,6 +369,7 @@ class GameCommandHandler
         $this->normalizeCommanderCastCounters($snapshot);
         $this->pruneBattlefieldRelations($snapshot);
         $snapshot = $this->specialEntityCommandHandler->normalizeSnapshot($snapshot);
+        $this->ensureLocationIndex($snapshot);
 
         return $snapshot;
     }
@@ -1568,7 +1571,7 @@ class GameCommandHandler
         );
         $this->resetMutableStats($copy);
         $copy['counters'] = [];
-        $snapshot['players'][$targetPlayerId]['zones']['battlefield'][] = $copy;
+        $this->putCard($snapshot, $targetPlayerId, 'battlefield', $copy, $copy['position'], true);
 
         return sprintf('Created Token Copy Of %s.', $this->cardBaseName($source));
     }
@@ -1619,6 +1622,7 @@ class GameCommandHandler
             $this->removePlayerBattlefieldTheRingCards($snapshot, $playerId);
         }
         array_push($snapshot['players'][$playerId]['zones']['battlefield'], ...$tokens);
+        $this->reindexZoneLocations($snapshot, $playerId, 'battlefield');
         if ($isDungeon || $isTheRing) {
             $this->pruneBattlefieldRelations($snapshot);
         }
@@ -1654,7 +1658,7 @@ class GameCommandHandler
         }
 
         $this->removePlayerBattlefieldDungeons($snapshot, $playerId);
-        $snapshot['players'][$playerId]['zones']['battlefield'][] = $undercity;
+        $this->putCard($snapshot, $playerId, 'battlefield', $undercity, $undercity['position'] ?? null, true);
         $this->pruneBattlefieldRelations($snapshot);
     }
 
@@ -1810,6 +1814,7 @@ class GameCommandHandler
             fn (array $card): array => $this->normalizeCard($card, $playerId, $zone),
             $payload['cards'],
         ));
+        $this->reindexZoneLocations($snapshot, $playerId, $zone);
 
         return sprintf('Reordered %s.', $zone);
     }
@@ -1851,6 +1856,7 @@ class GameCommandHandler
         }
 
         $snapshot['players'][$playerId]['zones'][$fromZone] = [];
+        $this->reindexZoneLocations($snapshot, $playerId, $fromZone);
         foreach ($cards as $card) {
             $this->putCard(
                 $snapshot,
@@ -2042,6 +2048,7 @@ class GameCommandHandler
             $card['revealedTo'] = [];
         }
         unset($card);
+        $this->reindexZoneLocations($snapshot, $playerId, 'library');
         $snapshot['players'][$playerId]['revealedLibraryTo'] = [];
 
         return 'ha hecho shuffle a su library.';
@@ -2211,6 +2218,7 @@ class GameCommandHandler
 
         $reorderedTop = array_map(static fn (string $id): array => $topById[$id], $requestedIds);
         $library = array_values([...$reorderedTop, ...array_slice($library, $count)]);
+        $this->reindexZoneLocations($snapshot, $playerId, 'library');
 
         return sprintf('ha alterado el orden de sus proximos %d robos.', $count);
     }
@@ -2223,6 +2231,13 @@ class GameCommandHandler
         }
 
         $card = array_shift($library);
+        if (is_array($card)) {
+            $instanceId = (string) ($card['instanceId'] ?? '');
+            if ($instanceId !== '') {
+                unset($snapshot['loc'][$instanceId]);
+            }
+        }
+        $this->updateLocationAfterRemove($snapshot, $playerId, 'library', 0);
 
         return is_array($card) ? $card : null;
     }
@@ -2388,15 +2403,23 @@ class GameCommandHandler
         return null;
     }
 
-    private function battlefieldContainsInstance(array $snapshot, string $instanceId): bool
+    private function battlefieldContainsInstance(array &$snapshot, string $instanceId): bool
     {
-        return $this->battlefieldCardByInstance($snapshot, $instanceId) !== null;
+        $location = $this->getLocation($snapshot, $instanceId);
+        if ($location !== null && ($location['zone'] ?? null) === 'battlefield') {
+            return true;
+        }
+
+        $this->rebuildLocIndexForRecoveryOnly($snapshot);
+        $location = $this->getLocation($snapshot, $instanceId);
+
+        return $location !== null && ($location['zone'] ?? null) === 'battlefield';
     }
 
     /**
      * @return array<string,mixed>|null
      */
-    private function battlefieldCardByInstance(array $snapshot, string $instanceId): ?array
+    private function battlefieldCardByInstance(array &$snapshot, string $instanceId): ?array
     {
         $location = $this->battlefieldCardLocationByInstance($snapshot, $instanceId);
 
@@ -2404,19 +2427,30 @@ class GameCommandHandler
     }
 
     /**
-     * @return array{playerId:string,card:array<string,mixed>}|null
+     * @return array{playerId:string,zone:string,index:int,controllerId:string,card:array<string,mixed>}|null
      */
-    private function battlefieldCardLocationByInstance(array $snapshot, string $instanceId): ?array
+    private function battlefieldCardLocationByInstance(array &$snapshot, string $instanceId): ?array
     {
-        foreach ($snapshot['players'] ?? [] as $playerId => $player) {
-            foreach (($player['zones']['battlefield'] ?? []) as $card) {
-                if (($card['instanceId'] ?? null) === $instanceId) {
-                    return ['playerId' => (string) $playerId, 'card' => $card];
-                }
-            }
+        $location = $this->assertLocation($snapshot, $instanceId, 'battlefield', false);
+        if ($location === null) {
+            return null;
         }
 
-        return null;
+        $card = $snapshot['players'][$location['playerId']]['zones']['battlefield'][$location['index']] ?? null;
+        if (!is_array($card) || (string) ($card['instanceId'] ?? '') !== $instanceId) {
+            $this->rebuildLocIndexForRecoveryOnly($snapshot);
+            $location = $this->assertLocation($snapshot, $instanceId, 'battlefield', false);
+            if ($location === null) {
+                return null;
+            }
+            $card = $snapshot['players'][$location['playerId']]['zones']['battlefield'][$location['index']] ?? null;
+        }
+
+        if (!is_array($card)) {
+            return null;
+        }
+
+        return [...$location, 'card' => $card];
     }
 
     /**
@@ -2531,10 +2565,12 @@ class GameCommandHandler
             return;
         }
 
+        $this->clearLocationEntriesForCards($snapshot, $battlefield);
         $snapshot['players'][$playerId]['zones']['battlefield'] = array_values(array_filter(
             $battlefield,
             fn (mixed $card): bool => !is_array($card) || !$this->isDungeonCard($card),
         ));
+        $this->reindexZoneLocations($snapshot, $playerId, 'battlefield');
     }
 
     private function removePlayerBattlefieldTheRingCards(array &$snapshot, string $playerId): void
@@ -2544,44 +2580,26 @@ class GameCommandHandler
             return;
         }
 
+        $this->clearLocationEntriesForCards($snapshot, $battlefield);
         $snapshot['players'][$playerId]['zones']['battlefield'] = array_values(array_filter(
             $battlefield,
             fn (mixed $card): bool => !is_array($card) || !$this->isTheRingCard($card),
         ));
+        $this->reindexZoneLocations($snapshot, $playerId, 'battlefield');
     }
 
     private function pruneBattlefieldRelations(array &$snapshot): void
     {
-        $battlefieldInstanceIds = $this->battlefieldInstanceIds($snapshot);
-
         $snapshot['arrows'] = array_values(array_filter(
             $snapshot['arrows'] ?? [],
-            static fn (array $arrow): bool => isset($battlefieldInstanceIds[(string) ($arrow['fromInstanceId'] ?? '')])
-                && isset($battlefieldInstanceIds[(string) ($arrow['toInstanceId'] ?? '')]),
+            fn (array $arrow): bool => $this->battlefieldContainsInstance($snapshot, (string) ($arrow['fromInstanceId'] ?? ''))
+                && $this->battlefieldContainsInstance($snapshot, (string) ($arrow['toInstanceId'] ?? '')),
         ));
         $snapshot['attachments'] = array_values(array_filter(
             $snapshot['attachments'] ?? [],
-            static fn (array $attachment): bool => isset($battlefieldInstanceIds[(string) ($attachment['equipmentInstanceId'] ?? '')])
-                && isset($battlefieldInstanceIds[(string) ($attachment['attachedToInstanceId'] ?? '')]),
+            fn (array $attachment): bool => $this->battlefieldContainsInstance($snapshot, (string) ($attachment['equipmentInstanceId'] ?? ''))
+                && $this->battlefieldContainsInstance($snapshot, (string) ($attachment['attachedToInstanceId'] ?? '')),
         ));
-    }
-
-    /**
-     * @return array<string,true>
-     */
-    private function battlefieldInstanceIds(array $snapshot): array
-    {
-        $battlefieldInstanceIds = [];
-        foreach ($snapshot['players'] ?? [] as $player) {
-            foreach (($player['zones']['battlefield'] ?? []) as $card) {
-                $instanceId = (string) ($card['instanceId'] ?? '');
-                if ($instanceId !== '') {
-                    $battlefieldInstanceIds[$instanceId] = true;
-                }
-            }
-        }
-
-        return $battlefieldInstanceIds;
     }
 
     private function commit(array &$snapshot, string $type, ?string $message, User $actor): void
@@ -2706,15 +2724,21 @@ class GameCommandHandler
 
     private function takeCard(array &$snapshot, string $playerId, string $zone, string $instanceId): array
     {
-        foreach ($snapshot['players'][$playerId]['zones'][$zone] as $index => $card) {
-            if (($card['instanceId'] ?? null) === $instanceId) {
-                array_splice($snapshot['players'][$playerId]['zones'][$zone], $index, 1);
-
-                return $card;
-            }
+        $location = $this->assertLocation($snapshot, $instanceId, $zone);
+        if ($location['playerId'] !== $playerId) {
+            throw new \InvalidArgumentException('Card not found.');
         }
 
-        throw new \InvalidArgumentException('Card not found.');
+        $card = $snapshot['players'][$playerId]['zones'][$zone][$location['index']] ?? null;
+        if (!is_array($card) || (string) ($card['instanceId'] ?? '') !== $instanceId) {
+            throw new \InvalidArgumentException('Card not found.');
+        }
+
+        array_splice($snapshot['players'][$playerId]['zones'][$zone], $location['index'], 1);
+        unset($snapshot['loc'][$instanceId]);
+        $this->updateLocationAfterRemove($snapshot, $playerId, $zone, $location['index']);
+
+        return $card;
     }
 
     private function mulliganActorPlayerId(array $snapshot, User $actor): string
@@ -2772,6 +2796,7 @@ class GameCommandHandler
     {
         $hand = array_values($snapshot['players'][$playerId]['zones']['hand'] ?? []);
         $snapshot['players'][$playerId]['zones']['hand'] = [];
+        $this->reindexZoneLocations($snapshot, $playerId, 'hand');
         foreach ($hand as $card) {
             if (is_array($card)) {
                 $this->putCard($snapshot, $playerId, 'library', $card, 'bottom');
@@ -2784,6 +2809,7 @@ class GameCommandHandler
             }
         }
         unset($card);
+        $this->reindexZoneLocations($snapshot, $playerId, 'library');
         $snapshot['players'][$playerId]['revealedLibraryTo'] = [];
     }
 
@@ -2898,11 +2924,22 @@ class GameCommandHandler
 
         if ($zone === 'library' && $position === 'top') {
             array_unshift($snapshot['players'][$playerId]['zones'][$zone], $card);
+            $instanceId = (string) ($card['instanceId'] ?? '');
+            if ($instanceId !== '') {
+                $this->moveLocation($snapshot, $instanceId, null, $this->locationPayload($playerId, $zone, 0, $card));
+            }
+            $this->updateLocationAfterInsert($snapshot, $playerId, $zone, 0);
 
             return;
         }
 
         $snapshot['players'][$playerId]['zones'][$zone][] = $card;
+        $index = count($snapshot['players'][$playerId]['zones'][$zone]) - 1;
+        $instanceId = (string) ($card['instanceId'] ?? '');
+        if ($instanceId !== '') {
+            $this->moveLocation($snapshot, $instanceId, null, $this->locationPayload($playerId, $zone, $index, $card));
+            $this->updateLocationAfterInsert($snapshot, $playerId, $zone, $index);
+        }
     }
 
     private function moveDestinationPlayerId(
@@ -3499,7 +3536,7 @@ class GameCommandHandler
         return null;
     }
 
-    private function requiredCardLocation(array $snapshot, array $payload): array
+    private function requiredCardLocation(array &$snapshot, array $payload): array
     {
         $playerId = $this->requiredPlayerId($snapshot, $payload);
         $zone = isset($payload['zone']) ? $this->requiredZone($payload) : null;
@@ -3508,16 +3545,12 @@ class GameCommandHandler
             throw new \InvalidArgumentException('instanceId is required.');
         }
 
-        $zones = $zone === null ? self::ZONES : [$zone];
-        foreach ($zones as $candidateZone) {
-            foreach ($snapshot['players'][$playerId]['zones'][$candidateZone] ?? [] as $index => $card) {
-                if (($card['instanceId'] ?? null) === $instanceId) {
-                    return ['playerId' => $playerId, 'zone' => $candidateZone, 'index' => $index];
-                }
-            }
+        $location = $this->assertLocation($snapshot, $instanceId, $zone);
+        if ($location['playerId'] !== $playerId) {
+            throw new \InvalidArgumentException('Card not found.');
         }
 
-        throw new \InvalidArgumentException('Card not found.');
+        return $location;
     }
 
     private function requiredPlayerId(array $snapshot, array $payload, string $key = 'playerId'): string
@@ -3927,6 +3960,186 @@ class GameCommandHandler
             'snapshot_bytes_after' => $this->metricsInspector->jsonBytes($snapshot),
             'number_of_players' => $this->metricsInspector->countPlayers($snapshot),
             'number_of_instances' => $this->metricsInspector->countInstances($snapshot),
+            'full_scan_count' => $this->fullScanCount,
+        ];
+    }
+
+    private function ensureLocationIndex(array &$snapshot): void
+    {
+        if (!is_array($snapshot['loc'] ?? null)) {
+            $this->rebuildLocIndexForRecoveryOnly($snapshot);
+
+            return;
+        }
+
+        $snapshot['loc'] = array_map(
+            fn (mixed $location): array => is_array($location)
+                ? [
+                    'playerId' => (string) ($location['playerId'] ?? ''),
+                    'zone' => (string) ($location['zone'] ?? ''),
+                    'index' => max(0, (int) ($location['index'] ?? 0)),
+                    'controllerId' => (string) ($location['controllerId'] ?? ''),
+                ]
+                : ['playerId' => '', 'zone' => '', 'index' => 0, 'controllerId' => ''],
+            $snapshot['loc'],
+        );
+    }
+
+    /**
+     * @return array{playerId:string,zone:string,index:int,controllerId:string}|null
+     */
+    private function getLocation(array $snapshot, string $instanceId): ?array
+    {
+        $location = $snapshot['loc'][$instanceId] ?? null;
+        if (!is_array($location)) {
+            return null;
+        }
+
+        return [
+            'playerId' => (string) ($location['playerId'] ?? ''),
+            'zone' => (string) ($location['zone'] ?? ''),
+            'index' => max(0, (int) ($location['index'] ?? 0)),
+            'controllerId' => (string) ($location['controllerId'] ?? ''),
+        ];
+    }
+
+    /**
+     * @return array{playerId:string,zone:string,index:int,controllerId:string}|null
+     */
+    private function assertLocation(array &$snapshot, string $instanceId, ?string $expectedZone = null, bool $throw = true): ?array
+    {
+        $location = $this->getLocation($snapshot, $instanceId);
+        if ($this->locationMatchesSnapshot($snapshot, $instanceId, $location, $expectedZone)) {
+            return $location;
+        }
+
+        $this->rebuildLocIndexForRecoveryOnly($snapshot);
+        $location = $this->getLocation($snapshot, $instanceId);
+        if ($this->locationMatchesSnapshot($snapshot, $instanceId, $location, $expectedZone)) {
+            return $location;
+        }
+
+        if ($throw) {
+            throw new \InvalidArgumentException('Card not found.');
+        }
+
+        return null;
+    }
+
+    /**
+     * @param array{playerId:string,zone:string,index:int,controllerId:string}|null $from
+     * @param array{playerId:string,zone:string,index:int,controllerId:string}      $to
+     */
+    private function moveLocation(array &$snapshot, string $instanceId, ?array $from, array $to): void
+    {
+        if ($instanceId === '') {
+            return;
+        }
+
+        if ($from !== null
+            && (($snapshot['loc'][$instanceId]['playerId'] ?? null) !== $from['playerId']
+                || ($snapshot['loc'][$instanceId]['zone'] ?? null) !== $from['zone']
+                || (int) ($snapshot['loc'][$instanceId]['index'] ?? -1) !== $from['index'])) {
+            $this->rebuildLocIndexForRecoveryOnly($snapshot);
+        }
+
+        $snapshot['loc'][$instanceId] = $to;
+    }
+
+    private function updateLocationAfterInsert(array &$snapshot, string $playerId, string $zone, int $index): void
+    {
+        $this->reindexZoneLocations($snapshot, $playerId, $zone, $index);
+    }
+
+    private function updateLocationAfterRemove(array &$snapshot, string $playerId, string $zone, int $index): void
+    {
+        $this->reindexZoneLocations($snapshot, $playerId, $zone, $index);
+    }
+
+    private function rebuildLocIndexForRecoveryOnly(array &$snapshot): void
+    {
+        ++$this->fullScanCount;
+        $snapshot['loc'] = [];
+
+        foreach ($snapshot['players'] ?? [] as $playerId => $player) {
+            if (!is_array($player) || !is_array($player['zones'] ?? null)) {
+                continue;
+            }
+
+            foreach (self::ZONES as $zone) {
+                $this->reindexZoneLocations($snapshot, (string) $playerId, $zone);
+            }
+        }
+    }
+
+    /**
+     * @param array{playerId:string,zone:string,index:int,controllerId:string}|null $location
+     */
+    private function locationMatchesSnapshot(array $snapshot, string $instanceId, ?array $location, ?string $expectedZone = null): bool
+    {
+        if ($location === null || $location['playerId'] === '' || $location['zone'] === '') {
+            return false;
+        }
+        if ($expectedZone !== null && $location['zone'] !== $expectedZone) {
+            return false;
+        }
+
+        $card = $snapshot['players'][$location['playerId']]['zones'][$location['zone']][$location['index']] ?? null;
+
+        return is_array($card) && (string) ($card['instanceId'] ?? '') === $instanceId;
+    }
+
+    private function reindexZoneLocations(array &$snapshot, string $playerId, string $zone, int $startIndex = 0): void
+    {
+        $cards = $snapshot['players'][$playerId]['zones'][$zone] ?? null;
+        if (!is_array($cards)) {
+            return;
+        }
+
+        $startIndex = max(0, $startIndex);
+        foreach (array_values($cards) as $index => $card) {
+            if ($index < $startIndex || !is_array($card)) {
+                continue;
+            }
+
+            $instanceId = (string) ($card['instanceId'] ?? '');
+            if ($instanceId === '') {
+                continue;
+            }
+
+            $snapshot['loc'][$instanceId] = $this->locationPayload($playerId, $zone, $index, $card);
+        }
+    }
+
+    /**
+     * @param list<array<string,mixed>> $cards
+     */
+    private function clearLocationEntriesForCards(array &$snapshot, array $cards): void
+    {
+        foreach ($cards as $card) {
+            if (!is_array($card)) {
+                continue;
+            }
+
+            $instanceId = (string) ($card['instanceId'] ?? '');
+            if ($instanceId !== '') {
+                unset($snapshot['loc'][$instanceId]);
+            }
+        }
+    }
+
+    /**
+     * @param array<string,mixed> $card
+     *
+     * @return array{playerId:string,zone:string,index:int,controllerId:string}
+     */
+    private function locationPayload(string $playerId, string $zone, int $index, array $card): array
+    {
+        return [
+            'playerId' => $playerId,
+            'zone' => $zone,
+            'index' => max(0, $index),
+            'controllerId' => (string) ($card['controllerId'] ?? $playerId),
         ];
     }
 

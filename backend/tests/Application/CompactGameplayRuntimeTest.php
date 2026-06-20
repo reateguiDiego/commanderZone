@@ -272,6 +272,22 @@ class CompactGameplayRuntimeTest extends TestCase
         self::assertSame($owner->id(), $projected['turn']['activePlayerId']);
     }
 
+    public function testInvariantCheckerDetectsLocationDivergence(): void
+    {
+        $fixture = (new GameplayBaselineFixtureFactory())->create('compact-divergence');
+        $game = $fixture->game();
+        $mapper = new CompactGameCardStateMapper();
+        $checker = new CompactGameStateInvariantChecker();
+
+        $compact = $mapper->compactSnapshot($game->snapshot(), $game->id(), $game->status());
+        $compact['loc']['p1-battlefield-001']['zone'] = 'graveyard';
+
+        self::assertNotSame([], array_values(array_filter(
+            $checker->check($compact),
+            static fn (string $issue): bool => str_contains($issue, 'loc.p1-battlefield-001'),
+        )));
+    }
+
     private function user(string $email, string $displayName, string $id): User
     {
         $user = new User($email, $displayName);

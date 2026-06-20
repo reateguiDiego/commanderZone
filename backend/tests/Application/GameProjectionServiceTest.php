@@ -11,6 +11,18 @@ use PHPUnit\Framework\TestCase;
 
 class GameProjectionServiceTest extends TestCase
 {
+    public function testProjectionDoesNotExposeRuntimeLocationIndex(): void
+    {
+        $owner = new User('owner@example.test', 'Owner');
+        $viewer = new User('viewer@example.test', 'Viewer');
+        $handler = new GameCommandHandler();
+        $snapshot = $handler->normalizeSnapshot($this->snapshot($owner->id(), $viewer->id()));
+
+        $projected = (new GameProjectionService($handler))->projectSnapshot($snapshot, $viewer);
+
+        self::assertArrayNotHasKey('loc', $projected);
+    }
+
     public function testOpponentHandProjectionCentersRevealedCardsWithoutLeakingOriginalPosition(): void
     {
         $owner = new User('owner@example.test', 'Owner');

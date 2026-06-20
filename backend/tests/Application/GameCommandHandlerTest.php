@@ -3688,6 +3688,126 @@ class GameCommandHandlerTest extends TestCase
         self::assertSame('PLAYING', $game->snapshot()['gamePhase']);
     }
 
+    public function testNormalizeSnapshotBuildsLocationIndex(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $handler = new GameCommandHandler();
+
+        $snapshot = $handler->normalizeSnapshot($this->snapshot($actor->id(), [
+            'library' => [$this->card('library-1', 'Library Card', 'library', 1, 1, 1, 1)],
+            'battlefield' => [$this->card('battlefield-1', 'Battlefield Card', 'battlefield', 2, 2, 2, 2)],
+        ]));
+
+        self::assertSame('library', $snapshot['loc']['library-1']['zone']);
+        self::assertSame(0, $snapshot['loc']['library-1']['index']);
+        self::assertSame('battlefield', $snapshot['loc']['battlefield-1']['zone']);
+        self::assertSame(0, $snapshot['loc']['battlefield-1']['index']);
+    }
+
+    public function testLocationIndexUpdatesAfterCardMove(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $handler = new GameCommandHandler();
+        $game = new Game(new Room($actor), $handler->normalizeSnapshot($this->snapshot($actor->id(), [
+            'graveyard' => [$this->card('card-1', 'Recovered Bear', 'graveyard', 2, 2, 2, 2)],
+        ])));
+
+        $handler->apply($game, 'card.moved', [
+            'playerId' => $actor->id(),
+            'fromZone' => 'graveyard',
+            'toZone' => 'battlefield',
+            'instanceId' => 'card-1',
+        ], $actor);
+
+        self::assertSame('battlefield', $game->snapshot()['loc']['card-1']['zone']);
+        self::assertSame(0, $game->snapshot()['loc']['card-1']['index']);
+    }
+
+    public function testLocationIndexUpdatesAfterLibraryDraw(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $handler = new GameCommandHandler();
+        $game = new Game(new Room($actor), $handler->normalizeSnapshot($this->snapshot($actor->id(), [
+            'library' => [
+                $this->card('top-card', 'Top Card', 'library', 1, 1, 1, 1),
+                $this->card('second-card', 'Second Card', 'library', 1, 1, 1, 1),
+            ],
+        ])));
+
+        $handler->apply($game, 'library.draw', [
+            'playerId' => $actor->id(),
+        ], $actor);
+
+        self::assertSame('hand', $game->snapshot()['loc']['top-card']['zone']);
+        self::assertSame('library', $game->snapshot()['loc']['second-card']['zone']);
+        self::assertSame(0, $game->snapshot()['loc']['second-card']['index']);
+    }
+
+    public function testLocationIndexUpdatesAfterMovingManyCards(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $handler = new GameCommandHandler();
+        $game = new Game(new Room($actor), $handler->normalizeSnapshot($this->snapshot($actor->id(), [
+            'graveyard' => [
+                $this->card('card-1', 'One', 'graveyard', 1, 1, 1, 1),
+                $this->card('card-2', 'Two', 'graveyard', 1, 1, 1, 1),
+                $this->card('card-3', 'Three', 'graveyard', 1, 1, 1, 1),
+            ],
+        ])));
+
+        $handler->apply($game, 'cards.moved', [
+            'playerId' => $actor->id(),
+            'fromZone' => 'graveyard',
+            'toZone' => 'library',
+            'instanceIds' => ['card-1', 'card-2', 'card-3'],
+            'position' => 'bottom',
+        ], $actor);
+
+        self::assertSame('library', $game->snapshot()['loc']['card-1']['zone']);
+        self::assertSame(0, $game->snapshot()['loc']['card-1']['index']);
+        self::assertSame(1, $game->snapshot()['loc']['card-2']['index']);
+        self::assertSame(2, $game->snapshot()['loc']['card-3']['index']);
+    }
+
+    public function testEvaporatingTokenMoveRemovesLocationIndexEntry(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $handler = new GameCommandHandler();
+        $snapshot = $handler->normalizeSnapshot($this->snapshot($actor->id(), [
+            'battlefield' => [[
+                ...$this->card('token-1', 'Goblin Token', 'battlefield', 1, 1, 1, 1),
+                'isToken' => true,
+            ]],
+        ]));
+        $game = new Game(new Room($actor), $snapshot);
+
+        $handler->apply($game, 'card.moved', [
+            'playerId' => $actor->id(),
+            'fromZone' => 'battlefield',
+            'toZone' => 'graveyard',
+            'instanceId' => 'token-1',
+        ], $actor);
+
+        self::assertArrayNotHasKey('token-1', $game->snapshot()['loc']);
+    }
+
+    public function testSimpleInstanceCommandDoesNotTriggerFullScanWhenLocAlreadyExists(): void
+    {
+        $actor = new User('owner@example.test', 'Owner');
+        $handler = new GameCommandHandler();
+        $game = new Game(new Room($actor), $handler->normalizeSnapshot($this->snapshot($actor->id(), [
+            'battlefield' => [$this->card('card-1', 'Tap Target', 'battlefield', 2, 2, 2, 2)],
+        ])));
+
+        $handler->apply($game, 'card.tapped', [
+            'playerId' => $actor->id(),
+            'instanceId' => 'card-1',
+            'tapped' => true,
+        ], $actor);
+
+        self::assertSame(0, $handler->consumeLastCommandMetrics()['full_scan_count'] ?? null);
+    }
+
     /**
      * @param array<string,list<array<string,mixed>>> $actorZones
      */
